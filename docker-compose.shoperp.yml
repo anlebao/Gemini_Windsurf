@@ -1,0 +1,86 @@
+version: '3.8'
+
+# Multi-VPS Deployment — ShopERP VPS (Option C)
+# Deploy on: vanan-shop-a VPS (per-tenant SQLite + NATS subscriber)
+# Connects to NATS on the GATEWAY VPS via VPC internal IP.
+# Usage: docker compose -f docker-compose.shoperp.yml up -d
+# Requires: .env.shoperp file with all variables set
+
+services:
+  shoperp:
+    image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-shoperp:${IMAGE_TAG:-latest}
+    container_name: vanan-shoperp
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      # Multi-VPS: NATS is on the GATEWAY VPS — connect via VPC internal IP
+      - Nats__Url=nats://${NATS_REMOTE_HOST}:4222
+      - ConnectionStrings__Nats=nats://${NATS_REMOTE_HOST}:4222
+      # Multi-VPS: Gateway is on the GATEWAY VPS — connect via VPC internal IP
+      - Gateway__BaseUrl=http://${GATEWAY_REMOTE_HOST}:80
+      # Phase 4: ShopInstance routing — THIS VPS's unique ShopInstance Guid.
+      # MUST match the ShopInstance record created in Gateway PG via ShopInstances API.
+      # Generate a NEW Guid for each ShopERP VPS — NEVER reuse across VPS.
+      - SHOP_INSTANCE_ID=${SHOP_INSTANCE_ID}
+      - ShopInstance__Id=${SHOP_INSTANCE_ID}
+      # SQLite DB persistent volume (per-tenant data survives container recreate/deploys)
+      - ConnectionStrings__DefaultConnection=Data Source=/app/keys/vanan_shoperp.db
+      # Accounting connection — points to Gateway VPS PostgreSQL via VPC internal IP
+      - ConnectionStrings__AccountingConnection=Host=${GATEWAY_REMOTE_HOST};Port=5432;Database=${POSTGRES_DB:-VanAnCoreHub};Username=${POSTGRES_USER:-vanan_admin};Password=${POSTGRES_PASSWORD}
+      # Auth — JWT shared with Gateway
+      - Jwt__Secret=${JWT_SECRET_KEY}
+      - Authentication__Authority=https://api.${VANAN_DOMAIN}
+      - ExternalUrls__KhachLink=https://diemthuong.${VANAN_DOMAIN}
+      - Auth__CookieDomain=.${VANAN_DOMAIN}
+      # Seed data
+      - Seed__OwnerUsername=${SHOPERP_OWNER_USERNAME:-adminvanan1}
+      - Seed__OwnerPassword=${SHOPERP_OWNER_PASSWORD:-2026@vanan}
+      - Seed__TenantId=${SHOPERP_TENANT_ID:-00000000-0000-0000-0000-000000000001}
+      - Seed__SysAdminPassword=${SHOPERP_SYSADMIN_PASSWORD:-2026@vanan}
+      # ValidateProductionConfig sentinel keys
+      - DataProtection__KeyDirectory=/app/keys
+      - Brevo__ApiKey=not-configured
+      - Brevo__SenderEmail=noreply@${VANAN_DOMAIN}
+      - Esms__ApiKey=not-configured
+      - Esms__SecretKey=not-configured
+      - Esms__BrandName=VanAn
+      - ConnectionStrings__Redis=not-configured
+      - Authentication__ClientSecret=not-configured
+      # Web Push VAPID
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+      # Internal loyalty API key — must match Gateway
+      - InternalLoyalty__ApiKey=${INTERNAL_LOYALTY_API_KEY:-vanan-internal-loyalty-prod-2026}
+      # Google OAuth
+      - Google__ClientId=${GOOGLE_CLIENT_ID}
+      - Google__ClientSecret=${GOOGLE_CLIENT_SECRET}
+      - Google__CallbackBaseUrl=${GOOGLE_CALLBACK_BASE_URL:-https://api.${VANAN_DOMAIN}}
+      - Google__KhachLinkLoginUrl=${GOOGLE_KHACHLINK_LOGIN_URL:-https://diemthuong.${VANAN_DOMAIN}/login}
+    volumes:
+      - shoperp_data:/app/keys
+    ports:
+      - "80:80"  # ShopERP UI — accessible from gateway VPS nginx via VPC internal IP
+    networks:
+      - vanan-shop-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  shoperp_data:
+
+networks:
+  vanan-shop-network:
+    driver: bridge

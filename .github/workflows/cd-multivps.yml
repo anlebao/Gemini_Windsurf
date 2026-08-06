@@ -1,0 +1,433 @@
+name: CD Multi-VPS
+
+# Multi-VPS deployment (Option C) — Gateway VPS + ShopERP VPS on separate Google Cloud machines.
+# Trigger: push to main (Google Cloud production) OR manual workflow_dispatch.
+# Oracle VPS uses cd.yml on branch 'oracle-prod' — completely separate.
+# Prerequisites: GitHub Secrets configured (see docs/operations/Multi_VPS_Deployment_Guide.md §3.A).
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.devin/**'
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to deploy (default: latest)'
+        required: false
+        default: 'latest'
+      skip_build:
+        description: 'Skip build (use existing images)'
+        type: boolean
+        required: false
+        default: false
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  # ============================================================
+  # Job 1: Build & push Docker images to GHCR (reusable)
+  # ============================================================
+  build-and-push:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    if: ${{ github.event.inputs.skip_build != 'true' }}
+
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image tag (git SHA short)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan
+          tags: |
+            type=sha,prefix=,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & push Gateway
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: 2_Gateway/Dockerfile
+          push: true
+          no-cache: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-gateway:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-gateway:latest
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Build & push ShopERP
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: 5_WebApps/ShopERP/Dockerfile
+          push: true
+          no-cache: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-shoperp:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-shoperp:latest
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Build & push KhachLink
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: 5_WebApps/KhachLink/Dockerfile
+          push: true
+          no-cache: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-khachlink:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-khachlink:latest
+          labels: ${{ steps.meta.outputs.labels }}
+
+  # ============================================================
+  # Job 2: Pre-Deployment Validation (BLOCKING)
+  # ============================================================
+  pre-deployment-validation:
+    name: Pre-Deployment Validation
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: always() && !cancelled()
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Multi-VPS Compose Files
+        run: |
+          echo "Validating docker-compose.gateway.yml..."
+          docker compose -f docker-compose.gateway.yml config > /dev/null && echo "gateway OK"
+          echo "Validating docker-compose.shoperp.yml..."
+          docker compose -f docker-compose.shoperp.yml config > /dev/null && echo "shoperp OK"
+
+      - name: Verify required secrets are set
+        env:
+          GATEWAY_HOST: ${{ secrets.VPS_GATEWAY_HOST }}
+          SHOP_HOST: ${{ secrets.VPS_SHOP_HOST }}
+          SHOPERP_REMOTE: ${{ secrets.SHOPERP_REMOTE_HOST }}
+          GATEWAY_REMOTE: ${{ secrets.GATEWAY_REMOTE_HOST }}
+          SHOP_INSTANCE: ${{ secrets.SHOP_INSTANCE_ID }}
+        run: |
+          missing=0
+          for var_name in VPS_GATEWAY_HOST VPS_GATEWAY_USER VPS_GATEWAY_SSH_PRIVATE_KEY \
+                          VPS_SHOP_HOST VPS_SHOP_USER VPS_SHOP_SSH_PRIVATE_KEY \
+                          SHOPERP_REMOTE_HOST GATEWAY_REMOTE_HOST SHOP_INSTANCE_ID \
+                          POSTGRES_PASSWORD JWT_SECRET_KEY SEQ_ADMIN_PASSWORD \
+                          VANAN_DOMAIN VAPID_PRIVATE_KEY; do
+            val=$(eval echo "\$${var_name}")
+            if [ -z "$val" ]; then
+              echo "::error::Missing GitHub secret: $var_name"
+              missing=$((missing+1))
+            fi
+          done
+          if [ $missing -gt 0 ]; then
+            echo "::error::$missing required secrets are missing. See Multi_VPS_Deployment_Guide.md §5."
+            exit 1
+          fi
+          echo "All required secrets are set."
+
+  # ============================================================
+  # Job 3: Deploy to Gateway VPS
+  # ============================================================
+  deploy-gateway:
+    name: Deploy to Gateway VPS
+    runs-on: ubuntu-latest
+    needs: [build-and-push, pre-deployment-validation]
+    if: always() && !cancelled() && needs.pre-deployment-validation.result == 'success'
+    timeout-minutes: 15
+    environment: production-gateway
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare deploy directory on Gateway VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_GATEWAY_HOST }}
+          username: ${{ secrets.VPS_GATEWAY_USER }}
+          key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
+          script: |
+            sudo mkdir -p /opt/vanan
+            sudo chown $USER:$USER /opt/vanan
+
+      - name: Copy Gateway deploy files
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.VPS_GATEWAY_HOST }}
+          username: ${{ secrets.VPS_GATEWAY_USER }}
+          key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
+          source: "docker-compose.gateway.yml,nginx/,scripts/deploy-gateway.sh"
+          target: "/opt/vanan"
+          overwrite: true
+          debug: true
+
+      - name: Bootstrap & Deploy Gateway
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_GATEWAY_HOST }}
+          username: ${{ secrets.VPS_GATEWAY_USER }}
+          key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
+          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_SEQ_PASSWORD,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_SHOPERP_REMOTE_HOST,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET,DEPLOY_VAPID_PRIVATE_KEY,DEPLOY_INTERNAL_LOYALTY_API_KEY
+          script: |
+            set -e
+
+            # Bootstrap Docker (idempotent)
+            if ! command -v docker > /dev/null 2>&1; then
+              echo "Installing Docker..."
+              curl -fsSL https://get.docker.com | sh
+              sudo usermod -aG docker $USER
+            fi
+            if ! sudo docker compose version > /dev/null 2>&1; then
+              echo "Installing Docker Compose plugin..."
+              sudo apt-get update -qq && sudo apt-get install -y docker-compose-plugin
+            fi
+
+            cd /opt/vanan
+
+            # Write .env.gateway (preserve existing Google/VAPID if GitHub secrets are empty)
+            EXISTING_GOOGLE_ID=$(grep -E '^GOOGLE_CLIENT_ID=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
+            EXISTING_GOOGLE_SECRET=$(grep -E '^GOOGLE_CLIENT_SECRET=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
+            FINAL_GOOGLE_ID="${DEPLOY_GOOGLE_CLIENT_ID:-$EXISTING_GOOGLE_ID}"
+            FINAL_GOOGLE_SECRET="${DEPLOY_GOOGLE_CLIENT_SECRET:-$EXISTING_GOOGLE_SECRET}"
+            EXISTING_VAPID_KEY=$(grep -E '^VAPID_PRIVATE_KEY=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
+            FINAL_VAPID_KEY="${DEPLOY_VAPID_PRIVATE_KEY:-$EXISTING_VAPID_KEY}"
+
+            printf '%s\n' \
+              "VANAN_DOMAIN=${DEPLOY_VANAN_DOMAIN}" \
+              "SHOPERP_REMOTE_HOST=${DEPLOY_SHOPERP_REMOTE_HOST}" \
+              "POSTGRES_DB=VanAnCoreHub" \
+              "POSTGRES_USER=vanan_admin" \
+              "POSTGRES_PASSWORD=${DEPLOY_POSTGRES_PASSWORD}" \
+              "JWT_SECRET_KEY=${DEPLOY_JWT_SECRET_KEY}" \
+              "SEQ_ADMIN_PASSWORD=${DEPLOY_SEQ_PASSWORD}" \
+              "IMAGE_PREFIX=${DEPLOY_REGISTRY}/${DEPLOY_REPO_OWNER}" \
+              "IMAGE_TAG=${DEPLOY_IMAGE_TAG}" \
+              "INTERNAL_LOYALTY_API_KEY=${DEPLOY_INTERNAL_LOYALTY_API_KEY}" \
+              "GOOGLE_CLIENT_ID=${FINAL_GOOGLE_ID}" \
+              "GOOGLE_CLIENT_SECRET=${FINAL_GOOGLE_SECRET}" \
+              "VAPID_PRIVATE_KEY=${FINAL_VAPID_KEY}" \
+              > .env.gateway
+
+            # Login to GHCR
+            echo "${DEPLOY_GITHUB_TOKEN}" | sudo docker login ghcr.io -u "${DEPLOY_GITHUB_ACTOR}" --password-stdin
+
+            # Pull & restart
+            sudo docker compose -f docker-compose.gateway.yml --env-file .env.gateway pull
+            sudo docker compose -f docker-compose.gateway.yml --env-file .env.gateway up -d --remove-orphans
+
+            # Reload nginx
+            sudo docker exec vanan-nginx nginx -s reload || true
+
+            # Health check
+            sleep 60
+            sudo docker compose -f docker-compose.gateway.yml --env-file .env.gateway ps
+            echo "Gateway VPS deploy complete!"
+        env:
+          DEPLOY_POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          DEPLOY_JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          DEPLOY_SEQ_PASSWORD: ${{ secrets.SEQ_ADMIN_PASSWORD }}
+          DEPLOY_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_GITHUB_ACTOR: ${{ github.actor }}
+          DEPLOY_REGISTRY: ${{ env.REGISTRY }}
+          DEPLOY_REPO_OWNER: ${{ github.repository_owner }}
+          DEPLOY_IMAGE_TAG: ${{ github.event.inputs.image_tag || 'latest' }}
+          DEPLOY_VANAN_DOMAIN: ${{ secrets.VANAN_DOMAIN }}
+          DEPLOY_SHOPERP_REMOTE_HOST: ${{ secrets.SHOPERP_REMOTE_HOST }}
+          DEPLOY_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          DEPLOY_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          DEPLOY_VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          DEPLOY_INTERNAL_LOYALTY_API_KEY: ${{ secrets.INTERNAL_LOYALTY_API_KEY }}
+
+  # ============================================================
+  # Job 4: Deploy to ShopERP VPS (runs AFTER Gateway to ensure NATS+PG are up)
+  # ============================================================
+  deploy-shoperp:
+    name: Deploy to ShopERP VPS
+    runs-on: ubuntu-latest
+    needs: [build-and-push, pre-deployment-validation, deploy-gateway]
+    if: always() && !cancelled() && needs.deploy-gateway.result == 'success'
+    timeout-minutes: 15
+    environment: production-shoperp
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare deploy directory on ShopERP VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_SHOP_HOST }}
+          username: ${{ secrets.VPS_SHOP_USER }}
+          key: ${{ secrets.VPS_SHOP_SSH_PRIVATE_KEY }}
+          script: |
+            sudo mkdir -p /opt/vanan
+            sudo chown $USER:$USER /opt/vanan
+
+      - name: Copy ShopERP deploy files
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.VPS_SHOP_HOST }}
+          username: ${{ secrets.VPS_SHOP_USER }}
+          key: ${{ secrets.VPS_SHOP_SSH_PRIVATE_KEY }}
+          source: "docker-compose.shoperp.yml,scripts/deploy-shoperp.sh"
+          target: "/opt/vanan"
+          overwrite: true
+          debug: true
+
+      - name: Bootstrap & Deploy ShopERP
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_SHOP_HOST }}
+          username: ${{ secrets.VPS_SHOP_USER }}
+          key: ${{ secrets.VPS_SHOP_SSH_PRIVATE_KEY }}
+          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_NATS_REMOTE_HOST,DEPLOY_GATEWAY_REMOTE_HOST,DEPLOY_SHOP_INSTANCE_ID,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET,DEPLOY_VAPID_PRIVATE_KEY,DEPLOY_INTERNAL_LOYALTY_API_KEY
+          script: |
+            set -e
+
+            # Bootstrap Docker (idempotent)
+            if ! command -v docker > /dev/null 2>&1; then
+              echo "Installing Docker..."
+              curl -fsSL https://get.docker.com | sh
+              sudo usermod -aG docker $USER
+            fi
+            if ! sudo docker compose version > /dev/null 2>&1; then
+              echo "Installing Docker Compose plugin..."
+              sudo apt-get update -qq && sudo apt-get install -y docker-compose-plugin
+            fi
+
+            cd /opt/vanan
+
+            # Write .env.shoperp (preserve existing Google/VAPID if GitHub secrets are empty)
+            EXISTING_GOOGLE_ID=$(grep -E '^GOOGLE_CLIENT_ID=' .env.shoperp 2>/dev/null | cut -d= -f2- || echo "")
+            EXISTING_GOOGLE_SECRET=$(grep -E '^GOOGLE_CLIENT_SECRET=' .env.shoperp 2>/dev/null | cut -d= -f2- || echo "")
+            FINAL_GOOGLE_ID="${DEPLOY_GOOGLE_CLIENT_ID:-$EXISTING_GOOGLE_ID}"
+            FINAL_GOOGLE_SECRET="${DEPLOY_GOOGLE_CLIENT_SECRET:-$EXISTING_GOOGLE_SECRET}"
+            EXISTING_VAPID_KEY=$(grep -E '^VAPID_PRIVATE_KEY=' .env.shoperp 2>/dev/null | cut -d= -f2- || echo "")
+            FINAL_VAPID_KEY="${DEPLOY_VAPID_PRIVATE_KEY:-$EXISTING_VAPID_KEY}"
+
+            printf '%s\n' \
+              "VANAN_DOMAIN=${DEPLOY_VANAN_DOMAIN}" \
+              "NATS_REMOTE_HOST=${DEPLOY_NATS_REMOTE_HOST}" \
+              "GATEWAY_REMOTE_HOST=${DEPLOY_GATEWAY_REMOTE_HOST}" \
+              "SHOP_INSTANCE_ID=${DEPLOY_SHOP_INSTANCE_ID}" \
+              "POSTGRES_DB=VanAnCoreHub" \
+              "POSTGRES_USER=vanan_admin" \
+              "POSTGRES_PASSWORD=${DEPLOY_POSTGRES_PASSWORD}" \
+              "JWT_SECRET_KEY=${DEPLOY_JWT_SECRET_KEY}" \
+              "IMAGE_PREFIX=${DEPLOY_REGISTRY}/${DEPLOY_REPO_OWNER}" \
+              "IMAGE_TAG=${DEPLOY_IMAGE_TAG}" \
+              "INTERNAL_LOYALTY_API_KEY=${DEPLOY_INTERNAL_LOYALTY_API_KEY}" \
+              "GOOGLE_CLIENT_ID=${FINAL_GOOGLE_ID}" \
+              "GOOGLE_CLIENT_SECRET=${FINAL_GOOGLE_SECRET}" \
+              "VAPID_PRIVATE_KEY=${FINAL_VAPID_KEY}" \
+              "SHOPERP_OWNER_USERNAME=adminvanan1" \
+              "SHOPERP_OWNER_PASSWORD=2026@vanan" \
+              "SHOPERP_TENANT_ID=00000000-0000-0000-0000-000000000001" \
+              "SHOPERP_SYSADMIN_PASSWORD=2026@vanan" \
+              > .env.shoperp
+
+            # Login to GHCR
+            echo "${DEPLOY_GITHUB_TOKEN}" | sudo docker login ghcr.io -u "${DEPLOY_GITHUB_ACTOR}" --password-stdin
+
+            # Pre-flight connectivity check (NATS + PostgreSQL on Gateway VPS)
+            echo "Testing NATS connectivity to ${DEPLOY_NATS_REMOTE_HOST}:4222..."
+            nc -zv "${DEPLOY_NATS_REMOTE_HOST}" 4222 -w 10 || { echo "::error::NATS unreachable"; exit 1; }
+            echo "Testing PostgreSQL connectivity to ${DEPLOY_GATEWAY_REMOTE_HOST}:5432..."
+            nc -zv "${DEPLOY_GATEWAY_REMOTE_HOST}" 5432 -w 10 || { echo "::error::PostgreSQL unreachable"; exit 1; }
+
+            # Pull & restart
+            sudo docker compose -f docker-compose.shoperp.yml --env-file .env.shoperp pull
+            sudo docker compose -f docker-compose.shoperp.yml --env-file .env.shoperp up -d --remove-orphans
+
+            # Health check
+            sleep 60
+            sudo docker compose -f docker-compose.shoperp.yml --env-file .env.shoperp ps
+
+            # Verify NATS subscription
+            echo "Checking OrderSyncSubscriber log..."
+            sudo docker logs vanan-shoperp 2>&1 | grep -i "OrderSyncSubscriber" | tail -5 || true
+
+            echo "ShopERP VPS deploy complete!"
+        env:
+          DEPLOY_POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          DEPLOY_JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          DEPLOY_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_GITHUB_ACTOR: ${{ github.actor }}
+          DEPLOY_REGISTRY: ${{ env.REGISTRY }}
+          DEPLOY_REPO_OWNER: ${{ github.repository_owner }}
+          DEPLOY_IMAGE_TAG: ${{ github.event.inputs.image_tag || 'latest' }}
+          DEPLOY_VANAN_DOMAIN: ${{ secrets.VANAN_DOMAIN }}
+          DEPLOY_NATS_REMOTE_HOST: ${{ secrets.GATEWAY_REMOTE_HOST }}
+          DEPLOY_GATEWAY_REMOTE_HOST: ${{ secrets.GATEWAY_REMOTE_HOST }}
+          DEPLOY_SHOP_INSTANCE_ID: ${{ secrets.SHOP_INSTANCE_ID }}
+          DEPLOY_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          DEPLOY_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          DEPLOY_VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          DEPLOY_INTERNAL_LOYALTY_API_KEY: ${{ secrets.INTERNAL_LOYALTY_API_KEY }}
+
+  # ============================================================
+  # Job 5: Post-Deploy Smoke Test
+  # ============================================================
+  smoke-test:
+    name: Post-Deploy Smoke Test
+    runs-on: ubuntu-latest
+    needs: [deploy-gateway, deploy-shoperp]
+    if: always() && !cancelled() && needs.deploy-shoperp.result == 'success'
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test Gateway health
+        run: |
+          echo "Testing Gateway health via external IP..."
+          curl -fsS --max-time 30 "http://${{ secrets.VPS_GATEWAY_HOST }}/health" || \
+          curl -fsS --max-time 30 "https://api.${{ secrets.VANAN_DOMAIN }}/health" || \
+          { echo "::warning::Gateway health check failed (may need SSL setup first)"; }
+
+      - name: Test ShopERP health
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_SHOP_HOST }}
+          username: ${{ secrets.VPS_SHOP_USER }}
+          key: ${{ secrets.VPS_SHOP_SSH_PRIVATE_KEY }}
+          script: |
+            curl -fsS --max-time 30 http://localhost/health && echo "ShopERP health OK"
+
+      - name: Summary
+        run: |
+          echo "=== Multi-VPS Deploy Summary ==="
+          echo "Gateway VPS: ${{ secrets.VPS_GATEWAY_HOST }}"
+          echo "ShopERP VPS: ${{ secrets.VPS_SHOP_HOST }}"
+          echo "ShopInstance ID: ${{ secrets.SHOP_INSTANCE_ID }}"
+          echo "Image tag: ${{ github.event.inputs.image_tag || 'latest' }}"
+          echo ""
+          echo "NEXT STEPS:"
+          echo "1. Setup SSL certs (if not done): run scripts/init-ssl.sh on Gateway VPS"
+          echo "2. Create ShopInstance record in Gateway PG (see Multi_VPS_Deployment_Guide.md §3 Bước 6)"
+          echo "3. Onboard first tenant via Gateway API"

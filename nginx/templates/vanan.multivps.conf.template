@@ -1,0 +1,234 @@
+# ============================================================
+# Multi-VPS nginx config — ${VANAN_DOMAIN}
+# Generated from template by docker-entrypoint.sh (envsubst)
+# ShopERP runs on REMOTE VPS (${SHOPERP_REMOTE_HOST}) — proxied via VPC internal IP.
+# Gateway + KhachLink run locally on this (gateway) VPS.
+# ============================================================
+
+# ============================================================
+# ${VANAN_DOMAIN} / www.${VANAN_DOMAIN} — ShopERP (Blazor) on REMOTE VPS
+# ============================================================
+server {
+    listen 80;
+    server_name ${VANAN_DOMAIN} www.${VANAN_DOMAIN};
+
+    # Let's Encrypt ACME challenge
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name ${VANAN_DOMAIN} www.${VANAN_DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/${VANAN_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${VANAN_DOMAIN}/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    limit_req zone=web burst=20 nodelay;
+
+    # Multi-VPS: proxy to REMOTE ShopERP via VPC internal IP
+    location / {
+        proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    # Blazor SignalR — remote ShopERP
+    location /_blazor {
+        proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+}
+
+# ============================================================
+# diemthuong.${VANAN_DOMAIN} — KhachLink (customer PWA) — LOCAL
+# ============================================================
+server {
+    listen 80;
+    server_name diemthuong.${VANAN_DOMAIN};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name diemthuong.${VANAN_DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/${VANAN_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${VANAN_DOMAIN}/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    # Blazor WASM immutable assets — exempt from rate limit
+    location /_framework/ {
+        proxy_pass         http://vanan-khachlink:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_buffering    off;
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+    }
+
+    location / {
+        limit_req zone=web burst=20 nodelay;
+        proxy_pass         http://vanan-khachlink:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    location /_blazor {
+        limit_req zone=web burst=20 nodelay;
+        proxy_pass         http://vanan-khachlink:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+}
+
+# ============================================================
+# app.${VANAN_DOMAIN} — ShopERP (staff portal) on REMOTE VPS
+# ============================================================
+server {
+    listen 80;
+    server_name app.${VANAN_DOMAIN};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name app.${VANAN_DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/${VANAN_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${VANAN_DOMAIN}/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    limit_req zone=web burst=20 nodelay;
+
+    # Multi-VPS: proxy to REMOTE ShopERP via VPC internal IP
+    location / {
+        proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    location /_blazor {
+        proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+}
+
+# ============================================================
+# api.${VANAN_DOMAIN} — Gateway (REST API) — LOCAL
+# ============================================================
+server {
+    listen 80;
+    server_name api.${VANAN_DOMAIN};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name api.${VANAN_DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/${VANAN_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${VANAN_DOMAIN}/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    limit_req zone=api burst=50 nodelay;
+
+    location / {
+        proxy_pass         http://vanan-gateway:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+
+    # SignalR hubs
+    location ~ ^/(orderHub|kitchenhub) {
+        proxy_pass         http://vanan-gateway:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}

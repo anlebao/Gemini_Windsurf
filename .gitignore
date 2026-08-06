@@ -2,6 +2,15 @@
 # Optimized for .NET 8.0, MAUI, Docker, and Multi-project Solution
 
 # ========================================
+# Environment Files (NEVER commit secrets)
+# ========================================
+.env
+.env.local
+.env.gateway
+.env.shoperp
+.env.pipeline
+
+# ========================================
 # .NET & Build Artifacts
 # ========================================
 # Build results
