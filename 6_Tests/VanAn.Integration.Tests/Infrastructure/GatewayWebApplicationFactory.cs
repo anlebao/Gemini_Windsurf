@@ -97,8 +97,14 @@ public class GatewayWebApplicationFactory : WebApplicationFactory<VanAn.Gateway.
         IHost host = base.CreateHost(builder);
 
         // Ensure schema exists on the shared connection so ApiKeyRepository can query.
+        // EnsureDeleted() first: recreates schema from the CURRENT runtime model so newly
+        // added owned-entity columns (e.g. Settings_BrandStory from #93) are present.
+        // Without EnsureDeleted(), a stale in-memory DB from a prior factory init in the
+        // same process (Cache=Shared) may lack columns added after the factory was last
+        // fixed (commit 1d211a3c predated BrandStory by 2 days).
         using IServiceScope scope = host.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<VanAnDbContext>();
+        db.Database.EnsureDeleted();
         db.Database.EnsureCreated();
 
         return host;
