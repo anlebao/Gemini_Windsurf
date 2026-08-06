@@ -30,7 +30,42 @@
 
 ## 2. Current Objective
 
-**TT 99/2025/TT-BTC Compliance Fixes (8 Gaps)** — � WAVES 1-3 COMPLETE (6/7 phases). Phase 5 (B 09-DN Thuyết minh BCTC) remaining. 8 gaps verified against 5 official sources (MISA, thuvienphapluat, Grant Thornton, Bộ Tài chính, tanngoctax). 6 task cards + 1 Phase 5a verified against codebase via 6 parallel subagents.
+**#99-3 Loyalty Points Visibility + Shop Owner Dashboard — Phase A COMPLETE + DEPLOYED + VPS RV PASS.** Phase B (Alliance VND normalization) PENDING APPROVAL.
+
+- **Master plan:** `docs/AI/tasks/loyalty_points_visibility_master_plan.md`
+- **Task card:** `docs/AI/tasks/loyalty_points_visibility_task_card.md`
+- **Rollout strategy:** Safe Incremental Rollout with Feature Gate
+  - **Phase A (Batch 1+3):** COMPLETE — customer visibility + shop owner dashboard, LOW-MEDIUM risk, activates immediately
+  - **Phase B (Batch 2):** PENDING APPROVAL — Alliance VND normalization, HIGH risk, feature-gated (only activates when `Mode=Alliance`)
+
+**Phase A — COMPLETE (commits `37c29e01` to `25b6bf03`, 2026-08-05):**
+- **Batch 1 (Customer Visibility):**
+  - `OrderWorkflowService.ProcessLoyaltyPointsAsync`: check `Loyalty_Program_Enabled` toggle before awarding points (fail-open if service errors)
+  - `PublicOrderTrackingDto`: add `PointsAwarded` + `LoyaltyEnabled` fields
+  - `PublicOrdersController.GetPublicOrder`: compute `PointsAwarded` via same formula as `ProcessLoyaltyPointsAsync`
+  - `OrderTracking.razor`: banner "Ban nhan duoc X diem thuong" when order completed/delivered + PointsAwarded > 0
+  - `Checkout.razor`: estimate banner "Don hang se tich ~X diem" loaded from tenant feature-settings API
+- **Batch 3 (Shop Owner Dashboard):**
+  - `LoyaltyController`: `GET /api/loyalty/dashboard` returns 4 metrics (PointsPendingRedemption, PointsRedeemed, PointsInCampaigns, PointsReserved)
+  - `LoyaltyDashboard.razor`: new page at `/loyalty/dashboard` with 4 stat cards
+  - `NavMenu.razor`: link "Thong ke diem thuong" in `Owner,SystemAdmin` auth block (desktop + mobile)
+- **Bug fixes during RV:**
+  - `7b5c0788`: Move nav link from `Owner`-only block to `Owner,SystemAdmin` block (PlatformUserLoginService issues SystemAdmin role)
+  - `c0756ad8`: Fix LINQ translation — `TenantId.Value == tenantId` to `TenantId == new TenantId(tenantId)` (Pattern #8)
+  - `25b6bf03`: Fix LINQ translation — `Status.Value != "completed"` to `Status != OrderStatusId.Completed` (value object pattern)
+- **VPS RV:** 11 PASS, 0 FAIL, 2 need browser verify (V6/V7 — Blazor Server renders client-side, curl cannot verify)
+- **API verified with real data:** `GET /api/loyalty/dashboard` returns `{"pointsPendingRedemption":18347,"pointsRedeemed":0,"pointsInCampaigns":0,"pointsReserved":0}`
+
+**Phase B — PENDING APPROVAL (Alliance VND Normalization, HIGH risk, feature-gated):**
+- 10 steps: Domain.cs (`VndPerPoint`) + migration + `LoyaltyModeResolver` + `OrderWorkflowService` (Alliance fixed rate) + `AllianceWalletService` (consolidate/split + catalog convert) + `LoyaltyConfigController` + `LoyaltyConfigAdmin.razor`
+- Feature gate: code only activates when `Mode=Alliance` (currently Silo, zero impact on deploy)
+- Task 3.9: Convert `RedemptionCatalogItem.PointsRequired` during Silo to Alliance migration (keep VND value)
+
+**Previous objective — COMPLETE:** TT 99/2025/TT-BTC Compliance Fixes — ALL 7 PHASES COMPLETE + DEPLOYED + VPS VERIFIED. See archive for full detail.
+
+**Last completed:** #99-3 Loyalty Points Visibility + Shop Owner Dashboard — Phase A (commits `37c29e01` to `25b6bf03`, 2026-08-05). Previous: TT 99/2025/TT-BTC Compliance Fixes (commits `66c9cfaf` to `51738298`, 2026-08-04).
+
+<!-- ARCHIVED: TT 99/2025/TT-BTC Compliance Fixes (8 Gaps) � WAVES 1-3 COMPLETE (6/7 phases). Phase 5 (B 09-DN Thuyết minh BCTC) remaining. 8 gaps verified against 5 official sources (MISA, thuvienphapluat, Grant Thornton, Bộ Tài chính, tanngoctax). 6 task cards + 1 Phase 5a verified against codebase via 6 parallel subagents.
 
 - **Master plan:** `docs/AI/tasks/tt99_compliance_fixes/tt99_compliance_fixes_master_plan.md`
 - **ANALYZE report:** `docs/AI/tasks/tt99_compliance_fixes/ANALYZE_REPORT_reverse_impact.md` (full reverse impact review)
@@ -48,9 +83,10 @@
 - **Phase 0 (Bug 3):** ✅ COMPLETE — commit `89fb90b6`, CI PASS (1253s), CD SUCCESS (6min), VPS HTTP-level RV 7/7 PASS. Root cause: `ScopedDataProvider.cs:86,126` sync-over-async deadlock in Blazor Server. Fix: `Task.Run` wrapper. Tech debt TD-ASYNCDP-001 logged for proper async-native fix.
 - **Phase 1 (Bug 2A):** ✅ COMPLETE — commit `5f21ab36`, CI PASS (923s), CD SUCCESS (6min), VPS HTTP-level RV 5/5 PASS. Hide "Sổ HKD (TT 152)" menu for Company tenants via `_isHkd` conditional in `AccountingLayout.razor`. E2E test `hkd-menu-visibility.spec.ts`.
 - **Phase 2 (Bug 2B):** ✅ COMPLETE — commit `c0fbcef6`, CI PASS (1218s), CD SUCCESS (5min), VPS HTTP-level RV 7/7 PASS. New `IFinancialReportExportService` (Open XML SDK DOCX + EPPlus XLSX) + DI + 4 UI pages (BalanceSheet/IncomeStatement/CashFlowStatement/TrialBalance) with "📄 Xuất DOCX" + "📊 Xuất XLSX" buttons. E2E test `vas-export.spec.ts`.
-- **Phase 3 (Bug 1):** ✅ COMPLETE — commit `424c3aa7`, CI PASS (1229s, 1261+17+39+144 tests 0 failures), CD SUCCESS (5min), VPS HTTP-level RV 6/6 PASS. Domain `Tenant.ChangeBusinessType()` + `TenantBusinessTypeChangedEvent` (8 unit tests PASS). Service `ChangeBusinessTypeAsync()` with AccountingEntry data integrity guard (IAccountingDbContext). Gateway API `PUT /api/v1/tenants/{id}/business-type` (409 if accounting data exists). UI Edit modal: BusinessType dropdown + HKDGroup + Reason field. E2E test `tenant-edit-businesstype.spec.ts`.
+- **Phase 3 (Bug 1):** COMPLETE — commit `424c3aa7`, CI PASS (1229s, 1261+17+39+144 tests 0 failures), CD SUCCESS (5min), VPS HTTP-level RV 6/6 PASS. Domain `Tenant.ChangeBusinessType()` + `TenantBusinessTypeChangedEvent` (8 unit tests PASS). Service `ChangeBusinessTypeAsync()` with AccountingEntry data integrity guard (IAccountingDbContext). Gateway API `PUT /api/v1/tenants/{id}/business-type` (409 if accounting data exists). UI Edit modal: BusinessType dropdown + HKDGroup + Reason field. E2E test `tenant-edit-businesstype.spec.ts`.
+-->
 
-**Last completed:** TT 99/2025/TT-BTC Compliance Fixes — ANALYZE COMPLETE (commits `03fcb459` master plan + `94c29dcf` ANALYZE report, 2026-08-03). Previous: Tenant Management + Accounting UI Fixes — ALL 4 PHASES COMPLETE + DEPLOYED + VPS VERIFIED (commits `89fb90b6` → `424c3aa7`, 2026-08-03).
+**Recently completed (full detail in archive):**
 
 **Recently completed (full detail in archive):**
 - **KhachLink LoyaltyMode UI Hide** — COMPLETE + VPS VERIFIED (RV 10/10 PASS, commit `133e8061`, CD run `30789469902`, 2026-08-03). When SystemAdmin sets LoyaltyMode=Silo, KhachLink hides all "Ví liên minh" UI (NavMenu desktop+mobile tabs, LoyaltyCard link, AllianceWallet page shows "Tính năng liên minh đang tắt"). New public endpoint `GET /api/loyalty/mode` (anonymous) returns global mode. New `LoyaltyModeHttpService` (cached 5 min, defaults Silo on error). 8 files changed. CI PASS (1347s). CD SUCCESS (5m35s). VPS RV 10/10 PASS — endpoint returns `{"mode":"Silo"}`, WASM fresh, all pages 200.
@@ -77,15 +113,16 @@
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `5e2217f4` fix(test): guard ObjectDisposedException in Blazor timer callbacks
-- **Working tree:** Modified `ShopERPDbContextModelSnapshot.cs` (uncommitted — auto-generated by EF tooling) + untracked `.devin/*` scripts + new migration `20260804154728_AddTenantSettingsB09DNAndStyleColumns` (uncommitted). Branch in sync with origin/main.
+- **Last commit:** `f6d7aa84` fix(#106): strip charset from Content-Type in Gateway forward controllers (Redemption + Loyalty). **Follow-up (uncommitted, 2026-08-06):** extended fix #106 to 3 remaining Gateway forward controllers (`CustomerIdentityController` ×4, `CustomerProfileController` ×1, `MissionsController` ×1) — same `MediaTypeHeaderValue` charset bug, verified via repro test. Pattern #10 added to governance.md Known Error Pattern Registry.
+- **Working tree:** Modified `2_Gateway/Controllers/CustomerIdentityController.cs` + `CustomerProfileController.cs` + `MissionsController.cs` (fix #106 expansion) + `.devin/rules/governance.md` (Pattern #10) + `docs/AI/project_state.md` (this update). Untracked `.devin/*` scripts (RV/debug scratch — not for commit). Branch in sync with origin/main.
 - **.NET SDK:** 8.0.422
 - **DB:** SQLite `vanan_shoperp.db` (business) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community tables)
 - **Build:** 0 errors across full solution. CI pre-push ALL PASSED.
-- **CI/CD:** GitHub Actions CI + CD both SUCCESS for commit `5e2217f4` (run `30924502034` CI, `30924502035` CD). Previous CI failures (commits `c9ac98cc` → `8d1a7b41`) resolved by 2 test fixes (see Section 10).
-- **VPS:** 8 containers healthy (gateway, shoperp, khachlink, nginx, seq, certbot, postgres, nats). CD deploys automatically on push to main. Domains: `khachvip.online` (ShopERP), `diemthuong.khachvip.online` (KhachLink), `api.khachvip.online` (Gateway).
+- **CI/CD:** GitHub Actions CI + CD both SUCCESS for commit `25b6bf03` (Phase A final fix). Phase A commits: `37c29e01` → `7b5c0788` → `c0756ad8` → `25b6bf03` all CI PASS + CD SUCCESS.
+- **VPS:** 8 containers healthy (gateway, shoperp, khachlink, nginx, seq, certbot, postgres, nats). CD deploys automatically on push to main. Domains: `app.khachvip.online` (ShopERP), `diemthuong.khachvip.online` (KhachLink), `api.khachvip.online` (Gateway).
 - **Local infra:** Docker PostgreSQL 15-alpine (5432) + NATS 2-alpine (4222) + ShopERP 5003 + KhachLink 5002 + Gateway 5001.
 - **Loyalty Alliance System:** FULLY OPERATIONAL (Phase 1-7 COMPLETE + DEPLOYED + VPS VERIFIED). Tenant currently in Silo mode — Alliance infrastructure ready for when tenant switches.
+- **#99-3 Phase A:** DEPLOYED + VPS RV PASS (11 PASS, 0 FAIL, 2 browser-verify pending). API `GET /api/loyalty/dashboard` returns real data: `{"pointsPendingRedemption":18347,"pointsRedeemed":0,"pointsInCampaigns":0,"pointsReserved":0}`. Shop owner login: `adminvanan1` / `Admin@123` at `https://app.khachvip.online/Login`.
 - **CustomerRepository.AddAsync fix (commit `550f5619`):** Fixed bug where AddAsync created a new Customer with wrong Id. Loyalty points now correctly awarded after order completion.
 - **Tech debt:** TD-MVPS-001 through TD-MVPS-004 (see `docs/AI/tasks/tech_debt_multi_vps_checkout.md`). TD-PWA-001 (WASM conversion complete). Tier 5 — True Offline Edge (post-PoC). **TD-CUSTSYNC-001 (2026-07-27):** Customers created in ShopERP SQLite (CRM local) are NOT synced to Gateway PG — Gateway `OrderService.CreateOrderFromCommandAsync` validates CustomerId against PG and falls back to null if missing. Bug 6 fix mitigates this for guest checkout (DeviceId fallback + stub creation in SQLite), but full Customer sync SQLite→PG still needed for cross-system customer identity. **TD-ASYNCDP-001 (2026-08-03, NEW):** `ScopedDataProvider.GetAccountSum`/`GetAccountBalance` are sync methods that internally call async `GetPreAggregatedDataAsync` via `Task.Run(...).GetAwaiter().GetResult()` (Phase 0 Bug 3 quick fix). Proper fix: make `IFormulaEngine.Evaluate` + `IDataProvider.GetAccountSum` async (`EvaluateAsync`/`GetAccountSumAsync`) so the entire chain is async-native — eliminates sync-over-async + thread pool offload overhead. Large interface change, touch many callers.
 
@@ -112,26 +149,33 @@
 
 ## 4. Next Actions
 
-1. **(CURRENT — Close GitHub Issues)** Đóng 8 issues đã RV pass trên GitHub: #87, #88, #89, #93, #97, #98, #99, #100. Comment mỗi issue với RV summary (commit + RV result). Sử dụng `gh issue close <num> --comment "<text>"`.
-2. **(Previous — TT99 Compliance Fixes Wave 4)** ALL 7 PHASES COMPLETE. TT 99/2025/TT-BTC compliance fully implemented:
-   - **Wave 4a COMPLETE (commit `d6fd850e`):** (B) Menu nav link B 09-DN added to Sitemap + FinancialReports hub + (C) Vietnamese number format `vi-VN` in 5 razor pages + 2 export services + (D) Fix 4 PeriodClosingPersistenceTests (`EnsureDeletedAsync` before `EnsureCreatedAsync`).
-   - **Wave 4b COMPLETE (commit `51738298`):** Phase 5 B 09-DN Thuyết minh BCTC — new FinancialStatementNotes + NoteSection records + IFinancialStatementNotesService + FinancialStatementNotesService + FinancialStatementNotes.razor page + Export DOCX/XLSX + DI registration. All 4 mandatory financial reports now implemented (B 01-DN + B 02-DN + B 03-DN + B 09-DN).
-   - **Waves 1-3 COMPLETE:** Wave 1 commit `66c9cfaf` (P1+P2+P5a+P6), Wave 2 commit `27d34b40` (P4 template structure), Wave 3 commit `f98ddea5` (P3 indirect method). All CD SUCCESS + VPS RV 10/10 PASS.
-   - **Official templates VERIFIED:** REFERENCE_B01DN/B02DN/B03DN/B09DN_official.md (from vplsdms.vn Phụ lục IV TT 99)
-2. **(Previous — Browser RV, deferred)** Browser functional testing on VPS for Tenant Fixes 4 phases (authenticated user flows):
-   - Phase 0: Log in → accounting pages → verify no deadlock/hang.
-   - Phase 1: Company tenant → "Sổ HKD" menu hidden; HKD tenant → visible.
-   - Phase 2: 4 VAS report pages → "📄 Xuất DOCX" / "📊 Xuất XLSX" → verify file downloads.
-   - Phase 3: SystemAdmin → /admin/tenants → Edit tenant → change BusinessType → verify success/409.
-3. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (currently skipped via `Category!=Flaky` CI filter).
-4. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. Cần Domain Modification approval.
-5. **A2 follow-up — Guid case audit (P2):** Audit + fix Guid case mismatch across all tables (not just OutboxMessages).
-6. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG. **TD-ASYNCDP-001:** Make `IFormulaEngine`/`IDataProvider` async-native (eliminates Phase 0 quick-fix sync-over-async).
-6. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`. (Note: this session manually created `vanan_admin` role + `vanan_accounting` DB in `vanan-postgres-local` container to unblock Phase 0 debug — see Maintenance Log.)
-7. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate.
-8. **(Facebook OAuth)** Config real Facebook OAuth credentials — Sprint 7+. Currently stub redirect in `Login.razor:148`.
-9. **(Loyalty Alliance activation)** When tenant switches to Alliance mode in production, run end-to-end RV: create order → verify EARN to PG wallet → redeem → verify REDEEM from PG wallet → check KhachLink `/alliance-wallet` displays cross-tenant breakdown.
-10. **(Bug 3 full verify)** Re-print QR for product with image to fully verify Scan.razor image rendering on VPS.
+1. **(CURRENT — #99-3 Phase B APPROVAL)** Phase B (Alliance VND Normalization) — HIGH risk, feature-gated. Awaiting user approval to start. 10 steps:
+   - B1: Add `VndPerPoint` to `LoyaltyGlobalConfig` (Domain.cs)
+   - B2: EF migration for new column
+   - B3: `LoyaltyModeResolver` — centralize mode resolution
+   - B4: `OrderWorkflowService` — Alliance mode uses fixed VND rate (not tenant rate)
+   - B5: `AllianceWalletService` — consolidate/split logic
+   - B6: Catalog convert — `RedemptionCatalogItem.PointsRequired` VND-based in Alliance
+   - B7: `LoyaltyConfigController` — admin API for VndPerPoint
+   - B8: `LoyaltyConfigAdmin.razor` — admin UI
+   - B9: Silo→Alliance migration — convert existing catalog items (keep VND value)
+   - B10: Unit tests + RV
+   - **Feature gate:** Code only activates when `Mode=Alliance` (currently Silo → zero impact)
+2. **(Browser RV — Phase A V6/V7)** Login `adminvanan1` / `Admin@123` at `https://app.khachvip.online/Login`:
+   - V6: Navigate to `/loyalty/dashboard` → verify 4 stat cards render (Điểm chờ đổi: 18,347)
+   - V7: Check NavMenu has "Thống kê điểm thưởng" link (icon bar-chart)
+3. **(Close GitHub Issues)** Đóng 8 issues đã RV pass trên GitHub: #87, #88, #89, #93, #97, #98, #99, #100. Comment mỗi issue với RV summary.
+4. **(Previous — TT99 Compliance Fixes Wave 4)** ALL 7 PHASES COMPLETE. See archive for full detail.
+5. **(Browser RV, deferred)** Browser functional testing on VPS for Tenant Fixes 4 phases (authenticated user flows).
+6. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (currently skipped via `Category!=Flaky` CI filter).
+7. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. Cần Domain Modification approval.
+8. **A2 follow-up — Guid case audit (P2):** Audit + fix Guid case mismatch across all tables (not just OutboxMessages).
+9. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG. **TD-ASYNCDP-001:** Make `IFormulaEngine`/`IDataProvider` async-native.
+10. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`.
+11. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate.
+12. **(Facebook OAuth)** Config real Facebook OAuth credentials — Sprint 7+. Currently stub redirect in `Login.razor:148`.
+13. **(Loyalty Alliance activation)** When tenant switches to Alliance mode in production, run end-to-end RV.
+14. **(Bug 3 full verify)** Re-print QR for product with image to fully verify Scan.razor image rendering on VPS.
 
 ### Pruned (2026-07-29)
 
@@ -259,6 +303,10 @@ Server A (Edge):              Server B (Central):
 ## 10. Maintenance Log
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md` → "Archived 2026-08-03" → Section 10.
+
+* **2026-08-06 — FIX #106 EXPANSION: strip charset from Content-Type in 3 remaining Gateway forward controllers.** Original fix #106 (commit `f6d7aa84`, 2026-08-05) only patched `RedemptionController` + `LoyaltyController` (used `StringContent(body, Encoding.UTF8, Request.ContentType)`). Audit today found 3 more controllers with the identical bug via a different code path: `new MediaTypeHeaderValue(Request.ContentType)` (used with `StreamContent`). Repro test confirmed `new MediaTypeHeaderValue("application/json; charset=utf-8")` throws the SAME `FormatException` as `StringContent` with the same input. Fixed 6 sites total: `CustomerIdentityController` ×4 (otp/send, otp/verify, upgrade/send-otp, upgrade/verify-otp), `CustomerProfileController` ×1, `MissionsController` ×1. Fix pattern: `(Request.ContentType ?? "application/json").Split(';', StringSplitOptions.TrimEntries)[0]` before passing to `MediaTypeHeaderValue`. **Pattern #10 added to governance.md Known Error Pattern Registry** — applies to ALL future Gateway forward controllers. Build Gateway project: 0 errors. Branch: `main`.
+
+* **2026-08-05 — #99-3 PHASE A COMPLETE + DEPLOYED + VPS RV PASS.** Loyalty Points Visibility + Shop Owner Dashboard. 4 commits: `37c29e01` (Phase A initial) → `7b5c0788` (nav link auth fix) → `c0756ad8` (TenantId LINQ fix) → `25b6bf03` (OrderStatus LINQ fix). All CI PASS + CD SUCCESS. VPS RV: 11 PASS, 0 FAIL, 2 browser-verify pending (V6/V7 — Blazor Server renders client-side, curl cannot verify). API `GET /api/loyalty/dashboard` returns real data: `{"pointsPendingRedemption":18347,"pointsRedeemed":0,"pointsInCampaigns":0,"pointsReserved":0}`. Shop owner login: `adminvanan1` / `Admin@123` at `https://app.khachvip.online/Login`. Phase B (Alliance VND Normalization) PENDING APPROVAL — feature-gated, zero impact on current Silo mode. Branch: `main`.
 
 * **2026-08-05 — FIX: KHACHLINK SRI DEADLOCK (Blazor WASM stuck on loading screen).** Root cause: Users with old Service Worker (pre-v12 or stale cache) get SRI integrity check failure after deploys — old SW serves stale cached `.wasm` while fresh `blazor.boot.json` has new SHA-256 hashes → Blazor blocked → page stuck on loading screen. Server-side verified clean (container `vanan-khachlink` image `e4b8985` build 2026-08-04 18:49 — file hashes match `blazor.boot.json` 100%). Fix: `pwa.js` `controllerchange` handler now auto-reloads when Blazor hasn't booted (loading screen `#vanan-loading-screen` still in DOM) instead of showing a toast user can't see/interact with. After reload, new SW (network-first for `_framework/*`) serves fresh wasm → SRI passes → Blazor boots. Loop guard via `sessionStorage` timestamp (10s) prevents infinite reload if new SW also broken. SW cache version bumped `v16-push-alerts` → `v17-sri-deadlock-fix` (activate event auto-deletes old caches). Files: `5_WebApps/KhachLink/wwwroot/js/pwa.js`, `5_WebApps/KhachLink/wwwroot/service-worker.js`. Build: 0 errors. Branch: `main`.
 * **2026-08-05 — SRS: INVENTORY INTELLIGENCE ENGINE (VA-IIE) CREATED.** Authored SRS document `docs/requirements/Van_An_SRS_Inventory_Intelligence_Engine.md` (686 lines, 31KB) from "ĐẦM COFFEE — BÁO CÁO CUỐI CA" analysis. Generalizes shift-end paper report into full F&B ERP intelligence engine: Shift Report digitalization, Recipe/BOM management, Theoretical Consumption calculation (POS × Recipe), Variance Analysis (actual vs theoretical), Alert Engine (10 alert rules: hao hụt/tồn thấp/vượt định mức/gian lận/...), Food Cost/COGS/Waste Ratio reports, Restock/Stockout Forecasting. Data model: 7 new entities (Shift, InventoryCount, Recipe, RecipeLine, Ingredient, ShiftAlert, TheoreticalConsumption) — all Single-Identity Pattern compliant, stored in ShopERP per-tenant SQLite. 5-phase roadmap (Foundation → Intelligence → Forecasting → Polish → Advanced). Scope: toàn ngành F&B (cà phê, nhà hàng, trà sữa, tiệm bánh, fast food, quán ăn). Branch: `main`. No code changes — documentation only.

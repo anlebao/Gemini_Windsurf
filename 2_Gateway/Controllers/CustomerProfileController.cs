@@ -48,9 +48,11 @@ namespace VanAn.Gateway.Controllers
 
                 if (Request.ContentLength > 0)
                 {
+                    // FIX #106: Strip charset from Content-Type — MediaTypeHeaderValue rejects
+                    // "; charset=utf-8" (same bug as Redemption/Loyalty controllers).
+                    var mediaType = (Request.ContentType ?? "application/json").Split(';', StringSplitOptions.TrimEntries)[0];
                     reqMsg.Content = new StreamContent(Request.Body);
-                    reqMsg.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
-                        Request.ContentType ?? "application/json");
+                    reqMsg.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(mediaType);
                 }
 
                 var response = await client.SendAsync(reqMsg);
