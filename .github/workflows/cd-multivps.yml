@@ -167,14 +167,19 @@ jobs:
 
           # DIAGNOSTIC: Verify SSH key fingerprint matches local key
           echo "=== SSH Key Diagnostic ==="
-          echo "$VPS_GATEWAY_SSH_PRIVATE_KEY" > /tmp/gw_key
+          printf '%s' "$VPS_GATEWAY_SSH_PRIVATE_KEY" > /tmp/gw_key
           chmod 600 /tmp/gw_key
           echo "Key length (bytes): $(wc -c < /tmp/gw_key)"
-          echo "Key first line: $(head -1 /tmp/gw_key)"
-          echo "Key last line: $(tail -1 /tmp/gw_key)"
-          echo "Key fingerprint:"
-          ssh-keygen -lf /tmp/gw_key 2>&1 || echo "FINGERPRINT_FAILED"
+          echo "Key first 20 chars: $(head -c 20 /tmp/gw_key | od -An -c | head -1)"
+          echo "Key last 20 chars: $(tail -c 20 /tmp/gw_key | od -An -c | head -1)"
+          echo "Key has CRLF: $(grep -c $'\r' /tmp/gw_key || echo 0)"
+          FP=$(ssh-keygen -lf /tmp/gw_key 2>&1)
+          echo "Fingerprint result length: ${#FP}"
+          echo "Fingerprint contains SHA256: $(echo "$FP" | grep -c SHA256 || echo 0)"
           echo "Expected: 2048 SHA256:7po3REun23JbI9KszqFcqtlnSZJqHXMlNSvLLhW3CaA"
+          # Test SSH directly
+          echo "=== Direct SSH test ==="
+          ssh -i /tmp/gw_key -o StrictHostKeyChecking=no -o ConnectTimeout=10 -v lebaoan81@136.85.94.119 "echo SSH_OK" 2>&1 | grep -E "Offering|Authenticating|Authenticated|denied|Permission|methods" || echo "SSH_TEST_FAILED"
           rm -f /tmp/gw_key
 
   # ============================================================
