@@ -120,6 +120,8 @@ jobs:
         run: |
           echo "Validating docker-compose.gateway.yml..."
           docker compose -f docker-compose.gateway.yml config > /dev/null && echo "gateway OK"
+          echo "Validating docker-compose.khachlink.yml..."
+          docker compose -f docker-compose.khachlink.yml config > /dev/null && echo "khachlink OK"
           echo "Validating docker-compose.shoperp.yml..."
           docker compose -f docker-compose.shoperp.yml config > /dev/null && echo "shoperp OK"
 
@@ -131,8 +133,12 @@ jobs:
           VPS_SHOP_HOST: ${{ secrets.VPS_SHOP_HOST }}
           VPS_SHOP_USER: ${{ secrets.VPS_SHOP_USER }}
           VPS_SHOP_SSH_PRIVATE_KEY: ${{ secrets.VPS_SHOP_SSH_PRIVATE_KEY }}
+          VPS_KHACHLINK_HOST: ${{ secrets.VPS_KHACHLINK_HOST }}
+          VPS_KHACHLINK_USER: ${{ secrets.VPS_KHACHLINK_USER }}
+          VPS_KHACHLINK_SSH_PRIVATE_KEY: ${{ secrets.VPS_KHACHLINK_SSH_PRIVATE_KEY }}
           SHOPERP_REMOTE_HOST: ${{ secrets.SHOPERP_REMOTE_HOST }}
           GATEWAY_REMOTE_HOST: ${{ secrets.GATEWAY_REMOTE_HOST }}
+          KHACHLINK_REMOTE_HOST: ${{ secrets.KHACHLINK_REMOTE_HOST }}
           SHOP_INSTANCE_ID: ${{ secrets.SHOP_INSTANCE_ID }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
@@ -143,7 +149,8 @@ jobs:
           missing=0
           for var_name in VPS_GATEWAY_HOST VPS_GATEWAY_USER VPS_GATEWAY_SSH_PRIVATE_KEY \
                           VPS_SHOP_HOST VPS_SHOP_USER VPS_SHOP_SSH_PRIVATE_KEY \
-                          SHOPERP_REMOTE_HOST GATEWAY_REMOTE_HOST SHOP_INSTANCE_ID \
+                          VPS_KHACHLINK_HOST VPS_KHACHLINK_USER VPS_KHACHLINK_SSH_PRIVATE_KEY \
+                          SHOPERP_REMOTE_HOST GATEWAY_REMOTE_HOST KHACHLINK_REMOTE_HOST SHOP_INSTANCE_ID \
                           POSTGRES_PASSWORD JWT_SECRET_KEY SEQ_ADMIN_PASSWORD \
                           VANAN_DOMAIN VAPID_PRIVATE_KEY; do
             val=$(eval echo "\$${var_name}")
@@ -213,7 +220,7 @@ jobs:
           username: ${{ secrets.VPS_GATEWAY_USER }}
           key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
           command_timeout: 40m
-          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_SEQ_PASSWORD,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_SHOPERP_REMOTE_HOST,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET,DEPLOY_VAPID_PRIVATE_KEY,DEPLOY_INTERNAL_LOYALTY_API_KEY
+          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_SEQ_PASSWORD,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_SHOPERP_REMOTE_HOST,DEPLOY_KHACHLINK_REMOTE_HOST,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET,DEPLOY_VAPID_PRIVATE_KEY,DEPLOY_INTERNAL_LOYALTY_API_KEY
           script: |
             set -e
 
@@ -241,6 +248,7 @@ jobs:
             printf '%s\n' \
               "VANAN_DOMAIN=${DEPLOY_VANAN_DOMAIN}" \
               "SHOPERP_REMOTE_HOST=${DEPLOY_SHOPERP_REMOTE_HOST}" \
+              "KHACHLINK_REMOTE_HOST=${DEPLOY_KHACHLINK_REMOTE_HOST}" \
               "POSTGRES_DB=VanAnCoreHub" \
               "POSTGRES_USER=vanan_admin" \
               "POSTGRES_PASSWORD=${DEPLOY_POSTGRES_PASSWORD}" \
@@ -279,13 +287,118 @@ jobs:
           DEPLOY_IMAGE_TAG: ${{ github.event.inputs.image_tag || 'latest' }}
           DEPLOY_VANAN_DOMAIN: ${{ secrets.VANAN_DOMAIN }}
           DEPLOY_SHOPERP_REMOTE_HOST: ${{ secrets.SHOPERP_REMOTE_HOST }}
+          DEPLOY_KHACHLINK_REMOTE_HOST: ${{ secrets.KHACHLINK_REMOTE_HOST }}
           DEPLOY_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           DEPLOY_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           DEPLOY_VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           DEPLOY_INTERNAL_LOYALTY_API_KEY: ${{ secrets.INTERNAL_LOYALTY_API_KEY }}
 
   # ============================================================
-  # Job 4: Deploy to ShopERP VPS (runs AFTER Gateway to ensure NATS+PG are up)
+  # Job 4: Deploy to KhachLink VPS (runs AFTER Gateway to ensure API is up)
+  # ============================================================
+  deploy-khachlink:
+    name: Deploy to KhachLink VPS
+    runs-on: ubuntu-latest
+    needs: [build-and-push, pre-deployment-validation, deploy-gateway]
+    if: always() && !cancelled() && needs.deploy-gateway.result == 'success'
+    timeout-minutes: 45
+    environment: production-khachlink
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare deploy directory on KhachLink VPS
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_KHACHLINK_HOST }}
+          username: ${{ secrets.VPS_KHACHLINK_USER }}
+          key: ${{ secrets.VPS_KHACHLINK_SSH_PRIVATE_KEY }}
+          script: |
+            sudo mkdir -p /opt/vanan
+            sudo chown $USER:$USER /opt/vanan
+
+      - name: Copy KhachLink deploy files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_KHACHLINK_HOST }}
+          username: ${{ secrets.VPS_KHACHLINK_USER }}
+          key: ${{ secrets.VPS_KHACHLINK_SSH_PRIVATE_KEY }}
+          source: "docker-compose.khachlink.yml,scripts/deploy-khachlink.sh"
+          target: "/opt/vanan"
+          overwrite: true
+          debug: true
+
+      - name: Bootstrap & Deploy KhachLink
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_KHACHLINK_HOST }}
+          username: ${{ secrets.VPS_KHACHLINK_USER }}
+          key: ${{ secrets.VPS_KHACHLINK_SSH_PRIVATE_KEY }}
+          command_timeout: 40m
+          envs: DEPLOY_SEQ_PASSWORD,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_GATEWAY_REMOTE_HOST,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET,DEPLOY_VAPID_PRIVATE_KEY
+          script: |
+            set -e
+
+            # Bootstrap Docker (idempotent)
+            if ! command -v docker > /dev/null 2>&1; then
+              echo "Installing Docker..."
+              curl -fsSL https://get.docker.com | sh
+              sudo usermod -aG docker $USER
+            fi
+            if ! sudo docker compose version > /dev/null 2>&1; then
+              echo "Installing Docker Compose plugin..."
+              sudo apt-get update -qq && sudo apt-get install -y docker-compose-plugin
+            fi
+
+            cd /opt/vanan
+
+            # Write .env.khachlink (preserve existing Google/VAPID if GitHub secrets are empty)
+            EXISTING_GOOGLE_ID=$(grep -E '^GOOGLE_CLIENT_ID=' .env.khachlink 2>/dev/null | cut -d= -f2- || echo "")
+            EXISTING_GOOGLE_SECRET=$(grep -E '^GOOGLE_CLIENT_SECRET=' .env.khachlink 2>/dev/null | cut -d= -f2- || echo "")
+            FINAL_GOOGLE_ID="${DEPLOY_GOOGLE_CLIENT_ID:-$EXISTING_GOOGLE_ID}"
+            FINAL_GOOGLE_SECRET="${DEPLOY_GOOGLE_CLIENT_SECRET:-$EXISTING_GOOGLE_SECRET}"
+            EXISTING_VAPID_KEY=$(grep -E '^VAPID_PRIVATE_KEY=' .env.khachlink 2>/dev/null | cut -d= -f2- || echo "")
+            FINAL_VAPID_KEY="${DEPLOY_VAPID_PRIVATE_KEY:-$EXISTING_VAPID_KEY}"
+
+            printf '%s\n' \
+              "VANAN_DOMAIN=${DEPLOY_VANAN_DOMAIN}" \
+              "GATEWAY_REMOTE_HOST=${DEPLOY_GATEWAY_REMOTE_HOST}" \
+              "SEQ_ADMIN_PASSWORD=${DEPLOY_SEQ_PASSWORD}" \
+              "IMAGE_PREFIX=${DEPLOY_REGISTRY}/${DEPLOY_REPO_OWNER}" \
+              "IMAGE_TAG=${DEPLOY_IMAGE_TAG}" \
+              "GOOGLE_CLIENT_ID=${FINAL_GOOGLE_ID}" \
+              "GOOGLE_CLIENT_SECRET=${FINAL_GOOGLE_SECRET}" \
+              "VAPID_PRIVATE_KEY=${FINAL_VAPID_KEY}" \
+              > .env.khachlink
+
+            # Login to GHCR
+            echo "${DEPLOY_GITHUB_TOKEN}" | sudo docker login ghcr.io -u "${DEPLOY_GITHUB_ACTOR}" --password-stdin
+
+            # Pull & restart
+            sudo docker compose -f docker-compose.khachlink.yml --env-file .env.khachlink pull
+            sudo docker compose -f docker-compose.khachlink.yml --env-file .env.khachlink up -d --remove-orphans
+
+            # Health check
+            sleep 30
+            sudo docker compose -f docker-compose.khachlink.yml --env-file .env.khachlink ps
+
+            echo "KhachLink VPS deploy complete!"
+        env:
+          DEPLOY_SEQ_PASSWORD: ${{ secrets.SEQ_ADMIN_PASSWORD }}
+          DEPLOY_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_GITHUB_ACTOR: ${{ github.actor }}
+          DEPLOY_REGISTRY: ${{ env.REGISTRY }}
+          DEPLOY_REPO_OWNER: ${{ github.repository_owner }}
+          DEPLOY_IMAGE_TAG: ${{ github.event.inputs.image_tag || 'latest' }}
+          DEPLOY_VANAN_DOMAIN: ${{ secrets.VANAN_DOMAIN }}
+          DEPLOY_GATEWAY_REMOTE_HOST: ${{ secrets.GATEWAY_REMOTE_HOST }}
+          DEPLOY_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          DEPLOY_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          DEPLOY_VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+
+  # ============================================================
+  # Job 5: Deploy to ShopERP VPS (runs AFTER Gateway to ensure NATS+PG are up)
   # ============================================================
   deploy-shoperp:
     name: Deploy to ShopERP VPS
@@ -413,12 +526,12 @@ jobs:
           DEPLOY_INTERNAL_LOYALTY_API_KEY: ${{ secrets.INTERNAL_LOYALTY_API_KEY }}
 
   # ============================================================
-  # Job 5: Post-Deploy Smoke Test
+  # Job 6: Post-Deploy Smoke Test
   # ============================================================
   smoke-test:
     name: Post-Deploy Smoke Test
     runs-on: ubuntu-latest
-    needs: [deploy-gateway, deploy-shoperp]
+    needs: [deploy-gateway, deploy-khachlink, deploy-shoperp]
     if: always() && !cancelled() && needs.deploy-shoperp.result == 'success'
     timeout-minutes: 5
 
@@ -433,6 +546,15 @@ jobs:
           curl -fsS --max-time 30 "https://api.${{ secrets.VANAN_DOMAIN }}/health" || \
           { echo "::warning::Gateway health check failed (may need SSL setup first)"; }
 
+      - name: Test KhachLink health
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_KHACHLINK_HOST }}
+          username: ${{ secrets.VPS_KHACHLINK_USER }}
+          key: ${{ secrets.VPS_KHACHLINK_SSH_PRIVATE_KEY }}
+          script: |
+            curl -fsS --max-time 30 http://localhost/health && echo "KhachLink health OK"
+
       - name: Test ShopERP health
         uses: appleboy/ssh-action@v1.2.5
         with:
@@ -446,6 +568,7 @@ jobs:
         run: |
           echo "=== Multi-VPS Deploy Summary ==="
           echo "Gateway VPS: ${{ secrets.VPS_GATEWAY_HOST }}"
+          echo "KhachLink VPS: ${{ secrets.VPS_KHACHLINK_HOST }}"
           echo "ShopERP VPS: ${{ secrets.VPS_SHOP_HOST }}"
           echo "ShopInstance ID: ${{ secrets.SHOP_INSTANCE_ID }}"
           echo "Image tag: ${{ github.event.inputs.image_tag || 'latest' }}"

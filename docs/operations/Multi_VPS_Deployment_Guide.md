@@ -1,10 +1,10 @@
-# Multi-VPS Deployment Guide — VanAn Option C
+# Multi-VPS Deployment Guide — VanAn Option C (3-VPS Split)
 
-> **Mục đích:** Hướng dẫn deploy VanAn ecosystem trên 2 VPS Google Cloud (Gateway VPS + ShopERP VPS) theo kiến trúc Option C.
+> **Mục đích:** Hướng dẫn deploy VanAn ecosystem trên 3 VPS Google Cloud (Gateway VPS + KhachLink VPS + ShopERP VPS) theo kiến trúc Option C.
 >
-> **Prerequisites:** Đã hoàn thành `GCP_Registration_StepByStep.md` (2 VPS đã tạo, VPC + firewall OK, ping giữa 2 VPS thành công).
+> **Prerequisites:** Đã hoàn thành `GCP_Registration_StepByStep.md` (3 VPS đã tạo, VPC + firewall OK, ping giữa các VPS thành công).
 >
-> **Cập nhật:** 2026-08-06
+> **Cập nhật:** 2026-08-07
 
 ---
 
@@ -12,7 +12,8 @@
 
 | VPS | External IP | Internal IP | Spec | Vai trò |
 |---|---|---|---|---|
-| vanan-gateway | 136.85.94.119 | 10.148.0.2 | e2-small, Debian 12 | PostgreSQL + NATS + Gateway + KhachLink + nginx |
+| vanan-gateway | 136.85.94.119 | 10.148.0.2 | e2-small, Debian 12 | PostgreSQL + NATS + Gateway + nginx (4 containers) |
+| vanan-khachlink | TBD | 10.148.0.4 | e2-small, Debian 12 | KhachLink + Seq + Certbot (3 containers) |
 | vanan-shop-a | 34.177.89.248 | 10.148.0.3 | e2-small, Debian 12 | ShopERP (per-tenant SQLite + NATS subscriber) |
 
 **ShopInstance ID cho vanan-shop-a:** `9e94f876-27bd-4a16-a85b-b5f42620bc6e`
@@ -20,7 +21,7 @@
 
 ---
 
-## 1. Kiến trúc tổng quan
+## 1. Kiến trúc tổng quan (3-VPS Split)
 
 ```
                     ┌─────────────────────────────────────────────┐
@@ -29,14 +30,12 @@
                     │                                             │
    Internet ───────┤  nginx (80/443)                              │
                     │    ├─ api.*  → Gateway (local)              │
-                    │    ├─ diemthuong.* → KhachLink (local)      │
+                    │    ├─ diemthuong.* → KhachLink (REMOTE)     │
                     │    └─ app.* + www.* → ShopERP (REMOTE)      │
                     │                                             │
                     │  PostgreSQL (5432 exposed for VPC)          │
                     │  NATS (4222 exposed for VPC)                │
                     │  Gateway API (internal)                     │
-                    │  KhachLink (internal)                       │
-                    │  Seq logs (localhost:5341)                  │
                     └──────────────┬──────────────────────────────┘
                                    │ VPC internal (free egress)
                                    │ nats://10.148.0.2:4222
@@ -52,22 +51,38 @@
                     │                                             │
                     │  No nginx, no PostgreSQL, no NATS server    │
                     └─────────────────────────────────────────────┘
+
+                    ┌─────────────────────────────────────────────┐
+                    │           vanan-khachlink VPS               │
+                    │           (10.148.0.4)                      │
+                    │                                             │
+                    │  KhachLink (port 80)                        │
+                    │    └─ Calls Gateway API via VPC             │
+                    │  Seq (port 5341)                            │
+                    │    └─ Receives Serilog logs from Gateway    │
+                    │  Certbot (SSL renewal)                      │
+                    │                                             │
+                    │  No nginx, no PostgreSQL, no NATS server    │
+                    └─────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Files đã tạo cho multi-VPS
+## 2. Files đã tạo cho multi-VPS (3-VPS split)
 
 | File | Vai trò |
 |---|---|
-| `.github/workflows/cd-multivps.yml` | **GitHub Actions workflow — build + deploy 2 VPS** |
-| `docker-compose.gateway.yml` | Compose cho Gateway VPS (postgres + nats + seq + gateway + khachlink + nginx) |
+| `.github/workflows/cd-multivps.yml` | **GitHub Actions workflow — build + deploy 3 VPS** |
+| `docker-compose.gateway.yml` | Compose cho Gateway VPS (postgres + nats + gateway + nginx) |
+| `docker-compose.khachlink.yml` | Compose cho KhachLink VPS (khachlink + seq + certbot) |
 | `docker-compose.shoperp.yml` | Compose cho ShopERP VPS (shoperp only, remote NATS/PG) |
-| `nginx/templates/vanan.multivps.conf.template` | nginx config proxy app.*/www.* sang remote ShopERP |
-| `nginx/docker-entrypoint.multivps.sh` | Entrypoint substitute `VANAN_DOMAIN` + `SHOPERP_REMOTE_HOST` |
+| `nginx/templates/vanan.multivps.conf.template` | nginx config proxy app.*/www.* → ShopERP, diemthuong.* → KhachLink |
+| `nginx/docker-entrypoint.multivps.sh` | Entrypoint substitute `VANAN_DOMAIN` + `SHOPERP_REMOTE_HOST` + `KHACHLINK_REMOTE_HOST` |
 | `.env.gateway.example` | Template env vars cho Gateway VPS |
+| `.env.khachlink.example` | Template env vars cho KhachLink VPS |
 | `.env.shoperp.example` | Template env vars cho ShopERP VPS |
 | `scripts/deploy-gateway.sh` | Bootstrap script cho Gateway VPS (manual deploy) |
+| `scripts/deploy-khachlink.sh` | Bootstrap script cho KhachLink VPS (manual deploy) |
 | `scripts/deploy-shoperp.sh` | Bootstrap script cho ShopERP VPS (manual deploy) |
 
 ---

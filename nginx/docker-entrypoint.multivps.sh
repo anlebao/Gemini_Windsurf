@@ -1,11 +1,12 @@
 #!/bin/sh
 # nginx/docker-entrypoint.multivps.sh
-# Multi-VPS variant: generates nginx config from vanan.multivps.conf.template
-# Substitutes VANAN_DOMAIN + SHOPERP_REMOTE_HOST (VPC internal IP of ShopERP VPS).
+# Multi-VPS variant (3-VPS split): generates nginx config from vanan.multivps.conf.template
+# Substitutes VANAN_DOMAIN + SHOPERP_REMOTE_HOST + KHACHLINK_REMOTE_HOST (VPC internal IPs).
 #
 # Required env:
 #   VANAN_DOMAIN (e.g. khachvip.online)
 #   SHOPERP_REMOTE_HOST (e.g. 10.148.0.3 — VPC internal IP of ShopERP VPS)
+#   KHACHLINK_REMOTE_HOST (e.g. 10.148.0.4 — VPC internal IP of KhachLink VPS)
 set -e
 
 CONF_DIR="/etc/nginx/conf.d"
@@ -23,24 +24,26 @@ if [ -z "$SHOPERP_REMOTE_HOST" ]; then
     exit 1
 fi
 
+if [ -z "$KHACHLINK_REMOTE_HOST" ]; then
+    echo "[nginx-entrypoint-multivps] ERROR: KHACHLINK_REMOTE_HOST env var is not set."
+    echo "  Set it to the VPC internal IP of the KhachLink VPS (e.g. 10.148.0.4)."
+    exit 1
+fi
+
 # Ensure envsubst is available
 if ! command -v envsubst > /dev/null 2>&1; then
     echo "[nginx-entrypoint-multivps] Installing gettext for envsubst..."
     apk add --no-cache gettext > /dev/null 2>&1
 fi
 
-# Substitute BOTH vars — preserve nginx's own $host, $http_upgrade, etc.
-ENVSUBST_VARS='${VANAN_DOMAIN} ${SHOPERP_REMOTE_HOST}'
+# Substitute all 3 vars — preserve nginx's own $host, $http_upgrade, etc.
+ENVSUBST_VARS='${VANAN_DOMAIN} ${SHOPERP_REMOTE_HOST} ${KHACHLINK_REMOTE_HOST}'
 
 if [ -f "$CERT_PATH" ]; then
     echo "[nginx-entrypoint-multivps] SSL cert found — generating HTTPS multi-VPS config"
     envsubst "$ENVSUBST_VARS" < "${TEMPLATE_DIR}/vanan.multivps.conf.template" > "${CONF_DIR}/vanan.conf"
 else
     echo "[nginx-entrypoint-multivps] SSL cert NOT found — generating HTTP-only multi-VPS config"
-    # Fallback: use the multivps template but cert lines will fail — for first deploy without SSL,
-    # use the HTTP-only template instead (see vanan-http.conf.template, adapt for multivps if needed).
-    # For MVP: just use multivps template, nginx will start but SSL server blocks will error.
-    # Workaround for first deploy: comment out SSL blocks or use HTTP-only.
     envsubst "$ENVSUBST_VARS" < "${TEMPLATE_DIR}/vanan.multivps.conf.template" > "${CONF_DIR}/vanan.conf"
 fi
 

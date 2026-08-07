@@ -1,0 +1,78 @@
+version: '3.8'
+
+# Multi-VPS Deployment — KhachLink VPS (Option C, 3-VPS split)
+# Deploy on: vanan-khachlink VPS
+# Containers: seq (logging) + khachlink (client UI) + certbot (SSL renewal)
+# Connects to Gateway VPS via VPC internal IP for API calls.
+# Usage: docker compose -f docker-compose.khachlink.yml up -d
+# Requires: .env.khachlink file with all variables set
+
+services:
+  seq:
+    image: datalust/seq:latest
+    container_name: vanan-seq
+    environment:
+      - ACCEPT_EULA=Y
+      - SEQ_FIRSTRUN_ADMINPASSWORD=${SEQ_ADMIN_PASSWORD}
+    volumes:
+      - seq_data:/data
+    networks:
+      - vanan-network
+    ports:
+      - "5341:80"  # Seq UI — accessible from Gateway VPS via VPC for Serilog sink
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  khachlink:
+    image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-khachlink:${IMAGE_TAG:-latest}
+    container_name: vanan-khachlink
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      # KhachLink calls Gateway API via VPC internal IP
+      - ApiSettings__GatewayBaseUrl=http://${GATEWAY_REMOTE_HOST}:80/
+      - Authentication__Google__ClientId=${GOOGLE_CLIENT_ID}
+      - Authentication__Google__ClientSecret=${GOOGLE_CLIENT_SECRET}
+      - VAPID__PrivateKey=${VAPID_PRIVATE_KEY}
+      - Cors__AllowedOrigins__0=https://${VANAN_DOMAIN}
+      - Cors__AllowedOrigins__1=https://diemthuong.${VANAN_DOMAIN}
+    networks:
+      - vanan-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: vanan-certbot
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_conf:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done'"
+    restart: unless-stopped
+
+volumes:
+  seq_data:
+  certbot_www:
+  certbot_conf:
+
+networks:
+  vanan-network:
+    driver: bridge

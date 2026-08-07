@@ -2,7 +2,8 @@
 # Multi-VPS nginx config — ${VANAN_DOMAIN}
 # Generated from template by docker-entrypoint.sh (envsubst)
 # ShopERP runs on REMOTE VPS (${SHOPERP_REMOTE_HOST}) — proxied via VPC internal IP.
-# Gateway + KhachLink run locally on this (gateway) VPS.
+# KhachLink runs on REMOTE VPS (${KHACHLINK_REMOTE_HOST}) — proxied via VPC internal IP.
+# Gateway runs locally on this (gateway) VPS.
 # ============================================================
 
 # ============================================================
@@ -62,7 +63,7 @@ server {
 }
 
 # ============================================================
-# diemthuong.${VANAN_DOMAIN} — KhachLink (customer PWA) — LOCAL
+# diemthuong.${VANAN_DOMAIN} — KhachLink (customer PWA) — REMOTE VPS
 # ============================================================
 server {
     listen 80;
@@ -90,7 +91,7 @@ server {
 
     # Blazor WASM immutable assets — exempt from rate limit
     location /_framework/ {
-        proxy_pass         http://vanan-khachlink:80;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -103,7 +104,7 @@ server {
 
     location / {
         limit_req zone=web burst=20 nodelay;
-        proxy_pass         http://vanan-khachlink:80;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
         proxy_set_header   Connection "upgrade";
@@ -116,7 +117,7 @@ server {
 
     location /_blazor {
         limit_req zone=web burst=20 nodelay;
-        proxy_pass         http://vanan-khachlink:80;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
         proxy_set_header   Connection "upgrade";

@@ -1,8 +1,10 @@
 version: '3.8'
 
-# Multi-VPS Deployment — Gateway VPS (Option C)
-# Deploy on: vanan-gateway VPS (PostgreSQL source of truth + NATS + Gateway + KhachLink + nginx)
-# ShopERP runs on a SEPARATE VPS (vanan-shop-a) — connects to NATS via VPC internal IP.
+# Multi-VPS Deployment — Gateway VPS (Option C, 3-VPS split)
+# Deploy on: vanan-gateway VPS
+# Containers: postgres + nats + gateway + nginx (4 containers — fits e2-small 2GB)
+# Seq + KhachLink + Certbot run on SEPARATE VPS (vanan-khachlink).
+# ShopERP runs on SEPARATE VPS (vanan-shop-a).
 # Usage: docker compose -f docker-compose.gateway.yml up -d
 # Requires: .env.gateway file with all variables set
 
@@ -19,8 +21,6 @@ services:
     networks:
       - vanan-network
     # Multi-VPS: expose 5432 on host so shop-a VPS can connect via VPC internal IP.
-    # Security: GCP firewall rule 'allow-postgres-internal' must restrict source to shop-erp tag / VPC subnet.
-    # NEVER expose 5432 to 0.0.0.0/0 on public internet.
     ports:
       - "5432:5432"
     healthcheck:
@@ -36,35 +36,13 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  seq:
-    image: datalust/seq:latest
-    container_name: vanan-seq
-    environment:
-      - ACCEPT_EULA=Y
-      - SEQ_FIRSTRUN_ADMINPASSWORD=${SEQ_ADMIN_PASSWORD}
-    volumes:
-      - seq_data:/data
-    networks:
-      - vanan-network
-    ports:
-      - "127.0.0.1:5341:80"  # Seq UI only via localhost (SSH tunnel)
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   nats:
     image: nats:2.10-alpine
     container_name: vanan-nats
-    # Multi-VPS: NATS must listen on 0.0.0.0 so shop-a VPS can connect via VPC internal IP.
-    # Port 4222 published to host so remote VPS reaches it via <gateway-internal-ip>:4222.
-    # Port 8222 (monitoring) only on localhost for security.
     command: ["-js", "-sd", "/data/jetstream", "-m", "8222"]
     ports:
-      - "4222:4222"        # NATS client — accessible from shop-a VPS via VPC (firewall rule allow-nats-internal)
-      - "127.0.0.1:8222:8222"  # NATS monitoring — localhost only
+      - "4222:4222"
+      - "127.0.0.1:8222:8222"
     volumes:
       - nats_data:/data/jetstream
     networks:
@@ -96,7 +74,8 @@ services:
       - Jwt__Secret=${JWT_SECRET_KEY}
       - Cors__AllowedOrigins__0=https://${VANAN_DOMAIN}
       - Cors__AllowedOrigins__1=https://diemthuong.${VANAN_DOMAIN}
-      - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
+      # Seq runs on remote KhachLink VPS — use Serilog sink via HTTP
+      - Serilog__WriteTo__1__Args__serverUrl=http://${KHACHLINK_REMOTE_HOST}:5341
       # Multi-VPS: ShopERP BaseUrl points to REMOTE VPS via VPC internal IP
       - ShopERP__BaseUrl=http://${SHOPERP_REMOTE_HOST}:80/
       - InternalLoyalty__ApiKey=${INTERNAL_LOYALTY_API_KEY:-vanan-internal-loyalty-prod-2026}
@@ -124,36 +103,13 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  khachlink:
-    image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-khachlink:${IMAGE_TAG:-latest}
-    container_name: vanan-khachlink
-    networks:
-      - vanan-network
-    depends_on:
-      - gateway
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 10s
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 256m
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   nginx:
     image: nginx:1.25-alpine
     container_name: vanan-nginx
     environment:
       - VANAN_DOMAIN=${VANAN_DOMAIN}
       - SHOPERP_REMOTE_HOST=${SHOPERP_REMOTE_HOST}
+      - KHACHLINK_REMOTE_HOST=${KHACHLINK_REMOTE_HOST}
     ports:
       - "80:80"
       - "443:443"
@@ -169,7 +125,6 @@ services:
       - vanan-network
     depends_on:
       - gateway
-      - khachlink
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -177,19 +132,9 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  certbot:
-    image: certbot/certbot:latest
-    container_name: vanan-certbot
-    volumes:
-      - certbot_www:/var/www/certbot
-      - certbot_conf:/etc/letsencrypt
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done'"
-    restart: unless-stopped
-
 volumes:
   postgres_data:
   nats_data:
-  seq_data:
   certbot_www:
   certbot_conf:
 
