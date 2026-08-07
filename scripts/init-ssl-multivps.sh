@@ -56,7 +56,6 @@ sudo docker run --rm \
   --email "$EMAIL" \
   --agree-tos \
   --no-eff-email \
-  -d "$DOMAIN" \
   -d "www2.$DOMAIN" \
   -d "api2.$DOMAIN" \
   -d "app2.$DOMAIN" \
