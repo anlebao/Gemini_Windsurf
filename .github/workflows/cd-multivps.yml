@@ -213,7 +213,7 @@ jobs:
           host: ${{ secrets.VPS_GATEWAY_HOST }}
           username: ${{ secrets.VPS_GATEWAY_USER }}
           key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
-          source: "docker-compose.gateway.yml,nginx/,scripts/deploy-gateway.sh"
+          source: "docker-compose.gateway.yml,nginx/,scripts/deploy-gateway.sh,scripts/init-ssl-multivps.sh"
           target: "/opt/vanan"
           overwrite: true
           debug: true
