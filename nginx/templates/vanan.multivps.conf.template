@@ -27,8 +27,8 @@ server {
     listen 443 ssl http2;
     server_name ${VANAN_DOMAIN} www2.${VANAN_DOMAIN};
 
-    ssl_certificate     /etc/letsencrypt/live/${VANAN_DOMAIN}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${VANAN_DOMAIN}/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/www2.${VANAN_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/www2.${VANAN_DOMAIN}/privkey.pem;
     ssl_protocols       TLSv1.2 TLSv1.3;
     ssl_ciphers         HIGH:!aNULL:!MD5;
     ssl_session_cache   shared:SSL:10m;
@@ -82,8 +82,8 @@ server {
     listen 443 ssl http2;
     server_name diemthuong2.${VANAN_DOMAIN};
 
-    ssl_certificate     /etc/letsencrypt/live/${VANAN_DOMAIN}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${VANAN_DOMAIN}/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/www2.${VANAN_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/www2.${VANAN_DOMAIN}/privkey.pem;
     ssl_protocols       TLSv1.2 TLSv1.3;
     ssl_ciphers         HIGH:!aNULL:!MD5;
     ssl_session_cache   shared:SSL:10m;
@@ -148,8 +148,8 @@ server {
     listen 443 ssl http2;
     server_name app2.${VANAN_DOMAIN};
 
-    ssl_certificate     /etc/letsencrypt/live/${VANAN_DOMAIN}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${VANAN_DOMAIN}/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/www2.${VANAN_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/www2.${VANAN_DOMAIN}/privkey.pem;
     ssl_protocols       TLSv1.2 TLSv1.3;
     ssl_ciphers         HIGH:!aNULL:!MD5;
     ssl_session_cache   shared:SSL:10m;
@@ -202,8 +202,8 @@ server {
     listen 443 ssl http2;
     server_name api2.${VANAN_DOMAIN};
 
-    ssl_certificate     /etc/letsencrypt/live/${VANAN_DOMAIN}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${VANAN_DOMAIN}/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/www2.${VANAN_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/www2.${VANAN_DOMAIN}/privkey.pem;
     ssl_protocols       TLSv1.2 TLSv1.3;
     ssl_ciphers         HIGH:!aNULL:!MD5;
     ssl_session_cache   shared:SSL:10m;

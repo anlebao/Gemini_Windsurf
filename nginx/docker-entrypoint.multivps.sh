@@ -11,7 +11,8 @@ set -e
 
 CONF_DIR="/etc/nginx/conf.d"
 TEMPLATE_DIR="/etc/nginx/templates"
-CERT_PATH="/etc/letsencrypt/live/${VANAN_DOMAIN}/fullchain.pem"
+# Cert is issued with www2.${VANAN_DOMAIN} as primary CN (apex points to Oracle VPS)
+CERT_PATH="/etc/letsencrypt/live/www2.${VANAN_DOMAIN}/fullchain.pem"
 
 if [ -z "$VANAN_DOMAIN" ]; then
     echo "[nginx-entrypoint-multivps] ERROR: VANAN_DOMAIN env var is not set."
