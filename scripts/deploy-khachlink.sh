@@ -85,6 +85,9 @@ docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" pull
 # ----------------------------------------
 # 6. Start KhachLink + Seq + Certbot
 # ----------------------------------------
+echo "[deploy] Stopping existing services..."
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down --remove-orphans 2>/dev/null || true
+
 echo "[deploy] Starting services..."
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --remove-orphans
 

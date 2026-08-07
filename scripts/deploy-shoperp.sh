@@ -113,6 +113,9 @@ docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" pull
 # ----------------------------------------
 # 6. Start ShopERP
 # ----------------------------------------
+echo "[deploy] Stopping existing ShopERP..."
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down --remove-orphans 2>/dev/null || true
+
 echo "[deploy] Starting ShopERP..."
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --remove-orphans
 
