@@ -7,11 +7,11 @@
 # ============================================================
 
 # ============================================================
-# ${VANAN_DOMAIN} / www.${VANAN_DOMAIN} — ShopERP (Blazor) on REMOTE VPS
+# ${VANAN_DOMAIN} / www2.${VANAN_DOMAIN} — ShopERP (Blazor) on REMOTE VPS
 # ============================================================
 server {
     listen 80;
-    server_name ${VANAN_DOMAIN} www.${VANAN_DOMAIN};
+    server_name ${VANAN_DOMAIN} www2.${VANAN_DOMAIN};
 
     # Let's Encrypt ACME challenge
     location /.well-known/acme-challenge/ {
@@ -25,7 +25,7 @@ server {
 
 server {
     listen 443 ssl http2;
-    server_name ${VANAN_DOMAIN} www.${VANAN_DOMAIN};
+    server_name ${VANAN_DOMAIN} www2.${VANAN_DOMAIN};
 
     ssl_certificate     /etc/letsencrypt/live/${VANAN_DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${VANAN_DOMAIN}/privkey.pem;
@@ -63,11 +63,11 @@ server {
 }
 
 # ============================================================
-# diemthuong.${VANAN_DOMAIN} — KhachLink (customer PWA) — REMOTE VPS
+# diemthuong2.${VANAN_DOMAIN} — KhachLink (customer PWA) — REMOTE VPS
 # ============================================================
 server {
     listen 80;
-    server_name diemthuong.${VANAN_DOMAIN};
+    server_name diemthuong2.${VANAN_DOMAIN};
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -80,7 +80,7 @@ server {
 
 server {
     listen 443 ssl http2;
-    server_name diemthuong.${VANAN_DOMAIN};
+    server_name diemthuong2.${VANAN_DOMAIN};
 
     ssl_certificate     /etc/letsencrypt/live/${VANAN_DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${VANAN_DOMAIN}/privkey.pem;
@@ -129,11 +129,11 @@ server {
 }
 
 # ============================================================
-# app.${VANAN_DOMAIN} — ShopERP (staff portal) on REMOTE VPS
+# app2.${VANAN_DOMAIN} — ShopERP (staff portal) on REMOTE VPS
 # ============================================================
 server {
     listen 80;
-    server_name app.${VANAN_DOMAIN};
+    server_name app2.${VANAN_DOMAIN};
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -146,7 +146,7 @@ server {
 
 server {
     listen 443 ssl http2;
-    server_name app.${VANAN_DOMAIN};
+    server_name app2.${VANAN_DOMAIN};
 
     ssl_certificate     /etc/letsencrypt/live/${VANAN_DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${VANAN_DOMAIN}/privkey.pem;
@@ -183,11 +183,11 @@ server {
 }
 
 # ============================================================
-# api.${VANAN_DOMAIN} — Gateway (REST API) — LOCAL
+# api2.${VANAN_DOMAIN} — Gateway (REST API) — LOCAL
 # ============================================================
 server {
     listen 80;
-    server_name api.${VANAN_DOMAIN};
+    server_name api2.${VANAN_DOMAIN};
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -200,7 +200,7 @@ server {
 
 server {
     listen 443 ssl http2;
-    server_name api.${VANAN_DOMAIN};
+    server_name api2.${VANAN_DOMAIN};
 
     ssl_certificate     /etc/letsencrypt/live/${VANAN_DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${VANAN_DOMAIN}/privkey.pem;

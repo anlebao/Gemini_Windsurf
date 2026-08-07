@@ -73,7 +73,9 @@ services:
       - Authentication__JwtSettings__SecretKey=${JWT_SECRET_KEY}
       - Jwt__Secret=${JWT_SECRET_KEY}
       - Cors__AllowedOrigins__0=https://${VANAN_DOMAIN}
-      - Cors__AllowedOrigins__1=https://diemthuong.${VANAN_DOMAIN}
+      - Cors__AllowedOrigins__1=https://www2.${VANAN_DOMAIN}
+      - Cors__AllowedOrigins__2=https://diemthuong2.${VANAN_DOMAIN}
+      - Cors__AllowedOrigins__3=https://app2.${VANAN_DOMAIN}
       # Seq runs on remote KhachLink VPS — use Serilog sink via HTTP
       - Serilog__WriteTo__1__Args__serverUrl=http://${KHACHLINK_REMOTE_HOST}:5341
       # Multi-VPS: ShopERP BaseUrl points to REMOTE VPS via VPC internal IP

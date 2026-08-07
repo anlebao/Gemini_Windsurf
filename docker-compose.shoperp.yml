@@ -30,7 +30,7 @@ services:
       # Auth — JWT shared with Gateway
       - Jwt__Secret=${JWT_SECRET_KEY}
       - Authentication__Authority=https://api.${VANAN_DOMAIN}
-      - ExternalUrls__KhachLink=https://diemthuong.${VANAN_DOMAIN}
+      - ExternalUrls__KhachLink=https://diemthuong2.${VANAN_DOMAIN}
       - Auth__CookieDomain=.${VANAN_DOMAIN}
       # Seed data
       - Seed__OwnerUsername=${SHOPERP_OWNER_USERNAME:-adminvanan1}
@@ -54,7 +54,7 @@ services:
       - Google__ClientId=${GOOGLE_CLIENT_ID}
       - Google__ClientSecret=${GOOGLE_CLIENT_SECRET}
       - Google__CallbackBaseUrl=${GOOGLE_CALLBACK_BASE_URL:-https://api.${VANAN_DOMAIN}}
-      - Google__KhachLinkLoginUrl=${GOOGLE_KHACHLINK_LOGIN_URL:-https://diemthuong.${VANAN_DOMAIN}/login}
+      - Google__KhachLinkLoginUrl=${GOOGLE_KHACHLINK_LOGIN_URL:-https://diemthuong2.${VANAN_DOMAIN}/login}
     volumes:
       - shoperp_data:/app/keys
     ports:

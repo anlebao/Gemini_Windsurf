@@ -39,7 +39,7 @@ services:
       - Authentication__Google__ClientSecret=${GOOGLE_CLIENT_SECRET}
       - VAPID__PrivateKey=${VAPID_PRIVATE_KEY}
       - Cors__AllowedOrigins__0=https://${VANAN_DOMAIN}
-      - Cors__AllowedOrigins__1=https://diemthuong.${VANAN_DOMAIN}
+      - Cors__AllowedOrigins__1=https://diemthuong2.${VANAN_DOMAIN}
     networks:
       - vanan-network
     healthcheck:
