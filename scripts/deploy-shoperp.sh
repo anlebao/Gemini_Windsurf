@@ -75,8 +75,18 @@ echo "[config] SHOP_INSTANCE_ID=$SHOP_INSTANCE_ID"
 # ----------------------------------------
 # 4. Test connectivity to Gateway VPS (NATS + PostgreSQL)
 # ----------------------------------------
+# Use bash builtin /dev/tcp (no nc dependency) with fallback to nc if available
+test_port() {
+  local host="$1" port="$2"
+  if command -v nc &> /dev/null; then
+    nc -zv "$host" "$port" -w 5 2>&1
+  else
+    timeout 5 bash -c "echo > /dev/tcp/$host/$port" 2>&1
+  fi
+}
+
 echo "[connectivity] Testing NATS port on Gateway VPS..."
-if ! nc -zv "$NATS_REMOTE_HOST" 4222 -w 5 2>&1; then
+if ! test_port "$NATS_REMOTE_HOST" 4222; then
   echo "[error] Cannot reach NATS at ${NATS_REMOTE_HOST}:4222"
   echo "        Check: GCP firewall rule 'allow-nats-internal' allows TCP 4222 from this VPS."
   echo "        Check: NATS container is running on Gateway VPS."
@@ -85,14 +95,10 @@ fi
 echo "[connectivity] NATS reachable ✓"
 
 echo "[connectivity] Testing PostgreSQL port on Gateway VPS..."
-if ! nc -zv "$GATEWAY_REMOTE_HOST" 5432 -w 5 2>&1; then
+if ! test_port "$GATEWAY_REMOTE_HOST" 5432; then
   echo "[error] Cannot reach PostgreSQL at ${GATEWAY_REMOTE_HOST}:5432"
   echo "        Check: GCP firewall rule allows TCP 5432 from this VPS (shop-erp tag)."
   echo "        Check: PostgreSQL container is running on Gateway VPS."
-  echo "        You may need to create a firewall rule:"
-  echo "        gcloud compute firewall-rules create allow-postgres-internal \\"
-  echo "          --direction=INGRESS --action=ALLOW --rules=tcp:5432 \\"
-  echo "          --source-tags=shop-erp --target-tags=gateway --network=vanan-vpc"
   exit 1
 fi
 echo "[connectivity] PostgreSQL reachable ✓"
