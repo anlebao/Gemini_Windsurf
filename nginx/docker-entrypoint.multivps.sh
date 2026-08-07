@@ -44,7 +44,7 @@ if [ -f "$CERT_PATH" ]; then
     envsubst "$ENVSUBST_VARS" < "${TEMPLATE_DIR}/vanan.multivps.conf.template" > "${CONF_DIR}/vanan.conf"
 else
     echo "[nginx-entrypoint-multivps] SSL cert NOT found — generating HTTP-only multi-VPS config"
-    envsubst "$ENVSUBST_VARS" < "${TEMPLATE_DIR}/vanan.multivps.conf.template" > "${CONF_DIR}/vanan.conf"
+    envsubst "$ENVSUBST_VARS" < "${TEMPLATE_DIR}/vanan.multivps.http.conf.template" > "${CONF_DIR}/vanan.conf"
 fi
 
 # Hand off to official nginx entrypoint
