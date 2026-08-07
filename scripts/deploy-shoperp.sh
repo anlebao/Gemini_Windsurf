@@ -14,29 +14,25 @@ echo "Deploy dir: $DEPLOY_DIR"
 echo "Time: $(date)"
 
 # ----------------------------------------
-# 1. Bootstrap Docker (idempotent)
+# 1. Bootstrap Docker (idempotent — skip if already installed)
 # ----------------------------------------
 if ! command -v docker &> /dev/null; then
-  echo "[bootstrap] Installing Docker..."
-  curl -fsSL https://get.docker.com | sh
-  sudo usermod -aG docker "$USER"
-  echo "[bootstrap] Docker installed. Re-run this script if group changes don't take effect."
+  echo "[bootstrap] Docker not installed. Please install Docker first."
+  exit 1
 fi
 
 if ! docker compose version &> /dev/null 2>&1; then
-  echo "[bootstrap] Installing Docker Compose plugin..."
-  sudo apt-get update -qq
-  sudo apt-get install -y docker-compose-plugin
+  echo "[bootstrap] Docker Compose plugin not installed. Please install docker-compose-plugin."
+  exit 1
 fi
 
 echo "[bootstrap] Docker $(docker --version)"
 echo "[bootstrap] Docker Compose $(docker compose version)"
 
 # ----------------------------------------
-# 2. Prepare deploy directory
+# 2. Prepare deploy directory (already created by admin)
 # ----------------------------------------
-sudo mkdir -p "$DEPLOY_DIR"
-sudo chown "$USER":"$USER" "$DEPLOY_DIR"
+mkdir -p "$DEPLOY_DIR"
 
 # ----------------------------------------
 # 3. Validate .env.shoperp exists

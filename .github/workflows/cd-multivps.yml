@@ -204,8 +204,7 @@ jobs:
           username: ${{ secrets.VPS_GATEWAY_USER }}
           key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
           script: |
-            sudo mkdir -p /opt/vanan
-            sudo chown $USER:$USER /opt/vanan
+            mkdir -p /opt/vanan
 
       - name: Copy Gateway deploy files
         uses: appleboy/scp-action@v0.1.7
@@ -320,8 +319,7 @@ jobs:
           username: ${{ secrets.VPS_KHACHLINK_USER }}
           key: ${{ secrets.VPS_KHACHLINK_SSH_PRIVATE_KEY }}
           script: |
-            sudo mkdir -p /opt/vanan
-            sudo chown $USER:$USER /opt/vanan
+            mkdir -p /opt/vanan
 
       - name: Copy KhachLink deploy files
         uses: appleboy/scp-action@v0.1.7
@@ -424,8 +422,7 @@ jobs:
           username: ${{ secrets.VPS_SHOP_USER }}
           key: ${{ secrets.VPS_SHOP_SSH_PRIVATE_KEY }}
           script: |
-            sudo mkdir -p /opt/vanan
-            sudo chown $USER:$USER /opt/vanan
+            mkdir -p /opt/vanan
 
       - name: Copy ShopERP deploy files
         uses: appleboy/scp-action@v0.1.7
