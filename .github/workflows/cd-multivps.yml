@@ -167,7 +167,7 @@ jobs:
 
           # DIAGNOSTIC: Verify SSH key fingerprint matches local key
           echo "=== SSH Key Diagnostic ==="
-          printf '%s' "$VPS_GATEWAY_SSH_PRIVATE_KEY" > /tmp/gw_key
+          printf '%s\n' "$VPS_GATEWAY_SSH_PRIVATE_KEY" > /tmp/gw_key
           chmod 600 /tmp/gw_key
           echo "Key length (bytes): $(wc -c < /tmp/gw_key)"
           echo "Key first 20 chars: $(head -c 20 /tmp/gw_key | od -An -c | head -1)"
