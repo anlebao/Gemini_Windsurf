@@ -174,7 +174,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Prepare deploy directory on Gateway VPS
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.VPS_GATEWAY_HOST }}
           username: ${{ secrets.VPS_GATEWAY_USER }}
@@ -184,7 +184,7 @@ jobs:
             sudo chown $USER:$USER /opt/vanan
 
       - name: Copy Gateway deploy files
-        uses: appleboy/scp-action@v1
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_GATEWAY_HOST }}
           username: ${{ secrets.VPS_GATEWAY_USER }}
@@ -195,7 +195,7 @@ jobs:
           debug: true
 
       - name: Bootstrap & Deploy Gateway
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.VPS_GATEWAY_HOST }}
           username: ${{ secrets.VPS_GATEWAY_USER }}
@@ -287,7 +287,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Prepare deploy directory on ShopERP VPS
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.VPS_SHOP_HOST }}
           username: ${{ secrets.VPS_SHOP_USER }}
@@ -297,7 +297,7 @@ jobs:
             sudo chown $USER:$USER /opt/vanan
 
       - name: Copy ShopERP deploy files
-        uses: appleboy/scp-action@v1
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_SHOP_HOST }}
           username: ${{ secrets.VPS_SHOP_USER }}
@@ -308,7 +308,7 @@ jobs:
           debug: true
 
       - name: Bootstrap & Deploy ShopERP
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.VPS_SHOP_HOST }}
           username: ${{ secrets.VPS_SHOP_USER }}
@@ -420,7 +420,7 @@ jobs:
           { echo "::warning::Gateway health check failed (may need SSL setup first)"; }
 
       - name: Test ShopERP health
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.VPS_SHOP_HOST }}
           username: ${{ secrets.VPS_SHOP_USER }}
