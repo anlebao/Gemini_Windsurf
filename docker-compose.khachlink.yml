@@ -10,7 +10,6 @@ version: '3.8'
 services:
   seq:
     image: datalust/seq:latest
-    container_name: vanan-seq
     environment:
       - ACCEPT_EULA=Y
       - SEQ_FIRSTRUN_ADMINPASSWORD=${SEQ_ADMIN_PASSWORD}
@@ -29,7 +28,6 @@ services:
 
   khachlink:
     image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-khachlink:${IMAGE_TAG:-latest}
-    container_name: vanan-khachlink
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
@@ -63,7 +61,6 @@ services:
 
   certbot:
     image: certbot/certbot:latest
-    container_name: vanan-certbot
     volumes:
       - certbot_www:/var/www/certbot
       - certbot_conf:/etc/letsencrypt

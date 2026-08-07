@@ -72,23 +72,33 @@ cd "$DEPLOY_DIR"
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" pull
 
 # ----------------------------------------
-# 5. Start services
+# 5. Start services (rolling update — no down)
 # ----------------------------------------
-echo "[deploy] Stopping existing services..."
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down --remove-orphans 2>/dev/null || true
-
-echo "[deploy] Starting services..."
+echo "[deploy] Starting services (rolling update)..."
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --remove-orphans
 
 # ----------------------------------------
-# 6. Health check
+# 6. Health check with rollback
 # ----------------------------------------
-echo "[deploy] Waiting 60s for services to stabilize..."
-sleep 60
+echo "[deploy] Waiting 90s for services to stabilize..."
+sleep 90
 
-echo ""
+HEALTHY=$(docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps --format json 2>/dev/null | grep -c '"Health":"healthy"' || echo 0)
+TOTAL=$(docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps --format json 2>/dev/null | wc -l || echo 0)
+
 echo "[deploy] Service status:"
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps
+
+if [ "$HEALTHY" -lt 3 ]; then
+  echo "::error::Health check failed: $HEALTHY/$TOTAL containers healthy"
+  echo "[deploy] Rolling back — restarting previous state..."
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" restart
+  sleep 30
+  echo "[deploy] Rollback complete. Check logs: docker compose -f $COMPOSE_FILE logs"
+  exit 1
+fi
+
+echo "[deploy] All $HEALTHY containers healthy ✓"
 
 echo ""
 echo "=== Gateway VPS deploy complete! ==="

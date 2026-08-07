@@ -9,7 +9,6 @@ version: '3.8'
 services:
   shoperp:
     image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-shoperp:${IMAGE_TAG:-latest}
-    container_name: vanan-shoperp
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
