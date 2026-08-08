@@ -80,6 +80,11 @@ services:
       - InternalLoyalty__ApiKey=${INTERNAL_LOYALTY_API_KEY:-vanan-internal-loyalty-prod-2026}
       # NatsSyncWorker: poll every 5s (default 1s too aggressive for e2-micro VPS)
       - Sync__PollIntervalMs=5000
+      # Multi-VPS YARP: override cluster addresses to use VPC internal IPs
+      # (appsettings.json defaults to Docker hostnames "shoperp"/"khachlink" which are
+      # not resolvable when services are on separate VPSs)
+      - ReverseProxy__Clusters__shoperp-cluster__Destinations__destination1__Address=http://${SHOPERP_REMOTE_HOST}:80/
+      - ReverseProxy__Clusters__khachlink-cluster__Destinations__destination1__Address=http://${KHACHLINK_REMOTE_HOST}:80/
     networks:
       - vanan-network
     depends_on:

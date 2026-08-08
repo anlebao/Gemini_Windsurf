@@ -52,7 +52,7 @@ services:
       # Google OAuth
       - Google__ClientId=${GOOGLE_CLIENT_ID}
       - Google__ClientSecret=${GOOGLE_CLIENT_SECRET}
-      - Google__CallbackBaseUrl=${GOOGLE_CALLBACK_BASE_URL:-https://api.${VANAN_DOMAIN}}
+      - Google__CallbackBaseUrl=${GOOGLE_CALLBACK_BASE_URL:-https://api2.${VANAN_DOMAIN}}
       - Google__KhachLinkLoginUrl=${GOOGLE_KHACHLINK_LOGIN_URL:-https://diemthuong2.${VANAN_DOMAIN}/login}
     volumes:
       - shoperp_data:/app/keys
