@@ -30,40 +30,49 @@
 
 ## 2. Current Objective
 
-**#99-3 Loyalty Points Visibility + Shop Owner Dashboard — Phase A COMPLETE + DEPLOYED + VPS RV PASS.** Phase B (Alliance VND normalization) PENDING APPROVAL.
+**GCP 3-VPS Deployment Stabilization + Gateway Refactor SRS — COMPLETE + DEPLOYED + RUNTIME VERIFIED.**
 
-- **Master plan:** `docs/AI/tasks/loyalty_points_visibility_master_plan.md`
-- **Task card:** `docs/AI/tasks/loyalty_points_visibility_task_card.md`
-- **Rollout strategy:** Safe Incremental Rollout with Feature Gate
-  - **Phase A (Batch 1+3):** COMPLETE — customer visibility + shop owner dashboard, LOW-MEDIUM risk, activates immediately
-  - **Phase B (Batch 2):** PENDING APPROVAL — Alliance VND normalization, HIGH risk, feature-gated (only activates when `Mode=Alliance`)
+- **Master plan:** Multi-VPS deployment (Gateway + KhachLink + ShopERP on 3 separate GCP e2-micro VPSs)
+- **Deployment guide:** `docs/operations/Multi_VPS_Deployment_Guide.md`
+- **SRS documents (NEW):**
+  - `docs/requirements/Van_An_SRS_Gateway_Refactor_Hybrid_Strategy.md` — Hybrid (Option 1+3+4): Tách Sync Worker + Tối ưu + Upgrade VPS
+  - `docs/requirements/Van_An_SRS_Gateway_Refactor_Split3_Services.md` — Option 2: Chia 3 services (Platform + Business + Sync Worker)
 
-**Phase A — COMPLETE (commits `37c29e01` to `25b6bf03`, 2026-08-05):**
-- **Batch 1 (Customer Visibility):**
-  - `OrderWorkflowService.ProcessLoyaltyPointsAsync`: check `Loyalty_Program_Enabled` toggle before awarding points (fail-open if service errors)
-  - `PublicOrderTrackingDto`: add `PointsAwarded` + `LoyaltyEnabled` fields
-  - `PublicOrdersController.GetPublicOrder`: compute `PointsAwarded` via same formula as `ProcessLoyaltyPointsAsync`
-  - `OrderTracking.razor`: banner "Ban nhan duoc X diem thuong" when order completed/delivered + PointsAwarded > 0
-  - `Checkout.razor`: estimate banner "Don hang se tich ~X diem" loaded from tenant feature-settings API
-- **Batch 3 (Shop Owner Dashboard):**
-  - `LoyaltyController`: `GET /api/loyalty/dashboard` returns 4 metrics (PointsPendingRedemption, PointsRedeemed, PointsInCampaigns, PointsReserved)
-  - `LoyaltyDashboard.razor`: new page at `/loyalty/dashboard` with 4 stat cards
-  - `NavMenu.razor`: link "Thong ke diem thuong" in `Owner,SystemAdmin` auth block (desktop + mobile)
-- **Bug fixes during RV:**
-  - `7b5c0788`: Move nav link from `Owner`-only block to `Owner,SystemAdmin` block (PlatformUserLoginService issues SystemAdmin role)
-  - `c0756ad8`: Fix LINQ translation — `TenantId.Value == tenantId` to `TenantId == new TenantId(tenantId)` (Pattern #8)
-  - `25b6bf03`: Fix LINQ translation — `Status.Value != "completed"` to `Status != OrderStatusId.Completed` (value object pattern)
-- **VPS RV:** 11 PASS, 0 FAIL, 2 need browser verify (V6/V7 — Blazor Server renders client-side, curl cannot verify)
-- **API verified with real data:** `GET /api/loyalty/dashboard` returns `{"pointsPendingRedemption":18347,"pointsRedeemed":0,"pointsInCampaigns":0,"pointsReserved":0}`
+**GCP 3-VPS Deployment — COMPLETE (2026-08-08):**
+- 3 VPS deployed: `vanan-gateway` (136.85.94.119), `vanan-khachlink`, `vanan-shop-a` (34.177.89.248)
+- Static IPs reserved for all 3 VPSs
+- Dedicated `vanan-deploy` user with restricted sudo (docker/systemctl/certbot only)
+- Separate ed25519 SSH keys per VPS
+- Idempotent deploy scripts (docker compose down + up + health check + rollback)
+- SSL provisioned via Let's Encrypt for all domains (www2, app2, diemthuong2, api2)
+- CD workflow `cd-multivps.yml` — 6 jobs: Build → Validate → Deploy Gateway → Deploy KhachLink → Deploy ShopERP → Smoke Test
 
-**Phase B — PENDING APPROVAL (Alliance VND Normalization, HIGH risk, feature-gated):**
-- 10 steps: Domain.cs (`VndPerPoint`) + migration + `LoyaltyModeResolver` + `OrderWorkflowService` (Alliance fixed rate) + `AllianceWalletService` (consolidate/split + catalog convert) + `LoyaltyConfigController` + `LoyaltyConfigAdmin.razor`
-- Feature gate: code only activates when `Mode=Alliance` (currently Silo, zero impact on deploy)
-- Task 3.9: Convert `RedemptionCatalogItem.PointsRequired` during Silo to Alliance migration (keep VND value)
+**Migration Fix — COMPLETE (commit `708364d5`, 2026-08-08):**
+- Root cause: EF Core migration `AddOutboxRoutingKey` missing `.Designer.cs` file → migration skipped silently
+- Root cause 2: Migration `AddFeaturedProductVatRate` had `AddColumn<decimal>("VatRate")` missing from `Up()` method
+- Fix: Created Designer file + added AddColumn to Up() + DropColumn to Down()
+- DB dropped + recreated → 26 migrations applied correctly (RoutingKey + VatRate columns present)
 
-**Previous objective — COMPLETE:** TT 99/2025/TT-BTC Compliance Fixes — ALL 7 PHASES COMPLETE + DEPLOYED + VPS VERIFIED. See archive for full detail.
+**NatsSyncWorker Overload Fix — COMPLETE (commit `44e32b37`, 2026-08-08):**
+- Root cause: NatsSyncWorker poll OutboxMessages every 1s → CPU overload on e2-micro → SSH unresponsive
+- Fix: Added `Sync__PollIntervalMs=5000` env var in docker-compose.gateway.yml (1s → 5s)
+- Impact: 80% DB query load reduction, SSH stable, Gateway healthy
 
-**Last completed:** #99-3 Loyalty Points Visibility + Shop Owner Dashboard — Phase A (commits `37c29e01` to `25b6bf03`, 2026-08-05). Previous: TT 99/2025/TT-BTC Compliance Fixes (commits `66c9cfaf` to `51738298`, 2026-08-04).
+**KhachLink Domain Fix — COMPLETE (commits `26b377b0` + `36a139ae`, 2026-08-08):**
+- Root cause: KhachLink hardcoded `api.khachvip.online` (Oracle VPS) instead of `api2.khachvip.online` (GCP)
+- 5 bugs fixed: appsettings.json, app-install-tracker.js, ChatPanel.razor, pwa.js, docker-compose.khachlink.yml env var key
+- Dynamic URL derivation: regex `^([a-z]+)(\d*)\.khachvip\.online$` → `api{suffix}.khachvip.online` (supports api2/api3/api4 scaling)
+- Env var fix: `ApiSettings__GatewayBaseUrl` → `Gateway__BaseUrl` (match Program.cs config key)
+
+**Runtime Verification (2026-08-08):**
+- Health: `https://api2.khachvip.online/health` → `{"status":"Healthy"}`
+- Catalog: `https://api2.khachvip.online/api/catalog/recommended` → `{"products":[],"totalCount":0}`
+- Login: `sysadmin@vanan.vn` / `2026@vanan` → JWT token returned
+- Tenant creation: POST `/api/v1/onboarding/tenants` → 201 Created (tenantId + ownerUserId + 4 permission groups)
+- UI: app2 (302), diemthuong2 (200), www2 (302) — all HTTPS
+- DB: 26 migrations, RoutingKey + VatRate columns present, 3 tenants, 1 PlatformUser, 1 ShopInstance
+
+**Previous objective — COMPLETE:** #99-3 Loyalty Points Visibility + Shop Owner Dashboard — Phase A. See archive.
 
 <!-- ARCHIVED: TT 99/2025/TT-BTC Compliance Fixes (8 Gaps) � WAVES 1-3 COMPLETE (6/7 phases). Phase 5 (B 09-DN Thuyết minh BCTC) remaining. 8 gaps verified against 5 official sources (MISA, thuvienphapluat, Grant Thornton, Bộ Tài chính, tanngoctax). 6 task cards + 1 Phase 5a verified against codebase via 6 parallel subagents.
 
@@ -113,18 +122,26 @@
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `f6d7aa84` fix(#106): strip charset from Content-Type in Gateway forward controllers (Redemption + Loyalty). **Follow-up (uncommitted, 2026-08-06):** extended fix #106 to 3 remaining Gateway forward controllers (`CustomerIdentityController` ×4, `CustomerProfileController` ×1, `MissionsController` ×1) — same `MediaTypeHeaderValue` charset bug, verified via repro test. Pattern #10 added to governance.md Known Error Pattern Registry.
-- **Working tree:** Modified `2_Gateway/Controllers/CustomerIdentityController.cs` + `CustomerProfileController.cs` + `MissionsController.cs` (fix #106 expansion) + `.devin/rules/governance.md` (Pattern #10) + `docs/AI/project_state.md` (this update). Untracked `.devin/*` scripts (RV/debug scratch — not for commit). Branch in sync with origin/main.
+- **Last commit:** `36a139ae` fix(khachlink): dynamic Gateway URL derivation — supports api2/api3/api4 scaling
+- **Working tree:** Clean (all changes committed + pushed). Branch in sync with origin/main.
 - **.NET SDK:** 8.0.422
-- **DB:** SQLite `vanan_shoperp.db` (business) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community tables)
+- **DB:** SQLite `vanan_shoperp.db` (business, per-tenant) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community tables)
 - **Build:** 0 errors across full solution. CI pre-push ALL PASSED.
-- **CI/CD:** GitHub Actions CI + CD both SUCCESS for commit `25b6bf03` (Phase A final fix). Phase A commits: `37c29e01` → `7b5c0788` → `c0756ad8` → `25b6bf03` all CI PASS + CD SUCCESS.
-- **VPS:** 8 containers healthy (gateway, shoperp, khachlink, nginx, seq, certbot, postgres, nats). CD deploys automatically on push to main. Domains: `app.khachvip.online` (ShopERP), `diemthuong.khachvip.online` (KhachLink), `api.khachvip.online` (Gateway).
-- **Local infra:** Docker PostgreSQL 15-alpine (5432) + NATS 2-alpine (4222) + ShopERP 5003 + KhachLink 5002 + Gateway 5001.
+- **CI/CD:** GitHub Actions `cd-multivps.yml` SUCCESS (run `31236354808`, 2026-08-08) — 6 jobs all PASS: Build & Push Images → Pre-Deployment Validation → Deploy to Gateway VPS → Deploy to KhachLink VPS → Deploy to ShopERP VPS → Post-Deploy Smoke Test.
+- **GCP VPS (3 instances):**
+  - `vanan-gateway` (136.85.94.119, e2-micro, static IP) — Gateway API + Nginx + PostgreSQL + NATS
+  - `vanan-khachlink` (e2-micro, static IP) — KhachLink UI + Seq + Certbot
+  - `vanan-shop-a` (34.177.89.248, e2-micro, static IP) — ShopERP
+  - All 3 VPSs: dedicated `vanan-deploy` user, separate ed25519 SSH keys, idempotent deploy scripts
+- **Domains (GCP — "2" suffix):** `api2.khachvip.online` (Gateway), `app2.khachvip.online` (ShopERP), `diemthuong2.khachvip.online` (KhachLink), `www2.khachvip.online` (main)
+- **Domains (Oracle — no suffix, legacy):** `api.khachvip.online`, `app.khachvip.online`, `diemthuong.khachvip.online`, `khachvip.online`
+- **Containers (Gateway VPS):** vanan-gateway-1 (healthy), vanan-nginx-1, vanan-postgres-1 (healthy), vanan-nats-1 (healthy)
+- **Resource usage:** Gateway 165MB RAM, 7.5% CPU (after poll interval 5s fix)
+- **Local infra:** Docker PostgreSQL 15-alpine (5432) + NATS 2-alpine (4222) + ShopERP 5003 + KhachLink 5002 + Gateway 5001
 - **Loyalty Alliance System:** FULLY OPERATIONAL (Phase 1-7 COMPLETE + DEPLOYED + VPS VERIFIED). Tenant currently in Silo mode — Alliance infrastructure ready for when tenant switches.
-- **#99-3 Phase A:** DEPLOYED + VPS RV PASS (11 PASS, 0 FAIL, 2 browser-verify pending). API `GET /api/loyalty/dashboard` returns real data: `{"pointsPendingRedemption":18347,"pointsRedeemed":0,"pointsInCampaigns":0,"pointsReserved":0}`. Shop owner login: `adminvanan1` / `Admin@123` at `https://app.khachvip.online/Login`.
+- **#99-3 Phase A:** DEPLOYED + VPS RV PASS on Oracle VPS. GCP VPS has fresh DB (3 tenants from seed + onboarding test).
 - **CustomerRepository.AddAsync fix (commit `550f5619`):** Fixed bug where AddAsync created a new Customer with wrong Id. Loyalty points now correctly awarded after order completion.
-- **Tech debt:** TD-MVPS-001 through TD-MVPS-004 (see `docs/AI/tasks/tech_debt_multi_vps_checkout.md`). TD-PWA-001 (WASM conversion complete). Tier 5 — True Offline Edge (post-PoC). **TD-CUSTSYNC-001 (2026-07-27):** Customers created in ShopERP SQLite (CRM local) are NOT synced to Gateway PG — Gateway `OrderService.CreateOrderFromCommandAsync` validates CustomerId against PG and falls back to null if missing. Bug 6 fix mitigates this for guest checkout (DeviceId fallback + stub creation in SQLite), but full Customer sync SQLite→PG still needed for cross-system customer identity. **TD-ASYNCDP-001 (2026-08-03, NEW):** `ScopedDataProvider.GetAccountSum`/`GetAccountBalance` are sync methods that internally call async `GetPreAggregatedDataAsync` via `Task.Run(...).GetAwaiter().GetResult()` (Phase 0 Bug 3 quick fix). Proper fix: make `IFormulaEngine.Evaluate` + `IDataProvider.GetAccountSum` async (`EvaluateAsync`/`GetAccountSumAsync`) so the entire chain is async-native — eliminates sync-over-async + thread pool offload overhead. Large interface change, touch many callers.
+- **Tech debt:** TD-MVPS-001 through TD-MVPS-004 (see `docs/AI/tasks/tech_debt_multi_vps_checkout.md`). TD-PWA-001 (WASM conversion complete). Tier 5 — True Offline Edge (post-PoC). **TD-CUSTSYNC-001 (2026-07-27):** Customers created in ShopERP SQLite (CRM local) are NOT synced to Gateway PG — Gateway `OrderService.CreateOrderFromCommandAsync` validates CustomerId against PG and falls back to null if missing. Bug 6 fix mitigates this for guest checkout (DeviceId fallback + stub creation in SQLite), but full Customer sync SQLite→PG still needed for cross-system customer identity. **TD-ASYNCDP-001 (2026-08-03, NEW):** `ScopedDataProvider.GetAccountSum`/`GetAccountBalance` are sync methods that internally call async `GetPreAggregatedDataAsync` via `Task.Run(...).GetAwaiter().GetResult()` (Phase 0 Bug 3 quick fix). Proper fix: make `IFormulaEngine.Evaluate` + `IDataProvider.GetAccountSum` async (`EvaluateAsync`/`GetAccountSumAsync`) so the entire chain is async-native — eliminates sync-over-async + thread pool offload overhead. Large interface change, touch many callers. **TD-GCP-001 (2026-08-08, NEW):** Gateway 45 controllers + 5 background services + 4 SignalR hubs in 1 process on e2-micro — architecture review needed. SRS documents created for Hybrid (Option 1+3+4) and Split 3 Services (Option 2) refactor strategies.
 
 ### 3a. Ready Issues (GitHub Project — NOT in repo)
 
@@ -149,33 +166,29 @@
 
 ## 4. Next Actions
 
-1. **(CURRENT — #99-3 Phase B APPROVAL)** Phase B (Alliance VND Normalization) — HIGH risk, feature-gated. Awaiting user approval to start. 10 steps:
-   - B1: Add `VndPerPoint` to `LoyaltyGlobalConfig` (Domain.cs)
-   - B2: EF migration for new column
-   - B3: `LoyaltyModeResolver` — centralize mode resolution
-   - B4: `OrderWorkflowService` — Alliance mode uses fixed VND rate (not tenant rate)
-   - B5: `AllianceWalletService` — consolidate/split logic
-   - B6: Catalog convert — `RedemptionCatalogItem.PointsRequired` VND-based in Alliance
-   - B7: `LoyaltyConfigController` — admin API for VndPerPoint
-   - B8: `LoyaltyConfigAdmin.razor` — admin UI
-   - B9: Silo→Alliance migration — convert existing catalog items (keep VND value)
-   - B10: Unit tests + RV
-   - **Feature gate:** Code only activates when `Mode=Alliance` (currently Silo → zero impact)
-2. **(Browser RV — Phase A V6/V7)** Login `adminvanan1` / `Admin@123` at `https://app.khachvip.online/Login`:
-   - V6: Navigate to `/loyalty/dashboard` → verify 4 stat cards render (Điểm chờ đổi: 18,347)
+1. **(CURRENT — Gateway Refactor Decision)** Review 2 SRS documents + choose strategy:
+   - `docs/requirements/Van_An_SRS_Gateway_Refactor_Hybrid_Strategy.md` — Hybrid (Option 1+3+4): Tách Sync Worker + Tối ưu + Upgrade VPS (1-2 ngày, $0-5/tháng)
+   - `docs/requirements/Van_An_SRS_Gateway_Refactor_Split3_Services.md` — Option 2: Chia 3 services (1-2 tuần, +$15-21/tháng)
+   - Khuyến nghị: Hybrid cho ngắn hạn, Option 2 khi traffic tăng
+2. **(GCP Data Seeding)** Seed production data vào GCP DB (fresh DB chỉ có 3 tenants test):
+   - Restore từ Oracle VPS (dump PG → restore GCP) HOẶC seed fresh qua API
+   - Verify ShopERP SQLite có DemoUsers (owner/staff/chef/guard)
+   - Verify PlatformUser `sysadmin@vanan.vn` login OK (đã verify 2026-08-08)
+3. **(#99-3 Phase B APPROVAL)** Phase B (Alliance VND Normalization) — HIGH risk, feature-gated. Awaiting user approval. 10 steps (see archive).
+4. **(Browser RV — Phase A V6/V7)** Login `adminvanan1` / `Admin@123` at `https://app2.khachvip.online/Login`:
+   - V6: Navigate to `/loyalty/dashboard` → verify 4 stat cards render
    - V7: Check NavMenu has "Thống kê điểm thưởng" link (icon bar-chart)
-3. **(Close GitHub Issues)** Đóng 8 issues đã RV pass trên GitHub: #87, #88, #89, #93, #97, #98, #99, #100. Comment mỗi issue với RV summary.
-4. **(Previous — TT99 Compliance Fixes Wave 4)** ALL 7 PHASES COMPLETE. See archive for full detail.
-5. **(Browser RV, deferred)** Browser functional testing on VPS for Tenant Fixes 4 phases (authenticated user flows).
-6. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (currently skipped via `Category!=Flaky` CI filter).
-7. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. Cần Domain Modification approval.
-8. **A2 follow-up — Guid case audit (P2):** Audit + fix Guid case mismatch across all tables (not just OutboxMessages).
-9. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG. **TD-ASYNCDP-001:** Make `IFormulaEngine`/`IDataProvider` async-native.
-10. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`.
-11. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate.
-12. **(Facebook OAuth)** Config real Facebook OAuth credentials — Sprint 7+. Currently stub redirect in `Login.razor:148`.
-13. **(Loyalty Alliance activation)** When tenant switches to Alliance mode in production, run end-to-end RV.
-14. **(Bug 3 full verify)** Re-print QR for product with image to fully verify Scan.razor image rendering on VPS.
+5. **(Close GitHub Issues)** Đóng 8 issues đã RV pass trên GitHub: #87, #88, #89, #93, #97, #98, #99, #100.
+6. **(Browser RV, deferred)** Browser functional testing on VPS for Tenant Fixes 4 phases (authenticated user flows).
+7. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (currently skipped via `Category!=Flaky` CI filter).
+8. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. Cần Domain Modification approval.
+9. **A2 follow-up — Guid case audit (P2):** Audit + fix Guid case mismatch across all tables (not just OutboxMessages).
+10. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG. **TD-ASYNCDP-001:** Make `IFormulaEngine`/`IDataProvider` async-native. **TD-GCP-001:** Gateway refactor (see SRS documents).
+11. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`.
+12. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate.
+13. **(Facebook OAuth)** Config real Facebook OAuth credentials — Sprint 7+. Currently stub redirect in `Login.razor:148`.
+14. **(Loyalty Alliance activation)** When tenant switches to Alliance mode in production, run end-to-end RV.
+15. **(Bug 3 full verify)** Re-print QR for product with image to fully verify Scan.razor image rendering on VPS.
 
 ### Pruned (2026-07-29)
 
@@ -294,15 +307,23 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main`, last commit `5e2217f4` (fix ObjectDisposedException in Blazor timer callbacks). CI + CD both SUCCESS (runs `30924502034` + `30924502035`). 8 GitHub issues (#87, #88, #89, #93, #97, #98, #99, #100) DEPLOYED + RV PASS on VPS. ALL 7 TT 99 phases COMPLETE. Build 0 errors. All prior sprints COMPLETE.
+- **Verified Facts:** Branch=`main`, last commit `36a139ae` (dynamic Gateway URL derivation). CD `cd-multivps.yml` SUCCESS (run `31236354808`). GCP 3-VPS deployed + runtime verified (health, catalog, login, tenant creation, UI endpoints). 26 migrations applied (RoutingKey + VatRate columns present). NatsSyncWorker poll interval 5s (no overload). KhachLink domain fix (api2 + dynamic regex). 2 SRS documents created for Gateway refactor. Build 0 errors. All prior sprints COMPLETE.
 - **Open Questions:** 0
-- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (80+), Open Questions (0) < 3
+- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (100+), Open Questions (0) < 3
 
 ---
 
 ## 10. Maintenance Log
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md` → "Archived 2026-08-03" → Section 10.
+
+* **2026-08-08 — GCP 3-VPS DEPLOYMENT STABILIZATION COMPLETE.** Multi-session effort to stabilize GCP 3-VPS deployment (Gateway + KhachLink + ShopERP). Key fixes:
+  - **Migration fix (commit `708364d5`):** EF Core migration `AddOutboxRoutingKey` missing `.Designer.cs` file → migration skipped silently. Migration `AddFeaturedProductVatRate` had `AddColumn<decimal>("VatRate")` missing from `Up()` method. Created Designer file + added AddColumn to Up() + DropColumn to Down(). DB dropped + recreated → 26 migrations applied correctly.
+  - **NatsSyncWorker overload fix (commit `44e32b37`):** Poll interval 1s → 5s via `Sync__PollIntervalMs` env var. 80% DB query load reduction. SSH stable.
+  - **KhachLink domain fix (commits `26b377b0` + `36a139ae`):** 5 bugs — hardcoded `api.khachvip.online` (Oracle) instead of `api2.khachvip.online` (GCP). Dynamic URL derivation via regex `^([a-z]+)(\d*)\.khachvip\.online$` → `api{suffix}.khachvip.online` (supports api2/api3/api4 scaling). Env var key fix: `ApiSettings__GatewayBaseUrl` → `Gateway__BaseUrl`.
+  - **Runtime verified:** Health OK, Catalog API OK, Login OK (sysadmin@vanan.vn / 2026@vanan), Tenant creation OK (201 Created), UI endpoints OK (app2/diemthuong2/www2 all HTTPS).
+  - **SRS documents created:** `Van_An_SRS_Gateway_Refactor_Hybrid_Strategy.md` (Option 1+3+4) + `Van_An_SRS_Gateway_Refactor_Split3_Services.md` (Option 2). Awaiting user review + strategy decision.
+  - **CD run `31236354808` SUCCESS** — 6 jobs all PASS. Branch: `main`. Last commit: `36a139ae`.
 
 * **2026-08-06 — FIX #106 EXPANSION: strip charset from Content-Type in 3 remaining Gateway forward controllers.** Original fix #106 (commit `f6d7aa84`, 2026-08-05) only patched `RedemptionController` + `LoyaltyController` (used `StringContent(body, Encoding.UTF8, Request.ContentType)`). Audit today found 3 more controllers with the identical bug via a different code path: `new MediaTypeHeaderValue(Request.ContentType)` (used with `StreamContent`). Repro test confirmed `new MediaTypeHeaderValue("application/json; charset=utf-8")` throws the SAME `FormatException` as `StringContent` with the same input. Fixed 6 sites total: `CustomerIdentityController` ×4 (otp/send, otp/verify, upgrade/send-otp, upgrade/verify-otp), `CustomerProfileController` ×1, `MissionsController` ×1. Fix pattern: `(Request.ContentType ?? "application/json").Split(';', StringSplitOptions.TrimEntries)[0]` before passing to `MediaTypeHeaderValue`. **Pattern #10 added to governance.md Known Error Pattern Registry** — applies to ALL future Gateway forward controllers. Build Gateway project: 0 errors. Branch: `main`.
 
