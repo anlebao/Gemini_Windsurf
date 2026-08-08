@@ -84,8 +84,10 @@ server {
     ssl_session_cache   shared:SSL:10m;
     ssl_session_timeout 1d;
 
-    limit_req zone=web burst=100 nodelay;
-
+    # No rate limit for Blazor Server apps — initial load fetches 10-20+ static
+    # assets (_framework/*.js, CSS, bootstrap) + login POST + _blazor/negotiate.
+    # 10r/s per-IP is too low even for 1 user. Blazor manages its own connections
+    # via SignalR/WebSocket. Rate limiting belongs at API layer, not UI proxy.
     # Multi-VPS: proxy to REMOTE ShopERP via VPC internal IP
     location / {
         proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
@@ -99,9 +101,8 @@ server {
         proxy_read_timeout 60s;
     }
 
-    # Blazor SignalR — exempt from rate limit (long-lived WebSocket)
+    # Blazor SignalR — long-lived WebSocket
     location /_blazor {
-        limit_req off;
         proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
@@ -154,7 +155,6 @@ server {
     }
 
     location / {
-        limit_req zone=web burst=20 nodelay;
         proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
@@ -167,7 +167,6 @@ server {
     }
 
     location /_blazor {
-        limit_req off;
         proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
@@ -206,11 +205,7 @@ server {
     ssl_session_cache   shared:SSL:10m;
     ssl_session_timeout 1d;
 
-    # Blazor Server app: login flow + initial load sends many concurrent requests
-    # (POST /Login + redirect + _blazor/negotiate + _framework/*.js + bootstrap CSS).
-    # burst=20 (10r/s zone) is too low → 503 on login. Increased to burst=100.
-    limit_req zone=web burst=100 nodelay;
-
+    # No rate limit for Blazor Server apps — see www2 server block comment.
     # Multi-VPS: proxy to REMOTE ShopERP via VPC internal IP
     location / {
         proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
@@ -224,9 +219,8 @@ server {
         proxy_read_timeout 60s;
     }
 
-    # Blazor SignalR — exempt from rate limit (long-lived WebSocket)
+    # Blazor SignalR — long-lived WebSocket
     location /_blazor {
-        limit_req off;
         proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
