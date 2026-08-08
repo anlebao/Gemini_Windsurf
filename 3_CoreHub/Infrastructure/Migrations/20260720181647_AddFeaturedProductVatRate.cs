@@ -692,6 +692,13 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                 oldType: "timestamp without time zone",
                 oldDefaultValueSql: "CURRENT_TIMESTAMP");
 
+            migrationBuilder.AddColumn<decimal>(
+                name: "VatRate",
+                table: "FeaturedProducts",
+                type: "numeric(5,4)",
+                nullable: false,
+                defaultValue: 0.10m);
+
             migrationBuilder.AlterColumn<DateTime>(
                 name: "UpdatedAt",
                 table: "ElectronicInvoices",
@@ -907,6 +914,10 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropColumn(
+                name: "VatRate",
+                table: "FeaturedProducts");
+
             migrationBuilder.AlterColumn<DateTime>(
                 name: "UpdatedAt",
                 table: "UserTenants",
