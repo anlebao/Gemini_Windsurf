@@ -100,14 +100,15 @@ window.vananAppInstall = {
         localStorage.removeItem('vanan_referral_code');
     },
 
-    // Determine Gateway URL from current host
+    // Determine Gateway URL from current host (dynamic — supports api2, api3, api4...)
+    // Rule: subdomain number suffix maps 1:1 to Gateway (diemthuong2 → api2, app3 → api3)
+    // No suffix = Oracle VPS (diemthuong → api)
     _getGatewayUrl: function () {
         var host = window.location.hostname;
-        if (host.indexOf('khachvip.online') !== -1) {
-            // GCP VPS uses "2" suffix (diemthuong2, app2, api2)
-            // Oracle VPS uses no suffix (diemthuong, app, api)
-            var prefix = (host.indexOf('2.khachvip.online') !== -1) ? 'api2' : 'api';
-            return 'https://' + prefix + '.khachvip.online';
+        var match = host.match(/^([a-z]+)(\d*)\.khachvip\.online$/);
+        if (match) {
+            var suffix = match[2] || '';  // '' for Oracle, '2'/'3'/'4' for GCP
+            return 'https://api' + suffix + '.khachvip.online';
         }
         return 'https://localhost:5001'; // dev fallback
     },
