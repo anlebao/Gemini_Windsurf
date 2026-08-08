@@ -28,7 +28,7 @@ services:
       - ConnectionStrings__AccountingConnection=Host=${GATEWAY_REMOTE_HOST};Port=5432;Database=${POSTGRES_DB:-VanAnCoreHub};Username=${POSTGRES_USER:-vanan_admin};Password=${POSTGRES_PASSWORD}
       # Auth — JWT shared with Gateway
       - Jwt__Secret=${JWT_SECRET_KEY}
-      - Authentication__Authority=https://api.${VANAN_DOMAIN}
+      - Authentication__Authority=https://api2.${VANAN_DOMAIN}
       - ExternalUrls__KhachLink=https://diemthuong2.${VANAN_DOMAIN}
       - Auth__CookieDomain=.${VANAN_DOMAIN}
       # Seed data
