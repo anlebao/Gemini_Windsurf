@@ -226,7 +226,7 @@ window.vananPWA = {
                 '<div style="opacity:0.9;margin-bottom:10px;font-size:13px;">Để cài app, cần xóa dữ liệu site:</div>' +
                 '<div style="background:rgba(255,255,255,0.15);border-radius:8px;padding:10px;margin-bottom:12px;text-align:left;font-size:12px;line-height:1.6;">' +
                 '1. Mở <b>chrome://settings/content/all</b><br>' +
-                '2. Tìm <b>diemthuong.khachvip.online</b><br>' +
+                '2. Tìm <b>' + window.location.hostname + '</b><br>' +
                 '3. Nhấn <b>Xóa dữ liệu</b> (Delete data)<br>' +
                 '4. Quay lại đây — prompt cài đặt sẽ hiện' +
                 '</div>' +

@@ -104,7 +104,10 @@ window.vananAppInstall = {
     _getGatewayUrl: function () {
         var host = window.location.hostname;
         if (host.indexOf('khachvip.online') !== -1) {
-            return 'https://api.khachvip.online';
+            // GCP VPS uses "2" suffix (diemthuong2, app2, api2)
+            // Oracle VPS uses no suffix (diemthuong, app, api)
+            var prefix = (host.indexOf('2.khachvip.online') !== -1) ? 'api2' : 'api';
+            return 'https://' + prefix + '.khachvip.online';
         }
         return 'https://localhost:5001'; // dev fallback
     },

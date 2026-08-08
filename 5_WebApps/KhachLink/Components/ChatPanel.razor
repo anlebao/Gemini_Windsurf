@@ -126,8 +126,12 @@
         {
             _connecting = true;
             var baseUrl = Navigation.BaseUri.TrimEnd('/');
-            // Route through Gateway directly (api.khachvip.online)
-            var gatewayUrl = baseUrl.Replace("diemthuong.khachvip.online", "api.khachvip.online");
+            // Route through Gateway SignalR hub (not KhachLink UI host)
+            // GCP: diemthuong2.khachvip.online → api2.khachvip.online
+            // Oracle: diemthuong.khachvip.online → api.khachvip.online
+            var gatewayUrl = baseUrl
+                .Replace("diemthuong2.khachvip.online", "api2.khachvip.online")
+                .Replace("diemthuong.khachvip.online", "api.khachvip.online");
             var hubUrl = $"{gatewayUrl}/hubs/chat?customerToken={CustomerToken}";
 
             _hubConnection = new HubConnectionBuilder()

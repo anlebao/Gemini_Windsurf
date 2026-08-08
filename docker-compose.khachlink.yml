@@ -32,7 +32,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
       # KhachLink calls Gateway API via VPC internal IP
-      - ApiSettings__GatewayBaseUrl=http://${GATEWAY_REMOTE_HOST}:80/
+      # Config key must match Program.cs: builder.Configuration["Gateway:BaseUrl"]
+      - Gateway__BaseUrl=http://${GATEWAY_REMOTE_HOST}:80/
       - Authentication__Google__ClientId=${GOOGLE_CLIENT_ID}
       - Authentication__Google__ClientSecret=${GOOGLE_CLIENT_SECRET}
       - VAPID__PrivateKey=${VAPID_PRIVATE_KEY}
