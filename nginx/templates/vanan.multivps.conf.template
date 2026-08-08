@@ -84,12 +84,43 @@ server {
     ssl_session_cache   shared:SSL:10m;
     ssl_session_timeout 1d;
 
-    # No rate limit for Blazor Server apps — initial load fetches 10-20+ static
-    # assets (_framework/*.js, CSS, bootstrap) + login POST + _blazor/negotiate.
-    # 10r/s per-IP is too low even for 1 user. Blazor manages its own connections
-    # via SignalR/WebSocket. Rate limiting belongs at API layer, not UI proxy.
-    # Multi-VPS: proxy to REMOTE ShopERP via VPC internal IP
+    # ── Blazor Server protection strategy (3 layers) ──────────────────────
+    # 1. Static assets (_framework/*.js, CSS, images) — exempt from rate limit.
+    #    These are served by nginx/proxy without .NET processing — no RAM cost.
+    # 2. Dynamic pages (/Login, /admin/*) — limit_req burst=50 + limit_conn 10.
+    #    Burst high enough for Blazor initial load, limit_conn prevents RAM exhaustion.
+    # 3. WebSocket /_blazor — limit_req off + limit_conn 10 (long-lived, not bursty).
+    #    limit_conn is the right tool: 1 IP = max 10 concurrent circuits (10 tabs).
+
+    # Layer 1: Static assets — no rate limit (fast initial load)
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|map)$ {
+        proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    # Layer 3: Blazor SignalR WebSocket — limit_conn only (not limit_req)
+    location /_blazor {
+        limit_req off;
+        limit_conn perip_conn 10;
+        proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # Layer 2: Dynamic pages — rate limit + connection limit
     location / {
+        limit_req zone=web burst=50 nodelay;
+        limit_conn perip_conn 10;
         proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
@@ -99,18 +130,6 @@ server {
         proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header   X-Forwarded-Proto $scheme;
         proxy_read_timeout 60s;
-    }
-
-    # Blazor SignalR — long-lived WebSocket
-    location /_blazor {
-        proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
-        proxy_http_version 1.1;
-        proxy_set_header   Upgrade $http_upgrade;
-        proxy_set_header   Connection "upgrade";
-        proxy_set_header   Host $host;
-        proxy_cache_bypass $http_upgrade;
-        proxy_read_timeout 3600s;
-        proxy_send_timeout 3600s;
     }
 }
 
@@ -141,7 +160,7 @@ server {
     ssl_session_cache   shared:SSL:10m;
     ssl_session_timeout 1d;
 
-    # Blazor WASM immutable assets — exempt from rate limit
+    # Blazor WASM immutable assets — exempt from rate limit (no server RAM cost)
     location /_framework/ {
         proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
@@ -154,7 +173,35 @@ server {
         proxy_send_timeout 120s;
     }
 
+    # Static assets — exempt from rate limit
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|map)$ {
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    # Blazor SignalR WebSocket — limit_conn only (not limit_req)
+    location /_blazor {
+        limit_req off;
+        limit_conn perip_conn 10;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # Dynamic pages — rate limit + connection limit
     location / {
+        limit_req zone=web burst=50 nodelay;
+        limit_conn perip_conn 10;
         proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
@@ -164,17 +211,6 @@ server {
         proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header   X-Forwarded-Proto $scheme;
         proxy_read_timeout 60s;
-    }
-
-    location /_blazor {
-        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
-        proxy_http_version 1.1;
-        proxy_set_header   Upgrade $http_upgrade;
-        proxy_set_header   Connection "upgrade";
-        proxy_set_header   Host $host;
-        proxy_cache_bypass $http_upgrade;
-        proxy_read_timeout 3600s;
-        proxy_send_timeout 3600s;
     }
 }
 
@@ -205,9 +241,36 @@ server {
     ssl_session_cache   shared:SSL:10m;
     ssl_session_timeout 1d;
 
-    # No rate limit for Blazor Server apps — see www2 server block comment.
-    # Multi-VPS: proxy to REMOTE ShopERP via VPC internal IP
+    # ── Blazor Server protection (3 layers) — same as www2 ──────────────
+    # Layer 1: Static assets — no rate limit
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|map)$ {
+        proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    # Layer 3: Blazor SignalR WebSocket — limit_conn only
+    location /_blazor {
+        limit_req off;
+        limit_conn perip_conn 10;
+        proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # Layer 2: Dynamic pages — rate limit + connection limit
     location / {
+        limit_req zone=web burst=50 nodelay;
+        limit_conn perip_conn 10;
         proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
@@ -217,18 +280,6 @@ server {
         proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header   X-Forwarded-Proto $scheme;
         proxy_read_timeout 60s;
-    }
-
-    # Blazor SignalR — long-lived WebSocket
-    location /_blazor {
-        proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
-        proxy_http_version 1.1;
-        proxy_set_header   Upgrade $http_upgrade;
-        proxy_set_header   Connection "upgrade";
-        proxy_set_header   Host $host;
-        proxy_cache_bypass $http_upgrade;
-        proxy_read_timeout 3600s;
-        proxy_send_timeout 3600s;
     }
 }
 
