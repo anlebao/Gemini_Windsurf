@@ -29,6 +29,15 @@ namespace VanAn.ShopERP.Services
             return await SendAndReadAsync<List<TenantApiDto>>(HttpClient, req, ct) ?? new();
         }
 
+        /// <summary>#110 fix: Create tenant via Gateway PG (NOT local SQLite).</summary>
+        public async Task<TenantApiDto> CreateAsync(CreateTenantApiRequest request, CancellationToken ct = default)
+        {
+            var req = await CreateRequestAsync(HttpMethod.Post, "api/v1/tenants", request);
+            var resp = await HttpClient.SendAsync(req, ct);
+            resp.EnsureSuccessStatusCode();
+            return (await resp.Content.ReadFromJsonAsync<TenantApiDto>(GatewayJsonOptions, ct))!;
+        }
+
         public async Task UpdateProfileAsync(Guid tenantId, UpdateTenantProfileApiRequest request, CancellationToken ct = default)
         {
             var req = await CreateRequestAsync(HttpMethod.Put, $"api/v1/tenants/{tenantId}/profile", request);
@@ -112,5 +121,17 @@ namespace VanAn.ShopERP.Services
         public string? NavColor { get; init; }
         public string? HeaderColor { get; init; }
         public string? FooterColor { get; init; }
+    }
+
+    /// <summary>#110 fix: Request body for POST /api/v1/tenants (create tenant via Gateway PG).</summary>
+    public record CreateTenantApiRequest
+    {
+        public string Name { get; init; } = "";
+        public BusinessType BusinessType { get; init; } = BusinessType.Company;
+        public HKDGroup? HkdGroup { get; init; }
+        public string? ContactEmail { get; init; }
+        public string? ContactPhone { get; init; }
+        public string? Address { get; init; }
+        public string? TaxCode { get; init; }
     }
 }

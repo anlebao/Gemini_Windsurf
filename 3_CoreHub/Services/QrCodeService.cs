@@ -1,6 +1,7 @@
 using QRCoder;
 using System.Drawing;
 using System.Drawing.Imaging;
+using Microsoft.Extensions.Configuration;
 using VanAn.Shared.DTOs;
 
 namespace VanAn.CoreHub.Services
@@ -43,6 +44,19 @@ namespace VanAn.CoreHub.Services
 
     public class QrCodeService : IQrCodeService
     {
+        /// <summary>
+        /// #112 fix: KhachLink base URL for QR content — configurable via ExternalUrls:KhachLink.
+        /// Falls back to legacy hardcoded domain for backward compat.
+        /// Supports diemthuong2/diemthuong3/diemthuong4 scaling without code changes.
+        /// </summary>
+        private readonly string _khachLinkBaseUrl;
+
+        public QrCodeService(IConfiguration? configuration = null)
+        {
+            _khachLinkBaseUrl = configuration?["ExternalUrls:KhachLink"]
+                ?? "https://diemthuong.khachvip.online";
+        }
+
         public byte[] GenerateProductQRCode(Guid productId, Guid shopId)
         {
             return GenerateProductQRCode(productId, shopId, tableNumber: null);
@@ -87,7 +101,8 @@ namespace VanAn.CoreHub.Services
         {
             var qrPayload = new QRCodePayload(productId, shopId, tableNumber, unitPrice, vatRate, productName, tenantId, imageUrl);
             // Issue 9: Use URL format so external scanners (Zalo) can open the link
-            var qrContent = qrPayload.ToQrContent();
+            // #112: Use configurable KhachLink base URL (ExternalUrls:KhachLink) instead of hardcoded domain
+            var qrContent = qrPayload.ToQrContent(_khachLinkBaseUrl);
 
             using (QRCodeGenerator qrGenerator = new QRCodeGenerator())
             {

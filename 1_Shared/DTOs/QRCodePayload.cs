@@ -94,7 +94,9 @@
 
         /// <summary>
         /// Issue 9 fix: Generate QR content as URL so external scanners (Zalo) can open it.
-        /// Format: https://diemthuong.khachvip.online/scan?data={base64(json)}
+        /// #112 fix: baseUrl is now configurable (passed by QrCodeService from ExternalUrls:KhachLink config).
+        /// Default fallback uses legacy domain for backward compat with callers that don't pass baseUrl.
+        /// Format: {baseUrl}/scan?data={base64(json)}
         /// The Scan page detects URL format and extracts the embedded JSON.
         /// </summary>
         public string ToQrContent(string baseUrl = "https://diemthuong.khachvip.online")

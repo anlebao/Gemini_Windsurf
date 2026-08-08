@@ -713,16 +713,21 @@
                 ? Enum.TryParse<HKDGroup>(_createForm.HKDGroupStr, out var g) ? g : HKDGroup.Group1
                 : null;
 
-            var request = new CreateTenantRequest(
-                _createForm.Name,
-                businessType,
-                hkdGroup,
-                _createForm.ContactEmail,
-                _createForm.ContactPhone,
-                _createForm.Address,
-                _createForm.TaxCode);
+            // #110 fix: Create tenant via Gateway API (PostgreSQL) — NOT local SQLite.
+            // TenantService.CreateTenantAsync writes to IVanAnDbContext → ShopERPDbContext (SQLite),
+            // but the tenant list is loaded from Gateway PG → create→list mismatch.
+            var request = new CreateTenantApiRequest
+            {
+                Name = _createForm.Name,
+                BusinessType = businessType,
+                HkdGroup = hkdGroup,
+                ContactEmail = _createForm.ContactEmail,
+                ContactPhone = _createForm.ContactPhone,
+                Address = _createForm.Address,
+                TaxCode = _createForm.TaxCode
+            };
 
-            await TenantService.CreateTenantAsync(request);
+            await TenantApi.CreateAsync(request);
             _showCreateModal = false;
             ShowAlert("success", $"Tenant '{_createForm.Name}' đã được tạo thành công.");
             await LoadTenants();

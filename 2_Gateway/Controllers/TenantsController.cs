@@ -38,6 +38,43 @@ namespace VanAn.Gateway.Controllers
         }
 
         /// <summary>
+        /// #110 fix: Create a new tenant in Gateway PostgreSQL (NOT ShopERP SQLite).
+        /// ShopERP's TenantManagementService writes to SQLite via IVanAnDbContext,
+        /// but the tenant list is loaded from Gateway PG — causing create→list mismatch.
+        /// This endpoint ensures tenant creation goes to PG (source of truth).
+        /// </summary>
+        [HttpPost]
+        public async Task<ActionResult<TenantDto>> Create([FromBody] CreateTenantApiRequest request, CancellationToken ct)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.Name))
+                    return BadRequest(new { error = "Name is required." });
+
+                var createRequest = new CreateTenantRequest(
+                    request.Name,
+                    request.BusinessType,
+                    request.HkdGroup,
+                    request.ContactEmail,
+                    request.ContactPhone,
+                    request.Address,
+                    request.TaxCode);
+
+                var tenant = await _tenantService.CreateTenantAsync(createRequest, ct);
+                return CreatedAtAction(nameof(GetById), new { tenantId = tenant.Id }, MapToDto(tenant));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating tenant {TenantName}", request.Name);
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Get a single tenant by ID. Used by ShopERP AdminController.Impersonate
         /// to validate tenant existence + status against the PG source of truth (Option C)
         /// instead of querying ShopERP SQLite (which has no Tenants table).
@@ -270,5 +307,18 @@ namespace VanAn.Gateway.Controllers
         public HKDGroup? HkdGroup { get; init; }
         /// <summary>Admin reason for the change (audit trail).</summary>
         public string Reason { get; init; } = "";
+    }
+
+    /// <summary>#110 fix: Request body for POST /api/v1/tenants (create tenant in Gateway PG).</summary>
+    public record CreateTenantApiRequest
+    {
+        public string Name { get; init; } = "";
+        public BusinessType BusinessType { get; init; } = BusinessType.Company;
+        /// <summary>Required when BusinessType=HouseholdBusiness. Null when BusinessType=Company.</summary>
+        public HKDGroup? HkdGroup { get; init; }
+        public string? ContactEmail { get; init; }
+        public string? ContactPhone { get; init; }
+        public string? Address { get; init; }
+        public string? TaxCode { get; init; }
     }
 }
