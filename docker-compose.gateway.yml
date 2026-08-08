@@ -78,6 +78,8 @@ services:
       # Multi-VPS: ShopERP BaseUrl points to REMOTE VPS via VPC internal IP
       - ShopERP__BaseUrl=http://${SHOPERP_REMOTE_HOST}:80/
       - InternalLoyalty__ApiKey=${INTERNAL_LOYALTY_API_KEY:-vanan-internal-loyalty-prod-2026}
+      # NatsSyncWorker: poll every 5s (default 1s too aggressive for e2-micro VPS)
+      - Sync__PollIntervalMs=5000
     networks:
       - vanan-network
     depends_on:
