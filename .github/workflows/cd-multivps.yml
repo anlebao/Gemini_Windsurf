@@ -273,8 +273,10 @@ jobs:
             sudo docker compose -f docker-compose.gateway.yml --env-file .env.gateway pull
             sudo docker compose -f docker-compose.gateway.yml --env-file .env.gateway up -d --remove-orphans
 
-            # Reload nginx
-            sudo docker exec vanan-nginx nginx -s reload || true
+            # Force-recreate nginx to pick up new template files (bind-mount changes
+            # are NOT detected by `docker compose up -d` — container keeps old config).
+            # The entrypoint script re-runs envsubst to regenerate config from template.
+            sudo docker compose -f docker-compose.gateway.yml --env-file .env.gateway up -d --force-recreate nginx
 
             # Health check
             sleep 60
