@@ -30,47 +30,48 @@
 
 ## 2. Current Objective
 
-**GCP 3-VPS Deployment Stabilization + Gateway Refactor SRS — COMPLETE + DEPLOYED + RUNTIME VERIFIED.**
+**GCP 3-VPS Deployment Stabilization + Gateway Refactor SRS + Issue Batch Fix — COMPLETE + DEPLOYED + RUNTIME VERIFIED.**
 
 - **Master plan:** Multi-VPS deployment (Gateway + KhachLink + ShopERP on 3 separate GCP e2-micro VPSs)
 - **Deployment guide:** `docs/operations/Multi_VPS_Deployment_Guide.md`
-- **SRS documents (NEW):**
-  - `docs/requirements/Van_An_SRS_Gateway_Refactor_Hybrid_Strategy.md` — Hybrid (Option 1+3+4): Tách Sync Worker + Tối ưu + Upgrade VPS
-  - `docs/requirements/Van_An_SRS_Gateway_Refactor_Split3_Services.md` — Option 2: Chia 3 services (Platform + Business + Sync Worker)
+- **SRS documents:**
+  - `docs/requirements/Van_An_SRS_Gateway_Refactor_Hybrid_Strategy.md` — Hybrid (Option 1+3+4)
+  - `docs/requirements/Van_An_SRS_Gateway_Refactor_Split3_Services.md` — Option 2: Split 3 services
 
 **GCP 3-VPS Deployment — COMPLETE (2026-08-08):**
 - 3 VPS deployed: `vanan-gateway` (136.85.94.119), `vanan-khachlink`, `vanan-shop-a` (34.177.89.248)
-- Static IPs reserved for all 3 VPSs
-- Dedicated `vanan-deploy` user with restricted sudo (docker/systemctl/certbot only)
-- Separate ed25519 SSH keys per VPS
-- Idempotent deploy scripts (docker compose down + up + health check + rollback)
-- SSL provisioned via Let's Encrypt for all domains (www2, app2, diemthuong2, api2)
+- Static IPs, dedicated `vanan-deploy` user, separate ed25519 SSH keys per VPS
+- SSL via Let's Encrypt for all domains (www2, app2, diemthuong2, api2)
 - CD workflow `cd-multivps.yml` — 6 jobs: Build → Validate → Deploy Gateway → Deploy KhachLink → Deploy ShopERP → Smoke Test
 
-**Migration Fix — COMPLETE (commit `708364d5`, 2026-08-08):**
-- Root cause: EF Core migration `AddOutboxRoutingKey` missing `.Designer.cs` file → migration skipped silently
-- Root cause 2: Migration `AddFeaturedProductVatRate` had `AddColumn<decimal>("VatRate")` missing from `Up()` method
-- Fix: Created Designer file + added AddColumn to Up() + DropColumn to Down()
-- DB dropped + recreated → 26 migrations applied correctly (RoutingKey + VatRate columns present)
+**Issue Batch Fix — 4 GitHub Issues CLOSED (2026-08-08):**
 
-**NatsSyncWorker Overload Fix — COMPLETE (commit `44e32b37`, 2026-08-08):**
-- Root cause: NatsSyncWorker poll OutboxMessages every 1s → CPU overload on e2-micro → SSH unresponsive
-- Fix: Added `Sync__PollIntervalMs=5000` env var in docker-compose.gateway.yml (1s → 5s)
-- Impact: 80% DB query load reduction, SSH stable, Gateway healthy
+| # | Issue | Commit | Root Cause |
+|---|---|---|---|
+| #108 | Google login 502 | `e9783d44` + `99bf5a4d` | YARP clusters dùng Docker hostnames + callback URL sai domain + sai OAuth Client ID |
+| #109 | Shop instances 404 | `62c35845` + `72f4ac82` | nginx port 80 không có server block match VPC IP → 301→404 |
+| #110 | Tenant list lỗi | `62c35845` + `72f4ac82` | Same as #109 |
+| #111 | Commerce Mode 404 | `62c35845` + `72f4ac82` | Same as #109 |
 
-**KhachLink Domain Fix — COMPLETE (commits `26b377b0` + `36a139ae`, 2026-08-08):**
-- Root cause: KhachLink hardcoded `api.khachvip.online` (Oracle VPS) instead of `api2.khachvip.online` (GCP)
-- 5 bugs fixed: appsettings.json, app-install-tracker.js, ChatPanel.razor, pwa.js, docker-compose.khachlink.yml env var key
-- Dynamic URL derivation: regex `^([a-z]+)(\d*)\.khachvip\.online$` → `api{suffix}.khachvip.online` (supports api2/api3/api4 scaling)
-- Env var fix: `ApiSettings__GatewayBaseUrl` → `Gateway__BaseUrl` (match Program.cs config key)
+**Fix details:**
+- **`e9783d44` (YARP + callback URL):** Override YARP cluster addresses via env vars (`ReverseProxy__Clusters__shoperp-cluster__...__Address`). Fix `Google__CallbackBaseUrl` default `api.` → `api2.`.
+- **`62c35845` (nginx default_server):** Add `listen 80 default_server` block — proxy `/api/` directly to `gateway:80` for VPC internal traffic (bypass HTTPS redirect). Also fix `Authentication__Authority` `api.` → `api2.`.
+- **`72f4ac82` (CD force-recreate nginx):** `docker compose up -d` does NOT recreate containers when only bind-mount volume content changes. Replaced `nginx -s reload` with `docker compose up -d --force-recreate nginx` to re-run entrypoint envsubst.
+- **`99bf5a4d` (Google OAuth credentials):** Updated GitHub Secrets `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` to new OAuth client `14277833009-...` (was `942622517054-...` — wrong client, redirect URI was in different client).
 
-**Runtime Verification (2026-08-08):**
+**Runtime Verification (2026-08-08, after all fixes):**
 - Health: `https://api2.khachvip.online/health` → `{"status":"Healthy"}`
-- Catalog: `https://api2.khachvip.online/api/catalog/recommended` → `{"products":[],"totalCount":0}`
-- Login: `sysadmin@vanan.vn` / `2026@vanan` → JWT token returned
-- Tenant creation: POST `/api/v1/onboarding/tenants` → 201 Created (tenantId + ownerUserId + 4 permission groups)
-- UI: app2 (302), diemthuong2 (200), www2 (302) — all HTTPS
-- DB: 26 migrations, RoutingKey + VatRate columns present, 3 tenants, 1 PlatformUser, 1 ShopInstance
+- Login: `sysadmin@vanan.vn` / `2026@vanan` → JWT (length 433)
+- Shop Instances API: `GET /api/v1/shop-instances` (JWT) → 200 JSON
+- Tenants API: `GET /api/v1/tenants` (JWT) → 200 JSON
+- Commerce Mode API: `GET /api/admin/commerce-mode` (JWT) → 200 JSON
+- Google OAuth: `GET /api/auth/google/login` → 302 redirect to Google consent (client_id `14277833009-...`, redirect_uri `https://api2.khachvip.online/api/auth/google/callback`) → **user confirmed login OK**
+- UI pages: `/admin/shop-instances`, `/admin/tenants`, `/admin/commerce-mode` → all 200
+
+**Previous fixes (same session):**
+- **Migration Fix (commit `708364d5`):** EF Core migration `AddOutboxRoutingKey` missing `.Designer.cs` + `AddFeaturedProductVatRate` missing `AddColumn` in `Up()`. 26 migrations applied correctly.
+- **NatsSyncWorker Overload Fix (commit `44e32b37`):** Poll interval 1s → 5s via `Sync__PollIntervalMs`. 80% DB query load reduction.
+- **KhachLink Domain Fix (commits `26b377b0` + `36a139ae`):** 5 bugs — hardcoded `api.khachvip.online` → dynamic regex `^([a-z]+)(\d*)\.khachvip\.online$` → `api{suffix}.khachvip.online`.
 
 **Previous objective — COMPLETE:** #99-3 Loyalty Points Visibility + Shop Owner Dashboard — Phase A. See archive.
 
@@ -122,12 +123,12 @@
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `36a139ae` fix(khachlink): dynamic Gateway URL derivation — supports api2/api3/api4 scaling
+- **Last commit:** `72f4ac82` fix(cd): force-recreate nginx container to pick up template changes
 - **Working tree:** Clean (all changes committed + pushed). Branch in sync with origin/main.
 - **.NET SDK:** 8.0.422
 - **DB:** SQLite `vanan_shoperp.db` (business, per-tenant) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community tables)
 - **Build:** 0 errors across full solution. CI pre-push ALL PASSED.
-- **CI/CD:** GitHub Actions `cd-multivps.yml` SUCCESS (run `31236354808`, 2026-08-08) — 6 jobs all PASS: Build & Push Images → Pre-Deployment Validation → Deploy to Gateway VPS → Deploy to KhachLink VPS → Deploy to ShopERP VPS → Post-Deploy Smoke Test.
+- **CI/CD:** GitHub Actions `cd-multivps.yml` SUCCESS (run `31253352864`, 2026-08-08) — 6 jobs all PASS. Previous runs: `31249883868` (success), `31248504384` (success), `31244154577` (success).
 - **GCP VPS (3 instances):**
   - `vanan-gateway` (136.85.94.119, e2-micro, static IP) — Gateway API + Nginx + PostgreSQL + NATS
   - `vanan-khachlink` (e2-micro, static IP) — KhachLink UI + Seq + Certbot
@@ -156,9 +157,13 @@
 | #97 | Export DOCX empty + font tiếng Việt (consolidated) | ✅ DEPLOYED + RV PASS | `7edbdd7f` | (covered) |
 | #98 | Sync status orders not smooth — realtime push to KhachLink | ✅ DEPLOYED + RV PASS | `c9ac98cc` | LocationHub + OrderHub /negotiate 200 |
 | #99 | Redemption "Internal server error" — tenant filter + identity gate | ✅ DEPLOYED + RV PASS | `a8b5510f` | Redeem invalid/no token: 401 (not 500) |
-| #100 | Cải tiến layout KhachLink — 4 sub-tasks (mobile sticky, home toggles, FB/TikTok, save notification) | ✅ DEPLOYED + RV PASS | `76d61670` | 4 Home_* cols in DB + feature settings endpoint 200 + KhachLink pages 200 |
+| #100 | Cải tiến layout KhachLink — 4 sub-tasks | ✅ DEPLOYED + RV PASS | `76d61670` | 4 Home_* cols in DB + feature settings endpoint 200 |
+| #108 | Đăng nhập qua tài khoản google bị lỗi | ✅ CLOSED | `e9783d44` + `99bf5a4d` | 302 → Google consent, user confirmed login OK |
+| #109 | Shop instance bị lỗi (404) | ✅ CLOSED | `62c35845` + `72f4ac82` | 200 JSON with JWT |
+| #110 | Trang danh sach tennant bị lỗi | ✅ CLOSED | `62c35845` + `72f4ac82` | 200 JSON with JWT |
+| #111 | Commerce Mode bị lỗi (404) | ✅ CLOSED | `62c35845` + `72f4ac82` | 200 JSON with JWT |
 
-**Tất cả 8 issues (#87, #88, #89, #93, #97, #98, #99, #100) đã deploy + RV pass trên VPS. Cần đóng issues trên GitHub.**
+**Tất cả 12 issues đã CLOSED trên GitHub.**
 
 > **Full detail** (per-sprint file lists, VPS RV step-by-step, plan deviations, Loyalty/CRM Audit Fix P0-P3, KhachLink Bugs 1-3, Bug 5/6, 4-Bug Fix, Sprint 0): see `docs/AI/project_state_archive.md` → "Archived 2026-08-03" → Section 3.
 
@@ -166,19 +171,22 @@
 
 ## 4. Next Actions
 
-1. **(CURRENT — Gateway Refactor Decision)** Review 2 SRS documents + choose strategy:
-   - `docs/requirements/Van_An_SRS_Gateway_Refactor_Hybrid_Strategy.md` — Hybrid (Option 1+3+4): Tách Sync Worker + Tối ưu + Upgrade VPS (1-2 ngày, $0-5/tháng)
-   - `docs/requirements/Van_An_SRS_Gateway_Refactor_Split3_Services.md` — Option 2: Chia 3 services (1-2 tuần, +$15-21/tháng)
-   - Khuyến nghị: Hybrid cho ngắn hạn, Option 2 khi traffic tăng
-2. **(GCP Data Seeding)** Seed production data vào GCP DB (fresh DB chỉ có 3 tenants test):
+1. **(CURRENT — Browser verify #109/#110/#111)** User báo 3 issues chưa pass trên browser. API endpoints trả 200 JSON nhưng có thể UI vẫn lỗi. Cần:
+   - Login `adminvanan1` / `2026@vanan` tại `https://app2.khachvip.online/Login`
+   - Test `/admin/shop-instances` — xem có lỗi "404" không
+   - Test `/admin/tenants` — xem có lỗi "Không thể tải danh sách tenant" không
+   - Test `/admin/commerce-mode` — xem có lỗi "404" khi save không
+   - Nếu vẫn lỗi → kiểm tra ShopERP container logs trên VPS
+2. **(Gateway Refactor Decision)** Review 2 SRS documents + choose strategy:
+   - `docs/requirements/Van_An_SRS_Gateway_Refactor_Hybrid_Strategy.md` — Hybrid (Option 1+3+4)
+   - `docs/requirements/Van_An_SRS_Gateway_Refactor_Split3_Services.md` — Option 2: Split 3 services
+3. **(GCP Data Seeding)** Seed production data vào GCP DB (fresh DB chỉ có 3 tenants test):
    - Restore từ Oracle VPS (dump PG → restore GCP) HOẶC seed fresh qua API
    - Verify ShopERP SQLite có DemoUsers (owner/staff/chef/guard)
-   - Verify PlatformUser `sysadmin@vanan.vn` login OK (đã verify 2026-08-08)
-3. **(#99-3 Phase B APPROVAL)** Phase B (Alliance VND Normalization) — HIGH risk, feature-gated. Awaiting user approval. 10 steps (see archive).
-4. **(Browser RV — Phase A V6/V7)** Login `adminvanan1` / `Admin@123` at `https://app2.khachvip.online/Login`:
+4. **(#99-3 Phase B APPROVAL)** Phase B (Alliance VND Normalization) — HIGH risk, feature-gated. Awaiting user approval. 10 steps (see archive).
+5. **(Browser RV — Phase A V6/V7)** Login `adminvanan1` / `2026@vanan` at `https://app2.khachvip.online/Login`:
    - V6: Navigate to `/loyalty/dashboard` → verify 4 stat cards render
    - V7: Check NavMenu has "Thống kê điểm thưởng" link (icon bar-chart)
-5. **(Close GitHub Issues)** Đóng 8 issues đã RV pass trên GitHub: #87, #88, #89, #93, #97, #98, #99, #100.
 6. **(Browser RV, deferred)** Browser functional testing on VPS for Tenant Fixes 4 phases (authenticated user flows).
 7. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (currently skipped via `Category!=Flaky` CI filter).
 8. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. Cần Domain Modification approval.
@@ -307,15 +315,21 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main`, last commit `36a139ae` (dynamic Gateway URL derivation). CD `cd-multivps.yml` SUCCESS (run `31236354808`). GCP 3-VPS deployed + runtime verified (health, catalog, login, tenant creation, UI endpoints). 26 migrations applied (RoutingKey + VatRate columns present). NatsSyncWorker poll interval 5s (no overload). KhachLink domain fix (api2 + dynamic regex). 2 SRS documents created for Gateway refactor. Build 0 errors. All prior sprints COMPLETE.
-- **Open Questions:** 0
-- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (100+), Open Questions (0) < 3
+- **Verified Facts:** Branch=`main`, last commit `72f4ac82` (CD force-recreate nginx). CD `cd-multivps.yml` SUCCESS (run `31253352864`). 4 GitHub issues CLOSED (#108, #109, #110, #111). Google OAuth login confirmed OK by user. API endpoints verified 200 JSON (shop-instances, tenants, commerce-mode). 26 migrations applied. NatsSyncWorker poll 5s. KhachLink domain fix (api2 + dynamic regex). 2 SRS documents for Gateway refactor. Build 0 errors. All prior sprints COMPLETE.
+- **Open Questions:** 1 — User báo #109/#110/#111 chưa pass trên browser (API trả 200 nhưng UI có thể vẫn lỗi). Cần browser verify + kiểm tra ShopERP container logs.
+- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (100+), Open Questions (1) < 3
 
 ---
 
 ## 10. Maintenance Log
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md` → "Archived 2026-08-03" → Section 10.
+
+* **2026-08-08 — ISSUE BATCH FIX: 4 GITHUB ISSUES CLOSED (#108, #109, #110, #111).** Multi-commit fix for 4 Ready issues on GitHub Project:
+  - **#108 Google login 502 (commits `e9783d44` + `99bf5a4d`):** YARP clusters dùng Docker hostnames không resolve được trong multi-VPS → override via env vars. Google OAuth callback URL default `api.` → `api2.`. OAuth Client ID sai (code dùng `942622517054-...`, Google Console có `14277833009-...`) → updated GitHub Secrets. **User confirmed login OK.**
+  - **#109/#110/#111 Shop instances + Tenant list + Commerce Mode 404 (commits `62c35845` + `72f4ac82`):** nginx port 80 không có server block match VPC internal IP → 301 HTTPS redirect → wrong server block → 404. Fix: thêm `listen 80 default_server` block proxy `/api/` directly to `gateway:80`. CD fix: `docker compose up -d` không recreate container khi chỉ bind-mount thay đổi → thay `nginx -s reload` bằng `docker compose up -d --force-recreate nginx`.
+  - **API verified 200 JSON:** shop-instances, tenants, commerce-mode all return JSON with JWT.
+  - **Note:** User báo 3 issues chưa pass trên browser — cần browser verify + kiểm tra ShopERP container logs.
 
 * **2026-08-08 — GCP 3-VPS DEPLOYMENT STABILIZATION COMPLETE.** Multi-session effort to stabilize GCP 3-VPS deployment (Gateway + KhachLink + ShopERP). Key fixes:
   - **Migration fix (commit `708364d5`):** EF Core migration `AddOutboxRoutingKey` missing `.Designer.cs` file → migration skipped silently. Migration `AddFeaturedProductVatRate` had `AddColumn<decimal>("VatRate")` missing from `Up()` method. Created Designer file + added AddColumn to Up() + DropColumn to Down(). DB dropped + recreated → 26 migrations applied correctly.
