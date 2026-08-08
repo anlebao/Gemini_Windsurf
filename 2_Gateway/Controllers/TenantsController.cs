@@ -61,7 +61,12 @@ namespace VanAn.Gateway.Controllers
                     request.TaxCode);
 
                 var tenant = await _tenantService.CreateTenantAsync(createRequest, ct);
-                return CreatedAtAction(nameof(GetById), new { tenantId = tenant.Id }, MapToDto(tenant));
+                return Ok(MapToDto(tenant));
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation creating tenant {TenantName}", request.Name);
+                return BadRequest(new { error = ex.Message });
             }
             catch (ArgumentException ex)
             {
