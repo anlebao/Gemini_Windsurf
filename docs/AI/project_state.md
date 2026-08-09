@@ -30,44 +30,62 @@
 
 ## 2. Current Objective
 
-**Issue Batch Fix #110 + #112 + nginx 503 Rate Limit Fix — COMPLETE + DEPLOYED + RUNTIME VERIFIED (2026-08-09).**
+**Gateway Refactor Hybrid Strategy — Bước 1 (Tối ưu code) COMPLETE + DEPLOYED + RUNTIME VERIFIED (2026-08-09).**
 
-**Issue #110 — Tenant list lỗi + tạo tenant không lưu (CLOSED 2026-08-09):**
-- **Root cause:** `HandleCreateSubmit` in `TenantManagement.razor` called `TenantService.CreateTenantAsync` → writes to ShopERP SQLite (IVanAnDbContext). But tenant list loads from Gateway PostgreSQL. Create→list mismatch.
-- **Fix (commits `8d96f035` + `e6daf545`):** Added `POST /api/v1/tenants` endpoint to Gateway `TenantsController`. Added `TenantApiClient.CreateAsync` in ShopERP. `HandleCreateSubmit` now calls Gateway API (PG source of truth). Fixed `CreateRequestAsync` to serialize enums as strings (match Gateway `JsonStringEnumConverter`). Changed `CreatedAtAction` → `Ok` + added `InvalidOperationException` catch.
-- **Verified:** POST returns 200, new tenant appears in list (8 tenants).
+**REQ-1.2 — Background Service Toggle Feature (commits `404b1588` → `2ca93e04` → `f26a0166`):**
+- **Objective:** SystemAdmin có thể bật/tắt 6 background services runtime qua admin UI, không cần restart container.
+- **Architecture:**
+  - ShopERP admin UI `/admin/background-services` — toggle switches (Blazor Server).
+  - Gateway API `GET/PUT /api/admin/background-services` — SystemAdmin JWT, class-level `[Authorize]`.
+  - `BackgroundServiceToggleService` in CoreHub — Singleton, dùng `IServiceScopeFactory` (singleton-safe) + 30s memory cache.
+  - Persistence: `SystemSetting` table, key `BackgroundServices:Enable{ServiceName}`, default enabled if no row.
+- **Services toggleable:** EInvoiceSyncSubscriber, CoolingPeriodJob (Gateway VPS) + BirthdayBonusJob, VoucherExpiryReminderJob, PromoCampaignJob, LoyaltySyncSubscriber (ShopERP VPS).
+- **CI fixes (commit `f26a0166`):**
+  1. Architecture test W12-G7: `BackgroundServicesController` cần class-level `[Authorize]` (không phải method-level).
+  2. Integration test Phase3.6: `BackgroundServiceToggleService` Singleton inject `IVanAnDbContext` (Scoped) → DI validation fail. Fix: inject `IServiceScopeFactory` + tạo scope per DB op.
+  3. Unit tests: 3 test constructors cần mock `IBackgroundServiceToggleService` (IsEnabledAsync=true default).
+- **Runtime verified:** API 200 với JWT, 6 toggles trả về, toggle off/on EInvoiceSyncSubscriber thành công (Enabled=False → Enabled=True).
 
-**Issue #112 — QR code hardcoded URL (CLOSED 2026-08-09):**
-- **Root cause:** `QRCodePayload.ToQrContent()` hardcoded `https://diemthuong.khachvip.online` (Oracle VPS).
-- **Fix (commit `8d96f035`):** `QrCodeService` injects `IConfiguration`, reads `ExternalUrls:KhachLink` config (set to `https://diemthuong2.khachvip.online` in docker-compose). Supports diemthuong2/3/4 scaling without code changes.
-- **Note:** Existing QR codes printed before fix still point to old domain. Product owners need to reprint.
+**REQ-1.1 — NatsSyncWorker poll interval 5s→10s (commit `812a96cc`):**
+- `docker-compose.gateway.yml`: `Sync__PollIntervalMs` 5000→10000 (giảm 50% DB query).
+- `docker-compose.shoperp.yml`: thêm `Sync__PollIntervalMs=10000` (was **default 1s** — giảm 90%, từ 86400 queries/ngày xuống 8640).
+- Order delivery <10s — đủ nhanh cho kitchen/POS.
 
-**nginx 503 Rate Limit Fix (commits `127092d2` → `60996749` → `c0fe7a29` → `bf7832dc`):**
-- **Root cause:** `limit_req zone=web rate=10r/s burst=20` applied to Blazor Server apps (www2, app2, diemthuong2). Blazor initial load fetches 10-20+ static assets + POST /Login + _blazor/negotiate within 1-2 seconds → exceeds 10r/s → 503.
-- **Fix evolution (3 iterations based on user feedback):**
-  1. `127092d2`: Increased burst 20→100 — **user correctly rejected**: band-aid, doesn't scale for 100 users.
-  2. `60996749`: Removed rate limit entirely — **user correctly rejected**: Blazor Server holds circuit state in RAM, no limit = RAM exhaustion DoS.
-  3. `c0fe7a29` + `bf7832dc`: **3-layer protection strategy (FINAL):**
-     - Layer 1: Static assets (.js/.css/.png) — no `limit_req` (location overrides parent, no .NET RAM cost)
-     - Layer 2: Dynamic pages (/Login, /admin) — `limit_req zone=web burst=50` + `limit_conn perip_conn 10`
-     - Layer 3: /_blazor WebSocket — `limit_conn perip_conn 10` only (no `limit_req` — long-lived, not bursty)
-- **nginx 1.25 syntax fix (`bf7832dc`):** `limit_req off` is invalid in nginx 1.25-alpine → `[emerg] invalid parameter "off"` → nginx restart loop → 503. Removed `limit_req off` — nginx location blocks don't inherit `limit_req` from parent server block, so omitting the directive = no rate limit.
-- **Added `limit_conn_zone perip_conn` to nginx.conf** — limits concurrent connections per IP to 10 (protects Blazor Server RAM from DoS).
+**REQ-1.3 — Giảm logging production (commit `812a96cc`):**
+- `appsettings.Production.json` (Gateway + ShopERP): `Microsoft.EntityFrameworkCore.Database.Command` + `VanAn.CoreHub.Services.NatsSyncWorker` → Warning.
+- Giảm log volume ~90% (NatsSyncWorker log mỗi poll cycle).
 
-**VPS Outage + Recovery (2026-08-09):**
-- 3 CD runs triggered in parallel (from 3 rapid commits) → Gateway VPS (e2-small, 2GB RAM) exhausted RAM → SSH timeout, health timeout.
-- User reset VPS via GCP Console. After reset, nginx container in restart loop due to `limit_req off` syntax error.
-- Fixed `limit_req off` on host template + restarted nginx → all services recovered.
-- **Lesson:** Do NOT push multiple commits rapidly when CD auto-triggers — each push spawns a parallel CD run, VPS e2-small cannot handle concurrent `docker compose pull` operations.
+**Split3 SRS Archived:**
+- `Van_An_SRS_Gateway_Refactor_Split3_Services.md` → `docs/requirements/archive/`.
+- Over-engineering cho MVP stage (45 controllers trong 1 process OK khi traffic thấp).
+- Hybrid Strategy (1+3+4) đủ cho 6-12 tháng tới.
 
-**Runtime Verification (2026-08-09, after all fixes):**
-- Gateway health: `https://api2.khachvip.online/health` → 200 Healthy
-- ShopERP health: `https://app2.khachvip.online/health` → 200 Healthy
-- Login page: `https://app2.khachvip.online/Login?ReturnUrl=%2F` → 200 (6.5KB)
-- Create tenant: `POST /api/v1/tenants` → 200, new tenant in list (8 tenants)
-- CD run `31288588137` in progress (deploying final config `bf7832dc`)
+**VPS Disk Cleanup (2026-08-09):**
+- Gateway VPS: 100% → 52% (docker image prune -af, reclaimed 4.9GB).
+- ShopERP VPS: 100% → 44% (docker image prune -af, reclaimed 5.4GB).
+- Root cause: CD pull images mới nhưng không prune images cũ → disk full → SCP fail.
 
-**Previous objective — COMPLETE:** GCP 3-VPS Deployment Stabilization + Issue Batch Fix #108/#109/#110/#111. See archive.
+**Runtime Verification (2026-08-09, 11/11 PASS):**
+1. Gateway health: 200 Healthy
+2. ShopERP health: 200 Healthy
+3. Login page: 200 (6576 bytes)
+4. Admin BG services page: 200
+5. BG services API (no auth): 401 (correct)
+6. Platform login: 200 (JWT 433 chars)
+7. BG services API (JWT): 200 — 6 toggles
+8. Toggle OFF EInvoiceSyncSubscriber: 200
+9. Verify toggle state: Enabled=False
+10. Toggle ON EInvoiceSyncSubscriber: 200
+11. Rate limit test (5 rapid requests): 5/5 OK, no 503
+
+**Hybrid Strategy Status:**
+| Bước | Status |
+|------|--------|
+| Bước 1 (Tối ưu code) | ✅ COMPLETE — REQ-1.1 + 1.2 + 1.3 deployed + verified |
+| Bước 2 (Tách Sync Worker) | ⏸ Pending — chỉ trigger khi CPU > 70% sustained |
+| Bước 3 (Upgrade VPS) | ✅ Done — VPS đã là e2-small 2GB |
+
+**Previous objective — COMPLETE:** Issue Batch Fix #110 + #112 + nginx 503 Rate Limit Fix. See archive.
 
 **Previous objective — COMPLETE:** #99-3 Loyalty Points Visibility + Shop Owner Dashboard — Phase A. See archive.
 
@@ -119,26 +137,28 @@
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `72f4ac82` fix(cd): force-recreate nginx container to pick up template changes
+- **Last commit:** `812a96cc` perf(req-1.1+1.3): NatsSyncWorker poll 5s→10s + reduce logging + archive Split3 SRS
 - **Working tree:** Clean (all changes committed + pushed). Branch in sync with origin/main.
 - **.NET SDK:** 8.0.422
-- **DB:** SQLite `vanan_shoperp.db` (business, per-tenant) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community tables)
+- **DB:** SQLite `vanan_shoperp.db` (business, per-tenant) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community + SystemSetting tables)
 - **Build:** 0 errors across full solution. CI pre-push ALL PASSED.
-- **CI/CD:** GitHub Actions `cd-multivps.yml` SUCCESS (run `31253352864`, 2026-08-08) — 6 jobs all PASS. Previous runs: `31249883868` (success), `31248504384` (success), `31244154577` (success).
+- **CI/CD:** GitHub Actions `cd-multivps.yml` SUCCESS (run `31292519378`, 2026-08-09) — all jobs PASS. CI run `31290434856` SUCCESS. Accounting Tests `31290434869` SUCCESS.
 - **GCP VPS (3 instances):**
-  - `vanan-gateway` (136.85.94.119, e2-micro, static IP) — Gateway API + Nginx + PostgreSQL + NATS
+  - `vanan-gateway` (136.85.94.119, e2-small 2GB, static IP) — Gateway API + Nginx + PostgreSQL + NATS
   - `vanan-khachlink` (e2-micro, static IP) — KhachLink UI + Seq + Certbot
   - `vanan-shop-a` (34.177.89.248, e2-micro, static IP) — ShopERP
   - All 3 VPSs: dedicated `vanan-deploy` user, separate ed25519 SSH keys, idempotent deploy scripts
 - **Domains (GCP — "2" suffix):** `api2.khachvip.online` (Gateway), `app2.khachvip.online` (ShopERP), `diemthuong2.khachvip.online` (KhachLink), `www2.khachvip.online` (main)
 - **Domains (Oracle — no suffix, legacy):** `api.khachvip.online`, `app.khachvip.online`, `diemthuong.khachvip.online`, `khachvip.online`
 - **Containers (Gateway VPS):** vanan-gateway-1 (healthy), vanan-nginx-1, vanan-postgres-1 (healthy), vanan-nats-1 (healthy)
-- **Resource usage:** Gateway 165MB RAM, 7.5% CPU (after poll interval 5s fix)
+- **Disk space:** Gateway VPS 52% (cleaned 4.9GB), ShopERP VPS 44% (cleaned 5.4GB)
+- **Resource usage:** Gateway — `Sync__PollIntervalMs=10000` (10s poll, giảm 50% DB query), NatsSyncWorker logging Warning (giảm 90% log volume). ShopERP — `Sync__PollIntervalMs=10000` (was default 1s, giảm 90% DB query).
+- **Background Service Toggle:** `/admin/background-services` deployed — 6 services toggleable runtime (EInvoiceSyncSubscriber, CoolingPeriodJob, BirthdayBonusJob, VoucherExpiryReminderJob, PromoCampaignJob, LoyaltySyncSubscriber). Default all enabled. API: `GET/PUT /api/admin/background-services` (SystemAdmin JWT).
 - **Local infra:** Docker PostgreSQL 15-alpine (5432) + NATS 2-alpine (4222) + ShopERP 5003 + KhachLink 5002 + Gateway 5001
 - **Loyalty Alliance System:** FULLY OPERATIONAL (Phase 1-7 COMPLETE + DEPLOYED + VPS VERIFIED). Tenant currently in Silo mode — Alliance infrastructure ready for when tenant switches.
 - **#99-3 Phase A:** DEPLOYED + VPS RV PASS on Oracle VPS. GCP VPS has fresh DB (3 tenants from seed + onboarding test).
 - **CustomerRepository.AddAsync fix (commit `550f5619`):** Fixed bug where AddAsync created a new Customer with wrong Id. Loyalty points now correctly awarded after order completion.
-- **Tech debt:** TD-MVPS-001 through TD-MVPS-004 (see `docs/AI/tasks/tech_debt_multi_vps_checkout.md`). TD-PWA-001 (WASM conversion complete). Tier 5 — True Offline Edge (post-PoC). **TD-CUSTSYNC-001 (2026-07-27):** Customers created in ShopERP SQLite (CRM local) are NOT synced to Gateway PG — Gateway `OrderService.CreateOrderFromCommandAsync` validates CustomerId against PG and falls back to null if missing. Bug 6 fix mitigates this for guest checkout (DeviceId fallback + stub creation in SQLite), but full Customer sync SQLite→PG still needed for cross-system customer identity. **TD-ASYNCDP-001 (2026-08-03, NEW):** `ScopedDataProvider.GetAccountSum`/`GetAccountBalance` are sync methods that internally call async `GetPreAggregatedDataAsync` via `Task.Run(...).GetAwaiter().GetResult()` (Phase 0 Bug 3 quick fix). Proper fix: make `IFormulaEngine.Evaluate` + `IDataProvider.GetAccountSum` async (`EvaluateAsync`/`GetAccountSumAsync`) so the entire chain is async-native — eliminates sync-over-async + thread pool offload overhead. Large interface change, touch many callers. **TD-GCP-001 (2026-08-08, NEW):** Gateway 45 controllers + 5 background services + 4 SignalR hubs in 1 process on e2-micro — architecture review needed. SRS documents created for Hybrid (Option 1+3+4) and Split 3 Services (Option 2) refactor strategies.
+- **Tech debt:** TD-MVPS-001 through TD-MVPS-004 (see `docs/AI/tasks/tech_debt_multi_vps_checkout.md`). TD-PWA-001 (WASM conversion complete). Tier 5 — True Offline Edge (post-PoC). **TD-CUSTSYNC-001 (2026-07-27):** Customers created in ShopERP SQLite (CRM local) are NOT synced to Gateway PG — Gateway `OrderService.CreateOrderFromCommandAsync` validates CustomerId against PG and falls back to null if missing. Bug 6 fix mitigates this for guest checkout (DeviceId fallback + stub creation in SQLite), but full Customer sync SQLite→PG still needed for cross-system customer identity. **TD-ASYNCDP-001 (2026-08-03):** `ScopedDataProvider.GetAccountSum`/`GetAccountBalance` are sync methods that internally call async `GetPreAggregatedDataAsync` via `Task.Run(...).GetAwaiter().GetResult()` (Phase 0 Bug 3 quick fix). Proper fix: make `IFormulaEngine.Evaluate` + `IDataProvider.GetAccountSum` async (`EvaluateAsync`/`GetAccountSumAsync`) so the entire chain is async-native — eliminates sync-over-async + thread pool offload overhead. Large interface change, touch many callers. **TD-GCP-001 (2026-08-08):** Gateway 45 controllers + 5 background services + 4 SignalR hubs in 1 process — Hybrid Strategy Bước 1 COMPLETE (poll interval + toggle + logging). Bước 2 (tách Sync Worker) pending CPU > 70% sustained. Bước 3 (upgrade VPS) đã done (e2-small). Split3 SRS archived (`docs/requirements/archive/`).
 
 ### 3a. Ready Issues (GitHub Project — NOT in repo)
 
@@ -167,32 +187,34 @@
 
 ## 4. Next Actions
 
-1. **(CURRENT — Browser verify #109/#110/#111)** User báo 3 issues chưa pass trên browser. API endpoints trả 200 JSON nhưng có thể UI vẫn lỗi. Cần:
-   - Login `adminvanan1` / `2026@vanan` tại `https://app2.khachvip.online/Login`
-   - Test `/admin/shop-instances` — xem có lỗi "404" không
-   - Test `/admin/tenants` — xem có lỗi "Không thể tải danh sách tenant" không
-   - Test `/admin/commerce-mode` — xem có lỗi "404" khi save không
-   - Nếu vẫn lỗi → kiểm tra ShopERP container logs trên VPS
-2. **(Gateway Refactor Decision)** Review 2 SRS documents + choose strategy:
-   - `docs/requirements/Van_An_SRS_Gateway_Refactor_Hybrid_Strategy.md` — Hybrid (Option 1+3+4)
-   - `docs/requirements/Van_An_SRS_Gateway_Refactor_Split3_Services.md` — Option 2: Split 3 services
-3. **(GCP Data Seeding)** Seed production data vào GCP DB (fresh DB chỉ có 3 tenants test):
+1. **(Browser RV — Background Service Toggle)** Login `sysadmin@vanan.vn` / `2026@vanan` tại `https://app2.khachvip.online/Login`:
+   - Navigate to `/admin/background-services` — verify 6 toggle switches render
+   - Toggle OFF 1 service → verify UI updates + API call succeeds
+   - Toggle ON lại → verify state restored
+   - Nếu UI lỗi → kiểm tra ShopERP container logs trên VPS
+2. **(GCP Data Seeding)** Seed production data vào GCP DB (fresh DB chỉ có 3 tenants test):
    - Restore từ Oracle VPS (dump PG → restore GCP) HOẶC seed fresh qua API
    - Verify ShopERP SQLite có DemoUsers (owner/staff/chef/guard)
-4. **(#99-3 Phase B APPROVAL)** Phase B (Alliance VND Normalization) — HIGH risk, feature-gated. Awaiting user approval. 10 steps (see archive).
-5. **(Browser RV — Phase A V6/V7)** Login `adminvanan1` / `2026@vanan` at `https://app2.khachvip.online/Login`:
+3. **(#99-3 Phase B APPROVAL)** Phase B (Alliance VND Normalization) — HIGH risk, feature-gated. Awaiting user approval. 10 steps (see archive).
+4. **(Browser RV — Phase A V6/V7)** Login `adminvanan1` / `2026@vanan` at `https://app2.khachvip.online/Login`:
    - V6: Navigate to `/loyalty/dashboard` → verify 4 stat cards render
    - V7: Check NavMenu has "Thống kê điểm thưởng" link (icon bar-chart)
-6. **(Browser RV, deferred)** Browser functional testing on VPS for Tenant Fixes 4 phases (authenticated user flows).
+5. **(Browser RV, deferred)** Browser functional testing on VPS for Tenant Fixes 4 phases (authenticated user flows).
+6. **(Hybrid Strategy Bước 2 — Monitor)** Chỉ trigger Bước 2 (tách Sync Worker ra container riêng) khi:
+   - CPU sustained > 70% trong 30 phút, HOẶC
+   - Memory > 80% trong 30 phút, HOẶC
+   - SSH timeout 1 lần
+   - Hiện tại: VPS e2-small 2GB, poll 10s, toggle 6 services → đủ load. Chưa cần Bước 2.
 7. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (currently skipped via `Category!=Flaky` CI filter).
 8. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. Cần Domain Modification approval.
 9. **A2 follow-up — Guid case audit (P2):** Audit + fix Guid case mismatch across all tables (not just OutboxMessages).
-10. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG. **TD-ASYNCDP-001:** Make `IFormulaEngine`/`IDataProvider` async-native. **TD-GCP-001:** Gateway refactor (see SRS documents).
+10. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG. **TD-ASYNCDP-001:** Make `IFormulaEngine`/`IDataProvider` async-native. **TD-GCP-001:** Hybrid Bước 1 done, Bước 2 pending monitoring.
 11. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`.
 12. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate.
 13. **(Facebook OAuth)** Config real Facebook OAuth credentials — Sprint 7+. Currently stub redirect in `Login.razor:148`.
 14. **(Loyalty Alliance activation)** When tenant switches to Alliance mode in production, run end-to-end RV.
 15. **(Bug 3 full verify)** Re-print QR for product with image to fully verify Scan.razor image rendering on VPS.
+16. **(VPS Disk Monitoring)** Cả 2 VPS disk đã clean (52% + 44%) nhưng sẽ đầy lại sau vài CD runs. Cân nhắc thêm `docker image prune -af` vào deploy script hoặc cron job.
 
 ### Pruned (2026-07-29)
 
@@ -311,7 +333,7 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main`, last commit `bf7832dc` (nginx limit_req off fix). Issues #110 + #112 CLOSED on GitHub. Gateway health 200, ShopERP health 200, Login page 200. POST /api/v1/tenants returns 200, new tenant in list (8 tenants). nginx 3-layer protection deployed (static exempt + limit_req burst=50 + limit_conn 10). VPS recovered after reset + nginx config fix. CD run `31288588137` deploying final config.
+- **Verified Facts:** Branch=`main`, last commit `812a96cc` (REQ-1.1+1.3 poll interval + logging + archive Split3). CI `31290434856` SUCCESS, CD `31292519378` SUCCESS, Accounting Tests `31290434869` SUCCESS. Runtime RV 11/11 PASS: Gateway health 200, ShopERP health 200, Login 200, Admin BG services page 200, API 401 (no auth) → 200 (JWT), 6 toggles returned, toggle off/on verified. Config verified on VPS: `Sync__PollIntervalMs=10000` (Gateway + ShopERP), logging NatsSyncWorker+EF Core Warning. Disk: Gateway 52%, ShopERP 44% (after prune). Split3 SRS archived to `docs/requirements/archive/`.
 - **Open Questions:** 0
 - **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (50+), Open Questions (0) < 3
 
@@ -320,6 +342,15 @@ Server A (Edge):              Server B (Central):
 ## 10. Maintenance Log
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md` → "Archived 2026-08-03" → Section 10.
+
+* **2026-08-09 — GATEWAY REFACTOR HYBRID STRATEGY BƯỚC 1 COMPLETE + DEPLOYED + RUNTIME VERIFIED.** 4 commits across 2 sessions:
+  - **REQ-1.2 Background Service Toggle (commits `404b1588` → `2ca93e04` → `f26a0166`):** SystemAdmin toggle 6 background services runtime via `/admin/background-services` (Blazor Server) → Gateway API `GET/PUT /api/admin/background-services` (SystemAdmin JWT, class-level `[Authorize]`) → `BackgroundServiceToggleService` (Singleton, `IServiceScopeFactory` + 30s cache) → `SystemSetting` table (`BackgroundServices:Enable{ServiceName}`, default enabled). 6 services: EInvoiceSyncSubscriber, CoolingPeriodJob (Gateway) + BirthdayBonusJob, VoucherExpiryReminderJob, PromoCampaignJob, LoyaltySyncSubscriber (ShopERP). CI fixes: (1) W12-G7 architecture test — class-level `[Authorize]` required, (2) Phase3.6 integration test — Singleton cannot inject Scoped `IVanAnDbContext`, fix with `IServiceScopeFactory`, (3) 3 unit tests needed mock `IBackgroundServiceToggleService`.
+  - **REQ-1.1 Poll interval 5s→10s (commit `812a96cc`):** `docker-compose.gateway.yml` `Sync__PollIntervalMs` 5000→10000 (giảm 50% DB query). `docker-compose.shoperp.yml` thêm `Sync__PollIntervalMs=10000` (was **default 1s** — giảm 90%, 86400→8640 queries/ngày). Order delivery <10s OK cho kitchen/POS.
+  - **REQ-1.3 Reduce logging (commit `812a96cc`):** `appsettings.Production.json` (Gateway + ShopERP): `Microsoft.EntityFrameworkCore.Database.Command` + `VanAn.CoreHub.Services.NatsSyncWorker` → Warning. Giảm log volume ~90%.
+  - **Split3 SRS archived:** `Van_An_SRS_Gateway_Refactor_Split3_Services.md` → `docs/requirements/archive/`. Over-engineering cho MVP. Hybrid Strategy đủ cho 6-12 tháng.
+  - **VPS disk cleanup:** Gateway 100%→52% (prune 4.9GB), ShopERP 100%→44% (prune 5.4GB). Root cause: CD pull images mới không prune images cũ.
+  - **Runtime RV 11/11 PASS:** Health 200/200, Login 200, Admin page 200, API 401→200 (JWT), 6 toggles, toggle off/on verified, rate limit 5/5 OK.
+  - **CI `31290434856` SUCCESS, CD `31292519378` SUCCESS, Accounting Tests `31290434869` SUCCESS.** Branch: `main`. Last commit: `812a96cc`.
 
 * **2026-08-09 — ISSUE BATCH FIX #110 + #112 + NGINX 503 RATE LIMIT FIX.** 3 issues resolved in 1 session:
   - **#110 Tenant list lỗi (commits `8d96f035` + `e6daf545`):** `HandleCreateSubmit` wrote to ShopERP SQLite but list loaded from Gateway PG → mismatch. Added `POST /api/v1/tenants` to Gateway + `TenantApiClient.CreateAsync` in ShopERP. Verified: POST 200, tenant in list (8 total).
