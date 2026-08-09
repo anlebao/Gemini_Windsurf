@@ -30,12 +30,12 @@
 
 ## 2. Current Objective
 
-**VALCN v2.0 PLATFORM-LIGHT — Wave 2 COMPLETE (Phase 2 + Phase 3), Wave 3 NEXT.**
+**VALCN v2.0 PLATFORM-LIGHT — ALL 3 WAVES COMPLETE (Phase 0, 1, 2, 3, 4, 7). BOM v2.0 fully implemented.**
 
 **Source:** User request 2026-08-09 — hiện thực hóa BOM v2.0 PLATFORM-LIGHT.
 **BOM:** `docs/requirements/VAN_AN_LOCAL_COMMERCE_NETWORK_BOM_v2.0_PLATFORM_LIGHT.md`
 **Master plan:** `docs/AI/tasks/valcn_v2_platform_light/valcn_v2_master_plan.md`
-**Task cards:** `phase0` (✅) + `phase1` (✅) + `phase2` (✅) + `phase3` (✅) + `phase4` (pending) + `phase7` (pending) + `phase0_findings.md`
+**Task cards:** `phase0` (✅) + `phase1` (✅) + `phase2` (✅) + `phase3` (✅) + `phase4` (✅) + `phase7` (✅) + `phase0_findings.md`
 **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** `main` (always-green, per-phase commits)
 
 **Scope (v2 — sau scope cut + codebase review):**
@@ -50,7 +50,7 @@
 |------|--------|--------|
 | Wave 1 | Phase 0 (Analyze) + Phase 1 (Foundation) | ✅ COMPLETE — commit `af09b8d0` |
 | Wave 2 | Phase 2 (Platform Fee) ‖ Phase 3 (Loyalty Budget) | ✅ COMPLETE — commits `f1d46f24` + `7edf589a` |
-| Wave 3 | Phase 4 (Refund Reversal) ‖ Phase 7 (Network Dashboard) | ⏸ NEXT — needs Wave 2 |
+| Wave 3 | Phase 4 (Refund Reversal) ‖ Phase 7 (Network Dashboard) | ✅ COMPLETE — commit `9a4d0e9b` |
 
 **Wave 1 COMPLETE (commit `af09b8d0` — 2026-08-09):**
 - Phase 0: Subagent verified `ShopFeatureSettingsEntity.PlatformFeeRate` did NOT exist (was global `SystemSetting`) → made per-tenant per BOM intent. Confirmed `LoyaltyIssuanceRecord` + `AccountingEntry` factory chain mods necessary + safe.
@@ -61,9 +61,9 @@
 - **Phase 2 — Platform Fee (commit `f1d46f24`):** `OrderService.SnapshotCommerceModeAsync` Marketplace branch wrapped in `ValcnV2_PlatformFee` feature flag. `GetPlatformFeeRateAsync` helper: per-tenant `ShopFeatureSettingsEntity.PlatformFeeRate` (default 5%) → global `SystemSetting.DefaultPlatformFeeRate` (30%) → ultimate 5% fallback. `Order.SetMarketplacePlatformFee(rate)` Domain method. When OFF (default): existing no-op behavior (PlatformFeeRate/Amount remain null).
 - **Phase 3 — Loyalty Budget (commit `7edf589a`):** `ILoyaltyBudgetService` + `LoyaltyBudgetService` (CoreHub, direct PG) + `LoyaltyBudgetServiceHttpProxy` (ShopERP, HTTP proxy to Gateway internal API — ShopERP SQLite ignores `LoyaltyTenantConfig`). 4 budget caps: PerOrderRateCap, MonthlyPointsBudget, DailyPointsBudget, PerCustomerDailyLimit. Atomic counter increment via `ExecuteUpdateAsync` (fix I1 race condition). `OrderWorkflowService.ProcessLoyaltyPointsAsync` injects budget check (feature-flagged, default OFF). 2 reset jobs: `LoyaltyBudgetDailyResetJob` (daily 00:00 UTC) + `LoyaltyBudgetMonthlyResetJob` (1st of month 00:00 UTC) — both toggleable via `BackgroundServiceToggleService`. Gateway internal API: `POST /api/internal/loyalty-budget/{check-adjust,record,decrement}` with `[InternalApiKey]` auth. INV-009 deferred (no PointValue field in `LoyaltyGlobalConfig` — v3.0).
 
-**Wave 3 NEXT (Phase 4 + Phase 7 — parallel):**
-- **Phase 4 — Refund Reversal:** `RefundOrchestrationService` — coordinate 4-step reversal on order cancel/refund (UC-06): (2a) payment refund, (2b) accounting reversal entry, (2c) loyalty reversal via `LoyaltyIssuanceRecord.MarkReversed` + `LoyaltyBudgetService.DecrementIssuanceAsync`, (2d) referral commission reversal. Read `phase4_task_card.md`.
-- **Phase 7 — Network Dashboard:** `NetworkDashboardService` — cross-tenant aggregate metrics (investor-facing). Fix LoyaltyROI formula bug (C4 — filter orders by repeat customer IDs). Read `phase7_task_card.md`.
+**Wave 3 COMPLETE (commit `9a4d0e9b` — 2026-08-09):**
+- **Phase 4 — Refund Reversal:** `IRefundOrchestrationService` + `RefundOrchestrationService` — 4-step reversal on order cancel (UC-06, INV-002): (2a) accrual liability entry accountCode "331" (Option B — no payment integration, ensures Cash=Accounting per TT 152/2025), (2b) accounting reversal via `AccountingEntry.CreateReversal` (preserves CorrelationId), (2c) loyalty reversal via `SubtractPointsAsync` + `LoyaltyIssuanceRecord.MarkReversed` + `LoyaltyBudgetService.DecrementIssuanceAsync`, (2d) referral commission reversal via `WalletService.ReverseTransactionAsync`. Natural idempotency (checks if reversal entries already exist for CorrelationId — no IdempotentOperation table needed). `OrderWorkflowService.HandleOrderCancelledAsync` hook wrapped in `ValcnV2_RefundReversal` flag (default OFF = existing silent-cancel). `IAccountingEntryRepository.GetByCorrelationIdAsync` added. DRIFT resolved: no payment integration → Option B; no repositories → direct DbContext (matches FraudReviewService pattern); `DeductPointsForOrderAsync` missing → `SubtractPointsAsync`.
+- **Phase 7 — Network Dashboard:** `INetworkDashboardService` + `NetworkDashboardMetrics` (8 metrics) + `DateRange` record + `NetworkDashboardService` (cross-tenant query via `IgnoreQueryFilters`, 10-min `IMemoryCache` cache). Fix C4 LoyaltyROI formula (repeatGmv not totalGmv). Fix I3 (Ops Cost excluded — defer v3.0). Fix I4 (Tier Distribution removed). `NetworkDashboardController` (Gateway, `[InternalApiKey]` — same pattern as LoyaltyBudgetController). `NetworkDashboardHttpService` (ShopERP HTTP client — same pattern as LoyaltyBudgetServiceHttpProxy). `NetworkDashboard.razor` admin UI (8 `VanAMetricsCard` components, date range picker, SystemAdmin-only, `@layout AdminLayout`). NavMenu entry. DI registrations (Gateway + ShopERP). DRIFT resolved: `LoyaltyGlobalConfig.PointValue` MISSING (INV-009) → fallback 1000 VND/point; `Order.CustomerId` is `Guid?` → filter nulls; `DateRange` type missing → defined in interface file. W12-G7 architecture test: added `LoyaltyBudgetController` + `NetworkDashboardController` to exempt list (internal `[InternalApiKey]` auth, same as `InternalLoyaltyController`).
 
 **Previous objective — COMPLETE:** Gateway Refactor Hybrid Strategy — Bước 1 (Tối ưu code) COMPLETE + DEPLOYED + RUNTIME VERIFIED (2026-08-09, RV 11/11 PASS). REQ-1.1 (poll 5s→10s) + REQ-1.2 (6 background service toggles) + REQ-1.3 (logging reduction ~90%). See Section 10 maintenance log entry 2026-08-09.
 
@@ -117,8 +117,8 @@
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `9e81ea68` chore: remove temp commit message file (preceded by `7edf589a` [VALCN-V2 P3])
-- **Working tree:** Clean (all Wave 2 changes committed). Branch in sync with origin/main.
+- **Last commit:** `9a4d0e9b` [VALCN-V2 W3] Phase 4 Refund Reversal + Phase 7 Network Dashboard (feature-flagged, default OFF)
+- **Working tree:** Clean (all Wave 3 changes committed). Branch in sync with origin/main.
 - **.NET SDK:** 8.0.422
 - **DB:** SQLite `vanan_shoperp.db` (business, per-tenant) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community + SystemSetting tables)
 - **Build:** 0 errors across full solution. CI pre-push ALL PASSED.
@@ -167,20 +167,21 @@
 
 ## 4. Next Actions
 
-**VALCN v2.0 Wave 3 (NEXT — Phase 4 + Phase 7, parallel):**
-1. **(Phase 4 — Refund Reversal)** Read `phase4_task_card.md` + JIT-investigate: `OrderService.CancelOrderAsync` / refund flow, `AccountingEntry.CreateReversal` factory, `LoyaltyIssuanceRecord.MarkReversed`, `LoyaltyBudgetService.DecrementIssuanceAsync`, `IWalletService` for referral commission reversal. Implement `RefundOrchestrationService` — 4-step reversal (UC-06): (2a) payment refund, (2b) accounting reversal entry, (2c) loyalty reversal, (2d) referral commission reversal. Feature-flagged via `ValcnV2_RefundReversal` (default OFF).
-2. **(Phase 7 — Network Dashboard, parallel with Phase 4)** Read `phase7_task_card.md` + JIT-investigate: cross-tenant aggregate queries, LoyaltyROI formula (fix C4 — filter orders by repeat customer IDs). Implement `NetworkDashboardService` — investor-facing metrics. Feature-flagged.
-3. **(Wave 3 verify)** Build 0 errors → commit each phase → update project_state.md.
+**VALCN v2.0 — ALL WAVES COMPLETE. Post-implementation:**
+1. **(Deploy + RV)** Push `main` → CI/CD → GCP VPS deploy → Runtime verify: (a) `/admin/valcn-features` shows 3 flags (PlatformFee, LoyaltyBudget, RefundReversal) all OFF, (b) `/admin/network-dashboard` renders 8 metric cards, (c) build + guard-check PASS on CI.
+2. **(Browser RV — VALCN Feature Flags)** Login `sysadmin@vanan.vn` / `2026@vanan` tại `https://app2.khachvip.online/Login` → `/admin/valcn-features` — verify 3 feature flag toggles render + all default OFF.
+3. **(Browser RV — Network Dashboard)** Login → `/admin/network-dashboard` — verify 8 VanAMetricsCard components render + date range picker works.
+4. **(Optional — Feature flag enable testing)** Enable `ValcnV2_RefundReversal` → create + cancel an order → verify 4-step reversal (accrual entry + accounting reversal + loyalty reversal + referral reversal). Disable after test.
 
 **Deferred / monitoring (carried over):**
-4. **(Browser RV — Background Service Toggle)** Login `sysadmin@vanan.vn` / `2026@vanan` tại `https://app2.khachvip.online/Login` → `/admin/background-services` — verify 6+2=8 toggles render + toggle off/on.
-5. **(Browser RV — VALCN Feature Flags)** Login → `/admin/valcn-features` — verify 3 feature flag toggles render (PlatformFee, LoyaltyBudget, RefundReversal) + all default OFF.
+5. **(Browser RV — Background Service Toggle)** Login → `/admin/background-services` — verify 6+2=8 toggles render + toggle off/on.
 6. **(GCP Data Seeding)** Seed production data vào GCP DB (fresh DB chỉ có 3 tenants test).
 7. **(#99-3 Phase B APPROVAL)** Phase B (Alliance VND Normalization) — HIGH risk, feature-gated. Awaiting user approval.
 8. **(Hybrid Strategy Bước 2 — Monitor)** Chỉ trigger khi CPU sustained > 70% / Memory > 80% / SSH timeout. Hiện tại đủ load.
 9. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (skipped via `Category!=Flaky` CI filter).
 10. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG. **TD-ASYNCDP-001:** Make `IFormulaEngine`/`IDataProvider` async-native. **TD-GCP-001:** Hybrid Bước 1 done, Bước 2 pending monitoring.
 11. **(VPS Disk Monitoring)** Cả 2 VPS disk đã clean (52% + 44%) nhưng sẽ đầy lại sau vài CD runs. Cân nhắc `docker image prune -af` vào deploy script hoặc cron job.
+12. **(v3.0 deferred items)** INV-009 (LoyaltyGlobalConfig.PointValue field for accurate loyalty cost), payment provider integration (VNPay/Momo — replace Option B accrual with actual payment refund API), Ops Cost metric (NetworkDashboard), Tier Distribution (Phase 6 — dropped).
 
 ### Pruned (2026-07-29)
 
@@ -308,6 +309,12 @@ Server A (Edge):              Server B (Central):
 ## 10. Maintenance Log
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md` → "Archived 2026-08-03" → Section 10.
+
+* **2026-08-09 — VALCN v2.0 PLATFORM-LIGHT — WAVE 3 COMPLETE (Phase 4 + Phase 7). ALL 3 WAVES DONE. BOM v2.0 fully implemented.** Wave 3 implements refund reversal (UC-06 compliance) + investor-facing network dashboard. Both feature-flagged, default OFF — zero production impact.
+  - **Phase 4 — Refund Reversal (commit `9a4d0e9b`):** `IRefundOrchestrationService` + `RefundOrchestrationService` — 4-step reversal on order cancel (UC-06): (2a) accrual liability entry accountCode "331" (Option B — no payment integration, ensures Cash=Accounting per TT 152/2025), (2b) accounting reversal preserving CorrelationId, (2c) loyalty reversal via `SubtractPointsAsync` + `LoyaltyIssuanceRecord.MarkReversed` + budget decrement, (2d) referral commission reversal via `WalletService.ReverseTransactionAsync`. Natural idempotency (checks existing reversal entries by CorrelationId). `OrderWorkflowService.HandleOrderCancelledAsync` hook wrapped in `ValcnV2_RefundReversal` flag (default OFF). `IAccountingEntryRepository.GetByCorrelationIdAsync` added.
+  - **Phase 7 — Network Dashboard (commit `9a4d0e9b`):** `INetworkDashboardService` + `NetworkDashboardMetrics` (8 metrics) + `NetworkDashboardService` (cross-tenant `IgnoreQueryFilters`, 10-min cache). Fix C4 LoyaltyROI (repeatGmv not totalGmv). Fix I3 (Ops Cost excluded). Fix I4 (Tier Distribution removed). `NetworkDashboardController` (Gateway, `[InternalApiKey]`). `NetworkDashboardHttpService` (ShopERP HTTP client). `NetworkDashboard.razor` admin UI (8 `VanAMetricsCard`, date range picker, SystemAdmin-only). NavMenu entry. Fallback 1000 VND/point (INV-009 deferred).
+  - **INVESTIGATE findings (Wave 3):** No `IIdempotentOperationRepository`/DbSet → natural idempotency. No `ILoyaltyIssuanceRecordRepository`/`IWalletTransactionRepository` → direct DbContext (matches existing patterns). No `DeductPointsForOrderAsync` → `SubtractPointsAsync`. No payment integration → Option B (accrual liability). `LoyaltyGlobalConfig.PointValue` MISSING (INV-009) → fallback 1000 VND/point. `Order.CustomerId` is `Guid?` → filter nulls. `DateRange` type missing → defined in interface. W12-G7 test: `LoyaltyBudgetController` + `NetworkDashboardController` added to exempt list (internal `[InternalApiKey]` auth).
+  - **Build:** 0 errors. **guard-check:** ALL PASSED (untracked, SQL, encoding, windsurf-guard, architecture-guard, Roslyn, build, fast test gate, integration test gate). **Branch:** `main`. **Commit:** `9a4d0e9b`.
 
 * **2026-08-09 — VALCN v2.0 PLATFORM-LIGHT — WAVE 2 COMPLETE (Phase 2 + Phase 3).** Wave 2 implements the economic foundation (Platform Fee) + risk reduction (Loyalty Budget). Both feature-flagged, default OFF — zero production impact.
   - **Phase 2 — Platform Fee (commit `f1d46f24`):** `OrderService.SnapshotCommerceModeAsync` Marketplace branch wrapped in `ValcnV2_PlatformFee` flag. When ON: sets `PlatformFeeRate` + `PlatformFeeAmount = TotalAmount × rate` on Marketplace orders. `GetPlatformFeeRateAsync`: per-tenant `ShopFeatureSettingsEntity.PlatformFeeRate` (default 5%) → global `SystemSetting.DefaultPlatformFeeRate` (30%) → ultimate 5% fallback. `Order.SetMarketplacePlatformFee(rate)` Domain method (CommerceMode stays Marketplace). When OFF (default): existing no-op behavior preserved.
