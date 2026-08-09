@@ -26,7 +26,9 @@ namespace VanAn.CoreHub.Services
         IOptions<LoyaltyPointsConfig>? loyaltyPointsConfig = null,
         ILoyaltyModeResolver? loyaltyModeResolver = null,
         IAllianceWalletService? allianceWalletService = null,
-        IVanAnDbContext? dbContext = null) : IOrderWorkflowService
+        IVanAnDbContext? dbContext = null,
+        ILoyaltyBudgetService? loyaltyBudgetService = null,
+        IFeatureFlagService? featureFlagService = null) : IOrderWorkflowService
     {
         private readonly IOrderRepository _orderRepository = orderRepository;
         private readonly ILogger<OrderWorkflowService> _logger = logger;
@@ -47,6 +49,9 @@ namespace VanAn.CoreHub.Services
         private readonly IAllianceWalletService? _allianceWalletService = allianceWalletService;
         // VALCN v2.0 Phase 1: DbContext for LoyaltyIssuanceRecord creation (null in test contexts)
         private readonly IVanAnDbContext? _dbContext = dbContext;
+        // VALCN v2.0 Phase 3: Loyalty budget service + feature flag (null in test contexts — feature OFF = existing behavior)
+        private readonly ILoyaltyBudgetService? _loyaltyBudgetService = loyaltyBudgetService;
+        private readonly IFeatureFlagService? _featureFlagService = featureFlagService;
         // _shopFeatureSettingsService already declared at line 34 (Wave 1-T6) — reused for Loyalty-C WS-A per-tenant formula override.
 
         // W-1-T7: CamelCase JSON options — matches SimpleAccountingEventHandler deserialization policy
@@ -408,6 +413,45 @@ namespace VanAn.CoreHub.Services
                 pointsToAward = Math.Min(maxPoints.Value, pointsToAward);
             }
 
+            // VALCN v2.0 Phase 3: Loyalty budget enforcement (feature-flagged, default OFF).
+            // When OFF: pointsToAward unchanged (existing behavior — no budget check).
+            // When ON: CheckAndAdjustPointsAsync applies caps (per-order, monthly, daily, per-customer).
+            //   If budget exhausted (returns 0) → skip reward, order still completes.
+            bool budgetCheckEnabled = false;
+            if (_featureFlagService != null && _loyaltyBudgetService != null)
+            {
+                try
+                {
+                    budgetCheckEnabled = await _featureFlagService.IsEnabledAsync("ValcnV2_LoyaltyBudget");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Loyalty: Failed to check ValcnV2_LoyaltyBudget flag for order {OrderId} — defaulting to OFF (existing behavior)", order.Id);
+                }
+            }
+
+            if (budgetCheckEnabled)
+            {
+                int originalPoints = pointsToAward;
+                pointsToAward = await _loyaltyBudgetService.CheckAndAdjustPointsAsync(
+                    order.TenantId.Value, customer.Id, order.TotalAmount, pointsToAward);
+
+                if (pointsToAward <= 0)
+                {
+                    _logger.LogInformation(
+                        "Loyalty: Budget exhausted for tenant {TenantId} — skipping reward for order {OrderId} (original points would have been {Orig})",
+                        order.TenantId.Value, order.Id, originalPoints);
+                    return;  // No reward, but order still completes
+                }
+
+                if (pointsToAward < originalPoints)
+                {
+                    _logger.LogInformation(
+                        "Loyalty: Budget cap applied for order {OrderId} — points adjusted {Orig}→{New}",
+                        order.Id, originalPoints, pointsToAward);
+                }
+            }
+
             // Lấy thông tin campaign để ghi lịch sử (null if no tracking code — AwardOnAllOrders mode)
             SocialCampaign? campaign = null;
             string campaignName = "Direct Order";
@@ -442,6 +486,12 @@ namespace VanAn.CoreHub.Services
 
                             // VALCN v2.0 Phase 1: Create LoyaltyIssuanceRecord for per-order tracking (Phase 4 reversal)
                             await CreateLoyaltyIssuanceRecordAsync(order.Id, customer.Id, order.TenantId, pointsToAward);
+
+                            // VALCN v2.0 Phase 3: Record issuance for budget counters (feature-flagged)
+                            if (budgetCheckEnabled)
+                            {
+                                await _loyaltyBudgetService.RecordIssuanceAsync(order.TenantId.Value, pointsToAward);
+                            }
                         }
                         else
                         {
@@ -464,6 +514,12 @@ namespace VanAn.CoreHub.Services
 
                 // VALCN v2.0 Phase 1: Create LoyaltyIssuanceRecord for per-order tracking (Phase 4 reversal)
                 await CreateLoyaltyIssuanceRecordAsync(order.Id, customer.Id, order.TenantId, pointsToAward);
+
+                // VALCN v2.0 Phase 3: Record issuance for budget counters (feature-flagged)
+                if (budgetCheckEnabled)
+                {
+                    await _loyaltyBudgetService.RecordIssuanceAsync(order.TenantId.Value, pointsToAward);
+                }
             }
         }
 

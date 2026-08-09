@@ -483,6 +483,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.IBackgroundServiceToggleService, Services.BackgroundServiceToggleApiClient>();
             // VALCN v2.0 Phase 1: Feature flag toggle — admin UI + service runtime check (default OFF)
             _ = builder.Services.AddScoped<CoreHub.Services.IFeatureFlagService, Services.FeatureFlagApiClient>();
+            // VALCN v2.0 Phase 3: Loyalty budget enforcement — HTTP proxy to Gateway (ShopERP SQLite ignores LoyaltyTenantConfig)
+            _ = builder.Services.AddScoped<CoreHub.Services.ILoyaltyBudgetService, Services.LoyaltyBudgetServiceHttpProxy>();
             // Loyalty Alliance Phase 5A — admin config + migration API client (Gateway PG)
             _ = builder.Services.AddScoped<Services.LoyaltyConfigApiClient>();
             // #100: KhachLink home settings admin API client (Gateway PG — global, not per-tenant)

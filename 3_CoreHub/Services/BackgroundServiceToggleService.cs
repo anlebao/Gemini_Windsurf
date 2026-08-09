@@ -27,6 +27,9 @@ namespace VanAn.CoreHub.Services
             ("VoucherExpiryReminderJob", "Voucher Expiry Reminder", "Daily — sends push notification for vouchers expiring soon", "ShopERP"),
             ("PromoCampaignJob", "Promo Campaign Job", "Polls 30s — sends bulk push notifications for pending campaigns", "ShopERP"),
             ("LoyaltySyncSubscriber", "Loyalty Sync Subscriber", "NATS subscriber — syncs cross-tenant Alliance wallet balance to SQLite", "ShopERP"),
+            // VALCN v2.0 Phase 3 — Loyalty budget reset jobs (Gateway, PG is source of truth)
+            ("LoyaltyBudgetDailyResetJob", "Loyalty Budget Daily Reset", "Daily 00:00 UTC — resets PointsIssuedToday to 0 for all tenants", "Gateway"),
+            ("LoyaltyBudgetMonthlyResetJob", "Loyalty Budget Monthly Reset", "1st of month 00:00 UTC — resets PointsIssuedThisMonth to 0 for all tenants", "Gateway"),
         ];
 
         public BackgroundServiceToggleService(IServiceScopeFactory scopeFactory, IMemoryCache cache)

@@ -366,6 +366,11 @@ namespace VanAn.Gateway
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.CoolingPeriodJob>();
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.HeldTimeoutJob>();
 
+            // VALCN v2.0 Phase 3: Loyalty budget reset jobs (Gateway — PG is source of truth for LoyaltyTenantConfigs)
+            _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.LoyaltyBudgetDailyResetJob>();
+            _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.LoyaltyBudgetMonthlyResetJob>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ILoyaltyBudgetService, VanAn.CoreHub.Services.LoyaltyBudgetService>();
+
             // REQ-1.2: Background service toggle — runtime on/off via SystemSetting (PG) + admin UI
             _ = builder.Services.AddSingleton<CoreHub.Services.IBackgroundServiceToggleService, CoreHub.Services.BackgroundServiceToggleService>();
 
