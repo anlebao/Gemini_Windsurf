@@ -12,6 +12,7 @@ namespace VanAn.Gateway.Controllers
     /// </summary>
     [ApiController]
     [Route("api/admin/background-services")]
+    [Authorize(Policy = "SystemAdmin", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public class BackgroundServicesController(
         IBackgroundServiceToggleService toggleService,
         ILogger<BackgroundServicesController> logger) : ControllerBase
@@ -20,7 +21,6 @@ namespace VanAn.Gateway.Controllers
         private readonly ILogger<BackgroundServicesController> _logger = logger;
 
         [HttpGet]
-        [Authorize(Policy = "SystemAdmin", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult<IReadOnlyList<BackgroundServiceToggleDto>>> GetAll(CancellationToken ct)
         {
             var toggles = await _toggleService.GetAllAsync(ct);
@@ -28,7 +28,6 @@ namespace VanAn.Gateway.Controllers
         }
 
         [HttpPut("{serviceName}")]
-        [Authorize(Policy = "SystemAdmin", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> Update(string serviceName, [FromBody] UpdateToggleRequest request, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(serviceName))

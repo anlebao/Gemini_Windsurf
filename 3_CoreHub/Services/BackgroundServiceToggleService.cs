@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain.Aggregates.SystemSettingAggregate;
 
@@ -9,10 +10,11 @@ namespace VanAn.CoreHub.Services
     /// REQ-1.2: Gateway impl — reads/writes SystemSetting in PG.
     /// ShopERP uses BackgroundServiceToggleApiClient (HTTP proxy to Gateway API).
     /// 30s memory cache to avoid DB query on every poll cycle.
+    /// Uses IServiceScopeFactory (singleton-safe) to create scope per DB operation.
     /// </summary>
     public class BackgroundServiceToggleService : IBackgroundServiceToggleService
     {
-        private readonly IVanAnDbContext _dbContext;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly IMemoryCache _cache;
         private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(30);
 
@@ -27,9 +29,9 @@ namespace VanAn.CoreHub.Services
             ("LoyaltySyncSubscriber", "Loyalty Sync Subscriber", "NATS subscriber — syncs cross-tenant Alliance wallet balance to SQLite", "ShopERP"),
         ];
 
-        public BackgroundServiceToggleService(IVanAnDbContext dbContext, IMemoryCache cache)
+        public BackgroundServiceToggleService(IServiceScopeFactory scopeFactory, IMemoryCache cache)
         {
-            _dbContext = dbContext;
+            _scopeFactory = scopeFactory;
             _cache = cache;
         }
 
@@ -40,24 +42,34 @@ namespace VanAn.CoreHub.Services
                 return cached;
 
             string settingKey = $"BackgroundServices:Enable{serviceName}";
-            var setting = await _dbContext.SystemSettings
-                .IgnoreQueryFilters()
-                .AsNoTracking()
-                .FirstOrDefaultAsync(s => s.Key == settingKey, ct);
+            string? value = null;
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var dbContext = scope.ServiceProvider.GetRequiredService<IVanAnDbContext>();
+                var setting = await dbContext.SystemSettings
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.Key == settingKey, ct);
+                value = setting?.Value;
+            }
 
-            bool enabled = setting?.Value != "false"; // default: enabled
+            bool enabled = value != "false"; // default: enabled
             _cache.Set(cacheKey, enabled, CacheTtl);
             return enabled;
         }
 
         public async Task<IReadOnlyList<BackgroundServiceToggleDto>> GetAllAsync(CancellationToken ct = default)
         {
-            // Load all toggle settings in one query
-            var settings = await _dbContext.SystemSettings
-                .IgnoreQueryFilters()
-                .AsNoTracking()
-                .Where(s => s.Key.StartsWith("BackgroundServices:Enable"))
-                .ToDictionaryAsync(s => s.Key, s => s.Value, ct);
+            Dictionary<string, string> settings;
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var dbContext = scope.ServiceProvider.GetRequiredService<IVanAnDbContext>();
+                settings = await dbContext.SystemSettings
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .Where(s => s.Key.StartsWith("BackgroundServices:Enable"))
+                    .ToDictionaryAsync(s => s.Key, s => s.Value, ct);
+            }
 
             return KnownServices.Select(s => new BackgroundServiceToggleDto(
                 s.Name,
@@ -73,21 +85,25 @@ namespace VanAn.CoreHub.Services
             string settingKey = $"BackgroundServices:Enable{serviceName}";
             string value = enabled ? "true" : "false";
 
-            var setting = await _dbContext.SystemSettings
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(s => s.Key == settingKey, ct);
-
-            if (setting == null)
+            using (var scope = _scopeFactory.CreateScope())
             {
-                setting = new SystemSetting(new(Guid.Empty), settingKey, value, updatedBy);
-                _dbContext.SystemSettings.Add(setting);
-            }
-            else
-            {
-                setting.Update(value, updatedBy);
-            }
+                var dbContext = scope.ServiceProvider.GetRequiredService<IVanAnDbContext>();
+                var setting = await dbContext.SystemSettings
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(s => s.Key == settingKey, ct);
 
-            await _dbContext.SaveChangesAsync(ct);
+                if (setting == null)
+                {
+                    setting = new SystemSetting(new(Guid.Empty), settingKey, value, updatedBy);
+                    dbContext.SystemSettings.Add(setting);
+                }
+                else
+                {
+                    setting.Update(value, updatedBy);
+                }
+
+                await dbContext.SaveChangesAsync(ct);
+            }
 
             // Invalidate cache
             _cache.Remove($"bg_toggle_{serviceName}");
