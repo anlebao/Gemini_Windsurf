@@ -78,8 +78,8 @@ services:
       # Multi-VPS: ShopERP BaseUrl points to REMOTE VPS via VPC internal IP
       - ShopERP__BaseUrl=http://${SHOPERP_REMOTE_HOST}:80/
       - InternalLoyalty__ApiKey=${INTERNAL_LOYALTY_API_KEY:-vanan-internal-loyalty-prod-2026}
-      # NatsSyncWorker: poll every 5s (default 1s too aggressive for e2-micro VPS)
-      - Sync__PollIntervalMs=5000
+      # NatsSyncWorker: poll every 10s (REQ-1.1 — reduce 50% DB query load, order delivery <10s OK for kitchen/POS)
+      - Sync__PollIntervalMs=10000
       # Multi-VPS YARP: override cluster addresses to use VPC internal IPs
       # (appsettings.json defaults to Docker hostnames "shoperp"/"khachlink" which are
       # not resolvable when services are on separate VPSs)

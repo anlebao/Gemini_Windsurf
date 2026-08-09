@@ -15,6 +15,8 @@ services:
       # Multi-VPS: NATS is on the GATEWAY VPS — connect via VPC internal IP
       - Nats__Url=nats://${NATS_REMOTE_HOST}:4222
       - ConnectionStrings__Nats=nats://${NATS_REMOTE_HOST}:4222
+      # REQ-1.1: NatsSyncWorker poll every 10s (default 1s too aggressive — 86400 queries/day → 8640)
+      - Sync__PollIntervalMs=10000
       # Multi-VPS: Gateway is on the GATEWAY VPS — connect via VPC internal IP
       - Gateway__BaseUrl=http://${GATEWAY_REMOTE_HOST}:80
       # Phase 4: ShopInstance routing — THIS VPS's unique ShopInstance Guid.
