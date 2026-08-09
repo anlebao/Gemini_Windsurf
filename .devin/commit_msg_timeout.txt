@@ -1,0 +1,13 @@
+fix(cd-multivps): increase command_timeout to 40m for docker pull on e2-small
+
+Root cause: Bootstrap & Deploy Gateway failed with "Run Command Timeout"
+after 10 minutes — docker pull of 3 images (postgres, nats, nginx, gateway,
+khachlink, seq) on e2-small VPS takes >10m. Increase command_timeout from
+default 10m to 40m. Also increase job timeout-minutes from 15 to 45.
+
+Evidence: GitHub Actions log shows "Run Command Timeout" at 06:51:39
+(10m after start at 06:41:36), with docker layers still downloading.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

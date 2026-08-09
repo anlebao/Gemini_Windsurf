@@ -1,0 +1,19 @@
+fix(test): remove static _schemaCreated flag causing "no such table: Tenants"
+
+Root cause: commits 5f02b5cf + 37a5d15b added static _schemaCreated flag
+to prevent "table AccountCharts already exists" race condition. But the
+static flag persists across fixture instances — when fixture A disposes
+(connection closes, in-memory DB destroyed), fixture B sees _schemaCreated=true
+and skips EnsureCreatedAsync(), leaving no schema → "no such table: Tenants".
+
+Fix: remove static flag, keep lock. EnsureCreatedAsync() is idempotent
+(EF Core docs: "If database exists, no action is taken"). Lock prevents
+concurrent schema creation race. If in-memory DB is destroyed between
+fixtures, next EnsureCreatedAsync() recreates it.
+
+Verified: TestDatabaseFixtureTests 5/5 PASS, PeriodClosingPersistenceTests 4/4 PASS,
+full suite 176 passed / 0 failed.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

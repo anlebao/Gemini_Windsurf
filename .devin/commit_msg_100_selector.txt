@@ -1,0 +1,18 @@
+fix: #100 — SystemAdmin tenant selector on ShopFeatures page
+
+SystemAdmin has no tenant_id claim (platform-level admin), so
+TenantProvider.HasTenant returns false → page showed "Không tìm thấy
+thông tin tenant" with no way to proceed.
+
+Fix: When SystemAdmin visits /settings/shop-features without a tenant,
+show a tenant selector dropdown (loaded from Gateway API via
+TenantApiClient.ListAllAsync). SystemAdmin picks a tenant → clicks
+"Chọn & Cấu hình" → calls /api/admin/impersonate/{tenantId} →
+page reloads with tenant_id claim → settings load for that tenant.
+
+Non-SystemAdmin users still see the original "Không tìm thấy thông
+tin tenant" warning.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

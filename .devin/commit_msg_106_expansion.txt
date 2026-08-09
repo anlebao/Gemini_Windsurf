@@ -1,0 +1,29 @@
+fix(#106): extend charset strip to 3 remaining Gateway forward controllers
+
+Original fix #106 (commit f6d7aa84) only patched RedemptionController +
+LoyaltyController which used StringContent(body, Encoding.UTF8, Request.ContentType).
+Audit found 3 more controllers with the identical bug via a different code path:
+new MediaTypeHeaderValue(Request.ContentType) used with StreamContent.
+
+Repro test confirmed new MediaTypeHeaderValue("application/json; charset=utf-8")
+throws the SAME FormatException as StringContent with the same input — both
+constructors reject the "; charset=utf-8" suffix (charset must be set via
+Encoding parameter or CharSet property, not in the mediaType string).
+
+Fixed 6 sites total:
+- CustomerIdentityController x4 (otp/send, otp/verify, upgrade/send-otp,
+  upgrade/verify-otp)
+- CustomerProfileController x1 (POST profile update)
+- MissionsController x1 (POST mission forward)
+
+Fix pattern: (Request.ContentType ?? "application/json")
+  .Split(';', StringSplitOptions.TrimEntries)[0] before passing to
+  MediaTypeHeaderValue. Build Gateway project: 0 errors.
+
+Pattern #10 added to governance.md Known Error Pattern Registry — applies
+to ALL future Gateway forward controllers (both StringContent and
+StreamContent + MediaTypeHeaderValue variants).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

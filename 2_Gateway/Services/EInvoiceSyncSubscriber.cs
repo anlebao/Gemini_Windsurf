@@ -24,16 +24,19 @@ namespace VanAn.Gateway.Services
         private readonly IServiceProvider _serviceProvider;
         private readonly IConfiguration _configuration;
         private readonly ILogger<EInvoiceSyncSubscriber> _logger;
+        private readonly CoreHub.Services.IBackgroundServiceToggleService _toggleService;
         private IConnection? _subscriptionConnection;
 
         public EInvoiceSyncSubscriber(
             IServiceProvider serviceProvider,
             IConfiguration configuration,
-            ILogger<EInvoiceSyncSubscriber> logger)
+            ILogger<EInvoiceSyncSubscriber> logger,
+            CoreHub.Services.IBackgroundServiceToggleService toggleService)
         {
             _serviceProvider = serviceProvider;
             _configuration = configuration;
             _logger = logger;
+            _toggleService = toggleService;
         }
 
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
@@ -78,6 +81,10 @@ namespace VanAn.Gateway.Services
         /// </summary>
         private async Task HandleEInvoiceSyncedAsync(byte[] data, CancellationToken cancellationToken)
         {
+            // REQ-1.2: Runtime toggle — skip if disabled via admin UI
+            if (!await _toggleService.IsEnabledAsync("EInvoiceSyncSubscriber", cancellationToken))
+                return;
+
             try
             {
                 string json = Encoding.UTF8.GetString(data);

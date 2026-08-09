@@ -19,15 +19,20 @@ namespace VanAn.ShopERP.Services
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<PromoCampaignJob> _logger;
+        private readonly VanAn.CoreHub.Services.IBackgroundServiceToggleService _toggleService;
         private readonly TimeSpan _pollInterval = TimeSpan.FromSeconds(30);
         private readonly TimeSpan _initialDelay = TimeSpan.FromSeconds(15);
         private const int BatchSize = 50;
         private const int SendDelayMs = 100;
 
-        public PromoCampaignJob(IServiceProvider serviceProvider, ILogger<PromoCampaignJob> logger)
+        public PromoCampaignJob(
+            IServiceProvider serviceProvider,
+            ILogger<PromoCampaignJob> logger,
+            VanAn.CoreHub.Services.IBackgroundServiceToggleService toggleService)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
+            _toggleService = toggleService;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -42,7 +47,9 @@ namespace VanAn.ShopERP.Services
             {
                 try
                 {
-                    await ProcessPendingCampaignsAsync(stoppingToken);
+                    // REQ-1.2: Runtime toggle — skip cycle if disabled via admin UI
+                    if (await _toggleService.IsEnabledAsync("PromoCampaignJob", stoppingToken))
+                        await ProcessPendingCampaignsAsync(stoppingToken);
                 }
                 catch (Exception ex)
                 {

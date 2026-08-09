@@ -1,0 +1,46 @@
+fix(#106): TD-CUSTSYNC-001 — customer identity merge + SQLite→PG sync
+
+Root cause: Guest checkout creates DeviceId-based customer stubs in
+SQLite. When customer logs in (Google OAuth / Phone OTP), a NEW
+customer record is created with different Id. Loyalty points awarded
+to DeviceId stubs are invisible to login account → /my-loyalty shows 0.
+
+Phase 1 — DeviceId→Login Merge (fixes #106 directly):
+- New ICustomerMergeService + CustomerMergeService
+- MergeDeviceStubsIntoLoginAsync: finds all active customers with
+  matching DeviceId, sums their LoyaltyRewards.PointBalance into
+  login customer, concatenates history, soft-deletes stubs, links
+  DeviceId to login customer
+- SocialAuthController.GoogleCallback: extract device_token from
+  state param, call merge after customer found/created
+- CustomerIdentityController.VerifyOtp: call merge with request.DeviceId
+- Login.razor: pass customer_device_id as state param to Google OAuth
+
+Phase 2 — Auto-link DeviceId on login (prevents future fragmentation):
+- CustomerMergeService links DeviceId to login customer after merge
+- Checkout.razor already passes CustomerId when logged in + validated
+- Future guest checkouts on same device will find login customer
+  via DeviceId (no new stub created)
+
+Phase 3 — SQLite→PG Customer Sync (closes TD-CUSTSYNC-001):
+- DataSyncSubscriber.SyncCustomerCreatedAsync: complete full upsert
+  (was deferred — only checked existence, never inserted)
+- OrderWorkflowService.CreateCustomerStubAsync: enqueue CustomerCreated
+  outbox event → NatsSyncWorker → NATS → Gateway DataSyncSubscriber
+  upserts customer to PostgreSQL
+
+Files:
+- 3_CoreHub/Services/ICustomerMergeService.cs (new)
+- 3_CoreHub/Services/CustomerMergeService.cs (new)
+- 3_CoreHub/Services/OrderWorkflowService.cs (enqueue customer event)
+- 2_Gateway/Services/DataSyncSubscriber.cs (full upsert)
+- 5_WebApps/ShopERP/Controllers/SocialAuthController.cs (merge call)
+- 5_WebApps/ShopERP/Controllers/CustomerIdentityController.cs (merge call)
+- 5_WebApps/ShopERP/Program.cs (DI registration)
+- 5_WebApps/KhachLink/Pages/Login.razor (pass device_id as state)
+
+Closes #106, closes TD-CUSTSYNC-001.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

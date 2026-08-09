@@ -1,0 +1,20 @@
+Fixed in commit 76d61670.
+
+4 phần của issue #100:
+
+1. Mobile UX — sticky action bar trên trang giỏ hàng:
+   - Cart.razor: thêm .cart-mobile-actionbar (d-md-none, sticky top:56px) hiển thị tổng tiền + nút "Thanh toán" fixed ở đầu viewport. Khách hàng mobile không cần lướt xuống cuối để bấm thanh toán.
+
+2. Home KhachLink — SystemAdmin toggle on/off 4 sections:
+   - ShopFeatureSettingsDto + Entity: thêm Home_CampaignSection_Enabled, Home_StoreSection_Enabled, Home_FeaturedSection_Enabled, Home_SocialHub_Enabled (default ON).
+   - Migration: AddHomeSectionToggles (4 nullable boolean columns).
+   - ShopFeatures.razor: thêm "Hiển thị trang chủ KhachLink" card với 4 toggles.
+   - Home.razor: LoadHomeSectionTogglesAsync() load toggles. @if wrap từng section.
+
+3. SystemAdmin đổi link FB/TikTok trên home KhachLink:
+   - Đã có sẵn: TenantManagement.razor có SocialLinksFb/SocialLinksTiktok fields. SocialHub component đọc từ ShopConfig. Flow hoàn chỉnh — chỉ cần admin vào /admin/tenants → edit tenant → nhập link FB/TikTok → Save.
+
+4. ShopERP shop config save — hiển thị thông báo:
+   - ShopFeatures.razor SaveSettings: thêm _isSaving loading state (button "Đang lưu..."), successMessage "✅ Đã lưu cấu hình thành công." (auto-dismiss 5s), errorMessage "❌ Không thể lưu cấu hình: {ex.Message}".
+
+CD deploy sẽ apply trong ~5-6 phút.

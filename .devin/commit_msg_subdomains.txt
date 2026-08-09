@@ -1,0 +1,29 @@
+feat(multi-vps): use api2/app2/diemthuong2 subdomains for GCP (parallel with Oracle)
+
+Oracle VPS (161.118.212.110) still uses api./app./diemthuong. subdomains
+in production. To run GCP in parallel without DNS conflict, use *2 variants:
+- api2.khachvip.online → GCP Gateway API
+- app2.khachvip.online → GCP ShopERP (via gateway nginx proxy)
+- diemthuong2.khachvip.online → GCP KhachLink (via gateway nginx proxy)
+- www2.khachvip.online → GCP ShopERP (via gateway nginx proxy)
+
+Files:
+- nginx/templates/vanan.multivps.conf.template: api.→api2., app.→app2.,
+  diemthuong.→diemthuong2., www.→www2.
+- docker-compose.gateway.yml: CORS allow diemthuong2./app2./www2.
+- docker-compose.khachlink.yml: CORS allow diemthuong2.
+- docker-compose.shoperp.yml: ExternalUrls + Google login URL → diemthuong2.
+
+DNS records to add (user):
+  A api2         → 136.85.94.119
+  A app2         → 136.85.94.119
+  A diemthuong2  → 136.85.94.119
+  A www2         → 136.85.94.119
+
+Google OAuth redirect URIs to add (user):
+  https://diemthuong2.khachvip.online/login
+  https://app2.khachvip.online/login
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

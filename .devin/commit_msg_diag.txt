@@ -1,0 +1,8 @@
+diag(cd-multivps): add SSH key fingerprint diagnostic to validation step
+
+Add diagnostic to verify SSH key in GitHub Secret matches local key.
+Expected fingerprint: SHA256:7po3REun23JbI9KszqFcqtlnSZJqHXMlNSvLLhW3CaA
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

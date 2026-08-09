@@ -366,6 +366,9 @@ namespace VanAn.Gateway
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.CoolingPeriodJob>();
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.HeldTimeoutJob>();
 
+            // REQ-1.2: Background service toggle — runtime on/off via SystemSetting (PG) + admin UI
+            _ = builder.Services.AddSingleton<CoreHub.Services.IBackgroundServiceToggleService, CoreHub.Services.BackgroundServiceToggleService>();
+
             _ = builder.Services.AddScoped<CoreHub.Services.IOrderService, CoreHub.Services.OrderService>();
 
             // W0-T3: Register IOrderNotificationService (SignalR broadcast abstraction)

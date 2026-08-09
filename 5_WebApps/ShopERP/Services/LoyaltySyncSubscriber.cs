@@ -31,16 +31,19 @@ namespace VanAn.ShopERP.Services
         private readonly IServiceProvider _serviceProvider;
         private readonly IConfiguration _configuration;
         private readonly ILogger<LoyaltySyncSubscriber> _logger;
+        private readonly VanAn.CoreHub.Services.IBackgroundServiceToggleService _toggleService;
         private IConnection? _subscriptionConnection;
 
         public LoyaltySyncSubscriber(
             IServiceProvider serviceProvider,
             IConfiguration configuration,
-            ILogger<LoyaltySyncSubscriber> logger)
+            ILogger<LoyaltySyncSubscriber> logger,
+            VanAn.CoreHub.Services.IBackgroundServiceToggleService toggleService)
         {
             _serviceProvider = serviceProvider;
             _configuration = configuration;
             _logger = logger;
+            _toggleService = toggleService;
         }
 
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
@@ -84,6 +87,10 @@ namespace VanAn.ShopERP.Services
         /// </summary>
         internal async Task SyncLoyaltyBalanceAsync(byte[] data, CancellationToken cancellationToken)
         {
+            // REQ-1.2: Runtime toggle — skip if disabled via admin UI
+            if (!await _toggleService.IsEnabledAsync("LoyaltySyncSubscriber", cancellationToken))
+                return;
+
             try
             {
                 string json = Encoding.UTF8.GetString(data);

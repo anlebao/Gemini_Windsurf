@@ -1,0 +1,17 @@
+fix(#106): strip charset from Content-Type in Gateway forward controllers
+
+RedemptionController + LoyaltyController used StringContent(body, Encoding.UTF8,
+Request.ContentType ?? "application/json"). When Request.ContentType is
+"application/json; charset=utf-8" (full header), StringContent rejects it
+because the mediaType parameter does NOT accept "; charset=utf-8" — charset
+must be set via the Encoding parameter.
+
+Fix: split on ';' and take only the media type portion before passing to
+StringContent. The Encoding.UTF8 parameter already sets the charset correctly.
+
+Error seen by user on /rewards page:
+"Lỗi kết nối đến server: The format of value 'application/json; charset=utf-8' is invalid."
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

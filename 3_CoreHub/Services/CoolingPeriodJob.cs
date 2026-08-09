@@ -16,12 +16,14 @@ public class CoolingPeriodJob : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<CoolingPeriodJob> _logger;
+    private readonly IBackgroundServiceToggleService _toggleService;
     private static readonly TimeSpan Interval = TimeSpan.FromHours(1);
 
-    public CoolingPeriodJob(IServiceProvider serviceProvider, ILogger<CoolingPeriodJob> logger)
+    public CoolingPeriodJob(IServiceProvider serviceProvider, ILogger<CoolingPeriodJob> logger, IBackgroundServiceToggleService toggleService)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
+        _toggleService = toggleService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -32,7 +34,9 @@ public class CoolingPeriodJob : BackgroundService
         {
             try
             {
-                await ProcessCoolingPeriodAsync(stoppingToken);
+                // REQ-1.2: Runtime toggle — skip cycle if disabled via admin UI
+                if (await _toggleService.IsEnabledAsync("CoolingPeriodJob", stoppingToken))
+                    await ProcessCoolingPeriodAsync(stoppingToken);
             }
             catch (Exception ex)
             {

@@ -1,0 +1,13 @@
+fix(#99-3): move loyalty dashboard nav link to Owner+SystemAdmin block
+
+Root cause: NavMenu link "Thống kê điểm thưởng" was inside
+<AuthorizeView Roles="Owner"> block, but PlatformUserLoginService
+issues role=SystemAdmin for all platform logins. SystemAdmin users
+could not see the dashboard link.
+
+Fix: Move link to separate <AuthorizeView Roles="Owner,SystemAdmin">
+block in both desktop + mobile nav sections.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

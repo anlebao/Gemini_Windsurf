@@ -1,0 +1,28 @@
+feat(#99-3): loyalty points visibility + shop owner dashboard (Phase A)
+
+Phase A of Safe Incremental Rollout (Batch 1 + Batch 3):
+
+Customer visibility (Batch 1):
+- OrderWorkflowService: check Loyalty_Program_Enabled toggle before awarding
+  points (fail-open if service errors — preserves existing behavior)
+- PublicOrderTrackingDto: add PointsAwarded + LoyaltyEnabled fields
+- PublicOrdersController: compute PointsAwarded via same formula as
+  ProcessLoyaltyPointsAsync (rate * TotalAmount, clamped to min/max)
+- OrderTracking.razor: banner "Bạn đã nhận được X điểm thưởng" when order
+  completed/delivered + PointsAwarded > 0
+- Checkout.razor: estimate banner "Đơn hàng sẽ tích ~X điểm" loaded from
+  tenant feature-settings API
+
+Shop owner dashboard (Batch 3):
+- LoyaltyController: GET /api/loyalty/dashboard returns 4 metrics
+  (PointsPendingRedemption, PointsRedeemed, PointsInCampaigns, PointsReserved)
+- LoyaltyDashboard.razor: new page at /loyalty/dashboard with 4 stat cards
+- NavMenu.razor: link "Thống kê điểm thưởng" in both desktop + mobile nav
+
+Plan + task card updated with Safe Incremental Rollout strategy:
+- Phase A (this commit): LOW-MEDIUM risk, activates immediately
+- Phase B (next): Alliance VND normalization, HIGH risk, feature-gated
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

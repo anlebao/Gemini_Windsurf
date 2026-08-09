@@ -1,0 +1,18 @@
+fix(khachlink): SRI deadlock — auto-reload when Blazor fails to boot after SW update
+
+Users with old Service Worker get SRI integrity check failure after deploys:
+old SW serves stale cached .wasm while fresh blazor.boot.json has new SHA-256
+hashes -> Blazor blocked -> page stuck on loading screen. User had to manually
+clear cache to recover.
+
+Fix: pwa.js controllerchange handler now auto-reloads when Blazor hasn't booted
+(loading screen still visible) instead of showing an invisible toast. After
+reload, new SW (network-first for _framework/*) serves fresh wasm -> SRI passes
+-> Blazor boots. Loop guard via sessionStorage (10s) prevents infinite reload.
+
+SW cache version bumped v16-push-alerts -> v17-sri-deadlock-fix (activate event
+auto-deletes old caches).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

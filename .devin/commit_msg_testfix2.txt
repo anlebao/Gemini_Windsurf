@@ -1,0 +1,31 @@
+fix(test): guard ObjectDisposedException in Blazor timer callbacks
+
+Root cause: CI test host process crashes with unhandled
+ObjectDisposedException after all tests complete. Two sources:
+
+1. Orders/Index.razor:ReloadOrders — _pollTimer (5s interval) callback
+   calls ScopeFactory.CreateScope() after test host disposes
+   ServiceProvider → "Cannot access a disposed object: IServiceProvider"
+   at line 318. Stack trace shows Timer→InvokeAsync→ReloadOrders.
+
+2. Kitchen/Display.razor:StartSignalRConnection — retry Task.Run
+   (10s delay) calls _hubConnection.StartAsync() after component
+   disposes HubConnection → "Cannot access a disposed object:
+   HubConnection" at line 280.
+
+Both are background timers/retry tasks that outlive the component
+lifecycle during test teardown. The unhandled exception crashes the
+test host process → CI reports failure even though all tests passed
+(131 passed, 0 failed, 9 skipped in last CI run).
+
+Fix: wrap CreateScope() in try/catch(ObjectDisposedException) that
+silently returns (component is tearing down — no point refreshing).
+For Kitchen SignalR retry, catch ObjectDisposedException separately
+from other retry errors.
+
+Verified: full integration suite 233 passed / 0 failed / 13 skipped,
+exit code 0 (no test host crash).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

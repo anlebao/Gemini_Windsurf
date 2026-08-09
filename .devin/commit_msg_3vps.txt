@@ -1,0 +1,27 @@
+feat(multi-vps): split KhachLink+Seq to separate VPS (3-VPS architecture)
+
+Architecture change: split vanan-gateway (6 containers, overloaded e2-small)
+into 3 VPS:
+- vanan-gateway (10.148.0.2): postgres + nats + gateway + nginx (4 containers)
+- vanan-khachlink (10.148.0.4): khachlink + seq + certbot (3 containers) — NEW
+- vanan-shop-a (10.148.0.3): shoperp (1 container)
+
+Files:
+- docker-compose.gateway.yml: removed seq, khachlink, certbot services
+- docker-compose.khachlink.yml: NEW — seq + khachlink + certbot
+- .env.khachlink.example: NEW
+- scripts/deploy-khachlink.sh: NEW
+- nginx/templates/vanan.multivps.conf.template: proxy diemthuong.* to
+  ${KHACHLINK_REMOTE_HOST} instead of local vanan-khachlink:80
+- nginx/docker-entrypoint.multivps.sh: add KHACHLINK_REMOTE_HOST to envsubst
+- .github/workflows/cd-multivps.yml: add deploy-khachlink job + new secrets
+  (VPS_KHACHLINK_HOST/USER/SSH_PRIVATE_KEY, KHACHLINK_REMOTE_HOST)
+- docs/operations/Multi_VPS_Deployment_Guide.md: update to 3-VPS architecture
+
+Root cause: e2-small (2GB RAM, 0.25 vCPU) cannot run 6 containers — SSH
+became unresponsive after all containers started. Splitting reduces gateway
+load to 4 containers (fits e2-small comfortably).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

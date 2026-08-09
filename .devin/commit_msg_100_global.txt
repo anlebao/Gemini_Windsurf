@@ -1,0 +1,25 @@
+fix: #100 — KhachLink home settings are GLOBAL (not per-tenant)
+
+Root cause: Home section toggles (Home_CampaignSection_Enabled, etc.) were stored
+in ShopFeatureSettings (per-tenant SQLite). SystemAdmin had to impersonate a tenant
+to configure them, and each tenant had independent settings. But KhachLink home page
+style is global — it should be the same for all tenants.
+
+Architecture change:
+- New KhachLinkHomeSettings entity (Domain.cs) — global, no TenantId (like LoyaltyGlobalConfig)
+- Stored in Gateway PostgreSQL (single row, TenantId = Empty)
+- New Gateway API: GET /api/platform/khachlink-home-settings (anonymous — KhachLink PWA reads)
+  + PUT (SystemAdmin auth — ShopERP admin UI writes)
+- New KhachLinkHomeSettingsHttpService in KhachLink — calls Gateway directly (no tenantId)
+- KhachLink Home.razor now loads global settings (no tenant context needed)
+- Removed home toggles from ShopFeatures.razor (per-tenant page)
+- New ShopERP page /admin/khachlink-home-settings — SystemAdmin only, no tenant selection
+- NavMenu link updated to point to new page
+- Migration AddKhachLinkHomeSettings creates the table in PG
+
+Tenant profile page (/store/{slug}) section toggles remain in ShopFeatureSettings
+(per-tenant) — they are separate and unaffected.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

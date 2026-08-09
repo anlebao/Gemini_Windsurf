@@ -1,0 +1,19 @@
+fix: #101 + #102 — missing TenantSettings columns + Gateway PG migration
+
+#101: Gateway tenant list fails because PG is missing new TenantSettings
+columns (LegalForm, BusinessField, CharterCapital, NavColor, HeaderColor,
+FooterColor). Gateway didn't apply PG migrations on startup — relied on
+ShopERP. Fix: add MigrateAsync() to Gateway startup for PostgreSQL.
+
+#102: Financial Statement Notes (B 09-DN) fails because ShopERPDbContext
+(SQLite) is missing the same 6 TenantSettings columns. The TenantConfiguration
+(shared from CoreHub) maps them, but no SQLite migration existed. Fix: add
+ShopERPDbContext migration AddTenantSettingsB09DNAndStyleColumns.
+
+Also fix Ignore<T>() ordering in ShopERPDbContext.OnModelCreating — move
+Community Commerce + Loyalty Alliance ignores AFTER ApplyConfigurationsFromAssembly
+to prevent CoreHub configurations from re-adding PG-only entities to the SQLite model.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

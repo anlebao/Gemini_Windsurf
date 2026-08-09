@@ -1,0 +1,141 @@
+@page "/admin/background-services"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.CoreHub.Services
+@using VanAn.ShopERP.Services
+@inject IBackgroundServiceToggleService ToggleSvc
+@inject IThemeProvider ThemeProvider
+@inject ILogger<BackgroundServicesManagement> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="tenant-management-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Background Services</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadToggles">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    <VanAAlert Type="info" Dismissible="false">
+        <span>Toggle on/off các background services. Thay đổi có hiệu lực trong vòng 30 giây (cache TTL). Không cần restart container.</span>
+    </VanAAlert>
+
+    @if (_loading)
+    {
+        <p>Đang tải...</p>
+    }
+    else if (_toggles.Count == 0)
+    {
+        <VanAAlert Type="warning" Dismissible="false">
+            <span>Không có background service nào được cấu hình.</span>
+        </VanAAlert>
+    }
+    else
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Service</th>
+                    <th>VPS</th>
+                    <th>Mô tả</th>
+                    <th>Trạng thái</th>
+                    <th>Hành động</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var toggle in _toggles)
+                {
+                    <tr>
+                        <td><strong>@toggle.DisplayName</strong><br /><code>@toggle.ServiceName</code></td>
+                        <td><span class="badge @GetVpsBadgeClass(toggle.Vps)">@toggle.Vps</span></td>
+                        <td>@toggle.Description</td>
+                        <td>
+                            @if (toggle.IsEnabled)
+                            {
+                                <span style="color: #16a34a;">● Enabled</span>
+                            }
+                            else
+                            {
+                                <span style="color: #dc2626;">● Disabled</span>
+                            }
+                        </td>
+                        <td>
+                            <VanAButton Variant="@(toggle.IsEnabled ? "danger" : "success")"
+                                        Size="small"
+                                        OnClick="() => ToggleService(toggle.ServiceName, !toggle.IsEnabled)">
+                                @(toggle.IsEnabled ? "Disable" : "Enable")
+                            </VanAButton>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Type="danger" Dismissible="true">
+            <span>@_errorMessage</span>
+        </VanAAlert>
+    }
+</div>
+
+@code {
+    private List<BackgroundServiceToggleDto> _toggles = new();
+    private bool _loading = true;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadToggles();
+    }
+
+    private async Task LoadToggles()
+    {
+        _loading = true;
+        _errorMessage = null;
+        try
+        {
+            _toggles = (await ToggleSvc.GetAllAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load background service toggles");
+            _errorMessage = $"Lỗi tải danh sách: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ToggleService(string serviceName, bool enable)
+    {
+        _errorMessage = null;
+        try
+        {
+            await ToggleSvc.SetEnabledAsync(serviceName, enable, Guid.Empty);
+            await LoadToggles();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to toggle {ServiceName}", serviceName);
+            _errorMessage = $"Lỗi: {ex.Message}";
+        }
+    }
+
+    private static string GetVpsBadgeClass(string vps) => vps switch
+    {
+        "Gateway" => "badge-primary",
+        "ShopERP" => "badge-success",
+        _ => "badge-secondary"
+    };
+}

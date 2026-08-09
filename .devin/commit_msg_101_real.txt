@@ -1,0 +1,12 @@
+fix: #101 (real root cause) — JSON deserialization of BusinessType enum fails
+
+Gateway API returns businessType as camelCase string (e.g. 'HouseholdBusiness')
+but SendAndReadAsync<T> used default ReadFromJsonAsync<T> without
+JsonStringEnumConverter — deserialization fails with JsonException.
+
+Fix: add static JsonSerializerOptions with JsonStringEnumConverter +
+CamelCase naming policy to match Gateway's serialization format.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

@@ -1,0 +1,22 @@
+fix: #99 + #100 — redemption error message, loyalty on delivery, home toggles, nav link, alert CSS
+
+#99-1: Gateway RedemptionController now returns actual exception message instead of
+generic "Internal server error" so users can report specific errors.
+
+#99-2: Award loyalty points on "delivered" status (not just "completed") with a
+double-award guard that checks loyalty history for existing order ID entry.
+Shop owners often mark orders as delivered but forget to click completed,
+leaving customers without earned points.
+
+#100-1: Hide KhachLink home section toggles from Shop Owners — only SystemAdmin
+can configure which sections appear on the KhachLink home page.
+
+#100-2: Add "Cấu hình KhachLink" nav link in ShopERP SystemAdmin section so
+admins can access /settings/shop-features from mobile sidebar.
+
+#100-3: Add VanAAlert.razor.css (was missing — alerts rendered with no styling,
+making save notifications invisible). Fix garbled close button character.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

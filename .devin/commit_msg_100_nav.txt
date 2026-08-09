@@ -1,0 +1,13 @@
+fix: #100 — add SystemAdmin nav link to KhachLink home page settings
+
+The /settings/shop-features page (with 4 home section toggles for
+KhachLink) was only linked from the Owner section of Sitemap.razor.
+SystemAdmin had no nav link to access it.
+
+Add "Cấu hình trang chủ KhachLink" link to the SystemAdmin section
+of Sitemap.razor so platform admin can configure home sections
+(Campaign/Store/Featured/SocialHub) for any tenant.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

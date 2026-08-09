@@ -1,0 +1,21 @@
+feat: multi-VPS deployment (Option C) — Google Cloud Gateway + ShopERP
+
+Add multi-VPS deployment infrastructure for Option C architecture:
+- docker-compose.gateway.yml: Gateway VPS (postgres + nats + seq + gateway + khachlink + nginx)
+- docker-compose.shoperp.yml: ShopERP VPS (shoperp only, remote NATS/PG via VPC)
+- nginx/templates/vanan.multivps.conf.template: proxy app.*/www.* to remote ShopERP
+- nginx/docker-entrypoint.multivps.sh: envsubst VANAN_DOMAIN + SHOPERP_REMOTE_HOST
+- .env.gateway.example + .env.shoperp.example: env templates (gitignored)
+- scripts/deploy-gateway.sh + deploy-shoperp.sh: bootstrap scripts with validation
+- .github/workflows/cd-multivps.yml: CD workflow (build → deploy gateway → deploy shoperp → smoke test)
+- cd.yml: change trigger from main to oracle-prod (branch isolation)
+- .gitignore: add .env.gateway, .env.shoperp
+- docs/operations/: ShopInstance Capacity Handbook, GCP Registration Checklist/StepByStep, Multi-VPS Deployment Guide
+
+Branch strategy:
+- main → cd-multivps.yml → Google Cloud 2 VPS
+- oracle-prod → cd.yml → Oracle VPS (legacy single-VPS)
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

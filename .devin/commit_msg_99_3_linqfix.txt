@@ -1,0 +1,15 @@
+fix(#99-3): loyalty dashboard LINQ translation — use TenantId value object pattern
+
+Root cause: LoyaltyController.GetDashboard queries used
+`lr.TenantId.Value == tenantId` which fails LINQ translation
+(Pattern #8 — TenantId is a value object, .Value access not
+translatable by EF Core).
+
+Fix: Use `lr.TenantId == new TenantId(tenantId)` pattern (matches
+DashboardController + ProductsController convention).
+
+Affected queries: LoyaltyRewards, RedemptionRecords, Orders (x2).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

@@ -27,17 +27,20 @@ namespace VanAn.ShopERP.Services
         private readonly IServiceProvider _serviceProvider;
         private readonly IConfiguration _configuration;
         private readonly ILogger<BirthdayBonusJob> _logger;
+        private readonly VanAn.CoreHub.Services.IBackgroundServiceToggleService _toggleService;
         private readonly TimeSpan _runInterval = TimeSpan.FromHours(24);
         private readonly TimeSpan _initialDelay = TimeSpan.FromMinutes(5); // Wait 5 min after startup before first run
 
         public BirthdayBonusJob(
             IServiceProvider serviceProvider,
             IConfiguration configuration,
-            ILogger<BirthdayBonusJob> logger)
+            ILogger<BirthdayBonusJob> logger,
+            VanAn.CoreHub.Services.IBackgroundServiceToggleService toggleService)
         {
             _serviceProvider = serviceProvider;
             _configuration = configuration;
             _logger = logger;
+            _toggleService = toggleService;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -59,7 +62,9 @@ namespace VanAn.ShopERP.Services
             {
                 try
                 {
-                    await RunBirthdayBonusAsync(stoppingToken);
+                    // REQ-1.2: Runtime toggle — skip cycle if disabled via admin UI
+                    if (await _toggleService.IsEnabledAsync("BirthdayBonusJob", stoppingToken))
+                        await RunBirthdayBonusAsync(stoppingToken);
                 }
                 catch (Exception ex)
                 {

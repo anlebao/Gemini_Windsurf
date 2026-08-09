@@ -1,0 +1,20 @@
+fix(tests): GatewayWebApplicationFactory — EnsureDeleted before EnsureCreated
+
+Root cause: 9 integration tests (3 HKD Books + 4 Tenant Onboarding + 2 Guest
+Checkout) failed with "SQLite Error 1: no such column: t.Settings_BrandStory"
+during seed data setup. The column was added to TenantConfiguration on 2026-08-04
+(commit e1121579, #93) but GatewayWebApplicationFactory was last fixed on
+2026-08-02 (commit 1d211a3c) — 2 days BEFORE BrandStory existed.
+
+EnsureCreated() alone creates schema from the runtime model, but with SQLite
+in-memory Cache=Shared, a stale schema from a prior factory init in the same
+process can persist. Adding EnsureDeleted() first forces a fresh schema rebuild
+from the CURRENT model, ensuring all owned-entity columns (Settings_BrandStory,
+Settings_NavColor, Settings_HeaderColor, etc.) are present.
+
+Verified: full Integration Tests suite 233 passed / 0 failed / 13 skipped
+(was 224 passed / 9 failed before fix).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
