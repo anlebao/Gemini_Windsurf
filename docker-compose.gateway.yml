@@ -80,6 +80,10 @@ services:
       - InternalLoyalty__ApiKey=${INTERNAL_LOYALTY_API_KEY:-vanan-internal-loyalty-prod-2026}
       # NatsSyncWorker: poll every 10s (REQ-1.1 — reduce 50% DB query load, order delivery <10s OK for kitchen/POS)
       - Sync__PollIntervalMs=10000
+      # Order sync seed: ShopInstance ID that matches ShopERP VPS SHOP_INSTANCE_ID.
+      # Gateway auto-creates this ShopInstance + assigns all tenants on startup if missing.
+      # MUST match docker-compose.shoperp.yml SHOP_INSTANCE_ID.
+      - SEED_SHOP_INSTANCE_ID=${SHOP_INSTANCE_ID}
       # Multi-VPS YARP: override cluster addresses to use VPC internal IPs
       # (appsettings.json defaults to Docker hostnames "shoperp"/"khachlink" which are
       # not resolvable when services are on separate VPSs)

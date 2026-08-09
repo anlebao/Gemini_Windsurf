@@ -41,7 +41,7 @@ namespace VanAn.ShopERP.Services
             _hubContext = hubContext;
         }
 
-        protected override Task ExecuteAsync(CancellationToken stoppingToken)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             // Phase 4: Validate SHOP_INSTANCE_ID BEFORE attempting NATS connection.
             // Without it, we cannot route subscriptions to this ShopERP's ShopInstance.
@@ -56,37 +56,67 @@ namespace VanAn.ShopERP.Services
                 ?? _configuration.GetValue<string>("ConnectionStrings:Nats")
                 ?? "nats://localhost:4222";
 
-            try
+            // Retry loop: NATS may be temporarily unavailable at startup (container starting,
+            // network not ready, VPC firewall rule not applied yet). Previous implementation
+            // gave up after 1 attempt → subscriber never started → orders never synced.
+            // Now retries with exponential backoff until connected or cancelled.
+            int retryDelay = 2000; // start at 2s
+            const int maxRetryDelay = 30000; // cap at 30s
+
+            while (!stoppingToken.IsCancellationRequested)
             {
-                _subscriptionConnection = CreateSubscriptionConnection(url);
-
-                // Phase 4: Subscribe ONLY to routed subjects (vanan.cloud.order.created.{shopInstanceId}).
-                // Previous wildcard subscription (vanan.cloud.order.created.>) removed — would cause
-                // cross-VPS data leak in multi-VPS deployment.
-                _ = _subscriptionConnection.SubscribeAsync(createdSubject, async (sender, args) =>
+                try
                 {
-                    await SyncOrderCreatedAsync(args.Message.Data, stoppingToken);
-                });
-                RecordSubscription(createdSubject);
+                    _subscriptionConnection = CreateSubscriptionConnection(url);
 
-                _ = _subscriptionConnection.SubscribeAsync(statusSubject, async (sender, args) =>
+                    // Phase 4: Subscribe ONLY to routed subjects (vanan.cloud.order.created.{shopInstanceId}).
+                    // Previous wildcard subscription (vanan.cloud.order.created.>) removed — would cause
+                    // cross-VPS data leak in multi-VPS deployment.
+                    _ = _subscriptionConnection.SubscribeAsync(createdSubject, async (sender, args) =>
+                    {
+                        await SyncOrderCreatedAsync(args.Message.Data, stoppingToken);
+                    });
+                    RecordSubscription(createdSubject);
+
+                    _ = _subscriptionConnection.SubscribeAsync(statusSubject, async (sender, args) =>
+                    {
+                        await SyncOrderStatusChangedAsync(args.Message.Data, stoppingToken);
+                    });
+                    RecordSubscription(statusSubject);
+
+                    _logger.LogInformation(
+                        "OrderSyncSubscriber connected to NATS {Url}, subscribed to {CreatedSubject} + {StatusSubject} (ShopInstanceId={ShopInstanceId})",
+                        url, createdSubject, statusSubject, shopInstanceId);
+
+                    // Connected successfully — wait indefinitely until cancelled
+                    await Task.Delay(Timeout.Infinite, stoppingToken);
+                }
+                catch (OperationCanceledException)
                 {
-                    await SyncOrderStatusChangedAsync(args.Message.Data, stoppingToken);
-                });
-                RecordSubscription(statusSubject);
+                    // Graceful shutdown
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "OrderSyncSubscriber: NATS unavailable at {Url}. Retrying in {RetryDelay}ms. Subjects: {CreatedSubject}, {StatusSubject}",
+                        url, retryDelay, createdSubject, statusSubject);
 
-                _logger.LogInformation(
-                    "OrderSyncSubscriber connected to NATS {Url}, subscribed to {CreatedSubject} + {StatusSubject} (ShopInstanceId={ShopInstanceId})",
-                    url, createdSubject, statusSubject, shopInstanceId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex,
-                    "OrderSyncSubscriber: NATS unavailable at {Url}. Running in degraded mode — sync will resume when NATS is available. Routed subjects: {CreatedSubject}, {StatusSubject}",
-                    url, createdSubject, statusSubject);
+                    try
+                    {
+                        await Task.Delay(retryDelay, stoppingToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+
+                    // Exponential backoff: 2s → 4s → 8s → 16s → 30s (cap)
+                    retryDelay = Math.Min(retryDelay * 2, maxRetryDelay);
+                }
             }
 
-            return Task.CompletedTask;
+            _logger.LogInformation("OrderSyncSubscriber stopped.");
         }
 
         /// <summary>

@@ -9,6 +9,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Text;
 using VanAn.Shared.Services;
 using VanAn.Shared.Domain.Common;
+using VanAn.Shared.Domain;
 using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Domain.Repositories;
 using VanAn.CoreHub.Repositories;
@@ -443,6 +444,10 @@ namespace VanAn.Gateway
                         var vanAnDb = migrateScope.ServiceProvider.GetRequiredService<VanAn.CoreHub.Infrastructure.VanAnDbContext>();
                         await vanAnDb.Database.MigrateAsync();
                         Log.Information("PostgreSQL database migrated (Gateway)");
+
+                        // Order sync seed: ensure ShopInstance exists + tenants assigned.
+                        // Without this, NATS routing key mismatch → orders never sync to ShopERP.
+                        await SeedShopInstanceAndAssignTenantsAsync(migrateScope.ServiceProvider);
                     }
                     catch (Exception migrateEx)
                     {
@@ -624,6 +629,77 @@ namespace VanAn.Gateway
             [Column("dflt_value")]
             public string? DfltValue { get; set; }
             public int Pk { get; set; }
+        }
+
+        /// <summary>
+        /// Order sync seed: ensures all tenants are assigned to an active ShopInstance.
+        ///
+        /// Without this, NATS routing key is null → orders published to unrouted subject
+        /// → ShopERP subscriber never receives them → orders don't appear in ShopERP UI.
+        ///
+        /// Logic:
+        /// 1. Find the first active ShopInstance (or the one matching SEED_SHOP_INSTANCE_ID)
+        /// 2. Assign all unassigned tenants to it
+        ///
+        /// SEED_SHOP_INSTANCE_ID env var (optional): if set and matches an existing ShopInstance,
+        /// that one is preferred. Otherwise, the first active ShopInstance is used.
+        /// </summary>
+        private static async Task SeedShopInstanceAndAssignTenantsAsync(IServiceProvider serviceProvider)
+        {
+            try
+            {
+                var db = serviceProvider.GetRequiredService<VanAnDbContext>();
+
+                // 1. Find target ShopInstance — prefer SEED_SHOP_INSTANCE_ID match, else first active
+                Guid? preferredShopInstanceId = null;
+                string? seedIdStr = Environment.GetEnvironmentVariable("SEED_SHOP_INSTANCE_ID");
+                if (Guid.TryParse(seedIdStr, out Guid seedId) && seedId != Guid.Empty)
+                {
+                    preferredShopInstanceId = seedId;
+                }
+
+                var shopInstances = await db.ShopInstances
+                    .IgnoreQueryFilters()
+                    .Where(s => s.IsActive)
+                    .ToListAsync();
+
+                ShopInstance? targetInstance = preferredShopInstanceId.HasValue
+                    ? shopInstances.FirstOrDefault(s => s.Id == preferredShopInstanceId.Value)
+                    : null;
+                targetInstance ??= shopInstances.FirstOrDefault();
+
+                if (targetInstance == null)
+                {
+                    Log.Warning("SeedShopInstance: no active ShopInstance found — tenants cannot be assigned. " +
+                                "Create a ShopInstance via POST /api/v1/shop-instances");
+                    return;
+                }
+
+                // 2. Assign all unassigned tenants to this ShopInstance
+                var unassignedTenants = await db.Tenants
+                    .IgnoreQueryFilters()
+                    .Where(t => t.ShopInstanceId == null)
+                    .ToListAsync();
+
+                if (unassignedTenants.Count > 0)
+                {
+                    foreach (var tenant in unassignedTenants)
+                    {
+                        tenant.AssignToShopInstance(targetInstance.Id);
+                    }
+                    await db.SaveChangesAsync();
+                    Log.Information("SeedShopInstance: assigned {Count} tenant(s) to ShopInstance {Id} ({Label})",
+                        unassignedTenants.Count, targetInstance.Id, targetInstance.Label);
+                }
+                else
+                {
+                    Log.Debug("SeedShopInstance: all tenants already assigned to a ShopInstance");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "SeedShopInstance: failed — order sync may not work until tenants are assigned manually");
+            }
         }
     }
 
