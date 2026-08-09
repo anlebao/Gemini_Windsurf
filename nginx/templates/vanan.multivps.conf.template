@@ -87,7 +87,7 @@ server {
     # ── Blazor Server protection strategy (3 layers) ──────────────────────
     # 1. Static assets (_framework/*.js, CSS, images) — exempt from rate limit.
     #    These are served by nginx/proxy without .NET processing — no RAM cost.
-    # 2. Dynamic pages (/Login, /admin/*) — limit_req burst=50 + limit_conn 10.
+    # 2. Dynamic pages (/Login, /admin/*) — limit_req burst=100 + limit_conn 10.
     #    Burst high enough for Blazor initial load, limit_conn prevents RAM exhaustion.
     # 3. WebSocket /_blazor — no limit_req (location overrides parent) + limit_conn 10.
     #    limit_conn is the right tool: 1 IP = max 10 concurrent circuits (10 tabs).
@@ -117,8 +117,10 @@ server {
     }
 
     # Layer 2: Dynamic pages — rate limit + connection limit
+    # burst=100 (was 50) — Blazor Server fast navigation can spike 60-80 requests.
+    # nodelay: process burst immediately (no queue delay). 429 status set in nginx.conf.
     location / {
-        limit_req zone=web burst=50 nodelay;
+        limit_req zone=web burst=100 nodelay;
         limit_conn perip_conn 10;
         proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
         proxy_http_version 1.1;
@@ -197,8 +199,9 @@ server {
     }
 
     # Dynamic pages — rate limit + connection limit
+    # burst=100 (was 50) — Blazor WASM initial load can spike 40-60 requests.
     location / {
-        limit_req zone=web burst=50 nodelay;
+        limit_req zone=web burst=100 nodelay;
         limit_conn perip_conn 10;
         proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
@@ -265,8 +268,9 @@ server {
     }
 
     # Layer 2: Dynamic pages — rate limit + connection limit
+    # burst=100 (was 50) — Blazor Server fast navigation can spike 60-80 requests.
     location / {
-        limit_req zone=web burst=50 nodelay;
+        limit_req zone=web burst=100 nodelay;
         limit_conn perip_conn 10;
         proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
         proxy_http_version 1.1;
@@ -307,7 +311,7 @@ server {
     ssl_session_cache   shared:SSL:10m;
     ssl_session_timeout 1d;
 
-    limit_req zone=api burst=50 nodelay;
+    limit_req zone=api burst=100 nodelay;
 
     location / {
         proxy_pass         http://gateway:80;
