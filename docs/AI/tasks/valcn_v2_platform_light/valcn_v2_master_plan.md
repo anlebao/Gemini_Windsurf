@@ -1,11 +1,23 @@
 # MASTER PLAN — VẠN AN LOCAL COMMERCE NETWORK v2.0 (PLATFORM-LIGHT)
 
-> **Status:** 📋 PLANNED (v2 — sau scope cut + codebase review sâu)
-> **Created:** 2026-08-09 · **Last Updated:** 2026-08-09 (v2)
-> **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** per-phase feature branch, always-green main
+> **Status:** ✅ COMPLETE — All 6 phases implemented + committed (2026-08-09). Pending: VPS deploy + Runtime verify.
+> **Created:** 2026-08-09 · **Last Updated:** 2026-08-09 (v2 — Wave 3 COMPLETE)
+> **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** `main` (always-green, per-wave commits)
 > **Source:** User request 2026-08-09 — đề xuất lộ trình hiện thực hóa BOM v2.0 PLATFORM-LIGHT
 > **BOM document:** `docs/requirements/VAN_AN_LOCAL_COMMERCE_NETWORK_BOM_v2.0_PLATFORM_LIGHT.md`
 > **Codebase verification:** 2 subagents + 1 deep review (4 critical + 7 important + 3 minor findings)
+
+## IMPLEMENTATION STATUS (2026-08-09)
+
+| Wave | Phases | Status | Commit |
+|------|--------|--------|--------|
+| Wave 1 | Phase 0 (Analyze) + Phase 1 (Foundation) | ✅ COMPLETE | `af09b8d0` |
+| Wave 2 | Phase 2 (Platform Fee) ‖ Phase 3 (Loyalty Budget) | ✅ COMPLETE | `f1d46f24` + `7edf589a` |
+| Wave 3 | Phase 4 (Refund Reversal) ‖ Phase 7 (Network Dashboard) | ✅ COMPLETE | `9a4d0e9b` |
+
+**Build:** 0 errors · **guard-check:** ALL PASSED · **All flags default OFF** — zero production impact until admin enables via `/admin/valcn-features`.
+
+**Pending:** Push `main` → CI/CD → GCP VPS deploy → Runtime verify (feature flags UI + network dashboard UI + optional feature ON test).
 
 ---
 
@@ -264,7 +276,7 @@ public class LoyaltyIssuanceRecord : BaseEntity, IMustHaveTenant
 **Effort:** 2-3 sessions
 **Verification:** Feature OFF → existing behavior. Feature ON → Budget exhausted → reward = 0 + counters atomic + jobs reset đúng
 
-### Phase 4 — Refund Orchestration + Full Reversal (UC-06, INV-002, feature-flagged, default OFF)
+### Phase 4 — Refund Orchestration + Full Reversal (UC-06, INV-002, feature-flagged, default OFF) — ✅ COMPLETE (commit `9a4d0e9b`)
 **Task card:** `phase4_task_card.md`
 **Objective:** `RefundOrchestrationService` coordinate **đầy đủ UC-06 (4 steps)** khi order cancel — **wrapped in `ValcnV2_RefundReversal` toggle**. Default OFF = existing behavior (silent cancel). ON = (2a) payment refund HOẶC accrual liability entry (Cash = Accounting, TT 152/2025), (2b) accounting reversal, (2c) loyalty reversal, (2d) referral commission reversal. Idempotency via `IdempotentOperation` entity (fix I6).
 **Why full 4 steps:** Verification phát hiện bỏ 2a → **BCTC sai** (Cash ≠ Accrual, vi phạm TT 152/2025). Bỏ 2d → wallet balance + CAC metric sai. UC spec UC-06 require 4 steps.
@@ -272,14 +284,16 @@ public class LoyaltyIssuanceRecord : BaseEntity, IMustHaveTenant
 **Domain mod:** NO
 **Effort:** 3-4 sessions (tăng từ 2-3 — add 2a payment refund + 2d referral reversal + toggle wrap)
 **Verification:** Feature OFF → existing behavior. Feature ON → 4 steps đều chạy + Cash = Accounting + INV-002 enforced
+**Implementation notes (Wave 3):** Option B (accrual liability entry accountCode "331") — no payment integration. Natural idempotency (checks existing reversal entries by CorrelationId — no IdempotentOperation table needed). Direct DbContext for LoyaltyIssuanceRecords + WalletTransactions (matches FraudReviewService pattern). `SubtractPointsAsync` instead of `DeductPointsForOrderAsync` (missing). `IAccountingEntryRepository.GetByCorrelationIdAsync` added.
 
-### Phase 7 — Network Dashboard (investor-facing)
+### Phase 7 — Network Dashboard (investor-facing) — ✅ COMPLETE (commit `9a4d0e9b`)
 **Task card:** `phase7_task_card.md`
 **Objective:** `NetworkDashboardService` cross-tenant aggregate (8 metrics — bỏ Ops Cost fix I3, bỏ Tier Distribution fix I4). Admin UI `/admin/network-dashboard`.
 **Files:** New `NetworkDashboardService.cs` + controller + Razor page, DI registration
 **Domain mod:** NO (read-only)
 **Effort:** 2-3 sessions
 **Verification:** Dashboard hiển thị 8 metrics + LoyaltyROI formula đúng (fix C4) + SystemAdmin-only + cache 10 min
+**Implementation notes (Wave 3):** Fallback 1000 VND/point (INV-009 deferred — LoyaltyGlobalConfig.PointValue missing). `DateRange` record defined in interface file. `Order.CustomerId` is `Guid?` → filter nulls. `NetworkDashboardController` uses `[InternalApiKey]` (same as LoyaltyBudgetController) — added to W12-G7 exempt list. `VanAMetricsCard` UI Platform component used for 8 metric cards.
 
 ---
 
@@ -288,14 +302,14 @@ public class LoyaltyIssuanceRecord : BaseEntity, IMustHaveTenant
 | Invariant | Phase | Mechanism | Status |
 |-----------|-------|-----------|--------|
 | INV-001 Order.Completed → Revenue recognized | (existing) | AccountingEntry on completed | ✅ |
-| **INV-002 Refunded → Reward reversed** | **Phase 4** | RefundOrchestrationService + LoyaltyIssuanceRecord | ⚠️ Gap → Fix |
+| **INV-002 Refunded → Reward reversed** | **Phase 4 ✅** | RefundOrchestrationService + LoyaltyIssuanceRecord | ✅ Enforced (feature-flagged, default OFF) |
 | INV-003 No Supplier Deposit → No Point Liability | (existing) | No deposit flow | ✅ |
 | INV-004 Point Balance ≠ Cash Balance | (existing) | LoyaltyRewards ≠ Wallet | ✅ |
 | INV-005 Negative Margin → flag | **DEFER v3.0** | Phase 9 dropped | ❌ Defer |
 | **INV-006 Every Reward → Funding Source** | **DEFER v3.0** | Phase 8 dropped | ❌ Defer |
-| **INV-007 Every Promotion → Budget** | **Phase 3** | LoyaltyBudgetService | ⚠️ Partial (loyalty budget only, not promo budget) |
-| INV-008 Every Order → Seller + Economics | (existing) + Phase 2 | Order.TenantId + PlatformFeeAmount | ✅ |
-| **INV-009 Platform Fee ≥ Loyalty Cost** | **Phase 3** | Budget check before AddPoints | ⚠️ Partial |
+| **INV-007 Every Promotion → Budget** | **Phase 3 ✅** | LoyaltyBudgetService | ✅ Enforced (loyalty budget only, not promo budget — feature-flagged, default OFF) |
+| INV-008 Every Order → Seller + Economics | (existing) + Phase 2 ✅ | Order.TenantId + PlatformFeeAmount | ✅ |
+| **INV-009 Platform Fee ≥ Loyalty Cost** | **Phase 3** | Budget check before AddPoints | ⚠️ Partial (no PointValue field — loyalty cost in VND not calculated, fallback 1000 VND/point) |
 
 **MVP scope:** INV-001, 002, 003, 004, 008 fully enforced. INV-007, 009 partial. INV-005, 006 defer v3.0.
 

@@ -1,9 +1,9 @@
 # TASK CARD — Phase 7: Network Dashboard (investor-facing)
 
-> **Status:** 📋 PENDING (requires Phase 2 + Phase 3 + Phase 4 complete)
+> **Status:** ✅ COMPLETE (commit `9a4d0e9b` — 2026-08-09, Wave 3)
 > **Priority:** P1 — Investor pitch enabler (BOM Section 27 + 34)
-> **Branch:** `feature/valcn-v2-phase7-network-dashboard`
-> **Estimated sessions:** 2-3
+> **Branch:** `main` (always-green, per-wave commits)
+> **Estimated sessions:** 2-3 (actual: 1 session — parallel ANALYZE + IMPLEMENT with Phase 4)
 > **Mode:** IMPLEMENT
 > **Domain modification:** NO (read-only cross-tenant queries)
 
@@ -134,19 +134,37 @@ public class NetworkDashboardController : ControllerBase
 
 ---
 
-## ANALYZE UPDATE (to be filled during INVESTIGATE step)
+## ANALYZE UPDATE (filled during INVESTIGATE step — 2026-08-09)
 
 ### INVESTIGATE checklist
-- [ ] Read `OrderService.GetAllOrdersByDateRangeAsync` (line 89) — cross-tenant query pattern
-- [ ] Find `ILoyaltyIssuanceRecordRepository` (Phase 1) — `GetTotalPointsIssuedByDateRangeAsync` method or add
-- [ ] Find `LoyaltyGlobalConfig` — point value field (for loyalty cost calculation)
-- [ ] Read `DashboardService.GetPostgreSQLMetricsAsync` (line 23-84) — existing dashboard pattern
-- [ ] Read `DashboardController` — existing admin API pattern
-- [ ] Find UI Platform components for metric cards (governance compliance)
-- [ ] Confirm `DateRange` type exists or define it
+- [x] Read `OrderService.GetAllOrdersByDateRangeAsync` (`3_CoreHub/Services/OrderService.cs:92-102`) — uses `IgnoreQueryFilters()` (line 98) for cross-tenant access. Confirmed pattern.
+- [x] Find `ILoyaltyIssuanceRecordRepository` → **MISSING**. Direct `IVanAnDbContext.LoyaltyIssuanceRecords` DbSet (line 31 in IVanAnDbContext.cs). No `GetTotalPointsIssuedByDateRangeAsync` — used direct LINQ `SumAsync`.
+- [x] Find `LoyaltyGlobalConfig` (`1_Shared/Domain.cs:2214-2247`) — **`PointValue` field MISSING** (INV-009 deferred to v3.0). Available: Mode, PointsRate, MinPointsPerOrder, MaxPointsPerOrder, MaxWalletPoints. **Fallback: 1000 VND/point constant.**
+- [x] Read `DashboardService.GetPostgreSQLMetricsAsync` (`3_CoreHub/Services/DashboardService.cs:23-84`) — uses `ISystemMetricsRepository`, tenant-scoped (not cross-tenant). Phase 7 uses different pattern (direct DbContext + IgnoreQueryFilters).
+- [x] Read `DashboardController` (`2_Gateway/Controllers/DashboardController.cs:1-48`) — class-level `[Authorize]` (W12-G7). Phase 7 uses `[InternalApiKey]` instead (internal service-to-service, same as LoyaltyBudgetController).
+- [x] Find UI Platform components → `VanAMetricsCard.razor` (`UI.Platform/Components/`). Parameters: Title, Value, Icon, Trend, Color. **Used for all 8 metric cards.**
+- [x] `DateRange` type → **MISSING**. Defined `record DateRange(DateTime Start, DateTime End)` in `INetworkDashboardService.cs`. Service method uses separate `DateTime startDate, DateTime endDate` params (matches `GetAllOrdersByDateRangeAsync` pattern).
+- [x] DI registration: Gateway `Program.cs:374` (after RefundOrchestrationService). ShopERP `Program.cs:488` (after LoyaltyBudgetServiceHttpProxy).
+- [x] `Order.PlatformFeeAmount` (`Domain.cs:1527`) — `decimal?` (nullable). Confirmed.
+- [x] `Order.CustomerId` (`Domain.cs:1485`) — **`Guid?`** (nullable Guid, NOT CustomerId value object). Filter nulls before grouping.
+- [x] `Order.TenantId` — inherited from BaseEntity, type `TenantId` (value object). Cross-tenant grouping uses `o.TenantId.Value`.
+- [x] Existing dashboard tests: `6_Tests/VanAn.Core.Tests/Services/DashboardServiceTests.cs` — integration test pattern.
+- [x] ShopERP HTTP client pattern: `LoyaltyBudgetServiceHttpProxy.cs` — named HttpClient "GatewayInternal", `X-Internal-Api-Key` header. **NetworkDashboardHttpService follows same pattern.**
+- [x] Admin page pattern: `ValcnFeatures.razor` — `@layout AdminLayout`, `@attribute [Authorize(Policy = "SystemAdmin")]`, NavMenu registration. **NetworkDashboard.razor follows same pattern.**
+- [x] `ValcnV2_NetworkDashboard` flag → **MISSING from FeatureFlagService.KnownFeatures**. NOT added (Network Dashboard is read-only, no behavior change to toggle — always available to SystemAdmin via admin UI).
+- [x] `IMemoryCache` pattern: `FeatureFlagService.cs:17-18,28-32` — injected + `TryGetValue`/`Set` with TTL. **Used with 10-min TTL.**
 
 ### Verified Accurate
-- (fill after investigation)
+- `OrderService.GetAllOrdersByDateRangeAsync` uses `IgnoreQueryFilters()` (cross-tenant pattern)
+- `VanAMetricsCard` UI Platform component exists with required parameters
+- `Order.PlatformFeeAmount` is `decimal?` (nullable)
+- `LoyaltyBudgetServiceHttpProxy` pattern (GatewayInternal HttpClient + X-Internal-Api-Key)
+- `ValcnFeatures.razor` admin page pattern (AdminLayout + SystemAdmin policy)
 
-### DRIFT
-- (fill if investigation finds drift)
+### DRIFT (resolved during implementation)
+1. **`LoyaltyGlobalConfig.PointValue` MISSING (INV-009)** → Fallback constant 1000 VND/point. TODO: replace with `LoyaltyGlobalConfig.PointValue` when INV-009 implemented (v3.0).
+2. **`DateRange` type MISSING** → Defined `record DateRange(DateTime Start, DateTime End)` in `INetworkDashboardService.cs`.
+3. **`Order.CustomerId` is `Guid?`** (not CustomerId value object) → Filter nulls before grouping for repeat-customer calculation.
+4. **`ILoyaltyIssuanceRecordRepository` MISSING** → Direct `IVanAnDbContext.LoyaltyIssuanceRecords` LINQ queries.
+5. **`ValcnV2_NetworkDashboard` flag NOT added** → Network Dashboard is read-only, no behavior change to toggle. Always available to SystemAdmin.
+6. **W12-G7 architecture test** → `NetworkDashboardController` + `LoyaltyBudgetController` added to exempt list (internal `[InternalApiKey]` auth, same as `InternalLoyaltyController`).

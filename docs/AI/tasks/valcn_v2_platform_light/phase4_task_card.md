@@ -1,9 +1,9 @@
 # TASK CARD — Phase 4: Refund Orchestration + Full Reversal (UC-06, INV-002)
 
-> **Status:** 📋 PENDING (requires Phase 1 + Phase 2 + Phase 3 complete)
+> **Status:** ✅ COMPLETE (commit `9a4d0e9b` — 2026-08-09, Wave 3)
 > **Priority:** P0 — HIGHEST RISK (production gap — INV-002 currently violated, BCTC sai nếu thiếu 2a)
-> **Branch:** `feature/valcn-v2-phase4-refund-reversal`
-> **Estimated sessions:** 3-4 (tăng từ 2-3 — add 2a payment refund + 2d referral reversal)
+> **Branch:** `main` (always-green, per-wave commits)
+> **Estimated sessions:** 3-4 (actual: 1 session — parallel ANALYZE + IMPLEMENT with Phase 7)
 > **Mode:** IMPLEMENT
 > **Domain modification:** NO (logic only — LoyaltyIssuanceRecord + CorrelationId from Phase 1, budget decrement from Phase 3, WalletService.ReverseTransactionAsync existing)
 
@@ -203,27 +203,39 @@ services.AddScoped<IRefundOrchestrationService, RefundOrchestrationService>();
 
 ---
 
-## ANALYZE UPDATE (to be filled during INVESTIGATE step)
+## ANALYZE UPDATE (filled during INVESTIGATE step — 2026-08-09)
 
 ### INVESTIGATE checklist
-- [ ] Read `OrderWorkflowService.TransitionStatusAsync` full method (line 54) — find cancel hook point
-- [ ] Verify `OrderStatusId` values (<ref_snippet file="C:\VibeCoding\Gemini_Windsurf\1_Shared\Domain.cs" lines="422-432" />) — confirm no "refunded", only "cancelled"
-- [ ] Read `OmnichannelOrderService.CancelOrderAsync` (line 430-496) — existing cancel logic, `CalculateRefundAmount`
-- [ ] **CRITICAL — Payment integration:** Grep for `IPaymentService`, `PaymentProvider`, `VNPay`, `Momo`, `VietQR` — confirm whether payment refund API exists
-- [ ] If no payment integration: confirm Option B (accrual liability entry) approach — find accountCode "331" or equivalent in chart of accounts
-- [ ] Read `WalletService.ReverseTransactionAsync` (line 503-525) — confirm signature + usage pattern
-- [ ] Find `IWalletTransactionRepository` — `GetByRelatedOrderIdAsync` method or add
-- [ ] Read `FraudReviewService.cs:189-222` — pattern reference for referral commission reversal
-- [ ] Find `IIdempotentOperationRepository` — confirm `GetByOperationIdAsync` method (fix I6)
-- [ ] Find `IAccountingEntryRepository` — confirm `GetByCorrelationIdAsync` method or add
-- [ ] Find `ILoyaltyIssuanceRecordRepository` (Phase 1) — confirm `GetByOrderIdAsync` method
-- [ ] Read `AccountingEntry.CreateReversal` — confirm preserves CorrelationId (Phase 1 fix M3)
-- [ ] Find `ILoyaltyRewardsService.DeductPointsForOrderAsync` or equivalent — may need to add
-- [ ] Check if refund event already exists in OutboxEvent types
-- [ ] Find existing order cancel tests — pattern for new tests
+- [x] Read `OrderWorkflowService.TransitionStatusAsync` (line 63-138) — cancel hook point: lines 89-103 (only "completed" + "delivered" handled, NO "cancelled" hook → added)
+- [x] Verify `OrderStatusId` values (`1_Shared/Domain.cs:434-531`) — confirmed: "pending", "confirmed", "preparing", "ready", "delivering", "completed", "cancelled". NO "refunded".
+- [x] Read `OmnichannelOrderService.CancelOrderAsync` (line 430-496) — in-memory service, not DB-backed. Actual cancel flow goes through `OrderWorkflowService.TransitionStatusAsync`.
+- [x] **CRITICAL — Payment integration:** Grep for `IPaymentService`, `PaymentProvider`, `VNPay`, `Momo`, `VietQR`, `RefundAsync` → ALL MISSING (only in docs). **Option B (accrual liability entry) confirmed.**
+- [x] Read `WalletService.ReverseTransactionAsync` (line 503-525) — signature: `Task<WalletTransaction> ReverseTransactionAsync(Guid ownerId, Guid originalTransactionId)`. Confirmed.
+- [x] Find `IWalletTransactionRepository` → **MISSING**. Direct DbContext access pattern (FraudReviewService.cs:191-197).
+- [x] Read `FraudReviewService.cs:189-204` — pattern: query `_dbContext.WalletTransactions.IgnoreQueryFilters().Where(w => w.RelatedOrderId == orderId && w.Type == Commission)`.
+- [x] Find `IIdempotentOperationRepository` → **MISSING** (entity exists, no DbSet/repository). **Natural idempotency used instead** (check if reversal entries already exist for CorrelationId).
+- [x] Find `IAccountingEntryRepository` — exists but `GetByCorrelationIdAsync` MISSING → **added to interface + implementation**.
+- [x] Find `ILoyaltyIssuanceRecordRepository` → **MISSING**. Direct `IVanAnDbContext.LoyaltyIssuanceRecords` (matches OrderWorkflowService.cs:566 pattern).
+- [x] Read `AccountingEntry.CreateReversal` (`1_Shared/Domain.cs:388-406`) — line 405: `correlationId: original.CorrelationId` — **CONFIRMED preserved** (Phase 1 fix M3).
+- [x] Find `ILoyaltyRewardsService.DeductPointsForOrderAsync` → **MISSING**. Available: `SubtractPointsAsync(Guid customerId, int points, string reason)`. **Used SubtractPointsAsync instead.**
+- [x] Check refund event in OutboxEvent types → **MISSING** (EventType is string, no "refund" type). Not required for Phase 4.
+- [x] Find existing order cancel tests → `6_Tests/OrderWorkflowServiceTests.cs` (in-memory SQLite, mocks). No cancel-specific tests found.
+- [x] DI registration: `2_Gateway/Program.cs:372` (after LoyaltyBudgetService). Added `IRefundOrchestrationService` registration.
+- [x] Feature flag: `3_CoreHub/Services/FeatureFlagService.cs:25` — `ValcnV2_RefundReversal` EXISTS (Phase 1 added). All flags: PlatformFee, LoyaltyBudget, RefundReversal.
+- [x] `WalletTransactionType.Commission` exists (`Domain.cs:3608`). `WalletTransaction.RelatedOrderId` exists (`Domain.cs:4022`, `Guid?`).
 
 ### Verified Accurate
-- (fill after investigation)
+- `AccountingEntry.CreateReversal` preserves CorrelationId (Phase 1 fix M3 verified)
+- `WalletService.ReverseTransactionAsync` signature matches task card
+- `ValcnV2_RefundReversal` flag declared in Phase 1
+- `WalletTransactionType.Commission` + `RelatedOrderId` field exist
+- `OrderStatusId` has no "refunded" — refund flows through "cancelled"
 
-### DRIFT
-- (fill if investigation finds drift)
+### DRIFT (resolved during implementation)
+1. **No `IIdempotentOperationRepository`/DbSet** → Natural idempotency: check if reversal entries already exist for CorrelationId (avoids migration/scope creep).
+2. **No `ILoyaltyIssuanceRecordRepository`** → Direct `IVanAnDbContext.LoyaltyIssuanceRecords` (matches OrderWorkflowService pattern).
+3. **No `IWalletTransactionRepository`** → Direct DbContext (matches FraudReviewService pattern).
+4. **`DeductPointsForOrderAsync` MISSING** → Use `SubtractPointsAsync(customerId, points, reason)`.
+5. **No payment integration** → Option B (accrual liability entry, accountCode "331").
+6. **No cancel hook in `OrderWorkflowService`** → Added `HandleOrderCancelledAsync` (lines 150-180).
+7. **`IAccountingEntryRepository.GetByCorrelationIdAsync` MISSING** → Added to interface + implementation.
