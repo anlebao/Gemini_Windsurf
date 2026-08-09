@@ -30,12 +30,13 @@
 
 ## 2. Current Objective
 
-**VALCN v2.0 PLATFORM-LIGHT — ALL 3 WAVES COMPLETE (Phase 0, 1, 2, 3, 4, 7). BOM v2.0 fully implemented.**
+**VALCN v2.0 PLATFORM-LIGHT — ALL 3 WAVES COMPLETE + DEPLOYED + RUNTIME VERIFIED (Phase 0, 1, 2, 3, 4, 7). BOM v2.0 fully implemented + production-verified.**
 
 **Source:** User request 2026-08-09 — hiện thực hóa BOM v2.0 PLATFORM-LIGHT.
 **BOM:** `docs/requirements/VAN_AN_LOCAL_COMMERCE_NETWORK_BOM_v2.0_PLATFORM_LIGHT.md`
 **Master plan:** `docs/AI/tasks/valcn_v2_platform_light/valcn_v2_master_plan.md`
 **Task cards:** `phase0` (✅) + `phase1` (✅) + `phase2` (✅) + `phase3` (✅) + `phase4` (✅) + `phase7` (✅) + `phase0_findings.md`
+**RV report:** `docs/AI/tasks/valcn_v2_platform_light/rv_report_wave3.md` (10 PASS + 1 PARTIAL + 2 FAIL→FIXED→VERIFIED)
 **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** `main` (always-green, per-phase commits)
 
 **Scope (v2 — sau scope cut + codebase review):**
@@ -50,7 +51,7 @@
 |------|--------|--------|
 | Wave 1 | Phase 0 (Analyze) + Phase 1 (Foundation) | ✅ COMPLETE — commit `af09b8d0` |
 | Wave 2 | Phase 2 (Platform Fee) ‖ Phase 3 (Loyalty Budget) | ✅ COMPLETE — commits `f1d46f24` + `7edf589a` |
-| Wave 3 | Phase 4 (Refund Reversal) ‖ Phase 7 (Network Dashboard) | ✅ COMPLETE — commit `9a4d0e9b` |
+| Wave 3 | Phase 4 (Refund Reversal) ‖ Phase 7 (Network Dashboard) | ✅ COMPLETE + DEPLOYED + RV PASS — commit `9a4d0e9b` |
 
 **Wave 1 COMPLETE (commit `af09b8d0` — 2026-08-09):**
 - Phase 0: Subagent verified `ShopFeatureSettingsEntity.PlatformFeeRate` did NOT exist (was global `SystemSetting`) → made per-tenant per BOM intent. Confirmed `LoyaltyIssuanceRecord` + `AccountingEntry` factory chain mods necessary + safe.
@@ -61,12 +62,19 @@
 - **Phase 2 — Platform Fee (commit `f1d46f24`):** `OrderService.SnapshotCommerceModeAsync` Marketplace branch wrapped in `ValcnV2_PlatformFee` feature flag. `GetPlatformFeeRateAsync` helper: per-tenant `ShopFeatureSettingsEntity.PlatformFeeRate` (default 5%) → global `SystemSetting.DefaultPlatformFeeRate` (30%) → ultimate 5% fallback. `Order.SetMarketplacePlatformFee(rate)` Domain method. When OFF (default): existing no-op behavior (PlatformFeeRate/Amount remain null).
 - **Phase 3 — Loyalty Budget (commit `7edf589a`):** `ILoyaltyBudgetService` + `LoyaltyBudgetService` (CoreHub, direct PG) + `LoyaltyBudgetServiceHttpProxy` (ShopERP, HTTP proxy to Gateway internal API — ShopERP SQLite ignores `LoyaltyTenantConfig`). 4 budget caps: PerOrderRateCap, MonthlyPointsBudget, DailyPointsBudget, PerCustomerDailyLimit. Atomic counter increment via `ExecuteUpdateAsync` (fix I1 race condition). `OrderWorkflowService.ProcessLoyaltyPointsAsync` injects budget check (feature-flagged, default OFF). 2 reset jobs: `LoyaltyBudgetDailyResetJob` (daily 00:00 UTC) + `LoyaltyBudgetMonthlyResetJob` (1st of month 00:00 UTC) — both toggleable via `BackgroundServiceToggleService`. Gateway internal API: `POST /api/internal/loyalty-budget/{check-adjust,record,decrement}` with `[InternalApiKey]` auth. INV-009 deferred (no PointValue field in `LoyaltyGlobalConfig` — v3.0).
 
-**Wave 3 CODE COMPLETE — NOT YET DEPLOYED (commits `9a4d0e9b` + `d1e71f21` + `f9f59ef6` — 2026-08-09):**
-- **STATUS:** Code complete + build pass + local startup tests pass. CI/CD pending. Runtime verification (feature flags UI + network dashboard UI) NOT yet done — will be done after CD succeeds.
+**Wave 3 COMPLETE + DEPLOYED + RV PASS (commits `9a4d0e9b` + `d1e71f21` + `f9f59ef6` + `f0e42a28` + `33b4c40f` + `e7514adc` + `bb698f7c` — 2026-08-09):**
+- **STATUS:** Code complete + build pass + CI/CD SUCCESS + Runtime verification DONE. RV report: `docs/AI/tasks/valcn_v2_platform_light/rv_report_wave3.md`.
 - **DI fix (`f9f59ef6`):** `ILoyaltyRewardsService` + `ILoyaltyRewardsRepository` were missing from Gateway Program.cs — caused CI startup test failure. Fixed by adding AddScoped registrations before Phase 4 RefundOrchestrationService.
 - **CD workflow fix (`d1e71f21`):** Added SSH connectivity validation + SSH key CRLF check in cd-multivps.yml to diagnose prior SCP deploy failure.
 - **Phase 4 — Refund Reversal:** `IRefundOrchestrationService` + `RefundOrchestrationService` — 4-step reversal on order cancel (UC-06, INV-002): (2a) accrual liability entry accountCode "331" (Option B — no payment integration, ensures Cash=Accounting per TT 152/2025), (2b) accounting reversal via `AccountingEntry.CreateReversal` (preserves CorrelationId), (2c) loyalty reversal via `SubtractPointsAsync` + `LoyaltyIssuanceRecord.MarkReversed` + `LoyaltyBudgetService.DecrementIssuanceAsync`, (2d) referral commission reversal via `WalletService.ReverseTransactionAsync`. Natural idempotency (checks if reversal entries already exist for CorrelationId — no IdempotentOperation table needed). `OrderWorkflowService.HandleOrderCancelledAsync` hook wrapped in `ValcnV2_RefundReversal` flag (default OFF = existing silent-cancel). `IAccountingEntryRepository.GetByCorrelationIdAsync` added. DRIFT resolved: no payment integration → Option B; no repositories → direct DbContext (matches FraudReviewService pattern); `DeductPointsForOrderAsync` missing → `SubtractPointsAsync`.
 - **Phase 7 — Network Dashboard:** `INetworkDashboardService` + `NetworkDashboardMetrics` (8 metrics) + `DateRange` record + `NetworkDashboardService` (cross-tenant query via `IgnoreQueryFilters`, 10-min `IMemoryCache` cache). Fix C4 LoyaltyROI formula (repeatGmv not totalGmv). Fix I3 (Ops Cost excluded — defer v3.0). Fix I4 (Tier Distribution removed). `NetworkDashboardController` (Gateway, `[InternalApiKey]` — same pattern as LoyaltyBudgetController). `NetworkDashboardHttpService` (ShopERP HTTP client — same pattern as LoyaltyBudgetServiceHttpProxy). `NetworkDashboard.razor` admin UI (8 `VanAMetricsCard` components, date range picker, SystemAdmin-only, `@layout AdminLayout`). NavMenu entry. DI registrations (Gateway + ShopERP). DRIFT resolved: `LoyaltyGlobalConfig.PointValue` MISSING (INV-009) → fallback 1000 VND/point; `Order.CustomerId` is `Guid?` → filter nulls; `DateRange` type missing → defined in interface file. W12-G7 architecture test: added `LoyaltyBudgetController` + `NetworkDashboardController` to exempt list (internal `[InternalApiKey]` auth, same as `InternalLoyaltyController`).
+- **Runtime Verification (RV) — 10 PASS + 1 PARTIAL + 2 FAIL→FIXED→VERIFIED:**
+  - RV-01: Health 3 VPS ✅ | RV-02: SystemAdmin login ✅ | RV-03: Feature Flags UI (3 flags, all OFF) ✅ | RV-04: Toggle PlatformFee ON→OFF ✅ | RV-05: Network Dashboard UI (8 metrics) ✅ | RV-06: Background Services UI (2 loyalty jobs) ✅ | RV-07: Shop Owner login + `/settings/shop-features` ✅ | RV-08: Loyalty Config UI — PARTIAL (4 budget cap field names not in prerender HTML, Blazor SignalR render) | RV-09: Accounting page ✅ | RV-10: KhachLink PWA ✅ | RV-11: Internal API protected (401 without key) ✅ | RV-12: Feature Flags API (GET/PUT) ✅
+  - **FAIL-1 FIXED (`f0e42a28`):** `AdminLayout.razor` `AdminMenuItems` missing 3 nav entries (VALCN Features, Network Dashboard, Background Services). Entries were in `NavMenu.razor` (legacy) but admin pages use `AdminLayout.razor` (UI Platform). Fixed + verified on VPS.
+  - **FAIL-2 FIXED (`f0e42a28`):** User Guide URLs incorrect (`/admin/shop-feature-settings` → `/settings/shop-features`, `/admin/loyalty-config` clarified as SystemAdmin-only).
+  - **SQLite migration fix (`33b4c40f`):** `ShopFeatureSettings.PlatformFeeRate` column missing in ShopERP SQLite — entity + Gateway PG migration existed but no ShopERP SQLite migration. New migration `AddPlatformFeeRateToShopFeatureSettings` adds: `ShopFeatureSettings.PlatformFeeRate` + `Orders.PlatformFeeAmount` + `OutboxMessages.CorrelationId` + `LoyaltyIssuanceRecords` table. Verified: GET + PUT `/api/shop/settings/features` both 200.
+  - **nginx 503 fix (`e7514adc`):** Root cause = API + page loads shared rate limit quota on www2/app2 (`location /` caught both). 5-layer nginx strategy: (1) static assets no limit, (2) `/api/` zone=api burst=200, (3) `/Login` zone=auth 5r/m, (4) `/_blazor` limit_conn only, (5) `/` zone=web burst=200. Applied to www2 + app2 + diemthuong2. api2 auth endpoints strict. `limit_req_status 429`. Load test: 0 503 across 500+ requests.
+  - **Deferred task cards (`bb698f7c`):** `nginx_per_user_rate_limit_task_card.md` (JWT claim rate limit), `blazor_api_aggregation_task_card.md` (bootstrap endpoint), `api_rate_limit_classification_task_card.md` (read/write/auth/export tiers).
 
 **Previous objective — COMPLETE:** Gateway Refactor Hybrid Strategy — Bước 1 (Tối ưu code) COMPLETE + DEPLOYED + RUNTIME VERIFIED (2026-08-09, RV 11/11 PASS). REQ-1.1 (poll 5s→10s) + REQ-1.2 (6 background service toggles) + REQ-1.3 (logging reduction ~90%). See Section 10 maintenance log entry 2026-08-09.
 
@@ -120,12 +128,13 @@
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `9a4d0e9b` [VALCN-V2 W3] Phase 4 Refund Reversal + Phase 7 Network Dashboard (feature-flagged, default OFF)
-- **Working tree:** Clean (all Wave 3 changes committed). Branch in sync with origin/main.
+- **Last commit:** `bb698f7c` docs: deferred task cards for nginx rate limit improvements
+- **Working tree:** Clean. Branch in sync with origin/main.
 - **.NET SDK:** 8.0.422
 - **DB:** SQLite `vanan_shoperp.db` (business, per-tenant) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community + SystemSetting tables)
 - **Build:** 0 errors across full solution. CI pre-push ALL PASSED.
-- **CI/CD:** GitHub Actions `cd-multivps.yml` SUCCESS (run `31292519378`, 2026-08-09) — all jobs PASS. CI run `31290434856` SUCCESS. Accounting Tests `31290434869` SUCCESS.
+- **CI/CD:** GitHub Actions — CI SUCCESS (`31326953198`), CD Multi-VPS SUCCESS (`31326953188`), Accounting Tests SUCCESS. All for commit `e7514adc` (2026-08-09).
+- **VALCN v2.0 RV:** 10 PASS + 1 PARTIAL + 2 FAIL→FIXED→VERIFIED. Report: `docs/AI/tasks/valcn_v2_platform_light/rv_report_wave3.md`.
 - **GCP VPS (3 instances):**
   - `vanan-gateway` (136.85.94.119, e2-small 2GB, static IP) — Gateway API + Nginx + PostgreSQL + NATS
   - `vanan-khachlink` (e2-micro, static IP) — KhachLink UI + Seq + Certbot
@@ -170,21 +179,20 @@
 
 ## 4. Next Actions
 
-**VALCN v2.0 — ALL WAVES COMPLETE. Post-implementation:**
-1. **(Deploy + RV)** Push `main` → CI/CD → GCP VPS deploy → Runtime verify: (a) `/admin/valcn-features` shows 3 flags (PlatformFee, LoyaltyBudget, RefundReversal) all OFF, (b) `/admin/network-dashboard` renders 8 metric cards, (c) build + guard-check PASS on CI.
-2. **(Browser RV — VALCN Feature Flags)** Login `sysadmin@vanan.vn` / `2026@vanan` tại `https://app2.khachvip.online/Login` → `/admin/valcn-features` — verify 3 feature flag toggles render + all default OFF.
-3. **(Browser RV — Network Dashboard)** Login → `/admin/network-dashboard` — verify 8 VanAMetricsCard components render + date range picker works.
-4. **(Optional — Feature flag enable testing)** Enable `ValcnV2_RefundReversal` → create + cancel an order → verify 4-step reversal (accrual entry + accounting reversal + loyalty reversal + referral reversal). Disable after test.
+**VALCN v2.0 — ALL WAVES COMPLETE + DEPLOYED + RV PASS. Post-RV items:**
+1. **(Browser RV — Loyalty Config)** Open `/admin/loyalty-config` in browser — verify 4 budget cap fields render (PerOrderRateCap, MonthlyPointsBudget, DailyPointsBudget, PerCustomerDailyLimit). HTTP-level RV was PARTIAL (Blazor SignalR render not visible in curl).
+2. **(Optional — Feature flag enable testing)** Enable `ValcnV2_RefundReversal` → create + cancel an order → verify 4-step reversal (accrual entry + accounting reversal + loyalty reversal + referral reversal). Disable after test.
+3. **(nginx 503 monitoring)** Monitor nginx error logs for `limiting requests` entries. If 429 appears for normal users, consider deferred task cards (per-user rate limit, Blazor bootstrap, API classification).
 
 **Deferred / monitoring (carried over):**
-5. **(Browser RV — Background Service Toggle)** Login → `/admin/background-services` — verify 6+2=8 toggles render + toggle off/on.
-6. **(GCP Data Seeding)** Seed production data vào GCP DB (fresh DB chỉ có 3 tenants test).
-7. **(#99-3 Phase B APPROVAL)** Phase B (Alliance VND Normalization) — HIGH risk, feature-gated. Awaiting user approval.
-8. **(Hybrid Strategy Bước 2 — Monitor)** Chỉ trigger khi CPU sustained > 70% / Memory > 80% / SSH timeout. Hiện tại đủ load.
-9. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (skipped via `Category!=Flaky` CI filter).
-10. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG. **TD-ASYNCDP-001:** Make `IFormulaEngine`/`IDataProvider` async-native. **TD-GCP-001:** Hybrid Bước 1 done, Bước 2 pending monitoring.
-11. **(VPS Disk Monitoring)** Cả 2 VPS disk đã clean (52% + 44%) nhưng sẽ đầy lại sau vài CD runs. Cân nhắc `docker image prune -af` vào deploy script hoặc cron job.
-12. **(v3.0 deferred items)** INV-009 (LoyaltyGlobalConfig.PointValue field for accurate loyalty cost), payment provider integration (VNPay/Momo — replace Option B accrual with actual payment refund API), Ops Cost metric (NetworkDashboard), Tier Distribution (Phase 6 — dropped).
+4. **(GCP Data Seeding)** Seed production data vào GCP DB (fresh DB chỉ có 3 tenants test).
+5. **(#99-3 Phase B APPROVAL)** Phase B (Alliance VND Normalization) — HIGH risk, feature-gated. Awaiting user approval.
+6. **(Hybrid Strategy Bước 2 — Monitor)** Chỉ trigger khi CPU sustained > 70% / Memory > 80% / SSH timeout. Hiện tại đủ load.
+7. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (skipped via `Category!=Flaky` CI filter).
+8. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG. **TD-ASYNCDP-001:** Make `IFormulaEngine`/`IDataProvider` async-native. **TD-GCP-001:** Hybrid Bước 1 done, Bước 2 pending monitoring.
+9. **(VPS Disk Monitoring)** Cả 2 VPS disk đã clean (52% + 44%) nhưng sẽ đầy lại sau vài CD runs. Cân nhắc `docker image prune -af` vào deploy script hoặc cron job.
+10. **(v3.0 deferred items)** INV-009 (LoyaltyGlobalConfig.PointValue field for accurate loyalty cost), payment provider integration (VNPay/Momo — replace Option B accrual with actual payment refund API), Ops Cost metric (NetworkDashboard), Tier Distribution (Phase 6 — dropped).
+11. **(nginx deferred task cards)** `docs/AI/tasks/nginx_per_user_rate_limit_task_card.md` (per-user JWT rate limit), `docs/AI/tasks/blazor_api_aggregation_task_card.md` (bootstrap endpoint), `docs/AI/tasks/api_rate_limit_classification_task_card.md` (read/write/auth/export tiers). All deferred — current per-IP + per-location fix sufficient.
 
 ### Pruned (2026-07-29)
 
@@ -303,15 +311,23 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main`, last commit `9e81ea68` (chore: remove temp file, preceded by `7edf589a` [VALCN-V2 P3]). Working tree: clean. Wave 1+2 COMPLETE (4 commits: `af09b8d0` P0+P1, `f1d46f24` P2, `7edf589a` P3, `9e81ea68` chore). Phase 2: Platform Fee on Marketplace orders (feature-flagged, default OFF). Phase 3: Loyalty Budget enforcement (4 caps + 2 reset jobs + HTTP proxy for ShopERP, feature-flagged, default OFF). Build: 0 errors. All 3 VALCN feature flags default OFF — zero production impact. 8 background services toggleable (6 existing + 2 new loyalty budget reset jobs). Previous: Gateway Refactor Hybrid Bước 1 COMPLETE + DEPLOYED + RV 11/11 PASS (2026-08-09).
+- **Verified Facts:** Branch=`main`, last commit `bb698f7c` (deferred task cards). Working tree: clean. VALCN v2.0 ALL 3 WAVES COMPLETE + DEPLOYED + RV PASS (10 PASS + 1 PARTIAL + 2 FAIL→FIXED→VERIFIED). 7 commits this session: `9a4d0e9b` (W3 code) + `d1e71f21` (CD SSH fix) + `f9f59ef6` (DI fix) + `f0e42a28` (NavMenu + user guide fix) + `33b4c40f` (SQLite migration) + `e7514adc` (nginx 5-layer rate limit) + `bb698f7c` (deferred task cards). Build: 0 errors. CI/CD SUCCESS. All 3 VALCN feature flags default OFF — zero production impact. nginx 503 fixed (5-layer rate limit, 0 503 in load test). 8 background services toggleable.
 - **Open Questions:** 0
-- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (40+), Open Questions (0) < 3
+- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (50+), Open Questions (0) < 3
 
 ---
 
 ## 10. Maintenance Log
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md` → "Archived 2026-08-03" → Section 10.
+
+* **2026-08-09 — VALCN v2.0 PLATFORM-LIGHT — WAVE 3 COMPLETE + DEPLOYED + RUNTIME VERIFIED. ALL 3 WAVES DONE + PRODUCTION-VERIFIED.** 7 commits this session: `9a4d0e9b` (W3 code) + `d1e71f21` (CD SSH fix) + `f9f59ef6` (DI fix) + `f0e42a28` (NavMenu + user guide fix) + `33b4c40f` (SQLite migration) + `e7514adc` (nginx 5-layer rate limit) + `bb698f7c` (deferred task cards). RV report: `docs/AI/tasks/valcn_v2_platform_light/rv_report_wave3.md` — 10 PASS + 1 PARTIAL + 2 FAIL→FIXED→VERIFIED. CI/CD SUCCESS for all commits.
+  - **RV findings + fixes:**
+    - **NavMenu fix (`f0e42a28`):** `AdminLayout.razor` `AdminMenuItems` missing 3 nav entries (VALCN Features, Network Dashboard, Background Services). Entries were in `NavMenu.razor` (legacy) but admin pages use `AdminLayout.razor` (UI Platform). Fixed + verified on VPS.
+    - **User Guide fix (`f0e42a28`):** URLs corrected (`/admin/shop-feature-settings` → `/settings/shop-features`, `/admin/loyalty-config` clarified as SystemAdmin-only).
+    - **SQLite migration fix (`33b4c40f`):** `ShopFeatureSettings.PlatformFeeRate` column missing in ShopERP SQLite — entity + Gateway PG migration existed but no ShopERP SQLite migration. New migration `AddPlatformFeeRateToShopFeatureSettings` adds: `ShopFeatureSettings.PlatformFeeRate` + `Orders.PlatformFeeAmount` + `OutboxMessages.CorrelationId` + `LoyaltyIssuanceRecords` table. Verified: GET + PUT `/api/shop/settings/features` both 200.
+    - **nginx 503 fix (`e7514adc`):** Root cause = API + page loads shared rate limit quota on www2/app2 (`location /` caught both). 5-layer nginx strategy: (1) static assets no limit, (2) `/api/` zone=api burst=200, (3) `/Login` zone=auth 5r/m, (4) `/_blazor` limit_conn only, (5) `/` zone=web burst=200. Applied to www2 + app2 + diemthuong2. api2 auth endpoints strict. `limit_req_status 429`. Load test: 0 503 across 500+ requests. 3 deferred task cards created: per-user rate limit, Blazor bootstrap, API classification.
+  - **Build:** 0 errors. **Branch:** `main`. **Last commit:** `bb698f7c`.
 
 * **2026-08-09 — VALCN v2.0 PLATFORM-LIGHT — WAVE 3 COMPLETE (Phase 4 + Phase 7). ALL 3 WAVES DONE. BOM v2.0 fully implemented.** Wave 3 implements refund reversal (UC-06 compliance) + investor-facing network dashboard. Both feature-flagged, default OFF — zero production impact.
   - **Phase 4 — Refund Reversal (commit `9a4d0e9b`):** `IRefundOrchestrationService` + `RefundOrchestrationService` — 4-step reversal on order cancel (UC-06): (2a) accrual liability entry accountCode "331" (Option B — no payment integration, ensures Cash=Accounting per TT 152/2025), (2b) accounting reversal preserving CorrelationId, (2c) loyalty reversal via `SubtractPointsAsync` + `LoyaltyIssuanceRecord.MarkReversed` + budget decrement, (2d) referral commission reversal via `WalletService.ReverseTransactionAsync`. Natural idempotency (checks existing reversal entries by CorrelationId). `OrderWorkflowService.HandleOrderCancelledAsync` hook wrapped in `ValcnV2_RefundReversal` flag (default OFF). `IAccountingEntryRepository.GetByCorrelationIdAsync` added.
