@@ -164,6 +164,21 @@ else
         StateHasChanged();
     }
 
+    [JSInvokable]
+    public void OnVoiceError(string errorMessage)
+    {
+        _errorMessage = errorMessage;
+        isRecording = false;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnRecordingEnd()
+    {
+        isRecording = false;
+        StateHasChanged();
+    }
+
     private void ClearRecording()
     {
         transcriptionText = "";
@@ -216,83 +231,6 @@ else
 
     public void Dispose() => dotNetRef?.Dispose();
 }
-
-<script>
-    // 🎤 NATIVE BROWSER SPEECH RECOGNITION API (ZERO-COST)
-    let recognition = null;
-    let dotNetRef = null;
-
-    function initializeSpeechRecognition(dotNetReference) {
-        dotNetRef = dotNetReference;
-
-        // Check browser support
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-        if (!SpeechRecognition) {
-            alert('Trình duyệt của bạn không hỗ trợ nhận dạng giọng nói. Vui lòng sử dụng Chrome.');
-            return;
-        }
-
-        recognition = new SpeechRecognition();
-        recognition.lang = 'vi-VN'; // 🇻🇳 Vietnamese language
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognition.maxAlternatives = 1;
-
-        recognition.onresult = function(event) {
-            const transcript = event.results[0][0].transcript;
-            console.log('Transcription:', transcript);
-            dotNetRef.invokeMethodAsync('SetTranscriptionText', transcript);
-        };
-
-        recognition.onerror = function(event) {
-            console.error('Speech recognition error:', event.error);
-            let errorMessage = 'Lỗi nhận dạng giọng nói.';
-
-            switch(event.error) {
-                case 'no-speech':
-                    errorMessage = 'Không phát hiện giọng nói. Vui lòng thử lại.';
-                    break;
-                case 'audio-capture':
-                    errorMessage = 'Không thể truy cập micro. Vui lòng cấp quyền micro.';
-                    break;
-                case 'not-allowed':
-                    errorMessage = 'Quyền truy cập micro bị từ chối.';
-                    break;
-                case 'network':
-                    errorMessage = 'Lỗi mạng. Vui lòng kiểm tra kết nối.';
-                    break;
-            }
-
-            alert(errorMessage);
-        };
-
-        recognition.onend = function() {
-            // Auto-stop recording when done
-            if (window.isRecording) {
-                window.isRecording = false;
-                // Note: transcription text is already set via onresult callback
-                // No need to read DOM element here
-            }
-        };
-    }
-
-    function startRecording() {
-        if (recognition) {
-            window.isRecording = true;
-            recognition.start();
-            console.log('Started recording in Vietnamese...');
-        }
-    }
-
-    function stopRecording() {
-        if (recognition && window.isRecording) {
-            window.isRecording = false;
-            recognition.stop();
-            console.log('Stopped recording...');
-        }
-    }
-</script>
 
 <style>
     .voice-note-container {

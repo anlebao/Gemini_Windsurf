@@ -6,6 +6,7 @@
 @inject IThemeProvider ThemeProvider
 @inject ITenantService TenantService
 @inject ShopFeatureSettingsHttpService FeatureSettings
+@inject IJSRuntime JSRuntime
 @implements IDisposable
 
 <PageTitle>Giỏ hàng - KhachLink</PageTitle>
@@ -104,10 +105,34 @@
 
                             <!-- Issue 4: Order note input — saved to Order.CustomerNotes at checkout -->
                             <div class="mb-3">
-                                <label class="form-label fw-bold">📝 Ghi chú đơn hàng</label>
-                                <textarea class="form-control" rows="2" placeholder="VD: ít đá, giao trước 12h, không hành..."
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <label class="form-label fw-bold mb-0">📝 Ghi chú đơn hàng</label>
+                                    @if (_voiceNoteEnabled && _speechSupported)
+                                    {
+                                        <button type="button" class="btn btn-sm btn-outline-primary voice-mic-btn @(isRecording ? "recording" : "")"
+                                                OnClick="ToggleVoiceRecording" data-testid="cart-btn-voice-mic"
+                                                title="@(isRecording ? "Dừng ghi âm" : "Nói ghi chú")">
+                                            @if (isRecording)
+                                            {
+                                                <span class="recording-pulse">⏹️</span>
+                                            }
+                                            else
+                                            {
+                                                <span>🎤</span>
+                                            }
+                                        </button>
+                                    }
+                                </div>
+                                <textarea class="form-control mt-1" rows="2" placeholder="VD: ít đá, giao trước 12h, không hành..."
+                                          id="cart-order-note-textarea"
                                           @bind="cartState.OrderNote" @bind:event="oninput"
                                           @onchange="SaveOrderNote" data-testid="cart-input-order-note"></textarea>
+                                @if (isRecording)
+                                {
+                                    <div class="voice-recording-hint text-danger small mt-1">
+                                        <span class="recording-dot-inline"></span> Đang ghi âm... nói ghi chú của bạn
+                                    </div>
+                                }
                             </div>
 
                             <VanAnButton Variant="ButtonVariant.Success" FullWidth="true" Icon="qr-code" OnClick="ProceedToCheckout" data-testid="cart-btn-checkout">
@@ -127,6 +152,11 @@
 @code {
     private VanAn.KhachLink.Services.CartState cartState = new();
     private bool _vatDisplayEnabled = true;
+    // Voice note inline on cart
+    private bool _voiceNoteEnabled = false;
+    private bool _speechSupported = false;
+    private bool isRecording = false;
+    private DotNetObjectReference<Cart>? _voiceDotNetRef;
 
     protected override async Task OnInitializedAsync()
     {
@@ -146,9 +176,50 @@
             if (tenantId != Guid.Empty)
             {
                 _vatDisplayEnabled = await FeatureSettings.IsEnabledAsync(tenantId, nameof(ShopFeatureSettingsDto.VAT_Display_Enabled));
+                // Load voice note toggle
+                _voiceNoteEnabled = await FeatureSettings.IsEnabledAsync(tenantId, nameof(ShopFeatureSettingsDto.Voice_Note_Enabled));
+            }
+            // Initialize speech recognition if voice note is enabled
+            if (_voiceNoteEnabled)
+            {
+                _speechSupported = await JSRuntime.InvokeAsync<bool>("isSpeechRecognitionSupported");
+                if (_speechSupported)
+                {
+                    _voiceDotNetRef = DotNetObjectReference.Create(this);
+                    await JSRuntime.InvokeVoidAsync("initializeSpeechRecognition", _voiceDotNetRef, "cart-order-note-textarea");
+                }
             }
             StateHasChanged();
         }
+    }
+
+    private async Task ToggleVoiceRecording()
+    {
+        if (isRecording)
+        {
+            isRecording = false;
+            await JSRuntime.InvokeVoidAsync("stopRecording");
+        }
+        else
+        {
+            isRecording = true;
+            await JSRuntime.InvokeVoidAsync("startRecording");
+        }
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnVoiceRecordingEnd()
+    {
+        isRecording = false;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnVoiceError(string errorMessage)
+    {
+        isRecording = false;
+        StateHasChanged();
     }
 
     private async Task UpdateQuantity(Guid productId, int quantity)
@@ -180,6 +251,7 @@
     public void Dispose()
     {
         CartService.OnCartChanged -= StateHasChanged;
+        _voiceDotNetRef?.Dispose();
     }
 }
 
@@ -195,5 +267,44 @@
     border-radius: 8px;
     margin-bottom: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+/* Voice mic button — inline next to note label */
+.voice-mic-btn {
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+.voice-mic-btn.recording {
+    background: #dc3545;
+    color: white;
+    border-color: #dc3545;
+    animation: voice-pulse 1s infinite;
+}
+.voice-mic-btn .recording-pulse {
+    animation: voice-pulse 0.8s infinite;
+}
+@@keyframes voice-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.1); }
+}
+.recording-dot-inline {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #dc3545;
+    border-radius: 50%;
+    margin-right: 4px;
+    animation: voice-pulse 1s infinite;
+}
+.voice-recording-hint {
+    display: flex;
+    align-items: center;
+    gap: 2px;
 }
 </style>
