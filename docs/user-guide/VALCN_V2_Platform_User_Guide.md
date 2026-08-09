@@ -48,7 +48,7 @@ VALCN v2.0 liên quan đến 4 loại người dùng:
 | Vai trò | Quyền | Trang liên quan |
 |---------|-------|-----------------|
 | **SystemAdmin** | Quản trị toàn hệ thống Vạn An, bật/tắt feature flags, xem Network Dashboard | `/admin/valcn-features`, `/admin/network-dashboard`, `/admin/background-services` |
-| **Shop Owner / Tenant Admin** | Quản lý quán (tenant), cấu hình per-tenant, xem báo cáo kế toán | `/admin/shop-feature-settings`, `/admin/loyalty-config`, `/accounting` |
+| **Shop Owner / Tenant Admin** | Quản lý quán (tenant), cấu hình per-tenant, xem báo cáo kế toán | `/settings/shop-features`, `/loyalty/dashboard`, `/accounting` |
 | **Customer** | Đặt hàng, tích điểm, đổi điểm qua KhachLink PWA | KhachLink (app2.khachvip.online) |
 | **Investor** | Xem metrics tổng hợp (read-only, investor-facing) | `/admin/network-dashboard` (qua SystemAdmin) |
 
@@ -148,7 +148,7 @@ Shop Owner là chủ quán (tenant) — bị ảnh hưởng bởi 3 tính năng 
 
 #### Cấu hình per-tenant
 
-1. Vào `/admin/shop-feature-settings`
+1. Vào `/settings/shop-features`
 2. Field **`PlatformFeeRate`** — tỷ lệ phí nền tảng (decimal, mặc định 0.05 = 5%)
 3. Nếu không set → fallback theo thứ tự:
    - Global `SystemSetting.DefaultPlatformFeeRate` (mặc định 30%)
@@ -174,7 +174,7 @@ Ví dụ: Đơn 100,000 VND, PlatformFeeRate = 5% → PlatformFeeAmount = 5,000 
 - Áp dụng trước mỗi lần AddPoints (khi đơn completed/delivered)
 - Nếu budget hết → khách hàng nhận 0 điểm (không lỗi, chỉ log)
 
-#### 4 giới hạn (cấu hình per-tenant tại `/admin/loyalty-config`)
+#### 4 giới hạn (cấu hình per-tenant — SystemAdmin cấu hình tại `/admin/loyalty-config`)
 
 | Giới hạn | Field | Ý nghĩa | Khi null |
 |----------|-------|---------|----------|
