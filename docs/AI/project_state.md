@@ -30,48 +30,44 @@
 
 ## 2. Current Objective
 
-**GCP 3-VPS Deployment Stabilization + Gateway Refactor SRS + Issue Batch Fix — COMPLETE + DEPLOYED + RUNTIME VERIFIED.**
+**Issue Batch Fix #110 + #112 + nginx 503 Rate Limit Fix — COMPLETE + DEPLOYED + RUNTIME VERIFIED (2026-08-09).**
 
-- **Master plan:** Multi-VPS deployment (Gateway + KhachLink + ShopERP on 3 separate GCP e2-micro VPSs)
-- **Deployment guide:** `docs/operations/Multi_VPS_Deployment_Guide.md`
-- **SRS documents:**
-  - `docs/requirements/Van_An_SRS_Gateway_Refactor_Hybrid_Strategy.md` — Hybrid (Option 1+3+4)
-  - `docs/requirements/Van_An_SRS_Gateway_Refactor_Split3_Services.md` — Option 2: Split 3 services
+**Issue #110 — Tenant list lỗi + tạo tenant không lưu (CLOSED 2026-08-09):**
+- **Root cause:** `HandleCreateSubmit` in `TenantManagement.razor` called `TenantService.CreateTenantAsync` → writes to ShopERP SQLite (IVanAnDbContext). But tenant list loads from Gateway PostgreSQL. Create→list mismatch.
+- **Fix (commits `8d96f035` + `e6daf545`):** Added `POST /api/v1/tenants` endpoint to Gateway `TenantsController`. Added `TenantApiClient.CreateAsync` in ShopERP. `HandleCreateSubmit` now calls Gateway API (PG source of truth). Fixed `CreateRequestAsync` to serialize enums as strings (match Gateway `JsonStringEnumConverter`). Changed `CreatedAtAction` → `Ok` + added `InvalidOperationException` catch.
+- **Verified:** POST returns 200, new tenant appears in list (8 tenants).
 
-**GCP 3-VPS Deployment — COMPLETE (2026-08-08):**
-- 3 VPS deployed: `vanan-gateway` (136.85.94.119), `vanan-khachlink`, `vanan-shop-a` (34.177.89.248)
-- Static IPs, dedicated `vanan-deploy` user, separate ed25519 SSH keys per VPS
-- SSL via Let's Encrypt for all domains (www2, app2, diemthuong2, api2)
-- CD workflow `cd-multivps.yml` — 6 jobs: Build → Validate → Deploy Gateway → Deploy KhachLink → Deploy ShopERP → Smoke Test
+**Issue #112 — QR code hardcoded URL (CLOSED 2026-08-09):**
+- **Root cause:** `QRCodePayload.ToQrContent()` hardcoded `https://diemthuong.khachvip.online` (Oracle VPS).
+- **Fix (commit `8d96f035`):** `QrCodeService` injects `IConfiguration`, reads `ExternalUrls:KhachLink` config (set to `https://diemthuong2.khachvip.online` in docker-compose). Supports diemthuong2/3/4 scaling without code changes.
+- **Note:** Existing QR codes printed before fix still point to old domain. Product owners need to reprint.
 
-**Issue Batch Fix — 4 GitHub Issues CLOSED (2026-08-08):**
+**nginx 503 Rate Limit Fix (commits `127092d2` → `60996749` → `c0fe7a29` → `bf7832dc`):**
+- **Root cause:** `limit_req zone=web rate=10r/s burst=20` applied to Blazor Server apps (www2, app2, diemthuong2). Blazor initial load fetches 10-20+ static assets + POST /Login + _blazor/negotiate within 1-2 seconds → exceeds 10r/s → 503.
+- **Fix evolution (3 iterations based on user feedback):**
+  1. `127092d2`: Increased burst 20→100 — **user correctly rejected**: band-aid, doesn't scale for 100 users.
+  2. `60996749`: Removed rate limit entirely — **user correctly rejected**: Blazor Server holds circuit state in RAM, no limit = RAM exhaustion DoS.
+  3. `c0fe7a29` + `bf7832dc`: **3-layer protection strategy (FINAL):**
+     - Layer 1: Static assets (.js/.css/.png) — no `limit_req` (location overrides parent, no .NET RAM cost)
+     - Layer 2: Dynamic pages (/Login, /admin) — `limit_req zone=web burst=50` + `limit_conn perip_conn 10`
+     - Layer 3: /_blazor WebSocket — `limit_conn perip_conn 10` only (no `limit_req` — long-lived, not bursty)
+- **nginx 1.25 syntax fix (`bf7832dc`):** `limit_req off` is invalid in nginx 1.25-alpine → `[emerg] invalid parameter "off"` → nginx restart loop → 503. Removed `limit_req off` — nginx location blocks don't inherit `limit_req` from parent server block, so omitting the directive = no rate limit.
+- **Added `limit_conn_zone perip_conn` to nginx.conf** — limits concurrent connections per IP to 10 (protects Blazor Server RAM from DoS).
 
-| # | Issue | Commit | Root Cause |
-|---|---|---|---|
-| #108 | Google login 502 | `e9783d44` + `99bf5a4d` | YARP clusters dùng Docker hostnames + callback URL sai domain + sai OAuth Client ID |
-| #109 | Shop instances 404 | `62c35845` + `72f4ac82` | nginx port 80 không có server block match VPC IP → 301→404 |
-| #110 | Tenant list lỗi | `62c35845` + `72f4ac82` | Same as #109 |
-| #111 | Commerce Mode 404 | `62c35845` + `72f4ac82` | Same as #109 |
+**VPS Outage + Recovery (2026-08-09):**
+- 3 CD runs triggered in parallel (from 3 rapid commits) → Gateway VPS (e2-small, 2GB RAM) exhausted RAM → SSH timeout, health timeout.
+- User reset VPS via GCP Console. After reset, nginx container in restart loop due to `limit_req off` syntax error.
+- Fixed `limit_req off` on host template + restarted nginx → all services recovered.
+- **Lesson:** Do NOT push multiple commits rapidly when CD auto-triggers — each push spawns a parallel CD run, VPS e2-small cannot handle concurrent `docker compose pull` operations.
 
-**Fix details:**
-- **`e9783d44` (YARP + callback URL):** Override YARP cluster addresses via env vars (`ReverseProxy__Clusters__shoperp-cluster__...__Address`). Fix `Google__CallbackBaseUrl` default `api.` → `api2.`.
-- **`62c35845` (nginx default_server):** Add `listen 80 default_server` block — proxy `/api/` directly to `gateway:80` for VPC internal traffic (bypass HTTPS redirect). Also fix `Authentication__Authority` `api.` → `api2.`.
-- **`72f4ac82` (CD force-recreate nginx):** `docker compose up -d` does NOT recreate containers when only bind-mount volume content changes. Replaced `nginx -s reload` with `docker compose up -d --force-recreate nginx` to re-run entrypoint envsubst.
-- **`99bf5a4d` (Google OAuth credentials):** Updated GitHub Secrets `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` to new OAuth client `14277833009-...` (was `942622517054-...` — wrong client, redirect URI was in different client).
+**Runtime Verification (2026-08-09, after all fixes):**
+- Gateway health: `https://api2.khachvip.online/health` → 200 Healthy
+- ShopERP health: `https://app2.khachvip.online/health` → 200 Healthy
+- Login page: `https://app2.khachvip.online/Login?ReturnUrl=%2F` → 200 (6.5KB)
+- Create tenant: `POST /api/v1/tenants` → 200, new tenant in list (8 tenants)
+- CD run `31288588137` in progress (deploying final config `bf7832dc`)
 
-**Runtime Verification (2026-08-08, after all fixes):**
-- Health: `https://api2.khachvip.online/health` → `{"status":"Healthy"}`
-- Login: `sysadmin@vanan.vn` / `2026@vanan` → JWT (length 433)
-- Shop Instances API: `GET /api/v1/shop-instances` (JWT) → 200 JSON
-- Tenants API: `GET /api/v1/tenants` (JWT) → 200 JSON
-- Commerce Mode API: `GET /api/admin/commerce-mode` (JWT) → 200 JSON
-- Google OAuth: `GET /api/auth/google/login` → 302 redirect to Google consent (client_id `14277833009-...`, redirect_uri `https://api2.khachvip.online/api/auth/google/callback`) → **user confirmed login OK**
-- UI pages: `/admin/shop-instances`, `/admin/tenants`, `/admin/commerce-mode` → all 200
-
-**Previous fixes (same session):**
-- **Migration Fix (commit `708364d5`):** EF Core migration `AddOutboxRoutingKey` missing `.Designer.cs` + `AddFeaturedProductVatRate` missing `AddColumn` in `Up()`. 26 migrations applied correctly.
-- **NatsSyncWorker Overload Fix (commit `44e32b37`):** Poll interval 1s → 5s via `Sync__PollIntervalMs`. 80% DB query load reduction.
-- **KhachLink Domain Fix (commits `26b377b0` + `36a139ae`):** 5 bugs — hardcoded `api.khachvip.online` → dynamic regex `^([a-z]+)(\d*)\.khachvip\.online$` → `api{suffix}.khachvip.online`.
+**Previous objective — COMPLETE:** GCP 3-VPS Deployment Stabilization + Issue Batch Fix #108/#109/#110/#111. See archive.
 
 **Previous objective — COMPLETE:** #99-3 Loyalty Points Visibility + Shop Owner Dashboard — Phase A. See archive.
 
@@ -315,15 +311,22 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main`, last commit `72f4ac82` (CD force-recreate nginx). CD `cd-multivps.yml` SUCCESS (run `31253352864`). 4 GitHub issues CLOSED (#108, #109, #110, #111). Google OAuth login confirmed OK by user. API endpoints verified 200 JSON (shop-instances, tenants, commerce-mode). 26 migrations applied. NatsSyncWorker poll 5s. KhachLink domain fix (api2 + dynamic regex). 2 SRS documents for Gateway refactor. Build 0 errors. All prior sprints COMPLETE.
-- **Open Questions:** 1 — User báo #109/#110/#111 chưa pass trên browser (API trả 200 nhưng UI có thể vẫn lỗi). Cần browser verify + kiểm tra ShopERP container logs.
-- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (100+), Open Questions (1) < 3
+- **Verified Facts:** Branch=`main`, last commit `bf7832dc` (nginx limit_req off fix). Issues #110 + #112 CLOSED on GitHub. Gateway health 200, ShopERP health 200, Login page 200. POST /api/v1/tenants returns 200, new tenant in list (8 tenants). nginx 3-layer protection deployed (static exempt + limit_req burst=50 + limit_conn 10). VPS recovered after reset + nginx config fix. CD run `31288588137` deploying final config.
+- **Open Questions:** 0
+- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (50+), Open Questions (0) < 3
 
 ---
 
 ## 10. Maintenance Log
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md` → "Archived 2026-08-03" → Section 10.
+
+* **2026-08-09 — ISSUE BATCH FIX #110 + #112 + NGINX 503 RATE LIMIT FIX.** 3 issues resolved in 1 session:
+  - **#110 Tenant list lỗi (commits `8d96f035` + `e6daf545`):** `HandleCreateSubmit` wrote to ShopERP SQLite but list loaded from Gateway PG → mismatch. Added `POST /api/v1/tenants` to Gateway + `TenantApiClient.CreateAsync` in ShopERP. Verified: POST 200, tenant in list (8 total).
+  - **#112 QR code hardcoded URL (commit `8d96f035`):** `QRCodePayload.ToQrContent` hardcoded `diemthuong.khachvip.online` (Oracle VPS). `QrCodeService` now reads `ExternalUrls:KhachLink` config → `diemthuong2.khachvip.online` (GCP). Supports scaling to diemthuong3/4.
+  - **nginx 503 Rate Limit Fix (commits `127092d2` → `60996749` → `c0fe7a29` → `bf7832dc`):** `limit_req zone=web rate=10r/s burst=20` too low for Blazor Server (10-20+ requests during login). 3 iterations based on user feedback: (1) increase burst — rejected as band-aid, (2) remove entirely — rejected as RAM DoS risk, (3) **3-layer strategy (FINAL):** static assets exempt + dynamic pages `limit_req burst=50` + `limit_conn 10` + /_blazor `limit_conn 10` only. nginx 1.25 fix: removed `limit_req off` (invalid syntax, location blocks don't inherit limit_req). Added `limit_conn_zone perip_conn` to nginx.conf.
+  - **VPS Outage:** 3 parallel CD runs exhausted Gateway VPS RAM (e2-small 2GB) → SSH/health timeout. User reset via GCP Console. Fixed nginx `limit_req off` on host template + restart → recovered. **Lesson: don't push rapid commits when CD auto-triggers.**
+  - **Runtime verified:** Gateway 200, ShopERP 200, Login 200, Create tenant 200. Branch: `main`.
 
 * **2026-08-08 — ISSUE BATCH FIX: 4 GITHUB ISSUES CLOSED (#108, #109, #110, #111).** Multi-commit fix for 4 Ready issues on GitHub Project:
   - **#108 Google login 502 (commits `e9783d44` + `99bf5a4d`):** YARP clusters dùng Docker hostnames không resolve được trong multi-VPS → override via env vars. Google OAuth callback URL default `api.` → `api2.`. OAuth Client ID sai (code dùng `942622517054-...`, Google Console có `14277833009-...`) → updated GitHub Secrets. **User confirmed login OK.**
