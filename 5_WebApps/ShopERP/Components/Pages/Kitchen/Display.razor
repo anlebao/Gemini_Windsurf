@@ -77,6 +77,12 @@
                                         <i class="bi bi-sticky"></i> @o.CustomerNotes
                                     </div>
                                 }
+                                @if (!string.IsNullOrWhiteSpace(o.VoiceNoteText))
+                                {
+                                    <div class="voice-note-display" data-testid="voice-note-display">
+                                        <i class="bi bi-mic"></i> <strong class="voice-note-text" data-testid="voice-note-text">@o.VoiceNoteText</strong>
+                                    </div>
+                                }
                                 <div class="kitchen-card__actions">
                                     <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionTo(o.Id, "preparing"))" data-testid="@($"kitchen-btn-preparing-{o.Id}")">
                                         ⏳ Tiếp nhận
@@ -121,6 +127,12 @@
                                         <i class="bi bi-sticky"></i> @o.CustomerNotes
                                     </div>
                                 }
+                                @if (!string.IsNullOrWhiteSpace(o.VoiceNoteText))
+                                {
+                                    <div class="voice-note-display" data-testid="voice-note-display">
+                                        <i class="bi bi-mic"></i> <strong class="voice-note-text" data-testid="voice-note-text">@o.VoiceNoteText</strong>
+                                    </div>
+                                }
                                 <div class="kitchen-card__actions">
                                     <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionTo(o.Id, "ready"))" data-testid="@($"kitchen-btn-ready-{o.Id}")">
                                         ✅ Hoàn thành
@@ -163,6 +175,12 @@
                                 {
                                     <div class="kitchen-card__notes" data-testid="@($"kitchen-notes-{o.Id}")">
                                         <i class="bi bi-sticky"></i> @o.CustomerNotes
+                                    </div>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(o.VoiceNoteText))
+                                {
+                                    <div class="voice-note-display" data-testid="voice-note-display">
+                                        <i class="bi bi-mic"></i> <strong class="voice-note-text" data-testid="voice-note-text">@o.VoiceNoteText</strong>
                                     </div>
                                 }
                                 <div class="kitchen-card__actions">
@@ -433,6 +451,8 @@
             OrderDate = o.OrderDate,
             // Bug 2 fix: surface CustomerNotes so kitchen staff see checkout notes (e.g. "ít đá").
             CustomerNotes = o.CustomerNotes,
+            // Voice note: surface VoiceNoteText so kitchen staff see voice-transcribed notes.
+            VoiceNoteText = o.VoiceNoteText,
             Items = o.Items?.Select(i => new KitchenItemDto
             {
                 ProductName = i.ProductName,
@@ -463,6 +483,8 @@
         public List<KitchenItemDto> Items { get; set; } = new();
         // Bug 2 fix: customer notes from checkout (e.g. "ít đá", "không hành").
         public string? CustomerNotes { get; set; }
+        // Voice note: transcribed text from customer voice input (via /voice-note/{orderId}).
+        public string? VoiceNoteText { get; set; }
     }
 
     private class KitchenItemDto
@@ -485,6 +507,20 @@
         font-weight: 500;
     }
     .kitchen-card__notes i {
+        margin-right: 0.25rem;
+    }
+    /* Voice note display — prominent blue mic-note look for kitchen visibility */
+    .voice-note-display {
+        margin-top: 0.5rem;
+        padding: 0.4rem 0.6rem;
+        background: #d1ecf1;
+        border-left: 3px solid #0dcaf0;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        color: #0c5460;
+        font-weight: 500;
+    }
+    .voice-note-display i {
         margin-right: 0.25rem;
     }
 </style>

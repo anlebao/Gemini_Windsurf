@@ -8,6 +8,14 @@ namespace VanAn.CoreHub.Services
         Task<IEnumerable<string>> GetSupportedCommandsAsync();
     }
 
+    /// <summary>
+    /// Voice command service — processes voice/text commands for kitchen operations.
+    /// NOTE: For order voice notes, KhachLink UI uses PUT /api/v1/orders/{orderId}/note
+    /// (OrdersController → OrderService.UpdateOrderVoiceNoteAsync) which saves to Order.VoiceNoteText.
+    /// This service handles generic voice commands (e.g. "đặt hàng", "thanh toán") and is
+    /// currently a stub — logs the command and returns success. Implement command parsing
+    /// when voice command navigation is needed.
+    /// </summary>
     public class VoiceCommandService(ILogger<VoiceCommandService> logger) : IVoiceCommandService
     {
         private readonly ILogger<VoiceCommandService> _logger = logger;

@@ -1,4 +1,5 @@
 ﻿@page "/voice-note"
+@page "/voice-note/{OrderId}"
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.UI.Platform.Tokens
 @using VanAn.KhachLink.Services.Http
@@ -29,16 +30,23 @@
             <h2>📝 Ghi chú đơn hàng</h2>
             <p>Ghi chú giọng nói đã tắt — vui lòng nhập văn bản</p>
         </div>
-        <textarea class="form-control" rows="3" placeholder="Nhập ghi chú cho đơn hàng..."
-                  @bind="transcriptionText" data-testid="text-note-input"></textarea>
-        <div class="voice-actions mt-3">
-            <VanAnButton OnClick="SubmitVoiceNote" Disabled="@string.IsNullOrEmpty(transcriptionText)">
-                📤 Gửi ghi chú
-            </VanAnButton>
-            <VanAnButton Variant="ButtonVariant.Outline" OnClick="Cancel">
-                ❌ Hủy
-            </VanAnButton>
-        </div>
+        @if (string.IsNullOrEmpty(OrderId))
+        {
+            <VanAnAlert Variant="AlertVariant.Warning" Message="Không xác định được đơn hàng. Vui lòng quay lại giỏ hàng để thêm ghi chú." />
+        }
+        else
+        {
+            <textarea class="form-control" rows="3" placeholder="Nhập ghi chú cho đơn hàng..."
+                      @bind="transcriptionText" data-testid="text-note-input"></textarea>
+            <div class="voice-actions mt-3">
+                <VanAnButton OnClick="SubmitVoiceNote" Disabled="@string.IsNullOrEmpty(transcriptionText)">
+                    📤 Gửi ghi chú
+                </VanAnButton>
+                <VanAnButton Variant="ButtonVariant.Outline" OnClick="Cancel">
+                    ❌ Hủy
+                </VanAnButton>
+            </div>
+        }
     </div>
 }
 else
@@ -50,41 +58,48 @@ else
             <p>Thêm ghi chú giọng nói cho đơn hàng của bạn</p>
         </div>
 
-        <div class="voice-controls">
-            <VanAnButton OnClick="ToggleRecording" Disabled="@isRecording">
-                @(isRecording ? "⏹️ Dừng ghi âm" : "🎤 Bắt đầu ghi âm")
-            </VanAnButton>
-            <VanAnButton Variant="ButtonVariant.Outline" OnClick="ClearRecording" Disabled="@isRecording">
-                🗑️ Xóa
-            </VanAnButton>
-        </div>
+        @if (string.IsNullOrEmpty(OrderId))
+        {
+            <VanAnAlert Variant="AlertVariant.Warning" Message="Không xác định được đơn hàng. Vui lòng quay lại giỏ hàng để thêm ghi chú." />
+        }
+        else
+        {
+            <div class="voice-controls">
+                <VanAnButton OnClick="ToggleRecording" Disabled="@isRecording">
+                    @(isRecording ? "⏹️ Dừng ghi âm" : "🎤 Bắt đầu ghi âm")
+                </VanAnButton>
+                <VanAnButton Variant="ButtonVariant.Outline" OnClick="ClearRecording" Disabled="@isRecording">
+                    🗑️ Xóa
+                </VanAnButton>
+            </div>
 
-        <div class="voice-status">
-            @if (isRecording)
-            {
-                <div class="recording-indicator">
-                    <span class="recording-dot"></span>
-                    <span>Đang ghi âm...</span>
-                </div>
-            }
+            <div class="voice-status">
+                @if (isRecording)
+                {
+                    <div class="recording-indicator">
+                        <span class="recording-dot"></span>
+                        <span>Đang ghi âm...</span>
+                    </div>
+                }
 
-            @if (!string.IsNullOrEmpty(transcriptionText))
-            {
-                <div class="transcription-result">
-                    <h4>Văn bản chuyển đổi:</h4>
-                    <p data-testid="transcription-text">@transcriptionText</p>
-                </div>
-            }
-        </div>
+                @if (!string.IsNullOrEmpty(transcriptionText))
+                {
+                    <div class="transcription-result">
+                        <h4>Văn bản chuyển đổi:</h4>
+                        <p data-testid="transcription-text">@transcriptionText</p>
+                    </div>
+                }
+            </div>
 
-        <div class="voice-actions">
-            <VanAnButton OnClick="SubmitVoiceNote" Disabled="@string.IsNullOrEmpty(transcriptionText)">
-                📤 Gửi ghi chú
-            </VanAnButton>
-            <VanAnButton Variant="ButtonVariant.Outline" OnClick="Cancel">
-                ❌ Hủy
-            </VanAnButton>
-        </div>
+            <div class="voice-actions">
+                <VanAnButton OnClick="SubmitVoiceNote" Disabled="@string.IsNullOrEmpty(transcriptionText)">
+                    📤 Gửi ghi chú
+                </VanAnButton>
+                <VanAnButton Variant="ButtonVariant.Outline" OnClick="Cancel">
+                    ❌ Hủy
+                </VanAnButton>
+            </div>
+        }
     </div>
 }
 
@@ -160,15 +175,21 @@ else
     private async Task SubmitVoiceNote()
     {
         if (string.IsNullOrEmpty(transcriptionText)) return;
+
+        // Validate OrderId — required to attach note to a specific order
+        if (string.IsNullOrEmpty(OrderId) || !Guid.TryParse(OrderId, out _))
+        {
+            _errorMessage = "Không xác định được đơn hàng. Vui lòng quay lại giỏ hàng và thử lại.";
+            StateHasChanged();
+            return;
+        }
+
         try
         {
-            var payload = new
-            {
-                CommandText = transcriptionText,
-                OrderId = OrderId ?? string.Empty,
-                Parameters = "voice_note"
-            };
-            var response = await Http.PostAsJsonAsync("/api/v1/voicecommand/text-command", payload);
+            // Call the correct endpoint: PUT /api/v1/orders/{orderId}/note
+            // This calls OrderService.UpdateOrderVoiceNoteAsync which saves to Order.VoiceNoteText
+            var payload = new { Note = transcriptionText };
+            var response = await Http.PutAsJsonAsync($"/api/v1/orders/{OrderId}/note", payload);
             if (response.IsSuccessStatusCode)
             {
                 _successMessage = "Ghi chú đã được gửi thành công!";
@@ -250,9 +271,8 @@ else
             // Auto-stop recording when done
             if (window.isRecording) {
                 window.isRecording = false;
-                // Update UI via Blazor
-                dotNetRef.invokeMethodAsync('SetTranscriptionText',
-                    document.getElementById('transcription-text')?.value || '');
+                // Note: transcription text is already set via onresult callback
+                // No need to read DOM element here
             }
         };
     }

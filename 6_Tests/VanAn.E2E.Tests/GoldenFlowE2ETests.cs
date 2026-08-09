@@ -23,31 +23,60 @@ namespace VanAn.E2E.Tests
         [Fact]
         public async Task GoldenFlow_VoiceNoteToKitchen_ShouldSucceed()
         {
-            // 🎤 CONTEXT 1: KhachLink - Customer Voice Note (Port 5002)
+            // 🛒 STEP 1: KhachLink - Add product to cart + checkout to create order (Port 5002)
             await NavigateToKhachLinkAsync();
 
             // Wait for page to load and verify body is visible
             await Expect(Page.Locator("body")).ToBeVisibleAsync();
-            
+
             // Wait for product grid to be present (test data should be seeded)
             var productGrid = Page.Locator("#vibe-product-grid, .product-grid, [data-testid='product-grid']");
             await Expect(productGrid).ToBeVisibleAsync(new() { Timeout = 10000 });
-            
+
             // Find add to cart button - use stable selector
             var addToCartButton = Page.Locator("button:has-text('ADD TO CART'), button:has-text('Thêm vào giỏ'), button:has-text('Add'), button:has-text('Thêm'), [data-testid='add-to-cart-btn']");
             await Expect(addToCartButton.First).ToBeVisibleAsync(new() { Timeout = 10000 });
             await addToCartButton.First.ClickAsync();
 
-            // 🎭 MOCK THE MICROPHONE: Use helper method
+            // Navigate to checkout and place order to get a real OrderId
+            await Page.GotoAsync("http://localhost:5002/checkout");
+            await Page.WaitForLoadStateAsync(LoadState.DOMContentLoaded);
+
+            // Fill guest customer info if guest form is shown
+            var customerNameField = Page.Locator("input[name='customerName'], input[placeholder*='name'], input[placeholder*='Name'], [data-testid='customer-name']");
+            if (await customerNameField.First.IsVisibleAsync())
+            {
+                await customerNameField.First.FillAsync("E2E Voice Note Test");
+                var phoneField = Page.Locator("input[name='phone'], input[placeholder*='phone'], input[placeholder*='Phone'], [data-testid='customer-phone']");
+                if (await phoneField.First.IsVisibleAsync())
+                {
+                    await phoneField.First.FillAsync("0987654321");
+                }
+            }
+
+            // Submit order
+            var placeOrderButton = Page.Locator("button:has-text('Đặt hàng'), button:has-text('Submit Order'), button:has-text('Confirm'), [data-testid='checkout-btn-place-order']");
+            await Expect(placeOrderButton.First).ToBeVisibleAsync(new() { Timeout = 10000 });
+            await placeOrderButton.First.ClickAsync();
+
+            // Wait for order creation success — look for order-id element
+            var orderIdElement = Page.Locator(".order-id, [data-testid='order-id']");
+            await Expect(orderIdElement.First).ToBeVisibleAsync(new() { Timeout = 15000 });
+            string orderIdText = await orderIdElement.First.TextContentAsync();
+            // Extract GUID from text (order-id span contains the GUID)
+            string? orderId = System.Text.RegularExpressions.Regex.Match(orderIdText ?? "", @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}").Value;
+            Assert.False(string.IsNullOrEmpty(orderId), $"Order ID not found in text: {orderIdText}");
+            _output.WriteLine($"✅ Order created: {orderId}");
+
+            // 🎤 STEP 2: Navigate to voice note page with OrderId
             await MockSpeechRecognitionAsync("Cà phê đen không đường, nhiều đá");
 
-            // Navigate to voice note page
-            await Page.GotoAsync("http://localhost:5002/voice-note");
+            await Page.GotoAsync($"http://localhost:5002/voice-note/{orderId}");
             await Page.WaitForLoadStateAsync(LoadState.DOMContentLoaded);
 
             // Verify voice note page loaded
             await Expect(Page.Locator("body")).ToBeVisibleAsync();
-            
+
             // Look for voice note header - fail if not found (no fallback)
             var voiceNoteHeader = Page.Locator("h2:has-text('Ghi chú giọng nói'), h1:has-text('Voice Note'), h2:has-text('Voice'), .voice-note-container h2, h2:has-text('Ghi chú'), [data-testid='voice-note-header']");
             await Expect(voiceNoteHeader.First).ToBeVisibleAsync(new() { Timeout = 10000 });
@@ -66,7 +95,7 @@ namespace VanAn.E2E.Tests
             await Expect(submitButton).ToBeVisibleAsync(new() { Timeout = 10000 });
             await submitButton.ClickAsync();
 
-            // 🛒 CONTEXT 2: ShopERP Admin - Confirm Order (Port 5003)
+            // 🛒 STEP 3: ShopERP Admin - Confirm Order (Port 5003)
             await NavigateToShopERPAsync("Admin/Orders");
 
             // Wait for orders to appear - use WaitForSelector instead of timeout
@@ -78,21 +107,21 @@ namespace VanAn.E2E.Tests
             await Expect(confirmButton.First).ToBeVisibleAsync(new() { Timeout = 10000 });
             await confirmButton.First.ClickAsync();
 
-            // 👨‍🍳 CONTEXT 3: ShopERP Masterchef - Kitchen View (Port 5003)
+            // 👨‍🍳 STEP 4: ShopERP Masterchef - Kitchen View (Port 5003)
             await NavigateToShopERPAsync("Kitchen");
 
             // Wait for kitchen view to render
             await Expect(Page.Locator("body")).ToBeVisibleAsync();
-            
+
             // Look for kitchen header or items container - fail if not found
             var kitchenHeader = Page.Locator(".kitchen-header, h1:has-text('Bếp'), h1:has-text('Kitchen'), [data-testid='kitchen-header']");
             var kitchenItems = Page.Locator("#kitchen-items, .kitchen-items, [data-testid='kitchen-items']");
-            
+
             // At least one of these should be present
             var hasHeader = await kitchenHeader.CountAsync() > 0;
             var hasItems = await kitchenItems.CountAsync() > 0;
             Assert.True(hasHeader || hasItems, "Kitchen view should have header or items container");
-            
+
             if (hasHeader)
             {
                 await Expect(kitchenHeader.First).ToBeVisibleAsync();
@@ -104,7 +133,7 @@ namespace VanAn.E2E.Tests
 
             // 🎯 ULTIMATE ASSERTION: Verify voice note appears in kitchen
             var voiceNoteDisplay = Page.Locator(".voice-note-display, [data-testid='voice-note-display']");
-            
+
             // Wait for voice note to appear (SignalR update)
             await Expect(voiceNoteDisplay.First).ToBeVisibleAsync(new() { Timeout = 15000 });
 

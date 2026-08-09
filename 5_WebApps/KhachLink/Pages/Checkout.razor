@@ -60,9 +60,12 @@
                                     <strong>Tổng:</strong>
                                     <strong>@order.Amount.ToString("N0") VNĐ</strong>
                                 </div>
-                                <div class="mt-2">
+                                <div class="mt-2 d-flex gap-2 flex-wrap">
                                     <VanAnButton Variant="ButtonVariant.Outline" OnClick="@(() => NavigationManager.NavigateTo($"/order-tracking/{order.OrderId}"))">
                                         Theo dõi đơn hàng
+                                    </VanAnButton>
+                                    <VanAnButton Variant="ButtonVariant.Outline" OnClick="@(() => NavigationManager.NavigateTo($"/voice-note/{order.OrderId}"))" data-testid="checkout-link-voice-note">
+                                        🎤 Ghi chú giọng nói
                                     </VanAnButton>
                                 </div>
                             </div>
