@@ -84,13 +84,19 @@ server {
     ssl_session_cache   shared:SSL:10m;
     ssl_session_timeout 1d;
 
-    # ── Blazor Server protection strategy (3 layers) ──────────────────────
-    # 1. Static assets (_framework/*.js, CSS, images) — exempt from rate limit.
-    #    These are served by nginx/proxy without .NET processing — no RAM cost.
-    # 2. Dynamic pages (/Login, /admin/*) — limit_req burst=100 + limit_conn 10.
-    #    Burst high enough for Blazor initial load, limit_conn prevents RAM exhaustion.
-    # 3. WebSocket /_blazor — no limit_req (location overrides parent) + limit_conn 10.
-    #    limit_conn is the right tool: 1 IP = max 10 concurrent circuits (10 tabs).
+    # ── Blazor Server protection strategy (5 layers) ──────────────────────
+    #
+    # Root cause of 503 on fast navigation (fix iter 4, 2026-08-09):
+    #   Previously /api/ calls from Blazor pages shared rate limit quota with
+    #   page loads (location /). Fast navigation = page + 3-5 API calls → burst
+    #   exhausted → 503. Fix: separate /api/ and /Login into own locations with
+    #   independent quotas.
+    #
+    # 1. Static assets (JS, CSS, images) — exempt from rate limit (no .NET cost).
+    # 2. API calls (/api/*) — zone=api, high burst (authenticated, cheap).
+    # 3. Login form (/Login) — zone=auth, strict (brute-force protection).
+    # 4. WebSocket /_blazor — limit_conn only (no limit_req).
+    # 5. Page loads (/) — zone=web, safety-net rate limit + limit_conn.
 
     # Layer 1: Static assets — no rate limit (fast initial load)
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|map)$ {
@@ -103,7 +109,37 @@ server {
         proxy_read_timeout 60s;
     }
 
-    # Layer 3: Blazor SignalR WebSocket — limit_conn only (not limit_req)
+    # Layer 2: API calls — separate quota from page loads
+    # API endpoints are JWT-authenticated (ShopERP controllers check claims).
+    # High burst=200: Blazor page load can fire 5-10 API calls in parallel.
+    # limit_conn 20: API calls can be concurrent (unlike page loads).
+    location /api/ {
+        limit_req zone=api burst=200 nodelay;
+        limit_conn perip_conn 20;
+        proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    # Layer 3: Login form — strict rate limit (brute-force protection)
+    # 5r/m + burst=5: max 5 login attempts per minute per IP.
+    location = /Login {
+        limit_req zone=auth burst=5 nodelay;
+        limit_conn perip_conn 3;
+        proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+    }
+
+    # Layer 4: Blazor SignalR WebSocket — limit_conn only (not limit_req)
     location /_blazor {
         limit_conn perip_conn 10;
         proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
@@ -116,11 +152,10 @@ server {
         proxy_send_timeout 3600s;
     }
 
-    # Layer 2: Dynamic pages — rate limit + connection limit
-    # burst=100 (was 50) — Blazor Server fast navigation can spike 60-80 requests.
-    # nodelay: process burst immediately (no queue delay). 429 status set in nginx.conf.
+    # Layer 5: Page loads — safety-net rate limit + connection limit
+    # burst=200: allows 10+ navigations in burst. 429 status set in nginx.conf.
     location / {
-        limit_req zone=web burst=100 nodelay;
+        limit_req zone=web burst=200 nodelay;
         limit_conn perip_conn 10;
         proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
         proxy_http_version 1.1;
@@ -198,10 +233,23 @@ server {
         proxy_send_timeout 3600s;
     }
 
+    # API calls — separate quota from page loads (same fix as www2)
+    location /api/ {
+        limit_req zone=api burst=200 nodelay;
+        limit_conn perip_conn 20;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
     # Dynamic pages — rate limit + connection limit
-    # burst=100 (was 50) — Blazor WASM initial load can spike 40-60 requests.
+    # burst=200: Blazor WASM initial load can spike 40-60 requests.
     location / {
-        limit_req zone=web burst=100 nodelay;
+        limit_req zone=web burst=200 nodelay;
         limit_conn perip_conn 10;
         proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
@@ -242,7 +290,8 @@ server {
     ssl_session_cache   shared:SSL:10m;
     ssl_session_timeout 1d;
 
-    # ── Blazor Server protection (3 layers) — same as www2 ──────────────
+    # ── Blazor Server protection (5 layers) — same as www2 ──────────────
+    # See www2 server block for full documentation of each layer.
     # Layer 1: Static assets — no rate limit
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|map)$ {
         proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
@@ -254,7 +303,33 @@ server {
         proxy_read_timeout 60s;
     }
 
-    # Layer 3: Blazor SignalR WebSocket — limit_conn only
+    # Layer 2: API calls — separate quota from page loads
+    location /api/ {
+        limit_req zone=api burst=200 nodelay;
+        limit_conn perip_conn 20;
+        proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    # Layer 3: Login form — strict rate limit (brute-force protection)
+    location = /Login {
+        limit_req zone=auth burst=5 nodelay;
+        limit_conn perip_conn 3;
+        proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+    }
+
+    # Layer 4: Blazor SignalR WebSocket — limit_conn only
     location /_blazor {
         limit_conn perip_conn 10;
         proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
@@ -267,10 +342,9 @@ server {
         proxy_send_timeout 3600s;
     }
 
-    # Layer 2: Dynamic pages — rate limit + connection limit
-    # burst=100 (was 50) — Blazor Server fast navigation can spike 60-80 requests.
+    # Layer 5: Page loads — safety-net rate limit + connection limit
     location / {
-        limit_req zone=web burst=100 nodelay;
+        limit_req zone=web burst=200 nodelay;
         limit_conn perip_conn 10;
         proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
         proxy_http_version 1.1;
@@ -311,7 +385,34 @@ server {
     ssl_session_cache   shared:SSL:10m;
     ssl_session_timeout 1d;
 
-    limit_req zone=api burst=100 nodelay;
+    # Auth endpoints — strict rate limit (brute-force protection)
+    # /api/platform/login, /api/auth/* — 5r/m + burst=5 per IP
+    location /api/platform/login {
+        limit_req zone=auth burst=5 nodelay;
+        limit_conn perip_conn 3;
+        proxy_pass         http://gateway:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+    }
+
+    location /api/auth/ {
+        limit_req zone=auth burst=5 nodelay;
+        limit_conn perip_conn 3;
+        proxy_pass         http://gateway:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+    }
+
+    # All other API — high burst (authenticated, cheap)
+    limit_req zone=api burst=200 nodelay;
 
     location / {
         proxy_pass         http://gateway:80;
