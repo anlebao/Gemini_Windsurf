@@ -153,7 +153,8 @@ public class OutboxRepository : IOutboxRepository
             RetryCount = e.RetryCount,
             ProcessedAt = e.ProcessedAt,
             Error = e.ErrorDetails,
-            RoutingKey = e.RoutingKey
+            RoutingKey = e.RoutingKey,
+            CorrelationId = e.CorrelationId  // VALCN v2.0 Phase 1 — propagate for traceability
         };
     }
 

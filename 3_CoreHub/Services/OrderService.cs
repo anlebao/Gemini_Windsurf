@@ -769,7 +769,8 @@ namespace VanAn.CoreHub.Services
                         new ElectronicInvoiceId(Guid.Empty),
                         "OrderCreated",
                         eventData,
-                        routingKey);
+                        routingKey,
+                        correlationId: createdOrder.Id);  // VALCN v2.0 Phase 1 — trace root
                     await _outboxRepository.EnqueueAsync(outboxEvent);
                     _logger.LogInformation("Enqueued OrderCreated event to Outbox for order {OrderId}", createdOrder.Id);
                 }

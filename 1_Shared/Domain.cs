@@ -313,6 +313,11 @@ namespace VanAn.Shared.Domain
         // Immutable after creation (no setter) — preserves AccountingEntry immutability.
         public IndustrySector? IndustrySector { get; }
 
+        // VALCN v2.0 Phase 1 — CorrelationId for traceability (additive, nullable)
+        // Set = Order.Id for trace Order → AccountingEntry.
+        // Null = legacy entry (pre-Phase 1). Preserved by CreateReversal (fix M3).
+        public Guid? CorrelationId { get; }
+
         public AccountingPeriod Period => new(PeriodYear, PeriodMonth);
 
         // Navigation (read-only)
@@ -337,7 +342,8 @@ namespace VanAn.Shared.Domain
             string? vendor = null,
             string? category = null,
             string? reference = null,
-            IndustrySector? industrySector = null)
+            IndustrySector? industrySector = null,
+            Guid? correlationId = null)
         {
             TenantId = tenantId;
             Amount = amount;
@@ -354,25 +360,29 @@ namespace VanAn.Shared.Domain
             Category = category;
             Reference = reference;
             IndustrySector = industrySector;
+            CorrelationId = correlationId;
         }
 
         // ====================== FACTORY METHODS ======================
         public static AccountingEntry CreateRevenue(TenantId tenantId, AccountingPeriod period, Money amount, string description,
-            string? accountCode = null, string? reference = null, IndustrySector? industrySector = null)
+            string? accountCode = null, string? reference = null, IndustrySector? industrySector = null,
+            Guid? correlationId = null)
         {
             return new(tenantId, amount.Value, AccountingEntryType.Revenue, VatRate.Zero,
                 AccountingBookType.RevenueBook, period.Year, period.Month, description,
-                reversalEntryId: null, accountCode: accountCode, reference: reference, industrySector: industrySector);
+                reversalEntryId: null, accountCode: accountCode, reference: reference, industrySector: industrySector,
+                correlationId: correlationId);
         }
 
         public static AccountingEntry CreateExpense(TenantId tenantId, AccountingPeriod period, Money amount, string description,
             string? accountCode = null, string? vendor = null, string? category = null, string? reference = null,
-            IndustrySector? industrySector = null)
+            IndustrySector? industrySector = null,
+            Guid? correlationId = null)
         {
             return new(tenantId, amount.Value, AccountingEntryType.Expense, VatRate.Zero,
                 AccountingBookType.ExpenseBook, period.Year, period.Month, description,
                 reversalEntryId: null, accountCode: accountCode, vendor: vendor, category: category, reference: reference,
-                industrySector: industrySector);
+                industrySector: industrySector, correlationId: correlationId);
         }
 
         public static AccountingEntry CreateReversal(AccountingEntry original, string reason)
@@ -391,7 +401,8 @@ namespace VanAn.Shared.Domain
                 $"Reversal of: {original.Description} - {reason}",
                 original.Id,
                 accountCode: original.AccountCode,
-                industrySector: original.IndustrySector);
+                industrySector: original.IndustrySector,
+                correlationId: original.CorrelationId);  // VALCN v2.0: preserve for traceability (fix M3)
         }
 
         public static AccountingEntry CreateReversalWithId(AccountingEntry original, string reason, Guid originalEntryId)
@@ -410,7 +421,8 @@ namespace VanAn.Shared.Domain
                 $"Reversal of: {original.Description} - {reason}",
                 originalEntryId,
                 accountCode: original.AccountCode,
-                industrySector: original.IndustrySector);
+                industrySector: original.IndustrySector,
+                correlationId: original.CorrelationId);  // VALCN v2.0: preserve for traceability (fix M3)
         }
     }
 
@@ -1509,6 +1521,11 @@ namespace VanAn.Shared.Domain
         public decimal? PlatformFeeRate { get; protected set; } // Reseller: % margin Vạn An giữ (snapshot từ config)
         public decimal? CommunityFundRate { get; protected set; } // Reseller: % margin vào quỹ cộng đồng (snapshot)
 
+        // VALCN v2.0 Phase 1 — Platform fee amount for Marketplace mode (additive)
+        // Set by Phase 2 when ValcnV2_PlatformFee feature flag is ON.
+        // Null = legacy/not calculated. Formula: TotalAmount × PlatformFeeRate.
+        public decimal? PlatformFeeAmount { get; protected set; }
+
         // Payment Information
         public string? PaymentMethod { get; protected set; } // CASH, VIETQR, CREDIT_CARD
         public string? PaymentStatus { get; protected set; } = "Pending"; // Pending, Paid, Failed, Refunded
@@ -2118,6 +2135,43 @@ namespace VanAn.Shared.Domain
         }
     }
 
+    // === VALCN v2.0 Phase 1 — Loyalty Issuance Record (per-order tracking for reversal) ===
+    // Tracks loyalty points issued per order. Needed because LoyaltyRewards (Silo mode) only
+    // has CustomerId + aggregate PointBalance + History JSON (no structured OrderId).
+    // Alliance mode has AllianceTransaction.SourceOrderId — this entity is the Silo equivalent.
+    // Used by Phase 4 RefundOrchestrationService to query "points issued for this order" → reverse.
+    public class LoyaltyIssuanceRecord : BaseEntity, IMustHaveTenant
+    {
+        public LoyaltyIssuanceRecordId LoyaltyIssuanceRecordId { get; private set; }  // business key VO (ignored in EF)
+        public Guid OrderId { get; protected set; }
+        public Guid CustomerId { get; protected set; }
+        public int PointsIssued { get; protected set; }
+        public DateTime IssuedAt { get; protected set; }
+        public bool IsReversed { get; protected set; }
+
+        protected LoyaltyIssuanceRecord() { }
+
+        public LoyaltyIssuanceRecord(TenantId tenantId, Guid orderId, Guid customerId, int pointsIssued)
+            : base(tenantId)
+        {
+            LoyaltyIssuanceRecordId = new LoyaltyIssuanceRecordId(Guid.NewGuid());
+            Id = LoyaltyIssuanceRecordId.Value;  // Single-Identity Pattern sync
+            OrderId = orderId;
+            CustomerId = customerId;
+            PointsIssued = pointsIssued;
+            IssuedAt = DateTime.UtcNow;
+            IsReversed = false;
+        }
+
+        public void MarkReversed()
+        {
+            IsReversed = true;
+            UpdateAudit();
+        }
+    }
+
+    public record LoyaltyIssuanceRecordId(Guid Value);
+
     // === Loyalty Alliance System ===
     // Cross-tenant loyalty points: customers earn at tenant A, redeem at tenant B within alliance.
     // PG-only entities (Gateway DbContext). Mode routing: Silo (SQLite LoyaltyRewards) | Alliance (PG AllianceWallet).
@@ -2224,6 +2278,14 @@ namespace VanAn.Shared.Domain
         public DateTime? LastChangedAt { get; protected set; }
         public string? LastChangedBy { get; protected set; }
 
+        // VALCN v2.0 Phase 1 — Budget caps (additive, nullable = unlimited)
+        public int? MonthlyPointsBudget { get; protected set; }      // null = unlimited
+        public int? DailyPointsBudget { get; protected set; }        // null = unlimited
+        public int? PerCustomerDailyLimit { get; protected set; }    // null = unlimited
+        public decimal? PerOrderRateCap { get; protected set; }      // null = no cap, e.g. 0.03m = 3%
+        public int PointsIssuedThisMonth { get; protected set; }     // runtime counter, default 0
+        public int PointsIssuedToday { get; protected set; }         // runtime counter, default 0
+
         protected LoyaltyTenantConfig() { }
 
         public LoyaltyTenantConfig(TenantId tenantId)
@@ -2255,6 +2317,28 @@ namespace VanAn.Shared.Domain
             LastChangedBy = changedBy;
             UpdateAudit();
         }
+
+        // VALCN v2.0 Phase 1 — Budget setters
+        public void SetBudgetCaps(int? monthly, int? daily, int? perCustomerDaily, decimal? perOrderRate, string changedBy)
+        {
+            MonthlyPointsBudget = monthly;
+            DailyPointsBudget = daily;
+            PerCustomerDailyLimit = perCustomerDaily;
+            PerOrderRateCap = perOrderRate;
+            LastChangedAt = DateTime.UtcNow;
+            LastChangedBy = changedBy;
+            UpdateAudit();
+        }
+
+        public void IncrementIssuedCounters(int monthlyAdd, int dailyAdd)
+        {
+            PointsIssuedThisMonth += monthlyAdd;
+            PointsIssuedToday += dailyAdd;
+            UpdateAudit();
+        }
+
+        public void ResetDailyCounter() { PointsIssuedToday = 0; UpdateAudit(); }
+        public void ResetMonthlyCounter() { PointsIssuedThisMonth = 0; UpdateAudit(); }
     }
 
     /// <summary>
@@ -2960,6 +3044,11 @@ namespace VanAn.Shared.Domain
         // Used for ShopInstanceId routing — only the correct ShopERP receives the event.
         public string? RoutingKey { get; protected set; }
 
+        // VALCN v2.0 Phase 1 — CorrelationId for event traceability (additive, nullable)
+        // Set = Order.Id for trace Order → OutboxEvent → AccountingEntry.
+        // Null = legacy event (pre-Phase 1).
+        public Guid? CorrelationId { get; protected set; }
+
         protected OutboxEvent() { }
 
         public OutboxEvent(
@@ -2967,7 +3056,8 @@ namespace VanAn.Shared.Domain
             ElectronicInvoiceId invoiceId,
             string eventType,
             string eventData,
-            string? routingKey = null)
+            string? routingKey = null,
+            Guid? correlationId = null)
             : base(tenantId)
         {
             InvoiceId = invoiceId;
@@ -2976,6 +3066,7 @@ namespace VanAn.Shared.Domain
             Status = EventStatus.Pending;
             RetryCount = 0;
             RoutingKey = routingKey;
+            CorrelationId = correlationId;
         }
 
         /// <summary>

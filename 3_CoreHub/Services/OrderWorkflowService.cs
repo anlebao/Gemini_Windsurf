@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Options;
 using VanAn.Shared.Services;
 using System.Text.Json;
+using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Repositories;
 using VanAn.CoreHub.Domain.Repositories;
 using VanAn.CoreHub.Interfaces;
@@ -24,7 +25,8 @@ namespace VanAn.CoreHub.Services
         IOrderNotificationService? orderNotificationService = null,
         IOptions<LoyaltyPointsConfig>? loyaltyPointsConfig = null,
         ILoyaltyModeResolver? loyaltyModeResolver = null,
-        IAllianceWalletService? allianceWalletService = null) : IOrderWorkflowService
+        IAllianceWalletService? allianceWalletService = null,
+        IVanAnDbContext? dbContext = null) : IOrderWorkflowService
     {
         private readonly IOrderRepository _orderRepository = orderRepository;
         private readonly ILogger<OrderWorkflowService> _logger = logger;
@@ -43,6 +45,8 @@ namespace VanAn.CoreHub.Services
         // Loyalty Alliance Phase 2B: mode resolver + cross-tenant wallet service (null in Silo-only deployments)
         private readonly ILoyaltyModeResolver? _loyaltyModeResolver = loyaltyModeResolver;
         private readonly IAllianceWalletService? _allianceWalletService = allianceWalletService;
+        // VALCN v2.0 Phase 1: DbContext for LoyaltyIssuanceRecord creation (null in test contexts)
+        private readonly IVanAnDbContext? _dbContext = dbContext;
         // _shopFeatureSettingsService already declared at line 34 (Wave 1-T6) — reused for Loyalty-C WS-A per-tenant formula override.
 
         // W-1-T7: CamelCase JSON options — matches SimpleAccountingEventHandler deserialization policy
@@ -234,7 +238,8 @@ namespace VanAn.CoreHub.Services
                 order.TenantId,
                 new ElectronicInvoiceId(Guid.Empty), // R14: domain modeling limitation — non-invoice events use Guid.Empty
                 "OrderCompleted",
-                eventData);
+                eventData,
+                correlationId: order.Id);  // VALCN v2.0 Phase 1 — trace root
 
             // Enqueue to Outbox (added to EF change tracker — committed with the order transaction)
             await _outboxRepository.EnqueueAsync(outboxEvent);
@@ -268,7 +273,8 @@ namespace VanAn.CoreHub.Services
                 order.TenantId,
                 new ElectronicInvoiceId(Guid.Empty),
                 "OrderStatusChanged",
-                eventData);
+                eventData,
+                correlationId: order.Id);  // VALCN v2.0 Phase 1 — trace root
             await _outboxRepository.EnqueueAsync(outboxEvent);
             _logger.LogInformation("Enqueued OrderStatusChanged event to Outbox for order {OrderId}: {OldStatus} → {NewStatus}",
                 order.Id, oldStatus.Value, newStatus.Value);
@@ -433,6 +439,9 @@ namespace VanAn.CoreHub.Services
                         {
                             _logger.LogInformation("🎁 ALLIANCE EARN: {Points} points to wallet for device {DeviceId} (balance={Balance})",
                                 pointsToAward, deviceGuid, newBalance);
+
+                            // VALCN v2.0 Phase 1: Create LoyaltyIssuanceRecord for per-order tracking (Phase 4 reversal)
+                            await CreateLoyaltyIssuanceRecordAsync(order.Id, customer.Id, order.TenantId, pointsToAward);
                         }
                         else
                         {
@@ -452,6 +461,9 @@ namespace VanAn.CoreHub.Services
             {
                 _logger.LogInformation("🎁 LOYALTY: Awarded {Points} points to customer {CustomerId} from order {OrderId} (rate={Rate}, min={Min}, max={Max})",
                     pointsToAward, customer.Id, order.Id, rate, minPoints, maxPoints?.ToString() ?? "none");
+
+                // VALCN v2.0 Phase 1: Create LoyaltyIssuanceRecord for per-order tracking (Phase 4 reversal)
+                await CreateLoyaltyIssuanceRecordAsync(order.Id, customer.Id, order.TenantId, pointsToAward);
             }
         }
 
@@ -481,6 +493,29 @@ namespace VanAn.CoreHub.Services
             {
                 _logger.LogWarning(ex, "Bug 6 fix: Failed to create customer stub for order {OrderId}", order.Id);
                 return null;
+            }
+        }
+
+        /// <summary>
+        /// VALCN v2.0 Phase 1: Create a LoyaltyIssuanceRecord after AddPoints succeeds.
+        /// Tracks points issued per order — used by Phase 4 RefundOrchestrationService for reversal.
+        /// Safe-fail: if DbContext null or exception, log warning but don't fail the order (loyalty already awarded).
+        /// </summary>
+        private async Task CreateLoyaltyIssuanceRecordAsync(Guid orderId, Guid customerId, TenantId tenantId, int pointsIssued)
+        {
+            if (_dbContext == null) return;  // Test context or ShopERP without DbContext
+            try
+            {
+                var record = new LoyaltyIssuanceRecord(tenantId, orderId, customerId, pointsIssued);
+                await _dbContext.LoyaltyIssuanceRecords.AddAsync(record);
+                // Note: SaveChanges is called by the caller's transaction (HandleOrderCompletedAsync)
+                _logger.LogDebug("LoyaltyIssuanceRecord created for order {OrderId}: {Points} points to customer {CustomerId}",
+                    orderId, pointsIssued, customerId);
+            }
+            catch (Exception ex)
+            {
+                // Safe-fail: don't fail the order if issuance record can't be created
+                _logger.LogWarning(ex, "VALCN v2.0: Failed to create LoyaltyIssuanceRecord for order {OrderId}", orderId);
             }
         }
 

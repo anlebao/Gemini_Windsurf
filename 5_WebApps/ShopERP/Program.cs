@@ -481,6 +481,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<Services.TenantApiClient>();
             // REQ-1.2: Background service toggle — admin UI + service runtime check
             _ = builder.Services.AddScoped<CoreHub.Services.IBackgroundServiceToggleService, Services.BackgroundServiceToggleApiClient>();
+            // VALCN v2.0 Phase 1: Feature flag toggle — admin UI + service runtime check (default OFF)
+            _ = builder.Services.AddScoped<CoreHub.Services.IFeatureFlagService, Services.FeatureFlagApiClient>();
             // Loyalty Alliance Phase 5A — admin config + migration API client (Gateway PG)
             _ = builder.Services.AddScoped<Services.LoyaltyConfigApiClient>();
             // #100: KhachLink home settings admin API client (Gateway PG — global, not per-tenant)

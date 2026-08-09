@@ -27,6 +27,9 @@ namespace VanAn.Shared.DTOs
         // Wave 5 (approved 2026-07-03): Industry sector for TT 152 S2a/S2b industry-group split.
         public IndustrySector? IndustrySector { get; set; }
 
+        // VALCN v2.0 Phase 1 — CorrelationId for traceability (Order.Id). Null = legacy.
+        public Guid? CorrelationId { get; set; }
+
         /// <summary>
         /// Alias for TransactionDate â€” used in form submission
         /// </summary>

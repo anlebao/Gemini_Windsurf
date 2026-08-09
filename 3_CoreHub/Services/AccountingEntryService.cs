@@ -79,9 +79,12 @@ namespace VanAn.CoreHub.Services
                 AccountingPeriod period = new(entry.TransactionDate.Year, entry.TransactionDate.Month);
                 TenantId tenantId = new(entry.TenantId);
 
+                // VALCN v2.0 Phase 1: pass CorrelationId from DTO to factory
                 CoreAccountingEntry coreEntry = entry.EntryType == AccountingEntryType.Revenue
-                    ? CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(entry.Amount), entry.Description)
-                    : CoreAccountingEntry.CreateExpense(tenantId, period, new Money(entry.Amount), entry.Description);
+                    ? CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(entry.Amount), entry.Description,
+                        correlationId: entry.CorrelationId)
+                    : CoreAccountingEntry.CreateExpense(tenantId, period, new Money(entry.Amount), entry.Description,
+                        correlationId: entry.CorrelationId);
 
                 await _repository.AddAsync(coreEntry);
 

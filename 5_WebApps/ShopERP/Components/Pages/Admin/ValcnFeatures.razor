@@ -1,0 +1,134 @@
+@page "/admin/valcn-features"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.CoreHub.Services
+@using VanAn.ShopERP.Services
+@inject IFeatureFlagService FlagSvc
+@inject IThemeProvider ThemeProvider
+@inject ILogger<ValcnFeatures> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="tenant-management-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>VALCN v2.0 Features</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadFlags">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    <VanAAlert Type="info" Dismissible="false">
+        <span>Bật/tắt tính năng VALCN v2.0. Mặc định: TẮT (giữ behavior hiện tại). Thay đổi có hiệu lực trong vòng 30 giây (cache TTL).</span>
+    </VanAAlert>
+
+    @if (_loading)
+    {
+        <p>Đang tải...</p>
+    }
+    else if (_flags.Count == 0)
+    {
+        <VanAAlert Type="warning" Dismissible="false">
+            <span>Không có feature nào được cấu hình.</span>
+        </VanAAlert>
+    }
+    else
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Feature</th>
+                    <th>Phase</th>
+                    <th>Mô tả</th>
+                    <th>Trạng thái</th>
+                    <th>Hành động</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var flag in _flags)
+                {
+                    <tr>
+                        <td><strong>@flag.DisplayName</strong><br /><code>@flag.FeatureName</code></td>
+                        <td><span class="badge badge-primary">@flag.Phase</span></td>
+                        <td>@flag.Description</td>
+                        <td>
+                            @if (flag.IsEnabled)
+                            {
+                                <span style="color: #16a34a;">● Enabled</span>
+                            }
+                            else
+                            {
+                                <span style="color: #dc2626;">● Disabled (mặc định)</span>
+                            }
+                        </td>
+                        <td>
+                            <VanAButton Variant="@(flag.IsEnabled ? "danger" : "success")"
+                                        Size="small"
+                                        OnClick="() => ToggleFeature(flag.FeatureName, !flag.IsEnabled)">
+                                @(flag.IsEnabled ? "Disable" : "Enable")
+                            </VanAButton>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Type="danger" Dismissible="true">
+            <span>@_errorMessage</span>
+        </VanAAlert>
+    }
+</div>
+
+@code {
+    private List<FeatureFlagDto> _flags = new();
+    private bool _loading = true;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadFlags();
+    }
+
+    private async Task LoadFlags()
+    {
+        _loading = true;
+        _errorMessage = null;
+        try
+        {
+            _flags = (await FlagSvc.GetAllAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load VALCN v2.0 feature flags");
+            _errorMessage = $"Lỗi tải danh sách: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ToggleFeature(string featureName, bool enable)
+    {
+        _errorMessage = null;
+        try
+        {
+            await FlagSvc.SetEnabledAsync(featureName, enable, Guid.Empty);
+            await LoadFlags();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to toggle {FeatureName}", featureName);
+            _errorMessage = $"Lỗi: {ex.Message}";
+        }
+    }
+}

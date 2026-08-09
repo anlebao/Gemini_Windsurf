@@ -369,6 +369,9 @@ namespace VanAn.Gateway
             // REQ-1.2: Background service toggle — runtime on/off via SystemSetting (PG) + admin UI
             _ = builder.Services.AddSingleton<CoreHub.Services.IBackgroundServiceToggleService, CoreHub.Services.BackgroundServiceToggleService>();
 
+            // VALCN v2.0 Phase 1: Feature flag toggle — default OFF (existing behavior preserved)
+            _ = builder.Services.AddSingleton<CoreHub.Services.IFeatureFlagService, CoreHub.Services.FeatureFlagService>();
+
             _ = builder.Services.AddScoped<CoreHub.Services.IOrderService, CoreHub.Services.OrderService>();
 
             // W0-T3: Register IOrderNotificationService (SignalR broadcast abstraction)

@@ -87,6 +87,10 @@ public class ShopFeatureSettingsEntity : BaseEntity
     public bool Notify_VoucherExpiringSoon { get; private set; } = true;
     public int VoucherExpiryNotifyHours { get; private set; } = 24;
 
+    // VALCN v2.0 Phase 1 — Platform fee rate per-tenant (additive, nullable = fallback to global)
+    // Default: 0.05m (5%) per BOM v2.0 Section 8. Global fallback: SystemSetting "DefaultPlatformFeeRate" (30%).
+    public decimal? PlatformFeeRate { get; private set; } = 0.05m;
+
     private ShopFeatureSettingsEntity() { } // EF Core materialization
 
     /// <summary>Factory: create with default toggle values for a tenant.</summary>

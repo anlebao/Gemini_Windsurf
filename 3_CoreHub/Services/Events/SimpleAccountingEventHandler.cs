@@ -121,7 +121,8 @@ namespace VanAn.CoreHub.Services.Events
                     AccountingBookType = AccountingBookType.RevenueBook,
                     PeriodYear = orderEvent.CompletedAt.Year,
                     PeriodMonth = orderEvent.CompletedAt.Month,
-                    TransactionDate = orderEvent.CompletedAt
+                    TransactionDate = orderEvent.CompletedAt,
+                    CorrelationId = orderEvent.OrderId  // VALCN v2.0 Phase 1 — trace root = Order.Id
                 });
 
                 _logger.LogInformation("Created accounting entry {EntryId} for order {OrderId}",

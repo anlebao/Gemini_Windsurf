@@ -48,6 +48,7 @@ namespace VanAn.ShopERP.Infrastructure
         // accounting is always-online on PostgreSQL via IAccountingDbContext (ADR-001).
         // HKDBook removed (abstract base, ignored in OnModelCreating — never persisted).
         public DbSet<LoyaltyRewards> LoyaltyRewards { get; set; }
+        public DbSet<LoyaltyIssuanceRecord> LoyaltyIssuanceRecords { get; set; }  // VALCN v2.0 Phase 1
         public DbSet<SocialCampaign> SocialCampaigns { get; set; }
 
         // Wave 5: Tenant management (required by IVanAnDbContext)

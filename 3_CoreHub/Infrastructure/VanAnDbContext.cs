@@ -76,6 +76,7 @@ namespace VanAn.CoreHub.Infrastructure
         // PHASE 2: SOCIAL FLYWHEEL ENTITIES
         public DbSet<SocialCampaign> SocialCampaigns { get; set; }
         public DbSet<LoyaltyRewards> LoyaltyRewards { get; set; }
+        public DbSet<LoyaltyIssuanceRecord> LoyaltyIssuanceRecords { get; set; }  // VALCN v2.0 Phase 1
 
         // WEEK 1: ACCOUNTING ENGINE ENTITIES
         public DbSet<CoreAccountingEntry> AccountingEntries { get; set; }

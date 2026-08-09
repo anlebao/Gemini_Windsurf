@@ -22,6 +22,9 @@ namespace VanAn.CoreHub.Infrastructure
         // When set, NatsSyncWorker.BuildSubject appends ".{routingKey}" to the subject.
         public string? RoutingKey { get; set; }
 
+        // VALCN v2.0 Phase 1 — CorrelationId for event traceability (Order.Id). Null = legacy.
+        public Guid? CorrelationId { get; set; }
+
         // IMustHaveTenant implementation
         public TenantId TenantId { get; set; } = new TenantId(Guid.Empty);
 
@@ -35,7 +38,8 @@ namespace VanAn.CoreHub.Infrastructure
             string eventType,
             string eventData,
             TenantId tenantId,
-            string? routingKey = null)
+            string? routingKey = null,
+            Guid? correlationId = null)
         {
             return new OutboxMessage
             {
@@ -47,7 +51,8 @@ namespace VanAn.CoreHub.Infrastructure
                 Status = OutboxMessageStatus.Pending,
                 RetryCount = 0,
                 NextRetryAt = DateTime.UtcNow,
-                RoutingKey = routingKey
+                RoutingKey = routingKey,
+                CorrelationId = correlationId
             };
         }
 

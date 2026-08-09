@@ -28,6 +28,7 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<Ingredient> Ingredients { get; }
         DbSet<Recipe> Recipes { get; }
         DbSet<LoyaltyRewards> LoyaltyRewards { get; }
+        DbSet<LoyaltyIssuanceRecord> LoyaltyIssuanceRecords { get; }  // VALCN v2.0 Phase 1 — per-order loyalty tracking
         DbSet<SocialCampaign> SocialCampaigns { get; }
         DbSet<OutboxMessage> OutboxMessages { get; }
 

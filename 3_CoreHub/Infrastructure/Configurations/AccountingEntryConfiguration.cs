@@ -69,6 +69,10 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.IndustrySector)
                 .HasConversion<int?>();
 
+            // VALCN v2.0 Phase 1 — CorrelationId for traceability (Order.Id). Explicit config needed for get-only property.
+            _ = builder.Property(e => e.CorrelationId)
+                .HasColumnType("uuid");
+
             // Indexes for performance with 4 HKD Books
             _ = builder.HasIndex(e => new { e.TenantId, e.AccountingBookType });
             _ = builder.HasIndex(e => new { e.TenantId, e.PeriodYear, e.PeriodMonth });
