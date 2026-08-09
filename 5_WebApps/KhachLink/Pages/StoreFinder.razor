@@ -2,9 +2,12 @@
 @page "/store-finder"
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
+@inject ShopFeatureSettingsHttpService FeatureSettings
+@implements IDisposable
 
 <PageTitle>Tìm cửa hàng gần bạn — KhachLink</PageTitle>
 
@@ -33,6 +36,22 @@
                            @onkeyup="OnSearchKeyUp"
                            placeholder="Tìm theo tên cửa hàng, sản phẩm, dịch vụ..."
                            aria-label="Tìm cửa hàng" />
+                    @if (_voiceSearchEnabled && _speechSupported)
+                    {
+                        <button type="button" class="btn btn-outline-primary voice-mic-btn @(isRecording ? "recording" : "")"
+                                OnClick="ToggleVoiceSearch" data-testid="storefinder-btn-voice-mic"
+                                title="@(isRecording ? "Dừng ghi âm" : "Nói để tìm kiếm")"
+                                aria-label="Tìm kiếm bằng giọng nói">
+                            @if (isRecording)
+                            {
+                                <span class="recording-pulse">⏹️</span>
+                            }
+                            else
+                            {
+                                <span>🎤</span>
+                            }
+                        </button>
+                    }
                     @if (!string.IsNullOrWhiteSpace(_searchKeyword))
                     {
                         <button class="btn btn-outline-secondary" type="button" OnClick="ClearSearch">
@@ -40,6 +59,12 @@
                         </button>
                     }
                 </div>
+                @if (isRecording)
+                {
+                    <div class="voice-recording-hint text-danger small mt-2">
+                        <span class="recording-dot-inline"></span> Đang ghi âm... nói tên cửa hàng hoặc sản phẩm
+                    </div>
+                }
                 <div class="d-flex gap-2 mt-3 flex-wrap">
                     <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary" OnClick="UseMyLocation">
                         <i class="bi bi-geo-alt me-1"></i> Dùng vị trí của tôi
@@ -212,6 +237,43 @@
         flex-shrink: 0;
     }
     .empty-state-card { border-radius: 16px; }
+    /* Voice mic button — inline in search input group */
+    .voice-mic-btn {
+        border-radius: 0;
+        width: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        transition: all 0.2s ease;
+    }
+    .voice-mic-btn.recording {
+        background: #dc3545;
+        color: white;
+        border-color: #dc3545;
+        animation: voice-pulse 1s infinite;
+    }
+    .voice-mic-btn .recording-pulse {
+        animation: voice-pulse 0.8s infinite;
+    }
+    @@keyframes voice-pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.6; transform: scale(1.1); }
+    }
+    .recording-dot-inline {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        background: #dc3545;
+        border-radius: 50%;
+        margin-right: 4px;
+        animation: voice-pulse 1s infinite;
+    }
+    .voice-recording-hint {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+    }
 </style>
 
 @code {
@@ -223,6 +285,11 @@
     private double? _userLng;
     private string _searchKeyword = "";
     private System.Threading.CancellationTokenSource? _searchDebounce;
+    // Voice search — reuses wwwroot/js/voice-note.js (loaded via index.html)
+    private bool _voiceSearchEnabled = false;
+    private bool _speechSupported = false;
+    private bool isRecording = false;
+    private DotNetObjectReference<StoreFinder>? _voiceDotNetRef;
 
     protected override async Task OnInitializedAsync()
     {
@@ -248,7 +315,69 @@
             {
                 // User denied geolocation or not supported — show all stores
             }
+
+            // Voice search: check feature flag + browser support, init speech recognition
+            try
+            {
+                _voiceSearchEnabled = await FeatureSettings.IsEnabledAsync(
+                    new Guid("00000000-0000-0000-0000-000000000001"),
+                    nameof(ShopFeatureSettingsDto.Voice_Note_Enabled));
+                if (_voiceSearchEnabled)
+                {
+                    _speechSupported = await JSRuntime.InvokeAsync<bool>("isSpeechRecognitionSupported");
+                    if (_speechSupported)
+                    {
+                        _voiceDotNetRef = DotNetObjectReference.Create(this);
+                        // targetId = "search-input" → transcript fills the search box directly
+                        await JSRuntime.InvokeVoidAsync("initializeSpeechRecognition", _voiceDotNetRef, "search-input");
+                    }
+                }
+                StateHasChanged();
+            }
+            catch
+            {
+                // Non-critical — voice search disabled if feature settings fetch fails
+            }
         }
+    }
+
+    private async Task ToggleVoiceSearch()
+    {
+        if (isRecording)
+        {
+            isRecording = false;
+            await JSRuntime.InvokeVoidAsync("stopRecording");
+        }
+        else
+        {
+            // Clear previous keyword before recording so transcript starts fresh
+            _searchKeyword = "";
+            isRecording = true;
+            await JSRuntime.InvokeVoidAsync("startRecording");
+        }
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task OnVoiceRecordingEnd()
+    {
+        isRecording = false;
+        // Trigger search with the transcribed keyword
+        await LoadStores();
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnVoiceError(string errorMessage)
+    {
+        isRecording = false;
+        _error = errorMessage;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _voiceDotNetRef?.Dispose();
     }
 
     private async Task OnSearchInput(ChangeEventArgs e)
