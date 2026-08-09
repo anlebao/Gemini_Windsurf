@@ -371,6 +371,11 @@ namespace VanAn.Gateway
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.LoyaltyBudgetMonthlyResetJob>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ILoyaltyBudgetService, VanAn.CoreHub.Services.LoyaltyBudgetService>();
 
+            // Loyalty rewards repository + service — required by RefundOrchestrationService (Phase 4)
+            // and by LoyaltyRewardsService itself for SubtractPointsAsync reversal path.
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.ILoyaltyRewardsRepository, VanAn.CoreHub.Infrastructure.Repositories.LoyaltyRewardsRepository>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ILoyaltyRewardsService, VanAn.CoreHub.Services.LoyaltyRewardsService>();
+
             // VALCN v2.0 Phase 4: Refund orchestration (4-step reversal on cancel — feature-flagged, default OFF)
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IRefundOrchestrationService, VanAn.CoreHub.Services.RefundOrchestrationService>();
 
