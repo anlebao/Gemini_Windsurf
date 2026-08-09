@@ -151,6 +151,21 @@ namespace VanAn.CoreHub.Repositories
             }
         }
 
+        /// <summary>
+        /// VALCN v2.0 Phase 4: Get entries by CorrelationId (OrderId) for reversal orchestration.
+        /// Returns ALL entries for the correlation — caller filters by ReversalEntryId == null for non-reversed.
+        /// </summary>
+        public async Task<IEnumerable<CoreAccountingEntry>> GetByCorrelationIdAsync(
+            Guid correlationId,
+            TenantId tenantId,
+            CancellationToken cancellationToken = default)
+        {
+            return await _context.AccountingEntries
+                .Where(e => e.CorrelationId == correlationId && e.TenantId == tenantId)
+                .OrderByDescending(e => e.CreatedAt)
+                .ToListAsync(cancellationToken);
+        }
+
         public async Task AddAsync(CoreAccountingEntry entry, CancellationToken cancellationToken = default)
         {
             try

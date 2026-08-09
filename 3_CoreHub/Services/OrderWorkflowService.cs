@@ -28,7 +28,8 @@ namespace VanAn.CoreHub.Services
         IAllianceWalletService? allianceWalletService = null,
         IVanAnDbContext? dbContext = null,
         ILoyaltyBudgetService? loyaltyBudgetService = null,
-        IFeatureFlagService? featureFlagService = null) : IOrderWorkflowService
+        IFeatureFlagService? featureFlagService = null,
+        IRefundOrchestrationService? refundOrchestrationService = null) : IOrderWorkflowService
     {
         private readonly IOrderRepository _orderRepository = orderRepository;
         private readonly ILogger<OrderWorkflowService> _logger = logger;
@@ -52,6 +53,8 @@ namespace VanAn.CoreHub.Services
         // VALCN v2.0 Phase 3: Loyalty budget service + feature flag (null in test contexts — feature OFF = existing behavior)
         private readonly ILoyaltyBudgetService? _loyaltyBudgetService = loyaltyBudgetService;
         private readonly IFeatureFlagService? _featureFlagService = featureFlagService;
+        // VALCN v2.0 Phase 4: Refund orchestration (null in test contexts — feature OFF = existing silent-cancel behavior)
+        private readonly IRefundOrchestrationService? _refundOrchestrationService = refundOrchestrationService;
         // _shopFeatureSettingsService already declared at line 34 (Wave 1-T6) — reused for Loyalty-C WS-A per-tenant formula override.
 
         // W-1-T7: CamelCase JSON options — matches SimpleAccountingEventHandler deserialization policy
@@ -101,6 +104,13 @@ namespace VanAn.CoreHub.Services
                     // to "completed" which would attempt to award again.
                     await ProcessLoyaltyPointsAsync(order);
                 }
+                else if (newStatus.Value == "cancelled")
+                {
+                    // VALCN v2.0 Phase 4: Refund orchestration on cancel (UC-06 — 4-step reversal).
+                    // Feature-flagged via ValcnV2_RefundReversal (default OFF = existing silent-cancel behavior).
+                    // When ON: 2a payment/accrual + 2b accounting reversal + 2c loyalty reversal + 2d referral reversal.
+                    await HandleOrderCancelledAsync(order, reason ?? "Order cancelled");
+                }
 
                 // 📡 Wave 9: Publish NATS event for push notifications (non-blocking)
                 await PublishOrderStatusChangedEventAsync(order, oldStatus, newStatus);
@@ -134,6 +144,38 @@ namespace VanAn.CoreHub.Services
                 await transaction.RollbackAsync();
                 _logger.LogError(ex, "Failed to transition order {OrderId} to status {NewStatus}", orderId, newStatus.Value);
                 return null;
+            }
+        }
+
+        /// <summary>
+        /// VALCN v2.0 Phase 4: Handle order cancellation — feature-flagged 4-step refund reversal (UC-06).
+        /// When ValcnV2_RefundReversal is OFF (default): existing silent-cancel behavior (no reversal).
+        /// When ON: RefundOrchestrationService.OrchestrateReversalAsync (2a + 2b + 2c + 2d).
+        /// </summary>
+        private async Task HandleOrderCancelledAsync(Order order, string reason)
+        {
+            if (_featureFlagService == null || _refundOrchestrationService == null)
+            {
+                _logger.LogDebug("VALCN v2.0 Phase 4: Feature flag service or refund orchestration not available — skipping reversal for order {OrderId}", order.Id);
+                return;
+            }
+
+            try
+            {
+                if (await _featureFlagService.IsEnabledAsync("ValcnV2_RefundReversal"))
+                {
+                    await _refundOrchestrationService.OrchestrateReversalAsync(order.Id, order.TenantId, $"Order cancelled: {reason}");
+                }
+                else
+                {
+                    _logger.LogDebug("VALCN v2.0 Phase 4: ValcnV2_RefundReversal feature OFF — existing silent-cancel behavior for order {OrderId}", order.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Safe-fail: don't fail the cancel operation if reversal orchestration fails.
+                // The cancel itself already succeeded (status updated + saved). Reversal can be retried.
+                _logger.LogError(ex, "VALCN v2.0 Phase 4: Refund reversal failed for order {OrderId} — cancel succeeded but reversal incomplete", order.Id);
             }
         }
 

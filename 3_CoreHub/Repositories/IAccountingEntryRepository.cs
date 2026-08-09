@@ -29,6 +29,15 @@ namespace VanAn.CoreHub.Repositories
             AccountingPeriod period,
             CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// VALCN v2.0 Phase 4: Get entries by CorrelationId (OrderId) for reversal orchestration.
+        /// Returns ALL entries for the correlation — caller filters by ReversalEntryId == null for non-reversed.
+        /// </summary>
+        Task<IEnumerable<CoreAccountingEntry>> GetByCorrelationIdAsync(
+            Guid correlationId,
+            TenantId tenantId,
+            CancellationToken cancellationToken = default);
+
         // Only Add operations - no Update/Delete methods (immutable design)
         Task AddAsync(CoreAccountingEntry entry, CancellationToken cancellationToken = default);
         Task AddRangeAsync(IEnumerable<CoreAccountingEntry> entries, CancellationToken cancellationToken = default);

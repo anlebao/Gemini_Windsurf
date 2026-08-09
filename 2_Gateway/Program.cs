@@ -371,6 +371,12 @@ namespace VanAn.Gateway
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.LoyaltyBudgetMonthlyResetJob>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ILoyaltyBudgetService, VanAn.CoreHub.Services.LoyaltyBudgetService>();
 
+            // VALCN v2.0 Phase 4: Refund orchestration (4-step reversal on cancel — feature-flagged, default OFF)
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IRefundOrchestrationService, VanAn.CoreHub.Services.RefundOrchestrationService>();
+
+            // VALCN v2.0 Phase 7: Network dashboard (cross-tenant aggregate metrics — read-only, 10-min cache)
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.INetworkDashboardService, VanAn.CoreHub.Services.NetworkDashboardService>();
+
             // REQ-1.2: Background service toggle — runtime on/off via SystemSetting (PG) + admin UI
             _ = builder.Services.AddSingleton<CoreHub.Services.IBackgroundServiceToggleService, CoreHub.Services.BackgroundServiceToggleService>();
 

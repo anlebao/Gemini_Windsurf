@@ -161,7 +161,10 @@ public class AuthorizationEnforcementTests
             "CollaboratorVerificationController",
             // Loyalty Consistency Fix Phase 0: Internal service-to-service API — uses custom [InternalApiKey]
             // attribute (IAsyncAuthorizationFilter validating X-Internal-Api-Key header), not JWT/Cookie auth.
-            "InternalLoyaltyController"
+            "InternalLoyaltyController",
+            // VALCN v2.0 Phase 3 + Phase 7: Internal service-to-service APIs — [InternalApiKey] auth (same pattern as InternalLoyaltyController)
+            "LoyaltyBudgetController",
+            "NetworkDashboardController"
         };
 
         var controllers = GetControllers(GatewayAssembly)
