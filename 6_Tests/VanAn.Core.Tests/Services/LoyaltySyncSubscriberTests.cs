@@ -8,6 +8,7 @@ using Moq;
 using NATS.Client;
 using System.Text;
 using System.Text.Json;
+using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
 using VanAn.ShopERP.Infrastructure;
@@ -207,7 +208,7 @@ public class LoyaltySyncSubscriberTests
             IServiceProvider serviceProvider,
             IConfiguration configuration,
             ILogger<LoyaltySyncSubscriber> logger)
-            : base(serviceProvider, configuration, logger) { }
+            : base(serviceProvider, configuration, logger, CreateToggleMock()) { }
 
         /// <summary>Public wrapper for the protected ExecuteAsync so tests can invoke it.</summary>
         public Task ExecuteAsyncPublic(CancellationToken ct) => ExecuteAsync(ct);
@@ -225,6 +226,15 @@ public class LoyaltySyncSubscriberTests
         protected override void RecordSubscription(string subject)
         {
             CapturedSubject = subject;
+        }
+
+        /// <summary>REQ-1.2: Creates a toggle mock that returns true (enabled) for all services.</summary>
+        private static IBackgroundServiceToggleService CreateToggleMock()
+        {
+            var mock = new Mock<IBackgroundServiceToggleService>();
+            mock.Setup(t => t.IsEnabledAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(true);
+            return mock.Object;
         }
     }
 }

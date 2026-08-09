@@ -253,7 +253,7 @@ namespace VanAn.Core.Tests.Services
                 })
                 .Build();
 
-            var job = new BirthdayBonusJob(serviceProvider, config, NullLogger<BirthdayBonusJob>.Instance);
+            var job = new BirthdayBonusJob(serviceProvider, config, NullLogger<BirthdayBonusJob>.Instance, CreateToggleMock());
 
             // Act — call the internal method directly (bypasses ExecuteAsync's 5-min initial delay)
             await job.RunBirthdayBonusAsync(CancellationToken.None);
@@ -300,7 +300,7 @@ namespace VanAn.Core.Tests.Services
                 })
                 .Build();
 
-            var job = new VoucherExpiryReminderJob(serviceProvider, config, NullLogger<VoucherExpiryReminderJob>.Instance);
+            var job = new VoucherExpiryReminderJob(serviceProvider, config, NullLogger<VoucherExpiryReminderJob>.Instance, CreateToggleMock());
 
             // Act
             await job.RunExpiryRemindersAsync(CancellationToken.None);
@@ -308,6 +308,15 @@ namespace VanAn.Core.Tests.Services
             // Assert — job queried vouchers (GetVouchersExpiringWithinAsync called), push NOT sent
             redemptionRepo.Verify(r => r.GetVouchersExpiringWithinAsync(It.IsAny<int>()), Times.Once);
             pushMock.Verify(p => p.SendVoucherExpiryReminderAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<DateTime>(), It.IsAny<int>()), Times.Never);
+        }
+
+        /// <summary>REQ-1.2: Creates a toggle mock that returns true (enabled) for all services.</summary>
+        private static IBackgroundServiceToggleService CreateToggleMock()
+        {
+            var mock = new Mock<IBackgroundServiceToggleService>();
+            mock.Setup(t => t.IsEnabledAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(true);
+            return mock.Object;
         }
     }
 }
