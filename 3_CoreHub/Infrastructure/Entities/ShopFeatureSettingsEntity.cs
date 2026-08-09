@@ -158,7 +158,9 @@ public class ShopFeatureSettingsEntity : BaseEntity
         bool notifyRedemptionFulfilled = true,
         bool notifyRedemptionCancelled = true,
         bool notifyVoucherExpiringSoon = true,
-        int voucherExpiryNotifyHours = 24)
+        int voucherExpiryNotifyHours = 24,
+        // VALCN v2.0 Phase 1: per-tenant platform fee rate (null = unchanged, use dedicated setter for explicit set)
+        decimal? platformFeeRate = null)
     {
         QR_TableNumber_Enabled = qrTableNumber;
         Kitchen_Workflow_Enabled = kitchenWorkflow;
@@ -190,6 +192,16 @@ public class ShopFeatureSettingsEntity : BaseEntity
         Notify_RedemptionCancelled = notifyRedemptionCancelled;
         Notify_VoucherExpiringSoon = notifyVoucherExpiringSoon;
         VoucherExpiryNotifyHours = Math.Clamp(voucherExpiryNotifyHours, 1, 168); // 1h - 7 days
+        // VALCN v2.0 Phase 1
+        if (platformFeeRate.HasValue)
+            PlatformFeeRate = Math.Clamp(platformFeeRate.Value, 0m, 1m);
+        UpdateAudit();
+    }
+
+    /// <summary>VALCN v2.0 Phase 1: Set per-tenant PlatformFeeRate (0-1). Null = fallback to global.</summary>
+    public void SetPlatformFeeRate(decimal? rate)
+    {
+        PlatformFeeRate = rate.HasValue ? Math.Clamp(rate.Value, 0m, 1m) : null;
         UpdateAudit();
     }
 }

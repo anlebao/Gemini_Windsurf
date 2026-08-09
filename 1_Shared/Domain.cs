@@ -1664,6 +1664,23 @@ namespace VanAn.Shared.Domain
             CommunityFundRate = communityFundRate;
         }
 
+        /// <summary>
+        /// VALCN v2.0 Phase 2 — Set PlatformFee snapshot for Marketplace orders (feature-flagged).
+        /// Unlike SetResellerPricing, does NOT change CommerceMode (stays Marketplace) and only sets
+        /// PlatformFeeRate + PlatformFeeAmount. Called by OrderService.SnapshotCommerceModeAsync when
+        /// ValcnV2_PlatformFee feature flag is ON.
+        /// </summary>
+        public void SetMarketplacePlatformFee(decimal platformFeeRate)
+        {
+            if (platformFeeRate < 0 || platformFeeRate > 1)
+                throw new ArgumentOutOfRangeException(nameof(platformFeeRate), "PlatformFeeRate must be 0-1");
+
+            // CommerceMode stays Marketplace — only set fee fields
+            PlatformFeeRate = platformFeeRate;
+            PlatformFeeAmount = TotalAmount * platformFeeRate;
+            UpdateAudit();
+        }
+
         public void UpdateOrderDetails(OrderStatusId status, DateTime orderDate, string? deliveryAddress, string? notes)
         {
             Status = status;

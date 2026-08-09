@@ -30,62 +30,41 @@
 
 ## 2. Current Objective
 
-**Gateway Refactor Hybrid Strategy — Bước 1 (Tối ưu code) COMPLETE + DEPLOYED + RUNTIME VERIFIED (2026-08-09).**
+**VALCN v2.0 PLATFORM-LIGHT — Wave 2 IN-PROGRESS (Phase 2 Platform Fee started).**
 
-**REQ-1.2 — Background Service Toggle Feature (commits `404b1588` → `2ca93e04` → `f26a0166`):**
-- **Objective:** SystemAdmin có thể bật/tắt 6 background services runtime qua admin UI, không cần restart container.
-- **Architecture:**
-  - ShopERP admin UI `/admin/background-services` — toggle switches (Blazor Server).
-  - Gateway API `GET/PUT /api/admin/background-services` — SystemAdmin JWT, class-level `[Authorize]`.
-  - `BackgroundServiceToggleService` in CoreHub — Singleton, dùng `IServiceScopeFactory` (singleton-safe) + 30s memory cache.
-  - Persistence: `SystemSetting` table, key `BackgroundServices:Enable{ServiceName}`, default enabled if no row.
-- **Services toggleable:** EInvoiceSyncSubscriber, CoolingPeriodJob (Gateway VPS) + BirthdayBonusJob, VoucherExpiryReminderJob, PromoCampaignJob, LoyaltySyncSubscriber (ShopERP VPS).
-- **CI fixes (commit `f26a0166`):**
-  1. Architecture test W12-G7: `BackgroundServicesController` cần class-level `[Authorize]` (không phải method-level).
-  2. Integration test Phase3.6: `BackgroundServiceToggleService` Singleton inject `IVanAnDbContext` (Scoped) → DI validation fail. Fix: inject `IServiceScopeFactory` + tạo scope per DB op.
-  3. Unit tests: 3 test constructors cần mock `IBackgroundServiceToggleService` (IsEnabledAsync=true default).
-- **Runtime verified:** API 200 với JWT, 6 toggles trả về, toggle off/on EInvoiceSyncSubscriber thành công (Enabled=False → Enabled=True).
+**Source:** User request 2026-08-09 — hiện thực hóa BOM v2.0 PLATFORM-LIGHT.
+**BOM:** `docs/requirements/VAN_AN_LOCAL_COMMERCE_NETWORK_BOM_v2.0_PLATFORM_LIGHT.md`
+**Master plan:** `docs/AI/tasks/valcn_v2_platform_light/valcn_v2_master_plan.md`
+**Task cards:** `phase0` (✅) + `phase1` (✅) + `phase2` (🔄) + `phase3` (pending) + `phase4` (pending) + `phase7` (pending) + `phase0_findings.md`
+**Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** `main` (always-green, per-phase commits)
 
-**REQ-1.1 — NatsSyncWorker poll interval 5s→10s (commit `812a96cc`):**
-- `docker-compose.gateway.yml`: `Sync__PollIntervalMs` 5000→10000 (giảm 50% DB query).
-- `docker-compose.shoperp.yml`: thêm `Sync__PollIntervalMs=10000` (was **default 1s** — giảm 90%, từ 86400 queries/ngày xuống 8640).
-- Order delivery <10s — đủ nhanh cho kitchen/POS.
+**Scope (v2 — sau scope cut + codebase review):**
+- 6 phases (Phase 0, 1, 2, 3, 4, 7) — Phase 5 merged into Phase 1, Phase 6/8/9 dropped (defer v3.0)
+- 12 additive fields + 1 new entity (`LoyaltyIssuanceRecord`) + 1 new field on `AccountingEntry` (`CorrelationId`) + 1 new field on `OutboxEvent` (`CorrelationId`)
+- 3 new services (`LoyaltyBudgetService`, `RefundOrchestrationService`, `NetworkDashboardService`)
+- 2 new background jobs (`LoyaltyBudgetDailyResetJob`, `LoyaltyBudgetMonthlyResetJob`)
+- Feature flag infra: `IFeatureFlagService` + admin UI `/admin/valcn-features` — **all flags default OFF** (no production impact until admin enables)
 
-**REQ-1.3 — Giảm logging production (commit `812a96cc`):**
-- `appsettings.Production.json` (Gateway + ShopERP): `Microsoft.EntityFrameworkCore.Database.Command` + `VanAn.CoreHub.Services.NatsSyncWorker` → Warning.
-- Giảm log volume ~90% (NatsSyncWorker log mỗi poll cycle).
+**Wave Strategy (3 waves, parallel where possible):**
+| Wave | Phases | Status |
+|------|--------|--------|
+| Wave 1 | Phase 0 (Analyze) + Phase 1 (Foundation) | ✅ COMPLETE — commit `af09b8d0` |
+| Wave 2 | Phase 2 (Platform Fee) ‖ Phase 3 (Loyalty Budget) | 🔄 IN-PROGRESS — Phase 2 started (uncommitted) |
+| Wave 3 | Phase 4 (Refund Reversal) ‖ Phase 7 (Network Dashboard) | ⏸ Pending — needs Wave 2 |
 
-**Split3 SRS Archived:**
-- `Van_An_SRS_Gateway_Refactor_Split3_Services.md` → `docs/requirements/archive/`.
-- Over-engineering cho MVP stage (45 controllers trong 1 process OK khi traffic thấp).
-- Hybrid Strategy (1+3+4) đủ cho 6-12 tháng tới.
+**Wave 1 COMPLETE (commit `af09b8d0` — 2026-08-09):**
+- Phase 0: Subagent verified `ShopFeatureSettingsEntity.PlatformFeeRate` did NOT exist (was global `SystemSetting`) → made per-tenant per BOM intent. Confirmed `LoyaltyIssuanceRecord` + `AccountingEntry` factory chain mods necessary + safe.
+- Phase 1: 12 additive domain fields + `LoyaltyIssuanceRecord` entity (Single-Identity Pattern compliant) + `AccountingEntry.CorrelationId` + `OutboxEvent.CorrelationId` + factory chain modified (additive param, backward compat) + `IFeatureFlagService` + `FeatureFlagService` (CoreHub) + `FeatureFlagsController` (Gateway) + `FeatureFlagApiClient` (ShopERP) + admin UI `ValcnFeatures.razor` + NavMenu link + DI registrations + migration `20260809130646_AddValcnV2PlatformLightFields` (verified — all new fields + `LoyaltyIssuanceRecords` table).
+- All flags default OFF — zero production impact until admin enables via `/admin/valcn-features`.
 
-**VPS Disk Cleanup (2026-08-09):**
-- Gateway VPS: 100% → 52% (docker image prune -af, reclaimed 4.9GB).
-- ShopERP VPS: 100% → 44% (docker image prune -af, reclaimed 5.4GB).
-- Root cause: CD pull images mới nhưng không prune images cũ → disk full → SCP fail.
+**Wave 2 IN-PROGRESS (Phase 2 — Platform Fee on Marketplace Orders):**
+- ✅ Injected `IFeatureFlagService` into `OrderService` + toggle wrap in `SnapshotCommerceModeAsync`.
+- ✅ Modified `ShopFeatureSettingsEntity` + `IShopFeatureSettingsService` + `ShopFeatureSettingsService` for per-tenant `PlatformFeeRate`.
+- 🔄 `GetPlatformFeeRateAsync` helper (per-tenant + global fallback) — pending.
+- ⏸ Build + commit — pending.
+- Phase 3 (Loyalty Budget) — pending, can run in parallel after Phase 2 commit.
 
-**Runtime Verification (2026-08-09, 11/11 PASS):**
-1. Gateway health: 200 Healthy
-2. ShopERP health: 200 Healthy
-3. Login page: 200 (6576 bytes)
-4. Admin BG services page: 200
-5. BG services API (no auth): 401 (correct)
-6. Platform login: 200 (JWT 433 chars)
-7. BG services API (JWT): 200 — 6 toggles
-8. Toggle OFF EInvoiceSyncSubscriber: 200
-9. Verify toggle state: Enabled=False
-10. Toggle ON EInvoiceSyncSubscriber: 200
-11. Rate limit test (5 rapid requests): 5/5 OK, no 503
-
-**Hybrid Strategy Status:**
-| Bước | Status |
-|------|--------|
-| Bước 1 (Tối ưu code) | ✅ COMPLETE — REQ-1.1 + 1.2 + 1.3 deployed + verified |
-| Bước 2 (Tách Sync Worker) | ⏸ Pending — chỉ trigger khi CPU > 70% sustained |
-| Bước 3 (Upgrade VPS) | ✅ Done — VPS đã là e2-small 2GB |
-
-**Previous objective — COMPLETE:** Issue Batch Fix #110 + #112 + nginx 503 Rate Limit Fix. See archive.
+**Previous objective — COMPLETE:** Gateway Refactor Hybrid Strategy — Bước 1 (Tối ưu code) COMPLETE + DEPLOYED + RUNTIME VERIFIED (2026-08-09, RV 11/11 PASS). REQ-1.1 (poll 5s→10s) + REQ-1.2 (6 background service toggles) + REQ-1.3 (logging reduction ~90%). See Section 10 maintenance log entry 2026-08-09.
 
 **Previous objective — COMPLETE:** #99-3 Loyalty Points Visibility + Shop Owner Dashboard — Phase A. See archive.
 
@@ -137,8 +116,8 @@
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `812a96cc` perf(req-1.1+1.3): NatsSyncWorker poll 5s→10s + reduce logging + archive Split3 SRS
-- **Working tree:** Clean (all changes committed + pushed). Branch in sync with origin/main.
+- **Last commit:** `af09b8d0` [VALCN-V2 P0+P1] Domain fields + LoyaltyIssuanceRecord + FeatureFlag infra + migration
+- **Working tree:** 5 modified files (Phase 2 in-progress, uncommitted) — `1_Shared/Domain.cs`, `1_Shared/Services/IShopFeatureSettingsService.cs`, `3_CoreHub/Infrastructure/Entities/ShopFeatureSettingsEntity.cs`, `3_CoreHub/Services/OrderService.cs`, `3_CoreHub/Services/ShopFeatureSettingsService.cs`. Plus deleted `.git-commit-msg.txt` (temp file).
 - **.NET SDK:** 8.0.422
 - **DB:** SQLite `vanan_shoperp.db` (business, per-tenant) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community + SystemSetting tables)
 - **Build:** 0 errors across full solution. CI pre-push ALL PASSED.
@@ -187,34 +166,27 @@
 
 ## 4. Next Actions
 
-1. **(Browser RV — Background Service Toggle)** Login `sysadmin@vanan.vn` / `2026@vanan` tại `https://app2.khachvip.online/Login`:
-   - Navigate to `/admin/background-services` — verify 6 toggle switches render
-   - Toggle OFF 1 service → verify UI updates + API call succeeds
-   - Toggle ON lại → verify state restored
-   - Nếu UI lỗi → kiểm tra ShopERP container logs trên VPS
-2. **(GCP Data Seeding)** Seed production data vào GCP DB (fresh DB chỉ có 3 tenants test):
-   - Restore từ Oracle VPS (dump PG → restore GCP) HOẶC seed fresh qua API
-   - Verify ShopERP SQLite có DemoUsers (owner/staff/chef/guard)
-3. **(#99-3 Phase B APPROVAL)** Phase B (Alliance VND Normalization) — HIGH risk, feature-gated. Awaiting user approval. 10 steps (see archive).
-4. **(Browser RV — Phase A V6/V7)** Login `adminvanan1` / `2026@vanan` at `https://app2.khachvip.online/Login`:
-   - V6: Navigate to `/loyalty/dashboard` → verify 4 stat cards render
-   - V7: Check NavMenu has "Thống kê điểm thưởng" link (icon bar-chart)
-5. **(Browser RV, deferred)** Browser functional testing on VPS for Tenant Fixes 4 phases (authenticated user flows).
-6. **(Hybrid Strategy Bước 2 — Monitor)** Chỉ trigger Bước 2 (tách Sync Worker ra container riêng) khi:
-   - CPU sustained > 70% trong 30 phút, HOẶC
-   - Memory > 80% trong 30 phút, HOẶC
-   - SSH timeout 1 lần
-   - Hiện tại: VPS e2-small 2GB, poll 10s, toggle 6 services → đủ load. Chưa cần Bước 2.
-7. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (currently skipped via `Category!=Flaky` CI filter).
-8. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. Cần Domain Modification approval.
-9. **A2 follow-up — Guid case audit (P2):** Audit + fix Guid case mismatch across all tables (not just OutboxMessages).
-10. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG. **TD-ASYNCDP-001:** Make `IFormulaEngine`/`IDataProvider` async-native. **TD-GCP-001:** Hybrid Bước 1 done, Bước 2 pending monitoring.
-11. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`.
-12. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate.
-13. **(Facebook OAuth)** Config real Facebook OAuth credentials — Sprint 7+. Currently stub redirect in `Login.razor:148`.
-14. **(Loyalty Alliance activation)** When tenant switches to Alliance mode in production, run end-to-end RV.
-15. **(Bug 3 full verify)** Re-print QR for product with image to fully verify Scan.razor image rendering on VPS.
-16. **(VPS Disk Monitoring)** Cả 2 VPS disk đã clean (52% + 44%) nhưng sẽ đầy lại sau vài CD runs. Cân nhắc thêm `docker image prune -af` vào deploy script hoặc cron job.
+**VALCN v2.0 Wave 2 (current):**
+1. **(Phase 2 — finish)** Implement `GetPlatformFeeRateAsync` helper in `ShopFeatureSettingsService` (per-tenant `PlatformFeeRate` + global `SystemSetting` fallback). Wire into `OrderService.SnapshotCommerceModeAsync` toggle wrap (feature-flagged).
+2. **(Phase 2 — verify)** `dotnet build VanAn.sln -c Release` 0 errors → commit `[VALCN-V2 P2] Platform fee on marketplace orders (feature-flagged)`.
+3. **(Phase 3 — start, parallel)** `LoyaltyBudgetService` + `ILoyaltyBudgetService` — check budget before AddPoints (atomic `ExecuteUpdateAsync`), decrement on reversal, reset counters. Read `phase3_task_card.md` + JIT-investigate `LoyaltyService.AddPointsAsync` blast radius.
+4. **(Phase 3)** Inject budget check into `OrderWorkflowService` (feature-flagged, default OFF).
+5. **(Phase 3)** 2 reset jobs (`LoyaltyBudgetDailyResetJob` daily 00:00 + `LoyaltyBudgetMonthlyResetJob` 1st-of-month 00:00) with `IServiceScopeFactory` (singleton-safe) — register in `BackgroundServiceToggleService` for runtime toggle.
+6. **(Phase 3)** DI registration + `BackgroundServiceToggleService` update (2 new toggleable services).
+7. **(Phase 3 — verify)** Build 0 errors → commit `[VALCN-V2 P3] Loyalty budget enforcement + reset jobs (feature-flagged)`.
+
+**VALCN v2.0 Wave 3 (after Wave 2):**
+8. **(Phase 4 — Refund Reversal)** `RefundOrchestrationService` — coordinate reversal on order cancel/refund (accounting reversal entry + loyalty reversal via `LoyaltyIssuanceRecord.Reverse` + payment refund + referral commission reversal). Read `phase4_task_card.md` for UC-06 steps 2a-2d.
+9. **(Phase 7 — Network Dashboard, parallel with Phase 4)** `NetworkDashboardService` — cross-tenant aggregate metrics (investor-facing). Fix LoyaltyROI formula bug (C4 — filter orders by repeat customer IDs). Read `phase7_task_card.md`.
+
+**Deferred / monitoring (carried over):**
+10. **(Browser RV — Background Service Toggle)** Login `sysadmin@vanan.vn` / `2026@vanan` tại `https://app2.khachvip.online/Login` → `/admin/background-services` — verify 6 toggles render + toggle off/on.
+11. **(GCP Data Seeding)** Seed production data vào GCP DB (fresh DB chỉ có 3 tenants test).
+12. **(#99-3 Phase B APPROVAL)** Phase B (Alliance VND Normalization) — HIGH risk, feature-gated. Awaiting user approval.
+13. **(Hybrid Strategy Bước 2 — Monitor)** Chỉ trigger khi CPU sustained > 70% / Memory > 80% / SSH timeout. Hiện tại đủ load.
+14. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (skipped via `Category!=Flaky` CI filter).
+15. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG. **TD-ASYNCDP-001:** Make `IFormulaEngine`/`IDataProvider` async-native. **TD-GCP-001:** Hybrid Bước 1 done, Bước 2 pending monitoring.
+16. **(VPS Disk Monitoring)** Cả 2 VPS disk đã clean (52% + 44%) nhưng sẽ đầy lại sau vài CD runs. Cân nhắc `docker image prune -af` vào deploy script hoặc cron job.
 
 ### Pruned (2026-07-29)
 
@@ -333,15 +305,22 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main`, last commit `812a96cc` (REQ-1.1+1.3 poll interval + logging + archive Split3). CI `31290434856` SUCCESS, CD `31292519378` SUCCESS, Accounting Tests `31290434869` SUCCESS. Runtime RV 11/11 PASS: Gateway health 200, ShopERP health 200, Login 200, Admin BG services page 200, API 401 (no auth) → 200 (JWT), 6 toggles returned, toggle off/on verified. Config verified on VPS: `Sync__PollIntervalMs=10000` (Gateway + ShopERP), logging NatsSyncWorker+EF Core Warning. Disk: Gateway 52%, ShopERP 44% (after prune). Split3 SRS archived to `docs/requirements/archive/`.
+- **Verified Facts:** Branch=`main`, last commit `af09b8d0` (VALCN-V2 P0+P1 — domain fields + LoyaltyIssuanceRecord + feature flag infra + migration). Working tree: 5 modified files (Phase 2 in-progress). Wave 1 COMPLETE: 12 additive fields + `LoyaltyIssuanceRecord` entity + `AccountingEntry.CorrelationId` + `OutboxEvent.CorrelationId` + factory chain mod (additive, backward compat) + `IFeatureFlagService` infra (CoreHub + Gateway + ShopERP) + admin UI `/admin/valcn-features` + migration `20260809130646_AddValcnV2PlatformLightFields` verified. All flags default OFF. Phase 2 started: `IFeatureFlagService` injected into `OrderService`, `ShopFeatureSettingsEntity`/`IShopFeatureSettingsService`/`ShopFeatureSettingsService` modified for per-tenant `PlatformFeeRate`. Previous: Gateway Refactor Hybrid Bước 1 COMPLETE + DEPLOYED + RV 11/11 PASS (2026-08-09), CI `31290434856` SUCCESS, CD `31292519378` SUCCESS.
 - **Open Questions:** 0
-- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (50+), Open Questions (0) < 3
+- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (30+), Open Questions (0) < 3
 
 ---
 
 ## 10. Maintenance Log
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md` → "Archived 2026-08-03" → Section 10.
+
+* **2026-08-09 — VALCN v2.0 PLATFORM-LIGHT — WAVE 1 COMPLETE (Phase 0 + Phase 1), WAVE 2 IN-PROGRESS (Phase 2 started).** New major feature build per BOM v2.0 PLATFORM-LIGHT. 3-wave strategy (6 phases after scope cut: 0, 1, 2, 3, 4, 7 — Phase 5 merged into Phase 1, Phase 6/8/9 dropped defer v3.0).
+  - **Phase 0 (ANALYZE):** Subagent verified `ShopFeatureSettingsEntity.PlatformFeeRate` did NOT exist (was global `SystemSetting`) → made per-tenant per BOM intent. Confirmed `LoyaltyIssuanceRecord` entity + `AccountingEntry` factory chain mods (sealed class, private ctor) necessary + safe. Findings in `phase0_findings.md`.
+  - **Phase 1 (Foundation) — commit `af09b8d0`:** 12 additive domain fields on `LoyaltyTenantConfig` (6 budget fields) + `ShopFeatureSettingsEntity` (`PlatformFeeRate`) + `AccountingEntry` (`CorrelationId`) + `OutboxEvent` (`CorrelationId`) + `Order` (`PlatformFeeAmount`) + new entity `LoyaltyIssuanceRecord` (Single-Identity Pattern compliant, tracks loyalty issuance per order in Silo mode for Phase 4 reversal query). `AccountingEntry` factory chain modified (additive `correlationId` param, backward compat — existing callers pass null). `OutboxMessage` modified to propagate `CorrelationId`. Feature flag infra: `IFeatureFlagService` + `FeatureFlagService` (CoreHub, Singleton + `IServiceScopeFactory` + 30s cache, mirrors `BackgroundServiceToggleService` pattern) + `FeatureFlagsController` (Gateway, `GET/PUT /api/admin/valcn-features`, SystemAdmin JWT) + `FeatureFlagApiClient` (ShopERP) + admin UI `ValcnFeatures.razor` (`/admin/valcn-features`, toggle switches) + NavMenu link + DI registrations (Gateway + ShopERP). Migration `20260809130646_AddValcnV2PlatformLightFields` created + verified (all new fields + `LoyaltyIssuanceRecords` table). **All flags default OFF** — zero production impact until admin enables via `/admin/valcn-features`.
+  - **Phase 2 (Platform Fee) — IN-PROGRESS (uncommitted):** Injected `IFeatureFlagService` into `OrderService` + toggle wrap in `SnapshotCommerceModeAsync`. Modified `ShopFeatureSettingsEntity` + `IShopFeatureSettingsService` + `ShopFeatureSettingsService` for per-tenant `PlatformFeeRate`. Pending: `GetPlatformFeeRateAsync` helper (per-tenant + global fallback) + build + commit.
+  - **Phase 3 (Loyalty Budget) — PENDING:** Can run in parallel after Phase 2 commit. `LoyaltyBudgetService` + 2 reset jobs (daily + monthly) + `OrderWorkflowService` budget check injection.
+  - **Branch:** `main`. **Last commit:** `af09b8d0`. **Working tree:** 5 modified files (Phase 2 in-progress).
 
 * **2026-08-09 — GATEWAY REFACTOR HYBRID STRATEGY BƯỚC 1 COMPLETE + DEPLOYED + RUNTIME VERIFIED.** 4 commits across 2 sessions:
   - **REQ-1.2 Background Service Toggle (commits `404b1588` → `2ca93e04` → `f26a0166`):** SystemAdmin toggle 6 background services runtime via `/admin/background-services` (Blazor Server) → Gateway API `GET/PUT /api/admin/background-services` (SystemAdmin JWT, class-level `[Authorize]`) → `BackgroundServiceToggleService` (Singleton, `IServiceScopeFactory` + 30s cache) → `SystemSetting` table (`BackgroundServices:Enable{ServiceName}`, default enabled). 6 services: EInvoiceSyncSubscriber, CoolingPeriodJob (Gateway) + BirthdayBonusJob, VoucherExpiryReminderJob, PromoCampaignJob, LoyaltySyncSubscriber (ShopERP). CI fixes: (1) W12-G7 architecture test — class-level `[Authorize]` required, (2) Phase3.6 integration test — Singleton cannot inject Scoped `IVanAnDbContext`, fix with `IServiceScopeFactory`, (3) 3 unit tests needed mock `IBackgroundServiceToggleService`.

@@ -75,7 +75,9 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
             settings.Notify_RedemptionFulfilled,
             settings.Notify_RedemptionCancelled,
             settings.Notify_VoucherExpiringSoon,
-            settings.VoucherExpiryNotifyHours);
+            settings.VoucherExpiryNotifyHours,
+            // VALCN v2.0 Phase 1
+            settings.PlatformFeeRate);
 
         await _context.SaveChangesAsync(ct);
         _logger.LogInformation("Updated shop feature settings for tenant {TenantId}", tenantId);
@@ -135,6 +137,8 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
         VAT_Display_Enabled = entity.VAT_Display_Enabled,
         Price_Validation_Enabled = entity.Price_Validation_Enabled,
         PollingIntervalSeconds = entity.PollingIntervalSeconds,
+        // VALCN v2.0 Phase 1
+        PlatformFeeRate = entity.PlatformFeeRate,
         Campaign_Section_Enabled = entity.Campaign_Section_Enabled,
         VibeShowcase_Section_Enabled = entity.VibeShowcase_Section_Enabled,
         GoogleMap_Section_Enabled = entity.GoogleMap_Section_Enabled,

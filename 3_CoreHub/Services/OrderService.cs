@@ -32,7 +32,8 @@ namespace VanAn.CoreHub.Services
         IShopFeatureSettingsService? shopFeatureSettingsService = null,
         IOutboxRepository? outboxRepository = null,
         IProductRepository? productRepository = null,
-        ICommerceModeService? commerceModeService = null) : IOrderService
+        ICommerceModeService? commerceModeService = null,
+        IFeatureFlagService? featureFlagService = null) : IOrderService
     {
         // EXISTING DEPENDENCIES (keep)
         private readonly IOrderRepository _orderRepository = orderRepository;
@@ -63,6 +64,9 @@ namespace VanAn.CoreHub.Services
 
         // Sprint 7: Commerce mode service — resolves Marketplace/Reseller at order creation + snapshots pricing
         private readonly ICommerceModeService? _commerceModeService = commerceModeService;
+
+        // VALCN v2.0 Phase 2: Feature flag for per-tenant PlatformFee on Marketplace orders (default OFF)
+        private readonly IFeatureFlagService? _featureFlagService = featureFlagService;
 
         /// <summary>
         /// Get today's order count for a specific tenant
@@ -856,8 +860,22 @@ namespace VanAn.CoreHub.Services
             {
                 var mode = await _commerceModeService.ResolveModeForTenantAsync(tenantId);
 
+                // VALCN v2.0 Phase 2: Marketplace branch — feature-flagged (default OFF = existing no-op behavior)
                 if (mode != CommerceMode.Reseller)
-                    return; // Marketplace — no snapshot needed (default)
+                {
+                    // When ValcnV2_PlatformFee is ON: set PlatformFeeRate + PlatformFeeAmount on Marketplace orders.
+                    // When OFF (default): existing behavior (no-op, PlatformFeeRate/Amount remain null).
+                    if (_featureFlagService != null
+                        && await _featureFlagService.IsEnabledAsync("ValcnV2_PlatformFee"))
+                    {
+                        var marketplaceRate = await GetPlatformFeeRateAsync(tenantId);
+                        order.SetMarketplacePlatformFee(marketplaceRate);
+                        _logger.LogInformation(
+                            "SnapshotCommerceModeAsync: Order {OrderId} Marketplace PlatformFee ON — Rate={Rate} Amount={Amount}",
+                            order.Id, marketplaceRate, order.PlatformFeeAmount);
+                    }
+                    return;
+                }
 
                 if (_dbContext == null)
                 {
@@ -903,6 +921,41 @@ namespace VanAn.CoreHub.Services
                 // Logged as Error so admin can investigate — but order creation should not fail due to commerce mode snapshot issue.
                 _logger.LogError(ex, "SnapshotCommerceModeAsync: Failed to snapshot commerce mode for order {OrderId} tenant {TenantId} — order stays Marketplace (default)", order.Id, tenantId);
             }
+        }
+
+        /// <summary>
+        /// VALCN v2.0 Phase 2: Get per-tenant PlatformFeeRate with fallback to global SystemSetting.
+        /// Per-tenant: ShopFeatureSettingsEntity.PlatformFeeRate (Phase 1 field, default 5%).
+        /// Fallback: CommerceModeService.GetDefaultRatesAsync() — global DefaultPlatformFeeRate (default 30%).
+        /// </summary>
+        private async Task<decimal> GetPlatformFeeRateAsync(Guid tenantId)
+        {
+            // Per-tenant rate from ShopFeatureSettings (Phase 1 field)
+            if (_shopFeatureSettingsService != null)
+            {
+                try
+                {
+                    var settings = await _shopFeatureSettingsService.GetSettingsAsync(tenantId);
+                    if (settings.PlatformFeeRate.HasValue)
+                    {
+                        return settings.PlatformFeeRate.Value;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "GetPlatformFeeRateAsync: Failed to read per-tenant PlatformFeeRate for tenant {TenantId}. Falling back to global.", tenantId);
+                }
+            }
+
+            // Fallback: global SystemSetting DefaultPlatformFeeRate (existing, default 30%)
+            if (_commerceModeService != null)
+            {
+                var (globalRate, _, _) = await _commerceModeService.GetDefaultRatesAsync();
+                return globalRate;
+            }
+
+            // Ultimate fallback: 5% per BOM v2.0
+            return 0.05m;
         }
 
         /// <summary>

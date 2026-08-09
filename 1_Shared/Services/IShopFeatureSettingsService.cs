@@ -18,6 +18,9 @@ public record ShopFeatureSettingsDto
     public bool Price_Validation_Enabled { get; set; }
     public int PollingIntervalSeconds { get; set; } = 15;
 
+    // VALCN v2.0 Phase 1 — Per-tenant platform fee rate (default 5%, null = fallback to global 30%)
+    public decimal? PlatformFeeRate { get; set; } = 0.05m;
+
     /// <summary>Tenant Profile Page (2026-07-21): show Campaign section on /store/{slug}.</summary>
     public bool Campaign_Section_Enabled { get; set; } = true;
     /// <summary>Tenant Profile Page (2026-07-21): show VibeShowcase (product showcase) section.</summary>
