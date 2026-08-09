@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Hướng dẫn sử dụng VALCN v2.0 Platform-Light</title>
+  <style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+</style>
+  <style type="text/css">
+@page { margin: 1.5cm 2cm; }
+* { box-sizing: border-box; }
+body {
+font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+font-size: 11pt;
+line-height: 1.55;
+color: #1f2937;
+max-width: 900px;
+margin: 0 auto;
+padding: 2rem 1rem;
+background: #fff;
+}
+h1 {
+font-size: 22pt;
+color: #0f766e;
+border-bottom: 3px solid #0f766e;
+padding-bottom: 0.4rem;
+margin-top: 0;
+}
+h2 {
+font-size: 16pt;
+color: #0f766e;
+border-left: 4px solid #14b8a6;
+padding-left: 0.6rem;
+margin-top: 2rem;
+page-break-after: avoid;
+}
+h3 {
+font-size: 13pt;
+color: #334155;
+margin-top: 1.4rem;
+page-break-after: avoid;
+}
+h4 {
+font-size: 11.5pt;
+color: #475569;
+margin-top: 1rem;
+page-break-after: avoid;
+}
+p { margin: 0.5rem 0; }
+a { color: #0f766e; text-decoration: none; }
+a:hover { text-decoration: underline; }
+code {
+font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+background: #f1f5f9;
+padding: 0.1rem 0.35rem;
+border-radius: 3px;
+font-size: 9.5pt;
+color: #be123c;
+}
+pre {
+background: #0f172a;
+color: #e2e8f0;
+padding: 1rem;
+border-radius: 6px;
+overflow-x: auto;
+font-size: 9.5pt;
+line-height: 1.4;
+}
+pre code { background: transparent; color: inherit; padding: 0; }
+blockquote {
+border-left: 4px solid #14b8a6;
+background: #f0fdfa;
+padding: 0.6rem 1rem;
+margin: 1rem 0;
+color: #134e4a;
+border-radius: 0 4px 4px 0;
+}
+blockquote p { margin: 0.3rem 0; }
+table {
+border-collapse: collapse;
+width: 100%;
+margin: 1rem 0;
+font-size: 10pt;
+page-break-inside: avoid;
+}
+th {
+background: #0f766e;
+color: #fff;
+text-align: left;
+padding: 0.55rem 0.7rem;
+font-weight: 600;
+border: 1px solid #0f766e;
+}
+td {
+padding: 0.5rem 0.7rem;
+border: 1px solid #e2e8f0;
+vertical-align: top;
+}
+tr:nth-child(even) td { background: #f8fafc; }
+tr:hover td { background: #f0fdfa; }
+hr {
+border: none;
+border-top: 1px solid #cbd5e1;
+margin: 2rem 0;
+}
+ul, ol { padding-left: 1.5rem; }
+li { margin: 0.25rem 0; }
+strong { color: #0f172a; }
+
+h2 + ul, h2 + ol { page-break-before: avoid; }
+
+@media print {
+body { font-size: 10pt; max-width: none; padding: 0; }
+h2 { page-break-before: auto; }
+table, pre, blockquote { page-break-inside: avoid; }
+a { color: #0f766e; }
+}
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Hướng dẫn sử dụng VALCN v2.0 Platform-Light</h1>
+</header>
+<h1 id="hướng-dẫn-sử-dụng-valcn-v20-platform-light">Hướng dẫn sử dụng
+VALCN v2.0 Platform-Light</h1>
+<blockquote>
+<p><strong>Phiên bản:</strong> v2.0 PLATFORM-LIGHT (2026-08-09)
+<strong>Áp dụng:</strong> Vạn An Local Commerce Network — hệ thống kế
+toán + thương mại đa tenant <strong>Trạng thái:</strong> Đã triển khai,
+tất cả feature flags mặc định <strong>TẮT</strong> (OFF) — không ảnh
+hưởng production cho đến khi SystemAdmin bật</p>
+</blockquote>
+<hr />
+<h2 id="mục-lục">Mục lục</h2>
+<ol type="1">
+<li><a href="#1-tổng-quan-valcn-v20">Tổng quan VALCN v2.0</a></li>
+<li><a href="#2-các-loại-người-dùng">Các loại người dùng</a></li>
+<li><a href="#3-hướng-dẫn-cho-systemadmin">Hướng dẫn cho
+SystemAdmin</a></li>
+<li><a href="#4-hướng-dẫn-cho-shop-owner--tenant-admin">Hướng dẫn cho
+Shop Owner / Tenant Admin</a></li>
+<li><a href="#5-hướng-dẫn-cho-customer-khách-hàng">Hướng dẫn cho
+Customer (Khách hàng)</a></li>
+<li><a href="#6-hướng-dẫn-cho-investor-nhà-đầu-tư">Hướng dẫn cho
+Investor (Nhà đầu tư)</a></li>
+<li><a href="#7-bảng-tra-cứu-feature-flags">Bảng tra cứu Feature
+Flags</a></li>
+<li><a href="#8-câu-hỏi-thường-gặp-faq">Câu hỏi thường gặp
+(FAQ)</a></li>
+<li><a href="#9-khắc-phục-sự-cố">Khắc phục sự cố</a></li>
+</ol>
+<hr />
+<h2 id="1-tổng-quan-valcn-v20">1. Tổng quan VALCN v2.0</h2>
+<p>VALCN v2.0 PLATFORM-LIGHT là bản nâng cấp của Vạn An Local Commerce
+Network, bổ sung 3 tính năng cốt lõi:</p>
+<table>
+<thead>
+<tr>
+<th>Tính năng</th>
+<th>Mô tả</th>
+<th>Feature Flag</th>
+<th>Mặc định</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Platform Fee</strong></td>
+<td>Tính phí nền tảng trên đơn hàng Marketplace</td>
+<td><code>ValcnV2_PlatformFee</code></td>
+<td>OFF</td>
+</tr>
+<tr>
+<td><strong>Loyalty Budget</strong></td>
+<td>Giới hạn ngân sách điểm thưởng</td>
+<td><code>ValcnV2_LoyaltyBudget</code></td>
+<td>OFF</td>
+</tr>
+<tr>
+<td><strong>Refund Reversal</strong></td>
+<td>Hoàn đảo 4 bước khi hủy đơn (UC-06)</td>
+<td><code>ValcnV2_RefundReversal</code></td>
+<td>OFF</td>
+</tr>
+</tbody>
+</table>
+<p>Ngoài ra có <strong>Network Dashboard</strong> — bảng điều khiển tổng
+hợp đa tenant (investor-facing), luôn sẵn sàng cho SystemAdmin (không
+cần bật flag).</p>
+<h3 id="nguyên-tắc-an-toàn">Nguyên tắc an toàn</h3>
+<ul>
+<li><strong>Tất cả feature flags mặc định TẮT</strong> — behavior hiện
+tại được bảo toàn cho đến khi admin bật</li>
+<li>Bật/tắt runtime qua UI <code>/admin/valcn-features</code> — có hiệu
+lực trong 30 giây (cache TTL)</li>
+<li>Tắt flag <strong>không</strong> hoàn tác dữ liệu đã tạo khi flag
+đang BẬT (ví dụ: đơn đã hủy khi RefundReversal ON sẽ giữ bút toán đảo,
+không undo)</li>
+<li>Mỗi tính năng độc lập — có thể bật từng cái riêng biệt</li>
+</ul>
+<hr />
+<h2 id="2-các-loại-người-dùng">2. Các loại người dùng</h2>
+<p>VALCN v2.0 liên quan đến 4 loại người dùng:</p>
+<table>
+<thead>
+<tr>
+<th>Vai trò</th>
+<th>Quyền</th>
+<th>Trang liên quan</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>SystemAdmin</strong></td>
+<td>Quản trị toàn hệ thống Vạn An, bật/tắt feature flags, xem Network
+Dashboard</td>
+<td><code>/admin/valcn-features</code>,
+<code>/admin/network-dashboard</code>,
+<code>/admin/background-services</code></td>
+</tr>
+<tr>
+<td><strong>Shop Owner / Tenant Admin</strong></td>
+<td>Quản lý quán (tenant), cấu hình per-tenant, xem báo cáo kế toán</td>
+<td><code>/admin/shop-feature-settings</code>,
+<code>/admin/loyalty-config</code>, <code>/accounting</code></td>
+</tr>
+<tr>
+<td><strong>Customer</strong></td>
+<td>Đặt hàng, tích điểm, đổi điểm qua KhachLink PWA</td>
+<td>KhachLink (app2.khachvip.online)</td>
+</tr>
+<tr>
+<td><strong>Investor</strong></td>
+<td>Xem metrics tổng hợp (read-only, investor-facing)</td>
+<td><code>/admin/network-dashboard</code> (qua SystemAdmin)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-hướng-dẫn-cho-systemadmin">3. Hướng dẫn cho SystemAdmin</h2>
+<p>SystemAdmin là quản trị viên nền tảng Vạn An — người duy nhất có
+quyền bật/tắt feature flags và xem Network Dashboard.</p>
+<h3 id="31-đăng-nhập">3.1. Đăng nhập</h3>
+<ol type="1">
+<li>Truy cập <code>https://app2.khachvip.online/Login</code></li>
+<li>Đăng nhập bằng tài khoản SystemAdmin (ví dụ:
+<code>sysadmin@vanan.vn</code>)</li>
+<li>Chuyển đến trang admin qua menu bên trái</li>
+</ol>
+<h3 id="32-quản-lý-feature-flags-adminvalcn-features">3.2. Quản lý
+Feature Flags (<code>/admin/valcn-features</code>)</h3>
+<p>Đây là trang trung tâm điều khiển VALCN v2.0.</p>
+<h4 id="cách-bậttắt-tính-năng">Cách bật/tắt tính năng</h4>
+<ol type="1">
+<li>Vào menu bên trái → <strong>&quot;VALCN v2.0 Features&quot;</strong> (icon
+công tắc)</li>
+<li>Bảng hiển thị 3 feature flags:</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Phase</th>
+<th>Mô tả</th>
+<th>Trạng thái mặc định</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Platform Fee (Marketplace)</td>
+<td>Phase 2</td>
+<td>Tính PlatformFeeAmount trên Marketplace orders</td>
+<td>Disabled (OFF)</td>
+</tr>
+<tr>
+<td>Loyalty Budget Cap</td>
+<td>Phase 3</td>
+<td>Check budget trước AddPoints + reset jobs</td>
+<td>Disabled (OFF)</td>
+</tr>
+<tr>
+<td>Refund Reversal (UC-06)</td>
+<td>Phase 4</td>
+<td>4-step reversal khi hủy đơn</td>
+<td>Disabled (OFF)</td>
+</tr>
+</tbody>
+</table>
+<ol start="3" type="1">
+<li>Click nút <strong>&quot;Enable&quot;</strong> (xanh) để bật,
+<strong>&quot;Disable&quot;</strong> (đỏ) để tắt</li>
+<li>Thay đổi có hiệu lực trong <strong>30 giây</strong> (cache TTL)</li>
+</ol>
+<h4 id="khuyến-nghị-bật-theo-thứ-tự">Khuyến nghị bật theo thứ tự</h4>
+<p>Nếu muốn bật tất cả, hãy bật theo thứ tự:</p>
+<ol type="1">
+<li><strong>Platform Fee</strong> trước (cần thiết để Network Dashboard
+hiển thị Platform Revenue)</li>
+<li><strong>Loyalty Budget</strong> tiếp theo (cần thiết để Refund
+Reversal đảo đúng budget counters)</li>
+<li><strong>Refund Reversal</strong> cuối (phụ thuộc 2 cái trên)</li>
+</ol>
+<blockquote>
+<p><strong>Cảnh báo:</strong> Bật Refund Reversal mà chưa bật Loyalty
+Budget → bước 2c (loyalty reversal) vẫn chạy nhưng budget counters không
+được đảo (DecrementIssuanceAsync không có config để giảm).</p>
+</blockquote>
+<h3 id="33-xem-network-dashboard-adminnetwork-dashboard">3.3. Xem
+Network Dashboard (<code>/admin/network-dashboard</code>)</h3>
+<p>Bảng điều khiển tổng hợp đa tenant — dành cho investor pitch và
+monitoring toàn network.</p>
+<h4 id="cách-truy-cập">Cách truy cập</h4>
+<ol type="1">
+<li>Menu bên trái → <strong>&quot;Network Dashboard&quot;</strong> (icon biểu
+đồ)</li>
+<li>Trang hiển thị 8 metric cards + bộ lọc ngày</li>
+</ol>
+<h4 id="8-metrics">8 Metrics</h4>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Ý nghĩa</th>
+<th>Công thức</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GMV</strong></td>
+<td>Tổng giá trị giao dịch toàn network</td>
+<td>SUM(TotalAmount) tất cả đơn hàng</td>
+</tr>
+<tr>
+<td><strong>Active Tenants</strong></td>
+<td>Số quán có đơn hàng trong kỳ</td>
+<td>COUNT DISTINCT TenantId</td>
+</tr>
+<tr>
+<td><strong>Active Customers</strong></td>
+<td>Số khách hàng distinct</td>
+<td>COUNT DISTINCT CustomerId</td>
+</tr>
+<tr>
+<td><strong>Repeat Rate</strong></td>
+<td>Tỷ lệ khách quay lại</td>
+<td>(khách có &gt;1 đơn) / (tổng khách)</td>
+</tr>
+<tr>
+<td><strong>Platform Revenue</strong></td>
+<td>Doanh thu nền tảng Vạn An</td>
+<td>SUM(PlatformFeeAmount)</td>
+</tr>
+<tr>
+<td><strong>Loyalty Cost</strong></td>
+<td>Chi phí điểm thưởng (VND)</td>
+<td>SUM(PointsIssued) × 1,000 VND</td>
+</tr>
+<tr>
+<td><strong>Loyalty ROI</strong></td>
+<td>Hiệu quả đầu tư loyalty</td>
+<td>(repeatGmv - loyaltyCost) / loyaltyCost</td>
+</tr>
+<tr>
+<td><strong>Contribution Profit</strong></td>
+<td>Lợi nhuận đóng góp</td>
+<td>PlatformRevenue - LoyaltyCost</td>
+</tr>
+</tbody>
+</table>
+<h4 id="bộ-lọc-ngày">Bộ lọc ngày</h4>
+<ul>
+<li><strong>Từ / Đến:</strong> chọn ngày bắt đầu + kết thúc (mặc định:
+30 ngày gần nhất)</li>
+<li>Click <strong>&quot;Áp dụng&quot;</strong> để tải lại metrics</li>
+<li>Cache <strong>10 phút</strong> — dữ liệu làm mới mỗi 10 phút (không
+real-time)</li>
+</ul>
+<blockquote>
+<p><strong>Lưu ý về Loyalty Cost:</strong> Sử dụng fallback
+<strong>1,000 VND/point</strong> (INV-009 chưa triển khai —
+LoyaltyGlobalConfig chưa có field PointValue). Khi v3.0 thêm PointValue,
+số liệu sẽ chính xác hơn.</p>
+</blockquote>
+<h3 id="34-quản-lý-background-services-adminbackground-services">3.4.
+Quản lý Background Services
+(<code>/admin/background-services</code>)</h3>
+<p>2 background job mới của VALCN v2.0 (Phase 3) có thể bật/tắt tại
+đây:</p>
+<table>
+<thead>
+<tr>
+<th>Job</th>
+<th>Lịch chạy</th>
+<th>Chức năng</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LoyaltyBudgetDailyResetJob</code></td>
+<td>00:00 UTC hàng ngày</td>
+<td>Reset <code>PointsIssuedToday</code> về 0 cho tất cả tenant</td>
+</tr>
+<tr>
+<td><code>LoyaltyBudgetMonthlyResetJob</code></td>
+<td>00:00 UTC ngày 1 hàng tháng</td>
+<td>Reset <code>PointsIssuedThisMonth</code> về 0 cho tất cả tenant</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Lưu ý:</strong> 2 job này chỉ có ý nghĩa khi
+<code>ValcnV2_LoyaltyBudget</code> = ON. Khi flag OFF, job vẫn chạy
+nhưng không có config để reset (no-op).</p>
+</blockquote>
+<hr />
+<h2 id="4-hướng-dẫn-cho-shop-owner--tenant-admin">4. Hướng dẫn cho Shop
+Owner / Tenant Admin</h2>
+<p>Shop Owner là chủ quán (tenant) — bị ảnh hưởng bởi 3 tính năng VALCN
+v2.0 khi SystemAdmin bật.</p>
+<h3 id="41-platform-fee-khi-valcnv2_platformfee--on">4.1. Platform Fee
+(khi <code>ValcnV2_PlatformFee</code> = ON)</h3>
+<h4 id="khi-nào-áp-dụng">Khi nào áp dụng?</h4>
+<ul>
+<li>Chỉ áp dụng cho đơn hàng <strong>Marketplace mode</strong> (không áp
+dụng Reseller mode)</li>
+<li>Phí được snapshot tại thời điểm tạo đơn — toggle affect future
+orders only</li>
+</ul>
+<h4 id="cấu-hình-per-tenant">Cấu hình per-tenant</h4>
+<ol type="1">
+<li>Vào <code>/admin/shop-feature-settings</code></li>
+<li>Field <strong><code>PlatformFeeRate</code></strong> — tỷ lệ phí nền
+tảng (decimal, mặc định 0.05 = 5%)</li>
+<li>Nếu không set → fallback theo thứ tự:
+<ul>
+<li>Global <code>SystemSetting.DefaultPlatformFeeRate</code> (mặc định
+30%)</li>
+<li>Ultimate fallback: 5%</li>
+</ul></li>
+</ol>
+<h4 id="cách-tính">Cách tính</h4>
+<pre><code>PlatformFeeAmount = TotalAmount × PlatformFeeRate</code></pre>
+<p>Ví dụ: Đơn 100,000 VND, PlatformFeeRate = 5% → PlatformFeeAmount =
+5,000 VND</p>
+<h4 id="xem-trên-đơn-hàng">Xem trên đơn hàng</h4>
+<ul>
+<li>Field <code>Order.PlatformFeeAmount</code> hiển thị trên chi tiết
+đơn</li>
+<li>Khi flag OFF: field = null (không tính phí)</li>
+</ul>
+<h3 id="42-loyalty-budget-khi-valcnv2_loyaltybudget--on">4.2. Loyalty
+Budget (khi <code>ValcnV2_LoyaltyBudget</code> = ON)</h3>
+<h4 id="khi-nào-áp-dụng-1">Khi nào áp dụng?</h4>
+<ul>
+<li>Áp dụng trước mỗi lần AddPoints (khi đơn completed/delivered)</li>
+<li>Nếu budget hết → khách hàng nhận 0 điểm (không lỗi, chỉ log)</li>
+</ul>
+<h4 id="4-giới-hạn-cấu-hình-per-tenant-tại-adminloyalty-config">4 giới
+hạn (cấu hình per-tenant tại <code>/admin/loyalty-config</code>)</h4>
+<table>
+<thead>
+<tr>
+<th>Giới hạn</th>
+<th>Field</th>
+<th>Ý nghĩa</th>
+<th>Khi null</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Per-Order Rate Cap</td>
+<td><code>PerOrderRateCap</code></td>
+<td>Max points = orderAmount × rate</td>
+<td>Unlimited</td>
+</tr>
+<tr>
+<td>Monthly Budget</td>
+<td><code>MonthlyPointsBudget</code></td>
+<td>Max points/tháng/tenant</td>
+<td>Unlimited</td>
+</tr>
+<tr>
+<td>Daily Budget</td>
+<td><code>DailyPointsBudget</code></td>
+<td>Max points/ngày/tenant</td>
+<td>Unlimited</td>
+</tr>
+<tr>
+<td>Per-Customer Daily</td>
+<td><code>PerCustomerDailyLimit</code></td>
+<td>Max points/khách/ngày</td>
+<td>Unlimited</td>
+</tr>
+</tbody>
+</table>
+<h4 id="cách-hoạt-động">Cách hoạt động</h4>
+<ol type="1">
+<li>Khi đơn completed/delivered → tính points theo formula hiện tại</li>
+<li><code>CheckAndAdjustPointsAsync</code> kiểm tra 4 caps → trả về
+adjusted points (có thể = 0)</li>
+<li>Nếu adjusted &gt; 0 → AddPoints + <code>RecordIssuanceAsync</code>
+(atomic increment)</li>
+<li>Nếu adjusted = 0 → khách không nhận điểm (log warning)</li>
+</ol>
+<h4 id="reset-jobs">Reset jobs</h4>
+<ul>
+<li><strong>Hàng ngày 00:00 UTC:</strong> <code>PointsIssuedToday</code>
+→ 0 (tất cả tenant)</li>
+<li><strong>Đầu tháng 00:00 UTC:</strong>
+<code>PointsIssuedThisMonth</code> → 0 (tất cả tenant)</li>
+</ul>
+<blockquote>
+<p><strong>Lưu ý:</strong> ShopERP dùng HTTP proxy qua Gateway (PG là
+source of truth cho LoyaltyTenantConfig). Nếu Gateway không khả dụng →
+fallback trả points gốc (không cap) — an toàn, không crash.</p>
+</blockquote>
+<h3 id="43-refund-reversal-khi-valcnv2_refundreversal--on">4.3. Refund
+Reversal (khi <code>ValcnV2_RefundReversal</code> = ON)</h3>
+<h4 id="khi-nào-kích-hoạt">Khi nào kích hoạt?</h4>
+<ul>
+<li>Khi đơn chuyển sang status <strong>&quot;cancelled&quot;</strong> (qua
+<code>OrderWorkflowService.TransitionStatusAsync</code>)</li>
+<li>Chỉ full cancel — <strong>không</strong> partial refund</li>
+</ul>
+<h4 id="4-bước-đảo-uc-06">4 bước đảo (UC-06)</h4>
+<table>
+<thead>
+<tr>
+<th>Bước</th>
+<th>Hành động</th>
+<th>Chi tiết</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>2a</strong></td>
+<td>Accrual liability entry</td>
+<td>Tạo bút toán chi phí (accountCode &quot;331&quot; — Phải trả khách hàng) =
+tổng revenue. Đảm bảo Cash = Accounting (TT 152/2025).</td>
+</tr>
+<tr>
+<td><strong>2b</strong></td>
+<td>Accounting reversal</td>
+<td><code>AccountingEntry.CreateReversal</code> cho mỗi entry gốc (đảo
+dấu amount, giữ CorrelationId).</td>
+</tr>
+<tr>
+<td><strong>2c</strong></td>
+<td>Loyalty reversal</td>
+<td><code>SubtractPointsAsync</code> +
+<code>LoyaltyIssuanceRecord.MarkReversed</code> +
+<code>DecrementIssuanceAsync</code> (giảm budget counters).</td>
+</tr>
+<tr>
+<td><strong>2d</strong></td>
+<td>Referral commission reversal</td>
+<td><code>WalletService.ReverseTransactionAsync</code> cho mỗi
+WalletTransaction type=Commission liên quan đến đơn.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="idempotency">Idempotency</h4>
+<ul>
+<li>Nếu gọi 2 lần → lần 2 skip (kiểm tra reversal entries đã tồn tại cho
+CorrelationId)</li>
+<li>An toàn khi retry</li>
+</ul>
+<h4 id="khi-flag-off">Khi flag OFF</h4>
+<ul>
+<li>Hủy đơn = silent cancel (behavior cũ — không đảo gì)</li>
+<li>INV-002 bị vi phạm (refunded nhưng reward không reversed) — đây là
+gap đã biết, chỉ fix khi bật flag</li>
+</ul>
+<blockquote>
+<p><strong>Cảnh báo:</strong> Tắt flag <strong>không</strong> hoàn tác
+reversal entries đã tạo. Đơn đã hủy khi ON sẽ giữ bút toán đảo.</p>
+</blockquote>
+<h3 id="44-kiểm-tra-impact-trên-báo-cáo-kế-toán">4.4. Kiểm tra impact
+trên báo cáo kế toán</h3>
+<p>Khi RefundReversal ON, báo cáo kế toán sẽ phản ánh:</p>
+<ul>
+<li><strong>B 01-DN (Báo cáo tình hình TC):</strong> Có mục &quot;Phải trả
+khách hàng&quot; (331) tăng khi có refund</li>
+<li><strong>B 02-DN (KQ HĐKD):</strong> Doanh thu giảm (reversal entry
+đảo dấu revenue)</li>
+<li><strong>Cash = Accounting:</strong> Đảm bảo theo TT
+152/2025/TT-BTC</li>
+</ul>
+<hr />
+<h2 id="5-hướng-dẫn-cho-customer-khách-hàng">5. Hướng dẫn cho Customer
+(Khách hàng)</h2>
+<p>Customer là người dùng cuối qua KhachLink PWA — không cần thao tác gì
+thêm, nhưng bị ảnh hưởng gián tiếp.</p>
+<h3 id="51-tích-điểm-khi-loyalty-budget-on">5.1. Tích điểm (khi Loyalty
+Budget ON)</h3>
+<ul>
+<li>Khách vẫn tích điểm bình thường khi đặt hàng</li>
+<li><strong>Nếu budget tenant hết</strong> → khách có thể nhận ít điểm
+hơn dự kiến, hoặc 0 điểm</li>
+<li>Không có thông báo lỗi cho khách — chỉ log ở backend</li>
+<li>Budget reset hàng ngày (00:00 UTC) + đầu tháng → khách lại nhận điểm
+bình thường</li>
+</ul>
+<h3 id="52-hoàn-điểm-khi-hủy-đơn-khi-refund-reversal-on">5.2. Hoàn điểm
+khi hủy đơn (khi Refund Reversal ON)</h3>
+<ul>
+<li>Khi đơn bị hủy → điểm thưởng của đơn đó bị <strong>trừ
+ngược</strong> (SubtractPoints)</li>
+<li><code>LoyaltyIssuanceRecord.IsReversed = true</code> — đánh dấu đã
+đảo</li>
+<li>Nếu khách đã dùng điểm để đổi thưởng → balance có thể âm (không
+block, chỉ track)</li>
+</ul>
+<h3 id="53-không-thay-đổi-ux">5.3. Không thay đổi UX</h3>
+<ul>
+<li>VALCN v2.0 <strong>không thay đổi giao diện KhachLink</strong></li>
+<li>Tất cả thay đổi ở backend (feature flags, accounting, budget)</li>
+<li>Khách hàng không cần biết về feature flags</li>
+</ul>
+<hr />
+<h2 id="6-hướng-dẫn-cho-investor-nhà-đầu-tư">6. Hướng dẫn cho Investor
+(Nhà đầu tư)</h2>
+<p>Investor xem metrics tổng hợp qua Network Dashboard (do SystemAdmin
+trình bày).</p>
+<h3 id="61-truy-cập">6.1. Truy cập</h3>
+<ul>
+<li>Investor không đăng nhập trực tiếp — SystemAdmin mở
+<code>/admin/network-dashboard</code> và trình bày</li>
+<li>Dashboard là <strong>read-only</strong> — không có thao tác chỉnh
+sửa</li>
+</ul>
+<h3 id="62-8-metrics-giải-thích-cho-investor">6.2. 8 Metrics giải thích
+cho investor</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Giải thích cho investor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GMV</strong></td>
+<td>Tổng quy mô giao dịch toàn network — chỉ số tăng trưởng</td>
+</tr>
+<tr>
+<td><strong>Active Tenants</strong></td>
+<td>Số quán đang hoạt động — chỉ số adoption</td>
+</tr>
+<tr>
+<td><strong>Active Customers</strong></td>
+<td>Số khách hàng distinct — chỉ số reach</td>
+</tr>
+<tr>
+<td><strong>Repeat Rate</strong></td>
+<td>% khách quay lại — chỉ số retention (flywheel)</td>
+</tr>
+<tr>
+<td><strong>Platform Revenue</strong></td>
+<td>Doanh thu Vạn An từ phí nền tảng — unit economics</td>
+</tr>
+<tr>
+<td><strong>Loyalty Cost</strong></td>
+<td>Chi phí Vạn An chi cho điểm thưởng — investment vào retention</td>
+</tr>
+<tr>
+<td><strong>Loyalty ROI</strong></td>
+<td>Hiệu quả loyalty — (repeatGmv - cost) / cost. &gt;1 = lợi nhuận,
+&lt;1 = lỗ</td>
+</tr>
+<tr>
+<td><strong>Contribution Profit</strong></td>
+<td>Lợi nhuận đóng góp — PlatformRevenue - LoyaltyCost (chưa trừ Ops
+Cost)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="63-giải-thích-công-thức-loyaltyroi-fix-c4">6.3. Giải thích công
+thức LoyaltyROI (fix C4)</h3>
+<pre><code>LoyaltyROI = (repeatGmv - loyaltyCost) / loyaltyCost</code></pre>
+<ul>
+<li><strong>repeatGmv</strong> = GMV từ khách hàng có &gt;1 đơn (repeat
+customers)</li>
+<li><strong>loyaltyCost</strong> = tổng điểm phát hành × 1,000 VND
+(fallback)</li>
+<li><strong>Tại sao repeatGmv không phải totalGmv?</strong> Vì loyalty
+chỉ ảnh hưởng đến khách quay lại — khách 1 lần thì loyalty không có
+role</li>
+</ul>
+<h3 id="64-hạn-chế-hiện-tại-để-giải-thích-với-investor">6.4. Hạn chế
+hiện tại (để giải thích với investor)</h3>
+<ul>
+<li><strong>Loyalty Cost dùng fallback 1,000 VND/point</strong> — số
+liệu thực tế có thể khác (v3.0 sẽ có PointValue field)</li>
+<li><strong>Ops Cost chưa trừ</strong> trong Contribution Profit (defer
+v3.0) — Contribution Profit là upper bound</li>
+<li><strong>Cache 10 phút</strong> — số liệu không real-time, làm mới
+mỗi 10 phút</li>
+</ul>
+<hr />
+<h2 id="7-bảng-tra-cứu-feature-flags">7. Bảng tra cứu Feature Flags</h2>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>SystemSetting Key</th>
+<th>Hook point</th>
+<th>Khi ON</th>
+<th>Khi OFF (mặc định)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ValcnV2_PlatformFee</code></td>
+<td><code>Features:EnableValcnV2_PlatformFee</code></td>
+<td><code>OrderService.SnapshotCommerceModeAsync</code></td>
+<td>Set PlatformFeeAmount trên Marketplace orders</td>
+<td>PlatformFeeRate/Amount = null (no-op)</td>
+</tr>
+<tr>
+<td><code>ValcnV2_LoyaltyBudget</code></td>
+<td><code>Features:EnableValcnV2_LoyaltyBudget</code></td>
+<td><code>OrderWorkflowService.ProcessLoyaltyPointsAsync</code></td>
+<td>Check 4 caps trước AddPoints + 2 reset jobs</td>
+<td>AddPoints trực tiếp (no cap)</td>
+</tr>
+<tr>
+<td><code>ValcnV2_RefundReversal</code></td>
+<td><code>Features:EnableValcnV2_RefundReversal</code></td>
+<td><code>OrderWorkflowService.HandleOrderCancelledAsync</code></td>
+<td>4-step reversal (2a+2b+2c+2d)</td>
+<td>Silent cancel (no reversal)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Network Dashboard</strong> không có flag — luôn sẵn sàng cho
+SystemAdmin (read-only, không thay đổi behavior).</p>
+</blockquote>
+<hr />
+<h2 id="8-câu-hỏi-thường-gặp-faq">8. Câu hỏi thường gặp (FAQ)</h2>
+<h3 id="q-tôi-bật-feature-flag-nhưng-không-thấy-hiệu-lực">Q: Tôi bật
+feature flag nhưng không thấy hiệu lực?</h3>
+<p><strong>A:</strong> Cache TTL 30 giây — đợi 30s rồi kiểm tra lại.
+Hoặc click &quot;Làm mới&quot; trên trang <code>/admin/valcn-features</code>.</p>
+<h3 id="q-bật-refund-reversal-ảnh-hưởng-đơn-đã-hủy-trước-đó-không">Q:
+Bật Refund Reversal ảnh hưởng đơn đã hủy trước đó không?</h3>
+<p><strong>A:</strong> <strong>Không.</strong> Chỉ áp dụng cho đơn hủy
+<em>sau khi</em> bật flag. Đơn đã hủy khi OFF giữ behavior cũ (silent
+cancel).</p>
+<h3 id="q-tắt-flag-có-hoàn-tác-dữ-liệu-đã-tạo-không">Q: Tắt flag có hoàn
+tác dữ liệu đã tạo không?</h3>
+<p><strong>A:</strong> <strong>Không.</strong> Reversal entries, budget
+counter changes, wallet reversals đã tạo sẽ giữ nguyên. Tắt flag chỉ ảnh
+hưởng đơn <em>mới</em>.</p>
+<h3 id="q-loyalty-budget-hết--khách-có-bị-lỗi-không">Q: Loyalty Budget
+hết → khách có bị lỗi không?</h3>
+<p><strong>A:</strong> Không. Khách nhận 0 điểm (thay vì points dự
+kiến). Không có error cho khách, chỉ log warning ở backend.</p>
+<h3 id="q-network-dashboard-hiển-thị-0-cho-mọi-metric">Q: Network
+Dashboard hiển thị 0 cho mọi metric?</h3>
+<p><strong>A:</strong> Kiểm tra: (1) có đơn hàng trong khoảng ngày đã
+chọn không, (2) Gateway có đang chạy không (ShopERP gọi Gateway qua
+HTTP), (3) thử mở rộng khoảng ngày (mặc định 30 ngày).</p>
+<h3 id="q-platform-fee-tính-trên-reseller-orders-không">Q: Platform Fee
+tính trên Reseller orders không?</h3>
+<p><strong>A:</strong> <strong>Không.</strong> Chỉ áp dụng Marketplace
+mode. Reseller mode có cơ chế margin riêng
+(CostPrice/SellPrice/PlatformMargin).</p>
+<h3 id="q-loyalty-cost-trên-network-dashboard-chính-xác-không">Q:
+Loyalty Cost trên Network Dashboard chính xác không?</h3>
+<p><strong>A:</strong> <strong>Chưa chính xác tuyệt đối.</strong> Dùng
+fallback 1,000 VND/point (INV-009 chưa triển khai). v3.0 sẽ có
+PointValue field trong LoyaltyGlobalConfig để tính chính xác.</p>
+<h3 id="q-tôi-có-thể-bật-refund-reversal-mà-không-bật-loyalty-budget-không">Q:
+Tôi có thể bật Refund Reversal mà không bật Loyalty Budget không?</h3>
+<p><strong>A:</strong> Có, nhưng <strong>không khuyến nghị</strong>.
+Bước 2c (loyalty reversal) vẫn chạy SubtractPoints + MarkReversed, nhưng
+<code>DecrementIssuanceAsync</code> không có config để giảm → budget
+counters sai. Bật theo thứ tự: PlatformFee → LoyaltyBudget →
+RefundReversal.</p>
+<h3 id="q-đơn-hủy-khi-refund-reversal-on-sau-đó-tôi-tắt-flag-rồi-hủy-tiếp-đơn-khác--behavior-thế-nào">Q:
+Đơn hủy khi Refund Reversal ON, sau đó tôi tắt flag rồi hủy tiếp đơn
+khác → behavior thế nào?</h3>
+<p><strong>A:</strong> Đơn 1 (hủy khi ON) → 4-step reversal. Đơn 2 (hủy
+khi OFF) → silent cancel. Mỗi đơn xử lý độc lập theo trạng thái flag tại
+thời điểm hủy.</p>
+<hr />
+<h2 id="9-khắc-phục-sự-cố">9. Khắc phục sự cố</h2>
+<h3 id="91-network-dashboard-không-tải-được">9.1. Network Dashboard
+không tải được</h3>
+<p><strong>Triệu chứng:</strong> Trang hiển thị &quot;Không thể tải metrics.
+Kiểm tra kết nối Gateway.&quot;</p>
+<p><strong>Nguyên nhân &amp; xử lý:</strong></p>
+<ol type="1">
+<li><strong>Gateway không khả dụng</strong> → Kiểm tra
+<code>vanan-gateway-1</code> container đang healthy</li>
+<li><strong>Internal API key sai</strong> → Kiểm tra config
+<code>InternalLoyalty:ApiKey</code> ở cả Gateway + ShopERP</li>
+<li><strong>Lỗi 500 từ Gateway</strong> → Xem log Gateway:
+<code>docker logs vanan-gateway-1 --tail 50</code></li>
+</ol>
+<h3 id="92-feature-flag-bật-nhưng-không-thấy-thay-đổi">9.2. Feature flag
+bật nhưng không thấy thay đổi</h3>
+<p><strong>Triệu chứng:</strong> Bật <code>ValcnV2_PlatformFee</code>
+nhưng đơn mới vẫn không có PlatformFeeAmount.</p>
+<p><strong>Xử lý:</strong></p>
+<ol type="1">
+<li>Đợi 30 giây (cache TTL)</li>
+<li>Kiểm tra đơn có phải <strong>Marketplace mode</strong> không
+(Reseller không áp dụng)</li>
+<li>Kiểm tra <code>ShopFeatureSettingsEntity.PlatformFeeRate</code> có
+set không (nếu null → fallback global)</li>
+<li>Kiểm tra log <code>OrderService.SnapshotCommerceModeAsync</code> có
+log &quot;feature ON&quot; không</li>
+</ol>
+<h3 id="93-refund-reversal-chạy-nhưng-loyalty-points-không-đảo">9.3.
+Refund Reversal chạy nhưng loyalty points không đảo</h3>
+<p><strong>Triệu chứng:</strong> Hủy đơn khi ON, accounting reversal
+tạo, nhưng customer balance không giảm.</p>
+<p><strong>Xử lý:</strong></p>
+<ol type="1">
+<li>Kiểm tra có <code>LoyaltyIssuanceRecord</code> cho OrderId không
+(Phase 1 entity — nếu đơn tạo trước Phase 1 thì không có record)</li>
+<li>Kiểm tra <code>LoyaltyIssuanceRecord.IsReversed</code> — nếu true
+thì đã đảo rồi (idempotency skip)</li>
+<li>Kiểm tra <code>SubtractPointsAsync</code> có throw không (xem log
+RefundOrchestrationService)</li>
+</ol>
+<h3 id="94-loyalty-budget-reset-job-không-chạy">9.4. Loyalty Budget
+reset job không chạy</h3>
+<p><strong>Triệu chứng:</strong> <code>PointsIssuedToday</code> không
+reset về 0 lúc 00:00 UTC.</p>
+<p><strong>Xử lý:</strong></p>
+<ol type="1">
+<li>Kiểm tra job có enabled không tại
+<code>/admin/background-services</code></li>
+<li>Kiểm tra <code>LoyaltyBudgetDailyResetJob</code> log (chạy lúc 00:00
+UTC — convert sang giờ local)</li>
+<li>Kiểm tra Gateway container đang chạy (job chạy ở Gateway, không phải
+ShopERP)</li>
+</ol>
+<hr />
+<h2 id="phụ-lục-thông-tin-kỹ-thuật">Phụ lục: Thông tin kỹ thuật</h2>
+<h3 id="kiến-trúc">Kiến trúc</h3>
+<pre><code>KhachLink (5002) → Gateway (5001, order creator) → NATS (routed) → ShopERP (5003, per-tenant SQLite)
+                    PG: Orders + Accounting + Tenants + LoyaltyTenantConfig</code></pre>
+<h3 id="feature-flag-service">Feature Flag Service</h3>
+<ul>
+<li><strong>File:</strong>
+<code>3_CoreHub/Services/FeatureFlagService.cs</code></li>
+<li><strong>Pattern:</strong> Singleton +
+<code>IServiceScopeFactory</code> + 30s <code>IMemoryCache</code></li>
+<li><strong>Storage:</strong> <code>SystemSetting</code> table (PG), key
+<code>Features:Enable{FeatureName}</code>, value
+<code>&quot;true&quot;</code>/<code>&quot;false&quot;</code></li>
+<li><strong>Default:</strong> <code>false</code> (OFF) — opposite of
+<code>BackgroundServiceToggleService</code></li>
+</ul>
+<h3 id="các-file-chính-valcn-v20">Các file chính VALCN v2.0</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Vai trò</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>3_CoreHub/Services/FeatureFlagService.cs</code></td>
+<td>Feature flag service (3 flags)</td>
+</tr>
+<tr>
+<td><code>3_CoreHub/Services/RefundOrchestrationService.cs</code></td>
+<td>4-step reversal (Phase 4)</td>
+</tr>
+<tr>
+<td><code>3_CoreHub/Services/NetworkDashboardService.cs</code></td>
+<td>Cross-tenant metrics (Phase 7)</td>
+</tr>
+<tr>
+<td><code>3_CoreHub/Services/LoyaltyBudgetService.cs</code></td>
+<td>Budget enforcement (Phase 3)</td>
+</tr>
+<tr>
+<td><code>2_Gateway/Controllers/NetworkDashboardController.cs</code></td>
+<td>Internal API (Phase 7)</td>
+</tr>
+<tr>
+<td><code>5_WebApps/ShopERP/Components/Pages/Admin/ValcnFeatures.razor</code></td>
+<td>Feature flag admin UI</td>
+</tr>
+<tr>
+<td><code>5_WebApps/ShopERP/Components/Pages/Admin/NetworkDashboard.razor</code></td>
+<td>Network dashboard UI</td>
+</tr>
+</tbody>
+</table>
+<h3 id="commits">Commits</h3>
+<table>
+<thead>
+<tr>
+<th>Wave</th>
+<th>Commit</th>
+<th>Phases</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wave 1</td>
+<td><code>af09b8d0</code></td>
+<td>Phase 0 + Phase 1</td>
+</tr>
+<tr>
+<td>Wave 2</td>
+<td><code>f1d46f24</code> + <code>7edf589a</code></td>
+<td>Phase 2 + Phase 3</td>
+</tr>
+<tr>
+<td>Wave 3</td>
+<td><code>9a4d0e9b</code></td>
+<td>Phase 4 + Phase 7</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><strong>Tài liệu này áp dụng cho VALCN v2.0 PLATFORM-LIGHT
+(2026-08-09). Phiên bản v3.0 sẽ bổ sung: PointValue field (INV-009),
+payment provider integration, Ops Cost metric, Merchant
+Tiering.</strong></p>
+</body>
+</html>
