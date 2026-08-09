@@ -89,7 +89,7 @@ server {
     #    These are served by nginx/proxy without .NET processing — no RAM cost.
     # 2. Dynamic pages (/Login, /admin/*) — limit_req burst=50 + limit_conn 10.
     #    Burst high enough for Blazor initial load, limit_conn prevents RAM exhaustion.
-    # 3. WebSocket /_blazor — limit_req off + limit_conn 10 (long-lived, not bursty).
+    # 3. WebSocket /_blazor — no limit_req (location overrides parent) + limit_conn 10.
     #    limit_conn is the right tool: 1 IP = max 10 concurrent circuits (10 tabs).
 
     # Layer 1: Static assets — no rate limit (fast initial load)
@@ -105,7 +105,6 @@ server {
 
     # Layer 3: Blazor SignalR WebSocket — limit_conn only (not limit_req)
     location /_blazor {
-        limit_req off;
         limit_conn perip_conn 10;
         proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
         proxy_http_version 1.1;
@@ -186,7 +185,6 @@ server {
 
     # Blazor SignalR WebSocket — limit_conn only (not limit_req)
     location /_blazor {
-        limit_req off;
         limit_conn perip_conn 10;
         proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
@@ -255,7 +253,6 @@ server {
 
     # Layer 3: Blazor SignalR WebSocket — limit_conn only
     location /_blazor {
-        limit_req off;
         limit_conn perip_conn 10;
         proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
         proxy_http_version 1.1;
