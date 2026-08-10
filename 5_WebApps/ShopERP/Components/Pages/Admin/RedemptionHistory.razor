@@ -6,7 +6,9 @@
 @using Microsoft.AspNetCore.Authorization
 @using VanAn.Shared.Services
 @using VanAn.Shared.Domain
+@using Microsoft.JSInterop
 @inject IRedemptionService RedemptionService
+@inject IJSRuntime JSRuntime
 @inject ILogger<RedemptionHistory> Logger
 
 @attribute [Authorize(Policy = "OwnerOnly")]
@@ -24,31 +26,72 @@
         <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
     }
 
-    @* === Fulfill Voucher by Code === *@
+    @* === Fulfill Voucher by Code or QR Scan === *@
     <VanACard Title="Xác nhận voucher">
         <div class="row g-2 align-items-end">
-            <div class="col-md-6">
+            <div class="col-md-5">
                 <label class="form-label">Mã voucher</label>
                 <input class="form-control" @bind="_fulfillCode" placeholder="VAN-XXXXXXXX" />
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label class="form-label">Ghi chú (tùy chọn)</label>
                 <input class="form-control" @bind="_fulfillNotes" />
             </div>
             <div class="col-md-2">
-                <VanAButton Variant="primary" OnClick="FulfillAsync" Disabled="@_fulfilling">
+                <VanAButton Variant="primary" OnClick="FulfillAsync" Disabled="@_fulfilling" CssClass="w-100">
                     @if (_fulfilling)
                     {
                         <span class="spinner-border spinner-border-sm"></span>
                     }
                     else
                     {
-                        <text>Xác nhận</text>
+                        <text><i class="bi bi-check-lg"></i> Xác nhận</text>
+                    }
+                </VanAButton>
+            </div>
+            <div class="col-md-2">
+                <VanAButton Variant="success" OnClick="OpenScanner" Disabled="@_scanning" CssClass="w-100">
+                    @if (_scanning)
+                    {
+                        <span class="spinner-border spinner-border-sm"></span>
+                    }
+                    else
+                    {
+                        <text><i class="bi bi-qr-code-scan"></i> Quét QR</text>
                     }
                 </VanAButton>
             </div>
         </div>
     </VanACard>
+
+    @* === QR Scanner Modal === *@
+    @if (_showScanner)
+    {
+        <div class="modal d-block" style="background:rgba(0,0,0,0.5);" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="bi bi-qr-code-scan"></i> Quét mã QR voucher</h5>
+                        <button type="button" class="btn-close" @onclick="CloseScanner"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <div id="qr-reader" style="width:100%;max-width:300px;margin:0 auto;"></div>
+                        @if (!string.IsNullOrEmpty(_scanError))
+                        {
+                            <div class="alert alert-danger mt-2 small">@_scanError</div>
+                        }
+                        <hr />
+                        <p class="text-muted small mb-2">Hoặc tải ảnh QR lên:</p>
+                        <input type="file" id="qr-file-input" accept="image/*" class="form-control form-control-sm"
+                               @onchange="ScanFromFileAsync" />
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseScanner">Đóng</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 
     @* === Recent Redemption Records === *@
     <VanACard Title="Lịch sử gần đây">
@@ -136,6 +179,12 @@
     private List<RedemptionRecordViewModel> _records = new();
     private Dictionary<Guid, string> _voucherCodeCache = new();
 
+    // QR Scanner state
+    private bool _showScanner;
+    private bool _scanning;
+    private string? _scanError;
+    private DotNetObjectReference<RedemptionHistory>? _dotNetRef;
+
     protected override async Task OnInitializedAsync() => await LoadHistory();
 
     private async Task LoadHistory()
@@ -212,6 +261,75 @@
             _alertType = "danger";
         }
         finally { _fulfilling = false; }
+    }
+
+    // === QR Scanner ===
+
+    private async Task OpenScanner()
+    {
+        _showScanner = true;
+        _scanError = null;
+        _scanning = true;
+        _dotNetRef = DotNetObjectReference.Create(this);
+        await InvokeAsync(StateHasChanged);
+
+        // Wait for DOM to render, then start camera
+        await Task.Delay(300);
+        try
+        {
+            await JSRuntime.InvokeAsync<bool>("vananQrScanner.startScanner", "qr-reader", _dotNetRef);
+        }
+        catch (Exception ex)
+        {
+            _scanError = $"Không thể mở camera: {ex.Message}. Bạn có thể tải ảnh QR lên thay thế.";
+        }
+        finally
+        {
+            _scanning = false;
+        }
+    }
+
+    private async Task CloseScanner()
+    {
+        try { await JSRuntime.InvokeVoidAsync("vananQrScanner.stopScanner"); }
+        catch { }
+        _showScanner = false;
+        _scanError = null;
+        _dotNetRef?.Dispose();
+        _dotNetRef = null;
+    }
+
+    private async Task ScanFromFileAsync(ChangeEventArgs e)
+    {
+        _scanError = null;
+        _dotNetRef ??= DotNetObjectReference.Create(this);
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("vananQrScanner.scanFromFile", "qr-file-input", _dotNetRef);
+        }
+        catch (Exception ex)
+        {
+            _scanError = $"Không đọc được QR từ file: {ex.Message}";
+        }
+    }
+
+    /// <summary>JS callback: QR code scanned successfully.</summary>
+    [JSInvokable]
+    public async Task OnQrScanned(string decodedText)
+    {
+        _fulfillCode = decodedText.Trim();
+        await CloseScanner();
+        // Auto-fulfill after scan
+        await FulfillAsync();
+    }
+
+    /// <summary>JS callback: scanner error.</summary>
+    [JSInvokable]
+    public Task OnQrError(string error)
+    {
+        _scanError = error;
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     private async Task CancelAsync(Guid recordId)
