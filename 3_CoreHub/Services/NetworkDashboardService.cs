@@ -56,15 +56,34 @@ public class NetworkDashboardService : INetworkDashboardService
         var gmv = orders.Sum(o => o.TotalAmount);
         var activeTenants = orders.Select(o => o.TenantId.Value).Distinct().Count();
 
-        // Order.CustomerId is Guid? — filter nulls for customer-based metrics
-        var ordersWithCustomer = orders.Where(o => o.CustomerId.HasValue).ToList();
-        var activeCustomers = ordersWithCustomer.Select(o => o.CustomerId!.Value).Distinct().Count();
+        // Customer identity key: prefer CustomerId, fall back to CustomerDeviceId for guest checkout.
+        // TECH DEBT (TD-NETDASH-001): Order.CustomerId is null for guest checkouts even though
+        // OrderWorkflowService.CreateCustomerStubAsync creates a Customer stub and awards loyalty
+        // points to it. The stub's Id is never written back to Order.CustomerId.
+        // Option A (this fix): use CustomerDeviceId as fallback identity key in dashboard queries.
+        // Option B (proper fix — deferred): add Order.SetCustomerId(stub.Id) after stub creation,
+        // then revert this fallback. Requires Domain change (add SetCustomerId method) + approval.
+        var ordersWithCustomer = orders
+            .Where(o => o.CustomerId.HasValue || !string.IsNullOrEmpty(o.CustomerDeviceId))
+            .ToList();
+        var customerKeys = ordersWithCustomer
+            .Select(o => o.CustomerId?.ToString() ?? o.CustomerDeviceId!)
+            .Distinct()
+            .ToList();
+        var activeCustomers = customerKeys.Count;
 
         // FIX C4: Repeat rate + repeat GMV calculated correctly
-        var ordersByCustomer = ordersWithCustomer.GroupBy(o => o.CustomerId!.Value);
-        var repeatCustomerIds = ordersByCustomer.Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet();
-        var repeatRate = activeCustomers > 0 ? (decimal)repeatCustomerIds.Count / activeCustomers : 0;
-        var repeatGmv = ordersWithCustomer.Where(o => repeatCustomerIds.Contains(o.CustomerId!.Value)).Sum(o => o.TotalAmount);
+        // Group by customer identity key (CustomerId or DeviceId fallback — see TD-NETDASH-001)
+        var ordersByCustomer = ordersWithCustomer
+            .GroupBy(o => o.CustomerId?.ToString() ?? o.CustomerDeviceId!);
+        var repeatCustomerKeys = ordersByCustomer
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToHashSet();
+        var repeatRate = activeCustomers > 0 ? (decimal)repeatCustomerKeys.Count / activeCustomers : 0;
+        var repeatGmv = ordersWithCustomer
+            .Where(o => repeatCustomerKeys.Contains(o.CustomerId?.ToString() ?? o.CustomerDeviceId!))
+            .Sum(o => o.TotalAmount);
 
         // Platform revenue from Phase 2 field (nullable — null = not calculated, treat as 0)
         var platformRevenue = orders.Sum(o => o.PlatformFeeAmount ?? 0);
