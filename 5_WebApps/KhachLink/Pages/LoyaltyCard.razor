@@ -10,7 +10,7 @@
 @inject LoyaltyModeHttpService LoyaltyModeHttp
 @using Microsoft.AspNetCore.Components.Web
 
-<PageTitle>Điểm thưởng của tôi</PageTitle>
+<PageTitle>Lịch sử tích điểm</PageTitle>
 
 <KhachLinkLayout>
     <div class="container py-4" style="max-width:600px;">
@@ -30,86 +30,16 @@
         }
         else if (_loyalty != null)
         {
-            <!-- Tier Card -->
-            <VanAnCard Shadow="true" CssClass="loyalty-tier-card mb-4">
-                <div class="text-center p-4">
-                    <div class="tier-badge @GetTierBadgeClass() mb-3">@_loyalty.Tier</div>
-                    <h2 class="points-display">@_loyalty.PointBalance.ToString("N0") điểm</h2>
-                    @if (_loyalty.NextTierThreshold > 0)
-                    {
-                        <p class="text-muted small mb-2">
-                            Còn @(_loyalty.NextTierThreshold - _loyalty.PointBalance).ToString("N0") điểm để lên hạng tiếp theo
-                        </p>
-                        <div class="progress" style="height:8px;">
-                            <div class="progress-bar bg-warning" style="width:@_loyalty.ProgressPercent%;"></div>
-                        </div>
-                    }
-                    else
-                    {
-                        <p class="text-muted small">Bạn đang ở hạng cao nhất!</p>
-                    }
-                </div>
-            </VanAnCard>
+            @* Demo sections hidden — Tier Card, Alliance wallet link, Redeem section, Tier Info
+               are demo/placeholder UI. Only History section is kept (real data).
+               Redeem section was also broken (calls deprecated /api/loyalty/redeem → 410). *@
 
-            @* Loyalty Alliance Phase 5B: link to cross-tenant alliance wallet (hidden when Silo mode) *@
-            @if (_isAllianceMode)
-            {
-                <VanAnCard Shadow="true" CssClass="mb-3 text-center p-3">
-                    <a href="/alliance-wallet" class="text-decoration-none">
-                        <i class="bi bi-globe2 text-primary"></i>
-                        <span class="ms-1">Xem ví điểm liên minh (cross-tenant)</span>
-                        <i class="bi bi-chevron-right text-muted small"></i>
-                    </a>
-                </VanAnCard>
-            }
-
-            @* Tiered Auth Phase 3: Redeem section with verification gate *@
-            <VanAnCard Shadow="true" CssClass="mb-4">
-                <h5 class="mb-3">Đổi điểm thưởng</h5>
-                <div class="mb-2">
-                    <label class="form-label small">Số điểm muốn đổi</label>
-                    <input type="number" class="form-control"
-                           placeholder="100" min="1" max="@_loyalty.PointBalance"
-                           @bind="_redeemPoints" @bind:event="oninput" />
-                </div>
-                @if (_redeemError != null)
-                {
-                    <VanAnAlert Variant="AlertVariant.Error" Message="@_redeemError" CssClass="mb-2" />
-                }
-                @if (_redeemSuccess != null)
-                {
-                    <VanAnAlert Variant="AlertVariant.Success" Message="@_redeemSuccess" CssClass="mb-2" />
-                }
-                <VanAnButton Variant="ButtonVariant.Primary"
-                             FullWidth="true"
-                             OnClick="RedeemPoints"
-                             Disabled="@_redeeming"
-                             TestId="btn-redeem-points">
-                    @(_redeeming ? "Đang xử lý..." : "Đổi điểm")
-                </VanAnButton>
-            </VanAnCard>
-
-            <!-- Tier Info -->
-            <VanAnCard Shadow="true" CssClass="mb-4">
-                <h5 class="mb-3">Quyền lợi theo hạng</h5>
-                <div class="tier-table">
-                    @foreach (var tier in _tiers)
-                    {
-                        <div class="tier-row @(tier.Name == _loyalty.Tier ? "active-tier" : "")">
-                            <span class="badge @tier.BadgeClass me-2">@tier.Name</span>
-                            <span class="text-muted small">@tier.Threshold điểm</span>
-                            <span class="ms-auto small">@tier.Benefit</span>
-                        </div>
-                    }
-                </div>
-            </VanAnCard>
-
-            <!-- History -->
+            <!-- History (show 20 most recent) -->
             @if (_loyalty.History?.Count > 0)
             {
                 <VanAnCard Shadow="true">
                     <h5 class="mb-3">Lịch sử tích điểm</h5>
-                    @foreach (var item in _loyalty.History)
+                    @foreach (var item in _loyalty.History.Take(20))
                     {
                         <div class="history-item d-flex align-items-center py-2 border-bottom">
                             <div class="me-3">

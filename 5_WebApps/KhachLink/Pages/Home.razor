@@ -53,7 +53,7 @@
     <VanAnCard CssClass="store-finder-section mb-4">
         <div class="container">
             <h2 class="mb-3">
-                <i class="bi bi-geo-alt-fill text-primary"></i> Tìm cửa hàng gần bạn
+                <i class="bi bi-geo-alt-fill text-primary"></i> Tìm quanh đây
             </h2>
 
             <!-- Search box — ALWAYS visible (user can search again at any time) -->
@@ -75,11 +75,12 @@
                         </VanAnButton>
                     </div>
                 </div>
-                <div class="mt-2 text-center">
+                @* "Xem tất cả cửa hàng" button hidden — temporarily disabled *@
+                @* <div class="mt-2 text-center">
                     <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="LoadAllNearbyStores">
                         <i class="bi bi-list me-1"></i> Xem tất cả cửa hàng
                     </VanAnButton>
-                </div>
+                </div> *@
             </div>
 
             <!-- Results area: loading / error / no-results / store list -->
@@ -111,17 +112,11 @@
                             <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="IncreaseRadiusAndSearch">
                                 <i class="bi bi-zoom-in me-1"></i> Mở rộng bán kính
                             </VanAnButton>
-                            <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="LoadAllNearbyStores">
-                                <i class="bi bi-list me-1"></i> Xem tất cả
-                            </VanAnButton>
                         </div>
                     }
                     else
                     {
                         <p class="text-muted mb-2">Không tìm thấy cửa hàng nào với từ khóa "@_storeSearchQuery".</p>
-                        <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="LoadAllNearbyStores">
-                            <i class="bi bi-list me-1"></i> Xem tất cả cửa hàng
-                        </VanAnButton>
                     }
                 </div>
             }
@@ -182,7 +177,8 @@
                         </div>
                     }
                 </div>
-                @if (_nearbyStores.Count > 6)
+                @* "Xem tất cả cửa hàng" button hidden — temporarily disabled *@
+                @if (false && _nearbyStores.Count > 6)
                 {
                     <div class="text-center mt-2">
                         <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="@(() => Navigation.NavigateTo("/stores"))">
@@ -763,9 +759,7 @@
     /// </summary>
     private async Task SearchStoresAsync()
     {
-        _userLat = null;
-        _userLng = null;
-        _userLocationShared = false;
+        // Keep user location — pass lat/lng to search endpoint so distance can be computed
         if (string.IsNullOrWhiteSpace(_storeSearchQuery))
         {
             await LoadAllNearbyStores();
@@ -777,6 +771,8 @@
         {
             var client = HttpClientFactory.CreateClient("gateway");
             var url = $"/api/tenants/search?name={Uri.EscapeDataString(_storeSearchQuery)}";
+            if (_userLat.HasValue && _userLng.HasValue)
+                url += $"&lat={_userLat.Value}&lng={_userLng.Value}";
             var response = await client.GetAsync(url);
             if (response.IsSuccessStatusCode)
             {

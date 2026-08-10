@@ -140,7 +140,7 @@ namespace VanAn.Gateway.Controllers
                     .Select(t => new { Tenant = t, Distance = HaversineKm(lat.Value, lng.Value, t.Settings!.Latitude!.Value, t.Settings!.Longitude!.Value) })
                     .Where(x => x.Distance <= radiusKm)
                     .OrderBy(x => x.Distance)
-                    .Select(x => MapToStoreDto(x.Tenant))
+                    .Select(x => MapToStoreDto(x.Tenant, x.Distance))
                     .ToList();
 
                 return Ok(nearby);
@@ -153,24 +153,64 @@ namespace VanAn.Gateway.Controllers
         }
 
         /// <summary>
-        /// Search tenants by name or slug.
+        /// Search tenants by name OR by FeaturedProduct.DisplayName (PG-only, no ShopERP call).
         /// Replaces GET /api/shops/search.
+        /// Relevance sort: exact match > starts-with > contains. Name match > product match.
         /// </summary>
         [HttpGet("search")]
         [AllowAnonymous]
-        public async Task<ActionResult<List<TenantStoreDto>>> Search([FromQuery] string? name)
+        public async Task<ActionResult<List<TenantStoreDto>>> Search([FromQuery] string? name, [FromQuery] double? lat, [FromQuery] double? lng)
         {
             try
             {
-                var query = _dbContext.Tenants
+                var baseQuery = _dbContext.Tenants
                     .AsNoTracking()
                     .IgnoreQueryFilters() // public endpoint — show all tenants regardless of caller's tenant context
                     .Where(t => t.Status == TenantStatus.Active);
-                if (!string.IsNullOrWhiteSpace(name))
-                    query = query.Where(t => EF.Functions.ILike(t.Name, $"%{name}%"));
 
-                var tenants = await query.Take(50).ToListAsync();
-                return Ok(tenants.Select(MapToStoreDto).ToList());
+                List<Tenant> tenants;
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    // No keyword — return all active tenants (legacy behavior, Take 50)
+                    tenants = await baseQuery.Take(50).ToListAsync();
+                }
+                else
+                {
+                    // Match tenant.Name OR any FeaturedProduct.DisplayName of that tenant.
+                    // Use subquery: tenant matches if Name ILIKE %q% OR EXISTS FeaturedProduct with DisplayName ILIKE %q%.
+                    var q = name.Trim();
+                    var matched = await baseQuery
+                        .Where(t => EF.Functions.ILike(t.Name, $"%{q}%")
+                                    || _dbContext.FeaturedProducts.Any(fp => fp.TenantId == t.Id && fp.IsActive && EF.Functions.ILike(fp.DisplayName, $"%{q}%")))
+                        .Take(50)
+                        .ToListAsync();
+
+                    // Relevance sort (in-memory, small set ≤50):
+                    //   1. Exact Name match (Name == q, case-insensitive)
+                    //   2. Name starts with q
+                    //   3. Name contains q
+                    //   4. Has FeaturedProduct with DisplayName exact/starts/contains (lower priority than name)
+                    tenants = matched
+                        .OrderByDescending(t => string.Equals(t.Name, q, StringComparison.OrdinalIgnoreCase) ? 4
+                            : t.Name.StartsWith(q, StringComparison.OrdinalIgnoreCase) ? 3
+                            : t.Name.Contains(q, StringComparison.OrdinalIgnoreCase) ? 2
+                            : 1) // product-only match
+                        .ThenBy(t => t.Name)
+                        .ToList();
+                }
+
+                // If user location provided, compute distance for each store
+                double? userLat = lat, userLng = lng;
+                return Ok(tenants.Select(t =>
+                {
+                    double? dist = null;
+                    if (userLat.HasValue && userLng.HasValue
+                        && t.Settings?.Latitude.HasValue == true && t.Settings?.Longitude.HasValue == true)
+                    {
+                        dist = HaversineKm(userLat.Value, userLng.Value, t.Settings!.Latitude!.Value, t.Settings!.Longitude!.Value);
+                    }
+                    return MapToStoreDto(t, dist);
+                }).ToList());
             }
             catch (Exception ex)
             {
@@ -179,7 +219,7 @@ namespace VanAn.Gateway.Controllers
             }
         }
 
-        private static TenantStoreDto MapToStoreDto(Tenant t) => new()
+        private static TenantStoreDto MapToStoreDto(Tenant t, double? distanceKm = null) => new()
         {
             Id = t.Id.Value,
             Name = t.Name,
@@ -188,6 +228,7 @@ namespace VanAn.Gateway.Controllers
             Email = t.Settings?.ContactEmail ?? string.Empty,
             Latitude = t.Settings?.Latitude,
             Longitude = t.Settings?.Longitude,
+            DistanceKm = distanceKm,
             Slug = t.Settings?.Slug,
             SocialLinksFb = t.Settings?.SocialLinksFb,
             SocialLinksTiktok = t.Settings?.SocialLinksTiktok,
@@ -221,6 +262,8 @@ namespace VanAn.Gateway.Controllers
         public string Email { get; init; } = string.Empty;
         public double? Latitude { get; init; }
         public double? Longitude { get; init; }
+        /// <summary>Distance from user location (km). Null if user location not shared or store has no coordinates.</summary>
+        public double? DistanceKm { get; init; }
         /// <summary>Tenant Profile Page (2026-07-21): URL slug for /store/{slug}. Null if not set.</summary>
         public string? Slug { get; init; }
         public string? SocialLinksFb { get; init; }
