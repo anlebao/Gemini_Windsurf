@@ -2244,6 +2244,24 @@ namespace VanAn.Shared.Domain
             LastChangedBy = changedBy;
             UpdateAudit();
         }
+
+        /// <summary>
+        /// Issue #118: Update points formula (PointsRate + MinPointsPerOrder).
+        /// PointsRate is int percent (1 = 1% of order total). 0 = use appsettings default.
+        /// MinPointsPerOrder is minimum points awarded per order (floor).
+        /// </summary>
+        public void UpdatePointsFormula(int pointsRate, int minPointsPerOrder, string changedBy)
+        {
+            if (pointsRate < 0 || pointsRate > 100)
+                throw new ArgumentException("PointsRate phải từ 0 đến 100.", nameof(pointsRate));
+            if (minPointsPerOrder < 0)
+                throw new ArgumentException("MinPointsPerOrder không được âm.", nameof(minPointsPerOrder));
+            PointsRate = pointsRate;
+            MinPointsPerOrder = minPointsPerOrder;
+            LastChangedAt = DateTime.UtcNow;
+            LastChangedBy = changedBy;
+            UpdateAudit();
+        }
     }
 
     /// <summary>

@@ -102,6 +102,8 @@ namespace VanAn.ShopERP.Services
     public sealed class UpdateGlobalConfigRequest
     {
         public LoyaltyMode Mode { get; set; }
+        public int PointsRate { get; set; } = 1;          // Issue #118: editable (1 = 1% of order total)
+        public int MinPointsPerOrder { get; set; } = 10;  // Issue #118: editable
         public int MaxPointsPerOrder { get; set; }
         public int MaxWalletPoints { get; set; }
     }

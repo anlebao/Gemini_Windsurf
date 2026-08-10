@@ -91,8 +91,33 @@
                             {
                                 <div class="pos-cart-item">
                                     <div class="pos-cart-item__info">
-                                        <span class="pos-cart-item__name">@item.ProductName</span>
-                                        <span class="pos-cart-item__price">@item.UnitPrice.ToString("N0") đ</span>
+                                        @if (item.IsPriceEditable)
+                                        {
+                                            @* Issue #114: Inline name + price + VAT entry for default service product (Price=0) *@
+                                            <input type="text" class="form-control form-control-sm mb-1"
+                                                   value="@item.ProductName"
+                                                   @oninput="(e) => UpdateCartItemName(item.ProductId, (string)(e.Value ?? string.Empty))"
+                                                   placeholder="Tên sản phẩm/dịch vụ" />
+                                            <div class="d-flex gap-1">
+                                                <input type="number" class="form-control form-control-sm"
+                                                       style="width: 100px;"
+                                                       value="@item.UnitPrice"
+                                                       @oninput="(e) => UpdateCartItemPrice(item.ProductId, decimal.TryParse(e.Value as string, out var p) ? p : 0)"
+                                                       placeholder="Giá" min="0" />
+                                                <span>đ</span>
+                                                <input type="number" class="form-control form-control-sm"
+                                                       style="width: 70px;"
+                                                       value="@((int)(item.VatRate * 100))"
+                                                       @oninput="(e) => UpdateCartItemVat(item.ProductId, int.TryParse(e.Value as string, out var v) ? v / 100m : 0.10m)"
+                                                       placeholder="VAT%" min="0" max="100" />
+                                                <span>%</span>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="pos-cart-item__name">@item.ProductName</span>
+                                            <span class="pos-cart-item__price">@item.UnitPrice.ToString("N0") đ</span>
+                                        }
                                     </div>
                                     <div class="pos-cart-item__qty">
                                         <VanAButton Variant="secondary" Size="small" OnClick="@(() => UpdateQty(item.ProductId, item.Quantity - 1))">−</VanAButton>
@@ -354,6 +379,34 @@
         }, null, 2000, Timeout.Infinite);
     }
 
+    // Issue #114: Inline editing for default service product (Price=0)
+    private void UpdateCartItemName(Guid productId, string name)
+    {
+        var item = cartItems.FirstOrDefault(c => c.ProductId == productId);
+        if (item != null)
+        {
+            item.ProductName = string.IsNullOrWhiteSpace(name) ? "Sản phẩm dịch vụ" : name;
+        }
+    }
+
+    private void UpdateCartItemPrice(Guid productId, decimal price)
+    {
+        var item = cartItems.FirstOrDefault(c => c.ProductId == productId);
+        if (item != null)
+        {
+            item.UnitPrice = Math.Max(0, price);
+        }
+    }
+
+    private void UpdateCartItemVat(Guid productId, decimal vatRate)
+    {
+        var item = cartItems.FirstOrDefault(c => c.ProductId == productId);
+        if (item != null)
+        {
+            item.VatRate = Math.Clamp(vatRate, 0m, 1m);
+        }
+    }
+
     private void UpdateQty(Guid productId, int qty)
     {
         if (qty <= 0)
@@ -420,10 +473,11 @@
     private record PosCartItem
     {
         public Guid ProductId { get; init; }
-        public string ProductName { get; init; } = string.Empty;
-        public decimal UnitPrice { get; init; }
-        public decimal VatRate { get; init; } = 0.10m;
+        public string ProductName { get; set; } = string.Empty;  // Issue #114: mutable for default service product rename
+        public decimal UnitPrice { get; set; }                   // Issue #114: mutable for inline price entry (Price=0 products)
+        public decimal VatRate { get; set; } = 0.10m;            // Issue #114: mutable for inline VAT entry
         public int Quantity { get; init; }
+        public bool IsPriceEditable => UnitPrice == 0m;          // Issue #114: show price input when product has no fixed price
         public decimal TotalPrice => UnitPrice * Quantity;
         public decimal VatAmount => TotalPrice - (TotalPrice / (1 + VatRate));
         public decimal NetAmount => TotalPrice - VatAmount;

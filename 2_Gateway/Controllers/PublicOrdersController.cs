@@ -400,6 +400,26 @@ namespace VanAn.Gateway.Controllers
             bool awardOnAll = _loyaltyPointsConfig?.Value.AwardOnAllOrders ?? true;
             bool loyaltyEnabled = true;
 
+            // Issue #118: Override with DB-backed LoyaltyGlobalConfig if available.
+            // Makes admin UI changes (/admin/loyalty-config) affect banner display too.
+            if (_dbContext != null)
+            {
+                try
+                {
+                    var globalConfig = await _dbContext.LoyaltyGlobalConfigs.FirstOrDefaultAsync();
+                    if (globalConfig != null && globalConfig.PointsRate > 0)
+                    {
+                        rate = globalConfig.PointsRate / 100m;
+                        minPoints = globalConfig.MinPointsPerOrder;
+                        maxPoints = globalConfig.MaxPointsPerOrder;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "ComputePointsAwarded: Failed to load LoyaltyGlobalConfig — using appsettings default");
+                }
+            }
+
             // Per-tenant override (if ShopFeatureSettingsService available)
             if (_shopFeatureSettingsService != null && order.TenantId.Value != Guid.Empty)
             {

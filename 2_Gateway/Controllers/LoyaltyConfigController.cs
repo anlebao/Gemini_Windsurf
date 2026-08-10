@@ -55,8 +55,9 @@ namespace VanAn.Gateway.Controllers
 
         /// <summary>
         /// PUT /api/platform/loyalty/config — updates the global config (creates if not exists).
-        /// Body: { mode, maxPointsPerOrder, maxWalletPoints }
-        /// PointsRate + MinPointsPerOrder are not editable via this endpoint (reserved for future).
+        /// Body: { mode, pointsRate, minPointsPerOrder, maxPointsPerOrder, maxWalletPoints }
+        /// Issue #118: PointsRate + MinPointsPerOrder now editable (were "reserved for future").
+        /// PointsRate is int percent (1 = 1% of order total → 0.01 decimal rate in calculation).
         /// </summary>
         [HttpPut("config")]
         public async Task<IActionResult> UpdateGlobalConfig([FromBody] UpdateGlobalConfigRequest body)
@@ -70,6 +71,12 @@ namespace VanAn.Gateway.Controllers
             if (body.MaxPointsPerOrder < 0 || body.MaxWalletPoints < 0)
                 return BadRequest(new { error = "Giới hạn điểm không được âm." });
 
+            if (body.PointsRate < 0 || body.PointsRate > 100)
+                return BadRequest(new { error = "PointsRate phải từ 0 đến 100 (phần trăm)." });
+
+            if (body.MinPointsPerOrder < 0)
+                return BadRequest(new { error = "MinPointsPerOrder không được âm." });
+
             string changedBy = GetChangedBy();
 
             var config = await _dbContext.LoyaltyGlobalConfigs.FirstOrDefaultAsync();
@@ -81,10 +88,12 @@ namespace VanAn.Gateway.Controllers
 
             config.UpdateMode(body.Mode, changedBy);
             config.UpdateLimits(body.MaxPointsPerOrder, body.MaxWalletPoints, changedBy);
+            // Issue #118: apply PointsRate + MinPointsPerOrder (now editable)
+            config.UpdatePointsFormula(body.PointsRate, body.MinPointsPerOrder, changedBy);
 
             _ = await _dbContext.SaveChangesAsync();
-            _logger.LogInformation("LoyaltyConfig: global config updated by {User} — mode={Mode}, maxPointsPerOrder={MaxPoints}, maxWalletPoints={MaxWallet}",
-                changedBy, body.Mode, body.MaxPointsPerOrder, body.MaxWalletPoints);
+            _logger.LogInformation("LoyaltyConfig: global config updated by {User} — mode={Mode}, pointsRate={Rate}%, minPoints={Min}, maxPointsPerOrder={MaxPoints}, maxWalletPoints={MaxWallet}",
+                changedBy, body.Mode, body.PointsRate, body.MinPointsPerOrder, body.MaxPointsPerOrder, body.MaxWalletPoints);
 
             return Ok(GlobalConfigDto.From(config));
         }
@@ -252,6 +261,8 @@ namespace VanAn.Gateway.Controllers
     public class UpdateGlobalConfigRequest
     {
         public LoyaltyMode Mode { get; set; }
+        public int PointsRate { get; set; } = 1;          // Issue #118: editable (1 = 1% of order total)
+        public int MinPointsPerOrder { get; set; } = 10;  // Issue #118: editable
         public int MaxPointsPerOrder { get; set; }
         public int MaxWalletPoints { get; set; }
     }

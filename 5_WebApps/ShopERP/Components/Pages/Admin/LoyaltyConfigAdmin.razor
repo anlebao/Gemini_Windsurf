@@ -58,6 +58,26 @@
                 </div>
                 <div class="row">
                     <div class="col-md-6 form-group">
+                        <VanAInput Id="global-pointsrate" Label="Tỷ lệ tích điểm (%)"
+                                   Type="number" Value="@_globalForm.PointsRate.ToString()"
+                                   ValueChanged="v => _globalForm.PointsRate = int.TryParse(v, out var n) ? Math.Clamp(n, 0, 100) : 1"
+                                   Min="0" Max="100" Step="1" />
+                        <small class="text-muted d-block">
+                            Issue #118: 1 = 1% giá trị đơn hàng. Đơn 100,000đ × 1% = 1,000 điểm. 0 = dùng default appsettings.
+                        </small>
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <VanAInput Id="global-minpointsperorder" Label="Điểm tối thiểu / đơn"
+                                   Type="number" Value="@_globalForm.MinPointsPerOrder.ToString()"
+                                   ValueChanged="v => _globalForm.MinPointsPerOrder = int.TryParse(v, out var n) ? Math.Max(0, n) : 10"
+                                   Min="0" Step="1" />
+                        <small class="text-muted d-block">
+                            Số điểm tối thiểu được tích cho mỗi đơn hàng, dù giá trị đơn nhỏ.
+                        </small>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 form-group">
                         <VanAInput Id="global-maxpointsperorder" Label="Max Points / Order"
                                    Type="number" Value="@_globalForm.MaxPointsPerOrder.ToString()"
                                    ValueChanged="v => _globalForm.MaxPointsPerOrder = int.TryParse(v, out var n) ? n : 30"
@@ -276,6 +296,8 @@
             _globalForm = new UpdateGlobalConfigRequest
             {
                 Mode = _globalConfig.Mode,
+                PointsRate = _globalConfig.PointsRate,
+                MinPointsPerOrder = _globalConfig.MinPointsPerOrder,
                 MaxPointsPerOrder = _globalConfig.MaxPointsPerOrder,
                 MaxWalletPoints = _globalConfig.MaxWalletPoints
             };

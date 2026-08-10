@@ -769,6 +769,13 @@ namespace VanAn.ShopERP
                 // was already done by the previous DMD-FK1 fix (before this refactor).
                 // New entities created after this refactor have Id = BusinessKey by constructor.
 
+                // Issue #114: Seed default "Sản phẩm dịch vụ" product for ALL tenants.
+                // This product has Price=0 (staff enters price inline at order time), VatRate=0.10,
+                // and is used for services or newly-arrived products not yet in the catalog.
+                // Idempotent: checks by deterministic GUID per tenant before inserting.
+                await SeedDefaultServiceProductAsync(context);
+
+
                 // Seed default dev tenant into Tenants table (HKD Group 1 — quán cafe mẫu)
                 // FIX: Tenant entity's TenantId (from BaseEntity) must equal its own Id for the
                 // global multi-tenancy query filter to find it. Factory methods don't set TenantId,
@@ -987,6 +994,94 @@ namespace VanAn.ShopERP
 
             string urls = builder.Configuration["ASPNETCORE_URLS"] ?? "http://0.0.0.0:5003";
             await app.RunAsync(urls);
+        }
+
+        /// <summary>
+        /// <summary>
+        /// Issue #114: Seed default "Sản phẩm dịch vụ" product for ALL tenants.
+        /// This product has Price=0 (staff enters price inline at order time), VatRate=0.10,
+        /// Category="Dịch vụ", and is used for services or newly-arrived products not yet in catalog.
+        /// Idempotent: checks by deterministic GUID per tenant before inserting.
+        /// The product GUID is derived from tenant GUID + a fixed namespace to ensure uniqueness per tenant.
+        /// </summary>
+        private static async Task SeedDefaultServiceProductAsync(ShopERPDbContext context)
+        {
+            try
+            {
+                // Get all tenants (IgnoreQueryFilters for cross-tenant)
+                var tenants = await context.Tenants
+                    .IgnoreQueryFilters()
+                    .Where(t => !t.IsDeleted)
+                    .Select(t => new { t.Id, TenantId = t.TenantId })
+                    .ToListAsync();
+
+                // Fixed namespace GUID for deterministic product ID generation (per tenant)
+                // Using a fixed namespace ensures the same tenant always gets the same product GUID.
+                Guid namespaceGuid = Guid.Parse("a4f5e2c1-7b3d-4e9f-b8a2-1c6d5e7f9a0b");
+
+                int seeded = 0;
+                foreach (var tenant in tenants)
+                {
+                    // Generate deterministic product GUID from tenant ID + namespace
+                    // Format: first 16 bytes = tenant GUID, last 16 bytes = namespace GUID → XOR → new GUID
+                    // Simpler: use tenant GUID with a fixed suffix to ensure uniqueness
+                    Guid productId = GenerateDefaultServiceProductId(tenant.Id);
+
+                    // Check if product already exists for this tenant
+                    bool exists = await context.Products
+                        .IgnoreQueryFilters()
+                        .AnyAsync(p => p.Id == productId);
+
+                    if (exists) continue;
+
+                    var tenantIdValue = tenant.TenantId ?? new TenantId(tenant.Id);
+                    var product = new Product(
+                        tenantIdValue,
+                        name: "Sản phẩm dịch vụ",
+                        description: "Sản phẩm mặc định cho dịch vụ hoặc sản phẩm mới chưa kịp đưa vào danh mục. Nhập giá + VAT khi lên đơn.",
+                        price: 0m,
+                        category: "Dịch vụ",
+                        isActive: true,
+                        imageUrl: null,
+                        vatRate: 0.10m,
+                        costPrice: 0m);
+
+                    // Set deterministic Id (Single-Identity Pattern: Id = ProductId)
+                    typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("Id")!.SetValue(product, productId);
+                    typeof(Product).GetProperty("ProductId")!.SetValue(product, new ProductId(productId));
+
+                    context.Products.Add(product);
+                    seeded++;
+                }
+
+                if (seeded > 0)
+                {
+                    _ = await context.SaveChangesAsync();
+                    Console.WriteLine($"Issue #114: Seeded {seeded} default 'Sản phẩm dịch vụ' product(s) for {tenants.Count} tenant(s)");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Issue #114: Failed to seed default service product — {ex.Message}");
+                // Non-fatal: don't crash startup if product seeding fails
+            }
+        }
+
+        /// <summary>
+        /// Generate a deterministic GUID for the default service product based on tenant ID.
+        /// Uses a fixed suffix to ensure uniqueness per tenant while being reproducible across restarts.
+        /// </summary>
+        private static Guid GenerateDefaultServiceProductId(Guid tenantId)
+        {
+            // Take tenant GUID bytes and XOR with a fixed mask to produce a unique, deterministic product GUID
+            byte[] tenantBytes = tenantId.ToByteArray();
+            byte[] maskBytes = Guid.Parse("a4f5e2c1-7b3d-4e9f-b8a2-1c6d5e7f9a0b").ToByteArray();
+            byte[] resultBytes = new byte[16];
+            for (int i = 0; i < 16; i++)
+            {
+                resultBytes[i] = (byte)(tenantBytes[i] ^ maskBytes[i]);
+            }
+            return new Guid(resultBytes);
         }
 
         /// <summary>

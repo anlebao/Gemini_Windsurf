@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Options;
 using VanAn.Shared.Services;
@@ -403,13 +404,46 @@ namespace VanAn.CoreHub.Services
             }
 
             // Loyalty-A + Loyalty-C WS-A: Configurable points formula.
-            //   Loyalty-A: global default via IOptions<LoyaltyPointsConfig> from appsettings.json.
+            //   Issue #118 fix: Read LoyaltyGlobalConfig from DB (admin-managed via /admin/loyalty-config).
+            //   Fall back to IOptions<LoyaltyPointsConfig> (appsettings.json) if DB unavailable or no row.
             //   Loyalty-C WS-A: per-tenant override via ShopFeatureSettingsService (DB-backed).
             //     Fallback: if tenant has no per-tenant config (entity null or field 0/null), use global default.
+            //
+            // Type reconciliation:
+            //   LoyaltyGlobalConfig.PointsRate is int (1 = 1% of order total → 0.01 decimal rate)
+            //   LoyaltyPointsConfig.PointsRate is decimal (0.1 = 10% of order total)
+            //   Convert DB int → decimal: rate = dbPointsRate / 100m
             decimal rate = _loyaltyPointsConfig.PointsRate;
             int minPoints = _loyaltyPointsConfig.MinPointsPerOrder;
             int? maxPoints = _loyaltyPointsConfig.MaxPointsPerOrder;
             bool awardOnAll = _loyaltyPointsConfig.AwardOnAllOrders;
+
+            // Issue #118: Override with DB-backed LoyaltyGlobalConfig if available.
+            // This makes admin UI changes (/admin/loyalty-config) actually affect point calculations.
+            if (_dbContext != null)
+            {
+                try
+                {
+                    var globalConfig = await _dbContext.LoyaltyGlobalConfigs.FirstOrDefaultAsync();
+                    if (globalConfig != null)
+                    {
+                        // DB int PointsRate (1=1%) → decimal rate (0.01)
+                        // Only override if DB value > 0 (0 means "use appsettings default")
+                        if (globalConfig.PointsRate > 0)
+                        {
+                            rate = globalConfig.PointsRate / 100m;
+                        }
+                        minPoints = globalConfig.MinPointsPerOrder;
+                        maxPoints = globalConfig.MaxPointsPerOrder;
+                        _logger.LogDebug("Loyalty: Using DB-backed global config — rate={Rate}, min={Min}, max={Max}",
+                            rate, minPoints, maxPoints?.ToString() ?? "none");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Loyalty: Failed to load LoyaltyGlobalConfig from DB — falling back to appsettings default");
+                }
+            }
 
             if (_shopFeatureSettingsService != null && customer.TenantId.Value != Guid.Empty)
             {
