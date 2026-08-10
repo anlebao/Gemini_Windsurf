@@ -1,0 +1,233 @@
+@page "/admin/global-redemption-catalog"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject GlobalRedemptionCatalogApiClient ApiClient
+@inject ILogger<GlobalRedemptionCatalogAdmin> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="global-redemption-catalog-admin-page">
+    <header class="page-header">
+        <h1><i class="bi bi-globe2"></i> Catalog Đổi điểm Toàn hệ thống</h1>
+        <p class="text-muted small">
+            Sản phẩm đổi điểm có hiệu lực cho TẤT CẢ tenant. Lưu trữ PostgreSQL (Gateway).
+            Khách hàng trên KhachLink /rewards sẽ thấy cả catalog local + global.
+        </p>
+        <div class="header-actions mt-2">
+            <VanAButton Variant="secondary" OnClick="LoadCatalog">Làm mới</VanAButton>
+            <VanAButton Variant="primary" OnClick="ShowCreateModal">+ Thêm sản phẩm Global</VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    <VanACard>
+        @if (_loading)
+        {
+            <VanAAlert Variant="info" Message="Đang tải catalog..." />
+        }
+        else if (_catalog.Count == 0)
+        {
+            <p class="text-muted text-center py-4">Chưa có sản phẩm đổi điểm toàn hệ thống. Bấm "Thêm sản phẩm Global" để tạo.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Sản phẩm</th>
+                            <th>Điểm</th>
+                            <th>Tồn kho</th>
+                            <th>Hết hạn</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _catalog)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@item.ProductName</strong>
+                                    <span class="badge bg-info text-white small ms-1"><i class="bi bi-globe"></i> Global</span>
+                                    @if (!string.IsNullOrEmpty(item.Description))
+                                    {
+                                        <br /><small class="text-muted">@item.Description</small>
+                                    }
+                                </td>
+                                <td>@item.PointsRequired.ToString("N0")</td>
+                                <td>@(item.StockCount.HasValue ? item.StockCount.Value.ToString() : "∞")</td>
+                                <td>@(item.ValidTo?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                <td>
+                                    <VanAButton Variant="secondary" Size="sm" OnClick="() => ShowEditModal(item)">Sửa</VanAButton>
+                                    <VanAButton Variant="danger" Size="sm" OnClick="() => DeactivateAsync(item.Id)">Xóa</VanAButton>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </VanACard>
+</div>
+
+@if (_showModal)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(_editingId.HasValue ? "Sửa sản phẩm Global" : "Thêm sản phẩm đổi điểm Global")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Tên sản phẩm *</label>
+                        <input class="form-control" @bind="_form.ProductName" placeholder="Cà phê miễn phí" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mô tả</label>
+                        <textarea class="form-control" @bind="_form.Description" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">URL hình ảnh</label>
+                        <input class="form-control" @bind="_form.ImageUrl" placeholder="https://..." />
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Điểm yêu cầu *</label>
+                            <input type="number" class="form-control" @bind="_form.PointsRequired" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Tồn kho (để trống = ∞)</label>
+                            <input type="number" class="form-control" @bind="_form.StockCount" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Voucher hết hạn (ngày)</label>
+                            <input type="number" class="form-control" @bind="_form.VoucherExpiryDays" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Catalog hết hạn (để trống = không hết hạn)</label>
+                        <input type="date" class="form-control" @bind="_form.ValidTo" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <VanAButton Variant="secondary" OnClick="CloseModal">Hủy</VanAButton>
+                    <VanAButton Variant="primary" OnClick="SaveAsync">Lưu</VanAButton>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _showModal;
+    private Guid? _editingId;
+    private string _alertMessage = "";
+    private string _alertType = "info";
+    private List<GlobalCatalogItemDto> _catalog = new();
+    private GlobalCatalogItemDto _form = new();
+
+    protected override async Task OnInitializedAsync() => await LoadCatalog();
+
+    private async Task LoadCatalog()
+    {
+        _loading = true;
+        try
+        {
+            _catalog = await ApiClient.GetActiveAsync();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi tải catalog: {ex.Message}";
+            _alertType = "danger";
+            Logger.LogError(ex, "Error loading global redemption catalog");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ShowCreateModal()
+    {
+        _editingId = null;
+        _form = new GlobalCatalogItemDto { VoucherExpiryDays = 30 };
+        _showModal = true;
+    }
+
+    private void ShowEditModal(GlobalCatalogItemDto item)
+    {
+        _editingId = item.Id;
+        _form = new GlobalCatalogItemDto
+        {
+            ProductName = item.ProductName,
+            Description = item.Description ?? "",
+            ImageUrl = item.ImageUrl ?? "",
+            PointsRequired = item.PointsRequired,
+            StockCount = item.StockCount,
+            ValidTo = item.ValidTo,
+            VoucherExpiryDays = item.VoucherExpiryDays
+        };
+        _showModal = true;
+    }
+
+    private void CloseModal() => _showModal = false;
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.ProductName) || _form.PointsRequired <= 0)
+        {
+            _alertMessage = "Vui lòng nhập tên sản phẩm và điểm hợp lệ.";
+            _alertType = "danger";
+            return;
+        }
+
+        try
+        {
+            if (_editingId.HasValue)
+            {
+                _ = await ApiClient.UpdateAsync(_editingId.Value, _form);
+                _alertMessage = "Cập nhật thành công.";
+            }
+            else
+            {
+                _ = await ApiClient.CreateAsync(_form);
+                _alertMessage = "Tạo sản phẩm Global thành công.";
+            }
+            _alertType = "success";
+            _showModal = false;
+            await LoadCatalog();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private async Task DeactivateAsync(Guid id)
+    {
+        try
+        {
+            _ = await ApiClient.DeactivateAsync(id);
+            _alertMessage = "Đã xóa sản phẩm Global.";
+            _alertType = "success";
+            await LoadCatalog();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+}

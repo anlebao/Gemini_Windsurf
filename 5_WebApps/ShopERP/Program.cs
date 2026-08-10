@@ -491,6 +491,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<Services.LoyaltyConfigApiClient>();
             // #100: KhachLink home settings admin API client (Gateway PG — global, not per-tenant)
             _ = builder.Services.AddScoped<Services.KhachLinkHomeSettingsApiClient>();
+            // #121.3: Global Redemption Catalog admin API client (Gateway PG)
+            _ = builder.Services.AddScoped<Services.GlobalRedemptionCatalogApiClient>();
             // Sprint 7 — Commerce Mode + Community Fund + Product Cost Price admin API clients
             _ = builder.Services.AddScoped<Services.CommerceModeApiClient>();
             _ = builder.Services.AddScoped<Services.CommunityFundApiClient>();
