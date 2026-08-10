@@ -139,7 +139,10 @@ public class OrderSyncSubscriberRoutingTests
         var (conn, _) = BuildMockConnection();
         var sut = new TestableOrderSyncSubscriber(services, config, conn.Object);
 
-        await sut.InvokeExecuteAsync(CancellationToken.None);
+        // OrderSyncSubscriber now has a retry loop that waits indefinitely until cancelled.
+        // Use a CTS with short timeout so subscriptions are captured before cancellation.
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+        await sut.InvokeExecuteAsync(cts.Token);
 
         sut.SubscribedSubjects.Should().Contain(
             $"vanan.cloud.order.created.{LocalShopInstanceId}");
@@ -158,7 +161,9 @@ public class OrderSyncSubscriberRoutingTests
         var (conn, _) = BuildMockConnection();
         var sut = new TestableOrderSyncSubscriber(services, config, conn.Object);
 
-        await sut.InvokeExecuteAsync(CancellationToken.None);
+        // OrderSyncSubscriber now has a retry loop that waits indefinitely until cancelled.
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+        await sut.InvokeExecuteAsync(cts.Token);
 
         // No wildcard subscriptions — every subject must include the ShopInstanceId.
         sut.SubscribedSubjects.Should().AllSatisfy(s =>
