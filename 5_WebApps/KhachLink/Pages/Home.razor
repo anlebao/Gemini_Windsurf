@@ -48,146 +48,15 @@
         </div>
     }
 
-    <!-- Store Finder Section — visible to ALL users (logged in or not).
-         First-time/not-logged-in users can search after sharing location. -->
-    <VanAnCard CssClass="store-finder-section mb-4">
-        <div class="container">
-            <h2 class="mb-3">
-                <i class="bi bi-geo-alt-fill text-primary"></i> Tìm quanh đây
-            </h2>
-
-            <!-- Search box — ALWAYS visible (user can search again at any time) -->
-            <div class="store-finder-search py-3">
-                <div class="row g-2 align-items-end">
-                    <div class="col-12 col-md-7">
-                        <label for="store-search-input" class="form-label small text-muted mb-1">Tìm theo tên cửa hàng / sản phẩm / dịch vụ</label>
-                        <input id="store-search-input" class="form-control" @bind="_storeSearchQuery" @bind:event="oninput"
-                               @onkeypress="HandleSearchKeypress" placeholder="Nhập tên cửa hàng, sản phẩm..." aria-label="Tìm cửa hàng" />
-                    </div>
-                    <div class="col-6 col-md-2">
-                        <VanAnButton Variant="ButtonVariant.Primary" OnClick="SearchStoresAsync" CssClass="w-100">
-                            <i class="bi bi-search me-1"></i> Tìm
-                        </VanAnButton>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <VanAnButton Variant="ButtonVariant.Outline" OnClick="ShareMyLocationAsync" CssClass="w-100">
-                            <i class="bi bi-geo-alt me-1"></i> Vị trí của tôi
-                        </VanAnButton>
-                    </div>
-                </div>
-                @* "Xem tất cả cửa hàng" button hidden — temporarily disabled *@
-                @* <div class="mt-2 text-center">
-                    <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="LoadAllNearbyStores">
-                        <i class="bi bi-list me-1"></i> Xem tất cả cửa hàng
-                    </VanAnButton>
-                </div> *@
-            </div>
-
-            <!-- Results area: loading / error / no-results / store list -->
-            @if (_storeFinderLoading)
-            {
-                <div class="text-center py-3">
-                    <div class="spinner-border text-primary spinner-border-sm" role="status">
-                        <span class="visually-hidden">Đang tải...</span>
-                    </div>
-                    <span class="ms-2 text-muted small">Đang tìm cửa hàng...</span>
-                </div>
-            }
-            else if (_storeFinderError != null)
-            {
-                <VanAnAlert Variant="AlertVariant.Warning" Message="@_storeFinderError" />
-                <div class="mt-2 d-flex gap-2 flex-wrap">
-                    <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="ClearStoreSearch">
-                        <i class="bi bi-arrow-left me-1"></i> Quay lại
-                    </VanAnButton>
-                </div>
-            }
-            else if (_nearbyStores.Count == 0 && (_userLocationShared || !string.IsNullOrEmpty(_storeSearchQuery)))
-            {
-                <div class="text-center py-3">
-                    @if (_userLocationShared)
-                    {
-                        <p class="text-muted mb-2">Không có cửa hàng nào trong bán kính @_storeFinderRadiusKm km.</p>
-                        <div class="d-flex gap-2 justify-content-center flex-wrap">
-                            <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="IncreaseRadiusAndSearch">
-                                <i class="bi bi-zoom-in me-1"></i> Mở rộng bán kính
-                            </VanAnButton>
-                        </div>
-                    }
-                    else
-                    {
-                        <p class="text-muted mb-2">Không tìm thấy cửa hàng nào với từ khóa "@_storeSearchQuery".</p>
-                    }
-                </div>
-            }
-            else if (_nearbyStores.Count > 0)
-            {
-                <p class="text-muted small mb-2">
-                    Tìm thấy <strong>@_nearbyStores.Count</strong> cửa hàng
-                    @if (_userLocationShared)
-                    {
-                        <span> trong bán kính @_storeFinderRadiusKm km</span>
-                    }
-                    <button type="button" class="btn btn-link btn-sm p-0 ms-2 text-decoration-none" @onclick="ClearStoreSearch">
-                        <i class="bi bi-x-circle"></i> Xóa tìm kiếm
-                    </button>
-                </p>
-                <div class="row g-2">
-                    @foreach (var store in _nearbyStores.Take(6))
-                    {
-                        <div class="col-12 col-md-6">
-                            <VanAnCard Shadow="true" CssClass="h-100 store-finder-card-hover">
-                                <div class="d-flex align-items-start gap-2">
-                                    <div class="store-finder-icon-wrap">
-                                        <i class="bi bi-shop-fill" style="font-size:1.5rem;"></i>
-                                    </div>
-                                    <div class="flex-grow-1">
-                                        <h6 class="mb-0 fw-bold">@store.Name</h6>
-                                        @if (!string.IsNullOrEmpty(store.Address))
-                                        {
-                                            <p class="text-muted small mb-1">
-                                                <i class="bi bi-geo-alt"></i> @store.Address
-                                            </p>
-                                        }
-                                        <div class="d-flex gap-2 align-items-center flex-wrap mt-1">
-                                            @if (store.DistanceKm.HasValue)
-                                            {
-                                                <span class="badge bg-primary rounded-pill small">
-                                                    <i class="bi bi-compass"></i> @store.DistanceKm.Value.ToString("F1") km
-                                                </span>
-                                            }
-                                            @if (!string.IsNullOrEmpty(store.Slug))
-                                            {
-                                                <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary"
-                                                             OnClick="@(() => Navigation.NavigateTo($"/store/{store.Slug}"))">
-                                                    <i class="bi bi-shop me-1"></i> Xem
-                                                </VanAnButton>
-                                            }
-                                            else
-                                            {
-                                                <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary"
-                                                             OnClick="@(() => Navigation.NavigateTo($"/store/by-id/{store.Id}"))">
-                                                    <i class="bi bi-shop me-1"></i> Xem
-                                                </VanAnButton>
-                                            }
-                                        </div>
-                                    </div>
-                                </div>
-                            </VanAnCard>
-                        </div>
-                    }
-                </div>
-                @* "Xem tất cả cửa hàng" button hidden — temporarily disabled *@
-                @if (false && _nearbyStores.Count > 6)
-                {
-                    <div class="text-center mt-2">
-                        <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="@(() => Navigation.NavigateTo("/stores"))">
-                            Xem tất cả @_nearbyStores.Count cửa hàng <i class="bi bi-arrow-right ms-1"></i>
-                        </VanAnButton>
-                    </div>
-                }
-            }
-        </div>
+    <!-- Store Finder CTA — redirects to /stores (StoreFinder.razor) for full search experience.
+         Duplicate store finder logic removed from Home page; /stores is the single source of truth. -->
+    <VanAnCard CssClass="store-finder-cta mb-4 text-center py-4">
+        <i class="bi bi-geo-alt-fill text-primary" style="font-size: 2.5rem;"></i>
+        <h3 class="mt-2 mb-1">Tìm cửa hàng gần bạn</h3>
+        <p class="text-muted mb-3">Tìm theo tên, sản phẩm, hoặc vị trí — có hỗ trợ tìm bằng giọng nói</p>
+        <VanAnButton Variant="ButtonVariant.Primary" OnClick="@(() => Navigation.NavigateTo("/stores"))">
+            <i class="bi bi-search me-1"></i> Tìm cửa hàng
+        </VanAnButton>
     </VanAnCard>
 
     <!-- Issue 5a: Hide Campaign + Store sections for new customers (no _lastTenantId yet).
@@ -495,16 +364,7 @@
     .campaign-img { width: 100%; height: 100%; object-fit: cover; }
     .campaign-video-thumb { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer; background: linear-gradient(135deg, #e9ecef, #dee2e6); }
     .campaign-icon { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #fff3f3; border-radius: 8px; }
-    .store-finder-card-hover { transition: transform 0.2s, box-shadow 0.2s; }
-    .store-finder-card-hover:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.1) !important; }
-    .store-finder-icon-wrap {
-        width: 40px; height: 40px;
-        background: linear-gradient(135deg, #fff3cd, #ffe5b4);
-        border-radius: 10px;
-        display: flex; align-items: center; justify-content: center;
-        color: #d97706;
-        flex-shrink: 0;
-    }
+    .store-finder-cta { border-radius: 16px; }
 </style>
 
 @code {
@@ -536,16 +396,6 @@
     // Sprint 7: Commerce Mode badge
     private bool _commerceModeLoaded = false;
     private bool _isReseller = false;
-
-    // Store Finder (Home page — visible to all users)
-    private List<NearbyStoreDto> _nearbyStores = new();
-    private bool _storeFinderLoading = false;
-    private string? _storeFinderError;
-    private bool _userLocationShared = false;
-    private double _storeFinderRadiusKm = 10.0;
-    private double? _userLat;
-    private string _storeSearchQuery = string.Empty;
-    private double? _userLng;
 
     public class StoreInfoDto
     {
@@ -661,151 +511,6 @@
             }
         }
         catch { /* silent — badge is optional */ }
-    }
-
-    /// <summary>
-    /// Store Finder: Load nearby stores based on user location.
-    /// Works for all users (logged in or not) — no auth required.
-    /// </summary>
-    private async Task LoadNearbyStoresAsync()
-    {
-        _storeFinderLoading = true;
-        _storeFinderError = null;
-        try
-        {
-            var client = HttpClientFactory.CreateClient("gateway");
-            string url;
-            if (_userLat.HasValue && _userLng.HasValue)
-            {
-                url = $"/api/tenants/nearby?lat={_userLat}&lng={_userLng}&radiusKm={_storeFinderRadiusKm}";
-            }
-            else
-            {
-                url = "/api/tenants/search";
-            }
-
-            var response = await client.GetAsync(url);
-            if (response.IsSuccessStatusCode)
-            {
-                _nearbyStores = await response.Content.ReadFromJsonAsync<List<NearbyStoreDto>>() ?? new();
-            }
-            else
-            {
-                _storeFinderError = "Không thể tải danh sách cửa hàng.";
-            }
-        }
-        catch (Exception ex)
-        {
-            _storeFinderError = $"Lỗi kết nối: {ex.Message}";
-        }
-        finally
-        {
-            _storeFinderLoading = false;
-        }
-    }
-
-    private async Task ShareMyLocationAsync()
-    {
-        try
-        {
-            var location = await JSRuntime.InvokeAsync<GeoLocationResult>("vananPWA.getCurrentPosition");
-            if (location != null)
-            {
-                _userLat = location.Latitude;
-                _userLng = location.Longitude;
-                _userLocationShared = true;
-                await LoadNearbyStoresAsync();
-                StateHasChanged();
-            }
-        }
-        catch
-        {
-            _storeFinderError = "Không lấy được vị trí. Trình duyệt có thể chặn geolocation. Bạn có thể xem tất cả cửa hàng thay thế.";
-        }
-    }
-
-    private async Task LoadAllNearbyStores()
-    {
-        _userLat = null;
-        _userLng = null;
-        _userLocationShared = false;
-        await LoadNearbyStoresAsync();
-        StateHasChanged();
-    }
-
-    /// <summary>Handle Enter key in search box → trigger search.</summary>
-    private async Task HandleSearchKeypress(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter")
-        {
-            await SearchStoresAsync();
-        }
-    }
-
-    /// <summary>Clear search query + results → back to default search-box state.</summary>
-    private void ClearStoreSearch()
-    {
-        _storeSearchQuery = string.Empty;
-        _nearbyStores = new();
-        _storeFinderError = null;
-        _userLocationShared = false;
-        _userLat = null;
-        _userLng = null;
-    }
-
-    /// <summary>
-    /// Search stores by keyword (name/product/service). Called when user types in search box + clicks Search.
-    /// Falls back to "all stores" if query is empty.
-    /// </summary>
-    private async Task SearchStoresAsync()
-    {
-        // Keep user location — pass lat/lng to search endpoint so distance can be computed
-        if (string.IsNullOrWhiteSpace(_storeSearchQuery))
-        {
-            await LoadAllNearbyStores();
-            return;
-        }
-        _storeFinderLoading = true;
-        _storeFinderError = null;
-        try
-        {
-            var client = HttpClientFactory.CreateClient("gateway");
-            var url = $"/api/tenants/search?name={Uri.EscapeDataString(_storeSearchQuery)}";
-            if (_userLat.HasValue && _userLng.HasValue)
-                url += $"&lat={_userLat.Value}&lng={_userLng.Value}";
-            var response = await client.GetAsync(url);
-            if (response.IsSuccessStatusCode)
-            {
-                _nearbyStores = await response.Content.ReadFromJsonAsync<List<NearbyStoreDto>>() ?? new();
-            }
-            else
-            {
-                _storeFinderError = "Không thể tìm cửa hàng.";
-            }
-        }
-        catch (Exception ex)
-        {
-            _storeFinderError = $"Lỗi kết nối: {ex.Message}";
-        }
-        finally
-        {
-            _storeFinderLoading = false;
-        }
-        StateHasChanged();
-    }
-
-    private async Task IncreaseRadiusAndSearch()
-    {
-        _storeFinderRadiusKm = _storeFinderRadiusKm switch
-        {
-            <= 2 => 5,
-            <= 5 => 10,
-            <= 10 => 25,
-            <= 25 => 50,
-            _ => 100
-        };
-        await LoadNearbyStoresAsync();
-        StateHasChanged();
     }
 
     /// <summary>
@@ -1020,24 +725,5 @@
     public void Dispose()
     {
         CartService.OnCartChanged -= StateHasChanged;
-    }
-
-    // Store Finder DTOs
-    public class NearbyStoreDto
-    {
-        public Guid Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public string Address { get; set; } = string.Empty;
-        public string Phone { get; set; } = string.Empty;
-        public double? Latitude { get; set; }
-        public double? Longitude { get; set; }
-        public double? DistanceKm { get; set; }
-        public string? Slug { get; set; }
-    }
-
-    public class GeoLocationResult
-    {
-        public double Latitude { get; set; }
-        public double Longitude { get; set; }
     }
 }
