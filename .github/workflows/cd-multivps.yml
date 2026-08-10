@@ -341,6 +341,7 @@ jobs:
           DEPLOY_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           DEPLOY_VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           DEPLOY_INTERNAL_LOYALTY_API_KEY: ${{ secrets.INTERNAL_LOYALTY_API_KEY }}
+          DEPLOY_SHOP_INSTANCE_ID: ${{ secrets.SHOP_INSTANCE_ID }}
 
   # ============================================================
   # Job 4: Deploy to KhachLink VPS (runs AFTER Gateway to ensure API is up)
