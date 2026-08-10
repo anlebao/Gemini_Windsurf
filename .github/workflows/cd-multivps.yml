@@ -306,6 +306,7 @@ jobs:
               "GOOGLE_CLIENT_ID=${FINAL_GOOGLE_ID}" \
               "GOOGLE_CLIENT_SECRET=${FINAL_GOOGLE_SECRET}" \
               "VAPID_PRIVATE_KEY=${FINAL_VAPID_KEY}" \
+              "SHOP_INSTANCE_ID=${DEPLOY_SHOP_INSTANCE_ID}" \
               > .env.gateway
 
             # Login to GHCR
@@ -581,7 +582,7 @@ jobs:
 
             # Verify NATS subscription
             echo "Checking OrderSyncSubscriber log..."
-            sudo docker logs vanan-shoperp 2>&1 | grep -i "OrderSyncSubscriber" | tail -5 || true
+            sudo docker compose -f docker-compose.shoperp.yml logs shoperp 2>&1 | grep -i "OrderSyncSubscriber" | tail -5 || true
 
             echo "ShopERP VPS deploy complete!"
         env:
