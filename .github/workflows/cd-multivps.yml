@@ -312,8 +312,12 @@ jobs:
             # Login to GHCR
             echo "${DEPLOY_GITHUB_TOKEN}" | sudo docker login ghcr.io -u "${DEPLOY_GITHUB_ACTOR}" --password-stdin
 
-            # Pull & restart
-            sudo docker compose -f docker-compose.gateway.yml --env-file .env.gateway pull
+            # Pull & restart (with retry — transient network resets from ghcr.io CDN)
+            for i in 1 2 3; do
+              sudo docker compose -f docker-compose.gateway.yml --env-file .env.gateway pull && break
+              echo "⚠️ Pull attempt $i failed, retrying in 10s..."
+              sleep 10
+            done
             sudo docker compose -f docker-compose.gateway.yml --env-file .env.gateway up -d --remove-orphans
 
             # Force-recreate nginx to pick up new template files (bind-mount changes
@@ -438,8 +442,12 @@ jobs:
             # Login to GHCR
             echo "${DEPLOY_GITHUB_TOKEN}" | sudo docker login ghcr.io -u "${DEPLOY_GITHUB_ACTOR}" --password-stdin
 
-            # Pull & restart
-            sudo docker compose -f docker-compose.khachlink.yml --env-file .env.khachlink pull
+            # Pull & restart (with retry — transient network resets from ghcr.io CDN)
+            for i in 1 2 3; do
+              sudo docker compose -f docker-compose.khachlink.yml --env-file .env.khachlink pull && break
+              echo "⚠️ Pull attempt $i failed, retrying in 10s..."
+              sleep 10
+            done
             sudo docker compose -f docker-compose.khachlink.yml --env-file .env.khachlink up -d --remove-orphans
 
             # Health check
@@ -573,8 +581,12 @@ jobs:
             echo "Testing PostgreSQL connectivity to ${DEPLOY_GATEWAY_REMOTE_HOST}:5432..."
             test_port "${DEPLOY_GATEWAY_REMOTE_HOST}" 5432 || { echo "::error::PostgreSQL unreachable"; exit 1; }
 
-            # Pull & restart
-            sudo docker compose -f docker-compose.shoperp.yml --env-file .env.shoperp pull
+            # Pull & restart (with retry — transient network resets from ghcr.io CDN)
+            for i in 1 2 3; do
+              sudo docker compose -f docker-compose.shoperp.yml --env-file .env.shoperp pull && break
+              echo "⚠️ Pull attempt $i failed, retrying in 10s..."
+              sleep 10
+            done
             sudo docker compose -f docker-compose.shoperp.yml --env-file .env.shoperp up -d --remove-orphans
 
             # Health check
