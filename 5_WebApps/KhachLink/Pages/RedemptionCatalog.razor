@@ -67,6 +67,10 @@
                                 <p class="text-muted small mb-2">@(item.Description ?? "")</p>
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <span class="badge bg-warning text-dark">@item.PointsRequired.ToString("N0") điểm</span>
+                                    @if (item.IsGlobal)
+                                    {
+                                        <span class="badge bg-info text-white small"><i class="bi bi-globe"></i> Toàn hệ thống</span>
+                                    }
                                     @if (item.StockCount.HasValue)
                                     {
                                         <span class="small text-muted">Còn: @item.StockCount</span>
@@ -157,18 +161,31 @@
 
         try
         {
-            // Load catalog + loyalty balance in parallel
+            // Load catalog (local + global) + loyalty balance in parallel
             var client = HttpClientFactory.CreateClient("gateway");
 
-            var catalogTask = client.GetAsync("/api/redemption/catalog/active");
+            // #121.3: Fetch both tenant-local catalog (forwarded to ShopERP) + global catalog (Gateway PG)
+            var localCatalogTask = client.GetAsync("/api/redemption/catalog/active");
+            var globalCatalogTask = client.GetAsync("/api/redemption/catalog/global");
             var loyaltyTask = SendWithTokenAsync(client, "/api/loyalty/my", token);
 
-            await Task.WhenAll(catalogTask, loyaltyTask);
+            await Task.WhenAll(localCatalogTask, globalCatalogTask, loyaltyTask);
 
-            var catalogResp = await catalogTask;
-            if (catalogResp.IsSuccessStatusCode)
+            var localResp = await localCatalogTask;
+            var globalResp = await globalCatalogTask;
+
+            _catalog.Clear();
+            if (localResp.IsSuccessStatusCode)
             {
-                _catalog = await catalogResp.Content.ReadFromJsonAsync<List<CatalogItemDto>>() ?? new();
+                var localItems = await localResp.Content.ReadFromJsonAsync<List<CatalogItemDto>>() ?? new();
+                _catalog.AddRange(localItems);
+            }
+            if (globalResp.IsSuccessStatusCode)
+            {
+                var globalItems = await globalResp.Content.ReadFromJsonAsync<List<CatalogItemDto>>() ?? new();
+                // Mark global items so UI can show a "Toàn hệ thống" badge
+                foreach (var gi in globalItems) gi.IsGlobal = true;
+                _catalog.AddRange(globalItems);
             }
 
             var loyaltyResp = await loyaltyTask;
@@ -269,6 +286,8 @@
         public int PointsRequired { get; set; }
         public int? StockCount { get; set; }
         public bool IsAvailable { get; set; }
+        /// <summary>#121.3: Global scope badge — true = valid at all tenants.</summary>
+        public bool IsGlobal { get; set; } = false;
     }
 
     private class LoyaltyMyResponse

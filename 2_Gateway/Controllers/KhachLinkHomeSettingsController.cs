@@ -40,7 +40,8 @@ namespace VanAn.Gateway.Controllers
                     Home_CampaignSection_Enabled = true,
                     Home_StoreSection_Enabled = true,
                     Home_FeaturedSection_Enabled = true,
-                    Home_SocialHub_Enabled = true
+                    Home_SocialHub_Enabled = true,
+                    ShowNavMenu = true
                 });
             }
 
@@ -72,7 +73,8 @@ namespace VanAn.Gateway.Controllers
                 body.Home_StoreSection_Enabled,
                 body.Home_FeaturedSection_Enabled,
                 body.Home_SocialHub_Enabled,
-                changedBy);
+                changedBy,
+                body.ShowNavMenu);
 
             _ = await _dbContext.SaveChangesAsync();
             _logger.LogInformation("Updated KhachLink home settings by {ChangedBy}", changedBy);
@@ -85,7 +87,8 @@ namespace VanAn.Gateway.Controllers
             Home_CampaignSection_Enabled = s.Home_CampaignSection_Enabled,
             Home_StoreSection_Enabled = s.Home_StoreSection_Enabled,
             Home_FeaturedSection_Enabled = s.Home_FeaturedSection_Enabled,
-            Home_SocialHub_Enabled = s.Home_SocialHub_Enabled
+            Home_SocialHub_Enabled = s.Home_SocialHub_Enabled,
+            ShowNavMenu = s.ShowNavMenu
         };
     }
 
@@ -99,5 +102,7 @@ namespace VanAn.Gateway.Controllers
         public bool Home_StoreSection_Enabled { get; set; } = true;
         public bool Home_FeaturedSection_Enabled { get; set; } = true;
         public bool Home_SocialHub_Enabled { get; set; } = true;
+        /// <summary>#121.1.1: Show/hide vertical sidebar nav on KhachLink desktop. Default true.</summary>
+        public bool ShowNavMenu { get; set; } = true;
     }
 }

@@ -1004,10 +1004,13 @@ namespace VanAn.Shared.Domain
         public DateTime? ValidTo { get; protected set; }
         // Voucher expiry: how long a voucher is valid after redemption (days). Default 30.
         public int VoucherExpiryDays { get; protected set; } = 30;
+        /// <summary>#121.3: Scope — Global (all tenants, stored in PG) or Local (single tenant, stored in SQLite).
+        /// Default false (Local) for backward compat. System admin sets true for global items.</summary>
+        public bool IsGlobal { get; protected set; } = false;
 
         protected RedemptionCatalogItem() { }
 
-        public RedemptionCatalogItem(TenantId tenantId, string productName, int pointsRequired)
+        public RedemptionCatalogItem(TenantId tenantId, string productName, int pointsRequired, bool isGlobal = false)
             : base(tenantId)
         {
             if (string.IsNullOrWhiteSpace(productName))
@@ -1020,10 +1023,11 @@ namespace VanAn.Shared.Domain
             IsActive = true;
             ValidFrom = DateTime.UtcNow;
             VoucherExpiryDays = 30;
+            IsGlobal = isGlobal;
         }
 
         public void UpdateDetails(string productName, string? description, string? imageUrl, int pointsRequired,
-            int? stockCount, DateTime? validTo, int voucherExpiryDays)
+            int? stockCount, DateTime? validTo, int voucherExpiryDays, bool? isGlobal = null)
         {
             if (!string.IsNullOrWhiteSpace(productName)) ProductName = productName;
             if (pointsRequired > 0) PointsRequired = pointsRequired;
@@ -1032,6 +1036,7 @@ namespace VanAn.Shared.Domain
             StockCount = stockCount;
             ValidTo = validTo;
             if (voucherExpiryDays > 0) VoucherExpiryDays = voucherExpiryDays;
+            if (isGlobal.HasValue) IsGlobal = isGlobal.Value;
             UpdateAudit();
         }
 
@@ -2277,6 +2282,9 @@ namespace VanAn.Shared.Domain
         public bool Home_StoreSection_Enabled { get; protected set; } = true;
         public bool Home_FeaturedSection_Enabled { get; protected set; } = true;
         public bool Home_SocialHub_Enabled { get; protected set; } = true;
+        /// <summary>#121.1.1: Show/hide the vertical sidebar nav menu on KhachLink desktop.
+        /// Default true (backward compat). When false, sidebar hidden — mobile bottom-nav still visible.</summary>
+        public bool ShowNavMenu { get; protected set; } = true;
         public DateTime? LastChangedAt { get; protected set; }
         public string? LastChangedBy { get; protected set; }
 
@@ -2288,12 +2296,13 @@ namespace VanAn.Shared.Domain
 
         public void UpdateToggles(
             bool campaign, bool store, bool featured, bool socialHub,
-            string changedBy)
+            string changedBy, bool showNavMenu = true)
         {
             Home_CampaignSection_Enabled = campaign;
             Home_StoreSection_Enabled = store;
             Home_FeaturedSection_Enabled = featured;
             Home_SocialHub_Enabled = socialHub;
+            ShowNavMenu = showNavMenu;
             LastChangedAt = DateTime.UtcNow;
             LastChangedBy = changedBy;
             UpdateAudit();

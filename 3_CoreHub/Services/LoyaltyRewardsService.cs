@@ -15,7 +15,8 @@ namespace VanAn.CoreHub.Services
         IOutboxRepository? outboxRepository = null,
         ILoyaltyModeResolver? loyaltyModeResolver = null,
         IAllianceWalletService? allianceWalletService = null,
-        ICustomerRepository? customerRepository = null) : ILoyaltyRewardsService
+        ICustomerRepository? customerRepository = null,
+        IShopFeatureSettingsService? shopFeatureSettingsService = null) : ILoyaltyRewardsService
     {
         private readonly ILoyaltyRewardsRepository _repository = repository;
         private readonly ILogger<LoyaltyRewardsService> _logger = logger;
@@ -26,6 +27,8 @@ namespace VanAn.CoreHub.Services
         private readonly ILoyaltyModeResolver? _loyaltyModeResolver = loyaltyModeResolver;
         private readonly IAllianceWalletService? _allianceWalletService = allianceWalletService;
         private readonly ICustomerRepository? _customerRepository = customerRepository;
+        // #121.1.2: Per-tenant toggle for phone verification requirement on redemption
+        private readonly IShopFeatureSettingsService? _shopFeatureSettingsService = shopFeatureSettingsService;
 
         private static readonly JsonSerializerOptions EventJsonOptions = new()
         {
@@ -141,9 +144,24 @@ namespace VanAn.CoreHub.Services
                     throw new ArgumentException($"Customer with ID {customerId} not found");
                 }
 
-                // Tiered Auth Phase 2: Verification gate — redeem requires IdentityLevel >= Verified.
-                // Earn (AddPointsAsync) is intentionally NOT gated — Social customers can still earn points.
-                if (customer.IdentityLevel < IdentityLevel.Verified)
+                // #121.1.2: Configurable verification gate — per-tenant toggle.
+                // Default: require IdentityLevel >= Verified (phone OTP). When Loyalty_RequirePhoneVerificationForRedeem=false,
+                // Social OAuth customers (IdentityLevel=Social) can redeem without phone verification.
+                bool requirePhoneVerification = true;
+                if (_shopFeatureSettingsService != null && customer.TenantId != null)
+                {
+                    try
+                    {
+                        var settings = await _shopFeatureSettingsService.GetSettingsAsync(customer.TenantId.Value);
+                        requirePhoneVerification = settings.Loyalty_RequirePhoneVerificationForRedeem;
+                    }
+                    catch (Exception settingsEx)
+                    {
+                        _logger.LogWarning(settingsEx, "Failed to load ShopFeatureSettings for tenant {TenantId} — using default (require verification)", customer.TenantId);
+                    }
+                }
+
+                if (requirePhoneVerification && customer.IdentityLevel < IdentityLevel.Verified)
                 {
                     _logger.LogWarning("Redeem blocked for customer {CustomerId}: IdentityLevel={Current} < Required={Required}",
                         customerId, customer.IdentityLevel, IdentityLevel.Verified);

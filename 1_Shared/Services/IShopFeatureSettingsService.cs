@@ -65,6 +65,10 @@ public record ShopFeatureSettingsDto
     public bool Notify_VoucherExpiringSoon { get; set; } = true;
     /// <summary>Loyalty-C WS-C: Hours before voucher expiry to send reminder push. Default 24. Range 1-168 (7 days).</summary>
     public int VoucherExpiryNotifyHours { get; set; } = 24;
+
+    /// <summary>#121.1.2: Require phone verification (IdentityLevel >= Verified) to redeem points.
+    /// Default true (backward compat). When false, Social OAuth customers can redeem without OTP.</summary>
+    public bool Loyalty_RequirePhoneVerificationForRedeem { get; set; } = true;
 }
 
 /// <summary>

@@ -77,7 +77,9 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
             settings.Notify_VoucherExpiringSoon,
             settings.VoucherExpiryNotifyHours,
             // VALCN v2.0 Phase 1
-            settings.PlatformFeeRate);
+            settings.PlatformFeeRate,
+            // #121.1.2
+            settings.Loyalty_RequirePhoneVerificationForRedeem);
 
         await _context.SaveChangesAsync(ct);
         _logger.LogInformation("Updated shop feature settings for tenant {TenantId}", tenantId);
@@ -160,6 +162,8 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
         Notify_RedemptionFulfilled = entity.Notify_RedemptionFulfilled,
         Notify_RedemptionCancelled = entity.Notify_RedemptionCancelled,
         Notify_VoucherExpiringSoon = entity.Notify_VoucherExpiringSoon,
-        VoucherExpiryNotifyHours = entity.VoucherExpiryNotifyHours
+        VoucherExpiryNotifyHours = entity.VoucherExpiryNotifyHours,
+        // #121.1.2
+        Loyalty_RequirePhoneVerificationForRedeem = entity.Loyalty_RequirePhoneVerificationForRedeem
     };
 }

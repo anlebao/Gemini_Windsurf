@@ -81,6 +81,17 @@
                     </div>
                 </div>
 
+                <div class="feature-row" data-testid="toggle-show-nav-menu">
+                    <div class="feature-info">
+                        <strong>Hiển thị menu dọc (sidebar) trên KhachLink desktop</strong>
+                        <p class="text-muted small">Menu điều hướng dọc bên trái trên desktop. Tắt nếu muốn giao diện tối giản (chỉ dùng header icons + mobile bottom-nav).</p>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch"
+                               id="show-nav-menu" @bind="settings.ShowNavMenu" />
+                    </div>
+                </div>
+
                 <div class="form-actions mt-3">
                     <VanAButton Variant="primary" OnClick="SaveSettings" data-testid="btn-save" Loading="@_isSaving" Disabled="@_isSaving" Text="@(_isSaving ? "Đang lưu..." : "Lưu cấu hình")">
                     </VanAButton>

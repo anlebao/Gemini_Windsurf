@@ -39,4 +39,6 @@ public class KhachLinkHomeSettingsDto
     public bool Home_StoreSection_Enabled { get; set; } = true;
     public bool Home_FeaturedSection_Enabled { get; set; } = true;
     public bool Home_SocialHub_Enabled { get; set; } = true;
+    /// <summary>#121.1.1: Show/hide vertical sidebar nav on desktop. Default true.</summary>
+    public bool ShowNavMenu { get; set; } = true;
 }

@@ -54,19 +54,19 @@ namespace VanAn.CoreHub.Services
             => _repository.GetCatalogItemByIdAsync(id);
 
         public async Task<RedemptionCatalogItem> CreateCatalogItemAsync(string productName, string? description, string? imageUrl,
-            int pointsRequired, int? stockCount, DateTime? validTo, int voucherExpiryDays)
+            int pointsRequired, int? stockCount, DateTime? validTo, int voucherExpiryDays, bool isGlobal = false)
         {
-            var item = new RedemptionCatalogItem(new TenantId(_tenantProvider.TenantId), productName, pointsRequired);
-            item.UpdateDetails(productName, description, imageUrl, pointsRequired, stockCount, validTo, voucherExpiryDays);
+            var item = new RedemptionCatalogItem(new TenantId(_tenantProvider.TenantId), productName, pointsRequired, isGlobal);
+            item.UpdateDetails(productName, description, imageUrl, pointsRequired, stockCount, validTo, voucherExpiryDays, isGlobal);
             return await _repository.AddCatalogItemAsync(item);
         }
 
         public async Task<RedemptionCatalogItem> UpdateCatalogItemAsync(Guid id, string productName, string? description, string? imageUrl,
-            int pointsRequired, int? stockCount, DateTime? validTo, int voucherExpiryDays)
+            int pointsRequired, int? stockCount, DateTime? validTo, int voucherExpiryDays, bool? isGlobal = null)
         {
             var item = await _repository.GetCatalogItemByIdAsync(id)
                 ?? throw new KeyNotFoundException($"Catalog item {id} not found.");
-            item.UpdateDetails(productName, description, imageUrl, pointsRequired, stockCount, validTo, voucherExpiryDays);
+            item.UpdateDetails(productName, description, imageUrl, pointsRequired, stockCount, validTo, voucherExpiryDays, isGlobal);
             return await _repository.UpdateCatalogItemAsync(item);
         }
 

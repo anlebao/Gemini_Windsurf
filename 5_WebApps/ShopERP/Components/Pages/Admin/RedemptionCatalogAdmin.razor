@@ -53,6 +53,14 @@
                         <tr>
                             <td>
                                 <strong>@item.ProductName</strong>
+                                @if (item.IsGlobal)
+                                {
+                                    <span class="badge bg-info text-white small ms-1"><i class="bi bi-globe"></i> Global</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-light text-dark small ms-1">Local</span>
+                                }
                                 @if (!string.IsNullOrEmpty(item.Description))
                                 {
                                     <br /><small class="text-muted">@item.Description</small>
@@ -127,6 +135,15 @@
                         <label class="form-label">Catalog hết hạn (để trống = không hết hạn)</label>
                         <input type="date" class="form-control" @bind="_form.ValidTo" />
                     </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="is-global" @bind="_form.IsGlobal" />
+                            <label class="form-check-label" for="is-global">
+                                <strong>Phạm vi toàn hệ thống (Global)</strong>
+                                <p class="text-muted small mb-0">Khi bật: sản phẩm này hiệu lực cho TẤT CẢ tenant. Khi tắt: chỉ hiệu lực tại tenant hiện tại.</p>
+                            </label>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <VanAButton Variant="secondary" OnClick="CloseModal">Hủy</VanAButton>
@@ -163,7 +180,8 @@
                 PointsRequired = i.PointsRequired,
                 IsActive = i.IsActive,
                 StockCount = i.StockCount,
-                ValidTo = i.ValidTo
+                ValidTo = i.ValidTo,
+                IsGlobal = i.IsGlobal
             }).ToList();
         }
         catch (Exception ex)
@@ -192,7 +210,8 @@
             PointsRequired = item.PointsRequired,
             StockCount = item.StockCount,
             ValidTo = item.ValidTo,
-            VoucherExpiryDays = 30
+            VoucherExpiryDays = 30,
+            IsGlobal = item.IsGlobal
         };
         _showModal = true;
     }
@@ -214,14 +233,14 @@
             {
                 _ = await RedemptionService.UpdateCatalogItemAsync(
                     _editingId.Value, _form.ProductName, _form.Description, _form.ImageUrl,
-                    _form.PointsRequired, _form.StockCount, _form.ValidTo, _form.VoucherExpiryDays);
+                    _form.PointsRequired, _form.StockCount, _form.ValidTo, _form.VoucherExpiryDays, _form.IsGlobal);
                 _alertMessage = "Cập nhật thành công.";
             }
             else
             {
                 _ = await RedemptionService.CreateCatalogItemAsync(
                     _form.ProductName, _form.Description, _form.ImageUrl,
-                    _form.PointsRequired, _form.StockCount, _form.ValidTo, _form.VoucherExpiryDays);
+                    _form.PointsRequired, _form.StockCount, _form.ValidTo, _form.VoucherExpiryDays, _form.IsGlobal);
                 _alertMessage = "Tạo sản phẩm thành công.";
             }
             _alertType = "success";
@@ -266,6 +285,7 @@
         public bool IsActive { get; set; }
         public int? StockCount { get; set; }
         public DateTime? ValidTo { get; set; }
+        public bool IsGlobal { get; set; }
     }
 
     private class CatalogForm
@@ -277,5 +297,6 @@
         public int? StockCount { get; set; }
         public DateTime? ValidTo { get; set; }
         public int VoucherExpiryDays { get; set; } = 30;
+        public bool IsGlobal { get; set; } = false;
     }
 }

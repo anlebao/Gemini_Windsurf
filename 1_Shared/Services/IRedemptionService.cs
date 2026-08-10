@@ -13,9 +13,9 @@ namespace VanAn.Shared.Services
         Task<IReadOnlyList<RedemptionCatalogItem>> GetAllCatalogAsync();
         Task<RedemptionCatalogItem?> GetCatalogItemAsync(Guid id);
         Task<RedemptionCatalogItem> CreateCatalogItemAsync(string productName, string? description, string? imageUrl,
-            int pointsRequired, int? stockCount, DateTime? validTo, int voucherExpiryDays);
+            int pointsRequired, int? stockCount, DateTime? validTo, int voucherExpiryDays, bool isGlobal = false);
         Task<RedemptionCatalogItem> UpdateCatalogItemAsync(Guid id, string productName, string? description, string? imageUrl,
-            int pointsRequired, int? stockCount, DateTime? validTo, int voucherExpiryDays);
+            int pointsRequired, int? stockCount, DateTime? validTo, int voucherExpiryDays, bool? isGlobal = null);
         Task<bool> DeactivateCatalogItemAsync(Guid id);
         Task<bool> DeleteCatalogItemAsync(Guid id);
 

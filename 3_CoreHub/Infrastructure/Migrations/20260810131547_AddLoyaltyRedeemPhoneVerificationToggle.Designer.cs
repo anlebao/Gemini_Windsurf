@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using VanAn.CoreHub.Infrastructure;
@@ -11,9 +12,11 @@ using VanAn.CoreHub.Infrastructure;
 namespace VanAn.CoreHub.Infrastructure.Migrations
 {
     [DbContext(typeof(VanAnDbContext))]
-    partial class VanAnDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260810131547_AddLoyaltyRedeemPhoneVerificationToggle")]
+    partial class AddLoyaltyRedeemPhoneVerificationToggle
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2553,9 +2556,6 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
-                    b.Property<bool>("ShowNavMenu")
-                        .HasColumnType("boolean");
-
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
 
@@ -3792,9 +3792,6 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(false);
-
-                    b.Property<bool>("IsGlobal")
-                        .HasColumnType("boolean");
 
                     b.Property<int>("PointsRequired")
                         .HasColumnType("integer");

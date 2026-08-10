@@ -1,4 +1,6 @@
 ﻿@using VanAn.UI.Platform.Components
+@using VanAn.KhachLink.Services.Http
+@inject KhachLinkHomeSettingsHttpService HomeSettingsService
 @inherits LayoutComponentBase
 
 <div class="khachlink-app-layout">
@@ -22,10 +24,13 @@
 
     <!-- Desktop: sidebar + main content side-by-side. Mobile: main only (tab bar at bottom) -->
     <div class="khachlink-body">
-        <!-- Desktop sidebar nav (hidden on mobile, rendered left of main) -->
-        <div class="khachlink-sidebar d-none d-md-block">
-            <NavMenu />
-        </div>
+        <!-- Desktop sidebar nav — #121.1.1: hidden when ShowNavMenu=false (system admin toggle) -->
+        @if (_showNavMenu)
+        {
+            <div class="khachlink-sidebar d-none d-md-block">
+                <NavMenu />
+            </div>
+        }
 
         <!-- Main content -->
         <main class="khachlink-app-main">
@@ -110,3 +115,24 @@
         }
     }
 </style>
+
+@code {
+    // #121.1.1: System admin toggle — default true (show sidebar). Fetched from Gateway on init.
+    private bool _showNavMenu = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var settings = await HomeSettingsService.GetSettingsAsync();
+            if (settings != null)
+            {
+                _showNavMenu = settings.ShowNavMenu;
+            }
+        }
+        catch
+        {
+            // Default to showing nav if fetch fails — don't break UX
+        }
+    }
+}

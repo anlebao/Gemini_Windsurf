@@ -137,6 +137,17 @@
                         </div>
                     </div>
 
+                    <div class="feature-row" data-testid="toggle-loyalty-require-phone">
+                        <div class="feature-info">
+                            <strong>Yêu cầu xác minh số điện thoại để đổi điểm</strong>
+                            <p class="text-muted small">Khi bật: khách phải xác minh OTP số điện thoại mới được đổi điểm thưởng. Khi tắt: khách đăng nhập bằng Google/Facebook (Social OAuth) vẫn đổi được điểm.</p>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="loyalty-require-phone" @bind="settings.Loyalty_RequirePhoneVerificationForRedeem" />
+                        </div>
+                    </div>
+
                     <div class="feature-row" data-testid="toggle-accounting-sync">
                         <div class="feature-info">
                             <strong>Đồng bộ kế toán HKD tự động</strong>

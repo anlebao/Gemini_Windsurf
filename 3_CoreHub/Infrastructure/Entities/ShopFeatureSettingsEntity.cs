@@ -91,6 +91,10 @@ public class ShopFeatureSettingsEntity : BaseEntity
     // Default: 0.05m (5%) per BOM v2.0 Section 8. Global fallback: SystemSetting "DefaultPlatformFeeRate" (30%).
     public decimal? PlatformFeeRate { get; private set; } = 0.05m;
 
+    /// <summary>#121.1.2: Require phone verification (IdentityLevel >= Verified) to redeem points.
+    /// Default true (backward compat). When false, Social OAuth customers can redeem without OTP.</summary>
+    public bool Loyalty_RequirePhoneVerificationForRedeem { get; private set; } = true;
+
     private ShopFeatureSettingsEntity() { } // EF Core materialization
 
     /// <summary>Factory: create with default toggle values for a tenant.</summary>
@@ -124,6 +128,7 @@ public class ShopFeatureSettingsEntity : BaseEntity
         Notify_RedemptionCancelled = true;
         Notify_VoucherExpiringSoon = true;
         VoucherExpiryNotifyHours = 24;
+        Loyalty_RequirePhoneVerificationForRedeem = true;
     }
 
     /// <summary>Update all toggles + polling interval + loyalty formula + notification rules at once.</summary>
@@ -160,7 +165,9 @@ public class ShopFeatureSettingsEntity : BaseEntity
         bool notifyVoucherExpiringSoon = true,
         int voucherExpiryNotifyHours = 24,
         // VALCN v2.0 Phase 1: per-tenant platform fee rate (null = unchanged, use dedicated setter for explicit set)
-        decimal? platformFeeRate = null)
+        decimal? platformFeeRate = null,
+        // #121.1.2: Require phone verification for redemption (default true = backward compat)
+        bool loyaltyRequirePhoneVerificationForRedeem = true)
     {
         QR_TableNumber_Enabled = qrTableNumber;
         Kitchen_Workflow_Enabled = kitchenWorkflow;
@@ -195,6 +202,8 @@ public class ShopFeatureSettingsEntity : BaseEntity
         // VALCN v2.0 Phase 1
         if (platformFeeRate.HasValue)
             PlatformFeeRate = Math.Clamp(platformFeeRate.Value, 0m, 1m);
+        // #121.1.2
+        Loyalty_RequirePhoneVerificationForRedeem = loyaltyRequirePhoneVerificationForRedeem;
         UpdateAudit();
     }
 

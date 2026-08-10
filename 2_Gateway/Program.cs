@@ -724,6 +724,31 @@ namespace VanAn.Gateway
                 {
                     Log.Debug("SeedShopInstance: all tenants already assigned to ShopInstance {Id}", targetInstance.Id);
                 }
+
+                // #121.2: Seed default coordinates for tenants without lat/lng (test data).
+                // Default: HCM District 7 (10.7326, 106.7196) — enables Store Finder distance display.
+                var tenantsWithoutCoords = await db.Tenants
+                    .IgnoreQueryFilters()
+                    .Where(t => t.Settings != null && t.Settings.Latitude == null && t.Settings.Longitude == null)
+                    .ToListAsync();
+
+                if (tenantsWithoutCoords.Count > 0)
+                {
+                    // Spread tenants slightly around default point so distances differ
+                    double baseLat = 10.7326, baseLng = 106.7196;
+                    // Tenant + TenantSettings both have private setters — use reflection (seed operation, not domain logic)
+                    var settingsProp = typeof(VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant)
+                        .GetProperty(nameof(VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant.Settings))!;
+                    for (int i = 0; i < tenantsWithoutCoords.Count; i++)
+                    {
+                        var t = tenantsWithoutCoords[i];
+                        double offset = i * 0.005; // ~500m per tenant
+                        var newSettings = t.Settings!.WithCoordinates(baseLat + offset, baseLng + offset);
+                        settingsProp.SetValue(t, newSettings);
+                    }
+                    await db.SaveChangesAsync();
+                    Log.Information("SeedCoords: set default coordinates for {Count} tenant(s) (HCM D7 area)", tenantsWithoutCoords.Count);
+                }
             }
             catch (Exception ex)
             {
