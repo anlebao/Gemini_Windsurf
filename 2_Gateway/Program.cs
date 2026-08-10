@@ -638,11 +638,14 @@ namespace VanAn.Gateway
         /// → ShopERP subscriber never receives them → orders don't appear in ShopERP UI.
         ///
         /// Logic:
-        /// 1. Find the first active ShopInstance (or the one matching SEED_SHOP_INSTANCE_ID)
-        /// 2. Assign all unassigned tenants to it
+        /// 1. If SEED_SHOP_INSTANCE_ID is set and no matching ShopInstance exists → auto-create it
+        /// 2. Find target ShopInstance — prefer SEED_SHOP_INSTANCE_ID match, else first active
+        /// 3. Assign all unassigned tenants to it
+        /// 4. If SEED_SHOP_INSTANCE_ID is set, reassign tenants currently on a DIFFERENT ShopInstance
+        ///    (handles config drift: tenants assigned to old ID after secret change)
         ///
-        /// SEED_SHOP_INSTANCE_ID env var (optional): if set and matches an existing ShopInstance,
-        /// that one is preferred. Otherwise, the first active ShopInstance is used.
+        /// SEED_SHOP_INSTANCE_ID env var (optional): if set, auto-creates the ShopInstance if
+        /// missing and reassigns all tenants to it. Otherwise, the first active ShopInstance is used.
         /// </summary>
         private static async Task SeedShopInstanceAndAssignTenantsAsync(IServiceProvider serviceProvider)
         {
@@ -650,7 +653,7 @@ namespace VanAn.Gateway
             {
                 var db = serviceProvider.GetRequiredService<VanAnDbContext>();
 
-                // 1. Find target ShopInstance — prefer SEED_SHOP_INSTANCE_ID match, else first active
+                // 1. Parse SEED_SHOP_INSTANCE_ID (optional)
                 Guid? preferredShopInstanceId = null;
                 string? seedIdStr = Environment.GetEnvironmentVariable("SEED_SHOP_INSTANCE_ID");
                 if (Guid.TryParse(seedIdStr, out Guid seedId) && seedId != Guid.Empty)
@@ -658,6 +661,30 @@ namespace VanAn.Gateway
                     preferredShopInstanceId = seedId;
                 }
 
+                // 2. If SEED_SHOP_INSTANCE_ID is set but ShopInstance doesn't exist → auto-create
+                if (preferredShopInstanceId.HasValue)
+                {
+                    bool exists = await db.ShopInstances
+                        .IgnoreQueryFilters()
+                        .AnyAsync(s => s.Id == preferredShopInstanceId.Value);
+                    if (!exists)
+                    {
+                        var seedInstance = new ShopInstance(
+                            baseUrl: "http://localhost",
+                            label: $"Seeded {preferredShopInstanceId.Value.ToString()[..8]}",
+                            maxTenants: 100);
+                        // BaseEntity.Id has protected setter — use reflection to set the seed ID
+                        // (seed operation, not domain business logic)
+                        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!
+                            .SetValue(seedInstance, preferredShopInstanceId.Value);
+                        db.ShopInstances.Add(seedInstance);
+                        await db.SaveChangesAsync();
+                        Log.Information("SeedShopInstance: auto-created ShopInstance {Id} (label={Label})",
+                            seedInstance.Id, seedInstance.Label);
+                    }
+                }
+
+                // 3. Find target ShopInstance — prefer SEED_SHOP_INSTANCE_ID match, else first active
                 var shopInstances = await db.ShopInstances
                     .IgnoreQueryFilters()
                     .Where(s => s.IsActive)
@@ -675,25 +702,27 @@ namespace VanAn.Gateway
                     return;
                 }
 
-                // 2. Assign all unassigned tenants to this ShopInstance
-                var unassignedTenants = await db.Tenants
+                // 4. Assign unassigned tenants + reassign tenants on a DIFFERENT ShopInstance (config drift fix)
+                var tenantsToAssign = await db.Tenants
                     .IgnoreQueryFilters()
-                    .Where(t => t.ShopInstanceId == null)
+                    .Where(t => t.ShopInstanceId == null || t.ShopInstanceId != targetInstance.Id)
                     .ToListAsync();
 
-                if (unassignedTenants.Count > 0)
+                if (tenantsToAssign.Count > 0)
                 {
-                    foreach (var tenant in unassignedTenants)
+                    int unassignedCount = tenantsToAssign.Count(t => t.ShopInstanceId == null);
+                    int reassignedCount = tenantsToAssign.Count - unassignedCount;
+                    foreach (var tenant in tenantsToAssign)
                     {
                         tenant.AssignToShopInstance(targetInstance.Id);
                     }
                     await db.SaveChangesAsync();
-                    Log.Information("SeedShopInstance: assigned {Count} tenant(s) to ShopInstance {Id} ({Label})",
-                        unassignedTenants.Count, targetInstance.Id, targetInstance.Label);
+                    Log.Information("SeedShopInstance: assigned {Unassigned} new + reassigned {Reassigned} drifted tenant(s) to ShopInstance {Id} ({Label})",
+                        unassignedCount, reassignedCount, targetInstance.Id, targetInstance.Label);
                 }
                 else
                 {
-                    Log.Debug("SeedShopInstance: all tenants already assigned to a ShopInstance");
+                    Log.Debug("SeedShopInstance: all tenants already assigned to ShopInstance {Id}", targetInstance.Id);
                 }
             }
             catch (Exception ex)
