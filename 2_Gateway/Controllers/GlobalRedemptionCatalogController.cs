@@ -46,7 +46,11 @@ namespace VanAn.Gateway.Controllers
                     ValidFrom = i.ValidFrom,
                     ValidTo = i.ValidTo,
                     VoucherExpiryDays = i.VoucherExpiryDays,
-                    IsGlobal = true
+                    IsGlobal = true,
+                    // #124 fix: compute IsAvailable server-side so client doesn't default to false
+                    IsAvailable = i.IsActive && (i.StockCount == null || i.StockCount > 0)
+                        && DateTime.UtcNow >= i.ValidFrom
+                        && (i.ValidTo == null || DateTime.UtcNow <= i.ValidTo)
                 })
                 .ToListAsync();
 
@@ -114,6 +118,8 @@ namespace VanAn.Gateway.Controllers
         public DateTime? ValidTo { get; set; }
         public int VoucherExpiryDays { get; set; }
         public bool IsGlobal { get; set; } = true;
+        /// <summary>#124 fix: IsAvailable computed server-side (was missing → client defaulted to false → button disabled).</summary>
+        public bool IsAvailable { get; set; } = true;
     }
 
     public class CreateGlobalCatalogItemRequest

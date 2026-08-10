@@ -5,8 +5,8 @@
 @inject CommunityHttpService CommunityHttp
 @inject LoyaltyModeHttpService LoyaltyModeHttp
 
-<!-- Desktop sidebar nav (hidden on mobile via parent .khachlink-sidebar) -->
-<div class="nav-desktop">
+<!-- Desktop sidebar nav — #125 fix: hide on mobile via d-none d-md-block (was relying on parent only) -->
+<div class="nav-desktop d-none d-md-block">
     <VanAnCard CssClass="nav-menu-card" Shadow="false">
         <div class="nav-header">
             <a class="nav-brand" href="/">Vạn An KhachLink</a>
@@ -133,8 +133,8 @@
     </VanAnCard>
 </div>
 
-<!-- Mobile bottom tab bar (visible only on mobile via parent .d-md-none) -->
-<div class="mobile-bottom-nav">
+<!-- Mobile bottom tab bar — #125 fix: d-md-none ensures hidden on desktop even without parent wrapper -->
+<div class="mobile-bottom-nav d-md-none">
     <a class="mobile-tab-item @IsActive("/")" href="/">
         <i class="bi bi-house-door-fill"></i>
         <span>Trang chủ</span>
