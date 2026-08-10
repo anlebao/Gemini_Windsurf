@@ -84,6 +84,14 @@ server {
     ssl_session_cache   shared:SSL:10m;
     ssl_session_timeout 1d;
 
+    # #122: Friendly error pages — served from nginx html volume (no upstream needed)
+    error_page 502 /502.html;
+    error_page 503 /503.html;
+    error_page 504 /504.html;
+    location = /502.html { root /usr/share/nginx/html; internal; }
+    location = /503.html { root /usr/share/nginx/html; internal; }
+    location = /504.html { root /usr/share/nginx/html; internal; }
+
     # ── Blazor Server protection strategy (5 layers) ──────────────────────
     #
     # Root cause of 503 on fast navigation (fix iter 4, 2026-08-09):
@@ -196,6 +204,14 @@ server {
     ssl_session_cache   shared:SSL:10m;
     ssl_session_timeout 1d;
 
+    # #122: Friendly error pages
+    error_page 502 /502.html;
+    error_page 503 /503.html;
+    error_page 504 /504.html;
+    location = /502.html { root /usr/share/nginx/html; internal; }
+    location = /503.html { root /usr/share/nginx/html; internal; }
+    location = /504.html { root /usr/share/nginx/html; internal; }
+
     # Blazor WASM immutable assets — exempt from rate limit (no server RAM cost)
     location /_framework/ {
         proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
@@ -289,6 +305,14 @@ server {
     ssl_ciphers         HIGH:!aNULL:!MD5;
     ssl_session_cache   shared:SSL:10m;
     ssl_session_timeout 1d;
+
+    # #122: Friendly error pages
+    error_page 502 /502.html;
+    error_page 503 /503.html;
+    error_page 504 /504.html;
+    location = /502.html { root /usr/share/nginx/html; internal; }
+    location = /503.html { root /usr/share/nginx/html; internal; }
+    location = /504.html { root /usr/share/nginx/html; internal; }
 
     # ── Blazor Server protection (5 layers) — same as www2 ──────────────
     # See www2 server block for full documentation of each layer.
@@ -384,6 +408,14 @@ server {
     ssl_ciphers         HIGH:!aNULL:!MD5;
     ssl_session_cache   shared:SSL:10m;
     ssl_session_timeout 1d;
+
+    # #122: Friendly error pages (JSON for API, HTML for browser)
+    error_page 502 /502.html;
+    error_page 503 /503.html;
+    error_page 504 /504.html;
+    location = /502.html { root /usr/share/nginx/html; internal; }
+    location = /503.html { root /usr/share/nginx/html; internal; }
+    location = /504.html { root /usr/share/nginx/html; internal; }
 
     # Auth endpoints — strict rate limit (brute-force protection)
     # /api/platform/login, /api/auth/* — 5r/m + burst=5 per IP

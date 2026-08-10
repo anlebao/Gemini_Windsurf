@@ -22,6 +22,7 @@
 @inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 @inject TenantApiClient TenantApi
 @inject Microsoft.Extensions.DependencyInjection.IServiceScopeFactory ScopeFactory
+@inject IJSRuntime JSRuntime
 
 <div class="orders-page @ThemeProvider.CurrentTheme">
     <!-- Tenant Filter (SystemAdmin only) -->
@@ -194,6 +195,12 @@
                                 <VanAButton Variant="secondary" Size="small" OnClick="@(() => GoToDetail(o.Id))">
                                     Chi tiết
                                 </VanAButton>
+                                @if (o.PaymentStatus == "Paid")
+                                {
+                                    <VanAButton Variant="secondary" Size="small" OnClick="@(() => PrintBill(o.Id))" data-testid="btn-print-bill">
+                                        🖨️ In bill
+                                    </VanAButton>
+                                }
                             </div>
                         </Template>
                     </VanAnColumn>
@@ -449,6 +456,10 @@
     private string GetDetailUrl(Guid id) => $"/orders/{id}";
 
     private void GoToDetail(Guid id) => NavigationManager.NavigateTo($"/orders/{id}");
+
+    // #115: Print bill — opens print-optimized bill page in new tab.
+    // Browser print dialog allows "Save as PDF" if no physical printer connected.
+    private void PrintBill(Guid orderId) => NavigationManager.NavigateTo($"/orders/{orderId}/print", forceLoad: true);
 
     private async Task ConfirmOrder(Guid orderId)
     {

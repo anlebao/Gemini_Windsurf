@@ -1,0 +1,319 @@
+@page "/orders/{OrderId:guid}/print"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "StaffOrAbove")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.Shared.Domain
+@using VanAn.CoreHub.Services
+@using VanAn.ShopERP.Services
+@inject IOrderWorkflowService OrderWorkflowService
+@inject ILogger<PrintBill> Logger
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+
+@* #115: Print-optimized bill page — POS-style receipt layout.
+   Opens in new tab from order list "In bill" button (forceLoad: true).
+   Auto-triggers window.print() on load. Browser print dialog allows "Save as PDF". *@
+<div class="bill-page">
+    @if (loading)
+    {
+        <p style="text-align:center;padding:2rem;">Đang tải hóa đơn...</p>
+    }
+    else if (order == null)
+    {
+        <p style="text-align:center;padding:2rem;">Không tìm thấy đơn hàng.</p>
+    }
+    else
+    {
+        <div class="bill-receipt" id="bill-receipt">
+            @* Header — Store info *@
+            <div class="bill-header">
+                <h1 class="bill-store-name">VẠN AN</h1>
+                <p class="bill-store-subtitle">Hệ sinh thái F&B</p>
+                <div class="bill-divider">━━━━━━━━━━━━━━━━━━</div>
+            </div>
+
+            @* Bill meta info *@
+            <div class="bill-meta">
+                <div class="bill-meta-row">
+                    <span>Mã đơn:</span>
+                    <strong>@(order.TrackingCode ?? order.Id.ToString()[..8])</strong>
+                </div>
+                <div class="bill-meta-row">
+                    <span>Ngày:</span>
+                    <strong>@order.OrderDate.ToVietnamTimeString()</strong>
+                </div>
+                <div class="bill-meta-row">
+                    <span>Thanh toán:</span>
+                    <strong>@(order.PaymentStatus == "Paid" ? "Đã thanh toán" : order.PaymentStatus)</strong>
+                </div>
+                <div class="bill-meta-row">
+                    <span>PTTT:</span>
+                    <strong>@(order.PaymentMethod ?? "—")</strong>
+                </div>
+            </div>
+
+            <div class="bill-divider">━━━━━━━━━━━━━━━━━━</div>
+
+            @* Items table *@
+            <table class="bill-items">
+                <thead>
+                    <tr>
+                        <th class="col-name">Sản phẩm</th>
+                        <th class="col-qty">SL</th>
+                        <th class="col-price">Đơn giá</th>
+                        <th class="col-total">T.tiền</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in order.Items)
+                    {
+                        <tr>
+                            <td class="col-name">@item.ProductName</td>
+                            <td class="col-qty">@item.Quantity</td>
+                            <td class="col-price">@item.UnitPrice.ToString("N0")</td>
+                            <td class="col-total">@item.TotalAmount.ToString("N0")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <div class="bill-divider">━━━━━━━━━━━━━━━━━━</div>
+
+            @* Totals *@
+            <div class="bill-totals">
+                <div class="bill-total-row">
+                    <span>Tạm tính:</span>
+                    <span>@order.SubTotal.ToString("N0") đ</span>
+                </div>
+                @if (order.DiscountAmount > 0)
+                {
+                    <div class="bill-total-row">
+                        <span>Giảm giá:</span>
+                        <span>-@order.DiscountAmount.ToString("N0") đ</span>
+                    </div>
+                }
+                @if (order.ShippingFee > 0)
+                {
+                    <div class="bill-total-row">
+                        <span>Phí giao hàng:</span>
+                        <span>@order.ShippingFee.ToString("N0") đ</span>
+                    </div>
+                }
+                @if (order.TotalVatAmount > 0)
+                {
+                    <div class="bill-total-row">
+                        <span>VAT:</span>
+                        <span>@order.TotalVatAmount.ToString("N0") đ</span>
+                    </div>
+                }
+                <div class="bill-total-row bill-grand-total">
+                    <span>TỔNG CỘNG:</span>
+                    <strong>@order.TotalAmount.ToString("N0") đ</strong>
+                </div>
+            </div>
+
+            @* Footer *@
+            <div class="bill-footer">
+                <div class="bill-divider">━━━━━━━━━━━━━━━━━━</div>
+                <p class="bill-thank-you">Cảm ơn quý khách!</p>
+                <p class="bill-thank-sub">Hẹn gặp lại — Vạn An Group</p>
+                <p class="bill-print-info">In lúc: @DateTime.UtcNow.ToVietnamTimeString()</p>
+            </div>
+        </div>
+
+        <div class="bill-actions no-print">
+            <VanAButton Variant="primary" OnClick="PrintAsync" data-testid="btn-print-now">
+                🖨️ In hóa đơn
+            </VanAButton>
+            <VanAButton Variant="secondary" OnClick="GoBack">
+                ← Quay lại
+            </VanAButton>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid OrderId { get; set; }
+
+    private Order? order;
+    private bool loading = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && order != null)
+        {
+            // Auto-trigger print dialog on page load
+            await PrintAsync();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            order = await OrderWorkflowService.GetOrderAsync(OrderId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading order {OrderId} for print", OrderId);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task PrintAsync()
+    {
+        await JSRuntime.InvokeVoidAsync("vananPrintBill");
+    }
+
+    private void GoBack() => NavigationManager.NavigateTo($"/orders/{OrderId}");
+}
+
+<style>
+    /* #115: POS-style bill — 80mm thermal printer width optimized */
+    .bill-page {
+        font-family: "Courier New", "Consolas", monospace;
+        background: white;
+        color: black;
+        max-width: 400px;
+        margin: 0 auto;
+        padding: 1rem;
+    }
+
+    .bill-receipt {
+        font-size: 0.85rem;
+        line-height: 1.5;
+    }
+
+    .bill-header {
+        text-align: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .bill-store-name {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: 2px;
+    }
+
+    .bill-store-subtitle {
+        font-size: 0.75rem;
+        margin: 0;
+        opacity: 0.7;
+    }
+
+    .bill-divider {
+        text-align: center;
+        margin: 0.5rem 0;
+        font-size: 0.75rem;
+        opacity: 0.5;
+    }
+
+    .bill-meta {
+        margin: 0.5rem 0;
+    }
+
+    .bill-meta-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.8rem;
+        margin: 0.15rem 0;
+    }
+
+    .bill-items {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+    }
+
+    .bill-items th {
+        text-align: left;
+        font-weight: 600;
+        padding: 0.25rem 0;
+        border-bottom: 1px dashed #999;
+    }
+
+    .bill-items td {
+        padding: 0.2rem 0;
+        vertical-align: top;
+    }
+
+    .col-name { width: 45%; }
+    .col-qty { width: 10%; text-align: center; }
+    .col-price { width: 22%; text-align: right; }
+    .col-total { width: 23%; text-align: right; }
+
+    .bill-items tbody tr {
+        border-bottom: 1px dotted #ddd;
+    }
+
+    .bill-totals {
+        margin: 0.5rem 0;
+    }
+
+    .bill-total-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.8rem;
+        margin: 0.15rem 0;
+    }
+
+    .bill-grand-total {
+        font-size: 1rem;
+        font-weight: 700;
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 2px solid black;
+    }
+
+    .bill-footer {
+        text-align: center;
+        margin-top: 1rem;
+    }
+
+    .bill-thank-you {
+        font-size: 1rem;
+        font-weight: 700;
+        margin: 0;
+    }
+
+    .bill-thank-sub {
+        font-size: 0.75rem;
+        margin: 0;
+        opacity: 0.7;
+    }
+
+    .bill-print-info {
+        font-size: 0.65rem;
+        margin: 0.5rem 0 0 0;
+        opacity: 0.4;
+    }
+
+    .bill-actions {
+        text-align: center;
+        margin-top: 2rem;
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+    }
+
+    /* Print styles — hide everything except bill receipt */
+    @@media print {
+        body * { visibility: hidden; }
+        .bill-page, .bill-page * { visibility: visible; }
+        .bill-page {
+            position: absolute;
+            left: 0;
+            top: 0;
+            max-width: 100%;
+            padding: 0.5rem;
+        }
+        .no-print { display: none !important; }
+        .bill-receipt { font-size: 0.8rem; }
+    }
+</style>

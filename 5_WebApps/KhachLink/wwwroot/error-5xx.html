@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Đang có chút sự cố — Vạn An</title>
+    <base href="/" />
+    <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #8B4513, #D2691E);
+            color: white;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            padding: 1rem;
+        }
+        .error-card {
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 20px;
+            padding: 2.5rem 2rem;
+            max-width: 480px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        .error-icon {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+        }
+        .error-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0 0 1rem 0;
+        }
+        .error-message {
+            font-size: 1rem;
+            line-height: 1.6;
+            opacity: 0.95;
+            margin: 0 0 1.5rem 0;
+        }
+        .retry-btn {
+            display: inline-block;
+            background: white;
+            color: #8B4513;
+            border: none;
+            border-radius: 50px;
+            padding: 0.75rem 2rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        .retry-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+        .error-footer {
+            margin-top: 1.5rem;
+            font-size: 0.85rem;
+            opacity: 0.7;
+            font-style: italic;
+        }
+        .error-code {
+            margin-top: 0.5rem;
+            font-size: 0.75rem;
+            opacity: 0.5;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-card">
+        <div class="error-icon">🔧</div>
+        <h1 class="error-title">Đang có chút sự cố</h1>
+        <p class="error-message">
+            Hệ thống gặp lỗi tạm thời. Vui lòng thử lại sau giây lát.
+        </p>
+        <a href="/" class="retry-btn">Thử lại</a>
+        <p class="error-footer">Cảm ơn bạn đã đồng hành cùng Vạn An.</p>
+        <p class="error-code" id="errorCode">HTTP 5xx — Server Error</p>
+    </div>
+    <script>
+        // Display actual status code from URL query if available
+        (function () {
+            var params = new URLSearchParams(window.location.search);
+            var code = params.get('code');
+            if (code) {
+                document.getElementById('errorCode').textContent = 'HTTP ' + code;
+            }
+        })();
+    </script>
+</body>
+</html>

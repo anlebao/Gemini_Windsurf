@@ -46,6 +46,11 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         };
+        // #115: Print bill — triggers browser print dialog. "Save as PDF" option
+        // appears if no physical printer is connected.
+        window.vananPrintBill = function () {
+            window.print();
+        };
     </script>
     <!-- W3-T5: TTS reader for kitchen voice note playback -->
     <script src="js/tts-reader.js"></script>
