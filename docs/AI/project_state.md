@@ -84,13 +84,14 @@
 - **VALCN v2.0 RV:** 10 PASS + 1 PARTIAL + 2 FAIL→FIXED→VERIFIED
 - **Order Sync:** ✅ FIXED + VERIFIED end-to-end. ShopInstance `9e94f876-...` auto-created, 10 tenants reassigned, NATS subjects match, test order GMV +108,900 exact.
 - **Voice Search:** ✅ DEPLOYED. StoreFinder.razor mic button, `voice-note.js` loaded, `Voice_Note_Enabled`=True.
+- **Network Dashboard ActiveCustomers:** ✅ FIXED + VERIFIED. ActiveCustomers 0→6, RepeatRate/LoyaltyROI correct (0 when no data). Option A query-level fix (CustomerDeviceId fallback). TD-NETDASH-001 logged for Option B (Domain change).
 - **GCP VPS (3 instances):** `vanan-gateway` (e2-small 2GB) — Gateway + Nginx + PG + NATS · `vanan-khachlink` (e2-micro) — KhachLink · `vanan-shop-a` (e2-micro) — ShopERP
 - **Domains:** `api2.khachvip.online` (Gateway), `app2.khachvip.online` (ShopERP), `diemthuong2.khachvip.online` (KhachLink), `www2.khachvip.online` (main)
 - **nginx:** 5-layer rate limit (static/api/auth/blazor/page) — 0 503 in load test (500+ requests)
 - **Background Service Toggle:** `/admin/background-services` — 8 services toggleable (6 existing + 2 loyalty budget reset jobs)
 - **Loyalty Alliance:** FULLY OPERATIONAL. Tenant in Silo mode — Alliance infrastructure ready.
-- **Known gaps (verified, not bugs):** Network Dashboard cache 10-min (by design); ActiveCustomers=0 (guest checkout CustomerId=null — defer to CRM phase).
-- **Tech debt:** TD-MVPS-001→004, TD-CUSTSYNC-001 (Customer sync SQLite→PG), TD-ASYNCDP-001 (async-native IFormulaEngine), TD-GCP-001 (Hybrid Bước 1 done, Bước 2 pending monitoring)
+- **Known gaps (verified, not bugs):** Network Dashboard cache 10-min (by design); TD-NETDASH-001 (Option B — Order.SetCustomerId Domain change, deferred).
+- **Tech debt:** TD-MVPS-001→004, TD-CUSTSYNC-001 (Customer sync SQLite→PG), TD-ASYNCDP-001 (async-native IFormulaEngine), TD-GCP-001 (Hybrid Bước 1 done, Bước 2 pending monitoring), TD-NETDASH-001 (Option B — Order.SetCustomerId Domain change)
 
 ---
 
@@ -101,7 +102,7 @@
 2. **(Browser RV — Voice Search)** Open `/stores` on KhachLink → click mic button → speak store name → verify search filters. JS loaded + flag ON verified, browser interaction pending.
 3. **(Optional — Feature flag enable testing)** Enable `ValcnV2_RefundReversal` → create + cancel an order → verify 4-step reversal. Disable after test.
 4. **(ShopERP order sync — SQLite verification)** SSH into ShopERP VPS → `docker exec vanan-shoperp-1 sqlite3 /data/shoperp.db "SELECT COUNT(*) FROM Orders"` → verify count increases after test orders. NATS subscription verified, SQLite write not yet directly confirmed.
-5. **(Issue 3 — ActiveCustomers=0)** Defer to CRM phase: auto-create Customer entity from guest checkout info (CustomerPhone-based dedup). Currently all orders have CustomerId=null → ActiveCustomers/RepeatRate/LoyaltyROI all = 0.
+5. **(Issue 3 — ActiveCustomers=0)** ✅ FIXED (Option A — query-level, commit `298bb514`). TD-NETDASH-001 logged for Option B (Domain change — `Order.SetCustomerId` after stub creation).
 
 **Deferred / monitoring:**
 6. **(GCP Data Seeding)** Seed production data vào GCP DB (fresh DB chỉ có 3 tenants test).
