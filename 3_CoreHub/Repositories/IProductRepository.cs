@@ -12,8 +12,9 @@ namespace VanAn.CoreHub.Repositories
         /// <summary>Get a product by ProductId + TenantId. Returns null if not found or belongs to another tenant.</summary>
         Task<Product?> GetByIdAsync(ProductId id, TenantId tenantId, CancellationToken cancellationToken = default);
 
-        /// <summary>Get all products for management (include inactive, exclude deleted) for a tenant.</summary>
-        Task<List<Product>> GetAllForManagementAsync(TenantId tenantId, CancellationToken cancellationToken = default);
+        /// <summary>Get all products for management (include inactive, exclude deleted) for a tenant.
+        /// #114: includePosOnly=false (default) filters out POS-only service products from non-POS views.</summary>
+        Task<List<Product>> GetAllForManagementAsync(TenantId tenantId, CancellationToken cancellationToken = default, bool includePosOnly = false);
 
         /// <summary>Add a new product.</summary>
         Task<Product> AddAsync(Product product, CancellationToken cancellationToken = default);

@@ -28,13 +28,17 @@ namespace VanAn.CoreHub.Repositories
             }
         }
 
-        public async Task<List<Product>> GetAllForManagementAsync(TenantId tenantId, CancellationToken cancellationToken = default)
+        public async Task<List<Product>> GetAllForManagementAsync(TenantId tenantId, CancellationToken cancellationToken = default, bool includePosOnly = false)
         {
             try
             {
                 // Management view: include inactive, exclude soft-deleted (IsDeleted = true)
-                return await _context.Products
-                    .Where(p => p.TenantId == tenantId && !p.IsDeleted)
+                // #114: Filter out POS-only service products unless explicitly requested (POS screen)
+                var query = _context.Products
+                    .Where(p => p.TenantId == tenantId && !p.IsDeleted);
+                if (!includePosOnly)
+                    query = query.Where(p => !p.IsPosOnly);
+                return await query
                     .OrderByDescending(p => p.UpdatedAt)
                     .ToListAsync(cancellationToken);
             }

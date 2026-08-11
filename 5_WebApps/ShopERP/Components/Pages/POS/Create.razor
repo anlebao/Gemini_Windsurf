@@ -323,7 +323,7 @@
     {
         try
         {
-            products = await ProductService.GetAllForManagementAsync(TenantProvider.TenantId);
+            products = await ProductService.GetAllForManagementAsync(TenantProvider.TenantId, default, includePosOnly: true);
             // RC-7: Load VAT display toggle.
             _vatDisplayEnabled = await FeatureSettings.IsEnabledAsync(
                 TenantProvider.TenantId, nameof(ShopFeatureSettingsDto.VAT_Display_Enabled));
@@ -345,7 +345,7 @@
         if (existing != null)
         {
             cartItems.Remove(existing);
-            cartItems.Add(existing with { Quantity = existing.Quantity + 1 });
+            cartItems.Add(existing with { Quantity = existing.Quantity + 1, IsPosOnly = product.IsPosOnly });
         }
         else
         {
@@ -355,7 +355,8 @@
                 ProductName = product.Name,
                 UnitPrice = product.Price,
                 VatRate = product.VatRate,
-                Quantity = 1
+                Quantity = 1,
+                IsPosOnly = product.IsPosOnly  // #114: propagate flag for inline editing
             });
         }
 
@@ -448,7 +449,11 @@
                 {
                     ProductId = c.ProductId,
                     Quantity = c.Quantity,
-                    UnitPrice = c.UnitPrice
+                    UnitPrice = c.UnitPrice,
+                    // #114: Pass client snapshot (ProductName + VatRate) so OrderService doesn't need DB lookup.
+                    // Critical for POS-only service products where staff edits name + VAT% inline.
+                    ProductName = c.ProductName,
+                    VatRate = c.VatRate
                 }).ToList()
             };
 
@@ -477,7 +482,9 @@
         public decimal UnitPrice { get; set; }                   // Issue #114: mutable for inline price entry (Price=0 products)
         public decimal VatRate { get; set; } = 0.10m;            // Issue #114: mutable for inline VAT entry
         public int Quantity { get; init; }
-        public bool IsPriceEditable => UnitPrice == 0m;          // Issue #114: show price input when product has no fixed price
+        /// <summary>#114: POS-only service product — show inline name/price/VAT inputs.</summary>
+        public bool IsPosOnly { get; init; } = false;
+        public bool IsPriceEditable => IsPosOnly;                // #114: use flag instead of UnitPrice==0 heuristic
         public decimal TotalPrice => UnitPrice * Quantity;
         public decimal VatAmount => TotalPrice - (TotalPrice / (1 + VatRate));
         public decimal NetAmount => TotalPrice - VatAmount;

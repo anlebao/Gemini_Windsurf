@@ -39,6 +39,10 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.VatRate)
                 .HasPrecision(5, 4);
 
+            // #114: POS-only flag — service product only visible in POS screen
+            _ = builder.Property(e => e.IsPosOnly)
+                .HasDefaultValue(false);
+
             _ = builder.Property(e => e.ImageUrl)
                 .HasMaxLength(500);
 

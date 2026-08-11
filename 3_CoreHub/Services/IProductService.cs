@@ -14,8 +14,9 @@ namespace VanAn.CoreHub.Services
         /// <summary>Get a single product for management (by ProductId + tenant). Returns null if not found.</summary>
         Task<ProductDetailDto?> GetProductForManagementAsync(Guid productId, Guid tenantId, CancellationToken ct = default);
 
-        /// <summary>Get all products for management (include inactive, exclude deleted).</summary>
-        Task<List<ProductDetailDto>> GetAllForManagementAsync(Guid tenantId, CancellationToken ct = default);
+        /// <summary>Get all products for management (include inactive, exclude deleted).
+        /// #114: includePosOnly=false (default) hides POS-only service products from non-POS views.</summary>
+        Task<List<ProductDetailDto>> GetAllForManagementAsync(Guid tenantId, CancellationToken ct = default, bool includePosOnly = false);
 
         /// <summary>Create a new product. Returns the created ProductDetailDto.</summary>
         Task<ProductDetailDto> CreateProductAsync(CreateProductRequest request, Guid tenantId, CancellationToken ct = default);

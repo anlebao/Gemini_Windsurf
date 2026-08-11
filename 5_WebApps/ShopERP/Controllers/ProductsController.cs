@@ -46,7 +46,7 @@ namespace VanAn.ShopERP.Controllers
             try
             {
                 IQueryable<Product> query = _dbContext.Products
-                    .Where(p => p.IsActive && !p.IsDeleted);
+                    .Where(p => p.IsActive && !p.IsDeleted && !p.IsPosOnly); // #114: hide POS-only service products from public catalog
 
                 if (shopId.HasValue)
                 {
@@ -128,7 +128,7 @@ namespace VanAn.ShopERP.Controllers
             try
             {
                 List<Product> allProducts = await _dbContext.Products
-                    .Where(p => p.IsActive && !p.IsDeleted)
+                    .Where(p => p.IsActive && !p.IsDeleted && !p.IsPosOnly) // #114: hide POS-only service products
                     .OrderBy(p => p.Category)
                     .ThenBy(p => p.Name)
                     .ToListAsync();

@@ -1046,7 +1046,8 @@ namespace VanAn.ShopERP
                         isActive: true,
                         imageUrl: null,
                         vatRate: 0.10m,
-                        costPrice: 0m);
+                        costPrice: 0m,
+                        isPosOnly: true);  // #114: POS-only — hidden from catalog/KhachLink
 
                     // Set deterministic Id (Single-Identity Pattern: Id = ProductId)
                     typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("Id")!.SetValue(product, productId);

@@ -16,6 +16,8 @@
         public bool IsActive { get; set; }
         public string? ImageUrl { get; set; }
         public decimal VatRate { get; set; }
+        /// <summary>#114: POS-only service product — hidden from catalog/KhachLink, only visible in POS.</summary>
+        public bool IsPosOnly { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }

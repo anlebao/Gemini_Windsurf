@@ -25,9 +25,9 @@ namespace VanAn.CoreHub.Services
             return product == null ? null : MapToDto(product);
         }
 
-        public async Task<List<ProductDetailDto>> GetAllForManagementAsync(Guid tenantId, CancellationToken ct = default)
+        public async Task<List<ProductDetailDto>> GetAllForManagementAsync(Guid tenantId, CancellationToken ct = default, bool includePosOnly = false)
         {
-            List<Product> products = await _productRepository.GetAllForManagementAsync(new TenantId(tenantId), ct);
+            List<Product> products = await _productRepository.GetAllForManagementAsync(new TenantId(tenantId), ct, includePosOnly);
             return products.Select(MapToDto).ToList();
         }
 
@@ -178,6 +178,7 @@ namespace VanAn.CoreHub.Services
             IsActive = p.IsActive,
             ImageUrl = p.ImageUrl,
             VatRate = p.VatRate,
+            IsPosOnly = p.IsPosOnly,
             CreatedAt = p.CreatedAt,
             UpdatedAt = p.UpdatedAt
         };

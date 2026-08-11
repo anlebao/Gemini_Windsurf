@@ -545,10 +545,13 @@ namespace VanAn.Shared.Domain
         public bool IsActive { get; protected set; } = true;
         public string? ImageUrl { get; protected set; }
         public decimal VatRate { get; protected set; } = 0.10m; // 10% default VAT for 2026 compliance
+        /// <summary>#114: POS-only service product — only visible in POS screen, not in product catalog/KhachLink.
+        /// Used for "Sản phẩm dịch vụ" default item: staff enters price + VAT% + name at order time.</summary>
+        public bool IsPosOnly { get; protected set; } = false;
 
         public Product() { } // Public constructor for UI layer
 
-        public Product(TenantId tenantId, string name, decimal price, string category, decimal costPrice = 0m)
+        public Product(TenantId tenantId, string name, decimal price, string category, decimal costPrice = 0m, bool isPosOnly = false)
             : base(tenantId)
         {
             // DMD-FK1: Align BaseEntity.Id (PK) with ProductId (business key).
@@ -559,9 +562,10 @@ namespace VanAn.Shared.Domain
             Price = price;
             Category = category;
             CostPrice = costPrice;
+            IsPosOnly = isPosOnly;
         }
 
-        public Product(TenantId tenantId, string name, string description, decimal price, string category, bool isActive = true, string? imageUrl = null, decimal vatRate = 0.10m, decimal costPrice = 0m)
+        public Product(TenantId tenantId, string name, string description, decimal price, string category, bool isActive = true, string? imageUrl = null, decimal vatRate = 0.10m, decimal costPrice = 0m, bool isPosOnly = false)
             : base(tenantId)
         {
             // DMD-FK1: Align BaseEntity.Id (PK) with ProductId (business key).
@@ -574,6 +578,7 @@ namespace VanAn.Shared.Domain
             ImageUrl = imageUrl;
             VatRate = vatRate;
             CostPrice = costPrice;
+            IsPosOnly = isPosOnly;
         }
 
         /// <summary>
@@ -589,7 +594,7 @@ namespace VanAn.Shared.Domain
         /// Update product info (name, description, price, category, isActive, imageUrl, vatRate).
         /// G5: calls UpdateAudit() for audit trail integrity.
         /// </summary>
-        public void Update(string name, string description, decimal price, string category, bool isActive, string? imageUrl, decimal vatRate, string? updatedBy = null)
+        public void Update(string name, string description, decimal price, string category, bool isActive, string? imageUrl, decimal vatRate, string? updatedBy = null, bool? isPosOnly = null)
         {
             if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Name cannot be empty.", nameof(name));
             if (price < 0) throw new ArgumentException("Price cannot be negative.", nameof(price));
@@ -602,6 +607,7 @@ namespace VanAn.Shared.Domain
             IsActive = isActive;
             ImageUrl = imageUrl;
             VatRate = vatRate;
+            if (isPosOnly.HasValue) IsPosOnly = isPosOnly.Value;
             UpdateAudit(updatedBy);
         }
 
