@@ -79,6 +79,7 @@ namespace VanAn.CoreHub.Repositories
             {
                 return await _context.Orders
                     .AsNoTracking()
+                    .Include(o => o.Items)  // #114 r1.2: Kitchen display needs items to show ProductName x Quantity
                     .Where(o => o.TenantId == tenantId && o.Status == new OrderStatusId(status))
                     .OrderByDescending(o => o.CreatedAt)
                     .ToListAsync(cancellationToken);

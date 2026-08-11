@@ -1022,6 +1022,7 @@ namespace VanAn.ShopERP
                 Guid namespaceGuid = Guid.Parse("a4f5e2c1-7b3d-4e9f-b8a2-1c6d5e7f9a0b");
 
                 int seeded = 0;
+                int updated = 0;
                 foreach (var tenant in tenants)
                 {
                     // Generate deterministic product GUID from tenant ID + namespace
@@ -1034,7 +1035,23 @@ namespace VanAn.ShopERP
                         .IgnoreQueryFilters()
                         .AnyAsync(p => p.Id == productId);
 
-                    if (exists) continue;
+                    if (exists)
+                    {
+                        // #114 r1 fix: Existing service product may have been seeded before IsPosOnly flag
+                        // was added. Update IsPosOnly=true so POS shows inline price/name/VAT inputs.
+                        var existingProduct = await context.Products
+                            .IgnoreQueryFilters()
+                            .FirstOrDefaultAsync(p => p.Id == productId);
+                        if (existingProduct != null && !existingProduct.IsPosOnly)
+                        {
+                            existingProduct.Update(
+                                existingProduct.Name, existingProduct.Description, existingProduct.Price,
+                                existingProduct.Category, existingProduct.IsActive, existingProduct.ImageUrl,
+                                existingProduct.VatRate, isPosOnly: true);
+                            updated++;
+                        }
+                        continue;
+                    }
 
                     var tenantIdValue = tenant.TenantId ?? new TenantId(tenant.Id);
                     var product = new Product(
@@ -1057,10 +1074,10 @@ namespace VanAn.ShopERP
                     seeded++;
                 }
 
-                if (seeded > 0)
+                if (seeded > 0 || updated > 0)
                 {
                     _ = await context.SaveChangesAsync();
-                    Console.WriteLine($"Issue #114: Seeded {seeded} default 'Sản phẩm dịch vụ' product(s) for {tenants.Count} tenant(s)");
+                    Console.WriteLine($"Issue #114: Seeded {seeded} new + updated {updated} existing 'Sản phẩm dịch vụ' product(s) for {tenants.Count} tenant(s)");
                 }
             }
             catch (Exception ex)

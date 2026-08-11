@@ -19,6 +19,7 @@
 @inject ILogger<Create> Logger
 @inject NavigationManager NavigationManager
 @inject IThemeProvider ThemeProvider
+@inject IJSRuntime JSRuntime
 
 <div class="pos-page @ThemeProvider.CurrentTheme">
     <header class="page-header">
@@ -161,6 +162,29 @@
                         <div class="mb-2">
                             <label class="form-label">Số bàn</label>
                             <input class="form-control" @bind="tableNumber" @bind:event="oninput" placeholder="Bàn số" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Ghi chú cho bếp</label>
+                            <textarea class="form-control" rows="2" @bind="customerNotes" @bind:event="oninput"
+                                      placeholder="VD: ít đá, không hành, giao trước 12h..." data-testid="pos-notes-input"></textarea>
+                            <div class="d-flex gap-1 mt-1">
+                                <VanAButton Variant="secondary" Size="small" OnClick="ToggleVoiceNote"
+                                            disabled="@_isRecording" data-testid="pos-voice-start">
+                                    <i class="bi bi-mic"></i> @(_isRecording ? "Đang ghi..." : "Ghi âm")
+                                </VanAButton>
+                                @if (_isRecording)
+                                {
+                                    <VanAButton Variant="error" Size="small" OnClick="ToggleVoiceNote" data-testid="pos-voice-stop">
+                                        <i class="bi bi-stop-circle"></i> Dừng
+                                    </VanAButton>
+                                }
+                                @if (!string.IsNullOrEmpty(customerNotes))
+                                {
+                                    <VanAButton Variant="secondary" Size="small" OnClick="ClearNotes">
+                                        <i class="bi bi-eraser"></i> Xóa
+                                    </VanAButton>
+                                }
+                            </div>
                         </div>
                     </div>
                 </VanACard>
@@ -309,7 +333,10 @@
     private string customerName = string.Empty;
     private string customerPhone = string.Empty;
     private string tableNumber = string.Empty;
+    private string customerNotes = string.Empty;  // #114 r2: order notes for kitchen
     private bool _vatDisplayEnabled = true;
+    private bool _isRecording = false;
+    private DotNetObjectReference<Create>? _dotNetRef;
 
     // Visual feedback: toast + cart flash
     private string? _toastMessage;
@@ -380,6 +407,48 @@
         }, null, 2000, Timeout.Infinite);
     }
 
+    // #114 r2: Voice note — browser Speech Recognition API (vi-VN)
+    private async Task ToggleVoiceNote()
+    {
+        if (!_isRecording)
+        {
+            _isRecording = true;
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("vananPosStartRecording", _dotNetRef);
+            ShowToast("🎤 Đang ghi âm...", "success");
+        }
+        else
+        {
+            _isRecording = false;
+            await JSRuntime.InvokeVoidAsync("vananPosStopRecording");
+        }
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void PosSetTranscription(string text)
+    {
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            customerNotes = string.IsNullOrWhiteSpace(customerNotes) ? text : $"{customerNotes} {text}";
+        }
+        _isRecording = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void PosOnVoiceError(string error)
+    {
+        _isRecording = false;
+        ShowToast($"Lỗi ghi âm: {error}", "error");
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ClearNotes()
+    {
+        customerNotes = string.Empty;
+    }
+
     // Issue #114: Inline editing for default service product (Price=0)
     private void UpdateCartItemName(Guid productId, string name)
     {
@@ -445,6 +514,7 @@
                 CustomerName = string.IsNullOrWhiteSpace(customerName) ? null : customerName,
                 CustomerPhone = string.IsNullOrWhiteSpace(customerPhone) ? null : customerPhone,
                 CustomerAddress = string.IsNullOrWhiteSpace(tableNumber) ? null : $"Bàn: {tableNumber}",
+                CustomerNotes = string.IsNullOrWhiteSpace(customerNotes) ? null : customerNotes.Trim(),  // #114 r2
                 Items = cartItems.Select(c => new OrderItemRequest
                 {
                     ProductId = c.ProductId,

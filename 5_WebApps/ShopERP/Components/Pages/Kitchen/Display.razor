@@ -21,6 +21,7 @@
 @inject NavigationManager NavigationManager
 @inject IThemeProvider ThemeProvider
 @inject Microsoft.Extensions.DependencyInjection.IServiceScopeFactory ScopeFactory
+@inject IJSRuntime JSRuntime
 @implements IAsyncDisposable
 
 <div class="kitchen-display-page @ThemeProvider.CurrentTheme">
@@ -83,6 +84,15 @@
                                         <i class="bi bi-mic"></i> <strong class="voice-note-text" data-testid="voice-note-text">@o.VoiceNoteText</strong>
                                     </div>
                                 }
+                                @if (!string.IsNullOrWhiteSpace(o.CustomerNotes) || !string.IsNullOrWhiteSpace(o.VoiceNoteText))
+                                {
+                                    <div class="kitchen-card__tts">
+                                        <VanAButton Variant="secondary" Size="small" OnClick="@(() => ReadNotesAloud(o))"
+                                                    data-testid="@($"kitchen-btn-tts-{o.Id}")">
+                                            <i class="bi bi-volume-up"></i> Đọc ghi chú
+                                        </VanAButton>
+                                    </div>
+                                }
                                 <div class="kitchen-card__actions">
                                     <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionTo(o.Id, "preparing"))" data-testid="@($"kitchen-btn-preparing-{o.Id}")">
                                         ⏳ Tiếp nhận
@@ -133,6 +143,15 @@
                                         <i class="bi bi-mic"></i> <strong class="voice-note-text" data-testid="voice-note-text">@o.VoiceNoteText</strong>
                                     </div>
                                 }
+                                @if (!string.IsNullOrWhiteSpace(o.CustomerNotes) || !string.IsNullOrWhiteSpace(o.VoiceNoteText))
+                                {
+                                    <div class="kitchen-card__tts">
+                                        <VanAButton Variant="secondary" Size="small" OnClick="@(() => ReadNotesAloud(o))"
+                                                    data-testid="@($"kitchen-btn-tts-{o.Id}")">
+                                            <i class="bi bi-volume-up"></i> Đọc ghi chú
+                                        </VanAButton>
+                                    </div>
+                                }
                                 <div class="kitchen-card__actions">
                                     <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionTo(o.Id, "ready"))" data-testid="@($"kitchen-btn-ready-{o.Id}")">
                                         ✅ Hoàn thành
@@ -181,6 +200,15 @@
                                 {
                                     <div class="voice-note-display" data-testid="voice-note-display">
                                         <i class="bi bi-mic"></i> <strong class="voice-note-text" data-testid="voice-note-text">@o.VoiceNoteText</strong>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(o.CustomerNotes) || !string.IsNullOrWhiteSpace(o.VoiceNoteText))
+                                {
+                                    <div class="kitchen-card__tts">
+                                        <VanAButton Variant="secondary" Size="small" OnClick="@(() => ReadNotesAloud(o))"
+                                                    data-testid="@($"kitchen-btn-tts-{o.Id}")">
+                                            <i class="bi bi-volume-up"></i> Đọc ghi chú
+                                        </VanAButton>
                                     </div>
                                 }
                                 <div class="kitchen-card__actions">
@@ -358,6 +386,8 @@
                 readyOrders = newReady;
                 // Bug 5 fix: Explicit StateHasChanged — ensures kitchen columns rebuild immediately.
                 StateHasChanged();
+                // #114 r3: Auto-read notes for newly arrived orders (TTS)
+                _ = AutoReadNewOrderNotes(newConfirmed);
             }
         }
         catch (Exception ex)
@@ -441,6 +471,41 @@
         return elapsed.TotalMinutes < 1 ? "vừa xong" : $"{(int)elapsed.TotalMinutes} phút trước";
     }
 
+    // #114 r3: TTS — read order notes aloud so chef doesn't need to read text
+    private async Task ReadNotesAloud(KitchenOrderDto order)
+    {
+        // Combine CustomerNotes + VoiceNoteText into a single spoken phrase
+        string text = string.Empty;
+        if (!string.IsNullOrWhiteSpace(order.CustomerNotes))
+            text += order.CustomerNotes;
+        if (!string.IsNullOrWhiteSpace(order.VoiceNoteText))
+            text += (string.IsNullOrEmpty(text) ? "" : ". ") + order.VoiceNoteText;
+
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            // Prefix with order code so chef knows which order the notes belong to
+            string spoken = $"Đơn {(order.TrackingCode ?? order.Id.ToString()[..8])}. {text}";
+            await JSRuntime.InvokeVoidAsync("ttsReader.speak", spoken, "vi-VN");
+        }
+    }
+
+    // #114 r3: Auto-read notes for newly arrived orders (confirmed column only)
+    private async Task AutoReadNewOrderNotes(List<KitchenOrderDto> newOrders)
+    {
+        foreach (var order in newOrders)
+        {
+            // Only read orders that arrived in the last 30 seconds (new)
+            if ((DateTime.UtcNow - order.OrderDate).TotalSeconds < 30)
+            {
+                if (!string.IsNullOrWhiteSpace(order.CustomerNotes) || !string.IsNullOrWhiteSpace(order.VoiceNoteText))
+                {
+                    await ReadNotesAloud(order);
+                    break; // Only read one at a time to avoid overlapping speech
+                }
+            }
+        }
+    }
+
     private static KitchenOrderDto MapToDto(Order o)
     {
         return new KitchenOrderDto
@@ -522,5 +587,9 @@
     }
     .voice-note-display i {
         margin-right: 0.25rem;
+    }
+    /* #114 r3: TTS button — read notes aloud for chef */
+    .kitchen-card__tts {
+        margin-top: 0.4rem;
     }
 </style>
