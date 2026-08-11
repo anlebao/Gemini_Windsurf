@@ -28,91 +28,72 @@
 
 ## 2. Current Objective
 
-**VALCN v2.0 PLATFORM-LIGHT — ALL 3 WAVES COMPLETE + DEPLOYED + RUNTIME VERIFIED. BOM v2.0 fully implemented + production-verified. Order sync Gateway→ShopERP FIXED + VERIFIED end-to-end.**
+**GITHUB ISSUES BATCH #114/#123/#124/#125 — ALL 4 FIXED + DEPLOYED + RV 33/33 PASS. VALCN v2.0 PLATFORM-LIGHT — ALL 3 WAVES COMPLETE + DEPLOYED + RUNTIME VERIFIED (archived).**
 
-**Source:** User request 2026-08-09 — hiện thực hóa BOM v2.0 PLATFORM-LIGHT.
-**BOM:** `docs/requirements/VAN_AN_LOCAL_COMMERCE_NETWORK_BOM_v2.0_PLATFORM_LIGHT.md`
-**Master plan:** `docs/AI/tasks/valcn_v2_platform_light/valcn_v2_master_plan.md`
-**RV report:** `docs/AI/tasks/valcn_v2_platform_light/rv_report_wave3.md` (10 PASS + 1 PARTIAL + 2 FAIL→FIXED→VERIFIED)
-**Branch:** `main` (always-green, per-phase commits)
+**Source:** User request 2026-08-11 — fix 4 GitHub issues from "Ready" column + follow-up revisions (r1/r2/r3) for #114.
+**Branch:** `main` (always-green, per-issue commits)
 
-**Scope:** 6 phases (0, 1, 2, 3, 4, 7) — Phase 5 merged into Phase 1, Phase 6/8/9 dropped (defer v3.0). 12 additive fields + 1 new entity (`LoyaltyIssuanceRecord`) + 3 new services + 2 new background jobs + feature flag infra (all flags default OFF).
+**Issues fixed (2026-08-11, 3 commits):**
 
-| Wave | Phases | Status | Commits |
-|------|--------|--------|---------|
-| Wave 1 | Phase 0 (Analyze) + Phase 1 (Foundation) | ✅ COMPLETE | `af09b8d0` |
-| Wave 2 | Phase 2 (Platform Fee) ‖ Phase 3 (Loyalty Budget) | ✅ COMPLETE | `f1d46f24` + `7edf589a` |
-| Wave 3 | Phase 4 (Refund Reversal) ‖ Phase 7 (Network Dashboard) | ✅ COMPLETE + DEPLOYED + RV PASS | `9a4d0e9b` + fixes |
-| Post-RV | Order Sync Fix + RV Full Test | ✅ COMPLETE + DEPLOYED + VERIFIED | `55ece765` + `6d4bec87` + `2c701e94` + `ffe76c89` + `e3700af4` + `76378549` + `7bbc26c2` |
+| Issue | Title | Status | Commit |
+|-------|-------|--------|--------|
+| #123 | SQLite missing `IsGlobal` column on RedemptionCatalogItems | ✅ FIXED + DEPLOYED + RV PASS | `716e7eec` |
+| #124 | Redemption button disabled + missing admin menu | ✅ FIXED + DEPLOYED + RV PASS | `716e7eec` |
+| #125 | KhachLink bottom icons hidden with sidebar | ✅ FIXED + DEPLOYED + RV PASS | `716e7eec` |
+| #114 | Default "Sản phẩm dịch vụ" POS-only product | ✅ FIXED + DEPLOYED + RV PASS | `07228b7e` + `f46f544c` |
 
-**Post-RV Order Sync Fix (7 commits, 2026-08-10):**
-- `55ece765` — Gateway seed: assign all tenants to first active ShopInstance + OrderSyncSubscriber retry loop
-- `6d4bec87` — Voice search mic button on StoreFinder.razor (reuse voice-note.js)
-- `2c701e94` — Fix test hang: OrderSyncSubscriber tests used CancellationToken.None → retry loop hang → CI timeout
-- `ffe76c89` — CD fix: SHOP_INSTANCE_ID missing from .env.gateway printf + wrong container name in log check
-- `e3700af4` — Seed fix: auto-create ShopInstance if missing + reassign drifted tenants (config drift fix)
-- `76378549` — CD fix: DEPLOY_SHOP_INSTANCE_ID missing from Gateway deploy env: section
-- `7bbc26c2` — CD fix: DEPLOY_SHOP_INSTANCE_ID missing from Gateway SSH envs: list (appleboy/ssh-action)
+**#114 revisions (r1/r2/r3, commit `f46f544c`):**
+- **r1.1** — POS không nhập được giá bán: seed update existing service products `IsPosOnly=true` (was skipped by `if(exists) continue`)
+- **r1.2** — Đơn không hiện trên bếp: `OrderRepository.GetByStatusAsync` missing `.Include(o => o.Items)` → Items null → kitchen empty
+- **r2** — POS thiếu ghi chú + voice note: added CustomerNotes textarea + Web Speech API (vi-VN) STT button + `pos-voice-note.js` + `CreateOrderCommand.CustomerNotes`
+- **r3** — Kitchen TTS: added "Đọc ghi chú" button (ttsReader.speak vi-VN) on all 3 kitchen columns + auto-read for orders <30s old
 
-**Order Sync Root Cause (4 layers, all fixed):**
-1. CD workflow didn't write `SHOP_INSTANCE_ID` to `.env.gateway` → Gateway seed fallback to wrong ShopInstance
-2. Seed code only assigned unassigned tenants, didn't reassign drifted ones
-3. `DEPLOY_SHOP_INSTANCE_ID` not in Gateway deploy `env:` section
-4. `DEPLOY_SHOP_INSTANCE_ID` not in SSH `envs:` list (appleboy/ssh-action doesn't auto-pass env vars)
+**RV on VPS (2026-08-11):** 33 PASS + 0 FAIL + 1 WARN (false positive — Login page SSR no "blazor" keyword). All 3 VPS (Gateway + ShopERP + KhachLink) healthy, no regression, no 502/503/504.
 
-**Verification (2026-08-10):**
-- ShopInstance `9e94f876-...` auto-created in Gateway PG
-- 10 tenants reassigned from `00000000-...001` → `9e94f876-...`
-- NATS publish subject = subscribe subject = `vanan.cloud.order.created.9e94f876-...`
-- Test order 108,900đ → GMV increased exactly 108,900 (280,480 → 389,380)
-- OrderSyncSubscriber log: "subscribed to vanan.cloud.order.created.*** (ShopInstanceId=***)"
-
-**Feature flags (all default OFF — zero production impact):**
-- `ValcnV2_PlatformFee` — Platform Fee on Marketplace orders (Phase 2)
-- `ValcnV2_LoyaltyBudget` — Loyalty budget caps + 2 reset jobs (Phase 3)
-- `ValcnV2_RefundReversal` — 4-step refund reversal on order cancel (Phase 4)
-
-> **Full Wave 1-3 details:** see `docs/AI/project_state_archive.md` → "Archived 2026-08-09"
+> **VALCN v2.0 + Order Sync (archived 2026-08-10):** see `docs/AI/project_state_archive.md` → "Archived 2026-08-09"
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `main` · **Last commit:** `7bbc26c2` · **Working tree:** Clean
+- **Branch:** `main` · **Last commit:** `f46f544c` · **Working tree:** Clean (2 untracked RV scripts in `.devin/`)
 - **.NET SDK:** 8.0.422 · **Build:** 0 errors
-- **CI/CD:** CI SUCCESS (`31354752596`), CD Multi-VPS SUCCESS (`31354752611`). All for commit `7bbc26c2`.
-- **VALCN v2.0 RV:** 10 PASS + 1 PARTIAL + 2 FAIL→FIXED→VERIFIED
-- **Order Sync:** ✅ FIXED + VERIFIED end-to-end. ShopInstance `9e94f876-...` auto-created, 10 tenants reassigned, NATS subjects match, test order GMV +108,900 exact.
-- **Voice Search:** ✅ DEPLOYED. StoreFinder.razor mic button, `voice-note.js` loaded, `Voice_Note_Enabled`=True.
-- **Network Dashboard ActiveCustomers:** ✅ FIXED + VERIFIED. ActiveCustomers 0→6, RepeatRate/LoyaltyROI correct (0 when no data). Option A query-level fix (CustomerDeviceId fallback). TD-NETDASH-001 logged for Option B (Domain change).
+- **CI/CD:** CI SUCCESS, CD Multi-VPS SUCCESS (6/6 jobs: Build+Push, Pre-Deploy Validation, Deploy Gateway/KhachLink/ShopERP, Post-Deploy Smoke Test). All for commit `f46f544c`.
+- **GitHub Issues Batch:** ✅ #114 + #123 + #124 + #125 ALL FIXED + DEPLOYED + RV 33/33 PASS on VPS.
+- **#114 r1/r2/r3:** ✅ POS price entry + kitchen items + notes/voice + TTS — all deployed + verified.
+- **VALCN v2.0 RV:** 10 PASS + 1 PARTIAL + 2 FAIL→FIXED→VERIFIED (archived)
+- **Order Sync:** ✅ FIXED + VERIFIED end-to-end (archived 2026-08-10).
 - **GCP VPS (3 instances):** `vanan-gateway` (e2-small 2GB) — Gateway + Nginx + PG + NATS · `vanan-khachlink` (e2-micro) — KhachLink · `vanan-shop-a` (e2-micro) — ShopERP
 - **Domains:** `api2.khachvip.online` (Gateway), `app2.khachvip.online` (ShopERP), `diemthuong2.khachvip.online` (KhachLink), `www2.khachvip.online` (main)
 - **nginx:** 5-layer rate limit (static/api/auth/blazor/page) — 0 503 in load test (500+ requests)
-- **Background Service Toggle:** `/admin/background-services` — 8 services toggleable (6 existing + 2 loyalty budget reset jobs)
+- **Background Service Toggle:** `/admin/background-services` — 8 services toggleable
 - **Loyalty Alliance:** FULLY OPERATIONAL. Tenant in Silo mode — Alliance infrastructure ready.
 - **Known gaps (verified, not bugs):** Network Dashboard cache 10-min (by design); TD-NETDASH-001 (Option B — Order.SetCustomerId Domain change, deferred).
-- **Tech debt:** TD-MVPS-001→004, TD-CUSTSYNC-001 (Customer sync SQLite→PG), TD-ASYNCDP-001 (async-native IFormulaEngine), TD-GCP-001 (Hybrid Bước 1 done, Bước 2 pending monitoring), TD-NETDASH-001 (Option B — Order.SetCustomerId Domain change)
+- **Tech debt:** TD-MVPS-001→004, TD-CUSTSYNC-001, TD-ASYNCDP-001, TD-GCP-001, TD-NETDASH-001
 
 ---
 
 ## 4. Next Actions
 
-**VALCN v2.0 + Order Sync — ALL COMPLETE + DEPLOYED + VERIFIED. Post-fix items:**
-1. **(Browser RV — Loyalty Config)** Open `/admin/loyalty-config` in browser — verify 4 budget cap fields render (PerOrderRateCap, MonthlyPointsBudget, DailyPointsBudget, PerCustomerDailyLimit). HTTP-level RV was PARTIAL.
-2. **(Browser RV — Voice Search)** Open `/stores` on KhachLink → click mic button → speak store name → verify search filters. JS loaded + flag ON verified, browser interaction pending.
-3. **(Optional — Feature flag enable testing)** Enable `ValcnV2_RefundReversal` → create + cancel an order → verify 4-step reversal. Disable after test.
-4. **(ShopERP order sync — SQLite verification)** SSH into ShopERP VPS → `docker exec vanan-shoperp-1 sqlite3 /data/shoperp.db "SELECT COUNT(*) FROM Orders"` → verify count increases after test orders. NATS subscription verified, SQLite write not yet directly confirmed.
-5. **(Issue 3 — ActiveCustomers=0)** ✅ FIXED (Option A — query-level, commit `298bb514`). TD-NETDASH-001 logged for Option B (Domain change — `Order.SetCustomerId` after stub creation).
+**GitHub Issues Batch #114/#123/#124/#125 — ALL COMPLETE + DEPLOYED + RV 33/33 PASS. Browser-level RV pending:**
+
+1. **(Browser RV — #114 POS price entry)** Login ShopERP → /pos → add "Sản phẩm dịch vụ" to cart → verify inline price/name/VAT inputs appear → enter price → create order → verify order appears on /kitchen with items.
+2. **(Browser RV — #114 POS notes + voice)** On /pos → enter text in "Ghi chú cho bếp" → click "Ghi âm" → speak → verify transcription fills textarea → create order → verify notes appear on /kitchen.
+3. **(Browser RV — #114 Kitchen TTS)** On /kitchen → order with notes → click "Đọc ghi chú" → verify vi-VN speech plays. Verify auto-read for new orders (<30s).
+4. **(Browser RV — #124 redeem button)** Login KhachLink → /rewards → verify redeem button enabled for available items → click redeem → verify flow works.
+5. **(Browser RV — #125 bottom nav)** KhachLink mobile view → toggle sidebar → verify bottom nav icons still visible.
+6. **(Browser RV — Loyalty Config)** Open `/admin/loyalty-config` — verify 4 budget cap fields render (carried over from VALCN v2.0).
+7. **(Browser RV — Voice Search)** Open `/stores` on KhachLink → click mic button → speak store name → verify search filters (carried over).
 
 **Deferred / monitoring:**
-6. **(GCP Data Seeding)** Seed production data vào GCP DB (fresh DB chỉ có 3 tenants test).
-7. **(#99-3 Phase B APPROVAL)** Alliance VND Normalization — HIGH risk, feature-gated. Awaiting user approval.
-8. **(Hybrid Strategy Bước 2 — Monitor)** Trigger khi CPU sustained > 70% / Memory > 80%.
-9. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (skipped via `Category!=Flaky` CI filter).
-10. **Tech debt cleanup** — TD-MVPS-001→004, TD-CUSTSYNC-001, TD-ASYNCDP-001, TD-GCP-001.
-11. **(VPS Disk Monitoring)** Cân nhắc `docker image prune -af` vào deploy script hoặc cron job.
-12. **(v3.0 deferred)** INV-009 (PointValue field), payment provider integration (VNPay/Momo), Ops Cost metric, Tier Distribution.
-13. **(nginx deferred task cards)** `docs/AI/tasks/{nginx_per_user_rate_limit,blazor_api_aggregation,api_rate_limit_classification}_task_card.md`
+8. **(GCP Data Seeding)** Seed production data vào GCP DB (fresh DB chỉ có 3 tenants test).
+9. **(#99-3 Phase B APPROVAL)** Alliance VND Normalization — HIGH risk, feature-gated. Awaiting user approval.
+10. **(Hybrid Strategy Bước 2 — Monitor)** Trigger khi CPU sustained > 70% / Memory > 80%.
+11. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (skipped via `Category!=Flaky` CI filter).
+12. **Tech debt cleanup** — TD-MVPS-001→004, TD-CUSTSYNC-001, TD-ASYNCDP-001, TD-GCP-001, TD-NETDASH-001.
+13. **(VPS Disk Monitoring)** Cân nhắc `docker image prune -af` vào deploy script hoặc cron job.
+14. **(v3.0 deferred)** INV-009 (PointValue field), payment provider integration (VNPay/Momo), Ops Cost metric, Tier Distribution.
+15. **(nginx deferred task cards)** `docs/AI/tasks/{nginx_per_user_rate_limit,blazor_api_aggregation,api_rate_limit_classification}_task_card.md`
 
 ---
 
@@ -134,6 +115,7 @@
 
 ## 6. History Log (compressed — see archive + git log)
 
+* [2026-08-11] **GITHUB ISSUES BATCH #114/#123/#124/#125 — ALL 4 FIXED + DEPLOYED + RV 33/33 PASS.** 3 commits: `716e7eec` (#123+#124+#125) + `07228b7e` (#114 initial) + `f46f544c` (#114 r1/r2/r3 revisions). RV on VPS: 33 PASS + 0 FAIL + 1 WARN (false positive). All 3 VPS healthy, no regression.
 * [2026-08-09] **VALCN v2.0 PLATFORM-LIGHT — ALL 3 WAVES COMPLETE + DEPLOYED + RV PASS.** 7 commits. RV 10 PASS + 1 PARTIAL + 2 FAIL→FIXED. nginx 503 fixed (5-layer rate limit). 3 deferred task cards created.
 * [2026-08-09] **GATEWAY REFACTOR HYBRID BƯỚC 1 COMPLETE + DEPLOYED + RV 11/11 PASS.** REQ-1.1 (poll 5s→10s) + REQ-1.2 (6 background service toggles) + REQ-1.3 (logging reduction ~90%).
 * [2026-08-03] **TT 99/2025/TT-BTC COMPLIANCE FIXES — 3 WAVES COMPLETE.** 8 gaps fixed. RV 10/10 per wave.
@@ -185,9 +167,9 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main`, last commit `7bbc26c2`. VALCN v2.0 ALL 3 WAVES + Post-RV Order Sync Fix COMPLETE + DEPLOYED + VERIFIED. 7 post-RV commits. Build: 0 errors. CI/CD SUCCESS. Order sync end-to-end verified (NATS subjects match, GMV +108,900 exact). Voice search deployed. All 3 feature flags default OFF.
+- **Verified Facts:** Branch=`main`, last commit `f46f544c`. GitHub Issues #114/#123/#124/#125 ALL FIXED + DEPLOYED + RV 33/33 PASS on VPS. 3 commits (`716e7eec` + `07228b7e` + `f46f544c`). Build: 0 errors. CI/CD SUCCESS (6/6 CD jobs). VALCN v2.0 + Order Sync archived (COMPLETE + VERIFIED). All 3 feature flags default OFF.
 - **Open Questions:** 0
-- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (60+), Open Questions (0) < 3
+- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (70+), Open Questions (0) < 3
 
 ---
 
@@ -195,6 +177,11 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md`.
 
+* **2026-08-11 — GITHUB ISSUES BATCH #114/#123/#124/#125 — ALL 4 FIXED + DEPLOYED + RV 33/33 PASS.** 3 commits: `716e7eec` (#123 SQLite IsGlobal migration + #124 redeem button IsAvailable + admin menu + #125 KhachLink bottom nav responsive) + `07228b7e` (#114 initial — IsPosOnly field + Product entity + DTO + EF migration + seed + filter + POS Create.razor) + `f46f544c` (#114 r1/r2/r3 — seed update existing products IsPosOnly=true + Include Items in kitchen query + POS CustomerNotes + voice note STT + Kitchen TTS auto-read). RV on VPS: 33 PASS + 0 FAIL + 1 WARN (false positive — Login page SSR no "blazor" keyword). All 3 VPS healthy, no 502/503/504, no regression. POS-only "Sản phẩm dịch vụ" hidden from public catalog + grouped catalog. JS files served: pos-voice-note.js + tts-reader.js. Global catalog has isAvailable field (#124 verified).
+  - **#114 r1.1 root cause:** Product seeded BEFORE IsPosOnly flag added → `if(exists) continue` skipped update → IsPosOnly=false → IsPriceEditable=false → no inline price input.
+  - **#114 r1.2 root cause:** `OrderRepository.GetByStatusAsync` used `AsNoTracking()` without `.Include(o => o.Items)` → Items null → kitchen shows empty items.
+  - **#114 r2:** Added CustomerNotes textarea + Web Speech API (vi-VN) STT button + `pos-voice-note.js` + `CreateOrderCommand.CustomerNotes` (was missing for POS orders).
+  - **#114 r3:** Kitchen Display.razor — "Đọc ghi chú" TTS button on all 3 columns + AutoReadNewOrderNotes (orders <30s old) using existing `tts-reader.js`.
 * **2026-08-10 — ORDER SYNC FIX COMPLETE + DEPLOYED + VERIFIED END-TO-END.** 7 commits: `55ece765` (Gateway seed + OrderSyncSubscriber retry) + `6d4bec87` (voice search StoreFinder) + `2c701e94` (test hang fix) + `ffe76c89` (CD .env.gateway + container name) + `e3700af4` (seed auto-create + reassign drifted) + `76378549` (CD env section) + `7bbc26c2` (CD SSH envs list). Root cause: 4-layer CD config gap → SHOP_INSTANCE_ID never reached Gateway VPS → seed fallback to wrong ShopInstance → NATS subject mismatch. RV full test: 8/8 PASS. Order sync verified: ShopInstance `9e94f876-...` auto-created, 10 tenants reassigned, GMV +108,900 exact.
   - **RV Full Test (8 cases):** Login PASS · Feature Flags PASS · Network Dashboard PASS · Background Services PASS · Toggle Flag PASS · Order Sync PASS · Voice Search PASS · Dashboard Metrics PASS.
   - **3 Issues verified:** (1) Order sync mismatch — FIXED. (2) GMV cache 10-min — by design, not a bug. (3) ActiveCustomers=0 — guest checkout CustomerId=null, defer to CRM phase.

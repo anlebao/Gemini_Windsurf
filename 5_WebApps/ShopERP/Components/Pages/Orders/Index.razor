@@ -93,7 +93,8 @@
     }
     else
     {
-        <VanACard Header="@($"Danh sách đơn hàng ({orders.Count})")">
+        @* Desktop view: DataGrid table (hidden on mobile, shown on md+) *@
+        <VanACard Header="@($"Danh sách đơn hàng ({orders.Count})")" CssClass="d-none d-md-block">
             <VanAnDataGrid TItem="OrderListItem" Items="@orders" EmptyMessage="Không có đơn hàng">
                 <Columns>
                     <VanAnColumn TItem="OrderListItem" Title="Mã đơn" Width="2">
@@ -207,6 +208,94 @@
                 </Columns>
             </VanAnDataGrid>
         </VanACard>
+
+        @* Mobile view: card list (shown on mobile, hidden on md+) — no horizontal scroll *@
+        <div class="d-md-none" data-testid="orders-mobile-list">
+            <div class="orders-mobile-header">Danh sách đơn hàng (@orders.Count)</div>
+            @foreach (var o in orders)
+            {
+                <div class="order-mobile-card status-@o.Status">
+                    <div class="order-mobile-card__top">
+                        <a href="@GetDetailUrl(o.Id)" class="order-mobile-card__code">@o.TrackingCode</a>
+                        <span class="status-badge status-@o.Status">@TranslateStatus(o.Status)</span>
+                    </div>
+                    <div class="order-mobile-card__row">
+                        <span class="order-mobile-card__time">@o.OrderDate.ToVietnamTimeString()</span>
+                        <span class="payment-badge payment-@o.PaymentStatus.ToLower()">@o.PaymentStatus</span>
+                        <span class="order-mobile-card__amount">@o.TotalAmount.ToString("N0") đ</span>
+                    </div>
+                    @if (_isSystemAdmin && !string.IsNullOrWhiteSpace(o.TenantName) && o.TenantName != "—")
+                    {
+                        <div class="order-mobile-card__tenant"><i class="bi bi-building"></i> @o.TenantName</div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(o.CustomerNotes))
+                    {
+                        <div class="order-mobile-card__notes" title="@o.CustomerNotes">
+                            <i class="bi bi-sticky"></i> @o.CustomerNotes
+                        </div>
+                    }
+                    <div class="order-mobile-card__actions">
+                        @if (o.Status == "pending")
+                        {
+                            <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionOrder(o.Id, "confirmed"))" data-testid="btn-confirm-order-m">
+                                ✓ Xác nhận
+                            </VanAButton>
+                        }
+                        else if (o.Status == "confirmed")
+                        {
+                            <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionOrder(o.Id, "preparing"))" data-testid="btn-preparing-order-m">
+                                ⏳ Làm
+                            </VanAButton>
+                            <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "completed"))" data-testid="btn-complete-order-m">
+                                ✔️ Hoàn tất
+                            </VanAButton>
+                        }
+                        else if (o.Status == "preparing")
+                        {
+                            <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "ready"))" data-testid="btn-ready-order-m">
+                                ✅ Sẵn sàng
+                            </VanAButton>
+                        }
+                        else if (o.Status == "ready")
+                        {
+                            <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionOrder(o.Id, "delivered"))" data-testid="btn-deliver-order-m">
+                                📦 Giao
+                            </VanAButton>
+                            <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "completed"))" data-testid="btn-complete-order-m">
+                                ✔️ Hoàn tất
+                            </VanAButton>
+                        }
+                        else if (o.Status == "delivered")
+                        {
+                            <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "completed"))" data-testid="btn-complete-order-m">
+                                ✔️ Hoàn tất
+                            </VanAButton>
+                        }
+                        @if (o.PaymentStatus == "Pending" && o.Status != "cancelled")
+                        {
+                            <VanAButton Variant="primary" Size="small" OnClick="@(() => ConfirmPaymentInline(o.Id))" data-testid="btn-confirm-payment-inline-m">
+                                💰 Đã TT
+                            </VanAButton>
+                        }
+                        @if (o.Status is "pending" or "confirmed" or "preparing" or "ready")
+                        {
+                            <VanAButton Variant="error" Size="small" OnClick="@(() => TransitionOrder(o.Id, "cancelled"))" data-testid="btn-cancel-order-m">
+                                ✕ Hủy
+                            </VanAButton>
+                        }
+                        <VanAButton Variant="secondary" Size="small" OnClick="@(() => GoToDetail(o.Id))">
+                            Chi tiết
+                        </VanAButton>
+                        @if (o.PaymentStatus == "Paid")
+                        {
+                            <VanAButton Variant="secondary" Size="small" OnClick="@(() => PrintBill(o.Id))" data-testid="btn-print-bill-m">
+                                🖨️ In
+                            </VanAButton>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
     }
 </div>
 
@@ -650,6 +739,33 @@
         font-size: 0.75rem;
         font-weight: 600;
     }
+    /* Filter row: stack vertically on mobile, row on desktop */
+    .filter-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    @@media (max-width: 575.98px) {
+        .filter-row {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .filter-row label {
+            margin-bottom: 0.2rem;
+        }
+        .filter-select {
+            width: 100%;
+        }
+        .tenant-filter-dropdown {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .tenant-filter-select {
+            min-width: auto;
+            width: 100%;
+        }
+    }
     /* Bug 2: truncate long notes with ellipsis; full text via title tooltip */
     .order-notes {
         display: inline-block;
@@ -659,5 +775,82 @@
         white-space: nowrap;
         font-size: 0.8rem;
         color: var(--vanan-text, #212529);
+    }
+
+    /* === Mobile card view (smartphone responsive — no horizontal scroll) === */
+    .orders-mobile-header {
+        font-size: 1rem;
+        font-weight: 600;
+        padding: 0.5rem 0;
+        color: var(--vanan-text, #212529);
+    }
+    .order-mobile-card {
+        background: var(--vanan-surface, #fff);
+        border: 1px solid var(--vanan-border, #dee2e6);
+        border-left: 4px solid var(--vanan-primary, #0d6efd);
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 0.6rem;
+    }
+    .order-mobile-card.status-pending { border-left-color: #ffc107; }
+    .order-mobile-card.status-confirmed { border-left-color: #0d6efd; }
+    .order-mobile-card.status-preparing { border-left-color: #fd7e14; }
+    .order-mobile-card.status-ready { border-left-color: #198754; }
+    .order-mobile-card.status-delivered { border-left-color: #6f42c1; }
+    .order-mobile-card.status-completed { border-left-color: #198754; }
+    .order-mobile-card.status-cancelled { border-left-color: #dc3545; opacity: 0.7; }
+
+    .order-mobile-card__top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.4rem;
+    }
+    .order-mobile-card__code {
+        font-weight: 700;
+        font-size: 1rem;
+        color: var(--vanan-primary, #0d6efd);
+        text-decoration: none;
+    }
+    .order-mobile-card__row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        color: var(--vanan-text-muted, #6c757d);
+        margin-bottom: 0.4rem;
+        flex-wrap: wrap;
+    }
+    .order-mobile-card__amount {
+        font-weight: 700;
+        color: var(--vanan-text, #212529);
+        font-size: 0.95rem;
+    }
+    .order-mobile-card__tenant {
+        font-size: 0.75rem;
+        color: var(--vanan-text-muted, #6c757d);
+        margin-bottom: 0.3rem;
+    }
+    .order-mobile-card__tenant i { color: var(--vanan-primary, #0d6efd); }
+    .order-mobile-card__notes {
+        background: #fff3cd;
+        border-left: 3px solid #ffc107;
+        border-radius: 4px;
+        padding: 0.3rem 0.5rem;
+        font-size: 0.8rem;
+        color: #664d03;
+        margin-bottom: 0.5rem;
+        white-space: normal;
+        word-break: break-word;
+    }
+    .order-mobile-card__actions {
+        display: flex;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+    }
+    .order-mobile-card__actions :deep(.vanan-btn) {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.6rem;
     }
 </style>

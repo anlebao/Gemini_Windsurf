@@ -84,12 +84,12 @@
                                         <i class="bi bi-mic"></i> <strong class="voice-note-text" data-testid="voice-note-text">@o.VoiceNoteText</strong>
                                     </div>
                                 }
-                                @if (!string.IsNullOrWhiteSpace(o.CustomerNotes) || !string.IsNullOrWhiteSpace(o.VoiceNoteText))
+                                @if (o.Items.Count > 0 || !string.IsNullOrWhiteSpace(o.CustomerNotes) || !string.IsNullOrWhiteSpace(o.VoiceNoteText))
                                 {
                                     <div class="kitchen-card__tts">
                                         <VanAButton Variant="secondary" Size="small" OnClick="@(() => ReadNotesAloud(o))"
                                                     data-testid="@($"kitchen-btn-tts-{o.Id}")">
-                                            <i class="bi bi-volume-up"></i> Đọc ghi chú
+                                            <i class="bi bi-volume-up"></i> Đọc đơn
                                         </VanAButton>
                                     </div>
                                 }
@@ -143,12 +143,12 @@
                                         <i class="bi bi-mic"></i> <strong class="voice-note-text" data-testid="voice-note-text">@o.VoiceNoteText</strong>
                                     </div>
                                 }
-                                @if (!string.IsNullOrWhiteSpace(o.CustomerNotes) || !string.IsNullOrWhiteSpace(o.VoiceNoteText))
+                                @if (o.Items.Count > 0 || !string.IsNullOrWhiteSpace(o.CustomerNotes) || !string.IsNullOrWhiteSpace(o.VoiceNoteText))
                                 {
                                     <div class="kitchen-card__tts">
                                         <VanAButton Variant="secondary" Size="small" OnClick="@(() => ReadNotesAloud(o))"
                                                     data-testid="@($"kitchen-btn-tts-{o.Id}")">
-                                            <i class="bi bi-volume-up"></i> Đọc ghi chú
+                                            <i class="bi bi-volume-up"></i> Đọc đơn
                                         </VanAButton>
                                     </div>
                                 }
@@ -202,12 +202,12 @@
                                         <i class="bi bi-mic"></i> <strong class="voice-note-text" data-testid="voice-note-text">@o.VoiceNoteText</strong>
                                     </div>
                                 }
-                                @if (!string.IsNullOrWhiteSpace(o.CustomerNotes) || !string.IsNullOrWhiteSpace(o.VoiceNoteText))
+                                @if (o.Items.Count > 0 || !string.IsNullOrWhiteSpace(o.CustomerNotes) || !string.IsNullOrWhiteSpace(o.VoiceNoteText))
                                 {
                                     <div class="kitchen-card__tts">
                                         <VanAButton Variant="secondary" Size="small" OnClick="@(() => ReadNotesAloud(o))"
                                                     data-testid="@($"kitchen-btn-tts-{o.Id}")">
-                                            <i class="bi bi-volume-up"></i> Đọc ghi chú
+                                            <i class="bi bi-volume-up"></i> Đọc đơn
                                         </VanAButton>
                                     </div>
                                 }
@@ -471,25 +471,39 @@
         return elapsed.TotalMinutes < 1 ? "vừa xong" : $"{(int)elapsed.TotalMinutes} phút trước";
     }
 
-    // #114 r3: TTS — read order notes aloud so chef doesn't need to read text
+    // #114 r3: TTS — read order items + notes aloud so chef doesn't need to read text
+    // r3 fix: now reads dish names (items) too, not just notes — chef hears full order
     private async Task ReadNotesAloud(KitchenOrderDto order)
     {
-        // Combine CustomerNotes + VoiceNoteText into a single spoken phrase
-        string text = string.Empty;
-        if (!string.IsNullOrWhiteSpace(order.CustomerNotes))
-            text += order.CustomerNotes;
-        if (!string.IsNullOrWhiteSpace(order.VoiceNoteText))
-            text += (string.IsNullOrEmpty(text) ? "" : ". ") + order.VoiceNoteText;
+        var parts = new List<string>();
 
-        if (!string.IsNullOrWhiteSpace(text))
+        // 1. Order code prefix so chef knows which order
+        string code = order.TrackingCode ?? order.Id.ToString()[..8];
+        parts.Add($"Đơn {code}");
+
+        // 2. Dish names + quantities — chef hears what to prepare
+        if (order.Items != null && order.Items.Count > 0)
         {
-            // Prefix with order code so chef knows which order the notes belong to
-            string spoken = $"Đơn {(order.TrackingCode ?? order.Id.ToString()[..8])}. {text}";
+            var itemPhrases = order.Items.Select(i => $"{i.Quantity} {i.ProductName}").ToList();
+            parts.Add(string.Join(", ", itemPhrases));
+        }
+
+        // 3. Customer notes (e.g. "ít đá", "không hành")
+        if (!string.IsNullOrWhiteSpace(order.CustomerNotes))
+            parts.Add($"Ghi chú: {order.CustomerNotes}");
+
+        // 4. Voice note transcribed text
+        if (!string.IsNullOrWhiteSpace(order.VoiceNoteText))
+            parts.Add(order.VoiceNoteText);
+
+        if (parts.Count > 1) // At least order code + one more piece
+        {
+            string spoken = string.Join(". ", parts);
             await JSRuntime.InvokeVoidAsync("ttsReader.speak", spoken, "vi-VN");
         }
     }
 
-    // #114 r3: Auto-read notes for newly arrived orders (confirmed column only)
+    // #114 r3: Auto-read for newly arrived orders (confirmed column only)
     private async Task AutoReadNewOrderNotes(List<KitchenOrderDto> newOrders)
     {
         foreach (var order in newOrders)
@@ -497,7 +511,10 @@
             // Only read orders that arrived in the last 30 seconds (new)
             if ((DateTime.UtcNow - order.OrderDate).TotalSeconds < 30)
             {
-                if (!string.IsNullOrWhiteSpace(order.CustomerNotes) || !string.IsNullOrWhiteSpace(order.VoiceNoteText))
+                // Read if order has items, notes, or voice note — don't require notes only
+                if ((order.Items != null && order.Items.Count > 0)
+                    || !string.IsNullOrWhiteSpace(order.CustomerNotes)
+                    || !string.IsNullOrWhiteSpace(order.VoiceNoteText))
                 {
                     await ReadNotesAloud(order);
                     break; // Only read one at a time to avoid overlapping speech
