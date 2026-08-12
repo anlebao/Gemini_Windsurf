@@ -94,7 +94,8 @@
     else
     {
         @* Desktop view: DataGrid table (hidden on mobile, shown on md+) *@
-        <VanACard Header="@($"Danh sách đơn hàng ({orders.Count})")" CssClass="d-none d-md-block">
+        <div class="d-none d-md-block">
+        <VanACard Header="@($"Danh sách đơn hàng ({orders.Count})")">
             <VanAnDataGrid TItem="OrderListItem" Items="@orders" EmptyMessage="Không có đơn hàng">
                 <Columns>
                     <VanAnColumn TItem="OrderListItem" Title="Mã đơn" Width="2">
@@ -208,6 +209,7 @@
                 </Columns>
             </VanAnDataGrid>
         </VanACard>
+        </div>
 
         @* Mobile view: card list (shown on mobile, hidden on md+) — no horizontal scroll *@
         <div class="d-md-none" data-testid="orders-mobile-list">
