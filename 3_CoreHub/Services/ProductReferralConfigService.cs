@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
@@ -11,9 +12,11 @@ namespace VanAn.CoreHub.Services;
 /// </summary>
 public class ProductReferralConfigService(
     IVanAnDbContext dbContext,
+    IConfiguration configuration,
     ILogger<ProductReferralConfigService> logger) : IProductReferralConfigService
 {
     private readonly IVanAnDbContext _dbContext = dbContext;
+    private readonly IConfiguration _configuration = configuration;
     private readonly ILogger<ProductReferralConfigService> _logger = logger;
 
     public async Task<ProductReferralConfigDto?> GetByProductIdAsync(Guid productId)
@@ -48,8 +51,9 @@ public class ProductReferralConfigService(
                 throw new InvalidOperationException($"ProductShortCode '{productShortCode}' already in use");
         }
 
-        // Use a default tenant ID (community data is cross-tenant on Gateway PG)
-        var tenantId = new TenantId(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        // Use a default tenant ID from config (community data is cross-tenant on Gateway PG)
+        var tenantIdStr = _configuration["Seed:TenantId"] ?? "00000000-0000-0000-0000-000000000001";
+        var tenantId = new TenantId(Guid.Parse(tenantIdStr));
         var config = new ProductReferralConfig(tenantId, productId, commissionRate, appInstallBonus, productShortCode);
 
         _dbContext.ProductReferralConfigs.Add(config);

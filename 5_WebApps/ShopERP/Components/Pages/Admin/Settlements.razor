@@ -1,0 +1,187 @@
+@page "/admin/settlements"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject SettlementApiClient SettlementApi
+@inject IThemeProvider ThemeProvider
+@inject ILogger<Settlements> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="settlements-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Lịch sử Settlement</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadData">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    @* Filters *@
+    <VanACard Header="Bộ lọc">
+        <div class="form-row">
+            <div class="form-group form-group-half">
+                <label for="filter-from">Từ ngày</label>
+                <input id="filter-from" type="date" class="vanan-input" @bind="_filterFromDate" />
+            </div>
+            <div class="form-group form-group-half">
+                <label for="filter-to">Đến ngày</label>
+                <input id="filter-to" type="date" class="vanan-input" @bind="_filterToDate" />
+            </div>
+        </div>
+        <div class="form-actions">
+            <VanAButton Variant="primary" Size="small" OnClick="LoadData">Lọc</VanAButton>
+            <VanAButton Variant="outline" Size="small" OnClick="ClearFilters">Xóa lọc</VanAButton>
+        </div>
+    </VanACard>
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải...</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="@($"Giao dịch Settlement ({_response?.Total ?? 0})")">
+            @if (_response?.Items.Count > 0)
+            {
+                <table class="vanan-table">
+                    <thead>
+                        <tr>
+                            <th>Ngày</th>
+                            <th>Tenant</th>
+                            <th>Owner</th>
+                            <th>Số tiền</th>
+                            <th>Số dư sau</th>
+                            <th>Mô tả</th>
+                            <th>Order ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _response!.Items)
+                        {
+                            <tr>
+                                <td>@item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                <td><code>@item.TenantId.ToString()[..8]...</code></td>
+                                <td><code>@item.OwnerId.ToString()[..8]...</code></td>
+                                <td class="@(item.Amount < 0 ? "text-danger" : "text-success")">
+                                    @item.Amount.ToString("N0") đ
+                                </td>
+                                <td>@item.BalanceAfter.ToString("N0") đ</td>
+                                <td>@item.Description</td>
+                                <td>
+                                    @if (item.RelatedOrderId.HasValue)
+                                    {
+                                        <code>@item.RelatedOrderId.Value.ToString()[..8]...</code>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                @* Pagination *@
+                @if (_response!.Total > _response.PageSize)
+                {
+                    var totalPages = (int)Math.Ceiling((double)_response.Total / _response.PageSize);
+                    <div class="pagination">
+                        @if (_currentPage > 1)
+                        {
+                            <VanAButton Variant="outline" Size="small" OnClick="PrevPage">Trước</VanAButton>
+                        }
+                        <span>Trang @_currentPage / @totalPages</span>
+                        @if (_currentPage < totalPages)
+                        {
+                            <VanAButton Variant="outline" Size="small" OnClick="NextPage">Sau</VanAButton>
+                        }
+                    </div>
+                }
+            }
+            else
+            {
+                <p>Chưa có giao dịch Settlement nào.</p>
+            }
+        </VanACard>
+    }
+</div>
+
+@code {
+    private bool _isLoading = true;
+    private SettlementListResponse? _response;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+    private int _currentPage = 1;
+    private DateTime? _filterFromDate;
+    private DateTime? _filterToDate;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            _response = await SettlementApi.ListAsync(
+                fromDate: _filterFromDate,
+                toDate: _filterToDate,
+                page: _currentPage,
+                pageSize: 20);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load settlement history");
+            _alertMessage = $"Lỗi tải dữ liệu: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task PrevPage()
+    {
+        if (_currentPage > 1)
+        {
+            _currentPage--;
+            await LoadData();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (_response != null && _currentPage * _response.PageSize < _response.Total)
+        {
+            _currentPage++;
+            await LoadData();
+        }
+    }
+
+    private void ClearFilters()
+    {
+        _filterFromDate = null;
+        _filterToDate = null;
+        _currentPage = 1;
+    }
+}

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using VanAn.CoreHub.Domain.Repositories;
 using VanAn.CoreHub.Repositories;
 using VanAn.CoreHub.Services;
@@ -26,6 +27,7 @@ namespace VanAn.ShopERP.Controllers
         IMissionService missionService,
         ICustomerMergeService customerMergeService,
         VanAn.CoreHub.Services.LoyaltyReadRouter readRouter,
+        IConfiguration configuration,
         ILogger<CustomerIdentityController> logger) : ControllerBase
     {
         private readonly IOtpService _otpService = otpService;
@@ -34,6 +36,7 @@ namespace VanAn.ShopERP.Controllers
         private readonly ILoyaltyRewardsService _loyaltyRewardsService = loyaltyRewardsService;
         private readonly IMissionService _missionService = missionService;
         private readonly ICustomerMergeService _customerMergeService = customerMergeService;
+        private readonly IConfiguration _configuration = configuration;
         private readonly ILogger<CustomerIdentityController> _logger = logger;
         // Loyalty Consistency Fix Phase 2 (BUG #7): mode-aware balance for /api/customers/me
         private readonly VanAn.CoreHub.Services.LoyaltyReadRouter _readRouter = readRouter;
@@ -257,12 +260,13 @@ namespace VanAn.ShopERP.Controllers
             });
         }
 
-        private static Guid GetTenantId(Guid? requestTenantId)
+        private Guid GetTenantId(Guid? requestTenantId)
         {
             if (requestTenantId.HasValue && requestTenantId.Value != Guid.Empty)
                 return requestTenantId.Value;
-            // Default tenant for dev/demo
-            return Guid.TryParse("00000000-0000-0000-0000-000000000001", out var id) ? id : Guid.Empty;
+            // Default tenant from config (dev/demo fallback)
+            var tenantIdStr = _configuration["Seed:TenantId"] ?? "00000000-0000-0000-0000-000000000001";
+            return Guid.TryParse(tenantIdStr, out var id) ? id : Guid.Empty;
         }
 
         private static string CalcTier(int points) => points switch

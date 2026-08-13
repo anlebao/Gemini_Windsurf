@@ -131,9 +131,10 @@ namespace VanAn.ShopERP.Controllers
             return $"{baseUrl}/api/auth/google/callback";
         }
 
-        private static Guid GetDefaultTenantId()
+        private Guid GetDefaultTenantId()
         {
-            return Guid.TryParse("00000000-0000-0000-0000-000000000001", out var id) ? id : Guid.Empty;
+            var tenantIdStr = _configuration["Seed:TenantId"] ?? "00000000-0000-0000-0000-000000000001";
+            return Guid.TryParse(tenantIdStr, out var id) ? id : Guid.Empty;
         }
 
         // CC-S1-T0c (v1.5): Facebook OAuth stub endpoints.

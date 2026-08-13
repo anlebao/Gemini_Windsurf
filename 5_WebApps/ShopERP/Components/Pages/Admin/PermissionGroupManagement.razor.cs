@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Configuration;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
 using VanAn.CoreHub.Services;
@@ -142,9 +143,12 @@ namespace VanAn.ShopERP.Components.Pages.Admin
 
         private TenantId GetTenantId()
         {
-            return TenantProvider.TenantId == Guid.Empty
-                ? new TenantId(Guid.Parse("00000000-0000-0000-0000-000000000001"))
-                : new TenantId(TenantProvider.TenantId);
+            if (TenantProvider.TenantId != Guid.Empty)
+                return new TenantId(TenantProvider.TenantId);
+
+            // Fallback to config-driven default tenant (dev/demo)
+            var tenantIdStr = Configuration["Seed:TenantId"] ?? "00000000-0000-0000-0000-000000000001";
+            return new TenantId(Guid.Parse(tenantIdStr));
         }
 
         private class CreateGroupForm

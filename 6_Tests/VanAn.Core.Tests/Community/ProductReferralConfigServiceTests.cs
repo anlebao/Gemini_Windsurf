@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
@@ -34,7 +35,13 @@ public class ProductReferralConfigServiceTests : IDisposable
 
         _context = new VanAnDbContext(options);
         _context.Database.EnsureCreated();
-        _service = new ProductReferralConfigService(_context, NullLogger<ProductReferralConfigService>.Instance);
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Seed:TenantId"] = "00000000-0000-0000-0000-000000000001"
+            })
+            .Build();
+        _service = new ProductReferralConfigService(_context, config, NullLogger<ProductReferralConfigService>.Instance);
     }
 
     public void Dispose()

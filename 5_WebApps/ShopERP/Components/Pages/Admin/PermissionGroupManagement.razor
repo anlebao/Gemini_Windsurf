@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @layout AdminLayout
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.Extensions.Configuration
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
 @using VanAn.CoreHub.Services
@@ -11,6 +12,7 @@
 @inject IPermissionGroupService GroupService
 @inject ITenantProvider TenantProvider
 @inject IThemeProvider ThemeProvider
+@inject IConfiguration Configuration
 @inject ILogger<PermissionGroupManagement> Logger
 
 @attribute [Authorize(Policy = "OwnerOnly")]
