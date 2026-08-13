@@ -652,7 +652,29 @@ jobs:
           username: ${{ secrets.VPS_SHOP_USER }}
           key: ${{ secrets.VPS_SHOP_SSH_PRIVATE_KEY }}
           script: |
-            curl -fsS --max-time 30 http://localhost/health && echo "ShopERP health OK"
+            # ShopERP (Blazor Server) on e2-micro VPS can hit transient issues:
+            #   - "Connection reset by peer" = nginx/Kestrel closed mid-handshake (OOM? warmup? restart?)
+            # Retry with backoff so we don't fail CD on a 1-off network blip,
+            # but DO fail if all retries exhausted — that signals a real crash.
+            for attempt in 1 2 3 4 5; do
+              echo "Health check attempt $attempt/5..."
+              if curl -fsS --max-time 30 http://localhost/health; then
+                echo "ShopERP health OK (attempt $attempt)"
+                exit 0
+              fi
+              echo "Attempt $attempt failed — waiting 15s before retry..."
+              sleep 15
+            done
+
+            # All 5 attempts failed (~75s + 5×30s curl timeout worst case).
+            # Capture diagnostics before failing so the log shows WHY.
+            echo "=== ShopERP health FAILED after 5 attempts ==="
+            echo "--- docker compose ps ---"
+            sudo docker compose -f /opt/vanan/docker-compose.shoperp.yml --env-file /opt/vanan/.env.shoperp ps || true
+            echo "--- last 80 log lines ---"
+            sudo docker compose -f /opt/vanan/docker-compose.shoperp.yml --env-file /opt/vanan/.env.shoperp logs shoperp --tail=80 || true
+            echo "::error::ShopERP health check failed after 5 retries. Inspect diagnostics above (OOM? config error? Kestrel crash?)."
+            exit 1
 
       - name: Summary
         run: |
