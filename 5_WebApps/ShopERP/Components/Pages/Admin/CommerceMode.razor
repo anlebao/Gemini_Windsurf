@@ -81,6 +81,7 @@
         <VanACard Header="@($"Tenant Overrides ({_settings?.TenantOverrides.Count ?? 0})")">
             @if (_settings?.TenantOverrides.Count > 0)
             {
+              <div class="table-responsive">
                 <table class="vanan-table">
                     <thead>
                         <tr>
@@ -110,6 +111,7 @@
                         }
                     </tbody>
                 </table>
+              </div>
             }
             else
             {

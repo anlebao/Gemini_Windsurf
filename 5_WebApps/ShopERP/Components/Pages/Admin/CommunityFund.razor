@@ -66,6 +66,7 @@
         <VanACard Header="@($"Lịch sử chi quỹ ({_history?.Total ?? 0})")">
             @if (_history?.Items.Count > 0)
             {
+              <div class="table-responsive">
                 <table class="vanan-table">
                     <thead>
                         <tr>
@@ -89,6 +90,7 @@
                         }
                     </tbody>
                 </table>
+              </div>
             }
             else
             {

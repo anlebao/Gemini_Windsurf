@@ -59,6 +59,7 @@
         <VanACard Header="@($"Giao dịch Settlement ({_response?.Total ?? 0})")">
             @if (_response?.Items.Count > 0)
             {
+              <div class="table-responsive">
                 <table class="vanan-table">
                     <thead>
                         <tr>
@@ -97,6 +98,7 @@
                         }
                     </tbody>
                 </table>
+              </div>
 
                 @* Pagination *@
                 @if (_response!.Total > _response.PageSize)

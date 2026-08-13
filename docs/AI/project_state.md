@@ -28,39 +28,45 @@
 
 ## 2. Current Objective
 
-**GITHUB ISSUES BATCH #114/#123/#124/#125 — ALL 4 FIXED + DEPLOYED + RV 33/33 PASS. VALCN v2.0 PLATFORM-LIGHT — ALL 3 WAVES COMPLETE + DEPLOYED + RUNTIME VERIFIED (archived).**
+**HARDCODED TENANT ID CLEANUP + POST-POC SETTLEMENT HISTORY UI — SPRINT A+B COMPLETE + PUSHED.**
 
-**Source:** User request 2026-08-11 — fix 4 GitHub issues from "Ready" column + follow-up revisions (r1/r2/r3) for #114.
-**Branch:** `main` (always-green, per-issue commits)
+**Source:** User request 2026-08-13 — systematically address hardcoded default tenant IDs + post-PoC UI gaps (settlement history, tenant settings).
+**Branch:** `main` (always-green)
+**Commit:** `f7201ef4`
 
-**Issues fixed (2026-08-11, 3 commits):**
+**Sprint A — Hardcoded tenant ID cleanup (4 files):**
+| File | Change |
+|------|--------|
+| `ProductReferralConfigService.cs` | Inject `IConfiguration`, use `Seed:TenantId` config key |
+| `SocialAuthController.cs` | `GetDefaultTenantId()` → non-static, reads `_configuration["Seed:TenantId"]` |
+| `CustomerIdentityController.cs` | Inject `IConfiguration`, `GetTenantId()` → non-static, reads config |
+| `PermissionGroupManagement.razor/.cs` | `@inject IConfiguration`, config-driven fallback |
+| `ProductReferralConfigServiceTests.cs` | Pass `IConfiguration` mock to constructor |
 
-| Issue | Title | Status | Commit |
-|-------|-------|--------|--------|
-| #123 | SQLite missing `IsGlobal` column on RedemptionCatalogItems | ✅ FIXED + DEPLOYED + RV PASS | `716e7eec` |
-| #124 | Redemption button disabled + missing admin menu | ✅ FIXED + DEPLOYED + RV PASS | `716e7eec` |
-| #125 | KhachLink bottom icons hidden with sidebar | ✅ FIXED + DEPLOYED + RV PASS | `716e7eec` |
-| #114 | Default "Sản phẩm dịch vụ" POS-only product | ✅ FIXED + DEPLOYED + RV PASS | `07228b7e` + `f46f544c` |
+**Result:** 0 remaining `Guid.Parse("00000000-...")` in codebase.
 
-**#114 revisions (r1/r2/r3, commit `f46f544c`):**
-- **r1.1** — POS không nhập được giá bán: seed update existing service products `IsPosOnly=true` (was skipped by `if(exists) continue`)
-- **r1.2** — Đơn không hiện trên bếp: `OrderRepository.GetByStatusAsync` missing `.Include(o => o.Items)` → Items null → kitchen empty
-- **r2** — POS thiếu ghi chú + voice note: added CustomerNotes textarea + Web Speech API (vi-VN) STT button + `pos-voice-note.js` + `CreateOrderCommand.CustomerNotes`
-- **r3** — Kitchen TTS: added "Đọc ghi chú" button (ttsReader.speak vi-VN) on all 3 kitchen columns + auto-read for orders <30s old
+**Sprint B1 — Settlement History admin page (new):**
+- Gateway: `SettlementAdminController.cs` — `GET /api/admin/settlements` with date/tenant filters + pagination
+- ShopERP: `SettlementApiClient.cs` — extends `GatewayAdminApiClientBase`
+- ShopERP: `Settlements.razor` — `/admin/settlements`, SystemAdmin-only, filter by date range, paginated table
+- NavMenu: added Settlements + Background Services links (30/30 admin pages now have nav links)
+- Program.cs: registered `SettlementApiClient` in DI
 
-**RV on VPS (2026-08-11):** 33 PASS + 0 FAIL + 1 WARN (false positive — Login page SSR no "blazor" keyword). All 3 VPS (Gateway + ShopERP + KhachLink) healthy, no regression, no 502/503/504.
+**Sprint B2 — Tenant Settings:** Already covered by `TenantManagement.razor` edit modal (name, contact, address, tax code, slug, brand story, social links, GPS, theme, logo, colors). Standalone page not needed.
 
-> **VALCN v2.0 + Order Sync (archived 2026-08-10):** see `docs/AI/project_state_archive.md` → "Archived 2026-08-09"
+**Validation:** Build 0 errors · Guard-check ALL PASSED · CI pipeline ALL PASSED (1261 unit tests + 233 integration tests + 39 architecture tests).
+
+> **Previous: GitHub Issues Batch #114/#123/#124/#125 — archived.** See history log below.
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `main` · **Last commit:** `f46f544c` · **Working tree:** Clean (2 untracked RV scripts in `.devin/`)
+- **Branch:** `main` · **Last commit:** `f7201ef4` · **Working tree:** Clean
 - **.NET SDK:** 8.0.422 · **Build:** 0 errors
-- **CI/CD:** CI SUCCESS, CD Multi-VPS SUCCESS (6/6 jobs: Build+Push, Pre-Deploy Validation, Deploy Gateway/KhachLink/ShopERP, Post-Deploy Smoke Test). All for commit `f46f544c`.
-- **GitHub Issues Batch:** ✅ #114 + #123 + #124 + #125 ALL FIXED + DEPLOYED + RV 33/33 PASS on VPS.
-- **#114 r1/r2/r3:** ✅ POS price entry + kitchen items + notes/voice + TTS — all deployed + verified.
+- **CI/CD:** CI SUCCESS — 1261 unit tests + 233 integration tests + 39 architecture tests ALL PASS. Pushed to `origin/main`.
+- **Sprint A+B:** ✅ Hardcoded tenant ID cleanup (4 files) + Settlement History admin page + NavMenu completeness (30/30).
+- **GitHub Issues Batch:** ✅ #114 + #123 + #124 + #125 ALL FIXED + DEPLOYED + RV 33/33 PASS on VPS (previous sprint).
 - **VALCN v2.0 RV:** 10 PASS + 1 PARTIAL + 2 FAIL→FIXED→VERIFIED (archived)
 - **Order Sync:** ✅ FIXED + VERIFIED end-to-end (archived 2026-08-10).
 - **GCP VPS (3 instances):** `vanan-gateway` (e2-small 2GB) — Gateway + Nginx + PG + NATS · `vanan-khachlink` (e2-micro) — KhachLink · `vanan-shop-a` (e2-micro) — ShopERP
@@ -75,25 +81,28 @@
 
 ## 4. Next Actions
 
-**GitHub Issues Batch #114/#123/#124/#125 — ALL COMPLETE + DEPLOYED + RV 33/33 PASS. Browser-level RV pending:**
+**Sprint A+B COMPLETE + PUSHED. Remaining items:**
 
-1. **(Browser RV — #114 POS price entry)** Login ShopERP → /pos → add "Sản phẩm dịch vụ" to cart → verify inline price/name/VAT inputs appear → enter price → create order → verify order appears on /kitchen with items.
-2. **(Browser RV — #114 POS notes + voice)** On /pos → enter text in "Ghi chú cho bếp" → click "Ghi âm" → speak → verify transcription fills textarea → create order → verify notes appear on /kitchen.
-3. **(Browser RV — #114 Kitchen TTS)** On /kitchen → order with notes → click "Đọc ghi chú" → verify vi-VN speech plays. Verify auto-read for new orders (<30s).
-4. **(Browser RV — #124 redeem button)** Login KhachLink → /rewards → verify redeem button enabled for available items → click redeem → verify flow works.
-5. **(Browser RV — #125 bottom nav)** KhachLink mobile view → toggle sidebar → verify bottom nav icons still visible.
-6. **(Browser RV — Loyalty Config)** Open `/admin/loyalty-config` — verify 4 budget cap fields render (carried over from VALCN v2.0).
-7. **(Browser RV — Voice Search)** Open `/stores` on KhachLink → click mic button → speak store name → verify search filters (carried over).
+1. **(Deploy Sprint A+B)** Deploy `f7201ef4` to VPS via CD pipeline (when ready).
+2. **(Browser RV — Settlements page)** Login ShopERP as SystemAdmin → /admin/settlements → verify page renders, filters work, pagination works.
+3. **(Browser RV — #114 POS price entry)** Login ShopERP → /pos → add "Sản phẩm dịch vụ" to cart → verify inline price/name/VAT inputs appear → enter price → create order → verify order appears on /kitchen with items.
+4. **(Browser RV — #114 POS notes + voice)** On /pos → enter text in "Ghi chú cho bếp" → click "Ghi âm" → speak → verify transcription fills textarea → create order → verify notes appear on /kitchen.
+5. **(Browser RV — #114 Kitchen TTS)** On /kitchen → order with notes → click "Đọc ghi chú" → verify vi-VN speech plays. Verify auto-read for new orders (<30s).
+6. **(Browser RV — #124 redeem button)** Login KhachLink → /rewards → verify redeem button enabled for available items → click redeem → verify flow works.
+7. **(Browser RV — #125 bottom nav)** KhachLink mobile view → toggle sidebar → verify bottom nav icons still visible.
+8. **(Browser RV — Loyalty Config)** Open `/admin/loyalty-config` — verify 4 budget cap fields render (carried over from VALCN v2.0).
+9. **(Browser RV — Voice Search)** Open `/stores` on KhachLink → click mic button → speak store name → verify search filters (carried over).
 
 **Deferred / monitoring:**
-8. **(GCP Data Seeding)** Seed production data vào GCP DB (fresh DB chỉ có 3 tenants test).
-9. **(#99-3 Phase B APPROVAL)** Alliance VND Normalization — HIGH risk, feature-gated. Awaiting user approval.
-10. **(Hybrid Strategy Bước 2 — Monitor)** Trigger khi CPU sustained > 70% / Memory > 80%.
-11. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (skipped via `Category!=Flaky` CI filter).
-12. **Tech debt cleanup** — TD-MVPS-001→004, TD-CUSTSYNC-001, TD-ASYNCDP-001, TD-GCP-001, TD-NETDASH-001.
-13. **(VPS Disk Monitoring)** Cân nhắc `docker image prune -af` vào deploy script hoặc cron job.
-14. **(v3.0 deferred)** INV-009 (PointValue field), payment provider integration (VNPay/Momo), Ops Cost metric, Tier Distribution.
-15. **(nginx deferred task cards)** `docs/AI/tasks/{nginx_per_user_rate_limit,blazor_api_aggregation,api_rate_limit_classification}_task_card.md`
+10. **(Post-PoC remaining gaps)** Kitchen-initiated orders (not yet implemented). Native app GPS + attestation limitations (documented, deferred to native app phase).
+11. **(GCP Data Seeding)** Seed production data vào GCP DB (fresh DB chỉ có 3 tenants test).
+12. **(#99-3 Phase B APPROVAL)** Alliance VND Normalization — HIGH risk, feature-gated. Awaiting user approval.
+13. **(Hybrid Strategy Bước 2 — Monitor)** Trigger khi CPU sustained > 70% / Memory > 80%.
+14. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (skipped via `Category!=Flaky` CI filter).
+15. **Tech debt cleanup** — TD-MVPS-001→004, TD-CUSTSYNC-001, TD-ASYNCDP-001, TD-GCP-001, TD-NETDASH-001.
+16. **(VPS Disk Monitoring)** Cân nhắc `docker image prune -af` vào deploy script hoặc cron job.
+17. **(v3.0 deferred)** INV-009 (PointValue field), payment provider integration (VNPay/Momo), Ops Cost metric, Tier Distribution.
+18. **(nginx deferred task cards)** `docs/AI/tasks/{nginx_per_user_rate_limit,blazor_api_aggregation,api_rate_limit_classification}_task_card.md`
 
 ---
 
@@ -115,6 +124,7 @@
 
 ## 6. History Log (compressed — see archive + git log)
 
+* [2026-08-13] **HARDCODED TENANT ID CLEANUP + SETTLEMENT HISTORY UI — SPRINT A+B COMPLETE.** Commit `f7201ef4`. Sprint A: 4 files fixed (ProductReferralConfigService, SocialAuthController, CustomerIdentityController, PermissionGroupManagement) — all hardcoded `Guid.Parse("00000000-...")` replaced with `IConfiguration["Seed:TenantId"]` fallback. Sprint B1: Settlement History admin page (`SettlementAdminController.cs` + `SettlementApiClient.cs` + `Settlements.razor`) + NavMenu completeness (30/30 admin pages have nav links, added Background Services link). Sprint B2: Tenant Settings already covered by TenantManagement edit modal. CI: 1261 unit + 233 integration + 39 architecture tests ALL PASS.
 * [2026-08-11] **GITHUB ISSUES BATCH #114/#123/#124/#125 — ALL 4 FIXED + DEPLOYED + RV 33/33 PASS.** 3 commits: `716e7eec` (#123+#124+#125) + `07228b7e` (#114 initial) + `f46f544c` (#114 r1/r2/r3 revisions). RV on VPS: 33 PASS + 0 FAIL + 1 WARN (false positive). All 3 VPS healthy, no regression.
 * [2026-08-09] **VALCN v2.0 PLATFORM-LIGHT — ALL 3 WAVES COMPLETE + DEPLOYED + RV PASS.** 7 commits. RV 10 PASS + 1 PARTIAL + 2 FAIL→FIXED. nginx 503 fixed (5-layer rate limit). 3 deferred task cards created.
 * [2026-08-09] **GATEWAY REFACTOR HYBRID BƯỚC 1 COMPLETE + DEPLOYED + RV 11/11 PASS.** REQ-1.1 (poll 5s→10s) + REQ-1.2 (6 background service toggles) + REQ-1.3 (logging reduction ~90%).
@@ -167,9 +177,9 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main`, last commit `f46f544c`. GitHub Issues #114/#123/#124/#125 ALL FIXED + DEPLOYED + RV 33/33 PASS on VPS. 3 commits (`716e7eec` + `07228b7e` + `f46f544c`). Build: 0 errors. CI/CD SUCCESS (6/6 CD jobs). VALCN v2.0 + Order Sync archived (COMPLETE + VERIFIED). All 3 feature flags default OFF.
+- **Verified Facts:** Branch=`main`, last commit `f7201ef4`. Sprint A+B COMPLETE + PUSHED to origin. 4 hardcoded tenant IDs replaced with config-driven values. Settlement History admin page created (Gateway controller + API client + Razor page + nav link). NavMenu 30/30 admin pages covered. Build: 0 errors. CI: 1261 unit + 233 integration + 39 architecture tests ALL PASS. Guard-check ALL PASSED.
 - **Open Questions:** 0
-- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (70+), Open Questions (0) < 3
+- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (50+), Open Questions (0) < 3
 
 ---
 
@@ -177,6 +187,7 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md`.
 
+* **2026-08-13 — SPRINT A+B COMPLETE + PUSHED.** Commit `f7201ef4`. Sprint A: 4 hardcoded tenant IDs → config-driven (`IConfiguration["Seed:TenantId"]`). Sprint B1: Settlement History admin page (Gateway `SettlementAdminController` + ShopERP `SettlementApiClient` + `Settlements.razor` + NavMenu link). Sprint B2: Tenant Settings already in TenantManagement edit modal. NavMenu: 30/30 admin pages now have nav links (added Background Services). CI: 1261 unit + 233 integration + 39 arch tests ALL PASS. Guard-check ALL PASSED.
 * **2026-08-11 — GITHUB ISSUES BATCH #114/#123/#124/#125 — ALL 4 FIXED + DEPLOYED + RV 33/33 PASS.** 3 commits: `716e7eec` (#123 SQLite IsGlobal migration + #124 redeem button IsAvailable + admin menu + #125 KhachLink bottom nav responsive) + `07228b7e` (#114 initial — IsPosOnly field + Product entity + DTO + EF migration + seed + filter + POS Create.razor) + `f46f544c` (#114 r1/r2/r3 — seed update existing products IsPosOnly=true + Include Items in kitchen query + POS CustomerNotes + voice note STT + Kitchen TTS auto-read). RV on VPS: 33 PASS + 0 FAIL + 1 WARN (false positive — Login page SSR no "blazor" keyword). All 3 VPS healthy, no 502/503/504, no regression. POS-only "Sản phẩm dịch vụ" hidden from public catalog + grouped catalog. JS files served: pos-voice-note.js + tts-reader.js. Global catalog has isAvailable field (#124 verified).
   - **#114 r1.1 root cause:** Product seeded BEFORE IsPosOnly flag added → `if(exists) continue` skipped update → IsPosOnly=false → IsPriceEditable=false → no inline price input.
   - **#114 r1.2 root cause:** `OrderRepository.GetByStatusAsync` used `AsNoTracking()` without `.Include(o => o.Items)` → Items null → kitchen shows empty items.
