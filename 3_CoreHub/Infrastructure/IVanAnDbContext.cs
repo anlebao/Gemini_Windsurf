@@ -115,6 +115,9 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<VehicleSession> VehicleSessions { get; }
         DbSet<GuardScanLog> GuardScanLogs { get; }
 
+        // KhachLink Multi-Profile R1: KhachLink instances (platform-level, NOT tenant-scoped — TenantId = Guid.Empty sentinel)
+        DbSet<VanAn.Shared.Domain.Aggregates.KhachLinkAggregate.KhachLinkInstance> KhachLinkInstances { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
 

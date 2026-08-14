@@ -7,6 +7,7 @@ using VanAn.Shared.Domain.Audit;
 using VanAn.Shared.Domain.Aggregates.SystemSettingAggregate;
 using VanAn.Shared.Domain.Aggregates.ProductCostPriceAggregate;
 using VanAn.Shared.Domain.Aggregates.CommunityFundAggregate;
+using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate;
 using VanAn.CoreHub.Domain;
 using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.CoreHub.Infrastructure.Messaging;
@@ -166,6 +167,9 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<VehicleSession> VehicleSessions { get; set; }
         public DbSet<GuardScanLog> GuardScanLogs { get; set; }
 
+        // KhachLink Multi-Profile R1: KhachLink instances (platform-level, NOT tenant-scoped — TenantId = Guid.Empty sentinel)
+        public DbSet<KhachLinkInstance> KhachLinkInstances { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -315,7 +319,8 @@ namespace VanAn.CoreHub.Infrastructure
                     && e.ClrType != typeof(LoyaltyGlobalConfig)
                     && e.ClrType != typeof(AllianceWallet)
                     && e.ClrType != typeof(AllianceTransaction)
-                    && e.ClrType != typeof(KhachLinkHomeSettings));
+                    && e.ClrType != typeof(KhachLinkHomeSettings)
+                    && e.ClrType != typeof(KhachLinkInstance));
 
             // Capture context so EF Core evaluates CurrentTenantIdValue at QUERY TIME.
             // Using TenantId (model type) as RHS ensures:

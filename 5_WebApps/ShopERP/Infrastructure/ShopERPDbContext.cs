@@ -137,6 +137,9 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<VehicleSession> VehicleSessions { get; set; }
         public DbSet<GuardScanLog> GuardScanLogs { get; set; }
 
+        // KhachLink Multi-Profile R1: PG-only (Gateway), ignored in ShopERP SQLite
+        public DbSet<VanAn.Shared.Domain.Aggregates.KhachLinkAggregate.KhachLinkInstance> KhachLinkInstances { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters
@@ -249,6 +252,7 @@ namespace VanAn.ShopERP.Infrastructure
             _ = modelBuilder.Ignore<KhachLinkHomeSettings>(); // #100: PG-only global config
             _ = modelBuilder.Ignore<VehicleSession>(); // #126: PG-only Guard QR Verify
             _ = modelBuilder.Ignore<GuardScanLog>(); // #126: PG-only Guard QR Verify
+            _ = modelBuilder.Ignore<VanAn.Shared.Domain.Aggregates.KhachLinkAggregate.KhachLinkInstance>(); // R1: PG-only KhachLink instances
 
             // === VALUE OBJECT CONFIGURATIONS ===
             // Order: Configured via OrderConfiguration from CoreHub assembly (applied above via ApplyConfigurationsFromAssembly)
