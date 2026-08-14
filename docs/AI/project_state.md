@@ -28,10 +28,10 @@
 
 ## 2. Current Objective
 
-**GUARD QR VERIFICATION (ISSUE #126) — SPRINT 0 + SPRINT 1 COMPLETE. SPRINT 2 NEXT.**
+**GUARD QR VERIFICATION (ISSUE #126) — SPRINT 0 + SPRINT 1 + SPRINT 2 COMPLETE. SPRINT 3 NEXT.**
 
 **Source:** GitHub Issue #126 — "Guard page đang hardcode" — Guard Scanner page 100% hardcoded UI mockup, no backend.
-**Branch:** `feature/guard-qr-r1` → merge to `main`
+**Branch:** `feature/guard-qr-r2-sprint2` → merge to `main`
 **Plan:** `docs/AI/tasks/guard_qr_verify/master_plan.md` (7 sprints: 0=Analyze, 1=Domain+Infra, 2=Gateway API, 3=Guard UI, 4=KhachLink Claim, 5=Printer, 6=Tests)
 
 **Sprint 0 — Analyze (COMPLETE):**
@@ -48,8 +48,19 @@
 - DI: registered in `2_Gateway/Program.cs` + R2 config in `appsettings.json`
 - Validation: `dotnet build` 0 errors · `guard-check.ps1` ALL PASSED · Architecture Guard PASSED · Fast test gate PASSED
 
-**Next: Sprint 2 — Gateway API (GuardController).**
-Endpoints: `/api/guard/issue`, `/api/guard/verify`, `/api/guard/claim`, `/api/guard/checkout`, `/api/guard/flag`, `/api/guard/sessions/today`.
+**Sprint 2 — Gateway API (COMPLETE):**
+- `IGuardService` interface + `GuardService` implementation (3_CoreHub/Services)
+- 9 business methods: PresignUpload, Issue, Claim, Verify, Checkout, Flag, Void, GetTodaySessions, GetSession
+- QR payload format: JSON `{"t":"<qrToken>","tn":"<tenantId>"}` — SHA256 hash for lookup
+- Short code: 6-digit random, unique per tenant per day (10 retries + timestamp fallback)
+- `GuardController` (2_Gateway/Controllers) — 9 endpoints under `/api/guard/*`
+  - Guard endpoints: `[Authorize(Roles="Guard")]` — presign-upload, issue, verify, checkout, flag, void, sessions/today, sessions/{id}
+  - Customer endpoint: `[AllowAnonymous]` — claim (Sprint 4 will add proper customer auth)
+- Feature flag: `Guard:QrVerifyEnabled` (default false — 503 if disabled)
+- DI: `IGuardService` → `GuardService` registered in Program.cs
+- Validation: `dotnet build` 0 errors · `guard-check.ps1` ALL PASSED · Architecture tests 39/39 · Fast test gate PASSED
+
+**Next: Sprint 3 — Guard UI (replace hardcoded Scan.cshtml with Blazor page).**
 
 > **Previous: HARDCODED TENANT ID CLEANUP + SETTLEMENT HISTORY UI — SPRINT A+B — archived.** See history log below.
 
@@ -60,7 +71,7 @@ Endpoints: `/api/guard/issue`, `/api/guard/verify`, `/api/guard/claim`, `/api/gu
 - **Branch:** `feature/guard-qr-r1` → merging to `main` · **Build:** 0 errors · **Guard-check:** ALL PASSED
 - **.NET SDK:** 8.0.422
 - **CI/CD:** CI SUCCESS — 1261 unit tests + 233 integration tests + 39 architecture tests ALL PASS (last run on `main`).
-- **Issue #126 Guard QR Verify:** Sprint 0 + Sprint 1 COMPLETE. Sprint 2 (Gateway API) next.
+- **Issue #126 Guard QR Verify:** Sprint 0 + Sprint 1 + Sprint 2 COMPLETE. Sprint 3 (Guard UI) next.
 - **Sprint A+B (previous):** ✅ Hardcoded tenant ID cleanup + Settlement History admin page + NavMenu completeness (30/30). On `main`.
 - **GitHub Issues Batch:** ✅ #114 + #123 + #124 + #125 ALL FIXED + DEPLOYED + RV 33/33 PASS on VPS (previous sprint).
 - **VALCN v2.0 RV:** 10 PASS + 1 PARTIAL + 2 FAIL→FIXED→VERIFIED (archived)
@@ -78,13 +89,12 @@ Endpoints: `/api/guard/issue`, `/api/guard/verify`, `/api/guard/claim`, `/api/gu
 
 ## 4. Next Actions
 
-**Issue #126 Guard QR Verify — Sprint 2 NEXT:**
+**Issue #126 Guard QR Verify — Sprint 3 NEXT:**
 
-1. **(Sprint 2 — Gateway API)** Implement `GuardController` with endpoints: `/api/guard/issue`, `/api/guard/verify`, `/api/guard/claim`, `/api/guard/checkout`, `/api/guard/flag`, `/api/guard/sessions/today`. Use `IVehicleSessionRepository` + `IGuardScanLogRepository` + `IR2StorageService` + `IGuardService` (new). Add `[Authorize(Roles="Guard")]`.
-2. **(Sprint 3 — Guard UI)** Replace hardcoded `Pages/Guard/Scan.cshtml` with Blazor page + QR scanner (reuse `qr-scanner.js`) + photo upload (R2 presigned PUT) + QR display (qrcode.js).
-3. **(Sprint 4 — KhachLink Claim)** New `/qr/claim` page using existing `QRScanner.razor` component. POST to `/api/guard/claim`.
-4. **(Sprint 5 — Printer)** `PrintTicket.razor` (reuse `PrintBill.razor` pattern — `window.print()` + `@@media print` CSS).
-5. **(Sprint 6 — Tests)** E2E + integration tests for full flow.
+1. **(Sprint 3 — Guard UI)** Replace hardcoded `Pages/Guard/Scan.cshtml` with Blazor page + QR scanner (reuse `qr-scanner.js`) + photo upload (R2 presigned PUT) + QR display (qrcode.js). Wire to `/api/guard/*` endpoints.
+2. **(Sprint 4 — KhachLink Claim)** New `/qr/claim` page using existing `QRScanner.razor` component. POST to `/api/guard/claim`. Add proper customer auth (X-Customer-Token validation).
+3. **(Sprint 5 — Printer)** `PrintTicket.razor` (reuse `PrintBill.razor` pattern — `window.print()` + `@@media print` CSS).
+4. **(Sprint 6 — Tests)** E2E + integration tests for full flow.
 
 **Deferred / monitoring (from previous sprints):**
 6. **(Deploy Sprint A+B)** Deploy `f7201ef4` to VPS via CD pipeline (when ready).
@@ -121,7 +131,7 @@ Endpoints: `/api/guard/issue`, `/api/guard/verify`, `/api/guard/claim`, `/api/gu
 
 ## 6. History Log (compressed — see archive + git log)
 
-* [2026-08-14] **GUARD QR VERIFY (ISSUE #126) — SPRINT 0 + SPRINT 1 COMPLETE.** Branch `feature/guard-qr-r1`. Sprint 0: 6 integration points verified + 8 BR spec drafted + R2 bucket `vanan-guard-photos` created + verified. Sprint 1: Domain entities (`VehicleSession` + `GuardScanLog` + 2 enums + 2 VOs) + EF config + migration `20260814042520_AddGuardQrVerifyTables` (clean, 2 tables + 7 indexes) + R2 storage service (`IR2StorageService` + `R2StorageService` with AWSSDK.S3) + repositories + DI registration. Build 0 errors · guard-check ALL PASSED · Architecture Guard PASSED · Fast test gate PASSED. Next: Sprint 2 (Gateway API — GuardController).
+* [2026-08-14] **GUARD QR VERIFY (ISSUE #126) — SPRINT 0 + SPRINT 1 + SPRINT 2 COMPLETE.** Branch `feature/guard-qr-r1` (Sprint 0+1) + `feature/guard-qr-r2-sprint2` (Sprint 2). Sprint 0: 6 integration points verified + 8 BR spec drafted + R2 bucket `vanan-guard-photos` created + verified. Sprint 1: Domain entities (`VehicleSession` + `GuardScanLog` + 2 enums + 2 VOs) + EF config + migration + R2 storage service + repositories + DI. Sprint 2: `IGuardService` + `GuardService` (9 methods) + `GuardController` (9 endpoints under `/api/guard/*`) + QR payload generation (JSON + SHA256 hash) + short code (6-digit) + feature flag `Guard:QrVerifyEnabled`. Build 0 errors · guard-check ALL PASSED · Architecture tests 39/39 · Fast test gate PASSED. Next: Sprint 3 (Guard UI — replace hardcoded Scan.cshtml).
 * [2026-08-13] **HARDCODED TENANT ID CLEANUP + SETTLEMENT HISTORY UI — SPRINT A+B COMPLETE.** Commit `f7201ef4`. Sprint A: 4 files fixed (ProductReferralConfigService, SocialAuthController, CustomerIdentityController, PermissionGroupManagement) — all hardcoded `Guid.Parse("00000000-...")` replaced with `IConfiguration["Seed:TenantId"]` fallback. Sprint B1: Settlement History admin page (`SettlementAdminController.cs` + `SettlementApiClient.cs` + `Settlements.razor`) + NavMenu completeness (30/30 admin pages have nav links, added Background Services link). Sprint B2: Tenant Settings already covered by TenantManagement edit modal. CI: 1261 unit + 233 integration + 39 architecture tests ALL PASS.
 * [2026-08-11] **GITHUB ISSUES BATCH #114/#123/#124/#125 — ALL 4 FIXED + DEPLOYED + RV 33/33 PASS.** 3 commits: `716e7eec` (#123+#124+#125) + `07228b7e` (#114 initial) + `f46f544c` (#114 r1/r2/r3 revisions). RV on VPS: 33 PASS + 0 FAIL + 1 WARN (false positive). All 3 VPS healthy, no regression.
 * [2026-08-09] **VALCN v2.0 PLATFORM-LIGHT — ALL 3 WAVES COMPLETE + DEPLOYED + RV PASS.** 7 commits. RV 10 PASS + 1 PARTIAL + 2 FAIL→FIXED. nginx 503 fixed (5-layer rate limit). 3 deferred task cards created.
@@ -185,7 +195,7 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md`.
 
-* **2026-08-14 — GUARD QR VERIFY (ISSUE #126) SPRINT 0 + SPRINT 1 COMPLETE.** Branch `feature/guard-qr-r1` → merge to `main`. Sprint 0: 6 integration points verified (UserRole.Guard, R2, QR gen, QR scan, Printer, EF migration) + 8 BR spec drafted + R2 bucket `vanan-guard-photos` created + verified (5/5 tests pass). Sprint 1: Domain (`VehicleSession` + `GuardScanLog` + 2 enums + 2 VOs in `1_Shared/Domain.cs`) + EF config (2 configurations) + migration `20260814042520_AddGuardQrVerifyTables` (clean — 2 tables + 7 indexes) + R2 storage service (`IR2StorageService` + `R2StorageService` with AWSSDK.S3) + repositories (4 files) + DI registration + appsettings R2 config. Build 0 errors · guard-check ALL PASSED · Architecture Guard PASSED · Fast test gate PASSED. Next: Sprint 2 (Gateway API — GuardController).
+* **2026-08-14 — GUARD QR VERIFY (ISSUE #126) SPRINT 0 + SPRINT 1 + SPRINT 2 COMPLETE.** Branch `feature/guard-qr-r1` (Sprint 0+1) → merged to `main`. Branch `feature/guard-qr-r2-sprint2` (Sprint 2) → merging to `main`. Sprint 0: 6 integration points verified + 8 BR spec + R2 bucket created + verified. Sprint 1: Domain entities + EF config + migration + R2 storage service + repositories + DI. Sprint 2: `IGuardService` + `GuardService` (9 methods: PresignUpload/Issue/Claim/Verify/Checkout/Flag/Void/GetTodaySessions/GetSession) + `GuardController` (9 endpoints under `/api/guard/*` — Guard role for guard endpoints, AllowAnonymous for claim) + QR payload (JSON + SHA256 hash) + short code (6-digit) + feature flag `Guard:QrVerifyEnabled`. Build 0 errors · guard-check ALL PASSED · Architecture tests 39/39 · Fast test gate PASSED. Next: Sprint 3 (Guard UI).
 * **2026-08-13 — SPRINT A+B COMPLETE + PUSHED.** Commit `f7201ef4`. Sprint A: 4 hardcoded tenant IDs → config-driven (`IConfiguration["Seed:TenantId"]`). Sprint B1: Settlement History admin page (Gateway `SettlementAdminController` + ShopERP `SettlementApiClient` + `Settlements.razor` + NavMenu link). Sprint B2: Tenant Settings already in TenantManagement edit modal. NavMenu: 30/30 admin pages now have nav links (added Background Services). CI: 1261 unit + 233 integration + 39 arch tests ALL PASS. Guard-check ALL PASSED.
 * **2026-08-11 — GITHUB ISSUES BATCH #114/#123/#124/#125 — ALL 4 FIXED + DEPLOYED + RV 33/33 PASS.** 3 commits: `716e7eec` (#123 SQLite IsGlobal migration + #124 redeem button IsAvailable + admin menu + #125 KhachLink bottom nav responsive) + `07228b7e` (#114 initial — IsPosOnly field + Product entity + DTO + EF migration + seed + filter + POS Create.razor) + `f46f544c` (#114 r1/r2/r3 — seed update existing products IsPosOnly=true + Include Items in kitchen query + POS CustomerNotes + voice note STT + Kitchen TTS auto-read). RV on VPS: 33 PASS + 0 FAIL + 1 WARN (false positive — Login page SSR no "blazor" keyword). All 3 VPS healthy, no 502/503/504, no regression. POS-only "Sản phẩm dịch vụ" hidden from public catalog + grouped catalog. JS files served: pos-voice-note.js + tts-reader.js. Global catalog has isAvailable field (#124 verified).
   - **#114 r1.1 root cause:** Product seeded BEFORE IsPosOnly flag added → `if(exists) continue` skipped update → IsPosOnly=false → IsPriceEditable=false → no inline price input.
