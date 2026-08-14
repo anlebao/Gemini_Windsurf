@@ -162,6 +162,10 @@ namespace VanAn.CoreHub.Infrastructure
         // #100: KhachLink home page section toggles — GLOBAL (not tenant-scoped, single row)
         public DbSet<KhachLinkHomeSettings> KhachLinkHomeSettings { get; set; } // single-row global config (TenantId = Empty)
 
+        // #126: Guard QR Verification — vehicle session tracking + scan logs (PG-only)
+        public DbSet<VehicleSession> VehicleSessions { get; set; }
+        public DbSet<GuardScanLog> GuardScanLogs { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -181,6 +185,9 @@ namespace VanAn.CoreHub.Infrastructure
             modelBuilder.Ignore<OrderItemId>();
             modelBuilder.Ignore<OrderStatusId>();
             modelBuilder.Ignore<FeaturedProductId>();
+            // #126: Guard QR Verify — business key VOs (Single-Identity Pattern)
+            modelBuilder.Ignore<VehicleSessionId>();
+            modelBuilder.Ignore<GuardScanLogId>();
 
             base.OnModelCreating(modelBuilder);
 
