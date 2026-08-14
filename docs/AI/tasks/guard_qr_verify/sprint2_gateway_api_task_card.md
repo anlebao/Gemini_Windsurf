@@ -1,8 +1,8 @@
 # TASK CARD — Sprint 2: Gateway API + Services (Issue #126)
 
-> **Status:** 📋 PENDING
+> **Status:** ✅ COMPLETE (2026-08-14)
 > **Priority:** P2 — After Sprint 1 approval
-> **Branch:** `feature/guard-qr-verify`
+> **Branch:** `feature/guard-qr-r2-sprint2`
 > **Mode:** IMPLEMENT (Application Phase)
 > **Domain modification:** NO
 
@@ -10,8 +10,8 @@
 Implement `GuardController` (9 endpoints) + `GuardService` business logic + QR generation + R2 presigned URL flow. Build pass + guard-check pass.
 
 ## Prerequisites
-- [ ] Sprint 1 complete (Domain + EF + R2 client)
-- [ ] Sprint 0 QR library choice confirmed
+- [x] Sprint 1 complete (Domain + EF + R2 client)
+- [x] Sprint 0 QR library choice confirmed
 
 ## Task 1: GuardService (3_CoreHub/Services)
 

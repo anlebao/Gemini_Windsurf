@@ -13,7 +13,7 @@
 |---|---|---|
 | Sprint 0 — Analyze | ✅ COMPLETE | 6 integration points verified, 8 BR spec drafted, R2 bucket created + verified |
 | Sprint 1 — Domain + Infrastructure | ✅ COMPLETE | Domain entities + EF config + migration + R2 service + repositories + DI. Build pass + guard-check pass |
-| Sprint 2 — Gateway API | 📋 PENDING | GuardController (issue/verify/checkin/checkout/sessions/today) |
+| Sprint 2 — Gateway API | ✅ COMPLETE | GuardController (9 endpoints) + GuardService + QR generation + R2 presigned URL flow |
 | Sprint 3 — Guard UI | 📋 PENDING | Replace hardcoded Scan.cshtml with Blazor page + QR scanner |
 | Sprint 4 — KhachLink Claim | 📋 PENDING | QR claim page (Channel A/B/C→A) |
 | Sprint 5 — Printer | 📋 PENDING | PrintTicket.razor (reuse PrintBill.razor pattern) |
