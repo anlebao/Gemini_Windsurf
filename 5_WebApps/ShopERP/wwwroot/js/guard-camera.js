@@ -123,5 +123,78 @@ window.vananGuardCamera = {
             console.error('QR generation to canvas failed:', err);
             return false;
         }
+    },
+
+    // === #126 OCR: License plate recognition (Tesseract.js, client-side) ===
+    // After capturing the plate photo, run OCR to prefill the plate textbox.
+    // Returns recognized plate string (cleaned) or '' on failure. User must confirm/edit.
+
+    /** Recognize license plate text from a base64 JPEG data URL. Returns cleaned plate string or ''. */
+    async recognizePlate(dataUrl) {
+        try {
+            if (!dataUrl) return '';
+            await this._ensureOcrLibrary();
+            const canvas = await this._preprocessForOcr(dataUrl);
+            // PSM 7 = single line of text (a plate is one line).
+            // Whitelist: VN plates use digits + uppercase letters (no I/O/Q which are visually ambiguous).
+            const worker = await Tesseract.createWorker('eng', 1, { logger: () => {} });
+            await worker.setParameters({
+                tessedit_char_whitelist: '0123456789ABCDEFGHKLMNPRSTUVXYZ-',
+                tessedit_pageseg_mode: '7'
+            });
+            const { data } = await worker.recognize(canvas);
+            await worker.terminate();
+            const raw = (data.text || '').toUpperCase();
+            return this._normalizePlate(raw);
+        } catch (err) {
+            console.error('Plate OCR failed:', err);
+            return '';
+        }
+    },
+
+    /** Load image from data URL, upscale 2x + grayscale to improve OCR accuracy. Returns canvas. */
+    async _preprocessForOcr(dataUrl) {
+        const img = await new Promise((resolve, reject) => {
+            const i = new Image();
+            i.onload = () => resolve(i);
+            i.onerror = reject;
+            i.src = dataUrl;
+        });
+        const scale = 2;
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        // Grayscale conversion — improves Tesseract binarization on plate photos.
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imgData.data;
+        for (let i = 0; i < d.length; i += 4) {
+            const gray = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114);
+            d[i] = d[i + 1] = d[i + 2] = gray;
+        }
+        ctx.putImageData(imgData, 0, 0);
+        return canvas;
+    },
+
+    /** Clean raw OCR output to a plate-like string: keep [0-9A-Z-], collapse spaces, trim. */
+    _normalizePlate(raw) {
+        if (!raw) return '';
+        // Keep only digits, uppercase letters, and dashes.
+        let s = raw.replace(/[^0-9A-Z\-]/g, '');
+        // Collapse repeated dashes, strip leading/trailing dashes.
+        s = s.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+        return s;
+    },
+
+    async _ensureOcrLibrary() {
+        if (window.Tesseract) return;
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Failed to load Tesseract.js library'));
+            document.head.appendChild(script);
+        });
     }
 };

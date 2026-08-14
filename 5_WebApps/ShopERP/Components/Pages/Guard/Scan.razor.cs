@@ -33,6 +33,10 @@ namespace VanAn.ShopERP.Components.Pages.Guard
         private string issuedShortCode = string.Empty;
         private Guid issuedSessionId;
 
+        // === OCR (license plate auto-fill) ===
+        private bool ocrLoading = false;
+        private string ocrHint = string.Empty;
+
         // === Verify tab state ===
         private int verifyStep = 1;
         private bool verifyScanning = false;
@@ -112,6 +116,35 @@ namespace VanAn.ShopERP.Components.Pages.Guard
             platePhotoPreview = dataUrl;
             await StopPlateCamera();
             StateHasChanged();
+
+            // #126 OCR: auto-recognize plate text from the captured photo (client-side Tesseract.js).
+            // Prefills plateNumber — guard MUST verify/edit before issuing QR.
+            ocrLoading = true;
+            ocrHint = string.Empty;
+            StateHasChanged();
+            try
+            {
+                var plate = await JS.InvokeAsync<string?>("vananGuardCamera.recognizePlate", platePhotoDataUrl);
+                if (!string.IsNullOrWhiteSpace(plate))
+                {
+                    plateNumber = plate;
+                    ocrHint = $"Đã nhận diện biển số: {plate} — vui lòng kiểm tra lại trước khi tạo QR.";
+                }
+                else
+                {
+                    ocrHint = "Không nhận diện được biển số — vui lòng nhập thủ công.";
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Plate OCR failed");
+                ocrHint = "Nhận diện OCR lỗi — vui lòng nhập biển số thủ công.";
+            }
+            finally
+            {
+                ocrLoading = false;
+                StateHasChanged();
+            }
         }
 
         private async Task CaptureCustomerPhoto()
@@ -211,6 +244,8 @@ namespace VanAn.ShopERP.Components.Pages.Guard
             customerPhotoKey = null;
             qrImageBase64 = string.Empty;
             issuedShortCode = string.Empty;
+            ocrHint = string.Empty;
+            ocrLoading = false;
             errorMessage = string.Empty;
             successMessage = string.Empty;
             StateHasChanged();
