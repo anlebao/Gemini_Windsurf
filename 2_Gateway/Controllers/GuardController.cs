@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Net.Http.Json;
 using System.Security.Claims;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
@@ -10,7 +11,7 @@ namespace VanAn.Gateway.Controllers
     /// <summary>
     /// #126: Guard QR Verification API.
     /// Guard endpoints (issue/verify/checkout/flag/void/sessions) require Guard role JWT.
-    /// Claim endpoint is anonymous (customer auth via X-Customer-Token — Sprint 4 will add proper auth).
+    /// Claim + my-sessions endpoints are anonymous (customer auth via X-Customer-Token — validated through ShopERP).
     /// Feature flag: Guard:QrVerifyEnabled (default false — graceful fallback to old hardcode page).
     /// </summary>
     [ApiController]
@@ -19,10 +20,12 @@ namespace VanAn.Gateway.Controllers
     public class GuardController(
         IGuardService guardService,
         IConfiguration configuration,
+        IHttpClientFactory httpClientFactory,
         ILogger<GuardController> logger) : ControllerBase
     {
         private readonly IGuardService _guardService = guardService;
         private readonly IConfiguration _configuration = configuration;
+        private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
         private readonly ILogger<GuardController> _logger = logger;
 
         private bool IsFeatureEnabled =>
@@ -247,19 +250,18 @@ namespace VanAn.Gateway.Controllers
             }
         }
 
-        // === Customer endpoint (anonymous — Sprint 4 will add proper customer auth) ===
+        // === Customer endpoints (anonymous — customer auth via X-Customer-Token, validated through ShopERP) ===
 
         /// <summary>Claim QR session by customer (Channel A/B/C→A migration).</summary>
         [HttpPost("claim")]
         [AllowAnonymous]
-        public async Task<IActionResult> Claim([FromBody] ClaimRequest request, [FromQuery] Guid customerId, CancellationToken ct)
+        public async Task<IActionResult> Claim([FromBody] ClaimRequest? request, CancellationToken ct)
         {
             if (!IsFeatureEnabled) return FeatureDisabled();
 
-            // MVP: customer_id from query param. Sprint 4 will validate X-Customer-Token via ShopERP.
-            // tenant_id: extracted from QR payload (customer may not have tenant context).
-            if (customerId == Guid.Empty)
-                return BadRequest(new { error = "Customer ID is required." });
+            // R2 Sprint 4: validate X-Customer-Token → resolve customerId via ShopERP
+            var (customerId, authError) = await ValidateTokenAndGetCustomerIdAsync();
+            if (authError != null) return authError;
 
             if (string.IsNullOrWhiteSpace(request?.QrPayload) && string.IsNullOrWhiteSpace(request?.ShortCode))
                 return BadRequest(new { error = "Either QR payload or short code is required." });
@@ -278,7 +280,7 @@ namespace VanAn.Gateway.Controllers
 
             try
             {
-                var result = await _guardService.ClaimAsync(tenantId, customerId, request);
+                var result = await _guardService.ClaimAsync(tenantId, customerId!.Value, request);
                 return Ok(result);
             }
             catch (KeyNotFoundException)
@@ -293,6 +295,52 @@ namespace VanAn.Gateway.Controllers
             {
                 _logger.LogError(ex, "Error claiming QR session for customer {CustomerId}", customerId);
                 return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        /// <summary>Get session statuses for customer's claimed QR sessions (wallet sync — R2 Sprint 4).</summary>
+        [HttpPost("my-sessions")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetMySessions([FromBody] MySessionsRequest? request, CancellationToken ct)
+        {
+            if (!IsFeatureEnabled) return FeatureDisabled();
+
+            var (customerId, authError) = await ValidateTokenAndGetCustomerIdAsync();
+            if (authError != null) return authError;
+
+            if (request?.SessionIds == null || request.SessionIds.Count == 0)
+                return Ok(new { items = new List<SessionStatusResult>() });
+
+            var statuses = await _guardService.GetSessionStatusesAsync(customerId!.Value, request.SessionIds);
+            return Ok(new { items = statuses });
+        }
+
+        /// <summary>Validate X-Customer-Token by forwarding to ShopERP /api/customer-identity/me.</summary>
+        private async Task<(Guid? CustomerId, IActionResult? Error)> ValidateTokenAndGetCustomerIdAsync()
+        {
+            if (!Request.Headers.TryGetValue("X-Customer-Token", out var token) || string.IsNullOrEmpty(token))
+                return (null, Unauthorized(new { error = "X-Customer-Token header is required." }));
+
+            try
+            {
+                var client = _httpClientFactory.CreateClient("shoperp");
+                var meReq = new HttpRequestMessage(HttpMethod.Get, "/api/customer-identity/me");
+                meReq.Headers.Add("X-Customer-Token", token.ToString());
+
+                var meResp = await client.SendAsync(meReq);
+                if (!meResp.IsSuccessStatusCode)
+                    return (null, Unauthorized(new { error = "Token không hợp lệ hoặc đã hết hạn." }));
+
+                var meContent = await meResp.Content.ReadFromJsonAsync<MeResponse>(HttpContext.RequestAborted);
+                if (meContent?.CustomerId == null || meContent.CustomerId == Guid.Empty)
+                    return (null, Unauthorized(new { error = "Không tìm thấy khách hàng." }));
+
+                return (meContent.CustomerId.Value, null);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error validating customer token for guard claim endpoint");
+                return (null, StatusCode(500, new { error = "Lỗi xác thực token." }));
             }
         }
 
@@ -321,5 +369,13 @@ namespace VanAn.Gateway.Controllers
         public record VerifyRequest(string QrPayload);
 
         public record FlagRequest(string Reason);
+
+        public record MySessionsRequest(List<Guid> SessionIds);
+
+        // Response from ShopERP /api/customer-identity/me (subset)
+        private class MeResponse
+        {
+            public Guid? CustomerId { get; set; }
+        }
     }
 }

@@ -230,6 +230,18 @@ namespace VanAn.CoreHub.Services
                 session.CustomerId, plateUrl, customerUrl);
         }
 
+        public async Task<List<SessionStatusResult>> GetSessionStatusesAsync(Guid customerId, List<Guid> sessionIds)
+        {
+            if (sessionIds == null || sessionIds.Count == 0)
+                return new List<SessionStatusResult>();
+
+            var sessions = await _sessionRepo.GetByIdsForCustomerAsync(customerId, sessionIds);
+
+            return sessions.Select(s => new SessionStatusResult(
+                s.Id, s.PlateNumber, s.ShortCode, s.Status,
+                s.IssuedAt, s.CheckedOutAt, s.CustomerId, s.TenantId.Value)).ToList();
+        }
+
         // === Private helpers ===
 
         private static string GenerateQrToken()

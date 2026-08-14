@@ -35,6 +35,9 @@ namespace VanAn.CoreHub.Services
 
         /// <summary>Get session detail by ID (with presigned photo URLs).</summary>
         Task<SessionDetailResult> GetSessionAsync(Guid tenantId, Guid sessionId);
+
+        /// <summary>Get session statuses for a customer's claimed sessions (cross-tenant, for KhachLink wallet sync).</summary>
+        Task<List<SessionStatusResult>> GetSessionStatusesAsync(Guid customerId, List<Guid> sessionIds);
     }
 
     // === Result DTOs ===
@@ -58,6 +61,9 @@ namespace VanAn.CoreHub.Services
     public record SessionSummary(Guid SessionId, string PlateNumber, string ShortCode, VehicleSessionStatus Status, DateTime IssuedAt, DateTime? CheckedOutAt, Guid? CustomerId);
 
     public record SessionDetailResult(Guid SessionId, string PlateNumber, string ShortCode, VehicleSessionStatus Status, DateTime IssuedAt, DateTime? ClaimedAt, DateTime? CheckedOutAt, string? FlagReason, Guid? CustomerId, string PlatePhotoUrl, string CustomerPhotoUrl);
+
+    /// <summary>Status sync result for KhachLink QR wallet (R2 Sprint 4).</summary>
+    public record SessionStatusResult(Guid SessionId, string PlateNumber, string ShortCode, VehicleSessionStatus Status, DateTime IssuedAt, DateTime? CheckedOutAt, Guid? CustomerId, Guid TenantId);
 
     // === Request DTOs ===
 
