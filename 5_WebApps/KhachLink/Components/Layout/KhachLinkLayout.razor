@@ -4,10 +4,13 @@
 @using VanAn.Shared.Domain
 @using VanAn.KhachLink.Services.Http
 @using VanAn.KhachLink.Services.PWA
+@using VanAn.KhachLink.Models
 @inject IThemeProvider ThemeProvider
 @inject ITenantService TenantService
 @inject ShopConfigHttpService ShopConfigService
 @inject PWAService PWAService
+@inject KhachLinkInstanceHttpService InstanceHttp
+@inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inherits VanAn.UI.Platform.Components.Base.BaseComponent
 
@@ -23,6 +26,7 @@
     </style>
 </HeadContent>
 
+<CascadingValue Value="_navFlags" Name="NavFlags">
 <div class="khachlink-layout theme-@GetThemeClass() tenant-@_currentTenantId">
     <!-- Hero Header -->
     <header class="khachlink-hero-header">
@@ -45,21 +49,36 @@
                         <i class="bi bi-download text-white"></i>
                     </button>
                 }
-                <a href="/cart" class="header-icon-btn" aria-label="Giỏ hàng">
-                    <i class="bi bi-cart3 text-white"></i>
-                </a>
-                <a href="/rewards" class="header-icon-btn" aria-label="Đổi điểm" title="Đổi điểm thưởng">
-                    <i class="bi bi-gift text-white"></i>
-                </a>
-                <a href="/missions" class="header-icon-btn" aria-label="Nhiệm vụ" title="Nhiệm vụ thưởng điểm">
-                    <i class="bi bi-trophy text-white"></i>
-                </a>
-                <a href="/my-loyalty" class="header-icon-btn" aria-label="Lịch sử tích điểm" title="Lịch sử tích điểm">
-                    <i class="bi bi-clock-history text-white"></i>
-                </a>
-                <a href="/profile" class="header-icon-btn" aria-label="Tài khoản">
-                    <i class="bi bi-person text-white"></i>
-                </a>
+                @if (_navFlags.ShowCart)
+                {
+                    <a href="/cart" class="header-icon-btn" aria-label="Giỏ hàng">
+                        <i class="bi bi-cart3 text-white"></i>
+                    </a>
+                }
+                @if (_navFlags.ShowRewards)
+                {
+                    <a href="/rewards" class="header-icon-btn" aria-label="Đổi điểm" title="Đổi điểm thưởng">
+                        <i class="bi bi-gift text-white"></i>
+                    </a>
+                }
+                @if (_navFlags.ShowMissions)
+                {
+                    <a href="/missions" class="header-icon-btn" aria-label="Nhiệm vụ" title="Nhiệm vụ thưởng điểm">
+                        <i class="bi bi-trophy text-white"></i>
+                    </a>
+                }
+                @if (_navFlags.ShowLoyaltyHistory)
+                {
+                    <a href="/my-loyalty" class="header-icon-btn" aria-label="Lịch sử tích điểm" title="Lịch sử tích điểm">
+                        <i class="bi bi-clock-history text-white"></i>
+                    </a>
+                }
+                @if (_navFlags.ShowProfile)
+                {
+                    <a href="/profile" class="header-icon-btn" aria-label="Tài khoản">
+                        <i class="bi bi-person text-white"></i>
+                    </a>
+                }
             </div>
         </div>
     </header>
@@ -97,6 +116,7 @@
         </div>
     </footer>
 </div>
+</CascadingValue>
 
 <style>
 /* Hero header */
@@ -149,11 +169,36 @@
     private Guid _currentTenantId;
     private ShopConfig? _shopConfig;
     private bool _showInstallButton;
+    private KhachLinkNavFlagsDto _navFlags = new(); // default: all true (FullCommerce fallback)
 
     protected override async Task OnInitializedAsync()
     {
         _currentTenantId = TenantService.GetCurrentTenantId();
         _shopConfig = await ShopConfigService.GetShopConfigByTenantIdAsync(_currentTenantId);
+
+        // KhachLink Multi-Profile R1 Sprint 3: fetch instance config by current domain.
+        // If feature flag OFF or domain not registered → returns null → _navFlags stays default (all true).
+        // If instance found with OwnerTenantId → override current tenant (multi-domain routing).
+        try
+        {
+            var instanceConfig = await InstanceHttp.GetByCurrentDomainAsync();
+            if (instanceConfig != null)
+            {
+                _navFlags = instanceConfig.NavFlags;
+                if (instanceConfig.OwnerTenantId != null && instanceConfig.OwnerTenantId != Guid.Empty)
+                {
+                    TenantService.SetCurrentTenant(instanceConfig.OwnerTenantId.Value);
+                    _currentTenantId = instanceConfig.OwnerTenantId.Value;
+                    // Re-fetch shop config for the resolved tenant
+                    _shopConfig = await ShopConfigService.GetShopConfigByTenantIdAsync(_currentTenantId);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Non-critical — fallback to FullCommerce defaults (all flags true)
+            System.Console.WriteLine($"[KhachLinkLayout] Instance config fetch failed: {ex.Message}");
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

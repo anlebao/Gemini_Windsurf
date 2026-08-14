@@ -1,5 +1,6 @@
 ﻿@using VanAn.UI.Platform.Components.Atomic
 @using VanAn.KhachLink.Services.Http
+@using VanAn.KhachLink.Models
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inject CommunityHttpService CommunityHttp
@@ -12,37 +13,55 @@
             <a class="nav-brand" href="/">Vạn An KhachLink</a>
         </div>
         <nav class="nav-scrollable">
-            <div class="nav-item">
-                <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
-                    <span class="bi bi-house-door-fill me-2" aria-hidden="true"></span> Trang chủ
-                </NavLink>
-            </div>
-            <div class="nav-item">
-                <NavLink class="nav-link" href="/cart">
-                    <span class="bi bi-cart3 me-2" aria-hidden="true"></span> Giỏ hàng
-                </NavLink>
-            </div>
-            <div class="nav-item">
-                <NavLink class="nav-link" href="/my-orders">
-                    <span class="bi bi-bag me-2" aria-hidden="true"></span> Đơn hàng
-                </NavLink>
-            </div>
-            <div class="nav-item">
-                <NavLink class="nav-link" href="/my-loyalty">
-                    <span class="bi bi-clock-history me-2" aria-hidden="true"></span> Lịch sử tích điểm
-                </NavLink>
-            </div>
-            <div class="nav-item">
-                <NavLink class="nav-link" href="/missions">
-                    <span class="bi bi-trophy me-2" aria-hidden="true"></span> Nhiệm vụ
-                </NavLink>
-            </div>
-            <div class="nav-item">
-                <NavLink class="nav-link" href="/rewards">
-                    <span class="bi bi-gift me-2" aria-hidden="true"></span> Đổi điểm
-                </NavLink>
-            </div>
-            @if (_isAllianceMode)
+            @if (_navFlags.ShowHome)
+            {
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
+                        <span class="bi bi-house-door-fill me-2" aria-hidden="true"></span> Trang chủ
+                    </NavLink>
+                </div>
+            }
+            @if (_navFlags.ShowCart)
+            {
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="/cart">
+                        <span class="bi bi-cart3 me-2" aria-hidden="true"></span> Giỏ hàng
+                    </NavLink>
+                </div>
+            }
+            @if (_navFlags.ShowOrders)
+            {
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="/my-orders">
+                        <span class="bi bi-bag me-2" aria-hidden="true"></span> Đơn hàng
+                    </NavLink>
+                </div>
+            }
+            @if (_navFlags.ShowLoyaltyHistory)
+            {
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="/my-loyalty">
+                        <span class="bi bi-clock-history me-2" aria-hidden="true"></span> Lịch sử tích điểm
+                    </NavLink>
+                </div>
+            }
+            @if (_navFlags.ShowMissions)
+            {
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="/missions">
+                        <span class="bi bi-trophy me-2" aria-hidden="true"></span> Nhiệm vụ
+                    </NavLink>
+                </div>
+            }
+            @if (_navFlags.ShowRewards)
+            {
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="/rewards">
+                        <span class="bi bi-gift me-2" aria-hidden="true"></span> Đổi điểm
+                    </NavLink>
+                </div>
+            }
+            @if (_navFlags.ShowAllianceWallet && _isAllianceMode)
             {
                 <div class="nav-item">
                     <NavLink class="nav-link" href="/alliance-wallet">
@@ -50,27 +69,39 @@
                     </NavLink>
                 </div>
             }
-            <div class="nav-item">
-                <NavLink class="nav-link" href="/stores">
-                    <span class="bi bi-geo-alt me-2" aria-hidden="true"></span> Cửa hàng
-                </NavLink>
-            </div>
-            <div class="nav-item">
-                <NavLink class="nav-link" href="/campaigns">
-                    <span class="bi bi-megaphone-fill me-2" aria-hidden="true"></span> Khuyến mãi
-                </NavLink>
-            </div>
-            <div class="nav-item">
-                <NavLink class="nav-link" href="/scan">
-                    <span class="bi bi-qr-code-scan me-2" aria-hidden="true"></span> Quét QR
-                </NavLink>
-            </div>
-            <div class="nav-item">
-                <NavLink class="nav-link" href="/qr/claim">
-                    <span class="bi bi-qr-code me-2" aria-hidden="true"></span> QR gửi xe
-                </NavLink>
-            </div>
-            @if (_isShipper || _isShopOwner)
+            @if (_navFlags.ShowStores)
+            {
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="/stores">
+                        <span class="bi bi-geo-alt me-2" aria-hidden="true"></span> Cửa hàng
+                    </NavLink>
+                </div>
+            }
+            @if (_navFlags.ShowCampaigns)
+            {
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="/campaigns">
+                        <span class="bi bi-megaphone-fill me-2" aria-hidden="true"></span> Khuyến mãi
+                    </NavLink>
+                </div>
+            }
+            @if (_navFlags.ShowScan)
+            {
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="/scan">
+                        <span class="bi bi-qr-code-scan me-2" aria-hidden="true"></span> Quét QR
+                    </NavLink>
+                </div>
+            }
+            @if (_navFlags.ShowQrClaim)
+            {
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="/qr/claim">
+                        <span class="bi bi-qr-code me-2" aria-hidden="true"></span> QR gửi xe
+                    </NavLink>
+                </div>
+            }
+            @if (_navFlags.ShowCommunity && (_isShipper || _isShopOwner))
             {
                 <div class="nav-item">
                     <NavLink class="nav-link" href="/community/nearby-orders">
@@ -88,7 +119,7 @@
                     </NavLink>
                 </div>
             }
-            @if (_isShopOwner && !_isShipper)
+            @if (_navFlags.ShowCommunity && _isShopOwner && !_isShipper)
             {
                 <div class="nav-item">
                     <NavLink class="nav-link" href="/community/wallet">
@@ -96,7 +127,7 @@
                     </NavLink>
                 </div>
             }
-            @if (_isSalesman)
+            @if (_navFlags.ShowCommunity && _isSalesman)
             {
                 <div class="nav-item">
                     <NavLink class="nav-link" href="/community/nearby-products">
@@ -120,12 +151,15 @@
                 </div>
             }
             @* Issue 4: Voice note page removed from nav — order notes now entered on cart page *@
-            <div class="nav-item">
-                <NavLink class="nav-link" href="@(_isLoggedIn ? "/profile" : "/login")">
-                    <span class="bi bi-person me-2" aria-hidden="true"></span> Tài khoản
-                </NavLink>
-            </div>
-            @if (_isStaff)
+            @if (_navFlags.ShowProfile)
+            {
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="@(_isLoggedIn ? "/profile" : "/login")">
+                        <span class="bi bi-person me-2" aria-hidden="true"></span> Tài khoản
+                    </NavLink>
+                </div>
+            }
+            @if (_navFlags.ShowStaffDashboard && _isStaff)
             {
                 <hr class="my-2" style="border-color: rgba(255,255,255,0.2);" />
                 <div class="nav-item">
@@ -140,39 +174,57 @@
 
 <!-- Mobile bottom tab bar — #125 fix: d-md-none ensures hidden on desktop even without parent wrapper -->
 <div class="mobile-bottom-nav d-md-none">
-    <a class="mobile-tab-item @IsActive("/")" href="/">
-        <i class="bi bi-house-door-fill"></i>
-        <span>Trang chủ</span>
-    </a>
+    @if (_navFlags.ShowHome)
+    {
+        <a class="mobile-tab-item @IsActive("/")" href="/">
+            <i class="bi bi-house-door-fill"></i>
+            <span>Trang chủ</span>
+        </a>
+    }
     @* Issue: Cart / Điểm thưởng / Nhiệm vụ / Đổi điểm đã có icon ở header — bỏ khỏi bottom-nav để tránh trùng *@
-    <a class="mobile-tab-item @IsActive("/my-orders")" href="/my-orders">
-        <i class="bi bi-bag"></i>
-        <span>Đơn hàng</span>
-    </a>
-    @if (_isAllianceMode)
+    @if (_navFlags.ShowOrders)
+    {
+        <a class="mobile-tab-item @IsActive("/my-orders")" href="/my-orders">
+            <i class="bi bi-bag"></i>
+            <span>Đơn hàng</span>
+        </a>
+    }
+    @if (_navFlags.ShowAllianceWallet && _isAllianceMode)
     {
         <a class="mobile-tab-item @IsActive("/alliance-wallet")" href="/alliance-wallet">
             <i class="bi bi-globe2"></i>
             <span>Liên minh</span>
         </a>
     }
-    <a class="mobile-tab-item @IsActive("/stores")" href="/stores">
-        <i class="bi bi-geo-alt"></i>
-        <span>Cửa hàng</span>
-    </a>
-    <a class="mobile-tab-item @IsActive("/campaigns")" href="/campaigns">
-        <i class="bi bi-megaphone-fill"></i>
-        <span>Khuyến mãi</span>
-    </a>
-    <a class="mobile-tab-item @IsActive("/scan")" href="/scan">
-        <i class="bi bi-qr-code-scan"></i>
-        <span>Quét QR</span>
-    </a>
-    <a class="mobile-tab-item @IsActive("/qr/claim", "/qr/wallet")" href="/qr/claim">
-        <i class="bi bi-qr-code"></i>
-        <span>QR gửi xe</span>
-    </a>
-    @if (_isShipper)
+    @if (_navFlags.ShowStores)
+    {
+        <a class="mobile-tab-item @IsActive("/stores")" href="/stores">
+            <i class="bi bi-geo-alt"></i>
+            <span>Cửa hàng</span>
+        </a>
+    }
+    @if (_navFlags.ShowCampaigns)
+    {
+        <a class="mobile-tab-item @IsActive("/campaigns")" href="/campaigns">
+            <i class="bi bi-megaphone-fill"></i>
+            <span>Khuyến mãi</span>
+        </a>
+    }
+    @if (_navFlags.ShowScan)
+    {
+        <a class="mobile-tab-item @IsActive("/scan")" href="/scan">
+            <i class="bi bi-qr-code-scan"></i>
+            <span>Quét QR</span>
+        </a>
+    }
+    @if (_navFlags.ShowQrClaim)
+    {
+        <a class="mobile-tab-item @IsActive("/qr/claim", "/qr/wallet")" href="/qr/claim">
+            <i class="bi bi-qr-code"></i>
+            <span>QR gửi xe</span>
+        </a>
+    }
+    @if (_navFlags.ShowCommunity && _isShipper)
     {
         <a class="mobile-tab-item @IsActive("/community/nearby-orders")" href="/community/nearby-orders">
             <i class="bi bi-truck"></i>
@@ -183,7 +235,7 @@
             <span>Đang giao</span>
         </a>
     }
-    @if (_isSalesman)
+    @if (_navFlags.ShowCommunity && _isSalesman)
     {
         <a class="mobile-tab-item @IsActive("/community/nearby-products")" href="/community/nearby-products">
             <i class="bi bi-shop"></i>
@@ -203,10 +255,13 @@
         </a>
     }
     @* Issue 4: Voice note tab removed — order notes now entered on cart page *@
-    <a class="mobile-tab-item @IsActive("/profile", "/login")" href="@(_isLoggedIn ? "/profile" : "/login")">
-        <i class="bi bi-person"></i>
-        <span>Tài khoản</span>
-    </a>
+    @if (_navFlags.ShowProfile)
+    {
+        <a class="mobile-tab-item @IsActive("/profile", "/login")" href="@(_isLoggedIn ? "/profile" : "/login")">
+            <i class="bi bi-person"></i>
+            <span>Tài khoản</span>
+        </a>
+    }
 </div>
 
 <style>
@@ -294,6 +349,11 @@
 </style>
 
 @code {
+    // KhachLink Multi-Profile R1 Sprint 3: NavFlags cascaded from KhachLinkLayout.
+    // Default all true (FullCommerce fallback) — when feature flag OFF, layout never overrides.
+    [CascadingParameter(Name = "NavFlags")]
+    private KhachLinkNavFlagsDto _navFlags { get; set; } = new();
+
     private bool _isLoggedIn = false;
     private bool _isStaff = false;
     private bool _isShipper = false;

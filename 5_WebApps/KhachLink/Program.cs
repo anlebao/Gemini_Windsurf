@@ -85,6 +85,8 @@ namespace VanAn.KhachLink
             _ = builder.Services.AddScoped<Services.Http.CollaboratorVerificationHttpService>();
             // #126 R2 Sprint 4: Guard QR Claim + Wallet API client
             _ = builder.Services.AddScoped<Services.Http.GuardQrApiClient>();
+            // KhachLink Multi-Profile R1 Sprint 3: instance config by-domain resolver
+            _ = builder.Services.AddScoped<Services.Http.KhachLinkInstanceHttpService>();
             _ = builder.Services.AddScoped<Services.LocationTrackingService>();
 
             // Register Recently Viewed Service + LastInteractionService
