@@ -1,5 +1,5 @@
 @page "/guard/scan"
-@rendermode InteractiveServer
+@rendermode @(new Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode(prerender: false))
 @attribute [Authorize(Roles = "Guard")]
 @using Microsoft.AspNetCore.Authorization
 @using VanAn.UI.Platform.Components
@@ -51,12 +51,12 @@
                             <div class="guard-photo-actions">
                                 @if (!cameraActive_plate)
                                 {
-                                    <VanAButton Variant="secondary" Text="📷 Mở camera" OnClick="StartPlateCamera" />
+                                    <VanAButton Variant="secondary" Text="📷 Mở camera" OnClick="StartPlateCamera" Disabled="@(!isInteractive)" />
                                 }
                                 else
                                 {
-                                    <VanAButton Variant="primary" Text="📸 Chụp" OnClick="CapturePlatePhoto" />
-                                    <VanAButton Variant="outline" Text="Hủy" OnClick="StopPlateCamera" />
+                                    <VanAButton Variant="primary" Text="📸 Chụp" OnClick="CapturePlatePhoto" Disabled="@(!isInteractive)" />
+                                    <VanAButton Variant="outline" Text="Hủy" OnClick="StopPlateCamera" Disabled="@(!isInteractive)" />
                                 }
                             </div>
                         </div>
@@ -73,12 +73,12 @@
                             <div class="guard-photo-actions">
                                 @if (!cameraActive_customer)
                                 {
-                                    <VanAButton Variant="secondary" Text="📷 Mở camera" OnClick="StartCustomerCamera" />
+                                    <VanAButton Variant="secondary" Text="📷 Mở camera" OnClick="StartCustomerCamera" Disabled="@(!isInteractive)" />
                                 }
                                 else
                                 {
-                                    <VanAButton Variant="primary" Text="📸 Chụp" OnClick="CaptureCustomerPhoto" />
-                                    <VanAButton Variant="outline" Text="Hủy" OnClick="StopCustomerCamera" />
+                                    <VanAButton Variant="primary" Text="📸 Chụp" OnClick="CaptureCustomerPhoto" Disabled="@(!isInteractive)" />
+                                    <VanAButton Variant="outline" Text="Hủy" OnClick="StopCustomerCamera" Disabled="@(!isInteractive)" />
                                 }
                             </div>
                         </div>

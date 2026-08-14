@@ -37,6 +37,11 @@ namespace VanAn.ShopERP.Components.Pages.Guard
         private bool ocrLoading = false;
         private string ocrHint = string.Empty;
 
+        // === Blazor interactivity guard (Gate 2 Category C) ===
+        // Disable camera buttons until Blazor SignalR is fully interactive — prevents
+        // click-during-prerender race that causes page reload before capture runs.
+        private bool isInteractive = false;
+
         // === Verify tab state ===
         private int verifyStep = 1;
         private bool verifyScanning = false;
@@ -64,7 +69,9 @@ namespace VanAn.ShopERP.Components.Pages.Guard
         {
             if (firstRender)
             {
+                isInteractive = true;
                 _dotNetRef = DotNetObjectReference.Create(this);
+                StateHasChanged();
                 await LoadTodayAsync();
             }
         }
@@ -89,77 +96,114 @@ namespace VanAn.ShopERP.Components.Pages.Guard
 
         private async Task StartPlateCamera()
         {
-            var ok = await JS.InvokeAsync<bool>("vananGuardCamera.startCamera", "plateVideo", "environment");
-            cameraActive_plate = ok;
-            if (!ok) errorMessage = "Không mở được camera. Kiểm tra quyền truy cập camera.";
+            if (!isInteractive) return;
+            try
+            {
+                var ok = await JS.InvokeAsync<bool>("vananGuardCamera.startCamera", "plateVideo", "environment");
+                cameraActive_plate = ok;
+                if (!ok) errorMessage = "Không mở được camera. Kiểm tra quyền truy cập camera.";
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "StartPlateCamera failed");
+                errorMessage = $"Lỗi mở camera: {ex.Message}";
+            }
             StateHasChanged();
         }
 
         private async Task StartCustomerCamera()
         {
-            var ok = await JS.InvokeAsync<bool>("vananGuardCamera.startCamera", "customerVideo", "user");
-            cameraActive_customer = ok;
-            if (!ok) errorMessage = "Không mở được camera. Kiểm tra quyền truy cập camera.";
+            if (!isInteractive) return;
+            try
+            {
+                var ok = await JS.InvokeAsync<bool>("vananGuardCamera.startCamera", "customerVideo", "user");
+                cameraActive_customer = ok;
+                if (!ok) errorMessage = "Không mở được camera. Kiểm tra quyền truy cập camera.";
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "StartCustomerCamera failed");
+                errorMessage = $"Lỗi mở camera: {ex.Message}";
+            }
             StateHasChanged();
         }
 
         private async Task CapturePlatePhoto()
         {
-            var dataUrl = await JS.InvokeAsync<string?>("vananGuardCamera.capturePhoto", "plateVideo");
-            if (string.IsNullOrEmpty(dataUrl))
-            {
-                errorMessage = "Chụp ảnh thất bại.";
-                StateHasChanged();
-                return;
-            }
-            platePhotoDataUrl = dataUrl;
-            platePhotoPreview = dataUrl;
-            await StopPlateCamera();
-            StateHasChanged();
-
-            // #126 OCR: auto-recognize plate text from the captured photo (client-side Tesseract.js).
-            // Prefills plateNumber — guard MUST verify/edit before issuing QR.
-            ocrLoading = true;
-            ocrHint = string.Empty;
-            StateHasChanged();
+            if (!isInteractive) return;
             try
             {
-                var plate = await JS.InvokeAsync<string?>("vananGuardCamera.recognizePlate", platePhotoDataUrl);
-                if (!string.IsNullOrWhiteSpace(plate))
+                var dataUrl = await JS.InvokeAsync<string?>("vananGuardCamera.capturePhoto", "plateVideo");
+                if (string.IsNullOrEmpty(dataUrl))
                 {
-                    plateNumber = plate;
-                    ocrHint = $"Đã nhận diện biển số: {plate} — vui lòng kiểm tra lại trước khi tạo QR.";
+                    errorMessage = "Chụp ảnh thất bại. Đảm bảo camera đã mở và có hình.";
+                    StateHasChanged();
+                    return;
                 }
-                else
+                platePhotoDataUrl = dataUrl;
+                platePhotoPreview = dataUrl;
+                await StopPlateCamera();
+                StateHasChanged();
+
+                // #126 OCR: auto-recognize plate text from the captured photo (client-side Tesseract.js).
+                ocrLoading = true;
+                ocrHint = string.Empty;
+                StateHasChanged();
+                try
                 {
-                    ocrHint = "Không nhận diện được biển số — vui lòng nhập thủ công.";
+                    var plate = await JS.InvokeAsync<string?>("vananGuardCamera.recognizePlate", platePhotoDataUrl);
+                    if (!string.IsNullOrWhiteSpace(plate))
+                    {
+                        plateNumber = plate;
+                        ocrHint = $"Đã nhận diện biển số: {plate} — vui lòng kiểm tra lại trước khi tạo QR.";
+                    }
+                    else
+                    {
+                        ocrHint = "Không nhận diện được biển số — vui lòng nhập thủ công.";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Plate OCR failed");
+                    ocrHint = "Nhận diện OCR lỗi — vui lòng nhập biển số thủ công.";
+                }
+                finally
+                {
+                    ocrLoading = false;
+                    StateHasChanged();
                 }
             }
             catch (Exception ex)
             {
-                Logger.LogWarning(ex, "Plate OCR failed");
-                ocrHint = "Nhận diện OCR lỗi — vui lòng nhập biển số thủ công.";
-            }
-            finally
-            {
-                ocrLoading = false;
+                Logger.LogError(ex, "CapturePlatePhoto failed");
+                errorMessage = $"Lỗi chụp ảnh: {ex.Message}";
                 StateHasChanged();
             }
         }
 
         private async Task CaptureCustomerPhoto()
         {
-            var dataUrl = await JS.InvokeAsync<string?>("vananGuardCamera.capturePhoto", "customerVideo");
-            if (string.IsNullOrEmpty(dataUrl))
+            if (!isInteractive) return;
+            try
             {
-                errorMessage = "Chụp ảnh thất bại.";
+                var dataUrl = await JS.InvokeAsync<string?>("vananGuardCamera.capturePhoto", "customerVideo");
+                if (string.IsNullOrEmpty(dataUrl))
+                {
+                    errorMessage = "Chụp ảnh thất bại. Đảm bảo camera đã mở và có hình.";
+                    StateHasChanged();
+                    return;
+                }
+                customerPhotoDataUrl = dataUrl;
+                customerPhotoPreview = dataUrl;
+                await StopCustomerCamera();
                 StateHasChanged();
-                return;
             }
-            customerPhotoDataUrl = dataUrl;
-            customerPhotoPreview = dataUrl;
-            await StopCustomerCamera();
-            StateHasChanged();
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "CaptureCustomerPhoto failed");
+                errorMessage = $"Lỗi chụp ảnh: {ex.Message}";
+                StateHasChanged();
+            }
         }
 
         private async Task StopPlateCamera()
