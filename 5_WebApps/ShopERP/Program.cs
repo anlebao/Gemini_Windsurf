@@ -67,6 +67,11 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddRazorPages();
             _ = builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
+            // #126: Increase JS interop timeout for Tesseract.js OCR (first load downloads ~2MB WASM).
+            builder.Services.Configure<Microsoft.AspNetCore.Components.Server.CircuitOptions>(options =>
+            {
+                options.JSInteropDefaultCallTimeout = TimeSpan.FromSeconds(60);
+            });
 
             // FIX: JSON cycle detection — Order.Items[].Order navigation creates a cycle.
             // IgnoreCycles serializes back-references as null instead of throwing JsonException.

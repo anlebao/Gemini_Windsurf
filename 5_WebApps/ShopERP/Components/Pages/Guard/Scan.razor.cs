@@ -143,40 +143,45 @@ namespace VanAn.ShopERP.Components.Pages.Guard
                 platePhotoDataUrl = dataUrl;
                 platePhotoPreview = dataUrl;
                 await StopPlateCamera();
-                StateHasChanged();
-
-                // #126 OCR: auto-recognize plate text from the captured photo (client-side Tesseract.js).
-                ocrLoading = true;
                 ocrHint = string.Empty;
                 StateHasChanged();
-                try
-                {
-                    var plate = await JS.InvokeAsync<string?>("vananGuardCamera.recognizePlate", platePhotoDataUrl);
-                    if (!string.IsNullOrWhiteSpace(plate))
-                    {
-                        plateNumber = plate;
-                        ocrHint = $"Đã nhận diện biển số: {plate} — vui lòng kiểm tra lại trước khi tạo QR.";
-                    }
-                    else
-                    {
-                        ocrHint = "Không nhận diện được biển số — vui lòng nhập thủ công.";
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogWarning(ex, "Plate OCR failed");
-                    ocrHint = "Nhận diện OCR lỗi — vui lòng nhập biển số thủ công.";
-                }
-                finally
-                {
-                    ocrLoading = false;
-                    StateHasChanged();
-                }
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex, "CapturePlatePhoto failed");
                 errorMessage = $"Lỗi chụp ảnh: {ex.Message}";
+                StateHasChanged();
+            }
+        }
+
+        /// <summary>OCR button — runs Tesseract.js separately from capture to avoid circuit timeout.</summary>
+        private async Task RecognizePlateAsync()
+        {
+            if (string.IsNullOrEmpty(platePhotoDataUrl)) return;
+            ocrLoading = true;
+            ocrHint = string.Empty;
+            StateHasChanged();
+            try
+            {
+                var plate = await JS.InvokeAsync<string?>("vananGuardCamera.recognizePlate", platePhotoDataUrl);
+                if (!string.IsNullOrWhiteSpace(plate))
+                {
+                    plateNumber = plate;
+                    ocrHint = $"Đã nhận diện: {plate} — kiểm tra lại trước khi tạo QR.";
+                }
+                else
+                {
+                    ocrHint = "Không nhận diện được — nhập thủ công.";
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Plate OCR failed");
+                ocrHint = "OCR lỗi — nhập biển số thủ công.";
+            }
+            finally
+            {
+                ocrLoading = false;
                 StateHasChanged();
             }
         }
