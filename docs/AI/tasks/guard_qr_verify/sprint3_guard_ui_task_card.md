@@ -1,15 +1,15 @@
 # TASK CARD — Sprint 3: Guard UI — ShopERP (Issue #126)
 
-> **Status:** 📋 PENDING
+> **Status:** ✅ COMPLETE (2026-08-14)
 > **Priority:** P3 — After Sprint 2 approval
-> **Branch:** `feature/guard-qr-verify`
+> **Branch:** `feature/guard-qr-r3-sprint3`
 > **Mode:** IMPLEMENT (UI Phase)
 > **Domain modification:** NO
 
 ## Objective
 Rewrite `Scan.cshtml` (100% hardcode) → Blazor component `Scan.razor` + code-behind với:
-- Camera QR scan (jsQR)
-- Photo capture (plate + customer)
+- Camera QR scan (html5-qrcode via existing qr-scanner.js)
+- Photo capture (plate + customer via new guard-camera.js)
 - Issue flow → display QR + short code
 - Verify flow → display plate + 2 photos + Match/Mismatch buttons
 - Today's sessions list (real data)
@@ -17,8 +17,8 @@ Rewrite `Scan.cshtml` (100% hardcode) → Blazor component `Scan.razor` + code-b
 - UI Platform components (Gate 5 compliance)
 
 ## Prerequisites
-- [ ] Sprint 2 complete (API ready)
-- [ ] Sprint 0 QR scan library confirmed (jsQR or @zxing/browser)
+- [x] Sprint 2 complete (API ready)
+- [x] Sprint 0 QR scan library confirmed (html5-qrcode — reuse existing qr-scanner.js)
 
 ## Task 1: Delete old hardcode page
 - Delete `5_WebApps/ShopERP/Pages/Guard/Scan.cshtml` (100% hardcode, replaced)

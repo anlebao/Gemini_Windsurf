@@ -1,0 +1,323 @@
+@page "/guard/scan"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Guard")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.ShopERP.Services
+@using VanAn.Shared.Domain
+@inject GuardApiClient GuardApi
+@inject IJSRuntime JS
+@inject ILogger<Scan> Logger
+
+<PageTitle>Guard Scanner — Vạn An</PageTitle>
+
+<div class="guard-scan-page">
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <VanAAlert Variant="error" Message="@errorMessage" />
+    }
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <VanAAlert Variant="success" Message="@successMessage" />
+    }
+
+    @* Tab navigation *@
+    <div class="guard-tabs">
+        <VanAButton Variant="@(activeTab == "issue" ? "primary" : "outline")" Text="Cấp QR" OnClick="@(() => SwitchTab("issue"))" />
+        <VanAButton Variant="@(activeTab == "verify" ? "primary" : "outline")" Text="Xác minh" OnClick="@(() => SwitchTab("verify"))" />
+        <VanAButton Variant="@(activeTab == "today" ? "primary" : "outline")" Text="Hôm nay" OnClick="@(() => SwitchTab("today"))" />
+    </div>
+
+    @* === TAB 1: ISSUE === *@
+    @if (activeTab == "issue")
+    {
+        <VanACard Header="Cấp QR gửi xe">
+            @if (issueStep == 1)
+            {
+                @* Step 1: Capture photos + plate input *@
+                <div class="guard-issue-form">
+                    <div class="guard-photo-row">
+                        <div class="guard-photo-box">
+                            <label>Ảnh biển số</label>
+                            @if (!string.IsNullOrEmpty(platePhotoPreview))
+                            {
+                                <img src="@platePhotoPreview" alt="Biển số" class="guard-photo-preview" />
+                            }
+                            else
+                            {
+                                <video id="plateVideo" class="guard-camera-video" muted></video>
+                            }
+                            <div class="guard-photo-actions">
+                                @if (!cameraActive_plate)
+                                {
+                                    <VanAButton Variant="secondary" Text="📷 Mở camera" OnClick="StartPlateCamera" />
+                                }
+                                else
+                                {
+                                    <VanAButton Variant="primary" Text="📸 Chụp" OnClick="CapturePlatePhoto" />
+                                    <VanAButton Variant="outline" Text="Hủy" OnClick="StopPlateCamera" />
+                                }
+                            </div>
+                        </div>
+                        <div class="guard-photo-box">
+                            <label>Ảnh khách</label>
+                            @if (!string.IsNullOrEmpty(customerPhotoPreview))
+                            {
+                                <img src="@customerPhotoPreview" alt="Khách" class="guard-photo-preview" />
+                            }
+                            else
+                            {
+                                <video id="customerVideo" class="guard-camera-video" muted></video>
+                            }
+                            <div class="guard-photo-actions">
+                                @if (!cameraActive_customer)
+                                {
+                                    <VanAButton Variant="secondary" Text="📷 Mở camera" OnClick="StartCustomerCamera" />
+                                }
+                                else
+                                {
+                                    <VanAButton Variant="primary" Text="📸 Chụp" OnClick="CaptureCustomerPhoto" />
+                                    <VanAButton Variant="outline" Text="Hủy" OnClick="StopCustomerCamera" />
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <div class="guard-input-row">
+                        <label>Biển số *</label>
+                        <input class="guard-input" @bind="plateNumber" placeholder="VD: 51F-12345" maxlength="20" />
+                    </div>
+                    <div class="guard-input-row">
+                        <label>SĐT khách (tùy chọn)</label>
+                        <input class="guard-input" @bind="customerPhone" placeholder="0xxx xxx xxx" maxlength="20" />
+                    </div>
+                    <VanAButton Variant="success" Text="Tạo QR" Disabled="@(!canIssue || issuing)" Loading="@issuing" OnClick="IssueQrAsync" />
+                </div>
+            }
+            else if (issueStep == 2)
+            {
+                @* Step 2: Display QR + short code *@
+                <div class="guard-qr-display">
+                    <p class="guard-success-text">✅ Đã cấp QR thành công!</p>
+                    @if (!string.IsNullOrEmpty(qrImageBase64))
+                    {
+                        <div class="guard-qr-image-box">
+                            <img src="@qrImageBase64" alt="QR Code" class="guard-qr-image" />
+                        </div>
+                    }
+                    <div class="guard-shortcode-box">
+                        <label>Mã ngắn (fallback):</label>
+                        <span class="guard-shortcode">@issuedShortCode</span>
+                    </div>
+                    <div class="guard-issue-actions">
+                        <VanAButton Variant="primary" Text="🖨️ In vé" OnClick="PrintTicket" />
+                        <VanAButton Variant="outline" Text="🔄 Quét lại" OnClick="ResetIssue" />
+                    </div>
+                </div>
+            }
+        </VanACard>
+    }
+
+    @* === TAB 2: VERIFY === *@
+    @if (activeTab == "verify")
+    {
+        <VanACard Header="Xác minh QR lúc lấy xe">
+            @if (verifyStep == 1)
+            {
+                @* Step 1: Scan QR *@
+                <div class="guard-verify-scan">
+                    <div id="guard-qr-reader" class="guard-qr-reader"></div>
+                    <VanAButton Variant="primary" Text="📷 Bắt đầu quét" OnClick="StartVerifyScan" Disabled="@verifyScanning" />
+                    @if (verifyScanning)
+                    {
+                        <VanAButton Variant="outline" Text="⏹ Dừng" OnClick="StopVerifyScan" />
+                    }
+                    <hr class="guard-divider" />
+                    <p class="guard-fallback-text">Hoặc nhập mã thủ công:</p>
+                    <input class="guard-input" @bind="manualQrPayload" placeholder="QR payload hoặc mã 6 số" />
+                    <VanAButton Variant="secondary" Text="Xác minh thủ công" OnClick="VerifyManualAsync" Disabled="@string.IsNullOrWhiteSpace(manualQrPayload)" />
+                </div>
+            }
+            else if (verifyStep == 2)
+            {
+                @* Step 2: Result — show photos + checkout/flag buttons *@
+                <div class="guard-verify-result">
+                    <p class="guard-plate-display">Biển số: <strong>@verifyResult?.PlateNumber</strong></p>
+                    <p class="guard-issued-display">Cấp lúc: @verifyResult?.IssuedAt.ToVietnamTimeString()</p>
+                    <div class="guard-photo-row">
+                        <div class="guard-photo-box">
+                            <label>Ảnh biển số</label>
+                            @if (!string.IsNullOrEmpty(verifyResult?.PlatePhotoUrl))
+                            {
+                                <img src="@verifyResult.PlatePhotoUrl" alt="Biển số" class="guard-photo-preview" />
+                            }
+                        </div>
+                        <div class="guard-photo-box">
+                            <label>Ảnh khách</label>
+                            @if (!string.IsNullOrEmpty(verifyResult?.CustomerPhotoUrl))
+                            {
+                                <img src="@verifyResult.CustomerPhotoUrl" alt="Khách" class="guard-photo-preview" />
+                            }
+                        </div>
+                    </div>
+                    <div class="guard-verify-actions">
+                        <VanAButton Variant="success" Text="✅ Match — Check-out" OnClick="CheckoutAsync" Disabled="@actionLoading" Loading="@actionLoading" />
+                        <VanAButton Variant="error" Text="❌ Mismatch — Flag" OnClick="FlagAsync" Disabled="@actionLoading" Loading="@actionLoading" />
+                        <VanAButton Variant="outline" Text="🔄 Quét lại" OnClick="ResetVerify" />
+                    </div>
+                </div>
+            }
+        </VanACard>
+    }
+
+    @* === TAB 3: TODAY === *@
+    @if (activeTab == "today")
+    {
+        <VanACard Header="Hoạt động hôm nay">
+            <div class="guard-stats-row">
+                <div class="guard-stat-card">
+                    <span class="guard-stat-value">@todaySessions?.CheckInCount</span>
+                    <span class="guard-stat-label">Check-in</span>
+                </div>
+                <div class="guard-stat-card">
+                    <span class="guard-stat-value">@todaySessions?.CheckOutCount</span>
+                    <span class="guard-stat-label">Check-out</span>
+                </div>
+                <div class="guard-stat-card">
+                    <span class="guard-stat-value">@todaySessions?.InLotCount</span>
+                    <span class="guard-stat-label">Đang trong bãi</span>
+                </div>
+            </div>
+            <div class="guard-filter-row">
+                <label>Lọc theo trạng thái:</label>
+                <select class="guard-input" value="@todayStatusFilter" @onchange="OnStatusFilterChanged">
+                    <option value="">Tất cả</option>
+                    <option value="Issued">Đã cấp</option>
+                    <option value="Claimed">Đã nhận</option>
+                    <option value="CheckedOut">Đã ra</option>
+                    <option value="Flagged">Báo nghi</option>
+                    <option value="Voided">Đã hủy</option>
+                </select>
+            </div>
+            @if (todaySessions?.Items?.Count > 0)
+            {
+                <table class="guard-table">
+                    <thead>
+                        <tr>
+                            <th>Biển số</th>
+                            <th>Mã</th>
+                            <th>Trạng thái</th>
+                            <th>Cấp lúc</th>
+                            <th>Ra lúc</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in todaySessions.Items)
+                        {
+                            <tr class="guard-table-row" @onclick="() => ShowSessionDetail(s.SessionId)">
+                                <td>@s.PlateNumber</td>
+                                <td>@s.ShortCode</td>
+                                <td>@TranslateStatus(s.Status)</td>
+                                <td>@s.IssuedAt.ToVietnamTimeString()</td>
+                                <td>@(s.CheckedOutAt?.ToVietnamTimeString() ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <div class="guard-pagination">
+                    <VanAButton Variant="outline" Text="← Trước" OnClick="PrevPage" Disabled="@(todayPage <= 1)" />
+                    <span>Trang @todayPage</span>
+                    <VanAButton Variant="outline" Text="Sau →" OnClick="NextPage" Disabled="@(todaySessions.Items.Count < 20)" />
+                </div>
+            }
+            else
+            {
+                <p class="guard-empty">Chưa có phiên nào hôm nay.</p>
+            }
+        </VanACard>
+    }
+</div>
+
+@* Session detail modal *@
+@if (showDetailModal && sessionDetail != null)
+{
+    <VanAModal IsVisible="@showDetailModal" Title="Chi tiết phiên" OnClose="() => showDetailModal = false">
+        <div class="guard-detail">
+            <p><strong>Biển số:</strong> @sessionDetail.PlateNumber</p>
+            <p><strong>Mã ngắn:</strong> @sessionDetail.ShortCode</p>
+            <p><strong>Trạng thái:</strong> @TranslateStatus(sessionDetail.Status)</p>
+            <p><strong>Cấp lúc:</strong> @sessionDetail.IssuedAt.ToVietnamTimeString()</p>
+            @if (sessionDetail.ClaimedAt.HasValue)
+            {
+                <p><strong>Nhận lúc:</strong> @sessionDetail.ClaimedAt.Value.ToVietnamTimeString()</p>
+            }
+            @if (sessionDetail.CheckedOutAt.HasValue)
+            {
+                <p><strong>Ra lúc:</strong> @sessionDetail.CheckedOutAt.Value.ToVietnamTimeString()</p>
+            }
+            @if (!string.IsNullOrEmpty(sessionDetail.FlagReason))
+            {
+                <p><strong>Lý do báo nghi:</strong> @sessionDetail.FlagReason</p>
+            }
+            <div class="guard-photo-row">
+                <div class="guard-photo-box">
+                    <label>Ảnh biển số</label>
+                    <img src="@sessionDetail.PlatePhotoUrl" alt="Biển số" class="guard-photo-preview" />
+                </div>
+                <div class="guard-photo-box">
+                    <label>Ảnh khách</label>
+                    <img src="@sessionDetail.CustomerPhotoUrl" alt="Khách" class="guard-photo-preview" />
+                </div>
+            </div>
+        </div>
+    </VanAModal>
+}
+
+<style>
+    .guard-scan-page { max-width: 900px; margin: 0 auto; padding: 1rem; }
+    .guard-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .guard-issue-form, .guard-verify-scan, .guard-verify-result { display: flex; flex-direction: column; gap: 1rem; }
+    .guard-photo-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .guard-photo-box { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 0.5rem; }
+    .guard-photo-box label { font-weight: 600; font-size: 0.9rem; }
+    .guard-camera-video { width: 100%; max-width: 320px; aspect-ratio: 4/3; background: #000; border-radius: 8px; object-fit: cover; }
+    .guard-photo-preview { width: 100%; max-width: 320px; aspect-ratio: 4/3; object-fit: cover; border-radius: 8px; border: 1px solid #ddd; }
+    .guard-photo-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .guard-input-row { display: flex; flex-direction: column; gap: 0.25rem; }
+    .guard-input-row label { font-weight: 600; font-size: 0.9rem; }
+    .guard-input { padding: 0.5rem 0.75rem; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; width: 100%; box-sizing: border-box; }
+    .guard-qr-display { text-align: center; display: flex; flex-direction: column; gap: 1rem; align-items: center; }
+    .guard-success-text { font-size: 1.2rem; color: #10b981; font-weight: 700; }
+    .guard-qr-image-box { padding: 1rem; background: white; border-radius: 8px; }
+    .guard-qr-image { width: 300px; height: 300px; }
+    .guard-shortcode-box { display: flex; flex-direction: column; gap: 0.25rem; align-items: center; }
+    .guard-shortcode { font-size: 2rem; font-weight: 700; letter-spacing: 4px; font-family: monospace; background: #f3f4f6; padding: 0.5rem 1.5rem; border-radius: 8px; }
+    .guard-issue-actions { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+    .guard-qr-reader { width: 100%; max-width: 400px; min-height: 300px; margin: 0 auto; }
+    .guard-divider { border: none; border-top: 1px solid #e5e7eb; margin: 1rem 0; }
+    .guard-fallback-text { color: #6b7280; font-size: 0.9rem; }
+    .guard-plate-display { font-size: 1.3rem; }
+    .guard-plate-display strong { font-size: 1.5rem; color: #1f2937; }
+    .guard-issued-display { color: #6b7280; }
+    .guard-verify-actions { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+    .guard-stats-row { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .guard-stat-card { flex: 1; min-width: 120px; text-align: center; background: #f9fafb; border-radius: 8px; padding: 1rem; }
+    .guard-stat-value { display: block; font-size: 2rem; font-weight: 700; color: #1f2937; }
+    .guard-stat-label { display: block; font-size: 0.85rem; color: #6b7280; margin-top: 0.25rem; }
+    .guard-filter-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+    .guard-filter-row select { max-width: 200px; }
+    .guard-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .guard-table th { text-align: left; padding: 0.5rem; border-bottom: 2px solid #e5e7eb; font-weight: 600; }
+    .guard-table td { padding: 0.5rem; border-bottom: 1px solid #f3f4f6; }
+    .guard-table-row { cursor: pointer; }
+    .guard-table-row:hover { background: #f9fafb; }
+    .guard-pagination { display: flex; gap: 0.5rem; align-items: center; justify-content: center; margin-top: 1rem; }
+    .guard-empty { text-align: center; color: #6b7280; padding: 2rem; }
+    .guard-detail p { margin: 0.25rem 0; }
+
+    @@media print {
+        .guard-scan-page * { visibility: hidden; }
+        .guard-qr-display, .guard-qr-display * { visibility: visible; }
+        .guard-qr-display { position: absolute; left: 0; top: 0; width: 100%; }
+        .guard-issue-actions .vanan-button, .guard-shortcode-box label { display: none !important; }
+    }
+</style>

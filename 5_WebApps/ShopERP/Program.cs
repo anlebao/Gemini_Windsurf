@@ -501,6 +501,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<Services.CollaboratorVerificationApiClient>();
             // Sprint B — Settlement history admin API client
             _ = builder.Services.AddScoped<Services.SettlementApiClient>();
+            // #126: Guard QR Verify — Guard API client (mints Guard-role JWT, not SystemAdmin)
+            _ = builder.Services.AddScoped<Services.GuardApiClient>();
             // Wave 14: API Key management
             _ = builder.Services.AddScoped<VanAn.Shared.Repositories.IApiKeyRepository, CoreHub.Infrastructure.Repositories.ApiKeyRepository>();
             _ = builder.Services.AddScoped<CoreHub.Services.IApiKeyManagementService, CoreHub.Services.ApiKeyManagementService>();
