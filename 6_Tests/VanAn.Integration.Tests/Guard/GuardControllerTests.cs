@@ -199,7 +199,17 @@ public class GuardWebApplicationFactory : GatewayWebApplicationFactory
 {
     private readonly bool _guardEnabled;
 
-    public GuardWebApplicationFactory(bool enabled = true)
+    /// <summary>
+    /// Parameterless constructor for xUnit IClassFixture resolution.
+    /// xUnit requires the fixture to have exactly ONE public constructor and
+    /// cannot resolve primitive constructor parameters (bool) from DI. The
+    /// parameterized overload is <c>internal</c> so xUnit ignores it while
+    /// tests in the same assembly can still call
+    /// <c>new GuardWebApplicationFactory(enabled: false)</c>.
+    /// </summary>
+    public GuardWebApplicationFactory() : this(enabled: true) { }
+
+    internal GuardWebApplicationFactory(bool enabled)
     {
         _guardEnabled = enabled;
     }

@@ -337,6 +337,13 @@ namespace VanAn.Gateway.Controllers
 
                 return (meContent.CustomerId.Value, null);
             }
+            catch (HttpRequestException ex)
+            {
+                // Fail-closed: if ShopERP is unreachable, the token cannot be validated → 401.
+                // Returning 500 would leak infrastructure status; 401 is the secure default.
+                _logger.LogWarning(ex, "ShopERP unreachable while validating customer token for guard endpoint");
+                return (null, Unauthorized(new { error = "Token không hợp lệ hoặc đã hết hạn." }));
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error validating customer token for guard claim endpoint");
