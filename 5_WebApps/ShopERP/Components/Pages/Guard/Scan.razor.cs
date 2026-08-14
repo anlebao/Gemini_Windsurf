@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using VanAn.ShopERP.Services;
+using VanAn.UI.Platform.Components;
 
 namespace VanAn.ShopERP.Components.Pages.Guard
 {
@@ -215,10 +216,14 @@ namespace VanAn.ShopERP.Components.Pages.Guard
             StateHasChanged();
         }
 
-        private async Task PrintTicket()
+        private async Task PrintTicketAsync()
         {
-            // Sprint 5: Full thermal ticket printing. For now, trigger browser print.
-            await JS.InvokeVoidAsync("window.print");
+            // Sprint 5: Navigate to print ticket page (opens in new tab via forceLoad)
+            if (issuedSessionId != Guid.Empty)
+            {
+                NavigationManager.NavigateTo($"/guard/print/{issuedSessionId}", forceLoad: true);
+            }
+            await Task.CompletedTask;
         }
 
         // === VERIFY: QR scan ===

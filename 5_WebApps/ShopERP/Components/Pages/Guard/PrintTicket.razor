@@ -1,0 +1,245 @@
+@page "/guard/print/{SessionId:guid}"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Guard")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.ShopERP.Services
+@using VanAn.CoreHub.Services
+@inject GuardApiClient GuardApi
+@inject ITenantManagementService TenantService
+@inject ILogger<PrintTicket> Logger
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+
+@* #126 Sprint 5: Print-optimized guard ticket — 58mm thermal printer layout.
+   Opens in new tab from Guard Scanner "In vé" button (forceLoad: true).
+   Auto-triggers window.print() on load. Browser print dialog allows "Save as PDF". *@
+<div class="ticket-page">
+    @if (loading)
+    {
+        <p style="text-align:center;padding:2rem;">Đang tải vé...</p>
+    }
+    else if (session == null)
+    {
+        <p style="text-align:center;padding:2rem;">Không tìm thấy phiên QR.</p>
+    }
+    else
+    {
+        <div class="ticket-receipt" id="ticket-receipt">
+            @* Header — Tenant name *@
+            <div class="ticket-header">
+                <h1 class="ticket-tenant-name">@(tenantName ?? "VẠN AN")</h1>
+                <p class="ticket-subtitle">Dịch vụ gửi xe</p>
+                <div class="ticket-divider">━━━━━━━━━━━━━━━━━━</div>
+            </div>
+
+            @* Ticket meta info *@
+            <div class="ticket-meta">
+                <div class="ticket-meta-row">
+                    <span>Biển số:</span>
+                    <strong>@session.PlateNumber</strong>
+                </div>
+                <div class="ticket-meta-row">
+                    <span>Giờ vào:</span>
+                    <strong>@session.IssuedAt.ToVietnamTimeString()</strong>
+                </div>
+                <div class="ticket-meta-row">
+                    <span>Ngày:</span>
+                    <strong>@session.IssuedAt.ToString("dd/MM/yyyy")</strong>
+                </div>
+                <div class="ticket-meta-row">
+                    <span>Mã vé:</span>
+                    <strong>@session.ShortCode</strong>
+                </div>
+            </div>
+
+            <div class="ticket-divider">━━━━━━━━━━━━━━━━━━</div>
+
+            @* QR code — rendered to canvas then converted to img for print *@
+            <div class="ticket-qr-box">
+                <canvas id="ticket-qr-canvas" width="200" height="200"></canvas>
+                <img id="ticket-qr-img" alt="QR" style="display:none; width:200px; height:200px;" />
+            </div>
+
+            <div class="ticket-divider">━━━━━━━━━━━━━━━━━━</div>
+
+            @* Footer *@
+            <div class="ticket-footer">
+                <p class="ticket-brand">Vạn An — Guard Scanner</p>
+                <p class="ticket-print-info">In lúc: @DateTime.UtcNow.ToVietnamTimeString()</p>
+                <p class="ticket-instruction">Đưa vé cho bảo vệ lúc lấy xe</p>
+            </div>
+        </div>
+
+        <div class="ticket-actions no-print">
+            <VanAButton Variant="primary" OnClick="PrintAsync" Text="🖨️ In vé" />
+            <VanAButton Variant="secondary" OnClick="GoBack" Text="← Quay lại" />
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid SessionId { get; set; }
+
+    private SessionDetailResultDto? session;
+    private string? tenantName;
+    private bool loading = true;
+    private string? qrPayloadForJs;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            session = await GuardApi.GetSessionAsync(SessionId);
+            // Fetch tenant name for the ticket header
+            // Note: ITenantManagementService queries PG directly (ShopERP has access via CoreHub)
+            // We don't have tenantId in SessionDetailResultDto, but we can get it from auth state
+            // For simplicity, use "VẠN AN" as default brand — tenant name lookup requires tenantId
+            // which is not in the session detail DTO. This is acceptable for MVP (single-tenant deploy).
+            tenantName = "VẠN AN"; // Default brand — can be enhanced later with tenant-specific name
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading session {SessionId} for print ticket", SessionId);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && session != null)
+        {
+            // Generate QR code on canvas, then convert to img for print reliability
+            // We need the QrPayload — but SessionDetailResultDto doesn't include it.
+            // The QR was generated client-side in Scan.razor. For the print ticket,
+            // we re-generate using the short code as a fallback QR content.
+            // Sprint 6 enhancement: Add QrPayload to SessionDetailResultDto from API.
+            // For now, encode the short code as QR (guard can scan this as fallback).
+            var qrContent = $"{{\"sc\":\"{session.ShortCode}\",\"sid\":\"{session.SessionId}\"}}";
+            await JSRuntime.InvokeVoidAsync("vananGuardCamera.generateQrToCanvas", "ticket-qr-canvas", qrContent, 200);
+            // Auto-trigger print dialog on page load
+            await PrintAsync();
+        }
+    }
+
+    private async Task PrintAsync()
+    {
+        await JSRuntime.InvokeVoidAsync("vananPrintBill");
+    }
+
+    private void GoBack() => NavigationManager.NavigateTo("/guard/scan", forceLoad: true);
+}
+
+<style>
+    /* #126 Sprint 5: Guard ticket — 58mm thermal printer width optimized */
+    .ticket-page {
+        font-family: "Courier New", "Consolas", monospace;
+        background: white;
+        color: black;
+        max-width: 400px;
+        margin: 0 auto;
+        padding: 1rem;
+    }
+
+    .ticket-receipt {
+        font-size: 0.85rem;
+        line-height: 1.5;
+    }
+
+    .ticket-header {
+        text-align: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .ticket-tenant-name {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: 1px;
+    }
+
+    .ticket-subtitle {
+        font-size: 0.75rem;
+        margin: 0;
+        opacity: 0.7;
+    }
+
+    .ticket-divider {
+        text-align: center;
+        margin: 0.5rem 0;
+        font-size: 0.75rem;
+        opacity: 0.5;
+    }
+
+    .ticket-meta {
+        margin: 0.5rem 0;
+    }
+
+    .ticket-meta-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.8rem;
+        margin: 0.15rem 0;
+    }
+
+    .ticket-qr-box {
+        text-align: center;
+        margin: 0.5rem 0;
+    }
+
+    .ticket-qr-box canvas {
+        max-width: 200px;
+        max-height: 200px;
+    }
+
+    .ticket-footer {
+        text-align: center;
+        margin-top: 0.5rem;
+    }
+
+    .ticket-brand {
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .ticket-print-info {
+        font-size: 0.65rem;
+        margin: 0.25rem 0 0 0;
+        opacity: 0.4;
+    }
+
+    .ticket-instruction {
+        font-size: 0.7rem;
+        margin: 0.25rem 0 0 0;
+        opacity: 0.6;
+        font-style: italic;
+    }
+
+    .ticket-actions {
+        text-align: center;
+        margin-top: 2rem;
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+    }
+
+    /* Print styles — hide everything except ticket receipt */
+    @@media print {
+        body * { visibility: hidden; }
+        .ticket-page, .ticket-page * { visibility: visible; }
+        .ticket-page {
+            position: absolute;
+            left: 0;
+            top: 0;
+            max-width: 100%;
+            padding: 0.5rem;
+        }
+        .no-print { display: none !important; }
+        .ticket-receipt { font-size: 0.8rem; }
+        .ticket-qr-box canvas { max-width: 180px; max-height: 180px; }
+    }
+</style>
