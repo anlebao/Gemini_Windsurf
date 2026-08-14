@@ -7,6 +7,7 @@
 @using VanAn.Shared.Domain
 @inject GuardApiClient GuardApi
 @inject IJSRuntime JS
+@inject NavigationManager NavigationManager
 @inject ILogger<Scan> Logger
 
 <PageTitle>Guard Scanner — Vạn An</PageTitle>
@@ -109,7 +110,7 @@
                         <span class="guard-shortcode">@issuedShortCode</span>
                     </div>
                     <div class="guard-issue-actions">
-                        <VanAButton Variant="primary" Text="🖨️ In vé" OnClick="PrintTicket" />
+                        <VanAButton Variant="primary" Text="🖨️ In vé" OnClick="PrintTicketAsync" />
                         <VanAButton Variant="outline" Text="🔄 Quét lại" OnClick="ResetIssue" />
                     </div>
                 </div>

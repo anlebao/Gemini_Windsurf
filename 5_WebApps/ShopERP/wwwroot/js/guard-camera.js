@@ -106,5 +106,22 @@ window.vananGuardCamera = {
             script.onerror = () => reject(new Error('Failed to load qrcode library'));
             document.head.appendChild(script);
         });
+    },
+
+    /** Generate QR code directly onto an existing canvas element (for print tickets). */
+    async generateQrToCanvas(canvasId, text, size) {
+        try {
+            await this._ensureQrLibrary();
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) {
+                console.error('Canvas element not found:', canvasId);
+                return false;
+            }
+            await QRCode.toCanvas(canvas, text, { width: size || 200, margin: 2 });
+            return true;
+        } catch (err) {
+            console.error('QR generation to canvas failed:', err);
+            return false;
+        }
     }
 };

@@ -1,8 +1,8 @@
 # TASK CARD — Sprint 5: Printer Integration (Issue #126)
 
-> **Status:** 📋 PENDING
+> **Status:** ✅ COMPLETE (2026-08-14)
 > **Priority:** P5 — After Sprint 3 approval (Guard UI)
-> **Branch:** `feature/guard-qr-r1`
+> **Branch:** `feature/guard-qr-r1-sprint5`
 > **Mode:** IMPLEMENT (UI Phase)
 > **Domain modification:** NO
 
@@ -10,8 +10,8 @@
 Guard app "In vé" button → `PrintTicket.razor` page (reuse `PrintBill.razor` pattern) → `window.print()` → browser print dialog → thermal printer.
 
 ## Prerequisites
-- [ ] Sprint 3 complete (Guard UI Issue tab has "In vé" button placeholder)
-- [ ] Reference: `Components/Pages/Orders/PrintBill.razor` (existing print pattern)
+- [x] Sprint 3 complete (Guard UI Issue tab has "In vé" button placeholder)
+- [x] Reference: `Components/Pages/Orders/PrintBill.razor` (existing print pattern)
 
 ## Approach: REUSE PrintBill.razor pattern
 

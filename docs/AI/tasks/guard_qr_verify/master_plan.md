@@ -16,7 +16,7 @@
 | Sprint 2 — Gateway API | ✅ COMPLETE | GuardController (9 endpoints) + GuardService + QR generation + R2 presigned URL flow |
 | Sprint 3 — Guard UI | ✅ COMPLETE | Blazor Scan.razor (3 tabs: Issue/Verify/Today) + GuardApiClient + guard-camera.js |
 | Sprint 4 — KhachLink Claim | 📋 PENDING | QR claim page (Channel A/B/C→A) |
-| Sprint 5 — Printer | 📋 PENDING | PrintTicket.razor (reuse PrintBill.razor pattern) |
+| Sprint 5 — Printer | ✅ COMPLETE | PrintTicket.razor (58mm thermal, auto-print, QR on canvas) |
 | Sprint 6 — Tests | 📋 PENDING | E2E + integration tests |
 
 ---
