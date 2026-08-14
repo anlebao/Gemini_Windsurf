@@ -111,6 +111,10 @@ namespace VanAn.CoreHub.Infrastructure
         // #100: KhachLink home page section toggles — GLOBAL (not tenant-scoped, single row)
         DbSet<KhachLinkHomeSettings> KhachLinkHomeSettings { get; } // single-row global config (TenantId = Empty)
 
+        // #126: Guard QR Verification — vehicle session tracking + scan logs (PG-only, tenant-scoped)
+        DbSet<VehicleSession> VehicleSessions { get; }
+        DbSet<GuardScanLog> GuardScanLogs { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
 

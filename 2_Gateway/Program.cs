@@ -308,6 +308,10 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.IOrderRepository, VanAn.CoreHub.Repositories.OrderRepository>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.IProductRepository, VanAn.CoreHub.Repositories.ProductRepository>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Domain.Repositories.ICustomerRepository, VanAn.CoreHub.Infrastructure.Repositories.CustomerRepository>();
+            // #126: Guard QR Verify — repositories + R2 storage service
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.IVehicleSessionRepository, VanAn.CoreHub.Repositories.VehicleSessionRepository>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.IGuardScanLogRepository, VanAn.CoreHub.Repositories.GuardScanLogRepository>();
+            _ = builder.Services.AddSingleton<VanAn.CoreHub.Services.IR2StorageService, VanAn.CoreHub.Services.R2StorageService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Infrastructure.Repositories.ITenantProviderConfigurationService, VanAn.CoreHub.Infrastructure.Repositories.TenantProviderConfigurationService>();
             // Phase 5: Customer segmentation service for bulk push campaigns
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICustomerSegmentationService, VanAn.CoreHub.Services.CustomerSegmentationService>();

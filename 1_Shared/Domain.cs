@@ -4327,4 +4327,208 @@ namespace VanAn.Shared.Domain
             UpdateAudit();
         }
     }
+
+    // === Guard QR Verification System (Issue #126) ===
+    // Vehicle session tracking with QR code issuance + verification.
+    // Guard creates QR (with plate + customer photos), customer claims QR via KhachLink,
+    // guard verifies at checkout by scanning QR + matching photos.
+    // 3 delivery channels: A (KhachLink camera), B (6-digit code), C (paper ticket).
+    // Channel C→A migration: customer can claim paper ticket QR later via KhachLink.
+    // PG-only entities (Gateway DbContext). Photos stored in Cloudflare R2 (presigned URLs).
+
+    /// <summary>
+    /// Vehicle session status lifecycle.
+    /// Issued → Claimed → CheckedOut (digital flow)
+    /// Issued → CheckedOut (paper ticket, no claim)
+    /// Issued → Voided (cancelled/expired)
+    /// Issued/Claimed → Flagged (suspicious)
+    /// </summary>
+    public enum VehicleSessionStatus
+    {
+        Issued = 0,
+        Claimed = 1,
+        CheckedOut = 2,
+        Voided = 3,
+        Flagged = 4
+    }
+
+    /// <summary>
+    /// Guard scan verification result.
+    /// </summary>
+    public enum GuardScanResult
+    {
+        Match = 0,
+        Mismatch = 1,
+        ManualOverride = 2,
+        Flagged = 3
+    }
+
+    /// <summary>
+    /// Aggregate root: vehicle session with QR token for guard verification.
+    /// Single-Identity Pattern: Id (PK) = VehicleSessionId.Value.
+    /// </summary>
+    public class VehicleSession : BaseEntity
+    {
+        public VehicleSessionId VehicleSessionId { get; protected set; } = null!;
+        public string PlateNumber { get; protected set; } = string.Empty;
+        public Guid? CustomerId { get; protected set; }
+        public string? CustomerPhone { get; protected set; }
+        public string PlatePhotoKey { get; protected set; } = string.Empty;
+        public string CustomerPhotoKey { get; protected set; } = string.Empty;
+        public string QrTokenHash { get; protected set; } = string.Empty;
+        public string ShortCode { get; protected set; } = string.Empty;
+        public VehicleSessionStatus Status { get; protected set; }
+        public Guid IssuedBy { get; protected set; }
+        public DateTime IssuedAt { get; protected set; }
+        public Guid? ClaimedBy { get; protected set; }
+        public DateTime? ClaimedAt { get; protected set; }
+        public Guid? CheckedOutBy { get; protected set; }
+        public DateTime? CheckedOutAt { get; protected set; }
+        public string? FlagReason { get; protected set; }
+        public DateTime? VoidedAt { get; protected set; }
+
+        protected VehicleSession() { }
+
+        public VehicleSession(
+            TenantId tenantId,
+            string plateNumber,
+            string platePhotoKey,
+            string customerPhotoKey,
+            Guid issuedBy,
+            string qrTokenHash,
+            string shortCode,
+            string? customerPhone = null)
+            : base(tenantId)
+        {
+            if (string.IsNullOrWhiteSpace(plateNumber))
+                throw new ArgumentException("Plate number is required.", nameof(plateNumber));
+            if (string.IsNullOrWhiteSpace(platePhotoKey))
+                throw new ArgumentException("Plate photo key is required.", nameof(platePhotoKey));
+            if (string.IsNullOrWhiteSpace(customerPhotoKey))
+                throw new ArgumentException("Customer photo key is required.", nameof(customerPhotoKey));
+            if (string.IsNullOrWhiteSpace(qrTokenHash))
+                throw new ArgumentException("QR token hash is required.", nameof(qrTokenHash));
+            if (string.IsNullOrWhiteSpace(shortCode))
+                throw new ArgumentException("Short code is required.", nameof(shortCode));
+
+            VehicleSessionId = new VehicleSessionId(Guid.NewGuid());
+            Id = VehicleSessionId.Value;  // Single-Identity Pattern sync
+            PlateNumber = plateNumber;
+            PlatePhotoKey = platePhotoKey;
+            CustomerPhotoKey = customerPhotoKey;
+            IssuedBy = issuedBy;
+            QrTokenHash = qrTokenHash;
+            ShortCode = shortCode;
+            CustomerPhone = customerPhone;
+            Status = VehicleSessionStatus.Issued;
+            IssuedAt = DateTime.UtcNow;
+        }
+
+        /// <summary>
+        /// Claim session by customer (Channel A/B or C→A migration).
+        /// INV-G05: Allows claim from Issued status (CustomerId null→set).
+        /// INV-G06: Idempotent reject — already claimed throws.
+        /// </summary>
+        public void Claim(Guid customerId)
+        {
+            if (Status != VehicleSessionStatus.Issued)
+                throw new InvalidOperationException($"Cannot claim session in status {Status}. Expected Issued.");
+            if (ClaimedBy != null)
+                throw new InvalidOperationException("Session already claimed by another customer.");
+
+            CustomerId = customerId;
+            ClaimedBy = customerId;
+            ClaimedAt = DateTime.UtcNow;
+            Status = VehicleSessionStatus.Claimed;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Check-out session (guard confirms match).
+        /// Allowed from Issued (paper, no claim) or Claimed (digital).
+        /// </summary>
+        public void Checkout(Guid guardId)
+        {
+            if (Status is VehicleSessionStatus.Voided or VehicleSessionStatus.CheckedOut)
+                throw new InvalidOperationException($"Cannot checkout session in status {Status}.");
+
+            CheckedOutBy = guardId;
+            CheckedOutAt = DateTime.UtcNow;
+            Status = VehicleSessionStatus.CheckedOut;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Flag session as suspicious (guard detects mismatch).
+        /// Allowed from Issued or Claimed.
+        /// </summary>
+        public void Flag(string reason, Guid guardId)
+        {
+            if (Status is VehicleSessionStatus.Voided or VehicleSessionStatus.CheckedOut)
+                throw new InvalidOperationException($"Cannot flag session in status {Status}.");
+            if (string.IsNullOrWhiteSpace(reason))
+                throw new ArgumentException("Flag reason is required.", nameof(reason));
+
+            FlagReason = reason;
+            CheckedOutBy = guardId;
+            Status = VehicleSessionStatus.Flagged;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Void session (cancelled/expired).
+        /// Allowed only from Issued or Claimed.
+        /// </summary>
+        public void Void()
+        {
+            if (Status is VehicleSessionStatus.CheckedOut)
+                throw new InvalidOperationException("Cannot void a checked-out session.");
+
+            VoidedAt = DateTime.UtcNow;
+            Status = VehicleSessionStatus.Voided;
+            UpdateAudit();
+        }
+    }
+
+    public record VehicleSessionId(Guid Value);
+
+    /// <summary>
+    /// Guard scan log — records each verification attempt.
+    /// </summary>
+    public class GuardScanLog : BaseEntity
+    {
+        public GuardScanLogId GuardScanLogId { get; protected set; } = null!;
+        public Guid VehicleSessionId { get; protected set; }
+        public string ScannedQrTokenHash { get; protected set; } = string.Empty;
+        public GuardScanResult MatchResult { get; protected set; }
+        public Guid ScannedBy { get; protected set; }
+        public DateTime ScannedAt { get; protected set; }
+        public string? Notes { get; protected set; }
+
+        protected GuardScanLog() { }
+
+        public GuardScanLog(
+            TenantId tenantId,
+            Guid vehicleSessionId,
+            string scannedQrTokenHash,
+            GuardScanResult matchResult,
+            Guid scannedBy,
+            string? notes = null)
+            : base(tenantId)
+        {
+            if (string.IsNullOrWhiteSpace(scannedQrTokenHash))
+                throw new ArgumentException("Scanned QR token hash is required.", nameof(scannedQrTokenHash));
+
+            GuardScanLogId = new GuardScanLogId(Guid.NewGuid());
+            Id = GuardScanLogId.Value;  // Single-Identity Pattern sync
+            VehicleSessionId = vehicleSessionId;
+            ScannedQrTokenHash = scannedQrTokenHash;
+            MatchResult = matchResult;
+            ScannedBy = scannedBy;
+            ScannedAt = DateTime.UtcNow;
+            Notes = notes;
+        }
+    }
+
+    public record GuardScanLogId(Guid Value);
 }

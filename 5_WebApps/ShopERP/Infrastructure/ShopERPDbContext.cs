@@ -133,6 +133,10 @@ namespace VanAn.ShopERP.Infrastructure
         // #100: KhachLink home page section toggles — GLOBAL (PG-only, ignored in ShopERP SQLite)
         public DbSet<KhachLinkHomeSettings> KhachLinkHomeSettings { get; set; }
 
+        // #126: Guard QR Verification — PG-only (Gateway), ignored in ShopERP SQLite
+        public DbSet<VehicleSession> VehicleSessions { get; set; }
+        public DbSet<GuardScanLog> GuardScanLogs { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters
@@ -243,6 +247,8 @@ namespace VanAn.ShopERP.Infrastructure
             _ = modelBuilder.Ignore<AllianceWallet>();
             _ = modelBuilder.Ignore<AllianceTransaction>();
             _ = modelBuilder.Ignore<KhachLinkHomeSettings>(); // #100: PG-only global config
+            _ = modelBuilder.Ignore<VehicleSession>(); // #126: PG-only Guard QR Verify
+            _ = modelBuilder.Ignore<GuardScanLog>(); // #126: PG-only Guard QR Verify
 
             // === VALUE OBJECT CONFIGURATIONS ===
             // Order: Configured via OrderConfiguration from CoreHub assembly (applied above via ApplyConfigurationsFromAssembly)
