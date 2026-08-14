@@ -235,6 +235,15 @@ jobs:
             mkdir -p /opt/vanan
             ls -la /opt/vanan
             whoami
+            # Check disk space + cleanup unused docker images (prevent SCP fail from disk full)
+            echo "=== Disk space before cleanup ==="
+            df -h / || true
+            echo "=== Docker disk usage ==="
+            sudo docker system df || true
+            echo "=== Cleaning unused docker images ==="
+            sudo docker image prune -af || true
+            echo "=== Disk space after cleanup ==="
+            df -h / || true
 
       - name: Validate SSH connectivity to Gateway VPS
         uses: appleboy/ssh-action@v1.2.5
@@ -257,7 +266,6 @@ jobs:
           target: "/opt/vanan"
           overwrite: true
           debug: true
-          strip_leading_slash: false
 
       - name: Bootstrap & Deploy Gateway
         uses: appleboy/ssh-action@v1.2.5
