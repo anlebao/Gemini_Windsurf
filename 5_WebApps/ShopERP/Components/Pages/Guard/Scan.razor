@@ -38,72 +38,37 @@
                 @* Step 1: Capture photos + plate input *@
                 <div class="guard-issue-form">
                     <div class="guard-photo-row">
-                        <div class="guard-photo-box">
+                        <div class="guard-photo-box" data-photo-slot="plate">
                             <label>Ảnh biển số</label>
-                            @if (!string.IsNullOrEmpty(platePhotoPreview))
-                            {
-                                <img src="@platePhotoPreview" alt="Biển số" class="guard-photo-preview" />
-                            }
-                            else
-                            {
-                                <video id="plateVideo" class="guard-camera-video" muted></video>
-                            }
+                            <video id="plateVideo" class="guard-camera-video" muted></video>
                             <div class="guard-photo-actions">
-                                @if (!cameraActive_plate)
-                                {
-                                    <VanAButton Variant="secondary" Text="📷 Mở camera" OnClick="StartPlateCamera" Disabled="@(!isInteractive)" />
-                                }
-                                else
-                                {
-                                    <VanAButton Variant="primary" Text="📸 Chụp" OnClick="CapturePlatePhoto" Disabled="@(!isInteractive)" />
-                                    <VanAButton Variant="outline" Text="Hủy" OnClick="StopPlateCamera" Disabled="@(!isInteractive)" />
-                                }
+                                <button id="plateOpenBtn" type="button" class="vanan-button vanan-button--secondary" onclick="vananGuardCamera.openCamera('plate')">📷 Mở camera</button>
+                                <button id="plateCaptureBtn" type="button" class="vanan-button vanan-button--primary" onclick="vananGuardCamera.captureAndStore('plate')" style="display:none">📸 Chụp</button>
+                                <button id="plateCancelBtn" type="button" class="vanan-button vanan-button--outline" onclick="vananGuardCamera.cancelCamera('plate')" style="display:none">Hủy</button>
                             </div>
                         </div>
-                        <div class="guard-photo-box">
+                        <div class="guard-photo-box" data-photo-slot="customer">
                             <label>Ảnh khách</label>
-                            @if (!string.IsNullOrEmpty(customerPhotoPreview))
-                            {
-                                <img src="@customerPhotoPreview" alt="Khách" class="guard-photo-preview" />
-                            }
-                            else
-                            {
-                                <video id="customerVideo" class="guard-camera-video" muted></video>
-                            }
+                            <video id="customerVideo" class="guard-camera-video" muted></video>
                             <div class="guard-photo-actions">
-                                @if (!cameraActive_customer)
-                                {
-                                    <VanAButton Variant="secondary" Text="📷 Mở camera" OnClick="StartCustomerCamera" Disabled="@(!isInteractive)" />
-                                }
-                                else
-                                {
-                                    <VanAButton Variant="primary" Text="📸 Chụp" OnClick="CaptureCustomerPhoto" Disabled="@(!isInteractive)" />
-                                    <VanAButton Variant="outline" Text="Hủy" OnClick="StopCustomerCamera" Disabled="@(!isInteractive)" />
-                                }
+                                <button id="customerOpenBtn" type="button" class="vanan-button vanan-button--secondary" onclick="vananGuardCamera.openCamera('customer')">📷 Mở camera</button>
+                                <button id="customerCaptureBtn" type="button" class="vanan-button vanan-button--primary" onclick="vananGuardCamera.captureAndStore('customer')" style="display:none">📸 Chụp</button>
+                                <button id="customerCancelBtn" type="button" class="vanan-button vanan-button--outline" onclick="vananGuardCamera.cancelCamera('customer')" style="display:none">Hủy</button>
                             </div>
                         </div>
                     </div>
                     <div class="guard-input-row">
                         <label>Biển số *</label>
                         <div class="guard-plate-input-row">
-                            <input class="guard-input" @bind="plateNumber" placeholder="VD: 51F-12345" maxlength="20" />
-                            @if (!string.IsNullOrEmpty(platePhotoDataUrl) && !ocrLoading)
-                            {
-                                <VanAButton Variant="secondary" Text="🔍 Nhận diện" OnClick="RecognizePlateAsync" Disabled="@(!isInteractive)" />
-                            }
+                            <input id="plateInput" class="guard-input" @bind="plateNumber" placeholder="VD: 51F-12345" maxlength="20" />
+                            <button id="ocrButton" type="button" class="vanan-button vanan-button--secondary" onclick="vananGuardCamera.recognizeAndFill()" style="display:none">🔍 Nhận diện</button>
                         </div>
-                        @if (ocrLoading)
-                        {
-                            <span class="guard-ocr-status">Đang nhận diện biển số… (lần đầu tải thư viện ~5s)</span>
-                        }
-                        else if (!string.IsNullOrEmpty(ocrHint))
-                        {
-                            <span class="guard-ocr-hint">@ocrHint</span>
-                        }
+                        <span id="ocrStatus" class="guard-ocr-status" style="display:none">Đang nhận diện biển số… (lần đầu tải thư viện ~5s)</span>
+                        <span id="ocrHint" class="guard-ocr-hint" style="display:none"></span>
                     </div>
                     <div class="guard-input-row">
                         <label>SĐT khách (tùy chọn)</label>
-                        <input class="guard-input" @bind="customerPhone" placeholder="0xxx xxx xxx" maxlength="20" />
+                        <input id="customerPhoneInput" class="guard-input" @bind="customerPhone" placeholder="0xxx xxx xxx" maxlength="20" />
                     </div>
                     <VanAButton Variant="success" Text="Tạo QR" Disabled="@(!canIssue || issuing)" Loading="@issuing" OnClick="IssueQrAsync" />
                 </div>

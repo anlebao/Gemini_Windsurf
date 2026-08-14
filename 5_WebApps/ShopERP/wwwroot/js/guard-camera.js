@@ -1,31 +1,28 @@
 // #126: Guard Scanner camera interop for photo capture (plate + customer).
 // QR scanning reuses existing vananQrScanner (html5-qrcode) in qr-scanner.js.
-// This file adds: camera preview + photo capture (getUserMedia + canvas).
-// #126-fix: keep-alive ping + sessionStorage persistence to survive circuit disconnect reloads.
+// #126-fix2: JS-first capture — camera/capture/preview/OCR entirely in JS,
+// bypassing Blazor SignalR. Prevents circuit disconnect → page reload from
+// killing camera stream. Blazor only reads captured photo when user clicks "Tạo QR".
 
 let _cameraStream = null;
 let _cameraVideo = null;
 let _keepAliveTimer = null;
 const _keepAliveKey = 'vanan_guard_keepalive';
+// JS-side photo storage — survives circuit disconnect (unlike Blazor state).
+const _capturedPhotos = { plate: null, customer: null };
+const _cameraActive = { plate: false, customer: false };
 
 window.vananGuardCamera = {
     // === #126-fix: Circuit keep-alive — ping Blazor every 15s to prevent idle disconnect ===
-    // Blazor SignalR circuit disconnects after idle timeout (default 3min).
-    // For Guard scan page (long idle while user positions camera), we send a no-op
-    // ping to keep the circuit alive. Started on OnAfterRender, stopped on Dispose.
     startKeepAlive(dotNetRef) {
         this.stopKeepAlive();
         _keepAliveTimer = setInterval(() => {
-            // No-op invocation — just keeps the SignalR connection active.
-            // If circuit already dead, this fails silently (caught in .NET).
             if (dotNetRef && dotNetRef.invokeMethodAsync) {
                 dotNetRef.invokeMethodAsync('KeepAlivePingAsync').catch(() => {
-                    // Circuit disconnected — stop pinging to avoid console spam.
                     this.stopKeepAlive();
                 });
             }
         }, 15000);
-        // Mark alive in sessionStorage so restored page knows to restart
         try { sessionStorage.setItem(_keepAliveKey, '1'); } catch (e) {}
     },
 
@@ -37,10 +34,7 @@ window.vananGuardCamera = {
         try { sessionStorage.removeItem(_keepAliveKey); } catch (e) {}
     },
 
-    // === #126-fix: sessionStorage persistence — survive page reload ===
-    // Camera stream + captured photos are lost on Blazor circuit disconnect → reload.
-    // We persist critical state to sessionStorage so OnAfterRender can restore
-    // without flicker: photos reappear, plate number restored, camera auto-reopens.
+    // === #126-fix: sessionStorage persistence ===
     saveState(key, value) {
         try {
             sessionStorage.setItem('vanan_guard_' + key, value || '');
@@ -62,8 +56,11 @@ window.vananGuardCamera = {
             Object.keys(sessionStorage)
                 .filter(k => k.startsWith('vanan_guard_'))
                 .forEach(k => sessionStorage.removeItem(k));
+            _capturedPhotos.plate = null;
+            _capturedPhotos.customer = null;
         } catch (e) {}
     },
+
     /** Start camera preview for photo capture. videoElementId = <video> element id. facingMode = 'environment' (back) or 'user' (front). */
     async startCamera(videoElementId, facingMode) {
         try {
@@ -122,6 +119,362 @@ window.vananGuardCamera = {
             _cameraVideo = null;
         }
     },
+
+    // === #126-fix2: JS-first capture — no Blazor SignalR roundtrip ===
+    // These methods are called directly from HTML onclick attributes (not Blazor OnClick).
+    // Camera + capture + preview + OCR all happen in JS without involving Blazor.
+    // Blazor only reads the captured photo via getCapturedPhoto() when user clicks "Tạo QR".
+
+    /** Open camera for a slot ('plate' or 'customer'). Pure JS — no Blazor call. */
+    async openCamera(slot) {
+        const videoId = slot === 'plate' ? 'plateVideo' : 'customerVideo';
+        const facing = slot === 'plate' ? 'environment' : 'user';
+        const ok = await this.startCamera(videoId, facing);
+        if (ok) {
+            _cameraActive[slot] = true;
+            this._updateCameraUI(slot, true);
+        } else {
+            this._showError('Không mở được camera. Kiểm tra quyền truy cập camera.');
+        }
+        return ok;
+    },
+
+    /** Capture photo for a slot. Pure JS — stores in _capturedPhotos, renders preview, stops camera. */
+    async captureAndStore(slot) {
+        const videoId = slot === 'plate' ? 'plateVideo' : 'customerVideo';
+        const dataUrl = await this.capturePhoto(videoId);
+        if (!dataUrl) {
+            this._showError('Chụp ảnh thất bại. Đảm bảo camera đã mở và có hình.');
+            return false;
+        }
+        _capturedPhotos[slot] = dataUrl;
+        this.stopCamera();
+        _cameraActive[slot] = false;
+        // Render preview image directly in DOM — no Blazor re-render needed.
+        this._renderPreview(slot, dataUrl);
+        this._updateCameraUI(slot, false);
+        // Show "Nhận diện" button for plate slot.
+        if (slot === 'plate') {
+            const ocrBtn = document.getElementById('ocrButton');
+            if (ocrBtn) ocrBtn.style.display = '';
+        }
+        // Persist to sessionStorage (survives reload).
+        this.saveState(slot + 'Photo', dataUrl);
+        return true;
+    },
+
+    /** Cancel camera for a slot (user clicked Hủy). Pure JS. */
+    cancelCamera(slot) {
+        this.stopCamera();
+        _cameraActive[slot] = false;
+        this._updateCameraUI(slot, false);
+    },
+
+    /** Get captured photo data URL for a slot. Called by Blazor when user clicks "Tạo QR". */
+    getCapturedPhoto(slot) {
+        // Try JS memory first, then sessionStorage (in case of reload).
+        if (_capturedPhotos[slot]) return _capturedPhotos[slot];
+        const saved = this.loadState(slot + 'Photo');
+        if (saved) {
+            _capturedPhotos[slot] = saved;
+            return saved;
+        }
+        return null;
+    },
+
+    /** Render preview image directly in DOM (replaces <video> with <img>). Pure JS. */
+    _renderPreview(slot, dataUrl) {
+        const box = document.querySelector(`[data-photo-slot="${slot}"]`);
+        if (!box) return;
+        // Remove existing video or img.
+        const existing = box.querySelector('video, img.guard-photo-preview');
+        if (existing) existing.remove();
+        const img = document.createElement('img');
+        img.src = dataUrl;
+        img.alt = slot === 'plate' ? 'Biển số' : 'Khách';
+        img.className = 'guard-photo-preview';
+        // Insert before the actions div.
+        const actions = box.querySelector('.guard-photo-actions');
+        if (actions) {
+            box.insertBefore(img, actions);
+        } else {
+            box.appendChild(img);
+        }
+    },
+
+    /** Update camera button visibility (show open vs capture+cancel). Pure JS. */
+    _updateCameraUI(slot, isActive) {
+        const openBtn = document.getElementById(slot + 'OpenBtn');
+        const captureBtn = document.getElementById(slot + 'CaptureBtn');
+        const cancelBtn = document.getElementById(slot + 'CancelBtn');
+        if (openBtn) openBtn.style.display = isActive ? 'none' : '';
+        if (captureBtn) captureBtn.style.display = isActive ? '' : 'none';
+        if (cancelBtn) cancelBtn.style.display = isActive ? '' : 'none';
+    },
+
+    /** Show error message in the guard error alert area. Pure JS. */
+    _showError(msg) {
+        const el = document.getElementById('guardErrorAlert');
+        if (el) {
+            el.textContent = msg;
+            el.style.display = '';
+        }
+        console.error('[Guard]', msg);
+    },
+
+    /** Clear error message. Pure JS. */
+    _clearError() {
+        const el = document.getElementById('guardErrorAlert');
+        if (el) {
+            el.textContent = '';
+            el.style.display = 'none';
+        }
+    },
+
+    /** Reset DOM preview for both slots — remove <img>, show <video>, reset buttons. Pure JS. */
+    _clearDOMPreview() {
+        ['plate', 'customer'].forEach(slot => {
+            const box = document.querySelector(`[data-photo-slot="${slot}"]`);
+            if (box) {
+                const img = box.querySelector('img.guard-photo-preview');
+                if (img) img.remove();
+                // Show video element again (it's always in DOM, just hidden behind img).
+                const video = box.querySelector('video');
+                if (video) video.style.display = '';
+            }
+            this._updateCameraUI(slot, false);
+        });
+        // Hide OCR button + hints.
+        const ocrBtn = document.getElementById('ocrButton');
+        if (ocrBtn) ocrBtn.style.display = 'none';
+        const ocrStatus = document.getElementById('ocrStatus');
+        if (ocrStatus) ocrStatus.style.display = 'none';
+        const ocrHint = document.getElementById('ocrHint');
+        if (ocrHint) {
+            ocrHint.textContent = '';
+            ocrHint.style.display = 'none';
+        }
+        // Clear plate input.
+        const plateInput = document.getElementById('plateInput');
+        if (plateInput) plateInput.value = '';
+        const phoneInput = document.getElementById('customerPhoneInput');
+        if (phoneInput) phoneInput.value = '';
+    },
+
+    /** OCR button handler — runs Tesseract.js, sets plate input value. Pure JS. */
+    async recognizeAndFill() {
+        const dataUrl = this.getCapturedPhoto('plate');
+        if (!dataUrl) {
+            this._showError('Chưa chụp ảnh biển số.');
+            return;
+        }
+        const ocrStatus = document.getElementById('ocrStatus');
+        const ocrHint = document.getElementById('ocrHint');
+        const ocrBtn = document.getElementById('ocrButton');
+        if (ocrStatus) ocrStatus.style.display = '';
+        if (ocrHint) ocrHint.style.display = 'none';
+        if (ocrBtn) ocrBtn.disabled = true;
+        try {
+            const plate = await this.recognizePlate(dataUrl);
+            if (plate) {
+                const input = document.getElementById('plateInput');
+                if (input) input.value = plate;
+                if (ocrHint) {
+                    ocrHint.textContent = 'Đã nhận diện: ' + plate + ' — kiểm tra lại trước khi tạo QR.';
+                    ocrHint.style.display = '';
+                }
+                this.saveState('plateNumber', plate);
+            } else {
+                if (ocrHint) {
+                    ocrHint.textContent = 'Không nhận diện được — nhập thủ công.';
+                    ocrHint.style.display = '';
+                }
+            }
+        } catch (err) {
+            if (ocrHint) {
+                ocrHint.textContent = 'OCR lỗi — nhập biển số thủ công.';
+                ocrHint.style.display = '';
+            }
+        } finally {
+            if (ocrStatus) ocrStatus.style.display = 'none';
+            if (ocrBtn) ocrBtn.disabled = false;
+        }
+    },
+
+    /** Restore UI state from sessionStorage after page reload. Pure JS — called on DOMContentLoaded. */
+    restoreUIFromSession() {
+        const platePhoto = this.loadState('platePhoto');
+        const customerPhoto = this.loadState('customerPhoto');
+        if (platePhoto) {
+            _capturedPhotos.plate = platePhoto;
+            this._renderPreview('plate', platePhoto);
+            this._updateCameraUI('plate', false);
+            const ocrBtn = document.getElementById('ocrButton');
+            if (ocrBtn) ocrBtn.style.display = '';
+        }
+        if (customerPhoto) {
+            _capturedPhotos.customer = customerPhoto;
+            this._renderPreview('customer', customerPhoto);
+            this._updateCameraUI('customer', false);
+        }
+        const plateNumber = this.loadState('plateNumber');
+        if (plateNumber) {
+            const input = document.getElementById('plateInput');
+            if (input) input.value = plateNumber;
+        }
+        const customerPhone = this.loadState('customerPhone');
+        if (customerPhone) {
+            const input = document.getElementById('customerPhoneInput');
+            if (input) input.value = customerPhone;
+        }
+        const ocrHint = this.loadState('ocrHint');
+        if (ocrHint) {
+            const el = document.getElementById('ocrHint');
+            if (el) {
+                el.textContent = ocrHint;
+                el.style.display = '';
+            }
+        }
+    },
+
+    /** Upload a base64 JPEG to a presigned PUT URL (R2). Returns true on success. */
+    async uploadToPresignedUrl(dataUrl, presignedUrl) {
+        try {
+            // Convert base64 data URL to Blob
+            const response = await fetch(dataUrl);
+            const blob = await response.blob();
+            const uploadResp = await fetch(presignedUrl, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'image/jpeg' },
+                body: blob
+            });
+            return uploadResp.ok;
+        } catch (err) {
+            console.error('Upload to presigned URL failed:', err);
+            return false;
+        }
+    },
+
+    /** Generate QR code image (base64 PNG) from text using qrcode.js (loaded from CDN). */
+    async generateQrImage(text, size) {
+        try {
+            await this._ensureQrLibrary();
+            const canvas = document.createElement('canvas');
+            // QRCode.toCanvas is the qrcode library API
+            await QRCode.toCanvas(canvas, text, { width: size || 300, margin: 2 });
+            return canvas.toDataURL('image/png');
+        } catch (err) {
+            console.error('QR generation failed:', err);
+            return null;
+        }
+    },
+
+    async _ensureQrLibrary() {
+        if (window.QRCode) return;
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Failed to load qrcode library'));
+            document.head.appendChild(script);
+        });
+    },
+
+    /** Generate QR code directly onto an existing canvas element (for print tickets). */
+    async generateQrToCanvas(canvasId, text, size) {
+        try {
+            await this._ensureQrLibrary();
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) {
+                console.error('Canvas element not found:', canvasId);
+                return false;
+            }
+            await QRCode.toCanvas(canvas, text, { width: size || 200, margin: 2 });
+            return true;
+        } catch (err) {
+            console.error('QR generation to canvas failed:', err);
+            return false;
+        }
+    },
+
+    // === #126 OCR: License plate recognition (Tesseract.js, client-side) ===
+
+    /** Recognize license plate text from a base64 JPEG data URL. Returns cleaned plate string or ''. */
+    async recognizePlate(dataUrl) {
+        try {
+            if (!dataUrl) return '';
+            await this._ensureOcrLibrary();
+            const canvas = await this._preprocessForOcr(dataUrl);
+            // PSM 7 = single line of text (a plate is one line).
+            // Whitelist: VN plates use digits + uppercase letters (no I/O/Q which are visually ambiguous).
+            const worker = await Tesseract.createWorker('eng', 1, { logger: () => {} });
+            await worker.setParameters({
+                tessedit_char_whitelist: '0123456789ABCDEFGHKLMNPRSTUVXYZ-',
+                tessedit_pageseg_mode: '7'
+            });
+            const { data } = await worker.recognize(canvas);
+            await worker.terminate();
+            const raw = (data.text || '').toUpperCase();
+            return this._normalizePlate(raw);
+        } catch (err) {
+            console.error('Plate OCR failed:', err);
+            return '';
+        }
+    },
+
+    /** Load image from data URL, upscale 2x + grayscale to improve OCR accuracy. Returns canvas. */
+    async _preprocessForOcr(dataUrl) {
+        const img = await new Promise((resolve, reject) => {
+            const i = new Image();
+            i.onload = () => resolve(i);
+            i.onerror = reject;
+            i.src = dataUrl;
+        });
+        const scale = 2;
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        // Grayscale conversion — improves Tesseract binarization on plate photos.
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imgData.data;
+        for (let i = 0; i < d.length; i += 4) {
+            const gray = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114);
+            d[i] = d[i + 1] = d[i + 2] = gray;
+        }
+        ctx.putImageData(imgData, 0, 0);
+        return canvas;
+    },
+
+    /** Clean raw OCR output to a plate-like string: keep [0-9A-Z-], collapse spaces, trim. */
+    _normalizePlate(raw) {
+        if (!raw) return '';
+        // Keep only digits, uppercase letters, and dashes.
+        let s = raw.replace(/[^0-9A-Z\-]/g, '');
+        // Collapse repeated dashes, strip leading/trailing dashes.
+        s = s.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+        return s;
+    },
+
+    async _ensureOcrLibrary() {
+        if (window.Tesseract) return;
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Failed to load Tesseract.js library'));
+            document.head.appendChild(script);
+        });
+    }
+};
+
+// #126-fix2: Restore UI on page load (survives reload — pure JS, no Blazor dependency).
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.vananGuardCamera) {
+        window.vananGuardCamera.restoreUIFromSession();
+    }
+});
 
     /** Upload a base64 JPEG to a presigned PUT URL (R2). Returns true on success. */
     async uploadToPresignedUrl(dataUrl, presignedUrl) {

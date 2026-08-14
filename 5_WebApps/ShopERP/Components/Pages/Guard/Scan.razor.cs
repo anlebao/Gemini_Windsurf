@@ -17,29 +17,16 @@ namespace VanAn.ShopERP.Components.Pages.Guard
         private string successMessage = string.Empty;
 
         // === Issue tab state ===
+        // #126-fix2: Photos stored JS-side (survives circuit disconnect). Blazor only tracks plate number + phone.
         private int issueStep = 1;
         private string plateNumber = string.Empty;
         private string customerPhone = string.Empty;
-        private bool cameraActive_plate = false;
-        private bool cameraActive_customer = false;
-        private string? platePhotoPreview;
-        private string? customerPhotoPreview;
-        private string? platePhotoDataUrl;
-        private string? customerPhotoDataUrl;
-        private string? platePhotoKey;
-        private string? customerPhotoKey;
         private bool issuing = false;
         private string qrImageBase64 = string.Empty;
         private string issuedShortCode = string.Empty;
         private Guid issuedSessionId;
 
-        // === OCR (license plate auto-fill) ===
-        private bool ocrLoading = false;
-        private string ocrHint = string.Empty;
-
         // === Blazor interactivity guard (Gate 2 Category C) ===
-        // Disable camera buttons until Blazor SignalR is fully interactive — prevents
-        // click-during-prerender race that causes page reload before capture runs.
         private bool isInteractive = false;
 
         // === Verify tab state ===
@@ -60,10 +47,9 @@ namespace VanAn.ShopERP.Components.Pages.Guard
         private bool showDetailModal = false;
         private SessionDetailResultDto? sessionDetail;
 
-        private bool canIssue =>
-            !string.IsNullOrWhiteSpace(plateNumber)
-            && !string.IsNullOrEmpty(platePhotoKey)
-            && !string.IsNullOrEmpty(customerPhotoKey);
+        // #126-fix2: canIssue checks plate number only — photos are in JS-side storage.
+        // Photo availability is verified at issue time via JS interop (getCapturedPhoto).
+        private bool canIssue => !string.IsNullOrWhiteSpace(plateNumber);
 
         protected override async Task OnAfterRenderAsync(bool firstRender)
         {
@@ -76,10 +62,13 @@ namespace VanAn.ShopERP.Components.Pages.Guard
                 // #126-fix: Start circuit keep-alive ping (15s) to prevent idle disconnect.
                 await JS.InvokeVoidAsync("vananGuardCamera.startKeepAlive", _dotNetRef);
 
-                // #126-fix: Restore state from sessionStorage (survive circuit disconnect reload).
-                // Photos + plate number + camera state are restored BEFORE user sees anything,
-                // so no visible flicker. Camera auto-reopens if it was active before reload.
-                await RestoreStateFromSessionAsync();
+                // #126-fix2: Restore plate number from sessionStorage (photos restored by JS on DOMContentLoaded).
+                var savedPlateNumber = await JS.InvokeAsync<string?>("vananGuardCamera.loadState", "plateNumber");
+                if (!string.IsNullOrEmpty(savedPlateNumber))
+                {
+                    plateNumber = savedPlateNumber;
+                    StateHasChanged();
+                }
             }
         }
 
@@ -87,102 +76,7 @@ namespace VanAn.ShopERP.Components.Pages.Guard
         [JSInvokable]
         public Task KeepAlivePingAsync()
         {
-            // Empty — just keeps SignalR circuit active. No StateHasChanged (would cause re-render).
             return Task.CompletedTask;
-        }
-
-        /// <summary>#126-fix: Restore persisted state from sessionStorage after page reload.</summary>
-        private async Task RestoreStateFromSessionAsync()
-        {
-            try
-            {
-                var savedPlatePhoto = await JS.InvokeAsync<string?>("vananGuardCamera.loadState", "platePhoto");
-                var savedCustomerPhoto = await JS.InvokeAsync<string?>("vananGuardCamera.loadState", "customerPhoto");
-                var savedPlateNumber = await JS.InvokeAsync<string?>("vananGuardCamera.loadState", "plateNumber");
-                var savedCustomerPhone = await JS.InvokeAsync<string?>("vananGuardCamera.loadState", "customerPhone");
-                var savedOcrHint = await JS.InvokeAsync<string?>("vananGuardCamera.loadState", "ocrHint");
-                var savedCameraPlate = await JS.InvokeAsync<string?>("vananGuardCamera.loadState", "cameraPlateActive");
-                var savedCameraCustomer = await JS.InvokeAsync<string?>("vananGuardCamera.loadState", "cameraCustomerActive");
-
-                bool restored = false;
-
-                if (!string.IsNullOrEmpty(savedPlatePhoto))
-                {
-                    platePhotoDataUrl = savedPlatePhoto;
-                    platePhotoPreview = savedPlatePhoto;
-                    restored = true;
-                }
-                if (!string.IsNullOrEmpty(savedCustomerPhoto))
-                {
-                    customerPhotoDataUrl = savedCustomerPhoto;
-                    customerPhotoPreview = savedCustomerPhoto;
-                    restored = true;
-                }
-                if (!string.IsNullOrEmpty(savedPlateNumber))
-                {
-                    plateNumber = savedPlateNumber;
-                    restored = true;
-                }
-                if (!string.IsNullOrEmpty(savedCustomerPhone))
-                {
-                    customerPhone = savedCustomerPhone;
-                    restored = true;
-                }
-                if (!string.IsNullOrEmpty(savedOcrHint))
-                {
-                    ocrHint = savedOcrHint;
-                    restored = true;
-                }
-
-                StateHasChanged();
-
-                // Auto-reopen camera silently if it was active before reload and no photo captured yet.
-                // Use a small delay to let the <video> element render first.
-                if (savedCameraPlate == "1" && string.IsNullOrEmpty(platePhotoDataUrl))
-                {
-                    _ = Task.Delay(300).ContinueWith(async _ =>
-                    {
-                        await InvokeAsync(async () => await StartPlateCamera());
-                    });
-                    restored = true;
-                }
-                if (savedCameraCustomer == "1" && string.IsNullOrEmpty(customerPhotoDataUrl))
-                {
-                    _ = Task.Delay(500).ContinueWith(async _ =>
-                    {
-                        await InvokeAsync(async () => await StartCustomerCamera());
-                    });
-                    restored = true;
-                }
-
-                if (restored)
-                {
-                    Logger.LogInformation("Guard Scan state restored from sessionStorage after page reload");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Failed to restore Guard Scan state from sessionStorage");
-            }
-        }
-
-        /// <summary>#126-fix: Persist current state to sessionStorage.</summary>
-        private async Task PersistStateToSessionAsync()
-        {
-            try
-            {
-                await JS.InvokeVoidAsync("vananGuardCamera.saveState", "platePhoto", platePhotoDataUrl ?? "");
-                await JS.InvokeVoidAsync("vananGuardCamera.saveState", "customerPhoto", customerPhotoDataUrl ?? "");
-                await JS.InvokeVoidAsync("vananGuardCamera.saveState", "plateNumber", plateNumber ?? "");
-                await JS.InvokeVoidAsync("vananGuardCamera.saveState", "customerPhone", customerPhone ?? "");
-                await JS.InvokeVoidAsync("vananGuardCamera.saveState", "ocrHint", ocrHint ?? "");
-                await JS.InvokeVoidAsync("vananGuardCamera.saveState", "cameraPlateActive", cameraActive_plate ? "1" : "0");
-                await JS.InvokeVoidAsync("vananGuardCamera.saveState", "cameraCustomerActive", cameraActive_customer ? "1" : "0");
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Failed to persist Guard Scan state to sessionStorage");
-            }
         }
 
         private async Task SwitchTab(string tab)
@@ -202,138 +96,9 @@ namespace VanAn.ShopERP.Components.Pages.Guard
         }
 
         // === ISSUE: Camera + photo capture ===
-
-        private async Task StartPlateCamera()
-        {
-            if (!isInteractive) return;
-            try
-            {
-                var ok = await JS.InvokeAsync<bool>("vananGuardCamera.startCamera", "plateVideo", "environment");
-                cameraActive_plate = ok;
-                if (!ok) errorMessage = "Không mở được camera. Kiểm tra quyền truy cập camera.";
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "StartPlateCamera failed");
-                errorMessage = $"Lỗi mở camera: {ex.Message}";
-            }
-            StateHasChanged();
-        }
-
-        private async Task StartCustomerCamera()
-        {
-            if (!isInteractive) return;
-            try
-            {
-                var ok = await JS.InvokeAsync<bool>("vananGuardCamera.startCamera", "customerVideo", "user");
-                cameraActive_customer = ok;
-                if (!ok) errorMessage = "Không mở được camera. Kiểm tra quyền truy cập camera.";
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "StartCustomerCamera failed");
-                errorMessage = $"Lỗi mở camera: {ex.Message}";
-            }
-            StateHasChanged();
-        }
-
-        private async Task CapturePlatePhoto()
-        {
-            if (!isInteractive) return;
-            try
-            {
-                var dataUrl = await JS.InvokeAsync<string?>("vananGuardCamera.capturePhoto", "plateVideo");
-                if (string.IsNullOrEmpty(dataUrl))
-                {
-                    errorMessage = "Chụp ảnh thất bại. Đảm bảo camera đã mở và có hình.";
-                    StateHasChanged();
-                    return;
-                }
-                platePhotoDataUrl = dataUrl;
-                platePhotoPreview = dataUrl;
-                await StopPlateCamera();
-                ocrHint = string.Empty;
-                StateHasChanged();
-                await PersistStateToSessionAsync();
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "CapturePlatePhoto failed");
-                errorMessage = $"Lỗi chụp ảnh: {ex.Message}";
-                StateHasChanged();
-            }
-        }
-
-        /// <summary>OCR button — runs Tesseract.js separately from capture to avoid circuit timeout.</summary>
-        private async Task RecognizePlateAsync()
-        {
-            if (string.IsNullOrEmpty(platePhotoDataUrl)) return;
-            ocrLoading = true;
-            ocrHint = string.Empty;
-            StateHasChanged();
-            try
-            {
-                var plate = await JS.InvokeAsync<string?>("vananGuardCamera.recognizePlate", platePhotoDataUrl);
-                if (!string.IsNullOrWhiteSpace(plate))
-                {
-                    plateNumber = plate;
-                    ocrHint = $"Đã nhận diện: {plate} — kiểm tra lại trước khi tạo QR.";
-                }
-                else
-                {
-                    ocrHint = "Không nhận diện được — nhập thủ công.";
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Plate OCR failed");
-                ocrHint = "OCR lỗi — nhập biển số thủ công.";
-            }
-            finally
-            {
-                ocrLoading = false;
-                StateHasChanged();
-                await PersistStateToSessionAsync();
-            }
-        }
-
-        private async Task CaptureCustomerPhoto()
-        {
-            if (!isInteractive) return;
-            try
-            {
-                var dataUrl = await JS.InvokeAsync<string?>("vananGuardCamera.capturePhoto", "customerVideo");
-                if (string.IsNullOrEmpty(dataUrl))
-                {
-                    errorMessage = "Chụp ảnh thất bại. Đảm bảo camera đã mở và có hình.";
-                    StateHasChanged();
-                    return;
-                }
-                customerPhotoDataUrl = dataUrl;
-                customerPhotoPreview = dataUrl;
-                await StopCustomerCamera();
-                StateHasChanged();
-                await PersistStateToSessionAsync();
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "CaptureCustomerPhoto failed");
-                errorMessage = $"Lỗi chụp ảnh: {ex.Message}";
-                StateHasChanged();
-            }
-        }
-
-        private async Task StopPlateCamera()
-        {
-            await JS.InvokeVoidAsync("vananGuardCamera.stopCamera");
-            cameraActive_plate = false;
-        }
-
-        private async Task StopCustomerCamera()
-        {
-            await JS.InvokeVoidAsync("vananGuardCamera.stopCamera");
-            cameraActive_customer = false;
-        }
+        // #126-fix2: Camera/capture/OCR are now pure JS (guard-camera.js).
+        // Blazor only reads captured photos when user clicks "Tạo QR".
+        // No Blazor camera methods needed — all handled by JS onclick handlers.
 
         // === ISSUE: Create QR ===
 
@@ -345,6 +110,21 @@ namespace VanAn.ShopERP.Components.Pages.Guard
             successMessage = string.Empty;
             try
             {
+                // #126-fix2: Read captured photos from JS-side storage (survives circuit disconnect).
+                var platePhotoDataUrl = await JS.InvokeAsync<string?>("vananGuardCamera.getCapturedPhoto", "plate");
+                var customerPhotoDataUrl = await JS.InvokeAsync<string?>("vananGuardCamera.getCapturedPhoto", "customer");
+
+                if (string.IsNullOrEmpty(platePhotoDataUrl))
+                {
+                    errorMessage = "Chưa chụp ảnh biển số. Hãy mở camera và chụp trước.";
+                    return;
+                }
+                if (string.IsNullOrEmpty(customerPhotoDataUrl))
+                {
+                    errorMessage = "Chưa chụp ảnh khách. Hãy mở camera và chụp trước.";
+                    return;
+                }
+
                 // 1. Get presigned upload URLs
                 var presign = await GuardApi.PresignUploadAsync();
                 if (string.IsNullOrEmpty(presign.PlatePhotoUploadUrl) || string.IsNullOrEmpty(presign.CustomerPhotoUploadUrl))
@@ -379,6 +159,9 @@ namespace VanAn.ShopERP.Components.Pages.Guard
 
                 issueStep = 2;
                 successMessage = "Đã cấp QR thành công!";
+
+                // 5. Clear JS-side photo storage + sessionStorage (issue complete).
+                await JS.InvokeVoidAsync("vananGuardCamera.clearState");
             }
             catch (Exception ex)
             {
@@ -397,21 +180,14 @@ namespace VanAn.ShopERP.Components.Pages.Guard
             issueStep = 1;
             plateNumber = string.Empty;
             customerPhone = string.Empty;
-            platePhotoPreview = null;
-            customerPhotoPreview = null;
-            platePhotoDataUrl = null;
-            customerPhotoDataUrl = null;
-            platePhotoKey = null;
-            customerPhotoKey = null;
             qrImageBase64 = string.Empty;
             issuedShortCode = string.Empty;
-            ocrHint = string.Empty;
-            ocrLoading = false;
             errorMessage = string.Empty;
             successMessage = string.Empty;
             StateHasChanged();
-            // #126-fix: Clear persisted state on explicit reset (user chose to start over).
+            // #126-fix2: Clear JS-side photo storage + sessionStorage + reset DOM (preview images, buttons).
             _ = JS.InvokeVoidAsync("vananGuardCamera.clearState");
+            _ = JS.InvokeVoidAsync("vananGuardCamera._clearDOMPreview");
         }
 
         private async Task PrintTicketAsync()
