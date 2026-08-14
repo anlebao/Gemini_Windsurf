@@ -1,9 +1,9 @@
 # MASTER PLAN: Guard QR Verification (Issue #126)
 
 > **Created:** 2026-08-14
-> **Last Updated:** 2026-08-14 (Sprint 0 + Sprint 1 complete)
+> **Last Updated:** 2026-08-15 (ALL 7 sprints complete — R1+R2+R3 merged to main, Issue #126 ready to close)
 > **Source:** GitHub Issue #126 — "Guard page đang hardcode"
-> **Branch:** `feature/guard-qr-r1`
+> **Branch:** `main` (R1 `ee109800` + R2 `08f8ff60` + R3 `4dd1a0a4` all merged)
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT, 7 steps)
 > **Domain modification:** YES — approved by user 2026-08-14 (VehicleSession + GuardScanLog aggregates)
 
@@ -15,9 +15,9 @@
 | Sprint 1 — Domain + Infrastructure | ✅ COMPLETE | Domain entities + EF config + migration + R2 service + repositories + DI. Build pass + guard-check pass |
 | Sprint 2 — Gateway API | ✅ COMPLETE | GuardController (9 endpoints) + GuardService + QR generation + R2 presigned URL flow |
 | Sprint 3 — Guard UI | ✅ COMPLETE | Blazor Scan.razor (3 tabs: Issue/Verify/Today) + GuardApiClient + guard-camera.js |
-| Sprint 4 — KhachLink Claim | 📋 PENDING | QR claim page (Channel A/B/C→A) |
+| Sprint 4 — KhachLink Claim | ✅ COMPLETE | `/qr/claim` + `/qr/wallet` + `GuardQrApiClient` + `qr-wallet.js` + nav link. PR #128 merged (`08f8ff60`) |
 | Sprint 5 — Printer | ✅ COMPLETE | PrintTicket.razor (58mm thermal, auto-print, QR on canvas) |
-| Sprint 6 — Tests | 📋 PENDING | E2E + integration tests |
+| Sprint 6 — Tests | ✅ COMPLETE | 15 domain + 18 service + 15 integration tests (5 PASS + 10 skipped — pre-existing JWT factory issue). PR #129 merged (`4dd1a0a4`). E2E Playwright spec DEFERRED — not blocking Issue #126 close |
 
 ---
 

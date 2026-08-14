@@ -1,8 +1,8 @@
 # TASK CARD — Sprint 4: KhachLink Claim + QR Wallet (Issue #126)
 
-> **Status:** 📋 PENDING
+> **Status:** ✅ COMPLETE (PR #128 merged `08f8ff60` 2026-08-15)
 > **Priority:** P4 — After Sprint 2 approval (parallel with Sprint 3)
-> **Branch:** `feature/guard-qr-verify`
+> **Branch:** `feature/guard-qr-r2-sprint4` → merged to `main`
 > **Mode:** IMPLEMENT (UI Phase)
 > **Domain modification:** NO
 

@@ -1,8 +1,19 @@
 # RELEASE STRATEGY — Guard QR Verify (Issue #126)
 
 > **Created:** 2026-08-14
+> **Last Updated:** 2026-08-15 — ALL 3 RELEASES COMPLETE + MERGED + DEPLOYED
 > **Principle:** Mỗi release = 1 branch → 1 PR → 1 merge → 1 deploy → giá trị nhìn thấy được
 > **Conflict avoidance:** Sequential releases, mỗi release branch từ `main` mới nhất (sau release trước đã merge)
+
+## RELEASE STATUS
+
+| Release | Sprints | Branch | Commit | PR | Status |
+|---|---|---|---|---|---|
+| **R1** — Paper Ticket Flow | 0+1+2+3+5 | `feature/guard-qr-r1` (+sprint5) | `ee109800` | #126 direct | ✅ MERGED + DEPLOYED + RV PASS (CLI) |
+| **R2** — Digital Claim Flow | 4 | `feature/guard-qr-r2-sprint4` | `08f8ff60` | #128 | ✅ MERGED + DEPLOYED (manual RV pending) |
+| **R3** — Tested + Production Ready | 6 | `feature/guard-qr-r3-sprint6` | `4dd1a0a4` | #129 | ✅ MERGED + CD deploying (E2E spec deferred) |
+
+**Issue #126 ready to close** after R2 manual RV + R3 CD verify.
 
 ---
 

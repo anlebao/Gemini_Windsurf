@@ -1,11 +1,69 @@
 // #126: Guard Scanner camera interop for photo capture (plate + customer).
 // QR scanning reuses existing vananQrScanner (html5-qrcode) in qr-scanner.js.
 // This file adds: camera preview + photo capture (getUserMedia + canvas).
+// #126-fix: keep-alive ping + sessionStorage persistence to survive circuit disconnect reloads.
 
 let _cameraStream = null;
 let _cameraVideo = null;
+let _keepAliveTimer = null;
+const _keepAliveKey = 'vanan_guard_keepalive';
 
 window.vananGuardCamera = {
+    // === #126-fix: Circuit keep-alive — ping Blazor every 15s to prevent idle disconnect ===
+    // Blazor SignalR circuit disconnects after idle timeout (default 3min).
+    // For Guard scan page (long idle while user positions camera), we send a no-op
+    // ping to keep the circuit alive. Started on OnAfterRender, stopped on Dispose.
+    startKeepAlive(dotNetRef) {
+        this.stopKeepAlive();
+        _keepAliveTimer = setInterval(() => {
+            // No-op invocation — just keeps the SignalR connection active.
+            // If circuit already dead, this fails silently (caught in .NET).
+            if (dotNetRef && dotNetRef.invokeMethodAsync) {
+                dotNetRef.invokeMethodAsync('KeepAlivePingAsync').catch(() => {
+                    // Circuit disconnected — stop pinging to avoid console spam.
+                    this.stopKeepAlive();
+                });
+            }
+        }, 15000);
+        // Mark alive in sessionStorage so restored page knows to restart
+        try { sessionStorage.setItem(_keepAliveKey, '1'); } catch (e) {}
+    },
+
+    stopKeepAlive() {
+        if (_keepAliveTimer) {
+            clearInterval(_keepAliveTimer);
+            _keepAliveTimer = null;
+        }
+        try { sessionStorage.removeItem(_keepAliveKey); } catch (e) {}
+    },
+
+    // === #126-fix: sessionStorage persistence — survive page reload ===
+    // Camera stream + captured photos are lost on Blazor circuit disconnect → reload.
+    // We persist critical state to sessionStorage so OnAfterRender can restore
+    // without flicker: photos reappear, plate number restored, camera auto-reopens.
+    saveState(key, value) {
+        try {
+            sessionStorage.setItem('vanan_guard_' + key, value || '');
+        } catch (e) {
+            console.warn('Guard sessionStorage save failed for', key, e);
+        }
+    },
+
+    loadState(key) {
+        try {
+            return sessionStorage.getItem('vanan_guard_' + key) || null;
+        } catch (e) {
+            return null;
+        }
+    },
+
+    clearState() {
+        try {
+            Object.keys(sessionStorage)
+                .filter(k => k.startsWith('vanan_guard_'))
+                .forEach(k => sessionStorage.removeItem(k));
+        } catch (e) {}
+    },
     /** Start camera preview for photo capture. videoElementId = <video> element id. facingMode = 'environment' (back) or 'user' (front). */
     async startCamera(videoElementId, facingMode) {
         try {

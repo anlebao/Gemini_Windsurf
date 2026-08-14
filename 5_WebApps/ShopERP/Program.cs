@@ -68,6 +68,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
             // #126: Increase JS interop timeout for Tesseract.js OCR (first load downloads ~2MB WASM).
+            // #126-fix: Keep-alive ping (15s) in guard-camera.js prevents idle disconnect.
+            // No server-side circuit timeout change needed — ping keeps circuit active.
             builder.Services.Configure<Microsoft.AspNetCore.Components.Server.CircuitOptions>(options =>
             {
                 options.JSInteropDefaultCallTimeout = TimeSpan.FromSeconds(60);
