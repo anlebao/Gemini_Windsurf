@@ -125,6 +125,25 @@ namespace VanAn.CoreHub.Repositories
             }
         }
 
+        public async Task<List<VehicleSession>> GetByIdsForCustomerAsync(Guid customerId, List<Guid> sessionIds, CancellationToken ct = default)
+        {
+            try
+            {
+                if (sessionIds == null || sessionIds.Count == 0)
+                    return new List<VehicleSession>();
+
+                return await _context.VehicleSessions
+                    .Where(s => s.CustomerId == customerId && sessionIds.Contains(s.Id))
+                    .OrderByDescending(s => s.IssuedAt)
+                    .ToListAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting sessions by IDs for customer {CustomerId}", customerId);
+                return new List<VehicleSession>();
+            }
+        }
+
         public async Task AddAsync(VehicleSession session, CancellationToken ct = default)
         {
             _ = await _context.VehicleSessions.AddAsync(session, ct);

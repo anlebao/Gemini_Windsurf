@@ -13,6 +13,7 @@ namespace VanAn.CoreHub.Repositories
         Task<(List<VehicleSession> Items, int Total)> GetTodaySessionsAsync(Guid tenantId, VehicleSessionStatus? status, int page, int pageSize, CancellationToken ct = default);
         Task<(int CheckInCount, int CheckOutCount, int InLotCount)> GetTodayStatsAsync(Guid tenantId, CancellationToken ct = default);
         Task<List<VehicleSession>> GetActiveByCustomerIdAsync(Guid customerId, Guid tenantId, CancellationToken ct = default);
+        Task<List<VehicleSession>> GetByIdsForCustomerAsync(Guid customerId, List<Guid> sessionIds, CancellationToken ct = default);
         Task AddAsync(VehicleSession session, CancellationToken ct = default);
         Task SaveChangesAsync(CancellationToken ct = default);
     }

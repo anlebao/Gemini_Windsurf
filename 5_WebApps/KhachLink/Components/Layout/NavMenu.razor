@@ -65,6 +65,11 @@
                     <span class="bi bi-qr-code-scan me-2" aria-hidden="true"></span> Quét QR
                 </NavLink>
             </div>
+            <div class="nav-item">
+                <NavLink class="nav-link" href="/qr/claim">
+                    <span class="bi bi-qr-code me-2" aria-hidden="true"></span> QR gửi xe
+                </NavLink>
+            </div>
             @if (_isShipper || _isShopOwner)
             {
                 <div class="nav-item">
@@ -162,6 +167,10 @@
     <a class="mobile-tab-item @IsActive("/scan")" href="/scan">
         <i class="bi bi-qr-code-scan"></i>
         <span>Quét QR</span>
+    </a>
+    <a class="mobile-tab-item @IsActive("/qr/claim", "/qr/wallet")" href="/qr/claim">
+        <i class="bi bi-qr-code"></i>
+        <span>QR gửi xe</span>
     </a>
     @if (_isShipper)
     {
