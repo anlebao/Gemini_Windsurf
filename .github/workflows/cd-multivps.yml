@@ -333,35 +333,6 @@ jobs:
             # The entrypoint script re-runs envsubst to regenerate config from template.
             sudo docker compose -f docker-compose.gateway.yml --env-file .env.gateway up -d --force-recreate nginx
 
-            # Wait for postgres to be ready (up to 60s)
-            echo "Waiting for postgres to be ready..."
-            for i in $(seq 1 12); do
-              if sudo docker exec vanan-postgres-1 pg_isready -U vanan_admin -d VanAnCoreHub 2>/dev/null; then
-                echo "Postgres is ready!"
-                break
-              fi
-              echo "Postgres not ready yet (attempt $i/12), waiting 5s..."
-              sleep 5
-            done
-
-            # Diagnostic: capture postgres logs if unhealthy
-            echo "=== Postgres container status ==="
-            sudo docker ps -a --filter name=vanan-postgres-1 --format "{{.Status}}"
-            echo "=== Postgres logs (last 50 lines) ==="
-            sudo docker logs vanan-postgres-1 --tail 50 2>&1 || echo "Could not get postgres logs"
-            echo "=== All containers status ==="
-            sudo docker compose -f docker-compose.gateway.yml --env-file .env.gateway ps
-
-            # If postgres is not running, try to restart it
-            if ! sudo docker exec vanan-postgres-1 pg_isready -U vanan_admin -d VanAnCoreHub 2>/dev/null; then
-              echo "Postgres still not ready, attempting restart..."
-              sudo docker compose -f docker-compose.gateway.yml --env-file .env.gateway restart postgres
-              sleep 30
-              echo "=== Postgres logs after restart (last 50 lines) ==="
-              sudo docker logs vanan-postgres-1 --tail 50 2>&1 || echo "Could not get postgres logs"
-              sudo docker compose -f docker-compose.gateway.yml --env-file .env.gateway ps
-            fi
-
             # Health check
             sleep 60
             sudo docker compose -f docker-compose.gateway.yml --env-file .env.gateway ps
@@ -409,6 +380,8 @@ jobs:
             mkdir -p /opt/vanan
             ls -la /opt/vanan
             whoami
+            # Free disk space from old docker images (prevent SCP/deploy fail from disk full)
+            sudo docker image prune -af || true
 
       - name: Validate SSH connectivity to KhachLink VPS
         uses: appleboy/ssh-action@v1.2.5
@@ -530,6 +503,8 @@ jobs:
             mkdir -p /opt/vanan
             ls -la /opt/vanan
             whoami
+            # Free disk space from old docker images (prevent SCP/deploy fail from disk full)
+            sudo docker image prune -af || true
 
       - name: Validate SSH connectivity to ShopERP VPS
         uses: appleboy/ssh-action@v1.2.5

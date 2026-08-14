@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Multi-VPS Deployment — Gateway VPS (Option C, 3-VPS split)
 # Deploy on: vanan-gateway VPS
 # Containers: postgres + nats + gateway + nginx (4 containers — fits e2-small 2GB)
