@@ -431,6 +431,12 @@ namespace VanAn.Gateway
                 });
             });
 
+            // #130: Increase Kestrel max request body size for photo upload (default 30MB, explicit for clarity)
+            builder.WebHost.ConfigureKestrel(options =>
+            {
+                options.Limits.MaxRequestBodySize = 10_000_000; // 10MB
+            });
+
             WebApplication app = builder.Build();
 
             try

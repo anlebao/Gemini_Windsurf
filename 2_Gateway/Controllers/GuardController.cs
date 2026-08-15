@@ -54,6 +54,18 @@ namespace VanAn.Gateway.Controllers
 
         // === Guard endpoints (require Guard role) ===
 
+        /// <summary>#130: Get photo compression config (anonymous — only returns 3 numbers).
+        ///  Browser JS fetches this on page load to know max dimension, quality, max size. */
+        [HttpGet("photo-config")]
+        [AllowAnonymous]
+        public IActionResult GetPhotoConfig()
+        {
+            var maxDimension = _configuration.GetValue<int>("Guard:PhotoMaxDimension", 1024);
+            var jpegQuality = _configuration.GetValue<double>("Guard:PhotoJpegQuality", 0.7);
+            var maxSizeKB = _configuration.GetValue<int>("Guard:MaxPhotoSizeKB", 100);
+            return Ok(new { maxDimension, jpegQuality, maxSizeKB });
+        }
+
         /// <summary>Generate presigned PUT URLs for photo upload (plate + customer).</summary>
         [HttpPost("presign-upload")]
         [Authorize(Roles = "Guard", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
@@ -86,6 +98,13 @@ namespace VanAn.Gateway.Controllers
                 return BadRequest(new { error = "Photo data is required." });
             if (request.Slot != "plate" && request.Slot != "customer")
                 return BadRequest(new { error = "Slot must be 'plate' or 'customer'." });
+
+            // #130: Server-side size validation — reject if photo > configured max size.
+            // Base64 ~1.37x binary size. Configurable via Guard:MaxPhotoSizeKB (default 100KB).
+            var maxSizeKB = _configuration.GetValue<int>("Guard:MaxPhotoSizeKB", 100);
+            var maxBase64Length = maxSizeKB * 1024 * 2; // generous — base64 + JSON overhead
+            if (request.Base64Data.Length > maxBase64Length)
+                return StatusCode(413, new { error = $"Ảnh quá lớn ({request.Base64Data.Length / 1024}KB base64). Tối đa {maxSizeKB}KB sau nén." });
 
             var contentType = string.IsNullOrWhiteSpace(request.ContentType) ? "image/jpeg" : request.ContentType;
             var key = _guardService.GeneratePhotoKey(tenantId, request.Slot);

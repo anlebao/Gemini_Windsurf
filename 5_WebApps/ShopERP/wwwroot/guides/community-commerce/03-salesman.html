@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Hướng dẫn Salesman — Community Commerce</title>
+  <style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+</style>
+  <style type="text/css">
+@page { margin: 1.5cm 2cm; }
+* { box-sizing: border-box; }
+body {
+font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+font-size: 11pt;
+line-height: 1.55;
+color: #1f2937;
+max-width: 900px;
+margin: 0 auto;
+padding: 2rem 1rem;
+background: #fff;
+}
+h1 {
+font-size: 22pt;
+color: #0f766e;
+border-bottom: 3px solid #0f766e;
+padding-bottom: 0.4rem;
+margin-top: 0;
+}
+h2 {
+font-size: 16pt;
+color: #0f766e;
+border-left: 4px solid #14b8a6;
+padding-left: 0.6rem;
+margin-top: 2rem;
+page-break-after: avoid;
+}
+h3 {
+font-size: 13pt;
+color: #334155;
+margin-top: 1.4rem;
+page-break-after: avoid;
+}
+h4 {
+font-size: 11.5pt;
+color: #475569;
+margin-top: 1rem;
+page-break-after: avoid;
+}
+p { margin: 0.5rem 0; }
+a { color: #0f766e; text-decoration: none; }
+a:hover { text-decoration: underline; }
+code {
+font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+background: #f1f5f9;
+padding: 0.1rem 0.35rem;
+border-radius: 3px;
+font-size: 9.5pt;
+color: #be123c;
+}
+pre {
+background: #0f172a;
+color: #e2e8f0;
+padding: 1rem;
+border-radius: 6px;
+overflow-x: auto;
+font-size: 9.5pt;
+line-height: 1.4;
+}
+pre code { background: transparent; color: inherit; padding: 0; }
+blockquote {
+border-left: 4px solid #14b8a6;
+background: #f0fdfa;
+padding: 0.6rem 1rem;
+margin: 1rem 0;
+color: #134e4a;
+border-radius: 0 4px 4px 0;
+}
+blockquote p { margin: 0.3rem 0; }
+table {
+border-collapse: collapse;
+width: 100%;
+margin: 1rem 0;
+font-size: 10pt;
+page-break-inside: avoid;
+}
+th {
+background: #0f766e;
+color: #fff;
+text-align: left;
+padding: 0.55rem 0.7rem;
+font-weight: 600;
+border: 1px solid #0f766e;
+}
+td {
+padding: 0.5rem 0.7rem;
+border: 1px solid #e2e8f0;
+vertical-align: top;
+}
+tr:nth-child(even) td { background: #f8fafc; }
+tr:hover td { background: #f0fdfa; }
+hr {
+border: none;
+border-top: 1px solid #cbd5e1;
+margin: 2rem 0;
+}
+ul, ol { padding-left: 1.5rem; }
+li { margin: 0.25rem 0; }
+strong { color: #0f172a; }
+
+h2 + ul, h2 + ol { page-break-before: avoid; }
+
+@media print {
+body { font-size: 10pt; max-width: none; padding: 0; }
+h2 { page-break-before: auto; }
+table, pre, blockquote { page-break-inside: avoid; }
+a { color: #0f766e; }
+}
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Hướng dẫn Salesman — Community Commerce</h1>
+</header>
+<h1 id="hướng-dẫn-salesman-cộng-tác-viên-bán-hàng">HƯỚNG DẪN SALESMAN —
+CỘNG TÁC VIÊN BÁN HÀNG</h1>
+<blockquote>
+<p><strong>Đối tượng:</strong> Customer được System Admin kích hoạt role
+Salesman — kiếm tiền từ commission chốt đơn + app-install bonus.
+<strong>Đăng nhập:</strong> KhachLink PWA
+(<code>diemthuong.khachvip.online</code>) — Google login + device
+fingerprint. Token lưu localStorage. <strong>Nền tảng:</strong> Blazor
+WebAssembly PWA — chạy trên mobile browser. GPS chỉ hoạt động khi tab
+active.</p>
+</blockquote>
+<hr />
+<h2 id="mục-lục">MỤC LỤC</h2>
+<ol type="1">
+<li><a href="#1-tổng-quan-vai-trò--điều-kiện">Tổng quan vai trò + điều
+kiện</a></li>
+<li><a href="#2-đăng-nhập--kích-hoạt-role">Đăng nhập + kích hoạt
+role</a></li>
+<li><a href="#3-sản-phẩm-gần-nearby-products--uc-08">Sản phẩm gần
+(Nearby Products) — UC-08</a></li>
+<li><a href="#4-tạo-mã-qr-giới-thiệu-composite-referral--uc-09">Tạo mã
+QR giới thiệu (Composite Referral) — UC-09</a></li>
+<li><a href="#5-doanh-số--hoa-hồng-sales-dashboard--uc-10">Doanh số +
+hoa hồng (Sales Dashboard) — UC-10</a></li>
+<li><a href="#6-app-install-bonus-uc-12--thưởng-khi-customer-cài-app">App-install
+bonus (UC-12) — thưởng khi customer cài app</a></li>
+<li><a href="#7-ví-wallet--rút-tiền">Ví (Wallet) + rút tiền</a></li>
+<li><a href="#8-anti-fraud--riskscore--hold">Anti-fraud — RiskScore +
+hold</a></li>
+<li><a href="#9-marketplace-vs-reseller--khác-biệt-cho-salesman">Marketplace vs
+Reseller — khác biệt cho Salesman</a></li>
+<li><a href="#10-faq">FAQ</a></li>
+</ol>
+<hr />
+<h2 id="tổng-quan-vai-trò-điều-kiện">1. TỔNG QUAN VAI TRÒ + ĐIỀU
+KIỆN</h2>
+<p>Salesman là cộng tác viên bán hàng — giới thiệu product của tenant
+cho customer, chốt đơn qua referral code, kiếm commission.</p>
+<h3 id="nguồn-thu-do-systemadmin-set-per-product-không-hardcode">1.1. 2
+nguồn thu (do SystemAdmin set per-product, KHÔNG hardcode)</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Nguồn</th>
+<th>Khi nào</th>
+<th>Tính theo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Commission chốt đơn</strong></td>
+<td>Customer đặt hàng qua referral code của salesman</td>
+<td>Marketplace: % orderTotal (2-5%); Reseller: % margin</td>
+</tr>
+<tr>
+<td><strong>App-install bonus</strong></td>
+<td>Customer cài KhachLink PWA (có referralCode trong localStorage)</td>
+<td>Fixed amount per product (vd 50.000đ)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="điều-kiện-trở-thành-salesman">1.2. Điều kiện trở thành
+Salesman</h3>
+<ul>
+<li><code>IdentityLevel ≥ DeviceVerified</code> (device fingerprint
+pass) <strong>HOẶC</strong> <code>IdentityLevel ≥ Verified</code> (SMS
+OTP) + <code>LoyaltyPoints ≥ 1000</code></li>
+<li><strong>Kích hoạt bởi System Admin</strong> (Owner không tự kích
+hoạt)</li>
+<li>Khi toggle <code>CollaboratorSmsVerificationEnabled = ON</code>: bắt
+buộc SMS OTP + <code>IsPhoneVerified = true</code> + deposit wallet ≥
+phí OTP</li>
+</ul>
+<h3 id="một-user-nhiều-role">1.3. Một user nhiều role</h3>
+<p>Bạn có thể đồng thời là <strong>Customer + Salesman +
+Shipper</strong>. Mỗi role tạo 1 bản ghi <code>CommunityRole</code>
+riêng. NavMenu KhachLink hiện tab theo role bạn có.</p>
+<hr />
+<h2 id="đăng-nhập-kích-hoạt-role">2. ĐĂNG NHẬP + KÍCH HOẠT ROLE</h2>
+<h3 id="đăng-nhập-uc-01">2.1. Đăng nhập (UC-01)</h3>
+<ol type="1">
+<li>Mở KhachLink → bấm <strong>Đăng nhập</strong>.</li>
+<li>Chọn <strong>Google</strong> (PoC scope) → social auth
+redirect.</li>
+<li>First login / new device: browser generate DeviceToken + compute
+Fingerprint → <strong>Device Fingerprint Consent Dialog</strong> → bấm
+<strong>Đồng ý</strong> → POST
+<code>/api/community/device/register</code>.</li>
+<li>IdentityLevel = <code>Social</code> (1).</li>
+<li>(OPTIONAL) Verify SĐT qua SMS OTP → upgrade lên
+<code>Verified</code> (2) — KHÔNG bắt buộc cho customer, chỉ bắt buộc
+khi toggle ON cho collaborator.</li>
+<li>Token lưu localStorage, tự gửi trong header mọi API call.</li>
+</ol>
+<blockquote>
+<p><strong>Max 3 active devices per Customer.</strong> Device thứ 4 →
+yêu cầu admin approval.</p>
+</blockquote>
+<h3 id="kích-hoạt-role-salesman">2.2. Kích hoạt role Salesman</h3>
+<ol type="1">
+<li>Đạt điều kiện (IdentityLevel + LoyaltyPoints ≥ 1000).</li>
+<li>System Admin kích hoạt → bạn nhận push notification.</li>
+<li>Login lại → NavMenu KhachLink hiện thêm tab <strong>“Sản phẩm
+gần”</strong> + <strong>“Mã QR”</strong> + <strong>“Doanh
+số”</strong>.</li>
+</ol>
+<h3 id="sms-otp-verification-chỉ-khi-toggle-on">2.3. SMS OTP
+verification (chỉ khi toggle ON)</h3>
+<p>Nếu toggle ON và bạn chưa verify SĐT: 1. Nhận notification “Admin mời
+kích hoạt vai trò Salesman”. 2. Mở verification page → nhập/confirm SĐT.
+3. Nhận SMS OTP (phí trừ deposit wallet). 4. Nhập OTP →
+<code>IsPhoneVerified = true</code>. 5. Admin activate role.</p>
+<p><strong>Retry limit:</strong> Max 3 OTP / 24h. Deposit hết → nạp
+thêm.</p>
+<hr />
+<h2 id="sản-phẩm-gần-nearby-products-uc-08">3. SẢN PHẨM GẦN (NEARBY
+PRODUCTS) — UC-08</h2>
+<h3 id="truy-cập">3.1. Truy cập</h3>
+<p>Login KhachLink → tab <strong>“Sản phẩm gần”</strong> (chỉ hiện khi
+có role Salesman).</p>
+<h3 id="flow">3.2. Flow</h3>
+<ol type="1">
+<li>Mở page → browser lấy GPS vị trí hiện tại (1 lần, consent
+prompt).</li>
+<li>Gọi API:
+<code>GET /api/community/nearby-products?lat={lat}&amp;lng={lng}&amp;radiusKm=10</code>.</li>
+<li>Hiển thị list products từ các tenant trong bán kính 10km, kèm khoảng
+cách.</li>
+<li>Mỗi product hiện:
+<ul>
+<li>Name, price, shop name, distance</li>
+<li><strong>Commission rate</strong> (từ
+<code>ProductReferralConfig</code>) — vd “Hoa hồng 3%”</li>
+<li><strong>App-install bonus</strong> (từ
+<code>ProductReferralConfig</code>) — vd “Thưởng cài app 50.000đ”</li>
+<li>Product chưa có config → “Chưa thiết lập” (commission/bonus =
+0)</li>
+</ul></li>
+<li>Sort theo khoảng cách tăng dần.</li>
+</ol>
+<h3 id="chọn-product-để-giới-thiệu">3.3. Chọn product để giới thiệu</h3>
+<ol type="1">
+<li>Salesman chọn 1 product → bấm <strong>“Tạo mã QR giới
+thiệu”</strong>.</li>
+<li>Generate composite referral code
+<code>{salesmanCode}|{productShortCode}</code> (vd
+<code>ABC123|TR-001</code>).</li>
+<li>Chuyển sang “Mã QR của tôi” page.</li>
+</ol>
+<blockquote>
+<p><strong>Lưu ý PoC:</strong> API query <strong>FeaturedProducts trên
+Gateway PG</strong> (chỉ product được Owner set làm Featured). KHÔNG
+query tất cả products per-tenant SQLite. Product không Featured →
+salesman không thấy.</p>
+</blockquote>
+<hr />
+<h2 id="tạo-mã-qr-giới-thiệu-composite-referral-uc-09">4. TẠO MÃ QR GIỚI
+THIỆU (COMPOSITE REFERRAL) — UC-09</h2>
+<h3 id="composite-referral-code">4.1. Composite referral code</h3>
+<p>Format: <code>{salesmanCode}|{productShortCode}</code> -
+<code>salesmanCode</code>: 6-8 chars, human-readable, unique per
+salesman (vd <code>ABC123</code>). - <code>productShortCode</code>: từ
+<code>ProductReferralConfig.ProductShortCode</code> (vd
+<code>TR-001</code>).</p>
+<p><strong>Ví dụ:</strong> <code>ABC123|TR-001</code> → salesman ABC123
+giới thiệu product TR-001.</p>
+<h3 id="tạo-qr">4.2. Tạo QR</h3>
+<ol type="1">
+<li>Sau khi chọn product (UC-08) → mở <strong>“Mã QR của tôi”</strong>
+page.</li>
+<li>Hiển thị QR code chứa URL:
+<code>https://khachlink.app/r/{salesmanCode}|{productShortCode}</code>
+(vd <code>/r/ABC123|TR-001</code>).</li>
+<li>QR generate client-side (qrcode.js library, vendored MIT — không
+CDN).</li>
+<li>Salesman chia sẻ QR cho customer (Zalo, Facebook, in ấn, v.v.).</li>
+</ol>
+<h3 id="customer-scan-qr">4.3. Customer scan QR</h3>
+<ol type="1">
+<li>Customer quét QR → redirect đến KhachLink với composite referral
+code.</li>
+<li>Composite code lưu trong <strong>localStorage</strong> (cả
+salesmanCode + productShortCode).</li>
+<li>Khi customer đặt hàng → composite referral code gửi trong order
+creation (<code>referralCode</code> field).</li>
+<li>Server resolve → set <code>Order.SalesmanId</code> +
+<code>Order.ReferralProductId</code>.</li>
+</ol>
+<h3 id="khi-order.completed-salesreferral-tạo">4.4. Khi Order.Completed
+→ SalesReferral tạo</h3>
+<ol type="1">
+<li>Order completed → server tạo <code>SalesReferral</code> với
+<code>RiskScore</code> computed (deterministic 0-100).</li>
+<li><code>CommissionStatus</code> phụ thuộc RiskScore:
+<ul>
+<li>RiskScore &lt; 60 → <code>Pending</code> → auto-approve sau 24h
+(cooling period)</li>
+<li>RiskScore 60-79 → <code>Pending</code> hold 48h +
+<code>FraudFlag(Pending)</code> cho admin review</li>
+<li>RiskScore ≥ 80 → <code>Rejected</code> (auto-reject) +
+<code>FraudFlag(Pending)</code></li>
+</ul></li>
+</ol>
+<hr />
+<h2 id="doanh-số-hoa-hồng-sales-dashboard-uc-10">5. DOANH SỐ + HOA HỒNG
+(SALES DASHBOARD) — UC-10</h2>
+<h3 id="truy-cập-1">5.1. Truy cập</h3>
+<p>Login KhachLink → tab <strong>“Doanh số”</strong> (chỉ hiện khi có
+role Salesman).</p>
+<h3 id="hiển-thị">5.2. Hiển thị</h3>
+<p><code>GET /api/community/salesman/{salesmanId}/commissions</code>
+trả:</p>
+<ul>
+<li><strong>List đơn đã chốt:</strong> Order có SalesmanId = salesman’s
+CustomerId — mỗi order hiện product, total, commission, status.</li>
+<li><strong>Tổng doanh số:</strong> Tổng giá trị đơn đã chốt.</li>
+<li><strong>Commission chốt đơn (per-order):</strong> Rate từ
+<code>ProductReferralConfig</code> của product trên order (2-5%).
+Status: Pending → Paid.</li>
+<li><strong>App-install bonus (per attributed install):</strong> List
+<code>AppInstallAttribution</code> có SalesmanId — mỗi attribution hiện
+bonus amount + status.</li>
+<li><strong>Tổng commission + tổng app-install bonus</strong> hiển thị
+tách biệt.</li>
+</ul>
+<h3 id="commission-status">5.3. Commission status</h3>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Status</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pending</td>
+<td>Chờ approve (cooling 24h nếu RiskScore&lt;60, hold 48h nếu
+60-79)</td>
+</tr>
+<tr>
+<td>Paid</td>
+<td>Đã thanh toán vào wallet</td>
+</tr>
+<tr>
+<td>Rejected</td>
+<td>Bị reject (RiskScore≥80 auto, hoặc admin confirm fraud)</td>
+</tr>
+<tr>
+<td>Held</td>
+<td>Hold 48h chờ admin review</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="app-install-bonus-uc-12-thưởng-khi-customer-cài-app">6.
+APP-INSTALL BONUS (UC-12) — THƯỞNG KHI CUSTOMER CÀI APP</h2>
+<h3 id="điều-kiện">6.1. Điều kiện</h3>
+<ul>
+<li>Customer có composite referralCode trong localStorage (đã scan QR
+của salesman ở UC-09).</li>
+<li>Customer chưa cài PWA trước đó (1 customer chỉ attribute 1
+lần).</li>
+</ul>
+<h3 id="flow-1">6.2. Flow</h3>
+<ol type="1">
+<li>Customer mở KhachLink lần đầu (có referralCode trong
+localStorage).</li>
+<li>Customer trigger PWA install (browser
+<code>beforeinstallprompt</code> event → bấm “Cài app”).</li>
+<li>PWA install success (<code>appinstalled</code> event) →
+<code>POST /api/community/app-install/attributed</code> với body
+<code>{ referralCode: &quot;ABC123|TR-001&quot; }</code>.</li>
+<li>Server resolve referralCode → salesmanId + productId.</li>
+<li>Server check customer chưa có <code>AppInstallAttribution</code>
+trước đó (unique constraint trên CustomerId).</li>
+<li>Tạo <code>AppInstallAttribution</code>: customerId, salesmanId,
+productId, bonusAmount (từ
+<code>ProductReferralConfig.AppInstallBonus</code>).</li>
+<li>Tạo <code>WalletTransaction(Commission)</code> amount=bonusAmount
+cho salesman.</li>
+<li>Salesman thấy bonus trong SalesDashboard (UC-10).</li>
+</ol>
+<h3 id="risk-scoring-v1.2">6.3. Risk scoring (v1.2)</h3>
+<ul>
+<li><code>AppInstallAttribution.RiskScore</code> computed tại thời điểm
+attribution.</li>
+<li>RiskScore ≥ 60 → <code>AttributionStatus=Held</code> hold 48h +
+FraudFlag.</li>
+<li>RiskScore ≥ 80 → <code>AttributionStatus=Rejected</code> auto +
+FraudFlag.</li>
+<li>RiskScore &lt; 60 → <code>Pending</code> auto-approve sau 24h.</li>
+</ul>
+<p><strong>Risk factors:</strong> appInstallTime&lt;30s (+40 — cài quá
+nhanh = bot), salesmanFingerprint==customerFingerprint (+50 —
+self-deal), same IP 24h (+30), customerAgeDays&lt;7 (+30).</p>
+<hr />
+<h2 id="ví-wallet-rút-tiền">7. VÍ (WALLET) + RÚT TIỀN</h2>
+<h3 id="xem-ví">7.1. Xem ví</h3>
+<p>Login KhachLink → tab <strong>“Ví”</strong> — hiển thị: - Balance
+hiện tại (VND) - Mode badge: “Mô hình Reseller — Vạn An mua bán” hoặc
+“Mô hình Marketplace — Tenant bán trực tiếp” - List
+<code>WalletTransaction</code> (immutable ledger — append-only, không
+update/delete)</p>
+<h3 id="rút-tiền-withdrawal">7.2. Rút tiền (Withdrawal)</h3>
+<p><strong>Điều kiện:</strong> - KYC bank account verified
+(admin-verified bank account required cho payout). - Min payout
+500.000đ. - Balance ≥ amount rút.</p>
+<p><strong>Flow:</strong> 1. Bấm <strong>Rút tiền</strong> → nhập amount
++ bank account (đã KYC). 2.
+<code>POST /api/community/wallet/withdraw</code> → tạo
+<code>WalletTransaction(Withdrawal)</code> -amount. 3. Admin process
+payout (bank transfer). 4. Balance cập nhật.</p>
+<h3 id="reversal-pattern">7.3. Reversal pattern</h3>
+<p>Nếu transaction sai (vd confirm COD nhầm) → KHÔNG update/delete. Tạo
+<code>WalletTransaction(Reversal)</code> amount=-original,
+<code>RelatedTransactionId=original.Id</code>. Giống AccountingEntry
+immutable pattern.</p>
+<hr />
+<h2 id="anti-fraud-riskscore-hold">8. ANTI-FRAUD — RISKSCORE + HOLD</h2>
+<h3 id="riskscore-0-100-computed-tự-động">8.1. RiskScore (0-100)
+computed tự động</h3>
+<table>
+<thead>
+<tr>
+<th>Score</th>
+<th>Hệ quả</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>&lt;60</td>
+<td>Auto-approve sau 24h cooling period</td>
+</tr>
+<tr>
+<td>60-79</td>
+<td>Hold 48h + FraudFlag(Pending) cho admin review</td>
+</tr>
+<tr>
+<td>≥80</td>
+<td>Auto-reject + FraudFlag(Pending)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="risk-factors-tránh-để-score-cao">8.2. Risk factors (tránh để
+score cao)</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Factor</th>
+<th>+Score</th>
+<th>Cách tránh</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>salesmanFingerprint == customerFingerprint</td>
+<td>+50</td>
+<td>KHÔNG tự scan QR của mình / tự đặt hàng qua referral của mình</td>
+</tr>
+<tr>
+<td>same IP 24h (salesman + customer)</td>
+<td>+30</td>
+<td>KHÔNG giới thiệu cho người dùng cùng wifi/IP trong 24h</td>
+</tr>
+<tr>
+<td>customerAgeDays &lt; 7</td>
+<td>+30</td>
+<td>Customer mới đăng ký &lt; 7 ngày → score cao</td>
+</tr>
+<tr>
+<td>deviceFirstSeen &lt; 24h</td>
+<td>+25</td>
+<td>Device mới → score cao</td>
+</tr>
+<tr>
+<td>ordersFromDeviceToday &gt; 3</td>
+<td>+20</td>
+<td>1 device đặt &gt;3 đơn/ngày → score cao</td>
+</tr>
+<tr>
+<td>referralBonusAmount &gt; 50K</td>
+<td>+15</td>
+<td>Bonus cao → scrutiny cao</td>
+</tr>
+<tr>
+<td>appInstallTime &lt; 30s</td>
+<td>+40</td>
+<td>Cài app &lt;30s sau khi scan = bot behavior</td>
+</tr>
+<tr>
+<td>blacklistedFingerprint</td>
+<td>+60</td>
+<td>Fingerprint đã bị flag fraud trước đó</td>
+</tr>
+</tbody>
+</table>
+<h3 id="strike-ban">8.3. 3-strike ban</h3>
+<p>3 FraudFlag confirmed → <strong>permanent ban</strong>. Tất cả
+commission/bonus pending → Rejected.</p>
+<h3 id="payout-policy">8.4. Payout policy</h3>
+<ul>
+<li>Hold 48h if RiskScore ≥ 60.</li>
+<li>Auto-reject if ≥ 80.</li>
+<li>KYC bank account required.</li>
+<li>Min payout 500.000đ.</li>
+</ul>
+<hr />
+<h2 id="marketplace-vs-reseller-khác-biệt-cho-salesman">9. MARKETPLACE
+VS RESELLER — KHÁC BIỆT CHO SALESMAN</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Khía cạnh</th>
+<th>Marketplace</th>
+<th>Reseller</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Commission base</strong></td>
+<td>% orderTotal (2-5%)</td>
+<td>% margin (SellPrice - CostPrice)</td>
+</tr>
+<tr>
+<td><strong>Commission amount</strong></td>
+<td>Thường cao hơn (base lớn hơn)</td>
+<td>Thường thấp hơn (base = margin, nhỏ hơn orderTotal)</td>
+</tr>
+<tr>
+<td><strong>Ai trả commission</strong></td>
+<td>Vạn An (từ commission fund)</td>
+<td>Vạn An (từ margin)</td>
+</tr>
+<tr>
+<td><strong>Nearby Products price</strong></td>
+<td>Tenant price (existing)</td>
+<td>SellPrice (Vạn An price) + “Giá đã bao gồm phí nền tảng”</td>
+</tr>
+<tr>
+<td><strong>Wallet badge</strong></td>
+<td>“Marketplace — Tenant bán trực tiếp”</td>
+<td>“Reseller — Vạn An mua bán”</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Lưu ý:</strong> Commission rate vẫn do SystemAdmin set
+per-product qua <code>ProductReferralConfig.CommissionBase</code>
+(OnOrderTotal vs OnMargin). Salesman thấy rate trong Nearby Products —
+không cần lo về base calculation.</p>
+</blockquote>
+<hr />
+<h2 id="faq">10. FAQ</h2>
+<p><strong>Q: Tôi có thể tự tạo ProductReferralConfig (set commission
+rate) không?</strong> A: KHÔNG. Chỉ SystemAdmin set per-product. Bạn chỉ
+thấy config đã set. Product chưa có config → “Chưa thiết lập”
+(commission/bonus = 0).</p>
+<p><strong>Q: Customer scan QR nhưng không đặt hàng, tôi có được
+commission không?</strong> A: KHÔNG. Commission chốt đơn chỉ khi
+Order.Completed. App-install bonus riêng — customer cài app là có bonus
+(không cần đặt hàng).</p>
+<p><strong>Q: Tôi giới thiệu cho người nhà (cùng IP, cùng device) được
+không?</strong> A: KHÔNG NÊN. sameFingerprint (+50) + sameIP (+30) →
+RiskScore ≥ 80 → auto-reject + FraudFlag. Đây là self-deal
+detection.</p>
+<p><strong>Q: Commission bị hold 48h thì sao?</strong> A: RiskScore
+60-79 → hold 48h chờ admin review. Admin Confirm → reject. Admin Dismiss
+→ approve. Nếu không review → auto-reject sau 48h (HeldTimeoutJob).</p>
+<p><strong>Q: Tôi có thể vừa là Salesman vừa là Shipper không?</strong>
+A: CÓ. Một user có thể đồng thời là Buyer + Salesman + Shipper. System
+Admin kích hoạt từng role riêng.</p>
+<p><strong>Q: Rút tiền cần gì?</strong> A: KYC bank account verified +
+min 500.000đ + balance đủ. Liên hệ admin để KYC bank account.</p>
+<p><strong>Q: App-install bonus bị reject vì “appInstallTime&lt;30s” —
+sao?</strong> A: Customer cài app &lt;30s sau khi scan QR = bot behavior
+(+40). Khuyến khách xem app trước khi cài, không cài vội.</p>
+<hr />
+<blockquote>
+<p><strong>Xem thêm:</strong> <a href="./README.md">README index</a> |
+<a href="./07-customer.md">Customer</a> | <a href="./04-shipper.md">Shipper</a> | <a href="./01-systemadmin.md">System Admin</a></p>
+</blockquote>
+</body>
+</html>

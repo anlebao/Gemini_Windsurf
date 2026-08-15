@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Hướng dẫn Customer — Community Commerce</title>
+  <style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+</style>
+  <style type="text/css">
+@page { margin: 1.5cm 2cm; }
+* { box-sizing: border-box; }
+body {
+font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+font-size: 11pt;
+line-height: 1.55;
+color: #1f2937;
+max-width: 900px;
+margin: 0 auto;
+padding: 2rem 1rem;
+background: #fff;
+}
+h1 {
+font-size: 22pt;
+color: #0f766e;
+border-bottom: 3px solid #0f766e;
+padding-bottom: 0.4rem;
+margin-top: 0;
+}
+h2 {
+font-size: 16pt;
+color: #0f766e;
+border-left: 4px solid #14b8a6;
+padding-left: 0.6rem;
+margin-top: 2rem;
+page-break-after: avoid;
+}
+h3 {
+font-size: 13pt;
+color: #334155;
+margin-top: 1.4rem;
+page-break-after: avoid;
+}
+h4 {
+font-size: 11.5pt;
+color: #475569;
+margin-top: 1rem;
+page-break-after: avoid;
+}
+p { margin: 0.5rem 0; }
+a { color: #0f766e; text-decoration: none; }
+a:hover { text-decoration: underline; }
+code {
+font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+background: #f1f5f9;
+padding: 0.1rem 0.35rem;
+border-radius: 3px;
+font-size: 9.5pt;
+color: #be123c;
+}
+pre {
+background: #0f172a;
+color: #e2e8f0;
+padding: 1rem;
+border-radius: 6px;
+overflow-x: auto;
+font-size: 9.5pt;
+line-height: 1.4;
+}
+pre code { background: transparent; color: inherit; padding: 0; }
+blockquote {
+border-left: 4px solid #14b8a6;
+background: #f0fdfa;
+padding: 0.6rem 1rem;
+margin: 1rem 0;
+color: #134e4a;
+border-radius: 0 4px 4px 0;
+}
+blockquote p { margin: 0.3rem 0; }
+table {
+border-collapse: collapse;
+width: 100%;
+margin: 1rem 0;
+font-size: 10pt;
+page-break-inside: avoid;
+}
+th {
+background: #0f766e;
+color: #fff;
+text-align: left;
+padding: 0.55rem 0.7rem;
+font-weight: 600;
+border: 1px solid #0f766e;
+}
+td {
+padding: 0.5rem 0.7rem;
+border: 1px solid #e2e8f0;
+vertical-align: top;
+}
+tr:nth-child(even) td { background: #f8fafc; }
+tr:hover td { background: #f0fdfa; }
+hr {
+border: none;
+border-top: 1px solid #cbd5e1;
+margin: 2rem 0;
+}
+ul, ol { padding-left: 1.5rem; }
+li { margin: 0.25rem 0; }
+strong { color: #0f172a; }
+
+h2 + ul, h2 + ol { page-break-before: avoid; }
+
+@media print {
+body { font-size: 10pt; max-width: none; padding: 0; }
+h2 { page-break-before: auto; }
+table, pre, blockquote { page-break-inside: avoid; }
+a { color: #0f766e; }
+}
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Hướng dẫn Customer — Community Commerce</h1>
+</header>
+<h1 id="hướng-dẫn-customer-khách-hàng-mua-hàng">HƯỚNG DẪN CUSTOMER —
+KHÁCH HÀNG MUA HÀNG</h1>
+<blockquote>
+<p><strong>Đối tượng:</strong> Khách hàng cuối — mua hàng F&amp;B qua
+KhachLink PWA, theo dõi giao hàng, tích điểm, đổi thưởng. <strong>Đăng
+nhập:</strong> KhachLink PWA (<code>diemthuong.khachvip.online</code>) —
+Google login + device fingerprint. KHÔNG bắt buộc SMS OTP. <strong>Nền
+tảng:</strong> Blazor WebAssembly PWA — cài đặt trên mobile home screen,
+hoạt động offline-capable.</p>
+</blockquote>
+<hr />
+<h2 id="mục-lục">MỤC LỤC</h2>
+<ol type="1">
+<li><a href="#1-tổng-quan-vai-trò">Tổng quan vai trò</a></li>
+<li><a href="#2-đăng-nhập-uc-01--social--device-fingerprint">Đăng nhập
+(UC-01) — Social + Device Fingerprint</a></li>
+<li><a href="#3-duyệt-sản-phẩm--đặt-hàng">Duyệt sản phẩm + đặt
+hàng</a></li>
+<li><a href="#4-checkout--referral-code-salesman">Checkout + referral
+code (Salesman)</a></li>
+<li><a href="#5-theo-dõi-giao-hàng-real-time-uc-06">Theo dõi giao hàng
+real-time (UC-06)</a></li>
+<li><a href="#6-chat-với-shipper-uc-07">Chat với Shipper
+(UC-07)</a></li>
+<li><a href="#7-ví-wallet--lịch-sử-giao-dịch">Ví (Wallet) + lịch sử giao
+dịch</a></li>
+<li><a href="#8-tích-điểm--đổi-thưởng-loyalty">Tích điểm + đổi thưởng
+(Loyalty)</a></li>
+<li><a href="#9-trở-thành-salesmanshipper">Trở thành
+Salesman/Shipper</a></li>
+<li><a href="#10-marketplace-vs-reseller--khác-biệt-cho-customer">Marketplace
+vs Reseller — khác biệt cho Customer</a></li>
+<li><a href="#11-privacy--device-fingerprint-consent">Privacy — Device
+Fingerprint Consent</a></li>
+<li><a href="#12-faq">FAQ</a></li>
+</ol>
+<hr />
+<h2 id="tổng-quan-vai-trò">1. TỔNG QUAN VAI TRÒ</h2>
+<p>Customer là khách hàng cuối — mua hàng F&amp;B qua KhachLink PWA. Một
+customer có thể đồng thời là <strong>Buyer + Salesman + Shipper</strong>
+(nếu được System Admin kích hoạt).</p>
+<p><strong>KhachLink PWA:</strong> - Blazor WebAssembly — chạy trên
+mobile browser. - PWA installable — cài trên home screen như app native.
+- Offline-capable (cache assets + queue writes). - GPS chỉ hoạt động khi
+tab active.</p>
+<p><strong>Auth:</strong> <code>X-Customer-Token</code> (custom token,
+KHÔNG cookie) — lưu localStorage, tự gửi trong header mọi API call.</p>
+<hr />
+<h2 id="đăng-nhập-uc-01-social-device-fingerprint">2. ĐĂNG NHẬP (UC-01)
+— SOCIAL + DEVICE FINGERPRINT</h2>
+<h3 id="flow-đăng-nhập">2.1. Flow đăng nhập</h3>
+<ol type="1">
+<li>Mở KhachLink → bấm <strong>Đăng nhập</strong>.</li>
+<li>Chọn phương thức (PoC scope):
+<ul>
+<li><strong>(A) Google login</strong> → browser redirect <code>GET /api/auth/google/login</code> (Gateway YARP forward → ShopERP OAuth handler) → Google consent → callback <code>GET /api/auth/google/callback</code> → redirect về KhachLink <code>/login?token=...&amp;provider=google&amp;customerId=...</code> → tiếp bước 3</li>
+<li><strong>(B) Facebook login</strong> → browser redirect <code>GET /api/auth/facebook/login</code> (Gateway YARP forward → ShopERP stub Sprint 1 → redirect về <code>/login?error=facebook_not_configured</code>). Sprint 7+ mới config Facebook OAuth credentials thật</li>
+<li><strong>(C) Tiếp tục as Guest</strong> → <strong>KHÔNG có API call</strong>, KHÔNG nhập tên/SĐT ở bước này. Browser navigate thẳng về Home page. Customer browse + checkout as guest (nhập tên/SĐT ở form checkout). KHÔNG token, KHÔNG tích điểm. Order history + loyalty fallback theo <code>CustomerDeviceId</code> (localStorage)</li>
+</ul></li>
+<li>First login / new device (sau social login success): browser generate DeviceToken + compute
+Fingerprint → <strong>Device Fingerprint Consent Dialog</strong> → bấm
+<strong>Đồng ý</strong> → <code>POST /api/customer-identity/device/register</code> (header <code>X-Customer-Token</code>, fire-and-forget, failure không block login).</li>
+<li>IdentityLevel = <code>Social</code> (1) nếu social,
+<code>Guest</code> (0) nếu guest.</li>
+<li>(OPTIONAL) Verify SĐT qua SMS OTP → <code>POST /api/customer-identity/otp/send</code> + <code>POST /api/customer-identity/otp/verify</code> → upgrade <code>Verified</code>
+(2) — <strong>KHÔNG bắt buộc</strong> cho customer. OTP endpoints giữ cho collaborator activation (Sprint 6 toggle).</li>
+<li>Token + customerId lưu localStorage (<code>customer_token</code>, <code>customer_id</code>, <code>login_provider</code>), tự gửi <code>X-Customer-Token</code> header mọi API call.</li>
+</ol>
+<h3 id="device-fingerprint-consent-dialog-gdprpdpa">2.2. Device
+Fingerprint Consent Dialog (GDPR/PDPA)</h3>
+<ul>
+<li>Hiển thị TRƯỚC khi collect fingerprint.</li>
+<li>Giải thích: “Chúng tôi thu thập device fingerprint để bảo vệ tài
+khoản của bạn khỏi gian lận.”</li>
+<li>User có thể <strong>decline</strong> — lúc đó RiskScore sẽ cao hơn
+(không fingerprint), nhưng vẫn dùng được.</li>
+<li>Fingerprint signals: canvas, WebGL, audio, fonts, timezone, screen,
+plugins, v.v. (15+ signals) → SHA256 hash.</li>
+</ul>
+<h3 id="max-3-active-devices">2.3. Max 3 active devices</h3>
+<ul>
+<li>Max 3 active <code>DeviceRegistration</code> per Customer.</li>
+<li>Device thứ 4 → yêu cầu <strong>admin approval</strong> (tạo với
+IsActive=false + FraudFlag).</li>
+<li>Customer có thể logout device (deactivate) trong Profile page.</li>
+</ul>
+<h3 id="guest-mode">2.4. Guest mode</h3>
+<ul>
+<li><strong>KHÔNG có API login</strong> — browser navigate thẳng về Home, không lưu token.</li>
+<li>Customer browse product + checkout via <code>POST /api/public/orders/checkout</code> (nhập tên + SĐT ở checkout form, không <code>X-Customer-Token</code>).</li>
+<li>Checkout as guest — <strong>KHÔNG tích điểm</strong> (no
+LoyaltyPoints). Order history + loyalty fallback theo <code>CustomerDeviceId</code> (localStorage).</li>
+<li>Verify SĐT chỉ khi collaborator activation (UC-02 v1.5) — <code>POST /api/collaborator-verification/init</code>.</li>
+</ul>
+<h3 id="identitylevel">2.5. IdentityLevel</h3>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Level</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Guest (0)</td>
+<td>Khách vãng lai (không token)</td>
+</tr>
+<tr>
+<td>Social (1)</td>
+<td>Đăng nhập Google/Facebook</td>
+</tr>
+<tr>
+<td>Verified (2)</td>
+<td>SMS OTP verified (optional)</td>
+</tr>
+<tr>
+<td>Full (3)</td>
+<td>Full KYC</td>
+</tr>
+<tr>
+<td>DeviceVerified (4)</td>
+<td>Device fingerprint + behavioral pass (KHÔNG cần SMS)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="duyệt-sản-phẩm-đặt-hàng">3. DUYỆT SẢN PHẨM + ĐẶT HÀNG</h2>
+<h3 id="duyệt-sản-phẩm">3.1. Duyệt sản phẩm</h3>
+<ol type="1">
+<li>Mở KhachLink → Home page hiển thị Featured Products (GET
+<code>/api/catalog/recommended</code> — pure PG query, no ShopERP
+forward).</li>
+<li>Hoặc duyệt product catalog (forwards via YARP to ShopERP for
+ShopConfig derivation).</li>
+<li>Mỗi product hiện: name, price, shop name, image, description.</li>
+</ol>
+<h3 id="reseller-mode-price-display">3.2. Reseller mode — price
+display</h3>
+<pre><code>@if (commerceMode == &quot;Reseller&quot;)
+{
+    // Show SellPrice (Vạn An price) + &quot;Giá đã bao gồm phí nền tảng&quot;
+}
+else
+{
+    // Show tenant price (Marketplace — existing)
+}</code></pre>
+<h3 id="thêm-vào-giỏ-đặt-hàng">3.3. Thêm vào giỏ + đặt hàng</h3>
+<ol type="1">
+<li>Chọn product → thêm vào cart.</li>
+<li>Chọn quantity, modifiers (vd size, topping), notes.</li>
+<li>Chọn OrderType: <strong>DELIVERY</strong> (giao tận nơi) hoặc
+<strong>TAKEAWAY</strong> (đến lấy).</li>
+<li>Nhập delivery address + GPS location (cho DELIVERY).</li>
+<li>Chọn PaymentMethod: <strong>COD</strong> (trả tiền khi nhận) hoặc
+<strong>Online</strong> (VietQR/card — Reseller mode).</li>
+<li>Review order → <strong>Đặt hàng</strong>.</li>
+</ol>
+<h3 id="order-creation">3.4. Order creation</h3>
+<ul>
+<li>Order created trên <strong>Gateway PG</strong> (Vạn An là order
+creator, Option C).</li>
+<li>Order snapshot <code>CommerceMode</code> tại creation time.</li>
+<li>Order async-delivered qua NATS (routed by ShopInstanceId) → ShopERP
+SQLite (replica cho kitchen/POS).</li>
+<li>Staff/Kitchen nhận order (KitchenHub push).</li>
+</ul>
+<hr />
+<h2 id="checkout-referral-code-salesman">4. CHECKOUT + REFERRAL CODE
+(SALESMAN)</h2>
+<h3 id="referral-code-trong-localstorage">4.1. Referral code trong
+localStorage</h3>
+<p>Nếu bạn đã <strong>scan QR của salesman</strong> (UC-09): - Composite
+referral code <code>{salesmanCode}|{productShortCode}</code> lưu trong
+localStorage. - Khi đặt hàng → referral code tự gửi trong order creation
+(<code>referralCode</code> field). - Server resolve → set
+<code>Order.SalesmanId</code> + <code>Order.ReferralProductId</code>. -
+Salesman nhận commission khi Order.Completed.</p>
+<h3 id="scan-qr-salesman">4.2. Scan QR salesman</h3>
+<ol type="1">
+<li>Salesman chia sẻ QR (Zalo, Facebook, in ấn).</li>
+<li>Bạn quét QR → redirect đến KhachLink với composite referral
+code.</li>
+<li>Composite code lưu localStorage (cả salesmanCode +
+productShortCode).</li>
+<li>Lần đặt hàng tiếp theo → referral code tự áp dụng.</li>
+</ol>
+<h3 id="app-install-bonus-uc-12">4.3. App-install bonus (UC-12)</h3>
+<p>Nếu bạn có referralCode trong localStorage + chưa cài PWA: 1. Mở
+KhachLink lần đầu (có referralCode). 2. Browser hiện “Cài app”
+(beforeinstallprompt). 3. Bấm <strong>Cài app</strong> → PWA install
+success (appinstalled event). 4. Hệ thống tự
+<code>POST /api/community/app-install/attributed</code> với
+referralCode. 5. Salesman nhận app-install bonus (từ
+ProductReferralConfig.AppInstallBonus).</p>
+<blockquote>
+<p><strong>Lưu ý:</strong> 1 customer chỉ attribute 1 lần (unique
+constraint). Cài lại app không tính bonus lần 2.</p>
+</blockquote>
+<hr />
+<h2 id="theo-dõi-giao-hàng-real-time-uc-06">5. THEO DÕI GIAO HÀNG
+REAL-TIME (UC-06)</h2>
+<h3 id="khi-nào-tracking">5.1. Khi nào tracking?</h3>
+<p>Sau khi shipper accept đơn (Order status=<code>delivering</code>) →
+customer có thể tracking.</p>
+<h3 id="tracking-ui">5.2. Tracking UI</h3>
+<ol type="1">
+<li>Mở Order Detail → tab <strong>Tracking</strong>.</li>
+<li><strong>Leaflet map</strong> hiển thị:
+<ul>
+<li>Shop marker (red) — vị trí shop</li>
+<li>Customer marker (green) — vị trí giao hàng</li>
+<li>Shipper marker (blue) — di chuyển real-time</li>
+<li>Route line (straight — PoC)</li>
+</ul></li>
+<li>Shipper cập nhật vị trí mỗi <strong>10s</strong> (khi
+OutForDelivery) → <code>POST /api/community/location/update</code> → SignalR hub <code>/hubs/location</code> push → marker di chuyển.</li>
+</ol>
+<h3 id="status-notifications">5.3. Status notifications</h3>
+<p>Customer nhận <strong>SignalR notification</strong> mỗi transition: -
+Shipper accept → “Shipper [tên] đã nhận đơn” - Shipper pickup → “Shipper
+đã lấy hàng, đang đến” - Shipper delivering → “Shipper đang giao hàng” -
+Shipper delivered → “Đã giao thành công” - Shipper failed → “Giao thất
+bại: [reason]”</p>
+<h3 id="pwa-limitation">5.4. PWA limitation</h3>
+<ul>
+<li>Shipper GPS chỉ hoạt động khi <strong>tab active</strong> (shipper
+giữ app mở).</li>
+<li>Nếu shipper tắt app → marker không update → customer thấy “Shipper
+đang di chuyển” tĩnh.</li>
+<li><strong>Thông báo hiển thị:</strong> “Vị trí cập nhật khi shipper mở
+app.”</li>
+</ul>
+<hr />
+<h2 id="chat-với-shipper-uc-07">6. CHAT VỚI SHIPPER (UC-07)</h2>
+<h3 id="mở-chat">6.1. Mở chat</h3>
+<ol type="1">
+<li>Mở Order Detail → tab <strong>Chat</strong> (hoặc chat panel).</li>
+<li>Chat chỉ mở khi <code>DeliveryTask</code> tồn tại (shipper đã accept
+đơn).</li>
+</ol>
+<h3 id="flow">6.2. Flow</h3>
+<ol type="1">
+<li>Nhập message → <code>POST /api/community/chat/messages</code>.</li>
+<li><strong>SignalR hub <code>/hubs/chat</code></strong> push đến shipper real-time.</li>
+<li>Message lưu DB (Conversation + Message) với timestamp, senderId,
+receiverId.</li>
+<li>Chat history load khi mở panel (<code>GET /api/community/chat/conversations/{orderId}</code>).</li>
+</ol>
+<h3 id="lưu-ý">6.3. Lưu ý</h3>
+<ul>
+<li><strong>Human-to-human chat</strong> — KHÔNG có AI chatbot trong
+PoC.</li>
+<li>Chat biến mất/không push khi DeliveryTask = Delivered/Failed.</li>
+<li>Auth SignalR hub <code>/hubs/chat</code> qua <code>X-Customer-Token</code> query string.</li>
+</ul>
+<hr />
+<h2 id="ví-wallet-lịch-sử-giao-dịch">7. VÍ (WALLET) + LỊCH SỬ GIAO
+DỊCH</h2>
+<h3 id="xem-ví">7.1. Xem ví</h3>
+<p>Login KhachLink → tab <strong>“Ví”</strong> (nếu có role
+Salesman/Shipper) hoặc Profile → Wallet.</p>
+<ul>
+<li>Balance hiện tại (VND)</li>
+<li>Mode badge: “Mô hình Reseller — Vạn An mua bán” hoặc “Mô hình
+Marketplace — Tenant bán trực tiếp”</li>
+<li>List <code>WalletTransaction</code> (immutable ledger —
+append-only)</li>
+</ul>
+<h3 id="customer-transactions">7.2. Customer transactions</h3>
+<p>Customer thường KHÔNG có wallet balance (chỉ Salesman/Shipper có).
+Customer thấy: - <strong>Order history:</strong> list đơn đã đặt +
+status - <strong>Payment history:</strong> COD/Online payments</p>
+<h3 id="reseller-mode-externalpayment">7.3. Reseller mode —
+ExternalPayment</h3>
+<p>Nếu Reseller mode + PaymentMethod = Online (VietQR/card): - Customer
+trả Vạn An qua VietQR/card. -
+<code>WalletTransaction(ExternalPayment)</code> — Vạn An nhận tiền trực
+tiếp. - Sau đó Vạn An phân phối (6 transactions COD flow).</p>
+<hr />
+<h2 id="tích-điểm-đổi-thưởng-loyalty">8. TÍCH ĐIỂM + ĐỔI THƯỞNG
+(LOYALTY)</h2>
+<blockquote>
+<p><strong>Chi tiết đầy đủ:</strong> xem
+<code>docs/user-guide/CRM_Loyalty_Guide.md</code> (Section 4 —
+Customer).</p>
+</blockquote>
+<h3 id="tích-điểm">8.1. Tích điểm</h3>
+<ul>
+<li>Mỗi đơn completed → LoyaltyPoints (formula-based,
+configurable).</li>
+<li>Guest checkout KHÔNG tích điểm (no token, no account).</li>
+<li>Điểm hiển thị trong Profile page.</li>
+</ul>
+<h3 id="đổi-thưởng">8.2. Đổi thưởng</h3>
+<ul>
+<li>Mở Catalog Đổi thưởng → chọn quà → bấm <strong>Đổi</strong>.</li>
+<li>Điểm trừ → redemption record (Pending) → admin fulfill voucher.</li>
+<li>Xem lịch sử đổi thưởng trong Profile.</li>
+</ul>
+<h3 id="nhiệm-vụ-missions">8.3. Nhiệm vụ (Missions)</h3>
+<ul>
+<li>PWAInstall, OtpVerify, BirthdayEntry, FacebookShare, TikTokShare,
+Custom missions.</li>
+<li>Hoàn nhiệm vụ → nhận điểm bonus.</li>
+</ul>
+<h3 id="sms-otp-không-bắt-buộc-cho-customer">8.4. SMS OTP — KHÔNG bắt
+buộc cho customer</h3>
+<ul>
+<li>Customer KHÔNG cần SMS OTP để tích điểm / đổi điểm (luôn, bất kể
+toggle).</li>
+<li>SMS OTP chỉ cho collaborator (Salesman/Shipper/Owner) khi toggle
+ON.</li>
+</ul>
+<hr />
+<h2 id="trở-thành-salesmanshipper">9. TRỞ THÀNH SALESMAN/SHIPPER</h2>
+<h3 id="điều-kiện">9.1. Điều kiện</h3>
+<ul>
+<li><code>IdentityLevel ≥ DeviceVerified</code> (device fingerprint
+pass) <strong>HOẶC</strong> <code>IdentityLevel ≥ Verified</code> (SMS
+OTP) + <code>LoyaltyPoints ≥ 1000</code></li>
+<li><strong>Kích hoạt bởi System Admin</strong> (customer không tự đăng
+ký).</li>
+</ul>
+<h3 id="quy-trình">9.2. Quy trình</h3>
+<ol type="1">
+<li>Tích đủ 1000 điểm + device fingerprint pass.</li>
+<li>System Admin liên hệ / tự thấy bạn trong eligible list.</li>
+<li>Admin kích hoạt → bạn nhận push notification.</li>
+<li>Login lại → NavMenu hiện thêm tab Salesman/Shipper.</li>
+</ol>
+<h3 id="sms-otp-chỉ-khi-toggle-on">9.3. SMS OTP (chỉ khi toggle ON)</h3>
+<p>Nếu toggle ON + bạn chưa verify SĐT: 1. Nhận notification “Admin mời
+kích hoạt vai trò”. 2. Verify SĐT qua SMS OTP (phí trừ deposit wallet).
+3. Admin activate role.</p>
+<blockquote>
+<p><strong>Chi tiết Salesman:</strong> xem <a href="./03-salesman.md">03-salesman.md</a>. <strong>Chi tiết
+Shipper:</strong> xem <a href="./04-shipper.md">04-shipper.md</a>.</p>
+</blockquote>
+<hr />
+<h2 id="marketplace-vs-reseller-khác-biệt-cho-customer">10. MARKETPLACE
+VS RESELLER — KHÁC BIỆT CHO CUSTOMER</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Khía cạnh</th>
+<th>Marketplace</th>
+<th>Reseller</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Giá hiển thị</strong></td>
+<td>Tenant price</td>
+<td>SellPrice (Vạn An price) + “Giá đã bao gồm phí nền tảng”</td>
+</tr>
+<tr>
+<td><strong>Ai bán</strong></td>
+<td>Tenant bán trực tiếp</td>
+<td>Vạn An mua từ tenant → bán lại cho bạn</td>
+</tr>
+<tr>
+<td><strong>COD</strong></td>
+<td>Trả shipper khi nhận</td>
+<td>Trả shipper khi nhận (Vạn An thu hộ)</td>
+</tr>
+<tr>
+<td><strong>Online payment</strong></td>
+<td>(tùy tenant)</td>
+<td>VietQR/card → Vạn An nhận trực tiếp</td>
+</tr>
+<tr>
+<td><strong>Wallet badge</strong></td>
+<td>“Marketplace — Tenant bán trực tiếp”</td>
+<td>“Reseller — Vạn An mua bán”</td>
+</tr>
+<tr>
+<td><strong>Trải nghiệm đặt hàng</strong></td>
+<td>Giống nhau</td>
+<td>Giống nhau (chỉ price display khác)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Lưu ý:</strong> Customer KHÔNG cần quan tâm mode — trải
+nghiệm đặt hàng giống nhau. Mode chỉ affect financial flow backend.</p>
+</blockquote>
+<hr />
+<h2 id="privacy-device-fingerprint-consent">11. PRIVACY — DEVICE
+FINGERPRINT CONSENT</h2>
+<h3 id="device-fingerprint-consent-dialog">11.1. Device Fingerprint
+Consent Dialog</h3>
+<ul>
+<li>Hiển thị TRƯỚC khi collect fingerprint (GDPR/PDPA compliance).</li>
+<li>Giải thích mục đích: bảo vệ tài khoản khỏi gian lận.</li>
+<li>User có thể <strong>decline</strong> — vẫn dùng được nhưng RiskScore
+cao hơn.</li>
+</ul>
+<h3 id="dữ-liệu-thu-thập">11.2. Dữ liệu thu thập</h3>
+<table>
+<thead>
+<tr>
+<th>Signal</th>
+<th>Mục đích</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Canvas hash</td>
+<td>Device fingerprint unique</td>
+</tr>
+<tr>
+<td>WebGL</td>
+<td>GPU info</td>
+</tr>
+<tr>
+<td>Audio</td>
+<td>Audio context fingerprint</td>
+</tr>
+<tr>
+<td>Fonts</td>
+<td>Installed fonts</td>
+</tr>
+<tr>
+<td>Timezone</td>
+<td>Timezone</td>
+</tr>
+<tr>
+<td>Screen</td>
+<td>Resolution</td>
+</tr>
+<tr>
+<td>UserAgent</td>
+<td>Browser/OS</td>
+</tr>
+<tr>
+<td>IP address</td>
+<td>Network location</td>
+</tr>
+<tr>
+<td>Platform</td>
+<td>navigator.platform</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Tất cả self-hosted (KHÔNG gửi cho bên thứ 3).</li>
+<li>FingerprintJS MIT, vendored trong KhachLink wwwroot/lib/.</li>
+</ul>
+<h3 id="max-3-devices">11.3. Max 3 devices</h3>
+<ul>
+<li>Max 3 active devices per account.</li>
+<li>Device 4+ → admin approval.</li>
+<li>Quản lý devices trong Profile page (deactivate device cũ).</li>
+</ul>
+<h3 id="anti-fraud-riskscore">11.4. Anti-fraud — RiskScore</h3>
+<p>Hệ thống tự compute RiskScore (0-100) cho mỗi transaction. Customer
+KHÔNG thấy score, nhưng: - Score cao → commission/bonus của salesman bị
+hold/reject (nếu bạn được salesman giới thiệu). - KHÔNG affect customer
+experience — customer vẫn mua hàng bình thường.</p>
+<hr />
+<h2 id="faq">12. FAQ</h2>
+<p><strong>Q: Tôi có cần verify SĐT (SMS OTP) không?</strong> A: KHÔNG
+bắt buộc. Device fingerprint là primary. SMS OTP chỉ nếu muốn upgrade
+IdentityLevel hoặc trở thành Salesman/Shipper (khi toggle ON).</p>
+<p><strong>Q: Tôi có thể mua hàng không cần đăng nhập không?</strong> A:
+CÓ — Guest mode (nhập tên + SĐT, không token). Nhưng KHÔNG tích điểm +
+KHÔNG tracking + KHÔNG chat.</p>
+<p><strong>Q: GPS của tôi có bị track không?</strong> A: CHỈ khi bạn đặt
+hàng DELIVERY (cần delivery location) + khi tracking shipper. KHÔNG
+background track. PWA chỉ GPS khi tab active.</p>
+<p><strong>Q: Scan QR salesman có bắt buộc không?</strong> A: KHÔNG. Tùy
+chọn. Scan → salesman nhận commission. Không scan → không có
+salesman.</p>
+<p><strong>Q: Cài app (PWA) có được thưởng không?</strong> A: CÓ nếu bạn
+scan QR salesman trước (referralCode trong localStorage). App-install
+bonus cho salesman — bạn không nhận trực tiếp, nhưng ủng hộ salesman
+giới thiệu cho bạn.</p>
+<p><strong>Q: Reseller mode, tôi trả tiền cho ai?</strong> A: COD → trả
+shipper khi nhận (Vạn An thu hộ). Online → trả Vạn An qua VietQR/card.
+KHÔNG khác biệt trải nghiệm so Marketplace.</p>
+<p><strong>Q: Đổi mode có ảnh hưởng đơn cũ của tôi không?</strong> A:
+KHÔNG. Mỗi order snapshot mode tại creation. Đơn cũ giữ mode cũ.</p>
+<p><strong>Q: Tôi có thể vừa mua hàng vừa là Salesman/Shipper
+không?</strong> A: CÓ. Một user nhiều role. System Admin kích hoạt từng
+role.</p>
+<p><strong>Q: Device fingerprint có vi phạm privacy không?</strong> A:
+Device fingerprint là hash (KHÔNG phải dữ liệu cá nhân rõ ràng).
+Self-hosted (KHÔNG gửi bên thứ 3). Consent dialog hiển thị trước khi
+collect (GDPR/PDPA). Bạn có thể decline.</p>
+<p><strong>Q: Chat với shipper có AI chatbot không?</strong> A: KHÔNG.
+PoC chỉ human-to-human chat. AI chatbot là sprint riêng sau PoC.</p>
+<hr />
+<blockquote>
+<p><strong>Xem thêm:</strong> <a href="./README.md">README index</a> |
+<a href="./03-salesman.md">Salesman</a> | <a href="./04-shipper.md">Shipper</a> | <a href="../CRM_Loyalty_Guide.md">CRM-Loyalty Guide</a></p>
+</blockquote>
+</body>
+</html>

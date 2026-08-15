@@ -70,6 +70,14 @@ namespace VanAn.ShopERP.Components.Pages.Guard
                 // #126-fix: Start circuit keep-alive ping (15s) to prevent idle disconnect.
                 await JS.InvokeVoidAsync("vananGuardCamera.startKeepAlive", _dotNetRef);
 
+                // #130: Fetch photo compression config from Gateway (public URL for browser).
+                // JS stores config in _photoConfig global, used by captureAndStore + compressPhoto.
+                var publicUrl = GuardApi.PublicGatewayBaseUrl;
+                if (!string.IsNullOrEmpty(publicUrl))
+                {
+                    await JS.InvokeVoidAsync("vananGuardCamera.loadPhotoConfig", publicUrl);
+                }
+
                 // #126-fix2: Restore plate number from sessionStorage (photos restored by JS on DOMContentLoaded).
                 var savedPlateNumber = await JS.InvokeAsync<string?>("vananGuardCamera.loadState", "plateNumber");
                 if (!string.IsNullOrEmpty(savedPlateNumber))
@@ -160,7 +168,15 @@ namespace VanAn.ShopERP.Components.Pages.Guard
                 try
                 {
                     jwtToken = await GuardApi.GetJwtTokenAsync();
-                    gatewayBaseUrl = GuardApi.GatewayBaseUrl;
+                    // #130: Use PUBLIC Gateway URL (https://api2.{domain}) for browser JS fetch.
+                    // GatewayBaseUrl returns VPC internal IP (http://10.148.0.2:80) which browser
+                    // CANNOT reach from internet → "Failed to fetch".
+                    gatewayBaseUrl = GuardApi.PublicGatewayBaseUrl;
+                    if (string.IsNullOrEmpty(gatewayBaseUrl))
+                    {
+                        Logger.LogWarning("Gateway:PublicBaseUrl not configured — falling back to internal URL (will fail in browser)");
+                        gatewayBaseUrl = GuardApi.GatewayBaseUrl;
+                    }
                 }
                 catch (Exception ex)
                 {

@@ -22,6 +22,7 @@ namespace VanAn.ShopERP.Services
         private readonly IJwtTokenService _jwtTokenService;
         private readonly AuthenticationStateProvider _authStateProvider;
         private readonly ILogger<GuardApiClient> _logger;
+        private readonly IConfiguration _configuration;
 
         private static readonly JsonSerializerOptions GatewayJsonOptions = new()
         {
@@ -40,6 +41,7 @@ namespace VanAn.ShopERP.Services
             _jwtTokenService = jwtTokenService;
             _authStateProvider = authStateProvider;
             _logger = logger;
+            _configuration = configuration;
             _httpClient.BaseAddress = new Uri(configuration["Gateway:BaseUrl"] ?? "http://localhost:5001");
         }
 
@@ -105,6 +107,14 @@ namespace VanAn.ShopERP.Services
 
         /// <summary>#130: Get Gateway base URL for direct browser→Gateway fetch.</summary>
         public string GatewayBaseUrl => _httpClient.BaseAddress?.ToString().TrimEnd('/') ?? string.Empty;
+
+        /// <summary>#130: Get PUBLIC Gateway base URL for browser JS fetch.
+        ///  GatewayBaseUrl returns VPC internal IP (http://10.148.0.2:80) which browser
+        ///  CANNOT reach from internet. PublicGatewayBaseUrl returns https://api2.{domain}
+        ///  which browser can reach. Falls back to GatewayBaseUrl if not configured.</summary>
+        public string PublicGatewayBaseUrl =>
+            (_configuration["Gateway:PublicBaseUrl"] ?? string.Empty).TrimEnd('/')
+            ?? string.Empty;
 
         public async Task<PresignUploadResultDto> PresignUploadAsync(string contentType = "image/jpeg", CancellationToken ct = default)
         {

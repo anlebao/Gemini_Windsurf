@@ -320,6 +320,33 @@
             </Authorized>
         </AuthorizeView>
 
+        @* == Hướng dẫn sử dụng == SystemAdmin only (protected /guides/*) *@
+        <AuthorizeView Roles="SystemAdmin">
+            <Authorized>
+                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">Hướng dẫn</div>
+                <div class="nav-item px-3">
+                    <a class="nav-link" href="guides/KhachLink_Multi_Profile_Usage_Guide.html" target="_blank" rel="noopener">
+                        <span class="bi bi-grid-nav-menu" aria-hidden="true"></span> KhachLink Multi-Profile
+                    </a>
+                </div>
+                <div class="nav-item px-3">
+                    <a class="nav-link" href="guides/CRM_Loyalty_Guide.html" target="_blank" rel="noopener">
+                        <span class="bi bi-award-nav-menu" aria-hidden="true"></span> CRM &amp; Loyalty
+                    </a>
+                </div>
+                <div class="nav-item px-3">
+                    <a class="nav-link" href="guides/VALCN_V2_Platform_User_Guide.html" target="_blank" rel="noopener">
+                        <span class="bi bi-toggles-nav-menu" aria-hidden="true"></span> VALCN v2.0 Platform
+                    </a>
+                </div>
+                <div class="nav-item px-3">
+                    <a class="nav-link" href="guides/community-commerce/README.html" target="_blank" rel="noopener">
+                        <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Community Commerce
+                    </a>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
         @* == CRM & Loyalty (Cross-tenant) == SystemAdmin only *@
         <AuthorizeView Roles="SystemAdmin">
             <Authorized>

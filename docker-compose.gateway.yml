@@ -85,6 +85,10 @@ services:
       # #126 Guard QR Verify — R1 complete, feature flag ON for production test.
       # Default true (R1 deployed). Override via .env.gateway GUARD_QR_VERIFY_ENABLED=false to disable.
       - Guard__QrVerifyEnabled=${GUARD_QR_VERIFY_ENABLED:-true}
+      # #130: Photo compression config (SystemAdmin adjustable via env vars)
+      - Guard__PhotoMaxDimension=${GUARD_PHOTO_MAX_DIMENSION:-1024}
+      - Guard__PhotoJpegQuality=${GUARD_PHOTO_JPEG_QUALITY:-0.7}
+      - Guard__MaxPhotoSizeKB=${GUARD_PHOTO_MAX_SIZE_KB:-100}
       # KhachLink Multi-Profile R1 — feature flag (default OFF = no-op, existing behavior preserved)
       # Set KHACHLINK_MULTIPROFILE_ENABLED=true in .env.gateway to enable multi-domain routing + profile-based NavFlags
       - KhachLink__MultiProfileEnabled=${KHACHLINK_MULTIPROFILE_ENABLED:-false}

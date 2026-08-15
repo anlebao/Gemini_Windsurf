@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Hướng dẫn Staff — Community Commerce</title>
+  <style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+</style>
+  <style type="text/css">
+@page { margin: 1.5cm 2cm; }
+* { box-sizing: border-box; }
+body {
+font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+font-size: 11pt;
+line-height: 1.55;
+color: #1f2937;
+max-width: 900px;
+margin: 0 auto;
+padding: 2rem 1rem;
+background: #fff;
+}
+h1 {
+font-size: 22pt;
+color: #0f766e;
+border-bottom: 3px solid #0f766e;
+padding-bottom: 0.4rem;
+margin-top: 0;
+}
+h2 {
+font-size: 16pt;
+color: #0f766e;
+border-left: 4px solid #14b8a6;
+padding-left: 0.6rem;
+margin-top: 2rem;
+page-break-after: avoid;
+}
+h3 {
+font-size: 13pt;
+color: #334155;
+margin-top: 1.4rem;
+page-break-after: avoid;
+}
+h4 {
+font-size: 11.5pt;
+color: #475569;
+margin-top: 1rem;
+page-break-after: avoid;
+}
+p { margin: 0.5rem 0; }
+a { color: #0f766e; text-decoration: none; }
+a:hover { text-decoration: underline; }
+code {
+font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+background: #f1f5f9;
+padding: 0.1rem 0.35rem;
+border-radius: 3px;
+font-size: 9.5pt;
+color: #be123c;
+}
+pre {
+background: #0f172a;
+color: #e2e8f0;
+padding: 1rem;
+border-radius: 6px;
+overflow-x: auto;
+font-size: 9.5pt;
+line-height: 1.4;
+}
+pre code { background: transparent; color: inherit; padding: 0; }
+blockquote {
+border-left: 4px solid #14b8a6;
+background: #f0fdfa;
+padding: 0.6rem 1rem;
+margin: 1rem 0;
+color: #134e4a;
+border-radius: 0 4px 4px 0;
+}
+blockquote p { margin: 0.3rem 0; }
+table {
+border-collapse: collapse;
+width: 100%;
+margin: 1rem 0;
+font-size: 10pt;
+page-break-inside: avoid;
+}
+th {
+background: #0f766e;
+color: #fff;
+text-align: left;
+padding: 0.55rem 0.7rem;
+font-weight: 600;
+border: 1px solid #0f766e;
+}
+td {
+padding: 0.5rem 0.7rem;
+border: 1px solid #e2e8f0;
+vertical-align: top;
+}
+tr:nth-child(even) td { background: #f8fafc; }
+tr:hover td { background: #f0fdfa; }
+hr {
+border: none;
+border-top: 1px solid #cbd5e1;
+margin: 2rem 0;
+}
+ul, ol { padding-left: 1.5rem; }
+li { margin: 0.25rem 0; }
+strong { color: #0f172a; }
+
+h2 + ul, h2 + ol { page-break-before: avoid; }
+
+@media print {
+body { font-size: 10pt; max-width: none; padding: 0; }
+h2 { page-break-before: auto; }
+table, pre, blockquote { page-break-inside: avoid; }
+a { color: #0f766e; }
+}
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Hướng dẫn Staff — Community Commerce</h1>
+</header>
+<h1 id="hướng-dẫn-staff-nhân-viên-quầypos">HƯỚNG DẪN STAFF — NHÂN VIÊN
+QUẦY/POS</h1>
+<blockquote>
+<p><strong>Đối tượng:</strong> Nhân viên quầy / POS của tenant (cửa hàng
+F&amp;B) — role <code>Staff</code> trong UserRole enum. <strong>Đăng
+nhập:</strong> Tài khoản Staff tại <code>https://khachvip.online</code>
+(ShopERP Blazor Server, cookie auth, role = Staff). <strong>Phạm
+vi:</strong> Tenant của mình — xử lý order tại quầy, POS, hỗ trợ
+settlement.</p>
+</blockquote>
+<hr />
+<h2 id="mục-lục">MỤC LỤC</h2>
+<ol type="1">
+<li><a href="#1-tổng-quan-vai-trò">Tổng quan vai trò</a></li>
+<li><a href="#2-order-management--nhận--confirm-đơn">Order Management —
+nhận + confirm đơn</a></li>
+<li><a href="#3-pos--bán-hàng-tại-quầy-dine-intakeaway">POS — bán hàng
+tại quầy (Dine-in/Takeaway)</a></li>
+<li><a href="#4-order-status-transitions-staff-perspective">Order status
+transitions (Staff perspective)</a></li>
+<li><a href="#5-hỗ-trợ-settlement-marketplace-vs-reseller">Hỗ trợ
+Settlement (Marketplace vs Reseller)</a></li>
+<li><a href="#6-coordination-với-kitchen--shipper">Coordination với
+Kitchen + Shipper</a></li>
+<li><a href="#7-faq">FAQ</a></li>
+</ol>
+<hr />
+<h2 id="tổng-quan-vai-trò">1. TỔNG QUAN VAI TRÒ</h2>
+<p>Staff là nhân viên quầy/POS của tenant — xử lý order từ customer
+(delivery + dine-in + takeaway), điều phối kitchen, hỗ trợ settlement
+với shipper/Vạn An.</p>
+<p><strong>UserRole enum (tenant RBAC — KHÔNG phải
+CommunityRole):</strong> - Owner (chủ cửa hàng) - StoreKeeper (thủ kho)
+- Guard (bảo vệ) - <strong>Staff</strong> (nhân viên quầy/POS) -
+Masterchef (bếp trưởng)</p>
+<blockquote>
+<p><strong>Lưu ý:</strong> Shipper/Salesman KHÔNG nằm trong UserRole
+enum — họ là CommunityRole (cross-tenant, tách biệt). Staff là role
+tenant-scoped.</p>
+</blockquote>
+<p><strong>Kiến trúc data flow:</strong> - Orders trên <strong>Gateway
+PG</strong> (source of truth) → NATS routed → ShopERP SQLite (replica
+cho POS/kitchen display). - Staff thao tác qua ShopERP Admin (Blazor
+Server, cookie auth).</p>
+<hr />
+<h2 id="order-management-nhận-confirm-đơn">2. ORDER MANAGEMENT — NHẬN +
+CONFIRM ĐƠN</h2>
+<h3 id="truy-cập">2.1. Truy cập</h3>
+<p>Đăng nhập Staff → <code>/admin/orders</code> (hoặc trang Order
+Management tương ứng).</p>
+<h3 id="order-types">2.2. Order types</h3>
+<table>
+<thead>
+<tr>
+<th>OrderType</th>
+<th>Flow</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DELIVERY</td>
+<td>Customer đặt qua KhachLink → shipper giao</td>
+</tr>
+<tr>
+<td>DINEIN</td>
+<td>Customer ăn tại quán → Staff tạo order POS</td>
+</tr>
+<tr>
+<td>TAKEAWAY</td>
+<td>Customer mang đi → Staff tạo order POS</td>
+</tr>
+</tbody>
+</table>
+<h3 id="nhận-đơn-delivery-từ-khachlink">2.3. Nhận đơn Delivery (từ
+KhachLink)</h3>
+<ol type="1">
+<li>Customer đặt hàng qua KhachLink → Order created trên Gateway PG
+(status=<code>confirmed</code> hoặc <code>pending</code>).</li>
+<li>NATS routed → ShopERP SQLite (replica).</li>
+<li>Staff thấy order mới trong Order Management (real-time qua OrderHub
+SignalR).</li>
+<li>Staff <strong>confirm</strong> order (nếu status=pending) →
+status=<code>confirmed</code> → kitchen nhận (KitchenHub push).</li>
+<li>Kitchen chuẩn bị → status=<code>preparing</code> → xong →
+status=<code>ready</code>.</li>
+<li>Shipper thấy đơn <code>ready</code> trong Nearby Orders → accept →
+status=<code>delivering</code>.</li>
+<li>Shipper delivered → status=<code>completed</code>.</li>
+</ol>
+<h3 id="tạo-order-pos-dine-intakeaway">2.4. Tạo order POS
+(Dine-in/Takeaway)</h3>
+<ol type="1">
+<li>Staff bấm <strong>Tạo đơn</strong> → chọn products từ menu.</li>
+<li>Chọn OrderType (DINEIN/TAKEAWAY) + table (nếu dine-in).</li>
+<li>Nhập customer info (tên, SĐT — optional cho dine-in).</li>
+<li>Apply discount/promo (nếu có).</li>
+<li><strong>Confirm</strong> → Order created → kitchen nhận (KitchenHub
+push).</li>
+<li>Customer thanh toán tại quầy (cash/card/QR) → Staff confirm
+payment.</li>
+</ol>
+<hr />
+<h2 id="pos-bán-hàng-tạu-quầy-dine-intakeaway">3. POS — BÁN HÀNG TẠU
+QUẦY (DINE-IN/TAKEAWAY)</h2>
+<h3 id="pos-flow">3.1. POS flow</h3>
+<ol type="1">
+<li>Staff mở POS page → chọn products (tap vào menu items).</li>
+<li>Cart hiển thị: items, qty, price, total.</li>
+<li>Chọn OrderType: DINEIN (chọn table) / TAKEAWAY.</li>
+<li>Apply promo code / discount (nếu có).</li>
+<li>Customer thanh toán:
+<ul>
+<li><strong>Cash:</strong> Staff nhập amount nhận → tính thối.</li>
+<li><strong>Card:</strong> Staff quẹt card / nhập amount.</li>
+<li><strong>QR (VietQR):</strong> Customer quét QR → Staff confirm nhận
+tiền.</li>
+</ul></li>
+<li><strong>Confirm order</strong> → Order created + payment confirmed →
+kitchen nhận.</li>
+<li>In bill / KOT (Kitchen Order Ticket) — optional.</li>
+</ol>
+<h3 id="pos-vs-delivery">3.2. POS vs Delivery</h3>
+<table>
+<thead>
+<tr>
+<th>Khía cạnh</th>
+<th>POS (Dine-in/Takeaway)</th>
+<th>Delivery</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Source</td>
+<td>Staff tạo</td>
+<td>Customer đặt qua KhachLink</td>
+</tr>
+<tr>
+<td>Payment</td>
+<td>Tại quầy (cash/card/QR)</td>
+<td>COD (shipper thu) hoặc online</td>
+</tr>
+<tr>
+<td>Shipper</td>
+<td>Không cần</td>
+<td>Cần shipper accept + giao</td>
+</tr>
+<tr>
+<td>Kitchen</td>
+<td>KitchenHub push</td>
+<td>KitchenHub push</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="order-status-transitions-staff-perspective">4. ORDER STATUS
+TRANSITIONS (STAFF PERSPECTIVE)</h2>
+<pre><code>pending → confirmed → preparing → ready → delivering → completed
+                                                       ↘ cancelled</code></pre>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Ai chuyển</th>
+<th>Staff action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pending</td>
+<td>Staff</td>
+<td>Confirm đơn (nếu cần)</td>
+</tr>
+<tr>
+<td>confirmed</td>
+<td>Staff/Kitchen</td>
+<td>Kitchen nhận tự động</td>
+</tr>
+<tr>
+<td>preparing</td>
+<td>Kitchen</td>
+<td>(Staff chỉ xem)</td>
+</tr>
+<tr>
+<td>ready</td>
+<td>Kitchen</td>
+<td>Staff thông báo shipper / customer đến lấy</td>
+</tr>
+<tr>
+<td>delivering</td>
+<td>Shipper</td>
+<td>(Staff chỉ xem)</td>
+</tr>
+<tr>
+<td>completed</td>
+<td>Shipper (delivery) / Staff (POS)</td>
+<td>Đơn xong</td>
+</tr>
+<tr>
+<td>cancelled</td>
+<td>Staff/Owner</td>
+<td>Hủy đơn + hoàn tiền (nếu đã thanh toán)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="staff-confirm-order">4.1. Staff confirm order</h3>
+<ul>
+<li>Delivery: confirm → kitchen nhận.</li>
+<li>POS: tạo + confirm 1 bước (payment confirmed luôn).</li>
+</ul>
+<h3 id="cancel-order">4.2. Cancel order</h3>
+<ul>
+<li>Staff/Owner có quyền cancel.</li>
+<li>Nếu đã thanh toán (POS) → hoàn tiền (Reversal / refund).</li>
+<li>Nếu COD (delivery) → thông báo shipper không giao.</li>
+</ul>
+<hr />
+<h2 id="hỗ-trợ-settlement-marketplace-vs-reseller">5. HỖ TRỢ SETTLEMENT
+(MARKETPLACE VS RESELLER)</h2>
+<h3 id="marketplace-shipper-shop-trực-tiếp">5.1. Marketplace — Shipper ↔︎
+Shop trực tiếp</h3>
+<ol type="1">
+<li>Shipper thu COD từ customer.</li>
+<li>Shipper confirm COD → Settlement record tạo.</li>
+<li><strong>Staff/Owner xác nhận nhận tiền</strong> từ shipper →
+<code>WalletTransaction(Settlement)</code> -amount shipper, +amount
+shop.</li>
+<li>Nếu shipper ứng tiền (AdvancePayment): Staff xác nhận nhận advance →
+<code>WalletTransaction(AdvancePayment)</code> +amount shop.</li>
+</ol>
+<h3 id="reseller-tất-cả-qua-vạn-an-wallet">5.2. Reseller — Tất cả qua
+Vạn An wallet</h3>
+<ol type="1">
+<li>Shipper thu COD → confirm → Vạn An nhận (6 transactions).</li>
+<li>Settlement: Vạn An wallet → Shop wallet
+(<code>WalletTransaction.Settlement)</code>).</li>
+<li><strong>Staff/Owner xác nhận nhận tiền</strong> từ Vạn An
+wallet.</li>
+<li>AdvancePayment: Vạn An ứng trước → Staff xác nhận nhận advance.</li>
+<li>Staff không deal trực tiếp với shipper về tiền — tất cả qua Vạn
+An.</li>
+</ol>
+<h3 id="staff-role-trong-settlement">5.3. Staff role trong
+settlement</h3>
+<ul>
+<li>Staff <strong>xác nhận nhận tiền</strong> (confirm settlement) —
+không tự tạo transaction.</li>
+<li>Owner có quyền cao hơn (xem full settlement history,
+approve/reject).</li>
+<li>Nếu sai → Reversal pattern (admin tạo, không Staff).</li>
+</ul>
+<hr />
+<h2 id="coordination-với-kitchen-shipper">6. COORDINATION VỚI KITCHEN +
+SHIPPER</h2>
+<h3 id="với-kitchen">6.1. Với Kitchen</h3>
+<ul>
+<li>Staff tạo/confirm order → <strong>KitchenHub push</strong> real-time
+→ bếp thấy order mới.</li>
+<li>Kitchen <code>ready</code> → Staff thấy status update → thông báo
+shipper/customer.</li>
+<li>Nếu đổi món / hủy → Staff update order → KitchenHub push
+update.</li>
+</ul>
+<h3 id="với-shipper">6.2. Với Shipper</h3>
+<ul>
+<li>Staff KHÔNG trực tiếp assign shipper — shipper tự accept từ Nearby
+Orders.</li>
+<li>Staff thấy shipper nào accept (Order.ShipperId).</li>
+<li>Staff hỗ trợ shipper: đưa hàng, confirm pickup (nếu cần), chat qua
+KhachLink (nếu Staff cũng có customer account).</li>
+</ul>
+<h3 id="với-customer-delivery">6.3. Với Customer (Delivery)</h3>
+<ul>
+<li>Staff không chat trực tiếp (chat là Customer ↔︎ Shipper).</li>
+<li>Staff liên hệ customer qua SĐT (nếu cần) — xem order detail.</li>
+<li>Customer tracking shipper qua KhachLink (GPS + map).</li>
+</ul>
+<hr />
+<h2 id="faq">7. FAQ</h2>
+<p><strong>Q: Staff có thể kích hoạt role Shipper/Salesman
+không?</strong> A: KHÔNG trực tiếp. Staff là tenant role. Nếu Staff cũng
+là Customer trên KhachLink + đạt điều kiện → System Admin kích hoạt
+CommunityRole (tách biệt với tenant role).</p>
+<p><strong>Q: POS có hỗ trợ Reseller mode không?</strong> A: POS
+(Dine-in/Takeaway) không phụ thuộc mode — customer trả trực tiếp tại
+quầy. Mode chỉ affect Delivery COD flow.</p>
+<p><strong>Q: Staff có thể hủy đơn không?</strong> A: CÓ (nếu Owner cho
+phép). Cancel → hoàn tiền nếu đã thanh toán. Thông báo shipper không
+giao (nếu delivery).</p>
+<p><strong>Q: Đơn Delivery từ KhachLink, Staff cần làm gì?</strong> A:
+Confirm đơn (nếu status=pending) → kitchen nhận tự động. Khi kitchen
+<code>ready</code> → thông báo shipper (shipper tự thấy trong Nearby
+Orders).</p>
+<p><strong>Q: Settlement sai, Staff sửa được không?</strong> A: KHÔNG.
+WalletTransaction immutable. Báo Owner/SystemAdmin → tạo Reversal
+pattern (append-only).</p>
+<p><strong>Q: Staff thấy data tenant khác không?</strong> A: KHÔNG.
+Staff tenant-scoped (cookie auth + role claims + HasQueryFilter
+IMustHaveTenant.TenantId).</p>
+<hr />
+<blockquote>
+<p><strong>Xem thêm:</strong> <a href="./README.md">README index</a> |
+<a href="./02-owner.md">Shop Owner</a> | <a href="./06-kitchen.md">Kitchen</a> | <a href="./04-shipper.md">Shipper</a></p>
+</blockquote>
+</body>
+</html>

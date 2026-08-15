@@ -195,6 +195,15 @@
                                                 <i class="bi bi-eye me-1"></i> Xem trang cửa hàng
                                             </VanAnButton>
                                         }
+                                        @if (!string.IsNullOrEmpty(store.KhachLinkDomain))
+                                        {
+                                            <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary"
+                                                         OnClick="@(() => Navigation.NavigateTo(
+                                                             $"https://{store.KhachLinkDomain}/store/{store.Slug ?? store.Id.ToString()}",
+                                                             forceLoad: true))">
+                                                <i class="bi bi-box-arrow-up-right me-1"></i> Tìm hiểu
+                                            </VanAnButton>
+                                        }
                                     </div>
                                 </div>
                             </div>
@@ -496,6 +505,7 @@
         public double? Longitude { get; set; }
         public double? DistanceKm { get; set; }
         public string? Slug { get; set; }
+        public string? KhachLinkDomain { get; set; }
     }
 
     public class GeolocationResult

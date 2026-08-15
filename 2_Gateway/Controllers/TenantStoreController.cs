@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 
@@ -140,10 +141,13 @@ namespace VanAn.Gateway.Controllers
                     .Select(t => new { Tenant = t, Distance = HaversineKm(lat.Value, lng.Value, t.Settings!.Latitude!.Value, t.Settings!.Longitude!.Value) })
                     .Where(x => x.Distance <= radiusKm)
                     .OrderBy(x => x.Distance)
-                    .Select(x => MapToStoreDto(x.Tenant, x.Distance))
                     .ToList();
 
-                return Ok(nearby);
+                // Batch query KhachLink instances for nearby tenants (1 query, no N+1)
+                var nearbyTenantIds = nearby.Select(x => x.Tenant.Id.Value).ToList();
+                var khachLinkDomainMap = await BuildKhachLinkDomainMapAsync(nearbyTenantIds);
+
+                return Ok(nearby.Select(x => MapToStoreDto(x.Tenant, x.Distance, khachLinkDomainMap)).ToList());
             }
             catch (Exception ex)
             {
@@ -199,6 +203,10 @@ namespace VanAn.Gateway.Controllers
                         .ToList();
                 }
 
+                // Batch query KhachLink instances for all matched tenants (1 query, no N+1)
+                var tenantIds = tenants.Select(t => t.Id.Value).ToList();
+                var khachLinkDomainMap = await BuildKhachLinkDomainMapAsync(tenantIds);
+
                 // If user location provided, compute distance for each store
                 double? userLat = lat, userLng = lng;
                 return Ok(tenants.Select(t =>
@@ -209,7 +217,7 @@ namespace VanAn.Gateway.Controllers
                     {
                         dist = HaversineKm(userLat.Value, userLng.Value, t.Settings!.Latitude!.Value, t.Settings!.Longitude!.Value);
                     }
-                    return MapToStoreDto(t, dist);
+                    return MapToStoreDto(t, dist, khachLinkDomainMap);
                 }).ToList());
             }
             catch (Exception ex)
@@ -219,7 +227,8 @@ namespace VanAn.Gateway.Controllers
             }
         }
 
-        private static TenantStoreDto MapToStoreDto(Tenant t, double? distanceKm = null) => new()
+        private static TenantStoreDto MapToStoreDto(Tenant t, double? distanceKm = null,
+            Dictionary<Guid, string>? khachLinkDomainMap = null) => new()
         {
             Id = t.Id.Value,
             Name = t.Name,
@@ -237,8 +246,32 @@ namespace VanAn.Gateway.Controllers
             Theme = t.Settings?.Theme ?? ThemeType.Classic,
             NavColor = t.Settings?.NavColor,
             HeaderColor = t.Settings?.HeaderColor,
-            FooterColor = t.Settings?.FooterColor
+            FooterColor = t.Settings?.FooterColor,
+            KhachLinkDomain = khachLinkDomainMap?.GetValueOrDefault(t.Id.Value)
         };
+
+        /// <summary>
+        /// Batch query KhachLink instances for given tenant IDs.
+        /// Returns map of OwnerTenantId → CustomDomain for active non-Directory instances.
+        /// Uses GroupBy to handle tenants with multiple instances (prefers FullCommerce > Reseller).
+        /// </summary>
+        private async Task<Dictionary<Guid, string>> BuildKhachLinkDomainMapAsync(List<Guid> tenantIds)
+        {
+            if (tenantIds.Count == 0)
+                return new Dictionary<Guid, string>();
+
+            return (await _dbContext.KhachLinkInstances
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .Where(i => i.OwnerTenantId != null
+                    && tenantIds.Contains(i.OwnerTenantId.Value)
+                    && i.IsActive
+                    && i.Profile != KhachLinkProfile.Directory)
+                .OrderBy(i => i.Profile) // FullCommerce=0, Reseller=4 — prefer FullCommerce
+                .ToListAsync())
+                .GroupBy(i => i.OwnerTenantId!.Value)
+                .ToDictionary(g => g.Key, g => g.First().CustomDomain);
+        }
 
         private static double HaversineKm(double lat1, double lng1, double lat2, double lng2)
         {
@@ -275,5 +308,10 @@ namespace VanAn.Gateway.Controllers
         public string? NavColor { get; init; }
         public string? HeaderColor { get; init; }
         public string? FooterColor { get; init; }
+
+        /// <summary>Directory redirect: KhachLink instance CustomDomain for this tenant (if any).
+        /// Null = tenant has no KhachLink instance → "Tìm hiểu" button hidden.
+        /// Non-null = button redirects to https://{KhachLinkDomain}/store/{slug}</summary>
+        public string? KhachLinkDomain { get; init; }
     }
 }

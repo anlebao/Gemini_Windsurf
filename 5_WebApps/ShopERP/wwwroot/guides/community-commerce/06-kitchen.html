@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Hướng dẫn Bếp/Kitchen — Community Commerce</title>
+  <style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+</style>
+  <style type="text/css">
+@page { margin: 1.5cm 2cm; }
+* { box-sizing: border-box; }
+body {
+font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+font-size: 11pt;
+line-height: 1.55;
+color: #1f2937;
+max-width: 900px;
+margin: 0 auto;
+padding: 2rem 1rem;
+background: #fff;
+}
+h1 {
+font-size: 22pt;
+color: #0f766e;
+border-bottom: 3px solid #0f766e;
+padding-bottom: 0.4rem;
+margin-top: 0;
+}
+h2 {
+font-size: 16pt;
+color: #0f766e;
+border-left: 4px solid #14b8a6;
+padding-left: 0.6rem;
+margin-top: 2rem;
+page-break-after: avoid;
+}
+h3 {
+font-size: 13pt;
+color: #334155;
+margin-top: 1.4rem;
+page-break-after: avoid;
+}
+h4 {
+font-size: 11.5pt;
+color: #475569;
+margin-top: 1rem;
+page-break-after: avoid;
+}
+p { margin: 0.5rem 0; }
+a { color: #0f766e; text-decoration: none; }
+a:hover { text-decoration: underline; }
+code {
+font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+background: #f1f5f9;
+padding: 0.1rem 0.35rem;
+border-radius: 3px;
+font-size: 9.5pt;
+color: #be123c;
+}
+pre {
+background: #0f172a;
+color: #e2e8f0;
+padding: 1rem;
+border-radius: 6px;
+overflow-x: auto;
+font-size: 9.5pt;
+line-height: 1.4;
+}
+pre code { background: transparent; color: inherit; padding: 0; }
+blockquote {
+border-left: 4px solid #14b8a6;
+background: #f0fdfa;
+padding: 0.6rem 1rem;
+margin: 1rem 0;
+color: #134e4a;
+border-radius: 0 4px 4px 0;
+}
+blockquote p { margin: 0.3rem 0; }
+table {
+border-collapse: collapse;
+width: 100%;
+margin: 1rem 0;
+font-size: 10pt;
+page-break-inside: avoid;
+}
+th {
+background: #0f766e;
+color: #fff;
+text-align: left;
+padding: 0.55rem 0.7rem;
+font-weight: 600;
+border: 1px solid #0f766e;
+}
+td {
+padding: 0.5rem 0.7rem;
+border: 1px solid #e2e8f0;
+vertical-align: top;
+}
+tr:nth-child(even) td { background: #f8fafc; }
+tr:hover td { background: #f0fdfa; }
+hr {
+border: none;
+border-top: 1px solid #cbd5e1;
+margin: 2rem 0;
+}
+ul, ol { padding-left: 1.5rem; }
+li { margin: 0.25rem 0; }
+strong { color: #0f172a; }
+
+h2 + ul, h2 + ol { page-break-before: avoid; }
+
+@media print {
+body { font-size: 10pt; max-width: none; padding: 0; }
+h2 { page-break-before: auto; }
+table, pre, blockquote { page-break-inside: avoid; }
+a { color: #0f766e; }
+}
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Hướng dẫn Bếp/Kitchen — Community Commerce</h1>
+</header>
+<h1 id="hướng-dẫn-bếp-kitchen-kitchen-display">HƯỚNG DẪN BẾP / KITCHEN —
+KITCHEN DISPLAY</h1>
+<blockquote>
+<p><strong>Đối tượng:</strong> Bếp / Kitchen Staff — role
+<code>Masterchef</code> (bếp trưởng) hoặc nhân viên bếp trong tenant.
+<strong>Đăng nhập:</strong> Tài khoản Masterchef/Kitchen tại
+<code>https://khachvip.online</code> (ShopERP Blazor Server, cookie
+auth). <strong>Phạm vi:</strong> Tenant của mình — nhận order từ POS +
+Delivery, chuẩn bị, báo ready.</p>
+</blockquote>
+<hr />
+<h2 id="mục-lục">MỤC LỤC</h2>
+<ol type="1">
+<li><a href="#1-tổng-quan-vai-trò">Tổng quan vai trò</a></li>
+<li><a href="#2-kitchen-display-system-kds">Kitchen Display System
+(KDS)</a></li>
+<li><a href="#3-nhận-order-real-time-kitchenhub">Nhận order real-time
+(KitchenHub)</a></li>
+<li><a href="#4-order-status-transitions-kitchen-perspective">Order
+status transitions (Kitchen perspective)</a></li>
+<li><a href="#5-báo-ready--thông-báo-shipperstaff">Báo ready — thông báo
+shipper/staff</a></li>
+<li><a href="#6-coordination-với-staff--shipper">Coordination với Staff
++ Shipper</a></li>
+<li><a href="#7-faq">FAQ</a></li>
+</ol>
+<hr />
+<h2 id="tổng-quan-vai-trò">1. TỔNG QUAN VAI TRÒ</h2>
+<p>Bếp/Kitchen nhận order từ 2 nguồn: - <strong>POS
+(Dine-in/Takeaway):</strong> Staff tạo order tại quầy → KitchenHub push.
+- <strong>Delivery (KhachLink):</strong> Customer đặt online → Staff
+confirm → KitchenHub push.</p>
+<p>Bếp chuẩn bị → báo <code>ready</code> → shipper (delivery) hoặc
+customer (dine-in/takeaway) nhận.</p>
+<p><strong>UserRole enum:</strong> - <strong>Masterchef</strong> (bếp
+trưởng) — quyền cao nhất kitchen. - Staff (nhân viên quầy) — có thể cũng
+thao tác kitchen nếu tenant nhỏ.</p>
+<p><strong>Kiến trúc:</strong> - Orders trên <strong>Gateway PG</strong>
+(source of truth) → NATS routed → ShopERP SQLite (replica cho kitchen
+display). - <strong>KitchenHub</strong> (SignalR) push real-time khi
+order mới / status change.</p>
+<hr />
+<h2 id="kitchen-display-system-kds">2. KITCHEN DISPLAY SYSTEM (KDS)</h2>
+<h3 id="truy-cập">2.1. Truy cập</h3>
+<p>Đăng nhập Masterchef → <code>/admin/kitchen</code> (hoặc trang
+Kitchen Display tương ứng).</p>
+<h3 id="layout">2.2. Layout</h3>
+<p>Kitchen Display thường hiển thị dạng <strong>kanban board</strong>
+hoặc <strong>list</strong>: - <strong>Columns/sections:</strong> theo
+status (New/Preparing/Ready) - <strong>Cards:</strong> mỗi order là 1
+card — hiện order #, items, qty, notes, time elapsed, table (dine-in) /
+address (delivery) - <strong>Color coding:</strong> - New (vừa nhận) —
+xanh - Preparing (đang làm) — vàng - Ready (xong) — xanh lá - Overdue
+(quá lâu) — đỏ (alert)</p>
+<h3 id="card-info">2.3. Card info</h3>
+<p>Mỗi order card hiện: - Order # (short ID) - OrderType
+(DELIVERY/DINEIN/TAKEAWAY) - Items list: product name, qty, modifiers
+(vd “Không hành”, “Ít cay”) - Notes (special requests) - Time elapsed
+(timer — alert nếu quá lâu) - Table (dine-in) / Delivery address
+(delivery) - Customer name (nếu có)</p>
+<hr />
+<h2 id="nhận-order-real-time-kitchenhub">3. NHẬN ORDER REAL-TIME
+(KITCHENHUB)</h2>
+<h3 id="kitchenhub-signalr">3.1. KitchenHub (SignalR)</h3>
+<ul>
+<li>Khi Staff tạo/confirm order → <strong>KitchenHub push</strong>
+real-time → bếp thấy card mới ngay lập tức.</li>
+<li>Không cần refresh page — SignalR WebSocket persistent.</li>
+<li>Auth: cookie auth (ShopERP Blazor Server) — không cần
+X-Customer-Token.</li>
+</ul>
+<h3 id="order-sources">3.2. Order sources</h3>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Source</th>
+<th>Flow</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>POS (Dine-in)</td>
+<td>Staff tạo + confirm → KitchenHub push</td>
+</tr>
+<tr>
+<td>POS (Takeaway)</td>
+<td>Staff tạo + confirm → KitchenHub push</td>
+</tr>
+<tr>
+<td>Delivery (KhachLink)</td>
+<td>Customer đặt → Staff confirm → KitchenHub push</td>
+</tr>
+</tbody>
+</table>
+<h3 id="update-từ-kitchen">3.3. Update từ kitchen</h3>
+<p>Khi bếp chuyển status (New → Preparing → Ready) → KitchenHub push
+update → Staff/Shipper thấy real-time.</p>
+<hr />
+<h2 id="order-status-transitions-kitchen-perspective">4. ORDER STATUS
+TRANSITIONS (KITCHEN PERSPECTIVE)</h2>
+<pre><code>confirmed → preparing → ready</code></pre>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Status</th>
+<th>Ai chuyển</th>
+<th>Kitchen action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>confirmed</td>
+<td>Staff</td>
+<td>Kitchen nhận tự động (KitchenHub push)</td>
+</tr>
+<tr>
+<td>preparing</td>
+<td>Kitchen</td>
+<td>Bếp bấm “Bắt đầu làm” → status=preparing</td>
+</tr>
+<tr>
+<td>ready</td>
+<td>Kitchen</td>
+<td>Bếp bấm “Xong” → status=ready → thông báo shipper/staff</td>
+</tr>
+</tbody>
+</table>
+<h3 id="bếp-bắt-đầu-làm">4.1. Bếp “Bắt đầu làm”</h3>
+<ol type="1">
+<li>Bếp thấy card mới (status=confirmed).</li>
+<li>Bấm <strong>“Bắt đầu làm”</strong> → status=<code>preparing</code> →
+timer bắt đầu.</li>
+<li>Card chuyển sang column “Preparing”.</li>
+</ol>
+<h3 id="bếp-xong-ready">4.2. Bếp “Xong” (Ready)</h3>
+<ol type="1">
+<li>Bếp xong món → bấm <strong>“Xong”</strong> →
+status=<code>ready</code>.</li>
+<li>Card chuyển sang column “Ready”.</li>
+<li><strong>KitchenHub push</strong> → Staff thấy ready → thông báo:
+<ul>
+<li>Delivery: shipper thấy đơn <code>ready</code> trong Nearby Orders →
+accept.</li>
+<li>Dine-in: Staff mang ra bàn.</li>
+<li>Takeaway: Staff gọi customer đến lấy.</li>
+</ul></li>
+</ol>
+<hr />
+<h2 id="báo-ready-thông-báo-shipperstaff">5. BÁO READY — THÔNG BÁO
+SHIPPER/STAFF</h2>
+<h3 id="delivery-shipper-tự-thấy">5.1. Delivery — shipper tự thấy</h3>
+<p>Khi kitchen <code>ready</code>: - Order status=<code>ready</code> →
+shipper thấy đơn trong Nearby Orders (status <code>ready</code>). -
+Shipper tự accept (UC-04) → không cần kitchen/staff assign. - Shipper
+đến shop lấy hàng → bấm “Đã nhận hàng” (UC-05).</p>
+<h3 id="dine-in-staff-mang-ra">5.2. Dine-in — Staff mang ra</h3>
+<p>Khi kitchen <code>ready</code>: - Staff thấy
+status=<code>ready</code> → mang món ra bàn. - Customer ăn → Staff
+confirm completed (hoặc tự động).</p>
+<h3 id="takeaway-customer-đến-lấy">5.3. Takeaway — Customer đến lấy</h3>
+<p>Khi kitchen <code>ready</code>: - Staff thấy
+status=<code>ready</code> → gọi customer (nếu customer đang chờ) hoặc
+customer đến lấy. - Staff confirm completed.</p>
+<hr />
+<h2 id="coordination-với-staff-shipper">6. COORDINATION VỚI STAFF +
+SHIPPER</h2>
+<h3 id="với-staff">6.1. Với Staff</h3>
+<ul>
+<li>Kitchen nhận order từ Staff (POS) hoặc Customer (Delivery, Staff
+confirm).</li>
+<li>Kitchen <code>ready</code> → Staff thấy real-time → điều phối (mang
+ra bàn / thông báo shipper).</li>
+<li>Nếu đổi món / hủy → Staff update order → KitchenHub push update →
+bếp thấy thay đổi.</li>
+</ul>
+<h3 id="với-shipper">6.2. Với Shipper</h3>
+<ul>
+<li>Kitchen KHÔNG trực tiếp liên hệ shipper.</li>
+<li>Shipper tự thấy đơn <code>ready</code> trong Nearby Orders → accept
+→ đến shop.</li>
+<li>Shipper bấm “Đã nhận hàng” (pickup) → kitchen/staff thấy
+status=<code>delivering</code>.</li>
+</ul>
+<h3 id="exception-handling">6.3. Exception handling</h3>
+<table>
+<thead>
+<tr>
+<th>Tình huống</th>
+<th>Xử lý</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hết nguyên liệu</td>
+<td>Báo Staff → Staff liên hệ customer đổi món / hủy</td>
+</tr>
+<tr>
+<td>Món làm sai</td>
+<td>Báo Staff → Staff quyết định (làm lại / hoàn tiền)</td>
+</tr>
+<tr>
+<td>Order quá lâu (overdue)</td>
+<td>Timer alert đỏ → ưu tiên làm</td>
+</tr>
+<tr>
+<td>Customer hủy đơn</td>
+<td>Staff cancel → KitchenHub push → bếp bỏ card</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="faq">7. FAQ</h2>
+<p><strong>Q: Bếp có cần đăng nhập Google / device fingerprint
+không?</strong> A: KHÔNG. Bếp dùng ShopERP Blazor Server (cookie auth,
+role Masterchef). Device fingerprint chỉ cho KhachLink PWA
+(customer/salesman/shipper).</p>
+<p><strong>Q: Bếp có thể chat với customer không?</strong> A: KHÔNG trực
+tiếp. Chat (UC-07) là Customer ↔︎ Shipper. Bếp báo Staff nếu cần liên hệ
+customer.</p>
+<p><strong>Q: Kitchen Display có trên mobile không?</strong> A: ShopERP
+Blazor Server responsive — có thể mở trên tablet/mobile browser. Nhưng
+PoC tối ưu cho desktop/tablet trong bếp.</p>
+<p><strong>Q: Đơn Delivery và Dine-in hiện chung không?</strong> A: Tùy
+config KDS — có thể filter theo OrderType, hoặc hiện chung với badge
+phân biệt (DELIVERY/DINEIN/TAKEAWAY).</p>
+<p><strong>Q: Bếp có thấy giá tiền không?</strong> A: Tùy config —
+thường KDS chỉ hiện items + qty + notes, không hiện giá (bếp không cần).
+POS Staff thấy giá.</p>
+<p><strong>Q: Mode Marketplace/Reseller ảnh hưởng kitchen
+không?</strong> A: KHÔNG. Kitchen chỉ quan tâm order + items + status.
+Mode affect financial flow (settlement/COD), không affect kitchen
+operations.</p>
+<p><strong>Q: Bếp có thể tự tạo order không?</strong> A: KHÔNG (PoC).
+Staff/Owner tạo order. Bếp chỉ nhận + chuẩn bị + báo ready. Post-PoC có
+thể thêm kitchen-initiated order (vd món test).</p>
+<hr />
+<blockquote>
+<p><strong>Xem thêm:</strong> <a href="./README.md">README index</a> |
+<a href="./02-owner.md">Shop Owner</a> | <a href="./05-staff.md">Staff</a> | <a href="./04-shipper.md">Shipper</a></p>
+</blockquote>
+</body>
+</html>

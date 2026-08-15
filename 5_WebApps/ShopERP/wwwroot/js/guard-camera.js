@@ -11,6 +11,9 @@ const _keepAliveKey = 'vanan_guard_keepalive';
 // JS-side photo storage — survives circuit disconnect (unlike Blazor state).
 const _capturedPhotos = { plate: null, customer: null };
 const _cameraActive = { plate: false, customer: false };
+// #130: Photo compression config — fetched from Gateway /api/guard/photo-config.
+// Default values used until config is fetched (loadPhotoConfig).
+const _photoConfig = { maxDimension: 1024, jpegQuality: 0.7, maxSizeKB: 100 };
 
 window.vananGuardCamera = {
     // === #126-fix: Circuit keep-alive — ping Blazor every 15s to prevent idle disconnect ===
@@ -117,6 +120,61 @@ window.vananGuardCamera = {
         }
     },
 
+    /** #130: Compress photo to target size. Resizes to maxDimension (keep aspect ratio)
+     *  and exports JPEG at quality. Iteratively reduces quality if still > maxSizeKB
+     *  until min quality 0.3. Returns compressed data URL or null on failure. */
+    async compressPhoto(dataUrl, maxDimension, quality, maxSizeKB) {
+        try {
+            const img = await new Promise((resolve, reject) => {
+                const i = new Image();
+                i.onload = () => resolve(i);
+                i.onerror = reject;
+                i.src = dataUrl;
+            });
+            // Resize: keep aspect ratio, cap at maxDimension
+            let w = img.width, h = img.height;
+            if (w > maxDimension || h > maxDimension) {
+                const ratio = Math.min(maxDimension / w, maxDimension / h);
+                w = Math.round(w * ratio);
+                h = Math.round(h * ratio);
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            // Iteratively reduce quality until under maxSizeKB (base64 ~1.37x binary size)
+            let q = quality;
+            let compressed = canvas.toDataURL('image/jpeg', q);
+            const targetBytes = maxSizeKB * 1024 * 1.37; // base64 overhead ~37%
+            while (compressed.length > targetBytes && q > 0.3) {
+                q = Math.max(0.3, q - 0.1);
+                compressed = canvas.toDataURL('image/jpeg', q);
+            }
+            return compressed;
+        } catch (err) {
+            console.error('Photo compression failed:', err);
+            return null;
+        }
+    },
+
+    /** #130: Fetch photo compression config from Gateway. Called on page load.
+     *  Stores in _photoConfig global. Falls back to defaults if fetch fails. */
+    async loadPhotoConfig(publicGatewayBaseUrl) {
+        try {
+            const resp = await fetch((publicGatewayBaseUrl || '') + '/api/guard/photo-config');
+            if (resp.ok) {
+                const cfg = await resp.json();
+                _photoConfig.maxDimension = cfg.maxDimension || 1024;
+                _photoConfig.jpegQuality = cfg.jpegQuality || 0.7;
+                _photoConfig.maxSizeKB = cfg.maxSizeKB || 100;
+            }
+        } catch (e) {
+            // Use defaults — config fetch is non-critical
+            console.warn('[Guard] Photo config fetch failed, using defaults:', e);
+        }
+    },
+
     /** Stop camera and release stream. */
     stopCamera() {
         if (_cameraStream) {
@@ -148,12 +206,19 @@ window.vananGuardCamera = {
         return ok;
     },
 
-    /** Capture photo for a slot. Pure JS — stores in _capturedPhotos, renders preview, stops camera. */
+    /** Capture photo for a slot. Pure JS — stores in _capturedPhotos, renders preview, stops camera.
+     *  #130: Compress photo before storing — reduces size from ~650KB to <100KB. */
     async captureAndStore(slot) {
         const videoId = slot === 'plate' ? 'plateVideo' : 'customerVideo';
-        const dataUrl = await this.capturePhoto(videoId);
-        if (!dataUrl) {
+        const rawUrl = await this.capturePhoto(videoId);
+        if (!rawUrl) {
             this._showError('Chụp ảnh thất bại. Đảm bảo camera đã mở và có hình.');
+            return false;
+        }
+        // #130: Compress photo to configured max size
+        const dataUrl = await this.compressPhoto(rawUrl, _photoConfig.maxDimension, _photoConfig.jpegQuality, _photoConfig.maxSizeKB);
+        if (!dataUrl) {
+            this._showError('Nén ảnh thất bại. Vui lòng chụp lại.');
             return false;
         }
         _capturedPhotos[slot] = dataUrl;

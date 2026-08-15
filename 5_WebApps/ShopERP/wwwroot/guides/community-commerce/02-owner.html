@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Hướng dẫn Shop Owner — Community Commerce</title>
+  <style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+</style>
+  <style type="text/css">
+@page { margin: 1.5cm 2cm; }
+* { box-sizing: border-box; }
+body {
+font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+font-size: 11pt;
+line-height: 1.55;
+color: #1f2937;
+max-width: 900px;
+margin: 0 auto;
+padding: 2rem 1rem;
+background: #fff;
+}
+h1 {
+font-size: 22pt;
+color: #0f766e;
+border-bottom: 3px solid #0f766e;
+padding-bottom: 0.4rem;
+margin-top: 0;
+}
+h2 {
+font-size: 16pt;
+color: #0f766e;
+border-left: 4px solid #14b8a6;
+padding-left: 0.6rem;
+margin-top: 2rem;
+page-break-after: avoid;
+}
+h3 {
+font-size: 13pt;
+color: #334155;
+margin-top: 1.4rem;
+page-break-after: avoid;
+}
+h4 {
+font-size: 11.5pt;
+color: #475569;
+margin-top: 1rem;
+page-break-after: avoid;
+}
+p { margin: 0.5rem 0; }
+a { color: #0f766e; text-decoration: none; }
+a:hover { text-decoration: underline; }
+code {
+font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+background: #f1f5f9;
+padding: 0.1rem 0.35rem;
+border-radius: 3px;
+font-size: 9.5pt;
+color: #be123c;
+}
+pre {
+background: #0f172a;
+color: #e2e8f0;
+padding: 1rem;
+border-radius: 6px;
+overflow-x: auto;
+font-size: 9.5pt;
+line-height: 1.4;
+}
+pre code { background: transparent; color: inherit; padding: 0; }
+blockquote {
+border-left: 4px solid #14b8a6;
+background: #f0fdfa;
+padding: 0.6rem 1rem;
+margin: 1rem 0;
+color: #134e4a;
+border-radius: 0 4px 4px 0;
+}
+blockquote p { margin: 0.3rem 0; }
+table {
+border-collapse: collapse;
+width: 100%;
+margin: 1rem 0;
+font-size: 10pt;
+page-break-inside: avoid;
+}
+th {
+background: #0f766e;
+color: #fff;
+text-align: left;
+padding: 0.55rem 0.7rem;
+font-weight: 600;
+border: 1px solid #0f766e;
+}
+td {
+padding: 0.5rem 0.7rem;
+border: 1px solid #e2e8f0;
+vertical-align: top;
+}
+tr:nth-child(even) td { background: #f8fafc; }
+tr:hover td { background: #f0fdfa; }
+hr {
+border: none;
+border-top: 1px solid #cbd5e1;
+margin: 2rem 0;
+}
+ul, ol { padding-left: 1.5rem; }
+li { margin: 0.25rem 0; }
+strong { color: #0f172a; }
+
+h2 + ul, h2 + ol { page-break-before: avoid; }
+
+@media print {
+body { font-size: 10pt; max-width: none; padding: 0; }
+h2 { page-break-before: auto; }
+table, pre, blockquote { page-break-inside: avoid; }
+a { color: #0f766e; }
+}
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Hướng dẫn Shop Owner — Community Commerce</h1>
+</header>
+<h1 id="hướng-dẫn-shop-owner-community-commerce">HƯỚNG DẪN SHOP OWNER —
+COMMUNITY COMMERCE</h1>
+<blockquote>
+<p><strong>Đối tượng:</strong> Chủ cửa hàng / HKD (Hộ kinh doanh cá thể)
+— tenant trên hệ thống Vạn An. <strong>Đăng nhập:</strong> Tài khoản
+Owner tại <code>https://khachvip.online</code> (ShopERP Blazor Server,
+cookie auth, role = Owner). <strong>Phạm vi:</strong> Tenant của mình
+(per-tenant) — KHÔNG thấy data tenant khác.</p>
+</blockquote>
+<hr />
+<h2 id="mục-lục">MỤC LỤC</h2>
+<ol type="1">
+<li><a href="#1-tổng-quan-vai-trò">Tổng quan vai trò</a></li>
+<li><a href="#2-commerce-mode-override-tenant-của-mình">Commerce Mode
+Override (tenant của mình)</a></li>
+<li><a href="#3-quản-lý-products--featured-products">Quản lý Products +
+Featured Products</a></li>
+<li><a href="#4-quản-lý-orders-marketplace-vs-reseller">Quản lý Orders
+(Marketplace vs Reseller)</a></li>
+<li><a href="#5-settlement-thanh-toán-giữa-các-bên">Settlement (thanh
+toán giữa các bên)</a></li>
+<li><a href="#6-kitchen-display--pos-coordination">Kitchen Display + POS
+coordination</a></li>
+<li><a href="#7-tenant-settings-vị-trí-theme-delivery">Tenant Settings
+(vị trí, theme, delivery)</a></li>
+<li><a href="#8-onboarding-sms-otp-khi-toggle-on">Onboarding SMS OTP
+(khi toggle ON)</a></li>
+<li><a href="#9-faq">FAQ</a></li>
+</ol>
+<hr />
+<h2 id="tổng-quan-vai-trò">1. TỔNG QUAN VAI TRÒ</h2>
+<p>Owner là chủ cửa hàng F&amp;B trên nền tảng Vạn An. Owner quản lý: -
+<strong>Products</strong> (menu, giá, tồn kho) — per-tenant SQLite -
+<strong>Orders</strong> (nhận, confirm, ready, completed) — Gateway PG
+(source of truth) - <strong>Kitchen</strong> (giao việc cho bếp qua
+Kitchen Display) - <strong>Settlement</strong> (thanh toán với
+shipper/Vạn An) - <strong>Tenant Settings</strong> (vị trí shop, theme,
+delivery config)</p>
+<p><strong>Kiến trúc data flow (Option C):</strong> - Orders +
+Accounting + Tenants trên <strong>Gateway PG</strong> (source of truth)
+- Products trên <strong>per-tenant SQLite</strong> (ShopERP) - Orders
+async-delivered qua NATS (routed by ShopInstanceId) → ShopERP SQLite
+(replica cho kitchen/POS display)</p>
+<p><strong>Hai mode thương mại:</strong> | Mode | Vai trò Owner | |—|—|
+| <strong>Marketplace</strong> (default) | Owner tự định giá, bán trực
+tiếp, shipper thu hộ COD → shop nhận trực tiếp | |
+<strong>Reseller</strong> | Vạn An mua hàng từ Owner (cost price) → bán
+lại cho customer. Owner chỉ cần giao hàng. Settlement qua Vạn An wallet.
+|</p>
+<hr />
+<h2 id="commerce-mode-override-tenant-của-mình">2. COMMERCE MODE
+OVERRIDE (TENANT CỦA MÌNH)</h2>
+<blockquote>
+<p><strong>Sprint 7:</strong> Owner KHÔNG tự toggle mode — chỉ
+SystemAdmin set override per-tenant. Owner thấy mode resolved của tenant
+mình.</p>
+</blockquote>
+<h3 id="xem-mode-hiện-tại">2.1. Xem mode hiện tại</h3>
+<p>Owner không có trang <code>/admin/commerce-mode</code> (chỉ
+SystemAdmin). Owner thấy mode qua: - <strong>KhachLink UI badge</strong>
+(nếu Owner cũng là customer): “Mô hình Reseller — Vạn An mua bán” hoặc
+“Mô hình Marketplace — Tenant bán trực tiếp”. - <strong>Order
+detail</strong>: mỗi order có <code>CommerceMode</code> snapshot.</p>
+<h3 id="yêu-cầu-systemadmin-override">2.2. Yêu cầu SystemAdmin
+override</h3>
+<p>Nếu Owner muốn giữ Marketplace trong khi global = Reseller (vd
+F&amp;B chain tự định giá): - Liên hệ SystemAdmin → SystemAdmin set
+<code>TenantSettings.CommerceModeOverride = Marketplace</code> cho
+tenant. - API:
+<code>POST /api/admin/commerce-mode/tenant/{tenantId}</code>
+(SystemAdmin only).</p>
+<h3 id="tác-động-của-mode-lên-owner">2.3. Tác động của mode lên
+Owner</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Khía cạnh</th>
+<th>Marketplace</th>
+<th>Reseller</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Định giá</strong></td>
+<td>Owner tự set price</td>
+<td>Owner set cost price, Vạn An set sell price</td>
+</tr>
+<tr>
+<td><strong>COD flow</strong></td>
+<td>Shipper thu hộ → shop nhận trực tiếp</td>
+<td>Customer trả Vạn An → Vạn An phân phối</td>
+</tr>
+<tr>
+<td><strong>Advance payment</strong></td>
+<td>Shipper ứng tiền cho shop</td>
+<td>Vạn An ứng tiền cho shop (mua trước)</td>
+</tr>
+<tr>
+<td><strong>Settlement</strong></td>
+<td>Shipper ↔︎ Shop trực tiếp</td>
+<td>Tất cả qua Vạn An wallet</td>
+</tr>
+<tr>
+<td><strong>Commission salesman</strong></td>
+<td>% orderTotal</td>
+<td>% margin (SellPrice - CostPrice)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="quản-lý-products-featured-products">3. QUẢN LÝ PRODUCTS +
+FEATURED PRODUCTS</h2>
+<h3 id="products-per-tenant-sqlite">3.1. Products (per-tenant
+SQLite)</h3>
+<p>Owner quản lý products tại ShopERP Admin →
+<code>/admin/products</code> (hoặc trang quản lý menu tương ứng).</p>
+<p><strong>Fields:</strong> - Name, description, price (VND), category,
+image - VatRate (snapshot cho e-invoice) - IsActive (active/inactive) -
+Stock (tồn kho — optional cho F&amp;B)</p>
+<h3 id="featured-products-gateway-pg-cho-salesman-nearby-products">3.2.
+Featured Products (Gateway PG — cho Salesman Nearby Products)</h3>
+<blockquote>
+<p><strong>Quan trọng:</strong> Salesman thấy products qua
+<code>GET /api/community/nearby-products</code> — query
+<strong>FeaturedProducts trên Gateway PG</strong> (PoC approach), KHÔNG
+query per-tenant SQLite.</p>
+</blockquote>
+<p><strong>Owner cần set Featured Products</strong> để salesman thấy
+product của mình: - Truy cập <code>/admin/featured-products</code>
+(Owner thấy tenant của mình, SystemAdmin thấy tất cả). - Chọn product →
+set display name, display price, sort order. - Featured Product có
+tenant coordinates (từ TenantSettings) → salesman filter theo bán
+kính.</p>
+<p><strong>Lưu ý:</strong> Product chưa có
+<code>ProductReferralConfig</code> (do SystemAdmin set) → salesman thấy
+“Chưa thiết lập” (commission/bonus = 0). Owner nên đề nghị SystemAdmin
+set config cho product hot.</p>
+<hr />
+<h2 id="quản-lý-orders-marketplace-vs-reseller">4. QUẢN LÝ ORDERS
+(MARKETPLACE VS RESELLER)</h2>
+<h3 id="order-lifecycle-owner-perspective">4.1. Order lifecycle (Owner
+perspective)</h3>
+<pre><code>Customer đặt hàng (KhachLink)
+   → Order created (Gateway PG, status=confirmed)
+   → NATS routed → ShopERP SQLite (replica cho kitchen/POS)
+   → Owner/Staff thấy order trong Order Management
+   → Owner confirm (nếu cần) → status=confirmed
+   → Kitchen nhận (KitchenHub push) → status=preparing
+   → Kitchen xong → status=ready
+   → Shipper accept (UC-04) → status=delivering
+   → Shipper delivered → status=completed</code></pre>
+<h3 id="marketplace-mode-owner-flow">4.2. Marketplace mode — Owner
+flow</h3>
+<ol type="1">
+<li>Customer đặt → Owner thấy order mới.</li>
+<li>Owner/Staff confirm → kitchen nhận.</li>
+<li>Kitchen ready → shipper nhận đơn (Nearby Orders).</li>
+<li>Shipper giao + thu COD → Owner nhận tiền trực tiếp từ shipper.</li>
+<li>Settlement: Shipper ↔︎ Shop trực tiếp (Owner xác nhận nhận
+tiền).</li>
+</ol>
+<h3 id="reseller-mode-owner-flow">4.3. Reseller mode — Owner flow</h3>
+<ol type="1">
+<li>Customer đặt → Vạn An nhận order (Vạn An là buyer từ Owner).</li>
+<li>Order có <code>CostPrice</code> (giá Vạn An mua) +
+<code>SellPrice</code> (giá Vạn An bán).</li>
+<li>Owner/Staff confirm → kitchen nhận.</li>
+<li>Kitchen ready → shipper nhận đơn.</li>
+<li>Shipper giao + thu COD → Vạn An nhận tiền.</li>
+<li>Settlement: Vạn An wallet → Owner wallet (qua
+<code>WalletTransaction.Settlement</code>).</li>
+<li>Vạn An ứng tiền trước (AdvancePayment) nếu cần — Owner không cần
+shipper ứng.</li>
+</ol>
+<h3 id="order-fields-owner-thấy">4.4. Order fields Owner thấy</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Field</th>
+<th>Marketplace</th>
+<th>Reseller</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TotalAmount</td>
+<td>Giá customer trả</td>
+<td>= SellPrice (giá Vạn An bán)</td>
+</tr>
+<tr>
+<td>CostPrice</td>
+<td>null</td>
+<td>Giá Vạn An mua từ Owner</td>
+</tr>
+<tr>
+<td>SellPrice</td>
+<td>null</td>
+<td>Giá Vạn An bán cho customer</td>
+</tr>
+<tr>
+<td>PlatformMargin</td>
+<td>null</td>
+<td>SellPrice - CostPrice</td>
+</tr>
+<tr>
+<td>DeliveryFee</td>
+<td>null</td>
+<td>Phí giao hàng Vạn An trả shipper</td>
+</tr>
+<tr>
+<td>ShippingFee</td>
+<td>Phí ship tenant set</td>
+<td>(vẫn có — tenant-set delivery cost)</td>
+</tr>
+<tr>
+<td>SalesmanId</td>
+<td>(nếu có referral)</td>
+<td>(nếu có referral)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="settlement-thanh-toán-giữa-các-bên">5. SETTLEMENT (THANH TOÁN
+GIỮA CÁC BÊN)</h2>
+<h3 id="marketplace-shipper-shop-trực-tiếp">5.1. Marketplace — Shipper ↔︎
+Shop trực tiếp</h3>
+<ol type="1">
+<li>Shipper thu COD từ customer.</li>
+<li>Shipper confirm COD → <code>WalletTransaction(CODCollection)</code>
++amount cho shipper.</li>
+<li>Settlement record tạo: shipper chuyển tiền cho shop.</li>
+<li>Owner xác nhận nhận tiền →
+<code>WalletTransaction(Settlement)</code> -amount shipper, +amount
+shop.</li>
+<li>Nếu shipper ứng tiền (AdvancePayment):
+<code>WalletTransaction(AdvancePayment)</code> -amount shipper, +amount
+shop (trước khi giao).</li>
+</ol>
+<h3 id="reseller-tất-cả-qua-vạn-an-wallet">5.2. Reseller — Tất cả qua
+Vạn An wallet</h3>
+<ol type="1">
+<li>Shipper thu COD → confirm → Vạn An nhận (6 transactions, xem README
+Section 6.2).</li>
+<li>Settlement: Vạn An wallet → Owner wallet
+(<code>WalletTransaction.Settlement</code>).</li>
+<li>AdvancePayment: Vạn An ứng trước cho Owner
+(<code>WalletTransaction.AdvancePayment</code> — platform wallet
+-amount, Owner +amount).</li>
+<li>Owner rút tiền từ wallet →
+<code>WalletTransaction(Withdrawal)</code>.</li>
+</ol>
+<h3 id="xem-settlement-history">5.3. Xem settlement history</h3>
+<p>Owner xem settlement history tại <code>/admin/settlements</code>
+(hoặc trang wallet/settlement tương ứng) — list
+<code>WalletTransaction</code> type=Settlement/AdvancePayment cho tenant
+mình.</p>
+<hr />
+<h2 id="kitchen-display-pos-coordination">6. KITCHEN DISPLAY + POS
+COORDINATION</h2>
+<p>Owner điều phối giữa Kitchen (bếp) và Staff (quầy/POS):</p>
+<ul>
+<li><strong>Kitchen Display:</strong> Bếp thấy order mới (KitchenHub
+push real-time) → chuẩn bị → bấm “Ready”.</li>
+<li><strong>POS:</strong> Staff nhận tiền tại quầy (dine-in/takeaway) →
+confirm order.</li>
+<li><strong>Owner</strong> oversee cả 2 + xử lý exception (đơn hủy, đổi
+món, hoàn tiền).</li>
+</ul>
+<blockquote>
+<p><strong>Chi tiết Kitchen:</strong> xem <a href="./06-kitchen.md">06-kitchen.md</a>. <strong>Chi tiết
+Staff/POS:</strong> xem <a href="./05-staff.md">05-staff.md</a>.</p>
+</blockquote>
+<hr />
+<h2 id="tenant-settings-vị-trí-theme-delivery">7. TENANT SETTINGS (VỊ
+TRÍ, THEME, DELIVERY)</h2>
+<p>Owner quản lý TenantSettings tại <code>/admin/tenant-settings</code>
+(hoặc trang tenant profile).</p>
+<h3 id="vị-trí-shop-quan-trọng-cho-shipper-nearby-orders">7.1. Vị trí
+shop (QUAN TRỌNG cho Shipper Nearby Orders)</h3>
+<ul>
+<li><strong>Latitude / Longitude:</strong> Tọa độ shop — shipper thấy
+shop location khi accept đơn (UC-04).</li>
+<li><strong>Address:</strong> Địa chỉ shop (text).</li>
+<li>Nếu chưa set lat/lng → shipper không thấy shop trên map → khó giao
+hàng.</li>
+</ul>
+<h3 id="delivery-config">7.2. Delivery config</h3>
+<ul>
+<li><strong>ShippingFee:</strong> Phí ship tenant set (Marketplace) —
+customer thấy khi checkout.</li>
+<li><strong>Delivery radius:</strong> Bán kính giao hàng (km) —
+optional.</li>
+</ul>
+<h3 id="theme-display">7.3. Theme + Display</h3>
+<ul>
+<li>Theme, display mode, preferences — xem CRM-Loyalty Guide.</li>
+</ul>
+<h3 id="commercemodeoverride-sprint-7">7.4. CommerceModeOverride (Sprint
+7)</h3>
+<ul>
+<li>Owner KHÔNG tự set — chỉ SystemAdmin.</li>
+<li>Owner thấy giá trị resolved (Inherit → global, hoặc override).</li>
+</ul>
+<hr />
+<h2 id="onboarding-sms-otp-khi-toggle-on">8. ONBOARDING SMS OTP (KHI
+TOGGLE ON)</h2>
+<blockquote>
+<p><strong>Chỉ khi
+<code>CollaboratorSmsVerificationEnabled = ON</code>.</strong> Owner là
+“Collaborator” khi onboarding tenant mới.</p>
+</blockquote>
+<h3 id="flow">8.1. Flow</h3>
+<ol type="1">
+<li>Owner onboarding tenant mới → nhập SĐT.</li>
+<li><code>POST /api/collaborator-verification/init</code> → server gửi
+SMS OTP (trừ phí deposit wallet).</li>
+<li>Owner nhập OTP →
+<code>POST /api/collaborator-verification/verify</code>.</li>
+<li>Verify thành công → <code>IsPhoneVerified = true</code>.</li>
+<li>Tenant activated.</li>
+</ol>
+<h3 id="retry-limit">8.2. Retry limit</h3>
+<ul>
+<li>Max 3 OTP gửi / 24h (anti-spam).</li>
+<li>Deposit hết → nạp thêm trước khi verify.</li>
+</ul>
+<hr />
+<h2 id="faq">9. FAQ</h2>
+<p><strong>Q: Tôi có thể tự đổi mode Marketplace ↔︎ Reseller
+không?</strong> A: KHÔNG. Chỉ SystemAdmin set override per-tenant. Liên
+hệ SystemAdmin nếu muốn đổi.</p>
+<p><strong>Q: Reseller mode, tôi có cần ứng tiền cho shipper
+không?</strong> A: KHÔNG. Vạn An ứng tiền cho bạn (AdvancePayment). Bạn
+chỉ cần giao hàng cho shipper.</p>
+<p><strong>Q: Salesman giới thiệu product của tôi, tôi có bị trừ tiền
+không?</strong> A: KHÔNG. Commission salesman do Vạn An trả (từ margin
+Reseller, hoặc từ commission fund Marketplace). Owner nhận đầy đủ
+CostPrice (Reseller) hoặc TotalAmount - ShippingFee (Marketplace).</p>
+<p><strong>Q: Product của tôi không hiện trong Salesman Nearby
+Products?</strong> A: Bạn cần set product làm <strong>Featured
+Product</strong> (<code>/admin/featured-products</code>) + đề nghị
+SystemAdmin set <code>ProductReferralConfig</code> (commission +
+bonus).</p>
+<p><strong>Q: Shipper không thấy shop location trên map?</strong> A: Bạn
+chưa set Latitude/Longitude trong TenantSettings. Vào
+<code>/admin/tenant-settings</code> set tọa độ shop.</p>
+<p><strong>Q: Đơn COD tôi nhận tiền khi nào?</strong> A: Marketplace:
+shipper confirm COD → settlement → bạn xác nhận nhận tiền. Reseller: Vạn
+An nhận COD → settlement qua Vạn An wallet → bạn rút từ wallet.</p>
+<hr />
+<blockquote>
+<p><strong>Xem thêm:</strong> <a href="./README.md">README index</a> |
+<a href="./01-systemadmin.md">System Admin</a> | <a href="./05-staff.md">Staff</a> | <a href="./06-kitchen.md">Kitchen</a></p>
+</blockquote>
+</body>
+</html>

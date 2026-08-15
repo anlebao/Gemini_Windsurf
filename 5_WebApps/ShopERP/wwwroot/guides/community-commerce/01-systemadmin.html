@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Hướng dẫn System Admin — Community Commerce</title>
+  <style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+  <style type="text/css">
+@page { margin: 1.5cm 2cm; }
+* { box-sizing: border-box; }
+body {
+font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+font-size: 11pt;
+line-height: 1.55;
+color: #1f2937;
+max-width: 900px;
+margin: 0 auto;
+padding: 2rem 1rem;
+background: #fff;
+}
+h1 {
+font-size: 22pt;
+color: #0f766e;
+border-bottom: 3px solid #0f766e;
+padding-bottom: 0.4rem;
+margin-top: 0;
+}
+h2 {
+font-size: 16pt;
+color: #0f766e;
+border-left: 4px solid #14b8a6;
+padding-left: 0.6rem;
+margin-top: 2rem;
+page-break-after: avoid;
+}
+h3 {
+font-size: 13pt;
+color: #334155;
+margin-top: 1.4rem;
+page-break-after: avoid;
+}
+h4 {
+font-size: 11.5pt;
+color: #475569;
+margin-top: 1rem;
+page-break-after: avoid;
+}
+p { margin: 0.5rem 0; }
+a { color: #0f766e; text-decoration: none; }
+a:hover { text-decoration: underline; }
+code {
+font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+background: #f1f5f9;
+padding: 0.1rem 0.35rem;
+border-radius: 3px;
+font-size: 9.5pt;
+color: #be123c;
+}
+pre {
+background: #0f172a;
+color: #e2e8f0;
+padding: 1rem;
+border-radius: 6px;
+overflow-x: auto;
+font-size: 9.5pt;
+line-height: 1.4;
+}
+pre code { background: transparent; color: inherit; padding: 0; }
+blockquote {
+border-left: 4px solid #14b8a6;
+background: #f0fdfa;
+padding: 0.6rem 1rem;
+margin: 1rem 0;
+color: #134e4a;
+border-radius: 0 4px 4px 0;
+}
+blockquote p { margin: 0.3rem 0; }
+table {
+border-collapse: collapse;
+width: 100%;
+margin: 1rem 0;
+font-size: 10pt;
+page-break-inside: avoid;
+}
+th {
+background: #0f766e;
+color: #fff;
+text-align: left;
+padding: 0.55rem 0.7rem;
+font-weight: 600;
+border: 1px solid #0f766e;
+}
+td {
+padding: 0.5rem 0.7rem;
+border: 1px solid #e2e8f0;
+vertical-align: top;
+}
+tr:nth-child(even) td { background: #f8fafc; }
+tr:hover td { background: #f0fdfa; }
+hr {
+border: none;
+border-top: 1px solid #cbd5e1;
+margin: 2rem 0;
+}
+ul, ol { padding-left: 1.5rem; }
+li { margin: 0.25rem 0; }
+strong { color: #0f172a; }
+
+h2 + ul, h2 + ol { page-break-before: avoid; }
+
+@media print {
+body { font-size: 10pt; max-width: none; padding: 0; }
+h2 { page-break-before: auto; }
+table, pre, blockquote { page-break-inside: avoid; }
+a { color: #0f766e; }
+}
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Hướng dẫn System Admin — Community Commerce</h1>
+</header>
+<h1 id="hướng-dẫn-system-admin-community-commerce">HƯỚNG DẪN SYSTEM
+ADMIN — COMMUNITY COMMERCE</h1>
+<blockquote>
+<p><strong>Đối tượng:</strong> Nhân viên kỹ thuật / vận hành Vạn An, có
+quyền quản trị toàn hệ thống (cross-tenant). <strong>Đăng nhập:</strong>
+Tài khoản SystemAdmin tại <code>https://khachvip.online</code> (ShopERP
+Blazor Server, cookie auth, role = SystemAdmin). <strong>Phạm
+vi:</strong> Tất cả tenant + community entities (Gateway PG) + global
+settings.</p>
+</blockquote>
+<hr />
+<h2 id="mục-lục">MỤC LỤC</h2>
+<ol type="1">
+<li><a href="#1-danh-sách-trang-quản-trị">Danh sách trang quản
+trị</a></li>
+<li><a href="#2-kích-hoạt-vai-trò-cộng-tác-viên-shippersalesman">Kích
+hoạt vai trò cộng tác viên (Shipper/Salesman)</a></li>
+<li><a href="#3-thiết-lập-product-referral-config-commission--app-install-bonus">Thiết
+lập Product Referral Config (commission + app-install bonus)</a></li>
+<li><a href="#4-commerce-mode-toggle-marketplace--reseller--sprint-7">Commerce
+Mode Toggle (Marketplace ↔︎ Reseller) — Sprint 7</a></li>
+<li><a href="#5-quản-lý-community-fund-quỹ-phát-triển-cộng-đồng">Quản lý
+Community Fund (quỹ phát triển cộng đồng)</a></li>
+<li><a href="#6-quản-lý-product-cost-price-reseller-mode">Quản lý
+Product Cost Price (Reseller mode)</a></li>
+<li><a href="#7-fraud-review--xem-xét-gian-lận">Fraud Review — Xem xét
+gian lận</a></li>
+<li><a href="#8-collaborator-sms-otp-toggle">Collaborator SMS OTP
+Toggle</a></li>
+<li><a href="#9-quản-lý-device-registration">Quản lý Device
+Registration</a></li>
+<li><a href="#10-faq">FAQ</a></li>
+</ol>
+<hr />
+<h2 id="danh-sách-trang-quản-trị">1. DANH SÁCH TRANG QUẢN TRỊ</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Trang</th>
+<th>URL</th>
+<th>Chức năng</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Commerce Mode Settings</td>
+<td><code>/admin/commerce-mode</code></td>
+<td>Toggle global mode + tenant overrides + platform fee/fund/delivery
+rates</td>
+</tr>
+<tr>
+<td>Community Fund</td>
+<td><code>/admin/community-fund</code></td>
+<td>Xem balance + spend + history quỹ cộng đồng</td>
+</tr>
+<tr>
+<td>Product Cost Prices</td>
+<td><code>/admin/product-cost-prices</code></td>
+<td>CRUD cost price per product (Reseller mode)</td>
+</tr>
+<tr>
+<td>Product Referral Configs</td>
+<td><code>/admin/product-referral-configs</code></td>
+<td>CRUD commission rate + app-install bonus per product</td>
+</tr>
+<tr>
+<td>Fraud Flags</td>
+<td><code>/admin/community/fraud-flags</code></td>
+<td>Review queue gian lận (Pending → Confirm/Dismiss/Review)</td>
+</tr>
+<tr>
+<td>Fraud Stats</td>
+<td><code>/admin/community/fraud-stats</code></td>
+<td>Thống kê fraud (rate, flags, confirmed, banned)</td>
+</tr>
+<tr>
+<td>Community Eligible</td>
+<td>Gateway API <code>GET /api/admin/community/eligible</code></td>
+<td>List customer đủ điều kiện kích hoạt role</td>
+</tr>
+<tr>
+<td>Activate/Deactivate Role</td>
+<td>Gateway API
+<code>POST /api/admin/community/{id}/activate-role</code></td>
+<td>Kích hoạt/hủy role Shipper/Salesman</td>
+</tr>
+<tr>
+<td>Device Registrations</td>
+<td>Gateway Admin API</td>
+<td>Xem/deactivate/verify device fingerprint</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Lưu ý:</strong> Các trang <code>/admin/*</code> khác
+(customers-global, tenants, missions, redemption, campaigns, users,
+audit-trail) đã có trong CRM-Loyalty Guide — không lặp lại ở đây.</p>
+</blockquote>
+<hr />
+<h2 id="kích-hoạt-vai-trò-cộng-tác-viên-shippersalesman">2. KÍCH HOẠT
+VAI TRÒ CỘNG TÁC VIÊN (SHIPPER/SALESMAN)</h2>
+<h3 id="điều-kiện-đủ-điều-kiện-eligible">2.1. Điều kiện đủ điều kiện
+(eligible)</h3>
+<p>Customer đủ điều kiện khi: - <strong>Toggle OFF (mặc định):</strong>
+<code>IdentityLevel ≥ DeviceVerified</code> (4) <strong>HOẶC</strong>
+<code>IdentityLevel ≥ Verified</code> (2) +
+<code>LoyaltyPoints ≥ 1000</code> - <strong>Toggle ON:</strong>
+<code>IdentityLevel ≥ Verified</code> (2) <strong>BẮT BUỘC</strong> +
+<code>LoyaltyPoints ≥ 1000</code> +
+<code>CommunityRole.IsPhoneVerified = true</code> + deposit wallet ≥ phí
+SMS OTP</p>
+<h3 id="quy-trình-kích-hoạt">2.2. Quy trình kích hoạt</h3>
+<p><strong>Bước 1:</strong> Đăng nhập SystemAdmin → gọi Gateway Admin
+API <code>GET /api/admin/community/eligible</code>. - API trả list
+customer đủ điều kiện (Verified + ≥1000 points, hoặc DeviceVerified +
+≥1000 points nếu toggle OFF).</p>
+<p><strong>Bước 2:</strong> Chọn customer →
+<code>POST /api/admin/community/{customerId}/activate-role</code> với
+body:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span> <span class="dt">&quot;role&quot;</span><span class="fu">:</span> <span class="st">&quot;Shipper&quot;</span> <span class="fu">}</span></span></code></pre></div>
+<p>hoặc</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode json"><code class="sourceCode json"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span> <span class="dt">&quot;role&quot;</span><span class="fu">:</span> <span class="st">&quot;Salesman&quot;</span> <span class="fu">}</span></span></code></pre></div>
+<p><strong>Bước 3:</strong> Hệ thống tạo bản ghi
+<code>CommunityRole</code> gắn với Customer + gửi push notification cho
+customer.</p>
+<p><strong>Bước 4:</strong> Customer thấy role mới trong Profile page
+sau khi login (tab mới xuất hiện trong NavMenu: “Đơn hàng gần” cho
+Shipper, “Sản phẩm gần” cho Salesman).</p>
+<h3 id="khi-toggle-on-flow-verification-uc-02b">2.3. Khi toggle ON —
+flow verification (UC-02b)</h3>
+<p>Nếu customer chưa verify SĐT (<code>IsPhoneVerified = false</code>):
+1. Admin redirect customer sang verification flow. 2. Customer mở
+verification page → nhập/confirm SĐT. 3.
+<code>POST /api/collaborator-verification/init</code> → server gửi SMS
+OTP (trừ phí deposit wallet). 4. Customer nhập OTP →
+<code>POST /api/collaborator-verification/verify</code>. 5. Verify thành
+công → <code>IsPhoneVerified = true</code> +
+<code>PhoneVerifiedAt = now</code>. 6. Admin activate role (Bước 2 ở
+trên).</p>
+<p><strong>Lưu ý:</strong> - Retry limit: max 3 OTP gửi / 24h
+(anti-spam). - Deposit hết → không gửi OTP → thông báo “Nạp thêm
+deposit”. - Phí SMS OTP trừ deposit wallet mỗi lần
+(<code>SmsOtpFeePerVerification</code>).</p>
+<h3 id="hủy-role-deactivate">2.4. Hủy role (deactivate)</h3>
+<p><code>POST /api/admin/community/{customerId}/deactivate-role</code> —
+hủy role cộng tác viên. Customer mất tab tương ứng trong NavMenu.</p>
+<hr />
+<h2 id="thiết-lập-product-referral-config-commission-app-install-bonus">3.
+THIẾT LẬP PRODUCT REFERRAL CONFIG (COMMISSION + APP-INSTALL BONUS)</h2>
+<blockquote>
+<p><strong>Quan trọng:</strong> Commission rate + app-install bonus do
+<strong>SystemAdmin thiết lập per-product</strong> (KHÔNG hardcode).
+Salesman chỉ thấy config đã set — không tự thay đổi.</p>
+</blockquote>
+<h3 id="truy-cập">3.1. Truy cập</h3>
+<p>Đăng nhập SystemAdmin →
+<code>/admin/product-referral-configs</code>.</p>
+<h3 id="tạo-config-cho-product">3.2. Tạo config cho product</h3>
+<p><strong>Bước 1:</strong> Bấm “Tạo mới” → chọn product (từ
+FeaturedProducts PG hoặc nhập ProductId).</p>
+<p><strong>Bước 2:</strong> Nhập các field: | Field | Mô tả | Giá trị |
+|—|—|—| | <code>CommissionRate</code> | % hoa hồng chốt đơn | 2-5%
+(Marketplace: % orderTotal; Reseller: % margin) | |
+<code>AppInstallBonus</code> | Thưởng cố định khi customer cài app | VND
+(vd 50000) | | <code>ProductShortCode</code> | Mã ngắn gọn cho QR | 6-8
+chars (vd <code>TR-001</code>) | | <code>CommissionBase</code> (Sprint
+7) | Cơ sở tính commission | <code>OnOrderTotal</code> (Marketplace) /
+<code>OnMargin</code> (Reseller) | | <code>IsActive</code> | Trạng thái
+| true/false |</p>
+<p><strong>Bước 3:</strong> Bấm <strong>Lưu</strong> →
+<code>POST /api/admin/products/{productId}/referral-config</code>.</p>
+<h3 id="update-deactivate">3.3. Update / Deactivate</h3>
+<ul>
+<li><strong>Update:</strong>
+<code>PUT /api/admin/products/{productId}/referral-config</code>.</li>
+<li><strong>Deactivate (soft delete):</strong>
+<code>DELETE /api/admin/products/{productId}/referral-config</code> —
+set <code>IsActive = false</code>, KHÔNG xóa data.</li>
+</ul>
+<h3 id="salesman-thấy-gì">3.4. Salesman thấy gì?</h3>
+<p>Salesman mở “Sản phẩm gần” → mỗi product hiện: name, price, shop
+name, distance, <strong>commissionRate</strong>,
+<strong>appInstallBonus</strong> (từ config). Product chưa có config →
+hiển thị “Chưa thiết lập” (salesman vẫn chọn nhưng commission/bonus =
+0).</p>
+<hr />
+<h2 id="commerce-mode-toggle-marketplace-reseller-sprint-7">4. COMMERCE
+MODE TOGGLE (MARKETPLACE ↔︎ RESELLER) — SPRINT 7</h2>
+<blockquote>
+<p><strong>Nguyên tắc:</strong> “Mua giúp — Bán dùm”. Vạn An mua hàng từ
+tenant rồi bán lại cho customer. Toggle toàn cục + override cấp tenant.
+Additive — không phá Sprint 0-6.</p>
+</blockquote>
+<h3 id="truy-cập-1">4.1. Truy cập</h3>
+<p>Đăng nhập SystemAdmin → <code>/admin/commerce-mode</code> (ShopERP
+Admin, <code>@attribute [Authorize(Roles=&quot;SystemAdmin&quot;)]</code>).</p>
+<h3 id="global-settings-card">4.2. Global Settings Card</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Field</th>
+<th>Mô tả</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mode toggle</td>
+<td><code>Marketplace</code> (radio) / <code>Reseller</code>
+(radio)</td>
+<td>Marketplace</td>
+</tr>
+<tr>
+<td>Platform Fee Rate</td>
+<td>% slider 10-50%</td>
+<td>30%</td>
+</tr>
+<tr>
+<td>Community Fund Rate</td>
+<td>% slider 1-10%</td>
+<td>5%</td>
+</tr>
+<tr>
+<td>Default Delivery Fee</td>
+<td>VND number input</td>
+<td>15000</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Bấm Lưu</strong> →
+<code>POST /api/admin/commerce-mode/global</code>.</p>
+<blockquote>
+<p><strong>CẢNH BÁO hiển thị trên UI:</strong> “Thay đổi áp dụng cho đơn
+hàng mới. Đơn hàng cũ không bị ảnh hưởng.”</p>
+</blockquote>
+<h3 id="tenant-overrides-table">4.3. Tenant Overrides Table</h3>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Column</th>
+<th>Mô tả</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tenant</td>
+<td>Tên tenant</td>
+</tr>
+<tr>
+<td>Current Mode (resolved)</td>
+<td>Mode thực tế (sau khi resolve override + global)</td>
+</tr>
+<tr>
+<td>Override</td>
+<td>Dropdown: <code>Inherit</code> / <code>Marketplace</code> /
+<code>Reseller</code></td>
+</tr>
+<tr>
+<td>Actions</td>
+<td><strong>Lưu</strong> button per row →
+<code>POST /api/admin/commerce-mode/tenant/{tenantId}</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Quy tắc ưu tiên:</strong> 1. Override ≠ <code>Inherit</code>
+→ dùng override 2. Override == <code>Inherit</code> → dùng global
+setting 3. Mỗi Order snapshot mode tại creation — toggle affect future
+orders only</p>
+<h3 id="khi-nào-bật-reseller">4.4. Khi nào bật Reseller?</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Giai đoạn</th>
+<th>Mode</th>
+<th>Lý do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PoC (50 users)</td>
+<td>Marketplace (default)</td>
+<td>Friction thấp, tenant tự định giá</td>
+</tr>
+<tr>
+<td>Scale (500+ users)</td>
+<td>Reseller (toggle ON)</td>
+<td>Vạn An kiểm soát margin, thu phí nền tảng</td>
+</tr>
+<tr>
+<td>Tenant lớn (F&amp;B chain)</td>
+<td>Override: Marketplace</td>
+<td>Họ tự định giá</td>
+</tr>
+<tr>
+<td>Tenant nhỏ (cửa hàng cá thể)</td>
+<td>Override: Reseller (hoặc Inherit)</td>
+<td>Vạn An lo toàn bộ</td>
+</tr>
+</tbody>
+</table>
+<h3 id="rollout-strategy-an-toàn">4.5. Rollout strategy (an toàn)</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Action</th>
+<th>Risk</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. Deploy Sprint 7 code</td>
+<td>Toggle default OFF (Marketplace)</td>
+<td>Zero — existing behavior unchanged</td>
+</tr>
+<tr>
+<td>2. Test Reseller trên 1 tenant</td>
+<td>Override 1 tenant → Reseller</td>
+<td>Isolated — chỉ tenant đó’s new orders</td>
+</tr>
+<tr>
+<td>3. Toggle global → Reseller</td>
+<td>Tất cả tenant (trừ override) switch</td>
+<td>Medium — monitor financial flows</td>
+</tr>
+<tr>
+<td>4. Full Reseller</td>
+<td>Tất cả tenant Reseller</td>
+<td>High — require full RV</td>
+</tr>
+</tbody>
+</table>
+<h3 id="api-endpoints">4.6. API endpoints</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Method</th>
+<th>Endpoint</th>
+<th>Mô tả</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/api/admin/commerce-mode</code></td>
+<td>Lấy global mode + tenant overrides</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/admin/commerce-mode/global</code></td>
+<td>Set global mode + rates</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/admin/commerce-mode/tenant/{tenantId}</code></td>
+<td>Set tenant override</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/community/commerce-mode</code></td>
+<td>Customer-facing: lấy mode resolved cho UI (auth: X-Customer-Token)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="quản-lý-community-fund-quỹ-phát-triển-cộng-đồng">5. QUẢN LÝ
+COMMUNITY FUND (QUỸ PHÁT TRIỂN CỘNG ĐỒNG)</h2>
+<blockquote>
+<p><strong>Chỉ có trong Reseller mode.</strong> % margin (default 5%)
+vào quỹ cộng đồng mỗi đơn COD.</p>
+</blockquote>
+<h3 id="truy-cập-2">5.1. Truy cập</h3>
+<p>Đăng nhập SystemAdmin → <code>/admin/community-fund</code>.</p>
+<h3 id="xem-balance-history">5.2. Xem balance + history</h3>
+<ul>
+<li><strong>Balance card:</strong> Số dư hiện tại quỹ cộng đồng
+(VND). API: <code>GET /api/admin/community-fund/balance</code>.</li>
+<li><strong>Spend button:</strong> Rút tiền tái đầu tư cộng đồng. API:
+<code>POST /api/admin/community-fund/spend</code>.</li>
+<li><strong>History table:</strong> List
+<code>CommunityFundSpendRecord</code> — amount, reason, date, approved
+by. API: <code>GET /api/admin/community-fund/history</code>.</li>
+</ul>
+<h3 id="rút-tiền-spend">5.3. Rút tiền (spend)</h3>
+<p><strong>Bước 1:</strong> Bấm <strong>Rút tiền</strong> → nhập amount
++ reason (vd “Tài trợ sự kiện cộng đồng Q7”).</p>
+<p><strong>Bước 2:</strong> Confirm →
+<code>POST /api/admin/community-fund/spend</code> (controller
+<code>CommunityFundController</code>).</p>
+<p><strong>Bước 3:</strong> Hệ thống tạo <code>WalletTransaction</code>
+type=<code>CommunityFundSpend</code> (11) — trừ balance quỹ.</p>
+<blockquote>
+<p><strong>Lưu ý:</strong> Quỹ cộng đồng là wallet đặc biệt
+(SystemWalletIds.CommunityFundWallet) — KHÔNG tạo Customer entity cho
+nó.</p>
+</blockquote>
+<hr />
+<h2 id="quản-lý-product-cost-price-reseller-mode">6. QUẢN LÝ PRODUCT
+COST PRICE (RESELLER MODE)</h2>
+<blockquote>
+<p><strong>Chỉ có trong Reseller mode.</strong> Cost price = giá Vạn An
+mua từ tenant. Vạn An định giá bán = CostPrice + margin.</p>
+</blockquote>
+<h3 id="truy-cập-3">6.1. Truy cập</h3>
+<p>Đăng nhập SystemAdmin → <code>/admin/product-cost-prices</code>.</p>
+<h3 id="crud">6.2. CRUD</h3>
+<ul>
+<li><strong>Tạo:</strong> Chọn product + nhập cost price (VND) +
+effective date.</li>
+<li><strong>Update:</strong> Sửa cost price (snapshot per-order tại
+creation, không affect đơn cũ).</li>
+<li><strong>List:</strong> Bảng product + cost price hiện tại + lịch sử
+thay đổi.</li>
+</ul>
+<p><strong>API:</strong> <code>ProductCostPriceController</code> — CRUD
+qua Gateway Admin API (SystemAdmin JWT). Endpoints:</p>
+<ul>
+<li><code>GET /api/admin/product-cost-prices?tenantId=...&amp;page=1&amp;pageSize=20</code></li>
+<li><code>POST /api/admin/product-cost-prices</code> (upsert by TenantId + ProductId)</li>
+<li><code>DELETE /api/admin/product-cost-prices/{id}</code></li>
+</ul>
+<h3 id="mối-quan-hệ-với-sellprice">6.3. Mối quan hệ với SellPrice</h3>
+<ul>
+<li><code>SellPrice</code> = giá Vạn An bán cho customer (do Vạn An
+định, dựa trên cost price + margin).</li>
+<li><code>PlatformMargin</code> = <code>SellPrice - CostPrice</code>
+(computed, snapshot per-order).</li>
+<li>Commission Reseller = <code>% PlatformMargin</code> (không phải %
+orderTotal như Marketplace).</li>
+</ul>
+<hr />
+<h2 id="fraud-review-xem-xét-gian-lận">7. FRAUD REVIEW — XEM XÉT GIAN
+LẬN</h2>
+<blockquote>
+<p><strong>5-layer anti-fraud tự động flag + admin manual
+review.</strong> Target fraud rate &lt;0.5%.</p>
+</blockquote>
+<h3 id="truy-cập-4">7.1. Truy cập</h3>
+<p>Đăng nhập SystemAdmin → <code>/admin/fraud-flags</code>.</p>
+<h3 id="review-queue">7.2. Review queue</h3>
+<ul>
+<li>List <code>FraudFlag(Status=Pending)</code> sort by
+<code>RiskScore</code> desc.</li>
+<li>Mỗi flag hiện: customer, entity type
+(Customer/Order/SalesReferral/AppInstallAttribution/DeviceRegistration),
+risk score, risk factors (JSON), description, created date.</li>
+</ul>
+<h3 id="click-flag-xem-detail">7.3. Click flag → xem detail</h3>
+<ul>
+<li>Customer info + order history.</li>
+<li>Related entities: DeviceRegistration (fingerprint, IP, UA,
+platform), SalesReferral, AppInstallAttribution.</li>
+<li>Risk factors breakdown (vd “sameFingerprint:+50,sameIP:+30”).</li>
+</ul>
+<h3 id="admin-actions-3-lựa-chọn">7.4. Admin actions (3 lựa chọn)</h3>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Action</th>
+<th>Hệ quả</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Confirm</strong></td>
+<td>Penalty: <code>SalesReferral.CommissionStatus=Rejected</code> /
+<code>AppInstallAttribution.AttributionStatus=Rejected</code>. Customer
+banned nếu 3 strikes (3 confirmed flags → permanent ban).</td>
+</tr>
+<tr>
+<td><strong>Dismiss</strong></td>
+<td>False positive → whitelist entity (<code>IsVerified=true</code>,
+<code>RiskScore</code> giảm).</td>
+</tr>
+<tr>
+<td><strong>MarkReviewed</strong></td>
+<td>Neutral, info only — không penalty không whitelist. API:
+<code>POST /api/admin/community/fraud-flags/{id}/mark-reviewed</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="fraud-stats">7.5. Fraud Stats</h3>
+<p><code>/admin/community/fraud-stats</code> — thống kê: - Total flags / Pending /
+Confirmed / Dismissed - Fraud rate (confirmed / total transactions) -
+Banned accounts count - Top risk factors</p>
+<h3 id="auto-behavior-không-cần-admin">7.6. Auto behavior (không cần
+admin)</h3>
+<table>
+<thead>
+<tr>
+<th>RiskScore</th>
+<th>Hệ thống tự động</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>&lt;60</td>
+<td>Auto-approve sau 24h cooling period</td>
+</tr>
+<tr>
+<td>60-79</td>
+<td>Hold 48h + tạo FraudFlag(Pending) cho admin review</td>
+</tr>
+<tr>
+<td>≥80</td>
+<td>Auto-reject + FraudFlag(Pending)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Background services:</strong> <code>CoolingPeriodJob</code>
+(hourly, auto-approve RiskScore&lt;60 sau 24h) +
+<code>HeldTimeoutJob</code> (hourly, auto-reject Held sau 48h).</p>
+<hr />
+<h2 id="collaborator-sms-otp-toggle">8. COLLABORATOR SMS OTP TOGGLE</h2>
+<blockquote>
+<p><strong>Toggle ON/OFF</strong> quyết định Salesman/Shipper/Owner có
+bắt buộc SMS OTP hay không. Customer KHÔNG bị ảnh hưởng.</p>
+</blockquote>
+<h3 id="truy-cập-5">8.1. Truy cập</h3>
+<p>SystemSetting <code>CollaboratorSmsVerificationEnabled</code> — set
+qua Gateway Admin API:</p>
+<ul>
+<li><code>GET /api/admin/collaborator-verification/settings</code> — xem toggle state</li>
+<li><code>POST /api/admin/collaborator-verification/settings</code> — update toggle + fee + min deposit</li>
+</ul>
+<p>Trang admin: <code>/admin/collaborator-verification</code> (ShopERP).</p>
+<h3 id="khi-nào-bật">8.2. Khi nào bật?</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Giai đoạn</th>
+<th>Toggle</th>
+<th>Lý do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Early stage (PoC, &lt;500 users)</td>
+<td><strong>OFF</strong> (default)</td>
+<td>Friction thấp, tối đa user + giao dịch</td>
+</tr>
+<tr>
+<td>Scale (500+ users)</td>
+<td><strong>ON</strong></td>
+<td>Salesman/Shipper/Owner bắt buộc SMS OTP, phí trừ deposit wallet</td>
+</tr>
+</tbody>
+</table>
+<h3 id="domain-changes-khi-toggle-on">8.3. Domain changes khi toggle
+ON</h3>
+<ul>
+<li><code>WalletTransactionType.Deposit=7</code> +
+<code>SmsOtpFee=8</code> (nạp deposit + trừ phí OTP)</li>
+<li><code>CommunityRole.IsPhoneVerified</code> +
+<code>PhoneVerifiedAt</code></li>
+<li><code>SystemSetting.CollaboratorSmsVerificationEnabled</code>
+(toggle)</li>
+</ul>
+<blockquote>
+<p><strong>Coordination note:</strong> Nếu CC-S6-T5 (SMS OTP toggle)
+deploy trước Sprint 7, enum values 7-8 = Deposit/SmsOtpFee, Sprint 7
+renumber PlatformFee/CommunityFund sang 9-13.</p>
+</blockquote>
+<hr />
+<h2 id="quản-lý-device-registration">9. QUẢN LÝ DEVICE REGISTRATION</h2>
+<h3 id="max-3-devices-per-customer">9.1. Max 3 devices per Customer</h3>
+<ul>
+<li>Device 4+ → tạo với <code>IsActive=false</code> +
+<code>FraudFlag(Status=Pending)</code>.</li>
+<li>Admin review → approve (set <code>IsActive=true</code>) hoặc
+reject.</li>
+</ul>
+<h3 id="admin-actions">9.2. Admin actions</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Action</th>
+<th>API</th>
+<th>Hệ quả</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Deactivate device</td>
+<td><code>DeviceRegistration.Deactivate()</code></td>
+<td><code>IsActive=false</code> — customer logout device đó</td>
+</tr>
+<tr>
+<td>Verify device</td>
+<td><code>DeviceRegistration.Verify()</code></td>
+<td><code>IsVerified=true</code> — whitelist, RiskScore giảm</td>
+</tr>
+<tr>
+<td>Update risk score</td>
+<td><code>DeviceRegistration.UpdateRiskScore(score)</code></td>
+<td>Tăng/giảm device-level risk</td>
+</tr>
+</tbody>
+</table>
+<h3 id="query-anti-fraud">9.3. Query anti-fraud</h3>
+<ul>
+<li>Query <code>FingerprintHash</code> → ai khác dùng fingerprint này?
+(self-deal detection)</li>
+<li>Query <code>(CustomerId, IsActive)</code> → active devices per
+customer</li>
+<li>Query <code>DeviceToken</code> → 1 token = 1 device</li>
+</ul>
+<hr />
+<h2 id="faq">10. FAQ</h2>
+<p><strong>Q: Tôi có thể kích hoạt cả 2 role Shipper + Salesman cho 1
+customer không?</strong> A: CÓ. Một user có thể đồng thời là Buyer +
+Salesman + Shipper. Mỗi role tạo 1 bản ghi <code>CommunityRole</code>
+riêng.</p>
+<p><strong>Q: Đổi commission rate có ảnh hưởng đơn cũ không?</strong> A:
+KHÔNG. <code>SalesReferral</code> snapshot <code>CommissionRate</code>
+tại thời điểm chốt đơn (audit). Đổi config chỉ affect đơn mới.</p>
+<p><strong>Q: Reseller mode có bắt buộc tất cả tenant không?</strong> A:
+KHÔNG. Toggle global + override per-tenant. Tenant lớn có thể override
+giữ Marketplace.</p>
+<p><strong>Q: Community fund rút được bao nhiêu?</strong> A: Tùy balance
+hiện tại. Mỗi spend tạo <code>CommunityFundSpendRecord</code> +
+<code>WalletTransaction(CommunityFundSpend)</code> — audit trail đầy
+đủ.</p>
+<p><strong>Q: Fraud flag confirmed 3 lần thì sao?</strong> A: Customer
+bị permanent ban. Tất cả commission/bonus pending → Rejected.</p>
+<p><strong>Q: Tôi có thể revert một WalletTransaction không?</strong> A:
+KHÔNG update/delete. Dùng Reversal pattern — tạo
+<code>WalletTransaction(Type=Reversal, Amount=-original, RelatedTransactionId=original.Id)</code>.
+Giống AccountingEntry immutable pattern.</p>
+<hr />
+<blockquote>
+<p><strong>Xem thêm:</strong> <a href="./README.md">README index</a> |
+<a href="./02-owner.md">Shop Owner</a> | <a href="./03-salesman.md">Salesman</a> | <a href="./04-shipper.md">Shipper</a></p>
+</blockquote>
+</body>
+</html>

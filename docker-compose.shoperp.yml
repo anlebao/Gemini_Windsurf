@@ -19,6 +19,9 @@ services:
       - Sync__PollIntervalMs=10000
       # Multi-VPS: Gateway is on the GATEWAY VPS — connect via VPC internal IP
       - Gateway__BaseUrl=http://${GATEWAY_REMOTE_HOST}:80
+      # #130: Public Gateway URL for browser JS fetch (Guard photo upload).
+      # Gateway__BaseUrl is VPC internal IP (unreachable from browser) — this is the public URL.
+      - Gateway__PublicBaseUrl=https://api2.${VANAN_DOMAIN}
       # Phase 4: ShopInstance routing — THIS VPS's unique ShopInstance Guid.
       # MUST match the ShopInstance record created in Gateway PG via ShopInstances API.
       # Generate a NEW Guid for each ShopERP VPS — NEVER reuse across VPS.
