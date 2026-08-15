@@ -109,6 +109,9 @@ namespace VanAn.ShopERP.Components.Pages.Guard
             successMessage = string.Empty;
             try
             {
+                // #130-fix: 45s overall timeout — prevents "loading mãi" if any step hangs.
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+
                 // #126-fix2: Read plate number + phone from DOM input via JS.
                 // OCR fills the input via JS (setInputValue), which dispatches a change event
                 // so Blazor @bind syncs. But as a safety net, always read from DOM at issue time.
@@ -139,30 +142,50 @@ namespace VanAn.ShopERP.Components.Pages.Guard
                 }
 
                 // 1. Get presigned upload URLs
-                var presign = await GuardApi.PresignUploadAsync();
+                PresignUploadResultDto presign;
+                try
+                {
+                    presign = await GuardApi.PresignUploadAsync(ct: cts.Token);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Presign upload failed for plate {Plate}", plateNumber);
+                    errorMessage = "Không lấy được URL upload ảnh (Gateway không phản hồi). Vui lòng thử lại.";
+                    return;
+                }
                 if (string.IsNullOrEmpty(presign.PlatePhotoUploadUrl) || string.IsNullOrEmpty(presign.CustomerPhotoUploadUrl))
                 {
                     errorMessage = "Không lấy được URL upload ảnh.";
                     return;
                 }
 
-                // 2. Upload photos to R2 via presigned PUT
+                // 2. Upload photos to R2 via presigned PUT (30s timeout per upload in JS)
                 var plateOk = await JS.InvokeAsync<bool>("vananGuardCamera.uploadToPresignedUrl", platePhotoDataUrl, presign.PlatePhotoUploadUrl);
                 var customerOk = await JS.InvokeAsync<bool>("vananGuardCamera.uploadToPresignedUrl", customerPhotoDataUrl, presign.CustomerPhotoUploadUrl);
                 if (!plateOk || !customerOk)
                 {
-                    errorMessage = "Upload ảnh thất bại. Vui lòng thử lại.";
+                    errorMessage = "Upload ảnh lên R2 thất bại (timeout hoặc URL không hợp lệ). Vui lòng thử lại.";
                     return;
                 }
 
                 // 3. Issue QR session
-                var result = await GuardApi.IssueAsync(new IssueRequestDto
+                IssueResultDto result;
+                try
                 {
-                    PlateNumber = plateNumber.Trim(),
-                    PlatePhotoKey = presign.PlatePhotoKey,
-                    CustomerPhotoKey = presign.CustomerPhotoKey,
-                    CustomerPhone = string.IsNullOrWhiteSpace(customerPhone) ? null : customerPhone.Trim()
-                });
+                    result = await GuardApi.IssueAsync(new IssueRequestDto
+                    {
+                        PlateNumber = plateNumber.Trim(),
+                        PlatePhotoKey = presign.PlatePhotoKey,
+                        CustomerPhotoKey = presign.CustomerPhotoKey,
+                        CustomerPhone = string.IsNullOrWhiteSpace(customerPhone) ? null : customerPhone.Trim()
+                    }, cts.Token);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Issue QR failed for plate {Plate}", plateNumber);
+                    errorMessage = $"Không tạo được phiên QR: {ex.Message}";
+                    return;
+                }
 
                 issuedSessionId = result.SessionId;
                 issuedShortCode = result.ShortCode;
@@ -176,6 +199,10 @@ namespace VanAn.ShopERP.Components.Pages.Guard
                 // 5. Clear JS-side photo storage + sessionStorage (issue complete).
                 await JS.InvokeVoidAsync("vananGuardCamera.clearState");
             }
+            catch (OperationCanceledException)
+            {
+                errorMessage = "Tạo QR quá thời gian (45s). Vui lòng thử lại.";
+            }
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Error issuing QR for plate {Plate}", plateNumber);
@@ -184,7 +211,10 @@ namespace VanAn.ShopERP.Components.Pages.Guard
             finally
             {
                 issuing = false;
-                StateHasChanged();
+                // #130-fix: Defensive StateHasChanged — if circuit disconnected, this throws.
+                // Catch silently to avoid "loading mãi" (UI stuck because finally itself failed).
+                try { StateHasChanged(); }
+                catch (Exception) { /* Circuit disconnected — reconnect UI will show. */ }
             }
         }
 

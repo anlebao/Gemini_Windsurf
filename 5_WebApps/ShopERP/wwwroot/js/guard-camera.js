@@ -404,17 +404,24 @@ window.vananGuardCamera = {
         }
     },
 
-    /** Upload a base64 JPEG to a presigned PUT URL (R2). Returns true on success. */
+    /** Upload a base64 JPEG to a presigned PUT URL (R2). Returns true on success.
+     *  #130-fix: Add 30s timeout via AbortController — without it, fetch hangs forever
+     *  if R2 is unreachable or presigned URL is invalid, causing "loading mãi" on UI. */
     async uploadToPresignedUrl(dataUrl, presignedUrl) {
         try {
             // Convert base64 data URL to Blob
             const response = await fetch(dataUrl);
             const blob = await response.blob();
+            // 30s timeout — AbortController cancels fetch if R2 is unreachable.
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000);
             const uploadResp = await fetch(presignedUrl, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'image/jpeg' },
-                body: blob
+                body: blob,
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
             return uploadResp.ok;
         } catch (err) {
             console.error('Upload to presigned URL failed:', err);
