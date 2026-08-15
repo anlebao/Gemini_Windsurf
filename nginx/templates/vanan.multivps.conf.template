@@ -684,7 +684,7 @@ server {
         add_header X-Cache-Status $upstream_cache_status;
         limit_req zone=dir_api burst=200 nodelay;
         limit_conn perip_conn 20;
-        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_pass         http://gateway:80;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -700,7 +700,7 @@ server {
         add_header X-Cache-Status $upstream_cache_status;
         limit_req zone=dir_api burst=200 nodelay;
         limit_conn perip_conn 20;
-        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_pass         http://gateway:80;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -716,7 +716,7 @@ server {
         add_header X-Cache-Status $upstream_cache_status;
         limit_req zone=dir_api burst=200 nodelay;
         limit_conn perip_conn 20;
-        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_pass         http://gateway:80;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -730,7 +730,7 @@ server {
         client_max_body_size 10m;  # #130: allow photo upload
         limit_req zone=dir_api burst=200 nodelay;
         limit_conn perip_conn 20;
-        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_pass         http://gateway:80;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;

@@ -1,9 +1,9 @@
 # MASTER PLAN: KhachLink Multi-Profile (5 Loại KhachLink)
 
 > **Created:** 2026-08-15
-> **Last Updated:** 2026-08-15
+> **Last Updated:** 2026-08-15 (R1 COMPLETE — all 6 sprints merged to `main` via `5047ed8c` + enabled via `b3af97a1`. timlathay.com live as Directory type)
 > **Source:** User request — 5 loại KhachLink (Directory / Logistics / JobMarket / FullCommerce / Reseller)
-> **Branch:** `feature/khachlink-multi-profile-r1` (R1)
+> **Branch:** `main` (R1 merged — `5047ed8c` Merge + `b3af97a1` enable workflow)
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT, 7 steps)
 > **Domain modification:** YES — approved by user 2026-08-15 (`KhachLinkInstance` aggregate + `KhachLinkNavFlags` VO + `KhachLinkProfile` enum)
 > **Plan file:** `C:\Users\lebao\.devin\plans\plan-69592e1cef008788.md`
@@ -12,7 +12,7 @@
 
 | Release | Sprints | Branch | Status |
 |---|---|---|---|
-| **R1** — Multi-Profile Core + Type 1 + 4 + Multi-domain | 1-6 | `feature/khachlink-multi-profile-r1` | 🔵 IN PROGRESS |
+| **R1** — Multi-Profile Core + Type 1 + 4 + Multi-domain | 1-6 | `main` (merged `5047ed8c` + enabled `b3af97a1`) | ✅ COMPLETE + MERGED + ENABLED |
 | **R2** — Type 5 Reseller | 7 | `feature/khachlink-multi-profile-r2` | ⏳ PENDING |
 | **R3** — Type 2 Logistics + Type 3 JobMarket | 8-9 | `feature/khachlink-multi-profile-r3` | ⏳ PENDING |
 

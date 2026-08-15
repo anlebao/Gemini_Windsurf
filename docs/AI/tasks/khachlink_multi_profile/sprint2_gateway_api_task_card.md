@@ -1,6 +1,6 @@
 # TASK CARD — Sprint 2: Gateway API (KhachLink Multi-Profile R1)
 
-> **Status:** ⏳ PENDING
+> **Status:** ✅ COMPLETE (merged `41a8994b` + `398610f9` → `5047ed8c`)
 > **Priority:** P1 — After Sprint 1 approval
 > **Branch:** `feature/khachlink-multi-profile-r1`
 > **Mode:** IMPLEMENT (Application Phase)

@@ -1,6 +1,6 @@
 # TASK CARD — Sprint 1: Domain + Infrastructure (KhachLink Multi-Profile R1)
 
-> **Status:** 🔵 IN PROGRESS
+> **Status:** ✅ COMPLETE (merged `d99882d5` → `5047ed8c`)
 > **Priority:** P1 — First sprint of R1
 > **Branch:** `feature/khachlink-multi-profile-r1`
 > **Mode:** IMPLEMENT (Domain Phase + Infrastructure Phase)

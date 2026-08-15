@@ -1,6 +1,6 @@
 # TASK CARD — Sprint 5: nginx + SSL Multi-domain (KhachLink Multi-Profile R1)
 
-> **Status:** ⏳ PENDING
+> **Status:** ✅ COMPLETE (merged `afe84723` → `5047ed8c`)
 > **Priority:** P1 — After Sprint 4 approval
 > **Branch:** `feature/khachlink-multi-profile-r1`
 > **Mode:** IMPLEMENT (Infrastructure Phase)

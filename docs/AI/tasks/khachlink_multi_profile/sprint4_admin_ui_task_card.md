@@ -1,6 +1,6 @@
 # TASK CARD — Sprint 4: SystemAdmin UI (KhachLink Multi-Profile R1)
 
-> **Status:** ⏳ PENDING
+> **Status:** ✅ COMPLETE (merged `e2d4bece` → `5047ed8c`)
 > **Priority:** P1 — After Sprint 3 approval
 > **Branch:** `feature/khachlink-multi-profile-r1`
 > **Mode:** IMPLEMENT (UI Phase)

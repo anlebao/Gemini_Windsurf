@@ -1,6 +1,6 @@
 # TASK CARD — Sprint 3: KhachLink Runtime (KhachLink Multi-Profile R1)
 
-> **Status:** ⏳ PENDING
+> **Status:** ✅ COMPLETE (merged `8ccaa942` → `5047ed8c`)
 > **Priority:** P1 — After Sprint 2 approval
 > **Branch:** `feature/khachlink-multi-profile-r1`
 > **Mode:** IMPLEMENT (UI Phase)

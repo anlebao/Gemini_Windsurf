@@ -1,6 +1,6 @@
 # TASK CARD — Sprint 6: R1 Tests (KhachLink Multi-Profile R1)
 
-> **Status:** ⏳ PENDING
+> **Status:** ✅ COMPLETE (merged `50f55e8d` → `5047ed8c`)
 > **Priority:** P1 — After Sprint 5 approval
 > **Branch:** `feature/khachlink-multi-profile-r1`
 > **Mode:** IMPLEMENT (Test Phase)

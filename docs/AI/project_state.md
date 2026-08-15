@@ -28,41 +28,47 @@
 
 ## 2. Current Objective
 
-**GUARD QR VERIFICATION (ISSUE #126) — ALL 3 RELEASES COMPLETE + MERGED + DEPLOYED. Ready to close.**
+**KHACHLINK MULTI-PROFILE R1 COMPLETE + MERGED + ENABLED. timlathay.com LIVE as Directory type. Issue #130 (QR creation) fixes applied — pending RV + close.**
 
-**Source:** GitHub Issue #126 — "Guard page đang hardcode" — Guard Scanner page 100% hardcoded UI mockup, no backend.
-**Branch:** `main` — R1 `ee109800` + R2 `08f8ff60` + R3 `4dd1a0a4` all merged.
-**Plan:** `docs/AI/tasks/guard_qr_verify/master_plan.md` (7 sprints: 0=Analyze, 1=Domain+Infra, 2=Gateway API, 3=Guard UI, 4=KhachLink Claim, 5=Printer, 6=Tests)
+**Source:** User request — 5 loại KhachLink (Directory / Logistics / JobMarket / FullCommerce / Reseller).
+**Branch:** `main` @ `3d952c75` — R1 merged (`5047ed8c`) + enabled (`b3af97a1`) + timlathay.com rebrand (`3d952c75`).
+**Plan:** `docs/AI/tasks/khachlink_multi_profile/master_plan.md` (3 releases: R1=Sprint 1-6 ✅, R2=Sprint 7 ⏳, R3=Sprint 8-9 ⏳)
 
-**ALL 7 SPRINTS COMPLETE:**
-- Sprint 0 — Analyze ✅ (6 integration points + 8 BR spec + R2 bucket)
-- Sprint 1 — Domain + Infrastructure ✅ (`VehicleSession` + `GuardScanLog` + EF migration + R2 storage + repos)
-- Sprint 2 — Gateway API ✅ (`GuardController` 9 endpoints + `GuardService` 9 methods + QR payload + short code + feature flag)
-- Sprint 3 — Guard UI ✅ (Blazor `Scan.razor` 3 tabs + `GuardApiClient` + `guard-camera.js`)
-- Sprint 4 — KhachLink Claim ✅ (PR #128 — `/qr/claim` + `/qr/wallet` + `GuardQrApiClient` + `qr-wallet.js` + nav link)
-- Sprint 5 — Printer ✅ (`PrintTicket.razor` 58mm thermal, auto-print, QR on canvas)
-- Sprint 6 — Tests ✅ (PR #129 — 15 domain + 18 service + 15 integration tests. 33 PASS + 5 PASS + 10 skipped. E2E Playwright spec DEFERRED)
+**R1 "Multi-Profile Core + Type 1 + 4 + Multi-domain" — ALL 6 SPRINTS COMPLETE + MERGED:**
+- Sprint 1 — Domain + Infrastructure ✅ (`KhachLinkProfile` enum + `KhachLinkNavFlags` VO + `KhachLinkInstance` entity + EF config + migration + seed) — `d99882d5`
+- Sprint 2 — Gateway API ✅ (Repository + Service + DTOs + `KhachLinkInstanceController` 6 endpoints + DI + feature flag) — `41a8994b` + `398610f9`
+- Sprint 3 — KhachLink Runtime ✅ (`KhachLinkInstanceHttpService` + KhachLinkLayout refactor + NavMenu flag-driven 15 items + header icons) — `8ccaa942`
+- Sprint 4 — SystemAdmin UI ✅ (`/admin/khachlink-instances` page + `KhachLinkInstanceApiClient` + NavMenu link) — `e2d4bece`
+- Sprint 5 — nginx + SSL ✅ (wildcard server block + `init-ssl-khachlink-instances.sh` SAN expand + deployment guide) — `afe84723`
+- Sprint 6 — R1 Tests ✅ (domain unit + service integration + API integration tests) — `50f55e8d`
+- R1 Enable ✅ (docker-compose env var `KHACHLINK_MULTIPROFILE_ENABLED` + CD preserve) — `b3af97a1`
+- **timlathay.com Directory instance LIVE** — rebrand static content + "Tìm hiểu" redirect + blast radius isolation — `3d952c75` + `2e7ef9b0`
 
-**3 RELEASES:**
-- **R1 "Paper Ticket Flow"** (Sprint 0+1+2+3+5) — `ee109800` — DEPLOYED + RV PASS (CLI). Channel C end-to-end: Guard chụp ảnh → tạo QR → in vé giấy → khách giữ giấy → guard quét QR → verify → checkout. Feature flag `Guard:QrVerifyEnabled` ON (RV prep).
-- **R2 "Digital Claim Flow"** (Sprint 4) — `08f8ff60` (PR #128) — DEPLOYED. KhachLink `/qr/claim` (camera + 6-digit) + `/qr/wallet` (fullscreen QR). Channel A + B + C→A migration. Manual RV pending.
-- **R3 "Tested + Production Ready"** (Sprint 6) — `4dd1a0a4` (PR #129) — MERGED, CD deploying. 33 unit + 5 integration tests PASS. E2E Playwright spec deferred (not blocking).
+**Issue #130 "Guard: không tạo QRcode được" — FIXES APPLIED (pending RV + close):**
+- `4c07753f` — timeout + defensive error handling for QR issue flow
+- `119cef2e` — Blazor circuit reconnect UI to App.razor
+- `7da32cf1` — JS-first photo upload (eliminate base64 over SignalR — root cause of circuit disconnect)
+- `cc3abaf0` — proxy photo upload through Gateway (fix R2 CORS issue)
+- `2e7ef9b0` — QR photo compression + Directory "Tìm hiểu" redirect + blast radius isolation
 
-**Remaining (post-close follow-up):**
-1. Manual RV of R2 KhachLink claim/wallet flow on VPS
-2. Manual RV of R1 demo flow (6 steps) + OCR end-to-end + feature flag toggle OFF test
-3. E2E Playwright spec `6_Testing/e2e-tests/guard-qr-verify.spec.ts` (deferred from Sprint 6 Task 4)
-4. Verify R3 CD deploy success + close Issue #126
+**Remaining:**
+1. RV Issue #130 on VPS — verify QR creation works end-to-end (photo upload + QR generation + claim)
+2. Close Issue #130 (`gh issue close 130`) after RV pass
+3. RV timlathay.com Directory instance on VPS — verify nav flags (Home + Stores + Profile only, cart/rewards hidden)
+4. R2 (Sprint 7 — Reseller Profile) — branch from `main`, implement `ForProfile(Reseller)` preset + tests
+5. R3 (Sprint 8-9 — Logistics + JobMarket) — branch from `main` after R2 merge
 
-> **Previous: HARDCODED TENANT ID CLEANUP + SETTLEMENT HISTORY UI — SPRINT A+B — archived.** See history log below.
+> **Previous: GUARD QR VERIFY (ISSUE #126) — ALL 3 RELEASES COMPLETE + MERGED + DEPLOYED. Ready to close.** See history log below.
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `main` @ `4dd1a0a4` (R3 Sprint 6 merged) · **Build:** 0 errors · **Guard-check:** ALL PASSED
+- **Branch:** `main` @ `3d952c75` (timlathay.com Directory rebrand) · **Build:** 0 errors · **Guard-check:** ALL PASSED
 - **.NET SDK:** 8.0.422
-- **CI/CD:** CI SUCCESS — 1261 unit tests + 233 integration tests + 39 architecture tests ALL PASS (last run on `main`). CD auto-deploy for R3 (`4dd1a0a4`) in progress.
+- **CI/CD:** CI SUCCESS — 1261 unit tests + 233 integration tests + 39 architecture tests ALL PASS (last run on `main`). CD auto-deploy active.
+- **KhachLink Multi-Profile R1:** ✅ ALL 6 SPRINTS COMPLETE + MERGED (`5047ed8c`) + ENABLED (`b3af97a1`). timlathay.com LIVE as Directory type (`3d952c75`). Feature flag `KhachLink:MultiProfileEnabled` ON.
+- **Issue #130 "Guard: không tạo QRcode được":** FIXES APPLIED (5 commits: timeout + circuit reconnect + JS-first photo upload + Gateway CORS proxy + QR compression). Pending VPS RV + close.
 - **Issue #126 Guard QR Verify:** ✅ ALL 3 RELEASES COMPLETE + MERGED + DEPLOYED. R1 `ee109800` + R2 `08f8ff60` (PR #128) + R3 `4dd1a0a4` (PR #129). 33 Guard unit tests + 5 integration tests PASS. Ready to close after manual RV.
 - **Sprint A+B (previous):** ✅ Hardcoded tenant ID cleanup + Settlement History admin page + NavMenu completeness (30/30). On `main`.
 - **GitHub Issues Batch:** ✅ #114 + #123 + #124 + #125 ALL FIXED + DEPLOYED + RV 33/33 PASS on VPS (previous sprint).
@@ -81,15 +87,22 @@
 
 ## 4. Next Actions
 
+**KhachLink Multi-Profile + Issue #130 — Immediate:**
+
+1. **(RV Issue #130 — QR creation)** On VPS: Guard → `/guard/scan` → Issue → capture photos → verify QR generation works (no circuit disconnect, photo upload via JS-first to R2/Gateway proxy, QR compression applied). 5 fix commits applied.
+2. **(Close Issue #130)** After RV pass — `gh issue close 130` with summary comment.
+3. **(RV timlathay.com Directory instance)** On VPS: `timlathay.com` → verify nav flags (Home + Stores + Profile only, cart/rewards/scan hidden) + "Tìm hiểu" redirect + static content rebrand.
+4. **(R2 — Sprint 7 Reseller)** Branch `feature/khachlink-multi-profile-r2` from `main` → implement `ForProfile(Reseller)` preset (all true) + SystemAdmin UI enable + `CommerceMode.Reseller` integration verify + tests → merge → deploy → RV.
+5. **(R3 — Sprint 8-9 Logistics + JobMarket)** Branch `feature/khachlink-multi-profile-r3` from `main` after R2 merge → Sprint 8: `ForProfile(Logistics)` + Community Commerce verify + tests → Sprint 9: `ForProfile(JobMarket)` + `/jobs.razor` page (reuse /stores + filter) + tests → merge → deploy → RV.
+
 **Issue #126 Guard QR Verify — Post-close follow-up (ALL releases merged):**
 
-1. **(R2 Manual RV — KhachLink)** On VPS: KhachLink → `/qr/claim` → camera scan + 6-digit code → `/qr/wallet` → fullscreen QR. Verify Channel A + B + C→A migration.
-2. **(R1 Manual RV — Demo flow 6 steps)** Login ShopERP as Guard → `/guard/scan` → Issue → capture photos → tạo QR → in vé → Verify → scan QR → Match → checkout → Today tab real stats.
-3. **(R1 Manual RV — OCR end-to-end)** Capture plate photo → "Nhận diện biển số" button → verify Tesseract.js OCR prefill (~70-85% accuracy, guard must confirm).
-4. **(R1 Manual RV — Feature flag toggle OFF)** Set `GUARD_QR_VERIFY_ENABLED=false` → verify `/guard/scan` returns 503 (flag OFF = endpoint disabled).
-5. **(R3 CD verify)** Confirm CD pipeline for `4dd1a0a4` SUCCESS on all 6 jobs (Gateway + ShopERP + KhachLink + nginx + DB migrate + health check).
-6. **(Close Issue #126)** After RV pass — `gh issue close 126` with summary comment.
-7. **(E2E Playwright spec — DEFERRED)** `6_Testing/e2e-tests/guard-qr-verify.spec.ts` — full flow (issue → claim → verify → checkout) + Channel C→A migration sub-flow. Not blocking Issue #126 close.
+6. **(R2 Manual RV — KhachLink)** On VPS: KhachLink → `/qr/claim` → camera scan + 6-digit code → `/qr/wallet` → fullscreen QR. Verify Channel A + B + C→A migration.
+7. **(R1 Manual RV — Demo flow 6 steps)** Login ShopERP as Guard → `/guard/scan` → Issue → capture photos → tạo QR → in vé → Verify → scan QR → Match → checkout → Today tab real stats.
+8. **(R1 Manual RV — OCR end-to-end)** Capture plate photo → "Nhận diện biển số" button → verify Tesseract.js OCR prefill (~70-85% accuracy, guard must confirm).
+9. **(R1 Manual RV — Feature flag toggle OFF)** Set `GUARD_QR_VERIFY_ENABLED=false` → verify `/guard/scan` returns 503 (flag OFF = endpoint disabled).
+10. **(Close Issue #126)** After RV pass — `gh issue close 126` with summary comment.
+11. **(E2E Playwright spec — DEFERRED)** `6_Testing/e2e-tests/guard-qr-verify.spec.ts` — full flow (issue → claim → verify → checkout) + Channel C→A migration sub-flow. Not blocking Issue #126 close.
 
 **Deferred / monitoring (from previous sprints):**
 8. **(Deploy Sprint A+B)** Deploy `f7201ef4` to VPS via CD pipeline (when ready).
@@ -126,6 +139,8 @@
 
 ## 6. History Log (compressed — see archive + git log)
 
+* [2026-08-15] **KHACHLINK MULTI-PROFILE R1 COMPLETE + MERGED + ENABLED + timlathay.com LIVE.** R1 "Multi-Profile Core + Type 1 + 4 + Multi-domain" — all 6 sprints merged via `5047ed8c` + enabled via `b3af97a1` (docker-compose env var `KHACHLINK_MULTIPROFILE_ENABLED`). Sprint 1: `KhachLinkProfile` enum + `KhachLinkNavFlags` VO + `KhachLinkInstance` entity + EF migration (`d99882d5`). Sprint 2: Gateway API 6 endpoints (`41a8994b` + `398610f9`). Sprint 3: KhachLink runtime — NavMenu flag-driven 15 items + KhachLinkLayout refactor (`8ccaa942`). Sprint 4: SystemAdmin `/admin/khachlink-instances` page (`e2d4bece`). Sprint 5: nginx wildcard + SSL SAN expand (`afe84723`). Sprint 6: R1 tests (`50f55e8d`). timlathay.com rebranded as Directory type instance (`3d952c75` + `2e7ef9b0` — static content rebrand + "Tìm hiểu" redirect + blast radius isolation). Feature flag `KhachLink:MultiProfileEnabled` ON. Next: R2 (Reseller) + R3 (Logistics + JobMarket).
+* [2026-08-15] **ISSUE #130 "Guard: không tạo QRcode được" — 5 FIX COMMITS APPLIED (pending RV + close).** Root cause: base64 photo over SignalR → circuit disconnect → QR creation fails. Fixes: (1) `4c07753f` timeout + defensive error handling. (2) `119cef2e` Blazor circuit reconnect UI. (3) `7da32cf1` JS-first photo upload — eliminate base64 over SignalR (root cause fix). (4) `cc3abaf0` proxy photo upload through Gateway — fix R2 CORS issue. (5) `2e7ef9b0` QR photo compression + Directory "Tìm hiểu" redirect. Issue #130 still OPEN — pending VPS RV + close.
 * [2026-08-15] **GUARD QR VERIFY (ISSUE #126) — ALL 3 RELEASES COMPLETE + MERGED + DEPLOYED.** R1 `ee109800` (Paper Ticket Flow — Sprint 0+1+2+3+5) + R2 `08f8ff60` PR #128 (Digital Claim Flow — Sprint 4: KhachLink `/qr/claim` + `/qr/wallet` + `GuardQrApiClient` + `qr-wallet.js` + nav link) + R3 `4dd1a0a4` PR #129 (Tested + Production Ready — Sprint 6: 15 domain + 18 service + 15 integration tests). 33 unit + 5 integration PASS, 10 skipped (pre-existing JWT factory). E2E Playwright spec DEFERRED. Build 0 errors · guard-check ALL PASSED · Architecture 39/39. Ready to close Issue #126 after manual RV.
 * [2026-08-14] **GUARD QR VERIFY (ISSUE #126) — RELEASE R1 COMPLETE (Sprint 0+1+2+3+5).** Branch `feature/guard-qr-r1` (Sprint 0+1) + `feature/guard-qr-r2-sprint2` (Sprint 2) + `feature/guard-qr-r3-sprint3` (Sprint 3) + `feature/guard-qr-r1-sprint5` (Sprint 5). Sprint 0: 6 integration points verified + 8 BR spec + R2 bucket. Sprint 1: Domain entities + EF config + migration + R2 storage + repositories + DI. Sprint 2: `IGuardService` + `GuardService` (9 methods) + `GuardController` (9 endpoints) + QR payload + short code + feature flag. Sprint 3: Deleted hardcode `Scan.cshtml` + Blazor `Scan.razor` (3 tabs) + `GuardApiClient` + `guard-camera.js`. Sprint 5: `PrintTicket.razor` (58mm thermal, auto-print, QR on canvas) + "In vé" button wired. R1 = Channel C (paper ticket) end-to-end. Build 0 errors · guard-check ALL PASSED · Architecture tests 39/39 · Fast test gate PASSED. Next: R2 (Sprint 4 — KhachLink Claim).
 * [2026-08-13] **HARDCODED TENANT ID CLEANUP + SETTLEMENT HISTORY UI — SPRINT A+B COMPLETE.** Commit `f7201ef4`. Sprint A: 4 files fixed (ProductReferralConfigService, SocialAuthController, CustomerIdentityController, PermissionGroupManagement) — all hardcoded `Guid.Parse("00000000-...")` replaced with `IConfiguration["Seed:TenantId"]` fallback. Sprint B1: Settlement History admin page (`SettlementAdminController.cs` + `SettlementApiClient.cs` + `Settlements.razor`) + NavMenu completeness (30/30 admin pages have nav links, added Background Services link). Sprint B2: Tenant Settings already covered by TenantManagement edit modal. CI: 1261 unit + 233 integration + 39 architecture tests ALL PASS.
@@ -181,7 +196,7 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main`, last commit `4dd1a0a4` (R3 Sprint 6 merged via PR #129). Issue #126 ALL 3 RELEASES COMPLETE: R1 `ee109800` + R2 `08f8ff60` (PR #128) + R3 `4dd1a0a4` (PR #129). 33 Guard unit tests + 5 integration tests PASS. Build 0 errors. guard-check ALL PASSED. Architecture 39/39. CI: 1261 unit + 233 integration + 39 arch tests ALL PASS. CD auto-deploy for R3 in progress.
+- **Verified Facts:** Branch=`main`, last commit `3d952c75` (timlathay.com Directory rebrand). KhachLink Multi-Profile R1 COMPLETE: all 6 sprints merged via `5047ed8c` + enabled via `b3af97a1`. timlathay.com LIVE as Directory type. Issue #130: 5 fix commits applied (QR creation — pending RV + close). Issue #126: ALL 3 RELEASES COMPLETE (R1 `ee109800` + R2 `08f8ff60` PR #128 + R3 `4dd1a0a4` PR #129) — pending RV + close. 33 Guard unit tests + 5 integration tests PASS. Build 0 errors. guard-check ALL PASSED. Architecture 39/39. CI: 1261 unit + 233 integration + 39 arch tests ALL PASS.
 - **Open Questions:** 0
 - **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (50+), Open Questions (0) < 3
 
@@ -191,6 +206,8 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md`.
 
+* **2026-08-15 — KHACHLINK MULTI-PROFILE R1 COMPLETE + MERGED + ENABLED + timlathay.com LIVE.** R1 "Multi-Profile Core + Type 1 + 4 + Multi-domain" — all 6 sprints merged via `5047ed8c` + enabled via `b3af97a1`. Sprint 1 (`d99882d5`): `KhachLinkProfile` enum + `KhachLinkNavFlags` VO + `KhachLinkInstance` entity + EF config + migration + seed. Sprint 2 (`41a8994b` + `398610f9`): Repository + Service + DTOs + `KhachLinkInstanceController` 6 endpoints + DI + feature flag. Sprint 3 (`8ccaa942`): `KhachLinkInstanceHttpService` + KhachLinkLayout refactor + NavMenu flag-driven 15 items + header icons. Sprint 4 (`e2d4bece`): ShopERP `/admin/khachlink-instances` page + `KhachLinkInstanceApiClient` + NavMenu link. Sprint 5 (`afe84723`): nginx wildcard server block + `init-ssl-khachlink-instances.sh` SAN expand + deployment guide. Sprint 6 (`50f55e8d`): R1 tests (domain unit + service integration + API integration). R1 Enable (`b3af97a1`): docker-compose env var `KHACHLINK_MULTIPROFILE_ENABLED` + CD preserve. timlathay.com (`3d952c75` + `2e7ef9b0`): rebrand static content for timlathay.com Directory type + "Tìm hiểu" redirect + blast radius isolation + #130 QR photo compression. Feature flag `KhachLink:MultiProfileEnabled` ON. Next: R2 (Sprint 7 Reseller) + R3 (Sprint 8-9 Logistics + JobMarket).
+* **2026-08-15 — ISSUE #130 "Guard: không tạo QRcode được" — 5 FIX COMMITS APPLIED (pending RV + close).** Root cause: base64 photo over SignalR → Blazor circuit disconnect → QR creation fails. Fixes: (1) `4c07753f` timeout + defensive error handling for QR issue flow. (2) `119cef2e` Blazor circuit reconnect UI to App.razor. (3) `7da32cf1` JS-first photo upload — eliminate base64 over SignalR (root cause fix). (4) `cc3abaf0` proxy photo upload through Gateway — fix R2 CORS issue. (5) `2e7ef9b0` QR photo compression + Directory "Tìm hiểu" redirect + blast radius isolation. Issue #130 still OPEN on GitHub — pending VPS RV + `gh issue close 130`.
 * **2026-08-15 — GUARD QR VERIFY (ISSUE #126) ALL 3 RELEASES COMPLETE + MERGED + DEPLOYED.** R1 `ee109800` (Paper Ticket Flow — Sprint 0+1+2+3+5) + R2 `08f8ff60` PR #128 (Digital Claim Flow — Sprint 4: KhachLink `/qr/claim` + `/qr/wallet` + `GuardQrApiClient` + `qr-wallet.js` + nav link) + R3 `4dd1a0a4` PR #129 (Tested + Production Ready — Sprint 6: 15 domain + 18 service + 15 integration tests in `VanAn.Core.Tests/Guard/` + `VanAn.Integration.Tests/Guard/`). 33 unit + 5 integration tests PASS, 10 integration skipped (pre-existing JWT factory issue). E2E Playwright spec DEFERRED. Build 0 errors · guard-check ALL PASSED · Architecture 39/39 · Fast test gate PASSED. CD auto-deploy for R3 in progress. Ready to close Issue #126 after manual RV.
 * **2026-08-14 — GUARD QR VERIFY (ISSUE #126) RELEASE R1 COMPLETE (Sprint 0+1+2+3+5).** Branches: `feature/guard-qr-r1` (Sprint 0+1) + `feature/guard-qr-r2-sprint2` (Sprint 2) + `feature/guard-qr-r3-sprint3` (Sprint 3) + `feature/guard-qr-r1-sprint5` (Sprint 5) → all merged to `main`. R1 = "Paper Ticket Flow" — Channel C end-to-end: Guard chụp ảnh → tạo QR → in vé giấy → khách giữ giấy → guard quét QR → verify → checkout. Components: Domain entities + EF migration + R2 storage + GuardController (9 endpoints) + GuardService + Blazor Scan.razor (3 tabs) + PrintTicket.razor (58mm thermal) + GuardApiClient + guard-camera.js. Feature flag `Guard:QrVerifyEnabled` default OFF. Build 0 errors · guard-check ALL PASSED · Architecture tests 39/39 · Fast test gate PASSED. Next: R2 (Sprint 4 — KhachLink Claim).
 * **2026-08-13 — SPRINT A+B COMPLETE + PUSHED.** Commit `f7201ef4`. Sprint A: 4 hardcoded tenant IDs → config-driven (`IConfiguration["Seed:TenantId"]`). Sprint B1: Settlement History admin page (Gateway `SettlementAdminController` + ShopERP `SettlementApiClient` + `Settlements.razor` + NavMenu link). Sprint B2: Tenant Settings already in TenantManagement edit modal. NavMenu: 30/30 admin pages now have nav links (added Background Services). CI: 1261 unit + 233 integration + 39 arch tests ALL PASS. Guard-check ALL PASSED.
