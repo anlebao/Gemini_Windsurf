@@ -468,3 +468,111 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 }
+
+# ============================================================
+# KhachLink Multi-Profile R1 — wildcard domain support
+# All *.${VANAN_DOMAIN} (except api2/app2/www2/diemthuong2 which have
+# explicit server blocks above) → KhachLink container.
+# KhachLink runtime resolves instance config by Host header via Gateway API.
+# nginx matches most specific server_name first, so explicit blocks above
+# always take precedence over this wildcard.
+# ============================================================
+server {
+    listen 80;
+    # Match any subdomain EXCEPT the 4 explicit ones (negative lookahead)
+    server_name ~^(?!api2\.|app2\.|www2\.|diemthuong2\.).+\.${VANAN_DOMAIN}$;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name ~^(?!api2\.|app2\.|www2\.|diemthuong2\.).+\.${VANAN_DOMAIN}$;
+
+    # Reuse the same wildcard cert (SAN includes all subdomains via --expand)
+    ssl_certificate     /etc/letsencrypt/live/www2.${VANAN_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/www2.${VANAN_DOMAIN}/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    # #122: Friendly error pages
+    error_page 502 /502.html;
+    error_page 503 /503.html;
+    error_page 504 /504.html;
+    location = /502.html { root /usr/share/nginx/html; internal; }
+    location = /503.html { root /usr/share/nginx/html; internal; }
+    location = /504.html { root /usr/share/nginx/html; internal; }
+
+    # Blazor WASM immutable assets — exempt from rate limit
+    location /_framework/ {
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_buffering    off;
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+    }
+
+    # Static assets — exempt from rate limit
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|map)$ {
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    # Blazor SignalR WebSocket — limit_conn only
+    location /_blazor {
+        limit_conn perip_conn 10;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # API calls — separate quota from page loads
+    location /api/ {
+        limit_req zone=api burst=200 nodelay;
+        limit_conn perip_conn 20;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    # Dynamic pages — rate limit + connection limit
+    location / {
+        limit_req zone=web burst=200 nodelay;
+        limit_conn perip_conn 10;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+}
