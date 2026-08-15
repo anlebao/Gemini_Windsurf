@@ -291,13 +291,16 @@ jobs:
 
             cd /opt/vanan
 
-            # Write .env.gateway (preserve existing Google/VAPID if GitHub secrets are empty)
+            # Write .env.gateway (preserve existing Google/VAPID/KhachLink flag if GitHub secrets are empty)
             EXISTING_GOOGLE_ID=$(grep -E '^GOOGLE_CLIENT_ID=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
             EXISTING_GOOGLE_SECRET=$(grep -E '^GOOGLE_CLIENT_SECRET=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
             FINAL_GOOGLE_ID="${DEPLOY_GOOGLE_CLIENT_ID:-$EXISTING_GOOGLE_ID}"
             FINAL_GOOGLE_SECRET="${DEPLOY_GOOGLE_CLIENT_SECRET:-$EXISTING_GOOGLE_SECRET}"
             EXISTING_VAPID_KEY=$(grep -E '^VAPID_PRIVATE_KEY=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
             FINAL_VAPID_KEY="${DEPLOY_VAPID_PRIVATE_KEY:-$EXISTING_VAPID_KEY}"
+            # Preserve KhachLink Multi-Profile flag (set by r1-enable.yml workflow)
+            EXISTING_KHACHLINK_FLAG=$(grep -E '^KHACHLINK_MULTIPROFILE_ENABLED=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
+            FINAL_KHACHLINK_FLAG="${EXISTING_KHACHLINK_FLAG:-false}"
 
             printf '%s\n' \
               "VANAN_DOMAIN=${DEPLOY_VANAN_DOMAIN}" \
@@ -315,6 +318,7 @@ jobs:
               "GOOGLE_CLIENT_SECRET=${FINAL_GOOGLE_SECRET}" \
               "VAPID_PRIVATE_KEY=${FINAL_VAPID_KEY}" \
               "SHOP_INSTANCE_ID=${DEPLOY_SHOP_INSTANCE_ID}" \
+              "KHACHLINK_MULTIPROFILE_ENABLED=${FINAL_KHACHLINK_FLAG}" \
               > .env.gateway
 
             # Login to GHCR
