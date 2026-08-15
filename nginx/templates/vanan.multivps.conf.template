@@ -585,7 +585,7 @@ server {
 # ============================================================
 server {
     listen 80;
-    server_name timlathay.com www.timlathay.com;
+    server_name timlathay.com;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -598,7 +598,7 @@ server {
 
 server {
     listen 443 ssl http2;
-    server_name timlathay.com www.timlathay.com;
+    server_name timlathay.com;
 
     ssl_certificate     /etc/letsencrypt/live/timlathay.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/timlathay.com/privkey.pem;

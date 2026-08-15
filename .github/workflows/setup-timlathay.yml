@@ -114,8 +114,7 @@ jobs:
                 --email admin@timlathay.com \
                 --agree-tos \
                 --no-eff-email \
-                -d timlathay.com \
-                -d www.timlathay.com
+                -d timlathay.com
               echo "Certificate issued!"
             fi
             # Restart nginx to pick up HTTPS config (now cert exists)

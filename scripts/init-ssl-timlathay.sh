@@ -22,7 +22,7 @@ DOMAIN="timlathay.com"
 EMAIL="${1:-admin@${DOMAIN}}"
 
 echo "=== SSL Bootstrap for $DOMAIN ==="
-echo "Domain : $DOMAIN + www.$DOMAIN"
+echo "Domain : $DOMAIN"
 echo "Email  : $EMAIL"
 echo ""
 
