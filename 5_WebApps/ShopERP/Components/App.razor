@@ -17,6 +17,14 @@
 
 <body>
     <Routes />
+    <div id="components-reconnect-modal" class="reconnect-modal">
+        <div class="reconnect-modal-content">
+            <p class="reconnect-title">Kết nối bị gián đoạn</p>
+            <p class="reconnect-status components-reconnect-show">Đang kết nối lại…</p>
+            <p class="reconnect-status components-reconnect-failed">Không thể kết nối lại. <button onclick="location.reload()" class="vanan-button vanan-button--primary">Tải lại trang</button></p>
+            <p class="reconnect-status components-reconnect-rejected">Phiên đã hết hạn. <button onclick="location.reload()" class="vanan-button vanan-button--primary">Tải lại trang</button></p>
+        </div>
+    </div>
     <script src="_framework/blazor.web.js"></script>
     <script>
         // Reads current DOM values for the given element ids. Used as a robust
@@ -62,6 +70,19 @@
     <script src="js/pos-voice-note.js"></script>
     <!-- #126: Guard Scanner camera + photo capture + QR generation interop -->
     <script src="js/guard-camera.js"></script>
+    <style>
+        /* #130: Blazor circuit reconnect UI — shows when SignalR connection drops */
+        .reconnect-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; justify-content: center; align-items: center; }
+        .reconnect-modal-content { background: white; border-radius: 12px; padding: 2rem; text-align: center; max-width: 400px; box-shadow: 0 4px 24px rgba(0,0,0,0.2); }
+        .reconnect-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; color: #1f2937; }
+        .reconnect-status { display: none; color: #6b7280; margin: 0.5rem 0; }
+        .components-reconnect-show .reconnect-status.components-reconnect-show,
+        .components-reconnect-failed .reconnect-status.components-reconnect-failed,
+        .components-reconnect-rejected .reconnect-status.components-reconnect-rejected { display: block; }
+        #components-reconnect-modal.components-reconnect-show,
+        #components-reconnect-modal.components-reconnect-failed,
+        #components-reconnect-modal.components-reconnect-rejected { display: flex; }
+    </style>
 </body>
 
 </html>
