@@ -64,33 +64,43 @@ jobs:
           username: ${{ secrets.VPS_GATEWAY_USER }}
           key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
           script: |
-            echo "=== nginx config syntax check ==="
-            sudo docker exec vanan-nginx nginx -t 2>&1
-            if [ $? -ne 0 ]; then
-              echo "::error::nginx -t FAILED — wildcard config has syntax error"
+            set -e
+            echo "=== Detect container names ==="
+            # Docker Compose v2 names: vanan-nginx-1, vanan-postgres-1, vanan-gateway-1
+            # Docker Compose v1 names: vanan_nginx_1, vanan_postgres_1, vanan_gateway_1
+            # Find nginx container (any name containing nginx)
+            NGINX_CTR=$(sudo docker ps --format '{{.Names}}' | grep -i nginx | head -1)
+            if [ -z "$NGINX_CTR" ]; then
+              echo "::error::No nginx container found. Running containers:"
+              sudo docker ps
               exit 1
             fi
+            echo "nginx container: $NGINX_CTR"
+            echo "=== nginx config syntax check ==="
+            sudo docker exec "$NGINX_CTR" nginx -t 2>&1
             echo "nginx -t: PASSED"
 
       - name: "Step 2/5: Seed diemthuong2 instance (FullCommerce, all flags true)"
         uses: appleboy/ssh-action@v1.2.5
-        env:
-          DEPLOY_POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         with:
           host: ${{ secrets.VPS_GATEWAY_HOST }}
           username: ${{ secrets.VPS_GATEWAY_USER }}
           key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
-          envs: DEPLOY_POSTGRES_PASSWORD
           script: |
             set -e
             echo "=== Seed diemthuong2 KhachLinkInstance (idempotent) ==="
-            # Check if seed already exists (idempotent — safe to re-run)
-            EXISTS=$(sudo docker exec vanan-postgres psql -U vanan_admin -d VanAnCoreHub -t -A -c \
+            PG_CTR=$(sudo docker ps --format '{{.Names}}' | grep -i postgres | head -1)
+            if [ -z "$PG_CTR" ]; then
+              echo "::error::No postgres container found"
+              exit 1
+            fi
+            echo "postgres container: $PG_CTR"
+            EXISTS=$(sudo docker exec "$PG_CTR" psql -U vanan_admin -d VanAnCoreHub -t -A -c \
               "SELECT COUNT(*) FROM \"KhachLinkInstances\" WHERE \"CustomDomain\" = 'diemthuong2.khachvip.online';" 2>/dev/null || echo "0")
             echo "Existing seed count: $EXISTS"
             if [ "$EXISTS" = "0" ]; then
               echo "Inserting seed instance (FullCommerce, all nav flags true)..."
-              sudo docker exec vanan-postgres psql -U vanan_admin -d VanAnCoreHub -c \
+              sudo docker exec "$PG_CTR" psql -U vanan_admin -d VanAnCoreHub -c \
                 "INSERT INTO \"KhachLinkInstances\" (\"Id\", \"Label\", \"Profile\", \"CustomDomain\", \"OwnerTenantId\", \"IsActive\", \"CreatedAt\", \"UpdatedAt\", \"TenantId\", \
                  \"NavFlags_ShowHome\", \"NavFlags_ShowCart\", \"NavFlags_ShowOrders\", \"NavFlags_ShowLoyaltyHistory\", \"NavFlags_ShowMissions\", \
                  \"NavFlags_ShowRewards\", \"NavFlags_ShowAllianceWallet\", \"NavFlags_ShowStores\", \"NavFlags_ShowCampaigns\", \"NavFlags_ShowScan\", \
@@ -101,8 +111,7 @@ jobs:
             else
               echo "Seed already exists — skipping insert."
             fi
-            # Verify
-            COUNT=$(sudo docker exec vanan-postgres psql -U vanan_admin -d VanAnCoreHub -t -A -c \
+            COUNT=$(sudo docker exec "$PG_CTR" psql -U vanan_admin -d VanAnCoreHub -t -A -c \
               "SELECT COUNT(*) FROM \"KhachLinkInstances\";" 2>/dev/null)
             echo "Total KhachLinkInstances: $COUNT"
 
@@ -158,7 +167,8 @@ jobs:
             done
             if ! echo "$HEALTH" | grep -q "Healthy"; then
               echo "::error::Gateway did not become healthy"
-              sudo docker logs vanan-gateway --tail 30
+              GW_CTR=$(sudo docker ps --format '{{.Names}}' | grep -i gateway | head -1)
+              sudo docker logs "$GW_CTR" --tail 30
               exit 1
             fi
             echo "Gateway restarted and healthy."
