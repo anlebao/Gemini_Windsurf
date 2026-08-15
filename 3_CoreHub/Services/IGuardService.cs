@@ -12,6 +12,12 @@ namespace VanAn.CoreHub.Services
         /// <summary>Generate presigned PUT URLs for photo upload (plate + customer).</summary>
         Task<PresignUploadResult> PresignUploadAsync(Guid tenantId, string contentType);
 
+        /// <summary>#130: Generate a photo key for server-side upload.</summary>
+        string GeneratePhotoKey(Guid tenantId, string slot);
+
+        /// <summary>#130: Upload photo to R2 server-side (Gateway → R2, no CORS needed).</summary>
+        Task<bool> UploadPhotoAsync(string key, string base64Data, string contentType);
+
         /// <summary>Issue a new QR session (guard creates QR with plate + customer photos).</summary>
         Task<IssueResult> IssueAsync(Guid tenantId, Guid guardId, IssueRequest req);
 

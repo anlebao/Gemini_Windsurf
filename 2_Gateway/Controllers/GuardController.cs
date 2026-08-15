@@ -68,6 +68,34 @@ namespace VanAn.Gateway.Controllers
             return Ok(result);
         }
 
+        /// <summary>
+        /// #130: Upload a single photo server-side (Gateway → R2). Replaces direct browser→R2
+        /// presigned URL upload which fails without R2 CORS config. Browser sends base64 photo
+        /// to Gateway via HTTP fetch (Gateway CORS already configured for app2.khachvip.online).
+        /// Gateway uploads to R2 server-side — no CORS needed on R2 bucket.
+        /// </summary>
+        [HttpPost("upload-photo")]
+        [Authorize(Roles = "Guard", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        public async Task<IActionResult> UploadPhoto([FromBody] UploadPhotoRequest? request, CancellationToken ct)
+        {
+            if (!IsFeatureEnabled) return FeatureDisabled();
+            var tenantId = GetTenantId();
+            if (tenantId == Guid.Empty) return Unauthorized(new { error = "Tenant ID not found in token." });
+
+            if (string.IsNullOrWhiteSpace(request?.Base64Data))
+                return BadRequest(new { error = "Photo data is required." });
+            if (request.Slot != "plate" && request.Slot != "customer")
+                return BadRequest(new { error = "Slot must be 'plate' or 'customer'." });
+
+            var contentType = string.IsNullOrWhiteSpace(request.ContentType) ? "image/jpeg" : request.ContentType;
+            var key = _guardService.GeneratePhotoKey(tenantId, request.Slot);
+            var ok = await _guardService.UploadPhotoAsync(key, request.Base64Data, contentType);
+            if (!ok)
+                return StatusCode(500, new { error = "Upload ảnh lên R2 thất bại." });
+
+            return Ok(new { key });
+        }
+
         /// <summary>Issue a new QR session (guard creates QR with plate + customer photos).</summary>
         [HttpPost("issue")]
         [Authorize(Roles = "Guard", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
@@ -372,6 +400,9 @@ namespace VanAn.Gateway.Controllers
         // === Request DTOs (controller-specific) ===
 
         public record PresignUploadRequest(string? ContentType);
+
+        /// <summary>#130: Upload photo server-side (Gateway → R2, no CORS needed).</summary>
+        public record UploadPhotoRequest(string Slot, string Base64Data, string? ContentType);
 
         public record VerifyRequest(string QrPayload);
 

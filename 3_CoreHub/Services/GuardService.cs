@@ -43,6 +43,19 @@ namespace VanAn.CoreHub.Services
             return new PresignUploadResult(plateKey, plateUrl, customerKey, customerUrl);
         }
 
+        /// <summary>#130: Generate a photo key for server-side upload.</summary>
+        public string GeneratePhotoKey(Guid tenantId, string slot)
+        {
+            var prefix = slot == "plate" ? "plates" : "customers";
+            return _r2Storage.GenerateKey(prefix, tenantId);
+        }
+
+        /// <summary>#130: Upload photo to R2 server-side (Gateway → R2, no CORS needed).</summary>
+        public Task<bool> UploadPhotoAsync(string key, string base64Data, string contentType)
+        {
+            return _r2Storage.UploadObjectAsync(key, base64Data, contentType);
+        }
+
         public async Task<IssueResult> IssueAsync(Guid tenantId, Guid guardId, IssueRequest req)
         {
             // 1. Generate QR token (random 256-bit hex string)

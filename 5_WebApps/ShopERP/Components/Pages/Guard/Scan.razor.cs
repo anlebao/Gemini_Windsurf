@@ -12,6 +12,14 @@ namespace VanAn.ShopERP.Components.Pages.Guard
     /// </summary>
     public partial class Scan : ComponentBase, IDisposable
     {
+        // #130: JS interop return type for uploadCapturedPhoto(slot, jwt, baseUrl).
+        // { success: bool, key: string, error: string } — small JSON, safe for SignalR.
+        private class UploadResult
+        {
+            public bool Success { get; set; }
+            public string Key { get; set; } = string.Empty;
+            public string Error { get; set; } = string.Empty;
+        }
         private string activeTab = "issue";
         private string errorMessage = string.Empty;
         private string successMessage = string.Empty;
@@ -144,44 +152,49 @@ namespace VanAn.ShopERP.Components.Pages.Guard
                     return;
                 }
 
-                // 1. Get presigned upload URLs
-                PresignUploadResultDto presign;
+                // 1. Get JWT + Gateway base URL for direct browser→Gateway fetch.
+                // #130: JS sends photo to Gateway /api/guard/upload-photo via HTTP fetch.
+                // Gateway uploads to R2 server-side — no R2 CORS needed, no base64 over SignalR.
+                string jwtToken;
+                string gatewayBaseUrl;
                 try
                 {
-                    presign = await GuardApi.PresignUploadAsync(ct: cts.Token);
+                    jwtToken = await GuardApi.GetJwtTokenAsync();
+                    gatewayBaseUrl = GuardApi.GatewayBaseUrl;
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogError(ex, "Presign upload failed for plate {Plate}", plateNumber);
-                    errorMessage = "Không lấy được URL upload ảnh (Gateway không phản hồi). Vui lòng thử lại.";
-                    return;
-                }
-                if (string.IsNullOrEmpty(presign.PlatePhotoUploadUrl) || string.IsNullOrEmpty(presign.CustomerPhotoUploadUrl))
-                {
-                    errorMessage = "Không lấy được URL upload ảnh.";
+                    Logger.LogError(ex, "Failed to get JWT for photo upload");
+                    errorMessage = "Không lấy được token xác thực. Vui lòng thử lại.";
                     return;
                 }
 
-                // 2. Upload photos to R2 — JS reads photo from memory + uploads directly.
-                // #130-fix: uploadCapturedPhoto(slot, url) does NOT transfer base64 over SignalR
-                // (only slot name + presigned URL — both small strings). JS handles upload entirely.
-                var plateOk = await JS.InvokeAsync<bool>("vananGuardCamera.uploadCapturedPhoto", "plate", presign.PlatePhotoUploadUrl);
-                var customerOk = await JS.InvokeAsync<bool>("vananGuardCamera.uploadCapturedPhoto", "customer", presign.CustomerPhotoUploadUrl);
-                if (!plateOk || !customerOk)
+                // 2. Upload photos via Gateway API (server-side R2 upload, no CORS).
+                // JS returns { success, key } — key is a small string, safe for SignalR.
+                var plateResult = await JS.InvokeAsync<UploadResult>("vananGuardCamera.uploadCapturedPhoto", "plate", jwtToken, gatewayBaseUrl);
+                if (!plateResult.Success)
                 {
-                    errorMessage = "Upload ảnh lên R2 thất bại (timeout hoặc URL không hợp lệ). Vui lòng thử lại.";
+                    Logger.LogWarning("Plate photo upload failed: {Error}", plateResult.Error);
+                    errorMessage = $"Upload ảnh biển số thất bại: {plateResult.Error}";
+                    return;
+                }
+                var customerResult = await JS.InvokeAsync<UploadResult>("vananGuardCamera.uploadCapturedPhoto", "customer", jwtToken, gatewayBaseUrl);
+                if (!customerResult.Success)
+                {
+                    Logger.LogWarning("Customer photo upload failed: {Error}", customerResult.Error);
+                    errorMessage = $"Upload ảnh khách thất bại: {customerResult.Error}";
                     return;
                 }
 
-                // 3. Issue QR session
+                // 3. Issue QR session with uploaded photo keys
                 IssueResultDto result;
                 try
                 {
                     result = await GuardApi.IssueAsync(new IssueRequestDto
                     {
                         PlateNumber = plateNumber.Trim(),
-                        PlatePhotoKey = presign.PlatePhotoKey,
-                        CustomerPhotoKey = presign.CustomerPhotoKey,
+                        PlatePhotoKey = plateResult.Key,
+                        CustomerPhotoKey = customerResult.Key,
                         CustomerPhone = string.IsNullOrWhiteSpace(customerPhone) ? null : customerPhone.Trim()
                     }, cts.Token);
                 }

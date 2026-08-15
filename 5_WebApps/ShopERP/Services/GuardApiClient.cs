@@ -97,6 +97,15 @@ namespace VanAn.ShopERP.Services
 
         // === API methods ===
 
+        /// <summary>#130: Get JWT token for direct browser→Gateway fetch (JS upload-photo endpoint).</summary>
+        public async Task<string> GetJwtTokenAsync()
+        {
+            return await MintUserTokenAsync();
+        }
+
+        /// <summary>#130: Get Gateway base URL for direct browser→Gateway fetch.</summary>
+        public string GatewayBaseUrl => _httpClient.BaseAddress?.ToString().TrimEnd('/') ?? string.Empty;
+
         public async Task<PresignUploadResultDto> PresignUploadAsync(string contentType = "image/jpeg", CancellationToken ct = default)
         {
             var req = await CreateRequestAsync(HttpMethod.Post, "api/guard/presign-upload", new { contentType });

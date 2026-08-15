@@ -30,5 +30,15 @@ namespace VanAn.CoreHub.Services
         /// <param name="tenantId">Tenant GUID</param>
         /// <returns>Object key (e.g. "plates/{tenantId}/{guid}.jpg")</returns>
         string GenerateKey(string prefix, Guid tenantId);
+
+        /// <summary>
+        /// #130: Upload photo to R2 server-side (Gateway → R2, no CORS needed).
+        /// Replaces direct browser→R2 presigned URL upload which requires R2 CORS config.
+        /// </summary>
+        /// <param name="key">Object key (from GenerateKey)</param>
+        /// <param name="base64Data">Base64-encoded JPEG data (without data: prefix)</param>
+        /// <param name="contentType">MIME type (e.g. "image/jpeg")</param>
+        /// <returns>True on success</returns>
+        Task<bool> UploadObjectAsync(string key, string base64Data, string contentType);
     }
 }

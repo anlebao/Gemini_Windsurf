@@ -229,16 +229,39 @@ window.vananGuardCamera = {
         return !!_capturedPhotos[slot] || !!this.loadState(slot + 'Photo');
     },
 
-    /** #130-fix: Upload captured photo for a slot to presigned URL WITHOUT transferring base64
-     *  over SignalR. JS reads photo from _capturedPhotos memory + uploads directly to R2.
-     *  Blazor only passes (slotName, presignedUrl) — both small strings. Returns true on success. */
-    async uploadCapturedPhoto(slot, presignedUrl) {
+    /** #130-fix: Upload captured photo for a slot to Gateway API (server-side R2 upload).
+     *  JS sends base64 photo to Gateway via HTTP fetch — no SignalR, no R2 CORS needed.
+     *  Gateway already has CORS configured for app2.khachvip.online.
+     *  Blazor passes (slot, jwtToken, gatewayBaseUrl) — all small strings, safe for SignalR.
+     *  Returns { success, key } or { success: false, error }. */
+    async uploadCapturedPhoto(slot, jwtToken, gatewayBaseUrl) {
         const dataUrl = this.getCapturedPhoto(slot);
         if (!dataUrl) {
-            console.error('[Guard] No captured photo for slot:', slot);
-            return false;
+            return { success: false, error: 'No captured photo for slot: ' + slot };
         }
-        return await this.uploadToPresignedUrl(dataUrl, presignedUrl);
+        try {
+            const response = await fetch((gatewayBaseUrl || '') + '/api/guard/upload-photo', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + jwtToken
+                },
+                body: JSON.stringify({
+                    slot: slot,
+                    base64Data: dataUrl,
+                    contentType: 'image/jpeg'
+                })
+            });
+            if (response.ok) {
+                const result = await response.json();
+                return { success: true, key: result.key || '' };
+            } else {
+                const errText = await response.text().catch(() => '');
+                return { success: false, error: 'HTTP ' + response.status + ': ' + errText };
+            }
+        } catch (err) {
+            return { success: false, error: err.message || 'Network error' };
+        }
     },
 
     /** Get current value of a DOM input by id. Used by Blazor to read plate number + phone
