@@ -92,13 +92,17 @@ jobs:
           script: |
             set -e
             echo "=== Requesting SSL cert for timlathay.com ==="
-            # Verify DNS resolves to this VPS
-            DNS_IP=$(dig +short timlathay.com A 2>/dev/null | head -1 || echo "")
+            # Verify DNS resolves (use getent hosts — dig may not be installed)
+            DNS_IP=$(getent hosts timlathay.com 2>/dev/null | awk '{print $1}' || echo "")
             if [ -z "$DNS_IP" ]; then
-              echo "::error::timlathay.com does not resolve. Set DNS A record → 136.85.94.119 first."
-              exit 1
+              echo "WARNING: getent hosts returned empty — trying host command..."
+              DNS_IP=$(host timlathay.com 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "")
             fi
-            echo "DNS: timlathay.com → $DNS_IP"
+            if [ -z "$DNS_IP" ]; then
+              echo "WARNING: Could not resolve timlathay.com from VPS. Proceeding anyway (certbot will verify via HTTP-01 challenge)..."
+            else
+              echo "DNS: timlathay.com → $DNS_IP"
+            fi
             # Check if cert already exists
             CERT_EXISTS=$(sudo docker run --rm -v vanan_certbot_conf:/etc/letsencrypt alpine ls /etc/letsencrypt/live/timlathay.com/fullchain.pem 2>/dev/null && echo "yes" || echo "no")
             if [ "$CERT_EXISTS" = "yes" ]; then
