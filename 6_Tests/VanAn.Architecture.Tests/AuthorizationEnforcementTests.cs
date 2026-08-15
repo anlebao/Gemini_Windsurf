@@ -164,7 +164,10 @@ public class AuthorizationEnforcementTests
             "InternalLoyaltyController",
             // VALCN v2.0 Phase 3 + Phase 7: Internal service-to-service APIs — [InternalApiKey] auth (same pattern as InternalLoyaltyController)
             "LoyaltyBudgetController",
-            "NetworkDashboardController"
+            "NetworkDashboardController",
+            // KhachLink Multi-Profile R1: Platform-level SystemAdmin CRUD (method-level [Authorize(Policy="SystemAdmin")] with Bearer scheme)
+            // + public anonymous GetByDomain endpoint for KhachLink runtime (feature-flagged)
+            "KhachLinkInstanceController"
         };
 
         var controllers = GetControllers(GatewayAssembly)

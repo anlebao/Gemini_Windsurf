@@ -1,0 +1,476 @@
+@page "/admin/khachlink-instances"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate
+@inject KhachLinkInstanceApiClient InstanceApi
+@inject TenantApiClient TenantApi
+@inject IThemeProvider ThemeProvider
+@inject ILogger<KhachLinkInstances> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="khachlink-instances-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>KhachLink Instances</h1>
+        <div class="header-actions">
+            <VanAButton Variant="primary" Size="small" OnClick="OpenCreateModal">
+                + Thêm instance
+            </VanAButton>
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadData">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    <div class="alert alert-info small">
+        <strong>Feature flag:</strong> <code>KhachLink:MultiProfileEnabled</code> = @(_featureFlagEnabled ? "ON" : "OFF")
+        — khi OFF, endpoint <code>by-domain</code> trả về 404 và KhachLink runtime fallback FullCommerce (tất cả nav flags = true).
+    </div>
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải danh sách...</p>
+            </div>
+        </VanACard>
+    }
+    else if (_items.Count == 0)
+    {
+        <VanACard>
+            <div class="empty-state">
+                <p>Chưa có KhachLink instance nào. Nhấn "+ Thêm instance" để bắt đầu.</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="@($"Danh sách KhachLink Instances ({_items.Count})")">
+          <div class="table-responsive">
+            <table class="vanan-table">
+                <thead>
+                    <tr>
+                        <th>Nhãn</th>
+                        <th>Profile</th>
+                        <th>Custom Domain</th>
+                        <th>Owner Tenant</th>
+                        <th>Trạng thái</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in _items)
+                    {
+                        <tr>
+                            <td><strong>@item.Label</strong></td>
+                            <td><span class="status-badge">@GetProfileLabel(item.Profile)</span></td>
+                            <td><code>@(string.IsNullOrEmpty(item.CustomDomain) ? "—" : item.CustomDomain)</code></td>
+                            <td>@(GetTenantName(item.OwnerTenantId))</td>
+                            <td>
+                                <span class="status-badge status-@(item.IsActive ? "active" : "inactive")">
+                                    @(item.IsActive ? "Hoạt động" : "Tạm dừng")
+                                </span>
+                            </td>
+                            <td class="action-cell">
+                                <VanAButton Variant="info" Size="small" OnClick="() => OpenEditModal(item)">
+                                    Sửa
+                                </VanAButton>
+                                @if (item.IsActive)
+                                {
+                                    <VanAButton Variant="warning" Size="small" OnClick="() => Deactivate(item)">
+                                        Vô hiệu hoá
+                                    </VanAButton>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+          </div>
+        </VanACard>
+    }
+</div>
+
+@if (_showModal)
+{
+    <VanAModal Title="@(_isEdit ? "Sửa KhachLink Instance" : "Thêm KhachLink Instance")"
+               IsVisible="true" OnClose="CloseModal" Size="large">
+        <Body>
+            <VanAForm OnValidSubmit="HandleSubmit" aria-label="KhachLink instance form">
+                @if (!_isEdit)
+                {
+                    <div class="form-group">
+                        <VanAInput Id="kli-label" Label="Nhãn *"
+                                   Value="@_form.Label"
+                                   ValueChanged="v => _form.Label = v"
+                                   Placeholder="vd: Directory diemthuong2" Required="true" />
+                    </div>
+                    <div class="form-group">
+                        <label>Profile *</label>
+                        <VanASelect Id="kli-profile"
+                                    Value="@ProfileValue(_form.Profile)"
+                                    ValueChanged="v => OnProfileChanged(v)"
+                                    Options="_profileOptions"
+                                    AriaLabel="Profile" />
+                        <small class="text-muted">
+                            FullCommerce + Directory: R1. Logistics + JobMarket: R3. Reseller: R2.
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <VanAInput Id="kli-domain" Label="Custom Domain"
+                                   Value="@_form.CustomDomain"
+                                   ValueChanged="v => _form.CustomDomain = v"
+                                   Placeholder="diemthuong2.vanan.cloud" />
+                        <small class="text-muted">Bỏ trống nếu là instance mặc định (không routing theo domain).</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Owner Tenant</label>
+                        <VanASelect Id="kli-tenant"
+                                    Value="@(_form.OwnerTenantId?.ToString() ?? "")"
+                                    ValueChanged="v => _form.OwnerTenantId = string.IsNullOrEmpty(v) ? null : Guid.Parse(v)"
+                                    Options="_tenantOptions"
+                                    AriaLabel="Owner tenant" />
+                        <small class="text-muted">"Platform (no tenant)" = instance cấp hệ thống, không gắn tenant cụ thể.</small>
+                    </div>
+                }
+                else
+                {
+                    <div class="form-group">
+                        <label>Nhãn</label>
+                        <input type="text" class="vanan-input" value="@_editLabel" disabled />
+                    </div>
+                    <div class="form-group">
+                        <label>Custom Domain</label>
+                        <input type="text" class="vanan-input" value="@_editDomain" disabled />
+                        <small class="text-muted">Domain không thể thay đổi sau khi tạo.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Profile</label>
+                        <VanASelect Id="kli-profile-edit"
+                                    Value="@ProfileValue(_editForm.Profile)"
+                                    ValueChanged="v => { _editForm.Profile = (KhachLinkProfile)int.Parse(v); ApplyPreset(); }"
+                                    Options="_profileOptions"
+                                    AriaLabel="Profile" />
+                    </div>
+                }
+
+                <div class="form-group">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <label class="mb-0">Nav Flags (15 toggles)</label>
+                        <VanAButton Variant="outline" Size="small" OnClick="ApplyPreset">Apply Profile Preset</VanAButton>
+                    </div>
+                    <div class="nav-flags-grid">
+                        @foreach (var flag in _flagToggles)
+                        {
+                            <div class="nav-flag-item">
+                                <label>
+                                    <input type="checkbox"
+                                           checked="@flag.GetValue(_isEdit ? _editForm.NavFlags : _form.NavFlagsOverride ?? new())"
+                                           @onchange="e => flag.SetValue(_isEdit ? _editForm.NavFlags : GetOrCreateFormNavFlags(), e.Value is true)" />
+                                    @flag.Label
+                                </label>
+                            </div>
+                        }
+                    </div>
+                    <small class="text-muted">Preset tự áp dụng khi đổi Profile. Tick/untick để override từng flag.</small>
+                </div>
+
+                <div class="form-actions">
+                    <VanAButton Variant="primary" OnClick="HandleSubmit" IsLoading="@_isSaving">Lưu</VanAButton>
+                    <VanAButton Variant="outline" OnClick="CloseModal">Huỷ</VanAButton>
+                </div>
+            </VanAForm>
+        </Body>
+    </VanAModal>
+}
+
+<style>
+    .khachlink-instances-page .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    .khachlink-instances-page .header-actions { display: flex; gap: 0.5rem; }
+    .khachlink-instances-page .action-cell { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+    .khachlink-instances-page .nav-flags-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+        padding: 0.75rem;
+        background: var(--color-neutral-50, #f9f9f9);
+        border-radius: 6px;
+    }
+    .khachlink-instances-page .nav-flag-item label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+</style>
+
+@code {
+    private List<KhachLinkInstanceDto> _items = new();
+    private List<TenantApiDto> _tenants = new();
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private bool _showModal;
+    private bool _isEdit;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+    private bool _featureFlagEnabled;
+    private string _editLabel = "";
+    private string _editDomain = "";
+    private Guid? _editId;
+
+    private CreateKhachLinkInstanceRequest _form = new();
+    private UpdateKhachLinkInstanceRequest _editForm = new();
+
+    private readonly List<VanASelect.SelectOption> _profileOptions = new()
+    {
+        new("0", "FullCommerce (Type 4)"),
+        new("1", "Directory (Type 1)"),
+        new("2", "Logistics (Type 2) — R3"),
+        new("3", "JobMarket (Type 3) — R3"),
+        new("4", "Reseller (Type 5) — R2")
+    };
+
+    private List<VanASelect.SelectOption> _tenantOptions = new();
+
+    // 15 nav flag toggles — reflection-friendly accessor
+    private readonly List<FlagToggle> _flagToggles = new()
+    {
+        new("ShowHome", "Trang chủ"),
+        new("ShowCart", "Giỏ hàng"),
+        new("ShowOrders", "Đơn hàng"),
+        new("ShowLoyaltyHistory", "Lịch sử tích điểm"),
+        new("ShowMissions", "Nhiệm vụ"),
+        new("ShowRewards", "Đổi điểm"),
+        new("ShowAllianceWallet", "Ví liên minh"),
+        new("ShowStores", "Cửa hàng"),
+        new("ShowCampaigns", "Khuyến mãi"),
+        new("ShowScan", "Quét QR"),
+        new("ShowQrClaim", "QR gửi xe"),
+        new("ShowCommunity", "Community"),
+        new("ShowJobs", "Sàn việc (R3)"),
+        new("ShowProfile", "Tài khoản"),
+        new("ShowStaffDashboard", "Staff Dashboard")
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            _items = await InstanceApi.ListAsync();
+            _tenants = await TenantApi.ListAllAsync();
+            _tenantOptions = new List<VanASelect.SelectOption>
+            {
+                new("", "Platform (no tenant)")
+            };
+            _tenantOptions.AddRange(_tenants.Select(t => new VanASelect.SelectOption(t.Id.ToString(), t.Name)));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load KhachLink instances");
+            _alertMessage = $"Lỗi tải dữ liệu: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        _isEdit = false;
+        _editId = null;
+        _form = new CreateKhachLinkInstanceRequest
+        {
+            Label = "",
+            Profile = KhachLinkProfile.FullCommerce,
+            CustomDomain = "",
+            OwnerTenantId = null,
+            NavFlagsOverride = null // null = use preset
+        };
+        _showModal = true;
+    }
+
+    private void OpenEditModal(KhachLinkInstanceDto item)
+    {
+        _isEdit = true;
+        _editId = item.Id;
+        _editLabel = item.Label;
+        _editDomain = item.CustomDomain;
+        _editForm = new UpdateKhachLinkInstanceRequest
+        {
+            Profile = item.Profile,
+            NavFlags = item.NavFlags ?? new KhachLinkNavFlagsDto()
+        };
+        _showModal = true;
+    }
+
+    private void CloseModal() => _showModal = false;
+
+    private void OnProfileChanged(string value)
+    {
+        _form.Profile = (KhachLinkProfile)int.Parse(value);
+        // Auto-apply preset on profile change (only for create form)
+        if (_form.NavFlagsOverride == null)
+            _form.NavFlagsOverride = GetPresetFlags(_form.Profile);
+        else
+            ApplyPreset();
+    }
+
+    private void ApplyPreset()
+    {
+        var profile = _isEdit ? _editForm.Profile : _form.Profile;
+        var preset = GetPresetFlags(profile);
+        if (_isEdit)
+            _editForm.NavFlags = preset;
+        else
+            _form.NavFlagsOverride = preset;
+    }
+
+    private KhachLinkNavFlagsDto GetOrCreateFormNavFlags()
+    {
+        return _form.NavFlagsOverride ??= GetPresetFlags(_form.Profile);
+    }
+
+    private static KhachLinkNavFlagsDto GetPresetFlags(KhachLinkProfile profile) => profile switch
+    {
+        KhachLinkProfile.FullCommerce => new KhachLinkNavFlagsDto
+        {
+            ShowHome = true, ShowCart = true, ShowOrders = true, ShowLoyaltyHistory = true,
+            ShowMissions = true, ShowRewards = true, ShowAllianceWallet = true, ShowStores = true,
+            ShowCampaigns = true, ShowScan = true, ShowQrClaim = true, ShowCommunity = true,
+            ShowJobs = false, ShowProfile = true, ShowStaffDashboard = true
+        },
+        KhachLinkProfile.Directory => new KhachLinkNavFlagsDto
+        {
+            ShowHome = true, ShowCart = false, ShowOrders = false, ShowLoyaltyHistory = false,
+            ShowMissions = false, ShowRewards = false, ShowAllianceWallet = false, ShowStores = true,
+            ShowCampaigns = true, ShowScan = false, ShowQrClaim = false, ShowCommunity = false,
+            ShowJobs = false, ShowProfile = true, ShowStaffDashboard = false
+        },
+        KhachLinkProfile.Logistics => new KhachLinkNavFlagsDto
+        {
+            ShowHome = true, ShowCart = false, ShowOrders = true, ShowLoyaltyHistory = false,
+            ShowMissions = false, ShowRewards = false, ShowAllianceWallet = false, ShowStores = true,
+            ShowCampaigns = false, ShowScan = false, ShowQrClaim = false, ShowCommunity = true,
+            ShowJobs = false, ShowProfile = true, ShowStaffDashboard = false
+        },
+        KhachLinkProfile.JobMarket => new KhachLinkNavFlagsDto
+        {
+            ShowHome = true, ShowCart = false, ShowOrders = false, ShowLoyaltyHistory = false,
+            ShowMissions = false, ShowRewards = false, ShowAllianceWallet = false, ShowStores = true,
+            ShowCampaigns = false, ShowScan = false, ShowQrClaim = false, ShowCommunity = false,
+            ShowJobs = true, ShowProfile = true, ShowStaffDashboard = false
+        },
+        KhachLinkProfile.Reseller => new KhachLinkNavFlagsDto
+        {
+            ShowHome = true, ShowCart = true, ShowOrders = true, ShowLoyaltyHistory = true,
+            ShowMissions = true, ShowRewards = true, ShowAllianceWallet = true, ShowStores = true,
+            ShowCampaigns = true, ShowScan = true, ShowQrClaim = true, ShowCommunity = true,
+            ShowJobs = false, ShowProfile = true, ShowStaffDashboard = true
+        },
+        _ => new KhachLinkNavFlagsDto()
+    };
+
+    private async Task HandleSubmit()
+    {
+        _isSaving = true;
+        try
+        {
+            if (_isEdit && _editId.HasValue)
+            {
+                await InstanceApi.UpdateAsync(_editId.Value, _editForm);
+                _alertMessage = "Đã cập nhật KhachLink instance.";
+            }
+            else
+            {
+                // If user never toggled any flag, send null to let server apply preset
+                await InstanceApi.CreateAsync(_form);
+                _alertMessage = "Đã tạo KhachLink instance.";
+            }
+            _alertType = "success";
+            _showModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save KhachLink instance");
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task Deactivate(KhachLinkInstanceDto item)
+    {
+        try
+        {
+            await InstanceApi.DeactivateAsync(item.Id);
+            _alertMessage = "Đã vô hiệu hoá KhachLink instance.";
+            _alertType = "success";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private static string ProfileValue(KhachLinkProfile p) => ((int)p).ToString();
+
+    private string GetProfileLabel(KhachLinkProfile p) => p switch
+    {
+        KhachLinkProfile.FullCommerce => "FullCommerce",
+        KhachLinkProfile.Directory => "Directory",
+        KhachLinkProfile.Logistics => "Logistics",
+        KhachLinkProfile.JobMarket => "JobMarket",
+        KhachLinkProfile.Reseller => "Reseller",
+        _ => p.ToString()
+    };
+
+    private string GetTenantName(Guid? tenantId)
+    {
+        if (tenantId == null || tenantId == Guid.Empty)
+            return "Platform (no tenant)";
+        var t = _tenants.FirstOrDefault(x => x.Id == tenantId.Value);
+        return t?.Name ?? tenantId.Value.ToString()[..8];
+    }
+
+    // ── Flag toggle helper (reflection) ─────────────────────────────────────
+    private sealed record FlagToggle(string PropertyName, string Label)
+    {
+        public bool GetValue(KhachLinkNavFlagsDto flags)
+            => (bool)(typeof(KhachLinkNavFlagsDto).GetProperty(PropertyName)?.GetValue(flags) ?? false);
+
+        public void SetValue(KhachLinkNavFlagsDto flags, bool value)
+            => typeof(KhachLinkNavFlagsDto).GetProperty(PropertyName)?.SetValue(flags, value);
+    }
+}

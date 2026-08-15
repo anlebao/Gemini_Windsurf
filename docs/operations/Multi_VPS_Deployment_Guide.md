@@ -506,6 +506,25 @@ Khi vanan-shop-a đạt ~80% capacity (xem sổ tay `ShopInstance_Capacity_Handb
 
 > ⚠️ KHÔNG bao giờ reuse `SHOP_INSTANCE_ID` giữa các VPS — sẽ gây order routing sai.
 
+### 6.1. Thêm KhachLinkInstance mới (KhachLink Multi-Profile R1)
+
+Khi cần thêm một KhachLink instance mới (Directory, FullCommerce, Logistics, JobMarket, hoặc Reseller) với custom domain:
+
+1. **SystemAdmin → `/admin/khachlink-instances`** → "Thêm instance" → chọn Profile + nhập CustomDomain (vd: `directory.khachvip.online`) + OwnerTenant (nếu có) → Lưu.
+2. **DNS A record**: `<subdomain>.khachvip.online` → Gateway VPS IP (vd: `directory.khachvip.online A 34.87.xxx.xxx`).
+3. **Chờ DNS propagate** (thường 5-30 phút, kiểm tra: `dig directory.khachvip.online`).
+4. **Expand SSL cert** trên Gateway VPS:
+   ```bash
+   sudo bash /opt/vanan/scripts/init-ssl-khachlink-instances.sh
+   ```
+   Script đọc tất cả `CustomDomain` từ `KhachLinkInstances` table (PG) và chạy `certbot --expand` để thêm SAN mới (giữ nguyên SAN cũ).
+5. **nginx tự route** qua wildcard server block — không cần restart nginx nếu cert đã cover domain (certbot --expand + nginx restart trong script).
+6. **Verify**: `curl https://directory.khachvip.online` → KhachLink loads. KhachLink runtime fetch instance config qua Gateway API `/api/v1/khachlink-instances/by-domain/<hostname>` trên page load.
+
+> 💡 **Không cần restart KhachLink container** — runtime fetch config qua API mỗi page load (cache 5 phút trong localStorage). Instance mới available ngay sau khi DNS + SSL ready.
+>
+> ⚠️ **Feature flag `KhachLink:MultiProfileEnabled`** phải = `true` trong `.env.gateway` (hoặc `appsettings.json`) để endpoint `by-domain` hoạt động. Khi OFF, endpoint trả 404 và KhachLink fallback FullCommerce (tất cả nav flags = true).
+
 ---
 
 ## 7. Backup
