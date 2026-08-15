@@ -162,11 +162,13 @@ jobs:
             # Try without sudo first (user may be in docker group), fall back to sudo
             docker compose -f /opt/vanan/docker-compose.gateway.yml --env-file /opt/vanan/.env.gateway restart gateway 2>/dev/null || \
               sudo docker compose -f /opt/vanan/docker-compose.gateway.yml --env-file /opt/vanan/.env.gateway restart gateway
-            echo "Waiting 15s for Gateway to start..."
-            sleep 15
-            # Health check
-            for i in 1 2 3 4 5 6; do
-              HEALTH=$(curl -fsS --max-time 10 http://localhost/health 2>/dev/null || echo "FAIL")
+            echo "Waiting 20s for Gateway to start..."
+            sleep 20
+            # Health check — Gateway listens on port 80 inside container, access via docker exec
+            GW_CTR=$(docker ps --format '{{.Names}}' | grep -i gateway | head -1)
+            echo "Gateway container: $GW_CTR"
+            for i in 1 2 3 4 5 6 7 8; do
+              HEALTH=$(docker exec "$GW_CTR" curl -fsS --max-time 10 http://localhost/health 2>/dev/null || echo "FAIL")
               if echo "$HEALTH" | grep -q "Healthy"; then
                 echo "Gateway health: $HEALTH"
                 break
@@ -176,8 +178,7 @@ jobs:
             done
             if ! echo "$HEALTH" | grep -q "Healthy"; then
               echo "::error::Gateway did not become healthy"
-              GW_CTR=$(docker ps --format '{{.Names}}' | grep -i gateway | head -1)
-              docker logs "$GW_CTR" --tail 30 2>/dev/null || sudo docker logs "$GW_CTR" --tail 30
+              docker logs "$GW_CTR" --tail 50 2>/dev/null || sudo docker logs "$GW_CTR" --tail 50
               exit 1
             fi
             echo "Gateway restarted and healthy."
@@ -191,23 +192,21 @@ jobs:
           script: |
             set -e
             echo "=== Smoke test: by-domain endpoint ==="
+            GW_CTR=$(docker ps --format '{{.Names}}' | grep -i gateway | head -1)
             if [ "${{ github.event.inputs.action }}" = "enable" ]; then
               # Flag ON → by-domain should return 200 for seeded diemthuong2
-              STATUS=$(curl -s -o /tmp/resp.json -w "%{http_code}" \
+              STATUS=$(docker exec "$GW_CTR" curl -s -o /dev/null -w "%{http_code}" \
                 "http://localhost/api/v1/khachlink-instances/by-domain/diemthuong2.khachvip.online")
               echo "by-domain diemthuong2 status: $STATUS (expected 200)"
               if [ "$STATUS" = "200" ]; then
-                echo "Response body:"
-                cat /tmp/resp.json | head -c 500
-                echo ""
                 echo "PASS: Feature flag ON, by-domain returns 200"
               else
                 echo "::error::Expected 200, got $STATUS"
-                cat /tmp/resp.json
+                docker exec "$GW_CTR" curl -s "http://localhost/api/v1/khachlink-instances/by-domain/diemthuong2.khachvip.online"
                 exit 1
               fi
               # Also test non-existent domain → 404
-              STATUS404=$(curl -s -o /dev/null -w "%{http_code}" \
+              STATUS404=$(docker exec "$GW_CTR" curl -s -o /dev/null -w "%{http_code}" \
                 "http://localhost/api/v1/khachlink-instances/by-domain/nonexistent.khachvip.online")
               echo "by-domain nonexistent status: $STATUS404 (expected 404)"
               if [ "$STATUS404" != "404" ]; then
@@ -215,7 +214,7 @@ jobs:
               fi
             else
               # Flag OFF → by-domain should return 404
-              STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              STATUS=$(docker exec "$GW_CTR" curl -s -o /dev/null -w "%{http_code}" \
                 "http://localhost/api/v1/khachlink-instances/by-domain/diemthuong2.khachvip.online")
               echo "by-domain diemthuong2 status: $STATUS (expected 404 — flag OFF)"
               if [ "$STATUS" = "404" ]; then
