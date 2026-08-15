@@ -170,6 +170,33 @@ window.vananGuardCamera = {
         this._updateCameraUI(slot, false);
     },
 
+    /** Retake photo for a slot (user clicked Chụp lại). Clears stored photo, removes preview,
+     *  shows video + open button, hides capture/cancel/retake/ocr. Pure JS. */
+    retakePhoto(slot) {
+        _capturedPhotos[slot] = null;
+        try { sessionStorage.removeItem('vanan_guard_' + slot + 'Photo'); } catch (e) {}
+        // Remove preview img, show video again.
+        const box = document.querySelector(`[data-photo-slot="${slot}"]`);
+        if (box) {
+            const img = box.querySelector('img.guard-photo-preview');
+            if (img) img.remove();
+            const video = box.querySelector('video');
+            if (video) video.style.display = '';
+        }
+        // Hide OCR button + hints if plate slot.
+        if (slot === 'plate') {
+            const ocrBtn = document.getElementById('ocrButton');
+            if (ocrBtn) ocrBtn.style.display = 'none';
+            const ocrHint = document.getElementById('ocrHint');
+            if (ocrHint) { ocrHint.textContent = ''; ocrHint.style.display = 'none'; }
+            const ocrStatus = document.getElementById('ocrStatus');
+            if (ocrStatus) ocrStatus.style.display = 'none';
+        }
+        this._updateCameraUI(slot, false);
+        // Auto-reopen camera for convenience.
+        this.openCamera(slot);
+    },
+
     /** Get captured photo data URL for a slot. Called by Blazor when user clicks "Tạo QR". */
     getCapturedPhoto(slot) {
         // Try JS memory first, then sessionStorage (in case of reload).
@@ -202,14 +229,20 @@ window.vananGuardCamera = {
         }
     },
 
-    /** Update camera button visibility (show open vs capture+cancel). Pure JS. */
+    /** Update camera button visibility. States:
+     *  - isActive=true: camera streaming → show capture+cancel, hide open+retake.
+     *  - isActive=false + hasPhoto: show retake, hide open/capture/cancel.
+     *  - isActive=false + noPhoto: show open, hide capture/cancel/retake. */
     _updateCameraUI(slot, isActive) {
         const openBtn = document.getElementById(slot + 'OpenBtn');
         const captureBtn = document.getElementById(slot + 'CaptureBtn');
         const cancelBtn = document.getElementById(slot + 'CancelBtn');
-        if (openBtn) openBtn.style.display = isActive ? 'none' : '';
+        const retakeBtn = document.getElementById(slot + 'RetakeBtn');
+        const hasPhoto = !!_capturedPhotos[slot];
+        if (openBtn) openBtn.style.display = (isActive || hasPhoto) ? 'none' : '';
         if (captureBtn) captureBtn.style.display = isActive ? '' : 'none';
         if (cancelBtn) cancelBtn.style.display = isActive ? '' : 'none';
+        if (retakeBtn) retakeBtn.style.display = (!isActive && hasPhoto) ? '' : 'none';
     },
 
     /** Show error message in the guard error alert area. Pure JS. */
@@ -234,6 +267,7 @@ window.vananGuardCamera = {
     /** Reset DOM preview for both slots — remove <img>, show <video>, reset buttons. Pure JS. */
     _clearDOMPreview() {
         ['plate', 'customer'].forEach(slot => {
+            _capturedPhotos[slot] = null;
             const box = document.querySelector(`[data-photo-slot="${slot}"]`);
             if (box) {
                 const img = box.querySelector('img.guard-photo-preview');
@@ -399,27 +433,59 @@ window.vananGuardCamera = {
 
     // === #126 OCR: License plate recognition (Tesseract.js, client-side) ===
 
-    /** Recognize license plate text from a base64 JPEG data URL. Returns cleaned plate string or ''. */
+    /** Recognize license plate text from a base64 JPEG data URL. Returns cleaned plate string or ''.
+     *  Tries multiple PSM modes (7=single line, 6=block, 8=single word, 13=raw line) and picks
+     *  the result that looks most like a VN plate (mix of letters + digits, 5-12 chars). */
     async recognizePlate(dataUrl) {
         try {
             if (!dataUrl) return '';
             await this._ensureOcrLibrary();
             const canvas = await this._preprocessForOcr(dataUrl);
-            // PSM 7 = single line of text (a plate is one line).
-            // Whitelist: VN plates use digits + uppercase letters (no I/O/Q which are visually ambiguous).
-            const worker = await Tesseract.createWorker('eng', 1, { logger: () => {} });
-            await worker.setParameters({
-                tessedit_char_whitelist: '0123456789ABCDEFGHKLMNPRSTUVXYZ-',
-                tessedit_pageseg_mode: '7'
-            });
-            const { data } = await worker.recognize(canvas);
-            await worker.terminate();
-            const raw = (data.text || '').toUpperCase();
-            return this._normalizePlate(raw);
+            const whitelist = '0123456789ABCDEFGHKLMNPRSTUVXYZ-';
+            // Try PSM modes in order of likelihood for plates.
+            const psmModes = ['7', '6', '8', '13'];
+            let bestPlate = '';
+            let bestScore = -1;
+            for (const psm of psmModes) {
+                try {
+                    const worker = await Tesseract.createWorker('eng', 1, { logger: () => {} });
+                    await worker.setParameters({
+                        tessedit_char_whitelist: whitelist,
+                        tessedit_pageseg_mode: psm
+                    });
+                    const { data } = await worker.recognize(canvas);
+                    await worker.terminate();
+                    const raw = (data.text || '').toUpperCase();
+                    const plate = this._normalizePlate(raw);
+                    const score = this._scorePlate(plate);
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestPlate = plate;
+                    }
+                } catch (e) {
+                    // Continue to next PSM mode.
+                }
+            }
+            return bestPlate;
         } catch (err) {
             console.error('Plate OCR failed:', err);
             return '';
         }
+    },
+
+    /** Score a plate string: higher = more plate-like. Must have both letters and digits,
+     *  length 5-12, and not be all one type. */
+    _scorePlate(s) {
+        if (!s || s.length < 4) return -1;
+        const digits = (s.match(/[0-9]/g) || []).length;
+        const letters = (s.match(/[A-Z]/g) || []).length;
+        if (digits === 0 || letters === 0) return -1; // Need both.
+        // Prefer length 6-9 (typical VN plate after normalization).
+        let score = digits + letters;
+        if (s.length >= 6 && s.length <= 9) score += 5;
+        // Penalize too long (likely garbage).
+        if (s.length > 12) score -= 10;
+        return score;
     },
 
     /** Load image from data URL, upscale 2x + grayscale to improve OCR accuracy. Returns canvas. */
