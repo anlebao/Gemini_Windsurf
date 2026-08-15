@@ -48,5 +48,37 @@ else
     envsubst "$ENVSUBST_VARS" < "${TEMPLATE_DIR}/vanan.multivps.http.conf.template" > "${CONF_DIR}/vanan.conf"
 fi
 
+# Check if timlathay.com cert exists. If not, strip the HTTPS server block for timlathay.com
+# (the HTTP block for ACME challenge must remain, but the HTTPS block references cert files that don't exist yet)
+TIMLATHAY_CERT="/etc/letsencrypt/live/timlathay.com/fullchain.pem"
+if ! [ -f "$TIMLATHAY_CERT" ]; then
+    echo "[nginx-entrypoint-multivps] timlathay.com cert NOT found — replacing with HTTP-only block"
+    # Delete everything from the timlathay.com comment to end of file, then append HTTP-only block
+    sed -i '/# timlathay.com — KhachLink Directory/,/MAGIC_END_MARKER_NEVER_MATCH/d' "${CONF_DIR}/vanan.conf" 2>/dev/null || true
+    # More reliable: truncate from the timlathay.com comment line to end
+    LINE_NUM=$(grep -n '# timlathay.com — KhachLink Directory' "${CONF_DIR}/vanan.conf" 2>/dev/null | head -1 | cut -d: -f1 || echo "")
+    if [ -n "$LINE_NUM" ]; then
+        head -n $((LINE_NUM - 1)) "${CONF_DIR}/vanan.conf" > "${CONF_DIR}/vanan.conf.tmp" && mv "${CONF_DIR}/vanan.conf.tmp" "${CONF_DIR}/vanan.conf"
+    fi
+    # Append HTTP-only block for ACME challenge
+    cat >> "${CONF_DIR}/vanan.conf" <<'TIMLATHAY_HTTP'
+
+# timlathay.com — HTTP-only (ACME challenge) — HTTPS block added after cert is issued
+server {
+    listen 80;
+    server_name timlathay.com;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+TIMLATHAY_HTTP
+    echo "[nginx-entrypoint-multivps] timlathay.com HTTP-only block added (ACME challenge ready)"
+fi
+
 # Hand off to official nginx entrypoint
 exec nginx -g "daemon off;"
