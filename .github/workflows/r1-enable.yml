@@ -158,10 +158,11 @@ jobs:
           command_timeout: 10m
           script: |
             set -e
-            echo "=== Restarting Gateway container ==="
-            # Try without sudo first (user may be in docker group), fall back to sudo
-            docker compose -f /opt/vanan/docker-compose.gateway.yml --env-file /opt/vanan/.env.gateway restart gateway 2>/dev/null || \
-              sudo docker compose -f /opt/vanan/docker-compose.gateway.yml --env-file /opt/vanan/.env.gateway restart gateway
+            echo "=== Recreating Gateway container (picks up new env vars) ==="
+            # NOTE: docker compose restart does NOT pick up new env vars from .env.gateway.
+            # Must use up -d --force-recreate to recreate the container with new env.
+            docker compose -f /opt/vanan/docker-compose.gateway.yml --env-file /opt/vanan/.env.gateway up -d --force-recreate gateway 2>/dev/null || \
+              sudo docker compose -f /opt/vanan/docker-compose.gateway.yml --env-file /opt/vanan/.env.gateway up -d --force-recreate gateway
             echo "Waiting 20s for Gateway to start..."
             sleep 20
             # Health check — Gateway listens on port 80 inside container, access via docker exec
