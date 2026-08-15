@@ -128,15 +128,22 @@ jobs:
               echo "::error::.env.gateway not found at $ENV_FILE"
               exit 1
             fi
+            # Check write permission (file may be owned by root — try without sudo first)
+            if [ ! -w "$ENV_FILE" ]; then
+              echo ".env.gateway not writable by $(whoami) — trying sudo (may fail if password required)..."
+              SUDO="sudo"
+            else
+              SUDO=""
+            fi
             echo "=== Before toggle ==="
             grep -E "KHACHLINK_MULTIPROFILE_ENABLED" "$ENV_FILE" || echo "(not set — defaults to false in compose)"
             # Remove existing line (if any) and append new value
-            sudo sed -i '/^KHACHLINK_MULTIPROFILE_ENABLED=/d' "$ENV_FILE"
+            $SUDO sed -i '/^KHACHLINK_MULTIPROFILE_ENABLED=/d' "$ENV_FILE" 2>/dev/null || sed -i '/^KHACHLINK_MULTIPROFILE_ENABLED=/d' "$ENV_FILE"
             if [ "${{ github.event.inputs.action }}" = "enable" ]; then
-              echo "KHACHLINK_MULTIPROFILE_ENABLED=true" | sudo tee -a "$ENV_FILE" > /dev/null
+              echo "KHACHLINK_MULTIPROFILE_ENABLED=true" | $SUDO tee -a "$ENV_FILE" > /dev/null 2>/dev/null || echo "KHACHLINK_MULTIPROFILE_ENABLED=true" >> "$ENV_FILE"
               echo "Flag set to TRUE (enable)"
             else
-              echo "KHACHLINK_MULTIPROFILE_ENABLED=false" | sudo tee -a "$ENV_FILE" > /dev/null
+              echo "KHACHLINK_MULTIPROFILE_ENABLED=false" | $SUDO tee -a "$ENV_FILE" > /dev/null 2>/dev/null || echo "KHACHLINK_MULTIPROFILE_ENABLED=false" >> "$ENV_FILE"
               echo "Flag set to FALSE (disable)"
             fi
             echo "=== After toggle ==="
@@ -152,7 +159,9 @@ jobs:
           script: |
             set -e
             echo "=== Restarting Gateway container ==="
-            sudo docker compose -f /opt/vanan/docker-compose.gateway.yml --env-file /opt/vanan/.env.gateway restart gateway
+            # Try without sudo first (user may be in docker group), fall back to sudo
+            docker compose -f /opt/vanan/docker-compose.gateway.yml --env-file /opt/vanan/.env.gateway restart gateway 2>/dev/null || \
+              sudo docker compose -f /opt/vanan/docker-compose.gateway.yml --env-file /opt/vanan/.env.gateway restart gateway
             echo "Waiting 15s for Gateway to start..."
             sleep 15
             # Health check
@@ -167,8 +176,8 @@ jobs:
             done
             if ! echo "$HEALTH" | grep -q "Healthy"; then
               echo "::error::Gateway did not become healthy"
-              GW_CTR=$(sudo docker ps --format '{{.Names}}' | grep -i gateway | head -1)
-              sudo docker logs "$GW_CTR" --tail 30
+              GW_CTR=$(docker ps --format '{{.Names}}' | grep -i gateway | head -1)
+              docker logs "$GW_CTR" --tail 30 2>/dev/null || sudo docker logs "$GW_CTR" --tail 30
               exit 1
             fi
             echo "Gateway restarted and healthy."
