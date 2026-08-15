@@ -84,7 +84,7 @@ Hệ thống được thiết kế theo **kiến trúc module có thể bật/t�
 
 ---
 
-## 5. Yêu cầu Phi chức năng & Tuân thủ (Vạn An Group)
+## 5. Yêu cầu Phi chức năng & Tuân thủ (Vạn An)
 
 | # | Yêu cầu | Điều kiện áp dụng |
 |---|---------|-------------------|

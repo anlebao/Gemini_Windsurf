@@ -211,7 +211,7 @@ namespace VanAn.CoreHub.Services
             var notification = new
             {
                 type = "loyalty_points_changed",
-                title = "Vạn An Group",
+                title = "Vạn An",
                 body = $"{direction}{pointsChange} điểm. Số dư: {newBalance} điểm",
                 pointsChange = pointsChange,
                 newBalance = newBalance,
@@ -378,7 +378,7 @@ namespace VanAn.CoreHub.Services
             var notification = new
             {
                 type = "order_status_changed",
-                title = "Vạn An Group",
+                title = "Vạn An",
                 body = GetStatusMessage(newStatus),
                 orderId = orderId,
                 status = newStatus,
@@ -684,7 +684,7 @@ namespace VanAn.CoreHub.Services
             var notification = new
             {
                 type = "redemption_fulfilled",
-                title = "Vạn An Group",
+                title = "Vạn An",
                 body = body,
                 voucherCode = voucherCode,
                 productName = product,
@@ -702,7 +702,7 @@ namespace VanAn.CoreHub.Services
             var notification = new
             {
                 type = "redemption_cancelled",
-                title = "Vạn An Group",
+                title = "Vạn An",
                 body = body,
                 voucherCode = voucherCode,
                 pointsRefunded = pointsRefunded,
@@ -738,7 +738,7 @@ namespace VanAn.CoreHub.Services
             var notification = new
             {
                 type = "birthday_bonus",
-                title = "Vạn An Group",
+                title = "Vạn An",
                 body = body,
                 pointsAwarded = pointsAwarded,
                 timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
@@ -758,7 +758,7 @@ namespace VanAn.CoreHub.Services
             var notification = new
             {
                 type = "voucher_expiry_reminder",
-                title = "Vạn An Group",
+                title = "Vạn An",
                 body = body,
                 voucherCode = voucherCode,
                 productName = product,

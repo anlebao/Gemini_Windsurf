@@ -1,6 +1,6 @@
 fix(ux): hide shop name, merge reconnect indicator with home icon, auto-refresh orders
 
-1. KhachLink: Hide "Vạn An Group" shop-name text from header (logo/icon alone is enough branding)
+1. KhachLink: Hide "Vạn An" shop-name text from header (logo/icon alone is enough branding)
 2. KhachLink: Merge reconnect indicator with home icon in mobile bottom nav — blue=connected, orange=reconnecting, red=disconnected (removed separate floating indicator)
 3. ShopERP Kitchen + Orders list: Reduce poll timer 30s -> 5s for real-time auto-refresh; add SignalR auto-retry after 10s on connection failure
 

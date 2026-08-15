@@ -523,7 +523,7 @@ const OFFLINE_SHELL_HTML = `<!DOCTYPE html>
     <h1>Bạn đang ngoại tuyến</h1>
     <p>App Vạn An cần kết nối internet để đặt hàng và xem cửa hàng.<br>Vui lòng kiểm tra mạng và thử lại.</p>
     <button class="retry-btn" onclick="window.location.reload()">Thử lại</button>
-    <div class="footer">Vạn An Group — Hệ thống đặt hàng thông minh</div>
+    <div class="footer">Vạn An — Hệ thống đặt hàng thông minh</div>
   </div>
 </body>
 </html>`;
@@ -583,8 +583,8 @@ async function getNotificationPrefsFromSW() {
 
 self.addEventListener('push', event => {
   let notificationData = {
-    title: 'Vạn An Group',
-    body: 'Bạn có thông báo mới từ Vạn An Group',
+    title: 'Vạn An',
+    body: 'Bạn có thông báo mới từ Vạn An',
     icon: '/icons/icon-192x192.png',
     badge: '/icons/icon-192x192.png',
     data: {

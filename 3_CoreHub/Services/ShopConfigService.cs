@@ -21,7 +21,7 @@ namespace VanAn.CoreHub.Services
             return new ShopConfig
             {
                 TenantId = shopId,
-                ShopName = "Vạn An Group",
+                ShopName = "Vạn An",
                 PrimaryColor = "#8B4513",
                 SecondaryColor = "#D2691E",
                 LogoUrl = new Uri("/images/vanan-default-logo.png", UriKind.Relative),

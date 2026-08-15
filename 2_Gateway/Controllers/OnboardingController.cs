@@ -131,7 +131,7 @@ namespace VanAn.Gateway.Controllers
                         ShopId = shopId,
                         ShopInfo = new ShopInfo
                         {
-                            Name = request.ShopName ?? "Vạn An Group",
+                            Name = request.ShopName ?? "Vạn An",
                             Address = request.ShopAddress ?? "123 Nguyễn Huệ, Q1, TP.HCM",
                             Phone = request.ShopPhone ?? "1900-1234",
                             Email = request.ShopEmail ?? "info@vanan.vn"
@@ -188,7 +188,7 @@ namespace VanAn.Gateway.Controllers
         public Guid ShopId { get; init; }
         public ShopInfo ShopInfo { get; init; } = new ShopInfo
         {
-            Name = "Vạn An Group",
+            Name = "Vạn An",
             Address = "123 Nguyễn Huệ, Q1, TP.HCM",
             Phone = "1900-1234",
             Email = "info@vanan.vn"

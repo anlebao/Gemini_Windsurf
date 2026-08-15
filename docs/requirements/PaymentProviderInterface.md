@@ -11,7 +11,7 @@ Markdown
 ## 1. Tổng quan (Overview)
 Hệ thống xử lý thanh toán linh hoạt cho mô hình Multi-tenant. Hỗ trợ song song 2 cơ chế vận hành dòng tiền:
 1.  **Direct Mode (Decentralized):** Tiền vào trực tiếp tài khoản ngân hàng của Tenant thông qua API Key độc lập.
-2.  **Centralized Mode (Global - Thu Hộ):** Dòng tiền tập trung về Vạn An Group với tư cách là "Đại lý thu hộ", sau đó đối soát và cấn trừ phí để thanh toán lại cho Tenant.
+2.  **Centralized Mode (Global - Thu Hộ):** Dòng tiền tập trung về Vạn An với tư cách là "Đại lý thu hộ", sau đó đối soát và cấn trừ phí để thanh toán lại cho Tenant.
 
 ## 2. Kiến trúc Kỹ thuật (Technical Architecture)
 

@@ -1,16 +1,16 @@
 ﻿{
   "id": "/",
-  "name": "Vạn An Group - Đặt hàng nhanh",
-  "short_name": "Vạn An",
-  "description": "Hệ thống đặt hàng thông minh của Vạn An Group",
+  "name": "timlathay.com — Danh bạ doanh nghiệp địa phương",
+  "short_name": "Tìm Là Thấy",
+  "description": "Danh bạ doanh nghiệp địa phương — tìm cửa hàng, dịch vụ gần bạn nhanh chóng",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#8B4513",
-  "theme_color": "#8B4513",
+  "background_color": "#2c5f2d",
+  "theme_color": "#2c5f2d",
   "orientation": "portrait",
   "scope": "/",
   "lang": "vi",
-  "categories": ["food", "shopping", "lifestyle"],
+  "categories": ["business", "directory", "lifestyle"],
   "icons": [
     {
       "src": "icons/icon-72x72.png",
@@ -77,25 +77,25 @@
   ],
   "shortcuts": [
     {
-      "name": "Đặt trà sữa",
-      "short_name": "Trà sữa",
-      "description": "Đặt trà sữa nhanh chóng",
-      "url": "/menu/tra-sua",
+      "name": "Tìm doanh nghiệp",
+      "short_name": "Tìm kiếm",
+      "description": "Tìm cửa hàng, dịch vụ gần bạn",
+      "url": "/store-finder",
       "icons": [
         {
-          "src": "icons/shortcuts/tra-sua.png",
+          "src": "icons/shortcuts/search.png",
           "sizes": "96x96"
         }
       ]
     },
     {
-      "name": "Đặt cà phê",
-      "short_name": "Cà phê",
-      "description": "Đặt cà phê nhanh chóng",
-      "url": "/menu/ca-phe",
+      "name": "Danh mục",
+      "short_name": "Danh mục",
+      "description": "Duyệt doanh nghiệp theo danh mục",
+      "url": "/categories",
       "icons": [
         {
-          "src": "icons/shortcuts/ca-phe.png",
+          "src": "icons/shortcuts/categories.png",
           "sizes": "96x96"
         }
       ]

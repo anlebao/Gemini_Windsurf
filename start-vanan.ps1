@@ -1,5 +1,5 @@
 # =============================================================================
-# START-VANAN.PS1 - Script khởi động hệ sinh thái Vạn An Group
+# START-VANAN.PS1 - Script khởi động hệ sinh thái Vạn An
 # Tuân thủ Nguyên tắc Vàng: Fail-Fast, Clean Logs, Production-Ready
 # =============================================================================
 
@@ -138,7 +138,7 @@ function Start-DockerDesktop {
 
 # Main deployment function
 function Start-VananEcosystem {
-    Write-LogInfo "Khởi động hệ sinh thái Vạn An Group..."
+    Write-LogInfo "Khởi động hệ sinh thái Vạn An..."
     
     try {
         # Change to project directory
@@ -167,7 +167,7 @@ function Start-VananEcosystem {
             Write-LogInfo "   KhachLink: http://localhost:5002/health"
             Write-LogInfo "   ShopERP: http://localhost:5003/health"
             Write-LogInfo ""
-            Write-LogInfo "🎯 Vạn An Group sẵn sàng phục vụ!"
+            Write-LogInfo "🎯 Vạn An sẵn sàng phục vụ!"
             
         } else {
             Write-LogError "Lỗi khi khởi động docker-compose:"
@@ -182,7 +182,7 @@ function Start-VananEcosystem {
 
 # Main execution with 3-tier defense
 try {
-    Write-LogInfo "🚀 Khởi động hệ sinh thái Vạn An Group với 3 tầng phòng thủ..."
+    Write-LogInfo "🚀 Khởi động hệ sinh thái Vạn An với 3 tầng phòng thủ..."
     Write-LogInfo ""
     
     # TẦNG 1: Phòng thủ từ phôi (Static Analysis)
@@ -221,7 +221,7 @@ try {
     Pop-Location
     
     Write-LogInfo "========================================"
-    Write-LogInfo "✨ Hoàn thành khởi động Vạn An Group!"
+    Write-LogInfo "✨ Hoàn thành khởi động Vạn An!"
     Write-LogInfo "========================================"
 }
 catch {

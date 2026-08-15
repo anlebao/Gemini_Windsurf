@@ -2007,7 +2007,7 @@ namespace VanAn.Shared.Domain
     public record ShopConfig
     {
         public Guid TenantId { get; init; } = Guid.TryParse("00000000-0000-0000-0000-000000000001", out Guid defaultTenantId) ? defaultTenantId : Guid.NewGuid();
-        public string ShopName { get; init; } = "Vạn An Group"; // Default name (kept for UI compat)
+        public string ShopName { get; init; } = "Vạn An"; // Default name (kept for UI compat)
         public string PrimaryColor { get; init; } = "#8B4513"; // Default brown
         public string SecondaryColor { get; init; } = "#D2691E"; // Default chocolate
         public Uri LogoUrl { get; init; } = new Uri("/images/vanan-default-logo.png", UriKind.Relative);

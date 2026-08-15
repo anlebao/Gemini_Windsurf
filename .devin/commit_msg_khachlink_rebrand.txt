@@ -1,6 +1,6 @@
 fix(khachlink): rebrand footer to Tích Điểm + new loading video + move reconnect indicator to top-right
 
-- Footer fallback: "Vạn An Group" -> "Tích Điểm"
+- Footer fallback: "Vạn An" -> "Tích Điểm"
 - Loading video: replace shutterstock webm with new mp4 asset
 - Reconnect indicator: move from bottom-left (covering home icon) to top-right
 

@@ -1,4 +1,4 @@
-﻿@inject IHttpClientFactory HttpClientFactory
+@inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Extensions
@@ -131,7 +131,7 @@ else if (ShopConfig != null)
             ShopConfig = new ShopConfig
             {
                 TenantId = ShopId,
-                ShopName = "Váº¡n An Group",
+                ShopName = "Váº¡n An",
                 PrimaryColor = "#8B4513",
                 SecondaryColor = "#FFA500",
                 LogoUrl = new Uri("/favicon.png", UriKind.Relative),
@@ -152,7 +152,7 @@ else if (ShopConfig != null)
             // P4 FIX: JSRuntime calls moved here â€” only available after hydration.
             try
             {
-                var displayTitle = ShopConfig?.ShopName ?? "Váº¡n An Group";
+                var displayTitle = ShopConfig?.ShopName ?? "Váº¡n An";
                 await JSRuntime.InvokeVoidAsync("updatePageTitle", displayTitle);
 
                 await JSRuntime.InvokeVoidAsync("applyThemeClass", $"theme-{(ShopConfig?.ActiveTheme ?? ThemeType.Classic).ToCssClass()}");

@@ -72,7 +72,7 @@ Hệ thống Core Hub (`3_CoreHub/`) và Giao diện (`5_WebApps/`) phải đị
 *   **Mục tiêu:** Tối ưu hóa luồng làm việc end-to-end, giảm thiểu sự can thiệp của con người tại các tác vụ lặp đi lặp lại.
 *   **Tác vụ chi tiết:**
     *   Kích hoạt toàn diện cơ chế Multi-Agent phối hợp ngầm trên Cloud của Devin: PO Agent (Phân tích Requirement thành User Story) $\rightarrow$ Architect Agent (Thiết kế Schema và ADR) $\rightarrow$ Dev Agent (Gõ code song song các module Kho, Đơn hàng) $\rightarrow$ QA Agent (Chạy Playwright E2E kiểm thử).
-*   **Tiêu chí thành công:** Lập trình viên Vạn An Group đóng vai trò là Người phê duyệt tối cao (Reviewer) tại các cổng phê duyệt chiến lược, AI tự động vận hành các bước còn lại.
+*   **Tiêu chí thành công:** Lập trình viên Vạn An đóng vai trò là Người phê duyệt tối cao (Reviewer) tại các cổng phê duyệt chiến lược, AI tự động vận hành các bước còn lại.
 
 ---
 

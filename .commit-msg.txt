@@ -1,0 +1,20 @@
+refactor: rebrand static content for timlathay.com (Directory type) + replace "Vạn An Group" → "Vạn An"
+
+Part A — KhachLink static content for Directory profile (timlathay.com):
+- privacy-policy.html: rewrite for directory (no commerce/loyalty), domain timlathay.com,
+  email lienhe@timlathay.com, green theme (#2c5f2d)
+- manifest.json: name → "timlathay.com — Danh bạ doanh nghiệp địa phương",
+  shortcuts → "Tìm doanh nghiệp" + "Danh mục", categories → business/directory
+- index.html: description + loading screen → "Tìm Là Thấy", green theme
+- error-503.html, error-5xx.html: title + footer → timlathay.com
+
+Part B — Replace "Vạn An Group" → "Vạn An" across 15 files:
+- Domain.cs, PrintBill.razor, service-worker.js, PushNotificationService.cs,
+  VanAnLayout.razor, ShopConfigService.cs, OnboardingController.cs,
+  nginx/html/index.html, Directory.Build.props, start-vanan.ps1,
+  PaymentProviderInterface.md, Tai_lieu_yeu_cau_nghiep_vu_Khachlink.md,
+  AI-Driven Software Factory.md, 2 commit_msg files
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
