@@ -207,7 +207,11 @@ window.vananGuardCamera = {
         this.openCamera(slot);
     },
 
-    /** Get captured photo data URL for a slot. Called by Blazor when user clicks "Tạo QR". */
+    /** Get captured photo data URL for a slot. Called by Blazor when user clicks "Tạo QR".
+     *  #130-WARNING: Returns base64 string (~200-650KB) — DO NOT pass this through SignalR JS interop.
+     *  SignalR default MaximumReceiveMessageSize=32KB → circuit disconnect if photo > 32KB.
+     *  Use hasCapturedPhoto(slot) for existence check + uploadCapturedPhoto(slot, url) for upload
+     *  instead — those don't transfer base64 over SignalR. */
     getCapturedPhoto(slot) {
         // Try JS memory first, then sessionStorage (in case of reload).
         if (_capturedPhotos[slot]) return _capturedPhotos[slot];
@@ -217,6 +221,24 @@ window.vananGuardCamera = {
             return saved;
         }
         return null;
+    },
+
+    /** #130-fix: Check if a photo exists for a slot WITHOUT transferring base64 over SignalR.
+     *  Returns boolean only — safe for JS interop (no large payload). */
+    hasCapturedPhoto(slot) {
+        return !!_capturedPhotos[slot] || !!this.loadState(slot + 'Photo');
+    },
+
+    /** #130-fix: Upload captured photo for a slot to presigned URL WITHOUT transferring base64
+     *  over SignalR. JS reads photo from _capturedPhotos memory + uploads directly to R2.
+     *  Blazor only passes (slotName, presignedUrl) — both small strings. Returns true on success. */
+    async uploadCapturedPhoto(slot, presignedUrl) {
+        const dataUrl = this.getCapturedPhoto(slot);
+        if (!dataUrl) {
+            console.error('[Guard] No captured photo for slot:', slot);
+            return false;
+        }
+        return await this.uploadToPresignedUrl(dataUrl, presignedUrl);
     },
 
     /** Get current value of a DOM input by id. Used by Blazor to read plate number + phone

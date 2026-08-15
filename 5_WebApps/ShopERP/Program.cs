@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System.Threading.RateLimiting;
@@ -83,12 +84,17 @@ namespace VanAn.ShopERP
             });
 
             // Add SignalR timeout configuration to prevent circuit disconnect
+            // #130-fix: Increase MaximumReceiveMessageSize from 32KB default to 10MB.
+            // Guard Scan page transfers base64 photo data URLs via JS interop — 1280x720 JPEG
+            // at 0.85 quality = ~200-650KB base64, exceeds 32KB default → circuit disconnect.
+            // (Also fixed by uploadCapturedPhoto JS-first pattern, but this is a safety net.)
             _ = builder.Services.AddServerSideBlazor()
                 .AddHubOptions(options =>
                 {
                     options.KeepAliveInterval = TimeSpan.FromSeconds(30);
                     options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
                     options.HandshakeTimeout = TimeSpan.FromSeconds(15);
+                    options.MaximumReceiveMessageSize = 10 * 1024 * 1024; // 10MB
                 });
 
             // PHASE 5: SQLite with WAL Mode for Edge Node - Enhanced for concurrency
@@ -958,6 +964,28 @@ namespace VanAn.ShopERP
             _ = app.UseRateLimiter();
             _ = app.UseAuthentication();
             _ = app.UseAuthorization();
+
+            // Protected static files — SystemAdmin-only user guides (/guides/*)
+            // Runs AFTER auth so ctx.Context.User is populated.
+            // 403 for non-SystemAdmin users; file body suppressed by status code.
+            var guidesPath = Path.Combine(app.Environment.WebRootPath ?? app.Environment.ContentRootPath, "guides");
+            if (Directory.Exists(guidesPath))
+            {
+                _ = app.UseStaticFiles(new StaticFileOptions
+                {
+                    FileProvider = new PhysicalFileProvider(guidesPath),
+                    RequestPath = "/guides",
+                    OnPrepareResponse = ctx =>
+                    {
+                        if (!ctx.Context.User.IsInRole("SystemAdmin"))
+                        {
+                            ctx.Context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                            ctx.Context.Response.Headers["Content-Type"] = "text/html; charset=utf-8";
+                        }
+                    }
+                });
+            }
+
             _ = app.UseAntiforgery();
 
             // PROPER RAZOR PAGES ROUTING - ANTI-CHEATING RULE #2

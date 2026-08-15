@@ -126,16 +126,19 @@ namespace VanAn.ShopERP.Components.Pages.Guard
                     return;
                 }
 
-                // #126-fix2: Read captured photos from JS-side storage (survives circuit disconnect).
-                var platePhotoDataUrl = await JS.InvokeAsync<string?>("vananGuardCamera.getCapturedPhoto", "plate");
-                var customerPhotoDataUrl = await JS.InvokeAsync<string?>("vananGuardCamera.getCapturedPhoto", "customer");
+                // #130-fix: Check photo existence WITHOUT transferring base64 over SignalR.
+                // Previous code called getCapturedPhoto (returns ~200-650KB base64 string) →
+                // exceeded SignalR MaximumReceiveMessageSize (32KB default) → circuit disconnect
+                // → "Kết nối bị gián đoạn" → issuing stuck true → nút xoay mãi.
+                var hasPlate = await JS.InvokeAsync<bool>("vananGuardCamera.hasCapturedPhoto", "plate");
+                var hasCustomer = await JS.InvokeAsync<bool>("vananGuardCamera.hasCapturedPhoto", "customer");
 
-                if (string.IsNullOrEmpty(platePhotoDataUrl))
+                if (!hasPlate)
                 {
                     errorMessage = "Chưa chụp ảnh biển số. Hãy mở camera và chụp trước.";
                     return;
                 }
-                if (string.IsNullOrEmpty(customerPhotoDataUrl))
+                if (!hasCustomer)
                 {
                     errorMessage = "Chưa chụp ảnh khách. Hãy mở camera và chụp trước.";
                     return;
@@ -159,9 +162,11 @@ namespace VanAn.ShopERP.Components.Pages.Guard
                     return;
                 }
 
-                // 2. Upload photos to R2 via presigned PUT (30s timeout per upload in JS)
-                var plateOk = await JS.InvokeAsync<bool>("vananGuardCamera.uploadToPresignedUrl", platePhotoDataUrl, presign.PlatePhotoUploadUrl);
-                var customerOk = await JS.InvokeAsync<bool>("vananGuardCamera.uploadToPresignedUrl", customerPhotoDataUrl, presign.CustomerPhotoUploadUrl);
+                // 2. Upload photos to R2 — JS reads photo from memory + uploads directly.
+                // #130-fix: uploadCapturedPhoto(slot, url) does NOT transfer base64 over SignalR
+                // (only slot name + presigned URL — both small strings). JS handles upload entirely.
+                var plateOk = await JS.InvokeAsync<bool>("vananGuardCamera.uploadCapturedPhoto", "plate", presign.PlatePhotoUploadUrl);
+                var customerOk = await JS.InvokeAsync<bool>("vananGuardCamera.uploadCapturedPhoto", "customer", presign.CustomerPhotoUploadUrl);
                 if (!plateOk || !customerOk)
                 {
                     errorMessage = "Upload ảnh lên R2 thất bại (timeout hoặc URL không hợp lệ). Vui lòng thử lại.";
