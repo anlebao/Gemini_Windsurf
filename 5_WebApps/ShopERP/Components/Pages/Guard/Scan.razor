@@ -72,7 +72,7 @@
                         <label>SĐT khách (tùy chọn)</label>
                         <input id="customerPhoneInput" class="guard-input" @bind="customerPhone" placeholder="0xxx xxx xxx" maxlength="20" />
                     </div>
-                    <VanAButton Variant="success" Text="Tạo QR" Disabled="@(!canIssue || issuing)" Loading="@issuing" OnClick="IssueQrAsync" />
+                    <VanAButton Variant="success" Text="Tạo QR" Disabled="@issuing" Loading="@issuing" OnClick="IssueQrAsync" />
                 </div>
             }
             else if (issueStep == 2)

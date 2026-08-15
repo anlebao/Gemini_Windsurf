@@ -209,6 +209,24 @@ window.vananGuardCamera = {
         return null;
     },
 
+    /** Get current value of a DOM input by id. Used by Blazor to read plate number + phone
+     *  that may have been set by JS (OCR) without triggering Blazor @bind change event. */
+    getInputValue(id) {
+        const el = document.getElementById(id);
+        return el ? el.value : '';
+    },
+
+    /** Set input value AND dispatch change event so Blazor @bind syncs.
+     *  Setting .value via JS alone does NOT trigger Blazor's change listener. */
+    setInputValue(id, value) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = value || '';
+        // Dispatch native change event so Blazor @bind picks up the new value.
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+    },
+
     /** Render preview image directly in DOM (replaces <video> with <img>). Pure JS. */
     _renderPreview(slot, dataUrl) {
         const box = document.querySelector(`[data-photo-slot="${slot}"]`);
@@ -311,8 +329,7 @@ window.vananGuardCamera = {
         try {
             const plate = await this.recognizePlate(dataUrl);
             if (plate) {
-                const input = document.getElementById('plateInput');
-                if (input) input.value = plate;
+                this.setInputValue('plateInput', plate);
                 if (ocrHint) {
                     ocrHint.textContent = 'Đã nhận diện: ' + plate + ' — kiểm tra lại trước khi tạo QR.';
                     ocrHint.style.display = '';

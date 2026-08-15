@@ -104,12 +104,25 @@ namespace VanAn.ShopERP.Components.Pages.Guard
 
         private async Task IssueQrAsync()
         {
-            if (!canIssue) return;
             issuing = true;
             errorMessage = string.Empty;
             successMessage = string.Empty;
             try
             {
+                // #126-fix2: Read plate number + phone from DOM input via JS.
+                // OCR fills the input via JS (setInputValue), which dispatches a change event
+                // so Blazor @bind syncs. But as a safety net, always read from DOM at issue time.
+                var domPlate = await JS.InvokeAsync<string?>("vananGuardCamera.getInputValue", "plateInput") ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(domPlate)) plateNumber = domPlate;
+                var domPhone = await JS.InvokeAsync<string?>("vananGuardCamera.getInputValue", "customerPhoneInput") ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(domPhone)) customerPhone = domPhone;
+
+                if (string.IsNullOrWhiteSpace(plateNumber))
+                {
+                    errorMessage = "Chưa nhập biển số. Hãy chụp ảnh và nhận diện, hoặc nhập thủ công.";
+                    return;
+                }
+
                 // #126-fix2: Read captured photos from JS-side storage (survives circuit disconnect).
                 var platePhotoDataUrl = await JS.InvokeAsync<string?>("vananGuardCamera.getCapturedPhoto", "plate");
                 var customerPhotoDataUrl = await JS.InvokeAsync<string?>("vananGuardCamera.getCapturedPhoto", "customer");
