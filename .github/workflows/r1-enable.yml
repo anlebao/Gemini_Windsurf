@@ -1,0 +1,212 @@
+# ============================================================
+# R1 Enable — KhachLink Multi-Profile feature flag toggle ON
+# One-shot workflow: SSH to Gateway VPS, enable flag, restart, smoke test.
+# Trigger: manual (workflow_dispatch) only.
+# ============================================================
+name: R1 Enable KhachLink Multi-Profile
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Enable or Disable feature flag'
+        required: true
+        default: 'enable'
+        type: choice
+        options:
+          - enable
+          - disable
+
+jobs:
+  r1-toggle:
+    name: ${{ github.event.inputs.action }} KhachLink Multi-Profile
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-gateway
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify required secrets
+        env:
+          VPS_GATEWAY_HOST: ${{ secrets.VPS_GATEWAY_HOST }}
+          VPS_GATEWAY_USER: ${{ secrets.VPS_GATEWAY_USER }}
+          VPS_GATEWAY_SSH_PRIVATE_KEY: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          VANAN_DOMAIN: ${{ secrets.VANAN_DOMAIN }}
+        run: |
+          missing=0
+          for var_name in VPS_GATEWAY_HOST VPS_GATEWAY_USER VPS_GATEWAY_SSH_PRIVATE_KEY \
+                          POSTGRES_PASSWORD VANAN_DOMAIN; do
+            val=$(eval echo "\$${var_name}")
+            if [ -z "$val" ]; then
+              echo "::error::Missing GitHub secret: $var_name"
+              missing=$((missing+1))
+            fi
+          done
+          if [ $missing -gt 0 ]; then exit 1; fi
+          echo "All required secrets are set."
+
+      - name: Configure SSH key
+        env:
+          VPS_GATEWAY_SSH_PRIVATE_KEY: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
+        run: |
+          printf '%s\n' "$VPS_GATEWAY_SSH_PRIVATE_KEY" > /tmp/gw_key
+          chmod 600 /tmp/gw_key
+          ssh-keygen -lf /tmp/gw_key || { echo "::error::Invalid SSH key"; exit 1; }
+          echo "SSH key valid."
+
+      - name: "Step 1/5: nginx -t (verify wildcard config syntax)"
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_GATEWAY_HOST }}
+          username: ${{ secrets.VPS_GATEWAY_USER }}
+          key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
+          script: |
+            echo "=== nginx config syntax check ==="
+            sudo docker exec vanan-nginx nginx -t 2>&1
+            if [ $? -ne 0 ]; then
+              echo "::error::nginx -t FAILED — wildcard config has syntax error"
+              exit 1
+            fi
+            echo "nginx -t: PASSED"
+
+      - name: "Step 2/5: Seed diemthuong2 instance (FullCommerce, all flags true)"
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DEPLOY_POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        with:
+          host: ${{ secrets.VPS_GATEWAY_HOST }}
+          username: ${{ secrets.VPS_GATEWAY_USER }}
+          key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
+          envs: DEPLOY_POSTGRES_PASSWORD
+          script: |
+            set -e
+            echo "=== Seed diemthuong2 KhachLinkInstance (idempotent) ==="
+            # Check if seed already exists (idempotent — safe to re-run)
+            EXISTS=$(sudo docker exec vanan-postgres psql -U vanan_admin -d VanAnCoreHub -t -A -c \
+              "SELECT COUNT(*) FROM \"KhachLinkInstances\" WHERE \"CustomDomain\" = 'diemthuong2.khachvip.online';" 2>/dev/null || echo "0")
+            echo "Existing seed count: $EXISTS"
+            if [ "$EXISTS" = "0" ]; then
+              echo "Inserting seed instance (FullCommerce, all nav flags true)..."
+              sudo docker exec vanan-postgres psql -U vanan_admin -d VanAnCoreHub -c \
+                "INSERT INTO \"KhachLinkInstances\" (\"Id\", \"Label\", \"Profile\", \"CustomDomain\", \"OwnerTenantId\", \"IsActive\", \"CreatedAt\", \"UpdatedAt\", \"TenantId\", \
+                 \"NavFlags_ShowHome\", \"NavFlags_ShowCart\", \"NavFlags_ShowOrders\", \"NavFlags_ShowLoyaltyHistory\", \"NavFlags_ShowMissions\", \
+                 \"NavFlags_ShowRewards\", \"NavFlags_ShowAllianceWallet\", \"NavFlags_ShowStores\", \"NavFlags_ShowCampaigns\", \"NavFlags_ShowScan\", \
+                 \"NavFlags_ShowQrClaim\", \"NavFlags_ShowCommunity\", \"NavFlags_ShowJobs\", \"NavFlags_ShowProfile\", \"NavFlags_ShowStaffDashboard\") \
+                 VALUES (gen_random_uuid(), 'KhachLink Default (diemthuong2)', 0, 'diemthuong2.khachvip.online', NULL, true, NOW(), NOW(), '00000000-0000-0000-0000-000000000000', \
+                 true, true, true, true, true, true, true, true, true, true, true, true, false, true, true);"
+              echo "Seed inserted."
+            else
+              echo "Seed already exists — skipping insert."
+            fi
+            # Verify
+            COUNT=$(sudo docker exec vanan-postgres psql -U vanan_admin -d VanAnCoreHub -t -A -c \
+              "SELECT COUNT(*) FROM \"KhachLinkInstances\";" 2>/dev/null)
+            echo "Total KhachLinkInstances: $COUNT"
+
+      - name: "Step 3/5: Toggle feature flag in .env.gateway"
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_GATEWAY_HOST }}
+          username: ${{ secrets.VPS_GATEWAY_USER }}
+          key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            ENV_FILE="/opt/vanan/.env.gateway"
+            if [ ! -f "$ENV_FILE" ]; then
+              echo "::error::.env.gateway not found at $ENV_FILE"
+              exit 1
+            fi
+            echo "=== Before toggle ==="
+            grep -E "KHACHLINK_MULTIPROFILE_ENABLED" "$ENV_FILE" || echo "(not set — defaults to false in compose)"
+            # Remove existing line (if any) and append new value
+            sudo sed -i '/^KHACHLINK_MULTIPROFILE_ENABLED=/d' "$ENV_FILE"
+            if [ "${{ github.event.inputs.action }}" = "enable" ]; then
+              echo "KHACHLINK_MULTIPROFILE_ENABLED=true" | sudo tee -a "$ENV_FILE" > /dev/null
+              echo "Flag set to TRUE (enable)"
+            else
+              echo "KHACHLINK_MULTIPROFILE_ENABLED=false" | sudo tee -a "$ENV_FILE" > /dev/null
+              echo "Flag set to FALSE (disable)"
+            fi
+            echo "=== After toggle ==="
+            grep -E "KHACHLINK_MULTIPROFILE_ENABLED" "$ENV_FILE"
+
+      - name: "Step 4/5: Restart Gateway container"
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_GATEWAY_HOST }}
+          username: ${{ secrets.VPS_GATEWAY_USER }}
+          key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
+          command_timeout: 10m
+          script: |
+            set -e
+            echo "=== Restarting Gateway container ==="
+            sudo docker compose -f /opt/vanan/docker-compose.gateway.yml --env-file /opt/vanan/.env.gateway restart gateway
+            echo "Waiting 15s for Gateway to start..."
+            sleep 15
+            # Health check
+            for i in 1 2 3 4 5 6; do
+              HEALTH=$(curl -fsS --max-time 10 http://localhost/health 2>/dev/null || echo "FAIL")
+              if echo "$HEALTH" | grep -q "Healthy"; then
+                echo "Gateway health: $HEALTH"
+                break
+              fi
+              echo "Attempt $i: Gateway not ready yet, waiting 10s..."
+              sleep 10
+            done
+            if ! echo "$HEALTH" | grep -q "Healthy"; then
+              echo "::error::Gateway did not become healthy"
+              sudo docker logs vanan-gateway --tail 30
+              exit 1
+            fi
+            echo "Gateway restarted and healthy."
+
+      - name: "Step 5/5: Smoke test — by-domain endpoint"
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_GATEWAY_HOST }}
+          username: ${{ secrets.VPS_GATEWAY_USER }}
+          key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            echo "=== Smoke test: by-domain endpoint ==="
+            if [ "${{ github.event.inputs.action }}" = "enable" ]; then
+              # Flag ON → by-domain should return 200 for seeded diemthuong2
+              STATUS=$(curl -s -o /tmp/resp.json -w "%{http_code}" \
+                "http://localhost/api/v1/khachlink-instances/by-domain/diemthuong2.khachvip.online")
+              echo "by-domain diemthuong2 status: $STATUS (expected 200)"
+              if [ "$STATUS" = "200" ]; then
+                echo "Response body:"
+                cat /tmp/resp.json | head -c 500
+                echo ""
+                echo "PASS: Feature flag ON, by-domain returns 200"
+              else
+                echo "::error::Expected 200, got $STATUS"
+                cat /tmp/resp.json
+                exit 1
+              fi
+              # Also test non-existent domain → 404
+              STATUS404=$(curl -s -o /dev/null -w "%{http_code}" \
+                "http://localhost/api/v1/khachlink-instances/by-domain/nonexistent.khachvip.online")
+              echo "by-domain nonexistent status: $STATUS404 (expected 404)"
+              if [ "$STATUS404" != "404" ]; then
+                echo "::warning::Expected 404 for non-existent domain, got $STATUS404"
+              fi
+            else
+              # Flag OFF → by-domain should return 404
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+                "http://localhost/api/v1/khachlink-instances/by-domain/diemthuong2.khachvip.online")
+              echo "by-domain diemthuong2 status: $STATUS (expected 404 — flag OFF)"
+              if [ "$STATUS" = "404" ]; then
+                echo "PASS: Feature flag OFF, by-domain returns 404 (no-op)"
+              else
+                echo "::error::Expected 404, got $STATUS"
+                exit 1
+              fi
+            fi
+            echo ""
+            echo "=== R1 Toggle Complete ==="
+            echo "Action: ${{ github.event.inputs.action }}"
+            echo "Feature flag KhachLink:MultiProfileEnabled = $([ "${{ github.event.inputs.action }}" = "enable" ] && echo "TRUE" || echo "FALSE")"

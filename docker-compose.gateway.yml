@@ -85,6 +85,9 @@ services:
       # #126 Guard QR Verify — R1 complete, feature flag ON for production test.
       # Default true (R1 deployed). Override via .env.gateway GUARD_QR_VERIFY_ENABLED=false to disable.
       - Guard__QrVerifyEnabled=${GUARD_QR_VERIFY_ENABLED:-true}
+      # KhachLink Multi-Profile R1 — feature flag (default OFF = no-op, existing behavior preserved)
+      # Set KHACHLINK_MULTIPROFILE_ENABLED=true in .env.gateway to enable multi-domain routing + profile-based NavFlags
+      - KhachLink__MultiProfileEnabled=${KHACHLINK_MULTIPROFILE_ENABLED:-false}
       # Multi-VPS YARP: override cluster addresses to use VPC internal IPs
       # (appsettings.json defaults to Docker hostnames "shoperp"/"khachlink" which are
       # not resolvable when services are on separate VPSs)

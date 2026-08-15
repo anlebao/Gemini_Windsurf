@@ -14,13 +14,22 @@ const _cameraActive = { plate: false, customer: false };
 
 window.vananGuardCamera = {
     // === #126-fix: Circuit keep-alive — ping Blazor every 15s to prevent idle disconnect ===
+    // #130-fix: invokeMethodAsync can throw SYNCHRONOUSLY when SignalR connection is in
+    // Reconnecting/Disconnected state. The .catch() only catches promise rejections, not
+    // sync throws — causing "Uncaught (in promise) Error: Cannot send data if the connection
+    // is not in the 'Connected' State". Wrap in try/catch to stop the timer cleanly.
     startKeepAlive(dotNetRef) {
         this.stopKeepAlive();
         _keepAliveTimer = setInterval(() => {
             if (dotNetRef && dotNetRef.invokeMethodAsync) {
-                dotNetRef.invokeMethodAsync('KeepAlivePingAsync').catch(() => {
+                try {
+                    dotNetRef.invokeMethodAsync('KeepAlivePingAsync').catch(() => {
+                        this.stopKeepAlive();
+                    });
+                } catch (e) {
+                    // Sync throw — connection not in Connected state. Stop pinging.
                     this.stopKeepAlive();
-                });
+                }
             }
         }, 15000);
         try { sessionStorage.setItem(_keepAliveKey, '1'); } catch (e) {}
@@ -171,7 +180,8 @@ window.vananGuardCamera = {
     },
 
     /** Retake photo for a slot (user clicked Chụp lại). Clears stored photo, removes preview,
-     *  shows video + open button, hides capture/cancel/retake/ocr. Pure JS. */
+     *  shows video + open button, hides capture/cancel/retake/ocr. Pure JS.
+     *  #130-fix: video is now hidden (not removed) by _renderPreview, so it's still in DOM. */
     retakePhoto(slot) {
         _capturedPhotos[slot] = null;
         try { sessionStorage.removeItem('vanan_guard_' + slot + 'Photo'); } catch (e) {}
@@ -227,13 +237,18 @@ window.vananGuardCamera = {
         el.dispatchEvent(new Event('input', { bubbles: true }));
     },
 
-    /** Render preview image directly in DOM (replaces <video> with <img>). Pure JS. */
+    /** Render preview image directly in DOM (hides <video>, shows <img>). Pure JS.
+     *  #130-fix: HIDE video instead of removing it — retakePhoto needs the video element
+     *  to reopen camera. Removing it caused getElementById('plateVideo') to return null. */
     _renderPreview(slot, dataUrl) {
         const box = document.querySelector(`[data-photo-slot="${slot}"]`);
         if (!box) return;
-        // Remove existing video or img.
-        const existing = box.querySelector('video, img.guard-photo-preview');
-        if (existing) existing.remove();
+        // Remove any existing preview img (from previous capture).
+        const existingImg = box.querySelector('img.guard-photo-preview');
+        if (existingImg) existingImg.remove();
+        // Hide the video element (keep in DOM so retakePhoto can reopen camera).
+        const video = box.querySelector('video');
+        if (video) video.style.display = 'none';
         const img = document.createElement('img');
         img.src = dataUrl;
         img.alt = slot === 'plate' ? 'Biển số' : 'Khách';
@@ -282,7 +297,8 @@ window.vananGuardCamera = {
         }
     },
 
-    /** Reset DOM preview for both slots — remove <img>, show <video>, reset buttons. Pure JS. */
+    /** Reset DOM preview for both slots — remove <img>, show <video>, reset buttons. Pure JS.
+     *  #130-fix: video is hidden (not removed) by _renderPreview, so just show it again. */
     _clearDOMPreview() {
         ['plate', 'customer'].forEach(slot => {
             _capturedPhotos[slot] = null;
@@ -290,7 +306,7 @@ window.vananGuardCamera = {
             if (box) {
                 const img = box.querySelector('img.guard-photo-preview');
                 if (img) img.remove();
-                // Show video element again (it's always in DOM, just hidden behind img).
+                // Show video element again (hidden by _renderPreview, still in DOM).
                 const video = box.querySelector('video');
                 if (video) video.style.display = '';
             }
@@ -451,27 +467,33 @@ window.vananGuardCamera = {
     // === #126 OCR: License plate recognition (Tesseract.js, client-side) ===
 
     /** Recognize license plate text from a base64 JPEG data URL. Returns cleaned plate string or ''.
-     *  Tries multiple PSM modes (7=single line, 6=block, 8=single word, 13=raw line) and picks
-     *  the result that looks most like a VN plate (mix of letters + digits, 5-12 chars). */
+     *  #130-fix: Use ONE worker for all PSM modes (previous code created 4 workers sequentially,
+     *  each downloading ~2MB WASM — very slow and prone to failure). Explicit worker/core/lang
+     *  paths ensure reliable loading from CDN when script is injected dynamically.
+     *  Tries PSM 7 (single line) first — best for plates — then 6, 8, 13 as fallback. */
     async recognizePlate(dataUrl) {
+        let worker = null;
         try {
             if (!dataUrl) return '';
             await this._ensureOcrLibrary();
             const canvas = await this._preprocessForOcr(dataUrl);
             const whitelist = '0123456789ABCDEFGHKLMNPRSTUVXYZ-';
-            // Try PSM modes in order of likelihood for plates.
+            // Create ONE worker with explicit paths for reliable CDN loading.
+            worker = await Tesseract.createWorker('eng', 1, {
+                workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
+                corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5',
+                langPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/lang-data',
+                logger: () => {}
+            });
+            await worker.setParameters({ tessedit_char_whitelist: whitelist });
+            // Try PSM modes in order of likelihood for plates (reuse same worker).
             const psmModes = ['7', '6', '8', '13'];
             let bestPlate = '';
             let bestScore = -1;
             for (const psm of psmModes) {
                 try {
-                    const worker = await Tesseract.createWorker('eng', 1, { logger: () => {} });
-                    await worker.setParameters({
-                        tessedit_char_whitelist: whitelist,
-                        tessedit_pageseg_mode: psm
-                    });
+                    await worker.setParameters({ tessedit_pageseg_mode: psm });
                     const { data } = await worker.recognize(canvas);
-                    await worker.terminate();
                     const raw = (data.text || '').toUpperCase();
                     const plate = this._normalizePlate(raw);
                     const score = this._scorePlate(plate);
@@ -487,6 +509,8 @@ window.vananGuardCamera = {
         } catch (err) {
             console.error('Plate OCR failed:', err);
             return '';
+        } finally {
+            if (worker) { try { await worker.terminate(); } catch (e) {} }
         }
     },
 
