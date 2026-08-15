@@ -1,0 +1,209 @@
+# ============================================================
+# timlathay.com Setup — KhachLink Directory instance on external domain
+# One-shot workflow: deploy nginx config → get SSL cert → seed KhachLinkInstance → verify
+# Prerequisite: DNS A record timlathay.com → 136.85.94.119 (Gateway VPS IP)
+# Trigger: manual (workflow_dispatch) only.
+# ============================================================
+name: Setup timlathay.com
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_ssl:
+        description: 'Skip SSL cert request (if cert already exists)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  setup-timlathay:
+    name: Setup timlathay.com (Directory instance)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production-gateway
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify required secrets
+        env:
+          VPS_GATEWAY_HOST: ${{ secrets.VPS_GATEWAY_HOST }}
+          VPS_GATEWAY_USER: ${{ secrets.VPS_GATEWAY_USER }}
+          VPS_GATEWAY_SSH_PRIVATE_KEY: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
+        run: |
+          missing=0
+          for var_name in VPS_GATEWAY_HOST VPS_GATEWAY_USER VPS_GATEWAY_SSH_PRIVATE_KEY; do
+            val=$(eval echo "\$${var_name}")
+            if [ -z "$val" ]; then
+              echo "::error::Missing GitHub secret: $var_name"
+              missing=$((missing+1))
+            fi
+          done
+          if [ $missing -gt 0 ]; then exit 1; fi
+          echo "All required secrets are set."
+
+      # ============================================================
+      # Step 1: Copy updated nginx config + SSL script to VPS
+      # ============================================================
+      - name: "Step 1/5: Deploy nginx config + SSL script"
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_GATEWAY_HOST }}
+          username: ${{ secrets.VPS_GATEWAY_USER }}
+          key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
+          source: "nginx/templates/vanan.multivps.conf.template,scripts/init-ssl-timlathay.sh"
+          target: "/opt/vanan"
+          overwrite: true
+
+      # ============================================================
+      # Step 2: Restart nginx (HTTP-only mode — cert doesn't exist yet)
+      # ============================================================
+      - name: "Step 2/5: Restart nginx (HTTP-only for ACME challenge)"
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_GATEWAY_HOST }}
+          username: ${{ secrets.VPS_GATEWAY_USER }}
+          key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            echo "=== Restarting nginx (HTTP-only — cert not yet issued) ==="
+            # The docker-entrypoint.multivps.sh checks for cert existence.
+            # If timlathay.com cert doesn't exist, it uses HTTP-only template.
+            docker compose -f /opt/vanan/docker-compose.gateway.yml --env-file /opt/vanan/.env.gateway restart nginx 2>/dev/null || \
+              sudo docker compose -f /opt/vanan/docker-compose.gateway.yml --env-file /opt/vanan/.env.gateway restart nginx
+            sleep 5
+            # Verify HTTP serves ACME challenge path
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/.well-known/acme-challenge/test 2>/dev/null || echo "000")
+            echo "ACME challenge path status: $HTTP_STATUS (expected 404 = path exists, no file)"
+            echo "nginx restarted in HTTP-only mode."
+
+      # ============================================================
+      # Step 3: Get SSL cert for timlathay.com (if not skipped)
+      # ============================================================
+      - name: "Step 3/5: Get SSL certificate for timlathay.com"
+        if: ${{ github.event.inputs.skip_ssl != 'true' }}
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_GATEWAY_HOST }}
+          username: ${{ secrets.VPS_GATEWAY_USER }}
+          key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
+          command_timeout: 10m
+          script: |
+            set -e
+            echo "=== Requesting SSL cert for timlathay.com ==="
+            # Verify DNS resolves to this VPS
+            DNS_IP=$(dig +short timlathay.com A 2>/dev/null | head -1 || echo "")
+            if [ -z "$DNS_IP" ]; then
+              echo "::error::timlathay.com does not resolve. Set DNS A record → 136.85.94.119 first."
+              exit 1
+            fi
+            echo "DNS: timlathay.com → $DNS_IP"
+            # Check if cert already exists
+            CERT_EXISTS=$(sudo docker run --rm -v vanan_certbot_conf:/etc/letsencrypt alpine ls /etc/letsencrypt/live/timlathay.com/fullchain.pem 2>/dev/null && echo "yes" || echo "no")
+            if [ "$CERT_EXISTS" = "yes" ]; then
+              echo "Cert already exists — skipping certbot request."
+            else
+              echo "Requesting new cert via certbot..."
+              sudo docker run --rm \
+                -v vanan_certbot_conf:/etc/letsencrypt \
+                -v vanan_certbot_www:/var/www/certbot \
+                certbot/certbot certonly \
+                --webroot \
+                --webroot-path=/var/www/certbot \
+                --email admin@timlathay.com \
+                --agree-tos \
+                --no-eff-email \
+                -d timlathay.com \
+                -d www.timlathay.com
+              echo "Certificate issued!"
+            fi
+            # Restart nginx to pick up HTTPS config (now cert exists)
+            echo "=== Restarting nginx with HTTPS config ==="
+            docker compose -f /opt/vanan/docker-compose.gateway.yml --env-file /opt/vanan/.env.gateway restart nginx 2>/dev/null || \
+              sudo docker compose -f /opt/vanan/docker-compose.gateway.yml --env-file /opt/vanan/.env.gateway restart nginx
+            sleep 5
+            echo "nginx restarted with HTTPS for timlathay.com."
+
+      # ============================================================
+      # Step 4: Seed KhachLinkInstance (Directory, timlathay.com)
+      # ============================================================
+      - name: "Step 4/5: Seed KhachLinkInstance (Directory, timlathay.com)"
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_GATEWAY_HOST }}
+          username: ${{ secrets.VPS_GATEWAY_USER }}
+          key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            echo "=== Seed timlathay.com KhachLinkInstance (Directory profile) ==="
+            PG_CTR=$(docker ps --format '{{.Names}}' | grep -i postgres | head -1)
+            if [ -z "$PG_CTR" ]; then
+              echo "::error::No postgres container found"
+              exit 1
+            fi
+            echo "postgres container: $PG_CTR"
+            # Check if instance already exists (idempotent)
+            EXISTS=$(docker exec "$PG_CTR" psql -U vanan_admin -d VanAnCoreHub -t -A -c \
+              "SELECT COUNT(*) FROM \"KhachLinkInstances\" WHERE \"CustomDomain\" = 'timlathay.com';" 2>/dev/null || echo "0")
+            echo "Existing timlathay.com instance count: $EXISTS"
+            if [ "$EXISTS" = "0" ]; then
+              echo "Inserting Directory instance (ShowHome/Stores/Profile=true, rest=false)..."
+              docker exec "$PG_CTR" psql -U vanan_admin -d VanAnCoreHub -c \
+                "INSERT INTO \"KhachLinkInstances\" (\"Id\", \"Label\", \"Profile\", \"CustomDomain\", \"OwnerTenantId\", \"IsActive\", \"CreatedAt\", \"UpdatedAt\", \"TenantId\", \
+                 \"NavFlags_ShowHome\", \"NavFlags_ShowCart\", \"NavFlags_ShowOrders\", \"NavFlags_ShowLoyaltyHistory\", \"NavFlags_ShowMissions\", \
+                 \"NavFlags_ShowRewards\", \"NavFlags_ShowAllianceWallet\", \"NavFlags_ShowStores\", \"NavFlags_ShowCampaigns\", \"NavFlags_ShowScan\", \
+                 \"NavFlags_ShowQrClaim\", \"NavFlags_ShowCommunity\", \"NavFlags_ShowJobs\", \"NavFlags_ShowProfile\", \"NavFlags_ShowStaffDashboard\") \
+                 VALUES (gen_random_uuid(), 'Tìm Là Thay — Danh bạ', 1, 'timlathay.com', NULL, true, NOW(), NOW(), '00000000-0000-0000-0000-000000000000', \
+                 true, false, false, false, false, false, false, true, false, false, false, false, false, true, false);"
+              echo "Directory instance inserted."
+            else
+              echo "Instance already exists — skipping insert."
+            fi
+            # Verify
+            COUNT=$(docker exec "$PG_CTR" psql -U vanan_admin -d VanAnCoreHub -t -A -c \
+              "SELECT COUNT(*) FROM \"KhachLinkInstances\";" 2>/dev/null)
+            echo "Total KhachLinkInstances: $COUNT"
+
+      # ============================================================
+      # Step 5: Verify — by-domain API + HTTPS access
+      # ============================================================
+      - name: "Step 5/5: Verify timlathay.com routing + by-domain API"
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_GATEWAY_HOST }}
+          username: ${{ secrets.VPS_GATEWAY_USER }}
+          key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            echo "=== Verify: by-domain API for timlathay.com ==="
+            GW_CTR=$(docker ps --format '{{.Names}}' | grep -i gateway | head -1)
+            # by-domain should return 200 with Directory profile
+            STATUS=$(docker exec "$GW_CTR" curl -s -o /tmp/resp.json -w "%{http_code}" \
+              "http://localhost/api/v1/khachlink-instances/by-domain/timlathay.com")
+            echo "by-domain timlathay.com status: $STATUS (expected 200)"
+            if [ "$STATUS" = "200" ]; then
+              echo "Response:"
+              docker exec "$GW_CTR" cat /tmp/resp.json | head -c 500
+              echo ""
+              echo "PASS: by-domain returns 200 for timlathay.com"
+            else
+              echo "::error::Expected 200, got $STATUS"
+              docker exec "$GW_CTR" cat /tmp/resp.json 2>/dev/null || true
+              exit 1
+            fi
+            echo ""
+            echo "=== Verify: HTTPS access to timlathay.com ==="
+            # Test HTTPS (may fail if DNS not propagated yet — non-blocking)
+            HTTPS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://timlathay.com/ 2>/dev/null || echo "000")
+            echo "HTTPS timlathay.com status: $HTTPS_STATUS (200=OK, 000=DNS not propagated yet)"
+            if [ "$HTTPS_STATUS" = "200" ]; then
+              echo "PASS: timlathay.com accessible via HTTPS"
+            else
+              echo "::warning::HTTPS not yet accessible (DNS may not be propagated). Check again in 30 min."
+            fi
+            echo ""
+            echo "=== timlathay.com Setup Complete ==="
+            echo "KhachLinkInstance: Directory profile, CustomDomain=timlathay.com"
+            echo "NavFlags: ShowHome + ShowStores + ShowProfile = true (rest false)"
+            echo "Feature flag: KhachLink:MultiProfileEnabled = true (already enabled)"

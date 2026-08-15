@@ -576,3 +576,101 @@ server {
         proxy_read_timeout 60s;
     }
 }
+
+# ============================================================
+# timlathay.com — KhachLink Directory instance (external domain)
+# Separate cert from *.khachvip.online (different root domain).
+# SSL cert obtained via scripts/init-ssl-timlathay.sh (separate certbot run).
+# Routes to KhachLink container — runtime resolves Directory instance config by Host header.
+# ============================================================
+server {
+    listen 80;
+    server_name timlathay.com www.timlathay.com;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name timlathay.com www.timlathay.com;
+
+    ssl_certificate     /etc/letsencrypt/live/timlathay.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/timlathay.com/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    error_page 502 /502.html;
+    error_page 503 /503.html;
+    error_page 504 /504.html;
+    location = /502.html { root /usr/share/nginx/html; internal; }
+    location = /503.html { root /usr/share/nginx/html; internal; }
+    location = /504.html { root /usr/share/nginx/html; internal; }
+
+    location /_framework/ {
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_buffering    off;
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+    }
+
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|map)$ {
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    location /_blazor {
+        limit_conn perip_conn 10;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    location /api/ {
+        limit_req zone=api burst=200 nodelay;
+        limit_conn perip_conn 20;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    location / {
+        limit_req zone=web burst=200 nodelay;
+        limit_conn perip_conn 10;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+}
