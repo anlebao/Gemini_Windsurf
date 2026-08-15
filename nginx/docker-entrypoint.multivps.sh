@@ -48,36 +48,48 @@ else
     envsubst "$ENVSUBST_VARS" < "${TEMPLATE_DIR}/vanan.multivps.http.conf.template" > "${CONF_DIR}/vanan.conf"
 fi
 
-# Check if timlathay.com cert exists. If not, strip the HTTPS server block for timlathay.com
-# (the HTTP block for ACME challenge must remain, but the HTTPS block references cert files that don't exist yet)
-TIMLATHAY_CERT="/etc/letsencrypt/live/timlathay.com/fullchain.pem"
-if ! [ -f "$TIMLATHAY_CERT" ]; then
-    echo "[nginx-entrypoint-multivps] timlathay.com cert NOT found — replacing with HTTP-only block"
-    # Delete everything from the timlathay.com comment to end of file, then append HTTP-only block
-    sed -i '/# timlathay.com — KhachLink Directory/,/MAGIC_END_MARKER_NEVER_MATCH/d' "${CONF_DIR}/vanan.conf" 2>/dev/null || true
-    # More reliable: truncate from the timlathay.com comment line to end
-    LINE_NUM=$(grep -n '# timlathay.com — KhachLink Directory' "${CONF_DIR}/vanan.conf" 2>/dev/null | head -1 | cut -d: -f1 || echo "")
-    if [ -n "$LINE_NUM" ]; then
-        head -n $((LINE_NUM - 1)) "${CONF_DIR}/vanan.conf" > "${CONF_DIR}/vanan.conf.tmp" && mv "${CONF_DIR}/vanan.conf.tmp" "${CONF_DIR}/vanan.conf"
-    fi
-    # Append HTTP-only block for ACME challenge
-    cat >> "${CONF_DIR}/vanan.conf" <<'TIMLATHAY_HTTP'
+# ============================================================
+# Generic external domain handler
+# Detects all @@EXT_DOMAIN_START:<domain>@@ markers in config.
+# For each domain, if SSL cert doesn't exist yet:
+#   - Strip the HTTPS server block (listen 443) — prevents nginx fail on missing cert
+#   - Keep the HTTP server block (listen 80) — serves ACME challenge + proxies content
+# After certbot issues cert, restart nginx → entry point keeps HTTPS block.
+# Adding a new external domain = just add block to template with markers (zero entry point changes).
+# Uses sed (BusyBox compatible — no grep -P, no awk &&) for domain extraction + block stripping.
+# ============================================================
+EXT_DOMAINS=$(sed -n 's/.*@@EXT_DOMAIN_START:\([^@]*\)@@.*/\1/p' "${CONF_DIR}/vanan.conf" 2>/dev/null || echo "")
 
-# timlathay.com — HTTP-only (ACME challenge) — HTTPS block added after cert is issued
-server {
-    listen 80;
-    server_name timlathay.com;
-
-    location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
-    }
-
-    location / {
-        return 301 https://$host$request_uri;
-    }
-}
-TIMLATHAY_HTTP
-    echo "[nginx-entrypoint-multivps] timlathay.com HTTP-only block added (ACME challenge ready)"
+if [ -n "$EXT_DOMAINS" ]; then
+    for DOMAIN in $EXT_DOMAINS; do
+        CERT="/etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
+        if ! [ -f "$CERT" ]; then
+            echo "[nginx-entrypoint-multivps] ${DOMAIN} cert NOT found — stripping HTTPS block"
+            # Find the HTTPS server block (listen 443) within this domain's marker section
+            MARKER_LINE=$(grep -n "@@EXT_DOMAIN_START:${DOMAIN}@@" "${CONF_DIR}/vanan.conf" | head -1 | cut -d: -f1)
+            END_MARKER_LINE=$(grep -n "@@EXT_DOMAIN_END:${DOMAIN}@@" "${CONF_DIR}/vanan.conf" | head -1 | cut -d: -f1)
+            # Within section, find 'listen 443' line
+            FOUR43_LINE=$(sed -n "${MARKER_LINE},${END_MARKER_LINE}p" "${CONF_DIR}/vanan.conf" | grep -n 'listen 443' | head -1 | cut -d: -f1)
+            if [ -z "$FOUR43_LINE" ]; then
+                echo "[nginx-entrypoint-multivps] ${DOMAIN} — no 443 block found, skipping"
+                continue
+            fi
+            FOUR43_LINE=$((MARKER_LINE + FOUR43_LINE - 1))
+            # Find the 'server {' line before the 443 line (within section)
+            BLOCK_START=$(head -n "$FOUR43_LINE" "${CONF_DIR}/vanan.conf" | tail -n +${MARKER_LINE} | grep -n '^server {' | tail -1 | cut -d: -f1)
+            BLOCK_START=$((MARKER_LINE + BLOCK_START - 1))
+            # Find closing '}' after 443 line
+            BLOCK_END=$(tail -n +"$FOUR43_LINE" "${CONF_DIR}/vanan.conf" | grep -n '^}' | head -1 | cut -d: -f1)
+            BLOCK_END=$((FOUR43_LINE + BLOCK_END - 1))
+            # Delete the HTTPS block lines
+            sed "${BLOCK_START},${BLOCK_END}d" "${CONF_DIR}/vanan.conf" > "${CONF_DIR}/vanan.conf.tmp" && mv "${CONF_DIR}/vanan.conf.tmp" "${CONF_DIR}/vanan.conf"
+            echo "[nginx-entrypoint-multivps] ${DOMAIN} HTTPS block stripped (lines ${BLOCK_START}-${BLOCK_END}) — HTTP block retained (ACME + proxy)"
+        else
+            echo "[nginx-entrypoint-multivps] ${DOMAIN} cert found — keeping HTTPS block"
+        fi
+    done
+else
+    echo "[nginx-entrypoint-multivps] No external domains detected"
 fi
 
 # Hand off to official nginx entrypoint

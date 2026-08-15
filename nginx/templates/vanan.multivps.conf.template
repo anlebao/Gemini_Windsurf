@@ -7,6 +7,17 @@
 # ============================================================
 
 # ============================================================
+# Default HTTPS reject — prevents wrong cert fallback for
+# external domains whose cert hasn't been issued yet.
+# Without this, SNI mismatch falls back to first 443 block
+# (www2.khachvip.online) → ERR_CERT_COMMON_NAME_INVALID.
+# ============================================================
+server {
+    listen 443 ssl default_server;
+    ssl_reject_handshake on;
+}
+
+# ============================================================
 # Default HTTP server — VPC internal traffic (API proxy)
 # ShopERP/KhachLink call Gateway via VPC IP:80 → proxy directly to
 # gateway container (bypass HTTPS redirect for internal API traffic).
@@ -577,11 +588,13 @@ server {
     }
 }
 
+# @@EXT_DOMAIN_START:timlathay.com@@
 # ============================================================
 # timlathay.com — KhachLink Directory instance (external domain)
 # Separate cert from *.khachvip.online (different root domain).
 # SSL cert obtained via scripts/init-ssl-timlathay.sh (separate certbot run).
 # Routes to KhachLink container — runtime resolves Directory instance config by Host header.
+# Entry point strips HTTPS block (443) if cert doesn't exist yet — HTTP block proxies content.
 # ============================================================
 server {
     listen 80;
@@ -591,8 +604,15 @@ server {
         root /var/www/certbot;
     }
 
+    # Proxy to KhachLink over HTTP (cert not yet issued = HTTPS would fail with wrong cert)
     location / {
-        return 301 https://$host$request_uri;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
     }
 }
 
@@ -674,3 +694,4 @@ server {
         proxy_read_timeout 60s;
     }
 }
+# @@EXT_DOMAIN_END:timlathay.com@@
