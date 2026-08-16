@@ -262,12 +262,14 @@ server {
         proxy_send_timeout 3600s;
     }
 
-    # API calls — separate quota from page loads (same fix as www2)
+    # API calls — proxy to Gateway (not KhachLink static container).
+    # #131/#132 fix: KhachLink container only serves static WASM files;
+    # /api/ must go to the Gateway for actual API responses.
     location /api/ {
         client_max_body_size 10m;  # #130: allow photo upload
         limit_req zone=api burst=200 nodelay;
         limit_conn perip_conn 20;
-        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_pass         http://gateway:80;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -563,12 +565,14 @@ server {
         proxy_send_timeout 3600s;
     }
 
-    # API calls — separate quota from page loads
+    # API calls — proxy to Gateway (not KhachLink static container).
+    # #131/#132 fix: KhachLink container only serves static WASM files;
+    # /api/ must go to the Gateway for actual API responses.
     location /api/ {
         client_max_body_size 10m;  # #130: allow photo upload
         limit_req zone=api burst=200 nodelay;
         limit_conn perip_conn 20;
-        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
+        proxy_pass         http://gateway:80;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
