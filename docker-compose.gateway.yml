@@ -89,6 +89,12 @@ services:
       - Guard__PhotoMaxDimension=${GUARD_PHOTO_MAX_DIMENSION:-1024}
       - Guard__PhotoJpegQuality=${GUARD_PHOTO_JPEG_QUALITY:-0.7}
       - Guard__MaxPhotoSizeKB=${GUARD_PHOTO_MAX_SIZE_KB:-100}
+      # #130: R2 storage credentials — override via .env.gateway (not baked into image).
+      # If not set, falls back to appsettings.json values (which may be stale).
+      - R2__Endpoint=${R2_ENDPOINT:-https://18947627801f833aecc202f086d66af5.r2.cloudflarestorage.com}
+      - R2__AccessKey=${R2_ACCESS_KEY:-acb543c587f9a2491dede99766a83760}
+      - R2__SecretKey=${R2_SECRET_KEY:-84df7752264a78f8744cc0207ad25d6046601ce8ec83817083a040c8d035fc7c}
+      - R2__BucketName=${R2_BUCKET_NAME:-vanan-guard-photos}
       # KhachLink Multi-Profile R1 — feature flag (default OFF = no-op, existing behavior preserved)
       # Set KHACHLINK_MULTIPROFILE_ENABLED=true in .env.gateway to enable multi-domain routing + profile-based NavFlags
       - KhachLink__MultiProfileEnabled=${KHACHLINK_MULTIPROFILE_ENABLED:-false}
