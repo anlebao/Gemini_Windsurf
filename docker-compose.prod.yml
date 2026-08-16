@@ -89,6 +89,16 @@ services:
       - ShopERP__BaseUrl=http://shoperp:80/
       # Loyalty Consistency Fix Phase 0: Internal API key for service-to-service auth (ShopERP → Gateway)
       - InternalLoyalty__ApiKey=${INTERNAL_LOYALTY_API_KEY:-vanan-internal-loyalty-prod-2026}
+      # #130: Guard QR Verify feature flag + photo compression config
+      - Guard__QrVerifyEnabled=${GUARD_QR_VERIFY_ENABLED:-true}
+      - Guard__PhotoMaxDimension=${GUARD_PHOTO_MAX_DIMENSION:-1024}
+      - Guard__PhotoJpegQuality=${GUARD_PHOTO_JPEG_QUALITY:-0.7}
+      - Guard__MaxPhotoSizeKB=${GUARD_PHOTO_MAX_SIZE_KB:-100}
+      # #130: R2 storage credentials for guard photos (override via .env)
+      - R2__Endpoint=${R2_ENDPOINT:-https://18947627801f833aecc202f086d66af5.r2.cloudflarestorage.com}
+      - R2__AccessKey=${R2_ACCESS_KEY:-7b1defd32074b57593d17f74a6b26c42}
+      - R2__SecretKey=${R2_SECRET_KEY:-dc4c5b5870d79ad83d9db702f151124a2fbf1dbc90e9cc1c611e7bc6d1318a2d}
+      - R2__BucketName=${R2_BUCKET_NAME:-vanan-guard-photos}
     networks:
       - vanan-network
     depends_on:

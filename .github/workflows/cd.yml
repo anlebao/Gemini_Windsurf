@@ -165,7 +165,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET,DEPLOY_VAPID_PRIVATE_KEY
+          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET,DEPLOY_VAPID_PRIVATE_KEY,DEPLOY_R2_ACCESS_KEY,DEPLOY_R2_SECRET_KEY
           script: |
             set -e
 
@@ -193,6 +193,12 @@ jobs:
             EXISTING_VAPID_KEY=$(grep -E '^VAPID_PRIVATE_KEY=' .env 2>/dev/null | cut -d= -f2- || echo "")
             FINAL_VAPID_KEY="${DEPLOY_VAPID_PRIVATE_KEY:-$EXISTING_VAPID_KEY}"
 
+            # Preserve existing R2 credentials if GitHub secrets are empty
+            EXISTING_R2_ACCESS_KEY=$(grep -E '^R2_ACCESS_KEY=' .env 2>/dev/null | cut -d= -f2- || echo "")
+            FINAL_R2_ACCESS_KEY="${DEPLOY_R2_ACCESS_KEY:-$EXISTING_R2_ACCESS_KEY}"
+            EXISTING_R2_SECRET_KEY=$(grep -E '^R2_SECRET_KEY=' .env 2>/dev/null | cut -d= -f2- || echo "")
+            FINAL_R2_SECRET_KEY="${DEPLOY_R2_SECRET_KEY:-$EXISTING_R2_SECRET_KEY}"
+
             printf '%s\n' \
               "VANAN_DOMAIN=${DEPLOY_VANAN_DOMAIN}" \
               "POSTGRES_DB=VanAnCoreHub" \
@@ -208,6 +214,10 @@ jobs:
               "GOOGLE_CLIENT_SECRET=${FINAL_GOOGLE_SECRET}" \
               "GOOGLE_KHACHLINK_LOGIN_URL=https://diemthuong.khachvip.online/login" \
               "VAPID_PRIVATE_KEY=${FINAL_VAPID_KEY}" \
+              "R2_ENDPOINT=https://18947627801f833aecc202f086d66af5.r2.cloudflarestorage.com" \
+              "R2_ACCESS_KEY=${FINAL_R2_ACCESS_KEY}" \
+              "R2_SECRET_KEY=${FINAL_R2_SECRET_KEY}" \
+              "R2_BUCKET_NAME=vanan-guard-photos" \
               > .env
 
             # Login to GHCR (use sudo to ensure docker socket access)
@@ -236,3 +246,5 @@ jobs:
           DEPLOY_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           DEPLOY_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           DEPLOY_VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          DEPLOY_R2_ACCESS_KEY: ${{ secrets.R2_ACCESS_KEY }}
+          DEPLOY_R2_SECRET_KEY: ${{ secrets.R2_SECRET_KEY }}
