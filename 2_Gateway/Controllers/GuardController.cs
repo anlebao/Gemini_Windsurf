@@ -108,11 +108,20 @@ namespace VanAn.Gateway.Controllers
 
             var contentType = string.IsNullOrWhiteSpace(request.ContentType) ? "image/jpeg" : request.ContentType;
             var key = _guardService.GeneratePhotoKey(tenantId, request.Slot);
-            var ok = await _guardService.UploadPhotoAsync(key, request.Base64Data, contentType);
-            if (!ok)
-                return StatusCode(500, new { error = "Upload ảnh lên R2 thất bại." });
+            try
+            {
+                var ok = await _guardService.UploadPhotoAsync(key, request.Base64Data, contentType);
+                if (!ok)
+                    return StatusCode(500, new { error = "Upload ảnh lên R2 thất bại — HTTP status không OK." });
 
-            return Ok(new { key });
+                return Ok(new { key });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "R2 upload failed for key {Key} (slot {Slot}, {Size} bytes base64)",
+                    key, request.Slot, request.Base64Data.Length);
+                return StatusCode(500, new { error = $"R2 upload lỗi: {ex.Message}" });
+            }
         }
 
         /// <summary>Issue a new QR session (guard creates QR with plate + customer photos).</summary>

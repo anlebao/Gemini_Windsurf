@@ -82,38 +82,31 @@ namespace VanAn.CoreHub.Services
         /// <summary>
         /// #130: Upload photo to R2 server-side (Gateway → R2, no CORS needed).
         /// Replaces direct browser→R2 presigned URL upload which fails without R2 CORS config.
+        /// Throws on failure so caller can surface the actual error message.
         /// </summary>
         public async Task<bool> UploadObjectAsync(string key, string base64Data, string contentType)
         {
-            try
+            // Strip data: prefix if present (e.g. "data:image/jpeg;base64,")
+            var base64 = base64Data;
+            var commaIdx = base64Data.IndexOf(',');
+            if (commaIdx >= 0 && base64Data.StartsWith("data:"))
+                base64 = base64Data[(commaIdx + 1)..];
+
+            var bytes = Convert.FromBase64String(base64);
+            using var stream = new MemoryStream(bytes);
+
+            var request = new PutObjectRequest
             {
-                // Strip data: prefix if present (e.g. "data:image/jpeg;base64,")
-                var base64 = base64Data;
-                var commaIdx = base64Data.IndexOf(',');
-                if (commaIdx >= 0 && base64Data.StartsWith("data:"))
-                    base64 = base64Data[(commaIdx + 1)..];
+                BucketName = _bucketName,
+                Key = key,
+                InputStream = stream,
+                ContentType = contentType ?? "image/jpeg"
+            };
 
-                var bytes = Convert.FromBase64String(base64);
-                using var stream = new MemoryStream(bytes);
-
-                var request = new PutObjectRequest
-                {
-                    BucketName = _bucketName,
-                    Key = key,
-                    InputStream = stream,
-                    ContentType = contentType ?? "image/jpeg"
-                };
-
-                var response = await _s3Client.PutObjectAsync(request);
-                _logger.LogInformation("Uploaded photo to R2: {Key} ({Size} bytes, ETag: {ETag})",
-                    key, bytes.Length, response.ETag);
-                return response.HttpStatusCode == System.Net.HttpStatusCode.OK;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to upload photo to R2: {Key}", key);
-                return false;
-            }
+            var response = await _s3Client.PutObjectAsync(request);
+            _logger.LogInformation("Uploaded photo to R2: {Key} ({Size} bytes, ETag: {ETag})",
+                key, bytes.Length, response.ETag);
+            return response.HttpStatusCode == System.Net.HttpStatusCode.OK;
         }
     }
 }
