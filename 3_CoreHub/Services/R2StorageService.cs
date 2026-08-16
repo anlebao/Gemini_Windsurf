@@ -1,3 +1,5 @@
+using System.Net.Http;
+using System.Net.Http.Headers;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Microsoft.Extensions.Configuration;
@@ -15,6 +17,7 @@ namespace VanAn.CoreHub.Services
         private readonly IAmazonS3 _s3Client;
         private readonly string _bucketName;
         private readonly ILogger<R2StorageService> _logger;
+        private static readonly HttpClient s_httpClient = new();
 
         public R2StorageService(IConfiguration configuration, ILogger<R2StorageService> logger)
         {
@@ -31,7 +34,9 @@ namespace VanAn.CoreHub.Services
             {
                 ServiceURL = endpoint,
                 ForcePathStyle = true,
-                RegionEndpoint = Amazon.RegionEndpoint.USEast1 // R2 ignores region, but SDK requires one
+                // R2 requires region "auto" in SigV4 signing (matches boto3 region_name='auto').
+                // Using USEast1 or null causes "Access Key Id does not exist" or 401 Unauthorized.
+                AuthenticationRegion = "auto"
             };
 
             _s3Client = new AmazonS3Client(accessKey, secretKey, config);
@@ -81,7 +86,8 @@ namespace VanAn.CoreHub.Services
 
         /// <summary>
         /// #130: Upload photo to R2 server-side (Gateway → R2, no CORS needed).
-        /// Replaces direct browser→R2 presigned URL upload which fails without R2 CORS config.
+        /// Uses presigned PUT URL + HttpClient to avoid R2's lack of support for
+        /// STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER (which AWS SDK uses for streamed uploads).
         /// Throws on failure so caller can surface the actual error message.
         /// </summary>
         public async Task<bool> UploadObjectAsync(string key, string base64Data, string contentType)
@@ -93,20 +99,31 @@ namespace VanAn.CoreHub.Services
                 base64 = base64Data[(commaIdx + 1)..];
 
             var bytes = Convert.FromBase64String(base64);
-            using var stream = new MemoryStream(bytes);
+            var ct = contentType ?? "image/jpeg";
 
-            var request = new PutObjectRequest
+            // Generate presigned PUT URL (SigV4 signed, no payload signing — R2 compatible)
+            var presignedUrl = _s3Client.GetPreSignedURL(new GetPreSignedUrlRequest
             {
                 BucketName = _bucketName,
                 Key = key,
-                InputStream = stream,
-                ContentType = contentType ?? "image/jpeg"
-            };
+                Verb = HttpVerb.PUT,
+                Expires = DateTime.UtcNow.AddMinutes(15),
+                ContentType = ct
+            });
 
-            var response = await _s3Client.PutObjectAsync(request);
-            _logger.LogInformation("Uploaded photo to R2: {Key} ({Size} bytes, ETag: {ETag})",
-                key, bytes.Length, response.ETag);
-            return response.HttpStatusCode == System.Net.HttpStatusCode.OK;
+            // Upload via HttpClient with full bytes in memory (no streaming → no trailer error)
+            using var content = new ByteArrayContent(bytes);
+            content.Headers.ContentType = new MediaTypeHeaderValue(ct);
+            var response = await s_httpClient.PutAsync(presignedUrl, content);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                throw new InvalidOperationException(
+                    $"R2 upload failed: HTTP {(int)response.StatusCode} {response.ReasonPhrase}. Body: {body}");
+            }
+
+            _logger.LogInformation("Uploaded photo to R2: {Key} ({Size} bytes)", key, bytes.Length);
+            return true;
         }
     }
 }
