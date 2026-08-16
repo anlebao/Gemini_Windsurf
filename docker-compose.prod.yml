@@ -81,9 +81,8 @@ services:
       - NATS__Url=nats://nats:4222
       - Authentication__JwtSettings__SecretKey=${JWT_SECRET_KEY}
       - Jwt__Secret=${JWT_SECRET_KEY}
-      - Cors__AllowedOrigins__0=https://app2.${VANAN_DOMAIN}
-      - Cors__AllowedOrigins__1=https://diemthuong2.${VANAN_DOMAIN}
-      - Cors__AllowedOrigins__2=https://timlathay.com
+      # Dynamic CORS: static origins from appsettings.Production.json + dynamic from KhachLinkInstance registry.
+      # No Cors__AllowedOrigins__* env vars — managed via admin UI + DynamicCorsCacheHostedService.
       - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
       # Phase 3.6: Explicit ShopERP BaseUrl — prevents port 5003 fallback (appsettings.Development.json leak)
       - ShopERP__BaseUrl=http://shoperp:80/

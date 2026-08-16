@@ -1,4 +1,4 @@
 using System.Runtime.CompilerServices;
 
-// Allow VanAn.Core.Tests to access internal members (e.g. NatsEventPublisher test constructor)
+// Allow VanAn.Core.Tests to access internal members (e.g. NatsEventPublisher test constructor, DynamicCorsService.SnapshotKey)
 [assembly: InternalsVisibleTo("VanAn.Core.Tests")]

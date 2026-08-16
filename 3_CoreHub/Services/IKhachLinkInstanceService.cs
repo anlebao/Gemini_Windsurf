@@ -15,6 +15,12 @@ namespace VanAn.CoreHub.Services
         Task<KhachLinkInstance?> GetByIdAsync(Guid id, CancellationToken ct = default);
         Task<KhachLinkInstance?> GetByDomainAsync(string customDomain, CancellationToken ct = default);
         Task<List<KhachLinkInstance>> GetAllAsync(CancellationToken ct = default);
+
+        /// <summary>
+        /// Get active CustomDomain values only (lightweight — for CORS cache + routing lookups).
+        /// Returns only IsActive = true instances with non-empty CustomDomain.
+        /// </summary>
+        Task<List<string>> GetActiveCustomDomainsAsync(CancellationToken ct = default);
         Task<KhachLinkInstance> CreateAsync(
             string label,
             KhachLinkProfile profile,
