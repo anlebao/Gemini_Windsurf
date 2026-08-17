@@ -26,6 +26,7 @@ namespace VanAn.Gateway.Controllers
     /// - GET    /api/v1/domains/health              — registrar API health check
     /// </summary>
     [ApiController]
+    [Authorize(Policy = "SystemAdmin", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     [Route("api/v1/domains")]
     public class DomainRegistrarController(
         ITenantDomainService tenantDomainService,
