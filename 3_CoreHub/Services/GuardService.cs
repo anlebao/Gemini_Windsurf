@@ -106,6 +106,15 @@ namespace VanAn.CoreHub.Services
             {
                 var hash = HashPayload(req.QrPayload);
                 session = await _sessionRepo.GetByQrTokenHashAsync(hash, tenantId);
+
+                // #130-fix: Fallback — if hash lookup fails, try parsing {sc, sid} payload format
+                // (used by PrintTicket.razor). Without this, KhachLink app cannot claim QR codes
+                // from printed tickets — the printed QR uses {sc,sid} format, not the original
+                // {sid,t,tn} format, so the hash doesn't match.
+                if (session == null)
+                {
+                    session = await TryLookupByAlternativePayloadAsync(req.QrPayload, tenantId);
+                }
             }
             else if (!string.IsNullOrWhiteSpace(req.ShortCode))
             {
