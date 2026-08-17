@@ -1,47 +1,10 @@
-feat: Dynamic CORS from KhachLinkInstance registry (no restart on new domain)
+docs: update project state + dynamic CORS plan/task card (Sprint 1 COMPLETE)
 
-Replace static CORS origins in docker-compose with dynamic lookup from
-KhachLinkInstance.CustomDomain registry. Admin adds domain via existing
-UI -> CORS works within 5 min, no restart, no docker-compose edit.
-
-Architecture (follows FeatureFlagService pattern):
-- DynamicCorsService (Singleton + IMemoryCache) — sync read-only cache
-  lookup in CORS callback, no DB call, no blocking
-- DynamicCorsCacheHostedService (BackgroundService) — pre-warms cache
-  on startup + refreshes every 5 min via IServiceScopeFactory
-- Static origins from appsettings (api2/app2/www2/diemthuong2) +
-  dynamic from KhachLinkInstance registry (timlathay.com, future domains)
-
-4 architecture fixes from review (v1 -> v2):
-1. No BuildServiceProvider() in CORS callback — uses late-binding
-   IServiceProvider captured after builder.Build()
-2. No .GetAwaiter().GetResult() — background HostedService pre-warms
-   cache, CORS callback reads IMemoryCache only (sync, no blocking)
-3. GetActiveCustomDomainsAsync() — lightweight SELECT CustomDomain
-   WHERE IsActive=true (not GetAllAsync full entities)
-4. CanonicalizeDomain() in KhachLinkInstance constructor — strips
-   scheme/path/port/slash, validates hostname format
-
-Files created:
-- 3_CoreHub/Services/IDynamicCorsService.cs
-- 3_CoreHub/Services/DynamicCorsService.cs
-- 3_CoreHub/Services/DynamicCorsCacheHostedService.cs
-- 6_Tests/VanAn.Core.Tests/DynamicCors/DynamicCorsServiceTests.cs (10 tests)
-- 6_Tests/VanAn.Core.Tests/DynamicCors/DynamicCorsCacheHostedServiceTests.cs (3 tests)
-- 6_Tests/VanAn.Integration.Tests/DynamicCorsIntegrationTests.cs (4 tests)
-
-Files modified:
-- 1_Shared/Domain/Aggregates/KhachLinkAggregate/KhachLinkInstance.cs (CanonicalizeDomain)
-- 3_CoreHub/Services/IKhachLinkInstanceService.cs (GetActiveCustomDomainsAsync)
-- 3_CoreHub/Services/KhachLinkInstanceService.cs (implementation)
-- 2_Gateway/Program.cs (CORS policy swap: AllowAll -> DynamicCors)
-- 2_Gateway/appsettings.json (Cors:StaticOrigins)
-- 2_Gateway/appsettings.Production.json (Cors:StaticOrigins)
-- docker-compose.prod.yml (removed Cors__AllowedOrigins__*)
-- docker-compose.gateway.yml (removed Cors__AllowedOrigins__*)
-- 6_Tests/VanAn.Core.Tests/KhachLink/KhachLinkInstanceTests.cs (10 canonicalization tests)
-
-Verified: guard-check ALL PASSED, dotnet build 0 errors, 17 new tests PASS.
+- Update project_state.md: Dynamic CORS Sprint 1 COMPLETE + MERGED (d9545d5e)
+  + DEPLOYED + RV 8/8 PASS. CI: 1361 unit + 251 integration + 39 arch tests.
+- Create docs/AI/tasks/dynamic_cors/master_plan.md (architecture + RV results)
+- Create docs/AI/tasks/dynamic_cors/sprint1_dynamic_cors_task_card.md (14 tasks COMPLETE)
+- Remove accidentally committed .commit-msg.txt temp file
 
 Generated with [Devin](https://devin.ai)
 

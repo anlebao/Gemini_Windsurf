@@ -28,11 +28,16 @@
 
 ## 2. Current Objective
 
-**KHACHLINK MULTI-PROFILE R1 COMPLETE + MERGED + ENABLED. timlathay.com LIVE as Directory type. Issue #130 (QR creation) fixes applied — pending RV + close.**
+**DYNAMIC CORS FROM KHACHLINKINSTANCE REGISTRY — COMPLETE + MERGED + DEPLOYED + RV 8/8 PASS. PR #133 squash-merged `d9545d5e`. CD Multi-VPS deployed. No more `Cors__AllowedOrigins__*` env vars in docker-compose.**
 
-**Source:** User request — 5 loại KhachLink (Directory / Logistics / JobMarket / FullCommerce / Reseller).
-**Branch:** `main` @ `3d952c75` — R1 merged (`5047ed8c`) + enabled (`b3af97a1`) + timlathay.com rebrand (`3d952c75`).
-**Plan:** `docs/AI/tasks/khachlink_multi_profile/master_plan.md` (3 releases: R1=Sprint 1-6 ✅, R2=Sprint 7 ⏳, R3=Sprint 8-9 ⏳)
+**Previous: KHACHLINK MULTI-PROFILE R1 COMPLETE + MERGED + ENABLED. timlathay.com LIVE as Directory type. Issue #130 (QR creation) fixes applied — pending RV + close.**
+
+**Source:** User proposal — Dynamic CORS + Application Registry (move away from hardcoded CORS origins in docker-compose).
+**Branch:** `main` @ `d9545d5e` — Dynamic CORS merged via PR #133 (squash) + KhachLink Multi-Profile R1 (`5047ed8c` + `b3af97a1` + `3d952c75`).
+**Plan:** `docs/AI/tasks/dynamic_cors/master_plan.md` (Sprint 1 ✅ COMPLETE) + `docs/AI/tasks/khachlink_multi_profile/master_plan.md` (R1=Sprint 1-6 ✅, R2=Sprint 7 ⏳, R3=Sprint 8-9 ⏳)
+
+**DYNAMIC CORS SPRINT 1 — COMPLETE + MERGED + DEPLOYED + RV 8/8 PASS:**
+- Sprint 1 — Dynamic CORS Core ✅ (`d9545d5e` via PR #133) — `DynamicCorsService` (Singleton + IMemoryCache) + `DynamicCorsCacheHostedService` (5 min refresh) + `GetActiveCustomDomainsAsync()` + `CanonicalizeDomain()` + Gateway CORS policy swap + `Cors:StaticOrigins` in appsettings + removed `Cors__AllowedOrigins__*` from docker-compose. 17 unit + 4 integration tests. RV 8/8 PASS on VPS (incl. "add new domain via admin API → CORS works after 5 min, NO restart").
 
 **R1 "Multi-Profile Core + Type 1 + 4 + Multi-domain" — ALL 6 SPRINTS COMPLETE + MERGED:**
 - Sprint 1 — Domain + Infrastructure ✅ (`KhachLinkProfile` enum + `KhachLinkNavFlags` VO + `KhachLinkInstance` entity + EF config + migration + seed) — `d99882d5`
@@ -64,10 +69,11 @@
 
 ## 3. Current Status
 
-- **Branch:** `main` @ `3d952c75` (timlathay.com Directory rebrand) · **Build:** 0 errors · **Guard-check:** ALL PASSED
+- **Branch:** `main` @ `d9545d5e` (Dynamic CORS merged via PR #133) · **Build:** 0 errors · **Guard-check:** ALL PASSED
 - **.NET SDK:** 8.0.422
-- **CI/CD:** CI SUCCESS — 1261 unit tests + 233 integration tests + 39 architecture tests ALL PASS (last run on `main`). CD auto-deploy active.
+- **CI/CD:** CI SUCCESS — 1361 unit tests + 251 integration tests + 39 architecture tests ALL PASS (last run on `main`). CD auto-deploy active.
 - **KhachLink Multi-Profile R1:** ✅ ALL 6 SPRINTS COMPLETE + MERGED (`5047ed8c`) + ENABLED (`b3af97a1`). timlathay.com LIVE as Directory type (`3d952c75`). Feature flag `KhachLink:MultiProfileEnabled` ON.
+- **Dynamic CORS:** ✅ SPRINT 1 COMPLETE + MERGED (`d9545d5e` via PR #133) + DEPLOYED + RV 8/8 PASS. `DynamicCorsService` (Singleton + IMemoryCache) + `DynamicCorsCacheHostedService` (5 min refresh) + `CanonicalizeDomain()` in KhachLinkInstance. No more `Cors__AllowedOrigins__*` env vars. Admin adds domain via `/admin/khachlink-instances` → CORS works within 5 min, no restart.
 - **Issue #130 "Guard: không tạo QRcode được":** FIXES APPLIED (5 commits: timeout + circuit reconnect + JS-first photo upload + Gateway CORS proxy + QR compression). Pending VPS RV + close.
 - **Issue #126 Guard QR Verify:** ✅ ALL 3 RELEASES COMPLETE + MERGED + DEPLOYED. R1 `ee109800` + R2 `08f8ff60` (PR #128) + R3 `4dd1a0a4` (PR #129). 33 Guard unit tests + 5 integration tests PASS. Ready to close after manual RV.
 - **Sprint A+B (previous):** ✅ Hardcoded tenant ID cleanup + Settlement History admin page + NavMenu completeness (30/30). On `main`.
@@ -86,6 +92,10 @@
 ---
 
 ## 4. Next Actions
+
+**Dynamic CORS — COMPLETE (no further action needed):**
+- ✅ Sprint 1 merged via PR #133 (`d9545d5e`), CD deployed, RV 8/8 PASS.
+- Future enhancement (if needed): `IDynamicCorsService.InvalidateCache()` for immediate cache invalidation on domain deactivation (currently 5-min TTL acceptable).
 
 **KhachLink Multi-Profile + Issue #130 — Immediate:**
 
@@ -139,6 +149,7 @@
 
 ## 6. History Log (compressed — see archive + git log)
 
+* [2026-08-17] **DYNAMIC CORS FROM KHACHLINKINSTANCE REGISTRY — SPRINT 1 COMPLETE + MERGED + DEPLOYED + RV 8/8 PASS.** PR #133 squash-merged `d9545d5e`. Replaced hardcoded `Cors__AllowedOrigins__*` env vars in docker-compose with dynamic lookup from `KhachLinkInstance.CustomDomain` registry. Architecture: `DynamicCorsService` (Singleton + IMemoryCache, sync read-only CORS callback) + `DynamicCorsCacheHostedService` (BackgroundService, pre-warm + 5 min refresh via `IServiceScopeFactory`) + `GetActiveCustomDomainsAsync()` (lightweight query) + `CanonicalizeDomain()` (strip scheme/path/port/slash in KhachLinkInstance constructor). Static origins from `appsettings.Production.json` (`Cors:StaticOrigins`). 4 architecture fixes from review: no `BuildServiceProvider()`, no `.GetAwaiter().GetResult()`, lightweight query, CustomDomain validation. 17 unit + 4 integration tests. RV 8/8 PASS on VPS (incl. "add new domain via admin API → CORS works after 5 min, NO restart"). CD Multi-VPS SUCCESS.
 * [2026-08-15] **KHACHLINK MULTI-PROFILE R1 COMPLETE + MERGED + ENABLED + timlathay.com LIVE.** R1 "Multi-Profile Core + Type 1 + 4 + Multi-domain" — all 6 sprints merged via `5047ed8c` + enabled via `b3af97a1` (docker-compose env var `KHACHLINK_MULTIPROFILE_ENABLED`). Sprint 1: `KhachLinkProfile` enum + `KhachLinkNavFlags` VO + `KhachLinkInstance` entity + EF migration (`d99882d5`). Sprint 2: Gateway API 6 endpoints (`41a8994b` + `398610f9`). Sprint 3: KhachLink runtime — NavMenu flag-driven 15 items + KhachLinkLayout refactor (`8ccaa942`). Sprint 4: SystemAdmin `/admin/khachlink-instances` page (`e2d4bece`). Sprint 5: nginx wildcard + SSL SAN expand (`afe84723`). Sprint 6: R1 tests (`50f55e8d`). timlathay.com rebranded as Directory type instance (`3d952c75` + `2e7ef9b0` — static content rebrand + "Tìm hiểu" redirect + blast radius isolation). Feature flag `KhachLink:MultiProfileEnabled` ON. Next: R2 (Reseller) + R3 (Logistics + JobMarket).
 * [2026-08-15] **ISSUE #130 "Guard: không tạo QRcode được" — 5 FIX COMMITS APPLIED (pending RV + close).** Root cause: base64 photo over SignalR → circuit disconnect → QR creation fails. Fixes: (1) `4c07753f` timeout + defensive error handling. (2) `119cef2e` Blazor circuit reconnect UI. (3) `7da32cf1` JS-first photo upload — eliminate base64 over SignalR (root cause fix). (4) `cc3abaf0` proxy photo upload through Gateway — fix R2 CORS issue. (5) `2e7ef9b0` QR photo compression + Directory "Tìm hiểu" redirect. Issue #130 still OPEN — pending VPS RV + close.
 * [2026-08-15] **GUARD QR VERIFY (ISSUE #126) — ALL 3 RELEASES COMPLETE + MERGED + DEPLOYED.** R1 `ee109800` (Paper Ticket Flow — Sprint 0+1+2+3+5) + R2 `08f8ff60` PR #128 (Digital Claim Flow — Sprint 4: KhachLink `/qr/claim` + `/qr/wallet` + `GuardQrApiClient` + `qr-wallet.js` + nav link) + R3 `4dd1a0a4` PR #129 (Tested + Production Ready — Sprint 6: 15 domain + 18 service + 15 integration tests). 33 unit + 5 integration PASS, 10 skipped (pre-existing JWT factory). E2E Playwright spec DEFERRED. Build 0 errors · guard-check ALL PASSED · Architecture 39/39. Ready to close Issue #126 after manual RV.
@@ -161,6 +172,7 @@
 
 | File | Role |
 |---|---|
+| `docs/AI/tasks/dynamic_cors/` | Dynamic CORS master plan + Sprint 1 task card (COMPLETE) |
 | `docs/AI/tasks/valcn_v2_platform_light/` | VALCN v2.0 master plan + task cards + RV report |
 | `docs/AI/tasks/{nginx_per_user_rate_limit,blazor_api_aggregation,api_rate_limit_classification}_task_card.md` | Deferred nginx improvement task cards |
 | `docs/AI/tasks/tech_debt_multi_vps_checkout.md` | Tech debt register |
@@ -196,7 +208,7 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main`, last commit `3d952c75` (timlathay.com Directory rebrand). KhachLink Multi-Profile R1 COMPLETE: all 6 sprints merged via `5047ed8c` + enabled via `b3af97a1`. timlathay.com LIVE as Directory type. Issue #130: 5 fix commits applied (QR creation — pending RV + close). Issue #126: ALL 3 RELEASES COMPLETE (R1 `ee109800` + R2 `08f8ff60` PR #128 + R3 `4dd1a0a4` PR #129) — pending RV + close. 33 Guard unit tests + 5 integration tests PASS. Build 0 errors. guard-check ALL PASSED. Architecture 39/39. CI: 1261 unit + 233 integration + 39 arch tests ALL PASS.
+- **Verified Facts:** Branch=`main`, last commit `d9545d5e` (Dynamic CORS merged via PR #133). Dynamic CORS Sprint 1 COMPLETE: `DynamicCorsService` + `DynamicCorsCacheHostedService` + `CanonicalizeDomain` + Gateway CORS policy swap. RV 8/8 PASS on VPS (incl. add new domain via admin API → CORS works after 5 min, NO restart). KhachLink Multi-Profile R1 COMPLETE: all 6 sprints merged via `5047ed8c` + enabled via `b3af97a1`. timlathay.com LIVE as Directory type. Issue #130: 5 fix commits applied (QR creation — pending RV + close). Issue #126: ALL 3 RELEASES COMPLETE (R1 `ee109800` + R2 `08f8ff60` PR #128 + R3 `4dd1a0a4` PR #129) — pending RV + close. 33 Guard unit tests + 5 integration tests PASS. Build 0 errors. guard-check ALL PASSED. Architecture 39/39. CI: 1361 unit + 251 integration + 39 arch tests ALL PASS.
 - **Open Questions:** 0
 - **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (50+), Open Questions (0) < 3
 
@@ -206,6 +218,7 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md`.
 
+* **2026-08-17 — DYNAMIC CORS FROM KHACHLINKINSTANCE REGISTRY — SPRINT 1 COMPLETE + MERGED + DEPLOYED + RV 8/8 PASS.** PR #133 squash-merged `d9545d5e`. Replaced hardcoded `Cors__AllowedOrigins__*` env vars in docker-compose with dynamic lookup from `KhachLinkInstance.CustomDomain` registry. Architecture: `DynamicCorsService` (Singleton + IMemoryCache, sync read-only CORS callback) + `DynamicCorsCacheHostedService` (BackgroundService, pre-warm + 5 min refresh via `IServiceScopeFactory`) + `GetActiveCustomDomainsAsync()` (lightweight query) + `CanonicalizeDomain()` (strip scheme/path/port/slash in KhachLinkInstance constructor). Static origins from `appsettings.Production.json` (`Cors:StaticOrigins`). 4 architecture fixes from review: no `BuildServiceProvider()`, no `.GetAwaiter().GetResult()`, lightweight query, CustomDomain validation. 17 unit + 4 integration tests. RV 8/8 PASS on VPS (incl. "add new domain via admin API → CORS works after 5 min, NO restart"). CD Multi-VPS SUCCESS. Plan: `docs/AI/tasks/dynamic_cors/master_plan.md`.
 * **2026-08-15 — KHACHLINK MULTI-PROFILE R1 COMPLETE + MERGED + ENABLED + timlathay.com LIVE.** R1 "Multi-Profile Core + Type 1 + 4 + Multi-domain" — all 6 sprints merged via `5047ed8c` + enabled via `b3af97a1`. Sprint 1 (`d99882d5`): `KhachLinkProfile` enum + `KhachLinkNavFlags` VO + `KhachLinkInstance` entity + EF config + migration + seed. Sprint 2 (`41a8994b` + `398610f9`): Repository + Service + DTOs + `KhachLinkInstanceController` 6 endpoints + DI + feature flag. Sprint 3 (`8ccaa942`): `KhachLinkInstanceHttpService` + KhachLinkLayout refactor + NavMenu flag-driven 15 items + header icons. Sprint 4 (`e2d4bece`): ShopERP `/admin/khachlink-instances` page + `KhachLinkInstanceApiClient` + NavMenu link. Sprint 5 (`afe84723`): nginx wildcard server block + `init-ssl-khachlink-instances.sh` SAN expand + deployment guide. Sprint 6 (`50f55e8d`): R1 tests (domain unit + service integration + API integration). R1 Enable (`b3af97a1`): docker-compose env var `KHACHLINK_MULTIPROFILE_ENABLED` + CD preserve. timlathay.com (`3d952c75` + `2e7ef9b0`): rebrand static content for timlathay.com Directory type + "Tìm hiểu" redirect + blast radius isolation + #130 QR photo compression. Feature flag `KhachLink:MultiProfileEnabled` ON. Next: R2 (Sprint 7 Reseller) + R3 (Sprint 8-9 Logistics + JobMarket).
 * **2026-08-15 — ISSUE #130 "Guard: không tạo QRcode được" — 5 FIX COMMITS APPLIED (pending RV + close).** Root cause: base64 photo over SignalR → Blazor circuit disconnect → QR creation fails. Fixes: (1) `4c07753f` timeout + defensive error handling for QR issue flow. (2) `119cef2e` Blazor circuit reconnect UI to App.razor. (3) `7da32cf1` JS-first photo upload — eliminate base64 over SignalR (root cause fix). (4) `cc3abaf0` proxy photo upload through Gateway — fix R2 CORS issue. (5) `2e7ef9b0` QR photo compression + Directory "Tìm hiểu" redirect + blast radius isolation. Issue #130 still OPEN on GitHub — pending VPS RV + `gh issue close 130`.
 * **2026-08-15 — GUARD QR VERIFY (ISSUE #126) ALL 3 RELEASES COMPLETE + MERGED + DEPLOYED.** R1 `ee109800` (Paper Ticket Flow — Sprint 0+1+2+3+5) + R2 `08f8ff60` PR #128 (Digital Claim Flow — Sprint 4: KhachLink `/qr/claim` + `/qr/wallet` + `GuardQrApiClient` + `qr-wallet.js` + nav link) + R3 `4dd1a0a4` PR #129 (Tested + Production Ready — Sprint 6: 15 domain + 18 service + 15 integration tests in `VanAn.Core.Tests/Guard/` + `VanAn.Integration.Tests/Guard/`). 33 unit + 5 integration tests PASS, 10 integration skipped (pre-existing JWT factory issue). E2E Playwright spec DEFERRED. Build 0 errors · guard-check ALL PASSED · Architecture 39/39 · Fast test gate PASSED. CD auto-deploy for R3 in progress. Ready to close Issue #126 after manual RV.
