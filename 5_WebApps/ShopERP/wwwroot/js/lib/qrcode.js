@@ -516,7 +516,7 @@ var qrcode = function () {
                     var count = rsBlock[i * 3 + 0];
                     var totalCount = rsBlock[i * 3 + 1];
                     var dataCount = rsBlock[i * 3 + 2];
-                    for (var j = 0; j < count; j += 1) list.push(new QRRSBlock(totalCount, dataCount));
+                    for (var j = 0; j < count; j += 1) list.push(new _QRRSBlock(totalCount, dataCount));
                 }
                 return list;
             },
@@ -530,7 +530,7 @@ var qrcode = function () {
                 }
             }
         };
-        function QRRSBlock(totalCount, dataCount) { this.totalCount = totalCount; this.dataCount = dataCount; }
+        function _QRRSBlock(totalCount, dataCount) { this.totalCount = totalCount; this.dataCount = dataCount; }
 
         return _this;
     };
