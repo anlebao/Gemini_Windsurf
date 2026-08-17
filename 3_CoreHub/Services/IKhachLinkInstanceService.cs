@@ -17,8 +17,11 @@ namespace VanAn.CoreHub.Services
         Task<List<KhachLinkInstance>> GetAllAsync(CancellationToken ct = default);
 
         /// <summary>
-        /// Get active CustomDomain values only (lightweight — for CORS cache + routing lookups).
-        /// Returns only IsActive = true instances with non-empty CustomDomain.
+        /// Get all CustomDomain values (lightweight — for CORS cache + routing lookups).
+        /// #134-fix: Returns ALL instances (including disabled) so CORS allows KhachLink
+        /// WASM to fetch by-domain config. The WASM then checks IsActive and shows a
+        /// "disabled" page. Previously filtered IsActive=true → disabled domains removed
+        /// from CORS snapshot → CORS blocked fetch → WASM fell back to FullCommerce.
         /// </summary>
         Task<List<string>> GetActiveCustomDomainsAsync(CancellationToken ct = default);
         Task<KhachLinkInstance> CreateAsync(

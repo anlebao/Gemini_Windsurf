@@ -52,9 +52,14 @@ namespace VanAn.CoreHub.Services
 
         public async Task<List<string>> GetActiveCustomDomainsAsync(CancellationToken ct = default)
         {
+            // #134-fix: Return ALL custom domains (including disabled instances) so CORS
+            // allows KhachLink WASM to fetch by-domain config. The WASM then checks
+            // IsActive and shows a "disabled" page. Previously filtered IsActive=true
+            // → disabled domains removed from CORS snapshot → CORS blocked fetch →
+            // WASM fell back to FullCommerce defaults → disabled instances still worked.
             return await _dbContext.KhachLinkInstances
                 .AsNoTracking()
-                .Where(i => i.IsActive && i.CustomDomain != "")
+                .Where(i => i.CustomDomain != "")
                 .Select(i => i.CustomDomain)
                 .ToListAsync(ct);
         }
