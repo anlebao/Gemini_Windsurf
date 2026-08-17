@@ -36,18 +36,39 @@ namespace VanAn.CoreHub.Services.DomainRegistrar
             IConfiguration configuration,
             ILogger<GodaddyRegistrarService>? logger = null)
         {
-            var apiKey = configuration["DomainRegistrar:GoDaddy:ApiKey"]
-                ?? throw new InvalidOperationException("DomainRegistrar:GoDaddy:ApiKey not configured.");
-            var apiUrl = configuration["DomainRegistrar:GoDaddy:ApiUrl"] ?? "https://api.godaddy.com";
-
+            // R1-fix: Don't throw in constructor — defer API key check to first actual use.
+            // Throwing in constructor prevents DI from creating the entire controller chain
+            // (KhachLinkInstanceController → ITenantDomainService → IDomainRegistrarService),
+            // which causes ALL KhachLink endpoints to return 400 "Operation is not valid"
+            // even when the registrar service is not needed (e.g. by-domain anonymous lookup).
+            // This way, the service is created lazily and only fails when a registrar API
+            // call is actually made (SetARecord, CheckAvailability, etc.).
+            _apiKey = configuration["DomainRegistrar:GoDaddy:ApiKey"];
+            _apiUrl = configuration["DomainRegistrar:GoDaddy:ApiUrl"] ?? "https://api.godaddy.com";
+            _logger = logger;
             _httpClient = new HttpClient
             {
-                BaseAddress = new Uri(apiUrl),
+                BaseAddress = new Uri(_apiUrl),
                 Timeout = TimeSpan.FromSeconds(30)
             };
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            // Only set auth header if API key is present — HealthCheck will return false if missing.
+            if (!string.IsNullOrEmpty(_apiKey))
+            {
+                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+            }
             _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            _logger = logger;
+        }
+
+        private readonly string? _apiKey;
+        private readonly string _apiUrl;
+
+        /// <summary>
+        /// Throws if API key is not configured. Called before any registrar API operation.
+        /// </summary>
+        private void EnsureConfigured()
+        {
+            if (string.IsNullOrEmpty(_apiKey))
+                throw new InvalidOperationException("DomainRegistrar:GoDaddy:ApiKey not configured. Add it to .env.gateway or appsettings.json.");
         }
 
         public async Task<DomainAvailabilityResult> CheckAvailabilityAsync(string domain, CancellationToken ct = default)
@@ -55,6 +76,7 @@ namespace VanAn.CoreHub.Services.DomainRegistrar
             if (string.IsNullOrWhiteSpace(domain))
                 return new DomainAvailabilityResult { Domain = "", Available = false, Error = "Domain cannot be empty." };
 
+            EnsureConfigured();
             try
             {
                 var response = await _httpClient.GetAsync($"/v1/domains/available?domain={Uri.EscapeDataString(domain.ToLowerInvariant())}", ct);
@@ -133,6 +155,7 @@ namespace VanAn.CoreHub.Services.DomainRegistrar
             if (string.IsNullOrWhiteSpace(domain))
                 throw new ArgumentException("Domain cannot be empty.", nameof(domain));
 
+            EnsureConfigured();
             var normalizedDomain = domain.ToLowerInvariant();
             var normalizedName = string.IsNullOrWhiteSpace(name) ? "@" : name.ToLowerInvariant();
 
@@ -180,6 +203,7 @@ namespace VanAn.CoreHub.Services.DomainRegistrar
             if (string.IsNullOrWhiteSpace(domain))
                 throw new ArgumentException("Domain cannot be empty.", nameof(domain));
 
+            EnsureConfigured();
             var normalizedDomain = domain.ToLowerInvariant();
             var normalizedName = string.IsNullOrWhiteSpace(name) ? "@" : name.ToLowerInvariant();
 
@@ -212,6 +236,7 @@ namespace VanAn.CoreHub.Services.DomainRegistrar
             if (string.IsNullOrWhiteSpace(domain))
                 return new List<DnsRecordDto>();
 
+            EnsureConfigured();
             var normalizedDomain = domain.ToLowerInvariant();
 
             try
@@ -253,6 +278,7 @@ namespace VanAn.CoreHub.Services.DomainRegistrar
             if (string.IsNullOrWhiteSpace(domain))
                 return new List<DnsRecordDto>();
 
+            EnsureConfigured();
             var normalizedDomain = domain.ToLowerInvariant();
             var normalizedName = string.IsNullOrWhiteSpace(name) ? "@" : name.ToLowerInvariant();
 
@@ -292,6 +318,8 @@ namespace VanAn.CoreHub.Services.DomainRegistrar
 
         public async Task<bool> HealthCheckAsync(CancellationToken ct = default)
         {
+            if (string.IsNullOrEmpty(_apiKey))
+                return false;
             try
             {
                 // List active domains — if 200, credentials work.
