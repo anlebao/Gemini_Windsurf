@@ -1,8 +1,24 @@
 ﻿@using VanAn.UI.Platform.Components
 @using VanAn.KhachLink.Services.Http
+@using VanAn.KhachLink.Models
+@using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate
 @inject KhachLinkHomeSettingsHttpService HomeSettingsService
+@inject KhachLinkInstanceHttpService InstanceHttp
 @inherits LayoutComponentBase
 
+@if (_isInstanceDisabled)
+{
+    <div class="khachlink-disabled-page">
+        <div class="disabled-card">
+            <i class="bi bi-pause-circle-fill disabled-icon"></i>
+            <h1>Instance tạm ngưng</h1>
+            <p>Instance KhachLink cho domain này hiện đang bị vô hiệu hoá.</p>
+            <p class="text-muted">Vui lòng liên hệ quản trị viên để biết thêm chi tiết.</p>
+        </div>
+    </div>
+}
+else
+{
 <div class="khachlink-app-layout">
     <!-- Mobile-friendly header -->
     <header class="khachlink-app-header">
@@ -12,12 +28,18 @@
                 <span class="fw-bold">Vạn An</span>
             </a>
             <div class="d-flex gap-2">
-                <a href="/cart" class="app-header-btn" aria-label="Giỏ hàng">
-                    <i class="bi bi-cart3"></i>
-                </a>
-                <a href="/profile" class="app-header-btn" aria-label="Tài khoản">
-                    <i class="bi bi-person"></i>
-                </a>
+                @if (_navFlags.ShowCart)
+                {
+                    <a href="/cart" class="app-header-btn" aria-label="Giỏ hàng">
+                        <i class="bi bi-cart3"></i>
+                    </a>
+                }
+                @if (_navFlags.ShowProfile)
+                {
+                    <a href="/profile" class="app-header-btn" aria-label="Tài khoản">
+                        <i class="bi bi-person"></i>
+                    </a>
+                }
             </div>
         </div>
     </header>
@@ -43,6 +65,7 @@
         <NavMenu />
     </div>
 </div>
+}
 
 <div id="blazor-error-ui">
     An unhandled error has occurred.
@@ -114,14 +137,70 @@
             padding-bottom: 1.5rem; /* No mobile tab bar on desktop */
         }
     }
+
+    /* #134: Disabled instance page */
+    .khachlink-disabled-page {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f5f5f5;
+        padding: 1rem;
+    }
+    .disabled-card {
+        text-align: center;
+        background: white;
+        border-radius: 12px;
+        padding: 3rem 2rem;
+        max-width: 400px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    .disabled-icon {
+        font-size: 4rem;
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+    .disabled-card h1 {
+        font-size: 1.5rem;
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+    .disabled-card p {
+        color: #555;
+        margin-bottom: 0.25rem;
+    }
 </style>
 
 @code {
     // #121.1.1: System admin toggle — default true (show sidebar). Fetched from Gateway on init.
     private bool _showNavMenu = true;
+    // #134: Instance disabled flag + nav flags — fetched from Gateway by-domain endpoint.
+    // If instance is disabled, show "Instance tạm ngưng" page instead of @Body.
+    private bool _isInstanceDisabled;
+    private KhachLinkNavFlagsDto _navFlags = new(); // default: all true (FullCommerce fallback)
 
     protected override async Task OnInitializedAsync()
     {
+        // #134: Fetch instance config first — if disabled, skip everything else
+        try
+        {
+            var instanceConfig = await InstanceHttp.GetByCurrentDomainAsync();
+            if (instanceConfig != null)
+            {
+                if (!instanceConfig.IsActive)
+                {
+                    _isInstanceDisabled = true;
+                    return; // Skip rest of init — disabled page will render
+                }
+                _navFlags = instanceConfig.NavFlags;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Console.WriteLine($"[MainLayout] Instance config fetch failed: {ex.Message}");
+        }
+
+        // Fetch home settings (nav menu toggle)
         try
         {
             var settings = await HomeSettingsService.GetSettingsAsync();

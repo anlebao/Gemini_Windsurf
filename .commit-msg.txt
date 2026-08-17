@@ -1,0 +1,18 @@
+fix(#134): Move disabled check to MainLayout (outer layout) — was in KhachLinkLayout (nested, never rendered)
+
+ROOT CAUSE: Routes.razor uses MainLayout as the outer layout. KhachLinkLayout is
+a NESTED layout used inside individual pages (Home, Cart, Profile, etc.).
+The disabled-page check was only in KhachLinkLayout → MainLayout still rendered
+its hardcoded header (cart + profile icons) regardless of instance state.
+
+FIX: Moved the disabled-instance check + NavFlags logic into MainLayout.razor:
+- If instance IsActive=false → render "Instance tạm ngưng" page, skip @Body entirely
+- If instance active → render normal layout with NavFlags-gated icons (cart, profile)
+- Falls back to FullCommerce defaults only when by-domain returns null (feature
+  flag OFF or domain not registered) — NOT when instance is disabled
+
+Build: 0 errors. Guard-check: ALL PASSED.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
