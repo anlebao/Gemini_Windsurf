@@ -224,11 +224,21 @@ namespace VanAn.ShopERP.Components.Pages.Guard
                 issuedSessionId = result.SessionId;
                 issuedShortCode = result.ShortCode;
 
-                // 4. Generate QR image (client-side via qrcode.js)
+                // 4. Generate QR image (client-side via vendored qrcode.js — no CDN dependency)
                 qrImageBase64 = await JS.InvokeAsync<string?>("vananGuardCamera.generateQrImage", result.QrPayload, 300) ?? string.Empty;
 
                 issueStep = 2;
-                successMessage = "Đã cấp QR thành công!";
+                // #130-fix: If QR image generation failed, show warning but still advance to step 2
+                // so the short code is visible as fallback. Don't show "success" if QR image is missing.
+                if (string.IsNullOrEmpty(qrImageBase64))
+                {
+                    successMessage = "Đã cấp QR thành công nhưng không hiển thị được ảnh QR. Khách có thể dùng mã ngắn bên dưới.";
+                    Logger.LogWarning("QR image generation returned empty for session {SessionId}", result.SessionId);
+                }
+                else
+                {
+                    successMessage = "Đã cấp QR thành công!";
+                }
 
                 // 5. Clear JS-side photo storage + sessionStorage (issue complete).
                 await JS.InvokeVoidAsync("vananGuardCamera.clearState");

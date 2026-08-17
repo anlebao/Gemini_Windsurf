@@ -92,6 +92,12 @@
                                         Vô hiệu hoá
                                     </VanAButton>
                                 }
+                                else
+                                {
+                                    <VanAButton Variant="success" Size="small" OnClick="() => Activate(item)">
+                                        Kích hoạt
+                                    </VanAButton>
+                                }
                             </td>
                         </tr>
                     }
@@ -434,6 +440,23 @@
         {
             await InstanceApi.DeactivateAsync(item.Id);
             _alertMessage = "Đã vô hiệu hoá KhachLink instance.";
+            _alertType = "success";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    /// <summary>#134: Re-enable a previously deactivated KhachLinkInstance.</summary>
+    private async Task Activate(KhachLinkInstanceDto item)
+    {
+        try
+        {
+            await InstanceApi.ActivateAsync(item.Id);
+            _alertMessage = "Đã kích hoạt KhachLink instance.";
             _alertType = "success";
             await LoadData();
         }

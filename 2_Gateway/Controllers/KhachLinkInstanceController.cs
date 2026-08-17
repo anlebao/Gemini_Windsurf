@@ -179,6 +179,17 @@ namespace VanAn.Gateway.Controllers
             return NoContent();
         }
 
+        /// <summary>#134: Activate a previously deactivated KhachLinkInstance.</summary>
+        [HttpPost("{id:guid}/activate")]
+        [Authorize(Policy = "SystemAdmin", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        public async Task<IActionResult> Activate(Guid id, CancellationToken ct = default)
+        {
+            var activated = await _instanceService.ActivateAsync(id, ct);
+            if (!activated)
+                return NotFound();
+            return NoContent();
+        }
+
         /// <summary>Map entity to DTO.</summary>
         private static KhachLinkInstanceDto ToDto(KhachLinkInstance i) => new()
         {

@@ -33,9 +33,13 @@ namespace VanAn.CoreHub.Services
                 return null;
 
             var domain = customDomain.ToLowerInvariant();
+            // #134-fix: Return instance regardless of IsActive — KhachLink runtime checks
+            // IsActive to show a "disabled" page. Previously filtered by IsActive, which
+            // caused by-domain to return 404 for disabled instances → KhachLinkLayout
+            // fell back to FullCommerce defaults → disabled instances still worked.
             return await _dbContext.KhachLinkInstances
                 .AsNoTracking()
-                .FirstOrDefaultAsync(i => i.CustomDomain == domain && i.IsActive, ct);
+                .FirstOrDefaultAsync(i => i.CustomDomain == domain, ct);
         }
 
         public async Task<List<KhachLinkInstance>> GetAllAsync(CancellationToken ct = default)
@@ -117,6 +121,21 @@ namespace VanAn.CoreHub.Services
             await _dbContext.SaveChangesAsync(ct);
 
             _logger?.LogInformation("Deactivated KhachLinkInstance {Id} '{Label}'", instance.Id, instance.Label);
+            return true;
+        }
+
+        /// <summary>#134: Activate a previously deactivated KhachLinkInstance.</summary>
+        public async Task<bool> ActivateAsync(Guid id, CancellationToken ct = default)
+        {
+            var instance = await _dbContext.KhachLinkInstances
+                .FirstOrDefaultAsync(i => i.Id == id, ct);
+            if (instance is null)
+                return false;
+
+            instance.Activate();
+            await _dbContext.SaveChangesAsync(ct);
+
+            _logger?.LogInformation("Activated KhachLinkInstance {Id} '{Label}'", instance.Id, instance.Label);
             return true;
         }
     }

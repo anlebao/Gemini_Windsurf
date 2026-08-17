@@ -12,6 +12,8 @@ public sealed class KhachLinkInstanceConfig
     public KhachLinkProfile Profile { get; set; } = KhachLinkProfile.FullCommerce;
     public Guid? OwnerTenantId { get; set; }
     public KhachLinkNavFlagsDto NavFlags { get; set; } = new();
+    /// <summary>#134: If false, the instance is disabled — KhachLinkLayout shows a "disabled" page.</summary>
+    public bool IsActive { get; set; } = true;
 }
 
 /// <summary>

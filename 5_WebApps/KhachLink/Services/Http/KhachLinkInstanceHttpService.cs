@@ -82,6 +82,7 @@ public class KhachLinkInstanceHttpService(
             {
                 Profile = (KhachLinkProfile)dto.Profile,
                 OwnerTenantId = dto.OwnerTenantId,
+                IsActive = dto.IsActive,
                 NavFlags = new KhachLinkNavFlagsDto
                 {
                     ShowHome = dto.NavFlags?.ShowHome ?? true,
@@ -156,6 +157,7 @@ public class KhachLinkInstanceHttpService(
     {
         public int Profile { get; set; }
         public Guid? OwnerTenantId { get; set; }
+        public bool IsActive { get; set; } = true;
         public NavFlagsResponse? NavFlags { get; set; }
     }
 

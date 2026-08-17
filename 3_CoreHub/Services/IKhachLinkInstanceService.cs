@@ -34,5 +34,6 @@ namespace VanAn.CoreHub.Services
             KhachLinkNavFlags navFlags,
             CancellationToken ct = default);
         Task<bool> DeactivateAsync(Guid id, CancellationToken ct = default);
+        Task<bool> ActivateAsync(Guid id, CancellationToken ct = default);
     }
 }

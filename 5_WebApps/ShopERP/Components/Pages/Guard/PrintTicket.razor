@@ -112,12 +112,10 @@
     {
         if (firstRender && session != null)
         {
-            // Generate QR code on canvas, then convert to img for print reliability
-            // We need the QrPayload — but SessionDetailResultDto doesn't include it.
-            // The QR was generated client-side in Scan.razor. For the print ticket,
-            // we re-generate using the short code as a fallback QR content.
-            // Sprint 6 enhancement: Add QrPayload to SessionDetailResultDto from API.
-            // For now, encode the short code as QR (guard can scan this as fallback).
+            // Generate QR code on canvas using vendored qrcode.js (no CDN).
+            // #130-fix: Use {sc, sid} payload format. GuardService.VerifyAsync now has
+            // a fallback that parses this format and looks up by sessionId — so the
+            // printed ticket QR is scannable by the guard's verify flow.
             var qrContent = $"{{\"sc\":\"{session.ShortCode}\",\"sid\":\"{session.SessionId}\"}}";
             await JSRuntime.InvokeVoidAsync("vananGuardCamera.generateQrToCanvas", "ticket-qr-canvas", qrContent, 200);
             // Auto-trigger print dialog on page load

@@ -539,13 +539,13 @@ window.vananGuardCamera = {
         }
     },
 
-    /** Generate QR code image (base64 PNG) from text using qrcode.js (loaded from CDN). */
+    /** Generate QR code image (base64 PNG) from text using vendored qrcode-generator (no CDN). */
     async generateQrImage(text, size) {
         try {
             await this._ensureQrLibrary();
+            const targetSize = size || 300;
             const canvas = document.createElement('canvas');
-            // QRCode.toCanvas is the qrcode library API
-            await QRCode.toCanvas(canvas, text, { width: size || 300, margin: 2 });
+            vananQR._drawToCanvas(canvas, text, targetSize, targetSize);
             return canvas.toDataURL('image/png');
         } catch (err) {
             console.error('QR generation failed:', err);
@@ -554,12 +554,12 @@ window.vananGuardCamera = {
     },
 
     async _ensureQrLibrary() {
-        if (window.QRCode) return;
+        if (window.vananQR) return;
         return new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+            script.src = '/js/lib/qrcode.js';
             script.onload = () => resolve();
-            script.onerror = () => reject(new Error('Failed to load qrcode library'));
+            script.onerror = () => reject(new Error('Failed to load vendored qrcode library'));
             document.head.appendChild(script);
         });
     },
@@ -573,7 +573,8 @@ window.vananGuardCamera = {
                 console.error('Canvas element not found:', canvasId);
                 return false;
             }
-            await QRCode.toCanvas(canvas, text, { width: size || 200, margin: 2 });
+            const targetSize = size || 200;
+            vananQR._drawToCanvas(canvas, text, targetSize, targetSize);
             return true;
         } catch (err) {
             console.error('QR generation to canvas failed:', err);
