@@ -46,6 +46,15 @@ namespace VanAn.CoreHub.Services
                 .ToListAsync(ct);
         }
 
+        public async Task<List<string>> GetActiveCustomDomainsAsync(CancellationToken ct = default)
+        {
+            return await _dbContext.KhachLinkInstances
+                .AsNoTracking()
+                .Where(i => i.IsActive && i.CustomDomain != "")
+                .Select(i => i.CustomDomain)
+                .ToListAsync(ct);
+        }
+
         public async Task<KhachLinkInstance> CreateAsync(
             string label,
             KhachLinkProfile profile,

@@ -25,7 +25,8 @@ namespace VanAn.Shared.Domain.Aggregates.KhachLinkAggregate
 
         /// <summary>
         /// Custom domain for this instance — "diemthuong2.khachvip.online", "shopA.khachvip.online".
-        /// nginx routes by Host header. Must be unique across all instances. Stored lowercase.
+        /// nginx routes by Host header. Must be unique across all instances.
+        /// Stored as hostname only (lowercase, no scheme/path/port) — canonicalized on create.
         /// </summary>
         public string CustomDomain { get; private set; } = string.Empty;
 
@@ -66,10 +67,41 @@ namespace VanAn.Shared.Domain.Aggregates.KhachLinkAggregate
 
             Label = label;
             Profile = profile;
-            CustomDomain = customDomain.ToLowerInvariant();
+            CustomDomain = CanonicalizeDomain(customDomain);
             OwnerTenantId = ownerTenantId;
             NavFlags = navFlagsOverride ?? KhachLinkNavFlags.ForProfile(profile);
             IsActive = true;
+        }
+
+        /// <summary>
+        /// Canonicalize domain input: strip scheme, path, port, trailing slash.
+        /// Accepts: "sanjob.com", "https://sanjob.com", "sanjob.com/", "SANJOB.COM"
+        /// Returns: "sanjob.com" (hostname only, lowercase, no trailing slash)
+        /// </summary>
+        private static string CanonicalizeDomain(string input)
+        {
+            var trimmed = input.Trim().ToLowerInvariant();
+
+            // Strip scheme if admin included it
+            if (trimmed.StartsWith("https://"))
+                trimmed = trimmed["https://".Length..];
+            else if (trimmed.StartsWith("http://"))
+                trimmed = trimmed["http://".Length..];
+
+            // Parse as URI to extract hostname (handles path, port, trailing slash)
+            // If no scheme, prepend "https://" for Uri.TryParse to work
+            if (!trimmed.Contains("://"))
+                trimmed = "https://" + trimmed;
+
+            if (Uri.TryCreate(trimmed, UriKind.Absolute, out var uri) && !string.IsNullOrEmpty(uri.Host))
+                return uri.Host;  // hostname only, lowercase, no path/port/slash
+
+            // Fallback: strip path manually if Uri parse fails
+            var slashIdx = trimmed.IndexOf('/');
+            if (slashIdx > 0)
+                trimmed = trimmed[..slashIdx];
+
+            return trimmed.TrimEnd('/');
         }
 
         /// <summary>

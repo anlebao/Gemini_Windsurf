@@ -35,6 +35,26 @@ namespace VanAn.Core.Tests.KhachLink
             Assert.Equal("directory.khachvip.online", instance.CustomDomain);
         }
 
+        // ── CanonicalizeDomain tests (Dynamic CORS Sprint 1) ────────────────
+
+        [Theory]
+        [InlineData("sanjob.com", "sanjob.com")]
+        [InlineData("https://sanjob.com", "sanjob.com")]
+        [InlineData("http://sanjob.com", "sanjob.com")]
+        [InlineData("sanjob.com/", "sanjob.com")]
+        [InlineData("SANJOB.COM", "sanjob.com")]
+        [InlineData("sanjob.com/api", "sanjob.com")]
+        [InlineData("sanjob.com:8080", "sanjob.com")]
+        [InlineData("  sanjob.com  ", "sanjob.com")]
+        [InlineData("https://sanjob.com/", "sanjob.com")]
+        [InlineData("https://SANJOB.COM/Path", "sanjob.com")]
+        public void Create_CanonicalizeDomain_StripsSchemePathPortSlash(string input, string expected)
+        {
+            var instance = new KhachLinkInstance("Test", KhachLinkProfile.FullCommerce, input);
+
+            Assert.Equal(expected, instance.CustomDomain);
+        }
+
         [Fact]
         public void Create_WithEmptyLabel_ThrowsArgumentException()
         {

@@ -410,24 +410,30 @@ namespace VanAn.Gateway
             hmacOptions.ProtectedPaths = protectedPaths.Select(p => new PathString(p)).ToList();
             _ = builder.Services.AddSingleton(hmacOptions);
 
-            // Wave 7: CORS hardening — whitelist from configuration
-            string[] allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? ["*"];
+            // Dynamic CORS: static origins from config + dynamic from KhachLinkInstance registry.
+            // DynamicCorsService (Singleton) reads IMemoryCache only — no DB call in CORS callback.
+            // DynamicCorsCacheHostedService pre-warms cache on startup + every 5 min.
+            // No BuildServiceProvider() — uses host container's IDynamicCorsService (Singleton, safe from root).
+            _ = builder.Services.AddSingleton<IDynamicCorsService, DynamicCorsService>();
+            _ = builder.Services.AddHostedService<DynamicCorsCacheHostedService>();
+
+            // Capture IServiceProvider — set after builder.Build() (line below).
+            // The lambda is executed per-request (not at registration), so late binding is safe.
+            IServiceProvider? rootProvider = null;
             _ = builder.Services.AddCors(options =>
             {
-                options.AddPolicy("AllowAll", policy =>
+                options.AddPolicy("DynamicCors", policy =>
                 {
-                    if (allowedOrigins.Contains("*"))
+                    policy.SetIsOriginAllowed(origin =>
                     {
-                        _ = policy.AllowAnyOrigin()
-                              .AllowAnyMethod()
-                              .AllowAnyHeader();
-                    }
-                    else
-                    {
-                        _ = policy.WithOrigins(allowedOrigins)
-                              .AllowAnyMethod()
-                              .AllowAnyHeader();
-                    }
+                        // rootProvider is set immediately after builder.Build() (line 440).
+                        // First request arrives after app.Run() — rootProvider is never null at request time.
+                        var corsService = rootProvider!.GetRequiredService<IDynamicCorsService>();
+                        return corsService.IsOriginAllowed(origin);
+                    })
+                    .AllowAnyMethod()
+                    .AllowAnyHeader();
+                    // NO AllowCredentials — KhachLink WASM uses JWT Bearer, not cookies.
                 });
             });
 
@@ -438,6 +444,7 @@ namespace VanAn.Gateway
             });
 
             WebApplication app = builder.Build();
+            rootProvider = app.Services;  // Late-bind for DynamicCors SetIsOriginAllowed lambda
 
             try
             {
@@ -512,7 +519,7 @@ namespace VanAn.Gateway
                     KnownNetworks = { }
                 });
 
-                _ = app.UseCors("AllowAll");
+                _ = app.UseCors("DynamicCors");
 
                 // Wave 1 Phase 2: Authentication & Authorization middleware
                 _ = app.UseAuthentication();
