@@ -17,11 +17,13 @@ namespace VanAn.Gateway.Controllers
     public class KhachLinkInstanceController(
         IKhachLinkInstanceService instanceService,
         IConfiguration configuration,
-        ILogger<KhachLinkInstanceController> logger) : ControllerBase
+        ILogger<KhachLinkInstanceController> logger,
+        ITenantDomainService? tenantDomainService = null) : ControllerBase
     {
         private readonly IKhachLinkInstanceService _instanceService = instanceService;
         private readonly IConfiguration _configuration = configuration;
         private readonly ILogger<KhachLinkInstanceController> _logger = logger;
+        private readonly ITenantDomainService? _tenantDomainService = tenantDomainService;
 
         /// <summary>
         /// Feature flag check — if KhachLink:MultiProfileEnabled is false,
@@ -110,6 +112,34 @@ namespace VanAn.Gateway.Controllers
                 var instance = await _instanceService.CreateAsync(
                     request.Label, request.Profile, request.CustomDomain,
                     request.OwnerTenantId, navFlagsOverride, ct);
+
+                // Domain Reseller R1: Auto-link to matching TenantDomain if exists.
+                // When admin creates a KhachLinkInstance with a custom domain that matches
+                // a TenantDomain record, automatically link them + create A record at registrar.
+                // Best-effort — failures are logged but don't block instance creation.
+                if (_tenantDomainService != null && !string.IsNullOrWhiteSpace(instance.CustomDomain))
+                {
+                    try
+                    {
+                        var tenantDomain = await _tenantDomainService.GetByDomainAsync(instance.CustomDomain, ct);
+                        if (tenantDomain != null && tenantDomain.KhachLinkInstanceId == null)
+                        {
+                            var vpsIp = _configuration["DomainRegistrar:DefaultVpsIp"] ?? "";
+                            if (!string.IsNullOrEmpty(vpsIp))
+                            {
+                                await _tenantDomainService.LinkToKhachLinkInstanceAsync(
+                                    tenantDomain.Id, instance.Id, vpsIp, ct);
+                                _logger.LogInformation("Auto-linked TenantDomain {Domain} → KhachLinkInstance {KliId}",
+                                    tenantDomain.Domain, instance.Id);
+                            }
+                        }
+                    }
+                    catch (Exception autoLinkEx)
+                    {
+                        _logger.LogWarning(autoLinkEx, "Auto-link TenantDomain failed for {Domain} — instance created, manual link needed",
+                            instance.CustomDomain);
+                    }
+                }
 
                 return CreatedAtAction(nameof(GetById), new { id = instance.Id }, ToDto(instance));
             }

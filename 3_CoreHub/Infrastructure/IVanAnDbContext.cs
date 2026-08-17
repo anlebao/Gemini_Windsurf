@@ -118,6 +118,10 @@ namespace VanAn.CoreHub.Infrastructure
         // KhachLink Multi-Profile R1: KhachLink instances (platform-level, NOT tenant-scoped — TenantId = Guid.Empty sentinel)
         DbSet<VanAn.Shared.Domain.Aggregates.KhachLinkAggregate.KhachLinkInstance> KhachLinkInstances { get; }
 
+        // Domain Reseller R1: Tenant-owned domains registered via Vạn An reseller platform
+        // Platform-level (TenantId = Guid.Empty sentinel) — tracks OwnerTenantId separately
+        DbSet<VanAn.Shared.Domain.Aggregates.DomainResellerAggregate.TenantDomain> TenantDomains { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
 

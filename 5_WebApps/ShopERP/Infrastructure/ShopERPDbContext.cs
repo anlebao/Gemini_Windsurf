@@ -140,6 +140,9 @@ namespace VanAn.ShopERP.Infrastructure
         // KhachLink Multi-Profile R1: PG-only (Gateway), ignored in ShopERP SQLite
         public DbSet<VanAn.Shared.Domain.Aggregates.KhachLinkAggregate.KhachLinkInstance> KhachLinkInstances { get; set; }
 
+        // Domain Reseller R1: PG-only (Gateway), ignored in ShopERP SQLite
+        public DbSet<VanAn.Shared.Domain.Aggregates.DomainResellerAggregate.TenantDomain> TenantDomains { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters

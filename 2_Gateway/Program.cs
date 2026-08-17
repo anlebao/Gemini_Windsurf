@@ -331,6 +331,10 @@ namespace VanAn.Gateway
             _ = builder.Services.AddHttpClient<VanAn.CoreHub.Services.IShopInstanceService, VanAn.CoreHub.Services.ShopInstanceService>();
             // KhachLink Multi-Profile R1: KhachLink instance management (no HttpClient needed — DbContext only)
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IKhachLinkInstanceService, VanAn.CoreHub.Services.KhachLinkInstanceService>();
+            // Domain Reseller R1: GoDaddy registrar service (HttpClient internally — no IHttpClientFactory needed for v1 MVP)
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.DomainRegistrar.IDomainRegistrarService, VanAn.CoreHub.Services.DomainRegistrar.GodaddyRegistrarService>();
+            // Domain Reseller R1: TenantDomain management service (DbContext only)
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ITenantDomainService, VanAn.CoreHub.Services.TenantDomainService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IProviderManager, VanAn.CoreHub.Services.ProviderManager>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IExcelExportService, VanAn.CoreHub.Services.ExcelExportService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Orchestration.IWebhookService, VanAn.CoreHub.Services.Orchestration.WebhookService>();
