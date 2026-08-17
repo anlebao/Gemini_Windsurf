@@ -9,6 +9,11 @@
 var qrcode = function () {
     // QR Code generation library (minimal version)
     // Full implementation from qrcode-generator v1.4.4
+    // #130-fix: Move QRErrorCorrectionLevel + QRRSBlock definitions BEFORE qrcode()
+    // function to avoid hoisting issue — var is hoisted but undefined until assignment,
+    // causing "Cannot read properties of undefined (reading 'M')" at line 15.
+    var QRErrorCorrectionLevel = { L: 1, M: 0, Q: 3, H: 2 };
+
     var qrcode = function (typeNumber, errorCorrectionLevel) {
         var PAD0 = 0xEC, PAD1 = 0x11;
         var _typeNumber = typeNumber;
@@ -299,7 +304,8 @@ var qrcode = function () {
             }
         };
 
-        var QRErrorCorrectionLevel = { L: 1, M: 0, Q: 3, H: 2 };
+        // QRErrorCorrectionLevel moved to top of closure (before qrcode function)
+        // to avoid hoisting issue where var is undefined when qrcode() is called.
 
         function _createData(typeNumber, errorCorrectionLevel, dataList) {
             var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, errorCorrectionLevel);

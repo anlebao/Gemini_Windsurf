@@ -1,0 +1,23 @@
+fix(#130): qrcode.js hoisting bug — QRErrorCorrectionLevel undefined when qrcode() called
+
+ROOT CAUSE: In qrcode.js, `var QRErrorCorrectionLevel = { L:1, M:0, Q:3, H:2 }` was
+defined at line 302, but accessed at line 15 inside the qrcode() constructor:
+  var _errorCorrectionLevel = QRErrorCorrectionLevel[errorCorrectionLevel];
+
+JavaScript hoists `var` declarations but NOT assignments — so QRErrorCorrectionLevel
+is `undefined` when qrcode() is called from _drawToCanvas (line 560).
+Result: "Cannot read properties of undefined (reading 'M')" → QR generation fails →
+guard cannot create QR codes.
+
+FIX: Moved QRErrorCorrectionLevel definition to top of closure (before qrcode function).
+QRRSBlock is OK — only accessed in _createData() which runs after constructor.
+
+Also includes #134 fix: ByDomainResponse.Profile changed from int to string
+(API returns "Directory" not 0) — JSON deserialize was failing → MainLayout
+fell back to FullCommerce instead of showing disabled page.
+
+Build: 0 errors.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
