@@ -489,6 +489,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<Services.ShopInstanceApiClient>();
             // KhachLink Multi-Profile R1 Sprint 4: admin API client for KhachLinkInstance CRUD
             _ = builder.Services.AddScoped<Services.KhachLinkInstanceApiClient>();
+            // Domain Reseller R1: admin API client for TenantDomain CRUD + registrar DNS operations
+            _ = builder.Services.AddScoped<Services.DomainRegistrarApiClient>();
             _ = builder.Services.AddScoped<Services.FeaturedProductApiClient>();
             _ = builder.Services.AddScoped<Services.ProductReferralConfigApiClient>();
             _ = builder.Services.AddScoped<Services.CommunityAdminApiClient>();

@@ -1,0 +1,492 @@
+@page "/admin/domains"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@using VanAn.Shared.Domain.Aggregates.DomainResellerAggregate
+@inject DomainRegistrarApiClient DomainApi
+@inject TenantApiClient TenantApi
+@inject IThemeProvider ThemeProvider
+@inject ILogger<DomainsAdmin> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="domains-admin-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Tenant Domains</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadData">Làm mới</VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    @* ── Domain Search (registrar availability check) ── *@
+    <VanACard Header="Tra cứu domain mới">
+        <div class="search-section">
+            <div class="search-row">
+                <input type="text" class="vanan-input" placeholder="vd: shopa.com" @bind="_searchDomain" />
+                <VanAButton Variant="primary" Size="small" OnClick="SearchDomain" IsLoading="@_isSearching">Kiểm tra</VanAButton>
+            </div>
+            @if (_searchResult != null)
+            {
+                <div class="search-result">
+                    @if (_searchResult.Available)
+                    {
+                        <p class="text-success">
+                            <strong>@_searchResult.Domain</strong> có sẵn —
+                            @if (_searchResult.PriceMicroUnits.HasValue)
+                            {
+                                <span>$@((_searchResult.PriceMicroUnits.Value / 10000000.0).ToString("F2"))/năm</span>
+                            }
+                        </p>
+                        <p class="text-muted small">R1: Tự động đăng ký chưa hỗ trợ. Đăng ký thủ công tại GoDaddy, rồi dùng "Thêm domain" bên dưới để lưu vào hệ thống.</p>
+                    }
+                    else
+                    {
+                        <p class="text-danger"><strong>@_searchResult.Domain</strong> không có sẵn. @(_searchResult.Error ?? "")</p>
+                    }
+                </div>
+            }
+        </div>
+    </VanACard>
+
+    @* ── Domain List ── *@
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải danh sách...</p>
+            </div>
+        </VanACard>
+    }
+    else if (_items.Count == 0)
+    {
+        <VanACard>
+            <div class="empty-state">
+                <p>Chưa có tenant domain nào. Tra cứu domain ở trên, đăng ký tại GoDaddy, rồi nhấn "Thêm domain" để lưu.</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="@($"Danh sách Tenant Domains ({_items.Count})")">
+          <div class="table-responsive">
+            <table class="vanan-table">
+                <thead>
+                    <tr>
+                        <th>Domain</th>
+                        <th>Registrar</th>
+                        <th>Owner Tenant</th>
+                        <th>KhachLink Instance</th>
+                        <th>Trạng thái</th>
+                        <th>Expires</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in _items)
+                    {
+                        <tr>
+                            <td><strong>@item.Domain</strong></td>
+                            <td><span class="status-badge">@item.Registrar</span></td>
+                            <td>@GetTenantName(item.OwnerTenantId)</td>
+                            <td>
+                                @if (item.KhachLinkInstanceId.HasValue)
+                                {
+                                    <span class="status-badge status-active">Đã gắn</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Chưa gắn</span>
+                                }
+                            </td>
+                            <td>
+                                <span class="status-badge status-@(GetStatusClass(item.Status))">
+                                    @GetStatusName(item.Status)
+                                </span>
+                            </td>
+                            <td>@item.ExpiresAt.ToString("yyyy-MM-dd")</td>
+                            <td class="action-cell">
+                                @if (!item.KhachLinkInstanceId.HasValue)
+                                {
+                                    <VanAButton Variant="info" Size="small" OnClick="() => OpenLinkModal(item)">Gắn KLI</VanAButton>
+                                }
+                                else
+                                {
+                                    <VanAButton Variant="warning" Size="small" OnClick="() => UnlinkKli(item)">Gỡ KLI</VanAButton>
+                                }
+                                <VanAButton Variant="outline" Size="small" OnClick="() => ViewDnsRecords(item)">DNS</VanAButton>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+          </div>
+        </VanACard>
+    }
+
+    @* ── Add Domain Modal ── *@
+    @if (_showAddModal)
+    {
+        <VanAModal Title="Thêm Tenant Domain" IsVisible="true" OnClose="CloseAddModal" Size="large">
+            <Body>
+                <VanAForm OnValidSubmit="HandleAddDomain" aria-label="Add domain form">
+                    <div class="form-group">
+                        <VanAInput Id="td-domain" Label="Domain *"
+                                   Value="@_addForm.Domain"
+                                   ValueChanged="v => _addForm.Domain = v"
+                                   Placeholder="shopa.com" Required="true" />
+                        <small class="text-muted">Domain đã đăng ký tại registrar (GoDaddy). Nhập tên miền đầy đủ.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Owner Tenant *</label>
+                        <VanASelect Id="td-tenant"
+                                    Value="@(_addForm.OwnerTenantId.ToString())"
+                                    ValueChanged="v => _addForm.OwnerTenantId = Guid.Parse(v)"
+                                    Options="_tenantOptions"
+                                    AriaLabel="Owner tenant" />
+                    </div>
+                    <div class="form-group">
+                        <VanAInput Id="td-email" Label="Registrant Email *"
+                                   Value="@_addForm.RegistrantEmail"
+                                   ValueChanged="v => _addForm.RegistrantEmail = v"
+                                   Placeholder="admin@shopa.com" Required="true" />
+                    </div>
+                    <div class="form-group">
+                        <label>Registrar</label>
+                        <VanASelect Id="td-registrar"
+                                    Value="@RegistrarValue(_addForm.Registrar)"
+                                    ValueChanged="v => _addForm.Registrar = (RegistrarProvider)int.Parse(v)"
+                                    Options="_registrarOptions"
+                                    AriaLabel="Registrar" />
+                    </div>
+                    <div class="form-group">
+                        <VanAInput Id="td-expires" Label="Ngày hết hạn (tùy chọn)"
+                                   Value="@_addExpiresAtStr"
+                                   ValueChanged="v => { _addExpiresAtStr = v; _addForm.ExpiresAt = DateTime.TryParse(v, out var d) ? d : null; }"
+                                   Placeholder="2027-08-17" />
+                    </div>
+                    <div class="form-actions">
+                        <VanAButton Variant="primary" OnClick="HandleAddDomain" IsLoading="@_isSaving">Lưu</VanAButton>
+                        <VanAButton Variant="outline" OnClick="CloseAddModal">Huỷ</VanAButton>
+                    </div>
+                </VanAForm>
+            </Body>
+        </VanAModal>
+    }
+
+    @* ── Link KLI Modal ── *@
+    @if (_showLinkModal)
+    {
+        <VanAModal Title="@($"Gắn domain {_linkDomain?.Domain} → KhachLinkInstance")" IsVisible="true" OnClose="CloseLinkModal" Size="medium">
+            <Body>
+                <VanAForm OnValidSubmit="HandleLinkKli" aria-label="Link KLI form">
+                    <div class="form-group">
+                        <label>KhachLinkInstance *</label>
+                        <VanASelect Id="link-kli"
+                                    Value="@_linkKliId"
+                                    ValueChanged="v => _linkKliId = v"
+                                    Options="_kliOptions"
+                                    AriaLabel="KhachLink Instance" />
+                        <small class="text-muted">Chọn KhachLinkInstance có CustomDomain = @_linkDomain?.Domain</small>
+                    </div>
+                    <div class="form-group">
+                        <VanAInput Id="link-ip" Label="VPS IP *"
+                                   Value="@_linkVpsIp"
+                                   ValueChanged="v => _linkVpsIp = v"
+                                   Placeholder="136.85.94.119" Required="true" />
+                        <small class="text-muted">IP của Gateway VPS. A record sẽ trỏ domain về IP này.</small>
+                    </div>
+                    <div class="form-actions">
+                        <VanAButton Variant="primary" OnClick="HandleLinkKli" IsLoading="@_isSaving">Gắn + Tạo A record</VanAButton>
+                        <VanAButton Variant="outline" OnClick="CloseLinkModal">Huỷ</VanAButton>
+                    </div>
+                </VanAForm>
+            </Body>
+        </VanAModal>
+    }
+
+    @* ── DNS Records Modal ── *@
+    @if (_showDnsModal)
+    {
+        <VanAModal Title="@($"DNS Records — {_dnsDomain?.Domain}")" IsVisible="true" OnClose="CloseDnsModal" Size="large">
+            <Body>
+                @if (_dnsLoading)
+                {
+                    <VanASpinner Size="medium" />
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="vanan-table">
+                            <thead>
+                                <tr><th>Type</th><th>Name</th><th>Data</th><th>TTL</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var r in _dnsRecords)
+                                {
+                                    <tr>
+                                        <td><span class="status-badge">@r.Type</span></td>
+                                        <td>@r.Name</td>
+                                        <td><code>@r.Data</code></td>
+                                        <td>@r.Ttl</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </Body>
+        </VanAModal>
+    }
+</div>
+
+<style>
+    .domains-admin-page .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    .domains-admin-page .search-section { margin-bottom: 1rem; }
+    .domains-admin-page .search-row { display: flex; gap: 0.5rem; }
+    .domains-admin-page .search-row input { flex: 1; }
+    .domains-admin-page .search-result { margin-top: 0.75rem; }
+    .domains-admin-page .action-cell { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+</style>
+
+@code {
+    private List<TenantDomainDto> _items = new();
+    private List<TenantApiDto> _tenants = new();
+    private List<VanASelect.SelectOption> _tenantOptions = new();
+    private List<VanASelect.SelectOption> _kliOptions = new();
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private bool _isSearching;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    // Search
+    private string _searchDomain = "";
+    private DomainAvailabilityResultDto? _searchResult;
+
+    // Add modal
+    private bool _showAddModal;
+    private CreateTenantDomainRequest _addForm = new();
+    private string _addExpiresAtStr = "";
+
+    // Link KLI modal
+    private bool _showLinkModal;
+    private TenantDomainDto? _linkDomain;
+    private string _linkKliId = "";
+    private string _linkVpsIp = "136.85.94.119";
+
+    // DNS modal
+    private bool _showDnsModal;
+    private TenantDomainDto? _dnsDomain;
+    private List<DnsRecordDto> _dnsRecords = new();
+    private bool _dnsLoading;
+
+    private readonly List<VanASelect.SelectOption> _registrarOptions = new()
+    {
+        new("0", "GoDaddy"),
+        new("1", "Namecheap (R2)"),
+        new("2", "P.A Vietnam (R3)")
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            _items = await DomainApi.ListAsync();
+            _tenants = await TenantApi.ListAllAsync();
+            _tenantOptions = _tenants.Select(t => new VanASelect.SelectOption(t.Id.ToString(), t.Name)).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load tenant domains");
+            _alertMessage = $"Lỗi tải dữ liệu: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SearchDomain()
+    {
+        if (string.IsNullOrWhiteSpace(_searchDomain))
+            return;
+        _isSearching = true;
+        try
+        {
+            _searchResult = await DomainApi.CheckAvailabilityAsync(_searchDomain);
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi tra cứu: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isSearching = false;
+        }
+    }
+
+    public void OpenAddModal()
+    {
+        _addForm = new CreateTenantDomainRequest { Registrar = RegistrarProvider.GoDaddy };
+        _addExpiresAtStr = DateTime.UtcNow.AddYears(1).ToString("yyyy-MM-dd");
+        _showAddModal = true;
+    }
+
+    private void CloseAddModal() => _showAddModal = false;
+
+    private async Task HandleAddDomain()
+    {
+        _isSaving = true;
+        try
+        {
+            await DomainApi.CreateAsync(_addForm);
+            _alertMessage = $"Đã thêm domain {_addForm.Domain}.";
+            _alertType = "success";
+            _showAddModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to add domain");
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task OpenLinkModal(TenantDomainDto item)
+    {
+        _linkDomain = item;
+        _linkKliId = "";
+        _linkVpsIp = "136.85.94.119";
+        // Load KLI options (filter by matching custom domain or show all)
+        // For R1, admin manually selects which KLI to link
+        _kliOptions = new(); // TODO: load from KhachLinkInstanceApiClient
+        _showLinkModal = true;
+        await Task.CompletedTask;
+    }
+
+    private void CloseLinkModal() => _showLinkModal = false;
+
+    private async Task HandleLinkKli()
+    {
+        if (_linkDomain == null || string.IsNullOrEmpty(_linkKliId) || string.IsNullOrEmpty(_linkVpsIp))
+            return;
+        _isSaving = true;
+        try
+        {
+            await DomainApi.LinkKliAsync(_linkDomain.Id, new LinkKliRequest
+            {
+                KhachLinkInstanceId = Guid.Parse(_linkKliId),
+                VpsIpAddress = _linkVpsIp
+            });
+            _alertMessage = $"Đã gắn {_linkDomain.Domain} → KhachLinkInstance + tạo A record → {_linkVpsIp}";
+            _alertType = "success";
+            _showLinkModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi gắn KLI: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task UnlinkKli(TenantDomainDto item)
+    {
+        try
+        {
+            await DomainApi.UnlinkKliAsync(item.Id);
+            _alertMessage = $"Đã gỡ {_linkDomain?.Domain} khỏi KhachLinkInstance.";
+            _alertType = "success";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private async Task ViewDnsRecords(TenantDomainDto item)
+    {
+        _dnsDomain = item;
+        _showDnsModal = true;
+        _dnsLoading = true;
+        try
+        {
+            _dnsRecords = await DomainApi.GetDnsRecordsAsync(item.Domain);
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi tải DNS: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _dnsLoading = false;
+        }
+    }
+
+    private void CloseDnsModal() => _showDnsModal = false;
+
+    private string GetTenantName(Guid tenantId)
+    {
+        var t = _tenants.FirstOrDefault(x => x.Id == tenantId);
+        return t?.Name ?? tenantId.ToString()[..8];
+    }
+
+    private static string GetStatusName(DomainStatus s) => s switch
+    {
+        DomainStatus.Active => "Hoạt động",
+        DomainStatus.Pending => "Chờ",
+        DomainStatus.Expired => "Hết hạn",
+        DomainStatus.Suspended => "Bị khoá",
+        DomainStatus.Failed => "Lỗi",
+        DomainStatus.TransferredAway => "Đã chuyển",
+        _ => s.ToString()
+    };
+
+    private static string GetStatusClass(DomainStatus s) => s switch
+    {
+        DomainStatus.Active => "active",
+        DomainStatus.Pending => "inactive",
+        DomainStatus.Expired => "inactive",
+        DomainStatus.Suspended => "inactive",
+        DomainStatus.Failed => "inactive",
+        DomainStatus.TransferredAway => "inactive",
+        _ => "inactive"
+    };
+
+    private static string RegistrarValue(RegistrarProvider r) => ((int)r).ToString();
+}

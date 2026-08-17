@@ -170,6 +170,10 @@ namespace VanAn.CoreHub.Infrastructure
         // KhachLink Multi-Profile R1: KhachLink instances (platform-level, NOT tenant-scoped — TenantId = Guid.Empty sentinel)
         public DbSet<KhachLinkInstance> KhachLinkInstances { get; set; }
 
+        // Domain Reseller R1: Tenant-owned domains registered via Vạn An reseller platform
+        // Platform-level (TenantId = Guid.Empty sentinel) — tracks OwnerTenantId separately
+        public DbSet<VanAn.Shared.Domain.Aggregates.DomainResellerAggregate.TenantDomain> TenantDomains { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -320,7 +324,8 @@ namespace VanAn.CoreHub.Infrastructure
                     && e.ClrType != typeof(AllianceWallet)
                     && e.ClrType != typeof(AllianceTransaction)
                     && e.ClrType != typeof(KhachLinkHomeSettings)
-                    && e.ClrType != typeof(KhachLinkInstance));
+                    && e.ClrType != typeof(KhachLinkInstance)
+                    && e.ClrType != typeof(VanAn.Shared.Domain.Aggregates.DomainResellerAggregate.TenantDomain));
 
             // Capture context so EF Core evaluates CurrentTenantIdValue at QUERY TIME.
             // Using TenantId (model type) as RHS ensures:
