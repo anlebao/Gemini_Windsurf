@@ -93,6 +93,18 @@
 
 ## 4. Next Actions
 
+**Domain Reseller R1 — IN PROGRESS (branch `feature/domain-reseller-r1`):**
+- ✅ Phase 1-5 implemented + build pass + commit `0d960163` (21 files, 7467 insertions).
+- TenantDomain entity + GoDaddy API v1 service + DomainRegistrarController (11 endpoints) + admin UI (`/admin/domains`) + auto-link KLI + `init-ssl-tenant-domains.sh` cron.
+- GoDaddy PAT verified 2026-08-17 (read + write + delete all PASS on production `khachvip.online`).
+- **Pending:**
+  1. Add `DomainRegistrar:GoDaddy:ApiKey` + `DomainRegistrar:DefaultVpsIp` to `.env.gateway` (VPS config).
+  2. Apply EF migration `AddTenantDomains` on Gateway PG (VPS).
+  3. RV on VPS: test `/admin/domains` UI + domain availability search + DNS records viewer + link-kli flow.
+  4. Test `init-ssl-tenant-domains.sh` on VPS (cron 1h).
+  5. Merge `feature/domain-reseller-r1` → `main` via PR after RV.
+- **R2 (next):** Auto-registration via GoDaddy v3 quote-execute API + Namecheap sandbox backup + FailoverRegistrarService.
+
 **Dynamic CORS — COMPLETE (no further action needed):**
 - ✅ Sprint 1 merged via PR #133 (`d9545d5e`), CD deployed, RV 8/8 PASS.
 - Future enhancement (if needed): `IDynamicCorsService.InvalidateCache()` for immediate cache invalidation on domain deactivation (currently 5-min TTL acceptable).
