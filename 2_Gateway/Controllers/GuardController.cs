@@ -139,8 +139,7 @@ namespace VanAn.Gateway.Controllers
                 return BadRequest(new { error = "Plate number is required." });
             if (string.IsNullOrWhiteSpace(request.PlatePhotoKey))
                 return BadRequest(new { error = "Plate photo key is required." });
-            if (string.IsNullOrWhiteSpace(request.CustomerPhotoKey))
-                return BadRequest(new { error = "Customer photo key is required." });
+            // #130: Ảnh khách là TÙY CHỌN — không còn required. Client có thể gửi null.
 
             try
             {

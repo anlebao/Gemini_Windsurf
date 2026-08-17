@@ -599,7 +599,8 @@ window.vananGuardCamera = {
             const worker = await Tesseract.createWorker('eng', 1, {
                 workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
                 corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5',
-                langPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/lang-data',
+                // #130-fix: Official Tesseract.js lang-data host (jsdelivr /lang-data path 404s).
+                langPath: 'https://tessdata.projectnaptha.com/4.0.0',
                 logger: () => {}
             });
             await worker.setParameters({ tessedit_char_whitelist: whitelist });

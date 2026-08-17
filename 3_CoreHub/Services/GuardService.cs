@@ -123,7 +123,10 @@ namespace VanAn.CoreHub.Services
             await _sessionRepo.SaveChangesAsync();
 
             var plateUrl = _r2Storage.GetPresignedDownloadUrl(session.PlatePhotoKey, 60);
-            var customerUrl = _r2Storage.GetPresignedDownloadUrl(session.CustomerPhotoKey, 60);
+            // #130: Ảnh khách tùy chọn — trả null nếu không có (tránh R2Storage throw trên null key)
+            var customerUrl = string.IsNullOrWhiteSpace(session.CustomerPhotoKey)
+                ? null
+                : _r2Storage.GetPresignedDownloadUrl(session.CustomerPhotoKey, 60);
 
             _logger.LogInformation("Customer {CustomerId} claimed QR session {SessionId} (tenant {TenantId})",
                 customerId, session.Id, tenantId);
@@ -164,7 +167,10 @@ namespace VanAn.CoreHub.Services
             await _scanLogRepo.SaveChangesAsync();
 
             var plateUrl = _r2Storage.GetPresignedDownloadUrl(session.PlatePhotoKey, 60);
-            var customerUrl = _r2Storage.GetPresignedDownloadUrl(session.CustomerPhotoKey, 60);
+            // #130: Ảnh khách tùy chọn — trả null nếu không có
+            var customerUrl = string.IsNullOrWhiteSpace(session.CustomerPhotoKey)
+                ? null
+                : _r2Storage.GetPresignedDownloadUrl(session.CustomerPhotoKey, 60);
 
             _logger.LogInformation("Guard {GuardId} verified QR session {SessionId} (plate {PlateNumber})",
                 guardId, session.Id, session.PlateNumber);
@@ -242,7 +248,10 @@ namespace VanAn.CoreHub.Services
                 ?? throw new KeyNotFoundException("QR session not found.");
 
             var plateUrl = _r2Storage.GetPresignedDownloadUrl(session.PlatePhotoKey, 60);
-            var customerUrl = _r2Storage.GetPresignedDownloadUrl(session.CustomerPhotoKey, 60);
+            // #130: Ảnh khách tùy chọn — trả null nếu không có
+            var customerUrl = string.IsNullOrWhiteSpace(session.CustomerPhotoKey)
+                ? null
+                : _r2Storage.GetPresignedDownloadUrl(session.CustomerPhotoKey, 60);
 
             return new SessionDetailResult(
                 session.Id, session.PlateNumber, session.ShortCode, session.Status,

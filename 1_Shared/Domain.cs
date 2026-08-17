@@ -4393,7 +4393,7 @@ namespace VanAn.Shared.Domain
             TenantId tenantId,
             string plateNumber,
             string platePhotoKey,
-            string customerPhotoKey,
+            string? customerPhotoKey,
             Guid issuedBy,
             string qrTokenHash,
             string shortCode,
@@ -4404,8 +4404,8 @@ namespace VanAn.Shared.Domain
                 throw new ArgumentException("Plate number is required.", nameof(plateNumber));
             if (string.IsNullOrWhiteSpace(platePhotoKey))
                 throw new ArgumentException("Plate photo key is required.", nameof(platePhotoKey));
-            if (string.IsNullOrWhiteSpace(customerPhotoKey))
-                throw new ArgumentException("Customer photo key is required.", nameof(customerPhotoKey));
+            // #130: Ảnh khách là TÙY CHỌN — không còn required (business rule change approved in #130).
+            // Constructor accepts null/empty customerPhotoKey — stored as empty string in DB (no migration needed).
             if (string.IsNullOrWhiteSpace(qrTokenHash))
                 throw new ArgumentException("QR token hash is required.", nameof(qrTokenHash));
             if (string.IsNullOrWhiteSpace(shortCode))
@@ -4415,7 +4415,7 @@ namespace VanAn.Shared.Domain
             Id = VehicleSessionId.Value;  // Single-Identity Pattern sync
             PlateNumber = plateNumber;
             PlatePhotoKey = platePhotoKey;
-            CustomerPhotoKey = customerPhotoKey;
+            CustomerPhotoKey = customerPhotoKey ?? string.Empty;  // #130: null → empty string (DB column NOT NULL, no migration)
             IssuedBy = issuedBy;
             QrTokenHash = qrTokenHash;
             ShortCode = shortCode;

@@ -114,7 +114,10 @@ namespace VanAn.CoreHub.Services
             // reference, EF Core's snapshot change tracker may not detect column-level changes.
             // Mark BOTH the root entity AND the owned type entry as Modified to force UPDATE
             // for all owned columns (NavFlags_Show*).
-            if (_dbContext is DbContext dbContext)
+            // #136-fix: Only apply on relational providers (PostgreSQL). InMemory provider
+            // throws DbUpdateConcurrencyException when forcing State=Modified on tracked entities.
+            if (_dbContext is DbContext dbContext
+                && dbContext.Database.ProviderName != "Microsoft.EntityFrameworkCore.InMemory")
             {
                 var rootEntry = dbContext.Entry(instance);
                 rootEntry.State = EntityState.Modified;

@@ -52,9 +52,9 @@ namespace VanAn.CoreHub.Services
 
     public record IssueResult(Guid SessionId, string QrPayload, string ShortCode);
 
-    public record ClaimResult(Guid SessionId, string PlateNumber, string PlatePhotoUrl, string CustomerPhotoUrl, DateTime IssuedAt, VehicleSessionStatus Status);
+    public record ClaimResult(Guid SessionId, string PlateNumber, string PlatePhotoUrl, string? CustomerPhotoUrl, DateTime IssuedAt, VehicleSessionStatus Status);
 
-    public record VerifyResult(Guid SessionId, string PlateNumber, string PlatePhotoUrl, string CustomerPhotoUrl, DateTime IssuedAt, VehicleSessionStatus Status, Guid? CustomerId);
+    public record VerifyResult(Guid SessionId, string PlateNumber, string PlatePhotoUrl, string? CustomerPhotoUrl, DateTime IssuedAt, VehicleSessionStatus Status, Guid? CustomerId);
 
     public record CheckoutResult(Guid SessionId, VehicleSessionStatus Status, DateTime CheckedOutAt);
 
@@ -66,14 +66,14 @@ namespace VanAn.CoreHub.Services
 
     public record SessionSummary(Guid SessionId, string PlateNumber, string ShortCode, VehicleSessionStatus Status, DateTime IssuedAt, DateTime? CheckedOutAt, Guid? CustomerId);
 
-    public record SessionDetailResult(Guid SessionId, string PlateNumber, string ShortCode, VehicleSessionStatus Status, DateTime IssuedAt, DateTime? ClaimedAt, DateTime? CheckedOutAt, string? FlagReason, Guid? CustomerId, string PlatePhotoUrl, string CustomerPhotoUrl);
+    public record SessionDetailResult(Guid SessionId, string PlateNumber, string ShortCode, VehicleSessionStatus Status, DateTime IssuedAt, DateTime? ClaimedAt, DateTime? CheckedOutAt, string? FlagReason, Guid? CustomerId, string PlatePhotoUrl, string? CustomerPhotoUrl);
 
     /// <summary>Status sync result for KhachLink QR wallet (R2 Sprint 4).</summary>
     public record SessionStatusResult(Guid SessionId, string PlateNumber, string ShortCode, VehicleSessionStatus Status, DateTime IssuedAt, DateTime? CheckedOutAt, Guid? CustomerId, Guid TenantId);
 
     // === Request DTOs ===
 
-    public record IssueRequest(string PlateNumber, string PlatePhotoKey, string CustomerPhotoKey, string? CustomerPhone);
+    public record IssueRequest(string PlateNumber, string PlatePhotoKey, string? CustomerPhotoKey, string? CustomerPhone);
 
     public record ClaimRequest(string? QrPayload, string? ShortCode);
 }
