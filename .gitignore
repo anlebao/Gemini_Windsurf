@@ -519,3 +519,8 @@ guard-report-*.txt
 # Temporary dotnet publish outputs (local verification only)
 .tmp-publish-*/
 
+
+# RV temp files
+rv-*.js
+rv-*.png
+rv-*.json

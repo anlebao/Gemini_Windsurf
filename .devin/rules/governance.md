@@ -123,6 +123,13 @@ Every entity inheriting `BaseEntity` MUST use a **single identity**: `BaseEntity
 - **Code Review:** `.devin/workflows/review.md` (REVIEW_ONLY)
 - **Technical Debt:** `.devin/workflows/technical_debt_packaging.md` (post-fix debt marking)
 
+## RUNTIME VERIFICATION (RV) — HIGHEST PRIORITY AFTER DEPLOY
+- **Rule file:** `.devin/rules/runtime-verification.md` (5-layer RV protocol)
+- **MUST run RV after every deploy** — build/CI pass ≠ runtime works
+- **5 layers:** API checks → static assets → Playwright runtime → UI flow → manual browser
+- **STOP at first failure** — don't proceed to next layer if current fails
+- **Key lessons:** JS hoisting bugs, JSON type mismatches, CORS blocks, stale WASM, wrong layout (nested vs outer)
+
 ## PLAYWRIGHT ISOLATION
 - Playwright is DISABLED during IMPLEMENT mode.
 - FIX_ONLY: Playwright allowed for single spec explicit validation only (max 1 per session).
