@@ -139,6 +139,13 @@ namespace VanAn.CoreHub.Services
             var hash = HashPayload(scannedQrPayload);
             var session = await _sessionRepo.GetByQrTokenHashAsync(hash, tenantId);
 
+            // #130-fix: Fallback — if hash lookup fails, try parsing {sc, sid} payload format
+            // (used by PrintTicket.razor). Look up by sessionId or shortCode.
+            if (session == null)
+            {
+                session = await TryLookupByAlternativePayloadAsync(scannedQrPayload, tenantId);
+            }
+
             if (session == null)
             {
                 // Log mismatch scan
@@ -256,6 +263,56 @@ namespace VanAn.CoreHub.Services
         }
 
         // === Private helpers ===
+
+        /// <summary>
+        /// #130-fix: Fallback lookup for QR payloads in {sc, sid} format (used by PrintTicket).
+        /// Parses the JSON payload and tries to find the session by sessionId or shortCode.
+        /// Returns null if the payload doesn't match this format or the session isn't found.
+        /// </summary>
+        private async Task<VehicleSession?> TryLookupByAlternativePayloadAsync(string payload, Guid tenantId)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(payload);
+                var root = doc.RootElement;
+
+                // Try sessionId first (most reliable)
+                if (root.TryGetProperty("sid", out var sidEl) && sidEl.TryGetGuid(out var sessionId))
+                {
+                    var session = await _sessionRepo.GetByIdAsync(sessionId, tenantId);
+                    if (session != null)
+                    {
+                        _logger.LogInformation("Verify fallback: found session {SessionId} by sid payload", sessionId);
+                        return session;
+                    }
+                }
+
+                // Try shortCode as fallback
+                if (root.TryGetProperty("sc", out var scEl))
+                {
+                    var shortCode = scEl.GetString();
+                    if (!string.IsNullOrWhiteSpace(shortCode))
+                    {
+                        var session = await _sessionRepo.GetByShortCodeAsync(shortCode, tenantId);
+                        if (session != null)
+                        {
+                            _logger.LogInformation("Verify fallback: found session {SessionId} by short code {ShortCode}", session.Id, shortCode);
+                            return session;
+                        }
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // Not JSON — payload is in the original {t, tn} format but hash didn't match
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Verify fallback: error parsing alternative payload");
+            }
+
+            return null;
+        }
 
         private static string GenerateQrToken()
         {

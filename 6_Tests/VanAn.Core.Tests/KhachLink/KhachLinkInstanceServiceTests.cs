@@ -143,14 +143,18 @@ namespace VanAn.Core.Tests.KhachLink
         }
 
         [Fact]
-        public async Task GetByDomainAsync_ReturnsNull_WhenInstanceDeactivated()
+        public async Task GetByDomainAsync_ReturnsInstance_WhenInstanceDeactivated()
         {
+            // #134-fix: GetByDomainAsync now returns the instance regardless of IsActive
+            // so KhachLink runtime can show a "disabled" page instead of falling back
+            // to FullCommerce defaults (which made disabled instances still work).
             var created = await _service.CreateAsync("Test", KhachLinkProfile.FullCommerce, "inactive.khachvip.online");
             await _service.DeactivateAsync(created.Id);
 
             var found = await _service.GetByDomainAsync("inactive.khachvip.online");
 
-            Assert.Null(found); // GetByDomain filters IsActive=true
+            Assert.NotNull(found);
+            Assert.False(found.IsActive);
         }
 
         [Fact]

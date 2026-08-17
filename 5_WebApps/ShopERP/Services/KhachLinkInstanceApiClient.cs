@@ -48,6 +48,14 @@ namespace VanAn.ShopERP.Services
             var response = await HttpClient.SendAsync(req, ct);
             response.EnsureSuccessStatusCode();
         }
+
+        /// <summary>#134: Activate a previously deactivated KhachLinkInstance.</summary>
+        public async Task ActivateAsync(Guid id, CancellationToken ct = default)
+        {
+            var req = await CreateRequestAsync(HttpMethod.Post, $"api/v1/khachlink-instances/{id}/activate");
+            var response = await HttpClient.SendAsync(req, ct);
+            response.EnsureSuccessStatusCode();
+        }
     }
 
     // ── DTOs (mirror Gateway KhachLinkInstanceController DTOs) ───────────────

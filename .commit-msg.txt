@@ -1,0 +1,33 @@
+fix(#130,#134): Guard QR display/verify/stats + KhachLinkInstance disable/activate
+
+Issue #130 — Guard QR code (3 bugs):
+1. QR not displayed: vendored qrcode-generator locally (no CDN dependency).
+   guard-camera.js now loads /js/lib/qrcode.js instead of jsdelivr CDN.
+   Scan.razor.cs shows warning (not false success) if QR image generation fails.
+2. Verify "không tìm thấy phiên": PrintTicket generates {sc,sid} payload but DB
+   stores hash of {t,tn} payload. Added TryLookupByAlternativePayloadAsync
+   fallback in GuardService.VerifyAsync — parses {sc,sid} and looks up by
+   sessionId or shortCode.
+3. Daily stats not updating: VehicleSessionRepository used DateTime.UtcNow.Date
+   (UTC midnight) but Vietnam is UTC+7. Added GetVietnamTodayRange() helper
+   and updated GetByShortCodeAsync, GetTodaySessionsAsync, GetTodayStatsAsync
+   to filter by Vietnam-local "today" range.
+
+Issue #134 — KhachLinkInstance disable (2 bugs):
+1. Disable not enforced: GetByDomainAsync filtered by IsActive → returned 404
+   for disabled instances → KhachLinkLayout fell back to FullCommerce defaults
+   → disabled instances still worked. Fix: GetByDomainAsync now returns
+   instance regardless of IsActive; KhachLinkInstanceConfig includes IsActive;
+   KhachLinkLayout shows a "disabled" page when IsActive=false.
+2. No way to re-enable: Added ActivateAsync to IKhachLinkInstanceService +
+   KhachLinkInstanceService, POST /{id}/activate endpoint in controller,
+   ActivateAsync in KhachLinkInstanceApiClient, "Kích hoạt" button in admin UI.
+
+Test: Updated GetByDomainAsync_ReturnsNull_WhenInstanceDeactivated →
+GetByDomainAsync_ReturnsInstance_WhenInstanceDeactivated (new behavior).
+
+Build: 0 errors. Guard-check: ALL PASSED. 1386+ tests pass.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

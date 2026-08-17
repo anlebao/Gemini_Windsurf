@@ -14,6 +14,20 @@ namespace VanAn.CoreHub.Repositories
         private readonly IVanAnDbContext _context = context;
         private readonly ILogger<VehicleSessionRepository> _logger = logger;
 
+        /// <summary>
+        /// #130-fix: Calculate "today" in Vietnam timezone (UTC+7) for date filtering.
+        /// IssuedAt is stored in UTC. Vietnam is UTC+7, so:
+        /// - Vietnam midnight = UTC 17:00 of the previous day
+        /// - Returns (startUtc, endUtc) representing the Vietnam-local "today" range in UTC.
+        /// </summary>
+        private static (DateTime StartUtc, DateTime EndUtc) GetVietnamTodayRange()
+        {
+            var vietnamToday = DateTime.UtcNow.AddHours(7).Date;
+            var startUtc = vietnamToday.AddHours(-7);
+            var endUtc = startUtc.AddDays(1);
+            return (startUtc, endUtc);
+        }
+
         public async Task<VehicleSession?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken ct = default)
         {
             try
@@ -46,9 +60,9 @@ namespace VanAn.CoreHub.Repositories
         {
             try
             {
-                var today = DateTime.UtcNow.Date;
+                var (startUtc, endUtc) = GetVietnamTodayRange();
                 return await _context.VehicleSessions
-                    .Where(s => s.ShortCode == shortCode && s.TenantId.Value == tenantId && s.IssuedAt >= today)
+                    .Where(s => s.ShortCode == shortCode && s.TenantId.Value == tenantId && s.IssuedAt >= startUtc && s.IssuedAt < endUtc)
                     .OrderByDescending(s => s.IssuedAt)
                     .FirstOrDefaultAsync(ct);
             }
@@ -63,9 +77,9 @@ namespace VanAn.CoreHub.Repositories
         {
             try
             {
-                var today = DateTime.UtcNow.Date;
+                var (startUtc, endUtc) = GetVietnamTodayRange();
                 var query = _context.VehicleSessions
-                    .Where(s => s.TenantId.Value == tenantId && s.IssuedAt >= today);
+                    .Where(s => s.TenantId.Value == tenantId && s.IssuedAt >= startUtc && s.IssuedAt < endUtc);
 
                 if (status.HasValue)
                     query = query.Where(s => s.Status == status.Value);
@@ -90,9 +104,9 @@ namespace VanAn.CoreHub.Repositories
         {
             try
             {
-                var today = DateTime.UtcNow.Date;
+                var (startUtc, endUtc) = GetVietnamTodayRange();
                 var sessions = await _context.VehicleSessions
-                    .Where(s => s.TenantId.Value == tenantId && s.IssuedAt >= today)
+                    .Where(s => s.TenantId.Value == tenantId && s.IssuedAt >= startUtc && s.IssuedAt < endUtc)
                     .ToListAsync(ct);
 
                 var checkInCount = sessions.Count;
