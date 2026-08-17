@@ -19,6 +19,7 @@
 }
 else
 {
+<CascadingValue Value="_navFlags" Name="NavFlags">
 <div class="khachlink-app-layout">
     <!-- Mobile-friendly header -->
     <header class="khachlink-app-header">
@@ -61,10 +62,14 @@ else
     </div>
 
     <!-- Mobile bottom tab bar (rendered after body, fixed at bottom) -->
-    <div class="d-md-none">
-        <NavMenu />
-    </div>
+    @if (_showNavMenu)
+    {
+        <div class="d-md-none">
+            <NavMenu />
+        </div>
+    }
 </div>
+</CascadingValue>
 }
 
 <div id="blazor-error-ui">

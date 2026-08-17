@@ -109,6 +109,12 @@ namespace VanAn.CoreHub.Services
                 return false;
 
             instance.UpdateProfile(profile, navFlags);
+            // #136: Force EF Core to detect owned type (NavFlags) changes.
+            // KhachLinkNavFlags has init-only properties — when UpdateProfile replaces the
+            // reference, EF Core's snapshot change tracker may not detect the column-level
+            // changes on PostgreSQL. Marking the entity as Modified forces UPDATE for all columns.
+            if (_dbContext is DbContext dbContext)
+                dbContext.Entry(instance).State = EntityState.Modified;
             await _dbContext.SaveChangesAsync(ct);
 
             _logger?.LogInformation("Updated KhachLinkInstance {Id} profile={Profile}", instance.Id, profile);
