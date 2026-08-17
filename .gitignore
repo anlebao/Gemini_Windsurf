@@ -524,3 +524,5 @@ guard-report-*.txt
 rv-*.js
 rv-*.png
 rv-*.json
+
+.commit-msg.txt
