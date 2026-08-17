@@ -432,7 +432,11 @@ namespace VanAn.Gateway
                         return corsService.IsOriginAllowed(origin);
                     })
                     .AllowAnyMethod()
-                    .AllowAnyHeader();
+                    .AllowAnyHeader()
+                    // #134-fix: Short preflight cache (60s) so deactivation of KhachLink
+                    // instances takes effect faster. Default browser preflight cache is
+                    // 5 min (Chrome) which delays enforcement of disabled instances.
+                    .SetPreflightMaxAge(TimeSpan.FromSeconds(60));
                     // NO AllowCredentials — KhachLink WASM uses JWT Bearer, not cookies.
                 });
             });

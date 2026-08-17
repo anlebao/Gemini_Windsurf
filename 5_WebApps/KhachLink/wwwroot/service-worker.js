@@ -65,16 +65,24 @@
 //     wasm → SRI passes → Blazor boots. Loop guard via sessionStorage prevents
 //     infinite reload if new SW is also broken.
 //   - Cache version bumped v16-push-alerts → v17-sri-deadlock-fix
+//
+// Instance Disable Fix (v18-instance-disable, 2026-08-17):
+//   - Problem: KhachLinkInstanceHttpService cached instance config in localStorage
+//     with old format (no IsActive field). New code deserializes IsActive=true
+//     (default) → disabled instances still render FullCommerce layout.
+//   - Fix: SW activate event now clears stale khachlink_instance_config localStorage
+//     keys via postMessage to all clients. Cache key changed to _v2.
+//   - Cache version bumped v17-sri-deadlock-fix → v18-instance-disable
 // ============================================================================
 
 // Load auto-generated asset manifest (Blazor WASM SDK generates this with
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v17-sri-deadlock-fix';
-const STATIC_CACHE = 'vanan-static-v17-sri-deadlock-fix';
-const DYNAMIC_CACHE = 'vanan-dynamic-v17-sri-deadlock-fix';
-const WASM_CACHE = 'vanan-wasm-v17-sri-deadlock-fix';
+const CACHE_NAME = 'vanan-khachlink-v18-instance-disable';
+const STATIC_CACHE = 'vanan-static-v18-instance-disable';
+const DYNAMIC_CACHE = 'vanan-dynamic-v18-instance-disable';
+const WASM_CACHE = 'vanan-wasm-v18-instance-disable';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
@@ -196,6 +204,17 @@ self.addEventListener('activate', event => {
           console.log('SW activate: deleting stale cache', key);
           return caches.delete(key);
         }));
+      })
+      .then(() => {
+        // #134-fix: Clear stale localStorage instance config cache from old format
+        // (old cache didn't have IsActive field → deserialized as true → disabled
+        // instances still rendered). postMessage to all clients to clear it.
+        return self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      })
+      .then(clients => {
+        clients.forEach(client => {
+          client.postMessage({ type: 'CLEAR_INSTANCE_CONFIG_CACHE' });
+        });
       })
       .then(() => self.clients.claim())
   );

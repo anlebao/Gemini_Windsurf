@@ -499,6 +499,17 @@ window.vananPWA = {
                         this.dotNetRef.invokeMethodAsync('HandleNotificationReceived', event.data.message);
                     }
                 }
+                // #134-fix: Clear stale instance config cache (old format without IsActive field)
+                if (event.data && event.data.type === 'CLEAR_INSTANCE_CONFIG_CACHE') {
+                    console.log('[PWA] Clearing stale instance config localStorage cache');
+                    try {
+                        // Remove old cache key (v1 format — no IsActive field)
+                        localStorage.removeItem('khachlink_instance_config');
+                        localStorage.removeItem('khachlink_instance_config_v2');
+                    } catch (e) {
+                        console.warn('[PWA] Failed to clear instance config cache:', e);
+                    }
+                }
             });
         }
 

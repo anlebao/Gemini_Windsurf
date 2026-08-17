@@ -24,9 +24,13 @@ public class KhachLinkInstanceHttpService(
     private readonly ILogger<KhachLinkInstanceHttpService> _logger = logger;
 
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
-    private const string _cacheKey = "khachlink_instance_config";
-    private const string _cacheTsKey = "khachlink_instance_config_ts";
-    private static readonly TimeSpan _cacheTtl = TimeSpan.FromMinutes(5);
+    // #134-fix: Changed cache key from khachlink_instance_config → _v2 to invalidate
+    // stale cache from old format (which didn't have IsActive field → deserialized
+    // as true → disabled instances still rendered FullCommerce layout).
+    private const string _cacheKey = "khachlink_instance_config_v2";
+    private const string _cacheTsKey = "khachlink_instance_config_v2_ts";
+    // #134-fix: Reduced from 5 min → 1 min so deactivation takes effect faster.
+    private static readonly TimeSpan _cacheTtl = TimeSpan.FromMinutes(1);
 
     /// <summary>
     /// Fetch KhachLink instance config by current browser hostname.
