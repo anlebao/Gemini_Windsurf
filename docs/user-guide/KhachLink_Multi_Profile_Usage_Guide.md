@@ -1,16 +1,16 @@
 # Hướng dẫn sử dụng — KhachLink Multi-Profile (5 Loại KhachLink)
 
 > **Tài liệu vận hành & sử dụng** cho System Admin, Tenant Owner, và các role khác.
-> **Phiên bản:** R1 (Multi-Profile Core + Type 1 Directory + Type 4 FullCommerce + Multi-domain)
-> **Ngày tạo:** 2026-08-15
-> **Tài liệu nguồn:** `docs/AI/tasks/khachlink_multi_profile/master_plan.md` + `release_strategy.md`
+> **Phiên bản:** R1.1 (Multi-Profile Core + Type 1 Directory + Type 4 FullCommerce + Multi-domain + **Dynamic CORS**)
+> **Ngày tạo:** 2026-08-15 — **Cập nhật:** 2026-08-17 (Dynamic CORS merged via PR #133, deployed, RV 8/8 PASS)
+> **Tài liệu nguồn:** `docs/AI/tasks/khachlink_multi_profile/master_plan.md` + `release_strategy.md` + `docs/AI/tasks/dynamic_cors/master_plan.md`
 > **Feature flag:** `KhachLink:MultiProfileEnabled` (default OFF — zero regression tới deployment hiện tại)
 
 ---
 
 ## 0. Tóm tắt nhanh
 
-KhachLink Multi-Profile cho phép **cùng 1 KhachLink container** phục vụ nhiều "loại" trang khách hàng khác nhau, phân biệt theo **domain** (`*.khachvip.online`). Mỗi instance = 1 cấu hình (profile + nav flags + owner tenant) được lưu trong PostgreSQL (Gateway source of truth). KhachLink runtime fetch cấu hình qua `GET /api/v1/khachlink-instances/by-domain/{domain}` khi tải trang, không cần restart container khi thêm instance mới.
+KhachLink Multi-Profile cho phép **cùng 1 KhachLink container** phục vụ nhiều "loại" trang khách hàng khác nhau, phân biệt theo **domain** (`*.khachvip.online` + external domain như `timlathay.com`). Mỗi instance = 1 cấu hình (profile + nav flags + owner tenant) được lưu trong PostgreSQL (Gateway source of truth). KhachLink runtime fetch cấu hình qua `GET /api/v1/khachlink-instances/by-domain/{domain}` khi tải trang, không cần restart container khi thêm instance mới. **CORS cũng động** — Gateway tự pick up `CustomDomain` từ registry mỗi 5 phút, không cần edit docker-compose hay restart Gateway (xem §1.5).
 
 | Profile | Loại | Mô tả | Owner | Release |
 |---|---|---|---|---|
@@ -33,9 +33,9 @@ KhachLink Multi-Profile cho phép **cùng 1 KhachLink container** phục vụ nh
 
 ### 1.1 Single deployment + multi-domain routing
 - **KHÔNG** tạo 5 Docker image riêng. Cùng 1 KhachLink container phục vụ tất cả instance.
-- nginx wildcard `*.khachvip.online` (trừ `api2`/`app2`/`www2`/`diemthuong2` đã có explicit block) → proxy tới KhachLink container.
+- nginx wildcard `*.khachvip.online` (trừ `api2`/`app2`/`www2`/`diemthuong2` đã có explicit block) → proxy tới KhachLink container. External domain (vd `timlathay.com`) cần DNS + nginx block riêng (out of scope dynamic CORS).
 - KhachLink runtime đọc `window.location.hostname` qua JS interop → gọi Gateway API → nhận cấu hình instance.
-- **Thêm instance mới = tạo record + DNS + SSL expand → KHÔNG cần restart KhachLink container.**
+- **Thêm instance mới = tạo record + DNS + SSL expand → KHÔNG cần restart KhachLink container, KHÔNG cần restart Gateway, KHÔNG cần edit docker-compose** (CORS tự pick up trong 5 phút — xem §1.5).
 
 ### 1.2 Vị trí lưu trữ dữ liệu
 | Dữ liệu | Nơi lưu | Ghi chú |
@@ -44,6 +44,7 @@ KhachLink Multi-Profile cho phép **cùng 1 KhachLink container** phục vụ nh
 | Nav flags (15 bool) | PostgreSQL (flattened columns) | Owned entity `KhachLinkNavFlags` |
 | Products (cho Directory/JobMarket) | ShopERP SQLite (per-tenant) | Type 1/3 dùng existing `Product` entity, chỉ khác text content |
 | Orders (FullCommerce/Reseller) | PostgreSQL (Gateway) → NATS → ShopERP SQLite | Option C routed async delivery |
+| **CORS allowed origins** | PostgreSQL (`KhachLinkInstance.CustomDomain`) + `appsettings` static | Dynamic — xem §1.5 |
 
 ### 1.3 Feature flag
 ```json
@@ -58,6 +59,29 @@ KhachLink Multi-Profile cho phép **cùng 1 KhachLink container** phục vụ nh
 ### 1.4 Tenant context
 - `OwnerTenantId = null` (Platform instance, ví dụ Directory) → tenant context = `LastInteractionService` (existing behavior — khách chọn tenant khi checkout).
 - `OwnerTenantId != null` (tenant-owned instance, ví dụ FullCommerce/Reseller) → `KhachLinkLayout` set `TenantService.SetCurrentTenant(owner)` → toàn bộ trang gắn với tenant đó.
+
+### 1.5 Dynamic CORS (R1.1 — merged PR #133)
+Gateway CORS policy không còn hardcode trong docker-compose. Thay vào đó:
+```
+PostgreSQL (KhachLinkInstance.CustomDomain WHERE IsActive=true)
+    ↓  DynamicCorsCacheHostedService (BackgroundService, 5 min refresh)
+IMemoryCache (origin snapshot)
+    ↓  DynamicCorsService (Singleton, sync read-only)
+CORS middleware (SetIsOriginAllowed callback)
+```
+
+**Hành vi:**
+- **Static origins** (`api2`/`app2`/`www2`/`diemthuong2`) — bake trong `2_Gateway/appsettings.Production.json` (`Cors:StaticOrigins`). Gateway start được ngay cả khi PG down.
+- **Dynamic origins** — mỗi 5 phút, `DynamicCorsCacheHostedService` query `GetActiveCustomDomainsAsync()` (lightweight: `SELECT "CustomDomain" WHERE "IsActive" = true`) → cập nhật `IMemoryCache`.
+- **CORS callback** đọc `IMemoryCache` (sync, không DB call) → thêm `Access-Control-Allow-Origin` nếu origin match.
+- **Thêm domain mới qua admin UI → CORS hoạt động trong ≤ 5 phút, KHÔNG restart Gateway, KHÔNG edit docker-compose.**
+- **Deactivate instance → domain đó rời CORS allowlist trong ≤ 5 phút** (TTL acceptable — CORS không phải security boundary).
+- **`AllowCredentials()` KHÔNG dùng** — KhachLink WASM dùng JWT Bearer, không cookie (giảm CSRF risk).
+- **`CanonicalizeDomain()`** — constructor `KhachLinkInstance` tự strip scheme/path/port/slash + validate hostname format. Admin nhập `https://shopA.khachvip.online:443/path` → lưu `shopa.khachvip.online`.
+
+**Đã xóa khỏi docker-compose:** `Cors__AllowedOrigins__*` env vars (`docker-compose.prod.yml`, `docker-compose.gateway.yml`). Không còn cần thiết.
+
+**RV 8/8 PASS (2026-08-17):** `timlathay.com` (registry), `diemthuong2` (static+registry), `app2`/`www2` (static), `evil.com`/`random-test-123` (unknown → no header), OPTIONS preflight 204, add new domain → CORS works sau 5 min không restart.
 
 ---
 
@@ -77,7 +101,7 @@ KhachLink Multi-Profile cho phép **cùng 1 KhachLink container** phục vụ nh
 2. Điền:
    - **Label** (bắt buộc, max 200 ký tự) — tên dễ nhận biết, ví dụ "Danh bạ Vạn An".
    - **Profile** (dropdown) — chỉ `FullCommerce` + `Directory` enabled trong R1. Các option khác disabled kèm tooltip "R2"/"R3".
-   - **CustomDomain** (bắt buộc, max 255, unique) — ví dụ `danhba.khachvip.online`. Hệ thống tự normalize lowercase. Validate format + trùng.
+   - **CustomDomain** (bắt buộc, max 255, unique) — ví dụ `danhba.khachvip.online` hoặc external `timlathay.com`. Hệ thống tự **canonicalize** qua `CanonicalizeDomain()` (strip scheme/path/port/slash, lowercase, validate hostname format). Validate format + trùng. **Domain này cũng tự được thêm vào CORS allowlist trong ≤ 5 phút** (xem §1.5) — không cần edit docker-compose.
    - **OwnerTenant** (dropdown, nullable) — "Platform (no tenant)" cho Type 1 Directory; chọn tenant cụ thể cho Type 4 FullCommerce / Type 5 Reseller.
    - **Nav flags checkbox grid** (15 toggle) — tự load theo Profile preset. SystemAdmin có thể **override từng flag** riêng. Nút **"Apply Profile Preset"** để reset về preset.
 3. Save → gọi `POST /api/v1/khachlink-instances` → trả 201.
@@ -125,6 +149,7 @@ KHACHLINK_MULTIPROFILE_ENABLED=true
 docker exec vanan-gateway sh -c "sed -i 's/\"MultiProfileEnabled\": false/\"MultiProfileEnabled\": true/' appsettings.json"
 docker compose -f docker-compose.gateway.yml restart gateway
 ```
+> **Lưu ý CORS (R1.1):** `Cors__AllowedOrigins__*` env vars đã bị xóa khỏi `docker-compose.prod.yml` + `docker-compose.gateway.yml`. CORS giờ động từ `KhachLinkInstance` registry (xem §1.5). **KHÔNG thêm env var CORS mới** — thêm domain qua admin UI là đủ. Static origins (`api2`/`app2`/`www2`/`diemthuong2`) nằm trong `Cors:StaticOrigins` của `appsettings.Production.json`.
 **Test ON/OFF:**
 ```bash
 # Flag OFF → 404
@@ -277,16 +302,18 @@ curl -s https://api2.khachvip.online/api/v1/khachlink-instances/by-domain/diemth
 
 ### 6.1 Thêm instance mới (checklist)
 - [ ] SystemAdmin → `/admin/khachlink-instances` → New → điền Label/Profile/CustomDomain/OwnerTenant/Nav flags
-- [ ] DNS A record `<subdomain>.khachvip.online` → gateway VPS IP
+- [ ] DNS A record `<subdomain>.khachvip.online` → gateway VPS IP (external domain: DNS + nginx block riêng)
 - [ ] SSH gateway VPS → `sudo bash /opt/vanan/scripts/init-ssl-khachlink-instances.sh`
 - [ ] Restart nginx: `docker compose -f docker-compose.gateway.yml restart nginx`
 - [ ] Verify: `curl -sI https://<subdomain>.khachvip.online` → 200
 - [ ] Mở trình duyệt → kiểm tra nav items theo profile
+- [ ] **CORS tự động** — đợi ≤ 5 phút (hoặc verify bằng `curl -sI -H "Origin: https://<subdomain>.khachvip.online" https://api2.khachvip.online/api/v1/khachlink-instances/by-domain/<subdomain>.khachvip.online | grep -i access-control-allow-origin`). **KHÔNG cần edit docker-compose, KHÔNG cần restart Gateway.**
 
 ### 6.2 Thu hồi instance (retire)
 1. Admin UI → Deactivate (soft delete — `IsActive=false`).
 2. Domain → fallback FullCommerce default (runtime fetch trả 404).
-3. **Cleanup DNS + SSL (thủ công):**
+3. **CORS:** domain rời allowlist trong ≤ 5 phút (TTL cache — CORS không phải security boundary, nếu cần thu hồi ngay xem `IDynamicCorsService.InvalidateCache()` trong `docs/AI/tasks/dynamic_cors/`).
+4. **Cleanup DNS + SSL (thủ công):**
    - Xóa A record DNS.
    - SSL cert: KHÔNG xóa SAN riêng (Let's Encrypt không hỗ trợ remove 1 SAN). Đợi cert renew tự nhiên (60 ngày) hoặc re-issue cert mới không chứa domain đã thu hồi nếu cần.
 4. Hard delete record (nếu muốn dọn DB): `DELETE FROM "KhachLinkInstances" WHERE "Id" = '<guid>';` — **chỉ sau khi đã backup**.
@@ -324,6 +351,10 @@ curl -s https://api2.khachvip.online/api/v1/khachlink-instances/by-domain/diemth
 | Reseller/Logistics/JobMarket option disabled | R2/R3 chưa merge | Đợi release hoặc kiểmm `KhachLinkNavFlags.ForProfile()` đã có case chưa |
 | `FK constraint violation` khi tạo instance | (Không áp dụng — `KhachLinkInstance` Single-Identity, `TenantId=Guid.Empty` sentinel) | Kiểmm exclusion list trong `ApplyMultiTenancyFilters` |
 | `relation "__EFMigrationsHistory" does not exist` | Query migration history sai case (Pattern #9) | Dùng quoted PascalCase: `SELECT "MigrationId" FROM "__EFMigrationsHistory"` |
+| **CORS error** trên domain mới (`Access-Control-Allow-Origin` missing) | Domain chưa vào CORS allowlist (cache 5 min chưa refresh) | Đợi ≤ 5 phút, hoặc verify `IsActive=true` + `CustomDomain` canonicalize đúng. **KHÔNG thêm env var `Cors__AllowedOrigins__*`** — đã deprecated (xem §1.5) |
+| **CORS error** trên domain đã có trong registry | `IsActive=false` (deactivated) hoặc `CustomDomain` sai format | Admin UI → kiểm tra IsActive + CustomDomain (phải là hostname thuần, không scheme/path/port) |
+| **CORS error** trên static domain (`api2`/`app2`/`www2`/`diemthuong2`) | `Cors:StaticOrigins` trong `appsettings.Production.json` bị sửa/xóa | Kiểm `2_Gateway/appsettings.Production.json` → `Cors:StaticOrigins` array |
+| **Gateway không start** (PG down) | (Không xảy ra) — static origins từ appsettings, dynamic cache pre-warm fail gracefully | Gateway start được ngay cả khi PG down; dynamic origins sẽ pick up khi PG lên |
 
 ---
 
@@ -336,6 +367,7 @@ curl -s https://api2.khachvip.online/api/v1/khachlink-instances/by-domain/diemth
 - **Feature flag default OFF:** Zero regression cho existing deployment (`diemthuong2.khachvip.online` seed instance FullCommerce).
 - **AccountingEntry:** Không liên quan — immutable, không touch.
 - **Pattern #10 (Gateway charset):** Nếu controller forward content, strip charset từ `Request.ContentType` trước khi pass cho `StringContent`/`MediaTypeHeaderValue`.
+- **Dynamic CORS (R1.1):** CORS allowlist động từ `KhachLinkInstance.CustomDomain` (registry) + `Cors:StaticOrigins` (appsettings). **KHÔNG thêm env var `Cors__AllowedOrigins__*`** — đã xóa khỏi docker-compose. `CanonicalizeDomain()` validate hostname ở Domain constructor. `AllowCredentials()` KHÔNG dùng (JWT Bearer, không cookie). Cache TTL 5 phút — CORS không phải security boundary.
 
 ---
 
@@ -346,6 +378,9 @@ curl -s https://api2.khachvip.online/api/v1/khachlink-instances/by-domain/diemth
 | Master plan | `docs/AI/tasks/khachlink_multi_profile/master_plan.md` |
 | Release strategy | `docs/AI/tasks/khachlink_multi_profile/release_strategy.md` |
 | Sprint task cards | `docs/AI/tasks/khachlink_multi_profile/sprint{1-9}_*.md` |
+| **Dynamic CORS master plan** | `docs/AI/tasks/dynamic_cors/master_plan.md` |
+| **Dynamic CORS Sprint 1 task card** | `docs/AI/tasks/dynamic_cors/sprint1_dynamic_cors_task_card.md` |
+| **Dynamic CORS PR** | https://github.com/anlebao/Gemini_Windsurf/pull/133 (squash `d9545d5e`) |
 | Multi-VPS Deployment Guide | `docs/operations/Multi_VPS_Deployment_Guide.md` (§6 — "Thêm KhachLinkInstance mới") |
 | ShopInstance Capacity Handbook | `docs/operations/ShopInstance_Capacity_Handbook.md` |
 | Guard QR Verify (ref pattern) | `docs/AI/tasks/guard_qr_verify/` |

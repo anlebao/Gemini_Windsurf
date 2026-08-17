@@ -84,7 +84,7 @@ public class KhachLinkInstanceHttpService(
 
             var config = new KhachLinkInstanceConfig
             {
-                Profile = (KhachLinkProfile)dto.Profile,
+                Profile = Enum.TryParse<KhachLinkProfile>(dto.Profile, true, out var profile) ? profile : KhachLinkProfile.FullCommerce,
                 OwnerTenantId = dto.OwnerTenantId,
                 IsActive = dto.IsActive,
                 NavFlags = new KhachLinkNavFlagsDto
@@ -157,9 +157,11 @@ public class KhachLinkInstanceHttpService(
     }
 
     // ── Response DTO (mirrors server-side KhachLinkInstanceDto) ──────────────
+    // #134-fix: Profile is serialized as string ("Directory", "FullCommerce", etc.)
+    // not int. Parse via KhachLinkProfile enum.
     private sealed class ByDomainResponse
     {
-        public int Profile { get; set; }
+        public string Profile { get; set; } = "FullCommerce";
         public Guid? OwnerTenantId { get; set; }
         public bool IsActive { get; set; } = true;
         public NavFlagsResponse? NavFlags { get; set; }

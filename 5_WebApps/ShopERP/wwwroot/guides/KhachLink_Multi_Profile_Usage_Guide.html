@@ -6,200 +6,349 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <title>Hướng dẫn sử dụng KhachLink Multi-Profile</title>
   <style>
-
-span.smallcaps{font-variant: small-caps;}
-div.columns{display: flex; gap: 1.5em;}
-div.column{flex: auto;}
-@media screen {
-div.columns{gap: min(4vw, 1.5em);}
-div.column{overflow-x: auto;}
-}
-div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-
-ul.task-list[class]{list-style: none;}
-ul.task-list li input[type="checkbox"] {
-font-size: inherit;
-width: 0.8em;
-margin: 0 0.8em 0.2em -1.6em;
-vertical-align: middle;
-}
-.display.math{display: block; text-align: center; margin: 0.5rem auto;}
-
-html { -webkit-text-size-adjust: 100%; }
-pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
-pre > code.sourceCode > span:empty { height: 1.2em; }
-.sourceCode { overflow: visible; }
-code.sourceCode > span { color: inherit; text-decoration: inherit; }
-div.sourceCode { margin: 1em 0; }
-pre.sourceCode { margin: 0; }
-@media screen {
-div.sourceCode { overflow: auto; }
-}
-@media print {
-pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
-}
-pre.numberSource code
-{ counter-reset: source-line 0; }
-pre.numberSource code > span
-{ position: relative; left: -4em; counter-increment: source-line; }
-pre.numberSource code > span > a:first-child::before
-{ content: counter(source-line);
-position: relative; left: -1em; text-align: right; vertical-align: baseline;
-border: none; display: inline-block;
--webkit-touch-callout: none; -webkit-user-select: none;
--khtml-user-select: none; -moz-user-select: none;
--ms-user-select: none; user-select: none;
-padding: 0 4px; width: 4em;
-color: #aaaaaa;
-}
-pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
-div.sourceCode
-{ }
-@media screen {
-pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
-}
-code span.al { color: #ff0000; font-weight: bold; } 
-code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
-code span.at { color: #7d9029; } 
-code span.bn { color: #40a070; } 
-code span.bu { color: #008000; } 
-code span.cf { color: #007020; font-weight: bold; } 
-code span.ch { color: #4070a0; } 
-code span.cn { color: #880000; } 
-code span.co { color: #60a0b0; font-style: italic; } 
-code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
-code span.do { color: #ba2121; font-style: italic; } 
-code span.dt { color: #902000; } 
-code span.dv { color: #40a070; } 
-code span.er { color: #ff0000; font-weight: bold; } 
-code span.ex { } 
-code span.fl { color: #40a070; } 
-code span.fu { color: #06287e; } 
-code span.im { color: #008000; font-weight: bold; } 
-code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
-code span.kw { color: #007020; font-weight: bold; } 
-code span.op { color: #666666; } 
-code span.ot { color: #007020; } 
-code span.pp { color: #bc7a00; } 
-code span.sc { color: #4070a0; } 
-code span.ss { color: #bb6688; } 
-code span.st { color: #4070a0; } 
-code span.va { color: #19177c; } 
-code span.vs { color: #4070a0; } 
-code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
-</style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
   <style type="text/css">
-@page { margin: 1.5cm 2cm; }
-* { box-sizing: border-box; }
-body {
-font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-font-size: 11pt;
-line-height: 1.55;
-color: #1f2937;
-max-width: 900px;
-margin: 0 auto;
-padding: 2rem 1rem;
-background: #fff;
-}
-h1 {
-font-size: 22pt;
-color: #0f766e;
-border-bottom: 3px solid #0f766e;
-padding-bottom: 0.4rem;
-margin-top: 0;
-}
-h2 {
-font-size: 16pt;
-color: #0f766e;
-border-left: 4px solid #14b8a6;
-padding-left: 0.6rem;
-margin-top: 2rem;
-page-break-after: avoid;
-}
-h3 {
-font-size: 13pt;
-color: #334155;
-margin-top: 1.4rem;
-page-break-after: avoid;
-}
-h4 {
-font-size: 11.5pt;
-color: #475569;
-margin-top: 1rem;
-page-break-after: avoid;
-}
-p { margin: 0.5rem 0; }
-a { color: #0f766e; text-decoration: none; }
-a:hover { text-decoration: underline; }
-code {
-font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
-background: #f1f5f9;
-padding: 0.1rem 0.35rem;
-border-radius: 3px;
-font-size: 9.5pt;
-color: #be123c;
-}
-pre {
-background: #0f172a;
-color: #e2e8f0;
-padding: 1rem;
-border-radius: 6px;
-overflow-x: auto;
-font-size: 9.5pt;
-line-height: 1.4;
-}
-pre code { background: transparent; color: inherit; padding: 0; }
-blockquote {
-border-left: 4px solid #14b8a6;
-background: #f0fdfa;
-padding: 0.6rem 1rem;
-margin: 1rem 0;
-color: #134e4a;
-border-radius: 0 4px 4px 0;
-}
-blockquote p { margin: 0.3rem 0; }
-table {
-border-collapse: collapse;
-width: 100%;
-margin: 1rem 0;
-font-size: 10pt;
-page-break-inside: avoid;
-}
-th {
-background: #0f766e;
-color: #fff;
-text-align: left;
-padding: 0.55rem 0.7rem;
-font-weight: 600;
-border: 1px solid #0f766e;
-}
-td {
-padding: 0.5rem 0.7rem;
-border: 1px solid #e2e8f0;
-vertical-align: top;
-}
-tr:nth-child(even) td { background: #f8fafc; }
-tr:hover td { background: #f0fdfa; }
-hr {
-border: none;
-border-top: 1px solid #cbd5e1;
-margin: 2rem 0;
-}
-ul, ol { padding-left: 1.5rem; }
-li { margin: 0.25rem 0; }
-strong { color: #0f172a; }
+  @page { margin: 1.5cm 2cm; }
+  * { box-sizing: border-box; }
+  body {
+  font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.55;
+  color: #1f2937;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  background: #fff;
+  }
+  h1 {
+  font-size: 22pt;
+  color: #0f766e;
+  border-bottom: 3px solid #0f766e;
+  padding-bottom: 0.4rem;
+  margin-top: 0;
+  }
+  h2 {
+  font-size: 16pt;
+  color: #0f766e;
+  border-left: 4px solid #14b8a6;
+  padding-left: 0.6rem;
+  margin-top: 2rem;
+  page-break-after: avoid;
+  }
+  h3 {
+  font-size: 13pt;
+  color: #334155;
+  margin-top: 1.4rem;
+  page-break-after: avoid;
+  }
+  h4 {
+  font-size: 11.5pt;
+  color: #475569;
+  margin-top: 1rem;
+  page-break-after: avoid;
+  }
+  p { margin: 0.5rem 0; }
+  a { color: #0f766e; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+  background: #f1f5f9;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-size: 9.5pt;
+  color: #be123c;
+  }
+  pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 9.5pt;
+  line-height: 1.4;
+  }
+  pre code { background: transparent; color: inherit; padding: 0; }
+  blockquote {
+  border-left: 4px solid #14b8a6;
+  background: #f0fdfa;
+  padding: 0.6rem 1rem;
+  margin: 1rem 0;
+  color: #134e4a;
+  border-radius: 0 4px 4px 0;
+  }
+  blockquote p { margin: 0.3rem 0; }
+  table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  font-size: 10pt;
+  page-break-inside: avoid;
+  }
+  th {
+  background: #0f766e;
+  color: #fff;
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  font-weight: 600;
+  border: 1px solid #0f766e;
+  }
+  td {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #e2e8f0;
+  vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f8fafc; }
+  tr:hover td { background: #f0fdfa; }
+  hr {
+  border: none;
+  border-top: 1px solid #cbd5e1;
+  margin: 2rem 0;
+  }
+  ul, ol { padding-left: 1.5rem; }
+  li { margin: 0.25rem 0; }
+  strong { color: #0f172a; }
 
-h2 + ul, h2 + ol { page-break-before: avoid; }
+  h2 + ul, h2 + ol { page-break-before: avoid; }
 
-@media print {
-body { font-size: 10pt; max-width: none; padding: 0; }
-h2 { page-break-before: auto; }
-table, pre, blockquote { page-break-inside: avoid; }
-a { color: #0f766e; }
-}
-</style>
+  @media print {
+  body { font-size: 10pt; max-width: none; padding: 0; }
+  h2 { page-break-before: auto; }
+  table, pre, blockquote { page-break-inside: avoid; }
+  a { color: #0f766e; }
+  }
+  </style>
 </head>
 <body>
 <header id="title-block-header">
@@ -207,109 +356,150 @@ a { color: #0f766e; }
 </header>
 <nav id="TOC" role="doc-toc">
 <ul>
-<li><a href="#hướng-dẫn-sử-dụng--khachlink-multi-profile-5-loại-khachlink" id="toc-hướng-dẫn-sử-dụng--khachlink-multi-profile-5-loại-khachlink">Hướng
+<li><a
+href="#hướng-dẫn-sử-dụng-khachlink-multi-profile-5-loại-khachlink"
+id="toc-hướng-dẫn-sử-dụng-khachlink-multi-profile-5-loại-khachlink">Hướng
 dẫn sử dụng — KhachLink Multi-Profile (5 Loại KhachLink)</a>
 <ul>
-<li><a href="#0-tóm-tắt-nhanh" id="toc-0-tóm-tắt-nhanh">0. Tóm tắt
+<li><a href="#tóm-tắt-nhanh" id="toc-tóm-tắt-nhanh">0. Tóm tắt
 nhanh</a></li>
-<li><a href="#1-kiến-trúc--nguyên-tắc-vận-hành" id="toc-1-kiến-trúc--nguyên-tắc-vận-hành">1. Kiến trúc &amp; nguyên tắc
-vận hành</a>
+<li><a href="#kiến-trúc-nguyên-tắc-vận-hành"
+id="toc-kiến-trúc-nguyên-tắc-vận-hành">1. Kiến trúc &amp; nguyên tắc vận
+hành</a>
 <ul>
-<li><a href="#11-single-deployment--multi-domain-routing" id="toc-11-single-deployment--multi-domain-routing">1.1 Single
-deployment + multi-domain routing</a></li>
-<li><a href="#12-vị-trí-lưu-trữ-dữ-liệu" id="toc-12-vị-trí-lưu-trữ-dữ-liệu">1.2 Vị trí lưu trữ dữ liệu</a></li>
-<li><a href="#13-feature-flag" id="toc-13-feature-flag">1.3 Feature
+<li><a href="#single-deployment-multi-domain-routing"
+id="toc-single-deployment-multi-domain-routing">1.1 Single deployment +
+multi-domain routing</a></li>
+<li><a href="#vị-trí-lưu-trữ-dữ-liệu"
+id="toc-vị-trí-lưu-trữ-dữ-liệu">1.2 Vị trí lưu trữ dữ liệu</a></li>
+<li><a href="#feature-flag" id="toc-feature-flag">1.3 Feature
 flag</a></li>
-<li><a href="#14-tenant-context" id="toc-14-tenant-context">1.4 Tenant
+<li><a href="#tenant-context" id="toc-tenant-context">1.4 Tenant
 context</a></li>
+<li><a href="#dynamic-cors-r1.1-merged-pr-133"
+id="toc-dynamic-cors-r1.1-merged-pr-133">1.5 Dynamic CORS (R1.1 — merged
+PR #133)</a></li>
 </ul></li>
-<li><a href="#2-hướng-dẫn-cho-system-admin" id="toc-2-hướng-dẫn-cho-system-admin">2. Hướng dẫn cho System Admin</a>
+<li><a href="#hướng-dẫn-cho-system-admin"
+id="toc-hướng-dẫn-cho-system-admin">2. Hướng dẫn cho System Admin</a>
 <ul>
-<li><a href="#21-truy-cập-trang-quản-trị" id="toc-21-truy-cập-trang-quản-trị">2.1 Truy cập trang quản trị</a></li>
-<li><a href="#22-tạo-khachlinkinstance-mới" id="toc-22-tạo-khachlinkinstance-mới">2.2 Tạo KhachLinkInstance
+<li><a href="#truy-cập-trang-quản-trị"
+id="toc-truy-cập-trang-quản-trị">2.1 Truy cập trang quản trị</a></li>
+<li><a href="#tạo-khachlinkinstance-mới"
+id="toc-tạo-khachlinkinstance-mới">2.2 Tạo KhachLinkInstance
 mới</a></li>
-<li><a href="#23-chỉnh-sửa-instance" id="toc-23-chỉnh-sửa-instance">2.3
-Chỉnh sửa instance</a></li>
-<li><a href="#24-deactivate-soft-delete" id="toc-24-deactivate-soft-delete">2.4 Deactivate (soft delete)</a></li>
-<li><a href="#25-toggle-feature-flag-chỉ-r1" id="toc-25-toggle-feature-flag-chỉ-r1">2.5 Toggle feature flag (chỉ
+<li><a href="#chỉnh-sửa-instance" id="toc-chỉnh-sửa-instance">2.3 Chỉnh
+sửa instance</a></li>
+<li><a href="#deactivate-soft-delete"
+id="toc-deactivate-soft-delete">2.4 Deactivate (soft delete)</a></li>
+<li><a href="#toggle-feature-flag-chỉ-r1"
+id="toc-toggle-feature-flag-chỉ-r1">2.5 Toggle feature flag (chỉ
 R1)</a></li>
-<li><a href="#26-nav-flags-reference-15-toggle" id="toc-26-nav-flags-reference-15-toggle">2.6 Nav flags reference (15
+<li><a href="#nav-flags-reference-15-toggle"
+id="toc-nav-flags-reference-15-toggle">2.6 Nav flags reference (15
 toggle)</a></li>
-<li><a href="#27-api-endpoints-tham-khảo" id="toc-27-api-endpoints-tham-khảo">2.7 API endpoints (tham
-khảo)</a></li>
+<li><a href="#api-endpoints-tham-khảo"
+id="toc-api-endpoints-tham-khảo">2.7 API endpoints (tham khảo)</a></li>
 </ul></li>
-<li><a href="#3-hướng-dẫn-theo-loại-instance-demo-flow" id="toc-3-hướng-dẫn-theo-loại-instance-demo-flow">3. Hướng dẫn theo loại
+<li><a href="#hướng-dẫn-theo-loại-instance-demo-flow"
+id="toc-hướng-dẫn-theo-loại-instance-demo-flow">3. Hướng dẫn theo loại
 instance (demo flow)</a>
 <ul>
-<li><a href="#31-type-1--directory-danhbakhachviponline" id="toc-31-type-1--directory-danhbakhachviponline">3.1 Type 1 —
-Directory (<code>danhba.khachvip.online</code>)</a></li>
-<li><a href="#32-type-4--fullcommerce-shopakhachviponline" id="toc-32-type-4--fullcommerce-shopakhachviponline">3.2 Type 4 —
+<li><a href="#type-1-directory-danhba.khachvip.online"
+id="toc-type-1-directory-danhba.khachvip.online">3.1 Type 1 — Directory
+(<code>danhba.khachvip.online</code>)</a></li>
+<li><a href="#type-4-fullcommerce-shopa.khachvip.online"
+id="toc-type-4-fullcommerce-shopa.khachvip.online">3.2 Type 4 —
 FullCommerce (<code>shopA.khachvip.online</code>)</a></li>
-<li><a href="#33-type-5--reseller-r2--resellerkhachviponline" id="toc-33-type-5--reseller-r2--resellerkhachviponline">3.3 Type 5 —
+<li><a href="#type-5-reseller-r2-reseller.khachvip.online"
+id="toc-type-5-reseller-r2-reseller.khachvip.online">3.3 Type 5 —
 Reseller (R2 — <code>reseller.khachvip.online</code>)</a></li>
-<li><a href="#34-type-2--logistics-r3--shipkhachviponline" id="toc-34-type-2--logistics-r3--shipkhachviponline">3.4 Type 2 —
-Logistics (R3 — <code>ship.khachvip.online</code>)</a></li>
-<li><a href="#35-type-3--jobmarket-r3--vieclamkhachviponline" id="toc-35-type-3--jobmarket-r3--vieclamkhachviponline">3.5 Type 3 —
+<li><a href="#type-2-logistics-r3-ship.khachvip.online"
+id="toc-type-2-logistics-r3-ship.khachvip.online">3.4 Type 2 — Logistics
+(R3 — <code>ship.khachvip.online</code>)</a></li>
+<li><a href="#type-3-jobmarket-r3-vieclam.khachvip.online"
+id="toc-type-3-jobmarket-r3-vieclam.khachvip.online">3.5 Type 3 —
 JobMarket (R3 — <code>vieclam.khachvip.online</code>)</a></li>
 </ul></li>
-<li><a href="#4-hướng-dẫn-cho-tenant-owner-role-tenant-scoped" id="toc-4-hướng-dẫn-cho-tenant-owner-role-tenant-scoped">4. Hướng dẫn
-cho Tenant Owner (role tenant-scoped)</a></li>
-<li><a href="#5-hướng-dẫn-cho-các-role-khác" id="toc-5-hướng-dẫn-cho-các-role-khác">5. Hướng dẫn cho các role
-khác</a>
+<li><a href="#hướng-dẫn-cho-tenant-owner-role-tenant-scoped"
+id="toc-hướng-dẫn-cho-tenant-owner-role-tenant-scoped">4. Hướng dẫn cho
+Tenant Owner (role tenant-scoped)</a></li>
+<li><a href="#hướng-dẫn-cho-các-role-khác"
+id="toc-hướng-dẫn-cho-các-role-khác">5. Hướng dẫn cho các role khác</a>
 <ul>
-<li><a href="#51-customer-khách-hàng" id="toc-51-customer-khách-hàng">5.1 Customer (khách hàng)</a></li>
-<li><a href="#52-shipper--salesman--shop-owner-community-roles--r3-logistics" id="toc-52-shipper--salesman--shop-owner-community-roles--r3-logistics">5.2
+<li><a href="#customer-khách-hàng" id="toc-customer-khách-hàng">5.1
+Customer (khách hàng)</a></li>
+<li><a href="#shipper-salesman-shop-owner-community-roles-r3-logistics"
+id="toc-shipper-salesman-shop-owner-community-roles-r3-logistics">5.2
 Shipper / Salesman / Shop Owner (Community roles — R3
 Logistics)</a></li>
-<li><a href="#53-staff-dashboard-nhân-viên" id="toc-53-staff-dashboard-nhân-viên">5.3 Staff (Dashboard nhân
+<li><a href="#staff-dashboard-nhân-viên"
+id="toc-staff-dashboard-nhân-viên">5.3 Staff (Dashboard nhân
 viên)</a></li>
-<li><a href="#54-guard-security--qr-verify" id="toc-54-guard-security--qr-verify">5.4 Guard (Security — QR
+<li><a href="#guard-security-qr-verify"
+id="toc-guard-security-qr-verify">5.4 Guard (Security — QR
 Verify)</a></li>
 </ul></li>
-<li><a href="#6-vận-hành--bảo-trì" id="toc-6-vận-hành--bảo-trì">6. Vận
-hành &amp; bảo trì</a>
+<li><a href="#vận-hành-bảo-trì" id="toc-vận-hành-bảo-trì">6. Vận hành
+&amp; bảo trì</a>
 <ul>
-<li><a href="#61-thêm-instance-mới-checklist" id="toc-61-thêm-instance-mới-checklist">6.1 Thêm instance mới
+<li><a href="#thêm-instance-mới-checklist"
+id="toc-thêm-instance-mới-checklist">6.1 Thêm instance mới
 (checklist)</a></li>
-<li><a href="#62-thu-hồi-instance-retire" id="toc-62-thu-hồi-instance-retire">6.2 Thu hồi instance
-(retire)</a></li>
-<li><a href="#63-rollback-khẩn-cấp" id="toc-63-rollback-khẩn-cấp">6.3
-Rollback khẩn cấp</a></li>
-<li><a href="#64-giám-sát" id="toc-64-giám-sát">6.4 Giám sát</a></li>
-<li><a href="#65-cache-behavior" id="toc-65-cache-behavior">6.5 Cache
+<li><a href="#thu-hồi-instance-retire"
+id="toc-thu-hồi-instance-retire">6.2 Thu hồi instance (retire)</a></li>
+<li><a href="#rollback-khẩn-cấp" id="toc-rollback-khẩn-cấp">6.3 Rollback
+khẩn cấp</a></li>
+<li><a href="#giám-sát" id="toc-giám-sát">6.4 Giám sát</a></li>
+<li><a href="#cache-behavior" id="toc-cache-behavior">6.5 Cache
 behavior</a></li>
 </ul></li>
-<li><a href="#7-troubleshooting" id="toc-7-troubleshooting">7.
+<li><a href="#troubleshooting" id="toc-troubleshooting">7.
 Troubleshooting</a></li>
-<li><a href="#8-quy-tắc-tuân-thủ-compliance" id="toc-8-quy-tắc-tuân-thủ-compliance">8. Quy tắc tuân thủ
+<li><a href="#quy-tắc-tuân-thủ-compliance"
+id="toc-quy-tắc-tuân-thủ-compliance">8. Quy tắc tuân thủ
 (compliance)</a></li>
-<li><a href="#9-tham-khảo" id="toc-9-tham-khảo">9. Tham khảo</a></li>
+<li><a href="#tham-khảo" id="toc-tham-khảo">9. Tham khảo</a></li>
 </ul></li>
 </ul>
 </nav>
-<h1 id="hướng-dẫn-sử-dụng--khachlink-multi-profile-5-loại-khachlink">Hướng
+<h1
+id="hướng-dẫn-sử-dụng-khachlink-multi-profile-5-loại-khachlink">Hướng
 dẫn sử dụng — KhachLink Multi-Profile (5 Loại KhachLink)</h1>
 <blockquote>
 <p><strong>Tài liệu vận hành &amp; sử dụng</strong> cho System Admin,
-Tenant Owner, và các role khác. <strong>Phiên bản:</strong> R1
+Tenant Owner, và các role khác. <strong>Phiên bản:</strong> R1.1
 (Multi-Profile Core + Type 1 Directory + Type 4 FullCommerce +
-Multi-domain) <strong>Ngày tạo:</strong> 2026-08-15 <strong>Tài liệu
-nguồn:</strong>
+Multi-domain + <strong>Dynamic CORS</strong>) <strong>Ngày tạo:</strong>
+2026-08-15 — <strong>Cập nhật:</strong> 2026-08-17 (Dynamic CORS merged
+via PR #133, deployed, RV 8/8 PASS) <strong>Tài liệu nguồn:</strong>
 <code>docs/AI/tasks/khachlink_multi_profile/master_plan.md</code> +
-<code>release_strategy.md</code> <strong>Feature flag:</strong>
-<code>KhachLink:MultiProfileEnabled</code> (default OFF — zero
-regression tới deployment hiện tại)</p>
+<code>release_strategy.md</code> +
+<code>docs/AI/tasks/dynamic_cors/master_plan.md</code> <strong>Feature
+flag:</strong> <code>KhachLink:MultiProfileEnabled</code> (default OFF —
+zero regression tới deployment hiện tại)</p>
 </blockquote>
 <hr />
-<h2 id="0-tóm-tắt-nhanh">0. Tóm tắt nhanh</h2>
+<h2 id="tóm-tắt-nhanh">0. Tóm tắt nhanh</h2>
 <p>KhachLink Multi-Profile cho phép <strong>cùng 1 KhachLink
-container</strong> phục vụ nhiều &quot;loại&quot; trang khách hàng khác nhau, phân
-biệt theo <strong>domain</strong> (<code>*.khachvip.online</code>). Mỗi
-instance = 1 cấu hình (profile + nav flags + owner tenant) được lưu
-trong PostgreSQL (Gateway source of truth). KhachLink runtime fetch cấu
-hình qua <code>GET /api/v1/khachlink-instances/by-domain/{domain}</code>
-khi tải trang, không cần restart container khi thêm instance mới.</p>
+container</strong> phục vụ nhiều “loại” trang khách hàng khác nhau, phân
+biệt theo <strong>domain</strong> (<code>*.khachvip.online</code> +
+external domain như <code>timlathay.com</code>). Mỗi instance = 1 cấu
+hình (profile + nav flags + owner tenant) được lưu trong PostgreSQL
+(Gateway source of truth). KhachLink runtime fetch cấu hình qua
+<code>GET /api/v1/khachlink-instances/by-domain/{domain}</code> khi tải
+trang, không cần restart container khi thêm instance mới. <strong>CORS
+cũng động</strong> — Gateway tự pick up <code>CustomDomain</code> từ
+registry mỗi 5 phút, không cần edit docker-compose hay restart Gateway
+(xem §1.5).</p>
 <table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
 <thead>
 <tr>
 <th>Profile</th>
@@ -351,43 +541,49 @@ khi tải trang, không cần restart container khi thêm instance mới.</p>
 <tr>
 <td><code>JobMarket</code> (3)</td>
 <td>Type 3</td>
-<td>Sàn việc/dịch vụ — list &quot;job&quot; như Product (filter text)</td>
+<td>Sàn việc/dịch vụ — list “job” như Product (filter text)</td>
 <td>Platform/tenant</td>
 <td>R3</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Trạng thái release:</strong></p>
-<ul>
-<li>✅ <strong>R1</strong> — Multi-Profile Core + Type 1 + Type 4 +
-Multi-domain (Sprints 1-6)</li>
-<li>⏳ <strong>R2</strong> — Type 5 Reseller (Sprint 7)</li>
-<li>⏳ <strong>R3</strong> — Type 2 Logistics + Type 3 JobMarket
-(Sprints 8-9)</li>
-</ul>
+<p><strong>Trạng thái release:</strong> - ✅ <strong>R1</strong> —
+Multi-Profile Core + Type 1 + Type 4 + Multi-domain (Sprints 1-6) - ⏳
+<strong>R2</strong> — Type 5 Reseller (Sprint 7) - ⏳
+<strong>R3</strong> — Type 2 Logistics + Type 3 JobMarket (Sprints
+8-9)</p>
 <blockquote>
 <p>Nếu R2/R3 chưa merge, dropdown Profile trong admin UI sẽ
 <strong>disable</strong> các option Reseller/Logistics/JobMarket kèm
-tooltip &quot;R2&quot;/&quot;R3&quot;.</p>
+tooltip “R2”/“R3”.</p>
 </blockquote>
 <hr />
-<h2 id="1-kiến-trúc--nguyên-tắc-vận-hành">1. Kiến trúc &amp; nguyên tắc
-vận hành</h2>
-<h3 id="11-single-deployment--multi-domain-routing">1.1 Single
-deployment + multi-domain routing</h3>
+<h2 id="kiến-trúc-nguyên-tắc-vận-hành">1. Kiến trúc &amp; nguyên tắc vận
+hành</h2>
+<h3 id="single-deployment-multi-domain-routing">1.1 Single deployment +
+multi-domain routing</h3>
 <ul>
 <li><strong>KHÔNG</strong> tạo 5 Docker image riêng. Cùng 1 KhachLink
 container phục vụ tất cả instance.</li>
 <li>nginx wildcard <code>*.khachvip.online</code> (trừ
 <code>api2</code>/<code>app2</code>/<code>www2</code>/<code>diemthuong2</code>
-đã có explicit block) → proxy tới KhachLink container.</li>
+đã có explicit block) → proxy tới KhachLink container. External domain
+(vd <code>timlathay.com</code>) cần DNS + nginx block riêng (out of
+scope dynamic CORS).</li>
 <li>KhachLink runtime đọc <code>window.location.hostname</code> qua JS
 interop → gọi Gateway API → nhận cấu hình instance.</li>
 <li><strong>Thêm instance mới = tạo record + DNS + SSL expand → KHÔNG
-cần restart KhachLink container.</strong></li>
+cần restart KhachLink container, KHÔNG cần restart Gateway, KHÔNG cần
+edit docker-compose</strong> (CORS tự pick up trong 5 phút — xem
+§1.5).</li>
 </ul>
-<h3 id="12-vị-trí-lưu-trữ-dữ-liệu">1.2 Vị trí lưu trữ dữ liệu</h3>
+<h3 id="vị-trí-lưu-trữ-dữ-liệu">1.2 Vị trí lưu trữ dữ liệu</h3>
 <table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
 <thead>
 <tr>
 <th>Dữ liệu</th>
@@ -418,10 +614,17 @@ content</td>
 <td>PostgreSQL (Gateway) → NATS → ShopERP SQLite</td>
 <td>Option C routed async delivery</td>
 </tr>
+<tr>
+<td><strong>CORS allowed origins</strong></td>
+<td>PostgreSQL (<code>KhachLinkInstance.CustomDomain</code>) +
+<code>appsettings</code> static</td>
+<td>Dynamic — xem §1.5</td>
+</tr>
 </tbody>
 </table>
-<h3 id="13-feature-flag">1.3 Feature flag</h3>
-<div class="sourceCode" id="cb1"><pre class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="er">//</span> <span class="dv">2</span><span class="er">_Gateway/appsettings.json</span></span>
+<h3 id="feature-flag">1.3 Feature flag</h3>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="er">//</span> <span class="dv">2</span><span class="er">_Gateway/appsettings.json</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;KhachLink&quot;</span><span class="er">:</span> <span class="fu">{</span></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;MultiProfileEnabled&quot;</span><span class="fu">:</span> <span class="kw">false</span>   <span class="er">//</span> <span class="er">default</span> <span class="er">OFF</span></span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
@@ -433,7 +636,7 @@ content</td>
 <li><strong>ON</strong> → runtime fetch cấu hình theo domain → render
 theo profile preset.</li>
 </ul>
-<h3 id="14-tenant-context">1.4 Tenant context</h3>
+<h3 id="tenant-context">1.4 Tenant context</h3>
 <ul>
 <li><code>OwnerTenantId = null</code> (Platform instance, ví dụ
 Directory) → tenant context = <code>LastInteractionService</code>
@@ -443,56 +646,90 @@ FullCommerce/Reseller) → <code>KhachLinkLayout</code> set
 <code>TenantService.SetCurrentTenant(owner)</code> → toàn bộ trang gắn
 với tenant đó.</li>
 </ul>
+<h3 id="dynamic-cors-r1.1-merged-pr-133">1.5 Dynamic CORS (R1.1 — merged
+PR #133)</h3>
+<p>Gateway CORS policy không còn hardcode trong docker-compose. Thay vào
+đó:</p>
+<pre><code>PostgreSQL (KhachLinkInstance.CustomDomain WHERE IsActive=true)
+    ↓  DynamicCorsCacheHostedService (BackgroundService, 5 min refresh)
+IMemoryCache (origin snapshot)
+    ↓  DynamicCorsService (Singleton, sync read-only)
+CORS middleware (SetIsOriginAllowed callback)</code></pre>
+<p><strong>Hành vi:</strong> - <strong>Static origins</strong>
+(<code>api2</code>/<code>app2</code>/<code>www2</code>/<code>diemthuong2</code>)
+— bake trong <code>2_Gateway/appsettings.Production.json</code>
+(<code>Cors:StaticOrigins</code>). Gateway start được ngay cả khi PG
+down. - <strong>Dynamic origins</strong> — mỗi 5 phút,
+<code>DynamicCorsCacheHostedService</code> query
+<code>GetActiveCustomDomainsAsync()</code> (lightweight:
+<code>SELECT "CustomDomain" WHERE "IsActive" = true</code>) → cập nhật
+<code>IMemoryCache</code>. - <strong>CORS callback</strong> đọc
+<code>IMemoryCache</code> (sync, không DB call) → thêm
+<code>Access-Control-Allow-Origin</code> nếu origin match. -
+<strong>Thêm domain mới qua admin UI → CORS hoạt động trong ≤ 5 phút,
+KHÔNG restart Gateway, KHÔNG edit docker-compose.</strong> -
+<strong>Deactivate instance → domain đó rời CORS allowlist trong ≤ 5
+phút</strong> (TTL acceptable — CORS không phải security boundary). -
+<strong><code>AllowCredentials()</code> KHÔNG dùng</strong> — KhachLink
+WASM dùng JWT Bearer, không cookie (giảm CSRF risk). -
+<strong><code>CanonicalizeDomain()</code></strong> — constructor
+<code>KhachLinkInstance</code> tự strip scheme/path/port/slash +
+validate hostname format. Admin nhập
+<code>https://shopA.khachvip.online:443/path</code> → lưu
+<code>shopa.khachvip.online</code>.</p>
+<p><strong>Đã xóa khỏi docker-compose:</strong>
+<code>Cors__AllowedOrigins__*</code> env vars
+(<code>docker-compose.prod.yml</code>,
+<code>docker-compose.gateway.yml</code>). Không còn cần thiết.</p>
+<p><strong>RV 8/8 PASS (2026-08-17):</strong> <code>timlathay.com</code>
+(registry), <code>diemthuong2</code> (static+registry),
+<code>app2</code>/<code>www2</code> (static),
+<code>evil.com</code>/<code>random-test-123</code> (unknown → no
+header), OPTIONS preflight 204, add new domain → CORS works sau 5 min
+không restart.</p>
 <hr />
-<h2 id="2-hướng-dẫn-cho-system-admin">2. Hướng dẫn cho System Admin</h2>
+<h2 id="hướng-dẫn-cho-system-admin">2. Hướng dẫn cho System Admin</h2>
 <blockquote>
 <p><strong>Role yêu cầu:</strong>
 <code>PlatformRole = SystemAdmin</code> (cross-tenant). Truy cập qua
 ShopERP (<code>app2.khachvip.online</code>).</p>
 </blockquote>
-<h3 id="21-truy-cập-trang-quản-trị">2.1 Truy cập trang quản trị</h3>
+<h3 id="truy-cập-trang-quản-trị">2.1 Truy cập trang quản trị</h3>
 <ol type="1">
 <li>Login ShopERP với tài khoản SystemAdmin.</li>
 <li>NavMenu (admin section) → <strong>KhachLink Instances</strong> →
 <code>/admin/khachlink-instances</code>.</li>
 <li>Trang hiển thị bảng: Label · Profile · CustomDomain · OwnerTenant
-(tên hoặc &quot;Platform&quot;) · IsActive · Actions.</li>
+(tên hoặc “Platform”) · IsActive · Actions.</li>
 </ol>
-<h3 id="22-tạo-khachlinkinstance-mới">2.2 Tạo KhachLinkInstance mới</h3>
-<p><strong>Bước 1 — Tạo instance trong admin UI:</strong></p>
-<ol type="1">
-<li>Nút <strong>&quot;+ New&quot;</strong> → mở modal (dùng UI Platform
-components).</li>
-<li>Điền:
-<ul>
-<li><strong>Label</strong> (bắt buộc, max 200 ký tự) — tên dễ nhận biết,
-ví dụ &quot;Danh bạ Vạn An&quot;.</li>
-<li><strong>Profile</strong> (dropdown) — chỉ <code>FullCommerce</code>
-+ <code>Directory</code> enabled trong R1. Các option khác disabled kèm
-tooltip &quot;R2&quot;/&quot;R3&quot;.</li>
-<li><strong>CustomDomain</strong> (bắt buộc, max 255, unique) — ví dụ
-<code>danhba.khachvip.online</code>. Hệ thống tự normalize lowercase.
-Validate format + trùng.</li>
-<li><strong>OwnerTenant</strong> (dropdown, nullable) — &quot;Platform (no
-tenant)&quot; cho Type 1 Directory; chọn tenant cụ thể cho Type 4
-FullCommerce / Type 5 Reseller.</li>
-<li><strong>Nav flags checkbox grid</strong> (15 toggle) — tự load theo
-Profile preset. SystemAdmin có thể <strong>override từng flag</strong>
-riêng. Nút <strong>&quot;Apply Profile Preset&quot;</strong> để reset về
-preset.</li>
-</ul></li>
-<li>Save → gọi <code>POST /api/v1/khachlink-instances</code> → trả
-201.</li>
-</ol>
-<p><strong>Bước 2 — Cấu hình DNS:</strong></p>
-<ul>
-<li>Thêm A record <code>&lt;subdomain&gt;.khachvip.online</code> → IP
-của gateway VPS.</li>
-<li>Ví dụ: <code>danhba.khachvip.online A 34.x.x.x</code>.</li>
-</ul>
+<h3 id="tạo-khachlinkinstance-mới">2.2 Tạo KhachLinkInstance mới</h3>
+<p><strong>Bước 1 — Tạo instance trong admin UI:</strong> 1. Nút
+<strong>“+ New”</strong> → mở modal (dùng UI Platform components). 2.
+Điền: - <strong>Label</strong> (bắt buộc, max 200 ký tự) — tên dễ nhận
+biết, ví dụ “Danh bạ Vạn An”. - <strong>Profile</strong> (dropdown) —
+chỉ <code>FullCommerce</code> + <code>Directory</code> enabled trong R1.
+Các option khác disabled kèm tooltip “R2”/“R3”. -
+<strong>CustomDomain</strong> (bắt buộc, max 255, unique) — ví dụ
+<code>danhba.khachvip.online</code> hoặc external
+<code>timlathay.com</code>. Hệ thống tự <strong>canonicalize</strong>
+qua <code>CanonicalizeDomain()</code> (strip scheme/path/port/slash,
+lowercase, validate hostname format). Validate format + trùng.
+<strong>Domain này cũng tự được thêm vào CORS allowlist trong ≤ 5
+phút</strong> (xem §1.5) — không cần edit docker-compose. -
+<strong>OwnerTenant</strong> (dropdown, nullable) — “Platform (no
+tenant)” cho Type 1 Directory; chọn tenant cụ thể cho Type 4
+FullCommerce / Type 5 Reseller. - <strong>Nav flags checkbox
+grid</strong> (15 toggle) — tự load theo Profile preset. SystemAdmin có
+thể <strong>override từng flag</strong> riêng. Nút <strong>“Apply
+Profile Preset”</strong> để reset về preset. 3. Save → gọi
+<code>POST /api/v1/khachlink-instances</code> → trả 201.</p>
+<p><strong>Bước 2 — Cấu hình DNS:</strong> - Thêm A record
+<code>&lt;subdomain&gt;.khachvip.online</code> → IP của gateway VPS. -
+Ví dụ: <code>danhba.khachvip.online A 34.x.x.x</code>.</p>
 <p><strong>Bước 3 — Expand SSL certificate (trên gateway
 VPS):</strong></p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash /opt/vanan/scripts/init-ssl-khachlink-instances.sh</span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash /opt/vanan/scripts/init-ssl-khachlink-instances.sh</span></code></pre></div>
 <ul>
 <li>Script đọc tất cả <code>CustomDomain</code> từ
 <code>KhachLinkInstances</code> table (qua
@@ -501,11 +738,12 @@ VPS):</strong></p>
 <code>certbot certonly --webroot --expand -d www2.khachvip.online -d api2.khachvip.online -d app2.khachvip.online -d diemthuong2.khachvip.online -d &lt;subdomain_mới&gt;...</code></li>
 <li>Restart nginx:
 <code>docker compose -f docker-compose.gateway.yml restart nginx</code>.</li>
-<li><strong>Lưu ý:</strong> Let&#39;s Encrypt giới hạn 100 SAN/cert. Đủ cho
+<li><strong>Lưu ý:</strong> Let’s Encrypt giới hạn 100 SAN/cert. Đủ cho
 MVP. Khi gần đầy, tách cert thứ 2.</li>
 </ul>
 <p><strong>Bước 4 — Verify:</strong></p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-sI</span> https://<span class="op">&lt;</span>subdomain<span class="op">&gt;</span>.khachvip.online <span class="kw">|</span> <span class="fu">head</span> <span class="at">-5</span>    <span class="co"># HTTP/2 200</span></span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-sI</span> https://<span class="op">&lt;</span>subdomain<span class="op">&gt;</span>.khachvip.online <span class="kw">|</span> <span class="fu">head</span> <span class="at">-5</span>    <span class="co"># HTTP/2 200</span></span></code></pre></div>
 <p>Mở trình duyệt → trang load theo profile preset (xem §3 để kiểm tra
 nav items).</p>
 <blockquote>
@@ -513,7 +751,7 @@ nav items).</p>
 fetch config qua API mỗi lần tải trang (cache localStorage TTL 5 phút,
 key <code>khachlink_instance_config</code>).</p>
 </blockquote>
-<h3 id="23-chỉnh-sửa-instance">2.3 Chỉnh sửa instance</h3>
+<h3 id="chỉnh-sửa-instance">2.3 Chỉnh sửa instance</h3>
 <ol type="1">
 <li>Click <strong>Edit</strong> trên row tương ứng.</li>
 <li>Đổi Profile / Nav flags / Label / OwnerTenant. <strong>CustomDomain
@@ -523,7 +761,7 @@ domain).</li>
 <li>Nếu đổi Profile → Nav flags tự reset về preset (trừ khi SystemAdmin
 override trước khi save).</li>
 </ol>
-<h3 id="24-deactivate-soft-delete">2.4 Deactivate (soft delete)</h3>
+<h3 id="deactivate-soft-delete">2.4 Deactivate (soft delete)</h3>
 <ol type="1">
 <li>Click <strong>Deactivate</strong> → confirm.</li>
 <li><code>DELETE /api/v1/khachlink-instances/{id}</code> → set
@@ -533,26 +771,49 @@ default.</li>
 <li><strong>DNS + SSL cert vẫn còn</strong> — cần cleanup thủ công nếu
 muốn thu hồi hoàn toàn (xem §6).</li>
 </ol>
-<h3 id="25-toggle-feature-flag-chỉ-r1">2.5 Toggle feature flag (chỉ
+<h3 id="toggle-feature-flag-chỉ-r1">2.5 Toggle feature flag (chỉ
 R1)</h3>
-<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Trên gateway VPS — sửa appsettings.json trong container hoặc env var</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Cách 1: env var (CD pipeline-friendly)</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="va">KHACHLINK_MULTIPROFILE_ENABLED</span><span class="op">=</span>true</span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Cách 2: appsettings.json</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> exec vanan-gateway sh <span class="at">-c</span> <span class="st">&quot;sed -i &#39;s/</span><span class="dt">\&quot;</span><span class="st">MultiProfileEnabled</span><span class="dt">\&quot;</span><span class="st">: false/</span><span class="dt">\&quot;</span><span class="st">MultiProfileEnabled</span><span class="dt">\&quot;</span><span class="st">: true/&#39; appsettings.json&quot;</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose <span class="at">-f</span> docker-compose.gateway.yml restart gateway</span></code></pre></div>
-<p><strong>Test ON/OFF:</strong></p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Flag OFF → 404</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-s</span> <span class="at">-o</span> /dev/null <span class="at">-w</span> <span class="st">&quot;%{http_code}\n&quot;</span> https://api2.khachvip.online/api/v1/khachlink-instances/by-domain/diemthuong2.khachvip.online</span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co"># 404</span></span>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Trên gateway VPS — sửa appsettings.json trong container hoặc env var</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Cách 1: env var (CD pipeline-friendly)</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="va">KHACHLINK_MULTIPROFILE_ENABLED</span><span class="op">=</span>true</span>
 <span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Flag ON → 200 + JSON</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="co"># (sau khi toggle)</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-s</span> https://api2.khachvip.online/api/v1/khachlink-instances/by-domain/diemthuong2.khachvip.online <span class="kw">|</span> <span class="ex">jq</span></span></code></pre></div>
-<h3 id="26-nav-flags-reference-15-toggle">2.6 Nav flags reference (15
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Cách 2: appsettings.json</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> exec vanan-gateway sh <span class="at">-c</span> <span class="st">&quot;sed -i &#39;s/</span><span class="dt">\&quot;</span><span class="st">MultiProfileEnabled</span><span class="dt">\&quot;</span><span class="st">: false/</span><span class="dt">\&quot;</span><span class="st">MultiProfileEnabled</span><span class="dt">\&quot;</span><span class="st">: true/&#39; appsettings.json&quot;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose <span class="at">-f</span> docker-compose.gateway.yml restart gateway</span></code></pre></div>
+<blockquote>
+<p><strong>Lưu ý CORS (R1.1):</strong>
+<code>Cors__AllowedOrigins__*</code> env vars đã bị xóa khỏi
+<code>docker-compose.prod.yml</code> +
+<code>docker-compose.gateway.yml</code>. CORS giờ động từ
+<code>KhachLinkInstance</code> registry (xem §1.5). <strong>KHÔNG thêm
+env var CORS mới</strong> — thêm domain qua admin UI là đủ. Static
+origins
+(<code>api2</code>/<code>app2</code>/<code>www2</code>/<code>diemthuong2</code>)
+nằm trong <code>Cors:StaticOrigins</code> của
+<code>appsettings.Production.json</code>. <strong>Test
+ON/OFF:</strong></p>
+</blockquote>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Flag OFF → 404</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-s</span> <span class="at">-o</span> /dev/null <span class="at">-w</span> <span class="st">&quot;%{http_code}\n&quot;</span> https://api2.khachvip.online/api/v1/khachlink-instances/by-domain/diemthuong2.khachvip.online</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co"># 404</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Flag ON → 200 + JSON</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co"># (sau khi toggle)</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-s</span> https://api2.khachvip.online/api/v1/khachlink-instances/by-domain/diemthuong2.khachvip.online <span class="kw">|</span> <span class="ex">jq</span></span></code></pre></div>
+<h3 id="nav-flags-reference-15-toggle">2.6 Nav flags reference (15
 toggle)</h3>
-<table>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 9%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
 <thead>
 <tr>
 <th>Flag</th>
@@ -708,8 +969,14 @@ true AND role check pass</strong> (cả hai phải đúng). Ví dụ
 <code>ShowCommunity</code> = true nhưng user không phải
 shipper/salesman/shop owner → vẫn ẩn.</p>
 </blockquote>
-<h3 id="27-api-endpoints-tham-khảo">2.7 API endpoints (tham khảo)</h3>
+<h3 id="api-endpoints-tham-khảo">2.7 API endpoints (tham khảo)</h3>
 <table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
 <thead>
 <tr>
 <th>Endpoint</th>
@@ -758,141 +1025,106 @@ shipper/salesman/shop owner → vẫn ẩn.</p>
 </tbody>
 </table>
 <hr />
-<h2 id="3-hướng-dẫn-theo-loại-instance-demo-flow">3. Hướng dẫn theo loại
+<h2 id="hướng-dẫn-theo-loại-instance-demo-flow">3. Hướng dẫn theo loại
 instance (demo flow)</h2>
-<h3 id="31-type-1--directory-danhbakhachviponline">3.1 Type 1 —
-Directory (<code>danhba.khachvip.online</code>)</h3>
+<h3 id="type-1-directory-danhba.khachvip.online">3.1 Type 1 — Directory
+(<code>danhba.khachvip.online</code>)</h3>
 <p><strong>Mục đích:</strong> Danh bạ shop/doanh nghiệp/sản phẩm — không
 có cart/rewards/redeem.</p>
-<p><strong>Tạo:</strong></p>
-<ol type="1">
-<li>Admin UI → New → Profile=<code>Directory</code>,
+<p><strong>Tạo:</strong> 1. Admin UI → New →
+Profile=<code>Directory</code>,
 CustomDomain=<code>danhba.khachvip.online</code>,
-OwnerTenant=<code>Platform (no tenant)</code>.</li>
-<li>Nav flags auto-set: ShowHome/Stores/Profile=true, rest=false.</li>
-<li>DNS + SSL expand.</li>
-</ol>
-<p><strong>Verify:</strong></p>
-<ul>
-<li>Mở <code>https://danhba.khachvip.online</code> → nav chỉ có
-<strong>Trang chủ · Cửa hàng · Tài khoản</strong>.</li>
-<li>Header icons (cart, rewards, missions, loyalty history) ẩn.</li>
-<li><code>/stores</code> render danh sách shop — khách browse nhưng
-không add to cart.</li>
-<li>Checkout không khả dụng (theo thiết kế).</li>
-</ul>
-<h3 id="32-type-4--fullcommerce-shopakhachviponline">3.2 Type 4 —
+OwnerTenant=<code>Platform (no tenant)</code>. 2. Nav flags auto-set:
+ShowHome/Stores/Profile=true, rest=false. 3. DNS + SSL expand.</p>
+<p><strong>Verify:</strong> - Mở
+<code>https://danhba.khachvip.online</code> → nav chỉ có <strong>Trang
+chủ · Cửa hàng · Tài khoản</strong>. - Header icons (cart, rewards,
+missions, loyalty history) ẩn. - <code>/stores</code> render danh sách
+shop — khách browse nhưng không add to cart. - Checkout không khả dụng
+(theo thiết kế).</p>
+<h3 id="type-4-fullcommerce-shopa.khachvip.online">3.2 Type 4 —
 FullCommerce (<code>shopA.khachvip.online</code>)</h3>
 <p><strong>Mục đích:</strong> TMĐT đầy đủ cho 1 tenant cụ thể, domain
 riêng.</p>
-<p><strong>Tạo:</strong></p>
-<ol type="1">
-<li>Admin UI → New → Profile=<code>FullCommerce</code>,
+<p><strong>Tạo:</strong> 1. Admin UI → New →
+Profile=<code>FullCommerce</code>,
 CustomDomain=<code>shopA.khachvip.online</code>,
-OwnerTenant=<code>&lt;tenant A&gt;</code>.</li>
-<li>Nav flags auto-set: all 15 true.</li>
-<li>DNS + SSL expand.</li>
-</ol>
-<p><strong>Verify:</strong></p>
-<ul>
-<li>Mở <code>https://shopA.khachvip.online</code> → tất cả icons hiện
-(cart, rewards, missions, loyalty history, profile, scan,
-qr-claim...).</li>
-<li>Tenant context = tenant A (toàn bộ sản phẩm/đơn hàng thuộc tenant
-A).</li>
-<li>Customer order → order snapshot
-<code>CommerceMode.Marketplace</code> (existing flow).</li>
-</ul>
-<h3 id="33-type-5--reseller-r2--resellerkhachviponline">3.3 Type 5 —
+OwnerTenant=<code>&lt;tenant A&gt;</code>. 2. Nav flags auto-set: all 15
+true. 3. DNS + SSL expand.</p>
+<p><strong>Verify:</strong> - Mở
+<code>https://shopA.khachvip.online</code> → tất cả icons hiện (cart,
+rewards, missions, loyalty history, profile, scan, qr-claim…). - Tenant
+context = tenant A (toàn bộ sản phẩm/đơn hàng thuộc tenant A). -
+Customer order → order snapshot <code>CommerceMode.Marketplace</code>
+(existing flow).</p>
+<h3 id="type-5-reseller-r2-reseller.khachvip.online">3.3 Type 5 —
 Reseller (R2 — <code>reseller.khachvip.online</code>)</h3>
 <p><strong>Mục đích:</strong> Tenant trung gian bán sản phẩm/dịch vụ cho
 tenant con.</p>
-<p><strong>Tạo (sau R2 merge):</strong></p>
-<ol type="1">
-<li>Admin UI → New → Profile=<code>Reseller</code>,
+<p><strong>Tạo (sau R2 merge):</strong> 1. Admin UI → New →
+Profile=<code>Reseller</code>,
 CustomDomain=<code>reseller.khachvip.online</code>,
-OwnerTenant=<code>&lt;reseller tenant&gt;</code>.</li>
-<li>Nav flags auto-set: all 15 true.</li>
-<li>DNS + SSL expand.</li>
-</ol>
-<p><strong>Verify:</strong></p>
-<ul>
-<li>Mở <code>https://reseller.khachvip.online</code> → all icons +
-tenant context = reseller.</li>
-<li>Customer order → order snapshot <code>CommerceMode.Reseller</code>
-(existing flow qua <code>TenantSettings.CommerceModeOverride</code> hoặc
-<code>GlobalCommerceMode</code>).</li>
-<li>Products = existing <code>Product</code> entity (chỉ khác text
-content) — không cần entity mới.</li>
-</ul>
-<h3 id="34-type-2--logistics-r3--shipkhachviponline">3.4 Type 2 —
-Logistics (R3 — <code>ship.khachvip.online</code>)</h3>
+OwnerTenant=<code>&lt;reseller tenant&gt;</code>. 2. Nav flags auto-set:
+all 15 true. 3. DNS + SSL expand.</p>
+<p><strong>Verify:</strong> - Mở
+<code>https://reseller.khachvip.online</code> → all icons + tenant
+context = reseller. - Customer order → order snapshot
+<code>CommerceMode.Reseller</code> (existing flow qua
+<code>TenantSettings.CommerceModeOverride</code> hoặc
+<code>GlobalCommerceMode</code>). - Products = existing
+<code>Product</code> entity (chỉ khác text content) — không cần entity
+mới.</p>
+<h3 id="type-2-logistics-r3-ship.khachvip.online">3.4 Type 2 — Logistics
+(R3 — <code>ship.khachvip.online</code>)</h3>
 <p><strong>Mục đích:</strong> Sàn shipper — reuse Community Commerce
 (Sprint 4-7 cũ).</p>
-<p><strong>Tạo (sau R3 merge):</strong></p>
-<ol type="1">
-<li>Admin UI → New → Profile=<code>Logistics</code>,
+<p><strong>Tạo (sau R3 merge):</strong> 1. Admin UI → New →
+Profile=<code>Logistics</code>,
 CustomDomain=<code>ship.khachvip.online</code>, OwnerTenant=Platform
-hoặc tenant.</li>
-<li>Nav flags auto-set: ShowHome/Stores/Profile/Community=true,
-rest=false.</li>
-</ol>
-<p><strong>Verify:</strong></p>
-<ul>
-<li>Mở <code>https://ship.khachvip.online</code> → nav có <strong>Trang
-chủ · Cửa hàng · Community · Tài khoản</strong>.</li>
-<li>Login as shipper → community tabs hiện (role AND flag — cả hai phải
-true): <code>/community/nearby-orders</code>,
+hoặc tenant. 2. Nav flags auto-set:
+ShowHome/Stores/Profile/Community=true, rest=false.</p>
+<p><strong>Verify:</strong> - Mở
+<code>https://ship.khachvip.online</code> → nav có <strong>Trang chủ ·
+Cửa hàng · Community · Tài khoản</strong>. - Login as shipper →
+community tabs hiện (role AND flag — cả hai phải true):
+<code>/community/nearby-orders</code>,
 <code>/community/active-deliveries</code>,
-<code>/community/wallet</code>.</li>
-<li>Cart/rewards/scan ẩn.</li>
-</ul>
-<h3 id="35-type-3--jobmarket-r3--vieclamkhachviponline">3.5 Type 3 —
+<code>/community/wallet</code>. - Cart/rewards/scan ẩn.</p>
+<h3 id="type-3-jobmarket-r3-vieclam.khachvip.online">3.5 Type 3 —
 JobMarket (R3 — <code>vieclam.khachvip.online</code>)</h3>
-<p><strong>Mục đích:</strong> Sàn việc/dịch vụ — list &quot;job&quot; như Product
+<p><strong>Mục đích:</strong> Sàn việc/dịch vụ — list “job” như Product
 (filter text).</p>
-<p><strong>Tạo (sau R3 merge):</strong></p>
-<ol type="1">
-<li>Admin UI → New → Profile=<code>JobMarket</code>,
+<p><strong>Tạo (sau R3 merge):</strong> 1. Admin UI → New →
+Profile=<code>JobMarket</code>,
 CustomDomain=<code>vieclam.khachvip.online</code>, OwnerTenant=Platform
-hoặc tenant.</li>
-<li>Nav flags auto-set: ShowHome/Stores/Profile/Jobs=true,
-rest=false.</li>
-</ol>
-<p><strong>Verify:</strong></p>
-<ul>
-<li>Mở <code>https://vieclam.khachvip.online</code> → nav có
-<strong>Trang chủ · Cửa hàng · Sàn việc · Tài khoản</strong>.</li>
-<li><code>/jobs</code> page → list products có text &quot;job&quot;/&quot;việc&quot;/&quot;dịch
-vụ&quot;/&quot;service&quot; trong name (case-insensitive contains).</li>
-<li>Cart/rewards/community ẩn.</li>
-</ul>
+hoặc tenant. 2. Nav flags auto-set: ShowHome/Stores/Profile/Jobs=true,
+rest=false.</p>
+<p><strong>Verify:</strong> - Mở
+<code>https://vieclam.khachvip.online</code> → nav có <strong>Trang chủ
+· Cửa hàng · Sàn việc · Tài khoản</strong>. - <code>/jobs</code> page →
+list products có text “job”/“việc”/“dịch vụ”/“service” trong name
+(case-insensitive contains). - Cart/rewards/community ẩn.</p>
 <hr />
-<h2 id="4-hướng-dẫn-cho-tenant-owner-role-tenant-scoped">4. Hướng dẫn
-cho Tenant Owner (role tenant-scoped)</h2>
+<h2 id="hướng-dẫn-cho-tenant-owner-role-tenant-scoped">4. Hướng dẫn cho
+Tenant Owner (role tenant-scoped)</h2>
 <blockquote>
 <p>Tenant Owner là người quản trị 1 tenant cụ thể (HKD).
 <strong>KHÔNG</strong> có quyền tạo KhachLinkInstance — đó là việc của
 SystemAdmin.</p>
 </blockquote>
-<p><strong>Quyền Tenant Owner liên quan:</strong></p>
-<ul>
-<li>Yêu cầu SystemAdmin cấp instance FullCommerce/Reseller với
-<code>OwnerTenantId</code> = tenant mình.</li>
-<li>Sau khi cấp, tenant owner quản lý sản phẩm/đơn hàng/rewards
-<strong>bình thường qua ShopERP</strong>
+<p><strong>Quyền Tenant Owner liên quan:</strong> - Yêu cầu SystemAdmin
+cấp instance FullCommerce/Reseller với <code>OwnerTenantId</code> =
+tenant mình. - Sau khi cấp, tenant owner quản lý sản phẩm/đơn
+hàng/rewards <strong>bình thường qua ShopERP</strong>
 (<code>app2.khachvip.online</code>) — không cần thao tác gì trên
-KhachLink instance.</li>
-<li>Đổi nội dung hiển thị trên KhachLink instance = đổi
-Products/Campaigns/Missions trong ShopERP (existing flow).</li>
-</ul>
+KhachLink instance. - Đổi nội dung hiển thị trên KhachLink instance =
+đổi Products/Campaigns/Missions trong ShopERP (existing flow).</p>
 <p><strong>Lưu ý:</strong> Tenant Owner <strong>không thấy</strong>
 trang <code>/admin/khachlink-instances</code> (yêu cầu
 <code>PlatformRole=SystemAdmin</code>).</p>
 <hr />
-<h2 id="5-hướng-dẫn-cho-các-role-khác">5. Hướng dẫn cho các role
-khác</h2>
-<h3 id="51-customer-khách-hàng">5.1 Customer (khách hàng)</h3>
+<h2 id="hướng-dẫn-cho-các-role-khác">5. Hướng dẫn cho các role khác</h2>
+<h3 id="customer-khách-hàng">5.1 Customer (khách hàng)</h3>
 <ul>
 <li>Truy cập domain KhachLink instance
 (<code>https://shopA.khachvip.online</code>).</li>
@@ -901,7 +1133,7 @@ khác</h2>
 <li>Không cần thao tác gì với cấu hình instance — trải nghiệm tự động
 theo domain.</li>
 </ul>
-<h3 id="52-shipper--salesman--shop-owner-community-roles--r3-logistics">5.2
+<h3 id="shipper-salesman-shop-owner-community-roles-r3-logistics">5.2
 Shipper / Salesman / Shop Owner (Community roles — R3 Logistics)</h3>
 <ul>
 <li>Login trên instance Logistics → community tabs hiện (nếu
@@ -909,15 +1141,13 @@ Shipper / Salesman / Shop Owner (Community roles — R3 Logistics)</h3>
 <li>Quyền community = existing Community Commerce flow (Sprint 4-7 cũ) —
 không thay đổi.</li>
 </ul>
-<h3 id="53-staff-dashboard-nhân-viên">5.3 Staff (Dashboard nhân
-viên)</h3>
+<h3 id="staff-dashboard-nhân-viên">5.3 Staff (Dashboard nhân viên)</h3>
 <ul>
 <li>Login trên instance có <code>ShowStaffDashboard=true</code> AND
 <code>_isStaff=true</code> → Dashboard nav item hiện.</li>
 <li>Existing staff dashboard flow — không thay đổi.</li>
 </ul>
-<h3 id="54-guard-security--qr-verify">5.4 Guard (Security — QR
-Verify)</h3>
+<h3 id="guard-security-qr-verify">5.4 Guard (Security — QR Verify)</h3>
 <ul>
 <li>Guard QR Verify (Issue #126) hoạt động trên instance có
 <code>ShowScan=true</code> + <code>ShowQrClaim=true</code> (mặc định
@@ -926,44 +1156,58 @@ FullCommerce/Reseller).</li>
 scan/claim).</li>
 </ul>
 <hr />
-<h2 id="6-vận-hành--bảo-trì">6. Vận hành &amp; bảo trì</h2>
-<h3 id="61-thêm-instance-mới-checklist">6.1 Thêm instance mới
+<h2 id="vận-hành-bảo-trì">6. Vận hành &amp; bảo trì</h2>
+<h3 id="thêm-instance-mới-checklist">6.1 Thêm instance mới
 (checklist)</h3>
 <ul class="task-list">
-<li><label><input type="checkbox"></input>SystemAdmin →
+<li><label><input type="checkbox" />SystemAdmin →
 <code>/admin/khachlink-instances</code> → New → điền
 Label/Profile/CustomDomain/OwnerTenant/Nav flags</label></li>
-<li><label><input type="checkbox"></input>DNS A record
-<code>&lt;subdomain&gt;.khachvip.online</code> → gateway VPS
-IP</label></li>
-<li><label><input type="checkbox"></input>SSH gateway VPS →
+<li><label><input type="checkbox" />DNS A record
+<code>&lt;subdomain&gt;.khachvip.online</code> → gateway VPS IP
+(external domain: DNS + nginx block riêng)</label></li>
+<li><label><input type="checkbox" />SSH gateway VPS →
 <code>sudo bash /opt/vanan/scripts/init-ssl-khachlink-instances.sh</code></label></li>
-<li><label><input type="checkbox"></input>Restart nginx:
+<li><label><input type="checkbox" />Restart nginx:
 <code>docker compose -f docker-compose.gateway.yml restart nginx</code></label></li>
-<li><label><input type="checkbox"></input>Verify:
+<li><label><input type="checkbox" />Verify:
 <code>curl -sI https://&lt;subdomain&gt;.khachvip.online</code> →
 200</label></li>
-<li><label><input type="checkbox"></input>Mở trình duyệt → kiểm tra nav items
+<li><label><input type="checkbox" />Mở trình duyệt → kiểm tra nav items
 theo profile</label></li>
+<li><label><input type="checkbox" /><strong>CORS tự động</strong> — đợi
+≤ 5 phút (hoặc verify bằng
+<code>curl -sI -H "Origin: https://&lt;subdomain&gt;.khachvip.online" https://api2.khachvip.online/api/v1/khachlink-instances/by-domain/&lt;subdomain&gt;.khachvip.online | grep -i access-control-allow-origin</code>).
+<strong>KHÔNG cần edit docker-compose, KHÔNG cần restart
+Gateway.</strong></label></li>
 </ul>
-<h3 id="62-thu-hồi-instance-retire">6.2 Thu hồi instance (retire)</h3>
+<h3 id="thu-hồi-instance-retire">6.2 Thu hồi instance (retire)</h3>
 <ol type="1">
 <li>Admin UI → Deactivate (soft delete —
 <code>IsActive=false</code>).</li>
 <li>Domain → fallback FullCommerce default (runtime fetch trả 404).</li>
+<li><strong>CORS:</strong> domain rời allowlist trong ≤ 5 phút (TTL
+cache — CORS không phải security boundary, nếu cần thu hồi ngay xem
+<code>IDynamicCorsService.InvalidateCache()</code> trong
+<code>docs/AI/tasks/dynamic_cors/</code>).</li>
 <li><strong>Cleanup DNS + SSL (thủ công):</strong>
 <ul>
 <li>Xóa A record DNS.</li>
-<li>SSL cert: KHÔNG xóa SAN riêng (Let&#39;s Encrypt không hỗ trợ remove 1
+<li>SSL cert: KHÔNG xóa SAN riêng (Let’s Encrypt không hỗ trợ remove 1
 SAN). Đợi cert renew tự nhiên (60 ngày) hoặc re-issue cert mới không
 chứa domain đã thu hồi nếu cần.</li>
 </ul></li>
 <li>Hard delete record (nếu muốn dọn DB):
-<code>DELETE FROM &quot;KhachLinkInstances&quot; WHERE &quot;Id&quot; = &#39;&lt;guid&gt;&#39;;</code>
+<code>DELETE FROM "KhachLinkInstances" WHERE "Id" = '&lt;guid&gt;';</code>
 — <strong>chỉ sau khi đã backup</strong>.</li>
 </ol>
-<h3 id="63-rollback-khẩn-cấp">6.3 Rollback khẩn cấp</h3>
+<h3 id="rollback-khẩn-cấp">6.3 Rollback khẩn cấp</h3>
 <table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
 <thead>
 <tr>
 <th>Tình huống</th>
@@ -995,17 +1239,17 @@ instance render FullCommerce default</td>
 </tr>
 </tbody>
 </table>
-<h3 id="64-giám-sát">6.4 Giám sát</h3>
+<h3 id="giám-sát">6.4 Giám sát</h3>
 <ul>
 <li><code>KhachLinkInstances</code> table:
-<code>SELECT &quot;Label&quot;, &quot;Profile&quot;, &quot;CustomDomain&quot;, &quot;IsActive&quot; FROM &quot;KhachLinkInstances&quot; WHERE &quot;IsActive&quot; = true;</code></li>
+<code>SELECT "Label", "Profile", "CustomDomain", "IsActive" FROM "KhachLinkInstances" WHERE "IsActive" = true;</code></li>
 <li>Gateway logs: filter <code>KhachLinkInstanceController</code> — kiểm
 tra 404 ratio trên <code>/by-domain/</code> (404 cao = domain
 misconfigured hoặc flag OFF).</li>
 <li>nginx access log: filter <code>*.khachvip.online</code> (trừ
 api2/app2/www2/diemthuong2) — kiểm tra 502/503/504.</li>
 </ul>
-<h3 id="65-cache-behavior">6.5 Cache behavior</h3>
+<h3 id="cache-behavior">6.5 Cache behavior</h3>
 <ul>
 <li>KhachLink runtime cache config trong <code>localStorage</code> (key
 <code>khachlink_instance_config</code>, TTL 5 phút).</li>
@@ -1015,8 +1259,13 @@ localStorage</strong> hoặc đợi 5 phút để thấy thay đổi.</li>
 reload.</li>
 </ul>
 <hr />
-<h2 id="7-troubleshooting">7. Troubleshooting</h2>
+<h2 id="troubleshooting">7. Troubleshooting</h2>
 <table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
 <thead>
 <tr>
 <th>Triệu chứng</th>
@@ -1069,15 +1318,46 @@ reload.</li>
 <code>ApplyMultiTenancyFilters</code></td>
 </tr>
 <tr>
-<td><code>relation &quot;__EFMigrationsHistory&quot; does not exist</code></td>
+<td><code>relation "__EFMigrationsHistory" does not exist</code></td>
 <td>Query migration history sai case (Pattern #9)</td>
 <td>Dùng quoted PascalCase:
-<code>SELECT &quot;MigrationId&quot; FROM &quot;__EFMigrationsHistory&quot;</code></td>
+<code>SELECT "MigrationId" FROM "__EFMigrationsHistory"</code></td>
+</tr>
+<tr>
+<td><strong>CORS error</strong> trên domain mới
+(<code>Access-Control-Allow-Origin</code> missing)</td>
+<td>Domain chưa vào CORS allowlist (cache 5 min chưa refresh)</td>
+<td>Đợi ≤ 5 phút, hoặc verify <code>IsActive=true</code> +
+<code>CustomDomain</code> canonicalize đúng. <strong>KHÔNG thêm env var
+<code>Cors__AllowedOrigins__*</code></strong> — đã deprecated (xem
+§1.5)</td>
+</tr>
+<tr>
+<td><strong>CORS error</strong> trên domain đã có trong registry</td>
+<td><code>IsActive=false</code> (deactivated) hoặc
+<code>CustomDomain</code> sai format</td>
+<td>Admin UI → kiểm tra IsActive + CustomDomain (phải là hostname thuần,
+không scheme/path/port)</td>
+</tr>
+<tr>
+<td><strong>CORS error</strong> trên static domain
+(<code>api2</code>/<code>app2</code>/<code>www2</code>/<code>diemthuong2</code>)</td>
+<td><code>Cors:StaticOrigins</code> trong
+<code>appsettings.Production.json</code> bị sửa/xóa</td>
+<td>Kiểm <code>2_Gateway/appsettings.Production.json</code> →
+<code>Cors:StaticOrigins</code> array</td>
+</tr>
+<tr>
+<td><strong>Gateway không start</strong> (PG down)</td>
+<td>(Không xảy ra) — static origins từ appsettings, dynamic cache
+pre-warm fail gracefully</td>
+<td>Gateway start được ngay cả khi PG down; dynamic origins sẽ pick up
+khi PG lên</td>
 </tr>
 </tbody>
 </table>
 <hr />
-<h2 id="8-quy-tắc-tuân-thủ-compliance">8. Quy tắc tuân thủ
+<h2 id="quy-tắc-tuân-thủ-compliance">8. Quy tắc tuân thủ
 (compliance)</h2>
 <ul>
 <li><strong>Domain integrity:</strong> <code>KhachLinkInstance</code>
@@ -1101,10 +1381,22 @@ touch.</li>
 forward content, strip charset từ <code>Request.ContentType</code> trước
 khi pass cho
 <code>StringContent</code>/<code>MediaTypeHeaderValue</code>.</li>
+<li><strong>Dynamic CORS (R1.1):</strong> CORS allowlist động từ
+<code>KhachLinkInstance.CustomDomain</code> (registry) +
+<code>Cors:StaticOrigins</code> (appsettings). <strong>KHÔNG thêm env
+var <code>Cors__AllowedOrigins__*</code></strong> — đã xóa khỏi
+docker-compose. <code>CanonicalizeDomain()</code> validate hostname ở
+Domain constructor. <code>AllowCredentials()</code> KHÔNG dùng (JWT
+Bearer, không cookie). Cache TTL 5 phút — CORS không phải security
+boundary.</li>
 </ul>
 <hr />
-<h2 id="9-tham-khảo">9. Tham khảo</h2>
+<h2 id="tham-khảo">9. Tham khảo</h2>
 <table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
 <thead>
 <tr>
 <th>Tài liệu</th>
@@ -1125,9 +1417,22 @@ khi pass cho
 <td><code>docs/AI/tasks/khachlink_multi_profile/sprint{1-9}_*.md</code></td>
 </tr>
 <tr>
+<td><strong>Dynamic CORS master plan</strong></td>
+<td><code>docs/AI/tasks/dynamic_cors/master_plan.md</code></td>
+</tr>
+<tr>
+<td><strong>Dynamic CORS Sprint 1 task card</strong></td>
+<td><code>docs/AI/tasks/dynamic_cors/sprint1_dynamic_cors_task_card.md</code></td>
+</tr>
+<tr>
+<td><strong>Dynamic CORS PR</strong></td>
+<td>https://github.com/anlebao/Gemini_Windsurf/pull/133 (squash
+<code>d9545d5e</code>)</td>
+</tr>
+<tr>
 <td>Multi-VPS Deployment Guide</td>
 <td><code>docs/operations/Multi_VPS_Deployment_Guide.md</code> (§6 —
-&quot;Thêm KhachLinkInstance mới&quot;)</td>
+“Thêm KhachLinkInstance mới”)</td>
 </tr>
 <tr>
 <td>ShopInstance Capacity Handbook</td>
