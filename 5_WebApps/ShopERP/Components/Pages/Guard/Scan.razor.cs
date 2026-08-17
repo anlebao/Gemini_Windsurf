@@ -78,6 +78,10 @@ namespace VanAn.ShopERP.Components.Pages.Guard
                     await JS.InvokeVoidAsync("vananGuardCamera.loadPhotoConfig", publicUrl);
                 }
 
+                // #130-fix: Preload Tesseract OCR worker on page load (not lazy on first capture).
+                // Eliminates ~3s delay on first plate recognition. Fire-and-forget — don't block UI.
+                _ = JS.InvokeVoidAsync("vananGuardCamera.preloadOcrWorker");
+
                 // #126-fix2: Restore plate number from sessionStorage (photos restored by JS on DOMContentLoaded).
                 var savedPlateNumber = await JS.InvokeAsync<string?>("vananGuardCamera.loadState", "plateNumber");
                 if (!string.IsNullOrEmpty(savedPlateNumber))
@@ -154,11 +158,7 @@ namespace VanAn.ShopERP.Components.Pages.Guard
                     errorMessage = "Chưa chụp ảnh biển số. Hãy mở camera và chụp trước.";
                     return;
                 }
-                if (!hasCustomer)
-                {
-                    errorMessage = "Chưa chụp ảnh khách. Hãy mở camera và chụp trước.";
-                    return;
-                }
+                // #130: Ảnh khách là TÙY CHỌN — chỉ biển số mới bắt buộc.
 
                 // 1. Get JWT + Gateway base URL for direct browser→Gateway fetch.
                 // #130: JS sends photo to Gateway /api/guard/upload-photo via HTTP fetch.
@@ -194,12 +194,18 @@ namespace VanAn.ShopERP.Components.Pages.Guard
                     errorMessage = $"Upload ảnh biển số thất bại: {plateResult.Error}";
                     return;
                 }
-                var customerResult = await JS.InvokeAsync<UploadResult>("vananGuardCamera.uploadCapturedPhoto", "customer", jwtToken, gatewayBaseUrl);
-                if (!customerResult.Success)
+                // #130: Ảnh khách tùy chọn — chỉ upload nếu đã chụp.
+                string? customerPhotoKey = null;
+                if (hasCustomer)
                 {
-                    Logger.LogWarning("Customer photo upload failed: {Error}", customerResult.Error);
-                    errorMessage = $"Upload ảnh khách thất bại: {customerResult.Error}";
-                    return;
+                    var customerResult = await JS.InvokeAsync<UploadResult>("vananGuardCamera.uploadCapturedPhoto", "customer", jwtToken, gatewayBaseUrl);
+                    if (!customerResult.Success)
+                    {
+                        Logger.LogWarning("Customer photo upload failed: {Error}", customerResult.Error);
+                        errorMessage = $"Upload ảnh khách thất bại: {customerResult.Error}";
+                        return;
+                    }
+                    customerPhotoKey = customerResult.Key;
                 }
 
                 // 3. Issue QR session with uploaded photo keys
@@ -210,7 +216,7 @@ namespace VanAn.ShopERP.Components.Pages.Guard
                     {
                         PlateNumber = plateNumber.Trim(),
                         PlatePhotoKey = plateResult.Key,
-                        CustomerPhotoKey = customerResult.Key,
+                        CustomerPhotoKey = customerPhotoKey,
                         CustomerPhone = string.IsNullOrWhiteSpace(customerPhone) ? null : customerPhone.Trim()
                     }, cts.Token);
                 }
