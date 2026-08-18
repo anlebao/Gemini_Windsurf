@@ -40,6 +40,12 @@ namespace VanAn.CoreHub.Services
         /// </summary>
         byte[] GenerateProductQRCode(Guid productId, Guid shopId, string? tableNumber,
             decimal unitPrice, decimal vatRate, string? productName, Guid tenantId, string? imageUrl);
+
+        /// <summary>
+        /// R-GUARD-QR: Generate guard vehicle session QR code — same quality as product QR.
+        /// Server-side QRCoder with ECC level Q for reliable scanning by KhachLink + external scanners.
+        /// </summary>
+        byte[] GenerateGuardQrCode(string qrPayloadJson, string? khachLinkBaseUrl = null);
     }
 
     public class QrCodeService : IQrCodeService
@@ -103,6 +109,28 @@ namespace VanAn.CoreHub.Services
             // Issue 9: Use URL format so external scanners (Zalo) can open the link
             // #112: Use configurable KhachLink base URL (ExternalUrls:KhachLink) instead of hardcoded domain
             var qrContent = qrPayload.ToQrContent(_khachLinkBaseUrl);
+
+            using (QRCodeGenerator qrGenerator = new QRCodeGenerator())
+            {
+                QRCoder.QRCodeData qrCodeData = qrGenerator.CreateQrCode(qrContent, QRCodeGenerator.ECCLevel.Q);
+                using (PngByteQRCode qrCode = new PngByteQRCode(qrCodeData))
+                {
+                    return qrCode.GetGraphic(20);
+                }
+            }
+        }
+
+        /// <summary>
+        /// R-GUARD-QR: Generate guard vehicle session QR code — same quality as product QR.
+        /// Uses QRCoder with ECC level Q (25% error correction) for reliable scanning.
+        /// Payload is URL format: {baseUrl}/qr/claim?data={base64(json)}
+        /// so external scanners (Zalo, KhachLink) can open it as a deep link.
+        /// </summary>
+        public byte[] GenerateGuardQrCode(string qrPayloadJson, string? khachLinkBaseUrl = null)
+        {
+            var baseUrl = khachLinkBaseUrl ?? _khachLinkBaseUrl;
+            var base64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(qrPayloadJson));
+            var qrContent = $"{baseUrl.TrimEnd('/')}/qr/claim?data={base64}";
 
             using (QRCodeGenerator qrGenerator = new QRCodeGenerator())
             {

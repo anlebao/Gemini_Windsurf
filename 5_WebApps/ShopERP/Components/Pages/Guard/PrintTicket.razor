@@ -10,6 +10,8 @@
 @inject ILogger<PrintTicket> Logger
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
+@inject VanAn.CoreHub.Services.IQrCodeService QrCodeService
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 
 @* #126 Sprint 5: Print-optimized guard ticket — 58mm thermal printer layout.
    Opens in new tab from Guard Scanner "In vé" button (forceLoad: true).
@@ -62,10 +64,12 @@
 
             <div class="ticket-divider">━━━━━━━━━━━━━━━━━━</div>
 
-            @* QR code — rendered to canvas then converted to img for print *@
+            @* QR code — server-side QRCoder (ECC level Q, same quality as product QR) *@
             <div class="ticket-qr-box">
-                <canvas id="ticket-qr-canvas" width="200" height="200"></canvas>
-                <img id="ticket-qr-img" alt="QR" style="display:none; width:200px; height:200px;" />
+                @if (!string.IsNullOrEmpty(qrImageBase64))
+                {
+                    <img src="@qrImageBase64" alt="QR" style="width:200px; height:200px;" />
+                }
             </div>
 
             <div class="ticket-divider">━━━━━━━━━━━━━━━━━━</div>
@@ -91,7 +95,7 @@
     private SessionDetailResultDto? session;
     private string? tenantName;
     private bool loading = true;
-    private string? qrPayloadForJs;
+    private string qrImageBase64 = string.Empty;
     private string? lastLoadError; // #130-fix2 (Bug 3): diagnostic for fresh-circuit auth race
 
     protected override async Task OnInitializedAsync()
@@ -141,12 +145,21 @@
     {
         if (firstRender && session != null)
         {
-            // Generate QR code on canvas using vendored qrcode.js (no CDN).
-            // #130-fix: Use {sc, sid} payload format. GuardService.VerifyAsync now has
-            // a fallback that parses this format and looks up by sessionId — so the
-            // printed ticket QR is scannable by the guard's verify flow.
-            var qrContent = $"{{\"sc\":\"{session.ShortCode}\",\"sid\":\"{session.SessionId}\"}}";
-            await JSRuntime.InvokeVoidAsync("vananGuardCamera.generateQrToCanvas", "ticket-qr-canvas", qrContent, 200);
+            // R-GUARD-QR: Generate QR server-side with QRCoder (ECC level Q — same as product QR).
+            // Previous client-side qrcode.js used ECC level M (15%) — too low for reliable scanning.
+            // Payload: URL format {baseUrl}/qr/claim?data={base64(json)} so external scanners work.
+            var khachLinkUrl = Configuration.GetValue<string>("ExternalUrls:KhachLink") ?? "https://app2.khachvip.online";
+            var qrPayloadJson = $"{{\"sc\":\"{session.ShortCode}\",\"sid\":\"{session.SessionId}\"}}";
+            try
+            {
+                var qrPngBytes = QrCodeService.GenerateGuardQrCode(qrPayloadJson, khachLinkUrl);
+                qrImageBase64 = $"data:image/png;base64,{Convert.ToBase64String(qrPngBytes)}";
+            }
+            catch (Exception qrEx)
+            {
+                Logger.LogError(qrEx, "Server-side QR generation failed for print ticket");
+            }
+            StateHasChanged();
             // Auto-trigger print dialog on page load
             await PrintAsync();
         }
