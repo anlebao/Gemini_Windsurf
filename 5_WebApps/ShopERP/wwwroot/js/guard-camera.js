@@ -659,9 +659,10 @@ window.vananGuardCamera = {
             if (!dataUrl) return '';
             const worker = await this.preloadOcrWorker();
             const canvas = await this._preprocessForOcr(dataUrl);
-            // R-OCR-5: Expanded PSM list for edge cases (góc nghiêng, biển ngắn, biển điện).
-            const psmModes = ['7', '6', '8', '13', '4'];
-            const minConfidence = 60;
+            // R-OCR-fix3: PSM 7 (single line) is best for plates — try first, then 6 (uniform block).
+            // Removed 8/13/4 — they produce garbage on full-image OCR (reading background text).
+            const psmModes = ['7', '6'];
+            const minConfidence = 70;  // Raised from 60 — filter more noise
             let bestPlate = '';
             let bestScore = -1;
             const telemetry = { psms: [], bestConfidence: 0, bestPsm: null };
@@ -674,6 +675,8 @@ window.vananGuardCamera = {
                     const confidence = data.confidence || 0;
                     const score = this._scorePlate(plate);
                     telemetry.psms.push({ psm, raw: raw.substring(0, 40), plate, confidence: Math.round(confidence), score });
+                    // R-OCR-fix3: Skip if score < 0 (garbage — too long or no letters/digits)
+                    if (score < 0) continue;
                     // R-OCR-5: Filter low-confidence results — if confidence < minConfidence, skip
                     // (unless score is high — format match can override low confidence).
                     if (confidence < minConfidence && score < 8) continue;
@@ -698,17 +701,21 @@ window.vananGuardCamera = {
     },
 
     /** Score a plate string: higher = more plate-like. Must have both letters and digits,
-     *  length 5-12, and not be all one type. */
+     *  length 5-12, and not be all one type.
+     *  R-OCR-fix3 (2026-08-18): Strict length filter — reject >12 chars (garbage from full-image OCR).
+     *  VN plates: 51F-12345 (8), 59P1-67890 (10), 51F-123.45 (10) — max ~12 chars. */
     _scorePlate(s) {
         if (!s || s.length < 4) return -1;
+        // R-OCR-fix3: Hard reject too long — Tesseract reading background noise.
+        if (s.length > 12) return -1;
         const digits = (s.match(/[0-9]/g) || []).length;
-        const letters = (s.match(/[A-Z]/g) || []).length;
+        const letters = (s.match(/[A-ZĐ]/g) || []).length;
         if (digits === 0 || letters === 0) return -1; // Need both.
         // Prefer length 6-9 (typical VN plate after normalization).
         let score = digits + letters;
         if (s.length >= 6 && s.length <= 9) score += 5;
-        // Penalize too long (likely garbage).
-        if (s.length > 12) score -= 10;
+        // R-OCR-fix3: Bonus for VN plate format match (digits-letters-digits pattern).
+        if (/^\d{2}[A-ZĐ]{1,2}-?\d{3,5}$/.test(s)) score += 10;
         return score;
     },
 
