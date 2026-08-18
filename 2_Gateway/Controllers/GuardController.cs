@@ -52,6 +52,34 @@ namespace VanAn.Gateway.Controllers
             return StatusCode(503, new { error = "Guard QR Verify feature is disabled." });
         }
 
+        /// <summary>
+        /// #130-fix3 (2026-08-18, Bug 1): Extract JSON payload from URL format.
+        /// QR codes now wrap JSON in URL: https://app.khachvip.online/qr/claim?data={base64(json)}
+        /// This method extracts the JSON from the URL so hash matching works correctly.
+        /// Returns the original payload if it's not a URL (backward compat with raw JSON).
+        /// </summary>
+        private static string ExtractPayload(string payload)
+        {
+            if (string.IsNullOrWhiteSpace(payload)) return payload;
+            if (!payload.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return payload;
+            try
+            {
+                var uri = new Uri(payload);
+                var query = uri.Query.TrimStart('?');
+                foreach (var pair in query.Split('&'))
+                {
+                    var eq = pair.IndexOf('=');
+                    if (eq > 0 && pair[..eq] == "data")
+                    {
+                        var base64 = Uri.UnescapeDataString(pair[(eq + 1)..]);
+                        return System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(base64));
+                    }
+                }
+            }
+            catch { }
+            return payload;
+        }
+
         // === Guard endpoints (require Guard role) ===
 
         /// <summary>#130: Get photo compression config (anonymous — only returns 3 numbers).
@@ -169,7 +197,9 @@ namespace VanAn.Gateway.Controllers
 
             try
             {
-                var result = await _guardService.VerifyAsync(tenantId, guardId, request.QrPayload);
+                // #130-fix3: Extract JSON from URL wrapper if needed (Zalo/external scanner compat)
+                var payload = ExtractPayload(request.QrPayload);
+                var result = await _guardService.VerifyAsync(tenantId, guardId, payload);
                 return Ok(result);
             }
             catch (KeyNotFoundException)
@@ -322,10 +352,15 @@ namespace VanAn.Gateway.Controllers
                 return BadRequest(new { error = "Either QR payload or short code is required." });
 
             // Extract tenantId from QR payload (JSON {"t":"...","tn":"<tenantId>"})
+            // #130-fix3: Extract JSON from URL wrapper if needed (Zalo/external scanner compat)
             Guid tenantId = Guid.Empty;
             if (!string.IsNullOrWhiteSpace(request!.QrPayload))
             {
-                tenantId = ExtractTenantIdFromPayload(request.QrPayload);
+                var extractedPayload = ExtractPayload(request.QrPayload);
+                tenantId = ExtractTenantIdFromPayload(extractedPayload);
+                // Use extracted payload for downstream lookup (hash matching)
+                if (extractedPayload != request.QrPayload)
+                    request = request with { QrPayload = extractedPayload };
 
                 // #130-fix2 (2026-08-18): {sc,sid} payload (PrintTicket format) has no "tn" field.
                 // Previous code rejected here → service fallback TryLookupByAlternativePayloadAsync

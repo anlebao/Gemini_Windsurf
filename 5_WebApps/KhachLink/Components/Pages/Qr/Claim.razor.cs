@@ -25,6 +25,34 @@ public partial class Claim : ComponentBase
             _customerToken = await JS.InvokeAsync<string?>("localStorage.getItem", "customer_token");
             _isLoggedIn = !string.IsNullOrEmpty(_customerToken);
             StateHasChanged();
+
+            // #130-fix3 (2026-08-18, Bug 1): Handle deep link from QR URL.
+            // When customer scans QR with Zalo → opens /qr/claim?data={base64(json)} → auto-claim.
+            var uri = Nav.ToAbsoluteUri(Nav.Uri);
+            var query = uri.Query.TrimStart('?');
+            string? dataParam = null;
+            foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var eq = pair.IndexOf('=');
+                if (eq > 0 && pair[..eq] == "data")
+                {
+                    dataParam = Uri.UnescapeDataString(pair[(eq + 1)..]);
+                    break;
+                }
+            }
+            if (!string.IsNullOrEmpty(dataParam))
+            {
+                try
+                {
+                    var jsonPayload = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(dataParam));
+                    await DoClaimAsync(jsonPayload, null);
+                }
+                catch (Exception ex)
+                {
+                    _error = $"Mã QR không hợp lệ: {ex.Message}";
+                    StateHasChanged();
+                }
+            }
         }
     }
 
@@ -54,7 +82,14 @@ public partial class Claim : ComponentBase
 
     private async Task DoClaimAsync(string? qrPayload, string? shortCode)
     {
-        if (string.IsNullOrEmpty(_customerToken)) return;
+        // #130-fix3 (2026-08-18, Bug 1): Show error instead of silent return when not logged in.
+        // Previous code: `if (string.IsNullOrEmpty(_customerToken)) return;` → silent return → "no reaction".
+        if (string.IsNullOrEmpty(_customerToken))
+        {
+            _error = "Vui lòng đăng nhập để nhận QR gửi xe.";
+            StateHasChanged();
+            return;
+        }
         _claiming = true;
         _error = string.Empty;
         _success = string.Empty;

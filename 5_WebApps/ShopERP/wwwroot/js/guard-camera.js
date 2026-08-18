@@ -627,17 +627,23 @@ window.vananGuardCamera = {
     async preloadOcrWorker() {
         if (this._ocrWorkerPromise) return this._ocrWorkerPromise;
         this._ocrWorkerPromise = (async () => {
-            await this._ensureOcrLibrary();
-            const whitelist = '0123456789ABCDEFGHKLMNPRSTUVXYZĐ-';
-            const worker = await Tesseract.createWorker('eng', 1, {
-                workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
-                corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5',
-                // #130-fix: Official Tesseract.js lang-data host (jsdelivr /lang-data path 404s).
-                langPath: 'https://tessdata.projectnaptha.com/4.0.0',
-                logger: () => {}
-            });
-            await worker.setParameters({ tessedit_char_whitelist: whitelist });
-            return worker;
+            try {
+                await this._ensureOcrLibrary();
+                const whitelist = '0123456789ABCDEFGHKLMNPRSTUVXYZĐ-';
+                const worker = await Tesseract.createWorker('eng', 1, {
+                    workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
+                    corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5',
+                    langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+                    logger: () => {}
+                });
+                await worker.setParameters({ tessedit_char_whitelist: whitelist });
+                console.log('[OCR] Tesseract worker preloaded successfully');
+                return worker;
+            } catch (err) {
+                console.error('[OCR] Failed to preload Tesseract worker:', err);
+                this._ocrWorkerPromise = null; // Reset so retry is possible
+                throw err;
+            }
         })();
         return this._ocrWorkerPromise;
     },
@@ -706,11 +712,10 @@ window.vananGuardCamera = {
         return score;
     },
 
-    /** Load image from data URL, upscale 1.5x + grayscale to improve OCR accuracy. Returns canvas.
-     *  #130-fix: Reduced from 2x→1.5x — faster preprocessing, accuracy still sufficient for plates.
-     *  R-OCR-2-revert (2026-08-18): Otsu binarization broke OCR on real photos (too aggressive —
-     *  lost gradient info Tesseract needs for segmentation). Reverted to grayscale-only.
-     *  Kept contrast(1.3) boost — mild improvement, no regression. */
+    /** Load image from data URL, upscale 2x for OCR. Returns canvas.
+     *  R-OCR-fix3 (2026-08-18): Simplified preprocessing — just upscale 2x, no filters.
+     *  Previous contrast(1.3) + grayscale may have degraded Tesseract accuracy on some plates.
+     *  Tesseract.js v5 has its own internal binarization — let it handle preprocessing. */
     async _preprocessForOcr(dataUrl) {
         const img = await new Promise((resolve, reject) => {
             const i = new Image();
@@ -718,23 +723,12 @@ window.vananGuardCamera = {
             i.onerror = reject;
             i.src = dataUrl;
         });
-        const scale = 1.5;
+        const scale = 2;
         const canvas = document.createElement('canvas');
         canvas.width = img.width * scale;
         canvas.height = img.height * scale;
         const ctx = canvas.getContext('2d');
-        // R-OCR-2: Mild contrast boost — helps separate plate text from background.
-        ctx.filter = 'contrast(1.3)';
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        ctx.filter = 'none';
-        // Grayscale conversion — improves Tesseract binarization on plate photos.
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const d = imgData.data;
-        for (let i = 0; i < d.length; i += 4) {
-            const gray = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114);
-            d[i] = d[i + 1] = d[i + 2] = gray;
-        }
-        ctx.putImageData(imgData, 0, 0);
         return canvas;
     },
 
