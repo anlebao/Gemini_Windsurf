@@ -23,7 +23,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.GuardScanLogs
-                    .Where(l => l.VehicleSessionId == sessionId && l.TenantId.Value == tenantId)
+                    .Where(l => l.VehicleSessionId == sessionId && l.TenantId == new TenantId(tenantId))
                     .OrderByDescending(l => l.ScannedAt)
                     .ToListAsync(ct);
             }

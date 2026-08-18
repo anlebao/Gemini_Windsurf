@@ -33,7 +33,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.VehicleSessions
-                    .FirstOrDefaultAsync(s => s.Id == id && s.TenantId.Value == tenantId, ct);
+                    .FirstOrDefaultAsync(s => s.Id == id && s.TenantId == new TenantId(tenantId), ct);
             }
             catch (Exception ex)
             {
@@ -66,7 +66,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.VehicleSessions
-                    .FirstOrDefaultAsync(s => s.QrTokenHash == qrTokenHash && s.TenantId.Value == tenantId, ct);
+                    .FirstOrDefaultAsync(s => s.QrTokenHash == qrTokenHash && s.TenantId == new TenantId(tenantId), ct);
             }
             catch (Exception ex)
             {
@@ -81,7 +81,7 @@ namespace VanAn.CoreHub.Repositories
             {
                 var (startUtc, endUtc) = GetVietnamTodayRange();
                 return await _context.VehicleSessions
-                    .Where(s => s.ShortCode == shortCode && s.TenantId.Value == tenantId && s.IssuedAt >= startUtc && s.IssuedAt < endUtc)
+                    .Where(s => s.ShortCode == shortCode && s.TenantId == new TenantId(tenantId) && s.IssuedAt >= startUtc && s.IssuedAt < endUtc)
                     .OrderByDescending(s => s.IssuedAt)
                     .FirstOrDefaultAsync(ct);
             }
@@ -98,7 +98,7 @@ namespace VanAn.CoreHub.Repositories
             {
                 var (startUtc, endUtc) = GetVietnamTodayRange();
                 var query = _context.VehicleSessions
-                    .Where(s => s.TenantId.Value == tenantId && s.IssuedAt >= startUtc && s.IssuedAt < endUtc);
+                    .Where(s => s.TenantId == new TenantId(tenantId) && s.IssuedAt >= startUtc && s.IssuedAt < endUtc);
 
                 if (status.HasValue)
                     query = query.Where(s => s.Status == status.Value);
@@ -125,7 +125,7 @@ namespace VanAn.CoreHub.Repositories
             {
                 var (startUtc, endUtc) = GetVietnamTodayRange();
                 var sessions = await _context.VehicleSessions
-                    .Where(s => s.TenantId.Value == tenantId && s.IssuedAt >= startUtc && s.IssuedAt < endUtc)
+                    .Where(s => s.TenantId == new TenantId(tenantId) && s.IssuedAt >= startUtc && s.IssuedAt < endUtc)
                     .ToListAsync(ct);
 
                 var checkInCount = sessions.Count;
@@ -146,7 +146,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.VehicleSessions
-                    .Where(s => s.CustomerId == customerId && s.TenantId.Value == tenantId
+                    .Where(s => s.CustomerId == customerId && s.TenantId == new TenantId(tenantId)
                         && s.Status == VehicleSessionStatus.Claimed)
                     .OrderByDescending(s => s.ClaimedAt)
                     .ToListAsync(ct);
