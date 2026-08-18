@@ -15,6 +15,20 @@ const _cameraActive = { plate: false, customer: false };
 // Default values used until config is fetched (loadPhotoConfig).
 const _photoConfig = { maxDimension: 1024, jpegQuality: 0.7, maxSizeKB: 100 };
 
+// === R-SCANNER (2026-08-18): Live License Plate Scanner state ===
+// Replaces capture-then-OCR flow with: Camera live → ROI crop → Preprocess → OCR → Vote → Auto-confirm
+let _scanLoopActive = false;
+let _scanLoopId = null;
+let _scanStartTime = 0;
+let _voteBuffer = []; // [{plate, confidence, timestamp}]
+const _voteConfig = {
+    maxBufferSize: 10,
+    minVotes: 3,           // Need at least 3 matching results to accept
+    minAvgConfidence: 70,  // With avg confidence >= 70
+    timeoutMs: 15000,      // Show fallback hint after 15s with no stable result
+    frameIntervalMs: 100   // Delay between frames (Tesseract takes ~500ms-2s per frame)
+};
+
 window.vananGuardCamera = {
     // === #126-fix: Circuit keep-alive — ping Blazor every 15s to prevent idle disconnect ===
     // #130-fix: invokeMethodAsync can throw SYNCHRONOUSLY when SignalR connection is in
@@ -196,8 +210,14 @@ window.vananGuardCamera = {
     // Camera + capture + preview + OCR all happen in JS without involving Blazor.
     // Blazor only reads the captured photo via getCapturedPhoto() when user clicks "Tạo QR".
 
-    /** Open camera for a slot ('plate' or 'customer'). Pure JS — no Blazor call. */
+    /** Open camera for a slot ('plate' or 'customer'). Pure JS — no Blazor call.
+     *  R-SCANNER: For 'plate' slot, starts live scanning (guide box + continuous OCR).
+     *  For 'customer' slot, simple camera preview for photo capture. */
     async openCamera(slot) {
+        if (slot === 'plate') {
+            // Plate slot → start live scanner (camera + guide box + continuous OCR)
+            return this.startLiveScan();
+        }
         const videoId = slot === 'plate' ? 'plateVideo' : 'customerVideo';
         const facing = slot === 'plate' ? 'environment' : 'user';
         const ok = await this.startCamera(videoId, facing);
@@ -210,11 +230,10 @@ window.vananGuardCamera = {
         return ok;
     },
 
-    /** Capture photo for a slot. Pure JS — stores in _capturedPhotos, renders preview, stops camera.
-     *  R-OCR-4 (2026-08-18): Store RAW high-quality capture (quality 0.95, no resize).
-     *  Compression happens only at upload time (uploadCapturedPhoto) to preserve OCR detail.
-     *  Previous code compressed at capture → double JPEG artifact → OCR accuracy loss.
-     *  Note: sessionStorage has ~5MB limit — raw 1920x1080 JPEG ~300-500KB, fits for 2 photos. */
+    /** Capture photo for a slot. Pure JS — stores in _capturedPhotos, renders preview.
+     *  R-SCANNER: For plate slot during live scan — captures photo WITHOUT stopping scanner.
+     *  Scanner continues running so guard can capture a good photo while OCR runs.
+     *  For customer slot — captures and stops camera as before. */
     async captureAndStore(slot) {
         const videoId = slot === 'plate' ? 'plateVideo' : 'customerVideo';
         const rawUrl = await this.capturePhoto(videoId);
@@ -222,35 +241,47 @@ window.vananGuardCamera = {
             this._showError('Chụp ảnh thất bại. Đảm bảo camera đã mở và có hình.');
             return false;
         }
-        // R-OCR-4: Store raw capture — no compression here. OCR runs on raw for max detail.
-        // Upload path (uploadCapturedPhoto) compresses on-the-fly before sending to Gateway.
         _capturedPhotos[slot] = rawUrl;
+        // R-SCANNER: For plate slot during live scan — don't stop camera, just store photo.
+        // Scanner continues. Camera stops when plate is accepted or user stops scan.
+        if (slot === 'plate' && _scanLoopActive) {
+            // Render preview but keep camera running for scanner
+            this._renderPreview(slot, rawUrl);
+            this.saveState(slot + 'Photo', rawUrl);
+            // Don't stop camera, don't update UI — scanner is still running
+            return true;
+        }
+        // Normal flow (customer slot, or plate without scanner) — stop camera
         this.stopCamera();
         _cameraActive[slot] = false;
-        // Render preview image directly in DOM — no Blazor re-render needed.
         this._renderPreview(slot, rawUrl);
         this._updateCameraUI(slot, false);
-        // Show "Nhận diện" button for plate slot.
-        if (slot === 'plate') {
-            const ocrBtn = document.getElementById('ocrButton');
-            if (ocrBtn) ocrBtn.style.display = '';
-        }
         // Persist to sessionStorage (survives reload).
         this.saveState(slot + 'Photo', rawUrl);
         return true;
     },
 
-    /** Cancel camera for a slot (user clicked Hủy). Pure JS. */
+    /** Cancel camera for a slot (user clicked Hủy/Dừng). Pure JS.
+     *  R-SCANNER: For plate slot — stops live scanner. */
     cancelCamera(slot) {
+        if (slot === 'plate' && _scanLoopActive) {
+            this.stopLiveScan();
+            return;
+        }
         this.stopCamera();
         _cameraActive[slot] = false;
         this._updateCameraUI(slot, false);
     },
 
-    /** Retake photo for a slot (user clicked Chụp lại). Clears stored photo, removes preview,
+    /** Retake photo for a slot (user clicked Chụp lại/Quét lại). Clears stored photo, removes preview,
      *  shows video + open button, hides capture/cancel/retake/ocr. Pure JS.
+     *  R-SCANNER: For plate slot — stops any active scanner, clears plate input, restarts live scan.
      *  #130-fix: video is now hidden (not removed) by _renderPreview, so it's still in DOM. */
     retakePhoto(slot) {
+        // Stop any active scanner first
+        if (slot === 'plate' && _scanLoopActive) {
+            this.stopLiveScan();
+        }
         _capturedPhotos[slot] = null;
         try { sessionStorage.removeItem('vanan_guard_' + slot + 'Photo'); } catch (e) {}
         // Remove preview img, show video again.
@@ -261,7 +292,7 @@ window.vananGuardCamera = {
             const video = box.querySelector('video');
             if (video) video.style.display = '';
         }
-        // Hide OCR button + hints if plate slot.
+        // Hide OCR button + hints + scan status if plate slot.
         if (slot === 'plate') {
             const ocrBtn = document.getElementById('ocrButton');
             if (ocrBtn) ocrBtn.style.display = 'none';
@@ -269,9 +300,16 @@ window.vananGuardCamera = {
             if (ocrHint) { ocrHint.textContent = ''; ocrHint.style.display = 'none'; }
             const ocrStatus = document.getElementById('ocrStatus');
             if (ocrStatus) ocrStatus.style.display = 'none';
+            // Clear plate input
+            const plateInput = document.getElementById('plateInput');
+            if (plateInput) plateInput.value = '';
+            try { sessionStorage.removeItem('vanan_guard_plateNumber'); } catch (e) {}
+            // Hide manual entry button
+            const manualBtn = document.getElementById('plateManualBtn');
+            if (manualBtn) manualBtn.style.display = 'none';
         }
         this._updateCameraUI(slot, false);
-        // Auto-reopen camera for convenience.
+        // Auto-reopen camera / restart scanner for convenience.
         this.openCamera(slot);
     },
 
@@ -416,8 +454,13 @@ window.vananGuardCamera = {
     },
 
     /** Reset DOM preview for both slots — remove <img>, show <video>, reset buttons. Pure JS.
+     *  R-SCANNER: Also stops live scanner if active, clears scan status + manual entry button.
      *  #130-fix: video is hidden (not removed) by _renderPreview, so just show it again. */
     _clearDOMPreview() {
+        // Stop scanner if active
+        if (_scanLoopActive) {
+            this.stopLiveScan();
+        }
         ['plate', 'customer'].forEach(slot => {
             _capturedPhotos[slot] = null;
             const box = document.querySelector(`[data-photo-slot="${slot}"]`);
@@ -440,6 +483,11 @@ window.vananGuardCamera = {
             ocrHint.textContent = '';
             ocrHint.style.display = 'none';
         }
+        // Clear scan status + manual entry button.
+        const scanStatus = document.getElementById('plateScanStatus');
+        if (scanStatus) { scanStatus.textContent = ''; scanStatus.style.display = 'none'; }
+        const manualBtn = document.getElementById('plateManualBtn');
+        if (manualBtn) manualBtn.style.display = 'none';
         // Clear plate input.
         const plateInput = document.getElementById('plateInput');
         if (plateInput) plateInput.value = '';
@@ -447,9 +495,323 @@ window.vananGuardCamera = {
         if (phoneInput) phoneInput.value = '';
     },
 
-    /** OCR button handler — runs Tesseract.js, sets plate input value. Pure JS.
-     *  R-OCR-6 (2026-08-18): VN plate format validation — warn if not matching VN format
-     *  (does NOT block — guard can override and submit anyway). */
+    /** R-SCANNER: Start live plate scanning — opens camera with guide box, runs continuous OCR.
+     *  Flow: Camera live → crop ROI from guide box → preprocess → OCR → VN normalize → temporal vote → auto-accept.
+     *  Replaces the old capture-then-OCR flow. No need for user to take a photo first. */
+    async startLiveScan() {
+        if (_scanLoopActive) return true; // Already scanning
+        // Start camera directly (not via openCamera — that would be circular)
+        const ok = await this.startCamera('plateVideo', 'environment');
+        if (!ok) {
+            this._showError('Không mở được camera. Kiểm tra quyền truy cập camera.');
+            return false;
+        }
+        _cameraActive['plate'] = true;
+        this._updateCameraUI('plate', true);
+
+        _scanLoopActive = true;
+        _scanStartTime = Date.now();
+        _voteBuffer = [];
+
+        // Show guide box + scan status overlay
+        this._showGuideBox(true);
+        this._updateScanStatus('🔍 Đang tìm biển số... Đưa biển số vào khung.', 'scanning');
+
+        // Preload OCR worker (non-blocking — first frame may wait for it)
+        this.preloadOcrWorker().catch(err => {
+            console.error('[Scanner] OCR worker preload failed:', err);
+            this._updateScanStatus('⚠️ Không tải được thư viện OCR. Nhập biển số thủ công.', 'error');
+        });
+
+        // Start frame sampling loop
+        this._runScanLoop();
+        return true;
+    },
+
+    /** R-SCANNER: Stop live scanning — stops camera, clears guide box, stops loop. */
+    stopLiveScan() {
+        _scanLoopActive = false;
+        if (_scanLoopId) {
+            clearTimeout(_scanLoopId);
+            _scanLoopId = null;
+        }
+        _voteBuffer = [];
+        this._showGuideBox(false);
+        this.stopCamera();
+        _cameraActive['plate'] = false;
+        this._updateCameraUI('plate', false);
+    },
+
+    /** R-SCANNER: Main scan loop — captures frame, crops ROI, OCRs, votes. Sequential (not FPS-based)
+     *  because Tesseract recognize takes ~500ms-2s per frame. Loop continues until auto-accept or stop. */
+    async _runScanLoop() {
+        if (!_scanLoopActive) return;
+
+        // Check timeout — show hint after 15s with no stable result
+        const elapsed = Date.now() - _scanStartTime;
+        if (elapsed > _voteConfig.timeoutMs && _voteBuffer.length < 2) {
+            this._updateScanStatus(
+                '⚠️ Chưa nhìn rõ biển số.\n• Đưa camera gần hơn\n• Giữ điện thoại ổn định\n• Đảm bảo biển số đủ sáng',
+                'warning'
+            );
+            // Show manual entry button
+            const manualBtn = document.getElementById('plateManualBtn');
+            if (manualBtn) manualBtn.style.display = '';
+        }
+
+        try {
+            const video = document.getElementById('plateVideo');
+            if (!video || !video.videoWidth) {
+                _scanLoopId = setTimeout(() => this._runScanLoop(), _voteConfig.frameIntervalMs);
+                return;
+            }
+
+            // Crop ROI from guide box region
+            const roiDataUrl = this._cropRoiFromVideo(video);
+            if (!roiDataUrl) {
+                _scanLoopId = setTimeout(() => this._runScanLoop(), _voteConfig.frameIntervalMs);
+                return;
+            }
+
+            // Preprocess + OCR on ROI only
+            const ocrResult = await this._ocrRoi(roiDataUrl);
+
+            if (ocrResult && ocrResult.plate) {
+                // Add to temporal vote buffer
+                _voteBuffer.push({
+                    plate: ocrResult.plate,
+                    confidence: ocrResult.confidence,
+                    timestamp: Date.now()
+                });
+                if (_voteBuffer.length > _voteConfig.maxBufferSize) {
+                    _voteBuffer.shift();
+                }
+
+                // Update status with latest result
+                this._updateScanStatus(
+                    `Đang quét... ${ocrResult.plate} (${Math.round(ocrResult.confidence)}%)`,
+                    'scanning'
+                );
+
+                // Check temporal voting — auto-accept if stable
+                const voteResult = this._checkTemporalVote();
+                if (voteResult) {
+                    this._onPlateAccepted(voteResult.plate, voteResult.confidence, video);
+                    return; // Stop loop
+                }
+            }
+        } catch (err) {
+            console.error('[Scanner] Frame error:', err);
+        }
+
+        // Continue loop — sequential, wait for next frame
+        _scanLoopId = setTimeout(() => this._runScanLoop(), _voteConfig.frameIntervalMs);
+    },
+
+    /** R-SCANNER: Crop ROI from video based on guide box position.
+     *  Guide box is a CSS overlay on the video — map its display coords to video resolution.
+     *  Returns cropped dataUrl or null. */
+    _cropRoiFromVideo(video) {
+        const guideBox = document.getElementById('plateGuideBox');
+        if (!guideBox || !video.videoWidth) return null;
+
+        const videoRect = video.getBoundingClientRect();
+        const boxRect = guideBox.getBoundingClientRect();
+
+        // Calculate relative position (0-1) of guide box within video
+        const relX = (boxRect.left - videoRect.left) / videoRect.width;
+        const relY = (boxRect.top - videoRect.top) / videoRect.height;
+        const relW = boxRect.width / videoRect.width;
+        const relH = boxRect.height / videoRect.height;
+
+        // Map to actual video resolution
+        const sx = Math.max(0, Math.round(relX * video.videoWidth));
+        const sy = Math.max(0, Math.round(relY * video.videoHeight));
+        const sw = Math.min(video.videoWidth - sx, Math.round(relW * video.videoWidth));
+        const sh = Math.min(video.videoHeight - sy, Math.round(relH * video.videoHeight));
+
+        if (sw < 20 || sh < 10) return null;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = sw;
+        canvas.height = sh;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
+        return canvas.toDataURL('image/jpeg', 0.95);
+    },
+
+    /** R-SCANNER: OCR on ROI — preprocess + Tesseract + VN normalize + validate.
+     *  Returns {plate, confidence} or null. */
+    async _ocrRoi(dataUrl) {
+        const worker = await this.preloadOcrWorker();
+        const canvas = await this._preprocessRoi(dataUrl);
+
+        // PSM 7 (single line) — best for license plates
+        await worker.setParameters({ tessedit_pageseg_mode: '7' });
+        const { data } = await worker.recognize(canvas);
+        const raw = (data.text || '').toUpperCase();
+        const confidence = data.confidence || 0;
+
+        // VN plate normalization + validation
+        const normalized = this._normalizeVnPlate(raw);
+        if (!normalized) return null;
+
+        return { plate: normalized, confidence };
+    },
+
+    /** R-SCANNER: Check temporal voting — returns {plate, confidence} if stable result, null otherwise.
+     *  Requires at least minVotes matching plates with avg confidence >= minAvgConfidence. */
+    _checkTemporalVote() {
+        if (_voteBuffer.length < _voteConfig.minVotes) return null;
+
+        // Count votes per plate (exact match after normalization)
+        const counts = {};
+        let bestPlate = null;
+        let bestCount = 0;
+        let bestConfidenceSum = 0;
+
+        for (const entry of _voteBuffer) {
+            if (!counts[entry.plate]) {
+                counts[entry.plate] = { count: 0, confidenceSum: 0 };
+            }
+            counts[entry.plate].count++;
+            counts[entry.plate].confidenceSum += entry.confidence;
+
+            if (counts[entry.plate].count > bestCount) {
+                bestCount = counts[entry.plate].count;
+                bestPlate = entry.plate;
+                bestConfidenceSum = counts[entry.plate].confidenceSum;
+            }
+        }
+
+        if (bestCount >= _voteConfig.minVotes) {
+            const avgConfidence = bestConfidenceSum / bestCount;
+            if (avgConfidence >= _voteConfig.minAvgConfidence) {
+                return { plate: bestPlate, confidence: avgConfidence };
+            }
+        }
+
+        // Also check near-matches — plates differing by 1 char (OCR confusion)
+        const nearMatch = this._checkNearMatchVotes();
+        if (nearMatch) return nearMatch;
+
+        return null;
+    },
+
+    /** R-SCANNER: Check near-match votes — plates that differ by exactly 1 character.
+     *  Groups plates by "stem" (all chars except one) and counts votes per stem.
+     *  If a stem group has enough votes, pick the variant with highest confidence. */
+    _checkNearMatchVotes() {
+        if (_voteBuffer.length < _voteConfig.minVotes) return null;
+
+        // Group by stem (remove one char at each position)
+        const stemGroups = {};
+        for (const entry of _voteBuffer) {
+            const plate = entry.plate;
+            for (let i = 0; i < plate.length; i++) {
+                const stem = plate.substring(0, i) + '*' + plate.substring(i + 1);
+                if (!stemGroups[stem]) {
+                    stemGroups[stem] = { count: 0, entries: [] };
+                }
+                stemGroups[stem].count++;
+                stemGroups[stem].entries.push(entry);
+            }
+        }
+
+        // Find the stem group with most votes
+        let bestStem = null;
+        let bestStemCount = 0;
+        for (const [stem, group] of Object.entries(stemGroups)) {
+            if (group.count > bestStemCount) {
+                bestStemCount = group.count;
+                bestStem = group;
+            }
+        }
+
+        if (bestStem && bestStemCount >= _voteConfig.minVotes) {
+            // Pick the most common variant within this stem group
+            const variantCounts = {};
+            for (const entry of bestStem.entries) {
+                if (!variantCounts[entry.plate]) {
+                    variantCounts[entry.plate] = { count: 0, confidenceSum: 0 };
+                }
+                variantCounts[entry.plate].count++;
+                variantCounts[entry.plate].confidenceSum += entry.confidence;
+            }
+            let bestVariant = null;
+            let bestVariantCount = 0;
+            for (const [plate, vc] of Object.entries(variantCounts)) {
+                if (vc.count > bestVariantCount) {
+                    bestVariantCount = vc.count;
+                    bestVariant = { plate, confidence: vc.confidenceSum / vc.count };
+                }
+            }
+            if (bestVariant && bestVariant.confidence >= _voteConfig.minAvgConfidence) {
+                return bestVariant;
+            }
+        }
+        return null;
+    },
+
+    /** R-SCANNER: Called when plate is auto-accepted — fill input, capture photo, stop scan, show success. */
+    _onPlateAccepted(plate, confidence, video) {
+        // Fill plate input
+        this.setInputValue('plateInput', plate);
+        this.saveState('plateNumber', plate);
+
+        // Capture current frame as plate photo (full frame, not just ROI)
+        const photoUrl = this.capturePhoto('plateVideo');
+        if (photoUrl) {
+            _capturedPhotos['plate'] = photoUrl;
+            this.saveState('platePhoto', photoUrl);
+            this._renderPreview('plate', photoUrl);
+        }
+
+        // Stop scanning
+        _scanLoopActive = false;
+        if (_scanLoopId) {
+            clearTimeout(_scanLoopId);
+            _scanLoopId = null;
+        }
+        this._showGuideBox(false);
+        this.stopCamera();
+        _cameraActive['plate'] = false;
+        this._updateCameraUI('plate', false);
+
+        // Show success status
+        this._updateScanStatus(`✓ Đã nhận diện: ${plate} (${Math.round(confidence)}%)`, 'success');
+
+        // Show retake button
+        const retakeBtn = document.getElementById('plateRetakeBtn');
+        if (retakeBtn) retakeBtn.style.display = '';
+
+        // Hide manual entry button
+        const manualBtn = document.getElementById('plateManualBtn');
+        if (manualBtn) manualBtn.style.display = 'none';
+
+        console.log('[Scanner] Plate accepted:', plate, 'confidence:', confidence);
+    },
+
+    /** R-SCANNER: Show/hide guide box overlay on video. */
+    _showGuideBox(show) {
+        const guideBox = document.getElementById('plateGuideBox');
+        const scanStatus = document.getElementById('plateScanStatus');
+        if (guideBox) guideBox.style.display = show ? '' : 'none';
+        if (scanStatus) scanStatus.style.display = show ? '' : 'none';
+    },
+
+    /** R-SCANNER: Update scan status text + style. type: 'scanning' | 'warning' | 'success' | 'error'. */
+    _updateScanStatus(text, type) {
+        const el = document.getElementById('plateScanStatus');
+        if (!el) return;
+        el.textContent = text;
+        el.className = 'guard-scan-status guard-scan-status--' + (type || 'scanning');
+        // Show element
+        el.style.display = '';
+    },
+
+    /** R-SCANNER: Legacy OCR button handler — runs single-frame OCR on already-captured photo.
+     *  Kept as fallback when live scan is not available or user has a pre-captured photo. */
     async recognizeAndFill() {
         const dataUrl = this.getCapturedPhoto('plate');
         if (!dataUrl) {
@@ -466,7 +828,6 @@ window.vananGuardCamera = {
             const plate = await this.recognizePlate(dataUrl);
             if (plate) {
                 this.setInputValue('plateInput', plate);
-                // R-OCR-6: Validate VN plate format — warn but don't block.
                 const formatOk = this._isVnPlateFormat(plate);
                 if (ocrHint) {
                     if (formatOk) {
@@ -487,6 +848,7 @@ window.vananGuardCamera = {
                 }
             }
         } catch (err) {
+            console.error('OCR error:', err);
             if (ocrHint) {
                 ocrHint.textContent = 'OCR lỗi — nhập biển số thủ công.';
                 ocrHint.style.color = '#6b7280';
@@ -511,7 +873,8 @@ window.vananGuardCamera = {
         return vnPlateRegex.test(s);
     },
 
-    /** Restore UI state from sessionStorage after page reload. Pure JS — called on DOMContentLoaded. */
+    /** Restore UI state from sessionStorage after page reload. Pure JS — called on DOMContentLoaded.
+     *  R-SCANNER: Also restores scan status if plate was previously accepted. */
     restoreUIFromSession() {
         const platePhoto = this.loadState('platePhoto');
         const customerPhoto = this.loadState('customerPhoto');
@@ -519,8 +882,6 @@ window.vananGuardCamera = {
             _capturedPhotos.plate = platePhoto;
             this._renderPreview('plate', platePhoto);
             this._updateCameraUI('plate', false);
-            const ocrBtn = document.getElementById('ocrButton');
-            if (ocrBtn) ocrBtn.style.display = '';
         }
         if (customerPhoto) {
             _capturedPhotos.customer = customerPhoto;
@@ -531,19 +892,15 @@ window.vananGuardCamera = {
         if (plateNumber) {
             const input = document.getElementById('plateInput');
             if (input) input.value = plateNumber;
+            // Show success status if plate was previously accepted
+            if (platePhoto) {
+                this._updateScanStatus(`✓ Đã nhận diện: ${plateNumber}`, 'success');
+            }
         }
         const customerPhone = this.loadState('customerPhone');
         if (customerPhone) {
             const input = document.getElementById('customerPhoneInput');
             if (input) input.value = customerPhone;
-        }
-        const ocrHint = this.loadState('ocrHint');
-        if (ocrHint) {
-            const el = document.getElementById('ocrHint');
-            if (el) {
-                el.textContent = ocrHint;
-                el.style.display = '';
-            }
         }
     },
 
@@ -631,9 +988,9 @@ window.vananGuardCamera = {
                 await this._ensureOcrLibrary();
                 const whitelist = '0123456789ABCDEFGHKLMNPRSTUVXYZĐ-';
                 const worker = await Tesseract.createWorker('eng', 1, {
-                    workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
-                    corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5',
-                    langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+                    workerPath: '/js/lib/ocr/worker.min.js',
+                    corePath: '/js/lib/ocr',
+                    langPath: '/js/lib/ocr',
                     logger: () => {}
                 });
                 await worker.setParameters({ tessedit_char_whitelist: whitelist });
@@ -719,24 +1076,79 @@ window.vananGuardCamera = {
         return score;
     },
 
-    /** Load image from data URL, upscale 2x for OCR. Returns canvas.
-     *  R-OCR-fix3 (2026-08-18): Simplified preprocessing — just upscale 2x, no filters.
-     *  Previous contrast(1.3) + grayscale may have degraded Tesseract accuracy on some plates.
-     *  Tesseract.js v5 has its own internal binarization — let it handle preprocessing. */
-    async _preprocessForOcr(dataUrl) {
+    /** R-SCANNER: Enhanced preprocessing for ROI — resize 3x, grayscale, contrast boost, sharpen.
+     *  Returns canvas ready for Tesseract.
+     *  Pipeline: ROI → resize 3x → grayscale → contrast 1.5x → unsharp mask → output.
+     *  Tesseract.js v5 has internal binarization, so we don't apply threshold here —
+     *  grayscale + contrast + sharpen gives Tesseract the best input for its own thresholding. */
+    async _preprocessRoi(dataUrl) {
         const img = await new Promise((resolve, reject) => {
             const i = new Image();
             i.onload = () => resolve(i);
             i.onerror = reject;
             i.src = dataUrl;
         });
-        const scale = 2;
+
+        // Resize 3x for better OCR resolution (plates are small in ROI)
+        const scale = 3;
+        const w = img.width * scale;
+        const h = img.height * scale;
         const canvas = document.createElement('canvas');
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
+        canvas.width = w;
+        canvas.height = h;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, w, h);
+
+        // Get image data for pixel manipulation
+        const imageData = ctx.getImageData(0, 0, w, h);
+        const data = imageData.data;
+
+        // Step 1: Grayscale + contrast enhancement
+        const contrast = 1.5;
+        const intercept = 128 * (1 - contrast);
+        const gray = new Uint8ClampedArray(w * h);
+        for (let i = 0; i < data.length; i += 4) {
+            let g = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+            g = g * contrast + intercept;
+            g = Math.max(0, Math.min(255, g));
+            gray[i / 4] = g;
+        }
+
+        // Step 2: Unsharp mask (sharpen) — convolution with sharpen kernel
+        // Kernel: [0,-1,0, -1,5,-1, 0,-1,0]
+        const sharpened = new Uint8ClampedArray(w * h);
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const idx = y * w + x;
+                if (x === 0 || x === w - 1 || y === 0 || y === h - 1) {
+                    sharpened[idx] = gray[idx];
+                    continue;
+                }
+                const center = gray[idx] * 5;
+                const top = gray[(y - 1) * w + x] * -1;
+                const bottom = gray[(y + 1) * w + x] * -1;
+                const left = gray[y * w + (x - 1)] * -1;
+                const right = gray[y * w + (x + 1)] * -1;
+                let val = center + top + bottom + left + right;
+                sharpened[idx] = Math.max(0, Math.min(255, val));
+            }
+        }
+
+        // Write back to imageData (RGB = sharpened gray, Alpha = 255)
+        for (let i = 0; i < data.length; i += 4) {
+            data[i] = data[i + 1] = data[i + 2] = sharpened[i / 4];
+            data[i + 3] = 255;
+        }
+
+        ctx.putImageData(imageData, 0, 0);
         return canvas;
+    },
+
+    /** Legacy preprocessing — kept for recognizePlate fallback (single-frame OCR on full photo). */
+    async _preprocessForOcr(dataUrl) {
+        return this._preprocessRoi(dataUrl);
     },
 
     /** R-OCR-2 (2026-08-18): Otsu's method — DISABLED (broke OCR on real photos).
@@ -767,22 +1179,85 @@ window.vananGuardCamera = {
         return threshold;
     },
 
-    /** Clean raw OCR output to a plate-like string: keep [0-9A-ZĐ-], collapse spaces, trim.
-     *  #130-fix: Added "Đ" for xe máy điện plates (e.g., "ĐAB-123"). */
+    /** R-SCANNER: VN plate normalizer — applies character confusion mapping based on position.
+     *  OCR commonly confuses: O↔0, I↔1, S↔5, B↔8, Z↔2, G↔6
+     *  In letter positions (before dash): 0→O, 1→I, 5→S, 8→B, 2→Z, 6→G
+     *  In numeric positions (after dash): O→0, I→1, S→5, B→8, Z→2, G→6
+     *  Returns normalized plate string, or '' if not plate-like. */
+    _normalizeVnPlate(raw) {
+        if (!raw) return '';
+        // Clean: keep only [0-9A-ZĐ-.]
+        let s = raw.replace(/[^0-9A-ZĐ\-\.]/g, '');
+        // Collapse repeated dashes/dots, strip leading/trailing dashes
+        s = s.replace(/-+/g, '-').replace(/\.+/g, '.').replace(/^-+|-+$/g, '');
+        if (s.length < 5 || s.length > 14) return '';
+
+        // Try to find/insert the dash separator
+        let dashIdx = s.indexOf('-');
+        if (dashIdx < 0) {
+            // No dash — try to insert one. VN plate: 2 digits + 1-2 letters + numbers
+            const match = s.match(/^(\d{2})([A-ZĐ]{1,2})(\d.*)$/);
+            if (match) {
+                s = match[1] + match[2] + '-' + match[3];
+                dashIdx = s.indexOf('-');
+            } else {
+                // Can't parse structure — return cleaned string if plate-like
+                return (s.length >= 5 && s.length <= 12) ? s : '';
+            }
+        }
+
+        const parts = s.split('-');
+        if (parts.length < 2) return '';
+
+        // Left part: province (2 digits) + letters (1-2)
+        let left = parts[0];
+        let right = parts.slice(1).join('-');
+
+        // Normalize left part: first 2 chars = province digits, rest = letters
+        if (left.length >= 2) {
+            const province = left.substring(0, 2);
+            const letters = left.substring(2);
+            // Province should be digits — convert letter confusions to digits
+            const provinceDigits = province
+                .replace(/O/g, '0').replace(/I/g, '1').replace(/S/g, '5')
+                .replace(/B/g, '8').replace(/Z/g, '2').replace(/G/g, '6');
+            // Letters should be letters — convert digit confusions to letters
+            const letterChars = letters
+                .replace(/0/g, 'O').replace(/1/g, 'I').replace(/5/g, 'S')
+                .replace(/8/g, 'B').replace(/2/g, 'Z').replace(/6/g, 'G');
+            left = provinceDigits + letterChars;
+        }
+
+        // Normalize right part: should be digits (and optional dot separator)
+        // Convert letter confusions to digits
+        right = right
+            .replace(/O/g, '0').replace(/I/g, '1').replace(/S/g, '5')
+            .replace(/B/g, '8').replace(/Z/g, '2').replace(/G/g, '6');
+
+        s = left + '-' + right;
+
+        // Validate against VN plate regex
+        if (this._isVnPlateFormat(s)) return s;
+
+        // If not valid format but still plate-like, return it (guard can override)
+        if (s.length >= 5 && s.length <= 12) return s;
+        return '';
+    },
+
+    /** Legacy plate normalizer — kept for backward compatibility with recognizePlate. */
     _normalizePlate(raw) {
         if (!raw) return '';
-        // Keep only digits, uppercase letters (including Đ), and dashes.
         let s = raw.replace(/[^0-9A-ZĐ\-]/g, '');
-        // Collapse repeated dashes, strip leading/trailing dashes.
         s = s.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
-        return s;
+        // Apply VN normalization for better results
+        return this._normalizeVnPlate(raw) || s;
     },
 
     async _ensureOcrLibrary() {
         if (window.Tesseract) return;
         return new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+            script.src = '/js/lib/ocr/tesseract.min.js';
             script.onload = () => resolve();
             script.onerror = () => reject(new Error('Failed to load Tesseract.js library'));
             document.head.appendChild(script);
