@@ -308,9 +308,11 @@ window.vananGuardCamera = {
             const plateInput = document.getElementById('plateInput');
             if (plateInput) plateInput.value = '';
             try { sessionStorage.removeItem('vanan_guard_plateNumber'); } catch (e) {}
-            // Hide manual entry button
+            // Hide manual entry + OK button
             const manualBtn = document.getElementById('plateManualBtn');
             if (manualBtn) manualBtn.style.display = 'none';
+            const okBtn = document.getElementById('plateOkBtn');
+            if (okBtn) okBtn.style.display = 'none';
         }
         this._updateCameraUI(slot, false);
         // Auto-reopen camera / restart scanner for convenience.
@@ -487,11 +489,13 @@ window.vananGuardCamera = {
             ocrHint.textContent = '';
             ocrHint.style.display = 'none';
         }
-        // Clear scan status + manual entry button.
+        // Clear scan status + manual entry + OK button.
         const scanStatus = document.getElementById('plateScanStatus');
         if (scanStatus) { scanStatus.textContent = ''; scanStatus.style.display = 'none'; }
         const manualBtn = document.getElementById('plateManualBtn');
         if (manualBtn) manualBtn.style.display = 'none';
+        const okBtn = document.getElementById('plateOkBtn');
+        if (okBtn) okBtn.style.display = 'none';
         // Clear plate input.
         const plateInput = document.getElementById('plateInput');
         if (plateInput) plateInput.value = '';
@@ -596,6 +600,9 @@ window.vananGuardCamera = {
     },
 
     /** R-SCANNER: Process one OCR frame — async, runs in parallel with camera loop.
+     *  R-UX: Every OCR result fills the plate textbox immediately + shows "OK" button.
+     *  Guard reviews result vs real plate, clicks OK to confirm (stops scan).
+     *  Scanner continues running so guard can wait for a better result if first is wrong.
      *  Sets _ocrBusy=false when done so next camera sample can submit a new frame. */
     async _processOcrFrame(roiCanvas, video) {
         try {
@@ -611,17 +618,22 @@ window.vananGuardCamera = {
                     _voteBuffer.shift();
                 }
 
+                // R-UX: Fill plate textbox IMMEDIATELY with latest OCR result
+                // Guard sees result in real-time and can click OK when it matches
+                this.setInputValue('plateInput', ocrResult.plate);
+
+                // Show OK button so guard can confirm
+                const okBtn = document.getElementById('plateOkBtn');
+                if (okBtn) okBtn.style.display = '';
+
+                // Update status with latest result
                 this._updateScanStatus(
-                    `Đang quét... ${ocrResult.plate} (${Math.round(ocrResult.confidence)}%)`,
+                    `Đang quét... ${ocrResult.plate} (${Math.round(ocrResult.confidence)}%) — bấm OK nếu đúng`,
                     'scanning'
                 );
 
-                // Check temporal voting — auto-accept if stable
-                const voteResult = this._checkTemporalVote();
-                if (voteResult) {
-                    this._onPlateAccepted(voteResult.plate, voteResult.confidence, video);
-                    return; // _ocrBusy stays true — scanner stopped
-                }
+                // R-UX: Auto-accept removed — was too rigid (confidence threshold + vote count).
+                // Guard manually confirms via OK button. Scanner continues for better results.
             }
         } catch (err) {
             console.error('[Scanner] OCR frame error:', err);
@@ -874,6 +886,54 @@ window.vananGuardCamera = {
         if (manualBtn) manualBtn.style.display = 'none';
 
         console.log('[Scanner] Plate accepted:', plate, 'confidence:', confidence);
+    },
+
+    /** R-UX: Guard clicks OK to confirm the plate shown in textbox.
+     *  Stops scanner, captures photo, saves plate. Guard can edit textbox before clicking OK. */
+    confirmPlate() {
+        const plateInput = document.getElementById('plateInput');
+        const plate = plateInput ? plateInput.value.trim().toUpperCase() : '';
+        if (!plate) {
+            this._showError('Chưa có biển số. Quét hoặc nhập tay trước.');
+            return;
+        }
+
+        // Capture current frame as plate photo
+        const photoUrl = this.capturePhoto('plateVideo');
+        if (photoUrl) {
+            _capturedPhotos['plate'] = photoUrl;
+            this.saveState('platePhoto', photoUrl);
+            this._renderPreview('plate', photoUrl);
+        }
+
+        // Stop scanning
+        _scanLoopActive = false;
+        if (_scanRafId) {
+            cancelAnimationFrame(_scanRafId);
+            _scanRafId = null;
+        }
+        _ocrBusy = false;
+        this._showGuideBox(false);
+        this._hideRoiDebug();
+        this.stopCamera();
+        _cameraActive['plate'] = false;
+        this._updateCameraUI('plate', false);
+
+        // Save plate
+        this.saveState('plateNumber', plate);
+
+        // Show success status
+        this._updateScanStatus(`✓ Đã xác nhận: ${plate}`, 'success');
+
+        // Show retake button, hide OK + manual buttons
+        const retakeBtn = document.getElementById('plateRetakeBtn');
+        if (retakeBtn) retakeBtn.style.display = '';
+        const okBtn = document.getElementById('plateOkBtn');
+        if (okBtn) okBtn.style.display = 'none';
+        const manualBtn = document.getElementById('plateManualBtn');
+        if (manualBtn) manualBtn.style.display = 'none';
+
+        console.log('[Scanner] Plate confirmed by guard:', plate);
     },
 
     /** R-SCANNER: Toggle guide box orientation between portrait (square) and landscape (rect). */
