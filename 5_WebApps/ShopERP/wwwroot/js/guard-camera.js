@@ -706,12 +706,11 @@ window.vananGuardCamera = {
         return score;
     },
 
-    /** Load image from data URL, upscale 1.5x + grayscale + Otsu threshold to improve OCR accuracy.
-     *  Returns canvas.
+    /** Load image from data URL, upscale 1.5x + grayscale to improve OCR accuracy. Returns canvas.
      *  #130-fix: Reduced from 2x→1.5x — faster preprocessing, accuracy still sufficient for plates.
-     *  R-OCR-2 (2026-08-18): Added contrast boost + Otsu binarization (was grayscale-only).
-     *  Grayscale-only left low-contrast plates (glare, shadow) unreadable for Tesseract.
-     *  Otsu auto-computes optimal threshold → black/white binary image → Tesseract segments better. */
+     *  R-OCR-2-revert (2026-08-18): Otsu binarization broke OCR on real photos (too aggressive —
+     *  lost gradient info Tesseract needs for segmentation). Reverted to grayscale-only.
+     *  Kept contrast(1.3) boost — mild improvement, no regression. */
     async _preprocessForOcr(dataUrl) {
         const img = await new Promise((resolve, reject) => {
             const i = new Image();
@@ -724,32 +723,23 @@ window.vananGuardCamera = {
         canvas.width = img.width * scale;
         canvas.height = img.height * scale;
         const ctx = canvas.getContext('2d');
-        // R-OCR-2: Contrast boost before draw — helps separate plate text from background.
-        ctx.filter = 'contrast(1.4) brightness(1.1)';
+        // R-OCR-2: Mild contrast boost — helps separate plate text from background.
+        ctx.filter = 'contrast(1.3)';
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         ctx.filter = 'none';
         // Grayscale conversion — improves Tesseract binarization on plate photos.
         const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const d = imgData.data;
-        const grayValues = new Uint8Array(d.length / 4);
-        for (let i = 0, j = 0; i < d.length; i += 4, j++) {
+        for (let i = 0; i < d.length; i += 4) {
             const gray = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114);
-            grayValues[j] = gray;
             d[i] = d[i + 1] = d[i + 2] = gray;
-        }
-        // R-OCR-2: Otsu threshold — compute optimal binarization threshold from histogram.
-        const threshold = this._otsuThreshold(grayValues);
-        for (let i = 0, j = 0; i < d.length; i += 4, j++) {
-            const bin = grayValues[j] > threshold ? 255 : 0;
-            d[i] = d[i + 1] = d[i + 2] = bin;
         }
         ctx.putImageData(imgData, 0, 0);
         return canvas;
     },
 
-    /** R-OCR-2 (2026-08-18): Otsu's method — compute optimal threshold for binarization.
-     *  Finds threshold that maximizes between-class variance of foreground/background.
-     *  Standard algorithm — see Nobuyuki Otsu (1979). Returns threshold 0-255. */
+    /** R-OCR-2 (2026-08-18): Otsu's method — DISABLED (broke OCR on real photos).
+     *  Kept for reference — do NOT call from _preprocessForOcr. */
     _otsuThreshold(grayValues) {
         const histogram = new Array(256).fill(0);
         for (let i = 0; i < grayValues.length; i++) {
