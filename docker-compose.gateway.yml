@@ -96,6 +96,12 @@ services:
       # KhachLink Multi-Profile R1 — feature flag (default OFF = no-op, existing behavior preserved)
       # Set KHACHLINK_MULTIPROFILE_ENABLED=true in .env.gateway to enable multi-domain routing + profile-based NavFlags
       - KhachLink__MultiProfileEnabled=${KHACHLINK_MULTIPROFILE_ENABLED:-false}
+      # Domain Reseller R1 — GoDaddy API for tenant domain DNS automation
+      # API key is a Personal Access Token (PAT) generated from GoDaddy developer portal.
+      # DefaultVpsIp is the Gateway VPS public IP — used for auto A record creation when linking domains.
+      - DomainRegistrar__GoDaddy__ApiKey=${GODADDY_API_KEY:-}
+      - DomainRegistrar__GoDaddy__ApiUrl=${GODADDY_API_URL:-https://api.godaddy.com}
+      - DomainRegistrar__DefaultVpsIp=${DOMAIN_REGISTRAR_DEFAULT_VPS_IP:-}
       # Multi-VPS YARP: override cluster addresses to use VPC internal IPs
       # (appsettings.json defaults to Docker hostnames "shoperp"/"khachlink" which are
       # not resolvable when services are on separate VPSs)

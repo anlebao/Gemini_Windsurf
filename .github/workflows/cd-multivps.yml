@@ -306,6 +306,9 @@ jobs:
             FINAL_R2_ACCESS_KEY="${DEPLOY_R2_ACCESS_KEY:-$EXISTING_R2_ACCESS_KEY}"
             EXISTING_R2_SECRET_KEY=$(grep -E '^R2_SECRET_KEY=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
             FINAL_R2_SECRET_KEY="${DEPLOY_R2_SECRET_KEY:-$EXISTING_R2_SECRET_KEY}"
+            # Domain Reseller R1: Preserve existing GoDaddy API key if GitHub secret is empty
+            EXISTING_GODADDY_KEY=$(grep -E '^GODADDY_API_KEY=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
+            FINAL_GODADDY_KEY="${DEPLOY_GODADDY_API_KEY:-$EXISTING_GODADDY_KEY}"
 
             printf '%s\n' \
               "VANAN_DOMAIN=${DEPLOY_VANAN_DOMAIN}" \
@@ -328,6 +331,9 @@ jobs:
               "R2_ACCESS_KEY=${FINAL_R2_ACCESS_KEY}" \
               "R2_SECRET_KEY=${FINAL_R2_SECRET_KEY}" \
               "R2_BUCKET_NAME=vanan-guard-photos" \
+              "GODADDY_API_KEY=${FINAL_GODADDY_KEY}" \
+              "GODADDY_API_URL=https://api.godaddy.com" \
+              "DOMAIN_REGISTRAR_DEFAULT_VPS_IP=${DEPLOY_VPS_GATEWAY_HOST:-}" \
               > .env.gateway
 
             # Login to GHCR
@@ -369,6 +375,8 @@ jobs:
           DEPLOY_SHOP_INSTANCE_ID: ${{ secrets.SHOP_INSTANCE_ID }}
           DEPLOY_R2_ACCESS_KEY: ${{ secrets.R2_ACCESS_KEY }}
           DEPLOY_R2_SECRET_KEY: ${{ secrets.R2_SECRET_KEY }}
+          # Domain Reseller R1: GoDaddy API key for tenant domain DNS automation
+          DEPLOY_GODADDY_API_KEY: ${{ secrets.GODADDY_API_KEY }}
 
   # ============================================================
   # Job 4: Deploy to KhachLink VPS (runs AFTER Gateway to ensure API is up)
