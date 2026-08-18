@@ -38,18 +38,31 @@
             {
                 @* Step 1: Capture photos + plate input *@
                 <div class="guard-issue-form">
+                    @* Plate input FIRST — above scanner, so result fills visible field *@
+                    <div class="guard-input-row guard-plate-input-row-wrapper">
+                        <label>Biển số *</label>
+                        <div class="guard-plate-input-row">
+                            <input id="plateInput" class="guard-input guard-plate-input" @bind="plateNumber" placeholder="VD: 51F-12345" maxlength="20" />
+                            <button id="plateOrientationBtn" type="button" class="vanan-button vanan-button--outline" onclick="vananGuardCamera.toggleGuideOrientation()">📐 Dọc (xe máy)</button>
+                        </div>
+                        <span id="ocrStatus" class="guard-ocr-status" style="display:none">Đang nhận diện biển số… (lần đầu tải thư viện ~5s)</span>
+                        <span id="ocrHint" class="guard-ocr-hint" style="display:none"></span>
+                    </div>
                     <div class="guard-photo-row">
                         <div class="guard-photo-box guard-scanner-box" data-photo-slot="plate">
-                            <label>Biển số</label>
+                            <label>Quét biển số</label>
                             <div class="guard-scanner-container">
                                 <video id="plateVideo" class="guard-camera-video guard-scanner-video" muted></video>
-                                <div id="plateGuideBox" class="guard-guide-box" style="display:none">
+                                <div id="plateGuideBox" class="guard-guide-box guard-guide-box--portrait" style="display:none">
                                     <div class="guard-guide-corner guard-guide-corner--tl"></div>
                                     <div class="guard-guide-corner guard-guide-corner--tr"></div>
                                     <div class="guard-guide-corner guard-guide-corner--bl"></div>
                                     <div class="guard-guide-corner guard-guide-corner--br"></div>
                                 </div>
                                 <div id="plateScanStatus" class="guard-scan-status" style="display:none"></div>
+                            </div>
+                            <div id="plateRoiDebug" class="guard-roi-debug" style="display:none">
+                                <label class="guard-roi-debug-label">ROI (vùng OCR):</label>
                             </div>
                             <div class="guard-photo-actions">
                                 <button id="plateOpenBtn" type="button" class="vanan-button vanan-button--primary" onclick="vananGuardCamera.openCamera('plate')">📷 Quét biển số</button>
@@ -69,14 +82,6 @@
                                 <button id="customerRetakeBtn" type="button" class="vanan-button vanan-button--secondary" onclick="vananGuardCamera.retakePhoto('customer')" style="display:none">🔄 Chụp lại</button>
                             </div>
                         </div>
-                    </div>
-                    <div class="guard-input-row">
-                        <label>Biển số *</label>
-                        <div class="guard-plate-input-row">
-                            <input id="plateInput" class="guard-input" @bind="plateNumber" placeholder="VD: 51F-12345" maxlength="20" />
-                        </div>
-                        <span id="ocrStatus" class="guard-ocr-status" style="display:none">Đang nhận diện biển số… (lần đầu tải thư viện ~5s)</span>
-                        <span id="ocrHint" class="guard-ocr-hint" style="display:none"></span>
                     </div>
                     <div class="guard-input-row">
                         <label>SĐT khách (tùy chọn)</label>
@@ -276,11 +281,14 @@
     .guard-scanner-container { position: relative; width: 100%; max-width: 320px; }
     .guard-scanner-video { width: 100%; aspect-ratio: 4/3; }
     .guard-guide-box {
-        position: absolute; top: 25%; left: 10%; width: 80%; height: 25%;
-        border: 2px dashed rgba(59, 130, 246, 0.8); border-radius: 4px;
+        position: absolute; border: 2px dashed rgba(59, 130, 246, 0.8); border-radius: 4px;
         pointer-events: none; z-index: 2;
         box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3);
     }
+    .guard-guide-box--portrait { top: 20%; left: 20%; width: 60%; height: 45%; }
+    .guard-guide-box--landscape { top: 30%; left: 8%; width: 84%; height: 22%; }
+    .guard-plate-input-row-wrapper { margin-bottom: 0.5rem; }
+    .guard-plate-input { font-size: 1.2rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
     .guard-guide-corner { position: absolute; width: 16px; height: 16px; border: 3px solid #3b82f6; }
     .guard-guide-corner--tl { top: -3px; left: -3px; border-right: none; border-bottom: none; border-radius: 4px 0 0 0; }
     .guard-guide-corner--tr { top: -3px; right: -3px; border-left: none; border-bottom: none; border-radius: 0 4px 0 0; }
@@ -295,6 +303,8 @@
     .guard-scan-status--warning { background: rgba(180, 83, 9, 0.9); color: white; }
     .guard-scan-status--success { background: rgba(16, 185, 129, 0.9); color: white; font-weight: 600; }
     .guard-scan-status--error { background: rgba(220, 38, 38, 0.9); color: white; }
+    .guard-roi-debug { margin-top: 0.5rem; }
+    .guard-roi-debug-label { font-size: 0.75rem; color: #6b7280; display: block; margin-bottom: 0.25rem; }
     .guard-photo-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
     .guard-input-row { display: flex; flex-direction: column; gap: 0.25rem; }
     .guard-input-row label { font-weight: 600; font-size: 0.9rem; }

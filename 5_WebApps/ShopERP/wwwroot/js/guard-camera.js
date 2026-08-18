@@ -18,15 +18,19 @@ const _photoConfig = { maxDimension: 1024, jpegQuality: 0.7, maxSizeKB: 100 };
 // === R-SCANNER (2026-08-18): Live License Plate Scanner state ===
 // Replaces capture-then-OCR flow with: Camera live → ROI crop → Preprocess → OCR → Vote → Auto-confirm
 let _scanLoopActive = false;
-let _scanLoopId = null;
+let _scanRafId = null;       // requestAnimationFrame ID for camera sampling (30 FPS)
+let _ocrBusy = false;        // Is OCR worker currently processing a frame?
+let _ocrLastTime = 0;        // Timestamp of last OCR submission
 let _scanStartTime = 0;
 let _voteBuffer = []; // [{plate, confidence, timestamp}]
+// Guide box orientation: 'portrait' (square, default for motorbikes) or 'landscape' (rect, for cars)
+let _guideOrientation = 'portrait';
 const _voteConfig = {
     maxBufferSize: 10,
     minVotes: 3,           // Need at least 3 matching results to accept
-    minAvgConfidence: 70,  // With avg confidence >= 70
-    timeoutMs: 15000,      // Show fallback hint after 15s with no stable result
-    frameIntervalMs: 100   // Delay between frames (Tesseract takes ~500ms-2s per frame)
+    minAvgConfidence: 60,  // Lowered from 70 — Tesseract confidence varies with lighting/angle
+    timeoutMs: 5000,       // Show fallback hint after 5s (was 15s — too slow for UX)
+    ocrIntervalMs: 400     // Min interval between OCR submissions (~2.5 OCR/sec max)
 };
 
 window.vananGuardCamera = {
@@ -524,60 +528,80 @@ window.vananGuardCamera = {
         });
 
         // Start frame sampling loop
-        this._runScanLoop();
+        this._runCameraSample();
         return true;
     },
 
-    /** R-SCANNER: Stop live scanning — stops camera, clears guide box, stops loop. */
+    /** R-SCANNER: Stop live scanning — stops camera, clears guide box, stops rAF. */
     stopLiveScan() {
         _scanLoopActive = false;
-        if (_scanLoopId) {
-            clearTimeout(_scanLoopId);
-            _scanLoopId = null;
+        if (_scanRafId) {
+            cancelAnimationFrame(_scanRafId);
+            _scanRafId = null;
         }
+        _ocrBusy = false;
         _voteBuffer = [];
         this._showGuideBox(false);
+        this._hideRoiDebug();
         this.stopCamera();
         _cameraActive['plate'] = false;
         this._updateCameraUI('plate', false);
     },
 
-    /** R-SCANNER: Main scan loop — captures frame, crops ROI, OCRs, votes. Sequential (not FPS-based)
-     *  because Tesseract recognize takes ~500ms-2s per frame. Loop continues until auto-accept or stop. */
-    async _runScanLoop() {
+    /** R-SCANNER: Camera sampling loop — runs at 30 FPS via requestAnimationFrame.
+     *  Crops ROI from guide box EVERY frame (cheap — just drawImage).
+     *  Shows ROI debug overlay so user can verify crop is correct.
+     *  Submits ROI to OCR worker only when:
+     *    1. OCR worker is NOT busy (_ocrBusy === false)
+     *    2. At least ocrIntervalMs since last OCR (rate limit ~2.5/sec)
+     *  This DECOUPLES camera smoothness (30 FPS) from OCR throughput (~2.5/sec). */
+    _runCameraSample() {
         if (!_scanLoopActive) return;
 
-        // Check timeout — show hint after 15s with no stable result
+        const video = document.getElementById('plateVideo');
+        if (video && video.videoWidth) {
+            // Crop ROI every frame — cheap operation, keeps debug overlay live
+            const roiCanvas = this._cropRoiFromVideo(video);
+            if (roiCanvas) {
+                // Show ROI debug overlay (so user + dev can verify crop is correct)
+                this._showRoiDebug(roiCanvas);
+
+                // Quality gate — skip OCR if ROI too small or too dark/bright
+                if (this._isGoodFrame(roiCanvas)) {
+                    // Submit to OCR only if worker is free + rate limit satisfied
+                    const now = Date.now();
+                    if (!_ocrBusy && (now - _ocrLastTime) > _voteConfig.ocrIntervalMs) {
+                        _ocrBusy = true;
+                        _ocrLastTime = now;
+                        // Fire-and-forget — don't await, camera loop continues at 30 FPS
+                        this._processOcrFrame(roiCanvas, video);
+                    }
+                }
+            }
+        }
+
+        // Check timeout — show hint after 5s with no stable result
         const elapsed = Date.now() - _scanStartTime;
         if (elapsed > _voteConfig.timeoutMs && _voteBuffer.length < 2) {
             this._updateScanStatus(
                 '⚠️ Chưa nhìn rõ biển số.\n• Đưa camera gần hơn\n• Giữ điện thoại ổn định\n• Đảm bảo biển số đủ sáng',
                 'warning'
             );
-            // Show manual entry button
             const manualBtn = document.getElementById('plateManualBtn');
             if (manualBtn) manualBtn.style.display = '';
         }
 
+        // Continue camera loop at 30 FPS — NOT blocked by OCR
+        _scanRafId = requestAnimationFrame(() => this._runCameraSample());
+    },
+
+    /** R-SCANNER: Process one OCR frame — async, runs in parallel with camera loop.
+     *  Sets _ocrBusy=false when done so next camera sample can submit a new frame. */
+    async _processOcrFrame(roiCanvas, video) {
         try {
-            const video = document.getElementById('plateVideo');
-            if (!video || !video.videoWidth) {
-                _scanLoopId = setTimeout(() => this._runScanLoop(), _voteConfig.frameIntervalMs);
-                return;
-            }
-
-            // Crop ROI from guide box region
-            const roiDataUrl = this._cropRoiFromVideo(video);
-            if (!roiDataUrl) {
-                _scanLoopId = setTimeout(() => this._runScanLoop(), _voteConfig.frameIntervalMs);
-                return;
-            }
-
-            // Preprocess + OCR on ROI only
-            const ocrResult = await this._ocrRoi(roiDataUrl);
+            const ocrResult = await this._ocrRoi(roiCanvas);
 
             if (ocrResult && ocrResult.plate) {
-                // Add to temporal vote buffer
                 _voteBuffer.push({
                     plate: ocrResult.plate,
                     confidence: ocrResult.confidence,
@@ -587,7 +611,6 @@ window.vananGuardCamera = {
                     _voteBuffer.shift();
                 }
 
-                // Update status with latest result
                 this._updateScanStatus(
                     `Đang quét... ${ocrResult.plate} (${Math.round(ocrResult.confidence)}%)`,
                     'scanning'
@@ -597,20 +620,70 @@ window.vananGuardCamera = {
                 const voteResult = this._checkTemporalVote();
                 if (voteResult) {
                     this._onPlateAccepted(voteResult.plate, voteResult.confidence, video);
-                    return; // Stop loop
+                    return; // _ocrBusy stays true — scanner stopped
                 }
             }
         } catch (err) {
-            console.error('[Scanner] Frame error:', err);
+            console.error('[Scanner] OCR frame error:', err);
+        } finally {
+            _ocrBusy = false; // Free worker for next frame
         }
+    },
 
-        // Continue loop — sequential, wait for next frame
-        _scanLoopId = setTimeout(() => this._runScanLoop(), _voteConfig.frameIntervalMs);
+    /** R-SCANNER: Quality gate — skip OCR if ROI is too small, too dark, or too bright.
+     *  Saves OCR cycles on bad frames (motion blur, glare, dark, empty guide box).
+     *  Returns true if frame is worth OCR-ing. */
+    _isGoodFrame(canvas) {
+        if (canvas.width < 60 || canvas.height < 20) return false; // Too small
+        try {
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            let sum = 0;
+            const sampleStep = 16; // Sample every 4th pixel (4 bytes RGBA)
+            let count = 0;
+            for (let i = 0; i < data.length; i += sampleStep) {
+                sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                count++;
+            }
+            const avgBrightness = sum / count;
+            // Skip if too dark (<30) or too bright/washed out (>240)
+            return avgBrightness > 30 && avgBrightness < 240;
+        } catch (e) {
+            return true; // If getImageData fails, don't block OCR
+        }
+    },
+
+    /** R-SCANNER: Show ROI debug overlay — renders the actual cropped ROI next to camera
+     *  so user/developer can verify the crop contains the license plate.
+     *  This is the P0 debug step — if ROI is wrong, no OCR tuning will help. */
+    _showRoiDebug(canvas) {
+        let debugEl = document.getElementById('plateRoiDebug');
+        if (!debugEl) return; // Debug overlay not in DOM — skip silently
+        // Copy ROI canvas to debug canvas
+        let debugCanvas = debugEl.querySelector('canvas');
+        if (!debugCanvas) {
+            debugCanvas = document.createElement('canvas');
+            debugCanvas.style.cssText = 'width:100%;border:1px solid #3b82f6;border-radius:4px;';
+            debugEl.appendChild(debugCanvas);
+        }
+        debugCanvas.width = canvas.width;
+        debugCanvas.height = canvas.height;
+        debugCanvas.getContext('2d').drawImage(canvas, 0, 0);
+        debugEl.style.display = '';
+    },
+
+    /** R-SCANNER: Hide ROI debug overlay. */
+    _hideRoiDebug() {
+        const debugEl = document.getElementById('plateRoiDebug');
+        if (debugEl) debugEl.style.display = 'none';
     },
 
     /** R-SCANNER: Crop ROI from video based on guide box position.
-     *  Guide box is a CSS overlay on the video — map its display coords to video resolution.
-     *  Returns cropped dataUrl or null. */
+     *  CRITICAL: Video uses object-fit:cover — displayed area is CROPPED, not just scaled.
+     *  Must account for cover crop offset when mapping display coords → video resolution.
+     *  R-SPEED: Returns canvas DIRECTLY (not dataURL) — avoids toDataURL → Image load roundtrip.
+     *  Tesseract.recognize() accepts canvas, so no conversion needed. */
     _cropRoiFromVideo(video) {
         const guideBox = document.getElementById('plateGuideBox');
         if (!guideBox || !video.videoWidth) return null;
@@ -618,41 +691,50 @@ window.vananGuardCamera = {
         const videoRect = video.getBoundingClientRect();
         const boxRect = guideBox.getBoundingClientRect();
 
-        // Calculate relative position (0-1) of guide box within video
-        const relX = (boxRect.left - videoRect.left) / videoRect.width;
-        const relY = (boxRect.top - videoRect.top) / videoRect.height;
-        const relW = boxRect.width / videoRect.width;
-        const relH = boxRect.height / videoRect.height;
+        // object-fit:cover — video scaled to cover display area, excess cropped.
+        const videoAspect = video.videoWidth / video.videoHeight;
+        const displayAspect = videoRect.width / videoRect.height;
 
-        // Map to actual video resolution
-        const sx = Math.max(0, Math.round(relX * video.videoWidth));
-        const sy = Math.max(0, Math.round(relY * video.videoHeight));
-        const sw = Math.min(video.videoWidth - sx, Math.round(relW * video.videoWidth));
-        const sh = Math.min(video.videoHeight - sy, Math.round(relH * video.videoHeight));
+        let scale, coverOffsetX, coverOffsetY;
+        if (videoAspect > displayAspect) {
+            scale = videoRect.height / video.videoHeight;
+            coverOffsetX = (video.videoWidth * scale - videoRect.width) / 2;
+            coverOffsetY = 0;
+        } else {
+            scale = videoRect.width / video.videoWidth;
+            coverOffsetX = 0;
+            coverOffsetY = (video.videoHeight * scale - videoRect.height) / 2;
+        }
+
+        const sx = Math.max(0, Math.round((boxRect.left - videoRect.left + coverOffsetX) / scale));
+        const sy = Math.max(0, Math.round((boxRect.top - videoRect.top + coverOffsetY) / scale));
+        const sw = Math.min(video.videoWidth - sx, Math.round(boxRect.width / scale));
+        const sh = Math.min(video.videoHeight - sy, Math.round(boxRect.height / scale));
 
         if (sw < 20 || sh < 10) return null;
 
+        // R-SPEED: Return canvas directly — Tesseract accepts canvas, no dataURL roundtrip
         const canvas = document.createElement('canvas');
         canvas.width = sw;
         canvas.height = sh;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
-        return canvas.toDataURL('image/jpeg', 0.95);
+        return canvas;
     },
 
-    /** R-SCANNER: OCR on ROI — preprocess + Tesseract + VN normalize + validate.
+    /** R-SCANNER: OCR on ROI — Tesseract + VN normalize + validate.
+     *  R-SPEED: Accepts canvas directly (no dataURL → Image → canvas roundtrip).
+     *  R-SPEED: PSM 7 already set in preloadOcrWorker — no setParameters per frame.
+     *  R-SPEED: No preprocessing — Tesseract v5 has internal binarization,
+     *  and ROI from 1920x1080 video is already high enough resolution.
      *  Returns {plate, confidence} or null. */
-    async _ocrRoi(dataUrl) {
+    async _ocrRoi(canvas) {
         const worker = await this.preloadOcrWorker();
-        const canvas = await this._preprocessRoi(dataUrl);
-
-        // PSM 7 (single line) — best for license plates
-        await worker.setParameters({ tessedit_pageseg_mode: '7' });
+        // R-SPEED: PSM 7 set once in preload — no per-frame setParameters call
         const { data } = await worker.recognize(canvas);
         const raw = (data.text || '').toUpperCase();
         const confidence = data.confidence || 0;
 
-        // VN plate normalization + validation
         const normalized = this._normalizeVnPlate(raw);
         if (!normalized) return null;
 
@@ -769,11 +851,13 @@ window.vananGuardCamera = {
 
         // Stop scanning
         _scanLoopActive = false;
-        if (_scanLoopId) {
-            clearTimeout(_scanLoopId);
-            _scanLoopId = null;
+        if (_scanRafId) {
+            cancelAnimationFrame(_scanRafId);
+            _scanRafId = null;
         }
+        _ocrBusy = false;
         this._showGuideBox(false);
+        this._hideRoiDebug();
         this.stopCamera();
         _cameraActive['plate'] = false;
         this._updateCameraUI('plate', false);
@@ -792,11 +876,27 @@ window.vananGuardCamera = {
         console.log('[Scanner] Plate accepted:', plate, 'confidence:', confidence);
     },
 
-    /** R-SCANNER: Show/hide guide box overlay on video. */
+    /** R-SCANNER: Toggle guide box orientation between portrait (square) and landscape (rect). */
+    toggleGuideOrientation() {
+        _guideOrientation = (_guideOrientation === 'portrait') ? 'landscape' : 'portrait';
+        const guideBox = document.getElementById('plateGuideBox');
+        if (guideBox) {
+            guideBox.className = 'guard-guide-box guard-guide-box--' + _guideOrientation;
+        }
+        const toggleBtn = document.getElementById('plateOrientationBtn');
+        if (toggleBtn) {
+            toggleBtn.textContent = _guideOrientation === 'portrait' ? '📐 Dọc (xe máy)' : '📐 Ngang (xe hơi)';
+        }
+    },
+
+    /** R-SCANNER: Show/hide guide box overlay on video. Applies current orientation class. */
     _showGuideBox(show) {
         const guideBox = document.getElementById('plateGuideBox');
         const scanStatus = document.getElementById('plateScanStatus');
-        if (guideBox) guideBox.style.display = show ? '' : 'none';
+        if (guideBox) {
+            guideBox.className = 'guard-guide-box guard-guide-box--' + _guideOrientation;
+            guideBox.style.display = show ? '' : 'none';
+        }
         if (scanStatus) scanStatus.style.display = show ? '' : 'none';
     },
 
@@ -1076,11 +1176,11 @@ window.vananGuardCamera = {
         return score;
     },
 
-    /** R-SCANNER: Enhanced preprocessing for ROI — resize 3x, grayscale, contrast boost, sharpen.
+    /** R-SCANNER: Fast preprocessing for ROI — resize 2x, grayscale, contrast boost.
      *  Returns canvas ready for Tesseract.
-     *  Pipeline: ROI → resize 3x → grayscale → contrast 1.5x → unsharp mask → output.
-     *  Tesseract.js v5 has internal binarization, so we don't apply threshold here —
-     *  grayscale + contrast + sharpen gives Tesseract the best input for its own thresholding. */
+     *  Pipeline: ROI → resize 2x → grayscale → contrast 1.4x → output.
+     *  Skipped unsharp mask (O(n) convolution too slow for real-time scanning).
+     *  Tesseract.js v5 has internal binarization — grayscale + contrast is sufficient. */
     async _preprocessRoi(dataUrl) {
         const img = await new Promise((resolve, reject) => {
             const i = new Image();
@@ -1089,8 +1189,8 @@ window.vananGuardCamera = {
             i.src = dataUrl;
         });
 
-        // Resize 3x for better OCR resolution (plates are small in ROI)
-        const scale = 3;
+        // Resize 2x — enough for Tesseract, 3x was too slow
+        const scale = 2;
         const w = img.width * scale;
         const h = img.height * scale;
         const canvas = document.createElement('canvas');
@@ -1101,47 +1201,18 @@ window.vananGuardCamera = {
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, w, h);
 
-        // Get image data for pixel manipulation
+        // Grayscale + contrast enhancement (single pass — fast)
         const imageData = ctx.getImageData(0, 0, w, h);
         const data = imageData.data;
-
-        // Step 1: Grayscale + contrast enhancement
-        const contrast = 1.5;
+        const contrast = 1.4;
         const intercept = 128 * (1 - contrast);
-        const gray = new Uint8ClampedArray(w * h);
         for (let i = 0; i < data.length; i += 4) {
             let g = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
             g = g * contrast + intercept;
             g = Math.max(0, Math.min(255, g));
-            gray[i / 4] = g;
-        }
-
-        // Step 2: Unsharp mask (sharpen) — convolution with sharpen kernel
-        // Kernel: [0,-1,0, -1,5,-1, 0,-1,0]
-        const sharpened = new Uint8ClampedArray(w * h);
-        for (let y = 0; y < h; y++) {
-            for (let x = 0; x < w; x++) {
-                const idx = y * w + x;
-                if (x === 0 || x === w - 1 || y === 0 || y === h - 1) {
-                    sharpened[idx] = gray[idx];
-                    continue;
-                }
-                const center = gray[idx] * 5;
-                const top = gray[(y - 1) * w + x] * -1;
-                const bottom = gray[(y + 1) * w + x] * -1;
-                const left = gray[y * w + (x - 1)] * -1;
-                const right = gray[y * w + (x + 1)] * -1;
-                let val = center + top + bottom + left + right;
-                sharpened[idx] = Math.max(0, Math.min(255, val));
-            }
-        }
-
-        // Write back to imageData (RGB = sharpened gray, Alpha = 255)
-        for (let i = 0; i < data.length; i += 4) {
-            data[i] = data[i + 1] = data[i + 2] = sharpened[i / 4];
+            data[i] = data[i + 1] = data[i + 2] = g;
             data[i + 3] = 255;
         }
-
         ctx.putImageData(imageData, 0, 0);
         return canvas;
     },
