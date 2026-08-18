@@ -231,7 +231,12 @@ namespace VanAn.ShopERP.Components.Pages.Guard
                 issuedShortCode = result.ShortCode;
 
                 // 4. Generate QR image (client-side via vendored qrcode.js — no CDN dependency)
-                qrImageBase64 = await JS.InvokeAsync<string?>("vananGuardCamera.generateQrImage", result.QrPayload, 300) ?? string.Empty;
+                // #130-fix3 (2026-08-18, Bug 1): Wrap JSON payload in URL so Zalo/external scanners
+                // can open it as a deep link → opens KhachLink /qr/claim?data={base64(json)}.
+                // Hash in DB is still SHA256(JSON) — Gateway extracts JSON from URL before hashing.
+                var khachLinkUrl = Configuration.GetValue<string>("ExternalUrls:KhachLink") ?? "https://app.khachvip.online";
+                var qrUrl = $"{khachLinkUrl.TrimEnd('/')}/qr/claim?data={Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(result.QrPayload))}";
+                qrImageBase64 = await JS.InvokeAsync<string?>("vananGuardCamera.generateQrImage", qrUrl, 300) ?? string.Empty;
 
                 issueStep = 2;
                 // #130-fix: If QR image generation failed, show warning but still advance to step 2
