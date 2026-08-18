@@ -19,6 +19,7 @@
         <h1>Tenant Domains</h1>
         <div class="header-actions">
             <VanAButton Variant="secondary" Size="small" OnClick="LoadData">Làm mới</VanAButton>
+            <VanAButton Variant="primary" Size="small" OnClick="() => OpenAddModal()">Thêm domain</VanAButton>
         </div>
     </header>
 
@@ -46,7 +47,10 @@
                                 <span>$@((_searchResult.PriceMicroUnits.Value / 10000000.0).ToString("F2"))/năm</span>
                             }
                         </p>
-                        <p class="text-muted small">R1: Tự động đăng ký chưa hỗ trợ. Đăng ký thủ công tại GoDaddy, rồi dùng "Thêm domain" bên dưới để lưu vào hệ thống.</p>
+                        <p class="text-muted small">R1: Tự động đăng ký chưa hỗ trợ. Đăng ký thủ công tại GoDaddy, rồi nhấn "Thêm domain" bên dưới để lưu vào hệ thống.</p>
+                        <div class="search-result-actions" style="margin-top:0.5rem">
+                            <VanAButton Variant="primary" Size="small" OnClick="() => OpenAddModal(_searchResult.Domain)">Thêm domain</VanAButton>
+                        </div>
                     }
                     else
                     {
@@ -348,9 +352,9 @@
         }
     }
 
-    public void OpenAddModal()
+    public void OpenAddModal(string? prefillDomain = null)
     {
-        _addForm = new CreateTenantDomainRequest { Registrar = RegistrarProvider.GoDaddy };
+        _addForm = new CreateTenantDomainRequest { Registrar = RegistrarProvider.GoDaddy, Domain = prefillDomain ?? "" };
         _addExpiresAtStr = DateTime.UtcNow.AddYears(1).ToString("yyyy-MM-dd");
         _showAddModal = true;
     }
