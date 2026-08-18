@@ -299,6 +299,22 @@ namespace VanAn.CoreHub.Services
         /// </summary>
         private async Task<VehicleSession?> TryLookupByAlternativePayloadAsync(string payload, Guid tenantId)
         {
+            // #130-fix3 (2026-08-18, Bug 0): Handle raw short code (6-digit number) entered manually.
+            // Previous code only parsed JSON — short code "372266" threw JsonException → returned null → 404.
+            var trimmed = payload.Trim();
+
+            // Short code path: 4-8 digit number (typical VN short code is 6 digits)
+            if (trimmed.Length >= 4 && trimmed.Length <= 8 && trimmed.All(char.IsDigit))
+            {
+                var session = await _sessionRepo.GetByShortCodeAsync(trimmed, tenantId);
+                if (session != null)
+                {
+                    _logger.LogInformation("Verify fallback: found session {SessionId} by short code {ShortCode}", session.Id, trimmed);
+                    return session;
+                }
+            }
+
+            // JSON payload path: {sc, sid} format (PrintTicket) or {t, tn} format
             try
             {
                 using var doc = JsonDocument.Parse(payload);
@@ -332,7 +348,7 @@ namespace VanAn.CoreHub.Services
             }
             catch (JsonException)
             {
-                // Not JSON — payload is in the original {t, tn} format but hash didn't match
+                // Not JSON and not a short code — payload is in the original {t, tn} format but hash didn't match
             }
             catch (Exception ex)
             {
