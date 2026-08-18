@@ -933,7 +933,7 @@ window.vananGuardCamera = {
 
     /** R-UX: Guard clicks OK to confirm the plate shown in textbox.
      *  Stops scanner, captures photo, saves plate. Guard can edit textbox before clicking OK. */
-    confirmPlate() {
+    async confirmPlate() {
         const plateInput = document.getElementById('plateInput');
         const plate = plateInput ? plateInput.value.trim().toUpperCase() : '';
         if (!plate) {
