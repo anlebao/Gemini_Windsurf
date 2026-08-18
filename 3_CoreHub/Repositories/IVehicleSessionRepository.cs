@@ -8,6 +8,14 @@ namespace VanAn.CoreHub.Repositories
     public interface IVehicleSessionRepository
     {
         Task<VehicleSession?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken ct = default);
+        /// <summary>
+        /// #130-fix2 (2026-08-18): Lookup session by Id WITHOUT tenant filter.
+        /// Used by GuardController.Claim to resolve tenantId from {sc,sid} QR payloads
+        /// (PrintTicket format) where tenantId is not embedded in the payload.
+        /// Returns session.TenantId via the entity. Caller must verify tenant context
+        /// before acting on the session (ClaimAsync still filters by tenantId).
+        /// </summary>
+        Task<VehicleSession?> GetByIdWithoutTenantFilterAsync(Guid id, CancellationToken ct = default);
         Task<VehicleSession?> GetByQrTokenHashAsync(string qrTokenHash, Guid tenantId, CancellationToken ct = default);
         Task<VehicleSession?> GetByShortCodeAsync(string shortCode, Guid tenantId, CancellationToken ct = default);
         Task<(List<VehicleSession> Items, int Total)> GetTodaySessionsAsync(Guid tenantId, VehicleSessionStatus? status, int page, int pageSize, CancellationToken ct = default);

@@ -70,6 +70,16 @@ namespace VanAn.ShopERP.Services
                 ?? Guid.Empty.ToString();
             var tenantId = Guid.TryParse(tenantStr, out var tid) ? tid : Guid.Empty;
 
+            // #130-fix2 (2026-08-18, Bug 3): Warn when tenantId is Empty.
+            // On a fresh Blazor circuit (forceLoad: true — e.g. PrintTicket), auth state may
+            // not be hydrated yet → tenant_id claim missing → JWT minted with tenant_id=Empty
+            // → GuardController.GetSession filters by Empty tenant → 404 → "session not found".
+            // PrintTicket.OnInitializedAsync now retries on failure to handle this race.
+            if (tenantId == Guid.Empty)
+            {
+                _logger.LogWarning("MintUserTokenAsync: tenant_id claim missing — auth state may not be hydrated yet (fresh circuit?). User authenticated: {IsAuth}", user.Identity?.IsAuthenticated);
+            }
+
             // Parse role string to UserRole enum (for typed overload) or use string overload
             if (Enum.TryParse<UserRole>(roleStr, out var roleEnum))
             {
