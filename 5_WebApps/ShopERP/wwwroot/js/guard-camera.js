@@ -21,6 +21,7 @@ let _scanLoopActive = false;
 let _scanRafId = null;       // requestAnimationFrame ID for camera sampling (30 FPS)
 let _ocrBusy = false;        // Is OCR worker currently processing a frame?
 let _ocrLastTime = 0;        // Timestamp of last OCR submission
+let _camResLogged = false;   // R-TELEMETRY: Log actual camera resolution once
 let _scanStartTime = 0;
 let _voteBuffer = []; // [{plate, confidence, timestamp}]
 // Guide box orientation: 'portrait' (square, default for motorbikes) or 'landscape' (rect, for cars)
@@ -544,6 +545,7 @@ window.vananGuardCamera = {
             _scanRafId = null;
         }
         _ocrBusy = false;
+        _camResLogged = false;
         _voteBuffer = [];
         this._showGuideBox(false);
         this._hideRoiDebug();
@@ -564,6 +566,15 @@ window.vananGuardCamera = {
 
         const video = document.getElementById('plateVideo');
         if (video && video.videoWidth) {
+            // R-TELEMETRY: Log actual camera resolution once (not every frame)
+            if (!this._camResLogged) {
+                console.log('[Scanner] Camera resolution:', {
+                    requested: '1920x1080 (ideal)',
+                    actual: `${video.videoWidth}x${video.videoHeight}`
+                });
+                this._camResLogged = true;
+            }
+
             // Crop ROI every frame — cheap operation, keeps debug overlay live
             const roiCanvas = this._cropRoiFromVideo(video);
             if (roiCanvas) {
@@ -739,18 +750,48 @@ window.vananGuardCamera = {
      *  R-SPEED: PSM 7 already set in preloadOcrWorker — no setParameters per frame.
      *  R-SPEED: No preprocessing — Tesseract v5 has internal binarization,
      *  and ROI from 1920x1080 video is already high enough resolution.
-     *  Returns {plate, confidence} or null. */
+     *  R-BUGFIX: Don't kill valid OCR results — if normalizer returns '' but raw
+     *  text looks plate-like (has both letters + digits, reasonable length),
+     *  return the cleaned raw text so guard can see it and manually correct.
+     *  Returns {plate, confidence, raw} or null. */
     async _ocrRoi(canvas) {
+        const t0 = performance.now();
         const worker = await this.preloadOcrWorker();
-        // R-SPEED: PSM 7 set once in preload — no per-frame setParameters call
         const { data } = await worker.recognize(canvas);
-        const raw = (data.text || '').toUpperCase();
+        const ocrMs = Math.round(performance.now() - t0);
+        const raw = (data.text || '').toUpperCase().trim();
         const confidence = data.confidence || 0;
 
-        const normalized = this._normalizeVnPlate(raw);
-        if (!normalized) return null;
+        // R-TELEMETRY: Log OCR result for diagnosis
+        console.log('[Scanner] OCR', {
+            raw: raw.substring(0, 40),
+            confidence: Math.round(confidence),
+            ocrMs,
+            roiW: canvas.width,
+            roiH: canvas.height
+        });
 
-        return { plate: normalized, confidence };
+        if (!raw) return null;
+
+        // Try normalizer first
+        const normalized = this._normalizeVnPlate(raw);
+
+        // R-BUGFIX: If normalizer killed it, check if raw is still plate-like
+        if (!normalized) {
+            // Clean raw: keep only [0-9A-ZĐ-.]
+            const cleaned = raw.replace(/[^0-9A-ZĐ\-\.]/g, '').replace(/^-+|-+$/g, '');
+            const digits = (cleaned.match(/[0-9]/g) || []).length;
+            const letters = (cleaned.match(/[A-ZĐ]/g) || []).length;
+            // If it has both letters + digits and reasonable length, return it
+            if (digits > 0 && letters > 0 && cleaned.length >= 5 && cleaned.length <= 12) {
+                console.log('[Scanner] Normalizer failed, using cleaned raw:', cleaned);
+                return { plate: cleaned, confidence, raw };
+            }
+            // Truly garbage — skip
+            return null;
+        }
+
+        return { plate: normalized, confidence, raw };
     },
 
     /** R-SCANNER: Check temporal voting — returns {plate, confidence} if stable result, null otherwise.
@@ -847,14 +888,16 @@ window.vananGuardCamera = {
         return null;
     },
 
-    /** R-SCANNER: Called when plate is auto-accepted — fill input, capture photo, stop scan, show success. */
-    _onPlateAccepted(plate, confidence, video) {
+    /** R-SCANNER: Called when plate is auto-accepted — fill input, capture photo, stop scan, show success.
+     *  R-BUGFIX: Must be async + await capturePhoto() — capturePhoto returns Promise<dataUrl>,
+     *  not dataUrl. Without await, _capturedPhotos stores a Promise object → preview broken. */
+    async _onPlateAccepted(plate, confidence, video) {
         // Fill plate input
         this.setInputValue('plateInput', plate);
         this.saveState('plateNumber', plate);
 
         // Capture current frame as plate photo (full frame, not just ROI)
-        const photoUrl = this.capturePhoto('plateVideo');
+        const photoUrl = await this.capturePhoto('plateVideo');
         if (photoUrl) {
             _capturedPhotos['plate'] = photoUrl;
             this.saveState('platePhoto', photoUrl);
@@ -899,7 +942,8 @@ window.vananGuardCamera = {
         }
 
         // Capture current frame as plate photo
-        const photoUrl = this.capturePhoto('plateVideo');
+        // R-BUGFIX: await capturePhoto — it's async, returns Promise<dataUrl>
+        const photoUrl = await this.capturePhoto('plateVideo');
         if (photoUrl) {
             _capturedPhotos['plate'] = photoUrl;
             this.saveState('platePhoto', photoUrl);
