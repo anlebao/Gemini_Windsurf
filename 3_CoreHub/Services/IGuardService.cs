@@ -42,6 +42,14 @@ namespace VanAn.CoreHub.Services
         /// <summary>Get session detail by ID (with presigned photo URLs).</summary>
         Task<SessionDetailResult> GetSessionAsync(Guid tenantId, Guid sessionId);
 
+        /// <summary>
+        /// #130-fix2 (2026-08-18): Resolve tenantId from a session by sessionId, WITHOUT tenant filter.
+        /// Used by GuardController.Claim to handle {sc,sid} QR payloads (PrintTicket format)
+        /// which do not embed tenantId. Returns Guid.Empty if session not found.
+        /// Caller must still pass the resolved tenantId to ClaimAsync for proper tenant scoping.
+        /// </summary>
+        Task<Guid> GetTenantIdBySessionIdAsync(Guid sessionId);
+
         /// <summary>Get session statuses for a customer's claimed sessions (cross-tenant, for KhachLink wallet sync).</summary>
         Task<List<SessionStatusResult>> GetSessionStatusesAsync(Guid customerId, List<Guid> sessionIds);
     }

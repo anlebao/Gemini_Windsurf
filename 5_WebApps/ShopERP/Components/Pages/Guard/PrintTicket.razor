@@ -22,6 +22,13 @@
     else if (session == null)
     {
         <p style="text-align:center;padding:2rem;">Không tìm thấy phiên QR.</p>
+        if (!string.IsNullOrEmpty(lastLoadError))
+        {
+            <p style="text-align:center;padding:0 2rem;color:#991b1b;font-size:0.8rem;">
+                Lỗi: @lastLoadError<br />
+                Có thể do tải lại trang (fresh circuit) — thử đóng tab và in lại từ trang Guard Scanner.
+            </p>
+        }
     }
     else
     {
@@ -85,27 +92,49 @@
     private string? tenantName;
     private bool loading = true;
     private string? qrPayloadForJs;
+    private string? lastLoadError; // #130-fix2 (Bug 3): diagnostic for fresh-circuit auth race
 
     protected override async Task OnInitializedAsync()
     {
-        try
+        // #130-fix2 (2026-08-18, Bug 3): Retry loop to handle fresh-circuit auth state race.
+        // PrintTicket opens via NavigationManager.NavigateTo(..., forceLoad: true) → new tab,
+        // fresh Blazor circuit. AuthenticationStateProvider may not have hydrated the tenant_id
+        // claim yet → GuardApiClient mints JWT with tenant_id=Empty → GetSession 404.
+        // Retry up to 3 times with 1.5s delay to give auth state time to hydrate.
+        const int maxRetries = 3;
+        const int retryDelayMs = 1500;
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
-            session = await GuardApi.GetSessionAsync(SessionId);
-            // Fetch tenant name for the ticket header
-            // Note: ITenantManagementService queries PG directly (ShopERP has access via CoreHub)
-            // We don't have tenantId in SessionDetailResultDto, but we can get it from auth state
-            // For simplicity, use "VẠN AN" as default brand — tenant name lookup requires tenantId
-            // which is not in the session detail DTO. This is acceptable for MVP (single-tenant deploy).
-            tenantName = "VẠN AN"; // Default brand — can be enhanced later with tenant-specific name
+            try
+            {
+                session = await GuardApi.GetSessionAsync(SessionId);
+                if (session != null)
+                {
+                    // Fetch tenant name for the ticket header
+                    // Note: ITenantManagementService queries PG directly (ShopERP has access via CoreHub)
+                    // We don't have tenantId in SessionDetailResultDto, but we can get it from auth state
+                    // For simplicity, use "VẠN AN" as default brand — tenant name lookup requires tenantId
+                    // which is not in the session detail DTO. This is acceptable for MVP (single-tenant deploy).
+                    tenantName = "VẠN AN"; // Default brand — can be enhanced later with tenant-specific name
+                    break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error loading session {SessionId} for print ticket (attempt {Attempt}/{Max})", SessionId, attempt, maxRetries);
+                if (attempt < maxRetries)
+                {
+                    await Task.Delay(retryDelayMs);
+                }
+                else
+                {
+                    // Final attempt failed — keep session=null, UI shows "Không tìm thấy phiên QR."
+                    // Common cause: tenant_id claim missing on fresh circuit (see GuardApiClient warning).
+                    lastLoadError = ex.Message;
+                }
+            }
         }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error loading session {SessionId} for print ticket", SessionId);
-        }
-        finally
-        {
-            loading = false;
-        }
+        loading = false;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

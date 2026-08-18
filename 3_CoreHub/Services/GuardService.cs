@@ -268,6 +268,16 @@ namespace VanAn.CoreHub.Services
                 session.CustomerId, plateUrl, customerUrl);
         }
 
+        /// <summary>
+        /// #130-fix2 (2026-08-18): Resolve tenantId from a session by sessionId without tenant filter.
+        /// See IGuardService.GetTenantIdBySessionIdAsync for rationale.
+        /// </summary>
+        public async Task<Guid> GetTenantIdBySessionIdAsync(Guid sessionId)
+        {
+            var session = await _sessionRepo.GetByIdWithoutTenantFilterAsync(sessionId);
+            return session?.TenantId.Value ?? Guid.Empty;
+        }
+
         public async Task<List<SessionStatusResult>> GetSessionStatusesAsync(Guid customerId, List<Guid> sessionIds)
         {
             if (sessionIds == null || sessionIds.Count == 0)

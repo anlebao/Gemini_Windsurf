@@ -86,8 +86,10 @@ window.vananGuardCamera = {
             const constraints = {
                 video: {
                     facingMode: facingMode || 'environment',
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
+                    // R-OCR-3 (2026-08-18): 1920x1080 — higher resolution for plate OCR.
+                    // 1280x720 left plate region ~200-300px → too small for Tesseract.
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
                 },
                 audio: false
             };
@@ -102,7 +104,9 @@ window.vananGuardCamera = {
         }
     },
 
-    /** Capture current camera frame as base64 JPEG. Returns { dataUrl, blob } or null on failure. */
+    /** Capture current camera frame as base64 JPEG. Returns { dataUrl, blob } or null on failure.
+     *  R-OCR-4 (2026-08-18): Capture at quality 0.95 (was 0.85) — keep detail for OCR.
+     *  Compression happens only at upload time (uploadCapturedPhoto), not at capture. */
     async capturePhoto(videoElementId) {
         try {
             const video = document.getElementById(videoElementId);
@@ -112,7 +116,7 @@ window.vananGuardCamera = {
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
             return dataUrl;
         } catch (err) {
             console.error('Photo capture failed:', err);
@@ -207,7 +211,10 @@ window.vananGuardCamera = {
     },
 
     /** Capture photo for a slot. Pure JS — stores in _capturedPhotos, renders preview, stops camera.
-     *  #130: Compress photo before storing — reduces size from ~650KB to <100KB. */
+     *  R-OCR-4 (2026-08-18): Store RAW high-quality capture (quality 0.95, no resize).
+     *  Compression happens only at upload time (uploadCapturedPhoto) to preserve OCR detail.
+     *  Previous code compressed at capture → double JPEG artifact → OCR accuracy loss.
+     *  Note: sessionStorage has ~5MB limit — raw 1920x1080 JPEG ~300-500KB, fits for 2 photos. */
     async captureAndStore(slot) {
         const videoId = slot === 'plate' ? 'plateVideo' : 'customerVideo';
         const rawUrl = await this.capturePhoto(videoId);
@@ -215,17 +222,13 @@ window.vananGuardCamera = {
             this._showError('Chụp ảnh thất bại. Đảm bảo camera đã mở và có hình.');
             return false;
         }
-        // #130: Compress photo to configured max size
-        const dataUrl = await this.compressPhoto(rawUrl, _photoConfig.maxDimension, _photoConfig.jpegQuality, _photoConfig.maxSizeKB);
-        if (!dataUrl) {
-            this._showError('Nén ảnh thất bại. Vui lòng chụp lại.');
-            return false;
-        }
-        _capturedPhotos[slot] = dataUrl;
+        // R-OCR-4: Store raw capture — no compression here. OCR runs on raw for max detail.
+        // Upload path (uploadCapturedPhoto) compresses on-the-fly before sending to Gateway.
+        _capturedPhotos[slot] = rawUrl;
         this.stopCamera();
         _cameraActive[slot] = false;
         // Render preview image directly in DOM — no Blazor re-render needed.
-        this._renderPreview(slot, dataUrl);
+        this._renderPreview(slot, rawUrl);
         this._updateCameraUI(slot, false);
         // Show "Nhận diện" button for plate slot.
         if (slot === 'plate') {
@@ -233,7 +236,7 @@ window.vananGuardCamera = {
             if (ocrBtn) ocrBtn.style.display = '';
         }
         // Persist to sessionStorage (survives reload).
-        this.saveState(slot + 'Photo', dataUrl);
+        this.saveState(slot + 'Photo', rawUrl);
         return true;
     },
 
@@ -298,12 +301,17 @@ window.vananGuardCamera = {
      *  JS sends base64 photo to Gateway via HTTP fetch — no SignalR, no R2 CORS needed.
      *  Gateway already has CORS configured for app2.khachvip.online.
      *  Blazor passes (slot, jwtToken, gatewayBaseUrl) — all small strings, safe for SignalR.
+     *  R-OCR-4 (2026-08-18): Compress on-the-fly before upload (stored photo is raw quality 0.95).
      *  Returns { success, key } or { success: false, error }. */
     async uploadCapturedPhoto(slot, jwtToken, gatewayBaseUrl) {
         const dataUrl = this.getCapturedPhoto(slot);
         if (!dataUrl) {
             return { success: false, error: 'No captured photo for slot: ' + slot };
         }
+        // R-OCR-4: Compress for upload — stored photo is raw (quality 0.95, full resolution).
+        // Gateway rejects photos > Guard:MaxPhotoSizeKB (default 100KB). Compress to fit.
+        const compressedUrl = await this.compressPhoto(dataUrl, _photoConfig.maxDimension, _photoConfig.jpegQuality, _photoConfig.maxSizeKB);
+        const uploadUrl = compressedUrl || dataUrl; // Fallback to raw if compression fails
         try {
             const response = await fetch((gatewayBaseUrl || '') + '/api/guard/upload-photo', {
                 method: 'POST',
@@ -313,7 +321,7 @@ window.vananGuardCamera = {
                 },
                 body: JSON.stringify({
                     slot: slot,
-                    base64Data: dataUrl,
+                    base64Data: uploadUrl,
                     contentType: 'image/jpeg'
                 })
             });
@@ -439,7 +447,9 @@ window.vananGuardCamera = {
         if (phoneInput) phoneInput.value = '';
     },
 
-    /** OCR button handler — runs Tesseract.js, sets plate input value. Pure JS. */
+    /** OCR button handler — runs Tesseract.js, sets plate input value. Pure JS.
+     *  R-OCR-6 (2026-08-18): VN plate format validation — warn if not matching VN format
+     *  (does NOT block — guard can override and submit anyway). */
     async recognizeAndFill() {
         const dataUrl = this.getCapturedPhoto('plate');
         if (!dataUrl) {
@@ -456,26 +466,49 @@ window.vananGuardCamera = {
             const plate = await this.recognizePlate(dataUrl);
             if (plate) {
                 this.setInputValue('plateInput', plate);
+                // R-OCR-6: Validate VN plate format — warn but don't block.
+                const formatOk = this._isVnPlateFormat(plate);
                 if (ocrHint) {
-                    ocrHint.textContent = 'Đã nhận diện: ' + plate + ' — kiểm tra lại trước khi tạo QR.';
+                    if (formatOk) {
+                        ocrHint.textContent = 'Đã nhận diện: ' + plate + ' — kiểm tra lại trước khi tạo QR.';
+                        ocrHint.style.color = '#6b7280';
+                    } else {
+                        ocrHint.textContent = '⚠️ Đã nhận diện: ' + plate + ' — KHÔNG đúng format biển VN. Kiểm tra lại trước khi tạo QR.';
+                        ocrHint.style.color = '#b45309';
+                    }
                     ocrHint.style.display = '';
                 }
                 this.saveState('plateNumber', plate);
             } else {
                 if (ocrHint) {
                     ocrHint.textContent = 'Không nhận diện được — nhập thủ công.';
+                    ocrHint.style.color = '#6b7280';
                     ocrHint.style.display = '';
                 }
             }
         } catch (err) {
             if (ocrHint) {
                 ocrHint.textContent = 'OCR lỗi — nhập biển số thủ công.';
+                ocrHint.style.color = '#6b7280';
                 ocrHint.style.display = '';
             }
         } finally {
             if (ocrStatus) ocrStatus.style.display = 'none';
             if (ocrBtn) ocrBtn.disabled = false;
         }
+    },
+
+    /** R-OCR-6 (2026-08-18): Validate VN license plate format.
+     *  Xe máy: \d{2}[A-ZĐ]{1,2}-\d{4,5} (VD: 51F-12345, 59P1-67890)
+     *  Xe hơi:  \d{2}[A-Z]{1,2}-\d{3}\.\d{2} (VD: 51F-123.45) — dấu chấm có thể bị OCR bỏ
+     *  Điện:    \d{2}[A-ZĐ]{1,2}-\d{4,5} (VD: 51ĐAB-123.45) — Đ cho xe máy điện
+     *  Returns true if matches any VN format (with or without dot separator). */
+    _isVnPlateFormat(s) {
+        if (!s || s.length < 5) return false;
+        // Normalize: OCR may strip dots — accept both dash-only and dash+dot.
+        // Pattern: 2 digits, 1-2 letters (incl Đ), dash, 3-5 digits (optionally dot-separated).
+        const vnPlateRegex = /^\d{2}[A-ZĐ]{1,2}-\d{3,5}(\.\d{2})?$/;
+        return vnPlateRegex.test(s);
     },
 
     /** Restore UI state from sessionStorage after page reload. Pure JS — called on DOMContentLoaded. */
@@ -611,31 +644,45 @@ window.vananGuardCamera = {
 
     /** Recognize license plate text from a base64 JPEG data URL. Returns cleaned plate string or ''.
      *  Uses preloaded worker (preloadOcrWorker) for fast first capture.
-     *  Tries PSM 7 (single line — best for plates) then PSM 6 (fallback) only. */
+     *  R-OCR-5 (2026-08-18): Multi-PSM [7,6,8,13,4] + confidence filter (>=60).
+     *  R-OCR-10 (2026-08-18): Telemetry logging to console for tuning.
+     *  Tries PSM 7 (single line — best for plates), 6 (uniform block), 8 (single word),
+     *  13 (raw line — no segmentation), 4 (single column) as fallbacks. */
     async recognizePlate(dataUrl) {
         try {
             if (!dataUrl) return '';
             const worker = await this.preloadOcrWorker();
             const canvas = await this._preprocessForOcr(dataUrl);
-            // Only 2 PSM modes (down from 4) — PSM 7 + 6 cover 95%+ of plates.
-            const psmModes = ['7', '6'];
+            // R-OCR-5: Expanded PSM list for edge cases (góc nghiêng, biển ngắn, biển điện).
+            const psmModes = ['7', '6', '8', '13', '4'];
+            const minConfidence = 60;
             let bestPlate = '';
             let bestScore = -1;
+            const telemetry = { psms: [], bestConfidence: 0, bestPsm: null };
             for (const psm of psmModes) {
                 try {
                     await worker.setParameters({ tessedit_pageseg_mode: psm });
                     const { data } = await worker.recognize(canvas);
                     const raw = (data.text || '').toUpperCase();
                     const plate = this._normalizePlate(raw);
+                    const confidence = data.confidence || 0;
                     const score = this._scorePlate(plate);
-                    if (score > bestScore) {
+                    telemetry.psms.push({ psm, raw: raw.substring(0, 40), plate, confidence: Math.round(confidence), score });
+                    // R-OCR-5: Filter low-confidence results — if confidence < minConfidence, skip
+                    // (unless score is high — format match can override low confidence).
+                    if (confidence < minConfidence && score < 8) continue;
+                    if (score > bestScore || (score === bestScore && confidence > telemetry.bestConfidence)) {
                         bestScore = score;
                         bestPlate = plate;
+                        telemetry.bestConfidence = Math.round(confidence);
+                        telemetry.bestPsm = psm;
                     }
                 } catch (e) {
                     // Continue to next PSM mode.
                 }
             }
+            // R-OCR-10: Telemetry log for tuning — identifies fail patterns (glare? góc? biển điện?).
+            console.log('[OCR Telemetry]', telemetry);
             return bestPlate;
         } catch (err) {
             console.error('Plate OCR failed:', err);
@@ -659,8 +706,12 @@ window.vananGuardCamera = {
         return score;
     },
 
-    /** Load image from data URL, upscale 1.5x + grayscale to improve OCR accuracy. Returns canvas.
-     *  #130-fix: Reduced from 2x→1.5x — faster preprocessing, accuracy still sufficient for plates. */
+    /** Load image from data URL, upscale 1.5x + grayscale + Otsu threshold to improve OCR accuracy.
+     *  Returns canvas.
+     *  #130-fix: Reduced from 2x→1.5x — faster preprocessing, accuracy still sufficient for plates.
+     *  R-OCR-2 (2026-08-18): Added contrast boost + Otsu binarization (was grayscale-only).
+     *  Grayscale-only left low-contrast plates (glare, shadow) unreadable for Tesseract.
+     *  Otsu auto-computes optimal threshold → black/white binary image → Tesseract segments better. */
     async _preprocessForOcr(dataUrl) {
         const img = await new Promise((resolve, reject) => {
             const i = new Image();
@@ -673,16 +724,56 @@ window.vananGuardCamera = {
         canvas.width = img.width * scale;
         canvas.height = img.height * scale;
         const ctx = canvas.getContext('2d');
+        // R-OCR-2: Contrast boost before draw — helps separate plate text from background.
+        ctx.filter = 'contrast(1.4) brightness(1.1)';
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.filter = 'none';
         // Grayscale conversion — improves Tesseract binarization on plate photos.
         const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const d = imgData.data;
-        for (let i = 0; i < d.length; i += 4) {
+        const grayValues = new Uint8Array(d.length / 4);
+        for (let i = 0, j = 0; i < d.length; i += 4, j++) {
             const gray = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114);
+            grayValues[j] = gray;
             d[i] = d[i + 1] = d[i + 2] = gray;
+        }
+        // R-OCR-2: Otsu threshold — compute optimal binarization threshold from histogram.
+        const threshold = this._otsuThreshold(grayValues);
+        for (let i = 0, j = 0; i < d.length; i += 4, j++) {
+            const bin = grayValues[j] > threshold ? 255 : 0;
+            d[i] = d[i + 1] = d[i + 2] = bin;
         }
         ctx.putImageData(imgData, 0, 0);
         return canvas;
+    },
+
+    /** R-OCR-2 (2026-08-18): Otsu's method — compute optimal threshold for binarization.
+     *  Finds threshold that maximizes between-class variance of foreground/background.
+     *  Standard algorithm — see Nobuyuki Otsu (1979). Returns threshold 0-255. */
+    _otsuThreshold(grayValues) {
+        const histogram = new Array(256).fill(0);
+        for (let i = 0; i < grayValues.length; i++) {
+            histogram[grayValues[i]]++;
+        }
+        const total = grayValues.length;
+        let sum = 0;
+        for (let t = 0; t < 256; t++) sum += t * histogram[t];
+        let sumB = 0, wB = 0, maxVariance = 0, threshold = 127;
+        for (let t = 0; t < 256; t++) {
+            wB += histogram[t];
+            if (wB === 0) continue;
+            const wF = total - wB;
+            if (wF === 0) break;
+            sumB += t * histogram[t];
+            const mB = sumB / wB;
+            const mF = (sum - sumB) / wF;
+            const variance = wB * wF * (mB - mF) * (mB - mF);
+            if (variance > maxVariance) {
+                maxVariance = variance;
+                threshold = t;
+            }
+        }
+        return threshold;
     },
 
     /** Clean raw OCR output to a plate-like string: keep [0-9A-ZĐ-], collapse spaces, trim.

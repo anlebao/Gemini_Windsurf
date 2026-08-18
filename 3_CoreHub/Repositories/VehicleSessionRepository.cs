@@ -42,6 +42,25 @@ namespace VanAn.CoreHub.Repositories
             }
         }
 
+        /// <summary>
+        /// #130-fix2 (2026-08-18): Lookup session by Id WITHOUT tenant filter.
+        /// Used by GuardController.Claim to resolve tenantId from {sc,sid} QR payloads.
+        /// See IVehicleSessionRepository.GetByIdWithoutTenantFilterAsync for rationale.
+        /// </summary>
+        public async Task<VehicleSession?> GetByIdWithoutTenantFilterAsync(Guid id, CancellationToken ct = default)
+        {
+            try
+            {
+                return await _context.VehicleSessions
+                    .FirstOrDefaultAsync(s => s.Id == id, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting VehicleSession {SessionId} without tenant filter", id);
+                return null;
+            }
+        }
+
         public async Task<VehicleSession?> GetByQrTokenHashAsync(string qrTokenHash, Guid tenantId, CancellationToken ct = default)
         {
             try

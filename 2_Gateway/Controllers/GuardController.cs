@@ -326,10 +326,18 @@ namespace VanAn.Gateway.Controllers
             if (!string.IsNullOrWhiteSpace(request!.QrPayload))
             {
                 tenantId = ExtractTenantIdFromPayload(request.QrPayload);
+
+                // #130-fix2 (2026-08-18): {sc,sid} payload (PrintTicket format) has no "tn" field.
+                // Previous code rejected here → service fallback TryLookupByAlternativePayloadAsync
+                // was unreachable → KhachLink app could not claim printed-ticket QR codes.
+                // Resolve tenantId by looking up the session by sid, then proceed to ClaimAsync.
+                if (tenantId == Guid.Empty)
+                {
+                    tenantId = await ResolveTenantIdFromSidPayloadAsync(request.QrPayload);
+                }
             }
 
-            // If no tenantId from payload, try short code lookup across tenants (not ideal but MVP)
-            // For now, require tenantId in QR payload
+            // If still no tenantId, reject — ClaimAsync requires tenant scoping for security.
             if (tenantId == Guid.Empty)
                 return BadRequest(new { error = "Could not determine tenant from QR code. Please use short code with tenant context." });
 
@@ -420,6 +428,30 @@ namespace VanAn.Gateway.Controllers
             catch
             {
                 // Ignore parse errors
+            }
+            return Guid.Empty;
+        }
+
+        /// <summary>
+        /// #130-fix2 (2026-08-18): Resolve tenantId from a {sc,sid} QR payload (PrintTicket format).
+        /// PrintTicket.razor generates QR as {"sc":"<shortCode>","sid":"<sessionId>"} — no "tn" field.
+        /// ExtractTenantIdFromPayload returns Guid.Empty for this format. This helper parses "sid",
+        /// looks up the session without tenant filter, and returns session.TenantId.
+        /// Returns Guid.Empty if payload is not {sc,sid} format or session not found.
+        /// </summary>
+        private async Task<Guid> ResolveTenantIdFromSidPayloadAsync(string payload)
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(payload);
+                if (doc.RootElement.TryGetProperty("sid", out var sidEl) && sidEl.TryGetGuid(out var sessionId))
+                {
+                    return await _guardService.GetTenantIdBySessionIdAsync(sessionId);
+                }
+            }
+            catch
+            {
+                // Ignore parse errors — payload may be in another format
             }
             return Guid.Empty;
         }
