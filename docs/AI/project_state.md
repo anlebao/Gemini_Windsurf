@@ -93,16 +93,16 @@
 
 ## 4. Next Actions
 
-**Domain Reseller R1 — IN PROGRESS (branch `feature/domain-reseller-r1`):**
-- ✅ Phase 1-5 implemented + build pass + commit `0d960163` (21 files, 7467 insertions).
-- TenantDomain entity + GoDaddy API v1 service + DomainRegistrarController (11 endpoints) + admin UI (`/admin/domains`) + auto-link KLI + `init-ssl-tenant-domains.sh` cron.
-- GoDaddy PAT verified 2026-08-17 (read + write + delete all PASS on production `khachvip.online`).
-- **Pending:**
-  1. Add `DomainRegistrar:GoDaddy:ApiKey` + `DomainRegistrar:DefaultVpsIp` to `.env.gateway` (VPS config).
-  2. Apply EF migration `AddTenantDomains` on Gateway PG (VPS).
-  3. RV on VPS: test `/admin/domains` UI + domain availability search + DNS records viewer + link-kli flow.
-  4. Test `init-ssl-tenant-domains.sh` on VPS (cron 1h).
-  5. Merge `feature/domain-reseller-r1` → `main` via PR after RV.
+**Domain Reseller R1 — COMPLETE + MERGED + DEPLOYED + RV 9/9 PASS:**
+- ✅ PR #137 squash-merged `124c65ef` → main. Branch deleted.
+- ✅ Phase 1-5: TenantDomain entity + GoDaddy API v1 + DomainRegistrarController (11 endpoints) + admin UI (`/admin/domains`) + auto-link KLI + `init-ssl-tenant-domains.sh` cron.
+- ✅ GoDaddy PAT verified 2026-08-17 (read + write + delete all PASS on production `khachvip.online`).
+- ✅ Fix: `GodaddyRegistrarService` defer API key check to first use (prevent controller creation failure when env var not set).
+- ✅ Fix: `StubDomainRegistrarService` in test factory (fix KLI-1/KLI-2 500→404).
+- ✅ Fix: class-level `[Authorize]` on DomainRegistrarController (W12-G7 architecture test).
+- ✅ CD: `GODADDY_API_KEY` GitHub secret set + env vars added to docker-compose.gateway.yml + cd-multivps.yml.
+- ✅ EF migration `AddTenantDomains` auto-applied on Gateway startup (MigrateAsync).
+- ✅ RV 9/9 PASS: Gateway /health 200, by-domain 404/200 (no regression), Domains endpoint 401 (deployed), KhachLink WASM 200, ShopERP 302, timlathay.com 200, CI+CD+Accounting all success.
 - **R2 (next):** Auto-registration via GoDaddy v3 quote-execute API + Namecheap sandbox backup + FailoverRegistrarService.
 
 **Dynamic CORS — COMPLETE (no further action needed):**
