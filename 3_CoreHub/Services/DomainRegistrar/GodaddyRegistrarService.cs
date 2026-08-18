@@ -76,9 +76,9 @@ namespace VanAn.CoreHub.Services.DomainRegistrar
             if (string.IsNullOrWhiteSpace(domain))
                 return new DomainAvailabilityResult { Domain = "", Available = false, Error = "Domain cannot be empty." };
 
-            EnsureConfigured();
             try
             {
+                EnsureConfigured();
                 var response = await _httpClient.GetAsync($"/v1/domains/available?domain={Uri.EscapeDataString(domain.ToLowerInvariant())}", ct);
                 if (!response.IsSuccessStatusCode)
                 {
