@@ -50,6 +50,14 @@ namespace VanAn.CoreHub.Services
         /// </summary>
         Task<Guid> GetTenantIdBySessionIdAsync(Guid sessionId);
 
+        /// <summary>
+        /// Issue #147: Resolve tenantId from a short code, WITHOUT tenant filter.
+        /// Used by GuardController.Claim when customer enters 6-digit short code (no QR payload).
+        /// Short codes are unique per tenant per day but may collide across tenants.
+        /// Returns the tenantId of the first matching session today, or Guid.Empty if not found.
+        /// </summary>
+        Task<Guid> GetTenantIdByShortCodeAsync(string shortCode);
+
         /// <summary>Get session statuses for a customer's claimed sessions (cross-tenant, for KhachLink wallet sync).</summary>
         Task<List<SessionStatusResult>> GetSessionStatusesAsync(Guid customerId, List<Guid> sessionIds);
     }

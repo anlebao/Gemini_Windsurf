@@ -372,21 +372,34 @@ namespace VanAn.Gateway.Controllers
                 }
             }
 
+            // Issue #147: Short code claim — customer enters 6-digit code (no QR payload).
+            // Short code has no tenantId embedded → resolve tenantId from short code lookup.
+            // Short codes are unique per tenant per day; use the most recent matching session.
+            if (tenantId == Guid.Empty && !string.IsNullOrWhiteSpace(request.ShortCode))
+            {
+                tenantId = await _guardService.GetTenantIdByShortCodeAsync(request.ShortCode);
+            }
+
             // If still no tenantId, reject — ClaimAsync requires tenant scoping for security.
             if (tenantId == Guid.Empty)
-                return BadRequest(new { error = "Could not determine tenant from QR code. Please use short code with tenant context." });
+                return BadRequest(new { error = "Could not determine tenant from QR code or short code. Please check your code and try again." });
 
             try
             {
+                _logger.LogInformation("Claim: tenant={TenantId}, customer={CustomerId}, hasQrPayload={HasQr}, hasShortCode={HasSc}, qrPayloadLen={QrLen}",
+                    tenantId, customerId, !string.IsNullOrWhiteSpace(request.QrPayload), !string.IsNullOrWhiteSpace(request.ShortCode),
+                    request.QrPayload?.Length ?? 0);
                 var result = await _guardService.ClaimAsync(tenantId, customerId!.Value, request);
                 return Ok(result);
             }
-            catch (KeyNotFoundException)
+            catch (KeyNotFoundException ex)
             {
+                _logger.LogWarning("Claim KeyNotFound: tenant={TenantId}, customer={CustomerId}, error={Error}", tenantId, customerId, ex.Message);
                 return NotFound(new { error = "QR session not found. Please check your QR code or short code." });
             }
             catch (InvalidOperationException ex)
             {
+                _logger.LogWarning("Claim InvalidOperation: tenant={TenantId}, customer={CustomerId}, error={Error}", tenantId, customerId, ex.Message);
                 return Conflict(new { error = ex.Message });
             }
             catch (Exception ex)

@@ -92,6 +92,29 @@ namespace VanAn.CoreHub.Repositories
             }
         }
 
+        /// <summary>
+        /// Issue #147: Lookup sessions by short code WITHOUT tenant filter (today only).
+        /// Short codes are 6-digit, unique per tenant per day, but may collide across tenants.
+        /// Returns all matching sessions today (any tenant). Caller resolves tenantId from
+        /// the first match (or rejects if ambiguous).
+        /// </summary>
+        public async Task<List<VehicleSession>> GetByShortCodeWithoutTenantFilterAsync(string shortCode, CancellationToken ct = default)
+        {
+            try
+            {
+                var (startUtc, endUtc) = GetVietnamTodayRange();
+                return await _context.VehicleSessions
+                    .Where(s => s.ShortCode == shortCode && s.IssuedAt >= startUtc && s.IssuedAt < endUtc)
+                    .OrderByDescending(s => s.IssuedAt)
+                    .ToListAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting VehicleSessions by short code {ShortCode} without tenant filter", shortCode);
+                return new List<VehicleSession>();
+            }
+        }
+
         public async Task<(List<VehicleSession> Items, int Total)> GetTodaySessionsAsync(Guid tenantId, VehicleSessionStatus? status, int page, int pageSize, CancellationToken ct = default)
         {
             try

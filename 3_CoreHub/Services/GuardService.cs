@@ -278,6 +278,31 @@ namespace VanAn.CoreHub.Services
             return session?.TenantId.Value ?? Guid.Empty;
         }
 
+        /// <summary>
+        /// Issue #147: Resolve tenantId from a short code without tenant filter.
+        /// Short codes are 6-digit, unique per tenant per day, but may collide across tenants.
+        /// Returns the tenantId of the first matching session today, or Guid.Empty if not found.
+        /// </summary>
+        public async Task<Guid> GetTenantIdByShortCodeAsync(string shortCode)
+        {
+            if (string.IsNullOrWhiteSpace(shortCode))
+                return Guid.Empty;
+
+            var sessions = await _sessionRepo.GetByShortCodeWithoutTenantFilterAsync(shortCode);
+            if (sessions.Count == 0)
+            {
+                _logger.LogWarning("GetTenantIdByShortCodeAsync: no session found for short code {ShortCode} today", shortCode);
+                return Guid.Empty;
+            }
+
+            // If multiple tenants share the same short code today, use the most recent one.
+            // (Guard issues short codes per-tenant, collisions across tenants are rare but possible.)
+            var tenantId = sessions[0].TenantId.Value;
+            _logger.LogInformation("GetTenantIdByShortCodeAsync: resolved tenant {TenantId} for short code {ShortCode} ({Count} match(es))",
+                tenantId, shortCode, sessions.Count);
+            return tenantId;
+        }
+
         public async Task<List<SessionStatusResult>> GetSessionStatusesAsync(Guid customerId, List<Guid> sessionIds)
         {
             if (sessionIds == null || sessionIds.Count == 0)
