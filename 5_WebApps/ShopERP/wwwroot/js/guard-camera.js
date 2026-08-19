@@ -757,16 +757,16 @@ window.vananGuardCamera = {
     },
 
     /** R-SCANNER: OCR on ROI — Tesseract + VN normalize + validate.
+     *  OCR Hub S2: Now delegates to vananOcrHub.recognize() (configurable engine).
      *  OCR Hub S1: 2-row crop for VN plates (top: ##X, bottom: ####.##) + tilt detection.
      *  If tilt > 15° → fallback to full-ROI OCR (review fix — prevent midY crop error).
      *  Returns {plate, confidence, raw} or null. */
     async _ocrRoi(canvas) {
         const t0 = performance.now();
-        const worker = await this.preloadOcrWorker();
         const ocrCanvas = this._preprocessRoiForOcr(canvas);
 
         // OCR Hub S1: Try 2-row OCR first (VN plates have 2 rows: top=##X, bottom=####.##)
-        const twoRowResult = await this._ocrTwoRows(ocrCanvas, worker);
+        const twoRowResult = await this._ocrTwoRows(ocrCanvas);
         if (twoRowResult) {
             const ocrMs = Math.round(performance.now() - t0);
             console.log('[Scanner] OCR 2-row', {
@@ -779,11 +779,11 @@ window.vananGuardCamera = {
             return { plate: twoRowResult.plate, confidence: twoRowResult.confidence, raw: twoRowResult.plate };
         }
 
-        // Fallback: full-ROI OCR (PSM 7 single line) — for tilted plates or 2-row fail
-        const { data } = await worker.recognize(ocrCanvas);
+        // Fallback: full-ROI OCR via OCR Hub (configurable engine)
+        const hubResult = await window.vananOcrHub.recognize(ocrCanvas);
         const ocrMs = Math.round(performance.now() - t0);
-        const raw = (data.text || '').toUpperCase().trim();
-        const confidence = data.confidence || 0;
+        const raw = (hubResult?.text || '').toUpperCase().trim();
+        const confidence = hubResult?.confidence || 0;
 
         console.log('[Scanner] OCR full-ROI', {
             raw: raw.substring(0, 40),
@@ -868,10 +868,11 @@ window.vananGuardCamera = {
     },
 
     /** OCR Hub S1: OCR 2 rows separately for VN plates.
+     *  OCR Hub S2: Now uses vananOcrHub.recognize() (configurable engine).
      *  Top row: ##X (2 digits + 1-2 letters) — PSM 7 single line
      *  Bottom row: ####.## (3-5 digits, optional dot) — PSM 7 single line
      *  If tilt detected or either row fails → return null (fallback to full-ROI). */
-    async _ocrTwoRows(canvas, worker) {
+    async _ocrTwoRows(canvas) {
         // Review fix: check tilt before crop — don't crop midY if plate is skewed
         const tilt = this._detectTilt(canvas);
         if (tilt > 15) {
@@ -883,12 +884,12 @@ window.vananGuardCamera = {
         const topCanvas = this._cropCanvas(canvas, 0, 0, canvas.width, midY);
         const bottomCanvas = this._cropCanvas(canvas, 0, midY, canvas.width, canvas.height - midY);
 
-        // OCR top row (province + letters: ##X)
-        const topRaw = await this._ocrSingleRow(topCanvas, worker);
+        // OCR top row (province + letters: ##X) via OCR Hub
+        const topRaw = await this._ocrSingleRow(topCanvas);
         if (!topRaw) return null;
 
-        // OCR bottom row (numbers: ####.##)
-        const bottomRaw = await this._ocrSingleRow(bottomCanvas, worker);
+        // OCR bottom row (numbers: ####.##) via OCR Hub
+        const bottomRaw = await this._ocrSingleRow(bottomCanvas);
         if (!bottomRaw) return null;
 
         // Normalize + validate each row
@@ -905,13 +906,14 @@ window.vananGuardCamera = {
         return null; // One row failed → fallback
     },
 
-    /** OCR Hub S1: OCR a single row canvas (PSM 7 single line). */
-    async _ocrSingleRow(canvas, worker) {
+    /** OCR Hub S2: OCR a single row canvas via vananOcrHub (configurable engine). */
+    async _ocrSingleRow(canvas) {
         try {
-            const { data } = await worker.recognize(canvas);
-            const text = (data.text || '').toUpperCase().trim();
+            const result = await window.vananOcrHub.recognize(canvas);
+            if (!result || !result.text) return null;
+            const text = result.text.toUpperCase().trim();
             if (!text) return null;
-            return { text, confidence: data.confidence || 0 };
+            return { text, confidence: result.confidence || 0 };
         } catch (e) {
             return null;
         }
