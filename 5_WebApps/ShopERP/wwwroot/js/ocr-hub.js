@@ -101,11 +101,140 @@ window.vananOcrHub = (function () {
         };
     }
 
-    // === PaddleOCR Adapter (Sprint 3 — stub) ===
+    // === PaddleOCR Adapter (Sprint 3 — ONNX Runtime Web) ===
+    // Uses rec.onnx only (guard-camera.js already crops plate ROI — skip det model).
+    // Flow: canvas → resize 48px H → normalize → ONNX inference → CTC greedy decode.
     async function _loadPaddleAdapter() {
-        // Sprint 3 will implement this with ONNX/WASM
-        // For now, throw to trigger Tesseract fallback
-        throw new Error('PaddleOCR adapter not yet implemented (Sprint 3)');
+        const MODEL_DIR = '/js/lib/ocr/paddle';
+        const REC_HEIGHT = 48;  // PP-OCRv4 rec mobile expects 48px height
+
+        // Load ONNX Runtime Web from CDN
+        if (!window.ort) {
+            await _loadScript('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js');
+        }
+        ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
+        ort.env.wasm.numThreads = 1;  // Single thread — avoid SharedArrayBuffer requirement
+
+        // Load dict.txt (character dictionary for CTC decoding)
+        const dictResp = await fetch(`${MODEL_DIR}/dict.txt`);
+        if (!dictResp.ok) throw new Error(`dict.txt fetch failed: ${dictResp.status}`);
+        const dictText = await dictResp.text();
+        // PaddleOCR dict: index 0 = blank (CTC), indices 1..N = chars, last = special end token
+        const chars = dictText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        // Build decode table: index 0 = blank, 1..len = chars
+        const decodeTable = ['blank', ...chars];
+
+        // Load rec.onnx model
+        console.log('[OCR Hub] Loading PaddleOCR rec.onnx...');
+        const session = await ort.InferenceSession.create(`${MODEL_DIR}/rec.onnx`, {
+            executionProviders: ['wasm'],
+            graphOptimizationLevel: 'all'
+        });
+        const inputName = session.inputNames[0];   // 'x'
+        const outputName = session.outputNames[0]; // 'sigmoid_0.tmp_0' or similar
+        console.log('[OCR Hub] PaddleOCR rec model loaded. Input:', inputName, 'Output:', outputName);
+
+        /** Preprocess canvas → NCHW float32 tensor [1, 3, 48, W]. */
+        function _preprocess(canvas) {
+            // Resize to 48px height, maintain aspect ratio
+            const scale = REC_HEIGHT / canvas.height;
+            const targetW = Math.max(1, Math.round(canvas.width * scale));
+            // Pad width to multiple of 4 (ONNX dynamic dim constraint)
+            const paddedW = Math.ceil(targetW / 4) * 4;
+
+            const tmp = document.createElement('canvas');
+            tmp.width = paddedW;
+            tmp.height = REC_HEIGHT;
+            const ctx = tmp.getContext('2d', { willReadFrequently: true });
+            // Draw scaled image at left, pad rest with white (255)
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, paddedW, REC_HEIGHT);
+            ctx.drawImage(canvas, 0, 0, targetW, REC_HEIGHT);
+
+            const imageData = ctx.getImageData(0, 0, paddedW, REC_HEIGHT);
+            const pixels = imageData.data;  // RGBA
+
+            // Convert to NCHW float32, normalize: (pixel / 255 - 0.5) / 0.5
+            const tensorData = new Float32Array(3 * REC_HEIGHT * paddedW);
+            const mean = 0.5, std = 0.5;
+            for (let c = 0; c < 3; c++) {
+                for (let h = 0; h < REC_HEIGHT; h++) {
+                    for (let w = 0; w < paddedW; w++) {
+                        const pixelIdx = (h * paddedW + w) * 4 + c;
+                        const normalized = (pixels[pixelIdx] / 255.0 - mean) / std;
+                        tensorData[c * REC_HEIGHT * paddedW + h * paddedW + w] = normalized;
+                    }
+                }
+            }
+
+            return new ort.Tensor('float32', tensorData, [1, 3, REC_HEIGHT, paddedW]);
+        }
+
+        /** CTC greedy decode: argmax → remove consecutive duplicates → remove blank → map to chars. */
+        function _ctcDecode(outputData, batchSize, timesteps, numClasses) {
+            const results = [];
+            for (let b = 0; b < batchSize; b++) {
+                let decoded = '';
+                let prevIdx = -1;
+                let confidenceSum = 0;
+                let confidenceCount = 0;
+
+                for (let t = 0; t < timesteps; t++) {
+                    // Find argmax for this timestep
+                    let maxIdx = 0;
+                    let maxProb = outputData[b * timesteps * numClasses + t * numClasses];
+                    for (let c = 1; c < numClasses; c++) {
+                        const prob = outputData[b * timesteps * numClasses + t * numClasses + c];
+                        if (prob > maxProb) {
+                            maxProb = prob;
+                            maxIdx = c;
+                        }
+                    }
+
+                    // CTC: skip blank (index 0) and consecutive duplicates
+                    if (maxIdx !== 0 && maxIdx !== prevIdx) {
+                        if (maxIdx < decodeTable.length) {
+                            decoded += decodeTable[maxIdx];
+                        }
+                        confidenceSum += maxProb;
+                        confidenceCount++;
+                    }
+                    prevIdx = maxIdx;
+                }
+
+                const confidence = confidenceCount > 0 ? (confidenceSum / confidenceCount) * 100 : 0;
+                results.push({ text: decoded, confidence: confidence });
+            }
+            return results[0];  // batchSize = 1
+        }
+
+        return {
+            async recognize(canvas) {
+                const tensor = _preprocess(canvas);
+                const feeds = {};
+                feeds[inputName] = tensor;
+                const results = await session.run(feeds);
+                const output = results[outputName];
+                // Output shape: [batchSize, timesteps, numClasses]
+                const [batchSize, timesteps, numClasses] = output.dims;
+                const decoded = _ctcDecode(output.data, batchSize, timesteps, numClasses);
+                return decoded;
+            }
+        };
+    }
+
+    /** Helper: dynamically load a script tag (returns Promise). */
+    function _loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const existing = document.querySelector(`script[src="${src}"]`);
+            if (existing) { resolve(); return; }
+            const script = document.createElement('script');
+            script.src = src;
+            script.async = true;
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+            document.head.appendChild(script);
+        });
     }
 
     // Public API
