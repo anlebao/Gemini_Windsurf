@@ -92,7 +92,9 @@ window.vananGuardCamera = {
         } catch (e) {}
     },
 
-    /** Start camera preview for photo capture. videoElementId = <video> element id. facingMode = 'environment' (back) or 'user' (front). */
+    /** Start camera preview for photo capture. videoElementId = <video> element id.
+     *  R-BACK-CAM: Always use 'environment' (back camera) — guard scans plates from behind.
+     *  facingMode param ignored — forced to back camera for consistency on smartphones. */
     async startCamera(videoElementId, facingMode) {
         try {
             this.stopCamera();
@@ -102,17 +104,26 @@ window.vananGuardCamera = {
                 return false;
             }
             _cameraVideo = video;
+            // R-BACK-CAM: Force back camera — ignore facingMode param
             const constraints = {
                 video: {
-                    facingMode: facingMode || 'environment',
+                    facingMode: { exact: 'environment' },
                     // R-OCR-3 (2026-08-18): 1920x1080 — higher resolution for plate OCR.
-                    // 1280x720 left plate region ~200-300px → too small for Tesseract.
                     width: { ideal: 1920 },
                     height: { ideal: 1080 }
                 },
                 audio: false
             };
-            _cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+            try {
+                _cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+            } catch (e) {
+                // Fallback: 'ideal' instead of 'exact' — some devices don't support exact facingMode
+                console.warn('[Camera] exact environment failed, trying ideal:', e.message);
+                _cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+                    audio: false
+                });
+            }
             video.srcObject = _cameraStream;
             video.setAttribute('playsinline', 'true');
             await video.play();
@@ -1184,26 +1195,43 @@ window.vananGuardCamera = {
 
     _ocrWorkerPromise: null,  // Preloaded worker promise (reuse across captures)
 
-    /** Preload Tesseract worker on page load — eliminates ~3s delay on first capture. */
+    /** Preload Tesseract worker on page load — eliminates ~3s delay on first capture.
+     *  R-Đ: Use 'eng+vie' languages — vie traineddata recognizes Vietnamese "Đ" char
+     *  for xe máy điện plates (e.g., 41MĐ-123456). eng alone cannot recognize "Đ". */
     async preloadOcrWorker() {
         if (this._ocrWorkerPromise) return this._ocrWorkerPromise;
         this._ocrWorkerPromise = (async () => {
             try {
                 await this._ensureOcrLibrary();
                 const whitelist = '0123456789ABCDEFGHKLMNPRSTUVXYZĐ-';
-                const worker = await Tesseract.createWorker('eng', 1, {
+                // R-Đ: eng+vie — eng for digits/letters, vie for "Đ" character
+                const worker = await Tesseract.createWorker('eng+vie', 1, {
                     workerPath: '/js/lib/ocr/worker.min.js',
                     corePath: '/js/lib/ocr',
                     langPath: '/js/lib/ocr',
                     logger: () => {}
                 });
                 await worker.setParameters({ tessedit_char_whitelist: whitelist });
-                console.log('[OCR] Tesseract worker preloaded successfully');
+                console.log('[OCR] Tesseract worker preloaded (eng+vie)');
                 return worker;
             } catch (err) {
-                console.error('[OCR] Failed to preload Tesseract worker:', err);
-                this._ocrWorkerPromise = null; // Reset so retry is possible
-                throw err;
+                console.error('[OCR] Failed to preload Tesseract worker (eng+vie), falling back to eng:', err);
+                // Fallback to eng only if vie fails to load
+                try {
+                    const worker = await Tesseract.createWorker('eng', 1, {
+                        workerPath: '/js/lib/ocr/worker.min.js',
+                        corePath: '/js/lib/ocr',
+                        langPath: '/js/lib/ocr',
+                        logger: () => {}
+                    });
+                    await worker.setParameters({ tessedit_char_whitelist: '0123456789ABCDEFGHKLMNPRSTUVXYZĐ-' });
+                    console.log('[OCR] Tesseract worker preloaded (eng fallback)');
+                    return worker;
+                } catch (err2) {
+                    console.error('[OCR] eng fallback also failed:', err2);
+                    this._ocrWorkerPromise = null;
+                    throw err2;
+                }
             }
         })();
         return this._ocrWorkerPromise;

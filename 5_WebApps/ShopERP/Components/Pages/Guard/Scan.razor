@@ -52,6 +52,14 @@
                     <div class="guard-photo-row">
                         <div class="guard-photo-box guard-scanner-box" data-photo-slot="plate">
                             <label>Quét biển số</label>
+                            <div class="guard-photo-actions guard-photo-actions--top">
+                                <button id="plateOpenBtn" type="button" class="vanan-button vanan-button--primary" onclick="vananGuardCamera.openCamera('plate')">📷 Quét biển số</button>
+                                <button id="plateCaptureBtn" type="button" class="vanan-button vanan-button--secondary" onclick="vananGuardCamera.captureAndStore('plate')" style="display:none">📸 Chụp ảnh</button>
+                                <button id="plateCancelBtn" type="button" class="vanan-button vanan-button--outline" onclick="vananGuardCamera.cancelCamera('plate')" style="display:none">⏹ Dừng</button>
+                                <button id="plateOkBtn" type="button" class="vanan-button vanan-button--success" onclick="vananGuardCamera.confirmPlate()" style="display:none">✓ OK — Xác nhận</button>
+                                <button id="plateRetakeBtn" type="button" class="vanan-button vanan-button--secondary" onclick="vananGuardCamera.retakePhoto('plate')" style="display:none">🔄 Quét lại</button>
+                                <button id="plateManualBtn" type="button" class="vanan-button vanan-button--outline" onclick="document.getElementById('plateInput').focus()" style="display:none">✍️ Nhập tay</button>
+                            </div>
                             <div class="guard-scanner-container">
                                 <video id="plateVideo" class="guard-camera-video guard-scanner-video" muted></video>
                                 <div id="plateGuideBox" class="guard-guide-box guard-guide-box--portrait" style="display:none">
@@ -64,14 +72,6 @@
                             </div>
                             <div id="plateRoiDebug" class="guard-roi-debug" style="display:none">
                                 <label class="guard-roi-debug-label">ROI (vùng OCR):</label>
-                            </div>
-                            <div class="guard-photo-actions">
-                                <button id="plateOpenBtn" type="button" class="vanan-button vanan-button--primary" onclick="vananGuardCamera.openCamera('plate')">📷 Quét biển số</button>
-                                <button id="plateCaptureBtn" type="button" class="vanan-button vanan-button--secondary" onclick="vananGuardCamera.captureAndStore('plate')" style="display:none">📸 Chụp ảnh</button>
-                                <button id="plateCancelBtn" type="button" class="vanan-button vanan-button--outline" onclick="vananGuardCamera.cancelCamera('plate')" style="display:none">⏹ Dừng</button>
-                                <button id="plateOkBtn" type="button" class="vanan-button vanan-button--success" onclick="vananGuardCamera.confirmPlate()" style="display:none">✓ OK — Xác nhận</button>
-                                <button id="plateRetakeBtn" type="button" class="vanan-button vanan-button--secondary" onclick="vananGuardCamera.retakePhoto('plate')" style="display:none">🔄 Quét lại</button>
-                                <button id="plateManualBtn" type="button" class="vanan-button vanan-button--outline" onclick="document.getElementById('plateInput').focus()" style="display:none">✍️ Nhập tay</button>
                             </div>
                         </div>
                         <div class="guard-photo-box" data-photo-slot="customer">
@@ -282,6 +282,21 @@
     .guard-photo-preview { width: 100%; max-width: 320px; aspect-ratio: 4/3; object-fit: cover; border-radius: 8px; border: 1px solid #ddd; }
     .guard-scanner-container { position: relative; width: 100%; max-width: 320px; }
     .guard-scanner-video { width: 100%; aspect-ratio: 4/3; }
+    /* R-RESPONSIVE: Buttons ABOVE scanner on mobile so they're always reachable */
+    .guard-photo-actions--top { order: -1; margin-bottom: 0.5rem; }
+    /* R-RESPONSIVE: Mobile layout — full width, smaller video, stacked columns */
+    @@media (max-width: 768px) {
+        .guard-scan-page { padding: 0.5rem; }
+        .guard-photo-row { flex-direction: column; }
+        .guard-photo-box { min-width: 100%; }
+        .guard-camera-video, .guard-photo-preview { max-width: 100%; }
+        .guard-scanner-container { max-width: 100%; }
+        .guard-guide-box--portrait { top: 15%; left: 15%; width: 70%; height: 50%; }
+        .guard-guide-box--landscape { top: 25%; left: 5%; width: 90%; height: 25%; }
+        .guard-photo-actions { gap: 0.4rem; }
+        .guard-photo-actions .vanan-button { font-size: 0.85rem; padding: 0.4rem 0.7rem; }
+        .guard-qr-image { width: 240px; height: 240px; }
+    }
     .guard-guide-box {
         position: absolute; border: 2px dashed rgba(59, 130, 246, 0.8); border-radius: 4px;
         pointer-events: none; z-index: 2;

@@ -202,6 +202,12 @@
         if (firstRender)
         {
             var uri = Navigation.Uri;
+            // R-GUARD-QR: If URL points to /qr/claim, redirect there (guard QR, not product QR)
+            if (uri.Contains("/qr/claim", StringComparison.OrdinalIgnoreCase))
+            {
+                Navigation.NavigateTo(uri);
+                return;
+            }
             if (uri.Contains("?data=") || uri.Contains("&data="))
             {
                 var parsed = QRCodePayload.FromJson(Navigation.Uri);
@@ -221,6 +227,14 @@
             _scannedProduct = null;
             _tableNumber = null;
             StateHasChanged();
+
+            // R-GUARD-QR: If QR URL points to /qr/claim, redirect there instead of parsing as product QR.
+            // Guard QR payload is {"t":"...","tn":"..."} — no Timestamp field → would show "hết hạn".
+            if (qrCodeText.Contains("/qr/claim", StringComparison.OrdinalIgnoreCase))
+            {
+                Navigation.NavigateTo(qrCodeText);
+                return;
+            }
 
             // CC-S4 (Sprint 4): Check for composite referral QR URL pattern /r/{salesmanCode}|{productShortCode}
             if (qrCodeText.Contains("/r/") && qrCodeText.Contains("|"))
