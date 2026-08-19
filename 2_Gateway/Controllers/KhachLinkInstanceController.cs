@@ -187,7 +187,10 @@ namespace VanAn.Gateway.Controllers
                     ShowStaffDashboard = request.NavFlags.ShowStaffDashboard
                 };
 
-                var updated = await _instanceService.UpdateAsync(id, request.Profile, navFlags, ct);
+                var updated = await _instanceService.UpdateAsync(
+                    id, request.Profile, navFlags,
+                    request.Theme, request.LogoUrl, request.NavColor, request.HeaderColor, request.FooterColor,
+                    ct);
                 if (!updated)
                     return NotFound();
                 return NoContent();
@@ -231,6 +234,12 @@ namespace VanAn.Gateway.Controllers
             IsActive = i.IsActive,
             CreatedAt = i.CreatedAt,
             UpdatedAt = i.UpdatedAt,
+            // Issue #143: style override fields
+            Theme = i.Theme,
+            LogoUrl = i.LogoUrl,
+            NavColor = i.NavColor,
+            HeaderColor = i.HeaderColor,
+            FooterColor = i.FooterColor,
             NavFlags = new KhachLinkNavFlagsDto
             {
                 ShowHome = i.NavFlags.ShowHome,
@@ -265,6 +274,12 @@ namespace VanAn.Gateway.Controllers
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public KhachLinkNavFlagsDto NavFlags { get; set; } = new();
+        // Issue #143: style override fields (null = inherit from tenant ShopConfig)
+        public string? Theme { get; set; }
+        public string? LogoUrl { get; set; }
+        public string? NavColor { get; set; }
+        public string? HeaderColor { get; set; }
+        public string? FooterColor { get; set; }
     }
 
     public sealed class KhachLinkNavFlagsDto
@@ -299,5 +314,11 @@ namespace VanAn.Gateway.Controllers
     {
         public KhachLinkProfile Profile { get; set; } = KhachLinkProfile.FullCommerce;
         public KhachLinkNavFlagsDto NavFlags { get; set; } = new();
+        // Issue #143: style override fields (null/empty = clear override, inherit from tenant ShopConfig)
+        public string? Theme { get; set; }
+        public string? LogoUrl { get; set; }
+        public string? NavColor { get; set; }
+        public string? HeaderColor { get; set; }
+        public string? FooterColor { get; set; }
     }
 }

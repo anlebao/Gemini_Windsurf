@@ -14,6 +14,12 @@ public sealed class KhachLinkInstanceConfig
     public KhachLinkNavFlagsDto NavFlags { get; set; } = new();
     /// <summary>#134: If false, the instance is disabled — KhachLinkLayout shows a "disabled" page.</summary>
     public bool IsActive { get; set; } = true;
+    // Issue #143: style override fields (null = inherit from tenant ShopConfig)
+    public string? Theme { get; set; }
+    public string? LogoUrl { get; set; }
+    public string? NavColor { get; set; }
+    public string? HeaderColor { get; set; }
+    public string? FooterColor { get; set; }
 }
 
 /// <summary>

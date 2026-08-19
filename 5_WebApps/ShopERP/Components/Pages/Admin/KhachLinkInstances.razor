@@ -192,6 +192,74 @@
                     <small class="text-muted">Preset tự áp dụng khi đổi Profile. Tick/untick để override từng flag.</small>
                 </div>
 
+                @if (_isEdit)
+                {
+                    <!-- Issue #143: Style override section (edit mode only) — reuse tenant edit form pattern -->
+                    <div class="form-group">
+                        <label for="kli-theme">Phong cách giao diện (override)</label>
+                        <select id="kli-theme" class="vanan-select" @bind="_editForm.Theme" aria-label="Phong cách giao diện">
+                            <option value="">(kế thừa từ tenant)</option>
+                            <option value="Classic">Classic — Cà phê truyền thống (kem nâu)</option>
+                            <option value="Modern">Modern — Tối giản hiện đại (trắng)</option>
+                            <option value="Teen">Teen — Trẻ trung (gradient hồng-tím)</option>
+                            <option value="Lady">Lady — Nữ tính (gradient hồng pastel)</option>
+                            <option value="Premium">Premium — Cao cấp (đen + vàng gold)</option>
+                        </select>
+                        <small class="text-muted">
+                            Override theme KhachLink cho instance này. Để trống = kế thừa từ tenant ShopConfig.
+                            Platform instance (no tenant) bắt buộc chọn theme để có giao diện.
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label for="kli-logo-url">Logo URL (header)</label>
+                        <input id="kli-logo-url" class="vanan-input" @bind="_editForm.LogoUrl"
+                               placeholder="VD: https://example.com/logo.png (để trống = dùng icon mặc định)" />
+                        <small class="text-muted">Hiển thị logo trên header KhachLink. Để trống = dùng icon shop mặc định.</small>
+                    </div>
+                    <div class="form-group">
+                        <label class="fw-semibold">Tùy chỉnh màu (override)</label>
+                        <small class="text-muted d-block mb-2">
+                            Override màu nav (sidebar), header (top bar), footer.
+                            Để trống = kế thừa từ tenant ShopConfig.
+                        </small>
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <label for="kli-nav-color" class="small">Màu Nav (sidebar)</label>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <input type="color" class="form-control form-control-color p-1"
+                                           style="width:48px;height:38px;"
+                                           value="@(_editForm.NavColor ?? "#1a1a2e")"
+                                           @oninput="@(e => _editForm.NavColor = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString())" />
+                                    <input id="kli-nav-color" class="vanan-input" @bind="_editForm.NavColor"
+                                           placeholder="#1a1a2e" />
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="kli-header-color" class="small">Màu Header (top bar)</label>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <input type="color" class="form-control form-control-color p-1"
+                                           style="width:48px;height:38px;"
+                                           value="@(_editForm.HeaderColor ?? "#8B4513")"
+                                           @oninput="@(e => _editForm.HeaderColor = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString())" />
+                                    <input id="kli-header-color" class="vanan-input" @bind="_editForm.HeaderColor"
+                                           placeholder="#8B4513" />
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="kli-footer-color" class="small">Màu Footer</label>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <input type="color" class="form-control form-control-color p-1"
+                                           style="width:48px;height:38px;"
+                                           value="@(_editForm.FooterColor ?? "#f5f5f5")"
+                                           @oninput="@(e => _editForm.FooterColor = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString())" />
+                                    <input id="kli-footer-color" class="vanan-input" @bind="_editForm.FooterColor"
+                                           placeholder="#f5f5f5" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
                 <div class="form-actions">
                     <VanAButton Variant="primary" OnClick="HandleSubmit" IsLoading="@_isSaving">Lưu</VanAButton>
                     <VanAButton Variant="outline" OnClick="CloseModal">Huỷ</VanAButton>
@@ -330,7 +398,13 @@
         _editForm = new UpdateKhachLinkInstanceRequest
         {
             Profile = item.Profile,
-            NavFlags = item.NavFlags ?? new KhachLinkNavFlagsDto()
+            NavFlags = item.NavFlags ?? new KhachLinkNavFlagsDto(),
+            // Issue #143: load style override fields
+            Theme = item.Theme,
+            LogoUrl = item.LogoUrl,
+            NavColor = item.NavColor,
+            HeaderColor = item.HeaderColor,
+            FooterColor = item.FooterColor
         };
         _showModal = true;
     }

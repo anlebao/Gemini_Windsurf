@@ -35,6 +35,11 @@ namespace VanAn.CoreHub.Services
             Guid id,
             KhachLinkProfile profile,
             KhachLinkNavFlags navFlags,
+            string? theme = null,
+            string? logoUrl = null,
+            string? navColor = null,
+            string? headerColor = null,
+            string? footerColor = null,
             CancellationToken ct = default);
         Task<bool> DeactivateAsync(Guid id, CancellationToken ct = default);
         Task<bool> ActivateAsync(Guid id, CancellationToken ct = default);
