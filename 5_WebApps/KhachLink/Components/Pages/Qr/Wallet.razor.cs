@@ -262,7 +262,8 @@ public partial class Wallet : ComponentBase
         if (!string.IsNullOrEmpty(session.QrPayload))
         {
             await JS.InvokeVoidAsync("vananQrWallet.setBrightness", 1.0);
-            await Task.Delay(100); // Wait for canvas to render
+            await Task.Delay(200); // Wait for Blazor WASM to render the canvas element
+            // JS-side retry loop handles cases where canvas still not ready
             await JS.InvokeVoidAsync("vananQrWallet.generateQrOnCanvas", "qr-fullscreen-canvas", session.QrPayload, 350);
         }
     }

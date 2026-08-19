@@ -40,22 +40,27 @@ window.vananQrWallet = {
     /** Generate QR code on a canvas element using vananQR (vendored qrcode-generator). */
     async generateQrOnCanvas(canvasId, text, size) {
         try {
-            var canvas = document.getElementById(canvasId);
-            if (!canvas) {
-                console.error('Canvas not found:', canvasId);
-                return false;
-            }
             // Use vananQR (vendored qrcode-generator in /js/qrcode.js)
-            // Exposes window.vananQR.generate(elementId, text, width, height)
             if (typeof window.vananQR === 'undefined') {
                 await this._loadQrLibrary();
             }
-            if (window.vananQR && window.vananQR.generate) {
-                window.vananQR.generate(canvasId, text, size || 300, size || 300);
-                return true;
+            if (!window.vananQR || !window.vananQR.generate) {
+                console.error('vananQR.generate not available after loading library');
+                return false;
             }
-            console.error('vananQR.generate not available after loading library');
-            return false;
+            // Retry up to 5 times — Blazor WASM may not have rendered the canvas yet
+            var canvas = null;
+            for (var i = 0; i < 5; i++) {
+                canvas = document.getElementById(canvasId);
+                if (canvas) break;
+                await new Promise(function (r) { setTimeout(r, 100); });
+            }
+            if (!canvas) {
+                console.error('Canvas not found after 5 retries:', canvasId);
+                return false;
+            }
+            window.vananQR.generate(canvasId, text, size || 300, size || 300);
+            return true;
         } catch (e) {
             console.error('QR generation failed:', e);
             return false;
