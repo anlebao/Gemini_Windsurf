@@ -1,74 +1,20 @@
 @page "/qr/claim"
 @rendermode InteractiveWebAssembly
-@using VanAn.UI.Platform.Components.Atomic
-@using VanAn.KhachLink.Services.Http
-@inject GuardQrApiClient GuardQrApi
-@inject IJSRuntime JS
 @inject NavigationManager Nav
 
-<PageTitle>Nhận QR gửi xe — Vạn An</PageTitle>
+@* OCR Hub S1: /qr/claim redirects to /qr/wallet (merged page with 2 tabs).
+   Backward compat: QR tickets printed with /qr/claim?data=... URL still work —
+   query string preserved on redirect, wallet page auto-claims from deep link. *@
 
-<div class="qr-claim-page">
-    @if (!string.IsNullOrEmpty(_error))
+@code {
+    protected override Task OnAfterRenderAsync(bool firstRender)
     {
-        <VanAnAlert Variant="AlertVariant.Error" Message="@_error" />
-    }
-    @if (!string.IsNullOrEmpty(_success))
-    {
-        <VanAnAlert Variant="AlertVariant.Success" Message="@_success" />
-    }
-
-    <VanAnCard>
-        <div class="qr-claim-header">
-            <h5>Nhận QR gửi xe</h5>
-            <p class="text-muted small">Quét mã QR trên màn hình guard hoặc trên vé giấy để lưu vào điện thoại.</p>
-            <p class="text-muted small">Bạn có vé giấy? Quét mã QR trên vé để lưu vào điện thoại — chống mất, ướt, rách.</p>
-        </div>
-
-        @if (!_isLoggedIn)
+        if (firstRender)
         {
-            <VanAnAlert Variant="AlertVariant.Warning" Message="Vui lòng đăng nhập để nhận QR gửi xe." />
-            <VanAnButton Variant="ButtonVariant.Primary" Text="Đăng nhập" OnClick="@GoLogin" />
+            // Preserve query string (deep link from QR ticket: /qr/claim?data=...)
+            var uri = Nav.Uri.Replace("/qr/claim", "/qr/wallet", StringComparison.OrdinalIgnoreCase);
+            Nav.NavigateTo(uri, forceLoad: true);
         }
-        else
-        {
-            @* Mode toggle *@
-            <div class="qr-mode-toggle">
-                <VanAnButton Variant="@(_mode == "camera" ? ButtonVariant.Primary : ButtonVariant.Outline)"
-                             Text="📷 Quét QR" OnClick="@(() => SwitchMode("camera"))" />
-                <VanAnButton Variant="@(_mode == "code" ? ButtonVariant.Primary : ButtonVariant.Outline)"
-                             Text="⌨️ Nhập mã" OnClick="@(() => SwitchMode("code"))" />
-            </div>
-
-            @if (_mode == "camera")
-            {
-                <QRScanner OnQRCodeDetected="@OnQrDetected" />
-            }
-            else
-            {
-                <div class="qr-code-input-section">
-                    <label class="form-label">Nhập mã 6 số trên vé</label>
-                    <input class="form-control form-control-lg text-center"
-                           style="font-size: 1.8rem; letter-spacing: 0.5rem; max-width: 280px; margin: 0 auto;"
-                           @bind="_shortCodeInput"
-                           maxlength="6"
-                           placeholder="000000"
-                           pattern="[0-9]{6}" />
-                    <div class="mt-3 text-center">
-                        <VanAnButton Variant="ButtonVariant.Primary" Text="Nhận QR"
-                                     Disabled="@(_claiming || string.IsNullOrWhiteSpace(_shortCodeInput))"
-                                     Loading="@_claiming"
-                                     OnClick="@ClaimByCode" />
-                    </div>
-                </div>
-            }
-        }
-    </VanAnCard>
-</div>
-
-<style>
-    .qr-claim-page { max-width: 500px; margin: 0 auto; padding: 1rem; }
-    .qr-claim-header h5 { margin-bottom: 0.5rem; }
-    .qr-mode-toggle { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-    .qr-code-input-section { display: flex; flex-direction: column; gap: 0.5rem; align-items: center; }
-</style>
+        return Task.CompletedTask;
+    }
+}

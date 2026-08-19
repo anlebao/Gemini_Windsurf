@@ -6,16 +6,26 @@ using VanAn.KhachLink.Services.Http;
 namespace VanAn.KhachLink.Components.Pages.Qr;
 
 /// <summary>
-/// #126 R2 Sprint 4: KhachLink QR Wallet page.
-/// Lists claimed QR sessions from localStorage, syncs status with server.
-/// Tap a card → fullscreen QR for guard to scan (or 6-digit code if no QR payload).
+/// OCR Hub S1: KhachLink QR Wallet page — merged with Claim page.
+/// 2 tabs: "Vé của tôi" (wallet list) + "Nhận QR mới" (QRScanner + short code input).
+/// No login required — anonymous users save QR to localStorage (like add-to-cart).
+/// Logged-in users optionally sync with server via /api/guard/claim.
 /// </summary>
 public partial class Wallet : ComponentBase
 {
     private bool _isLoggedIn = false;
     private bool _loading = true;
     private string _error = string.Empty;
+    private string _success = string.Empty;
     private string? _customerToken;
+
+    // Tab state — S1: merge claim + wallet into 1 page
+    private string _activeTab = "wallet"; // "wallet" | "claim"
+    private string _mode = "camera"; // "camera" | "code" (for claim tab)
+    private string _shortCodeInput = string.Empty;
+    private bool _claiming = false;
+    private bool _showBackupWarning = false;
+
     private List<WalletSession> _activeSessions = new();
 
     // Fullscreen QR modal
@@ -28,20 +38,66 @@ public partial class Wallet : ComponentBase
         {
             _customerToken = await JS.InvokeAsync<string?>("localStorage.getItem", "customer_token");
             _isLoggedIn = !string.IsNullOrEmpty(_customerToken);
-            if (_isLoggedIn)
-            {
-                await LoadWalletAsync();
-            }
+
+            // S1: Always load wallet from localStorage (no login gate)
+            await LoadWalletAsync();
             _loading = false;
             StateHasChanged();
+
+            // #130-fix3: Handle deep link from QR URL.
+            // When customer scans QR with Zalo → opens /qr/wallet?data={base64(json)} → auto-claim.
+            // (Moved from Claim.razor.cs — Claim now redirects here.)
+            var uri = Nav.ToAbsoluteUri(Nav.Uri);
+            var query = uri.Query.TrimStart('?');
+            string? dataParam = null;
+            foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var eq = pair.IndexOf('=');
+                if (eq > 0 && pair[..eq] == "data")
+                {
+                    dataParam = Uri.UnescapeDataString(pair[(eq + 1)..]);
+                    break;
+                }
+            }
+            if (!string.IsNullOrEmpty(dataParam))
+            {
+                // Switch to claim tab + auto-claim from deep link
+                _activeTab = "claim";
+                StateHasChanged();
+                try
+                {
+                    var jsonPayload = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(dataParam));
+                    await DoClaimAsync(jsonPayload, null);
+                }
+                catch (Exception ex)
+                {
+                    _error = $"Mã QR không hợp lệ: {ex.Message}";
+                    StateHasChanged();
+                }
+            }
         }
+    }
+
+    private void SwitchTab(string tab)
+    {
+        _activeTab = tab;
+        _error = string.Empty;
+        _success = string.Empty;
+        StateHasChanged();
+    }
+
+    private void SwitchMode(string mode)
+    {
+        _mode = mode;
+        _error = string.Empty;
+        StateHasChanged();
     }
 
     private async Task LoadWalletAsync()
     {
         try
         {
-            // 1. Load sessions from localStorage
+            // 1. Load sessions from localStorage (always — no login required)
             var json = await JS.InvokeAsync<string?>("vananQrWallet.getSessions");
             var sessions = string.IsNullOrEmpty(json)
                 ? new List<WalletSession>()
@@ -53,39 +109,141 @@ public partial class Wallet : ComponentBase
                 return;
             }
 
-            // 2. Sync with server — get current statuses
+            // 2. Sync with server — get current statuses (only if logged in)
             if (!string.IsNullOrEmpty(_customerToken))
             {
-                var sessionIds = sessions.Select(s => s.SessionId).ToList();
-                var statuses = await GuardQrApi.GetMySessionsAsync(sessionIds, _customerToken);
-
-                // 3. Merge: only keep sessions that are still active (Claimed or Issued)
-                // Remove CheckedOut/Voided/Flagged from wallet
-                _activeSessions = sessions
-                    .Where(s =>
-                    {
-                        var status = statuses.FirstOrDefault(x => x.SessionId == s.SessionId);
-                        if (status == null) return true; // Keep if server doesn't know (might be cross-tenant issue)
-                        return status.Status is "Claimed" or "Issued";
-                    })
-                    .OrderByDescending(s => s.IssuedAt)
-                    .ToList();
-
-                // 4. Save updated list back to localStorage (remove checked-out)
-                if (_activeSessions.Count < sessions.Count)
+                try
                 {
-                    await JS.InvokeVoidAsync("vananQrWallet.saveSessions",
-                        JsonSerializer.Serialize(_activeSessions));
+                    var sessionIds = sessions.Select(s => s.SessionId).ToList();
+                    var statuses = await GuardQrApi.GetMySessionsAsync(sessionIds, _customerToken);
+
+                    // 3. Merge: only keep sessions that are still active (Claimed or Issued)
+                    _activeSessions = sessions
+                        .Where(s =>
+                        {
+                            var status = statuses.FirstOrDefault(x => x.SessionId == s.SessionId);
+                            if (status == null) return true; // Keep if server doesn't know
+                            return status.Status is "Claimed" or "Issued";
+                        })
+                        .OrderByDescending(s => s.IssuedAt)
+                        .ToList();
+
+                    // 4. Save updated list back to localStorage
+                    if (_activeSessions.Count < sessions.Count)
+                    {
+                        await JS.InvokeVoidAsync("vananQrWallet.saveSessions",
+                            JsonSerializer.Serialize(_activeSessions));
+                    }
+                }
+                catch
+                {
+                    // Server sync failed — just show localStorage sessions (offline-friendly)
+                    _activeSessions = sessions.OrderByDescending(s => s.IssuedAt).ToList();
                 }
             }
             else
             {
+                // Not logged in — just show localStorage sessions
                 _activeSessions = sessions.OrderByDescending(s => s.IssuedAt).ToList();
             }
         }
         catch (Exception ex)
         {
             _error = $"Lỗi tải ví QR: {ex.Message}";
+        }
+    }
+
+    /// <summary>QRScanner callback — camera detected a QR payload.</summary>
+    private async Task OnQrDetected(string qrPayload)
+    {
+        await DoClaimAsync(qrPayload, null);
+    }
+
+    private async Task ClaimByCode()
+    {
+        if (string.IsNullOrWhiteSpace(_shortCodeInput)) return;
+        await DoClaimAsync(null, _shortCodeInput.Trim());
+    }
+
+    /// <summary>
+    /// S1: DoClaimAsync — handle both logged-in + anonymous.
+    /// Logged-in: call API /api/guard/claim (optional server-side tracking).
+    /// Anonymous: save QR payload/shortCode to localStorage wallet directly (like add-to-cart).
+    /// </summary>
+    private async Task DoClaimAsync(string? qrPayload, string? shortCode)
+    {
+        _claiming = true;
+        _error = string.Empty;
+        _success = string.Empty;
+        _showBackupWarning = false;
+        StateHasChanged();
+
+        try
+        {
+            string? plateNumber = null;
+            Guid? tenantId = ExtractTenantIdFromPayload(qrPayload);
+            DateTime issuedAt = DateTime.UtcNow;
+            Guid sessionId = Guid.NewGuid(); // fallback for anonymous
+
+            if (!string.IsNullOrEmpty(_customerToken))
+            {
+                // Logged-in: call API for server-side claim (optional tracking)
+                try
+                {
+                    var result = await GuardQrApi.ClaimAsync(qrPayload, shortCode, _customerToken);
+                    if (result != null && result.Success)
+                    {
+                        plateNumber = result.PlateNumber;
+                        sessionId = result.SessionId;
+                        issuedAt = result.IssuedAt;
+                    }
+                    // If API fails, continue to save locally (don't block user)
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Wallet] Claim API failed (saving locally): {ex.Message}");
+                }
+            }
+
+            // S1: Always save to localStorage wallet (both logged-in + anonymous)
+            var walletItem = new
+            {
+                sessionId = sessionId,
+                qrPayload = qrPayload,
+                shortCode = shortCode,
+                plateNumber = plateNumber ?? string.Empty,
+                issuedAt = issuedAt,
+                tenantId = tenantId,
+                claimedAt = DateTime.UtcNow
+            };
+            await JS.InvokeVoidAsync("vananQrWallet.addSession", walletItem);
+
+            // S1: Show backup warning for anonymous users (review fix — prevent lost ticket disputes)
+            if (string.IsNullOrEmpty(_customerToken))
+            {
+                _showBackupWarning = true;
+            }
+
+            _success = qrPayload != null
+                ? "Đã nhận QR gửi xe! Lưu vào ví thành công."
+                : "Đã nhận QR gửi xe! Vé giấy không cần nữa.";
+            StateHasChanged();
+
+            // Reload wallet list + switch to wallet tab
+            await LoadWalletAsync();
+            await Task.Delay(800);
+            _activeTab = "wallet";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Lỗi: {ex.Message}";
+            StateHasChanged();
+        }
+        finally
+        {
+            _claiming = false;
+            StateHasChanged();
         }
     }
 
@@ -112,8 +270,18 @@ public partial class Wallet : ComponentBase
         StateHasChanged();
     }
 
-    private void GoClaim() => Nav.NavigateTo("/qr/claim");
-    private void GoLogin() => Nav.NavigateTo($"/login?returnUrl={Uri.EscapeDataString("/qr/wallet")}");
+    private static Guid? ExtractTenantIdFromPayload(string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload)) return null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(payload);
+            if (doc.RootElement.TryGetProperty("tn", out var tn) && tn.TryGetGuid(out var guid))
+                return guid;
+        }
+        catch { }
+        return null;
+    }
 
     // === Local DTO for localStorage serialization ===
     public class WalletSession

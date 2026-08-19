@@ -400,6 +400,9 @@ namespace VanAn.Gateway
             // VALCN v2.0 Phase 1: Feature flag toggle — default OFF (existing behavior preserved)
             _ = builder.Services.AddSingleton<CoreHub.Services.IFeatureFlagService, CoreHub.Services.FeatureFlagService>();
 
+            // OCR Hub S2: OCR engine config — default Tesseract (backward compat)
+            _ = builder.Services.AddSingleton<CoreHub.Services.IOcrConfigService, CoreHub.Services.OcrConfigService>();
+
             _ = builder.Services.AddScoped<CoreHub.Services.IOrderService, CoreHub.Services.OrderService>();
 
             // W0-T3: Register IOrderNotificationService (SignalR broadcast abstraction)

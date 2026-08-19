@@ -1,0 +1,164 @@
+@page "/admin/ocr-settings"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.CoreHub.Services
+@using VanAn.ShopERP.Services
+@inject IOcrConfigService OcrConfigSvc
+@inject IThemeProvider ThemeProvider
+@inject ILogger<OcrSettings> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="tenant-management-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Cai dat OCR</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadConfig">
+                Lam moi
+            </VanAButton>
+        </div>
+    </header>
+
+    <VanAAlert Type="info" Dismissible="false">
+        <span>Chon engine OCR cho tung use case. Mac dinh: Tesseract (backward compat). Thay doi co hieu luc trong vong 60 giay (cache TTL).</span>
+    </VanAAlert>
+
+    @if (_loading)
+    {
+        <p>Dang tai...</p>
+    }
+    else
+    {
+        <div class="ocr-config-section">
+            <div class="ocr-config-row">
+                <div class="ocr-config-label">
+                    <strong>Engine quet bien so</strong>
+                    <br />
+                    <span class="text-muted small">Real-time camera scanning — client-side (browser WASM)</span>
+                </div>
+                <div class="ocr-config-control">
+                    <select class="form-control" @bind="_plateEngine">
+                        <option value="Tesseract">Tesseract.js v5 (default — stable)</option>
+                        <option value="PaddleOCR">PaddleOCR (ONNX) — faster + more accurate</option>
+                    </select>
+                    <span class="text-muted small">
+                        Recommended: PaddleOCR (90-95% accuracy, 100-200ms/frame)
+                    </span>
+                </div>
+            </div>
+
+            <div class="ocr-config-row">
+                <div class="ocr-config-label">
+                    <strong>Engine nhap menu (F&B)</strong>
+                    <br />
+                    <span class="text-muted small">One-time menu setup — server-side (Python microservice)</span>
+                </div>
+                <div class="ocr-config-control">
+                    <select class="form-control" @bind="_menuEngine">
+                        <option value="Tesseract">Tesseract.NET (server — lighter)</option>
+                        <option value="EasyOCR">EasyOCR (server) — accuracy 95%+</option>
+                    </select>
+                    <span class="text-muted small">
+                        Recommended: EasyOCR (Vietnamese model, 95%+ accuracy)
+                    </span>
+                </div>
+            </div>
+
+            <div class="ocr-config-actions">
+                <VanAButton Variant="primary" Size="medium" OnClick="SaveConfig" Disabled="@_saving">
+                    @(_saving ? "Dang luu..." : "Luu")
+                </VanAButton>
+            </div>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Type="danger" Dismissible="true">
+            <span>@_errorMessage</span>
+        </VanAAlert>
+    }
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <VanAAlert Type="success" Dismissible="true">
+            <span>@_successMessage</span>
+        </VanAAlert>
+    }
+</div>
+
+@code {
+    private string _plateEngine = "Tesseract";
+    private string _menuEngine = "Tesseract";
+    private bool _loading = true;
+    private bool _saving = false;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadConfig();
+    }
+
+    private async Task LoadConfig()
+    {
+        _loading = true;
+        _errorMessage = null;
+        try
+        {
+            var config = await OcrConfigSvc.GetConfigAsync();
+            _plateEngine = config.PlateEngine;
+            _menuEngine = config.MenuEngine;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load OCR config");
+            _errorMessage = $"Loi tai config: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SaveConfig()
+    {
+        _saving = true;
+        _errorMessage = null;
+        _successMessage = null;
+        try
+        {
+            var config = new OcrEngineConfig
+            {
+                PlateEngine = _plateEngine,
+                MenuEngine = _menuEngine
+            };
+            await OcrConfigSvc.UpdateConfigAsync(config, Guid.Empty);
+            _successMessage = "Da luu cai dat OCR. Thay doi co hieu luc trong 60 giay.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save OCR config");
+            _errorMessage = $"Loi luu: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}
+
+<style>
+    .ocr-config-section { display: flex; flex-direction: column; gap: 1.5rem; margin-top: 1rem; }
+    .ocr-config-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
+    .ocr-config-label strong { font-size: 1rem; }
+    .ocr-config-control { display: flex; flex-direction: column; gap: 0.25rem; }
+    .ocr-config-control select { max-width: 300px; }
+    .ocr-config-actions { margin-top: 0.5rem; }
+    @@media (max-width: 768px) {
+        .ocr-config-row { grid-template-columns: 1fr; }
+    }
+</style>

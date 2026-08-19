@@ -500,6 +500,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.IBackgroundServiceToggleService, Services.BackgroundServiceToggleApiClient>();
             // VALCN v2.0 Phase 1: Feature flag toggle — admin UI + service runtime check (default OFF)
             _ = builder.Services.AddScoped<CoreHub.Services.IFeatureFlagService, Services.FeatureFlagApiClient>();
+            // OCR Hub S2: OCR engine config — admin UI + client OCR Hub (default Tesseract)
+            _ = builder.Services.AddScoped<CoreHub.Services.IOcrConfigService, Services.OcrConfigApiClient>();
             // VALCN v2.0 Phase 3: Loyalty budget enforcement — HTTP proxy to Gateway (ShopERP SQLite ignores LoyaltyTenantConfig)
             _ = builder.Services.AddScoped<CoreHub.Services.ILoyaltyBudgetService, Services.LoyaltyBudgetServiceHttpProxy>();
             // VALCN v2.0 Phase 7: Network dashboard — HTTP client to Gateway (cross-tenant PG queries)

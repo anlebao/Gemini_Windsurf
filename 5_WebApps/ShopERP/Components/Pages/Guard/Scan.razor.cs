@@ -78,9 +78,9 @@ namespace VanAn.ShopERP.Components.Pages.Guard
                     await JS.InvokeVoidAsync("vananGuardCamera.loadPhotoConfig", publicUrl);
                 }
 
-                // #130-fix: Preload Tesseract OCR worker on page load (not lazy on first capture).
-                // Eliminates ~3s delay on first plate recognition. Fire-and-forget — don't block UI.
-                _ = JS.InvokeVoidAsync("vananGuardCamera.preloadOcrWorker");
+                // OCR Hub S2: Preload OCR engine via hub (configurable — Tesseract or PaddleOCR).
+                // #130-fix: Eliminates ~3s delay on first plate recognition. Fire-and-forget — don't block UI.
+                _ = JS.InvokeVoidAsync("vananOcrHub.preload");
 
                 // #126-fix2: Restore plate number from sessionStorage (photos restored by JS on DOMContentLoaded).
                 var savedPlateNumber = await JS.InvokeAsync<string?>("vananGuardCamera.loadState", "plateNumber");

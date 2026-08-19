@@ -757,28 +757,35 @@ window.vananGuardCamera = {
     },
 
     /** R-SCANNER: OCR on ROI — Tesseract + VN normalize + validate.
-     *  R-SPEED: Accepts canvas directly (no dataURL → Image → canvas roundtrip).
-     *  R-SPEED: PSM 7 already set in preloadOcrWorker — no setParameters per frame.
-     *  Issue #147: Added ROI downscale (max 400px wide) + contrast preprocessing
-     *  to speed up Tesseract on mobile (~30-50% faster) and improve accuracy.
-     *  R-BUGFIX: Don't kill valid OCR results — if normalizer returns '' but raw
-     *  text looks plate-like (has both letters + digits, reasonable length),
-     *  return the cleaned raw text so guard can see it and manually correct.
+     *  OCR Hub S2: Now delegates to vananOcrHub.recognize() (configurable engine).
+     *  OCR Hub S1: 2-row crop for VN plates (top: ##X, bottom: ####.##) + tilt detection.
+     *  If tilt > 15° → fallback to full-ROI OCR (review fix — prevent midY crop error).
      *  Returns {plate, confidence, raw} or null. */
     async _ocrRoi(canvas) {
         const t0 = performance.now();
-        const worker = await this.preloadOcrWorker();
-        // Issue #147: Downscale ROI to max 400px wide — Tesseract is faster on smaller images.
-        // Plates don't need high resolution for OCR; 400px is sufficient for 6-8 chars.
-        // Also apply contrast filter (R-OCR-2) to improve binarization.
         const ocrCanvas = this._preprocessRoiForOcr(canvas);
-        const { data } = await worker.recognize(ocrCanvas);
-        const ocrMs = Math.round(performance.now() - t0);
-        const raw = (data.text || '').toUpperCase().trim();
-        const confidence = data.confidence || 0;
 
-        // R-TELEMETRY: Log OCR result for diagnosis
-        console.log('[Scanner] OCR', {
+        // OCR Hub S1: Try 2-row OCR first (VN plates have 2 rows: top=##X, bottom=####.##)
+        const twoRowResult = await this._ocrTwoRows(ocrCanvas);
+        if (twoRowResult) {
+            const ocrMs = Math.round(performance.now() - t0);
+            console.log('[Scanner] OCR 2-row', {
+                plate: twoRowResult.plate,
+                confidence: Math.round(twoRowResult.confidence),
+                ocrMs,
+                roiW: canvas.width,
+                roiH: canvas.height
+            });
+            return { plate: twoRowResult.plate, confidence: twoRowResult.confidence, raw: twoRowResult.plate };
+        }
+
+        // Fallback: full-ROI OCR via OCR Hub (configurable engine)
+        const hubResult = await window.vananOcrHub.recognize(ocrCanvas);
+        const ocrMs = Math.round(performance.now() - t0);
+        const raw = (hubResult?.text || '').toUpperCase().trim();
+        const confidence = hubResult?.confidence || 0;
+
+        console.log('[Scanner] OCR full-ROI', {
             raw: raw.substring(0, 40),
             confidence: Math.round(confidence),
             ocrMs,
@@ -795,29 +802,166 @@ window.vananGuardCamera = {
 
         // R-BUGFIX: If normalizer killed it, check if raw is still plate-like
         if (!normalized) {
-            // Clean raw: keep only [0-9A-ZĐ-.]
             const cleaned = raw.replace(/[^0-9A-ZĐ\-\.]/g, '').replace(/^-+|-+$/g, '');
             const digits = (cleaned.match(/[0-9]/g) || []).length;
             const letters = (cleaned.match(/[A-ZĐ]/g) || []).length;
-            // If it has both letters + digits and reasonable length, return it
             if (digits > 0 && letters > 0 && cleaned.length >= 5 && cleaned.length <= 12) {
                 console.log('[Scanner] Normalizer failed, using cleaned raw:', cleaned);
                 return { plate: cleaned, confidence, raw };
             }
-            // Truly garbage — skip
             return null;
         }
 
         return { plate: normalized, confidence, raw };
     },
 
-    /** Issue #147: Preprocess ROI canvas for OCR — downscale + contrast boost.
-     *  Downscale to max 400px wide (keep aspect ratio) — Tesseract is ~30-50% faster
-     *  on smaller images, and 400px is sufficient for 6-8 char plate recognition.
-     *  Apply contrast(1.4) brightness(1.1) filter (R-OCR-2) to improve binarization
-     *  for glare/low-light conditions. Returns a new canvas (original untouched). */
+    /** OCR Hub S1: Detect tilt angle in ROI canvas using horizontal projection profile.
+     *  Returns approximate tilt in degrees (0 = straight, > 0 = tilted).
+     *  If text rows are not horizontal → plate is skewed → don't crop midY. */
+    _detectTilt(canvas) {
+        try {
+            const ctx = canvas.getContext('2d');
+            const w = Math.min(canvas.width, 200); // Downscale for speed
+            const h = Math.min(canvas.height, 100);
+            const tmpCanvas = document.createElement('canvas');
+            tmpCanvas.width = w;
+            tmpCanvas.height = h;
+            const tmpCtx = tmpCanvas.getContext('2d');
+            tmpCtx.drawImage(canvas, 0, 0, w, h);
+            const imageData = tmpCtx.getImageData(0, 0, w, h);
+            const data = imageData.data;
+
+            // Horizontal projection profile: count dark pixels per row
+            const rowSums = new Array(h).fill(0);
+            for (let y = 0; y < h; y++) {
+                let sum = 0;
+                for (let x = 0; x < w; x++) {
+                    const idx = (y * w + x) * 4;
+                    const brightness = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+                    if (brightness < 128) sum++; // Dark pixel = text
+                }
+                rowSums[y] = sum;
+            }
+
+            // Find text row boundaries (rows with > 20% dark pixels)
+            const threshold = w * 0.2;
+            let firstTextRow = -1, lastTextRow = -1;
+            for (let y = 0; y < h; y++) {
+                if (rowSums[y] > threshold) {
+                    if (firstTextRow < 0) firstTextRow = y;
+                    lastTextRow = y;
+                }
+            }
+
+            if (firstTextRow < 0 || lastTextRow < 0) return 0; // No text found
+
+            // Check if text region is centered vertically (straight plate)
+            // If text spans < 60% of height → likely tilted (text shifted to one side)
+            const textSpan = lastTextRow - firstTextRow;
+            const textSpanRatio = textSpan / h;
+            if (textSpanRatio < 0.4) return 20; // Text too compact → likely tilted
+
+            return 0; // Looks straight enough
+        } catch (e) {
+            return 0; // Can't detect — assume straight
+        }
+    },
+
+    /** OCR Hub S1: OCR 2 rows separately for VN plates.
+     *  OCR Hub S2: Now uses vananOcrHub.recognize() (configurable engine).
+     *  Top row: ##X (2 digits + 1-2 letters) — PSM 7 single line
+     *  Bottom row: ####.## (3-5 digits, optional dot) — PSM 7 single line
+     *  If tilt detected or either row fails → return null (fallback to full-ROI). */
+    async _ocrTwoRows(canvas) {
+        // Review fix: check tilt before crop — don't crop midY if plate is skewed
+        const tilt = this._detectTilt(canvas);
+        if (tilt > 15) {
+            console.log('[Scanner] Tilt detected (' + tilt + '°) — fallback to full-ROI OCR');
+            return null;
+        }
+
+        const midY = Math.round(canvas.height * 0.5);
+        const topCanvas = this._cropCanvas(canvas, 0, 0, canvas.width, midY);
+        const bottomCanvas = this._cropCanvas(canvas, 0, midY, canvas.width, canvas.height - midY);
+
+        // OCR top row (province + letters: ##X) via OCR Hub
+        const topRaw = await this._ocrSingleRow(topCanvas);
+        if (!topRaw) return null;
+
+        // OCR bottom row (numbers: ####.##) via OCR Hub
+        const bottomRaw = await this._ocrSingleRow(bottomCanvas);
+        if (!bottomRaw) return null;
+
+        // Normalize + validate each row
+        const topPlate = this._normalizeTopRow(topRaw.text);
+        const bottomPlate = this._normalizeBottomRow(bottomRaw.text);
+
+        if (topPlate && bottomPlate) {
+            const plate = topPlate + '-' + bottomPlate;
+            const confidence = (topRaw.confidence + bottomRaw.confidence) / 2;
+            console.log('[Scanner] 2-row OK:', { top: topPlate, bottom: bottomPlate, plate });
+            return { plate, confidence };
+        }
+
+        return null; // One row failed → fallback
+    },
+
+    /** OCR Hub S2: OCR a single row canvas via vananOcrHub (configurable engine). */
+    async _ocrSingleRow(canvas) {
+        try {
+            const result = await window.vananOcrHub.recognize(canvas);
+            if (!result || !result.text) return null;
+            const text = result.text.toUpperCase().trim();
+            if (!text) return null;
+            return { text, confidence: result.confidence || 0 };
+        } catch (e) {
+            return null;
+        }
+    },
+
+    /** OCR Hub S1: Normalize top row — 2 digits + 1-2 letters (##X or ##XX).
+     *  Valid: 51F, 59P1, 60LD, 51ĐAB. Returns normalized string or null. */
+    _normalizeTopRow(raw) {
+        if (!raw) return null;
+        let s = raw.replace(/[^0-9A-ZĐ]/g, '');
+        if (s.length < 3 || s.length > 5) return null;
+        // First 2 chars must be digits (province code)
+        const province = s.substring(0, 2).replace(/O/g, '0').replace(/I/g, '1').replace(/S/g, '5').replace(/B/g, '8').replace(/Z/g, '2').replace(/G/g, '6');
+        if (!/^\d{2}$/.test(province)) return null;
+        // Rest must be letters (1-2 chars)
+        const letters = s.substring(2).replace(/0/g, 'O').replace(/1/g, 'I').replace(/5/g, 'S').replace(/8/g, 'B').replace(/2/g, 'Z').replace(/6/g, 'G');
+        if (!/^[A-ZĐ]{1,3}$/.test(letters)) return null;
+        return province + letters;
+    },
+
+    /** OCR Hub S1: Normalize bottom row — 3-5 digits, optional dot separator (#### or ###.##).
+     *  Valid: 12345, 123.45, 6789. Returns normalized string or null. */
+    _normalizeBottomRow(raw) {
+        if (!raw) return null;
+        let s = raw.replace(/[^0-9\.]/g, '');
+        if (s.length < 3 || s.length > 8) return null;
+        // Convert any letter confusions to digits
+        s = s.replace(/O/g, '0').replace(/I/g, '1').replace(/S/g, '5').replace(/B/g, '8').replace(/Z/g, '2').replace(/G/g, '6');
+        // Validate: digits with optional dot
+        if (!/^\d{3,5}(\.\d{2})?$/.test(s)) return null;
+        return s;
+    },
+
+    /** OCR Hub S1: Crop a sub-canvas from source canvas. */
+    _cropCanvas(src, sx, sy, sw, sh) {
+        const canvas = document.createElement('canvas');
+        canvas.width = sw;
+        canvas.height = sh;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(src, sx, sy, sw, sh, 0, 0, sw, sh);
+        return canvas;
+    },
+
+    /** OCR Hub S1: Preprocess ROI canvas for OCR — downscale + contrast boost.
+     *  Downscale to max 300px wide (S1: reduced from 400px — 2-row plates need less width).
+     *  Apply contrast(1.4) brightness(1.1) filter to improve binarization. */
     _preprocessRoiForOcr(srcCanvas) {
-        const maxW = 400;
+        const maxW = 300;
         let w = srcCanvas.width;
         let h = srcCanvas.height;
         if (w > maxW) {
@@ -829,7 +973,6 @@ window.vananGuardCamera = {
         canvas.width = w;
         canvas.height = h;
         const ctx = canvas.getContext('2d');
-        // R-OCR-2: Contrast boost — helps Tesseract binarize glare/low-light plates
         try { ctx.filter = 'contrast(1.4) brightness(1.1)'; } catch (e) { /* older browsers */ }
         ctx.drawImage(srcCanvas, 0, 0, w, h);
         return canvas;
@@ -1233,7 +1376,8 @@ window.vananGuardCamera = {
         this._ocrWorkerPromise = (async () => {
             try {
                 await this._ensureOcrLibrary();
-                const whitelist = '0123456789ABCDEFGHKLMNPRSTUVXYZĐ-';
+                // OCR Hub S1: Stricter whitelist — removed Q, J, U, W, V, I (not in VN plates)
+                const whitelist = '0123456789ABCDEFGHKLMNPRSTXYZĐ-.';
                 // R-Đ: eng+vie — eng for digits/letters, vie for "Đ" character
                 const worker = await Tesseract.createWorker('eng+vie', 1, {
                     workerPath: '/js/lib/ocr/worker.min.js',
@@ -1254,7 +1398,7 @@ window.vananGuardCamera = {
                         langPath: '/js/lib/ocr',
                         logger: () => {}
                     });
-                    await worker.setParameters({ tessedit_char_whitelist: '0123456789ABCDEFGHKLMNPRSTUVXYZĐ-' });
+                    await worker.setParameters({ tessedit_char_whitelist: '0123456789ABCDEFGHKLMNPRSTXYZĐ-.' });
                     console.log('[OCR] Tesseract worker preloaded (eng fallback)');
                     return worker;
                 } catch (err2) {
