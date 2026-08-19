@@ -31,7 +31,7 @@ const _voteConfig = {
     minVotes: 3,           // Need at least 3 matching results to accept
     minAvgConfidence: 60,  // Lowered from 70 — Tesseract confidence varies with lighting/angle
     timeoutMs: 5000,       // Show fallback hint after 5s (was 15s — too slow for UX)
-    ocrIntervalMs: 400     // Min interval between OCR submissions (~2.5 OCR/sec max)
+    ocrIntervalMs: 600     // Issue #147: 600ms interval (~1.7 OCR/sec) — reduce mobile CPU load
 };
 
 window.vananGuardCamera = {
@@ -759,8 +759,8 @@ window.vananGuardCamera = {
     /** R-SCANNER: OCR on ROI — Tesseract + VN normalize + validate.
      *  R-SPEED: Accepts canvas directly (no dataURL → Image → canvas roundtrip).
      *  R-SPEED: PSM 7 already set in preloadOcrWorker — no setParameters per frame.
-     *  R-SPEED: No preprocessing — Tesseract v5 has internal binarization,
-     *  and ROI from 1920x1080 video is already high enough resolution.
+     *  Issue #147: Added ROI downscale (max 400px wide) + contrast preprocessing
+     *  to speed up Tesseract on mobile (~30-50% faster) and improve accuracy.
      *  R-BUGFIX: Don't kill valid OCR results — if normalizer returns '' but raw
      *  text looks plate-like (has both letters + digits, reasonable length),
      *  return the cleaned raw text so guard can see it and manually correct.
@@ -768,7 +768,11 @@ window.vananGuardCamera = {
     async _ocrRoi(canvas) {
         const t0 = performance.now();
         const worker = await this.preloadOcrWorker();
-        const { data } = await worker.recognize(canvas);
+        // Issue #147: Downscale ROI to max 400px wide — Tesseract is faster on smaller images.
+        // Plates don't need high resolution for OCR; 400px is sufficient for 6-8 chars.
+        // Also apply contrast filter (R-OCR-2) to improve binarization.
+        const ocrCanvas = this._preprocessRoiForOcr(canvas);
+        const { data } = await worker.recognize(ocrCanvas);
         const ocrMs = Math.round(performance.now() - t0);
         const raw = (data.text || '').toUpperCase().trim();
         const confidence = data.confidence || 0;
@@ -779,7 +783,9 @@ window.vananGuardCamera = {
             confidence: Math.round(confidence),
             ocrMs,
             roiW: canvas.width,
-            roiH: canvas.height
+            roiH: canvas.height,
+            ocrW: ocrCanvas.width,
+            ocrH: ocrCanvas.height
         });
 
         if (!raw) return null;
@@ -803,6 +809,30 @@ window.vananGuardCamera = {
         }
 
         return { plate: normalized, confidence, raw };
+    },
+
+    /** Issue #147: Preprocess ROI canvas for OCR — downscale + contrast boost.
+     *  Downscale to max 400px wide (keep aspect ratio) — Tesseract is ~30-50% faster
+     *  on smaller images, and 400px is sufficient for 6-8 char plate recognition.
+     *  Apply contrast(1.4) brightness(1.1) filter (R-OCR-2) to improve binarization
+     *  for glare/low-light conditions. Returns a new canvas (original untouched). */
+    _preprocessRoiForOcr(srcCanvas) {
+        const maxW = 400;
+        let w = srcCanvas.width;
+        let h = srcCanvas.height;
+        if (w > maxW) {
+            const ratio = maxW / w;
+            w = Math.round(w * ratio);
+            h = Math.round(h * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        // R-OCR-2: Contrast boost — helps Tesseract binarize glare/low-light plates
+        try { ctx.filter = 'contrast(1.4) brightness(1.1)'; } catch (e) { /* older browsers */ }
+        ctx.drawImage(srcCanvas, 0, 0, w, h);
+        return canvas;
     },
 
     /** R-SCANNER: Check temporal voting — returns {plate, confidence} if stable result, null otherwise.
