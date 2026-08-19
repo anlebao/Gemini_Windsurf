@@ -37,7 +37,7 @@ window.vananQrWallet = {
         }
     },
 
-    /** Generate QR code on a canvas element using existing qrcode.js (vendored in KhachLink). */
+    /** Generate QR code on a canvas element using vananQR (vendored qrcode-generator). */
     async generateQrOnCanvas(canvasId, text, size) {
         try {
             var canvas = document.getElementById(canvasId);
@@ -45,12 +45,17 @@ window.vananQrWallet = {
                 console.error('Canvas not found:', canvasId);
                 return false;
             }
-            // Use existing qrcode.js (loaded in App.razor or index.html)
-            if (typeof QRCode === 'undefined') {
+            // Use vananQR (vendored qrcode-generator in /js/qrcode.js)
+            // Exposes window.vananQR.generate(elementId, text, width, height)
+            if (typeof window.vananQR === 'undefined') {
                 await this._loadQrLibrary();
             }
-            await QRCode.toCanvas(canvas, text, { width: size || 300, margin: 2 });
-            return true;
+            if (window.vananQR && window.vananQR.generate) {
+                window.vananQR.generate(canvasId, text, size || 300, size || 300);
+                return true;
+            }
+            console.error('vananQR.generate not available after loading library');
+            return false;
         } catch (e) {
             console.error('QR generation failed:', e);
             return false;
@@ -78,18 +83,11 @@ window.vananQrWallet = {
 
     async _loadQrLibrary() {
         return new Promise((resolve, reject) => {
-            // Try vendored qrcode.js first, then CDN fallback
+            // Load vendored qrcode-generator (exposes window.vananQR.generate)
             var script = document.createElement('script');
             script.src = '/js/qrcode.js';
             script.onload = () => resolve();
-            script.onerror = () => {
-                // CDN fallback
-                var cdnScript = document.createElement('script');
-                cdnScript.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
-                cdnScript.onload = () => resolve();
-                cdnScript.onerror = () => reject(new Error('Failed to load qrcode library'));
-                document.head.appendChild(cdnScript);
-            };
+            script.onerror = () => reject(new Error('Failed to load qrcode.js'));
             document.head.appendChild(script);
         });
     }

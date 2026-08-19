@@ -869,8 +869,8 @@ window.vananGuardCamera = {
 
     /** OCR Hub S1: OCR 2 rows separately for VN plates.
      *  OCR Hub S2: Now uses vananOcrHub.recognize() (configurable engine).
-     *  Top row: ##X (2 digits + 1-2 letters) — PSM 7 single line
-     *  Bottom row: ####.## (3-5 digits, optional dot) — PSM 7 single line
+     *  Fix #2: Detect actual gap between rows via horizontal projection profile
+     *  instead of blind 50/50 cut. Top row: ##X, Bottom row: ####.##.
      *  If tilt detected or either row fails → return null (fallback to full-ROI). */
     async _ocrTwoRows(canvas) {
         // Review fix: check tilt before crop — don't crop midY if plate is skewed
@@ -880,9 +880,12 @@ window.vananGuardCamera = {
             return null;
         }
 
-        const midY = Math.round(canvas.height * 0.5);
-        const topCanvas = this._cropCanvas(canvas, 0, 0, canvas.width, midY);
-        const bottomCanvas = this._cropCanvas(canvas, 0, midY, canvas.width, canvas.height - midY);
+        // Fix #2: Detect actual gap between 2 rows using horizontal projection profile
+        const splitY = this._detectRowGap(canvas);
+        console.log('[Scanner] 2-row split at y=' + splitY + '/' + canvas.height);
+
+        const topCanvas = this._cropCanvas(canvas, 0, 0, canvas.width, splitY);
+        const bottomCanvas = this._cropCanvas(canvas, 0, splitY, canvas.width, canvas.height - splitY);
 
         // OCR top row (province + letters: ##X) via OCR Hub
         const topRaw = await this._ocrSingleRow(topCanvas);
@@ -904,6 +907,50 @@ window.vananGuardCamera = {
         }
 
         return null; // One row failed → fallback
+    },
+
+    /** Fix #2: Detect the horizontal gap between 2 rows of a VN plate.
+     *  Uses horizontal projection profile — finds the row with fewest dark pixels
+     *  in the middle 60% of the canvas height (the gap between top and bottom rows).
+     *  Returns the Y coordinate to split at. */
+    _detectRowGap(canvas) {
+        try {
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const data = imageData.data;
+
+            // Horizontal projection: count dark pixels per row
+            const rowSums = new Array(h).fill(0);
+            for (let y = 0; y < h; y++) {
+                let sum = 0;
+                for (let x = 0; x < w; x++) {
+                    const idx = (y * w + x) * 4;
+                    const brightness = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+                    if (brightness < 128) sum++;
+                }
+                rowSums[y] = sum;
+            }
+
+            // Search for gap in middle 60% of height (between 20% and 80%)
+            const searchStart = Math.round(h * 0.2);
+            const searchEnd = Math.round(h * 0.8);
+            let minSum = Infinity;
+            let gapY = Math.round(h * 0.5); // fallback to 50%
+
+            for (let y = searchStart; y < searchEnd; y++) {
+                if (rowSums[y] < minSum) {
+                    minSum = rowSums[y];
+                    gapY = y;
+                }
+            }
+
+            return gapY;
+        } catch (e) {
+            console.warn('[Scanner] _detectRowGap failed, using 50%:', e);
+            return Math.round(canvas.height * 0.5);
+        }
     },
 
     /** OCR Hub S2: OCR a single row canvas via vananOcrHub (configurable engine). */
