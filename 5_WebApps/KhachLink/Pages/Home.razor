@@ -48,15 +48,58 @@
         </div>
     }
 
-    <!-- Store Finder CTA — redirects to /stores (StoreFinder.razor) for full search experience.
-         Duplicate store finder logic removed from Home page; /stores is the single source of truth. -->
-    <VanAnCard CssClass="store-finder-cta mb-4 text-center py-4">
-        <i class="bi bi-geo-alt-fill text-primary" style="font-size: 2.5rem;"></i>
-        <h3 class="mt-2 mb-1">Tìm cửa hàng gần bạn</h3>
-        <p class="text-muted mb-3">Tìm theo tên, sản phẩm, hoặc vị trí — có hỗ trợ tìm bằng giọng nói</p>
-        <VanAnButton Variant="ButtonVariant.Primary" OnClick="@(() => Navigation.NavigateTo("/stores"))">
-            <i class="bi bi-search me-1"></i> Tìm cửa hàng
-        </VanAnButton>
+    <!-- Issue #142: Store Finder search box — Google Maps style.
+         Text input + mic icon (voice input). Submit (Enter) or voice transcript
+         navigates to /stores?q=<keyword> for full search results. -->
+    <VanAnCard CssClass="store-finder-cta mb-4 py-4">
+        <div class="text-center mb-3">
+            <i class="bi bi-geo-alt-fill text-primary" style="font-size: 2.5rem;"></i>
+            <h3 class="mt-2 mb-1">Tìm cửa hàng gần bạn</h3>
+            <p class="text-muted mb-0">Tìm theo tên, sản phẩm, hoặc vị trí — có hỗ trợ tìm bằng giọng nói</p>
+        </div>
+        <div class="home-search-box-wrapper">
+            <div class="input-group input-group-lg home-search-box">
+                <span class="input-group-text bg-white border-end-0">
+                    <i class="bi bi-search text-primary"></i>
+                </span>
+                <input type="text" class="form-control border-start-0 border-end-0"
+                       id="home-search-input"
+                       @bind="_homeSearchKeyword"
+                       @onkeyup="OnHomeSearchKeyUp"
+                       placeholder="Tìm theo tên cửa hàng, sản phẩm, dịch vụ..."
+                       aria-label="Tìm cửa hàng" />
+                @if (_homeVoiceEnabled && _homeSpeechSupported)
+                {
+                    <button type="button"
+                            class="btn btn-outline-primary home-voice-mic-btn @(_homeVoiceRecording ? "recording" : "")"
+                            OnClick="ToggleHomeVoiceSearch"
+                            title="@(_homeVoiceRecording ? "Dừng ghi âm" : "Nói để tìm kiếm")"
+                            aria-label="Tìm kiếm bằng giọng nói">
+                        @if (_homeVoiceRecording)
+                        {
+                            <span class="recording-pulse">⏹️</span>
+                        }
+                        else
+                        {
+                            <span>🎤</span>
+                        }
+                    </button>
+                }
+                <button type="button" class="btn btn-primary home-search-go-btn" OnClick="SubmitHomeSearch">
+                    <i class="bi bi-arrow-right"></i>
+                </button>
+            </div>
+            @if (_homeVoiceRecording)
+            {
+                <div class="voice-recording-hint text-danger small mt-2 text-center">
+                    <span class="recording-dot-inline"></span> Đang ghi âm... nói tên cửa hàng hoặc sản phẩm
+                </div>
+            }
+            @if (!string.IsNullOrEmpty(_homeVoiceError))
+            {
+                <div class="text-danger small mt-2 text-center">@_homeVoiceError</div>
+            }
+        </div>
     </VanAnCard>
 
     <!-- Issue 5a: Hide Campaign + Store sections for new customers (no _lastTenantId yet).
@@ -365,6 +408,14 @@
     .campaign-video-thumb { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer; background: linear-gradient(135deg, #e9ecef, #dee2e6); }
     .campaign-icon { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #fff3f3; border-radius: 8px; }
     .store-finder-cta { border-radius: 16px; }
+    /* Issue #142: Home search box — Google Maps style */
+    .home-search-box-wrapper { max-width: 640px; margin: 0 auto; }
+    .home-search-box { border-radius: 9999px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .home-search-box .form-control:focus { box-shadow: none; }
+    .home-voice-mic-btn { border-radius: 0; }
+    .home-voice-mic-btn.recording { animation: mic-pulse 1s infinite; }
+    .home-search-go-btn { border-radius: 0 9999px 9999px 0; }
+    @@keyframes mic-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
 </style>
 
 @code {
@@ -396,6 +447,14 @@
     // Sprint 7: Commerce Mode badge
     private bool _commerceModeLoaded = false;
     private bool _isReseller = false;
+
+    // Issue #142: Home voice search box — Google Maps style
+    private string _homeSearchKeyword = "";
+    private bool _homeVoiceEnabled = false;
+    private bool _homeSpeechSupported = false;
+    private bool _homeVoiceRecording = false;
+    private string? _homeVoiceError;
+    private DotNetObjectReference<Home>? _homeVoiceDotNetRef;
 
     public class StoreInfoDto
     {
@@ -465,8 +524,103 @@
             // Phase 3 (dependent): ShopConfig needs products list (derived from product TenantIds)
             await LoadShopConfigAsync();
 
+            // Issue #142: init voice search on home (reuses wwwroot/js/voice-note.js)
+            await InitHomeVoiceSearchAsync();
+
             StateHasChanged();
         }
+    }
+
+    /// <summary>
+    /// Issue #142: Initialize voice search for the home search box.
+    /// Reuses voice-note.js (loaded via index.html). targetId = null → JS won't fill
+    /// any element; transcript is delivered via SetTranscriptionText JSInvokable.
+    /// </summary>
+    private async Task InitHomeVoiceSearchAsync()
+    {
+        try
+        {
+            _homeVoiceEnabled = await FeatureSettings.IsEnabledAsync(
+                new Guid("00000000-0000-0000-0000-000000000001"),
+                nameof(VanAn.Shared.Services.ShopFeatureSettingsDto.Voice_Note_Enabled));
+            if (_homeVoiceEnabled)
+            {
+                _homeSpeechSupported = await JSRuntime.InvokeAsync<bool>("isSpeechRecognitionSupported");
+                if (_homeSpeechSupported)
+                {
+                    _homeVoiceDotNetRef = DotNetObjectReference.Create(this);
+                    // targetId = null: JS dispatches transcript via SetTranscriptionText only
+                    await JSRuntime.InvokeVoidAsync("initializeSpeechRecognition", _homeVoiceDotNetRef, null);
+                }
+            }
+        }
+        catch
+        {
+            // Non-critical — voice mic hidden if feature flag off or speech unsupported
+        }
+    }
+
+    /// <summary>Issue #142: Submit home search → navigate to /stores?q=keyword</summary>
+    private void SubmitHomeSearch()
+    {
+        var keyword = _homeSearchKeyword?.Trim() ?? "";
+        var url = string.IsNullOrWhiteSpace(keyword) ? "/stores" : $"/stores?q={Uri.EscapeDataString(keyword)}";
+        Navigation.NavigateTo(url);
+    }
+
+    /// <summary>Issue #142: Enter key on home search input → submit</summary>
+    private void OnHomeSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            SubmitHomeSearch();
+        }
+    }
+
+    /// <summary>Issue #142: Toggle voice recording on home search box</summary>
+    private async Task ToggleHomeVoiceSearch()
+    {
+        _homeVoiceError = null;
+        if (_homeVoiceRecording)
+        {
+            _homeVoiceRecording = false;
+            await JSRuntime.InvokeVoidAsync("stopRecording");
+        }
+        else
+        {
+            _homeSearchKeyword = "";
+            _homeVoiceRecording = true;
+            await JSRuntime.InvokeVoidAsync("startRecording");
+        }
+        StateHasChanged();
+    }
+
+    /// <summary>Issue #142: JSInvokable — receives voice transcript → navigate to /stores</summary>
+    [JSInvokable]
+    public void SetTranscriptionText(string transcript)
+    {
+        _homeSearchKeyword = transcript ?? "";
+        _homeVoiceRecording = false;
+        var keyword = _homeSearchKeyword.Trim();
+        var url = string.IsNullOrWhiteSpace(keyword) ? "/stores" : $"/stores?q={Uri.EscapeDataString(keyword)}";
+        Navigation.NavigateTo(url);
+    }
+
+    /// <summary>Issue #142: JSInvokable — recording ended (matches voice-note.js callback)</summary>
+    [JSInvokable]
+    public void OnRecordingEnd()
+    {
+        _homeVoiceRecording = false;
+        StateHasChanged();
+    }
+
+    /// <summary>Issue #142: JSInvokable — voice error</summary>
+    [JSInvokable]
+    public void OnVoiceError(string errorMessage)
+    {
+        _homeVoiceRecording = false;
+        _homeVoiceError = errorMessage;
+        StateHasChanged();
     }
 
     /// <summary>
@@ -725,5 +879,6 @@
     public void Dispose()
     {
         CartService.OnCartChanged -= StateHasChanged;
+        _homeVoiceDotNetRef?.Dispose();
     }
 }

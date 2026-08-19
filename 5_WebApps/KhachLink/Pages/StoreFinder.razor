@@ -302,6 +302,26 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Issue #142: pre-fill search keyword from query string (e.g. /stores?q=cafe)
+        // Home page search box navigates here with ?q=<keyword> (text or voice transcript)
+        try
+        {
+            var query = new Uri(Navigation.Uri).Query?.TrimStart('?');
+            if (!string.IsNullOrEmpty(query))
+            {
+                foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var kv = pair.Split('=', 2);
+                    if (kv.Length == 2 && kv[0] == "q")
+                    {
+                        var val = Uri.UnescapeDataString(kv[1]).Trim();
+                        if (!string.IsNullOrEmpty(val)) _searchKeyword = val;
+                        break;
+                    }
+                }
+            }
+        }
+        catch { /* non-critical — empty keyword falls back to default load */ }
         await LoadStores();
     }
 
