@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System.Threading.RateLimiting;
@@ -963,7 +964,14 @@ namespace VanAn.ShopERP
             }
 
             // MIDDLEWARE ORDER COMPLIANCE - RULE #2: StaticFiles -> Routing -> Auth -> Antiforgery -> MapRazorPages
-            _ = app.UseStaticFiles(); // MUST be first to serve wwwroot files
+            // OCR Hub S3: Serve .onnx files (application/octet-stream) — needed for PaddleOCR WASM
+            var ocrContentTypeProvider = new FileExtensionContentTypeProvider();
+            ocrContentTypeProvider.Mappings[".onnx"] = "application/octet-stream";
+            ocrContentTypeProvider.Mappings[".wasm"] = "application/wasm";
+            _ = app.UseStaticFiles(new StaticFileOptions
+            {
+                ContentTypeProvider = ocrContentTypeProvider
+            }); // MUST be first to serve wwwroot files
             _ = app.UseRouting();
             _ = app.UseRateLimiter();
             _ = app.UseAuthentication();
