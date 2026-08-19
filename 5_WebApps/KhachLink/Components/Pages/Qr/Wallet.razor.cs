@@ -98,10 +98,15 @@ public partial class Wallet : ComponentBase
         try
         {
             // 1. Load sessions from localStorage (always — no login required)
+            // #150-fix: localStorage stores camelCase (sessionId, qrPayload, ...) but WalletSession
+            // has PascalCase properties (SessionId, QrPayload, ...). Default JsonSerializer is
+            // case-sensitive → all fields deserialize as null/default → "Vé không hợp lệ".
+            // Fix: use PropertyNameCaseInsensitive = true.
             var json = await JS.InvokeAsync<string?>("vananQrWallet.getSessions");
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var sessions = string.IsNullOrEmpty(json)
                 ? new List<WalletSession>()
-                : JsonSerializer.Deserialize<List<WalletSession>>(json) ?? new List<WalletSession>();
+                : JsonSerializer.Deserialize<List<WalletSession>>(json, options) ?? new List<WalletSession>();
 
             if (sessions.Count == 0)
             {

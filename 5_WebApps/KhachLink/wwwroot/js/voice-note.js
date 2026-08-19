@@ -4,11 +4,18 @@
 let recognition = null;
 let voiceDotNetRef = null;
 let voiceTargetId = null; // ID of textarea to fill (for inline mode)
+// #142-comment-fix: Home search mode — interim results + silence auto-submit
+let isHomeSearchMode = false;
+let silenceTimer = null;
+let finalTranscript = '';
+const SILENCE_DELAY_MS = 2500; // 2.5s silence → auto-submit
 
 // Initialize speech recognition
 window.initializeSpeechRecognition = function (dotNetReference, targetId) {
     voiceDotNetRef = dotNetReference;
     voiceTargetId = targetId || null;
+    // #142-comment-fix: targetId = null means home search mode → enable interim results
+    isHomeSearchMode = !voiceTargetId;
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -18,32 +25,67 @@ window.initializeSpeechRecognition = function (dotNetReference, targetId) {
 
     recognition = new SpeechRecognition();
     recognition.lang = 'vi-VN';
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    // #142-comment-fix: home search → continuous + interim results for real-time textbox fill
+    recognition.continuous = isHomeSearchMode;
+    recognition.interimResults = isHomeSearchMode;
     recognition.maxAlternatives = 1;
 
     recognition.onresult = function (event) {
-        const transcript = event.results[0][0].transcript;
-        console.log('Transcription:', transcript);
+        let interimText = '';
+        let finalText = '';
 
-        // Fill inline textarea if targetId is set
-        if (voiceTargetId) {
-            const textarea = document.getElementById(voiceTargetId);
-            if (textarea) {
-                // Append to existing text (don't overwrite)
-                if (textarea.value && !textarea.value.endsWith(' ')) {
-                    textarea.value += ' ' + transcript;
-                } else {
-                    textarea.value += transcript;
-                }
-                // Trigger input event so Blazor @bind updates
-                textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const result = event.results[i];
+            if (result.isFinal) {
+                finalText += result[0].transcript;
+            } else {
+                interimText += result[0].transcript;
             }
         }
 
-        // Notify Blazor
-        if (voiceDotNetRef) {
-            voiceDotNetRef.invokeMethodAsync('SetTranscriptionText', transcript);
+        if (isHomeSearchMode) {
+            // #142-comment-fix: build cumulative final + current interim
+            if (finalText) {
+                finalTranscript += finalText;
+            }
+            const displayText = (finalTranscript + interimText).trim();
+
+            // Fill home search textbox via Blazor (real-time as user speaks)
+            if (voiceDotNetRef && displayText) {
+                voiceDotNetRef.invokeMethodAsync('UpdateVoiceTranscript', displayText);
+            }
+
+            // #142-comment-fix: reset silence timer — auto-submit after 2.5s of no new results
+            if (silenceTimer) clearTimeout(silenceTimer);
+            silenceTimer = setTimeout(function () {
+                const submitText = (finalTranscript || displayText).trim();
+                if (submitText && voiceDotNetRef) {
+                    console.log('[voice] Auto-submitting after silence:', submitText);
+                    voiceDotNetRef.invokeMethodAsync('SetTranscriptionText', submitText);
+                    finalTranscript = '';
+                }
+            }, SILENCE_DELAY_MS);
+        } else {
+            // Original voice-note mode — single final result
+            const transcript = event.results[0][0].transcript;
+            console.log('Transcription:', transcript);
+
+            // Fill inline textarea if targetId is set
+            if (voiceTargetId) {
+                const textarea = document.getElementById(voiceTargetId);
+                if (textarea) {
+                    if (textarea.value && !textarea.value.endsWith(' ')) {
+                        textarea.value += ' ' + transcript;
+                    } else {
+                        textarea.value += transcript;
+                    }
+                    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            }
+
+            if (voiceDotNetRef) {
+                voiceDotNetRef.invokeMethodAsync('SetTranscriptionText', transcript);
+            }
         }
     };
 
@@ -63,6 +105,18 @@ window.initializeSpeechRecognition = function (dotNetReference, targetId) {
 
     recognition.onend = function () {
         window.isVoiceRecording = false;
+        // #142-comment-fix: if home search mode + there's pending final transcript,
+        // auto-submit immediately (recognition ended before silence timer fired)
+        if (isHomeSearchMode && silenceTimer) {
+            clearTimeout(silenceTimer);
+            silenceTimer = null;
+        }
+        if (isHomeSearchMode && finalTranscript && finalTranscript.trim() && voiceDotNetRef) {
+            const submitText = finalTranscript.trim();
+            finalTranscript = '';
+            console.log('[voice] Auto-submitting on recognition end:', submitText);
+            voiceDotNetRef.invokeMethodAsync('SetTranscriptionText', submitText);
+        }
         if (voiceDotNetRef) {
             voiceDotNetRef.invokeMethodAsync('OnRecordingEnd');
         }
@@ -80,6 +134,8 @@ window.isSpeechRecognitionSupported = function () {
 window.startRecording = function () {
     if (recognition && !window.isVoiceRecording) {
         window.isVoiceRecording = true;
+        finalTranscript = ''; // #142-comment-fix: reset for new session
+        if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
         try {
             recognition.start();
             console.log('Started recording in Vietnamese...');

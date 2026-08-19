@@ -601,9 +601,18 @@
     {
         _homeSearchKeyword = transcript ?? "";
         _homeVoiceRecording = false;
+        StateHasChanged(); // #142-comment-fix: let user see the text before redirect
         var keyword = _homeSearchKeyword.Trim();
         var url = string.IsNullOrWhiteSpace(keyword) ? "/stores" : $"/stores?q={Uri.EscapeDataString(keyword)}";
         Navigation.NavigateTo(url);
+    }
+
+    /// <summary>#142-comment-fix: JSInvokable — real-time interim transcript → fill textbox (no redirect)</summary>
+    [JSInvokable]
+    public void UpdateVoiceTranscript(string interimText)
+    {
+        _homeSearchKeyword = interimText ?? "";
+        StateHasChanged();
     }
 
     /// <summary>Issue #142: JSInvokable — recording ended (matches voice-note.js callback)</summary>
