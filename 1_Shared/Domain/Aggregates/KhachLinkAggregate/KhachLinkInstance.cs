@@ -44,6 +44,26 @@ namespace VanAn.Shared.Domain.Aggregates.KhachLinkAggregate
         /// <summary>Whether this instance is active and serving traffic.</summary>
         public bool IsActive { get; private set; } = true;
 
+        // ── Issue #143: Style override fields ──────────────────────────────────
+        // When non-null, these override the tenant ShopConfig style in KhachLinkLayout.
+        // Platform-level instances (OwnerTenantId=null) use these as the sole style source.
+        // Tenant-owned instances use these to override the tenant's default branding.
+
+        /// <summary>Theme name (Classic/Modern/Teen/Lady/Premium). Null = inherit from tenant ShopConfig.</summary>
+        public string? Theme { get; private set; }
+
+        /// <summary>Logo URL for KhachLink header. Null = inherit from tenant ShopConfig (or default icon).</summary>
+        public string? LogoUrl { get; private set; }
+
+        /// <summary>Nav (sidebar) color override. Null = inherit from tenant ShopConfig.</summary>
+        public string? NavColor { get; private set; }
+
+        /// <summary>Header (top bar) color override. Null = inherit from tenant ShopConfig.</summary>
+        public string? HeaderColor { get; private set; }
+
+        /// <summary>Footer color override. Null = inherit from tenant ShopConfig.</summary>
+        public string? FooterColor { get; private set; }
+
         // EF Core materialization
         private KhachLinkInstance() { }
 
@@ -143,6 +163,21 @@ namespace VanAn.Shared.Domain.Aggregates.KhachLinkAggregate
             if (string.IsNullOrWhiteSpace(label))
                 throw new ArgumentException("Label cannot be empty.", nameof(label));
             Label = label;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Issue #143: Update style override fields (Theme, LogoUrl, NavColor, HeaderColor, FooterColor).
+        /// Pass null to clear an override (inherit from tenant ShopConfig).
+        /// Empty string is treated as null (no override).
+        /// </summary>
+        public void UpdateStyle(string? theme, string? logoUrl, string? navColor, string? headerColor, string? footerColor)
+        {
+            Theme = string.IsNullOrWhiteSpace(theme) ? null : theme;
+            LogoUrl = string.IsNullOrWhiteSpace(logoUrl) ? null : logoUrl;
+            NavColor = string.IsNullOrWhiteSpace(navColor) ? null : navColor;
+            HeaderColor = string.IsNullOrWhiteSpace(headerColor) ? null : headerColor;
+            FooterColor = string.IsNullOrWhiteSpace(footerColor) ? null : footerColor;
             UpdateAudit();
         }
     }

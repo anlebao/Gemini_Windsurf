@@ -71,6 +71,12 @@ namespace VanAn.ShopERP.Services
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public KhachLinkNavFlagsDto NavFlags { get; set; } = new();
+        // Issue #143: style override fields (null = inherit from tenant ShopConfig)
+        public string? Theme { get; set; }
+        public string? LogoUrl { get; set; }
+        public string? NavColor { get; set; }
+        public string? HeaderColor { get; set; }
+        public string? FooterColor { get; set; }
     }
 
     public sealed class KhachLinkNavFlagsDto
@@ -105,5 +111,11 @@ namespace VanAn.ShopERP.Services
     {
         public KhachLinkProfile Profile { get; set; } = KhachLinkProfile.FullCommerce;
         public KhachLinkNavFlagsDto NavFlags { get; set; } = new();
+        // Issue #143: style override fields (null/empty = clear override, inherit from tenant ShopConfig)
+        public string? Theme { get; set; }
+        public string? LogoUrl { get; set; }
+        public string? NavColor { get; set; }
+        public string? HeaderColor { get; set; }
+        public string? FooterColor { get; set; }
     }
 }

@@ -46,6 +46,23 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .IsRequired()
                 .HasDefaultValue(true);
 
+            // Issue #143: Style override fields — nullable, null = inherit from tenant ShopConfig
+            builder.Property(e => e.Theme)
+                .HasMaxLength(50)
+                .IsRequired(false);
+            builder.Property(e => e.LogoUrl)
+                .HasMaxLength(500)
+                .IsRequired(false);
+            builder.Property(e => e.NavColor)
+                .HasMaxLength(20)
+                .IsRequired(false);
+            builder.Property(e => e.HeaderColor)
+                .HasMaxLength(20)
+                .IsRequired(false);
+            builder.Property(e => e.FooterColor)
+                .HasMaxLength(20)
+                .IsRequired(false);
+
             // Owned nav flags — 15 flattened bool columns with defaults matching FullCommerce preset
             builder.OwnsOne(e => e.NavFlags, nf =>
             {

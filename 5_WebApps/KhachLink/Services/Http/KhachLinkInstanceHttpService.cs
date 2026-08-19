@@ -87,6 +87,12 @@ public class KhachLinkInstanceHttpService(
                 Profile = Enum.TryParse<KhachLinkProfile>(dto.Profile, true, out var profile) ? profile : KhachLinkProfile.FullCommerce,
                 OwnerTenantId = dto.OwnerTenantId,
                 IsActive = dto.IsActive,
+                // Issue #143: style override fields
+                Theme = dto.Theme,
+                LogoUrl = dto.LogoUrl,
+                NavColor = dto.NavColor,
+                HeaderColor = dto.HeaderColor,
+                FooterColor = dto.FooterColor,
                 NavFlags = new KhachLinkNavFlagsDto
                 {
                     ShowHome = dto.NavFlags?.ShowHome ?? true,
@@ -164,6 +170,12 @@ public class KhachLinkInstanceHttpService(
         public string Profile { get; set; } = "FullCommerce";
         public Guid? OwnerTenantId { get; set; }
         public bool IsActive { get; set; } = true;
+        // Issue #143: style override fields
+        public string? Theme { get; set; }
+        public string? LogoUrl { get; set; }
+        public string? NavColor { get; set; }
+        public string? HeaderColor { get; set; }
+        public string? FooterColor { get; set; }
         public NavFlagsResponse? NavFlags { get; set; }
     }
 

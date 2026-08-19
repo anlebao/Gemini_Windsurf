@@ -98,6 +98,11 @@ namespace VanAn.CoreHub.Services
             Guid id,
             KhachLinkProfile profile,
             KhachLinkNavFlags navFlags,
+            string? theme = null,
+            string? logoUrl = null,
+            string? navColor = null,
+            string? headerColor = null,
+            string? footerColor = null,
             CancellationToken ct = default)
         {
             if (navFlags is null)
@@ -109,6 +114,8 @@ namespace VanAn.CoreHub.Services
                 return false;
 
             instance.UpdateProfile(profile, navFlags);
+            // Issue #143: apply style override (null/empty = clear override)
+            instance.UpdateStyle(theme, logoUrl, navColor, headerColor, footerColor);
             // #136: Force EF Core to persist owned type (NavFlags) changes on PostgreSQL.
             // KhachLinkNavFlags has init-only properties — when UpdateProfile replaces the
             // reference, EF Core's snapshot change tracker may not detect column-level changes.

@@ -19,9 +19,9 @@
         :root {
             --shop-primary: @(_shopConfig?.PrimaryColor ?? "#8B4513");
             --shop-secondary: @(_shopConfig?.SecondaryColor ?? "#D2691E");
-            --shop-nav-color: @(_shopConfig?.NavColor ?? "#1a1a2e");
-            --shop-header-color: @(_shopConfig?.HeaderColor ?? (_shopConfig?.PrimaryColor ?? "#8B4513"));
-            --shop-footer-color: @(_shopConfig?.FooterColor ?? "#f5f5f5");
+            --shop-nav-color: @(_instanceStyle?.NavColor ?? _shopConfig?.NavColor ?? "#1a1a2e");
+            --shop-header-color: @(_instanceStyle?.HeaderColor ?? _shopConfig?.HeaderColor ?? (_shopConfig?.PrimaryColor ?? "#8B4513"));
+            --shop-footer-color: @(_instanceStyle?.FooterColor ?? _shopConfig?.FooterColor ?? "#f5f5f5");
         }
     </style>
 </HeadContent>
@@ -45,7 +45,11 @@ else
     <header class="khachlink-hero-header">
         <div class="hero-content d-flex justify-content-between align-items-center px-3 py-2">
             <div class="d-flex align-items-center gap-2">
-                @if (_shopConfig?.LogoUrl != null)
+                @if (!string.IsNullOrEmpty(_instanceStyle?.LogoUrl))
+                {
+                    <img src="@_instanceStyle.LogoUrl" alt="@(_shopConfig?.ShopName ?? "Logo")" class="shop-logo" />
+                }
+                else if (_shopConfig?.LogoUrl != null)
                 {
                     <img src="@_shopConfig.LogoUrl" alt="@_shopConfig.ShopName" class="shop-logo" />
                 }
@@ -218,6 +222,8 @@ else
     private KhachLinkNavFlagsDto _navFlags = new(); // default: all true (FullCommerce fallback)
     /// <summary>#134: True when the KhachLink instance for this domain is disabled.</summary>
     private bool _isInstanceDisabled;
+    /// <summary>Issue #143: Style override from KhachLinkInstance (null fields = inherit from ShopConfig).</summary>
+    private KhachLinkInstanceConfig? _instanceStyle;
 
     protected override async Task OnInitializedAsync()
     {
@@ -240,6 +246,8 @@ else
                 }
 
                 _navFlags = instanceConfig.NavFlags;
+                // Issue #143: store instance config for style override (applied in CSS + logo)
+                _instanceStyle = instanceConfig;
                 if (instanceConfig.OwnerTenantId != null && instanceConfig.OwnerTenantId != Guid.Empty)
                 {
                     TenantService.SetCurrentTenant(instanceConfig.OwnerTenantId.Value);
@@ -283,12 +291,29 @@ else
         }
     }
 
-    private string GetThemeClass() => (_shopConfig?.ActiveTheme ?? ThemeType.Classic) switch
+    private string GetThemeClass()
     {
-        ThemeType.Teen    => "teen",
-        ThemeType.Lady    => "lady",
-        ThemeType.Premium => "premium",
-        ThemeType.Modern  => "modern",
-        _                 => "classic"
-    };
+        // Issue #143: instance style override takes precedence over tenant ShopConfig theme.
+        // Instance theme is stored as string ("Classic", "Modern", etc.) — parse to ThemeType.
+        if (!string.IsNullOrEmpty(_instanceStyle?.Theme)
+            && Enum.TryParse<ThemeType>(_instanceStyle.Theme, true, out var instanceTheme))
+        {
+            return instanceTheme switch
+            {
+                ThemeType.Teen    => "teen",
+                ThemeType.Lady    => "lady",
+                ThemeType.Premium => "premium",
+                ThemeType.Modern  => "modern",
+                _                 => "classic"
+            };
+        }
+        return (_shopConfig?.ActiveTheme ?? ThemeType.Classic) switch
+        {
+            ThemeType.Teen    => "teen",
+            ThemeType.Lady    => "lady",
+            ThemeType.Premium => "premium",
+            ThemeType.Modern  => "modern",
+            _                 => "classic"
+        };
+    }
 }
