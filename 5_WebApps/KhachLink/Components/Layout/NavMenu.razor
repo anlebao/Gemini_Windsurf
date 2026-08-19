@@ -96,7 +96,7 @@
             @if (_navFlags.ShowQrClaim)
             {
                 <div class="nav-item">
-                    <NavLink class="nav-link" href="/qr/claim">
+                    <NavLink class="nav-link" href="/qr/wallet">
                         <span class="bi bi-qr-code me-2" aria-hidden="true"></span> QR gửi xe
                     </NavLink>
                 </div>
@@ -219,7 +219,7 @@
     }
     @if (_navFlags.ShowQrClaim)
     {
-        <a class="mobile-tab-item @IsActive("/qr/claim", "/qr/wallet")" href="/qr/claim">
+        <a class="mobile-tab-item @IsActive("/qr/claim", "/qr/wallet")" href="/qr/wallet">
             <i class="bi bi-qr-code"></i>
             <span>QR gửi xe</span>
         </a>
