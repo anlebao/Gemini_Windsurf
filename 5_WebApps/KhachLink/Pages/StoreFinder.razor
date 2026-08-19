@@ -39,7 +39,7 @@
                     @if (_voiceSearchEnabled && _speechSupported)
                     {
                         <button type="button" class="btn btn-outline-primary voice-mic-btn @(isRecording ? "recording" : "")"
-                                OnClick="ToggleVoiceSearch" data-testid="storefinder-btn-voice-mic"
+                                @onclick="ToggleVoiceSearch" data-testid="storefinder-btn-voice-mic"
                                 title="@(isRecording ? "Dừng ghi âm" : "Nói để tìm kiếm")"
                                 aria-label="Tìm kiếm bằng giọng nói">
                             @if (isRecording)
@@ -54,7 +54,7 @@
                     }
                     @if (!string.IsNullOrWhiteSpace(_searchKeyword))
                     {
-                        <button class="btn btn-outline-secondary" type="button" OnClick="ClearSearch">
+                        <button class="btn btn-outline-secondary" type="button" @onclick="ClearSearch">
                             <i class="bi bi-x-circle"></i>
                         </button>
                     }

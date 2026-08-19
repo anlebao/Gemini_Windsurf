@@ -72,7 +72,7 @@
                 {
                     <button type="button"
                             class="btn btn-outline-primary home-voice-mic-btn @(_homeVoiceRecording ? "recording" : "")"
-                            OnClick="ToggleHomeVoiceSearch"
+                            @onclick="ToggleHomeVoiceSearch"
                             title="@(_homeVoiceRecording ? "Dừng ghi âm" : "Nói để tìm kiếm")"
                             aria-label="Tìm kiếm bằng giọng nói">
                         @if (_homeVoiceRecording)
@@ -85,7 +85,7 @@
                         }
                     </button>
                 }
-                <button type="button" class="btn btn-primary home-search-go-btn" OnClick="SubmitHomeSearch">
+                <button type="button" class="btn btn-primary home-search-go-btn" @onclick="SubmitHomeSearch">
                     <i class="bi bi-arrow-right"></i>
                 </button>
             </div>
