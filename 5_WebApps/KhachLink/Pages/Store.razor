@@ -42,7 +42,7 @@ else if (_store is null)
             <i class="bi bi-shop"></i>
             <h2>Không tìm thấy cửa hàng</h2>
             <p>Trang bạn tìm không tồn tại hoặc đã bị gỡ.</p>
-            <button class="btn-cta" OnClick="@(() => Navigation.NavigateTo("/store-finder"))">
+            <button class="btn-cta" @onclick="@(() => Navigation.NavigateTo("/store-finder"))">
                 <i class="bi bi-search me-1"></i> Tìm cửa hàng khác
             </button>
         </div>
