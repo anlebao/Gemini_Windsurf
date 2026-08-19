@@ -28,40 +28,39 @@
 
 ## 2. Current Objective
 
-**DYNAMIC CORS FROM KHACHLINKINSTANCE REGISTRY — COMPLETE + MERGED + DEPLOYED + RV 8/8 PASS. PR #133 squash-merged `d9545d5e`. CD Multi-VPS deployed. No more `Cors__AllowedOrigins__*` env vars in docker-compose.**
+**OCR HUB + QR WALLET MERGE — R1 (S1+S2+S3) COMPLETE + MERGED + DEPLOYED + RV PASS. PR #149 (S1+S2) + PR #151 (S3) + S3-fix `7a38fcb8` + #150 fix `6c67f594`. CD Multi-VPS deployed all 3 VPS. R2 (S4 EasyOCR) DEFERRED — RAM risk + no user demand.**
 
-**Previous: KHACHLINK MULTI-PROFILE R1 COMPLETE + MERGED + ENABLED. timlathay.com LIVE as Directory type. Issue #130 (QR creation) fixes applied — pending RV + close.**
+**Previous: DYNAMIC CORS + KHACHLINK MULTI-PROFILE R1 COMPLETE + DEPLOYED. Issue #130 fixes applied (pending RV + close).**
 
-**Source:** User proposal — Dynamic CORS + Application Registry (move away from hardcoded CORS origins in docker-compose).
-**Branch:** `main` @ `d9545d5e` — Dynamic CORS merged via PR #133 (squash) + KhachLink Multi-Profile R1 (`5047ed8c` + `b3af97a1` + `3d952c75`).
-**Plan:** `docs/AI/tasks/dynamic_cors/master_plan.md` (Sprint 1 ✅ COMPLETE) + `docs/AI/tasks/khachlink_multi_profile/master_plan.md` (R1=Sprint 1-6 ✅, R2=Sprint 7 ⏳, R3=Sprint 8-9 ⏳)
+**Source:** Issue #147 (Guard QR & OCR problems) + user request to simplify QR claim flow + OCR engine selection.
+**Branch:** `main` @ `6c67f594` — OCR Hub R1 merged (PR #149 + PR #151 + S3-fix + #150 fix).
+**Plan:** `docs/AI/tasks/ocr_hub/master_plan.md` (R1=S1+S2+S3 ✅ COMPLETE, R2=S4 ⏳ DEFERRED)
 
-**DYNAMIC CORS SPRINT 1 — COMPLETE + MERGED + DEPLOYED + RV 8/8 PASS:**
-- Sprint 1 — Dynamic CORS Core ✅ (`d9545d5e` via PR #133) — `DynamicCorsService` (Singleton + IMemoryCache) + `DynamicCorsCacheHostedService` (5 min refresh) + `GetActiveCustomDomainsAsync()` + `CanonicalizeDomain()` + Gateway CORS policy swap + `Cors:StaticOrigins` in appsettings + removed `Cors__AllowedOrigins__*` from docker-compose. 17 unit + 4 integration tests. RV 8/8 PASS on VPS (incl. "add new domain via admin API → CORS works after 5 min, NO restart").
+**OCR HUB R1 — COMPLETE + MERGED + DEPLOYED + RV PASS:**
+- Sprint 1 — QR Wallet Merge + OCR Plate Improvements ✅ (PR #149) — `/qr/wallet` 2-tab merge (Vé của tôi + Nhận QR mới), bỏ login requirement, `/qr/claim` redirect, OCR tách 2 hàng PSM 7 + char whitelist
+- Sprint 2 — OCR Config Infrastructure + Client Hub ✅ (PR #149) — `IOcrConfigService` + `OcrConfigController` (Gateway) + `OcrConfigApiClient` (ShopERP) + `OcrSettings.razor` admin UI + `ocr-hub.js` client abstraction + `guard-camera.js` refactor
+- Sprint 3 — PaddleOCR Integration ✅ (PR #151 + S3-fix `7a38fcb8`) — PaddleOCR ONNX models (det 4.5MB + rec 10.4MB + dict 6623 chars) in `wwwroot/js/lib/ocr/paddle/`, PaddleAdapter in `ocr-hub.js` using ONNX Runtime Web, `.onnx` MIME type fix via `StaticFileOptions`
+- **#150 fix** ✅ (`6c67f594`) — QR wallet "Vé không hợp lệ" root cause: `Wallet.razor.cs` `LoadWalletAsync` deserialize localStorage camelCase JSON into PascalCase `WalletSession` with case-sensitive `JsonSerializer` → all fields null. Fix: `PropertyNameCaseInsensitive = true`.
+- **#142 comment fix** ✅ (`6c67f594`) — Voice search auto-submit sau 2.5s silence + fill textbox realtime (interimResults=true + `UpdateVoiceTranscript` JSInvokable)
 
-**R1 "Multi-Profile Core + Type 1 + 4 + Multi-domain" — ALL 6 SPRINTS COMPLETE + MERGED:**
-- Sprint 1 — Domain + Infrastructure ✅ (`KhachLinkProfile` enum + `KhachLinkNavFlags` VO + `KhachLinkInstance` entity + EF config + migration + seed) — `d99882d5`
-- Sprint 2 — Gateway API ✅ (Repository + Service + DTOs + `KhachLinkInstanceController` 6 endpoints + DI + feature flag) — `41a8994b` + `398610f9`
-- Sprint 3 — KhachLink Runtime ✅ (`KhachLinkInstanceHttpService` + KhachLinkLayout refactor + NavMenu flag-driven 15 items + header icons) — `8ccaa942`
-- Sprint 4 — SystemAdmin UI ✅ (`/admin/khachlink-instances` page + `KhachLinkInstanceApiClient` + NavMenu link) — `e2d4bece`
-- Sprint 5 — nginx + SSL ✅ (wildcard server block + `init-ssl-khachlink-instances.sh` SAN expand + deployment guide) — `afe84723`
-- Sprint 6 — R1 Tests ✅ (domain unit + service integration + API integration tests) — `50f55e8d`
-- R1 Enable ✅ (docker-compose env var `KHACHLINK_MULTIPROFILE_ENABLED` + CD preserve) — `b3af97a1`
-- **timlathay.com Directory instance LIVE** — rebrand static content + "Tìm hiểu" redirect + blast radius isolation — `3d952c75` + `2e7ef9b0`
+**RV Results (production VPS — diemthuong2.khachvip.online + app2.khachvip.online):**
+- L1 (API): Gateway 200, ShopERP 200, KhachLink 200, Guard API 401/200 (auth works), OCR Config API 401/200/204 (CRUD works) — PASS
+- L2 (Static): ONNX models 200 (rec.onnx 10.4MB, det.onnx 4.5MB, dict.txt), ocr-hub.js PaddleAdapter+CTC, voice-note.js isHomeSearchMode+SILENCE_DELAY_MS+UpdateVoiceTranscript, blazor.boot.json new hash — PASS
+- L3 (VPS SSH): ShopERP container healthy, ONNX serve 200 application/octet-stream 38ms, Guard business flow (issue→checkout) end-to-end PASS, OCR config saved to PostgreSQL (`Ocr:PlateEngine=PaddleOCR` verified, reverted to Tesseract)
+- L3 (Manual browser): PENDING — PaddleOCR plate scanning + QR wallet tap vé + voice search auto-submit (cần user test trên browser có micro)
 
-**Issue #130 "Guard: không tạo QRcode được" — FIXES APPLIED (pending RV + close):**
-- `4c07753f` — timeout + defensive error handling for QR issue flow
-- `119cef2e` — Blazor circuit reconnect UI to App.razor
-- `7da32cf1` — JS-first photo upload (eliminate base64 over SignalR — root cause of circuit disconnect)
-- `cc3abaf0` — proxy photo upload through Gateway (fix R2 CORS issue)
-- `2e7ef9b0` — QR photo compression + Directory "Tìm hiểu" redirect + blast radius isolation
+**R2 (S4 EasyOCR) — DEFERRED:**
+- Use case (menu OCR by photo) chưa có tenant F&B yêu cầu thực tế
+- EasyOCR model ~1GB RAM khi active → OOM risk trên Gateway VPS e2-small (2GB)
+- Tesseract.NET fallback đã có sẵn — đủ cho menu input quy mô nhỏ
+- Khi nào làm: upgrade VPS lên 4GB RAM (~$13/tháng) hoặc VPS riêng + có tenant demand
 
 **Remaining:**
-1. RV Issue #130 on VPS — verify QR creation works end-to-end (photo upload + QR generation + claim)
-2. Close Issue #130 (`gh issue close 130`) after RV pass
-3. RV timlathay.com Directory instance on VPS — verify nav flags (Home + Stores + Profile only, cart/rewards hidden)
-4. R2 (Sprint 7 — Reseller Profile) — branch from `main`, implement `ForProfile(Reseller)` preset + tests
-5. R3 (Sprint 8-9 — Logistics + JobMarket) — branch from `main` after R2 merge
+1. Manual browser RV PaddleOCR plate scanning (admin switch Tesseract→PaddleOCR → Guard Scan → verify accuracy)
+2. Manual browser RV QR wallet tap vé (Issue #150 fix — verify "Vé không hợp lệ" gone)
+3. Manual browser RV voice search auto-submit (Issue #142 comment — mic → nói → text fill → 2.5s auto-redirect)
+4. R2 (S4 EasyOCR) — deferred until user demand + VPS upgrade
+5. Issue #130 (Guard QR creation) — still pending VPS RV + close
 
 > **Previous: GUARD QR VERIFY (ISSUE #126) — ALL 3 RELEASES COMPLETE + MERGED + DEPLOYED. Ready to close.** See history log below.
 
@@ -69,9 +68,12 @@
 
 ## 3. Current Status
 
-- **Branch:** `main` @ `d9545d5e` (Dynamic CORS merged via PR #133) · **Build:** 0 errors · **Guard-check:** ALL PASSED
+- **Branch:** `main` @ `6c67f594` (OCR Hub R1 + #150 fix + #142 comment fix) · **Build:** 0 errors · **Guard-check:** ALL PASSED
 - **.NET SDK:** 8.0.422
 - **CI/CD:** CI SUCCESS — 1361 unit tests + 251 integration tests + 39 architecture tests ALL PASS (last run on `main`). CD auto-deploy active.
+- **OCR Hub R1 (S1+S2+S3):** ✅ COMPLETE + MERGED + DEPLOYED + RV L1+L2+L3(VPS SSH) PASS. PR #149 (S1+S2) + PR #151 (S3) + S3-fix `7a38fcb8` + #150 fix `6c67f594`. QR wallet 2-tab merge + OCR config infra + PaddleOCR ONNX client-side. R2 (S4 EasyOCR) DEFERRED (RAM risk + no demand).
+- **Issue #150 "Vé không hợp lệ":** ✅ FIXED + DEPLOYED + CLOSED (`6c67f594`). Root cause: JSON case mismatch (camelCase localStorage vs PascalCase WalletSession). Fix: `PropertyNameCaseInsensitive = true`.
+- **Issue #142 comment (voice search auto-submit):** ✅ FIXED + DEPLOYED (`6c67f594`). Voice search: interimResults=true + 2.5s silence debounce auto-submit + `UpdateVoiceTranscript` realtime textbox fill.
 - **KhachLink Multi-Profile R1:** ✅ ALL 6 SPRINTS COMPLETE + MERGED (`5047ed8c`) + ENABLED (`b3af97a1`). timlathay.com LIVE as Directory type (`3d952c75`). Feature flag `KhachLink:MultiProfileEnabled` ON.
 - **Dynamic CORS:** ✅ SPRINT 1 COMPLETE + MERGED (`d9545d5e` via PR #133) + DEPLOYED + RV 8/8 PASS. `DynamicCorsService` (Singleton + IMemoryCache) + `DynamicCorsCacheHostedService` (5 min refresh) + `CanonicalizeDomain()` in KhachLinkInstance. No more `Cors__AllowedOrigins__*` env vars. Admin adds domain via `/admin/khachlink-instances` → CORS works within 5 min, no restart.
 - **Issue #130 "Guard: không tạo QRcode được":** FIXES APPLIED (5 commits: timeout + circuit reconnect + JS-first photo upload + Gateway CORS proxy + QR compression). Pending VPS RV + close.
@@ -231,6 +233,7 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md`.
 
+* **2026-08-19 — OCR HUB R1 (S1+S2+S3) COMPLETE + MERGED + DEPLOYED + RV PASS + #150 FIX + #142 COMMENT FIX.** 4 commits: PR #149 (S1+S2 squash) + PR #151 (S3 squash) + `7a38fcb8` (S3-fix .onnx MIME type) + `6c67f594` (#150 + #142 comment fix). R1 "Client Phase" — QR Wallet 2-tab merge (`/qr/wallet` with "Vé của tôi" + "Nhận QR mới" tabs, no login required, `/qr/claim` redirect) + OCR plate improvements (2-row ROI split, PSM 7 per row, char whitelist) + OCR config infra (`IOcrConfigService` + `OcrConfigController` + `OcrConfigApiClient` + `OcrSettings.razor` admin UI) + client OCR Hub (`ocr-hub.js` with TesseractAdapter + PaddleAdapter using ONNX Runtime Web, `guard-camera.js` refactor) + PaddleOCR ONNX models (det 4.5MB + rec 10.4MB + dict 6623 chars in `wwwroot/js/lib/ocr/paddle/`). RV: L1 API (Gateway/ShopERP/KhachLink/Guard/OCR Config) PASS, L2 Static (ONNX 200 application/octet-stream, ocr-hub.js PaddleAdapter+CTC, voice-note.js fix) PASS, L3 VPS SSH (Guard issue→checkout end-to-end, OCR config CRUD→PostgreSQL `Ocr:PlateEngine=PaddleOCR` verified then reverted to Tesseract) PASS. #150 root cause: `Wallet.razor.cs` `LoadWalletAsync` deserialize localStorage camelCase JSON into PascalCase `WalletSession` with case-sensitive `JsonSerializer` → all fields null → "Vé không hợp lệ". Fix: `PropertyNameCaseInsensitive = true`. #142 comment: voice search auto-submit sau 2.5s silence + `UpdateVoiceTranscript` realtime textbox fill (interimResults=true). R2 (S4 EasyOCR) DEFERRED — RAM risk on Gateway VPS e2-small (2GB, EasyOCR needs ~1GB active) + no user demand. Plan: `docs/AI/tasks/ocr_hub/master_plan.md`.
 * **2026-08-18 — DOMAIN RESELLER R1 ENV VAR FIX `c9061a2c`.** Root cause: `appleboy/ssh-action` only forwards env vars listed in `envs:` parameter to the remote script — env vars set in step `env:` block alone are NOT forwarded to VPS. `DEPLOY_GODADDY_API_KEY` and `DEPLOY_VPS_GATEWAY_HOST` were in `env:` block but missing from `envs:` → `.env.gateway` had `GODADDY_API_KEY=` (empty) + `DOMAIN_REGISTRAR_DEFAULT_VPS_IP=` (empty) → `GodaddyRegistrarService.EnsureConfigured()` threw "ApiKey not configured" on every domain search. Fix: added both to `envs:` line + added `DEPLOY_VPS_GATEWAY_HOST: ${{ secrets.VPS_GATEWAY_HOST }}` to `env:` block. Verified on VPS post-deploy: container env var = 59 chars, `DOMAIN_REGISTRAR_DEFAULT_VPS_IP=136.85.94.119`, GoDaddy API availability check returns `{"available":true,"price":12990000}` for `1999cafe-cuchi-vip.com`. CD run `32100829608` SUCCESS.
 * **2026-08-17 — DYNAMIC CORS FROM KHACHLINKINSTANCE REGISTRY — SPRINT 1 COMPLETE + MERGED + DEPLOYED + RV 8/8 PASS.** PR #133 squash-merged `d9545d5e`. Replaced hardcoded `Cors__AllowedOrigins__*` env vars in docker-compose with dynamic lookup from `KhachLinkInstance.CustomDomain` registry. Architecture: `DynamicCorsService` (Singleton + IMemoryCache, sync read-only CORS callback) + `DynamicCorsCacheHostedService` (BackgroundService, pre-warm + 5 min refresh via `IServiceScopeFactory`) + `GetActiveCustomDomainsAsync()` (lightweight query) + `CanonicalizeDomain()` (strip scheme/path/port/slash in KhachLinkInstance constructor). Static origins from `appsettings.Production.json` (`Cors:StaticOrigins`). 4 architecture fixes from review: no `BuildServiceProvider()`, no `.GetAwaiter().GetResult()`, lightweight query, CustomDomain validation. 17 unit + 4 integration tests. RV 8/8 PASS on VPS (incl. "add new domain via admin API → CORS works after 5 min, NO restart"). CD Multi-VPS SUCCESS. Plan: `docs/AI/tasks/dynamic_cors/master_plan.md`.
 * **2026-08-15 — KHACHLINK MULTI-PROFILE R1 COMPLETE + MERGED + ENABLED + timlathay.com LIVE.** R1 "Multi-Profile Core + Type 1 + 4 + Multi-domain" — all 6 sprints merged via `5047ed8c` + enabled via `b3af97a1`. Sprint 1 (`d99882d5`): `KhachLinkProfile` enum + `KhachLinkNavFlags` VO + `KhachLinkInstance` entity + EF config + migration + seed. Sprint 2 (`41a8994b` + `398610f9`): Repository + Service + DTOs + `KhachLinkInstanceController` 6 endpoints + DI + feature flag. Sprint 3 (`8ccaa942`): `KhachLinkInstanceHttpService` + KhachLinkLayout refactor + NavMenu flag-driven 15 items + header icons. Sprint 4 (`e2d4bece`): ShopERP `/admin/khachlink-instances` page + `KhachLinkInstanceApiClient` + NavMenu link. Sprint 5 (`afe84723`): nginx wildcard server block + `init-ssl-khachlink-instances.sh` SAN expand + deployment guide. Sprint 6 (`50f55e8d`): R1 tests (domain unit + service integration + API integration). R1 Enable (`b3af97a1`): docker-compose env var `KHACHLINK_MULTIPROFILE_ENABLED` + CD preserve. timlathay.com (`3d952c75` + `2e7ef9b0`): rebrand static content for timlathay.com Directory type + "Tìm hiểu" redirect + blast radius isolation + #130 QR photo compression. Feature flag `KhachLink:MultiProfileEnabled` ON. Next: R2 (Sprint 7 Reseller) + R3 (Sprint 8-9 Logistics + JobMarket).
