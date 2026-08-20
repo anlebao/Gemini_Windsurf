@@ -583,5 +583,40 @@ window.vananQR = {
         link.download = filename || 'qrcode.png';
         link.href = canvas.toDataURL('image/png');
         link.click();
+    },
+
+    /** Generate QR code and return as data URL (no DOM element needed). */
+    generateDataUrl: function (text, size) {
+        try {
+            var typeNumber = window.vananQR._autoTypeNumber(text);
+            var qr = qrcode(typeNumber, 'M');
+            qr.addData(text);
+            qr.make();
+
+            var moduleCount = qr.getModuleCount();
+            var cellSize = Math.floor((size || 300) / (moduleCount + 4));
+            if (cellSize < 1) cellSize = 1;
+            var margin = 2;
+            var canvasSize = moduleCount * cellSize + margin * 2;
+
+            var canvas = document.createElement('canvas');
+            canvas.width = canvasSize;
+            canvas.height = canvasSize;
+            var ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvasSize, canvasSize);
+            ctx.fillStyle = '#000000';
+            for (var r = 0; r < moduleCount; r++) {
+                for (var c = 0; c < moduleCount; c++) {
+                    if (qr.isDark(r, c)) {
+                        ctx.fillRect(margin + c * cellSize, margin + r * cellSize, cellSize, cellSize);
+                    }
+                }
+            }
+            return canvas.toDataURL('image/png');
+        } catch (e) {
+            console.error('vananQR.generateDataUrl error:', e);
+            return null;
+        }
     }
 };

@@ -31,6 +31,7 @@ public partial class Wallet : ComponentBase
     // Fullscreen QR modal
     private bool _showFullscreen = false;
     private WalletSession? _fullscreenSession;
+    private string? _qrImageDataUrl; // QR rendered as data URL for <img> display
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -255,16 +256,18 @@ public partial class Wallet : ComponentBase
     private async Task ShowFullscreenQr(WalletSession session)
     {
         _fullscreenSession = session;
+        _qrImageDataUrl = null; // Reset — will show "Đang tạo mã QR..." while generating
         _showFullscreen = true;
         StateHasChanged();
 
-        // Generate QR on canvas + set max brightness
+        // Generate QR as data URL (no canvas timing issues) + set max brightness
         if (!string.IsNullOrEmpty(session.QrPayload))
         {
             await JS.InvokeVoidAsync("vananQrWallet.setBrightness", 1.0);
-            await Task.Delay(200); // Wait for Blazor WASM to render the canvas element
-            // JS-side retry loop handles cases where canvas still not ready
-            await JS.InvokeVoidAsync("vananQrWallet.generateQrOnCanvas", "qr-fullscreen-canvas", session.QrPayload, 350);
+            // Generate QR data URL in JS — returns base64 PNG string
+            var dataUrl = await JS.InvokeAsync<string?>("vananQrWallet.generateQrDataUrl", session.QrPayload, 350);
+            _qrImageDataUrl = dataUrl;
+            StateHasChanged();
         }
     }
 
@@ -272,6 +275,7 @@ public partial class Wallet : ComponentBase
     {
         _showFullscreen = false;
         _fullscreenSession = null;
+        _qrImageDataUrl = null;
         await JS.InvokeVoidAsync("vananQrWallet.resetBrightness");
         StateHasChanged();
     }

@@ -143,7 +143,14 @@
             @if (!string.IsNullOrEmpty(_fullscreenSession.QrPayload))
             {
                 <div class="qr-fullscreen-plate">@(_fullscreenSession.PlateNumber ?? "Vé QR")</div>
-                <canvas id="qr-fullscreen-canvas"></canvas>
+                @if (!string.IsNullOrEmpty(_qrImageDataUrl))
+                {
+                    <img src="@_qrImageDataUrl" alt="QR Code" class="qr-fullscreen-img" />
+                }
+                else
+                {
+                    <div class="qr-fullscreen-loading">Đang tạo mã QR...</div>
+                }
                 <p class="qr-fullscreen-hint">Đưa màn hình cho guard quét</p>
             }
             else if (!string.IsNullOrEmpty(_fullscreenSession.ShortCode))
@@ -216,6 +223,8 @@
     .qr-fullscreen-content { text-align: center; }
     .qr-fullscreen-plate { font-size: 2rem; font-weight: 700; color: #fff; margin-bottom: 1.5rem; }
     .qr-fullscreen-content canvas { background: #fff; border-radius: 12px; padding: 1rem; }
+    .qr-fullscreen-img { background: #fff; border-radius: 12px; padding: 1rem; max-width: 350px; width: 90vw; height: auto; }
+    .qr-fullscreen-loading { color: #fff; font-size: 1.2rem; padding: 3rem; }
     .qr-fullscreen-hint { color: #ccc; margin-top: 1.5rem; font-size: 1rem; }
     .qr-fullscreen-code-box { background: #fff; border-radius: 12px; padding: 2rem 3rem; display: inline-block; }
     .qr-fullscreen-code { font-size: 4rem; font-weight: 700; letter-spacing: 0.5rem; font-family: monospace; }

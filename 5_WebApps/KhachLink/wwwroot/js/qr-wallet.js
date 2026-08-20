@@ -67,6 +67,23 @@ window.vananQrWallet = {
         }
     },
 
+    /** Generate QR code as data URL string (no DOM canvas needed — avoids Blazor render timing issues). */
+    async generateQrDataUrl(text, size) {
+        try {
+            if (typeof window.vananQR === 'undefined') {
+                await this._loadQrLibrary();
+            }
+            if (!window.vananQR || !window.vananQR.generateDataUrl) {
+                console.error('vananQR.generateDataUrl not available');
+                return null;
+            }
+            return window.vananQR.generateDataUrl(text, size || 300);
+        } catch (e) {
+            console.error('QR data URL generation failed:', e);
+            return null;
+        }
+    },
+
     /** Set screen brightness to max (for fullscreen QR display). */
     async setBrightness(level) {
         try {
