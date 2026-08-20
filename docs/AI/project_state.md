@@ -28,12 +28,12 @@
 
 ## 2. Current Objective
 
-**OCR HUB + QR WALLET MERGE — R1 (S1+S2+S3) COMPLETE + MERGED + DEPLOYED + RV PASS. PR #149 (S1+S2) + PR #151 (S3) + S3-fix `7a38fcb8` + #150 fix `6c67f594`. CD Multi-VPS deployed all 3 VPS. R2 (S4 EasyOCR) DEFERRED — RAM risk + no user demand.**
+**OCR HUB + QR WALLET MERGE — R1 (S1+S2+S3) COMPLETE + MERGED + DEPLOYED + RV PASS. QR white screen fix + OCR 2-row gap detection + Sitemap OCR link. PR #149 (S1+S2) + PR #151 (S3) + S3-fix `7a38fcb8` + #150 fix `6c67f594` + QR/OCR fix `b07ec9cb` + Sitemap/QR retry `061a53dd` + QR img `b5fa411b` + QR root cause `9f8495e9`. CD Multi-VPS deployed all 3 VPS. R2 (S4 EasyOCR) DEFERRED — RAM risk + no user demand.**
 
 **Previous: DYNAMIC CORS + KHACHLINK MULTI-PROFILE R1 COMPLETE + DEPLOYED. Issue #130 fixes applied (pending RV + close).**
 
 **Source:** Issue #147 (Guard QR & OCR problems) + user request to simplify QR claim flow + OCR engine selection.
-**Branch:** `main` @ `6c67f594` — OCR Hub R1 merged (PR #149 + PR #151 + S3-fix + #150 fix).
+**Branch:** `main` @ `9f8495e9` — OCR Hub R1 + QR white screen root cause fix.
 **Plan:** `docs/AI/tasks/ocr_hub/master_plan.md` (R1=S1+S2+S3 ✅ COMPLETE, R2=S4 ⏳ DEFERRED)
 
 **OCR HUB R1 — COMPLETE + MERGED + DEPLOYED + RV PASS:**
@@ -42,12 +42,16 @@
 - Sprint 3 — PaddleOCR Integration ✅ (PR #151 + S3-fix `7a38fcb8`) — PaddleOCR ONNX models (det 4.5MB + rec 10.4MB + dict 6623 chars) in `wwwroot/js/lib/ocr/paddle/`, PaddleAdapter in `ocr-hub.js` using ONNX Runtime Web, `.onnx` MIME type fix via `StaticFileOptions`
 - **#150 fix** ✅ (`6c67f594`) — QR wallet "Vé không hợp lệ" root cause: `Wallet.razor.cs` `LoadWalletAsync` deserialize localStorage camelCase JSON into PascalCase `WalletSession` with case-sensitive `JsonSerializer` → all fields null. Fix: `PropertyNameCaseInsensitive = true`.
 - **#142 comment fix** ✅ (`6c67f594`) — Voice search auto-submit sau 2.5s silence + fill textbox realtime (interimResults=true + `UpdateVoiceTranscript` JSInvokable)
+- **QR white screen fix** ✅ (`9f8495e9`) — Root cause: vendored `qrcode.js` (28KB, trimmed) bị corrupt — `QRErrorCorrectionLevel`, `QRRSBlock`, `QRMath` scope issues → `qrcode()` throw "Cannot read properties of undefined" → QR generation NEVER worked. Fix: replace with official qrcode-generator v1.4.4 (56KB, full from jsDelivr) + append `vananQR` interop API. Also switched from `<canvas>` to `<img src="data:image/png;base64,...">` via `generateDataUrl()` to avoid Blazor WASM render timing issues.
+- **OCR 2-row plate fix** ✅ (`b07ec9cb`) — `_ocrTwoRows` blind 50% cut → new `_detectRowGap()` using horizontal projection profile to find actual gap between 2 text rows.
+- **Sitemap OCR link** ✅ (`061a53dd`) — Added "Thiết lập thư viện OCR" link to `/sitemap` SystemAdmin card (was only in AdminLayout sidebar).
 
 **RV Results (production VPS — diemthuong2.khachvip.online + app2.khachvip.online):**
 - L1 (API): Gateway 200, ShopERP 200, KhachLink 200, Guard API 401/200 (auth works), OCR Config API 401/200/204 (CRUD works) — PASS
-- L2 (Static): ONNX models 200 (rec.onnx 10.4MB, det.onnx 4.5MB, dict.txt), ocr-hub.js PaddleAdapter+CTC, voice-note.js isHomeSearchMode+SILENCE_DELAY_MS+UpdateVoiceTranscript, blazor.boot.json new hash — PASS
-- L3 (VPS SSH): ShopERP container healthy, ONNX serve 200 application/octet-stream 38ms, Guard business flow (issue→checkout) end-to-end PASS, OCR config saved to PostgreSQL (`Ocr:PlateEngine=PaddleOCR` verified, reverted to Tesseract)
-- L3 (Manual browser): PENDING — PaddleOCR plate scanning + QR wallet tap vé + voice search auto-submit (cần user test trên browser có micro)
+- L2 (Static): ONNX models 200, ocr-hub.js PaddleAdapter+CTC, voice-note.js fix, qrcode.js official v1.4.4 with generateDataUrl, guard-camera.js _detectRowGap, blazor.boot.json new hash — PASS
+- L3 (Playwright): QR Wallet tap vé → QR img 350x350 data URL 6278 chars ✅ PASS; ShortCode vé → "ABC123" displayed ✅ PASS
+- L3 (VPS SSH): ShopERP container healthy, Guard business flow (issue→checkout) end-to-end PASS, OCR config saved to PostgreSQL
+- L3 (Manual browser): PENDING — PaddleOCR plate scanning + voice search auto-submit (cần user test trên browser có micro)
 
 **R2 (S4 EasyOCR) — DEFERRED:**
 - Use case (menu OCR by photo) chưa có tenant F&B yêu cầu thực tế
@@ -57,10 +61,9 @@
 
 **Remaining:**
 1. Manual browser RV PaddleOCR plate scanning (admin switch Tesseract→PaddleOCR → Guard Scan → verify accuracy)
-2. Manual browser RV QR wallet tap vé (Issue #150 fix — verify "Vé không hợp lệ" gone)
-3. Manual browser RV voice search auto-submit (Issue #142 comment — mic → nói → text fill → 2.5s auto-redirect)
-4. R2 (S4 EasyOCR) — deferred until user demand + VPS upgrade
-5. Issue #130 (Guard QR creation) — still pending VPS RV + close
+2. Manual browser RV voice search auto-submit (Issue #142 comment — mic → nói → text fill → 2.5s auto-redirect)
+3. R2 (S4 EasyOCR) — deferred until user demand + VPS upgrade
+4. Issue #130 (Guard QR creation) — still pending VPS RV + close
 
 > **Previous: GUARD QR VERIFY (ISSUE #126) — ALL 3 RELEASES COMPLETE + MERGED + DEPLOYED. Ready to close.** See history log below.
 
@@ -68,10 +71,13 @@
 
 ## 3. Current Status
 
-- **Branch:** `main` @ `6c67f594` (OCR Hub R1 + #150 fix + #142 comment fix) · **Build:** 0 errors · **Guard-check:** ALL PASSED
+- **Branch:** `main` @ `9f8495e9` (OCR Hub R1 + QR white screen root cause fix) · **Build:** 0 errors · **Guard-check:** ALL PASSED
 - **.NET SDK:** 8.0.422
 - **CI/CD:** CI SUCCESS — 1361 unit tests + 251 integration tests + 39 architecture tests ALL PASS (last run on `main`). CD auto-deploy active.
-- **OCR Hub R1 (S1+S2+S3):** ✅ COMPLETE + MERGED + DEPLOYED + RV L1+L2+L3(VPS SSH) PASS. PR #149 (S1+S2) + PR #151 (S3) + S3-fix `7a38fcb8` + #150 fix `6c67f594`. QR wallet 2-tab merge + OCR config infra + PaddleOCR ONNX client-side. R2 (S4 EasyOCR) DEFERRED (RAM risk + no demand).
+- **OCR Hub R1 (S1+S2+S3):** ✅ COMPLETE + MERGED + DEPLOYED + RV L1+L2+L3(Playwright+VPS SSH) PASS. PR #149 (S1+S2) + PR #151 (S3) + S3-fix `7a38fcb8` + #150 fix `6c67f594` + QR/OCR fix `b07ec9cb` + Sitemap `061a53dd` + QR img `b5fa411b` + QR root cause `9f8495e9`. QR wallet 2-tab merge + OCR config infra + PaddleOCR ONNX client-side. R2 (S4 EasyOCR) DEFERRED (RAM risk + no demand).
+- **QR white screen:** ✅ FIXED + DEPLOYED + PLAYWRIGHT RV PASS (`9f8495e9`). Root cause: vendored qrcode.js (28KB trimmed) corrupt — QRErrorCorrectionLevel/QRRSBlock scope issues → qrcode() never worked. Fix: official qrcode-generator v1.4.4 (56KB) + `<img>` data URL approach. Playwright RV: QR img 350x350, data URL 6278 chars.
+- **OCR 2-row plate:** ✅ FIXED + DEPLOYED (`b07ec9cb`). `_detectRowGap()` using horizontal projection profile instead of blind 50% cut.
+- **Sitemap OCR link:** ✅ FIXED + DEPLOYED (`061a53dd`). "Thiết lập thư viện OCR" added to `/sitemap` SystemAdmin card.
 - **Issue #150 "Vé không hợp lệ":** ✅ FIXED + DEPLOYED + CLOSED (`6c67f594`). Root cause: JSON case mismatch (camelCase localStorage vs PascalCase WalletSession). Fix: `PropertyNameCaseInsensitive = true`.
 - **Issue #142 comment (voice search auto-submit):** ✅ FIXED + DEPLOYED (`6c67f594`). Voice search: interimResults=true + 2.5s silence debounce auto-submit + `UpdateVoiceTranscript` realtime textbox fill.
 - **KhachLink Multi-Profile R1:** ✅ ALL 6 SPRINTS COMPLETE + MERGED (`5047ed8c`) + ENABLED (`b3af97a1`). timlathay.com LIVE as Directory type (`3d952c75`). Feature flag `KhachLink:MultiProfileEnabled` ON.
@@ -233,6 +239,7 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md`.
 
+* **2026-08-20 — QR WHITE SCREEN ROOT CAUSE FIX + OCR 2-ROW PLATE FIX + SITEMAP OCR LINK.** 4 commits: `b07ec9cb` (QR canvas→vananQR.generate + OCR _detectRowGap) + `061a53dd` (Sitemap OCR link + QR retry loop) + `b5fa411b` (QR canvas→img data URL) + `9f8495e9` (QR root cause: replace corrupt qrcode.js with official v1.4.4). QR white screen root cause: vendored `qrcode.js` (28KB, trimmed) bị corrupt — `QRErrorCorrectionLevel` defined at line 302 inside IIFE but referenced at line 15 → scope issue → `qrcode()` throw "Cannot read properties of undefined (reading 'M')" → QR generation NEVER worked (both canvas + img approaches failed). Fix: replace with official qrcode-generator v1.4.4 (56KB, full from jsDelivr CDN) + append `vananQR` interop API (generate, download, generateDataUrl). Also switched Wallet.razor from `<canvas>` to `<img src="data:image/png;base64,...">` via `generateDataUrl()` to avoid Blazor WASM render timing issues. OCR 2-row plate fix: `_ocrTwoRows` blind 50% cut → new `_detectRowGap()` using horizontal projection profile (count dark pixels per row, find min in middle 60%) to find actual gap between 2 text rows. Sitemap: added "Thiết lập thư viện OCR" link to `/sitemap` SystemAdmin card. Playwright RV: QR Wallet tap vé → QR img 350x350 data URL 6278 chars ✅ PASS; ShortCode vé → "ABC123" displayed ✅ PASS. CI: 1361 unit + 251 integration + 39 arch ALL PASS. CD Multi-VPS SUCCESS.
 * **2026-08-19 — OCR HUB R1 (S1+S2+S3) COMPLETE + MERGED + DEPLOYED + RV PASS + #150 FIX + #142 COMMENT FIX.** 4 commits: PR #149 (S1+S2 squash) + PR #151 (S3 squash) + `7a38fcb8` (S3-fix .onnx MIME type) + `6c67f594` (#150 + #142 comment fix). R1 "Client Phase" — QR Wallet 2-tab merge (`/qr/wallet` with "Vé của tôi" + "Nhận QR mới" tabs, no login required, `/qr/claim` redirect) + OCR plate improvements (2-row ROI split, PSM 7 per row, char whitelist) + OCR config infra (`IOcrConfigService` + `OcrConfigController` + `OcrConfigApiClient` + `OcrSettings.razor` admin UI) + client OCR Hub (`ocr-hub.js` with TesseractAdapter + PaddleAdapter using ONNX Runtime Web, `guard-camera.js` refactor) + PaddleOCR ONNX models (det 4.5MB + rec 10.4MB + dict 6623 chars in `wwwroot/js/lib/ocr/paddle/`). RV: L1 API (Gateway/ShopERP/KhachLink/Guard/OCR Config) PASS, L2 Static (ONNX 200 application/octet-stream, ocr-hub.js PaddleAdapter+CTC, voice-note.js fix) PASS, L3 VPS SSH (Guard issue→checkout end-to-end, OCR config CRUD→PostgreSQL `Ocr:PlateEngine=PaddleOCR` verified then reverted to Tesseract) PASS. #150 root cause: `Wallet.razor.cs` `LoadWalletAsync` deserialize localStorage camelCase JSON into PascalCase `WalletSession` with case-sensitive `JsonSerializer` → all fields null → "Vé không hợp lệ". Fix: `PropertyNameCaseInsensitive = true`. #142 comment: voice search auto-submit sau 2.5s silence + `UpdateVoiceTranscript` realtime textbox fill (interimResults=true). R2 (S4 EasyOCR) DEFERRED — RAM risk on Gateway VPS e2-small (2GB, EasyOCR needs ~1GB active) + no user demand. Plan: `docs/AI/tasks/ocr_hub/master_plan.md`.
 * **2026-08-18 — DOMAIN RESELLER R1 ENV VAR FIX `c9061a2c`.** Root cause: `appleboy/ssh-action` only forwards env vars listed in `envs:` parameter to the remote script — env vars set in step `env:` block alone are NOT forwarded to VPS. `DEPLOY_GODADDY_API_KEY` and `DEPLOY_VPS_GATEWAY_HOST` were in `env:` block but missing from `envs:` → `.env.gateway` had `GODADDY_API_KEY=` (empty) + `DOMAIN_REGISTRAR_DEFAULT_VPS_IP=` (empty) → `GodaddyRegistrarService.EnsureConfigured()` threw "ApiKey not configured" on every domain search. Fix: added both to `envs:` line + added `DEPLOY_VPS_GATEWAY_HOST: ${{ secrets.VPS_GATEWAY_HOST }}` to `env:` block. Verified on VPS post-deploy: container env var = 59 chars, `DOMAIN_REGISTRAR_DEFAULT_VPS_IP=136.85.94.119`, GoDaddy API availability check returns `{"available":true,"price":12990000}` for `1999cafe-cuchi-vip.com`. CD run `32100829608` SUCCESS.
 * **2026-08-17 — DYNAMIC CORS FROM KHACHLINKINSTANCE REGISTRY — SPRINT 1 COMPLETE + MERGED + DEPLOYED + RV 8/8 PASS.** PR #133 squash-merged `d9545d5e`. Replaced hardcoded `Cors__AllowedOrigins__*` env vars in docker-compose with dynamic lookup from `KhachLinkInstance.CustomDomain` registry. Architecture: `DynamicCorsService` (Singleton + IMemoryCache, sync read-only CORS callback) + `DynamicCorsCacheHostedService` (BackgroundService, pre-warm + 5 min refresh via `IServiceScopeFactory`) + `GetActiveCustomDomainsAsync()` (lightweight query) + `CanonicalizeDomain()` (strip scheme/path/port/slash in KhachLinkInstance constructor). Static origins from `appsettings.Production.json` (`Cors:StaticOrigins`). 4 architecture fixes from review: no `BuildServiceProvider()`, no `.GetAwaiter().GetResult()`, lightweight query, CustomDomain validation. 17 unit + 4 integration tests. RV 8/8 PASS on VPS (incl. "add new domain via admin API → CORS works after 5 min, NO restart"). CD Multi-VPS SUCCESS. Plan: `docs/AI/tasks/dynamic_cors/master_plan.md`.
