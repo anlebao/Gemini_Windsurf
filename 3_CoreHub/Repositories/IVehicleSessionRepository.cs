@@ -31,5 +31,25 @@ namespace VanAn.CoreHub.Repositories
         Task<List<VehicleSession>> GetByIdsForCustomerAsync(Guid customerId, List<Guid> sessionIds, CancellationToken ct = default);
         Task AddAsync(VehicleSession session, CancellationToken ct = default);
         Task SaveChangesAsync(CancellationToken ct = default);
+
+        /// <summary>
+        /// R2 Cleanup: Get sessions with photos that are past retention period.
+        /// Filters by tenant, status (CheckedOut or Voided), and cutoff date.
+        /// Only returns sessions that still have photo keys (not yet cleaned up).
+        /// </summary>
+        Task<List<VehicleSession>> GetExpiredSessionsAsync(Guid tenantId, DateTime cutoff, CancellationToken ct = default);
+
+        /// <summary>
+        /// R2 Cleanup: Get distinct tenant IDs that have expired sessions with photos.
+        /// Used by the background cleanup service to process all tenants.
+        /// </summary>
+        Task<List<Guid>> GetTenantsWithExpiredSessionsAsync(DateTime cutoff, CancellationToken ct = default);
+
+        /// <summary>
+        /// R2 Cleanup: Clear photo keys for sessions (after R2 objects are deleted).
+        /// Uses ExecuteUpdateAsync for efficient bulk update — no Domain method needed.
+        /// Sets PlatePhotoKey and CustomerPhotoKey to empty string.
+        /// </summary>
+        Task<int> ClearPhotoKeysAsync(IEnumerable<Guid> sessionIds, CancellationToken ct = default);
     }
 }

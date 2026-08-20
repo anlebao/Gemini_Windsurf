@@ -1,0 +1,179 @@
+@page "/admin/r2-storage"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject R2StorageApiClient R2Client
+@inject IThemeProvider ThemeProvider
+@inject ILogger<R2StorageAdmin> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="tenant-management-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Quan ly luu tru anh</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadStatsAsync">
+                Lam moi
+            </VanAButton>
+        </div>
+    </header>
+
+    <VanAAlert Type="info" Dismissible="false">
+        <span>Quan ly anh luu tru tren Cloudflare R2 (bucket: vanan-guard-photos). Anh bien so + anh khach hang. Cleanup tu dong moi 24h, giu 30 ngay sau checkout/void.</span>
+    </VanAAlert>
+
+    @if (_loading)
+    {
+        <p>Dang tai...</p>
+    }
+    else if (_stats == null)
+    {
+        <VanAAlert Type="warning" Dismissible="false">
+            <span>Khong the tai thong tin luu tru. Kiem tra ket noi Gateway.</span>
+        </VanAAlert>
+    }
+    else
+    {
+        <div class="r2-storage-section">
+            <h2>Thong ke luu tru</h2>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Loai anh</th>
+                        <th>So luong</th>
+                        <th>Dung luong</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Anh bien so</td>
+                        <td>@_stats.PlatePhotoCount</td>
+                        <td>@FormatBytes(_stats.TotalSizeBytes)</td>
+                    </tr>
+                    <tr>
+                        <td>Anh khach hang</td>
+                        <td>@_stats.CustomerPhotoCount</td>
+                        <td>-</td>
+                    </tr>
+                    <tr style="font-weight: bold;">
+                        <td>Tong cong</td>
+                        <td>@(_stats.PlatePhotoCount + _stats.CustomerPhotoCount)</td>
+                        <td>@FormatBytes(_stats.TotalSizeBytes)</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            @if (_stats.OldestPhotoDate.HasValue)
+            {
+                <p class="text-muted small">Anh cu nhat: @_stats.OldestPhotoDate.Value.ToString("yyyy-MM-dd HH:mm")</p>
+            }
+
+            <div style="margin-top: 20px;">
+                <h3>Xoa anh cu</h3>
+                <p class="text-muted small">
+                    Xoa anh cua cac session da checkout/void qua 30 ngay. Metadata session van giu (chi xoa anh).
+                </p>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label>Retention (ngay):</label>
+                    <input type="number" @bind="_retentionDays" min="1" max="365" style="width: 80px;" />
+                    <VanAButton Variant="primary" Size="small" OnClick="TriggerCleanupAsync" Disabled="@_cleanupRunning">
+                        @if (_cleanupRunning) { <span>Dang xoa...</span> } else { <span>Xoa anh cu</span> }
+                    </VanAButton>
+                </div>
+            </div>
+
+            @if (_cleanupResult != null)
+            {
+                <div style="margin-top: 15px;">
+                    @if (_cleanupResult.Errors.Count > 0)
+                    {
+                        <VanAAlert Type="error" Dismissible="false">
+                            <span>Xoa xong nhung co @_cleanupResult.Errors.Count loi:</span>
+                            <ul>
+                                @foreach (var err in _cleanupResult.Errors)
+                                {
+                                    <li>@err</li>
+                                }
+                            </ul>
+                        </VanAAlert>
+                    }
+                    else
+                    {
+                        <VanAAlert Type="success" Dismissible="false">
+                            <span>
+                                Da xu ly @_cleanupResult.SessionsProcessed session,
+                                xoa @_cleanupResult.PhotosDeleted anh,
+                                giai phong @FormatBytes(_cleanupResult.BytesFreed).
+                            </span>
+                        </VanAAlert>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private bool _loading = true;
+    private TenantStorageStatsDto? _stats;
+    private int _retentionDays = 30;
+    private bool _cleanupRunning;
+    private R2CleanupResultDto? _cleanupResult;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStatsAsync();
+    }
+
+    private async Task LoadStatsAsync()
+    {
+        _loading = true;
+        _cleanupResult = null;
+        try
+        {
+            // SystemAdmin token has tenantId = Guid.Empty; stats for current tenant would need tenant context.
+            // For now, query with Guid.Empty which lists all objects (SystemAdmin view).
+            _stats = await R2Client.GetStatsAsync(Guid.Empty);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load R2 storage stats");
+            _stats = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task TriggerCleanupAsync()
+    {
+        _cleanupRunning = true;
+        _cleanupResult = null;
+        try
+        {
+            _cleanupResult = await R2Client.TriggerCleanupAllAsync(_retentionDays);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to trigger R2 cleanup");
+            _cleanupResult = new R2CleanupResultDto(0, 0, 0, new List<string> { ex.Message });
+        }
+        finally
+        {
+            _cleanupRunning = false;
+        }
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        if (bytes < 1024 * 1024 * 1024) return $"{bytes / (1024.0 * 1024):F1} MB";
+        return $"{bytes / (1024.0 * 1024 * 1024):F2} GB";
+    }
+}

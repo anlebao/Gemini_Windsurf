@@ -209,5 +209,77 @@ namespace VanAn.CoreHub.Repositories
         {
             await _context.SaveChangesAsync(ct);
         }
+
+        /// <summary>
+        /// R2 Cleanup: Get sessions with photos that are past retention period.
+        /// Filters by tenant, status (CheckedOut or Voided), and cutoff date.
+        /// Only returns sessions that still have photo keys (not yet cleaned up).
+        /// </summary>
+        public async Task<List<VehicleSession>> GetExpiredSessionsAsync(Guid tenantId, DateTime cutoff, CancellationToken ct = default)
+        {
+            try
+            {
+                return await _context.VehicleSessions
+                    .Where(s => s.TenantId == new TenantId(tenantId)
+                        && (s.Status == VehicleSessionStatus.CheckedOut || s.Status == VehicleSessionStatus.Voided)
+                        && s.CheckedOutAt != null && s.CheckedOutAt < cutoff
+                        && (s.PlatePhotoKey != "" || s.CustomerPhotoKey != ""))
+                    .ToListAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting expired sessions for tenant {TenantId} (cutoff {Cutoff})", tenantId, cutoff);
+                return new List<VehicleSession>();
+            }
+        }
+
+        /// <summary>
+        /// R2 Cleanup: Get distinct tenant IDs that have expired sessions with photos.
+        /// Used by the background cleanup service to process all tenants.
+        /// </summary>
+        public async Task<List<Guid>> GetTenantsWithExpiredSessionsAsync(DateTime cutoff, CancellationToken ct = default)
+        {
+            try
+            {
+                return await _context.VehicleSessions
+                    .Where(s => (s.Status == VehicleSessionStatus.CheckedOut || s.Status == VehicleSessionStatus.Voided)
+                        && s.CheckedOutAt != null && s.CheckedOutAt < cutoff
+                        && (s.PlatePhotoKey != "" || s.CustomerPhotoKey != ""))
+                    .Select(s => s.TenantId.Value)
+                    .Distinct()
+                    .ToListAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting tenants with expired sessions (cutoff {Cutoff})", cutoff);
+                return new List<Guid>();
+            }
+        }
+
+        /// <summary>
+        /// R2 Cleanup: Clear photo keys for sessions (after R2 objects are deleted).
+        /// Uses ExecuteUpdateAsync for efficient bulk update — no Domain method needed.
+        /// Sets PlatePhotoKey and CustomerPhotoKey to empty string.
+        /// </summary>
+        public async Task<int> ClearPhotoKeysAsync(IEnumerable<Guid> sessionIds, CancellationToken ct = default)
+        {
+            var ids = sessionIds as List<Guid> ?? sessionIds.ToList();
+            if (ids.Count == 0)
+                return 0;
+
+            try
+            {
+                return await _context.VehicleSessions
+                    .Where(s => ids.Contains(s.Id))
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(e => e.PlatePhotoKey, "")
+                        .SetProperty(e => e.CustomerPhotoKey, ""), ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error clearing photo keys for {Count} sessions", ids.Count);
+                return 0;
+            }
+        }
     }
 }

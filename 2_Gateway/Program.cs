@@ -313,6 +313,11 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.IGuardScanLogRepository, VanAn.CoreHub.Repositories.GuardScanLogRepository>();
             _ = builder.Services.AddSingleton<VanAn.CoreHub.Services.IR2StorageService, VanAn.CoreHub.Services.R2StorageService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IGuardService, VanAn.CoreHub.Services.GuardService>();
+            // R2 Cleanup: photo cleanup service + background hosted service
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IR2CleanupService, VanAn.CoreHub.Services.R2CleanupService>();
+            _ = builder.Services.Configure<VanAn.CoreHub.Infrastructure.R2CleanupOptions>(
+                builder.Configuration.GetSection("R2Cleanup"));
+            _ = builder.Services.AddHostedService<VanAn.CoreHub.Infrastructure.R2CleanupHostedService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Infrastructure.Repositories.ITenantProviderConfigurationService, VanAn.CoreHub.Infrastructure.Repositories.TenantProviderConfigurationService>();
             // Phase 5: Customer segmentation service for bulk push campaigns
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICustomerSegmentationService, VanAn.CoreHub.Services.CustomerSegmentationService>();

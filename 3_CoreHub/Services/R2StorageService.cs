@@ -125,5 +125,77 @@ namespace VanAn.CoreHub.Services
             _logger.LogInformation("Uploaded photo to R2: {Key} ({Size} bytes)", key, bytes.Length);
             return true;
         }
+
+        /// <summary>
+        /// R2 Cleanup: List all objects under a prefix (e.g. "plates/{tenantId}/").
+        /// Handles R2 pagination (1000 keys per page) via ContinuationToken loop.
+        /// </summary>
+        public async Task<List<S3ObjectInfo>> ListObjectsByPrefixAsync(string prefix, CancellationToken ct = default)
+        {
+            var results = new List<S3ObjectInfo>();
+            string? continuationToken = null;
+
+            do
+            {
+                var request = new ListObjectsV2Request
+                {
+                    BucketName = _bucketName,
+                    Prefix = prefix,
+                    ContinuationToken = continuationToken
+                };
+
+                var response = await _s3Client.ListObjectsV2Async(request, ct);
+
+                foreach (var s3Obj in response.S3Objects)
+                {
+                    results.Add(new S3ObjectInfo(s3Obj.Key, s3Obj.Size, s3Obj.LastModified));
+                }
+
+                continuationToken = response.IsTruncated ? response.NextContinuationToken : null;
+            }
+            while (continuationToken != null);
+
+            _logger.LogDebug("Listed {Count} objects under prefix {Prefix}", results.Count, prefix);
+            return results;
+        }
+
+        /// <summary>
+        /// R2 Cleanup: Batch delete objects by keys.
+        /// R2/S3 DeleteObjects API accepts max 1000 keys per call — chunks automatically.
+        /// </summary>
+        public async Task<int> DeleteObjectsAsync(IEnumerable<string> keys, CancellationToken ct = default)
+        {
+            var keyList = keys as List<string> ?? keys.ToList();
+            if (keyList.Count == 0)
+                return 0;
+
+            var deleted = 0;
+            const int batchSize = 1000;
+
+            for (int i = 0; i < keyList.Count; i += batchSize)
+            {
+                var batch = keyList.Skip(i).Take(batchSize).Select(k => new KeyVersion { Key = k }).ToList();
+
+                var request = new DeleteObjectsRequest
+                {
+                    BucketName = _bucketName,
+                    Objects = batch
+                };
+
+                var response = await _s3Client.DeleteObjectsAsync(request, ct);
+                deleted += response.DeletedObjects.Count;
+
+                if (response.DeleteErrors?.Count > 0)
+                {
+                    foreach (var err in response.DeleteErrors)
+                    {
+                        _logger.LogWarning("R2 delete error for key {Key}: {Code} - {Message}", err.Key, err.Code, err.Message);
+                    }
+                }
+            }
+
+            _logger.LogInformation("Deleted {Deleted} objects from R2 (requested {Requested})", deleted, keyList.Count);
+            return deleted;
+        }
     }
 }
