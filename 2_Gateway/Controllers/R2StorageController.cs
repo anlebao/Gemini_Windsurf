@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -10,7 +11,7 @@ namespace VanAn.Gateway.Controllers
     /// SystemAdmin can access any tenant; TenantAdmin can only access own tenant.
     /// </summary>
     [ApiController]
-    [Authorize]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     [Route("api/r2storage")]
     public class R2StorageController(
         IR2CleanupService cleanupService,
@@ -52,7 +53,7 @@ namespace VanAn.Gateway.Controllers
         /// SystemAdmin only. Returns cleanup result (sessions processed, photos deleted, bytes freed).
         /// </summary>
         [HttpPost("cleanup/{tenantId}")]
-        [Authorize(Policy = "SystemAdmin")]
+        [Authorize(Policy = "SystemAdmin", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<IActionResult> TriggerCleanup(Guid tenantId, [FromQuery] int? retentionDays, CancellationToken ct)
         {
             var retention = retentionDays.HasValue && retentionDays > 0
@@ -71,7 +72,7 @@ namespace VanAn.Gateway.Controllers
         /// SystemAdmin only. Returns aggregate cleanup result.
         /// </summary>
         [HttpPost("cleanup-all")]
-        [Authorize(Policy = "SystemAdmin")]
+        [Authorize(Policy = "SystemAdmin", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<IActionResult> TriggerCleanupAll([FromQuery] int? retentionDays, CancellationToken ct)
         {
             var retention = retentionDays.HasValue && retentionDays > 0
