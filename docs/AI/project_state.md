@@ -28,13 +28,13 @@
 
 ## 2. Current Objective
 
-**OCR HUB + QR WALLET MERGE — R1 (S1+S2+S3) COMPLETE + MERGED + DEPLOYED + RV PASS. QR white screen fix + OCR 2-row gap detection + Sitemap OCR link. PR #149 (S1+S2) + PR #151 (S3) + S3-fix `7a38fcb8` + #150 fix `6c67f594` + QR/OCR fix `b07ec9cb` + Sitemap/QR retry `061a53dd` + QR img `b5fa411b` + QR root cause `9f8495e9`. CD Multi-VPS deployed all 3 VPS. R2 (S4 EasyOCR) DEFERRED — RAM risk + no user demand.**
+**R2 PHOTO CLEANUP SERVICE — ALL 7 PHASES COMPLETE + COMMITTED `60972c7c` + PUSHED + CD DEPLOYED. BLOCKER: R2Storage API returns HTML (200) instead of 401 JSON on VPS — YARP catch-all route intercepting `/api/r2storage/*` before controller. Guard API `/api/guard/*` works (401). Build succeeded, DLL contains R2StorageController type, DI registrations present, image built+pushed+deployed. Root cause under investigation.**
 
-**Previous: DYNAMIC CORS + KHACHLINK MULTI-PROFILE R1 COMPLETE + DEPLOYED. Issue #130 fixes applied (pending RV + close).**
+**Previous: OCR HUB + QR WALLET MERGE — R1 (S1+S2+S3) COMPLETE + MERGED + DEPLOYED + RV PASS. QR white screen fix + OCR 2-row gap detection + Sitemap OCR link. PR #149 (S1+S2) + PR #151 (S3) + S3-fix `7a38fcb8` + #150 fix `6c67f594` + QR/OCR fix `b07ec9cb` + Sitemap/QR retry `061a53dd` + QR img `b5fa411b` + QR root cause `9f8495e9`. CD Multi-VPS deployed all 3 VPS. R2 (S4 EasyOCR) DEFERRED — RAM risk + no user demand.**
 
-**Source:** Issue #147 (Guard QR & OCR problems) + user request to simplify QR claim flow + OCR engine selection.
-**Branch:** `main` @ `9f8495e9` — OCR Hub R1 + QR white screen root cause fix.
-**Plan:** `docs/AI/tasks/ocr_hub/master_plan.md` (R1=S1+S2+S3 ✅ COMPLETE, R2=S4 ⏳ DEFERRED)
+**Source:** User request — R2 photos (plate + customer) stored on Cloudflare R2 had no auto-cleanup, risking storage exhaustion after ~50,000 vehicle sessions (10GB free tier).
+**Branch:** `main` @ `60972c7c` — R2 Cleanup Service (7 phases).
+**Plan:** `docs/AI/tasks/r2_cleanup/master_plan.md` (Sprint 1 Backend ✅ + Sprint 2 Admin UI ✅ + Sprint 3 Tests ✅)
 
 **OCR HUB R1 — COMPLETE + MERGED + DEPLOYED + RV PASS:**
 - Sprint 1 — QR Wallet Merge + OCR Plate Improvements ✅ (PR #149) — `/qr/wallet` 2-tab merge (Vé của tôi + Nhận QR mới), bỏ login requirement, `/qr/claim` redirect, OCR tách 2 hàng PSM 7 + char whitelist
@@ -71,9 +71,9 @@
 
 ## 3. Current Status
 
-- **Branch:** `main` @ `9f8495e9` (OCR Hub R1 + QR white screen root cause fix) · **Build:** 0 errors · **Guard-check:** ALL PASSED
+- **Branch:** `main` @ `60972c7c` (R2 Cleanup Service) · **Build:** 0 errors · **Guard-check:** ALL PASSED
 - **.NET SDK:** 8.0.422
-- **CI/CD:** CI SUCCESS — 1361 unit tests + 251 integration tests + 39 architecture tests ALL PASS (last run on `main`). CD auto-deploy active.
+- **CI/CD:** CI SUCCESS — 1367 unit tests + 251 integration tests + 39 architecture tests ALL PASS (last run on `main`). CD Multi-VPS SUCCESS — all 3 VPS deployed with `60972c7c`. CD (cd.yml) build+push SUCCESS (Gateway image rebuilt with `--no-cache`, pushed to GHCR `latest`).
 - **OCR Hub R1 (S1+S2+S3):** ✅ COMPLETE + MERGED + DEPLOYED + RV L1+L2+L3(Playwright+VPS SSH) PASS. PR #149 (S1+S2) + PR #151 (S3) + S3-fix `7a38fcb8` + #150 fix `6c67f594` + QR/OCR fix `b07ec9cb` + Sitemap `061a53dd` + QR img `b5fa411b` + QR root cause `9f8495e9`. QR wallet 2-tab merge + OCR config infra + PaddleOCR ONNX client-side. R2 (S4 EasyOCR) DEFERRED (RAM risk + no demand).
 - **QR white screen:** ✅ FIXED + DEPLOYED + PLAYWRIGHT RV PASS (`9f8495e9`). Root cause: vendored qrcode.js (28KB trimmed) corrupt — QRErrorCorrectionLevel/QRRSBlock scope issues → qrcode() never worked. Fix: official qrcode-generator v1.4.4 (56KB) + `<img>` data URL approach. Playwright RV: QR img 350x350, data URL 6278 chars.
 - **OCR 2-row plate:** ✅ FIXED + DEPLOYED (`b07ec9cb`). `_detectRowGap()` using horizontal projection profile instead of blind 50% cut.
@@ -93,13 +93,20 @@
 - **nginx:** 5-layer rate limit (static/api/auth/blazor/page) — 0 503 in load test (500+ requests)
 - **Background Service Toggle:** `/admin/background-services` — 8 services toggleable
 - **Loyalty Alliance:** FULLY OPERATIONAL. Tenant in Silo mode — Alliance infrastructure ready.
-- **Cloudflare R2:** `vanan-guard-photos` bucket created + verified (Account ID: 18947627801f833aecc202f086d66af5). Used by Guard QR Verify (Sprint 1+).
+- **Cloudflare R2:** `vanan-guard-photos` bucket created + verified (Account ID: 18947627801f833aecc202f086d66af5). Used by Guard QR Verify (Sprint 1+) + R2 Cleanup Service (auto-delete photos >30 days post-checkout, runs every 24h via `R2CleanupHostedService`).
+- **R2 Cleanup Service:** ✅ ALL 7 PHASES COMPLETE + COMMITTED `60972c7c` + PUSHED + CD DEPLOYED. Sprint 1 (Backend): `IR2StorageService` +3 methods + `IVehicleSessionRepository` +3 methods + `IR2CleanupService` + `R2CleanupService` + `R2CleanupHostedService` + `R2CleanupOptions` + DI + appsettings config. Sprint 2 (Admin UI): `R2StorageController` + `R2StorageApiClient` + `R2StorageAdmin.razor` + nav/sitemap links. Sprint 3 (Tests): 6 unit tests PASS. **BLOCKER:** R2Storage API returns HTML (200) instead of 401 JSON on VPS — YARP catch-all `{**catch-all}` route (Order 1000) intercepting `/api/r2storage/*` before controller. Guard API `/api/guard/*` works (401). Build succeeded, DLL contains type, DI registered. Root cause under investigation.
 - **Known gaps (verified, not bugs):** Network Dashboard cache 10-min (by design); TD-NETDASH-001 (Option B — Order.SetCustomerId Domain change, deferred).
 - **Tech debt:** TD-MVPS-001→004, TD-CUSTSYNC-001, TD-ASYNCDP-001, TD-GCP-001, TD-NETDASH-001
 
 ---
 
 ## 4. Next Actions
+
+**R2 Cleanup Service — BLOCKER (RV L1 FAIL):**
+
+1. **(Investigate R2Storage API routing)** R2StorageController returns HTML (200) instead of 401 JSON on VPS. Guard API works (401). Both are `[ApiController][Authorize][Route("api/...")]`. Hypothesis: YARP catch-all `{**catch-all}` (Order 1000) intercepts `/api/r2storage/*` before controller. Need to verify: (a) Is the controller actually registered in the running container? (b) Does YARP route ordering affect this? (c) Is there a route conflict? Action: SSH to VPS + `docker exec vanan-gateway-1 dotnet --info` or check Gateway logs for endpoint discovery.
+2. **(Fix routing issue)** Once root cause identified, fix + redeploy + re-run RV L1.
+3. **(Complete RV L1-L5)** After fix: L1 API (R2Storage 401/200/204), L2 Static (admin page loads), L3 Playwright (admin UI stats + cleanup), L4 UI flow, L5 manual browser.
 
 **Domain Reseller R1 — COMPLETE + MERGED + DEPLOYED + RV 9/9 PASS:**
 - ✅ PR #137 squash-merged `124c65ef` → main. Branch deleted.
@@ -228,10 +235,10 @@ Server A (Edge):              Server B (Central):
 
 ## 9. AI Health Check
 
-- **Assumptions:** 0
-- **Verified Facts:** Branch=`main`, last commit `d9545d5e` (Dynamic CORS merged via PR #133). Dynamic CORS Sprint 1 COMPLETE: `DynamicCorsService` + `DynamicCorsCacheHostedService` + `CanonicalizeDomain` + Gateway CORS policy swap. RV 8/8 PASS on VPS (incl. add new domain via admin API → CORS works after 5 min, NO restart). KhachLink Multi-Profile R1 COMPLETE: all 6 sprints merged via `5047ed8c` + enabled via `b3af97a1`. timlathay.com LIVE as Directory type. Issue #130: 5 fix commits applied (QR creation — pending RV + close). Issue #126: ALL 3 RELEASES COMPLETE (R1 `ee109800` + R2 `08f8ff60` PR #128 + R3 `4dd1a0a4` PR #129) — pending RV + close. 33 Guard unit tests + 5 integration tests PASS. Build 0 errors. guard-check ALL PASSED. Architecture 39/39. CI: 1361 unit + 251 integration + 39 arch tests ALL PASS.
-- **Open Questions:** 0
-- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (50+), Open Questions (0) < 3
+- **Assumptions:** 1 (YARP catch-all intercepting R2Storage route — not yet verified on VPS)
+- **Verified Facts:** Branch=`main` @ `60972c7c` (R2 Cleanup Service). Build 0 errors. 6 R2Cleanup unit tests PASS. CI: 1367 unit + 251 integration + 39 arch ALL PASS. CD Multi-VPS SUCCESS (all 3 VPS deployed). Gateway image rebuilt `--no-cache` + pushed to GHCR `latest` + pulled on VPS + container recreated + healthy. DLL contains R2StorageController type (verified via byte scan). DI registrations present (IR2CleanupService, R2CleanupOptions, R2CleanupHostedService, IR2StorageService, IVehicleSessionRepository). R2Storage API returns HTML 200 (KhachLink index.html) instead of 401 JSON. Guard API returns 401 (works). ETag/Last-Modified headers on R2Storage response suggest static file serving (not proxy). nginx config for api2 proxies all `/` to gateway:80. YARP fallback route `{**catch-all}` → khachlink-cluster (Order 1000).
+- **Open Questions:** 1 — Why does `/api/r2storage/*` not match R2StorageController but `/api/guard/*` matches GuardController? (Need VPS SSH to check Gateway logs)
+- **Gate 6 Status:** ⚠️ Assumptions (1) < Verified Facts (15+), Open Questions (1) < 3 — OK to continue investigating
 
 ---
 
@@ -239,6 +246,7 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md`.
 
+* **2026-08-20 — R2 PHOTO CLEANUP SERVICE — ALL 7 PHASES COMPLETE + COMMITTED `60972c7c` + PUSHED + CD DEPLOYED. BLOCKER: R2Storage API returns HTML instead of 401 JSON.** R2 photos (plate + customer) on Cloudflare R2 had no auto-cleanup → risk of storage exhaustion after ~50,000 vehicle sessions (10GB free tier). Sprint 1 (Backend): `IR2StorageService` +3 methods (ListObjectsByPrefixAsync, DeleteObjectsAsync batch 1000, GetPlatePrefix/GetCustomerPrefix) + `IVehicleSessionRepository` +3 methods (GetExpiredSessionsAsync, GetTenantsWithExpiredSessionsAsync, ClearPhotoKeysAsync) + `IR2CleanupService` + `R2CleanupService` (per-tenant stats, single/all-tenants cleanup) + `R2CleanupHostedService` (background, 24h interval, 30-day retention) + `R2CleanupOptions` + DI + appsettings config. Sprint 2 (Admin UI): `R2StorageController` (GET stats, POST cleanup, SystemAdmin only) + `R2StorageApiClient` + `R2StorageAdmin.razor` + nav/sitemap links. Sprint 3 (Tests): 6 unit tests PASS. CI: 1367 unit + 251 integration + 39 arch ALL PASS. CD Multi-VPS SUCCESS. **BLOCKER:** R2Storage API (`/api/r2storage/stats/{tenantId}`) returns HTML 200 (KhachLink index.html) instead of 401 JSON on VPS. Guard API works (401). Build succeeded, DLL contains type, DI registered, image rebuilt+deployed. Root cause under investigation — likely YARP catch-all route intercepting before controller. Plan: `docs/AI/tasks/r2_cleanup/master_plan.md`.
 * **2026-08-20 — QR WHITE SCREEN ROOT CAUSE FIX + OCR 2-ROW PLATE FIX + SITEMAP OCR LINK.** 4 commits: `b07ec9cb` (QR canvas→vananQR.generate + OCR _detectRowGap) + `061a53dd` (Sitemap OCR link + QR retry loop) + `b5fa411b` (QR canvas→img data URL) + `9f8495e9` (QR root cause: replace corrupt qrcode.js with official v1.4.4). QR white screen root cause: vendored `qrcode.js` (28KB, trimmed) bị corrupt — `QRErrorCorrectionLevel` defined at line 302 inside IIFE but referenced at line 15 → scope issue → `qrcode()` throw "Cannot read properties of undefined (reading 'M')" → QR generation NEVER worked (both canvas + img approaches failed). Fix: replace with official qrcode-generator v1.4.4 (56KB, full from jsDelivr CDN) + append `vananQR` interop API (generate, download, generateDataUrl). Also switched Wallet.razor from `<canvas>` to `<img src="data:image/png;base64,...">` via `generateDataUrl()` to avoid Blazor WASM render timing issues. OCR 2-row plate fix: `_ocrTwoRows` blind 50% cut → new `_detectRowGap()` using horizontal projection profile (count dark pixels per row, find min in middle 60%) to find actual gap between 2 text rows. Sitemap: added "Thiết lập thư viện OCR" link to `/sitemap` SystemAdmin card. Playwright RV: QR Wallet tap vé → QR img 350x350 data URL 6278 chars ✅ PASS; ShortCode vé → "ABC123" displayed ✅ PASS. CI: 1361 unit + 251 integration + 39 arch ALL PASS. CD Multi-VPS SUCCESS.
 * **2026-08-19 — OCR HUB R1 (S1+S2+S3) COMPLETE + MERGED + DEPLOYED + RV PASS + #150 FIX + #142 COMMENT FIX.** 4 commits: PR #149 (S1+S2 squash) + PR #151 (S3 squash) + `7a38fcb8` (S3-fix .onnx MIME type) + `6c67f594` (#150 + #142 comment fix). R1 "Client Phase" — QR Wallet 2-tab merge (`/qr/wallet` with "Vé của tôi" + "Nhận QR mới" tabs, no login required, `/qr/claim` redirect) + OCR plate improvements (2-row ROI split, PSM 7 per row, char whitelist) + OCR config infra (`IOcrConfigService` + `OcrConfigController` + `OcrConfigApiClient` + `OcrSettings.razor` admin UI) + client OCR Hub (`ocr-hub.js` with TesseractAdapter + PaddleAdapter using ONNX Runtime Web, `guard-camera.js` refactor) + PaddleOCR ONNX models (det 4.5MB + rec 10.4MB + dict 6623 chars in `wwwroot/js/lib/ocr/paddle/`). RV: L1 API (Gateway/ShopERP/KhachLink/Guard/OCR Config) PASS, L2 Static (ONNX 200 application/octet-stream, ocr-hub.js PaddleAdapter+CTC, voice-note.js fix) PASS, L3 VPS SSH (Guard issue→checkout end-to-end, OCR config CRUD→PostgreSQL `Ocr:PlateEngine=PaddleOCR` verified then reverted to Tesseract) PASS. #150 root cause: `Wallet.razor.cs` `LoadWalletAsync` deserialize localStorage camelCase JSON into PascalCase `WalletSession` with case-sensitive `JsonSerializer` → all fields null → "Vé không hợp lệ". Fix: `PropertyNameCaseInsensitive = true`. #142 comment: voice search auto-submit sau 2.5s silence + `UpdateVoiceTranscript` realtime textbox fill (interimResults=true). R2 (S4 EasyOCR) DEFERRED — RAM risk on Gateway VPS e2-small (2GB, EasyOCR needs ~1GB active) + no user demand. Plan: `docs/AI/tasks/ocr_hub/master_plan.md`.
 * **2026-08-18 — DOMAIN RESELLER R1 ENV VAR FIX `c9061a2c`.** Root cause: `appleboy/ssh-action` only forwards env vars listed in `envs:` parameter to the remote script — env vars set in step `env:` block alone are NOT forwarded to VPS. `DEPLOY_GODADDY_API_KEY` and `DEPLOY_VPS_GATEWAY_HOST` were in `env:` block but missing from `envs:` → `.env.gateway` had `GODADDY_API_KEY=` (empty) + `DOMAIN_REGISTRAR_DEFAULT_VPS_IP=` (empty) → `GodaddyRegistrarService.EnsureConfigured()` threw "ApiKey not configured" on every domain search. Fix: added both to `envs:` line + added `DEPLOY_VPS_GATEWAY_HOST: ${{ secrets.VPS_GATEWAY_HOST }}` to `env:` block. Verified on VPS post-deploy: container env var = 59 chars, `DOMAIN_REGISTRAR_DEFAULT_VPS_IP=136.85.94.119`, GoDaddy API availability check returns `{"available":true,"price":12990000}` for `1999cafe-cuchi-vip.com`. CD run `32100829608` SUCCESS.
