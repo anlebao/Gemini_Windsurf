@@ -37,46 +37,54 @@
         <VanACard Header="Cấp QR gửi xe">
             @if (issueStep == 1)
             {
-                @* Step 1: Capture photos + plate input *@
+                @* Step 1: Photo-first flow — capture photo (required), plate optional *@
                 <div class="guard-issue-form">
-                    @* Plate input FIRST — above scanner, so result fills visible field *@
-                    <div class="guard-input-row guard-plate-input-row-wrapper">
-                        <label>Biển số <span class="guard-optional-tag">(tùy chọn — bỏ qua nếu vội)</span></label>
-                        <div class="guard-plate-input-row">
-                            <input id="plateInput" class="guard-input guard-plate-input" @bind="plateNumber" placeholder="VD: 51F-12345 (bỏ trống nếu chỉ chụp ảnh)" maxlength="20" />
-                            <button id="plateOrientationBtn" type="button" class="vanan-button vanan-button--outline" onclick="vananGuardCamera.toggleGuideOrientation()">📐 Dọc (xe máy)</button>
+                    @* PRIMARY: Plate/vehicle photo capture — full width, prominent *@
+                    <div class="guard-photo-box guard-scanner-box guard-primary-photo" data-photo-slot="plate">
+                        <div class="guard-photo-actions guard-photo-actions--top">
+                            <button id="plateOpenBtn" type="button" class="vanan-button vanan-button--primary" onclick="vananGuardCamera.openCamera('plate')">📷 Mở camera</button>
+                            <button id="plateCaptureBtn" type="button" class="vanan-button vanan-button--secondary" onclick="vananGuardCamera.captureAndStore('plate')" style="display:none">📸 Chụp ảnh</button>
+                            <button id="plateCancelBtn" type="button" class="vanan-button vanan-button--outline" onclick="vananGuardCamera.cancelCamera('plate')" style="display:none">⏹ Dừng</button>
+                            <button id="plateOkBtn" type="button" class="vanan-button vanan-button--success" onclick="vananGuardCamera.confirmPlate()" style="display:none">✓ Xác nhận</button>
+                            <button id="plateRetakeBtn" type="button" class="vanan-button vanan-button--secondary" onclick="vananGuardCamera.retakePhoto('plate')" style="display:none">🔄 Chụp lại</button>
+                            <button id="plateManualBtn" type="button" class="vanan-button vanan-button--outline" onclick="document.getElementById('plateInput').focus()" style="display:none">✍️ Nhập biển</button>
+                            <button id="plateOrientationBtn" type="button" class="vanan-button vanan-button--outline" onclick="vananGuardCamera.toggleGuideOrientation()">📐 Dọc/Ngang</button>
                         </div>
-                        <span id="ocrStatus" class="guard-ocr-status" style="display:none">Đang nhận diện biển số… (lần đầu tải thư viện ~5s)</span>
+                        <div class="guard-scanner-container">
+                            <video id="plateVideo" class="guard-camera-video guard-scanner-video" muted></video>
+                            <div id="plateGuideBox" class="guard-guide-box guard-guide-box--portrait" style="display:none">
+                                <div class="guard-guide-corner guard-guide-corner--tl"></div>
+                                <div class="guard-guide-corner guard-guide-corner--tr"></div>
+                                <div class="guard-guide-corner guard-guide-corner--bl"></div>
+                                <div class="guard-guide-corner guard-guide-corner--br"></div>
+                            </div>
+                            <div id="plateScanStatus" class="guard-scan-status" style="display:none"></div>
+                        </div>
+                        @* OCR status/hint hidden — OCR deprioritized, photo is primary verifier *@
+                        <span id="ocrStatus" class="guard-ocr-status" style="display:none"></span>
                         <span id="ocrHint" class="guard-ocr-hint" style="display:none"></span>
+                        <div id="plateRoiDebug" class="guard-roi-debug" style="display:none"></div>
                     </div>
-                    <div class="guard-photo-row">
-                        <div class="guard-photo-box guard-scanner-box" data-photo-slot="plate">
-                            <label>Quét biển số</label>
-                            <div class="guard-photo-actions guard-photo-actions--top">
-                                <button id="plateOpenBtn" type="button" class="vanan-button vanan-button--primary" onclick="vananGuardCamera.openCamera('plate')">📷 Quét biển số</button>
-                                <button id="plateCaptureBtn" type="button" class="vanan-button vanan-button--secondary" onclick="vananGuardCamera.captureAndStore('plate')" style="display:none">📸 Chụp ảnh</button>
-                                <button id="plateCancelBtn" type="button" class="vanan-button vanan-button--outline" onclick="vananGuardCamera.cancelCamera('plate')" style="display:none">⏹ Dừng</button>
-                                <button id="plateOkBtn" type="button" class="vanan-button vanan-button--success" onclick="vananGuardCamera.confirmPlate()" style="display:none">✓ OK — Xác nhận</button>
-                                <button id="plateRetakeBtn" type="button" class="vanan-button vanan-button--secondary" onclick="vananGuardCamera.retakePhoto('plate')" style="display:none">🔄 Quét lại</button>
-                                <button id="plateManualBtn" type="button" class="vanan-button vanan-button--outline" onclick="document.getElementById('plateInput').focus()" style="display:none">✍️ Nhập tay</button>
-                            </div>
-                            <div class="guard-scanner-container">
-                                <video id="plateVideo" class="guard-camera-video guard-scanner-video" muted></video>
-                                <div id="plateGuideBox" class="guard-guide-box guard-guide-box--portrait" style="display:none">
-                                    <div class="guard-guide-corner guard-guide-corner--tl"></div>
-                                    <div class="guard-guide-corner guard-guide-corner--tr"></div>
-                                    <div class="guard-guide-corner guard-guide-corner--bl"></div>
-                                    <div class="guard-guide-corner guard-guide-corner--br"></div>
-                                </div>
-                                <div id="plateScanStatus" class="guard-scan-status" style="display:none"></div>
-                            </div>
-                            <div id="plateRoiDebug" class="guard-roi-debug" style="display:none">
-                                <label class="guard-roi-debug-label">ROI (vùng OCR):</label>
+
+                    @* SECONDARY: Optional metadata — plate text + customer photo + phone *@
+                    <div class="guard-optional-row">
+                        <div class="guard-input-row guard-plate-input-row-wrapper">
+                            <label>Biển số <span class="guard-optional-tag">(tùy chọn)</span></label>
+                            <div class="guard-plate-input-row">
+                                <input id="plateInput" class="guard-input guard-plate-input" @bind="plateNumber" placeholder="Nhập tay nếu muốn (bỏ trống OK)" maxlength="20" />
                             </div>
                         </div>
-                        <div class="guard-photo-box" data-photo-slot="customer">
-                            <label>Ảnh khách (tùy chọn)</label>
-                            <video id="customerVideo" class="guard-camera-video" muted></video>
+                        <div class="guard-input-row">
+                            <label>SĐT khách <span class="guard-optional-tag">(tùy chọn)</span></label>
+                            <input id="customerPhoneInput" class="guard-input" @bind="customerPhone" placeholder="0xxx xxx xxx" maxlength="20" />
+                        </div>
+                    </div>
+
+                    @* OPTIONAL: Customer photo — collapsible, smaller *@
+                    <details class="guard-customer-photo-details">
+                        <summary>Ảnh khách (tùy chọn)</summary>
+                        <div class="guard-photo-box guard-customer-photo" data-photo-slot="customer">
+                            <video id="customerVideo" class="guard-camera-video guard-customer-video" muted></video>
                             <div class="guard-photo-actions">
                                 <button id="customerOpenBtn" type="button" class="vanan-button vanan-button--secondary" onclick="vananGuardCamera.openCamera('customer')">📷 Mở camera</button>
                                 <button id="customerCaptureBtn" type="button" class="vanan-button vanan-button--primary" onclick="vananGuardCamera.captureAndStore('customer')" style="display:none">📸 Chụp</button>
@@ -84,17 +92,14 @@
                                 <button id="customerRetakeBtn" type="button" class="vanan-button vanan-button--secondary" onclick="vananGuardCamera.retakePhoto('customer')" style="display:none">🔄 Chụp lại</button>
                             </div>
                         </div>
-                    </div>
-                    <div class="guard-input-row">
-                        <label>SĐT khách (tùy chọn)</label>
-                        <input id="customerPhoneInput" class="guard-input" @bind="customerPhone" placeholder="0xxx xxx xxx" maxlength="20" />
-                    </div>
+                    </details>
+
                     <VanAButton Variant="success" Text="Tạo QR" Disabled="@issuing" Loading="@issuing" OnClick="IssueQrAsync" />
                 </div>
             }
             else if (issueStep == 2)
             {
-                @* Step 2: Display QR + short code *@
+                @* Step 2: Display QR + short code + Next button for quick consecutive issue *@
                 <div class="guard-qr-display">
                     <p class="guard-success-text">✅ Đã cấp QR thành công!</p>
                     @if (!string.IsNullOrEmpty(qrImageBase64))
@@ -104,12 +109,12 @@
                         </div>
                     }
                     <div class="guard-shortcode-box">
-                        <label>Mã ngắn (fallback):</label>
+                        <label>Mã ngắn:</label>
                         <span class="guard-shortcode">@issuedShortCode</span>
                     </div>
                     <div class="guard-issue-actions">
                         <VanAButton Variant="primary" Text="🖨️ In vé" OnClick="PrintTicketAsync" />
-                        <VanAButton Variant="outline" Text="🔄 Quét lại" OnClick="ResetIssue" />
+                        <VanAButton Variant="success" Text="➡️ Kế tiếp" OnClick="ResetIssue" />
                     </div>
                 </div>
             }
@@ -284,6 +289,18 @@
     .guard-scanner-video { width: 100%; aspect-ratio: 4/3; }
     /* R-RESPONSIVE: Buttons ABOVE scanner on mobile so they're always reachable */
     .guard-photo-actions--top { order: -1; margin-bottom: 0.5rem; }
+    /* PHOTO-FIRST LAYOUT: Primary photo full-width, prominent */
+    .guard-primary-photo { flex: 1 1 100%; min-width: 100%; }
+    .guard-primary-photo .guard-scanner-container { max-width: 100%; }
+    .guard-primary-photo .guard-scanner-video { max-width: 100%; aspect-ratio: 4/3; }
+    /* Optional metadata row — compact, side-by-side on desktop */
+    .guard-optional-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .guard-optional-row .guard-input-row { flex: 1; min-width: 180px; }
+    /* Customer photo — collapsible, smaller */
+    .guard-customer-photo-details { background: #f9fafb; border-radius: 8px; padding: 0.5rem 1rem; }
+    .guard-customer-photo-details summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; color: #6b7280; padding: 0.25rem 0; }
+    .guard-customer-photo { margin-top: 0.5rem; }
+    .guard-customer-video { max-width: 240px; }
     /* R-RESPONSIVE: Mobile layout — full width, smaller video, stacked columns */
     @@media (max-width: 768px) {
         .guard-scan-page { padding: 0.5rem; }
@@ -296,6 +313,7 @@
         .guard-photo-actions { gap: 0.4rem; }
         .guard-photo-actions .vanan-button { font-size: 0.85rem; padding: 0.4rem 0.7rem; }
         .guard-qr-image { width: 240px; height: 240px; }
+        .guard-optional-row { flex-direction: column; }
     }
     .guard-guide-box {
         position: absolute; border: 2px dashed rgba(59, 130, 246, 0.8); border-radius: 4px;

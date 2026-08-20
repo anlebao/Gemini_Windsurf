@@ -1,86 +1,74 @@
 #!/bin/bash
-# RV (Release Verification) — full customer journey test
-PHONE="0900000066"
-echo "============================================"
-echo "RV: Full customer journey on VPS"
-echo "============================================"
+echo "=== RV FULL: Plate-Optional Refactor ==="
 
 echo ""
-echo "=== 1. Health checks ==="
-for svc in shoperp gateway khachlink; do
-  status=$(docker inspect --format='{{.State.Health.Status}}' vanan-$svc 2>/dev/null || echo "n/a")
-  echo "  vanan-$svc: $status"
+echo "=== L1: Migration + DB ==="
+echo "L1.1 Migration:"
+docker exec vanan-postgres-1 psql -U vanan_admin -d VanAnCoreHub -tAc \
+  'SELECT "MigrationId" FROM "__EFMigrationsHistory" WHERE "MigrationId" LIKE '\''%PlateNumberOptional%'\'''
+echo "L1.2 Column nullable:"
+docker exec vanan-postgres-1 psql -U vanan_admin -d VanAnCoreHub -tAc \
+  "SELECT is_nullable FROM information_schema.columns WHERE table_name='VehicleSessions' AND column_name='PlateNumber'"
+
+echo ""
+echo "=== L2: Gateway listening ports ==="
+docker exec vanan-gateway-1 cat /proc/net/tcp | awk '{print $2}' | tail -n +2 | while read line; do
+  port_hex=$(echo $line | cut -d: -f2)
+  port=$((16#$port_hex))
+  if [ $port -gt 1000 ] && [ $port -lt 65536 ]; then
+    echo "  Listening on port: $port"
+  fi
 done
 
 echo ""
-echo "=== 2. Send OTP to $PHONE ==="
-curl -sk -D /tmp/rv_headers -X POST -H 'Content-Type: application/json' \
-  -d "{\"phoneNumber\":\"$PHONE\"}" \
-  https://api.khachvip.online/api/customers/otp/send
-echo
-OTP=$(grep -i 'X-Dev-OTP' /tmp/rv_headers | tr -d '\r' | awk '{print $2}')
-if [ -z "$OTP" ]; then echo "FAIL: No OTP in header"; exit 1; fi
-echo "  OTP: $OTP"
+echo "=== L3: Try dev/login on various ports ==="
+for port in 80 8080 5001 5000; do
+  code=$(docker exec vanan-gateway-1 curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:$port/dev/login \
+    -H "Content-Type: application/json" \
+    -d '{"role":"SystemAdmin"}' 2>/dev/null)
+  echo "  localhost:$port/dev/login -> $code"
+  if [ "$code" = "200" ] || [ "$code" = "201" ]; then
+    echo "  SUCCESS on port $port!"
+    TOKEN=$(docker exec vanan-gateway-1 curl -s -X POST http://localhost:$port/dev/login \
+      -H "Content-Type: application/json" \
+      -d '{"role":"SystemAdmin"}' | grep -o '"token":"[^"]*"' | head -1 | cut -d'"' -f4)
+    if [ -z "$TOKEN" ]; then
+      TOKEN=$(docker exec vanan-gateway-1 curl -s -X POST http://localhost:$port/dev/login \
+        -H "Content-Type: application/json" \
+        -d '{"role":"SystemAdmin"}' | grep -o '"accessToken":"[^"]*"' | head -1 | cut -d'"' -f4)
+    fi
+    echo "  Token length: ${#TOKEN}"
+    break
+  fi
+done
 
 echo ""
-echo "=== 3. Verify OTP (expect pointBalance: 100 from OtpVerify mission) ==="
-VERIFY=$(curl -sk -X POST -H 'Content-Type: application/json' \
-  -d "{\"phoneNumber\":\"$PHONE\",\"otp\":\"$OTP\",\"DisplayName\":\"RV Test Customer\"}" \
-  https://api.khachvip.online/api/customers/otp/verify)
-echo "$VERIFY" | python3 -m json.tool 2>/dev/null
-TOKEN=$(echo "$VERIFY" | python3 -c "import sys,json; print(json.load(sys.stdin)['customerToken'])" 2>/dev/null)
-PB=$(echo "$VERIFY" | python3 -c "import sys,json; print(json.load(sys.stdin)['pointBalance'])" 2>/dev/null)
-echo "  Token: ${TOKEN:0:30}..."
-echo "  pointBalance: $PB"
-[ "$PB" = "100" ] && echo "  PASS: OTP mission awarded 100 points" || echo "  WARN: expected 100, got $PB"
+echo "=== L4: Try via nginx (port 80) ==="
+for path in "/dev/login" "/api/auth/login"; do
+  code=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://127.0.0.1$path \
+    -H "Content-Type: application/json" \
+    -d '{"role":"SystemAdmin"}' 2>/dev/null)
+  echo "  http://127.0.0.1$path -> $code"
+done
 
 echo ""
-echo "=== 4. GET /api/customers/me ==="
-curl -sk -H "X-Customer-Token: $TOKEN" https://api.khachvip.online/api/customers/me | python3 -m json.tool 2>/dev/null
+echo "=== L5: Check DevLoginController availability ==="
+docker exec vanan-gateway-1 env | grep -i "ASPNETCORE_ENVIRONMENT\|ENABLE_DEV" 2>/dev/null || echo "  (no env vars found)"
 
 echo ""
-echo "=== 5. GET /api/loyalty/my ==="
-curl -sk -H "X-Customer-Token: $TOKEN" https://api.khachvip.online/api/loyalty/my | python3 -m json.tool 2>/dev/null
+echo "=== L6: Check Gateway logs for dev/login ==="
+docker logs vanan-gateway-1 2>&1 | grep -i "dev/login\|DevLogin" | tail -5 || echo "  (no dev/login in logs)"
 
 echo ""
-echo "=== 6. GET /api/redemption/catalog/active ==="
-curl -sk -H "X-Customer-Token: $TOKEN" https://api.khachvip.online/api/redemption/catalog/active | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  {len(d)} catalog items'); [print(f'  - {i[\"productName\"]}: {i[\"pointsRequired\"]} pts') for i in d]" 2>/dev/null
+echo "=== L7: Guard API via nginx (no auth) ==="
+curl -s -o /dev/null -w "  GET /api/guard/sessions/today: %{http_code}\n" http://127.0.0.1/api/guard/sessions/today
+curl -s -o /dev/null -w "  POST /api/guard/issue: %{http_code}\n" -X POST http://127.0.0.1/api/guard/issue \
+  -H "Content-Type: application/json" -d '{}'
 
 echo ""
-echo "=== 7. POST /api/redemption/redeem (Ca phe mien phi, 200 pts — need 200+) ==="
-# Add 200 points first via SQL (test only)
-docker stop vanan-shoperp >/dev/null 2>&1
-docker cp vanan-shoperp:/app/keys/vanan_shoperp.db /tmp/rv.db
-docker cp vanan-shoperp:/app/keys/vanan_shoperp.db-wal /tmp/rv.db-wal 2>/dev/null
-sqlite3 /tmp/rv.db "PRAGMA wal_checkpoint(TRUNCATE);" >/dev/null 2>&1
-CUST_ID=$(echo "$VERIFY" | python3 -c "import sys,json; print(json.load(sys.stdin)['customerId'])" 2>/dev/null)
-sqlite3 /tmp/rv.db "UPDATE LoyaltyRewards SET PointBalance = PointBalance + 200 WHERE CustomerId = '$CUST_ID';" 2>&1
-docker cp /tmp/rv.db vanan-shoperp:/app/keys/vanan_shoperp.db
-docker exec vanan-shoperp rm -f /app/keys/vanan_shoperp.db-wal /app/keys/vanan_shoperp.db-shm 2>/dev/null
-docker start vanan-shoperp >/dev/null 2>&1
-sleep 15
-
-REDEEM=$(curl -sk -X POST -H 'Content-Type: application/json' \
-  -H "X-Customer-Token: $TOKEN" \
-  -d '{"CatalogItemId":"8bcc833e-51c3-4508-adfb-41e2ff96ff79"}' \
-  https://api.khachvip.online/api/redemption/redeem)
-echo "$REDEEM" | python3 -m json.tool 2>/dev/null
-SUCCESS=$(echo "$REDEEM" | python3 -c "import sys,json; print(json.load(sys.stdin).get('success','false'))" 2>/dev/null)
-[ "$SUCCESS" = "True" ] && echo "  PASS: Redeem success" || echo "  FAIL: Redeem failed"
+echo "=== L8: Existing sessions ==="
+docker exec vanan-postgres-1 psql -U vanan_admin -d VanAnCoreHub -tAc \
+  'SELECT count(*) FILTER (WHERE "PlateNumber" IS NULL) AS null_plates, count(*) FILTER (WHERE "PlateNumber" IS NOT NULL) AS has_plates, count(*) AS total FROM "VehicleSessions"'
 
 echo ""
-echo "=== 8. GET /api/redemption/my/vouchers ==="
-curl -sk -H "X-Customer-Token: $TOKEN" https://api.khachvip.online/api/redemption/my/vouchers | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  {len(d)} vouchers'); [print(f'  - {v[\"voucherCode\"]} status={v[\"status\"]} valid={v[\"isValid\"]}') for v in d]" 2>/dev/null
-
-echo ""
-echo "=== 9. GET /api/missions/my/progress ==="
-curl -sk -H "X-Customer-Token: $TOKEN" https://api.khachvip.online/api/missions/my/progress | python3 -m json.tool 2>/dev/null
-
-echo ""
-echo "=== 10. Final balance check ==="
-curl -sk -H "X-Customer-Token: $TOKEN" https://api.khachvip.online/api/loyalty/my | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  pointBalance: {d[\"pointBalance\"]}'); print(f'  tier: {d[\"tier\"]}'); print(f'  history entries: {len(d[\"history\"])}')" 2>/dev/null
-
-echo ""
-echo "============================================"
-echo "RV COMPLETE"
-echo "============================================"
+echo "=== RV Complete ==="

@@ -140,7 +140,7 @@ namespace VanAn.CoreHub.Services
             _logger.LogInformation("Customer {CustomerId} claimed QR session {SessionId} (tenant {TenantId})",
                 customerId, session.Id, tenantId);
 
-            return new ClaimResult(session.Id, session.PlateNumber, plateUrl, customerUrl, session.IssuedAt, session.Status);
+            return new ClaimResult(session.Id, session.PlateNumber, session.ShortCode, plateUrl, customerUrl, session.IssuedAt, session.Status);
         }
 
         public async Task<VerifyResult> VerifyAsync(Guid tenantId, Guid guardId, string scannedQrPayload)

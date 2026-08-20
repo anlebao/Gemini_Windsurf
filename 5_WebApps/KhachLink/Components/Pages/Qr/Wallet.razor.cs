@@ -187,9 +187,17 @@ public partial class Wallet : ComponentBase
         try
         {
             string? plateNumber = null;
+            string? resolvedShortCode = shortCode;
             Guid? tenantId = ExtractTenantIdFromPayload(qrPayload);
             DateTime issuedAt = DateTime.UtcNow;
             Guid sessionId = Guid.NewGuid(); // fallback for anonymous
+
+            // Extract shortCode from {sc,sid} payload if not already provided
+            // (PrintTicket QR format has sc embedded but DoClaimAsync receives it as qrPayload)
+            if (string.IsNullOrEmpty(resolvedShortCode) && !string.IsNullOrEmpty(qrPayload))
+            {
+                resolvedShortCode = ExtractShortCodeFromPayload(qrPayload);
+            }
 
             if (!string.IsNullOrEmpty(_customerToken))
             {
@@ -202,6 +210,9 @@ public partial class Wallet : ComponentBase
                         plateNumber = result.PlateNumber;
                         sessionId = result.SessionId;
                         issuedAt = result.IssuedAt;
+                        // Use shortCode from API response (authoritative — from DB)
+                        if (!string.IsNullOrEmpty(result.ShortCode))
+                            resolvedShortCode = result.ShortCode;
                     }
                     // If API fails, continue to save locally (don't block user)
                 }
@@ -216,7 +227,7 @@ public partial class Wallet : ComponentBase
             {
                 sessionId = sessionId,
                 qrPayload = qrPayload,
-                shortCode = shortCode,
+                shortCode = resolvedShortCode,
                 plateNumber = plateNumber,  // PHASE-1: nullable — null when guard skipped OCR
                 issuedAt = issuedAt,
                 tenantId = tenantId,
@@ -288,6 +299,23 @@ public partial class Wallet : ComponentBase
             using var doc = System.Text.Json.JsonDocument.Parse(payload);
             if (doc.RootElement.TryGetProperty("tn", out var tn) && tn.TryGetGuid(out var guid))
                 return guid;
+        }
+        catch { }
+        return null;
+    }
+
+    /// <summary>
+    /// Extract shortCode from {sc,sid} QR payload (PrintTicket format).
+    /// Returns null if payload doesn't have "sc" field.
+    /// </summary>
+    private static string? ExtractShortCodeFromPayload(string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload)) return null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(payload);
+            if (doc.RootElement.TryGetProperty("sc", out var sc))
+                return sc.GetString();
         }
         catch { }
         return null;

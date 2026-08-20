@@ -68,7 +68,7 @@ namespace VanAn.CoreHub.Services
 
     public record IssueResult(Guid SessionId, string QrPayload, string ShortCode);
 
-    public record ClaimResult(Guid SessionId, string? PlateNumber, string PlatePhotoUrl, string? CustomerPhotoUrl, DateTime IssuedAt, VehicleSessionStatus Status);
+    public record ClaimResult(Guid SessionId, string? PlateNumber, string ShortCode, string PlatePhotoUrl, string? CustomerPhotoUrl, DateTime IssuedAt, VehicleSessionStatus Status);
 
     public record VerifyResult(Guid SessionId, string? PlateNumber, string PlatePhotoUrl, string? CustomerPhotoUrl, DateTime IssuedAt, VehicleSessionStatus Status, Guid? CustomerId);
 

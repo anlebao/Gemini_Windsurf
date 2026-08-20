@@ -5,8 +5,11 @@
 @using VanAn.UI.Platform.Components
 @using VanAn.ShopERP.Services
 @using VanAn.CoreHub.Services
+@using VanAn.Shared.Domain.Common
+@using VanAn.Shared.Domain.Aggregates.TenantAggregate
 @inject GuardApiClient GuardApi
 @inject ITenantManagementService TenantService
+@inject ITenantProvider TenantProvider
 @inject ILogger<PrintTicket> Logger
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
@@ -35,9 +38,17 @@
     else
     {
         <div class="ticket-receipt" id="ticket-receipt">
-            @* Header — Tenant name *@
+            @* Header — Tenant name + address (dynamic, not hardcoded) *@
             <div class="ticket-header">
                 <h1 class="ticket-tenant-name">@(tenantName ?? "VẠN AN")</h1>
+                @if (!string.IsNullOrWhiteSpace(tenantAddress))
+                {
+                    <p class="ticket-address">@tenantAddress</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(tenantPhone))
+                {
+                    <p class="ticket-phone">ĐT: @tenantPhone</p>
+                }
                 <p class="ticket-subtitle">Dịch vụ gửi xe</p>
                 <div class="ticket-divider">━━━━━━━━━━━━━━━━━━</div>
             </div>
@@ -94,6 +105,9 @@
 
     private SessionDetailResultDto? session;
     private string? tenantName;
+    private string? tenantAddress;
+    private string? tenantPhone;
+    private Guid tenantId;
     private bool loading = true;
     private string qrImageBase64 = string.Empty;
     private string? lastLoadError; // #130-fix2 (Bug 3): diagnostic for fresh-circuit auth race
@@ -114,12 +128,26 @@
                 session = await GuardApi.GetSessionAsync(SessionId);
                 if (session != null)
                 {
-                    // Fetch tenant name for the ticket header
-                    // Note: ITenantManagementService queries PG directly (ShopERP has access via CoreHub)
-                    // We don't have tenantId in SessionDetailResultDto, but we can get it from auth state
-                    // For simplicity, use "VẠN AN" as default brand — tenant name lookup requires tenantId
-                    // which is not in the session detail DTO. This is acceptable for MVP (single-tenant deploy).
-                    tenantName = "VẠN AN"; // Default brand — can be enhanced later with tenant-specific name
+                    // Fetch real tenant info (name + address + phone) from PG via TenantManagementService.
+                    // Replaces hardcoded "VẠN AN" — ticket now shows the actual tenant's name + address.
+                    tenantId = TenantProvider.TenantId;
+                    if (tenantId != Guid.Empty)
+                    {
+                        try
+                        {
+                            var tenant = await TenantService.GetTenantByIdAsync(new TenantId(tenantId));
+                            if (tenant != null)
+                            {
+                                tenantName = tenant.Name;
+                                tenantAddress = tenant.Settings?.Address;
+                                tenantPhone = tenant.Settings?.ContactPhone;
+                            }
+                        }
+                        catch (Exception tenantEx)
+                        {
+                            Logger.LogWarning(tenantEx, "Failed to fetch tenant info for {TenantId}", tenantId);
+                        }
+                    }
                     break;
                 }
             }
@@ -148,8 +176,9 @@
             // R-GUARD-QR: Generate QR server-side with QRCoder (ECC level Q — same as product QR).
             // Previous client-side qrcode.js used ECC level M (15%) — too low for reliable scanning.
             // Payload: URL format {baseUrl}/qr/claim?data={base64(json)} so external scanners work.
+            // QR payload includes tn (tenantId) so KhachLink Wallet can extract it for anonymous users.
             var khachLinkUrl = Configuration.GetValue<string>("ExternalUrls:KhachLink") ?? "https://app2.khachvip.online";
-            var qrPayloadJson = $"{{\"sc\":\"{session.ShortCode}\",\"sid\":\"{session.SessionId}\"}}";
+            var qrPayloadJson = $"{{\"sc\":\"{session.ShortCode}\",\"sid\":\"{session.SessionId}\",\"tn\":\"{tenantId}\"}}";
             try
             {
                 var qrPngBytes = QrCodeService.GenerateGuardQrCode(qrPayloadJson, khachLinkUrl);
@@ -205,6 +234,18 @@
         font-size: 0.75rem;
         margin: 0;
         opacity: 0.7;
+    }
+
+    .ticket-address {
+        font-size: 0.7rem;
+        margin: 0.1rem 0 0 0;
+        opacity: 0.8;
+    }
+
+    .ticket-phone {
+        font-size: 0.7rem;
+        margin: 0.1rem 0 0 0;
+        opacity: 0.8;
     }
 
     .ticket-divider {

@@ -92,6 +92,7 @@ public class GuardQrApiClient(IHttpClientFactory httpClientFactory, ILogger<Guar
     {
         public Guid SessionId { get; set; }
         public string? PlateNumber { get; set; }  // PHASE-1: nullable — guard may skip OCR
+        public string ShortCode { get; set; } = string.Empty;
         public string PlatePhotoUrl { get; set; } = string.Empty;
         public string CustomerPhotoUrl { get; set; } = string.Empty;
         public DateTime IssuedAt { get; set; }
