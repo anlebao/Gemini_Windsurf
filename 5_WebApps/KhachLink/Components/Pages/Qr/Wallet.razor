@@ -72,7 +72,7 @@
                                 <i class="bi bi-car-front"></i>
                             </div>
                             <div class="qr-wallet-card-info">
-                                <span class="qr-wallet-plate">@(string.IsNullOrEmpty(s.PlateNumber) ? "Vé QR" : s.PlateNumber)</span>
+                                <span class="qr-wallet-plate">@(string.IsNullOrWhiteSpace(s.PlateNumber) ? "Vé #" + s.ShortCode : s.PlateNumber)</span>
                                 <span class="qr-wallet-time">Vào: @s.IssuedAt.ToLocalTime().ToString("HH:mm dd/MM/yyyy")</span>
                                 @if (!string.IsNullOrEmpty(s.ShortCode) && string.IsNullOrEmpty(s.QrPayload))
                                 {

@@ -4370,7 +4370,8 @@ namespace VanAn.Shared.Domain
     public class VehicleSession : BaseEntity
     {
         public VehicleSessionId VehicleSessionId { get; protected set; } = null!;
-        public string PlateNumber { get; protected set; } = string.Empty;
+        // PHASE-1: PlateNumber nullable — photo + QR token are primary verifiers, plate is optional metadata for stats
+        public string? PlateNumber { get; protected set; }
         public Guid? CustomerId { get; protected set; }
         public string? CustomerPhone { get; protected set; }
         public string PlatePhotoKey { get; protected set; } = string.Empty;
@@ -4391,7 +4392,7 @@ namespace VanAn.Shared.Domain
 
         public VehicleSession(
             TenantId tenantId,
-            string plateNumber,
+            string? plateNumber,
             string platePhotoKey,
             string? customerPhotoKey,
             Guid issuedBy,
@@ -4400,8 +4401,7 @@ namespace VanAn.Shared.Domain
             string? customerPhone = null)
             : base(tenantId)
         {
-            if (string.IsNullOrWhiteSpace(plateNumber))
-                throw new ArgumentException("Plate number is required.", nameof(plateNumber));
+            // PHASE-1: plateNumber optional — photo + QR token are primary verifiers
             if (string.IsNullOrWhiteSpace(platePhotoKey))
                 throw new ArgumentException("Plate photo key is required.", nameof(platePhotoKey));
             // #130: Ảnh khách là TÙY CHỌN — không còn required (business rule change approved in #130).
@@ -4413,7 +4413,7 @@ namespace VanAn.Shared.Domain
 
             VehicleSessionId = new VehicleSessionId(Guid.NewGuid());
             Id = VehicleSessionId.Value;  // Single-Identity Pattern sync
-            PlateNumber = plateNumber;
+            PlateNumber = string.IsNullOrWhiteSpace(plateNumber) ? null : plateNumber;
             PlatePhotoKey = platePhotoKey;
             CustomerPhotoKey = customerPhotoKey ?? string.Empty;  // #130: null → empty string (DB column NOT NULL, no migration)
             IssuedBy = issuedBy;

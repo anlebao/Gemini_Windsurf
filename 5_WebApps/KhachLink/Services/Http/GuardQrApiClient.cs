@@ -91,7 +91,7 @@ public class GuardQrApiClient(IHttpClientFactory httpClientFactory, ILogger<Guar
     public class ClaimResponse
     {
         public Guid SessionId { get; set; }
-        public string PlateNumber { get; set; } = string.Empty;
+        public string? PlateNumber { get; set; }  // PHASE-1: nullable — guard may skip OCR
         public string PlatePhotoUrl { get; set; } = string.Empty;
         public string CustomerPhotoUrl { get; set; } = string.Empty;
         public DateTime IssuedAt { get; set; }
@@ -103,7 +103,7 @@ public class GuardQrApiClient(IHttpClientFactory httpClientFactory, ILogger<Guar
     public class SessionStatusItem
     {
         public Guid SessionId { get; set; }
-        public string PlateNumber { get; set; } = string.Empty;
+        public string? PlateNumber { get; set; }  // PHASE-1: nullable
         public string ShortCode { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
         public DateTime IssuedAt { get; set; }

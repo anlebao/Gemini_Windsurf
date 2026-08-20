@@ -46,7 +46,7 @@
             <div class="ticket-meta">
                 <div class="ticket-meta-row">
                     <span>Biển số:</span>
-                    <strong>@session.PlateNumber</strong>
+                    <strong>@(string.IsNullOrWhiteSpace(session.PlateNumber) ? "(xem ảnh QR)" : session.PlateNumber)</strong>
                 </div>
                 <div class="ticket-meta-row">
                     <span>Giờ vào:</span>

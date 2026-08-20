@@ -28,13 +28,39 @@
 
 ## 2. Current Objective
 
-**R2 PHOTO CLEANUP SERVICE — COMPLETE + DEPLOYED + RV FULL PASS.** 3 commits: `60972c7c` (7 phases — backend + admin UI + tests) + `a98e6f7e` (auth scheme fix — JWT Bearer not cookie) + `e7911e23` (RV Playwright spec + state). CD Multi-VPS deployed all 3 VPS. RV 7/7 PASS (L1 API auth 401/200, L1.5 authenticated stats 200 JSON, L3 admin UI, L4 sitemap, L5 background service running). R2CleanupHostedService running on VPS (retention=30d, interval=24h).
+**PLATE-AS-METADATA REFACTOR (PHASE 1) — COMPLETE + BUILD PASS + TESTS PASS + GUARD-CHECK PASS.** `VehicleSession.PlateNumber` changed from required primary verifier to optional metadata. Photo + QR token are now primary verifiers (photo already stored in R2 + already displayed at exit verify). OCR Hub Sprint 3 tech debt DEFERRED — OCR no longer on critical path, guard can skip OCR and issue QR with photo only. 9 files changed + 1 migration + 7 new unit tests (all pass). Guard UI: "Biển số" field labeled "(tùy chọn — bỏ qua nếu vội)" + placeholder explains skip-OCR option. Exit verify + Today list + PrintTicket + Wallet all handle null plate with "(xem ảnh)" / "—" / "Vé #<shortCode>" display.
 
-**Previous: OCR HUB + QR WALLET MERGE — R1 (S1+S2+S3) COMPLETE + MERGED + DEPLOYED + RV PASS.** QR white screen fix + OCR 2-row gap detection + Sitemap OCR link. PR #149 (S1+S2) + PR #151 (S3) + S3-fix `7a38fcb8` + #150 fix `6c67f594` + QR/OCR fix `b07ec9cb` + Sitemap/QR retry `061a53dd` + QR img `b5fa411b` + QR root cause `9f8495e9`. CD Multi-VPS deployed all 3 VPS. R2 (S4 EasyOCR) DEFERRED — RAM risk + no user demand.
+**Previous: R2 PHOTO CLEANUP SERVICE — COMPLETE + DEPLOYED + RV FULL PASS.** 3 commits: `60972c7c` + `a98e6f7e` (auth scheme fix) + `e7911e23` (RV spec). R2CleanupHostedService running on VPS (retention=30d, interval=24h).
 
-**Source:** User request — R2 photos (plate + customer) stored on Cloudflare R2 had no auto-cleanup, risking storage exhaustion after ~50,000 vehicle sessions (10GB free tier).
-**Branch:** `main` @ `e7911e23` — R2 Cleanup Service COMPLETE + RV PASS.
-**Plan:** `docs/AI/tasks/r2_cleanup/master_plan.md` (Sprint 1 Backend ✅ + Sprint 2 Admin UI ✅ + Sprint 3 Tests ✅ + RV ✅)
+**Source:** User insight — xe vào/xe ra không bắt buộc phải biết biển số dạng text. Photo entry + guard visual compare at exit (already implemented) is the real verifier. Plate text only useful for stats. Making plate optional eliminates OCR blocker: guard issues QR in <2s with photo only, OCR becomes opt-in for stats enrichment.
+**Branch:** `main` (uncommitted — ready for commit + PR)
+**Plan:** Inline (this session) — 8-step coding plan reviewed + approved by user before implementation.
+
+**PHASE-1 SCOPE (9 files + 1 migration + tests):**
+- Domain (`1_Shared/Domain.cs`): `PlateNumber: string → string?`, constructor removed plate validation, normalizes empty/whitespace → null
+- EF Config (`VehicleSessionConfiguration.cs`): `IsRequired(false)`
+- Migration (`20260820094830_PlateNumberOptional`): `AlterColumn PlateNumber → nullable: true` (PostgreSQL `character varying(20)`)
+- DTOs (`IGuardService.cs`): `IssueRequest` + 5 result records: `string → string?`
+- Controller (`GuardController.cs`): Removed `BadRequest("Plate number is required")` validation
+- API Client (`GuardApiClient.cs`): `IssueRequestDto` + 3 result DTOs: `string → string?`
+- UI ShopERP (`Scan.razor` + `.cs` + `PrintTicket.razor`): `plateNumber` nullable, `canIssue` always true (photo check at issue time), label "(tùy chọn)", placeholder explains skip, null display "(xem ảnh)" / "—"
+- UI KhachLink (`Wallet.razor` + `.cs` + `GuardQrApiClient.cs`): `PlateNumber` nullable, display "Vé #<shortCode>" when null
+- Tests: `VehicleSessionPlateOptionalTests.cs` (7 new tests) + updated existing `VehicleSessionTests.Create_WithEmptyPlate_Throws` → `Create_WithEmptyPlate_NormalizesToNull`
+
+**TECH DEBT DEFERRED (OCR Hub Sprint 3 — no longer critical path):**
+- TD-OCR-01 [MEDIUM] PaddleOCR init hang — no timeout. DEFER: OCR optional, guard can skip
+- TD-OCR-02 [LOW] det.onnx dead weight (4.7MB unused). DEFER: no runtime impact
+- TD-OCR-03 [LOW] rec.onnx 10.8MB in Git. DEFER: not catastrophic (3.7% of packfile)
+- TD-OCR-04 [LOW] ort.min.js from jsDelivr CDN. DEFER: try/catch fallback already covers
+- TD-OCR-05 [LOW] No Cache-Control for ONNX. DEFER: ETag cache works
+
+**Remaining:**
+1. Commit Phase 1 changes (git add + commit)
+2. Push + create PR
+3. CD Multi-VPS deploy
+4. RV — 10 tests (API issue with null plate, UI scan skip-OCR, verify null display, admin list "—", wallet "Vé #")
+
+> **Previous: GUARD QR VERIFY (ISSUE #126) — ALL 3 RELEASES COMPLETE + MERGED + DEPLOYED. Ready to close.** See history log below.
 
 **OCR HUB R1 — COMPLETE + MERGED + DEPLOYED + RV PASS:**
 - Sprint 1 — QR Wallet Merge + OCR Plate Improvements ✅ (PR #149) — `/qr/wallet` 2-tab merge (Vé của tôi + Nhận QR mới), bỏ login requirement, `/qr/claim` redirect, OCR tách 2 hàng PSM 7 + char whitelist
@@ -71,7 +97,7 @@
 
 ## 3. Current Status
 
-- **Branch:** `main` @ `e7911e23` (R2 Cleanup Service COMPLETE + RV PASS) · **Build:** 0 errors · **Guard-check:** ALL PASSED
+- **Branch:** `main` (uncommitted Phase 1 Plate-as-metadata refactor) · **Build:** 0 errors · **Guard-check:** ALL PASSED · **Tests:** 1400/1420 PASS (20 skipped)
 - **.NET SDK:** 8.0.422
 - **CI/CD:** CI SUCCESS — 1367 unit tests + 251 integration tests + 39 architecture tests ALL PASS (last run on `main`). CD Multi-VPS SUCCESS — all 3 VPS deployed with `60972c7c`. CD (cd.yml) build+push SUCCESS (Gateway image rebuilt with `--no-cache`, pushed to GHCR `latest`).
 - **OCR Hub R1 (S1+S2+S3):** ✅ COMPLETE + MERGED + DEPLOYED + RV L1+L2+L3(Playwright+VPS SSH) PASS. PR #149 (S1+S2) + PR #151 (S3) + S3-fix `7a38fcb8` + #150 fix `6c67f594` + QR/OCR fix `b07ec9cb` + Sitemap `061a53dd` + QR img `b5fa411b` + QR root cause `9f8495e9`. QR wallet 2-tab merge + OCR config infra + PaddleOCR ONNX client-side. R2 (S4 EasyOCR) DEFERRED (RAM risk + no demand).
@@ -107,6 +133,11 @@
 - ✅ RV 7/7 PASS: L1 API auth (401 no auth, 200 with JWT), L1.5 authenticated stats 200 JSON, L3 admin UI, L4 sitemap, L5 background service running.
 - ✅ Auth fix root cause: `[Authorize]` without `AuthenticationSchemes` → cookie auth → 302 redirect → YARP fallback → HTML 200. Fix: `AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme`.
 - Future enhancement (if needed): Manual cleanup button test with real R2 objects (current RV uses empty tenant — stats return 0 photos).
+
+**Plate-as-metadata Refactor (Phase 1) — IMPLEMENTED + BUILD + TESTS + GUARD-CHECK PASS (pending commit + PR + CD + RV):**
+1. **(Commit + PR)** `git add --all` + commit "feat: Plate-as-metadata refactor — PlateNumber optional, photo+QR primary verifier" + push + PR
+2. **(CD Multi-VPS)** Auto-deploy after PR merge
+3. **(RV 10 tests)** API issue with null plate → 200 OK; UI scan skip-OCR → QR issued; verify null display "(xem ảnh)"; admin list "—"; wallet "Vé #<shortCode>"; migration applied (information_schema nullable=YES)
 
 **Domain Reseller R1 — COMPLETE + MERGED + DEPLOYED + RV 9/9 PASS:**
 - ✅ PR #137 squash-merged `124c65ef` → main. Branch deleted.
@@ -246,6 +277,7 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md`.
 
+* **2026-08-20 — PLATE-AS-METADATA REFACTOR (PHASE 1) — COMPLETE + BUILD + TESTS + GUARD-CHECK PASS (pending commit + PR + CD + RV).** User insight: xe vào/xe ra không bắt buộc phải biết biển số dạng text — photo entry + guard visual compare at exit (already implemented) is the real verifier. Plate text only useful for stats. Making plate optional eliminates OCR blocker: guard issues QR in <2s with photo only, OCR becomes opt-in for stats enrichment. Changes: Domain (`1_Shared/Domain.cs`) `PlateNumber: string → string?` + constructor removed plate validation + normalizes empty/whitespace → null. EF Config (`VehicleSessionConfiguration.cs`) `IsRequired(false)`. Migration `20260820094830_PlateNumberOptional` (PostgreSQL `AlterColumn PlateNumber → nullable: true`). DTOs (`IGuardService.cs`) `IssueRequest` + 5 result records `string → string?`. Controller (`GuardController.cs`) removed `BadRequest("Plate number is required")` validation. API Client (`GuardApiClient.cs`) `IssueRequestDto` + 3 result DTOs `string → string?`. UI ShopERP (`Scan.razor` + `.cs` + `PrintTicket.razor`) `plateNumber` nullable + `canIssue` always true + label "(tùy chọn)" + null display "(xem ảnh)" / "—". UI KhachLink (`Wallet.razor` + `.cs` + `GuardQrApiClient.cs`) `PlateNumber` nullable + display "Vé #<shortCode>" when null. Tests: 7 new `VehicleSessionPlateOptionalTests` + updated `VehicleSessionTests.Create_WithEmptyPlate_Throws` → `Create_WithEmptyPlate_NormalizesToNull`. Build 0 errors · 1400/1420 tests PASS · guard-check ALL PASSED. **Tech debt DEFERRED:** OCR Hub Sprint 3 items (TD-OCR-01 timeout, TD-OCR-02 det.onnx dead weight, TD-OCR-03 rec.onnx in Git, TD-OCR-04 CDN dep, TD-OCR-05 cache headers) — OCR no longer critical path, guard can skip OCR entirely. Benchmark snippets (5 `[BENCH]` console.log wraps added to ocr-hub.js + guard-camera.js) still in code — useful if guard opts to use OCR.
 * **2026-08-20 — R2 PHOTO CLEANUP SERVICE — COMPLETE + DEPLOYED + RV FULL PASS.** 3 commits: `60972c7c` (7 phases — backend + admin UI + tests) + `a98e6f7e` (auth scheme fix) + `e7911e23` (RV Playwright spec + state). R2 photos (plate + customer) on Cloudflare R2 had no auto-cleanup → risk of storage exhaustion after ~50,000 vehicle sessions (10GB free tier). Sprint 1 (Backend): `IR2StorageService` +3 methods (ListObjectsByPrefixAsync, DeleteObjectsAsync batch 1000, GetPlatePrefix/GetCustomerPrefix) + `IVehicleSessionRepository` +3 methods (GetExpiredSessionsAsync, GetTenantsWithExpiredSessionsAsync, ClearPhotoKeysAsync) + `IR2CleanupService` + `R2CleanupService` (per-tenant stats, single/all-tenants cleanup) + `R2CleanupHostedService` (background, 24h interval, 30-day retention) + `R2CleanupOptions` + DI + appsettings config. Sprint 2 (Admin UI): `R2StorageController` (GET stats, POST cleanup, SystemAdmin only) + `R2StorageApiClient` + `R2StorageAdmin.razor` + nav/sitemap links. Sprint 3 (Tests): 6 unit tests PASS. CI: 1367 unit + 251 integration + 39 arch ALL PASS. CD Multi-VPS SUCCESS. **Auth fix `a98e6f7e`:** R2StorageController `[Authorize]` without `AuthenticationSchemes` → defaulted to cookie auth (Blazor Server) → 302 redirect to `/login` → YARP fallback-route proxied to KhachLink cluster → HTML 200 instead of 401 JSON. Fix: `AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme` on all `[Authorize]` attributes (matching OcrConfigController + GuardController). Verified via VPS SSH (`gcloud compute ssh vanan-gateway`): `docker logs vanan-gateway-1` showed `GET /api/r2storage/stats/{guid} -> 302 -> /login?ReturnUrl=... -> fallback-route -> proxied to KhachLink -> 200 text/html`. **RV 7/7 PASS:** L1 API auth (401 no auth, 200 with JWT), L1.5 authenticated stats 200 JSON (`{"platePhotoCount":0,"customerPhotoCount":0,"totalSizeBytes":0,"oldestPhotoDate":null}`), L3 admin UI (`/admin/r2-storage` loads, no login redirect, "Lưu trữ ảnh R2" in nav, Blazor WebSocket connected), L4 sitemap R2 link present, L5 `R2CleanupHostedService started: retention=30d, interval=24h` (verified via VPS SSH). Playwright spec: `6_Testing/e2e-tests/rv-r2-storage.spec.ts`. Plan: `docs/AI/tasks/r2_cleanup/master_plan.md`.
 * **2026-08-20 — QR WHITE SCREEN ROOT CAUSE FIX + OCR 2-ROW PLATE FIX + SITEMAP OCR LINK.** 4 commits: `b07ec9cb` (QR canvas→vananQR.generate + OCR _detectRowGap) + `061a53dd` (Sitemap OCR link + QR retry loop) + `b5fa411b` (QR canvas→img data URL) + `9f8495e9` (QR root cause: replace corrupt qrcode.js with official v1.4.4). QR white screen root cause: vendored `qrcode.js` (28KB, trimmed) bị corrupt — `QRErrorCorrectionLevel` defined at line 302 inside IIFE but referenced at line 15 → scope issue → `qrcode()` throw "Cannot read properties of undefined (reading 'M')" → QR generation NEVER worked (both canvas + img approaches failed). Fix: replace with official qrcode-generator v1.4.4 (56KB, full from jsDelivr CDN) + append `vananQR` interop API (generate, download, generateDataUrl). Also switched Wallet.razor from `<canvas>` to `<img src="data:image/png;base64,...">` via `generateDataUrl()` to avoid Blazor WASM render timing issues. OCR 2-row plate fix: `_ocrTwoRows` blind 50% cut → new `_detectRowGap()` using horizontal projection profile (count dark pixels per row, find min in middle 60%) to find actual gap between 2 text rows. Sitemap: added "Thiết lập thư viện OCR" link to `/sitemap` SystemAdmin card. Playwright RV: QR Wallet tap vé → QR img 350x350 data URL 6278 chars ✅ PASS; ShortCode vé → "ABC123" displayed ✅ PASS. CI: 1361 unit + 251 integration + 39 arch ALL PASS. CD Multi-VPS SUCCESS.
 * **2026-08-19 — OCR HUB R1 (S1+S2+S3) COMPLETE + MERGED + DEPLOYED + RV PASS + #150 FIX + #142 COMMENT FIX.** 4 commits: PR #149 (S1+S2 squash) + PR #151 (S3 squash) + `7a38fcb8` (S3-fix .onnx MIME type) + `6c67f594` (#150 + #142 comment fix). R1 "Client Phase" — QR Wallet 2-tab merge (`/qr/wallet` with "Vé của tôi" + "Nhận QR mới" tabs, no login required, `/qr/claim` redirect) + OCR plate improvements (2-row ROI split, PSM 7 per row, char whitelist) + OCR config infra (`IOcrConfigService` + `OcrConfigController` + `OcrConfigApiClient` + `OcrSettings.razor` admin UI) + client OCR Hub (`ocr-hub.js` with TesseractAdapter + PaddleAdapter using ONNX Runtime Web, `guard-camera.js` refactor) + PaddleOCR ONNX models (det 4.5MB + rec 10.4MB + dict 6623 chars in `wwwroot/js/lib/ocr/paddle/`). RV: L1 API (Gateway/ShopERP/KhachLink/Guard/OCR Config) PASS, L2 Static (ONNX 200 application/octet-stream, ocr-hub.js PaddleAdapter+CTC, voice-note.js fix) PASS, L3 VPS SSH (Guard issue→checkout end-to-end, OCR config CRUD→PostgreSQL `Ocr:PlateEngine=PaddleOCR` verified then reverted to Tesseract) PASS. #150 root cause: `Wallet.razor.cs` `LoadWalletAsync` deserialize localStorage camelCase JSON into PascalCase `WalletSession` with case-sensitive `JsonSerializer` → all fields null → "Vé không hợp lệ". Fix: `PropertyNameCaseInsensitive = true`. #142 comment: voice search auto-submit sau 2.5s silence + `UpdateVoiceTranscript` realtime textbox fill (interimResults=true). R2 (S4 EasyOCR) DEFERRED — RAM risk on Gateway VPS e2-small (2GB, EasyOCR needs ~1GB active) + no user demand. Plan: `docs/AI/tasks/ocr_hub/master_plan.md`.

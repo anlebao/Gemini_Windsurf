@@ -26,8 +26,9 @@ namespace VanAn.ShopERP.Components.Pages.Guard
 
         // === Issue tab state ===
         // #126-fix2: Photos stored JS-side (survives circuit disconnect). Blazor only tracks plate number + phone.
+        // PHASE-1: plateNumber nullable — guard can skip OCR and issue QR with photo only
         private int issueStep = 1;
-        private string plateNumber = string.Empty;
+        private string? plateNumber;
         private string customerPhone = string.Empty;
         private bool issuing = false;
         private string qrImageBase64 = string.Empty;
@@ -55,9 +56,8 @@ namespace VanAn.ShopERP.Components.Pages.Guard
         private bool showDetailModal = false;
         private SessionDetailResultDto? sessionDetail;
 
-        // #126-fix2: canIssue checks plate number only — photos are in JS-side storage.
-        // Photo availability is verified at issue time via JS interop (getCapturedPhoto).
-        private bool canIssue => !string.IsNullOrWhiteSpace(plateNumber);
+        // #126-fix2: canIssue — photo is required (verified at issue time), plate is optional (PHASE-1)
+        private bool canIssue => true;  // Photo existence verified in IssueQrAsync via JS interop
 
         protected override async Task OnAfterRenderAsync(bool firstRender)
         {
@@ -140,11 +140,8 @@ namespace VanAn.ShopERP.Components.Pages.Guard
                 var domPhone = await JS.InvokeAsync<string?>("vananGuardCamera.getInputValue", "customerPhoneInput") ?? string.Empty;
                 if (!string.IsNullOrWhiteSpace(domPhone)) customerPhone = domPhone;
 
-                if (string.IsNullOrWhiteSpace(plateNumber))
-                {
-                    errorMessage = "Chưa nhập biển số. Hãy chụp ảnh và nhận diện, hoặc nhập thủ công.";
-                    return;
-                }
+                // PHASE-1: Plate is optional — photo is the primary verifier
+                // (no plate validation block — empty/null plate is OK)
 
                 // #130-fix: Check photo existence WITHOUT transferring base64 over SignalR.
                 // Previous code called getCapturedPhoto (returns ~200-650KB base64 string) →
@@ -214,7 +211,7 @@ namespace VanAn.ShopERP.Components.Pages.Guard
                 {
                     result = await GuardApi.IssueAsync(new IssueRequestDto
                     {
-                        PlateNumber = plateNumber.Trim(),
+                        PlateNumber = string.IsNullOrWhiteSpace(plateNumber) ? null : plateNumber.Trim(),
                         PlatePhotoKey = plateResult.Key,
                         CustomerPhotoKey = customerPhotoKey,
                         CustomerPhone = string.IsNullOrWhiteSpace(customerPhone) ? null : customerPhone.Trim()
@@ -284,7 +281,7 @@ namespace VanAn.ShopERP.Components.Pages.Guard
         private void ResetIssue()
         {
             issueStep = 1;
-            plateNumber = string.Empty;
+            plateNumber = null;  // PHASE-1: nullable
             customerPhone = string.Empty;
             qrImageBase64 = string.Empty;
             issuedShortCode = string.Empty;

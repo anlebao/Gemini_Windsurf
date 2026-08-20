@@ -148,9 +148,12 @@ public class VehicleSessionTests
     }
 
     [Fact]
-    public void Create_WithEmptyPlate_Throws()
+    public void Create_WithEmptyPlate_NormalizesToNull()
     {
-        Assert.Throws<ArgumentException>(() => new VehicleSession(
-            new TenantId(TenantGuid), "", PlateKey, CustomerKey, GuardGuid, Hash, Code));
+        // PHASE-1: Plate is optional — empty plate normalizes to null (photo is primary verifier)
+        var s = new VehicleSession(
+            new TenantId(TenantGuid), "", PlateKey, CustomerKey, GuardGuid, Hash, Code);
+        Assert.Null(s.PlateNumber);
+        Assert.Equal(PlateKey, s.PlatePhotoKey);  // photo still required
     }
 }

@@ -784,6 +784,7 @@ window.vananGuardCamera = {
         const ocrMs = Math.round(performance.now() - t0);
         const raw = (hubResult?.text || '').toUpperCase().trim();
         const confidence = hubResult?.confidence || 0;
+        console.log('[BENCH] tesseract_infer_ms=' + ocrMs);
 
         console.log('[Scanner] OCR full-ROI', {
             raw: raw.substring(0, 40),
@@ -1426,6 +1427,7 @@ window.vananGuardCamera = {
                 // OCR Hub S1: Stricter whitelist — removed Q, J, U, W, V, I (not in VN plates)
                 const whitelist = '0123456789ABCDEFGHKLMNPRSTXYZĐ-.';
                 // R-Đ: eng+vie — eng for digits/letters, vie for "Đ" character
+                const tWorkerInit = performance.now();
                 const worker = await Tesseract.createWorker('eng+vie', 1, {
                     workerPath: '/js/lib/ocr/worker.min.js',
                     corePath: '/js/lib/ocr',
@@ -1433,6 +1435,7 @@ window.vananGuardCamera = {
                     logger: () => {}
                 });
                 await worker.setParameters({ tessedit_char_whitelist: whitelist });
+                console.log('[BENCH] tesseract_init_ms=' + Math.round(performance.now() - tWorkerInit));
                 console.log('[OCR] Tesseract worker preloaded (eng+vie)');
                 return worker;
             } catch (err) {

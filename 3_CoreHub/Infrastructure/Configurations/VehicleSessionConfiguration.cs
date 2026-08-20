@@ -19,7 +19,8 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Ignore(e => e.VehicleSessionId);
 
             // String constraints
-            _ = builder.Property(e => e.PlateNumber).HasMaxLength(20).IsRequired();
+            // PHASE-1: PlateNumber nullable — photo is primary verifier, plate is optional metadata
+            _ = builder.Property(e => e.PlateNumber).HasMaxLength(20).IsRequired(false);
             _ = builder.Property(e => e.PlatePhotoKey).HasMaxLength(200).IsRequired();
             _ = builder.Property(e => e.CustomerPhotoKey).HasMaxLength(200).IsRequired();
             _ = builder.Property(e => e.QrTokenHash).HasMaxLength(64).IsRequired(); // SHA256 hex = 64 chars

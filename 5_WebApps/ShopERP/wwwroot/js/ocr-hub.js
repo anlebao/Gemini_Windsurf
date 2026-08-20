@@ -126,10 +126,12 @@ window.vananOcrHub = (function () {
 
         // Load rec.onnx model
         console.log('[OCR Hub] Loading PaddleOCR rec.onnx...');
+        const tInit = performance.now();
         const session = await ort.InferenceSession.create(`${MODEL_DIR}/rec.onnx`, {
             executionProviders: ['wasm'],
             graphOptimizationLevel: 'all'
         });
+        console.log('[BENCH] paddle_init_ms=' + Math.round(performance.now() - tInit));
         const inputName = session.inputNames[0];   // 'x'
         const outputName = session.outputNames[0]; // 'sigmoid_0.tmp_0' or similar
         console.log('[OCR Hub] PaddleOCR rec model loaded. Input:', inputName, 'Output:', outputName);
@@ -213,8 +215,11 @@ window.vananOcrHub = (function () {
                 const tensor = _preprocess(canvas);
                 const feeds = {};
                 feeds[inputName] = tensor;
+                const tInf = performance.now();
                 const results = await session.run(feeds);
+                console.log('[BENCH] paddle_infer_ms=' + Math.round(performance.now() - tInf));
                 const output = results[outputName];
+                console.log('[BENCH] paddle_output_dims=' + JSON.stringify(output.dims));
                 // Output shape: [batchSize, timesteps, numClasses]
                 const [batchSize, timesteps, numClasses] = output.dims;
                 const decoded = _ctcDecode(output.data, batchSize, timesteps, numClasses);

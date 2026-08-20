@@ -163,8 +163,7 @@ namespace VanAn.Gateway.Controllers
             var guardId = GetUserId();
             if (guardId == Guid.Empty) return Unauthorized(new { error = "User ID not found in token." });
 
-            if (string.IsNullOrWhiteSpace(request.PlateNumber))
-                return BadRequest(new { error = "Plate number is required." });
+            // PHASE-1: PlateNumber optional — photo is primary verifier, plate is optional metadata for stats
             if (string.IsNullOrWhiteSpace(request.PlatePhotoKey))
                 return BadRequest(new { error = "Plate photo key is required." });
             // #130: Ảnh khách là TÙY CHỌN — không còn required. Client có thể gửi null.

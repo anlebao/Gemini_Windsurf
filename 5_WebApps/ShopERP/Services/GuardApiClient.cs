@@ -190,7 +190,7 @@ namespace VanAn.ShopERP.Services
 
     public class IssueRequestDto
     {
-        public string PlateNumber { get; set; } = string.Empty;
+        public string? PlateNumber { get; set; }  // PHASE-1: nullable — photo is primary verifier
         public string PlatePhotoKey { get; set; } = string.Empty;
         public string CustomerPhotoKey { get; set; } = string.Empty;
         public string? CustomerPhone { get; set; }
@@ -206,7 +206,7 @@ namespace VanAn.ShopERP.Services
     public class VerifyResultDto
     {
         public Guid SessionId { get; set; }
-        public string PlateNumber { get; set; } = string.Empty;
+        public string? PlateNumber { get; set; }  // PHASE-1: nullable
         public string PlatePhotoUrl { get; set; } = string.Empty;
         public string CustomerPhotoUrl { get; set; } = string.Empty;
         public DateTime IssuedAt { get; set; }
@@ -246,7 +246,7 @@ namespace VanAn.ShopERP.Services
     public class SessionSummaryDto
     {
         public Guid SessionId { get; set; }
-        public string PlateNumber { get; set; } = string.Empty;
+        public string? PlateNumber { get; set; }  // PHASE-1: nullable
         public string ShortCode { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
         public DateTime IssuedAt { get; set; }
@@ -257,7 +257,7 @@ namespace VanAn.ShopERP.Services
     public class SessionDetailResultDto
     {
         public Guid SessionId { get; set; }
-        public string PlateNumber { get; set; } = string.Empty;
+        public string? PlateNumber { get; set; }  // PHASE-1: nullable
         public string ShortCode { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
         public DateTime IssuedAt { get; set; }

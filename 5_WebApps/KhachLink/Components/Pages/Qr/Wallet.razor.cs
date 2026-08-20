@@ -217,7 +217,7 @@ public partial class Wallet : ComponentBase
                 sessionId = sessionId,
                 qrPayload = qrPayload,
                 shortCode = shortCode,
-                plateNumber = plateNumber ?? string.Empty,
+                plateNumber = plateNumber,  // PHASE-1: nullable — null when guard skipped OCR
                 issuedAt = issuedAt,
                 tenantId = tenantId,
                 claimedAt = DateTime.UtcNow
@@ -299,7 +299,7 @@ public partial class Wallet : ComponentBase
         public Guid SessionId { get; set; }
         public string? QrPayload { get; set; }
         public string? ShortCode { get; set; }
-        public string PlateNumber { get; set; } = string.Empty;
+        public string? PlateNumber { get; set; }  // PHASE-1: nullable
         public DateTime IssuedAt { get; set; }
         public Guid? TenantId { get; set; }
         public DateTime ClaimedAt { get; set; }
