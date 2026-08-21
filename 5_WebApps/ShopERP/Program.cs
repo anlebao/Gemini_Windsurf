@@ -937,14 +937,29 @@ namespace VanAn.ShopERP
             // Request.Scheme is set to "https" (from X-Forwarded-Proto) BEFORE UseHsts, UseHttpsRedirection,
             // and Auth handlers generate redirect URLs. Otherwise auth redirects (Account/AccessDenied)
             // get scheme "http" → browser blocks as Mixed Content on HTTPS pages.
+            //
+            // Fallback custom middleware: if ForwardedHeaders doesn't apply (ASP.NET Core 8 stricter defaults),
+            // manually set Request.Scheme from X-Forwarded-Proto header. This guarantees scheme is correct
+            // regardless of ForwardedHeadersOptions behavior.
+            app.Use(async (context, next) =>
+            {
+                var proto = context.Request.Headers["X-Forwarded-Proto"].ToString();
+                if (!string.IsNullOrEmpty(proto))
+                {
+                    context.Request.Scheme = proto;
+                }
+                await next();
+            });
+
             _ = app.UseForwardedHeaders(new ForwardedHeadersOptions
             {
                 ForwardedHeaders = ForwardedHeaders.XForwardedFor |
                                    ForwardedHeaders.XForwardedProto |
                                    ForwardedHeaders.XForwardedHost,
-                // Clear loopback restrictions for Docker networking — accept proxies from any network
+                // Clear loopback restrictions + accept all forwarded headers (Docker networking)
                 KnownProxies = { },
-                KnownNetworks = { }
+                KnownNetworks = { },
+                ForwardLimit = null  // Accept all forwarded headers regardless of count
             });
 
             if (!app.Environment.IsDevelopment())
