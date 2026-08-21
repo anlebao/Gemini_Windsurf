@@ -431,6 +431,8 @@ namespace VanAn.Shared.Domain
     public record RecipeId(Guid Value);
     public record InventoryId(Guid Value);
     public record OrderId(Guid Value);
+    // VA-FI-MVP2 (2026-08-21): Business Profile VO — Single-Identity (ignored in EF config).
+    public record BusinessProfileId(Guid Value);
     public record OrderStatusId(string Value)
     {
         // ✅ FIXED: Add static properties for UI compatibility
@@ -3528,11 +3530,19 @@ namespace VanAn.Shared.Domain
     );
 
     // ── 2. BÁO CÁO KẾT QUẢ HOẠT ĐỘNG KINH DOANH (Mẫu B02-DN / B02-DNN) ────────────────
+    // VA-FI-MVP2 (approved 2026-08-21): Added 4 additive fields (default = 0m) exposing
+    // COGS + OpEx that IncomeStatementService already computes internally but did not expose.
+    // Backward compatible: 3 existing `new IncomeStatement(...)` call sites use named args
+    // with default values → compile OK, existing tests not broken (they read Lines directly).
+    // Precedent: VALCN v2.0 Phase 1 (AccountingEntry.CorrelationId + Order.PlatformFeeAmount).
     public record IncomeStatement(
         TenantId TenantId, AccountingPeriod Period, DateTime GeneratedAt,
         decimal TotalRevenueEnding, decimal TotalRevenueOpening,
         decimal NetProfitEnding, decimal NetProfitOpening,
-        IEnumerable<FinancialStatementLine> Lines
+        IEnumerable<FinancialStatementLine> Lines,
+        // === VA-FI-MVP2 additive fields (default = 0m, backward compat) ===
+        decimal TotalCogsEnding = 0m, decimal TotalCogsOpening = 0m,
+        decimal TotalOpExEnding = 0m, decimal TotalOpExOpening = 0m
     );
 
     // ── 3. BÁO CÁO LƯU CHUYỂN TIỀN TỆ (Mẫu B03-DN / B03-DNN) ──────────────────────────
