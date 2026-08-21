@@ -6,14 +6,26 @@
 - **Source SRS:** `docs/requirements/Van_An_SRS_Financial_Intelligence_MVP2.md` (863 dòng, đã review)
 - **Master plan:** `docs/AI/tasks/master_plan_financial_intelligence_mvp2_va_iie.md`
 - **Branch:** `feature/financial-intelligence-mvp2`
-- **Status:** PENDING USER APPROVAL
+- **Status:** PHASE 1+2+3 COMPLETE — Phase 4 (UI) + Phase 5 (Polish) PENDING
 
 ---
 
 ## 2. ACTIVE WORKFLOW ROUTING
 - **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT — 7 step)
-- **Execution Mode:** ANALYZE (đã xong trong SRS) → IMPLEMENT (sau approval)
+- **Execution Mode:** IMPLEMENT (Phase 4 active — UI layer)
 - **Skill matrix (max 3):** `accounting-ui-implementation` + `domain-integrity-validation` + `system-refactor-safety`
+
+---
+
+## PROGRESS DASHBOARD (updated 2026-08-21)
+
+| Phase | Status | Tests | Notes |
+|---|---|---|---|
+| Phase 1 — Foundation | ✅ COMPLETE | 15/15 unit PASS | Commit `bb7f72c0` — Domain + EF + migration + repo + BusinessProfileService + IncomeStatement extension |
+| Phase 2 — Calculation Services | ✅ COMPLETE | 37/37 unit PASS + 5/5 integration PASS | ProfitSummary, BreakEven (single+multi), UnitEconomics, TargetProfit + 6 guard codes inline. Staged (uncommitted). |
+| Phase 3 — API + HTTP Proxy | ✅ COMPLETE | 10/10 endpoint PASS + 9/9 arch PASS | FinancialIntelligenceController (7 endpoints, class-level [Authorize JwtBearer]) + FinancialIntelligenceHttpService (ShopERP proxy). Staged. |
+| Phase 4 — UI | ⏳ PENDING | — | 4 Blazor pages + NavMenu + Sitemap + Playwright E2E (Gate 4) |
+| Phase 5 — Polish | ⏳ PENDING | — | Export PDF/Excel + i18n + admin guide doc + final guard-check |
 
 ---
 
@@ -108,35 +120,35 @@
 ## 5. PHASED EXECUTION (per SRS §8)
 
 ### Phase 1 — Foundation (3-4 ngày)
-- [ ] P1.0: **IncomeStatement record extension (Option 2 approved):** Thêm 4 fields `TotalCogsEnding`, `TotalCogsOpening`, `TotalOpExEnding`, `TotalOpExOpening` (default = 0m) tại `1_Shared/Domain.cs:3531`. Update 2 return statements trong `IncomeStatementService.cs` (line 165 TT99 + line 244 flat) expose values đã compute sẵn.
-- [ ] P1.1: Domain — `BusinessProfile` entity + `BusinessProfileId` VO + `FinancialModelVersion` VO + `PricingModel` enum
-- [ ] P2.2: Domain — 5 result records + 2 enums (`BreakEvenStatus`, `ProfitStatus`) + `ProductBreakEvenLine`, `UnitEconomicsLine`
-- [ ] P1.3: EF config `BusinessProfileConfiguration` (Ignore BusinessProfileId, unique index TenantId, decimal(18,2), PricingModel string conversion, FinancialModelVersion string conversion)
-- [ ] P1.4: Migration `AddBusinessProfile` — CreateTable + unique index
-- [ ] P1.5: `IBusinessProfileRepository` + impl
-- [ ] P1.6: `IBusinessProfileService` + impl (Get/GetOrCreateDefault/Update)
-- [ ] P1.7: DI registration (Gateway + ShopERP)
-- [ ] P1.8: Unit tests — BusinessProfile.Create/Update, FinancialModelVersion.Increment, TotalMonthlyFixedCost computed, validation (Clamp, Max(0))
-- [ ] P1.9: **Update existing test fixture** `VasReportPageTestBase.cs:108` — set `TotalCogsEnding: 7_000_000m, TotalOpExEnding: 2_000_000m` cho consistency với Lines (optional, but recommended cho realistic MVP-2 dashboard tests)
+- [x] P1.0: **IncomeStatement record extension (Option 2 approved):** Thêm 4 fields `TotalCogsEnding`, `TotalCogsOpening`, `TotalOpExEnding`, `TotalOpExOpening` (default = 0m) tại `1_Shared/Domain.cs:3531`. Update 2 return statements trong `IncomeStatementService.cs` (line 165 TT99 + line 244 flat) expose values đã compute sẵn.
+- [x] P1.1: Domain — `BusinessProfile` entity + `BusinessProfileId` VO + `FinancialModelVersion` VO + `PricingModel` enum
+- [x] P2.2: Domain — 5 result records + 2 enums (`BreakEvenStatus`, `ProfitStatus`) + `ProductBreakEvenLine`, `UnitEconomicsLine`
+- [x] P1.3: EF config `BusinessProfileConfiguration` (Ignore BusinessProfileId, unique index TenantId, decimal(18,2), PricingModel string conversion, FinancialModelVersion string conversion)
+- [x] P1.4: Migration `AddBusinessProfile` — CreateTable + unique index
+- [x] P1.5: `IBusinessProfileRepository` + impl
+- [x] P1.6: `IBusinessProfileService` + impl (Get/GetOrCreateDefault/Update)
+- [x] P1.7: DI registration (Gateway + ShopERP)
+- [x] P1.8: Unit tests — BusinessProfile.Create/Update, FinancialModelVersion.Increment, TotalMonthlyFixedCost computed, validation (Clamp, Max(0))
+- [x] P1.9: **Update existing test fixture** `VasReportPageTestBase.cs:108` — set `TotalCogsEnding: 7_000_000m, TotalOpExEnding: 2_000_000m` cho consistency với Lines (optional, but recommended cho realistic MVP-2 dashboard tests)
 
-### Phase 2 — Calculation Services (4-5 ngày)
-- [ ] P2.1: `IProfitSummaryService` + impl (wrap IncomeStatementService → extract Revenue/COGS/OpEx/NetProfit). **A1 RESOLVED:** IncomeStatement record hiện không expose COGS/OpEx/OtherIncome/OtherExpense (chỉ TotalRevenue + NetProfit + raw Lines). Option 1: replicate COGS extraction logic `accountCode.StartsWith("632")` trong service. Option 2 (khuyến nghị): extend `IncomeStatement` record thêm 4 additive fields + sửa IncomeStatementService expose — cần Domain modification approval.
-- [ ] P2.2: `IBreakEvenAnalysisService.AnalyzeAsync` (single product) — formula: BreakEvenRevenue = FixedCost / CMRatio, BreakEvenUnits = FixedCost / (AvgPrice − AvgVarCost), MarginOfSafety. VariableCost = COGS từ P2.1.
-- [ ] P2.3: `IBreakEvenAnalysisService.AnalyzeMultiProductAsync` — weighted average CM, per-product allocation. Per-product VariableCost = Product.CostPrice (fallback 70% UnitPrice — match OrderService.CalculateCogsAmount line 258).
-- [ ] P2.4: `IUnitEconomicsService.AnalyzeAsync` — load Products + Orders (period) → aggregate `order.Items.GroupBy(i => i.ProductId)` in-memory → per-product CM + ranking + missing CostPrice flag. **Q1 RESOLVED:** dùng `IOrderRepository.GetByDateRangeAsync(tenantId, periodStart, periodEnd, ct)` (existing) — KHÔNG cần thêm repository method.
-- [ ] P2.5: `ITargetProfitService.AnalyzeAsync` — RequiredRevenue = (FixedCost + TargetProfit) / CMRatio, RequiredUnits, RequiredDaily, Feasibility vs Capacity
-- [ ] P2.6: Guard conditions — 6 codes (PROFILE_MISSING, INSUFFICIENT_DATA, COST_PRICE_MISSING, CM_RATIO_ZERO_OR_NEG, CAPACITY_EXCEEDED, FIXED_COST_ZERO)
-- [ ] P2.7: Unit tests — mỗi service ≥ 3 tests (happy path + InsufficientData + edge case CM=0)
-- [ ] P2.8: Integration tests — real IncomeStatement data → break-even end-to-end, cross-check với IncomeStatementService output
+### Phase 2 — Calculation Services (4-5 ngày) — ✅ COMPLETE 2026-08-21
+- [x] P2.1: `IProfitSummaryService` + impl (wrap IncomeStatementService → extract Revenue/COGS/OpEx/NetProfit). **A1 RESOLVED:** extend `IncomeStatement` record (Option 2 — Phase 1 đã extend + expose).
+- [x] P2.2: `IBreakEvenAnalysisService.AnalyzeAsync` (single product) — formula: BreakEvenRevenue = FixedCost / CMRatio, BreakEvenUnits = FixedCost / (AvgPrice − AvgVarCost), MarginOfSafety. VariableCost = COGS từ extended IncomeStatement.
+- [x] P2.3: `IBreakEvenAnalysisService.AnalyzeMultiProductAsync` — weighted average CM, per-product allocation. Per-product VariableCost = Product.CostPrice (fallback 70% UnitPrice — match OrderService.CalculateCogsAmount precedent).
+- [x] P2.4: `IUnitEconomicsService.AnalyzeAsync` — load Products + Orders (period) → aggregate OrderItem per-product in-memory → CM ranking + HasMissingCostPrice flag.
+- [x] P2.5: `ITargetProfitService.AnalyzeAsync` — RequiredRevenue = (FixedCost + TargetProfit) / CMRatio, RequiredUnits, RequiredDaily, Feasibility vs Capacity.
+- [x] P2.6: Guard conditions — 6 codes (PROFILE_MISSING, INSUFFICIENT_DATA, COST_PRICE_MISSING, CM_RATIO_ZERO_OR_NEG, CAPACITY_EXCEEDED, FIXED_COST_ZERO) inline trong services + warning messages.
+- [x] P2.7: Unit tests — 22 tests (5 ProfitSummary + 7 BreakEven + 4 UnitEconomics + 6 TargetProfit) PASS.
+- [x] P2.8: Integration tests — 5 tests cross-check với real IncomeStatement (Revenue 10M / COGS 7M / OpEx 2M / Net 1M → BreakEvenRevenue 16.67M BelowBreakEven + TargetProfit 5M → RequiredRevenue 33.33M).
 
-### Phase 3 — API + HTTP Proxy (2-3 ngày)
-- [ ] P3.1: `FinancialIntelligenceController` — 7 endpoints (GET/PUT business-profile, GET profit-summary, GET break-even, GET break-even/multi-product, GET unit-economics, POST target-profit)
-- [ ] P3.2: DTOs (camelCase JSON, map records → DTOs)
-- [ ] P3.3: `[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]` class-level
-- [ ] P3.4: Pattern #10 charset strip (if any forward variant — likely not, but audit)
-- [ ] P3.5: `FinancialIntelligenceHttpService` (ShopERP) — 6 methods (proxy to Gateway)
-- [ ] P3.6: W12-G7 arch test — add controller to authorized list
-- [ ] P3.7: Integration tests — 401 no-auth, 200 with JWT, 404 missing profile, upsert profile
+### Phase 3 — API + HTTP Proxy (2-3 ngày) — ✅ COMPLETE 2026-08-21
+- [x] P3.1: `FinancialIntelligenceController` — 7 endpoints (GET/PUT business-profile, GET profit-summary, GET break-even, GET break-even/multi-product, GET unit-economics, POST target-profit). TenantId từ JWT claim `tenant_id` (Pattern #1 compliant).
+- [x] P3.2: DTOs (camelCase JSON, map records → DTOs) — namespace `VanAn.CoreHub.Services.FinancialIntelligence.Dtos` (chuyển từ Gateway → CoreHub để ShopERP reference).
+- [x] P3.3: `[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]` class-level (W12-G7 compliant, OcrConfigController precedent).
+- [x] P3.4: Pattern #10 charset strip audit — NO forward variants trong controller (tất cả endpoints trả DTOs trực tiếp, không forward request body) → không cần strip.
+- [x] P3.5: `FinancialIntelligenceHttpService` (ShopERP) — 7 methods (GetBusinessProfile, UpdateBusinessProfile, GetProfitSummary, GetBreakEven, GetMultiProductBreakEven, GetUnitEconomics, AnalyzeTargetProfit). Extends `GatewayAdminApiClientBase` — mints SystemAdmin JWT, graceful degradation (null on 4xx/5xx/exception).
+- [x] P3.6: W12-G7 arch test auto-pass (FinancialIntelligenceController có class-level [Authorize] — không cần exempt).
+- [x] P3.7: Integration tests — 10 endpoint tests PASS (401 no-auth, 404 missing profile, 200 upsert + GET, profit-summary cross-check Revenue 10M/COGS 7M, break-even InsufficientData, multi-product empty, unit-economics 0 analyzed, target-profit PROFILE_MISSING, 400 invalid period, 401 missing tenant claim).
 
 ### Phase 4 — UI (3-4 ngày)
 - [ ] P4.1: `/admin/business-profile` form (7 fixed costs + capacity + pricing + notes) — VanAStatusForm

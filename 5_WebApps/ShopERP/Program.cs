@@ -507,6 +507,9 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.ILoyaltyBudgetService, Services.LoyaltyBudgetServiceHttpProxy>();
             // VALCN v2.0 Phase 7: Network dashboard — HTTP client to Gateway (cross-tenant PG queries)
             _ = builder.Services.AddScoped<Services.NetworkDashboardHttpService>();
+            // VA-FI-MVP2 Phase 3 (2026-08-21): Financial Intelligence — HTTP proxy to Gateway
+            // (ShopERP does NOT inject IVanAnDbContext for MVP-2 — accounting source of truth is Gateway PG).
+            _ = builder.Services.AddScoped<Services.FinancialIntelligenceHttpService>();
             // Loyalty Alliance Phase 5A — admin config + migration API client (Gateway PG)
             _ = builder.Services.AddScoped<Services.LoyaltyConfigApiClient>();
             // #100: KhachLink home settings admin API client (Gateway PG — global, not per-tenant)

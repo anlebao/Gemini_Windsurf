@@ -343,6 +343,14 @@ namespace VanAn.Gateway
             // VA-FI-MVP2 (2026-08-21): Financial Intelligence — BusinessProfile service + repository
             _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.IBusinessProfileRepository, VanAn.CoreHub.Repositories.BusinessProfileRepository>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.FinancialIntelligence.IBusinessProfileService, VanAn.CoreHub.Services.FinancialIntelligence.BusinessProfileService>();
+            // VA-FI-MVP2 Phase 2: Calculation services (2026-08-21) — pure deterministic, Trust Level 1.
+            // Prerequisites: IncomeStatementService + AccountChartService (consumed by BreakEven/ProfitSummary/TargetProfit).
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IIncomeStatementService, VanAn.CoreHub.Services.IncomeStatementService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IAccountChartService, VanAn.CoreHub.Services.AccountChartService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.FinancialIntelligence.IProfitSummaryService, VanAn.CoreHub.Services.FinancialIntelligence.ProfitSummaryService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.FinancialIntelligence.IBreakEvenAnalysisService, VanAn.CoreHub.Services.FinancialIntelligence.BreakEvenAnalysisService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.FinancialIntelligence.IUnitEconomicsService, VanAn.CoreHub.Services.FinancialIntelligence.UnitEconomicsService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.FinancialIntelligence.ITargetProfitService, VanAn.CoreHub.Services.FinancialIntelligence.TargetProfitService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IProviderManager, VanAn.CoreHub.Services.ProviderManager>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IExcelExportService, VanAn.CoreHub.Services.ExcelExportService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Orchestration.IWebhookService, VanAn.CoreHub.Services.Orchestration.WebhookService>();
