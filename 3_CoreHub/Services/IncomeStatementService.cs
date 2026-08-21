@@ -168,7 +168,10 @@ public class IncomeStatementService : IIncomeStatementService
             TotalRevenueOpening: m01o,
             NetProfitEnding: m60e,
             NetProfitOpening: m60o,
-            Lines: lines);
+            Lines: lines,
+            // VA-FI-MVP2: expose COGS (mã 02) + OpEx (mã 11) — values already computed above.
+            TotalCogsEnding: m02e, TotalCogsOpening: m02o,
+            TotalOpExEnding: m11e, TotalOpExOpening: m11o);
     }
 
     /// <summary>
@@ -247,6 +250,9 @@ public class IncomeStatementService : IIncomeStatementService
             TotalRevenueOpening: totalRevenueOpening,
             NetProfitEnding: netProfitEnding,
             NetProfitOpening: netProfitOpening,
-            Lines: lines);
+            Lines: lines,
+            // VA-FI-MVP2: expose COGS + OpEx — values already computed above (cogsEnding/cogsOpening/opexEnding/opexOpening).
+            TotalCogsEnding: cogsEnding, TotalCogsOpening: cogsOpening,
+            TotalOpExEnding: opexEnding, TotalOpExOpening: opexOpening);
     }
 }

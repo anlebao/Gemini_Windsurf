@@ -174,6 +174,11 @@ namespace VanAn.CoreHub.Infrastructure
         // Platform-level (TenantId = Guid.Empty sentinel) — tracks OwnerTenantId separately
         public DbSet<VanAn.Shared.Domain.Aggregates.DomainResellerAggregate.TenantDomain> TenantDomains { get; set; }
 
+        // VA-FI-MVP2 (2026-08-21): Tenant business profile for Financial Intelligence.
+        // PG-only (Gateway source of truth for accounting + tenant config). Tenant-scoped (1 row per tenant).
+        // ShopERP accesses via HTTP proxy to FinancialIntelligenceController (no direct DbContext injection).
+        public DbSet<BusinessProfile> BusinessProfiles { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -196,6 +201,8 @@ namespace VanAn.CoreHub.Infrastructure
             // #126: Guard QR Verify — business key VOs (Single-Identity Pattern)
             modelBuilder.Ignore<VehicleSessionId>();
             modelBuilder.Ignore<GuardScanLogId>();
+            // VA-FI-MVP2 (2026-08-21): BusinessProfile business key VO (Single-Identity Pattern).
+            modelBuilder.Ignore<BusinessProfileId>();
 
             base.OnModelCreating(modelBuilder);
 

@@ -111,7 +111,11 @@ public abstract class VasReportPageTestBase : ComponentTestBase
             new DateTime(2026, 7, 5, 9, 0, 0),
             TotalRevenueEnding: 10_000_000m, TotalRevenueOpening: 0m,
             NetProfitEnding: 1_000_000m, NetProfitOpening: 0m,
-            Lines: lines
+            Lines: lines,
+            // VA-FI-MVP2 (2026-08-21): Set COGS + OpEx to match Lines data (mã 20 = 7M, mã 40 = 2M).
+            // Optional consistency — enables MVP-2 dashboard tests to assert record fields directly.
+            TotalCogsEnding: 7_000_000m, TotalCogsOpening: 0m,
+            TotalOpExEnding: 2_000_000m, TotalOpExOpening: 0m
         );
     }
 

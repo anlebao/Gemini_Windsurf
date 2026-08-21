@@ -1,0 +1,244 @@
+@page "/admin/business-profile"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@using VanAn.CoreHub.Services.FinancialIntelligence.Dtos
+@using VanAn.Shared.Domain
+@inject FinancialIntelligenceHttpService FiClient
+@inject IThemeProvider ThemeProvider
+@inject ILogger<BusinessProfile> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="tenant-management-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Hồ sơ doanh nghiệp</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadAsync">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    <VanAAlert Type="info" Dismissible="false">
+        <span>
+            Khai báo chi phí cố định hàng tháng + sức chứa + mô hình giá của doanh nghiệp.
+            Dùng cho phân tích điểm hòa vốn &amp; kinh tế đơn vị.
+            Cập nhật bất cứ lúc nào — mỗi lần lưu tăng phiên bản mô hình (BR-006).
+        </span>
+    </VanAAlert>
+
+    @if (_loading)
+    {
+        <p>Đang tải...</p>
+    }
+    else if (_loadError)
+    {
+        <VanAAlert Type="error" Dismissible="false">
+            <span>Không tải được hồ sơ. Kiểm tra kết nối Gateway.</span>
+        </VanAAlert>
+    }
+    else
+    {
+        @if (_existing != null)
+        {
+            <VanAAlert Type="success" Dismissible="false">
+                <span>
+                    Hồ sơ hiện tại — phiên bản @(_existing.Version), cập nhật @_existing.UpdatedAt.ToString("yyyy-MM-dd HH:mm").
+                    Tổng chi phí cố định: @FormatVnd(_existing.TotalMonthlyFixedCost).
+                </span>
+            </VanAAlert>
+        }
+        else
+        {
+            <VanAAlert Type="warning" Dismissible="false">
+                <span>Chưa có hồ sơ. Điền form bên dưới rồi bấm "Lưu hồ sơ" để tạo mới.</span>
+            </VanAAlert>
+        }
+
+        <div class="business-profile-form">
+            <h2>Chi phí cố định hàng tháng (VND)</h2>
+            <div class="form-grid">
+                <div class="form-field">
+                    <label for="rent">Tiền thuê mặt bằng</label>
+                    <input id="rent" type="number" min="0" step="1000" @bind="_rent" class="form-input" />
+                </div>
+                <div class="form-field">
+                    <label for="payroll">Lương nhân sự</label>
+                    <input id="payroll" type="number" min="0" step="1000" @bind="_payroll" class="form-input" />
+                </div>
+                <div class="form-field">
+                    <label for="utilities">Điện nước + tiện ích</label>
+                    <input id="utilities" type="number" min="0" step="1000" @bind="_utilities" class="form-input" />
+                </div>
+                <div class="form-field">
+                    <label for="marketing">Marketing + quảng cáo</label>
+                    <input id="marketing" type="number" min="0" step="1000" @bind="_marketing" class="form-input" />
+                </div>
+                <div class="form-field">
+                    <label for="logistics">Vận chuyển + logistics</label>
+                    <input id="logistics" type="number" min="0" step="1000" @bind="_logistics" class="form-input" />
+                </div>
+                <div class="form-field">
+                    <label for="other">Chi phí vận hành khác</label>
+                    <input id="other" type="number" min="0" step="1000" @bind="_other" class="form-input" />
+                </div>
+                <div class="form-field">
+                    <label for="depreciation">Khấu hao tài sản</label>
+                    <input id="depreciation" type="number" min="0" step="1000" @bind="_depreciation" class="form-input" />
+                </div>
+            </div>
+
+            <h2>Sức chứa &amp; mô hình giá</h2>
+            <div class="form-grid">
+                <div class="form-field">
+                    <label for="capacity">Sản lượng / ngày (đơn vị)</label>
+                    <input id="capacity" type="number" min="0" @bind="_capacity" class="form-input" />
+                </div>
+                <div class="form-field">
+                    <label for="days">Ngày hoạt động / tháng (1-31)</label>
+                    <input id="days" type="number" min="1" max="31" @bind="_operatingDays" class="form-input" />
+                </div>
+                <div class="form-field">
+                    <label for="pricing">Mô hình giá</label>
+                    <select id="pricing" @bind="_pricingModel" class="form-input">
+                        <option value="@PricingModel.FixedPrice">Giá cố định</option>
+                        <option value="@PricingModel.DynamicPricing">Giá linh hoạt</option>
+                        <option value="@PricingModel.Mixed">Kết hợp</option>
+                    </select>
+                </div>
+            </div>
+
+            <h2>Ghi chú</h2>
+            <div class="form-field">
+                <label for="notes">Ghi chú thêm (tùy chọn)</label>
+                <textarea id="notes" @bind="_notes" class="form-input" rows="3"
+                          placeholder="Mô tả giả định chi phí cố định, nguồn số liệu..."></textarea>
+            </div>
+
+            <div class="form-summary">
+                <p><strong>Tổng chi phí cố định (tháng):</strong> @FormatVnd(_rent + _payroll + _utilities + _marketing + _logistics + _other + _depreciation)</p>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <VanAAlert Type="error" Dismissible="false">
+                    <span>@_errorMessage</span>
+                </VanAAlert>
+            }
+
+            @if (_saved)
+            {
+                <VanAAlert Type="success" Dismissible="false">
+                    <span>Đã lưu hồ sơ. Phiên bản mô hình đã tăng.</span>
+                </VanAAlert>
+            }
+
+            <div class="form-actions">
+                <VanAButton Variant="primary" OnClick="SaveAsync" Disabled="@_saving">
+                    @if (_saving) { <span>Đang lưu...</span> } else { <span>Lưu hồ sơ</span> }
+                </VanAButton>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _loading = true;
+    private bool _loadError;
+    private bool _saving;
+    private bool _saved;
+    private string _errorMessage = string.Empty;
+    private BusinessProfileDto? _existing;
+
+    // Form fields
+    private decimal _rent;
+    private decimal _payroll;
+    private decimal _utilities;
+    private decimal _marketing;
+    private decimal _logistics;
+    private decimal _other;
+    private decimal _depreciation;
+    private int _capacity;
+    private int _operatingDays = 26;
+    private PricingModel _pricingModel = PricingModel.FixedPrice;
+    private string? _notes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _loadError = false;
+        _saved = false;
+        _errorMessage = string.Empty;
+        try
+        {
+            _existing = await FiClient.GetBusinessProfileAsync();
+            if (_existing != null)
+            {
+                _rent = _existing.MonthlyRent;
+                _payroll = _existing.MonthlyPayroll;
+                _utilities = _existing.MonthlyUtilities;
+                _marketing = _existing.MonthlyMarketing;
+                _logistics = _existing.MonthlyLogistics;
+                _other = _existing.MonthlyOtherOpEx;
+                _depreciation = _existing.MonthlyDepreciation;
+                _capacity = _existing.DailyCapacityUnits;
+                _operatingDays = _existing.OperatingDaysPerMonth;
+                _pricingModel = _existing.PricingModel;
+                _notes = _existing.Notes;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load BusinessProfile");
+            _loadError = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _saved = false;
+        _errorMessage = string.Empty;
+        try
+        {
+            var dto = new UpdateBusinessProfileDto(
+                _rent, _payroll, _utilities, _marketing, _logistics, _other, _depreciation,
+                _capacity, _operatingDays, _pricingModel, _notes);
+            var result = await FiClient.UpdateBusinessProfileAsync(dto);
+            if (result == null)
+            {
+                _errorMessage = "Lưu thất bại. Kiểm tra kết nối Gateway hoặc thử lại.";
+            }
+            else
+            {
+                _existing = result;
+                _saved = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save BusinessProfile");
+            _errorMessage = $"Lỗi: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private static string FormatVnd(decimal value) => value.ToString("N0") + " đ";
+}

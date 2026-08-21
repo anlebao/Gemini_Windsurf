@@ -143,6 +143,11 @@ namespace VanAn.ShopERP.Infrastructure
         // Domain Reseller R1: PG-only (Gateway), ignored in ShopERP SQLite
         public DbSet<VanAn.Shared.Domain.Aggregates.DomainResellerAggregate.TenantDomain> TenantDomains { get; set; }
 
+        // VA-FI-MVP2 (2026-08-21): BusinessProfile is PG-only (Gateway source of truth for accounting config).
+        // DbSet exists to satisfy IVanAnDbContext interface contract; entity is Ignored in OnModelCreating.
+        // ShopERP accesses BusinessProfile via HTTP proxy to FinancialIntelligenceController (no direct DbContext).
+        public DbSet<BusinessProfile> BusinessProfiles { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters
@@ -256,6 +261,11 @@ namespace VanAn.ShopERP.Infrastructure
             _ = modelBuilder.Ignore<VehicleSession>(); // #126: PG-only Guard QR Verify
             _ = modelBuilder.Ignore<GuardScanLog>(); // #126: PG-only Guard QR Verify
             _ = modelBuilder.Ignore<VanAn.Shared.Domain.Aggregates.KhachLinkAggregate.KhachLinkInstance>(); // R1: PG-only KhachLink instances
+            // VA-FI-MVP2 (2026-08-21): BusinessProfile is PG-only — Gateway source of truth for accounting config.
+            // ShopERP SQLite ignores this entity (accessed via HTTP proxy to FinancialIntelligenceController).
+            // Ignore MUST be after ApplyConfigurationsFromAssembly (line 224) — otherwise BusinessProfileConfiguration re-adds it.
+            _ = modelBuilder.Ignore<BusinessProfile>();
+            _ = modelBuilder.Ignore<BusinessProfileId>(); // VO — never mapped as separate entity
 
             // === VALUE OBJECT CONFIGURATIONS ===
             // Order: Configured via OrderConfiguration from CoreHub assembly (applied above via ApplyConfigurationsFromAssembly)

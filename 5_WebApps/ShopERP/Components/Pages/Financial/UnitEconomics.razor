@@ -1,0 +1,203 @@
+@page "/financial/unit-economics"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@using VanAn.CoreHub.Services.FinancialIntelligence.Dtos
+@using VanAn.Shared.Domain
+@inject FinancialIntelligenceHttpService FiClient
+@inject IThemeProvider ThemeProvider
+@inject IJSRuntime JSRuntime
+@inject ILogger<UnitEconomics> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="tenant-management-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Kinh tế đơn vị sản phẩm</h1>
+        <div class="header-actions">
+            <label>Kỳ: </label>
+            <select @bind="_selectedMonth" @bind:after="ReloadAsync" class="form-input" style="width: 130px;">
+                @for (int m = 1; m <= 12; m++) { <option value="@m">Tháng @m</option> }
+            </select>
+            <select @bind="_selectedYear" @bind:after="ReloadAsync" class="form-input" style="width: 100px;">
+                @for (int y = DateTime.UtcNow.Year - 3; y <= DateTime.UtcNow.Year + 1; y++) { <option value="@y">@y</option> }
+            </select>
+            <VanAButton Variant="primary" Size="small" OnClick="ExportExcelAsync" Disabled="@_exporting">
+                @if (_exporting) { <span>Đang xuất...</span> } else { <span>Xuất Excel</span> }
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (_loading)
+    {
+        <p>Đang tải...</p>
+    }
+    else if (_report == null)
+    {
+        <VanAAlert Type="info" Dismissible="false"><span>Chưa có dữ liệu sản phẩm cho kỳ này.</span></VanAAlert>
+    }
+    else
+    {
+        @if (_report.ProductsWithMissingCostPrice > 0)
+        {
+            <VanAAlert Type="warning" Dismissible="false">
+                <span>
+                    ⚠️ Có @_report.ProductsWithMissingCostPrice sản phẩm thiếu giá vốn.
+                    Biên đóng góp của các sản phẩm này dùng giá ước tính (70% giá bán).
+                    <a href="/admin/product-cost-prices">Cập nhật giá vốn →</a>
+                </span>
+            </VanAAlert>
+        }
+
+        <div class="metrics-row">
+            <VanAMetricsCard Title="Sản phẩm phân tích" Value="@_report.TotalProductsAnalyzed.ToString()" Icon="📦" Color="primary" />
+            <VanAMetricsCard Title="Tổng biên đóng góp" Value="@FormatVnd(_report.TotalContribution)" Icon="💰" Color="success" />
+            <VanAMetricsCard Title="Biên đóng góp TB" Value="@FormatPercent(_report.AverageContributionMargin)" Icon="📊" Color="info" />
+            <VanAMetricsCard Title="Thiếu giá vốn" Value="@_report.ProductsWithMissingCostPrice.ToString()" Icon="⚠️" Color="@(_report.ProductsWithMissingCostPrice > 0 ? "warning" : "secondary")" />
+        </div>
+
+        <VanACard Header="Bảng kinh tế đơn vị" Hoverable="true" data-testid="card-unit-economics">
+            <div class="filter-row">
+                <label for="cat-filter">Lọc theo nhóm: </label>
+                <select id="cat-filter" @bind="_categoryFilter" class="form-input" style="width: 200px;">
+                    <option value="">Tất cả</option>
+                    @foreach (var cat in _categories)
+                    {
+                        <option value="@cat">@cat</option>
+                    }
+                </select>
+                <span class="text-muted small">Số dòng: @FilteredProducts.Count()</span>
+            </div>
+
+            <table class="table sortable-table" data-testid="table-unit-economics">
+                <thead>
+                    <tr>
+                        <th><button class="sort-btn" @onclick='() => SortBy("ProductName")'>Sản phẩm @SortIcon("ProductName")</button></th>
+                        <th><button class="sort-btn" @onclick='() => SortBy("Category")'>Nhóm @SortIcon("Category")</button></th>
+                        <th><button class="sort-btn" @onclick='() => SortBy("SellingPrice")'>Giá bán @SortIcon("SellingPrice")</button></th>
+                        <th><button class="sort-btn" @onclick='() => SortBy("VariableCost")'>Chi phí biến đổi @SortIcon("VariableCost")</button></th>
+                        <th><button class="sort-btn" @onclick='() => SortBy("ContributionMargin")'>Biên đóng góp @SortIcon("ContributionMargin")</button></th>
+                        <th><button class="sort-btn" @onclick='() => SortBy("ContributionMarginPercent")'>Tỷ lệ BCM @SortIcon("ContributionMarginPercent")</button></th>
+                        <th><button class="sort-btn" @onclick='() => SortBy("UnitsSold")'>SL bán @SortIcon("UnitsSold")</button></th>
+                        <th><button class="sort-btn" @onclick='() => SortBy("Revenue")'>Doanh thu @SortIcon("Revenue")</button></th>
+                        <th><button class="sort-btn" @onclick='() => SortBy("ProfitContribution")'>Đóng góp LN @SortIcon("ProfitContribution")</button></th>
+                        <th>Hạng</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in FilteredProducts)
+                    {
+                        <tr class="@(p.HasMissingCostPrice ? "row-warning" : "")" data-testid="row-product">
+                            <td>@p.ProductName</td>
+                            <td>@p.Category</td>
+                            <td>@FormatVnd(p.SellingPrice)</td>
+                            <td>@FormatVnd(p.VariableCost)</td>
+                            <td>@FormatVnd(p.ContributionMargin)</td>
+                            <td>@FormatPercent(p.ContributionMarginPercent)</td>
+                            <td>@p.UnitsSold.ToString("N0")</td>
+                            <td>@FormatVnd(p.Revenue)</td>
+                            <td>@FormatVnd(p.ProfitContribution)</td>
+                            <td>@p.ProfitContributionRank</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private bool _loading = true;
+    private bool _exporting;
+    private int _selectedMonth = DateTime.UtcNow.Month;
+    private int _selectedYear = DateTime.UtcNow.Year;
+
+    private UnitEconomicsReportDto? _report;
+    private List<string> _categories = new();
+    private string _categoryFilter = string.Empty;
+    private string _sortColumn = "ProfitContribution";
+    private bool _sortDescending = true;
+
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        _loading = true;
+        try
+        {
+            var period = new AccountingPeriod(_selectedYear, _selectedMonth);
+            _report = await FiClient.GetUnitEconomicsAsync(period);
+            if (_report?.Products != null)
+                _categories = _report.Products.Select(p => p.Category).Distinct().OrderBy(c => c).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "UnitEconomics load failed");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private IEnumerable<UnitEconomicsLineDto> FilteredProducts
+    {
+        get
+        {
+            if (_report?.Products == null) return Enumerable.Empty<UnitEconomicsLineDto>();
+            var rows = string.IsNullOrEmpty(_categoryFilter)
+                ? _report.Products
+                : _report.Products.Where(p => p.Category == _categoryFilter);
+            return _sortColumn switch
+            {
+                "ProductName" => _sortDescending ? rows.OrderByDescending(p => p.ProductName) : rows.OrderBy(p => p.ProductName),
+                "Category" => _sortDescending ? rows.OrderByDescending(p => p.Category) : rows.OrderBy(p => p.Category),
+                "SellingPrice" => _sortDescending ? rows.OrderByDescending(p => p.SellingPrice) : rows.OrderBy(p => p.SellingPrice),
+                "VariableCost" => _sortDescending ? rows.OrderByDescending(p => p.VariableCost) : rows.OrderBy(p => p.VariableCost),
+                "ContributionMargin" => _sortDescending ? rows.OrderByDescending(p => p.ContributionMargin) : rows.OrderBy(p => p.ContributionMargin),
+                "ContributionMarginPercent" => _sortDescending ? rows.OrderByDescending(p => p.ContributionMarginPercent) : rows.OrderBy(p => p.ContributionMarginPercent),
+                "UnitsSold" => _sortDescending ? rows.OrderByDescending(p => p.UnitsSold) : rows.OrderBy(p => p.UnitsSold),
+                "Revenue" => _sortDescending ? rows.OrderByDescending(p => p.Revenue) : rows.OrderBy(p => p.Revenue),
+                "ProfitContribution" => _sortDescending ? rows.OrderByDescending(p => p.ProfitContribution) : rows.OrderBy(p => p.ProfitContribution),
+                _ => rows
+            };
+        }
+    }
+
+    private void SortBy(string column)
+    {
+        if (_sortColumn == column) _sortDescending = !_sortDescending;
+        else { _sortColumn = column; _sortDescending = true; }
+    }
+
+    private string SortIcon(string column) => _sortColumn == column ? (_sortDescending ? "▼" : "▲") : "";
+
+    private async Task ExportExcelAsync()
+    {
+        if (_report == null) return;
+        _exporting = true;
+        try
+        {
+            byte[] bytes = await FinancialExportService.ExportUnitEconomicsAsync(_report);
+            string base64 = Convert.ToBase64String(bytes);
+            string fileName = $"UnitEconomics_{_selectedYear}_{_selectedMonth:D2}.xlsx";
+            await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "UnitEconomics export failed");
+        }
+        finally
+        {
+            _exporting = false;
+        }
+    }
+
+    private static string FormatVnd(decimal v) => v.ToString("N0") + " đ";
+    private static string FormatPercent(decimal v) => v.ToString("N1") + "%";
+}

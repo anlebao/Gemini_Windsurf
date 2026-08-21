@@ -122,6 +122,9 @@ namespace VanAn.CoreHub.Infrastructure
         // Platform-level (TenantId = Guid.Empty sentinel) — tracks OwnerTenantId separately
         DbSet<VanAn.Shared.Domain.Aggregates.DomainResellerAggregate.TenantDomain> TenantDomains { get; }
 
+        // VA-FI-MVP2 (2026-08-21): Tenant business profile for Financial Intelligence (PG-only, tenant-scoped, 1 row per tenant).
+        DbSet<BusinessProfile> BusinessProfiles { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
 
