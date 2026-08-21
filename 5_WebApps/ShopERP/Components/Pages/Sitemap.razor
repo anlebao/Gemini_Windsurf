@@ -138,6 +138,32 @@
             </Authorized>
         </AuthorizeView>
 
+        @* ── Luồng 2b: Phân tích tài chính (Financial Intelligence MVP-2) ── *@
+        <AuthorizeView Roles="Owner">
+            <Authorized>
+                <VanACard Header="📊 Phân tích tài chính" Hoverable="true" data-testid="card-financial-intelligence">
+                    <div class="sitemap-links">
+                        <a href="/admin/business-profile" class="sitemap-link" data-testid="link-business-profile">
+                            <span class="sitemap-link-icon">🏢</span>
+                            <span>Hồ sơ doanh nghiệp (chi phí cố định)</span>
+                        </a>
+                        <a href="/financial" class="sitemap-link" data-testid="link-financial-dashboard">
+                            <span class="sitemap-link-icon">📊</span>
+                            <span>Dashboard tài chính</span>
+                        </a>
+                        <a href="/financial/break-even" class="sitemap-link" data-testid="link-financial-break-even">
+                            <span class="sitemap-link-icon">⚖️</span>
+                            <span>Phân tích điểm hòa vốn</span>
+                        </a>
+                        <a href="/financial/unit-economics" class="sitemap-link" data-testid="link-financial-unit-economics">
+                            <span class="sitemap-link-icon">📈</span>
+                            <span>Kinh tế đơn vị sản phẩm</span>
+                        </a>
+                    </div>
+                </VanACard>
+            </Authorized>
+        </AuthorizeView>
+
         @* ── Luồng 2b: BCTC VAS (Company tenants only — HKD uses TT 152 HKD books) ── *@
         <AuthorizeView Roles="Owner">
             <Authorized>
