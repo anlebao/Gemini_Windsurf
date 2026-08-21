@@ -528,31 +528,15 @@ namespace VanAn.Gateway
 
                 // W7-FIX (2026-08-21, issue #153): ForwardedHeaders MUST be first middleware so that
                 // Request.Scheme is set to "https" (from X-Forwarded-Proto) BEFORE UseHttpsRedirection,
-                // UseAuthentication, and Auth handlers generate redirect URLs. Otherwise auth redirects
-                // (Account/AccessDenied) get scheme "http" → browser blocks as Mixed Content on HTTPS pages.
-                //
-                // Fallback custom middleware: if ForwardedHeaders doesn't apply (ASP.NET Core 8 stricter defaults),
-                // manually set Request.Scheme from X-Forwarded-Proto header. This guarantees scheme is correct
-                // regardless of ForwardedHeadersOptions behavior.
-                app.Use(async (context, next) =>
-                {
-                    var proto = context.Request.Headers["X-Forwarded-Proto"].ToString();
-                    if (!string.IsNullOrEmpty(proto))
-                    {
-                        context.Request.Scheme = proto;
-                    }
-                    await next();
-                });
-
+                // UseAuthentication, and Auth handlers generate redirect URLs.
+                // Phase A: standard config, NO bypass. Diagnostic on ShopERP first.
                 _ = app.UseForwardedHeaders(new ForwardedHeadersOptions
                 {
                     ForwardedHeaders = ForwardedHeaders.XForwardedFor |
                                        ForwardedHeaders.XForwardedProto |
                                        ForwardedHeaders.XForwardedHost,
-                    // Clear loopback restrictions + accept all forwarded headers (Docker networking)
                     KnownProxies = { },
-                    KnownNetworks = { },
-                    ForwardLimit = null  // Accept all forwarded headers regardless of count
+                    KnownNetworks = { }
                 });
 
                 // Add unified error handling middleware

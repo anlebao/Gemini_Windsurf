@@ -933,33 +933,51 @@ namespace VanAn.ShopERP
             }
 
             // Configure the HTTP request pipeline.
-            // W7-FIX (2026-08-21, issue #153): ForwardedHeaders MUST be first middleware so that
-            // Request.Scheme is set to "https" (from X-Forwarded-Proto) BEFORE UseHsts, UseHttpsRedirection,
-            // and Auth handlers generate redirect URLs. Otherwise auth redirects (Account/AccessDenied)
-            // get scheme "http" → browser blocks as Mixed Content on HTTPS pages.
             //
-            // Fallback custom middleware: if ForwardedHeaders doesn't apply (ASP.NET Core 8 stricter defaults),
-            // manually set Request.Scheme from X-Forwarded-Proto header. This guarantees scheme is correct
-            // regardless of ForwardedHeadersOptions behavior.
+            // ISSUE #153 DIAGNOSTIC (Phase A — 2026-08-21):
+            // Root cause investigation: ForwardedHeaders middleware receives X-Forwarded-Proto: https
+            // from nginx but Request.Scheme stays "http" → auth redirects get http:// → Mixed Content.
+            //
+            // Phase A: log BEFORE and AFTER ForwardedHeaders to prove whether middleware processes header.
+            // Phase B (after root cause confirmed): configure KnownProxies with actual proxy IP, remove diagnostic.
+            //
+            // NO custom Request.Scheme override. NO ForwardLimit=null. Pure diagnostic — let ForwardedHeaders
+            // middleware run with standard config and log what it actually does.
+
+            // DIAGNOSTIC: log request state BEFORE ForwardedHeaders
             app.Use(async (context, next) =>
             {
-                var proto = context.Request.Headers["X-Forwarded-Proto"].ToString();
-                if (!string.IsNullOrEmpty(proto))
-                {
-                    context.Request.Scheme = proto;
-                }
+                var xfp = context.Request.Headers["X-Forwarded-Proto"].ToString();
+                var xff = context.Request.Headers["X-Forwarded-For"].ToString();
+                var xfHost = context.Request.Headers["X-Forwarded-Host"].ToString();
+                var remoteIp = context.Connection.RemoteIpAddress?.ToString() ?? "null";
+                Console.WriteLine(
+                    $"[FWD-DIAG] BEFORE ForwardedHeaders: Scheme={context.Request.Scheme} " +
+                    $"X-Forwarded-Proto={xfp} X-Forwarded-For={xff} " +
+                    $"X-Forwarded-Host={xfHost} RemoteIp={remoteIp} " +
+                    $"Host={context.Request.Host} Path={context.Request.Path}");
                 await next();
             });
 
+            // ForwardedHeaders — standard config, NO bypass
             _ = app.UseForwardedHeaders(new ForwardedHeadersOptions
             {
                 ForwardedHeaders = ForwardedHeaders.XForwardedFor |
                                    ForwardedHeaders.XForwardedProto |
                                    ForwardedHeaders.XForwardedHost,
-                // Clear loopback restrictions + accept all forwarded headers (Docker networking)
+                // Clear loopback restrictions for Docker networking
                 KnownProxies = { },
-                KnownNetworks = { },
-                ForwardLimit = null  // Accept all forwarded headers regardless of count
+                KnownNetworks = { }
+            });
+
+            // DIAGNOSTIC: log request state AFTER ForwardedHeaders
+            app.Use(async (context, next) =>
+            {
+                var remoteIp = context.Connection.RemoteIpAddress?.ToString() ?? "null";
+                Console.WriteLine(
+                    $"[FWD-DIAG] AFTER ForwardedHeaders: Scheme={context.Request.Scheme} " +
+                    $"RemoteIp={remoteIp} Host={context.Request.Host} Path={context.Request.Path}");
+                await next();
             });
 
             if (!app.Environment.IsDevelopment())
