@@ -12,7 +12,7 @@
 @inject IThemeProvider ThemeProvider
 @inject ILogger<BusinessProfile> Logger
 
-@attribute [Authorize(Policy = "SystemAdmin")]
+@attribute [Authorize(Policy = "OwnerOnly")]
 
 <div class="tenant-management-page @ThemeProvider.CurrentTheme">
     <header class="page-header">

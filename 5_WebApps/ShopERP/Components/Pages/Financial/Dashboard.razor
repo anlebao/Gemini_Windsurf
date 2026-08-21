@@ -13,7 +13,7 @@
 @inject NavigationManager Navigation
 @inject ILogger<Dashboard> Logger
 
-@attribute [Authorize(Policy = "SystemAdmin")]
+@attribute [Authorize(Policy = "OwnerOnly")]
 
 <div class="tenant-management-page @ThemeProvider.CurrentTheme">
     <header class="page-header">
