@@ -526,6 +526,20 @@ namespace VanAn.Gateway
                     _ = app.UseSwaggerUI();
                 }
 
+                // W7-FIX (2026-08-21, issue #153): ForwardedHeaders MUST be first middleware so that
+                // Request.Scheme is set to "https" (from X-Forwarded-Proto) BEFORE UseHttpsRedirection,
+                // UseAuthentication, and Auth handlers generate redirect URLs. Otherwise auth redirects
+                // (Account/AccessDenied) get scheme "http" → browser blocks as Mixed Content on HTTPS pages.
+                _ = app.UseForwardedHeaders(new ForwardedHeadersOptions
+                {
+                    ForwardedHeaders = ForwardedHeaders.XForwardedFor |
+                                       ForwardedHeaders.XForwardedProto |
+                                       ForwardedHeaders.XForwardedHost,
+                    // Clear loopback restrictions for Docker networking — accept proxies from any network
+                    KnownProxies = { },
+                    KnownNetworks = { }
+                });
+
                 // Add unified error handling middleware
                 _ = app.UseMiddleware<UnifiedErrorHandler>();
 
@@ -534,17 +548,6 @@ namespace VanAn.Gateway
                 {
                     _ = app.UseHttpsRedirection();
                 }
-
-                // Forwarded headers for nginx reverse proxy (Docker networking)
-                _ = app.UseForwardedHeaders(new ForwardedHeadersOptions
-                {
-                    ForwardedHeaders = ForwardedHeaders.XForwardedFor |
-                                       ForwardedHeaders.XForwardedProto |
-                                       ForwardedHeaders.XForwardedHost,
-                    // Clear loopback restrictions for Docker networking
-                    KnownProxies = { },
-                    KnownNetworks = { }
-                });
 
                 _ = app.UseCors("DynamicCors");
 

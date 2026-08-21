@@ -933,6 +933,20 @@ namespace VanAn.ShopERP
             }
 
             // Configure the HTTP request pipeline.
+            // W7-FIX (2026-08-21, issue #153): ForwardedHeaders MUST be first middleware so that
+            // Request.Scheme is set to "https" (from X-Forwarded-Proto) BEFORE UseHsts, UseHttpsRedirection,
+            // and Auth handlers generate redirect URLs. Otherwise auth redirects (Account/AccessDenied)
+            // get scheme "http" → browser blocks as Mixed Content on HTTPS pages.
+            _ = app.UseForwardedHeaders(new ForwardedHeadersOptions
+            {
+                ForwardedHeaders = ForwardedHeaders.XForwardedFor |
+                                   ForwardedHeaders.XForwardedProto |
+                                   ForwardedHeaders.XForwardedHost,
+                // Clear loopback restrictions for Docker networking — accept proxies from any network
+                KnownProxies = { },
+                KnownNetworks = { }
+            });
+
             if (!app.Environment.IsDevelopment())
             {
                 _ = app.UseExceptionHandler("/Error");
@@ -948,17 +962,6 @@ namespace VanAn.ShopERP
                 context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
                 context.Response.Headers["X-Permitted-Cross-Domain-Policies"] = "none";
                 await next();
-            });
-
-            // Forwarded headers for nginx reverse proxy (Docker networking)
-            _ = app.UseForwardedHeaders(new ForwardedHeadersOptions
-            {
-                ForwardedHeaders = ForwardedHeaders.XForwardedFor |
-                                   ForwardedHeaders.XForwardedProto |
-                                   ForwardedHeaders.XForwardedHost,
-                // Clear loopback restrictions for Docker networking
-                KnownProxies = { },
-                KnownNetworks = { }
             });
 
             // Wave 7: Enable HTTPS redirection only in Production
