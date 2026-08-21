@@ -340,6 +340,9 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.DomainRegistrar.IDomainRegistrarService, VanAn.CoreHub.Services.DomainRegistrar.GodaddyRegistrarService>();
             // Domain Reseller R1: TenantDomain management service (DbContext only)
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ITenantDomainService, VanAn.CoreHub.Services.TenantDomainService>();
+            // VA-FI-MVP2 (2026-08-21): Financial Intelligence — BusinessProfile service + repository
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.IBusinessProfileRepository, VanAn.CoreHub.Repositories.BusinessProfileRepository>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.FinancialIntelligence.IBusinessProfileService, VanAn.CoreHub.Services.FinancialIntelligence.BusinessProfileService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IProviderManager, VanAn.CoreHub.Services.ProviderManager>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IExcelExportService, VanAn.CoreHub.Services.ExcelExportService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Orchestration.IWebhookService, VanAn.CoreHub.Services.Orchestration.WebhookService>();
