@@ -480,6 +480,10 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.IImageStorageService, CoreHub.Services.CloudinaryImageStorageService>();
             // Wave 5: Tenant management
             _ = builder.Services.AddScoped<CoreHub.Services.ITenantManagementService, CoreHub.Services.TenantManagementService>();
+            // Phase 2 Scaling: IShopInstanceService — required by TenantManagementService for capacity check.
+            // ShopERP uses ShopInstanceApiClient (HTTP→Gateway) for UI operations, but TenantManagementService
+            // (CoreHub) depends on IShopInstanceService directly. Register with HttpClient (same pattern as Gateway).
+            _ = builder.Services.AddHttpClient<CoreHub.Services.IShopInstanceService, CoreHub.Services.ShopInstanceService>();
             // Wave 6: User & permission group management
             _ = builder.Services.AddScoped<CoreHub.Services.IUserManagementService, CoreHub.Services.UserManagementService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IRoleAssignmentService, CoreHub.Services.RoleAssignmentService>();
