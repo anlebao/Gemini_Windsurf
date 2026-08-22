@@ -1,6 +1,7 @@
 using VanAn.Shared.Domain;
 using VanAn.Shared.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.DataProtection;
@@ -10,7 +11,11 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 using System.Threading.RateLimiting;
+using Microsoft.IdentityModel.Tokens;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.Entities;
 using VanAn.CoreHub.Infrastructure.DataProtection;
@@ -534,6 +539,15 @@ namespace VanAn.ShopERP
             // ✅ FIXED: Enterprise authentication configuration
             // DefaultChallengeScheme = Cookie so [Authorize] redirects to LoginPath (/Login)
             // instead of triggering OIDC discovery (Gateway is not an identity server).
+            // VA-FI-MVP2 Bug 3 fix: Added JWT Bearer as secondary scheme for service-to-service
+            // auth (Gateway ShopErpProductCatalogService mints Owner JWT to fetch products).
+            // ForwardDefaultSelector: when Authorization: Bearer header is present, use JWT Bearer
+            // instead of Cookie — same pattern as Gateway.
+            var shopJwtSecret = builder.Configuration["Jwt:Secret"]
+                ?? throw new InvalidOperationException("Jwt:Secret configuration is required in ShopERP.");
+            var shopJwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "VanAnShopERP";
+            var shopJwtAudience = builder.Configuration["Jwt:Audience"] ?? "VanAnApi";
+
             _ = builder.Services.AddAuthentication(options =>
             {
                 options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
@@ -564,6 +578,34 @@ namespace VanAn.ShopERP
                 options.ExpireTimeSpan = TimeSpan.FromHours(8);
                 options.SlidingExpiration = true;
                 options.LoginPath = "/Login";
+                // Bug 3 fix: Forward to JWT Bearer when Authorization header is present.
+                options.ForwardDefaultSelector = context =>
+                {
+                    if (context.Request.Headers.TryGetValue("Authorization", out var auth)
+                        && auth.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return JwtBearerDefaults.AuthenticationScheme;
+                    }
+                    return null; // Use Cookie (default scheme)
+                };
+            })
+            .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+            {
+                options.MapInboundClaims = false;
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(shopJwtSecret)),
+                    IssuerSigningKeyResolver = (_, _, _, validationParameters) => new[] { validationParameters.IssuerSigningKey },
+                    ValidateIssuer = true,
+                    ValidIssuer = shopJwtIssuer,
+                    ValidateAudience = true,
+                    ValidAudience = shopJwtAudience,
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.Zero,
+                    RoleClaimType = ClaimTypes.Role,
+                    NameClaimType = "sub"
+                };
             })
             .AddOpenIdConnect("OpenIdConnect", options =>
             {
