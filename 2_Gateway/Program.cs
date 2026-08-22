@@ -145,10 +145,13 @@ namespace VanAn.Gateway
             // Phase 1 Scaling: Increase Npgsql pool size for production (default 100 → 300).
             // 1000 tenant × 10% online = 100 concurrent query → default pool exhausts → 503.
             // Only append for Npgsql (production); SQLite (dev) doesn't need pool tuning.
+            // NOTE: Npgsql accepts "Maximum Pool Size" (display name) or "MaxPoolSize" (property name),
+            // but NOT "MaximumPoolSize" (camelCase no space) — that throws KeyNotFoundException.
             if (!connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase)
-                && !connectionString.Contains("MaximumPoolSize", StringComparison.OrdinalIgnoreCase))
+                && !connectionString.Contains("Maximum Pool Size", StringComparison.OrdinalIgnoreCase)
+                && !connectionString.Contains("MaxPoolSize", StringComparison.OrdinalIgnoreCase))
             {
-                connectionString += ";MaximumPoolSize=300;MinimumPoolSize=10;ConnectionIdleLifetime=300";
+                connectionString += ";Maximum Pool Size=300;Minimum Pool Size=10;Connection Idle Lifetime=300";
             }
             _ = builder.Services.AddDbContext<VanAn.CoreHub.Infrastructure.IVanAnDbContext, VanAn.CoreHub.Infrastructure.VanAnDbContext>(options =>
             {
