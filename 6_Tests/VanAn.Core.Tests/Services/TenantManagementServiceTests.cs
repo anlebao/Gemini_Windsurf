@@ -21,6 +21,7 @@ public class TenantManagementServiceTests : IDisposable
     private readonly TestContextScope _scope;
     private readonly VanAnDbContext _db;
     private readonly Mock<INotificationService> _notificationMock;
+    private readonly Mock<IShopInstanceService> _shopInstanceMock;
     private readonly TenantManagementService _sut;
 
     public TenantManagementServiceTests()
@@ -30,7 +31,11 @@ public class TenantManagementServiceTests : IDisposable
         _notificationMock = new Mock<INotificationService>();
         _notificationMock.Setup(n => n.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
             .ReturnsAsync(true);
-        _sut = new TenantManagementService(_db, _db, _notificationMock.Object, NullLogger<TenantManagementService>.Instance);
+        // Phase 2 Scaling: IShopInstanceService mock for capacity check in AssignShopInstanceAsync
+        _shopInstanceMock = new Mock<IShopInstanceService>();
+        _shopInstanceMock.Setup(s => s.CountTenantsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+        _sut = new TenantManagementService(_db, _db, _notificationMock.Object, _shopInstanceMock.Object, NullLogger<TenantManagementService>.Instance);
     }
 
     public void Dispose() => _scope.Dispose();

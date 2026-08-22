@@ -58,6 +58,7 @@
                         <th>Base URL</th>
                         <th>Max Tenants</th>
                         <th>Tenant Count</th>
+                        <th>Capacity còn lại</th>
                         <th>Health</th>
                         <th>Trạng thái</th>
                         <th>Hành động</th>
@@ -66,11 +67,23 @@
                 <tbody>
                     @foreach (var item in _items)
                     {
+                        var remaining = item.MaxTenants - item.TenantCount;
+                        var usagePercent = item.MaxTenants > 0 ? (int)(item.TenantCount * 100.0 / item.MaxTenants) : 0;
+                        var capacityStyle = usagePercent < 70
+                            ? "background:#d1fae5;color:#065f46;"
+                            : usagePercent < 90
+                                ? "background:#fef3c7;color:#92400e;"
+                                : "background:#fee2e2;color:#991b1b;";
                         <tr>
                             <td><strong>@item.Label</strong></td>
                             <td><code>@item.BaseUrl</code></td>
                             <td>@item.MaxTenants</td>
                             <td>@item.TenantCount</td>
+                            <td>
+                                <span style="@($"display:inline-block;padding:0.25rem 0.5rem;border-radius:4px;font-size:0.875rem;font-weight:600;{capacityStyle}")">
+                                    @remaining / @item.MaxTenants (@usagePercent%)
+                                </span>
+                            </td>
                             <td>
                                 <span class="status-badge status-@(item.HealthStatus.ToLower())">
                                     @item.HealthStatus

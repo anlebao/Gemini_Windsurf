@@ -37,6 +37,11 @@ namespace VanAn.ShopERP
 {
     public partial class Program
     {
+        // Phase 2 Scaling: JSInvokable method cho circuit-keepalive.js — chỉ để giữ circuit busy, không logic.
+        // JS gọi DotNet.invokeMethodAsync('VanAn.ShopERP', 'CircuitKeepalivePing') mỗi 10s.
+        [Microsoft.JSInterop.JSInvokable]
+        public static Task<bool> CircuitKeepalivePing() => Task.FromResult(true);
+
         public static async Task Main(string[] args)
         {
             // Npgsql 7+: Enable legacy timestamp behavior so DateTime with Kind=Unspecified works

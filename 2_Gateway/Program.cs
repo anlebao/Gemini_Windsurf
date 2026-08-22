@@ -73,7 +73,23 @@ namespace VanAn.Gateway
                     // ShopERP clients expect string values, not int.
                     options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
                 });
-            _ = builder.Services.AddSignalR();
+            // Phase 2 Scaling: SignalR with Redis backplane — enables horizontal scaling of Gateway.
+            // Without backplane, multiple Gateway instances can't broadcast SignalR messages to clients
+            // connected to other instances. Redis backplane syncs messages across all instances.
+            var signalRBuilder = builder.Services.AddSignalR();
+            var gatewayRedisConnection = builder.Configuration.GetConnectionString("Redis");
+            if (!string.IsNullOrWhiteSpace(gatewayRedisConnection))
+            {
+                signalRBuilder.AddStackExchangeRedis(gatewayRedisConnection, options =>
+                {
+                    options.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("VanAn-SignalR");
+                });
+                Log.Information("SignalR Redis backplane configured: {RedisConnection}", gatewayRedisConnection);
+            }
+            else
+            {
+                Log.Information("SignalR Redis backplane NOT configured (ConnectionStrings:Redis empty) — single-instance mode");
+            }
 
             // Phase 1 Scaling: Response caching — enables [ResponseCache] attributes on controllers.
             // Reduces PG load for catalog/recommended endpoints (cache 5 min at CDN/browser).

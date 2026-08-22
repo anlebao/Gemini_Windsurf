@@ -15,6 +15,7 @@ namespace VanAn.CoreHub.Services
         IVanAnDbContext dbContext,
         IAccountingDbContext accountingDbContext,
         INotificationService notificationService,
+        IShopInstanceService shopInstanceService,
         ILogger<TenantManagementService> logger) : ITenantManagementService
     {
         public async Task<Tenant> CreateTenantAsync(CreateTenantRequest request, CancellationToken ct = default)
@@ -148,7 +149,8 @@ namespace VanAn.CoreHub.Services
             logger.LogInformation("Tenant deactivated: {TenantId}. Reason: {Reason}", id.Value, reason);
         }
 
-        /// <summary>Phase 6: Assign tenant to a ShopERP hosting instance (multi-VPS routing).</summary>
+        /// <summary>Phase 6: Assign tenant to a ShopERP hosting instance (multi-VPS routing).
+        /// Phase 2 Scaling: Enforce capacity check — throws InvalidOperationException if ShopInstance is full.</summary>
         public async Task AssignShopInstanceAsync(TenantId id, Guid shopInstanceId, CancellationToken ct = default)
         {
             if (shopInstanceId == Guid.Empty)
@@ -157,10 +159,26 @@ namespace VanAn.CoreHub.Services
             var tenant = await GetTenantByIdAsync(id, ct)
                 ?? throw new KeyNotFoundException($"Tenant {id.Value} not found.");
 
+            // Phase 2 Scaling: Capacity check — prevent overloading a ShopInstance beyond MaxTenants.
+            var instance = await shopInstanceService.GetByIdAsync(shopInstanceId, ct);
+            if (instance == null)
+                throw new KeyNotFoundException($"ShopInstance {shopInstanceId} not found.");
+
+            if (!instance.IsActive)
+                throw new InvalidOperationException(
+                    $"ShopInstance '{instance.Label}' không hoạt động. Không thể gán tenant.");
+
+            int currentCount = await shopInstanceService.CountTenantsAsync(shopInstanceId, ct);
+            // Skip capacity check if tenant is already on this instance (re-assign is OK)
+            if (tenant.ShopInstanceId != shopInstanceId && currentCount >= instance.MaxTenants)
+                throw new InvalidOperationException(
+                    $"ShopInstance '{instance.Label}' đã đầy ({currentCount}/{instance.MaxTenants}). " +
+                    "Vui lòng chọn Instance khác hoặc tăng MaxTenants.");
+
             tenant.AssignToShopInstance(shopInstanceId);
             await dbContext.SaveChangesAsync(ct);
-            logger.LogInformation("Tenant {TenantId} assigned to ShopInstance {ShopInstanceId}",
-                id.Value, shopInstanceId);
+            logger.LogInformation("Tenant {TenantId} assigned to ShopInstance {ShopInstanceId} (capacity {Current}/{Max})",
+                id.Value, shopInstanceId, currentCount + 1, instance.MaxTenants);
         }
 
         /// <summary>

@@ -48,7 +48,11 @@ services:
       - Esms__ApiKey=not-configured
       - Esms__SecretKey=not-configured
       - Esms__BrandName=VanAn
-      - ConnectionStrings__Redis=not-configured
+      # Phase 2 Scaling: Redis distributed cache — connect to Redis on Gateway VPS via VPC internal IP.
+      # Code already has conditional registration (Program.cs L434-439): if connection string is set,
+      # uses AddStackExchangeRedisCache; else falls back to in-memory cache.
+      # REDIS_REMOTE_HOST = Gateway VPS internal IP (same VPC, free egress).
+      - ConnectionStrings__Redis=${REDIS_CONNECTION_STRING:-redis://${GATEWAY_REMOTE_HOST}:6379}
       - Authentication__ClientSecret=not-configured
       # Web Push VAPID
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}

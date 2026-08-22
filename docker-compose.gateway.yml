@@ -59,6 +59,32 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Phase 2 Scaling: Redis — SignalR backplane for Gateway + distributed cache for ShopERP.
+  # If dedicated Redis VPS (vanan-redis) is provisioned (Phase 4), this service can be removed
+  # and REDIS_CONNECTION_STRING env var pointed to the dedicated VPS internal IP.
+  redis:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    networks:
+      - vanan-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 384m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   gateway:
     image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-gateway:${IMAGE_TAG:-latest}
     environment:
@@ -110,12 +136,17 @@ services:
       # not resolvable when services are on separate VPSs)
       - ReverseProxy__Clusters__shoperp-cluster__Destinations__destination1__Address=http://${SHOPERP_REMOTE_HOST}:80/
       - ReverseProxy__Clusters__khachlink-cluster__Destinations__destination1__Address=http://${KHACHLINK_REMOTE_HOST}:80/
+      # Phase 2 Scaling: Redis backplane for SignalR + distributed cache.
+      # If REDIS_REMOTE_HOST is set, connect to dedicated Redis VPS; else use local redis service.
+      - ConnectionStrings__Redis=${REDIS_CONNECTION_STRING:-redis:6379}
     networks:
       - vanan-network
     depends_on:
       postgres:
         condition: service_healthy
       nats:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]

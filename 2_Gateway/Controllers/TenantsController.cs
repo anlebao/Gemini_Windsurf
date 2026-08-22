@@ -143,6 +143,19 @@ namespace VanAn.Gateway.Controllers
                 await _tenantService.AssignShopInstanceAsync(new TenantId(tenantId), request.ShopInstanceId);
                 return Ok(new { success = true });
             }
+            catch (KeyNotFoundException ex)
+            {
+                _logger.LogWarning(ex, "Assign ShopInstance not found: {ShopInstanceId} → tenant {TenantId}",
+                    request.ShopInstanceId, tenantId);
+                return NotFound(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Phase 2 Scaling: capacity check failure or inactive instance → 409 Conflict
+                _logger.LogWarning(ex, "Assign ShopInstance rejected: {ShopInstanceId} → tenant {TenantId}",
+                    request.ShopInstanceId, tenantId);
+                return Conflict(new { error = ex.Message });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error assigning ShopInstance {ShopInstanceId} to tenant {TenantId}",
