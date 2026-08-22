@@ -100,6 +100,11 @@ namespace VanAn.Gateway
             var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "VanAnShopERP";
             var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "VanAnApi";
 
+            // VA-FI-MVP2 Bug 3 fix: Register IJwtTokenService for ShopErpProductCatalogService
+            // (mints short-lived Owner JWTs to authenticate HTTP calls to ShopERP /api/products/manage).
+            // Same secret/issuer/audience as ShopERP — tokens are cross-validated.
+            _ = builder.Services.AddScoped<CoreHub.Services.IJwtTokenService, CoreHub.Services.JwtTokenService>();
+
             _ = builder.Services.AddAuthentication(options =>
             {
                 // Cookie remains the default scheme — Blazor UI continues to work unchanged
@@ -351,6 +356,10 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.FinancialIntelligence.IBreakEvenAnalysisService, VanAn.CoreHub.Services.FinancialIntelligence.BreakEvenAnalysisService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.FinancialIntelligence.IUnitEconomicsService, VanAn.CoreHub.Services.FinancialIntelligence.UnitEconomicsService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.FinancialIntelligence.ITargetProfitService, VanAn.CoreHub.Services.FinancialIntelligence.TargetProfitService>();
+            // VA-FI-MVP2 Bug 3 fix (2026-08-22): ShopERP product catalog HTTP bridge.
+            // Fetches products from ShopERP SQLite (Option C Phase 3 — Gateway PG Products empty).
+            // Used by UnitEconomicsService + BreakEvenAnalysisService.AnalyzeMultiProductAsync.
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.FinancialIntelligence.IShopErpProductCatalogService, VanAn.Gateway.Services.ShopErpProductCatalogService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IProviderManager, VanAn.CoreHub.Services.ProviderManager>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IExcelExportService, VanAn.CoreHub.Services.ExcelExportService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Orchestration.IWebhookService, VanAn.CoreHub.Services.Orchestration.WebhookService>();

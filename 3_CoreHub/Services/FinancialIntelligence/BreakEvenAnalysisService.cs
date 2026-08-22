@@ -10,12 +10,16 @@ namespace VanAn.CoreHub.Services.FinancialIntelligence
     /// Multi-product: per-product CM weighted by sales mix (from OrderItem aggregation).
     /// Guard codes (P2.6): PROFILE_MISSING, INSUFFICIENT_DATA, CM_RATIO_ZERO_OR_NEG, FIXED_COST_ZERO.
     /// Pure deterministic — Trust Level 1 (NFR-14).
+    ///
+    /// Bug 3 fix (2026-08-22): Multi-product analysis fetches products from ShopERP SQLite
+    /// via <see cref="IShopErpProductCatalogService"/> (HTTP, routed by ShopInstanceId).
+    /// Gateway PG Products table is empty per Option C Phase 3.
     /// </summary>
     public class BreakEvenAnalysisService : IBreakEvenAnalysisService
     {
         private readonly IBusinessProfileService _profileService;
         private readonly IIncomeStatementService _incomeStatementService;
-        private readonly IProductRepository _productRepository;
+        private readonly IShopErpProductCatalogService _productCatalog;
         private readonly IOrderRepository _orderRepository;
         private readonly ILogger<BreakEvenAnalysisService> _logger;
 
@@ -30,13 +34,13 @@ namespace VanAn.CoreHub.Services.FinancialIntelligence
         public BreakEvenAnalysisService(
             IBusinessProfileService profileService,
             IIncomeStatementService incomeStatementService,
-            IProductRepository productRepository,
+            IShopErpProductCatalogService productCatalog,
             IOrderRepository orderRepository,
             ILogger<BreakEvenAnalysisService> logger)
         {
             _profileService = profileService;
             _incomeStatementService = incomeStatementService;
-            _productRepository = productRepository;
+            _productCatalog = productCatalog;
             _orderRepository = orderRepository;
             _logger = logger;
         }
@@ -74,7 +78,9 @@ namespace VanAn.CoreHub.Services.FinancialIntelligence
                 decimal fixedCost = profile.TotalMonthlyFixedCost;
 
                 // Step 3 — Compute break-even
-                decimal breakEvenRevenue = cmRatio > 0m ? fixedCost / cmRatio : decimal.MaxValue;
+                // Bug 2 fix: use 0m instead of decimal.MaxValue when CM=0 (avoids leaking
+                // 79,228,162,514,264,337,593,543,950,335 to JSON/UI/Excel).
+                decimal breakEvenRevenue = cmRatio > 0m ? fixedCost / cmRatio : 0m;
 
                 // Units sold this period (sum of OrderItem.Quantity)
                 int unitsSold = await GetUnitsSoldAsync(tenantId, period, ct).ConfigureAwait(false);
@@ -82,7 +88,7 @@ namespace VanAn.CoreHub.Services.FinancialIntelligence
                 decimal avgVarCost = unitsSold > 0 ? variableCost / unitsSold : 0m;
                 decimal breakEvenUnits = (avgPrice - avgVarCost) > 0m && unitsSold > 0
                     ? fixedCost / (avgPrice - avgVarCost)
-                    : decimal.MaxValue;
+                    : 0m;
 
                 // Step 4 — Margin of safety
                 decimal mosRevenue = revenue - breakEvenRevenue;
@@ -130,12 +136,12 @@ namespace VanAn.CoreHub.Services.FinancialIntelligence
                         TotalFixedCost: 0m,
                         WeightedContributionMargin: 0m,
                         WeightedContributionMarginRatio: 0m,
-                        BreakEvenRevenue: decimal.MaxValue,
+                        BreakEvenRevenue: 0m,
                         ProductLines: Array.Empty<ProductBreakEvenLine>());
                 }
 
-                // Step 2 — Load Products + Orders for period
-                List<Product> products = await _productRepository.GetAllForManagementAsync(tenantId, ct).ConfigureAwait(false);
+                // Step 2 — Load Products (ShopERP SQLite via HTTP — Bug 3 fix) + Orders for period
+                List<ProductSnapshot> products = await _productCatalog.GetProductsAsync(tenantId, ct).ConfigureAwait(false);
                 if (products.Count == 0)
                 {
                     return EmptyMulti(tenantId, period, profile);
@@ -169,7 +175,7 @@ namespace VanAn.CoreHub.Services.FinancialIntelligence
                 decimal weightedCm = 0m;
                 foreach (var (productId, sold) in perProduct)
                 {
-                    Product? product = products.FirstOrDefault(p => p.Id == productId);
+                    ProductSnapshot? product = products.FirstOrDefault(p => p.ProductId == productId);
                     if (product is null)
                         continue;
 
@@ -183,9 +189,10 @@ namespace VanAn.CoreHub.Services.FinancialIntelligence
                     decimal salesMixPercent = totalRevenue > 0m ? sold.Revenue / totalRevenue : 0m;
 
                     // Allocation: FixedCost × SalesMix / CM_i (units)
+                    // Bug 5 fix: use 0m when CM<=0 or salesMix<=0 (was decimal.MaxValue)
                     decimal productBreakEvenUnits = cm > 0m && salesMixPercent > 0m
                         ? fixedCost * salesMixPercent / cm
-                        : decimal.MaxValue;
+                        : 0m;
 
                     weightedCm += cm * salesMixPercent;
 
@@ -202,7 +209,7 @@ namespace VanAn.CoreHub.Services.FinancialIntelligence
                 }
 
                 decimal weightedCmRatio = totalRevenue > 0m ? weightedCm / totalRevenue : 0m;
-                decimal breakEvenRevenue = weightedCmRatio > 0m ? fixedCost / weightedCmRatio : decimal.MaxValue;
+                decimal breakEvenRevenue = weightedCmRatio > 0m ? fixedCost / weightedCmRatio : 0m;
 
                 return new MultiProductBreakEven(
                     tenantId, period, DateTime.UtcNow, profile.Version,
@@ -220,7 +227,7 @@ namespace VanAn.CoreHub.Services.FinancialIntelligence
                     TotalFixedCost: 0m,
                     WeightedContributionMargin: 0m,
                     WeightedContributionMarginRatio: 0m,
-                    BreakEvenRevenue: decimal.MaxValue,
+                    BreakEvenRevenue: 0m,
                     ProductLines: Array.Empty<ProductBreakEvenLine>());
             }
         }
@@ -241,8 +248,8 @@ namespace VanAn.CoreHub.Services.FinancialIntelligence
                 TotalVariableCost: 0m,
                 TotalContributionMargin: 0m,
                 ContributionMarginRatio: 0m,
-                BreakEvenRevenue: decimal.MaxValue,
-                BreakEvenUnits: decimal.MaxValue,
+                BreakEvenRevenue: 0m,
+                BreakEvenUnits: 0m,
                 MarginOfSafetyRevenue: 0m,
                 MarginOfSafetyPercent: 0m,
                 Status: BreakEvenStatus.InsufficientData,
@@ -255,7 +262,7 @@ namespace VanAn.CoreHub.Services.FinancialIntelligence
                 TotalFixedCost: profile.TotalMonthlyFixedCost,
                 WeightedContributionMargin: 0m,
                 WeightedContributionMarginRatio: 0m,
-                BreakEvenRevenue: decimal.MaxValue,
+                BreakEvenRevenue: 0m,
                 ProductLines: Array.Empty<ProductBreakEvenLine>());
 
         private static BreakEvenStatus ClassifyStatus(decimal revenue, decimal breakEvenRevenue, decimal cmRatio)

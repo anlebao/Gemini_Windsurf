@@ -192,8 +192,10 @@ namespace VanAn.Integration.Tests
             result.TotalFixedCost.Should().Be(5_000_000m);
             result.AverageContributionMargin.Should().BeApproximately(0.3m, 0.0001m);
             result.RequiredRevenue.Should().BeApproximately(33_333_333.33m, 1m);
-            result.RequiredDailyUnits.Should().BeLessThanOrEqualTo(200m);
-            result.Feasible.Should().BeTrue(); // low target → required daily < 200
+            // Bug 4 fix: no orders seeded → unitsSold=0 → feasible=false with no-orders warning.
+            // RequiredRevenue is still valid (derived from CM ratio), but units cannot be computed.
+            result.Feasible.Should().BeFalse();
+            result.FeasibilityWarning.Should().Contain("Chưa có đơn hàng");
         }
 
         [Fact(DisplayName = "FI-P2.8.5: DI resolves all 4 Phase 2 calculation services")]

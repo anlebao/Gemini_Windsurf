@@ -43,7 +43,8 @@ namespace VanAn.Core.Tests.FinancialIntelligence
             BusinessProfile? profile,
             IncomeStatement income,
             int unitsSold = 100,
-            IEnumerable<Order>? orders = null)
+            IEnumerable<Order>? orders = null,
+            List<ProductSnapshot>? products = null)
         {
             var profileSvcMock = new Mock<IBusinessProfileService>();
             profileSvcMock.Setup(s => s.GetAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
@@ -51,14 +52,15 @@ namespace VanAn.Core.Tests.FinancialIntelligence
             var incomeMock = new Mock<IIncomeStatementService>();
             incomeMock.Setup(s => s.GenerateAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<AccountingStandard>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(income);
-            var productRepoMock = new Mock<IProductRepository>();
-            productRepoMock.Setup(r => r.GetAllForManagementAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()))
-                .ReturnsAsync(new List<Product>());
+            // Bug 3 fix: IProductRepository → IShopErpProductCatalogService
+            var catalogMock = new Mock<IShopErpProductCatalogService>();
+            catalogMock.Setup(c => c.GetProductsAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(products ?? new List<ProductSnapshot>());
             var orderRepoMock = new Mock<IOrderRepository>();
             orderRepoMock.Setup(r => r.GetByDateRangeAsync(It.IsAny<TenantId>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(orders ?? Enumerable.Empty<Order>());
             // unitsSold is implicit via orders (sum of OrderItem.Quantity). For single-product tests we synthesize orders.
-            return new BreakEvenAnalysisService(profileSvcMock.Object, incomeMock.Object, productRepoMock.Object, orderRepoMock.Object, NullLogger<BreakEvenAnalysisService>.Instance);
+            return new BreakEvenAnalysisService(profileSvcMock.Object, incomeMock.Object, catalogMock.Object, orderRepoMock.Object, NullLogger<BreakEvenAnalysisService>.Instance);
         }
 
         private static Order NewOrder(int quantity, decimal unitPrice)
@@ -164,7 +166,8 @@ namespace VanAn.Core.Tests.FinancialIntelligence
 
             result.ProductLines.Should().BeEmpty();
             result.TotalFixedCost.Should().Be(20_000_000m);
-            result.BreakEvenRevenue.Should().Be(decimal.MaxValue);
+            // Bug 2 fix: decimal.MaxValue → 0m when no sales/CM=0
+            result.BreakEvenRevenue.Should().Be(0m);
         }
     }
 }

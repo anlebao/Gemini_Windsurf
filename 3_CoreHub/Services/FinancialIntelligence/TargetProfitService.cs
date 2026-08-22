@@ -92,6 +92,14 @@ namespace VanAn.CoreHub.Services.FinancialIntelligence
                         ? "Chưa nhập DailyCapacityUnits — không kiểm tra được tính khả thi (CAPACITY_EXCEEDED)"
                         : $"Cần {Math.Ceiling(requiredDaily):N0} đơn vị/ngày nhưng capacity chỉ {profile.DailyCapacityUnits}/ngày (CAPACITY_EXCEEDED)";
 
+                // Bug 4 fix: when no orders in period, requiredUnits=0 → requiredDaily=0 → feasible=true
+                // is misleading. RequiredRevenue is still valid (from CM ratio), but units cannot be derived.
+                if (unitsSold == 0)
+                {
+                    feasible = false;
+                    warning = "Chưa có đơn hàng trong kỳ — không tính được số lượng cần bán. RequiredRevenue vẫn khả dụng.";
+                }
+
                 return new TargetProfitAnalysis(
                     tenantId, period, DateTime.UtcNow, profile.Version,
                     TargetProfit: targetProfit,

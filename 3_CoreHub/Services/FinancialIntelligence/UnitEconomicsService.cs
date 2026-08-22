@@ -12,10 +12,14 @@ namespace VanAn.CoreHub.Services.FinancialIntelligence
     /// by ProfitContribution (CM × UnitsSold) DESC.
     /// Guard codes (P2.6): PROFILE_MISSING, COST_PRICE_MISSING (flag, not block).
     /// Pure deterministic — Trust Level 1 (NFR-14).
+    ///
+    /// Bug 3 fix (2026-08-22): Products fetched from ShopERP SQLite via
+    /// <see cref="IShopErpProductCatalogService"/> (HTTP, routed by ShopInstanceId).
+    /// Gateway PG Products table is empty per Option C Phase 3.
     /// </summary>
     public class UnitEconomicsService : IUnitEconomicsService
     {
-        private readonly IProductRepository _productRepository;
+        private readonly IShopErpProductCatalogService _productCatalog;
         private readonly IOrderRepository _orderRepository;
         private readonly ILogger<UnitEconomicsService> _logger;
 
@@ -23,11 +27,11 @@ namespace VanAn.CoreHub.Services.FinancialIntelligence
         private const decimal CostPriceFallbackRatio = 0.70m;
 
         public UnitEconomicsService(
-            IProductRepository productRepository,
+            IShopErpProductCatalogService productCatalog,
             IOrderRepository orderRepository,
             ILogger<UnitEconomicsService> logger)
         {
-            _productRepository = productRepository;
+            _productCatalog = productCatalog;
             _orderRepository = orderRepository;
             _logger = logger;
         }
@@ -37,8 +41,9 @@ namespace VanAn.CoreHub.Services.FinancialIntelligence
         {
             try
             {
-                // Step 1 — Load all managed products for the tenant (incl. inactive — admin view).
-                List<Product> products = await _productRepository.GetAllForManagementAsync(tenantId, ct).ConfigureAwait(false);
+                // Step 1 — Load all managed products for the tenant from ShopERP SQLite (HTTP).
+                // Bug 3 fix: was IProductRepository.GetAllForManagementAsync (Gateway PG — empty per Option C).
+                List<ProductSnapshot> products = await _productCatalog.GetProductsAsync(tenantId, ct).ConfigureAwait(false);
                 if (products.Count == 0)
                 {
                     return Empty(tenantId, period, FinancialModelVersion.Initial);
@@ -63,9 +68,9 @@ namespace VanAn.CoreHub.Services.FinancialIntelligence
 
                 // Step 3 — Build per-product lines (only products with sales this period).
                 var lines = new List<UnitEconomicsLine>();
-                foreach (Product product in products)
+                foreach (ProductSnapshot product in products)
                 {
-                    if (!perProduct.TryGetValue(product.Id, out var sold))
+                    if (!perProduct.TryGetValue(product.ProductId, out var sold))
                         continue; // Skip products with no sales this period (no contribution to rank).
 
                     bool missingCost = product.CostPrice == 0m;
@@ -78,7 +83,7 @@ namespace VanAn.CoreHub.Services.FinancialIntelligence
                     decimal profitContribution = cm * sold.Units;
 
                     lines.Add(new UnitEconomicsLine(
-                        ProductId: product.Id,
+                        ProductId: product.ProductId,
                         ProductName: product.Name,
                         Category: product.Category,
                         SellingPrice: product.Price,

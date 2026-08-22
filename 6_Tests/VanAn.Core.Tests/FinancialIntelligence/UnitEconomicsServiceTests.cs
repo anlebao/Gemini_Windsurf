@@ -18,20 +18,8 @@ namespace VanAn.Core.Tests.FinancialIntelligence
         private static readonly TenantId Tenant = new(TenantGuid);
         private static readonly AccountingPeriod Period = AccountingPeriod.FromDateTime(new DateTime(2026, 8, 1));
 
-        private static Product NewProduct(Guid id, string name, decimal price, decimal costPrice, string category = "F&B")
-        {
-            // Product has protected setters — use reflection to populate for test fixtures.
-            var product = (Product)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(Product));
-            typeof(Product).GetProperty("Id")!.SetValue(product, id);
-            typeof(Product).GetProperty("ProductId")!.SetValue(product, new ProductId(id));
-            typeof(Product).GetProperty(nameof(Product.Name))!.SetValue(product, name);
-            typeof(Product).GetProperty(nameof(Product.Price))!.SetValue(product, price);
-            typeof(Product).GetProperty(nameof(Product.CostPrice))!.SetValue(product, costPrice);
-            typeof(Product).GetProperty(nameof(Product.Category))!.SetValue(product, category);
-            typeof(Product).GetProperty(nameof(Product.IsActive))!.SetValue(product, true);
-            typeof(Product).GetProperty("TenantId")!.SetValue(product, Tenant);
-            return product;
-        }
+        private static ProductSnapshot NewProduct(Guid id, string name, decimal price, decimal costPrice, string category = "F&B")
+            => new(id, name, price, costPrice, category);
 
         private static OrderItem NewItem(Guid productId, int qty, decimal unitPrice)
             => OrderItem.Create(Guid.NewGuid(), Tenant, Guid.NewGuid(), productId, qty, unitPrice, "Test");
@@ -39,21 +27,22 @@ namespace VanAn.Core.Tests.FinancialIntelligence
         private static Order NewOrder(params OrderItem[] items)
             => Order.Create(Guid.NewGuid(), Tenant, customerId: null, items: items.ToList());
 
-        private static UnitEconomicsService NewService(List<Product> products, IEnumerable<Order> orders)
+        private static UnitEconomicsService NewService(List<ProductSnapshot> products, IEnumerable<Order> orders)
         {
-            var productRepoMock = new Mock<IProductRepository>();
-            productRepoMock.Setup(r => r.GetAllForManagementAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()))
+            // Bug 3 fix: IProductRepository → IShopErpProductCatalogService
+            var catalogMock = new Mock<IShopErpProductCatalogService>();
+            catalogMock.Setup(c => c.GetProductsAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(products);
             var orderRepoMock = new Mock<IOrderRepository>();
             orderRepoMock.Setup(r => r.GetByDateRangeAsync(It.IsAny<TenantId>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(orders);
-            return new UnitEconomicsService(productRepoMock.Object, orderRepoMock.Object, NullLogger<UnitEconomicsService>.Instance);
+            return new UnitEconomicsService(catalogMock.Object, orderRepoMock.Object, NullLogger<UnitEconomicsService>.Instance);
         }
 
         [Fact]
         public async Task AnalyzeAsync_NoProducts_ReturnsEmptyReport()
         {
-            var svc = NewService(new List<Product>(), Enumerable.Empty<Order>());
+            var svc = NewService(new List<ProductSnapshot>(), Enumerable.Empty<Order>());
 
             UnitEconomicsReport result = await svc.AnalyzeAsync(Tenant, Period);
 
@@ -65,7 +54,7 @@ namespace VanAn.Core.Tests.FinancialIntelligence
         public async Task AnalyzeAsync_NoSalesInPeriod_ReturnsEmptyReport()
         {
             var p = NewProduct(Guid.NewGuid(), "Cafe", 30_000m, 12_000m);
-            var svc = NewService(new List<Product> { p }, Enumerable.Empty<Order>());
+            var svc = NewService(new List<ProductSnapshot> { p }, Enumerable.Empty<Order>());
 
             UnitEconomicsReport result = await svc.AnalyzeAsync(Tenant, Period);
 
@@ -83,11 +72,11 @@ namespace VanAn.Core.Tests.FinancialIntelligence
             // p1 sold 100 (contribution 1.8M), p2 sold 300 (1.8M), p3 sold 50 (250k)
             var orders = new[]
             {
-                NewOrder(NewItem(p1.Id, 100, 30_000m)),
-                NewOrder(NewItem(p2.Id, 300, 10_000m)),
-                NewOrder(NewItem(p3.Id, 50, 25_000m)),
+                NewOrder(NewItem(p1.ProductId, 100, 30_000m)),
+                NewOrder(NewItem(p2.ProductId, 300, 10_000m)),
+                NewOrder(NewItem(p3.ProductId, 50, 25_000m)),
             };
-            var svc = NewService(new List<Product> { p1, p2, p3 }, orders);
+            var svc = NewService(new List<ProductSnapshot> { p1, p2, p3 }, orders);
 
             UnitEconomicsReport result = await svc.AnalyzeAsync(Tenant, Period);
 
@@ -103,8 +92,8 @@ namespace VanAn.Core.Tests.FinancialIntelligence
         public async Task AnalyzeAsync_MissingCostPrice_FlagsAndFallsBackTo70Percent()
         {
             var p = NewProduct(Guid.NewGuid(), "Cafe", 30_000m, costPrice: 0m); // missing → fallback 70%
-            var orders = new[] { NewOrder(NewItem(p.Id, 100, 30_000m)) };
-            var svc = NewService(new List<Product> { p }, orders);
+            var orders = new[] { NewOrder(NewItem(p.ProductId, 100, 30_000m)) };
+            var svc = NewService(new List<ProductSnapshot> { p }, orders);
 
             UnitEconomicsReport result = await svc.AnalyzeAsync(Tenant, Period);
 

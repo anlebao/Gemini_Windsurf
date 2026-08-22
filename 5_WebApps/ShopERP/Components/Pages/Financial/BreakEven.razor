@@ -62,7 +62,7 @@
         <VanACard Header="Điểm hòa vốn (tổng hợp)" Hoverable="true" data-testid="card-breakeven-single">
             <div class="metrics-row">
                 <VanAMetricsCard Title="Doanh thu hòa vốn" Value="@FormatVnd(_single.BreakEvenRevenue)" Icon="⚖️" Color="primary" />
-                <VanAMetricsCard Title="Sản lượng hòa vốn" Value="@_single.BreakEvenUnits.ToString("N0")" Icon="📦" Color="secondary" />
+                <VanAMetricsCard Title="Sản lượng hòa vốn" Value="@FormatUnits(_single.BreakEvenUnits)" Icon="📦" Color="secondary" />
                 <VanAMetricsCard Title="Biên an toàn" Value="@FormatVnd(_single.MarginOfSafetyRevenue)" Icon="🛡️" Color="@(_single.Status == BreakEvenStatus.AboveBreakEven ? "success" : "warning")" />
                 <VanAMetricsCard Title="Trạng thái" Value="@BreakEvenStatusLabel(_single.Status)" Icon="📊" Color="@BreakEvenColor()" />
             </div>
@@ -78,7 +78,7 @@
                     <tr><td>Tổng biên đóng góp</td><td>@FormatVnd(_single.TotalContributionMargin)</td></tr>
                     <tr><td>Tỷ lệ biên đóng góp</td><td>@FormatPercent(_single.ContributionMarginRatio)</td></tr>
                     <tr><td>Doanh thu hòa vốn</td><td><strong>@FormatVnd(_single.BreakEvenRevenue)</strong></td></tr>
-                    <tr><td>Sản lượng hòa vốn</td><td><strong>@_single.BreakEvenUnits.ToString("N0")</strong></td></tr>
+                    <tr><td>Sản lượng hòa vốn</td><td><strong>@FormatUnits(_single.BreakEvenUnits)</strong></td></tr>
                     <tr><td>Biên an toàn (VND)</td><td>@FormatVnd(_single.MarginOfSafetyRevenue)</td></tr>
                     <tr><td>Biên an toàn (%)</td><td>@FormatPercent(_single.MarginOfSafetyPercent)</td></tr>
                     <tr><td>Phiên bản mô hình</td><td>@_single.ModelVersion</td></tr>
@@ -136,7 +136,7 @@
                                 <td>@FormatPercent(line.ContributionMarginRatio)</td>
                                 <td>@FormatPercent(line.SalesMixPercent)</td>
                                 <td>@line.UnitsSoldInPeriod.ToString("N0")</td>
-                                <td>@line.ProductBreakEvenUnits.ToString("N0")</td>
+                                <td>@FormatUnits(line.ProductBreakEvenUnits)</td>
                             </tr>
                         }
                     </tbody>
@@ -219,6 +219,8 @@
 
     private static string FormatVnd(decimal v) => v.ToString("N0") + " đ";
     private static string FormatPercent(decimal v) => v.ToString("N1") + "%";
+    // Bug 2 UI fix: show "N/A" when break-even units = 0 (CM=0 or no orders — was decimal.MaxValue)
+    private static string FormatUnits(decimal v) => v <= 0m ? "N/A" : v.ToString("N0");
     private static string BreakEvenStatusLabel(BreakEvenStatus s) => s switch
     {
         BreakEvenStatus.AboveBreakEven => "Vượt hòa vốn",

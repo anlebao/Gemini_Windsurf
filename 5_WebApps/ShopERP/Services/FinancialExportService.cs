@@ -33,7 +33,7 @@ namespace VanAn.ShopERP.Services
                 ["Tổng biên đóng góp", FormatVnd(single.TotalContributionMargin)],
                 ["Tỷ lệ biên đóng góp", FormatPercent(single.ContributionMarginRatio)],
                 ["Doanh thu hòa vốn", FormatVnd(single.BreakEvenRevenue)],
-                ["Sản lượng hòa vốn", single.BreakEvenUnits.ToString("N0")],
+                ["Sản lượng hòa vốn", FormatUnits(single.BreakEvenUnits)],
                 ["Biên an toàn (VND)", FormatVnd(single.MarginOfSafetyRevenue)],
                 ["Biên an toàn (%)", FormatPercent(single.MarginOfSafetyPercent)],
                 ["Trạng thái", BreakEvenStatusLabel(single.Status)],
@@ -64,7 +64,8 @@ namespace VanAn.ShopERP.Services
                     sheet2.Cells[row, 5].Value = (double)line.ContributionMarginRatio;
                     sheet2.Cells[row, 6].Value = (double)line.SalesMixPercent;
                     sheet2.Cells[row, 7].Value = line.UnitsSoldInPeriod;
-                    sheet2.Cells[row, 8].Value = (double)line.ProductBreakEvenUnits;
+                    sheet2.Cells[row, 8].Value = line.ProductBreakEvenUnits > 0m ? (double)line.ProductBreakEvenUnits : 0;
+                    sheet2.Cells[row, 8].Style.Numberformat.Format = line.ProductBreakEvenUnits > 0m ? "#,##0" : "\"N/A\"";
                     for (int c = 2; c <= 6; c++) sheet2.Cells[row, c].Style.Numberformat.Format = "#,##0";
                     row++;
                 }
@@ -154,6 +155,8 @@ namespace VanAn.ShopERP.Services
 
         private static string FormatVnd(decimal v) => v.ToString("N0", CultureInfo.InvariantCulture) + " ₫";
         private static string FormatPercent(decimal v) => v.ToString("N1", CultureInfo.InvariantCulture) + "%";
+        // Bug 2 Excel fix: show "N/A" when break-even units = 0 (CM=0 or no orders)
+        private static string FormatUnits(decimal v) => v <= 0m ? "N/A" : v.ToString("N0", CultureInfo.InvariantCulture);
         private static string BreakEvenStatusLabel(BreakEvenStatus s) => s switch
         {
             BreakEvenStatus.AboveBreakEven => "Vượt hòa vốn",

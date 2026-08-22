@@ -56,9 +56,10 @@ namespace VanAn.CoreHub.Repositories
             {
                 return await _context.Orders
                     .AsNoTracking()
+                    .Include(o => o.Items)
                     .Where(o => o.TenantId == tenantId &&
                                o.CreatedAt.Date >= startDate.Date &&
-                               o.CreatedAt.Date <= endDate.Date)
+                               o.CreatedAt.Date < endDate.Date)
                     .OrderByDescending(o => o.CreatedAt)
                     .ToListAsync(cancellationToken);
             }
