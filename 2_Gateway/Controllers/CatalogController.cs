@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
@@ -15,6 +16,8 @@ namespace VanAn.Gateway.Controllers
     /// </summary>
     [ApiController]
     [Route("api/catalog")]
+    // Phase 1 Scaling: catalog rate limit (60 req/min/IP) + response cache (5 min — product catalog changes infrequently)
+    [EnableRateLimiting("catalog")]
     public class CatalogController(
         IVanAnDbContext dbContext,
         ILogger<CatalogController> logger) : ControllerBase
@@ -28,6 +31,9 @@ namespace VanAn.Gateway.Controllers
         /// </summary>
         [HttpGet("recommended")]
         [AllowAnonymous]
+        // Phase 1 Scaling: cache 5 min at CDN/browser — reduces PG load 90%+ for catalog browse.
+        // VaryByQueryKeys ensures different customerId/page/pageSize get separate cache entries.
+        [ResponseCache(Duration = 300, Location = ResponseCacheLocation.Any, VaryByQueryKeys = new[] { "customerId", "page", "pageSize" })]
         public async Task<ActionResult<RecommendedCatalogResponse>> Recommended(
             [FromQuery] Guid? customerId,
             [FromQuery] int page = 1,

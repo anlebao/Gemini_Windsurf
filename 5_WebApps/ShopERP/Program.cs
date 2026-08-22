@@ -97,8 +97,11 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddServerSideBlazor()
                 .AddHubOptions(options =>
                 {
-                    options.KeepAliveInterval = TimeSpan.FromSeconds(30);
-                    options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
+                    // Phase 1 Scaling: KeepAliveInterval 30s → 15s (ping dày hơn, khó bị proxy idle kill).
+                    // ClientTimeoutInterval 60s → 120s (chờ lâu hơn trước tuyên bố circuit chết).
+                    // Fixes "Kết nối bị gián đoạn" modal hiện mỗi vài chục giây khi proxy idle timeout < 30s.
+                    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+                    options.ClientTimeoutInterval = TimeSpan.FromSeconds(120);
                     options.HandshakeTimeout = TimeSpan.FromSeconds(15);
                     options.MaximumReceiveMessageSize = 10 * 1024 * 1024; // 10MB
                 });

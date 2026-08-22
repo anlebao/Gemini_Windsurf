@@ -9,6 +9,9 @@
 services:
   postgres:
     image: postgres:15-alpine
+    # Phase 1 Scaling: max_connections=300 (match Npgsql pool), shared_buffers=256MB for 1000 tenant.
+    # Default max_connections=100 → pool exhaust at 100 concurrent query → 503.
+    command: ["postgres", "-c", "max_connections=300", "-c", "shared_buffers=256MB", "-c", "work_mem=4MB"]
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-VanAnCoreHub}
       - POSTGRES_USER=${POSTGRES_USER:-vanan_admin}
@@ -124,7 +127,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512m
+          memory: 1g  # Phase 1 Scaling: was 512m — OOM at 50+ concurrent request. e2-medium 4GB has headroom.
     logging:
       driver: "json-file"
       options:

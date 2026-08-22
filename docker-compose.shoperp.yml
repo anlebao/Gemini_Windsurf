@@ -75,7 +75,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512m
+          memory: 1536m  # Phase 1 Scaling: was 512m — OOM at 30+ Blazor circuit. e2-medium 4GB has headroom.
     logging:
       driver: "json-file"
       options:

@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text;
+using System.Threading.RateLimiting;
 using VanAn.Shared.Services;
 using VanAn.Shared.Domain.Common;
 using VanAn.Shared.Domain;
@@ -74,16 +75,79 @@ namespace VanAn.Gateway
                 });
             _ = builder.Services.AddSignalR();
 
+            // Phase 1 Scaling: Response caching — enables [ResponseCache] attributes on controllers.
+            // Reduces PG load for catalog/recommended endpoints (cache 5 min at CDN/browser).
+            _ = builder.Services.AddResponseCaching();
+
+            // Phase 1 Scaling: Rate limiting — classify by endpoint type to prevent abuse.
+            // checkout: 10 req/min/IP (write — DB write + outbox + NATS publish)
+            // catalog: 60 req/min/IP (read — cached query, cheap)
+            // auth: 5 req/min/IP (BCrypt — brute-force protection)
+            // Default: 120 req/min/IP (general API)
+            _ = builder.Services.AddRateLimiter(options =>
+            {
+                options.AddPolicy("checkout", context =>
+                {
+                    string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0
+                    });
+                });
+
+                options.AddPolicy("catalog", context =>
+                {
+                    string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 60,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0
+                    });
+                });
+
+                options.AddPolicy("auth", context =>
+                {
+                    string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 5,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0
+                    });
+                });
+            });
+
             // Register CoreHub DbContext for monolithic architecture (in-process services)
             string connectionString = builder.Configuration.GetSection("ConnectionStrings")["DefaultConnection"]
                 ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection configuration is required in Gateway.");
+            // Phase 1 Scaling: Increase Npgsql pool size for production (default 100 → 300).
+            // 1000 tenant × 10% online = 100 concurrent query → default pool exhausts → 503.
+            // Only append for Npgsql (production); SQLite (dev) doesn't need pool tuning.
+            if (!connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase)
+                && !connectionString.Contains("MaximumPoolSize", StringComparison.OrdinalIgnoreCase))
+            {
+                connectionString += ";MaximumPoolSize=300;MinimumPoolSize=10;ConnectionIdleLifetime=300";
+            }
             _ = builder.Services.AddDbContext<VanAn.CoreHub.Infrastructure.IVanAnDbContext, VanAn.CoreHub.Infrastructure.VanAnDbContext>(options =>
             {
                 // Auto-detect provider: SQLite ("Data Source=") for local dev, Npgsql ("Host=") for production
                 if (connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
                     options.UseSqlite(connectionString);
                 else
-                    options.UseNpgsql(connectionString);
+                    options.UseNpgsql(connectionString, npgsql =>
+                    {
+                        // Phase 1 Scaling: retry on transient failures (connection reset, failover)
+                        npgsql.EnableRetryOnFailure(
+                            maxRetryCount: 3,
+                            maxRetryDelay: TimeSpan.FromSeconds(2),
+                            errorCodesToAdd: null);
+                    });
             });
 
             // Wave 1-3: Register IAccountingDbContext → VanAnDbContext (same instance, implements both interfaces).
@@ -561,6 +625,14 @@ namespace VanAn.Gateway
                 _ = app.UseAuthentication();
                 _ = app.UseAuthorization();
 
+                // Phase 1 Scaling: Rate limiting middleware — must run after auth (so [EnableRateLimiting] attributes apply)
+                // but before MapControllers (so endpoint policies are enforced).
+                _ = app.UseRateLimiter();
+
+                // Phase 1 Scaling: Response caching middleware — serves cached responses for [ResponseCache] endpoints.
+                // Must run after auth (so authorized responses aren't cached for wrong users) but before MapControllers.
+                _ = app.UseResponseCaching();
+
                 // Wave 14: HMAC Request Signing — validate signatures on protected paths
                 _ = app.UseMiddleware<VanAn.Gateway.Middleware.HmacSigningMiddleware>();
 
@@ -583,6 +655,48 @@ namespace VanAn.Gateway
 
                 // Health check endpoint
                 _ = app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", Service = "VanAn Gateway", Timestamp = DateTime.UtcNow }));
+
+                // Phase 1 Scaling: Detailed health check — returns PG connection count, memory usage, process info.
+                // Used by monitoring (Phase 3 Prometheus) + capacity dashboard (Phase 2 admin UI).
+                _ = app.MapGet("/health/detail", async (VanAnDbContext db) =>
+                {
+                    try
+                    {
+                        // PG connection count — should stay < 250 when 1000 tenant active (pool max 300)
+                        var conn = db.Database.GetDbConnection();
+                        await conn.OpenAsync();
+                        using var cmd = conn.CreateCommand();
+                        cmd.CommandText = "SELECT count(*) FROM pg_stat_activity";
+                        var pgConnections = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+                        await conn.CloseAsync();
+
+                        var process = System.Diagnostics.Process.GetCurrentProcess();
+                        var memoryMb = process.WorkingSet64 / (1024 * 1024);
+
+                        return Results.Ok(new
+                        {
+                            Status = "Healthy",
+                            Service = "VanAn Gateway",
+                            Timestamp = DateTime.UtcNow,
+                            PostgresConnections = pgConnections,
+                            PostgresPoolMax = 300,
+                            MemoryMb = memoryMb,
+                            MemoryLimitMb = 1024,
+                            UptimeMinutes = (int)(DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime()).TotalMinutes,
+                            GcTotalMemoryMb = GC.GetTotalMemory(false) / (1024 * 1024),
+                            Gen0Collections = GC.CollectionCount(0),
+                            Gen1Collections = GC.CollectionCount(1),
+                            Gen2Collections = GC.CollectionCount(2)
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        return Results.Problem(
+                            title: "Health check failed",
+                            detail: ex.Message,
+                            statusCode: 503);
+                    }
+                });
 
                 // ÉP CỨNG BINDING - Fix 404
                 // Respect ASPNETCORE_URLS env (Docker: http://+:80). Fallback to 5001 for local dev.

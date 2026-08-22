@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using VanAn.Shared.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using VanAn.CoreHub.Commands;
@@ -15,6 +16,9 @@ namespace VanAn.Gateway.Controllers
     [ApiController]
     [Route("api/public/orders")]
     [AllowAnonymous]
+    // Phase 1 Scaling: checkout rate limit (10 req/min/IP) — prevents order spam from single IP.
+    // Applied at controller level so both CreateGuestOrder and CreateCheckoutOrder are protected.
+    [EnableRateLimiting("checkout")]
     public class PublicOrdersController(
         IOrderService orderService,
         ISocialCampaignService socialCampaignService,
