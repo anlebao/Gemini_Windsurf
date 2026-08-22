@@ -65,31 +65,31 @@
             <div class="form-grid">
                 <div class="form-field">
                     <label for="rent">Tiền thuê mặt bằng</label>
-                    <input id="rent" type="number" min="0" step="1000" @bind="_rent" class="form-input" />
+                    <input id="rent" type="text" inputmode="numeric" @bind="_rentStr" @onblur="@(() => FormatField(nameof(_rentStr)))" class="form-input" placeholder="0" />
                 </div>
                 <div class="form-field">
                     <label for="payroll">Lương nhân sự</label>
-                    <input id="payroll" type="number" min="0" step="1000" @bind="_payroll" class="form-input" />
+                    <input id="payroll" type="text" inputmode="numeric" @bind="_payrollStr" @onblur="@(() => FormatField(nameof(_payrollStr)))" class="form-input" placeholder="0" />
                 </div>
                 <div class="form-field">
                     <label for="utilities">Điện nước + tiện ích</label>
-                    <input id="utilities" type="number" min="0" step="1000" @bind="_utilities" class="form-input" />
+                    <input id="utilities" type="text" inputmode="numeric" @bind="_utilitiesStr" @onblur="@(() => FormatField(nameof(_utilitiesStr)))" class="form-input" placeholder="0" />
                 </div>
                 <div class="form-field">
                     <label for="marketing">Marketing + quảng cáo</label>
-                    <input id="marketing" type="number" min="0" step="1000" @bind="_marketing" class="form-input" />
+                    <input id="marketing" type="text" inputmode="numeric" @bind="_marketingStr" @onblur="@(() => FormatField(nameof(_marketingStr)))" class="form-input" placeholder="0" />
                 </div>
                 <div class="form-field">
                     <label for="logistics">Vận chuyển + logistics</label>
-                    <input id="logistics" type="number" min="0" step="1000" @bind="_logistics" class="form-input" />
+                    <input id="logistics" type="text" inputmode="numeric" @bind="_logisticsStr" @onblur="@(() => FormatField(nameof(_logisticsStr)))" class="form-input" placeholder="0" />
                 </div>
                 <div class="form-field">
                     <label for="other">Chi phí vận hành khác</label>
-                    <input id="other" type="number" min="0" step="1000" @bind="_other" class="form-input" />
+                    <input id="other" type="text" inputmode="numeric" @bind="_otherStr" @onblur="@(() => FormatField(nameof(_otherStr)))" class="form-input" placeholder="0" />
                 </div>
                 <div class="form-field">
                     <label for="depreciation">Khấu hao tài sản</label>
-                    <input id="depreciation" type="number" min="0" step="1000" @bind="_depreciation" class="form-input" />
+                    <input id="depreciation" type="text" inputmode="numeric" @bind="_depreciationStr" @onblur="@(() => FormatField(nameof(_depreciationStr)))" class="form-input" placeholder="0" />
                 </div>
             </div>
 
@@ -155,7 +155,7 @@
     private string _errorMessage = string.Empty;
     private BusinessProfileDto? _existing;
 
-    // Form fields
+    // Form fields — decimal backing + formatted string for UI
     private decimal _rent;
     private decimal _payroll;
     private decimal _utilities;
@@ -167,6 +167,15 @@
     private int _operatingDays = 26;
     private PricingModel _pricingModel = PricingModel.FixedPrice;
     private string? _notes;
+
+    // String backing fields for formatted money inputs (Bug C fix)
+    private string _rentStr = string.Empty;
+    private string _payrollStr = string.Empty;
+    private string _utilitiesStr = string.Empty;
+    private string _marketingStr = string.Empty;
+    private string _logisticsStr = string.Empty;
+    private string _otherStr = string.Empty;
+    private string _depreciationStr = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -195,6 +204,7 @@
                 _operatingDays = _existing.OperatingDaysPerMonth;
                 _pricingModel = _existing.PricingModel;
                 _notes = _existing.Notes;
+                SyncStringFields();
             }
         }
         catch (Exception ex)
@@ -215,6 +225,15 @@
         _errorMessage = string.Empty;
         try
         {
+            // Parse string fields to decimal before save
+            _rent = ParseMoney(_rentStr);
+            _payroll = ParseMoney(_payrollStr);
+            _utilities = ParseMoney(_utilitiesStr);
+            _marketing = ParseMoney(_marketingStr);
+            _logistics = ParseMoney(_logisticsStr);
+            _other = ParseMoney(_otherStr);
+            _depreciation = ParseMoney(_depreciationStr);
+
             var dto = new UpdateBusinessProfileDto(
                 _rent, _payroll, _utilities, _marketing, _logistics, _other, _depreciation,
                 _capacity, _operatingDays, _pricingModel, _notes);
@@ -227,6 +246,7 @@
             {
                 _existing = result;
                 _saved = true;
+                SyncStringFields();
             }
         }
         catch (Exception ex)
@@ -238,6 +258,55 @@
         {
             _saving = false;
         }
+    }
+
+    /// <summary>Format the string field with thousand separators on blur.</summary>
+    private void FormatField(string fieldName)
+    {
+        var (str, val) = fieldName switch
+        {
+            nameof(_rentStr) => (_rentStr, _rent),
+            nameof(_payrollStr) => (_payrollStr, _payroll),
+            nameof(_utilitiesStr) => (_utilitiesStr, _utilities),
+            nameof(_marketingStr) => (_marketingStr, _marketing),
+            nameof(_logisticsStr) => (_logisticsStr, _logistics),
+            nameof(_otherStr) => (_otherStr, _other),
+            nameof(_depreciationStr) => (_depreciationStr, _depreciation),
+            _ => (string.Empty, 0m),
+        };
+        var parsed = ParseMoney(str);
+        var formatted = parsed.ToString("N0");
+        switch (fieldName)
+        {
+            case nameof(_rentStr): _rent = parsed; _rentStr = formatted; break;
+            case nameof(_payrollStr): _payroll = parsed; _payrollStr = formatted; break;
+            case nameof(_utilitiesStr): _utilities = parsed; _utilitiesStr = formatted; break;
+            case nameof(_marketingStr): _marketing = parsed; _marketingStr = formatted; break;
+            case nameof(_logisticsStr): _logistics = parsed; _logisticsStr = formatted; break;
+            case nameof(_otherStr): _other = parsed; _otherStr = formatted; break;
+            case nameof(_depreciationStr): _depreciation = parsed; _depreciationStr = formatted; break;
+        }
+    }
+
+    /// <summary>Parse money string (handles thousand separators, spaces, "đ" suffix).</summary>
+    private static decimal ParseMoney(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return 0m;
+        // Remove everything except digits and decimal point
+        var clean = s.Replace(",", "").Replace(".", "").Replace(" ", "").Replace("đ", "").Trim();
+        return decimal.TryParse(clean, out decimal v) ? v : 0m;
+    }
+
+    /// <summary>Sync decimal backing fields → formatted string fields.</summary>
+    private void SyncStringFields()
+    {
+        _rentStr = _rent.ToString("N0");
+        _payrollStr = _payroll.ToString("N0");
+        _utilitiesStr = _utilities.ToString("N0");
+        _marketingStr = _marketing.ToString("N0");
+        _logisticsStr = _logistics.ToString("N0");
+        _otherStr = _other.ToString("N0");
+        _depreciationStr = _depreciation.ToString("N0");
     }
 
     private static string FormatVnd(decimal value) => value.ToString("N0") + " đ";

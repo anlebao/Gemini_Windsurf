@@ -51,13 +51,21 @@ namespace VanAn.ShopERP.Services
                 ?? user.FindFirst(ClaimTypes.Email)?.Value
                 ?? "systemadmin@vanan.vn";
 
-            _logger.LogDebug("Minting SystemAdmin JWT for user {UserId} ({Email})", userId, email);
+            // VA-FI-MVP2 Bug fix: extract REAL tenant_id from current user's claims (not Guid.Empty).
+            // Guid.Empty → JWT has tenant_id=00000000-0000-0000-0000-000000000000 → Gateway controller
+            // returns 401 "Missing tenant_id claim" → all Financial Intelligence UI calls fail silently.
+            // Dual-read: "tenant_id" (snake_case OIDC) + legacy "TenantId" (PascalCase).
+            string? tenantIdStr = user.FindFirst("tenant_id")?.Value
+                ?? user.FindFirst("TenantId")?.Value;
+            Guid tenantId = Guid.TryParse(tenantIdStr, out Guid tid) ? tid : Guid.Empty;
+
+            _logger.LogDebug("Minting SystemAdmin JWT for user {UserId} ({Email}), tenant {TenantId}", userId, email, tenantId);
 
             return _jwtTokenService.GenerateToken(
                 Guid.TryParse(userId, out Guid id) ? id : Guid.NewGuid(),
                 email,
                 "SystemAdmin",
-                Guid.Empty);
+                tenantId);
         }
 
         /// <summary>Create an HttpRequestMessage with SystemAdmin Bearer auth.</summary>
