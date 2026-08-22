@@ -718,6 +718,12 @@ namespace VanAn.Gateway
                 }
 
                 // 2. If SEED_SHOP_INSTANCE_ID is set but ShopInstance doesn't exist → auto-create
+                // VA-FI-MVP2 Bug 3 fix: use ShopERP:BaseUrl from config (not "http://localhost")
+                // so Gateway-to-ShopERP HTTP forwarding works in multi-VPS deployments.
+                var config = serviceProvider.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>();
+                string seedBaseUrl = Environment.GetEnvironmentVariable("ShopERP__BaseUrl")
+                    ?? config["ShopERP:BaseUrl"]
+                    ?? "http://shoperp:80/";
                 if (preferredShopInstanceId.HasValue)
                 {
                     bool exists = await db.ShopInstances
@@ -726,7 +732,7 @@ namespace VanAn.Gateway
                     if (!exists)
                     {
                         var seedInstance = new ShopInstance(
-                            baseUrl: "http://localhost",
+                            baseUrl: seedBaseUrl,
                             label: $"Seeded {preferredShopInstanceId.Value.ToString()[..8]}",
                             maxTenants: 100);
                         // BaseEntity.Id has protected setter — use reflection to set the seed ID
@@ -735,9 +741,27 @@ namespace VanAn.Gateway
                             .SetValue(seedInstance, preferredShopInstanceId.Value);
                         db.ShopInstances.Add(seedInstance);
                         await db.SaveChangesAsync();
-                        Log.Information("SeedShopInstance: auto-created ShopInstance {Id} (label={Label})",
-                            seedInstance.Id, seedInstance.Label);
+                        Log.Information("SeedShopInstance: auto-created ShopInstance {Id} (label={Label}, baseUrl={BaseUrl})",
+                            seedInstance.Id, seedInstance.Label, seedInstance.BaseUrl);
                     }
+                }
+
+                // 2b. Fix existing ShopInstances with "http://localhost" BaseUrl (config drift from
+                // pre-fix seed code). Update to current ShopERP:BaseUrl so HTTP forwarding works.
+                var localhostInstances = await db.ShopInstances
+                    .IgnoreQueryFilters()
+                    .Where(s => s.BaseUrl == "http://localhost")
+                    .ToListAsync();
+                if (localhostInstances.Count > 0)
+                {
+                    foreach (var inst in localhostInstances)
+                    {
+                        typeof(ShopInstance).GetProperty(nameof(ShopInstance.BaseUrl))!
+                            .SetValue(inst, seedBaseUrl);
+                    }
+                    await db.SaveChangesAsync();
+                    Log.Information("SeedShopInstance: updated {Count} ShopInstance(s) with localhost BaseUrl → {BaseUrl}",
+                        localhostInstances.Count, seedBaseUrl);
                 }
 
                 // 3. Find target ShopInstance — prefer SEED_SHOP_INSTANCE_ID match, else first active
