@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Caching.Memory;
+using System.Text.Json;
 using VanAn.Shared.Domain;
 
 namespace VanAn.Directory.Services;
@@ -13,13 +14,15 @@ public class ShopConfigService
     private readonly HttpClient _httpClient;
     private readonly IMemoryCache _cache;
     private readonly ILogger<ShopConfigService> _logger;
+    private readonly JsonSerializerOptions _jsonOptions;
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
-    public ShopConfigService(HttpClient httpClient, IMemoryCache cache, ILogger<ShopConfigService> logger)
+    public ShopConfigService(HttpClient httpClient, IMemoryCache cache, ILogger<ShopConfigService> logger, JsonSerializerOptions jsonOptions)
     {
         _httpClient = httpClient;
         _cache = cache;
         _logger = logger;
+        _jsonOptions = jsonOptions;
     }
 
     public static ShopConfig DefaultShopConfig => new();
@@ -46,7 +49,7 @@ public class ShopConfigService
                 return DefaultShopConfig;
             }
 
-            var store = await resp.Content.ReadFromJsonAsync<TenantStoreDto>();
+            var store = await resp.Content.ReadFromJsonAsync<TenantStoreDto>(_jsonOptions);
             if (store == null) return DefaultShopConfig;
 
             var config = BuildShopConfigFromStore(store);

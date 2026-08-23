@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace VanAn.Directory.Services;
 
 /// <summary>
@@ -9,11 +11,13 @@ public class CatalogService
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<CatalogService> _logger;
+    private readonly JsonSerializerOptions _jsonOptions;
 
-    public CatalogService(HttpClient httpClient, ILogger<CatalogService> logger)
+    public CatalogService(HttpClient httpClient, ILogger<CatalogService> logger, JsonSerializerOptions jsonOptions)
     {
         _httpClient = httpClient;
         _logger = logger;
+        _jsonOptions = jsonOptions;
     }
 
     /// <summary>Search stores by name. Returns empty list on error.</summary>
@@ -34,7 +38,7 @@ public class CatalogService
                 _logger.LogWarning("SearchStoresAsync: {Status}", resp.StatusCode);
                 return [];
             }
-            return await resp.Content.ReadFromJsonAsync<List<TenantStoreDto>>() ?? [];
+            return await resp.Content.ReadFromJsonAsync<List<TenantStoreDto>>(_jsonOptions) ?? [];
         }
         catch (Exception ex)
         {
@@ -54,7 +58,7 @@ public class CatalogService
                 _logger.LogWarning("GetNearbyStoresAsync: {Status}", resp.StatusCode);
                 return [];
             }
-            return await resp.Content.ReadFromJsonAsync<List<TenantStoreDto>>() ?? [];
+            return await resp.Content.ReadFromJsonAsync<List<TenantStoreDto>>(_jsonOptions) ?? [];
         }
         catch (Exception ex)
         {

@@ -14,13 +14,15 @@ public class InstanceConfigService
     private readonly HttpClient _httpClient;
     private readonly IMemoryCache _cache;
     private readonly ILogger<InstanceConfigService> _logger;
+    private readonly JsonSerializerOptions _jsonOptions;
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
-    public InstanceConfigService(HttpClient httpClient, IMemoryCache cache, ILogger<InstanceConfigService> logger)
+    public InstanceConfigService(HttpClient httpClient, IMemoryCache cache, ILogger<InstanceConfigService> logger, JsonSerializerOptions jsonOptions)
     {
         _httpClient = httpClient;
         _cache = cache;
         _logger = logger;
+        _jsonOptions = jsonOptions;
     }
 
     /// <summary>
@@ -46,7 +48,7 @@ public class InstanceConfigService
                 return null;
             }
 
-            var dto = await resp.Content.ReadFromJsonAsync<KhachLinkInstanceDto>();
+            var dto = await resp.Content.ReadFromJsonAsync<KhachLinkInstanceDto>(_jsonOptions);
             if (dto == null) return null;
 
             var config = new DirectoryInstanceConfig

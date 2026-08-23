@@ -2,6 +2,8 @@ using VanAn.Directory.Components;
 using VanAn.Directory.Services;
 using VanAn.UI.Platform.Core.Interfaces;
 using VanAn.UI.Platform.Adapters;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +16,12 @@ builder.Services.AddHttpContextAccessor();
 
 // UI Platform — VanAnButton/VanAnCard inject ICssAdapter
 builder.Services.AddScoped<ICssAdapter, BootstrapAdapter>();
+
+// JSON options — Gateway API returns enums as strings (e.g. "theme":"Classic")
+// System.Text.Json default uses numbers for enums → JsonException
+var gatewayJsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+gatewayJsonOptions.Converters.Add(new JsonStringEnumConverter());
+builder.Services.AddSingleton(gatewayJsonOptions);
 
 // HttpClient cho Gateway API calls
 builder.Services.AddHttpClient<InstanceConfigService>(client =>
