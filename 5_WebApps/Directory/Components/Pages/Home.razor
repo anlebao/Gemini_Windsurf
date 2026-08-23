@@ -23,6 +23,7 @@
                 </span>
                 <input type="text" class="form-control border-start-0 border-end-0"
                        @bind="_searchKeyword"
+                       @bind:event="oninput"
                        @onkeyup="OnSearchKeyUp"
                        placeholder="Tìm theo tên cửa hàng, sản phẩm, dịch vụ..."
                        aria-label="Tìm cửa hàng" />
@@ -50,6 +51,10 @@
                 <div class="spinner-border text-primary" role="status"></div>
                 <p class="mt-2">Đang tải...</p>
             </div>
+        }
+        else if (!_hasSearched)
+        {
+            <!-- Initial state — no search performed yet, don't show any list -->
         }
         else if (_stores.Count == 0)
         {
@@ -121,22 +126,19 @@
     private string _searchKeyword = "";
     private List<TenantStoreDto> _stores = new();
     private bool _loading;
+    private bool _hasSearched;
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadAllStoresAsync();
-    }
-
-    private async Task LoadAllStoresAsync()
-    {
-        _loading = true;
-        _stores = await CatalogService.SearchStoresAsync(null);
-        _loading = false;
+        // Issue #157 point 2: don't load tenant list on page entry.
+        // User must explicitly search before any results appear.
+        await Task.CompletedTask;
     }
 
     private async Task SearchStores()
     {
         _loading = true;
+        _hasSearched = true;
         _stores = await CatalogService.SearchStoresAsync(_searchKeyword);
         _loading = false;
     }
@@ -150,7 +152,8 @@
     private void ClearSearch()
     {
         _searchKeyword = "";
-        _ = LoadAllStoresAsync();
+        _hasSearched = false;
+        _stores = new();
     }
 
     private void GoToStoreFinder()

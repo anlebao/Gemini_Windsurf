@@ -1,0 +1,27 @@
+fix(directory-ssr): issue #157 — Home page 3 bugs on timlathay.com
+
+1. 404 /_framework/blazor.web.js (MIME text/html → browser refuses):
+   nginx location /_framework/ only set cache headers, no proxy logic.
+   When Directory domain requested blazor.web.js, nginx matched this
+   specific location (not location /), tried to serve from WASM wwwroot
+   → 404 HTML. Added if ($directory_target) { proxy_pass; break; } to
+   both /_framework/ prefix and =/_framework/blazor.boot.json exact
+   match locations so Directory domains proxy to SSR container.
+
+2. Tenant list loaded on page entry (should be empty until search):
+   OnInitializedAsync called LoadAllStoresAsync() unconditionally.
+   Removed initial load — page starts empty, user must click search.
+   Added _hasSearched flag to distinguish "not searched yet" (empty)
+   from "searched, no results" (shows empty message).
+
+3. Voice search input disappears:
+   @bind defaulted to onchange event. Mobile voice input sets DOM
+   value but doesn't trigger onchange reliably; when Blazor re-renders,
+   DOM resets to stale model value. Changed to @bind:event="oninput"
+   so model updates on every keystroke/voice input immediately.
+
+Closes #157
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
