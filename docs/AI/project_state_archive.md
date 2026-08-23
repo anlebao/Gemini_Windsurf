@@ -2675,3 +2675,91 @@ Reviewed `01-systemadmin.html` guide against actual codebase + VPS. Fixed all di
 * **2026-07-26 — SPRINT 0 REVIEW + PARTIAL FIX.** Review-only audit found 8 items marked COMPLETE but not 100% production. Part 1: F2/F4/F5a added to correct downstream sprint task cards. Sprint 4 + Sprint 5 task cards fixed. Part 2 in progress: F5b, F6, F7. Branch: `main`.
 
 .IndexOf("## Archived 2026-07-24"))
+---
+
+## Archive Batch 2026-08-23 (Directory SSR complete + prior completed waves)
+
+### From Section 2 (Current Objective) — completed waves moved here:
+
+**DIRECTORY SSR — ALL 4 PHASES COMPLETE + DEPLOYED + RV FULL PASS (L1-L4) on production VPS.**
+- Goal: Improve KhachLink load time for "Directory" profile tenants (e.g. timlathay.com) from ~10s (22.8MB WASM download) to <3s via dedicated Blazor SSR app. Achieved: 0.04s (cached) / 0.56s (first load).
+- Branch: main @ c34a428a (7 commits: c3dbfaef feat + f3184d34 nginx fix1 + 51178dc0 nginx fix2 + 6e78e655 layout fix + b9046d97 enable timlathay + 1b5914bb store load fix + c34a428a JSON enum fix)
+- Architecture: New 5_WebApps/Directory Blazor SSR .NET 8 app — runs in separate Docker container on KhachLink VPS (port 8080). nginx routes Directory-profile domains → SSR container; Commerce-profile domains → existing KhachLink WASM (nginx static). Reuses VanAn.Shared DTOs + UI.Platform components + adapted KhachLinkLayout/Home.razor/StoreFinder.razor.
+- Phase A ✅ Scaffold (commit c3dbfaef): VanAn.Directory.csproj (Web SDK) + Program.cs (RazorComponents + InteractiveServer, 3 typed HttpClient, IMemoryCache, ICssAdapter, HttpContextAccessor, JsonSerializerOptions with JsonStringEnumConverter) + App.razor + Routes.razor + 3 services (InstanceConfigService, ShopConfigService, CatalogService — Gateway API + 5min cache) + DirectoryLayout.razor (inherits LayoutComponentBase, server-side domain resolution).
+- Phase B ✅ Pages (commit c3dbfaef): Home.razor (/) — store directory search + list · StoreFinder.razor (/stores) — search + geolocation + Leaflet map · wwwroot/js/directory-map.js — Leaflet helper · Static assets copied from KhachLink (bootstrap, app.css, leaflet, favicon).
+- Phase C ✅ Docker + nginx + CI/CD (commit c3dbfaef): Dockerfile (sdk:8.0 → aspnet:8.0, port 8080, curl healthcheck) · docker-compose.directory.yml (standalone) · docker-compose.khachlink.yml — added directory service · nginx.conf — map $is_directory + map $directory_target + resolver 127.0.0.11 + variable proxy_pass in location / (deferred DNS) + timlathay.com 1; enabled · scripts/add-directory-domain.sh · cd-multivps.yml — Directory build & push + health check + compose validation.
+- Phase D ✅ RV (CD runs 32625709647 + 32628660000 + 32630443829 + 32632430191 all SUCCESS):
+  - D3: Both containers Up (healthy) — vanan-directory-1 + vanan-khachlink-1 ✅
+  - D4: Load time 0.04s (cached) / 0.56s (first load, target <3s) — 11598 bytes HTML, HTTP 200 ✅
+  - D5: Home page renders 10 stores — title + store cards (Central Mall, Samho, Cafe Tân Quy, Vạn An Test, ...) ✅
+  - D6: StoreFinder renders 10 stores + map div + search box + radius select + "Chỉ đường" links ✅
+  - D7: Commerce WASM unaffected — blazor.webassembly.js HTTP 200, 60300 bytes ✅
+  - D8: Memory 56MiB / 256MiB (well under 256MB limit) ✅
+  - Local test PASS: dotnet run on localhost:5199 with Gateway VPC IP — 0 errors in logs, all static assets 200, 404 page correct, stores load via OnInitializedAsync
+- Runtime fixes (4 hotfix commits):
+  - f3184d34 — nginx upstream block resolves DNS at startup → crash if directory container down. Fix: remove upstream, use variable proxy_pass with resolver 127.0.0.11.
+  - 51178dc0 — nginx proxy_pass not allowed in server-level if. Fix: two map directives, if + proxy_pass moved inside location /.
+  - 6e78e655 — DirectoryLayout missing Body property (Blazor LayoutComponentBase uses Body, not ChildContent). Fix: @inherits LayoutComponentBase, use @Body, remove DirectoryLayout wrapper from pages.
+  - b9046d97 — Enable timlathay.com 1; in nginx map (verified via Gateway API: Profile=Directory, IsActive=true).
+  - 1b5914bb — Stores not loading: OnAfterRenderAsync doesn't fire in SSR prerender. Fix: move store load to OnInitializedAsync.
+  - c34a428a — ThemeType enum JSON deserialization error: Gateway API returns "theme":"Classic" (string), System.Text.Json default uses numbers → JsonException → empty store list. Fix: register JsonStringEnumConverter in DI, inject JsonSerializerOptions into all 3 services.
+- STATUS: COMPLETE. timlathay.com live on Directory SSR.
+
+**PLATE-AS-METADATA REFACTOR (PHASE 1) + GUARD QR FIXES — COMPLETE + DEPLOYED + RV FULL PASS (L1-L4).** Commits 154faf19 (plate optional) + d9ebd538 (QR fixes) on main + oracle-prod. CD Multi-VPS runs 32364470036 + 32383443810 SUCCESS. RV L1-L3 on VPS: migration applied ✅, PlateNumber nullable ✅, all 3 VPS healthy ✅, Guard API 401 (feature enabled) ✅, Guard__QrVerifyEnabled=true ✅, 37 existing sessions intact ✅, 0 error logs ✅. RV L4 (manual browser) PASS — user verified: Scan UI photo-first ✅, issue QR without plate ✅, "Kế tiếp" button ✅, PrintTicket shows real tenant name+address+phone ✅, KhachLink Wallet shows short code + QR image ✅.
+
+**R2 PHOTO CLEANUP SERVICE — COMPLETE + DEPLOYED + RV FULL PASS.** 3 commits: 60972c7c + a98e6f7e (auth scheme fix) + e7911e23 (RV spec). R2CleanupHostedService running on VPS (retention=30d, interval=24h).
+
+**OCR HUB R1 — COMPLETE + MERGED + DEPLOYED + RV PASS:** Sprint 1 QR Wallet Merge + Sprint 2 OCR Config Infra + Sprint 3 PaddleOCR Integration (PR #149 + PR #151 + S3-fix 7a38fcb8). #150 fix (6c67f594) — QR wallet "Vé không hợp lệ" JSON case mismatch. #142 comment fix — voice search auto-submit. QR white screen fix (9f8495e9) — vendored qrcode.js corrupt → official v1.4.4. OCR 2-row plate fix (b07ec9cb) — _detectRowGap projection profile. Sitemap OCR link (061a53dd). R2 (S4 EasyOCR) DEFERRED — RAM risk + no demand.
+
+**KHACHLINK MULTI-PROFILE R1 — ALL 6 SPRINTS COMPLETE + MERGED (5047ed8c) + ENABLED (b3af97a1).** timlathay.com LIVE as Directory type (3d952c75). Feature flag KhachLink:MultiProfileEnabled ON.
+
+**DYNAMIC CORS — SPRINT 1 COMPLETE + MERGED (d9545d5e via PR #133) + DEPLOYED + RV 8/8 PASS.** DynamicCorsService + DynamicCorsCacheHostedService + CanonicalizeDomain in KhachLinkInstance.
+
+**DOMAIN RESELLER R1 — COMPLETE + MERGED + DEPLOYED + RV 9/9 PASS.** PR #137 squash-merged 124c65ef. TenantDomain entity + GoDaddy API v1 + DomainRegistrarController (11 endpoints) + admin UI (/admin/domains) + auto-link KLI + init-ssl-tenant-domains.sh cron. Fix c9061a2c: DEPLOY_GODADDY_API_KEY + DEPLOY_VPS_GATEWAY_HOST added to appleboy/ssh-action envs: parameter.
+
+**ISSUE #130 "Guard: không tạo QRcode được" — 5 FIX COMMITS APPLIED.** Root cause: base64 photo over SignalR → circuit disconnect. Fixes: timeout + circuit reconnect + JS-first photo upload + Gateway CORS proxy + QR compression.
+
+**ISSUE #126 Guard QR Verify — ALL 3 RELEASES COMPLETE + MERGED + DEPLOYED.** R1 ee109800 + R2 08f8ff60 (PR #128) + R3 4dd1a0a4 (PR #129). 33 Guard unit tests + 5 integration tests PASS.
+
+**GITHUB ISSUES BATCH #114/#123/#124/#125 — ALL 4 FIXED + DEPLOYED + RV 33/33 PASS.**
+
+**HARDCODED TENANT ID CLEANUP + SETTLEMENT HISTORY UI — SPRINT A+B COMPLETE.** Commit f7201ef4.
+
+**VALCN v2.0 PLATFORM-LIGHT — ALL 3 WAVES COMPLETE + DEPLOYED + RV PASS.** 7 commits. nginx 503 fixed (5-layer rate limit).
+
+**GATEWAY REFACTOR HYBRID BƯỚC 1 COMPLETE + DEPLOYED + RV 11/11 PASS.**
+
+**TT 99/2025/TT-BTC COMPLIANCE FIXES — 3 WAVES COMPLETE.**
+
+**TENANT MANAGEMENT + ACCOUNTING UI FIXES — 4 PHASES COMPLETE.**
+
+**LOYALTY CONSISTENCY FIX COMPLETE.** RV 37/37. 9 bugs fixed.
+
+**LOYALTY ALLIANCE ALL 7 PHASES COMPLETE.** RV 14/14.
+
+**COMMUNITY COMMERCE SPRINTS 4-7 COMPLETE.**
+
+**MULTI-VPS OPTION C PHASES 1-7 COMPLETE.**
+
+### From Section 10 (Maintenance Log) — entries older than 2026-08-21:
+
+* 2026-08-20 — PLATE-AS-METADATA REFACTOR (PHASE 1) — COMPLETE + COMMITTED + DEPLOYED (CD Multi-VPS SUCCESS) + RV L1-L3 PASS (L4 pending). Commit 154faf19 on main. CD Multi-VPS run 32364470036 SUCCESS. RV L1-L3 on VPS: migration applied ✅, PlateNumber nullable ✅, all 3 VPS healthy ✅, Guard API 401 ✅, Guard__QrVerifyEnabled=true ✅, 37 existing sessions intact ✅, 0 error logs ✅. L4 (browser UI flow) PASS — user verified all flows.
+* 2026-08-20 — R2 PHOTO CLEANUP SERVICE — COMPLETE + DEPLOYED + RV FULL PASS. 3 commits: 60972c7c + a98e6f7e (auth fix) + e7911e23. Auth fix: [Authorize] without AuthenticationSchemes → cookie auth → 302 → YARP fallback → HTML 200. Fix: AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme. RV 7/7 PASS.
+* 2026-08-20 — QR WHITE SCREEN ROOT CAUSE FIX + OCR 2-ROW PLATE FIX + SITEMAP OCR LINK. 4 commits. QR root cause: vendored qrcode.js corrupt → official v1.4.4. OCR: _detectRowGap projection profile.
+* 2026-08-19 — OCR HUB R1 (S1+S2+S3) COMPLETE + MERGED + DEPLOYED + RV PASS + #150 FIX + #142 COMMENT FIX. 4 commits. QR Wallet 2-tab merge + OCR config infra + PaddleOCR ONNX client-side. #150 JSON case mismatch fix. #142 voice search auto-submit.
+* 2026-08-18 — DOMAIN RESELLER R1 ENV VAR FIX c9061a2c. Root cause: appleboy/ssh-action envs: parameter missing. Fix: added DEPLOY_GODADDY_API_KEY + DEPLOY_VPS_GATEWAY_HOST to envs:.
+* 2026-08-17 — DYNAMIC CORS FROM KHACHLINKINSTANCE REGISTRY — SPRINT 1 COMPLETE + MERGED + DEPLOYED + RV 8/8 PASS. PR #133 squash-merged d9545d5e. DynamicCorsService + DynamicCorsCacheHostedService + CanonicalizeDomain.
+* 2026-08-15 — KHACHLINK MULTI-PROFILE R1 COMPLETE + MERGED + ENABLED + timlathay.com LIVE. 6 sprints merged 5047ed8c + enabled b3af97a1. timlathay.com rebranded as Directory type 3d952c75.
+* 2026-08-15 — ISSUE #130 5 FIX COMMITS APPLIED. base64 photo over SignalR → circuit disconnect. 5 fixes: timeout + reconnect + JS-first upload + CORS proxy + compression.
+* 2026-08-15 — GUARD QR VERIFY (ISSUE #126) ALL 3 RELEASES COMPLETE + MERGED + DEPLOYED. R1 ee109800 + R2 08f8ff60 PR #128 + R3 4dd1a0a4 PR #129. 33 unit + 5 integration PASS.
+* 2026-08-14 — GUARD QR VERIFY R1 COMPLETE (Sprint 0+1+2+3+5). Channel C paper ticket end-to-end.
+* 2026-08-13 — SPRINT A+B COMPLETE + PUSHED. Commit f7201ef4. Hardcoded tenant ID cleanup + Settlement History admin page + NavMenu 30/30.
+* 2026-08-11 — GITHUB ISSUES BATCH #114/#123/#124/#125 — ALL 4 FIXED + DEPLOYED + RV 33/33 PASS. 3 commits: 716e7eec + 07228b7e + f46f544c.
+* 2026-08-09 — VALCN v2.0 PLATFORM-LIGHT — ALL 3 WAVES COMPLETE + DEPLOYED + RV PASS. 7 commits. nginx 503 fixed (5-layer rate limit).
+* 2026-08-09 — GATEWAY REFACTOR HYBRID BƯỚC 1 COMPLETE + DEPLOYED + RV 11/11 PASS.
+* 2026-08-03 — TT 99/2025/TT-BTC COMPLIANCE FIXES — 3 WAVES COMPLETE. 8 gaps fixed.
+* 2026-08-03 — TENANT MANAGEMENT + ACCOUNTING UI FIXES — 4 PHASES COMPLETE.
+* 2026-08-03 — LOYALTY CONSISTENCY FIX COMPLETE. RV 37/37.
+* 2026-08-02 — LOYALTY ALLIANCE ALL 7 PHASES COMPLETE. RV 14/14.
+* 2026-07-30 — COMMUNITY COMMERCE SPRINTS 4-7 COMPLETE.
+* 2026-07-20 — MULTI-VPS OPTION C PHASES 1-7 COMPLETE.
