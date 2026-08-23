@@ -1,0 +1,12 @@
+chore: update project_state.md — post-deploy fixes #157 + WebSocket/Leaflet + KhachLink
+
+Session 2026-08-23 (continued):
+- 3 commits on main @ 6c9182da, all pushed + CI PASS + CD deployed
+- e7848be9: issue #157 (nginx _framework proxy + Home no initial load + voice search oninput)
+- 1eeb4615: WebSocket /_blazor upgrade headers + Leaflet marker icons CDN
+- 6c9182da: KhachLink ThemeType enum JsonStringEnumConverter + shortcut icons + SW v19
+- Pending RV on timlathay.com + diemthuong2.khachvip.online
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
