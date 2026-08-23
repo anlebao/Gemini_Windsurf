@@ -5,6 +5,7 @@
 @inject InstanceConfigService InstanceService
 @inject ShopConfigService ShopConfigService
 @inject IHttpContextAccessor HttpContextAccessor
+@inherits LayoutComponentBase
 
 <HeadContent>
     <style>
@@ -62,7 +63,7 @@ else
 
     <!-- Main Content -->
     <main class="khachlink-main">
-        @ChildContent
+        @Body
     </main>
 
     <!-- Footer -->
@@ -155,9 +156,6 @@ else
 </style>
 
 @code {
-    [Parameter]
-    public RenderFragment? ChildContent { get; set; }
-
     private ShopConfig? _shopConfig;
     private bool _isInstanceDisabled;
     private DirectoryInstanceConfig? _instanceStyle;
