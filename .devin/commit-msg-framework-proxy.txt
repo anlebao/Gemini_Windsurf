@@ -1,0 +1,15 @@
+fix: proxy _framework/* to SSR container for Directory domains
+
+nginx location /_framework/ only set cache headers — no proxy logic.
+When timlathay.com requested /_framework/blazor.web.js, nginx matched
+this specific location (not location /), tried to serve from WASM
+wwwroot → 404 HTML → MIME text/html → browser refused to execute.
+
+Added if ($directory_target) { proxy_pass; break; } to both
+/_framework/ prefix and =/_framework/blazor.boot.json exact match
+locations, so Directory domains proxy framework requests to the SSR
+container which serves blazor.web.js via Blazor static files middleware.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
