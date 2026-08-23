@@ -122,11 +122,18 @@
     private double? _userLat;
     private double? _userLng;
 
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        _stores = await CatalogService.SearchStoresAsync(null);
+        _loading = false;
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (firstRender && !_loading && _stores.Count > 0)
         {
-            await LoadAllStores();
+            await RenderMapAsync();
         }
     }
 

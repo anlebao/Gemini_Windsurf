@@ -122,12 +122,9 @@
     private List<TenantStoreDto> _stores = new();
     private bool _loading;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnInitializedAsync()
     {
-        if (firstRender)
-        {
-            await LoadAllStoresAsync();
-        }
+        await LoadAllStoresAsync();
     }
 
     private async Task LoadAllStoresAsync()
