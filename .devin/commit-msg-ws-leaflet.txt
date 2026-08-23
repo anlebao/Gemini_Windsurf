@@ -1,0 +1,23 @@
+fix(directory-ssr): WebSocket /_blazor + Leaflet marker icons 404
+
+1. WebSocket /_blazor connection failed:
+   "WebSocket failed to connect. The connection could not be found on
+   the server, either the endpoint may not be a SignalR endpoint..."
+   nginx location / proxied /_blazor but without WebSocket upgrade
+   headers — nginx defaults to HTTP/1.0 to backend, drops Upgrade.
+   Added at server level (applies to all proxy_pass locations):
+     proxy_http_version 1.1;
+     proxy_set_header Upgrade $http_upgrade;
+     proxy_set_header Connection $http_connection;
+     proxy_read_timeout 86400s;
+   Plus Host/X-Real-IP/X-Forwarded-* for proper forwarding.
+
+2. Leaflet marker-icon.png / marker-icon-2x.png / marker-shadow.png 404:
+   wwwroot/lib/leaflet/ ships only leaflet.css + leaflet.js — no
+   images/ subfolder. Leaflet default icon URLs point to relative
+   images/marker-icon.png → 404. Fixed in directory-map.js by
+   overriding L.Icon.Default options to use unpkg CDN URLs.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

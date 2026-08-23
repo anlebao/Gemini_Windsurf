@@ -4,6 +4,15 @@
 window.directoryMap = (function () {
     let map = null;
 
+    // Fix Leaflet default marker icon 404s — wwwroot/lib/leaflet/ ships only
+    // leaflet.css + leaflet.js (no images/ folder). Point default icon to CDN.
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+    });
+
     function init(elementId) {
         if (map) { map.remove(); map = null; }
         map = L.map(elementId).setView([10.7626, 106.6603], 12); // HCM default
