@@ -1,0 +1,22 @@
+@using VanAn.Directory.Components.Layout
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="VanAn.Directory.styles.css" />
+    <link rel="stylesheet" href="/lib/leaflet/leaflet.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet />
+</head>
+<body>
+    <Routes @rendermode="InteractiveServer" />
+    <script src="/lib/leaflet/leaflet.js"></script>
+    <script src="/js/directory-map.js"></script>
+    <script src="_framework/blazor.web.js"></script>
+</body>
+</html>

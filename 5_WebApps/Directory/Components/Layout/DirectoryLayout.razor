@@ -1,0 +1,217 @@
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Tokens
+@using VanAn.Shared.Domain
+@using VanAn.Directory.Services
+@inject InstanceConfigService InstanceService
+@inject ShopConfigService ShopConfigService
+@inject IHttpContextAccessor HttpContextAccessor
+
+<HeadContent>
+    <style>
+        :root {
+            --shop-primary: @(_shopConfig?.PrimaryColor ?? "#8B4513");
+            --shop-secondary: @(_shopConfig?.SecondaryColor ?? "#D2691E");
+            --shop-nav-color: @(_instanceStyle?.NavColor ?? _shopConfig?.NavColor ?? "#1a1a2e");
+            --shop-header-color: @(_instanceStyle?.HeaderColor ?? _shopConfig?.HeaderColor ?? (_shopConfig?.PrimaryColor ?? "#8B4513"));
+            --shop-footer-color: @(_instanceStyle?.FooterColor ?? _shopConfig?.FooterColor ?? "#f5f5f5");
+        }
+    </style>
+</HeadContent>
+
+@if (_isInstanceDisabled)
+{
+    <div class="khachlink-disabled-page">
+        <div class="disabled-card">
+            <i class="bi bi-pause-circle-fill disabled-icon"></i>
+            <h1>Instance tạm ngưng</h1>
+            <p>Instance KhachLink cho domain này hiện đang bị vô hiệu hoá.</p>
+        </div>
+    </div>
+}
+else
+{
+<div class="khachlink-layout theme-@GetThemeClass()">
+    <!-- Hero Header -->
+    <header class="khachlink-hero-header">
+        <div class="hero-content d-flex justify-content-between align-items-center px-3 py-2">
+            <div class="d-flex align-items-center gap-2">
+                @if (!string.IsNullOrEmpty(_instanceStyle?.LogoUrl))
+                {
+                    <img src="@_instanceStyle.LogoUrl" alt="Logo" class="shop-logo" />
+                }
+                else if (_shopConfig?.LogoUrl != null)
+                {
+                    <img src="@_shopConfig.LogoUrl" alt="@_shopConfig.ShopName" class="shop-logo" />
+                }
+                else
+                {
+                    <i class="bi bi-shop text-white" style="font-size:1.5rem;"></i>
+                }
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+                <!-- Directory nav: chỉ Home + Stores -->
+                <a href="/" class="header-icon-btn" aria-label="Trang chủ" title="Trang chủ">
+                    <i class="bi bi-house text-white"></i>
+                </a>
+                <a href="/stores" class="header-icon-btn" aria-label="Tìm cửa hàng" title="Tìm cửa hàng">
+                    <i class="bi bi-geo-alt text-white"></i>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="khachlink-main">
+        @ChildContent
+    </main>
+
+    <!-- Footer -->
+    <footer class="khachlink-footer mt-4">
+        <div class="text-center py-3 px-3">
+            <div class="fw-semibold">@(_shopConfig?.ShopName ?? "Danh bạ Vạn An")</div>
+            <div class="mt-2 small">
+                <a href="/privacy-policy.html" class="footer-link" target="_blank" rel="noopener">Chính sách Quyền riêng tư</a>
+            </div>
+        </div>
+    </footer>
+</div>
+}
+
+<style>
+/* Hero header */
+.khachlink-hero-header {
+    background: var(--shop-header-color, var(--shop-primary, #8B4513));
+    position: sticky;
+    top: 0;
+    z-index: 900;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.shop-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    object-fit: cover;
+}
+.header-icon-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    text-decoration: none;
+    font-size: 1.2rem;
+    transition: background 0.2s;
+}
+.header-icon-btn:hover { background: rgba(255,255,255,0.25); }
+
+/* Layout */
+.khachlink-layout { min-height: 100vh; background: var(--color-neutral-50, #f9f9f9); }
+.khachlink-main { padding: var(--spacing-4, 1rem); }
+
+/* Footer */
+.khachlink-footer { background: var(--shop-footer-color, #f5f5f5); border-top: 1px solid #e0e0e0; color: #555; }
+.footer-link { color: inherit; text-decoration: none; }
+
+/* Theme classes */
+.theme-teen     { background: linear-gradient(135deg, #ffe0f0, #e0e7ff); }
+.theme-lady     { background: linear-gradient(135deg, #fff8f9, #fce4ec); }
+.theme-premium  { background: #0a0a0a; color: #f0e68c; }
+.theme-modern   { background: #fafafa; }
+.theme-classic  { background: #fdf6ec; }
+
+/* #134: Disabled instance page */
+.khachlink-disabled-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f5f5f5;
+    padding: 1rem;
+}
+.disabled-card {
+    text-align: center;
+    background: white;
+    border-radius: 12px;
+    padding: 3rem 2rem;
+    max-width: 400px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+.disabled-icon {
+    font-size: 4rem;
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+.disabled-card h1 {
+    font-size: 1.5rem;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+.disabled-card p {
+    color: #555;
+    margin-bottom: 0.25rem;
+}
+</style>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    private ShopConfig? _shopConfig;
+    private bool _isInstanceDisabled;
+    private DirectoryInstanceConfig? _instanceStyle;
+    private Guid _currentTenantId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Get domain from HTTP context (server-side — không cần JS interop)
+        var httpContext = HttpContextAccessor.HttpContext;
+        var domain = httpContext?.Request.Host.Host ?? "";
+
+        if (string.IsNullOrWhiteSpace(domain))
+            return;
+
+        // Fetch instance config from Gateway
+        var instanceConfig = await InstanceService.GetByDomainAsync(domain);
+        if (instanceConfig != null)
+        {
+            if (!instanceConfig.IsActive)
+            {
+                _isInstanceDisabled = true;
+                return;
+            }
+
+            _instanceStyle = instanceConfig;
+            if (instanceConfig.OwnerTenantId != null && instanceConfig.OwnerTenantId != Guid.Empty)
+            {
+                _currentTenantId = instanceConfig.OwnerTenantId.Value;
+                _shopConfig = await ShopConfigService.GetByTenantIdAsync(_currentTenantId);
+            }
+        }
+    }
+
+    private string GetThemeClass()
+    {
+        if (!string.IsNullOrEmpty(_instanceStyle?.Theme)
+            && Enum.TryParse<ThemeType>(_instanceStyle.Theme, true, out var instanceTheme))
+        {
+            return instanceTheme switch
+            {
+                ThemeType.Teen    => "teen",
+                ThemeType.Lady    => "lady",
+                ThemeType.Premium => "premium",
+                ThemeType.Modern  => "modern",
+                _                 => "classic"
+            };
+        }
+        return (_shopConfig?.ActiveTheme ?? ThemeType.Classic) switch
+        {
+            ThemeType.Teen    => "teen",
+            ThemeType.Lady    => "lady",
+            ThemeType.Premium => "premium",
+            ThemeType.Modern  => "modern",
+            _                 => "classic"
+        };
+    }
+}

@@ -1,0 +1,165 @@
+@page "/"
+@using VanAn.Directory.Services
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Tokens
+@inject CatalogService CatalogService
+@inject NavigationManager Navigation
+
+<PageTitle>Danh bạ Vạn An — Tìm cửa hàng gần bạn</PageTitle>
+
+<DirectoryLayout>
+    <div class="container py-4">
+        <!-- Hero -->
+        <div class="text-center mb-4">
+            <i class="bi bi-geo-alt-fill text-primary" style="font-size: 2.5rem;"></i>
+            <h3 class="mt-2 mb-1">Tìm cửa hàng gần bạn</h3>
+            <p class="text-muted mb-0">Tìm theo tên, sản phẩm, hoặc vị trí</p>
+        </div>
+
+        <!-- Search box -->
+        <VanAnCard CssClass="mb-4 py-4">
+            <div class="input-group input-group-lg">
+                <span class="input-group-text bg-white border-end-0">
+                    <i class="bi bi-search text-primary"></i>
+                </span>
+                <input type="text" class="form-control border-start-0 border-end-0"
+                       @bind="_searchKeyword"
+                       @onkeyup="OnSearchKeyUp"
+                       placeholder="Tìm theo tên cửa hàng, sản phẩm, dịch vụ..."
+                       aria-label="Tìm cửa hàng" />
+                @if (!string.IsNullOrWhiteSpace(_searchKeyword))
+                {
+                    <button class="btn btn-outline-secondary" type="button" @onclick="ClearSearch">
+                        <i class="bi bi-x-circle"></i>
+                    </button>
+                }
+            </div>
+            <div class="d-flex gap-2 mt-3">
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="SearchStores">
+                    <i class="bi bi-search me-1"></i> Tìm kiếm
+                </VanAnButton>
+                <VanAnButton Variant="ButtonVariant.Outline" OnClick="GoToStoreFinder">
+                    <i class="bi bi-geo-alt me-1"></i> Dùng vị trí của tôi
+                </VanAnButton>
+            </div>
+        </VanAnCard>
+
+        <!-- Results -->
+        @if (_loading)
+        {
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2">Đang tải...</p>
+            </div>
+        }
+        else if (_stores.Count == 0)
+        {
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                <p class="mt-2">Không tìm thấy cửa hàng nào.</p>
+            </div>
+        }
+        else
+        {
+            <div class="row g-3">
+                @foreach (var store in _stores)
+                {
+                    <div class="col-md-6 col-lg-4">
+                        <VanAnCard CssClass="h-100 store-card">
+                            <div class="d-flex align-items-start gap-3">
+                                @if (!string.IsNullOrEmpty(store.LogoUrl))
+                                {
+                                    <img src="@store.LogoUrl" alt="@store.Name" class="store-logo-sm" />
+                                }
+                                else
+                                {
+                                    <i class="bi bi-shop text-primary" style="font-size: 2rem;"></i>
+                                }
+                                <div class="flex-grow-1">
+                                    <h5 class="mb-1">@store.Name</h5>
+                                    @if (!string.IsNullOrEmpty(store.Address))
+                                    {
+                                        <p class="small text-muted mb-1">
+                                            <i class="bi bi-geo-alt"></i> @store.Address
+                                        </p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(store.Phone))
+                                    {
+                                        <p class="small mb-1">
+                                            <a href="tel:@store.Phone" class="text-decoration-none">
+                                                <i class="bi bi-telephone"></i> @store.Phone
+                                            </a>
+                                        </p>
+                                    }
+                                    @if (store.DistanceKm.HasValue)
+                                    {
+                                        <p class="small text-primary mb-0">
+                                            <i class="bi bi-signpost"></i> @store.DistanceKm.Value.ToString("F1") km
+                                        </p>
+                                    }
+                                </div>
+                            </div>
+                        </VanAnCard>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</DirectoryLayout>
+
+<style>
+.store-logo-sm {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+.store-card { transition: transform 0.2s; }
+.store-card:hover { transform: translateY(-2px); }
+</style>
+
+@code {
+    private string _searchKeyword = "";
+    private List<TenantStoreDto> _stores = new();
+    private bool _loading;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadAllStoresAsync();
+        }
+    }
+
+    private async Task LoadAllStoresAsync()
+    {
+        _loading = true;
+        _stores = await CatalogService.SearchStoresAsync(null);
+        _loading = false;
+    }
+
+    private async Task SearchStores()
+    {
+        _loading = true;
+        _stores = await CatalogService.SearchStoresAsync(_searchKeyword);
+        _loading = false;
+    }
+
+    private async Task OnSearchKeyUp(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await SearchStores();
+    }
+
+    private void ClearSearch()
+    {
+        _searchKeyword = "";
+        _ = LoadAllStoresAsync();
+    }
+
+    private void GoToStoreFinder()
+    {
+        Navigation.NavigateTo("/stores");
+    }
+}

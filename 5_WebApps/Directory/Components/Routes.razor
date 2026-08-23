@@ -1,0 +1,15 @@
+@using VanAn.Directory.Components.Pages
+@using VanAn.Directory.Components.Layout
+<Router AppAssembly="@typeof(Program).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(DirectoryLayout)" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="@typeof(DirectoryLayout)">
+            <h1>404 — Không tìm thấy trang</h1>
+            <p>Trang bạn tìm không tồn tại.</p>
+            <a href="/">Về trang chủ</a>
+        </LayoutView>
+    </NotFound>
+</Router>

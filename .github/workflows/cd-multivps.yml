@@ -102,6 +102,18 @@ jobs:
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-khachlink:latest
           labels: ${{ steps.meta.outputs.labels }}
 
+      - name: Build & push Directory
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: 5_WebApps/Directory/Dockerfile
+          push: true
+          no-cache: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-directory:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-directory:latest
+          labels: ${{ steps.meta.outputs.labels }}
+
   # ============================================================
   # Job 2: Pre-Deployment Validation (BLOCKING)
   # ============================================================
@@ -122,6 +134,8 @@ jobs:
           docker compose -f docker-compose.gateway.yml config > /dev/null && echo "gateway OK"
           echo "Validating docker-compose.khachlink.yml..."
           docker compose -f docker-compose.khachlink.yml config > /dev/null && echo "khachlink OK"
+          echo "Validating docker-compose.directory.yml..."
+          docker compose -f docker-compose.directory.yml config > /dev/null && echo "directory OK"
           echo "Validating docker-compose.shoperp.yml..."
           docker compose -f docker-compose.shoperp.yml config > /dev/null && echo "shoperp OK"
 
@@ -425,7 +439,7 @@ jobs:
           host: ${{ secrets.VPS_KHACHLINK_HOST }}
           username: ${{ secrets.VPS_KHACHLINK_USER }}
           key: ${{ secrets.VPS_KHACHLINK_SSH_PRIVATE_KEY }}
-          source: "docker-compose.khachlink.yml,scripts/deploy-khachlink.sh"
+          source: "docker-compose.khachlink.yml,scripts/deploy-khachlink.sh,scripts/add-directory-domain.sh"
           target: "/opt/vanan"
           overwrite: true
           debug: true
@@ -488,6 +502,14 @@ jobs:
             # Health check
             sleep 30
             sudo docker compose -f docker-compose.khachlink.yml --env-file .env.khachlink ps
+
+            # Directory SSR health check (non-blocking — container may not exist if image not yet built)
+            echo "=== Directory SSR health check ==="
+            if sudo docker compose -f docker-compose.khachlink.yml --env-file .env.khachlink ps directory 2>/dev/null | grep -q "Up"; then
+              curl -fsS --max-time 15 http://localhost:8080/health && echo "Directory health OK" || echo "::warning::Directory health check failed (non-blocking)"
+            else
+              echo "Directory container not running (may not be deployed yet — non-blocking)"
+            fi
 
             echo "KhachLink VPS deploy complete!"
         env:

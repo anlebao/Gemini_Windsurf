@@ -1,0 +1,184 @@
+@page "/stores"
+@using VanAn.Directory.Services
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Tokens
+@inject CatalogService CatalogService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+
+<PageTitle>Tìm cửa hàng gần bạn — Danh bạ Vạn An</PageTitle>
+
+<DirectoryLayout>
+    <div class="container py-4">
+        <div class="text-center mb-4">
+            <h1 class="display-5 fw-bold mb-2">
+                <i class="bi bi-geo-alt-fill"></i> Tìm cửa hàng gần bạn
+            </h1>
+            <p class="text-muted mb-0">Khám phá các cửa hàng trong khu vực của bạn</p>
+        </div>
+
+        <!-- Search + location controls -->
+        <VanAnCard CssClass="mb-4">
+            <div class="input-group input-group-lg mb-3">
+                <span class="input-group-text bg-white border-end-0">
+                    <i class="bi bi-search text-primary"></i>
+                </span>
+                <input type="text" class="form-control border-start-0"
+                       @bind="_searchKeyword"
+                       @onkeyup="OnSearchKeyUp"
+                       placeholder="Tìm theo tên cửa hàng..." />
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="UseMyLocation">
+                    <i class="bi bi-geo-alt me-1"></i> Dùng vị trí của tôi
+                </VanAnButton>
+                <VanAnButton Variant="ButtonVariant.Outline" OnClick="LoadAllStores">
+                    <i class="bi bi-list me-1"></i> Tất cả cửa hàng
+                </VanAnButton>
+                <div class="ms-auto d-flex align-items-center gap-2">
+                    <label class="small text-muted mb-0">Bán kính:</label>
+                    <select class="form-select form-select-sm" style="width: auto;" @bind="_radiusKm">
+                        <option value="2">2 km</option>
+                        <option value="5">5 km</option>
+                        <option value="10">10 km</option>
+                    </select>
+                </div>
+            </div>
+        </VanAnCard>
+
+        <!-- Map -->
+        <div id="directory-map" class="mb-4" style="height: 400px; border-radius: 12px; overflow: hidden;"></div>
+
+        <!-- Store list -->
+        @if (_loading)
+        {
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+        }
+        else if (_stores.Count == 0)
+        {
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                <p class="mt-2">Không tìm thấy cửa hàng nào trong khu vực.</p>
+            </div>
+        }
+        else
+        {
+            <div class="row g-3">
+                @foreach (var store in _stores)
+                {
+                    <div class="col-md-6 col-lg-4">
+                        <VanAnCard CssClass="h-100">
+                            <div class="d-flex align-items-start gap-3">
+                                @if (!string.IsNullOrEmpty(store.LogoUrl))
+                                {
+                                    <img src="@store.LogoUrl" alt="@store.Name" class="store-logo-sm" />
+                                }
+                                else
+                                {
+                                    <i class="bi bi-shop text-primary" style="font-size: 2rem;"></i>
+                                }
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">@store.Name</h6>
+                                    @if (!string.IsNullOrEmpty(store.Address))
+                                    {
+                                        <p class="small text-muted mb-1"><i class="bi bi-geo-alt"></i> @store.Address</p>
+                                    }
+                                    @if (store.DistanceKm.HasValue)
+                                    {
+                                        <p class="small text-primary mb-0">@store.DistanceKm.Value.ToString("F1") km</p>
+                                    }
+                                    @if (store.Latitude.HasValue && store.Longitude.HasValue)
+                                    {
+                                        <a href="https://maps.google.com/?q=@store.Latitude,@store.Longitude"
+                                           target="_blank" class="small text-decoration-none">
+                                            <i class="bi bi-map"></i> Chỉ đường
+                                        </a>
+                                    }
+                                </div>
+                            </div>
+                        </VanAnCard>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</DirectoryLayout>
+
+<style>
+.store-logo-sm {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+</style>
+
+@code {
+    private string _searchKeyword = "";
+    private int _radiusKm = 5;
+    private List<TenantStoreDto> _stores = new();
+    private bool _loading;
+    private double? _userLat;
+    private double? _userLng;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadAllStores();
+        }
+    }
+
+    private async Task LoadAllStores()
+    {
+        _loading = true;
+        _stores = await CatalogService.SearchStoresAsync(null);
+        _loading = false;
+        await RenderMapAsync();
+    }
+
+    private async Task UseMyLocation()
+    {
+        try
+        {
+            // JS interop — get geolocation from browser
+            var coords = await JSRuntime.InvokeAsync<UserCoords>("directoryMap.getUserLocation");
+            _userLat = coords.Lat;
+            _userLng = coords.Lng;
+            _loading = true;
+            _stores = await CatalogService.GetNearbyStoresAsync(coords.Lat, coords.Lng, _radiusKm);
+            _loading = false;
+            await RenderMapAsync();
+        }
+        catch
+        {
+            // Geolocation denied — load all stores
+            await LoadAllStores();
+        }
+    }
+
+    private async Task OnSearchKeyUp(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            _loading = true;
+            _stores = await CatalogService.SearchStoresAsync(_searchKeyword, _userLat, _userLng);
+            _loading = false;
+            await RenderMapAsync();
+        }
+    }
+
+    private async Task RenderMapAsync()
+    {
+        var storesWithCoords = _stores
+            .Where(s => s.Latitude.HasValue && s.Longitude.HasValue)
+            .Select(s => new { s.Name, s.Latitude, s.Longitude, s.Address })
+            .ToList();
+        await JSRuntime.InvokeVoidAsync("directoryMap.render", "directory-map", storesWithCoords, _userLat, _userLng);
+    }
+
+    private record UserCoords(double Lat, double Lng);
+}

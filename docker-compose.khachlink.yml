@@ -68,6 +68,36 @@ services:
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done'"
     restart: unless-stopped
 
+  # Directory SSR — Blazor Server app for Directory-profile domains (timlathay.com, etc.)
+  # nginx (vanan-khachlink container) routes Directory domains → this container via map $is_directory
+  # Commerce-profile domains continue to be served as WASM static files by nginx
+  directory:
+    image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-directory:${IMAGE_TAG:-latest}
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - Gateway__BaseUrl=http://${GATEWAY_REMOTE_HOST}:80/
+    networks:
+      - vanan-network
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   seq_data:
   certbot_www:
