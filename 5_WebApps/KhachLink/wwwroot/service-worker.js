@@ -1,5 +1,5 @@
 ﻿// ============================================================================
-// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v13-silent-update)
+// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v19-merge-activate)
 // ============================================================================
 // Cache strategy:
 //   - _framework/*.wasm/.dll/.js → network-first + cache fallback (WASM_CACHE)
@@ -79,10 +79,10 @@
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v18-instance-disable';
-const STATIC_CACHE = 'vanan-static-v18-instance-disable';
-const DYNAMIC_CACHE = 'vanan-dynamic-v18-instance-disable';
-const WASM_CACHE = 'vanan-wasm-v18-instance-disable';
+const CACHE_NAME = 'vanan-khachlink-v19-merge-activate';
+const STATIC_CACHE = 'vanan-static-v19-merge-activate';
+const DYNAMIC_CACHE = 'vanan-dynamic-v19-merge-activate';
+const WASM_CACHE = 'vanan-wasm-v19-merge-activate';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
@@ -191,12 +191,16 @@ self.addEventListener('install', event => {
 });
 
 // ============================================================================
-// Activate: clean up old cache versions + claim clients immediately
+// Activate: clean up old cache versions + clear stale instance config + claim clients
 // ============================================================================
-// Without this, caches.match() could return stale entries from old SW versions
-// (e.g., v10-batched, v11-phase3) — causing SRI mismatches after deploys.
+// Merged v18-instance-disable activate handler into the original one.
+// Previously there were TWO activate listeners — the v18 one was missing
+// event.waitUntil() causing race conditions (cleanup + clients.claim() not
+// awaited before activate completes). Single handler now does all cleanup
+// inside one event.waitUntil() promise chain.
 self.addEventListener('activate', event => {
   const allowedCaches = [CACHE_NAME, STATIC_CACHE, DYNAMIC_CACHE, WASM_CACHE];
+  event.waitUntil(
     caches.keys()
       .then(keys => {
         const staleKeys = keys.filter(key => !allowedCaches.includes(key));
@@ -216,7 +220,10 @@ self.addEventListener('activate', event => {
           client.postMessage({ type: 'CLEAR_INSTANCE_CONFIG_CACHE' });
         });
       })
-      .then(() => self.clients.claim())
+      .then(() => {
+        console.log('SW activated — v19-merge-activate (merged duplicate activate handlers)');
+        return self.clients.claim(); // Take control of all pages
+      })
   );
 });
 
@@ -546,28 +553,6 @@ const OFFLINE_SHELL_HTML = `<!DOCTYPE html>
   </div>
 </body>
 </html>`;
-
-// ============================================================================
-// Activate: clean old caches + claim clients
-// ============================================================================
-self.addEventListener('activate', event => {
-  const cacheWhitelist = [CACHE_NAME, STATIC_CACHE, DYNAMIC_CACHE, WASM_CACHE];
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            console.log('SW activate: deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    }).then(() => {
-      console.log('SW activated — v16-push-alerts (Phase 5 Session 10: bell + vibrate prefs)');
-      return self.clients.claim(); // Take control of all pages
-    })
-  );
-});
 
 // ============================================================================
 // Push notification handler

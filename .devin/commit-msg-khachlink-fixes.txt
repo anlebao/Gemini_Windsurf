@@ -1,0 +1,25 @@
+fix(khachlink): ThemeType enum + missing shortcut icons + SW duplicate activate
+
+1. ThemeType JSON deserialization fails (diemthuong2.khachvip.online):
+   ShopConfigHttpService + TenantProfileHttpService call ReadFromJsonAsync<ShopDto>()
+   without JsonStringEnumConverter. Gateway returns "theme":"Classic" (string) but
+   System.Text.Json default expects numbers → JsonException → falls back to
+   DefaultShopConfig (loses tenant branding). Added static JsonSerializerOptions
+   with JsonStringEnumConverter to both services. Same fix as Directory SSR.
+
+2. Missing shortcut icons (/icons/shortcuts/search.png, categories.png → 404):
+   manifest.json references search.png + categories.png but only ca-phe.png +
+   tra-sua.png existed in wwwroot/icons/shortcuts/. Copied icon-96x96.png to both
+   missing filenames so PWA shortcuts resolve.
+
+3. ServiceWorker script evaluation failed:
+   service-worker.js had TWO duplicate self.addEventListener('activate', ...)
+   handlers — v18-instance-disable (line 198, missing event.waitUntil()) and
+   original (line 553, had event.waitUntil()). Race condition: first handler's
+   cleanup + clients.claim() not awaited before activate completes. Merged into
+   single handler with one event.waitUntil() chain. Bumped cache version
+   v18 → v19-merge-activate to force SW update on all clients.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

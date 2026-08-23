@@ -1,4 +1,6 @@
 ﻿using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using VanAn.KhachLink.Models;
 
 namespace VanAn.KhachLink.Services.Http;
@@ -12,6 +14,13 @@ public class TenantProfileHttpService(IHttpClientFactory httpClientFactory, ILog
 {
     private readonly HttpClient _httpClient = httpClientFactory.CreateClient("gateway");
     private readonly ILogger<TenantProfileHttpService> _logger = logger;
+
+    // Gateway API returns enums as strings (e.g. "theme":"Classic").
+    // Same fix as ShopConfigHttpService + Directory SSR (issue #157).
+    private static readonly JsonSerializerOptions GatewayJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() }
+    };
 
     /// <summary>Load tenant store info by URL slug. Returns null if not found.</summary>
     public async Task<ShopDto?> GetBySlugAsync(string slug, CancellationToken ct = default)
@@ -28,7 +37,7 @@ public class TenantProfileHttpService(IHttpClientFactory httpClientFactory, ILog
                 return null;
             }
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<ShopDto>(cancellationToken: ct);
+            return await response.Content.ReadFromJsonAsync<ShopDto>(GatewayJsonOptions, cancellationToken: ct);
         }
         catch (Exception ex)
         {

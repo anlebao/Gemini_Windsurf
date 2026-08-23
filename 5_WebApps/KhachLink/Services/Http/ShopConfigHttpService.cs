@@ -1,4 +1,6 @@
 ﻿using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using VanAn.KhachLink.Models;
 using VanAn.Shared.Domain;
 
@@ -16,6 +18,14 @@ namespace VanAn.KhachLink.Services.Http
     {
         private readonly HttpClient _httpClient = httpClientFactory.CreateClient("gateway");
         private readonly ILogger<ShopConfigHttpService> _logger = logger;
+
+        // Gateway API returns enums as strings (e.g. "theme":"Classic").
+        // System.Text.Json default uses numbers for enums → JsonException.
+        // Same fix as Directory SSR Program.cs (issue #157 / Pattern #10 variant).
+        private static readonly JsonSerializerOptions GatewayJsonOptions = new(JsonSerializerDefaults.Web)
+        {
+            Converters = { new JsonStringEnumConverter() }
+        };
 
         /// <summary>
         /// Default ShopConfig used when no products are available, shop is not found,
@@ -76,7 +86,7 @@ namespace VanAn.KhachLink.Services.Http
                     return DefaultShopConfig;
                 }
 
-                ShopDto? shop = await response.Content.ReadFromJsonAsync<ShopDto>();
+                ShopDto? shop = await response.Content.ReadFromJsonAsync<ShopDto>(GatewayJsonOptions);
                 if (shop is null)
                 {
                     _logger.LogWarning("store-info endpoint returned empty body for tenant {TenantId}, returning DefaultShopConfig", tenantId);
