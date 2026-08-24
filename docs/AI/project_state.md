@@ -47,6 +47,23 @@
 
 ---
 
+**ISSUE #161 — ACCOUNTING ENTRY VALIDATION + TRANSACTION DATE FIX (commit `5c5a07c5`).** ✅
+- **Bug 1:** Revenue/Expense entry forms fail validation dù nhập đủ. Root cause: Blazor `@bind` drop events khi nhập nhanh → `formData.Values` rỗng → `ValidateForm()` fail. Fix: JS interop đọc DOM BEFORE validation + khởi tạo `formData.Values` với defaults + set default Value cho account/category selects.
+- **Bug 2:** Transaction history "Ngày" sai (hiện creation time thay vì user-entered date). Root cause: `AccountingEntry` constructor hardcode `TransactionDate = DateTime.UtcNow`. Fix (3-layer): Domain thêm optional `transactionDate` param (backward compatible) → Service pass-through → UI pass user-entered date.
+- **Pushed to `origin/main`, CI PASS (1411+17+266+39), CD deployed.** Comment posted on #161.
+
+---
+
+**ISSUE #156 — APPLY GROUP + COLLAPSIBLE NAV TO ALL MENUS (commit `4ee64719`).** ✅
+- Áp dụng pattern group-theo-nghiệp-vụ + collapsible (details/summary) từ AdminLayout cho tất cả nav menu:
+  - **ShopERP NavMenu.razor:** Convert từ flat AuthorizeView sang VanANavigation với role-based grouped items (Vận hành, Sản phẩm, Kế Toán, Hóa Đơn, CRM, Quản trị, Hệ thống, v.v.)
+  - **AccountingLayout.razor:** Group thành Nhập Bút Toán + Báo Cáo
+  - **EInvoiceLayout.razor:** Group thành Hóa Đơn + Cấu Hình + Giám Sát
+  - **KhachLink NavMenu.razor:** Group desktop sidebar thành Mua sắm + Tích điểm + Tiện ích + Cộng tác viên (mobile bottom bar giữ nguyên)
+- **Pushed to `origin/main`, CI PASS (1411+17+266+39), CD deployed.** Comment posted on #156.
+
+---
+
 **FINANCIAL INTELLIGENCE MVP-2 — ALL 5 PHASES COMPLETE (committed, not pushed). Ready for PR + CD + RV.**
 - **Branch:** `feature/financial-intelligence-mvp2` (forked from `main` @ `bb7f72c0`, 4 commits: `842b9178` + `bb7f72c0` + `52c55832` + `941e2fbd`)
 - **SRS:** `docs/requirements/Van_An_SRS_Financial_Intelligence_MVP2.md` · **Task card:** `docs/AI/tasks/task_financial_intelligence_mvp2.md`
@@ -65,9 +82,11 @@
 
 ## 3. Current Status
 
-- **Branch:** `main` @ `6c9182da` (Directory SSR + post-deploy fixes #157 + WebSocket/Leaflet + KhachLink enum/icons/SW). **Build full sln:** 0 errors · **CI:** 1411 unit + 266 integration + 39 arch ALL PASS · **.NET SDK:** 8.0.422
+- **Branch:** `main` @ `4ee64719` (Directory SSR + post-deploy fixes #157 + #161 accounting validation/date fix + #156 nav group/collapsible all menus). **Build full sln:** 0 errors · **CI:** 1411 unit + 17 unit + 266 integration + 39 arch ALL PASS · **.NET SDK:** 8.0.422
 - **Directory SSR:** ✅ COMPLETE — timlathay.com live (0.04s load, 10 stores, 56MiB). Issue #157 fixed (3 bugs). WebSocket + Leaflet markers fixed. See Section 2.
 - **KhachLink Commerce WASM:** ✅ ThemeType enum + shortcut icons + SW duplicate activate fixed (commit `6c9182da`). Pending RV on `diemthuong2.khachvip.online`.
+- **Issue #161 (Accounting):** ✅ Fixed + deployed. Revenue/Expense validation (JS interop DOM read before validate + default formData.Values) + TransactionDate 3-layer fix (Domain optional param → Service pass-through → UI pass user date). Pending RV.
+- **Issue #156 (Nav group/collapsible):** ✅ Fixed + deployed. All 4 nav menus converted to grouped/collapsible pattern (ShopERP NavMenu, AccountingLayout, EInvoiceLayout, KhachLink NavMenu). Pending RV.
 - **Financial Intelligence MVP-2:** ✅ All 5 phases complete on feature branch (61/61 tests PASS), pending push + PR + CD + RV.
 - **Infrastructure (all deployed + RV PASS):** GCP 3 VPS · nginx 5-layer rate limit · Cloudflare R2 (guard photos + auto-cleanup 30d) · Dynamic CORS from KhachLinkInstance registry · KhachLink Multi-Profile R1 enabled · Domain Reseller R1 (GoDaddy API) · Guard QR Verify (Issue #126) · OCR Hub R1 (PaddleOCR client-side) · Plate-as-metadata (PlateNumber optional).
 - **Known gaps (verified, not bugs):** Network Dashboard cache 10-min (by design); TD-NETDASH-001 (Order.SetCustomerId Domain change, deferred).
@@ -77,9 +96,11 @@
 
 ## 4. Next Actions
 
-**Post-deploy RV (pending — commits `e7848be9`, `1eeb4615`, `6c9182da` deployed via CD):**
+**Post-deploy RV (pending — commits `e7848be9`, `1eeb4615`, `6c9182da`, `5c5a07c5`, `4ee64719` deployed via CD):**
 1. RV `timlathay.com`: (a) `/_framework/blazor.web.js` 200 + `application/javascript` MIME; (b) Home page empty until search (no tenant list on entry); (c) voice search input persists; (d) `/_blazor` WebSocket connects (no console error); (e) StoreFinder map markers render (no 404 for marker-icon.png); (f) close issue #157
 2. RV `diemthuong2.khachvip.online`: (a) no `ThemeType` JsonException in console; (b) tenant branding loads from Gateway (theme, colors); (c) `/icons/shortcuts/search.png` + `categories.png` 200; (d) ServiceWorker `v19-merge-activate` activated (no "script evaluation failed"); (e) PWA shortcuts work
+3. RV Issue #161 (app2.khachvip.online accounting): (a) Revenue entry submits successfully with all fields filled; (b) Expense entry submits successfully; (c) Transaction history "Ngày" column shows user-entered date (not creation time); (d) close issue #161
+4. RV Issue #156 (all nav menus): (a) ShopERP main sidebar groups collapse/expand; (b) Accounting sidebar groups work; (c) EInvoice sidebar groups work; (d) KhachLink desktop sidebar groups work; (e) close issue #156
 
 **Financial Intelligence MVP-2 (active):**
 1. Push branch `feature/financial-intelligence-mvp2` (await user approval)
@@ -124,6 +145,8 @@
 
 ## 6. History Log (compressed — see archive + git log)
 
+* [2026-08-23] **ISSUE #156 — NAV GROUP + COLLAPSIBLE ALL MENUS.** `4ee64719`. Áp dụng pattern group + collapsible (details/summary) cho tất cả nav: ShopERP NavMenu (convert sang VanANavigation role-based), AccountingLayout (Nhập Bút Toán + Báo Cáo), EInvoiceLayout (Hóa Đơn + Cấu Hình + Giám Sát), KhachLink NavMenu (Mua sắm + Tích điểm + Tiện ích + Cộng tác viên). Pushed, CI PASS, CD deployed. Comment on #156.
+* [2026-08-23] **ISSUE #161 — ACCOUNTING ENTRY VALIDATION + TRANSACTION DATE FIX.** `5c5a07c5`. Bug 1: JS interop DOM read before ValidateForm + init formData.Values with defaults + default Value on selects. Bug 2: 3-layer TransactionDate fix (Domain optional param → Service pass-through → UI pass user date). 5 test files updated for Moq. Pushed, CI PASS, CD deployed. Comment on #161.
 * [2026-08-23] **POST-DEPLOY FIXES — ISSUE #157 + RUNTIME BUGS (3 commits).** `e7848be9` (issue #157: nginx `/_framework/` proxy + Home page no initial load + voice search `@bind:event="oninput"`). `1eeb4615` (WebSocket `/_blazor` upgrade headers + Leaflet marker icons → CDN). `6c9182da` (KhachLink Commerce: `ThemeType` enum `JsonStringEnumConverter` + missing shortcut icons + SW duplicate `activate` merge v19). All pushed, CI PASS, CD deployed. Pending RV.
 * [2026-08-23] **DIRECTORY SSR — ALL 4 PHASES COMPLETE + DEPLOYED + RV FULL PASS.** 7 commits on `main` @ `c34a428a`. New `5_WebApps/Directory` Blazor SSR .NET 8 app for Directory-profile KhachLink tenants (timlathay.com). Load: ~10s (22.8MB WASM) → 0.04s (cached) / 0.56s (first). 4 runtime fixes. CD 4 runs SUCCESS. RV D3-D8 all PASS.
 * [2026-08-21] **FINANCIAL INTELLIGENCE MVP-2 — ALL 5 PHASES COMPLETE** on `feature/financial-intelligence-mvp2` (4 commits). BusinessProfile entity + 4 calculation services + 7 endpoints API + 4 Blazor pages + EPPlus export. 61/61 tests PASS. Pending push + PR + CD + RV.
@@ -174,9 +197,9 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main` @ `6c9182da` (3 post-deploy fix commits: `e7848be9` issue #157, `1eeb4615` WebSocket/Leaflet, `6c9182da` KhachLink enum/icons/SW). Build 0 errors. 1411 unit + 266 integration + 39 arch ALL PASS. All 3 commits pushed + CI PASS + CD deployed. Fixes target: timlathay.com (Directory SSR) + diemthuong2.khachvip.online (Commerce WASM). Pending production RV for all 3 commits.
+- **Verified Facts:** Branch=`main` @ `4ee64719` (5 recent commits: `e7848be9` issue #157, `1eeb4615` WebSocket/Leaflet, `6c9182da` KhachLink enum/icons/SW, `5c5a07c5` issue #161 accounting validation+date, `4ee64719` issue #156 nav group/collapsible). Build 0 errors. 1411 unit + 17 unit + 266 integration + 39 arch ALL PASS. All 5 commits pushed + CI PASS + CD deployed. Fixes target: timlathay.com (Directory SSR) + diemthuong2.khachvip.online (Commerce WASM) + app2.khachvip.online (accounting + nav). Pending production RV for all 5 commits.
 - **Open Questions:** 0
-- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (20+), Open Questions (0) < 3
+- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (25+), Open Questions (0) < 3
 
 ---
 
@@ -184,6 +207,8 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md`.
 
+* **2026-08-23 — ISSUE #156 NAV GROUP + COLLAPSIBLE ALL MENUS.** Commit `4ee64719` on `main`. Áp dụng pattern group + collapsible (details/summary) cho tất cả nav: ShopERP NavMenu (convert sang VanANavigation role-based grouped), AccountingLayout (Nhập Bút Toán + Báo Cáo), EInvoiceLayout (Hóa Đơn + Cấu Hình + Giám Sát), KhachLink NavMenu desktop sidebar (Mua sắm + Tích điểm + Tiện ích + Cộng tác viên, mobile bottom bar giữ nguyên). Pushed, CI PASS (1411+17+266+39), CD deployed. Comment on #156.
+* **2026-08-23 — ISSUE #161 ACCOUNTING ENTRY VALIDATION + TRANSACTION DATE FIX.** Commit `5c5a07c5` on `main`. Bug 1: Revenue/Expense validation fail — JS interop DOM read before ValidateForm + init formData.Values with defaults + default Value on account/category selects. Bug 2: TransactionDate wrong — 3-layer fix (Domain `AccountingEntry` constructor + `CreateRevenue`/`CreateExpense` factory methods add optional `transactionDate` param → `IAccountingService` + `AccountingEntryService` pass-through → `RevenueEntry.razor` + `ExpenseEntry.razor` pass user-entered date). 5 test files updated for Moq `It.IsAny<DateTime?>()`. Also fixed mojibake em dash in `AccountingEntryDto.cs`. Pushed, CI PASS, CD deployed. Comment on #161.
 * **2026-08-23 — POST-DEPLOY FIXES — ISSUE #157 + RUNTIME BUGS.** 3 commits on `main` @ `6c9182da`. `e7848be9`: issue #157 (nginx `/_framework/` proxy for Directory domains + Home page no initial tenant load + voice search `@bind:event="oninput"`). `1eeb4615`: nginx WebSocket upgrade headers for `/_blazor` + Leaflet marker icons → unpkg CDN. `6c9182da`: KhachLink Commerce WASM — `ThemeType` enum `JsonStringEnumConverter` in `ShopConfigHttpService` + `TenantProfileHttpService` + missing shortcut icons + SW duplicate `activate` merge (v18 → v19-merge-activate). All pushed, CI PASS, CD deployed. Pending RV.
 * **2026-08-23 — DIRECTORY SSR — ALL 4 PHASES COMPLETE + DEPLOYED + RV FULL PASS.** 7 commits on `main` @ `c34a428a`. New `5_WebApps/Directory` Blazor SSR .NET 8 app (port 8080, 256MB). nginx map-based routing with Docker DNS resolver. 4 runtime fixes: nginx upstream DNS, nginx proxy_pass location, Blazor LayoutComponentBase Body, System.Text.Json enum string conversion. CD 4 runs SUCCESS. RV D3-D8 all PASS: 0.04s cached load, 10 stores, Commerce unaffected, 56MiB. Local test PASS. Pre-push CI: 1411 unit + 266 integration + 39 arch ALL PASS.
 * **2026-08-21 — FINANCIAL INTELLIGENCE MVP-2 — ALL 5 PHASES COMPLETE.** Branch `feature/financial-intelligence-mvp2` (4 commits). BusinessProfile entity + 4 calculation services + 7 endpoints API + 4 Blazor pages + EPPlus export. 61/61 tests PASS. Pending push + PR + CD + RV.
