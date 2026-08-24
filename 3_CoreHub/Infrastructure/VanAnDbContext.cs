@@ -25,16 +25,16 @@ namespace VanAn.CoreHub.Infrastructure
     {
         private readonly ITenantProvider _tenantProvider = tenantProvider;
 
-        // ðŸ›¡ï¸ PUBLIC PROPERTY FOR EF Core Query Filter
+        // 🛡️ PUBLIC PROPERTY FOR EF Core Query Filter
         public Guid CurrentTenantId => _tenantProvider?.TenantId ?? Guid.Empty;
 
         // Used by global query filter: TenantId column is stored as TEXT (UUID string)
         // Both SQLite and Npgsql can compare TEXT columns with string parameters.
         public string CurrentTenantIdString => CurrentTenantId.ToString();
 
-        // TenantId value object â€” used by ApplyMultiTenancyFilters expression tree
+        // TenantId value object — used by ApplyMultiTenancyFilters expression tree
         // so EF Core can translate e.TenantId == CurrentTenantIdValue with the
-        // TenantIdâ†’string converter, emitting a properly parameterized SQL query.
+        // TenantId→string converter, emitting a properly parameterized SQL query.
         public TenantId CurrentTenantIdValue => new TenantId(CurrentTenantId);
 
         // Domain Tables dengan Multi-tenancy
@@ -56,9 +56,9 @@ namespace VanAn.CoreHub.Infrastructure
         // Demo Users for Multi-Role ShopERP
         public DbSet<DemoUser> Users { get; set; }
 
-        // Shop entity removed 2026-07-21 â€” Tenant is the single identity.
+        // Shop entity removed 2026-07-21 — Tenant is the single identity.
 
-        // HKD Business Tenants â€” Wave 5: now uses Rich Domain TenantAggregate.Tenant
+        // HKD Business Tenants — Wave 5: now uses Rich Domain TenantAggregate.Tenant
         public DbSet<Tenant> Tenants { get; set; }
 
         // Wave 1 Phase 2: User-Tenant mapping (cross-tenant entity)
@@ -87,11 +87,11 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<JournalTemplate> JournalTemplates { get; set; }
         public DbSet<JournalEntry> JournalEntries { get; set; }
 
-        // E-Invoice (Sprint 3 â€” persisted state for atomic transaction with Outbox)
+        // E-Invoice (Sprint 3 — persisted state for atomic transaction with Outbox)
         public DbSet<ElectronicInvoice> ElectronicInvoices { get; set; }
         public DbSet<InvoiceItem> InvoiceItems { get; set; }
 
-        // E-Invoice Webhook Idempotency â€” durable deduplication store (Finding #5 fix)
+        // E-Invoice Webhook Idempotency — durable deduplication store (Finding #5 fix)
         public DbSet<ProcessedWebhookKey> ProcessedWebhookKeys { get; set; }
 
         // UC1: Pending Invoice Queue - Batch processing for anonymous retail invoices
@@ -100,7 +100,7 @@ namespace VanAn.CoreHub.Infrastructure
         // PHASE 2.9.4: Audit Trail - Immutable append-only logs
         public DbSet<AuditLog> AuditLogs { get; set; }
 
-        // W3: VAS Account Chart reference data (global â€” NOT tenant-scoped, NOT IMustHaveTenant)
+        // W3: VAS Account Chart reference data (global — NOT tenant-scoped, NOT IMustHaveTenant)
         public DbSet<Entities.AccountChartEntity> AccountCharts { get; set; }
 
         // W5: Period closing status persistence (tenant-scoped, IMustHaveTenant via BaseEntity).
@@ -123,7 +123,7 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<CampaignPushJob> CampaignPushJobs { get; set; }
         public DbSet<PushNotificationDelivery> PushNotificationDeliveries { get; set; }
 
-        // Loyalty-B: Redemption system â€” DbSets for interface compliance.
+        // Loyalty-B: Redemption system — DbSets for interface compliance.
         // Storage is ShopERP SQLite; Gateway PG ignores these (configurations auto-applied but tables not used).
         public DbSet<RedemptionCatalogItem> RedemptionCatalogItems { get; set; }
         public DbSet<RedemptionRecord> RedemptionRecords { get; set; }
@@ -136,7 +136,7 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<PromoCampaign> PromoCampaigns { get; set; }
         public DbSet<PromoCampaignRecipient> PromoCampaignRecipients { get; set; }
 
-        // Community Commerce Sprint 0 (v1.2: 11 DbSet) â€” Gateway PG only, tenant-scoped via IMustHaveTenant
+        // Community Commerce Sprint 0 (v1.2: 11 DbSet) — Gateway PG only, tenant-scoped via IMustHaveTenant
         public DbSet<CommunityRole> CommunityRoles { get; set; }
         public DbSet<DeliveryTask> DeliveryTasks { get; set; }
         public DbSet<DeliveryTracking> DeliveryTrackings { get; set; }
@@ -182,8 +182,8 @@ namespace VanAn.CoreHub.Infrastructure
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // KHÃ“A CHáº¶T: Cháº·n EF Core tá»± Ä‘á»™ng quÃ©t vÃ  biáº¿n Strong-typed ID thÃ nh báº£ng Ä‘á»™c láº­p
-            // Pháº£i Ä‘áº·t TRÆ¯á»šC base.OnModelCreating Ä‘á»ƒ ngÄƒn auto-discovery
+            // KHÓA CHẶT: Chặn EF Core tự động quét và biến Strong-typed ID thành bảng độc lập
+            // Phải đặt TRƯỚC base.OnModelCreating để ngăn auto-discovery
             modelBuilder.Ignore<OrderId>();
             modelBuilder.Ignore<ElectronicInvoiceId>();
             modelBuilder.Ignore<InvoiceItemId>();
@@ -216,13 +216,13 @@ namespace VanAn.CoreHub.Infrastructure
             _ = modelBuilder.Ignore<HKDBook>();
             _ = modelBuilder.Ignore<GenericHKDBook>();
 
-            // E-Invoice value objects â€” not entities, used as converted properties
+            // E-Invoice value objects — not entities, used as converted properties
             _ = modelBuilder.Ignore<ProviderId>();
             _ = modelBuilder.Ignore<InvoiceIdempotencyKey>();
             _ = modelBuilder.Ignore<InvoiceAggregate>();
             _ = modelBuilder.Ignore<SubmitAttempt>();
 
-            // OutboxEvent is a domain entity â€” persistence via OutboxMessage (OutboxRepository maps between them)
+            // OutboxEvent is a domain entity — persistence via OutboxMessage (OutboxRepository maps between them)
             // Must be ignored to prevent EF from creating a duplicate OutboxEvent table
             _ = modelBuilder.Ignore<OutboxEvent>();
 
@@ -230,7 +230,7 @@ namespace VanAn.CoreHub.Infrastructure
             // Architect++: Use auto-discovery instead of manual registration
             _ = modelBuilder.ApplyConfigurationsFromAssembly(typeof(VanAnDbContext).Assembly);
 
-            // ðŸ›¡ï¸ GLOBAL QUERY FILTERS - Multi-tenancy isolation
+            // 🛡️ GLOBAL QUERY FILTERS - Multi-tenancy isolation
             // ApplyMultiTenancyFilters(modelBuilder);
 
             // NOTE: Product, Ingredient, Recipe, Inventory configurations moved to
@@ -266,7 +266,7 @@ namespace VanAn.CoreHub.Infrastructure
             // NOTE: OrderItem configuration moved to OrderItemConfiguration.cs
             // to support OrderItemId and TenantId value object converters
 
-            // ðŸ›¡ï¸ E-Invoice: Configure InvoiceItem entity
+            // 🛡️ E-Invoice: Configure InvoiceItem entity
             _ = modelBuilder.Entity<InvoiceItem>(entity =>
             {
                 _ = entity.HasKey(e => e.Id);
@@ -291,14 +291,14 @@ namespace VanAn.CoreHub.Infrastructure
             // dedicated IEntityTypeConfiguration files to support TenantId value object converter
             // Configurations: DemoUserConfiguration.cs, SocialCampaignConfiguration.cs,
             //                 LoyaltyRewardsConfiguration.cs
-            // (ShopConfiguration removed 2026-07-21 â€” Shop entity deleted)
+            // (ShopConfiguration removed 2026-07-21 — Shop entity deleted)
 
 
-            // ðŸ›¡ï¸ GLOBAL QUERY FILTERS - Multi-tenancy isolation for other entities
+            // 🛡️ GLOBAL QUERY FILTERS - Multi-tenancy isolation for other entities
             ApplyMultiTenancyFilters(modelBuilder);
         }
 
-        // ðŸ›¡ï¸ MULTI-TENANCY HELPER METHODS
+        // 🛡️ MULTI-TENANCY HELPER METHODS
         private void ApplyMultiTenancyFilters(ModelBuilder modelBuilder)
         {
             // Skip if tenant provider is null (for design-time or migrations)
@@ -313,7 +313,7 @@ namespace VanAn.CoreHub.Infrastructure
             // The fail-fast guard for empty TenantId is enforced at repository/service layer.
             // if (_tenantProvider.TenantId == Guid.Empty)
             // {
-            //     throw new InvalidOperationException("TenantId is empty â€” cannot query tenant-scoped data. Ensure JWT claim 'TenantId' is set.");
+            //     throw new InvalidOperationException("TenantId is empty — cannot query tenant-scoped data. Ensure JWT claim 'TenantId' is set.");
             // }
 
             // Apply to all entities implementing IMustHaveTenant

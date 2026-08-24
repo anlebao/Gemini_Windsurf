@@ -14,13 +14,13 @@
         public required decimal UnitPrice { get; init; }
         public decimal VatRate { get; init; } = 0.10m;  // RC-7: snapshot from Product
 
-        // Phase 5: Tenant that owns this product. Required for multi-tenant cart â†’ multi-order checkout.
+        // Phase 5: Tenant that owns this product. Required for multi-tenant cart → multi-order checkout.
         // Defaults to Guid.Empty so legacy/uninitialized CartItem objects remain valid (no `required` modifier).
         // Validation (TenantId != Guid.Empty) happens at checkout.
         public Guid TenantId { get; init; } = Guid.Empty;
 
-        // Tenant display name â€” resolved from PG Tenants table at checkout/tracking time.
-        // Stored in cart so Cart/Checkout pages can show "Cá»­a hÃ ng: {name}" instead of raw GUID.
+        // Tenant display name — resolved from PG Tenants table at checkout/tracking time.
+        // Stored in cart so Cart/Checkout pages can show "Cửa hàng: {name}" instead of raw GUID.
         // Empty string for legacy items (resolved lazily at checkout response).
         public string TenantName { get; init; } = string.Empty;
 

@@ -9,7 +9,7 @@
         <div class="spinner-border spinner-border-sm" role="status">
             <span class="visually-hidden">Loading...</span>
         </div>
-        <span class="ms-2">Äang táº£i giao diá»‡n...</span>
+        <span class="ms-2">Đang tải giao diện...</span>
     </div>
 }
 else if (ShopConfig != null)
@@ -131,7 +131,7 @@ else if (ShopConfig != null)
             ShopConfig = new ShopConfig
             {
                 TenantId = ShopId,
-                ShopName = "Váº¡n An",
+                ShopName = "Vạn An",
                 PrimaryColor = "#8B4513",
                 SecondaryColor = "#FFA500",
                 LogoUrl = new Uri("/favicon.png", UriKind.Relative),
@@ -149,10 +149,10 @@ else if (ShopConfig != null)
     {
         if (firstRender && ShopConfig != null)
         {
-            // P4 FIX: JSRuntime calls moved here â€” only available after hydration.
+            // P4 FIX: JSRuntime calls moved here — only available after hydration.
             try
             {
-                var displayTitle = ShopConfig?.ShopName ?? "Váº¡n An";
+                var displayTitle = ShopConfig?.ShopName ?? "Vạn An";
                 await JSRuntime.InvokeVoidAsync("updatePageTitle", displayTitle);
 
                 await JSRuntime.InvokeVoidAsync("applyThemeClass", $"theme-{(ShopConfig?.ActiveTheme ?? ThemeType.Classic).ToCssClass()}");

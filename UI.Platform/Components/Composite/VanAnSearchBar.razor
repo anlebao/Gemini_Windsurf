@@ -12,7 +12,7 @@
     <div class="search-input-group">
         @if (!string.IsNullOrEmpty(Placeholder))
         {
-            <span class="search-icon">ðŸ”</span>
+            <span class="search-icon">🔍</span>
         }
         <input type="text"
                id="search-input"
@@ -25,14 +25,14 @@
     </div>
 
     <button id="search-button" class="btn btn-search" @onclick="TriggerSearch" disabled="@IsDisabled">
-        TÃ¬m
+        Tìm
     </button>
 
     @if (ShowAmountFilter)
     {
         <div class="amount-filter-group">
-            <input type="number" id="amount-min" placeholder="Tá»«" @onchange="HandleAmountMinChange" />
-            <input type="number" id="amount-max" placeholder="Äáº¿n" @onchange="HandleAmountMaxChange" />
+            <input type="number" id="amount-min" placeholder="Từ" @onchange="HandleAmountMinChange" />
+            <input type="number" id="amount-max" placeholder="Đến" @onchange="HandleAmountMaxChange" />
         </div>
     }
 

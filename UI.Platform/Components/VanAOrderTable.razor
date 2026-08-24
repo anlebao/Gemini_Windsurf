@@ -7,10 +7,10 @@
         <h3 class="vanan-order-table__title">Orders</h3>
         <div class="vanan-order-table__actions">
             <VanAnButton Variant="secondary" Size="small" OnClick="@RefreshOrders">
-                ðŸ”„ Refresh
+                🔄 Refresh
             </VanAnButton>
             <VanAnButton Variant="primary" Size="small" OnClick="@ShowFilters">
-                ðŸ” Filters
+                🔍 Filters
             </VanAnButton>
         </div>
     </div>
@@ -18,7 +18,7 @@
     @if (Orders == null || !Orders.Any())
     {
         <div class="vanan-order-table__empty">
-            <div class="vanan-order-table__empty-icon">ðŸ“‹</div>
+            <div class="vanan-order-table__empty-icon">📋</div>
             <div class="vanan-order-table__empty-text">No orders found</div>
         </div>
     }
@@ -64,13 +64,13 @@
                             <td class="vanan-order-table__cell">
                                 <div class="vanan-order-table__actions-cell">
                                     <VanAnButton Variant="outline" Size="small" OnClick="@(() => HandleViewDetails(order))">
-                                        ðŸ‘ï¸
+                                        👁️
                                     </VanAnButton>
                                     <VanAnButton Variant="outline" Size="small" OnClick="@(() => HandleAssignStaff(order))">
-                                        ðŸ‘¥
+                                        👥
                                     </VanAnButton>
                                     <VanAnButton Variant="outline" Size="small" OnClick="@(() => HandleUpdateStatus(order))">
-                                        ðŸ“
+                                        📝
                                     </VanAnButton>
                                 </div>
                             </td>
@@ -84,13 +84,13 @@
         {
             <div class="vanan-order-table__pagination">
                 <VanAnButton Variant="secondary" Size="small" OnClick="@PreviousPage" disabled="@(!HasPreviousPage)">
-                    â† Previous
+                    ← Previous
                 </VanAnButton>
                 <span class="vanan-order-table__page-info">
                     Page @CurrentPage of @TotalPages
                 </span>
                 <VanAnButton Variant="secondary" Size="small" OnClick="@NextPage" disabled="@(!HasNextPage)">
-                    Next â†’
+                    Next →
                 </VanAnButton>
             </div>
         }

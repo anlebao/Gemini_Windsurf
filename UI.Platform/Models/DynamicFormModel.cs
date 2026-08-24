@@ -20,7 +20,7 @@ namespace VanAn.UI.Platform.Models
                 if (field.Value.Required &&
                     (field.Value.Value == null || string.IsNullOrEmpty(field.Value.Value.ToString())))
                 {
-                    yield return new ValidationResult($"{field.Value.Label ?? field.Key} khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng", new[] { field.Key });
+                    yield return new ValidationResult($"{field.Value.Label ?? field.Key} không được để trống", new[] { field.Key });
                 }
             }
         }

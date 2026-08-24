@@ -8,22 +8,22 @@ namespace VanAn.Shared.Services
     /// </summary>
     public interface IKitchenService
     {
-        // ðŸŽ¯ CORE FIFO GROUPING LOGIC
+        // 🎯 CORE FIFO GROUPING LOGIC
         Task<List<KitchenItemGroupDto>> GetGroupedKitchenItemsAsync(Guid shopId);
 
-        // ðŸ“ STATUS MANAGEMENT
+        // 📝 STATUS MANAGEMENT
         Task<bool> UpdateItemStatusAsync(KitchenStatusUpdateDto update, Guid userId);
 
-        // ðŸ” ORDER TRACKING
+        // 🔍 ORDER TRACKING
         Task<KitchenStatus?> GetOrderKitchenStatusAsync(Guid orderId);
         Task<List<GroupedOrderItemDto>> GetOrderItemsAsync(Guid orderId);
 
-        // ðŸ“Š KITCHEN ANALYTICS
+        // 📊 KITCHEN ANALYTICS
         Task<int> GetPendingItemsCountAsync(Guid shopId);
         Task<TimeSpan> GetAveragePreparationTimeAsync(Guid shopId, DateTime from);
         Task<KitchenAnalyticsDto> GetKitchenAnalyticsAsync(Guid shopId, DateTime from);
 
-        // ðŸŽ¤ VOICE NOTE HANDLING (CORRECTED SIGNATURE)
+        // 🎤 VOICE NOTE HANDLING (CORRECTED SIGNATURE)
         Task<VoiceNoteDto> ProcessVoiceNoteAsync(Guid orderId, VoiceNoteDto inputDto);
         Task<bool> AttachVoiceNoteToItemAsync(Guid orderItemId, VoiceNoteDto voiceNote);
     }
