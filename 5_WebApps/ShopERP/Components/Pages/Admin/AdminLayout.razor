@@ -28,7 +28,10 @@
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         _isSystemAdmin = authState.User.IsInRole("SystemAdmin");
-        AdminMenuItems = _isSystemAdmin ? BuildSystemAdminMenu() : BuildOwnerMenu();
+        // Issue #103: When SystemAdmin is impersonating a tenant, render Owner menu
+        // (shop owner view) instead of SystemAdmin menu (platform admin view).
+        var isImpersonating = authState.User.FindFirst("impersonating")?.Value == "true";
+        AdminMenuItems = (_isSystemAdmin && !isImpersonating) ? BuildSystemAdminMenu() : BuildOwnerMenu();
         _initialized = true;
     }
 

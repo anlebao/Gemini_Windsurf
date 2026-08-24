@@ -28,6 +28,24 @@
                 </AuthorizeView>
             </div>
 
+            <AuthorizeView>
+                <Authorized>
+                    @if (context.User.FindFirst("impersonating")?.Value == "true")
+                    {
+                        var tenantName = context.User.FindFirst("impersonated_tenant_name")?.Value ?? "unknown";
+                        <div class="impersonation-banner" data-testid="impersonation-banner">
+                            <span>
+                                <i class="bi bi-person-badge"></i>
+                                Đang truy cập với tư cách tenant: <strong>@tenantName</strong>
+                            </span>
+                            <a href="/ExitImpersonate" class="btn btn-warning btn-sm ms-2" data-testid="btn-exit-impersonation">
+                                <i class="bi bi-box-arrow-left"></i> Thoát impersonation
+                            </a>
+                        </div>
+                    }
+                </Authorized>
+            </AuthorizeView>
+
             <article class="content px-4">
                 @Body
             </article>

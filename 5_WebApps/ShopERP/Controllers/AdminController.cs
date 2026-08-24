@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -73,10 +74,20 @@ public class AdminController : ControllerBase
         var emailClaim = user.FindFirst(ClaimTypes.Email)?.Value ?? user.FindFirst("sub")?.Value ?? "sysadmin@vanan.vn";
         var roleClaim = user.FindFirst(ClaimTypes.Role)?.Value ?? user.FindFirst("role")?.Value ?? "SystemAdmin";
 
-        // Build new claims: copy existing + add tenant_id
-        var claims = new List<Claim>(user.Claims.Where(c => c.Type != "tenant_id"))
+        // Build new claims: copy existing + add tenant_id + Owner role + impersonating marker
+        // Issue #103: Dual role (SystemAdmin + Owner) so NavMenu/Sitemap render shop-owner menus.
+        // "impersonating" marker lets ExitImpersonation and AdminLayout know to use Owner view.
+        var claims = new List<Claim>(
+            user.Claims.Where(c => c.Type != "tenant_id"
+                                 && c.Type != "TenantId"
+                                 && c.Type != "impersonating"
+                                 && c.Type != "impersonated_tenant_name"))
         {
-            new("tenant_id", tenantId.ToString())
+            new("tenant_id", tenantId.ToString()),
+            new("TenantId", tenantId.ToString()),
+            new(ClaimTypes.Role, "Owner"),
+            new("impersonating", "true"),
+            new("impersonated_tenant_name", tenant.Name),
         };
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -94,16 +105,24 @@ public class AdminController : ControllerBase
             principal,
             authProperties);
 
-        // JWT re-issuance: mint a new JWT with the selected tenant_id so API clients
+        // JWT re-issuance: mint a new JWT with the selected tenant_id + Owner role so API clients
         // using Bearer token (not Cookie) can access Gateway tenant-scoped endpoints.
-        // Without this, SystemAdmin JWT has tenant_id="system" (not a valid Guid) and
-        // Gateway controllers reject it with 401 "Tenant ID required in JWT claim".
+        // Issue #103: Use "Owner" role (not SystemAdmin) so Gateway RequireOwnerRole policy passes.
         Guid.TryParse(userIdClaim, out Guid parsedUserId);
         string impersonatedJwt = _jwtTokenService.GenerateToken(
             userId: parsedUserId,
             email: emailClaim,
-            role: roleClaim,
+            role: "Owner",
             tenantId: tenantId);
+
+        // Issue #103: Update .VanAn.Jwt cookie so Bearer-token API calls use the impersonated tenant.
+        Response.Cookies.Append(".VanAn.Jwt", impersonatedJwt, new CookieOptions
+        {
+            HttpOnly = true,
+            SameSite = SameSiteMode.Strict,
+            Secure = Request.IsHttps,
+            Expires = DateTimeOffset.UtcNow.AddHours(8),
+        });
 
         // EDR-AM-6: Log impersonation event
         _logger.LogInformation("IMPERSONATE | SystemAdmin {UserId} | TenantId={TenantId} | TenantName={TenantName}",
@@ -128,9 +147,14 @@ public class AdminController : ControllerBase
         var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
         var currentTenantId = user.FindFirst("tenant_id")?.Value;
 
-        // Build claims without tenant_id
+        // Build claims without tenant_id, TenantId, Owner role, impersonating marker, tenant name
+        // Issue #103: Must remove all impersonation-related claims to fully restore SystemAdmin mode.
         var claims = user.Claims
-            .Where(c => c.Type != "tenant_id")
+            .Where(c => c.Type != "tenant_id"
+                     && c.Type != "TenantId"
+                     && c.Type != "impersonating"
+                     && c.Type != "impersonated_tenant_name"
+                     && !(c.Type == ClaimTypes.Role && c.Value == "Owner"))
             .ToList();
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -147,6 +171,25 @@ public class AdminController : ControllerBase
             CookieAuthenticationDefaults.AuthenticationScheme,
             principal,
             authProperties);
+
+        // Issue #103: Re-issue .VanAn.Jwt with tenant_id=Guid.Empty (platform mode — same as SystemAdmin login)
+        var emailClaim = user.FindFirst(ClaimTypes.Email)?.Value
+            ?? user.FindFirst("sub")?.Value
+            ?? "sysadmin@vanan.vn";
+        Guid.TryParse(userIdClaim, out Guid parsedUserId);
+        string platformJwt = _jwtTokenService.GenerateToken(
+            userId: parsedUserId,
+            email: emailClaim,
+            role: "SystemAdmin",
+            tenantId: Guid.Empty);
+
+        Response.Cookies.Append(".VanAn.Jwt", platformJwt, new CookieOptions
+        {
+            HttpOnly = true,
+            SameSite = SameSiteMode.Strict,
+            Secure = Request.IsHttps,
+            Expires = DateTimeOffset.UtcNow.AddHours(8),
+        });
 
         // EDR-AM-6: Log exit event
         _logger.LogInformation("EXIT_IMPERSONATION | SystemAdmin {UserId} | Was TenantId={TenantId}",

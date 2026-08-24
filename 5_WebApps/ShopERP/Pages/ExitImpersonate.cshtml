@@ -1,0 +1,9 @@
+@page "/ExitImpersonate"
+@model VanAn.ShopERP.Pages.ExitImpersonateModel
+@{
+    ViewData["Title"] = "Đang thoát impersonation...";
+}
+
+<div class="redirect-loading" data-testid="exit-impersonate-loading">
+    <p>@Model.StatusMessage</p>
+</div>

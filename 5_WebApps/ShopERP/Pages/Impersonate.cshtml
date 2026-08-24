@@ -1,0 +1,9 @@
+@page "/Impersonate/{tenantId:guid}"
+@model VanAn.ShopERP.Pages.ImpersonateModel
+@{
+    ViewData["Title"] = "Đang chuyển đổi...";
+}
+
+<div class="redirect-loading" data-testid="impersonate-loading">
+    <p>@Model.StatusMessage</p>
+</div>

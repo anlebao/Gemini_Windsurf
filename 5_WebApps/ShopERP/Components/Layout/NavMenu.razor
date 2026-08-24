@@ -32,6 +32,14 @@
         var isGuard = user.IsInRole("Guard");
         var isSystemAdmin = user.IsInRole("SystemAdmin");
         var isAdmin = user.IsInRole("Admin");
+        // Issue #103: When SystemAdmin is impersonating, treat as Owner for menu visibility.
+        // Hide platform-admin menus (Hệ thống, CRM Global, Hướng dẫn) and show Owner menus instead.
+        var isImpersonating = user.FindFirst("impersonating")?.Value == "true";
+        if (isImpersonating)
+        {
+            isSystemAdmin = false;
+            isOwner = true;
+        }
 
         var items = new List<NavigationItem>();
 

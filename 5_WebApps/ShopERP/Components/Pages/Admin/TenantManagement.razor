@@ -19,7 +19,6 @@
 @inject IThemeProvider ThemeProvider
 @inject ILogger<TenantManagement> Logger
 @inject NavigationManager NavigationManager
-@inject IHttpClientFactory HttpClientFactory
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IJSRuntime JSRuntime
 
@@ -1064,10 +1063,6 @@
 
     // ── Impersonation (AM-T7) ─────────────────────────────────────────────────
 
-    // ShopERP page calling its own API: build absolute URL from NavigationManager.BaseUri
-    // because the injected HttpClient has no BaseAddress (relative URLs fail silently).
-    private string Api(string path) => $"{NavigationManager.BaseUri.TrimEnd('/')}/{path.TrimStart('/')}";
-
     private void NavigateToQuickSetup(TenantApiDto tenant)
     {
         NavigationManager.NavigateTo($"/quick-setup?tenantId={tenant.Id}");
@@ -1078,21 +1073,15 @@
         _impersonatingTenantId = tenant.Id;
         try
         {
-            var client = HttpClientFactory.CreateClient("CookieForwarding");
-            var response = await client.PostAsync(Api($"/api/admin/impersonate/{tenant.Id}"), null);
-            if (response.IsSuccessStatusCode)
-            {
-                NavigationManager.NavigateTo("/", forceLoad: true);
-            }
-            else
-            {
-                ShowAlert("error", $"Không thể truy cập tenant '{tenant.Name}': {response.ReasonPhrase}");
-            }
+            // Issue #103 fix: Navigate to Razor Page instead of HttpClient POST.
+            // Razor Page runs in real HTTP context → browser receives Set-Cookie → impersonation works.
+            // Old HttpClient approach failed: HttpContext null in Blazor Server event + Set-Cookie never reached browser.
+            NavigationManager.NavigateTo($"/Impersonate/{tenant.Id}", forceLoad: true);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Failed to impersonate tenant {TenantId}", tenant.Id);
-            ShowAlert("error", $"Lỗi kết nối: {ex.Message}");
+            Logger.LogError(ex, "Failed to navigate to impersonate page for tenant {TenantId}", tenant.Id);
+            ShowAlert("error", $"Lỗi: {ex.Message}");
         }
         finally { _impersonatingTenantId = Guid.Empty; }
     }
@@ -1102,21 +1091,13 @@
         _isExitingImpersonation = true;
         try
         {
-            var client = HttpClientFactory.CreateClient("CookieForwarding");
-            var response = await client.PostAsync(Api("/api/admin/exit-impersonation"), null);
-            if (response.IsSuccessStatusCode)
-            {
-                NavigationManager.NavigateTo("/admin/tenants", forceLoad: true);
-            }
-            else
-            {
-                ShowAlert("error", "Không thể thoát impersonation.");
-            }
+            // Issue #103 fix: Navigate to Razor Page instead of HttpClient POST.
+            NavigationManager.NavigateTo("/ExitImpersonate", forceLoad: true);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Failed to exit impersonation");
-            ShowAlert("error", $"Lỗi kết nối: {ex.Message}");
+            Logger.LogError(ex, "Failed to navigate to exit impersonation page");
+            ShowAlert("error", $"Lỗi: {ex.Message}");
         }
         finally { _isExitingImpersonation = false; }
     }

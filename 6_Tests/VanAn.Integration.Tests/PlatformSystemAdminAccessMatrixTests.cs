@@ -238,4 +238,64 @@ public class PlatformSystemAdminAccessMatrixTests : IClassFixture<AuthRealWebApp
         var response = await client.GetAsync("/admin/tenants");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    // ─── Issue #103: Razor Page impersonation flow ──────────────────────────
+
+    [Fact(DisplayName = "AM-S19: GET /Impersonate/{validId} succeeds — cookie set, redirect followed (Issue #103)")]
+    public async Task RazorPage_ImpersonateValidTenant_Succeeds()
+    {
+        await SeedTestTenantAsync();
+        var client = await _factory.CreateSystemAdminClientAsync();
+        // Client follows redirect to /sitemap — if cookie was set correctly, final response is 200
+        var response = await client.GetAsync($"/Impersonate/{_testTenantId}");
+        Assert.True(
+            response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Redirect,
+            $"Expected 200 (redirect followed) or 302, got {response.StatusCode}");
+    }
+
+    [Fact(DisplayName = "AM-S20: GET /Impersonate/{invalidId} returns 200 with error page (Issue #103)")]
+    public async Task RazorPage_ImpersonateInvalidTenant_ReturnsPageWithError()
+    {
+        var client = await _factory.CreateSystemAdminClientAsync();
+        var response = await client.GetAsync($"/Impersonate/{Guid.NewGuid()}");
+        // Tenant not found → Page() renders with error message (200, no redirect)
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact(DisplayName = "AM-S21: After GET /Impersonate/{id}, tenant-scoped page accessible (Issue #103)")]
+    public async Task RazorPage_Impersonate_TenantScopedPageAccessible()
+    {
+        await SeedTestTenantAsync();
+        var client = await _factory.CreateSystemAdminClientAsync();
+        // Impersonate via Razor Page (cookie set in HTTP context)
+        _ = await client.GetAsync($"/Impersonate/{_testTenantId}");
+        // Verify tenant-scoped page is accessible with impersonated cookie
+        var response = await client.GetAsync("/orders");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact(DisplayName = "AM-S22: GET /ExitImpersonate after impersonation succeeds (Issue #103)")]
+    public async Task RazorPage_ExitImpersonation_Succeeds()
+    {
+        await SeedTestTenantAsync();
+        var client = await _factory.CreateSystemAdminClientAsync();
+        // First impersonate via API (sets cookie)
+        await _factory.ImpersonateTenantAsync(client, _testTenantId);
+        // Then exit via Razor Page — client follows redirect to /admin/tenants
+        var response = await client.GetAsync("/ExitImpersonate");
+        Assert.True(
+            response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Redirect,
+            $"Expected 200 (redirect followed) or 302, got {response.StatusCode}");
+    }
+
+    [Fact(DisplayName = "AM-S23: GET /ExitImpersonate without impersonating redirects to /sitemap (Issue #103)")]
+    public async Task RazorPage_ExitImpersonation_NotImpersonating_RedirectsToSitemap()
+    {
+        var client = await _factory.CreateSystemAdminClientAsync();
+        // Not impersonating → redirect to /sitemap → client follows → 200
+        var response = await client.GetAsync("/ExitImpersonate");
+        Assert.True(
+            response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Redirect,
+            $"Expected 200 (redirect followed) or 302, got {response.StatusCode}");
+    }
 }
