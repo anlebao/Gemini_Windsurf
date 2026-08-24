@@ -15,7 +15,7 @@
 @inject ILogger<FeaturedProducts> Logger
 @inject ShopERPDbContext ShopERPDb
 
-@attribute [Authorize(Roles = "Owner,SystemAdmin")]
+@attribute [Authorize(Policy = "SystemAdmin")]
 
 <div class="featured-products-page @ThemeProvider.CurrentTheme">
     <header class="page-header">

@@ -1,5 +1,7 @@
 ﻿@page "/admin/khachlink-home-settings"
 @rendermode InteractiveServer
+@attribute [Authorize(Policy = "SystemAdmin")]
+@using Microsoft.AspNetCore.Authorization
 @using VanAn.UI.Platform.Components
 @using VanAn.ShopERP.Services
 @inject KhachLinkHomeSettingsApiClient ApiClient

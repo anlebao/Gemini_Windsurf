@@ -8,26 +8,47 @@
         {
             @foreach (var item in MenuItems)
             {
-                <li class="vanan-navigation__item @(item.IsActive ? "vanan-navigation__item--active" : "")">
-                    <a href="@item.Url" class="vanan-navigation__link">
-                        @if (!string.IsNullOrEmpty(item.Icon))
-                        {
-                            <i class="bi bi-@item.Icon vanan-navigation__icon" aria-hidden="true"></i>
-                        }
-                        <span class="vanan-navigation__text">@item.Title</span>
-                    </a>
-                    @if (item.Children.Any())
-                    {
-                        <ul class="vanan-navigation__submenu">
-                            @foreach (var child in item.Children)
+                @if (item.Children.Any())
+                {
+                    <li class="vanan-navigation__item vanan-navigation__item--group">
+                        <details class="vanan-navigation__details">
+                            <summary class="vanan-navigation__summary">
+                                @if (!string.IsNullOrEmpty(item.Icon))
+                                {
+                                    <i class="bi bi-@item.Icon vanan-navigation__icon" aria-hidden="true"></i>
+                                }
+                                <span class="vanan-navigation__text">@item.Title</span>
+                                <i class="bi bi-chevron-down vanan-navigation__chevron" aria-hidden="true"></i>
+                            </summary>
+                            <ul class="vanan-navigation__submenu">
+                                @foreach (var child in item.Children)
+                                {
+                                    <li class="vanan-navigation__subitem">
+                                        <a href="@child.Url" class="vanan-navigation__sublink">
+                                            @if (!string.IsNullOrEmpty(child.Icon))
+                                            {
+                                                <i class="bi bi-@child.Icon vanan-navigation__subicon" aria-hidden="true"></i>
+                                            }
+                                            @child.Title
+                                        </a>
+                                    </li>
+                                }
+                            </ul>
+                        </details>
+                    </li>
+                }
+                else
+                {
+                    <li class="vanan-navigation__item @(item.IsActive ? "vanan-navigation__item--active" : "")">
+                        <a href="@item.Url" class="vanan-navigation__link">
+                            @if (!string.IsNullOrEmpty(item.Icon))
                             {
-                                <li class="vanan-navigation__subitem">
-                                    <a href="@child.Url" class="vanan-navigation__sublink">@child.Title</a>
-                                </li>
+                                <i class="bi bi-@item.Icon vanan-navigation__icon" aria-hidden="true"></i>
                             }
-                        </ul>
-                    }
-                </li>
+                            <span class="vanan-navigation__text">@item.Title</span>
+                        </a>
+                    </li>
+                }
             }
         }
     </ul>
