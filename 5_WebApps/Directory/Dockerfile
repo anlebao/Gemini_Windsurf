@@ -7,6 +7,10 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 ENV NUGET_PACKAGES=/root/.nuget/packages
 
+# Issue #154: Force UTF-8 locale in build stage so Razor compiler reads .razor files
+# without BOM as UTF-8 (not ASCII/C locale). Prevents Vietnamese mojibake in compiled DLLs.
+ENV LANG=C.UTF-8
+
 # Copy only csproj files needed for Directory + its dependencies (Shared + UI.Platform)
 COPY ["VanAn.sln", "./"]
 COPY ["Directory.Packages.props", "./"]

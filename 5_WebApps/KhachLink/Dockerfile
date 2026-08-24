@@ -9,6 +9,10 @@ WORKDIR /src
 # Pin NuGet global packages folder for BuildKit cache mount
 ENV NUGET_PACKAGES=/root/.nuget/packages
 
+# Issue #154: Force UTF-8 locale in build stage so Razor compiler reads .razor files
+# without BOM as UTF-8 (not ASCII/C locale). Prevents Vietnamese mojibake in compiled DLLs.
+ENV LANG=C.UTF-8
+
 # Copy csproj files and restore as distinct layers
 COPY ["VanAn.sln", "./"]
 COPY ["Directory.Packages.props", "./"]
