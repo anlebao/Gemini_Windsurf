@@ -343,7 +343,8 @@ namespace VanAn.Shared.Domain
             string? category = null,
             string? reference = null,
             IndustrySector? industrySector = null,
-            Guid? correlationId = null)
+            Guid? correlationId = null,
+            DateTime? transactionDate = null)
         {
             TenantId = tenantId;
             Amount = amount;
@@ -354,7 +355,7 @@ namespace VanAn.Shared.Domain
             PeriodMonth = periodMonth;
             Description = description;
             ReversalEntryId = reversalEntryId;
-            TransactionDate = DateTime.UtcNow;
+            TransactionDate = transactionDate ?? DateTime.UtcNow;
             AccountCode = accountCode;
             Vendor = vendor;
             Category = category;
@@ -366,23 +367,23 @@ namespace VanAn.Shared.Domain
         // ====================== FACTORY METHODS ======================
         public static AccountingEntry CreateRevenue(TenantId tenantId, AccountingPeriod period, Money amount, string description,
             string? accountCode = null, string? reference = null, IndustrySector? industrySector = null,
-            Guid? correlationId = null)
+            Guid? correlationId = null, DateTime? transactionDate = null)
         {
             return new(tenantId, amount.Value, AccountingEntryType.Revenue, VatRate.Zero,
                 AccountingBookType.RevenueBook, period.Year, period.Month, description,
                 reversalEntryId: null, accountCode: accountCode, reference: reference, industrySector: industrySector,
-                correlationId: correlationId);
+                correlationId: correlationId, transactionDate: transactionDate);
         }
 
         public static AccountingEntry CreateExpense(TenantId tenantId, AccountingPeriod period, Money amount, string description,
             string? accountCode = null, string? vendor = null, string? category = null, string? reference = null,
             IndustrySector? industrySector = null,
-            Guid? correlationId = null)
+            Guid? correlationId = null, DateTime? transactionDate = null)
         {
             return new(tenantId, amount.Value, AccountingEntryType.Expense, VatRate.Zero,
                 AccountingBookType.ExpenseBook, period.Year, period.Month, description,
                 reversalEntryId: null, accountCode: accountCode, vendor: vendor, category: category, reference: reference,
-                industrySector: industrySector, correlationId: correlationId);
+                industrySector: industrySector, correlationId: correlationId, transactionDate: transactionDate);
         }
 
         public static AccountingEntry CreateReversal(AccountingEntry original, string reason)

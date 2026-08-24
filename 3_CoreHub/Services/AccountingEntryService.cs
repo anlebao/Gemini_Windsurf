@@ -135,7 +135,7 @@ namespace VanAn.CoreHub.Services
         }
 
         public async Task<AccountingEntryDto> CreateRevenueEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description,
-            string? accountCode = null, string? reference = null, IndustrySector? industrySector = null)
+            string? accountCode = null, string? reference = null, IndustrySector? industrySector = null, DateTime? transactionDate = null)
         {
             try
             {
@@ -148,7 +148,7 @@ namespace VanAn.CoreHub.Services
                 await CheckDuplicateEntryAsync(tenantId, amount, accountCode, AccountingEntryType.Revenue);
 
                 CoreAccountingEntry entry = CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(amount), description,
-                    accountCode: accountCode, reference: reference, industrySector: industrySector);
+                    accountCode: accountCode, reference: reference, industrySector: industrySector, transactionDate: transactionDate);
                 await _repository.AddAsync(entry);
 
                 // Audit log: Revenue entry creation
@@ -186,7 +186,7 @@ namespace VanAn.CoreHub.Services
 
         public async Task<AccountingEntryDto> CreateExpenseEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description,
             string? accountCode = null, string? vendor = null, string? category = null, string? reference = null,
-            IndustrySector? industrySector = null)
+            IndustrySector? industrySector = null, DateTime? transactionDate = null)
         {
             try
             {
@@ -199,7 +199,7 @@ namespace VanAn.CoreHub.Services
                 await CheckDuplicateEntryAsync(tenantId, amount, accountCode, AccountingEntryType.Expense);
 
                 CoreAccountingEntry entry = CoreAccountingEntry.CreateExpense(tenantId, period, new Money(amount), description,
-                    accountCode: accountCode, vendor: vendor, category: category, reference: reference, industrySector: industrySector);
+                    accountCode: accountCode, vendor: vendor, category: category, reference: reference, industrySector: industrySector, transactionDate: transactionDate);
                 await _repository.AddAsync(entry);
 
                 // Audit log: Expense entry creation

@@ -31,7 +31,7 @@ namespace VanAn.Shared.DTOs
         public Guid? CorrelationId { get; set; }
 
         /// <summary>
-        /// Alias for TransactionDate â€” used in form submission
+        /// Alias for TransactionDate — used in form submission
         /// </summary>
         public DateTime Date
         {

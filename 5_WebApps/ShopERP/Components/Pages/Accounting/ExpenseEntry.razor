@@ -173,6 +173,7 @@
                 Id = "account",
                 Label = "Tài Khoản",
                 Type = PlatformComposite.FieldType.Select,
+                Value = "621",
                 Options = GetExpenseAccounts(),
                 Required = true,
                 HelpText = "Chọn tài khoản kế toán"
@@ -190,6 +191,7 @@
                 Id = "category",
                 Label = "Loại Chi Phí",
                 Type = PlatformComposite.FieldType.Select,
+                Value = "other",
                 Options = GetExpenseCategories(),
                 Required = true,
                 HelpText = "Phân loại chi phí"
@@ -212,6 +214,14 @@
                 HelpText = "Số hóa đơn hoặc chứng từ liên quan"
             }
         };
+
+        // Initialize formData.Values with default values so validation passes
+        // even if the user doesn't interact with every field.
+        formData = new PlatformComposite.FormData();
+        foreach (var field in expenseFields)
+        {
+            formData.Values[field.Id] = field.Value ?? string.Empty;
+        }
     }
 
     private List<PlatformComposite.FieldOption> GetExpenseAccounts()
@@ -265,20 +275,8 @@
         }
         Logger.LogInformation("TenantId: {TenantId}", TenantProvider.TenantId);
 
-        // Client-side validation
-        ValidateForm();
-        if (showError)
-        {
-            StateHasChanged();
-            return;
-        }
-
-        // TODO: [TECH DEBT] [VẠN AN PLATFORM HARDENING]
-        // Workaround JS Interop đọc DOM do rớt binding ranh giới Component.
-        // Sẽ refactor sang cơ chế Event Callback chuẩn sau khi Baseline E2E ổn định.
-        // Tier: 2 (Binding - ưu tiên sau Tenant)
-        // CRITICAL FIX: Always read DOM value for amount/category to ensure E2E fills are captured.
-        // Blazor @bind can drop events during fast Playwright fills; DOM is source of truth.
+        // Read DOM values for ALL fields BEFORE validation — Blazor @bind can drop events
+        // during fast input, so DOM is source of truth at submit time.
         var criticalFields = new HashSet<string> { "amount", "category", "vendor", "description", "account", "date" };
         foreach (var field in expenseFields)
         {
@@ -307,6 +305,14 @@
             }
             formData.Values[field.Id] = value;
             Logger.LogInformation("Field {FieldId}: '{FieldValue}' (source: {Source})", field.Id, value, criticalFields.Contains(field.Id) ? "DOM" : "model");
+        }
+
+        // Client-side validation (after DOM values are captured)
+        ValidateForm();
+        if (showError)
+        {
+            StateHasChanged();
+            return;
         }
 
         // Validate amount - formData.Values["amount"] stores RAW numeric string (from HandleCurrencyInput)
@@ -398,7 +404,8 @@
         var tenantId = new TenantId(TenantProvider.TenantId);
         Logger.LogInformation("Calling AccountingService.CreateExpenseEntryAsync with Period={Period}, Amount={Amount}", period, amount);
 
-        // Create accounting entry using IAccountingService
+        // Create accounting entry using IAccountingService — pass user-entered date as transactionDate
+        // so TransactionHistory shows the correct date (not DateTime.UtcNow at creation time).
         await AccountingService.CreateExpenseEntryAsync(
             tenantId,
             period,
@@ -407,7 +414,8 @@
             accountCode: accountCode,
             vendor: vendor,
             category: category,
-            reference: formData.Values.GetValueOrDefault("reference"));
+            reference: formData.Values.GetValueOrDefault("reference"),
+            transactionDate: date);
 
         Logger.LogInformation("AccountingService.CreateExpenseEntryAsync completed successfully");
 

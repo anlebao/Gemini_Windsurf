@@ -160,6 +160,7 @@
                 Id = "account",
                 Label = "Tài Khoản",
                 Type = PlatformComposite.FieldType.Select,
+                Value = "511",
                 Options = GetRevenueAccounts(),
                 Required = true,
                 HelpText = "Chọn tài khoản kế toán"
@@ -182,6 +183,14 @@
                 HelpText = "Số hóa đơn hoặc chứng từ liên quan"
             }
         };
+
+        // Initialize formData.Values with default values so validation passes
+        // even if the user doesn't interact with every field (e.g., leaves date at default).
+        formData = new PlatformComposite.FormData();
+        foreach (var field in revenueFields)
+        {
+            formData.Values[field.Id] = field.Value ?? string.Empty;
+        }
     }
 
     private List<PlatformComposite.FieldOption> GetRevenueAccounts()
@@ -210,6 +219,27 @@
             showError = true;
             errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
             return;
+        }
+
+        // Read DOM values for all fields BEFORE validation — Blazor @bind can drop events
+        // during fast input, so DOM is source of truth at submit time.
+        foreach (var field in revenueFields)
+        {
+            string value;
+            try
+            {
+                value = await JSRuntime.InvokeAsync<string>("vananReadElementValue", field.Id) ?? string.Empty;
+                if (string.IsNullOrEmpty(value))
+                {
+                    value = field.Value?.ToString() ?? string.Empty;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "JS interop read failed for field {FieldId}, using model fallback", field.Id);
+                value = field.Value?.ToString() ?? string.Empty;
+            }
+            formData.Values[field.Id] = value;
         }
 
         // Client-side validation
@@ -262,14 +292,16 @@
         var period = new AccountingPeriod(date.Year, date.Month);
         var tenantId = new TenantId(TenantProvider.TenantId);
 
-        // Create accounting entry using IAccountingService
+        // Create accounting entry using IAccountingService — pass user-entered date as transactionDate
+        // so TransactionHistory shows the correct date (not DateTime.UtcNow at creation time).
         await AccountingService.CreateRevenueEntryAsync(
             tenantId,
             period,
             amount,
             formData.Values["description"],
             accountCode: accountCode,
-            reference: formData.Values.GetValueOrDefault("reference"));
+            reference: formData.Values.GetValueOrDefault("reference"),
+            transactionDate: date);
 
         // Track for duplicate detection
         _recentEntries.Add(new RecentEntry(amount, date, accountCode, now));

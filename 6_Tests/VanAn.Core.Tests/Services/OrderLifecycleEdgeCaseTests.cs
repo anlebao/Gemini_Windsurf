@@ -334,7 +334,7 @@ public class OrderLifecycleEdgeCaseTests : IntegrationTestBase
         accountingServiceMock.Verify(
             a => a.CreateRevenueEntryAsync(
                 It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(),
-                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>()),
+                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()),
             Times.Never,
             "Non-existent order must NOT create accounting entries");
     }
@@ -365,7 +365,7 @@ public class OrderLifecycleEdgeCaseTests : IntegrationTestBase
         accountingServiceMock.Verify(
             a => a.CreateRevenueEntryAsync(
                 It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(),
-                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>()),
+                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()),
             Times.Never,
             "Empty TenantId must NOT create accounting entries");
     }

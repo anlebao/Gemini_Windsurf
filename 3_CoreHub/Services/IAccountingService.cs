@@ -36,7 +36,7 @@ namespace VanAn.CoreHub.Services
         /// industrySector: Wave 5 — ngành nghề kinh doanh (TT 152 S2a/S2b industry-group split)
         /// </summary>
         Task<AccountingEntryDto> CreateRevenueEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description,
-            string? accountCode = null, string? reference = null, IndustrySector? industrySector = null);
+            string? accountCode = null, string? reference = null, IndustrySector? industrySector = null, DateTime? transactionDate = null);
 
         /// <summary>
         /// Create expense entry (VAT 2026 compliant)
@@ -46,7 +46,7 @@ namespace VanAn.CoreHub.Services
         /// </summary>
         Task<AccountingEntryDto> CreateExpenseEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description,
             string? accountCode = null, string? vendor = null, string? category = null, string? reference = null,
-            IndustrySector? industrySector = null);
+            IndustrySector? industrySector = null, DateTime? transactionDate = null);
 
         /// <summary>
         /// Get entries by tenant
