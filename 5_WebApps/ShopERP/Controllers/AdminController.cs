@@ -207,6 +207,9 @@ public class AdminController : ControllerBase
     private async Task<GatewayTenantDto?> GetTenantFromGatewayAsync(Guid tenantId)
     {
         string baseUrl = _configuration["Gateway:BaseUrl"] ?? "http://localhost:5001";
+        // Ensure trailing slash so relative URI combines correctly
+        if (!baseUrl.EndsWith('/'))
+            baseUrl += "/";
         var client = _httpClientFactory.CreateClient("GatewayClient");
         client.BaseAddress = new Uri(baseUrl);
 
@@ -237,7 +240,13 @@ public class AdminController : ControllerBase
         }
         response.EnsureSuccessStatusCode();
 
-        return await response.Content.ReadFromJsonAsync<GatewayTenantDto>();
+        // Gateway serializes enums as camelCase strings — use matching JsonSerializerOptions
+        var jsonOptions = new System.Text.Json.JsonSerializerOptions
+        {
+            PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase) }
+        };
+        return await response.Content.ReadFromJsonAsync<GatewayTenantDto>(jsonOptions);
     }
 
     /// <summary>Minimal DTO matching Gateway TenantsController.TenantDto (fields used by Impersonate).</summary>

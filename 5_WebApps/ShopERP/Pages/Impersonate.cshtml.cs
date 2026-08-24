@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
@@ -141,6 +143,10 @@ public class ImpersonateModel(
     private async Task<GatewayTenantDto?> GetTenantFromGatewayAsync(Guid tenantId)
     {
         string baseUrl = _configuration["Gateway:BaseUrl"] ?? "http://localhost:5001";
+        // Ensure trailing slash so relative URI combines correctly
+        // (e.g., "http://host:80" + "api/v1/..." → "http://host:80api/v1/..." without slash)
+        if (!baseUrl.EndsWith('/'))
+            baseUrl += "/";
         var client = _httpClientFactory.CreateClient("GatewayClient");
         client.BaseAddress = new Uri(baseUrl);
 
@@ -170,7 +176,13 @@ public class ImpersonateModel(
         }
         response.EnsureSuccessStatusCode();
 
-        return await response.Content.ReadFromJsonAsync<GatewayTenantDto>();
+        // Gateway serializes enums as camelCase strings — use matching JsonSerializerOptions
+        var jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+        };
+        return await response.Content.ReadFromJsonAsync<GatewayTenantDto>(jsonOptions);
     }
 
     /// <summary>Minimal DTO matching Gateway TenantsController.TenantDto.</summary>
