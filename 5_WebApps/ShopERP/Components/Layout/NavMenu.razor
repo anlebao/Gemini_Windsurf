@@ -1,5 +1,8 @@
 ﻿@using Microsoft.AspNetCore.Components.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Models
 @using VanAn.Shared.Domain
+@inject AuthenticationStateProvider AuthStateProvider
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -10,433 +13,240 @@
 <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="flex-column">
-
-        @* Home: Masterchef -> /kitchen, all others -> /sitemap (main hub) *@
-        <AuthorizeView Roles="Masterchef">
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="kitchen" Match="NavLinkMatch.All">
-                        <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-        <AuthorizeView Roles="Staff,StoreKeeper,Owner,Guard,Admin,SystemAdmin">
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="sitemap" Match="NavLinkMatch.All">
-                        <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        @* == Vận hành == Staff, StoreKeeper, Owner *@
-        <AuthorizeView Roles="Staff,StoreKeeper,Owner">
-            <Authorized>
-                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">Vận hành</div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="pos">
-                        <span class="bi bi-bag-fill-nav-menu" aria-hidden="true"></span> POS
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="kitchen">
-                        <span class="bi bi-fire-nav-menu" aria-hidden="true"></span> Bếp
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="orders">
-                        <span class="bi bi-list-check-nav-menu" aria-hidden="true"></span> Đơn hàng
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        @* Masterchef: Kitchen ONLY *@
-        <AuthorizeView Roles="Masterchef">
-            <Authorized>
-                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">Bếp</div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="kitchen">
-                        <span class="bi bi-fire-nav-menu" aria-hidden="true"></span> Bếp
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        @* == Sản phẩm & Kế Toán == Owner only *@
-        <AuthorizeView Roles="Owner">
-            <Authorized>
-                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">Sản phẩm</div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="products">
-                        <span class="bi bi-box-seam-nav-menu" aria-hidden="true"></span> Sản phẩm
-                    </NavLink>
-                </div>
-
-                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">Kế Toán</div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="accounting">
-                        <span class="bi bi-journal-text-nav-menu" aria-hidden="true"></span> Kế Toán
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="accounting/history">
-                        <span class="bi bi-clock-history-nav-menu" aria-hidden="true"></span> Lịch Sử Giao Dịch
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="accounting/balance">
-                        <span class="bi bi-currency-exchange-nav-menu" aria-hidden="true"></span> Số Dư Tài Khoản
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="accounting/period-closing">
-                        <span class="bi bi-lock-fill-nav-menu" aria-hidden="true"></span> Đóng Kỳ Kế Toán
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        @* == Hóa Đơn Điện Tử == Owner, StoreKeeper, SystemAdmin *@
-        <AuthorizeView Roles="Owner,StoreKeeper,SystemAdmin">
-            <Authorized>
-                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">Hóa Đơn Điện Tử</div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="einvoice">
-                        <span class="bi bi-file-earmark-text-nav-menu" aria-hidden="true"></span> Dashboard
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="einvoice/invoices">
-                        <span class="bi bi-receipt-nav-menu" aria-hidden="true"></span> Quản Lý Hóa Đơn
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="einvoice/alerts">
-                        <span class="bi bi-bell-nav-menu" aria-hidden="true"></span> Quản Lý Cảnh Báo
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="einvoice/health">
-                        <span class="bi bi-heart-pulse-nav-menu" aria-hidden="true"></span> Health Monitoring
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        @* E-Invoice Provider Config: Owner + SystemAdmin *@
-        <AuthorizeView Roles="Owner,SystemAdmin">
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="einvoice/providers">
-                        <span class="bi bi-gear-fill-nav-menu" aria-hidden="true"></span> Quản Lý Provider
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="einvoice/configuration">
-                        <span class="bi bi-sliders-nav-menu" aria-hidden="true"></span> Cấu Hình Provider
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        @* == CRM & Loyalty == Owner only (per-tenant) *@
-        <AuthorizeView Roles="Owner">
-            <Authorized>
-                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">CRM &amp; Loyalty</div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/customers">
-                        <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Khách hàng (CRM)
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/promo-campaigns">
-                        <span class="bi bi-megaphone-fill-nav-menu" aria-hidden="true"></span> Chiến dịch khuyến mãi
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/missions">
-                        <span class="bi bi-trophy-fill-nav-menu" aria-hidden="true"></span> Quản lý Nhiệm vụ
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/redemption-catalog">
-                        <span class="bi bi-gift-fill-nav-menu" aria-hidden="true"></span> Đổi điểm (Catalog)
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/redemption-history">
-                        <span class="bi bi-clock-history-nav-menu" aria-hidden="true"></span> Lịch sử đổi điểm
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="settings/shop-features">
-                        <span class="bi bi-toggles-nav-menu" aria-hidden="true"></span> Cấu hình tính năng
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        @* == Loyalty Dashboard == Owner + SystemAdmin *@
-        <AuthorizeView Roles="Owner,SystemAdmin">
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="loyalty/dashboard">
-                        <span class="bi bi-bar-chart-fill-nav-menu" aria-hidden="true"></span> Thống kê điểm thưởng
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        @* == Quản trị == Owner only (HR) *@
-        <AuthorizeView Roles="Owner">
-            <Authorized>
-                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">Quản trị</div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/users">
-                        <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Quản lý người dùng
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/permission-groups">
-                        <span class="bi bi-person-lock-nav-menu" aria-hidden="true"></span> Nhóm quyền
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        @* == Quản trị Hệ thống == SystemAdmin only *@
-        <AuthorizeView Roles="SystemAdmin">
-            <Authorized>
-                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">Hệ thống</div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/tenants">
-                        <span class="bi bi-building-nav-menu" aria-hidden="true"></span> Quản lý Tenant
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/shop-instances">
-                        <span class="bi bi-hdd-network-nav-menu" aria-hidden="true"></span> ShopERP Instances
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/khachlink-instances">
-                        <span class="bi bi-grid-nav-menu" aria-hidden="true"></span> KhachLink Instances
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/domains">
-                        <span class="bi bi-globe-nav-menu" aria-hidden="true"></span> Tenant Domains
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/users">
-                        <span class="bi bi-people-nav-menu" aria-hidden="true"></span> Quản lý Người Dùng
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/permission-groups">
-                        <span class="bi bi-person-lock-nav-menu" aria-hidden="true"></span> Nhóm quyền
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/audit-trail">
-                        <span class="bi bi-shield-check-nav-menu" aria-hidden="true"></span> Nhật Ký Audit
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/featured-products">
-                        <span class="bi bi-star-nav-menu" aria-hidden="true"></span> Sản phẩm nổi bật
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/community/admin-panel">
-                        <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Quản lý cộng tác viên
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/community/fraud-flags">
-                        <span class="bi bi-shield-exclamation-nav-menu" aria-hidden="true"></span> Fraud Review
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/community/fraud-stats">
-                        <span class="bi bi-graph-up-arrow-nav-menu" aria-hidden="true"></span> Fraud Stats
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/product-referral-configs">
-                        <span class="bi bi-diagram-3-nav-menu" aria-hidden="true"></span> Referral Configs
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/commerce-mode">
-                        <span class="bi bi-toggle2-on-nav-menu" aria-hidden="true"></span> Commerce Mode
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/valcn-features">
-                        <span class="bi bi-toggles-nav-menu" aria-hidden="true"></span> VALCN v2.0 Features
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/network-dashboard">
-                        <span class="bi bi-graph-up-nav-menu" aria-hidden="true"></span> Network Dashboard
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/community-fund">
-                        <span class="bi bi-piggy-bank-nav-menu" aria-hidden="true"></span> Quỹ Cộng Đồng
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/settlements">
-                        <span class="bi bi-cash-coin-nav-menu" aria-hidden="true"></span> Lịch sử Settlement
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/product-cost-prices">
-                        <span class="bi bi-tag-nav-menu" aria-hidden="true"></span> Giá Vốn SP
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/collaborator-verification">
-                        <span class="bi bi-phone-nav-menu" aria-hidden="true"></span> SMS OTP Toggle
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/khachlink-home-settings">
-                        <span class="bi bi-sliders2-vertical-nav-menu" aria-hidden="true"></span> Cấu hình KhachLink
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/background-services">
-                        <span class="bi bi-gear-wide-connected-nav-menu" aria-hidden="true"></span> Background Services
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        @* == Hướng dẫn sử dụng == SystemAdmin only (protected /guides/*) *@
-        <AuthorizeView Roles="SystemAdmin">
-            <Authorized>
-                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">Hướng dẫn</div>
-                <div class="nav-item px-3">
-                    <a class="nav-link" href="guides/KhachLink_Multi_Profile_Usage_Guide.html" target="_blank" rel="noopener">
-                        <span class="bi bi-grid-nav-menu" aria-hidden="true"></span> KhachLink Multi-Profile
-                    </a>
-                </div>
-                <div class="nav-item px-3">
-                    <a class="nav-link" href="guides/CRM_Loyalty_Guide.html" target="_blank" rel="noopener">
-                        <span class="bi bi-award-nav-menu" aria-hidden="true"></span> CRM &amp; Loyalty
-                    </a>
-                </div>
-                <div class="nav-item px-3">
-                    <a class="nav-link" href="guides/VALCN_V2_Platform_User_Guide.html" target="_blank" rel="noopener">
-                        <span class="bi bi-toggles-nav-menu" aria-hidden="true"></span> VALCN v2.0 Platform
-                    </a>
-                </div>
-                <div class="nav-item px-3">
-                    <a class="nav-link" href="guides/community-commerce/README.html" target="_blank" rel="noopener">
-                        <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Community Commerce
-                    </a>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        @* == CRM & Loyalty (Cross-tenant) == SystemAdmin only *@
-        <AuthorizeView Roles="SystemAdmin">
-            <Authorized>
-                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">CRM &amp; Loyalty</div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/customers-global">
-                        <span class="bi bi-globe-nav-menu" aria-hidden="true"></span> Cross-Tenant Overview
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/customers">
-                        <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Khách hàng (CRM)
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/promo-campaigns">
-                        <span class="bi bi-megaphone-fill-nav-menu" aria-hidden="true"></span> Chiến dịch khuyến mãi
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/push-campaigns">
-                        <span class="bi bi-bell-fill-nav-menu" aria-hidden="true"></span> Push Campaigns
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/campaigns">
-                        <span class="bi bi-megaphone-nav-menu" aria-hidden="true"></span> Khuyến mãi (Social)
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/missions">
-                        <span class="bi bi-trophy-fill-nav-menu" aria-hidden="true"></span> Quản lý Nhiệm vụ
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/redemption-catalog">
-                        <span class="bi bi-gift-nav-menu" aria-hidden="true"></span> Đổi điểm (Catalog)
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/global-redemption-catalog">
-                        <span class="bi bi-globe2-nav-menu" aria-hidden="true"></span> Catalog Global
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/redemption-history">
-                        <span class="bi bi-clock-history-nav-menu" aria-hidden="true"></span> Lịch sử đổi điểm
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/loyalty-config">
-                        <span class="bi bi-award-fill-nav-menu" aria-hidden="true"></span> Loyalty Alliance Config
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        @* == Loyalty Dashboard (mobile) == Owner + SystemAdmin *@
-        <AuthorizeView Roles="Owner,SystemAdmin">
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="loyalty/dashboard">
-                        <span class="bi bi-bar-chart-fill-nav-menu" aria-hidden="true"></span> Thống kê điểm thưởng
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        @* Guard section: Guard role only *@
-        <AuthorizeView Roles="Guard">
-            <Authorized>
-                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">Guard</div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="guard/scan">
-                        <span class="bi bi-qr-code-scan-nav-menu" aria-hidden="true"></span> Quét QR Guard
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        @* Logout: visible to all authenticated users *@
-        <AuthorizeView>
-            <Authorized>
-                <div class="nav-item px-3 mt-auto border-top pt-2">
-                    <a class="nav-link text-danger" href="/Logout" title="Đăng xuất">
-                        <span class="bi bi-box-arrow-right-nav-menu" aria-hidden="true"></span> Đăng xuất
-                    </a>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-    </nav>
+    <VanANavigation MenuItems="@_menuItems" />
 </div>
+
+@code {
+    private List<NavigationItem> _menuItems = new();
+    private bool _initialized;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        var isMasterchef = user.IsInRole("Masterchef");
+        var isStaff = user.IsInRole("Staff");
+        var isStoreKeeper = user.IsInRole("StoreKeeper");
+        var isOwner = user.IsInRole("Owner");
+        var isGuard = user.IsInRole("Guard");
+        var isSystemAdmin = user.IsInRole("SystemAdmin");
+        var isAdmin = user.IsInRole("Admin");
+
+        var items = new List<NavigationItem>();
+
+        // Home
+        if (isMasterchef)
+        {
+            items.Add(new() { Title = "Home", Icon = "house-door-fill", Url = "/kitchen" });
+        }
+        else if (isStaff || isStoreKeeper || isOwner || isGuard || isAdmin || isSystemAdmin)
+        {
+            items.Add(new() { Title = "Home", Icon = "house-door-fill", Url = "/sitemap" });
+        }
+
+        // Masterchef: Kitchen ONLY
+        if (isMasterchef)
+        {
+            items.Add(new() { Title = "Bếp", Icon = "fire", Url = "/kitchen" });
+        }
+
+        // Vận hành: Staff, StoreKeeper, Owner
+        if (isStaff || isStoreKeeper || isOwner)
+        {
+            items.Add(new()
+            {
+                Title = "Vận hành", Icon = "bag-fill",
+                Children = new()
+                {
+                    new() { Title = "POS", Icon = "bag", Url = "/pos" },
+                    new() { Title = "Bếp", Icon = "fire", Url = "/kitchen" },
+                    new() { Title = "Đơn hàng", Icon = "list-check", Url = "/orders" },
+                }
+            });
+        }
+
+        // Sản phẩm: Owner
+        if (isOwner)
+        {
+            items.Add(new()
+            {
+                Title = "Sản phẩm", Icon = "box-seam",
+                Children = new()
+                {
+                    new() { Title = "Sản phẩm", Icon = "box-seam", Url = "/products" },
+                }
+            });
+        }
+
+        // Kế Toán: Owner
+        if (isOwner)
+        {
+            items.Add(new()
+            {
+                Title = "Kế Toán", Icon = "journal-text",
+                Children = new()
+                {
+                    new() { Title = "Kế Toán", Icon = "journal-text", Url = "/accounting" },
+                    new() { Title = "Lịch Sử Giao Dịch", Icon = "clock-history", Url = "/accounting/history" },
+                    new() { Title = "Số Dư Tài Khoản", Icon = "currency-exchange", Url = "/accounting/balance" },
+                    new() { Title = "Đóng Kỳ Kế Toán", Icon = "lock-fill", Url = "/accounting/period-closing" },
+                }
+            });
+        }
+
+        // Hóa Đơn Điện Tử: Owner, StoreKeeper, SystemAdmin
+        if (isOwner || isStoreKeeper || isSystemAdmin)
+        {
+            var einvoiceChildren = new List<NavigationItem>
+            {
+                new() { Title = "Dashboard", Icon = "file-earmark-text", Url = "/einvoice" },
+                new() { Title = "Quản Lý Hóa Đơn", Icon = "receipt", Url = "/einvoice/invoices" },
+                new() { Title = "Quản Lý Cảnh Báo", Icon = "bell", Url = "/einvoice/alerts" },
+                new() { Title = "Health Monitoring", Icon = "heart-pulse", Url = "/einvoice/health" },
+            };
+
+            // Provider Config: Owner + SystemAdmin only
+            if (isOwner || isSystemAdmin)
+            {
+                einvoiceChildren.Add(new() { Title = "Quản Lý Provider", Icon = "gear-fill", Url = "/einvoice/providers" });
+                einvoiceChildren.Add(new() { Title = "Cấu Hình Provider", Icon = "sliders", Url = "/einvoice/configuration" });
+            }
+
+            items.Add(new()
+            {
+                Title = "Hóa Đơn Điện Tử", Icon = "file-earmark-text",
+                Children = einvoiceChildren
+            });
+        }
+
+        // CRM & Loyalty (per-tenant): Owner
+        if (isOwner)
+        {
+            var crmChildren = new List<NavigationItem>
+            {
+                new() { Title = "Khách hàng (CRM)", Icon = "people-fill", Url = "/admin/customers" },
+                new() { Title = "Chiến dịch khuyến mãi", Icon = "megaphone-fill", Url = "/admin/promo-campaigns" },
+                new() { Title = "Quản lý Nhiệm vụ", Icon = "trophy-fill", Url = "/admin/missions" },
+                new() { Title = "Đổi điểm (Catalog)", Icon = "gift-fill", Url = "/admin/redemption-catalog" },
+                new() { Title = "Lịch sử đổi điểm", Icon = "clock-history", Url = "/admin/redemption-history" },
+                new() { Title = "Cấu hình tính năng", Icon = "toggles", Url = "/settings/shop-features" },
+                new() { Title = "Thống kê điểm thưởng", Icon = "bar-chart-fill", Url = "/loyalty/dashboard" },
+            };
+
+            items.Add(new()
+            {
+                Title = "CRM & Loyalty", Icon = "award",
+                Children = crmChildren
+            });
+        }
+
+        // Quản trị (HR): Owner
+        if (isOwner)
+        {
+            items.Add(new()
+            {
+                Title = "Quản trị", Icon = "shield-lock",
+                Children = new()
+                {
+                    new() { Title = "Quản lý người dùng", Icon = "people-fill", Url = "/admin/users" },
+                    new() { Title = "Nhóm quyền", Icon = "person-lock", Url = "/admin/permission-groups" },
+                }
+            });
+        }
+
+        // Hệ thống: SystemAdmin only
+        if (isSystemAdmin)
+        {
+            items.Add(new()
+            {
+                Title = "Hệ thống", Icon = "server",
+                Children = new()
+                {
+                    new() { Title = "Quản lý Tenant", Icon = "building", Url = "/admin/tenants" },
+                    new() { Title = "ShopERP Instances", Icon = "hdd-network", Url = "/admin/shop-instances" },
+                    new() { Title = "KhachLink Instances", Icon = "grid", Url = "/admin/khachlink-instances" },
+                    new() { Title = "Tenant Domains", Icon = "globe", Url = "/admin/domains" },
+                    new() { Title = "Quản lý Người Dùng", Icon = "people", Url = "/admin/users" },
+                    new() { Title = "Nhóm quyền", Icon = "person-lock", Url = "/admin/permission-groups" },
+                    new() { Title = "Nhật Ký Audit", Icon = "shield-check", Url = "/admin/audit-trail" },
+                    new() { Title = "Sản phẩm nổi bật", Icon = "star", Url = "/admin/featured-products" },
+                    new() { Title = "Quản lý cộng tác viên", Icon = "people-fill", Url = "/admin/community/admin-panel" },
+                    new() { Title = "Fraud Review", Icon = "shield-exclamation", Url = "/admin/community/fraud-flags" },
+                    new() { Title = "Fraud Stats", Icon = "graph-up-arrow", Url = "/admin/community/fraud-stats" },
+                    new() { Title = "Referral Configs", Icon = "diagram-3", Url = "/admin/product-referral-configs" },
+                    new() { Title = "Commerce Mode", Icon = "toggle2-on", Url = "/admin/commerce-mode" },
+                    new() { Title = "VALCN v2.0 Features", Icon = "toggles", Url = "/admin/valcn-features" },
+                    new() { Title = "Network Dashboard", Icon = "graph-up", Url = "/admin/network-dashboard" },
+                    new() { Title = "Quỹ Cộng Đồng", Icon = "piggy-bank", Url = "/admin/community-fund" },
+                    new() { Title = "Lịch sử Settlement", Icon = "cash-coin", Url = "/admin/settlements" },
+                    new() { Title = "Giá Vốn SP", Icon = "tag", Url = "/admin/product-cost-prices" },
+                    new() { Title = "SMS OTP Toggle", Icon = "phone", Url = "/admin/collaborator-verification" },
+                    new() { Title = "Cấu hình KhachLink", Icon = "sliders2-vertical", Url = "/admin/khachlink-home-settings" },
+                    new() { Title = "Background Services", Icon = "gear-wide-connected", Url = "/admin/background-services" },
+                }
+            });
+        }
+
+        // CRM & Loyalty (Cross-tenant): SystemAdmin only
+        if (isSystemAdmin)
+        {
+            items.Add(new()
+            {
+                Title = "CRM & Loyalty (Global)", Icon = "award",
+                Children = new()
+                {
+                    new() { Title = "Cross-Tenant Overview", Icon = "globe", Url = "/admin/customers-global" },
+                    new() { Title = "Khách hàng (CRM)", Icon = "people-fill", Url = "/admin/customers" },
+                    new() { Title = "Chiến dịch khuyến mãi", Icon = "megaphone-fill", Url = "/admin/promo-campaigns" },
+                    new() { Title = "Push Campaigns", Icon = "bell-fill", Url = "/admin/push-campaigns" },
+                    new() { Title = "Khuyến mãi (Social)", Icon = "megaphone", Url = "/admin/campaigns" },
+                    new() { Title = "Quản lý Nhiệm vụ", Icon = "trophy-fill", Url = "/admin/missions" },
+                    new() { Title = "Đổi điểm (Catalog)", Icon = "gift", Url = "/admin/redemption-catalog" },
+                    new() { Title = "Catalog Global", Icon = "globe2", Url = "/admin/global-redemption-catalog" },
+                    new() { Title = "Lịch sử đổi điểm", Icon = "clock-history", Url = "/admin/redemption-history" },
+                    new() { Title = "Loyalty Alliance Config", Icon = "award-fill", Url = "/admin/loyalty-config" },
+                    new() { Title = "Thống kê điểm thưởng", Icon = "bar-chart-fill", Url = "/loyalty/dashboard" },
+                }
+            });
+        }
+
+        // Hướng dẫn: SystemAdmin only
+        if (isSystemAdmin)
+        {
+            items.Add(new()
+            {
+                Title = "Hướng dẫn", Icon = "book",
+                Children = new()
+                {
+                    new() { Title = "KhachLink Multi-Profile", Icon = "grid", Url = "guides/KhachLink_Multi_Profile_Usage_Guide.html" },
+                    new() { Title = "CRM & Loyalty", Icon = "award", Url = "guides/CRM_Loyalty_Guide.html" },
+                    new() { Title = "VALCN v2.0 Platform", Icon = "toggles", Url = "guides/VALCN_V2_Platform_User_Guide.html" },
+                    new() { Title = "Community Commerce", Icon = "people-fill", Url = "guides/community-commerce/README.html" },
+                }
+            });
+        }
+
+        // Guard: Guard role only
+        if (isGuard)
+        {
+            items.Add(new()
+            {
+                Title = "Guard", Icon = "shield-check",
+                Children = new()
+                {
+                    new() { Title = "Quét QR Guard", Icon = "qr-code-scan", Url = "/guard/scan" },
+                }
+            });
+        }
+
+        // Logout: visible to all authenticated users
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            items.Add(new() { Title = "Đăng xuất", Icon = "box-arrow-right", Url = "/Logout" });
+        }
+
+        _menuItems = items;
+        _initialized = true;
+    }
+}

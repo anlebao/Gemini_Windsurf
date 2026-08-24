@@ -21,135 +21,180 @@
                     </NavLink>
                 </div>
             }
-            @if (_navFlags.ShowCart)
+
+            @* === Mua sắm group === *@
+            @if (_navFlags.ShowCart || _navFlags.ShowOrders || _navFlags.ShowStores || _navFlags.ShowCampaigns)
             {
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="/cart">
-                        <span class="bi bi-cart3 me-2" aria-hidden="true"></span> Giỏ hàng
-                    </NavLink>
-                </div>
+                <details class="nav-group">
+                    <summary class="nav-group-summary">
+                        <span class="bi bi-bag-fill me-2" aria-hidden="true"></span> Mua sắm
+                        <span class="bi bi-chevron-down nav-group-chevron ms-auto" aria-hidden="true"></span>
+                    </summary>
+                    <div class="nav-group-children">
+                        @if (_navFlags.ShowCart)
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="/cart">
+                                    <span class="bi bi-cart3 me-2" aria-hidden="true"></span> Giỏ hàng
+                                </NavLink>
+                            </div>
+                        }
+                        @if (_navFlags.ShowOrders)
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="/my-orders">
+                                    <span class="bi bi-bag me-2" aria-hidden="true"></span> Đơn hàng
+                                </NavLink>
+                            </div>
+                        }
+                        @if (_navFlags.ShowStores)
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="/stores">
+                                    <span class="bi bi-geo-alt me-2" aria-hidden="true"></span> Cửa hàng
+                                </NavLink>
+                            </div>
+                        }
+                        @if (_navFlags.ShowCampaigns)
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="/campaigns">
+                                    <span class="bi bi-megaphone-fill me-2" aria-hidden="true"></span> Khuyến mãi
+                                </NavLink>
+                            </div>
+                        }
+                    </div>
+                </details>
             }
-            @if (_navFlags.ShowOrders)
+
+            @* === Tích điểm group === *@
+            @if (_navFlags.ShowLoyaltyHistory || _navFlags.ShowMissions || _navFlags.ShowRewards || (_navFlags.ShowAllianceWallet && _isAllianceMode))
             {
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="/my-orders">
-                        <span class="bi bi-bag me-2" aria-hidden="true"></span> Đơn hàng
-                    </NavLink>
-                </div>
+                <details class="nav-group">
+                    <summary class="nav-group-summary">
+                        <span class="bi bi-award-fill me-2" aria-hidden="true"></span> Tích điểm
+                        <span class="bi bi-chevron-down nav-group-chevron ms-auto" aria-hidden="true"></span>
+                    </summary>
+                    <div class="nav-group-children">
+                        @if (_navFlags.ShowLoyaltyHistory)
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="/my-loyalty">
+                                    <span class="bi bi-clock-history me-2" aria-hidden="true"></span> Lịch sử tích điểm
+                                </NavLink>
+                            </div>
+                        }
+                        @if (_navFlags.ShowMissions)
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="/missions">
+                                    <span class="bi bi-trophy me-2" aria-hidden="true"></span> Nhiệm vụ
+                                </NavLink>
+                            </div>
+                        }
+                        @if (_navFlags.ShowRewards)
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="/rewards">
+                                    <span class="bi bi-gift me-2" aria-hidden="true"></span> Đổi điểm
+                                </NavLink>
+                            </div>
+                        }
+                        @if (_navFlags.ShowAllianceWallet && _isAllianceMode)
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="/alliance-wallet">
+                                    <span class="bi bi-globe2 me-2" aria-hidden="true"></span> Ví liên minh
+                                </NavLink>
+                            </div>
+                        }
+                    </div>
+                </details>
             }
-            @if (_navFlags.ShowLoyaltyHistory)
+
+            @* === Tiện ích group === *@
+            @if (_navFlags.ShowScan || _navFlags.ShowQrClaim)
             {
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="/my-loyalty">
-                        <span class="bi bi-clock-history me-2" aria-hidden="true"></span> Lịch sử tích điểm
-                    </NavLink>
-                </div>
+                <details class="nav-group">
+                    <summary class="nav-group-summary">
+                        <span class="bi bi-qr-code-scan me-2" aria-hidden="true"></span> Tiện ích
+                        <span class="bi bi-chevron-down nav-group-chevron ms-auto" aria-hidden="true"></span>
+                    </summary>
+                    <div class="nav-group-children">
+                        @if (_navFlags.ShowScan)
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="/scan">
+                                    <span class="bi bi-qr-code-scan me-2" aria-hidden="true"></span> Quét QR
+                                </NavLink>
+                            </div>
+                        }
+                        @if (_navFlags.ShowQrClaim)
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="/qr/wallet">
+                                    <span class="bi bi-qr-code me-2" aria-hidden="true"></span> QR gửi xe
+                                </NavLink>
+                            </div>
+                        }
+                    </div>
+                </details>
             }
-            @if (_navFlags.ShowMissions)
+
+            @* === Cộng tác viên group === *@
+            @if (_navFlags.ShowCommunity && (_isShipper || _isShopOwner || _isSalesman))
             {
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="/missions">
-                        <span class="bi bi-trophy me-2" aria-hidden="true"></span> Nhiệm vụ
-                    </NavLink>
-                </div>
+                <details class="nav-group">
+                    <summary class="nav-group-summary">
+                        <span class="bi bi-people-fill me-2" aria-hidden="true"></span> Cộng tác viên
+                        <span class="bi bi-chevron-down nav-group-chevron ms-auto" aria-hidden="true"></span>
+                    </summary>
+                    <div class="nav-group-children">
+                        @if (_isShipper || _isShopOwner)
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="/community/nearby-orders">
+                                    <span class="bi bi-truck me-2" aria-hidden="true"></span> Đơn giao gần đây
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="/community/active-deliveries">
+                                    <span class="bi bi-list-check me-2" aria-hidden="true"></span> Đang giao
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="/community/wallet">
+                                    <span class="bi bi-wallet2 me-2" aria-hidden="true"></span> @(_isShopOwner && !_isShipper ? "Ví cửa hàng" : "Ví cộng tác viên")
+                                </NavLink>
+                            </div>
+                        }
+                        @if (_isSalesman)
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="/community/nearby-products">
+                                    <span class="bi bi-shop me-2" aria-hidden="true"></span> Sản phẩm giới thiệu
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="/community/salesman-qr">
+                                    <span class="bi bi-qr-code me-2" aria-hidden="true"></span> Mã QR của tôi
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="/community/sales-dashboard">
+                                    <span class="bi bi-bar-chart me-2" aria-hidden="true"></span> Dashboard Salesman
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="/community/wallet">
+                                    <span class="bi bi-wallet2 me-2" aria-hidden="true"></span> Ví cộng tác viên
+                                </NavLink>
+                            </div>
+                        }
+                    </div>
+                </details>
             }
-            @if (_navFlags.ShowRewards)
-            {
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="/rewards">
-                        <span class="bi bi-gift me-2" aria-hidden="true"></span> Đổi điểm
-                    </NavLink>
-                </div>
-            }
-            @if (_navFlags.ShowAllianceWallet && _isAllianceMode)
-            {
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="/alliance-wallet">
-                        <span class="bi bi-globe2 me-2" aria-hidden="true"></span> Ví liên minh
-                    </NavLink>
-                </div>
-            }
-            @if (_navFlags.ShowStores)
-            {
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="/stores">
-                        <span class="bi bi-geo-alt me-2" aria-hidden="true"></span> Cửa hàng
-                    </NavLink>
-                </div>
-            }
-            @if (_navFlags.ShowCampaigns)
-            {
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="/campaigns">
-                        <span class="bi bi-megaphone-fill me-2" aria-hidden="true"></span> Khuyến mãi
-                    </NavLink>
-                </div>
-            }
-            @if (_navFlags.ShowScan)
-            {
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="/scan">
-                        <span class="bi bi-qr-code-scan me-2" aria-hidden="true"></span> Quét QR
-                    </NavLink>
-                </div>
-            }
-            @if (_navFlags.ShowQrClaim)
-            {
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="/qr/wallet">
-                        <span class="bi bi-qr-code me-2" aria-hidden="true"></span> QR gửi xe
-                    </NavLink>
-                </div>
-            }
-            @if (_navFlags.ShowCommunity && (_isShipper || _isShopOwner))
-            {
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="/community/nearby-orders">
-                        <span class="bi bi-truck me-2" aria-hidden="true"></span> Đơn giao gần đây
-                    </NavLink>
-                </div>
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="/community/active-deliveries">
-                        <span class="bi bi-list-check me-2" aria-hidden="true"></span> Đang giao
-                    </NavLink>
-                </div>
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="/community/wallet">
-                        <span class="bi bi-wallet2 me-2" aria-hidden="true"></span> Ví cộng tác viên
-                    </NavLink>
-                </div>
-            }
-            @if (_navFlags.ShowCommunity && _isShopOwner && !_isShipper)
-            {
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="/community/wallet">
-                        <span class="bi bi-wallet2 me-2" aria-hidden="true"></span> Ví cửa hàng
-                    </NavLink>
-                </div>
-            }
-            @if (_navFlags.ShowCommunity && _isSalesman)
-            {
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="/community/nearby-products">
-                        <span class="bi bi-shop me-2" aria-hidden="true"></span> Sản phẩm giới thiệu
-                    </NavLink>
-                </div>
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="/community/salesman-qr">
-                        <span class="bi bi-qr-code me-2" aria-hidden="true"></span> Mã QR của tôi
-                    </NavLink>
-                </div>
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="/community/sales-dashboard">
-                        <span class="bi bi-bar-chart me-2" aria-hidden="true"></span> Dashboard Salesman
-                    </NavLink>
-                </div>
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="/community/wallet">
-                        <span class="bi bi-wallet2 me-2" aria-hidden="true"></span> Ví cộng tác viên
-                    </NavLink>
-                </div>
-            }
+
             @* Issue 4: Voice note page removed from nav — order notes now entered on cart page *@
             @if (_navFlags.ShowProfile)
             {
@@ -314,6 +359,34 @@
     }
     .nav-link:hover { background: rgba(255,255,255,0.1); color: white; }
     .nav-link.active { background: rgba(255,255,255,0.2); color: white; }
+
+    /* Collapsible nav groups (details/summary) */
+    .nav-group { margin-bottom: 0.25rem; }
+    .nav-group-summary {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        user-select: none;
+        list-style: none;
+        transition: background 0.2s;
+    }
+    .nav-group-summary::-webkit-details-marker { display: none; }
+    .nav-group-summary:hover { background: rgba(255,255,255,0.1); color: white; }
+    .nav-group-chevron {
+        font-size: 0.75rem;
+        transition: transform 0.2s ease;
+    }
+    .nav-group[open] .nav-group-chevron { transform: rotate(180deg); }
+    .nav-group-children {
+        padding: 0.25rem 0 0.25rem 1rem;
+        background: rgba(0, 0, 0, 0.15);
+    }
+    .nav-group-children .nav-item { padding: 0.25rem 0.5rem; }
+    .nav-group-children .nav-link { font-size: 0.8125rem; padding: 0.375rem 0.5rem; }
 
     /* Mobile bottom tab bar */
     .mobile-bottom-nav {

@@ -67,17 +67,27 @@ else
             }
         }
 
-        // Build base menu (shared — HKD + Enterprise)
+        // Build base menu (shared — HKD + Enterprise) with collapsible groups
         // Bug 2A fix: "Sổ HKD" removed from base menu — inserted conditionally below for HKD tenants only
+        var entryChildren = new List<NavigationItem>
+        {
+            new() { Title = "Nhập Doanh Thu", Icon = "plus-circle", Url = "/accounting/revenue" },
+            new() { Title = "Nhập Chi Phí", Icon = "minus-circle", Url = "/accounting/expenses" },
+        };
+
+        var reportChildren = new List<NavigationItem>
+        {
+            new() { Title = "Lịch Sử Giao Dịch", Icon = "clock-history", Url = "/accounting/history" },
+            new() { Title = "Số Dư Tài Khoản", Icon = "currency-exchange", Url = "/accounting/balance" },
+        };
+
         AccountingMenuItems = new()
         {
             new() { Title = "← Sitemap", Icon = "house-door", Url = "/sitemap" },
-            new() { Title = "Dashboard", Icon = "dashboard", Url = "/accounting" },
+            new() { Title = "Dashboard", Icon = "speedometer2", Url = "/accounting" },
             new() { Title = "Sản phẩm", Icon = "box-seam", Url = "/products" },
-            new() { Title = "Nhập Doanh Thu", Icon = "plus-circle", Url = "/accounting/revenue" },
-            new() { Title = "Nhập Chi Phí", Icon = "minus-circle", Url = "/accounting/expenses" },
-            new() { Title = "Lịch Sử Giao Dịch", Icon = "history", Url = "/accounting/history" },
-            new() { Title = "Số Dư Tài Khoản", Icon = "account-balance", Url = "/accounting/balance" },
+            new() { Title = "Nhập Bút Toán", Icon = "pencil-square", Children = entryChildren },
+            new() { Title = "Báo Cáo", Icon = "bar-chart", Children = reportChildren },
             new() { Title = "Đóng Sổ Kỳ", Icon = "lock", Url = "/accounting/period-closing" },
             new() { Title = "Đăng xuất", Icon = "box-arrow-right", Url = "/Logout" }
         };
@@ -93,15 +103,13 @@ else
                 _isHkd = !_isEnterprise;
                 if (_isEnterprise)
                 {
-                    // Insert VAS menu before Đóng Sổ Kỳ
-                    AccountingMenuItems.Insert(AccountingMenuItems.Count - 2,
-                        new() { Title = "Báo Cáo Tài Chính", Icon = "bar-chart", Url = "/accounting/financial-reports" });
+                    // Add VAS Financial Reports to the Báo Cáo group
+                    reportChildren.Add(new() { Title = "Báo Cáo Tài Chính", Icon = "bar-chart", Url = "/accounting/financial-reports" });
                 }
                 else if (_isHkd)
                 {
-                    // Bug 2A fix: Insert "Sổ HKD" before Đóng Sổ Kỳ (same position as VAS for UX consistency)
-                    AccountingMenuItems.Insert(AccountingMenuItems.Count - 2,
-                        new() { Title = "Sổ HKD (TT 152)", Icon = "book", Url = "/accounting/hkd-books" });
+                    // Bug 2A fix: Add "Sổ HKD" to the Báo Cáo group
+                    reportChildren.Add(new() { Title = "Sổ HKD (TT 152)", Icon = "book", Url = "/accounting/hkd-books" });
                 }
             }
             catch
@@ -109,16 +117,14 @@ else
                 // If feature flag check fails, default to HKD menu (safe default — HKD is the common case)
                 _isEnterprise = false;
                 _isHkd = true;
-                AccountingMenuItems.Insert(AccountingMenuItems.Count - 2,
-                    new() { Title = "Sổ HKD (TT 152)", Icon = "book", Url = "/accounting/hkd-books" });
+                reportChildren.Add(new() { Title = "Sổ HKD (TT 152)", Icon = "book", Url = "/accounting/hkd-books" });
             }
         }
         else
         {
             // No tenant context (should not reach here — redirect handled above)
             _isHkd = true;
-            AccountingMenuItems.Insert(AccountingMenuItems.Count - 2,
-                new() { Title = "Sổ HKD (TT 152)", Icon = "book", Url = "/accounting/hkd-books" });
+            reportChildren.Add(new() { Title = "Sổ HKD (TT 152)", Icon = "book", Url = "/accounting/hkd-books" });
         }
 
         _initialized = true;

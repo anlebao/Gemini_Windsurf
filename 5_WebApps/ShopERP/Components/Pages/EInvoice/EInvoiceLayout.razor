@@ -20,12 +20,33 @@
     private List<NavigationItem> EInvoiceMenuItems = new()
     {
         new() { Title = "← Sitemap", Icon = "house-door", Url = "/sitemap" },
-        new() { Title = "Dashboard", Icon = "dashboard", Url = "/einvoice" },
-        new() { Title = "Nhà Cung Cấp", Icon = "connect", Url = "/einvoice/providers" },
-        new() { Title = "Cấu Hình", Icon = "settings", Url = "/einvoice/configuration" },
-        new() { Title = "Giám Sát", Icon = "monitor-heart", Url = "/einvoice/health" },
-        new() { Title = "Hóa Đơn", Icon = "receipt", Url = "/einvoice/invoices" },
-        new() { Title = "Cảnh Báo", Icon = "alert", Url = "/einvoice/alerts" },
+        new() { Title = "Dashboard", Icon = "speedometer2", Url = "/einvoice" },
+        new()
+        {
+            Title = "Hóa Đơn", Icon = "receipt",
+            Children = new()
+            {
+                new() { Title = "Quản Lý Hóa Đơn", Icon = "receipt", Url = "/einvoice/invoices" },
+                new() { Title = "Quản Lý Cảnh Báo", Icon = "bell", Url = "/einvoice/alerts" },
+            }
+        },
+        new()
+        {
+            Title = "Cấu Hình", Icon = "gear",
+            Children = new()
+            {
+                new() { Title = "Nhà Cung Cấp", Icon = "plug", Url = "/einvoice/providers" },
+                new() { Title = "Cấu Hình Provider", Icon = "sliders", Url = "/einvoice/configuration" },
+            }
+        },
+        new()
+        {
+            Title = "Giám Sát", Icon = "activity",
+            Children = new()
+            {
+                new() { Title = "Health Monitoring", Icon = "heart-pulse", Url = "/einvoice/health" },
+            }
+        },
         new() { Title = "Đăng xuất", Icon = "box-arrow-right", Url = "/Logout" }
     };
 }
