@@ -371,6 +371,10 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.PetShopSeedStrategy>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.RetailSeedStrategy>();
 
+            // Crawl-to-Onboard Pipeline (2026-08-25): Claim service + Duplicate detection service
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Claims.ITenantClaimService, VanAn.CoreHub.Services.Claims.TenantClaimService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IDuplicateDetectionService, VanAn.CoreHub.Services.DuplicateDetectionService>();
+
             // Register Voice Command Services
             _ = builder.Services.AddScoped<IVoiceCommandService, VoiceCommandService>();
             _ = builder.Services.AddScoped<IAudioStorageService, AudioStorageService>();

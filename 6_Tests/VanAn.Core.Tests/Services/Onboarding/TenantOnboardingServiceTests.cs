@@ -70,6 +70,8 @@ namespace VanAn.Core.Tests.Services.Onboarding
                 _userServiceMock.Object,
                 _permissionGroupServiceMock.Object,
                 _roleAssignmentServiceMock.Object,
+                null!,  // IVanAnDbContext — null for existing OnboardAsync tests (uses mocks)
+                null,  // IOutboxRepository — null for existing tests
                 NullLogger<TenantOnboardingService>.Instance);
         }
 

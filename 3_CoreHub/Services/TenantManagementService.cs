@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
@@ -10,12 +12,18 @@ namespace VanAn.CoreHub.Services
     /// <summary>
     /// Tenant lifecycle management — Wave 5.
     /// Orchestrates: domain aggregate creation → persistence → domain event dispatch → notification.
+    ///
+    /// Crawl-to-Onboard Pipeline (2026-08-25, Option A — H7): UpdateProfileAsync now publishes
+    /// TenantProfileUpdatedEvent to Outbox → NATS → TenantSyncSubscriber (ShopERP) updates SQLite row.
+    /// This keeps SQLite tenant row in sync with PG after admin profile update (avoids stale data
+    /// in ProductsController.cs:146 + UserManagement.razor.cs:45 tenant name lookups).
     /// </summary>
     public class TenantManagementService(
         IVanAnDbContext dbContext,
         IAccountingDbContext accountingDbContext,
         INotificationService notificationService,
         IShopInstanceService shopInstanceService,
+        IOutboxRepository? outboxRepository,
         ILogger<TenantManagementService> logger) : ITenantManagementService
     {
         public async Task<Tenant> CreateTenantAsync(CreateTenantRequest request, CancellationToken ct = default)
@@ -102,6 +110,11 @@ namespace VanAn.CoreHub.Services
             tenant.UpdateProfile(request.Name, settings);
             await dbContext.SaveChangesAsync(ct);
             logger.LogInformation("Tenant profile updated: {TenantId}", id.Value);
+
+            // Crawl-to-Onboard (2026-08-25, Option A — H7): Publish TenantProfileUpdatedEvent to Outbox
+            // → NATS vanan.cloud.tenant.profile.updated → TenantSyncSubscriber (ShopERP) updates SQLite row.
+            // Keeps SQLite tenant in sync with PG after admin profile update (data integrity PG↔SQLite).
+            await PublishTenantProfileUpdatedEventAsync(tenant, ct);
         }
 
         /// <summary>
@@ -239,5 +252,36 @@ namespace VanAn.CoreHub.Services
                 </body>
                 </html>
                 """;
+
+        /// <summary>
+        /// Crawl-to-Onboard (2026-08-25, Option A — H7): Publishes TenantProfileUpdatedEvent to Outbox
+        /// → NATS vanan.cloud.tenant.profile.updated → TenantSyncSubscriber (ShopERP) updates SQLite row.
+        /// Keeps SQLite tenant row in sync with PG after admin profile update.
+        /// </summary>
+        private async Task PublishTenantProfileUpdatedEventAsync(Tenant tenant, CancellationToken ct)
+        {
+            if (outboxRepository is null)
+            {
+                logger.LogWarning(
+                    "OutboxRepository not available — TenantProfileUpdatedEvent not published for tenant {TenantId}",
+                    tenant.Id.Value);
+                return;
+            }
+
+            var snapshot = TenantSettingsSnapshot.From(tenant.Settings);
+            var evt = new TenantProfileUpdatedEvent(tenant.Id.Value, tenant.Name, snapshot, DateTime.UtcNow);
+            var eventData = JsonSerializer.Serialize(evt);
+            var outboxEvent = new OutboxEvent(
+                tenant.TenantId,
+                new ElectronicInvoiceId(Guid.Empty),
+                "TenantProfileUpdated",
+                eventData,
+                correlationId: tenant.Id.Value);
+
+            await outboxRepository.EnqueueAsync(outboxEvent, ct);
+            logger.LogInformation(
+                "Enqueued TenantProfileUpdatedEvent to Outbox for tenant {TenantId} (EventId={EventId})",
+                tenant.Id.Value, evt.EventId);
+        }
     }
 }

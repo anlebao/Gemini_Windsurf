@@ -101,8 +101,8 @@
 - **Status corrected 2026-08-25:** Previously noted as "pending push + PR" but actually already merged via PR #152 + follow-up commits `e9598115`, `de786420`, `57c15d5c`, `d74ae9d6`, `efd3fa01`, `4593af60` (BusinessProfile save/load fix, ShopInstance BaseUrl seed, JWT Bearer auth for ShopERP, 5 bugs fix, auth policy correction, admin guide expansion).
 - All 5 phases + 61 tests + post-merge fixes IN main. No remaining actions for MVP-2.
 
-**CRAWL-TO-ONBOARD TENANT PIPELINE — PHASE 2 (EF CONFIG + MIGRATION) COMPLETE.** 🟢
-- **Branch:** `feature/crawl-onboard-tenant-pipeline` @ `498a5f86` (Phase 1 `684cc8f8` + Phase 2 `498a5f86`)
+**CRAWL-TO-ONBOARD TENANT PIPELINE — PHASE 3 (SERVICES) COMPLETE.** 🟢
+- **Branch:** `feature/crawl-onboard-tenant-pipeline` @ `<pending commit>` (Phase 1 `684cc8f8` + Phase 2 `498a5f86` + Phase 3)
 - **Plan structure:** master plan + research snapshot + 8 task cards (committed `7e8afec7`)
 - **Pre-flight complete 2026-08-25** (`7e9a0b4e`):
   - ✅ Branch created (Strategy B refined — main already has MVP-2 merged, no separate merge needed)
@@ -132,7 +132,17 @@
   - ✅ ShopERP SQLite migration `20260825225206_AddCrawlOnboardingTenantsColumns.cs` hand-written (correction C2): only 2 Tenants columns (PotentialDuplicateOf + Settings_CrawledPhone), TenantClaimRequests/CrawlSources NOT in SQLite (PG-only)
   - ✅ `dotnet build VanAn.sln` — 0 errors
   - ⚠️ Pre-existing drift noted: TenantDomains table missing from SQLite migrations (separate tech debt, not addressed here)
-- **Awaiting user approval to start Phase 3 (Services — Onboarding split + Claim + Duplicate + Option A outbox publish).**
+- **Phase 3 — Services COMPLETE 2026-08-25:**
+  - ✅ `CrawlDtos.cs` created: `CrawlListingDto`, `VerifyTenantRequest` (M3: OwnerPhone from claim form, NOT CrawledPhone), `VerifyResult`
+  - ✅ `ITenantOnboardingService` extended: +`OnboardUnverifiedAsync` +`VerifyAsync`
+  - ✅ `TenantOnboardingService` extended: `OnboardUnverifiedAsync` (Pending only, no user/groups, duplicate check H5, CrawlSource audit) + `VerifyAsync` (user+groups+Activate+ContactPhone from owner form M3+slug update+Option A outbox publish TenantVerifiedEvent)
+  - ✅ `ITenantClaimService` + `TenantClaimService` + `ClaimDtos.cs` created: Submit/Approve/Reject/List/Get claim lifecycle. ApproveClaimAsync reuses VerifyAsync (DRY)
+  - ✅ `IDuplicateDetectionService` + `DuplicateDetectionService` created: MarkDuplicateIfTaxCodeExistsAsync (H5 first canonical), ListPotentialDuplicatesAsync, ResolveDuplicateAsync (no merge)
+  - ✅ `TenantManagementService.UpdateProfileAsync` modified: +publish OutboxMessage `TenantProfileUpdatedEvent` (Option A — H7, NATS sync sang SQLite)
+  - ✅ DI registration in `2_Gateway/Program.cs`: +`ITenantClaimService` +`IDuplicateDetectionService` (Gateway-only, PG — NOT in ShopERP DI per Option C)
+  - ✅ Test fixes: `TenantManagementServiceTests` + `TenantOnboardingServiceTests` constructor calls updated (null outboxRepository param)
+  - ✅ `dotnet build VanAn.sln` — 0 errors
+- **Awaiting user approval to start Phase 4 (API Gateway + TenantSyncSubscriber).**
 
 - **Branch:** `main` @ `73f77f14` (Issue #103 impersonation + data isolation + Directory SSR + post-deploy fixes #157 + #161 accounting validation/date fix + #156 nav group/collapsible all menus). **Build full sln:** 0 errors · **CI:** 1411 unit + 17 unit + 273 integration + 39 arch ALL PASS · **.NET SDK:** 8.0.422
 - **Directory SSR:** ✅ COMPLETE — timlathay.com live (0.04s load, 10 stores, 56MiB). Issue #157 fixed (3 bugs). WebSocket + Leaflet markers fixed. See Section 2.
