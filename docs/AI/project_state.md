@@ -97,23 +97,22 @@
 
 ---
 
-**FINANCIAL INTELLIGENCE MVP-2 — ALL 5 PHASES COMPLETE (committed, not pushed). Ready for PR + CD + RV.**
-- **Branch:** `feature/financial-intelligence-mvp2` (forked from `main` @ `bb7f72c0`, 4 commits: `842b9178` + `bb7f72c0` + `52c55832` + `941e2fbd`)
-- **SRS:** `docs/requirements/Van_An_SRS_Financial_Intelligence_MVP2.md` · **Task card:** `docs/AI/tasks/task_financial_intelligence_mvp2.md`
-- Phase 1 ✅ Foundation (`bb7f72c0`): BusinessProfile entity + EF migration + repository + service + IncomeStatement extension. 15/15 unit PASS.
-- Phase 2 ✅ Calculation Services (`52c55832`): 4 services (ProfitSummary, BreakEven, UnitEconomics, TargetProfit) + 6 guard codes. 37/37 unit + 5/5 integration PASS.
-- Phase 3 ✅ API + HTTP Proxy (`52c55832`): FinancialIntelligenceController (7 endpoints) + FinancialIntelligenceHttpService. 10/10 endpoint + 9/9 arch PASS.
-- Phase 4 ✅ UI (`941e2fbd`): 4 Blazor pages + Period picker + warning banners + NavMenu + Sitemap + UI Platform 100% + Playwright E2E spec.
-- Phase 5 ✅ Polish (`941e2fbd`): FinancialExportService (EPPlus .xlsx) + admin guide doc. Build 0 errors · Guard-check v7.2 PASSED.
+**FINANCIAL INTELLIGENCE MVP-2 — MERGED TO MAIN (PR #152 `dc8338ed`) + 6 post-merge bug fixes.** ✅
+- **Status corrected 2026-08-25:** Previously noted as "pending push + PR" but actually already merged via PR #152 + follow-up commits `e9598115`, `de786420`, `57c15d5c`, `d74ae9d6`, `efd3fa01`, `4593af60` (BusinessProfile save/load fix, ShopInstance BaseUrl seed, JWT Bearer auth for ShopERP, 5 bugs fix, auth policy correction, admin guide expansion).
+- All 5 phases + 61 tests + post-merge fixes IN main. No remaining actions for MVP-2.
 
-**Next Actions:**
-1. Push branch `feature/financial-intelligence-mvp2` (await user approval)
-2. `gh pr create` → merge → CD Multi-VPS deploy
-3. RV L1-L5 (API → static → Playwright → UI flow → manual browser)
-
----
-
-## 3. Current Status
+**CRAWL-TO-ONBOARD TENANT PIPELINE — PRE-FLIGHT COMPLETE, READY FOR PHASE 1.** 🟢
+- **Branch:** `feature/crawl-onboard-tenant-pipeline` @ `7e8afec7` (forked from `origin/main` @ `73f77f14` + plan docs commit; inherits MVP-2 via main's PR #152 merge)
+- **Plan structure:** master plan + research snapshot + 8 task cards (committed `7e8afec7`)
+- **Pre-flight complete 2026-08-25:**
+  - ✅ Branch created (Strategy B refined — main already has MVP-2 merged, no separate merge needed)
+  - ✅ M4 verified: all research line refs accurate @ `7e8afec7`
+  - ✅ M5 resolved: `AddRateLimiter` exists in `2_Gateway/Program.cs:103-137`, add policy `claim-submit` (3/24h FixedWindow)
+  - ✅ O1 resolved: KhachLink has NO image upload service; `IImageStorageService` + `CloudinaryImageStorageService` in CoreHub → add Gateway endpoint `POST /api/v1/images/upload` for KhachLink HTTP upload
+  - ✅ O2 resolved: `HmacApiKeyLookupAdapter.cs` exists in Gateway — crawler auth via HMAC API key
+  - ✅ O3 resolved: `VanAnDbContextTestFactory` uses `EnsureCreated` — new DbSets auto-created, NO factory change
+  - ⏳ M2 deferred to before Phase 5 (curl doanhnghiep.vn/xinvoice.vn API schema)
+- **Awaiting user approval to start Phase 1 (Domain + Events, Gate 5 protected).**
 
 - **Branch:** `main` @ `73f77f14` (Issue #103 impersonation + data isolation + Directory SSR + post-deploy fixes #157 + #161 accounting validation/date fix + #156 nav group/collapsible all menus). **Build full sln:** 0 errors · **CI:** 1411 unit + 17 unit + 273 integration + 39 arch ALL PASS · **.NET SDK:** 8.0.422
 - **Directory SSR:** ✅ COMPLETE — timlathay.com live (0.04s load, 10 stores, 56MiB). Issue #157 fixed (3 bugs). WebSocket + Leaflet markers fixed. See Section 2.
