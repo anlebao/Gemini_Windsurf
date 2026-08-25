@@ -46,6 +46,8 @@ public class ExitImpersonateModel(
         }
 
         // Build cleaned claims: remove tenant_id, TenantId, Owner role, impersonating marker, tenant name
+        // Issue #103 data isolation: RE-ADD SystemAdmin role (was removed during impersonation)
+        // so IsInRole("SystemAdmin")=true again → platform admin pages + cross-tenant filters restored.
         var claims = user.Claims
             .Where(c => c.Type != "tenant_id"
                      && c.Type != "TenantId"
@@ -53,6 +55,9 @@ public class ExitImpersonateModel(
                      && c.Type != "impersonated_tenant_name"
                      && !(c.Type == ClaimTypes.Role && c.Value == "Owner"))
             .ToList();
+
+        // Re-add SystemAdmin role (was stripped during impersonation to enforce data isolation)
+        claims.Add(new Claim(ClaimTypes.Role, "SystemAdmin"));
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);

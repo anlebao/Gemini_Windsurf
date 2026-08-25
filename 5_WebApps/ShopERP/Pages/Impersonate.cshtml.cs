@@ -74,6 +74,10 @@ public class ImpersonateModel(
         }
 
         // 2. Build new claims: copy existing + add tenant_id + Owner role + impersonating marker
+        // Issue #103 data isolation: REMOVE SystemAdmin role so IsInRole("SystemAdmin")=false
+        // during impersonation. This prevents cross-tenant data leaks (Orders "ALL tenants"
+        // dropdown, Accounting/EInvoice EMPTY default, UserManagement tenant selector, etc.)
+        // The "impersonating" marker claim preserves audit trail + banner + exit button.
         var user = HttpContext.User;
         var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value
             ?? user.FindFirst("sub")?.Value
@@ -86,7 +90,8 @@ public class ImpersonateModel(
             user.Claims.Where(c => c.Type != "tenant_id"
                                  && c.Type != "TenantId"
                                  && c.Type != "impersonating"
-                                 && c.Type != "impersonated_tenant_name"))
+                                 && c.Type != "impersonated_tenant_name"
+                                 && !(c.Type == ClaimTypes.Role && c.Value == "SystemAdmin")))
         {
             new("tenant_id", TenantId.ToString()),
             new("TenantId", TenantId.ToString()),

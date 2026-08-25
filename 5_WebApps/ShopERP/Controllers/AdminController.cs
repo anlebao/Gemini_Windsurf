@@ -75,13 +75,16 @@ public class AdminController : ControllerBase
         var roleClaim = user.FindFirst(ClaimTypes.Role)?.Value ?? user.FindFirst("role")?.Value ?? "SystemAdmin";
 
         // Build new claims: copy existing + add tenant_id + Owner role + impersonating marker
-        // Issue #103: Dual role (SystemAdmin + Owner) so NavMenu/Sitemap render shop-owner menus.
-        // "impersonating" marker lets ExitImpersonation and AdminLayout know to use Owner view.
+        // Issue #103 data isolation: REMOVE SystemAdmin role so IsInRole("SystemAdmin")=false
+        // during impersonation. Prevents cross-tenant data leaks (Orders "ALL tenants" dropdown,
+        // Accounting/EInvoice EMPTY default, UserManagement tenant selector, etc.)
+        // The "impersonating" marker claim preserves audit trail + banner + exit button.
         var claims = new List<Claim>(
             user.Claims.Where(c => c.Type != "tenant_id"
                                  && c.Type != "TenantId"
                                  && c.Type != "impersonating"
-                                 && c.Type != "impersonated_tenant_name"))
+                                 && c.Type != "impersonated_tenant_name"
+                                 && !(c.Type == ClaimTypes.Role && c.Value == "SystemAdmin")))
         {
             new("tenant_id", tenantId.ToString()),
             new("TenantId", tenantId.ToString()),
@@ -139,16 +142,28 @@ public class AdminController : ControllerBase
 
     /// <summary>
     /// Exit impersonation — clears tenant_id claim, returns to cross-tenant SystemAdmin mode.
+    /// Issue #103 data isolation: [AllowAnonymous] overrides class-level [Authorize(Policy="SystemAdmin")]
+    /// because impersonating user has Owner role only (SystemAdmin stripped). The wasImpersonating
+    /// guard ensures only authenticated impersonating users can call this endpoint.
     /// </summary>
     [HttpPost("exit-impersonation")]
+    [AllowAnonymous] // Override class-level [Authorize(Policy = "SystemAdmin")]
     public async Task<IActionResult> ExitImpersonation()
     {
         var user = HttpContext.User;
         var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
         var currentTenantId = user.FindFirst("tenant_id")?.Value;
+        var wasImpersonating = user.FindFirst("impersonating")?.Value == "true";
+
+        // Guard: only impersonating users can exit impersonation
+        // (also implicitly requires authentication — anonymous users have no impersonating claim)
+        if (!wasImpersonating)
+        {
+            return Unauthorized(new { success = false, message = "Not currently impersonating." });
+        }
 
         // Build claims without tenant_id, TenantId, Owner role, impersonating marker, tenant name
-        // Issue #103: Must remove all impersonation-related claims to fully restore SystemAdmin mode.
+        // Issue #103 data isolation: Re-add SystemAdmin role (was stripped during impersonation)
         var claims = user.Claims
             .Where(c => c.Type != "tenant_id"
                      && c.Type != "TenantId"
@@ -156,6 +171,9 @@ public class AdminController : ControllerBase
                      && c.Type != "impersonated_tenant_name"
                      && !(c.Type == ClaimTypes.Role && c.Value == "Owner"))
             .ToList();
+
+        // Re-add SystemAdmin role (was stripped during impersonation to enforce data isolation)
+        claims.Add(new Claim(ClaimTypes.Role, "SystemAdmin"));
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);

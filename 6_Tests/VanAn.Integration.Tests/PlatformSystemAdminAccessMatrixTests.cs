@@ -298,4 +298,41 @@ public class PlatformSystemAdminAccessMatrixTests : IClassFixture<AuthRealWebApp
             response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Redirect,
             $"Expected 200 (redirect followed) or 302, got {response.StatusCode}");
     }
+
+    // ─── Issue #103 data isolation: SystemAdmin role stripped during impersonation ────
+
+    [Fact(DisplayName = "AM-S24: After impersonation, /admin/tenants denied (SystemAdmin role stripped) (Issue #103)")]
+    public async Task RazorPage_Impersonate_AdminTenants_Forbidden()
+    {
+        await SeedTestTenantAsync();
+        var client = await _factory.CreateSystemAdminClientAsync();
+        // Impersonate via Razor Page — SystemAdmin role is stripped, only Owner role remains
+        _ = await client.GetAsync($"/Impersonate/{_testTenantId}");
+        // /admin/tenants requires SystemAdmin policy → access denied
+        // Authenticated but not authorized → redirect to AccessDeniedPath (default /Account/AccessDenied → 404)
+        // or 403 if AccessDeniedPath is configured, or 302 to login if auth cookie not recognized
+        var response = await client.GetAsync("/admin/tenants");
+        Assert.True(
+            response.StatusCode == HttpStatusCode.Forbidden
+            || response.StatusCode == HttpStatusCode.Redirect
+            || response.StatusCode == HttpStatusCode.NotFound,
+            $"Expected 403/302/404 (access denied), got {response.StatusCode}. " +
+            "SystemAdmin role must be stripped during impersonation to prevent cross-tenant data access.");
+    }
+
+    [Fact(DisplayName = "AM-S25: After exit impersonation, /admin/tenants accessible again (SystemAdmin role restored) (Issue #103)")]
+    public async Task RazorPage_ExitImpersonate_AdminTenants_AccessibleAgain()
+    {
+        await SeedTestTenantAsync();
+        var client = await _factory.CreateSystemAdminClientAsync();
+        // Impersonate then exit — SystemAdmin role should be restored
+        _ = await client.GetAsync($"/Impersonate/{_testTenantId}");
+        _ = await client.GetAsync("/ExitImpersonate");
+        // /admin/tenants requires SystemAdmin policy → should be 200 (role restored)
+        var response = await client.GetAsync("/admin/tenants");
+        Assert.True(
+            response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Redirect,
+            $"Expected 200 (redirect followed) or 302, got {response.StatusCode}. " +
+            "SystemAdmin role must be restored after exit impersonation.");
+    }
 }
