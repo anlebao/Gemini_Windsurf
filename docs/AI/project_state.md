@@ -102,7 +102,7 @@
 - All 5 phases + 61 tests + post-merge fixes IN main. No remaining actions for MVP-2.
 
 **CRAWL-TO-ONBOARD TENANT PIPELINE — PHASE 3 (SERVICES) COMPLETE.** 🟢
-- **Branch:** `feature/crawl-onboard-tenant-pipeline` @ `<pending commit>` (Phase 1 `684cc8f8` + Phase 2 `498a5f86` + Phase 3)
+- **Branch:** `feature/crawl-onboard-tenant-pipeline` @ `1069dbfd` (Phase 1 `684cc8f8` + Phase 2 `498a5f86` + Phase 3 `1069dbfd`)
 - **Plan structure:** master plan + research snapshot + 8 task cards (committed `7e8afec7`)
 - **Pre-flight complete 2026-08-25** (`7e9a0b4e`):
   - ✅ Branch created (Strategy B refined — main already has MVP-2 merged, no separate merge needed)
