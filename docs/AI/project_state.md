@@ -101,10 +101,10 @@
 - **Status corrected 2026-08-25:** Previously noted as "pending push + PR" but actually already merged via PR #152 + follow-up commits `e9598115`, `de786420`, `57c15d5c`, `d74ae9d6`, `efd3fa01`, `4593af60` (BusinessProfile save/load fix, ShopInstance BaseUrl seed, JWT Bearer auth for ShopERP, 5 bugs fix, auth policy correction, admin guide expansion).
 - All 5 phases + 61 tests + post-merge fixes IN main. No remaining actions for MVP-2.
 
-**CRAWL-TO-ONBOARD TENANT PIPELINE — PRE-FLIGHT COMPLETE, READY FOR PHASE 1.** 🟢
-- **Branch:** `feature/crawl-onboard-tenant-pipeline` @ `7e8afec7` (forked from `origin/main` @ `73f77f14` + plan docs commit; inherits MVP-2 via main's PR #152 merge)
+**CRAWL-TO-ONBOARD TENANT PIPELINE — PHASE 1 (DOMAIN + EVENTS) COMPLETE.** 🟢
+- **Branch:** `feature/crawl-onboard-tenant-pipeline` @ `<pending commit>` (forked from `origin/main` @ `73f77f14` + plan docs commit `7e8afec7` + pre-flight `7e9a0b4e`; inherits MVP-2 via main's PR #152 merge)
 - **Plan structure:** master plan + research snapshot + 8 task cards (committed `7e8afec7`)
-- **Pre-flight complete 2026-08-25:**
+- **Pre-flight complete 2026-08-25** (`7e9a0b4e`):
   - ✅ Branch created (Strategy B refined — main already has MVP-2 merged, no separate merge needed)
   - ✅ M4 verified: all research line refs accurate @ `7e8afec7`
   - ✅ M5 resolved: `AddRateLimiter` exists in `2_Gateway/Program.cs:103-137`, add policy `claim-submit` (3/24h FixedWindow)
@@ -112,7 +112,19 @@
   - ✅ O2 resolved: `HmacApiKeyLookupAdapter.cs` exists in Gateway — crawler auth via HMAC API key
   - ✅ O3 resolved: `VanAnDbContextTestFactory` uses `EnsureCreated` — new DbSets auto-created, NO factory change
   - ⏳ M2 deferred to before Phase 5 (curl doanhnghiep.vn/xinvoice.vn API schema)
-- **Awaiting user approval to start Phase 1 (Domain + Events, Gate 5 protected).**
+- **Phase 1 — Domain + Events COMPLETE 2026-08-25:**
+  - ✅ `TenantStatus.Pending=5` added (correction H1 — not 0, avoid EF default sentinel)
+  - ✅ `TenantSettings.CrawledPhone` field + ctor param 17 + 13th `WithCrawledPhone` method + all 12 existing With methods thread CrawledPhone (M3 — internal use, NOT displayed on Pending profile)
+  - ✅ `Tenant.CreateUnverified(id, name, settings, pendingSlug)` factory (4 params — correction H2, bypass UpdateSlug via factory param, inline slug validation)
+  - ✅ `Tenant.Verify()` method (guards `Status==Pending && PotentialDuplicateOf==null` — correction H4, raises TenantVerifiedEvent)
+  - ✅ `Tenant.PotentialDuplicateOf` (Guid? — correction C1, NOT TenantId value object) + `MarkPotentialDuplicateOf(Guid)` method
+  - ✅ `Tenant.IsPending()` query helper
+  - ✅ `UpdateSlug()` guard UNCHANGED (`Status == Inactive` only — correction C4, NOT tightened)
+  - ✅ 5 events added to TenantEvents.cs: `TenantPendingEvent`, `TenantVerifiedEvent`, `TenantClaimRequestedEvent`, `TenantClaimApprovedEvent`, `TenantProfileUpdatedEvent` + `TenantSettingsSnapshot` record (Option A — H7, for NATS sync)
+  - ✅ `TenantClaimRequest.cs` aggregate created (FK via BaseEntity.TenantId — Single-Identity Pattern compliant, ClaimStatus enum, Create/Approve/Reject methods)
+  - ✅ `CrawlSource.cs` audit entity created (FK via BaseEntity.TenantId, Create factory)
+  - ✅ `dotnet build 1_Shared/VanAn.Shared.csproj` — 0 errors (14 pre-existing warnings, none from new code)
+- **Awaiting user approval to start Phase 2 (EF Config + Migration).**
 
 - **Branch:** `main` @ `73f77f14` (Issue #103 impersonation + data isolation + Directory SSR + post-deploy fixes #157 + #161 accounting validation/date fix + #156 nav group/collapsible all menus). **Build full sln:** 0 errors · **CI:** 1411 unit + 17 unit + 273 integration + 39 arch ALL PASS · **.NET SDK:** 8.0.422
 - **Directory SSR:** ✅ COMPLETE — timlathay.com live (0.04s load, 10 stores, 56MiB). Issue #157 fixed (3 bugs). WebSocket + Leaflet markers fixed. See Section 2.

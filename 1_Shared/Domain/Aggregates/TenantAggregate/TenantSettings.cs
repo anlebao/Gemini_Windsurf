@@ -53,6 +53,15 @@
         public string? HeaderColor { get; private set; }
         public string? FooterColor { get; private set; }
 
+        // Crawl-to-Onboard Pipeline (2026-08-25, M3 resolved):
+        // Raw phone number crawled from trangvangvietnam (supplement source). INTERNAL USE ONLY:
+        // - NOT displayed on Pending profile (hide SĐT section per Luật 91/2025 Điều 16)
+        // - Used by SysAdmin for owner identity verification during Claim approval
+        // - After owner Verify: ContactPhone = owner-provided from Claim form (consented)
+        // - CrawledPhone should be deleted post-Verify (data minimization per Luật 91/2025)
+        // Note: stored raw (not hashed) — gray area legal risk, user-approved with mitigation.
+        public string? CrawledPhone { get; private set; }
+
         // EF Core requires parameterless constructor
         private TenantSettings() { }
 
@@ -72,7 +81,8 @@
             CommerceMode commerceModeOverride = CommerceMode.Inherit,
             string? navColor = null,
             string? headerColor = null,
-            string? footerColor = null)
+            string? footerColor = null,
+            string? crawledPhone = null)
         {
             ContactEmail = contactEmail;
             ContactPhone = contactPhone;
@@ -90,54 +100,65 @@
             NavColor = navColor;
             HeaderColor = headerColor;
             FooterColor = footerColor;
+            CrawledPhone = crawledPhone;
         }
 
         public TenantSettings WithContactEmail(string email)
-            => new(email, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
+            => new(email, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
 
         public TenantSettings WithContactPhone(string phone)
-            => new(ContactEmail, phone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
+            => new(ContactEmail, phone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
 
         public TenantSettings WithAddress(string address)
-            => new(ContactEmail, ContactPhone, address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
+            => new(ContactEmail, ContactPhone, address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
 
         public TenantSettings WithTaxCode(string taxCode)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, taxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, taxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
 
         public TenantSettings WithCoordinates(double latitude, double longitude)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, latitude, longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, latitude, longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
 
         public TenantSettings WithSlug(string? slug)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
 
         public TenantSettings WithSocialLinks(string? fb, string? tiktok)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, fb, tiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, fb, tiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
 
         public TenantSettings WithBrandStory(string? story)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, story, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, story, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
 
         public TenantSettings WithTheme(ThemeType theme)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
 
         /// <summary>
         /// Sprint 7 — Set commerce mode override for this tenant.
         /// Inherit = use global setting. Marketplace/Reseller = ép mode cho tenant này.
         /// </summary>
         public TenantSettings WithCommerceModeOverride(CommerceMode mode)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, mode, NavColor, HeaderColor, FooterColor);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, mode, NavColor, HeaderColor, FooterColor, CrawledPhone);
 
         /// <summary>
         /// #93 — Set KhachLink style customization (nav/header/footer colors).
         /// Null = use default hardcoded colors.
         /// </summary>
         public TenantSettings WithStyleColors(string? navColor, string? headerColor, string? footerColor)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, navColor, headerColor, footerColor);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, navColor, headerColor, footerColor, CrawledPhone);
 
         /// <summary>
         /// #93 — Set logo URL for KhachLink header.
         /// </summary>
         public TenantSettings WithLogoUrl(string? logoUrl)
-            => new(ContactEmail, ContactPhone, Address, logoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
+            => new(ContactEmail, ContactPhone, Address, logoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
+
+        /// <summary>
+        /// Crawl-to-Onboard Pipeline (2026-08-25, M3 resolved): Set raw crawled phone number.
+        /// INTERNAL USE ONLY — NOT displayed on Pending profile (hide SĐT section per Luật 91/2025 Điều 16).
+        /// SysAdmin uses for owner identity verification during Claim approval.
+        /// After owner Verify: ContactPhone = owner-provided (consented); CrawledPhone should be cleared
+        /// (data minimization per Luật 91/2025).
+        /// </summary>
+        public TenantSettings WithCrawledPhone(string? crawledPhone)
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, crawledPhone);
 
         public static TenantSettings Empty() => new(null, null, null);
     }
