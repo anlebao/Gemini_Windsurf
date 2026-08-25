@@ -101,8 +101,8 @@
 - **Status corrected 2026-08-25:** Previously noted as "pending push + PR" but actually already merged via PR #152 + follow-up commits `e9598115`, `de786420`, `57c15d5c`, `d74ae9d6`, `efd3fa01`, `4593af60` (BusinessProfile save/load fix, ShopInstance BaseUrl seed, JWT Bearer auth for ShopERP, 5 bugs fix, auth policy correction, admin guide expansion).
 - All 5 phases + 61 tests + post-merge fixes IN main. No remaining actions for MVP-2.
 
-**CRAWL-TO-ONBOARD TENANT PIPELINE — PHASE 1 (DOMAIN + EVENTS) COMPLETE.** 🟢
-- **Branch:** `feature/crawl-onboard-tenant-pipeline` @ `684cc8f8` (forked from `origin/main` @ `73f77f14` + plan docs `7e8afec7` + pre-flight `7e9a0b4e` + Phase 1 `684cc8f8`; inherits MVP-2 via main's PR #152 merge)
+**CRAWL-TO-ONBOARD TENANT PIPELINE — PHASE 2 (EF CONFIG + MIGRATION) COMPLETE.** 🟢
+- **Branch:** `feature/crawl-onboard-tenant-pipeline` @ `<pending commit>` (Phase 1 `684cc8f8` + Phase 2)
 - **Plan structure:** master plan + research snapshot + 8 task cards (committed `7e8afec7`)
 - **Pre-flight complete 2026-08-25** (`7e9a0b4e`):
   - ✅ Branch created (Strategy B refined — main already has MVP-2 merged, no separate merge needed)
@@ -112,19 +112,27 @@
   - ✅ O2 resolved: `HmacApiKeyLookupAdapter.cs` exists in Gateway — crawler auth via HMAC API key
   - ✅ O3 resolved: `VanAnDbContextTestFactory` uses `EnsureCreated` — new DbSets auto-created, NO factory change
   - ⏳ M2 deferred to before Phase 5 (curl doanhnghiep.vn/xinvoice.vn API schema)
-- **Phase 1 — Domain + Events COMPLETE 2026-08-25:**
-  - ✅ `TenantStatus.Pending=5` added (correction H1 — not 0, avoid EF default sentinel)
-  - ✅ `TenantSettings.CrawledPhone` field + ctor param 17 + 13th `WithCrawledPhone` method + all 12 existing With methods thread CrawledPhone (M3 — internal use, NOT displayed on Pending profile)
-  - ✅ `Tenant.CreateUnverified(id, name, settings, pendingSlug)` factory (4 params — correction H2, bypass UpdateSlug via factory param, inline slug validation)
-  - ✅ `Tenant.Verify()` method (guards `Status==Pending && PotentialDuplicateOf==null` — correction H4, raises TenantVerifiedEvent)
-  - ✅ `Tenant.PotentialDuplicateOf` (Guid? — correction C1, NOT TenantId value object) + `MarkPotentialDuplicateOf(Guid)` method
-  - ✅ `Tenant.IsPending()` query helper
-  - ✅ `UpdateSlug()` guard UNCHANGED (`Status == Inactive` only — correction C4, NOT tightened)
-  - ✅ 5 events added to TenantEvents.cs: `TenantPendingEvent`, `TenantVerifiedEvent`, `TenantClaimRequestedEvent`, `TenantClaimApprovedEvent`, `TenantProfileUpdatedEvent` + `TenantSettingsSnapshot` record (Option A — H7, for NATS sync)
-  - ✅ `TenantClaimRequest.cs` aggregate created (FK via BaseEntity.TenantId — Single-Identity Pattern compliant, ClaimStatus enum, Create/Approve/Reject methods)
-  - ✅ `CrawlSource.cs` audit entity created (FK via BaseEntity.TenantId, Create factory)
-  - ✅ `dotnet build 1_Shared/VanAn.Shared.csproj` — 0 errors (14 pre-existing warnings, none from new code)
-- **Awaiting user approval to start Phase 2 (EF Config + Migration).**
+- **Phase 1 — Domain + Events COMPLETE 2026-08-25** (`684cc8f8`):
+  - ✅ `TenantStatus.Pending=5` added (correction H1)
+  - ✅ `TenantSettings.CrawledPhone` field + ctor param 17 + 13th `WithCrawledPhone` method + all 12 existing With methods thread CrawledPhone (M3)
+  - ✅ `Tenant.CreateUnverified(id, name, settings, pendingSlug)` factory (4 params — correction H2, bypass UpdateSlug)
+  - ✅ `Tenant.Verify()` method (guards `Status==Pending && PotentialDuplicateOf==null` — correction H4)
+  - ✅ `Tenant.PotentialDuplicateOf` (Guid? — correction C1) + `MarkPotentialDuplicateOf(Guid)` + `IsPending()`
+  - ✅ `UpdateSlug()` guard UNCHANGED (correction C4)
+  - ✅ 5 events + `TenantSettingsSnapshot` record (H7 Option A)
+  - ✅ `TenantClaimRequest.cs` aggregate + `CrawlSource.cs` audit entity (FK via BaseEntity.TenantId — Single-Identity)
+  - ✅ `dotnet build 1_Shared/VanAn.Shared.csproj` — 0 errors
+- **Phase 2 — EF Config + Migration COMPLETE 2026-08-25:**
+  - ✅ `TenantConfiguration.cs`: add `Settings_CrawledPhone` (varchar(50)) + `PotentialDuplicateOf` (Guid?, no FK constraint — correction C1) mappings
+  - ✅ `TenantClaimRequestConfiguration.cs` created: map `TenantClaimRequests` table (PG-only), FK Restrict delete, indexes IX_TenantClaimRequests_TenantId + IX_TenantClaimRequests_Status
+  - ✅ `CrawlSourceConfiguration.cs` created: map `CrawlSources` table (PG-only), FK Cascade delete, index IX_CrawlSources_TenantId, RawJson as unbounded text
+  - ✅ `IVanAnDbContext` + `VanAnDbContext`: add `DbSet<TenantClaimRequest>` + `DbSet<CrawlSource>` (PG-only)
+  - ✅ `ShopERPDbContext`: add DbSet declarations (interface contract) + `Ignore<TenantClaimRequest>()` + `Ignore<CrawlSource>()` in OnModelCreating (PG-only entities, not in SQLite)
+  - ✅ CoreHub PG migration `20260825224745_AddCrawlOnboarding.cs` generated: 2 new tables + 2 new Tenants columns + 3 indexes, Down migration clean
+  - ✅ ShopERP SQLite migration `20260825225206_AddCrawlOnboardingTenantsColumns.cs` hand-written (correction C2): only 2 Tenants columns (PotentialDuplicateOf + Settings_CrawledPhone), TenantClaimRequests/CrawlSources NOT in SQLite (PG-only)
+  - ✅ `dotnet build VanAn.sln` — 0 errors
+  - ⚠️ Pre-existing drift noted: TenantDomains table missing from SQLite migrations (separate tech debt, not addressed here)
+- **Awaiting user approval to start Phase 3 (Services — Onboarding split + Claim + Duplicate + Option A outbox publish).**
 
 - **Branch:** `main` @ `73f77f14` (Issue #103 impersonation + data isolation + Directory SSR + post-deploy fixes #157 + #161 accounting validation/date fix + #156 nav group/collapsible all menus). **Build full sln:** 0 errors · **CI:** 1411 unit + 17 unit + 273 integration + 39 arch ALL PASS · **.NET SDK:** 8.0.422
 - **Directory SSR:** ✅ COMPLETE — timlathay.com live (0.04s load, 10 stores, 56MiB). Issue #157 fixed (3 bugs). WebSocket + Leaflet markers fixed. See Section 2.

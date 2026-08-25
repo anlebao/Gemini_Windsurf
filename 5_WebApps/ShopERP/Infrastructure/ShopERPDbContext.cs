@@ -6,6 +6,7 @@ using VanAn.Shared.Domain.Aggregates.SystemSettingAggregate;
 using VanAn.Shared.Domain.Aggregates.ProductCostPriceAggregate;
 using VanAn.Shared.Domain.Aggregates.CommunityFundAggregate;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.Shared.Domain.Aggregates.TenantAggregate;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
 using UserTenant = VanAn.Shared.Domain.Aggregates.UserAggregate.UserTenant;
@@ -148,6 +149,12 @@ namespace VanAn.ShopERP.Infrastructure
         // ShopERP accesses BusinessProfile via HTTP proxy to FinancialIntelligenceController (no direct DbContext).
         public DbSet<BusinessProfile> BusinessProfiles { get; set; }
 
+        // Crawl-to-Onboard Pipeline (2026-08-25): TenantClaimRequest + CrawlSource are PG-only
+        // (Gateway source of truth per Option C). DbSets exist for IVanAnDbContext interface contract;
+        // entities are Ignored in OnModelCreating (never queried from ShopERP SQLite).
+        public DbSet<TenantClaimRequest> TenantClaimRequests { get; set; }
+        public DbSet<CrawlSource> CrawlSources { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters
@@ -266,6 +273,15 @@ namespace VanAn.ShopERP.Infrastructure
             // Ignore MUST be after ApplyConfigurationsFromAssembly (line 224) — otherwise BusinessProfileConfiguration re-adds it.
             _ = modelBuilder.Ignore<BusinessProfile>();
             _ = modelBuilder.Ignore<BusinessProfileId>(); // VO — never mapped as separate entity
+
+            // Crawl-to-Onboard Pipeline (2026-08-25): TenantClaimRequest + CrawlSource are PG-only
+            // (Gateway source of truth per Option C). ShopERP SQLite ignores these entities.
+            // DbSet declarations remain for IVanAnDbContext interface contract; never queried from ShopERP.
+            // Ignore MUST be after ApplyConfigurationsFromAssembly — otherwise configurations re-add them.
+            // Note: TenantSettings.CrawledPhone + Tenant.PotentialDuplicateOf columns ARE mirrored to SQLite
+            // (correction C2 — schema consistency for EF model snapshot, even if values not populated in SQLite).
+            _ = modelBuilder.Ignore<TenantClaimRequest>();
+            _ = modelBuilder.Ignore<CrawlSource>();
 
             // === VALUE OBJECT CONFIGURATIONS ===
             // Order: Configured via OrderConfiguration from CoreHub assembly (applied above via ApplyConfigurationsFromAssembly)
