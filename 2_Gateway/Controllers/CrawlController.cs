@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Net.Http.Json;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services.Onboarding;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
@@ -10,7 +11,7 @@ namespace VanAn.Gateway.Controllers
     /// <summary>
     /// Crawl-to-Onboard Pipeline (2026-08-25): Crawl batch endpoint + audit trail.
     /// SysAdmin-only — accepts crawled business listings from crawler worker, creates Pending tenants.
-    /// Crawler worker (Phase 5) authenticates via HMAC API key + posts to this endpoint.
+    /// Crawler worker (Phase 5) authenticates via JWT (POST /api/platform/login) + posts to this endpoint.
     /// </summary>
     [ApiController]
     [Route("api/v1/crawl")]
@@ -18,6 +19,7 @@ namespace VanAn.Gateway.Controllers
     public class CrawlController(
         IVanAnDbContext dbContext,
         ITenantOnboardingService onboardingService,
+        IHttpClientFactory httpClientFactory,
         ILogger<CrawlController> logger) : ControllerBase
     {
         /// <summary>
@@ -101,19 +103,52 @@ namespace VanAn.Gateway.Controllers
         }
 
         /// <summary>
-        /// Trigger crawl run (forwards to crawler worker on port 5010 via YARP — configured in Phase 5).
-        /// Returns 202 Accepted — crawler processes asynchronously.
+        /// Trigger crawl run — forwards to crawler worker (http://crawler:5010/trigger).
+        /// Returns 202 Accepted — crawler processes asynchronously and posts results back
+        /// to POST /api/v1/crawl/batch.
         /// </summary>
         [HttpPost("trigger")]
         [ProducesResponseType(StatusCodes.Status202Accepted)]
-        public IActionResult TriggerCrawl([FromBody] CrawlTriggerRequest request)
+        public async Task<IActionResult> TriggerCrawl([FromBody] CrawlTriggerRequest request)
         {
-            // YARP forwards to http://localhost:5010/trigger (correction C3 — NOT 5003)
-            // Crawler worker (Phase 5) handles the actual crawl + posts results back to POST /api/v1/crawl/batch
             logger.LogInformation(
                 "Crawl trigger requested: source={Source}, industry={Industry}, province={Province}, maxResults={MaxResults}",
                 request.Source, request.Industry, request.Province, request.MaxResults);
-            return Accepted(new { message = "Crawl trigger forwarded to crawler worker.", request });
+
+            // Forward to crawler worker via HttpClient (not YARP — YARP is for catch-all routes only)
+            try
+            {
+                var crawlerClient = httpClientFactory.CreateClient("crawler");
+                var crawlerRequest = new
+                {
+                    Source = request.Source,
+                    Industry = request.Industry,
+                    Province = request.Province,
+                    MaxResults = request.MaxResults
+                };
+
+                // Fire-and-forget: don't block SysAdmin while crawler runs (can take minutes)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        logger.LogInformation("Forwarding crawl trigger to crawler:5010/trigger");
+                        var resp = await crawlerClient.PostAsJsonAsync("/trigger", crawlerRequest);
+                        logger.LogInformation("Crawler responded: {Status}", resp.StatusCode);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Failed to forward crawl trigger to crawler worker");
+                    }
+                });
+
+                return Accepted(new { message = "Crawl trigger forwarded to crawler worker.", request });
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Crawl trigger failed to start");
+                return StatusCode(500, "Crawl trigger failed to start.");
+            }
         }
     }
 

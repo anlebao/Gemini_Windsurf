@@ -193,6 +193,44 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Crawl-to-Onboard Pipeline (Phase 5): Crawler worker — crawls business listings
+  # from doanhnghiep.vn + trangvangvietnam.com, posts to Gateway POST /api/v1/crawl/batch.
+  # Gateway forwards trigger via HttpClient to http://crawler:5010/trigger.
+  # Auth: crawler logs in via POST /api/platform/login (username + password from env).
+  crawler:
+    image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-crawler:${IMAGE_TAG:-latest}
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - Crawler__GatewayBaseUrl=http://gateway:80
+      - Crawler__GatewayUsername=${CRAWLER_GATEWAY_USERNAME:-crawler@vanan.vn}
+      - Crawler__GatewayPassword=${CRAWLER_GATEWAY_PASSWORD}
+      - Crawler__ListenPort=5010
+      - Crawler__DefaultRateLimitMs=2000
+      - Crawler__MaxBatchSize=100
+      - Crawler__DoanhNghiepDailyLimit=100
+      - Crawler__UserAgent=VanAnCrawler/1.0 (+contact@vanan.vn)
+    networks:
+      - vanan-network
+    depends_on:
+      gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5010/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   postgres_data:
   nats_data:

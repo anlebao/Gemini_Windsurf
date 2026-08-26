@@ -317,6 +317,14 @@ namespace VanAn.Gateway
                 client.Timeout = TimeSpan.FromSeconds(10);
             });
 
+            // Crawl-to-Onboard (Phase 5): Named HttpClient to forward crawl triggers to crawler worker
+            _ = builder.Services.AddHttpClient("crawler", client =>
+            {
+                client.BaseAddress = new Uri(
+                    builder.Configuration["Crawler:BaseUrl"] ?? "http://crawler:5010");
+                client.Timeout = TimeSpan.FromMinutes(5); // crawl can take minutes
+            });
+
             // Register MST Lookup Service (Business Lookup Proxy for KhachLink)
             _ = builder.Services.AddHttpClient("VietQR", client =>
             {

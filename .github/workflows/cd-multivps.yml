@@ -114,6 +114,18 @@ jobs:
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-directory:latest
           labels: ${{ steps.meta.outputs.labels }}
 
+      - name: Build & push Crawler
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: 7_Tooling/VanAn.Crawler/Dockerfile
+          push: true
+          no-cache: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-crawler:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-crawler:latest
+          labels: ${{ steps.meta.outputs.labels }}
+
   # ============================================================
   # Job 2: Pre-Deployment Validation (BLOCKING)
   # ============================================================
@@ -348,6 +360,8 @@ jobs:
               "GODADDY_API_KEY=${FINAL_GODADDY_KEY}" \
               "GODADDY_API_URL=https://api.godaddy.com" \
               "DOMAIN_REGISTRAR_DEFAULT_VPS_IP=${DEPLOY_VPS_GATEWAY_HOST:-}" \
+              "CRAWLER_GATEWAY_USERNAME=crawler@vanan.vn" \
+              "CRAWLER_GATEWAY_PASSWORD=2026@vanan" \
               > .env.gateway
 
             # Login to GHCR
