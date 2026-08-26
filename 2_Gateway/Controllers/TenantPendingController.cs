@@ -115,7 +115,10 @@ namespace VanAn.Gateway.Controllers
 
         private Guid GetSysAdminUserId()
         {
-            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            // Gateway JWT config: MapInboundClaims=false → claims stay as short-form names ("sub"),
+            // NOT mapped to ClaimTypes.NameIdentifier (long URI). Must read "sub" first.
+            var userIdClaim = User.FindFirst("sub")?.Value
+                ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             return Guid.TryParse(userIdClaim, out var userId) ? userId : Guid.Empty;
         }
     }
