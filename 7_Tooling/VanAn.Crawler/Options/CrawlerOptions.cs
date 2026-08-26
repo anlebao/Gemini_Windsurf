@@ -6,13 +6,16 @@ namespace VanAn.Crawler.Options;
 /// </summary>
 public sealed class CrawlerOptions
 {
-    /// <summary>Gateway base URL for posting crawled listings + auth login.</summary>
+    /// <summary>Gateway base URL for posting crawled listings (POST /api/v1/crawl/batch).</summary>
     public string GatewayBaseUrl { get; set; } = "http://localhost:5001";
 
-    /// <summary>SysAdmin service account username for Gateway JWT login.</summary>
+    /// <summary>ShopERP base URL for JWT login (POST /api/platform/login — lives on ShopERP, not Gateway).</summary>
+    public string AuthBaseUrl { get; set; } = "";
+
+    /// <summary>SysAdmin service account username for JWT login.</summary>
     public string GatewayUsername { get; set; } = "";
 
-    /// <summary>SysAdmin service account password for Gateway JWT login.</summary>
+    /// <summary>SysAdmin service account password for JWT login.</summary>
     public string GatewayPassword { get; set; } = "";
 
     /// <summary>Default delay between API calls in milliseconds (rate limiting).</summary>

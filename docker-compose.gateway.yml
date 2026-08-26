@@ -202,6 +202,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - Crawler__GatewayBaseUrl=http://gateway:80
+      - Crawler__AuthBaseUrl=http://${SHOPERP_REMOTE_HOST}:80
       - Crawler__GatewayUsername=${CRAWLER_GATEWAY_USERNAME:-crawler@vanan.vn}
       - Crawler__GatewayPassword=${CRAWLER_GATEWAY_PASSWORD}
       - Crawler__ListenPort=5010

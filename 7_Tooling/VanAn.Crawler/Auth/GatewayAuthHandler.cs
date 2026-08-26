@@ -57,7 +57,7 @@ public sealed class GatewayAuthHandler : DelegatingHandler
         try
         {
             using var loginReq = new HttpRequestMessage(HttpMethod.Post,
-                $"{_options.GatewayBaseUrl.TrimEnd('/')}/api/platform/login")
+                $"{(_options.AuthBaseUrl ?? _options.GatewayBaseUrl).TrimEnd('/')}/api/platform/login")
             {
                 Content = JsonContent.Create(new
                 {
