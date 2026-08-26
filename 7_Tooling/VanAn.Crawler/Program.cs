@@ -9,6 +9,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Bind CrawlerOptions from configuration
 builder.Services.Configure<CrawlerOptions>(builder.Configuration.GetSection("Crawler"));
 var crawlerOptions = builder.Configuration.GetSection("Crawler").Get<CrawlerOptions>() ?? new CrawlerOptions();
+// Register CrawlerOptions as singleton so CrawlerCoordinator + adapters can inject it directly
+// (not just IOptions<CrawlerOptions>)
+builder.Services.AddSingleton(crawlerOptions);
 
 // Register GatewayAuthHandler as a DelegatingHandler
 builder.Services.AddTransient<GatewayAuthHandler>();
