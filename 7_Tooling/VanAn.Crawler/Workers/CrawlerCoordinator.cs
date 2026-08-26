@@ -122,7 +122,8 @@ public sealed class CrawlerCoordinator : BackgroundService
                     {
                         imported += result.Imported;
                         skipped += result.Skipped;
-                        errors.AddRange(result.Errors);
+                        if (result.Errors is not null)
+                            errors.AddRange(result.Errors);
                     }
                 }
             }
