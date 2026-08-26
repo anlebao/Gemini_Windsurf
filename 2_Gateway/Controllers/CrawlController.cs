@@ -124,7 +124,8 @@ namespace VanAn.Gateway.Controllers
                     Source = request.Source,
                     Industry = request.Industry,
                     Province = request.Province,
-                    MaxResults = request.MaxResults
+                    MaxResults = request.MaxResults,
+                    SearchTerm = request.SearchTerm
                 };
 
                 // Fire-and-forget: don't block SysAdmin while crawler runs (can take minutes)
@@ -164,5 +165,6 @@ namespace VanAn.Gateway.Controllers
         string? Source,        // Source name (e.g., "doanhnghiep.vn", "trangvangvietnam"). Null = all.
         string? Industry,      // Industry code filter
         string? Province,      // Province filter
-        int MaxResults = 100); // Max listings to crawl (default 100, max 500)
+        int MaxResults = 100,  // Max listings to crawl (default 100, max 500)
+        string? SearchTerm = null); // Search term for business name (e.g., "nhà hàng"). Null = use Industry or default.
 }

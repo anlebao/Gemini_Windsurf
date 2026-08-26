@@ -39,4 +39,5 @@ public sealed record CrawlTriggerRequest(
     string? Source,
     string? Industry,
     string? Province,
-    int MaxResults = 100);
+    int MaxResults = 100,
+    string? SearchTerm = null);

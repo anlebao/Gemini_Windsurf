@@ -62,6 +62,12 @@
                 </div>
             </div>
             <div class="form-group">
+                <label for="crawl-searchterm">Từ khóa tìm kiếm (tên doanh nghiệp)</label>
+                <input id="crawl-searchterm" class="vanan-input" type="text" placeholder="VD: nhà hàng, quán ăn, spa..."
+                       @bind="_form.SearchTerm" />
+                <small class="text-muted">Bắt buộc với doanhnghiep.vn (API yêu cầu). Để trống = dùng tên ngành làm từ khóa.</small>
+            </div>
+            <div class="form-group">
                 <label for="crawl-maxresults">Số lượng tối đa (1-500)</label>
                 <input id="crawl-maxresults" class="vanan-input" type="number" min="1" max="500"
                        @bind="_form.MaxResults" />
@@ -120,7 +126,8 @@
                 Source: string.IsNullOrEmpty(_form.Source) ? null : _form.Source,
                 Industry: string.IsNullOrEmpty(_form.Industry) ? null : _form.Industry,
                 Province: string.IsNullOrEmpty(_form.Province) ? null : _form.Province,
-                MaxResults: _form.MaxResults);
+                MaxResults: _form.MaxResults,
+                SearchTerm: string.IsNullOrEmpty(_form.SearchTerm) ? null : _form.SearchTerm);
             _triggerResult = await ClaimApi.TriggerCrawlAsync(request);
             ShowAlert("success", "Crawl trigger đã gửi. Crawler sẽ xử lý async.");
         }
@@ -140,5 +147,6 @@
         public string? Industry { get; set; }
         public string? Province { get; set; }
         public int MaxResults { get; set; } = 100;
+        public string? SearchTerm { get; set; }
     }
 }

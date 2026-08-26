@@ -65,7 +65,7 @@ public sealed class CrawlerCoordinator : BackgroundService
             {
                 var query = new CrawlQuery
                 {
-                    SearchTerm = request.Source, // Use source name as search term if provided
+                    SearchTerm = request.SearchTerm ?? request.Industry ?? "công ty",
                     IndustryCode = request.Industry,
                     Province = request.Province,
                     MaxResults = request.MaxResults

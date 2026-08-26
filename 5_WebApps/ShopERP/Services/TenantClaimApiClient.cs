@@ -168,7 +168,8 @@ public record CrawlTriggerApiRequest(
     string? Source = null,
     string? Industry = null,
     string? Province = null,
-    int MaxResults = 100);
+    int MaxResults = 100,
+    string? SearchTerm = null);
 
 public record CrawlTriggerApiResult(
     string Message,
