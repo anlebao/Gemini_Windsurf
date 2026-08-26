@@ -55,8 +55,9 @@ builder.Services.AddSingleton<IDataSourceAdapter>(sp =>
         sp.GetRequiredService<ILogger<TrangVangHtmlAdapter>>()));
 
 // Register CrawlerCoordinator — both as hosted service (background) and singleton (for trigger endpoint)
-builder.Services.AddHostedService<CrawlerCoordinator>();
-builder.Services.AddSingleton(sp => (CrawlerCoordinator)sp.GetRequiredService<IHostedService>());
+// Register as singleton first, then AddHostedService<>() wrapper resolves the same singleton instance.
+builder.Services.AddSingleton<CrawlerCoordinator>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<CrawlerCoordinator>());
 
 var app = builder.Build();
 
