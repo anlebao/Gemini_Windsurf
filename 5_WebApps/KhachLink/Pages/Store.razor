@@ -17,14 +17,17 @@
 
 <PageTitle>@(_store?.Name ?? "Cửa hàng") — KhachLink</PageTitle>
 
-<!-- Cart Drawer Component -->
-<CartDrawer
-    CartItems="@_cartState.Items"
-    TotalAmount="@_cartState.TotalAmount"
-    TotalVatAmount="@_cartState.TotalVatAmount"
-    VatDisplayEnabled="@_vatDisplayEnabled"
-    RemoveFromCart="async (productId) => await CartService.RemoveItemAsync(productId)"
-    Checkout="@GoToCheckout" />
+<!-- Cart Drawer Component — hidden for Pending tenants (no commerce) -->
+@if (_store is not null && !_store.IsPending)
+{
+    <CartDrawer
+        CartItems="@_cartState.Items"
+        TotalAmount="@_cartState.TotalAmount"
+        TotalVatAmount="@_cartState.TotalVatAmount"
+        VatDisplayEnabled="@_vatDisplayEnabled"
+        RemoveFromCart="async (productId) => await CartService.RemoveItemAsync(productId)"
+        Checkout="@GoToCheckout" />
+}
 
 @if (_loading)
 {
@@ -87,6 +90,20 @@ else
                     <span><i class="bi bi-envelope-fill"></i> <a href="mailto:@_store.Email">@_store.Email</a></span>
                 }
             </div>
+            @if (_store.IsPending)
+            {
+                <div class="pending-banner">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <span>Thông tin chưa xác thực — Doanh nghiệp chưa được chủ sở hữu xác nhận.</span>
+                </div>
+                <div class="hero-cta-group">
+                    <button class="btn-cta" @onclick="@(() => Navigation.NavigateTo($"/store/{Slug}/claim"))">
+                        <i class="bi bi-shield-check"></i> Đây là doanh nghiệp của bạn?
+                    </button>
+                </div>
+            }
+            else
+            {
             <div class="hero-cta-group">
                 @if (_features.GoogleMap_Section_Enabled && _store.Latitude.HasValue && _store.Longitude.HasValue)
                 {
@@ -107,11 +124,14 @@ else
                     </a>
                 }
             </div>
+            }
         </div>
     </section>
 
     <div class="store-body">
 
+        @if (!_store.IsPending)
+        {
         <!-- ════════════════════════════════════════════════════════════════
              CAMPAIGN SECTION — promotions as beautiful cards
         ════════════════════════════════════════════════════════════════ -->
@@ -197,6 +217,7 @@ else
                 </div>
                 <VibeShowcase Config="@_shopConfig" Products="@_products" AddToCart="@AddToCartSync" />
             </section>
+        }
         }
 
         <!-- ════════════════════════════════════════════════════════════════
@@ -352,6 +373,20 @@ else
         display: flex; flex-wrap: wrap; justify-content: center;
         gap: 1rem;
     }
+
+    /* ── PENDING BANNER (Crawl-to-Onboard Phase 6) ────────────────────── */
+    .pending-banner {
+        display: inline-flex; align-items: center; gap: 0.75rem;
+        background: rgba(255, 193, 7, 0.95);
+        color: #663c00;
+        padding: 0.875rem 1.5rem;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+    .pending-banner i { font-size: 1.1rem; }
 
     /* ── BUTTONS ─────────────────────────────────────────────────────── */
     .btn-cta, .btn-cta-outline {

@@ -123,7 +123,7 @@ namespace VanAn.CoreHub.Services.Claims
                 .Where(t => tenantIds.Contains(t.Id))
                 .ToDictionaryAsync(t => t.Id, t => t.Name, ct);
 
-            return claims.Select(c => MapToDto(c, tenants.GetValueOrDefault(c.Id))).ToList();
+            return claims.Select(c => MapToDto(c, tenants.GetValueOrDefault(c.TenantId))).ToList();
         }
 
         public async Task<ClaimDto?> GetClaimAsync(Guid claimRequestId, CancellationToken ct = default)

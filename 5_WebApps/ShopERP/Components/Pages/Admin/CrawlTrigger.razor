@@ -1,0 +1,144 @@
+@page "/admin/crawl-trigger"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject TenantClaimApiClient ClaimApi
+@inject ILogger<CrawlTrigger> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="crawl-trigger-page">
+    <header class="page-header">
+        <h1>Kích hoạt Crawl</h1>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    <VanACard Header="Cấu hình crawl">
+        <p class="text-muted small mb-3">
+            Crawl business listings từ nguồn bên ngoài (trangvangvietnam.com, doanhnghiep.vn)
+            → tạo Pending tenant. Crawler worker (port 5010) xử lý async + post kết quả về Gateway.
+        </p>
+        <VanAForm OnValidSubmit="HandleTrigger" aria-label="Crawl trigger form">
+            <div class="form-group">
+                <label for="crawl-source">Nguồn crawl</label>
+                <select id="crawl-source" class="vanan-select" @bind="_form.Source">
+                    <option value="">Tất cả nguồn</option>
+                    <option value="trangvangvietnam">trangvangvietnam.com (HTML + SĐT)</option>
+                    <option value="doanhnghiep.vn">doanhnghiep.vn (REST API — legal data)</option>
+                </select>
+                <small class="text-muted">
+                    <strong>trangvangvietnam:</strong> HTML crawl, có SĐT (lưu nội bộ, ẩn trên Pending profile per M3).
+                    <strong>doanhnghiep.vn:</strong> REST API, dữ liệu pháp lý (tên, MST, địa chỉ, legal rep).
+                </small>
+            </div>
+            <div class="form-row">
+                <div class="form-group form-group-half">
+                    <label for="crawl-industry">Ngành nghề</label>
+                    <select id="crawl-industry" class="vanan-select" @bind="_form.Industry">
+                        <option value="">Tất cả ngành</option>
+                        <option value="F&B">F&B — Ăn uống</option>
+                        <option value="SPA">SPA</option>
+                        <option value="RETAIL">Bán lẻ</option>
+                        <option value="SERVICE">Dịch vụ</option>
+                    </select>
+                </div>
+                <div class="form-group form-group-half">
+                    <label for="crawl-province">Tỉnh/thành</label>
+                    <select id="crawl-province" class="vanan-select" @bind="_form.Province">
+                        <option value="">Tất cả tỉnh</option>
+                        <option value="ho-chi-minh">TP. Hồ Chí Minh</option>
+                        <option value="ha-noi">Hà Nội</option>
+                        <option value="da-nang">Đà Nẵng</option>
+                        <option value="can-tho">Cần Thơ</option>
+                        <option value="hai-phong">Hải Phòng</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="crawl-maxresults">Số lượng tối đa (1-500)</label>
+                <input id="crawl-maxresults" class="vanan-input" type="number" min="1" max="500"
+                       @bind="_form.MaxResults" />
+                <small class="text-muted">Mặc định 100. Crawler sẽ skip listing đã có MST trong hệ thống.</small>
+            </div>
+            <div class="modal-actions">
+                <VanAButton Variant="primary" OnClick="HandleTrigger" IsLoading="@_isTriggering">
+                    <i class="bi bi-download me-1"></i> Kích hoạt crawl
+                </VanAButton>
+            </div>
+        </VanAForm>
+    </VanACard>
+
+    @if (_triggerResult is not null)
+    {
+        <VanACard Header="Kết quả trigger" CssClass="mt-3">
+            <VanAAlert Type="success" Message="@_triggerResult.Message" Dismissible="false" />
+            <div class="trigger-result">
+                <p><strong>Nguồn:</strong> @(_triggerResult.Source ?? "Tất cả")</p>
+                <p><strong>Ngành:</strong> @(_triggerResult.Industry ?? "Tất cả")</p>
+                <p><strong>Tỉnh:</strong> @(_triggerResult.Province ?? "Tất cả")</p>
+                <p><strong>Số lượng tối đa:</strong> @_triggerResult.MaxResults</p>
+            </div>
+            <p class="text-muted small">
+                Crawler xử lý async. Kết quả (Imported/Skipped/Errors) sẽ xuất hiện trong tab Pending
+                tại <a href="/admin/tenants">Quản lý Tenant</a> sau khi crawl xong.
+            </p>
+        </VanACard>
+    }
+</div>
+
+<style>
+    .trigger-result {
+        background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;
+        padding: 1rem; margin: 1rem 0;
+    }
+    .trigger-result p { margin: 0.25rem 0; }
+</style>
+
+@code {
+    private CrawlTriggerForm _form = new() { MaxResults = 100 };
+    private bool _isTriggering;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+    private CrawlTriggerApiResult? _triggerResult;
+
+    private async Task HandleTrigger()
+    {
+        if (_form.MaxResults < 1 || _form.MaxResults > 500)
+        { ShowAlert("error", "Số lượng phải từ 1 đến 500."); return; }
+
+        _isTriggering = true;
+        try
+        {
+            var request = new CrawlTriggerApiRequest(
+                Source: string.IsNullOrEmpty(_form.Source) ? null : _form.Source,
+                Industry: string.IsNullOrEmpty(_form.Industry) ? null : _form.Industry,
+                Province: string.IsNullOrEmpty(_form.Province) ? null : _form.Province,
+                MaxResults: _form.MaxResults);
+            _triggerResult = await ClaimApi.TriggerCrawlAsync(request);
+            ShowAlert("success", "Crawl trigger đã gửi. Crawler sẽ xử lý async.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Crawl trigger failed");
+            ShowAlert("error", $"Lỗi: {ex.Message}");
+        }
+        finally { _isTriggering = false; }
+    }
+
+    private void ShowAlert(string type, string message) { _alertType = type; _alertMessage = message; }
+
+    private sealed class CrawlTriggerForm
+    {
+        public string? Source { get; set; }
+        public string? Industry { get; set; }
+        public string? Province { get; set; }
+        public int MaxResults { get; set; } = 100;
+    }
+}

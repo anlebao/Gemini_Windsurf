@@ -167,7 +167,10 @@ public class AuthorizationEnforcementTests
             "NetworkDashboardController",
             // KhachLink Multi-Profile R1: Platform-level SystemAdmin CRUD (method-level [Authorize(Policy="SystemAdmin")] with Bearer scheme)
             // + public anonymous GetByDomain endpoint for KhachLink runtime (feature-flagged)
-            "KhachLinkInstanceController"
+            "KhachLinkInstanceController",
+            // Crawl-to-Onboard Phase 6: ImageUploadController — anonymous Cloudinary upload from KhachLink WASM
+            // (rate-limited via image-upload policy: 10/hour/IP). No tenant data accessed.
+            "ImageUploadController"
         };
 
         var controllers = GetControllers(GatewayAssembly)

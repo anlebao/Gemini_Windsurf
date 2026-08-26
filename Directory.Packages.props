@@ -57,5 +57,7 @@
     <PackageVersion Include="Google.Apis.Auth" Version="1.68.0" />
     <!-- UUIDv7 generation for Order IDs (sequential, collision-free, cross-DB sync friendly) -->
     <PackageVersion Include="UUIDNext" Version="4.2.4" />
+    <!-- Phase 5: Crawler worker — HTML parsing for trangvangvietnam.com scraping -->
+    <PackageVersion Include="AngleSharp" Version="1.7.0" />
   </ItemGroup>
 </Project>

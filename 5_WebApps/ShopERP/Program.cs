@@ -522,6 +522,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<Services.CommunityAdminApiClient>();
             _ = builder.Services.AddScoped<Services.CampaignApiClient>();
             _ = builder.Services.AddScoped<Services.TenantApiClient>();
+            // Crawl-to-Onboard Phase 7 (2026-08-26): Claims queue + Pending + Duplicates + Crawl trigger.
+            _ = builder.Services.AddScoped<Services.TenantClaimApiClient>();
             // REQ-1.2: Background service toggle — admin UI + service runtime check
             _ = builder.Services.AddScoped<CoreHub.Services.IBackgroundServiceToggleService, Services.BackgroundServiceToggleApiClient>();
             // VALCN v2.0 Phase 1: Feature flag toggle — admin UI + service runtime check (default OFF)

@@ -155,6 +155,21 @@ namespace VanAn.Gateway
                         QueueLimit = 0
                     });
                 });
+
+                // Crawl-to-Onboard Phase 6 (O1): Rate limit for anonymous GPKD image upload.
+                // 10 uploads per IP per hour — generous for legitimate owners, blocks bulk abuse.
+                // Applied via [EnableRateLimiting("image-upload")] on POST /api/v1/images/upload.
+                options.AddPolicy("image-upload", context =>
+                {
+                    string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromHours(1),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0
+                    });
+                });
             });
 
             // Register CoreHub DbContext for monolithic architecture (in-process services)
@@ -276,6 +291,11 @@ namespace VanAn.Gateway
             // Wave 1 Phase 2: Register ITenantProvider for Gateway controllers
             _ = builder.Services.AddHttpContextAccessor();
             _ = builder.Services.AddScoped<ITenantProvider, HttpContextTenantProvider>();
+
+            // Crawl-to-Onboard Phase 6 (O1): IImageStorageService (Cloudinary) for GPKD image upload.
+            // KhachLink Claim form uploads GPKD image → Gateway → Cloudinary → URL stored in TenantClaimRequest.
+            // Same registration as ShopERP (Program.cs:488). Cloudinary no-ops if config missing (dev/test safe).
+            _ = builder.Services.AddScoped<IImageStorageService, CloudinaryImageStorageService>();
 
             // Phase 2 (Multi-VPS Checkout): Normalize JWT role claims — accept both short-form ("role")
             // and long-form (ClaimTypes.Role URI) in Bearer JWTs. See RoleClaimNormalizer for details.

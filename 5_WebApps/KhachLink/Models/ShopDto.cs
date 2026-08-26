@@ -39,6 +39,12 @@ public class ShopDto
     public string? NavColor { get; set; }
     public string? HeaderColor { get; set; }
     public string? FooterColor { get; set; }
+
+    // Crawl-to-Onboard Phase 6 (2026-08-26): Pending tenant flags.
+    // Gateway returns IsPending=true + ClaimUrl for Pending tenants (Phone=null + Email=null per M3).
+    // H6: NO MaskedPhone field — Gateway already nulls Phone for Pending.
+    public bool IsPending { get; set; }
+    public string? ClaimUrl { get; set; }
 }
 
 /// <summary>

@@ -42,6 +42,12 @@ namespace VanAn.KhachLink
             // TenantProfileHttpService (2026-07-21): /store/{slug} page data loader.
             _ = builder.Services.AddScoped<Services.Http.TenantProfileHttpService>();
 
+            // Crawl-to-Onboard Phase 6 (O1): GPKD image upload for Claim form.
+            _ = builder.Services.AddScoped<Services.Http.ImageUploadService>();
+
+            // Crawl-to-Onboard Phase 6: Tenant claim submission service.
+            _ = builder.Services.AddScoped<Services.Http.ClaimHttpService>();
+
             // Register Cart Services
             _ = builder.Services.AddScoped<Services.CartService>();
             _ = builder.Services.AddScoped<Services.CheckoutFlowState>();
