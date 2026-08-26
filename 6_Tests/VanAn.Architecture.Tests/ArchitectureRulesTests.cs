@@ -409,4 +409,43 @@ public class ArchitectureRulesTests
         Assert.True(content.Contains("UseNpgsql"),
             "ADR-001 violation: ShopERP Program.cs must call UseNpgsql for accounting DbContext.");
     }
+
+    // ── Phase 5: Crawler Worker Layer Boundary ───────────────────────────────
+
+    [Fact(DisplayName = "Rule L: Crawler project must target .NET 8.0 and have NO ProjectReference to Domain/CoreHub/Gateway/ShopERP")]
+    public void CrawlerProject_MustBeStandalone_NoProjectReferences()
+    {
+        var repoRoot = GetRepoRoot();
+        var crawlerProj = Path.Combine(repoRoot, "7_Tooling", "VanAn.Crawler", "VanAn.Crawler.csproj");
+
+        if (!File.Exists(crawlerProj))
+            Assert.Fail($"Crawler project not found: {crawlerProj}");
+
+        var content = File.ReadAllText(crawlerProj);
+
+        // Must target net8.0
+        Assert.Contains("net8.0", content);
+
+        // Must NOT reference any internal projects (standalone — HTTP to Gateway only)
+        Assert.DoesNotContain("VanAn.Shared", content);
+        Assert.DoesNotContain("VanAn.Gateway", content);
+        Assert.DoesNotContain("VanAn.CoreHub", content);
+        Assert.DoesNotContain("VanAn.ShopERP", content);
+        Assert.DoesNotContain("VanAn.KhachLink", content);
+    }
+
+    [Fact(DisplayName = "Rule M: Crawler project must NOT reference EF Core or DbContext (layer boundary)")]
+    public void CrawlerProject_MustNotReference_EntityFrameworkCore()
+    {
+        var repoRoot = GetRepoRoot();
+        var crawlerProj = Path.Combine(repoRoot, "7_Tooling", "VanAn.Crawler", "VanAn.Crawler.csproj");
+
+        if (!File.Exists(crawlerProj))
+            Assert.Fail($"Crawler project not found: {crawlerProj}");
+
+        var content = File.ReadAllText(crawlerProj);
+
+        Assert.DoesNotContain("EntityFrameworkCore", content);
+        Assert.DoesNotContain("IVanAnDbContext", content);
+    }
 }

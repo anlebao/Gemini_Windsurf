@@ -1,0 +1,410 @@
+@page "/admin/claims"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@using System.Text
+@inject TenantClaimApiClient ClaimApi
+@inject ShopInstanceApiClient ShopInstanceApi
+@inject ILogger<ClaimsQueue> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="claims-queue-page">
+    <header class="page-header">
+        <h1>Hàng đợi Claim</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadClaims">
+                <i class="bi bi-arrow-clockwise me-1"></i> Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải danh sách claim...</p>
+            </div>
+        </VanACard>
+    }
+    else if (_claims.Count == 0)
+    {
+        <VanACard>
+            <div class="empty-state">
+                <p>Không có claim nào đang chờ xử lý.</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="@($"Claim đang chờ ({_claims.Count})")">
+            <p class="text-muted small mb-3">
+                Owner submit claim qua KhachLink <code>/store/{slug}/claim</code> với GPKD upload.
+                Approve → tạo owner user + Activate tenant. Reject → claim đóng.
+            </p>
+            <table class="vanan-table">
+                <thead>
+                    <tr>
+                        <th>Tenant</th>
+                        <th>Claimant</th>
+                        <th>SĐT</th>
+                        <th>MST submit</th>
+                        <th>GPKD</th>
+                        <th>Submit lúc</th>
+                        <th>Trạng thái</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in _claims)
+                    {
+                        <tr>
+                            <td><strong>@c.TenantName</strong><br /><small class="text-muted">@c.TenantId.ToString()[..8]</small></td>
+                            <td>@c.ClaimantName<br /><small class="text-muted">@(c.ClaimantEmail ?? "-")</small></td>
+                            <td>@c.ClaimantPhone</td>
+                            <td><code>@c.TaxCodeSubmitted</code></td>
+                            <td>
+                                <a href="@c.GpkdImageUrl" target="_blank" class="btn btn-sm btn-outline-info">
+                                    <i class="bi bi-image"></i> Xem GPKD
+                                </a>
+                            </td>
+                            <td>@c.SubmittedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td><span class="status-badge status-@c.Status.ToLower()">@c.Status</span></td>
+                            <td class="action-cell">
+                                @if (c.Status == "Submitted")
+                                {
+                                    <VanAButton Variant="success" Size="small" OnClick="() => OpenApproveModal(c)">
+                                        <i class="bi bi-check-circle me-1"></i> Duyệt
+                                    </VanAButton>
+                                    <VanAButton Variant="danger" Size="small" OnClick="() => OpenRejectModal(c)">
+                                        <i class="bi bi-x-circle me-1"></i> Từ chối
+                                    </VanAButton>
+                                    <a href="https://dangkykinhdoanh.gov.vn/vi/tim-kiem?q=@c.TaxCodeSubmitted"
+                                       target="_blank" class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-search me-1"></i> Cross-check MST
+                                    </a>
+                                }
+                                else if (!string.IsNullOrEmpty(c.RejectionReason))
+                                {
+                                    <small class="text-danger">@c.RejectionReason</small>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </VanACard>
+    }
+
+    <!-- Approve modal -->
+    @if (_showApproveModal && _selectedClaim is not null)
+    {
+        <VanAModal Title="Duyệt Claim — Tạo owner user" IsVisible="true" OnClose="CloseApproveModal" Size="large">
+            <Body>
+            <VanAAlert Type="info" Message="@GetApproveAlertMessage()" Dismissible="false" />
+            <p><strong>Claimant:</strong> @_selectedClaim.ClaimantName (@_selectedClaim.ClaimantPhone)</p>
+            <p><strong>MST submit:</strong> <code>@_selectedClaim.TaxCodeSubmitted</code></p>
+            <p><strong>GPKD:</strong> <a href="@_selectedClaim.GpkdImageUrl" target="_blank">Xem ảnh GPKD</a></p>
+
+            @if (_approvalResult is null)
+            {
+                <VanAForm OnValidSubmit="HandleApproveSubmit" aria-label="Approve claim">
+                    <div class="form-row">
+                        <div class="form-group form-group-half">
+                            <label for="approve-username">Tên đăng nhập owner *</label>
+                            <input id="approve-username" class="vanan-input" @bind="_approveForm.OwnerUsername" placeholder="owner@tenant.vn" required />
+                        </div>
+                        <div class="form-group form-group-half">
+                            <label for="approve-password">Mật khẩu owner *</label>
+                            <div class="input-group">
+                                <input id="approve-password" class="vanan-input" type="@(_showPassword ? "text" : "password")" @bind="_approveForm.OwnerPassword" placeholder="Tối thiểu 8 ký tự" required />
+                                <button type="button" class="btn btn-outline-secondary" @onclick="@(() => _showPassword = !_showPassword)">
+                                    <i class="bi @(_showPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                                </button>
+                            </div>
+                            <VanAButton Variant="outline" Size="small" OnClick="GeneratePassword" CssClass="mt-1">
+                                <i class="bi bi-shuffle me-1"></i> Sinh ngẫu nhiên
+                            </VanAButton>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="approve-displayname">Tên hiển thị owner *</label>
+                        <input id="approve-displayname" class="vanan-input" @bind="_approveForm.OwnerDisplayName" placeholder="Chủ doanh nghiệp" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="approve-slug">URL Slug</label>
+                        <input id="approve-slug" class="vanan-input" @bind="_approveForm.Slug" placeholder="để trống = auto từ tên" />
+                    </div>
+                    <div class="form-group">
+                        <label for="approve-shopinstance">ShopERP Instance *</label>
+                        @if (_shopInstances.Any())
+                        {
+                            <select id="approve-shopinstance" class="vanan-select" @bind="_approveForm.ShopInstanceId" required>
+                                <option value="">-- Chọn instance --</option>
+                                @foreach (var inst in _shopInstances)
+                                {
+                                    <option value="@inst.Id">@inst.Label (@inst.BaseUrl)</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <input type="text" class="vanan-input" value="Chưa có instance — tạo tại /admin/shop-instances" disabled />
+                        }
+                    </div>
+                    @if (!string.IsNullOrEmpty(_approveError))
+                    {
+                        <VanAAlert Type="error" Message="@_approveError" Dismissible="false" />
+                    }
+                    <div class="modal-actions">
+                        <VanAButton Variant="success" OnClick="HandleApproveSubmit" IsLoading="@_isApproving">Duyệt + Tạo owner</VanAButton>
+                        <VanAButton Variant="outline" OnClick="CloseApproveModal">Huỷ</VanAButton>
+                    </div>
+                </VanAForm>
+            }
+            else
+            {
+                <VanAAlert Type="warning" Message="⚠️ Sao chép credentials NGAY — sẽ không hiển thị lại!" Dismissible="false" />
+                <div class="verify-credentials">
+                    <p><strong>Tenant ID:</strong> @_approvalResult.TenantId</p>
+                    <p><strong>Owner User ID:</strong> @_approvalResult.OwnerUserId</p>
+                    <p><strong>Permission groups:</strong> @_approvalResult.PermissionGroupsCreated</p>
+                    <p><strong>Published slug:</strong> <code>@_approvalResult.PublishedSlug</code></p>
+                    <p><strong>Username:</strong> <code>@_approvalResult.OwnerUsername</code></p>
+                    <p><strong>Password:</strong> <code>@_approvalResult.OwnerPassword</code></p>
+                </div>
+                <div class="modal-actions">
+                    <VanAButton Variant="primary" OnClick="CloseApproveModalAndRefresh">Đã sao chép — Đóng</VanAButton>
+                </div>
+            }
+            </Body>
+        </VanAModal>
+    }
+
+    <!-- Reject modal -->
+    @if (_showRejectModal && _selectedClaim is not null)
+    {
+        <VanAModal Title="Từ chối Claim" IsVisible="true" OnClose="CloseRejectModal">
+            <Body>
+            <p>Từ chối claim cho tenant: <strong>@_selectedClaim.TenantName</strong></p>
+            <p>Claimant: @_selectedClaim.ClaimantName</p>
+            <div class="form-group">
+                <label>Lý do từ chối *</label>
+                <textarea class="vanan-input" rows="3" @bind="_rejectReason" placeholder="vd: GPKD không rõ nét, MST không khớp..."></textarea>
+            </div>
+            <div class="modal-actions">
+                <VanAButton Variant="danger" OnClick="HandleRejectSubmit" IsLoading="@_isRejecting">Xác nhận từ chối</VanAButton>
+                <VanAButton Variant="outline" OnClick="CloseRejectModal">Huỷ</VanAButton>
+            </div>
+            </Body>
+        </VanAModal>
+    }
+</div>
+
+<style>
+    .verify-credentials {
+        background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px;
+        padding: 1rem; margin: 1rem 0;
+    }
+    .verify-credentials p { margin: 0.25rem 0; }
+    .verify-credentials code { background: #fde68a; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+</style>
+
+@code {
+    private bool _isLoading = true;
+    private List<ClaimApiDto> _claims = [];
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    // Approve modal
+    private bool _showApproveModal;
+    private ClaimApiDto? _selectedClaim;
+    private ApproveForm _approveForm = new();
+    private bool _isApproving;
+    private bool _showPassword;
+    private string _approveError = string.Empty;
+    private ClaimApprovalApiResult? _approvalResult;
+
+    // Reject modal
+    private bool _showRejectModal;
+    private string _rejectReason = string.Empty;
+    private bool _isRejecting;
+
+    // ShopInstances for dropdown
+    private List<ShopInstanceDto> _shopInstances = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadClaims();
+        await LoadShopInstances();
+    }
+
+    private async Task LoadClaims()
+    {
+        _isLoading = true;
+        try { _claims = await ClaimApi.ListClaimsAsync(); }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load claims");
+            ShowAlert("error", "Không thể tải danh sách claim.");
+        }
+        finally { _isLoading = false; }
+    }
+
+    private async Task LoadShopInstances()
+    {
+        try { _shopInstances = await ShopInstanceApi.ListAsync(); }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load ShopInstances");
+            _shopInstances = [];
+        }
+    }
+
+    // ── Approve ────────────────────────────────────────────────────────────
+
+    private void OpenApproveModal(ClaimApiDto c)
+    {
+        _selectedClaim = c;
+        _approveForm = new ApproveForm
+        {
+            OwnerDisplayName = c.ClaimantName, // default = claimant name
+            Slug = GenerateSlugFromName(c.TenantName)
+        };
+        _approvalResult = null;
+        _approveError = string.Empty;
+        _showPassword = false;
+        _showApproveModal = true;
+    }
+
+    private void CloseApproveModal()
+    {
+        _showApproveModal = false;
+        _selectedClaim = null;
+        _approvalResult = null;
+        _approveError = string.Empty;
+    }
+
+    private void CloseApproveModalAndRefresh()
+    {
+        CloseApproveModal();
+        _ = LoadClaims();
+    }
+
+    private string GetApproveAlertMessage()
+        => _selectedClaim is null ? string.Empty
+            : $"Duyệt claim cho tenant: {_selectedClaim.TenantName}";
+
+    private void GeneratePassword()
+    {
+        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%";
+        var rng = new Random();
+        _approveForm.OwnerPassword = new string(Enumerable.Range(0, 12)
+            .Select(_ => chars[rng.Next(chars.Length)]).ToArray());
+        _showPassword = true;
+    }
+
+    private static string GenerateSlugFromName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return string.Empty;
+        return name.Trim().ToLowerInvariant()
+            .Replace(" ", "-").Replace("--", "-")
+            .Where(c => char.IsLetterOrDigit(c) || c == '-')
+            .Aggregate(new StringBuilder(), (sb, c) => sb.Append(c))
+            .ToString().Trim('-');
+    }
+
+    private async Task HandleApproveSubmit()
+    {
+        if (_selectedClaim is null) return;
+        _approveError = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(_approveForm.OwnerUsername))
+        { _approveError = "Tên đăng nhập owner là bắt buộc."; return; }
+        if (string.IsNullOrWhiteSpace(_approveForm.OwnerPassword) || _approveForm.OwnerPassword.Length < 8)
+        { _approveError = "Mật khẩu phải có ít nhất 8 ký tự."; return; }
+        if (string.IsNullOrWhiteSpace(_approveForm.OwnerDisplayName))
+        { _approveError = "Tên hiển thị owner là bắt buộc."; return; }
+        if (!_approveForm.ShopInstanceId.HasValue || _approveForm.ShopInstanceId.Value == Guid.Empty)
+        { _approveError = "Vui lòng chọn ShopERP Instance."; return; }
+
+        _isApproving = true;
+        try
+        {
+            var verifyConfig = new VerifyTenantApiRequest(
+                _approveForm.OwnerUsername.Trim(),
+                _approveForm.OwnerPassword,
+                _approveForm.OwnerDisplayName.Trim(),
+                OwnerPhone: _selectedClaim.ClaimantPhone, // M3: use claimant phone (consented)
+                OwnerEmail: _selectedClaim.ClaimantEmail,
+                Slug: string.IsNullOrWhiteSpace(_approveForm.Slug) ? null : _approveForm.Slug.Trim(),
+                ShopInstanceId: _approveForm.ShopInstanceId);
+            _approvalResult = await ClaimApi.ApproveClaimAsync(_selectedClaim.Id, verifyConfig);
+            ShowAlert("success", $"Claim cho '{_selectedClaim.TenantName}' đã duyệt. Owner user đã tạo.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Approve claim failed for {ClaimId}", _selectedClaim.Id);
+            _approveError = $"Lỗi: {ex.Message}";
+        }
+        finally { _isApproving = false; }
+    }
+
+    // ── Reject ─────────────────────────────────────────────────────────────
+
+    private void OpenRejectModal(ClaimApiDto c)
+    {
+        _selectedClaim = c;
+        _rejectReason = string.Empty;
+        _showRejectModal = true;
+    }
+
+    private void CloseRejectModal()
+    {
+        _showRejectModal = false;
+        _selectedClaim = null;
+    }
+
+    private async Task HandleRejectSubmit()
+    {
+        if (_selectedClaim is null) return;
+        if (string.IsNullOrWhiteSpace(_rejectReason))
+        { ShowAlert("error", "Vui lòng nhập lý do từ chối."); return; }
+
+        _isRejecting = true;
+        try
+        {
+            await ClaimApi.RejectClaimAsync(_selectedClaim.Id, _rejectReason);
+            ShowAlert("success", $"Claim cho '{_selectedClaim.TenantName}' đã bị từ chối.");
+            _showRejectModal = false;
+            await LoadClaims();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Reject claim failed for {ClaimId}", _selectedClaim.Id);
+            ShowAlert("error", $"Lỗi: {ex.Message}");
+        }
+        finally { _isRejecting = false; }
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+    private void ShowAlert(string type, string message) { _alertType = type; _alertMessage = message; }
+
+    private sealed class ApproveForm
+    {
+        public string OwnerUsername { get; set; } = string.Empty;
+        public string OwnerPassword { get; set; } = string.Empty;
+        public string OwnerDisplayName { get; set; } = string.Empty;
+        public string? Slug { get; set; }
+        public Guid? ShopInstanceId { get; set; }
+    }
+}
