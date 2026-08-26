@@ -1,0 +1,47 @@
+{
+  "sources": [
+    {
+      "name": "doanhnghiep.vn",
+      "type": "rest-api",
+      "baseUrl": "https://doanhnghiep.vn",
+      "endpoints": {
+        "search": "/api/v1/search?q={query}&limit={limit}",
+        "details": "/api/v1/companies/{mst}"
+      },
+      "fieldMapping": {
+        "mst": "mst",
+        "name": "name_vi",
+        "address": "address_full",
+        "contactName": "legal_rep_name",
+        "industryCode": "industry_main_code",
+        "status": "status",
+        "province": "province.code"
+      },
+      "rateLimitMs": 2000,
+      "dailyLimit": 100,
+      "auth": "none"
+    },
+    {
+      "name": "trangvangvietnam",
+      "type": "html-scrape",
+      "baseUrl": "https://trangvangvietnam.com",
+      "selectors": {
+        "listingItem": ".listing-item, .company-item, .dn-item",
+        "name": "h3 a, h2 a, .company-name a",
+        "phone": ".phone, .dien-thoai, .tel",
+        "address": ".address, .dia-chi",
+        "taxCode": ".mst, .masothue",
+        "industry": ".nganh, .industry"
+      },
+      "rateLimitMs": 3000,
+      "maxBatchSize": 50,
+      "userAgent": "VanAnCrawler/1.0 (+contact@vanan.vn)"
+    }
+  ],
+  "industries": [
+    { "code": "I", "name": "Dịch vụ lưu trú và ăn uống" },
+    { "code": "G", "name": "Bán buôn và bán lẻ" },
+    { "code": "F", "name": "Xây dựng" },
+    { "code": "M", "name": "Hoạt động chuyên môn, khoa học và công nghệ" }
+  ]
+}
