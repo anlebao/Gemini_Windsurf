@@ -101,8 +101,8 @@
 - **Status corrected 2026-08-25:** Previously noted as "pending push + PR" but actually already merged via PR #152 + follow-up commits `e9598115`, `de786420`, `57c15d5c`, `d74ae9d6`, `efd3fa01`, `4593af60` (BusinessProfile save/load fix, ShopInstance BaseUrl seed, JWT Bearer auth for ShopERP, 5 bugs fix, auth policy correction, admin guide expansion).
 - All 5 phases + 61 tests + post-merge fixes IN main. No remaining actions for MVP-2.
 
-**CRAWL-TO-ONBOARD TENANT PIPELINE — PHASE 3 (SERVICES) COMPLETE.** 🟢
-- **Branch:** `feature/crawl-onboard-tenant-pipeline` @ `1069dbfd` (Phase 1 `684cc8f8` + Phase 2 `498a5f86` + Phase 3 `1069dbfd`)
+**CRAWL-TO-ONBOARD TENANT PIPELINE — PHASE 4 (API GATEWAY + TENANTSYNCSUBSCRIBER) COMPLETE.** 🟢
+- **Branch:** `feature/crawl-onboard-tenant-pipeline` @ `<pending commit>` (Phase 1 `684cc8f8` + Phase 2 `498a5f86` + Phase 3 `1069dbfd` + Phase 4)
 - **Plan structure:** master plan + research snapshot + 8 task cards (committed `7e8afec7`)
 - **Pre-flight complete 2026-08-25** (`7e9a0b4e`):
   - ✅ Branch created (Strategy B refined — main already has MVP-2 merged, no separate merge needed)
@@ -142,7 +142,16 @@
   - ✅ DI registration in `2_Gateway/Program.cs`: +`ITenantClaimService` +`IDuplicateDetectionService` (Gateway-only, PG — NOT in ShopERP DI per Option C)
   - ✅ Test fixes: `TenantManagementServiceTests` + `TenantOnboardingServiceTests` constructor calls updated (null outboxRepository param)
   - ✅ `dotnet build VanAn.sln` — 0 errors
-- **Awaiting user approval to start Phase 4 (API Gateway + TenantSyncSubscriber).**
+- **Phase 4 — API Gateway + TenantSyncSubscriber COMPLETE 2026-08-25:**
+  - ✅ `TenantStoreController.GetBySlug` modified: Pending → Phone=null + Email=null (M3 HIDE SĐT section per Luật 91/2025 Điều 16) + IsPending=true + ClaimUrl. Suspended/Inactive/Converted → 404. Added IsPending + ClaimUrl fields to TenantStoreDto.
+  - ✅ `CrawlController.cs` created: POST /api/v1/crawl/batch (max 500, skip existing MST, return BatchCrawlResult) + GET /api/v1/crawl/sources/{tenantId} (audit trail) + POST /api/v1/crawl/trigger (202 Accepted, YARP forward to crawler port 5010 deferred to Phase 5 appsettings)
+  - ✅ `TenantClaimController.cs` created: POST /api/v1/tenants/{id}/claims [AllowAnonymous]+[EnableRateLimiting("claim-submit")] + GET /api/v1/claims [SystemAdmin] + GET /{id} + POST /{id}/approve (returns credentials ONCE) + POST /{id}/reject
+  - ✅ `TenantPendingController.cs` created: GET /api/v1/tenants/pending + POST /{id}/verify (direct bypass claim) + GET /api/v1/tenants/duplicates + POST /duplicates/resolve
+  - ✅ Rate limit policy `claim-submit` added to `2_Gateway/Program.cs`: 3 req/IP/24h FixedWindow (M5 resolved)
+  - ✅ `TenantSyncSubscriber.cs` created in `5_WebApps/ShopERP/Services/` (Option A): subscribes NATS `vanan.cloud.tenant.verified` + `vanan.cloud.tenant.profile.updated` → upsert Tenant row SQLite (cùng Guid tenantId). Pending events NOT synced. Idempotent (upsert, not insert). Follows OrderSyncSubscriber pattern (retry with exponential backoff).
+  - ✅ `TenantSyncSubscriber` registered in `5_WebApps/ShopERP/Program.cs` as HostedService
+  - ✅ `dotnet build VanAn.sln` — 0 errors
+- **Awaiting user approval to start Phase 5 (Crawler worker — new 7_Tooling/VanAn.Crawler.csproj).**
 
 - **Branch:** `main` @ `73f77f14` (Issue #103 impersonation + data isolation + Directory SSR + post-deploy fixes #157 + #161 accounting validation/date fix + #156 nav group/collapsible all menus). **Build full sln:** 0 errors · **CI:** 1411 unit + 17 unit + 273 integration + 39 arch ALL PASS · **.NET SDK:** 8.0.422
 - **Directory SSR:** ✅ COMPLETE — timlathay.com live (0.04s load, 10 stores, 56MiB). Issue #157 fixed (3 bugs). WebSocket + Leaflet markers fixed. See Section 2.

@@ -64,6 +64,10 @@ namespace VanAn.Gateway.Controllers
         /// Tenant Profile Page (2026-07-21): Get tenant store info by URL slug.
         /// Returns 404 if slug is null or not found.
         /// Used by KhachLink /store/{slug} route.
+        ///
+        /// Crawl-to-Onboard (2026-08-25, M3): Pending tenants return Phone=null + Email=null
+        /// (HIDE SĐT section entirely per Luật 91/2025 Điều 16 — không "công khai" dữ liệu cá nhân chưa consent).
+        /// Active tenants return full profile. Suspended/Inactive/Converted → 404 (don't expose).
         /// </summary>
         [HttpGet("by-slug/{slug}")]
         [AllowAnonymous]
@@ -84,7 +88,29 @@ namespace VanAn.Gateway.Controllers
                 if (tenant == null)
                     return NotFound();
 
-                return Ok(MapToStoreDto(tenant));
+                // Crawl-to-Onboard (M3): hide Pending profile SĐT, 404 for non-Active/Pending
+                if (tenant.Status == TenantStatus.Suspended
+                    || tenant.Status == TenantStatus.Inactive
+                    || tenant.Status == TenantStatus.Converted)
+                {
+                    return NotFound();
+                }
+
+                var dto = MapToStoreDto(tenant);
+
+                if (tenant.Status == TenantStatus.Pending)
+                {
+                    // M3: HIDE SĐT section — Phone=null, Email=null (tránh "công khai" per Luật 91/2025 Điều 16)
+                    dto = dto with
+                    {
+                        Phone = null,
+                        Email = null,
+                        IsPending = true,
+                        ClaimUrl = $"/store/{normalizedSlug}/claim"
+                    };
+                }
+
+                return Ok(dto);
             }
             catch (Exception ex)
             {
@@ -313,5 +339,14 @@ namespace VanAn.Gateway.Controllers
         /// Null = tenant has no KhachLink instance → "Tìm hiểu" button hidden.
         /// Non-null = button redirects to https://{KhachLinkDomain}/store/{slug}</summary>
         public string? KhachLinkDomain { get; init; }
+
+        /// <summary>Crawl-to-Onboard (2026-08-25, M3): True if tenant is Pending (crawled, not yet verified).
+        /// KhachLink hides commerce UI + shows Pending banner + Claim button when true.
+        /// SĐT section HIDDEN (Phone=null) per Luật 91/2025 Điều 16.</summary>
+        public bool IsPending { get; init; }
+
+        /// <summary>Crawl-to-Onboard (2026-08-25): URL to Claim form for Pending tenants.
+        /// Null for Active tenants. Format: /store/{slug}/claim</summary>
+        public string? ClaimUrl { get; init; }
     }
 }

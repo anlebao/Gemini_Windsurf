@@ -139,6 +139,24 @@ namespace VanAn.Gateway
                 });
             });
 
+            // Crawl-to-Onboard (2026-08-25, M5): Rate limit for claim submit endpoint.
+            // 3 requests per IP per day — prevents abuse of owner claim form.
+            // Applied via [EnableRateLimiting("claim-submit")] on POST /api/v1/tenants/{id}/claims.
+            _ = builder.Services.AddRateLimiter(options =>
+            {
+                options.AddPolicy("claim-submit", context =>
+                {
+                    string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 3,
+                        Window = TimeSpan.FromHours(24),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0
+                    });
+                });
+            });
+
             // Register CoreHub DbContext for monolithic architecture (in-process services)
             string connectionString = builder.Configuration.GetSection("ConnectionStrings")["DefaultConnection"]
                 ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection configuration is required in Gateway.");
