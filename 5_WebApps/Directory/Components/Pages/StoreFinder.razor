@@ -48,6 +48,12 @@
         <!-- Map -->
         <div id="directory-map" class="mb-4" style="height: 400px; border-radius: 12px; overflow: hidden;"></div>
 
+        <!-- Pending alert -->
+        @if (!string.IsNullOrEmpty(_pendingAlert))
+        {
+            <VanAnAlert Variant="AlertVariant.Warning" Message="@_pendingAlert" CssClass="mb-3" />
+        }
+
         <!-- Store list -->
         @if (_loading)
         {
@@ -70,30 +76,49 @@
                     <div class="col-md-6 col-lg-4">
                         <VanAnCard CssClass="h-100">
                             <div class="d-flex align-items-start gap-3">
-                                @if (!string.IsNullOrEmpty(store.LogoUrl))
+                                @if (!store.IsPending && !string.IsNullOrEmpty(store.LogoUrl))
                                 {
                                     <img src="@store.LogoUrl" alt="@store.Name" class="store-logo-sm" />
                                 }
                                 else
                                 {
-                                    <i class="bi bi-shop text-primary" style="font-size: 2rem;"></i>
+                                    <i class="bi @(store.IsPending ? "bi-hourglass-split text-warning" : "bi-shop text-primary")" style="font-size: 2rem;"></i>
                                 }
                                 <div class="flex-grow-1">
                                     <h6 class="mb-1">@store.Name</h6>
-                                    @if (!string.IsNullOrEmpty(store.Address))
+                                    @if (store.IsPending)
                                     {
-                                        <p class="small text-muted mb-1"><i class="bi bi-geo-alt"></i> @store.Address</p>
+                                        <span class="badge bg-warning text-dark mb-1">Chờ xác minh</span>
+                                        <p class="small text-muted mb-1">Đang chờ xác minh từ chủ sở hữu.</p>
+                                        <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="@(() => ShowPendingMessage(store.Name))">
+                                            <i class="bi bi-info-circle me-1"></i> Xem thông tin
+                                        </VanAnButton>
                                     }
-                                    @if (store.DistanceKm.HasValue)
+                                    else
                                     {
-                                        <p class="small text-primary mb-0">@store.DistanceKm.Value.ToString("F1") km</p>
-                                    }
-                                    @if (store.Latitude.HasValue && store.Longitude.HasValue)
-                                    {
-                                        <a href="https://maps.google.com/?q=@store.Latitude,@store.Longitude"
-                                           target="_blank" class="small text-decoration-none">
-                                            <i class="bi bi-map"></i> Chỉ đường
-                                        </a>
+                                        @if (!string.IsNullOrEmpty(store.Address))
+                                        {
+                                            <p class="small text-muted mb-1"><i class="bi bi-geo-alt"></i> @store.Address</p>
+                                        }
+                                        @if (store.DistanceKm.HasValue)
+                                        {
+                                            <p class="small text-primary mb-0">@store.DistanceKm.Value.ToString("F1") km</p>
+                                        }
+                                        @if (store.Latitude.HasValue && store.Longitude.HasValue)
+                                        {
+                                            <a href="https://maps.google.com/?q=@store.Latitude,@store.Longitude"
+                                               target="_blank" class="small text-decoration-none">
+                                                <i class="bi bi-map"></i> Chỉ đường
+                                            </a>
+                                        }
+                                        @if (!string.IsNullOrEmpty(store.Slug))
+                                        {
+                                            <div class="mt-1">
+                                                <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary" OnClick="@(() => NavigateToStore(store.Slug, store.KhachLinkDomain))">
+                                                    <i class="bi bi-shop me-1"></i> Xem trang cửa hàng
+                                                </VanAnButton>
+                                            </div>
+                                        }
                                     }
                                 </div>
                             </div>
@@ -121,6 +146,7 @@
     private bool _loading;
     private double? _userLat;
     private double? _userLng;
+    private string? _pendingAlert;
 
     protected override async Task OnInitializedAsync()
     {
@@ -186,4 +212,21 @@
     }
 
     private record UserCoords(double Lat, double Lng);
+
+    private void ShowPendingMessage(string storeName)
+    {
+        _pendingAlert = $"{storeName} đang chờ xác minh thông tin từ chủ doanh nghiệp. Vui lòng quay lại sau.";
+    }
+
+    private void NavigateToStore(string slug, string? khachLinkDomain)
+    {
+        if (!string.IsNullOrEmpty(khachLinkDomain))
+        {
+            Navigation.NavigateTo($"https://{khachLinkDomain}/store/{slug}", forceLoad: true);
+        }
+        else
+        {
+            Navigation.NavigateTo($"https://khachvip.online/store/{slug}", forceLoad: true);
+        }
+    }
 }

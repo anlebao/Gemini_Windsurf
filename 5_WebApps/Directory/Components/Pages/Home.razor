@@ -4,6 +4,7 @@
 @using VanAn.UI.Platform.Tokens
 @inject CatalogService CatalogService
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Danh bạ Vạn An — Tìm cửa hàng gần bạn</PageTitle>
 
@@ -44,6 +45,11 @@
             </div>
         </VanAnCard>
 
+        @if (!string.IsNullOrEmpty(_pendingAlert))
+        {
+            <VanAnAlert Variant="AlertVariant.Warning" Message="@_pendingAlert" CssClass="mb-3" />
+        }
+
         <!-- Results -->
         @if (_loading)
         {
@@ -71,35 +77,54 @@
                     <div class="col-md-6 col-lg-4">
                         <VanAnCard CssClass="h-100 store-card">
                             <div class="d-flex align-items-start gap-3">
-                                @if (!string.IsNullOrEmpty(store.LogoUrl))
+                                @if (!store.IsPending && !string.IsNullOrEmpty(store.LogoUrl))
                                 {
                                     <img src="@store.LogoUrl" alt="@store.Name" class="store-logo-sm" />
                                 }
                                 else
                                 {
-                                    <i class="bi bi-shop text-primary" style="font-size: 2rem;"></i>
+                                    <i class="bi @(store.IsPending ? "bi-hourglass-split text-warning" : "bi-shop text-primary")" style="font-size: 2rem;"></i>
                                 }
                                 <div class="flex-grow-1">
                                     <h5 class="mb-1">@store.Name</h5>
-                                    @if (!string.IsNullOrEmpty(store.Address))
+                                    @if (store.IsPending)
                                     {
-                                        <p class="small text-muted mb-1">
-                                            <i class="bi bi-geo-alt"></i> @store.Address
-                                        </p>
+                                        <span class="badge bg-warning text-dark mb-2">
+                                            <i class="bi bi-hourglass-split"></i> Chờ xác minh
+                                        </span>
+                                        <p class="small text-muted mb-2">Thông tin doanh nghiệp đang chờ xác minh từ chủ sở hữu.</p>
+                                        <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="@(() => ShowPendingMessage(store.Name))">
+                                            <i class="bi bi-info-circle me-1"></i> Xem thông tin
+                                        </VanAnButton>
                                     }
-                                    @if (!string.IsNullOrEmpty(store.Phone))
+                                    else
                                     {
-                                        <p class="small mb-1">
-                                            <a href="tel:@store.Phone" class="text-decoration-none">
-                                                <i class="bi bi-telephone"></i> @store.Phone
-                                            </a>
-                                        </p>
-                                    }
-                                    @if (store.DistanceKm.HasValue)
-                                    {
-                                        <p class="small text-primary mb-0">
-                                            <i class="bi bi-signpost"></i> @store.DistanceKm.Value.ToString("F1") km
-                                        </p>
+                                        @if (!string.IsNullOrEmpty(store.Address))
+                                        {
+                                            <p class="small text-muted mb-1">
+                                                <i class="bi bi-geo-alt"></i> @store.Address
+                                            </p>
+                                        }
+                                        @if (!string.IsNullOrEmpty(store.Phone))
+                                        {
+                                            <p class="small mb-1">
+                                                <a href="tel:@store.Phone" class="text-decoration-none">
+                                                    <i class="bi bi-telephone"></i> @store.Phone
+                                                </a>
+                                            </p>
+                                        }
+                                        @if (store.DistanceKm.HasValue)
+                                        {
+                                            <p class="small text-primary mb-0">
+                                                <i class="bi bi-signpost"></i> @store.DistanceKm.Value.ToString("F1") km
+                                            </p>
+                                        }
+                                        @if (!string.IsNullOrEmpty(store.Slug))
+                                        {
+                                            <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary" OnClick="@(() => NavigateToStore(store.Slug, store.KhachLinkDomain))">
+                                                <i class="bi bi-shop me-1"></i> Xem trang cửa hàng
+                                            </VanAnButton>
+                                        }
                                     }
                                 </div>
                             </div>
@@ -160,4 +185,26 @@
     {
         Navigation.NavigateTo("/stores");
     }
+
+    private void ShowPendingMessage(string storeName)
+    {
+        // Show alert instead of redirecting to tenant profile
+        _pendingAlert = $"{storeName} đang chờ xác minh thông tin từ chủ doanh nghiệp. Vui lòng quay lại sau.";
+    }
+
+    private void NavigateToStore(string slug, string? khachLinkDomain)
+    {
+        if (!string.IsNullOrEmpty(khachLinkDomain))
+        {
+            // Redirect to tenant's own KhachLink domain
+            Navigation.NavigateTo($"https://{khachLinkDomain}/store/{slug}", forceLoad: true);
+        }
+        else
+        {
+            // Fallback: in-app route (Directory doesn't have /store/{slug} page, so redirect to KhachLink main)
+            Navigation.NavigateTo($"https://khachvip.online/store/{slug}", forceLoad: true);
+        }
+    }
+
+    private string? _pendingAlert;
 }

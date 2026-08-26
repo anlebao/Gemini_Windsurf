@@ -108,4 +108,11 @@ public class TenantStoreDto
     public string? HeaderColor { get; init; }
     public string? FooterColor { get; init; }
     public string? KhachLinkDomain { get; init; }
+
+    /// <summary>Crawl-to-Onboard: True if tenant is Pending (crawled, not yet verified).
+    /// Directory shows name only + "Chờ xác minh" badge. No click to profile.</summary>
+    public bool IsPending { get; init; }
+
+    /// <summary>Crawl-to-Onboard: URL to Claim form for Pending tenants. Null for Active.</summary>
+    public string? ClaimUrl { get; init; }
 }

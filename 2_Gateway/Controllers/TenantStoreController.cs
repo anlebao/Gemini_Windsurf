@@ -143,6 +143,7 @@ namespace VanAn.Gateway.Controllers
         /// <summary>
         /// Store Finder — find tenants near a GPS location.
         /// Replaces GET /api/shops/nearby.
+        /// Crawl-to-Onboard (2026-08-26): includes Pending tenants (name only, no phone/address per Luật 91/2025).
         /// </summary>
         [HttpGet("nearby")]
         [AllowAnonymous]
@@ -159,7 +160,7 @@ namespace VanAn.Gateway.Controllers
                 var tenants = await _dbContext.Tenants
                     .AsNoTracking()
                     .IgnoreQueryFilters() // public endpoint — show all tenants regardless of caller's tenant context
-                    .Where(t => t.Status == TenantStatus.Active)
+                    .Where(t => t.Status == TenantStatus.Active || t.Status == TenantStatus.Pending)
                     .ToListAsync();
 
                 var nearby = tenants
@@ -186,6 +187,7 @@ namespace VanAn.Gateway.Controllers
         /// Search tenants by name OR by FeaturedProduct.DisplayName (PG-only, no ShopERP call).
         /// Replaces GET /api/shops/search.
         /// Relevance sort: exact match > starts-with > contains. Name match > product match.
+        /// Crawl-to-Onboard (2026-08-26): includes Pending tenants (name only, IsPending=true, no phone/address per Luật 91/2025).
         /// </summary>
         [HttpGet("search")]
         [AllowAnonymous]
@@ -196,7 +198,7 @@ namespace VanAn.Gateway.Controllers
                 var baseQuery = _dbContext.Tenants
                     .AsNoTracking()
                     .IgnoreQueryFilters() // public endpoint — show all tenants regardless of caller's tenant context
-                    .Where(t => t.Status == TenantStatus.Active);
+                    .Where(t => t.Status == TenantStatus.Active || t.Status == TenantStatus.Pending);
 
                 List<Tenant> tenants;
                 if (string.IsNullOrWhiteSpace(name))
@@ -254,27 +256,37 @@ namespace VanAn.Gateway.Controllers
         }
 
         private static TenantStoreDto MapToStoreDto(Tenant t, double? distanceKm = null,
-            Dictionary<Guid, string>? khachLinkDomainMap = null) => new()
+            Dictionary<Guid, string>? khachLinkDomainMap = null)
         {
-            Id = t.Id.Value,
-            Name = t.Name,
-            Address = t.Settings?.Address ?? string.Empty,
-            Phone = t.Settings?.ContactPhone ?? string.Empty,
-            Email = t.Settings?.ContactEmail ?? string.Empty,
-            Latitude = t.Settings?.Latitude,
-            Longitude = t.Settings?.Longitude,
-            DistanceKm = distanceKm,
-            Slug = t.Settings?.Slug,
-            SocialLinksFb = t.Settings?.SocialLinksFb,
-            SocialLinksTiktok = t.Settings?.SocialLinksTiktok,
-            BrandStory = t.Settings?.BrandStory,
-            LogoUrl = t.Settings?.LogoUrl,
-            Theme = t.Settings?.Theme ?? ThemeType.Classic,
-            NavColor = t.Settings?.NavColor,
-            HeaderColor = t.Settings?.HeaderColor,
-            FooterColor = t.Settings?.FooterColor,
-            KhachLinkDomain = khachLinkDomainMap?.GetValueOrDefault(t.Id.Value)
-        };
+            var isPending = t.Status == TenantStatus.Pending;
+            return new()
+            {
+                Id = t.Id.Value,
+                Name = t.Name,
+                // Pending: hide address/phone/email per Luật 91/2025 Điều 16 — only show name
+                Address = isPending ? string.Empty : (t.Settings?.Address ?? string.Empty),
+                Phone = isPending ? string.Empty : (t.Settings?.ContactPhone ?? string.Empty),
+                Email = isPending ? string.Empty : (t.Settings?.ContactEmail ?? string.Empty),
+                Latitude = isPending ? null : t.Settings?.Latitude,
+                Longitude = isPending ? null : t.Settings?.Longitude,
+                DistanceKm = distanceKm,
+                Slug = t.Settings?.Slug,
+                SocialLinksFb = isPending ? null : t.Settings?.SocialLinksFb,
+                SocialLinksTiktok = isPending ? null : t.Settings?.SocialLinksTiktok,
+                BrandStory = isPending ? null : t.Settings?.BrandStory,
+                LogoUrl = isPending ? null : t.Settings?.LogoUrl,
+                Theme = t.Settings?.Theme ?? ThemeType.Classic,
+                NavColor = t.Settings?.NavColor,
+                HeaderColor = t.Settings?.HeaderColor,
+                FooterColor = t.Settings?.FooterColor,
+                // Pending: no KhachLink domain link (don't redirect to profile)
+                KhachLinkDomain = isPending ? null : khachLinkDomainMap?.GetValueOrDefault(t.Id.Value),
+                IsPending = isPending,
+                ClaimUrl = isPending && !string.IsNullOrEmpty(t.Settings?.Slug)
+                    ? $"/store/{t.Settings.Slug}/claim"
+                    : null
+            };
+        }
 
         /// <summary>
         /// Batch query KhachLink instances for given tenant IDs.
