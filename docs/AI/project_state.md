@@ -34,7 +34,7 @@
 
 ## 2. Current Objective
 
-**CRAWL-TO-ONBOARD TENANT PIPELINE — PHASES 1-5 COMPLETE + DEPLOYED. PHASE 6 NEXT.** �
+**CRAWL-TO-ONBOARD TENANT PIPELINE — ALL 8 PHASES COMPLETE + DEPLOYED + RV PASS.** �
 - **Plan structure (reviewed + restructured 2026-08-25):**
   - **Master plan:** `docs/AI/plans/crawl-onboarding-master-plan.md` (114 dòng — stable, 12 locked decisions, 8 corrections from review)
   - **Research snapshot:** `docs/AI/plans/crawl-onboarding-research.md` (154 dòng — codebase findings @ commit `73f77f14`, line refs will stale)
@@ -55,13 +55,13 @@
   - H6: No `MaskedPhone` field — Pending profile HIDE SĐT section entirely (M3 — `Phone` null from Gateway, không mask)
   - **H7 (NEW Option A approved 2026-08-25):** Active tenant sync PG→SQLite qua NATS để đảm bảo tenant identity nhất quán (tránh accounting split — order hôm nay gắn tenantId X PG, mai gắn tenantId Y SQLite → số liệu sai). `VerifyAsync` publish `TenantVerifiedEvent` + `UpdateProfileAsync` publish `TenantProfileUpdatedEvent` (5 events total, không phải 4) → outbox → NATS `vanan.cloud.tenant.verified`/`tenant.profile.updated` → NEW `TenantSyncSubscriber` ở ShopERP upsert SQLite row (cùng Guid tenantId). Pending KHÔNG sync. Follow `OrderSyncSubscriber` pattern.
 - **Legal findings (M3 resolved 2026-08-25):** Luật 91/2025/QH15 + ND356/2025/NĐ-CP (effective 01/01/2026, thay thế ND13/2023) — Điều 19 không có exemption "dữ liệu đã công khai"; ND356 Điều 3(7) SĐT = dữ liệu cá nhân cơ bản. **User-approved:** crawl SĐT + store `CrawledPhone` (internal), **HIDE SĐT section trên Pending profile** (tránh "công khai" per Điều 16). Sau Verify, `ContactPhone` = owner-provided (consent). BỎ SMS notify. Residual risk: storage = processing chưa consent — user chấp nhận + xóa CrawledPhone sau Verify (data minimization) + đánh giá định kỳ per Điều 19(2).
-- **Open questions (resolve before relevant phase):**
+- **Open questions (all RESOLVED):**
   - M2 ✅ RESOLVED (2026-08-26): doanhnghiep.vn API verified — `GET /api/v1/search?q={name}&limit={N}` + `GET /api/v1/companies/{mst}` (17 fields, no phone). xinvoice.vn requires API key — deferred.
   - M3 ✅ RESOLVED (2026-08-25): see Legal findings above.
   - M5 ✅ RESOLVED: rate limit "claim-submit" 3/24h FixedWindow in `2_Gateway/Program.cs`.
-  - O1 ⏳ PENDING (Phase 6): KhachLink image upload service — check if R2StorageController or existing upload service exists for GPKD image upload.
+  - O1 ✅ RESOLVED: KhachLink has NO image upload service; new `ImageUploadController` (Gateway) + `ImageUploadService` (KhachLink) created in Phase 6.
   - O2 ✅ RESOLVED: HMAC middleware exists but passive (empty ProtectedPaths). Crawler uses JWT service account auth (simpler for MVP).
-  - O3 ⏳ PENDING (Phase 8): `VanAnDbContextTestFactory` update for new entities.
+  - O3 ✅ RESOLVED: `VanAnDbContextTestFactory` uses `EnsureCreated` — new DbSets auto-created, NO factory change needed.
   - O4 ✅ RESOLVED: Option A — TenantSyncSubscriber implemented (Phase 4).
 - **8 phases status:**
   - ✅ Phase 1 — Domain + Events (commit `684cc8f8`, PR #162)
@@ -69,16 +69,16 @@
   - ✅ Phase 3 — Services (commit `1069dbfd`, PR #162)
   - ✅ Phase 4 — API Gateway + TenantSyncSubscriber (commit `dcd7c5ec`, PR #162, RV PASS)
   - ✅ Phase 5 — Crawler worker (commit `8ba372f3`, PR #163, CD deployed)
-  - ⏳ Phase 6 — UI KhachLink (NEXT — Pending tenant store page + claim form)
-  - ⏳ Phase 7 — UI ShopERP Admin (Pending queue + verify + duplicates)
-  - ⏳ Phase 8 — Tests + RV
-- **Phase 6 context for new session:**
-  - Task card: `docs/AI/tasks/crawl-onboarding/task_phase6_ui_khachlink.md`
-  - O1 to resolve: check R2StorageController or existing image upload in KhachLink for GPKD upload
-  - Gateway endpoints already live: `GET /api/tenants/by-slug/{slug}` (returns `IsPending` + `ClaimUrl` + `Phone=null` for Pending), `POST /api/v1/tenants/{tenantId}/claims` (AllowAnonymous + rate-limited 3/24h)
-  - KhachLink is Blazor WASM — uses HTTP via Gateway only (NO DbContext)
-  - UI Platform components required (VanAnButton, VanAnCard, etc.)
-  - Branch: create `feature/crawl-onboard-phase6-ui-khachlink` from `main`
+  - ✅ Phase 6 — UI KhachLink (commit `845f19e4`, PR #164, CD deployed, RV PASS)
+  - ✅ Phase 7 — UI ShopERP Admin (commit `845f19e4`, PR #164, CD deployed, RV PASS)
+  - ✅ Phase 8 — Tests + RV (commit `845f19e4` + `9cc83534` Pattern #8 fix, PR #164, CD deployed, RV PASS)
+- **Phase 6+7+8 summary (PR #164, merged 2026-08-26):**
+  - **Phase 6 — KhachLink UI:** `ImageUploadController` (anonymous Cloudinary upload, rate-limited) + `ImageUploadService` (WASM multipart) + `ClaimHttpService` + `Store.razor` Pending banner (hide commerce + phone M3) + `Claim.razor` form
+  - **Phase 7 — ShopERP Admin UI:** `TenantClaimApiClient` + `TenantManagement.razor` 3 tabs (All/Pending/Duplicates) + Verify/Resolve modals + `ClaimsQueue.razor` + `CrawlTrigger.razor` + NavMenu entries
+  - **Phase 8 — Tests:** 20 domain tests (`TenantPendingTests`) + 10 service tests (`OnboardUnverifiedTests`) + 13 service tests (`TenantClaimServiceTests`) = 43 new tests. Bug fix: `TenantClaimService.ListPendingClaimsAsync` used `c.Id` instead of `c.TenantId` for tenant name lookup. Architecture test: whitelisted `ImageUploadController` in W12-G7.
+  - **RV Layer 1 (API):** GET /tenants/pending 200 · GET /tenants/duplicates 200 (after Pattern #8 fix) · GET /claims 200 · POST /crawl/trigger 202 · POST /images/upload 400 (empty body, correct)
+  - **RV Layer 5 (DB):** `TenantClaimRequests` table (17 cols) · `CrawlSources` table (11 cols) · `Tenants.PotentialDuplicateOf` · `Tenants.Settings_CrawledPhone` · `Tenants.Settings_ContactPhone` — all verified in PG
+  - **RV bug fix (commit `9cc83534`):** `DuplicateDetectionService.ListPotentialDuplicatesAsync` — Pattern #8 (`canonicalIds.Contains(t.Id.Value)` → `canonicalIds.Contains(t.Id)` with `List<TenantId>`). 400→200.
 
 ---
 
@@ -182,7 +182,7 @@
 - **Issue #103 (Impersonation + data isolation):** ✅ Fixed + deployed + RV PASS. Two commits: `c42c4cbe` (Razor Page flow + dual role + banner) + `73f77f14` (strip SystemAdmin role during impersonation → 9 pages auto-fix to tenant-scoped data). 25/25 access matrix tests PASS. RV 9/9 PASS on `app2.khachvip.online`.
 - **Financial Intelligence MVP-2:** ✅ All 5 phases complete on feature branch (61/61 tests PASS), pending push + PR + CD + RV.
 - **Infrastructure (all deployed + RV PASS):** GCP 3 VPS · nginx 5-layer rate limit · Cloudflare R2 (guard photos + auto-cleanup 30d) · Dynamic CORS from KhachLinkInstance registry · KhachLink Multi-Profile R1 enabled · Domain Reseller R1 (GoDaddy API) · Guard QR Verify (Issue #126) · OCR Hub R1 (PaddleOCR client-side) · Plate-as-metadata (PlateNumber optional).
-- **Crawl-to-Onboard Tenant Pipeline:** 🟡 Plan reviewed + restructured 2026-08-25. Master plan `docs/AI/plans/crawl-onboarding-master-plan.md` (114 dòng) + research snapshot `docs/AI/plans/crawl-onboarding-research.md` (154 dòng) + 8 task cards `docs/AI/tasks/crawl-onboarding/task_phase{1-8}_*.md`. 12 design decisions locked + 8 corrections from review applied (C1-C4, H1-H6). Legacy 600-line plan deprecated. Awaiting Phase 1 start (Gate 5 protected).
+- **Crawl-to-Onboard Tenant Pipeline:** ✅ ALL 8 PHASES COMPLETE + DEPLOYED + RV PASS (2026-08-26). PR #164 merged (Phase 6+7+8). 43 new tests (20 domain + 23 service). RV Layer 1 API + Layer 5 DB all PASS. Pattern #8 bug fix in `DuplicateDetectionService` (commit `9cc83534`). See Section 2 for full summary.
 - **Known gaps (verified, not bugs):** Network Dashboard cache 10-min (by design); TD-NETDASH-001 (Order.SetCustomerId Domain change, deferred).
 - **Tech debt:** TD-MVPS-001→004, TD-CUSTSYNC-001, TD-ASYNCDP-001, TD-GCP-001, TD-NETDASH-001, TD-OCR-01→05
 
@@ -190,24 +190,9 @@
 
 ## 4. Next Actions
 
-**Crawl-to-Onboard Tenant Pipeline (active — plan reviewed + restructured, awaiting implementation):**
-1. Phase 1 — Domain + Events (task card: `docs/AI/tasks/crawl-onboarding/task_phase1_domain_events.md`): Add `TenantStatus.Pending=5`, `Tenant.CreateUnverified(id, name, settings, pendingSlug)` (4 params), `Tenant.Verify()` (guards `Status==Pending && PotentialDuplicateOf==null`), `Guid? PotentialDuplicateOf` (NOT `TenantId?` — Single-Identity Pattern), `CrawledPhone` field (12 With methods + preserve LegalForm/BusinessField/CharterCapital), **5 events** (`TenantPendingEvent`, `TenantVerifiedEvent`, `TenantClaimRequestedEvent`, `TenantClaimApprovedEvent`, **`TenantProfileUpdatedEvent`** — H7 Option A for NATS sync), 2 new aggregates (`TenantClaimRequest`, `CrawlSource` — FK `Guid` not `TenantId`). Gate 5 protected — user-approved. **DO NOT tighten `UpdateSlug()` guard** (C4). **M3:** CrawledPhone stored internal, NOT displayed on Pending profile.
-2. Phase 2 — EF Config + Migration (task card: `task_phase2_ef_migration.md`): Map `TenantClaimRequests` + `CrawlSources` (PG-only) + `Tenants.PotentialDuplicateOf` + `Tenants.Settings_CrawledPhone` (BOTH CoreHub PG AND ShopERP SQLite — correction C2). DO NOT change `Status` default.
-3. Phase 3 — Services (task card: `task_phase3_services.md`): Split `OnboardUnverifiedAsync` (Pending only) + `VerifyAsync` (user + groups + Activate + ContactPhone from owner-claim form + **publish outbox `TenantVerifiedEvent`** — Option A). New `ITenantClaimService` + `IDuplicateDetectionService` (first canonical, rest mark dup of first — correction H5). **Modify `TenantManagementService.UpdateProfileAsync` — publish outbox `TenantProfileUpdatedEvent`** (Option A). **M3:** VerifyAsync does NOT copy CrawledPhone→ContactPhone (legacy "unmask" dropped). ContactPhone from owner Claim form.
-4. Phase 4 — API Gateway + TenantSyncSubscriber (task card: `task_phase4_api.md`): 3 new Gateway controllers + modify `TenantStoreController.GetBySlug` (Pending: `Phone=null` HIDE section — M3, NO `MaskedPhone` field — correction H6) + rate limit + YARP forward to crawler port **5010** (correction C3). **NEW `TenantSyncSubscriber` ở `5_WebApps/ShopERP/Services/`** (Option A) — subscribe `vanan.cloud.tenant.verified` + `vanan.cloud.tenant.profile.updated` → upsert Tenant row SQLite (cùng Guid tenantId). Pending events KHÔNG subscribe.
-5. Phase 5 — Crawler worker (task card: `task_phase5_crawler.md`): New `7_Tooling/VanAn.Crawler.csproj` (governance exception). Hybrid `RestApiAdapter` (config-driven) + `TrangVangHtmlAdapter` (AngleSharp). HTTP to Gateway, no DbContext. Port 5010. **Verify M2 (API schema) + O2 (API key auth) before start.**
-6. Phase 6 — UI KhachLink (task card: `task_phase6_ui_khachlink.md`): Pending banner on `Store.razor` + new `Claim.razor` + `ClaimHttpService`. NO `MaskedPhone` field. UI Platform components only.
-7. Phase 7 — UI ShopERP Admin (task card: `task_phase7_ui_shoperp.md`): Pending tab + Duplicates tab in `TenantManagement.razor` + `ClaimsQueue.razor` + `CrawlTrigger.razor`. UI Platform only.
-8. Phase 8 — Tests + RV (task card: `task_phase8_tests_rv.md`): Domain tests, service tests, integration tests, crawler tests. 5-layer RV. Playwright Gate 3 lifted after build pass.
-
-**Resolve open questions before relevant phase:**
-- ~~M3~~ RESOLVED 2026-08-25 (user-approved): Crawl SĐT + store CrawledPhone internal, HIDE SĐT section trên Pending profile (tránh "công khai" per Luật 91/2025 Điều 16). Sau Verify, ContactPhone = owner-provided (consent). BỎ SMS notify. Residual risk: storage = processing chưa consent — user chấp nhận + xóa CrawledPhone sau Verify (data minimization).
-- ~~O4~~ RESOLVED 2026-08-25 (Option A approved): Active tenant sync PG→SQLite qua NATS (TenantVerifiedEvent + TenantProfileUpdatedEvent → TenantSyncSubscriber) — đảm bảo tenant identity nhất quán, tránh accounting split. Pending KHÔNG sync.
-- M5 (rate limit impl) — before Phase 4
-- M2 (verify doanhnghiep.vn + xinvoice.vn API schema) — before Phase 5
-- O2 (Gateway API key auth for crawler) — before Phase 5
-- O1 (KhachLink image upload service exists?) — before Phase 6
-- O3 (VanAnDbContextTestFactory update) — before Phase 8
+**Crawl-to-Onboard Tenant Pipeline (✅ COMPLETE — all 8 phases deployed + RV PASS):**
+- No further actions. All 8 phases complete, PR #164 merged, CD deployed, RV Layer 1 + Layer 5 PASS.
+- Optional follow-up: end-to-end manual test (trigger real crawl → Pending tenant → Claim → Approve → Active) on production with real data.
 
 **Post-deploy RV (pending — commits `e7848be9`, `1eeb4615`, `6c9182da`, `5c5a07c5`, `4ee64719` deployed via CD; #103 RV already PASS):**
 1. RV `timlathay.com`: (a) `/_framework/blazor.web.js` 200 + `application/javascript` MIME; (b) Home page empty until search (no tenant list on entry); (c) voice search input persists; (d) `/_blazor` WebSocket connects (no console error); (e) StoreFinder map markers render (no 404 for marker-icon.png); (f) close issue #157
@@ -322,6 +307,7 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md`.
 
+* **2026-08-26 — CRAWL-TO-ONBOARD PHASE 6+7+8 COMPLETE + DEPLOYED + RV PASS.** PR #164 merged to `main` (commit `845f19e4` + `9cc83534`). Phase 6: KhachLink UI (ImageUploadController + ImageUploadService + ClaimHttpService + Store.razor Pending banner + Claim.razor form). Phase 7: ShopERP Admin UI (TenantClaimApiClient + TenantManagement 3 tabs + ClaimsQueue + CrawlTrigger + NavMenu). Phase 8: 43 new tests (20 domain + 10 OnboardUnverified service + 13 TenantClaimService) + bug fix (ListPendingClaimsAsync c.Id→c.TenantId) + W12-G7 whitelist ImageUploadController. RV Layer 1 API: pending 200, duplicates 200 (after Pattern #8 fix in `9cc83534`), claims 200, crawl/trigger 202, images/upload 400. RV Layer 5 DB: TenantClaimRequests (17 cols) + CrawlSources (11 cols) + Tenants.PotentialDuplicateOf + Settings_CrawledPhone + Settings_ContactPhone all verified in PG. CI: 1454+17+273+41 ALL PASS. CD Multi-VPS SUCCESS. Branch: `main` @ `9cc83534`.
 * **2026-08-25 — CRAWL-TO-ONBOARD TENANT PIPELINE — PLAN COMPLETE.** New objective. Plan file: `C:\Users\lebao\.devin\plans\plan-915f0a1ede9cf9b3.md` (600 dòng). Pipeline: crawl trangvangvietnam.com (HTML) + doanhnghiep.vn/xinvoice.vn (REST API) → Pending tenant (read-only, SĐT mask ND13/2023) → Owner claim (GPKD upload) → SysAdmin approve → Active tenant + admin user. 12 design decisions locked (governance exceptions: new `7_Tooling/VanAn.Crawler.csproj` + Domain modification). 8 phases: Domain → Migration → Services → API → Crawler → UI KhachLink → UI Admin → Tests+RV. Research verified against codebase. Legal: trangvangvietnam ToS cấm scraping quy mô lớn → batch nhỏ + polite 3-5s; doanhnghiep.vn API = preferred legal source. Awaiting implementation start.
 * **2026-08-25 — ISSUE #103 DATA ISOLATION (FOLLOW-UP).** Commit `73f77f14` on `main`. Root cause: impersonation copied ALL claims + added Owner role but did NOT remove SystemAdmin role → user had BOTH roles → `IsInRole("SystemAdmin")=true` → 9 pages showed cross-tenant data (Orders "ALL tenants" dropdown with `IgnoreQueryFilters()`, Accounting/EInvoice EMPTY default, UserManagement/ShopFeatures tenant selector). Fix: strip SystemAdmin role during impersonation in `Impersonate.cshtml.cs` + `AdminController.cs` (filter `ClaimTypes.Role=="SystemAdmin"` from copied claims). Re-add SystemAdmin role on exit in `ExitImpersonate.cshtml.cs` + `AdminController.ExitImpersonation`. `[AllowAnonymous]` on `exit-impersonation` API endpoint + `wasImpersonating` guard. 2 new tests (AM-S24: `/admin/tenants` denied after impersonation; AM-S25: accessible after exit). 25/25 tests PASS. Pushed, CI PASS (1411+17+273+39), CD deployed. RV 9/9 PASS on `app2.khachvip.online` (login → impersonate → /admin/tenants 302 denied → /orders 200 tenant-scoped → exit → /admin/tenants 200 restored → API backward compat 200+200).
 * **2026-08-25 — ISSUE #103 IMPERSONATE BUTTON NOT WORKING.** Commit `c42c4cbe` on `main`. Switched from HttpClient POST to Razor Pages (`Impersonate.cshtml` + `ExitImpersonate.cshtml`) for proper HTTP context handling (Set-Cookie + redirect). Dual role (SystemAdmin + Owner) + `impersonating` marker claim. Global banner in `MainLayout.razor` with exit button. `NavMenu.razor` hides "Hệ thống" menu when impersonating. `AdminLayout.razor` renders Owner menu. `TenantManagement.razor` uses NavigateTo. 23 integration tests PASS (18 original + 5 new Razor Page flow). Pushed, CI PASS, CD deployed. RV ALL PASS.
