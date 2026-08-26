@@ -183,7 +183,8 @@
 
     private void GoToStoreFinder()
     {
-        Navigation.NavigateTo("/stores");
+        // Issue #160 DRY: redirect to KhachLink's store finder (full-featured: voice search, PWA geolocation)
+        Navigation.NavigateTo("https://khachvip.online/stores", forceLoad: true);
     }
 
     private void ShowPendingMessage(string storeName)
