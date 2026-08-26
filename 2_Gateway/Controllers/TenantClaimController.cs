@@ -13,6 +13,7 @@ namespace VanAn.Gateway.Controllers
     /// - GET /api/v1/claims + GET /{id} + POST /approve + POST /reject — [Authorize(Policy="SystemAdmin")]
     /// </summary>
     [ApiController]
+    [Authorize(Policy = "SystemAdmin")]
     public class TenantClaimController(
         ITenantClaimService claimService,
         ILogger<TenantClaimController> logger) : ControllerBase
