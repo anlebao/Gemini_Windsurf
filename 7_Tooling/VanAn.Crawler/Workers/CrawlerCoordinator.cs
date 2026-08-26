@@ -99,21 +99,31 @@ public sealed class CrawlerCoordinator : BackgroundService
                 var resp = await gatewayClient.PostAsJsonAsync(
                     "/api/v1/crawl/batch", batch, ct);
 
-                if (resp.IsSuccessStatusCode)
+                // Defensive: check Content-Type is JSON before deserializing.
+                // If auth failed, Gateway returns HTML (login redirect) with 200 → ReadFromJsonAsync crashes.
+                var contentType = resp.Content.Headers.ContentType?.MediaType ?? "";
+                var body = await resp.Content.ReadAsStringAsync(ct);
+
+                if (!resp.IsSuccessStatusCode)
                 {
-                    var result = await resp.Content.ReadFromJsonAsync<BatchCrawlResult>(ct);
+                    _logger.LogError("Gateway batch POST failed: {Status} {Body}", resp.StatusCode, body[..Math.Min(body.Length, 500)]);
+                    errors.Add(new BatchCrawlError($"batch-{imported}", $"Gateway {resp.StatusCode}"));
+                }
+                else if (!contentType.Contains("json", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogError("Gateway batch POST returned non-JSON response (Content-Type: {ContentType}). Likely auth redirect. Body: {Body}",
+                        contentType, body[..Math.Min(body.Length, 200)]);
+                    errors.Add(new BatchCrawlError($"batch-{imported}", $"Gateway returned {contentType}, not JSON (auth failed?)"));
+                }
+                else
+                {
+                    var result = System.Text.Json.JsonSerializer.Deserialize<BatchCrawlResult>(body);
                     if (result is not null)
                     {
                         imported += result.Imported;
                         skipped += result.Skipped;
                         errors.AddRange(result.Errors);
                     }
-                }
-                else
-                {
-                    var body = await resp.Content.ReadAsStringAsync(ct);
-                    _logger.LogError("Gateway batch POST failed: {Status} {Body}", resp.StatusCode, body);
-                    errors.Add(new BatchCrawlError($"batch-{imported}", $"Gateway {resp.StatusCode}"));
                 }
             }
             catch (Exception ex)
