@@ -61,15 +61,16 @@ namespace VanAn.CoreHub.Services
                 .ToListAsync(ct);
 
             // Load canonical tenant names for display
+            // Pattern #8 fix: Convert Guid list to TenantId list before Contains (value object LINQ translation)
             var canonicalIds = duplicates
                 .Where(t => t.PotentialDuplicateOf.HasValue)
-                .Select(t => t.PotentialDuplicateOf!.Value)
+                .Select(t => new TenantId(t.PotentialDuplicateOf!.Value))
                 .Distinct()
                 .ToList();
 
             var canonicalTenants = await dbContext.Tenants
                 .IgnoreQueryFilters()
-                .Where(t => canonicalIds.Contains(t.Id.Value))
+                .Where(t => canonicalIds.Contains(t.Id))
                 .ToDictionaryAsync(t => t.Id.Value, t => t.Name, ct);
 
             return duplicates.Select(t => new DuplicateTenantDto(
