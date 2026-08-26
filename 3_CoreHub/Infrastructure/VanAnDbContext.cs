@@ -8,6 +8,7 @@ using VanAn.Shared.Domain.Aggregates.SystemSettingAggregate;
 using VanAn.Shared.Domain.Aggregates.ProductCostPriceAggregate;
 using VanAn.Shared.Domain.Aggregates.CommunityFundAggregate;
 using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate;
+using VanAn.Shared.Domain.Aggregates.TenantAggregate;
 using VanAn.CoreHub.Domain;
 using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.CoreHub.Infrastructure.Messaging;
@@ -178,6 +179,15 @@ namespace VanAn.CoreHub.Infrastructure
         // PG-only (Gateway source of truth for accounting + tenant config). Tenant-scoped (1 row per tenant).
         // ShopERP accesses via HTTP proxy to FinancialIntelligenceController (no direct DbContext injection).
         public DbSet<BusinessProfile> BusinessProfiles { get; set; }
+
+        // Crawl-to-Onboard Pipeline (2026-08-25): Claim requests from business owners for Pending tenants.
+        // PG-only (Gateway source of truth per Option C). NOT mirrored to ShopERP SQLite.
+        // SysAdmin queue — reviewed + approved/rejected via TenantClaimController.
+        public DbSet<TenantClaimRequest> TenantClaimRequests { get; set; }
+
+        // Crawl-to-Onboard Pipeline (2026-08-25): Audit trail of crawled business listings (provenance).
+        // PG-only. Cascade delete with Tenant (audit meaningless without tenant).
+        public DbSet<CrawlSource> CrawlSources { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

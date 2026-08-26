@@ -432,6 +432,14 @@ namespace VanAn.ShopERP
             // Keeps ShopERP UI in sync with cross-tenant Alliance wallet balance in real time.
             _ = builder.Services.AddHostedService<VanAn.ShopERP.Services.LoyaltySyncSubscriber>();
 
+            // Crawl-to-Onboard Pipeline (2026-08-25, Option A): Subscribe to NATS tenant events
+            // from Gateway (vanan.cloud.tenant.verified + vanan.cloud.tenant.profile.updated)
+            // → upsert Tenant row in SQLite with same Guid tenantId.
+            // Data integrity: ensures tenant identity consistency PG↔SQLite (avoids accounting split
+            // — order today gắn tenantId X PG, tomorrow gắn tenantId Y SQLite → số liệu sai).
+            // Pending tenant events NOT synced (no business activity).
+            _ = builder.Services.AddHostedService<VanAn.ShopERP.Services.TenantSyncSubscriber>();
+
             // Wave 7: Conditional distributed cache — Redis if configured, otherwise memory fallback
             string? redisConnection = builder.Configuration.GetConnectionString("Redis");
             if (!string.IsNullOrWhiteSpace(redisConnection))

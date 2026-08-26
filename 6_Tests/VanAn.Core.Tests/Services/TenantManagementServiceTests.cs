@@ -35,7 +35,7 @@ public class TenantManagementServiceTests : IDisposable
         _shopInstanceMock = new Mock<IShopInstanceService>();
         _shopInstanceMock.Setup(s => s.CountTenantsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(0);
-        _sut = new TenantManagementService(_db, _db, _notificationMock.Object, _shopInstanceMock.Object, NullLogger<TenantManagementService>.Instance);
+        _sut = new TenantManagementService(_db, _db, _notificationMock.Object, _shopInstanceMock.Object, null, NullLogger<TenantManagementService>.Instance);
     }
 
     public void Dispose() => _scope.Dispose();

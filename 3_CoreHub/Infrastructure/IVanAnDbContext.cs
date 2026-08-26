@@ -125,6 +125,15 @@ namespace VanAn.CoreHub.Infrastructure
         // VA-FI-MVP2 (2026-08-21): Tenant business profile for Financial Intelligence (PG-only, tenant-scoped, 1 row per tenant).
         DbSet<BusinessProfile> BusinessProfiles { get; }
 
+        // Crawl-to-Onboard Pipeline (2026-08-25): Claim requests from business owners for Pending tenants.
+        // PG-only (Gateway source of truth per Option C). NOT mirrored to ShopERP SQLite.
+        // SysAdmin queue — reviewed + approved/rejected via TenantClaimController.
+        DbSet<TenantClaimRequest> TenantClaimRequests { get; }
+
+        // Crawl-to-Onboard Pipeline (2026-08-25): Audit trail of crawled business listings (provenance).
+        // PG-only. Cascade delete with Tenant (audit meaningless without tenant).
+        DbSet<CrawlSource> CrawlSources { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
 

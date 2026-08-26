@@ -89,7 +89,19 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 settings.Property(s => s.NavColor).HasColumnName("Settings_NavColor").HasMaxLength(20);
                 settings.Property(s => s.HeaderColor).HasColumnName("Settings_HeaderColor").HasMaxLength(20);
                 settings.Property(s => s.FooterColor).HasColumnName("Settings_FooterColor").HasMaxLength(20);
+                // Crawl-to-Onboard Pipeline (2026-08-25, M3 resolved): Raw crawled phone number.
+                // INTERNAL USE ONLY — NOT displayed on Pending profile (hide SĐT section per Luật 91/2025 Điều 16).
+                // SysAdmin uses for owner identity verification during Claim approval.
+                // After owner Verify: ContactPhone = owner-provided (consented); CrawledPhone should be cleared.
+                settings.Property(s => s.CrawledPhone).HasColumnName("Settings_CrawledPhone").HasMaxLength(50);
             });
+
+            // Crawl-to-Onboard Pipeline (2026-08-25): PotentialDuplicateOf flag.
+            // Correction C1: Guid? (PK reference), NOT TenantId? value object — Single-Identity Pattern.
+            // No FK constraint — just a nullable Guid reference (avoid cascade issues).
+            // SysAdmin resolves duplicates (pick one to Verify, other → Inactive) before Verify can proceed.
+            builder.Property(e => e.PotentialDuplicateOf)
+                .HasColumnName("PotentialDuplicateOf");
 
             // Audit fields from BaseEntity
             builder.Property(e => e.CreatedAt)
