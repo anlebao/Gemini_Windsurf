@@ -34,7 +34,7 @@
 
 ## 2. Current Objective
 
-**CRAWL-TO-ONBOARD TENANT PIPELINE — PLAN REVIEWED + RESTRUCTURED, AWAITING IMPLEMENTATION.** 🟡
+**CRAWL-TO-ONBOARD TENANT PIPELINE — PHASES 1-5 COMPLETE + DEPLOYED. PHASE 6 NEXT.** �
 - **Plan structure (reviewed + restructured 2026-08-25):**
   - **Master plan:** `docs/AI/plans/crawl-onboarding-master-plan.md` (114 dòng — stable, 12 locked decisions, 8 corrections from review)
   - **Research snapshot:** `docs/AI/plans/crawl-onboarding-research.md` (154 dòng — codebase findings @ commit `73f77f14`, line refs will stale)
@@ -55,9 +55,30 @@
   - H6: No `MaskedPhone` field — Pending profile HIDE SĐT section entirely (M3 — `Phone` null from Gateway, không mask)
   - **H7 (NEW Option A approved 2026-08-25):** Active tenant sync PG→SQLite qua NATS để đảm bảo tenant identity nhất quán (tránh accounting split — order hôm nay gắn tenantId X PG, mai gắn tenantId Y SQLite → số liệu sai). `VerifyAsync` publish `TenantVerifiedEvent` + `UpdateProfileAsync` publish `TenantProfileUpdatedEvent` (5 events total, không phải 4) → outbox → NATS `vanan.cloud.tenant.verified`/`tenant.profile.updated` → NEW `TenantSyncSubscriber` ở ShopERP upsert SQLite row (cùng Guid tenantId). Pending KHÔNG sync. Follow `OrderSyncSubscriber` pattern.
 - **Legal findings (M3 resolved 2026-08-25):** Luật 91/2025/QH15 + ND356/2025/NĐ-CP (effective 01/01/2026, thay thế ND13/2023) — Điều 19 không có exemption "dữ liệu đã công khai"; ND356 Điều 3(7) SĐT = dữ liệu cá nhân cơ bản. **User-approved:** crawl SĐT + store `CrawledPhone` (internal), **HIDE SĐT section trên Pending profile** (tránh "công khai" per Điều 16). Sau Verify, `ContactPhone` = owner-provided (consent). BỎ SMS notify. Residual risk: storage = processing chưa consent — user chấp nhận + xóa CrawledPhone sau Verify (data minimization) + đánh giá định kỳ per Điều 19(2).
-- **Open questions (resolve before relevant phase):** M2 (verify doanhnghiep.vn/xinvoice.vn API schema — Phase 5), M3 (ND13/2023 raw phone storage legal — Phase 1), M5 (rate limit impl — Phase 4), O1 (KhachLink image upload service — Phase 6), O2 (Gateway API key auth — Phase 5), O3 (TestFactory update — Phase 8), O4 (Pending tenant NATS sync — Phase 1).
-- **8 phases:** (1) Domain + Events → (2) EF Config + Migration → (3) Services → (4) API Gateway → (5) Crawler worker → (6) UI KhachLink → (7) UI ShopERP Admin → (8) Tests + RV.
-- **Status:** Plan restructured + corrections applied. Awaiting user approval to start Phase 1 (Domain + Events, Gate 5 protected).
+- **Open questions (resolve before relevant phase):**
+  - M2 ✅ RESOLVED (2026-08-26): doanhnghiep.vn API verified — `GET /api/v1/search?q={name}&limit={N}` + `GET /api/v1/companies/{mst}` (17 fields, no phone). xinvoice.vn requires API key — deferred.
+  - M3 ✅ RESOLVED (2026-08-25): see Legal findings above.
+  - M5 ✅ RESOLVED: rate limit "claim-submit" 3/24h FixedWindow in `2_Gateway/Program.cs`.
+  - O1 ⏳ PENDING (Phase 6): KhachLink image upload service — check if R2StorageController or existing upload service exists for GPKD image upload.
+  - O2 ✅ RESOLVED: HMAC middleware exists but passive (empty ProtectedPaths). Crawler uses JWT service account auth (simpler for MVP).
+  - O3 ⏳ PENDING (Phase 8): `VanAnDbContextTestFactory` update for new entities.
+  - O4 ✅ RESOLVED: Option A — TenantSyncSubscriber implemented (Phase 4).
+- **8 phases status:**
+  - ✅ Phase 1 — Domain + Events (commit `684cc8f8`, PR #162)
+  - ✅ Phase 2 — EF Config + Migration (commit `498a5f86`, PR #162)
+  - ✅ Phase 3 — Services (commit `1069dbfd`, PR #162)
+  - ✅ Phase 4 — API Gateway + TenantSyncSubscriber (commit `dcd7c5ec`, PR #162, RV PASS)
+  - ✅ Phase 5 — Crawler worker (commit `8ba372f3`, PR #163, CD deployed)
+  - ⏳ Phase 6 — UI KhachLink (NEXT — Pending tenant store page + claim form)
+  - ⏳ Phase 7 — UI ShopERP Admin (Pending queue + verify + duplicates)
+  - ⏳ Phase 8 — Tests + RV
+- **Phase 6 context for new session:**
+  - Task card: `docs/AI/tasks/crawl-onboarding/task_phase6_ui_khachlink.md`
+  - O1 to resolve: check R2StorageController or existing image upload in KhachLink for GPKD upload
+  - Gateway endpoints already live: `GET /api/tenants/by-slug/{slug}` (returns `IsPending` + `ClaimUrl` + `Phone=null` for Pending), `POST /api/v1/tenants/{tenantId}/claims` (AllowAnonymous + rate-limited 3/24h)
+  - KhachLink is Blazor WASM — uses HTTP via Gateway only (NO DbContext)
+  - UI Platform components required (VanAnButton, VanAnCard, etc.)
+  - Branch: create `feature/crawl-onboard-phase6-ui-khachlink` from `main`
 
 ---
 
