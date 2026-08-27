@@ -126,6 +126,10 @@ namespace VanAn.ShopERP.Services
         /// <summary>
         /// Handle TenantVerifiedEvent — upsert Tenant row in SQLite.
         /// Tenant transitions Pending → Active. Create or update SQLite row with same Guid.
+        ///
+        /// Issue #165 (2026-08-27): Event now carries TenantName + Settings snapshot.
+        /// If present, use UpsertTenantWithSnapshotAsync (correct name + settings).
+        /// If absent (legacy event), fall back to UpsertTenantRowAsync (minimal row).
         /// </summary>
         private async Task SyncTenantVerifiedAsync(byte[] data, CancellationToken ct)
         {
@@ -139,22 +143,27 @@ namespace VanAn.ShopERP.Services
                 using var scope = _serviceProvider.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
 
-                // Load tenant from PG via Gateway HTTP? No — we receive the event with tenantId only.
-                // For verified event, we need to upsert the tenant row in SQLite.
-                // The event payload has tenantId — we query PG-via-Gateway for full tenant data?
-                // No — simpler: the event signals "tenant is now Active", we just need to ensure
-                // the SQLite row exists. For now, we upsert with the data we have (tenantId).
-                // The full tenant data will be synced via profile.updated event (which has snapshot).
-                // OR: we query Gateway HTTP for tenant details.
-                //
-                // Simplest approach: upsert minimal row (Id + Status=Active), let profile.updated
-                // event fill in the details. This handles the case where verified event arrives
-                // before any profile.updated event.
-                await UpsertTenantRowAsync(dbContext, tenantId, ct);
+                // Issue #165: check if event carries full data (TenantName + Settings)
+                if (doc.RootElement.TryGetProperty("Settings", out var settingsElem) && settingsElem.ValueKind == JsonValueKind.Object)
+                {
+                    var tenantName = doc.RootElement.TryGetProperty("TenantName", out var nameElem)
+                        ? (nameElem.GetString() ?? string.Empty)
+                        : string.Empty;
+                    var snapshot = JsonSerializer.Deserialize<TenantSettingsSnapshot>(settingsElem.GetRawText());
 
-                _logger.LogInformation(
-                    "TenantSyncSubscriber: synced TenantVerifiedEvent for tenant {TenantId} → SQLite upserted",
-                    tenantId);
+                    await UpsertTenantWithSnapshotAsync(dbContext, tenantId, tenantName, snapshot, ct);
+                    _logger.LogInformation(
+                        "TenantSyncSubscriber: synced TenantVerifiedEvent for tenant {TenantId} ({Name}) → SQLite upserted with full data",
+                        tenantId, tenantName);
+                }
+                else
+                {
+                    // Legacy event (no Settings) — upsert minimal row
+                    await UpsertTenantRowAsync(dbContext, tenantId, ct);
+                    _logger.LogInformation(
+                        "TenantSyncSubscriber: synced TenantVerifiedEvent for tenant {TenantId} → SQLite upserted (minimal, no snapshot)",
+                        tenantId);
+                }
             }
             catch (Exception ex)
             {

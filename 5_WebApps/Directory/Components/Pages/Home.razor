@@ -5,6 +5,7 @@
 @inject CatalogService CatalogService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@inject IConfiguration Configuration
 
 <PageTitle>Danh bạ Vạn An — Tìm cửa hàng gần bạn</PageTitle>
 
@@ -202,8 +203,13 @@
         }
         else
         {
-            // Fallback: in-app route (Directory doesn't have /store/{slug} page, so redirect to KhachLink main)
-            Navigation.NavigateTo($"https://khachvip.online/store/{slug}", forceLoad: true);
+            // Issue #166: Fallback to configured default KhachLink commerce domain.
+            // Previously hardcoded "khachvip.online" (Directory domain — no /store/ route → site unreachable).
+            // Default domain hosts the /store/{slug} route for tenants without their own KhachLinkInstance.
+            var defaultDomain = Configuration["KhachLink:DefaultDomain"];
+            if (string.IsNullOrWhiteSpace(defaultDomain))
+                defaultDomain = "khachvip.online"; // ultimate fallback if config missing
+            Navigation.NavigateTo($"https://{defaultDomain}/store/{slug}", forceLoad: true);
         }
     }
 

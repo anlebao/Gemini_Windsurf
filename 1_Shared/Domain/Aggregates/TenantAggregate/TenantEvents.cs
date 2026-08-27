@@ -86,11 +86,18 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
     /// → TenantSyncSubscriber (ShopERP) upserts Tenant row in SQLite with same Guid tenantId
     /// → ensures tenant identity consistency PG↔SQLite (avoids accounting split).
     /// ApprovedByUserId: SysAdmin who approved the claim (set by service layer).
+    ///
+    /// Issue #165 (2026-08-27): TenantName + Settings added so TenantSyncSubscriber can
+    /// create the SQLite row with the correct name + settings (not placeholder "(synced from Gateway)").
+    /// Defaults (empty/null) keep backward compat for domain-event usage in Tenant.Verify()
+    /// — the outbox publisher enriches with full data before NATS publish.
     /// </summary>
     public sealed record TenantVerifiedEvent(
         Guid TenantId,
         Guid ApprovedByUserId,
-        DateTime OccurredAt) : IDomainEvent
+        DateTime OccurredAt,
+        string TenantName = "",
+        TenantSettingsSnapshot? Settings = null) : IDomainEvent
     {
         public Guid EventId { get; } = Guid.NewGuid();
     }

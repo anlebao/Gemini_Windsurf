@@ -77,6 +77,9 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
       - Gateway__BaseUrl=http://${GATEWAY_REMOTE_HOST}:80/
+      # Issue #166: Default KhachLink commerce domain for store redirect fallback
+      # (tenants without their own KhachLinkInstance redirect here for /store/{slug})
+      - KhachLink__DefaultDomain=${DIRECTORY_DEFAULT_KHACHLINK_DOMAIN:-diemthuong2.khachvip.online}
     networks:
       - vanan-network
     ports:

@@ -314,7 +314,14 @@ namespace VanAn.CoreHub.Services.Onboarding
                 return;
             }
 
-            var evt = new TenantVerifiedEvent(tenant.Id.Value, approvedByUserId, DateTime.UtcNow);
+            // Issue #165: include TenantName + Settings snapshot so TenantSyncSubscriber creates
+            // the SQLite row with the correct name (not placeholder "(synced from Gateway)").
+            var evt = new TenantVerifiedEvent(
+                tenant.Id.Value,
+                approvedByUserId,
+                DateTime.UtcNow,
+                tenant.Name,
+                TenantSettingsSnapshot.From(tenant.Settings));
             var eventData = JsonSerializer.Serialize(evt);
             var outboxEvent = new OutboxEvent(
                 tenant.TenantId,
