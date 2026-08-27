@@ -104,6 +104,15 @@ public sealed class TenantClaimApiClient : GatewayAdminApiClientBase
         return await resp.Content.ReadFromJsonAsync<CrawlTriggerApiResult>(GatewayJsonOptions, ct)
             ?? new CrawlTriggerApiResult("Crawl trigger forwarded.", request.Source, request.Industry, request.Province, request.MaxResults);
     }
+
+    /// <summary>GET /api/v1/crawl/status — poll crawler for progress (called by UI every 5s after trigger).</summary>
+    public async Task<CrawlStatusApiDto?> GetCrawlStatusAsync(CancellationToken ct = default)
+    {
+        var req = await CreateRequestAsync(HttpMethod.Get, "api/v1/crawl/status");
+        var resp = await HttpClient.SendAsync(req, ct);
+        if (!resp.IsSuccessStatusCode) return null;
+        return await resp.Content.ReadFromJsonAsync<CrawlStatusApiDto>(GatewayJsonOptions, ct);
+    }
 }
 
 // ── Local DTOs (camelCase JSON matching Gateway responses) ──────────────────
@@ -177,3 +186,20 @@ public record CrawlTriggerApiResult(
     string? Industry,
     string? Province,
     int MaxResults);
+
+// ── Crawl status (polled by UI every 5s after trigger) ─────────────────────
+public record CrawlStatusApiDto(
+    bool IsRunning,
+    string? CurrentPhase,
+    string? CurrentSource,
+    DateTime? LastRunStartedAt,
+    DateTime? LastRunFinishedAt,
+    CrawlResultApiDto? LastResult,
+    string? LastError);
+
+public record CrawlResultApiDto(
+    int Imported,
+    int Skipped,
+    List<CrawlErrorApiDto>? Errors);
+
+public record CrawlErrorApiDto(string Identifier, string Error);

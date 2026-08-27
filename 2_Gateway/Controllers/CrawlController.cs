@@ -151,6 +151,30 @@ namespace VanAn.Gateway.Controllers
                 return StatusCode(500, "Crawl trigger failed to start.");
             }
         }
+
+        /// <summary>
+        /// Crawl status — forwards to crawler worker (http://crawler:5010/status).
+        /// Polled by ShopERP UI every 5s after trigger to show progress.
+        /// Returns: { isRunning, currentPhase, currentSource, lastResult, lastError, ... }
+        /// </summary>
+        [HttpGet("status")]
+        public async Task<IActionResult> GetCrawlStatus(CancellationToken ct = default)
+        {
+            try
+            {
+                var crawlerClient = httpClientFactory.CreateClient("crawler");
+                var resp = await crawlerClient.GetAsync("/status", ct);
+                if (!resp.IsSuccessStatusCode)
+                    return StatusCode((int)resp.StatusCode, "Crawler status query failed.");
+                var body = await resp.Content.ReadAsStringAsync(ct);
+                return Content(body, "application/json");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Crawler status query failed");
+                return StatusCode(502, "Crawler worker unreachable.");
+            }
+        }
     }
 
     // ── DTOs ────────────────────────────────────────────────────────────────

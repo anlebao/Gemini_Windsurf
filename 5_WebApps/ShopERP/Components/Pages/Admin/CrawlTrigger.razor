@@ -4,9 +4,11 @@
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Web
 @using VanAn.ShopERP.Services
 @inject TenantClaimApiClient ClaimApi
 @inject ILogger<CrawlTrigger> Logger
+@implements IDisposable
 
 @attribute [Authorize(Policy = "SystemAdmin")]
 
@@ -22,20 +24,20 @@
 
     <VanACard Header="Cấu hình crawl">
         <p class="text-muted small mb-3">
-            Crawl business listings từ nguồn bên ngoài (trangvangvietnam.com, doanhnghiep.vn)
+            Crawl business listings từ nguồn bên ngoài (doanhnghiep.vn)
             → tạo Pending tenant. Crawler worker (port 5010) xử lý async + post kết quả về Gateway.
         </p>
         <VanAForm OnValidSubmit="HandleTrigger" aria-label="Crawl trigger form">
             <div class="form-group">
                 <label for="crawl-source">Nguồn crawl</label>
                 <select id="crawl-source" class="vanan-select" @bind="_form.Source">
-                    <option value="">Tất cả nguồn</option>
-                    <option value="trangvangvietnam">trangvangvietnam.com (HTML + SĐT)</option>
+                    <option value="">Tất cả nguồn (khuyến nghị)</option>
                     <option value="doanhnghiep.vn">doanhnghiep.vn (REST API — legal data)</option>
+                    <option value="trangvangvietnam">trangvangvietnam.com (HTML + SĐT) ⚠️ Cloud IP bị chặn</option>
                 </select>
                 <small class="text-muted">
-                    <strong>trangvangvietnam:</strong> HTML crawl, có SĐT (lưu nội bộ, ẩn trên Pending profile per M3).
-                    <strong>doanhnghiep.vn:</strong> REST API, dữ liệu pháp lý (tên, MST, địa chỉ, legal rep).
+                    <strong>doanhnghiep.vn:</strong> REST API, dữ liệu pháp lý (tên, MST, địa chỉ, legal rep). Hoạt động từ cloud server.<br />
+                    <strong>trangvangvietnam.com:</strong> HTML crawl, có SĐT. <span class="text-danger">Bị chặn 403 từ GCP cloud IP</span> — chỉ chạy từ máy dev.
                 </small>
             </div>
             <div class="form-row">
@@ -74,7 +76,7 @@
                 <small class="text-muted">Mặc định 100. Crawler sẽ skip listing đã có MST trong hệ thống.</small>
             </div>
             <div class="modal-actions">
-                <VanAButton Variant="primary" OnClick="HandleTrigger" IsLoading="@_isTriggering">
+                <VanAButton Variant="primary" OnClick="HandleTrigger" IsLoading="@_isTriggering" Disabled="@(_status?.IsRunning == true)">
                     <i class="bi bi-download me-1"></i> Kích hoạt crawl
                 </VanAButton>
             </div>
@@ -91,10 +93,67 @@
                 <p><strong>Tỉnh:</strong> @(_triggerResult.Province ?? "Tất cả")</p>
                 <p><strong>Số lượng tối đa:</strong> @_triggerResult.MaxResults</p>
             </div>
-            <p class="text-muted small">
-                Crawler xử lý async. Kết quả (Imported/Skipped/Errors) sẽ xuất hiện trong tab Pending
-                tại <a href="/admin/tenants">Quản lý Tenant</a> sau khi crawl xong.
-            </p>
+        </VanACard>
+    }
+
+    @if (_status is not null)
+    {
+        <VanACard Header="Tiến độ crawl" CssClass="mt-3">
+            @if (_status.IsRunning)
+            {
+                <div class="crawl-progress">
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                        <strong>Crawler đang chạy...</strong>
+                    </div>
+                    <p class="mb-1"><strong>Giai đoạn:</strong> @_status.CurrentPhase</p>
+                    @if (!string.IsNullOrEmpty(_status.CurrentSource))
+                    {
+                        <p class="mb-1"><strong>Nguồn hiện tại:</strong> @_status.CurrentSource</p>
+                    }
+                    @if (_status.LastRunStartedAt.HasValue)
+                    {
+                        <p class="mb-1 text-muted small">Bắt đầu: @_status.LastRunStartedAt.Value.ToLocalTime().ToString("HH:mm:ss")</p>
+                    }
+                </div>
+            }
+            else if (_status.LastResult is not null || !string.IsNullOrEmpty(_status.LastError))
+            {
+                <div class="crawl-result">
+                    @if (_status.LastResult is not null)
+                    {
+                        <p><strong>Imported:</strong> <span class="text-success fw-bold">@_status.LastResult.Imported</span> tenant mới</p>
+                        <p><strong>Skipped:</strong> <span class="text-warning fw-bold">@_status.LastResult.Skipped</span> đã tồn tại</p>
+                        @if (_status.LastResult.Errors?.Count > 0)
+                        {
+                            <p><strong>Errors:</strong> <span class="text-danger fw-bold">@_status.LastResult.Errors.Count</span></p>
+                            <ul class="small text-muted">
+                                @foreach (var err in _status.LastResult.Errors.Take(5))
+                                {
+                                    <li>@err.Identifier: @err.Error</li>
+                                }
+                            </ul>
+                        }
+                    }
+                    @if (!string.IsNullOrEmpty(_status.LastError))
+                    {
+                        <VanAAlert Type="error" Message="@($"⚠️ {_status.LastError}")" Dismissible="false" />
+                    }
+                    @if (_status.LastRunFinishedAt.HasValue)
+                    {
+                        <p class="text-muted small mt-2">Hoàn thành: @_status.LastRunFinishedAt.Value.ToLocalTime().ToString("HH:mm:ss")</p>
+                    }
+                    <p class="mt-2">
+                        <a href="/admin/tenants" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-people me-1"></i> Xem Pending tenants
+                        </a>
+                    </p>
+                </div>
+            }
+            else
+            {
+                <p class="text-muted">Chưa có crawl nào chạy. Bấm "Kích hoạt crawl" để bắt đầu.</p>
+            }
         </VanACard>
     }
 </div>
@@ -105,6 +164,15 @@
         padding: 1rem; margin: 1rem 0;
     }
     .trigger-result p { margin: 0.25rem 0; }
+    .crawl-progress {
+        background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
+        padding: 1rem; margin: 1rem 0;
+    }
+    .crawl-result {
+        background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;
+        padding: 1rem; margin: 1rem 0;
+    }
+    .crawl-result p { margin: 0.25rem 0; }
 </style>
 
 @code {
@@ -113,11 +181,25 @@
     private string _alertMessage = string.Empty;
     private string _alertType = "info";
     private CrawlTriggerApiResult? _triggerResult;
+    private CrawlStatusApiDto? _status;
+    private Timer? _statusTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load initial status (in case crawler is already running from previous trigger)
+        await RefreshStatusAsync();
+    }
 
     private async Task HandleTrigger()
     {
         if (_form.MaxResults < 1 || _form.MaxResults > 500)
         { ShowAlert("error", "Số lượng phải từ 1 đến 500."); return; }
+
+        // Warn if user picked trangvangvietnam (blocked from cloud)
+        if (_form.Source == "trangvangvietnam")
+        {
+            ShowAlert("warning", "⚠️ trangvangvietnam.com bị chặn 403 từ GCP cloud IP. Khuyến nghị dùng doanhnghiep.vn.");
+        }
 
         _isTriggering = true;
         try
@@ -129,7 +211,10 @@
                 MaxResults: _form.MaxResults,
                 SearchTerm: string.IsNullOrEmpty(_form.SearchTerm) ? null : _form.SearchTerm);
             _triggerResult = await ClaimApi.TriggerCrawlAsync(request);
-            ShowAlert("success", "Crawl trigger đã gửi. Crawler sẽ xử lý async.");
+            ShowAlert("success", "Crawl trigger đã gửi. Theo dõi tiến độ bên dưới.");
+
+            // Start polling status every 3s while crawler runs
+            StartStatusPolling();
         }
         catch (Exception ex)
         {
@@ -139,7 +224,43 @@
         finally { _isTriggering = false; }
     }
 
+    private void StartStatusPolling()
+    {
+        _statusTimer?.Dispose();
+        _statusTimer = new Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await RefreshStatusAsync();
+                // Stop polling when crawl is no longer running
+                if (_status is not null && !_status.IsRunning)
+                {
+                    _statusTimer?.Dispose();
+                    _statusTimer = null;
+                }
+            });
+        }, null, TimeSpan.Zero, TimeSpan.FromSeconds(3));
+    }
+
+    private async Task RefreshStatusAsync()
+    {
+        try
+        {
+            _status = await ClaimApi.GetCrawlStatusAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Status poll failed (transient)");
+        }
+    }
+
     private void ShowAlert(string type, string message) { _alertType = type; _alertMessage = message; }
+
+    public void Dispose()
+    {
+        _statusTimer?.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     private sealed class CrawlTriggerForm
     {

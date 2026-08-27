@@ -76,4 +76,7 @@ app.MapGet("/health", () => Results.Ok(new
     timestamp = DateTime.UtcNow
 }));
 
+// GET /status — polled by ShopERP UI for crawl progress (running phase + last result)
+app.MapGet("/status", () => Results.Ok(CrawlerCoordinator.GetStatus()));
+
 app.Run($"http://0.0.0.0:{crawlerOptions.ListenPort}");
