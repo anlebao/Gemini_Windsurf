@@ -28,6 +28,17 @@ public sealed class CrawlerCoordinator : BackgroundService
     private static BatchCrawlResult? _lastResult;
     private static string? _lastError;
 
+    // JSON options: Gateway serializes camelCase (ASP.NET Core default), crawler records are PascalCase.
+    // Without PropertyNameCaseInsensitive=true, Deserialize<BatchCrawlResult> returns Imported=0 even
+    // though Gateway actually created tenants. This was a regression from the defensive-coding commit.
+    private static readonly System.Text.Json.JsonSerializerOptions _jsonOpts = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    // Prevent concurrent crawl runs — if user clicks trigger multiple times, reject 2nd+ clicks.
+    private static readonly SemaphoreSlim _runLock = new(1, 1);
+
     public CrawlerCoordinator(
         IHttpClientFactory httpClientFactory,
         CrawlerOptions options,
@@ -109,108 +120,137 @@ public sealed class CrawlerCoordinator : BackgroundService
         _logger.LogInformation("Crawl triggered: source={Source}, industry={Industry}, province={Province}, maxResults={MaxResults}",
             request.Source, request.Industry, request.Province, request.MaxResults);
 
-        StartRun(request.Source);
-
-        // Select adapters — if Source specified, use only that one; otherwise use all
-        var selectedAdapters = string.IsNullOrEmpty(request.Source)
-            ? _adapters
-            : _adapters.Where(a => a.Name.Equals(request.Source, StringComparison.OrdinalIgnoreCase)).ToList();
-
-        if (selectedAdapters.Count == 0)
+        // Prevent concurrent runs — if user clicks trigger multiple times before status poll
+        // disables the button, 2nd+ clicks get rejected immediately.
+        if (!await _runLock.WaitAsync(0, ct))
         {
-            _logger.LogWarning("No adapters matched source '{Source}'", request.Source);
-            var errResult = new BatchCrawlResult(0, 0, [new BatchCrawlError(request.Source ?? "all", "No matching adapter")]);
-            FinishRun(errResult, $"No adapter matched source '{request.Source}'");
-            return errResult;
+            _logger.LogWarning("Crawl already running — rejecting duplicate trigger");
+            return new BatchCrawlResult(0, 0, [new BatchCrawlError("duplicate", "Crawl already running — wait for completion")]);
         }
 
-        // Fetch from all selected adapters
-        var allListings = new List<CrawlListingDto>();
-        foreach (var adapter in selectedAdapters)
+        try
         {
-            try
+            StartRun(request.Source);
+
+            // Select adapters — if Source specified, use only that one; otherwise use all
+            var selectedAdapters = string.IsNullOrEmpty(request.Source)
+                ? _adapters
+                : _adapters.Where(a => a.Name.Equals(request.Source, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            if (selectedAdapters.Count == 0)
             {
-                SetStatus($"Crawling from {adapter.Name}", adapter.Name);
-                var query = new CrawlQuery
-                {
-                    SearchTerm = request.SearchTerm ?? request.Industry ?? "công ty",
-                    IndustryCode = request.Industry,
-                    Province = request.Province,
-                    MaxResults = request.MaxResults
-                };
-                var listings = await adapter.FetchAsync(query, ct);
-                allListings.AddRange(listings);
+                _logger.LogWarning("No adapters matched source '{Source}'", request.Source);
+                var errResult = new BatchCrawlResult(0, 0, [new BatchCrawlError(request.Source ?? "all", "No matching adapter")]);
+                FinishRun(errResult, $"No adapter matched source '{request.Source}'");
+                return errResult;
             }
-            catch (Exception ex)
+
+            // Fetch from all selected adapters
+            var allListings = new List<CrawlListingDto>();
+            foreach (var adapter in selectedAdapters)
             {
-                _logger.LogError(ex, "Adapter {Adapter} failed", adapter.Name);
-            }
-        }
-
-        if (allListings.Count == 0)
-        {
-            _logger.LogInformation("No listings crawled — nothing to post to Gateway");
-            var emptyResult = new BatchCrawlResult(0, 0, []);
-            FinishRun(emptyResult, "No listings crawled (source returned 0 results or was blocked)");
-            return emptyResult;
-        }
-
-        // Post to Gateway in batches
-        SetStatus($"Posting {allListings.Count} listings to Gateway");
-        var gatewayClient = _httpClientFactory.CreateClient("gateway");
-        var imported = 0;
-        var skipped = 0;
-        var errors = new List<BatchCrawlError>();
-
-        foreach (var batch in Chunk(allListings, _options.MaxBatchSize))
-        {
-            try
-            {
-                SetStatus($"Posting batch {imported + 1}-{imported + batch.Count} of {allListings.Count} to Gateway");
-                _logger.LogInformation("Posting batch of {Count} listings to Gateway", batch.Count);
-                var resp = await gatewayClient.PostAsJsonAsync(
-                    "/api/v1/crawl/batch", batch, ct);
-
-                // Defensive: check Content-Type is JSON before deserializing.
-                // If auth failed, Gateway returns HTML (login redirect) with 200 → ReadFromJsonAsync crashes.
-                var contentType = resp.Content.Headers.ContentType?.MediaType ?? "";
-                var body = await resp.Content.ReadAsStringAsync(ct);
-
-                if (!resp.IsSuccessStatusCode)
+                try
                 {
-                    _logger.LogError("Gateway batch POST failed: {Status} {Body}", resp.StatusCode, body[..Math.Min(body.Length, 500)]);
-                    errors.Add(new BatchCrawlError($"batch-{imported}", $"Gateway {resp.StatusCode}"));
-                }
-                else if (!contentType.Contains("json", StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogError("Gateway batch POST returned non-JSON response (Content-Type: {ContentType}). Likely auth redirect. Body: {Body}",
-                        contentType, body[..Math.Min(body.Length, 200)]);
-                    errors.Add(new BatchCrawlError($"batch-{imported}", $"Gateway returned {contentType}, not JSON (auth failed?)"));
-                }
-                else
-                {
-                    var result = System.Text.Json.JsonSerializer.Deserialize<BatchCrawlResult>(body);
-                    if (result is not null)
+                    SetStatus($"Crawling from {adapter.Name}", adapter.Name);
+                    // Search term: user-provided > industry-specific Vietnamese term > generic "công ty"
+                    // "F&B" as a search query to doanhnghiep.vn returns ~1 result (literal match).
+                    // Map industry codes to Vietnamese search terms for better results.
+                    var searchTerm = request.SearchTerm
+                        ?? request.Industry switch
+                        {
+                            "F&B" => "nhà hàng",
+                            "SPA" => "spa",
+                            "RETAIL" => "cửa hàng",
+                            "SERVICE" => "dịch vụ",
+                            _ => "công ty"
+                        };
+                    var query = new CrawlQuery
                     {
-                        imported += result.Imported;
-                        skipped += result.Skipped;
-                        if (result.Errors is not null)
-                            errors.AddRange(result.Errors);
+                        SearchTerm = searchTerm,
+                        IndustryCode = request.Industry,
+                        Province = request.Province,
+                        MaxResults = request.MaxResults
+                    };
+                    var listings = await adapter.FetchAsync(query, ct);
+                    allListings.AddRange(listings);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Adapter {Adapter} failed", adapter.Name);
+                }
+            }
+
+            if (allListings.Count == 0)
+            {
+                _logger.LogInformation("No listings crawled — nothing to post to Gateway");
+                var emptyResult = new BatchCrawlResult(0, 0, []);
+                FinishRun(emptyResult, "No listings crawled (source returned 0 results or was blocked)");
+                return emptyResult;
+            }
+
+            // Post to Gateway in batches
+            SetStatus($"Posting {allListings.Count} listings to Gateway");
+            var gatewayClient = _httpClientFactory.CreateClient("gateway");
+            var imported = 0;
+            var skipped = 0;
+            var errors = new List<BatchCrawlError>();
+
+            foreach (var batch in Chunk(allListings, _options.MaxBatchSize))
+            {
+                try
+                {
+                    SetStatus($"Posting batch {imported + 1}-{imported + batch.Count} of {allListings.Count} to Gateway");
+                    _logger.LogInformation("Posting batch of {Count} listings to Gateway", batch.Count);
+                    var resp = await gatewayClient.PostAsJsonAsync(
+                        "/api/v1/crawl/batch", batch, ct);
+
+                    // Defensive: check Content-Type is JSON before deserializing.
+                    var contentType = resp.Content.Headers.ContentType?.MediaType ?? "";
+                    var body = await resp.Content.ReadAsStringAsync(ct);
+
+                    if (!resp.IsSuccessStatusCode)
+                    {
+                        _logger.LogError("Gateway batch POST failed: {Status} {Body}", resp.StatusCode, body[..Math.Min(body.Length, 500)]);
+                        errors.Add(new BatchCrawlError($"batch-{imported}", $"Gateway {resp.StatusCode}"));
+                    }
+                    else if (!contentType.Contains("json", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogError("Gateway batch POST returned non-JSON response (Content-Type: {ContentType}). Likely auth redirect. Body: {Body}",
+                            contentType, body[..Math.Min(body.Length, 200)]);
+                        errors.Add(new BatchCrawlError($"batch-{imported}", $"Gateway returned {contentType}, not JSON (auth failed?)"));
+                    }
+                    else
+                    {
+                        // CRITICAL: use case-insensitive JSON options — Gateway serializes camelCase
+                        // (ASP.NET Core default), crawler records are PascalCase. Without this,
+                        // Deserialize returns Imported=0 even though Gateway created tenants.
+                        var result = System.Text.Json.JsonSerializer.Deserialize<BatchCrawlResult>(body, _jsonOpts);
+                        if (result is not null)
+                        {
+                            imported += result.Imported;
+                            skipped += result.Skipped;
+                            if (result.Errors is not null)
+                                errors.AddRange(result.Errors);
+                        }
                     }
                 }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Gateway batch POST exception");
+                    errors.Add(new BatchCrawlError($"batch-{imported}", ex.Message));
+                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Gateway batch POST exception");
-                errors.Add(new BatchCrawlError($"batch-{imported}", ex.Message));
-            }
-        }
 
-        _logger.LogInformation("Crawl complete: imported={Imported}, skipped={Skipped}, errors={Errors}",
-            imported, skipped, errors.Count);
-        var finalResult = new BatchCrawlResult(imported, skipped, errors);
-        FinishRun(finalResult);
-        return finalResult;
+            _logger.LogInformation("Crawl complete: imported={Imported}, skipped={Skipped}, errors={Errors}",
+                imported, skipped, errors.Count);
+            var finalResult = new BatchCrawlResult(imported, skipped, errors);
+            FinishRun(finalResult);
+            return finalResult;
+        }
+        finally
+        {
+            _runLock.Release();
+        }
     }
 
     private static List<List<T>> Chunk<T>(List<T> source, int chunkSize)
