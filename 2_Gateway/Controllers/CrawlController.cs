@@ -119,22 +119,27 @@ namespace VanAn.Gateway.Controllers
             try
             {
                 var crawlerClient = httpClientFactory.CreateClient("crawler");
-                var crawlerRequest = new
+                // Use explicit JSON options to ensure crawler receives camelCase matching its
+                // minimal API default (JsonSerializerDefaults.Web). Anonymous object props are
+                // PascalCase — PostAsJsonAsync default is camelCase, but be explicit to be safe.
+                var jsonOpts = new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web);
+                var crawlerRequest = System.Text.Json.JsonSerializer.Serialize(new
                 {
-                    Source = request.Source,
-                    Industry = request.Industry,
-                    Province = request.Province,
-                    MaxResults = request.MaxResults,
-                    SearchTerm = request.SearchTerm
-                };
+                    source = request.Source,
+                    industry = request.Industry,
+                    province = request.Province,
+                    maxResults = request.MaxResults,
+                    searchTerm = request.SearchTerm
+                }, jsonOpts);
 
                 // Fire-and-forget: don't block SysAdmin while crawler runs (can take minutes)
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        logger.LogInformation("Forwarding crawl trigger to crawler:5010/trigger");
-                        var resp = await crawlerClient.PostAsJsonAsync("/trigger", crawlerRequest);
+                        logger.LogInformation("Forwarding crawl trigger to crawler:5010/trigger — body: {Body}", crawlerRequest);
+                        var content = new StringContent(crawlerRequest, System.Text.Encoding.UTF8, "application/json");
+                        var resp = await crawlerClient.PostAsync("/trigger", content);
                         logger.LogInformation("Crawler responded: {Status}", resp.StatusCode);
                     }
                     catch (Exception ex)

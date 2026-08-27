@@ -41,78 +41,100 @@ public sealed class RestApiAdapter : IDataSourceAdapter
     public async Task<List<CrawlListingDto>> FetchAsync(CrawlQuery query, CancellationToken ct = default)
     {
         var results = new List<CrawlListingDto>();
+        // doanhnghiep.vn API hard-caps at 20 items per page regardless of limit param.
+        // Must paginate via page=1,2,3... until we reach MaxResults or empty page.
+        const int PageSize = 20;
+        var page = 1;
+        var seenMst = new HashSet<string>();
 
-        // Step 1: Search for companies by name/industry
-        var searchUrl = $"{_baseUrl}/api/v1/search?q={Uri.EscapeDataString(query.SearchTerm ?? "")}" +
-                        $"&limit={Math.Min(query.MaxResults, _options.DoanhNghiepDailyLimit - _requestCount)}";
-        if (!string.IsNullOrEmpty(query.IndustryCode))
-            searchUrl += $"&industry={query.IndustryCode}";
-        if (!string.IsNullOrEmpty(query.Province))
-            searchUrl += $"&province={query.Province}";
-
-        _logger.LogInformation("[{Source}] Search: {Url}", _sourceName, searchUrl);
-        var searchResp = await _httpClient.GetAsync(searchUrl, ct);
-        if (!searchResp.IsSuccessStatusCode)
+        while (results.Count < query.MaxResults
+            && _requestCount < _options.DoanhNghiepDailyLimit)
         {
-            _logger.LogWarning("[{Source}] Search failed: {Status}", _sourceName, searchResp.StatusCode);
-            return results;
-        }
-        _requestCount++;
+            // Step 1: Search for companies by name/industry — paginate
+            var remaining = Math.Min(PageSize, query.MaxResults - results.Count);
+            var searchUrl = $"{_baseUrl}/api/v1/search?q={Uri.EscapeDataString(query.SearchTerm ?? "")}" +
+                            $"&limit={remaining}&page={page}";
+            if (!string.IsNullOrEmpty(query.IndustryCode))
+                searchUrl += $"&industry={Uri.EscapeDataString(query.IndustryCode)}";
+            if (!string.IsNullOrEmpty(query.Province))
+                searchUrl += $"&province={Uri.EscapeDataString(query.Province)}";
 
-        var searchJson = await searchResp.Content.ReadAsStringAsync(ct);
-        using var searchDoc = JsonDocument.Parse(searchJson);
-        var items = searchDoc.RootElement.GetProperty("items").EnumerateArray().ToList();
-
-        _logger.LogInformation("[{Source}] Found {Count} companies", _sourceName, items.Count);
-
-        // Step 2: Get full details for each company (rate-limited)
-        foreach (var item in items)
-        {
-            if (_requestCount >= _options.DoanhNghiepDailyLimit)
+            _logger.LogInformation("[{Source}] Search page {Page}: {Url}", _sourceName, page, searchUrl);
+            var searchResp = await _httpClient.GetAsync(searchUrl, ct);
+            if (!searchResp.IsSuccessStatusCode)
             {
-                _logger.LogWarning("[{Source}] Daily limit reached ({Limit}), stopping",
-                    _sourceName, _options.DoanhNghiepDailyLimit);
+                _logger.LogWarning("[{Source}] Search page {Page} failed: {Status}", _sourceName, page, searchResp.StatusCode);
+                break;
+            }
+            _requestCount++;
+
+            var searchJson = await searchResp.Content.ReadAsStringAsync(ct);
+            using var searchDoc = JsonDocument.Parse(searchJson);
+            var items = searchDoc.RootElement.GetProperty("items").EnumerateArray().ToList();
+
+            _logger.LogInformation("[{Source}] Page {Page}: Found {Count} companies", _sourceName, page, items.Count);
+
+            if (items.Count == 0)
+            {
+                _logger.LogInformation("[{Source}] Page {Page} empty — no more results", _sourceName, page);
                 break;
             }
 
-            var mst = item.GetProperty("mst").GetString();
-            if (string.IsNullOrEmpty(mst)) continue;
-
-            // Rate limit between detail calls
-            await Task.Delay(_options.DefaultRateLimitMs, ct);
-
-            var detailUrl = $"{_baseUrl}/api/v1/companies/{mst}";
-            var detailResp = await _httpClient.GetAsync(detailUrl, ct);
-            _requestCount++;
-
-            if (!detailResp.IsSuccessStatusCode)
+            // Step 2: Get full details for each company (rate-limited, skip duplicates)
+            foreach (var item in items)
             {
-                _logger.LogDebug("[{Source}] Detail fetch failed for {Mst}: {Status}",
-                    _sourceName, mst, detailResp.StatusCode);
-                continue;
+                if (results.Count >= query.MaxResults) break;
+                if (_requestCount >= _options.DoanhNghiepDailyLimit)
+                {
+                    _logger.LogWarning("[{Source}] Daily limit reached ({Limit}), stopping",
+                        _sourceName, _options.DoanhNghiepDailyLimit);
+                    break;
+                }
+
+                var mst = item.GetProperty("mst").GetString();
+                if (string.IsNullOrEmpty(mst) || !seenMst.Add(mst)) continue;
+
+                // Rate limit between detail calls
+                await Task.Delay(_options.DefaultRateLimitMs, ct);
+
+                var detailUrl = $"{_baseUrl}/api/v1/companies/{mst}";
+                var detailResp = await _httpClient.GetAsync(detailUrl, ct);
+                _requestCount++;
+
+                if (!detailResp.IsSuccessStatusCode)
+                {
+                    _logger.LogDebug("[{Source}] Detail fetch failed for {Mst}: {Status}",
+                        _sourceName, mst, detailResp.StatusCode);
+                    continue;
+                }
+
+                var detailJson = await detailResp.Content.ReadAsStringAsync(ct);
+                using var detailDoc = JsonDocument.Parse(detailJson);
+                var d = detailDoc.RootElement;
+
+                var listing = new CrawlListingDto
+                {
+                    Name = d.TryGetProperty("name_vi", out var nameEl) ? nameEl.GetString() ?? "" : "",
+                    TaxCode = mst,
+                    Address = d.TryGetProperty("address_full", out var addrEl) ? addrEl.GetString() : null,
+                    ContactName = d.TryGetProperty("legal_rep_name", out var repEl) ? repEl.GetString() : null,
+                    IndustryCode = d.TryGetProperty("industry_main_code", out var indEl) ? indEl.GetString() : null,
+                    SourceSite = _sourceName,
+                    SourceUrl = $"{_baseUrl}/dn/{mst}",
+                    CrawledAt = DateTime.UtcNow
+                };
+
+                results.Add(listing);
+                _logger.LogDebug("[{Source}] Crawled: {Name} ({Mst})", _sourceName, listing.Name, mst);
             }
 
-            var detailJson = await detailResp.Content.ReadAsStringAsync(ct);
-            using var detailDoc = JsonDocument.Parse(detailJson);
-            var d = detailDoc.RootElement;
-
-            var listing = new CrawlListingDto
-            {
-                Name = d.TryGetProperty("name_vi", out var nameEl) ? nameEl.GetString() ?? "" : "",
-                TaxCode = mst,
-                Address = d.TryGetProperty("address_full", out var addrEl) ? addrEl.GetString() : null,
-                ContactName = d.TryGetProperty("legal_rep_name", out var repEl) ? repEl.GetString() : null,
-                IndustryCode = d.TryGetProperty("industry_main_code", out var indEl) ? indEl.GetString() : null,
-                SourceSite = _sourceName,
-                SourceUrl = $"{_baseUrl}/dn/{mst}",
-                CrawledAt = DateTime.UtcNow
-            };
-
-            results.Add(listing);
-            _logger.LogDebug("[{Source}] Crawled: {Name} ({Mst})", _sourceName, listing.Name, mst);
+            // If this page returned fewer than PageSize, no more pages
+            if (items.Count < PageSize) break;
+            page++;
         }
 
-        _logger.LogInformation("[{Source}] Fetch complete: {Count} listings", _sourceName, results.Count);
+        _logger.LogInformation("[{Source}] Fetch complete: {Count} listings (pages: {Pages})",
+            _sourceName, results.Count, page);
         return results;
     }
 }
