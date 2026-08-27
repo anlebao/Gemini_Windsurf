@@ -51,6 +51,23 @@
             <VanAnAlert Variant="AlertVariant.Warning" Message="@_pendingAlert" CssClass="mb-3" />
         }
 
+        <!-- Issue #166 comment: Suggested keywords when no direct match -->
+        @if (_hasSearched && !_loading && _suggestedKeywords.Count > 0)
+        {
+            <VanAnAlert Variant="AlertVariant.Info" CssClass="mb-3">
+                <div>
+                    <i class="bi bi-lightbulb me-1"></i>
+                    Không tìm thấy kết quả chính xác cho "@_searchKeyword". Có phải bạn muốn tìm:
+                    @foreach (var kw in _suggestedKeywords)
+                    {
+                        <button class="btn btn-sm btn-outline-primary ms-1 my-1" @onclick="@(() => SearchWithKeyword(kw))">
+                            @kw
+                        </button>
+                    }
+                </div>
+            </VanAnAlert>
+        }
+
         <!-- Results -->
         @if (_loading)
         {
@@ -72,6 +89,13 @@
         }
         else
         {
+            @* Issue #166 comment: show hint when results are suggested (not direct match) *@
+            @if (_matchStrategy is "token" or "prefix" or "suggested")
+            {
+                <p class="text-muted small mb-2">
+                    <i class="bi bi-info-circle"></i> Hiển thị kết quả gần giống nhất với "@_searchKeyword".
+                </p>
+            }
             <div class="row g-3">
                 @foreach (var store in _stores)
                 {
@@ -151,6 +175,8 @@
 @code {
     private string _searchKeyword = "";
     private List<TenantStoreDto> _stores = new();
+    private List<string> _suggestedKeywords = new();
+    private string _matchStrategy = "all";
     private bool _loading;
     private bool _hasSearched;
 
@@ -165,8 +191,18 @@
     {
         _loading = true;
         _hasSearched = true;
-        _stores = await CatalogService.SearchStoresAsync(_searchKeyword);
+        var result = await CatalogService.SearchStoresAsync(_searchKeyword);
+        _stores = result.Results;
+        _suggestedKeywords = result.SuggestedKeywords;
+        _matchStrategy = result.MatchStrategy;
         _loading = false;
+    }
+
+    /// <summary>Issue #166 comment: search with a suggested keyword (clicking "Did you mean...?").</summary>
+    private async Task SearchWithKeyword(string keyword)
+    {
+        _searchKeyword = keyword;
+        await SearchStores();
     }
 
     private async Task OnSearchKeyUp(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
@@ -180,6 +216,8 @@
         _searchKeyword = "";
         _hasSearched = false;
         _stores = new();
+        _suggestedKeywords = new();
+        _matchStrategy = "all";
     }
 
     private void GoToStoreFinder()

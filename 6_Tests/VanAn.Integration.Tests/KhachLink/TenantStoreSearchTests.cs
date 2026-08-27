@@ -70,11 +70,11 @@ namespace VanAn.Integration.Tests.KhachLink
             // Act — no name param to avoid EF.Functions.ILike (PostgreSQL-only, fails on SQLite test DB)
             var response = await _client.GetAsync("/api/tenants/search");
 
-            // Assert
+            // Assert — Issue #166: response is now TenantSearchResultDto wrapper
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var stores = await response.Content.ReadFromJsonAsync<List<StoreSearchResult>>();
-            Assert.NotNull(stores);
-            var match = stores!.FirstOrDefault(s => s.Id == tenant.Id.Value);
+            var result = await response.Content.ReadFromJsonAsync<SearchResultWrapper>();
+            Assert.NotNull(result);
+            var match = result!.Results.FirstOrDefault(s => s.Id == tenant.Id.Value);
             Assert.NotNull(match);
             Assert.Equal("testbakery.khachvip.online", match!.KhachLinkDomain);
         }
@@ -90,9 +90,9 @@ namespace VanAn.Integration.Tests.KhachLink
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var stores = await response.Content.ReadFromJsonAsync<List<StoreSearchResult>>();
-            Assert.NotNull(stores);
-            var match = stores!.FirstOrDefault(s => s.Id == tenant.Id.Value);
+            var result = await response.Content.ReadFromJsonAsync<SearchResultWrapper>();
+            Assert.NotNull(result);
+            var match = result!.Results.FirstOrDefault(s => s.Id == tenant.Id.Value);
             Assert.NotNull(match);
             Assert.Null(match!.KhachLinkDomain);
         }
@@ -109,11 +109,19 @@ namespace VanAn.Integration.Tests.KhachLink
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var stores = await response.Content.ReadFromJsonAsync<List<StoreSearchResult>>();
-            Assert.NotNull(stores);
-            var match = stores!.FirstOrDefault(s => s.Id == tenant.Id.Value);
+            var result = await response.Content.ReadFromJsonAsync<SearchResultWrapper>();
+            Assert.NotNull(result);
+            var match = result!.Results.FirstOrDefault(s => s.Id == tenant.Id.Value);
             Assert.NotNull(match);
             Assert.Null(match!.KhachLinkDomain);
+        }
+
+        // Issue #166 comment: Gateway now returns wrapper { Results, SuggestedKeywords, MatchStrategy }
+        private class SearchResultWrapper
+        {
+            public List<StoreSearchResult> Results { get; set; } = new();
+            public List<string> SuggestedKeywords { get; set; } = new();
+            public string MatchStrategy { get; set; } = "all";
         }
 
         private class StoreSearchResult

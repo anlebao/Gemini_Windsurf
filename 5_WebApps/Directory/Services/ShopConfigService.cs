@@ -116,3 +116,15 @@ public class TenantStoreDto
     /// <summary>Crawl-to-Onboard: URL to Claim form for Pending tenants. Null for Active.</summary>
     public string? ClaimUrl { get; init; }
 }
+
+/// <summary>
+/// Issue #166 comment (2026-08-27): Search response wrapper matching Gateway TenantSearchResultDto.
+/// Contains Results (list of stores) + SuggestedKeywords (when no direct match) + MatchStrategy.
+/// </summary>
+public class TenantSearchResultDto
+{
+    public List<TenantStoreDto> Results { get; init; } = new();
+    public List<string> SuggestedKeywords { get; init; } = new();
+    /// <summary>"all" | "contains" | "token" | "prefix" | "suggested"</summary>
+    public string MatchStrategy { get; init; } = "all";
+}

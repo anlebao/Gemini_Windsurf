@@ -490,7 +490,10 @@
             var response = await client.GetAsync(url);
             if (response.IsSuccessStatusCode)
             {
-                _stores = await response.Content.ReadFromJsonAsync<List<StoreDto>>() ?? new();
+                // Issue #166 comment: Gateway now returns TenantSearchResultDto wrapper
+                // (Results + SuggestedKeywords + MatchStrategy) instead of bare List<StoreDto>.
+                var result = await response.Content.ReadFromJsonAsync<SearchResultDto>();
+                _stores = result?.Results ?? new();
             }
             else
             {
@@ -526,6 +529,14 @@
         public double? DistanceKm { get; set; }
         public string? Slug { get; set; }
         public string? KhachLinkDomain { get; set; }
+    }
+
+    /// <summary>Issue #166 comment: Wrapper matching Gateway TenantSearchResultDto.</summary>
+    public class SearchResultDto
+    {
+        public List<StoreDto> Results { get; set; } = new();
+        public List<string> SuggestedKeywords { get; set; } = new();
+        public string MatchStrategy { get; set; } = "all";
     }
 
     public class GeolocationResult

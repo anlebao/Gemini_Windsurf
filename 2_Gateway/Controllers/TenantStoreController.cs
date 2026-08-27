@@ -186,12 +186,19 @@ namespace VanAn.Gateway.Controllers
         /// <summary>
         /// Search tenants by name OR by FeaturedProduct.DisplayName (PG-only, no ShopERP call).
         /// Replaces GET /api/shops/search.
-        /// Relevance sort: exact match > starts-with > contains. Name match > product match.
+        ///
+        /// Issue #166 comment (2026-08-27) — multi-level search + ordering:
+        /// 1. Search: exact → contains → token-split → prefix → suggested (avoid empty results).
+        ///    If no match found, returns top Active tenants + SuggestedKeywords extracted from
+        ///    tenant name tokens that are similar to the input keyword.
+        /// 2. Ordering: Active (verified) first, then Pending. Within each status group:
+        ///    name-match-relevance (exact > starts-with > contains > token > prefix) → distance ascending.
+        ///
         /// Crawl-to-Onboard (2026-08-26): includes Pending tenants (name only, IsPending=true, no phone/address per Luật 91/2025).
         /// </summary>
         [HttpGet("search")]
         [AllowAnonymous]
-        public async Task<ActionResult<List<TenantStoreDto>>> Search([FromQuery] string? name, [FromQuery] double? lat, [FromQuery] double? lng)
+        public async Task<ActionResult<TenantSearchResultDto>> Search([FromQuery] string? name, [FromQuery] double? lat, [FromQuery] double? lng)
         {
             try
             {
@@ -200,44 +207,86 @@ namespace VanAn.Gateway.Controllers
                     .IgnoreQueryFilters() // public endpoint — show all tenants regardless of caller's tenant context
                     .Where(t => t.Status == TenantStatus.Active || t.Status == TenantStatus.Pending);
 
+                string matchStrategy = "all"; // all | contains | token | prefix | suggested
                 List<Tenant> tenants;
+
                 if (string.IsNullOrWhiteSpace(name))
                 {
                     // No keyword — return all active tenants (legacy behavior, Take 50)
                     tenants = await baseQuery.Take(50).ToListAsync();
+                    matchStrategy = "all";
                 }
                 else
                 {
-                    // Match tenant.Name OR any FeaturedProduct.DisplayName of that tenant.
-                    // Use subquery: tenant matches if Name ILIKE %q% OR EXISTS FeaturedProduct with DisplayName ILIKE %q%.
                     var q = name.Trim();
+
+                    // ── Level 1: ILIKE contains on Name OR FeaturedProduct.DisplayName ──
                     var matched = await baseQuery
                         .Where(t => EF.Functions.ILike(t.Name, $"%{q}%")
                                     || _dbContext.FeaturedProducts.Any(fp => fp.TenantId == t.Id && fp.IsActive && EF.Functions.ILike(fp.DisplayName, $"%{q}%")))
                         .Take(50)
                         .ToListAsync();
 
-                    // Relevance sort (in-memory, small set ≤50):
-                    //   1. Exact Name match (Name == q, case-insensitive)
-                    //   2. Name starts with q
-                    //   3. Name contains q
-                    //   4. Has FeaturedProduct with DisplayName exact/starts/contains (lower priority than name)
-                    tenants = matched
-                        .OrderByDescending(t => string.Equals(t.Name, q, StringComparison.OrdinalIgnoreCase) ? 4
-                            : t.Name.StartsWith(q, StringComparison.OrdinalIgnoreCase) ? 3
-                            : t.Name.Contains(q, StringComparison.OrdinalIgnoreCase) ? 2
-                            : 1) // product-only match
-                        .ThenBy(t => t.Name)
-                        .ToList();
+                    if (matched.Count > 0)
+                    {
+                        matchStrategy = "contains";
+                        tenants = matched;
+                    }
+                    else
+                    {
+                        // ── Level 2: Token-based match — split keyword by spaces, match ANY token ──
+                        var tokens = q.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        if (tokens.Length > 1)
+                        {
+                            // Build OR predicate: Name ILIKE %token1% OR Name ILIKE %token2% OR ...
+                            matched = await baseQuery
+                                .Where(t => tokens.Any(tok => EF.Functions.ILike(t.Name, $"%{tok}%")))
+                                .Take(50)
+                                .ToListAsync();
+                        }
+
+                        if (matched.Count > 0)
+                        {
+                            matchStrategy = "token";
+                            tenants = matched;
+                        }
+                        else
+                        {
+                            // ── Level 3: Prefix match — Name starts with keyword (first 3+ chars) ──
+                            var prefix = q.Length >= 3 ? q : q;
+                            matched = await baseQuery
+                                .Where(t => EF.Functions.ILike(t.Name, $"{prefix}%"))
+                                .Take(50)
+                                .ToListAsync();
+
+                            if (matched.Count > 0)
+                            {
+                                matchStrategy = "prefix";
+                                tenants = matched;
+                            }
+                            else
+                            {
+                                // ── Level 4: Suggested — return top 10 Active tenants (avoid empty) ──
+                                tenants = await baseQuery
+                                    .Where(t => t.Status == TenantStatus.Active)
+                                    .OrderBy(t => t.Name)
+                                    .Take(10)
+                                    .ToListAsync();
+                                matchStrategy = "suggested";
+                            }
+                        }
+                    }
                 }
 
                 // Batch query KhachLink instances for all matched tenants (1 query, no N+1)
                 var tenantIds = tenants.Select(t => t.Id.Value).ToList();
                 var khachLinkDomainMap = await BuildKhachLinkDomainMapAsync(tenantIds);
 
-                // If user location provided, compute distance for each store
+                // Compute distance for each store + sort by Issue #166 ordering rules
                 double? userLat = lat, userLng = lng;
-                return Ok(tenants.Select(t =>
+                var qForSort = name?.Trim() ?? "";
+
+                var dtos = tenants.Select(t =>
                 {
                     double? dist = null;
                     if (userLat.HasValue && userLng.HasValue
@@ -246,7 +295,47 @@ namespace VanAn.Gateway.Controllers
                         dist = HaversineKm(userLat.Value, userLng.Value, t.Settings!.Latitude!.Value, t.Settings!.Longitude!.Value);
                     }
                     return MapToStoreDto(t, dist, khachLinkDomainMap);
-                }).ToList());
+                }).ToList();
+
+                // Issue #166 ordering: Active first, then Pending; within each: relevance, then distance
+                dtos = dtos
+                    .OrderByDescending(d => !d.IsPending) // Active (false→1) before Pending (true→0)
+                    .ThenByDescending(d =>
+                        string.Equals(d.Name, qForSort, StringComparison.OrdinalIgnoreCase) ? 5
+                        : d.Name.StartsWith(qForSort, StringComparison.OrdinalIgnoreCase) ? 4
+                        : d.Name.Contains(qForSort, StringComparison.OrdinalIgnoreCase) ? 3
+                        : matchStrategy == "token" ? 2
+                        : matchStrategy == "prefix" ? 1
+                        : 0)
+                    .ThenBy(d => d.DistanceKm ?? double.MaxValue) // closer first (if location provided)
+                    .ThenBy(d => d.Name)
+                    .ToList();
+
+                // Build suggested keywords (only when no direct match found)
+                List<string> suggestedKeywords = new();
+                if (matchStrategy is "token" or "prefix" or "suggested")
+                {
+                    // Extract distinct meaningful words from matched tenant names that are similar to input
+                    var inputTokens = qForSort.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(t => t.ToLowerInvariant())
+                        .ToHashSet();
+
+                    suggestedKeywords = tenants
+                        .SelectMany(t => t.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                        .Where(w => w.Length >= 3)
+                        .Select(w => w.ToLowerInvariant())
+                        .Where(w => !inputTokens.Contains(w))
+                        .Distinct()
+                        .Take(5)
+                        .ToList();
+                }
+
+                return Ok(new TenantSearchResultDto
+                {
+                    Results = dtos,
+                    SuggestedKeywords = suggestedKeywords,
+                    MatchStrategy = matchStrategy
+                });
             }
             catch (Exception ex)
             {
@@ -360,5 +449,21 @@ namespace VanAn.Gateway.Controllers
         /// <summary>Crawl-to-Onboard (2026-08-25): URL to Claim form for Pending tenants.
         /// Null for Active tenants. Format: /store/{slug}/claim</summary>
         public string? ClaimUrl { get; init; }
+    }
+
+    /// <summary>
+    /// Issue #166 comment (2026-08-27): Search response wrapper with results + suggested keywords.
+    /// When MatchStrategy is "suggested"/"token"/"prefix", SuggestedKeywords contains distinct
+    /// words from matched tenant names that are similar to the input keyword (for "Did you mean...?" UI).
+    /// </summary>
+    public record TenantSearchResultDto
+    {
+        public List<TenantStoreDto> Results { get; init; } = new();
+        /// <summary>Suggested keywords extracted from tenant names when no direct match found.
+        /// Empty list when matchStrategy is "all" or "contains" (direct match — no suggestions needed).</summary>
+        public List<string> SuggestedKeywords { get; init; } = new();
+        /// <summary>How results were matched: "all" (no keyword) | "contains" | "token" | "prefix" | "suggested".
+        /// UI uses this to show "Không tìm thấy kết quả chính xác, gợi ý cho bạn:" message.</summary>
+        public string MatchStrategy { get; init; } = "all";
     }
 }

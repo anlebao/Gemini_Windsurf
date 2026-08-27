@@ -20,8 +20,9 @@ public class CatalogService
         _jsonOptions = jsonOptions;
     }
 
-    /// <summary>Search stores by name. Returns empty list on error.</summary>
-    public async Task<List<TenantStoreDto>> SearchStoresAsync(string? name, double? lat = null, double? lng = null)
+    /// <summary>Search stores by name. Returns search result with stores + suggested keywords.
+    /// Issue #166 comment: Gateway now returns TenantSearchResultDto wrapper (Results + SuggestedKeywords + MatchStrategy).</summary>
+    public async Task<TenantSearchResultDto> SearchStoresAsync(string? name, double? lat = null, double? lng = null)
     {
         var query = "api/tenants/search?";
         if (!string.IsNullOrWhiteSpace(name))
@@ -36,14 +37,15 @@ public class CatalogService
             if (!resp.IsSuccessStatusCode)
             {
                 _logger.LogWarning("SearchStoresAsync: {Status}", resp.StatusCode);
-                return [];
+                return new TenantSearchResultDto();
             }
-            return await resp.Content.ReadFromJsonAsync<List<TenantStoreDto>>(_jsonOptions) ?? [];
+            return await resp.Content.ReadFromJsonAsync<TenantSearchResultDto>(_jsonOptions)
+                ?? new TenantSearchResultDto();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "SearchStoresAsync: error");
-            return [];
+            return new TenantSearchResultDto();
         }
     }
 
