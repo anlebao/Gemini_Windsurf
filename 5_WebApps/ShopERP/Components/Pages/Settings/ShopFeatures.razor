@@ -384,6 +384,40 @@
                     </div>
                 </VanACard>
 
+                <VanACard Header="👥 Cộng tác viên — Điều kiện kích hoạt (R2.1)" CssClass="mt-4" data-testid="community-eligibility-card">
+                    <div class="text-muted small mb-3">
+                        Thiết lập điều kiện tối thiểu để khách hàng được nâng lên vai trò Salesman hoặc Shipper.
+                        Khách hàng phải đạt BOTH mức điểm tối thiểu VÀ mức xác thực tối thiểu mới được kích hoạt.
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label" for="community-salesman-min-points">Điểm tối thiểu — Salesman</label>
+                            <input type="number" class="form-control" id="community-salesman-min-points"
+                                   min="0" max="100000" step="100"
+                                   @bind="settings.Community_SalesmanMinPoints" />
+                            <small class="text-muted">Mặc định 1000.降低 để dễ kích hoạt, tăng để chọn lọc hơn.</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="community-shipper-min-points">Điểm tối thiểu — Shipper</label>
+                            <input type="number" class="form-control" id="community-shipper-min-points"
+                                   min="0" max="100000" step="100"
+                                   @bind="settings.Community_ShipperMinPoints" />
+                            <small class="text-muted">Mặc định 1000. Có thể khác với Salesman.</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="community-required-identity-level">Mức xác thực tối thiểu</label>
+                            <select class="form-select" id="community-required-identity-level"
+                                    @bind="settings.Community_RequiredIdentityLevel">
+                                <option value="0">Guest (0) — Không yêu cầu</option>
+                                <option value="1">Social (1) — Đăng nhập MXH</option>
+                                <option value="2">Verified (2) — Xác thực SMS OTP (mặc định)</option>
+                                <option value="3">Full (3) — Xác thực đầy đủ</option>
+                            </select>
+                            <small class="text-muted">Áp dụng cho cả Salesman + Shipper.</small>
+                        </div>
+                    </div>
+                </VanACard>
+
                 <div class="feature-row mt-4 pt-3 border-top" data-testid="setting-polling-interval">
                     <div class="feature-info">
                         <strong>Thời gian làm mới theo dõi đơn hàng (giây)</strong>

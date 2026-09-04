@@ -20,6 +20,7 @@ public class CommunityAdminServiceTenantScopedTests : IDisposable
     private readonly SqliteConnection _connection;
     private readonly VanAnDbContext _context;
     private readonly CommunityAdminService _service;
+    private readonly StubShopFeatureSettingsService _stubSettings;
 
     private static readonly Guid TenantA = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly Guid TenantB = Guid.Parse("00000000-0000-0000-0000-000000000002");
@@ -42,7 +43,8 @@ public class CommunityAdminServiceTenantScopedTests : IDisposable
 
         _context = new VanAnDbContext(options);
         _context.Database.EnsureCreated();
-        _service = new CommunityAdminService(_context, NullLogger<CommunityAdminService>.Instance);
+        _stubSettings = new StubShopFeatureSettingsService();
+        _service = new CommunityAdminService(_context, _stubSettings, NullLogger<CommunityAdminService>.Instance);
 
         SeedTenant(_tenantIdA, "Tenant A");
         SeedTenant(_tenantIdB, "Tenant B");
@@ -229,5 +231,93 @@ public class CommunityAdminServiceTenantScopedTests : IDisposable
         var randomId = Guid.NewGuid();
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.ActivateRoleForTenantAsync(TenantA, randomId, CommunityRoleType.Shipper, OwnerId));
+    }
+
+    // === R2.1 (2026-09-04): Per-tenant configurable eligibility thresholds ===
+
+    // === TS13: Tenant A with lowered threshold (500 points) → customer with 600 points IS eligible ===
+    [Fact(DisplayName = "TS13: Per-tenant threshold — lowered points (500) allows 600-point customer")]
+    public async Task PerTenantThreshold_LoweredPoints_AllowsEligible()
+    {
+        // Configure Tenant A: 500 min points (lowered from default 1000)
+        _stubSettings.SetTenantThresholds(TenantA, salesmanMinPoints: 500, shipperMinPoints: 500, requiredIdentityLevel: (int)IdentityLevel.Verified);
+
+        // Customer with 600 points — would FAIL with hard-coded 1000, PASSES with per-tenant 500
+        var customer = CreateCustomer(_tenantIdA, "600-point Customer", IdentityLevel.Verified, 600);
+
+        var result = await _service.GetEligibleCustomersForTenantAsync(TenantA, 1, 20);
+        Assert.Single(result.Items);
+        Assert.Equal(customer.Id, result.Items[0].CustomerId);
+
+        // Activation should also succeed
+        var role = await _service.ActivateRoleForTenantAsync(TenantA, customer.Id, CommunityRoleType.Salesman, OwnerId);
+        Assert.True(role.IsActive);
+    }
+
+    // === TS14: Tenant B with raised threshold (2000 points) → customer with 1500 points is NOT eligible ===
+    [Fact(DisplayName = "TS14: Per-tenant threshold — raised points (2000) rejects 1500-point customer")]
+    public async Task PerTenantThreshold_RaisedPoints_RejectsIneligible()
+    {
+        // Configure Tenant B: 2000 min points (raised from default 1000)
+        _stubSettings.SetTenantThresholds(TenantB, salesmanMinPoints: 2000, shipperMinPoints: 2000, requiredIdentityLevel: (int)IdentityLevel.Verified);
+
+        // Customer with 1500 points — would PASS with hard-coded 1000, FAILS with per-tenant 2000
+        CreateCustomer(_tenantIdB, "1500-point Customer", IdentityLevel.Verified, 1500);
+
+        var result = await _service.GetEligibleCustomersForTenantAsync(TenantB, 1, 20);
+        Assert.Empty(result.Items); // NOT eligible
+    }
+
+    // === TS15: Tenant A with lowered IdentityLevel (Social=1) → Social customer IS eligible ===
+    [Fact(DisplayName = "TS15: Per-tenant threshold — lowered IdentityLevel (Social) allows Social customer")]
+    public async Task PerTenantThreshold_LoweredIdentityLevel_AllowsSocial()
+    {
+        // Configure Tenant A: IdentityLevel=Social (1), 1000 points
+        _stubSettings.SetTenantThresholds(TenantA, salesmanMinPoints: 1000, shipperMinPoints: 1000, requiredIdentityLevel: (int)IdentityLevel.Social);
+
+        // Customer with Social level (would FAIL with hard-coded Verified=2, PASSES with per-tenant Social=1)
+        var customer = CreateCustomer(_tenantIdA, "Social Customer", IdentityLevel.Social, 1500);
+
+        var role = await _service.ActivateRoleForTenantAsync(TenantA, customer.Id, CommunityRoleType.Shipper, OwnerId);
+        Assert.True(role.IsActive);
+    }
+
+    // === TS16: Salesman and Shipper have DIFFERENT thresholds in same tenant ===
+    [Fact(DisplayName = "TS16: Salesman + Shipper different thresholds — customer eligible for one but not other")]
+    public async Task PerTenantThreshold_DifferentPerRole()
+    {
+        // Configure Tenant A: Salesman=500, Shipper=2000
+        _stubSettings.SetTenantThresholds(TenantA, salesmanMinPoints: 500, shipperMinPoints: 2000, requiredIdentityLevel: (int)IdentityLevel.Verified);
+
+        // Customer with 800 points — eligible for Salesman (500), NOT for Shipper (2000)
+        var customer = CreateCustomer(_tenantIdA, "800-point Customer", IdentityLevel.Verified, 800);
+
+        // Salesman activation: PASSES (800 >= 500)
+        var salesmanRole = await _service.ActivateRoleForTenantAsync(TenantA, customer.Id, CommunityRoleType.Salesman, OwnerId);
+        Assert.True(salesmanRole.IsActive);
+
+        // Shipper activation: FAILS (800 < 2000)
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ActivateRoleForTenantAsync(TenantA, customer.Id, CommunityRoleType.Shipper, OwnerId));
+    }
+
+    // === TS17: Per-tenant threshold does NOT affect other tenant ===
+    [Fact(DisplayName = "TS17: Per-tenant threshold isolation — Tenant A config doesn't affect Tenant B")]
+    public async Task PerTenantThreshold_Isolation_BetweenTenants()
+    {
+        // Configure Tenant A: 500 points (lowered)
+        _stubSettings.SetTenantThresholds(TenantA, salesmanMinPoints: 500, shipperMinPoints: 500, requiredIdentityLevel: (int)IdentityLevel.Verified);
+        // Tenant B: default (1000 points) — NOT configured
+
+        // Tenant A customer with 600 points: eligible
+        var customerA = CreateCustomer(_tenantIdA, "A 600pt", IdentityLevel.Verified, 600);
+        // Tenant B customer with 600 points: NOT eligible (Tenant B still uses default 1000)
+        var customerB = CreateCustomer(_tenantIdB, "B 600pt", IdentityLevel.Verified, 600);
+
+        var resultA = await _service.GetEligibleCustomersForTenantAsync(TenantA, 1, 20);
+        var resultB = await _service.GetEligibleCustomersForTenantAsync(TenantB, 1, 20);
+
+        Assert.Single(resultA.Items); // A: eligible (600 >= 500)
+        Assert.Empty(resultB.Items);  // B: NOT eligible (600 < 1000 default)
     }
 }

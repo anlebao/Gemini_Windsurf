@@ -2,19 +2,56 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Services;
 
 namespace VanAn.CoreHub.Services;
 
 /// <summary>
 /// CC-S6 (Sprint 6): Community admin service implementation.
 /// Eligible list, activate/deactivate roles. Cross-tenant (IgnoreQueryFilters).
+/// R2.1 (2026-09-04): Per-tenant eligibility thresholds via IShopFeatureSettingsService
+/// (replaces hard-coded 1000 points + IdentityLevel.Verified).
 /// </summary>
 public class CommunityAdminService(
     IVanAnDbContext dbContext,
+    IShopFeatureSettingsService shopFeatureSettingsService,
     ILogger<CommunityAdminService> logger) : ICommunityAdminService
 {
     private readonly IVanAnDbContext _dbContext = dbContext;
+    private readonly IShopFeatureSettingsService _shopFeatureSettingsService = shopFeatureSettingsService;
     private readonly ILogger<CommunityAdminService> _logger = logger;
+
+    /// <summary>
+    /// R2.1: Get per-tenant eligibility thresholds for a specific role.
+    /// Falls back to defaults (1000 points + Verified) if ShopFeatureSettings not configured.
+    /// SystemAdmin cross-tenant path passes tenantId=null → uses defaults (backward compat).
+    /// </summary>
+    private async Task<(int MinPoints, IdentityLevel RequiredIdentityLevel)> GetEligibilityThresholdsAsync(
+        Guid? tenantId, CommunityRoleType role)
+    {
+        // SystemAdmin cross-tenant path: no specific tenant → use hard-coded defaults (backward compat)
+        if (tenantId == null || tenantId == Guid.Empty)
+        {
+            return (1000, IdentityLevel.Verified);
+        }
+
+        try
+        {
+            var settings = await _shopFeatureSettingsService.GetSettingsAsync(tenantId.Value);
+            int minPoints = role == CommunityRoleType.Salesman
+                ? settings.Community_SalesmanMinPoints
+                : settings.Community_ShipperMinPoints;
+            var requiredLevel = (IdentityLevel)settings.Community_RequiredIdentityLevel;
+            return (minPoints, requiredLevel);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "GetEligibilityThresholdsAsync: Failed to load ShopFeatureSettings for tenant {TenantId}, using defaults",
+                tenantId);
+            return (1000, IdentityLevel.Verified);
+        }
+    }
 
     public async Task<PagedResult<EligibleCustomerDto>> GetEligibleCustomersAsync(int page, int pageSize)
     {
@@ -150,14 +187,23 @@ public class CommunityAdminService(
         if (pageSize < 1) pageSize = 20;
         if (pageSize > 100) pageSize = 100;
 
-        // Same eligibility criteria as SystemAdmin path, but filtered by tenantId
+        // R2.1: Read per-tenant eligibility thresholds from ShopFeatureSettings.
+        // For the eligible LIST, use the MORE PERMISSIVE of Salesman/Shipper thresholds
+        // (so customer shows in list if eligible for at least one role).
+        var salesmanThresholds = await GetEligibilityThresholdsAsync(tenantId, CommunityRoleType.Salesman);
+        var shipperThresholds = await GetEligibilityThresholdsAsync(tenantId, CommunityRoleType.Shipper);
+        int minPointsForList = Math.Min(salesmanThresholds.MinPoints, shipperThresholds.MinPoints);
+        var requiredLevelForList = (IdentityLevel)Math.Min(
+            (int)salesmanThresholds.RequiredIdentityLevel,
+            (int)shipperThresholds.RequiredIdentityLevel);
+
         var query = _dbContext.Customers
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(c => c.IsActive
                 && c.TenantId == new TenantId(tenantId)
-                && c.IdentityLevel >= IdentityLevel.Verified
-                && c.LoyaltyPoints >= 1000);
+                && c.IdentityLevel >= requiredLevelForList
+                && c.LoyaltyPoints >= minPointsForList);
 
         var total = await query.CountAsync();
 
@@ -216,10 +262,14 @@ public class CommunityAdminService(
         if (!customer.IsActive)
             throw new InvalidOperationException($"Customer {customerId} is not active.");
 
-        if (customer.IdentityLevel < IdentityLevel.Verified || customer.LoyaltyPoints < 1000)
+        // R2.1: Per-tenant eligibility thresholds (replaces hard-coded 1000/Verified)
+        var thresholds = await GetEligibilityThresholdsAsync(tenantId, role);
+        if (customer.IdentityLevel < thresholds.RequiredIdentityLevel
+            || customer.LoyaltyPoints < thresholds.MinPoints)
             throw new InvalidOperationException(
-                $"Customer {customerId} does not meet eligibility criteria " +
-                $"(IdentityLevel={customer.IdentityLevel}, LoyaltyPoints={customer.LoyaltyPoints}).");
+                $"Customer {customerId} does not meet eligibility criteria for {role} " +
+                $"(required: IdentityLevel>={thresholds.RequiredIdentityLevel}, LoyaltyPoints>={thresholds.MinPoints}; " +
+                $"actual: IdentityLevel={customer.IdentityLevel}, LoyaltyPoints={customer.LoyaltyPoints}).");
 
         // 2. Check no active role of same type
         var existingRole = await _dbContext.CommunityRoles

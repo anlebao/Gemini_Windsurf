@@ -95,6 +95,23 @@ public class ShopFeatureSettingsEntity : BaseEntity
     /// Default true (backward compat). When false, Social OAuth customers can redeem without OTP.</summary>
     public bool Loyalty_RequirePhoneVerificationForRedeem { get; private set; } = true;
 
+    // === R2.1 (2026-09-04): Per-tenant community role eligibility thresholds ===
+    // Owner (tenant owner) can configure these via /settings/shop-features.
+    // CommunityAdminService reads these per-tenant values instead of hard-coded 1000/Verified.
+    // Defaults preserve backward compat (1000 points + Verified = existing behavior).
+
+    /// <summary>R2.1: Min LoyaltyPoints required to activate Salesman role. Default 1000 (backward compat).
+    /// Owner can lower (e.g., 500) to make it easier, or raise (e.g., 2000) to be more selective.</summary>
+    public int Community_SalesmanMinPoints { get; private set; } = 1000;
+
+    /// <summary>R2.1: Min LoyaltyPoints required to activate Shipper role. Default 1000 (backward compat).
+    /// Owner can set different threshold than Salesman (e.g., Shipper requires fewer points).</summary>
+    public int Community_ShipperMinPoints { get; private set; } = 1000;
+
+    /// <summary>R2.1: Min IdentityLevel required for both Salesman + Shipper. Default 2 (Verified).
+    /// 0=Guest, 1=Social, 2=Verified (SMS OTP), 3=Full. Owner can lower to Social (1) if desired.</summary>
+    public int Community_RequiredIdentityLevel { get; private set; } = (int)IdentityLevel.Verified;
+
     private ShopFeatureSettingsEntity() { } // EF Core materialization
 
     /// <summary>Factory: create with default toggle values for a tenant.</summary>
@@ -129,6 +146,10 @@ public class ShopFeatureSettingsEntity : BaseEntity
         Notify_VoucherExpiringSoon = true;
         VoucherExpiryNotifyHours = 24;
         Loyalty_RequirePhoneVerificationForRedeem = true;
+        // R2.1: community role eligibility thresholds (defaults = backward compat)
+        Community_SalesmanMinPoints = 1000;
+        Community_ShipperMinPoints = 1000;
+        Community_RequiredIdentityLevel = (int)IdentityLevel.Verified;
     }
 
     /// <summary>Update all toggles + polling interval + loyalty formula + notification rules at once.</summary>
@@ -167,7 +188,11 @@ public class ShopFeatureSettingsEntity : BaseEntity
         // VALCN v2.0 Phase 1: per-tenant platform fee rate (null = unchanged, use dedicated setter for explicit set)
         decimal? platformFeeRate = null,
         // #121.1.2: Require phone verification for redemption (default true = backward compat)
-        bool loyaltyRequirePhoneVerificationForRedeem = true)
+        bool loyaltyRequirePhoneVerificationForRedeem = true,
+        // R2.1 (2026-09-04): community role eligibility thresholds (defaults = backward compat)
+        int? communitySalesmanMinPoints = null,
+        int? communityShipperMinPoints = null,
+        int? communityRequiredIdentityLevel = null)
     {
         QR_TableNumber_Enabled = qrTableNumber;
         Kitchen_Workflow_Enabled = kitchenWorkflow;
@@ -204,6 +229,23 @@ public class ShopFeatureSettingsEntity : BaseEntity
             PlatformFeeRate = Math.Clamp(platformFeeRate.Value, 0m, 1m);
         // #121.1.2
         Loyalty_RequirePhoneVerificationForRedeem = loyaltyRequirePhoneVerificationForRedeem;
+        // R2.1: community role eligibility (only update if provided — null = keep existing)
+        if (communitySalesmanMinPoints.HasValue)
+            Community_SalesmanMinPoints = Math.Max(0, communitySalesmanMinPoints.Value);
+        if (communityShipperMinPoints.HasValue)
+            Community_ShipperMinPoints = Math.Max(0, communityShipperMinPoints.Value);
+        if (communityRequiredIdentityLevel.HasValue)
+            Community_RequiredIdentityLevel = Math.Clamp(communityRequiredIdentityLevel.Value, 0, 3);
+        UpdateAudit();
+    }
+
+    /// <summary>R2.1: Set community role eligibility thresholds independently (dedicated setter).
+    /// Allows Owner to update thresholds without touching other toggles.</summary>
+    public void SetCommunityEligibilityThresholds(int salesmanMinPoints, int shipperMinPoints, int requiredIdentityLevel)
+    {
+        Community_SalesmanMinPoints = Math.Max(0, salesmanMinPoints);
+        Community_ShipperMinPoints = Math.Max(0, shipperMinPoints);
+        Community_RequiredIdentityLevel = Math.Clamp(requiredIdentityLevel, 0, 3);
         UpdateAudit();
     }
 

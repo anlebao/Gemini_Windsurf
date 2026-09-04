@@ -69,6 +69,20 @@ public record ShopFeatureSettingsDto
     /// <summary>#121.1.2: Require phone verification (IdentityLevel >= Verified) to redeem points.
     /// Default true (backward compat). When false, Social OAuth customers can redeem without OTP.</summary>
     public bool Loyalty_RequirePhoneVerificationForRedeem { get; set; } = true;
+
+    // === R2.1 (2026-09-04): Per-tenant community role eligibility thresholds ===
+    // Owner (tenant owner) can configure these via /settings/shop-features.
+    // CommunityAdminService reads these per-tenant values instead of hard-coded 1000/Verified.
+    // Defaults preserve backward compat (1000 points + Verified = existing behavior).
+
+    /// <summary>R2.1: Min LoyaltyPoints to activate Salesman role. Default 1000 (backward compat).</summary>
+    public int Community_SalesmanMinPoints { get; set; } = 1000;
+
+    /// <summary>R2.1: Min LoyaltyPoints to activate Shipper role. Default 1000 (backward compat).</summary>
+    public int Community_ShipperMinPoints { get; set; } = 1000;
+
+    /// <summary>R2.1: Min IdentityLevel for both roles. Default 2 (Verified). 0=Guest, 1=Social, 2=Verified, 3=Full.</summary>
+    public int Community_RequiredIdentityLevel { get; set; } = 2;
 }
 
 /// <summary>
