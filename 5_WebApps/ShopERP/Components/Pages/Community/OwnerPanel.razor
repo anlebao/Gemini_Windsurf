@@ -1,0 +1,216 @@
+@page "/community/owner-panel"
+@rendermode InteractiveServer
+@layout VanAn.ShopERP.Components.Pages.Admin.AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject TenantCommunityAdminApiClient ApiClient
+@inject IThemeProvider ThemeProvider
+@inject ILogger<OwnerPanel> Logger
+
+@attribute [Authorize(Roles = "Owner")]
+
+<div class="community-admin-panel @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Quản lý cộng tác viên</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadData">Làm mới</VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    <VanACard>
+        <div class="owner-info-banner">
+            <p class="text-muted small">
+                Bạn đang quản lý cộng tác viên của chính tenant mình. Chỉ khách hàng thuộc tenant của bạn được hiển thị.
+            </p>
+        </div>
+    </VanACard>
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải danh sách khách hàng đủ điều kiện...</p>
+            </div>
+        </VanACard>
+    }
+    else if (_items.Count == 0)
+    {
+        <VanACard>
+            <div class="empty-state">
+                <p>Chưa có khách hàng nào đủ điều kiện (IdentityLevel ≥ Verified VÀ LoyaltyPoints ≥ 1000).</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Khách hàng</th>
+                            <th>SĐT</th>
+                            <th>Điểm tích lũy</th>
+                            <th>Identity Level</th>
+                            <th>Vai trò hiện tại</th>
+                            <th>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _items)
+                        {
+                            <tr>
+                                <td>@item.FullName</td>
+                                <td>@item.PhoneNumber</td>
+                                <td>@item.LoyaltyPoints</td>
+                                <td>@item.IdentityLevel</td>
+                                <td>
+                                    @if (item.ExistingRoles.Count > 0)
+                                    {
+                                        @string.Join(", ", item.ExistingRoles)
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">Chưa có</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!item.ExistingRoles.Contains("Shipper"))
+                                    {
+                                        <VanAButton Variant="primary" Size="small" OnClick="@(() => ActivateRole(item.CustomerId, "Shipper"))">
+                                            + Shipper
+                                        </VanAButton>
+                                    }
+                                    else
+                                    {
+                                        <VanAButton Variant="secondary" Size="small" OnClick="@(() => DeactivateRole(item.CustomerId, "Shipper"))">
+                                            − Shipper
+                                        </VanAButton>
+                                    }
+                                    @if (!item.ExistingRoles.Contains("Salesman"))
+                                    {
+                                        <VanAButton Variant="primary" Size="small" OnClick="@(() => ActivateRole(item.CustomerId, "Salesman"))">
+                                            + Salesman
+                                        </VanAButton>
+                                    }
+                                    else
+                                    {
+                                        <VanAButton Variant="secondary" Size="small" OnClick="@(() => DeactivateRole(item.CustomerId, "Salesman"))">
+                                            − Salesman
+                                        </VanAButton>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination-info">
+                <p>Tổng: @_items.Count / @_total khách hàng (Trang @_currentPage)</p>
+                <div class="pagination-buttons">
+                    <VanAButton Variant="secondary" Size="small" Disabled="@(_currentPage <= 1)" OnClick="PrevPage">← Trước</VanAButton>
+                    <VanAButton Variant="secondary" Size="small" Disabled="@(_items.Count < _pageSize)" OnClick="NextPage">Sau →</VanAButton>
+                </div>
+            </div>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private List<EligibleCustomerItem> _items = new();
+    private int _total = 0;
+    private int _currentPage = 1;
+    private const int PageSize = 20;
+    private bool _isLoading = false;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    private int _pageSize => PageSize;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            var result = await ApiClient.GetEligibleAsync(_currentPage, PageSize);
+            _items = result.Items;
+            _total = result.Total;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "LoadData failed");
+            _alertMessage = $"Lỗi tải dữ liệu: {ex.Message}";
+            _alertType = "error";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ActivateRole(Guid customerId, string role)
+    {
+        try
+        {
+            await ApiClient.ActivateRoleAsync(customerId, role);
+            _alertMessage = $"Đã kích hoạt vai trò {role} thành công.";
+            _alertType = "success";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "ActivateRole failed");
+            _alertMessage = $"Lỗi kích hoạt vai trò: {ex.Message}";
+            _alertType = "error";
+        }
+    }
+
+    private async Task DeactivateRole(Guid customerId, string role)
+    {
+        try
+        {
+            await ApiClient.DeactivateRoleAsync(customerId, role);
+            _alertMessage = $"Đã hủy kích hoạt vai trò {role}.";
+            _alertType = "success";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "DeactivateRole failed");
+            _alertMessage = $"Lỗi hủy kích hoạt: {ex.Message}";
+            _alertType = "error";
+        }
+    }
+
+    private async Task PrevPage()
+    {
+        if (_currentPage > 1)
+        {
+            _currentPage--;
+            await LoadData();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (_items.Count >= PageSize)
+        {
+            _currentPage++;
+            await LoadData();
+        }
+    }
+}

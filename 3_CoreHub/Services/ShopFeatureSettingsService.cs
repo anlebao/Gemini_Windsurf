@@ -79,7 +79,11 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
             // VALCN v2.0 Phase 1
             settings.PlatformFeeRate,
             // #121.1.2
-            settings.Loyalty_RequirePhoneVerificationForRedeem);
+            settings.Loyalty_RequirePhoneVerificationForRedeem,
+            // R2.1 (2026-09-04): community role eligibility thresholds
+            settings.Community_SalesmanMinPoints,
+            settings.Community_ShipperMinPoints,
+            settings.Community_RequiredIdentityLevel);
 
         await _context.SaveChangesAsync(ct);
         _logger.LogInformation("Updated shop feature settings for tenant {TenantId}", tenantId);
@@ -164,6 +168,10 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
         Notify_VoucherExpiringSoon = entity.Notify_VoucherExpiringSoon,
         VoucherExpiryNotifyHours = entity.VoucherExpiryNotifyHours,
         // #121.1.2
-        Loyalty_RequirePhoneVerificationForRedeem = entity.Loyalty_RequirePhoneVerificationForRedeem
+        Loyalty_RequirePhoneVerificationForRedeem = entity.Loyalty_RequirePhoneVerificationForRedeem,
+        // R2.1 (2026-09-04): community role eligibility thresholds
+        Community_SalesmanMinPoints = entity.Community_SalesmanMinPoints,
+        Community_ShipperMinPoints = entity.Community_ShipperMinPoints,
+        Community_RequiredIdentityLevel = entity.Community_RequiredIdentityLevel
     };
 }

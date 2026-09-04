@@ -48,9 +48,9 @@ namespace VanAn.Shared.Domain.Aggregates.KhachLinkAggregate
                 ShowStaffDashboard = false
                 // ShowHome, ShowStores, ShowProfile = true (directory core)
             },
+            KhachLinkProfile.Reseller => new KhachLinkNavFlags(),  // R2: all true (full commerce + reseller extensions)
             // TODO R3: Logistics preset (hide commerce, show community)
             // TODO R3: JobMarket preset (hide commerce, show /jobs)
-            // TODO R2: Reseller preset (all true + reseller extensions)
             _ => new KhachLinkNavFlags()  // FullCommerce + unimplemented profiles = all true (safe default)
         };
     }

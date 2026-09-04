@@ -229,5 +229,63 @@ namespace VanAn.Integration.Tests.KhachLink
 
             Assert.NotNull(db.KhachLinkInstances);
         }
+
+        // ── R2 (2026-09-04): Reseller profile tests ──────────────────────────
+
+        [Fact(DisplayName = "KLI-R2-1: Seed Reseller instance + verify NavFlags all true via DB")]
+        public async Task SeedResellerInstance_NavFlagsAllTrue()
+        {
+            using var scope = _factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<IVanAnDbContext>();
+
+            var ownerTenantId = Guid.Parse("00000000-0000-0000-0000-0000000000aa");
+            var instance = new KhachLinkInstance(
+                "R2 Reseller Test",
+                KhachLinkProfile.Reseller,
+                "reseller-test.khachvip.online",
+                ownerTenantId);
+
+            db.KhachLinkInstances.Add(instance);
+            await db.SaveChangesAsync();
+
+            // Reload from DB to verify persistence
+            var fromDb = await db.KhachLinkInstances
+                .AsNoTracking()
+                .FirstOrDefaultAsync(k => k.Id == instance.Id);
+
+            Assert.NotNull(fromDb);
+            Assert.Equal(KhachLinkProfile.Reseller, fromDb!.Profile);
+            Assert.Equal(ownerTenantId, fromDb.OwnerTenantId);
+            // NavFlags should all be true (Reseller preset = all true)
+            Assert.True(fromDb.NavFlags.ShowHome);
+            Assert.True(fromDb.NavFlags.ShowCart);
+            Assert.True(fromDb.NavFlags.ShowOrders);
+            Assert.True(fromDb.NavFlags.ShowStores);
+            Assert.True(fromDb.NavFlags.ShowProfile);
+            Assert.True(fromDb.NavFlags.ShowCommunity);
+        }
+
+        [Fact(DisplayName = "KLI-R2-2: ForProfile(Reseller) returns commerce flags true (ShowJobs=false — JobMarket-only)")]
+        public void ForProfile_Reseller_EntityLevel_AllTrue()
+        {
+            // Verify the factory method directly (no DB needed)
+            var flags = KhachLinkNavFlags.ForProfile(KhachLinkProfile.Reseller);
+
+            Assert.True(flags.ShowHome);
+            Assert.True(flags.ShowCart);
+            Assert.True(flags.ShowOrders);
+            Assert.True(flags.ShowLoyaltyHistory);
+            Assert.True(flags.ShowMissions);
+            Assert.True(flags.ShowRewards);
+            Assert.True(flags.ShowAllianceWallet);
+            Assert.True(flags.ShowStores);
+            Assert.True(flags.ShowCampaigns);
+            Assert.True(flags.ShowScan);
+            Assert.True(flags.ShowQrClaim);
+            Assert.True(flags.ShowCommunity);
+            Assert.False(flags.ShowJobs, "ShowJobs is JobMarket-only (R3), not Reseller");
+            Assert.True(flags.ShowProfile);
+            Assert.True(flags.ShowStaffDashboard);
+        }
     }
 }

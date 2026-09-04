@@ -39,7 +39,7 @@ public class CommunityAdminServiceTests : IDisposable
 
         _context = new VanAnDbContext(options);
         _context.Database.EnsureCreated();
-        _service = new CommunityAdminService(_context, NullLogger<CommunityAdminService>.Instance);
+        _service = new CommunityAdminService(_context, new StubShopFeatureSettingsService(), NullLogger<CommunityAdminService>.Instance);
 
         SeedTenant();
     }

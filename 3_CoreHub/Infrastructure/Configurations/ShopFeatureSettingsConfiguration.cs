@@ -41,6 +41,11 @@ public class ShopFeatureSettingsConfiguration : IEntityTypeConfiguration<ShopFea
         builder.Property(e => e.Notify_VoucherExpiringSoon).IsRequired().HasDefaultValue(true);
         builder.Property(e => e.VoucherExpiryNotifyHours).IsRequired().HasDefaultValue(24);
 
+        // R2.1 (2026-09-04): Per-tenant community role eligibility thresholds
+        builder.Property(e => e.Community_SalesmanMinPoints).IsRequired().HasDefaultValue(1000);
+        builder.Property(e => e.Community_ShipperMinPoints).IsRequired().HasDefaultValue(1000);
+        builder.Property(e => e.Community_RequiredIdentityLevel).IsRequired().HasDefaultValue(2); // Verified
+
         // One row per tenant — unique index on TenantId
         builder.HasIndex("TenantId").IsUnique();
     }
