@@ -265,7 +265,7 @@ namespace VanAn.Integration.Tests.KhachLink
             Assert.True(fromDb.NavFlags.ShowCommunity);
         }
 
-        [Fact(DisplayName = "KLI-R2-2: ForProfile(Reseller) returns all 15 true at entity level")]
+        [Fact(DisplayName = "KLI-R2-2: ForProfile(Reseller) returns commerce flags true (ShowJobs=false — JobMarket-only)")]
         public void ForProfile_Reseller_EntityLevel_AllTrue()
         {
             // Verify the factory method directly (no DB needed)
@@ -283,7 +283,7 @@ namespace VanAn.Integration.Tests.KhachLink
             Assert.True(flags.ShowScan);
             Assert.True(flags.ShowQrClaim);
             Assert.True(flags.ShowCommunity);
-            Assert.True(flags.ShowJobs);
+            Assert.False(flags.ShowJobs, "ShowJobs is JobMarket-only (R3), not Reseller");
             Assert.True(flags.ShowProfile);
             Assert.True(flags.ShowStaffDashboard);
         }
