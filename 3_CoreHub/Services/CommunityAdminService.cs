@@ -141,6 +141,156 @@ public class CommunityAdminService(
             .ToListAsync();
     }
 
+    // === R2 (2026-09-04): Tenant-scoped overloads — for Owner (Reseller owner) role management ===
+    // IDOR guard: every method verifies customer/role belongs to the calling tenant before action.
+
+    public async Task<PagedResult<EligibleCustomerDto>> GetEligibleCustomersForTenantAsync(Guid tenantId, int page, int pageSize)
+    {
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 20;
+        if (pageSize > 100) pageSize = 100;
+
+        // Same eligibility criteria as SystemAdmin path, but filtered by tenantId
+        var query = _dbContext.Customers
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(c => c.IsActive
+                && c.TenantId == new TenantId(tenantId)
+                && c.IdentityLevel >= IdentityLevel.Verified
+                && c.LoyaltyPoints >= 1000);
+
+        var total = await query.CountAsync();
+
+        var customers = await query
+            .OrderByDescending(c => c.LoyaltyPoints)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(c => new
+            {
+                c.Id,
+                c.FullName,
+                c.PhoneNumber,
+                c.LoyaltyPoints,
+                IdentityLevel = c.IdentityLevel.ToString()
+            })
+            .ToListAsync();
+
+        var customerIds = customers.Select(c => c.Id).ToList();
+        var roles = await _dbContext.CommunityRoles
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(r => customerIds.Contains(r.CustomerId) && r.IsActive)
+            .Select(r => new { r.CustomerId, RoleType = r.RoleType.ToString() })
+            .ToListAsync();
+
+        var rolesByCustomer = roles.GroupBy(r => r.CustomerId)
+            .ToDictionary(g => g.Key, g => g.Select(r => r.RoleType).ToList());
+
+        var items = customers.Select(c => new EligibleCustomerDto
+        {
+            CustomerId = c.Id,
+            FullName = c.FullName,
+            PhoneNumber = MaskPhone(c.PhoneNumber),
+            LoyaltyPoints = c.LoyaltyPoints,
+            IdentityLevel = c.IdentityLevel,
+            ExistingRoles = rolesByCustomer.TryGetValue(c.Id, out var existing) ? existing : new List<string>()
+        }).ToList();
+
+        return new PagedResult<EligibleCustomerDto> { Total = total, Items = items };
+    }
+
+    public async Task<CommunityRole> ActivateRoleForTenantAsync(Guid tenantId, Guid customerId, CommunityRoleType role, Guid activatedBy)
+    {
+        // 1. Verify customer exists + belongs to calling tenant (IDOR guard)
+        var customer = await _dbContext.Customers
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.Id == customerId);
+
+        if (customer == null)
+            throw new InvalidOperationException($"Customer {customerId} not found.");
+
+        if (customer.TenantId.Value != tenantId)
+            throw new UnauthorizedAccessException(
+                $"Customer {customerId} does not belong to tenant {tenantId}.");
+
+        if (!customer.IsActive)
+            throw new InvalidOperationException($"Customer {customerId} is not active.");
+
+        if (customer.IdentityLevel < IdentityLevel.Verified || customer.LoyaltyPoints < 1000)
+            throw new InvalidOperationException(
+                $"Customer {customerId} does not meet eligibility criteria " +
+                $"(IdentityLevel={customer.IdentityLevel}, LoyaltyPoints={customer.LoyaltyPoints}).");
+
+        // 2. Check no active role of same type
+        var existingRole = await _dbContext.CommunityRoles
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(r => r.CustomerId == customerId
+                && r.RoleType == role
+                && r.IsActive);
+
+        if (existingRole != null)
+            throw new InvalidOperationException(
+                $"Customer {customerId} already has an active {role} role.");
+
+        // 3. Create role (uses customer.TenantId which == tenantId after IDOR guard)
+        var newRole = new CommunityRole(customer.TenantId, customerId, role, activatedBy);
+        _dbContext.CommunityRoles.Add(newRole);
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "ActivateRoleForTenantAsync: {Role} activated for customer {CustomerId} of tenant {TenantId} by {ActivatedBy}",
+            role, customerId, tenantId, activatedBy);
+
+        return newRole;
+    }
+
+    public async Task DeactivateRoleForTenantAsync(Guid tenantId, Guid customerId, CommunityRoleType role)
+    {
+        var existingRole = await _dbContext.CommunityRoles
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(r => r.CustomerId == customerId
+                && r.RoleType == role
+                && r.IsActive);
+
+        if (existingRole == null)
+            throw new InvalidOperationException(
+                $"No active {role} role found for customer {customerId}.");
+
+        if (existingRole.TenantId.Value != tenantId)
+            throw new UnauthorizedAccessException(
+                $"Role for customer {customerId} does not belong to tenant {tenantId}.");
+
+        existingRole.Deactivate();
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "DeactivateRoleForTenantAsync: {Role} deactivated for customer {CustomerId} of tenant {TenantId}",
+            role, customerId, tenantId);
+    }
+
+    public async Task<List<CommunityRole>> GetCustomerRolesForTenantAsync(Guid tenantId, Guid customerId)
+    {
+        // Verify customer belongs to tenant (IDOR guard)
+        var customer = await _dbContext.Customers
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == customerId);
+
+        if (customer == null)
+            throw new InvalidOperationException($"Customer {customerId} not found.");
+
+        if (customer.TenantId.Value != tenantId)
+            throw new UnauthorizedAccessException(
+                $"Customer {customerId} does not belong to tenant {tenantId}.");
+
+        return await _dbContext.CommunityRoles
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(r => r.CustomerId == customerId)
+            .OrderByDescending(r => r.ActivatedAt)
+            .ToListAsync();
+    }
+
     private static string MaskPhone(string phone)
     {
         if (string.IsNullOrEmpty(phone) || phone.Length < 4) return phone;

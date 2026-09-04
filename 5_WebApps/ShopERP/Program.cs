@@ -520,6 +520,7 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<Services.FeaturedProductApiClient>();
             _ = builder.Services.AddScoped<Services.ProductReferralConfigApiClient>();
             _ = builder.Services.AddScoped<Services.CommunityAdminApiClient>();
+            _ = builder.Services.AddScoped<Services.TenantCommunityAdminApiClient>(); // R2: Owner-scoped role activation
             _ = builder.Services.AddScoped<Services.CampaignApiClient>();
             _ = builder.Services.AddScoped<Services.TenantApiClient>();
             // Crawl-to-Onboard Phase 7 (2026-08-26): Claims queue + Pending + Duplicates + Crawl trigger.
