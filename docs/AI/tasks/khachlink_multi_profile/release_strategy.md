@@ -10,7 +10,8 @@
 | Release | Sprints | Branch | Status |
 |---|---|---|---|
 | **R1** — Multi-Profile Core + Type 1 + 4 + Multi-domain | 1-6 | `feature/khachlink-multi-profile-r1` | 🔵 IN PROGRESS |
-| **R2** — Type 5 Reseller | 7 | `feature/khachlink-multi-profile-r2` | ⏳ PENDING |
+| **R2** — Type 5 Reseller + Owner Role Assignment | 7 (expanded) | `feature/khachlink-multi-profile-r2` | ⏳ PENDING |
+| **R2.2** — Reseller Accounting Fix | 7.2 | `feature/reseller-accounting-fix` | ⏳ PENDING — gap documented 2026-09-04 |
 | **R3** — Type 2 Logistics + Type 3 JobMarket | 8-9 | `feature/khachlink-multi-profile-r3` | ⏳ PENDING |
 
 ---
@@ -28,7 +29,11 @@ main (always-green)
  │     ↓ PR → review → merge → deploy → RV
  │     └── main updated (R2 merged)
  │
- └── feature/khachlink-multi-profile-r3 (Sprint 8-9 — from main after R2)
+ ├── feature/reseller-accounting-fix (Sprint 7.2 — from main after R2)
+ │     ↓ PR → review → merge → deploy → RV
+ │     └── main updated (R2.2 merged)
+ │
+ └── feature/khachlink-multi-profile-r3 (Sprint 8-9 — from main after R2.2)
        ↓ PR → review → merge → deploy → RV
        └── main updated (R3 merged — DONE)
 ```
@@ -79,11 +84,11 @@ main (always-green)
 
 ---
 
-### RELEASE R2 — "Type 5 Reseller" (Sprint 7)
+### RELEASE R2 — "Type 5 Reseller + Owner Role Assignment" (Sprint 7 — expanded 2026-09-04)
 
 | | |
 |---|---|
-| **Sprints** | 7 (Reseller Profile + CommerceMode integration) |
+| **Sprints** | 7 (Reseller Profile + CommerceMode integration + Owner Role Assignment) |
 | **Branch** | `feature/khachlink-multi-profile-r2` (from main after R1 merge) |
 | **Feature flag** | ON (R1 đã RV) |
 
@@ -93,6 +98,10 @@ main (always-green)
 - ✅ KhachLink instance profile=Reseller + OwnerTenantId=reseller → tenant context = reseller
 - ✅ Orders tạo trên reseller instance → snapshot `CommerceMode.Reseller` (existing flow via `TenantSettings.CommerceModeOverride` or `GlobalCommerceMode`)
 - ✅ Tenant trung gian bán sản phẩm/dịch vụ cho tenant con — products = existing Product entity (chỉ khác text)
+- ✅ **NEW: Owner tenant (Reseller owner) tự quản lý cộng tác viên — panel `/community/owner-panel` `[Authorize(Roles="Owner")]`**
+- ✅ **NEW: Owner activate Salesman/Shipper cho customer thuộc tenant mình — Gateway `/api/v1/tenant-community/*` `[Authorize(Policy="RequireOwnerRole")]`**
+- ✅ **NEW: IDOR guard — Owner tenant A KHÔNG activate cho customer tenant B**
+- ✅ **NEW: SystemAdmin flow unchanged — existing `/api/admin/community/*` cross-tenant**
 
 **Demo script:**
 ```
@@ -100,6 +109,10 @@ main (always-green)
 2. DNS + SSL expand
 3. Truy cập https://reseller.khachvip.online → all icons + tenant context = reseller
 4. Customer order → order snapshot CommerceMode.Reseller (verify in DB)
+5. Owner tenant login ShopERP → /community/owner-panel → thấy eligible customers of own tenant
+6. Owner activate Salesman cho customer A (thuộc tenant mình) → verify CommunityRole row in DB with TenantId=owner's tenant
+7. Owner attempt activate cho customer B (different tenant) → 403 Forbidden (IDOR guard)
+8. SystemAdmin login → /admin/community/admin-panel → cross-tenant view still works
 ```
 
 **Không có trong R2:**
@@ -110,12 +123,53 @@ main (always-green)
 
 ---
 
+### RELEASE R2.2 — "Reseller Accounting Fix" (Sprint 7.2 — deferred from R2 2026-09-04)
+
+| | |
+|---|---|
+| **Sprints** | 7.2 (Reseller Accounting-Cashflow Alignment) |
+| **Branch** | `feature/reseller-accounting-fix` (from main after R2 merge) |
+| **Feature flag** | ON (R2 đã RV) |
+
+**Background (gap documented 2026-09-04):**
+- `OrderService.GenerateAccountingEntriesAsync` (line 162-254) có **NO `CommerceMode` branch** — tất cả orders tạo identical Revenue(511) + VAT(3331) + COGS(632) trên sổ `order.TenantId`.
+- `WalletService.ConfirmCodResellerAsync` (line 223-336) cho thấy Vạn An (Platform) là middleman: `order.TenantId` = SUPPLIER chỉ nhận `costPrice` qua Wallet Settlement, customer trả `sellPrice`. Margin do Vạn An giữ (PlatformFee + CommunityFund + Commission + VanAn net).
+- **Hệ quả:** Supplier tenant's accounting shows inflated revenue (sellPrice) họ không thực nhận + gross margin họ không giữ → violates TT 152/2025/TT-BTC cash-basis (doanh thu ghi nhận theo thực thu).
+
+**Giá trị nhìn thấy được:**
+- ✅ `GenerateAccountingEntriesAsync` có `CommerceMode.Reseller` branch riêng (separate from Marketplace)
+- ✅ Supplier tenant's Revenue(511) = `costPrice` (actual cash received via Settlement), NOT `sellPrice`
+- ✅ Supplier tenant's COGS(632) = production cost (unchanged — actual cost of goods sold)
+- ✅ Platform tenant's books: PlatformFee + CommunityFund + VanAn net margin = income entries
+- ✅ Commission + DeliveryFee entries if applicable (salesman/shipper accounting)
+- ✅ Accounting = cashflow invariant: sum of all AccountingEntry amounts per order = sum of all WalletTransaction amounts per order
+- ✅ TT 152/2025/TT-BTC cash-basis compliance verified
+
+**Demo script:**
+```
+1. Tạo Reseller order + confirm COD
+2. Verify supplier tenant's books: Revenue(511) = costPrice, COGS(632) = production cost, gross margin = 0 (correct — supplier doesn't keep margin)
+3. Verify Platform tenant's books: PlatformFee + CommunityFund + VanAn net = total margin
+4. Verify commission entry on salesman's tenant (if applicable)
+5. Verify delivery fee entry on shipper's tenant (if applicable)
+6. Sum all AccountingEntry amounts = Sum all WalletTransaction amounts (invariant)
+```
+
+**Không có trong R2.2:**
+- ❌ Type 2 Logistics (R3)
+- ❌ Type 3 JobMarket (R3)
+- ❌ Marketplace accounting changes (only Reseller branch added)
+
+**Rollback:** `git revert <R2.2-commit>` → Reseller orders generate Marketplace-style accounting (current buggy behavior) — no data corruption, only accounting-cashflow mismatch returns
+
+---
+
 ### RELEASE R3 — "Type 2 Logistics + Type 3 JobMarket" (Sprints 8-9)
 
 | | |
 |---|---|
 | **Sprints** | 8 (Logistics) + 9 (JobMarket + /jobs page) |
-| **Branch** | `feature/khachlink-multi-profile-r3` (from main after R2 merge) |
+| **Branch** | `feature/khachlink-multi-profile-r3` (from main after R2.2 merge) |
 | **Feature flag** | ON |
 
 **Giá trị nhìn thấy được:**
@@ -175,7 +229,17 @@ Không bao giờ branch song song → 0 merge conflict.
 | `5_WebApps/KhachLink/Pages/Jobs.razor` | — | — | ✏️ CREATE (R3 Sprint 9) |
 | `5_WebApps/ShopERP/Pages/Admin/KhachLinkInstances.razor` | ✏️ CREATE | ✏️ Enable Reseller dropdown | ✏️ Enable Logistics+JobMarket dropdown |
 | `5_WebApps/ShopERP/Services/ApiClients/KhachLinkInstanceApiClient.cs` | ✏️ CREATE | — | — |
-| `5_WebApps/ShopERP/Program.cs` | ✏️ DI register | — | — |
+| `5_WebApps/ShopERP/Program.cs` | ✏️ DI register | ✏️ REGISTER `TenantCommunityAdminApiClient` | — |
+| `3_CoreHub/Services/ICommunityAdminService.cs` | — | ✏️ ADD tenant-scoped overloads | — |
+| `3_CoreHub/Services/CommunityAdminService.cs` | — | ✏️ IMPLEMENT tenant-scoped + IDOR guard | — |
+| `2_Gateway/Controllers/TenantCommunityAdminController.cs` | — | ✏️ CREATE (Owner endpoints) | — |
+| `5_WebApps/ShopERP/Components/Pages/Community/OwnerPanel.razor` | — | ✏️ CREATE (Owner panel) | — |
+| `5_WebApps/ShopERP/Services/ApiClients/TenantCommunityAdminApiClient.cs` | — | ✏️ CREATE | — |
+| `5_WebApps/ShopERP/Components/Layout/NavMenu.razor` | — | ✏️ ADD Owner-only "Cộng tác viên" link | — |
+| `3_CoreHub/Services/OrderService.cs` | — | — (R2.2) | ✏️ ADD `CommerceMode.Reseller` branch in `GenerateAccountingEntriesAsync` |
+| `3_CoreHub/Services/IAccountingService.cs` | — | — (R2.2) | ✏️ ADD Platform income entry factory (PlatformFee, CommunityFund, VanAn net) |
+| `3_CoreHub/Services/AccountingEntryService.cs` | — | — (R2.2) | ✏️ IMPLEMENT Platform income entries |
+| `6_Tests/VanAn.Core.Tests/Accounting/ResellerAccountingTests.cs` | — | — (R2.2) | ✏️ NEW — accounting = cashflow invariant tests |
 | `nginx/templates/vanan.multivps.conf.template` | ✏️ ADD wildcard server block | — | — |
 | `scripts/init-ssl-khachlink-instances.sh` | ✏️ CREATE | — | — |
 | `6_Tests/VanAn.Core.Tests/KhachLink/*` | ✏️ CREATE | ✏️ ADD Reseller tests | ✏️ ADD Logistics+JobMarket tests |
@@ -184,7 +248,9 @@ Không bao giờ branch song song → 0 merge conflict.
 
 **R1→R2 conflict risk:** `KhachLinkNavFlags.ForProfile()` (R2 adds Reseller case). Giải pháp: R2 branch từ main mới nhất (đã có R1) → chỉ thêm 1 case, không sửa existing → 0 conflict.
 
-**R2→R3 conflict risk:** `KhachLinkNavFlags.ForProfile()` (R3 adds Logistics + JobMarket cases) + `KhachLinkInstances.razor` (enable dropdown). R3 branch từ main sau R2 → chỉ thêm 2 cases + enable 2 options → 0 conflict.
+**R2→R2.2 conflict risk:** None. R2.2 touches `OrderService.GenerateAccountingEntriesAsync` + accounting tests — no overlap with R2 files (NavFlags, CommunityAdminService, OwnerPanel, TenantCommunityAdminController).
+
+**R2.2→R3 conflict risk:** None. R3 touches `KhachLinkNavFlags.ForProfile()` (Logistics + JobMarket cases) + `KhachLinkInstances.razor` (enable dropdown) + `Jobs.razor`. No overlap with R2.2 accounting files. R3 branch từ main sau R2.2 → 0 conflict.
 
 ### 3.3 Feature flag isolation
 ```json
@@ -222,6 +288,7 @@ Không bao giờ branch song song → 0 merge conflict.
 |---|---|---|
 | R1 | Feature flag OFF → all instances render FullCommerce default | < 1 min |
 | R2 | Disable Reseller option in admin UI (or flag OFF) | < 1 min |
+| R2.2 | `git revert <R2.2-commit>` — accounting-cashflow mismatch returns but no data corruption | < 10 min |
 | R3 | Disable Logistics/JobMarket options (or flag OFF) | < 1 min |
 | Any | `git revert <release-commit>` on main | < 10 min |
 
@@ -232,10 +299,11 @@ Không bao giờ branch song song → 0 merge conflict.
 | Release | Sprints | Cumulative | Giá trị |
 |---|---|---|---|
 | R1 — Multi-Profile Core + Type 1 + 4 + Multi-domain | 6 | 6 | SystemAdmin tạo Directory/FullCommerce instance, multi-domain routing |
-| R2 — Type 5 Reseller | 1 | 7 | Tenant trung gian bán lại, order Reseller mode |
-| R3 — Type 2 + 3 | 2 | 9 | Sàn shipper + sàn việc (jobs = Product filter) |
+| R2 — Type 5 Reseller + Owner Role Assignment | 1 (expanded) | 7 | Tenant trung gian bán lại, order Reseller mode, Owner tự quản lý cộng tác viên |
+| R2.2 — Reseller Accounting Fix | 1 | 8 | Accounting = cashflow invariant, TT 152 cash-basis compliance |
+| R3 — Type 2 + 3 | 2 | 10 | Sàn shipper + sàn việc (jobs = Product filter) |
 
-**Total: ~9 sprints across 3 releases**
+**Total: ~10 sprints across 4 releases**
 
 ---
 
@@ -250,6 +318,8 @@ Sprint 5 → user approve → Sprint 6
 R1 complete (Sprint 6 CI pass) → user approve → merge → deploy → RV
   ↓
 R2 (Sprint 7) → build pass → user approve → merge → deploy → RV
+  ↓
+R2.2 (Sprint 7.2) → build pass → user approve → merge → deploy → RV
   ↓
 R3 (Sprint 8-9) → build pass → user approve → merge → deploy → RV
   ↓
