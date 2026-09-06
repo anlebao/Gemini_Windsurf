@@ -152,8 +152,8 @@ public class HKDBookDetailTests : ComponentTestBase
         cut.Render();
 
         cut.Markup.Should().Contain("Bán hàng hóa cho khách lẻ");
-        // Amount = SumEntryLines = debit(10M) + credit(10M) = 20M, formatted "20,000,000" (en-US) or "20.000.000" (vi-VN)
-        cut.Markup.Should().Contain("20,000,000");
+        // Amount = SumEntryLines = debit(10M) + credit(10M) = 20M, formatted "20.000.000" (vi-VN locale)
+        cut.Markup.Should().Contain("20.000.000");
     }
 
     [Fact(DisplayName = "W4-HKD-D10: Page renders total rows (Tổng doanh thu / Doanh thu thuần / Lợi nhuận)")]
