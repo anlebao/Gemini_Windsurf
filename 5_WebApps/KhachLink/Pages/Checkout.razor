@@ -458,6 +458,9 @@
             // Read campaign tracking code from localStorage (set by Campaign.razor /c/{trackingCode})
             var trackingCode = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "campaign_tracking_code");
 
+            // R2.2: Read source domain for Reseller accounting (KhachLinkInstance.OwnerTenantId lookup)
+            var sourceDomain = await JSRuntime.InvokeAsync<string?>("eval", "window.location.hostname");
+
             var orderRequest = new
             {
                 CustomerDeviceId = deviceId,
@@ -480,7 +483,9 @@
                 // Bug 1a fix: Only pass CustomerId if validated (Customer exists in DB)
                 CustomerId = customerIdForOrder,
                 // Campaign conversion tracking: pass tracking code so OrderWorkflowService can increment conversion
-                TrackingCode = trackingCode
+                TrackingCode = trackingCode,
+                // R2.2: Source domain for Reseller accounting (KhachLinkInstance.OwnerTenantId lookup)
+                SourceDomain = sourceDomain
             };
 
             var http = HttpClientFactory.CreateClient("gateway");

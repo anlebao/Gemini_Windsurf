@@ -26,6 +26,10 @@ namespace VanAn.CoreHub.Commands
 
         /// <summary>Campaign conversion tracking: social campaign tracking code (from /c/{trackingCode}).</summary>
         public string? TrackingCode { get; set; }
+
+        /// <summary>R2.2: KhachLink source domain — used to look up KhachLinkInstance.OwnerTenantId (Reseller tenant).
+        /// Set by KhachLink WASM checkout (window.location.hostname). Null for POS/legacy callers.</summary>
+        public string? SourceDomain { get; set; }
     }
 
     public class OrderItemRequest

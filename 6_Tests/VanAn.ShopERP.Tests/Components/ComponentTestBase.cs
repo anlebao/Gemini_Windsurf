@@ -48,6 +48,10 @@ public class ComponentTestBase : TestContext
                        .ReturnsAsync(false);
         Services.AddSingleton(mockFeatureFlag.Object);
 
+        // Register ITenantManagementService mock — required by UserHeader component
+        // (AccountingLayout renders UserHeader which [Inject]s ITenantManagementService).
+        Services.AddSingleton<ITenantManagementService>(sp => new Mock<ITenantManagementService>().Object);
+
         // Configure JSInterop for components with JavaScript interop
         JSInterop.Mode = JSRuntimeMode.Loose;
 

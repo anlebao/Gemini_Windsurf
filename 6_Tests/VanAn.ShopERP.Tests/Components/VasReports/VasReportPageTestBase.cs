@@ -7,6 +7,7 @@ using VanAn.CoreHub.Services;
 using VanAn.UI.Platform.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
+using VanAn.ShopERP.Services;
 using VanAn.ShopERP.Tests.Components;
 
 namespace VanAn.ShopERP.Tests.Components.VasReports;
@@ -28,6 +29,9 @@ public abstract class VasReportPageTestBase : ComponentTestBase
         Services.AddSingleton<IIncomeStatementService>(sp => new Mock<IIncomeStatementService>().Object);
         Services.AddSingleton<ICashFlowStatementService>(sp => new Mock<ICashFlowStatementService>().Object);
         Services.AddSingleton<ITrialBalanceService>(sp => new Mock<ITrialBalanceService>().Object);
+
+        // Register mock export service — required by VAS report pages ([Inject] IFinancialReportExportService).
+        Services.AddSingleton<IFinancialReportExportService>(sp => new Mock<IFinancialReportExportService>().Object);
 
         // bUnit provides FakeNavigationManager automatically — no need to register.
     }

@@ -268,7 +268,8 @@ namespace VanAn.Gateway.Controllers
                         CustomerAddress = request.CustomerAddress,
                         CustomerId = request.CustomerId,
                         CustomerNotes = request.CustomerNotes,
-                        TrackingCode = request.TrackingCode
+                        TrackingCode = request.TrackingCode,
+                        SourceDomain = request.SourceDomain
                     };
 
                     try
@@ -492,6 +493,10 @@ namespace VanAn.Gateway.Controllers
         // Campaign conversion tracking: tracking code from social campaign (set by KhachLink /c/{trackingCode}).
         // When set, OrderWorkflowService increments ConvertedOrders on the matching SocialCampaign.
         public string? TrackingCode { get; set; }
+
+        /// <summary>R2.2: KhachLink source domain (window.location.hostname) — used to look up
+        /// KhachLinkInstance.OwnerTenantId for Reseller accounting. Null for POS/legacy callers.</summary>
+        public string? SourceDomain { get; set; }
     }
 
     public class CheckoutOrderItem

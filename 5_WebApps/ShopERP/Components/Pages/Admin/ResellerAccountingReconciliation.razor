@@ -1,0 +1,297 @@
+@page "/admin/reseller-accounting-reconciliation"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.EntityFrameworkCore
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Infrastructure
+@using VanAn.CoreHub.Repositories
+@using VanAn.CoreHub.Services
+@using VanAn.Shared.Domain
+@inject ShopERPDbContext DbContext
+@inject IAccountingEntryRepository AccountingEntryRepo
+@inject ILogger<ResellerAccountingReconciliation> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="reseller-recon-page">
+    <header class="page-header">
+        <h1>Reseller Accounting Reconciliation</h1>
+        <div class="header-actions">
+            <VanAnButton Variant="secondary" Size="small" OnClick="LoadData">
+                Làm mới
+            </VanAnButton>
+            <VanAnButton Variant="outline" Size="small" OnClick="ExportCsv">
+                Xuất CSV
+            </VanAnButton>
+        </div>
+    </header>
+
+    <VanAnAlert Variant="AlertVariant.Info"
+                Message="R2.2 — Reconciliation report for Reseller-mode orders. Shows 3 tenant booksets (Supplier + Reseller + Platform) + VAT chain + margin split per order."
+                Dismissible="true" />
+
+    <VanAnCard Header="Bộ lọc">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Từ ngày</label>
+                <input type="date" class="form-control" @bind="_filterFrom" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Đến ngày</label>
+                <input type="date" class="form-control" @bind="_filterTo" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Supplier Tenant ID</label>
+                <input type="text" class="form-control" @bind="_filterSupplierTenantId" placeholder="Guid (optional)" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Reseller Tenant ID</label>
+                <input type="text" class="form-control" @bind="_filterResellerTenantId" placeholder="Guid (optional)" />
+            </div>
+        </div>
+        <div class="mt-3">
+            <VanAnButton Variant="primary" Size="small" OnClick="LoadData">Lọc</VanAnButton>
+        </div>
+    </VanAnCard>
+
+    @if (_isLoading)
+    {
+        <VanAnCard>
+            <div class="loading-state">
+                <VanAnSpinner Size="large" />
+                <p>Đang tải dữ liệu...</p>
+            </div>
+        </VanAnCard>
+    }
+    else if (_reconItems.Count == 0)
+    {
+        <VanAnCard>
+            <VanAnAlert Variant="AlertVariant.Warning" Message="Không có đơn hàng Reseller nào trong khoảng thời gian đã chọn." Dismissible="false" />
+        </VanAnCard>
+    }
+    else
+    {
+        <VanAnCard Header="@($"Danh sách đơn hàng Reseller ({_reconItems.Count} đơn)")">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Ngày</th>
+                            <th>Supplier</th>
+                            <th>Reseller</th>
+                            <th class="text-end">CostPrice</th>
+                            <th class="text-end">SellPrice</th>
+                            <th class="text-end">Margin</th>
+                            <th>Entries</th>
+                            <th>VAT Chain</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _reconItems)
+                        {
+                            <tr>
+                                <td><small>@item.OrderId.ToString()[..8]...</small></td>
+                                <td>@item.OrderDate.ToString("yyyy-MM-dd")</td>
+                                <td><small>@(item.SupplierTenantId.ToString()[..8])...</small></td>
+                                <td><small>@(item.ResellerTenantId?.ToString()[..8] ?? "N/A")...</small></td>
+                                <td class="text-end">@item.CostPrice.ToString("N0")</td>
+                                <td class="text-end">@item.SellPrice.ToString("N0")</td>
+                                <td class="text-end">@item.Margin.ToString("N0")</td>
+                                <td>@item.EntryCount</td>
+                                <td>
+                                    @if (item.VatChainBalanced)
+                                    {
+                                        <span class="badge bg-success">Balanced</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning">Check</span>
+                                    }
+                                </td>
+                            </tr>
+                            @if (item.Entries.Any())
+                            {
+                                <tr class="table-light">
+                                    <td colspan="9">
+                                        <table class="table table-sm table-borderless mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>Tenant</th>
+                                                    <th>Account</th>
+                                                    <th>Type</th>
+                                                    <th class="text-end">Amount</th>
+                                                    <th>Reference</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var entry in item.Entries)
+                                                {
+                                                    <tr>
+                                                        <td><small>@(entry.TenantId.ToString()[..8])...</small></td>
+                                                        <td>@entry.AccountCode</td>
+                                                        <td>@entry.EntryType</td>
+                                                        <td class="text-end">@entry.Amount.ToString("N0")</td>
+                                                        <td><small>@entry.Reference</small></td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </VanAnCard>
+    }
+</div>
+
+@code {
+    private bool _isLoading = true;
+    private DateTime? _filterFrom = DateTime.UtcNow.AddDays(-30);
+    private DateTime? _filterTo = DateTime.UtcNow;
+    private string _filterSupplierTenantId = "";
+    private string _filterResellerTenantId = "";
+    private List<ReconciliationItem> _reconItems = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            var from = _filterFrom ?? DateTime.UtcNow.AddDays(-30);
+            var to = _filterTo ?? DateTime.UtcNow;
+
+            var query = DbContext.Orders
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(o => o.CommerceMode == VanAn.Shared.Domain.CommerceMode.Reseller
+                    && o.OrderDate >= from && o.OrderDate <= to.AddDays(1));
+
+            if (Guid.TryParse(_filterSupplierTenantId, out var supplierGuid))
+            {
+                var supplierTenantId = new TenantId(supplierGuid);
+                query = query.Where(o => o.TenantId == supplierTenantId);
+            }
+
+            if (Guid.TryParse(_filterResellerTenantId, out var resellerGuid))
+            {
+                query = query.Where(o => o.OwnerTenantId == resellerGuid);
+            }
+
+            var orders = await query.OrderByDescending(o => o.OrderDate).Take(200).ToListAsync();
+
+            _reconItems.Clear();
+            foreach (var order in orders)
+            {
+                var item = new ReconciliationItem
+                {
+                    OrderId = order.Id,
+                    OrderDate = order.OrderDate,
+                    SupplierTenantId = order.TenantId.Value,
+                    ResellerTenantId = order.OwnerTenantId,
+                    CostPrice = order.CostPrice ?? 0m,
+                    SellPrice = order.SellPrice ?? 0m,
+                    Margin = order.PlatformMargin ?? 0m
+                };
+
+                // Load accounting entries for this order by reference prefix
+                var orderRef = order.Id.ToString();
+                var supplierEntries = await AccountingEntryRepo.GetByTenantAsync(order.TenantId);
+                item.Entries.AddRange(supplierEntries
+                    .Where(e => e.Reference != null && e.Reference.StartsWith(orderRef + "-SUP"))
+                    .Select(e => new EntrySummary
+                    {
+                        TenantId = e.TenantId.Value,
+                        AccountCode = e.AccountCode ?? "",
+                        EntryType = e.EntryType.ToString(),
+                        Amount = e.Amount,
+                        Reference = e.Reference ?? ""
+                    }));
+
+                if (order.OwnerTenantId.HasValue && order.OwnerTenantId.Value != Guid.Empty)
+                {
+                    var resellerEntries = await AccountingEntryRepo.GetByTenantAsync(new TenantId(order.OwnerTenantId.Value));
+                    item.Entries.AddRange(resellerEntries
+                        .Where(e => e.Reference != null && e.Reference.StartsWith(orderRef + "-RES"))
+                        .Select(e => new EntrySummary
+                        {
+                            TenantId = e.TenantId.Value,
+                            AccountCode = e.AccountCode ?? "",
+                            EntryType = e.EntryType.ToString(),
+                            Amount = e.Amount,
+                            Reference = e.Reference ?? ""
+                        }));
+
+                    // Platform entries (may be on a different tenant)
+                    var platformEntries = await AccountingEntryRepo.GetByTenantAsync(new TenantId(order.OwnerTenantId.Value));
+                    item.Entries.AddRange(platformEntries
+                        .Where(e => e.Reference != null && e.Reference.StartsWith(orderRef + "-PLT"))
+                        .Select(e => new EntrySummary
+                        {
+                            TenantId = e.TenantId.Value,
+                            AccountCode = e.AccountCode ?? "",
+                            EntryType = e.EntryType.ToString(),
+                            Amount = e.Amount,
+                            Reference = e.Reference ?? ""
+                        }));
+                }
+
+                item.EntryCount = item.Entries.Count;
+                // VAT chain: Supplier output VAT = Reseller input VAT (both = CostPrice × VatRate)
+                var supVat = item.Entries.FirstOrDefault(e => e.Reference.EndsWith("-SUP-VAT"))?.Amount ?? 0m;
+                var resVatIn = item.Entries.FirstOrDefault(e => e.Reference.EndsWith("-RES-VATIN"))?.Amount ?? 0m;
+                item.VatChainBalanced = Math.Abs(supVat - resVatIn) < 1m; // 1đ tolerance
+
+                _reconItems.Add(item);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load Reseller accounting reconciliation data");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ExportCsv()
+    {
+        // CSV export deferred — data is viewable on page. Future: generate CSV download.
+        Logger.LogInformation("CSV export requested for {Count} items — deferred", _reconItems.Count);
+    }
+
+    private class ReconciliationItem
+    {
+        public Guid OrderId { get; set; }
+        public DateTime OrderDate { get; set; }
+        public Guid SupplierTenantId { get; set; }
+        public Guid? ResellerTenantId { get; set; }
+        public decimal CostPrice { get; set; }
+        public decimal SellPrice { get; set; }
+        public decimal Margin { get; set; }
+        public List<EntrySummary> Entries { get; set; } = new();
+        public int EntryCount { get; set; }
+        public bool VatChainBalanced { get; set; }
+    }
+
+    private class EntrySummary
+    {
+        public Guid TenantId { get; set; }
+        public string AccountCode { get; set; } = "";
+        public string EntryType { get; set; } = "";
+        public decimal Amount { get; set; }
+        public string Reference { get; set; } = "";
+    }
+}

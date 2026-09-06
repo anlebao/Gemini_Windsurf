@@ -14,12 +14,31 @@
 |---|---|---|---|
 | **R1** — Multi-Profile Core + Type 1 + 4 + Multi-domain | 1-6 | `main` (merged `5047ed8c` + enabled `b3af97a1`) | ✅ COMPLETE + MERGED + ENABLED |
 | **R2** — Type 5 Reseller + Owner Role Assignment | 7 (expanded) | `feature/khachlink-multi-profile-r2` | ⏳ PENDING |
-| **R2.2** — Reseller Accounting Fix | 7.2 | `feature/reseller-accounting-fix` (from main after R2 merge) | ⏳ PENDING — gap documented 2026-09-04 |
+| **R2.2** — Reseller Accounting-Cashflow Alignment | 7.2 | `feature/reseller-accounting-fix` (from main after R2 merge) | ⏳ PENDING — M2+ design approved 2026-09-05, docs ready for review |
 | **R3** — Type 2 Logistics + Type 3 JobMarket | 8-9 | `feature/khachlink-multi-profile-r3` | ⏳ PENDING |
 
 > **2026-09-04 Sprint 7 expansion:** Original Sprint 7 covered only Reseller preset + UI enable + CommerceMode verify + tests. User-identified gap: Reseller owner (tenant owner) cần toàn quyền chỉ định KhachLink customer làm Salesman/Shipper. Investigation confirm: existing `CommunityAdminService` chỉ cho phép **SystemAdmin** activate roles (`[Authorize(Policy="SystemAdmin")]` on `CommunityAdminController` + `AdminPanel.razor`). R2 expanded to add TenantOwner-scoped role assignment flow. Reuses existing `RequireOwnerRole` policy (`tenant_id` claim + `Owner` role). Customer entity `: BaseEntity, IMustHaveTenant` — có TenantId sẵn.
 
-> **2026-09-04 R2.2 — Reseller Accounting Fix (DEFERRED from R2):** Investigation discover accounting-cashflow mismatch in Reseller mode. `OrderService.GenerateAccountingEntriesAsync` (line 162-254) has **NO `CommerceMode` branch** — all orders generate identical Revenue(511) + VAT(3331) + COGS(632) on `order.TenantId`'s books. But `WalletService.ConfirmCodResellerAsync` (line 223-336) shows Vạn An (Platform) is the middleman: order.TenantId = SUPPLIER receives only `costPrice` via Wallet Settlement, while customer pays `sellPrice`. Margin (sellPrice - costPrice) is split by Vạn An into PlatformFee + CommunityFund + Commission + VanAn net profit — but NONE of this margin split is reflected in `AccountingEntry`/`JournalEntry`. Hệ quả: supplier tenant's accounting shows inflated revenue (sellPrice) they never receive + gross margin they don't keep → violates TT 152/2025/TT-BTC cash-basis principle (revenue recognition by actual receipt). **R2.2 scope:** (1) Add `CommerceMode.Reseller` branch in `GenerateAccountingEntriesAsync` — supplier tenant revenue = `costPrice` (actual cash received) NOT `sellPrice`; (2) Generate Platform income entries (PlatformFee, CommunityFund, VanAn net) on Platform tenant's books; (3) Commission/DeliveryFee entries if needed; (4) Tests verify accounting = cashflow invariant; (5) Domain purity check — may need Order entity extension for Reseller accounting metadata. **Deferred to separate release** to keep Sprint 7 scope manageable + avoid touching immutable AccountingEntry patterns in same sprint as feature work.
+> **2026-09-04 R2.2 — Reseller Accounting Fix (DEFERRED from R2):** Investigation discover accounting-cashflow mismatch in Reseller mode. `OrderService.GenerateAccountingEntriesAsync` (line 162-254) has **NO `CommerceMode` branch** — all orders generate identical Revenue(511) + VAT(3331) + COGS(632) on `order.TenantId`'s books. But `WalletService.ConfirmCodResellerAsync` (line 223-336) shows Vạn An (Platform) is the middleman: order.TenantId = SUPPLIER receives only `costPrice` via Wallet Settlement, while customer pays `sellPrice`. Margin (sellPrice - costPrice) is split by Vạn An into PlatformFee + CommunityFund + Commission + VanAn net profit — but NONE of this margin split is reflected in `AccountingEntry`/`JournalEntry`. Hệ quả: supplier tenant's accounting shows inflated revenue (sellPrice) they never receive + gross margin they don't keep → violates TT 152/2025/TT-BTC cash-basis principle (revenue recognition by actual receipt). **Deferred to separate release** to keep Sprint 7 scope manageable + avoid touching immutable AccountingEntry patterns in same sprint as feature work.
+>
+> **2026-09-05 R2.2 — M2+ DESIGN APPROVED (refined after deeper investigation + user clarifications):**
+> - **User clarifications received 2026-09-05:**
+>   - Q4: Platform (Vạn An) accounting entries — **CẦN LUÔN** trong R2.2 (not deferred)
+>   - Ai xuất hóa đơn VAT cho customer? **Reseller tenant** (có thể = Vạn An hoặc tenant khác)
+>   - M1 có đủ? **Không, cần M2 (Platform entries) luôn**
+>   - VAT treatment: **assume standard "mua-bán qua đại lý"** (no kế toán confirm yet)
+>   - Scope R2.2: **fix accounting + thêm UI/report cho auditor**
+>   - Platform Tenant concept: **Vạn An có tenant ID riêng cho kế toán**
+>   - Platform entries tạo ở **PG (Gateway)**
+> - **Approved M2+ design (3 tenant booksets per Reseller order):**
+>   - **Supplier tenant books** (`order.TenantId`): Revenue 511 = `order.CostPrice`, VAT 3331 = VAT trên `CostPrice`, COGS 632 = `Sum(Product.CostPrice × Qty)` (unchanged — production cost)
+>   - **Reseller tenant books** (`order.OwnerTenantId` — NEW Domain field): Revenue 511 = `order.SellPrice`, VAT 3331 = VAT trên `SellPrice`, COGS 632 = `order.CostPrice`, VAT input 1331 = VAT trên `CostPrice` (khấu trừ)
+>   - **Platform (Vạn An) tenant books** (`SystemSetting "PlatformAccountingTenantId"`): Revenue 511 = `PlatformFeeAmount + CommunityFundShare` — **chỉ khi Reseller ≠ Vạn An** (skip when Reseller = Vạn An, margin đã nằm trong Reseller's gross profit)
+> - **Domain mod approved (small):** Add `Order.OwnerTenantId` (Guid?) + param to `SetResellerPricing`. Set during `SnapshotCommerceModeAsync` (lookup `KhachLinkInstance` by domain).
+> - **Auditor UI report:** New ShopERP Admin page `/admin/reseller-accounting-reconciliation` — shows per Reseller order: supplier/reseller/platform entries + wallet transactions + VAT chain + margin split. Filter by date range + tenant. CSV/Excel export.
+> - **Idempotency:** Reference suffix `#{orderId}-SUP`, `#{orderId}-RES`, `#{orderId}-PLT` — existing `PaymentConfirmedSubscriber` JournalEntry.Reference check covers new entries.
+> - **VAT assumptions (standard "mua-bán qua đại lý"):** Supplier output VAT = VAT(costPrice); Reseller output VAT = VAT(sellPrice); Reseller input VAT (khấu trừ) = VAT(costPrice); Reseller net VAT payable = VAT(sellPrice) − VAT(costPrice).
+> - **Trade-offs:** ~10 files touched, 2 migrations (PG + SQLite), 1 SystemSetting seed, Domain mod (1 nullable field). Larger than M1 (1 file) nhưng user approve M2+ vì cần Platform entries + auditor UI.
 
 ---
 
@@ -141,11 +160,11 @@ Methods:
 |---|---|---|
 | 7 — Reseller Profile + Owner Role Assignment | `ForProfile(Reseller)` preset + SystemAdmin UI enable + CommerceMode.Reseller integration verify + **TenantOwner-scoped role activation endpoints + Owner panel UI + tests** | `sprint7_reseller_task_card.md` |
 
-### RELEASE R2.2 — "Reseller Accounting Fix" (Sprint 7.2 — deferred from R2 2026-09-04)
+### RELEASE R2.2 — "Reseller Accounting-Cashflow Alignment" (Sprint 7.2 — M2+ approved 2026-09-05)
 
 | Sprint | Goal | Task Card |
 |---|---|---|
-| 7.2 — Reseller Accounting-Cashflow Alignment | Add `CommerceMode.Reseller` branch in `GenerateAccountingEntriesAsync` (supplier revenue = costPrice, not sellPrice) + Platform income entries (PlatformFee/CommunityFund/VanAn net) + commission/delivery fee accounting + accounting=cashflow invariant tests | `sprint7_2_reseller_accounting_fix_task_card.md` (TBD) |
+| 7.2 — Reseller Accounting-Cashflow Alignment (M2+) | 3 tenant booksets per Reseller order (Supplier + Reseller + Platform-when-not-VA) + `Order.OwnerTenantId` Domain mod + `PlatformAccountingTenantId` SystemSetting seed + Auditor UI report + idempotency via reference suffix + ~10-12 tests | `sprint7_2_reseller_accounting_fix_task_card.md` |
 
 ### RELEASE R3 — "Type 2 Logistics + Type 3 JobMarket" (Sprints 8-9)
 
@@ -247,17 +266,25 @@ DONE
 - [ ] SystemAdmin UI tạo Logistics + JobMarket instance
 - [ ] Tests PASS · deploy + RV
 
-### R2.2 — Reseller Accounting Fix
-- [ ] `GenerateAccountingEntriesAsync` có `CommerceMode.Reseller` branch (separate from Marketplace path)
-- [ ] Supplier tenant's Revenue(511) = `costPrice` (actual cash received via Settlement), NOT `sellPrice`
-- [ ] Supplier tenant's COGS(632) = production cost (unchanged — actual cost of goods sold)
-- [ ] Platform tenant's books: PlatformFee + CommunityFund + VanAn net margin = income entries
-- [ ] Commission + DeliveryFee entries if applicable (salesman/shipper accounting)
+### R2.2 — Reseller Accounting-Cashflow Alignment (M2+ approved 2026-09-05)
+- [ ] **Domain mod:** `Order.OwnerTenantId` (Guid?) + param to `SetResellerPricing` (set during SnapshotCommerceModeAsync)
+- [ ] **EF config + migrations:** `OrderConfiguration` map `OwnerTenantId` (PG migration + SQLite migration)
+- [ ] **Service:** `SnapshotCommerceModeAsync` lookup `KhachLinkInstance` by domain, pass `OwnerTenantId` to `SetResellerPricing`
+- [ ] **Service:** `GenerateAccountingEntriesAsync` Reseller branch (3 tenant booksets)
+  - [ ] Supplier books (`order.TenantId`): Revenue 511 = `order.CostPrice`, VAT 3331 = VAT(CostPrice), COGS 632 = `Sum(Product.CostPrice × Qty)`
+  - [ ] Reseller books (`order.OwnerTenantId`): Revenue 511 = `order.SellPrice`, VAT 3331 = VAT(SellPrice), COGS 632 = `order.CostPrice`, VAT input 1331 = VAT(CostPrice)
+  - [ ] Platform books (`PlatformAccountingTenantId` SystemSetting) — only when Reseller ≠ Vạn An: Revenue 511 = `PlatformFeeAmount + CommunityFundShare`
+- [ ] **SystemSetting seed:** `PlatformAccountingTenantId` = Vạn An's tenant Guid (1-time SysAdmin config)
+- [ ] **Auditor UI:** `/admin/reseller-accounting-reconciliation` page — per-order supplier/reseller/platform entries + wallet transactions + VAT chain + margin split. Filter by date + tenant. CSV/Excel export
+- [ ] **Idempotency:** Reference suffix `#{orderId}-SUP`/`-RES`/`-PLT` — `PaymentConfirmedSubscriber` covers via existing JournalEntry.Reference check
 - [ ] Accounting = cashflow invariant test: sum of all AccountingEntry amounts per order = sum of all WalletTransaction amounts per order
-- [ ] TT 152/2025/TT-BTC cash-basis compliance verified
-- [ ] Domain purity preserved (no EF Core attrs in new Reseller accounting logic)
+- [ ] TT 152/2025/TT-BTC cash-basis compliance verified (cash-basis: revenue = actual cash received)
+- [ ] VAT chain verified: Supplier output VAT(costPrice) → Reseller input VAT(costPrice) khấu trừ → Reseller output VAT(sellPrice)
+- [ ] Domain purity preserved (no EF Core attrs in Domain — `Order.OwnerTenantId` is plain Guid? property)
 - [ ] AccountingEntry immutability preserved (HARD STOP — append-only, no update/delete)
-- [ ] Tests PASS · deploy + RV
+- [ ] Single-Identity Pattern preserved (`OwnerTenantId` is FK Guid, not value object — references `BaseEntity.Id`)
+- [ ] Tests PASS (~10-12 new: Reseller accounting + auditor report)
+- [ ] Build + guard + CI pass · deploy + RV (5 layers)
 
 ---
 
