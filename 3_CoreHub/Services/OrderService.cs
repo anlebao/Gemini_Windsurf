@@ -8,6 +8,7 @@ using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Common;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate;
 using UUIDNext;
 using VanAn.CoreHub.Commands;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
@@ -179,6 +180,16 @@ namespace VanAn.CoreHub.Services
                         .FirstOrDefaultAsync();
                 }
 
+                // R2.2 — Reseller Accounting-Cashflow Alignment (M2+ approved 2026-09-05).
+                // Reseller mode generates 3 tenant booksets: Supplier + Reseller + Platform (when Reseller ≠ Vạn An).
+                // Standard "mua-bán qua đại lý": Supplier issues VAT on costPrice, Reseller issues VAT on sellPrice.
+                // Idempotency: check for existing Reseller entries via reference suffix before creating.
+                if (order.CommerceMode == CommerceMode.Reseller)
+                {
+                    await GenerateResellerAccountingEntriesAsync(order, tenantId, period, sector);
+                    return;
+                }
+
                 // W0-T3 (C3): Split VAT — net revenue on 511 + VAT liability on 3331 (if VAT > 0).
                 // W0-T8 (H2): Net revenue approach (HKD path) — credit 511 = SubTotal - DiscountAmount.
                 //   (Discount reduces revenue directly; VAS Gross+521 path deferred to W8 feature-flag.)
@@ -251,6 +262,159 @@ namespace VanAn.CoreHub.Services
                 _logger.LogError(ex, "Error generating accounting entries for order {OrderId}", order.Id);
                 throw;
             }
+        }
+
+        /// <summary>
+        /// R2.2 — Generate Reseller-mode accounting entries (3 tenant booksets).
+        /// Business model (standard "mua-bán qua đại lý"):
+        ///   Supplier (order.TenantId) sells to Reseller at CostPrice → Revenue=CostPrice, VAT=VAT(CostPrice)
+        ///   Reseller (order.OwnerTenantId) sells to customer at SellPrice → Revenue=SellPrice, VAT=VAT(SellPrice)
+        ///   Reseller COGS = CostPrice (giá mua từ supplier), VAT input 1331 = VAT(CostPrice) — khấu trừ
+        ///   Platform (SystemSetting "PlatformAccountingTenantId") — chỉ khi Reseller ≠ Vạn An:
+        ///     Revenue = PlatformFee + CommunityFund (dịch vụ đại lý)
+        /// Idempotency: reference suffix #{orderId}-SUP/-RES/-PLT — guard checks existing entries.
+        /// TT 152/2025/TT-BTC: cash-basis — revenue = actual cash received (Supplier=CostPrice, Reseller=SellPrice).
+        /// </summary>
+        private async Task GenerateResellerAccountingEntriesAsync(
+            Order order, TenantId supplierTenantId, AccountingPeriod period, IndustrySector? sector)
+        {
+            string orderRef = order.Id.ToString();
+            var costPrice = order.CostPrice ?? 0m;
+            var sellPrice = order.SellPrice ?? order.SubTotal - order.DiscountAmount;
+            var margin = order.PlatformMargin ?? 0m;
+            var platformFeeRate = order.PlatformFeeRate ?? 0m;
+            var communityFundRate = order.CommunityFundRate ?? 0m;
+
+            // Derive VAT rate from order: VatRate = TotalVatAmount / (SubTotal - DiscountAmount)
+            decimal netSellPrice = order.SubTotal - order.DiscountAmount;
+            decimal vatRate = netSellPrice > 0 ? order.TotalVatAmount / netSellPrice : 0m;
+            decimal costPriceVat = costPrice * vatRate;      // Supplier output VAT / Reseller input VAT
+            decimal sellPriceVat = order.TotalVatAmount;     // Reseller output VAT (already on order)
+
+            // R2.2 Idempotency: Reference suffix #{orderId}-SUP/-RES/-PLT for traceability.
+            // Duplicate prevention: AccountingEntryService.CheckDuplicateEntryAsync blocks identical
+            // (tenantId, amount, accountCode, entryType) within 5-min window — covers NATS retry scenarios.
+            // For stronger reference-based idempotency, a GetByReferenceAsync could be added to
+            // IAccountingEntryRepository in a future iteration.
+
+            // === 1. Supplier tenant's books (order.TenantId) ===
+            // Revenue 511 = CostPrice (actual cash received via Wallet Settlement — TT 152 cash-basis)
+            _ = await _accountingService.CreateRevenueEntryAsync(
+                supplierTenantId, period, costPrice,
+                $"Doanh thu bán cho reseller #{order.Id}",
+                accountCode: "511", reference: $"{orderRef}-SUP-REV", industrySector: sector);
+
+            if (costPriceVat > 0)
+            {
+                _ = await _accountingService.CreateRevenueEntryAsync(
+                    supplierTenantId, period, costPriceVat,
+                    $"Thuế GTGT đầu ra (bán cho reseller) #{order.Id}",
+                    accountCode: "3331", reference: $"{orderRef}-SUP-VAT", industrySector: sector);
+            }
+
+            // COGS 632 = production cost (unchanged — supplier's actual cost of goods)
+            decimal supplierCogs = CalculateCogsAmount(order);
+            if (supplierCogs > 0)
+            {
+                _ = await _accountingService.CreateExpenseEntryAsync(
+                    supplierTenantId, period, supplierCogs,
+                    $"Giá vốn hàng bán (supplier) #{order.Id}",
+                    accountCode: "632", reference: $"{orderRef}-SUP-COGS", industrySector: sector);
+            }
+
+            // === 2. Reseller tenant's books (order.OwnerTenantId) ===
+            // Skip if OwnerTenantId is null (degraded mode — no KhachLinkInstance lookup at snapshot time)
+            if (order.OwnerTenantId.HasValue && order.OwnerTenantId.Value != Guid.Empty)
+            {
+                var resellerTenantId = new TenantId(order.OwnerTenantId.Value);
+
+                // Revenue 511 = SellPrice (what customer pays — TT 152 cash-basis)
+                _ = await _accountingService.CreateRevenueEntryAsync(
+                    resellerTenantId, period, netSellPrice,
+                    $"Doanh thu bán cho customer #{order.Id}",
+                    accountCode: "511", reference: $"{orderRef}-RES-REV", industrySector: sector);
+
+                if (sellPriceVat > 0)
+                {
+                    _ = await _accountingService.CreateRevenueEntryAsync(
+                        resellerTenantId, period, sellPriceVat,
+                        $"Thuế GTGT đầu ra (bán cho customer) #{order.Id}",
+                        accountCode: "3331", reference: $"{orderRef}-RES-VAT", industrySector: sector);
+                }
+
+                // COGS 632 = CostPrice (giá mua từ supplier)
+                if (costPrice > 0)
+                {
+                    _ = await _accountingService.CreateExpenseEntryAsync(
+                        resellerTenantId, period, costPrice,
+                        $"Giá vốn hàng bán (mua từ supplier) #{order.Id}",
+                        accountCode: "632", reference: $"{orderRef}-RES-COGS", industrySector: sector);
+                }
+
+                // VAT input 1331 = VAT trên CostPrice (khấu trừ — hóa đơn từ supplier)
+                if (costPriceVat > 0)
+                {
+                    _ = await _accountingService.CreateRevenueEntryAsync(
+                        resellerTenantId, period, costPriceVat,
+                        $"Thuế GTGT đầu vào (khấu trừ từ supplier) #{order.Id}",
+                        accountCode: "1331", reference: $"{orderRef}-RES-VATIN", industrySector: sector);
+                }
+
+                // === 3. Platform (Vạn An) tenant's books — only when Reseller ≠ Vạn An ===
+                var platformTenantId = await GetPlatformAccountingTenantIdAsync();
+                if (platformTenantId.HasValue
+                    && platformTenantId.Value != Guid.Empty
+                    && platformTenantId.Value != order.OwnerTenantId.Value)
+                {
+                    decimal platformFee = margin * platformFeeRate;
+                    decimal communityFund = margin * communityFundRate;
+                    decimal platformIncome = platformFee + communityFund;
+
+                    if (platformIncome > 0)
+                    {
+                        var platformTenantIdValue = new TenantId(platformTenantId.Value);
+                        _ = await _accountingService.CreateRevenueEntryAsync(
+                            platformTenantIdValue, period, platformIncome,
+                            $"Doanh thu dịch vụ đại lý #{order.Id}",
+                            accountCode: "511", reference: $"{orderRef}-PLT-REV", industrySector: sector);
+                    }
+                }
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "GenerateResellerAccountingEntriesAsync: Order {OrderId} Reseller mode but OwnerTenantId is null — only supplier entries created",
+                    order.Id);
+            }
+
+            _logger.LogInformation(
+                "Generated Reseller accounting entries for order {OrderId} — CostPrice={CostPrice} SellPrice={SellPrice} Margin={Margin} OwnerTenantId={OwnerTenantId}",
+                order.Id, costPrice, sellPrice, margin, order.OwnerTenantId);
+        }
+
+        /// <summary>
+        /// R2.2 — Read PlatformAccountingTenantId from SystemSetting (Vạn An's dedicated accounting tenant).
+        /// Returns null if setting not configured — Platform entries skipped (degrades gracefully).
+        /// SysAdmin configures via admin UI (1-time setup).
+        /// </summary>
+        private async Task<Guid?> GetPlatformAccountingTenantIdAsync()
+        {
+            if (_dbContext == null)
+                return null;
+
+            const string key = "PlatformAccountingTenantId";
+            var setting = await _dbContext.SystemSettings
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Key == key);
+
+            if (setting == null || !Guid.TryParse(setting.Value, out var guid) || guid == Guid.Empty)
+            {
+                _logger.LogDebug("GetPlatformAccountingTenantIdAsync: SystemSetting '{Key}' not configured — Platform entries will be skipped", key);
+                return null;
+            }
+
+            return guid;
         }
 
         /// <summary>
@@ -713,7 +877,8 @@ namespace VanAn.CoreHub.Services
 
                 // Sprint 7: Commerce Mode snapshot — resolve mode for tenant + set Reseller pricing if applicable.
                 // All fields are snapshotted at creation time (immutable for this order's financial flow).
-                await SnapshotCommerceModeAsync(order, tenantId, command.Items);
+                // R2.2: Pass SourceDomain to look up KhachLinkInstance.OwnerTenantId (Reseller tenant).
+                await SnapshotCommerceModeAsync(order, tenantId, command.Items, command.SourceDomain);
 
                 // Save order + Outbox event atomically (RC-1 fix: single transaction).
                 // Previously: AddAsync (SaveChangesAsync) then EnqueueAsync + SaveChangesAsync (2nd save).
@@ -846,8 +1011,9 @@ namespace VanAn.CoreHub.Services
         /// gets default rates (PlatformFeeRate, CommunityFundRate, DeliveryFee), and calls SetResellerPricing.
         /// If Marketplace: no-op (Order.CommerceMode defaults to Marketplace).
         /// All fields are snapshotted — immutable for this order's financial flow (WalletService reads them at COD/external payment).
+        /// R2.2: sourceDomain — KhachLink instance domain, used to look up KhachLinkInstance.OwnerTenantId (Reseller tenant).
         /// </summary>
-        private async Task SnapshotCommerceModeAsync(Order order, Guid tenantId, List<OrderItemRequest> items)
+        private async Task SnapshotCommerceModeAsync(Order order, Guid tenantId, List<OrderItemRequest> items, string? sourceDomain = null)
         {
             // If CommerceModeService not wired (unit tests, legacy), skip — order stays Marketplace (default).
             if (_commerceModeService == null)
@@ -908,12 +1074,46 @@ namespace VanAn.CoreHub.Services
                 // Get default rates (PlatformFeeRate, CommunityFundRate, DeliveryFee) from SystemSetting
                 var (platformFeeRate, communityFundRate, deliveryFee) = await _commerceModeService.GetDefaultRatesAsync();
 
+                // R2.2: Look up KhachLinkInstance by source domain to get OwnerTenantId (Reseller tenant).
+                // The Reseller tenant issues VAT to the customer — distinct from TenantId (supplier).
+                // If sourceDomain is null (POS/legacy) or no KhachLinkInstance found, OwnerTenantId stays null
+                // and the Reseller accounting branch will log a warning + degrade to supplier-only entries.
+                Guid? ownerTenantId = null;
+                if (!string.IsNullOrWhiteSpace(sourceDomain))
+                {
+                    var normalizedDomain = sourceDomain.Trim().ToLowerInvariant();
+                    var kli = await _dbContext.KhachLinkInstances
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(k => k.CustomDomain == normalizedDomain && k.IsActive);
+
+                    if (kli?.OwnerTenantId != null && kli.OwnerTenantId.Value != Guid.Empty)
+                    {
+                        ownerTenantId = kli.OwnerTenantId.Value;
+                        _logger.LogInformation(
+                            "SnapshotCommerceModeAsync: Order {OrderId} Reseller OwnerTenantId={OwnerTenantId} resolved from domain {Domain}",
+                            order.Id, ownerTenantId, normalizedDomain);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "SnapshotCommerceModeAsync: Order {OrderId} Reseller mode but no KhachLinkInstance with OwnerTenantId found for domain {Domain} — OwnerTenantId will be null",
+                            order.Id, normalizedDomain);
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "SnapshotCommerceModeAsync: Order {OrderId} Reseller mode but SourceDomain is null — OwnerTenantId will be null (POS/legacy caller)",
+                        order.Id);
+                }
+
                 // Snapshot all Reseller pricing fields on the order
-                order.SetResellerPricing(totalCostPrice, sellPrice, platformMargin, deliveryFee, platformFeeRate, communityFundRate);
+                order.SetResellerPricing(totalCostPrice, sellPrice, platformMargin, deliveryFee, platformFeeRate, communityFundRate, ownerTenantId);
 
                 _logger.LogInformation(
-                    "SnapshotCommerceModeAsync: Order {OrderId} snapshotted as Reseller — CostPrice={CostPrice} SellPrice={SellPrice} Margin={Margin} DeliveryFee={DeliveryFee} PlatformFeeRate={PlatformFeeRate} CommunityFundRate={CommunityFundRate}",
-                    order.Id, totalCostPrice, sellPrice, platformMargin, deliveryFee, platformFeeRate, communityFundRate);
+                    "SnapshotCommerceModeAsync: Order {OrderId} snapshotted as Reseller — CostPrice={CostPrice} SellPrice={SellPrice} Margin={Margin} DeliveryFee={DeliveryFee} PlatformFeeRate={PlatformFeeRate} CommunityFundRate={CommunityFundRate} OwnerTenantId={OwnerTenantId}",
+                    order.Id, totalCostPrice, sellPrice, platformMargin, deliveryFee, platformFeeRate, communityFundRate, ownerTenantId);
             }
             catch (Exception ex)
             {

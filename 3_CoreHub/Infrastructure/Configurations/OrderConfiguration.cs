@@ -96,6 +96,10 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(o => o.CommunityFundRate).HasPrecision(18, 4);
             _ = builder.HasIndex(o => o.CommerceMode);
 
+            // R2.2 — Reseller Accounting: OwnerTenantId (Reseller tenant who issues VAT to customer)
+            _ = builder.Property(o => o.OwnerTenantId);
+            _ = builder.HasIndex(o => o.OwnerTenantId);
+
             // Navigation properties
             _ = builder.HasOne(o => o.Customer)
                   .WithMany(c => c.Orders)

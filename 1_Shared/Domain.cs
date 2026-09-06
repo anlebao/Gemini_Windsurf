@@ -1532,6 +1532,7 @@ namespace VanAn.Shared.Domain
         public decimal? SellPrice { get; protected set; }       // Reseller: giá Vạn An bán cho customer
         public decimal? PlatformMargin { get; protected set; }  // Reseller: SellPrice - CostPrice
         public decimal? DeliveryFee { get; protected set; }     // Reseller: phí giao hàng Vạn An trả shipper (distinct from ShippingFee)
+        public Guid? OwnerTenantId { get; protected set; }      // R2.2: Reseller tenant (issues VAT to customer) — distinct from TenantId (supplier)
         public decimal? PlatformFeeRate { get; protected set; } // Reseller: % margin Vạn An giữ (snapshot từ config)
         public decimal? CommunityFundRate { get; protected set; } // Reseller: % margin vào quỹ cộng đồng (snapshot)
 
@@ -1654,6 +1655,7 @@ namespace VanAn.Shared.Domain
         /// Sprint 7 — Set Reseller pricing snapshot at order creation time.
         /// Called by OrderService when CommerceMode resolves to Reseller.
         /// All fields snapshot — không thay đổi khi toggle/cost price update sau.
+        /// R2.2: ownerTenantId — Reseller tenant who issues VAT to customer (distinct from TenantId=supplier).
         /// </summary>
         public void SetResellerPricing(
             decimal costPrice,
@@ -1661,13 +1663,16 @@ namespace VanAn.Shared.Domain
             decimal platformMargin,
             decimal deliveryFee,
             decimal platformFeeRate,
-            decimal communityFundRate)
+            decimal communityFundRate,
+            Guid? ownerTenantId = null)
         {
             if (costPrice < 0) throw new ArgumentOutOfRangeException(nameof(costPrice), "CostPrice cannot be negative");
             if (sellPrice < 0) throw new ArgumentOutOfRangeException(nameof(sellPrice), "SellPrice cannot be negative");
             if (deliveryFee < 0) throw new ArgumentOutOfRangeException(nameof(deliveryFee), "DeliveryFee cannot be negative");
             if (platformFeeRate < 0 || platformFeeRate > 1) throw new ArgumentOutOfRangeException(nameof(platformFeeRate), "PlatformFeeRate must be 0-1");
             if (communityFundRate < 0 || communityFundRate > 1) throw new ArgumentOutOfRangeException(nameof(communityFundRate), "CommunityFundRate must be 0-1");
+            if (ownerTenantId.HasValue && ownerTenantId.Value == Guid.Empty)
+                throw new ArgumentException("OwnerTenantId cannot be Guid.Empty.", nameof(ownerTenantId));
 
             CommerceMode = CommerceMode.Reseller;
             CostPrice = costPrice;
@@ -1676,6 +1681,7 @@ namespace VanAn.Shared.Domain
             DeliveryFee = deliveryFee;
             PlatformFeeRate = platformFeeRate;
             CommunityFundRate = communityFundRate;
+            OwnerTenantId = ownerTenantId;
         }
 
         /// <summary>
