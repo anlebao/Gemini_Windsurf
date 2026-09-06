@@ -34,7 +34,16 @@
 
 ## 2. Current Objective
 
-**CRAWL-TO-ONBOARD TENANT PIPELINE — ALL 8 PHASES COMPLETE + DEPLOYED + RV PASS.** �
+**R2.2 RESELLER ACCOUNTING-CASHFLOW ALIGNMENT — COMPLETE + DEPLOYED + RV PASS.** ✅
+- **PR #169** merged to `main` (commit `2d98ee77`). 3 commits: docs `ff8827d8` + impl `598597a8` + test-fix `9de99c15`.
+- **Design:** M2+ approved — 3 tenant booksets per Reseller order (Supplier + Reseller + Platform-when-not-VA). Standard "mua-bán qua đại lý" VAT treatment. `Order.OwnerTenantId` (Guid?) snapshots reseller tenant at order creation.
+- **Files:** 20 files, +10,119/-23. Domain (OwnerTenantId + SetResellerPricing overload) → Gateway (SourceDomain) → CoreHub (OrderService Reseller branch + migration) → KhachLink (Checkout.razor) → ShopERP (Auditor UI + SQLite migration) → 13 R2.2 tests + 28 pre-existing bUnit test fixes.
+- **CI:** ALL checks PASS (build, unit 1506, integration 276, arch 41, guard, build-verify 99, startup, code-quality).
+- **CD:** Multi-VPS deploy SUCCESS (Gateway + KhachLink + ShopERP + smoke test).
+- **RV:** Layer 1 API 200 + CORS ✅ | Layer 3 PG migration `20260906072702_AddOrderOwnerTenantId` applied ✅ + SQLite migration `20260906072856_AddOrderOwnerTenantId` applied ✅ | Layer 4 Auditor page `/admin/reseller-accounting-reconciliation` 302 (login redirect = exists) ✅ | Gateway/KhachLink/ShopERP health 200 ✅.
+- **Note:** `PlatformAccountingTenantId` SystemSetting not yet configured in production DB — code degrades gracefully (skips Platform entries, logs debug). SysAdmin configures via admin UI (1-time setup).
+
+**PREVIOUS OBJECTIVE — CRAWL-TO-ONBOARD TENANT PIPELINE — ALL 8 PHASES COMPLETE + DEPLOYED + RV PASS.** �
 - **Plan structure (reviewed + restructured 2026-08-25):**
   - **Master plan:** `docs/AI/plans/crawl-onboarding-master-plan.md` (114 dòng — stable, 12 locked decisions, 8 corrections from review)
   - **Research snapshot:** `docs/AI/plans/crawl-onboarding-research.md` (154 dòng — codebase findings @ commit `73f77f14`, line refs will stale)
@@ -174,7 +183,8 @@
   - ✅ `dotnet build VanAn.sln` — 0 errors
 - **Awaiting user approval to start Phase 5 (Crawler worker — new 7_Tooling/VanAn.Crawler.csproj).**
 
-- **Branch:** `main` @ `942467e0` (Crawler post-deploy fixes: doanhnghiep.vn pagination + camelCase forward. Issue #103 impersonation + data isolation + Directory SSR + post-deploy fixes #157 + #161 accounting validation/date fix + #156 nav group/collapsible all menus + Crawl-to-Onboard 8 phases complete). **Build full sln:** 0 errors · **CI:** 1454 unit + 17 unit + 273 integration + 41 arch ALL PASS · **.NET SDK:** 8.0.422
+- **Branch:** `main` @ `2d98ee77` (R2.2 Reseller Accounting-Cashflow Alignment — PR #169 merged. 3 tenant booksets + Auditor UI + 13 R2.2 tests + 28 pre-existing bUnit fixes. Crawler post-deploy fixes: doanhnghiep.vn pagination + camelCase forward. Issue #103 impersonation + data isolation + Directory SSR + post-deploy fixes #157 + #161 accounting validation/date fix + #156 nav group/collapsible all menus + Crawl-to-Onboard 8 phases complete). **Build full sln:** 0 errors · **CI:** 1506 unit + 17 unit + 276 integration + 41 arch + 99 ShopERP bUnit ALL PASS · **.NET SDK:** 8.0.422
+- **R2.2 Reseller Accounting:** ✅ COMPLETE + DEPLOYED + RV PASS (2026-09-06). PR #169 merged. 3 tenant booksets (Supplier/Reseller/Platform-skip-when-VA) + `Order.OwnerTenantId` + Auditor UI `/admin/reseller-accounting-reconciliation` + 13 R2.2 tests + 28 pre-existing bUnit test fixes (DI mocks + vi-VN number format). CD Multi-VPS SUCCESS. RV Layer 1+3+4 PASS. See Section 2.
 - **Directory SSR:** ✅ COMPLETE — timlathay.com live (0.04s load, 10 stores, 56MiB). Issue #157 fixed (3 bugs). WebSocket + Leaflet markers fixed. See Section 2.
 - **KhachLink Commerce WASM:** ✅ ThemeType enum + shortcut icons + SW duplicate activate fixed (commit `6c9182da`). Pending RV on `diemthuong2.khachvip.online`.
 - **Issue #161 (Accounting):** ✅ Fixed + deployed. Revenue/Expense validation (JS interop DOM read before validate + default formData.Values) + TransactionDate 3-layer fix (Domain optional param → Service pass-through → UI pass user date). Pending RV.
@@ -209,8 +219,10 @@
 3. RV L1-L5
 
 **KhachLink Multi-Profile R2/R3 (deferred):**
-- R2 Sprint 7: Reseller profile preset + SystemAdmin UI + tests
-- R3 Sprint 8-9: Logistics + JobMarket profiles
+- R2.2 Reseller Accounting: ✅ COMPLETE + DEPLOYED + RV PASS (PR #169)
+- R2 Sprint 7: Reseller profile preset + SystemAdmin UI + tests — ✅ COMPLETE (earlier PR #167)
+- R3 Sprint 8-9: Logistics + JobMarket profiles — deferred
+- **R2.2 follow-up:** Configure `PlatformAccountingTenantId` SystemSetting in production DB (1-time setup by SysAdmin via admin UI) to enable Platform bookset entries for non-Vạn An resellers.
 
 **Issue closure (pending manual RV):**
 - Issue #130 (Guard QR creation) — 5 fixes applied, pending VPS RV + close
@@ -300,9 +312,9 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main` @ `942467e0`. Crawl-to-Onboard Pipeline: all 8 phases complete + deployed + RV PASS. Crawler post-deploy fix `942467e0`: doanhnghiep.vn pagination (page=1,2,3... until MaxResults) + camelCase forward (JsonSerializerDefaults.Web). Older work: 7 recent commits on `main` (issue #103 impersonation+isolation, #157, WebSocket/Leaflet, KhachLink enum/icons/SW, #161 accounting validation+date, #156 nav group). Build 0 errors. 1454 unit + 17 unit + 273 integration + 41 arch ALL PASS. #103 RV 9/9 PASS. Pending production RV for crawler fix + 5 older commits.
-- **Open Questions:** 4 (will resolve during implementation: Cloudinary upload service, API key auth, TestFactory update, CrawlSource location — all documented in plan file)
-- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (25+), Open Questions (4) ≥ 3 → BUT all 4 are implementation-time questions with documented resolution paths in plan file, not blockers for starting Phase 1.
+- **Verified Facts:** Branch=`main` @ `2d98ee77`. R2.2 Reseller Accounting-Cashflow Alignment: COMPLETE + DEPLOYED + RV PASS (PR #169). 3 tenant booksets (Supplier/Reseller/Platform-skip-when-VA) + Order.OwnerTenantId + Auditor UI + 13 R2.2 tests + 28 pre-existing bUnit fixes. CI: 1506+17+276+41+99 ALL PASS. CD Multi-VPS SUCCESS. RV Layer 1 API 200 + CORS ✅, Layer 3 PG+SQLite migrations applied ✅, Layer 4 auditor page exists (302 login) ✅. Crawl-to-Onboard Pipeline: all 8 phases complete + deployed + RV PASS. Older work: issue #103, #157, #161, #156 all deployed.
+- **Open Questions:** 1 (PlatformAccountingTenantId not yet configured in production DB — code degrades gracefully, SysAdmin 1-time setup)
+- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (30+), Open Questions (1) < 3 → CLEAR.
 
 ---
 
@@ -310,6 +322,7 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md`.
 
+* **2026-09-06 — R2.2 RESELLER ACCOUNTING-CASHFLOW ALIGNMENT COMPLETE + DEPLOYED + RV PASS.** PR #169 merged to `main` (commit `2d98ee77`). 3 commits: `ff8827d8` (docs — M2+ design approved) + `598597a8` (impl — 3 tenant booksets) + `9de99c15` (test fix — 28 pre-existing bUnit failures). Implementation: `Order.OwnerTenantId` (Guid?) + `SetResellerPricing` overload + `SourceDomain` end-to-end (KhachLink→Gateway→CoreHub) + Reseller branch in `GenerateAccountingEntriesAsync` (Supplier 511/3331/632 + Reseller 511/3331/632/1331 + Platform 511 skip-when-VA) + Auditor UI `/admin/reseller-accounting-reconciliation` + PG migration `20260906072702_AddOrderOwnerTenantId` + SQLite migration `20260906072856_AddOrderOwnerTenantId` + 13 R2.2 tests. Pre-existing bUnit fixes: `VasReportPageTestBase` missing `IFinancialReportExportService` mock (24 tests) + `ComponentTestBase` missing `ITenantManagementService` mock (3 tests) + `HKDBookDetailTests` vi-VN number format `"20.000.000"` (1 test). CI: 1506+17+276+41+99 ALL PASS. CD Multi-VPS SUCCESS (Gateway+KhachLink+ShopERP+smoke). RV: Layer 1 API 200+CORS ✅, Layer 3 PG+SQLite migrations applied ✅, Layer 4 auditor page 302 (exists) ✅. Follow-up: configure `PlatformAccountingTenantId` SystemSetting in production (1-time SysAdmin setup). Branch: `main` @ `2d98ee77`.
 * **2026-08-27 — CRAWLER POST-DEPLOY FIXES (commit `942467e0` on `main`).** 2 bugs from VPS logs: (1) Only 20 tenants despite maxResults=100 — doanhnghiep.vn API hard-caps at 20 items/page regardless of `limit` param; adapter sent limit=100, got 20, stopped. Fix: paginate via `page=1,2,3...` until MaxResults reached or empty page; deduplicate MSTs across pages via HashSet; log page count. (2) Filters not applied (industry=null, province=null in crawler logs) — Gateway forwarded anonymous object with PascalCase props via `PostAsJsonAsync`; crawler minimal API binds case-insensitively but explicit camelCase is safer. Fix: serialize with `JsonSerializerDefaults.Web` (camelCase) + log forwarded body for debugging. Files: `7_Tooling/VanAn.Crawler/Adapters/RestApiAdapter.cs` + `2_Gateway/Controllers/CrawlController.cs`. Build PASS. CI PASS (1454+17+273+41). CD Multi-VPS SUCCESS. Branch: `main` @ `942467e0`. Pending RV: trigger crawl → verify >20 Pending tenants + filters applied.
 * **2026-08-26 — CRAWL-TO-ONBOARD PHASE 6+7+8 COMPLETE + DEPLOYED + RV PASS.** PR #164 merged to `main` (commit `845f19e4` + `9cc83534`). Phase 6: KhachLink UI (ImageUploadController + ImageUploadService + ClaimHttpService + Store.razor Pending banner + Claim.razor form). Phase 7: ShopERP Admin UI (TenantClaimApiClient + TenantManagement 3 tabs + ClaimsQueue + CrawlTrigger + NavMenu). Phase 8: 43 new tests (20 domain + 10 OnboardUnverified service + 13 TenantClaimService) + bug fix (ListPendingClaimsAsync c.Id→c.TenantId) + W12-G7 whitelist ImageUploadController. RV Layer 1 API: pending 200, duplicates 200 (after Pattern #8 fix in `9cc83534`), claims 200, crawl/trigger 202, images/upload 400. RV Layer 5 DB: TenantClaimRequests (17 cols) + CrawlSources (11 cols) + Tenants.PotentialDuplicateOf + Settings_CrawledPhone + Settings_ContactPhone all verified in PG. CI: 1454+17+273+41 ALL PASS. CD Multi-VPS SUCCESS. Branch: `main` @ `9cc83534`.
 * **2026-08-25 — CRAWL-TO-ONBOARD TENANT PIPELINE — PLAN COMPLETE.** New objective. Plan file: `C:\Users\lebao\.devin\plans\plan-915f0a1ede9cf9b3.md` (600 dòng). Pipeline: crawl trangvangvietnam.com (HTML) + doanhnghiep.vn/xinvoice.vn (REST API) → Pending tenant (read-only, SĐT mask ND13/2023) → Owner claim (GPKD upload) → SysAdmin approve → Active tenant + admin user. 12 design decisions locked (governance exceptions: new `7_Tooling/VanAn.Crawler.csproj` + Domain modification). 8 phases: Domain → Migration → Services → API → Crawler → UI KhachLink → UI Admin → Tests+RV. Research verified against codebase. Legal: trangvangvietnam ToS cấm scraping quy mô lớn → batch nhỏ + polite 3-5s; doanhnghiep.vn API = preferred legal source. Awaiting implementation start.
