@@ -2,10 +2,20 @@
 
 > **Status:** ✅ APPROVED 2026-09-06 — user chốt: (1) D1/D2 domain mods APPROVED · (2) landing audit = Directory (timlathay.com) · (3) hoa hồng referral = dynamic do SystemAdmin đặt
 > **Priority:** P2 — Tuyến B (growth machine), chạy song song Tuyến A (KTV + HĐĐT + dogfood — việc thương mại, không phụ thuộc card này)
-> **Branch:** `feature/gtm-drill-mvp` (từ `main`)
-> **Mode:** IMPLEMENT — W1 CODE COMPLETE (`e8cd4e62`: build 0 errors + pre-commit GUARD PASS + arch 41/41; E2E run pending ecosystem). Next: W2 Interactive Demo.
+> **Branch:** `main` @ `48d488f6` (W1 merged + nginx fix + 429 fix)
+> **Mode:** IMPLEMENT — ✅ W1 COMPLETE + PRODUCTION RV PASS (2026-09-07). Next: W2 Interactive Demo.
 > **Source of truth:** `docs/AI/plans/ecosystem-master-business-model.md` Section 4 (GTM build map) · GTM review đã vá 3 hố (fake precision / cold-start / scoring)
 > **Workflow:** `newfeaturebuild.md`
+
+## PROGRESS
+
+| Tuần | Mảnh | Status | Commit | Ghi chú |
+|---|---|---|---|---|
+| W1 | Merchant Audit | ✅ COMPLETE + RV PASS | `e8cd4e62` + `a21fcffc` (nginx+429) | Gateway endpoint + Directory landing + E2E spec + nginx routing fix + 429 fix. Production RV 9/9 PASS (2026-09-07) |
+| W2 | Interactive Demo | ⏳ NEXT | — | KhachLink `/demo` preview storefront |
+| W3 | Revenue Proof (D1) | ⏳ | — | StoreMetricDaily + counters + dashboard |
+| W4 | Merchant Referral (D2) | ⏳ | — | TenantClaimRequest +2 fields + QR flow |
+| W5 | Consent + flag + deploy + RV | ⏳ | — | GrowthMachine:Enabled default OFF |
 
 ## Objective
 
@@ -34,10 +44,10 @@ Dựng 5 mảnh GTM còn thiếu của "Máy khoan thủng thị trường" trê
 
 ---
 
-## TUẦN 1 — Merchant Audit
+## TUẦN 1 — Merchant Audit ✅ COMPLETE + RV PASS (2026-09-07)
 
-### Task 1.1: Gateway audit endpoint
-**File:** `2_Gateway/Controllers/GrowthController.cs` — NEW
+### Task 1.1: Gateway audit endpoint ✅
+**File:** `2_Gateway/Controllers/GrowthController.cs` — NEW (`e8cd4e62`)
 - `GET /api/v1/growth/audit?name={q}&mst={taxCode}` — `[AllowAnonymous]` + `[EnableRateLimiting("growth-audit")]`
 - Logic: match tenant theo tên (ILIKE, theo pattern `TenantStoreController.Search` L223-228) HOẶC theo MST (`Settings.TaxCode` — public business data). Input SĐT/FB link DEFER v2 (SĐT crawl = internal-only per M3, không dùng làm public lookup). → build `MerchantAuditDto`:
   - `Found`: name, slug, `HasStorefront` (slug != null), `HasKhachLinkDomain`, `SocialLinks`, `IsPending`
@@ -47,21 +57,43 @@ Dựng 5 mảnh GTM còn thiếu của "Máy khoan thủng thị trường" trê
 - **Cấm** trả `CrawledPhone` (M3 — internal only). Pending tenant: chỉ name + IsPending (không address/phone).
 - Query tenant theo Pattern #8: `t.Id == new TenantId(guid)` / so sánh trực tiếp property — cấm `EF.Property<Guid>`.
 
-### Task 1.2: Rate limit policy
-**File:** `2_Gateway/Program.cs`
+### Task 1.2: Rate limit policy ✅
+**File:** `2_Gateway/Program.cs` (`e8cd4e62` + `a21fcffc`)
 - Thêm policy `growth-audit`: 10 req/IP/hour FixedWindow (pattern như `claim-submit` — đã có `AddRateLimiter` L103-137 [V])
+- **Fix `a21fcffc`:** thêm `OnRejected` callback → 429 + JSON message thay vì default 503
 
-### Task 1.3: Directory landing page
-**Files:** `5_WebApps/Directory/Components/Pages/Audit.razor` — NEW · `5_WebApps/Directory/Services/GrowthAuditService.cs` — NEW
+### Task 1.3: Directory landing page ✅
+**Files:** `5_WebApps/Directory/Components/Pages/Audit.razor` — NEW · `5_WebApps/Directory/Services/GrowthAuditService.cs` — NEW (`e8cd4e62`)
 - Route `/kiem-tra-cua-hang` (SSR, SEO-friendly, dùng `CatalogService` pattern gọi Gateway)
 - **Copy theo nguyên tắc "bán kết quả, không bán phần mềm" (§2 GTM):** tiêu đề dùng câu hỏi kết quả kiểu "Thử xem khách gần cửa hàng bạn đang tìm gì" / "Kiểm tra cửa hàng bạn có thể nhận thêm bao nhiêu đơn quanh đây" — KHÔNG mô tả "giải pháp quản lý bán hàng toàn diện"
 - Form nhập tên cửa hàng hoặc MST → render report bằng **UI Platform components** + meta/OG tags
 - CTA: "Đưa cửa hàng lên TimLaThay — Đăng ký miễn phí" → `{KhachLink domain}/claim?name={...}`
 - Không load danh sách khi vào trang (pattern #157 — tránh initial load)
 
-### Task 1.4: E2E
+### Task 1.4: E2E ✅ (spec written, run pending ecosystem)
 **File:** `6_Testing/e2e-tests/gtm-audit.spec.ts` — NEW (Gate 4)
 - Truy cập /kiem-tra-cua-hang → nhập tên tenant test → thấy report + CTA; spam >10 lần → 429
+- **Status:** spec written, chưa chạy local (cần ecosystem lên + env `DIRECTORY_URL`/`AUDIT_TENANT_NAME`/`AUDIT_PENDING_TENANT_NAME`)
+
+### Task 1.5: nginx routing fix ✅ (UNPLANNED — discovered during RV)
+**File:** `nginx/templates/vanan.multivps.conf.template` (`a21fcffc`)
+- **Root cause:** nginx `timlathay.com` server block route `location /` → `${KHACHLINK_REMOTE_HOST}:80` (KhachLink WASM) thay vì Directory SSR container (port 8080). Docker-compose có `directory` service trên port 8080 nhưng nginx config không có upstream/map nào trỏ tới nó.
+- **Fix:** trong section `@@EXT_DOMAIN_START:timlathay.com@@`, đổi 10 non-API `proxy_pass` từ `${KHACHLINK_REMOTE_HOST}:80` → `:8080` (apex + wildcard, cả HTTP + HTTPS). API routes vẫn `gateway:80`.
+- **RV PASS:** `timlathay.com/kiem-tra-cua-hang` → HTTP 200, Blazor Server SSR, `VanAn.Directory.styles.css` (không còn WASM shell)
+
+### W1 Production RV Results (2026-09-07) — 9/9 PASS
+
+| # | Test | Expected | Actual |
+|---|---|---|---|
+| 1 | Directory `/kiem-tra-cua-hang` | HTTP 200, Blazor Server SSR | ✅ 200, `VanAn.Directory.styles.css`, title "Kiểm tra cửa hàng — Danh bạ Vạn An" |
+| 2 | Directory Home `/` | Directory SSR (not WASM) | ✅ 200, `VanAn.Directory.styles.css` |
+| 3 | Gateway audit empty params | HTTP 400 + Vietnamese message | ✅ 400, `"Vui lòng nhập tên cửa hàng hoặc mã số thuế."` |
+| 4 | Gateway audit no-match | HTTP 200, `{"found":false}` | ✅ 200, `{"found":false,"tenant":null,...}` |
+| 5 | Gateway audit active tenant | HTTP 200, `found:true`, no phone/email | ✅ 200, "Central Mall" `found:true`, no private contact |
+| 6 | Gateway audit pending tenant | HTTP 200, `isPending:true`, M3 privacy, `claimUrl` | ✅ 200, "DONER LAB" `isPending:true`, no phone/email/address, `claimUrl` provided |
+| 7 | Rate limit 10/IP/hour | 429 after 10 requests | ✅ HTTP 429 + JSON `"Quá giới hạn yêu cầu. Vui lòng thử lại sau 1 giờ."` |
+| 8 | nginx routing fix | timlathay.com → Directory SSR (port 8080) | ✅ 10 proxy_pass changed, nginx -t OK |
+| 9 | Gateway 429 fix | 429 instead of 503 | ✅ CD deployed, 429 + JSON message |
 
 ---
 

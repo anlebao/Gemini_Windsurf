@@ -103,15 +103,17 @@ Nguyên lý giữ nguyên từ tài liệu GTM: **merchant tự phát hiện →
 
 ### 4.2 Build map (đã cắt từ 7 mảnh còn 5, tổng ~5 tuần)
 
-| Mảnh GTM | Đã có [V] | Phải xây | Ước lượng |
-|---|---|---|---|
-| Merchant Audit (từ crawl) | Crawler + CrawlSources + TenantSearch 4 cấp | Landing + report generator từ dữ liệu crawl | ~1-1,5 tuần |
-| Interactive Demo (preview storefront) | Pending→Claim→storefront + ImageUploadService | Preview mode: nhập tên quán → storefront mock tự sửa logo/menu/giá → nút "Đưa lên TimLaThay" | ~1 tuần |
-| Free onboarding | Claim→Verify→Active+user (đủ) | — | 0 |
-| Revenue Proof dashboard | Order data PG đầy đủ | counter view/chat/search per store + trang "Tháng này" per tenant | ~1 tuần |
-| Merchant referral (QR → claim) | Wallet commission (COD split) + Order.ReferralCode [V] (salesman-level, chưa có merchant-level) | referral attribution lúc claim + trigger hoa hồng | ~1-1,5 tuần |
-| ~~AI SDR + scoring~~ | — | event pipeline trước | **DEFER** (Gate G1) |
-| Remote closing | Impersonation #103 [V] | KHÔNG build co-browse — Zalo/Meet screen-share + 1 trang consent | 2-3 ngày |
+| Mảnh GTM | Đã có [V] | Phải xây | Ước lượng | Status |
+|---|---|---|---|---|
+| Merchant Audit (từ crawl) | Crawler + CrawlSources + TenantSearch 4 cấp | Landing + report generator từ dữ liệu crawl | ~1-1,5 tuần | ✅ **COMPLETE + RV PASS** (2026-09-07, commit `e8cd4e62` + `a21fcffc`) |
+| Interactive Demo (preview storefront) | Pending→Claim→storefront + ImageUploadService | Preview mode: nhập tên quán → storefront mock tự sửa logo/menu/giá → nút "Đưa lên TimLaThay" | ~1 tuần | ⏳ NEXT (W2) |
+| Free onboarding | Claim→Verify→Active+user (đủ) | — | 0 | ✅ đã có |
+| Revenue Proof dashboard | Order data PG đầy đủ | counter view/chat/search per store + trang "Tháng này" per tenant | ~1 tuần | ⏳ W3 |
+| Merchant referral (QR → claim) | Wallet commission (COD split) + Order.ReferralCode [V] (salesman-level, chưa có merchant-level) | referral attribution lúc claim + trigger hoa hồng | ~1-1,5 tuần | ⏳ W4 |
+| ~~AI SDR + scoring~~ | — | event pipeline trước | **DEFER** (Gate G1) | — |
+| Remote closing | Impersonation #103 [V] | KHÔNG build co-browse — Zalo/Meet screen-share + 1 trang consent | 2-3 ngày | ⏳ W5 |
+
+**W1 results (2026-09-07):** Gateway `GET /api/v1/growth/audit?name&mst` (anonymous, rate-limit 10/IP/h, 429 response) + Directory `/kiem-tra-cua-hang` (Blazor Server SSR) + nginx routing fix (timlathay.com → Directory SSR port 8080). Production RV 9/9 PASS: Directory SSR renders · Gateway audit JSON · active tenant `found:true` · pending tenant M3 privacy (no phone/email/address) + `claimUrl` · rate limit 429 after 10 req. E2E spec written (chưa chạy — cần ecosystem). See `docs/AI/tasks/gtm_drill_mvp_task_card.md` Section W1.
 
 ### 4.3 Remote closer (giữ nguyên tinh thần bản gốc)
 
