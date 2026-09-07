@@ -172,6 +172,27 @@ namespace VanAn.Gateway
                 });
             });
 
+            // GTM Drill Machine W1 (2026-09-06): Rate limit for public Merchant Audit.
+            // 10 requests per IP per hour — anonymous report generation, blocks enumeration/scraping.
+            // Applied via [EnableRateLimiting("growth-audit")] on GET /api/v1/growth/audit.
+            // NOTE: Directory SSR calls this endpoint server-side — GrowthAuditService forwards
+            // the end-user IP via X-Forwarded-For and UseForwardedHeaders (app pipeline) rewrites
+            // RemoteIpAddress, so the partition key is the END USER's IP, not the Directory container.
+            _ = builder.Services.AddRateLimiter(options =>
+            {
+                options.AddPolicy("growth-audit", context =>
+                {
+                    string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromHours(1),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0
+                    });
+                });
+            });
+
             // Register CoreHub DbContext for monolithic architecture (in-process services)
             string connectionString = builder.Configuration.GetSection("ConnectionStrings")["DefaultConnection"]
                 ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection configuration is required in Gateway.");

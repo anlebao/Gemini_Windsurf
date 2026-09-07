@@ -34,7 +34,14 @@
 
 ## 2. Current Objective
 
-**R2.2 RESELLER ACCOUNTING-CASHFLOW ALIGNMENT — COMPLETE + DEPLOYED + RV PASS.** ✅
+**GTM DRILL MACHINE MVP — W1 (MERCHANT AUDIT) IN PROGRESS.** 🟢
+- **Task card:** `docs/AI/tasks/gtm_drill_mvp_task_card.md` (approved 2026-09-06: D1/D2 domain mods + Directory landing + SystemAdmin-dynamic referral commission)
+- **Branch:** `feature/gtm-drill-mvp` (từ `main` @ `3b26c855`)
+- **W1 scope:** Gateway `GrowthController` (GET /api/v1/growth/audit?name&mst, rate-limit `growth-audit`) + Directory `/kiem-tra-cua-hang` landing (copy "bán kết quả", chỉ số đo được + IndustryPeerCount từ crawl) + E2E `gtm-audit.spec.ts`
+- **W2-W5 theo card:** Demo preview → Revenue Proof counters (D1) → Merchant Referral (D2) → consent + flag `GrowthMachine:Enabled` default OFF + deploy + RV
+- Đối chiếu vs `docs/requirements/Ý tưởng việc tự động hóa (Phễu khách hàng).md`: card hiện thực 6/7 MVP steps, defer AI SDR/scoring (Gate G1)
+
+**PREVIOUS OBJECTIVE — R2.2 RESELLER ACCOUNTING-CASHFLOW ALIGNMENT — COMPLETE + DEPLOYED + RV PASS.** ✅
 - **PR #169** merged to `main` (commit `2d98ee77`). 3 commits: docs `ff8827d8` + impl `598597a8` + test-fix `9de99c15`.
 - **Design:** M2+ approved — 3 tenant booksets per Reseller order (Supplier + Reseller + Platform-when-not-VA). Standard "mua-bán qua đại lý" VAT treatment. `Order.OwnerTenantId` (Guid?) snapshots reseller tenant at order creation.
 - **Files:** 20 files, +10,119/-23. Domain (OwnerTenantId + SetResellerPricing overload) → Gateway (SourceDomain) → CoreHub (OrderService Reseller branch + migration) → KhachLink (Checkout.razor) → ShopERP (Auditor UI + SQLite migration) → 13 R2.2 tests + 28 pre-existing bUnit test fixes.
@@ -200,6 +207,12 @@
 
 ## 4. Next Actions
 
+**GTM Drill Machine MVP (✅ APPROVED 2026-09-06 — W1 IN PROGRESS):**
+- Task card: `docs/AI/tasks/gtm_drill_mvp_task_card.md` (5 tuần × 5 mảnh: Merchant Audit + Interactive Demo + Revenue Proof counters + Merchant Referral + Remote closing consent; strategy: `docs/AI/plans/ecosystem-master-business-model.md` Section 4)
+- User approved 3 decisions: (1) Domain mods D1 `StoreMetricDaily` + D2 `TenantClaimRequest` +2 referral fields; (2) landing audit = Directory timlathay.com `/kiem-tra-cua-hang`; (3) hoa hồng referral = dynamic do SystemAdmin đặt (SystemSetting `Referral_CommissionAmount` + payout modal)
+- Branch `feature/gtm-drill-mvp` tạo từ `main` — W1 (Merchant Audit: Gateway `GrowthController` + rate limit `growth-audit` + Directory Audit.razor + E2E) đang chạy
+- DEFER theo Gates: AI SDR/auto scoring (G1 — 0 telemetry), search counter, sitemap toàn site (BOM #4 T2), payment gateway (G2)
+
 **Crawl-to-Onboard Tenant Pipeline (✅ COMPLETE — all 8 phases deployed + RV PASS):**
 - No further actions. All 8 phases complete, PR #164 merged, CD deployed, RV Layer 1 + Layer 5 PASS.
 - Optional follow-up: end-to-end manual test (trigger real crawl → Pending tenant → Claim → Approve → Active) on production with real data.
@@ -281,6 +294,8 @@
 | `docs/requirements/Van_An_SRS_Financial_Intelligence_MVP2.md` | Financial Intelligence SRS |
 | `docs/AI/tasks/tech_debt_multi_vps_checkout.md` | Tech debt register |
 | `docs/Architecture/ADR001-Station-Architecture.md` | ADR-001 v3 (Option C) |
+| `docs/AI/plans/ecosystem-master-business-model.md` | Ecosystem Master Business Model v1.0 (7 phần + GTM khoan thủng + BOM registry — chiến lược kinh doanh, không phải implementation plan) |
+| `docs/AI/tasks/gtm_drill_mvp_task_card.md` | GTM Drill Machine MVP task card (5 tuần, 5 mảnh, 2 Domain mods pending approval — PENDING) |
 | `docs/AI/project_state_archive.md` | Archived history (2026-07-24 + 2026-08-03 + 2026-08-09 + 2026-08-23) |
 
 ---
@@ -322,6 +337,7 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md`.
 
+* **2026-09-06 — ECOSYSTEM MASTER BUSINESS MODEL v1.0 CREATED (docs-only, branch `main`).** Tổng hợp 3 tài liệu requirements (tầm nhìn 5 tầng "hình dung Vạn An", GTM "khoan thủng thị trường") + 2 session review (5 BOM → BOM 2.0 → GTM review) thành `docs/AI/plans/ecosystem-master-business-model.md`: Ground Rules (North Star = Active Local GMV, danh sách KHÔNG, business-driven gate + kill-list) · Value Chain 5 tầng × 10 layer (NOW/SAU/NEVER — L4 take-rate giờ NOW vì R2.2 done) · 4 actors (KTV = kênh 1-nhiều, hoa hồng tách theo product line) · Flywheel + 2 động cơ zero-CAC (crawler + KTV) · GTM máy khoan thủng bản vá 3 hố (fake precision → chỉ số đo được; cold-start → SEO danh bạ làm traffic chính; scoring defer vì 0 event tracking) · Unit Economics [V]/[A] · Roadmap 2 tuyến 8 tuần + Year 1-3 + Gates G1-G5 · 5-year model (100 tỷ = valuation story 5x revenue, không phải cash) · BOM Registry 5 mô hình chốt (Anchor Kit qua KTV · HĐĐT prepaid · FI premium · TimLaThay funnel · take-rate) + 2 ẩn số thế giới thực (provider HĐĐT margin, KTV/HKD willingness-to-pay). Không thay đổi code. Verified trong session: QĐ 1568/QĐ-BCT (60% DNNVV TMĐT · 100% HĐĐT · 80% cashless) · `Order.ReferralCode` là salesman-level (merchant-referral chưa có) · 0 telemetry/scoring data source (grep) · search ranking thuần relevance (không paid ranking) · production 3 tenant test. **Follow-up cùng session:** tạo task card `docs/AI/tasks/gtm_drill_mvp_task_card.md` (5 tuần × 5 mảnh GTM: Merchant Audit · Interactive Demo · Revenue Proof counters · Merchant Referral · Remote closing consent; 2 Domain mods D1/D2 + 3 open questions chờ user approve; branch `feature/gtm-drill-mvp`; flag `GrowthMachine:Enabled` default OFF; defer AI SDR/scoring theo Gate G1).
 * **2026-09-06 — R2.2 RESELLER ACCOUNTING-CASHFLOW ALIGNMENT COMPLETE + DEPLOYED + RV PASS.** PR #169 merged to `main` (commit `2d98ee77`). 3 commits: `ff8827d8` (docs — M2+ design approved) + `598597a8` (impl — 3 tenant booksets) + `9de99c15` (test fix — 28 pre-existing bUnit failures). Implementation: `Order.OwnerTenantId` (Guid?) + `SetResellerPricing` overload + `SourceDomain` end-to-end (KhachLink→Gateway→CoreHub) + Reseller branch in `GenerateAccountingEntriesAsync` (Supplier 511/3331/632 + Reseller 511/3331/632/1331 + Platform 511 skip-when-VA) + Auditor UI `/admin/reseller-accounting-reconciliation` + PG migration `20260906072702_AddOrderOwnerTenantId` + SQLite migration `20260906072856_AddOrderOwnerTenantId` + 13 R2.2 tests. Pre-existing bUnit fixes: `VasReportPageTestBase` missing `IFinancialReportExportService` mock (24 tests) + `ComponentTestBase` missing `ITenantManagementService` mock (3 tests) + `HKDBookDetailTests` vi-VN number format `"20.000.000"` (1 test). CI: 1506+17+276+41+99 ALL PASS. CD Multi-VPS SUCCESS (Gateway+KhachLink+ShopERP+smoke). RV: Layer 1 API 200+CORS ✅, Layer 3 PG+SQLite migrations applied ✅, Layer 4 auditor page 302 (exists) ✅. Follow-up: configure `PlatformAccountingTenantId` SystemSetting in production (1-time SysAdmin setup). Branch: `main` @ `2d98ee77`.
 * **2026-08-27 — CRAWLER POST-DEPLOY FIXES (commit `942467e0` on `main`).** 2 bugs from VPS logs: (1) Only 20 tenants despite maxResults=100 — doanhnghiep.vn API hard-caps at 20 items/page regardless of `limit` param; adapter sent limit=100, got 20, stopped. Fix: paginate via `page=1,2,3...` until MaxResults reached or empty page; deduplicate MSTs across pages via HashSet; log page count. (2) Filters not applied (industry=null, province=null in crawler logs) — Gateway forwarded anonymous object with PascalCase props via `PostAsJsonAsync`; crawler minimal API binds case-insensitively but explicit camelCase is safer. Fix: serialize with `JsonSerializerDefaults.Web` (camelCase) + log forwarded body for debugging. Files: `7_Tooling/VanAn.Crawler/Adapters/RestApiAdapter.cs` + `2_Gateway/Controllers/CrawlController.cs`. Build PASS. CI PASS (1454+17+273+41). CD Multi-VPS SUCCESS. Branch: `main` @ `942467e0`. Pending RV: trigger crawl → verify >20 Pending tenants + filters applied.
 * **2026-08-26 — CRAWL-TO-ONBOARD PHASE 6+7+8 COMPLETE + DEPLOYED + RV PASS.** PR #164 merged to `main` (commit `845f19e4` + `9cc83534`). Phase 6: KhachLink UI (ImageUploadController + ImageUploadService + ClaimHttpService + Store.razor Pending banner + Claim.razor form). Phase 7: ShopERP Admin UI (TenantClaimApiClient + TenantManagement 3 tabs + ClaimsQueue + CrawlTrigger + NavMenu). Phase 8: 43 new tests (20 domain + 10 OnboardUnverified service + 13 TenantClaimService) + bug fix (ListPendingClaimsAsync c.Id→c.TenantId) + W12-G7 whitelist ImageUploadController. RV Layer 1 API: pending 200, duplicates 200 (after Pattern #8 fix in `9cc83534`), claims 200, crawl/trigger 202, images/upload 400. RV Layer 5 DB: TenantClaimRequests (17 cols) + CrawlSources (11 cols) + Tenants.PotentialDuplicateOf + Settings_CrawledPhone + Settings_ContactPhone all verified in PG. CI: 1454+17+273+41 ALL PASS. CD Multi-VPS SUCCESS. Branch: `main` @ `9cc83534`.

@@ -36,6 +36,12 @@ builder.Services.AddHttpClient<CatalogService>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Gateway:BaseUrl"] ?? "http://localhost:5001/");
 });
+// GTM Drill Machine W1 (2026-09-06): Merchant Audit — forwards end-user IP via X-Forwarded-For
+// so Gateway growth-audit rate limiter partitions by the user's IP (see GrowthAuditService doc).
+builder.Services.AddHttpClient<GrowthAuditService>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Gateway:BaseUrl"] ?? "http://localhost:5001/");
+});
 
 // IMemoryCache — cache instance config + store data 5 phút
 builder.Services.AddMemoryCache();

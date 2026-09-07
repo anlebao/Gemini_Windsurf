@@ -170,7 +170,11 @@ public class AuthorizationEnforcementTests
             "KhachLinkInstanceController",
             // Crawl-to-Onboard Phase 6: ImageUploadController — anonymous Cloudinary upload from KhachLink WASM
             // (rate-limited via image-upload policy: 10/hour/IP). No tenant data accessed.
-            "ImageUploadController"
+            "ImageUploadController",
+            // GTM Drill Machine W1: GrowthController — anonymous Merchant Audit for Directory landing
+            // /kiem-tra-cua-hang (rate-limited via growth-audit policy: 10/hour/IP, XFF-forwarded client IP).
+            // Returns public directory presence data only — M3: Pending tenants expose name/slug only, no phone.
+            "GrowthController"
         };
 
         var controllers = GetControllers(GatewayAssembly)

@@ -1,0 +1,231 @@
+@page "/kiem-tra-cua-hang"
+@using VanAn.Directory.Services
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Tokens
+@inject GrowthAuditService GrowthAuditService
+@inject NavigationManager Navigation
+@inject IConfiguration Configuration
+
+<PageTitle>Kiểm tra cửa hàng — Danh bạ Vạn An</PageTitle>
+
+<div class="container py-4">
+    @* Hero — copy theo nguyên tắc "bán kết quả, không bán phần mềm" (§2 GTM):
+       câu hỏi kết quả, KHÔNG mô tả "giải pháp quản lý bán hàng toàn diện" *@
+    <div class="text-center mb-4">
+        <i class="bi bi-shop text-primary" style="font-size: 2.5rem;"></i>
+        <h3 class="mt-2 mb-1">Khách gần cửa hàng bạn đang tìm gì?</h3>
+        <p class="text-muted mb-0">Kiểm tra miễn phí xem cửa hàng bạn đang hiện diện thế nào trên mạng lưới TimLaThay</p>
+    </div>
+
+    @* Search form — no results loaded on page entry (pattern #157) *@
+    <VanAnCard CssClass="mb-4 py-4">
+        <div class="input-group input-group-lg">
+            <span class="input-group-text bg-white border-end-0">
+                <i class="bi bi-search text-primary"></i>
+            </span>
+            <input type="text" class="form-control border-start-0 border-end-0"
+                   id="audit-input"
+                   @bind="_query"
+                   @bind:event="oninput"
+                   @onkeyup="OnKeyUp"
+                   placeholder="Nhập tên cửa hàng hoặc mã số thuế..."
+                   aria-label="Kiểm tra cửa hàng" />
+        </div>
+        <div class="d-flex gap-2 mt-3">
+            <VanAnButton Variant="ButtonVariant.Primary" OnClick="RunAudit">
+                <i class="bi bi-clipboard-check me-1"></i> Kiểm tra miễn phí
+            </VanAnButton>
+        </div>
+        <p class="text-muted small mt-2 mb-0">
+            <i class="bi bi-shield-check"></i> Miễn phí · Không cần đăng ký · Xem kết quả ngay
+        </p>
+    </VanAnCard>
+
+    @if (_rateLimited)
+    {
+        <VanAnAlert Variant="AlertVariant.Warning" Message="Bạn đã kiểm tra nhiều lần trong giờ này. Vui lòng thử lại sau ít phút." CssClass="mb-3" />
+    }
+    else if (_failed)
+    {
+        <VanAnAlert Variant="AlertVariant.Error" Message="Không kiểm tra được lúc này. Vui lòng thử lại." CssClass="mb-3" />
+    }
+
+    @if (_loading)
+    {
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2">Đang phân tích...</p>
+        </div>
+    }
+    else if (_hasSearched && _audit is not null)
+    {
+        @if (!_audit.Found)
+        {
+            <VanAnCard CssClass="mb-3">
+                <div class="text-center py-3">
+                    <i class="bi bi-search text-secondary" style="font-size: 2rem;"></i>
+                    <h5 class="mt-2 mb-1">Chưa tìm thấy "@_query" trong mạng lưới</h5>
+                    <p class="text-muted mb-0">
+                        Cửa hàng của bạn chưa xuất hiện trên TimLaThay — khách tìm sản phẩm, dịch vụ quanh khu vực
+                        sẽ không thấy bạn. Khách chỉ thấy các cửa hàng đã có mặt trong mạng lưới.
+                    </p>
+                </div>
+            </VanAnCard>
+            @* RegisterUrl reserved for W2 Interactive Demo — hidden until available *@
+            @if (!string.IsNullOrEmpty(_audit.RegisterUrl))
+            {
+                <div class="text-center">
+                    <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoRegister">
+                        <i class="bi bi-cloud-upload me-1"></i> Đưa cửa hàng lên TimLaThay — miễn phí
+                    </VanAnButton>
+                </div>
+            }
+        }
+        else if (_audit.Tenant is not null)
+        {
+            var t = _audit.Tenant;
+            <VanAnCard CssClass="mb-3">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <i class="bi bi-shop-window text-primary" style="font-size: 2rem;"></i>
+                    <div>
+                        <h5 class="mb-0">@t.Name</h5>
+                        @if (!string.IsNullOrEmpty(t.Industry))
+                        {
+                            <span class="text-muted small">@t.Industry</span>
+                        }
+                    </div>
+                </div>
+
+                <h6 class="mb-2">Hiện trạng trên mạng lưới TimLaThay:</h6>
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle-fill text-success me-1"></i>
+                        Đã có tên trong danh bạ
+                    </li>
+                    @if (t.IsPending)
+                    {
+                        <li class="mb-2">
+                            <i class="bi bi-hourglass-split text-warning me-1"></i>
+                            Đang chờ xác minh chủ sở hữu — thông tin đầy đủ hiển thị sau khi xác minh
+                        </li>
+                    }
+                    else
+                    {
+                        @if (t.HasStorefront)
+                        {
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle-fill text-success me-1"></i>
+                                Đã có trang cửa hàng riêng trên mạng lưới
+                            </li>
+                        }
+                        else
+                        {
+                            <li class="mb-2">
+                                <i class="bi bi-x-circle-fill text-danger me-1"></i>
+                                Chưa có trang cửa hàng — khách không xem được sản phẩm, giá của bạn
+                            </li>
+                        }
+                        @if (t.HasSocialLinks)
+                        {
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle-fill text-success me-1"></i>
+                                Đã liên kết mạng xã hội
+                            </li>
+                        }
+                        else
+                        {
+                            <li class="mb-2">
+                                <i class="bi bi-x-circle-fill text-danger me-1"></i>
+                                Chưa liên kết Facebook/TikTok
+                            </li>
+                        }
+                    }
+                </ul>
+            </VanAnCard>
+
+            @* Industry peer count — measured from crawl data, dán nhãn nguồn rõ ràng (Ground Rule 5) *@
+            @if (_audit.IndustryPeerCount is int peers && peers > 0 && !string.IsNullOrEmpty(t.Industry))
+            {
+                <VanAnAlert Variant="AlertVariant.Info" CssClass="mb-3">
+                    <div>
+                        <i class="bi bi-graph-up me-1"></i>
+                        Trong dữ liệu Vạn An đang có thêm @peers cửa hàng cùng ngành "@t.Industry".
+                        Khách tìm ngành này quanh khu vực sẽ thấy các cửa hàng đó trước.
+                    </div>
+                </VanAnAlert>
+            }
+
+            @if (t.IsPending && !string.IsNullOrEmpty(_audit.ClaimUrl))
+            {
+                <div class="text-center">
+                    <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoClaim">
+                        <i class="bi bi-badge-check me-1"></i> Đây là cửa hàng của bạn? Nhận sở hữu ngay
+                    </VanAnButton>
+                    <p class="text-muted small mt-2 mb-0">Miễn phí · Xác minh bằng giấy phép kinh doanh</p>
+                </div>
+            }
+        }
+    }
+</div>
+
+@code {
+    private string _query = "";
+    private bool _loading;
+    private bool _hasSearched;
+    private MerchantAuditDto? _audit;
+    private bool _rateLimited;
+    private bool _failed;
+
+    // Issue #157 pattern: no data loaded on page entry — user must explicitly search.
+
+    private async Task RunAudit()
+    {
+        if (string.IsNullOrWhiteSpace(_query))
+            return;
+
+        _loading = true;
+        _hasSearched = true;
+        _rateLimited = false;
+        _failed = false;
+        _audit = null;
+
+        var result = await GrowthAuditService.AuditAsync(_query.Trim());
+
+        if (result.RateLimited)
+        {
+            _rateLimited = true;
+        }
+        else if (result.Failed)
+        {
+            _failed = true;
+        }
+        else
+        {
+            _audit = result.Audit;
+        }
+
+        _loading = false;
+    }
+
+    private async Task OnKeyUp(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await RunAudit();
+    }
+
+    /// <summary>Pending claim flow lives on KhachLink (browser → Gateway: correct client-IP rate limit).</summary>
+    private void GoClaim()
+    {
+        var defaultDomain = Configuration["KhachLink:DefaultDomain"];
+        if (string.IsNullOrWhiteSpace(defaultDomain))
+            defaultDomain = "khachvip.online"; // ultimate fallback (Home.razor pattern)
+        if (_audit?.ClaimUrl is not null)
+            Navigation.NavigateTo($"https://{defaultDomain}{_audit.ClaimUrl}", forceLoad: true);
+    }
+
+    private void GoRegister()
+    {
+        if (_audit?.RegisterUrl is not null)
+            Navigation.NavigateTo(_audit.RegisterUrl, forceLoad: true);
+    }
+}
