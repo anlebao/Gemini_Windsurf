@@ -3,7 +3,7 @@
 > **Status:** ✅ APPROVED 2026-09-06 — user chốt: (1) D1/D2 domain mods APPROVED · (2) landing audit = Directory (timlathay.com) · (3) hoa hồng referral = dynamic do SystemAdmin đặt
 > **Priority:** P2 — Tuyến B (growth machine), chạy song song Tuyến A (KTV + HĐĐT + dogfood — việc thương mại, không phụ thuộc card này)
 > **Branch:** `feature/gtm-drill-mvp` (từ `main`)
-> **Mode:** IMPLEMENT — W1 (Merchant Audit) đang chạy
+> **Mode:** IMPLEMENT — W1 CODE COMPLETE (`e8cd4e62`: build 0 errors + pre-commit GUARD PASS + arch 41/41; E2E run pending ecosystem). Next: W2 Interactive Demo.
 > **Source of truth:** `docs/AI/plans/ecosystem-master-business-model.md` Section 4 (GTM build map) · GTM review đã vá 3 hố (fake precision / cold-start / scoring)
 > **Workflow:** `newfeaturebuild.md`
 
