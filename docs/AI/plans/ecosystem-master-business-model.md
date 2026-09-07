@@ -1,10 +1,11 @@
-# VANAN ECOSYSTEM — MASTER BUSINESS MODEL v1.0
+# VANAN ECOSYSTEM — MASTER BUSINESS MODEL v1.1
 
-> **Created:** 2026-09-06
-> **Sources:** `docs/requirements/hình dung Vạn An - BOM.md` (tầm nhìn 5 tầng) · `docs/requirements/mô hình kinh doanh (khoan thủng thị trường).md` (GTM) · 2 session review BOM + GTM (2026-09-06) · codebase verification
+> **Created:** 2026-09-06 (v1.0) · **Revised:** 2026-09-07 (v1.1 — Strategic Architecture Review)
+> **Sources:** `docs/requirements/hình dung Vạn An - BOM.md` (tầm nhìn 5 tầng) · `docs/requirements/mô hình kinh doanh (khoan thủng thị trường).md` (GTM) · 2 session review BOM + GTM (2026-09-06) · codebase verification · adversarial self-review 2026-09-07 (corporate structure + data governance + merchant trust firewall + spin-off readiness)
 > **Quy ước số liệu:** **[V]** = đã verify trong code/production · **[A]** = assumption — phải validate bằng thị trường, mọi con số giá là ĐỀ XUẤT chờ chốt
 > **Tính chất:** tài liệu chiến lược kinh doanh — KHÔNG phải implementation plan. Task code sẽ tạo riêng tại `docs/AI/tasks/`.
 > **Cách dùng:** re-đọc Section 0 (Ground Rules) + Section 8 (BOM Registry) đầu mỗi sprint planning; Section 6 (Roadmap) là nguồn truth cho thứ tự ưu tiên.
+> **v1.1 thay đổi gì:** ADD Section 0 item 7 (Corporate Architecture Principle) · ADD Section 10 (Data Trust Architecture) · ADD Section 11 (Merchant Trust Firewall) · ADD Section 12 (Corporate Spin-off Readiness) · MODIFY Section 9 (HĐĐT = switching cost, moat = full stack) · old Section 10 → Section 13. Phần còn lại giữ nguyên v1.0.
 
 ---
 
@@ -16,6 +17,7 @@
 4. **Danh sách KHÔNG:** không ôm hàng tồn kho · không thu phụ phí ship của khách (CTV nhận phí ship trực tiếp; Vạn An thu 0 ở L5 — resolve mâu thuẫn nội tại tài liệu gốc) · không đốt tiền đối đầu trực diện Grab/ShopeeFood · không bán data cá nhân (ND356/Luật 91).
 5. **Số liệu trung thực:** chỉ hiển thị số ĐO ĐƯỢC cho merchant (lượt tìm/xem/đơn thật). Mọi mô hình hóa phải dán nhãn "ước tính". Cấm fake precision — một report sai kiểu "420 lượt tìm quanh đây" đủ giết niềm tin cộng đồng địa phương, ngược chiều flywheel.
 6. **Business-driven gate:** mọi feature mới phải trả lời tăng gì trong {Merchant acquisition · Transaction · Retention · Revenue}. Không trả lời được → defer. Feature tồn tại từ trước (Loyalty Alliance, Guard QR, OCR Hub) được grandfather — review metric hằng quý, 2 quý không có metric → cắt.
+7. **Corporate Architecture = Option B (One OpCo + logical firewalls + future spin-off triggers):** Vạn An hiện 1 pháp nhân duy nhất với logical firewalls đã implement ~70% trong codebase [V] (tenant isolation · accounting separation · service boundaries · audit · domain purity · auth/authz). KHÔNG tách 3 pháp nhân (Holding/OpCo/DataCo) ngay — overbuild phá bootstrap economics ở quy mô 3 test tenants. Logical firewalls + IP ownership documentation + data zones + merchant trust firewall = đủ defense ở Year 1. Spin-off thành IPCo/FinIntel/JV chỉ khi trigger fire (Section 12). Mọi thay đổi corporate phải trả lời tăng gì cho {network · transaction · retention · cashflow · data moat · strategic optionality} mà KHÔNG phá bootstrap — nếu không → DEFER.
 
 ---
 
@@ -263,14 +265,156 @@ Tiêu chí: nhanh có doanh thu × ít đầu tư × không bóp network.
 | Fake precision trong audit giết niềm tin | Cao | Ground Rule 5 — chỉ số đo được |
 | Thin-content SEO bị Google phạt | TB | mỗi landing ngành×tỉnh ≥ 10 listing thật; không tạo trang rỗng |
 | Claim giả (GPKD fake) | TB | MST trên GPKD phải khớp TaxCode (đã có approve thủ công SysAdmin [V]) |
-| Đối thủ copy rồi补贴 | TB | không đối đầu giá — moat là dữ liệu tài chính + density địa phương (Section 10 cạnh tranh) |
+| Đối thủ copy rồi补贴 | TB | không đối đầu giá — moat là dữ liệu tài chính + density địa phương (Section 9 cạnh tranh) |
 | Over-build (cái chết §13 tài liệu gốc) | Cao | Ground Rule 6 + Gates G1-G5 + kill-list hằng quý |
 
 **Chiến lược cạnh tranh (không đối đầu trực diện):** Grab = delivery → Vạn An = merchant OS + local network · Shopee/TikTok = marketplace quốc gia → Vạn An = hyperlocal + dữ liệu thuộc merchant network · Google Maps = discovery → Vạn An = transactional discovery (tìm → chat → đơn → kế toán) · MISA/KiotViet = accounting/POS → Vạn An = accounting + vận hành + commerce + nhu cầu địa phương trong một dòng dữ liệu. Không ai trong 4 nhóm có được chuỗi Sales+Orders+Inventory+Accounting+Cashflow+Local demand gộp lại của Tầng 4.
 
+**HĐĐT = switching cost, KHÔNG phải absolute lock-in (澄清 v1.1):** HĐĐT khởi tạo từ POS tạo switching cost thật — merchant đã có lịch sử hóa đơn, kế toán liên kết, quy trình vận hành. Nhưng đó là **switching cost**, không phải lock-in tuyệt đối — merchant có thể xuất dữ liệu ra và đổi hệ thống. Moat không nằm ở HĐĐT đơn lẻ mà ở **full stack**: POS + Accounting + Tax compliance + Cashflow + Customer + Orders + Local demand + Financial Intelligence. Cấm language "churn gần như bằng 0" — đó là fake confidence. Retention đến từ value cộng dồn (data moat + density địa phương + FI premium), không phải từ việc merchant "không thoát được". Thiết kế HĐĐT theo **applicable tax rules / merchant profile / regulatory conditions** — không hard-code rằng mọi transaction bắt buộc dùng cùng một invoice flow.
+
 ---
 
-## 10. SOURCES & VERIFIED FACTS (2026-09-06)
+## 10. DATA TRUST ARCHITECTURE (v1.1 — ADD)
+
+> **Mục đích:** phân loại mọi dữ liệu trong hệ thống theo zone, xác định owner / access / purpose / retention / allowed usage / prohibited usage. Không đơn giản hóa thành "DataCo mua data ẩn danh từ Operator" — đó là valuation-driven architecture, có thể sai. Data zones là **logical boundary trong 1 OpCo** (Option B), trở thành legal boundary chỉ khi spin-off trigger fire (Section 12).
+
+### 10.1 Năm zone dữ liệu
+
+| Zone | Loại | Owner | Access | Purpose | Retention | Allowed usage | Prohibited usage | Rời OpCo? | Future product? |
+|---|---|---|---|---|---|---|---|---|---|
+| **A — Personal Data** | SĐT, email, địa chỉ khách hàng; CCCD/CMND nếu có | Khách hàng (Vạn An = processor) | Tenant-scoped + SysAdmin audit | Giao hàng, chat, tích điểm | Theo ND356: tối thiểu cần thiết | Giao hàng, chat, loyalty cho chính khách | Bán · chia cross-tenant · aggregate không ẩn danh | KHÔNG bao giờ | KHÔNG |
+| **B — Merchant Confidential** | Doanh thu, menu, giá, tồn kho, sổ kế toán, khách hàng của merchant | Merchant (Vạn An = processor) | Tenant-scoped strict [V] global query filter | Vận hành merchant + FI cho chính merchant đó | Theo hợp đồng merchant | FI cho chính merchant · report cho merchant · audit | Dùng cho merchant B · ưu đãi đối thủ · bán · aggregate không ẩn danh | KHÔNG (trừ khi merchant export ra) | KHÔNG |
+| **C — Operational Transaction** | Đơn hàng, wallet settlement, HĐĐT, delivery log | OpCo | Tenant-scoped + platform rollup ẩn danh | Vận hành + take-rate + reconciliation | 5 năm (thuế) | Settlement · take-rate · FI cho merchant phát sinh · audit | Cross-tenant identification · bán | KHÔNG (trừ aggregate ẩn danh → Zone D) | KHÔNG trực tiếp |
+| **D — Aggregated / Statistical** | Density map, demand/supply graph ẩn danh, GMV aggregate, search volume by area | OpCo | Platform-level (SysAdmin + FI product) | Intelligence product · merchant audit (đã ẩn danh) | Vô thời hạn (không có PII) | Merchant audit (số aggregate) · future B2B data product (Year 3+) · FI benchmarking | Re-identification · bán data có PII | CÓ (sản phẩm thương mại Year 3+ nếu trigger) | CÓ (trigger Section 12) |
+| **E — Derived Intelligence / Models** | FI models, credit scoring, benchmark, anomaly detection | OpCo | Platform-level (FI product team) | FI premium product · referral tài chính (L9) | Vô thời hạn (model artifacts) | FI premium cho merchant · aggregate benchmark · referral (Year 3) | Re-identification · bán model có PII | CÓ (spin-off FinIntel nếu trigger) | CÓ (trigger Section 12) |
+
+### 10.2 Nguyên tắc bắt buộc
+
+1. **Zone A + B không bao giờ rời OpCo** — không bán, không chia cross-tenant, không aggregate không ẩn danh. Vi phạm = phá Merchant Trust Firewall (Section 11) + vi phạm ND356/Luật 91.
+2. **Zone D/E mới có thể trở thành commercial data product** — nhưng chỉ sau trigger (Section 12) và chỉ ở dạng ẩn danh/aggregate.
+3. **Business model KHÔNG phụ thuộc vào việc bán personal data** (Ground Rule 4). Revenue từ data (L10) chỉ ở Zone D/E aggregate, Year 3+, có trigger gate.
+4. **Merchant = data owner của Zone B** — Vạn An là processor. Merchant có quyền export dữ liệu của mình ra (data portability). Vạn An không dùng Zone B của merchant A để lợi ích merchant B.
+5. **Re-identification prohibition** — mọi aggregate từ Zone C → D phải không thể reverse-engineer về cá nhân/merchant cụ thể. Audit re-identification hằng quý.
+6. **Codebase hiện trạng [V]:** tenant isolation đã có (global query filter, 82+ files `HasQueryFilter`/`TenantId ==`) · audit log đã có · `AccountingEntry` immutable. **Chưa có:** explicit data zone annotation/classification trong code — đây là work item cho IMPLEMENT phase (không phải tài liệu chiến lược).
+
+---
+
+## 11. MERCHANT TRUST FIREWALL (v1.1 — ADD)
+
+> **Rủi ro đặc biệt:** Vạn An sở hữu **cả merchant operating system lẫn local marketplace/network**. Nếu dùng dữ liệu Merchant A (doanh thu, menu, giá, khách) để ưu đãi Merchant B (đối thủ A) → niềm tin chết ngay, flywheel đảo chiều. Corporate structure không tự giải quyết rủi ro này — cần explicit policy + enforcement.
+
+### 11.1 Chính sách bắt buộc
+
+| Chính sách | Mô tả | Codebase status |
+|---|---|---|
+| **Ranking neutrality** | Search ranking: status → relevance → distance. KHÔNG paid ranking. Featured slot dán nhãn rõ, không affect organic ranking. | [V] Section 13 đã verify — organic thuần |
+| **Merchant-specific data isolation** | Zone B của merchant A không bao giờ dùng để benefit merchant B. Tenant boundary = hard boundary. | [V] global query filter + 82+ files |
+| **Customer list protection** | Customer list của merchant A = tài sản merchant A. Vạn An không chia cho merchant B. Customer chỉ "thuộc platform" khi tự đăng ký loyalty alliance (consent). | [V] tenant-scoped Customer entity · cần policy doc |
+| **Pricing confidentiality** | Giá/menu/doanh thu merchant A không bao giờ lộ cho merchant B. | [V] tenant isolation |
+| **No hidden favoritism** | Không ưu ái merchant nào trong search/discovery ngoài ranking organic. Featured slot = paid placement dán nhãn, không lẫn vào organic. | [V] FeaturedProduct separate entity |
+| **No use of confidential data to create competing merchant** | Vạn An không dùng dữ liệu merchant A để tạo merchant cạnh tranh A. | Policy (chưa có code enforcement — bằng governance) |
+| **Aggregate intelligence rules** | Zone D/E aggregate ẩn danh mới được dùng cho benchmark/FI. Re-identification = vi phạm. | [A] — cần audit process |
+
+### 11.2 Enforcement
+
+- **Technical:** tenant isolation [V] + audit log [V] + data zone classification (Section 10 — work item).
+- **Governance:** SysAdmin access logged [V] · quarterly re-identification audit · merchant complaint channel.
+- **Contractual:** ToS merchant explicit: "Vạn An không dùng dữ liệu của bạn để lợi ích đối thủ cạnh tranh của bạn."
+- **Strategic principle (ADD vào Ground Rules khi cần):** Merchant trust = tài sản chiến lược. Vi phạm firewall = phá tài sản. Không có trade-off nào justify việc phá firewall cho revenue ngắn hạn.
+
+### 11.3 Phân biệt: Vạn An marketplace vs Vạn An merchant OS
+
+```
+Merchant A (dùng Vạn An POS)
+        ↓ Zone B (tenant-isolated)
+   Vạn An OpCo
+        ↓ aggregate ẩn danh → Zone D
+   Vạn An Marketplace (TimLaThay)
+        ↓ ranking organic (status → relevance → distance)
+   Customer tìm "phở gần đây"
+        ↓
+   Merchant A + Merchant B + ... (xếp theo organic, không ưu ái A vì A dùng POS)
+```
+
+Merchant A dùng POS không được ưu ái trong marketplace. Merchant B không dùng POS không bị phạt trong marketplace. **Marketplace ranking = organic, POS data = tenant-isolated.** Hai dòng dữ liệu không trộn.
+
+---
+
+## 12. CORPORATE SPIN-OFF READINESS (v1.1 — ADD)
+
+> **Mục đích:** Vạn An hiện 1 pháp nhân (Option B). Section này document logical firewalls đã có + triggers cho future spin-off. IPO/M&A không phải North Star — North Star vẫn = Active Local GMV. Capital-market options chỉ là **future optionality**, không phải mục tiêu thiết kế.
+
+### 12.1 Logical firewalls đã có [V] — prerequisite cho spin-off
+
+| Firewall | Codebase status | Spin-off readiness |
+|---|---|---|
+| Bounded contexts | [V] Tenant, Order, Accounting, Wallet, Crawler, FI, Guard, Loyalty | Sẵn — carve-out theo context |
+| Tenant isolation | [V] `BaseEntity : IMustHaveTenant`, global query filter, 82+ files | Sẵn — data không trộn |
+| Accounting separation | [V] 3-bookset R2.2, `AccountingEntry` immutable + analyzer | Sẵn — accounting carve-out |
+| Service boundaries | [V] CoreHub Services, DI-registered | Sẵn — service carve-out |
+| Audit trail | [V] `AuditLogRepository` | Sẵn |
+| Domain purity | [V] `1_Shared` không reference EF Core | Sẵn — IP boundary sạch |
+| Auth/authz | [V] Cookie+JWT, `UserRole`+`PlatformRole`, Impersonation #103 | Sẵn |
+| Data zones | [A] — policy có (Section 10), code annotation chưa | Work item IMPLEMENT |
+| Merchant trust firewall | [A] — policy có (Section 11), governance enforcement chưa | Work item |
+| IP ownership documentation | [A] — cần hợp đồng founder copyright assignment + trademark registration | Work item (chi phí thấp) |
+
+### 12.2 Spin-off triggers (threshold = hypothesis [A] — calibrate khi có data thật)
+
+| Trigger | Action | Rationale |
+|---|---|---|
+| < 500 active merchants | One OpCo + logical firewalls | Bootstrap economics — không overhead corporate |
+| 500–2,000 active merchants | Strengthen logical boundaries + IP ownership doc + data zone code annotation | Chuẩn bị carve-out path, chưa tách |
+| > 2,000 active merchants + recurring revenue | Evaluate IPCo (IP licensing scenario real) | IP có giá trị thương mại khi scale |
+| FI có independent revenue ≥ 20% tổng revenue | Evaluate FinIntel entity | FI đủ lớn thành independent economic entity |
+| Regulatory requirement (ND356 enforcement, tax restructuring) | Mandatory restructuring | Bắt buộc, không optional |
+| Strategic investor / M&A interest | Carve-out relevant business | Due diligence nhanh vì logical firewalls đã có |
+| Material liability concentration (HĐĐT dispute, data breach) | Risk isolation entity | Bảo vệ phần còn lại |
+| Credit/insurance referral (L9) scale | JV/FinCo | Vạn An = data layer, không làm ngân hàng |
+
+### 12.3 Spin-off roadmap (optionality, không phải commitment)
+
+```
+Year 1: One OpCo + logical firewalls + IP ownership doc + data zones + merchant trust firewall
+   ↓
+Year 2: Strengthen boundaries · evaluate triggers · related-party transaction templates (sẵn sàng, chưa dùng)
+   ↓
+Year 3: If triggers fire → IPCo (IP licensing) · FinIntel entity (if FI independent revenue) · JV/FinCo (if L9 scales)
+   ↓
+Year 4-5: Strategic investment | M&A carve-out | IPO | remain private
+```
+
+**Valuation roadmap (sửa language "Year 4-5 = IPO"):**
+
+```
+Year 1: PMF + cashflow
+Year 2: network density
+Year 3: financial intelligence (if trigger)
+Year 4: institutional capital optionality
+Year 5: IPO / M&A / strategic investment / remain private — ALL options open
+```
+
+Mục tiêu thực: **build an asset that capital markets want to buy.** Không build company structure chỉ để "trông giống công ty chuẩn bị IPO". IPO = 1 trong 5 options, không phải đích.
+
+### 12.4 Tài sản chiến lược — phân loại owner
+
+| Asset | Owner hiện tại (OpCo) | Future spin-off candidate |
+|---|---|---|
+| Source code | OpCo (copyright assignment founder → OpCo) | IPCo (if IP licensing) |
+| Trademark "Vạn An" / "TimLaThay" | OpCo (register ngay) | IPCo |
+| Domains | OpCo | IPCo |
+| Merchant relationship | OpCo (tenant-isolated) | OpCo (stay) |
+| Customer relationship | OpCo (Zone A, customer-owned) | OpCo (stay) |
+| Transaction graph | OpCo (Zone C) | OpCo (stay) |
+| Local supply/demand graph | OpCo (Zone D aggregate) | FinIntel (if trigger) |
+| Financial Intelligence models | OpCo (Zone E) | FinIntel (if trigger) |
+| AI/ML models (future) | OpCo (Zone E) | FinIntel (if trigger) |
+
+**Source code KHÔNG phải asset duy nhất** (xác nhận lại luận điểm Master Model v1.0 Section 3.1): network + transaction data + merchant relationship + customer relationship + local supply/demand graph + Financial Intelligence mới là tài sản chiến lược. Source code là implementable, data + relationship là non-replicable.
+
+---
+
+## 13. SOURCES & VERIFIED FACTS (2026-09-06)
 
 **[V] Từ codebase/production:**
 - Production hiện 3 tenant test (GCP Data Seeding pending) — mọi BOM bị chặn bởi acquisition, hence 2 động cơ zero-CAC dẫn đầu.
@@ -290,4 +434,6 @@ Tiêu chí: nhanh có doanh thu × ít đầu tư × không bóp network.
 
 ---
 
-*Maintenance: file này cập nhật khi (a) ẩn số #1/#2 có答案, (b) vượt mốc 100/300/1.000 anchor, (c) quyết định chiến lược mới làm thay đổi Ground Rules hoặc Gates.*
+*Maintenance: file này cập nhật khi (a) ẩn số #1/#2 có答案, (b) vượt mốc 100/300/1.000 anchor, (c) quyết định chiến lược mới làm thay đổi Ground Rules hoặc Gates, (d) spin-off trigger fire (Section 12), (e) data zone code annotation hoàn thành (Section 10.2 item 6).*
+
+*v1.1 review provenance: adversarial self-review 2026-09-07 against proposal "tách 3 pháp nhân + BCC firm lớn + DataCo ngay". Verdict: Option B (1 OpCo + logical firewalls + spin-off triggers) — proposal đúng ở Data Trust + Merchant Trust Firewall + spin-off readiness (ADD), sai ở 3 pháp nhân ngay (overbuild) + BCC firm lớn (premature). See session log 2026-09-07.*
