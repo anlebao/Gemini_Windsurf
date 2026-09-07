@@ -191,6 +191,14 @@ namespace VanAn.Gateway
                         QueueLimit = 0
                     });
                 });
+                // Return 429 (Too Many Requests) instead of default 503 for rate-limited audit requests.
+                options.OnRejected = async (context, cancellationToken) =>
+                {
+                    context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                    context.HttpContext.Response.ContentType = "application/json";
+                    await context.HttpContext.Response.WriteAsync(
+                        """{"message":"Quá giới hạn yêu cầu. Vui lòng thử lại sau 1 giờ."}""", cancellationToken);
+                };
             });
 
             // Register CoreHub DbContext for monolithic architecture (in-process services)
