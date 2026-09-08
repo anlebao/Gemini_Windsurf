@@ -1,10 +1,10 @@
-# HƯỚNG DẪN SỬ DỤNG — W1 Merchant Audit (Máy Khoan Thủng GTM)
+# HƯỚNG DẪN SỬ DỤNG — W1 Merchant Audit + W2 Interactive Demo (Máy Khoan Thủng GTM)
 
-> **Phiên bản:** W1 — Merchant Audit (tuần 1/5 của GTM Drill Machine MVP)
-> **Ngày hoàn thành:** 2026-09-07 (code complete + production RV PASS)
-> **Commit:** `e8cd4e62` (W1 impl) + `a21fcffc` (nginx routing fix + 429 fix)
-> **Branch:** `main` @ `48d488f6`
-> **Task card:** `docs/AI/tasks/gtm_drill_mvp_task_card.md`
+> **Phiên bản:** W1 + W2 (tuần 1-2/5 của GTM Drill Machine MVP)
+> **Ngày hoàn thành:** W1 — 2026-09-07 · W2 — 2026-09-08 (code complete + production RV PASS)
+> **Commit:** W1 `e8cd4e62` + `a21fcffc` · W2 `f66a08a1` + `7ce6c73d`
+> **Branch:** `main` @ `7ce6c73d`
+> **Task card:** `docs/AI/tasks/gtm_drill_mvp/task_card_w2_interactive_demo.md`
 > **Strategy:** `docs/AI/plans/ecosystem-master-business-model.md` Section 4
 
 ---
@@ -305,12 +305,200 @@ npx playwright test gtm-audit.spec.ts
 
 ---
 
-## 11. BƯỚC TIẾP THEO (W2)
+## 11. W2 — INTERACTIVE DEMO + REGISTRATION
 
-W1 hoàn thành phễu **tự phát hiện → tự xem report**. W2 sẽ thêm **tự trải nghiệm**:
+W1 hoàn thành phễu **tự phát hiện → tự xem report**. W2 thêm **tự trải nghiệm → tự đăng ký**:
 
-- `/demo` trên KhachLink — merchant nhập tên quán + ngành → dựng storefront mock (logo, 3-5 sản phẩm, giờ mở cửa, màu theme) — **không persistence**, session-only
-- Nút "Đưa cửa hàng lên TimLaThay" → `/claim?name=...` (prefill)
-- E2E `gtm-demo.spec.ts`
+```
+Merchant vào /demo (KhachLink)
+  → Nhập tên quán + ngành
+  → Dựng storefront mock (logo, 3-5 sản phẩm, giờ mở cửa, theme)
+  → Sửa sản phẩm/giờ/theme trực tiếp
+  → CTA "Đưa cửa hàng lên TimLaThay"
+  → /claim?name=<demo name> (prefill)
+  → Điền form đăng ký (tên, SĐT, email, ngành)
+  → Turnstile + honeypot (anti-bot)
+  → POST /api/v1/tenant-registrations
+  → Admin queue (SystemAdmin review)
+```
 
-See `docs/AI/tasks/gtm_drill_mvp_task_card.md` Section W2.
+### 11.1 Trang Demo
+
+**URL:** `https://diemthuong2.khachvip.online/demo` (hoặc bất kỳ KhachLink commerce domain)
+
+- Blazor WebAssembly — render client-side, không load server
+- Standalone — không dùng KhachLinkLayout (render full-page, không sidebar/header)
+- Session-only — refresh = reset demo, không lưu DB/localStorage
+- Anonymous — không cần đăng nhập
+
+**Industry seeds (sample products):**
+- `cà phê` / `cafe` → 5 sản phẩm (cà phê sữa đá, bạc xỉu, cà phê đen, trà đào cam sả, trà sữa trân châu)
+- `phở` / `pho` → 4 sản phẩm (phở bò tái, phở bò chín, phở gà, phở xào)
+- `tạp hóa` → 4 sản phẩm (mì gói, nước suối, gạo, đường)
+- `salon` / `tiệm nail` / `nail` → 4 sản phẩm (làm móng, sơn gel, đắp móng, vẽ móng)
+- `ăn vặt` → 4 sản phẩm (khoai tây chiên, gà rán, trà sữa, xúc xích nướng)
+- Khác (generic) → 3 sản phẩm (Sản phẩm 1/2/3)
+
+**Theme:** Classic (nâu ấm) · Modern (xanh dương) · Teen (hồng-tím) · Lady (hồng pastel) · Premium (đen-vàng) — copy CSS từ `Store.razor`.
+
+### 11.2 Trang Register (/claim)
+
+**URL:** `https://diemthuong2.khachvip.online/claim?name=<shop name>`
+
+- Route `/claim` — NEW `Register.razor` (không phải `Claim.razor` — Claim.razor vẫn cho `/store/{Slug}/claim` của Pending tenant có sẵn)
+- `?name=` prefill từ demo
+- `?ref=` (W4 — Merchant Referral attribution)
+- Form fields: ShopName (bắt buộc) · Industry · ContactName (bắt buộc) · ContactPhone (bắt buộc) · ContactEmail
+- Honeypot `website` field — ẩn (`display:none`, `aria-hidden`, `tabindex=-1`), bot auto-fill → server silent reject
+- Turnstile widget — invisible challenge, không friction cho user thật
+- Submit qua `RegistrationHttpService` → Gateway `POST /api/v1/tenant-registrations`
+
+### 11.3 API Registration
+
+**Endpoint:** `POST https://api2.khachvip.online/api/v1/tenant-registrations`
+
+**Auth:** Anonymous
+
+**Rate limit:** 5 requests/IP/24h (FixedWindow). Vượt → HTTP 429.
+
+**Request body:**
+```json
+{
+  "shopName": "Quán Cà Phê Nhất Nghệ",
+  "contactName": "Nguyễn Văn A",
+  "contactPhone": "0901234567",
+  "source": "demo",
+  "turnstileToken": "<token từ widget>",
+  "industry": "cà phê",
+  "contactEmail": "email@example.com",
+  "honeypotWebsite": null
+}
+```
+
+**Response — Success (200):**
+```json
+{
+  "registrationId": "ebde9cb8-35ec-46c6-ab62-69254da7767d",
+  "message": "Cảm ơn! Yêu cầu đăng ký đã gửi. Chúng tôi sẽ liên hệ trong 1-2 ngày làm việc."
+}
+```
+
+**Response — Honeypot triggered (200, fake success, no DB record):**
+```json
+{
+  "registrationId": "00000000-0000-0000-0000-000000000000",
+  "message": "Cảm ơn! Yêu cầu đã gửi."
+}
+```
+
+**Response — Rate limited (429):**
+```json
+{
+  "message": "Quá giới hạn đăng ký. Vui lòng thử lại sau 24 giờ."
+}
+```
+
+### 11.4 Anti-abuse (3 lớp)
+
+| Lớp | Cơ chế | Hành vi |
+|---|---|---|
+| 1 | Cloudflare Turnstile (server-side verify) | Token rỗng/sai → 400. Dev fallback: nếu `Turnstile:SecretKey` không cấu hình → skip verify + log warning. Production (W5) bắt buộc cấu hình. |
+| 2 | Honeypot `website` field | Bot auto-fill → 200 fake success, KHÔNG lưu DB. User thật không thấy field (display:none). |
+| 3 | Rate limit `registration-submit` (5/IP/24h) | Vượt → 429. |
+
+### 11.5 Admin Queue (SystemAdmin)
+
+**Endpoint:** `GET /api/v1/tenant-registrations` (list pending) · `GET /api/v1/tenant-registrations/{id}` (detail) · `POST /api/v1/tenant-registrations/{id}/contact` · `POST /api/v1/tenant-registrations/{id}/onboard` · `POST /api/v1/tenant-registrations/{id}/reject`
+
+**Auth:** SystemAdmin (JWT bearer).
+
+**Lifecycle:** `Submitted` (default) → `Contacted` (admin đã liên hệ) → `Onboarded` (đã tạo tenant) hoặc `Rejected`.
+
+### 11.6 D3 Domain Model — TenantRegistration
+
+**Entity:** `1_Shared/Domain/Aggregates/TenantAggregate/TenantRegistration.cs`
+
+- Audit-type (precedent `CrawlSource`) — không phải `TenantClaimRequest` (vì `TenantClaimRequest` yêu cầu tenant có sẵn)
+- `TenantId = Guid.Empty` sentinel — pre-tenant lead, chưa thuộc tenant nào
+- Excluded từ multi-tenancy query filter (anonymous registration xảy ra trước khi tenant được tạo)
+- EF config: `3_CoreHub/Infrastructure/Configurations/TenantRegistrationConfiguration.cs`
+- Migration: `3_CoreHub/Infrastructure/Migrations/20260908023803_AddTenantRegistrations.cs` (PG, indexes on Status + SubmittedAt)
+- ShopERP `ShopERPDbContext` `Ignore<TenantRegistration>()` (PG-only, không mirror sang SQLite)
+
+### 11.7 Files & vị trí (W2)
+
+| File | Vai trò |
+|---|---|
+| `1_Shared/Domain/Aggregates/TenantAggregate/TenantRegistration.cs` | D3 entity (audit-type, lifecycle) |
+| `3_CoreHub/Infrastructure/Configurations/TenantRegistrationConfiguration.cs` | EF config (no FK to Tenants) |
+| `3_CoreHub/Infrastructure/Migrations/20260908023803_AddTenantRegistrations.cs` | PG migration |
+| `3_CoreHub/Services/Registrations/RegistrationDtos.cs` | Request + result + admin DTOs |
+| `3_CoreHub/Services/Registrations/ITenantRegistrationService.cs` + `TenantRegistrationService.cs` | Service (validate + duplicate + persist + lifecycle) |
+| `3_CoreHub/Services/Registrations/TurnstileVerificationService.cs` | Cloudflare server-side verify (dev fallback) |
+| `2_Gateway/Controllers/TenantRegistrationController.cs` | POST submit + admin queue |
+| `2_Gateway/Program.cs` | Rate limit `registration-submit` (5/IP/24h) + DI |
+| `2_Gateway/appsettings.json` | `Turnstile:SiteKey` + `Turnstile:SecretKey` placeholders |
+| `5_WebApps/KhachLink/Pages/Demo.razor` | Trang `/demo` (standalone storefront mock) |
+| `5_WebApps/KhachLink/Pages/DemoStoreState.cs` | In-memory model (5 industry seeds) |
+| `5_WebApps/KhachLink/Pages/Register.razor` | Trang `/claim` (Turnstile + honeypot + prefill) |
+| `5_WebApps/KhachLink/Services/Http/RegistrationHttpService.cs` | Gateway client |
+| `5_WebApps/KhachLink/Services/Http/ImageUploadService.cs` | `UploadLogoAsync` (folder=demo-logos) |
+| `6_Testing/e2e-tests/gtm-demo.spec.ts` | E2E spec (6 tests) |
+
+### 11.8 E2E Test (W2)
+
+**File:** `6_Testing/e2e-tests/gtm-demo.spec.ts`
+
+**Env vars:**
+- `KHACHLINK_URL` — URL KhachLink (default `http://localhost:5002`, production `https://diemthuong2.khachvip.online`)
+
+**Chạy:**
+```bash
+cd 6_Testing/e2e-tests
+KHACHLINK_URL=https://diemthuong2.khachvip.online npx playwright test gtm-demo.spec.ts
+```
+
+**6 tests:**
+1. Demo setup form renders (shop name + industry inputs)
+2. Entering shop name + industry → storefront mock with sample products
+3. Editing product name + price updates render
+4. Adding/deleting products updates count
+5. Changing theme updates wrapper class
+6. CTA navigates to `/claim?name=...` with prefilled shop name
+
+**Production RV (2026-09-08):** 6/6 PASS on `diemthuong2.khachvip.online` (50.7s).
+
+### 11.9 RV Checklist W2
+
+| # | Test | Command | Expected |
+|---|---|---|---|
+| 1 | PG migration applied | `docker exec vanan-postgres-1 psql -U vanan_admin -d VanAnCoreHub -c 'SELECT count(*) FROM "TenantRegistrations"'` | 0 (or >0 if tested) |
+| 2 | POST registration | `curl -X POST https://api2.khachvip.online/api/v1/tenant-registrations -H "Content-Type: application/json" -d '{"ShopName":"Test","ContactName":"Test","ContactPhone":"0900000001","Source":"demo","TurnstileToken":""}'` | 200 + registrationId |
+| 3 | Honeypot silent reject | Same POST with `"HoneypotWebsite":"http://spam.com"` | 200 + `registrationId: "00000000-..."` (no DB record) |
+| 4 | Rate limit | Spam 6+ requests same IP | 200 × 5, then 429 |
+| 5 | /demo renders | `curl -sS -o /dev/null -w "%{http_code}" https://diemthuong2.khachvip.online/demo` | 200 |
+| 6 | /claim renders | `curl -sS -o /dev/null -w "%{http_code}" https://diemthuong2.khachvip.online/claim` | 200 |
+| 7 | E2E 6/6 | `KHACHLINK_URL=https://diemthuong2.khachvip.online npx playwright test gtm-demo.spec.ts` | 6 passed |
+
+### 11.10 Giới hạn W2 (defer — không phải bug)
+
+| Giới hạn | Lý do | Khi nào build |
+|---|---|---|
+| Turnstile chưa verify trên production | `Turnstile:SecretKey` chưa cấu hình (dev fallback skip) | W5 deploy — SysAdmin cấu hình keys |
+| Rate limit dùng RemoteIpAddress (nginx IP) | Gateway chưa có `UseForwardedHeaders` cho registration endpoint | W5 deploy — thêm XFF handling |
+| Admin queue chưa có UI | Chỉ có API endpoint | W3+ — thêm Blazor admin page trong ShopERP |
+| Logo upload anonymous | Gateway `ImageUploadController` chưa verify anonymous upload path | W3 — verify hoặc defer to industry placeholder |
+| Không tạo tenant tự động | Registration = lead, admin review → onboard | By design — tránh spam tenant |
+
+---
+
+## 12. BƯỚC TIẾP THEO (W3)
+
+W1+W2 hoàn thành phễu **tự phát hiện → tự xem → tự trải nghiệm → tự đăng ký**. W3 sẽ thêm **tự thấy giá trị**:
+
+- D1 domain mod — `StoreMetricDaily` entity (daily counters: orders, revenue, customers)
+- GrowthDashboard "Tháng này" trên KhachLink — merchant Active thấy số đo được
+- Counters từ PostgreSQL (Gateway source of truth)
+- E2E `gtm-revenue-proof.spec.ts`
+
+See `docs/AI/tasks/gtm_drill_mvp/task_card_w3_revenue_proof.md`.
