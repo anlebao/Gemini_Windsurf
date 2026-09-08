@@ -18,11 +18,17 @@ public class FeatureFlagService : IFeatureFlagService
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(30);
 
     // Known features — used by GetAllAsync to return full list even if no SystemSetting row exists
-    private static readonly (string Name, string Display, string Desc, string Phase)[] KnownFeatures =
+    // Sprint 3 EXPANDED: thêm Default field — audit flags default ON (true), VALCN flags default OFF (false)
+    private static readonly (string Name, string Display, string Desc, string Phase, bool Default)[] KnownFeatures =
     [
-        ("ValcnV2_PlatformFee", "Platform Fee (Marketplace)", "Tính PlatformFeeAmount trên Marketplace orders (Phase 2)", "Phase 2"),
-        ("ValcnV2_LoyaltyBudget", "Loyalty Budget Cap", "Check budget trước AddPoints + reset jobs (Phase 3)", "Phase 3"),
-        ("ValcnV2_RefundReversal", "Refund Reversal (UC-06)", "4-step reversal on order cancel (Phase 4)", "Phase 4"),
+        ("ValcnV2_PlatformFee", "Platform Fee (Marketplace)", "Tính PlatformFeeAmount trên Marketplace orders (Phase 2)", "Phase 2", false),
+        ("ValcnV2_LoyaltyBudget", "Loyalty Budget Cap", "Check budget trước AddPoints + reset jobs (Phase 3)", "Phase 3", false),
+        ("ValcnV2_RefundReversal", "Refund Reversal (UC-06)", "4-step reversal on order cancel (Phase 4)", "Phase 4", false),
+        // Sprint 3 EXPANDED: audit toggles — default ON
+        ("Audit_Enabled", "Audit Logging (Master)", "Bật/tắt TOÀN BỘ audit logging (mặc định: BẬT)", "Sprint 3", true),
+        ("Audit_Accounting", "Audit — Kế toán", "Bút toán + đóng/mở kỳ + điều chỉnh/hoàn逆转 (ghi đồng bộ)", "Sprint 3", true),
+        ("Audit_Security", "Audit — Bảo mật", "Đăng nhập thất bại + rate limit + đáng ngờ (ghi async)", "Sprint 3", true),
+        ("Audit_KhachLink", "Audit — KhachLink", "Thay đổi profile KhachLink instance (ghi async)", "Sprint 3", true),
     ];
 
     public FeatureFlagService(IServiceScopeFactory scopeFactory, IMemoryCache cache)
@@ -31,7 +37,7 @@ public class FeatureFlagService : IFeatureFlagService
         _cache = cache;
     }
 
-    public async Task<bool> IsEnabledAsync(string featureName, CancellationToken ct = default)
+    public async Task<bool> IsEnabledAsync(string featureName, bool defaultWhenMissing = false, CancellationToken ct = default)
     {
         string cacheKey = $"feat_flag_{featureName}";
         if (_cache.TryGetValue(cacheKey, out bool cached))
@@ -49,8 +55,8 @@ public class FeatureFlagService : IFeatureFlagService
             value = setting?.Value;
         }
 
-        // CRITICAL: default = false (disabled) — opposite of BackgroundServiceToggleService
-        bool enabled = value == "true";
+        // Sprint 3 EXPANDED: no setting row → dùng defaultWhenMissing (audit ON, VALCN OFF)
+        bool enabled = value != null ? value == "true" : defaultWhenMissing;
         _cache.Set(cacheKey, enabled, CacheTtl);
         return enabled;
     }
@@ -68,13 +74,11 @@ public class FeatureFlagService : IFeatureFlagService
                 .ToDictionaryAsync(s => s.Key, s => s.Value, ct);
         }
 
-        return KnownFeatures.Select(f => new FeatureFlagDto(
-            f.Name,
-            f.Display,
-            f.Desc,
-            f.Phase,
-            settings.GetValueOrDefault($"Features:Enable{f.Name}") == "true"
-        )).ToList();
+        return KnownFeatures.Select(f =>
+        {
+            var v = settings.GetValueOrDefault($"Features:Enable{f.Name}");
+            return new FeatureFlagDto(f.Name, f.Display, f.Desc, f.Phase, v != null ? v == "true" : f.Default);
+        }).ToList();
     }
 
     public async Task SetEnabledAsync(string featureName, bool enabled, Guid updatedBy, CancellationToken ct = default)

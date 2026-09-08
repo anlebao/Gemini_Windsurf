@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate;
+using VanAn.Shared.Domain.Audit;  // Sprint 3 P1.2 — AuditableEntityType, AuditActionType
 
 namespace VanAn.CoreHub.Services
 {
@@ -12,11 +14,16 @@ namespace VanAn.CoreHub.Services
     public class KhachLinkInstanceService : IKhachLinkInstanceService
     {
         private readonly IVanAnDbContext _dbContext;
+        private readonly IAuditTrailService _auditTrailService;  // Sprint 3 P1.2
         private readonly ILogger<KhachLinkInstanceService>? _logger;
 
-        public KhachLinkInstanceService(IVanAnDbContext dbContext, ILogger<KhachLinkInstanceService>? logger = null)
+        public KhachLinkInstanceService(
+            IVanAnDbContext dbContext,
+            IAuditTrailService auditTrailService,
+            ILogger<KhachLinkInstanceService>? logger = null)
         {
             _dbContext = dbContext;
+            _auditTrailService = auditTrailService;
             _logger = logger;
         }
 
@@ -113,6 +120,21 @@ namespace VanAn.CoreHub.Services
             if (instance is null)
                 return false;
 
+            // Sprint 3 P1.2: Capture old values for audit log BEFORE update.
+            var oldProfile = instance.Profile;
+            var oldNavFlagsJson = JsonSerializer.Serialize(new
+            {
+                instance.NavFlags.ShowHome, instance.NavFlags.ShowCart, instance.NavFlags.ShowOrders,
+                instance.NavFlags.ShowLoyaltyHistory, instance.NavFlags.ShowMissions, instance.NavFlags.ShowRewards,
+                instance.NavFlags.ShowAllianceWallet, instance.NavFlags.ShowStores, instance.NavFlags.ShowCampaigns,
+                instance.NavFlags.ShowScan, instance.NavFlags.ShowQrClaim, instance.NavFlags.ShowCommunity,
+                instance.NavFlags.ShowJobs, instance.NavFlags.ShowProfile, instance.NavFlags.ShowStaffDashboard
+            });
+            var oldStyleJson = JsonSerializer.Serialize(new
+            {
+                instance.Theme, instance.LogoUrl, instance.NavColor, instance.HeaderColor, instance.FooterColor
+            });
+
             instance.UpdateProfile(profile, navFlags);
             // Issue #143: apply style override (null/empty = clear override)
             instance.UpdateStyle(theme, logoUrl, navColor, headerColor, footerColor);
@@ -135,6 +157,50 @@ namespace VanAn.CoreHub.Services
                 }
             }
             await _dbContext.SaveChangesAsync(ct);
+
+            // Sprint 3 P1.2: Capture new values for audit log AFTER update.
+            var newNavFlagsJson = JsonSerializer.Serialize(new
+            {
+                instance.NavFlags.ShowHome, instance.NavFlags.ShowCart, instance.NavFlags.ShowOrders,
+                instance.NavFlags.ShowLoyaltyHistory, instance.NavFlags.ShowMissions, instance.NavFlags.ShowRewards,
+                instance.NavFlags.ShowAllianceWallet, instance.NavFlags.ShowStores, instance.NavFlags.ShowCampaigns,
+                instance.NavFlags.ShowScan, instance.NavFlags.ShowQrClaim, instance.NavFlags.ShowCommunity,
+                instance.NavFlags.ShowJobs, instance.NavFlags.ShowProfile, instance.NavFlags.ShowStaffDashboard
+            });
+            var newStyleJson = JsonSerializer.Serialize(new
+            {
+                instance.Theme, instance.LogoUrl, instance.NavColor, instance.HeaderColor, instance.FooterColor
+            });
+
+            // Sprint 3 P1.2: Log audit trail (after successful save — only log if DB write succeeded).
+            try
+            {
+                var oldValues = JsonSerializer.Serialize(new
+                {
+                    Profile = oldProfile.ToString(),
+                    NavFlags = oldNavFlagsJson,
+                    Style = oldStyleJson
+                });
+                var newValues = JsonSerializer.Serialize(new
+                {
+                    Profile = profile.ToString(),
+                    NavFlags = newNavFlagsJson,
+                    Style = newStyleJson
+                });
+
+                await _auditTrailService.LogUpdateAsync(
+                    AuditableEntityType.KhachLinkInstance,
+                    id,
+                    oldValues,
+                    newValues,
+                    correlationId: id.ToString(),
+                    ct);
+            }
+            catch (Exception ex)
+            {
+                // Audit logging is best-effort — don't fail the update if audit fails.
+                _logger?.LogWarning(ex, "Failed to log audit trail for KhachLinkInstance {Id} update", id);
+            }
 
             _logger?.LogInformation("Updated KhachLinkInstance {Id} profile={Profile}", instance.Id, profile);
             return true;

@@ -62,3 +62,19 @@ window.vananStartOnboardingTour = function(direction) {
 
     driver.drive();
 };
+
+// Sprint 3 P5.1: Trigger Service Worker update check when profile change detected.
+// Forces SW to check for updates (new cached nav config) — does NOT reload page.
+// Nav update from StateHasChanged() is immediate; SW bump is for next PWA launch.
+window.vananTriggerSWUpdate = function() {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration().then(function(reg) {
+            if (reg) {
+                reg.update();
+                console.log('[VanAn SW] Update check triggered (profile change detected)');
+            }
+        }).catch(function(err) {
+            console.warn('[VanAn SW] Update check failed:', err);
+        });
+    }
+};

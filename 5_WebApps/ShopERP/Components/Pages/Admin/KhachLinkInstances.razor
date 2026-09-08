@@ -11,6 +11,7 @@
 @inject TenantApiClient TenantApi
 @inject IThemeProvider ThemeProvider
 @inject ILogger<KhachLinkInstances> Logger
+@inject NavigationManager NavigationManager
 
 @attribute [Authorize(Policy = "SystemAdmin")]
 
@@ -85,6 +86,9 @@
                             <td class="action-cell">
                                 <VanAButton Variant="info" Size="small" OnClick="() => OpenEditModal(item)">
                                     Sửa
+                                </VanAButton>
+                                <VanAButton Variant="secondary" Size="small" OnClick="() => ViewAuditHistory(item)">
+                                    📝 Lịch sử
                                 </VanAButton>
                                 @if (item.IsActive)
                                 {
@@ -643,6 +647,12 @@
     }
 
     private static string ProfileValue(KhachLinkProfile p) => ((int)p).ToString();
+
+    /// <summary>Sprint 3 P1.2: Navigate to per-instance audit history page.</summary>
+    private void ViewAuditHistory(KhachLinkInstanceDto item)
+    {
+        NavigationManager.NavigateTo($"/admin/khachlink-instances/{item.Id}/audit");
+    }
 
     private string GetProfileLabel(KhachLinkProfile p) => p switch
     {

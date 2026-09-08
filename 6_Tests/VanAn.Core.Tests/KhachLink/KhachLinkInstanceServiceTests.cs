@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Moq;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
+using VanAn.Shared.Domain.Audit;
 using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate;
 using Xunit;
 
@@ -21,7 +23,9 @@ namespace VanAn.Core.Tests.KhachLink
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
                 .Options;
             _context = new VanAnDbContext(options);
-            _service = new KhachLinkInstanceService(_context);
+            // Sprint 3 P1.2: AuditTrailService now required — mock returns null (toggle OFF semantics).
+            var mockAudit = new Mock<IAuditTrailService>();
+            _service = new KhachLinkInstanceService(_context, mockAudit.Object);
         }
 
         public void Dispose() => _context.Dispose();

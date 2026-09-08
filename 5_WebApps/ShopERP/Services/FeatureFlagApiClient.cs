@@ -29,15 +29,15 @@ public sealed class FeatureFlagApiClient : GatewayAdminApiClientBase, IFeatureFl
         _cache = cache;
     }
 
-    public async Task<bool> IsEnabledAsync(string featureName, CancellationToken ct = default)
+    public async Task<bool> IsEnabledAsync(string featureName, bool defaultWhenMissing = false, CancellationToken ct = default)
     {
         string cacheKey = $"feat_flag_{featureName}";
         if (_cache.TryGetValue(cacheKey, out bool cached))
             return cached;
 
         var toggles = await GetAllAsync(ct);
-        // CRITICAL: default = false (disabled) — opposite of BackgroundServiceToggleService
-        bool enabled = toggles.FirstOrDefault(t => t.FeatureName == featureName)?.IsEnabled ?? false;
+        // Sprint 3 EXPANDED: no toggle found in list → dùng defaultWhenMissing (audit ON, VALCN OFF)
+        bool enabled = toggles.FirstOrDefault(t => t.FeatureName == featureName)?.IsEnabled ?? defaultWhenMissing;
         _cache.Set(cacheKey, enabled, CacheTtl);
         return enabled;
     }

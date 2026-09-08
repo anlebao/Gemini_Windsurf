@@ -1,0 +1,276 @@
+@page "/admin/khachlink-instances/{InstanceId:guid}/audit"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.Shared.Domain.Audit
+@using VanAn.CoreHub.Services
+@using VanAn.ShopERP.Services
+@inject IAuditTrailService AuditTrailService
+@inject KhachLinkInstanceApiClient InstanceApi
+@inject IThemeProvider ThemeProvider
+@inject ILogger<KhachLinkInstanceAudit> Logger
+@inject NavigationManager NavigationManager
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="khachlink-audit-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>📝 Lịch sử thay đổi — @(_instanceLabel ?? "KhachLink Instance")</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="RefreshData">🔄 Refresh</VanAButton>
+            <VanAButton Variant="outline" Size="small" OnClick="GoBack">← Quay lại</VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải lịch sử...</p>
+            </div>
+        </VanACard>
+    }
+    else if (_auditLogs == null || !_auditLogs.Any())
+    {
+        <VanACard>
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <p>Chưa có lịch sử thay đổi nào cho instance này.</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="@($"Lịch sử thay đổi ({_auditLogs.Count})")">
+            <div class="table-responsive">
+                <table class="vanan-table audit-history-table">
+                    <thead>
+                        <tr>
+                            <th>Thời gian</th>
+                            <th>Người đổi</th>
+                            <th>Profile cũ</th>
+                            <th>Profile mới</th>
+                            <th>Nav Flags thay đổi</th>
+                            <th>Chi tiết</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var log in _auditLogs)
+                        {
+                            <tr>
+                                <td class="timestamp">@log.Timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                <td class="user">@(log.UserName ?? log.UserId ?? "System")</td>
+                                <td class="old-profile">@ExtractProfile(log.OldValues)</td>
+                                <td class="new-profile">@ExtractProfile(log.NewValues)</td>
+                                <td class="nav-flags-diff">
+                                    @GetNavFlagsDiffSummary(log.OldValues, log.NewValues)
+                                </td>
+                                <td>
+                                    <VanAButton Variant="ghost" Size="small" OnClick="() => ShowDetails(log)">
+                                        👁️ Chi tiết
+                                    </VanAButton>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </VanACard>
+    }
+</div>
+
+@if (_selectedLog != null)
+{
+    <VanAModal Title="Chi tiết thay đổi" IsVisible="true" OnClose="CloseDetails" Size="large">
+        <Body>
+            <div class="audit-detail">
+                <div class="detail-row">
+                    <label>Thời gian:</label>
+                    <span>@_selectedLog.Timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</span>
+                </div>
+                <div class="detail-row">
+                    <label>Người đổi:</label>
+                    <span>@(_selectedLog.UserName ?? _selectedLog.UserId ?? "System")</span>
+                </div>
+                @if (!string.IsNullOrEmpty(_selectedLog.OldValues))
+                {
+                    <div class="detail-section">
+                        <label>Giá trị cũ:</label>
+                        <pre class="json-preview">@FormatJson(_selectedLog.OldValues)</pre>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(_selectedLog.NewValues))
+                {
+                    <div class="detail-section">
+                        <label>Giá trị mới:</label>
+                        <pre class="json-preview">@FormatJson(_selectedLog.NewValues)</pre>
+                    </div>
+                }
+            </div>
+        </Body>
+    </VanAModal>
+}
+
+<style>
+    .khachlink-audit-page .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    .khachlink-audit-page .header-actions { display: flex; gap: 0.5rem; }
+    .khachlink-audit-page .json-preview {
+        background: var(--color-neutral-100, #f5f5f5);
+        padding: 0.75rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        max-height: 300px;
+        overflow: auto;
+        white-space: pre-wrap;
+    }
+    .khachlink-audit-page .detail-row {
+        display: flex;
+        gap: 0.5rem;
+        padding: 0.25rem 0;
+        border-bottom: 1px solid var(--color-neutral-100, #f5f5f5);
+    }
+    .khachlink-audit-page .detail-section { margin-top: 0.75rem; }
+</style>
+
+@code {
+    [Parameter]
+    public Guid InstanceId { get; set; }
+
+    private List<AuditLog> _auditLogs = new();
+    private string? _instanceLabel;
+    private bool _isLoading = true;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+    private AuditLog? _selectedLog;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            // Fetch instance label for header
+            var instances = await InstanceApi.ListAsync();
+            var instance = instances.FirstOrDefault(i => i.Id == InstanceId);
+            _instanceLabel = instance?.Label;
+
+            // Fetch audit history for this instance
+            _auditLogs = (await AuditTrailService.GetEntityHistoryAsync(
+                AuditableEntityType.KhachLinkInstance,
+                InstanceId,
+                maxResults: 100)).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading audit history for KhachLinkInstance {Id}", InstanceId);
+            _alertMessage = $"Lỗi tải dữ liệu: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadData();
+    }
+
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo("/admin/khachlink-instances");
+    }
+
+    private void ShowDetails(AuditLog log)
+    {
+        _selectedLog = log;
+        StateHasChanged();
+    }
+
+    private void CloseDetails()
+    {
+        _selectedLog = null;
+        StateHasChanged();
+    }
+
+    /// <summary>Extract Profile value from JSON audit values.</summary>
+    private static string ExtractProfile(string? jsonValues)
+    {
+        if (string.IsNullOrEmpty(jsonValues))
+            return "—";
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(jsonValues);
+            if (doc.RootElement.TryGetProperty("Profile", out var profile))
+                return profile.GetString() ?? "—";
+        }
+        catch { }
+        return "—";
+    }
+
+    /// <summary>Summarize nav flags changes between old and new values.</summary>
+    private static string GetNavFlagsDiffSummary(string? oldJson, string? newJson)
+    {
+        if (string.IsNullOrEmpty(oldJson) || string.IsNullOrEmpty(newJson))
+            return "—";
+        try
+        {
+            using var oldDoc = System.Text.Json.JsonDocument.Parse(oldJson);
+            using var newDoc = System.Text.Json.JsonDocument.Parse(newJson);
+            if (!oldDoc.RootElement.TryGetProperty("NavFlags", out var oldNav) ||
+                !newDoc.RootElement.TryGetProperty("NavFlags", out var newNav))
+                return "—";
+
+            // NavFlags is a nested JSON string — parse it
+            var oldFlags = System.Text.Json.JsonDocument.Parse(oldNav.GetString() ?? "{}").RootElement;
+            var newFlags = System.Text.Json.JsonDocument.Parse(newNav.GetString() ?? "{}").RootElement;
+
+            int added = 0, removed = 0;
+            foreach (var prop in oldFlags.EnumerateObject())
+            {
+                if (newFlags.TryGetProperty(prop.Name, out var newVal))
+                {
+                    if (prop.Value.GetBoolean() && !newVal.GetBoolean()) removed++;
+                    if (!prop.Value.GetBoolean() && newVal.GetBoolean()) added++;
+                }
+            }
+            if (added == 0 && removed == 0) return "Không đổi";
+            var parts = new List<string>();
+            if (added > 0) parts.Add($"+{added}");
+            if (removed > 0) parts.Add($"-{removed}");
+            return string.Join(" ", parts);
+        }
+        catch { }
+        return "—";
+    }
+
+    /// <summary>Pretty-print JSON for detail modal.</summary>
+    private static string FormatJson(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return "";
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            return System.Text.Json.JsonSerializer.Serialize(doc, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        }
+        catch { return json; }
+    }
+}

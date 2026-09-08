@@ -208,6 +208,33 @@ namespace VanAn.Gateway
                 // Return 429 (Too Many Requests) instead of default 503 for rate-limited audit requests.
                 options.OnRejected = async (context, cancellationToken) =>
                 {
+                    // Sprint 3 P3.3: Log rate limit hit as security event (potential brute-force / abuse)
+                    try
+                    {
+                        var auditService = context.HttpContext.RequestServices
+                            .GetService<VanAn.CoreHub.Services.IAuditTrailService>();
+                        if (auditService != null)
+                        {
+                            var clientIp = context.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                            var userAgent = context.HttpContext.Request.Headers.UserAgent.ToString();
+                            var endpoint = context.HttpContext.Request.Path.Value ?? "unknown";
+                            // .NET 8 RateLimitLease has no GetAllTags() — use fallback label
+                            var policy = "rate-limited";
+
+                            await auditService.LogSecurityEventAsync(
+                                VanAn.Shared.Domain.Audit.AuditActionType.RateLimitHit,
+                                $"Rate limit hit: policy '{policy}' on '{endpoint}' from IP {clientIp}",
+                                correlationId: clientIp,
+                                ipAddress: clientIp,
+                                userAgent: userAgent,
+                                cancellationToken);
+                        }
+                    }
+                    catch
+                    {
+                        // Best-effort — don't block 429 response if audit fails
+                    }
+
                     context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
                     context.HttpContext.Response.ContentType = "application/json";
                     await context.HttpContext.Response.WriteAsync(
@@ -512,6 +539,9 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<IReversalService, ReversalService>();
             _ = builder.Services.AddScoped<IPeriodClosingService, PeriodClosingService>();
             _ = builder.Services.AddScoped<IAuditTrailService, AuditTrailService>();
+            // Sprint 3 EXPANDED: async audit queue + background writer
+            _ = builder.Services.AddSingleton<VanAn.CoreHub.Services.AuditLogQueue>();
+            _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.AuditLogBackgroundWriter>();
             // P3 FIX: Register missing services referenced by Gateway controllers
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IBuildService, VanAn.CoreHub.Services.BuildService>();
             _ = builder.Services.AddScoped<VanAn.Shared.Services.IKitchenService, VanAn.CoreHub.Services.KitchenService>();

@@ -8,8 +8,11 @@ namespace VanAn.CoreHub.Services;
 /// </summary>
 public interface IFeatureFlagService
 {
-    /// <summary>Check if a feature is enabled. Returns false by default (no setting = disabled).</summary>
-    Task<bool> IsEnabledAsync(string featureName, CancellationToken ct = default);
+    /// <summary>
+    /// Check if a feature is enabled. Default when no SystemSetting row exists:
+    /// VALCN v2 flags → false (disabled); Sprint 3 audit flags → gọi với defaultWhenMissing: true (audit ON mặc định).
+    /// </summary>
+    Task<bool> IsEnabledAsync(string featureName, bool defaultWhenMissing = false, CancellationToken ct = default);
 
     /// <summary>Get all known feature toggles with current state.</summary>
     Task<IReadOnlyList<FeatureFlagDto>> GetAllAsync(CancellationToken ct = default);

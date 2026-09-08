@@ -35,6 +35,47 @@
         </div>
     </header>
 
+    <!-- Sprint 3 P3.4: Summary cards — incident monitoring dashboard -->
+    <section class="summary-cards-section">
+        <div class="summary-grid">
+            <VanACard>
+                <div class="summary-card summary-total">
+                    <div class="summary-icon">📊</div>
+                    <div class="summary-value">@_totalLast24h</div>
+                    <div class="summary-label">Sự kiện (24h)</div>
+                </div>
+            </VanACard>
+            <VanACard>
+                <div class="summary-card summary-critical">
+                    <div class="summary-icon">🔴</div>
+                    <div class="summary-value">@_criticalCount</div>
+                    <div class="summary-label">Nghiêm trọng</div>
+                </div>
+            </VanACard>
+            <VanACard>
+                <div class="summary-card summary-high">
+                    <div class="summary-icon">🟠</div>
+                    <div class="summary-value">@_highCount</div>
+                    <div class="summary-label">Cao</div>
+                </div>
+            </VanACard>
+            <VanACard>
+                <div class="summary-card summary-failed-login">
+                    <div class="summary-icon">🚫</div>
+                    <div class="summary-value">@_failedLoginCount</div>
+                    <div class="summary-label">Đăng nhập thất bại</div>
+                </div>
+            </VanACard>
+            <VanACard>
+                <div class="summary-card summary-rate-limit">
+                    <div class="summary-icon">⚡</div>
+                    <div class="summary-value">@_rateLimitCount</div>
+                    <div class="summary-label">Rate limit</div>
+                </div>
+            </VanACard>
+        </div>
+    </section>
+
     <!-- Filter Panel -->
     <section class="filter-section">
         <VanACard Header="Bộ Lọc">
@@ -58,6 +99,10 @@
                         <option value="@AuditActionType.PeriodReopen">Mở kỳ</option>
                         <option value="@AuditActionType.Correction">Điều chỉnh</option>
                         <option value="@AuditActionType.Reversal">Đảo ngược</option>
+                        <option value="@AuditActionType.SecurityAlert">Cảnh báo bảo mật</option>
+                        <option value="@AuditActionType.FailedLogin">Đăng nhập thất bại</option>
+                        <option value="@AuditActionType.SuspiciousActivity">Hoạt động đáng ngờ</option>
+                        <option value="@AuditActionType.RateLimitHit">Rate limit</option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -70,6 +115,19 @@
                         <option value="@AuditableEntityType.Order">Đơn hàng</option>
                         <option value="@AuditableEntityType.Product">Sản phẩm</option>
                         <option value="@AuditableEntityType.Shop">Cửa hàng</option>
+                        <option value="@AuditableEntityType.KhachLinkInstance">KhachLink Instance</option>
+                        <option value="@AuditableEntityType.SecurityEvent">Sự cố bảo mật</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Mức độ</label>
+                    <select class="vanan-select" @bind="Filter.Severity">
+                        <option value="">Tất cả</option>
+                        <option value="Critical">🔴 Nghiêm trọng</option>
+                        <option value="High">🟠 Cao</option>
+                        <option value="Medium">🟡 Trung bình</option>
+                        <option value="Low">🔵 Thấp</option>
+                        <option value="Info">ℹ️ Thông tin</option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -125,6 +183,7 @@
                             <tr>
                                 <th>Thời gian</th>
                                 <th>Hành động</th>
+                                <th>Mức độ</th>
                                 <th>Entity</th>
                                 <th>User</th>
                                 <th>Lý do</th>
@@ -139,6 +198,11 @@
                                     <td class="action">
                                         <span class="action-badge @GetActionClass(log.Action)">
                                             @GetActionDisplay(log.Action)
+                                        </span>
+                                    </td>
+                                    <td class="severity">
+                                        <span class="severity-badge @GetSeverityClass(GetSeverity(log))">
+                                            @GetSeverityDisplay(GetSeverity(log))
                                         </span>
                                     </td>
                                     <td class="entity">
@@ -271,9 +335,18 @@
     private FilterModel Filter { get; set; } = new();
     private AuditLog? SelectedLog { get; set; }
 
+    // Sprint 3 P3.4: Summary cards data
+    private List<AuditLog> _recentLogs = new();
+    private int _criticalCount;
+    private int _highCount;
+    private int _failedLoginCount;
+    private int _rateLimitCount;
+    private int _totalLast24h;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
+        await LoadSummaryCards();
     }
 
     private async Task LoadData()
@@ -298,6 +371,13 @@
             var result = await AuditTrailService.QueryAsync(query);
             AuditLogs = result.Items.ToList();
             TotalCount = result.TotalCount;
+
+            // Sprint 3 P3.4: Client-side severity filter (computed from Action+EntityType)
+            if (!string.IsNullOrEmpty(Filter.Severity))
+            {
+                var severityFilter = Enum.Parse<IncidentSeverity>(Filter.Severity);
+                AuditLogs = AuditLogs.Where(l => GetSeverity(l) == severityFilter).ToList();
+            }
         }
         catch (Exception ex)
         {
@@ -313,6 +393,28 @@
     private async Task RefreshData()
     {
         await LoadData();
+        await LoadSummaryCards();
+    }
+
+    // Sprint 3 P3.4: Load summary cards data (recent 200 logs for incident monitoring)
+    private async Task LoadSummaryCards()
+    {
+        try
+        {
+            _recentLogs = (await AuditTrailService.GetRecentAsync(200)).ToList();
+
+            _criticalCount = _recentLogs.Count(l => GetSeverity(l) == IncidentSeverity.Critical);
+            _highCount = _recentLogs.Count(l => GetSeverity(l) == IncidentSeverity.High);
+            _failedLoginCount = _recentLogs.Count(l => l.Action == AuditActionType.FailedLogin);
+            _rateLimitCount = _recentLogs.Count(l => l.Action == AuditActionType.RateLimitHit);
+
+            var cutoff = DateTime.UtcNow.AddHours(-24);
+            _totalLast24h = _recentLogs.Count(l => l.Timestamp >= cutoff);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading audit summary cards");
+        }
     }
 
     private async Task ApplyFilter()
@@ -365,6 +467,10 @@
         AuditActionType.Login => "Đăng nhập",
         AuditActionType.Logout => "Đăng xuất",
         AuditActionType.PermissionChange => "Thay đổi quyền",
+        AuditActionType.SecurityAlert => "Cảnh báo bảo mật",
+        AuditActionType.FailedLogin => "Đăng nhập thất bại",
+        AuditActionType.SuspiciousActivity => "Hoạt động đáng ngờ",
+        AuditActionType.RateLimitHit => "Rate limit",
         _ => action.ToString()
     };
 
@@ -380,6 +486,66 @@
         _ => "action-default"
     };
 
+    // Sprint 3 P3.4: Incident severity classification — presentation-only, computed from Action + EntityType.
+    public enum IncidentSeverity
+    {
+        Critical,  // Nghiêm trọng — hack, tấn công mạng, gian lận
+        High,      // Cao — potential security issue
+        Medium,    // Trung — significant business change
+        Low,       // Thấp — routine operation
+        Info       // Thông tin — login/logout, export
+    }
+
+    private static IncidentSeverity GetSeverity(AuditLog log) => (log.Action, log.EntityType) switch
+    {
+        // Critical: security incidents + financial fraud
+        (AuditActionType.SuspiciousActivity, _) => IncidentSeverity.Critical,
+        (AuditActionType.Delete, AuditableEntityType.AccountingEntry) => IncidentSeverity.Critical,
+        (AuditActionType.Delete, AuditableEntityType.Tenant) => IncidentSeverity.Critical,
+        (AuditActionType.RateLimitHit, _) => IncidentSeverity.Critical,
+        // High: potential security issues
+        (AuditActionType.FailedLogin, _) => IncidentSeverity.High,
+        (AuditActionType.SecurityAlert, _) => IncidentSeverity.High,
+        (AuditActionType.PermissionChange, _) => IncidentSeverity.High,
+        (AuditActionType.Delete, AuditableEntityType.User) => IncidentSeverity.High,
+        (AuditActionType.Delete, AuditableEntityType.KhachLinkInstance) => IncidentSeverity.High,
+        // Medium: significant business changes
+        (AuditActionType.Correction, _) => IncidentSeverity.Medium,
+        (AuditActionType.Reversal, _) => IncidentSeverity.Medium,
+        (AuditActionType.PeriodClose, _) => IncidentSeverity.Medium,
+        (AuditActionType.PeriodReopen, _) => IncidentSeverity.Medium,
+        (AuditActionType.Update, AuditableEntityType.AccountingEntry) => IncidentSeverity.Medium,
+        (AuditActionType.Update, AuditableEntityType.KhachLinkInstance) => IncidentSeverity.Medium,
+        (AuditActionType.Update, AuditableEntityType.Tenant) => IncidentSeverity.Medium,
+        (AuditActionType.Create, AuditableEntityType.Tenant) => IncidentSeverity.Medium,
+        // Info: routine
+        (AuditActionType.Login, _) => IncidentSeverity.Info,
+        (AuditActionType.Logout, _) => IncidentSeverity.Info,
+        (AuditActionType.Export, _) => IncidentSeverity.Info,
+        // Low: default
+        _ => IncidentSeverity.Low
+    };
+
+    private static string GetSeverityDisplay(IncidentSeverity s) => s switch
+    {
+        IncidentSeverity.Critical => "🔴 Nghiêm trọng",
+        IncidentSeverity.High => "🟠 Cao",
+        IncidentSeverity.Medium => "🟡 Trung bình",
+        IncidentSeverity.Low => "🔵 Thấp",
+        IncidentSeverity.Info => "ℹ️ Thông tin",
+        _ => s.ToString()
+    };
+
+    private static string GetSeverityClass(IncidentSeverity s) => s switch
+    {
+        IncidentSeverity.Critical => "severity-critical",
+        IncidentSeverity.High => "severity-high",
+        IncidentSeverity.Medium => "severity-medium",
+        IncidentSeverity.Low => "severity-low",
+        IncidentSeverity.Info => "severity-info",
+        _ => "severity-low"
+    };
+
     private string Truncate(string value, int maxLength)
     {
         if (string.IsNullOrEmpty(value)) return value;
@@ -392,6 +558,7 @@
         public DateTime? ToDate { get; set; }
         public AuditActionType? Action { get; set; }
         public AuditableEntityType? EntityType { get; set; }
+        public string? Severity { get; set; }  // Sprint 3 P3.4 — client-side filter
         public string? UserId { get; set; }
         public string? SearchTerm { get; set; }
     }
