@@ -5,13 +5,16 @@
 @using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate
 @using VanAn.KhachLink.Services.Http
 @using VanAn.KhachLink.Services.PWA
+@using VanAn.KhachLink.Services
 @using VanAn.KhachLink.Models
+@using VanAn.KhachLink.Components.Shared
 @inject IThemeProvider ThemeProvider
 @inject ITenantService TenantService
 @inject ShopConfigHttpService ShopConfigService
 @inject PWAService PWAService
 @inject KhachLinkInstanceHttpService InstanceHttp
 @inject VanAn.KhachLink.Services.Http.CommunityHttpService CommunityHttp
+@inject CartService CartSvc
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inherits VanAn.UI.Platform.Components.Base.BaseComponent
@@ -70,13 +73,13 @@ else
                 }
                 @if (_navFlags.ShowCart)
                 {
-                    <a href="/cart" class="header-icon-btn" aria-label="Giỏ hàng">
+                    <a href="/cart" id="nav-cart" class="header-icon-btn" aria-label="Giỏ hàng">
                         <i class="bi bi-cart3 text-white"></i>
                     </a>
                 }
                 @if (_navFlags.ShowRewards)
                 {
-                    <a href="/rewards" class="header-icon-btn" aria-label="Đổi điểm" title="Đổi điểm thưởng">
+                    <a href="/rewards" id="nav-rewards" class="header-icon-btn" aria-label="Đổi điểm" title="Đổi điểm thưởng">
                         <i class="bi bi-gift text-white"></i>
                     </a>
                 }
@@ -112,6 +115,20 @@ else
             </div>
         </div>
     }
+
+    @* Sprint 2 P2.1: What's New banner — 1 lần khi detect profile change *@
+    @if (_showWhatsNewBanner)
+    {
+        <WhatsNewBanner Direction="@_profileChangeDirection" />
+    }
+
+    @* Sprint 2 P3.2: Cart preservation modal — FullCommerce → Directory + cart has items *@
+    <CartPreservationModal Visible="@_showCartPreservationModal"
+                           ItemCount="@_cartItemCount"
+                           OnDismissed="@(() => _showCartPreservationModal = false)" />
+
+    @* Sprint 2 P3.1: Onboarding tour — Directory → FullCommerce/Reseller *@
+    <OnboardingTour Direction="@_profileChangeDirection" NewProfile="@(_instanceStyle?.Profile ?? KhachLinkProfile.FullCommerce)" />
 
     <!-- Main Content -->
     <main class="khachlink-main">
@@ -250,6 +267,12 @@ else
     private bool _commerceModeLoaded;
     private bool _isReseller;
 
+    /// <summary>Sprint 2 P2.1: Profile change detection state.</summary>
+    private ProfileChangeDirection _profileChangeDirection = ProfileChangeDirection.None;
+    private bool _showWhatsNewBanner;
+    private bool _showCartPreservationModal;
+    private int _cartItemCount;
+
     protected override async Task OnInitializedAsync()
     {
         _currentTenantId = TenantService.GetCurrentTenantId();
@@ -279,6 +302,55 @@ else
                     _currentTenantId = instanceConfig.OwnerTenantId.Value;
                     // Re-fetch shop config for the resolved tenant
                     _shopConfig = await ShopConfigService.GetShopConfigByTenantIdAsync(_currentTenantId);
+                }
+
+                // Sprint 2 P2.1: Detect profile change via UpdatedAt timestamp.
+                // Compare instanceConfig.UpdatedAt with localStorage lastSeenProfileAt.
+                // If newer → profile changed → show What's New banner + trigger cart preservation / onboarding.
+                try
+                {
+                    var lastSeenTsStr = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "last_seen_profile_at");
+                    var lastSeenProfileStr = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "last_seen_profile");
+
+                    DateTime? lastSeenTs = null;
+                    if (lastSeenTsStr != null && DateTime.TryParse(lastSeenTsStr, out var ts))
+                        lastSeenTs = ts;
+
+                    KhachLinkProfile? lastSeenProfile = null;
+                    if (lastSeenProfileStr != null && Enum.TryParse<KhachLinkProfile>(lastSeenProfileStr, true, out var oldProfile))
+                        lastSeenProfile = oldProfile;
+
+                    // Check if banner was already dismissed for this change
+                    var dismissed = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "whats_new_dismissed");
+
+                    bool profileChanged = lastSeenTs == null
+                        ? false  // First visit — no banner (no previous profile to compare)
+                        : instanceConfig.UpdatedAt > lastSeenTs.Value;
+
+                    if (profileChanged && dismissed != "true")
+                    {
+                        _profileChangeDirection = ProfileChangeDirectionHelper.Compute(lastSeenProfile, instanceConfig.Profile);
+                        _showWhatsNewBanner = _profileChangeDirection != ProfileChangeDirection.None;
+                    }
+
+                    // Cart preservation: FullCommerce → Directory + cart has items
+                    if (_profileChangeDirection == ProfileChangeDirection.FullCommerceToDirectory)
+                    {
+                        _cartItemCount = await GetCartItemCountAsync();
+                        _showCartPreservationModal = _cartItemCount > 0;
+                    }
+
+                    // Update localStorage: lastSeenProfileAt + lastSeenProfile (always — even if no change, to keep fresh)
+                    await JSRuntime.InvokeVoidAsync("localStorage.setItem", "last_seen_profile_at", instanceConfig.UpdatedAt.ToString("o"));
+                    await JSRuntime.InvokeVoidAsync("localStorage.setItem", "last_seen_profile", instanceConfig.Profile.ToString());
+                    // Clear dismiss flag so next change shows banner again
+                    if (profileChanged)
+                        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "whats_new_dismissed");
+                }
+                catch (Exception ex)
+                {
+                    // Non-critical — profile change detection is enhancement, don't break layout
+                    System.Console.WriteLine($"[KhachLinkLayout] Profile change detection failed: {ex.Message}");
                 }
             }
         }
@@ -368,4 +440,28 @@ else
         KhachLinkProfile.JobMarket     => "Sàn việc",
         _                              => "Cửa hàng trực tiếp"
     };
+
+    /// <summary>Sprint 2 P3.2: Get cart item count — CartService is Scoped (shared in circuit).
+    /// Fallback: read localStorage vanan_cart if CartService not loaded yet.</summary>
+    private async Task<int> GetCartItemCountAsync()
+    {
+        try
+        {
+            // CartService scoped — same instance as Cart page within circuit
+            var state = CartSvc.GetCartState();
+            if (state.Items.Count > 0)
+                return state.Items.Count;
+
+            // Fallback: read localStorage (cart may not be loaded into CartService yet on layout init)
+            var cartJson = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "vanan_cart");
+            if (!string.IsNullOrEmpty(cartJson))
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(cartJson);
+                if (doc.RootElement.TryGetProperty("items", out var items) && items.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    return items.GetArrayLength();
+            }
+        }
+        catch { /* non-critical */ }
+        return 0;
+    }
 }

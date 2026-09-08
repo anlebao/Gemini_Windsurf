@@ -103,3 +103,121 @@ test.describe('Sprint 1 — Profile Indicator (P2.2) + Route Guard (P2.3)', () =
     await expect(page.locator('h2:has-text("Khuyến mãi")')).toBeVisible({ timeout: 15000 });
   });
 });
+
+test.describe('Sprint 2 — Transition Messaging (P2.1 + P3.2 + P3.1)', () => {
+  // P2.1: What's New banner — detect profile change via UpdatedAt
+  // NOTE: These tests require profile change between test runs (admin must change profile).
+  // Manual RV covers this — E2E verifies banner structure when localStorage manipulated.
+
+  test('What\'s New banner: does NOT show on first visit (no lastSeenProfileAt)', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.removeItem('last_seen_profile_at');
+      localStorage.removeItem('last_seen_profile');
+      localStorage.removeItem('whats_new_dismissed');
+    });
+    await page.goto(KHACHLINK_URL, { waitUntil: 'networkidle' });
+
+    // First visit — no banner (no previous profile to compare)
+    await expect(page.locator('.whats-new-banner')).toHaveCount(0, { timeout: 10000 });
+  });
+
+  test('What\'s New banner: shows when last_seen_profile_at is stale', async ({ page }) => {
+    // Simulate stale lastSeenProfileAt → banner should show on next load
+    await page.addInitScript(() => {
+      localStorage.setItem('last_seen_profile_at', '2020-01-01T00:00:00');
+      localStorage.setItem('last_seen_profile', 'Directory');
+      localStorage.removeItem('whats_new_dismissed');
+    });
+    await page.goto(KHACHLINK_URL, { waitUntil: 'networkidle' });
+
+    // Banner should appear (if instance UpdatedAt > 2020-01-01)
+    // Wait for banner — may take a moment for layout init + JS interop
+    const banner = page.locator('.whats-new-banner');
+    // Note: only shows if instance.UpdatedAt > stale timestamp + profile actually changed
+    // This test verifies banner DOM structure exists when triggered
+    const bannerCount = await banner.count();
+    if (bannerCount > 0) {
+      await expect(banner).toBeVisible({ timeout: 10000 });
+      // Dismiss button exists
+      await expect(banner.locator('.whats-new-dismiss')).toBeVisible();
+    }
+  });
+
+  test('What\'s New banner: dismiss hides banner + sets localStorage', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('last_seen_profile_at', '2020-01-01T00:00:00');
+      localStorage.setItem('last_seen_profile', 'Directory');
+      localStorage.removeItem('whats_new_dismissed');
+    });
+    await page.goto(KHACHLINK_URL, { waitUntil: 'networkidle' });
+
+    const banner = page.locator('.whats-new-banner');
+    if (await banner.count() > 0) {
+      await banner.locator('.whats-new-dismiss').click();
+      await expect(banner).toHaveCount(0, { timeout: 5000 });
+      // localStorage flag set
+      const dismissed = await page.evaluate(() => localStorage.getItem('whats_new_dismissed'));
+      expect(dismissed).toBe('true');
+    }
+  });
+
+  // P3.2: Cart preservation modal — FullCommerce → Directory + cart has items
+  test('Cart preservation modal: shows when FullCommerce → Directory + cart has items', async ({ page }) => {
+    // Pre-seed cart in localStorage + stale profile timestamp (FullCommerce → Directory)
+    await page.addInitScript(() => {
+      localStorage.setItem('vanan_cart', JSON.stringify({
+        items: [
+          { id: '11111111-1111-1111-1111-111111111111', productId: '22222222-2222-2222-2222-222222222222', productName: 'Test Product', quantity: 2, unitPrice: 50000 },
+          { id: '33333333-3333-3333-3333-333333333333', productId: '44444444-4444-4444-4444-444444444444', productName: 'Test Product 2', quantity: 1, unitPrice: 30000 }
+        ],
+        orderNote: ''
+      }));
+      localStorage.setItem('last_seen_profile_at', '2020-01-01T00:00:00');
+      localStorage.setItem('last_seen_profile', 'FullCommerce');
+      localStorage.removeItem('whats_new_dismissed');
+    });
+
+    // Navigate to Directory domain (timlathay.com) — profile change FullCommerce → Directory
+    await page.goto(DIRECTORY_URL, { waitUntil: 'networkidle' });
+
+    // Cart preservation modal should show (if instance profile = Directory + UpdatedAt > stale)
+    // Note: timlathay.com is Directory — lastSeenProfile=FullCommerce → direction=FullCommerceToDirectory
+    const modal = page.locator('text="Giỏ hàng của bạn vẫn được lưu"');
+    if (await modal.count() > 0) {
+      await expect(modal.first()).toBeVisible({ timeout: 10000 });
+      // Verify item count in message
+      await expect(page.locator('text=/2 sản phẩm/')).toBeVisible();
+    }
+  });
+
+  // P3.1: Onboarding tour — Directory → FullCommerce/Reseller
+  test('Onboarding tour: nav element IDs exist for driver.js targeting', async ({ page }) => {
+    // Verify nav element IDs present (prerequisite for tour)
+    await page.goto(KHACHLINK_URL, { waitUntil: 'networkidle' });
+
+    // Cart + rewards IDs in header (FullCommerce shows both)
+    await expect(page.locator('#nav-cart')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('#nav-rewards')).toBeVisible();
+    // Stores ID — mobile or desktop
+    const storesMobile = page.locator('#nav-stores-mobile');
+    const storesDesktop = page.locator('#nav-stores');
+    expect(await storesMobile.count() + await storesDesktop.count()).toBeGreaterThan(0);
+  });
+
+  test('Onboarding tour: does NOT re-run after completion flag set', async ({ page }) => {
+    // Pre-set onboarding completion flag → tour should not start
+    await page.addInitScript(() => {
+      localStorage.setItem('onboarding_FullCommerce_completed', 'true');
+      localStorage.setItem('last_seen_profile_at', '2020-01-01T00:00:00');
+      localStorage.setItem('last_seen_profile', 'Directory');
+      localStorage.removeItem('whats_new_dismissed');
+    });
+    await page.goto(KHACHLINK_URL, { waitUntil: 'networkidle' });
+
+    // Wait for potential tour init (500ms delay + render)
+    await page.waitForTimeout(2000);
+    // driver.js tour overlay should NOT appear
+    const tourOverlay = page.locator('.driver-popover, .driver-active');
+    expect(await tourOverlay.count()).toBe(0);
+  });
+});

@@ -1,0 +1,54 @@
+@* Sprint 2 P3.1: Onboarding tour wrapper — triggers driver.js tour khi detect Directory → Reseller/FullCommerce.
+   Tour chỉ chạy 1 lần per profile change (localStorage flag onboarding_{profile}_completed). *@
+@using VanAn.KhachLink.Models
+@using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate
+@inject IJSRuntime JSRuntime
+
+@code {
+    [Parameter]
+    public ProfileChangeDirection Direction { get; set; } = ProfileChangeDirection.None;
+
+    [Parameter]
+    public KhachLinkProfile NewProfile { get; set; } = KhachLinkProfile.FullCommerce;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        // Chỉ trigger tour cho upgrade directions (Directory → FullCommerce/Reseller)
+        if (Direction != ProfileChangeDirection.DirectoryToFullCommerce
+            && Direction != ProfileChangeDirection.DirectoryToReseller)
+            return;
+
+        // Check localStorage flag — tour chỉ chạy 1 lần per target profile
+        var flagKey = $"onboarding_{NewProfile}_completed";
+        string? completed;
+        try
+        {
+            completed = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", flagKey);
+        }
+        catch
+        {
+            completed = null;
+        }
+
+        if (completed == "true")
+            return;
+
+        // Delay 500ms để ensure nav rendered (R5 mitigation — page chưa render khi tour init)
+        await Task.Delay(500);
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("vananStartOnboardingTour", Direction.ToString());
+            // Mark tour completed (không repeat)
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", flagKey, "true");
+        }
+        catch (Exception ex)
+        {
+            // driver.js chưa loaded hoặc element không tìm thấy — silent fail (tour là optional)
+            Console.WriteLine($"[OnboardingTour] Failed: {ex.Message}");
+        }
+    }
+}

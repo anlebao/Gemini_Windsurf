@@ -50,7 +50,7 @@
                         @if (_navFlags.ShowStores)
                         {
                             <div class="nav-item">
-                                <NavLink class="nav-link" href="/stores">
+                                <NavLink class="nav-link" href="/stores" id="nav-stores">
                                     <span class="bi bi-geo-alt me-2" aria-hidden="true"></span> Cửa hàng
                                 </NavLink>
                             </div>
@@ -243,7 +243,7 @@
     }
     @if (_navFlags.ShowStores)
     {
-        <a class="mobile-tab-item @IsActive("/stores")" href="/stores">
+        <a class="mobile-tab-item @IsActive("/stores")" href="/stores" id="nav-stores-mobile">
             <i class="bi bi-geo-alt"></i>
             <span>Cửa hàng</span>
         </a>

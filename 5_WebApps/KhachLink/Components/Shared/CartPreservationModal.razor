@@ -1,0 +1,63 @@
+@* Sprint 2 P3.2: Cart preservation notice — hiển thị khi FullCommerce → Directory + cart có items.
+   Reassures customer cart data is preserved but ordering is no longer available via app. *@
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Tokens
+
+<VanAnModal IsOpen="@_visible"
+            Title="Giỏ hàng của bạn vẫn được lưu"
+            Closable="true"
+            OnClose="@CloseAsync">
+    <ChildContent>
+        <div class="cart-preservation-body">
+            <div class="cart-preservation-icon mb-3 text-center">
+                <i class="bi bi-cart-check" style="font-size:2.5rem;color:#155724;"></i>
+            </div>
+            <p class="text-center">
+                Giỏ hàng của bạn (<strong>@_itemCount sản phẩm</strong>) vẫn được lưu.
+            </p>
+            <p class="text-center text-muted small">
+                Do cửa hàng đã chuyển sang chế độ danh bạ, bạn không thể đặt hàng qua app.
+                Liên hệ cửa hàng để đặt hàng.
+            </p>
+        </div>
+    </ChildContent>
+    <Footer>
+        <div class="text-center w-100">
+            <VanAnButton Variant="ButtonVariant.Primary" OnClick="@CloseAsync">
+                Đã hiểu
+            </VanAnButton>
+        </div>
+    </Footer>
+</VanAnModal>
+
+@code {
+    [Parameter]
+    public bool Visible { get; set; }
+
+    [Parameter]
+    public int ItemCount { get; set; }
+
+    [Parameter]
+    public EventCallback OnDismissed { get; set; }
+
+    private bool _visible;
+    private int _itemCount;
+
+    protected override void OnParametersSet()
+    {
+        // Sync internal state with parameters (VanAnModal IsOpen binding)
+        if (Visible != _visible)
+        {
+            _visible = Visible;
+            _itemCount = ItemCount;
+        }
+    }
+
+    private async Task CloseAsync()
+    {
+        _visible = false;
+        await OnDismissed.InvokeAsync();
+        StateHasChanged();
+    }
+}

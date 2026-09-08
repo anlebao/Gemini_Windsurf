@@ -1,0 +1,124 @@
+@* Sprint 2 P2.1: "What's New" banner — hiển thị 1 lần khi detect profile change.
+   Direction (enum) drives message content. Dismiss button + auto-hide after 10s.
+   Client-side only — đọc cascaded data, không HTTP call. *@
+@using VanAn.KhachLink.Models
+@inject IJSRuntime JSRuntime
+
+@if (_visible)
+{
+    <div class="whats-new-banner whats-new-@_directionClass" role="alert">
+        <div class="whats-new-content">
+            <span class="whats-new-icon">@_icon</span>
+            <span class="whats-new-text">@_message</span>
+        </div>
+        <button class="whats-new-dismiss" aria-label="Đóng" @onclick="DismissAsync">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+}
+
+<style>
+    .whats-new-banner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        margin: 8px auto;
+        max-width: 1000px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        font-size: 0.875rem;
+        animation: whats-new-slide-in 0.3s ease;
+    }
+    .whats-new-banner.whats-new-upgrade {
+        background: linear-gradient(135deg, #e6f4ea, #d4edda);
+        border: 1px solid #c3e6cb;
+        color: #155724;
+    }
+    .whats-new-banner.whats-new-info {
+        background: linear-gradient(135deg, #e7f1ff, #d1ecf1);
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+    }
+    .whats-new-content {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+    }
+    .whats-new-icon { font-size: 1.1rem; }
+    .whats-new-dismiss {
+        background: none;
+        border: none;
+        color: inherit;
+        opacity: 0.6;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+    }
+    .whats-new-dismiss:hover { opacity: 1; background: rgba(0,0,0,0.05); }
+    @@keyframes whats-new-slide-in {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+
+@code {
+    [Parameter]
+    public ProfileChangeDirection Direction { get; set; } = ProfileChangeDirection.None;
+
+    private bool _visible;
+    private string _message = string.Empty;
+    private string _icon = "ℹ️";
+    private string _directionClass = "info";
+
+    protected override void OnParametersSet()
+    {
+        if (Direction == ProfileChangeDirection.None)
+        {
+            _visible = false;
+            return;
+        }
+        (_icon, _message, _directionClass) = Direction switch
+        {
+            ProfileChangeDirection.DirectoryToFullCommerce =>
+                ("🎉", "Chúng tôi đã nâng cấp! Bạn có thể mua hàng, tích điểm, đổi quà ngay trên app.", "upgrade"),
+            ProfileChangeDirection.FullCommerceToDirectory =>
+                ("ℹ️", "App đã chuyển sang chế độ danh bạ. Xem danh sách cửa hàng gần bạn.", "info"),
+            ProfileChangeDirection.DirectoryToReseller =>
+                ("🎉", "Cửa hàng đã mở bán qua Vạn An — mua hàng trực tiếp trên app.", "upgrade"),
+            ProfileChangeDirection.ResellerToFullCommerce =>
+                ("ℹ️", "Cửa hàng hiện bán hàng trực tiếp, giá không còn bao gồm phí nền tảng.", "info"),
+            ProfileChangeDirection.FullCommerceToReseller =>
+                ("ℹ️", "Cửa hàng hiện bán qua Vạn An, giá đã bao gồm phí nền tảng.", "info"),
+            ProfileChangeDirection.ResellerToDirectory =>
+                ("ℹ️", "App đã chuyển sang chế độ danh bạ. Xem danh sách cửa hàng gần bạn.", "info"),
+            _ => ("ℹ️", "Giao diện app đã được cập nhật.", "info")
+        };
+        _visible = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_visible && firstRender)
+        {
+            // Auto-hide after 10 seconds (optional — task card spec)
+            _ = Task.Delay(10000).ContinueWith(async _ =>
+            {
+                await InvokeAsync(async () => await DismissAsync());
+            });
+        }
+    }
+
+    private async Task DismissAsync()
+    {
+        _visible = false;
+        // Persist dismiss to localStorage so banner doesn't re-show on refresh within same change
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "whats_new_dismissed", "true");
+        }
+        catch { /* non-critical */ }
+        StateHasChanged();
+    }
+}

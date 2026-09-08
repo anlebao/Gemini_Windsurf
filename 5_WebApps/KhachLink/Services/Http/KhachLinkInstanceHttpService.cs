@@ -27,8 +27,9 @@ public class KhachLinkInstanceHttpService(
     // #134-fix: Changed cache key from khachlink_instance_config → _v2 to invalidate
     // stale cache from old format (which didn't have IsActive field → deserialized
     // as true → disabled instances still rendered FullCommerce layout).
-    private const string _cacheKey = "khachlink_instance_config_v2";
-    private const string _cacheTsKey = "khachlink_instance_config_v2_ts";
+    // Sprint 2 P2.1: Bumped _v2 → _v3 to invalidate stale cache missing UpdatedAt field.
+    private const string _cacheKey = "khachlink_instance_config_v3";
+    private const string _cacheTsKey = "khachlink_instance_config_v3_ts";
     // #134-fix: Reduced from 5 min → 1 min so deactivation takes effect faster.
     private static readonly TimeSpan _cacheTtl = TimeSpan.FromMinutes(1);
 
@@ -93,6 +94,7 @@ public class KhachLinkInstanceHttpService(
                 NavColor = dto.NavColor,
                 HeaderColor = dto.HeaderColor,
                 FooterColor = dto.FooterColor,
+                UpdatedAt = dto.UpdatedAt,
                 NavFlags = new KhachLinkNavFlagsDto
                 {
                     ShowHome = dto.NavFlags?.ShowHome ?? true,
@@ -176,6 +178,7 @@ public class KhachLinkInstanceHttpService(
         public string? NavColor { get; set; }
         public string? HeaderColor { get; set; }
         public string? FooterColor { get; set; }
+        public DateTime UpdatedAt { get; set; }
         public NavFlagsResponse? NavFlags { get; set; }
     }
 
