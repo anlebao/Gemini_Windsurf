@@ -7,10 +7,12 @@
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Models
+@using Microsoft.JSInterop
 @inherits BaseComponent
 
 @inject ICssAdapter CssAdapter
 @inject ILogger<DynamicFormFields> Logger
+@inject Microsoft.JSInterop.IJSRuntime JSRuntime
 
 @if (Fields != null)
 {
@@ -200,8 +202,11 @@ else if (FieldDefinitions != null && FieldDefinitions.Any())
 
     /// <summary>
     /// Format currency field: strip non-digits, reformat with thousands separator.
-    /// Called after @bind sets field.Value. Stores FORMATTED value (e.g. "55.000")
-    /// so display is correct. Validation/submission must strip separators before parsing.
+    /// Called after @bind sets field.Value. Uses JS interop to update DOM input directly
+    /// because Blazor @bind + @bind:after does not reliably push the post-format value
+    /// back to the input element (the DOM keeps the raw user-typed value).
+    /// Stores FORMATTED value (e.g. "55.000") in field.Value so validation/submission
+    /// can strip separators before parsing.
     /// </summary>
     private async Task FormatCurrencyField(FormField field)
     {
@@ -224,6 +229,21 @@ else if (FieldDefinitions != null && FieldDefinitions.Any())
                 field.Value = raw;
             }
         }
+
+        // Push formatted value to DOM input directly — @bind:after does not reliably
+        // re-render the input value attribute after we mutate field.Value here.
+        // This is the same class of bug as the vananReadElementValue workaround
+        // in RevenueEntry/ExpenseEntry (Blazor @bind drops DOM sync across component
+        // boundaries during fast input).
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("vananFormatCurrencyInput", field.Id);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "JS interop format currency failed for field {FieldId}", field.Id);
+        }
+
         await NotifyChanged(field);
     }
 

@@ -40,6 +40,25 @@
             if (el.type === 'checkbox') return el.checked ? 'true' : 'false';
             return el.value ?? '';
         };
+        // Currency auto-format: strips non-digits, formats with vi-VN thousands separator ("."),
+        // preserves cursor position at end (user always types at end for amount entry).
+        // Called from DynamicFormFields FormatCurrencyField via JS interop to bypass
+        // Blazor @@bind + @@bind:after DOM-push limitation.
+        window.vananFormatCurrencyInput = function (id) {
+            var el = document.getElementById(id);
+            if (!el) return '';
+            var raw = (el.value || '').replace(/\D/g, '');
+            if (raw === '') {
+                el.value = '';
+                return '';
+            }
+            // Format with vi-VN thousands separator (".")
+            var formatted = parseInt(raw, 10).toLocaleString('vi-VN');
+            el.value = formatted;
+            // Move cursor to end — amount entry is always append-at-end
+            el.setSelectionRange(formatted.length, formatted.length);
+            return formatted;
+        };
         // Wave 8: Download a base64-encoded file (DOCX/XLSX export from HKD book page).
         window.vanAn = window.vanAn || {};
         window.vanAn.downloadFile = function (base64, mimeType, fileName) {
