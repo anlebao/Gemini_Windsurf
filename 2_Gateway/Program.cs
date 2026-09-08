@@ -191,6 +191,20 @@ namespace VanAn.Gateway
                         QueueLimit = 0
                     });
                 });
+                // GTM Drill Machine W2 (2026-09-08): Rate limit for merchant registration submission.
+                // 5 requests per IP per 24h — generous hơn claim (3/24h) vì registration nhẹ hơn (no GPKD).
+                // Applied via [EnableRateLimiting("registration-submit")] on POST /api/v1/tenant-registrations.
+                options.AddPolicy("registration-submit", context =>
+                {
+                    string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 5,
+                        Window = TimeSpan.FromHours(24),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0
+                    });
+                });
                 // Return 429 (Too Many Requests) instead of default 503 for rate-limited audit requests.
                 options.OnRejected = async (context, cancellationToken) =>
                 {
@@ -448,6 +462,10 @@ namespace VanAn.Gateway
 
             // Crawl-to-Onboard Pipeline (2026-08-25): Claim service + Duplicate detection service
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Claims.ITenantClaimService, VanAn.CoreHub.Services.Claims.TenantClaimService>();
+            // GTM Drill Machine W2 (2026-09-08): Tenant registration lifecycle + Turnstile verification.
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Registrations.ITenantRegistrationService, VanAn.CoreHub.Services.Registrations.TenantRegistrationService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Registrations.ITurnstileVerificationService, VanAn.CoreHub.Services.Registrations.TurnstileVerificationService>();
+            _ = builder.Services.AddHttpClient("Turnstile");
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IDuplicateDetectionService, VanAn.CoreHub.Services.DuplicateDetectionService>();
 
             // Register Voice Command Services

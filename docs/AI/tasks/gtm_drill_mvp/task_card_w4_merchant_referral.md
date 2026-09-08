@@ -38,10 +38,11 @@ CTV giới thiệu merchant qua QR/link → claim attribution (referrer) → adm
 - [ ] `[Authorize]` — customer phải login để lấy `customerId`
 - [ ] UI Platform components
 
-### Task 4.5: Claim.razor đọc `?ref=`
-**File:** `5_WebApps/KhachLink/Pages/Claim.razor` — UPDATE (đã mở ở Task 2.2)
+### Task 4.5: Register.razor đọc `?ref=`
+**File:** `5_WebApps/KhachLink/Pages/Register.razor` — UPDATE (W2 đã tạo NEW route `/claim`)
 - [ ] Đọc query param `ref` → parse `Guid` → pass qua `ClaimHttpService.SubmitClaim` → Gateway → service
 - [ ] Backward compatible: nếu không có `ref` param, `ReferrerCustomerId = null`
+- [ ] **Note:** W2 đã đổi target từ `Claim.razor` → `Register.razor` (approved 2026-09-08). `Claim.razor` (`/store/{Slug}/claim`) giữ nguyên cho pending store claim flow.
 
 ### Task 4.6: Admin referral payout (manual MVP)
 **File:** `5_WebApps/ShopERP/Pages/Admin/TenantManagement.razor` — UPDATE (tab "Referrals" hoặc mở rộng ClaimsQueue)
@@ -66,7 +67,7 @@ CTV giới thiệu merchant qua QR/link → claim attribution (referrer) → adm
 - ✅ `qrcode.js` official v1.4.4 vendored (Guard QR fix `9f8495e9`)
 - ✅ `SystemSetting` table (live)
 - ✅ KhachLink customer auth (live)
-- ✅ Claim.razor `?name=` prefill (W2 done)
+- ✅ Claim.razor `?name=` prefill (W2 done — **Note:** W2 đổi target sang `Register.razor` NEW route `/claim`, approved 2026-09-08)
 
 ## Verification
 
@@ -113,7 +114,7 @@ CTV giới thiệu merchant qua QR/link → claim attribution (referrer) → adm
 | 4 | `3_CoreHub/Services/TenantClaimService.cs` | UPDATE (referrer attribution) | ⏳ |
 | 5 | PG/SQLite migration | NEW (+2 columns) | ⏳ |
 | 6 | `5_WebApps/KhachLink/Pages/Refer.razor` | NEW | ⏳ |
-| 7 | `5_WebApps/KhachLink/Pages/Claim.razor` | UPDATE (?ref= prefill) | ⏳ |
+| 7 | `5_WebApps/KhachLink/Pages/Register.razor` | UPDATE (?ref= prefill — W2 đã tạo NEW) | ⏳ |
 | 8 | `5_WebApps/ShopERP/Pages/Admin/TenantManagement.razor` | UPDATE (Referrals tab) | ⏳ |
 | 9 | `6_Tests/VanAn.Core.Tests/Growth/ReferralTests.cs` | NEW | ⏳ |
 | 10 | `6_Tests/VanAn.Integration.Tests/Growth/ReferralFlowTests.cs` | NEW | ⏳ |

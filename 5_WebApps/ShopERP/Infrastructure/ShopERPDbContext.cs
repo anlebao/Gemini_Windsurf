@@ -155,6 +155,11 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<TenantClaimRequest> TenantClaimRequests { get; set; }
         public DbSet<CrawlSource> CrawlSources { get; set; }
 
+        // GTM Drill Machine W2 (2026-09-08, D3): TenantRegistration is PG-only
+        // (Gateway source of truth per Option C). DbSet exists for IVanAnDbContext interface contract;
+        // entity is Ignored in OnModelCreating (never queried from ShopERP SQLite).
+        public DbSet<TenantRegistration> TenantRegistrations { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters
@@ -282,6 +287,7 @@ namespace VanAn.ShopERP.Infrastructure
             // (correction C2 — schema consistency for EF model snapshot, even if values not populated in SQLite).
             _ = modelBuilder.Ignore<TenantClaimRequest>();
             _ = modelBuilder.Ignore<CrawlSource>();
+            _ = modelBuilder.Ignore<TenantRegistration>(); // D3: PG-only, never queried from ShopERP SQLite
 
             // === VALUE OBJECT CONFIGURATIONS ===
             // Order: Configured via OrderConfiguration from CoreHub assembly (applied above via ApplyConfigurationsFromAssembly)

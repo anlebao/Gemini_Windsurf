@@ -189,6 +189,11 @@ namespace VanAn.CoreHub.Infrastructure
         // PG-only. Cascade delete with Tenant (audit meaningless without tenant).
         public DbSet<CrawlSource> CrawlSources { get; set; }
 
+        // GTM Drill Machine W2 (2026-09-08, D3): Registration records for merchant mới chưa có tenant.
+        // PG-only (Gateway source of truth). NOT tenant-scoped (TenantId = Guid.Empty sentinel).
+        // SysAdmin queue — reviewed + contacted/onboarded/rejected via TenantRegistrationController.
+        public DbSet<TenantRegistration> TenantRegistrations { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -342,7 +347,8 @@ namespace VanAn.CoreHub.Infrastructure
                     && e.ClrType != typeof(AllianceTransaction)
                     && e.ClrType != typeof(KhachLinkHomeSettings)
                     && e.ClrType != typeof(KhachLinkInstance)
-                    && e.ClrType != typeof(VanAn.Shared.Domain.Aggregates.DomainResellerAggregate.TenantDomain));
+                    && e.ClrType != typeof(VanAn.Shared.Domain.Aggregates.DomainResellerAggregate.TenantDomain)
+                    && e.ClrType != typeof(TenantRegistration)); // D3: pre-tenant lead, TenantId = Guid.Empty sentinel
 
             // Capture context so EF Core evaluates CurrentTenantIdValue at QUERY TIME.
             // Using TenantId (model type) as RHS ensures:

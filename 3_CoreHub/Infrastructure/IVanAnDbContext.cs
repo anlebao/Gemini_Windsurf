@@ -134,6 +134,11 @@ namespace VanAn.CoreHub.Infrastructure
         // PG-only. Cascade delete with Tenant (audit meaningless without tenant).
         DbSet<CrawlSource> CrawlSources { get; }
 
+        // GTM Drill Machine W2 (2026-09-08, D3): Registration records for merchant mới chưa có tenant.
+        // PG-only (Gateway source of truth). NOT tenant-scoped (TenantId = Guid.Empty sentinel).
+        // SysAdmin queue — reviewed + contacted/onboarded/rejected via TenantRegistrationController.
+        DbSet<TenantRegistration> TenantRegistrations { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
 

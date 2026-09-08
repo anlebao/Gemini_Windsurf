@@ -1,0 +1,223 @@
+@page "/claim"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
+@inject RegistrationHttpService RegistrationService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject ILogger<Register> Logger
+
+<PageTitle>Đăng ký cửa hàng — Vạn An</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width:600px;">
+        @if (_submitted)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-check-circle text-success" style="font-size:3rem;"></i>
+                <h4 class="mt-3">Yêu cầu đăng ký đã gửi!</h4>
+                <p class="text-muted">@_submitMessage</p>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="@(() => Navigation.NavigateTo("/"))">
+                    <i class="bi bi-house me-1"></i> Về trang chủ
+                </VanAnButton>
+            </VanAnCard>
+        }
+        else
+        {
+            <h3 class="mb-3">
+                <i class="bi bi-shop text-primary"></i> Đăng ký cửa hàng lên Vạn An
+            </h3>
+            <p class="text-muted mb-4">
+                Bạn đang đăng ký đưa <strong>@(string.IsNullOrWhiteSpace(_form.ShopName) ? "cửa hàng" : _form.ShopName)</strong>
+                lên nền tảng Vạn An. Đội ngũ chúng tôi sẽ liên hệ trong 1-2 ngày làm việc.
+            </p>
+
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <VanAnAlert Variant="AlertVariant.Error" Message="@_errorMessage" CssClass="mb-3" />
+            }
+
+            <EditForm Model="@_form" OnValidSubmit="@SubmitRegistration">
+                <DataAnnotationsValidator />
+
+                <div class="mb-3">
+                    <label class="form-label">Tên cửa hàng <span class="text-danger">*</span></label>
+                    <InputText @bind-Value="_form.ShopName" class="form-control" placeholder="Quán Cà Phê Nhất Nghệ" />
+                    <ValidationMessage For="@(() => _form.ShopName)" class="text-danger small" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Ngành nghề <span class="text-muted">(tùy chọn)</span></label>
+                    <InputText @bind-Value="_form.Industry" class="form-control" placeholder="cà phê, phở, tạp hóa..." />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Họ và tên <span class="text-danger">*</span></label>
+                    <InputText @bind-Value="_form.ContactName" class="form-control" placeholder="Nguyễn Văn A" />
+                    <ValidationMessage For="@(() => _form.ContactName)" class="text-danger small" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Số điện thoại <span class="text-danger">*</span></label>
+                    <InputText @bind-Value="_form.ContactPhone" class="form-control" placeholder="09xx xxx xxx" />
+                    <ValidationMessage For="@(() => _form.ContactPhone)" class="text-danger small" />
+                    <div class="form-text">SĐT này sẽ được dùng để liên hệ sau khi đăng ký.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Email <span class="text-muted">(tùy chọn)</span></label>
+                    <InputText @bind-Value="_form.ContactEmail" class="form-control" placeholder="email@example.com" />
+                </div>
+
+                @* Honeypot field — hidden from humans, bots auto-fill → server silent reject *@
+                <div class="mb-3" style="display:none;" aria-hidden="true">
+                    <label class="form-label">Đừng điền mục này</label>
+                    <InputText @bind-Value="_form.HoneypotWebsite" class="form-control" tabindex="-1"
+                               autocomplete="off" aria-hidden="true" />
+                </div>
+
+                @* Cloudflare Turnstile widget — invisible challenge, no user friction *@
+                <div class="mb-3" id="turnstile-container"></div>
+
+                <div class="d-grid gap-2">
+                    <VanAnButton Variant="ButtonVariant.Primary" Size="ButtonSize.Large" FullWidth="true" Disabled="@_submitting">
+                        @if (_submitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>@: Đang gửi
+                        }
+                        else
+                        {
+                            <i class="bi bi-send me-1"></i>@: Gửi yêu cầu đăng ký
+                        }
+                    </VanAnButton>
+                    <VanAnButton Variant="ButtonVariant.Secondary" type="button"
+                                 OnClick="@(() => Navigation.NavigateTo("/demo"))">
+                        <i class="bi bi-arrow-left me-1"></i> Quay lại demo
+                    </VanAnButton>
+                </div>
+            </EditForm>
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    private bool _submitting;
+    private bool _submitted;
+    private string? _errorMessage;
+    private string _submitMessage = string.Empty;
+    private RegisterForm _form = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Prefill shop name from ?name= query param (demo → register handoff)
+            var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            var name = query["name"];
+            if (!string.IsNullOrWhiteSpace(name))
+                _form.ShopName = name;
+
+            // Render Turnstile widget if site key configured
+            await RenderTurnstileAsync();
+
+            StateHasChanged();
+        }
+    }
+
+    private async Task RenderTurnstileAsync()
+    {
+        try
+        {
+            // Turnstile site key injected from Gateway config (W5 deploy).
+            // For dev: if not configured, widget not rendered → token empty → Gateway skips verify (dev mode).
+            var siteKey = await JSRuntime.InvokeAsync<string>("vanan.getTurnstileSiteKey");
+            if (!string.IsNullOrEmpty(siteKey))
+            {
+                await JSRuntime.InvokeVoidAsync("vanan.renderTurnstile", "turnstile-container", siteKey);
+            }
+        }
+        catch (Exception ex)
+        {
+            // JS interop may fail if Turnstile script not loaded — form still submits (token empty → Gateway rejects → user retry)
+            Logger.LogWarning(ex, "Turnstile render failed — form will submit without token");
+        }
+    }
+
+    private async Task SubmitRegistration()
+    {
+        _errorMessage = null;
+        _submitting = true;
+
+        try
+        {
+            // Validate required fields
+            if (string.IsNullOrWhiteSpace(_form.ShopName))
+            {
+                _errorMessage = "Vui lòng nhập tên cửa hàng.";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(_form.ContactName))
+            {
+                _errorMessage = "Vui lòng nhập họ và tên.";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(_form.ContactPhone))
+            {
+                _errorMessage = "Vui lòng nhập số điện thoại.";
+                return;
+            }
+
+            // Get Turnstile token (set by widget via JS interop)
+            string? turnstileToken = null;
+            try
+            {
+                turnstileToken = await JSRuntime.InvokeAsync<string>("vanan.getTurnstileToken");
+            }
+            catch
+            {
+                // Token empty if widget not rendered — Gateway will skip verify in dev mode
+            }
+
+            var request = new SubmitRegistrationRequestDto(
+                ShopName: _form.ShopName.Trim(),
+                ContactName: _form.ContactName.Trim(),
+                ContactPhone: _form.ContactPhone.Trim(),
+                Source: "demo",
+                TurnstileToken: turnstileToken,
+                Industry: string.IsNullOrWhiteSpace(_form.Industry) ? null : _form.Industry.Trim(),
+                ContactEmail: string.IsNullOrWhiteSpace(_form.ContactEmail) ? null : _form.ContactEmail.Trim(),
+                HoneypotWebsite: string.IsNullOrWhiteSpace(_form.HoneypotWebsite) ? null : _form.HoneypotWebsite.Trim());
+
+            var outcome = await RegistrationService.SubmitRegistrationAsync(request);
+            if (outcome.Success)
+            {
+                _submitted = true;
+                _submitMessage = outcome.Message ?? "Cảm ơn! Yêu cầu đăng ký đã gửi.";
+            }
+            else
+            {
+                _errorMessage = outcome.Error;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Registration submit exception");
+            _errorMessage = "Lỗi không xác định khi gửi yêu cầu. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private sealed class RegisterForm
+    {
+        public string ShopName { get; set; } = string.Empty;
+        public string? Industry { get; set; }
+        public string ContactName { get; set; } = string.Empty;
+        public string ContactPhone { get; set; } = string.Empty;
+        public string? ContactEmail { get; set; }
+        public string? HoneypotWebsite { get; set; }
+    }
+}

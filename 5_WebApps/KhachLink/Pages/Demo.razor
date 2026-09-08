@@ -1,0 +1,418 @@
+@page "/demo"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Services.Http
+@using VanAn.Shared.Domain
+@using Microsoft.AspNetCore.Components.Forms
+@inject ImageUploadService ImageUpload
+@inject NavigationManager Navigation
+@inject ILogger<Demo> Logger
+
+<PageTitle>Demo cửa hàng — Vạn An</PageTitle>
+
+<div class="store-page theme-@GetThemeClass()">
+    @* ════════════════════════════════════════════════════════════════════
+        SETUP FORM — merchant enters shop name + industry (step 1)
+    ════════════════════════════════════════════════════════════════════ *@
+    @if (!_configured)
+    {
+        <section class="demo-setup">
+            <div class="setup-card">
+                <h2 class="setup-title">
+                    <i class="bi bi-magic"></i> Dựng cửa hàng demo
+                </h2>
+                <p class="setup-subtitle">
+                    Nhập tên quán + ngành → xem trước storefront của bạn trong 30 giây.
+                    Không cần tài khoản, không lưu dữ liệu.
+                </p>
+
+                <EditForm Model="@_setupForm" OnValidSubmit="@ConfigureDemo">
+                    <div class="mb-3">
+                        <label class="form-label">Tên quán / cửa hàng <span class="text-danger">*</span></label>
+                        <InputText @bind-Value="_setupForm.ShopName" class="form-control" placeholder="Quán Cà Phê Nhất Nghệ" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Ngành nghề</label>
+                        <InputText @bind-Value="_setupForm.Industry" class="form-control" placeholder="cà phê, phở, tạp hóa, salon..." />
+                        <div class="form-text">Gợi ý: cà phê, phở, tạp hóa, salon, tiệm nail, ăn vặt...</div>
+                    </div>
+
+                    <VanAnButton Variant="ButtonVariant.Primary" Size="ButtonSize.Large" FullWidth="true">
+                        <i class="bi bi-arrow-right me-1"></i> Xem trước storefront
+                    </VanAnButton>
+                </EditForm>
+            </div>
+        </section>
+    }
+    else
+    {
+        @* ════════════════════════════════════════════════════════════════════
+            HERO SECTION — full-width banner with brand name (copy pattern from Store.razor)
+        ════════════════════════════════════════════════════════════════════ *@
+        <section class="store-hero">
+            <div class="hero-overlay"></div>
+            <div class="hero-content">
+                @if (!string.IsNullOrWhiteSpace(_state.LogoUrl))
+                {
+                    <img src="@_state.LogoUrl" alt="@_state.ShopName" class="hero-logo" />
+                }
+                else
+                {
+                    <div class="hero-logo-placeholder">
+                        <i class="bi bi-shop"></i>
+                    </div>
+                }
+                <h1 class="hero-title">@_state.ShopName</h1>
+                @if (!string.IsNullOrWhiteSpace(_state.Industry))
+                {
+                    <p class="hero-story">@_state.Industry.ToUpperInvariant()</p>
+                }
+                <div class="hero-meta">
+                    <span><i class="bi bi-clock-fill"></i> @_state.OpeningHours</span>
+                </div>
+                <div class="hero-cta-group">
+                    <button class="btn-cta" @onclick="GoToRegister">
+                        <i class="bi bi-cloud-upload"></i> Đưa cửa hàng lên TimLaThay
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        @* ════════════════════════════════════════════════════════════════════
+            DEMO CONTROLS — edit products, hours, theme, logo
+        ════════════════════════════════════════════════════════════════════ *@
+        <section class="demo-controls">
+            <div class="controls-grid">
+                @* Logo upload *@
+                <VanAnCard Shadow="true" CssClass="p-3">
+                    <h6 class="mb-2"><i class="bi bi-image"></i> Logo</h6>
+                    <InputFile OnChange="@OnLogoSelected" accept=".jpg,.jpeg,.png,.webp" />
+                    <div class="form-text">JPG/PNG/WebP, tối đa 5MB.</div>
+                    @if (_uploading)
+                    {
+                        <div class="mt-2 text-info small"><span class="spinner-border spinner-border-sm"></span> Đang tải...</div>
+                    }
+                    @if (!string.IsNullOrEmpty(_fileError))
+                    {
+                        <div class="mt-2 text-danger small">@_fileError</div>
+                    }
+                </VanAnCard>
+
+                @* Opening hours *@
+                <VanAnCard Shadow="true" CssClass="p-3">
+                    <h6 class="mb-2"><i class="bi bi-clock"></i> Giờ mở cửa</h6>
+                    <input type="text" @bind="_state.OpeningHours" class="form-control form-control-sm"
+                           placeholder="7:00 - 22:00" />
+                </VanAnCard>
+
+                @* Theme selector *@
+                <VanAnCard Shadow="true" CssClass="p-3">
+                    <h6 class="mb-2"><i class="bi bi-palette"></i> Màu theme</h6>
+                    <select @bind="_state.Theme" class="form-select form-select-sm">
+                        <option value="@ThemeType.Classic">Classic (nâu ấm)</option>
+                        <option value="@ThemeType.Modern">Modern (xanh dương)</option>
+                        <option value="@ThemeType.Teen">Teen (hồng-tím)</option>
+                        <option value="@ThemeType.Lady">Lady (hồng pastel)</option>
+                        <option value="@ThemeType.Premium">Premium (đen-vàng)</option>
+                    </select>
+                </VanAnCard>
+            </div>
+        </section>
+
+        @* ════════════════════════════════════════════════════════════════════
+            PRODUCTS — display-only, editable name + price, add/delete
+        ════════════════════════════════════════════════════════════════════ *@
+        <section class="store-body">
+            <div class="section-header">
+                <h2 class="section-title">
+                    <span class="section-icon"><i class="bi bi-bag-heart"></i></span>
+                    Sản phẩm
+                </h2>
+                <button class="btn-cta-outline btn-sm" @onclick="@AddProduct">
+                    <i class="bi bi-plus-circle"></i> Thêm sản phẩm
+                </button>
+            </div>
+            <div class="section-divider"></div>
+
+            <div class="demo-products">
+                @for (var i = 0; i < _state.Products.Count; i++)
+                {
+                    var idx = i;
+                    var product = _state.Products[idx];
+                    <div class="demo-product-card">
+                        <input type="text" @bind="product.Name" class="form-control form-control-sm mb-1"
+                               placeholder="Tên sản phẩm" />
+                        <div class="d-flex gap-2 align-items-center">
+                            <input type="number" @bind="product.Price" class="form-control form-control-sm"
+                                   placeholder="Giá (VND)" />
+                            <span class="text-muted small">VND</span>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="@(() => RemoveProduct(idx))">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="demo-hint mt-4">
+                <i class="bi bi-info-circle"></i>
+                <span>Demo chỉ để xem trước. Refresh sẽ đặt lại. Bấm "Đưa cửa hàng lên TimLaThay" để đăng ký thật.</span>
+            </div>
+        </section>
+    }
+</div>
+
+<style>
+    /* ── DEMO SETUP ───────────────────────────────────────────────────── */
+    .demo-setup {
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 2rem 1rem;
+    }
+    .setup-card {
+        background: white;
+        border-radius: 16px;
+        padding: 2.5rem;
+        max-width: 480px;
+        width: 100%;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+    }
+    .setup-title { font-weight: 700; color: #1a1a2e; }
+    .setup-subtitle { color: #6b7280; font-size: 0.95rem; }
+
+    /* ── HERO (copy from Store.razor) ─────────────────────────────────── */
+    .store-page { min-height: 100vh; background: #fafafa; }
+    .store-hero {
+        min-height: 50vh;
+        background: var(--store-hero-gradient, linear-gradient(135deg, #8B4513 0%, #D2691E 100%));
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4rem 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    .hero-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0,0,0,0.15);
+    }
+    .hero-content {
+        position: relative;
+        text-align: center;
+        z-index: 1;
+    }
+    .hero-logo {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 50%;
+        border: 4px solid white;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        margin-bottom: 1rem;
+    }
+    .hero-logo-placeholder {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem;
+        font-size: 2.5rem;
+    }
+    .hero-title { font-size: 2.5rem; font-weight: 800; margin-bottom: 0.5rem; }
+    .hero-story { font-size: 1rem; opacity: 0.9; margin-bottom: 1rem; letter-spacing: 0.05em; }
+    .hero-meta { display: flex; gap: 1.5rem; justify-content: center; font-size: 0.95rem; }
+    .hero-cta-group { margin-top: 1.5rem; display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+    .btn-cta {
+        background: var(--store-accent-gradient, linear-gradient(135deg, #8B4513, #D2691E));
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 50px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    .btn-cta:hover { transform: translateY(-2px); }
+    .btn-cta-outline {
+        background: rgba(255,255,255,0.15);
+        color: white;
+        border: 2px solid rgba(255,255,255,0.4);
+        padding: 0.75rem 1.5rem;
+        border-radius: 50px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .btn-cta-outline.btn-sm { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+
+    /* ── DEMO CONTROLS ─────────────────────────────────────────────────── */
+    .demo-controls { padding: 2rem; max-width: 1200px; margin: 0 auto; }
+    .controls-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+
+    /* ── STORE BODY ────────────────────────────────────────────────────── */
+    .store-body { padding: 2rem; max-width: 1200px; margin: 0 auto; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .section-title { font-weight: 700; color: #1a1a2e; }
+    .section-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        background: var(--store-accent-gradient, linear-gradient(135deg, #8B4513, #D2691E));
+        color: white;
+        border-radius: 50%;
+        margin-right: 0.5rem;
+    }
+    .section-divider {
+        height: 3px;
+        background: var(--store-accent-gradient, linear-gradient(135deg, #8B4513, #D2691E));
+        border-radius: 2px;
+        margin-bottom: 1.5rem;
+    }
+    .demo-products {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 1rem;
+    }
+    .demo-product-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .demo-hint {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        color: #856404;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    /* ── THEME VARIABLES (copy from Store.razor lines 551-575) ──────────── */
+    .theme-classic {
+        --store-hero-gradient: linear-gradient(135deg, #8B4513 0%, #D2691E 100%);
+        --store-accent-gradient: linear-gradient(135deg, #8B4513, #D2691E);
+        --store-accent-color: #8B4513;
+    }
+    .theme-modern {
+        --store-hero-gradient: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+        --store-accent-gradient: linear-gradient(135deg, #2c3e50, #3498db);
+        --store-accent-color: #2c3e50;
+    }
+    .theme-teen {
+        --store-hero-gradient: linear-gradient(135deg, #ff6b9d 0%, #c44dff 100%);
+        --store-accent-gradient: linear-gradient(135deg, #ff6b9d, #c44dff);
+        --store-accent-color: #c44dff;
+    }
+    .theme-lady {
+        --store-hero-gradient: linear-gradient(135deg, #f8a5c2 0%, #fbc5d8 100%);
+        --store-accent-gradient: linear-gradient(135deg, #f8a5c2, #fbc5d8);
+        --store-accent-color: #d63384;
+    }
+    .theme-premium {
+        --store-hero-gradient: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+        --store-accent-gradient: linear-gradient(135deg, #f0e68c, #daa520);
+        --store-accent-color: #f0e68c;
+    }
+
+    @@media (max-width: 768px) {
+        .store-hero { min-height: 40vh; padding: 2rem 1rem; }
+        .hero-title { font-size: 1.75rem; }
+        .controls-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+@code {
+    private bool _configured;
+    private bool _uploading;
+    private string? _fileError;
+    private DemoStoreState _state = new();
+    private DemoSetupForm _setupForm = new();
+
+    private string GetThemeClass() => _state.Theme switch
+    {
+        ThemeType.Modern => "modern",
+        ThemeType.Teen => "teen",
+        ThemeType.Lady => "lady",
+        ThemeType.Premium => "premium",
+        _ => "classic"
+    };
+
+    private void ConfigureDemo()
+    {
+        if (string.IsNullOrWhiteSpace(_setupForm.ShopName))
+            return;
+
+        _state = new DemoStoreState
+        {
+            ShopName = _setupForm.ShopName.Trim(),
+            Industry = _setupForm.Industry?.Trim() ?? string.Empty
+        };
+        _state.SeedProductsForIndustry(_state.Industry);
+        _configured = true;
+    }
+
+    private async Task OnLogoSelected(InputFileChangeEventArgs e)
+    {
+        _fileError = null;
+        if (e.FileCount == 0) return;
+
+        _uploading = true;
+        try
+        {
+            var outcome = await ImageUpload.UploadLogoAsync(e.File);
+            if (outcome.Success)
+                _state.LogoUrl = outcome.Url;
+            else
+                _fileError = outcome.Error;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Demo logo upload failed");
+            _fileError = "Lỗi khi tải logo. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    private void AddProduct()
+    {
+        _state.Products.Add(new DemoProduct("Sản phẩm mới", 50000));
+    }
+
+    private void RemoveProduct(int index)
+    {
+        if (index >= 0 && index < _state.Products.Count)
+            _state.Products.RemoveAt(index);
+    }
+
+    private void GoToRegister()
+    {
+        var name = Uri.EscapeDataString(_state.ShopName);
+        Navigation.NavigateTo($"/claim?name={name}");
+    }
+
+    private sealed class DemoSetupForm
+    {
+        public string ShopName { get; set; } = string.Empty;
+        public string? Industry { get; set; }
+    }
+}

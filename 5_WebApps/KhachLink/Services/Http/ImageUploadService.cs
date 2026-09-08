@@ -23,7 +23,10 @@ public class ImageUploadService(IHttpClientFactory httpClientFactory, ILogger<Im
     /// Upload a GPKD image file. Returns the public URL on success, or an error message on failure.
     /// Client-side validation mirrors Gateway (size + extension) to fail fast before network round-trip.
     /// </summary>
-    public async Task<ImageUploadOutcome> UploadGpkdAsync(IBrowserFile file, CancellationToken ct = default)
+    /// <param name="file">Browser file from InputFile component.</param>
+    /// <param name="folder">Cloudinary folder name (default "gpkd-claims"). W2 demo uses "demo-logos".</param>
+    /// <param name="ct">Cancellation token.</param>
+    public async Task<ImageUploadOutcome> UploadGpkdAsync(IBrowserFile file, string folder = "gpkd-claims", CancellationToken ct = default)
     {
         if (file == null)
             return ImageUploadOutcome.Failed("Vui lòng chọn file ảnh.");
@@ -48,11 +51,11 @@ public class ImageUploadService(IHttpClientFactory httpClientFactory, ILogger<Im
                 : "image/jpeg");
             form.Add(fileContent, "file", file.Name);
 
-            var response = await _httpClient.PostAsync("api/v1/images/upload?folder=gpkd-claims", form, ct);
+            var response = await _httpClient.PostAsync($"api/v1/images/upload?folder={folder}", form, ct);
 
             if (response.StatusCode == HttpStatusCode.TooManyRequests)
             {
-                _logger.LogWarning("GPKD upload rate-limited for file {Name}", file.Name);
+                _logger.LogWarning("Image upload rate-limited for file {Name} (folder {Folder})", file.Name, folder);
                 return ImageUploadOutcome.Failed("Bạn đã upload quá nhiều lần. Vui lòng thử lại sau 1 giờ.");
             }
 
@@ -65,7 +68,7 @@ public class ImageUploadService(IHttpClientFactory httpClientFactory, ILogger<Im
             if (!response.IsSuccessStatusCode)
             {
                 var body = await response.Content.ReadFromJsonAsync<ErrorBody>(cancellationToken: ct);
-                _logger.LogWarning("GPKD upload failed: {Status} {Error}", response.StatusCode, body?.Error);
+                _logger.LogWarning("Image upload failed: {Status} {Error} (folder {Folder})", response.StatusCode, body?.Error, folder);
                 return ImageUploadOutcome.Failed(body?.Error ?? $"Upload thất bại (HTTP {response.StatusCode}).");
             }
 
@@ -73,7 +76,7 @@ public class ImageUploadService(IHttpClientFactory httpClientFactory, ILogger<Im
             if (string.IsNullOrEmpty(result?.Url))
                 return ImageUploadOutcome.Failed("Server không trả về URL ảnh.");
 
-            _logger.LogInformation("GPKD uploaded: {Name} → {Url}", file.Name, result.Url);
+            _logger.LogInformation("Image uploaded: {Name} → {Url} (folder {Folder})", file.Name, result.Url, folder);
             return ImageUploadOutcome.Ok(result.Url);
         }
         catch (OperationCanceledException)
@@ -82,10 +85,17 @@ public class ImageUploadService(IHttpClientFactory httpClientFactory, ILogger<Im
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "GPKD upload exception for file {Name}", file.Name);
+            _logger.LogError(ex, "Image upload exception for file {Name} (folder {Folder})", file.Name, folder);
             return ImageUploadOutcome.Failed("Lỗi kết nối khi upload. Vui lòng thử lại.");
         }
     }
+
+    /// <summary>
+    /// W2 (2026-09-08): Upload a demo logo to the "demo-logos" Cloudinary folder.
+    /// Convenience wrapper around UploadGpkdAsync with folder="demo-logos".
+    /// </summary>
+    public Task<ImageUploadOutcome> UploadLogoAsync(IBrowserFile file, CancellationToken ct = default)
+        => UploadGpkdAsync(file, "demo-logos", ct);
 
     // ── Local DTOs matching Gateway response bodies ─────────────────────────
     private sealed record UploadResultBody(string Url);

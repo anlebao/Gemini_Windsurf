@@ -150,7 +150,10 @@ nginx/templates/vanan.multivps.conf.template       (W1 ✅ — Directory SSR rou
 
 ### W2 — Interactive Demo ⏳ NEXT
 - KhachLink `/demo` page (in-memory storefront mock)
-- Demo → Claim prefill (`?name=`)
+- Demo → Register prefill (`?name=`) — NEW `Register.razor` (route `/claim`)
+- **D3: `TenantRegistration` domain entity** (audit-type, precedent CrawlSource) — merchant mới chưa có tenant
+- **Anti-bot:** Cloudflare Turnstile + honeypot + rate limit `registration-submit` 5/IP/24h
+- NEW endpoint `POST /api/v1/tenant-registrations` + admin queue
 - E2E spec
 - **Task card:** `task_card_w2_interactive_demo.md`
 
@@ -181,7 +184,7 @@ nginx/templates/vanan.multivps.conf.template       (W1 ✅ — Directory SSR rou
 
 ## Hard stops (governance)
 
-- **Domain PURE** — 2 mods (D1/D2) đều audit-type, precedent CrawlSource. KHÔNG đụng `AccountingEntry`/`BaseEntity`. **Chờ user approve trước W3/W4** (✅ APPROVED 2026-09-06).
+- **Domain PURE** — 3 mods (D1/D2/D3) đều audit-type, precedent CrawlSource. KHÔNG đụng `AccountingEntry`/`BaseEntity`. **D1/D2 APPROVED 2026-09-06. D3 APPROVED 2026-09-08.**
 - **UI Platform components bắt buộc** — 100% trang mới dùng VanAn.UI.Platform, no custom CSS.
 - **Gateway = Order Creator + Routed Async Delivery (Option C)** — không revert.
 - **Multi-tenancy enforced at every layer** — Pattern #8: mọi query tenant so sánh property trực tiếp, cấm `EF.Property<Guid>`.
@@ -202,11 +205,14 @@ nginx/templates/vanan.multivps.conf.template       (W1 ✅ — Directory SSR rou
 | R6 | nginx routing sai (W1 đã gặp) | RV Layer 3 verify static assets + Blazor Server SSR (precedent #157) |
 | R7 | Over-build (cái chết §13 tài liệu gốc) | Ground Rule 6 + Gates G1-G5 + kill-list hằng quý + Out of scope list |
 
-## Decisions (RESOLVED 2026-09-06 — user approved)
+## Decisions (RESOLVED — user approved)
 
-1. **Domain mods D1 + D2: APPROVED** — `StoreMetricDaily` (audit entity, precedent CrawlSource) + `TenantClaimRequest` +2 nullable referral fields. Không đụng AccountingEntry/BaseEntity.
+1. **Domain mods D1 + D2: APPROVED (2026-09-06)** — `StoreMetricDaily` (audit entity, precedent CrawlSource) + `TenantClaimRequest` +2 nullable referral fields. Không đụng AccountingEntry/BaseEntity.
 2. **Landing audit = Directory app (timlathay.com)** — route `/kiem-tra-cua-hang`, 0 infra mới (không subdomain riêng).
 3. **Hoa hồng referral = dynamic bởi SystemAdmin** — prefill từ SystemSetting `Referral_CommissionAmount`, chỉnh trong payout modal + option đặt làm mặc định mới.
+4. **Domain mod D3: APPROVED (2026-09-08)** — `TenantRegistration` entity (audit-type, precedent CrawlSource) cho merchant mới chưa có tenant. Registration → admin review → admin manually create tenant via existing Crawl-to-Onboard pipeline.
+5. **Anti-bot: Cloudflare Turnstile + honeypot (2026-09-08)** — Turnstile trên Register form submit (server-side verify), honeypot `website` field silent reject.
+6. **Registration endpoint: Option A (2026-09-08)** — NEW `POST /api/v1/tenant-registrations` + NEW `TenantRegistration` entity. KHÔNG reuse claim endpoint (requires existing Pending tenant).
 
 ## Success metrics (đo sau 4 tuần bật flag — target [A], chỉnh theo dữ liệu thật)
 

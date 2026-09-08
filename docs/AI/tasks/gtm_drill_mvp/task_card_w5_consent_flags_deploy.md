@@ -104,6 +104,7 @@
 | 2 | `2_Gateway/appsettings.json` + `5_WebApps/KhachLink/appsettings.json` + `5_WebApps/Directory/appsettings.json` | UPDATE (GrowthMachine:Enabled) | ⏳ |
 | 3 | `2_Gateway/Controllers/GrowthController.cs` | UPDATE (flag check) | ⏳ |
 | 4 | `5_WebApps/KhachLink/Pages/Demo.razor` | UPDATE (flag check + meta/OG) | ⏳ |
+| 4b | `5_WebApps/KhachLink/Pages/Register.razor` | UPDATE (flag check — route `/claim` từ W2) | ⏳ |
 | 5 | `5_WebApps/Directory/Components/Pages/Audit.razor` | UPDATE (flag check + meta/OG) | ⏳ |
 | 6 | `5_WebApps/KhachLink/Pages/Store.razor` | UPDATE (meta/OG) | ⏳ |
 | 7 | `5_WebApps/KhachLink/Pages/Refer.razor` | UPDATE (flag check) | ⏳ |
@@ -122,6 +123,8 @@
 - [ ] `POST /api/v1/growth/metrics/{tenantId}/event` → 200
 - [ ] `GET /api/v1/growth/metrics/{tenantId}/monthly?month=current` → 200
 - [ ] `POST /api/v1/tenant-claims/submit` with `ReferrerCustomerId` → 200
+- [ ] `POST /api/v1/tenant-registrations` → 200 (Turnstile verify pass); 6th request → 429 (rate limit `registration-submit` 5/IP/24h)
+- [ ] `POST /api/v1/tenant-registrations` with honeypot `website` filled → 200 fake success (no record saved)
 - [ ] Rate limit: 11th audit request → 429; 61st metrics request → 429
 
 ### L3 — Static assets
@@ -132,13 +135,14 @@
 ### L4 — UI flow
 - [ ] `/kiem-tra-cua-hang` render + report (flag ON)
 - [ ] `/demo` mock storefront render (flag ON)
-- [ ] `/claim?ref={customerId}` pass referrer qua API
+- [ ] `/claim?ref={customerId}` pass referrer qua API (note: route `/claim` = `Register.razor` NEW từ W2, approved 2026-09-08)
 - [ ] `/support` consent page render + Zalo link
 - [ ] `/growth/monthly` dashboard render (ShopERP, owner auth)
 
 ### L5 — DB
 - [ ] `StoreMetricDaily` table tồn tại trong PG + unique index (TenantId, MetricDate)
 - [ ] `TenantClaimRequests` + 2 cột mới (`ReferredByCustomerId`, `ReferralChannel`) tồn tại trong PG
+- [ ] `TenantRegistrations` table tồn tại trong PG (D3 — W2)
 - [ ] `__EFMigrationsHistory` có migration mới (Pattern #9 — PascalCase quoted)
 
 ## Related
