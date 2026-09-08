@@ -59,6 +59,27 @@
             el.setSelectionRange(formatted.length, formatted.length);
             return formatted;
         };
+        // Attach a client-side input event listener that formats the currency value
+        // instantly on the client (no Blazor Server round-trip delay). The Blazor
+        // @@oninput handler still fires server-side to update field.Value, but the DOM
+        // formatting happens here first.
+        window.vananAttachCurrencyFormatter = function (id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            if (el.dataset.vananCurrencyAttached) return; // idempotent
+            el.dataset.vananCurrencyAttached = 'true';
+            el.addEventListener('input', function () {
+                var raw = (el.value || '').replace(/\D/g, '');
+                if (raw === '') {
+                    el.value = '';
+                    return;
+                }
+                var formatted = parseInt(raw, 10).toLocaleString('vi-VN');
+                el.value = formatted;
+                // Move cursor to end
+                el.setSelectionRange(formatted.length, formatted.length);
+            });
+        };
         // Wave 8: Download a base64-encoded file (DOCX/XLSX export from HKD book page).
         window.vanAn = window.vanAn || {};
         window.vanAn.downloadFile = function (base64, mimeType, fileName) {

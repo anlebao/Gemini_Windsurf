@@ -164,7 +164,7 @@ else if (FieldDefinitions != null && FieldDefinitions.Any())
     /// </summary>
     [Parameter]
     public RenderFragment? Fields { get; set; }
-    
+
     /// <summary>
     /// Field definitions for dynamic form
     /// </summary>
@@ -176,6 +176,29 @@ else if (FieldDefinitions != null && FieldDefinitions.Any())
     /// </summary>
     [Parameter]
     public EventCallback<FormField> OnFieldChanged { get; set; }
+
+    /// <summary>
+    /// After render, attach client-side currency formatter to all Currency inputs.
+    /// The JS listener formats the DOM value instantly (no Blazor Server round-trip),
+    /// then the Blazor @oninput handler sends the formatted value to the server.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (FieldDefinitions != null)
+        {
+            foreach (var field in FieldDefinitions.Where(f => f.Type == FieldType.Currency))
+            {
+                try
+                {
+                    await JSRuntime.InvokeVoidAsync("vananAttachCurrencyFormatter", field.Id);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "JS interop attach currency formatter failed for field {FieldId}", field.Id);
+                }
+            }
+        }
+    }
 
     /// <summary>
     /// Validation errors for fields
@@ -200,44 +223,14 @@ else if (FieldDefinitions != null && FieldDefinitions.Any())
     }
 
     /// <summary>
-    /// Handles currency input: strip non-digits, format with vi-VN thousands separator,
-    /// update field.Value, and push formatted value to DOM via JS interop.
-    /// Uses @oninput directly (not @bind) to avoid Blazor @bind overwriting the
-    /// DOM value after JS interop sets it.
+    /// Handles currency input from Blazor @oninput: strips non-digits from the
+    /// ChangeEventArgs value (which is the DOM value AFTER the client-side JS
+    /// formatter has already formatted it, e.g. "55.000"), stores the formatted
+    /// string in field.Value so validation/submission can strip separators.
     /// </summary>
     private async Task HandleCurrencyInput(FormField field, ChangeEventArgs e)
     {
-        var current = e.Value?.ToString() ?? "";
-        // Strip all non-digit characters
-        var raw = new string(current.Where(char.IsDigit).ToArray());
-        if (string.IsNullOrEmpty(raw))
-        {
-            field.Value = "";
-        }
-        else
-        {
-            // Format with vi-VN thousands separator (".")
-            if (long.TryParse(raw, out var num))
-            {
-                field.Value = num.ToString("#,##0", new System.Globalization.CultureInfo("vi-VN"));
-            }
-            else
-            {
-                field.Value = raw;
-            }
-        }
-
-        // Push formatted value to DOM input directly — without @bind, Blazor won't
-        // re-render the input value, so JS interop is the only way to update the DOM.
-        try
-        {
-            await JSRuntime.InvokeVoidAsync("vananFormatCurrencyInput", field.Id);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "JS interop format currency failed for field {FieldId}", field.Id);
-        }
-
+        field.Value = e.Value?.ToString() ?? "";
         await NotifyChanged(field);
     }
 
