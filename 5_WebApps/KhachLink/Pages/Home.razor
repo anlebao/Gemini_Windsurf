@@ -37,16 +37,7 @@
     Checkout="async () => await GoToCheckout()" />
 
 <KhachLinkLayout>
-    <!-- Sprint 7: Commerce Mode badge — shows Marketplace/Reseller mode -->
-    @if (_commerceModeLoaded && _isReseller)
-    {
-        <div class="container mt-2" style="max-width:1000px;">
-            <div class="alert alert-info py-2 mb-0 d-flex align-items-center gap-2">
-                <i class="bi bi-info-circle"></i>
-                <small><strong>Mô hình Reseller</strong> — Vạn An mua bán, giá đã bao gồm phí nền tảng.</small>
-            </div>
-        </div>
-    }
+    <!-- P4.1: Reseller badge moved to KhachLinkLayout (global — shows on all pages, not just Home) -->
 
     <!-- Issue #142: Store Finder search box — Google Maps style.
          Text input + mic icon (voice input). Submit (Enter) or voice transcript
@@ -444,9 +435,7 @@
     private bool _storeLoading = true;
     private Guid? _lastTenantId;
 
-    // Sprint 7: Commerce Mode badge
-    private bool _commerceModeLoaded = false;
-    private bool _isReseller = false;
+    // P4.1: Commerce Mode badge moved to KhachLinkLayout (global — shows on all pages)
 
     // Issue #142: Home voice search box — Google Maps style
     private string _homeSearchKeyword = "";
@@ -498,7 +487,7 @@
             var productsTask = LoadProductsAsync();
             var catalogTask = LoadCatalogAsync();
             var tenantDataTask = LoadLastTenantDataAsync();
-            var commerceModeTask = LoadCommerceModeAsync(token);
+            // P4.1: Commerce mode badge moved to KhachLinkLayout — no longer loaded here.
 
             // Store Finder: do NOT auto-load stores on home page.
             // Only show search box / location-share prompt — user must explicitly trigger search.
@@ -519,7 +508,7 @@
             // #100: Home section toggles — GLOBAL (no tenantId needed, always load)
             Task homeTogglesTask = LoadHomeSectionTogglesAsync();
 
-            await Task.WhenAll(productsTask, catalogTask, tenantDataTask, vatTask, homeTogglesTask, commerceModeTask);
+            await Task.WhenAll(productsTask, catalogTask, tenantDataTask, vatTask, homeTogglesTask);
 
             // Phase 3 (dependent): ShopConfig needs products list (derived from product TenantIds)
             await LoadShopConfigAsync();
@@ -658,23 +647,8 @@
 
     /// <summary>
     /// Load campaigns + store info for the tenant the customer most recently interacted with.
-    /// Sprint 7: Load commerce mode (Marketplace/Reseller) for UI badge.
-    /// Silent failure — badge just doesn't show if API unavailable.
+    /// P4.1: Commerce mode badge moved to KhachLinkLayout — no longer loaded here.
     /// </summary>
-    private async Task LoadCommerceModeAsync(string? token)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(token)) return;
-            var result = await CommunityHttp.GetCommerceModeAsync(token);
-            if (result.Success)
-            {
-                _isReseller = result.IsReseller;
-                _commerceModeLoaded = true;
-            }
-        }
-        catch { /* silent — badge is optional */ }
-    }
 
     /// <summary>
     /// Falls back to empty state with CTA if no interaction recorded (new user).

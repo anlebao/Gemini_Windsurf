@@ -1,6 +1,7 @@
 ﻿@page "/my-loyalty"
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Components.Shared
 @using VanAn.KhachLink.Components
 @using VanAn.KhachLink.Services.Http
 @inject IHttpClientFactory HttpClientFactory
@@ -13,6 +14,7 @@
 <PageTitle>Lịch sử tích điểm</PageTitle>
 
 <KhachLinkLayout>
+  <ProfileGuard RequiredFlag="ShowLoyaltyHistory" FeatureName="Lịch sử tích điểm">
     <div class="container py-4" style="max-width:600px;">
         @if (_loading)
         {
@@ -63,6 +65,7 @@
     <IdentityUpgradeModal ShowModal="_showUpgradeModal"
                           OnDismiss="OnUpgradeModalDismiss"
                           OnUpgradeComplete="OnUpgradeComplete" />
+  </ProfileGuard>
 </KhachLinkLayout>
 
 <style>

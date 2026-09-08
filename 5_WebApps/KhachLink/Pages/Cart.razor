@@ -1,4 +1,5 @@
 ﻿@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Components.Shared
 @using VanAn.KhachLink.Services.Http
 @page "/cart"
 @inject VanAn.KhachLink.Services.CartService CartService
@@ -12,6 +13,7 @@
 <PageTitle>Giỏ hàng - KhachLink</PageTitle>
 
 <KhachLinkLayout>
+  <ProfileGuard RequiredFlag="ShowCart" FeatureName="Giỏ hàng">
     <div class="container py-4">
         <h2 class="mb-4">🛒 Giỏ hàng của bạn</h2>
 
@@ -147,6 +149,7 @@
             </div>
         }
     </div>
+  </ProfileGuard>
 </KhachLinkLayout>
 
 @code {

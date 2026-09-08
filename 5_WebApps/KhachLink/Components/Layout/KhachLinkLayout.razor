@@ -2,6 +2,7 @@
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Tokens
 @using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate
 @using VanAn.KhachLink.Services.Http
 @using VanAn.KhachLink.Services.PWA
 @using VanAn.KhachLink.Models
@@ -10,6 +11,7 @@
 @inject ShopConfigHttpService ShopConfigService
 @inject PWAService PWAService
 @inject KhachLinkInstanceHttpService InstanceHttp
+@inject VanAn.KhachLink.Services.Http.CommunityHttpService CommunityHttp
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inherits VanAn.UI.Platform.Components.Base.BaseComponent
@@ -100,6 +102,17 @@ else
         </div>
     </header>
 
+    @* P4.1: Reseller badge global — moved from Home.razor, shows on all pages (not just Home) *@
+    @if (_commerceModeLoaded && _isReseller)
+    {
+        <div class="container mt-2" style="max-width:1000px;">
+            <div class="alert alert-info py-2 mb-0 d-flex align-items-center gap-2">
+                <i class="bi bi-info-circle"></i>
+                <small><strong>Mô hình Reseller</strong> — Vạn An mua bán, giá đã bao gồm phí nền tảng.</small>
+            </div>
+        </div>
+    }
+
     <!-- Main Content -->
     <main class="khachlink-main">
         @ChildContent
@@ -128,6 +141,13 @@ else
             <div class="mt-2 small">
                 <a href="/privacy-policy.html" class="footer-link" target="_blank" rel="noopener">Chính sách Quyền riêng tư</a>
             </div>
+            @* P2.2: Profile indicator — chỉ hiện khi khác FullCommerce (default ẩn) *@
+            @if (_instanceStyle != null && _instanceStyle.Profile != KhachLinkProfile.FullCommerce)
+            {
+                <div class="profile-indicator mt-2 small text-muted">
+                    <i class="bi bi-info-circle"></i> Chế độ: @GetProfileLabel(_instanceStyle.Profile)
+                </div>
+            }
             <!-- Add bottom padding for mobile tab bar -->
             <div style="height: 70px;" class="d-md-none"></div>
         </div>
@@ -174,6 +194,8 @@ else
 .khachlink-footer { background: var(--shop-footer-color, #f5f5f5); border-top: 1px solid #e0e0e0; color: #555; }
 .footer-link { color: inherit; text-decoration: none; }
 .footer-social { color: var(--shop-primary, #8B4513); font-size: 1.2rem; }
+/* P2.2: Profile indicator */
+.profile-indicator { font-size: 0.75rem; opacity: 0.7; }
 
 /* Theme classes */
 .theme-teen     { background: linear-gradient(135deg, #ffe0f0, #e0e7ff); }
@@ -224,6 +246,9 @@ else
     private bool _isInstanceDisabled;
     /// <summary>Issue #143: Style override from KhachLinkInstance (null fields = inherit from ShopConfig).</summary>
     private KhachLinkInstanceConfig? _instanceStyle;
+    /// <summary>P4.1: Commerce mode badge — moved from Home.razor, shows on all pages.</summary>
+    private bool _commerceModeLoaded;
+    private bool _isReseller;
 
     protected override async Task OnInitializedAsync()
     {
@@ -276,6 +301,23 @@ else
                 StateHasChanged();
             }
             catch { /* PWA service not available — hide button */ }
+
+            // P4.1: Load commerce mode badge (moved from Home.razor — global, shows on all pages)
+            try
+            {
+                var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+                if (!string.IsNullOrEmpty(token))
+                {
+                    var result = await CommunityHttp.GetCommerceModeAsync(token);
+                    if (result?.Success == true)
+                    {
+                        _isReseller = result.IsReseller;
+                        _commerceModeLoaded = true;
+                        StateHasChanged();
+                    }
+                }
+            }
+            catch { /* silent — badge is optional */ }
         }
     }
 
@@ -316,4 +358,14 @@ else
             _                 => "classic"
         };
     }
+
+    /// <summary>P2.2: Human-readable profile label for footer indicator.</summary>
+    private static string GetProfileLabel(KhachLinkProfile profile) => profile switch
+    {
+        KhachLinkProfile.Directory    => "Danh bạ cửa hàng",
+        KhachLinkProfile.Reseller      => "Đại lý Vạn An",
+        KhachLinkProfile.Logistics     => "Logistics",
+        KhachLinkProfile.JobMarket     => "Sàn việc",
+        _                              => "Cửa hàng trực tiếp"
+    };
 }

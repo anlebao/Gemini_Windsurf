@@ -1,0 +1,66 @@
+@* P2.3: ProfileGuard — route guard theo profile.
+   Wrap page content với <ProfileGuard RequiredFlag="ShowCart" FeatureName="Giỏ hàng">
+   Khi NavFlags.RequiredFlag = false → redirect về "/" + toast 1 lần.
+   Client-side only — đọc cascaded NavFlags, không HTTP call. *@
+@using VanAn.KhachLink.Models
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+@if (_allowed)
+{
+    @ChildContent
+}
+
+@code {
+    [CascadingParameter(Name = "NavFlags")]
+    private KhachLinkNavFlagsDto _navFlags { get; set; } = new();
+
+    [Parameter]
+    public string RequiredFlag { get; set; } = string.Empty;
+
+    [Parameter]
+    public string FeatureName { get; set; } = string.Empty;
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    private bool _allowed = true;
+    private bool _redirected;
+
+    protected override void OnInitialized()
+    {
+        if (string.IsNullOrEmpty(RequiredFlag))
+        {
+            _allowed = true;
+            return;
+        }
+
+        var flagValue = typeof(KhachLinkNavFlagsDto)
+            .GetProperty(RequiredFlag)?.GetValue(_navFlags) is bool v && v;
+
+        _allowed = flagValue;
+
+        if (!_allowed && !_redirected)
+        {
+            _redirected = true;
+            // Toast via JS interop — lightweight, không phụ thuộc toast service
+            _ = ShowToastAsync();
+            Navigation.NavigateTo("/", forceLoad: false);
+        }
+    }
+
+    private async Task ShowToastAsync()
+    {
+        try
+        {
+            var msg = string.IsNullOrEmpty(FeatureName)
+                ? "Tính năng này hiện không khả dụng trong chế độ này."
+                : $"Tính năng \"{FeatureName}\" hiện không khả dụng trong chế độ này.";
+            await JSRuntime.InvokeVoidAsync("vananShowProfileToast", msg);
+        }
+        catch
+        {
+            // JS function chưa định nghĩa → fallback silent (redirect đã đủ)
+        }
+    }
+}

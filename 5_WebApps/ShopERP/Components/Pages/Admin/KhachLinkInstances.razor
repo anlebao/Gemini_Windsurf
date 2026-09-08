@@ -114,6 +114,39 @@
                IsVisible="true" OnClose="CloseModal" Size="large">
         <Body>
             <VanAForm OnValidSubmit="HandleSubmit" aria-label="KhachLink instance form">
+            @if (_showConfirmModal)
+            {
+                <div class="confirm-diff-alert">
+                    <VanAAlert Type="warning" Message="Xác nhận đổi profile — thay đổi này ảnh hưởng đến toàn bộ khách hàng trên domain này." />
+                    <div class="mt-2 mb-2">
+                        <strong>Bạn đang đổi profile từ @GetProfileLabel(_editOriginal!.Profile) → @GetProfileLabel(_editForm.Profile).</strong>
+                        <div class="text-muted small mt-1">
+                            Khách hàng trên domain <code>@_editOriginal.CustomDomain</code> sẽ thấy thay đổi sau tối đa 1 phút.
+                        </div>
+                    </div>
+                    @if (_confirmDiff.Count > 0)
+                    {
+                        <div class="confirm-diff-list">
+                            <div class="small fw-semibold mb-1">Thay đổi nav items:</div>
+                            <ul class="list-unstyled small mb-0">
+                                @foreach (var diff in _confirmDiff)
+                                {
+                                    <li class="@(diff.Added ? "text-success" : "text-danger")">
+                                        <i class="bi bi-@(diff.Added ? "plus-circle" : "dash-circle")"></i>
+                                        @diff.Label
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    }
+                    <div class="form-actions mt-3">
+                        <VanAButton Variant="primary" OnClick="ConfirmSubmit" IsLoading="@_isSaving">Xác nhận đổi</VanAButton>
+                        <VanAButton Variant="outline" OnClick="() => _showConfirmModal = false">Huỷ</VanAButton>
+                    </div>
+                </div>
+            }
+            else
+            {
                 @if (!_isEdit)
                 {
                     <div class="form-group">
@@ -264,6 +297,7 @@
                     <VanAButton Variant="primary" OnClick="HandleSubmit" IsLoading="@_isSaving">Lưu</VanAButton>
                     <VanAButton Variant="outline" OnClick="CloseModal">Huỷ</VanAButton>
                 </div>
+            } @* end else (not _showConfirmModal) *@
             </VanAForm>
         </Body>
     </VanAModal>
@@ -294,6 +328,23 @@
         cursor: pointer;
         font-size: 0.9rem;
     }
+    /* P1.1: Confirm dialog diff styling */
+    .khachlink-instances-page .confirm-diff-alert {
+        background: #fff8e1;
+        border: 1px solid #ffe082;
+        border-radius: 6px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    .khachlink-instances-page .confirm-diff-list {
+        background: #fff;
+        border-radius: 4px;
+        padding: 0.75rem;
+        margin-top: 0.5rem;
+    }
+    .khachlink-instances-page .confirm-diff-list li {
+        padding: 0.125rem 0;
+    }
 </style>
 
 @code {
@@ -309,6 +360,11 @@
     private string _editLabel = "";
     private string _editDomain = "";
     private Guid? _editId;
+
+    // P1.1: Confirm dialog + impact preview
+    private bool _showConfirmModal;
+    private KhachLinkInstanceDto? _editOriginal;
+    private List<NavFlagDiff> _confirmDiff = new();
 
     private CreateKhachLinkInstanceRequest _form = new();
     private UpdateKhachLinkInstanceRequest _editForm = new();
@@ -395,6 +451,10 @@
         _editId = item.Id;
         _editLabel = item.Label;
         _editDomain = item.CustomDomain;
+        // P1.1: store original for diff comparison
+        _editOriginal = item;
+        _showConfirmModal = false;
+        _confirmDiff = new();
         _editForm = new UpdateKhachLinkInstanceRequest
         {
             Profile = item.Profile,
@@ -409,7 +469,11 @@
         _showModal = true;
     }
 
-    private void CloseModal() => _showModal = false;
+    private void CloseModal()
+    {
+        _showModal = false;
+        _showConfirmModal = false;
+    }
 
     private void OnProfileChanged(string value)
     {
@@ -477,6 +541,43 @@
     };
 
     private async Task HandleSubmit()
+    {
+        // P1.1: Confirm dialog + impact preview when editing existing instance
+        if (_isEdit && _editId.HasValue && _editOriginal != null)
+        {
+            // Compute diff: profile change OR any nav flag change
+            var profileChanged = _editForm.Profile != _editOriginal.Profile;
+            var oldFlags = _editOriginal.NavFlags ?? new KhachLinkNavFlagsDto();
+            var newFlags = _editForm.NavFlags ?? new KhachLinkNavFlagsDto();
+            var flagsChanged = !_flagToggles.All(f =>
+                f.GetValue(oldFlags) == f.GetValue(newFlags));
+
+            if (profileChanged || flagsChanged)
+            {
+                // Build diff list
+                _confirmDiff = _flagToggles
+                    .Where(f => f.GetValue(oldFlags) != f.GetValue(newFlags))
+                    .Select(f => new NavFlagDiff(
+                        f.Label,
+                        f.GetValue(newFlags),  // Added = new value is true
+                        !f.GetValue(newFlags)))  // i.e. flag was turned off
+                    .ToList();
+                _showConfirmModal = true;
+                return;  // Wait for user confirmation
+            }
+        }
+
+        await SubmitToApiAsync();
+    }
+
+    /// <summary>P1.1: Called when user confirms the profile change.</summary>
+    private async Task ConfirmSubmit()
+    {
+        _showConfirmModal = false;
+        await SubmitToApiAsync();
+    }
+
+    private async Task SubmitToApiAsync()
     {
         _isSaving = true;
         try
@@ -570,4 +671,7 @@
         public void SetValue(KhachLinkNavFlagsDto flags, bool value)
             => typeof(KhachLinkNavFlagsDto).GetProperty(PropertyName)?.SetValue(flags, value);
     }
+
+    // P1.1: Nav flag diff entry for confirm dialog
+    private sealed record NavFlagDiff(string Label, bool Added, bool Removed);
 }
