@@ -92,9 +92,8 @@ else if (FieldDefinitions != null && FieldDefinitions.Any())
                 <input type="text"
                        class="form-control @(GetFieldValidationClass(field.Id))"
                        id="@field.Id"
-                       @bind="field.Value"
-                       @bind:event="oninput"
-                       @bind:after="@(() => FormatCurrencyField(field))"
+                       value="@field.Value"
+                       @oninput="@((ChangeEventArgs e) => HandleCurrencyInput(field, e))"
                        inputmode="numeric"
                        placeholder="@(field.Placeholder ?? "0")"
                        disabled="@State.IsDisabled"
@@ -198,6 +197,48 @@ else if (FieldDefinitions != null && FieldDefinitions.Any())
         {
             await OnFieldChanged.InvokeAsync(field);
         }
+    }
+
+    /// <summary>
+    /// Handles currency input: strip non-digits, format with vi-VN thousands separator,
+    /// update field.Value, and push formatted value to DOM via JS interop.
+    /// Uses @oninput directly (not @bind) to avoid Blazor @bind overwriting the
+    /// DOM value after JS interop sets it.
+    /// </summary>
+    private async Task HandleCurrencyInput(FormField field, ChangeEventArgs e)
+    {
+        var current = e.Value?.ToString() ?? "";
+        // Strip all non-digit characters
+        var raw = new string(current.Where(char.IsDigit).ToArray());
+        if (string.IsNullOrEmpty(raw))
+        {
+            field.Value = "";
+        }
+        else
+        {
+            // Format with vi-VN thousands separator (".")
+            if (long.TryParse(raw, out var num))
+            {
+                field.Value = num.ToString("#,##0", new System.Globalization.CultureInfo("vi-VN"));
+            }
+            else
+            {
+                field.Value = raw;
+            }
+        }
+
+        // Push formatted value to DOM input directly — without @bind, Blazor won't
+        // re-render the input value, so JS interop is the only way to update the DOM.
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("vananFormatCurrencyInput", field.Id);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "JS interop format currency failed for field {FieldId}", field.Id);
+        }
+
+        await NotifyChanged(field);
     }
 
     /// <summary>
