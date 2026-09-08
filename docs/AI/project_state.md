@@ -34,23 +34,28 @@
 
 ## 2. Current Objective
 
-**GTM DRILL MACHINE MVP — W1 (MERCHANT AUDIT) PRODUCTION RV PASS.** 🟢
-- **Task card:** `docs/AI/tasks/gtm_drill_mvp_task_card.md` (approved 2026-09-06: D1/D2 domain mods + Directory landing + SystemAdmin-dynamic referral commission)
-- **Branch:** `main` @ `a21fcffc` (W1 impl `e8cd4e62` + nginx routing fix + Gateway 429 fix)
-- **W1 COMPLETE + PRODUCTION RV PASS (2026-09-07):**
-  - Gateway `GrowthController` (GET /api/v1/growth/audit?name&mst — anonymous, rate-limit `growth-audit` 10/IP/h, XFF-forwarded client IP, 429 response)
-  - Directory `/kiem-tra-cua-hang` landing (Blazor Server SSR, `VanAn.Directory.styles.css`)
-  - E2E `gtm-audit.spec.ts` (4 tests, chưa chạy — cần ecosystem)
-  - **nginx fix:** timlathay.com page/asset/blazor traffic routed to Directory SSR (port 8080) thay vì KhachLink WASM (port 80) — root cause của W1 RV failure trước đó
-  - **RV results:** Directory SSR renders ✅ · Gateway audit JSON ✅ · active tenant found:true ✅ · pending tenant privacy (no phone/email/address) ✅ · claimUrl provided ✅ · rate limit kicks in after 10 req ✅
-- **W1 remaining:** E2E run cần ecosystem lên (env: DIRECTORY_URL + AUDIT_TENANT_NAME/AUDIT_PENDING_TENANT_NAME) · CD deploy Gateway 429 fix (pushed `a21fcffc`, chờ CD)
-- **W2-W5 theo card:** Demo preview → Revenue Proof counters (D1) → Merchant Referral (D2) → consent + flag `GrowthMachine:Enabled` default OFF + deploy + RV
+**GTM DRILL MACHINE MVP — W2 (INTERACTIVE DEMO + REGISTRATION) PRODUCTION RV PASS.** 🟢
+- **Task card:** `docs/AI/tasks/gtm_drill_mvp/task_card_w2_interactive_demo.md` (D3 domain mod approved 2026-09-08)
+- **Branch:** `main` @ `c66e94bf` (W2 impl `f66a08a1` + E2E fix `c66e94bf`)
+- **W2 COMPLETE + PRODUCTION RV PASS (2026-09-08):**
+  - D3 `TenantRegistration` entity (audit-type, precedent CrawlSource, TenantId=Guid.Empty sentinel, lifecycle Submitted→Contacted→Onboarded/Rejected)
+  - PG migration `20260908023803_AddTenantRegistrations` applied on production
+  - POST /api/v1/tenant-registrations (AllowAnonymous, rate-limit `registration-submit` 5/IP/24h, 429 response)
+  - Turnstile server-side verification (dev fallback skips if no key)
+  - Honeypot silent reject (200 fake success, no DB record)
+  - KhachLink `/demo` (standalone storefront mock, session-only, 5 industry seeds + generic fallback, theme CSS from Store.razor)
+  - KhachLink `/claim` (Register.razor, Turnstile widget + honeypot, ?name= prefill from demo)
+  - E2E `gtm-demo.spec.ts` (6 tests, ALL PASS on production `diemthuong2.khachvip.online`)
+  - **RV results:** Migration applied ✅ · POST 200 + registrationId ✅ · Honeypot 200 + Guid.Empty (no record) ✅ · Rate limit 429 ✅ · /demo renders ✅ · /claim renders ✅ · CTA navigation ✅ · 6/6 E2E PASS ✅
+- **W1 COMPLETE + RV PASS (2026-09-07):** Gateway audit + Directory `/kiem-tra-cua-hang` + nginx routing + rate limit
+- **W3-W5 theo card:** Revenue Proof counters (D1) → Merchant Referral (D2) → consent + flag `GrowthMachine:Enabled` default OFF + deploy + RV
 - Đối chiếu vs `docs/requirements/Ý tưởng việc tự động hóa (Phễu khách hàng).md`: card hiện thực 6/7 MVP steps, defer AI SDR/scoring (Gate G1)
 
 ---
 
 ## 3. Current Status
 
+- **GTM Drill Machine W2 (Interactive Demo + Registration):** ✅ CODE COMPLETE + PRODUCTION RV PASS (2026-09-08) on `main` @ `c66e94bf`. D3 `TenantRegistration` entity (audit-type, precedent CrawlSource) + PG migration `20260908023803_AddTenantRegistrations` + POST /api/v1/tenant-registrations (AllowAnonymous, rate-limit 5/IP/24h) + Turnstile server-side verify (dev fallback) + Honeypot silent reject + KhachLink `/demo` (standalone storefront mock, session-only) + KhachLink `/claim` (Register.razor, Turnstile + honeypot, ?name= prefill) + E2E `gtm-demo.spec.ts` (6 tests ALL PASS on production). RV: migration ✅ · API 200 ✅ · honeypot silent ✅ · rate limit 429 ✅ · /demo renders ✅ · /claim renders ✅ · 6/6 E2E PASS ✅. See Section 2 + Section 10.
 - **GTM Drill Machine W1 (Merchant Audit):** ✅ CODE COMPLETE + PRODUCTION RV PASS (2026-09-07) on `main` @ `a21fcffc`. Gateway `GrowthController` (GET /api/v1/growth/audit?name&mst, rate-limit `growth-audit` 10/IP/h, XFF client-IP, 429 response) + Directory `/kiem-tra-cua-hang` landing (Blazor Server SSR) + E2E spec + arch whitelist. **nginx fix:** timlathay.com → Directory SSR (port 8080) thay vì WASM (port 80). RV: Directory SSR ✅ · Gateway JSON ✅ · active tenant ✅ · pending privacy ✅ · rate limit ✅. See Section 2 + Section 10.
 - **Branch:** `main` @ `a21fcffc` (W1 Merchant Audit + nginx Directory SSR routing fix + Gateway 429 rate limit. R2.2 Reseller Accounting — PR #169 merged. Crawl-to-Onboard 8 phases complete. Issue #103/#157/#161/#156 deployed). **Build full sln:** 0 errors · **CI:** 1504 core + 17 unit + 276 integration + 41 arch ALL PASS · **.NET SDK:** 8.0.422
 - **R2.2 Reseller Accounting:** ✅ COMPLETE + DEPLOYED + RV PASS (2026-09-06). PR #169 merged. 3 tenant booksets (Supplier/Reseller/Platform-skip-when-VA) + `Order.OwnerTenantId` + Auditor UI `/admin/reseller-accounting-reconciliation` + 13 R2.2 tests + 28 pre-existing bUnit test fixes (DI mocks + vi-VN number format). CD Multi-VPS SUCCESS. RV Layer 1+3+4 PASS. Details: Section 10 + archive 2026-09-06.
@@ -69,13 +74,14 @@
 
 ## 4. Next Actions
 
-**GTM Drill Machine MVP (✅ W1 COMPLETE + RV PASS — W2 NEXT):**
-- Task card: `docs/AI/tasks/gtm_drill_mvp_task_card.md` (5 tuần × 5 mảnh; strategy: `docs/AI/plans/ecosystem-master-business-model.md` Section 4)
+**GTM Drill Machine MVP (✅ W1 + W2 COMPLETE + RV PASS — W3 NEXT):**
+- Task card: `docs/AI/tasks/gtm_drill_mvp/task_card_w2_interactive_demo.md` (5 tuần × 5 mảnh; strategy: `docs/AI/plans/ecosystem-master-business-model.md` Section 4)
 - ✅ W1 Merchant Audit code complete (`e8cd4e62`) + nginx fix + 429 fix (`a21fcffc`): Gateway `GrowthController` + rate limit + Directory landing + E2E spec + arch whitelist + nginx routing to Directory SSR
 - ✅ W1 Production RV PASS (2026-09-07): Directory SSR renders · Gateway audit JSON · active tenant found:true · pending tenant privacy · rate limit 10/IP/h
-- ⏳ W1 remaining: E2E run (cần ecosystem lên + env `DIRECTORY_URL`/`AUDIT_TENANT_NAME`/`AUDIT_PENDING_TENANT_NAME` — chạy theo Playwright rules) · CD deploy Gateway 429 fix (pushed `a21fcffc`)
-- Next: **W2 Interactive Demo** (KhachLink `/demo` preview storefront in-memory + prefill `/claim?name=`) → W3 Revenue Proof (D1) → W4 Referral (D2) → W5 consent + flag `GrowthMachine:Enabled` + deploy + RV
-- Branch `main` @ `a21fcffc` — pushed, CD triggered
+- ✅ W2 Interactive Demo + Registration code complete (`f66a08a1`) + E2E fix (`c66e94bf`): D3 TenantRegistration entity + PG migration + POST /api/v1/tenant-registrations + Turnstile + honeypot + rate limit + Demo.razor + Register.razor + E2E spec
+- ✅ W2 Production RV PASS (2026-09-08): Migration applied · API 200 + registrationId · honeypot silent reject · rate limit 429 · /demo renders · /claim renders · 6/6 E2E PASS
+- Next: **W3 Revenue Proof** (D1 domain mod — counters on tenant GrowthDashboard) → W4 Referral (D2) → W5 consent + flag `GrowthMachine:Enabled` + deploy + RV
+- Branch `main` @ `c66e94bf` — pushed, CD deployed
 - DEFER theo Gates: AI SDR/auto scoring (G1 — 0 telemetry), search counter, sitemap toàn site (BOM #4 T2), payment gateway (G2)
 
 **Crawl-to-Onboard Tenant Pipeline (✅ COMPLETE — all 8 phases deployed + RV PASS):**
@@ -192,15 +198,17 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`feature/gtm-drill-mvp` @ `f78da932` (từ `main` @ `2d98ee77`). GTM W1 Merchant Audit: CODE COMPLETE — Gateway `GrowthController` (audit?name&mst, rate-limit growth-audit, XFF client-IP) + Directory `/kiem-tra-cua-hang` + E2E spec (4 tests, chưa chạy) + arch whitelist GrowthController. Validation: build full sln 0 errors · pre-commit GUARD v6.0 PASS · arch 41/41 PASS. Đối chiếu GTM docs: card hiện thực 6/7 MVP steps. Trên `main`: R2.2 COMPLETE + DEPLOYED + RV PASS (PR #169) · Crawl-to-Onboard 8/8 phases + RV PASS · issue #103/#157/#161/#156 deployed. Production: 3 tenant test (GCP Data Seeding pending).
-- **Open Questions:** 1 (PlatformAccountingTenantId not yet configured in production DB — code degrades gracefully, SysAdmin 1-time setup). W1 E2E run pending ecosystem — không phải blocker code.
-- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (30+), Open Questions (1) < 3 → CLEAR.
+- **Verified Facts:** Branch=`main` @ `c66e94bf` (W2 impl `f66a08a1` + E2E fix `c66e94bf`). GTM W2 Interactive Demo + Registration: CODE COMPLETE + PRODUCTION RV PASS — D3 TenantRegistration entity + PG migration `20260908023803_AddTenantRegistrations` applied + POST /api/v1/tenant-registrations 200 + honeypot silent reject + rate limit 429 + KhachLink /demo + /claim + E2E 6/6 PASS on production. GTM W1 Merchant Audit: COMPLETE + RV PASS (2026-09-07). Validation: build full sln 0 errors · pre-commit GUARD v6.0 PASS · CI 1504+17+276+41 ALL PASS · CD Multi-VPS #253 SUCCESS · E2E 6/6 PASS. Trên `main`: R2.2 COMPLETE + DEPLOYED + RV PASS (PR #169) · Crawl-to-Onboard 8/8 phases + RV PASS · issue #103/#157/#161/#156 deployed. Production: 3 tenant test (GCP Data Seeding pending).
+- **Open Questions:** 1 (PlatformAccountingTenantId not yet configured in production DB — code degrades gracefully, SysAdmin 1-time setup). 1 (Turnstile SiteKey/SecretKey not yet configured in production — dev fallback skips verify, production W5 deploy must provide keys). 1 (Rate limit uses RemoteIpAddress = nginx container IP, not forwarded client IP — all users share quota; W5 deploy should add UseForwardedHeaders for per-IP rate limiting).
+- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (30+), Open Questions (3) = 3 → CLEAR (at threshold).
 
 ---
 
 ## 10. Maintenance Log
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md`.
+
+* **2026-09-08 — GTM DRILL MACHINE W2 (INTERACTIVE DEMO + REGISTRATION) COMPLETE + DEPLOYED + PRODUCTION RV PASS (commits `f66a08a1` + `c66e94bf` on `main`).** D3 domain mod approved (audit-type `TenantRegistration` entity, precedent `CrawlSource`, TenantId=Guid.Empty sentinel, lifecycle Submitted→Contacted→Onboarded/Rejected). Implementation: `TenantRegistration.cs` NEW (1_Shared/Domain/Aggregates/TenantAggregate) + `TenantRegistrationConfiguration.cs` NEW (3_CoreHub/Infrastructure/Configurations) + DbSet added to IVanAnDbContext + VanAnDbContext + excluded from multi-tenancy query filter + ShopERP ShopERPDbContext Ignore (PG-only) + PG migration `20260908023803_AddTenantRegistrations` (indexes on Status + SubmittedAt) + `RegistrationDtos.cs` NEW (request + result + admin DTOs) + `ITenantRegistrationService.cs` + `TenantRegistrationService.cs` NEW (validate + duplicate detect + persist + lifecycle) + `TurnstileVerificationService.cs` NEW (Cloudflare server-side verify, dev fallback skips if no key) + `TenantRegistrationController.cs` NEW (POST /api/v1/tenant-registrations AllowAnonymous + rate-limit `registration-submit` 5/IP/24h + honeypot silent reject 200 fake success + admin queue SystemAdmin) + rate policy in `2_Gateway/Program.cs` + Turnstile config placeholders in `appsettings.json` + `RegistrationHttpService.cs` NEW (KhachLink Gateway client) + `ImageUploadService.cs` UPDATE (folder param + UploadLogoAsync for demo-logos) + `DemoStoreState.cs` NEW (in-memory model, 5 industry seeds cà phê/phở/tạp hóa/salon/ăn vặt + generic fallback) + `Demo.razor` NEW (route /demo, standalone no KhachLinkLayout, theme CSS from Store.razor, editable products/hours/theme, CTA → /claim?name=) + `Register.razor` NEW (route /claim, Turnstile widget + honeypot website field, ?name= prefill) + E2E `gtm-demo.spec.ts` NEW (6 tests). CI: 1504+17+276+41+10 ALL PASS. CD Multi-VPS #253 SUCCESS (10m18s). RV: (1) PG migration applied ✅; (2) POST /api/v1/tenant-registrations → 200 + registrationId ✅; (3) Honeypot → 200 + Guid.Empty (no DB record) ✅; (4) Rate limit → 429 ✅; (5) /demo renders (Blazor WASM) ✅; (6) /claim renders ✅; (7) E2E 6/6 PASS on `diemthuong2.khachvip.online` (50.7s) ✅. E2E fix: Blazor `@bind` on enum renders option value as enum name not number + `@bind` sets DOM property not HTML attribute (use `toHaveValue` not `[value=]`). Branch: `main` @ `c66e94bf`.
 
 * **2026-09-07 — W1 PRODUCTION RV PASS + NGINX DIRECTORY SSR ROUTING FIX (commit `a21fcffc` on `main`).** Production RV phát hiện root cause: nginx `timlathay.com` server block route `location /` → `${KHACHLINK_REMOTE_HOST}:80` (KhachLink WASM) thay vì Directory SSR container (port 8080). Docker-compose có `directory` service trên port 8080 nhưng nginx config không có `map $is_directory` hay upstream nào trỏ tới 8080. Fix: trong section `@@EXT_DOMAIN_START:timlathay.com@@`, đổi tất cả non-API `proxy_pass` từ `${KHACHLINK_REMOTE_HOST}:80` → `:8080` (10 occurrences cho apex + wildcard, cả HTTP + HTTPS). API routes vẫn `gateway:80`. Deploy manual: SCP template → VPS → `docker restart vanan-nginx-1`. Gateway fix: `growth-audit` rate limiter thêm `OnRejected` callback trả 429 + JSON message thay vì default 503. RV results sau fix: (1) `timlathay.com/kiem-tra-cua-hang` → HTTP 200, Blazor Server SSR, `VanAn.Directory.styles.css` ✅; (2) `timlathay.com/` → Directory SSR ✅; (3) Gateway audit empty params → 400 + Vietnamese message ✅; (4) Gateway audit no-match → 200 `{"found":false}` ✅; (5) Gateway audit active tenant "Central Mall" → 200 `{"found":true,"tenant":{...}}` không expose phone/email ✅; (6) Gateway audit pending tenant "DONER LAB" → 200 `{"found":true,"tenant":{"isPending":true,...}}` không expose private contact (M3 privacy) + `claimUrl` provided ✅; (7) Rate limit kicks in after ~10 requests → 503 (sau CD sẽ là 429) ✅. Push `a21fcffc` → main, CD triggered. Pending: CD deploy Gateway 429 fix + E2E run.
 

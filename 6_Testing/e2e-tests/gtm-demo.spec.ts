@@ -51,9 +51,9 @@ test.describe('GTM W2 — Interactive Demo', () => {
     await expect(page.locator('h2:has-text("Sản phẩm")')).toBeVisible();
     await expect(page.locator('input[placeholder="Tên sản phẩm"]')).toHaveCount(5, { timeout: 10000 });
 
-    // Sample product names from cà phê industry seed
-    await expect(page.locator('input[value="Cà phê sữa đá"]')).toBeVisible();
-    await expect(page.locator('input[value="Trà sữa trân châu"]')).toBeVisible();
+    // Sample product names from cà phê industry seed (use toHaveValue — Blazor @bind sets DOM property, not attribute)
+    await expect(page.locator('input[placeholder="Tên sản phẩm"]').first()).toHaveValue('Cà phê sữa đá');
+    await expect(page.locator('input[placeholder="Tên sản phẩm"]').last()).toHaveValue('Trà sữa trân châu');
   });
 
   test('Editing product name + price updates render', async ({ page }) => {
@@ -111,12 +111,12 @@ test.describe('GTM W2 — Interactive Demo', () => {
     const storePage = page.locator('.store-page');
     await expect(storePage).toHaveClass(/theme-classic/);
 
-    // Change to modern theme
-    await page.locator('select').selectOption('1'); // ThemeType.Modern = 1
+    // Change to modern theme (Blazor @bind on enum renders option value as enum name, not number)
+    await page.locator('select').selectOption('Modern');
     await expect(storePage).toHaveClass(/theme-modern/);
 
     // Change to premium theme
-    await page.locator('select').selectOption('4'); // ThemeType.Premium = 4
+    await page.locator('select').selectOption('Premium');
     await expect(storePage).toHaveClass(/theme-premium/);
   });
 
