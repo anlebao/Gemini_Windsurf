@@ -160,7 +160,7 @@
 | `docs/AI/tasks/tech_debt_multi_vps_checkout.md` | Tech debt register |
 | `docs/Architecture/ADR001-Station-Architecture.md` | ADR-001 v3 (Option C) |
 | `docs/AI/plans/ecosystem-master-business-model.md` | Ecosystem Master Business Model v1.0 (7 phần + GTM khoan thủng + BOM registry — chiến lược kinh doanh, không phải implementation plan) |
-| `docs/AI/tasks/gtm_drill_mvp_task_card.md` | GTM Drill Machine MVP task card (5 tuần, 5 mảnh — APPROVED + W1 complete, W2 next) |
+| `docs/AI/tasks/gtm_drill_mvp/` | GTM Drill Machine MVP — master_plan.md + task_card.md (top-level) + 5 per-week task cards (W1 COMPLETE + RV PASS, W2-W5 planned) |
 | `docs/AI/project_state_archive.md` | Archived history (2026-07-24 + 2026-08-03 + 2026-08-09 + 2026-08-23) |
 
 ---
