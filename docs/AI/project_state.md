@@ -34,6 +34,23 @@
 
 ## 2. Current Objective
 
+**KHACHLINK PROFILE TRANSITION UX — SPRINT 1 COMPLETE + PUSHED.** 🟢
+- **Task card:** `docs/AI/tasks/khachlink_profile_transition_ux/task_card_sprint1_guardrail_foundation.md`
+- **Branch:** `main` @ `cbeff2a3` (Sprint 1 impl + docs)
+- **SPRINT 1 COMPLETE (2026-09-08):** 4 UI-only changes, no migration:
+  - P1.1 Confirmation dialog + impact preview khi đổi profile (KhachLinkInstances.razor — shows nav item diff before save)
+  - P2.2 Profile indicator persistent footer (KhachLinkLayout.razor — "Chế độ: Danh bạ cửa hàng" visible khi profile != FullCommerce)
+  - P2.3 Route guard (ProfileGuard.razor NEW — wraps 7 commerce-only pages: Cart, OrderHistory, RedemptionCatalog, Missions, LoyaltyCard, Scan, Campaigns — redirect / + toast khi NavFlags.RequiredFlag=false)
+  - P4.1 Reseller badge global (di chuyển từ Home.razor → KhachLinkLayout — shows "Mô hình Reseller" on all pages)
+- **Files:** 11 modified + 3 new (ProfileGuard.razor, profile-toast.js, profile-transition.spec.ts 9 tests)
+- **Build:** 0 errors · **CI:** 1489 core + 17 unit + 41 arch + 276 integration ALL PASS · **Pushed:** `cbeff2a3` → main
+- **Pending:** RV on `timlathay.com` (Directory) + `diemthuong2.khachvip.online` (FullCommerce/Reseller)
+- **Sprint 2 next:** Transition messaging (What's New banner + cart preservation + driver.js onboarding tour)
+
+---
+
+## PREVIOUS OBJECTIVE (archived 2026-09-08)
+
 **GTM DRILL MACHINE MVP — W2 COMPLETE + CURRENCY AUTO-FORMAT FIX.** 🟢
 - **Task card:** `docs/AI/tasks/gtm_drill_mvp/task_card_w2_interactive_demo.md` (D3 domain mod approved 2026-09-08)
 - **Branch:** `main` @ `bfb97afd` (W2 impl `f66a08a1` + E2E fix `c66e94bf` + currency fix `e9688cd6` + E2E test `bfb97afd`)
@@ -56,10 +73,11 @@
 
 ## 3. Current Status
 
+- **KhachLink Profile Transition UX Sprint 1 (Guardrail + Foundation):** ✅ CODE COMPLETE + PUSHED on `main` @ `cbeff2a3` (2026-09-08). 4 UI-only changes, no migration: P1.1 confirm dialog + impact preview (KhachLinkInstances.razor) · P2.2 profile indicator footer (KhachLinkLayout.razor) · P2.3 route guard (ProfileGuard.razor NEW wraps 7 commerce pages) · P4.1 Reseller badge global (moved Home→Layout). 11 files modified + 3 new (ProfileGuard.razor, profile-toast.js, profile-transition.spec.ts 9 tests). Build 0 errors · CI 1489+17+41+276 ALL PASS. Pending RV on `timlathay.com` + `diemthuong2.khachvip.online`. See Section 2.
 - **GTM Drill Machine W2 (Interactive Demo + Registration):** ✅ CODE COMPLETE + PRODUCTION RV PASS (2026-09-08) on `main` @ `bfb97afd`. D3 `TenantRegistration` entity (audit-type, precedent CrawlSource) + PG migration `20260908023803_AddTenantRegistrations` + POST /api/v1/tenant-registrations (AllowAnonymous, rate-limit 5/IP/24h) + Turnstile server-side verify (dev fallback) + Honeypot silent reject + KhachLink `/demo` (standalone storefront mock, session-only) + KhachLink `/claim` (Register.razor, Turnstile + honeypot, ?name= prefill) + E2E `gtm-demo.spec.ts` (6 tests ALL PASS on production). RV: migration ✅ · API 200 ✅ · honeypot silent ✅ · rate limit 429 ✅ · /demo renders ✅ · /claim renders ✅ · 6/6 E2E PASS ✅. See Section 2 + Section 10.
 - **Currency Auto-Format Fix (2026-09-08):** ✅ CODE COMPLETE + PRODUCTION RV PASS on `main` @ `bfb97afd`. "Số Tiền (VNĐ)" field trong `/accounting/revenue` + `/accounting/expenses` auto-format vi-VN thousands separator (55000→55.000). Client-side JS listener `vananAttachCurrencyFormatter` attach via `OnAfterRenderAsync` trong `DynamicFormFields.razor` — fires trước Blazor `@bind`, format DOM instantly (no server round-trip delay). E2E `rv-currency-format.spec.ts` 2/2 PASS on `app2.khachvip.online`. Commits: `16414d9e` (JS interop attempt) → `b2810a38` (@oninput attempt) → `2e279922` (client-side JS listener) → `e9688cd6` (@bind + JS listener final) → `bfb97afd` (E2E test). See Section 2 + Section 10.
 - **GTM Drill Machine W1 (Merchant Audit):** ✅ CODE COMPLETE + PRODUCTION RV PASS (2026-09-07) on `main` @ `a21fcffc`. Gateway `GrowthController` (GET /api/v1/growth/audit?name&mst, rate-limit `growth-audit` 10/IP/h, XFF client-IP, 429 response) + Directory `/kiem-tra-cua-hang` landing (Blazor Server SSR) + E2E spec + arch whitelist. **nginx fix:** timlathay.com → Directory SSR (port 8080) thay vì WASM (port 80). RV: Directory SSR ✅ · Gateway JSON ✅ · active tenant ✅ · pending privacy ✅ · rate limit ✅. See Section 2 + Section 10.
-- **Branch:** `main` @ `bfb97afd` (W2 + currency fix. W1 Merchant Audit + nginx Directory SSR routing fix + Gateway 429 rate limit. R2.2 Reseller Accounting — PR #169 merged. Crawl-to-Onboard 8 phases complete. Issue #103/#157/#161/#156 deployed). **Build full sln:** 0 errors · **CI:** 1504 core + 17 unit + 276 integration + 41 arch ALL PASS · **.NET SDK:** 8.0.422
+- **Branch:** `main` @ `cbeff2a3` (KhachLink Profile Transition Sprint 1. W2 + currency fix. W1 Merchant Audit + nginx Directory SSR routing fix + Gateway 429 rate limit. R2.2 Reseller Accounting — PR #169 merged. Crawl-to-Onboard 8 phases complete. Issue #103/#157/#161/#156 deployed). **Build full sln:** 0 errors · **CI:** 1489 core + 17 unit + 276 integration + 41 arch ALL PASS · **.NET SDK:** 8.0.422
 - **R2.2 Reseller Accounting:** ✅ COMPLETE + DEPLOYED + RV PASS (2026-09-06). PR #169 merged. 3 tenant booksets (Supplier/Reseller/Platform-skip-when-VA) + `Order.OwnerTenantId` + Auditor UI `/admin/reseller-accounting-reconciliation` + 13 R2.2 tests + 28 pre-existing bUnit test fixes (DI mocks + vi-VN number format). CD Multi-VPS SUCCESS. RV Layer 1+3+4 PASS. Details: Section 10 + archive 2026-09-06.
 - **Directory SSR:** ✅ COMPLETE — timlathay.com live (0.04s load, 10 stores, 56MiB). Issue #157 fixed (3 bugs). WebSocket + Leaflet markers fixed. Details: Section 10 + archive 2026-09-06.
 - **KhachLink Commerce WASM:** ✅ ThemeType enum + shortcut icons + SW duplicate activate fixed (commit `6c9182da`). Pending RV on `diemthuong2.khachvip.online`.
@@ -76,6 +94,15 @@
 
 ## 4. Next Actions
 
+**KhachLink Profile Transition UX (✅ Sprint 1 COMPLETE + PUSHED — RV + Sprint 2 NEXT):**
+- Task card: `docs/AI/tasks/khachlink_profile_transition_ux/task_card_sprint1_guardrail_foundation.md` (3 sprints × 4 mảnh; master plan: `docs/AI/tasks/khachlink_profile_transition_ux/master_plan.md`)
+- ✅ Sprint 1 code complete (`cbeff2a3`): P1.1 confirm dialog + P2.2 profile indicator + P2.3 route guard + P4.1 Reseller badge global
+- ✅ Sprint 1 pushed to `main`, CI ALL PASS (1489+17+41+276)
+- Next: **RV on production** — `timlathay.com` (Directory: footer indicator + route guard redirect) + `diemthuong2.khachvip.online` (FullCommerce: cart renders, no indicator)
+- Next: **Sprint 2** (transition messaging) — What's New banner (detect profile change via UpdatedAt) + cart preservation messaging + driver.js onboarding tour
+- Next: **Sprint 3** (audit + SW) — AuditableEntityType.KhachLinkInstance=12 + IAuditTrailService inject + admin audit history view + SW version bump
+- Branch `main` @ `cbeff2a3` — pushed, CD deployed
+
 **GTM Drill Machine MVP (✅ W1 + W2 COMPLETE + RV PASS — W3 NEXT):**
 - Task card: `docs/AI/tasks/gtm_drill_mvp/task_card_w2_interactive_demo.md` (5 tuần × 5 mảnh; strategy: `docs/AI/plans/ecosystem-master-business-model.md` Section 4)
 - ✅ W1 Merchant Audit code complete (`e8cd4e62`) + nginx fix + 429 fix (`a21fcffc`): Gateway `GrowthController` + rate limit + Directory landing + E2E spec + arch whitelist + nginx routing to Directory SSR
@@ -83,7 +110,7 @@
 - ✅ W2 Interactive Demo + Registration code complete (`f66a08a1`) + E2E fix (`c66e94bf`): D3 TenantRegistration entity + PG migration + POST /api/v1/tenant-registrations + Turnstile + honeypot + rate limit + Demo.razor + Register.razor + E2E spec
 - ✅ W2 Production RV PASS (2026-09-08): Migration applied · API 200 + registrationId · honeypot silent reject · rate limit 429 · /demo renders · /claim renders · 6/6 E2E PASS
 - Next: **W3 Revenue Proof** (D1 domain mod — counters on tenant GrowthDashboard) → W4 Referral (D2) → W5 consent + flag `GrowthMachine:Enabled` + deploy + RV
-- Branch `main` @ `bfb97afd` — pushed, CD deployed
+- Branch `main` @ `cbeff2a3` — pushed, CD deployed
 - DEFER theo Gates: AI SDR/auto scoring (G1 — 0 telemetry), search counter, sitemap toàn site (BOM #4 T2), payment gateway (G2)
 
 **Crawl-to-Onboard Tenant Pipeline (✅ COMPLETE — all 8 phases deployed + RV PASS):**
@@ -200,15 +227,17 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main` @ `c66e94bf` (W2 impl `f66a08a1` + E2E fix `c66e94bf`). GTM W2 Interactive Demo + Registration: CODE COMPLETE + PRODUCTION RV PASS — D3 TenantRegistration entity + PG migration `20260908023803_AddTenantRegistrations` applied + POST /api/v1/tenant-registrations 200 + honeypot silent reject + rate limit 429 + KhachLink /demo + /claim + E2E 6/6 PASS on production. GTM W1 Merchant Audit: COMPLETE + RV PASS (2026-09-07). Validation: build full sln 0 errors · pre-commit GUARD v6.0 PASS · CI 1504+17+276+41 ALL PASS · CD Multi-VPS #253 SUCCESS · E2E 6/6 PASS. Trên `main`: R2.2 COMPLETE + DEPLOYED + RV PASS (PR #169) · Crawl-to-Onboard 8/8 phases + RV PASS · issue #103/#157/#161/#156 deployed. Production: 3 tenant test (GCP Data Seeding pending).
-- **Open Questions:** 1 (PlatformAccountingTenantId not yet configured in production DB — code degrades gracefully, SysAdmin 1-time setup). 1 (Turnstile SiteKey/SecretKey not yet configured in production — dev fallback skips verify, production W5 deploy must provide keys). 1 (Rate limit uses RemoteIpAddress = nginx container IP, not forwarded client IP — all users share quota; W5 deploy should add UseForwardedHeaders for per-IP rate limiting).
-- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (30+), Open Questions (3) = 3 → CLEAR (at threshold).
+- **Verified Facts:** Branch=`main` @ `cbeff2a3` (KhachLink Profile Transition Sprint 1 impl). Sprint 1: 4 UI-only changes (P1.1 confirm dialog + P2.2 profile indicator + P2.3 route guard + P4.1 Reseller badge global), 11 files modified + 3 new (ProfileGuard.razor, profile-toast.js, profile-transition.spec.ts 9 tests). Build 0 errors · pre-commit GUARD v6.0 PASS · CI 1489+17+41+276 ALL PASS · CD Multi-VPS SUCCESS. GTM W2 Interactive Demo + Registration: CODE COMPLETE + PRODUCTION RV PASS — D3 TenantRegistration entity + PG migration `20260908023803_AddTenantRegistrations` applied + POST /api/v1/tenant-registrations 200 + honeypot silent reject + rate limit 429 + KhachLink /demo + /claim + E2E 6/6 PASS on production. GTM W1 Merchant Audit: COMPLETE + RV PASS (2026-09-07). Trên `main`: R2.2 COMPLETE + DEPLOYED + RV PASS (PR #169) · Crawl-to-Onboard 8/8 phases + RV PASS · issue #103/#157/#161/#156 deployed. Production: 3 tenant test (GCP Data Seeding pending).
+- **Open Questions:** 1 (PlatformAccountingTenantId not yet configured in production DB — code degrades gracefully, SysAdmin 1-time setup). 1 (Turnstile SiteKey/SecretKey not yet configured in production — dev fallback skips verify, production W5 deploy must provide keys). 1 (Rate limit uses RemoteIpAddress = nginx container IP, not forwarded client IP — all users share quota; W5 deploy should add UseForwardedHeaders for per-IP rate limiting). 1 (Sprint 1 RV pending on production — need verify profile indicator + route guard on timlathay.com + diemthuong2.khachvip.online).
+- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (30+), Open Questions (4) = 4 → CLEAR (at threshold).
 
 ---
 
 ## 10. Maintenance Log
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md`.
+
+* **2026-09-08 — KHACHLINK PROFILE TRANSITION UX SPRINT 1 (GUARDRAIL + FOUNDATION) COMPLETE + PUSHED (commit `cbeff2a3` on `main`).** Reduce customer confusion when SystemAdmin switches KhachLink profile (Directory → Reseller → FullCommerce). 4 UI-only changes, no migration: (1) **P1.1 Confirmation dialog + impact preview** trong `KhachLinkInstances.razor` — khi SystemAdmin đổi profile hoặc nav flags, modal confirm hiện diff list (nav items added/removed) trước khi save; `_editOriginal` snapshot + `_confirmDiff` list + `ConfirmSubmit` flow; CSS `.confirm-diff-alert` + `.confirm-diff-list`. (2) **P2.2 Profile indicator persistent** trong `KhachLinkLayout.razor` footer — `.profile-indicator` div hiện "Chế độ: {label}" khi profile != FullCommerce (default ẩn); `GetProfileLabel()` helper (Directory→"Danh bạ cửa hàng", Reseller→"Đại lý Vạn An", FullCommerce→"Cửa hàng trực tiếp"). (3) **P2.3 Route guard** — `ProfileGuard.razor` NEW (Components/Shared) — CascadingParameter NavFlags + RequiredFlag + FeatureName + redirect to / + toast JS (`vananShowProfileToast` in `profile-toast.js` NEW); wraps 7 commerce-only pages: Cart (ShowCart), OrderHistory (ShowOrders), RedemptionCatalog (ShowRewards), Missions (ShowMissions), LoyaltyCard (ShowLoyaltyHistory), Scan (ShowScan), Campaigns (ShowCampaigns). (4) **P4.1 Reseller badge global** — di chuyển badge block từ `Home.razor` → `KhachLinkLayout.razor` (sau header, trước main) — shows "Mô hình Reseller — Vạn An mua bán, giá đã bao gồm phí nền tảng" on all pages (not just Home); `_commerceModeLoaded` + `_isReseller` fields + `CommunityHttp.GetCommerceModeAsync` fetch in `OnAfterRenderAsync` (moved from Home.razor). Files: 11 modified + 3 new (ProfileGuard.razor, profile-toast.js, profile-transition.spec.ts 9 tests) + 5 docs (master_plan + 4 task cards). Build: 0 errors · CI: 1489+17+41+276 ALL PASS · pre-commit GUARD v6.0 PASS · CD Multi-VPS SUCCESS. Pending: RV on `timlathay.com` (Directory: footer indicator + route guard redirect) + `diemthuong2.khachvip.online` (FullCommerce: cart renders, no indicator). Branch: `main` @ `cbeff2a3`.
 
 * **2026-09-08 — CURRENCY AUTO-FORMAT FIX + PRODUCTION RV PASS (commits `16414d9e` → `b2810a38` → `2e279922` → `e9688cd6` → `bfb97afd` on `main`).** Bug: "Số Tiền (VNĐ)" field trong `/accounting/revenue` + `/accounting/expenses` không auto-format số tiền khi user gõ (55000 không hiện 55.000). Root cause: `DynamicFormFields.razor` `FieldType.Currency` dùng `@bind` + `@bind:after` để format, nhưng Blazor Server không push giá trị đã format ngược về DOM — user vẫn thấy giá trị thô. 3 iterations: (1) JS interop từ C# `FormatCurrencyField` — `@bind` overwrite DOM sau JS interop → FAIL; (2) `@oninput` + `value=` — race condition, Blazor re-render với empty `field.Value` trước khi `@oninput` xử lý → DOM bị clear → FAIL; (3) FINAL: `@bind` + client-side JS listener `vananAttachCurrencyFormatter` attach via `OnAfterRenderAsync` — JS listener fires **trước** Blazor `@bind` (client-side, synchronous), format DOM value → `@bind` đọc giá trị đã format → store `field.Value` → push back DOM (same value, no conflict). Files: `UI.Platform/Components/Composite/DynamicFormFields.razor` (OnAfterRenderAsync + HandleCurrencyInput) + `5_WebApps/ShopERP/Components/App.razor` (vananFormatCurrencyInput + vananAttachCurrencyFormatter JS helpers) + `6_Testing/e2e-tests/rv-currency-format.spec.ts` NEW (2 tests). CI: 1504+17+276+41 ALL PASS. CD Multi-VPS SUCCESS. RV: revenue 55000→55.000 ✅ · revenue 1000000→1.000.000 ✅ · expenses 75000→75.000 ✅ · 2/2 E2E PASS on `app2.khachvip.online` (25.2s) ✅. Branch: `main` @ `bfb97afd`.
 
