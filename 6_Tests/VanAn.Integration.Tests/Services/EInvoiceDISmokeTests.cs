@@ -65,6 +65,10 @@ public class EInvoiceDISmokeTests
         services.AddScoped<IFallbackService, FallbackService>();
         services.AddScoped<IEInvoiceOrchestrator, EInvoiceOrchestrator>();
         services.AddSingleton<ICircuitBreakerService, CircuitBreakerService>();
+        // Sprint 3 EXPANDED: AuditTrailService deps — IFeatureFlagService + AuditLogQueue
+        // (matches production lifetime: AddSingleton in CoreHub/Gateway Program.cs)
+        services.AddSingleton<IFeatureFlagService, FeatureFlagService>();
+        services.AddSingleton<AuditLogQueue>();
         services.AddHostedService<EInvoiceWorker>();
 
         var provider = services.BuildServiceProvider();
