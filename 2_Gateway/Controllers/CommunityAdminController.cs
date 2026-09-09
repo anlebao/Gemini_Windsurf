@@ -110,5 +110,11 @@ namespace VanAn.Gateway.Controllers
     public class ActivateRoleRequest
     {
         public string Role { get; set; } = string.Empty;
+        /// <summary>
+        /// Owner override: when true, skip the IdentityLevel + LoyaltyPoints eligibility check.
+        /// Used by TenantCommunityAdminController (owner-scoped) to upgrade freshly-onboarded
+        /// Google-login customers who don't yet meet the standard criteria.
+        /// </summary>
+        public bool BypassEligibility { get; set; }
     }
 }

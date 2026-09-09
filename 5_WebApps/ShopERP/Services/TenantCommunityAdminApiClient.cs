@@ -38,15 +38,15 @@ namespace VanAn.ShopERP.Services
             _httpClient.BaseAddress = new Uri(baseUrl);
         }
 
-        public async Task<EligibleCustomersResult> GetEligibleAsync(int page = 1, int pageSize = 20, CancellationToken ct = default)
+        public async Task<EligibleCustomersResult> GetEligibleAsync(int page = 1, int pageSize = 20, bool includeIneligible = false, CancellationToken ct = default)
         {
-            var req = await CreateRequestAsync(HttpMethod.Get, $"api/v1/tenant-community/eligible?page={page}&pageSize={pageSize}");
+            var req = await CreateRequestAsync(HttpMethod.Get, $"api/v1/tenant-community/eligible?page={page}&pageSize={pageSize}&includeIneligible={includeIneligible.ToString().ToLowerInvariant()}");
             return await SendAndReadAsync<EligibleCustomersResult>(_httpClient, req, ct) ?? new();
         }
 
-        public async Task<ActivateRoleResult> ActivateRoleAsync(Guid customerId, string role, CancellationToken ct = default)
+        public async Task<ActivateRoleResult> ActivateRoleAsync(Guid customerId, string role, bool bypassEligibility = false, CancellationToken ct = default)
         {
-            var req = await CreateRequestAsync(HttpMethod.Post, $"api/v1/tenant-community/{customerId}/activate-role", new { Role = role });
+            var req = await CreateRequestAsync(HttpMethod.Post, $"api/v1/tenant-community/{customerId}/activate-role", new { Role = role, BypassEligibility = bypassEligibility });
             return await SendAndReadAsync<ActivateRoleResult>(_httpClient, req, ct)
                 ?? throw new InvalidOperationException("Gateway returned empty response.");
         }

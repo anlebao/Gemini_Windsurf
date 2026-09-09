@@ -28,13 +28,13 @@ namespace VanAn.Gateway.Controllers
         /// tenant_id is read from JWT claim (NOT route param — IDOR safe).
         /// </summary>
         [HttpGet("eligible")]
-        public async Task<IActionResult> GetEligible([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> GetEligible([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool includeIneligible = false)
         {
             var tenantId = GetTenantIdFromClaim();
             if (tenantId == Guid.Empty)
                 return Unauthorized(new { error = "Missing or invalid tenant_id claim." });
 
-            var result = await _communityAdminService.GetEligibleCustomersForTenantAsync(tenantId, page, pageSize);
+            var result = await _communityAdminService.GetEligibleCustomersForTenantAsync(tenantId, page, pageSize, includeIneligible);
             return Ok(result);
         }
 
@@ -56,11 +56,11 @@ namespace VanAn.Gateway.Controllers
             try
             {
                 var ownerId = GetOwnerUserId();
-                var role = await _communityAdminService.ActivateRoleForTenantAsync(tenantId, customerId, roleType, ownerId);
+                var role = await _communityAdminService.ActivateRoleForTenantAsync(tenantId, customerId, roleType, ownerId, request.BypassEligibility);
 
                 _logger.LogInformation(
-                    "ActivateRole (Owner): {Role} activated for customer {CustomerId} of tenant {TenantId} by owner {OwnerId}",
-                    roleType, customerId, tenantId, ownerId);
+                    "ActivateRole (Owner): {Role} activated for customer {CustomerId} of tenant {TenantId} by owner {OwnerId} (bypassEligibility={Bypass})",
+                    roleType, customerId, tenantId, ownerId, request.BypassEligibility);
 
                 return Ok(new
                 {
