@@ -24,12 +24,12 @@ public class CommunityAdminService(
     /// <summary>
     /// R2.1: Get per-tenant eligibility thresholds for a specific role.
     /// Falls back to defaults (1000 points + Verified) if ShopFeatureSettings not configured.
-    /// SystemAdmin cross-tenant path passes tenantId=null → uses defaults (backward compat).
+    /// SystemAdmin cross-tenant path passes tenantId=null ? uses defaults (backward compat).
     /// </summary>
     private async Task<(int MinPoints, IdentityLevel RequiredIdentityLevel)> GetEligibilityThresholdsAsync(
         Guid? tenantId, CommunityRoleType role)
     {
-        // SystemAdmin cross-tenant path: no specific tenant → use hard-coded defaults (backward compat)
+        // SystemAdmin cross-tenant path: no specific tenant ? use hard-coded defaults (backward compat)
         if (tenantId == null || tenantId == Guid.Empty)
         {
             return (1000, IdentityLevel.Verified);
@@ -53,7 +53,7 @@ public class CommunityAdminService(
         }
     }
 
-    public async Task<PagedResult<EligibleCustomerDto>> GetEligibleCustomersAsync(int page, int pageSize)
+    public async Task<PagedResult<EligibleCustomerDto>> GetEligibleCustomersAsync(int page, int pageSize, bool includeIneligible = false)
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 20;
@@ -61,11 +61,16 @@ public class CommunityAdminService(
 
         // Criteria: IdentityLevel >= Verified (2) OR DeviceVerified (4), AND LoyaltyPoints >= 1000
         // Note: DeviceVerified=4 > Verified=2, so >= Verified covers both.
-        var query = _dbContext.Customers
+        // When includeIneligible=true, return ALL active customers cross-tenant (SystemAdmin
+        // can see + upgrade freshly-onboarded Google-login customers who don't yet meet criteria).
+        var baseQuery = _dbContext.Customers
             .IgnoreQueryFilters()
             .AsNoTracking()
-            .Where(c => c.IsActive
-                && c.IdentityLevel >= IdentityLevel.Verified
+            .Where(c => c.IsActive);
+
+        var query = includeIneligible
+            ? baseQuery
+            : baseQuery.Where(c => c.IdentityLevel >= IdentityLevel.Verified
                 && c.LoyaltyPoints >= 1000);
 
         var total = await query.CountAsync();
@@ -109,7 +114,7 @@ public class CommunityAdminService(
         return new PagedResult<EligibleCustomerDto> { Total = total, Items = items };
     }
 
-    public async Task<CommunityRole> ActivateRoleAsync(Guid customerId, CommunityRoleType role, Guid activatedBy)
+    public async Task<CommunityRole> ActivateRoleAsync(Guid customerId, CommunityRoleType role, Guid activatedBy, bool bypassEligibility = false)
     {
         // 1. Verify customer exists + meets criteria
         var customer = await _dbContext.Customers
@@ -122,10 +127,15 @@ public class CommunityAdminService(
         if (!customer.IsActive)
             throw new InvalidOperationException($"Customer {customerId} is not active.");
 
-        if (customer.IdentityLevel < IdentityLevel.Verified || customer.LoyaltyPoints < 1000)
-            throw new InvalidOperationException(
-                $"Customer {customerId} does not meet eligibility criteria " +
-                $"(IdentityLevel={customer.IdentityLevel}, LoyaltyPoints={customer.LoyaltyPoints}).");
+        // When bypassEligibility=true (SystemAdmin override), skip the threshold check so
+        // the admin can upgrade freshly-onboarded Google-login customers who don't yet meet criteria.
+        if (!bypassEligibility)
+        {
+            if (customer.IdentityLevel < IdentityLevel.Verified || customer.LoyaltyPoints < 1000)
+                throw new InvalidOperationException(
+                    $"Customer {customerId} does not meet eligibility criteria " +
+                    $"(IdentityLevel={customer.IdentityLevel}, LoyaltyPoints={customer.LoyaltyPoints}).");
+        }
 
         // 2. Check no active role of same type
         var existingRole = await _dbContext.CommunityRoles
@@ -178,7 +188,7 @@ public class CommunityAdminService(
             .ToListAsync();
     }
 
-    // === R2 (2026-09-04): Tenant-scoped overloads — for Owner (Reseller owner) role management ===
+    // === R2 (2026-09-04): Tenant-scoped overloads - for Owner (Reseller owner) role management ===
     // IDOR guard: every method verifies customer/role belongs to the calling tenant before action.
 
     public async Task<PagedResult<EligibleCustomerDto>> GetEligibleCustomersForTenantAsync(Guid tenantId, int page, int pageSize, bool includeIneligible = false)

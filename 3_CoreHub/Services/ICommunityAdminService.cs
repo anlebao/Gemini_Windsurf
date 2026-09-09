@@ -3,7 +3,7 @@ using VanAn.Shared.Domain;
 namespace VanAn.CoreHub.Services;
 
 /// <summary>
-/// CC-S6 (Sprint 6): Community admin service — eligible customer list, activate/deactivate roles.
+/// CC-S6 (Sprint 6): Community admin service - eligible customer list, activate/deactivate roles.
 /// Used by CommunityAdminController (SystemAdmin JWT auth).
 /// </summary>
 public interface ICommunityAdminService
@@ -12,13 +12,17 @@ public interface ICommunityAdminService
     /// Get customers eligible for community role activation.
     /// Criteria: IdentityLevel >= Verified OR IdentityLevel >= DeviceVerified (v1.2) AND LoyaltyPoints >= 1000.
     /// Left join CommunityRoles to show existing roles. Paginated.
+    /// When includeIneligible=true, returns ALL active customers cross-tenant regardless of
+    /// eligibility criteria (so SystemAdmin can see + upgrade freshly-onboarded Google-login customers).
     /// </summary>
-    Task<PagedResult<EligibleCustomerDto>> GetEligibleCustomersAsync(int page, int pageSize);
+    Task<PagedResult<EligibleCustomerDto>> GetEligibleCustomersAsync(int page, int pageSize, bool includeIneligible = false);
 
     /// <summary>
     /// Activate a community role for a customer. Verifies eligibility + no duplicate active role.
+    /// When bypassEligibility=true, skips the IdentityLevel + LoyaltyPoints threshold check
+    /// (SystemAdmin override for customers who don't yet meet the standard criteria).
     /// </summary>
-    Task<CommunityRole> ActivateRoleAsync(Guid customerId, CommunityRoleType role, Guid activatedBy);
+    Task<CommunityRole> ActivateRoleAsync(Guid customerId, CommunityRoleType role, Guid activatedBy, bool bypassEligibility = false);
 
     /// <summary>
     /// Deactivate an active community role for a customer.
@@ -30,19 +34,19 @@ public interface ICommunityAdminService
     /// </summary>
     Task<List<CommunityRole>> GetCustomerRolesAsync(Guid customerId);
 
-    // === R2 (2026-09-04): Tenant-scoped overloads — for Owner (Reseller owner) role management ===
+    // === R2 (2026-09-04): Tenant-scoped overloads - for Owner (Reseller owner) role management ===
 
     /// <summary>
     /// R2: Get eligible customers LIMITED to a specific tenant (Owner scope).
     /// Same eligibility criteria (IdentityLevel + LoyaltyPoints) but filtered by tenantId.
-    /// Used by TenantCommunityAdminController (Owner endpoints) — IDOR safe.
+    /// Used by TenantCommunityAdminController (Owner endpoints) - IDOR safe.
     /// When includeIneligible=true, returns ALL active customers of the tenant regardless of
     /// eligibility criteria (so the owner can see + upgrade freshly-onboarded Google-login customers).
     /// </summary>
     Task<PagedResult<EligibleCustomerDto>> GetEligibleCustomersForTenantAsync(Guid tenantId, int page, int pageSize, bool includeIneligible = false);
 
     /// <summary>
-    /// R2: Activate a community role for a customer — verify customer belongs to tenantId (IDOR guard).
+    /// R2: Activate a community role for a customer - verify customer belongs to tenantId (IDOR guard).
     /// Throws UnauthorizedAccessException if customer.TenantId != tenantId.
     /// When bypassEligibility=true, skips the IdentityLevel + LoyaltyPoints threshold check
     /// (owner-override for customers who don't yet meet the standard criteria).
@@ -50,13 +54,13 @@ public interface ICommunityAdminService
     Task<CommunityRole> ActivateRoleForTenantAsync(Guid tenantId, Guid customerId, CommunityRoleType role, Guid activatedBy, bool bypassEligibility = false);
 
     /// <summary>
-    /// R2: Deactivate an active community role — verify customer belongs to tenantId (IDOR guard).
+    /// R2: Deactivate an active community role - verify customer belongs to tenantId (IDOR guard).
     /// Throws UnauthorizedAccessException if role.TenantId != tenantId.
     /// </summary>
     Task DeactivateRoleForTenantAsync(Guid tenantId, Guid customerId, CommunityRoleType role);
 
     /// <summary>
-    /// R2: Get all community roles for a customer — verify customer belongs to tenantId (IDOR guard).
+    /// R2: Get all community roles for a customer - verify customer belongs to tenantId (IDOR guard).
     /// Throws UnauthorizedAccessException if customer.TenantId != tenantId.
     /// </summary>
     Task<List<CommunityRole>> GetCustomerRolesForTenantAsync(Guid tenantId, Guid customerId);

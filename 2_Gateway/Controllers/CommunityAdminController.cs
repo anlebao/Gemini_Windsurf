@@ -7,7 +7,7 @@ using VanAn.Shared.Domain;
 namespace VanAn.Gateway.Controllers
 {
     /// <summary>
-    /// CC-S6 (Sprint 6): Community admin endpoints — eligible customer list, activate/deactivate roles.
+    /// CC-S6 (Sprint 6): Community admin endpoints - eligible customer list, activate/deactivate roles.
     /// Auth: SystemAdmin Bearer JWT (platform-level, cross-tenant).
     /// </summary>
     [ApiController]
@@ -25,9 +25,9 @@ namespace VanAn.Gateway.Controllers
         /// </summary>
         [HttpGet("eligible")]
         [Authorize(Policy = "SystemAdmin", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-        public async Task<IActionResult> GetEligible([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> GetEligible([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool includeIneligible = false)
         {
-            var result = await _communityAdminService.GetEligibleCustomersAsync(page, pageSize);
+            var result = await _communityAdminService.GetEligibleCustomersAsync(page, pageSize, includeIneligible);
             return Ok(result);
         }
 
@@ -46,7 +46,7 @@ namespace VanAn.Gateway.Controllers
             {
                 // Get admin user ID from JWT claims
                 var adminId = GetAdminUserId();
-                var role = await _communityAdminService.ActivateRoleAsync(customerId, roleType, adminId);
+                var role = await _communityAdminService.ActivateRoleAsync(customerId, roleType, adminId, request.BypassEligibility);
 
                 _logger.LogInformation("ActivateRole: {Role} activated for customer {CustomerId} by admin {AdminId}",
                     roleType, customerId, adminId);
