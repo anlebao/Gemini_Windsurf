@@ -760,7 +760,7 @@ server {
 }
 
 # ============================================================
-# *.timlathay.com — Wildcard subdomain handler for Directory tenants
+# *.timlathay.com — Wildcard subdomain handler (profile-aware routing)
 # Matches any single-level subdomain (e.g. commienphi.timlathay.com,
 # vanan.timlathay.com). Apex timlathay.com has its own block above
 # (exact match takes precedence over wildcard in nginx).
@@ -768,6 +768,15 @@ server {
 # include each subdomain). Same pattern as *.khachvip.online wildcard.
 # Cert expand: certbot certonly --expand -d timlathay.com \
 #   -d <subdomain>.timlathay.com (HTTP-01 webroot, DNS must resolve to VPS)
+#
+# Routing: proxies to KhachLink nginx container (port 80), NOT Directory SSR
+# (port 8080) directly. KhachLink nginx uses map $is_directory to route
+# Directory-profile domains → SSR container (8080) and FullCommerce/Reseller
+# domains → WASM static files. This allows mixed-profile subdomains under
+# *.timlathay.com (e.g. commienphi=Reseller serves WASM, future Directory
+# subdomains serve SSR). To add a Directory subdomain, add it to the
+# KhachLink nginx map (5_WebApps/KhachLink/nginx.conf) via
+# scripts/add-directory-domain.sh — do NOT change this block.
 # ============================================================
 server {
     listen 80;
@@ -777,9 +786,9 @@ server {
         root /var/www/certbot;
     }
 
-    # Proxy to KhachLink over HTTP (cert not yet expanded = HTTPS would fail)
+    # Proxy to KhachLink nginx (port 80) — profile-aware routing via map $is_directory
     location / {
-        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:8080;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -809,7 +818,7 @@ server {
     location = /504.html { root /usr/share/nginx/html; internal; }
 
     location /_framework/ {
-        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:8080;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -821,7 +830,7 @@ server {
     }
 
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|map)$ {
-        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:8080;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -832,7 +841,7 @@ server {
 
     location /_blazor {
         limit_conn perip_conn 10;
-        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:8080;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
         proxy_set_header   Connection "upgrade";
@@ -910,7 +919,7 @@ server {
     location / {
         limit_req zone=dir_web burst=200 nodelay;
         limit_conn perip_conn 10;
-        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:8080;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
         proxy_set_header   Connection "upgrade";

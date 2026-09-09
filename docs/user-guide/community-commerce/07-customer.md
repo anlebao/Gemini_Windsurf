@@ -1,8 +1,8 @@
 # HƯỚNG DẪN CUSTOMER — KHÁCH HÀNG MUA HÀNG
 
-> **Đối tượng:** Khách hàng cuối — mua hàng F&B qua KhachLink PWA, theo dõi giao hàng, tích điểm, đổi thưởng.
-> **Đăng nhập:** KhachLink PWA (`diemthuong.khachvip.online`) — Google login + device fingerprint. KHÔNG bắt buộc SMS OTP.
-> **Nền tảng:** Blazor WebAssembly PWA — cài đặt trên mobile home screen, hoạt động offline-capable.
+> **Đối tượng:** Khách hàng cuối — mua hàng F&B qua KhachLink, theo dõi giao hàng, tích điểm, đổi thưởng.
+> **Đăng nhập:** KhachLink PWA (`diemthuong2.khachvip.online` — FullCommerce, `commienphi.timlathay.com` — Reseller) hoặc KhachLink Directory (`timlathay.com` — Directory profile). Google login + device fingerprint. KHÔNG bắt buộc SMS OTP.
+> **Nền tảng:** FullCommerce/Reseller = Blazor WebAssembly PWA (cài đặt trên mobile home screen, offline-capable, có đầy đủ cart/checkout/tracking/wallet). Directory = Blazor Server SSR (chỉ tìm cửa hàng, KHÔNG có cart/checkout/tracking/wallet).
 
 ---
 
@@ -18,8 +18,10 @@
 8. [Tích điểm + đổi thưởng (Loyalty)](#8-tích-điểm--đổi-thưởng-loyalty)
 9. [Trở thành Salesman/Shipper](#9-trở-thành-salesmanshipper)
 10. [Marketplace vs Reseller — khác biệt cho Customer](#10-marketplace-vs-reseller--khác-biệt-cho-customer)
-11. [Privacy — Device Fingerprint Consent](#11-privacy--device-fingerprint-consent)
-12. [FAQ](#12-faq)
+11. [KhachLink Multi-Profile + Profile Transition UX (PR #170)](#11-khachlink-multi-profile--profile-transition-ux-pr-170)
+12. [GTM Drill Machine — Lead Generation (W1-W2)](#12-gtm-drill-machine--lead-generation-w1-w2)
+13. [Privacy — Device Fingerprint Consent](#13-privacy--device-fingerprint-consent)
+14. [FAQ](#14-faq)
 
 ---
 
@@ -43,7 +45,8 @@ Customer là khách hàng cuối — mua hàng F&B qua KhachLink PWA. Một cust
 
 1. Mở KhachLink → bấm **Đăng nhập**.
 2. Chọn phương thức (PoC scope):
-   - **(A) Google login** → browser redirect `GET /api/auth/google/login` (Gateway YARP forward → ShopERP OAuth handler) → Google consent → callback `GET /api/auth/google/callback` → redirect về KhachLink `/login?token=...&provider=google&customerId=...` → tiếp bước 3
+   - **(A) Google login** → browser redirect `GET /api/auth/google/login?klOrigin={origin}` (Gateway YARP forward → ShopERP OAuth handler) → Google consent → callback `GET /api/auth/google/callback` → redirect về KhachLink `/login?token=...&provider=google&customerId=...` → tiếp bước 3
+     - **Customer Onboarding (PR #171):** `klOrigin` (origin domain hiện tại) được encode trong OAuth state. Server resolve `KhachLinkInstance.OwnerTenantId` theo domain → customer mới gán vào đúng tenant (fallback default cho platform-level). Customer cũ (email đã tồn tại) → reuse global identity, KHÔNG tạo duplicate trên tenant khác.
    - **(B) Facebook login** → browser redirect `GET /api/auth/facebook/login` (Gateway YARP forward → ShopERP stub Sprint 1 → redirect về `/login?error=facebook_not_configured`). Sprint 7+ mới config Facebook OAuth credentials thật
    - **(C) Tiếp tục as Guest** → **KHÔNG có API call**, KHÔNG nhập tên/SĐT ở bước này. Browser navigate thẳng về Home page. Customer browse + checkout as guest (nhập tên/SĐT ở form checkout). KHÔNG token, KHÔNG tích điểm. Order history + loyalty fallback theo `CustomerDeviceId` (localStorage)
 3. First login / new device (sau social login success): browser generate DeviceToken + compute Fingerprint → **Device Fingerprint Consent Dialog** → bấm **Đồng ý** → `POST /api/customer-identity/device/register` (header `X-Customer-Token`, fire-and-forget, failure không block login).
@@ -301,15 +304,50 @@ Nếu toggle ON + bạn chưa verify SĐT:
 
 ---
 
-## 11. PRIVACY — DEVICE FINGERPRINT CONSENT
+## 11. KHACHLINK MULTI-PROFILE + PROFILE TRANSITION UX (PR #170)
 
-### 11.1. Device Fingerprint Consent Dialog
+Trải nghiệm customer khác nhau tùy profile tenant:
+
+| Tính năng | FullCommerce/Reseller (WASM, `diemthuong2.khachvip.online`, `commienphi.timlathay.com`) | Directory (SSR, `timlathay.com`) |
+|---|---|---|
+| Duyệt sản phẩm | CÓ | CÓ (catalog browse) |
+| Cart / Checkout | CÓ | **KHÔNG** (Directory SSR app không có route commerce → 404; `ProfileGuard` chỉ hoạt động trong KhachLink WASM, không áp dụng cho Directory SSR) |
+| Order tracking / Chat shipper | CÓ | KHÔNG |
+| Wallet / Loyalty points | CÓ | KHÔNG |
+| Mục đích | Mua hàng F&B full flow | Directory tìm cửa hàng + lead gen |
+
+**Khi admin đổi profile (Profile Transition UX Sprint 1-3):**
+- **FullCommerce → Directory:** What's New banner thông báo "tính năng commerce sẽ bị ẩn" + cart preservation modal (nếu cart có items) → 7 trang commerce bị `ProfileGuard` redirect về Home.
+- **Directory → FullCommerce:** What's New banner "tính năng commerce đã mở" + onboarding tour 3 bước (cart→rewards→stores, driver.js, 1× per profile).
+- **Profile indicator footer** hiển thị profile hiện tại trên mọi trang KhachLink.
+- Service Worker tự update (`vananTriggerSWUpdate()`) để áp dụng thay đổi.
+
+> **Lưu ý (ProfileGuard scope):** `ProfileGuard.razor` là route guard trong **KhachLink WASM app** — chỉ redirect khi tenant có profile Directory nhưng user truy cập trang commerce trong cùng WASM app. **Directory SSR app** (`timlathay.com`) là project riêng, không có route commerce (`/cart`, `/checkout`, `/tracking`, `/wallet`...) → ASP.NET Core trả 404 trực tiếp (không cần redirect). Do đó ProfileGuard không áp dụng cho Directory SSR — 404 là behavior đúng (Directory cố ý không có commerce routes).
+
+> **Chi tiết Multi-Profile:** xem `docs/user-guide/KhachLink_Multi_Profile_Usage_Guide.md`.
+
+---
+
+## 12. GTM DRILL MACHINE — LEAD GENERATION (W1-W2)
+
+**W1 — Kiểm tra cửa hàng (Merchant Audit):** Mở `/kiem-tra-cua-hang` (Directory SSR) → nhập tên + MST → xem trạng thái active/pending privacy. Rate-limit 10/IP/h.
+
+**W2 — Demo + Đăng ký tenant:**
+- `/demo` — storefront mock (session-only, không persist) — trải nghiệm KhachLink trước khi đăng ký.
+- `/claim` (`Register.razor`) — form đăng ký tenant mới + Turnstile captcha + honeypot. Rate-limit 5/IP/24h.
+- Sau submit → `TenantRegistration` entity tạo trên PG → admin review → approve → tenant activated.
+
+---
+
+## 13. PRIVACY — DEVICE FINGERPRINT CONSENT
+
+### 13.1. Device Fingerprint Consent Dialog
 
 - Hiển thị TRƯỚC khi collect fingerprint (GDPR/PDPA compliance).
 - Giải thích mục đích: bảo vệ tài khoản khỏi gian lận.
 - User có thể **decline** — vẫn dùng được nhưng RiskScore cao hơn.
 
-### 11.2. Dữ liệu thu thập
+### 13.2. Dữ liệu thu thập
 
 | Signal | Mục đích |
 |---|---|
@@ -326,13 +364,13 @@ Nếu toggle ON + bạn chưa verify SĐT:
 - Tất cả self-hosted (KHÔNG gửi cho bên thứ 3).
 - FingerprintJS MIT, vendored trong KhachLink wwwroot/lib/.
 
-### 11.3. Max 3 devices
+### 13.3. Max 3 devices
 
 - Max 3 active devices per account.
 - Device 4+ → admin approval.
 - Quản lý devices trong Profile page (deactivate device cũ).
 
-### 11.4. Anti-fraud — RiskScore
+### 13.4. Anti-fraud — RiskScore
 
 Hệ thống tự compute RiskScore (0-100) cho mỗi transaction. Customer KHÔNG thấy score, nhưng:
 - Score cao → commission/bonus của salesman bị hold/reject (nếu bạn được salesman giới thiệu).
@@ -340,7 +378,7 @@ Hệ thống tự compute RiskScore (0-100) cho mỗi transaction. Customer KHÔ
 
 ---
 
-## 12. FAQ
+## 14. FAQ
 
 **Q: Tôi có cần verify SĐT (SMS OTP) không?**
 A: KHÔNG bắt buộc. Device fingerprint là primary. SMS OTP chỉ nếu muốn upgrade IdentityLevel hoặc trở thành Salesman/Shipper (khi toggle ON).

@@ -48,6 +48,10 @@
     <script src="/js/profile-toast.js"></script>
     <script src="/lib/driver.js/driver.min.js"></script>
     <script src="/js/onboarding-tour.js"></script>
+    <script src="/js/vanan-interop.js"></script>
+    <!-- Turnstile site key (PUBLIC value). Empty = dev mode (widget not rendered, Gateway skips verify).
+         Set this at deploy time when Turnstile:SiteKey is configured on the Gateway. -->
+    <script>window.vananTurnstileSiteKey = '';</script>
     <script>
         // Register service worker on app startup
         document.addEventListener('DOMContentLoaded', async () => {

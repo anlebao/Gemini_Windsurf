@@ -1,9 +1,9 @@
 # HƯỚNG DẪN SỬ DỤNG COMMUNITY COMMERCE — VẠN AN ECOSYSTEM
 
-> **Phiên bản:** PoC v1.5 + Sprint 7 Commerce Mode Toggle — cập nhật 2026-07-30
-> **Áp dụng:** Community Commerce Sprint 0-6 (đã deploy + VPS verified) + Sprint 7 Commerce Mode Toggle (S1-S4 complete, pending merge/VPS RV)
-> **Phạm vi:** Module Shipper/Salesman (Community Commerce) + Commerce Mode Toggle (Marketplace ↔ Reseller) — "Mua giúp — Bán dùm".
-> **Nền tảng:** KhachLink PWA (Blazor WebAssembly, `diemthuong.khachvip.online`) + ShopERP Admin (Blazor Server, `khachvip.online`).
+> **Phiên bản:** PoC v1.5 + Sprint 7 Commerce Mode Toggle + KhachLink Multi-Profile + Customer Onboarding + GTM Drill Machine — cập nhật 2026-09-09
+> **Áp dụng:** Community Commerce Sprint 0-7 (đã deploy + VPS verified) + KhachLink Profile Transition UX Sprint 1-3 (PR #170) + Customer Onboarding via Google Login (PR #171) + Admin/Owner Override (PR #172) + GTM Drill Machine W1-W2.
+> **Phạm vi:** Module Shipper/Salesman (Community Commerce) + Commerce Mode Toggle (Marketplace ↔ Reseller) + KhachLink Multi-Profile (FullCommerce ↔ Directory) + GTM Drill Machine — "Mua giúp — Bán dùm".
+> **Nền tảng:** KhachLink PWA (Blazor WebAssembly, `diemthuong2.khachvip.online` — FullCommerce, `commienphi.timlathay.com` — Reseller) + KhachLink Directory (Blazor SSR, `timlathay.com` — Directory profile) + ShopERP Admin (Blazor Server, `khachvip.online`). Multi-VPS: `vanan-gateway` + `vanan-shop-a` + `vanan-khachlink`.
 
 ---
 
@@ -185,5 +185,75 @@ A: 2 nguồn — commission chốt đơn (2-5%) + app-install bonus. Cả 2 do S
 
 ---
 
+## 8. KHACHLINK MULTI-PROFILE (FullCommerce ↔ Directory) — PR #170
+
+KhachLink chạy 2 profile khác nhau tùy tenant:
+
+| Khía cạnh | FullCommerce (WASM) | Directory (SSR) |
+|---|---|---|
+| **Nền tảng** | Blazor WebAssembly PWA | Blazor Server SSR |
+| **Domain** | `diemthuong2.khachvip.online` (FullCommerce), `commienphi.timlathay.com` (Reseller) | `timlathay.com` |
+| **Cart / Checkout** | CÓ | KHÔNG |
+| **Order tracking / Chat shipper** | CÓ | KHÔNG |
+| **Wallet / Loyalty** | CÓ | KHÔNG |
+| **Mục đích** | Cửa hàng F&B full commerce | Directory tìm cửa hàng + lead generation |
+
+**Profile Transition UX (Sprint 1-3, PR #170):**
+- **ProfileGuard.razor** — route guard 7 trang commerce (cart, checkout, tracking, wallet, v.v.) → redirect về Home nếu tenant là Directory.
+- **Profile indicator footer** — hiển thị profile hiện tại (FullCommerce/Directory) trên KhachLinkLayout.
+- **What's New banner** — thông báo 1 chiều khi admin đổi profile (FullCommerce→Directory: "tính năng commerce sẽ bị ẩn"; Directory→FullCommerce: "tính năng commerce đã mở").
+- **Cart preservation modal** — khi FullCommerce→Directory + cart có items → modal cảnh báo trước khi chuyển.
+- **Onboarding tour** (driver.js, vendored) — 3-step tour (cart→rewards→stores) khi Directory→FullCommerce, 1× per profile.
+- **Audit trail** — `KhachLinkInstanceAudit.razor` (`/admin/khachlink-instances/{id}/audit`) + AuditTrail.razor summary cards. Hybrid persist: Accounting SYNC, Security+KhachLink ASYNC (AuditLogQueue + AuditLogBackgroundWriter).
+
+**Owner/Admin đổi profile:** qua `/admin/khachlink-instances` (SystemAdmin) — set `ProfileType` enum. Customer thấy thay đổi sau SW update (`vananTriggerSWUpdate()`).
+
+---
+
+## 9. CUSTOMER ONBOARDING VIA GOOGLE LOGIN — PR #171
+
+Customer đăng nhập Google lần đầu → tự động được gán đúng tenant theo domain:
+
+1. KhachLink `Login.razor` truyền `klOrigin` (origin hiện tại) vào OAuth state.
+2. `SocialAuthController` encode `redirectTo|klOrigin` trong OAuth state param.
+3. Google callback → server resolve `KhachLinkInstance.OwnerTenantId` theo domain origin.
+4. Customer mới tạo → gán vào tenant tương ứng (fallback default tenant cho platform-level domains không có owner).
+5. Customer cũ (email đã tồn tại) → reuse global identity (KHÔNG tạo duplicate customer trên tenant khác).
+
+**RV (2026-09-09):** L1-L2 PASS. L3-L5 manual pending (cần Google login thật trên `commienphi.timlathay.com`).
+
+---
+
+## 10. ADMIN/OWNER OVERRIDE — PR #172
+
+Kích hoạt role cộng tác viên có 2 path + bypass eligibility:
+
+| Path | URL | Role | Scope |
+|---|---|---|---|
+| Admin Panel | `/admin/community/admin-panel` | SystemAdmin | Cross-tenant |
+| Owner Panel | `/community/owner-panel` | Owner | Tenant-scoped |
+
+**Tính năng (cả 2 panel):**
+- Toggle **"Hiển thị tất cả khách hàng"** (`includeIneligible=true`) — xem cả customer chưa đủ điều kiện.
+- **Bypass eligibility** — body `{"role":"Shipper","bypassEligibility":true}` → kích hoạt bỏ qua check IdentityLevel/LoyaltyPoints.
+- **Confirm dialog** trước khi activate.
+- API: `GET /api/admin/community/eligible?includeIneligible=true` + `POST /api/admin/community/{id}/activate-role` (SystemAdmin) hoặc `GET /api/v1/tenant-community/eligible` + `POST /api/v1/tenant-community/{id}/activate-role` (Owner tenant-scoped).
+
+---
+
+## 11. GTM DRILL MACHINE (W1-W2) — Lead Generation
+
+**W1 — Merchant Audit:** Directory `/kiem-tra-cua-hang` (Blazor SSR) + Gateway `GET /api/v1/growth/audit?name=&mst=` (rate-limit 10/IP/h) — tenant check trạng thái active/pending privacy.
+
+**W2 — Interactive Demo + Registration:**
+- KhachLink `/demo` — standalone storefront mock (session-only, không persist).
+- KhachLink `/claim` (`Register.razor`) — form đăng ký tenant mới + Turnstile + honeypot.
+- `POST /api/v1/tenant-registrations` (AllowAnonymous, rate-limit 5/IP/24h) → tạo `TenantRegistration` entity (PG migration `20260908023803`).
+- E2E `gtm-demo.spec.ts` 6/6 PASS trên production.
+
+**W3 NEXT:** Revenue Proof (counters trên tenant GrowthDashboard) → W4 Referral → W5 consent + flag `GrowthMachine:Enabled`.
+
+---
+
 > **Xem chi tiết từng vai trò:** Click vào file tương ứng trong bảng MỤC LỤC ở đầu trang.
-> **Tài liệu kỹ thuật:** `docs/AI/tasks/community-commerce-requirements-spec-2c5017.md` (spec) + `community-commerce-master-plan-2c5017.md` (plan) + `commerce-mode-toggle-spec-v2-2c5017.md` (Sprint 7).
+> **Tài liệu kỹ thuật:** `docs/AI/tasks/community-commerce-requirements-spec-2c5017.md` (spec) + `community-commerce-master-plan-2c5017.md` (plan) + `commerce-mode-toggle-spec-v2-2c5017.md` (Sprint 7) + `docs/user-guide/KhachLink_Multi_Profile_Usage_Guide.md` (Multi-Profile) + `docs/AI/tasks/gtm_drill_mvp/` (GTM).

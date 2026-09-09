@@ -29,10 +29,12 @@
 | Community Fund | `/admin/community-fund` | Xem balance + spend + history quỹ cộng đồng |
 | Product Cost Prices | `/admin/product-cost-prices` | CRUD cost price per product (Reseller mode) |
 | Product Referral Configs | `/admin/product-referral-configs` | CRUD commission rate + app-install bonus per product |
-| Fraud Flags | `/admin/fraud-flags` | Review queue gian lận (Pending → Confirm/Dismiss/Review) |
-| Fraud Stats | `/admin/fraud-stats` | Thống kê fraud (rate, flags, confirmed, banned) |
-| Community Eligible | Gateway API `GET /api/admin/community/eligible` | List customer đủ điều kiện kích hoạt role |
-| Activate/Deactivate Role | Gateway API `POST /api/admin/community/{id}/activate-role` | Kích hoạt/hủy role Shipper/Salesman |
+| Fraud Flags | `/admin/community/fraud-flags` | Review queue gian lận (Pending → Confirm/Dismiss/Review) |
+| Fraud Stats | `/admin/community/fraud-stats` | Thống kê fraud (rate, flags, confirmed, banned) |
+| Admin Panel (Community) | `/admin/community/admin-panel` | Kích hoạt role cộng tác viên + toggle "Hiển thị tất cả khách hàng" + bypass eligibility (PR #172) |
+| Owner Panel (Community) | `/community/owner-panel` | Owner role: kích hoạt role cộng tác viên trong tenant của mình (tenant-scoped) |
+| Community Eligible | Gateway API `GET /api/admin/community/eligible` | List customer đủ điều kiện kích hoạt role (hỗ trợ `?includeIneligible=true`) |
+| Activate/Deactivate Role | Gateway API `POST /api/admin/community/{id}/activate-role` | Kích hoạt/hủy role Shipper/Salesman (hỗ trợ `BypassEligibility` trong body) |
 | Device Registrations | Gateway Admin API | Xem/deactivate/verify device fingerprint |
 
 > **Lưu ý:** Các trang `/admin/*` khác (customers-global, tenants, missions, redemption, campaigns, users, audit-trail) đã có trong CRM-Loyalty Guide — không lặp lại ở đây.
@@ -83,6 +85,24 @@ Nếu customer chưa verify SĐT (`IsPhoneVerified = false`):
 ### 2.4. Hủy role (deactivate)
 
 `POST /api/admin/community/{customerId}/deactivate-role` — hủy role cộng tác viên. Customer mất tab tương ứng trong NavMenu.
+
+### 2.5. Admin Panel + Owner Panel + Override (PR #172)
+
+Có 2 path kích hoạt role + tính năng bypass eligibility:
+
+| Path | URL | Role | API scope |
+|---|---|---|---|
+| Admin Panel | `/admin/community/admin-panel` | SystemAdmin | Cross-tenant (`/api/admin/community/*`) |
+| Owner Panel | `/community/owner-panel` | Owner | Tenant-scoped (`/api/v1/tenant-community/*`) |
+
+**Tính năng (cả 2 panel, PR #172):**
+- Toggle **"Hiển thị tất cả khách hàng"** — query `?includeIneligible=true` → xem cả customer chưa đủ điều kiện (IdentityLevel/LoyaltyPoints thấp).
+- **Bypass eligibility** — body `{"role":"Shipper","bypassEligibility":true}` → kích hoạt bỏ qua check điều kiện (dùng cho customer đặc biệt, admin override).
+- **Confirm dialog** trước khi activate (tránh click nhầm).
+- API SystemAdmin: `GET /api/admin/community/eligible?includeIneligible=true` + `POST /api/admin/community/{id}/activate-role` (body có `BypassEligibility`).
+- API Owner tenant-scoped: `GET /api/v1/tenant-community/eligible?includeIneligible=true` + `POST /api/v1/tenant-community/{id}/activate-role`.
+
+**RV (2026-09-09):** L1-L2 PASS (endpoints deployed, page loads). L3-L5 manual pending.
 
 ---
 
@@ -180,7 +200,7 @@ Salesman mở "Sản phẩm gần" → mỗi product hiện: name, price, shop n
 | GET | `/api/admin/commerce-mode` | Lấy global mode + tenant overrides |
 | POST | `/api/admin/commerce-mode/global` | Set global mode + rates |
 | POST | `/api/admin/commerce-mode/tenant/{tenantId}` | Set tenant override |
-| GET | `/api/community/commerce-mode` | Customer-facing: lấy mode resolved cho UI |
+| GET | `/api/v1/community/commerce-mode` | Customer-facing: lấy mode resolved cho UI |
 
 ---
 
@@ -202,7 +222,7 @@ Salesman mở "Sản phẩm gần" → mỗi product hiện: name, price, shop n
 
 **Bước 1:** Bấm **Rút tiền** → nhập amount + reason (vd "Tài trợ sự kiện cộng đồng Q7").
 
-**Bước 2:** Confirm → `POST /api/community/community-fund/spend` (controller `CommunityFundController`).
+**Bước 2:** Confirm → `POST /api/admin/community-fund/spend` (controller `CommunityFundController`, Admin scope — yêu cầu SystemAdmin auth).
 
 **Bước 3:** Hệ thống tạo `WalletTransaction` type=`CommunityFundSpend` (11) — trừ balance quỹ.
 
@@ -240,7 +260,7 @@ Salesman mở "Sản phẩm gần" → mỗi product hiện: name, price, shop n
 
 ### 7.1. Truy cập
 
-Đăng nhập SystemAdmin → `/admin/fraud-flags`.
+Đăng nhập SystemAdmin → `/admin/community/fraud-flags`.
 
 ### 7.2. Review queue
 
@@ -263,7 +283,7 @@ Salesman mở "Sản phẩm gần" → mỗi product hiện: name, price, shop n
 
 ### 7.5. Fraud Stats
 
-`/admin/fraud-stats` — thống kê:
+`/admin/community/fraud-stats` — thống kê:
 - Total flags / Pending / Confirmed / Dismissed
 - Fraud rate (confirmed / total transactions)
 - Banned accounts count
@@ -298,11 +318,11 @@ SystemSetting `CollaboratorSmsVerificationEnabled` — set qua Gateway Admin API
 
 ### 8.3. Domain changes khi toggle ON
 
-- `WalletTransactionType.Deposit=7` + `SmsOtpFee=8` (nạp deposit + trừ phí OTP)
+- `WalletTransactionType.Deposit = 12` + `SmsOtpFee = 13` (nạp deposit + trừ phí OTP)
 - `CommunityRole.IsPhoneVerified` + `PhoneVerifiedAt`
 - `SystemSetting.CollaboratorSmsVerificationEnabled` (toggle)
 
-> **Coordination note:** Nếu CC-S6-T5 (SMS OTP toggle) deploy trước Sprint 7, enum values 7-8 = Deposit/SmsOtpFee, Sprint 7 renumber PlatformFee/CommunityFund sang 9-13.
+> **Cập nhật (2026-09-09):** Renumbering dự đoán trong phiên bản trước KHÔNG xảy ra. Enum thực tế (Domain.cs): `PlatformFee=7, CommunityFund=8, DeliveryFee=9, ExternalPayment=10, CommunityFundSpend=11, Deposit=12, SmsOtpFee=13`. Xem README Section 6.1 cho bảng đầy đủ.
 
 ---
 

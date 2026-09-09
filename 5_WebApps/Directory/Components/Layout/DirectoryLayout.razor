@@ -40,7 +40,7 @@ else
                 {
                     <img src="@_instanceStyle.LogoUrl" alt="Logo" class="shop-logo" />
                 }
-                else if (_shopConfig?.LogoUrl != null)
+                else if (_shopConfig?.LogoUrl != null && !IsDefaultPlaceholderLogo(_shopConfig.LogoUrl))
                 {
                     <img src="@_shopConfig.LogoUrl" alt="@_shopConfig.ShopName" class="shop-logo" />
                 }
@@ -211,5 +211,17 @@ else
             ThemeType.Modern  => "modern",
             _                 => "classic"
         };
+    }
+
+    /// <summary>
+    /// Detect the default placeholder logo URL (/images/vanan-default-logo.png) which has no
+    /// corresponding asset file. When the tenant has no custom logo, fall back to the Bootstrap
+    /// icon instead of rendering a broken image (404 console errors).
+    /// </summary>
+    private static bool IsDefaultPlaceholderLogo(Uri? logoUrl)
+    {
+        return logoUrl != null
+            && logoUrl.IsAbsoluteUri == false
+            && logoUrl.OriginalString.Contains("vanan-default-logo", StringComparison.OrdinalIgnoreCase);
     }
 }

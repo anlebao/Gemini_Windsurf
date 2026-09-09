@@ -74,7 +74,7 @@ Nếu Owner muốn giữ Marketplace trong khi global = Reseller (vd F&B chain t
 
 ### 3.1. Products (per-tenant SQLite)
 
-Owner quản lý products tại ShopERP Admin → `/admin/products` (hoặc trang quản lý menu tương ứng).
+Owner quản lý products tại ShopERP Admin → `/products` (trang `ProductManagement.razor`, `@page "/products"`).
 
 **Fields:**
 - Name, description, price (VND), category, image
