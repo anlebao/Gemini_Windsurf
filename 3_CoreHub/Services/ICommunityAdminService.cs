@@ -36,14 +36,18 @@ public interface ICommunityAdminService
     /// R2: Get eligible customers LIMITED to a specific tenant (Owner scope).
     /// Same eligibility criteria (IdentityLevel + LoyaltyPoints) but filtered by tenantId.
     /// Used by TenantCommunityAdminController (Owner endpoints) — IDOR safe.
+    /// When includeIneligible=true, returns ALL active customers of the tenant regardless of
+    /// eligibility criteria (so the owner can see + upgrade freshly-onboarded Google-login customers).
     /// </summary>
-    Task<PagedResult<EligibleCustomerDto>> GetEligibleCustomersForTenantAsync(Guid tenantId, int page, int pageSize);
+    Task<PagedResult<EligibleCustomerDto>> GetEligibleCustomersForTenantAsync(Guid tenantId, int page, int pageSize, bool includeIneligible = false);
 
     /// <summary>
     /// R2: Activate a community role for a customer — verify customer belongs to tenantId (IDOR guard).
     /// Throws UnauthorizedAccessException if customer.TenantId != tenantId.
+    /// When bypassEligibility=true, skips the IdentityLevel + LoyaltyPoints threshold check
+    /// (owner-override for customers who don't yet meet the standard criteria).
     /// </summary>
-    Task<CommunityRole> ActivateRoleForTenantAsync(Guid tenantId, Guid customerId, CommunityRoleType role, Guid activatedBy);
+    Task<CommunityRole> ActivateRoleForTenantAsync(Guid tenantId, Guid customerId, CommunityRoleType role, Guid activatedBy, bool bypassEligibility = false);
 
     /// <summary>
     /// R2: Deactivate an active community role — verify customer belongs to tenantId (IDOR guard).

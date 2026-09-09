@@ -145,9 +145,16 @@
         // customer_device_id is the same key used by Checkout.razor for Order.CustomerDeviceId,
         // and is what Customer.DeviceId is set to in CreateCustomerStubAsync.
         var deviceId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
-        var stateParam = !string.IsNullOrEmpty(deviceId) ? $"?redirectTo={Uri.EscapeDataString(deviceId)}" : "";
 
-        Navigation.NavigateTo($"{gatewayBase}api/auth/google/login{stateParam}", forceLoad: true);
+        // Customer-onboarding: pass the KhachLink instance host (klOrigin) so SocialAuthController
+        // can resolve the owning tenant from KhachLinkInstance.OwnerTenantId and assign the new
+        // customer to that tenant (instead of the hard-coded default tenant).
+        var host = new Uri(Navigation.Uri).Host;
+        var query = $"?klOrigin={Uri.EscapeDataString(host)}";
+        if (!string.IsNullOrEmpty(deviceId))
+            query += $"&redirectTo={Uri.EscapeDataString(deviceId)}";
+
+        Navigation.NavigateTo($"{gatewayBase}api/auth/google/login{query}", forceLoad: true);
     }
 
     /// <summary>CC-S1-T0c (v1.5): Redirect to Facebook OAuth login via Gateway.</summary>

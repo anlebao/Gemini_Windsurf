@@ -30,6 +30,17 @@
             <p class="text-muted small">
                 Bạn đang quản lý cộng tác viên của chính tenant mình. Chỉ khách hàng thuộc tenant của bạn được hiển thị.
             </p>
+            <div class="d-flex align-items-center gap-2 mt-2">
+                <VanAButton Variant="@(_showAll ? "primary" : "secondary")" Size="small" OnClick="ToggleShowAll">
+                    @(_showAll ? "✓ Hiển thị tất cả khách hàng" : "Hiển thị tất cả khách hàng")
+                </VanAButton>
+                @if (_showAll)
+                {
+                    <span class="text-muted small">
+                        Bao gồm khách hàng chưa đủ điều kiện (đăng nhập Google mới). Nâng cấp sẽ cần xác nhận.
+                    </span>
+                }
+            </div>
         </div>
     </VanACard>
 
@@ -46,7 +57,14 @@
     {
         <VanACard>
             <div class="empty-state">
-                <p>Chưa có khách hàng nào đủ điều kiện (IdentityLevel ≥ Verified VÀ LoyaltyPoints ≥ 1000).</p>
+                @if (_showAll)
+                {
+                    <p>Chưa có khách hàng nào trong tenant của bạn.</p>
+                }
+                else
+                {
+                    <p>Chưa có khách hàng nào đủ điều kiện (IdentityLevel ≥ Verified VÀ LoyaltyPoints ≥ 1000). Bật "Hiển thị tất cả khách hàng" để xem + nâng cấp khách hàng đăng nhập Google mới.</p>
+                }
             </div>
         </VanACard>
     }
@@ -123,6 +141,23 @@
             </div>
         </VanACard>
     }
+
+    @if (_pendingActivation != null)
+    {
+        <VanACard>
+            <div class="p-3">
+                <h5 class="mb-2">Xác nhận nâng cấp vượt điều kiện</h5>
+                <p class="text-muted small mb-3">
+                    Khách hàng <strong>@_pendingName</strong> chưa đủ điều kiện tiêu chuẩn (IdentityLevel/điểm tích lũy).
+                    Bạn có chắc muốn nâng cấp thành <strong>@_pendingRole</strong>?
+                </p>
+                <div class="d-flex gap-2">
+                    <VanAButton Variant="primary" Size="small" OnClick="ConfirmPendingActivation">Xác nhận nâng cấp</VanAButton>
+                    <VanAButton Variant="secondary" Size="small" OnClick="CancelPendingActivation">Hủy</VanAButton>
+                </div>
+            </div>
+        </VanACard>
+    }
 </div>
 
 @code {
@@ -133,6 +168,15 @@
     private bool _isLoading = false;
     private string _alertMessage = string.Empty;
     private string _alertType = "info";
+
+    // Customer-onboarding: when true, list ALL active customers (incl. ineligible Google-login ones)
+    // and activate with bypassEligibility (owner override).
+    private bool _showAll = false;
+
+    // Pending activation awaiting owner confirmation (bypass eligibility).
+    private (Guid CustomerId, string Role, string CustomerName)? _pendingActivation;
+    private string _pendingName => _pendingActivation?.CustomerName ?? "";
+    private string _pendingRole => _pendingActivation?.Role ?? "";
 
     private int _pageSize => PageSize;
 
@@ -146,7 +190,7 @@
         _isLoading = true;
         try
         {
-            var result = await ApiClient.GetEligibleAsync(_currentPage, PageSize);
+            var result = await ApiClient.GetEligibleAsync(_currentPage, PageSize, includeIneligible: _showAll);
             _items = result.Items;
             _total = result.Total;
         }
@@ -162,11 +206,46 @@
         }
     }
 
+    private async Task ToggleShowAll()
+    {
+        _showAll = !_showAll;
+        _currentPage = 1;
+        _pendingActivation = null;
+        await LoadData();
+    }
+
     private async Task ActivateRole(Guid customerId, string role)
+    {
+        // When showing all customers (incl. ineligible), require owner confirmation before
+        // activating with bypassEligibility=true. Eligible-only mode activates directly.
+        if (_showAll)
+        {
+            var item = _items.FirstOrDefault(i => i.CustomerId == customerId);
+            _pendingActivation = (customerId, role, item?.FullName ?? customerId.ToString());
+            return;
+        }
+
+        await ExecuteActivateAsync(customerId, role, bypassEligibility: false);
+    }
+
+    private async Task ConfirmPendingActivation()
+    {
+        if (_pendingActivation == null) return;
+        var (customerId, role, _) = _pendingActivation.Value;
+        _pendingActivation = null;
+        await ExecuteActivateAsync(customerId, role, bypassEligibility: true);
+    }
+
+    private void CancelPendingActivation()
+    {
+        _pendingActivation = null;
+    }
+
+    private async Task ExecuteActivateAsync(Guid customerId, string role, bool bypassEligibility)
     {
         try
         {
-            await ApiClient.ActivateRoleAsync(customerId, role);
+            await ApiClient.ActivateRoleAsync(customerId, role, bypassEligibility: bypassEligibility);
             _alertMessage = $"Đã kích hoạt vai trò {role} thành công.";
             _alertType = "success";
             await LoadData();

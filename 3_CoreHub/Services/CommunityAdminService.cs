@@ -181,7 +181,7 @@ public class CommunityAdminService(
     // === R2 (2026-09-04): Tenant-scoped overloads — for Owner (Reseller owner) role management ===
     // IDOR guard: every method verifies customer/role belongs to the calling tenant before action.
 
-    public async Task<PagedResult<EligibleCustomerDto>> GetEligibleCustomersForTenantAsync(Guid tenantId, int page, int pageSize)
+    public async Task<PagedResult<EligibleCustomerDto>> GetEligibleCustomersForTenantAsync(Guid tenantId, int page, int pageSize, bool includeIneligible = false)
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 20;
@@ -197,12 +197,17 @@ public class CommunityAdminService(
             (int)salesmanThresholds.RequiredIdentityLevel,
             (int)shipperThresholds.RequiredIdentityLevel);
 
-        var query = _dbContext.Customers
+        var baseQuery = _dbContext.Customers
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(c => c.IsActive
-                && c.TenantId == new TenantId(tenantId)
-                && c.IdentityLevel >= requiredLevelForList
+                && c.TenantId == new TenantId(tenantId));
+
+        // When includeIneligible=true, return ALL active customers of the tenant (owner can see
+        // + upgrade freshly-onboarded Google-login customers who don't yet meet criteria).
+        var query = includeIneligible
+            ? baseQuery
+            : baseQuery.Where(c => c.IdentityLevel >= requiredLevelForList
                 && c.LoyaltyPoints >= minPointsForList);
 
         var total = await query.CountAsync();
@@ -245,7 +250,7 @@ public class CommunityAdminService(
         return new PagedResult<EligibleCustomerDto> { Total = total, Items = items };
     }
 
-    public async Task<CommunityRole> ActivateRoleForTenantAsync(Guid tenantId, Guid customerId, CommunityRoleType role, Guid activatedBy)
+    public async Task<CommunityRole> ActivateRoleForTenantAsync(Guid tenantId, Guid customerId, CommunityRoleType role, Guid activatedBy, bool bypassEligibility = false)
     {
         // 1. Verify customer exists + belongs to calling tenant (IDOR guard)
         var customer = await _dbContext.Customers
@@ -262,14 +267,19 @@ public class CommunityAdminService(
         if (!customer.IsActive)
             throw new InvalidOperationException($"Customer {customerId} is not active.");
 
-        // R2.1: Per-tenant eligibility thresholds (replaces hard-coded 1000/Verified)
-        var thresholds = await GetEligibilityThresholdsAsync(tenantId, role);
-        if (customer.IdentityLevel < thresholds.RequiredIdentityLevel
-            || customer.LoyaltyPoints < thresholds.MinPoints)
-            throw new InvalidOperationException(
-                $"Customer {customerId} does not meet eligibility criteria for {role} " +
-                $"(required: IdentityLevel>={thresholds.RequiredIdentityLevel}, LoyaltyPoints>={thresholds.MinPoints}; " +
-                $"actual: IdentityLevel={customer.IdentityLevel}, LoyaltyPoints={customer.LoyaltyPoints}).");
+        // R2.1: Per-tenant eligibility thresholds (replaces hard-coded 1000/Verified).
+        // When bypassEligibility=true (owner override), skip the threshold check so the owner
+        // can upgrade freshly-onboarded Google-login customers who don't yet meet criteria.
+        if (!bypassEligibility)
+        {
+            var thresholds = await GetEligibilityThresholdsAsync(tenantId, role);
+            if (customer.IdentityLevel < thresholds.RequiredIdentityLevel
+                || customer.LoyaltyPoints < thresholds.MinPoints)
+                throw new InvalidOperationException(
+                    $"Customer {customerId} does not meet eligibility criteria for {role} " +
+                    $"(required: IdentityLevel>={thresholds.RequiredIdentityLevel}, LoyaltyPoints>={thresholds.MinPoints}; " +
+                    $"actual: IdentityLevel={customer.IdentityLevel}, LoyaltyPoints={customer.LoyaltyPoints}).");
+        }
 
         // 2. Check no active role of same type
         var existingRole = await _dbContext.CommunityRoles
