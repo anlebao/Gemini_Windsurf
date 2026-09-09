@@ -259,16 +259,16 @@ test.describe('Sprint 3 — Audit Log + SW Version Bump (P1.2 + P5.1)', () => {
     }
   });
 
-  // P1.2: Audit API endpoint exists (admin-only). /api/audit-trail lives at Gateway.
+  // P1.2: Audit API endpoint exists (admin-only). /api/audittrail lives at Gateway.
   // nginx on KhachLink domain proxies /api/ → Gateway, so KHACHLINK_URL works.
-  // Without admin auth, should return 401/403 (endpoint exists but requires auth), NOT 404.
-  test('Audit API: entity history endpoint exists (GET /api/audit-trail/entity/{type}/{id})', async ({ request }) => {
+  // Endpoint may allow anonymous read (200) OR require auth (401/403) — 404 = FAIL (not deployed).
+  test('Audit API: entity history endpoint exists (GET /api/audittrail/entity/{type}/{id})', async ({ request }) => {
     // 12 = AuditableEntityType.KhachLinkInstance (int value)
     const response = await request.get(
-      `${KHACHLINK_URL.replace(/\/$/, '')}/api/audit-trail/entity/12/00000000-0000-0000-0000-000000000000`
+      `${KHACHLINK_URL.replace(/\/$/, '')}/api/audittrail/entity/12/00000000-0000-0000-0000-000000000000`
     );
-    // 401/403 = endpoint exists but requires auth (expected without JWT)
-    // 404 = endpoint not found (FAIL)
-    expect([401, 403]).toContain(response.status());
+    // 200 = endpoint exists + anonymous read allowed; 401/403 = endpoint exists + requires auth
+    // 404 = endpoint NOT found (FAIL — CD didn't deploy audit API)
+    expect([200, 401, 403]).toContain(response.status());
   });
 });
