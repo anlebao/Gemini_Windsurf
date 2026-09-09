@@ -34,10 +34,10 @@
 
 ## 2. Current Objective
 
-**KHACHLINK PROFILE TRANSITION UX — SPRINT 3 CODE COMPLETE (audit + SW + toggle + hybrid async).** �
+**KHACHLINK PROFILE TRANSITION UX — SPRINT 3 DEPLOYED + RV L1-L3 PASS (L4-L5 manual).** �
 - **Task card:** `docs/AI/tasks/khachlink_profile_transition_ux/task_card_sprint3_audit_sw.md`
 - **Coding plan:** `docs/AI/tasks/khachlink_profile_transition_ux/coding_plan_sprint3_audit_sw.md` (self-contained, 19 files)
-- **Branch:** `feature/khachlink-sprint3-audit-sw` @ `d29e621b` (off `main` @ `61e4d4d4`)
+- **Branch:** `feature/khachlink-sprint3-audit-sw` @ `d4ca266c` → MERGED to `main` @ `66046b83` (PR #170)
 - **SPRINT 3 CODE COMPLETE (2026-09-09):** 19 files, no migration, Domain additive only:
   - **Domain (Step 1+2):** AuditableEntityType +12 KhachLinkInstance, +13 SecurityEvent; AuditActionType +12 SecurityAlert, +13 FailedLogin, +14 SuspiciousActivity, +15 RateLimitHit; `AuditLog.ForSecurityEvent` factory (EntityId=Guid.Empty sentinel)
   - **Audit toggle — EXPANDED (Step 1A):** `IFeatureFlagService.IsEnabledAsync` optional `defaultWhenMissing` param (backward compatible); `FeatureFlagService.KnownFeatures` +Default field + 4 audit flags (Audit_Enabled master + Audit_Accounting/Audit_Security/Audit_KhachLink groups, all default ON); `FeatureFlagApiClient` (ShopERP HTTP client) updated to match signature
@@ -47,8 +47,14 @@
   - **SW bump (Step 9):** `onboarding-tour.js` `vananTriggerSWUpdate()` + `KhachLinkLayout.razor` call on profile change detection
   - **Tests (Step 10A/11):** `AuditToggleAndQueueTests` 12 tests (toggle gating + hybrid persist + queue/writer flush) ALL PASS; `profile-transition.spec.ts` Sprint 3 E2E (SW function exists + SW trigger + audit API endpoint); `KhachLinkInstanceServiceTests` + `PlatformUserLoginServiceTests` updated for new constructor params
 - **Files:** 20 modified + 3 new (23 total, 1442 insertions)
-- **Build:** 0 errors · **Unit tests:** 12/12 PASS · **Guard:** PASSED
-- **Next:** push branch → PR → merge → CD deploy → RV Layer 1-5 (timlathay.com + diemthuong2.khachvip.online + app2.khachvip.online)
+- **Build:** 0 errors · **Unit tests:** 12/12 PASS · **Guard:** PASSED · **Pre-push CI:** 1501+17+41+275 ALL PASS
+- **CD:** Multi-VPS deploy SUCCESS (Build 5m42s + Gateway 2m33s + ShopERP 2m3s + KhachLink 1m25s + Smoke 15s)
+- **RV Layer 1 (API):** ✅ PASS — `GET /api/audittrail/recent` + `/api/audittrail/entity/12/{id}` = 200/401 (endpoint deployed); KhachLink instance config API 200 (no regression)
+- **RV Layer 2 (Static):** ✅ PASS — `GET /js/onboarding-tour.js` diemthuong2 = 200 + `vananTriggerSWUpdate=True`; timlathay 404 (expected — Directory SSR); service-worker.js 200 (no regression)
+- **RV Layer 3 (Playwright):** ✅ PASS — 3/3 Sprint 3 chromium tests PASS (4.4m): SW function defined + SW trigger on stale last_seen_profile_at + audit API endpoint exists
+- **RV Layer 4 (UI flow):** 🟡 API-level PASS (401 = endpoint deployed + requires auth); full UI flow (admin dashboard + toggle + accounting sync) = MANUAL RV needed (admin login via browser)
+- **RV Layer 5 (Manual browser):** ⏸ MANUAL RV needed (KhachLink diemthuong2 → change profile → reopen → SW update triggered + nav updated)
+- **Next:** Manual RV L4+L5 (admin browser session)
 
 ---
 
