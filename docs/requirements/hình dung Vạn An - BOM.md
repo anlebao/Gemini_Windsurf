@@ -699,3 +699,4 @@ Chiến lược cạnh tranh với Grab/Shopee/TikTok/Google mà không đối �
 Mô hình tài chính 5 năm để kiểm tra mục tiêu 10.000 SME + 1 triệu cư dân + 100 tỷ tài sản có thực sự khả thi hay không.
 
 Tôi nghĩ đây mới là bước quan trọng nhất tiếp theo, bởi nó sẽ cho chúng ta biết kiến trúc công nghệ hiện tại của Vạn An đang phục vụ đúng business model đến đâu, phần nào nên giữ, phần nào nên cắt, và thứ tự xây cái gì để có dòng tiền sớm nhất.
+link @C:\VibeCoding\Gemini_Windsurf\docs\AI\plans\ecosystem-master-business-model.md

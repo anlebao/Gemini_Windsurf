@@ -107,6 +107,10 @@ namespace VanAn.CoreHub
                     _ = services.AddScoped<IHKDBookService, HKDBookService>();
                     _ = services.AddScoped<IOrderService, OrderService>();
                     _ = services.AddScoped<IAuditTrailService, AuditTrailService>();
+                    // Sprint 3 EXPANDED: audit toggle + async queue + background writer
+                    _ = services.AddSingleton<IFeatureFlagService, FeatureFlagService>();
+                    _ = services.AddSingleton<AuditLogQueue>();
+                    _ = services.AddHostedService<AuditLogBackgroundWriter>();
                     // Sprint C: Period Closing guard (required by AccountingEntryService)
                     _ = services.AddScoped<IReversalService, ReversalService>();
                     _ = services.AddScoped<IPeriodClosingService, PeriodClosingService>();

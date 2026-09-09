@@ -13,9 +13,9 @@ namespace VanAn.CoreHub.Services
     public interface IAuditTrailService
     {
         /// <summary>
-        /// Log entity creation
+        /// Log entity creation. Returns null when audit toggle is OFF (Sprint 3 EXPANDED).
         /// </summary>
-        Task<AuditLog> LogCreateAsync(
+        Task<AuditLog?> LogCreateAsync(
             AuditableEntityType entityType,
             Guid entityId,
             string newValues,
@@ -23,9 +23,9 @@ namespace VanAn.CoreHub.Services
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Log entity update
+        /// Log entity update. Returns null when audit toggle is OFF (Sprint 3 EXPANDED).
         /// </summary>
-        Task<AuditLog> LogUpdateAsync(
+        Task<AuditLog?> LogUpdateAsync(
             AuditableEntityType entityType,
             Guid entityId,
             string oldValues,
@@ -34,9 +34,9 @@ namespace VanAn.CoreHub.Services
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Log entity deletion (soft delete)
+        /// Log entity deletion (soft delete). Returns null when audit toggle is OFF (Sprint 3 EXPANDED).
         /// </summary>
-        Task<AuditLog> LogDeleteAsync(
+        Task<AuditLog?> LogDeleteAsync(
             AuditableEntityType entityType,
             Guid entityId,
             string oldValues,
@@ -44,40 +44,54 @@ namespace VanAn.CoreHub.Services
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Log period closing with reason
+        /// Log period closing with reason. Returns null when audit toggle is OFF (Sprint 3 EXPANDED).
         /// </summary>
-        Task<AuditLog> LogPeriodCloseAsync(
+        Task<AuditLog?> LogPeriodCloseAsync(
             AccountingPeriod period,
             string reason,
             string? correlationId = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Log period reopening with reason
+        /// Log period reopening with reason. Returns null when audit toggle is OFF (Sprint 3 EXPANDED).
         /// </summary>
-        Task<AuditLog> LogPeriodReopenAsync(
+        Task<AuditLog?> LogPeriodReopenAsync(
             AccountingPeriod period,
             string reason,
             string? correlationId = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Log correction entry
+        /// Log correction entry. Returns null when audit toggle is OFF (Sprint 3 EXPANDED).
         /// </summary>
-        Task<AuditLog> LogCorrectionAsync(
+        Task<AuditLog?> LogCorrectionAsync(
             Guid originalEntryId,
             string correctionReason,
             string? correlationId = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Log reversal entry
+        /// Log reversal entry. Returns null when audit toggle is OFF (Sprint 3 EXPANDED).
         /// </summary>
-        Task<AuditLog> LogReversalAsync(
+        Task<AuditLog?> LogReversalAsync(
             Guid originalEntryId,
             Guid reversalEntryId,
             string reversalReason,
             string? correlationId = null,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Sprint 3 P3.3: Log a security event (failed login, rate limit hit, suspicious activity).
+        /// Uses AuditActionType.SecurityAlert / FailedLogin / SuspiciousActivity / RateLimitHit.
+        /// EntityType = SecurityEvent, EntityId = Guid.Empty.
+        /// EXPANDED: persisted ASYNC via AuditLogQueue (fire-and-forget) — không chặn login/429.
+        /// </summary>
+        Task<AuditLog?> LogSecurityEventAsync(
+            AuditActionType actionType,
+            string description,
+            string? correlationId = null,
+            string? ipAddress = null,
+            string? userAgent = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>

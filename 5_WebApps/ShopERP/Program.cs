@@ -254,6 +254,9 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<VanAn.Shared.Domain.Common.ITenantProvider, Services.HttpContextTenantProvider>();
             _ = builder.Services.AddScoped<CoreHub.Domain.Repositories.IAuditLogRepository, CoreHub.Infrastructure.Repositories.AuditLogRepository>();
             _ = builder.Services.AddScoped<CoreHub.Services.IAuditTrailService, CoreHub.Services.AuditTrailService>();
+            // Sprint 3 EXPANDED: async audit queue + background writer
+            _ = builder.Services.AddSingleton<CoreHub.Services.AuditLogQueue>();
+            _ = builder.Services.AddHostedService<CoreHub.Services.AuditLogBackgroundWriter>();
 
             // Sprint 2: Period Closing (PR#1)
             _ = builder.Services.AddScoped<CoreHub.Services.IReversalService, CoreHub.Services.ReversalService>();

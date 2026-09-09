@@ -1,7 +1,9 @@
 using System.IdentityModel.Tokens.Jwt;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Moq;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.Entities;
 using VanAn.CoreHub.Services;
@@ -36,7 +38,10 @@ public class PlatformUserLoginServiceTests : IDisposable
         _scope = VanAnDbContextTestFactory.Create();
         _db = _scope.Context;
         _jwt = CreateJwtService();
-        _sut = new PlatformUserLoginService(_db, _jwt);
+        // Sprint 3 P3.3: AuditTrailService + HttpContextAccessor now required.
+        var mockAudit = new Mock<IAuditTrailService>();
+        var mockHttp = new Mock<IHttpContextAccessor>();
+        _sut = new PlatformUserLoginService(_db, _jwt, mockAudit.Object, mockHttp.Object);
     }
 
     public void Dispose() => _scope.Dispose();

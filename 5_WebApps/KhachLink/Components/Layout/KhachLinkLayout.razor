@@ -331,6 +331,17 @@ else
                     {
                         _profileChangeDirection = ProfileChangeDirectionHelper.Compute(lastSeenProfile, instanceConfig.Profile);
                         _showWhatsNewBanner = _profileChangeDirection != ProfileChangeDirection.None;
+
+                        // Sprint 3 P5.1: Trigger SW update when profile change detected.
+                        // SW checks for new version → next PWA launch gets fresh nav config.
+                        if (_showWhatsNewBanner)
+                        {
+                            try
+                            {
+                                await JSRuntime.InvokeVoidAsync("vananTriggerSWUpdate");
+                            }
+                            catch { /* non-critical — SW update is enhancement */ }
+                        }
                     }
 
                     // Cart preservation: FullCommerce → Directory + cart has items

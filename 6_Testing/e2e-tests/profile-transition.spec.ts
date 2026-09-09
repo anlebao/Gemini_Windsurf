@@ -221,3 +221,54 @@ test.describe('Sprint 2 — Transition Messaging (P2.1 + P3.2 + P3.1)', () => {
     expect(await tourOverlay.count()).toBe(0);
   });
 });
+
+test.describe('Sprint 3 — Audit Log + SW Version Bump (P1.2 + P5.1)', () => {
+  // P5.1: SW update trigger — vananTriggerSWUpdate function exists
+  test('SW update: vananTriggerSWUpdate function is defined', async ({ page }) => {
+    await page.goto(KHACHLINK_URL, { waitUntil: 'networkidle' });
+
+    // Verify the JS function is loaded (onboarding-tour.js includes it)
+    const exists = await page.evaluate(() => typeof (window as any).vananTriggerSWUpdate === 'function');
+    expect(exists).toBe(true);
+  });
+
+  // P5.1: SW update triggers on profile change detection (stale last_seen_profile_at)
+  test('SW update: triggers when profile change detected (stale last_seen_profile_at)', async ({ page }) => {
+    // Simulate stale lastSeenProfileAt → profile change detected → SW update triggered
+    await page.addInitScript(() => {
+      localStorage.setItem('last_seen_profile_at', '2020-01-01T00:00:00');
+      localStorage.setItem('last_seen_profile', 'Directory');
+      localStorage.removeItem('whats_new_dismissed');
+    });
+
+    // Intercept console.log to capture SW update trigger message
+    const swUpdateLogs: string[] = [];
+    page.on('console', msg => {
+      if (msg.text().includes('[VanAn SW]')) swUpdateLogs.push(msg.text());
+    });
+
+    await page.goto(KHACHLINK_URL, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(3000);  // Allow time for profile detection + SW trigger
+
+    // If profile actually changed (UpdatedAt > 2020-01-01), SW update should trigger
+    // Note: only triggers if instance.UpdatedAt > stale timestamp
+    const banner = page.locator('.whats-new-banner');
+    if (await banner.count() > 0) {
+      // Banner shows → profile change detected → SW update should have triggered
+      expect(swUpdateLogs.some(l => l.includes('Update check triggered'))).toBe(true);
+    }
+  });
+
+  // P1.2: Audit API endpoint exists (admin-only). /api/audit-trail lives at Gateway.
+  // nginx on KhachLink domain proxies /api/ → Gateway, so KHACHLINK_URL works.
+  // Without admin auth, should return 401/403 (endpoint exists but requires auth), NOT 404.
+  test('Audit API: entity history endpoint exists (GET /api/audit-trail/entity/{type}/{id})', async ({ request }) => {
+    // 12 = AuditableEntityType.KhachLinkInstance (int value)
+    const response = await request.get(
+      `${KHACHLINK_URL.replace(/\/$/, '')}/api/audit-trail/entity/12/00000000-0000-0000-0000-000000000000`
+    );
+    // 401/403 = endpoint exists but requires auth (expected without JWT)
+    // 404 = endpoint not found (FAIL)
+    expect([401, 403]).toContain(response.status());
+  });
+});

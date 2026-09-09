@@ -17,7 +17,12 @@ public enum AuditActionType
     Export = 8,           // Xuất dữ liệu
     Login = 9,            // Đăng nhập
     Logout = 10,          // Đăng xuất
-    PermissionChange = 11 // Thay đổi quyền
+    PermissionChange = 11, // Thay đổi quyền
+    // Sprint 3: security event actions
+    SecurityAlert = 12,       // P3.3 — generic security alert (manual or system-detected)
+    FailedLogin = 13,         // P3.3 — failed login attempt (bad credentials, inactive user)
+    SuspiciousActivity = 14,  // P3.3 — suspicious pattern detected (repeated failures, anomaly)
+    RateLimitHit = 15         // P3.3 — rate limit triggered (potential brute-force / abuse)
 }
 
 /// <summary>
@@ -35,7 +40,10 @@ public enum AuditableEntityType
     User = 8,
     Tenant = 9,
     SocialCampaign = 10,
-    LoyaltyRewards = 11
+    LoyaltyRewards = 11,
+    // Sprint 3: platform-level + security entities
+    KhachLinkInstance = 12,  // P1.2 — KhachLink profile change audit
+    SecurityEvent = 13      // P3.3 — security incident (failed login, rate limit, suspicious activity)
 }
 
 /// <summary>
@@ -278,6 +286,40 @@ public sealed class AuditLog : BaseEntity
             OldValues = $"{{\"OriginalEntryId\":\"{originalEntryId}\"}}",
             NewValues = $"{{\"ReversalEntryId\":\"{reversalEntryId}\"}}",
             Reason = reversalReason,
+            UserId = userId,
+            UserName = userName,
+            CorrelationId = correlationId,
+            IpAddress = ipAddress,
+            UserAgent = userAgent,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    /// <summary>
+    /// Sprint 3 P3.3: Factory method for security event audit log.
+    /// Used for failed login, rate limit hits, suspicious activity, security alerts.
+    /// EntityType = SecurityEvent, EntityId = Guid.Empty (synthetic — no specific entity).
+    /// Description goes into Reason field (human-readable incident description).
+    /// </summary>
+    public static AuditLog ForSecurityEvent(
+        TenantId tenantId,
+        AuditActionType actionType,
+        string description,
+        string userId,
+        string? userName = null,
+        string? correlationId = null,
+        string? ipAddress = null,
+        string? userAgent = null)
+    {
+        return new AuditLog
+        {
+            TenantId = tenantId,
+            Action = actionType,
+            EntityType = AuditableEntityType.SecurityEvent,
+            EntityId = Guid.Empty,  // Synthetic — security events are not tied to a specific entity
+            OldValues = null,
+            NewValues = null,
+            Reason = description,
             UserId = userId,
             UserName = userName,
             CorrelationId = correlationId,
