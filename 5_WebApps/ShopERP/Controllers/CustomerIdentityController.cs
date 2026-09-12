@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using System.Text.Json;
 using VanAn.CoreHub.Domain.Repositories;
+using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Repositories;
 using VanAn.CoreHub.Services;
 using VanAn.ShopERP.Filters;
@@ -26,6 +28,7 @@ namespace VanAn.ShopERP.Controllers
         ILoyaltyRewardsService loyaltyRewardsService,
         IMissionService missionService,
         ICustomerMergeService customerMergeService,
+        IOutboxRepository outboxRepository,
         VanAn.CoreHub.Services.LoyaltyReadRouter readRouter,
         IConfiguration configuration,
         ILogger<CustomerIdentityController> logger) : ControllerBase
@@ -36,6 +39,7 @@ namespace VanAn.ShopERP.Controllers
         private readonly ILoyaltyRewardsService _loyaltyRewardsService = loyaltyRewardsService;
         private readonly IMissionService _missionService = missionService;
         private readonly ICustomerMergeService _customerMergeService = customerMergeService;
+        private readonly IOutboxRepository _outboxRepository = outboxRepository;
         private readonly IConfiguration _configuration = configuration;
         private readonly ILogger<CustomerIdentityController> _logger = logger;
         // Loyalty Consistency Fix Phase 2 (BUG #7): mode-aware balance for /api/customers/me
@@ -87,6 +91,35 @@ namespace VanAn.ShopERP.Controllers
                     newCustomer.UpdateCustomerDetails(newCustomer.FullName, newCustomer.PhoneNumber, newCustomer.Email, newCustomer.CustomerTier, request.DeviceId, true);
                 customer = await _customerRepository.AddAsync(newCustomer);
                 _logger.LogInformation("New customer created: {CustomerId}", customer.Id);
+
+                // TD-CUSTSYNC-001: Enqueue CustomerCreated outbox event for SQLite→PG sync.
+                // NatsSyncWorker publishes "vanan.shoperp.customer.created" → Gateway DataSyncSubscriber
+                // upserts customer to PostgreSQL so Gateway knows about OTP-verified customers.
+                try
+                {
+                    var payload = new
+                    {
+                        customerId = customer.Id,
+                        tenantId = customer.TenantId.Value,
+                        fullName = customer.FullName,
+                        phoneNumber = customer.PhoneNumber,
+                        email = customer.Email,
+                        deviceId = customer.DeviceId,
+                        identityLevel = (int)customer.IdentityLevel
+                    };
+                    string eventData = JsonSerializer.Serialize(payload);
+                    var outboxEvent = new OutboxEvent(
+                        customer.TenantId,
+                        new ElectronicInvoiceId(Guid.Empty),
+                        "CustomerCreated",
+                        eventData);
+                    await _outboxRepository.EnqueueAsync(outboxEvent);
+                    _logger.LogInformation("Enqueued CustomerCreated event to Outbox for customer {CustomerId}", customer.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to enqueue CustomerCreated event for customer {CustomerId}", customer.Id);
+                }
             }
 
             // OTP verification upgrades identity level to Verified
