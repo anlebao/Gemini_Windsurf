@@ -129,7 +129,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customerToken");
+        _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
         if (string.IsNullOrEmpty(_customerToken))
         {
             _isLoggedIn = false;

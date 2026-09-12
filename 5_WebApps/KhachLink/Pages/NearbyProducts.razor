@@ -116,7 +116,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _customerToken = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "customerToken") ?? "";
+        _customerToken = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "customer_token") ?? "";
         _isLoggedIn = !string.IsNullOrEmpty(_customerToken);
 
         if (!_isLoggedIn)
@@ -137,10 +137,10 @@
         try
         {
             var pos = await JSRuntime.InvokeAsync<GpsPosition>("vananPWA.getCurrentPosition");
-            if (pos == null)
+            if (pos == null || (pos.Lat == 0 && pos.Lng == 0))
             {
                 _gpsError = true;
-                _errorMessage = "Không thể lấy vị trí GPS.";
+                _errorMessage = "Không lấy được vị trí. Vui lòng bật GPS và cấp quyền truy cập vị trí.";
                 _loading = false;
                 return;
             }

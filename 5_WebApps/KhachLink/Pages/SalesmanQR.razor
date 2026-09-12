@@ -74,7 +74,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _customerToken = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "customerToken") ?? "";
+        _customerToken = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "customer_token") ?? "";
         _isLoggedIn = !string.IsNullOrEmpty(_customerToken);
 
         var query = System.Web.HttpUtility.ParseQueryString(new Uri(Navigation.Uri).Query);

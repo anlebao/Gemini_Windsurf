@@ -269,7 +269,20 @@
             <span>QR gửi xe</span>
         </a>
     }
-    @if (_navFlags.ShowCommunity && _isShipper)
+    @* Issue 4: Voice note tab removed — order notes now entered on cart page *@
+    @if (_navFlags.ShowProfile)
+    {
+        <a class="mobile-tab-item @IsActive("/profile", "/login")" href="@(_isLoggedIn ? "/profile" : "/login")">
+            <i class="bi bi-person"></i>
+            <span>Tài khoản</span>
+        </a>
+    }
+</div>
+@* Community roles bottom row — separate row when user has Shipper/Salesman role *@
+@if (_navFlags.ShowCommunity && (_isShipper || _isSalesman))
+{
+<div class="mobile-bottom-nav community-nav d-md-none">
+    @if (_isShipper)
     {
         <a class="mobile-tab-item @IsActive("/community/nearby-orders")" href="/community/nearby-orders">
             <i class="bi bi-truck"></i>
@@ -280,7 +293,7 @@
             <span>Đang giao</span>
         </a>
     }
-    @if (_navFlags.ShowCommunity && _isSalesman)
+    @if (_isSalesman)
     {
         <a class="mobile-tab-item @IsActive("/community/nearby-products")" href="/community/nearby-products">
             <i class="bi bi-shop"></i>
@@ -299,15 +312,8 @@
             <span>Ví</span>
         </a>
     }
-    @* Issue 4: Voice note tab removed — order notes now entered on cart page *@
-    @if (_navFlags.ShowProfile)
-    {
-        <a class="mobile-tab-item @IsActive("/profile", "/login")" href="@(_isLoggedIn ? "/profile" : "/login")">
-            <i class="bi bi-person"></i>
-            <span>Tài khoản</span>
-        </a>
-    }
 </div>
+}
 
 <style>
     /* Desktop sidebar */
@@ -402,6 +408,21 @@
         padding: 6px 0 env(safe-area-inset-bottom, 6px);
         box-shadow: 0 -2px 10px rgba(0,0,0,0.08);
     }
+    /* Community roles row — sits above main nav when both present */
+    .mobile-bottom-nav.community-nav {
+        bottom: 56px;
+        z-index: 999;
+        background: #f8f5f0;
+        border-top: 1px solid #e0d5c0;
+        box-shadow: 0 -1px 6px rgba(0,0,0,0.06);
+    }
+    .mobile-bottom-nav.community-nav .mobile-tab-item {
+        color: #8B4513;
+        font-size: 0.6rem;
+    }
+    .mobile-bottom-nav.community-nav .mobile-tab-item i { font-size: 1.15rem; }
+    .mobile-bottom-nav.community-nav .mobile-tab-item:hover,
+    .mobile-bottom-nav.community-nav .mobile-tab-item.tab-active { color: #6B3410; }
     .mobile-tab-item {
         display: flex;
         flex-direction: column;

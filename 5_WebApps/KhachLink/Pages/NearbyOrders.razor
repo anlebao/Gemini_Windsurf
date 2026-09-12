@@ -177,10 +177,10 @@
         try
         {
             var location = await JSRuntime.InvokeAsync<GeolocationResult>("vananPWA.getCurrentPosition");
-            if (location == null)
+            if (location == null || (location.Latitude == 0 && location.Longitude == 0))
             {
                 _gpsError = true;
-                _errorMessage = "Không lấy được vị trí. Vui lòng bật GPS.";
+                _errorMessage = "Không lấy được vị trí. Vui lòng bật GPS và cấp quyền truy cập vị trí.";
                 _loading = false;
                 StateHasChanged();
                 return;
