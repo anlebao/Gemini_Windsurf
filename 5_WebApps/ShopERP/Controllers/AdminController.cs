@@ -3,11 +3,14 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
 using VanAn.CoreHub.Services;
+using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
 
@@ -34,17 +37,23 @@ public class AdminController : ControllerBase
     private readonly IConfiguration _configuration;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly ILogger<AdminController> _logger;
+    private readonly IVanAnDbContext _sqliteDb;
+    private readonly VanAn.CoreHub.Infrastructure.VanAnDbContext _pgDb;
 
     public AdminController(
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
         IJwtTokenService jwtTokenService,
-        ILogger<AdminController> logger)
+        ILogger<AdminController> logger,
+        IVanAnDbContext sqliteDb,
+        VanAn.CoreHub.Infrastructure.VanAnDbContext pgDb)
     {
         _httpClientFactory = httpClientFactory;
         _configuration = configuration;
         _jwtTokenService = jwtTokenService;
         _logger = logger;
+        _sqliteDb = sqliteDb;
+        _pgDb = pgDb;
     }
 
     /// <summary>
@@ -273,5 +282,95 @@ public class AdminController : ControllerBase
         public Guid Id { get; init; }
         public string Name { get; init; } = "";
         public TenantStatus Status { get; init; }
+    }
+
+    /// <summary>
+    /// Backfill: sync all active customers from ShopERP SQLite to Gateway PostgreSQL.
+    /// One-time admin operation to fix data sync gap (customers created before TD-CUSTSYNC-001).
+    /// Idempotent — skips customers already in PG.
+    /// </summary>
+    [HttpPost("sync/customers-backfill")]
+    public async Task<IActionResult> BackfillCustomersToPg()
+    {
+        _logger.LogInformation("BackfillCustomersToPg: starting cross-tenant customer sync SQLite → PG");
+
+        // Read all active customers from SQLite (cross-tenant)
+        var sqliteCustomers = await _sqliteDb.Customers
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(c => c.IsActive)
+            .ToListAsync();
+
+        _logger.LogInformation("BackfillCustomersToPg: found {Count} active customers in SQLite", sqliteCustomers.Count);
+
+        // Read existing customer IDs from PG (cross-tenant)
+        var pgCustomerIds = (await _pgDb.Customers
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Select(c => c.Id)
+            .ToListAsync()).ToHashSet();
+
+        _logger.LogInformation("BackfillCustomersToPg: found {Count} customers already in PG", pgCustomerIds.Count);
+
+        int synced = 0;
+        int skipped = 0;
+        var errors = new List<string>();
+
+        foreach (var customer in sqliteCustomers)
+        {
+            if (pgCustomerIds.Contains(customer.Id))
+            {
+                skipped++;
+                continue;
+            }
+
+            try
+            {
+                // Create new customer in PG with same ID + tenant
+                var newCustomer = new Customer(customer.TenantId, customer.FullName, customer.PhoneNumber, customer.Email);
+                // Align BaseEntity.Id with SQLite customer ID (single-identity pattern)
+                typeof(Shared.Domain.Common.BaseEntity).GetProperty("Id")!.SetValue(newCustomer, customer.Id);
+                typeof(Customer).GetProperty("CustomerId")!.SetValue(newCustomer, new CustomerId(customer.Id));
+
+                // Copy relevant fields
+                newCustomer.UpdateCustomerDetails(
+                    customer.FullName,
+                    customer.PhoneNumber,
+                    customer.Email,
+                    customer.CustomerTier,
+                    customer.DeviceId,
+                    customer.IsActive);
+
+                // Set LoyaltyPoints + IdentityLevel via reflection (no public setter)
+                typeof(Customer).GetProperty("LoyaltyPoints")!.SetValue(newCustomer, customer.LoyaltyPoints);
+                typeof(Customer).GetProperty("IdentityLevel")!.SetValue(newCustomer, customer.IdentityLevel);
+
+                _pgDb.Customers.Add(newCustomer);
+                synced++;
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Customer {customer.Id} ({customer.FullName}): {ex.Message}");
+                _logger.LogWarning(ex, "BackfillCustomersToPg: failed to sync customer {CustomerId}", customer.Id);
+            }
+        }
+
+        if (synced > 0)
+        {
+            await _pgDb.SaveChangesAsync();
+        }
+
+        _logger.LogInformation("BackfillCustomersToPg: complete — synced={Synced}, skipped={Skipped}, errors={ErrorCount}",
+            synced, skipped, errors.Count);
+
+        return Ok(new
+        {
+            success = true,
+            totalInSqlite = sqliteCustomers.Count,
+            totalInPgBefore = pgCustomerIds.Count,
+            synced,
+            skipped,
+            errorList = errors
+        });
     }
 }

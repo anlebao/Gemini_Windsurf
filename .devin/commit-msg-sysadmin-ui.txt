@@ -1,0 +1,29 @@
+feat(systemadmin): Device Registrations + Tenant Registrations + Confirm External Payment UI
+
+3 missing SystemAdmin capabilities now have full UI (previously API-only):
+
+1. Device Registrations admin page (/admin/device-registrations):
+   - Gateway controller (DeviceRegistrationAdminController) with 6 endpoints
+   - IDeviceRegistrationService + DeviceRegistrationService admin methods
+   - CommunityAdminApiClient device methods + DTOs
+   - Blazor page: list/filter/deactivate/verify/risk-score/fingerprint lookup
+
+2. Tenant Registrations queue (/admin/tenant-registrations):
+   - TenantRegistrationApiClient (5 methods: list/get/contact/onboard/reject)
+   - Blazor page: queue table + onboard modal + reject modal
+   - Previously SystemAdmin had to call API manually with curl/Postman
+
+3. Confirm External Payment (Reseller non-COD) on /admin/commerce-mode:
+   - CommerceModeApiClient.ConfirmExternalPaymentAsync
+   - Form: Order ID + Amount + Payment Ref -> creates 5-split settlement
+   - Previously SystemAdmin had to POST /api/admin/commerce-mode/confirm-external-payment manually
+
+Also:
+- ShopFeatures.razor: SystemAdmin tenant selector now shows CommerceMode + Reseller filter
+- NavMenu + AdminLayout: added Device Registrations, Tenant Registrations, Cau hinh tinh nang
+- Architecture tests: added DeviceRegistrationAdminController + TenantRegistrationController to allowlist
+- DeviceRegistrationControllerTests: updated MockDeviceRegistrationService for new interface methods
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
