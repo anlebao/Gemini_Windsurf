@@ -292,23 +292,25 @@ public class AdminController : ControllerBase
     [HttpPost("sync/customers-backfill")]
     public async Task<IActionResult> BackfillCustomersToPg()
     {
-        _logger.LogInformation("BackfillCustomersToPg: starting cross-tenant customer sync SQLite → PG");
+        try
+        {
+            _logger.LogInformation("BackfillCustomersToPg: starting cross-tenant customer sync SQLite → PG");
 
-        // Read all active customers from SQLite (cross-tenant)
-        var sqliteCustomers = await _sqliteDb.Customers
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .Where(c => c.IsActive)
-            .ToListAsync();
+            // Read all active customers from SQLite (cross-tenant)
+            var sqliteCustomers = await _sqliteDb.Customers
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(c => c.IsActive)
+                .ToListAsync();
 
-        _logger.LogInformation("BackfillCustomersToPg: found {Count} active customers in SQLite", sqliteCustomers.Count);
+            _logger.LogInformation("BackfillCustomersToPg: found {Count} active customers in SQLite", sqliteCustomers.Count);
 
-        // Read existing customer IDs from PG (cross-tenant)
-        var pgCustomerIds = (await _pgDb.Customers
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .Select(c => c.Id)
-            .ToListAsync()).ToHashSet();
+            // Read existing customer IDs from PG (cross-tenant)
+            var pgCustomerIds = (await _pgDb.Customers
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Select(c => c.Id)
+                .ToListAsync()).ToHashSet();
 
         _logger.LogInformation("BackfillCustomersToPg: found {Count} customers already in PG", pgCustomerIds.Count);
 
@@ -372,5 +374,17 @@ public class AdminController : ControllerBase
             skipped,
             errorList = errors
         });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "BackfillCustomersToPg: FAILED — {Message}", ex.Message);
+            return StatusCode(500, new
+            {
+                success = false,
+                error = ex.Message,
+                stack = ex.StackTrace?.Split('\n').Take(5).ToArray(),
+                innerError = ex.InnerException?.Message
+            });
+        }
     }
 }
