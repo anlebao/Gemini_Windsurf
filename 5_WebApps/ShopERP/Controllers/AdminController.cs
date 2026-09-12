@@ -328,18 +328,24 @@ public class AdminController : ControllerBase
 
             try
             {
+                // Coalesce nulls to empty strings (PG NOT NULL constraint)
+                string fullName = customer.FullName ?? "Khách lẻ";
+                string phoneNumber = customer.PhoneNumber ?? "";
+                string? email = customer.Email;
+                string tier = customer.CustomerTier ?? "Bronze";
+
                 // Create new customer in PG with same ID + tenant
-                var newCustomer = new Customer(customer.TenantId, customer.FullName, customer.PhoneNumber, customer.Email);
+                var newCustomer = new Customer(customer.TenantId, fullName, phoneNumber, email);
                 // Align BaseEntity.Id with SQLite customer ID (single-identity pattern)
                 typeof(Shared.Domain.Common.BaseEntity).GetProperty("Id")!.SetValue(newCustomer, customer.Id);
                 typeof(Customer).GetProperty("CustomerId")!.SetValue(newCustomer, new CustomerId(customer.Id));
 
                 // Copy relevant fields
                 newCustomer.UpdateCustomerDetails(
-                    customer.FullName,
-                    customer.PhoneNumber,
-                    customer.Email,
-                    customer.CustomerTier,
+                    fullName,
+                    phoneNumber,
+                    email,
+                    tier,
                     customer.DeviceId,
                     customer.IsActive);
 
