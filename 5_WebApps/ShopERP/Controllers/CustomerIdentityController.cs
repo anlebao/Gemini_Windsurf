@@ -99,13 +99,13 @@ namespace VanAn.ShopERP.Controllers
                 {
                     var payload = new
                     {
-                        customerId = customer.Id,
-                        tenantId = customer.TenantId.Value,
-                        fullName = customer.FullName,
-                        phoneNumber = customer.PhoneNumber,
-                        email = customer.Email,
-                        deviceId = customer.DeviceId,
-                        identityLevel = (int)customer.IdentityLevel
+                        CustomerId = customer.Id,
+                        TenantId = customer.TenantId.Value,
+                        FullName = customer.FullName,
+                        PhoneNumber = customer.PhoneNumber,
+                        Email = customer.Email,
+                        DeviceId = customer.DeviceId,
+                        IdentityLevel = (int)customer.IdentityLevel
                     };
                     string eventData = JsonSerializer.Serialize(payload);
                     var outboxEvent = new OutboxEvent(
