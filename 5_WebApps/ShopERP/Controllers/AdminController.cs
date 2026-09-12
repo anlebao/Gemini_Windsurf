@@ -329,8 +329,11 @@ public class AdminController : ControllerBase
             try
             {
                 // Coalesce nulls to empty strings (PG NOT NULL constraint)
+                // PhoneNumber is PII-encrypted in SQLite with ShopERP's Data Protection key ring.
+                // Gateway has a different key ring → can't decrypt. Set to empty string in PG.
+                // SystemAdmin can view phone via /admin/customers-global (ShopERP SQLite).
                 string fullName = customer.FullName ?? "Khách lẻ";
-                string phoneNumber = customer.PhoneNumber ?? "";
+                string phoneNumber = "";  // Don't copy encrypted value (key ring mismatch)
                 string? email = customer.Email;
                 string tier = customer.CustomerTier ?? "Bronze";
 
