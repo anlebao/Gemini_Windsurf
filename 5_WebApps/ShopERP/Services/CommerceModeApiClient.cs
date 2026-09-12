@@ -50,6 +50,27 @@ namespace VanAn.ShopERP.Services
             var result = await SendAndReadAsync<ResolveModeResult>(HttpClient, req, ct);
             return result?.ResolvedMode ?? "Marketplace";
         }
+
+        /// <summary>
+        /// Sprint 7 Q5: Confirm external payment (non-COD Reseller — VietQR/card).
+        /// Creates 5-split: ExternalPayment + Settlement + DeliveryFee + Commission + PlatformFee + CommunityFund.
+        /// </summary>
+        public async Task<ConfirmExternalPaymentResult> ConfirmExternalPaymentAsync(
+            Guid orderId, decimal amount, string paymentRef, CancellationToken ct = default)
+        {
+            var req = await CreateRequestAsync(HttpMethod.Post, "api/admin/commerce-mode/confirm-external-payment",
+                new { OrderId = orderId, Amount = amount, PaymentRef = paymentRef });
+            var resp = await HttpClient.SendAsync(req, ct);
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                var errorBody = await resp.Content.ReadAsStringAsync(ct);
+                throw new HttpRequestException($"Confirm external payment failed ({resp.StatusCode}): {errorBody}");
+            }
+
+            return await resp.Content.ReadFromJsonAsync<ConfirmExternalPaymentResult>(GatewayJsonOptions, ct)
+                   ?? new ConfirmExternalPaymentResult();
+        }
     }
 
     // DTOs matching Gateway response shapes
@@ -74,5 +95,11 @@ namespace VanAn.ShopERP.Services
     {
         public Guid TenantId { get; set; }
         public string ResolvedMode { get; set; } = "Marketplace";
+    }
+
+    public class ConfirmExternalPaymentResult
+    {
+        public Guid TransactionId { get; set; }
+        public decimal BalanceAfter { get; set; }
     }
 }

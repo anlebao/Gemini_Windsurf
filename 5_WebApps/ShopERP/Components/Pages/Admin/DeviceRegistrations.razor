@@ -1,0 +1,433 @@
+@page "/admin/device-registrations"
+@rendermode InteractiveServer
+@layout VanAn.ShopERP.Components.Pages.Admin.AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject CommunityAdminApiClient ApiClient
+@inject ILogger<DeviceRegistrations> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="device-registrations-page">
+    <header class="page-header">
+        <h1>Quản lý Device Registration</h1>
+        <div class="header-actions">
+            <input type="text" placeholder="Lọc theo CustomerId" value="@_customerIdFilter" @onchange="OnCustomerIdFilterChanged" class="form-control form-control-sm" style="width:220px;display:inline-block;" />
+            <input type="text" placeholder="Lọc theo Fingerprint Hash" value="@_fingerprintFilter" @onchange="OnFingerprintFilterChanged" class="form-control form-control-sm" style="width:280px;display:inline-block;" />
+            <select value="@_activeFilter" @onchange="OnActiveFilterChanged" class="form-select form-select-sm" style="width:auto;display:inline-block;">
+                <option value="">Tất cả trạng thái</option>
+                <option value="true">Active</option>
+                <option value="false">Inactive</option>
+            </select>
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadData">Làm mới</VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải danh sách device registrations...</p>
+            </div>
+        </VanACard>
+    }
+    else if (_items.Count == 0)
+    {
+        <VanACard>
+            <div class="empty-state">
+                <p>Không có device registration nào phù hợp bộ lọc.</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Khách hàng</th>
+                            <th>Platform</th>
+                            <th>IP Address</th>
+                            <th>Fingerprint Hash</th>
+                            <th>Risk Score</th>
+                            <th>Active</th>
+                            <th>Verified</th>
+                            <th>Last Seen</th>
+                            <th>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _items)
+                        {
+                            <tr>
+                                <td>
+                                    <div>@item.CustomerName</div>
+                                    <small class="text-muted">@item.CustomerId</small>
+                                </td>
+                                <td>@item.Platform</td>
+                                <td>@item.IpAddress</td>
+                                <td><code title="@item.FingerprintHash">@Truncate(item.FingerprintHash, 16)</code></td>
+                                <td>
+                                    <span class="risk-score risk-@GetRiskClass(item.RiskScore)">@item.RiskScore</span>
+                                </td>
+                                <td>
+                                    @if (item.IsActive)
+                                    { <span class="status-badge status-active">Active</span> }
+                                    else
+                                    { <span class="status-badge status-inactive">Inactive</span> }
+                                </td>
+                                <td>
+                                    @if (item.IsVerified)
+                                    { <span class="status-badge status-verified">Verified</span> }
+                                    else
+                                    { <span class="status-badge status-unverified">Unverified</span> }
+                                </td>
+                                <td>@item.LastSeenAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>
+                                    <VanAButton Variant="secondary" Size="small" OnClick="@(() => ShowDetail(item.Id))">Chi tiết</VanAButton>
+                                    @if (item.IsActive)
+                                    {
+                                        <VanAButton Variant="primary" Size="small" OnClick="@(() => DeactivateDevice(item.Id))">Deactivate</VanAButton>
+                                    }
+                                    @if (!item.IsVerified)
+                                    {
+                                        <VanAButton Variant="secondary" Size="small" OnClick="@(() => VerifyDevice(item.Id))">Verify</VanAButton>
+                                    }
+                                    <VanAButton Variant="secondary" Size="small" OnClick="@(() => ShowRiskScoreModal(item.Id, item.RiskScore))">Risk</VanAButton>
+                                    <VanAButton Variant="secondary" Size="small" OnClick="@(() => LookupFingerprint(item.FingerprintHash))">Fingerprint</VanAButton>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination-info">
+                <p>Tổng: @_items.Count / @_total devices (Trang @_currentPage)</p>
+                <div class="pagination-buttons">
+                    <VanAButton Variant="secondary" Size="small" Disabled="@(_currentPage <= 1)" OnClick="PrevPage">← Trước</VanAButton>
+                    <VanAButton Variant="secondary" Size="small" Disabled="@(_items.Count < _pageSize)" OnClick="NextPage">Sau →</VanAButton>
+                </div>
+            </div>
+        </VanACard>
+    }
+
+    @* Detail Modal *@
+    @if (_showDetailModal && _detail != null)
+    {
+        <div class="modal-backdrop" @onclick="CloseDetailModal">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <h3>Device Detail — @_detail.Id</h3>
+                    <button class="btn-close" @onclick="CloseDetailModal">×</button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Khách hàng:</strong> @_detail.CustomerName (@_detail.CustomerId)</p>
+                    <p><strong>Device Token:</strong> <code>@_detail.DeviceToken</code></p>
+                    <p><strong>Fingerprint Hash:</strong> <code>@_detail.FingerprintHash</code></p>
+                    <p><strong>Platform:</strong> @_detail.Platform</p>
+                    <p><strong>IP Address:</strong> @_detail.IpAddress</p>
+                    <p><strong>User Agent:</strong> @_detail.UserAgent</p>
+                    <p><strong>Risk Score:</strong> @_detail.RiskScore</p>
+                    <p><strong>Active:</strong> @_detail.IsActive</p>
+                    <p><strong>Verified:</strong> @_detail.IsVerified</p>
+                    <p><strong>First Seen:</strong> @_detail.FirstSeenAt.ToString("yyyy-MM-dd HH:mm:ss")</p>
+                    <p><strong>Last Seen:</strong> @_detail.LastSeenAt.ToString("yyyy-MM-dd HH:mm:ss")</p>
+                </div>
+                <div class="modal-footer">
+                    <VanAButton Variant="secondary" Size="small" OnClick="CloseDetailModal">Đóng</VanAButton>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* Risk Score Modal *@
+    @if (_showRiskScoreModal)
+    {
+        <div class="modal-backdrop" @onclick="CloseRiskScoreModal">
+            <div class="modal-content" @onclick:stopPropagation="true" style="max-width:400px;">
+                <div class="modal-header">
+                    <h3>Cập nhật Risk Score</h3>
+                    <button class="btn-close" @onclick="CloseRiskScoreModal">×</button>
+                </div>
+                <div class="modal-body">
+                    <p>Device: @_riskScoreDeviceId</p>
+                    <label class="form-label">Risk Score (0-100):</label>
+                    <input type="number" min="0" max="100" class="form-control" @bind="_riskScoreInput" />
+                </div>
+                <div class="modal-footer">
+                    <VanAButton Variant="primary" Size="small" OnClick="UpdateRiskScore">Lưu</VanAButton>
+                    <VanAButton Variant="secondary" Size="small" OnClick="CloseRiskScoreModal">Hủy</VanAButton>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* Fingerprint Lookup Modal *@
+    @if (_showFingerprintModal)
+    {
+        <div class="modal-backdrop" @onclick="CloseFingerprintModal">
+            <div class="modal-content" @onclick:stopPropagation="true" style="max-width:800px;">
+                <div class="modal-header">
+                    <h3>Devices với cùng Fingerprint</h3>
+                    <button class="btn-close" @onclick="CloseFingerprintModal">×</button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Fingerprint Hash:</strong> <code>@_fingerprintLookupHash</code></p>
+                    @if (_fingerprintMatches.Count == 0)
+                    {
+                        <p>Không tìm thấy device nào khác dùng fingerprint này.</p>
+                    }
+                    else
+                    {
+                        <table class="table table-sm">
+                            <thead>
+                                <tr><th>Khách hàng</th><th>Platform</th><th>IP</th><th>Active</th><th>Last Seen</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var d in _fingerprintMatches)
+                                {
+                                    <tr>
+                                        <td>@d.CustomerName</td>
+                                        <td>@d.Platform</td>
+                                        <td>@d.IpAddress</td>
+                                        <td>@d.IsActive</td>
+                                        <td>@d.LastSeenAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <VanAButton Variant="secondary" Size="small" OnClick="CloseFingerprintModal">Đóng</VanAButton>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<DeviceRegistrationItem> _items = new();
+    private int _total = 0;
+    private int _currentPage = 1;
+    private const int PageSize = 20;
+    private bool _isLoading = false;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    // Filters
+    private string _customerIdFilter = string.Empty;
+    private string _fingerprintFilter = string.Empty;
+    private string _activeFilter = string.Empty;
+
+    // Detail modal
+    private bool _showDetailModal = false;
+    private DeviceRegistrationItem? _detail = null;
+
+    // Risk score modal
+    private bool _showRiskScoreModal = false;
+    private Guid _riskScoreDeviceId = Guid.Empty;
+    private int _riskScoreInput = 0;
+
+    // Fingerprint lookup modal
+    private bool _showFingerprintModal = false;
+    private string _fingerprintLookupHash = string.Empty;
+    private List<DeviceRegistrationItem> _fingerprintMatches = new();
+
+    private int _pageSize => PageSize;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            Guid? customerId = Guid.TryParse(_customerIdFilter, out var cid) ? cid : null;
+            string? fingerprint = string.IsNullOrWhiteSpace(_fingerprintFilter) ? null : _fingerprintFilter;
+            bool? isActive = string.IsNullOrEmpty(_activeFilter) ? null : bool.Parse(_activeFilter);
+
+            var result = await ApiClient.GetDevicesAsync(_currentPage, PageSize, customerId, fingerprint, isActive);
+            _items = result.Items;
+            _total = result.Total;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "LoadData failed");
+            _alertMessage = $"Lỗi tải dữ liệu: {ex.Message}";
+            _alertType = "error";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task OnCustomerIdFilterChanged(ChangeEventArgs e)
+    {
+        _customerIdFilter = e.Value?.ToString() ?? string.Empty;
+        _currentPage = 1;
+        await LoadData();
+    }
+
+    private async Task OnFingerprintFilterChanged(ChangeEventArgs e)
+    {
+        _fingerprintFilter = e.Value?.ToString() ?? string.Empty;
+        _currentPage = 1;
+        await LoadData();
+    }
+
+    private async Task OnActiveFilterChanged(ChangeEventArgs e)
+    {
+        _activeFilter = e.Value?.ToString() ?? string.Empty;
+        _currentPage = 1;
+        await LoadData();
+    }
+
+    private async Task DeactivateDevice(Guid id)
+    {
+        try
+        {
+            await ApiClient.DeactivateDeviceAsync(id);
+            _alertMessage = "Device đã được deactivate.";
+            _alertType = "success";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "DeactivateDevice failed");
+            _alertMessage = $"Lỗi deactivate: {ex.Message}";
+            _alertType = "error";
+        }
+    }
+
+    private async Task VerifyDevice(Guid id)
+    {
+        try
+        {
+            await ApiClient.VerifyDeviceAsync(id);
+            _alertMessage = "Device đã được verify (whitelisted).";
+            _alertType = "success";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VerifyDevice failed");
+            _alertMessage = $"Lỗi verify: {ex.Message}";
+            _alertType = "error";
+        }
+    }
+
+    private async Task ShowDetail(Guid id)
+    {
+        try
+        {
+            _detail = await ApiClient.GetDeviceAsync(id);
+            _showDetailModal = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "ShowDetail failed");
+            _alertMessage = $"Lỗi tải chi tiết: {ex.Message}";
+            _alertType = "error";
+        }
+    }
+
+    private void CloseDetailModal()
+    {
+        _showDetailModal = false;
+        _detail = null;
+    }
+
+    private void ShowRiskScoreModal(Guid id, int currentScore)
+    {
+        _riskScoreDeviceId = id;
+        _riskScoreInput = currentScore;
+        _showRiskScoreModal = true;
+    }
+
+    private void CloseRiskScoreModal()
+    {
+        _showRiskScoreModal = false;
+    }
+
+    private async Task UpdateRiskScore()
+    {
+        try
+        {
+            await ApiClient.UpdateDeviceRiskScoreAsync(_riskScoreDeviceId, _riskScoreInput);
+            _alertMessage = $"Risk score đã cập nhật thành {_riskScoreInput}.";
+            _alertType = "success";
+            _showRiskScoreModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "UpdateRiskScore failed");
+            _alertMessage = $"Lỗi cập nhật risk score: {ex.Message}";
+            _alertType = "error";
+        }
+    }
+
+    private async Task LookupFingerprint(string fingerprintHash)
+    {
+        try
+        {
+            _fingerprintLookupHash = fingerprintHash;
+            _fingerprintMatches = await ApiClient.GetDevicesByFingerprintAsync(fingerprintHash);
+            _showFingerprintModal = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "LookupFingerprint failed");
+            _alertMessage = $"Lỗi tra cứu fingerprint: {ex.Message}";
+            _alertType = "error";
+        }
+    }
+
+    private void CloseFingerprintModal()
+    {
+        _showFingerprintModal = false;
+    }
+
+    private async Task PrevPage()
+    {
+        if (_currentPage > 1)
+        {
+            _currentPage--;
+            await LoadData();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (_items.Count >= PageSize)
+        {
+            _currentPage++;
+            await LoadData();
+        }
+    }
+
+    private static string GetRiskClass(int score) => score switch
+    {
+        >= 80 => "high",
+        >= 50 => "medium",
+        _ => "low"
+    };
+
+    private static string Truncate(string s, int max) =>
+        s.Length <= max ? s : s[..max] + "...";
+}

@@ -69,6 +69,54 @@ namespace VanAn.ShopERP.Services
             var req = await CreateRequestAsync(HttpMethod.Get, "api/admin/community/fraud-stats");
             return await SendAndReadAsync<ShopErpFraudStats>(HttpClient, req, ct) ?? new();
         }
+
+        // === Device Registration Admin ===
+
+        public async Task<DeviceRegistrationPagedResult> GetDevicesAsync(
+            int page = 1, int pageSize = 20, Guid? customerId = null,
+            string? fingerprintHash = null, bool? isActive = null, CancellationToken ct = default)
+        {
+            var query = $"api/admin/device-registrations?page={page}&pageSize={pageSize}";
+            if (customerId.HasValue) query += $"&customerId={customerId.Value}";
+            if (!string.IsNullOrWhiteSpace(fingerprintHash)) query += $"&fingerprintHash={Uri.EscapeDataString(fingerprintHash)}";
+            if (isActive.HasValue) query += $"&isActive={isActive.Value.ToString().ToLowerInvariant()}";
+
+            var req = await CreateRequestAsync(HttpMethod.Get, query);
+            return await SendAndReadAsync<DeviceRegistrationPagedResult>(HttpClient, req, ct) ?? new();
+        }
+
+        public async Task<DeviceRegistrationItem> GetDeviceAsync(Guid id, CancellationToken ct = default)
+        {
+            var req = await CreateRequestAsync(HttpMethod.Get, $"api/admin/device-registrations/{id}");
+            return await SendAndReadAsync<DeviceRegistrationItem>(HttpClient, req, ct) ?? new();
+        }
+
+        public async Task DeactivateDeviceAsync(Guid id, CancellationToken ct = default)
+        {
+            var req = await CreateRequestAsync(HttpMethod.Post, $"api/admin/device-registrations/{id}/deactivate");
+            var resp = await HttpClient.SendAsync(req, ct);
+            resp.EnsureSuccessStatusCode();
+        }
+
+        public async Task VerifyDeviceAsync(Guid id, CancellationToken ct = default)
+        {
+            var req = await CreateRequestAsync(HttpMethod.Post, $"api/admin/device-registrations/{id}/verify");
+            var resp = await HttpClient.SendAsync(req, ct);
+            resp.EnsureSuccessStatusCode();
+        }
+
+        public async Task UpdateDeviceRiskScoreAsync(Guid id, int score, CancellationToken ct = default)
+        {
+            var req = await CreateRequestAsync(HttpMethod.Post, $"api/admin/device-registrations/{id}/risk-score", new { Score = score });
+            var resp = await HttpClient.SendAsync(req, ct);
+            resp.EnsureSuccessStatusCode();
+        }
+
+        public async Task<List<DeviceRegistrationItem>> GetDevicesByFingerprintAsync(string fingerprintHash, CancellationToken ct = default)
+        {
+            var req = await CreateRequestAsync(HttpMethod.Get, $"api/admin/device-registrations/by-fingerprint/{Uri.EscapeDataString(fingerprintHash)}");
+            return await SendAndReadAsync<List<DeviceRegistrationItem>>(HttpClient, req, ct) ?? new();
+        }
     }
 
     // DTOs matching Gateway response shapes
@@ -151,5 +199,30 @@ namespace VanAn.ShopERP.Services
         public Guid CustomerId { get; set; }
         public string CustomerName { get; set; } = string.Empty;
         public int FlagCount { get; set; }
+    }
+
+    // === Device Registration DTOs ===
+
+    public class DeviceRegistrationPagedResult
+    {
+        public int Total { get; set; }
+        public List<DeviceRegistrationItem> Items { get; set; } = new();
+    }
+
+    public class DeviceRegistrationItem
+    {
+        public Guid Id { get; set; }
+        public Guid CustomerId { get; set; }
+        public string CustomerName { get; set; } = string.Empty;
+        public string DeviceToken { get; set; } = string.Empty;
+        public string FingerprintHash { get; set; } = string.Empty;
+        public DateTime FirstSeenAt { get; set; }
+        public DateTime LastSeenAt { get; set; }
+        public bool IsActive { get; set; }
+        public bool IsVerified { get; set; }
+        public string UserAgent { get; set; } = string.Empty;
+        public string Platform { get; set; } = string.Empty;
+        public string IpAddress { get; set; } = string.Empty;
+        public int RiskScore { get; set; }
     }
 }

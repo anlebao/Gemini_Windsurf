@@ -156,6 +156,11 @@ public class AuthorizationEnforcementTests
             // CC-S6 (Sprint 6): Platform-level SystemAdmin endpoints — method-level [Authorize(Policy="SystemAdmin")] with Bearer scheme
             "CommunityAdminController",
             "FraudFlagController",
+            // CC-S9: DeviceRegistrationAdminController — method-level [Authorize(Policy="SystemAdmin")] with Bearer scheme
+            "DeviceRegistrationAdminController",
+            // GTM Drill Machine W2: TenantRegistrationController — class-level [Authorize(Policy="SystemAdmin")] (admin endpoints),
+            // POST submit endpoint is [AllowAnonymous] + rate-limited (merchant submits registration)
+            "TenantRegistrationController",
             // CC-S6-T5: Collaborator verification — admin endpoints use method-level [Authorize(Policy="SystemAdmin")],
             // collaborator endpoints use X-Customer-Token header auth (like CommunityController)
             "CollaboratorVerificationController",

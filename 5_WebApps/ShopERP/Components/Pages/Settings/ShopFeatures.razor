@@ -13,6 +13,7 @@
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthStateProvider
 @inject TenantApiClient TenantApi
+@inject CommerceModeApiClient CommerceModeApi
 
 <PageTitle>Cấu hình tính năng Shop</PageTitle>
 
@@ -38,6 +39,14 @@
                     <p class="text-muted small mb-3">
                         SystemAdmin không thuộc tenant cụ thể. Chọn tenant bên dưới để cấu hình trang chủ KhachLink cho tenant đó.
                     </p>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="reseller-filter"
+                               @bind="_resellerFilterOnly" />
+                        <label class="form-check-label" for="reseller-filter">
+                            Chỉ hiện tenant Reseller (Vạn An mua-bán lại)
+                        </label>
+                        <small class="text-muted d-block">Global mode: <strong>@_globalCommerceMode</strong></small>
+                    </div>
                     @if (_tenantListLoading)
                     {
                         <VanAAlert Variant="info" Message="Đang tải danh sách tenant..." />
@@ -55,7 +64,10 @@
                                     <option value="">-- Chọn tenant --</option>
                                     @foreach (var t in _tenantList)
                                     {
-                                        <option value="@t.Id">@t.Name</option>
+                                        var mode = _tenantCommerceModes.TryGetValue(t.Id, out var m) ? m : _globalCommerceMode;
+                                        if (_resellerFilterOnly && mode != "Reseller")
+                                            continue;
+                                        <option value="@t.Id">@t.Name — @mode (@t.BusinessType)</option>
                                     }
                                 </select>
                             </div>
@@ -450,6 +462,9 @@
     private List<TenantApiDto> _tenantList = [];
     private bool _tenantListLoading;
     private string _selectedTenantId = string.Empty;
+    private Dictionary<Guid, string> _tenantCommerceModes = new();
+    private string _globalCommerceMode = "Marketplace";
+    private bool _resellerFilterOnly = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -466,6 +481,19 @@
                 try
                 {
                     _tenantList = await TenantApi.ListAllAsync();
+
+                    // Load commerce mode settings to show each tenant's resolved mode
+                    try
+                    {
+                        var commerceSettings = await CommerceModeApi.GetSettingsAsync();
+                        _globalCommerceMode = commerceSettings.GlobalMode;
+                        _tenantCommerceModes = commerceSettings.TenantOverrides
+                            .ToDictionary(o => o.TenantId, o => o.ResolvedMode);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogWarning(ex, "Failed to load commerce mode settings for tenant selector");
+                    }
                 }
                 catch (Exception ex)
                 {

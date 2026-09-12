@@ -104,6 +104,26 @@ namespace VanAn.Core.Tests.Community
                 fingerprintSignals, userAgent, platform, ipAddress);
             return Task.FromResult(new DeviceRegistrationResult(device, null));
         }
+
+        public Task<DeviceRegistrationPagedResult> ListDevicesAsync(
+            int page, int pageSize, Guid? customerId, string? fingerprintHash,
+            bool? isActive, CancellationToken ct = default)
+            => Task.FromResult(new DeviceRegistrationPagedResult());
+
+        public Task<DeviceRegistrationDto?> GetDeviceByIdAsync(Guid id, CancellationToken ct = default)
+            => Task.FromResult<DeviceRegistrationDto?>(null);
+
+        public Task<bool> DeactivateDeviceAsync(Guid id, CancellationToken ct = default)
+            => Task.FromResult(true);
+
+        public Task<bool> VerifyDeviceAsync(Guid id, CancellationToken ct = default)
+            => Task.FromResult(true);
+
+        public Task<bool> UpdateRiskScoreAsync(Guid id, int score, CancellationToken ct = default)
+            => Task.FromResult(true);
+
+        public Task<List<DeviceRegistrationDto>> GetDevicesByFingerprintAsync(string fingerprintHash, CancellationToken ct = default)
+            => Task.FromResult(new List<DeviceRegistrationDto>());
     }
 
     /// <summary>

@@ -118,6 +118,43 @@
                 <p>Chưa có tenant nào.</p>
             }
         </VanACard>
+
+        <!-- Sprint 7 Q5: Confirm External Payment (Reseller non-COD) -->
+        <VanACard Header="Xác nhận thanh toán ngoài hệ thống (Reseller non-COD)" data-testid="external-payment-card">
+            <div class="text-muted small mb-3">
+                Khi khách hàng thanh toán Reseller order bằng VietQR/thẻ (không phải COD), xác nhận tại đây.
+                Tạo 5-split: ExternalPayment + Settlement + DeliveryFee + Commission + PlatformFee + CommunityFund.
+            </div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label" for="ext-pay-order-id">Order ID *</label>
+                    <input type="text" class="form-control" id="ext-pay-order-id" @bind="_extPayOrderId"
+                           placeholder="00000000-0000-0000-0000-000000000000" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="ext-pay-amount">Số tiền (VND) *</label>
+                    <input type="number" class="form-control" id="ext-pay-amount" @bind="_extPayAmount"
+                           min="1" step="1000" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="ext-pay-ref">Payment Ref *</label>
+                    <input type="text" class="form-control" id="ext-pay-ref" @bind="_extPayRef"
+                           placeholder="VietQR txn ID / card ref" />
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <VanAButton Variant="primary" OnClick="ConfirmExternalPayment" IsLoading="@_isConfirmingPay">
+                        Xác nhận
+                    </VanAButton>
+                </div>
+            </div>
+            @if (_extPayResult != null)
+            {
+                <div class="alert alert-success mt-3">
+                    <strong>Thành công!</strong> Transaction ID: <code>@_extPayResult.TransactionId</code>
+                    — Balance after: <strong>@_extPayResult.BalanceAfter.ToString("N0") đ</strong>
+                </div>
+            }
+        </VanACard>
     }
 </div>
 
@@ -161,6 +198,13 @@
     private bool _showOverrideModal;
     private TenantOverrideItem? _overrideTarget;
     private string _overrideMode = "Inherit";
+
+    // Sprint 7 Q5: Confirm External Payment
+    private string _extPayOrderId = string.Empty;
+    private decimal _extPayAmount;
+    private string _extPayRef = string.Empty;
+    private bool _isConfirmingPay;
+    private ConfirmExternalPaymentResult? _extPayResult;
 
     protected override async Task OnInitializedAsync()
     {
@@ -234,6 +278,50 @@
         {
             _alertMessage = $"Lỗi lưu override: {ex.Message}";
             _alertType = "danger";
+        }
+    }
+
+    private async Task ConfirmExternalPayment()
+    {
+        if (!Guid.TryParse(_extPayOrderId, out var orderId) || orderId == Guid.Empty)
+        {
+            _alertMessage = "Order ID không hợp lệ.";
+            _alertType = "danger";
+            return;
+        }
+        if (_extPayAmount <= 0)
+        {
+            _alertMessage = "Số tiền phải lớn hơn 0.";
+            _alertType = "danger";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_extPayRef))
+        {
+            _alertMessage = "Payment Ref không được để trống.";
+            _alertType = "danger";
+            return;
+        }
+
+        _isConfirmingPay = true;
+        _extPayResult = null;
+        try
+        {
+            _extPayResult = await CommerceModeApi.ConfirmExternalPaymentAsync(orderId, _extPayAmount, _extPayRef);
+            _alertMessage = "Đã xác nhận thanh toán ngoài hệ thống thành công.";
+            _alertType = "success";
+            _extPayOrderId = string.Empty;
+            _extPayAmount = 0;
+            _extPayRef = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "ConfirmExternalPayment failed");
+            _alertMessage = $"Lỗi xác nhận thanh toán: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isConfirmingPay = false;
         }
     }
 }

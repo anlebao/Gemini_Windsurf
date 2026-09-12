@@ -549,6 +549,7 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<Services.GlobalRedemptionCatalogApiClient>();
             // Sprint 7 — Commerce Mode + Community Fund + Product Cost Price admin API clients
             _ = builder.Services.AddScoped<Services.CommerceModeApiClient>();
+            _ = builder.Services.AddScoped<Services.TenantRegistrationApiClient>();
             _ = builder.Services.AddScoped<Services.CommunityFundApiClient>();
             _ = builder.Services.AddScoped<Services.ProductCostPriceApiClient>();
             // CC-S6-T5 — Collaborator Verification admin API client

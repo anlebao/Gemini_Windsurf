@@ -1,0 +1,341 @@
+@page "/admin/tenant-registrations"
+@rendermode InteractiveServer
+@layout VanAn.ShopERP.Components.Pages.Admin.AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject TenantRegistrationApiClient RegApi
+@inject IThemeProvider ThemeProvider
+@inject ILogger<TenantRegistrations> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="tenant-registrations-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Hàng đợi đăng ký tenant</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadData">Làm mới</VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    <VanAAlert Type="info" Dismissible="false">
+        <span>Merchant submit registration qua Directory/demo form. SystemAdmin review → Contact → Onboard (tạo tenant) hoặc Reject.</span>
+    </VanAAlert>
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải danh sách đăng ký...</p>
+            </div>
+        </VanACard>
+    }
+    else if (_items.Count == 0)
+    {
+        <VanACard>
+            <div class="empty-state">
+                <p>Không có registration nào đang chờ xử lý.</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="@($"Đăng ký đang chờ ({_items.Count})")">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Shop Name</th>
+                            <th>Người liên hệ</th>
+                            <th>SĐT</th>
+                            <th>Email</th>
+                            <th>Source</th>
+                            <th>Turnstile</th>
+                            <th>Trạng thái</th>
+                            <th>Ngày gửi</th>
+                            <th>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _items)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@item.ShopName</strong>
+                                    @if (!string.IsNullOrEmpty(item.Industry))
+                                    {
+                                        <br /><small class="text-muted">@item.Industry</small>
+                                    }
+                                </td>
+                                <td>@item.ContactName</td>
+                                <td>@item.ContactPhone</td>
+                                <td>@(item.ContactEmail ?? "—")</td>
+                                <td><span class="badge bg-secondary">@item.Source</span></td>
+                                <td>
+                                    @if (item.TurnstileVerified)
+                                    {
+                                        <span class="badge bg-success">Verified</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning">Unverified</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="status-badge status-@GetStatusClass(item.Status)">@item.Status</span>
+                                    @if (item.Status == "Rejected" && !string.IsNullOrEmpty(item.RejectionReason))
+                                    {
+                                        <br /><small class="text-muted" title="@item.RejectionReason">@Truncate(item.RejectionReason, 30)</small>
+                                    }
+                                    @if (item.Status == "Onboarded" && item.OnboardedTenantId.HasValue)
+                                    {
+                                        <br /><small class="text-muted">Tenant: @item.OnboardedTenantId.ToString()?[..8]...</small>
+                                    }
+                                </td>
+                                <td>@item.SubmittedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>
+                                    @if (item.Status == "Submitted")
+                                    {
+                                        <VanAButton Variant="secondary" Size="small" OnClick="@(() => MarkContacted(item.Id))">
+                                            <i class="bi bi-telephone me-1"></i> Contact
+                                        </VanAButton>
+                                    }
+                                    @if (item.Status == "Submitted" || item.Status == "Contacted")
+                                    {
+                                        <VanAButton Variant="primary" Size="small" OnClick="@(() => ShowOnboardModal(item))">
+                                            <i class="bi bi-check-circle me-1"></i> Onboard
+                                        </VanAButton>
+                                        <VanAButton Variant="outline" Size="small" OnClick="@(() => ShowRejectModal(item))">
+                                            <i class="bi bi-x-circle me-1"></i> Reject
+                                        </VanAButton>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </VanACard>
+    }
+
+    @* Onboard Modal *@
+    @if (_showOnboardModal && _selectedItem != null)
+    {
+        <div class="modal-backdrop" @onclick="CloseOnboardModal">
+            <div class="modal-content" @onclick:stopPropagation="true" style="max-width:500px;">
+                <div class="modal-header">
+                    <h3>Onboard — @_selectedItem.ShopName</h3>
+                    <button class="btn-close" @onclick="CloseOnboardModal">×</button>
+                </div>
+                <div class="modal-body">
+                    <p>Xác nhận đã tạo tenant cho registration này. Nhập Tenant ID mới (từ trang Tenants sau khi tạo).</p>
+                    <div class="form-group mt-3">
+                        <label class="form-label">Onboarded Tenant ID *</label>
+                        <input type="text" class="form-control" @bind="_onboardTenantIdInput"
+                               placeholder="00000000-0000-0000-0000-000000000000" />
+                        <small class="text-muted">Lấy từ URL tenant detail: /admin/tenants → chọn tenant → copy ID.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <VanAButton Variant="primary" Size="small" OnClick="ConfirmOnboard" IsLoading="@_isProcessing">Xác nhận Onboard</VanAButton>
+                    <VanAButton Variant="secondary" Size="small" OnClick="CloseOnboardModal">Hủy</VanAButton>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* Reject Modal *@
+    @if (_showRejectModal && _selectedItem != null)
+    {
+        <div class="modal-backdrop" @onclick="CloseRejectModal">
+            <div class="modal-content" @onclick:stopPropagation="true" style="max-width:450px;">
+                <div class="modal-header">
+                    <h3>Từ chối — @_selectedItem.ShopName</h3>
+                    <button class="btn-close" @onclick="CloseRejectModal">×</button>
+                </div>
+                <div class="modal-body">
+                    <p>Nhập lý do từ chối (sẽ được ghi lại):</p>
+                    <div class="form-group mt-2">
+                        <textarea class="form-control" rows="3" @bind="_rejectReason"
+                                  placeholder="vd: Thông tin không hợp lệ, trùng MST, v.v."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <VanAButton Variant="primary" Size="small" OnClick="ConfirmReject" IsLoading="@_isProcessing">Xác nhận từ chối</VanAButton>
+                    <VanAButton Variant="secondary" Size="small" OnClick="CloseRejectModal">Hủy</VanAButton>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<TenantRegistrationItem> _items = new();
+    private bool _isLoading = false;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    // Modals
+    private bool _showOnboardModal = false;
+    private bool _showRejectModal = false;
+    private TenantRegistrationItem? _selectedItem;
+    private string _onboardTenantIdInput = string.Empty;
+    private string _rejectReason = string.Empty;
+    private bool _isProcessing = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            _items = await RegApi.ListAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "LoadData failed");
+            _alertMessage = $"Lỗi tải dữ liệu: {ex.Message}";
+            _alertType = "error";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task MarkContacted(Guid id)
+    {
+        _isProcessing = true;
+        try
+        {
+            await RegApi.MarkContactedAsync(id);
+            _alertMessage = "Đã đánh dấu là đã liên hệ.";
+            _alertType = "success";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "MarkContacted failed");
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "error";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private void ShowOnboardModal(TenantRegistrationItem item)
+    {
+        _selectedItem = item;
+        _onboardTenantIdInput = string.Empty;
+        _showOnboardModal = true;
+    }
+
+    private void CloseOnboardModal()
+    {
+        _showOnboardModal = false;
+        _selectedItem = null;
+    }
+
+    private async Task ConfirmOnboard()
+    {
+        if (_selectedItem == null) return;
+
+        if (!Guid.TryParse(_onboardTenantIdInput, out var tenantId) || tenantId == Guid.Empty)
+        {
+            _alertMessage = "Onboarded Tenant ID không hợp lệ.";
+            _alertType = "error";
+            return;
+        }
+
+        _isProcessing = true;
+        try
+        {
+            await RegApi.MarkOnboardedAsync(_selectedItem.Id, tenantId);
+            _alertMessage = $"Đã onboard registration {_selectedItem.ShopName} → tenant {tenantId.ToString()[..8]}...";
+            _alertType = "success";
+            CloseOnboardModal();
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "ConfirmOnboard failed");
+            _alertMessage = $"Lỗi onboard: {ex.Message}";
+            _alertType = "error";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private void ShowRejectModal(TenantRegistrationItem item)
+    {
+        _selectedItem = item;
+        _rejectReason = string.Empty;
+        _showRejectModal = true;
+    }
+
+    private void CloseRejectModal()
+    {
+        _showRejectModal = false;
+        _selectedItem = null;
+    }
+
+    private async Task ConfirmReject()
+    {
+        if (_selectedItem == null) return;
+
+        if (string.IsNullOrWhiteSpace(_rejectReason))
+        {
+            _alertMessage = "Vui lòng nhập lý do từ chối.";
+            _alertType = "error";
+            return;
+        }
+
+        _isProcessing = true;
+        try
+        {
+            await RegApi.RejectAsync(_selectedItem.Id, _rejectReason);
+            _alertMessage = $"Đã từ chối registration {_selectedItem.ShopName}.";
+            _alertType = "success";
+            CloseRejectModal();
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "ConfirmReject failed");
+            _alertMessage = $"Lỗi reject: {ex.Message}";
+            _alertType = "error";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private static string GetStatusClass(string status) => status switch
+    {
+        "Submitted" => "active",
+        "Contacted" => "verified",
+        "Onboarded" => "active",
+        "Rejected" => "inactive",
+        _ => "inactive"
+    };
+
+    private static string Truncate(string s, int max) =>
+        s.Length <= max ? s : s[..max] + "...";
+}

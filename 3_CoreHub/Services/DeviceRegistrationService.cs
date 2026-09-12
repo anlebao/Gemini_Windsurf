@@ -95,5 +95,182 @@ namespace VanAn.CoreHub.Services
 
             return new DeviceRegistrationResult(device, fraudFlag);
         }
+
+        // === Admin methods (SystemAdmin cross-tenant) ===
+
+        public async Task<DeviceRegistrationPagedResult> ListDevicesAsync(
+            int page = 1,
+            int pageSize = 20,
+            Guid? customerId = null,
+            string? fingerprintHash = null,
+            bool? isActive = null,
+            CancellationToken ct = default)
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 20;
+            if (pageSize > 100) pageSize = 100;
+
+            var query = _dbContext.DeviceRegistrations
+                .IgnoreQueryFilters()
+                .AsNoTracking();
+
+            if (customerId.HasValue)
+                query = query.Where(d => d.CustomerId == customerId.Value);
+            if (!string.IsNullOrWhiteSpace(fingerprintHash))
+                query = query.Where(d => d.FingerprintHash == fingerprintHash);
+            if (isActive.HasValue)
+                query = query.Where(d => d.IsActive == isActive.Value);
+
+            var total = await query.CountAsync(ct);
+
+            var devices = await query
+                .OrderByDescending(d => d.LastSeenAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
+
+            // Load customer names
+            var customerIds = devices.Select(d => d.CustomerId).Distinct().ToList();
+            var customers = await _dbContext.Customers
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(c => customerIds.Contains(c.Id))
+                .Select(c => new { c.Id, c.FullName })
+                .ToDictionaryAsync(c => c.Id, c => c.FullName, ct);
+
+            var items = devices.Select(d => new DeviceRegistrationDto
+            {
+                Id = d.Id,
+                CustomerId = d.CustomerId,
+                CustomerName = customers.TryGetValue(d.CustomerId, out var name) ? name : "Unknown",
+                DeviceToken = d.DeviceToken,
+                FingerprintHash = d.FingerprintHash,
+                FirstSeenAt = d.FirstSeenAt,
+                LastSeenAt = d.LastSeenAt,
+                IsActive = d.IsActive,
+                IsVerified = d.IsVerified,
+                UserAgent = d.UserAgent,
+                Platform = d.Platform,
+                IpAddress = d.IpAddress,
+                RiskScore = d.RiskScore
+            }).ToList();
+
+            return new DeviceRegistrationPagedResult { Total = total, Items = items };
+        }
+
+        public async Task<DeviceRegistrationDto?> GetDeviceByIdAsync(Guid id, CancellationToken ct = default)
+        {
+            var device = await _dbContext.DeviceRegistrations
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(d => d.Id == id, ct);
+
+            if (device == null) return null;
+
+            var customerName = "Unknown";
+            var customer = await _dbContext.Customers
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(c => c.Id == device.CustomerId)
+                .Select(c => c.FullName)
+                .FirstOrDefaultAsync(ct);
+            if (customer != null) customerName = customer;
+
+            return new DeviceRegistrationDto
+            {
+                Id = device.Id,
+                CustomerId = device.CustomerId,
+                CustomerName = customerName,
+                DeviceToken = device.DeviceToken,
+                FingerprintHash = device.FingerprintHash,
+                FirstSeenAt = device.FirstSeenAt,
+                LastSeenAt = device.LastSeenAt,
+                IsActive = device.IsActive,
+                IsVerified = device.IsVerified,
+                UserAgent = device.UserAgent,
+                Platform = device.Platform,
+                IpAddress = device.IpAddress,
+                RiskScore = device.RiskScore
+            };
+        }
+
+        public async Task<bool> DeactivateDeviceAsync(Guid id, CancellationToken ct = default)
+        {
+            var device = await _dbContext.DeviceRegistrations
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(d => d.Id == id, ct);
+
+            if (device == null) return false;
+
+            device.Deactivate();
+            await _dbContext.SaveChangesAsync(ct);
+
+            _logger.LogInformation("Device {DeviceId} deactivated by admin", id);
+            return true;
+        }
+
+        public async Task<bool> VerifyDeviceAsync(Guid id, CancellationToken ct = default)
+        {
+            var device = await _dbContext.DeviceRegistrations
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(d => d.Id == id, ct);
+
+            if (device == null) return false;
+
+            device.Verify();
+            await _dbContext.SaveChangesAsync(ct);
+
+            _logger.LogInformation("Device {DeviceId} verified (whitelisted) by admin", id);
+            return true;
+        }
+
+        public async Task<bool> UpdateRiskScoreAsync(Guid id, int score, CancellationToken ct = default)
+        {
+            var device = await _dbContext.DeviceRegistrations
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(d => d.Id == id, ct);
+
+            if (device == null) return false;
+
+            device.UpdateRiskScore(score);
+            await _dbContext.SaveChangesAsync(ct);
+
+            _logger.LogInformation("Device {DeviceId} risk score updated to {Score} by admin", id, score);
+            return true;
+        }
+
+        public async Task<List<DeviceRegistrationDto>> GetDevicesByFingerprintAsync(string fingerprintHash, CancellationToken ct = default)
+        {
+            var devices = await _dbContext.DeviceRegistrations
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(d => d.FingerprintHash == fingerprintHash)
+                .ToListAsync(ct);
+
+            var customerIds = devices.Select(d => d.CustomerId).Distinct().ToList();
+            var customers = await _dbContext.Customers
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(c => customerIds.Contains(c.Id))
+                .Select(c => new { c.Id, c.FullName })
+                .ToDictionaryAsync(c => c.Id, c => c.FullName, ct);
+
+            return devices.Select(d => new DeviceRegistrationDto
+            {
+                Id = d.Id,
+                CustomerId = d.CustomerId,
+                CustomerName = customers.TryGetValue(d.CustomerId, out var name) ? name : "Unknown",
+                DeviceToken = d.DeviceToken,
+                FingerprintHash = d.FingerprintHash,
+                FirstSeenAt = d.FirstSeenAt,
+                LastSeenAt = d.LastSeenAt,
+                IsActive = d.IsActive,
+                IsVerified = d.IsVerified,
+                UserAgent = d.UserAgent,
+                Platform = d.Platform,
+                IpAddress = d.IpAddress,
+                RiskScore = d.RiskScore
+            }).ToList();
+        }
     }
 }
