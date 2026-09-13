@@ -6,7 +6,10 @@
 @using VanAn.UI.Platform.Components.Composite
 @using Microsoft.AspNetCore.Authorization
 @using VanAn.ShopERP.Services
+@using ProductReferralConfigDto = VanAn.ShopERP.Services.ProductReferralConfigDto
 @inject ProductReferralConfigApiClient ConfigApi
+@inject FeaturedProductApiClient FeaturedApi
+@inject TenantApiClient TenantApi
 @inject IThemeProvider ThemeProvider
 @inject ILogger<ProductReferralConfigs> Logger
 
@@ -29,6 +32,17 @@
     {
         <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
     }
+
+    <div class="tenant-filter-bar mb-3">
+        <label class="form-label me-2 mb-0">Lọc theo tenant:</label>
+        <select class="form-select form-select-sm d-inline-block" style="width:auto;" @bind="_filterTenantId" @bind:after="LoadData">
+            <option value="@Guid.Empty">Tất cả tenant</option>
+            @foreach (var t in _tenants)
+            {
+                <option value="@t.Id">@t.Name</option>
+            }
+        </select>
+    </div>
 
     @if (_isLoading)
     {
@@ -54,7 +68,8 @@
                 <table class="table table-striped">
                     <thead>
                         <tr>
-                            <th>Product ID</th>
+                            <th>Tenant</th>
+                            <th>Sản phẩm</th>
                             <th>Short Code</th>
                             <th>Commission Rate</th>
                             <th>App Install Bonus</th>
@@ -66,7 +81,8 @@
                         @foreach (var item in _items)
                         {
                             <tr>
-                                <td><small>@item.ProductId.ToString()[..8]...</small></td>
+                                <td><small>@(TenantName(item.TenantId))</small></td>
+                                <td><small>@(ProductName(item.ProductId))</small></td>
                                 <td>@(item.ProductShortCode ?? "-")</td>
                                 <td>@(item.CommissionRate.ToString("P1"))</td>
                                 <td>@item.AppInstallBonus.ToString("N0") đ</td>
@@ -97,13 +113,54 @@
         <div class="modal-backdrop" @onclick="CloseModal">
             <div class="modal-content" @onclick:stopPropagation>
                 <h4>@(_isEdit ? "Sửa cấu hình" : "Thêm cấu hình")</h4>
-                <div class="mb-3">
-                    <label class="form-label">Product ID</label>
-                    <input class="form-control" @bind="_modalProductId" disabled="@_isEdit" placeholder="GUID" />
-                </div>
+                @if (!_isEdit)
+                {
+                    <div class="mb-3">
+                        <label class="form-label">Tenant</label>
+                        <select class="form-select" @bind="_modalTenantId" @bind:after="LoadFeaturedProductsForTenant">
+                            <option value="@Guid.Empty">— Chọn tenant —</option>
+                            @foreach (var t in _tenants)
+                            {
+                                <option value="@t.Id">@t.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Sản phẩm</label>
+                        @if (_modalTenantId == Guid.Empty)
+                        {
+                            <select class="form-select" disabled>
+                                <option>— Chọn tenant trước —</option>
+                            </select>
+                        }
+                        else if (_featuredProducts.Count == 0)
+                        {
+                            <select class="form-select" disabled>
+                                <option>— Tenant này chưa có sản phẩm nổi bật —</option>
+                            </select>
+                        }
+                        else
+                        {
+                            <select class="form-select" @bind="_modalProductId">
+                                <option value="">— Chọn sản phẩm —</option>
+                                @foreach (var fp in _featuredProducts)
+                                {
+                                    <option value="@fp.ProductId">@fp.DisplayName (@fp.DisplayPrice.ToString("N0") đ)</option>
+                                }
+                            </select>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="mb-3">
+                        <label class="form-label">Sản phẩm</label>
+                        <input class="form-control" value="@(ProductName(_editProductId))" disabled />
+                    </div>
+                }
                 <div class="mb-3">
                     <label class="form-label">Short Code</label>
-                    <input class="form-control" @bind="_modalShortCode" placeholder="VD: TR-001" />
+                    <input class="form-control" @bind="_modalShortCode" placeholder="VD: TR-001 (unique trong tenant)" />
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Commission Rate (0.02-0.05)</label>
@@ -136,6 +193,10 @@
         align-items: center;
         margin-bottom: 1rem;
     }
+    .tenant-filter-bar {
+        display: flex;
+        align-items: center;
+    }
     .modal-backdrop {
         position: fixed;
         inset: 0;
@@ -149,18 +210,24 @@
         background: white;
         padding: 2rem;
         border-radius: 8px;
-        max-width: 500px;
+        max-width: 560px;
         width: 90%;
     }
 </style>
 
 @code {
     private bool _isLoading = true;
-    private List<VanAn.ShopERP.Services.ProductReferralConfigDto> _items = new();
+    private List<ProductReferralConfigDto> _items = new();
+    private List<TenantApiDto> _tenants = new();
+    private List<FeaturedProductDto> _featuredProducts = new();
+    private Dictionary<Guid, string> _tenantNameMap = new();
+    private Dictionary<Guid, string> _productNameMap = new();
     private string _alertMessage = "";
     private string _alertType = "info";
     private bool _showModal = false;
     private bool _isEdit = false;
+    private Guid _filterTenantId = Guid.Empty;
+    private Guid _modalTenantId = Guid.Empty;
     private string _modalProductId = "";
     private string _modalShortCode = "";
     private decimal _modalCommissionRate = 0.03m;
@@ -170,7 +237,28 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadTenantsAndProducts();
         await LoadData();
+    }
+
+    private async Task LoadTenantsAndProducts()
+    {
+        try
+        {
+            _tenants = await TenantApi.ListAllAsync();
+            _tenantNameMap = _tenants.ToDictionary(t => t.Id, t => t.Name ?? "Unknown");
+
+            // Load all featured products for product name lookup (cross-tenant for admin)
+            var allFeatured = await FeaturedApi.ListAsync();
+            _productNameMap = allFeatured
+                .GroupBy(f => f.ProductId)
+                .ToDictionary(g => g.Key, g => g.First().DisplayName);
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi tải tenants/sản phẩm: {ex.Message}";
+            _alertType = "error";
+        }
     }
 
     private async Task LoadData()
@@ -178,7 +266,7 @@
         _isLoading = true;
         try
         {
-            _items = await ConfigApi.ListAllAsync();
+            _items = await ConfigApi.ListAllAsync(_filterTenantId == Guid.Empty ? null : _filterTenantId);
         }
         catch (Exception ex)
         {
@@ -188,21 +276,41 @@
         _isLoading = false;
     }
 
+    private async Task LoadFeaturedProductsForTenant()
+    {
+        if (_modalTenantId == Guid.Empty)
+        {
+            _featuredProducts = new();
+            return;
+        }
+        try
+        {
+            _featuredProducts = await FeaturedApi.ListAsync(_modalTenantId);
+        }
+        catch
+        {
+            _featuredProducts = new();
+        }
+    }
+
     private void OpenCreateModal()
     {
         _isEdit = false;
+        _modalTenantId = Guid.Empty;
         _modalProductId = "";
         _modalShortCode = "";
         _modalCommissionRate = 0.03m;
         _modalAppInstallBonus = 10000m;
         _modalIsActive = true;
+        _featuredProducts = new();
         _showModal = true;
     }
 
-    private void OpenEditModal(VanAn.ShopERP.Services.ProductReferralConfigDto item)
+    private void OpenEditModal(ProductReferralConfigDto item)
     {
         _isEdit = true;
         _editProductId = item.ProductId;
+        _modalTenantId = item.TenantId;
         _modalProductId = item.ProductId.ToString();
         _modalShortCode = item.ProductShortCode ?? "";
         _modalCommissionRate = item.CommissionRate;
@@ -230,14 +338,21 @@
             }
             else
             {
+                if (_modalTenantId == Guid.Empty)
+                {
+                    _alertMessage = "Vui lòng chọn tenant.";
+                    _alertType = "error";
+                    return;
+                }
                 if (!Guid.TryParse(_modalProductId, out var productId))
                 {
-                    _alertMessage = "Product ID không hợp lệ.";
+                    _alertMessage = "Vui lòng chọn sản phẩm.";
                     _alertType = "error";
                     return;
                 }
                 await ConfigApi.CreateAsync(productId, new CreateProductReferralConfigRequest
                 {
+                    TenantId = _modalTenantId,
                     CommissionRate = _modalCommissionRate,
                     AppInstallBonus = _modalAppInstallBonus,
                     ProductShortCode = string.IsNullOrEmpty(_modalShortCode) ? null : _modalShortCode
@@ -270,4 +385,7 @@
             _alertType = "error";
         }
     }
+
+    private string TenantName(Guid tenantId) => _tenantNameMap.TryGetValue(tenantId, out var name) ? name : tenantId.ToString()[..8] + "...";
+    private string ProductName(Guid productId) => _productNameMap.TryGetValue(productId, out var name) ? name : productId.ToString()[..8] + "...";
 }

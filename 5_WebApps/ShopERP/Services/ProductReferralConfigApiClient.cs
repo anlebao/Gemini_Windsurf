@@ -7,6 +7,7 @@ namespace VanAn.ShopERP.Services
     /// <summary>
     /// CC-S4 (Sprint 4): ShopERP client for the Gateway ProductReferralConfig admin API.
     /// Calls /api/admin/products/{productId}/referral-config with SystemAdmin Bearer JWT.
+    /// Tenant-aware: CreateAsync requires tenantId; ListAllAsync optionally filters by tenant.
     /// </summary>
     public sealed class ProductReferralConfigApiClient : GatewayAdminApiClientBase
     {
@@ -18,9 +19,12 @@ namespace VanAn.ShopERP.Services
             ILogger<ProductReferralConfigApiClient> logger)
             : base(httpClientFactory, configuration, jwtTokenService, authStateProvider, logger) { }
 
-        public async Task<List<ProductReferralConfigDto>> ListAllAsync(CancellationToken ct = default)
+        public async Task<List<ProductReferralConfigDto>> ListAllAsync(Guid? tenantId = null, CancellationToken ct = default)
         {
-            var req = await CreateRequestAsync(HttpMethod.Get, "api/admin/products/referral-configs");
+            var url = "api/admin/products/referral-configs";
+            if (tenantId.HasValue && tenantId.Value != Guid.Empty)
+                url += $"?tenantId={tenantId.Value}";
+            var req = await CreateRequestAsync(HttpMethod.Get, url);
             return await SendAndReadAsync<List<ProductReferralConfigDto>>(HttpClient, req, ct) ?? new();
         }
 
@@ -55,6 +59,7 @@ namespace VanAn.ShopERP.Services
     {
         public Guid Id { get; set; }
         public Guid ProductId { get; set; }
+        public Guid TenantId { get; set; }
         public string? ProductShortCode { get; set; }
         public decimal CommissionRate { get; set; }
         public decimal AppInstallBonus { get; set; }
@@ -63,6 +68,7 @@ namespace VanAn.ShopERP.Services
 
     public class CreateProductReferralConfigRequest
     {
+        public Guid TenantId { get; set; }
         public decimal CommissionRate { get; set; }
         public decimal AppInstallBonus { get; set; }
         public string? ProductShortCode { get; set; }

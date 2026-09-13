@@ -1,6 +1,5 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
@@ -13,6 +12,7 @@ namespace VanAn.Core.Tests.Community;
 /// <summary>
 /// CC-S4 (Sprint 4): ProductReferralConfigService unit tests — admin CRUD.
 /// 4 test cases per detailed plan. Uses SQLite in-memory.
+/// Tenant-aware: CreateAsync requires explicit tenantId.
 /// </summary>
 public class ProductReferralConfigServiceTests : IDisposable
 {
@@ -20,6 +20,7 @@ public class ProductReferralConfigServiceTests : IDisposable
     private readonly VanAnDbContext _context;
     private readonly ProductReferralConfigService _service;
     private static readonly Guid ProductId = Guid.NewGuid();
+    private static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
     public ProductReferralConfigServiceTests()
     {
@@ -35,13 +36,7 @@ public class ProductReferralConfigServiceTests : IDisposable
 
         _context = new VanAnDbContext(options);
         _context.Database.EnsureCreated();
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Seed:TenantId"] = "00000000-0000-0000-0000-000000000001"
-            })
-            .Build();
-        _service = new ProductReferralConfigService(_context, config, NullLogger<ProductReferralConfigService>.Instance);
+        _service = new ProductReferralConfigService(_context, NullLogger<ProductReferralConfigService>.Instance);
     }
 
     public void Dispose()
@@ -54,10 +49,11 @@ public class ProductReferralConfigServiceTests : IDisposable
     [Fact(DisplayName = "T17: Create_ValidFields_ReturnsConfig")]
     public async Task Create_ValidFields_ReturnsConfig()
     {
-        var result = await _service.CreateAsync(ProductId, 0.05m, 10000, "TR-001");
+        var result = await _service.CreateAsync(ProductId, TenantId, 0.05m, 10000, "TR-001");
 
         Assert.NotNull(result);
         Assert.Equal(ProductId, result.ProductId);
+        Assert.Equal(TenantId, result.TenantId);
         Assert.Equal(0.05m, result.CommissionRate);
         Assert.Equal(10000, result.AppInstallBonus);
         Assert.Equal("TR-001", result.ProductShortCode);
@@ -70,18 +66,18 @@ public class ProductReferralConfigServiceTests : IDisposable
     {
         // Rate < 0.02
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            _service.CreateAsync(ProductId, 0.01m, 10000, "TR-001"));
+            _service.CreateAsync(ProductId, TenantId, 0.01m, 10000, "TR-001"));
 
         // Rate > 0.05
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            _service.CreateAsync(ProductId, 0.06m, 10000, "TR-001"));
+            _service.CreateAsync(ProductId, TenantId, 0.06m, 10000, "TR-001"));
     }
 
     // === T19: Update_ModifiesFields ===
     [Fact(DisplayName = "T19: Update_ModifiesFields")]
     public async Task Update_ModifiesFields()
     {
-        await _service.CreateAsync(ProductId, 0.03m, 5000, "TR-001");
+        await _service.CreateAsync(ProductId, TenantId, 0.03m, 5000, "TR-001");
 
         var updated = await _service.UpdateAsync(ProductId, 0.05m, 15000, "TR-002", true);
 
@@ -94,11 +90,28 @@ public class ProductReferralConfigServiceTests : IDisposable
     [Fact(DisplayName = "T20: Deactivate_SetsIsActiveFalse")]
     public async Task Deactivate_SetsIsActiveFalse()
     {
-        await _service.CreateAsync(ProductId, 0.05m, 10000, "TR-001");
+        await _service.CreateAsync(ProductId, TenantId, 0.05m, 10000, "TR-001");
 
         await _service.DeactivateAsync(ProductId);
 
         var config = await _context.ProductReferralConfigs.IgnoreQueryFilters().FirstAsync();
         Assert.False(config.IsActive);
+    }
+
+    // === T21: ShortCode_PerTenant_Uniqueness ===
+    [Fact(DisplayName = "T21: ShortCode_PerTenant_Uniqueness")]
+    public async Task ShortCode_PerTenant_Uniqueness()
+    {
+        // Same short code, different tenant → both succeed (per-tenant uniqueness)
+        var tenant2 = Guid.Parse("00000000-0000-0000-0000-000000000002");
+        var product2 = Guid.NewGuid();
+
+        await _service.CreateAsync(ProductId, TenantId, 0.03m, 5000, "TR-001");
+        await _service.CreateAsync(product2, tenant2, 0.03m, 5000, "TR-001");
+
+        // Same short code, same tenant → conflict
+        var product3 = Guid.NewGuid();
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CreateAsync(product3, TenantId, 0.03m, 5000, "TR-001"));
     }
 }

@@ -42,7 +42,9 @@ namespace VanAn.Gateway.Controllers
 
             try
             {
-                var config = await _configService.CreateAsync(productId, body.CommissionRate, body.AppInstallBonus, body.ProductShortCode);
+                if (body.TenantId == Guid.Empty)
+                    return BadRequest(new { error = "TenantId is required (the tenant that owns the product)." });
+                var config = await _configService.CreateAsync(productId, body.TenantId, body.CommissionRate, body.AppInstallBonus, body.ProductShortCode);
                 return CreatedAtAction(nameof(GetByProductId), new { productId }, config);
             }
             catch (ArgumentOutOfRangeException ex)
@@ -113,16 +115,18 @@ namespace VanAn.Gateway.Controllers
 
         /// <summary>
         /// GET /api/admin/products/referral-configs — list all configs (admin dashboard)
+        /// Optional tenantId filter for tenant-scoped view.
         /// </summary>
         [HttpGet("referral-configs")]
-        public async Task<IActionResult> ListAll()
+        public async Task<IActionResult> ListAll([FromQuery] Guid? tenantId)
         {
-            var configs = await _configService.ListAllAsync();
+            var configs = await _configService.ListAllAsync(tenantId);
             return Ok(configs);
         }
 
         public class CreateReferralConfigRequest
         {
+            public Guid TenantId { get; set; }
             public decimal CommissionRate { get; set; }
             public decimal AppInstallBonus { get; set; }
             public string? ProductShortCode { get; set; }
