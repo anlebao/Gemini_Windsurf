@@ -1,4 +1,6 @@
 ﻿using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using VanAn.KhachLink.Models;
 
 namespace VanAn.KhachLink.Services.Http
@@ -13,6 +15,13 @@ namespace VanAn.KhachLink.Services.Http
         private readonly HttpClient _httpClient = httpClientFactory.CreateClient("gateway");
         private readonly ILogger<CatalogHttpService> _logger = logger;
 
+        // RV fix: Gateway serializes FeaturedProductType enum as string ("Paid"/"Free"/"Charity"),
+        // but default System.Text.Json expects enum as number. Add JsonStringEnumConverter.
+        private static readonly JsonSerializerOptions _jsonOpts = new(JsonSerializerDefaults.Web)
+        {
+            Converters = { new JsonStringEnumConverter() }
+        };
+
         /// <summary>Get recommended products (Featured + customer history). Anonymous-safe.</summary>
         public async Task<RecommendedCatalogResponse?> GetRecommendedAsync(Guid? customerId = null, int page = 1, int pageSize = 20)
         {
@@ -22,7 +31,7 @@ namespace VanAn.KhachLink.Services.Http
                 if (customerId.HasValue && customerId.Value != Guid.Empty)
                     url += $"&customerId={customerId.Value}";
 
-                return await _httpClient.GetFromJsonAsync<RecommendedCatalogResponse>(url);
+                return await _httpClient.GetFromJsonAsync<RecommendedCatalogResponse>(url, _jsonOpts);
             }
             catch (Exception ex)
             {
@@ -42,7 +51,7 @@ namespace VanAn.KhachLink.Services.Http
                 if (!string.IsNullOrWhiteSpace(keyword))
                     url += $"&q={Uri.EscapeDataString(keyword.Trim())}";
 
-                return await _httpClient.GetFromJsonAsync<RecommendedCatalogResponse>(url);
+                return await _httpClient.GetFromJsonAsync<RecommendedCatalogResponse>(url, _jsonOpts);
             }
             catch (Exception ex)
             {
