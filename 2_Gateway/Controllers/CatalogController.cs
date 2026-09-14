@@ -61,6 +61,7 @@ namespace VanAn.Gateway.Controllers
                     VatRate = f.VatRate,
                     ImageUrl = f.ImageUrl,
                     Description = f.DisplayDescription,
+                    ProductType = f.ProductType,
                     Source = "Featured",
                     LastOrderedAt = (DateTime?)null
                 })
@@ -143,6 +144,9 @@ namespace VanAn.Gateway.Controllers
         public decimal VatRate { get; set; } = 0.10m;
         public string? ImageUrl { get; set; }
         public string? Description { get; set; }
+        /// <summary>Product type — Paid (default), Free, or Charity.
+        /// Free/Charity allows DisplayPrice=0 and bypasses Tier 0 price guard at checkout.</summary>
+        public FeaturedProductType ProductType { get; set; } = FeaturedProductType.Paid;
         public string Source { get; set; } = "Featured"; // "Featured" | "History"
         public DateTime? LastOrderedAt { get; set; }
         /// <summary>Tenant display name — resolved from PG Tenants table.</summary>

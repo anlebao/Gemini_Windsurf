@@ -45,5 +45,9 @@ namespace VanAn.CoreHub.Commands
         public Guid TenantId { get; set; }
         public string ProductName { get; set; } = "";
         public decimal VatRate { get; set; } = 0.10m;
+
+        /// <summary>Free/Charity flag — when true, UnitPrice=0 is valid (charity/giveaway product).
+        /// Propagated from CheckoutOrderItem.IsFree (KhachLink sets from FeaturedProduct.ProductType).</summary>
+        public bool IsFree { get; set; }
     }
 }

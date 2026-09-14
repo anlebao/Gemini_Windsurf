@@ -284,7 +284,16 @@
                                     }
                                     <p class="text-muted small">@item.Description</p>
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span class="h5 text-primary mb-0">@CurrencyHelper.FormatVND(item.DisplayPrice)</span>
+                                        @if (item.IsFree)
+                                        {
+                                            <span class="h5 text-success mb-0">
+                                                <span class="badge bg-success">Miễn phí</span>
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="h5 text-primary mb-0">@CurrencyHelper.FormatVND(item.DisplayPrice)</span>
+                                        }
                                         <VanAnButton Size="ButtonSize.Small" Icon="cart-plus" OnClick="@(() => AddFeaturedToCart(item, imgId))">
                                             Mua
                                         </VanAnButton>
@@ -814,7 +823,8 @@
             VatRate = item.VatRate,
             ImageUrl = item.ImageUrl,
             TenantName = item.TenantName ?? string.Empty,
-            IsActive = true
+            IsActive = true,
+            ProductType = item.ProductType
         };
         await CartService.AddItemAsync(product, 1);
         await RecentlyViewedService.AddToRecentlyViewedAsync(product);

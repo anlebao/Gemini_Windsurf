@@ -1,4 +1,6 @@
-﻿namespace VanAn.KhachLink.Models;
+﻿using VanAn.Shared.Domain;
+
+namespace VanAn.KhachLink.Models;
 
 /// <summary>
 /// Phase 6: Response from Gateway GET /api/catalog/recommended.
@@ -27,6 +29,13 @@ public class RecommendedCatalogItem
     public string? Description { get; set; }
     public string Source { get; set; } = "Featured"; // "Featured" | "History"
     public DateTime? LastOrderedAt { get; set; }
-    /// <summary>Tenant display name â€” resolved from PG Tenants table by Gateway.</summary>
+    /// <summary>Tenant display name — resolved from PG Tenants table by Gateway.</summary>
     public string TenantName { get; set; } = string.Empty;
+
+    /// <summary>Product type — Paid (default), Free, or Charity.
+    /// When Free/Charity, DisplayPrice=0 is valid and IsFree is set on CartItem at add time.</summary>
+    public FeaturedProductType ProductType { get; set; } = FeaturedProductType.Paid;
+
+    /// <summary>True when ProductType is Free or Charity (charity/giveaway products).</summary>
+    public bool IsFree => ProductType != FeaturedProductType.Paid;
 }

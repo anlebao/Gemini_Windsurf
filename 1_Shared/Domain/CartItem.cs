@@ -24,6 +24,10 @@
         // Empty string for legacy items (resolved lazily at checkout response).
         public string TenantName { get; init; } = string.Empty;
 
+        /// <summary>Free/Charity flag — when true, UnitPrice=0 is valid and bypasses Tier 0 price guard.
+        /// Set from FeaturedProduct.ProductType (Free/Charity) when adding featured product to cart.</summary>
+        public bool IsFree { get; init; } = false;
+
         // Computed properties
         public decimal TotalPrice => Quantity * UnitPrice;
         // VAT-inclusive extraction: UnitPrice is gross, net = gross / (1 + rate)

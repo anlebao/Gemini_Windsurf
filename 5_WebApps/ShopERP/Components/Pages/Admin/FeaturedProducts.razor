@@ -62,6 +62,7 @@
                         <th>Tên hiển thị</th>
                         <th>Tenant</th>
                         <th>Giá hiển thị</th>
+                        <th>Loại</th>
                         <th>Thứ tự</th>
                         <th>Trạng thái</th>
                         <th>Hành động</th>
@@ -73,7 +74,30 @@
                         <tr>
                             <td><strong>@item.DisplayName</strong></td>
                             <td>@TenantLabel(item.TenantId)</td>
-                            <td>@item.DisplayPrice.ToString("N0") đ</td>
+                            <td>
+                                @if (item.ProductType == VanAn.Shared.Domain.FeaturedProductType.Paid)
+                                {
+                                    @item.DisplayPrice.ToString("N0") <text> đ</text>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success">Miễn phí</span>
+                                }
+                            </td>
+                            <td>
+                                @if (item.ProductType == VanAn.Shared.Domain.FeaturedProductType.Paid)
+                                {
+                                    <span class="badge bg-primary">Trả phí</span>
+                                }
+                                else if (item.ProductType == VanAn.Shared.Domain.FeaturedProductType.Free)
+                                {
+                                    <span class="badge bg-info">Free</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning text-dark">Charity</span>
+                                }
+                            </td>
                             <td>@item.SortOrder</td>
                             <td>
                                 <span class="status-badge status-@(item.IsActive ? "active" : "inactive")">
@@ -171,6 +195,23 @@
                     {
                         <small class="text-muted">@_form.DisplayPrice.ToString("N0") đ — snapshot từ Product. Bấm "Refresh từ Product" để cập nhật.</small>
                     }
+                    else if (_form.ProductType == VanAn.Shared.Domain.FeaturedProductType.Paid)
+                    {
+                        <small class="text-danger">Giá = 0 — sản phẩm Paid phải có giá > 0. Đặt ProductType = Free/Charity hoặc chọn sản phẩm có giá.</small>
+                    }
+                </div>
+                <div class="form-group">
+                    <label for="fp-producttype">Loại sản phẩm *</label>
+                    <select id="fp-producttype" class="vanan-select" @bind="_form.ProductType" aria-label="Loại sản phẩm">
+                        <option value="@VanAn.Shared.Domain.FeaturedProductType.Paid">Trả phí (Paid)</option>
+                        <option value="@VanAn.Shared.Domain.FeaturedProductType.Free">Miễn phí (Free)</option>
+                        <option value="@VanAn.Shared.Domain.FeaturedProductType.Charity">Từ thiện (Charity)</option>
+                    </select>
+                    <small class="text-muted">
+                        <strong>Paid</strong>: sản phẩm bán, giá > 0 bắt buộc.
+                        <strong>Free</strong>: sản phẩm miễn phí (giveaway/sample), giá = 0 cho phép.
+                        <strong>Charity</strong>: sản phẩm từ thiện, giá = 0 cho phép + đánh dấu cho kế toán.
+                    </small>
                 </div>
                 <div class="form-group">
                     <VanAInput Id="fp-vatrate" Label="VAT (%) *"
@@ -242,7 +283,8 @@
         DisplayPrice = 0,
         DisplayDescription = null,
         ImageUrl = null,
-        SortOrder = 0
+        SortOrder = 0,
+        ProductType = VanAn.Shared.Domain.FeaturedProductType.Paid
     };
 
     protected override async Task OnInitializedAsync()
@@ -385,7 +427,8 @@
             DisplayName = "",
             DisplayPrice = 0,
             VatRate = 0.10m,
-            SortOrder = 0
+            SortOrder = 0,
+            ProductType = VanAn.Shared.Domain.FeaturedProductType.Paid
         };
         await LoadProductsForTenantAsync(defaultTenantId);
         _showModal = true;
@@ -405,7 +448,8 @@
             VatRate = item.VatRate,
             DisplayDescription = item.DisplayDescription,
             ImageUrl = item.ImageUrl,
-            SortOrder = item.SortOrder
+            SortOrder = item.SortOrder,
+            ProductType = item.ProductType
         };
         _showModal = true;
     }
@@ -432,6 +476,12 @@
             _alertType = "danger";
             return;
         }
+        if (_form.ProductType == VanAn.Shared.Domain.FeaturedProductType.Paid && _form.DisplayPrice <= 0)
+        {
+            _alertMessage = "Lỗi: Sản phẩm Trả phí (Paid) phải có giá > 0. Đổi sang Free/Charity hoặc chọn sản phẩm có giá.";
+            _alertType = "danger";
+            return;
+        }
         if (!_isEdit && _form.TenantId == Guid.Empty)
         {
             _alertMessage = "Lỗi: Vui lòng chọn Tenant.";
@@ -451,7 +501,8 @@
                     DisplayDescription = _form.DisplayDescription,
                     ImageUrl = _form.ImageUrl,
                     SortOrder = _form.SortOrder,
-                    IsActive = _editIsActive
+                    IsActive = _editIsActive,
+                    ProductType = _form.ProductType
                 });
                 _alertMessage = "Đã cập nhật sản phẩm nổi bật.";
             }
@@ -484,7 +535,8 @@
                 DisplayDescription = item.DisplayDescription,
                 ImageUrl = item.ImageUrl,
                 SortOrder = item.SortOrder,
-                IsActive = !item.IsActive
+                IsActive = !item.IsActive,
+                ProductType = item.ProductType
             });
             await LoadData();
         }

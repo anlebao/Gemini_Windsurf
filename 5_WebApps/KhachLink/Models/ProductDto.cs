@@ -1,3 +1,5 @@
+using VanAn.Shared.Domain;
+
 namespace VanAn.KhachLink.Models;
 
 public class ProductDto
@@ -12,6 +14,14 @@ public class ProductDto
     public bool IsActive { get; set; }
     public decimal VatRate { get; set; }
     public string? ImageUrl { get; set; }
+
+    /// <summary>Product type — Paid (default), Free, or Charity.
+    /// When Free/Charity, Price=0 is valid and IsFree is set on CartItem at add time.</summary>
+    public FeaturedProductType ProductType { get; set; } = FeaturedProductType.Paid;
+
+    /// <summary>True when ProductType is Free or Charity (charity/giveaway products).
+    /// Convenience flag for cart/checkout logic.</summary>
+    public bool IsFree => ProductType != FeaturedProductType.Paid;
 }
 
 /// <summary>

@@ -123,11 +123,15 @@ namespace VanAn.Gateway.Controllers
 
                 // TIER 0: Sanity checks — reject obviously invalid prices/quantities instantly.
                 // Protects against client bugs, DevTools manipulation, and corrupted cached data.
+                // Free/Charity items (IsFree=true) bypass the UnitPrice > 0 check — charity products
+                // are legitimately priced at 0. Paid items must have UnitPrice > 0.
                 var sanityFailures = new List<string>();
                 foreach (var item in request.Items)
                 {
-                    if (item.UnitPrice <= 0)
+                    if (!item.IsFree && item.UnitPrice <= 0)
                         sanityFailures.Add($"Sản phẩm '{item.ProductName}': giá không hợp lệ (UnitPrice={item.UnitPrice}).");
+                    if (item.IsFree && item.UnitPrice < 0)
+                        sanityFailures.Add($"Sản phẩm '{item.ProductName}': giá không được âm (UnitPrice={item.UnitPrice}).");
                     if (item.Quantity <= 0)
                         sanityFailures.Add($"Sản phẩm '{item.ProductName}': số lượng phải lớn hơn 0 (Quantity={item.Quantity}).");
                     if (item.VatRate < 0 || item.VatRate > 1.0m)
@@ -144,22 +148,38 @@ namespace VanAn.Gateway.Controllers
                 // Only applies to products that ARE in FeaturedProducts (QR-scanned products skip).
                 // Tolerance: 5% — catches obvious manipulation (100k→1k) while allowing minor
                 // price drift between featured time and checkout time.
+                // Free/Charity products (ProductType != Paid) skip price cross-check — DisplayPrice=0 is valid.
                 if (_dbContext != null)
                 {
                     var productIds = request.Items.Select(i => i.ProductId).Distinct().ToList();
                     var featuredPrices = await _dbContext.FeaturedProducts
                         .IgnoreQueryFilters()
                         .Where(fp => productIds.Contains(fp.ProductId) && fp.IsActive)
-                        .Select(fp => new { fp.ProductId, fp.DisplayPrice, fp.DisplayName })
+                        .Select(fp => new { fp.ProductId, fp.DisplayPrice, fp.DisplayName, fp.ProductType })
                         .ToListAsync();
 
                     if (featuredPrices.Count > 0)
                     {
                         var priceMismatches = new List<string>();
+                        var typeMismatches = new List<string>();
                         foreach (var fp in featuredPrices)
                         {
                             var clientItem = request.Items.FirstOrDefault(i => i.ProductId == fp.ProductId);
-                            if (clientItem != null && fp.DisplayPrice > 0)
+                            if (clientItem == null) continue;
+
+                            // Cross-check ProductType: client claims IsFree but FeaturedProduct is Paid → reject (spoof attempt).
+                            bool clientClaimsFree = clientItem.IsFree;
+                            bool serverIsFree = fp.ProductType != FeaturedProductType.Paid;
+                            if (clientClaimsFree != serverIsFree)
+                            {
+                                typeMismatches.Add(
+                                    $"Sản phẩm '{fp.DisplayName}': loại sản phẩm không khớp (đơn hàng gửi {(clientClaimsFree ? "Miễn phí" : "Trả phí")}, " +
+                                    $"hệ thống ghi nhận {(serverIsFree ? "Miễn phí/Từ thiện" : "Trả phí")}).");
+                                continue;
+                            }
+
+                            // Price cross-check only for Paid products with DisplayPrice > 0.
+                            if (fp.ProductType == FeaturedProductType.Paid && fp.DisplayPrice > 0)
                             {
                                 decimal tolerance = fp.DisplayPrice * 0.05m; // 5% tolerance
                                 decimal diff = Math.Abs(clientItem.UnitPrice - fp.DisplayPrice);
@@ -170,6 +190,11 @@ namespace VanAn.Gateway.Controllers
                                         $"giá hiện tại {fp.DisplayPrice:N0}đ). Vui lòng tải lại trang để xem giá mới nhất.");
                                 }
                             }
+                        }
+                        if (typeMismatches.Count > 0)
+                        {
+                            _logger.LogWarning("Checkout rejected — Tier 1 product type mismatch (possible spoof): {Mismatches}", string.Join("; ", typeMismatches));
+                            return BadRequest(new { error = "Loại sản phẩm không hợp lệ.", details = typeMismatches });
                         }
                         if (priceMismatches.Count > 0)
                         {
@@ -261,7 +286,8 @@ namespace VanAn.Gateway.Controllers
                             ProductName = i.ProductName,
                             VatRate = i.VatRate,
                             Quantity = i.Quantity,
-                            UnitPrice = i.UnitPrice
+                            UnitPrice = i.UnitPrice,
+                            IsFree = i.IsFree
                         }).ToList(),
                         CustomerName = request.CustomerName,
                         CustomerPhone = request.CustomerPhone,
@@ -510,5 +536,10 @@ namespace VanAn.Gateway.Controllers
         public Guid TenantId { get; set; }
         public string ProductName { get; set; } = "";
         public decimal VatRate { get; set; } = 0.10m;
+
+        /// <summary>Free/Charity flag — when true, UnitPrice=0 is allowed (bypasses Tier 0 price guard).
+        /// Set by KhachLink from FeaturedProduct.ProductType (Free/Charity). Cross-checked at Tier 1
+        /// against PG FeaturedProducts.ProductType to prevent spoofing.</summary>
+        public bool IsFree { get; set; }
     }
 }

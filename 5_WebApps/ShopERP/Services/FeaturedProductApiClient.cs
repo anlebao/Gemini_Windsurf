@@ -62,6 +62,7 @@ namespace VanAn.ShopERP.Services
         public decimal VatRate { get; set; }
         public bool IsActive { get; set; }
         public int SortOrder { get; set; }
+        public VanAn.Shared.Domain.FeaturedProductType ProductType { get; set; } = VanAn.Shared.Domain.FeaturedProductType.Paid;
         public DateTime FeaturedAt { get; set; }
     }
 
@@ -75,6 +76,7 @@ namespace VanAn.ShopERP.Services
         public string? DisplayDescription { get; set; }
         public string? ImageUrl { get; set; }
         public int SortOrder { get; set; }
+        public VanAn.Shared.Domain.FeaturedProductType ProductType { get; set; } = VanAn.Shared.Domain.FeaturedProductType.Paid;
     }
 
     public record UpdateFeaturedProductRequest
@@ -86,5 +88,6 @@ namespace VanAn.ShopERP.Services
         public string? ImageUrl { get; set; }
         public int SortOrder { get; set; }
         public bool? IsActive { get; set; }
+        public VanAn.Shared.Domain.FeaturedProductType? ProductType { get; set; }
     }
 }

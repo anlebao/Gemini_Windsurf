@@ -47,6 +47,12 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             builder.Property(e => e.SortOrder)
                 .HasDefaultValue(0);
 
+            // ProductType: Paid (default) | Free | Charity — controls checkout price validation.
+            // Stored as int (enum). Default 0 = Paid for backward compatibility with existing rows.
+            builder.Property(e => e.ProductType)
+                .HasConversion<int>()
+                .HasDefaultValue(FeaturedProductType.Paid);
+
             builder.Property(e => e.FeaturedAt)
                 .IsRequired()
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");

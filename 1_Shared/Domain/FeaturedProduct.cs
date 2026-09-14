@@ -3,6 +3,22 @@
 namespace VanAn.Shared.Domain
 {
     /// <summary>
+    /// Product type for FeaturedProduct — controls checkout price validation behavior.
+    /// Paid: standard product, UnitPrice > 0 enforced at checkout.
+    /// Free: charity/giveaway product, UnitPrice = 0 allowed (bypasses Tier 0 price guard).
+    /// Charity: donation-style product, UnitPrice = 0 allowed + flagged for accounting.
+    /// </summary>
+    public enum FeaturedProductType
+    {
+        /// <summary>Standard paid product. DisplayPrice > 0 enforced.</summary>
+        Paid = 0,
+        /// <summary>Free product (e.g., giveaway, sample). DisplayPrice = 0 allowed.</summary>
+        Free = 1,
+        /// <summary>Charity/donation product. DisplayPrice = 0 allowed, flagged for accounting.</summary>
+        Charity = 2
+    }
+
+    /// <summary>
     /// Phase 6 (Admin UI): Value object for FeaturedProduct business key.
     /// Follows Single-Identity Pattern â€” ignored in EF config (Id = PK only).
     /// </summary>
@@ -46,6 +62,11 @@ namespace VanAn.Shared.Domain
 
         public bool IsActive { get; protected set; } = true;
 
+        /// <summary>Product type — controls checkout price validation.
+        /// Paid (default): DisplayPrice > 0 enforced at Tier 0.
+        /// Free/Charity: DisplayPrice = 0 allowed, bypasses Tier 0 price guard.</summary>
+        public FeaturedProductType ProductType { get; protected set; } = FeaturedProductType.Paid;
+
         /// <summary>Display ordering (lower = first).</summary>
         public int SortOrder { get; protected set; }
 
@@ -55,7 +76,8 @@ namespace VanAn.Shared.Domain
         protected FeaturedProduct() { }
 
         public FeaturedProduct(TenantId tenantId, Guid productId, string displayName, decimal displayPrice,
-            string? displayDescription = null, string? imageUrl = null, int sortOrder = 0, decimal vatRate = 0.10m)
+            string? displayDescription = null, string? imageUrl = null, int sortOrder = 0, decimal vatRate = 0.10m,
+            FeaturedProductType productType = FeaturedProductType.Paid)
             : base(tenantId)
         {
             if (string.IsNullOrWhiteSpace(displayName))
@@ -64,6 +86,9 @@ namespace VanAn.Shared.Domain
                 throw new ArgumentException("DisplayPrice cannot be negative.", nameof(displayPrice));
             if (vatRate < 0)
                 throw new ArgumentException("VatRate cannot be negative.", nameof(vatRate));
+            // Paid products must have a positive price. Free/Charity allow 0.
+            if (productType == FeaturedProductType.Paid && displayPrice <= 0)
+                throw new ArgumentException("Paid products must have DisplayPrice > 0.", nameof(displayPrice));
 
             ProductId = productId;
             DisplayName = displayName;
@@ -73,6 +98,7 @@ namespace VanAn.Shared.Domain
             ImageUrl = imageUrl;
             SortOrder = sortOrder;
             IsActive = true;
+            ProductType = productType;
             FeaturedAt = DateTime.UtcNow;
             // Single-Identity Pattern: PK == business key
             Id = FeaturedProductId.Value;
@@ -80,26 +106,32 @@ namespace VanAn.Shared.Domain
 
         /// <summary>Factory with explicit Id (for tests + migrations).</summary>
         public static FeaturedProduct Create(Guid id, TenantId tenantId, Guid productId, string displayName,
-            decimal displayPrice, string? displayDescription = null, string? imageUrl = null, int sortOrder = 0, decimal vatRate = 0.10m)
+            decimal displayPrice, string? displayDescription = null, string? imageUrl = null, int sortOrder = 0, decimal vatRate = 0.10m,
+            FeaturedProductType productType = FeaturedProductType.Paid)
         {
-            var fp = new FeaturedProduct(tenantId, productId, displayName, displayPrice, displayDescription, imageUrl, sortOrder, vatRate);
+            var fp = new FeaturedProduct(tenantId, productId, displayName, displayPrice, displayDescription, imageUrl, sortOrder, vatRate, productType);
             fp.Id = id;
             fp.FeaturedProductId = new FeaturedProductId(id);
             return fp;
         }
 
         public void UpdateDisplayInfo(string displayName, decimal displayPrice, string? displayDescription,
-            string? imageUrl, int sortOrder, decimal? vatRate = null)
+            string? imageUrl, int sortOrder, decimal? vatRate = null, FeaturedProductType? productType = null)
         {
             if (string.IsNullOrWhiteSpace(displayName))
                 throw new ArgumentException("DisplayName cannot be empty.", nameof(displayName));
             if (displayPrice < 0)
                 throw new ArgumentException("DisplayPrice cannot be negative.", nameof(displayPrice));
+            var effectiveType = productType ?? ProductType;
+            if (effectiveType == FeaturedProductType.Paid && displayPrice <= 0)
+                throw new ArgumentException("Paid products must have DisplayPrice > 0.", nameof(displayPrice));
 
             DisplayName = displayName;
             DisplayPrice = displayPrice;
             if (vatRate.HasValue && vatRate.Value >= 0)
                 VatRate = vatRate.Value;
+            if (productType.HasValue)
+                ProductType = productType.Value;
             DisplayDescription = displayDescription;
             ImageUrl = imageUrl;
             SortOrder = sortOrder;

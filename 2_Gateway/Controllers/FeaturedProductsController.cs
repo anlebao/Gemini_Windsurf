@@ -68,7 +68,8 @@ namespace VanAn.Gateway.Controllers
                 request.DisplayDescription,
                 request.ImageUrl,
                 request.SortOrder,
-                request.VatRate);
+                request.VatRate,
+                request.ProductType);
 
             _dbContext.FeaturedProducts.Add(fp);
             await _dbContext.SaveChangesAsync(ct);
@@ -91,7 +92,7 @@ namespace VanAn.Gateway.Controllers
             if (fp == null) return NotFound();
 
             fp.UpdateDisplayInfo(request.DisplayName, request.DisplayPrice,
-                request.DisplayDescription, request.ImageUrl, request.SortOrder, request.VatRate);
+                request.DisplayDescription, request.ImageUrl, request.SortOrder, request.VatRate, request.ProductType);
             if (request.IsActive.HasValue)
                 fp.SetActive(request.IsActive.Value);
 
@@ -126,6 +127,7 @@ namespace VanAn.Gateway.Controllers
             VatRate = fp.VatRate,
             IsActive = fp.IsActive,
             SortOrder = fp.SortOrder,
+            ProductType = fp.ProductType,
             FeaturedAt = fp.FeaturedAt
         };
     }
@@ -142,6 +144,7 @@ namespace VanAn.Gateway.Controllers
         public decimal VatRate { get; set; }
         public bool IsActive { get; set; }
         public int SortOrder { get; set; }
+        public FeaturedProductType ProductType { get; set; }
         public DateTime FeaturedAt { get; set; }
     }
 
@@ -155,6 +158,7 @@ namespace VanAn.Gateway.Controllers
         public string? DisplayDescription { get; set; }
         public string? ImageUrl { get; set; }
         public int SortOrder { get; set; }
+        public FeaturedProductType ProductType { get; set; } = FeaturedProductType.Paid;
     }
 
     public record UpdateFeaturedProductRequest
@@ -166,5 +170,6 @@ namespace VanAn.Gateway.Controllers
         public string? ImageUrl { get; set; }
         public int SortOrder { get; set; }
         public bool? IsActive { get; set; }
+        public FeaturedProductType? ProductType { get; set; }
     }
 }
