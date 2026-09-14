@@ -292,47 +292,54 @@
         // Load CustomerId for ChatPanel
         _customerId = await CommunityHttp.GetCustomerIdAsync(_customerToken);
 
-        // Load order info (from nearby orders API — find this order)
+        // Load delivery task status from my-deliveries (no GPS required).
+        // GPS + nearby-orders is only used for shop/delivery details on the map.
         try
         {
-            // Get current GPS to query nearby orders
-            var pos = await JSRuntime.InvokeAsync<GeoPosition?>("vananPWA.getCurrentPosition");
-            if (pos == null)
+            var deliveries = await CommunityHttp.GetMyActiveDeliveriesAsync(_customerToken);
+            if (deliveries.Success)
             {
-                _error = "Không thể lấy vị trí GPS. Vui lòng bật GPS.";
-                _loading = false;
-                return;
+                var task = deliveries.Deliveries.FirstOrDefault(d => d.OrderId == OrderId);
+                if (task != null)
+                {
+                    _deliveryStatus = task.Status;
+                }
             }
 
-            var result = await CommunityHttp.GetNearbyOrdersAsync(_customerToken, pos.Lat, pos.Lng, 50);
-            if (!result.Success)
+            // Try GPS + nearby orders for shop/delivery details (optional, non-blocking)
+            GeoPosition? pos = null;
+            try
             {
-                _error = result.ErrorMessage;
-                _loading = false;
-                return;
+                pos = await JSRuntime.InvokeAsync<GeoPosition?>("vananPWA.getCurrentPosition");
+            }
+            catch { /* GPS optional — continue without it */ }
+
+            if (pos != null)
+            {
+                var result = await CommunityHttp.GetNearbyOrdersAsync(_customerToken, pos.Lat, pos.Lng, 50);
+                if (result.Success)
+                {
+                    var order = result.Orders.FirstOrDefault(o => o.OrderId == OrderId);
+                    if (order != null)
+                    {
+                        _shopName = order.ShopName;
+                        _deliveryAddress = order.DeliveryAddress;
+                        _shopLat = order.ShopLat;
+                        _shopLng = order.ShopLng;
+                        _customerLat = order.DeliveryLat;
+                        _customerLng = order.DeliveryLng;
+                        _centerLat = _shopLat ?? pos.Lat;
+                        _centerLng = _shopLng ?? pos.Lng;
+                    }
+                }
             }
 
-            // Find this order in the list (may not be in nearby if already accepted)
-            var order = result.Orders.FirstOrDefault(o => o.OrderId == OrderId);
-            if (order != null)
+            if (string.IsNullOrEmpty(_shopName))
             {
-                _shopName = order.ShopName;
-                _deliveryAddress = order.DeliveryAddress;
-                _shopLat = order.ShopLat;
-                _shopLng = order.ShopLng;
-                _customerLat = order.DeliveryLat;
-                _customerLng = order.DeliveryLng;
-                _centerLat = _shopLat ?? pos.Lat;
-                _centerLng = _shopLng ?? pos.Lng;
-            }
-            else
-            {
-                // Order not in nearby list (already accepted) — show minimal info
                 _shopName = "Đơn hàng #" + OrderId.ToString()[..8];
             }
 
-            _deliveryStatus = "Assigned"; // Default — after accept, status is Assigned
-            _showMap = true;
+            _showMap = pos != null && _shopLat.HasValue;
             _loading = false;
         }
         catch (Exception)
