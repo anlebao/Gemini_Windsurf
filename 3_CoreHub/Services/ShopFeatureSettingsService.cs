@@ -83,7 +83,9 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
             // R2.1 (2026-09-04): community role eligibility thresholds
             settings.Community_SalesmanMinPoints,
             settings.Community_ShipperMinPoints,
-            settings.Community_RequiredIdentityLevel);
+            settings.Community_RequiredIdentityLevel,
+            // C3 (2026-09-14): charity donation checkout step
+            settings.Charity_Donation_Enabled);
 
         await _context.SaveChangesAsync(ct);
         _logger.LogInformation("Updated shop feature settings for tenant {TenantId}", tenantId);
@@ -118,6 +120,7 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
             nameof(ShopFeatureSettingsDto.Notify_RedemptionFulfilled) => settings.Notify_RedemptionFulfilled,
             nameof(ShopFeatureSettingsDto.Notify_RedemptionCancelled) => settings.Notify_RedemptionCancelled,
             nameof(ShopFeatureSettingsDto.Notify_VoucherExpiringSoon) => settings.Notify_VoucherExpiringSoon,
+            nameof(ShopFeatureSettingsDto.Charity_Donation_Enabled) => settings.Charity_Donation_Enabled,
             _ => false
         };
     }
@@ -172,6 +175,8 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
         // R2.1 (2026-09-04): community role eligibility thresholds
         Community_SalesmanMinPoints = entity.Community_SalesmanMinPoints,
         Community_ShipperMinPoints = entity.Community_ShipperMinPoints,
-        Community_RequiredIdentityLevel = entity.Community_RequiredIdentityLevel
+        Community_RequiredIdentityLevel = entity.Community_RequiredIdentityLevel,
+        // C3 (2026-09-14): charity donation checkout step
+        Charity_Donation_Enabled = entity.Charity_Donation_Enabled
     };
 }

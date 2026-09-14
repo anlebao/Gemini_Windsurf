@@ -203,6 +203,17 @@
                                    id="price-validation" @bind="settings.Price_Validation_Enabled" />
                         </div>
                     </div>
+
+                    <div class="feature-row" data-testid="toggle-charity-donation">
+                        <div class="feature-info">
+                            <strong>🤝 Bước "Quyên góp từ thiện" khi thanh toán</strong>
+                            <p class="text-muted small">Khi bật, giỏ hàng toàn sản phẩm từ thiện (Charity) sẽ thay bước thanh toán bằng bước "Quyên góp từ thiện" — khách nhận quà miễn phí, có thể góp thêm khi đến cửa hàng. Khi tắt, sản phẩm từ thiện thanh toán như sản phẩm miễn phí thường. Mặc định BẬT.</p>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="charity-donation" @bind="settings.Charity_Donation_Enabled" />
+                        </div>
+                    </div>
                 </div>
 
                 <VanACard Header="Hiển thị trang cửa hàng (Tenant Profile Page)" CssClass="mt-4" data-testid="profile-card">

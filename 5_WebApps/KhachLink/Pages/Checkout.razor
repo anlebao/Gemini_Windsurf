@@ -160,32 +160,67 @@
                             <VanAnAlert Variant="AlertVariant.Error" Message="@formError" Dismissible="false" />
                         }
 
-                        <!-- W1-T1: Payment method selector -->
-                        <div class="mb-3" data-testid="payment-method-selector">
-                            <label class="form-label fw-bold">Hình thức thanh toán</label>
-                            <div class="d-flex gap-3">
-                                <div class="form-check">
-                                    <input id="payment-cash" type="radio" name="paymentMethod" value="cash"
-                                           class="form-check-input" checked="@(selectedPaymentMethod == "cash")"
-                                           @onchange="@(() => selectedPaymentMethod = "cash")"
-                                           data-testid="payment-option-cash" />
-                                    <label for="payment-cash" class="form-check-label">💵 Tiền mặt</label>
-                                </div>
-                                <div class="form-check">
-                                    <input id="payment-transfer" type="radio" name="paymentMethod" value="transfer"
-                                           class="form-check-input" checked="@(selectedPaymentMethod == "transfer")"
-                                           @onchange="@(() => selectedPaymentMethod = "transfer")"
-                                           data-testid="payment-option-transfer" />
-                                    <label for="payment-transfer" class="form-check-label">🏦 Chuyển khoản (VietQR)</label>
+                        <!-- W1-T1: Payment method selector — C2 (2026-09-14): hidden when ALL items are free/charity.
+                             Mixed carts (paid + free) keep the selector for the paid portion. -->
+                        @if (!AllItemsFree)
+                        {
+                            <div class="mb-3" data-testid="payment-method-selector">
+                                <label class="form-label fw-bold">Hình thức thanh toán</label>
+                                <div class="d-flex gap-3">
+                                    <div class="form-check">
+                                        <input id="payment-cash" type="radio" name="paymentMethod" value="cash"
+                                               class="form-check-input" checked="@(selectedPaymentMethod == "cash")"
+                                               @onchange="@(() => selectedPaymentMethod = "cash")"
+                                               data-testid="payment-option-cash" />
+                                        <label for="payment-cash" class="form-check-label">💵 Tiền mặt</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input id="payment-transfer" type="radio" name="paymentMethod" value="transfer"
+                                               class="form-check-input" checked="@(selectedPaymentMethod == "transfer")"
+                                               @onchange="@(() => selectedPaymentMethod = "transfer")"
+                                               data-testid="payment-option-transfer" />
+                                        <label for="payment-transfer" class="form-check-label">🏦 Chuyển khoản (VietQR)</label>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        }
+                        else if (selectedPaymentMethod == "donation")
+                        {
+                            <!-- C3 (2026-09-14): "Quyên góp từ thiện" step — replaces the payment step for Charity carts
+                                 (tenant toggle Charity_Donation_Enabled = ON). -->
+                            <div class="mb-3 p-3 border rounded bg-light" data-testid="charity-donation-step">
+                                <div class="d-flex align-items-start gap-2">
+                                    <span style="font-size: 1.75rem;">🤝</span>
+                                    <div>
+                                        <div class="fw-bold">Quyên góp từ thiện</div>
+                                        <p class="mb-1 mt-1 text-muted small">
+                                            Sản phẩm trong giỏ là quà từ thiện do cửa hàng và cộng đồng quyên góp.
+                                            Bạn nhận món quà này hoàn toàn miễn phí — không cần thanh toán.
+                                        </p>
+                                        <p class="mb-0 small">
+                                            Nếu muốn, bạn có thể góp thêm một phần để giúp những người khó khăn khác
+                                            khi đến nhận quà tại cửa hàng.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <!-- C2: all-free cart (no charity step) — no payment needed -->
+                            <VanAnAlert Variant="AlertVariant.Info"
+                                        Message="Đơn hàng miễn phí — không cần thanh toán. Nhấn nút bên dưới để xác nhận."
+                                        Dismissible="false" data-testid="free-order-notice" />
+                        }
 
                         <!-- W1-T2: ProcessingBar shown during cash order submission -->
                         <ProcessingBar IsVisible="@isSendingCash" />
 
                         <VanAnButton Variant="ButtonVariant.Success" FullWidth="true" OnClick="SubmitGuestOrder" data-testid="checkout-btn-place-order" disabled="@isSendingCash">
-                            @(selectedPaymentMethod == "cash" ? "Đặt hàng (Tiền mặt)" : "Đặt hàng (Chuyển khoản)")
+                            @(selectedPaymentMethod == "cash" ? "Đặt hàng (Tiền mặt)"
+                              : selectedPaymentMethod == "donation" ? "🤝 Xác nhận nhận quà từ thiện"
+                              : selectedPaymentMethod == "free" ? "✅ Xác nhận nhận đồ miễn phí"
+                              : "Đặt hàng (Chuyển khoản)")
                         </VanAnButton>
                     </VanAnCard>
                 </div>
@@ -288,6 +323,13 @@
     private bool _loyaltyEnabled = true;
     private int _estimatedPoints = 0;
 
+    // C2 (2026-09-14): all cart items free (Free or Charity) → skip payment method selector.
+    private bool AllItemsFree => cartSnapshot.Count > 0 && cartSnapshot.All(i => i.IsFree);
+    // C3 (2026-09-14): cart contains Charity products → "Quyên góp từ thiện" step replaces payment.
+    private bool HasCharityItems => cartSnapshot.Any(i => i.IsCharity);
+    // C3: tenant toggle — default ON (matches ShopFeatureSettingsEntity default).
+    private bool _charityDonationEnabled = true;
+
     protected override async Task OnInitializedAsync()
     {
         cartState = CartService.GetCartState();
@@ -321,6 +363,26 @@
             cartSnapshot = cartState.Items.ToList();
             orderTotal = cartState.TotalAmount;
             showGuestForm = true;
+
+            // C2/C3 (2026-09-14): free/charity carts skip the payment method selector.
+            // - All items free + no charity (or toggle OFF) → "free" (no payment step, direct confirm).
+            // - All items free + charity + toggle ON → "donation" ("Quyên góp từ thiện" step).
+            // - Mixed cart (paid + free/charity) → payment selector stays for the paid portion.
+            var firstCharityItem = cartSnapshot.FirstOrDefault(i => i.IsCharity);
+            if (firstCharityItem != null && firstCharityItem.TenantId != Guid.Empty)
+            {
+                try
+                {
+                    var charitySettings = await FeatureSettings.GetSettingsAsync(firstCharityItem.TenantId);
+                    _charityDonationEnabled = charitySettings?.Charity_Donation_Enabled ?? true;
+                }
+                catch { /* non-critical — default ON */ }
+            }
+
+            if (AllItemsFree)
+            {
+                selectedPaymentMethod = HasCharityItems && _charityDonationEnabled ? "donation" : "free";
+            }
 
             // #99-3: Load tenant loyalty settings to estimate points + show/hide estimate banner.
             // Uses first cart item's TenantId (multi-tenant cart: each item may be from different tenant;
@@ -560,8 +622,9 @@
                     _showLoyaltySignupModal = true;
                 }
 
-                // W1-T1: Cash flow with single successful order — redirect to OrderTracking immediately.
-                if (selectedPaymentMethod == "cash" && _createdOrders.Count == 1 && _checkoutErrors.Count == 0)
+                // W1-T1 + C2/C3 (2026-09-14): cash + free + donation flows redirect to OrderTracking
+                // immediately — no QR payment step (zero-amount or pay-at-store orders).
+                if (selectedPaymentMethod != "transfer" && _createdOrders.Count == 1 && _checkoutErrors.Count == 0)
                 {
                     NavigationManager.NavigateTo($"/order-tracking/{_createdOrders[0].OrderId}");
                     return;

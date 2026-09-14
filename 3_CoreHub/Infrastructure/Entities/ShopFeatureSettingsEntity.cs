@@ -112,6 +112,11 @@ public class ShopFeatureSettingsEntity : BaseEntity
     /// 0=Guest, 1=Social, 2=Verified (SMS OTP), 3=Full. Owner can lower to Social (1) if desired.</summary>
     public int Community_RequiredIdentityLevel { get; private set; } = (int)IdentityLevel.Verified;
 
+    /// <summary>C3 (2026-09-14): Toggle: replace the checkout payment step with the
+    /// "Quyên góp từ thiện" (charity donation) step when the cart contains Charity products.
+    /// Default: ON. When OFF, charity products check out as normal free products (no donation step).</summary>
+    public bool Charity_Donation_Enabled { get; private set; } = true;
+
     private ShopFeatureSettingsEntity() { } // EF Core materialization
 
     /// <summary>Factory: create with default toggle values for a tenant.</summary>
@@ -150,6 +155,8 @@ public class ShopFeatureSettingsEntity : BaseEntity
         Community_SalesmanMinPoints = 1000;
         Community_ShipperMinPoints = 1000;
         Community_RequiredIdentityLevel = (int)IdentityLevel.Verified;
+        // C3 (2026-09-14): charity donation checkout step — default ON
+        Charity_Donation_Enabled = true;
     }
 
     /// <summary>Update all toggles + polling interval + loyalty formula + notification rules at once.</summary>
@@ -192,7 +199,9 @@ public class ShopFeatureSettingsEntity : BaseEntity
         // R2.1 (2026-09-04): community role eligibility thresholds (defaults = backward compat)
         int? communitySalesmanMinPoints = null,
         int? communityShipperMinPoints = null,
-        int? communityRequiredIdentityLevel = null)
+        int? communityRequiredIdentityLevel = null,
+        // C3 (2026-09-14): charity donation checkout step (default true = show donation step for Charity carts)
+        bool charityDonationEnabled = true)
     {
         QR_TableNumber_Enabled = qrTableNumber;
         Kitchen_Workflow_Enabled = kitchenWorkflow;
@@ -236,6 +245,8 @@ public class ShopFeatureSettingsEntity : BaseEntity
             Community_ShipperMinPoints = Math.Max(0, communityShipperMinPoints.Value);
         if (communityRequiredIdentityLevel.HasValue)
             Community_RequiredIdentityLevel = Math.Clamp(communityRequiredIdentityLevel.Value, 0, 3);
+        // C3 (2026-09-14)
+        Charity_Donation_Enabled = charityDonationEnabled;
         UpdateAudit();
     }
 

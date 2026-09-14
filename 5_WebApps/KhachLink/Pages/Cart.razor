@@ -61,7 +61,11 @@
                                             }
                                             <small class="text-muted">@item.Description</small>
                                             <div class="mt-2">
-                                                @if (item.IsFree)
+                                                @if (item.IsCharity)
+                                                {
+                                                    <span class="badge bg-info">🤝 Từ thiện</span>
+                                                }
+                                                else if (item.IsFree)
                                                 {
                                                     <span class="badge bg-success">Miễn phí</span>
                                                 }

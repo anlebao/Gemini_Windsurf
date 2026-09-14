@@ -41,7 +41,8 @@ namespace VanAn.KhachLink.Services
                     VatRate = product.VatRate,
                     TenantId = product.TenantId,
                     TenantName = product.TenantName ?? string.Empty,
-                    IsFree = product.IsFree
+                    IsFree = product.IsFree,
+                    IsCharity = product.ProductType == FeaturedProductType.Charity
                 });
             }
         }

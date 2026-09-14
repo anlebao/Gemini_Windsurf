@@ -28,6 +28,12 @@
         /// Set from FeaturedProduct.ProductType (Free/Charity) when adding featured product to cart.</summary>
         public bool IsFree { get; init; } = false;
 
+        /// <summary>C3 (2026-09-14): Charity flag — true when the product's ProductType is Charity
+        /// (quyên góp từ thiện). Distinct from IsFree (Free OR Charity): drives the "Quyên góp từ thiện"
+        /// checkout step when the tenant's Charity_Donation_Enabled toggle is ON.
+        /// Legacy carts (localStorage) default to false — charity items behave as plain free items until re-added.</summary>
+        public bool IsCharity { get; init; } = false;
+
         // Computed properties
         public decimal TotalPrice => Quantity * UnitPrice;
         // VAT-inclusive extraction: UnitPrice is gross, net = gross / (1 + rate)

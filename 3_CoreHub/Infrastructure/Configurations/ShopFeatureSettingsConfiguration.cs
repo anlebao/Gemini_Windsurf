@@ -46,6 +46,9 @@ public class ShopFeatureSettingsConfiguration : IEntityTypeConfiguration<ShopFea
         builder.Property(e => e.Community_ShipperMinPoints).IsRequired().HasDefaultValue(1000);
         builder.Property(e => e.Community_RequiredIdentityLevel).IsRequired().HasDefaultValue(2); // Verified
 
+        // C3 (2026-09-14): charity donation checkout step — default ON
+        builder.Property(e => e.Charity_Donation_Enabled).IsRequired().HasDefaultValue(true);
+
         // One row per tenant — unique index on TenantId
         builder.HasIndex("TenantId").IsUnique();
     }

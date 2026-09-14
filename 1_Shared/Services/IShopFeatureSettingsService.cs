@@ -83,6 +83,11 @@ public record ShopFeatureSettingsDto
 
     /// <summary>R2.1: Min IdentityLevel for both roles. Default 2 (Verified). 0=Guest, 1=Social, 2=Verified, 3=Full.</summary>
     public int Community_RequiredIdentityLevel { get; set; } = 2;
+
+    /// <summary>C3 (2026-09-14): Replace the checkout payment step with the "Quyên góp từ thiện"
+    /// (charity donation) step when the cart contains Charity products. Default ON.
+    /// When OFF, charity products check out as normal free products (no donation step).</summary>
+    public bool Charity_Donation_Enabled { get; set; } = true;
 }
 
 /// <summary>
