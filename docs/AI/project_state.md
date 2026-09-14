@@ -34,7 +34,94 @@
 
 ## 2. Current Objective
 
-**KHACHLINK PROFILE TRANSITION UX — SPRINT 3 CODE COMPLETE (audit + SW + toggle + hybrid async).** �
+**CHARITY PRODUCT CHECKOUT FLOW — IN PROGRESS (3 sub-tasks from user, session 2026-09-14).**
+
+User reported 3 issues + requests:
+1. **Checkout charity product fails** — đặt đơn hàng với sản phẩm charity thất bại.
+2. **Payment flow không phù hợp cho free/charity** — nên bỏ bước thanh toán (cash/transfer) cho sản phẩm miễn phí + charity.
+3. **Charity = "quyên góp từ thiện" step** — thay thế bước thanh toán bằng "quyên góp từ thiện", có toggle on/off bởi sysadmin.
+
+**Đã hoàn thành trong session này (commits deployed, RV PASS):**
+
+### A. ProductType enum (Paid/Free/Charity) — DEPLOYED + RV PASS
+- **Commit `5212d7c0`** — `feat(featured-product): ProductType enum (Paid/Free/Charity) for charity products`
+  - Domain: `FeaturedProductType` enum (Paid=0, Free=1, Charity=2) + `ProductType` property on `FeaturedProduct`
+  - EF migration `20260914060425_AddFeaturedProductType` (int column, default 0=Paid)
+  - Gateway `PublicOrdersController`: Tier 0 bypass `UnitPrice > 0` for `IsFree` items; Tier 1 cross-check `client.IsFree` vs `PG.ProductType` (anti-spoof)
+  - `CheckoutOrderItem.IsFree` + `OrderItemRequest.IsFree` propagated through checkout
+  - KhachLink: `ProductDto.ProductType` + `CartItem.IsFree` + `Home.razor` "Miễn phí" badge + `Cart.razor` badge + `Checkout.razor` sends `IsFree`
+  - ShopERP admin `FeaturedProducts.razor`: ProductType dropdown + table badge + validation (Paid + price=0 → error)
+- **Commit `a706b7f9`** — `fix(khachlink): add JsonStringEnumConverter for FeaturedProductType deserialization` (RV Layer 3 found JSON deserialize bug — Gateway returns string enum, WASM expected number)
+- **CI ✅ + CD Multi-VPS ✅ + Accounting Tests ✅** for both commits
+- **RV Layer 1 ✅** — `GET /api/catalog/search?q=cơm` returns 200, 1 product (cơm chay thập cẩm, Price=0, ProductType=Paid — admin chưa đổi sang Charity)
+- **RV Layer 2 ✅** — WASM contains new strings "Tìm sản phẩm" + "Tìm theo tên sản phẩm"
+- **RV Layer 3 ✅** — Playwright: tab toggle found → click → placeholder updated → search "cơm" → navigate `/products?q=cơm` → 2 product cards → no console errors
+
+### B. Product/service search feature — DEPLOYED + RV PASS (open-closed principle)
+- **Commit `300e6e35`** — `feat(catalog): add product/service search alongside existing store search`
+  - Gateway NEW endpoint: `GET /api/catalog/search?q=&page=&pageSize=` — search FeaturedProducts by DisplayName (ILIKE contains + token fallback)
+  - KhachLink: `CatalogHttpService.SearchProductsAsync` + NEW page `/products` (`ProductSearchResults.razor`) + Home.razor tab toggle "Tìm cửa hàng" | "Tìm sản phẩm"
+  - Directory: `CatalogService.SearchProductsAsync` + Home.razor same tab toggle + product search results display
+  - Open-closed: existing `/api/tenants/search` (store search) UNCHANGED — only additions
+  - Data scope: FeaturedProducts only (PG) — fast single-query, no ShopERP SQLite forward
+
+### C. Charity checkout flow — NOT YET STARTED (3 sub-tasks pending)
+
+**Sub-task C1: Debug charity checkout failure**
+- User reports: đặt đơn hàng với sản phẩm charity thất bại
+- Investigation needed:
+  - Admin must first set `cơm chay thập cẩm` ProductType = Charity in `/admin/featured-products` (currently still Paid default)
+  - Then test checkout — if still fails, trace where: Tier 0/Tier 1 in `PublicOrdersController`, `OrderService.CreateOrderFromCommandAsync`, or `Order` domain validation
+  - Possible root causes to check:
+    - `Order.TotalAmount = 0` may be rejected somewhere in Order domain or OrderService
+    - `OrderItem.UnitPrice = 0` may trigger validation in Order domain
+    - Payment method "cash"/"transfer" may require Amount > 0
+
+**Sub-task C2: Skip payment step for Free/Charity products**
+- When ALL cart items are `IsFree=true`, checkout should skip payment method selection (cash/transfer)
+- Current `Checkout.razor` lines 163-182: payment method selector always shown
+- Logic needed: if `cartSnapshot.All(i => i.IsFree)` → hide payment selector, set `selectedPaymentMethod = "free"` (or null)
+- If cart has MIXED (some paid + some free) → keep payment selector for paid portion
+
+**Sub-task C3: Charity = "quyên góp từ thiện" step with sysadmin toggle**
+- For Charity products (ProductType=Charity, NOT Free), replace payment step with "quyên góp từ thiện" step
+- Sysadmin can toggle on/off this feature (per-tenant or global flag)
+- Toggle storage: likely `ShopFeatureSettings` (existing pattern) — add `Charity_Donation_Enabled` flag
+- When toggle OFF: charity products checkout as normal free products (no donation step)
+- When toggle ON: charity products show "Quyên góp từ thiện" CTA instead of payment method
+- UI: replace payment selector with donation message + confirm button
+
+**Files likely affected (C2 + C3):**
+- `5_WebApps/KhachLink/Pages/Checkout.razor` — payment step conditional logic
+- `5_WebApps/KhachLink/Services/CheckoutFlowState.cs` — add `IsCharityOrder` / `IsFreeOrder` computed
+- `2_Gateway/Controllers/PublicOrdersController.cs` — accept `PaymentMethod = "donation"` or skip payment validation for charity
+- `3_CoreHub/Services/OrderService.cs` — may need to handle TotalAmount=0 orders
+- `1_Shared/Domain/Aggregates/TenantAggregate/ShopFeatureSettings.cs` — add `Charity_Donation_Enabled` flag
+- `5_WebApps/ShopERP/Components/Pages/Admin/ValcnFeatures.razor` — admin toggle UI
+- `2_Gateway/Controllers/TenantStoreController.cs` — expose `Charity_Donation_Enabled` in feature-settings endpoint
+
+**Branch:** `main` @ `a706b7f9` (last deployed commit)
+**Build:** 0 errors (Gateway + KhachLink + ShopERP + Directory all build clean)
+
+---
+
+## PREVIOUS OBJECTIVE (KhachLink Profile Transition Sprint 3 — archived 2026-09-14, still pending push/PR/RV)
+
+**KHACHLINK PROFILE TRANSITION UX — SPRINT 3 CODE COMPLETE (audit + SW + toggle + hybrid async).**
+- **Task card:** `docs/AI/tasks/khachlink_profile_transition_ux/task_card_sprint3_audit_sw.md`
+- **Coding plan:** `docs/AI/tasks/khachlink_profile_transition_ux/coding_plan_sprint3_audit_sw.md` (self-contained, 19 files)
+- **Branch:** `feature/khachlink-sprint3-audit-sw` @ `d29e621b` (off `main` @ `61e4d4d4`)
+- **SPRINT 3 CODE COMPLETE (2026-09-09):** 19 files, no migration, Domain additive only:
+  - **Domain (Step 1+2):** AuditableEntityType +12 KhachLinkInstance, +13 SecurityEvent; AuditActionType +12 SecurityAlert, +13 FailedLogin, +14 SuspiciousActivity, +15 RateLimitHit; `AuditLog.ForSecurityEvent` factory (EntityId=Guid.Empty sentinel)
+  - **Audit toggle — EXPANDED (Step 1A):** `IFeatureFlagService.IsEnabledAsync` optional `defaultWhenMissing` param (backward compatible); `FeatureFlagService.KnownFeatures` +Default field + 4 audit flags (Audit_Enabled master + Audit_Accounting/Audit_Security/Audit_KhachLink groups, all default ON); `FeatureFlagApiClient` (ShopERP HTTP client) updated to match signature
+  - **Hybrid async persist — EXPANDED (Step 3A/3/3B):** `AuditLogQueue` (bounded Channel<AuditLog>, capacity 1000, DropOldest); `AuditLogBackgroundWriter` (BackgroundService, flush 5s/100 batch, graceful shutdown residual flush); `AuditTrailService` toggle gate (master+group) + `PersistAsync` (Accounting SYNC / Security+KhachLink ASYNC); `Log*Async` return `Task<AuditLog?>` (null when toggle OFF — callers discard, source compatible); `LogSecurityEventAsync` (structured ipAddress+userAgent, ASYNC persist)
+  - **Security at source (Step 4/5/6):** `KhachLinkInstanceService.UpdateAsync` logs audit (old/new profile+navFlags+style, best-effort try/catch); `PlatformUserLoginService` logs failed login (3 paths: not found, wrong password, inactive); Gateway `Program.cs OnRejected` logs rate limit hits (best-effort, 429 not blocked)
+  - **UI (Step 7/8):** `AuditTrail.razor` 5 summary cards (24h/Critical/High/FailedLogin/RateLimit) + severity column + severity filter + new action/entity dropdowns; `KhachLinkInstanceAudit.razor` (NEW per-instance history page) + link button from `KhachLinkInstances.razor`; `ValcnFeatures.razor` 4 audit flags auto-appear (no change — iterate GetAllAsync)
+  - **SW bump (Step 9):** `onboarding-tour.js` `vananTriggerSWUpdate()` + `KhachLinkLayout.razor` call on profile change detection
+  - **Tests (Step 10A/11):** `AuditToggleAndQueueTests` 12 tests (toggle gating + hybrid persist + queue/writer flush) ALL PASS; `profile-transition.spec.ts` Sprint 3 E2E (SW function exists + SW trigger + audit API endpoint); `KhachLinkInstanceServiceTests` + `PlatformUserLoginServiceTests` updated for new constructor params
+- **Files:** 20 modified + 3 new (23 total, 1442 insertions)
+- **Build:** 0 errors · **Unit tests:** 12/12 PASS · **Guard:** PASSED
+- **Next:** push branch → PR → merge → CD deploy → RV Layer 1-5 (timlathay.com + diemthuong2.khachvip.online + app2.khachvip.online)�
 - **Task card:** `docs/AI/tasks/khachlink_profile_transition_ux/task_card_sprint3_audit_sw.md`
 - **Coding plan:** `docs/AI/tasks/khachlink_profile_transition_ux/coding_plan_sprint3_audit_sw.md` (self-contained, 19 files)
 - **Branch:** `feature/khachlink-sprint3-audit-sw` @ `d29e621b` (off `main` @ `61e4d4d4`)
@@ -76,6 +163,7 @@
 
 ## 3. Current Status
 
+- **Charity Product Checkout Flow (session 2026-09-14):** 🔄 IN PROGRESS. A. ProductType enum (Paid/Free/Charity) DEPLOYED + RV PASS (commits `5212d7c0` + `a706b7f9`). B. Product/service search DEPLOYED + RV PASS (commit `300e6e35`). C. Charity checkout flow NOT YET STARTED — 3 sub-tasks pending: C1 debug charity checkout failure, C2 skip payment step for Free/Charity, C3 "quyên góp từ thiện" step with sysadmin toggle. See Section 2 for full details.
 - **KhachLink Profile Transition UX Sprint 3 (Audit + SW + Toggle + Hybrid Async):** ✅ CODE COMPLETE on `feature/khachlink-sprint3-audit-sw` @ `d29e621b` (2026-09-09). 19 files, no migration, Domain additive only. Domain: AuditableEntityType +12/+13, AuditActionType +12-15, `AuditLog.ForSecurityEvent` factory. Audit toggle EXPANDED: `IFeatureFlagService.IsEnabledAsync` optional `defaultWhenMissing` (backward compatible) + 4 audit flags default ON (Audit_Enabled master + Audit_Accounting/Audit_Security/Audit_KhachLink) + `FeatureFlagApiClient` updated. Hybrid async persist EXPANDED: `AuditLogQueue` (bounded 1000, DropOldest) + `AuditLogBackgroundWriter` (BackgroundService flush 5s/100) + `AuditTrailService` toggle gate + `PersistAsync` (Accounting SYNC / Security+KhachLink ASYNC) + `Log*Async` return `Task<AuditLog?>` + `LogSecurityEventAsync` (structured IP+UA). Security at source: `KhachLinkInstanceService.UpdateAsync` audit log + `PlatformUserLoginService` failed login (3 paths) + Gateway `OnRejected` rate limit. UI: `AuditTrail.razor` 5 summary cards + severity column/filter + new dropdowns + `KhachLinkInstanceAudit.razor` (NEW) + link from `KhachLinkInstances.razor` + `ValcnFeatures.razor` auto-appear. SW bump: `vananTriggerSWUpdate()` + `KhachLinkLayout` call. Tests: `AuditToggleAndQueueTests` 12/12 PASS + `profile-transition.spec.ts` Sprint 3 E2E + 2 test files updated for new ctor params. Build 0 errors · Guard PASSED. **Pending:** push → PR → merge → CD → RV Layer 1-5. See Section 2.
 - **KhachLink Profile Transition UX Sprint 2 (Transition Messaging):** ✅ CODE COMPLETE + PUSHED + RV PASS on `main` @ `61e4d4d4` (2026-09-09). 3 UI features, no migration: P2.1 What's New banner (WhatsNewBanner.razor — direction-specific message + dismiss + auto-hide 10s) · P3.2 cart preservation modal (CartPreservationModal.razor — VanAnModal + VanAnButton, FullCommerce→Directory + cart has items) · P3.1 onboarding tour (OnboardingTour.razor + onboarding-tour.js + driver.js v1.3.1 vendored, 3-step tour cart→rewards→stores, viewport-aware, 1× per profile). Supporting: ProfileChangeDirection enum (6 directions + None + Other) · UpdatedAt added to client model + ByDomainResponse (cache key `_v2`→`_v3`) · nav element IDs (#nav-cart, #nav-rewards, #nav-stores, #nav-stores-mobile). 8 new + 6 modified (14 total, 1611 insertions). Build 0 errors · CI 1489+17+41+276 ALL PASS · CD deployed. **RV Layer 1:** API returns updatedAt (diemthuong2=FullCommerce @ 2026-08-21, timlathay=Directory @ 2026-08-19) ✅. **RV Layer 2:** driver.min.js (20324B IIFE) + driver.min.css (3939B) + onboarding-tour.js (2394B) all 200 + content verified on diemthuong2 ✅. **RV Layer 3:** 6/6 Sprint 2 E2E tests PASS (34.2s) ✅. **RV Layer 4:** 5/6 flows PASS (banner shows "nâng cấp" ✅, dismiss+localStorage ✅, nav IDs ✅, first visit no banner ✅, same profile no banner ✅; cart modal on SSR = known limitation — needs WASM + actual profile change). **RV Layer 5:** edge cases PASS ✅. **RV Gaps (manual RV):** P3.2 cart modal (admin change FullCommerce→Directory on diemthuong2) · P3.1 tour (admin change Directory→FullCommerce) · direction-specific messages. See Section 2.
 - **KhachLink Profile Transition UX Sprint 1 (Guardrail + Foundation):** ✅ CODE COMPLETE + PUSHED + RV LAYER 1+3 PASS on `main` @ `cbeff2a3` (2026-09-08). 4 UI-only changes, no migration: P1.1 confirm dialog + impact preview (KhachLinkInstances.razor) · P2.2 profile indicator footer (KhachLinkLayout.razor) · P2.3 route guard (ProfileGuard.razor NEW wraps 7 commerce pages) · P4.1 Reseller badge global (moved Home→Layout). 11 files modified + 3 new (ProfileGuard.razor, profile-toast.js, profile-transition.spec.ts 9 tests). Build 0 errors · CI 1489+17+41+276 ALL PASS. **RV Layer 1:** diemthuong2.khachvip.online HTTP 200 (1.2s) + profile-toast.js live ✅ · timlathay.com HTTP 200 (0.19s, no regression, Directory SSR) ✅ · Gateway API returns diemthuong2=FullCommerce (all nav flags true) + timlathay=Directory (most flags false) ✅. **RV Layer 3:** Playwright 2/2 PASS on diemthuong2 (FullCommerce: footer indicator hidden ✅, /cart renders normally ✅). **RV Gaps (can't test on production):** P2.2 indicator visible + P2.3 route guard redirect need Directory-profile KhachLink WASM domain (timlathay.com uses Directory SSR, not WASM) · P4.1 Reseller badge needs customer login + Reseller profile · P1.1 confirm dialog needs SystemAdmin auth (manual RV). See Section 2.
@@ -98,6 +186,28 @@
 ---
 
 ## 4. Next Actions
+
+**Charity Product Checkout Flow (🔄 IN PROGRESS — session 2026-09-14, 3 sub-tasks pending):**
+- ✅ A. ProductType enum (Paid/Free/Charity) — DEPLOYED + RV PASS (commits `5212d7c0` + `a706b7f9`)
+- ✅ B. Product/service search — DEPLOYED + RV PASS (commit `300e6e35`)
+- 🔄 C. Charity checkout flow — 3 sub-tasks pending:
+  - **C1: Debug charity checkout failure**
+    - Admin must first set `cơm chay thập cẩm` ProductType = Charity in `/admin/featured-products` (currently still Paid default)
+    - Then test checkout — trace where failure occurs: Tier 0/Tier 1 in `PublicOrdersController`, `OrderService.CreateOrderFromCommandAsync`, or `Order` domain validation
+    - Possible root causes: `Order.TotalAmount = 0` rejected, `OrderItem.UnitPrice = 0` rejected, payment method requires Amount > 0
+  - **C2: Skip payment step for Free/Charity products**
+    - When ALL cart items are `IsFree=true` → hide payment method selector (cash/transfer)
+    - Set `selectedPaymentMethod = "free"` (or null) for free orders
+    - If cart has MIXED (some paid + some free) → keep payment selector for paid portion
+    - Files: `Checkout.razor` lines 163-182 (payment selector), `CheckoutFlowState.cs`
+  - **C3: Charity = "quyên góp từ thiện" step with sysadmin toggle**
+    - For Charity products (ProductType=Charity, NOT Free), replace payment step with "quyên góp từ thiện" step
+    - Sysadmin toggle on/off (per-tenant flag in `ShopFeatureSettings`: `Charity_Donation_Enabled`)
+    - When toggle OFF: charity products checkout as normal free products (no donation step)
+    - When toggle ON: charity products show "Quyên góp từ thiện" CTA instead of payment method
+    - Files: `Checkout.razor`, `CheckoutFlowState.cs`, `PublicOrdersController.cs`, `OrderService.cs`, `ShopFeatureSettings.cs`, `ValcnFeatures.razor`, `TenantStoreController.cs`
+- Branch: `main` @ `a706b7f9` (last deployed commit)
+- Build: 0 errors (Gateway + KhachLink + ShopERP + Directory all build clean)
 
 **KhachLink Profile Transition UX (✅ Sprint 1 + Sprint 2 COMPLETE + PUSHED + RV PASS — Sprint 3 CODE COMPLETE, pending push/PR/RV):**
 - Task card: `docs/AI/tasks/khachlink_profile_transition_ux/task_card_sprint1_guardrail_foundation.md` (3 sprints × 4 mảnh; master plan: `docs/AI/tasks/khachlink_profile_transition_ux/master_plan.md`)
@@ -250,6 +360,7 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md`.
 
+* **2026-09-14 — CHARITY PRODUCT CHECKOUT FLOW (ProductType enum + Product search) DEPLOYED + RV PASS (commits `5212d7c0` + `a706b7f9` + `300e6e35` on `main`).** User reported Issue #173 (checkout 400 BadRequest with UnitPrice=0) — root cause: FeaturedProduct "cơm chay thập cẩm" had DisplayPrice=0 (charity product), Tier 0 guard rejected UnitPrice=0. Solution: ProductType enum (Paid/Free/Charity) on FeaturedProduct. **A. ProductType enum:** Domain `FeaturedProductType` enum (Paid=0, Free=1, Charity=2) + `ProductType` property on `FeaturedProduct` (constructor + UpdateDisplayInfo accept productType, Paid requires DisplayPrice > 0). EF migration `20260914060425_AddFeaturedProductType` (int column, default 0=Paid). Gateway `PublicOrdersController`: Tier 0 bypass `UnitPrice > 0` for `IsFree` items (still reject < 0); Tier 1 cross-check `client.IsFree` vs `PG.ProductType` (anti-spoof — client cannot claim IsFree for Paid product). `CheckoutOrderItem.IsFree` + `OrderItemRequest.IsFree` propagated. KhachLink: `ProductDto.ProductType` + `CartItem.IsFree` + `Home.razor` "Miễn phí" badge + `Cart.razor` badge + `Checkout.razor` sends `IsFree`. ShopERP admin `FeaturedProducts.razor`: ProductType dropdown + table badge + validation. **B. Product/service search (open-closed):** Gateway NEW endpoint `GET /api/catalog/search?q=&page=&pageSize=` — search FeaturedProducts by DisplayName (ILIKE contains + token fallback). KhachLink: `CatalogHttpService.SearchProductsAsync` + NEW page `/products` (`ProductSearchResults.razor`) + Home.razor tab toggle "Tìm cửa hàng" | "Tìm sản phẩm". Directory: same tab toggle + product search results. Existing `/api/tenants/search` UNCHANGED. **C. RV:** Layer 1 API 200 ✅ · Layer 2 WASM contains new strings ✅ · Layer 3 Playwright tab toggle + search + product cards + no console errors ✅. **Bug found via RV + fixed:** `JsonStringEnumConverter` missing in `CatalogHttpService` (Gateway returns enum as string, WASM expected number) — fix commit `a706b7f9`. **Pending (sub-tasks C1-C3):** debug charity checkout failure, skip payment step for Free/Charity, "quyên góp từ thiện" step with sysadmin toggle. See Section 2.
 * **2026-09-09 — KHACHLINK PROFILE TRANSITION UX SPRINT 3 (AUDIT + SW + TOGGLE + HYBRID ASYNC) CODE COMPLETE (commit `d29e621b` on `feature/khachlink-sprint3-audit-sw`).** 19 files, no migration, Domain additive only. **Domain:** `AuditableEntityType` +12 KhachLinkInstance, +13 SecurityEvent; `AuditActionType` +12 SecurityAlert, +13 FailedLogin, +14 SuspiciousActivity, +15 RateLimitHit; `AuditLog.ForSecurityEvent` factory (EntityId=Guid.Empty sentinel). **Audit toggle EXPANDED:** `IFeatureFlagService.IsEnabledAsync` optional `defaultWhenMissing` (backward compatible — VALCN keep false, audit pass true); `FeatureFlagService.KnownFeatures` +Default + 4 audit flags (Audit_Enabled master + Audit_Accounting/Audit_Security/Audit_KhachLink, all default ON); `FeatureFlagApiClient` updated. **Hybrid async persist EXPANDED:** `AuditLogQueue` (bounded Channel<AuditLog>, cap 1000, DropOldest) + `AuditLogBackgroundWriter` (BackgroundService flush 5s/100, graceful shutdown) + `AuditTrailService` toggle gate + `PersistAsync` (Accounting SYNC / Security+KhachLink ASYNC) + `Log*Async` return `Task<AuditLog?>` + `LogSecurityEventAsync` (structured IP+UA). **Security at source:** `KhachLinkInstanceService.UpdateAsync` audit log (best-effort) + `PlatformUserLoginService` failed login 3 paths + Gateway `OnRejected` rate limit. **UI:** `AuditTrail.razor` 5 summary cards + severity column/filter + new dropdowns + `KhachLinkInstanceAudit.razor` NEW + link from `KhachLinkInstances.razor` + `ValcnFeatures.razor` auto-appear. **SW bump P5.1:** `vananTriggerSWUpdate()` + `KhachLinkLayout` call. **DI:** Gateway + ShopERP + CoreHub host register Queue + Writer. **Tests:** `AuditToggleAndQueueTests` 12/12 PASS + `profile-transition.spec.ts` Sprint 3 E2E + 2 test files updated for new ctor params. Files: 20 modified + 3 new (23 total, 1442 insertions). Build: 0 errors · Unit: 12/12 PASS · GUARD v6.0 PASSED. **Pending:** push → PR → merge → CD → RV Layer 1-5.
 * **2026-09-09 — KHACHLINK PROFILE TRANSITION UX SPRINT 2 (TRANSITION MESSAGING) COMPLETE + PUSHED + RV PASS (commit `61e4d4d4` on `main`).** 3 UI features, no migration, no Domain changes: (1) **P2.1 What's New banner** — `WhatsNewBanner.razor` NEW (Components/Shared) — direction-specific message (Directory→FullCommerce="🎉 nâng cấp", FullCommerce→Directory="ℹ️ danh bạ", Directory→Reseller="🎉 mở bán", Reseller→FullCommerce="ℹ️ bán trực tiếp", Other="ℹ️ cập nhật") + dismiss button (sets `whats_new_dismissed` localStorage) + auto-hide 10s; detection in `KhachLinkLayout.OnInitializedAsync` — compares `instanceConfig.UpdatedAt` vs localStorage `last_seen_profile_at`; first visit = no banner; `ProfileChangeDirectionHelper.Compute(oldProfile, newProfile)` returns enum. (2) **P3.2 Cart preservation modal** — `CartPreservationModal.razor` NEW (Components/Shared) — VanAnModal + VanAnButton (UI Platform, verified API: `IsOpen`/`Title`/`OnClose`/`ChildContent`/`Footer`); triggers on FullCommerce→Directory + cart has items; "Giỏ hàng của bạn (N sản phẩm) vẫn được lưu. Do cửa hàng đã chuyển sang chế độ danh bạ, bạn không thể đặt hàng qua app."; cart count from `CartService.GetCartState()` (Scoped) + localStorage `vanan_cart` fallback. (3) **P3.1 Onboarding tour** — `OnboardingTour.razor` NEW + `onboarding-tour.js` NEW + driver.js v1.3.1 vendored (IIFE `window.driver.js.driver({...}).drive()`, ~24KB); 3-step tour cart→rewards→stores; viewport-aware; 1× per profile via localStorage flag; 500ms delay; triggers on Directory→FullCommerce/Reseller. Supporting: `ProfileChangeDirection.cs` NEW (enum 6 directions + None + Other) · `UpdatedAt` added to client model + DTO (cache key `_v2`→`_v3`) · nav IDs `#nav-cart`/`#nav-rewards`/`#nav-stores`/`#nav-stores-mobile`. Files: 8 new + 6 modified (14 total, 1611 insertions). Build: 0 errors · CI: 1489+17+41+276 ALL PASS · GUARD v6.0 PASS · CD deployed. **RV:** Layer 1 PASS (API updatedAt) · Layer 2 PASS (driver.js + onboarding-tour.js + CSS served, content verified) · Layer 3 PASS (6/6 Sprint 2 E2E, 34.2s) · Layer 4 5/6 PASS (cart modal on SSR = known limitation — JS interop not available in OnInitializedAsync during prerendering; needs WASM + actual profile change) · Layer 5 PASS (edge cases). **RV Gaps (manual):** P3.2 cart modal (admin change FullCommerce→Directory on diemthuong2) · P3.1 tour (admin change Directory→FullCommerce) · direction-specific messages. Branch: `main` @ `61e4d4d4`.
 
