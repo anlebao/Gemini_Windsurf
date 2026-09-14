@@ -49,6 +49,15 @@
             <p class="text-muted mb-0">Tìm theo tên, sản phẩm, hoặc vị trí — có hỗ trợ tìm bằng giọng nói</p>
         </div>
         <div class="home-search-box-wrapper">
+            <!-- Tab toggle: Tìm cửa hàng | Tìm sản phẩm (open-closed: existing store search kept as-is, product search is new) -->
+            <div class="home-search-tabs mb-2">
+                <button type="button" class="btn btn-sm @(_searchMode == "store" ? "btn-primary" : "btn-outline-primary")" @onclick="@(() => SetSearchMode("store"))">
+                    <i class="bi bi-shop"></i> Tìm cửa hàng
+                </button>
+                <button type="button" class="btn btn-sm @(_searchMode == "product" ? "btn-primary" : "btn-outline-primary") ms-1" @onclick="@(() => SetSearchMode("product"))">
+                    <i class="bi bi-bag"></i> Tìm sản phẩm
+                </button>
+            </div>
             <div class="input-group input-group-lg home-search-box">
                 <span class="input-group-text bg-white border-end-0">
                     <i class="bi bi-search text-primary"></i>
@@ -57,8 +66,8 @@
                        id="home-search-input"
                        @bind="_homeSearchKeyword"
                        @onkeyup="OnHomeSearchKeyUp"
-                       placeholder="Tìm theo tên cửa hàng, sản phẩm, dịch vụ..."
-                       aria-label="Tìm cửa hàng" />
+                       placeholder="@(_searchMode == "product" ? "Tìm theo tên sản phẩm, dịch vụ..." : "Tìm theo tên cửa hàng, sản phẩm, dịch vụ...")"
+                       aria-label="@(_searchMode == "product" ? "Tìm sản phẩm" : "Tìm cửa hàng")" />
                 @if (_homeVoiceEnabled && _homeSpeechSupported)
                 {
                     <button type="button"
@@ -448,6 +457,10 @@
 
     // Issue #142: Home voice search box — Google Maps style
     private string _homeSearchKeyword = "";
+
+    /// <summary>Search mode tab toggle: "store" (default, existing) | "product" (new).
+    /// Open-closed: existing store search behavior unchanged when mode="store".</summary>
+    private string _searchMode = "store";
     private bool _homeVoiceEnabled = false;
     private bool _homeSpeechSupported = false;
     private bool _homeVoiceRecording = false;
@@ -558,12 +571,21 @@
         }
     }
 
-    /// <summary>Issue #142: Submit home search → navigate to /stores?q=keyword</summary>
+    /// <summary>Issue #142: Submit home search → navigate to /stores?q=keyword (store search)
+    /// or /products?q=keyword (product search) based on _searchMode toggle.</summary>
     private void SubmitHomeSearch()
     {
         var keyword = _homeSearchKeyword?.Trim() ?? "";
-        var url = string.IsNullOrWhiteSpace(keyword) ? "/stores" : $"/stores?q={Uri.EscapeDataString(keyword)}";
+        var baseRoute = _searchMode == "product" ? "/products" : "/stores";
+        var url = string.IsNullOrWhiteSpace(keyword) ? baseRoute : $"{baseRoute}?q={Uri.EscapeDataString(keyword)}";
         Navigation.NavigateTo(url);
+    }
+
+    /// <summary>Toggle search mode between "store" (default, existing) and "product" (new).
+    /// Open-closed: does NOT change existing store search behavior — only adds product search path.</summary>
+    private void SetSearchMode(string mode)
+    {
+        _searchMode = mode == "product" ? "product" : "store";
     }
 
     /// <summary>Issue #142: Enter key on home search input → submit</summary>

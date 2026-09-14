@@ -133,6 +133,140 @@ namespace VanAn.Gateway.Controllers
                 PageSize = pageSize
             });
         }
+
+        /// <summary>
+        /// Search FeaturedProducts by keyword (DisplayName ILIKE contains).
+        /// Returns product-level results (not tenant-level) — for KhachLink/Directory product search UI.
+        /// Open-closed: does NOT modify /api/tenants/search (tenant search kept as-is).
+        /// Anonymous — public endpoint.
+        /// </summary>
+        [HttpGet("search")]
+        [AllowAnonymous]
+        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, VaryByQueryKeys = new[] { "q", "page", "pageSize" })]
+        public async Task<ActionResult<RecommendedCatalogResponse>> Search(
+            [FromQuery] string? q,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            CancellationToken ct = default)
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1 || pageSize > 100) pageSize = 20;
+
+            var baseQuery = _dbContext.FeaturedProducts
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .Where(f => f.IsActive);
+
+            List<RecommendedProductDto> results;
+            int totalCount;
+
+            if (string.IsNullOrWhiteSpace(q))
+            {
+                // No keyword — return all active featured products (Take pageSize)
+                var all = await baseQuery
+                    .OrderBy(f => f.SortOrder).ThenBy(f => f.DisplayName)
+                    .Select(f => new RecommendedProductDto
+                    {
+                        ProductId = f.ProductId,
+                        TenantId = f.TenantId.Value,
+                        DisplayName = f.DisplayName,
+                        DisplayPrice = f.DisplayPrice,
+                        VatRate = f.VatRate,
+                        ImageUrl = f.ImageUrl,
+                        Description = f.DisplayDescription,
+                        ProductType = f.ProductType,
+                        Source = "Featured",
+                        LastOrderedAt = (DateTime?)null
+                    })
+                    .ToListAsync(ct);
+                results = all;
+                totalCount = all.Count;
+            }
+            else
+            {
+                var keyword = q.Trim();
+                // Level 1: ILIKE contains on DisplayName
+                var matched = await baseQuery
+                    .Where(f => EF.Functions.ILike(f.DisplayName, $"%{keyword}%"))
+                    .OrderBy(f => f.SortOrder).ThenBy(f => f.DisplayName)
+                    .Select(f => new RecommendedProductDto
+                    {
+                        ProductId = f.ProductId,
+                        TenantId = f.TenantId.Value,
+                        DisplayName = f.DisplayName,
+                        DisplayPrice = f.DisplayPrice,
+                        VatRate = f.VatRate,
+                        ImageUrl = f.ImageUrl,
+                        Description = f.DisplayDescription,
+                        ProductType = f.ProductType,
+                        Source = "Featured",
+                        LastOrderedAt = (DateTime?)null
+                    })
+                    .ToListAsync(ct);
+
+                // Level 2: token-split if no contains match
+                if (matched.Count == 0)
+                {
+                    var tokens = keyword.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    if (tokens.Length > 1)
+                    {
+                        matched = await baseQuery
+                            .Where(f => tokens.Any(tok => EF.Functions.ILike(f.DisplayName, $"%{tok}%")))
+                            .OrderBy(f => f.SortOrder).ThenBy(f => f.DisplayName)
+                            .Select(f => new RecommendedProductDto
+                            {
+                                ProductId = f.ProductId,
+                                TenantId = f.TenantId.Value,
+                                DisplayName = f.DisplayName,
+                                DisplayPrice = f.DisplayPrice,
+                                VatRate = f.VatRate,
+                                ImageUrl = f.ImageUrl,
+                                Description = f.DisplayDescription,
+                                ProductType = f.ProductType,
+                                Source = "Featured",
+                                LastOrderedAt = (DateTime?)null
+                            })
+                            .ToListAsync(ct);
+                    }
+                }
+
+                results = matched;
+                totalCount = matched.Count;
+            }
+
+            // Resolve TenantName (single batch query)
+            var tenantIds = results.Select(r => r.TenantId).Where(t => t != Guid.Empty).Distinct().ToHashSet();
+            if (tenantIds.Count > 0)
+            {
+                var tenantIdValues = tenantIds.Select(id => new TenantId(id)).ToHashSet();
+                var tenantNames = await _dbContext.Tenants
+                    .AsNoTracking()
+                    .IgnoreQueryFilters()
+                    .Where(t => tenantIdValues.Contains(t.Id))
+                    .Select(t => new { t.Id, t.Name })
+                    .ToDictionaryAsync(t => t.Id, t => t.Name, ct);
+                foreach (var r in results)
+                {
+                    if (tenantNames.TryGetValue(new TenantId(r.TenantId), out var name))
+                        r.TenantName = name ?? string.Empty;
+                }
+            }
+
+            var paged = results
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            _logger.LogDebug("Catalog search '{Query}': {Total} total, {Paged} returned", q, totalCount, paged.Count);
+
+            return Ok(new RecommendedCatalogResponse
+            {
+                Products = paged,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
+            });
+        }
     }
 
     public record RecommendedProductDto

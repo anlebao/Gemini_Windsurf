@@ -68,4 +68,56 @@ public class CatalogService
             return [];
         }
     }
+
+    /// <summary>Search FeaturedProducts by keyword (DisplayName ILIKE contains + token fallback).
+    /// Open-closed: new method — does NOT modify SearchStoresAsync.
+    /// Calls GET /api/catalog/search?q=&page=&pageSize=.</summary>
+    public async Task<ProductSearchResultDto> SearchProductsAsync(string? keyword, int page = 1, int pageSize = 20)
+    {
+        var query = "api/catalog/search?";
+        if (!string.IsNullOrWhiteSpace(keyword))
+            query += $"q={Uri.EscapeDataString(keyword)}&";
+        query += $"page={page}&pageSize={pageSize}";
+        query = query.TrimEnd('&', '?');
+
+        try
+        {
+            var resp = await _httpClient.GetAsync(query);
+            if (!resp.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("SearchProductsAsync: {Status}", resp.StatusCode);
+                return new ProductSearchResultDto();
+            }
+            return await resp.Content.ReadFromJsonAsync<ProductSearchResultDto>(_jsonOptions)
+                ?? new ProductSearchResultDto();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SearchProductsAsync: error");
+            return new ProductSearchResultDto();
+        }
+    }
+}
+
+/// <summary>Product search result — mirrors Gateway RecommendedCatalogResponse.</summary>
+public class ProductSearchResultDto
+{
+    public List<ProductSearchItem> Products { get; set; } = new();
+    public int TotalCount { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+}
+
+/// <summary>Single product search result item — mirrors Gateway RecommendedProductDto.</summary>
+public class ProductSearchItem
+{
+    public Guid ProductId { get; set; }
+    public Guid TenantId { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
+    public decimal DisplayPrice { get; set; }
+    public decimal VatRate { get; set; } = 0.10m;
+    public string? ImageUrl { get; set; }
+    public string? Description { get; set; }
+    public string Source { get; set; } = "Featured";
+    public string TenantName { get; set; } = string.Empty;
 }

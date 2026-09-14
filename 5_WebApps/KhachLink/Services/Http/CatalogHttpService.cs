@@ -30,5 +30,25 @@ namespace VanAn.KhachLink.Services.Http
                 return null;
             }
         }
+
+        /// <summary>Search FeaturedProducts by keyword (DisplayName ILIKE contains + token fallback).
+        /// Open-closed: new method — does NOT modify GetRecommendedAsync.
+        /// Anonymous-safe — calls GET /api/catalog/search?q=&page=&pageSize=.</summary>
+        public async Task<RecommendedCatalogResponse?> SearchProductsAsync(string? keyword, int page = 1, int pageSize = 20)
+        {
+            try
+            {
+                string url = $"api/catalog/search?page={page}&pageSize={pageSize}";
+                if (!string.IsNullOrWhiteSpace(keyword))
+                    url += $"&q={Uri.EscapeDataString(keyword.Trim())}";
+
+                return await _httpClient.GetFromJsonAsync<RecommendedCatalogResponse>(url);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error searching products by keyword '{Keyword}'", keyword);
+                return null;
+            }
+        }
     }
 }

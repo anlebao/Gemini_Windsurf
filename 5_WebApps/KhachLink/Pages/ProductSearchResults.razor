@@ -1,0 +1,200 @@
+@page "/products"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Components.Shared
+@using VanAn.KhachLink.Services.Http
+@using VanAn.KhachLink.Models
+@inject CatalogHttpService CatalogHttp
+@inject CartService CartService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Tìm sản phẩm</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width:900px;">
+        <h3 class="mb-3">
+            <i class="bi bi-bag-search text-primary"></i> Tìm sản phẩm / dịch vụ
+        </h3>
+
+        <!-- Search box -->
+        <VanAnCard CssClass="mb-3 p-3">
+            <div class="input-group input-group-lg">
+                <span class="input-group-text bg-white border-end-0">
+                    <i class="bi bi-search text-primary"></i>
+                </span>
+                <input type="text" class="form-control border-start-0 border-end-0"
+                       @bind="_keyword"
+                       @onkeyup="OnSearchKeyUp"
+                       placeholder="Nhập tên sản phẩm, dịch vụ..."
+                       aria-label="Tìm sản phẩm" />
+                <button type="button" class="btn btn-primary" @onclick="Search">
+                    <i class="bi bi-arrow-right"></i>
+                </button>
+            </div>
+            <div class="mt-2 d-flex gap-2">
+                <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small" OnClick="GoToStoreSearch">
+                    <i class="bi bi-shop me-1"></i> Tìm theo tên cửa hàng
+                </VanAnButton>
+            </div>
+        </VanAnCard>
+
+        @if (_loading)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Đang tải...</span></div>
+                <p class="mt-2 text-muted">Đang tìm sản phẩm...</p>
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <VanAnAlert Variant="AlertVariant.Info" Message="@_errorMessage" />
+        }
+        else if (_hasSearched && _products.Count == 0)
+        {
+            <VanAnCard CssClass="text-center p-5">
+                <i class="bi bi-inbox text-muted" style="font-size:3rem;"></i>
+                <p class="mt-3 text-muted">Không tìm thấy sản phẩm nào phù hợp với "@_keyword".</p>
+                <VanAnButton Variant="ButtonVariant.Outline" OnClick="GoToStoreSearch">
+                    <i class="bi bi-shop me-1"></i> Thử tìm theo tên cửa hàng
+                </VanAnButton>
+            </VanAnCard>
+        }
+        else if (_products.Count > 0)
+        {
+            <p class="text-muted small mb-3">@_products.Count sản phẩm phù hợp với "@_keyword"</p>
+            <div class="row g-3">
+                @foreach (var product in _products)
+                {
+                    <div class="col-md-4 mb-3">
+                        <VanAnCard Shadow="true" CssClass="product-card h-100">
+                            <div class="product-image">
+                                <img src="@(string.IsNullOrEmpty(product.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(product.DisplayName)}" : product.ImageUrl)"
+                                     class="card-img-top"
+                                     alt="@product.DisplayName"
+                                     style="height: 180px; object-fit: cover;" />
+                            </div>
+                            <div class="product-info p-2">
+                                <h6 class="mb-1">@product.DisplayName</h6>
+                                @if (!string.IsNullOrEmpty(product.TenantName))
+                                {
+                                    <p class="text-muted small mb-1"><i class="bi bi-shop"></i> @product.TenantName</p>
+                                }
+                                @if (!string.IsNullOrEmpty(product.Description))
+                                {
+                                    <p class="text-muted small mb-2">@product.Description</p>
+                                }
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    @if (product.IsFree)
+                                    {
+                                        <span class="badge bg-success">Miễn phí</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-primary fw-bold">@CurrencyHelper.FormatVND(product.DisplayPrice)</span>
+                                    }
+                                    <VanAnButton Size="ButtonSize.Small" Icon="cart-plus" OnClick="@(() => AddToCart(product))">
+                                        Mua
+                                    </VanAnButton>
+                                </div>
+                            </div>
+                        </VanAnCard>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <VanAnCard CssClass="text-center p-5">
+                <i class="bi bi-bag text-muted" style="font-size:3rem;"></i>
+                <p class="mt-3 text-muted">Nhập từ khóa để tìm sản phẩm, dịch vụ từ các cửa hàng.</p>
+            </VanAnCard>
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    private string _keyword = "";
+    private bool _loading = false;
+    private bool _hasSearched = false;
+    private string _errorMessage = "";
+    private List<RecommendedCatalogItem> _products = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Read keyword from query string (?q=...)
+            var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+            if (System.Web.HttpUtility.ParseQueryString(uri.Query).Get("q") is { } q && !string.IsNullOrWhiteSpace(q))
+            {
+                _keyword = q;
+                await Search();
+            }
+        }
+    }
+
+    private async Task Search()
+    {
+        var keyword = _keyword?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(keyword))
+        {
+            _products = new();
+            _hasSearched = false;
+            return;
+        }
+
+        _loading = true;
+        _hasSearched = true;
+        _errorMessage = "";
+        StateHasChanged();
+
+        try
+        {
+            var result = await CatalogHttp.SearchProductsAsync(keyword);
+            _products = result?.Products ?? new();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Lỗi tìm kiếm: {ex.Message}";
+            _products = new();
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await Search();
+    }
+
+    private async Task AddToCart(RecommendedCatalogItem item)
+    {
+        var product = new ProductDto
+        {
+            ProductId = item.ProductId,
+            TenantId = item.TenantId,
+            Name = item.DisplayName,
+            Description = item.Description ?? string.Empty,
+            Price = item.DisplayPrice,
+            VatRate = item.VatRate,
+            ImageUrl = item.ImageUrl,
+            TenantName = item.TenantName ?? string.Empty,
+            IsActive = true,
+            ProductType = item.ProductType
+        };
+        await CartService.AddItemAsync(product, 1);
+        await JSRuntime.InvokeVoidAsync("eval", $"alert('Đã thêm {item.DisplayName} vào giỏ hàng!')");
+    }
+
+    private void GoToStoreSearch()
+    {
+        var keyword = _keyword?.Trim() ?? "";
+        var url = string.IsNullOrWhiteSpace(keyword) ? "/stores" : $"/stores?q={Uri.EscapeDataString(keyword)}";
+        Navigation.NavigateTo(url);
+    }
+}

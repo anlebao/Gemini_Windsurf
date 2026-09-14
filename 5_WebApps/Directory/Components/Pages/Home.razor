@@ -19,6 +19,15 @@
 
         <!-- Search box -->
         <VanAnCard CssClass="mb-4 py-4">
+            <!-- Tab toggle: Tìm cửa hàng | Tìm sản phẩm (open-closed: existing store search kept, product search added) -->
+            <div class="mb-3">
+                <button type="button" class="btn btn-sm @(_searchMode == "store" ? "btn-primary" : "btn-outline-primary")" @onclick="@(() => SetSearchMode("store"))">
+                    <i class="bi bi-shop"></i> Tìm cửa hàng
+                </button>
+                <button type="button" class="btn btn-sm @(_searchMode == "product" ? "btn-primary" : "btn-outline-primary") ms-1" @onclick="@(() => SetSearchMode("product"))">
+                    <i class="bi bi-bag"></i> Tìm sản phẩm
+                </button>
+            </div>
             <div class="input-group input-group-lg">
                 <span class="input-group-text bg-white border-end-0">
                     <i class="bi bi-search text-primary"></i>
@@ -27,8 +36,8 @@
                        @bind="_searchKeyword"
                        @bind:event="oninput"
                        @onkeyup="OnSearchKeyUp"
-                       placeholder="Tìm theo tên cửa hàng, sản phẩm, dịch vụ..."
-                       aria-label="Tìm cửa hàng" />
+                       placeholder="@(_searchMode == "product" ? "Tìm theo tên sản phẩm, dịch vụ..." : "Tìm theo tên cửa hàng, sản phẩm, dịch vụ...")"
+                       aria-label="@(_searchMode == "product" ? "Tìm sản phẩm" : "Tìm cửa hàng")" />
                 @if (!string.IsNullOrWhiteSpace(_searchKeyword))
                 {
                     <button class="btn btn-outline-secondary" type="button" @onclick="ClearSearch">
@@ -79,6 +88,57 @@
         else if (!_hasSearched)
         {
             <!-- Initial state — no search performed yet, don't show any list -->
+        }
+        else if (_searchMode == "product" && _products.Count == 0)
+        {
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                <p class="mt-2">Không tìm thấy sản phẩm nào phù hợp với "@_searchKeyword".</p>
+            </div>
+        }
+        else if (_searchMode == "product")
+        {
+            <p class="text-muted small mb-3">@_products.Count sản phẩm phù hợp với "@_searchKeyword"</p>
+            <div class="row g-3">
+                @foreach (var product in _products)
+                {
+                    <div class="col-md-6 col-lg-4">
+                        <VanAnCard CssClass="h-100 product-card">
+                            <div class="d-flex align-items-start gap-3">
+                                @if (!string.IsNullOrEmpty(product.ImageUrl))
+                                {
+                                    <img src="@product.ImageUrl" alt="@product.DisplayName" style="width:60px;height:60px;object-fit:cover;border-radius:0.375rem;" />
+                                }
+                                else
+                                {
+                                    <i class="bi bi-bag text-primary" style="font-size: 2rem;"></i>
+                                }
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">@product.DisplayName</h6>
+                                    @if (!string.IsNullOrEmpty(product.TenantName))
+                                    {
+                                        <p class="small text-muted mb-1"><i class="bi bi-shop"></i> @product.TenantName</p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(product.Description))
+                                    {
+                                        <p class="small text-muted mb-1">@product.Description</p>
+                                    }
+                                    <p class="small text-primary fw-bold mb-0">
+                                        @if (product.DisplayPrice == 0)
+                                        {
+                                            <span class="badge bg-success">Miễn phí</span>
+                                        }
+                                        else
+                                        {
+                                            <span>@product.DisplayPrice.ToString("N0") VNĐ</span>
+                                        }
+                                    </p>
+                                </div>
+                            </div>
+                        </VanAnCard>
+                    </div>
+                }
+            </div>
         }
         else if (_stores.Count == 0)
         {
@@ -174,7 +234,9 @@
 
 @code {
     private string _searchKeyword = "";
+    private string _searchMode = "store"; // "store" (default, existing) | "product" (new)
     private List<TenantStoreDto> _stores = new();
+    private List<ProductSearchItem> _products = new();
     private List<string> _suggestedKeywords = new();
     private string _matchStrategy = "all";
     private bool _loading;
@@ -191,11 +253,37 @@
     {
         _loading = true;
         _hasSearched = true;
-        var result = await CatalogService.SearchStoresAsync(_searchKeyword);
-        _stores = result.Results;
-        _suggestedKeywords = result.SuggestedKeywords;
-        _matchStrategy = result.MatchStrategy;
+        if (_searchMode == "product")
+        {
+            // Product search — calls /api/catalog/search?q=
+            var result = await CatalogService.SearchProductsAsync(_searchKeyword);
+            _products = result?.Products ?? new();
+            _stores = new();
+            _suggestedKeywords = new();
+            _matchStrategy = "all";
+        }
+        else
+        {
+            // Store search — existing behavior (unchanged)
+            var result = await CatalogService.SearchStoresAsync(_searchKeyword);
+            _stores = result.Results;
+            _suggestedKeywords = result.SuggestedKeywords;
+            _matchStrategy = result.MatchStrategy;
+            _products = new();
+        }
         _loading = false;
+    }
+
+    /// <summary>Toggle search mode: "store" (default, existing) | "product" (new).
+    /// Open-closed: existing store search behavior unchanged when mode="store".</summary>
+    private void SetSearchMode(string mode)
+    {
+        _searchMode = mode == "product" ? "product" : "store";
+        // Clear results when switching mode — avoid showing stale results from other mode
+        _hasSearched = false;
+        _stores = new();
+        _products = new();
+        _suggestedKeywords = new();
     }
 
     /// <summary>Issue #166 comment: search with a suggested keyword (clicking "Did you mean...?").</summary>
