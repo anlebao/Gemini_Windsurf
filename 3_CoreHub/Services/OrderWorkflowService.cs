@@ -66,6 +66,24 @@ namespace VanAn.CoreHub.Services
 
         public async Task<Order?> TransitionStatusAsync(Guid orderId, OrderStatusId newStatus, string? reason = null)
         {
+            // C1 fix (2026-09-14): run the whole transition (load → validate → update → outbox → commit)
+            // inside the EF execution strategy. Gateway PG runs NpgsqlRetryingExecutionStrategy (Phase 1
+            // Scaling) which rejects user-initiated transactions outside CreateExecutionStrategy — this
+            // broke status transitions via Gateway (OrdersController/CommunityController) since 2026-08-22.
+            // ShopERP SQLite and unit-test mocks (IVanAnDbContext not a DbContext) run the core directly.
+            if (_dbContext != null)
+            {
+                Order? result = null;
+                await _dbContext.ExecuteAtomicAsync(
+                    async () => result = await TransitionStatusCoreAsync(orderId, newStatus, reason));
+                return result;
+            }
+
+            return await TransitionStatusCoreAsync(orderId, newStatus, reason);
+        }
+
+        private async Task<Order?> TransitionStatusCoreAsync(Guid orderId, OrderStatusId newStatus, string? reason = null)
+        {
             using IDbContextTransaction transaction = await _orderRepository.BeginTransactionAsync();
             try
             {

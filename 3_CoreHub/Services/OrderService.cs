@@ -883,9 +883,13 @@ namespace VanAn.CoreHub.Services
                 // Save order + Outbox event atomically (RC-1 fix: single transaction).
                 // Previously: AddAsync (SaveChangesAsync) then EnqueueAsync + SaveChangesAsync (2nd save).
                 // If 2nd save failed, order was committed but Outbox event was lost → sync never runs.
-                using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction =
-                    await _orderRepository.BeginTransactionAsync();
-
+                //
+                // C1 fix (2026-09-14): stage entities FIRST (change tracker only — idempotent, same
+                // instances re-saved if the strategy retries), then run BeginTransaction → SaveChanges →
+                // Commit as ONE retriable unit inside the EF execution strategy. Gateway PG runs
+                // NpgsqlRetryingExecutionStrategy (Phase 1 Scaling) which rejects user-initiated
+                // transactions outside CreateExecutionStrategy — this broke ALL Gateway checkouts
+                // from 2026-08-22 (last successful order 2026-08-21 14:41).
                 Order createdOrder = await _orderRepository.AddAsyncNoSave(order);
 
                 // Sync: Enqueue OrderCreated event to Outbox for NATS → ShopERP SQLite sync
@@ -949,11 +953,26 @@ namespace VanAn.CoreHub.Services
                 }
 
                 // Single SaveChangesAsync commits both order + outbox event atomically.
+                // C1 fix (2026-09-14): wrapped in the execution strategy — see comment above.
+                async Task CommitAtomicallyAsync()
+                {
+                    using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction =
+                        await _orderRepository.BeginTransactionAsync();
+                    if (_dbContext != null)
+                    {
+                        await _dbContext.SaveChangesAsync();
+                    }
+                    await transaction.CommitAsync();
+                }
+
                 if (_dbContext != null)
                 {
-                    await _dbContext.SaveChangesAsync();
+                    await _dbContext.ExecuteAtomicAsync(CommitAtomicallyAsync);
                 }
-                await transaction.CommitAsync();
+                else
+                {
+                    await CommitAtomicallyAsync();
+                }
 
                 _logger.LogInformation("Created order {OrderId} from Gateway command", createdOrder.Id);
 

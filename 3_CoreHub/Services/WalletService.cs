@@ -46,11 +46,17 @@ namespace VanAn.CoreHub.Services
             _logger.LogInformation("Creating WalletTransaction: Owner={OwnerId} Type={Type} Amount={Amount}",
                 ownerId, type, amount);
 
-            // HR-SCALE-3: atomic BalanceAfter — transaction ensures no concurrent writes
-            await using var tx = await _dbContext.BeginTransactionAsync();
-
-            try
+            // HR-SCALE-3: atomic BalanceAfter — transaction ensures no concurrent writes.
+            // C1 fix (2026-09-14): run inside the EF execution strategy — Gateway PG
+            // (NpgsqlRetryingExecutionStrategy, Phase 1 Scaling) rejects user-initiated
+            // transactions outside CreateExecutionStrategy.
+            WalletTransaction walletTx = null!;
+            await _dbContext.ExecuteAtomicAsync(async () =>
             {
+                await using var tx = await _dbContext.BeginTransactionAsync();
+
+                try
+                {
                 var isPostgres = _dbContext.ProviderName.Contains("PostgreSQL") ||
                                  _dbContext.ProviderName.Contains("Npgsql");
 
@@ -75,7 +81,7 @@ namespace VanAn.CoreHub.Services
                     balanceBefore = lastTx?.BalanceAfter ?? 0m;
                 }
 
-                var walletTx = new WalletTransaction(
+                walletTx = new WalletTransaction(
                     tenantId,
                     ownerId,
                     type,
@@ -91,8 +97,6 @@ namespace VanAn.CoreHub.Services
 
                 _logger.LogInformation("WalletTransaction created: Id={Id} BalanceAfter={BalanceAfter}",
                     walletTx.Id, walletTx.BalanceAfter);
-
-                return walletTx;
             }
             catch (Exception ex)
             {
@@ -100,6 +104,9 @@ namespace VanAn.CoreHub.Services
                 await tx.RollbackAsync();
                 throw;
             }
+            });
+
+            return walletTx;
         }
 
         /// <summary>
