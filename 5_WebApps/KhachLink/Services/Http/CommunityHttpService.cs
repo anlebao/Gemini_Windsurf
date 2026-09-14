@@ -234,11 +234,10 @@ public class CommunityHttpService(IHttpClientFactory httpClientFactory, ILogger<
     {
         try
         {
-            var client = _httpClientFactory.CreateClient("shoperp");
             var request = new HttpRequestMessage(HttpMethod.Get, "/api/customer-identity/me");
             request.Headers.Add("X-Customer-Token", customerToken);
 
-            var resp = await client.SendAsync(request);
+            var resp = await _httpClient.SendAsync(request);
             if (!resp.IsSuccessStatusCode) return null;
 
             var body = await resp.Content.ReadAsStringAsync();
