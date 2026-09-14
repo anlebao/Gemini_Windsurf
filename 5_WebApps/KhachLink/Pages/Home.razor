@@ -817,8 +817,8 @@
         await RecentlyViewedService.AddToRecentlyViewedAsync(product);
         recentlyViewed = await RecentlyViewedService.GetRecentlyViewedAsync();
 
-        // Show notification
-        await ShowNotification($"Đã thêm {product.Name} vào giỏ hàng!", "success");
+        // Show notification (vananShowCartToast delegates to shared vananShowToast)
+        await JSRuntime.InvokeVoidAsync("vananShowCartToast", $"Đã thêm {product.Name} vào giỏ hàng!");
     }
 
     /// <summary>
@@ -861,13 +861,7 @@
             await LoadLastTenantDataAsync();
         }
 
-        await ShowNotification($"Đã thêm {item.DisplayName} vào giỏ hàng!", "success");
-    }
-
-    private async Task ShowNotification(string message, string type)
-    {
-        // Simple notification - could be enhanced with a proper toast library
-        await Task.Delay(100);
+        await JSRuntime.InvokeVoidAsync("vananShowCartToast", $"Đã thêm {item.DisplayName} vào giỏ hàng!");
     }
 
     private void GoToCart()

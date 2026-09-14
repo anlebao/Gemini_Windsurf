@@ -66,10 +66,12 @@
             <div class="row g-3">
                 @foreach (var product in _products)
                 {
+                    var imgId = $"product-img-{product.ProductId:N}";
                     <div class="col-md-4 mb-3">
                         <VanAnCard Shadow="true" CssClass="product-card h-100">
                             <div class="product-image">
-                                <img src="@(string.IsNullOrEmpty(product.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(product.DisplayName)}" : product.ImageUrl)"
+                                <img id="@imgId"
+                                     src="@(string.IsNullOrEmpty(product.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(product.DisplayName)}" : product.ImageUrl)"
                                      class="card-img-top"
                                      alt="@product.DisplayName"
                                      style="height: 180px; object-fit: cover;" />
@@ -93,7 +95,7 @@
                                     {
                                         <span class="text-primary fw-bold">@CurrencyHelper.FormatVND(product.DisplayPrice)</span>
                                     }
-                                    <VanAnButton Size="ButtonSize.Small" Icon="cart-plus" OnClick="@(() => AddToCart(product))">
+                                    <VanAnButton Size="ButtonSize.Small" Icon="cart-plus" OnClick="@(() => AddToCart(product, imgId))">
                                         Mua
                                     </VanAnButton>
                                 </div>
@@ -172,8 +174,15 @@
             await Search();
     }
 
-    private async Task AddToCart(RecommendedCatalogItem item)
+    private async Task AddToCart(RecommendedCatalogItem item, string? imgElementId = null)
     {
+        // Fly-to-cart animation (same as Home.razor — vananFlyToCart in cart-animation.js)
+        if (!string.IsNullOrEmpty(imgElementId))
+        {
+            try { await JSRuntime.InvokeVoidAsync("vananFlyToCart", imgElementId); }
+            catch { /* ignore animation errors */ }
+        }
+
         var product = new ProductDto
         {
             ProductId = item.ProductId,
@@ -188,7 +197,9 @@
             ProductType = item.ProductType
         };
         await CartService.AddItemAsync(product, 1);
-        await JSRuntime.InvokeVoidAsync("eval", $"alert('Đã thêm {item.DisplayName} vào giỏ hàng!')");
+
+        // Toast notification (vananShowCartToast delegates to shared vananShowToast)
+        await JSRuntime.InvokeVoidAsync("vananShowCartToast", $"Đã thêm {item.DisplayName} vào giỏ hàng!");
     }
 
     private void GoToStoreSearch()

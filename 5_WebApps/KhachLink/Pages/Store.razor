@@ -13,6 +13,7 @@
 @inject ISocialCampaignService CampaignService
 @inject NavigationManager Navigation
 @inject ILogger<Store> Logger
+@inject IJSRuntime JSRuntime
 @inject VanAn.KhachLink.Services.CartService CartService
 
 <PageTitle>@(_store?.Name ?? "Cửa hàng") — KhachLink</PageTitle>
@@ -198,13 +199,6 @@ else
         <!-- ════════════════════════════════════════════════════════════════
              VIBE SHOWCASE — product gallery (display only, not for sale)
         ════════════════════════════════════════════════════════════════ -->
-        @if (_addedToCartFeedback)
-        {
-            <div class="cart-feedback-toast">
-                <i class="bi bi-check-circle-fill"></i> Đã thêm vào giỏ hàng!
-            </div>
-        }
-
         @if (_features.VibeShowcase_Section_Enabled)
         {
             <section class="store-section" id="products">
@@ -581,30 +575,6 @@ else
         .campaign-grid { grid-template-columns: 1fr; }
         .hero-meta { flex-direction: column; gap: 0.75rem; }
     }
-
-    /* ── CART FEEDBACK TOAST ─────────────────────────────────────────── */
-    .cart-feedback-toast {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 9999;
-        background: #10b981;
-        color: white;
-        padding: 0.75rem 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-        font-weight: 600;
-        font-size: 0.95rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        animation: slideInRight 0.3s ease-out;
-    }
-    .cart-feedback-toast i { font-size: 1.2rem; }
-    @@keyframes slideInRight {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
 </style>
 
 @code {
@@ -623,7 +593,6 @@ else
     private bool _campaignLoading = true;
     private VanAn.KhachLink.Services.CartState _cartState = null!;
     private bool _vatDisplayEnabled = true;
-    private bool _addedToCartFeedback = false;
 
     private string GetThemeClass() => _shopConfig?.ActiveTheme switch
     {
@@ -755,11 +724,9 @@ else
     private async Task AddToCart(ProductDto product)
     {
         await CartService.AddItemAsync(product, 1);
-        _addedToCartFeedback = true;
-        StateHasChanged();
-        await Task.Delay(1500);
-        _addedToCartFeedback = false;
-        StateHasChanged();
+        // Shared toast (vananShowCartToast delegates to vananShowToast — same as Home.razor + ProductSearchResults.razor)
+        try { await JSRuntime.InvokeVoidAsync("vananShowCartToast", $"Đã thêm {product.Name} vào giỏ hàng!"); }
+        catch { /* ignore JS errors during prerender */ }
     }
 
     private void AddToCartSync(ProductDto product) => _ = AddToCart(product);
