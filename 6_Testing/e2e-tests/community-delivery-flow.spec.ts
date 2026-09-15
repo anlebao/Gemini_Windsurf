@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { injectGpsMock } from './helpers/gps-mock';
 
 /**
  * CC-S2 (Sprint 2): Delivery Workflow + GPS Tracking E2E test.
@@ -62,6 +63,7 @@ test('CC-S2-5: location update API returns 401 without token', async ({ request 
 
 test('CC-S2-6: delivery tracking page loads (Blazor WASM)', async ({ browser }) => {
   const context = await browser.newContext({ baseURL: BASE_URL, ignoreHTTPSErrors: true });
+  await injectGpsMock(context);
   const page = await context.newPage();
   try {
     const fakeOrderId = '00000000-0000-0000-0000-000000000099';
@@ -79,6 +81,7 @@ test('CC-S2-6: delivery tracking page loads (Blazor WASM)', async ({ browser }) 
 
 test('CC-S2-7: customer order tracking page loads', async ({ browser }) => {
   const context = await browser.newContext({ baseURL: BASE_URL, ignoreHTTPSErrors: true });
+  await injectGpsMock(context);
   const page = await context.newPage();
   try {
     const fakeOrderId = '00000000-0000-0000-0000-000000000099';
@@ -95,6 +98,7 @@ test('CC-S2-7: customer order tracking page loads', async ({ browser }) => {
 
 test('CC-S2-8: regression — nearby orders page still works', async ({ browser }) => {
   const context = await browser.newContext({ baseURL: BASE_URL, ignoreHTTPSErrors: true });
+  await injectGpsMock(context);
   const page = await context.newPage();
   try {
     await page.goto(`${BASE_URL}/community/nearby-orders`);

@@ -1,11 +1,31 @@
 # Task Card #3: GPS Mock for Playwright RV — Test-Only Fix
 
-> **Status:** PLANNED (awaiting implementation approval)
+> **Status:** ✅ COMPLETE (session 2026-09-15) — GPS mock helper created + injected into 3 e2e specs
 > **Priority:** P3 — test tooling improvement, no production impact
 > **Created:** 2026-09-15
 > **Master plan:** `docs/AI/tasks/community_commerce_fixes/master_plan.md`
 > **Prerequisite:** None (independent of Issues #1, #2)
-> **Effort:** 0.5 ngày (~2h)
+> **Effort:** 0.5 ngày (~1h)
+
+## Implementation (2026-09-15)
+
+Created shared GPS mock helper at `6_Testing/e2e-tests/helpers/gps-mock.ts` with two functions:
+- `injectGpsMock(context)` — for `browser.newContext()` pattern (addInitScript on context)
+- `injectGpsMockPage(page)` — for default `page` fixture pattern (addInitScript on page)
+
+Mock returns ALL property name variants (`lat`/`Lat`/`Latitude`) because different Blazor pages deserialize to different C# types:
+- `GeoPosition { Lat, Lng }` — DeliveryTracking, OrderTracking, LocationTrackingService
+- `GpsPosition { Lat, Lng }` — NearbyProducts
+- `GeolocationResult { Latitude, Longitude }` — NearbyOrders, StoreFinder
+
+System.Text.Json case-insensitive maps `lat`→`Lat` but NOT `lat`→`Latitude` (different names). Returning all variants ensures every C# type gets populated.
+
+Injected GPS mock into 3 e2e specs (5 tests total):
+- `community-nearby-orders.spec.ts` — NearbyOrders page test
+- `community-delivery-flow.spec.ts` — DeliveryTracking + OrderTracking + NearbyOrders regression tests
+- `community-salesman.spec.ts` — NearbyProducts page test
+
+Playwright `--list` PASS: 217 tests in 3 files, no import/syntax errors.
 
 ## Problem
 

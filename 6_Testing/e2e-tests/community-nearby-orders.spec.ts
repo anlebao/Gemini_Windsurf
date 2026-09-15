@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { injectGpsMock } from './helpers/gps-mock';
 
 /**
  * CC-S1-T1/T2 (Sprint 1): Community Commerce — Nearby Orders + Accept E2E test.
@@ -16,6 +17,7 @@ const BASE_URL = 'https://khachvip.online';
 
 test('CC-S1-T1/T2: community nearby orders page loads + role check', async ({ browser }) => {
   const context = await browser.newContext({ baseURL: BASE_URL, ignoreHTTPSErrors: true });
+  await injectGpsMock(context);
   const page = await context.newPage();
 
   try {

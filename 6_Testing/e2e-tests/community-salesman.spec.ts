@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { injectGpsMockPage } from './helpers/gps-mock';
 
 /**
  * CC-S4 (Sprint 4): Salesman + Composite QR Referral E2E tests.
@@ -52,6 +53,7 @@ test.describe('CC-S4 Sprint 4 — Salesman + Composite QR Referral', () => {
   });
 
   test('RV4-8: KhachLink NearbyProducts page loads', async ({ page }) => {
+    await injectGpsMockPage(page);
     const resp = await page.goto(`${KHACHLINK}/community/nearby-products`);
     expect(resp?.status()).toBe(200);
   });
