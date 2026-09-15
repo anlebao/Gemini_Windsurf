@@ -4,25 +4,27 @@ namespace VanAn.CoreHub.Services;
 
 /// <summary>
 /// CC-S3 (Sprint 3): Chat service — Conversation + Message persistence for shipper ↔ customer chat.
-/// UC-07 (Chat). Chat only allowed when DeliveryTask exists (active or completed).
+/// UC-07 (Chat). Chat is available for DELIVERY orders as soon as the order has a CustomerId.
+/// Conversation is created with placeholder ShipperId=Guid.Empty if no DeliveryTask exists yet.
 /// </summary>
 public interface IChatService
 {
     /// <summary>
     /// Get or create a Conversation for the given order.
-    /// Creates if not exists — requires DeliveryTask to exist (active or completed).
+    /// Creates if not exists — requires Order to exist with CustomerId and OrderType=DELIVERY.
+    /// Uses ShipperId=Guid.Empty as placeholder if no DeliveryTask exists (before shipper accepts).
     /// </summary>
     Task<Conversation?> GetOrCreateConversationAsync(Guid orderId);
 
     /// <summary>
     /// Send a message in the conversation for the given order.
-    /// Verifies DeliveryTask exists + sender is ShipperId or CustomerId.
+    /// Creates conversation if not exists. Verifies sender is ShipperId or CustomerId.
     /// </summary>
     Task<Message?> SendMessageAsync(Guid orderId, Guid senderId, string content);
 
     /// <summary>
     /// Get chat history for the given order, sorted by SentAt ascending.
-    /// Verifies DeliveryTask exists.
+    /// Returns empty list if no conversation exists yet.
     /// </summary>
     Task<List<Message>> GetHistoryAsync(Guid orderId);
 

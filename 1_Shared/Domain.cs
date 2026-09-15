@@ -3961,6 +3961,29 @@ namespace VanAn.Shared.Domain
             ShipperId = shipperId;
             CustomerId = customerId;
         }
+
+        /// <summary>
+        /// CC-S3 fix: Update ShipperId when shipper accepts the order.
+        /// Conversation may be created with placeholder ShipperId=Guid.Empty
+        /// before a shipper accepts (customer can chat immediately after placing DELIVERY order).
+        /// Called by CommunityOrderService.AcceptOrderAsync.
+        /// Idempotent: if ShipperId already set to same value, no-op.
+        /// Throws if already assigned to a different shipper.
+        /// </summary>
+        public void AssignShipper(Guid shipperId)
+        {
+            if (shipperId == Guid.Empty)
+                throw new ArgumentException("ShipperId cannot be empty.", nameof(shipperId));
+
+            if (ShipperId == shipperId)
+                return; // idempotent
+
+            if (ShipperId != Guid.Empty)
+                throw new InvalidOperationException("Conversation already assigned to a different shipper.");
+
+            ShipperId = shipperId;
+            UpdateAudit();
+        }
     }
 
     /// <summary>

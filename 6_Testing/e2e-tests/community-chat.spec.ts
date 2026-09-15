@@ -10,8 +10,8 @@ import { test, expect } from '@playwright/test';
  *
  * Note: Per Playwright governance, E2E tests are not run during IMPLEMENT mode.
  */
-const BASE_URL = 'https://diemthuong.khachvip.online';
-const GATEWAY = 'https://api.khachvip.online';
+const BASE_URL = 'https://diemthuong2.khachvip.online';
+const GATEWAY = 'https://api2.khachvip.online';
 
 test('CC-S3-1: chat history API returns 401 without token', async ({ request }) => {
   const fakeOrderId = '00000000-0000-0000-0000-000000000099';

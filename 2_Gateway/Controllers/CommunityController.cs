@@ -468,16 +468,20 @@ namespace VanAn.Gateway.Controllers
 
             try
             {
-                if (!await _chatService.HasActiveDeliveryTaskAsync(orderId))
-                    return StatusCode(403, new { error = "Không có đơn giao nào cho đơn hàng này." });
+                // Chat is available for DELIVERY orders with a CustomerId — no DeliveryTask required.
+                // GetOrCreateConversationAsync creates conversation with placeholder ShipperId=Guid.Empty
+                // if no DeliveryTask exists yet (before shipper accepts).
+                var conversation = await _chatService.GetOrCreateConversationAsync(orderId);
+                if (conversation == null)
+                    return NotFound(new { error = "Không tìm thấy đơn hàng hoặc đơn hàng không phải loại giao hàng." });
 
                 var messages = await _chatService.GetHistoryAsync(orderId);
-                var conversation = await _chatService.GetOrCreateConversationAsync(orderId);
 
                 return Ok(new
                 {
-                    conversationId = conversation?.Id,
+                    conversationId = conversation.Id,
                     orderId,
+                    shipperId = conversation.ShipperId,
                     messages = messages.Select(m => new
                     {
                         id = m.Id,
@@ -519,7 +523,7 @@ namespace VanAn.Gateway.Controllers
                 var message = await _chatService.SendMessageAsync(body.OrderId, customerId.Value, body.Content);
 
                 if (message == null)
-                    return StatusCode(403, new { error = "Không thể gửi tin nhắn. Đơn giao không tồn tại." });
+                    return StatusCode(403, new { error = "Không thể gửi tin nhắn. Đơn hàng không tồn tại hoặc không phải loại giao hàng." });
 
                 // Push via SignalR to chat group
                 await _chatHubContext.Clients.Group($"chat_{body.OrderId}")

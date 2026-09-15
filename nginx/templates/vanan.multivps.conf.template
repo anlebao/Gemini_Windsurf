@@ -475,14 +475,16 @@ server {
         proxy_read_timeout 120s;
     }
 
-    # SignalR hubs
-    location ~ ^/(orderHub|kitchenhub) {
+    # SignalR hubs — includes /hubs/chat (chat) with long timeout for WebSocket idle
+    location ~ ^/(orderHub|kitchenhub|hubs/) {
         proxy_pass         http://gateway:80;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
         proxy_set_header   Connection "upgrade";
         proxy_set_header   Host $host;
         proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
     }
 }
 
@@ -579,6 +581,19 @@ server {
         proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header   X-Forwarded-Proto $scheme;
         proxy_read_timeout 60s;
+    }
+
+    # SignalR hubs → proxy to Gateway (chat, orderHub, kitchenhub).
+    # Without this, /hubs/chat falls into `location /` → KhachLink static container → 404.
+    location ~ ^/hubs/ {
+        proxy_pass         http://gateway:80;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
     }
 
     # Dynamic pages — rate limit + connection limit

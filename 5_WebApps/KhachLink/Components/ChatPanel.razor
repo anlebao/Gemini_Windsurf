@@ -20,6 +20,10 @@
             {
                 <span class="badge bg-warning text-dark">Đang kết nối...</span>
             }
+            else
+            {
+                <span class="badge bg-secondary">Offline (HTTP only)</span>
+            }
         </div>
 
         <!-- Message list -->
@@ -62,6 +66,12 @@
             {
                 <div class="alert alert-danger py-2 small mb-2">@_error</div>
             }
+            @if (_signalrWarning != null)
+            {
+                <div class="alert alert-warning py-2 small mb-2">
+                    <i class="bi bi-exclamation-triangle"></i> @_signalrWarning
+                </div>
+            }
             <div class="d-flex gap-2">
                 <input type="text" class="form-control" placeholder="Nhập tin nhắn..."
                        @bind="_messageInput" @bind:event="oninput"
@@ -78,8 +88,9 @@
     [Parameter] public Guid OrderId { get; set; }
     [Parameter] public Guid CurrentUserId { get; set; }
 
-    // Derive Gateway API URL from current host — supports api2, api3, api4...
-    // Rule: subdomain number suffix maps 1:1 (diemthuong2 → api2, app3 → api3, diemthuong → api)
+    // Derive Gateway API URL from current host.
+    // Rule: subdomain number suffix maps 1:1 (diemthuong2 → api2, app3 → api3, diemthuong → api).
+    // For custom domains (not *.khachvip.online), use relative URL — nginx proxies /hubs/ to Gateway.
     private static string DeriveGatewayUrl(string baseUrl)
     {
         var uri = new Uri(baseUrl);
@@ -91,7 +102,9 @@
             var suffix = match.Groups[2].Value; // "" for Oracle, "2"/"3"/"4" for GCP
             return $"https://api{suffix}.khachvip.online";
         }
-        return baseUrl.TrimEnd('/'); // dev fallback
+        // Custom domain or localhost — use same origin (nginx proxies /hubs/ → Gateway).
+        // TrimEnd('/') so $"{gatewayUrl}/hubs/chat" produces a clean URL.
+        return baseUrl.TrimEnd('/');
     }
     [Parameter] public string? CustomerToken { get; set; }
     [Parameter] public string ScrollContainerId { get; set; } = "chat-scroll-container";
@@ -102,6 +115,7 @@
     private bool _connecting = false;
     private bool _isConnected = false;
     private string? _error;
+    private string? _signalrWarning;
     private HubConnection? _hubConnection;
 
     protected override async Task OnInitializedAsync()
@@ -127,7 +141,11 @@
         }
         else
         {
-            _error = result.ErrorMessage;
+            // 404 = order not found or not DELIVERY — show friendly message
+            if (result.ErrorCode == 404)
+                _error = "Đơn hàng không tồn tại hoặc không phải đơn giao hàng.";
+            else
+                _error = result.ErrorMessage;
         }
         _loadingHistory = false;
         await InvokeAsync(StateHasChanged);
@@ -143,7 +161,6 @@
             _connecting = true;
             var baseUrl = Navigation.BaseUri.TrimEnd('/');
             // Route through Gateway SignalR hub — derive api host from current host dynamically.
-            // Rule: subdomain number suffix maps 1:1 (diemthuong2 → api2, diemthuong3 → api3, diemthuong → api)
             var gatewayUrl = DeriveGatewayUrl(baseUrl);
             var hubUrl = $"{gatewayUrl}/hubs/chat?customerToken={CustomerToken}";
 
@@ -174,9 +191,12 @@
             await _hubConnection.InvokeAsync("JoinConversation", OrderId.ToString());
             _isConnected = true;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            _error = "Không thể kết nối chat real-time. Vui lòng tải lại trang.";
+            // Graceful degradation: HTTP still works for sending/receiving messages.
+            // User can chat without real-time — messages appear on reload.
+            _signalrWarning = "Không thể kết nối chat real-time. Tin nhắn vẫn gửi được (không tức thời).";
+            _logger_logWarning(ex);
         }
         finally
         {
@@ -200,7 +220,25 @@
             // Restore message input on failure
             _messageInput = content;
         }
-        // SignalR ReceiveMessage will append the message — no need to add manually
+        else if (!_isConnected)
+        {
+            // SignalR not connected — optimistically append locally so sender sees their message.
+            // The message is persisted on the server; it will appear in history on next reload.
+            _messages.Add(new ChatMessageDto
+            {
+                Id = result.MessageId,
+                SenderId = CurrentUserId,
+                Content = content,
+                SentAt = result.SentAt,
+                IsRead = false
+            });
+            _ = InvokeAsync(async () =>
+            {
+                StateHasChanged();
+                await ScrollToBottomAsync();
+            });
+        }
+        // If SignalR connected, ReceiveMessage handler will append the message — no need to add manually.
         await InvokeAsync(StateHasChanged);
     }
 
@@ -219,6 +257,13 @@
             await JSRuntime.InvokeVoidAsync("vananPWA.scrollToBottom", ScrollContainerId);
         }
         catch { /* JS interop not available during prerender */ }
+    }
+
+    // Lightweight logger — avoids needing ILogger injection for a single warning.
+    // In production, Serilog captures browser console errors via JS interop.
+    private static void _logger_logWarning(Exception ex)
+    {
+        System.Diagnostics.Debug.WriteLine($"ChatPanel SignalR connection failed: {ex.Message}");
     }
 
     public async ValueTask DisposeAsync()

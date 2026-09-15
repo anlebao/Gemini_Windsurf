@@ -150,6 +150,19 @@ public class CommunityOrderService(
             order.SetDeliveryLocation(order.DeliveryLat.Value, order.DeliveryLng.Value);
         order.UpdateOrderStatus(new OrderStatusId("delivering"));
 
+        // CC-S3 fix: If conversation already exists (customer chatted before shipper accepted),
+        // update ShipperId from placeholder Guid.Empty to the actual shipper.
+        var existingConversation = await _dbContext.Conversations
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.OrderId == orderId);
+
+        if (existingConversation != null && existingConversation.ShipperId == Guid.Empty)
+        {
+            existingConversation.AssignShipper(shipperId);
+            _logger.LogInformation("AcceptOrder: Updated conversation {ConvId} ShipperId → {ShipperId}",
+                existingConversation.Id, shipperId);
+        }
+
         await _dbContext.SaveChangesAsync();
 
         _logger.LogInformation("AcceptOrder: Order {OrderId} accepted by shipper {ShipperId} → DeliveryTask {TaskId}",

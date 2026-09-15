@@ -82,6 +82,23 @@ public class ChatServiceTests : IDisposable
         return (orderId, task);
     }
 
+    /// <summary>
+    /// Seed a DELIVERY order WITHOUT a DeliveryTask (simulates order before shipper accepts).
+    /// </summary>
+    private async Task<Guid> SeedOrderWithoutDeliveryTaskAsync()
+    {
+        var customer = new Customer(new TenantId(TenantId), "Test Customer", "0901234567");
+        SetProp(customer, "Id", CustomerId);
+        _context.Customers.Add(customer);
+
+        var orderId = Guid.NewGuid();
+        var order = CreateDeliveryOrder(orderId, TenantId, "confirmed", CustomerId);
+        _context.Orders.Add(order);
+
+        await _context.SaveChangesAsync();
+        return orderId;
+    }
+
     // === T1: GetOrCreateConversation_CreatesIfNotExists ===
     [Fact(DisplayName = "T1: GetOrCreateConversation_CreatesIfNotExists")]
     public async Task GetOrCreateConversation_CreatesIfNotExists()
@@ -193,5 +210,122 @@ public class ChatServiceTests : IDisposable
         var result = await _service.HasActiveDeliveryTaskAsync(fakeOrderId);
 
         Assert.False(result);
+    }
+
+    // === T9: GetOrCreateConversation_BeforeShipperAccept_CreatesWithPlaceholderShipper ===
+    [Fact(DisplayName = "T9: GetOrCreateConversation_BeforeShipperAccept_CreatesWithPlaceholderShipper")]
+    public async Task GetOrCreateConversation_BeforeShipperAccept_CreatesWithPlaceholderShipper()
+    {
+        // Order exists but no DeliveryTask yet (shipper has not accepted).
+        var orderId = await SeedOrderWithoutDeliveryTaskAsync();
+
+        var conversation = await _service.GetOrCreateConversationAsync(orderId);
+
+        Assert.NotNull(conversation);
+        Assert.Equal(orderId, conversation!.OrderId);
+        Assert.Equal(Guid.Empty, conversation.ShipperId); // placeholder — shipper not assigned yet
+        Assert.Equal(CustomerId, conversation.CustomerId);
+    }
+
+    // === T10: SendMessage_CustomerBeforeShipperAccept_Succeeds ===
+    [Fact(DisplayName = "T10: SendMessage_CustomerBeforeShipperAccept_Succeeds")]
+    public async Task SendMessage_CustomerBeforeShipperAccept_Succeeds()
+    {
+        // Customer can chat before shipper accepts (no DeliveryTask).
+        var orderId = await SeedOrderWithoutDeliveryTaskAsync();
+
+        var message = await _service.SendMessageAsync(orderId, CustomerId, "When will my order arrive?");
+
+        Assert.NotNull(message);
+        Assert.Equal("When will my order arrive?", message!.Content);
+        Assert.Equal(CustomerId, message.SenderId);
+    }
+
+    // === T11: SendMessage_ShipperBeforeAccept_Rejected ===
+    [Fact(DisplayName = "T11: SendMessage_ShipperBeforeAccept_Rejected")]
+    public async Task SendMessage_ShipperBeforeAccept_Rejected()
+    {
+        // Shipper cannot chat before accepting (ShipperId=Guid.Empty placeholder).
+        var orderId = await SeedOrderWithoutDeliveryTaskAsync();
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _service.SendMessageAsync(orderId, ShipperId, "Hello"));
+    }
+
+    // === T12: GetHistory_BeforeShipperAccept_ReturnsMessages ===
+    [Fact(DisplayName = "T12: GetHistory_BeforeShipperAccept_ReturnsMessages")]
+    public async Task GetHistory_BeforeShipperAccept_ReturnsMessages()
+    {
+        var orderId = await SeedOrderWithoutDeliveryTaskAsync();
+
+        await _service.SendMessageAsync(orderId, CustomerId, "Pre-accept message");
+        var history = await _service.GetHistoryAsync(orderId);
+
+        Assert.Single(history);
+        Assert.Equal("Pre-accept message", history[0].Content);
+    }
+
+    // === T13: GetOrCreateConversation_NonDeliveryOrder_ReturnsNull ===
+    [Fact(DisplayName = "T13: GetOrCreateConversation_NonDeliveryOrder_ReturnsNull")]
+    public async Task GetOrCreateConversation_NonDeliveryOrder_ReturnsNull()
+    {
+        // Seed a DINEIN order (not DELIVERY) — chat should not be available.
+        var customer = new Customer(new TenantId(TenantId), "Test Customer", "0901234567");
+        SetProp(customer, "Id", CustomerId);
+        _context.Customers.Add(customer);
+
+        var orderId = Guid.NewGuid();
+        var order = CreateDeliveryOrder(orderId, TenantId, "confirmed", CustomerId);
+        SetProp(order, "OrderType", "DINEIN"); // override to non-DELIVERY
+        _context.Orders.Add(order);
+        await _context.SaveChangesAsync();
+
+        var conversation = await _service.GetOrCreateConversationAsync(orderId);
+
+        Assert.Null(conversation);
+    }
+
+    // === T14: Conversation_AssignShipper_UpdatesPlaceholderShipperId ===
+    [Fact(DisplayName = "T14: Conversation_AssignShipper_UpdatesPlaceholderShipperId")]
+    public async Task Conversation_AssignShipper_UpdatesPlaceholderShipperId()
+    {
+        // Simulate: customer chats before shipper accepts, then shipper accepts.
+        var orderId = await SeedOrderWithoutDeliveryTaskAsync();
+
+        // Customer sends message → conversation created with placeholder ShipperId=Guid.Empty
+        await _service.SendMessageAsync(orderId, CustomerId, "Hello");
+        var conversation = await _context.Conversations.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.OrderId == orderId);
+        Assert.NotNull(conversation);
+        Assert.Equal(Guid.Empty, conversation!.ShipperId);
+
+        // Shipper accepts → update ShipperId
+        conversation.AssignShipper(ShipperId);
+        await _context.SaveChangesAsync();
+
+        // Reload and verify
+        var reloaded = await _context.Conversations.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.OrderId == orderId);
+        Assert.NotNull(reloaded);
+        Assert.Equal(ShipperId, reloaded!.ShipperId);
+
+        // Now shipper can send messages
+        var shipperMessage = await _service.SendMessageAsync(orderId, ShipperId, "On my way!");
+        Assert.NotNull(shipperMessage);
+        Assert.Equal(ShipperId, shipperMessage!.SenderId);
+    }
+
+    // === T15: Conversation_AssignShipper_AlreadyAssigned_Throws ===
+    [Fact(DisplayName = "T15: Conversation_AssignShipper_AlreadyAssigned_Throws")]
+    public async Task Conversation_AssignShipper_AlreadyAssigned_Throws()
+    {
+        var (orderId, task) = await SeedOrderWithDeliveryTaskAsync();
+        var conversation = await _service.GetOrCreateConversationAsync(orderId);
+        Assert.NotNull(conversation);
+        Assert.Equal(ShipperId, conversation!.ShipperId); // already assigned
+
+        // Try to assign to a different shipper → should throw
+        var differentShipper = Guid.NewGuid();
+        Assert.Throws<InvalidOperationException>(() => conversation.AssignShipper(differentShipper));
     }
 }
