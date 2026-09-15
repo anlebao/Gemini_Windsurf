@@ -61,11 +61,22 @@ User requested verify full community commerce flow: salesman QR → customer ord
 
 **All 4 community commerce issues COMPLETE.**
 
-**Issue #175 (shipper GPS + salesman QR) — ✅ FIX COMPLETE (session 2026-09-15, pending commit/deploy/RV):**
+**Issue #175 (shipper GPS + salesman QR) — ✅ FIX COMPLETE + DEPLOYED + RV PASS (session 2026-09-15, commit `f2f5dc2a` on `main`):**
 - Bug #1 (shipper GPS): `NearbyOrders.razor` deserialized `vananPWA.getCurrentPosition` (`{lat,lng}`) into `GeolocationResult {Latitude,Longitude}` → names don't match → always 0,0 → "Không lấy được vị trí GPS" blocked ALL orders (Issue #3 GPS-mock masked it in Playwright). Same silent bug in `StoreFinder.razor` (wrong distances). Fix: renamed to `GpsPosition {Lat,Lng}` in both pages (matches JS + gps-mock.ts).
 - Bug #2 (salesman QR "Không thể tạo mã QR"): `GetCompositeSalesmanQrAsync` returned null when `CommunityRole.SalesmanCode` was NULL/empty (legacy rows — DB column allows NULL). "Tạo QR" button shows (config exists) but QR fails. Also: nav "Mã QR của tôi" → `/community/salesman-qr` without productId was a dead-end error. Fix: `CommunityRole.EnsureSalesmanCode()/RegenerateSalesmanCode()` domain methods; `SalesmanService` backfills + persists with 3-attempt unique-collision retry; `SalesmanQR.razor` shows "Chọn sản phẩm" guidance when no productId instead of misleading error.
 - Files: `NearbyOrders.razor` · `StoreFinder.razor` · `1_Shared/Domain.cs` · `3_CoreHub/Services/SalesmanService.cs` · `5_WebApps/KhachLink/Pages/SalesmanQR.razor` · `6_Tests/.../SalesmanServiceTests.cs` (T13 backfill test).
 - Build 0 errors · Guard ALL PASSED · 13/13 SalesmanServiceTests PASS (incl. T13 backfill).
+
+**Chat feature fix — ✅ COMPLETE + DEPLOYED + RV PASS (session 2026-09-16, commits `0cb12cd4` + `fba1fce4` on `main`):**
+- 5 root causes identified and fixed:
+  1. nginx wildcard + diemthuong2 server blocks missing `location ~ ^/hubs/` → `/hubs/chat` fell into `location /` → KhachLink static container → 405. Added explicit `/hubs/` location to diemthuong2, wildcard, and api2 blocks with WebSocket upgrade + 3600s timeout.
+  2. `ChatService` required `DeliveryTask` to exist before chat → customer couldn't chat from order placement until shipper acceptance. Removed `DeliveryTask` gating — chat now available for DELIVERY orders with `CustomerId`. Conversation created with placeholder `ShipperId=Guid.Empty` when no `DeliveryTask` exists yet.
+  3. `CommunityOrderService.AcceptOrderAsync` now updates `Conversation.ShipperId` from placeholder `Guid.Empty` to actual shipper when shipper accepts.
+  4. `ChatPanel.razor`: graceful degradation when SignalR fails (HTTP still works, optimistic local append). Better error messages (404 vs 403). Fixed `DeriveGatewayUrl` to use relative URL for custom domains (nginx proxies `/hubs/` to Gateway).
+  5. `Conversation.AssignShipper()` domain method added (idempotent, throws if already assigned to different shipper).
+- Files: `nginx/templates/vanan.multivps.conf.template` · `1_Shared/Domain.cs` · `3_CoreHub/Services/ChatService.cs` · `3_CoreHub/Services/IChatService.cs` · `3_CoreHub/Services/CommunityOrderService.cs` · `2_Gateway/Controllers/CommunityController.cs` · `5_WebApps/KhachLink/Components/ChatPanel.razor` · `6_Tests/.../ChatServiceTests.cs` (15/15 PASS) · `6_Testing/e2e-tests/community-chat.spec.ts`.
+- Build 0 errors · Guard ALL PASSED · 15/15 ChatServiceTests PASS · CI PASS · CD Multi-VPS PASS.
+- RV Layer 1: ChatHub negotiate → 200 · Chat API 401 auth ✅ · RV Layer 2: diemthuong2 /hubs/chat/negotiate 405→200 ✅ · RV Layer 3: order-tracking + delivery-tracking pages 200 ✅.
 
 ---
 
@@ -87,10 +98,10 @@ User requested verify full community commerce flow: salesman QR → customer ord
 - ✅ Issue #2 NATS sync — DEPLOYED + RV PASS (`369b2986`)
 - ✅ Issue #3 GPS mock — COMPLETE (`5b97bcf9`)
 - ✅ Issue #4 X-Dev-OTP gate — COMPLETE (X-Dev-OTP removed + dev-token endpoint added)
-- ✅ Issue #175 shipper GPS + salesman QR — FIX COMPLETE (pending commit → CD → RV)
+- ✅ Issue #175 shipper GPS + salesman QR — DEPLOYED + RV PASS (`f2f5dc2a`)
+- ✅ Chat feature fix — DEPLOYED + RV PASS (`0cb12cd4` + `fba1fce4`)
 - Branch: `main` · Build: 0 errors
-- Pending: CD deploy Issue #4 + #175 → set `DEV_TOKEN_SECRET` env var on VPS → RV scripts update to use `/dev-token`
-- RV #175: (1) shipper `/community/nearby-orders` loads orders (no GPS error) on real browser; (2) salesman `/community/nearby-products` → "Tạo QR" on a product with referral config → QR renders; (3) `/community/salesman-qr` (no productId, nav "Mã QR của tôi") → "Chọn sản phẩm" guidance (not error).
+- Pending: CD deploy Issue #4 → set `DEV_TOKEN_SECRET` env var on VPS → RV scripts update to use `/dev-token`
 
 **KhachLink Profile Transition Sprint 3 (pending push/PR/RV):**
 - Push branch `feature/khachlink-sprint3-audit-sw` → `gh pr create` → merge → CD Multi-VPS deploy
