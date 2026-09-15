@@ -331,11 +331,12 @@
         {
             try
             {
-                var location = await JSRuntime.InvokeAsync<GeolocationResult>("vananPWA.getCurrentPosition");
+                // vananPWA.getCurrentPosition returns { lat, lng } — property names must match (lat↔Lat).
+                var location = await JSRuntime.InvokeAsync<GpsPosition>("vananPWA.getCurrentPosition");
                 if (location != null)
                 {
-                    _userLat = location.Latitude;
-                    _userLng = location.Longitude;
+                    _userLat = location.Lat;
+                    _userLng = location.Lng;
                     await LoadStores();
                     StateHasChanged();
                 }
@@ -450,11 +451,11 @@
     {
         try
         {
-            var location = await JSRuntime.InvokeAsync<GeolocationResult>("vananPWA.getCurrentPosition");
+            var location = await JSRuntime.InvokeAsync<GpsPosition>("vananPWA.getCurrentPosition");
             if (location != null)
             {
-                _userLat = location.Latitude;
-                _userLng = location.Longitude;
+                _userLat = location.Lat;
+                _userLng = location.Lng;
                 await LoadStores();
             }
         }
@@ -539,9 +540,10 @@
         public string MatchStrategy { get; set; } = "all";
     }
 
-    public class GeolocationResult
+    // Matches vananPWA.getCurrentPosition JS shape { lat, lng } (case-insensitive).
+    public class GpsPosition
     {
-        public double Latitude { get; set; }
-        public double Longitude { get; set; }
+        public double Lat { get; set; }
+        public double Lng { get; set; }
     }
 }

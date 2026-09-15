@@ -61,6 +61,12 @@ User requested verify full community commerce flow: salesman QR → customer ord
 
 **All 4 community commerce issues COMPLETE.**
 
+**Issue #175 (shipper GPS + salesman QR) — ✅ FIX COMPLETE (session 2026-09-15, pending commit/deploy/RV):**
+- Bug #1 (shipper GPS): `NearbyOrders.razor` deserialized `vananPWA.getCurrentPosition` (`{lat,lng}`) into `GeolocationResult {Latitude,Longitude}` → names don't match → always 0,0 → "Không lấy được vị trí GPS" blocked ALL orders (Issue #3 GPS-mock masked it in Playwright). Same silent bug in `StoreFinder.razor` (wrong distances). Fix: renamed to `GpsPosition {Lat,Lng}` in both pages (matches JS + gps-mock.ts).
+- Bug #2 (salesman QR "Không thể tạo mã QR"): `GetCompositeSalesmanQrAsync` returned null when `CommunityRole.SalesmanCode` was NULL/empty (legacy rows — DB column allows NULL). "Tạo QR" button shows (config exists) but QR fails. Also: nav "Mã QR của tôi" → `/community/salesman-qr` without productId was a dead-end error. Fix: `CommunityRole.EnsureSalesmanCode()/RegenerateSalesmanCode()` domain methods; `SalesmanService` backfills + persists with 3-attempt unique-collision retry; `SalesmanQR.razor` shows "Chọn sản phẩm" guidance when no productId instead of misleading error.
+- Files: `NearbyOrders.razor` · `StoreFinder.razor` · `1_Shared/Domain.cs` · `3_CoreHub/Services/SalesmanService.cs` · `5_WebApps/KhachLink/Pages/SalesmanQR.razor` · `6_Tests/.../SalesmanServiceTests.cs` (T13 backfill test).
+- Build 0 errors · Guard ALL PASSED · 13/13 SalesmanServiceTests PASS (incl. T13 backfill).
+
 ---
 
 ## 3. Current Status
@@ -81,8 +87,10 @@ User requested verify full community commerce flow: salesman QR → customer ord
 - ✅ Issue #2 NATS sync — DEPLOYED + RV PASS (`369b2986`)
 - ✅ Issue #3 GPS mock — COMPLETE (`5b97bcf9`)
 - ✅ Issue #4 X-Dev-OTP gate — COMPLETE (X-Dev-OTP removed + dev-token endpoint added)
+- ✅ Issue #175 shipper GPS + salesman QR — FIX COMPLETE (pending commit → CD → RV)
 - Branch: `main` · Build: 0 errors
-- Pending: CD deploy Issue #4 → set `DEV_TOKEN_SECRET` env var on VPS → RV scripts update to use `/dev-token`
+- Pending: CD deploy Issue #4 + #175 → set `DEV_TOKEN_SECRET` env var on VPS → RV scripts update to use `/dev-token`
+- RV #175: (1) shipper `/community/nearby-orders` loads orders (no GPS error) on real browser; (2) salesman `/community/nearby-products` → "Tạo QR" on a product with referral config → QR renders; (3) `/community/salesman-qr` (no productId, nav "Mã QR của tôi") → "Chọn sản phẩm" guidance (not error).
 
 **KhachLink Profile Transition Sprint 3 (pending push/PR/RV):**
 - Push branch `feature/khachlink-sprint3-audit-sw` → `gh pr create` → merge → CD Multi-VPS deploy
@@ -196,5 +204,6 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md`.
 
+* **2026-09-15 — ISSUE #175 FIX COMPLETE (pending commit/deploy).** Bug #1 shipper GPS: `NearbyOrders.razor` `GeolocationResult {Latitude,Longitude}` vs JS `vananPWA.getCurrentPosition` `{lat,lng}` mismatch → always 0,0 → "Không lấy được vị trí GPS" blocked all orders (Issue #3 GPS-mock masked it in Playwright). Same silent bug in `StoreFinder.razor`. Fix: `GpsPosition {Lat,Lng}` in both pages. Bug #2 salesman QR "Không thể tạo mã QR": `GetCompositeSalesmanQrAsync` returned null when `CommunityRole.SalesmanCode` NULL/empty (legacy rows; DB column allows NULL). Fix: `CommunityRole.EnsureSalesmanCode()/RegenerateSalesmanCode()` domain methods + `SalesmanService` backfill+persist (3-attempt unique-collision retry) + `SalesmanQR.razor` "Chọn sản phẩm" guidance for missing productId (nav "Mã QR của tôi" dead-end). Test T13 backfill added. Build 0 errors · Guard ALL PASSED · 13/13 SalesmanServiceTests PASS.
 * **2026-09-15 — COMMUNITY COMMERCE ISSUES #1-4 COMPLETE + DEPLOYED + RV PASS (#1-2).** Issue #1 (`26b060ee`): OrderType DELIVERY — `Order.SetOrderType()` + CreateOrderCommand + Checkout.razor + 12 unit tests. RV: checkout → DELIVERY order → owner confirm → shipper sees order (distanceKm=28.56). Issue #2 (`369b2986`): NATS sync — `OrderSyncSubscriber` read OrderType from payload + `OrderService` add delivery fields to Outbox event. Debug: NATS sync WAS working (msgs=2), "empty logs" = red herring (Warning filter hides Information). RV: SQLite OrderType=DELIVERY + DeliveryAddress + ShippingFee + Lat/Lng. Issue #3 (`5b97bcf9`): GPS mock — `gps-mock.ts` helper (all property variants) + 3 e2e specs. Issue #4: X-Dev-OTP gate sealed — removed X-Dev-OTP from `/otp/send` + `/upgrade/send-otp` + added `POST /api/customer-identity/dev-token` (secret-gated via `X-Dev-Secret` + `DevToken:Secret` config). `CustomerTokenService.CreateLongLivedToken(365)`. 6/6 unit tests PASS. Pending: CD deploy + set `DEV_TOKEN_SECRET` env var on VPS.
 * **2026-09-15 — PROJECT_STATE.MD ARCHIVE CLEANUP.** Reduced from 353 → ~190 lines. Moved: Section 2 PREVIOUS OBJECTIVE blocks (KhachLink Sprint 3, GTM W2) + Section 3 completed items + Section 4 completed items + Section 6 history (pre-2026-09-15) + Section 10 maintenance log (pre-2026-09-15) → `project_state_archive.md` (2918 → 2970 lines).

@@ -53,6 +53,17 @@
                 </div>
             </VanAnCard>
         }
+        else if (_noProduct)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-shop text-primary" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Chọn sản phẩm để tạo mã QR</h5>
+                <p class="text-muted small">Mã QR giới thiệu được tạo cho từng sản phẩm. Vui lòng chọn một sản phẩm từ danh sách.</p>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoBack">
+                    <i class="bi bi-shop"></i> Xem sản phẩm giới thiệu
+                </VanAnButton>
+            </VanAnCard>
+        }
         else
         {
             <VanAnCard Shadow="true" CssClass="text-center p-5">
@@ -67,6 +78,7 @@
 @code {
     private bool _loading = true;
     private bool _isLoggedIn = false;
+    private bool _noProduct = false;
     private string _customerToken = "";
     private string _errorMessage = "Không thể tạo mã QR.";
     private CompositeSalesmanQrDto? _qr;
@@ -84,8 +96,17 @@
             _productId = productId;
         }
 
-        if (!_isLoggedIn || _productId == Guid.Empty)
+        if (!_isLoggedIn)
         {
+            _loading = false;
+            return;
+        }
+
+        // Issue #175: no productId (e.g. the "Mã QR của tôi" nav link) is NOT an error —
+        // guide the user to pick a product instead of showing the misleading "Không thể tạo mã QR".
+        if (_productId == Guid.Empty)
+        {
+            _noProduct = true;
             _loading = false;
             return;
         }

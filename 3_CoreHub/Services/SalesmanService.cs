@@ -89,18 +89,46 @@ public class SalesmanService(
 
     public async Task<CompositeSalesmanQrDto?> GetCompositeSalesmanQrAsync(Guid salesmanId, Guid productId)
     {
-        // Get salesman role
+        // Get salesman role — load TRACKED so we can backfill a missing SalesmanCode (Issue #175).
+        // Legacy roles (created before the constructor assigned a code, or inserted via raw SQL)
+        // have a NULL SalesmanCode and would otherwise return null → "Không thể tạo mã QR".
         var role = await _dbContext.CommunityRoles
             .IgnoreQueryFilters()
-            .AsNoTracking()
             .FirstOrDefaultAsync(r => r.CustomerId == salesmanId
                 && r.RoleType == CommunityRoleType.Salesman
                 && r.IsActive);
 
-        if (role == null || string.IsNullOrEmpty(role.SalesmanCode))
+        if (role == null)
         {
             _logger.LogWarning("GetCompositeSalesmanQr: No active Salesman role for {SalesmanId}", salesmanId);
             return null;
+        }
+
+        if (string.IsNullOrEmpty(role.SalesmanCode))
+        {
+            // Backfill with retry on unique-index collision (6-char random, collision risk is tiny).
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                if (attempt == 0)
+                    role.EnsureSalesmanCode();
+                else
+                    role.RegenerateSalesmanCode();
+                try
+                {
+                    await _dbContext.SaveChangesAsync();
+                    _logger.LogInformation("GetCompositeSalesmanQr: Backfilled SalesmanCode for role {RoleId} (customer {SalesmanId})", role.Id, salesmanId);
+                    break;
+                }
+                catch (DbUpdateException ex) when (attempt < 2)
+                {
+                    _logger.LogWarning(ex, "GetCompositeSalesmanQr: SalesmanCode collision on attempt {Attempt}, regenerating", attempt);
+                }
+            }
+            if (string.IsNullOrEmpty(role.SalesmanCode))
+            {
+                _logger.LogError("GetCompositeSalesmanQr: Failed to persist SalesmanCode for role {RoleId} after 3 attempts", role.Id);
+                return null;
+            }
         }
 
         // Get product referral config
@@ -120,7 +148,7 @@ public class SalesmanService(
 
         return new CompositeSalesmanQrDto
         {
-            SalesmanCode = role.SalesmanCode,
+            SalesmanCode = role.SalesmanCode!,
             ProductShortCode = productShortCode,
             CompositeCode = compositeCode,
             QrUrl = $"https://diemthuong.khachvip.online/r/{compositeCode}",

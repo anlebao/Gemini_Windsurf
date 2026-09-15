@@ -294,4 +294,34 @@ public class SalesmanServiceTests : IDisposable
         Assert.Single(summary.AppInstallBonusRecords);
         Assert.Equal(10000, summary.TotalAppInstallBonus);
     }
+
+    // === T13 (Issue #175): GetCompositeSalesmanQr_BackfillsNullSalesmanCode ===
+    // Legacy roles created before the constructor assigned a code (or inserted via raw SQL)
+    // have a NULL SalesmanCode. GetCompositeSalesmanQrAsync must backfill it instead of
+    // returning null ("Không thể tạo mã QR").
+    [Fact(DisplayName = "T13 (Issue #175): GetCompositeSalesmanQr_BackfillsNullSalesmanCode")]
+    public async Task GetCompositeSalesmanQr_BackfillsNullSalesmanCode()
+    {
+        // Seed a Salesman role, then null out SalesmanCode to simulate a legacy row.
+        var role = new CommunityRole(new TenantId(TenantId), SalesmanId, CommunityRoleType.Salesman, Guid.NewGuid());
+        SetProp(role, "SalesmanCode", null);
+        _context.CommunityRoles.Add(role);
+        await _context.SaveChangesAsync();
+
+        await SeedProductReferralConfigAsync(ProductId, 0.05m, 10000, "TR-001");
+
+        var result = await _service.GetCompositeSalesmanQrAsync(SalesmanId, ProductId);
+
+        // Backfill should have generated a code + persisted it + returned a QR.
+        Assert.NotNull(result);
+        Assert.Contains("|", result!.CompositeCode);
+        Assert.Contains("TR-001", result.CompositeCode);
+        Assert.False(string.IsNullOrEmpty(result.SalesmanCode));
+
+        // Verify the code was persisted to the DB.
+        var reloaded = await _context.CommunityRoles.IgnoreQueryFilters()
+            .FirstAsync(r => r.CustomerId == SalesmanId && r.RoleType == CommunityRoleType.Salesman);
+        Assert.False(string.IsNullOrEmpty(reloaded.SalesmanCode));
+        Assert.Equal(reloaded.SalesmanCode, result.SalesmanCode);
+    }
 }

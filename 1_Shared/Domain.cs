@@ -3804,6 +3804,32 @@ namespace VanAn.Shared.Domain
             UpdateAudit();
         }
 
+        /// <summary>
+        /// Issue #175: Ensure the SalesmanCode invariant for legacy rows.
+        /// Roles created before the constructor assigned SalesmanCode (or inserted via raw SQL
+        /// without a code) have a NULL SalesmanCode. GetCompositeSalesmanQrAsync would return null
+        /// → "Không thể tạo mã QR" even though the role + referral config exist.
+        /// Returns true when a new code was generated (caller persists + retries on unique collision).
+        /// </summary>
+        public bool EnsureSalesmanCode()
+        {
+            if (RoleType != CommunityRoleType.Salesman || !string.IsNullOrEmpty(SalesmanCode))
+                return false;
+            SalesmanCode = GenerateSalesmanCode();
+            UpdateAudit();
+            return true;
+        }
+
+        /// <summary>
+        /// Issue #175: Force-regenerate SalesmanCode after a unique-index collision on save.
+        /// </summary>
+        public void RegenerateSalesmanCode()
+        {
+            if (RoleType != CommunityRoleType.Salesman) return;
+            SalesmanCode = GenerateSalesmanCode();
+            UpdateAudit();
+        }
+
         private static string GenerateSalesmanCode()
         {
             // 6 chars, uppercase alphanumeric, exclude ambiguous chars (0, O, I, 1)
