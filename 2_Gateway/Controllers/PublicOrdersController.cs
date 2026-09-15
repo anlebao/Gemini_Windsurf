@@ -295,7 +295,12 @@ namespace VanAn.Gateway.Controllers
                         CustomerId = request.CustomerId,
                         CustomerNotes = request.CustomerNotes,
                         TrackingCode = request.TrackingCode,
-                        SourceDomain = request.SourceDomain
+                        SourceDomain = request.SourceDomain,
+                        OrderType = request.OrderType,
+                        DeliveryAddress = request.DeliveryAddress,
+                        DeliveryLat = request.DeliveryLat,
+                        DeliveryLng = request.DeliveryLng,
+                        ShippingFee = request.ShippingFee
                     };
 
                     try
@@ -523,6 +528,18 @@ namespace VanAn.Gateway.Controllers
         /// <summary>R2.2: KhachLink source domain (window.location.hostname) — used to look up
         /// KhachLinkInstance.OwnerTenantId for Reseller accounting. Null for POS/legacy callers.</summary>
         public string? SourceDomain { get; set; }
+
+        /// <summary>CC-S1: Delivery address for DELIVERY orders. Stored in Order.DeliveryAddress.</summary>
+        public string? DeliveryAddress { get; set; }
+
+        /// <summary>CC-S1: Delivery latitude for DELIVERY orders.</summary>
+        public double? DeliveryLat { get; set; }
+
+        /// <summary>CC-S1: Delivery longitude for DELIVERY orders.</summary>
+        public double? DeliveryLng { get; set; }
+
+        /// <summary>CC-S1: Shipping fee for DELIVERY orders.</summary>
+        public decimal ShippingFee { get; set; }
     }
 
     public class CheckoutOrderItem

@@ -849,6 +849,11 @@ namespace VanAn.CoreHub.Services
                 Order order = Order.Create(orderId, tenantIdObj, customerId, orderItems);
                 order.SetCustomerDeviceId(command.CustomerDeviceId.ToString());
 
+                // CC-S1: Set order type (DINEIN/TAKEAWAY/DELIVERY) from checkout selection.
+                // When DELIVERY, also sets delivery address/lat/lng/shipping fee.
+                // When null/empty, Order keeps default DINEIN.
+                order.SetOrderType(command.OrderType, command.DeliveryAddress, command.DeliveryLat, command.DeliveryLng, command.ShippingFee);
+
                 // Bucket A feature (approved 2026-07-07): attach guest customer info if provided.
                 // CustomerInfo value object is persisted via OwnsOne (columns already exist).
                 if (!string.IsNullOrWhiteSpace(command.CustomerName)

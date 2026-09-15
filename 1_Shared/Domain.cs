@@ -1788,6 +1788,37 @@ namespace VanAn.Shared.Domain
         }
 
         /// <summary>
+        /// CC-S1: Set order type (DINEIN, TAKEAWAY, DELIVERY). Called during checkout
+        /// when customer selects delivery vs dine-in vs takeaway. Validates against
+        /// allowed values — throws on invalid to prevent bad data entering the system.
+        /// Also sets delivery address/lat/lng/shipping fee when OrderType=DELIVERY.
+        /// </summary>
+        public void SetOrderType(string? orderType, string? deliveryAddress = null, double? deliveryLat = null, double? deliveryLng = null, decimal shippingFee = 0)
+        {
+            if (string.IsNullOrWhiteSpace(orderType))
+                return; // null/empty = keep default DINEIN
+
+            var normalized = orderType.Trim().ToUpperInvariant();
+            var allowed = new[] { "DINEIN", "TAKEAWAY", "DELIVERY" };
+            if (!allowed.Contains(normalized))
+                throw new ArgumentException($"Invalid OrderType '{orderType}'. Allowed: {string.Join(", ", allowed)}", nameof(orderType));
+
+            OrderType = normalized;
+
+            if (normalized == "DELIVERY")
+            {
+                if (!string.IsNullOrWhiteSpace(deliveryAddress))
+                    DeliveryAddress = deliveryAddress;
+                if (deliveryLat.HasValue && deliveryLng.HasValue)
+                    SetDeliveryLocation(deliveryLat.Value, deliveryLng.Value);
+                if (shippingFee > 0)
+                    ShippingFee = shippingFee;
+            }
+
+            UpdateAudit();
+        }
+
+        /// <summary>
         /// Set social campaign tracking code for conversion attribution.
         /// Called during checkout when customer came from /c/{trackingCode} campaign link.
         /// </summary>

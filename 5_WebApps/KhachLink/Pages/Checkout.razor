@@ -135,6 +135,35 @@
                                         Message="Thông tin đã được điền sẵn từ tài khoản của bạn. Vui lòng kiểm tra và chỉnh sửa nếu cần."
                                         Dismissible="false" CssClass="mb-3" />
                         }
+
+                        <!-- CC-S1: Order type selector — DINEIN / TAKEAWAY / DELIVERY -->
+                        <div class="mb-3" data-testid="order-type-selector">
+                            <label class="form-label fw-bold">Hình thức nhận hàng</label>
+                            <div class="d-flex gap-3 flex-wrap">
+                                <div class="form-check">
+                                    <input id="order-type-dinein" type="radio" name="orderType" value="DINEIN"
+                                           class="form-check-input" checked="@(selectedOrderType == "DINEIN")"
+                                           @onchange="@(() => selectedOrderType = "DINEIN")"
+                                           data-testid="order-type-dinein" />
+                                    <label for="order-type-dinein" class="form-check-label">🍽️ Tại quán</label>
+                                </div>
+                                <div class="form-check">
+                                    <input id="order-type-takeaway" type="radio" name="orderType" value="TAKEAWAY"
+                                           class="form-check-input" checked="@(selectedOrderType == "TAKEAWAY")"
+                                           @onchange="@(() => selectedOrderType = "TAKEAWAY")"
+                                           data-testid="order-type-takeaway" />
+                                    <label for="order-type-takeaway" class="form-check-label">🥡 Mang về</label>
+                                </div>
+                                <div class="form-check">
+                                    <input id="order-type-delivery" type="radio" name="orderType" value="DELIVERY"
+                                           class="form-check-input" checked="@(selectedOrderType == "DELIVERY")"
+                                           @onchange="@(() => selectedOrderType = "DELIVERY")"
+                                           data-testid="order-type-delivery" />
+                                    <label for="order-type-delivery" class="form-check-label">🛵 Giao hàng</label>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="mb-3">
                             <label for="guest-name" class="form-label">Họ và tên @if (selectedPaymentMethod == "transfer") { <span class="text-danger">*</span> }</label>
                             <input id="guest-name" type="text" class="form-control" @bind="guestName" @bind:event="oninput" placeholder="Nhập họ và tên" aria-label="Họ và tên" name="name" data-testid="checkout-input-name" />
@@ -146,8 +175,15 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="guest-address" class="form-label">Địa chỉ giao hàng</label>
-                            <input id="guest-address" type="text" class="form-control" @bind="guestAddress" @bind:event="oninput" placeholder="Nhập địa chỉ giao hàng" aria-label="Địa chỉ giao hàng" name="address" data-testid="checkout-input-address" />
+                            <label for="guest-address" class="form-label">
+                                Địa chỉ @if (selectedOrderType == "DELIVERY") { <span class="text-danger">*</span> } else { <span class="text-muted small">(giao hàng)</span> }
+                            </label>
+                            <input id="guest-address" type="text" class="form-control" @bind="guestAddress" @bind:event="oninput"
+                                   placeholder="Nhập địa chỉ giao hàng" aria-label="Địa chỉ giao hàng" name="address" data-testid="checkout-input-address" />
+                            @if (selectedOrderType == "DELIVERY")
+                            {
+                                <div class="form-text text-muted small">📍 Địa chỉ giao hàng là bắt buộc khi chọn giao hàng.</div>
+                            }
                         </div>
 
                         @if (selectedPaymentMethod == "transfer")
@@ -311,6 +347,10 @@
     private string selectedPaymentMethod = "transfer";
     // W1-T2: Cash flow processing state
     private bool isSendingCash;
+    // CC-S1: Order type selector — DINEIN (default), TAKEAWAY, DELIVERY
+    private string selectedOrderType = "DINEIN";
+    // CC-S1: Delivery fee (client-side fixed for Phase 1; server-side calc deferred)
+    private decimal _deliveryFee = 0;
 
     // Post-checkout loyalty signup: show IdentityUpgradeModal after order success for anonymous users
     private bool _showLoyaltySignupModal = false;
@@ -469,6 +509,13 @@
             }
         }
 
+        // CC-S1: DELIVERY requires delivery address
+        if (selectedOrderType == "DELIVERY" && string.IsNullOrWhiteSpace(guestAddress))
+        {
+            formError = "Vui lòng nhập địa chỉ giao hàng khi chọn hình thức giao hàng.";
+            return;
+        }
+
         formError = null;
         isProcessing = true;
         // W1-T2: Cash flow uses ProcessingBar instead of QR spinner
@@ -526,7 +573,7 @@
             var orderRequest = new
             {
                 CustomerDeviceId = deviceId,
-                OrderType = "TAKEAWAY",
+                OrderType = selectedOrderType,
                 Items = cartSnapshot.Select(i => new
                 {
                     ProductId = i.ProductId,
@@ -548,7 +595,12 @@
                 // Campaign conversion tracking: pass tracking code so OrderWorkflowService can increment conversion
                 TrackingCode = trackingCode,
                 // R2.2: Source domain for Reseller accounting (KhachLinkInstance.OwnerTenantId lookup)
-                SourceDomain = sourceDomain
+                SourceDomain = sourceDomain,
+                // CC-S1: Delivery fields — only meaningful when OrderType=DELIVERY
+                DeliveryAddress = selectedOrderType == "DELIVERY" ? guestAddress : null,
+                DeliveryLat = (double?)null,
+                DeliveryLng = (double?)null,
+                ShippingFee = selectedOrderType == "DELIVERY" ? _deliveryFee : 0
             };
 
             var http = HttpClientFactory.CreateClient("gateway");

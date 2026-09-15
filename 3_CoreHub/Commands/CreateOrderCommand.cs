@@ -30,6 +30,22 @@ namespace VanAn.CoreHub.Commands
         /// <summary>R2.2: KhachLink source domain — used to look up KhachLinkInstance.OwnerTenantId (Reseller tenant).
         /// Set by KhachLink WASM checkout (window.location.hostname). Null for POS/legacy callers.</summary>
         public string? SourceDomain { get; set; }
+
+        /// <summary>CC-S1: Order type — DINEIN, TAKEAWAY, or DELIVERY. When null/empty, Order defaults to DINEIN.
+        /// DELIVERY enables shipper delivery flow (CommunityOrderService filters by OrderType=DELIVERY).</summary>
+        public string? OrderType { get; set; }
+
+        /// <summary>CC-S1: Delivery address for DELIVERY orders. Stored in Order.DeliveryAddress.</summary>
+        public string? DeliveryAddress { get; set; }
+
+        /// <summary>CC-S1: Delivery latitude for DELIVERY orders. Stored in Order.DeliveryLat.</summary>
+        public double? DeliveryLat { get; set; }
+
+        /// <summary>CC-S1: Delivery longitude for DELIVERY orders. Stored in Order.DeliveryLng.</summary>
+        public double? DeliveryLng { get; set; }
+
+        /// <summary>CC-S1: Shipping fee for DELIVERY orders. Stored in Order.ShippingFee.</summary>
+        public decimal ShippingFee { get; set; }
     }
 
     public class OrderItemRequest
