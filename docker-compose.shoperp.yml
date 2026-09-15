@@ -63,6 +63,10 @@ services:
       - Google__ClientSecret=${GOOGLE_CLIENT_SECRET}
       - Google__CallbackBaseUrl=${GOOGLE_CALLBACK_BASE_URL:-https://api2.${VANAN_DOMAIN}}
       - Google__KhachLinkLoginUrl=${GOOGLE_KHACHLINK_LOGIN_URL:-https://diemthuong2.${VANAN_DOMAIN}/login}
+      # CC-S4 (Issue #4): Dev-token endpoint secret — gates POST /api/customer-identity/dev-token.
+      # Empty = endpoint disabled (404). Set via DEV_TOKEN_SECRET env var on VPS for RV scripts.
+      # Rotate periodically. NEVER commit a real secret here.
+      - DevToken__Secret=${DEV_TOKEN_SECRET:-}
     volumes:
       - shoperp_data:/app/keys
     ports:

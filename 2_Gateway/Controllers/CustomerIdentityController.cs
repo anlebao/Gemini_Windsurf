@@ -38,9 +38,8 @@ namespace VanAn.Gateway.Controllers
                 var response = await client.SendAsync(reqMsg);
                 var content = await response.Content.ReadAsStringAsync();
 
-                // Forward X-Dev-OTP header from ShopERP response (dev mode only)
-                if (response.Headers.TryGetValues("X-Dev-OTP", out var devOtp))
-                    Response.Headers["X-Dev-OTP"] = devOtp.FirstOrDefault();
+                // CC-S4 (Issue #4): X-Dev-OTP forwarding removed — was unconditional security hole.
+                // ShopERP no longer sets X-Dev-OTP header. RV tests use /dev-token endpoint instead.
 
                 var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/json";
                 return new ContentResult
@@ -151,9 +150,7 @@ namespace VanAn.Gateway.Controllers
                 var response = await client.SendAsync(reqMsg);
                 var content = await response.Content.ReadAsStringAsync();
 
-                // Forward X-Dev-OTP header from ShopERP response (dev mode only)
-                if (response.Headers.TryGetValues("X-Dev-OTP", out var devOtp))
-                    Response.Headers["X-Dev-OTP"] = devOtp.FirstOrDefault();
+                // CC-S4 (Issue #4): X-Dev-OTP forwarding removed — was unconditional security hole.
 
                 var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/json";
                 return new ContentResult
@@ -166,6 +163,47 @@ namespace VanAn.Gateway.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error forwarding SendUpgradeOtp to ShopERP");
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+
+        /// <summary>
+        /// CC-S4 (Issue #4): Forward POST /api/customer-identity/dev-token to ShopERP.
+        /// Secret-gated endpoint for minting long-lived test user tokens (replaces X-Dev-OTP bypass).
+        /// Forwards X-Dev-Secret header + request body. Returns customer token (365-day TTL).
+        /// </summary>
+        [HttpPost("dev-token")]
+        public async Task<IActionResult> CreateDevToken()
+        {
+            try
+            {
+                var client = _httpClientFactory.CreateClient("shoperp");
+                var reqMsg = new HttpRequestMessage(HttpMethod.Post, "/api/customer-identity/dev-token");
+
+                // Forward X-Dev-Secret header (secret gate)
+                if (Request.Headers.TryGetValue("X-Dev-Secret", out var secret))
+                    reqMsg.Headers.Add("X-Dev-Secret", secret.ToString());
+
+                if (Request.ContentLength > 0)
+                {
+                    var mediaType = (Request.ContentType ?? "application/json").Split(';', StringSplitOptions.TrimEntries)[0];
+                    reqMsg.Content = new StreamContent(Request.Body);
+                    reqMsg.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(mediaType);
+                }
+
+                var response = await client.SendAsync(reqMsg);
+                var content = await response.Content.ReadAsStringAsync();
+                var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/json";
+                return new ContentResult
+                {
+                    StatusCode = (int)response.StatusCode,
+                    Content = content,
+                    ContentType = contentType
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error forwarding CreateDevToken to ShopERP");
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }

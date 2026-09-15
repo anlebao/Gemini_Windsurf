@@ -9,6 +9,9 @@ namespace VanAn.ShopERP.Services
     public interface ICustomerTokenService
     {
         string CreateToken(Guid customerId);
+        /// <summary>CC-S4 (Issue #4): Long-lived token for test users (dev-token endpoint).
+        /// Same format + protector as CreateToken, but configurable TTL (e.g., 365 days for RV).</summary>
+        string CreateLongLivedToken(Guid customerId, int days);
         Guid? ValidateToken(string token);
     }
 
@@ -20,6 +23,14 @@ namespace VanAn.ShopERP.Services
         public string CreateToken(Guid customerId)
         {
             var expiry = DateTimeOffset.UtcNow.AddDays(TokenDaysValid);
+            var payload = $"{customerId}:{expiry:O}";
+            return _protector.Protect(payload);
+        }
+
+        /// <summary>CC-S4 (Issue #4): Long-lived token for test users. Same protector, custom TTL.</summary>
+        public string CreateLongLivedToken(Guid customerId, int days)
+        {
+            var expiry = DateTimeOffset.UtcNow.AddDays(days);
             var payload = $"{customerId}:{expiry:O}";
             return _protector.Protect(payload);
         }

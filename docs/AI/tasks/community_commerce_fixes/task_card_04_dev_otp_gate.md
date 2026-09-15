@@ -1,11 +1,31 @@
 # Task Card #4: X-Dev-OTP Gate — Security Fix (DEFERRED)
 
-> **Status:** DEFERRED — ghi nhận để fix sau khi có alternative test auth mechanism
-> **Priority:** P4 — security risk, nhưng cần cho bypass test hiện tại
+> **Status:** ✅ COMPLETE (session 2026-09-15) — X-Dev-OTP security hole sealed + dev-token endpoint added
+> **Priority:** P4 → promoted + fixed (security risk resolved without breaking RV)
 > **Created:** 2026-09-15
 > **Master plan:** `docs/AI/tasks/community_commerce_fixes/master_plan.md`
-> **Prerequisite:** Alternative test auth mechanism (dev token endpoint hoặc staging env) trước khi fix
-> **Effort:** 0.5 ngày (~2h) khi implement
+> **Prerequisite:** None — dev-token endpoint replaces X-Dev-OTP bypass
+> **Effort:** 0.5 ngày (~2h)
+
+## Implementation (2026-09-15)
+
+**Approach:** Test users with tokens via secret-gated dev-token endpoint.
+
+**Changes (5 files):**
+1. `5_WebApps/ShopERP/Services/CustomerTokenService.cs` — add `CreateLongLivedToken(customerId, days)` method to interface + impl (same IDataProtector, custom TTL)
+2. `5_WebApps/ShopERP/Controllers/CustomerIdentityController.cs` — remove `X-Dev-OTP` header from `/otp/send` + `/upgrade/send-otp`; add `POST /api/customer-identity/dev-token` endpoint (secret-gated via `X-Dev-Secret` header + `DevToken:Secret` config)
+3. `2_Gateway/Controllers/CustomerIdentityController.cs` — remove `X-Dev-OTP` forwarding from `/otp/send` + `/upgrade/send-otp`; add forward for `/dev-token` (forwards `X-Dev-Secret` header)
+4. `5_WebApps/ShopERP/appsettings.json` — add `"DevToken": { "Secret": "" }` (empty = disabled)
+5. `docker-compose.shoperp.yml` — add `DevToken__Secret=${DEV_TOKEN_SECRET:-}` env var
+
+**Security model:**
+- `DevToken:Secret` empty/unset → endpoint returns 404 (disabled). Production MUST set `DEV_TOKEN_SECRET` env var.
+- Wrong secret → 401 Unauthorized.
+- Correct secret → finds or creates customer by phone, returns 365-day token.
+- RV scripts call `/dev-token` once with secret → use returned `X-Customer-Token` for all subsequent calls.
+- Secret is rotatable — change `DEV_TOKEN_SECRET` env var, old tokens still valid (IDataProtector-based, independent of secret).
+
+**Validation:** Build 0 errors · Guard ALL PASSED · 6/6 unit tests PASS (CustomerTokenServiceDevTokenTests).
 
 ## Problem
 

@@ -48,7 +48,8 @@ namespace VanAn.ShopERP.Controllers
         /// <summary>
         /// Send OTP to phone number.
         /// In production: SMS via notification service.
-        /// In dev (IsDevelopment): exposes OTP via X-Dev-OTP response header.
+        /// CC-S4 (Issue #4): X-Dev-OTP header removed — was unconditional security hole.
+        /// RV tests use POST /api/customer-identity/dev-token (secret-gated) instead.
         /// </summary>
         [HttpPost("otp/send")]
         public IActionResult SendOtp([FromBody] SendOtpRequest request)
@@ -59,9 +60,9 @@ namespace VanAn.ShopERP.Controllers
             var otp = _otpService.GenerateAndStoreOtp(request.PhoneNumber);
             _logger.LogInformation("OTP generated for phone {Phone}", MaskPhone(request.PhoneNumber));
 
-            // In dev mode, expose OTP in header for testing
-            Response.Headers["X-Dev-OTP"] = otp;
-
+            // CC-S4 (Issue #4): X-Dev-OTP header removed — was unconditional security hole.
+            // RV tests now use POST /api/customer-identity/dev-token (secret-gated) to mint
+            // long-lived tokens for test users, skipping OTP flow entirely.
             return Ok(new { message = "OTP đã được gửi. Vui lòng kiểm tra tin nhắn." });
         }
 
@@ -172,6 +173,66 @@ namespace VanAn.ShopERP.Controllers
             });
         }
 
+        /// <summary>
+        /// CC-S4 (Issue #4): Dev-token endpoint — mints a long-lived customer token for test users.
+        /// Replaces the X-Dev-OTP bypass (which was an unconditional security hole).
+        ///
+        /// Security: gated by X-Dev-Secret header matching config "DevToken:Secret".
+        /// - Empty/unset secret → endpoint disabled (404). Production MUST set DEV_TOKEN_SECRET env var.
+        /// - Wrong secret → 401.
+        /// - Correct secret → finds or creates customer by phone, returns long-lived token (365 days).
+        ///
+        /// RV scripts call this once with the secret, then use the returned X-Customer-Token
+        /// for all subsequent customer API calls — skipping the OTP flow entirely.
+        /// </summary>
+        [HttpPost("dev-token")]
+        public async Task<IActionResult> CreateDevToken([FromBody] DevTokenRequest request)
+        {
+            // Gate: verify secret from config (env var DEV_TOKEN_SECRET in production)
+            var secret = _configuration["DevToken:Secret"];
+            if (string.IsNullOrWhiteSpace(secret))
+            {
+                _logger.LogWarning("Dev-token endpoint called but DevToken:Secret not configured — returning 404");
+                return NotFound();
+            }
+
+            var providedSecret = Request.Headers["X-Dev-Secret"].FirstOrDefault();
+            if (string.IsNullOrEmpty(providedSecret) || providedSecret != secret)
+            {
+                _logger.LogWarning("Dev-token endpoint called with invalid secret — returning 401");
+                return Unauthorized(new { error = "Invalid dev secret." });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.PhoneNumber))
+                return BadRequest(new { error = "Số điện thoại không được để trống." });
+
+            // Find or create customer by phone (same logic as OTP verify)
+            var tenantId = GetTenantId(request.TenantId);
+            var allCustomers = await _customerRepository.GetAllActiveAsync();
+            var customer = allCustomers.FirstOrDefault(c => c.PhoneNumber == request.PhoneNumber);
+            if (customer == null)
+            {
+                var newCustomer = new Customer(new TenantId(tenantId),
+                    request.DisplayName ?? "RV Test Customer", request.PhoneNumber);
+                customer = await _customerRepository.AddAsync(newCustomer);
+                _logger.LogInformation("Dev-token: created test customer {CustomerId} for phone {Phone}",
+                    customer.Id, MaskPhone(request.PhoneNumber));
+            }
+
+            // Mint long-lived token (365 days) for test user
+            var devToken = _customerTokenService.CreateLongLivedToken(customer.Id, 365);
+            _logger.LogInformation("Dev-token: minted 365-day token for customer {CustomerId}", customer.Id);
+
+            return Ok(new DevTokenResponse
+            {
+                CustomerId = customer.Id,
+                FullName = customer.FullName,
+                PhoneNumber = request.PhoneNumber,
+                CustomerToken = devToken,
+                ExpiresInDays = 365
+            });
+        }
+
         /// <summary>W17-T1: Validate an existing token and return customer info.</summary>
         [HttpGet("me")]
         public async Task<IActionResult> GetMe([FromHeader(Name = "X-Customer-Token")] string? token)
@@ -214,7 +275,7 @@ namespace VanAn.ShopERP.Controllers
         /// - Requires a valid X-Customer-Token (customer must already be logged in via social login)
         /// - Does NOT create a new customer — only upgrades an existing one
         /// - OTP is sent to the phone number already on file for the customer
-        /// In dev mode, the OTP is also exposed via X-Dev-OTP response header for testing.
+        /// CC-S4 (Issue #4): X-Dev-OTP header removed — was unconditional security hole.
         /// </summary>
         [HttpPost("upgrade/send-otp")]
         public async Task<IActionResult> SendUpgradeOtp([FromHeader(Name = "X-Customer-Token")] string? token)
@@ -237,9 +298,7 @@ namespace VanAn.ShopERP.Controllers
             _logger.LogInformation("Upgrade OTP generated for customer {CustomerId} phone {Phone}",
                 customer.Id, MaskPhone(customer.PhoneNumber));
 
-            // In dev mode, expose OTP in header for testing
-            Response.Headers["X-Dev-OTP"] = otp;
-
+            // CC-S4 (Issue #4): X-Dev-OTP header removed — was unconditional security hole.
             return Ok(new UpgradeSendOtpResponse
             {
                 Message = "OTP đã được gửi đến số điện thoại đã đăng ký.",
@@ -359,5 +418,22 @@ namespace VanAn.ShopERP.Controllers
         public Guid CustomerId { get; set; }
         public string IdentityLevel { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
+    }
+
+    // CC-S4 (Issue #4): Dev-token endpoint DTOs (secret-gated test user token minting)
+    public class DevTokenRequest
+    {
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string? DisplayName { get; set; }
+        public Guid? TenantId { get; set; }
+    }
+
+    public class DevTokenResponse
+    {
+        public Guid CustomerId { get; set; }
+        public string FullName { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string CustomerToken { get; set; } = string.Empty;
+        public int ExpiresInDays { get; set; }
     }
 }

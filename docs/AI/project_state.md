@@ -34,7 +34,7 @@
 
 ## 2. Current Objective
 
-**COMMUNITY COMMERCE FULL FLOW — Issues #1-3 ✅ COMPLETE + DEPLOYED + RV PASS (session 2026-09-15).**
+**COMMUNITY COMMERCE FULL FLOW — Issues #1-4 ✅ COMPLETE (session 2026-09-15).**
 
 User requested verify full community commerce flow: salesman QR → customer order → owner confirm → shipper deliver → customer chat + track. RV (2026-09-14) found 4 issues. Master plan + 4 task cards at `docs/AI/tasks/community_commerce_fixes/`. Priority order: #1 → #2 → #3 → #4.
 
@@ -53,16 +53,21 @@ User requested verify full community commerce flow: salesman QR → customer ord
 - Created shared GPS mock helper `6_Testing/e2e-tests/helpers/gps-mock.ts` with `injectGpsMock(context)` + `injectGpsMockPage(page)`. Mock returns all property variants (`lat`/`Lat`/`Latitude`) to work with all C# types (GeoPosition, GpsPosition, GeolocationResult).
 - Injected into 3 e2e specs (5 tests): community-nearby-orders, community-delivery-flow, community-salesman. No production change. Playwright `--list` PASS (217 tests).
 
-**Remaining:**
-- **Issue #4 (X-Dev-OTP gate)** — P4 DEFER. Security risk but needed for bypass test. Gate with `IHostEnvironment.IsDevelopment()` when alternative test auth exists. Task card: `task_card_04_dev_otp_gate.md`
+**Issue #4 (X-Dev-OTP gate) — ✅ COMPLETE (session 2026-09-15):**
+- Root cause: `CustomerIdentityController` set `X-Dev-OTP` header **unconditional** — no `IsDevelopment()` gate → attacker could bypass SMS auth by reading OTP from response header.
+- Fix (5 files): removed `X-Dev-OTP` from `/otp/send` + `/upgrade/send-otp`; added `POST /api/customer-identity/dev-token` endpoint (secret-gated via `X-Dev-Secret` header + `DevToken:Secret` config). `CustomerTokenService.CreateLongLivedToken(customerId, 365)` mints 365-day token. Gateway forwards `/dev-token` + `X-Dev-Secret`. Production: set `DEV_TOKEN_SECRET` env var.
+- Security: empty/unset secret → 404 (disabled). Wrong secret → 401. Correct secret → finds/creates test customer + returns long-lived token. RV scripts call `/dev-token` once → use `X-Customer-Token` for all subsequent calls (skip OTP flow entirely).
+- Build 0 errors · Guard ALL PASSED · 6/6 unit tests PASS.
+
+**All 4 community commerce issues COMPLETE.**
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `main` @ `5b97bcf9` (Community Commerce Issues #1-3. Charity checkout C1-C3. KhachLink Profile Transition Sprint 1+2. GTM W2 + currency fix. W1 Merchant Audit + nginx Directory SSR. R2.2 Reseller Accounting — PR #169. Crawl-to-Onboard 8 phases. Issue #103/#157/#161/#156 deployed).
+- **Branch:** `main` (Community Commerce Issues #1-4. Charity checkout C1-C3. KhachLink Profile Transition Sprint 1+2. GTM W2 + currency fix. W1 Merchant Audit + nginx Directory SSR. R2.2 Reseller Accounting — PR #169. Crawl-to-Onboard 8 phases. Issue #103/#157/#161/#156 deployed).
 - **Build full sln:** 0 errors · **CI:** 1489 core + 17 unit + 276 integration + 41 arch ALL PASS · **.NET SDK:** 8.0.422
-- **Community Commerce Full Flow (session 2026-09-15):** ✅ Issues #1-3 COMPLETE + DEPLOYED + RV PASS. Full chain works: checkout → DELIVERY order → NATS sync → SQLite → owner confirm → shipper sees order. See Section 2.
+- **Community Commerce Full Flow (session 2026-09-15):** ✅ Issues #1-4 COMPLETE + DEPLOYED + RV PASS (#1-2). Full chain works: checkout → DELIVERY order → NATS sync → SQLite → owner confirm → shipper sees order. Issue #4: X-Dev-OTP security hole sealed + dev-token endpoint added (pending CD deploy + set DEV_TOKEN_SECRET env var). See Section 2.
 - **KhachLink Profile Transition Sprint 3:** ✅ CODE COMPLETE on `feature/khachlink-sprint3-audit-sw` @ `d29e621b`. Pending: push → PR → merge → CD → RV Layer 1-5.
 - **Financial Intelligence MVP-2:** ✅ All 5 phases complete on feature branch (61/61 tests PASS). Pending: push + PR + CD + RV.
 - **Tech debt:** TD-MVPS-001→004, TD-CUSTSYNC-001, TD-ASYNCDP-001, TD-GCP-001, TD-NETDASH-001, TD-OCR-01→05
@@ -71,12 +76,13 @@ User requested verify full community commerce flow: salesman QR → customer ord
 
 ## 4. Next Actions
 
-**Community Commerce Full Flow (✅ Issues #1-3 COMPLETE — #4 deferred):**
+**Community Commerce Full Flow (✅ Issues #1-4 COMPLETE):**
 - ✅ Issue #1 OrderType DELIVERY — DEPLOYED + RV PASS (`26b060ee`)
 - ✅ Issue #2 NATS sync — DEPLOYED + RV PASS (`369b2986`)
 - ✅ Issue #3 GPS mock — COMPLETE (`5b97bcf9`)
-- Deferred: Issue #4 X-Dev-OTP gate (P4) — gate with `IHostEnvironment.IsDevelopment()`
-- Branch: `main` @ `5b97bcf9` · Build: 0 errors
+- ✅ Issue #4 X-Dev-OTP gate — COMPLETE (X-Dev-OTP removed + dev-token endpoint added)
+- Branch: `main` · Build: 0 errors
+- Pending: CD deploy Issue #4 → set `DEV_TOKEN_SECRET` env var on VPS → RV scripts update to use `/dev-token`
 
 **KhachLink Profile Transition Sprint 3 (pending push/PR/RV):**
 - Push branch `feature/khachlink-sprint3-audit-sw` → `gh pr create` → merge → CD Multi-VPS deploy
@@ -133,7 +139,7 @@ User requested verify full community commerce flow: salesman QR → customer ord
 
 ## 6. History Log (compressed — see archive + git log)
 
-* [2026-09-15] **COMMUNITY COMMERCE ISSUES #1-3 COMPLETE + DEPLOYED + RV PASS.** Issue #1 OrderType DELIVERY (`26b060ee`): `Order.SetOrderType()` + CreateOrderCommand + Checkout.razor selector. Issue #2 NATS sync (`369b2986`): `OrderSyncSubscriber` read OrderType from payload + `OrderService` add delivery fields to Outbox event. Issue #3 GPS mock (`5b97bcf9`): shared `gps-mock.ts` helper injected into 3 e2e specs. Full chain: checkout → DELIVERY order → NATS sync → SQLite → owner confirm → shipper sees order. See Section 2.
+* [2026-09-15] **COMMUNITY COMMERCE ISSUES #1-4 COMPLETE.** Issue #1 OrderType DELIVERY (`26b060ee`): `Order.SetOrderType()` + CreateOrderCommand + Checkout.razor selector. Issue #2 NATS sync (`369b2986`): `OrderSyncSubscriber` read OrderType from payload + `OrderService` add delivery fields to Outbox event. Issue #3 GPS mock (`5b97bcf9`): shared `gps-mock.ts` helper injected into 3 e2e specs. Issue #4 X-Dev-OTP gate: removed X-Dev-OTP from `/otp/send` + `/upgrade/send-otp` + added `POST /api/customer-identity/dev-token` (secret-gated). Full chain: checkout → DELIVERY order → NATS sync → SQLite → owner confirm → shipper sees order. See Section 2.
 * [2026-09-14] **CHARITY CHECKOUT FLOW C1-C3 + 3 COMMUNITY COMMERCE BUGS.** Charity: `9b7d0c8e` + `f505a242` (ExecuteAtomicAsync + AllItemsFree + Charity_Donation_Enabled). Community: `f39c8649` + `88f3496f` + `6fe17d31` (DeliveryTracking route + GPS-optional + gateway HttpClient).
 * **Older (2026-09-13 and before):** KhachLink Profile Transition Sprint 1-3, GTM W1-W2, R2.2 Reseller Accounting, Crawl-to-Onboard 8 phases, Directory SSR, Issue #103/#156/#161/#157, Financial Intelligence MVP-2, OCR Hub R1, Dynamic CORS, Multi-VPS Option C. See `docs/AI/project_state_archive.md`.
 
@@ -190,5 +196,5 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md`.
 
-* **2026-09-15 — COMMUNITY COMMERCE ISSUES #1-3 COMPLETE + DEPLOYED + RV PASS.** Issue #1 (`26b060ee`): OrderType DELIVERY — `Order.SetOrderType()` + CreateOrderCommand + Checkout.razor + 12 unit tests. RV: checkout → DELIVERY order → owner confirm → shipper sees order (distanceKm=28.56). Issue #2 (`369b2986`): NATS sync — `OrderSyncSubscriber` read OrderType from payload + `OrderService` add delivery fields to Outbox event. Debug: NATS sync WAS working (msgs=2), "empty logs" = red herring (Warning filter hides Information). RV: SQLite OrderType=DELIVERY + DeliveryAddress + ShippingFee + Lat/Lng. Issue #3 (`5b97bcf9`): GPS mock — `gps-mock.ts` helper (all property variants) + 3 e2e specs. No production change. Branch: `main` @ `5b97bcf9`.
+* **2026-09-15 — COMMUNITY COMMERCE ISSUES #1-4 COMPLETE + DEPLOYED + RV PASS (#1-2).** Issue #1 (`26b060ee`): OrderType DELIVERY — `Order.SetOrderType()` + CreateOrderCommand + Checkout.razor + 12 unit tests. RV: checkout → DELIVERY order → owner confirm → shipper sees order (distanceKm=28.56). Issue #2 (`369b2986`): NATS sync — `OrderSyncSubscriber` read OrderType from payload + `OrderService` add delivery fields to Outbox event. Debug: NATS sync WAS working (msgs=2), "empty logs" = red herring (Warning filter hides Information). RV: SQLite OrderType=DELIVERY + DeliveryAddress + ShippingFee + Lat/Lng. Issue #3 (`5b97bcf9`): GPS mock — `gps-mock.ts` helper (all property variants) + 3 e2e specs. Issue #4: X-Dev-OTP gate sealed — removed X-Dev-OTP from `/otp/send` + `/upgrade/send-otp` + added `POST /api/customer-identity/dev-token` (secret-gated via `X-Dev-Secret` + `DevToken:Secret` config). `CustomerTokenService.CreateLongLivedToken(365)`. 6/6 unit tests PASS. Pending: CD deploy + set `DEV_TOKEN_SECRET` env var on VPS.
 * **2026-09-15 — PROJECT_STATE.MD ARCHIVE CLEANUP.** Reduced from 353 → ~190 lines. Moved: Section 2 PREVIOUS OBJECTIVE blocks (KhachLink Sprint 3, GTM W2) + Section 3 completed items + Section 4 completed items + Section 6 history (pre-2026-09-15) + Section 10 maintenance log (pre-2026-09-15) → `project_state_archive.md` (2918 → 2970 lines).
