@@ -2916,3 +2916,55 @@ Reviewed `01-systemadmin.html` guide against actual codebase + VPS. Fixed all di
 * 2026-08-02 — LOYALTY ALLIANCE ALL 7 PHASES COMPLETE. RV 14/14.
 * 2026-07-30 — COMMUNITY COMMERCE SPRINTS 4-7 COMPLETE.
 * 2026-07-20 — MULTI-VPS OPTION C PHASES 1-7 COMPLETE.
+
+---
+
+## Archived 2026-09-15 (from project_state.md cleanup — completed objectives + history log moved to reduce file size below 200 lines)
+
+### From Section 2 — PREVIOUS OBJECTIVE blocks
+
+**KHACHLINK PROFILE TRANSITION UX — SPRINT 3 CODE COMPLETE (audit + SW + toggle + hybrid async).**
+- Task card: `docs/AI/tasks/khachlink_profile_transition_ux/task_card_sprint3_audit_sw.md`
+- Coding plan: `docs/AI/tasks/khachlink_profile_transition_ux/coding_plan_sprint3_audit_sw.md` (self-contained, 19 files)
+- Branch: `feature/khachlink-sprint3-audit-sw` @ `d29e621b` (off `main` @ `61e4d4d4`)
+- SPRINT 3 CODE COMPLETE (2026-09-09): 19 files, no migration, Domain additive only:
+  - Domain (Step 1+2): AuditableEntityType +12 KhachLinkInstance, +13 SecurityEvent; AuditActionType +12 SecurityAlert, +13 FailedLogin, +14 SuspiciousActivity, +15 RateLimitHit; `AuditLog.ForSecurityEvent` factory (EntityId=Guid.Empty sentinel)
+  - Audit toggle EXPANDED (Step 1A): `IFeatureFlagService.IsEnabledAsync` optional `defaultWhenMissing` param (backward compatible); `FeatureFlagService.KnownFeatures` +Default field + 4 audit flags (Audit_Enabled master + Audit_Accounting/Audit_Security/Audit_KhachLink groups, all default ON); `FeatureFlagApiClient` (ShopERP HTTP client) updated to match signature
+  - Hybrid async persist EXPANDED (Step 3A/3/3B): `AuditLogQueue` (bounded Channel<AuditLog>, capacity 1000, DropOldest); `AuditLogBackgroundWriter` (BackgroundService, flush 5s/100 batch, graceful shutdown residual flush); `AuditTrailService` toggle gate (master+group) + `PersistAsync` (Accounting SYNC / Security+KhachLink ASYNC); `Log*Async` return `Task<AuditLog?>` (null when toggle OFF — callers discard, source compatible); `LogSecurityEventAsync` (structured ipAddress+userAgent, ASYNC persist)
+  - Security at source (Step 4/5/6): `KhachLinkInstanceService.UpdateAsync` logs audit (old/new profile+navFlags+style, best-effort try/catch); `PlatformUserLoginService` logs failed login (3 paths: not found, wrong password, inactive); Gateway `Program.cs OnRejected` logs rate limit hits (best-effort, 429 not blocked)
+  - UI (Step 7/8): `AuditTrail.razor` 5 summary cards (24h/Critical/High/FailedLogin/RateLimit) + severity column + severity filter + new action/entity dropdowns; `KhachLinkInstanceAudit.razor` (NEW per-instance history page) + link button from `KhachLinkInstances.razor`; `ValcnFeatures.razor` 4 audit flags auto-appear (no change — iterate GetAllAsync)
+  - SW bump (Step 9): `onboarding-tour.js` `vananTriggerSWUpdate()` + `KhachLinkLayout.razor` call on profile change detection
+  - Tests (Step 10A/11): `AuditToggleAndQueueTests` 12 tests (toggle gating + hybrid persist + queue/writer flush) ALL PASS; `profile-transition.spec.ts` Sprint 3 E2E (SW function exists + SW trigger + audit API endpoint); `KhachLinkInstanceServiceTests` + `PlatformUserLoginServiceTests` updated for new constructor params
+- Files: 20 modified + 3 new (23 total, 1442 insertions)
+- Build: 0 errors · Unit tests: 12/12 PASS · Guard: PASSED
+- Next: push branch → PR → merge → CD deploy → RV Layer 1-5 (timlathay.com + diemthuong2.khachvip.online + app2.khachvip.online)
+
+**GTM DRILL MACHINE MVP — W2 COMPLETE + CURRENCY AUTO-FORMAT FIX.** 🟢
+- Task card: `docs/AI/tasks/gtm_drill_mvp/task_card_w2_interactive_demo.md` (D3 domain mod approved 2026-09-08)
+- Branch: `main` @ `bfb97afd` (W2 impl `f66a08a1` + E2E fix `c66e94bf` + currency fix `e9688cd6` + E2E test `bfb97afd`)
+- W2 COMPLETE + PRODUCTION RV PASS (2026-09-08):
+  - D3 `TenantRegistration` entity (audit-type, precedent CrawlSource, TenantId=Guid.Empty sentinel, lifecycle Submitted→Contacted→Onboarded/Rejected)
+  - PG migration `20260908023803_AddTenantRegistrations` applied on production
+  - POST /api/v1/tenant-registrations (AllowAnonymous, rate-limit `registration-submit` 5/IP/24h, 429 response)
+  - Turnstile server-side verification (dev fallback skips if no key)
+  - Honeypot silent reject (200 fake success, no DB record)
+  - KhachLink `/demo` (standalone storefront mock, session-only, 5 industry seeds + generic fallback, theme CSS from Store.razor)
+  - KhachLink `/claim` (Register.razor, Turnstile widget + honeypot, ?name= prefill from demo)
+  - E2E `gtm-demo.spec.ts` (6 tests, ALL PASS on production `diemthuong2.khachvip.online`)
+  - RV results: Migration applied ✅ · POST 200 + registrationId ✅ · Honeypot 200 + Guid.Empty (no record) ✅ · Rate limit 429 ✅ · /demo renders ✅ · /claim renders ✅ · CTA navigation ✅ · 6/6 E2E PASS ✅
+- CURRENCY AUTO-FORMAT FIX (2026-09-08): "Số Tiền (VNĐ)" field trong `/accounting/revenue` + `/accounting/expenses` auto-format với vi-VN thousands separator khi user gõ (55000→55.000). Client-side JS listener (`vananAttachCurrencyFormatter`) attach via `OnAfterRenderAsync` — fires trước Blazor `@bind`, format DOM instantly. E2E `rv-currency-format.spec.ts` 2/2 PASS on production `app2.khachvip.online`.
+- W1 COMPLETE + RV PASS (2026-09-07): Gateway audit + Directory `/kiem-tra-cua-hang` + nginx routing + rate limit
+- W3-W5 theo card: Revenue Proof counters (D1) → Merchant Referral (D2) → consent + flag `GrowthMachine:Enabled` default OFF + deploy + RV
+- Đối chiếu vs `docs/requirements/Ý tưởng việc tự động hóa (Phễu khách hàng).md`: card hiện thực 6/7 MVP steps, defer AI SDR/scoring (Gate G1)
+
+### From Section 3 — Current Status (completed items)
+
+- Community Commerce RV bugs (session 2026-09-14): 3 bugs fixed + deployed. `f39c8649` DeliveryTracking `:guid` route constraint. `88f3496f` DeliveryTracking GPS-optional. `6fe17d31` GetCustomerIdAsync gateway HttpClient. CI/CD PASS for all 3.
+- Charity Product Checkout Flow (session 2026-09-14): ✅ COMPLETE + DEPLOYED + RV PASS. A. ProductType enum (Paid/Free/Charity) DEPLOYED + RV PASS (commits `5212d7c0` + `a706b7f9`). B. Product/service search DEPLOYED + RV PASS (commit `300e6e35`). C. Charity checkout flow DEPLOYED + RV PASS (commits `9b7d0c8e` + `f505a242`) — C1 root cause = NpgsqlRetryingExecutionStrategy + user-initiated transactions (broke ALL checkouts since 2026-08-22), fix = ExecuteAtomicAsync helper wrapping 3 call sites; C2 payment step hidden for all-free carts; C3 "Quyên góp từ thiện" step + Charity_Donation_Enabled per-tenant toggle (default true). Pre-push CI ALL PASS (1154s). Production RV: charity checkout 200 OK + order created (amount=0) + migration applied + WASM has new code + Playwright C2/C3 PASS + paid cart regression PASS.
+- KhachLink Profile Transition UX Sprint 3 (Audit + SW + Toggle + Hybrid Async): ✅ CODE COMPLETE on `feature/khachlink-sprint3-audit-sw` @ `d29e621b` (2026-09-09). 19 files, no migration, Domain additive only. Build 0 errors · Guard PASSED. Pending: push → PR → merge → CD → RV Layer 1-5.
+- KhachLink Profile Transition UX Sprint 2 (Transition Messaging): ✅ CODE COMPLETE + PUSHED + RV PASS on `main` @ `61e4d4d4` (2026-09-09). 3 UI features, no migration. 8 new + 6 modified (14 total, 1611 insertions). CI ALL PASS · CD deployed. RV Layer 1-3+5 PASS, Layer 4 5/6 (cart modal needs manual RV with actual profile change).
+- KhachLink Profile Transition UX Sprint 1 (Guardrail + Foundation): ✅ CODE COMPLETE + PUSHED + RV LAYER 1+3 PASS on `main` @ `cbeff2a3` (2026-09-08). 4 UI-only changes, no migration. 11 files modified + 3 new. CI ALL PASS.
+- GTM Drill Machine W2 (Interactive Demo + Registration): ✅ CODE COMPLETE + PRODUCTION RV PASS (2026-09-08) on `main` @ `bfb97afd`. RV: migration ✅ · API 200 ✅ · honeypot silent ✅ · rate limit 429 ✅ · /demo renders ✅ · /claim renders ✅ · 6/6 E2E PASS ✅.
+- Currency Auto-Format Fix (2026-09-08): ✅ CODE COMPLETE + PRODUCTION RV PASS on `main` @ `bfb97afd`. E2E `rv-currency-format.spec.ts` 2/2 PASS on `app2.khachvip.online`.
+- GTM Drill Machine W1 (Merchant Audit): ✅ CODE COMPLETE + PRODUCTION RV PASS (2026-09-07) on `main` @ `a21fcffc`. Gateway `GrowthController` + rate limit + Directory landing + E2E spec + arch whitelist + nginx routing to Directory SSR.
+- R2.2 Reseller Accounting: ✅ COMPLETE + DEPLOYED + RV PASS (2026-09-06). PR #169 merged. 3 tenant booksets + `Order.OwnerTenantId` + Auditor UI + 13 R2.2 tests + 2
