@@ -1,11 +1,18 @@
 # Task Card #2: NATS Sync Debug + Fix — Orders Not Appearing in ShopERP
 
-> **Status:** ✅ CODE COMPLETE (session 2026-09-15) — root cause found + fixed, pending deploy + RV
+> **Status:** ✅ COMPLETE + DEPLOYED + RV PASS (session 2026-09-15, commit `369b2986` on `main`)
 > **Priority:** P2 — owner cannot confirm orders via ShopERP UI
 > **Created:** 2026-09-15
 > **Master plan:** `docs/AI/tasks/community_commerce_fixes/master_plan.md`
 > **Prerequisite:** Issue #1 (OrderType) fixed — need DELIVERY orders to test full flow
 > **Effort:** 1 day (root cause = code bug, not infra)
+
+## Production RV (2026-09-15)
+
+- Checkout API `OrderType=DELIVERY` → 200, order `01a0a579-e419-72a5-b736-5a5b230aacad` created ✅
+- SQLite verify: `OrderType=DELIVERY`, `DeliveryAddress=456 RV Street Q3`, `ShippingFee=25000`, `DeliveryLat=10.78`, `DeliveryLng=106.69` ✅
+- ShopERP logs: `OrderSyncSubscriber connected to NATS` + `synced order 01a0a579-... → SQLite` ✅
+- All delivery fields sync correctly end-to-end (PG → Outbox → NATS → SQLite) ✅
 
 ## Root Cause (found 2026-09-15)
 
