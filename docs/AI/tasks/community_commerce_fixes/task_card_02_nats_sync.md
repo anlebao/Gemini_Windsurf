@@ -1,11 +1,25 @@
 # Task Card #2: NATS Sync Debug + Fix — Orders Not Appearing in ShopERP
 
-> **Status:** PLANNED (awaiting implementation approval — debug-first approach)
+> **Status:** ✅ CODE COMPLETE (session 2026-09-15) — root cause found + fixed, pending deploy + RV
 > **Priority:** P2 — owner cannot confirm orders via ShopERP UI
 > **Created:** 2026-09-15
 > **Master plan:** `docs/AI/tasks/community_commerce_fixes/master_plan.md`
 > **Prerequisite:** Issue #1 (OrderType) fixed — need DELIVERY orders to test full flow
-> **Effort:** 1-3 ngày (depends on root cause — infra vs code)
+> **Effort:** 1 day (root cause = code bug, not infra)
+
+## Root Cause (found 2026-09-15)
+
+**NATS sync WAS working.** Debug evidence:
+- NATS reachable from ShopERP → Gateway (10.148.0.2:4222) ✅
+- NATS subscription `vanan.cloud.order.created.9e94f876-...` shows `msgs: 2` (2 messages delivered) ✅
+- ShopERP logs: `OrderSyncSubscriber connected to NATS` + `synced order 01a0a426/01a0a427 → SQLite` ✅
+- SQLite has 21 orders (with WAL) including the 2 DELIVERY orders ✅
+
+**Actual root cause:** `OrderSyncSubscriber.SyncOrderCreatedAsync` did NOT read `OrderType` from the NATS event payload. It called `Order.Create()` which defaults to DINEIN. So DELIVERY orders from PG were stored as DINEIN in SQLite → `CommunityOrderService` filter `OrderType == "DELIVERY"` returned 0 → shipper never saw orders.
+
+**"Empty logs" red herring:** `appsettings.Production.json` has `"Default": "Warning"` which filters `LogInformation` (success logs like "connected" and "synced"). Only warnings/errors visible. RV operator saw empty logs and wrongly concluded subscriber wasn't running.
+
+**Secondary issue:** `OrderService.cs` (publisher) did not include `DeliveryAddress`, `DeliveryLat`, `DeliveryLng`, `ShippingFee` in the Outbox event data — only `OrderType` and `CustomerInfo.Address`. Fixed by adding delivery fields to the event payload.
 
 ## Problem
 

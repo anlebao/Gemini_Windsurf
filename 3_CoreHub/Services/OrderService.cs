@@ -915,6 +915,14 @@ namespace VanAn.CoreHub.Services
                         TotalVatAmount = createdOrder.TotalVatAmount,
                         PaymentStatus = createdOrder.PaymentStatus,
                         OrderType = createdOrder.OrderType ?? "DineIn",
+                        // CC-S2 fix (Issue #2): include delivery fields in Outbox event so ShopERP
+                        // subscriber can call SetOrderType with full delivery info (address, lat/lng
+                        // for shipper distance calculation). Previously missing → DELIVERY orders
+                        // synced to SQLite lost delivery address + coordinates.
+                        DeliveryAddress = createdOrder.DeliveryAddress,
+                        DeliveryLat = createdOrder.DeliveryLat,
+                        DeliveryLng = createdOrder.DeliveryLng,
+                        ShippingFee = createdOrder.ShippingFee,
                         OrderDate = createdOrder.OrderDate,
                         CreatedAt = createdOrder.CreatedAt,
                         TrackingCode = createdOrder.TrackingCode,

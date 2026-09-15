@@ -313,6 +313,34 @@ namespace VanAn.ShopERP.Services
                     }
                 }
 
+                // CC-S2 fix (Issue #2): sync OrderType from payload. Previously Order.Create()
+                // defaulted to DINEIN and the subscriber never read OrderType from the event →
+                // DELIVERY orders from PG were stored as DINEIN in SQLite → shipper filter
+                // OrderType=DELIVERY returned 0 → owner confirmed but shipper never saw the order.
+                // Now: read OrderType + delivery fields from payload and call SetOrderType.
+                if (root.TryGetProperty("OrderType", out var otProp))
+                {
+                    string? payloadOrderType = otProp.GetString();
+                    if (!string.IsNullOrWhiteSpace(payloadOrderType) && payloadOrderType != "DINEIN")
+                    {
+                        string? deliveryAddress = root.TryGetProperty("DeliveryAddress", out var daProp) ? daProp.GetString() : null;
+                        double? deliveryLat = root.TryGetProperty("DeliveryLat", out var latProp) && latProp.ValueKind == JsonValueKind.Number ? latProp.GetDouble() : null;
+                        double? deliveryLng = root.TryGetProperty("DeliveryLng", out var lngProp) && lngProp.ValueKind == JsonValueKind.Number ? lngProp.GetDouble() : null;
+                        decimal shippingFee = root.TryGetProperty("ShippingFee", out var sfProp) && sfProp.ValueKind == JsonValueKind.Number ? sfProp.GetDecimal() : 0m;
+
+                        // Fallback: for DELIVERY without explicit DeliveryAddress in payload,
+                        // use CustomerInfo.Address (checkout stores delivery address there).
+                        if (payloadOrderType == "DELIVERY" && string.IsNullOrWhiteSpace(deliveryAddress)
+                            && root.TryGetProperty("CustomerInfo", out var ciForAddr)
+                            && ciForAddr.TryGetProperty("Address", out var addrProp))
+                        {
+                            deliveryAddress = addrProp.GetString();
+                        }
+
+                        order.SetOrderType(payloadOrderType, deliveryAddress, deliveryLat, deliveryLng, shippingFee);
+                    }
+                }
+
                 // Bug 2 fix: parse CustomerNotes from payload and set on order.
                 // Previously notes were dropped during PG→SQLite sync → kitchen/order list never showed them.
                 if (root.TryGetProperty("CustomerNotes", out var notesProp))
