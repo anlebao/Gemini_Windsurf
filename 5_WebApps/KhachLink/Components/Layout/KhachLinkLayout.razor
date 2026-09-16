@@ -557,6 +557,28 @@ else
 
             var sourceDomain = await JSRuntime.InvokeAsync<string?>("eval", "window.location.hostname");
 
+            // Issue #4 fix (2026-09-16): Read customer_id + customer_token from localStorage.
+            // If customer is logged in (token valid + customer exists), pass CustomerId so order
+            // is linked to customer for loyalty points + order history + chat.
+            Guid? customerIdForOrder = null;
+            try
+            {
+                var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+                if (!string.IsNullOrEmpty(token))
+                {
+                    var checkClient = HttpClientFactory.CreateClient("gateway");
+                    checkClient.DefaultRequestHeaders.Add("X-Customer-Token", token);
+                    var checkResp = await checkClient.GetAsync("/api/customers/me");
+                    if (checkResp.IsSuccessStatusCode)
+                    {
+                        var customerIdStr = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_id");
+                        if (Guid.TryParse(customerIdStr, out Guid parsedId))
+                            customerIdForOrder = parsedId;
+                    }
+                }
+            }
+            catch { /* if check fails, proceed as guest — CustomerId stays null */ }
+
             // Group items by tenant (multi-tenant cart → multiple orders, same as Checkout.razor).
             var orderRequest = new
             {
@@ -579,7 +601,8 @@ else
                 CustomerName = string.Empty,
                 CustomerPhone = string.Empty,
                 CustomerAddress = string.Empty,
-                CustomerId = (Guid?)null,
+                // Issue #4 fix: pass validated CustomerId (was hardcoded null)
+                CustomerId = customerIdForOrder,
                 TrackingCode = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "campaign_tracking_code"),
                 SourceDomain = sourceDomain,
                 DeliveryAddress = (string?)null,
