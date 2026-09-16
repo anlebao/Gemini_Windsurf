@@ -275,7 +275,8 @@ public class CommunityHttpService(IHttpClientFactory httpClientFactory, ILogger<
                 return new NearbyOrdersResult { Success = true, Orders = orders };
             }
 
-            var err = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(body);
+            var err = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(body,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             return new NearbyOrdersResult
             {
                 Success = false,
@@ -312,7 +313,8 @@ public class CommunityHttpService(IHttpClientFactory httpClientFactory, ILogger<
                 return new MyDeliveriesResult { Success = true, Deliveries = deliveries };
             }
 
-            var err = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(body);
+            var err = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(body,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             return new MyDeliveriesResult
             {
                 Success = false,
@@ -353,7 +355,8 @@ public class CommunityHttpService(IHttpClientFactory httpClientFactory, ILogger<
                 };
             }
 
-            var err = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(body);
+            var err = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(body,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             return new AcceptOrderResult
             {
                 Success = false,
@@ -416,7 +419,8 @@ public class CommunityHttpService(IHttpClientFactory httpClientFactory, ILogger<
                 };
             }
 
-            var err = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(body);
+            var err = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(body,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             return new DeliveryTransitionResult
             {
                 Success = false,
@@ -480,7 +484,8 @@ public class CommunityHttpService(IHttpClientFactory httpClientFactory, ILogger<
                 };
             }
 
-            var err = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(body);
+            var err = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(body,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             return new DeliveryTransitionResult
             {
                 Success = false,

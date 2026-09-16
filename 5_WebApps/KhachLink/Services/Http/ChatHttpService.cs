@@ -39,7 +39,8 @@ public class ChatHttpService(IHttpClientFactory httpClientFactory, ILogger<ChatH
                 };
             }
 
-            var err = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(body);
+            var err = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(body,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             return new ChatHistoryResult
             {
                 Success = false,
@@ -81,7 +82,8 @@ public class ChatHttpService(IHttpClientFactory httpClientFactory, ILogger<ChatH
                 };
             }
 
-            var err = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(body);
+            var err = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(body,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             return new SendMessageResult
             {
                 Success = false,

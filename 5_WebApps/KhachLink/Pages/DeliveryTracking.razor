@@ -289,8 +289,15 @@
         }
         _isLoggedIn = true;
 
-        // Load CustomerId for ChatPanel
+        // Load CustomerId for ChatPanel — also validates token
         _customerId = await CommunityHttp.GetCustomerIdAsync(_customerToken);
+        if (_customerId == null)
+        {
+            // Token present but expired/invalid — show re-login prompt
+            _isLoggedIn = false;
+            _loading = false;
+            return;
+        }
 
         // Load delivery task status from my-deliveries (no GPS required).
         // GPS + nearby-orders is only used for shop/delivery details on the map.

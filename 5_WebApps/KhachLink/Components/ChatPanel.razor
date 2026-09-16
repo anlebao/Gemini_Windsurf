@@ -141,8 +141,11 @@
         }
         else
         {
+            // 401 = token expired/invalid — show re-login guidance
+            if (result.ErrorCode == 401)
+                _error = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để sử dụng chat.";
             // 404 = order not found or not DELIVERY — show friendly message
-            if (result.ErrorCode == 404)
+            else if (result.ErrorCode == 404)
                 _error = "Đơn hàng không tồn tại hoặc không phải đơn giao hàng.";
             else
                 _error = result.ErrorMessage;

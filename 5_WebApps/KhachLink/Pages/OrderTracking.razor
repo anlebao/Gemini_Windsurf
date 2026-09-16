@@ -33,6 +33,21 @@
         }
         else
         {
+            @if (_tokenExpired)
+            {
+                <VanAnCard Shadow="true" CssClass="mb-3 border-warning">
+                    <div class="d-flex align-items-start">
+                        <i class="bi bi-exclamation-triangle text-warning me-2" style="font-size:1.5rem;"></i>
+                        <div>
+                            <div class="fw-bold text-warning">Phiên đăng nhập đã hết hạn</div>
+                            <div class="text-muted small mt-1">
+                                Vui lòng <a href="/login" class="text-decoration-underline">đăng nhập lại</a> để xem vị trí giao hàng trực tiếp và chat với shipper.
+                            </div>
+                        </div>
+                    </div>
+                </VanAnCard>
+            }
+
             <!-- Order status card (from PG source of truth) -->
             <VanAnCard Shadow="true" CssClass="mb-3">
                 <div class="d-flex justify-content-between align-items-center">
@@ -248,6 +263,7 @@
     private string? _error;
     private string? _customerToken;
     private Guid? _customerId;
+    private bool _tokenExpired = false;
 
     // Order status (from PG via polling — covers pending/preparing/ready/delivering/completed/cancelled)
     private string _orderStatus = "pending";
@@ -287,9 +303,14 @@
         // FIX: Use canonical localStorage key "customer_token" (matches Login.razor)
         _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
 
-        // Load CustomerId for ChatPanel
+        // Load CustomerId for ChatPanel — also validates token
         if (!string.IsNullOrEmpty(_customerToken))
+        {
             _customerId = await CommunityHttp.GetCustomerIdAsync(_customerToken);
+            // Token present but GetCustomerIdAsync returned null → token expired/invalid
+            if (_customerId == null)
+                _tokenExpired = true;
+        }
 
         try
         {
