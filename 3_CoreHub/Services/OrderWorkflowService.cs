@@ -200,36 +200,55 @@ namespace VanAn.CoreHub.Services
 
         private async Task HandleOrderCompletedAsync(Order order, IDbContextTransaction transaction)
         {
-            try
+            // 📋 NHIỆM VỤ A: Ghi sự kiện Outbox (CRITICAL — must succeed or rollback)
+            await RecordOrderCompletedEventAsync(order);
+
+            // 🔄 NHIỆM VỤ B: Kích hoạt Flywheel (SIDE-EFFECT — must NOT rollback order transition)
+            // Loyalty-A: Guard TrackingCode now configurable via LoyaltyPointsConfig.AwardOnAllOrders.
+            //   AwardOnAllOrders=true  → all orders get loyalty points (bỏ guard).
+            //   AwardOnAllOrders=false → only orders with TrackingCode get points (giữ behavior cũ).
+            bool hasTrackingCode = !string.IsNullOrEmpty(order.TrackingCode);
+            bool shouldAwardLoyalty = _loyaltyPointsConfig.AwardOnAllOrders || hasTrackingCode;
+
+            if (hasTrackingCode)
             {
-                // 📋 NHIỆM VỤ A: Ghi sự kiện Outbox (giả lập)
-                await RecordOrderCompletedEventAsync(order);
-
-                // 🔄 NHIỆM VỤ B: Kích hoạt Flywheel
-                // Loyalty-A: Guard TrackingCode now configurable via LoyaltyPointsConfig.AwardOnAllOrders.
-                //   AwardOnAllOrders=true  → all orders get loyalty points (bỏ guard).
-                //   AwardOnAllOrders=false → only orders with TrackingCode get points (giữ behavior cũ).
-                bool hasTrackingCode = !string.IsNullOrEmpty(order.TrackingCode);
-                bool shouldAwardLoyalty = _loyaltyPointsConfig.AwardOnAllOrders || hasTrackingCode;
-
-                if (hasTrackingCode)
+                try
                 {
                     await ProcessSocialCampaignConversionAsync(order.TrackingCode!);
                 }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to process social campaign conversion for order {OrderId}", order.Id);
+                }
+            }
 
-                if (shouldAwardLoyalty)
+            if (shouldAwardLoyalty)
+            {
+                try
                 {
                     await ProcessLoyaltyPointsAsync(order);
                 }
+                catch (Exception ex)
+                {
+                    // Issue #2 fix (2026-09-16): Loyalty awarding is a side-effect, not a prerequisite
+                    // for order completion. If it fails (e.g. Customer decryption error on corrupt
+                    // phone data, or customer not found), log the error but let the order transition
+                    // succeed. Previously, the exception was re-thrown → transaction rollback →
+                    // order never transitions to "completed" → much worse outcome than missing points.
+                    _logger.LogError(ex, "Failed to process loyalty points for order {OrderId} — order transition will continue", order.Id);
+                }
+            }
 
-                // Phase 5: Update customer order stats (LastOrderDate + TotalSpent) for ALL completed orders.
-                // This runs regardless of TrackingCode — all orders update customer stats for segmentation.
+            // Phase 5: Update customer order stats (LastOrderDate + TotalSpent) for ALL completed orders.
+            // This runs regardless of TrackingCode — all orders update customer stats for segmentation.
+            // Side-effect — must NOT rollback order transition.
+            try
+            {
                 await UpdateCustomerOrderStatsAsync(order);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to handle order completed for order {OrderId}", order.Id);
-                throw; // Re-throw to trigger transaction rollback
+                _logger.LogError(ex, "Failed to update customer order stats for order {OrderId} — order transition will continue", order.Id);
             }
         }
 
