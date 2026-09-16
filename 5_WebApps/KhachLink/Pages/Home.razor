@@ -27,15 +27,6 @@
 
 <PageTitle>KhachLink - Cỗ Máy Giữ Khách Vạn An</PageTitle>
 
-<!-- Cart Drawer Component -->
-<CartDrawer
-    CartItems="@cartState.Items"
-    TotalAmount="@cartState.TotalAmount"
-    TotalVatAmount="@cartState.TotalVatAmount"
-    VatDisplayEnabled="@_vatDisplayEnabled"
-    RemoveFromCart="async (productId) => await CartService.RemoveItemAsync(productId)"
-    Checkout="async () => await GoToCheckout()" />
-
 <KhachLinkLayout>
     <!-- P4.1: Reseller badge moved to KhachLinkLayout (global — shows on all pages, not just Home) -->
 
@@ -428,7 +419,6 @@
 </style>
 
 @code {
-    private VanAn.KhachLink.Services.CartState cartState = null!;
     private List<ProductDto> products = new();
     private List<RecommendedProductDto> recommendedProducts = new();
     private List<ProductDto> recentlyViewed = new();
@@ -479,13 +469,9 @@
 
     protected override async Task OnInitializedAsync()
     {
-        cartState = CartService.GetCartState();
-        CartService.OnCartChanged += StateHasChanged;
-        // Phase 1 (fast, localStorage): cart + recently viewed — no HTTP, runs in parallel
-        await Task.WhenAll(
-            CartService.LoadCartFromStorageAsync(),
-            LoadRecentlyViewedAsync()
-        );
+        // Cart drawer + cart state now managed by KhachLinkLayout (global floating cart).
+        // Home only needs to load recently viewed products.
+        await LoadRecentlyViewedAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -879,15 +865,8 @@
         Navigation.NavigateTo(videoUrl, forceLoad: true);
     }
 
-    private async Task GoToCheckout()
-    {
-        Navigation.NavigateTo("/checkout");
-        await Task.Delay(100);
-    }
-
     public void Dispose()
     {
-        CartService.OnCartChanged -= StateHasChanged;
         _homeVoiceDotNetRef?.Dispose();
     }
 }

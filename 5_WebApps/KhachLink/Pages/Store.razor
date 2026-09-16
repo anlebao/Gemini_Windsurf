@@ -18,17 +18,8 @@
 
 <PageTitle>@(_store?.Name ?? "Cửa hàng") — KhachLink</PageTitle>
 
-<!-- Cart Drawer Component — hidden for Pending tenants (no commerce) -->
-@if (_store is not null && !_store.IsPending)
-{
-    <CartDrawer
-        CartItems="@_cartState.Items"
-        TotalAmount="@_cartState.TotalAmount"
-        TotalVatAmount="@_cartState.TotalVatAmount"
-        VatDisplayEnabled="@_vatDisplayEnabled"
-        RemoveFromCart="async (productId) => await CartService.RemoveItemAsync(productId)"
-        Checkout="@GoToCheckout" />
-}
+@* CartDrawer moved to KhachLinkLayout (global floating cart — visible on all pages). *@
+@* Pending tenant check handled by _navFlags.ShowCart in layout (instance config). *@
 
 @if (_loading)
 {
@@ -591,7 +582,6 @@ else
     private List<ProductDto> _products = new();
     private List<VanAn.Shared.Domain.SocialCampaign> _campaigns = new();
     private bool _campaignLoading = true;
-    private VanAn.KhachLink.Services.CartState _cartState = null!;
     private bool _vatDisplayEnabled = true;
 
     private string GetThemeClass() => _shopConfig?.ActiveTheme switch
@@ -606,8 +596,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         _loading = true;
-        _cartState = CartService.GetCartState();
-        CartService.OnCartChanged += StateHasChanged;
+        // Cart drawer + cart state now managed by KhachLinkLayout (global floating cart).
         await CartService.LoadCartFromStorageAsync();
         try
         {
@@ -731,12 +720,6 @@ else
 
     private void AddToCartSync(ProductDto product) => _ = AddToCart(product);
 
-    private async Task GoToCheckout()
-    {
-        Navigation.NavigateTo("/checkout");
-        await Task.Delay(100);
-    }
-
     private void OpenCampaign(string trackingCode)
     {
         if (!string.IsNullOrEmpty(trackingCode))
@@ -747,6 +730,6 @@ else
 
     public void Dispose()
     {
-        CartService.OnCartChanged -= StateHasChanged;
+        // Cart subscription moved to KhachLinkLayout (global floating cart).
     }
 }

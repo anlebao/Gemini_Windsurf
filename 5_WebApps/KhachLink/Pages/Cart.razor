@@ -1,12 +1,14 @@
 ﻿@using VanAn.KhachLink.Components.Layout
 @using VanAn.KhachLink.Components.Shared
 @using VanAn.KhachLink.Services.Http
+@using VanAn.KhachLink.Models
 @page "/cart"
 @inject VanAn.KhachLink.Services.CartService CartService
 @inject NavigationManager Navigation
 @inject IThemeProvider ThemeProvider
 @inject ITenantService TenantService
 @inject ShopFeatureSettingsHttpService FeatureSettings
+@inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
@@ -148,8 +150,8 @@
                                 }
                             </div>
 
-                            <VanAnButton Variant="ButtonVariant.Success" FullWidth="true" Icon="qr-code" OnClick="ProceedToCheckout" data-testid="cart-btn-checkout">
-                                Thanh toán
+                            <VanAnButton Variant="ButtonVariant.Success" FullWidth="true" Icon="@(AllItemsFree ? "gift" : "qr-code")" OnClick="ProceedToCheckout" data-testid="cart-btn-checkout">
+                                @(AllItemsFree ? "Nhận đồ miễn phí" : "Thanh toán")
                             </VanAnButton>
                             <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true" CssClass="mt-2" OnClick="ClearCart" data-testid="cart-btn-clear">
                                 Xóa giỏ hàng
@@ -171,6 +173,9 @@
     private bool _speechSupported = false;
     private bool isRecording = false;
     private DotNetObjectReference<Cart>? _voiceDotNetRef;
+
+    /// <summary>Phase C: all items free/charity → button shows "Nhận đồ miễn phí" + bypass /checkout.</summary>
+    private bool AllItemsFree => cartState.Items.Count > 0 && cartState.Items.All(i => i.IsFree);
 
     protected override async Task OnInitializedAsync()
     {
@@ -257,9 +262,86 @@
         await CartService.UpdateOrderNoteAsync(cartState.OrderNote);
     }
 
-    private void ProceedToCheckout()
+    private async Task ProceedToCheckout()
     {
+        // Phase B: all-free/charity cart → create order directly, bypass /checkout page.
+        if (cartState.Items.Count > 0 && cartState.Items.All(i => i.IsFree))
+        {
+            await SubmitFreeOrderDirectAsync();
+            return;
+        }
+
         Navigation.NavigateTo("/checkout");
+    }
+
+    /// <summary>Phase B: create a free/charity order directly via Gateway API, bypassing /checkout.
+    /// Mirrors KhachLinkLayout.SubmitFreeOrderDirectAsync — kept in sync for the Cart page flow.</summary>
+    private async Task SubmitFreeOrderDirectAsync()
+    {
+        try
+        {
+            var deviceId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
+            if (string.IsNullOrEmpty(deviceId))
+            {
+                deviceId = Guid.NewGuid().ToString();
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_device_id", deviceId);
+            }
+
+            var sourceDomain = await JSRuntime.InvokeAsync<string?>("eval", "window.location.hostname");
+
+            var orderRequest = new
+            {
+                CustomerDeviceId = deviceId,
+                OrderType = "DINEIN",
+                Items = cartState.Items.Select(i => new
+                {
+                    ProductId = i.ProductId,
+                    TenantId = i.TenantId,
+                    ProductName = i.ProductName,
+                    VatRate = i.VatRate,
+                    Quantity = i.Quantity,
+                    UnitPrice = i.UnitPrice,
+                    IsFree = i.IsFree,
+                    Notes = "",
+                }).ToList(),
+                CustomerNotes = string.IsNullOrWhiteSpace(cartState.OrderNote)
+                    ? "Nhận đồ miễn phí / từ thiện"
+                    : cartState.OrderNote.Trim(),
+                CustomerName = string.Empty,
+                CustomerPhone = string.Empty,
+                CustomerAddress = string.Empty,
+                CustomerId = (Guid?)null,
+                TrackingCode = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "campaign_tracking_code"),
+                SourceDomain = sourceDomain,
+                DeliveryAddress = (string?)null,
+                DeliveryLat = (double?)null,
+                DeliveryLng = (double?)null,
+                ShippingFee = 0
+            };
+
+            var http = HttpClientFactory.CreateClient("gateway");
+            var response = await http.PostAsJsonAsync("api/public/orders/checkout", orderRequest);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<CheckoutResponseResult>();
+                var createdOrders = result?.Orders ?? new();
+                if (createdOrders.Count > 0)
+                {
+                    await CartService.ClearCartAsync();
+                    Navigation.NavigateTo($"/order-tracking/{createdOrders[0].OrderId}");
+                    return;
+                }
+            }
+
+            System.Console.WriteLine($"[Cart] Direct free-order creation failed ({response.StatusCode}) — falling back to /checkout");
+            Navigation.NavigateTo("/checkout");
+        }
+        catch (Exception ex)
+        {
+            System.Console.WriteLine($"[Cart] Direct free-order exception: {ex.Message} — falling back to /checkout");
+            Navigation.NavigateTo("/checkout");
+        }
     }
 
     public void Dispose()

@@ -724,44 +724,8 @@
         CartService.OnCartChanged -= StateHasChanged;
     }
 
-    // Phase 5: CheckoutResponse shape (matches Gateway CheckoutResponse DTO).
-    private class CheckoutResponseResult
-    {
-        [System.Text.Json.Serialization.JsonPropertyName("orders")]
-        public List<CreatedOrderItem> Orders { get; set; } = new();
-        [System.Text.Json.Serialization.JsonPropertyName("successCount")]
-        public int SuccessCount { get; set; }
-        [System.Text.Json.Serialization.JsonPropertyName("failureCount")]
-        public int FailureCount { get; set; }
-        [System.Text.Json.Serialization.JsonPropertyName("errors")]
-        public List<CheckoutErrorItem> Errors { get; set; } = new();
-    }
-
-    private class CreatedOrderItem
-    {
-        [System.Text.Json.Serialization.JsonPropertyName("orderId")]
-        public string OrderId { get; set; } = string.Empty;
-        [System.Text.Json.Serialization.JsonPropertyName("tenantId")]
-        public Guid TenantId { get; set; }
-        [System.Text.Json.Serialization.JsonPropertyName("tenantName")]
-        public string TenantName { get; set; } = string.Empty;
-        [System.Text.Json.Serialization.JsonPropertyName("amount")]
-        public decimal Amount { get; set; }
-        [System.Text.Json.Serialization.JsonPropertyName("subTotal")]
-        public decimal SubTotal { get; set; }
-        [System.Text.Json.Serialization.JsonPropertyName("totalVatAmount")]
-        public decimal TotalVatAmount { get; set; }
-    }
-
-    private class CheckoutErrorItem
-    {
-        [System.Text.Json.Serialization.JsonPropertyName("tenantId")]
-        public Guid TenantId { get; set; }
-        [System.Text.Json.Serialization.JsonPropertyName("tenantName")]
-        public string TenantName { get; set; } = string.Empty;
-        [System.Text.Json.Serialization.JsonPropertyName("error")]
-        public string Error { get; set; } = string.Empty;
-    }
+    // Phase 5: CheckoutResponse shape moved to VanAn.KhachLink.Models.CheckoutResponseResult
+    // (shared with KhachLinkLayout for Phase B direct free-order flow).
 
     // Profile DTO for pre-filling checkout form when customer is logged in.
     // Matches ShopERP CustomerIdentityController.GetMe response shape.

@@ -59,8 +59,9 @@
                         <VanAnButton Variant="ButtonVariant.Success" 
                                    Size="ButtonSize.Large"
                                    FullWidth="true"
+                                   Icon="@(AllItemsFree ? "gift" : "qr-code")"
                                    OnClick="async () => await Checkout()">
-                            Thanh toán
+                            @(AllItemsFree ? "Nhận đồ miễn phí" : "Thanh toán")
                         </VanAnButton>
                     </VanAnCard>
                 </div>
@@ -180,7 +181,10 @@
     
     [Parameter, EditorRequired]
     public Func<Task> Checkout { get; set; } = default!;
-    
+
+    /// <summary>Phase C: when all items are free/charity, button shows "Nhận đồ miễn phí" (gift icon).</summary>
+    private bool AllItemsFree => CartItems.Count > 0 && CartItems.All(i => i.IsFree);
+
     private bool isCartOpen = true;
 
     private void ToggleCart()

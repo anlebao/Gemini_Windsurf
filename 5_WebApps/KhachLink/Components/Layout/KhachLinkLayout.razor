@@ -7,6 +7,7 @@
 @using VanAn.KhachLink.Services.PWA
 @using VanAn.KhachLink.Services
 @using VanAn.KhachLink.Models
+@using VanAn.KhachLink.Components
 @using VanAn.KhachLink.Components.Shared
 @inject IThemeProvider ThemeProvider
 @inject ITenantService TenantService
@@ -15,8 +16,10 @@
 @inject KhachLinkInstanceHttpService InstanceHttp
 @inject VanAn.KhachLink.Services.Http.CommunityHttpService CommunityHttp
 @inject CartService CartSvc
+@inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
+@implements IDisposable
 @inherits VanAn.UI.Platform.Components.Base.BaseComponent
 
 <HeadContent>
@@ -73,8 +76,14 @@ else
                 }
                 @if (_navFlags.ShowCart)
                 {
-                    <a href="/cart" id="nav-cart" class="header-icon-btn" aria-label="Giỏ hàng">
+                    <a href="/cart" id="nav-cart" class="header-icon-btn position-relative" aria-label="Giỏ hàng">
                         <i class="bi bi-cart3 text-white"></i>
+                        @if (_cartItemCount > 0)
+                        {
+                            <span class="cart-badge position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" data-testid="cart-badge">
+                                @_cartItemCount
+                            </span>
+                        }
                     </a>
                 }
                 @if (_navFlags.ShowRewards)
@@ -129,6 +138,18 @@ else
 
     @* Sprint 2 P3.1: Onboarding tour — Directory → FullCommerce/Reseller *@
     <OnboardingTour Direction="@_profileChangeDirection" NewProfile="@(_instanceStyle?.Profile ?? KhachLinkProfile.FullCommerce)" />
+
+    @* Global floating CartDrawer — visible on ALL pages when cart has items (was Home.razor + Store.razor only). *@
+    @if (_navFlags.ShowCart && _cartState.Items.Count > 0)
+    {
+        <CartDrawer
+            CartItems="@_cartState.Items"
+            TotalAmount="@_cartState.TotalAmount"
+            TotalVatAmount="@_cartState.TotalVatAmount"
+            VatDisplayEnabled="@_vatDisplayEnabled"
+            RemoveFromCart="async (productId) => await CartSvc.RemoveItemAsync(productId)"
+            Checkout="@GoToCheckout" />
+    }
 
     <!-- Main Content -->
     <main class="khachlink-main">
@@ -202,6 +223,14 @@ else
     transition: background 0.2s;
 }
 .header-icon-btn:hover { background: rgba(255,255,255,0.25); }
+.cart-badge {
+    font-size: 0.65rem;
+    min-width: 18px;
+    height: 18px;
+    line-height: 18px;
+    padding: 0 4px;
+    border: 2px solid var(--shop-header-color, #8B4513);
+}
 
 /* Layout */
 .khachlink-layout { min-height: 100vh; background: var(--color-neutral-50, #f9f9f9); }
@@ -272,11 +301,20 @@ else
     private bool _showWhatsNewBanner;
     private bool _showCartPreservationModal;
     private int _cartItemCount;
+    /// <summary>Global floating cart state (was Home.razor + Store.razor only — now layout-level).</summary>
+    private CartState _cartState = new();
+    private bool _vatDisplayEnabled = true;
 
     protected override async Task OnInitializedAsync()
     {
         _currentTenantId = TenantService.GetCurrentTenantId();
         _shopConfig = await ShopConfigService.GetShopConfigByTenantIdAsync(_currentTenantId);
+
+        // Global cart subscription — CartDrawer + header badge update on any add/remove across all pages.
+        _cartState = CartSvc.GetCartState();
+        CartSvc.OnCartChanged += OnCartChanged;
+        await CartSvc.LoadCartFromStorageAsync();
+        UpdateCartItemCount();
 
         // KhachLink Multi-Profile R1 Sprint 3: fetch instance config by current domain.
         // If feature flag OFF or domain not registered → returns null → _navFlags stays default (all true).
@@ -474,5 +512,111 @@ else
         }
         catch { /* non-critical */ }
         return 0;
+    }
+
+    /// <summary>Refresh _cartItemCount from CartService state (called on cart change events).</summary>
+    private void UpdateCartItemCount()
+    {
+        _cartItemCount = _cartState.GetTotalItems();
+    }
+
+    /// <summary>CartService.OnCartChanged handler — re-read state + trigger re-render.</summary>
+    private void OnCartChanged()
+    {
+        UpdateCartItemCount();
+        StateHasChanged();
+    }
+
+    /// <summary>Checkout from floating CartDrawer — Phase B: bypass /checkout for all-free carts.</summary>
+    private async Task GoToCheckout()
+    {
+        // Phase B: all-free/charity cart (no DELIVERY) → create order directly, skip /checkout page.
+        if (_cartState.Items.Count > 0
+            && _cartState.Items.All(i => i.IsFree))
+        {
+            await SubmitFreeOrderDirectAsync();
+            return;
+        }
+
+        Navigation.NavigateTo("/checkout");
+        await Task.Delay(100);
+    }
+
+    /// <summary>Phase B: create a free/charity order directly via Gateway API, bypassing /checkout.
+    /// OrderType=DINEIN (no delivery address needed), no guest info required, no payment.</summary>
+    private async Task SubmitFreeOrderDirectAsync()
+    {
+        try
+        {
+            var deviceId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
+            if (string.IsNullOrEmpty(deviceId))
+            {
+                deviceId = Guid.NewGuid().ToString();
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_device_id", deviceId);
+            }
+
+            var sourceDomain = await JSRuntime.InvokeAsync<string?>("eval", "window.location.hostname");
+
+            // Group items by tenant (multi-tenant cart → multiple orders, same as Checkout.razor).
+            var orderRequest = new
+            {
+                CustomerDeviceId = deviceId,
+                OrderType = "DINEIN",
+                Items = _cartState.Items.Select(i => new
+                {
+                    ProductId = i.ProductId,
+                    TenantId = i.TenantId,
+                    ProductName = i.ProductName,
+                    VatRate = i.VatRate,
+                    Quantity = i.Quantity,
+                    UnitPrice = i.UnitPrice,
+                    IsFree = i.IsFree,
+                    Notes = "",
+                }).ToList(),
+                CustomerNotes = string.IsNullOrWhiteSpace(_cartState.OrderNote)
+                    ? "Nhận đồ miễn phí / từ thiện"
+                    : _cartState.OrderNote.Trim(),
+                CustomerName = string.Empty,
+                CustomerPhone = string.Empty,
+                CustomerAddress = string.Empty,
+                CustomerId = (Guid?)null,
+                TrackingCode = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "campaign_tracking_code"),
+                SourceDomain = sourceDomain,
+                DeliveryAddress = (string?)null,
+                DeliveryLat = (double?)null,
+                DeliveryLng = (double?)null,
+                ShippingFee = 0
+            };
+
+            var http = HttpClientFactory.CreateClient("gateway");
+            var response = await http.PostAsJsonAsync("api/public/orders/checkout", orderRequest);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<CheckoutResponseResult>();
+                var createdOrders = result?.Orders ?? new();
+                if (createdOrders.Count > 0)
+                {
+                    await CartSvc.ClearCartAsync();
+                    // Redirect to first order's tracking page (same pattern as Checkout.razor line 681).
+                    Navigation.NavigateTo($"/order-tracking/{createdOrders[0].OrderId}");
+                    return;
+                }
+            }
+
+            // Fallback: if direct creation failed, send user to /checkout page for manual flow.
+            System.Console.WriteLine($"[KhachLinkLayout] Direct free-order creation failed ({response.StatusCode}) — falling back to /checkout");
+            Navigation.NavigateTo("/checkout");
+        }
+        catch (Exception ex)
+        {
+            System.Console.WriteLine($"[KhachLinkLayout] Direct free-order exception: {ex.Message} — falling back to /checkout");
+            Navigation.NavigateTo("/checkout");
+        }
+    }
+
+    public void Dispose()
+    {
+        CartSvc.OnCartChanged -= OnCartChanged;
     }
 }
