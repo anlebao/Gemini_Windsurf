@@ -231,7 +231,7 @@
             @if (_customerId.HasValue)
             {
                 <div class="mt-3">
-                    <ChatPanel OrderId="OrderId" CurrentUserId="_customerId.Value" CustomerToken="_customerToken" ScrollContainerId="delivery-chat-scroll" />
+                    <ChatPanel OrderId="OrderId" CurrentUserId="_customerId.Value" CustomerToken="@_customerToken" ScrollContainerId="delivery-chat-scroll" />
                 </div>
             }
 
@@ -259,6 +259,9 @@
     private bool _isTracking = false;
     private DateTime? _lastGpsUpdate;
     private Guid? _customerId;
+    // GPS pings must be keyed by DeliveryTask.Id (PK) — NOT OrderId. Gateway RecordLocation
+    // looks up DeliveryTasks.Id; sending OrderId silently discards every ping.
+    private Guid? _deliveryTaskId;
 
     // CC-S5: Wallet + COD state
     private bool _showCodInput = false;
@@ -310,6 +313,7 @@
                 if (task != null)
                 {
                     _deliveryStatus = task.Status;
+                    _deliveryTaskId = task.DeliveryTaskId;
                 }
             }
 
@@ -362,6 +366,8 @@
         if (result.Success)
         {
             _deliveryStatus = result.Status;
+            if (result.DeliveryTaskId != Guid.Empty)
+                _deliveryTaskId = result.DeliveryTaskId;
             StartGpsTracking();
         }
         else
@@ -419,8 +425,13 @@
     private void StartGpsTracking()
     {
         if (_isTracking) return;
+        // Gateway keys location pings by DeliveryTask.Id — fall back to OrderId only if the
+        // task id was never loaded (defensive; pings would be discarded server-side).
+        var trackingId = (_deliveryTaskId ?? Guid.Empty) != Guid.Empty
+            ? _deliveryTaskId!.Value.ToString()
+            : OrderId.ToString();
         _isTracking = true;
-        LocationTracker.StartTracking(OrderId.ToString(), _customerToken!, async (taskId, lat, lng) =>
+        LocationTracker.StartTracking(trackingId, _customerToken!, async (taskId, lat, lng) =>
         {
             _shipperLat = lat;
             _shipperLng = lng;

@@ -199,7 +199,7 @@
             @if (_customerId.HasValue)
             {
                 <div class="mt-3">
-                    <ChatPanel OrderId="OrderId" CurrentUserId="_customerId.Value" CustomerToken="_customerToken" ScrollContainerId="order-chat-scroll" />
+                    <ChatPanel OrderId="OrderId" CurrentUserId="_customerId.Value" CustomerToken="@_customerToken" ScrollContainerId="order-chat-scroll" />
                 </div>
             }
         }

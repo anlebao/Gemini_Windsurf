@@ -79,6 +79,7 @@
     private bool _loading = true;
     private bool _isLoggedIn = false;
     private bool _noProduct = false;
+    private bool _qrRendered = false;
     private string _customerToken = "";
     private string _errorMessage = "Không thể tạo mã QR.";
     private CompositeSalesmanQrDto? _qr;
@@ -129,8 +130,11 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && _qr != null)
+        // _qr is loaded asynchronously, so firstRender fires while the loading spinner is shown
+        // (canvas not yet in the DOM). Render the QR on the first render where the canvas exists.
+        if (_qr != null && !_qrRendered)
         {
+            _qrRendered = true;
             await JSRuntime.InvokeVoidAsync("vananQR.generate", "qrCanvas", _qr.QrUrl, 300, 300);
         }
     }
