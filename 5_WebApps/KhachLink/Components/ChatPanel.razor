@@ -34,6 +34,10 @@
                     <div class="spinner-border spinner-border-sm text-primary"></div>
                 </div>
             }
+            else if (_error != null)
+            {
+                @* Error takes precedence over empty state — don't show "Chưa có tin nhắn" when LoadHistoryAsync failed *@
+            }
             else if (_messages.Count == 0)
             {
                 <div class="text-center text-muted py-3">
@@ -64,7 +68,14 @@
         <div class="p-3 border-top">
             @if (_error != null)
             {
-                <div class="alert alert-danger py-2 small mb-2">@_error</div>
+                <div class="alert alert-danger py-2 small mb-2">
+                    @_error
+                    @if (_tokenExpired)
+                    {
+                        <br />
+                        <a href="/login" class="text-decoration-underline fw-bold">Đăng nhập lại</a>
+                    }
+                </div>
             }
             @if (_signalrWarning != null)
             {
@@ -75,8 +86,8 @@
             <div class="d-flex gap-2">
                 <input type="text" class="form-control" placeholder="Nhập tin nhắn..."
                        @bind="_messageInput" @bind:event="oninput"
-                       @onkeypress="OnKeyPress" maxlength="2000" />
-                <VanAnButton Variant="ButtonVariant.Primary" OnClick="SendMessage">
+                       @onkeypress="OnKeyPress" maxlength="2000" disabled="@_tokenExpired" />
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="SendMessage" disabled="@_tokenExpired">
                     <i class="bi bi-send"></i> Gửi
                 </VanAnButton>
             </div>
@@ -114,6 +125,7 @@
     private bool _loadingHistory = true;
     private bool _connecting = false;
     private bool _isConnected = false;
+    private bool _tokenExpired = false;
     private string? _error;
     private string? _signalrWarning;
     private HubConnection? _hubConnection;
@@ -143,7 +155,10 @@
         {
             // 401 = token expired/invalid — show re-login guidance
             if (result.ErrorCode == 401)
+            {
                 _error = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để sử dụng chat.";
+                _tokenExpired = true;
+            }
             // 404 = order not found or not DELIVERY — show friendly message
             else if (result.ErrorCode == 404)
                 _error = "Đơn hàng không tồn tại hoặc không phải đơn giao hàng.";
