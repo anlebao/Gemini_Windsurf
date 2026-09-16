@@ -5,6 +5,7 @@ using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
+using VanAn.Shared.Domain.Common;
 using VanAn.Shared.Services;
 using Xunit;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
@@ -39,7 +40,7 @@ public class DeliveryWorkflowServiceTests : IDisposable
         _context = new VanAnDbContext(options);
         _context.Database.EnsureCreated();
         // FakeOrderWorkflowService delegates order status update in-test (same DbContext, no NATS/loyalty/accounting).
-        _service = new DeliveryWorkflowService(_context, new FakeOrderWorkflowService(_context), NullLogger<DeliveryWorkflowService>.Instance);
+        _service = new DeliveryWorkflowService(_context, new FakeOrderWorkflowService(_context), new FakeTenantProvider(), NullLogger<DeliveryWorkflowService>.Instance);
     }
 
     public void Dispose()
@@ -253,7 +254,7 @@ public class DeliveryWorkflowServiceTests : IDisposable
         var (order, task) = await SeedOrderWithTaskAsync("delivering", DeliveryTaskStatus.OutForDelivery);
 
         var fakeWorkflow = new FakeOrderWorkflowService(_context);
-        var serviceWithFake = new DeliveryWorkflowService(_context, fakeWorkflow, NullLogger<DeliveryWorkflowService>.Instance);
+        var serviceWithFake = new DeliveryWorkflowService(_context, fakeWorkflow, new FakeTenantProvider(), NullLogger<DeliveryWorkflowService>.Instance);
 
         var result = await serviceWithFake.TransitionStatusAsync(order.Id, DeliveryTaskStatus.Delivered);
 
@@ -297,4 +298,15 @@ public class FakeOrderWorkflowService : IOrderWorkflowService
     public Task<List<Order>> GetOrdersByStatusAsync(OrderStatusId status) => Task.FromResult(new List<Order>());
     public Task<List<Order>> GetOrdersByStatusAsync(OrderStatusId status, Guid tenantId) => Task.FromResult(new List<Order>());
     public Task<bool> IsTransitionValidAsync(OrderStatusId currentStatus, OrderStatusId newStatus) => Task.FromResult(true);
+}
+
+/// <summary>
+/// Test fake for ITenantProvider — SetTenant stores the value, HasTenant returns true when set.
+/// </summary>
+public class FakeTenantProvider : ITenantProvider
+{
+    public Guid TenantId { get; private set; }
+    public string? CurrentUser => "test-user";
+    public bool HasTenant => TenantId != Guid.Empty;
+    public void SetTenant(Guid tenantId) => TenantId = tenantId;
 }

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Common;
 using VanAn.Shared.Services;
 
 namespace VanAn.CoreHub.Services;
@@ -17,10 +18,12 @@ namespace VanAn.CoreHub.Services;
 public class DeliveryWorkflowService(
     IVanAnDbContext dbContext,
     IOrderWorkflowService orderWorkflowService,
+    ITenantProvider tenantProvider,
     ILogger<DeliveryWorkflowService> logger) : IDeliveryWorkflowService
 {
     private readonly IVanAnDbContext _dbContext = dbContext;
     private readonly IOrderWorkflowService _orderWorkflowService = orderWorkflowService;
+    private readonly ITenantProvider _tenantProvider = tenantProvider;
     private readonly ILogger<DeliveryWorkflowService> _logger = logger;
 
     public async Task<DeliveryTask?> TransitionStatusAsync(Guid orderId, DeliveryTaskStatus newStatus, string? failureReason = null)
@@ -67,8 +70,11 @@ public class DeliveryWorkflowService(
         //   - EnqueueOrderStatusChangedEventAsync (Outbox → NATS sync to ShopERP SQLite)
         //   - PublishOrderStatusChangedEventAsync (NATS push notification)
         // OrderWorkflowService uses its own transaction + repository, separate from DeliveryTask save above.
+        // Set tenant context from DeliveryTask so OrderWorkflowService's multi-tenancy query filter
+        // can find the order (customer-token auth doesn't set tenant context like JWT auth does).
         if (newStatus == DeliveryTaskStatus.Delivered)
         {
+            _tenantProvider.SetTenant(task.TenantId.Value);
             Order? result = await _orderWorkflowService.TransitionStatusAsync(
                 orderId,
                 new OrderStatusId("completed"));
