@@ -5,6 +5,7 @@ using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
+using VanAn.Shared.Services;
 using Xunit;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 
@@ -37,7 +38,8 @@ public class DeliveryWorkflowServiceTests : IDisposable
 
         _context = new VanAnDbContext(options);
         _context.Database.EnsureCreated();
-        _service = new DeliveryWorkflowService(_context, NullLogger<DeliveryWorkflowService>.Instance);
+        // FakeOrderWorkflowService delegates order status update in-test (same DbContext, no NATS/loyalty/accounting).
+        _service = new DeliveryWorkflowService(_context, new FakeOrderWorkflowService(_context), NullLogger<DeliveryWorkflowService>.Instance);
     }
 
     public void Dispose()
@@ -240,4 +242,59 @@ public class DeliveryWorkflowServiceTests : IDisposable
 
         Assert.Null(result);
     }
+
+    // === T11: Transition_Delivered_DelegatesToOrderWorkflowService ===
+    // Verifies that Delivered transition calls IOrderWorkflowService.TransitionStatusAsync(orderId, "completed")
+    // instead of directly updating order status. This ensures loyalty points, NATS sync, and accounting fire.
+    [Fact(DisplayName = "T11: Transition_Delivered_DelegatesToOrderWorkflowService_Completed")]
+    public async Task Transition_Delivered_DelegatesToOrderWorkflowService_Completed()
+    {
+        await SeedTenantAsync();
+        var (order, task) = await SeedOrderWithTaskAsync("delivering", DeliveryTaskStatus.OutForDelivery);
+
+        var fakeWorkflow = new FakeOrderWorkflowService(_context);
+        var serviceWithFake = new DeliveryWorkflowService(_context, fakeWorkflow, NullLogger<DeliveryWorkflowService>.Instance);
+
+        var result = await serviceWithFake.TransitionStatusAsync(order.Id, DeliveryTaskStatus.Delivered);
+
+        Assert.NotNull(result);
+        Assert.Equal(DeliveryTaskStatus.Delivered, result!.Status);
+        // Verify OrderWorkflowService.TransitionStatusAsync was called with (orderId, "completed")
+        Assert.True(fakeWorkflow.TransitionCalled);
+        Assert.Equal(order.Id, fakeWorkflow.TransitionOrderId);
+        Assert.Equal("completed", fakeWorkflow.TransitionStatusValue);
+    }
+}
+
+/// <summary>
+/// Test fake for IOrderWorkflowService — records TransitionStatusAsync calls and applies
+/// the status update directly to the DbContext (no NATS/loyalty/accounting side effects).
+/// </summary>
+public class FakeOrderWorkflowService : IOrderWorkflowService
+{
+    private readonly VanAnDbContext _context;
+    public bool TransitionCalled { get; private set; }
+    public Guid TransitionOrderId { get; private set; }
+    public string? TransitionStatusValue { get; private set; }
+
+    public FakeOrderWorkflowService(VanAnDbContext context) => _context = context;
+
+    public Task<Order?> TransitionStatusAsync(Guid orderId, OrderStatusId newStatus, string? reason = null)
+    {
+        TransitionCalled = true;
+        TransitionOrderId = orderId;
+        TransitionStatusValue = newStatus.Value;
+
+        var order = _context.Orders.IgnoreQueryFilters().FirstOrDefault(o => o.Id == orderId);
+        if (order == null) return Task.FromResult<Order?>(null);
+        order.UpdateOrderStatus(newStatus);
+        _context.SaveChanges();
+        return Task.FromResult<Order?>(order);
+    }
+
+    public Task<Order?> GetOrderAsync(Guid orderId) => Task.FromResult<Order?>(null);
+    public Task<List<Order>> GetOrdersByCustomerAsync(string customerDeviceId) => Task.FromResult(new List<Order>());
+    public Task<List<Order>> GetOrdersByStatusAsync(OrderStatusId status) => Task.FromResult(new List<Order>());
+    public Task<List<Order>> GetOrdersByStatusAsync(OrderStatusId status, Guid tenantId) => Task.FromResult(new List<Order>());
+    public Task<bool> IsTransitionValidAsync(OrderStatusId currentStatus, OrderStatusId newStatus) => Task.FromResult(true);
 }

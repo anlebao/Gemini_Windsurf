@@ -2,20 +2,25 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Services;
 
 namespace VanAn.CoreHub.Services;
 
 /// <summary>
 /// CC-S2 (Sprint 2): Delivery workflow service — state machine transitions + GPS location recording.
 /// Uses IVanAnDbContext directly (cross-tenant via IgnoreQueryFilters), same pattern as CommunityOrderService.
-/// On Delivered → updates Order status to "completed" inline (OrderWorkflowService not registered in Gateway DI;
-/// full loyalty/NATS/outbox flow handled by ShopERP sync).
+/// On Delivered → delegates Order status transition to IOrderWorkflowService.TransitionStatusAsync(orderId, "completed")
+/// for unified state-machine validation + loyalty points + NATS Outbox sync + accounting entries.
+/// Previously bypassed OrderWorkflowService (direct order.UpdateOrderStatus + SaveChanges) which skipped
+/// loyalty points awarding, NATS sync to ShopERP SQLite, accounting entries, and referral commission.
 /// </summary>
 public class DeliveryWorkflowService(
     IVanAnDbContext dbContext,
+    IOrderWorkflowService orderWorkflowService,
     ILogger<DeliveryWorkflowService> logger) : IDeliveryWorkflowService
 {
     private readonly IVanAnDbContext _dbContext = dbContext;
+    private readonly IOrderWorkflowService _orderWorkflowService = orderWorkflowService;
     private readonly ILogger<DeliveryWorkflowService> _logger = logger;
 
     public async Task<DeliveryTask?> TransitionStatusAsync(Guid orderId, DeliveryTaskStatus newStatus, string? failureReason = null)
@@ -52,25 +57,35 @@ public class DeliveryWorkflowService(
                 return null;
         }
 
-        // If Delivered → update Order status to "completed"
+        // Persist DeliveryTask status change first (PickedUp/OutForDelivery/Delivered/Failed).
+        await _dbContext.SaveChangesAsync();
+
+        // If Delivered → delegate Order status transition to OrderWorkflowService for unified flow:
+        //   - State-machine validation (delivering → completed is valid)
+        //   - ProcessLoyaltyPointsAsync (award loyalty points to customer)
+        //   - HandleOrderCompletedAsync (accounting entries, referral commission, customer stats)
+        //   - EnqueueOrderStatusChangedEventAsync (Outbox → NATS sync to ShopERP SQLite)
+        //   - PublishOrderStatusChangedEventAsync (NATS push notification)
+        // OrderWorkflowService uses its own transaction + repository, separate from DeliveryTask save above.
         if (newStatus == DeliveryTaskStatus.Delivered)
         {
-            var order = await _dbContext.Orders
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(o => o.Id == orderId);
-
-            if (order != null)
+            Order? result = await _orderWorkflowService.TransitionStatusAsync(
+                orderId,
+                new OrderStatusId("completed"));
+            if (result == null)
             {
-                order.UpdateOrderStatus(new OrderStatusId("completed"));
-                _logger.LogInformation("TransitionStatus: Order {OrderId} → completed (DeliveryTask {TaskId} delivered)", orderId, task.Id);
+                _logger.LogWarning(
+                    "TransitionStatus: OrderWorkflowService.TransitionStatusAsync returned null for order {OrderId} (completed) — " +
+                    "order may already be completed, transition invalid, or order not found. DeliveryTask {TaskId} was marked Delivered.",
+                    orderId, task.Id);
             }
             else
             {
-                _logger.LogWarning("TransitionStatus: DeliveryTask {TaskId} delivered but Order {OrderId} not found", task.Id, orderId);
+                _logger.LogInformation(
+                    "TransitionStatus: Order {OrderId} → completed via OrderWorkflowService (DeliveryTask {TaskId} delivered)",
+                    orderId, task.Id);
             }
         }
-
-        await _dbContext.SaveChangesAsync();
 
         _logger.LogInformation("TransitionStatus: DeliveryTask {TaskId} → {Status} (Order {OrderId})",
             task.Id, newStatus, orderId);

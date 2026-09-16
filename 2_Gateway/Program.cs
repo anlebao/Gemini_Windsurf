@@ -546,6 +546,11 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IBuildService, VanAn.CoreHub.Services.BuildService>();
             _ = builder.Services.AddScoped<VanAn.Shared.Services.IKitchenService, VanAn.CoreHub.Services.KitchenService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IOrderService, VanAn.CoreHub.Services.OrderService>();
+            // Section 5 fix (2026-09-16): OrdersController injects IOrderWorkflowService for unified
+            // state-machine transitions (PUT /api/orders/{id}/status). Without this registration, DI
+            // resolution throws InvalidOperationException → UnifiedErrorHandler returns 400 for ALL
+            // OrdersController endpoints. ShopERP Program.cs line 216 already registers this; Gateway was missing it.
+            _ = builder.Services.AddScoped<VanAn.Shared.Services.IOrderWorkflowService, VanAn.CoreHub.Services.OrderWorkflowService>();
             // W2-T6: Shop feature toggle settings — needed by OrderService.ConfirmPaymentAsync for accounting bypass
             _ = builder.Services.AddScoped<VanAn.Shared.Services.IShopFeatureSettingsService, VanAn.CoreHub.Services.ShopFeatureSettingsService>();
             _ = builder.Services.AddHttpClient<VanAn.CoreHub.Services.IShopInstanceService, VanAn.CoreHub.Services.ShopInstanceService>();
