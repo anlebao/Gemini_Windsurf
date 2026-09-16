@@ -27,6 +27,41 @@
 
 **Validation:** Build 0 errors · Guard ALL PASSED · 6/6 unit tests PASS (CustomerTokenServiceDevTokenTests).
 
+## ⚠️ TEMPORARY DEV-TOKEN SECRET — RV ONLY (removed 2026-09-16)
+
+> **STATUS: REMOVED — production is back to `DevToken:Secret` unset (`/dev-token` → 404).**
+> Nothing to do unless RV needs to run again.
+
+For the chat/GPS/QR RV on 2026-09-16 the dev-token endpoint was temporarily enabled on the
+ShopERP VPS to mint a test customer token (no other way to obtain one — SMS OTP is not
+configured and Google OAuth needs a real browser session).
+
+**How it was enabled (NOT persisted to `.env.shoperp`):**
+
+```bash
+# on vanan-shop-a (ShopERP VPS)
+cd /opt/vanan
+SECRET=$(openssl rand -hex 32)
+DEV_TOKEN_SECRET="$SECRET" docker compose -f docker-compose.shoperp.yml \
+  --env-file .env.shoperp up -d --force-recreate shoperp
+```
+
+**How it was removed (run this to re-secure at any time):**
+
+```bash
+cd /opt/vanan
+docker compose -f docker-compose.shoperp.yml --env-file .env.shoperp up -d --force-recreate shoperp
+```
+
+**Safety properties:**
+- The secret was passed as an **inline shell env var only** — it is NOT in `.env.shoperp`,
+  so the next CD deploy (which rewrites `.env.shoperp` from scratch) clears it automatically.
+- Verify it is off: `docker exec vanan-shoperp-1 sh -c 'env | grep -c "^DevToken__Secret=.\+"'` → must print `0`
+  and `POST /api/customer-identity/dev-token` → **404**.
+- A VPS marker note was left at `~/.devtoken_rv_README.txt` on the ShopERP VPS.
+- Tokens already minted stay valid after the secret is removed (IDataProtector-based, independent of the secret).
+- Never commit a real secret. Rotate `DEV_TOKEN_SECRET` if it is ever exposed.
+
 ## Problem
 
 `CustomerIdentityController.cs:63` set `X-Dev-OTP` header **unconditional** — không gate `IsDevelopment()`. Bất kỳ ai call `POST /api/customer-identity/otp/send` đều nhận OTP trong response header → **bypass hoàn toàn SMS authentication**.
