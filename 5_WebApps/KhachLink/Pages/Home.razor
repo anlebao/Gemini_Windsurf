@@ -448,9 +448,9 @@
     // Issue #142: Home voice search box — Google Maps style
     private string _homeSearchKeyword = "";
 
-    /// <summary>Search mode tab toggle: "store" (default, existing) | "product" (new).
-    /// Open-closed: existing store search behavior unchanged when mode="store".</summary>
-    private string _searchMode = "store";
+    /// <summary>Search mode tab toggle: "product" (default — nhu cầu tìm sản phẩm cao hơn) | "store".
+    /// Open-closed: existing store search behavior unchanged when user toggles to mode="store".</summary>
+    private string _searchMode = "product";
     private bool _homeVoiceEnabled = false;
     private bool _homeSpeechSupported = false;
     private bool _homeVoiceRecording = false;
