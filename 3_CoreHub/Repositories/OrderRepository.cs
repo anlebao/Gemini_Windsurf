@@ -184,10 +184,15 @@ namespace VanAn.CoreHub.Repositories
                 // This causes UPDATE statements for stub Products and non-existent Customers → exception
                 // → transaction rollback → "Không thể chuyển trạng thái" error.
                 // With tracking, only the Order's modified properties (Status + audit) are UPDATEd.
+                //
+                // Issue #3 fix (2026-09-16): Removed Include(o => o.Customer) — no caller accesses
+                // order.Customer after this method. The Include triggered EncryptedStringConverter
+                // decryption on Customer.PhoneNumber, which throws CryptographicException when the
+                // Customer row has corrupt/unencrypted phone data → query returns null → 404/transition
+                // failure. Customer can still be loaded separately if needed.
                 return await _context.Orders
                     .Include(o => o.Items)
                     .ThenInclude(i => i.Product)
-                    .Include(o => o.Customer)
                     .FirstOrDefaultAsync(o => o.Id == orderId, cancellationToken);
             }
             catch (Exception ex)
@@ -205,12 +210,15 @@ namespace VanAn.CoreHub.Repositories
         {
             try
             {
+                // Issue #3 fix (2026-09-16): Removed Include(o => o.Customer) — PublicOrderTrackingDto
+                // does not use Customer data. The Include triggered EncryptedStringConverter decryption
+                // on Customer.PhoneNumber, which throws CryptographicException when Customer row has
+                // corrupt/unencrypted phone data → query returns null → 404 "Order not found".
                 return await _context.Orders
                     .AsNoTracking()
                     .IgnoreQueryFilters()
                     .Include(o => o.Items)
                     .ThenInclude(i => i.Product)
-                    .Include(o => o.Customer)
                     .FirstOrDefaultAsync(o => o.Id == orderId, cancellationToken);
             }
             catch (Exception ex)
