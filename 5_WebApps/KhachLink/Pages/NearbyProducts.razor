@@ -150,7 +150,12 @@
         catch (Exception ex)
         {
             _gpsError = true;
-            _errorMessage = ex.Message;
+            // pwa.js now rejects with a friendly Vietnamese message; fall back to a
+            // generic hint if the message looks like a raw JS object dump.
+            _errorMessage = !string.IsNullOrWhiteSpace(ex.Message)
+                && !ex.Message.StartsWith("[object", StringComparison.OrdinalIgnoreCase)
+                ? ex.Message
+                : "Truy cập vị trí bị từ chối hoặc không khả dụng. Vui lòng cấp quyền GPS và thử lại.";
         }
 
         _loading = false;

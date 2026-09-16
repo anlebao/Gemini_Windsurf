@@ -599,16 +599,29 @@ window.vananPWA = {
     },
 
     // W17-T5: Get current GPS position for Store Finder
+    // Rejects with a proper Error carrying a user-friendly message based on
+    // GeolocationPositionError.code. Rejecting with the raw error object makes
+    // Blazor's JSRuntime surface "[object GeolocationPositionError]" as the
+    // exception message (NearbyProducts GPS error bug).
     getCurrentPosition() {
         return new Promise((resolve, reject) => {
             if (!navigator.geolocation) {
-                reject(new Error('Geolocation not supported'));
+                reject(new Error('Trình duyệt không hỗ trợ định vị GPS.'));
                 return;
             }
             navigator.geolocation.getCurrentPosition(
                 (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-                (err) => reject(err),
-                { timeout: 8000, maximumAge: 60000 }
+                (err) => {
+                    let msg = 'Không lấy được vị trí GPS.';
+                    // GeolocationPositionError.code: 1=PERMISSION_DENIED, 2=POSITION_UNAVAILABLE, 3=TIMEOUT
+                    switch (err && err.code) {
+                        case 1: msg = 'Quyền truy cập vị trí bị từ chối. Vui lòng cấp quyền GPS cho trang web.'; break;
+                        case 2: msg = 'Không xác định được vị trí. Vui lòng bật GPS và thử lại ở nơi có tín hiệu tốt hơn.'; break;
+                        case 3: msg = 'Hết thời gian chờ GPS. Vui lòng thử lại.'; break;
+                    }
+                    reject(new Error(msg));
+                },
+                { timeout: 8000, maximumAge: 60000, enableHighAccuracy: false }
             );
         });
     },
