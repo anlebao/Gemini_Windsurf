@@ -78,6 +78,14 @@ User requested verify full community commerce flow: salesman QR → customer ord
 - Build 0 errors · Guard ALL PASSED · 15/15 ChatServiceTests PASS · CI PASS · CD Multi-VPS PASS.
 - RV Layer 1: ChatHub negotiate → 200 · Chat API 401 auth ✅ · RV Layer 2: diemthuong2 /hubs/chat/negotiate 405→200 ✅ · RV Layer 3: order-tracking + delivery-tracking pages 200 ✅.
 
+**Floating cart + free/charity bypass checkout — ✅ COMPLETE + DEPLOYED + RV PASS (session 2026-09-16, commit `c33e89e5` on `main`):**
+- Bug 1 (cart not floating): `CartDrawer` was page-level (Home.razor + Store.razor only) — disappeared when navigating to other pages. Fix: moved to `KhachLinkLayout` — visible on ALL pages when cart has items. Added red badge with item count on header cart icon. `CartService.OnCartChanged` subscription in layout for real-time updates.
+- Bug 2 (free/charity carts forced through /checkout): all-free/charity carts still required guest form + payment step. Fix: `ProceedToCheckout` (Cart.razor) + `GoToCheckout` (KhachLinkLayout) detect all-free carts → create order directly via `POST /api/public/orders/checkout` (OrderType=DINEIN, IsFree=true, no guest info) → redirect to /order-tracking/{orderId}. Mixed carts + DELIVERY still go through /checkout. Button text changes: "Thanh toán" → "Nhận đồ miễn phí" (gift icon).
+- Shared model: `CheckoutResponseResult`/`CreatedOrderItem`/`CheckoutErrorItem` moved from private classes in Checkout.razor to `VanAn.KhachLink.Models` (shared with KhachLinkLayout + Cart.razor).
+- Files: `KhachLinkLayout.razor` · `CartDrawer.razor` · `Home.razor` · `Store.razor` · `Cart.razor` · `Checkout.razor` · `Models/CheckoutResponseResult.cs`.
+- Build 0 errors · Guard ALL PASSED · CI PASS · CD Multi-VPS PASS.
+- RV: Home + Cart pages 200 ✅ · Free-order checkout API 200 + order created (successCount=1, amount=0) ✅.
+
 ---
 
 ## 3. Current Status
@@ -100,6 +108,7 @@ User requested verify full community commerce flow: salesman QR → customer ord
 - ✅ Issue #4 X-Dev-OTP gate — COMPLETE (X-Dev-OTP removed + dev-token endpoint added)
 - ✅ Issue #175 shipper GPS + salesman QR — DEPLOYED + RV PASS (`f2f5dc2a`)
 - ✅ Chat feature fix — DEPLOYED + RV PASS (`0cb12cd4` + `fba1fce4`)
+- ✅ Floating cart + free/charity bypass checkout — DEPLOYED + RV PASS (`c33e89e5`)
 - Branch: `main` · Build: 0 errors
 - Pending: CD deploy Issue #4 → set `DEV_TOKEN_SECRET` env var on VPS → RV scripts update to use `/dev-token`
 
