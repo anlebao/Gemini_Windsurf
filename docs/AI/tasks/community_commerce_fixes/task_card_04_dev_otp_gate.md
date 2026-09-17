@@ -39,6 +39,9 @@ configured and Google OAuth needs a real browser session).
 **Re-used 2026-09-17** for the salesman referral QR RV (scan → buy → commission,
 `task_card_06_referral_qr_scan_commission.md`) — enabled, used, then removed again the same way.
 
+**Re-used again 2026-09-17** for the commission-base + self-referral RV
+(`task_card_07_commission_base_selfreferral.md`) — same enable → use → remove cycle.
+
 **How it was enabled (NOT persisted to `.env.shoperp`):**
 
 ```bash
