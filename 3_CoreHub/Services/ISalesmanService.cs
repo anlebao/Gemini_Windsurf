@@ -19,7 +19,11 @@ public interface ISalesmanService
     /// v1.1: Get composite salesman QR code for a specific product.
     /// Returns "{salesmanCode}|{productShortCode}" + QR URL.
     /// </summary>
-    Task<CompositeSalesmanQrDto?> GetCompositeSalesmanQrAsync(Guid salesmanId, Guid productId);
+    /// <param name="khachLinkBaseUrl">Origin of the KhachLink instance the salesman is using
+    /// (e.g. "https://diemthuong2.khachvip.online"). The QR must point at THAT instance — the
+    /// Gateway API host cannot be derived from the request. Falls back to config
+    /// "ExternalUrls:KhachLink" when null.</param>
+    Task<CompositeSalesmanQrDto?> GetCompositeSalesmanQrAsync(Guid salesmanId, Guid productId, string? khachLinkBaseUrl = null);
 
     /// <summary>
     /// v1.1: Get commission summary for salesman (tách biệt commission + app-install bonus).
@@ -37,6 +41,13 @@ public interface ISalesmanService
     /// v1.2: Computes RiskScore + sets CommissionStatus (Pending/Held/Rejected).
     /// </summary>
     Task<SalesReferral?> CreateCommissionAsync(Guid orderId);
+
+    /// <summary>
+    /// CC-S4 fix: Resolve a scanned composite referral code into the referred product's display info,
+    /// so a (possibly not-yet-logged-in) customer can add it to the cart — mirrors the product-QR
+    /// scan flow. Returns null when the code or the product is not found.
+    /// </summary>
+    Task<ReferralScanResult?> ResolveReferralForScanAsync(string referralCode);
 }
 
 // === DTOs ===
@@ -62,6 +73,26 @@ public class CompositeSalesmanQrDto
     public string CompositeCode { get; set; } = string.Empty;
     public string QrUrl { get; set; } = string.Empty;
     public Guid ProductId { get; set; }
+}
+
+/// <summary>
+/// CC-S4 fix: Result of resolving a scanned composite referral code — product display info
+/// (from Gateway PG FeaturedProducts) so KhachLink can add it to the cart without a ShopERP call.
+/// </summary>
+public class ReferralScanResult
+{
+    public Guid SalesmanId { get; set; }
+    public string SalesmanCode { get; set; } = string.Empty;
+    public string ProductShortCode { get; set; } = string.Empty;
+    public string ReferralCode { get; set; } = string.Empty;
+    public Guid ProductId { get; set; }
+    public Guid TenantId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public decimal VatRate { get; set; } = 0.10m;
+    public string? ImageUrl { get; set; }
+    public string? Description { get; set; }
+    public bool IsFree { get; set; }
 }
 
 public class CommissionSummaryDto

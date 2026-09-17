@@ -32,12 +32,12 @@
         else if (_qr != null)
         {
             <VanAnCard Shadow="true" CssClass="text-center p-4">
-                <div class="mb-3">
-                    <canvas id="qrCanvas" style="max-width:300px;"></canvas>
+                <div class="qr-canvas-wrap mb-3">
+                    <canvas id="qrCanvas"></canvas>
                 </div>
                 <div class="mb-3">
                     <p class="text-muted small mb-1">Mã composite:</p>
-                    <p class="font-monospace fs-5"><strong>@_qr.CompositeCode</strong></p>
+                    <p class="font-monospace fs-5 qr-composite-code"><strong>@_qr.CompositeCode</strong></p>
                 </div>
                 <div class="mb-3 text-muted small">
                     <p class="mb-1">Mã salesman: <strong>@_qr.SalesmanCode</strong></p>
@@ -74,6 +74,37 @@
         }
     </div>
 </KhachLinkLayout>
+
+<style>
+    /* The QR canvas is generated at ~268px (JS sets width/height attributes). On a narrow phone
+       (360px viewport) a fixed 300px canvas + card padding overflowed the frame. Make it fluid:
+       cap the size, keep the square aspect ratio, and centre it. */
+    .qr-canvas-wrap {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+    }
+
+    .qr-canvas-wrap canvas#qrCanvas {
+        display: block;
+        width: 100%;
+        max-width: 260px;
+        height: auto;
+        aspect-ratio: 1 / 1;
+        margin: 0 auto;
+    }
+
+    /* Composite code can be long ("DL9ZMQ|COMRV1") — never let it push the card wider than the screen. */
+    .qr-composite-code {
+        word-break: break-all;
+    }
+
+    @@media (max-width: 400px) {
+        .qr-canvas-wrap canvas#qrCanvas {
+            max-width: 200px;
+        }
+    }
+</style>
 
 @code {
     private bool _loading = true;
@@ -119,7 +150,9 @@
     {
         try
         {
-            _qr = await CommunityHttp.GetSalesmanQrAsync(_customerToken, _productId);
+            // Pass THIS instance's host so the QR points at the domain the customer will use
+            // (previously hardcoded to diemthuong.khachvip.online → wrong site on every other instance).
+            _qr = await CommunityHttp.GetSalesmanQrAsync(_customerToken, _productId, new Uri(Navigation.Uri).Host);
         }
         catch (Exception)
         {

@@ -30,7 +30,8 @@ namespace VanAn.CoreHub.Services
         IVanAnDbContext? dbContext = null,
         ILoyaltyBudgetService? loyaltyBudgetService = null,
         IFeatureFlagService? featureFlagService = null,
-        IRefundOrchestrationService? refundOrchestrationService = null) : IOrderWorkflowService
+        IRefundOrchestrationService? refundOrchestrationService = null,
+        ISalesmanService? salesmanService = null) : IOrderWorkflowService
     {
         private readonly IOrderRepository _orderRepository = orderRepository;
         private readonly ILogger<OrderWorkflowService> _logger = logger;
@@ -56,6 +57,9 @@ namespace VanAn.CoreHub.Services
         private readonly IFeatureFlagService? _featureFlagService = featureFlagService;
         // VALCN v2.0 Phase 4: Refund orchestration (null in test contexts — feature OFF = existing silent-cancel behavior)
         private readonly IRefundOrchestrationService? _refundOrchestrationService = refundOrchestrationService;
+        // CC-S4: Salesman commission — null in ShopERP/test scopes (ISalesmanService is Gateway-only).
+        // When null, orders with a referral simply skip commission creation.
+        private readonly ISalesmanService? _salesmanService = salesmanService;
         // _shopFeatureSettingsService already declared at line 34 (Wave 1-T6) — reused for Loyalty-C WS-A per-tenant formula override.
 
         // W-1-T7: CamelCase JSON options — matches SimpleAccountingEventHandler deserialization policy
@@ -249,6 +253,37 @@ namespace VanAn.CoreHub.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to update customer order stats for order {OrderId} — order transition will continue", order.Id);
+            }
+
+            // CC-S4: Salesman commission — create SalesReferral when the order was attributed to a
+            // salesman via a scanned referral QR (Order.SalesmanId + ReferralProductId set at checkout).
+            // Idempotent-ish: CreateCommissionAsync returns null when the order has no referral.
+            // Side-effect — must NOT rollback order transition (matches the other side-effects above).
+            if (order.SalesmanId.HasValue && order.ReferralProductId.HasValue)
+            {
+                if (_salesmanService == null)
+                {
+                    _logger.LogWarning(
+                        "Order {OrderId} has a salesman referral but ISalesmanService is not available in this scope — commission not created",
+                        order.Id);
+                }
+                else
+                {
+                    try
+                    {
+                        var referral = await _salesmanService.CreateCommissionAsync(order.Id);
+                        if (referral != null)
+                        {
+                            _logger.LogInformation(
+                                "Salesman commission created for order {OrderId}: salesman={SalesmanId}, product={ProductId}, commission={Amount}, status={Status}",
+                                order.Id, referral.SalesmanId, referral.ProductId, referral.CommissionAmount, referral.CommissionStatus);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to create salesman commission for order {OrderId} — order transition will continue", order.Id);
+                    }
+                }
             }
         }
 

@@ -607,11 +607,13 @@ namespace VanAn.Gateway.Controllers
         }
 
         /// <summary>
-        /// GET /api/community/salesman/qr?productId={productId}
+        /// GET /api/community/salesman/qr?productId={productId}&amp;sourceDomain={host}
         /// Returns composite QR code for salesman + product.
+        /// sourceDomain = KhachLink origin the salesman is using (window.location.hostname) so the QR
+        /// points at the right instance instead of a hardcoded host.
         /// </summary>
         [HttpGet("salesman/qr")]
-        public async Task<IActionResult> GetSalesmanQr([FromQuery] Guid productId)
+        public async Task<IActionResult> GetSalesmanQr([FromQuery] Guid productId, [FromQuery] string? sourceDomain = null)
         {
             var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
             if (customerId == null) return error!;
@@ -624,7 +626,7 @@ namespace VanAn.Gateway.Controllers
 
             try
             {
-                var qr = await _salesmanService.GetCompositeSalesmanQrAsync(customerId.Value, productId);
+                var qr = await _salesmanService.GetCompositeSalesmanQrAsync(customerId.Value, productId, sourceDomain);
                 if (qr == null)
                     return BadRequest(new { error = "Không tìm thấy cấu hình referral cho sản phẩm này." });
 
@@ -721,6 +723,39 @@ namespace VanAn.Gateway.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error resolving referral code {Code}", body.ReferralCode);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// GET /api/community/referral/{code}
+        /// Anonymous: resolve a scanned composite referral code "{salesmanCode}|{productShortCode}"
+        /// into the referred product's display info so the customer can add it to the cart and buy it.
+        /// Mirrors the product-QR scan flow. The code is printed on a public QR, so no auth is needed
+        /// (the order itself still requires a customer token / checkout).
+        /// </summary>
+        [HttpGet("referral/{code}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResolveReferralForScan(string code)
+        {
+            if (string.IsNullOrWhiteSpace(code))
+                return BadRequest(new { error = "Mã referral không được để trống." });
+
+            try
+            {
+                // Query-string decoding: the QR carries %7C for '|'; [FromRoute] already decodes,
+                // but a caller may pass a still-encoded value — normalise defensively.
+                var referralCode = code.Contains('%') ? Uri.UnescapeDataString(code) : code;
+
+                var result = await _salesmanService.ResolveReferralForScanAsync(referralCode);
+                if (result == null)
+                    return NotFound(new { error = "Mã referral không hợp lệ hoặc sản phẩm không còn bán." });
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error resolving referral code for scan {Code}", code);
                 return StatusCode(500, new { error = "Lỗi server." });
             }
         }

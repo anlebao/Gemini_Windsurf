@@ -1739,6 +1739,23 @@ namespace VanAn.Shared.Domain
             UpdateAudit();
         }
 
+        // CC-S4 fix: Sprint 0 created SalesmanId/ReferralCode/ReferralProductId fields but no domain
+        // method to set them (same gap as ShipperId/DeliveryLat/DeliveryLng above). Called by
+        // OrderService.CreateOrderFromCommandAsync when checkout carries a composite referral code
+        // "{salesmanCode}|{productShortCode}" — resolved to (salesmanId, productId) by the Gateway.
+        // SalesReferral commission is created from these fields when the order completes.
+        public void SetSalesmanReferral(Guid salesmanId, Guid referralProductId, string referralCode)
+        {
+            if (salesmanId == Guid.Empty)
+                throw new ArgumentException("SalesmanId cannot be empty.", nameof(salesmanId));
+            if (referralProductId == Guid.Empty)
+                throw new ArgumentException("ReferralProductId cannot be empty.", nameof(referralProductId));
+            SalesmanId = salesmanId;
+            ReferralProductId = referralProductId;
+            ReferralCode = referralCode;
+            UpdateAudit();
+        }
+
         /// <summary>
         /// CC-S5 (Sprint 5): F2 fix — Sprint 0 created CodAmount/CodCollectedAt fields but no domain method.
         /// Called by WalletService.ConfirmCodAsync when shipper confirms COD collection.

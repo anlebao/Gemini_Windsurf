@@ -17,12 +17,14 @@ public class SalesmanService(
     IVanAnDbContext dbContext,
     IRiskScoringService riskScoringService,
     IFraudFlagService fraudFlagService,
-    ILogger<SalesmanService> logger) : ISalesmanService
+    ILogger<SalesmanService> logger,
+    Microsoft.Extensions.Configuration.IConfiguration? configuration = null) : ISalesmanService
 {
     private readonly IVanAnDbContext _dbContext = dbContext;
     private readonly IRiskScoringService _riskScoringService = riskScoringService;
     private readonly IFraudFlagService _fraudFlagService = fraudFlagService;
     private readonly ILogger<SalesmanService> _logger = logger;
+    private readonly Microsoft.Extensions.Configuration.IConfiguration? _configuration = configuration;
 
     public async Task<List<NearbyProductDto>> GetNearbyProductsAsync(double lat, double lng, int radiusKm, Guid salesmanId)
     {
@@ -87,7 +89,7 @@ public class SalesmanService(
         return result.OrderBy(r => r.DistanceKm).ToList();
     }
 
-    public async Task<CompositeSalesmanQrDto?> GetCompositeSalesmanQrAsync(Guid salesmanId, Guid productId)
+    public async Task<CompositeSalesmanQrDto?> GetCompositeSalesmanQrAsync(Guid salesmanId, Guid productId, string? khachLinkBaseUrl = null)
     {
         // Get salesman role — load TRACKED so we can backfill a missing SalesmanCode (Issue #175).
         // Legacy roles (created before the constructor assigned a code, or inserted via raw SQL)
@@ -146,14 +148,46 @@ public class SalesmanService(
         var productShortCode = config.ProductShortCode ?? productId.ToString()[..8].ToUpper();
         var compositeCode = $"{role.SalesmanCode}|{productShortCode}";
 
+        // The QR must open the KhachLink instance the customer will actually use. It used to be
+        // hardcoded to https://diemthuong.khachvip.online (Oracle VPS), so QR codes scanned from any
+        // other instance (e.g. diemthuong2.khachvip.online) landed on the wrong site.
+        // The composite code contains '|', which is not safe in a URL path — use the /scan page with
+        // an escaped query param (Scan.razor resolves it and adds the product to the cart).
+        var baseUrl = ResolveKhachLinkBaseUrl(khachLinkBaseUrl);
+        var qrUrl = $"{baseUrl}/scan?ref={Uri.EscapeDataString(compositeCode)}";
+
         return new CompositeSalesmanQrDto
         {
             SalesmanCode = role.SalesmanCode!,
             ProductShortCode = productShortCode,
             CompositeCode = compositeCode,
-            QrUrl = $"https://diemthuong.khachvip.online/r/{compositeCode}",
+            QrUrl = qrUrl,
             ProductId = productId
         };
+    }
+
+    /// <summary>
+    /// Resolve the KhachLink origin for the referral QR URL.
+    /// Priority: explicit caller-supplied origin → config "ExternalUrls:KhachLink" → last-resort default.
+    /// </summary>
+    private string ResolveKhachLinkBaseUrl(string? khachLinkBaseUrl)
+    {
+        if (!string.IsNullOrWhiteSpace(khachLinkBaseUrl))
+        {
+            var trimmed = khachLinkBaseUrl.Trim().TrimEnd('/');
+            // Accept a bare host ("diemthuong2.khachvip.online") or a full origin.
+            if (!trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                && !trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                trimmed = "https://" + trimmed;
+            return trimmed;
+        }
+
+        var configured = _configuration?["ExternalUrls:KhachLink"];
+        if (!string.IsNullOrWhiteSpace(configured))
+            return configured.Trim().TrimEnd('/');
+
+        _logger.LogWarning("GetCompositeSalesmanQr: no KhachLink origin supplied or configured — falling back to default host");
+        return "https://diemthuong.khachvip.online";
     }
 
     public async Task<CommissionSummaryDto> GetCommissionsAsync(Guid salesmanId)
@@ -329,6 +363,53 @@ public class SalesmanService(
             referral.Id, orderId, referral.CommissionAmount, referral.RiskScore);
 
         return referral;
+    }
+
+    public async Task<ReferralScanResult?> ResolveReferralForScanAsync(string referralCode)
+    {
+        if (string.IsNullOrWhiteSpace(referralCode))
+            return null;
+
+        var resolved = await ResolveCompositeReferralCodeAsync(referralCode);
+        if (resolved == null)
+        {
+            _logger.LogWarning("ResolveReferralForScan: code {Code} did not resolve", referralCode);
+            return null;
+        }
+
+        var (salesmanId, productId) = resolved.Value;
+
+        // Product display info lives in Gateway PG FeaturedProducts (the operational Product
+        // lives in ShopERP SQLite — same source the product-QR fast path uses).
+        var fp = await _dbContext.FeaturedProducts
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(f => f.ProductId == productId && f.IsActive);
+
+        if (fp == null)
+        {
+            _logger.LogWarning("ResolveReferralForScan: no active FeaturedProduct for product {ProductId} (code {Code})", productId, referralCode);
+            return null;
+        }
+
+        // Composite code format: "{salesmanCode}|{productShortCode}"
+        var parts = referralCode.Split('|', 2);
+
+        return new ReferralScanResult
+        {
+            SalesmanId = salesmanId,
+            SalesmanCode = parts.Length > 0 ? parts[0] : string.Empty,
+            ProductShortCode = parts.Length > 1 ? parts[1] : string.Empty,
+            ReferralCode = referralCode,
+            ProductId = fp.ProductId,
+            TenantId = fp.TenantId.Value,
+            Name = fp.DisplayName,
+            Price = fp.DisplayPrice,
+            VatRate = fp.VatRate,
+            ImageUrl = fp.ImageUrl,
+            Description = fp.DisplayDescription,
+            IsFree = fp.ProductType != FeaturedProductType.Paid
+        };
     }
 
     /// <summary>

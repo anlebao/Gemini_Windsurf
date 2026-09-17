@@ -570,6 +570,10 @@
             // R2.2: Read source domain for Reseller accounting (KhachLinkInstance.OwnerTenantId lookup)
             var sourceDomain = await JSRuntime.InvokeAsync<string?>("eval", "window.location.hostname");
 
+            // CC-S4 fix: salesman referral code captured when the customer scanned a referral QR.
+            // Gateway resolves it → Order.SalesmanId + ReferralProductId → commission on completion.
+            var referralCode = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "vanan_referral_code");
+
             var orderRequest = new
             {
                 CustomerDeviceId = deviceId,
@@ -596,6 +600,9 @@
                 TrackingCode = trackingCode,
                 // R2.2: Source domain for Reseller accounting (KhachLinkInstance.OwnerTenantId lookup)
                 SourceDomain = sourceDomain,
+                // CC-S4 fix: composite salesman referral code (from scanned referral QR) — Gateway
+                // resolves it and links the order to the salesman for commission.
+                ReferralCode = string.IsNullOrWhiteSpace(referralCode) ? null : referralCode,
                 // CC-S1: Delivery fields — only meaningful when OrderType=DELIVERY
                 DeliveryAddress = selectedOrderType == "DELIVERY" ? guestAddress : null,
                 DeliveryLat = (double?)null,

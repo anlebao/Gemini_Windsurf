@@ -26,6 +26,7 @@ namespace VanAn.Gateway.Controllers
         IVanAnDbContext? dbContext,
         IShopFeatureSettingsService? shopFeatureSettingsService,
         IOptions<LoyaltyPointsConfig>? loyaltyPointsConfig,
+        ISalesmanService? salesmanService,
         ILogger<PublicOrdersController> logger) : ControllerBase
     {
         private readonly IOrderService _orderService = orderService;
@@ -34,6 +35,8 @@ namespace VanAn.Gateway.Controllers
         private readonly IVanAnDbContext? _dbContext = dbContext;
         private readonly IShopFeatureSettingsService? _shopFeatureSettingsService = shopFeatureSettingsService;
         private readonly IOptions<LoyaltyPointsConfig>? _loyaltyPointsConfig = loyaltyPointsConfig;
+        // CC-S4: Resolves the composite salesman referral code at checkout (Gateway-only service).
+        private readonly ISalesmanService? _salesmanService = salesmanService;
         private readonly ILogger<PublicOrdersController> _logger = logger;
 
         [HttpPost]
@@ -264,6 +267,44 @@ namespace VanAn.Gateway.Controllers
                     }
                 }
 
+                // CC-S4: Resolve the salesman referral code (if the customer scanned a salesman QR).
+                // Safe-fail: an invalid/unresolvable code must NOT block checkout — the order is still
+                // created, just without salesman attribution.
+                Guid? referralSalesmanId = null;
+                Guid? referralProductId = null;
+                string? referralCode = null;
+                if (!string.IsNullOrWhiteSpace(request.ReferralCode))
+                {
+                    if (_salesmanService == null)
+                    {
+                        _logger.LogWarning("Checkout: ReferralCode supplied but ISalesmanService not registered — skipping referral");
+                    }
+                    else
+                    {
+                        try
+                        {
+                            var resolved = await _salesmanService.ResolveCompositeReferralCodeAsync(request.ReferralCode.Trim());
+                            if (resolved != null)
+                            {
+                                referralSalesmanId = resolved.Value.salesmanId;
+                                referralProductId = resolved.Value.productId;
+                                referralCode = request.ReferralCode.Trim();
+                                _logger.LogInformation(
+                                    "Checkout: referral code {Code} resolved to salesman {SalesmanId}, product {ProductId}",
+                                    referralCode, referralSalesmanId, referralProductId);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("Checkout: referral code {Code} did not resolve — order created without referral", request.ReferralCode);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Checkout: failed to resolve referral code {Code} — order created without referral", request.ReferralCode);
+                        }
+                    }
+                }
+
                 foreach (var group in tenantGroups)
                 {
                     Guid tenantId = group.Key;
@@ -300,7 +341,10 @@ namespace VanAn.Gateway.Controllers
                         DeliveryAddress = request.DeliveryAddress,
                         DeliveryLat = request.DeliveryLat,
                         DeliveryLng = request.DeliveryLng,
-                        ShippingFee = request.ShippingFee
+                        ShippingFee = request.ShippingFee,
+                        SalesmanId = referralSalesmanId,
+                        ReferralProductId = referralProductId,
+                        ReferralCode = referralCode
                     };
 
                     try
@@ -540,6 +584,11 @@ namespace VanAn.Gateway.Controllers
 
         /// <summary>CC-S1: Shipping fee for DELIVERY orders.</summary>
         public decimal ShippingFee { get; set; }
+
+        /// <summary>CC-S4: Composite salesman referral code "{salesmanCode}|{productShortCode}" scanned
+        /// from a salesman QR (stored in KhachLink localStorage "vanan_referral_code"). When set, the
+        /// Gateway resolves it and links the order to the salesman → SalesReferral commission on completion.</summary>
+        public string? ReferralCode { get; set; }
     }
 
     public class CheckoutOrderItem

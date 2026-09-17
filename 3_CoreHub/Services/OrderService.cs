@@ -880,6 +880,18 @@ namespace VanAn.CoreHub.Services
                     order.SetTrackingCode(command.TrackingCode.Trim());
                 }
 
+                // CC-S4: Salesman referral — Gateway resolved the composite code to (salesmanId, productId)
+                // before calling this. Stored on the order so SalesReferral commission can be created when
+                // the order completes (OrderWorkflowService.HandleOrderCompletedAsync).
+                if (command.SalesmanId.HasValue && command.ReferralProductId.HasValue
+                    && !string.IsNullOrWhiteSpace(command.ReferralCode))
+                {
+                    order.SetSalesmanReferral(
+                        command.SalesmanId.Value,
+                        command.ReferralProductId.Value,
+                        command.ReferralCode.Trim());
+                }
+
                 // Sprint 7: Commerce Mode snapshot — resolve mode for tenant + set Reseller pricing if applicable.
                 // All fields are snapshotted at creation time (immutable for this order's financial flow).
                 // R2.2: Pass SourceDomain to look up KhachLinkInstance.OwnerTenantId (Reseller tenant).

@@ -46,6 +46,18 @@ namespace VanAn.CoreHub.Commands
 
         /// <summary>CC-S1: Shipping fee for DELIVERY orders. Stored in Order.ShippingFee.</summary>
         public decimal ShippingFee { get; set; }
+
+        /// <summary>CC-S4: Salesman referral — resolved from the composite code "{salesmanCode}|{productShortCode}"
+        /// by the Gateway (ISalesmanService.ResolveCompositeReferralCodeAsync) before order creation.
+        /// When set, Order.SalesmanId/ReferralProductId/ReferralCode are populated and a SalesReferral
+        /// commission is created when the order completes.</summary>
+        public Guid? SalesmanId { get; set; }
+
+        /// <summary>CC-S4: Product the salesman referred (Order.ReferralProductId).</summary>
+        public Guid? ReferralProductId { get; set; }
+
+        /// <summary>CC-S4: Raw composite referral code as scanned ("{salesmanCode}|{productShortCode}").</summary>
+        public string? ReferralCode { get; set; }
     }
 
     public class OrderItemRequest

@@ -159,12 +159,16 @@ public class CommunityHttpService(IHttpClientFactory httpClientFactory, ILogger<
     /// <summary>
     /// CC-S4 (Sprint 4): GET /api/community/salesman/qr?productId={id} — composite QR code.
     /// </summary>
-    public async Task<CompositeSalesmanQrDto?> GetSalesmanQrAsync(string customerToken, Guid productId)
+    public async Task<CompositeSalesmanQrDto?> GetSalesmanQrAsync(string customerToken, Guid productId, string? sourceDomain = null)
     {
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get,
-                $"/api/community/salesman/qr?productId={productId}");
+            var url = $"/api/community/salesman/qr?productId={productId}";
+            // sourceDomain = this KhachLink instance's host so the QR points at the right site
+            // (the Gateway API host cannot be used — the customer must land on this instance).
+            if (!string.IsNullOrWhiteSpace(sourceDomain))
+                url += $"&sourceDomain={Uri.EscapeDataString(sourceDomain)}";
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("X-Customer-Token", customerToken);
 
             var resp = await _httpClient.SendAsync(request);
@@ -177,6 +181,31 @@ public class CommunityHttpService(IHttpClientFactory httpClientFactory, ILogger<
         catch (Exception ex)
         {
             _logger.LogError(ex, "GetSalesmanQrAsync failed for product {ProductId}", productId);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// CC-S4 fix: GET /api/community/referral/{code} — anonymous resolve of a scanned composite
+    /// referral code into the referred product's display info (so it can be added to the cart).
+    /// </summary>
+    public async Task<ReferralScanDto?> ResolveReferralAsync(string referralCode)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get,
+                $"/api/community/referral/{Uri.EscapeDataString(referralCode)}");
+
+            var resp = await _httpClient.SendAsync(request);
+            if (!resp.IsSuccessStatusCode) return null;
+
+            var body = await resp.Content.ReadAsStringAsync();
+            return System.Text.Json.JsonSerializer.Deserialize<ReferralScanDto>(body,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ResolveReferralAsync failed for code {Code}", referralCode);
             return null;
         }
     }
@@ -660,6 +689,23 @@ public class CompositeSalesmanQrDto
     public string CompositeCode { get; set; } = string.Empty;
     public string QrUrl { get; set; } = string.Empty;
     public Guid ProductId { get; set; }
+}
+
+/// <summary>CC-S4 fix: resolved scanned referral code → referred product display info.</summary>
+public class ReferralScanDto
+{
+    public Guid SalesmanId { get; set; }
+    public string SalesmanCode { get; set; } = string.Empty;
+    public string ProductShortCode { get; set; } = string.Empty;
+    public string ReferralCode { get; set; } = string.Empty;
+    public Guid ProductId { get; set; }
+    public Guid TenantId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public decimal VatRate { get; set; } = 0.10m;
+    public string? ImageUrl { get; set; }
+    public string? Description { get; set; }
+    public bool IsFree { get; set; }
 }
 
 public class CommissionSummaryDto

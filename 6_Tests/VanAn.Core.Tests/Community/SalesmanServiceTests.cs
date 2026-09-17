@@ -181,7 +181,71 @@ public class SalesmanServiceTests : IDisposable
         Assert.NotNull(result);
         Assert.Contains("|", result!.CompositeCode);
         Assert.Contains("TR-001", result.CompositeCode);
-        Assert.Contains("/r/", result.QrUrl);
+        // Referral QR opens the /scan page with the (escaped) composite code as a query param —
+        // '|' is not safe in a URL path, and /r/{code} was never a real route.
+        Assert.Contains("/scan?ref=", result.QrUrl);
+        Assert.DoesNotContain("/r/", result.QrUrl);
+    }
+
+    // === T14 (CC-S4 fix): GetCompositeSalesmanQr uses the caller-supplied KhachLink host ===
+    [Fact(DisplayName = "T14: GetCompositeSalesmanQr_UsesCallerSuppliedHost")]
+    public async Task GetCompositeSalesmanQr_UsesCallerSuppliedHost()
+    {
+        await SeedSalesmanRoleAsync();
+        await SeedProductReferralConfigAsync(ProductId, 0.05m, 10000, "TR-001");
+
+        var result = await _service.GetCompositeSalesmanQrAsync(SalesmanId, ProductId, "diemthuong2.khachvip.online");
+
+        Assert.NotNull(result);
+        Assert.StartsWith("https://diemthuong2.khachvip.online/scan?ref=", result!.QrUrl);
+        // '|' must be percent-encoded, and the composite code must round-trip
+        Assert.Contains("%7C", result.QrUrl);
+        var encoded = result.QrUrl.Substring(result.QrUrl.IndexOf("ref=", StringComparison.Ordinal) + 4);
+        Assert.Equal(result.CompositeCode, Uri.UnescapeDataString(encoded));
+    }
+
+    // === T14b (CC-S4 fix): full origin is accepted as-is (no double scheme) ===
+    [Fact(DisplayName = "T14b: GetCompositeSalesmanQr_AcceptsFullOrigin")]
+    public async Task GetCompositeSalesmanQr_AcceptsFullOrigin()
+    {
+        await SeedSalesmanRoleAsync();
+        await SeedProductReferralConfigAsync(ProductId, 0.05m, 10000, "TR-001");
+
+        var result = await _service.GetCompositeSalesmanQrAsync(SalesmanId, ProductId, "https://commienphi.timlathay.com/");
+
+        Assert.NotNull(result);
+        Assert.StartsWith("https://commienphi.timlathay.com/scan?ref=", result!.QrUrl);
+    }
+
+    // === T15 (CC-S4 fix): ResolveReferralForScan returns the referred product ===
+    [Fact(DisplayName = "T15: ResolveReferralForScan_ReturnsProduct")]
+    public async Task ResolveReferralForScan_ReturnsProduct()
+    {
+        await SeedSalesmanRoleAsync();
+        await SeedFeaturedProductAsync(ProductId, TenantId, "Product 1", 50000);
+        await SeedProductReferralConfigAsync(ProductId, 0.05m, 10000, "TR-001");
+
+        var role = await _context.CommunityRoles.IgnoreQueryFilters().FirstAsync();
+        var compositeCode = $"{role.SalesmanCode}|TR-001";
+
+        var result = await _service.ResolveReferralForScanAsync(compositeCode);
+
+        Assert.NotNull(result);
+        Assert.Equal(SalesmanId, result!.SalesmanId);
+        Assert.Equal(ProductId, result.ProductId);
+        Assert.Equal(TenantId, result.TenantId);
+        Assert.Equal("Product 1", result.Name);
+        Assert.Equal(50000, result.Price);
+        Assert.Equal("TR-001", result.ProductShortCode);
+    }
+
+    // === T16 (CC-S4 fix): ResolveReferralForScan unknown code → null ===
+    [Fact(DisplayName = "T16: ResolveReferralForScan_InvalidCode_ReturnsNull")]
+    public async Task ResolveReferralForScan_InvalidCode_ReturnsNull()
+    {
+        var result = await _service.ResolveReferralForScanAsync("NOPE|XXXX");
+
+        Assert.Null(result);
     }
 
     // === T6: GetCompositeSalesmanQr_NoProductConfig_ReturnsNull ===

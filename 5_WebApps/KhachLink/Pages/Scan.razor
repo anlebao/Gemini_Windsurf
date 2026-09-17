@@ -6,6 +6,7 @@
 @inject NavigationManager Navigation
 @inject VanAn.KhachLink.Services.CartService CartService
 @inject VanAn.KhachLink.Services.Http.ProductHttpService ProductService
+@inject VanAn.KhachLink.Services.Http.CommunityHttpService CommunityHttp
 @inject VanAn.KhachLink.Services.LastInteractionService LastInteractionService
 @inject IJSRuntime JSRuntime
 
@@ -21,6 +22,14 @@
                 </h3>
 
                 <QRScanner OnQRCodeDetected="HandleQRCodeDetected" />
+
+                @if (!string.IsNullOrEmpty(_referralMessage))
+                {
+                    <VanAnAlert Variant="AlertVariant.Success"
+                               Message="@_referralMessage"
+                               class="mt-2"
+                               data-testid="referral-applied-banner" />
+                }
 
                 @if (_scannedProduct != null)
                 {
@@ -197,6 +206,7 @@
     private ProductDto? _scannedProduct = null;
     private string? _errorMessage = null;
     private string? _tableNumber = null;
+    private string? _referralMessage = null;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -219,7 +229,83 @@
                     await ProcessQrPayload(parsed);
                 }
             }
+
+            // CC-S4 fix: referral QR opened by a phone camera → /scan?ref={compositeCode}
+            // (the QR used to point at a non-existent /r/ route on a hardcoded domain).
+            var refCode = GetReferralCodeFromUrl(uri);
+            if (!string.IsNullOrEmpty(refCode))
+            {
+                await ProcessReferralCodeAsync(refCode);
+            }
         }
+    }
+
+    /// <summary>Extract the composite referral code from a scanned referral QR URL (?ref=...).</summary>
+    private string? GetReferralCodeFromUrl(string uri)
+    {
+        try
+        {
+            var query = System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query);
+            var refCode = query["ref"];
+            if (!string.IsNullOrWhiteSpace(refCode) && refCode.Contains('|'))
+                return refCode.Trim();
+
+            // Backward compat: older printed QRs used /r/{salesmanCode}|{productShortCode}
+            var idx = uri.IndexOf("/r/", StringComparison.OrdinalIgnoreCase);
+            if (idx >= 0)
+            {
+                var code = uri.Substring(idx + 3);
+                var cut = code.IndexOfAny(new[] { '?', '#' });
+                if (cut >= 0) code = code.Substring(0, cut);
+                code = Uri.UnescapeDataString(code);
+                if (code.Contains('|')) return code.Trim();
+            }
+        }
+        catch { /* malformed URL — ignore */ }
+        return null;
+    }
+
+    /// <summary>
+    /// CC-S4 fix: customer scanned a salesman referral QR → resolve the referred product, add it to
+    /// the cart and remember the referral code so checkout links the order to the salesman
+    /// (commission is created when the order completes). Mirrors the product-QR scan flow.
+    /// </summary>
+    private async Task ProcessReferralCodeAsync(string compositeCode)
+    {
+        _errorMessage = null;
+        _referralMessage = null;
+
+        // Remember the code so Checkout.razor sends it (Order.SalesmanId + ReferralProductId).
+        await JSRuntime.InvokeAsync<bool>("vananAppInstall.saveReferralCode", new object[] { compositeCode });
+
+        var resolved = await CommunityHttp.ResolveReferralAsync(compositeCode);
+        if (resolved == null)
+        {
+            _errorMessage = "Mã QR giới thiệu không hợp lệ hoặc sản phẩm không còn bán.";
+            StateHasChanged();
+            return;
+        }
+
+        var product = new ProductDto
+        {
+            ProductId = resolved.ProductId,
+            TenantId = resolved.TenantId,
+            Name = resolved.Name,
+            Price = resolved.Price,
+            VatRate = resolved.VatRate,
+            ImageUrl = resolved.ImageUrl,
+            Description = resolved.Description,
+            IsActive = true
+        };
+
+        await CartService.AddItemAsync(product, 1);
+        await LastInteractionService.RecordInteractionAsync(product.TenantId);
+
+        _scannedProduct = product;
+        _referralMessage = string.IsNullOrEmpty(resolved.SalesmanCode)
+            ? "Đã thêm sản phẩm giới thiệu vào giỏ hàng."
+            : $"Đã thêm sản phẩm giới thiệu vào giỏ hàng. Salesman {resolved.SalesmanCode} sẽ được ghi nhận hoa hồng khi bạn đặt hàng thành công.";
+        StateHasChanged();
     }
 
     private async Task HandleQRCodeDetected(string qrCodeText)
@@ -239,25 +325,13 @@
                 return;
             }
 
-            // CC-S4 (Sprint 4): Check for composite referral QR URL pattern /r/{salesmanCode}|{productShortCode}
-            if (qrCodeText.Contains("/r/") && qrCodeText.Contains("|"))
+            // CC-S4 fix: composite referral QR (new /scan?ref={code} format + legacy /r/{code}).
+            // Resolves the referred product, adds it to the cart, and remembers the referral code.
+            var referralCode = GetReferralCodeFromUrl(qrCodeText);
+            if (!string.IsNullOrEmpty(referralCode))
             {
-                var refIndex = qrCodeText.IndexOf("/r/") + 3;
-                var compositeCode = qrCodeText.Substring(refIndex);
-                // Trim any trailing query string or fragment
-                var queryIdx = compositeCode.IndexOfAny(new[] { '?', '#' });
-                if (queryIdx >= 0) compositeCode = compositeCode.Substring(0, queryIdx);
-
-                if (compositeCode.Contains("|"))
-                {
-                    var saved = await JSRuntime.InvokeAsync<bool>("vananAppInstall.saveReferralCode", new object[] { compositeCode });
-                    if (saved)
-                    {
-                        _errorMessage = "Đã lưu mã giới thiệu. Khi bạn cài app, salesman sẽ được ghi nhận.";
-                        Navigation.NavigateTo("/");
-                        return;
-                    }
-                }
+                await ProcessReferralCodeAsync(referralCode);
+                return;
             }
 
             var qrPayload = QRCodePayload.FromJson(qrCodeText);
