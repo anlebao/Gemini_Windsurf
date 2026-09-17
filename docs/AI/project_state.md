@@ -34,23 +34,31 @@
 
 ## 2. Current Objective
 
-**COMMISSION BASE = REFERRED PRODUCT + SELF-REFERRAL BLOCKING — ✅ COMPLETE + DEPLOYED + RV PASS (session 2026-09-17, commit `05443115`).**
+**REALTIME PLATFORM — CHAT + LIVE LOCATION REUSABLE ACROSS MODULES — 🚧 APPROVED, IMPLEMENTING (session 2026-09-17).**
 
-Two follow-ups from the referral QR work. Task card: `docs/AI/tasks/community_commerce_fixes/task_card_07_commission_base_selfreferral.md`.
+Task card: `docs/AI/tasks/realtime_platform/task_card_01_realtime_chat_gps_reusable.md` (395+ dòng, đã duyệt).
+Origin: RV cho thấy chat + GPS **vẫn chết trên UI** dù fix `26dc9e62` đã deploy → root-cause analysis tìm ra 6 defect (D1-D6) + 8 điểm coupling (C1-C8).
 
-- **Commission was on the WHOLE order** — `CreateCommissionAsync` passed `order.TotalAmount` (SubTotal + VAT + ShippingFee, i.e. every cart item). `WalletService` used a different formula (`margin × rate`) so the Reseller balance invariant could disagree with the payout. Fix: new `ReferralCommissionCalculator` (single source of truth) → base = the **referred line items' SubTotal** (pre-VAT, shipping excluded); referred product absent → **no commission**; Reseller OnMargin → order margin **pro-rated** by the referred share. `SalesReferral.CommissionBaseAmount` added for audit (+ migration `20260917011937`); `WalletService` includes Items and uses the same calculator.
-- **Self-referral never blocked** — `SameFingerprint` was hardcoded `false` and salesman vs buyer was never compared → a salesman buying their own code got a Pending commission with RiskScore 0, auto-paid after 24h. Fix, layered: checkout drops the referral when it resolves to the buyer; `CreateCommissionAsync` detects self-referral by CustomerId / device fingerprint / device token (covers guest checkout via `Order.CustomerDeviceId`); new `RiskScoreInput.SelfReferral` factor weight 100 → **Rejected** + `FraudFlag(SelfDeal)`.
+**Root causes (verified file:line):**
+- **D1 (chính)** — Khách Google OAuth tạo ở ShopERP SQLite nhưng `SocialAuthController` **không phát `CustomerCreated`** → không sync Gateway PG → `OrderService.cs:831-849` âm thầm set `CustomerId = null` → `ChatService` từ chối tạo conversation + `LocationHub` từ chối join → **chat + GPS chết cho khách đã đăng nhập**.
+- **D2/D3** — Trang khách `OrderTracking.razor` build map bằng `GET /api/community/nearby-orders` (**shipper-only** → 403) và handler `LocationUpdate` không set `_showMap` → map không bao giờ render.
+- **D4** — Checkout luôn gửi `DeliveryLat/Lng = null` → shipper không thấy marker khách.
+- **D5** — GPS chỉ start khi bấm "Đã lấy hàng"; reload là mất.
+- **D6** — Guest không có chat/tracking → **quyết định mới: guest PHẢI có** (auth bằng `X-Customer-Device-Id` / `Order.CustomerDeviceId`); docs đã sửa.
 
-RV: migration applied · order 250,000 sub-total with a 50,000 referred line → `CommissionBaseAmount 50000`, `CommissionAmount 1500` (not 8,250) · self-referral at checkout → order created with no attribution · forced buyer==salesman → `Rejected`, `RiskScore 100`, `SelfReferral:+100`, `FraudFlag(SelfDeal)` · salesman commissions API shows `pending 3150 / rejected 1500`. Build 0 errors · Guard ALL PASSED · 50/50 tests · CD Multi-VPS all jobs + smoke test SUCCESS.
+**Decisions (2026-09-17):** Q1 guest CÓ chat + tracking · Q2 Domain additive **APPROVED** (`Conversation.SubjectType/SubjectId` + `ConversationParticipant` + `DeliveryTracking.SubjectType/SubjectId/TrackerId`) · Q3 consumer = **cả Logistics + JobMarket**.
 
-> Completed objectives (referral QR, chat+GPS+QR, KhachLink UX, Community Commerce Full Flow)
+**Target:** Realtime Platform 4 tầng (Domain generic → `IRealtimeMessagingService`/`ILiveLocationService`/`IRealtimeParticipantAuthorizer` → Gateway `MessagingHub`/`TrackingHub`/`IRealtimeTokenValidator`/`/api/realtime/*` → UI Platform `RealtimeChatPanel`/`VanAnMap`/`realtime.js`), giữ route cũ làm adapter. Phases P0→P6.
+
+> Completed objectives (commission base + self-referral, referral QR, chat+GPS+QR, KhachLink UX, Community Commerce Full Flow)
 > moved to `docs/AI/project_state_archive.md` — see also Section 10.
 
 
 ## 3. Current Status
 
-- **Branch:** `main` @ `05443115` (Community Commerce Batch 1 + 2 + Chat + GPS + referral QR + commission base/self-referral. KhachLink Profile Sprint 1+2. GTM W2 + currency fix. W1 Merchant Audit + nginx Directory SSR. R2.2 Reseller Accounting — PR #169. Crawl-to-Onboard 8 phases. Issue #103/#157/#161/#156 deployed).
+- **Branch:** `main` @ `c94a490f` (Community Commerce Batch 1 + 2 + Chat + GPS + referral QR + commission base/self-referral. KhachLink Profile Sprint 1+2. GTM W2 + currency fix. W1 Merchant Audit + nginx Directory SSR. R2.2 Reseller Accounting — PR #169. Crawl-to-Onboard 8 phases. Issue #103/#157/#161/#156 deployed).
 - **Build full sln:** 0 errors · **CI:** PASS · **.NET SDK:** 8.0.422
+- **Realtime Platform (session 2026-09-17):** 🚧 APPROVED + **P1 DONE**. Root-cause RV: chat + GPS vẫn chết trên UI dù fix `26dc9e62` deploy. 6 defect + 8 coupling. **P1 fixes implemented** (D1 Google customer sync · D2/D3 buyer tracking endpoint + map · D4 checkout coords · D5 GPS resume · D6 guest chat/tracking via device id). Build full sln 0 errors · 40/40 chat+delivery tests PASS. Docs guest chat/tracking đã sửa. **P2-P6 pending** (generic Domain/services/hubs + UI Platform extraction + Logistics/JobMarket consumers + RV). Task card: `docs/AI/tasks/realtime_platform/task_card_01_realtime_chat_gps_reusable.md`.
 - **Community Commerce Full Flow (session 2026-09-16):** ✅ Batch 1 (Issues #1-4) + Batch 2 (4 RV defects) + Chat fix + Floating cart + Issue #175 ALL COMPLETE + DEPLOYED + RV PASS. Full chain works end-to-end: salesman QR → customer checkout (DELIVERY + CustomerId) → owner confirm via Gateway → shipper accept/pickup/delivering/delivered → order completed + Outbox events + NATS sync → chat customer↔shipper → loyalty points awarded → public tracking works. See Section 2.
 - **Commission base + self-referral (session 2026-09-17):** ✅ per-product commission base + self-referral blocking — DEPLOYED + RV PASS (`05443115`). HEAD=`05443115`.
 - **Salesman Referral QR (session 2026-09-16/17):** ✅ correct domain + scan-to-buy + commission — DEPLOYED + RV PASS (`aceab325`).
@@ -64,12 +72,16 @@ RV: migration applied · order 250,000 sub-total with a 50,000 referred line →
 
 ## 4. Next Actions
 
-**Commission base + self-referral (✅ COMPLETE + DEPLOYED + RV PASS session 2026-09-17, `05443115`):**
-- ✅ Per-product commission base (referred line SubTotal, pre-VAT, no shipping) + audit column + migration
-- ✅ WalletService uses the same calculator (balance invariant matches payout)
-- ✅ Self-referral blocked at checkout + at commission time (CustomerId / fingerprint / device) → Rejected + FraudFlag
-- ⏳ Optional: browser re-test by user
-- 📌 Follow-up: Reseller OnMargin pro-rates by sub-total share (no per-item cost); pre-fix SalesReferrals keep old amounts
+**Realtime Platform (🚧 APPROVED + IMPLEMENTING — session 2026-09-17):**
+Task card: `docs/AI/tasks/realtime_platform/task_card_01_realtime_chat_gps_reusable.md`
+- [ ] **P0** — verify production (log `"falling back to guest mode"` + query PG `Customers`/`Orders`) — không cần chờ gì
+- [x] **P1** — fix production blockers ✅ DONE: D1 customer sync (`SocialAuthController` enqueue `CustomerCreated`) · D2/D3 buyer-accessible `GET /api/community/orders/{id}/tracking` + map render · D4 checkout toạ độ · D5 GPS resume on load · D6 guest chat/tracking via `X-Customer-Device-Id`. Build 0 errors · 40/40 tests.
+- [ ] **P2** — Domain additive (approved) + `IRealtimeMessagingService`/`ILiveLocationService`/`IRealtimeParticipantAuthorizer` + migration PG
+- [ ] **P3** — Gateway `MessagingHub`/`TrackingHub` + `/api/realtime/*` + `IRealtimeTokenValidator` (Customer/StaffJwt/Device) + giữ adapter cũ
+- [ ] **P4** — UI Platform extraction (`RealtimeChatPanel`, `VanAnMap`, `realtime.js`) + migrate KhachLink
+- [ ] **P5** — consumer reuse: **Logistics (`sprint8`) + JobMarket (`sprint9`)**
+- [ ] **P6** — tests + E2E + RV Layer 1-5 + reuse guide (`docs/UI_Platform_Implementation_Guide.md`)
+- ✅ Docs guest chat/tracking đã sửa: `07-customer.md` (§2.1, §2.4, §5.1, §6.1, FAQ), `04-shipper.md` (§8.3), `README.md` (§3.3)
 
 **Completed groups (Salesman Referral QR · Chat + GPS + QR · KhachLink UX Fixes · Community Commerce Full Flow)**
 moved to `docs/AI/project_state_archive.md` — see also Section 10.
@@ -129,6 +141,8 @@ moved to `docs/AI/project_state_archive.md` — see also Section 10.
 
 ## 6. History Log (compressed — see archive + git log)
 
+* [2026-09-17] **COMMISSION BASE = REFERRED PRODUCT + SELF-REFERRAL BLOCKING (`05443115`).** ✅ COMPLETE + DEPLOYED + RV PASS. Per-product commission base (referred line SubTotal, pre-VAT, no shipping) via `ReferralCommissionCalculator` (single source of truth) + `SalesReferral.CommissionBaseAmount` + migration `20260917011937`; `WalletService` uses the same calculator. Self-referral blocked at checkout + at commission time (CustomerId / fingerprint / device token / `Order.CustomerDeviceId` for guests) → `RiskScoreInput.SelfReferral` weight 100 → Rejected + `FraudFlag(SelfDeal)`. RV: base 50000/commission 1500 (not 8250); forced buyer==salesman → Rejected RiskScore 100; commissions API pending 3150 / rejected 1500. Build 0 errors · Guard ALL PASSED · 50/50 tests · CD Multi-VPS SUCCESS. Task card: `task_card_07_commission_base_selfreferral.md`.
+* [2026-09-17] **REALTIME PLATFORM — ROOT-CAUSE ANALYSIS + TASK CARD.** Chat + GPS vẫn chết trên UI dù fix `26dc9e62` deploy. Tìm ra 6 defect (D1 khách Google OAuth không sync PG → `Order.CustomerId=null` → chat/GPS chết; D2/D3 map khách dùng endpoint shipper-only 403 + không set `_showMap`; D4 checkout không gửi toạ độ; D5 GPS mất khi reload; D6 guest không chat/tracking) + 8 coupling (C1-C8) chặn tái sử dụng. Task card `docs/AI/tasks/realtime_platform/task_card_01_realtime_chat_gps_reusable.md` (approved). Quyết định: guest CÓ chat+tracking (`X-Customer-Device-Id`); Domain additive approved; consumer = Logistics + JobMarket. Docs guest đã sửa. **Chưa implement.**
 * [2026-09-15] **COMMUNITY COMMERCE ISSUES #1-4 COMPLETE.** Issue #1 OrderType DELIVERY (`26b060ee`): `Order.SetOrderType()` + CreateOrderCommand + Checkout.razor selector. Issue #2 NATS sync (`369b2986`): `OrderSyncSubscriber` read OrderType from payload + `OrderService` add delivery fields to Outbox event. Issue #3 GPS mock (`5b97bcf9`): shared `gps-mock.ts` helper injected into 3 e2e specs. Issue #4 X-Dev-OTP gate: removed X-Dev-OTP from `/otp/send` + `/upgrade/send-otp` + added `POST /api/customer-identity/dev-token` (secret-gated). Full chain: checkout → DELIVERY order → NATS sync → SQLite → owner confirm → shipper sees order. See Section 2.
 * [2026-09-14] **CHARITY CHECKOUT FLOW C1-C3 + 3 COMMUNITY COMMERCE BUGS.** Charity: `9b7d0c8e` + `f505a242` (ExecuteAtomicAsync + AllItemsFree + Charity_Donation_Enabled). Community: `f39c8649` + `88f3496f` + `6fe17d31` (DeliveryTracking route + GPS-optional + gateway HttpClient).
 * **Older (2026-09-13 and before):** KhachLink Profile Transition Sprint 1-3, GTM W1-W2, R2.2 Reseller Accounting, Crawl-to-Onboard 8 phases, Directory SSR, Issue #103/#156/#161/#157, Financial Intelligence MVP-2, OCR Hub R1, Dynamic CORS, Multi-VPS Option C. See `docs/AI/project_state_archive.md`.
@@ -139,6 +153,7 @@ moved to `docs/AI/project_state_archive.md` — see also Section 10.
 
 | File | Role |
 |---|---|
+| `docs/AI/tasks/realtime_platform/task_card_01_realtime_chat_gps_reusable.md` | **Realtime Platform** — chat + live location reusable (approved, P0-P6) |
 | `docs/AI/tasks/community_commerce_fixes/` | Community Commerce master plan + 4 task cards (Issues #1-3 COMPLETE, #4 DEFER) |
 | `docs/AI/tasks/khachlink_profile_transition_ux/` | KhachLink Profile Transition UX (Sprint 1+2 deployed, Sprint 3 pending push) |
 | `docs/AI/tasks/gtm_drill_mvp/` | GTM Drill Machine MVP (W1-W2 COMPLETE, W3-W5 planned) |
@@ -176,16 +191,20 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main` @ `05443115`. Recent RV-verified work (details in Section 2 + Section 10): commission base = referred product + self-referral blocking (`05443115`, 50/50 tests) · salesman referral QR (`aceab325`, 21/21) · chat + GPS + QR defects (`26dc9e62`) · KhachLink UX fixes (`32d0bae8`, `a6e712e3`) · Community Commerce Batch 2 (`73b0133a`, `b9f0fc0a`, `67b91fe3`, `0948658a`, `65ab0d3b`). All: build 0 errors · Guard ALL PASSED · CD Multi-VPS all jobs + smoke test SUCCESS. Security: `.devin/rules/dev-token-secret.md` — `DevToken__Secret` unset (endpoint 404).
-- **Open Questions:** 4 (PlatformAccountingTenantId not configured · Turnstile keys not configured · Rate limit uses container IP not forwarded client IP · Sprint 1 RV partial — Directory-profile WASM domain needed for P2.2/P2.3 RV)
-- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (30+), Open Questions (4) → CLEAR
+- **Verified Facts:** Branch=`main` @ `c94a490f`. Recent RV-verified work (details in Section 2 + Section 10): commission base = referred product + self-referral blocking (`05443115`, 50/50 tests) · salesman referral QR (`aceab325`, 21/21) · chat + GPS + QR defects (`26dc9e62`) · KhachLink UX fixes (`32d0bae8`, `a6e712e3`) · Community Commerce Batch 2 (`73b0133a`, `b9f0fc0a`, `67b91fe3`, `0948658a`, `65ab0d3b`). All: build 0 errors · Guard ALL PASSED · CD Multi-VPS all jobs + smoke test SUCCESS. Realtime Platform root-cause (2026-09-17): 6 defect + 8 coupling verified file:line; schema chat/tracking only mapped in PG (`VanAnDbContext.cs:142-145`, `ShopERPDbContext.cs:253-255`); UI Platform is Razor Class Library with `Core/Interfaces` + `Adapters`. Security: `.devin/rules/dev-token-secret.md` — `DevToken__Secret` unset (endpoint 404).
+- **Open Questions:** 5 (PlatformAccountingTenantId not configured · Turnstile keys not configured · Rate limit uses container IP not forwarded client IP · Sprint 1 RV partial — Directory-profile WASM domain needed for P2.2/P2.3 RV · Realtime Platform P0 production verification not yet run — D1 needs Gateway log/DB confirmation)
+- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (35+), Open Questions (5) → CLEAR
 
 ---
 
 ## 10. Maintenance Log
 
 > Full historical maintenance log (pre-2026-09-17): see `docs/AI/project_state_archive.md`.
+> **Last Updated:** 2026-09-17 · **Branch:** `main` @ `c94a490f` (working tree ahead — Realtime Platform P1 implemented, not yet committed)
 
+* **2026-09-17 — REALTIME PLATFORM P1 IMPLEMENTED.** Fixed 6 production defects (D1-D6): `SocialAuthController` now enqueues `CustomerCreated` for Google/Facebook customers (+ backfill on next login) so `Order.CustomerId` is no longer nulled → chat + GPS work for logged-in customers; new buyer-accessible `GET /api/community/orders/{orderId}/tracking` (OrderTracking no longer calls shipper-only `nearby-orders`; `_showMap` set on coords/live ping); checkout captures `DeliveryLat/Lng`; shipper GPS resumes on page load; guest chat/tracking via `X-Customer-Device-Id` (`ValidateCustomerOrDeviceAsync`, `ChatService.guestDeviceId`, `ChatPanel` HTTP-only + 8s polling). Files: `SocialAuthController.cs`, `CommunityController.cs`, `IChatService.cs`, `ChatService.cs`, `CommunityHttpService.cs`, `ChatHttpService.cs`, `ChatPanel.razor`, `OrderTracking.razor`, `DeliveryTracking.razor`, `Checkout.razor`. Build full sln 0 errors · 40/40 chat+delivery tests PASS. **P2-P6 pending.**
+
+* **2026-09-17 — REALTIME PLATFORM OBJECTIVE + GUEST DOCS.** Set Section 2 = Realtime Platform (chat + live location reusable). Moved commission objective → Section 6 history. Added task card `docs/AI/tasks/realtime_platform/task_card_01_realtime_chat_gps_reusable.md` (approved: guest CÓ chat+tracking via `X-Customer-Device-Id`; Domain additive approved; consumers = Logistics + JobMarket). Fixed guest docs: `07-customer.md` §2.1/§2.4/§5.1/§6.1/FAQ (guest no longer "KHÔNG tracking + KHÔNG chat"), `04-shipper.md` §8.3, `README.md` §3.3. Refreshed branch refs `05443115` → `c94a490f`. **Implementation P0-P6 not started.**
 * **2026-09-17 — DEV-TOKEN SECRET SAFETY RULE + STATE SYNC.** Added `.devin/rules/dev-token-secret.md` (hard-stop security rule: `DevToken__Secret` unset by default; never persisted in `.env.shoperp`/repo/commit; inline shell env only; never echoed; always removed + verified `404` at the end of an RV window; checklist + reporting requirements) and referenced it from the always-on `governance.md` ("SECRETS & TEST-AUTH (HARD STOP)") + `task_card_04_dev_otp_gate.md`. Also fixed two stale follow-ups in Section 4 that contradicted the completed work (whole-order commission + hardcoded QR host are both fixed) and refreshed the branch/HEAD references to `05443115`.
 * **2026-09-17 — COMMISSION BASE = REFERRED PRODUCT + SELF-REFERRAL BLOCKING (`05443115`).** (1) Commission was computed on the whole order (`order.TotalAmount` = SubTotal + VAT + ShippingFee) and `WalletService` used a different formula (`margin × rate`) → balance invariant could disagree with the payout. New `ReferralCommissionCalculator` = single source of truth: base = referred line items' SubTotal (pre-VAT, no shipping); referred product absent → no commission; Reseller OnMargin → order margin pro-rated by the referred share. `SalesReferral.CommissionBaseAmount` (audit) + migration `20260917011937`; WalletService includes Items + same calculator. (2) Self-referral was never blocked (`SameFingerprint` hardcoded false, no salesman-vs-buyer check) → a salesman buying their own code got a Pending commission auto-paid after 24h. Layered fix: checkout drops the referral when it resolves to the buyer; `CreateCommissionAsync` detects via CustomerId / device fingerprint / device token (guest via `Order.CustomerDeviceId`); new `RiskScoreInput.SelfReferral` weight 100 → Rejected + `FraudFlag(SelfDeal)`. Build 0 errors · Guard ALL PASSED · 50/50 tests · CD Multi-VPS SUCCESS. RV: migration applied; order sub-total 250,000 with a 50,000 referred line → base 50000 / commission 1500 (not 8250); self-referral at checkout → no attribution; forced buyer==salesman → Rejected, RiskScore 100, `SelfReferral:+100`, FraudFlag SelfDeal; commissions API pending 3150 / rejected 1500. Task card: `task_card_07_commission_base_selfreferral.md`.
 * **2026-09-17 — SALESMAN REFERRAL QR — CORRECT DOMAIN + SCAN-TO-BUY + COMMISSION (`aceab325`).** 5 gaps fixed: (1) QR host hardcoded to `diemthuong.khachvip.online`; (2) `/r/{code}` was never a route (no nginx rule) + `|` not URL-safe in a path; (3) `Order` had Sprint-0 referral fields with **no domain setter**; (4) `CheckoutOrderRequest`/`Checkout.razor` never sent `ReferralCode`; (5) `CreateCommissionAsync` **never called outside tests**. Fix: QR → `{khachLinkOrigin}/scan?ref={escaped}` (origin from `SalesmanQR.razor` via `?sourceDomain=`), anonymous `GET /api/community/referral/{code}` → product info, `Scan.razor` resolves + adds to cart + stores code, checkout sends `ReferralCode`, Gateway → `Order.SetSalesmanReferral` (approved Domain addition), `OrderWorkflowService.HandleOrderCompletedAsync` creates the commission (optional Gateway-only `ISalesmanService`). QR canvas fluid on mobile. Build 0 errors · Guard ALL PASSED · 21/21 tests · CD Multi-VPS SUCCESS. RV: QR URL `https://diemthuong2.khachvip.online/scan?ref=DL9ZMQ%7CCOMRV1`; anonymous resolve 200; checkout set `SalesmanId`/`ReferralProductId`/`ReferralCode`; shipper delivered → completed → `SalesReferrals` 1650.00 (55000 × 0.03, Pending); salesman commissions API 1650. Task card: `task_card_06_referral_qr_scan_commission.md`. Temp `DevToken__Secret` re-used then removed.

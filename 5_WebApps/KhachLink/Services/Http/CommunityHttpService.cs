@@ -528,6 +528,56 @@ public class CommunityHttpService(IHttpClientFactory httpClientFactory, ILogger<
             return new DeliveryTransitionResult { Success = false, ErrorMessage = "Lỗi kết nối." };
         }
     }
+
+    /// <summary>
+    /// D2/D3/D6 (2026-09-17): GET /api/community/orders/{orderId}/tracking
+    /// Buyer-accessible tracking snapshot (shop / delivery / latest shipper coords).
+    /// Works for the order's customer, a guest (device id) and the assigned shipper —
+    /// replaces the shipper-only nearby-orders call the customer page used before.
+    /// </summary>
+    public async Task<OrderTrackingResult> GetOrderTrackingAsync(string? customerToken, Guid? customerDeviceId, Guid orderId)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, $"/api/community/orders/{orderId}/tracking");
+            AddIdentityHeader(request, customerToken, customerDeviceId);
+
+            var resp = await _httpClient.SendAsync(request);
+            var body = await resp.Content.ReadAsStringAsync();
+
+            if (resp.IsSuccessStatusCode)
+            {
+                var dto = System.Text.Json.JsonSerializer.Deserialize<OrderTrackingDto>(body,
+                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                return new OrderTrackingResult { Success = true, Tracking = dto };
+            }
+
+            var err = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(body,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return new OrderTrackingResult
+            {
+                Success = false,
+                ErrorCode = (int)resp.StatusCode,
+                ErrorMessage = err?.Error ?? $"Lỗi {resp.StatusCode}"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "GetOrderTrackingAsync failed for {OrderId}", orderId);
+            return new OrderTrackingResult { Success = false, ErrorMessage = "Lỗi kết nối." };
+        }
+    }
+
+    /// <summary>
+    /// D6 (2026-09-17): X-Customer-Token when logged in, otherwise X-Customer-Device-Id (guest).
+    /// </summary>
+    private static void AddIdentityHeader(HttpRequestMessage request, string? customerToken, Guid? customerDeviceId)
+    {
+        if (!string.IsNullOrEmpty(customerToken))
+            request.Headers.Add("X-Customer-Token", customerToken);
+        else if (customerDeviceId.HasValue && customerDeviceId.Value != Guid.Empty)
+            request.Headers.Add("X-Customer-Device-Id", customerDeviceId.Value.ToString());
+    }
 }
 
 // === DTOs ===
@@ -545,6 +595,31 @@ public class NearbyOrderDto
     public decimal TotalAmount { get; set; }
     public string Status { get; set; } = string.Empty;
     public double DistanceKm { get; set; }
+}
+
+public class OrderTrackingDto
+{
+    public Guid OrderId { get; set; }
+    public string OrderStatus { get; set; } = "pending";
+    public string DeliveryStatus { get; set; } = "Pending";
+    public Guid? ShipperId { get; set; }
+    public string? DeliveryAddress { get; set; }
+    public double? ShopLat { get; set; }
+    public double? ShopLng { get; set; }
+    public double? DeliveryLat { get; set; }
+    public double? DeliveryLng { get; set; }
+    public double? ShipperLat { get; set; }
+    public double? ShipperLng { get; set; }
+    public DateTime? LocationUpdatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+public class OrderTrackingResult
+{
+    public bool Success { get; set; }
+    public OrderTrackingDto? Tracking { get; set; }
+    public int ErrorCode { get; set; }
+    public string ErrorMessage { get; set; } = string.Empty;
 }
 
 public class NearbyOrdersResult

@@ -195,11 +195,12 @@
                 }
             </VanAnCard>
 
-            <!-- Chat panel (CC-S3) -->
-            @if (_customerId.HasValue)
+            <!-- Chat panel (CC-S3 / D6: guests chat via device id) -->
+            @if (ChatIdentity.HasValue)
             {
                 <div class="mt-3">
-                    <ChatPanel OrderId="OrderId" CurrentUserId="_customerId.Value" CustomerToken="@_customerToken" ScrollContainerId="order-chat-scroll" />
+                    <ChatPanel OrderId="OrderId" CurrentUserId="ChatIdentity.Value" CustomerToken="@_customerToken"
+                               CustomerDeviceId="_customerDeviceId" ScrollContainerId="order-chat-scroll" />
                 </div>
             }
         }
@@ -263,7 +264,12 @@
     private string? _error;
     private string? _customerToken;
     private Guid? _customerId;
+    // D6 (2026-09-17): guest identity — order is linked by CustomerDeviceId, no token.
+    private Guid? _customerDeviceId;
     private bool _tokenExpired = false;
+
+    /// <summary>Logged-in customer id, or the guest device id when not logged in.</summary>
+    private Guid? ChatIdentity => _customerId ?? _customerDeviceId;
 
     // Order status (from PG via polling — covers pending/preparing/ready/delivering/completed/cancelled)
     private string _orderStatus = "pending";
@@ -312,10 +318,18 @@
                 _tokenExpired = true;
         }
 
+        // D6: guest identity (no token) — used for tracking + chat via device id.
+        if (string.IsNullOrEmpty(_customerToken))
+        {
+            var deviceIdStr = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
+            if (Guid.TryParse(deviceIdStr, out var deviceId) && deviceId != Guid.Empty)
+                _customerDeviceId = deviceId;
+        }
+
         try
         {
             await LoadOrderStatusAsync();
-            await LoadOrderInfoAsync();
+            await LoadTrackingAsync();
             await StartSignalRConnectionAsync();
             StartPolling();
         }
@@ -365,37 +379,57 @@
         }
     }
 
-    private async Task LoadOrderInfoAsync()
+    /// <summary>
+    /// D2/D3/D6 (2026-09-17): load the tracking snapshot for THIS order from the buyer-accessible
+    /// endpoint. Previously this used GET /api/community/nearby-orders, which is shipper-only and
+    /// returned 403 for buyers → the customer map never rendered.
+    /// </summary>
+    private async Task LoadTrackingAsync()
     {
-        // Load delivery-specific info (GPS coordinates, address) from nearby orders
-        if (string.IsNullOrEmpty(_customerToken))
+        if (string.IsNullOrEmpty(_customerToken) && _customerDeviceId == null)
             return;
 
         try
         {
-            var pos = await JSRuntime.InvokeAsync<GeoPosition?>("vananPWA.getCurrentPosition");
-            if (pos == null) return;
+            var result = await CommunityHttp.GetOrderTrackingAsync(_customerToken, _customerDeviceId, OrderId);
+            if (!result.Success || result.Tracking == null)
+                return;
 
-            var result = await CommunityHttp.GetNearbyOrdersAsync(_customerToken, pos.Lat, pos.Lng, 50);
-            if (result.Success)
+            var t = result.Tracking;
+            if (!string.IsNullOrEmpty(t.DeliveryStatus) && t.DeliveryStatus != "Pending")
+                _deliveryStatus = t.DeliveryStatus;
+
+            if (!string.IsNullOrEmpty(t.DeliveryAddress))
+                _deliveryAddress = t.DeliveryAddress;
+
+            _shopLat = t.ShopLat;
+            _shopLng = t.ShopLng;
+            _customerLat = t.DeliveryLat;
+            _customerLng = t.DeliveryLng;
+            if (t.ShipperLat.HasValue && t.ShipperLng.HasValue)
             {
-                var order = result.Orders.FirstOrDefault(o => o.OrderId == OrderId);
-                if (order != null)
-                {
-                    _deliveryAddress = order.DeliveryAddress;
-                    _shopLat = order.ShopLat;
-                    _shopLng = order.ShopLng;
-                    _customerLat = order.DeliveryLat;
-                    _customerLng = order.DeliveryLng;
-                    _centerLat = _shopLat ?? pos.Lat;
-                    _centerLng = _shopLng ?? pos.Lng;
-                    _showMap = true;
-                }
+                _shipperLat = t.ShipperLat;
+                _shipperLng = t.ShipperLng;
+                _isLiveTracking = true;
             }
+
+            if (_shopLat.HasValue && _shopLng.HasValue)
+            {
+                _centerLat = _shopLat.Value;
+                _centerLng = _shopLng.Value;
+            }
+
+            // Show the map whenever we have any coordinates to draw (shop, delivery or shipper).
+            _showMap = (_shopLat.HasValue && _shopLng.HasValue)
+                || (_customerLat.HasValue && _customerLng.HasValue)
+                || _shipperLat.HasValue;
+
+            _lastUpdate = DateTime.Now;
+            await InvokeAsync(StateHasChanged);
         }
         catch
         {
-            // GPS/delivery info is optional — order status still works
+            // Tracking info is optional — order status still works via polling
         }
     }
 
@@ -418,6 +452,8 @@
                 _shipperLat = lat;
                 _shipperLng = lng;
                 _isLiveTracking = true;
+                // D3: a live ping is enough to draw the map even if shop/delivery coords are absent.
+                _showMap = true;
                 _lastUpdate = DateTime.Now;
                 StateHasChanged();
             });
@@ -477,6 +513,8 @@
                 {
                     await Task.Delay(TimeSpan.FromSeconds(15), token);
                     await LoadOrderStatusAsync();
+                    // D2/D3: refresh coordinates too — guests rely on this (no SignalR).
+                    await LoadTrackingAsync();
                 }
                 catch (TaskCanceledException) { break; }
                 catch { /* continue polling */ }

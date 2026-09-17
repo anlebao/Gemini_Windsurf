@@ -17,12 +17,12 @@ public class ChatHttpService(IHttpClientFactory httpClientFactory, ILogger<ChatH
     /// GET /api/community/chat/conversations/{orderId}
     /// Returns chat history for the given order.
     /// </summary>
-    public async Task<ChatHistoryResult> GetHistoryAsync(string customerToken, Guid orderId)
+    public async Task<ChatHistoryResult> GetHistoryAsync(string? customerToken, Guid orderId, Guid? customerDeviceId = null)
     {
         try
         {
             var request = new HttpRequestMessage(HttpMethod.Get, $"/api/community/chat/conversations/{orderId}");
-            request.Headers.Add("X-Customer-Token", customerToken);
+            AddIdentityHeader(request, customerToken, customerDeviceId);
 
             var resp = await _httpClient.SendAsync(request);
             var body = await resp.Content.ReadAsStringAsync();
@@ -59,12 +59,12 @@ public class ChatHttpService(IHttpClientFactory httpClientFactory, ILogger<ChatH
     /// POST /api/community/chat/messages
     /// Send a chat message.
     /// </summary>
-    public async Task<SendMessageResult> SendMessageAsync(string customerToken, Guid orderId, string content)
+    public async Task<SendMessageResult> SendMessageAsync(string? customerToken, Guid orderId, string content, Guid? customerDeviceId = null)
     {
         try
         {
             var request = new HttpRequestMessage(HttpMethod.Post, "/api/community/chat/messages");
-            request.Headers.Add("X-Customer-Token", customerToken);
+            AddIdentityHeader(request, customerToken, customerDeviceId);
             request.Content = JsonContent.Create(new { OrderId = orderId, Content = content });
 
             var resp = await _httpClient.SendAsync(request);
@@ -96,6 +96,18 @@ public class ChatHttpService(IHttpClientFactory httpClientFactory, ILogger<ChatH
             _logger.LogError(ex, "SendMessageAsync failed for order {OrderId}", orderId);
             return new SendMessageResult { Success = false, ErrorMessage = "Lỗi kết nối." };
         }
+    }
+
+    /// <summary>
+    /// D6 (2026-09-17): send X-Customer-Token when logged in, otherwise X-Customer-Device-Id
+    /// so guest checkout customers can still chat with the shipper.
+    /// </summary>
+    private static void AddIdentityHeader(HttpRequestMessage request, string? customerToken, Guid? customerDeviceId)
+    {
+        if (!string.IsNullOrEmpty(customerToken))
+            request.Headers.Add("X-Customer-Token", customerToken);
+        else if (customerDeviceId.HasValue && customerDeviceId.Value != Guid.Empty)
+            request.Headers.Add("X-Customer-Device-Id", customerDeviceId.Value.ToString());
     }
 }
 

@@ -48,7 +48,7 @@ Customer là khách hàng cuối — mua hàng F&B qua KhachLink PWA. Một cust
    - **(A) Google login** → browser redirect `GET /api/auth/google/login?klOrigin={origin}` (Gateway YARP forward → ShopERP OAuth handler) → Google consent → callback `GET /api/auth/google/callback` → redirect về KhachLink `/login?token=...&provider=google&customerId=...` → tiếp bước 3
      - **Customer Onboarding (PR #171):** `klOrigin` (origin domain hiện tại) được encode trong OAuth state. Server resolve `KhachLinkInstance.OwnerTenantId` theo domain → customer mới gán vào đúng tenant (fallback default cho platform-level). Customer cũ (email đã tồn tại) → reuse global identity, KHÔNG tạo duplicate trên tenant khác.
    - **(B) Facebook login** → browser redirect `GET /api/auth/facebook/login` (Gateway YARP forward → ShopERP stub Sprint 1 → redirect về `/login?error=facebook_not_configured`). Sprint 7+ mới config Facebook OAuth credentials thật
-   - **(C) Tiếp tục as Guest** → **KHÔNG có API call**, KHÔNG nhập tên/SĐT ở bước này. Browser navigate thẳng về Home page. Customer browse + checkout as guest (nhập tên/SĐT ở form checkout). KHÔNG token, KHÔNG tích điểm. Order history + loyalty fallback theo `CustomerDeviceId` (localStorage)
+   - **(C) Tiếp tục as Guest** → **KHÔNG có API call**, KHÔNG nhập tên/SĐT ở bước này. Browser navigate thẳng về Home page. Customer browse + checkout as guest (nhập tên/SĐT ở form checkout). KHÔNG token, KHÔNG tích điểm. Order history + loyalty fallback theo `CustomerDeviceId` (localStorage). **Guest VẪN có tracking + chat** cho đơn DELIVERY của mình — xác thực bằng `CustomerDeviceId` (xem 2.4)
 3. First login / new device (sau social login success): browser generate DeviceToken + compute Fingerprint → **Device Fingerprint Consent Dialog** → bấm **Đồng ý** → `POST /api/customer-identity/device/register` (header `X-Customer-Token`, fire-and-forget, failure không block login).
 4. IdentityLevel = `Social` (1) nếu social, `Guest` (0) nếu guest.
 5. (OPTIONAL) Verify SĐT qua SMS OTP → `POST /api/customer-identity/otp/send` + `POST /api/customer-identity/otp/verify` → upgrade `Verified` (2) — **KHÔNG bắt buộc** cho customer. OTP endpoints giữ cho collaborator activation (Sprint 6 toggle).
@@ -72,6 +72,7 @@ Customer là khách hàng cuối — mua hàng F&B qua KhachLink PWA. Một cust
 - **KHÔNG có API login** — browser navigate thẳng về Home, không lưu token.
 - Customer browse product + checkout via `POST /api/public/orders/checkout` (nhập tên + SĐT ở checkout form, không `X-Customer-Token`).
 - Checkout as guest — **KHÔNG tích điểm** (no LoyaltyPoints). Order history + loyalty fallback theo `CustomerDeviceId` (localStorage).
+- **Tracking + chat: CÓ** (đơn DELIVERY). Guest được xác thực bằng `X-Customer-Device-Id` (giá trị `customer_device_id` trong localStorage) — Gateway đối chiếu với `Order.CustomerDeviceId`. Guest join được `/hubs/tracking` + `/hubs/messaging` và gọi API tracking/chat của **chính đơn mình**, không cần đăng nhập. Giới hạn: chỉ đơn có `CustomerDeviceId` khớp; không xem được đơn của thiết bị khác.
 - Verify SĐT chỉ khi collaborator activation (UC-02 v1.5) — `POST /api/collaborator-verification/init`.
 
 ### 2.5. IdentityLevel
@@ -161,6 +162,8 @@ Nếu bạn có referralCode trong localStorage + chưa cài PWA:
 
 Sau khi shipper accept đơn (Order status=`delivering`) → customer có thể tracking.
 
+> **Guest:** vẫn tracking được (không cần đăng nhập) — xác thực bằng `CustomerDeviceId`. Chỉ áp dụng cho đơn DELIVERY tạo từ chính thiết bị đó.
+
 ### 5.2. Tracking UI
 
 1. Mở Order Detail → tab **Tracking**.
@@ -194,6 +197,8 @@ Customer nhận **SignalR notification** mỗi transition:
 
 1. Mở Order Detail → tab **Chat** (hoặc chat panel).
 2. Chat chỉ mở khi `DeliveryTask` tồn tại (shipper đã accept đơn).
+
+> **Guest:** vẫn chat được với shipper (không cần đăng nhập) — xác thực bằng `CustomerDeviceId` cho đơn DELIVERY của chính thiết bị đó.
 
 ### 6.2. Flow
 
@@ -384,7 +389,7 @@ Hệ thống tự compute RiskScore (0-100) cho mỗi transaction. Customer KHÔ
 A: KHÔNG bắt buộc. Device fingerprint là primary. SMS OTP chỉ nếu muốn upgrade IdentityLevel hoặc trở thành Salesman/Shipper (khi toggle ON).
 
 **Q: Tôi có thể mua hàng không cần đăng nhập không?**
-A: CÓ — Guest mode (nhập tên + SĐT, không token). Nhưng KHÔNG tích điểm + KHÔNG tracking + KHÔNG chat.
+A: CÓ — Guest mode (nhập tên + SĐT, không token). KHÔNG tích điểm (không có account), nhưng **VẪN tracking + chat với shipper** cho đơn DELIVERY của mình (xác thực bằng `CustomerDeviceId` trong localStorage).
 
 **Q: GPS của tôi có bị track không?**
 A: CHỈ khi bạn đặt hàng DELIVERY (cần delivery location) + khi tracking shipper. KHÔNG background track. PWA chỉ GPS khi tab active.

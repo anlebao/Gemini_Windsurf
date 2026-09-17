@@ -118,6 +118,11 @@
         return baseUrl.TrimEnd('/');
     }
     [Parameter] public string? CustomerToken { get; set; }
+    /// <summary>
+    /// D6 (2026-09-17): guest identity (localStorage "customer_device_id"). Used when the customer
+    /// is not logged in so guest checkout customers can still chat (HTTP only — no SignalR).
+    /// </summary>
+    [Parameter] public Guid? CustomerDeviceId { get; set; }
     [Parameter] public string ScrollContainerId { get; set; } = "chat-scroll-container";
 
     private List<ChatMessageDto> _messages = new();
@@ -129,10 +134,14 @@
     private string? _error;
     private string? _signalrWarning;
     private HubConnection? _hubConnection;
+    // D6: guests (and any client whose SignalR failed) fall back to polling the history endpoint.
+    private System.Threading.CancellationTokenSource? _pollCts;
+
+    private bool HasGuestIdentity => CustomerDeviceId.HasValue && CustomerDeviceId.Value != Guid.Empty;
 
     protected override async Task OnInitializedAsync()
     {
-        if (string.IsNullOrEmpty(CustomerToken))
+        if (string.IsNullOrEmpty(CustomerToken) && !HasGuestIdentity)
         {
             _error = "Chưa đăng nhập.";
             _loadingHistory = false;
@@ -141,12 +150,38 @@
 
         await LoadHistoryAsync();
         await ConnectSignalRAsync();
+        StartHistoryPolling();
+    }
+
+    /// <summary>
+    /// Refresh the message list every 8s when SignalR is not connected (guest sessions or a failed
+    /// hub connection). Real-time is skipped — the HTTP history endpoint is the fallback.
+    /// </summary>
+    private void StartHistoryPolling()
+    {
+        _pollCts?.Cancel();
+        _pollCts = new System.Threading.CancellationTokenSource();
+        var token = _pollCts.Token;
+        _ = Task.Run(async () =>
+        {
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(8), token);
+                    if (_isConnected) continue; // SignalR pushes messages — no polling needed
+                    await LoadHistoryAsync();
+                }
+                catch (TaskCanceledException) { break; }
+                catch { /* keep polling */ }
+            }
+        }, token);
     }
 
     private async Task LoadHistoryAsync()
     {
         _loadingHistory = true;
-        var result = await ChatHttp.GetHistoryAsync(CustomerToken!, OrderId);
+        var result = await ChatHttp.GetHistoryAsync(CustomerToken, OrderId, CustomerDeviceId);
         if (result.Success)
         {
             _messages = result.Messages;
@@ -224,14 +259,14 @@
 
     private async Task SendMessage()
     {
-        if (string.IsNullOrWhiteSpace(_messageInput) || string.IsNullOrEmpty(CustomerToken))
+        if (string.IsNullOrWhiteSpace(_messageInput) || (string.IsNullOrEmpty(CustomerToken) && !HasGuestIdentity))
             return;
 
         var content = _messageInput.Trim();
         _messageInput = string.Empty;
         _error = null;
 
-        var result = await ChatHttp.SendMessageAsync(CustomerToken!, OrderId, content);
+        var result = await ChatHttp.SendMessageAsync(CustomerToken, OrderId, content, CustomerDeviceId);
         if (!result.Success)
         {
             _error = result.ErrorMessage;
@@ -286,6 +321,10 @@
 
     public async ValueTask DisposeAsync()
     {
+        _pollCts?.Cancel();
+        _pollCts?.Dispose();
+        _pollCts = null;
+
         if (_hubConnection != null)
         {
             try

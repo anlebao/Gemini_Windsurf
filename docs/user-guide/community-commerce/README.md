@@ -99,7 +99,7 @@ Một Customer có thể trở thành Salesman hoặc Shipper khi đạt điều
 ### 3.3. IdentityLevel (thứ bậc định danh)
 | Level | Giá trị | Ý nghĩa |
 |---|---|---|
-| Guest | 0 | Khách vãng lai (không token, checkout as guest) |
+| Guest | 0 | Khách vãng lai (không token, checkout as guest). Vẫn có tracking + chat cho đơn DELIVERY của mình qua `CustomerDeviceId`. KHÔNG tích điểm. |
 | Social | 1 | Đăng nhập Google/Facebook |
 | Verified | 2 | SMS OTP verified |
 | Full | 3 | Full KYC |

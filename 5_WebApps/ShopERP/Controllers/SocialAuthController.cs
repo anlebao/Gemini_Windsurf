@@ -2,8 +2,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using System.Text.Json;
 using VanAn.CoreHub.Domain.Repositories;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Services;
 using VanAn.ShopERP.Services;
 using VanAn.Shared.Domain;
@@ -19,6 +21,8 @@ namespace VanAn.ShopERP.Controllers
         ICustomerRepository customerRepository,
         ICustomerMergeService customerMergeService,
         VanAnDbContext vanAnPgDbContext,
+        IOutboxRepository outboxRepository,
+        IVanAnDbContext sqliteDb,
         IConfiguration configuration,
         IWebHostEnvironment env,
         ILogger<SocialAuthController> logger) : ControllerBase
@@ -28,6 +32,8 @@ namespace VanAn.ShopERP.Controllers
         private readonly ICustomerRepository _customerRepository = customerRepository;
         private readonly ICustomerMergeService _customerMergeService = customerMergeService;
         private readonly VanAnDbContext _vanAnPgDbContext = vanAnPgDbContext;
+        private readonly IOutboxRepository _outboxRepository = outboxRepository;
+        private readonly IVanAnDbContext _sqliteDb = sqliteDb;
         private readonly IConfiguration _configuration = configuration;
         private readonly ILogger<SocialAuthController> _logger = logger;
 
@@ -108,6 +114,11 @@ namespace VanAn.ShopERP.Controllers
                 _logger.LogInformation("[GoogleAuth] Existing customer logged in via Google: {CustomerId} IdentityLevel={Level}", customer.Id, customer.IdentityLevel);
             }
 
+            // D1 fix (2026-09-17): publish CustomerCreated so Gateway PG receives the row.
+            // Runs for BOTH new and existing customers — the existing ones are backfilled on
+            // their next login (pre-fix Google customers were never synced).
+            await EnqueueCustomerSyncAsync(customer);
+
             var token = _customerTokenService.CreateToken(customer.Id);
 
             // TD-CUSTSYNC-001 / Issue #106: Merge DeviceId-based guest stubs into login customer.
@@ -133,6 +144,53 @@ namespace VanAn.ShopERP.Controllers
             var redirectUrl = $"{khachLinkLoginUrl}?token={Uri.EscapeDataString(token)}&provider=google&customerId={Uri.EscapeDataString(customer.Id.ToString())}";
 
             return Redirect(redirectUrl);
+        }
+
+        /// <summary>
+        /// D1 fix (2026-09-17): enqueue a CustomerCreated outbox event so NatsSyncWorker publishes
+        /// "vanan.shoperp.customer.created" → Gateway DataSyncSubscriber upserts the customer to PG.
+        ///
+        /// Previously only the OTP flow published this event. Google/Facebook customers stayed
+        /// ShopERP-only, so <c>OrderService.CreateOrderFromCommandAsync</c> (which validates the
+        /// CustomerId against PG) silently set <c>Order.CustomerId = null</c> — which in turn made
+        /// ChatService refuse to create a conversation and LocationHub refuse to let the customer
+        /// join tracking. That is why chat + GPS were dead for logged-in customers.
+        ///
+        /// Idempotent: SyncCustomerCreatedAsync skips the insert when the row already exists.
+        /// </summary>
+        private async Task EnqueueCustomerSyncAsync(Customer customer)
+        {
+            try
+            {
+                var payload = new
+                {
+                    CustomerId = customer.Id,
+                    TenantId = customer.TenantId.Value,
+                    FullName = customer.FullName,
+                    PhoneNumber = customer.PhoneNumber,
+                    Email = customer.Email,
+                    DeviceId = customer.DeviceId,
+                    IdentityLevel = (int)customer.IdentityLevel
+                };
+
+                var outboxEvent = new OutboxEvent(
+                    customer.TenantId,
+                    new ElectronicInvoiceId(Guid.Empty),
+                    "CustomerCreated",
+                    JsonSerializer.Serialize(payload));
+
+                await _outboxRepository.EnqueueAsync(outboxEvent);
+                // EnqueueAsync only tracks the entity — the caller owns the commit (ShopERP SQLite).
+                await _sqliteDb.SaveChangesAsync();
+
+                _logger.LogInformation("[GoogleAuth] TD-CUSTSYNC-001: enqueued CustomerCreated for {CustomerId}", customer.Id);
+            }
+            catch (Exception ex)
+            {
+                // Non-blocking: sync failure must NOT prevent login. Order will fall back to guest
+                // linking via CustomerDeviceId until the next successful sync.
+                _logger.LogWarning(ex, "[GoogleAuth] Failed to enqueue CustomerCreated for {CustomerId}", customer.Id);
+            }
         }
 
         private string GetCallbackUrl()

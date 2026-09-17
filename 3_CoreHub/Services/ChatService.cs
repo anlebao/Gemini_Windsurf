@@ -23,7 +23,7 @@ public class ChatService(
     private readonly IVanAnDbContext _dbContext = dbContext;
     private readonly ILogger<ChatService> _logger = logger;
 
-    public async Task<Conversation?> GetOrCreateConversationAsync(Guid orderId)
+    public async Task<Conversation?> GetOrCreateConversationAsync(Guid orderId, Guid? guestDeviceId = null)
     {
         // Check for existing conversation
         var existing = await _dbContext.Conversations
@@ -45,9 +45,24 @@ public class ChatService(
             return null;
         }
 
-        if (order.CustomerId == null || order.CustomerId == Guid.Empty)
+        // D6 (2026-09-17): resolve the customer identity. Logged-in orders carry CustomerId;
+        // guest orders (CustomerId=null) are linked by CustomerDeviceId — the guest's identity
+        // is then the device id itself (verified against the order's device id).
+        Guid customerIdentity;
+        if (order.CustomerId.HasValue && order.CustomerId.Value != Guid.Empty)
         {
-            _logger.LogWarning("GetOrCreateConversation: Order {OrderId} has no CustomerId", orderId);
+            customerIdentity = order.CustomerId.Value;
+        }
+        else if (guestDeviceId.HasValue && guestDeviceId.Value != Guid.Empty
+                 && Guid.TryParse(order.CustomerDeviceId, out var orderDeviceId)
+                 && orderDeviceId == guestDeviceId.Value)
+        {
+            customerIdentity = guestDeviceId.Value;
+            _logger.LogInformation("GetOrCreateConversation: Order {OrderId} is a guest order — using device id as identity", orderId);
+        }
+        else
+        {
+            _logger.LogWarning("GetOrCreateConversation: Order {OrderId} has no CustomerId and no matching guest device id", orderId);
             return null;
         }
 
@@ -67,7 +82,7 @@ public class ChatService(
 
         var shipperId = task?.ShipperId ?? Guid.Empty;
 
-        var conversation = new Conversation(order.TenantId, orderId, shipperId, order.CustomerId.Value);
+        var conversation = new Conversation(order.TenantId, orderId, shipperId, customerIdentity);
         _dbContext.Conversations.Add(conversation);
         await _dbContext.SaveChangesAsync();
 
@@ -77,7 +92,7 @@ public class ChatService(
         return conversation;
     }
 
-    public async Task<Message?> SendMessageAsync(Guid orderId, Guid senderId, string content)
+    public async Task<Message?> SendMessageAsync(Guid orderId, Guid senderId, string content, Guid? guestDeviceId = null)
     {
         if (string.IsNullOrWhiteSpace(content))
             throw new ArgumentException("Content cannot be empty", nameof(content));
@@ -86,7 +101,7 @@ public class ChatService(
             throw new ArgumentException("Content exceeds 2000 characters", nameof(content));
 
         // Get or create conversation (no DeliveryTask required — see class doc)
-        var conversation = await GetOrCreateConversationAsync(orderId);
+        var conversation = await GetOrCreateConversationAsync(orderId, guestDeviceId);
         if (conversation == null)
             return null;
 

@@ -1,0 +1,438 @@
+# TASK CARD — Realtime Platform: Chat + Live Location (Reusable Across Modules)
+
+> **Status:** 🚧 IN PROGRESS — **P1 DONE** (2026-09-17) · P2-P6 pending
+> **P1 delivered:** D1 (Google customer sync) · D2/D3 (buyer tracking endpoint + map render) · D4 (checkout coords) · D5 (GPS resume) · D6 (guest chat/tracking via device id). Build 0 errors · 40/40 chat+delivery tests PASS.
+> **Priority:** P1 (chat + GPS đang chết trên production) → P2 (tái sử dụng)
+> **Branch đề xuất:** `feature/realtime-platform`
+> **Mode:** P0 ANALYZE → P1 FIX_ONLY → P2..P5 IMPLEMENT
+> **Decisions (2026-09-17):** Q1 guest **CÓ** chat + tracking (auth bằng `X-Customer-Device-Id`) · Q2 Domain additive **APPROVED** · Q3 consumer thứ 2 = **CẢ HAI** (Logistics + JobMarket)
+> **Supersedes/extends:** `docs/AI/tasks/community_commerce_fixes/task_card_05_chat_gps_qr.md` (fix `26dc9e62` chỉ vá phía client, không đủ)
+> **Workflow:** `.devin/workflows/newfeaturebuild.md` (ANALYZE → IMPLEMENT) + `.devin/workflows/Fix_Errors.md` (P1)
+
+---
+
+## 1. GOAL & CONTEXT
+
+- **Mục tiêu cốt lõi:** Nâng cấp 2 tính năng đang có — **chat 2 chiều realtime** (UC-07) và **theo dõi vị trí realtime** (UC-06) — từ *hard-code cho Order/Shipper* thành **một năng lực nền tảng tái sử dụng** (Realtime Platform), để bất kỳ module nào cũng gắn vào được: Logistics (shipment), JobMarket (employer ↔ candidate), ShopERP (staff ↔ shipper), Directory, module tương lai.
+- **Nghiệp vụ áp dụng:** mọi luồng có "2 bên cần trao đổi + theo dõi vị trí/trạng thái theo một chủ thể" (đơn hàng, chuyến giao, tin tuyển dụng, ticket hỗ trợ, lịch hẹn onsite…).
+- **Kết quả bàn giao:**
+  1. Chat + GPS **chạy đúng trên production** (fix 5 defect chặn hiện tại).
+  2. **Realtime Platform** = Domain generic + Service generic + Gateway hubs generic + UI Platform components generic + JS generic.
+  3. **Reuse recipe 5 bước** để module mới gắn vào (Section 12).
+  4. 1 module thứ hai dùng thật (Logistics hoặc JobMarket) làm bằng chứng tái sử dụng.
+
+---
+
+## 2. VÌ SAO CẦN CARD NÀY (hiện trạng đã verify trong code)
+
+### 2.1. Chat/GPS production chết dù đã "fix done"
+
+| # | Defect | Bằng chứng (file:line) | Ảnh hưởng |
+|---|---|---|---|
+| D1 | **Order không gắn `CustomerId`** với khách Google OAuth → `ChatService` từ chối tạo conversation, `LocationHub` từ chối join | `5_WebApps/ShopERP/Controllers/SocialAuthController.cs:96-104` (tạo Customer ở SQLite, **không** phát `CustomerCreated`) · `2_Gateway/Services/DataSyncSubscriber.cs:378-405` (đường ghi PG duy nhất) · `3_CoreHub/Services/OrderService.cs:831-849` (âm thầm set `CustomerId=null`) · `3_CoreHub/Services/ChatService.cs:48-59` · `2_Gateway/Hubs/LocationHub.cs:56-72` | **Chat + GPS chết cho khách đã đăng nhập** |
+| D2 | Trang khách build map bằng endpoint **shipper-only** | `5_WebApps/KhachLink/Pages/OrderTracking.razor:368-400` gọi `GET /api/community/nearby-orders` · `2_Gateway/Controllers/CommunityController.cs:157-171` + `999-1012` → **403 "Bạn không có quyền Shipper"** | Khách không bao giờ thấy map |
+| D3 | Handler `LocationUpdate` **không set `_showMap = true`** | `5_WebApps/KhachLink/Pages/OrderTracking.razor:416-423` | Có toạ độ vẫn không render map |
+| D4 | Checkout **luôn gửi `DeliveryLat/Lng = null`** | `5_WebApps/KhachLink/Pages/Checkout.razor:606-610` | Shipper không thấy marker khách |
+| D5 | GPS chỉ start khi bấm "Đã lấy hàng"; reload là mất | `5_WebApps/KhachLink/Pages/DeliveryTracking.razor:363-377` + `425-443` | Không có ping → không ai thấy ai |
+| D6 | Guest không có chat/tracking | `docs/user-guide/community-commerce/07-customer.md` (FAQ cũ) | ❌ **SAI theo quyết định mới** — guest PHẢI có chat + tracking (auth bằng `CustomerDeviceId`). Docs đã sửa 2026-09-17. |
+
+### 2.2. Vì sao KHÔNG tái sử dụng được (coupling)
+
+| # | Coupling hiện tại | Nơi | Hệ quả |
+|---|---|---|---|
+| C1 | `Conversation(OrderId, ShipperId, CustomerId)` — 2 bên cố định theo Order | `1_Shared/Domain.cs:3963-4004` | Module khác không dùng được (JobMarket cần Employer/Candidate) |
+| C2 | `DeliveryTracking(DeliveryTaskId, Lat, Lng)` — khoá theo DeliveryTask | `1_Shared/Domain.cs:3940-3961` | Không track được shipment/ticket/lịch hẹn |
+| C3 | Hubs hard-code `order_{orderId}` / `chat_{orderId}` + auth qua `customerToken` → ShopERP `/me` | `2_Gateway/Hubs/LocationHub.cs:47-76` · `ChatHub.cs:43-79` · `Program.cs:801-802` | Chỉ nhận customer token; không nhận staff JWT/device token |
+| C4 | Endpoint nằm trong `CommunityController` (`api/community/*`) + check role Shipper | `2_Gateway/Controllers/CommunityController.cs:417-543` | Không có API trung tính cho module khác |
+| C5 | `ChatPanel.razor` + `ChatHttpService.cs` + `LocationTrackingService.cs` nằm trong **KhachLink** | `5_WebApps/KhachLink/Components/ChatPanel.razor` · `Services/Http/ChatHttpService.cs` · `Services/LocationTrackingService.cs` | ShopERP/Logistics/JobMarket không dùng lại được |
+| C6 | `LeafletMap.razor` nằm trong **KhachLink**, không thuộc UI Platform | `5_WebApps/KhachLink/Components/LeafletMap.razor` | Vi phạm UI Platform rule khi module khác cần map |
+| C7 | JS phụ thuộc `vananPWA.*` của KhachLink | `5_WebApps/KhachLink/wwwroot/js/pwa.js:606-633` | App khác không có `vananPWA` |
+| C8 | Derive Gateway host thủ công cho chat | `5_WebApps/KhachLink/Components/ChatPanel.razor:105-119` | Sai host với custom domain |
+
+---
+
+## 3. AS-IS ARCHITECTURE MAP
+
+```
+CHAT
+  Domain    1_Shared/Domain.cs:3963  Conversation(OrderId, ShipperId, CustomerId)
+                                     Message(ConversationId, SenderId, Content, SentAt, IsRead)
+  Service   3_CoreHub/Services/IChatService.cs | ChatService.cs
+  Hub       2_Gateway/Hubs/ChatHub.cs            → /hubs/chat   (group chat_{orderId})
+  HTTP      2_Gateway/Controllers/CommunityController.cs:463-543
+  UI        5_WebApps/KhachLink/Components/ChatPanel.razor
+            5_WebApps/KhachLink/Services/Http/ChatHttpService.cs
+  Pages     KhachLink DeliveryTracking.razor:234 | OrderTracking.razor:202
+
+GPS / LIVE LOCATION
+  Domain    1_Shared/Domain.cs:3863  DeliveryTask(OrderId, ShipperId, shop/delivery coords)
+            1_Shared/Domain.cs:3943  DeliveryTracking(DeliveryTaskId, Lat, Lng, RecordedAt) [append-only]
+  Service   3_CoreHub/Services/DeliveryWorkflowService.cs:102-132
+  Hub       2_Gateway/Hubs/LocationHub.cs        → /hubs/location (group order_{orderId})
+  HTTP      CommunityController.cs:417-457  POST /api/community/location/update
+  UI        5_WebApps/KhachLink/Services/LocationTrackingService.cs  (poll 10s)
+            5_WebApps/KhachLink/Components/LeafletMap.razor
+  JS        KhachLink/wwwroot/js/pwa.js (getCurrentPosition, scrollToBottom)
+            KhachLink/wwwroot/js/leaflet.js + /lib/leaflet/
+  nginx     /hubs/ → gateway (vanan.multivps.conf.template:283, :601)
+
+DB MAPPING (quan trọng cho migration)
+  PG (VanAnDbContext)         DbSet Conversation/Message/DeliveryTracking  → 3_CoreHub/Infrastructure/VanAnDbContext.cs:142-145
+  ShopERP (ShopERPDbContext)  modelBuilder.Ignore<Conversation/Message/DeliveryTracking>  → 5_WebApps/ShopERP/Infrastructure/ShopERPDbContext.cs:253-255
+  ⇒ Schema thay đổi CHỈ cần migration ở PG (Gateway/CoreHub).
+```
+
+---
+
+## 4. TO-BE ARCHITECTURE (REALTIME PLATFORM)
+
+```
+┌─ 1_Shared (Domain, PURE) ─────────────────────────────────────────────┐
+│ RealtimeSubjectType { Order, Shipment, JobApplication, Ticket, Custom }│
+│ Conversation            + SubjectType, SubjectId (additive, giữ cột cũ)│
+│ ConversationParticipant (NEW)  ConversationId, ParticipantId, RoleCode │
+│ Message                 (không đổi)                                    │
+│ DeliveryTracking        + SubjectType, SubjectId, TrackerId (additive) │
+└────────────────────────────────────────────────────────────────────────┘
+┌─ 3_CoreHub (Services) ────────────────────────────────────────────────┐
+│ IRealtimeMessagingService  EnsureConversation / Send / History / Read  │
+│ ILiveLocationService       RecordPing / GetLatest / GetHistory         │
+│ IRealtimeParticipantAuthorizer (interface)  ← module tự implement      │
+│   └ OrderRealtimeAuthorizer (adapter cho community, giữ nguyên logic)  │
+│ IChatService / IDeliveryWorkflowService  → giữ làm adapter mỏng        │
+└────────────────────────────────────────────────────────────────────────┘
+┌─ 2_Gateway (Hubs + API) ──────────────────────────────────────────────┐
+│ IRealtimeTokenValidator  → CustomerTokenValidator | StaffJwtValidator  │
+│                            | DeviceTokenValidator                       │
+│ MessagingHub  /hubs/messaging   group msg_{subjectType}_{subjectId}    │
+│ TrackingHub   /hubs/tracking    group loc_{subjectType}_{subjectId}    │
+│ /api/realtime/conversations/{subjectType}/{subjectId}                  │
+│ /api/realtime/conversations/messages                                   │
+│ /api/realtime/location/ping                                            │
+│ /api/realtime/location/{subjectType}/{subjectId}/latest                │
+│ (giữ /hubs/chat, /hubs/location, /api/community/* làm adapter cũ)      │
+└────────────────────────────────────────────────────────────────────────┘
+┌─ UI.Platform (shared, mọi app dùng) ──────────────────────────────────┐
+│ Core/Interfaces  IRealtimeChatClient | ILiveLocationClient | IMapJsAdapter
+│ Adapters         RealtimeHttpAdapter | LeafletMapAdapter               │
+│ Components/Realtime  RealtimeChatPanel.razor | VanAnMap.razor          │
+│ wwwroot/js       realtime.js (geolocation + scroll) + leaflet/ vendored│
+│                  → phục vụ tại _content/VanAn.UI.Platform/js/...       │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 4.1. Guest identity (device-based) — QUYẾT ĐỊNH 2026-09-17
+
+Guest không có `X-Customer-Token`. Danh tính guest = **`CustomerDeviceId`** (localStorage `customer_device_id`, đã gửi kèm mọi checkout → `Order.CustomerDeviceId`).
+
+| Hạng mục | Thiết kế |
+|---|---|
+| Header | `X-Customer-Device-Id: <guid>` (thay/bổ sung `X-Customer-Token`) |
+| Gateway validator | `DeviceTokenValidator` — resolve `Order.CustomerDeviceId == deviceId` (hoặc `Conversation`/`DeliveryTask` suy ra từ order) |
+| Participant id | Guest dùng chính `deviceId` (Guid) làm `ParticipantId` — nhất quán với `SenderId`/`TrackerId` |
+| Chat | `ConversationParticipant.RoleCode = "Guest"`; guest gửi/nhận tin như customer thường |
+| Tracking | Guest join `loc_Order_{orderId}` nếu `Order.CustomerDeviceId == deviceId` |
+| Bảo mật | Chỉ đơn của **chính thiết bị đó**; không suy đoán được đơn thiết bị khác; `CustomerDeviceId` là GUID ngẫu nhiên 128-bit (không đoán được) |
+| Nâng cấp | Guest login sau → `CustomerMergeService` gắn `CustomerId`; conversation/participant giữ nguyên (backfill `ParticipantId` device → customer nếu cần) |
+
+> Rủi ro chấp nhận: thiết bị bị mất/đổi localStorage → mất quyền xem đơn cũ. PoC chấp nhận (đã có order history fallback theo device id).
+
+---
+
+## 5. DOMAIN CHANGES (✅ APPROVED 2026-09-17 — Domain Phase active)
+
+> Hard stop: Domain phải PURE (no EF/DbContext/DataAnnotations). Chỉ sửa khi là phần của plan đã duyệt. `AccountingEntry` không liên quan.
+> Single-Identity: mọi entity mới dùng `BaseEntity.Id` làm PK; business key VO (nếu có) phải `builder.Ignore(...)`.
+
+| # | Thay đổi | Chi tiết | Migration |
+|---|---|---|---|
+| DOM-1 | `RealtimeSubjectType` enum | `Order, Shipment, JobApplication, Ticket, Custom` | không |
+| DOM-2 | `Conversation` + `SubjectType` (string, default `"Order"`) + `SubjectId` (Guid, default = `OrderId`) | **Additive** — giữ `OrderId/ShipperId/CustomerId` để không phá code cũ; thêm ctor generic `Conversation(tenantId, subjectType, subjectId, initiatorId, counterpartId)`; `AssignCounterpart(...)` generic | PG: `AddRealtimeSubjectToConversation` |
+| DOM-3 | `ConversationParticipant` (NEW) | `ConversationId`, `ParticipantId`, `RoleCode`, `JoinedAt`, `IsActive`; ctor set `Id` theo Single-Identity | PG: `AddConversationParticipant` |
+| DOM-4 | `DeliveryTracking` + `SubjectType` (default `"Delivery"`), `SubjectId` (default = `DeliveryTaskId`), `TrackerId` (Guid?) | Additive, vẫn append-only (không thêm update method) | PG: `AddSubjectToDeliveryTracking` |
+| DOM-5 | (Tuỳ chọn) `Message` + `AttachmentUrl` | Chỉ khi module mới cần ảnh/file | PG: `AddMessageAttachment` |
+
+**Acceptance DOM:** build 0 lỗi · `guard-check.ps1` PASS · Domain purity test PASS · migration áp dụng sạch trên PG.
+
+---
+
+## 6. SERVICE CHANGES (3_CoreHub)
+
+| # | File | Thay đổi |
+|---|---|---|
+| SVC-1 | `3_CoreHub/Services/IRealtimeMessagingService.cs` (NEW) | `EnsureConversationAsync(RealtimeSubjectType, Guid subjectId, Guid initiatorId, Guid counterpartId)` · `SendMessageAsync(Guid conversationId, Guid senderId, string content)` · `GetHistoryAsync(Guid conversationId, int take)` · `MarkAsReadAsync(Guid messageId)` · `IsParticipantAsync(Guid conversationId, Guid userId)` |
+| SVC-2 | `3_CoreHub/Services/RealtimeMessagingService.cs` (NEW) | Impl generic trên `Conversations`/`ConversationParticipants`/`Messages`; `IgnoreQueryFilters` cross-tenant như `ChatService` hiện tại |
+| SVC-3 | `3_CoreHub/Services/ILiveLocationService.cs` (NEW) | `RecordPingAsync(RealtimeSubjectType, Guid subjectId, Guid trackerId, double lat, double lng)` · `GetLatestAsync(...)` · `GetHistoryAsync(...)` |
+| SVC-4 | `3_CoreHub/Services/LiveLocationService.cs` (NEW) | Ghi `DeliveryTracking` với `SubjectType/SubjectId/TrackerId` (backward-compatible: `Order` type → `SubjectId = DeliveryTaskId`) |
+| SVC-5 | `3_CoreHub/Services/IRealtimeParticipantAuthorizer.cs` (NEW) | `Task<bool> CanAccessAsync(RealtimeSubjectType type, Guid subjectId, Guid userId)` — module tự cài |
+| SVC-6 | `3_CoreHub/Services/Adapters/OrderRealtimeAuthorizer.cs` (NEW) | Di chuyển logic access hiện tại của `ChatHub.JoinConversation` + `LocationHub.JoinOrderTracking` (DeliveryTask.ShipperId ∨ Conversation participant ∨ Order.CustomerId) |
+| SVC-7 | `ChatService.cs` / `DeliveryWorkflowService.cs` | Giữ nguyên public API; thân hàm gọi service generic (adapter mỏng) để không phá callers/tests |
+
+**DI:** đăng ký trong `2_Gateway/Program.cs` cạnh dòng 447-451 (CommunityOrderService / DeliveryWorkflowService / ChatService).
+
+---
+
+## 7. GATEWAY CHANGES (Hubs + API)
+
+| # | File | Thay đổi |
+|---|---|---|
+| GW-1 | `2_Gateway/Hubs/MessagingHub.cs` (NEW) | Group `msg_{subjectType}_{subjectId}`; auth = `IRealtimeTokenValidator`; join verify qua `IRealtimeParticipantAuthorizer`; push `ReceiveMessage` |
+| GW-2 | `2_Gateway/Hubs/TrackingHub.cs` (NEW) | Group `loc_{subjectType}_{subjectId}`; push `LocationUpdate`; join verify như trên |
+| GW-3 | `2_Gateway/Realtime/IRealtimeTokenValidator.cs` + 3 impl (NEW) | `CustomerTokenValidator` (forward ShopERP `/me` — logic hiện có) · `StaffJwtValidator` (JWT Bearer ShopERP) · **`DeviceTokenValidator` (guest — header `X-Customer-Device-Id`, đối chiếu `Order.CustomerDeviceId`)** |
+| GW-4 | `2_Gateway/Controllers/RealtimeController.cs` (NEW) | `POST /api/realtime/conversations/messages` · `GET /api/realtime/conversations/{subjectType}/{subjectId}` · `POST /api/realtime/location/ping` · `GET /api/realtime/location/{subjectType}/{subjectId}/latest` |
+| GW-5 | `2_Gateway/Program.cs` | `MapHub<MessagingHub>("/hubs/messaging")`, `MapHub<TrackingHub>("/hubs/tracking")` (giữ 801-802) |
+| GW-6 | `CommunityController.cs` + `ChatHub.cs`/`LocationHub.cs` | Giữ làm **adapter deprecated** trỏ vào service generic (không xoá — tránh breaking KhachLink bản cũ) |
+| GW-7 | nginx templates | Đã có `location ~ ^/hubs/` cho mọi domain (`vanan.multivps.conf.template:283, :601`) → **không cần đổi**; verify lại khi RV |
+
+**Access fix kèm theo (D1/D2):**
+- GW-8: Endpoint **buyer-accessible** trả toạ độ cho chủ thể của chính họ: `GET /api/realtime/location/{subjectType}/{subjectId}/latest` (authorize qua `IRealtimeParticipantAuthorizer`, KHÔNG check role Shipper). Đây là cái `OrderTracking` phải dùng thay cho `nearby-orders`.
+- GW-9: `SocialAuthController` (ShopERP) enqueue `CustomerCreated` sau khi tạo customer Google/Facebook → sync PG (fix D1). **Bắt buộc**, nếu không chat/GPS vẫn chết.
+
+---
+
+## 8. UI PLATFORM CHANGES
+
+| # | File | Thay đổi |
+|---|---|---|
+| UI-1 | `UI.Platform/Core/Interfaces/IRealtimeChatClient.cs` (NEW) | `GetHistoryAsync(subjectType, subjectId, token)` · `SendMessageAsync(...)` · `ConnectAsync(...)` trả `IAsyncDisposable` + event `OnMessage` |
+| UI-2 | `UI.Platform/Core/Interfaces/ILiveLocationClient.cs` (NEW) | `RecordPingAsync(subjectType, subjectId, trackerId, lat, lng, token)` · `GetLatestAsync(...)` · `StartWatching(callback, intervalMs)` · `StopWatching()` |
+| UI-3 | `UI.Platform/Core/Interfaces/IMapJsAdapter.cs` (NEW) | Trừu tượng hoá `initMap/addMarker/updateMarker/drawRoute` (giống pattern `ICssAdapter`) |
+| UI-4 | `UI.Platform/Adapters/RealtimeHttpAdapter.cs` (NEW) | Impl `IRealtimeChatClient` + `ILiveLocationClient` qua `IHttpClientFactory` (named client truyền vào, không hard-code host) |
+| UI-5 | `UI.Platform/Adapters/LeafletMapAdapter.cs` (NEW) | Impl `IMapJsAdapter` gọi `window.vananMap.*` |
+| UI-6 | `UI.Platform/Components/Realtime/RealtimeChatPanel.razor` (NEW) | Port từ `KhachLink/Components/ChatPanel.razor`; params: `SubjectType`, `SubjectId`, `CurrentUserId`, `AuthToken`, `ScrollContainerId`; inject `IRealtimeChatClient`; bỏ `DeriveGatewayUrl` |
+| UI-7 | `UI.Platform/Components/Realtime/VanAnMap.razor` (NEW) | Port từ `KhachLink/Components/LeafletMap.razor` (params giữ nguyên) + `IMapJsAdapter` |
+| UI-8 | `UI.Platform/wwwroot/js/realtime.js` (NEW) | `vananRealtime.getCurrentPosition()` + `vananRealtime.scrollToBottom()` + `window.vananMap.*` (gộp `pwa.js:606-633` + `leaflet.js`) |
+| UI-9 | `UI.Platform/wwwroot/lib/leaflet/` (NEW) | Vendor Leaflet 1.9.4 (copy từ KhachLink) |
+| UI-10 | `KhachLink/Components/ChatPanel.razor`, `Components/LeafletMap.razor`, `Services/LocationTrackingService.cs` | Chuyển thành **shim** trỏ về component UI Platform (hoặc xoá sau khi migrate hết trang) |
+| UI-11 | `KhachLink/Pages/OrderTracking.razor` | Dùng `VanAnMap` + `ILiveLocationClient.GetLatestAsync` thay `nearby-orders`; set `_showMap=true` khi có toạ độ (fix D2/D3) |
+| UI-12 | `KhachLink/Pages/DeliveryTracking.razor` | Start GPS khi load nếu task `PickedUp/OutForDelivery`; gọi `RecordPingAsync` với `TrackerId` (fix D5) |
+| UI-13 | `KhachLink/Pages/Checkout.razor` | Thu thập GPS giao hàng → gửi `DeliveryLat/Lng` (fix D4) |
+
+---
+
+## 9. REUSE RECIPE — GẮN REALTIME PLATFORM VÀO MODULE MỚI (5 BƯỚC)
+
+Ví dụ: **JobMarket** — chat Employer ↔ Candidate + chia sẻ vị trí phỏng vấn onsite.
+
+```
+B1. Khai báo subject type
+    RealtimeSubjectType.JobApplication  (đã có trong enum — không cần sửa Domain)
+
+B2. Implement authorizer cho module
+    3_CoreHub/Services/Adapters/JobApplicationRealtimeAuthorizer.cs
+      CanAccessAsync(type, subjectId, userId)
+        => jobApplication.EmployerId == userId || jobApplication.CandidateId == userId
+    Đăng ký DI: services.AddScoped<IRealtimeParticipantAuthorizer, JobApplicationRealtimeAuthorizer>()
+    (nếu nhiều module: dùng keyed registration theo RealtimeSubjectType)
+
+B3. Tạo conversation khi có sự kiện nghiệp vụ
+    await _realtimeMessaging.EnsureConversationAsync(
+        RealtimeSubjectType.JobApplication, application.Id, employerId, candidateId);
+
+B4. Ghi vị trí khi cần
+    await _liveLocation.RecordPingAsync(
+        RealtimeSubjectType.JobApplication, application.Id, employerId, lat, lng);
+
+B5. Gắn UI (UI Platform — KHÔNG tự viết HTML/CSS)
+    <RealtimeChatPanel SubjectType="RealtimeSubjectType.JobApplication"
+                       SubjectId="application.Id"
+                       CurrentUserId="_currentUserId"
+                       AuthToken="_token" />
+    <VanAnMap MapElementId="job-map" ... ShipperLat="_lat" ShipperLng="_lng" />
+```
+
+**Checklist module mới:**
+- [ ] Authorizer implemented + DI registered
+- [ ] Token validator phù hợp (customer / staff JWT / device)
+- [ ] EnsureConversation gọi ở đúng domain event (idempotent)
+- [ ] `RealtimeSubjectType` tái dùng (chỉ thêm enum value nếu thật cần — cần Domain approval)
+- [ ] UI dùng component UI Platform, không bypass
+- [ ] Multi-tenancy: mọi query có `TenantId` / `IgnoreQueryFilters` có chủ đích + comment
+- [ ] Test: 2 user khác tenant không thấy conversation của nhau
+
+---
+
+## 10. PHASES (JIT Planning + Pure Execution)
+
+| Phase | Mode | Nội dung | Session |
+|---|---|---|---|
+| **P0** | ANALYZE | Verify D1..D6 trên production (log + DB) — xem Section 11 | 0.5 |
+| **P1** | FIX_ONLY | ✅ **DONE** — D1 (sync customer), D2/D3 (endpoint + map cho buyer), D4 (toạ độ checkout), D5 (GPS resume), D6 (guest device auth). Build 0 errors · 40/40 tests | 1-2 |
+| **P2** | IMPLEMENT | DOM-1..DOM-5 + SVC-1..SVC-7 + migration PG | 1-2 |
+| **P3** | IMPLEMENT | GW-1..GW-9 (hubs generic + API + adapters) | 1-2 |
+| **P4** | IMPLEMENT | UI-1..UI-13 (UI Platform extraction + migrate KhachLink) | 1-2 |
+| **P5** | IMPLEMENT | Consumer thứ 2 + thứ 3: **Logistics** (`sprint8`) **và JobMarket** (`sprint9`) — chứng minh tái sử dụng | 1-2 |
+| **P6** | IMPLEMENT | Tests + E2E + RV Layer 1-5 + reuse guide (`docs/UI_Platform_Implementation_Guide.md` bổ sung mục Realtime) | 1 |
+
+### Rules
+- P1 chỉ sửa đúng defect, không mở rộng scope (Fix_Errors mode).
+- P2 trở đi mỗi phase phải build + guard + test trước khi sang phase sau.
+- Domain change (DOM-*) chỉ thực hiện sau khi Tech Lead duyệt.
+- Playwright chỉ bật sau khi build PASS + implementation xong (Gate 3).
+
+---
+
+## 11. P0 — VERIFY PRODUCTION (bắt buộc trước khi fix)
+
+```bash
+# 1. Log Gateway: khách Google checkout → CustomerId bị null?
+gcloud compute ssh vanan-gateway --zone asia-southeast1-a --project vanan-prod
+docker logs vanan-gateway 2>&1 | grep "not found in DB — falling back to guest mode"
+
+# 2. PG: khách Google có row không? Order có CustomerId không?
+#    SELECT COUNT(*) FROM "Customers" WHERE "Id" = '<customerId>';
+#    SELECT "Id","CustomerId","OrderType","DeliveryLat","DeliveryLng" FROM "Orders" WHERE "Id" = '<orderId>';
+
+# 3. Log ChatHub/LocationHub
+docker logs vanan-gateway 2>&1 | grep -E "Invalid customerToken|Access denied|ChatHub:|LocationHub:"
+
+# 4. API buyer map (kỳ vọng 403 → xác nhận D2)
+#    curl -H "X-Customer-Token: <token>" \
+#      "https://api2.khachvip.online/api/community/nearby-orders?lat=10.8&lng=106.7&radiusKm=5"
+```
+
+**Kết quả P0 ghi vào Section 2 (bảng defect) + cập nhật `docs/AI/project_state.md`.**
+
+---
+
+## 12. SUCCESS CRITERIA (ĐO LƯỜNG ĐƯỢC)
+
+- [ ] **SC1 (D1):** Khách Google checkout → `Orders.CustomerId` ≠ null; PG `Customers` có row.
+- [ ] **SC2 (chat):** Khách đã đăng nhập gửi/nhận tin realtime trên `/order-tracking/{id}`; shipper thấy tin trên `/community/delivery-tracking/{id}` (2 chiều, < 2s).
+- [ ] **SC3 (D2/D3):** Khách (không có role Shipper) gọi API tracking của chính đơn mình → 200; map render; marker shipper di chuyển.
+- [ ] **SC4 (D4):** Order DELIVERY có `DeliveryLat/Lng` ≠ null; shipper thấy marker khách.
+- [ ] **SC5 (D5):** Shipper reload trang khi task `OutForDelivery` → GPS vẫn ping (10s/lần).
+- [ ] **SC6 (generic):** Cùng 1 bộ component/service phục vụ module thứ 2 (JobMarket/Logistics) mà **không copy-paste** UI/JS.
+- [ ] **SC7:** `Conversation` cũ (Order) vẫn hoạt động — không regression trên dữ liệu hiện có.
+- [ ] **SC8:** Multi-tenancy: user tenant A không join được conversation tenant B (test âm).
+- [ ] **SC9:** Build `dotnet build VanAn.sln` 0 lỗi · `guard-check.ps1` ALL PASSED · `dotnet test` ALL PASS.
+- [ ] **SC10:** Không có component HTML/CSS tự viết trong module mới — 100% UI Platform (Gate UI Platform).
+- [ ] **SC11:** Reuse guide có trong `docs/UI_Platform_Implementation_Guide.md` (Section Realtime).
+- [ ] **SC12:** Không tạo `.csproj` mới (dùng project hiện có).
+
+---
+
+## 13. HARD STOPS / BOUNDARY RULES
+
+- ❌ Không sửa Domain để fix UI/Service. DOM-* chỉ khi Domain Phase active + approval.
+- ❌ `AccountingEntry` bất biến (không liên quan, không chạm).
+- ❌ Domain PURE: không EF Core / DbContext / DataAnnotations trong `1_Shared`.
+- ❌ Không tạo `.csproj` mới; dùng `3_CoreHub`, `2_Gateway`, `UI.Platform`.
+- ❌ Không bypass UI Platform (cấm tự viết HTML/CSS chat/map mới).
+- ❌ Không phá route cũ `/hubs/chat`, `/hubs/location`, `/api/community/chat|location` (giữ adapter).
+- ❌ Multi-tenancy: mọi truy vấn cross-tenant phải có comment lý do.
+- ❌ Không persist/echo `DevToken__Secret` (`.devin/rules/dev-token-secret.md`).
+
+---
+
+## 14. TDD & E2E TESTING STRATEGY
+
+| Layer | Nội dung | File |
+|---|---|---|
+| Unit | `RealtimeMessagingService` (ensure idempotent, participant check, cross-tenant) · `LiveLocationService` (subject mapping) | `6_Tests/VanAn.Core.Tests/Realtime/*` |
+| Unit | `OrderRealtimeAuthorizer` (shipper/customer/khác) | như trên |
+| Integration | Gateway: `MessagingHub.JoinConversation` allow/deny; `RealtimeController` buyer 200 vs người ngoài 403 | `6_Tests/.../Realtime/` |
+| E2E | Reuse spec chat (2 browser contexts) + tracking | `6_Testing/e2e-tests/realtime-chat.spec.ts`, `realtime-tracking.spec.ts` |
+| E2E helper | Dùng `6_Testing/e2e-tests/helpers/gps-mock.ts` (đã có) | — |
+| Regression | Giữ `community-chat.spec.ts` + `community-delivery-flow.spec.ts` PASS | — |
+
+---
+
+## 15. REVERSE IMPACT
+
+| File | Reverse impact | Mitigation |
+|---|---|---|
+| `1_Shared/Domain.cs` | Entity dùng chung nhiều layer | Additive only, giữ ctor/property cũ |
+| `Conversation`/`DeliveryTracking` schema | Dữ liệu production hiện có | Cột mới có default; migration không phá row cũ |
+| `2_Gateway/Hubs/*` | KhachLink bản cũ đang gọi `/hubs/chat` | Giữ hub cũ làm adapter |
+| `CommunityController` | App/test đang gọi `api/community/*` | Không xoá, chỉ delegate |
+| `SocialAuthController` | Thêm outbox event → tăng tải NATS | Idempotent upsert ở `DataSyncSubscriber` (đã có `exists` check) |
+| `OrderTracking.razor` | Đổi nguồn toạ độ | Fallback: nếu API mới lỗi → ẩn map như cũ, không crash |
+| UI Platform | Mọi app dùng chung | Thêm mới, không đổi component cũ |
+| nginx | `/hubs/` đã proxy | Không đổi; verify RV |
+
+---
+
+## 16. RISKS
+
+| # | Risk | Mitigation |
+|---|---|---|
+| R1 | Domain change bị từ chối (Domain purity) | Tách P2 riêng, xin approval trước; nếu không duyệt → giữ `Conversation` cũ + tạo entity mới song song |
+| R2 | Migration PG ảnh hưởng production | Additive + default; chạy trên staging trước; backup |
+| R3 | SignalR qua nginx với domain custom | Đã có `location ~ ^/hubs/`; RV Layer 3 bằng Playwright trước khi mở rộng |
+| R4 | Khách OAuth vẫn không sync (NATS lỗi) | P1 fix outbox; P0 verify log; fallback: tạo customer PG đồng bộ trong callback |
+| R5 | Refactor làm chậm việc fix production | P1 fix trước (không refactor), P2+ mới generalize |
+| R6 | Guest không chat được (kỳ vọng người dùng) | Quyết định sản phẩm: thêm `DeviceTokenValidator` + anonymous tracking nếu duyệt |
+
+---
+
+## 17. AI HEALTH CHECK (INITIAL)
+
+- **Verified Facts:** 8 coupling (C1-C8) + 6 defect (D1-D6) đã đối chiếu file:line · schema chat/tracking chỉ map ở PG (`VanAnDbContext.cs:142-145`, `ShopERPDbContext.cs:253-255`) · UI Platform là Razor Class Library có sẵn `Core/Interfaces` + `Adapters` pattern · nginx đã proxy `/hubs/` cho mọi domain.
+- **Assumptions:** 1 — P0 sẽ xác nhận D1 trên production (chưa có log thật).
+- **Open Questions:** 0 — Q1 guest có chat/tracking ✅ · Q2 Domain additive approved ✅ · Q3 cả Logistics + JobMarket ✅.
+- **Gate 6:** ✅ Assumptions (1) < Verified Facts (15+), Open Questions (0) → CLEAR.
+- **Recommended Action:** Chạy P0 → P1 → P2..P6.
+
+---
+
+## 18. ESTIMATED EFFORT
+
+- P0: 0.5 session · P1: 1-2 · P2: 1-2 · P3: 1-2 · P4: 1-2 · P5: 1-2 · P6: 1 → **~8-12 sessions**.
+- **BLOCKER:** ~~approval Domain + Q1/Q3~~ → đã giải quyết (2026-09-17). Không còn blocker.
+
+---
+
+## 18.5. P1 IMPLEMENTATION RECORD (2026-09-17)
+
+**Build:** `dotnet build VanAn.sln` → 0 errors · **Tests:** 40/40 chat+delivery PASS.
+
+| Defect | File(s) | Change |
+|---|---|---|
+| D1 | `5_WebApps/ShopERP/Controllers/SocialAuthController.cs` | Inject `IOutboxRepository` + `IVanAnDbContext`; new `EnqueueCustomerSyncAsync(customer)` called for **both new and existing** customers → publishes `CustomerCreated` → Gateway PG upsert. Backfills pre-fix Google customers on next login. |
+| D2/D3 | `2_Gateway/Controllers/CommunityController.cs` | New **`GET /api/community/orders/{orderId}/tracking`** (buyer/shipper/guest authorized) returning shop/delivery/latest-shipper coords. |
+| D2/D3 | `5_WebApps/KhachLink/Pages/OrderTracking.razor` | `LoadOrderInfoAsync` → **`LoadTrackingAsync`** (new endpoint, no more shipper-only `nearby-orders`); `_showMap` set whenever any coords exist; `LocationUpdate` handler sets `_showMap = true`; coordinates refreshed in the 15s poll. |
+| D2/D3 | `5_WebApps/KhachLink/Services/Http/CommunityHttpService.cs` | `GetOrderTrackingAsync(token, deviceId, orderId)` + `OrderTrackingDto`/`OrderTrackingResult` + `AddIdentityHeader` helper. |
+| D4 | `5_WebApps/KhachLink/Pages/Checkout.razor` | Capture `vananPWA.getCurrentPosition` for DELIVERY → send real `DeliveryLat`/`DeliveryLng` (was always `null`). |
+| D5 | `5_WebApps/KhachLink/Pages/DeliveryTracking.razor` | Resume `StartGpsTracking()` on page load when task is `PickedUp`/`OutForDelivery`. |
+| D6 | `2_Gateway/Controllers/CommunityController.cs` | New `ValidateCustomerOrDeviceAsync()` — accepts `X-Customer-Token` **or** `X-Customer-Device-Id`; chat history/send use it (+ participant authorization on history); device id compared to `Order.CustomerDeviceId`. |
+| D6 | `3_CoreHub/Services/IChatService.cs` + `ChatService.cs` | Optional `guestDeviceId` param — guest orders (CustomerId=null) get a conversation keyed by the device id, verified against `Order.CustomerDeviceId`. |
+| D6 | `5_WebApps/KhachLink/Components/ChatPanel.razor` + `Services/Http/ChatHttpService.cs` | `CustomerDeviceId` param; guest = HTTP-only + **8s history polling** fallback when SignalR is not connected. |
+| D6 | `5_WebApps/KhachLink/Pages/OrderTracking.razor` | Chat panel renders for guests (`ChatIdentity = _customerId ?? _customerDeviceId`). |
+
+**Docs updated:** `07-customer.md` (§2.1/§2.4/§5.1/§6.1/FAQ) · `04-shipper.md` (§8.3) · `README.md` (§3.3) — guest now has chat + tracking.
+
+**Not yet done (P2-P6):** Domain additive (`Conversation.SubjectType/SubjectId`, `ConversationParticipant`, `DeliveryTracking.SubjectId/TrackerId`) + generic `IRealtimeMessagingService`/`ILiveLocationService`/`IRealtimeParticipantAuthorizer` + generic hubs/endpoints + UI Platform extraction + Logistics/JobMarket consumers + RV.
+
+---
+
+## 19. COMPLETION SUMMARY (điền khi xong)
+
+**REALTIME PLATFORM — COMPLETE** — commit `<HASH>` on `main`.
+
+### Files created
+| File | Purpose |
+|------|---------|
+| _TBD_ | _TBD_ |
+
+### Files modified
+| File | Change |
+|------|--------|
+| _TBD_ | _TBD_ |
+
+### Verification
+
+#### Static
+- **Build:** _TBD_ · **Unit tests:** _TBD_ · **guard-check.ps1:** _TBD_
+
+#### Live Runtime Verification
+| # | Test | Status | Evidence |
+|---|------|--------|----------|
+| RV1 | Khách Google login → order có CustomerId | _TBD_ | _TBD_ |
+| RV2 | Chat 2 chiều realtime (khách ↔ shipper) | _TBD_ | _TBD_ |
+| RV3 | Map khách render + marker shipper di chuyển | _TBD_ | _TBD_ |
+| RV4 | Shipper reload → GPS vẫn ping | _TBD_ | _TBD_ |
+| RV5 | Module thứ 2 dùng lại component (không copy UI) | _TBD_ | _TBD_ |
+| RV6 | Regression `/hubs/chat` + `/api/community/*` cũ | _TBD_ | _TBD_ |

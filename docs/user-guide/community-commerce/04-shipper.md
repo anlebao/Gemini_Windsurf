@@ -233,7 +233,7 @@ Assigned → PickedUp → OutForDelivery → Delivered
 
 - **Human-to-human chat** — KHÔNG có AI chatbot trong PoC.
 - Chat biến mất khi DeliveryTask = Delivered/Failed (hoặc giữ history nhưng không push mới).
-- Auth ChatHub qua `X-Customer-Token` query string.
+- Auth ChatHub qua `X-Customer-Token` query string. **Guest customer** (chưa đăng nhập) được xác thực bằng `X-Customer-Device-Id` — shipper vẫn chat được với họ như bình thường.
 
 ---
 

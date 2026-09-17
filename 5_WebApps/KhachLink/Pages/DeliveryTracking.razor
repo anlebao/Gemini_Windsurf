@@ -352,6 +352,15 @@
 
             _showMap = pos != null && _shopLat.HasValue;
             _loading = false;
+
+            // D5 (2026-09-17): resume GPS pings when the page is (re)loaded mid-delivery.
+            // Previously tracking only started on the "Đã lấy hàng" click, so a reload silently
+            // stopped every ping and neither side could see the other's position.
+            if (_deliveryTaskId.HasValue
+                && (_deliveryStatus == "PickedUp" || _deliveryStatus == "OutForDelivery"))
+            {
+                StartGpsTracking();
+            }
         }
         catch (Exception)
         {

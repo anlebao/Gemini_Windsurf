@@ -457,23 +457,131 @@ namespace VanAn.Gateway.Controllers
         }
 
         /// <summary>
+        /// D2/D3/D6 (2026-09-17): GET /api/community/orders/{orderId}/tracking
+        /// Buyer-accessible tracking snapshot for ONE order the caller owns — replaces the
+        /// shipper-only /api/community/nearby-orders call the customer page used to build its map
+        /// (which returned 403 for buyers, so the customer map never rendered).
+        ///
+        /// Auth: X-Customer-Token (logged-in) OR X-Customer-Device-Id (guest).
+        /// Authorized for: the order's CustomerId, the order's CustomerDeviceId (guest), or the
+        /// assigned shipper. Returns shop / delivery / latest-shipper coordinates + statuses.
+        /// </summary>
+        [HttpGet("orders/{orderId:guid}/tracking")]
+        public async Task<IActionResult> GetOrderTracking(Guid orderId)
+        {
+            var (identity, _, error) = await ValidateCustomerOrDeviceAsync();
+            if (identity == null) return error!;
+
+            try
+            {
+                var order = await _dbContext.Orders
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(o => o.Id == orderId);
+
+                if (order == null)
+                    return NotFound(new { error = "Không tìm thấy đơn hàng." });
+
+                var task = await _dbContext.DeliveryTasks
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .Where(dt => dt.OrderId == orderId && dt.Status != DeliveryTaskStatus.Cancelled)
+                    .OrderByDescending(dt => dt.AssignedAt)
+                    .FirstOrDefaultAsync();
+
+                bool isCustomer = order.CustomerId == identity.Value;
+                bool isDeviceGuest = !isCustomer
+                    && Guid.TryParse(order.CustomerDeviceId, out var orderDeviceId)
+                    && orderDeviceId == identity.Value;
+                bool isShipper = task != null && task.ShipperId == identity.Value;
+
+                if (!isCustomer && !isDeviceGuest && !isShipper)
+                    return StatusCode(403, new { error = "Bạn không có quyền xem đơn hàng này." });
+
+                // Shop coordinates: prefer the DeliveryTask snapshot, fall back to tenant settings.
+                double? shopLat = task?.ShopLat;
+                double? shopLng = task?.ShopLng;
+                if ((shopLat == null || shopLat == 0) && order.TenantId.Value != Guid.Empty)
+                {
+                    var tenant = await _dbContext.Tenants
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(t => t.Id == order.TenantId);
+                    shopLat = tenant?.Settings?.Latitude;
+                    shopLng = tenant?.Settings?.Longitude;
+                }
+
+                // Delivery coordinates: DeliveryTask snapshot first, then the order itself.
+                double? deliveryLat = task?.CustomerLat ?? order.DeliveryLat;
+                double? deliveryLng = task?.CustomerLng ?? order.DeliveryLng;
+
+                // Latest shipper GPS ping for this delivery task.
+                double? shipperLat = null;
+                double? shipperLng = null;
+                DateTime? locationUpdatedAt = null;
+                if (task != null)
+                {
+                    var ping = await _dbContext.DeliveryTrackings
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .Where(t => t.DeliveryTaskId == task.Id)
+                        .OrderByDescending(t => t.RecordedAt)
+                        .FirstOrDefaultAsync();
+                    if (ping != null)
+                    {
+                        shipperLat = ping.Latitude;
+                        shipperLng = ping.Longitude;
+                        locationUpdatedAt = ping.RecordedAt;
+                    }
+                }
+
+                return Ok(new
+                {
+                    orderId,
+                    orderStatus = order.Status?.Value ?? "pending",
+                    deliveryStatus = task?.Status.ToString() ?? "Pending",
+                    shipperId = task?.ShipperId,
+                    deliveryAddress = order.DeliveryAddress,
+                    shopLat,
+                    shopLng,
+                    deliveryLat,
+                    deliveryLng,
+                    shipperLat,
+                    shipperLng,
+                    locationUpdatedAt,
+                    updatedAt = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting tracking for order {OrderId}", orderId);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
         /// CC-S3 (Sprint 3): GET /api/community/chat/conversations/{orderId}
         /// Get chat history for the given order. Requires DeliveryTask to exist.
         /// </summary>
         [HttpGet("chat/conversations/{orderId:guid}")]
         public async Task<IActionResult> GetChatHistory(Guid orderId)
         {
-            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
-            if (customerId == null) return error!;
+            // D6 (2026-09-17): accept a logged-in token OR a guest device id.
+            var (identity, isGuest, error) = await ValidateCustomerOrDeviceAsync();
+            if (identity == null) return error!;
 
             try
             {
                 // Chat is available for DELIVERY orders with a CustomerId — no DeliveryTask required.
                 // GetOrCreateConversationAsync creates conversation with placeholder ShipperId=Guid.Empty
                 // if no DeliveryTask exists yet (before shipper accepts).
-                var conversation = await _chatService.GetOrCreateConversationAsync(orderId);
+                var conversation = await _chatService.GetOrCreateConversationAsync(orderId, isGuest ? identity : null);
                 if (conversation == null)
                     return NotFound(new { error = "Không tìm thấy đơn hàng hoặc đơn hàng không phải loại giao hàng." });
+
+                // Authorization: caller must be the conversation's customer (or the shipper).
+                if (identity.Value != conversation.CustomerId && identity.Value != conversation.ShipperId)
+                    return StatusCode(403, new { error = "Bạn không có quyền xem cuộc trò chuyện này." });
 
                 var messages = await _chatService.GetHistoryAsync(orderId);
 
@@ -506,8 +614,9 @@ namespace VanAn.Gateway.Controllers
         [HttpPost("chat/messages")]
         public async Task<IActionResult> SendMessage([FromBody] SendMessageRequest body)
         {
-            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
-            if (customerId == null) return error!;
+            // D6 (2026-09-17): accept a logged-in token OR a guest device id.
+            var (identity, isGuest, error) = await ValidateCustomerOrDeviceAsync();
+            if (identity == null) return error!;
 
             if (body == null || string.IsNullOrWhiteSpace(body.Content))
                 return BadRequest(new { error = "Nội dung tin nhắn không được để trống." });
@@ -520,7 +629,7 @@ namespace VanAn.Gateway.Controllers
 
             try
             {
-                var message = await _chatService.SendMessageAsync(body.OrderId, customerId.Value, body.Content);
+                var message = await _chatService.SendMessageAsync(body.OrderId, identity.Value, body.Content, isGuest ? identity : null);
 
                 if (message == null)
                     return StatusCode(403, new { error = "Không thể gửi tin nhắn. Đơn hàng không tồn tại hoặc không phải loại giao hàng." });
@@ -991,6 +1100,33 @@ namespace VanAn.Gateway.Controllers
                 _logger.LogError(ex, "Error validating customer token for community endpoint");
                 return (null, StatusCode(500, new { error = "Lỗi xác thực token." }));
             }
+        }
+
+        /// <summary>
+        /// D6 (2026-09-17): resolve the caller identity from either
+        /// <c>X-Customer-Token</c> (logged-in customer, validated via ShopERP /me) or
+        /// <c>X-Customer-Device-Id</c> (guest — the localStorage <c>customer_device_id</c> GUID).
+        /// Guest identity = the device id, matched against <c>Order.CustomerDeviceId</c> downstream.
+        /// </summary>
+        private async Task<(Guid? Identity, bool IsGuest, IActionResult? Error)> ValidateCustomerOrDeviceAsync()
+        {
+            bool hasToken = Request.Headers.TryGetValue("X-Customer-Token", out var token)
+                && !string.IsNullOrEmpty(token.ToString());
+
+            if (hasToken)
+            {
+                var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+                return customerId == null ? (null, false, error) : (customerId, false, null);
+            }
+
+            if (Request.Headers.TryGetValue("X-Customer-Device-Id", out var deviceHeader)
+                && Guid.TryParse(deviceHeader.ToString(), out var deviceId)
+                && deviceId != Guid.Empty)
+            {
+                return (deviceId, true, null);
+            }
+
+            return (null, false, Unauthorized(new { error = "Cần X-Customer-Token hoặc X-Customer-Device-Id." }));
         }
 
         /// <summary>

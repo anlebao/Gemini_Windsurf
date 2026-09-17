@@ -14,13 +14,20 @@ public interface IChatService
     /// Creates if not exists — requires Order to exist with CustomerId and OrderType=DELIVERY.
     /// Uses ShipperId=Guid.Empty as placeholder if no DeliveryTask exists (before shipper accepts).
     /// </summary>
-    Task<Conversation?> GetOrCreateConversationAsync(Guid orderId);
+    /// <param name="guestDeviceId">
+    /// D6 (2026-09-17): guest checkout orders have CustomerId=null and are linked by
+    /// <c>Order.CustomerDeviceId</c>. When supplied and it matches the order's device id, the
+    /// guest identity (= the device id) is used as the conversation's CustomerId so guest
+    /// customers can chat without logging in.
+    /// </param>
+    Task<Conversation?> GetOrCreateConversationAsync(Guid orderId, Guid? guestDeviceId = null);
 
     /// <summary>
     /// Send a message in the conversation for the given order.
     /// Creates conversation if not exists. Verifies sender is ShipperId or CustomerId.
     /// </summary>
-    Task<Message?> SendMessageAsync(Guid orderId, Guid senderId, string content);
+    /// <param name="guestDeviceId">See <see cref="GetOrCreateConversationAsync"/>.</param>
+    Task<Message?> SendMessageAsync(Guid orderId, Guid senderId, string content, Guid? guestDeviceId = null);
 
     /// <summary>
     /// Get chat history for the given order, sorted by SentAt ascending.

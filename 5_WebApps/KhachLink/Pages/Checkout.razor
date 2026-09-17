@@ -574,6 +574,25 @@
             // Gateway resolves it → Order.SalesmanId + ReferralProductId → commission on completion.
             var referralCode = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "vanan_referral_code");
 
+            // D4 (2026-09-17): capture the delivery coordinates at checkout so the shipper's map can
+            // show the customer marker. Previously these were always null, so nobody could see the
+            // delivery location. GPS is optional — checkout proceeds without it on failure.
+            double? deliveryLat = null;
+            double? deliveryLng = null;
+            if (selectedOrderType == "DELIVERY")
+            {
+                try
+                {
+                    var pos = await JSRuntime.InvokeAsync<GeoPosition?>("vananPWA.getCurrentPosition");
+                    if (pos != null)
+                    {
+                        deliveryLat = pos.Lat;
+                        deliveryLng = pos.Lng;
+                    }
+                }
+                catch { /* GPS denied/unavailable — order still created without coordinates */ }
+            }
+
             var orderRequest = new
             {
                 CustomerDeviceId = deviceId,
@@ -605,8 +624,8 @@
                 ReferralCode = string.IsNullOrWhiteSpace(referralCode) ? null : referralCode,
                 // CC-S1: Delivery fields — only meaningful when OrderType=DELIVERY
                 DeliveryAddress = selectedOrderType == "DELIVERY" ? guestAddress : null,
-                DeliveryLat = (double?)null,
-                DeliveryLng = (double?)null,
+                DeliveryLat = deliveryLat,
+                DeliveryLng = deliveryLng,
                 ShippingFee = selectedOrderType == "DELIVERY" ? _deliveryFee : 0
             };
 
@@ -752,5 +771,12 @@
     {
         public bool Loyalty_Program_Enabled { get; set; } = true;
         public decimal Loyalty_PointsRate { get; set; } = 0m;
+    }
+
+    // D4 (2026-09-17): shape returned by vananPWA.getCurrentPosition (pwa.js).
+    private class GeoPosition
+    {
+        public double Lat { get; set; }
+        public double Lng { get; set; }
     }
 }
