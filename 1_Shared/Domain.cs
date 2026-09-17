@@ -3938,21 +3938,91 @@ namespace VanAn.Shared.Domain
     }
 
     /// <summary>
-    /// DeliveryTracking — append-only GPS ping per DeliveryTask. No update methods by design.
+    /// Realtime Platform P2 (2026-09-17): discriminator for generic chat + live-location subjects.
+    /// A "subject" is any business object that two parties need to talk about and/or track
+    /// (an order, a shop profile, a shipment, a job application, a support ticket...).
+    /// Stored as a string on Conversation/DeliveryTracking so a module can introduce a subject
+    /// without a schema change; the enum is the type-safe handle for the built-in subjects.
+    /// </summary>
+    public enum RealtimeSubjectType
+    {
+        /// <summary>Order-scoped chat/tracking (community commerce: customer ↔ shipper).</summary>
+        Order = 0,
+
+        /// <summary>Legacy delivery GPS pings — SubjectId is the DeliveryTask id.</summary>
+        Delivery = 1,
+
+        /// <summary>Shop profile chat (customer/guest ↔ shop) — SubjectId is the tenant id.</summary>
+        Shop = 2,
+
+        /// <summary>Reserved for R3 Logistics (shipment tracking) — no entity exists yet.</summary>
+        Shipment = 3,
+
+        /// <summary>Reserved for R3 JobMarket (employer ↔ candidate) — no entity exists yet.</summary>
+        JobApplication = 4,
+
+        /// <summary>Support ticket.</summary>
+        Ticket = 5,
+
+        /// <summary>Module-defined subject — the module owns the meaning of SubjectId.</summary>
+        Custom = 6
+    }
+
+    /// <summary>
+    /// Realtime Platform P2 (2026-09-17): well-known ConversationParticipant role codes.
+    /// </summary>
+    public static class RealtimeParticipantRole
+    {
+        public const string Customer = "Customer";
+        public const string Guest = "Guest";
+        public const string Shop = "Shop";
+        public const string Shipper = "Shipper";
+    }
+
+    /// <summary>
+    /// DeliveryTracking — append-only GPS ping per subject. No update methods by design.
+    /// Realtime Platform P2 (2026-09-17): SubjectType/SubjectId/TrackerId are additive.
+    /// The legacy DeliveryTaskId column is kept — for delivery pings SubjectId == DeliveryTaskId;
+    /// for a generic subject (e.g. Shop) DeliveryTaskId stays Guid.Empty.
     /// </summary>
     public class DeliveryTracking : BaseEntity
     {
         public Guid DeliveryTaskId { get; protected set; }
+
+        /// <summary>Realtime Platform P2: subject discriminator ("Delivery" for legacy delivery pings).</summary>
+        public string SubjectType { get; protected set; } = RealtimeSubjectType.Delivery.ToString();
+
+        /// <summary>Realtime Platform P2: tracked subject id (== DeliveryTaskId for delivery pings).</summary>
+        public Guid SubjectId { get; protected set; }
+
+        /// <summary>Realtime Platform P2: who emitted the ping (shipper / staff / customer device id).</summary>
+        public Guid? TrackerId { get; protected set; }
+
         public double Latitude { get; protected set; }
         public double Longitude { get; protected set; }
         public DateTime RecordedAt { get; protected set; }
 
         protected DeliveryTracking() { }
 
+        /// <summary>Legacy ctor — delivery GPS ping keyed by DeliveryTask (backward compatible).</summary>
         public DeliveryTracking(TenantId tenantId, Guid deliveryTaskId, double lat, double lng)
+            : this(tenantId, RealtimeSubjectType.Delivery, deliveryTaskId, deliveryTaskId, null, lat, lng)
+        {
+        }
+
+        /// <summary>Realtime Platform P2: generic ping for any subject type (Shop, Ticket, Shipment...).</summary>
+        public DeliveryTracking(TenantId tenantId, RealtimeSubjectType subjectType, Guid subjectId, Guid? trackerId, double lat, double lng)
+            : this(tenantId, subjectType, subjectId, Guid.Empty, trackerId, lat, lng)
+        {
+        }
+
+        private DeliveryTracking(TenantId tenantId, RealtimeSubjectType subjectType, Guid subjectId, Guid deliveryTaskId, Guid? trackerId, double lat, double lng)
             : base(tenantId)
         {
+            SubjectType = subjectType.ToString();
+            SubjectId = subjectId;
             DeliveryTaskId = deliveryTaskId;
+            TrackerId = trackerId;
             Latitude = lat;
             Longitude = lng;
             RecordedAt = DateTime.UtcNow;
@@ -3961,7 +4031,9 @@ namespace VanAn.Shared.Domain
     }
 
     /// <summary>
-    /// Conversation — 1 per Order (shipper ↔ customer chat).
+    /// Conversation — 1 per subject. Originally 1 per Order (shipper ↔ customer chat);
+    /// Realtime Platform P2 (2026-09-17) generalises it with SubjectType/SubjectId so the same
+    /// entity serves any subject (Shop profile chat, ticket, shipment...).
     /// </summary>
     public class Conversation : BaseEntity
     {
@@ -3969,14 +4041,63 @@ namespace VanAn.Shared.Domain
         public Guid ShipperId { get; protected set; }
         public Guid CustomerId { get; protected set; }
 
+        /// <summary>Realtime Platform P2: subject discriminator ("Order" for community commerce).</summary>
+        public string SubjectType { get; protected set; } = RealtimeSubjectType.Order.ToString();
+
+        /// <summary>Realtime Platform P2: subject id (== OrderId for order conversations).</summary>
+        public Guid SubjectId { get; protected set; }
+
         protected Conversation() { }
 
         public Conversation(TenantId tenantId, Guid orderId, Guid shipperId, Guid customerId)
             : base(tenantId)
         {
             OrderId = orderId;
+            SubjectType = RealtimeSubjectType.Order.ToString();
+            SubjectId = orderId;
             ShipperId = shipperId;
             CustomerId = customerId;
+        }
+
+        /// <summary>
+        /// Realtime Platform P2: generic conversation for any subject (Shop, Ticket, Shipment...).
+        /// OrderId stays empty for non-order subjects — module-specific columns are unused there.
+        /// CustomerId/ShipperId keep the initiator/counterpart pair so existing reads keep working.
+        /// </summary>
+        public Conversation(TenantId tenantId, RealtimeSubjectType subjectType, Guid subjectId, Guid initiatorId, Guid counterpartId)
+            : base(tenantId)
+        {
+            SubjectType = subjectType.ToString();
+            SubjectId = subjectId;
+            OrderId = subjectType == RealtimeSubjectType.Order ? subjectId : Guid.Empty;
+            CustomerId = initiatorId;
+            ShipperId = counterpartId;
+        }
+
+        /// <summary>
+        /// Realtime Platform P2: generic counterpart assignment (shipper for an order, shop for a
+        /// shop chat). For Order subjects this preserves the legacy <see cref="AssignShipper"/>
+        /// semantics + exception messages.
+        /// </summary>
+        public void AssignCounterpart(Guid counterpartId)
+        {
+            if (SubjectType == RealtimeSubjectType.Order.ToString())
+            {
+                AssignShipper(counterpartId);
+                return;
+            }
+
+            if (counterpartId == Guid.Empty)
+                throw new ArgumentException("CounterpartId cannot be empty.", nameof(counterpartId));
+
+            if (ShipperId == counterpartId)
+                return; // idempotent
+
+            if (ShipperId != Guid.Empty)
+                throw new InvalidOperationException("Conversation already assigned to a different counterpart.");
+
+            ShipperId = counterpartId;
+            UpdateAudit();
         }
 
         /// <summary>
@@ -3999,6 +4120,56 @@ namespace VanAn.Shared.Domain
                 throw new InvalidOperationException("Conversation already assigned to a different shipper.");
 
             ShipperId = shipperId;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// Realtime Platform P2 (2026-09-17): generic participant of a Conversation.
+    /// Conversation.ShipperId/CustomerId only cover two fixed parties (order chat); a generic
+    /// subject (shop, ticket, shipment) can have N participants with distinct roles, and the
+    /// "shop" side of a shop chat is a tenant rather than a user.
+    /// Single-Identity: PK is BaseEntity.Id, no business-key value object.
+    /// </summary>
+    public class ConversationParticipant : BaseEntity
+    {
+        public Guid ConversationId { get; protected set; }
+        public Guid ParticipantId { get; protected set; }
+
+        /// <summary>Role within the conversation — see <see cref="RealtimeParticipantRole"/>.</summary>
+        public string RoleCode { get; protected set; } = string.Empty;
+
+        public DateTime JoinedAt { get; protected set; }
+        public bool IsActive { get; protected set; } = true;
+
+        protected ConversationParticipant() { }
+
+        public ConversationParticipant(TenantId tenantId, Guid conversationId, Guid participantId, string roleCode)
+            : base(tenantId)
+        {
+            if (conversationId == Guid.Empty)
+                throw new ArgumentException("ConversationId cannot be empty.", nameof(conversationId));
+            if (participantId == Guid.Empty)
+                throw new ArgumentException("ParticipantId cannot be empty.", nameof(participantId));
+            if (string.IsNullOrWhiteSpace(roleCode))
+                throw new ArgumentException("RoleCode cannot be empty.", nameof(roleCode));
+
+            ConversationId = conversationId;
+            ParticipantId = participantId;
+            RoleCode = roleCode;
+            JoinedAt = DateTime.UtcNow;
+            IsActive = true;
+        }
+
+        public void Deactivate()
+        {
+            IsActive = false;
+            UpdateAudit();
+        }
+
+        public void Reactivate()
+        {
+            IsActive = true;
             UpdateAudit();
         }
     }

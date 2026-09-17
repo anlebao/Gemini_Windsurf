@@ -450,6 +450,14 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IDeliveryWorkflowService, VanAn.CoreHub.Services.DeliveryWorkflowService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IChatService, VanAn.CoreHub.Services.ChatService>();
 
+            // Realtime Platform P2 (2026-09-17): subject-agnostic messaging + live location.
+            // Order-specific access rules move into a keyed authorizer so the legacy hubs and the
+            // generic hubs share one implementation; an unregistered subject type is denied.
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IRealtimeMessagingService, VanAn.CoreHub.Services.RealtimeMessagingService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ILiveLocationService, VanAn.CoreHub.Services.LiveLocationService>();
+            _ = builder.Services.AddKeyedScoped<VanAn.CoreHub.Services.IRealtimeParticipantAuthorizer, VanAn.CoreHub.Services.Adapters.OrderRealtimeAuthorizer>(
+                VanAn.Shared.Domain.RealtimeSubjectType.Order);
+
             // CC-S4 (Sprint 4): Salesman + Composite QR Referral + App-Install Bonus + Risk Scoring + FraudFlag
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ISalesmanService, VanAn.CoreHub.Services.SalesmanService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IAppInstallAttributionService, VanAn.CoreHub.Services.AppInstallAttributionService>();

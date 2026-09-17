@@ -1,6 +1,7 @@
 # TASK CARD — Realtime Platform: Chat + Live Location (Reusable Across Modules)
 
-> **Status:** 🚧 IN PROGRESS — **P1 DONE + DEPLOYED + RV PASS (L1-L4)** (2026-09-17, commit `b12a99d2`) · P2-P6 pending
+> **Status:** 🚧 IN PROGRESS — **P1 DONE + DEPLOYED + RV PASS (L1-L4)** (2026-09-17, `b12a99d2`) · **P2 DONE (code + migration + tests, chưa deploy)** · P3-P6 pending
+> **Review P2-P6 (2026-09-17):** 11 findings (F1-F11) — xem Section 20. Quyết định bổ sung: consumer = **Shop chat trên `/store/{slug}`** (không phải Logistics/JobMarket — xem F1); GPS trên trang shop = **map tĩnh + khoảng cách** (không realtime).
 > **P1 delivered:** D1 (Google customer sync) · D2/D3 (buyer tracking endpoint + map render) · D4 (checkout coords) · D5 (GPS resume) · D6 (guest chat/tracking via device id). Build 0 errors · 40/40 chat+delivery tests PASS · CI ALL PASSED · CD Multi-VPS SUCCESS.
 > **RV:** L1 API ✅ · L2 WASM ✅ · L3 Playwright guest UI ✅ · L4 guest send flow ✅ · L5 manual pending (user).
 > **Priority:** P1 (chat + GPS đang chết trên production) → P2 (tái sử dụng)
@@ -261,10 +262,10 @@ B5. Gắn UI (UI Platform — KHÔNG tự viết HTML/CSS)
 |---|---|---|---|
 | **P0** | ANALYZE | Verify D1..D6 trên production (log + DB) — xem Section 11 | 0.5 |
 | **P1** | FIX_ONLY | ✅ **DONE** — D1 (sync customer), D2/D3 (endpoint + map cho buyer), D4 (toạ độ checkout), D5 (GPS resume), D6 (guest device auth). Build 0 errors · 40/40 tests | 1-2 |
-| **P2** | IMPLEMENT | DOM-1..DOM-5 + SVC-1..SVC-7 + migration PG | 1-2 |
-| **P3** | IMPLEMENT | GW-1..GW-9 (hubs generic + API + adapters) | 1-2 |
-| **P4** | IMPLEMENT | UI-1..UI-13 (UI Platform extraction + migrate KhachLink) | 1-2 |
-| **P5** | IMPLEMENT | Consumer thứ 2 + thứ 3: **Logistics** (`sprint8`) **và JobMarket** (`sprint9`) — chứng minh tái sử dụng | 1-2 |
+| **P2** | IMPLEMENT | ✅ **DONE** (2026-09-17) — DOM-1..DOM-4 + SVC-1..SVC-6 + **F2 (unique index)** + **F6 (tracking index)** + migration PG `20260917101938_AddRealtimePlatformP2` (có backfill `SubjectId`). Build 0 errors · guard ALL PASSED · 11/11 test mới · 248/248 Community regression PASS | 1 |
+| **P3** | IMPLEMENT | GW-1..GW-9 (hubs generic + API + adapters) + **F3: device token phải vào SignalR handshake** (không chỉ HTTP header) | 1-2 |
+| **P4** | IMPLEMENT | UI-1..UI-13 + **F4: `IRealtimeEndpointProvider` + verify RCL static assets trên 3 host** + **F11: fix vi phạm UI Platform khi port** (VanAInput thay `<input class="form-control">`, bỏ `<style>` inline) | 1-2 |
+| **P5** | IMPLEMENT | **REVISED (2026-09-17): consumer = Shop chat + live location trên `/store/{slug}` (FullCommerce) + inbox chủ shop `/community/messages` (ShopERP)**. Logistics/JobMarket **KHÔNG** dùng làm consumer (chưa tồn tại — F1); giữ làm **P7** khi Sprint 8/9 thành module thật | 1-2 |
 | **P6** | IMPLEMENT | Tests + E2E + RV Layer 1-5 + reuse guide (`docs/UI_Platform_Implementation_Guide.md` bổ sung mục Realtime) | 1 |
 
 ### Rules
@@ -447,6 +448,59 @@ After the P1 deploy the user's manual test found: chat OK, but (a) no GPS/map on
 > Note: shipper-side UI cannot be logged in headlessly (needs the shipper's customer token), so D7 is verified at the API/data level plus the same map component already proven on the customer page.
 
 **Not yet done (P2-P6):** Domain additive (`Conversation.SubjectType/SubjectId`, `ConversationParticipant`, `DeliveryTracking.SubjectId/TrackerId`) + generic `IRealtimeMessagingService`/`ILiveLocationService`/`IRealtimeParticipantAuthorizer` + generic hubs/endpoints + UI Platform extraction + Logistics/JobMarket consumers.
+
+---
+
+## 18.6. P2 IMPLEMENTATION RECORD (2026-09-17)
+
+**Build:** `dotnet build VanAn.sln` 0 errors · **Guard:** ALL CHECKS PASSED · **Tests:** 11/11 mới + 248/248 Community regression PASS.
+
+| # | File | Change |
+|---|---|---|
+| DOM-1 | `1_Shared/Domain.cs` | `RealtimeSubjectType` enum (Order, Delivery, Shop, Shipment*, JobApplication*, Ticket, Custom — *reserved R3) + `RealtimeParticipantRole` const |
+| DOM-2 | `1_Shared/Domain.cs` | `Conversation` + `SubjectType`/`SubjectId` (additive) + generic ctor + `AssignCounterpart()` (delegates to `AssignShipper()` for Order subjects) |
+| DOM-3 | `1_Shared/Domain.cs` | `ConversationParticipant` (NEW) — ConversationId/ParticipantId/RoleCode/JoinedAt/IsActive |
+| DOM-4 | `1_Shared/Domain.cs` | `DeliveryTracking` + `SubjectType`/`SubjectId`/`TrackerId` (additive); legacy ctor giữ `DeliveryTaskId` |
+| F2 | `ConversationConfiguration.cs` | Unique index `OrderId` → **`(TenantId, SubjectType, SubjectId)`** + index thường trên `OrderId` (legacy path) |
+| F6 | `DeliveryTrackingConfiguration.cs` | + index `(TenantId, SubjectType, SubjectId, RecordedAt)` |
+| — | `ConversationParticipantConfiguration.cs` (NEW) | Unique `(ConversationId, ParticipantId)` + index `ParticipantId` |
+| — | `VanAnDbContext` / `IVanAnDbContext` / `ShopERPDbContext` | `DbSet<ConversationParticipant>` + `Ignore<ConversationParticipant>()` (PG-only) |
+| SVC-1/2 | `IRealtimeMessagingService.cs` + `RealtimeMessagingService.cs` (NEW) | `EnsureConversationAsync` (idempotent + race-safe), `GetConversationAsync`, `SendMessageAsync`, `GetHistoryAsync(take)` (newest-N rồi đảo), `MarkAsReadAsync`, `IsParticipantAsync` |
+| SVC-3/4 | `ILiveLocationService.cs` + `LiveLocationService.cs` (NEW) | `RecordPingAsync`/`GetLatestAsync`/`GetHistoryAsync`; Delivery subject giữ `DeliveryTaskId` |
+| SVC-5/6 | `IRealtimeParticipantAuthorizer.cs` + `Adapters/OrderRealtimeAuthorizer.cs` (NEW) | Access rules của `ChatHub.JoinConversation` + `LocationHub.JoinOrderTracking` gom về 1 chỗ (shipper ∨ conversation party ∨ participant ∨ owner/guest-device) |
+| DI | `2_Gateway/Program.cs` | `AddScoped<IRealtimeMessagingService/ILiveLocationService>` + `AddKeyedScoped<IRealtimeParticipantAuthorizer, OrderRealtimeAuthorizer>(RealtimeSubjectType.Order)` |
+| Migration | `20260917101938_AddRealtimePlatformP2` | + **backfill `SubjectId = OrderId` / `= DeliveryTaskId`** trước khi tạo unique index (nếu không, tenant có ≥2 conversation cũ sẽ vi phạm index) |
+| Tests | `6_Tests/VanAn.Core.Tests/Realtime/RealtimePlatformP2Tests.cs` (NEW) | T1-T11: subject keys · idempotent · **F2 collision regression** · participants · non-participant denied · bounded history · generic ping · legacy delivery ping · legacy ctor backfill (SC7) · authorizer allow/deny · tenant scope |
+
+**Deviations so với card (đã ghi nhận):**
+- `RealtimeSubjectType` **thiếu trong card là `Shop`** → đã thêm (yêu cầu mới 2026-09-17).
+- Card SVC-1/SVC-3 không có tham số `TenantId` → **đã thêm** (bắt buộc: `Conversation.TenantId` là required, Gateway không có ambient tenant).
+- `ConversationParticipant` dùng `.NET 8 keyed DI` thay vì registry tự viết.
+- `IChatService`/`ChatService` **giữ nguyên 100%** (không nhồi generic vào thân hàm) — xem F5.
+
+---
+
+## 20. REVIEW P2-P6 — FINDINGS (2026-09-17, REVIEW_ONLY)
+
+| # | Severity | Finding | Evidence |
+|---|---|---|---|
+| F1 | 🔴 BLOCKER (P5) | Logistics/JobMarket **không phải module** — chỉ là preset nav-flags. Không có entity `Shipment`/`JobApplication` nào trong repo. P5 như viết không chứng minh được SC6. | `KhachLinkNavFlags.cs:52-53` (`// TODO R3`) · `sprint8_logistics_task_card.md:3` ⏳ · `sprint9_jobmarket_task_card.md:3` ⏳ |
+| F2 | 🔴 BLOCKER (P2) | Unique index chỉ trên `OrderId` (không tenant/subject) → conversation generic thứ 2 toàn DB vi phạm. | `ConversationConfiguration.cs:19` (trước fix) |
+| F3 | 🟠 HIGH (P3) | Guest **không có realtime** — SignalR chỉ nhận `customerToken`; D6 mới vá đường HTTP → guest chỉ polling 8s. | `ChatHub.cs:26-36`, `LocationHub.cs:30-40`, `ChatPanel.razor:137-139` |
+| F4 | 🟠 HIGH (P4) | UI.Platform **không có `wwwroot/`** và chưa có HTTP adapter nào; chưa định nghĩa cách RCL lấy `HttpClient` (WASM vs Server). | `UI.Platform/` (0 file static) · `ICssAdapter`+`BootstrapAdapter` là adapter duy nhất |
+| F5 | 🟡 MED | SVC-7 "adapter mỏng" không khả thi: `ChatService` gắn chặt Order (`c.OrderId ==`, chặn non-DELIVERY, suy ShipperId từ DeliveryTask). | `ChatService.cs:31,70,78-83` |
+| F6 | 🟡 MED (P2) | Ping generic để `DeliveryTaskId = Guid.Empty` → index `(DeliveryTaskId, RecordedAt)` vô dụng. | `DeliveryTrackingConfiguration.cs:16,20` (trước fix) |
+| F7 | 🟡 MED (P5) | Không có UI chat phía shop trong ShopERP. | grep `Chat|Conversation` trong `5_WebApps/ShopERP/**/*.razor` → chỉ `Settings/ShopFeatures.razor` |
+| F8 | 🟡 MED (P5) | `/store/{slug}` anonymous; `customer_device_id` chỉ được tạo ở Checkout → khách chưa có đơn không có identity. | `TenantProfileHttpService.cs:11` · `Checkout.razor:537-542` |
+| F9 | 🔵 LOW | Map trang shop là **Google iframe**, không phải Leaflet → thay bằng `VanAnMap` là thay UI hiện hữu (Gate 4: cần E2E). | `GoogleMaps.razor:11-18` · `ShopDto.cs:29-30` |
+| F10 | 🔵 LOW | State file ghi `c94a490f` nhưng HEAD thực `d5e055a0`; working tree có 2 file diff **thuần CRLF↔LF** (600/600 dòng). | `git status` · `project_state.md` §3/§10 |
+| F11 | 🔵 LOW | Vi phạm UI Platform trong component sẽ được port: `<input class="form-control">` thô, icon `fas fa-*` lẫn `bi bi-*`, ~490 dòng `<style>` inline. | `ChatPanel.razor:87` · `GoogleMaps.razor:25-31` · `Store.razor:268-760` |
+
+**Quyết định sau review (user, 2026-09-17):**
+1. GPS trên trang shop = **map tĩnh + khoảng cách** (thay iframe Google bằng `VanAnMap`, không realtime).
+2. P5 = **Shop chat**; Logistics/JobMarket giữ cho **P7** (khi Sprint 8/9 thành module thật).
+3. Phía shop = **trang inbox riêng** trong ShopERP (`/community/messages`) dùng lại `RealtimeChatPanel`.
+4. Thứ tự: **P2 → P3 → P4 → P5(shop)**.
 
 ---
 

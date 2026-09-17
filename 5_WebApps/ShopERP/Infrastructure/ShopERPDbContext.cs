@@ -111,6 +111,7 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<DeliveryTask> DeliveryTasks { get; set; }
         public DbSet<DeliveryTracking> DeliveryTrackings { get; set; }
         public DbSet<Conversation> Conversations { get; set; }
+        public DbSet<ConversationParticipant> ConversationParticipants { get; set; } // Realtime Platform P2 (PG-only)
         public DbSet<Message> Messages { get; set; }
         public DbSet<SalesReferral> SalesReferrals { get; set; }
         public DbSet<WalletTransaction> WalletTransactions { get; set; }
@@ -252,6 +253,7 @@ namespace VanAn.ShopERP.Infrastructure
             _ = modelBuilder.Ignore<DeliveryTask>();
             _ = modelBuilder.Ignore<DeliveryTracking>();
             _ = modelBuilder.Ignore<Conversation>();
+            _ = modelBuilder.Ignore<ConversationParticipant>();
             _ = modelBuilder.Ignore<Message>();
             _ = modelBuilder.Ignore<SalesReferral>();
             _ = modelBuilder.Ignore<WalletTransaction>();

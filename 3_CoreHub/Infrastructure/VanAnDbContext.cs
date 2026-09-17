@@ -142,6 +142,7 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<DeliveryTask> DeliveryTasks { get; set; }
         public DbSet<DeliveryTracking> DeliveryTrackings { get; set; }
         public DbSet<Conversation> Conversations { get; set; }
+        public DbSet<ConversationParticipant> ConversationParticipants { get; set; } // Realtime Platform P2
         public DbSet<Message> Messages { get; set; }
         public DbSet<SalesReferral> SalesReferrals { get; set; }
         public DbSet<WalletTransaction> WalletTransactions { get; set; }
