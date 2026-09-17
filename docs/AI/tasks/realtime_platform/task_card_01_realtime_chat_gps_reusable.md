@@ -432,6 +432,20 @@ After the P1 deploy the user's manual test found: chat OK, but (a) no GPS/map on
 | D8 | Customer map blank / no shipper pin | Tenant/DeliveryTask coordinate defaults are `0`, which passed `HasValue` → map centred on (0,0) (blank ocean). Markers were also only added on the component's **first** render, so a live shipper ping never moved/added the pin. | Endpoint normalises `0` coords → `null`; client requires real (non-zero) coords and centres shop→delivery→shipper; `LeafletMap` now upserts markers on **every** render (`leafletMap.upsertMarker`). |
 | D9 | Free/Charity product cannot create an order | The ShopERP product API (`GET shoperp/api/products`, used by the Store page) has **no `productType`**, so KhachLink's `ProductDto.ProductType` defaulted to `Paid` → cart `IsFree=false` → Gateway Tier 0 rejected the 0-price item ("giá không hợp lệ (UnitPrice=0)"). | (1) Gateway resolves Free/Charity **server-side** from `FeaturedProducts` before the price guard (authoritative, path-independent; spoof guard kept for client-claims-free-but-server-paid). (2) `Store.razor` enriches `ProductType` from the featured catalog so the UI also shows Miễn phí/Từ thiện. |
 
+### P1b RV (production, 2026-09-17 — commit `96e733a6`)
+
+| Check | Result |
+|---|---|
+| D9 API: charity item with client `IsFree=false` (the Store-page bug) → order created | ✅ 200 |
+| D9 API: spoof (Paid product claimed `IsFree=true`) → still rejected | ✅ 400 "Loại sản phẩm không hợp lệ" |
+| D9 UI: Store page → add "cơm chay thập cẩm" → cart | ✅ `IsFree=true IsCharity=true` |
+| D8 UI: customer `/order-tracking/01a0ad6a…` → map | ✅ `.leaflet-container`=1 · markers=2 · tiles=8 · 0 console errors |
+| D7 data source: `GET /api/community/orders/{id}/tracking` for an order WITH an active DeliveryTask (previously excluded by nearby-orders) | ✅ 200 + `shopName` + `shopLat/Lng` + live `shipperLat/Lng` |
+| L2 static: served `/js/leaflet.js` contains `upsertMarker`; WASM contains `GetOrderTrackingAsync`/`upsertMarker`/`shopName` | ✅ |
+| L5 manual (shipper login → map + customer pin) | ⏳ user |
+
+> Note: shipper-side UI cannot be logged in headlessly (needs the shipper's customer token), so D7 is verified at the API/data level plus the same map component already proven on the customer page.
+
 **Not yet done (P2-P6):** Domain additive (`Conversation.SubjectType/SubjectId`, `ConversationParticipant`, `DeliveryTracking.SubjectId/TrackerId`) + generic `IRealtimeMessagingService`/`ILiveLocationService`/`IRealtimeParticipantAuthorizer` + generic hubs/endpoints + UI Platform extraction + Logistics/JobMarket consumers.
 
 ---
