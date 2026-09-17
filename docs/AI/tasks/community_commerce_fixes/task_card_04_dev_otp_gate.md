@@ -31,6 +31,9 @@
 
 > **STATUS: REMOVED — production is back to `DevToken:Secret` unset (`/dev-token` → 404).**
 > Nothing to do unless RV needs to run again.
+>
+> **The binding procedure lives in `.devin/rules/dev-token-secret.md`** (hard-stop security rule:
+> enable inline-only → use → remove → verify). Read it before enabling the endpoint again.
 
 For the chat/GPS/QR RV on 2026-09-16 the dev-token endpoint was temporarily enabled on the
 ShopERP VPS to mint a test customer token (no other way to obtain one — SMS OTP is not

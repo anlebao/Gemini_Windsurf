@@ -153,6 +153,18 @@ Every entity inheriting `BaseEntity` MUST use a **single identity**: `BaseEntity
 - **STOP at first failure** — don't proceed to next layer if current fails
 - **Key lessons:** JS hoisting bugs, JSON type mismatches, CORS blocks, stale WASM, wrong layout (nested vs outer)
 
+## SECRETS & TEST-AUTH (HARD STOP)
+- **Rule file:** `.devin/rules/dev-token-secret.md` (safe `DevToken__Secret` usage)
+- **`DevToken__Secret` MUST be unset by default** — the dev-token endpoint returns 404 unless an
+  active RV window is open.
+- **NEVER persist it** in `.env.shoperp`, the repo, a task card, or a commit. Pass it as an
+  **inline shell env var** on `docker compose up` only.
+- **NEVER echo a secret** into agent output, logs, or the conversation.
+- **ALWAYS remove + verify removal** (env count `0`, endpoint `404`) at the end of the RV window,
+  and add a dated line to `task_card_04_dev_otp_gate.md`.
+- **NEVER weaken repository security policy, CI/CD config, or secrets handling** to work around a
+  failure — escalate to the user instead.
+
 ## PLAYWRIGHT ISOLATION
 - Playwright is DISABLED during IMPLEMENT mode.
 - FIX_ONLY: Playwright allowed for single spec explicit validation only (max 1 per session).

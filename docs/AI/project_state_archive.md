@@ -2968,3 +2968,90 @@ Reviewed `01-systemadmin.html` guide against actual codebase + VPS. Fixed all di
 - Currency Auto-Format Fix (2026-09-08): ✅ CODE COMPLETE + PRODUCTION RV PASS on `main` @ `bfb97afd`. E2E `rv-currency-format.spec.ts` 2/2 PASS on `app2.khachvip.online`.
 - GTM Drill Machine W1 (Merchant Audit): ✅ CODE COMPLETE + PRODUCTION RV PASS (2026-09-07) on `main` @ `a21fcffc`. Gateway `GrowthController` + rate limit + Directory landing + E2E spec + arch whitelist + nginx routing to Directory SSR.
 - R2.2 Reseller Accounting: ✅ COMPLETE + DEPLOYED + RV PASS (2026-09-06). PR #169 merged. 3 tenant booksets + `Order.OwnerTenantId` + Auditor UI + 13 R2.2 tests + 2
+
+
+---
+
+# ARCHIVED FROM project_state.md — 2026-09-17
+
+> Moved per Maintenance Rule "Now over History" (Section 2-4 describe only in-flight work).
+
+## Archived — Section 2: Previous Objectives
+
+**Previous objective — SALESMAN REFERRAL QR — CORRECT DOMAIN + SCAN-TO-BUY + COMMISSION — ✅ COMPLETE + DEPLOYED + RV PASS (session 2026-09-16/17, commit `aceab325`).**
+
+Reported: the referral QR scanned to the wrong domain, scanning did not let the customer buy the referred product, and the salesman got no commission. Task card: `docs/AI/tasks/community_commerce_fixes/task_card_06_referral_qr_scan_commission.md`.
+
+Root causes (all 5 gaps): QR host hardcoded to `diemthuong.khachvip.online`; `/r/{code}` was never a real route (nor an nginx rule) and `|` is not URL-safe in a path; `Order` had the Sprint-0 referral fields but **no domain setter**; `CheckoutOrderRequest`/`Checkout.razor` never carried `ReferralCode`; **`CreateCommissionAsync` was never called outside tests**.
+
+Fix: QR now emits `{khachLinkOrigin}/scan?ref={escaped code}` (origin supplied by `SalesmanQR.razor` via `?sourceDomain=`, fallback config `ExternalUrls:KhachLink`); new anonymous `GET /api/community/referral/{code}` resolves the code into the product; `Scan.razor` handles `?ref=`/`/r/` → resolve → add to cart + store the code; `Checkout.razor` sends `ReferralCode`; Gateway resolves it → `Order.SetSalesmanReferral(...)` (new domain method, approved); `OrderWorkflowService.HandleOrderCompletedAsync` creates the `SalesReferral` commission (optional `ISalesmanService` — Gateway-only). QR canvas made fluid for mobile.
+
+RV: QR URL `https://diemthuong2.khachvip.online/scan?ref=DL9ZMQ%7CCOMRV1` · anonymous resolve 200 with product info · checkout set `SalesmanId`/`ReferralProductId`/`ReferralCode` · shipper delivered → order completed → `SalesReferrals` row `1650.00 = 55000 × 0.03` (Pending) · salesman commissions API shows 1650. Build 0 errors · Guard ALL PASSED · 21/21 tests · CD Multi-VPS all jobs + smoke test SUCCESS.
+
+**Previous objective — CHAT + GPS + SALESMAN QR — 3 PRODUCTION DEFECTS — ✅ COMPLETE + DEPLOYED + RV PASS (session 2026-09-16, commit `26dc9e62`).**
+
+Reported on both KhachLink domains (`diemthuong2.khachvip.online` + `commienphi.timlathay.com`) — identical failures because all 3 bugs live in the Blazor WASM client. Task card: `docs/AI/tasks/community_commerce_fixes/task_card_05_chat_gps_qr.md`.
+
+- **Chat dead** — `CustomerToken="_customerToken"` (missing `@`) on a **string** parameter → Razor passed the literal text `"_customerToken"` as the token. Evidence: `GET /hubs/chat?customerToken=_customerToken` → ShopERP `/me` 401 → `HubException: Invalid customerToken`; chat history endpoint 401. Fix: `CustomerToken="@_customerToken"` (DeliveryTracking + OrderTracking).
+- **GPS never recorded** — `StartGpsTracking()` passed `OrderId` as the `deliveryTaskId`; Gateway `RecordLocation` looks up `DeliveryTasks.Id` (PK) → every ping discarded. Evidence: `RecordLocation: DeliveryTask 01a0a926-… not found` every 10s. Fix: pass real `_deliveryTaskId` (from `my-deliveries` + pickup response).
+- **QR blank canvas** — `OnAfterRenderAsync` gated `vananQR.generate` on `(firstRender && _qr != null)`, but `_qr` loads async so `firstRender` fires during the loading spinner (no canvas) → JS never called. Fix: `_qr != null && !_qrRendered` flag.
+
+RV: deployment verified from the deployed `VanAn.KhachLink.wasm` (`_customerToken` literal gone; `_qrRendered` + `_deliveryTaskId` fields present) · chat `/me` 200 + history 200 · GPS `DeliveryTrackings` row written for the real task id · QR `vananQR.generate` drew 569 modules. Build 0 errors · Guard ALL PASSED · CD Multi-VPS all jobs + smoke test SUCCESS.
+
+**Previous objective — KHACHLINK UX FIXES (GPS error message + search default) — ✅ COMPLETE + DEPLOYED (session 2026-09-16).**
+
+Two small KhachLink UX fixes deployed to production via CD Multi-VPS:
+
+**Fix 1 — NearbyProducts GPS error shows friendly message (`32d0bae8`):**
+- Bug: `/community/nearby-products` showed "Không lấy được vị trí GPS [object GeolocationPositionError]" when GPS failed. Root cause: `pwa.js getCurrentPosition` rejected with raw `GeolocationPositionError` object (no `.message`) → Blazor JSRuntime serialized as `[object GeolocationPositionError]` → `NearbyProducts.razor` displayed it raw.
+- Fix (2 files): `pwa.js` now rejects with proper `Error` carrying Vietnamese message mapped from `err.code` (1=permission denied, 2=position unavailable, 3=timeout). `NearbyProducts.razor` guards against raw `[object ...]` dumps. Fixes all pages using `vananPWA.getCurrentPosition` (NearbyProducts, NearbyOrders, StoreFinder, DeliveryTracking, OrderTracking).
+- RV: `pwa.js` on `commienphi.timlathay.com` contains `GeolocationPositionError.code` mapping ✓ · `/community/nearby-products` HTTP 200 ✓.
+
+**Fix 2 — KhachLink Home default search mode = "Tìm sản phẩm" (`a6e712e3`):**
+- Change: `Home.razor` line 453 `_searchMode` default `"store"` → `"product"`. Nhu cầu tìm sản phẩm cao hơn tìm tên shop/doanh nghiệp. User vẫn toggle sang "Tìm cửa hàng" bất cứ lúc nào (`SetSearchMode()` unchanged). Directory app giữ nguyên default "store".
+- RV: CD Multi-VPS all 6 jobs SUCCESS · `https://commienphi.timlathay.com/` HTTP 200 ✓. WASM bundle — user cần hard refresh (Ctrl+Shift+R) để load DLL mới.
+
+**Previous objective — Community Commerce Full Flow (Batch 1 + Batch 2 + Chat + Cart + Issue #175) — ✅ ALL COMPLETE + DEPLOYED + RV PASS.** See Section 10 maintenance log for details.
+
+## Archived — Section 4: Completed Next-Action Groups
+
+**Salesman Referral QR (✅ COMPLETE + DEPLOYED + RV PASS session 2026-09-16/17, `aceab325`):**
+- ✅ QR URL uses the KhachLink instance host + `/scan?ref=` (was hardcoded Oracle domain + dead `/r/` route)
+- ✅ Scan → resolve (anonymous) → add to cart → checkout carries `ReferralCode`
+- ✅ `Order.SetSalesmanReferral` (approved Domain addition) + commission on order completion
+- ✅ QR canvas fluid on mobile
+- ⏳ Optional: browser re-test by user (visual confirm QR size + scan → cart)
+- Follow-ups (both fixed by `05443115`, see the objective above): commission was whole-order; QR host was hardcoded
+
+**Chat + GPS + QR (✅ COMPLETE + DEPLOYED + RV PASS session 2026-09-16, `26dc9e62`):**
+- ✅ Chat token literal fix (`@_customerToken`) — RV: `/me` 200 + chat history 200
+- ✅ GPS DeliveryTaskId fix — RV: `DeliveryTrackings` row written for real task id
+- ✅ QR firstRender timing fix — RV: `vananQR.generate` drew 569 modules + field present in deployed bundle
+- ⏳ Optional: browser re-test by user (visual confirm QR + live map marker)
+- Follow-up (fixed by `aceab325`): `GetCompositeSalesmanQrAsync` hardcoded the QR host — now uses the KhachLink instance origin
+
+**KhachLink UX Fixes (✅ COMPLETE + DEPLOYED session 2026-09-16):**
+- ✅ Fix 1 NearbyProducts GPS error friendly message — DEPLOYED + RV PASS (`32d0bae8`)
+- ✅ Fix 2 KhachLink Home default search mode = "Tìm sản phẩm" — DEPLOYED + CD PASS (`a6e712e3`)
+- Branch: `main` @ `05443115` · Build: 0 errors · CD Multi-VPS all jobs + smoke test SUCCESS.
+
+**Community Commerce Full Flow (✅ Batch 1 + Batch 2 + Chat + Cart + Issue #175 ALL COMPLETE):**
+- ✅ Batch 1 Issues #1-4 (OrderType DELIVERY + NATS sync + GPS mock + X-Dev-OTP gate) — DEPLOYED + RV PASS
+- ✅ Batch 2 Issue #1 (Gateway OrdersController DI) — DEPLOYED + RV PASS (`73b0133a`)
+- ✅ Batch 2 Issue #2 (DeliveryWorkflowService bypass) — DEPLOYED + RV PASS (`73b0133a` + `b9f0fc0a` + `67b91fe3`)
+- ✅ Batch 2 Issue #3 (Public tracking 404 with CustomerId) — DEPLOYED + RV PASS (`0948658a`)
+- ✅ Batch 2 Issue #4 (Checkout CustomerId=NULL) — DEPLOYED + RV PASS (`65ab0d3b`)
+- ✅ Issue #175 shipper GPS + salesman QR — DEPLOYED + RV PASS (`f2f5dc2a`)
+- ✅ Chat feature fix — DEPLOYED + RV PASS (`0cb12cd4` + `fba1fce4`)
+- ✅ Floating cart + free/charity bypass checkout — DEPLOYED + RV PASS (`c33e89e5`)
+- Branch: `main` · Build: 0 errors · All 4 Batch 2 issues RV verified on production VPS.
+
+
+## Archived — Section 10: Maintenance Log (2026-09-15 → 2026-09-16)
+
+* **2026-09-16 — CHAT + GPS + QR — 3 PRODUCTION DEFECTS FIXED + DEPLOYED + RV PASS (`26dc9e62`).** (1) Chat: `CustomerToken="_customerToken"` missing `@` on a string parameter → literal token sent → `/hubs/chat?customerToken=_customerToken` → ShopERP `/me` 401 → `HubException: Invalid customerToken`. (2) GPS: `StartGpsTracking(OrderId.ToString())` → Gateway `RecordLocation` (looks up `DeliveryTasks.Id`) logged `DeliveryTask … not found` → every ping discarded. (3) QR: `OnAfterRenderAsync` gated on `firstRender && _qr != null`; `_qr` loads async so the JS call never ran on the render with the canvas. Build 0 errors · Guard ALL PASSED · CD Multi-VPS SUCCESS. RV: deployed WASM has no `_customerToken` literal + has `_qrRendered`/`_deliveryTaskId`; chat `/me` 200 + history 200; `DeliveryTrackings` row written for real task id `f07c5f6e`; `vananQR.generate` drew 569 modules. Task card: `task_card_05_chat_gps_qr.md`. Temp `DevToken__Secret` used for RV then REMOVED (see `task_card_04_dev_otp_gate.md`).
+* **2026-09-16 — KHACHLINK UX FIXES COMPLETE + DEPLOYED.** Fix 1 (`32d0bae8`): NearbyProducts GPS error — `pwa.js getCurrentPosition` rejected raw `GeolocationPositionError` → Blazor showed `[object GeolocationPositionError]`. Now rejects with proper `Error` + Vietnamese message mapped from `err.code` (1/2/3). `NearbyProducts.razor` guards raw object dumps. Fixes all 5 pages using `vananPWA.getCurrentPosition`. RV: pwa.js on production contains fix ✓ · `/community/nearby-products` 200 ✓. Fix 2 (`a6e712e3`): `Home.razor` line 453 `_searchMode` default `"store"` → `"product"` (nhu cầu tìm sản phẩm cao hơn). Directory app unchanged. Build 0 errors · Guard PASSED · CD Multi-VPS all 6 jobs SUCCESS.
+* **2026-09-16 — COMMUNITY COMMERCE BATCH 2 (4 RV DEFECTS) COMPLETE + DEPLOYED + RV PASS.** Master plan: `docs/AI/tasks/community_commerce_fixes_batch2/master_plan.md`. Issue #1 (`73b0133a`): Gateway `IOrderWorkflowService` DI registration — `OrdersController` 400 "Operation is not valid" → 200/204. Issue #2 (`73b0133a` + `b9f0fc0a` + `67b91fe3`): `DeliveryWorkflowService` delegates to `OrderWorkflowService` + loyalty/stats decoupled + tenant context set → shipper delivered → order completed + 4 Outbox events Processed. Issue #3 (`0948658a`): Remove `Include(o.Customer)` from `GetByIdWithIncludesAsync` + `GetByIdWithIncludesIgnoreFiltersAsync` → public tracking 200 with CustomerId (was 404 due to `CryptographicException` on corrupt phone data). Issue #4 (`65ab0d3b`): `KhachLinkLayout.SubmitFreeOrderDirectAsync` reads `customer_id` + `customer_token` from localStorage + validates via `/api/customers/me` → CustomerId set in PG → chat works immediately after checkout. Build 0 errors · Guard ALL PASSED · 11/11 DeliveryWorkflowServiceTests PASS (incl. T11 delegation) · CI PASS · CD Multi-VPS PASS. RV: all 4 issues verified on production VPS.
+* **2026-09-15 — ISSUE #175 FIX COMPLETE (pending commit/deploy).** Bug #1 shipper GPS: `NearbyOrders.razor` `GeolocationResult {Latitude,Longitude}` vs JS `vananPWA.getCurrentPosition` `{lat,lng}` mismatch → always 0,0 → "Không lấy được vị trí GPS" blocked all orders (Issue #3 GPS-mock masked it in Playwright). Same silent bug in `StoreFinder.razor`. Fix: `GpsPosition {Lat,Lng}` in both pages. Bug #2 salesman QR "Không thể tạo mã QR": `GetCompositeSalesmanQrAsync` returned null when `CommunityRole.SalesmanCode` NULL/empty (legacy rows; DB column allows NULL). Fix: `CommunityRole.EnsureSalesmanCode()/RegenerateSalesmanCode()` domain methods + `SalesmanService` backfill+persist (3-attempt unique-collision retry) + `SalesmanQR.razor` "Chọn sản phẩm" guidance for missing productId (nav "Mã QR của tôi" dead-end). Test T13 backfill added. Build 0 errors · Guard ALL PASSED · 13/13 SalesmanServiceTests PASS.
+* **2026-09-15 — COMMUNITY COMMERCE ISSUES #1-4 COMPLETE + DEPLOYED + RV PASS (#1-2).** Issue #1 (`26b060ee`): OrderType DELIVERY — `Order.SetOrderType()` + CreateOrderCommand + Checkout.razor + 12 unit tests. RV: checkout → DELIVERY order → owner confirm → shipper sees order (distanceKm=28.56). Issue #2 (`369b2986`): NATS sync — `OrderSyncSubscriber` read OrderType from payload + `OrderService` add delivery fields to Outbox event. Debug: NATS sync WAS working (msgs=2), "empty logs" = red herring (Warning filter hides Information). RV: SQLite OrderType=DELIVERY + DeliveryAddress + ShippingFee + Lat/Lng. Issue #3 (`5b97bcf9`): GPS mock — `gps-mock.ts` helper (all property variants) + 3 e2e specs. Issue #4: X-Dev-OTP gate sealed — removed X-Dev-OTP from `/otp/send` + `/upgrade/send-otp` + added `POST /api/customer-identity/dev-token` (secret-gated via `X-Dev-Secret` + `DevToken:Secret` config). `CustomerTokenService.CreateLongLivedToken(365)`. 6/6 unit tests PASS. Pending: CD deploy + set `DEV_TOKEN_SECRET` env var on VPS.
+* **2026-09-15 — PROJECT_STATE.MD ARCHIVE CLEANUP.** Reduced from 353 → ~190 lines. Moved: Section 2 PREVIOUS OBJECTIVE blocks (KhachLink Sprint 3, GTM W2) + Section 3 completed items + Section 4 completed items + Section 6 history (pre-2026-09-15) + Section 10 maintenance log (pre-2026-09-15) → `project_state_archive.md` (2918 → 2970 lines).
