@@ -124,16 +124,40 @@ namespace VanAn.Gateway.Controllers
                     });
                 }
 
+                // TIER 1 data (loaded BEFORE Tier 0): FeaturedProducts cross-check.
+                // Free/Charity products must be recognised SERVER-SIDE, not only from the client flag:
+                // products loaded from the ShopERP catalog (GET shoperp/api/products) have no
+                // ProductType field, so a 0-price Free/Charity item arrives with IsFree=false and was
+                // rejected by the Tier 0 price guard as "giá không hợp lệ" → the order could not be
+                // created at all. The server is authoritative here.
+                var featuredPrices = new List<(Guid ProductId, decimal DisplayPrice, string DisplayName, FeaturedProductType ProductType)>();
+                var serverFreeMap = new Dictionary<Guid, bool>();
+                if (_dbContext != null)
+                {
+                    var productIds = request.Items.Select(i => i.ProductId).Distinct().ToList();
+                    var rows = await _dbContext.FeaturedProducts
+                        .IgnoreQueryFilters()
+                        .Where(fp => productIds.Contains(fp.ProductId) && fp.IsActive)
+                        .Select(fp => new { fp.ProductId, fp.DisplayPrice, fp.DisplayName, fp.ProductType })
+                        .ToListAsync();
+
+                    featuredPrices = rows
+                        .Select(r => (r.ProductId, r.DisplayPrice, r.DisplayName, r.ProductType))
+                        .ToList();
+                    serverFreeMap = rows.ToDictionary(r => r.ProductId, r => r.ProductType != FeaturedProductType.Paid);
+                }
+
                 // TIER 0: Sanity checks — reject obviously invalid prices/quantities instantly.
                 // Protects against client bugs, DevTools manipulation, and corrupted cached data.
-                // Free/Charity items (IsFree=true) bypass the UnitPrice > 0 check — charity products
-                // are legitimately priced at 0. Paid items must have UnitPrice > 0.
+                // A 0 price is valid when the item is Free/Charity — either the client says so
+                // (IsFree=true) or the server knows it (FeaturedProducts.ProductType != Paid).
                 var sanityFailures = new List<string>();
                 foreach (var item in request.Items)
                 {
-                    if (!item.IsFree && item.UnitPrice <= 0)
+                    bool isFree = item.IsFree || serverFreeMap.GetValueOrDefault(item.ProductId, false);
+                    if (!isFree && item.UnitPrice <= 0)
                         sanityFailures.Add($"Sản phẩm '{item.ProductName}': giá không hợp lệ (UnitPrice={item.UnitPrice}).");
-                    if (item.IsFree && item.UnitPrice < 0)
+                    if (item.UnitPrice < 0)
                         sanityFailures.Add($"Sản phẩm '{item.ProductName}': giá không được âm (UnitPrice={item.UnitPrice}).");
                     if (item.Quantity <= 0)
                         sanityFailures.Add($"Sản phẩm '{item.ProductName}': số lượng phải lớn hơn 0 (Quantity={item.Quantity}).");
@@ -152,58 +176,49 @@ namespace VanAn.Gateway.Controllers
                 // Tolerance: 5% — catches obvious manipulation (100k→1k) while allowing minor
                 // price drift between featured time and checkout time.
                 // Free/Charity products (ProductType != Paid) skip price cross-check — DisplayPrice=0 is valid.
-                if (_dbContext != null)
+                if (featuredPrices.Count > 0)
                 {
-                    var productIds = request.Items.Select(i => i.ProductId).Distinct().ToList();
-                    var featuredPrices = await _dbContext.FeaturedProducts
-                        .IgnoreQueryFilters()
-                        .Where(fp => productIds.Contains(fp.ProductId) && fp.IsActive)
-                        .Select(fp => new { fp.ProductId, fp.DisplayPrice, fp.DisplayName, fp.ProductType })
-                        .ToListAsync();
-
-                    if (featuredPrices.Count > 0)
+                    var priceMismatches = new List<string>();
+                    var typeMismatches = new List<string>();
+                    foreach (var fp in featuredPrices)
                     {
-                        var priceMismatches = new List<string>();
-                        var typeMismatches = new List<string>();
-                        foreach (var fp in featuredPrices)
+                        var clientItem = request.Items.FirstOrDefault(i => i.ProductId == fp.ProductId);
+                        if (clientItem == null) continue;
+
+                        // Spoof guard: client claims Free/Charity but the server says Paid → reject.
+                        // (The reverse — client says Paid for a Free/Charity product — is a client
+                        // gap, not a spoof; the server already treats it as free, so it is allowed.)
+                        bool serverIsFree = fp.ProductType != FeaturedProductType.Paid;
+                        if (clientItem.IsFree && !serverIsFree)
                         {
-                            var clientItem = request.Items.FirstOrDefault(i => i.ProductId == fp.ProductId);
-                            if (clientItem == null) continue;
+                            typeMismatches.Add(
+                                $"Sản phẩm '{fp.DisplayName}': loại sản phẩm không khớp (đơn hàng gửi Miễn phí, " +
+                                "hệ thống ghi nhận Trả phí).");
+                            continue;
+                        }
 
-                            // Cross-check ProductType: client claims IsFree but FeaturedProduct is Paid → reject (spoof attempt).
-                            bool clientClaimsFree = clientItem.IsFree;
-                            bool serverIsFree = fp.ProductType != FeaturedProductType.Paid;
-                            if (clientClaimsFree != serverIsFree)
+                        // Price cross-check only for Paid products with DisplayPrice > 0.
+                        if (fp.ProductType == FeaturedProductType.Paid && fp.DisplayPrice > 0)
+                        {
+                            decimal tolerance = fp.DisplayPrice * 0.05m; // 5% tolerance
+                            decimal diff = Math.Abs(clientItem.UnitPrice - fp.DisplayPrice);
+                            if (diff > tolerance)
                             {
-                                typeMismatches.Add(
-                                    $"Sản phẩm '{fp.DisplayName}': loại sản phẩm không khớp (đơn hàng gửi {(clientClaimsFree ? "Miễn phí" : "Trả phí")}, " +
-                                    $"hệ thống ghi nhận {(serverIsFree ? "Miễn phí/Từ thiện" : "Trả phí")}).");
-                                continue;
-                            }
-
-                            // Price cross-check only for Paid products with DisplayPrice > 0.
-                            if (fp.ProductType == FeaturedProductType.Paid && fp.DisplayPrice > 0)
-                            {
-                                decimal tolerance = fp.DisplayPrice * 0.05m; // 5% tolerance
-                                decimal diff = Math.Abs(clientItem.UnitPrice - fp.DisplayPrice);
-                                if (diff > tolerance)
-                                {
-                                    priceMismatches.Add(
-                                        $"Sản phẩm '{fp.DisplayName}': giá đã thay đổi (đơn hàng gửi {clientItem.UnitPrice:N0}đ, " +
-                                        $"giá hiện tại {fp.DisplayPrice:N0}đ). Vui lòng tải lại trang để xem giá mới nhất.");
-                                }
+                                priceMismatches.Add(
+                                    $"Sản phẩm '{fp.DisplayName}': giá đã thay đổi (đơn hàng gửi {clientItem.UnitPrice:N0}đ, " +
+                                    $"giá hiện tại {fp.DisplayPrice:N0}đ). Vui lòng tải lại trang để xem giá mới nhất.");
                             }
                         }
-                        if (typeMismatches.Count > 0)
-                        {
-                            _logger.LogWarning("Checkout rejected — Tier 1 product type mismatch (possible spoof): {Mismatches}", string.Join("; ", typeMismatches));
-                            return BadRequest(new { error = "Loại sản phẩm không hợp lệ.", details = typeMismatches });
-                        }
-                        if (priceMismatches.Count > 0)
-                        {
-                            _logger.LogWarning("Checkout rejected — Tier 1 price mismatch: {Mismatches}", string.Join("; ", priceMismatches));
-                            return BadRequest(new { error = "Giá sản phẩm đã thay đổi.", details = priceMismatches });
-                        }
+                    }
+                    if (typeMismatches.Count > 0)
+                    {
+                        _logger.LogWarning("Checkout rejected — Tier 1 product type mismatch (possible spoof): {Mismatches}", string.Join("; ", typeMismatches));
+                        return BadRequest(new { error = "Loại sản phẩm không hợp lệ.", details = typeMismatches });
+                    }
+                    if (priceMismatches.Count > 0)
+                    {
+                        _logger.LogWarning("Checkout rejected — Tier 1 price mismatch: {Mismatches}", string.Join("; ", priceMismatches));
+                        return BadRequest(new { error = "Giá sản phẩm đã thay đổi.", details = priceMismatches });
                     }
                 }
 

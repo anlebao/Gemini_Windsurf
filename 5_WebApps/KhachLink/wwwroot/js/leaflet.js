@@ -58,6 +58,23 @@ window.leafletMap = {
         map.panTo([lat, lng], { animate: true });
     },
 
+    // Add the marker if it does not exist yet, otherwise move it.
+    // Used on every Blazor render so live GPS updates actually move the pin
+    // (previously markers were only added once, on the component's first render).
+    // No panning here — avoids fighting the user while they drag the map.
+    upsertMarker: function (elementId, key, lat, lng, label, color) {
+        const map = _maps[elementId];
+        if (!map) return;
+
+        const existing = _markers[elementId] && _markers[elementId][key];
+        if (existing) {
+            const cur = existing.getLatLng();
+            if (cur.lat !== lat || cur.lng !== lng) existing.setLatLng([lat, lng]);
+            return;
+        }
+        window.leafletMap.addMarker(elementId, key, lat, lng, label, color);
+    },
+
     drawRoute: function (elementId, fromLat, fromLng, toLat, toLng) {
         const map = _maps[elementId];
         if (!map) return;

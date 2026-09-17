@@ -10,6 +10,7 @@
 @inject TenantProfileHttpService TenantProfileService
 @inject ShopConfigHttpService ShopConfigService
 @inject ProductHttpService ProductService
+@inject CatalogHttpService CatalogService
 @inject ISocialCampaignService CampaignService
 @inject NavigationManager Navigation
 @inject ILogger<Store> Logger
@@ -684,6 +685,30 @@ else
         try
         {
             _products = await ProductService.GetProductsAsync(tenantId);
+
+            // Free/Charity fix (2026-09-17): the ShopERP product API has no ProductType field, so a
+            // 0-price Free/Charity product would arrive here as Paid → IsFree=false on the cart item
+            // → checkout rejected ("giá không hợp lệ"). Enrich from the featured catalog, which does
+            // carry ProductType. Best-effort: if it fails the Gateway still resolves it server-side.
+            try
+            {
+                var catalog = await CatalogService.GetRecommendedAsync(null, page: 1, pageSize: 100);
+                if (catalog?.Products.Count > 0)
+                {
+                    var typeById = catalog.Products
+                        .GroupBy(p => p.ProductId)
+                        .ToDictionary(g => g.Key, g => g.First().ProductType);
+                    foreach (var p in _products)
+                    {
+                        if (typeById.TryGetValue(p.ProductId, out var t))
+                            p.ProductType = t;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Store: product-type enrichment skipped");
+            }
         }
         catch (Exception ex)
         {

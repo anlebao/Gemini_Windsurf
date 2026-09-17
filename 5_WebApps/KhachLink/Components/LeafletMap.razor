@@ -22,18 +22,25 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender) return;
+        if (firstRender)
+            await JS.InvokeVoidAsync("leafletMap.initMap", MapElementId, CenterLat, CenterLng, Zoom);
 
-        await JS.InvokeVoidAsync("leafletMap.initMap", MapElementId, CenterLat, CenterLng, Zoom);
+        // Add-or-move markers on EVERY render, not just the first: live GPS coordinates arrive
+        // after the map has mounted (SignalR push / 15s poll), and previously the pins were
+        // added once on first render so the shipper marker never moved.
+        await UpsertMarkerAsync("shop", ShopLat, ShopLng, "Shop", "#dc3545");
+        await UpsertMarkerAsync("customer", CustomerLat, CustomerLng, "Khách hàng", "#28a745");
+        await UpsertMarkerAsync("shipper", ShipperLat, ShipperLng, "Shipper", "#007bff");
+    }
 
-        if (ShopLat.HasValue && ShopLng.HasValue)
-            await JS.InvokeVoidAsync("leafletMap.addMarker", MapElementId, "shop", ShopLat.Value, ShopLng.Value, "Shop", "#dc3545");
-
-        if (CustomerLat.HasValue && CustomerLng.HasValue)
-            await JS.InvokeVoidAsync("leafletMap.addMarker", MapElementId, "customer", CustomerLat.Value, CustomerLng.Value, "Khách hàng", "#28a745");
-
-        if (ShipperLat.HasValue && ShipperLng.HasValue)
-            await JS.InvokeVoidAsync("leafletMap.addMarker", MapElementId, "shipper", ShipperLat.Value, ShipperLng.Value, "Shipper", "#007bff");
+    private async Task UpsertMarkerAsync(string key, double? lat, double? lng, string label, string color)
+    {
+        if (!lat.HasValue || !lng.HasValue || (lat.Value == 0 && lng.Value == 0)) return;
+        try
+        {
+            await JS.InvokeVoidAsync("leafletMap.upsertMarker", MapElementId, key, lat.Value, lng.Value, label, color);
+        }
+        catch { /* map not ready yet — next render retries */ }
     }
 
     /// <summary>

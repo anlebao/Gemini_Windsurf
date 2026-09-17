@@ -271,6 +271,10 @@
     /// <summary>Logged-in customer id, or the guest device id when not logged in.</summary>
     private Guid? ChatIdentity => _customerId ?? _customerDeviceId;
 
+    /// <summary>True when a lat/lng pair is present and not the (0,0) "unset" default.</summary>
+    private static bool HasCoords(double? lat, double? lng)
+        => lat.HasValue && lng.HasValue && !(lat.Value == 0 && lng.Value == 0);
+
     // Order status (from PG via polling — covers pending/preparing/ready/delivering/completed/cancelled)
     private string _orderStatus = "pending";
     private string _paymentStatus = "pending";
@@ -413,16 +417,27 @@
                 _isLiveTracking = true;
             }
 
-            if (_shopLat.HasValue && _shopLng.HasValue)
+            // Centre the map on the first available coordinate set: shop → delivery → shipper.
+            if (HasCoords(_shopLat, _shopLng))
             {
-                _centerLat = _shopLat.Value;
-                _centerLng = _shopLng.Value;
+                _centerLat = _shopLat!.Value;
+                _centerLng = _shopLng!.Value;
+            }
+            else if (HasCoords(_customerLat, _customerLng))
+            {
+                _centerLat = _customerLat!.Value;
+                _centerLng = _customerLng!.Value;
+            }
+            else if (HasCoords(_shipperLat, _shipperLng))
+            {
+                _centerLat = _shipperLat!.Value;
+                _centerLng = _shipperLng!.Value;
             }
 
-            // Show the map whenever we have any coordinates to draw (shop, delivery or shipper).
-            _showMap = (_shopLat.HasValue && _shopLng.HasValue)
-                || (_customerLat.HasValue && _customerLng.HasValue)
-                || _shipperLat.HasValue;
+            // Show the map whenever we have any real coordinates to draw.
+            _showMap = HasCoords(_shopLat, _shopLng)
+                || HasCoords(_customerLat, _customerLng)
+                || HasCoords(_shipperLat, _shipperLng);
 
             _lastUpdate = DateTime.Now;
             await InvokeAsync(StateHasChanged);
@@ -453,7 +468,12 @@
                 _shipperLng = lng;
                 _isLiveTracking = true;
                 // D3: a live ping is enough to draw the map even if shop/delivery coords are absent.
-                _showMap = true;
+                if (!_showMap && HasCoords(lat, lng))
+                {
+                    _centerLat = lat;
+                    _centerLng = lng;
+                    _showMap = true;
+                }
                 _lastUpdate = DateTime.Now;
                 StateHasChanged();
             });

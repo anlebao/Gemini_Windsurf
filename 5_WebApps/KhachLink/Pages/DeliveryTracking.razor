@@ -317,7 +317,24 @@
                 }
             }
 
-            // Try GPS + nearby orders for shop/delivery details (optional, non-blocking)
+            // Shop + delivery coordinates via the order tracking endpoint (buyer/shipper/guest
+            // authorized). Previously this used GET /api/community/nearby-orders, which EXCLUDES
+            // orders that already have an active DeliveryTask — i.e. exactly the order the shipper
+            // is looking at — so the map never had coordinates and never rendered.
+            var tracking = await CommunityHttp.GetOrderTrackingAsync(_customerToken, null, OrderId);
+            if (tracking.Success && tracking.Tracking != null)
+            {
+                var t = tracking.Tracking;
+                _deliveryAddress = t.DeliveryAddress;
+                if (!string.IsNullOrEmpty(t.ShopName))
+                    _shopName = t.ShopName;
+                _shopLat = t.ShopLat;
+                _shopLng = t.ShopLng;
+                _customerLat = t.DeliveryLat;
+                _customerLng = t.DeliveryLng;
+            }
+
+            // Fall back to the shipper's own GPS only for centring the map.
             GeoPosition? pos = null;
             try
             {
@@ -325,24 +342,20 @@
             }
             catch { /* GPS optional — continue without it */ }
 
-            if (pos != null)
+            if (_shopLat.HasValue && _shopLng.HasValue)
             {
-                var result = await CommunityHttp.GetNearbyOrdersAsync(_customerToken, pos.Lat, pos.Lng, 50);
-                if (result.Success)
-                {
-                    var order = result.Orders.FirstOrDefault(o => o.OrderId == OrderId);
-                    if (order != null)
-                    {
-                        _shopName = order.ShopName;
-                        _deliveryAddress = order.DeliveryAddress;
-                        _shopLat = order.ShopLat;
-                        _shopLng = order.ShopLng;
-                        _customerLat = order.DeliveryLat;
-                        _customerLng = order.DeliveryLng;
-                        _centerLat = _shopLat ?? pos.Lat;
-                        _centerLng = _shopLng ?? pos.Lng;
-                    }
-                }
+                _centerLat = _shopLat.Value;
+                _centerLng = _shopLng.Value;
+            }
+            else if (_customerLat.HasValue && _customerLng.HasValue)
+            {
+                _centerLat = _customerLat.Value;
+                _centerLng = _customerLng.Value;
+            }
+            else if (pos != null)
+            {
+                _centerLat = pos.Lat;
+                _centerLng = pos.Lng;
             }
 
             if (string.IsNullOrEmpty(_shopName))
@@ -350,7 +363,10 @@
                 _shopName = "Đơn hàng #" + OrderId.ToString()[..8];
             }
 
-            _showMap = pos != null && _shopLat.HasValue;
+            // Show the map whenever there is anything to draw (shop / customer / own position).
+            _showMap = (_shopLat.HasValue && _shopLng.HasValue)
+                || (_customerLat.HasValue && _customerLng.HasValue)
+                || pos != null;
             _loading = false;
 
             // D5 (2026-09-17): resume GPS pings when the page is (re)loaded mid-delivery.

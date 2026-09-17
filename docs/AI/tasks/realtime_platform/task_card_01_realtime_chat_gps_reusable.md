@@ -1,7 +1,8 @@
 # TASK CARD — Realtime Platform: Chat + Live Location (Reusable Across Modules)
 
-> **Status:** 🚧 IN PROGRESS — **P1 DONE** (2026-09-17) · P2-P6 pending
-> **P1 delivered:** D1 (Google customer sync) · D2/D3 (buyer tracking endpoint + map render) · D4 (checkout coords) · D5 (GPS resume) · D6 (guest chat/tracking via device id). Build 0 errors · 40/40 chat+delivery tests PASS.
+> **Status:** 🚧 IN PROGRESS — **P1 DONE + DEPLOYED + RV PASS (L1-L4)** (2026-09-17, commit `b12a99d2`) · P2-P6 pending
+> **P1 delivered:** D1 (Google customer sync) · D2/D3 (buyer tracking endpoint + map render) · D4 (checkout coords) · D5 (GPS resume) · D6 (guest chat/tracking via device id). Build 0 errors · 40/40 chat+delivery tests PASS · CI ALL PASSED · CD Multi-VPS SUCCESS.
+> **RV:** L1 API ✅ · L2 WASM ✅ · L3 Playwright guest UI ✅ · L4 guest send flow ✅ · L5 manual pending (user).
 > **Priority:** P1 (chat + GPS đang chết trên production) → P2 (tái sử dụng)
 > **Branch đề xuất:** `feature/realtime-platform`
 > **Mode:** P0 ANALYZE → P1 FIX_ONLY → P2..P5 IMPLEMENT
@@ -404,7 +405,34 @@ docker logs vanan-gateway 2>&1 | grep -E "Invalid customerToken|Access denied|Ch
 
 **Docs updated:** `07-customer.md` (§2.1/§2.4/§5.1/§6.1/FAQ) · `04-shipper.md` (§8.3) · `README.md` (§3.3) — guest now has chat + tracking.
 
-**Not yet done (P2-P6):** Domain additive (`Conversation.SubjectType/SubjectId`, `ConversationParticipant`, `DeliveryTracking.SubjectId/TrackerId`) + generic `IRealtimeMessagingService`/`ILiveLocationService`/`IRealtimeParticipantAuthorizer` + generic hubs/endpoints + UI Platform extraction + Logistics/JobMarket consumers + RV.
+### P1 RV (production, 2026-09-17 — commit `b12a99d2`)
+
+| Layer | Check | Result |
+|---|---|---|
+| L1 | `GET /api/community/orders/{id}/tracking` no identity → **401 JSON** (was SPA HTML 200 before deploy) | ✅ |
+| L1 | fake device + fake order → **404 JSON** | ✅ |
+| L1 | guest device MATCH (order `01a0ad6a…`, device `81f43d82…`) → **200** + `shopLat 10.9659 / shopLng 106.5943` + live `shipperLat 10.966012 / shipperLng 106.5945537` (`OutForDelivery`) | ✅ |
+| L1 | guest device **WRONG** → **403** "Bạn không có quyền xem đơn hàng này." | ✅ |
+| L1 | guest chat history → **200** (conversation `aebefcac…`, shipperId assigned) · guest send → **200**, message persisted with `senderId` = device id | ✅ |
+| L2 | deployed `VanAn.KhachLink.wasm` contains `X-Customer-Device-Id` (utf16LE=1), `_customerDeviceId`, `GetOrderTrackingAsync`, `LoadTrackingAsync`, `OrderTrackingDto` | ✅ |
+| L2 | ShopERP `vanan-shoperp-1` recreated 06:02:24Z (matches CD run) — D1 fix deployed | ✅ |
+| L3 | Playwright `diemthuong2.khachvip.online/order-tracking/01a0ad6a…` with guest device id → `.chat-panel`=1 · `Chưa đăng nhập`=0 · `.alert-danger`=0 · `#customer-tracking-map`=1 · guest message visible · chat input present · status "Đang giao hàng" · **0 console errors** | ✅ |
+| L4 | Guest typed + clicked "Gửi" in the UI → message appeared (`RV-P1 UI send 06:10:24`), 0 console errors | ✅ |
+| L5 | Manual browser check by user | ⏳ |
+
+> RV note: D1 end-to-end needs a real Google login (not triggerable headlessly). The ShopERP fix reuses the exact `CustomerCreated` outbox path already proven by the OTP flow, and the container is confirmed redeployed. Verify manually: log in with Google on KhachLink → checkout a DELIVERY order → `Orders.CustomerId` must be non-null (and chat/map work).
+
+### P1b RV follow-up defects (manual test 2026-09-17)
+
+After the P1 deploy the user's manual test found: chat OK, but (a) no GPS/map on either side, (b) Free/Charity products could not create an order.
+
+| # | Defect | Root cause (verified) | Fix |
+|---|---|---|---|
+| D7 | Shipper never sees a map (so never sees the customer's position) | `DeliveryTracking.razor` loaded shop/customer coords from `GET /api/community/nearby-orders`, which **excludes orders that already have an active DeliveryTask** — i.e. the very order the shipper is viewing. Coords were always empty → `_showMap=false`. | Shipper page now uses `GET /api/community/orders/{id}/tracking` (authorized for the assigned shipper) → shop + delivery + latest-ping coords + shop name. |
+| D8 | Customer map blank / no shipper pin | Tenant/DeliveryTask coordinate defaults are `0`, which passed `HasValue` → map centred on (0,0) (blank ocean). Markers were also only added on the component's **first** render, so a live shipper ping never moved/added the pin. | Endpoint normalises `0` coords → `null`; client requires real (non-zero) coords and centres shop→delivery→shipper; `LeafletMap` now upserts markers on **every** render (`leafletMap.upsertMarker`). |
+| D9 | Free/Charity product cannot create an order | The ShopERP product API (`GET shoperp/api/products`, used by the Store page) has **no `productType`**, so KhachLink's `ProductDto.ProductType` defaulted to `Paid` → cart `IsFree=false` → Gateway Tier 0 rejected the 0-price item ("giá không hợp lệ (UnitPrice=0)"). | (1) Gateway resolves Free/Charity **server-side** from `FeaturedProducts` before the price guard (authoritative, path-independent; spoof guard kept for client-claims-free-but-server-paid). (2) `Store.razor` enriches `ProductType` from the featured catalog so the UI also shows Miễn phí/Từ thiện. |
+
+**Not yet done (P2-P6):** Domain additive (`Conversation.SubjectType/SubjectId`, `ConversationParticipant`, `DeliveryTracking.SubjectId/TrackerId`) + generic `IRealtimeMessagingService`/`ILiveLocationService`/`IRealtimeParticipantAuthorizer` + generic hubs/endpoints + UI Platform extraction + Logistics/JobMarket consumers.
 
 ---
 

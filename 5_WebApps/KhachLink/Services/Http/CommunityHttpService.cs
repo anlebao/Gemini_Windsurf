@@ -604,6 +604,7 @@ public class OrderTrackingDto
     public string DeliveryStatus { get; set; } = "Pending";
     public Guid? ShipperId { get; set; }
     public string? DeliveryAddress { get; set; }
+    public string? ShopName { get; set; }
     public double? ShopLat { get; set; }
     public double? ShopLng { get; set; }
     public double? DeliveryLat { get; set; }

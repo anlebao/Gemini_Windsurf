@@ -499,21 +499,30 @@ namespace VanAn.Gateway.Controllers
                     return StatusCode(403, new { error = "Bạn không có quyền xem đơn hàng này." });
 
                 // Shop coordinates: prefer the DeliveryTask snapshot, fall back to tenant settings.
+                string shopName = string.Empty;
                 double? shopLat = task?.ShopLat;
                 double? shopLng = task?.ShopLng;
-                if ((shopLat == null || shopLat == 0) && order.TenantId.Value != Guid.Empty)
+                if (order.TenantId.Value != Guid.Empty)
                 {
                     var tenant = await _dbContext.Tenants
                         .IgnoreQueryFilters()
                         .AsNoTracking()
                         .FirstOrDefaultAsync(t => t.Id == order.TenantId);
-                    shopLat = tenant?.Settings?.Latitude;
-                    shopLng = tenant?.Settings?.Longitude;
+                    shopName = tenant?.Name ?? string.Empty;
+                    if (shopLat == null || shopLat == 0)
+                    {
+                        shopLat = tenant?.Settings?.Latitude;
+                        shopLng = tenant?.Settings?.Longitude;
+                    }
                 }
+                // Normalise "no coordinate" (0) to null — the client must not centre a map on (0,0)
+                // (blank ocean) just because a tenant/DeliveryTask has an unset default of 0.
+                if (shopLat == 0 || shopLng == 0) { shopLat = null; shopLng = null; }
 
                 // Delivery coordinates: DeliveryTask snapshot first, then the order itself.
                 double? deliveryLat = task?.CustomerLat ?? order.DeliveryLat;
                 double? deliveryLng = task?.CustomerLng ?? order.DeliveryLng;
+                if (deliveryLat == 0 || deliveryLng == 0) { deliveryLat = null; deliveryLng = null; }
 
                 // Latest shipper GPS ping for this delivery task.
                 double? shipperLat = null;
@@ -542,6 +551,7 @@ namespace VanAn.Gateway.Controllers
                     deliveryStatus = task?.Status.ToString() ?? "Pending",
                     shipperId = task?.ShipperId,
                     deliveryAddress = order.DeliveryAddress,
+                    shopName,
                     shopLat,
                     shopLng,
                     deliveryLat,
