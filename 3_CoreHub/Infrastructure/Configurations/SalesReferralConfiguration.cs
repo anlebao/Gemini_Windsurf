@@ -20,6 +20,7 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.ProductShortCode).HasMaxLength(20); // v1.1 NEW
             _ = builder.Property(e => e.CommissionAmount).HasPrecision(18, 2);
             _ = builder.Property(e => e.CommissionRate).HasPrecision(18, 4); // v1.1 NEW — snapshot rate
+            _ = builder.Property(e => e.CommissionBaseAmount).HasPrecision(18, 2); // CC-S4 fix — audited base
             _ = builder.Property(e => e.CommissionStatus).HasConversion<int>();
             _ = builder.Property(e => e.AppInstallBonusAmount).HasPrecision(18, 2); // v1.1 NEW
             _ = builder.Property(e => e.AppInstallBonusStatus).HasConversion<int>(); // v1.1 NEW

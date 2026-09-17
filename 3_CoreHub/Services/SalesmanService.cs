@@ -280,9 +280,10 @@ public class SalesmanService(
 
     public async Task<SalesReferral?> CreateCommissionAsync(Guid orderId)
     {
-        // Load order (cross-tenant)
+        // Load order + line items (cross-tenant). Items are required for a PER-PRODUCT commission base.
         var order = await _dbContext.Orders
             .IgnoreQueryFilters()
+            .Include(o => o.Items)
             .FirstOrDefaultAsync(o => o.Id == orderId);
 
         if (order == null || order.SalesmanId == null || order.ReferralProductId == null)
@@ -302,6 +303,17 @@ public class SalesmanService(
             return null;
         }
 
+        // CC-S4 fix: commission is per referred product, not per order. If the customer scanned a
+        // referral QR but did not actually buy the referred product, there is nothing to commission.
+        var commissionBase = ReferralCommissionCalculator.ComputeBase(order, config);
+        if (commissionBase <= 0m)
+        {
+            _logger.LogWarning(
+                "CreateCommission: referred product {ProductId} not present in order {OrderId} — no commission created",
+                order.ReferralProductId, orderId);
+            return null;
+        }
+
         // Get salesman code
         var role = await _dbContext.CommunityRoles
             .IgnoreQueryFilters()
@@ -312,37 +324,34 @@ public class SalesmanService(
 
         var salesmanCode = role?.SalesmanCode ?? "UNKNOWN";
 
-        // Create SalesReferral
+        // Create SalesReferral. Base = referred line SubTotal (pre-VAT, shipping excluded), or the
+        // pro-rated margin for Reseller OnMargin — see ReferralCommissionCalculator.
         var referral = new SalesReferral(order.TenantId, order.SalesmanId.Value, salesmanCode, order.ReferralProductId.Value, config.ProductShortCode);
+        referral.AttachToOrder(orderId, order.CustomerId ?? Guid.Empty, commissionBase, config.CommissionRate, config.CommissionBase);
 
-        // Sprint 7: Branch by CommissionBase (OnOrderTotal vs OnMargin)
-        if (config.CommissionBase == CommissionBase.OnMargin && order.CommerceMode == CommerceMode.Reseller)
-        {
-            // Reseller: commission = margin × rate (margin = SellPrice - CostPrice)
-            var margin = order.PlatformMargin ?? ((order.SellPrice ?? 0m) - (order.CostPrice ?? 0m));
-            referral.AttachToOrder(orderId, order.CustomerId ?? Guid.Empty, order.TotalAmount, margin, CommissionBase.OnMargin, config.CommissionRate);
-        }
-        else
-        {
-            // Marketplace (default): commission = orderTotal × rate (existing behavior)
-            referral.AttachToOrder(orderId, order.CustomerId ?? Guid.Empty, order.TotalAmount, config.CommissionRate);
-        }
+        // CC-S4 fix: self-referral detection. Previously SameFingerprint was hardcoded false and there
+        // was no salesman==customer check, so a salesman buying through their own referral code was
+        // paid a Pending commission with RiskScore 0.
+        var (sameFingerprint, sameDevice) = await DetectSelfReferralAsync(order);
+        bool selfReferral = sameFingerprint
+            || sameDevice
+            || (order.CustomerId.HasValue && order.CustomerId.Value == order.SalesmanId.Value);
 
-        // v1.2: Compute risk score (basic — no fingerprint data in commission flow)
         var riskResult = _riskScoringService.CalculateScore(new RiskScoreInput(
-            SameFingerprint: false,
+            SameFingerprint: sameFingerprint,
             SameIp24h: false,
             CustomerAgeDaysLessThan7: false,
             DeviceFirstSeenLessThan24h: false,
             OrdersFromDeviceTodayGreaterThan3: false,
             ReferralBonusAmountGreaterThan50K: config.AppInstallBonus > 50000,
             AppInstallTimeLessThan30s: false,
-            BlacklistedFingerprint: false
+            BlacklistedFingerprint: false,
+            SelfReferral: selfReferral
         ));
 
         referral.SetRiskScore(riskResult.Score, riskResult.RiskFactors);
 
-        // Create FraudFlag if high risk
+        // Create FraudFlag if high risk (self-referral always lands here — its weight exceeds the threshold)
         if (riskResult.Score >= 60)
         {
             await _fraudFlagService.CreateFlagAsync(
@@ -350,19 +359,71 @@ public class SalesmanService(
                 FraudEntityType.SalesReferral,
                 referral.Id,
                 order.CustomerId,
-                FraudFlagType.HighRiskScore,
+                selfReferral ? FraudFlagType.SelfDeal : FraudFlagType.HighRiskScore,
                 riskResult.Score,
                 riskResult.RiskFactors,
-                $"Commission auto-flagged: RiskScore={riskResult.Score}");
+                $"Commission auto-flagged: RiskScore={riskResult.Score}, SelfReferral={selfReferral}, " +
+                $"SameFingerprint={sameFingerprint}, SameDevice={sameDevice}");
         }
 
         _dbContext.SalesReferrals.Add(referral);
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation("CreateCommission: SalesReferral {ReferralId} created for order {OrderId}, commission={Amount}, riskScore={Score}",
-            referral.Id, orderId, referral.CommissionAmount, referral.RiskScore);
+        _logger.LogInformation(
+            "CreateCommission: SalesReferral {ReferralId} created for order {OrderId}, base={Base}, rate={Rate}, commission={Amount}, status={Status}, riskScore={Score}, selfReferral={SelfReferral}",
+            referral.Id, orderId, referral.CommissionBaseAmount, referral.CommissionRate,
+            referral.CommissionAmount, referral.CommissionStatus, referral.RiskScore, selfReferral);
 
         return referral;
+    }
+
+    /// <summary>
+    /// CC-S4 fix: detect a salesman buying through their own referral — matches the buyer's device
+    /// registrations (fingerprint / device token) against the salesman's own devices, and falls back to
+    /// the order's CustomerDeviceId for guest checkout. Mirrors AppInstallAttributionService's self-deal check.
+    /// </summary>
+    private async Task<(bool SameFingerprint, bool SameDevice)> DetectSelfReferralAsync(Order order)
+    {
+        if (order.SalesmanId == null || order.SalesmanId == Guid.Empty)
+            return (false, false);
+
+        var salesmanDevices = await _dbContext.DeviceRegistrations
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(d => d.CustomerId == order.SalesmanId.Value)
+            .Select(d => new { d.FingerprintHash, d.DeviceToken })
+            .ToListAsync();
+
+        if (salesmanDevices.Count == 0)
+            return (false, false);
+
+        var salesmanFingerprints = salesmanDevices
+            .Select(d => d.FingerprintHash)
+            .Where(h => !string.IsNullOrEmpty(h))
+            .ToHashSet(StringComparer.Ordinal);
+        var salesmanTokens = salesmanDevices
+            .Select(d => d.DeviceToken)
+            .Where(t => !string.IsNullOrEmpty(t))
+            .ToHashSet(StringComparer.Ordinal);
+
+        // Buyer devices: by CustomerId when known, else by the order's device id (guest checkout).
+        var buyerCustomerId = order.CustomerId ?? Guid.Empty;
+        var buyerDeviceToken = order.CustomerDeviceId ?? string.Empty;
+
+        var buyerDevices = await _dbContext.DeviceRegistrations
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(d => (buyerCustomerId != Guid.Empty && d.CustomerId == buyerCustomerId)
+                || (buyerDeviceToken != "" && d.DeviceToken == buyerDeviceToken))
+            .Select(d => new { d.FingerprintHash, d.DeviceToken })
+            .ToListAsync();
+
+        bool sameFingerprint = buyerDevices.Any(d =>
+            !string.IsNullOrEmpty(d.FingerprintHash) && salesmanFingerprints.Contains(d.FingerprintHash));
+        bool sameDevice = buyerDevices.Any(d =>
+            !string.IsNullOrEmpty(d.DeviceToken) && salesmanTokens.Contains(d.DeviceToken));
+
+        return (sameFingerprint, sameDevice);
     }
 
     public async Task<ReferralScanResult?> ResolveReferralForScanAsync(string referralCode)

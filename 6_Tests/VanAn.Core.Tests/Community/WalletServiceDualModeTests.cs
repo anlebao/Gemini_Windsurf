@@ -62,6 +62,15 @@ public class WalletServiceDualModeTests : IDisposable
         await _context.SaveChangesAsync();
     }
 
+    /// <summary>OrderItem.ProductId has an FK to Products — seed a Product row with the matching Id.</summary>
+    private async Task SeedProductAsync(Guid productId)
+    {
+        var product = new Product(_tenantId, "P-" + productId.ToString()[..8], 100m, "Test");
+        SetProp(product, "Id", productId);
+        _context.Products.Add(product);
+        await _context.SaveChangesAsync();
+    }
+
     private async Task<Guid> SeedResellerOrderAsync(
         decimal costPrice = 80000m,
         decimal sellPrice = 100000m,
@@ -72,7 +81,13 @@ public class WalletServiceDualModeTests : IDisposable
         bool withReferralConfig = false)
     {
         var orderId = Guid.NewGuid();
-        var order = new Order(_tenantId, null, sellPrice + deliveryFee);
+        // CC-S4 fix: commission is per referred product — the order must contain that line.
+        var referredProductId = Guid.NewGuid();
+        await SeedProductAsync(referredProductId);
+        var referredItem = OrderItem.Create(Guid.NewGuid(), _tenantId, orderId, referredProductId,
+            quantity: 1, unitPrice: sellPrice, productName: "Referred", vatRate: 0m);
+
+        var order = Order.Create(orderId, _tenantId, null, [referredItem]);
         SetProp(order, "Id", orderId);
         SetProp(order, "OrderId", new OrderId(orderId));
         SetProp(order, "OrderType", "DELIVERY");
@@ -88,7 +103,7 @@ public class WalletServiceDualModeTests : IDisposable
         if (withSalesman)
         {
             SetProp(order, "SalesmanId", SalesmanId);
-            SetProp(order, "ReferralProductId", Guid.NewGuid());
+            SetProp(order, "ReferralProductId", referredProductId);
         }
 
         _context.Orders.Add(order);
@@ -96,8 +111,7 @@ public class WalletServiceDualModeTests : IDisposable
 
         if (withSalesman && withReferralConfig)
         {
-            var productId = (Guid)typeof(Order).GetProperty("ReferralProductId")!.GetValue(order)!;
-            var config = new ProductReferralConfig(_tenantId, productId, 0.03m, 10000m, "PROD001", CommissionBase.OnMargin);
+            var config = new ProductReferralConfig(_tenantId, referredProductId, 0.03m, 10000m, "PROD001", CommissionBase.OnMargin);
             _context.ProductReferralConfigs.Add(config);
             await _context.SaveChangesAsync();
         }
@@ -297,10 +311,13 @@ public class WalletServiceDualModeTests : IDisposable
     {
         await SeedTenantAsync();
 
-        // Create Marketplace order with salesman
+        // Create Marketplace order with salesman — must contain the referred product line.
         var productId = Guid.NewGuid();
         var orderId = Guid.NewGuid();
-        var order = new Order(_tenantId, null, 100000m);
+        await SeedProductAsync(productId);
+        var referredItem = OrderItem.Create(Guid.NewGuid(), _tenantId, orderId, productId,
+            quantity: 1, unitPrice: 100000m, productName: "Referred", vatRate: 0m);
+        var order = Order.Create(orderId, _tenantId, null, [referredItem]);
         SetProp(order, "Id", orderId);
         SetProp(order, "OrderId", new OrderId(orderId));
         SetProp(order, "OrderType", "DELIVERY");

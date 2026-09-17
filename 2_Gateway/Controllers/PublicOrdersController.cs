@@ -286,12 +286,24 @@ namespace VanAn.Gateway.Controllers
                             var resolved = await _salesmanService.ResolveCompositeReferralCodeAsync(request.ReferralCode.Trim());
                             if (resolved != null)
                             {
-                                referralSalesmanId = resolved.Value.salesmanId;
-                                referralProductId = resolved.Value.productId;
-                                referralCode = request.ReferralCode.Trim();
-                                _logger.LogInformation(
-                                    "Checkout: referral code {Code} resolved to salesman {SalesmanId}, product {ProductId}",
-                                    referralCode, referralSalesmanId, referralProductId);
+                                // Self-referral guard: a salesman must not earn commission on their own
+                                // purchase. Drop the attribution here (order is still created) instead of
+                                // creating a commission that would have to be rejected downstream.
+                                if (request.CustomerId.HasValue && request.CustomerId.Value == resolved.Value.salesmanId)
+                                {
+                                    _logger.LogWarning(
+                                        "Checkout: referral code {Code} resolves to the buyer ({CustomerId}) — self-referral dropped, order not attributed",
+                                        request.ReferralCode, request.CustomerId);
+                                }
+                                else
+                                {
+                                    referralSalesmanId = resolved.Value.salesmanId;
+                                    referralProductId = resolved.Value.productId;
+                                    referralCode = request.ReferralCode.Trim();
+                                    _logger.LogInformation(
+                                        "Checkout: referral code {Code} resolved to salesman {SalesmanId}, product {ProductId}",
+                                        referralCode, referralSalesmanId, referralProductId);
+                                }
                             }
                             else
                             {

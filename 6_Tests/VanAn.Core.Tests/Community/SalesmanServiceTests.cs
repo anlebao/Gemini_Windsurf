@@ -83,9 +83,52 @@ public class SalesmanServiceTests : IDisposable
         await _context.SaveChangesAsync();
     }
 
-    private async Task SeedOrderWithSalesmanAsync(Guid orderId, Guid salesmanId, Guid productId, decimal total)
+    /// <summary>Orders.CustomerId has an FK to Customers — seed a Customer row with the matching Id.</summary>
+    private async Task SeedCustomerAsync(Guid customerId)
     {
-        var order = new Order(new TenantId(TenantId), null, 0);
+        var customer = new Customer(new TenantId(TenantId), "Buyer", "+84900000000");
+        SetProp(customer, "Id", customerId);
+        SetProp(customer, "CustomerId", new CustomerId(customerId));
+        _context.Customers.Add(customer);
+        await _context.SaveChangesAsync();
+    }
+
+    /// <summary>OrderItem.ProductId has an FK to Products — seed a Product row with the matching Id.</summary>
+    private async Task SeedProductAsync(Guid productId)
+    {
+        if (await _context.Products.IgnoreQueryFilters().AnyAsync(p => p.Id == productId))
+            return;
+
+        var product = new Product(new TenantId(TenantId), "P-" + productId.ToString()[..8], 100m, "Test");
+        SetProp(product, "Id", productId);
+        _context.Products.Add(product);
+        await _context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Seeds a completed order attributed to a salesman. The order MUST contain a line for the
+    /// referred product — commission is per-product (referred line SubTotal), not per-order.
+    /// </summary>
+    private async Task SeedOrderWithSalesmanAsync(Guid orderId, Guid salesmanId, Guid productId, decimal total,
+        Guid? buyerCustomerId = null, params (Guid ProductId, decimal UnitPrice, int Quantity, decimal VatRate)[] extraItems)
+    {
+        await SeedProductAsync(productId);
+        foreach (var extra in extraItems)
+            await SeedProductAsync(extra.ProductId);
+
+        var items = new List<OrderItem>
+        {
+            // Referred line — vatRate 0 so SubTotal == total (keeps assertions readable).
+            OrderItem.Create(Guid.NewGuid(), new TenantId(TenantId), orderId, productId,
+                quantity: 1, unitPrice: total, productName: "Referred", vatRate: 0m)
+        };
+        foreach (var extra in extraItems)
+        {
+            items.Add(OrderItem.Create(Guid.NewGuid(), new TenantId(TenantId), orderId, extra.ProductId,
+                quantity: extra.Quantity, unitPrice: extra.UnitPrice, productName: "Other", vatRate: extra.VatRate));
+        }
+
+        var order = Order.Create(orderId, new TenantId(TenantId), buyerCustomerId, items);
         SetProp(order, "Id", orderId);
         SetProp(order, "OrderId", new OrderId(orderId));
         SetProp(order, "OrderType", "DELIVERY");
@@ -246,6 +289,106 @@ public class SalesmanServiceTests : IDisposable
         var result = await _service.ResolveReferralForScanAsync("NOPE|XXXX");
 
         Assert.Null(result);
+    }
+
+    // === T17 (CC-S4 fix): commission base = REFERRED LINE only, not the whole order ===
+    [Fact(DisplayName = "T17: CreateCommission_UsesReferredLineOnly_NotWholeOrder")]
+    public async Task CreateCommission_UsesReferredLineOnly_NotWholeOrder()
+    {
+        await SeedSalesmanRoleAsync();
+        await SeedProductReferralConfigAsync(ProductId, 0.05m, 10000, "TR-001");
+
+        var orderId = Guid.NewGuid();
+        // Referred line 100,000 + another product 900,000 → order total 1,000,000.
+        await SeedOrderWithSalesmanAsync(orderId, SalesmanId, ProductId, 100000,
+            null, (Guid.NewGuid(), 900000m, 1, 0m));
+
+        var referral = await _service.CreateCommissionAsync(orderId);
+
+        Assert.NotNull(referral);
+        Assert.Equal(100000m, referral!.CommissionBaseAmount);   // referred line only
+        Assert.Equal(5000m, referral.CommissionAmount);          // 100000 × 0.05, NOT 1000000 × 0.05
+    }
+
+    // === T18 (CC-S4 fix): referred product not in the order → no commission ===
+    [Fact(DisplayName = "T18: CreateCommission_ReferredProductNotInOrder_ReturnsNull")]
+    public async Task CreateCommission_ReferredProductNotInOrder_ReturnsNull()
+    {
+        await SeedSalesmanRoleAsync();
+        await SeedProductReferralConfigAsync(ProductId, 0.05m, 10000, "TR-001");
+
+        var orderId = Guid.NewGuid();
+        // Order carries the referral attribution but only contains a DIFFERENT product.
+        var otherProduct = Guid.NewGuid();
+        await SeedProductAsync(otherProduct);
+        var item = OrderItem.Create(Guid.NewGuid(), new TenantId(TenantId), orderId, otherProduct,
+            quantity: 1, unitPrice: 200000m, productName: "Other", vatRate: 0m);
+        var order = Order.Create(orderId, new TenantId(TenantId), null, [item]);
+        SetProp(order, "Id", orderId);
+        SetProp(order, "OrderId", new OrderId(orderId));
+        SetProp(order, "OrderType", "DELIVERY");
+        SetProp(order, "Status", new OrderStatusId("completed"));
+        SetProp(order, "TotalAmount", 200000m);
+        SetProp(order, "SalesmanId", SalesmanId);
+        SetProp(order, "ReferralProductId", ProductId);
+        _context.Orders.Add(order);
+        await _context.SaveChangesAsync();
+
+        var referral = await _service.CreateCommissionAsync(orderId);
+
+        Assert.Null(referral);
+        Assert.Empty(_context.SalesReferrals.IgnoreQueryFilters().ToList());
+    }
+
+    // === T19 (CC-S4 fix): self-referral (buyer == salesman) → Rejected, not Pending ===
+    [Fact(DisplayName = "T19: CreateCommission_SelfReferral_IsRejected")]
+    public async Task CreateCommission_SelfReferral_IsRejected()
+    {
+        await SeedSalesmanRoleAsync();
+        await SeedProductReferralConfigAsync(ProductId, 0.05m, 10000, "TR-001");
+
+        var orderId = Guid.NewGuid();
+        // Buyer customer id == salesman id → self-referral (needs a Customer row for the FK)
+        await SeedCustomerAsync(SalesmanId);
+        await SeedOrderWithSalesmanAsync(orderId, SalesmanId, ProductId, 100000, buyerCustomerId: SalesmanId);
+
+        var referral = await _service.CreateCommissionAsync(orderId);
+
+        Assert.NotNull(referral);
+        Assert.Equal(CommissionStatus.Rejected, referral!.CommissionStatus);
+        Assert.Equal(100, referral.RiskScore);            // SelfReferral weight 100
+        Assert.Contains("SelfReferral", referral.RiskFactors);
+    }
+
+    // === T20 (CC-S4 fix): base excludes VAT (calculator) ===
+    [Fact(DisplayName = "T20: ReferralCommissionCalculator_ExcludesVat")]
+    public async Task ReferralCommissionCalculator_ExcludesVat()
+    {
+        var orderId = Guid.NewGuid();
+        var item = OrderItem.Create(Guid.NewGuid(), new TenantId(TenantId), orderId, ProductId,
+            quantity: 2, unitPrice: 50000m, productName: "Referred", vatRate: 0.10m); // SubTotal 100k, VAT 10k
+        var order = Order.Create(orderId, new TenantId(TenantId), null, [item]);
+        SetProp(order, "ReferralProductId", ProductId);
+
+        var config = new ProductReferralConfig(new TenantId(TenantId), ProductId, 0.05m, 0, "TR-001");
+
+        Assert.Equal(100000m, ReferralCommissionCalculator.ComputeBase(order, config)); // not 110000
+        Assert.Equal(100000m, ReferralCommissionCalculator.ReferredSubTotal(order));
+    }
+
+    // === T21 (CC-S4 fix): base is 0 when the referred product is absent (calculator) ===
+    [Fact(DisplayName = "T21: ReferralCommissionCalculator_MissingProduct_ReturnsZero")]
+    public async Task ReferralCommissionCalculator_MissingProduct_ReturnsZero()
+    {
+        var orderId = Guid.NewGuid();
+        var item = OrderItem.Create(Guid.NewGuid(), new TenantId(TenantId), orderId, Guid.NewGuid(),
+            quantity: 1, unitPrice: 50000m, productName: "Other", vatRate: 0m);
+        var order = Order.Create(orderId, new TenantId(TenantId), null, [item]);
+        SetProp(order, "ReferralProductId", ProductId);
+
+        var config = new ProductReferralConfig(new TenantId(TenantId), ProductId, 0.05m, 0, "TR-001");
+
+        Assert.Equal(0m, ReferralCommissionCalculator.ComputeBase(order, config));
     }
 
     // === T6: GetCompositeSalesmanQr_NoProductConfig_ReturnsNull ===

@@ -161,9 +161,11 @@ namespace VanAn.CoreHub.Services
         /// </summary>
         public async Task<WalletTransaction> ConfirmCodAsync(Guid shipperId, Guid orderId, decimal amount)
         {
-            // 1. Load order (cross-tenant — delivery spans tenants)
+            // 1. Load order + line items (cross-tenant — delivery spans tenants).
+            // Items are needed for the per-product referral commission base (Reseller split).
             var order = await _dbContext.Orders
                 .IgnoreQueryFilters()
+                .Include(o => o.Items)
                 .FirstOrDefaultAsync(o => o.Id == orderId);
 
             if (order == null)
@@ -239,22 +241,22 @@ namespace VanAn.CoreHub.Services
 
             var platformFee = margin * platformFeeRate;
             var communityFund = margin * communityFundRate;
-            // Commission: only if salesman referred this order. Loaded from SalesReferral if exists.
+            // Commission: only if salesman referred this order.
+            // CC-S4 fix: use the SAME per-product base as SalesmanService.CreateCommissionAsync
+            // (shared ReferralCommissionCalculator) so the reserved amount matches the SalesReferral
+            // actually created. Previously this used margin × rate while the commission used
+            // orderTotal × rate → the balance invariant could disagree with the payout.
             decimal commission = 0m;
             Guid? salesmanId = order.SalesmanId;
             if (salesmanId.HasValue)
             {
-                // Commission = margin × CommissionRate (OnMargin base for Reseller)
-                // CommissionRate from ProductReferralConfig — loaded by SalesmanService.CreateCommissionAsync
-                // Here we just reserve the amount; actual commission tx created by SalesmanService
-                // For financial balance check, we compute expected commission
                 var config = await _dbContext.ProductReferralConfigs
                     .IgnoreQueryFilters()
                     .AsNoTracking()
                     .FirstOrDefaultAsync(c => c.ProductId == order.ReferralProductId && c.IsActive);
                 if (config != null)
                 {
-                    commission = margin * config.CommissionRate;
+                    commission = ReferralCommissionCalculator.ComputeBase(order, config) * config.CommissionRate;
                 }
             }
 
@@ -543,6 +545,7 @@ namespace VanAn.CoreHub.Services
 
             var order = await _dbContext.Orders
                 .IgnoreQueryFilters()
+                .Include(o => o.Items)
                 .FirstOrDefaultAsync(o => o.Id == orderId);
 
             if (order == null)
@@ -569,7 +572,7 @@ namespace VanAn.CoreHub.Services
             var platformFee = margin * platformFeeRate;
             var communityFund = margin * communityFundRate;
 
-            // Commission (if salesman referral)
+            // Commission (if salesman referral) — same per-product base as SalesmanService.
             decimal commission = 0m;
             Guid? salesmanId = order.SalesmanId;
             if (salesmanId.HasValue)
@@ -580,7 +583,7 @@ namespace VanAn.CoreHub.Services
                     .FirstOrDefaultAsync(c => c.ProductId == order.ReferralProductId && c.IsActive);
                 if (config != null)
                 {
-                    commission = margin * config.CommissionRate;
+                    commission = ReferralCommissionCalculator.ComputeBase(order, config) * config.CommissionRate;
                 }
             }
 

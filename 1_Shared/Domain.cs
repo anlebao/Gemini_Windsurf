@@ -4047,6 +4047,9 @@ namespace VanAn.Shared.Domain
         public Guid? OrderId { get; protected set; }
         public decimal CommissionAmount { get; protected set; }
         public decimal CommissionRate { get; protected set; } // v1.1 NEW — snapshot rate tại thời điểm chốt đơn (audit)
+        // CC-S4 fix: snapshot of the amount the rate was applied to (audit). Per-product: the referred
+        // line items' SubTotal (pre-VAT, shipping excluded); Reseller OnMargin: pro-rated margin.
+        public decimal CommissionBaseAmount { get; protected set; }
         public CommissionStatus CommissionStatus { get; protected set; } = CommissionStatus.Pending;
         public decimal AppInstallBonusAmount { get; protected set; } = 0m; // v1.1 NEW
         public BonusStatus AppInstallBonusStatus { get; protected set; } = BonusStatus.None; // v1.1 NEW
@@ -4073,7 +4076,24 @@ namespace VanAn.Shared.Domain
             OrderId = orderId;
             ReferredCustomerId = customerId;
             CommissionRate = commissionRate; // snapshot từ ProductReferralConfig
+            CommissionBaseAmount = orderTotal;
             CommissionAmount = orderTotal * commissionRate;
+            CommissionStatus = CommissionStatus.Pending;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// CC-S4 fix: attach with an explicit commission base (audited). Used for per-product commission:
+        /// base = referred line items' SubTotal (pre-VAT, shipping excluded). Reseller OnMargin passes the
+        /// pro-rated margin instead.
+        /// </summary>
+        public void AttachToOrder(Guid orderId, Guid customerId, decimal commissionBaseAmount, decimal commissionRate, CommissionBase commissionBase)
+        {
+            OrderId = orderId;
+            ReferredCustomerId = customerId;
+            CommissionRate = commissionRate; // snapshot từ ProductReferralConfig
+            CommissionBaseAmount = commissionBaseAmount;
+            CommissionAmount = commissionBaseAmount * commissionRate;
             CommissionStatus = CommissionStatus.Pending;
             UpdateAudit();
         }
@@ -4088,6 +4108,7 @@ namespace VanAn.Shared.Domain
             OrderId = orderId;
             ReferredCustomerId = customerId;
             CommissionRate = commissionRate; // snapshot từ ProductReferralConfig
+            CommissionBaseAmount = commissionBase == CommissionBase.OnMargin ? margin : orderTotal;
             CommissionAmount = commissionBase == CommissionBase.OnMargin
                 ? margin * commissionRate
                 : orderTotal * commissionRate;

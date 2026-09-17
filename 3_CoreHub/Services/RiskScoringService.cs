@@ -18,6 +18,9 @@ namespace VanAn.CoreHub.Services
         private const int WeightReferralBonusAmountGreaterThan50K = 10; // high-value target
         private const int WeightAppInstallTimeLessThan30s = 40;    // bot install (< 30s)
         private const int WeightBlacklistedFingerprint = 60;      // known bad fingerprint
+        // Self-referral (salesman buys through their own referral code) — weight alone exceeds the
+        // 80 reject threshold so the commission is never paid, regardless of other factors.
+        private const int WeightSelfReferral = 100;
 
         private const int MaxScore = 100;
 
@@ -72,6 +75,12 @@ namespace VanAn.CoreHub.Services
             {
                 score += WeightBlacklistedFingerprint;
                 factors.Add($"BlacklistedFingerprint:+{WeightBlacklistedFingerprint}");
+            }
+
+            if (input.SelfReferral)
+            {
+                score += WeightSelfReferral;
+                factors.Add($"SelfReferral:+{WeightSelfReferral}");
             }
 
             // Cap at 100

@@ -122,5 +122,45 @@ namespace VanAn.Core.Tests.Community
             // Cap at 100: 50+15+30+25+40 = 160 → 100
             Assert.Equal(100, result1.Score);
         }
+
+        [Fact(DisplayName = "36 (CC-S4 fix): RiskScore_SelfReferral_AloneRejects")]
+        public void RiskScore_SelfReferral_AloneRejects()
+        {
+            var input = new RiskScoreInput(
+                SameFingerprint: false,
+                SameIp24h: false,
+                CustomerAgeDaysLessThan7: false,
+                DeviceFirstSeenLessThan24h: false,
+                OrdersFromDeviceTodayGreaterThan3: false,
+                ReferralBonusAmountGreaterThan50K: false,
+                AppInstallTimeLessThan30s: false,
+                BlacklistedFingerprint: false,
+                SelfReferral: true); // +100
+
+            var result = _service.CalculateScore(input);
+
+            // Weight alone exceeds the 80 reject threshold → the commission is never paid.
+            Assert.Equal(100, result.Score);
+            Assert.Contains("SelfReferral", result.RiskFactors);
+        }
+
+        [Fact(DisplayName = "37 (CC-S4 fix): RiskScore_SelfReferralDefault_IsFalse")]
+        public void RiskScore_SelfReferralDefault_IsFalse()
+        {
+            // Callers that don't pass SelfReferral keep the old behaviour (back-compat default).
+            var input = new RiskScoreInput(
+                SameFingerprint: false,
+                SameIp24h: false,
+                CustomerAgeDaysLessThan7: false,
+                DeviceFirstSeenLessThan24h: false,
+                OrdersFromDeviceTodayGreaterThan3: false,
+                ReferralBonusAmountGreaterThan50K: false,
+                AppInstallTimeLessThan30s: false,
+                BlacklistedFingerprint: false);
+
+            var result = _service.CalculateScore(input);
+
+            Assert.Equal(0, result.Score);
+        }
     }
 }

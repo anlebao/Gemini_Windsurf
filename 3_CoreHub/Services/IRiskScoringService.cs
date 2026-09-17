@@ -14,7 +14,8 @@ namespace VanAn.CoreHub.Services
         bool OrdersFromDeviceTodayGreaterThan3, // > 3 orders from same device today (bot) — +25
         bool ReferralBonusAmountGreaterThan50K, // bonus > 50,000 VND (high-value target) — +10
         bool AppInstallTimeLessThan30s, // app install completed in < 30 seconds (bot) — +40
-        bool BlacklistedFingerprint     // fingerprint matches blacklist — +60
+        bool BlacklistedFingerprint,    // fingerprint matches blacklist — +60
+        bool SelfReferral = false       // salesman bought through their own referral (customer/device match) — +100 (auto-reject)
     );
 
     /// <summary>
