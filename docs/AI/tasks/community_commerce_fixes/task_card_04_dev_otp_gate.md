@@ -36,6 +36,9 @@ For the chat/GPS/QR RV on 2026-09-16 the dev-token endpoint was temporarily enab
 ShopERP VPS to mint a test customer token (no other way to obtain one — SMS OTP is not
 configured and Google OAuth needs a real browser session).
 
+**Re-used 2026-09-17** for the salesman referral QR RV (scan → buy → commission,
+`task_card_06_referral_qr_scan_commission.md`) — enabled, used, then removed again the same way.
+
 **How it was enabled (NOT persisted to `.env.shoperp`):**
 
 ```bash
