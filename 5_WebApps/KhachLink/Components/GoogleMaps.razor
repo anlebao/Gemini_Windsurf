@@ -1,35 +1,48 @@
-﻿@using VanAn.UI.Platform.Components.Atomic
+﻿@* Realtime Platform P5 (F9): static shop map + distance — VanAnMap thay Google iframe
+   (không realtime — quyết định 2026-09-17). F11: bỏ <style> inline, dùng UI Platform. *@
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Components.Realtime
 @inject IJSRuntime JSRuntime
-@inject IConfiguration Configuration
 
 <VanAnCard CssClass="location-section" Shadow="true">
     <h3 class="text-center mb-4">Tìm chúng tôi</h3>
-    
+
     @if (ShopConfig?.Latitude != null && ShopConfig?.Longitude != null)
     {
         <VanAnCard CssClass="map-container-card" Shadow="true">
-            <iframe 
-                width="100%" 
-                height="400" 
-                frameborder="0" 
-                style="border:0; border-radius: 10px;"
-                src="@GetGoogleMapsUrl()"
-                allowfullscreen>
-            </iframe>
+            <VanAnMap MapElementId="store-location-map"
+                      Height="400px"
+                      CenterLat="ShopConfig.Latitude.Value"
+                      CenterLng="ShopConfig.Longitude.Value"
+                      Zoom="15"
+                      ShopLat="ShopConfig.Latitude"
+                      ShopLng="ShopConfig.Longitude" />
         </VanAnCard>
-        
+
+        <div class="text-center mt-3">
+            @if (_distanceKm.HasValue)
+            {
+                <span class="badge bg-success fs-6">
+                    <i class="bi bi-signpost-split"></i> Cách bạn ~@_distanceKm.Value.ToString("0.#") km
+                </span>
+            }
+            else if (_distanceError != null)
+            {
+                <span class="badge bg-secondary fs-6"><i class="bi bi-geo-alt"></i> @_distanceError</span>
+            }
+            <a class="btn btn-outline-primary btn-sm ms-2"
+               href="https://maps.google.com/?q=@ShopConfig.Latitude,@ShopConfig.Longitude"
+               target="_blank" rel="noopener">
+                <i class="bi bi-compass"></i> Chỉ đường
+            </a>
+        </div>
+
         <VanAnCard CssClass="map-info-card mt-3" Shadow="false">
             <div class="text-center">
                 <h3>@ShopConfig.ShopName</h3>
-                <p class="mb-1">
-                    <i class="fas fa-map-marker-alt"></i> @ShopConfig.Address
-                </p>
-                <p class="mb-1">
-                    <i class="fas fa-phone"></i> @ShopConfig.Phone
-                </p>
-                <p class="mb-0">
-                    <i class="fas fa-envelope"></i> @ShopConfig.Email
-                </p>
+                <p class="mb-1"><i class="bi bi-geo-alt-fill"></i> @ShopConfig.Address</p>
+                <p class="mb-1"><i class="bi bi-telephone-fill"></i> @ShopConfig.Phone</p>
+                <p class="mb-0"><i class="bi bi-envelope-fill"></i> @ShopConfig.Email</p>
             </div>
         </VanAnCard>
     }
@@ -37,8 +50,8 @@
     {
         <VanAnCard CssClass="no-gps-card" Shadow="true">
             <div class="text-center p-4">
-                <i class="fas fa-map-marked-alt fa-3x text-muted mb-3"></i>
-                <p class="text-muted">Chưa cập nhật tọa độ GPS</p>
+                <i class="bi bi-map text-muted" style="font-size: 3rem;"></i>
+                <p class="text-muted mt-2 mb-0">Chưa cập nhật tọa độ GPS</p>
             </div>
         </VanAnCard>
     }
@@ -48,51 +61,54 @@
     [Parameter]
     public ShopConfig? ShopConfig { get; set; }
 
-    private string GetGoogleMapsUrl()
+    private double? _distanceKm;
+    private string? _distanceError;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await CalculateDistanceAsync();
+    }
+
+    /// <summary>
+    /// P5: khoảng cách từ vị trí hiện tại của khách (GPS) tới shop — haversine, km.
+    /// GPS bị từ chối/không có → chỉ hiện map tĩnh, không lỗi.
+    /// </summary>
+    private async Task CalculateDistanceAsync()
     {
         if (ShopConfig?.Latitude == null || ShopConfig?.Longitude == null)
-            return "";
+            return;
 
-        var lat = ShopConfig.Latitude.Value;
-        var lng = ShopConfig.Longitude.Value;
+        try
+        {
+            var pos = await JSRuntime.InvokeAsync<GeoPosition?>("vananRealtime.getCurrentPosition");
+            if (pos != null)
+                _distanceKm = HaversineKm(pos.Lat, pos.Lng, ShopConfig.Latitude.Value, ShopConfig.Longitude.Value);
+        }
+        catch
+        {
+            _distanceError = "Bật GPS để xem khoảng cách";
+        }
+        finally
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+    }
 
-        // Free Google Maps embed URL — no API key required.
-        // Uses the public maps.google.com endpoint (same as "Share → Embed a map" feature).
-        // The Embed API (maps/embed/v1/place) requires a key; this endpoint does not.
-        return $"https://maps.google.com/maps?q={lat},{lng}&z=16&output=embed&hl=vi";
+    private static double HaversineKm(double lat1, double lng1, double lat2, double lng2)
+    {
+        const double earthRadiusKm = 6371.0;
+        var dLat = (lat2 - lat1) * Math.PI / 180.0;
+        var dLng = (lng2 - lng1) * Math.PI / 180.0;
+        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2)
+              + Math.Cos(lat1 * Math.PI / 180.0) * Math.Cos(lat2 * Math.PI / 180.0)
+              * Math.Sin(dLng / 2) * Math.Sin(dLng / 2);
+        return earthRadiusKm * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+    }
+
+    private class GeoPosition
+    {
+        public double Lat { get; set; }
+        public double Lng { get; set; }
     }
 }
-
-<style>
-.location-section {
-    background: linear-gradient(45deg, #f093fb 0%, #f5576c 100%);
-    border-radius: 15px;
-    padding: 2rem;
-    color: white;
-}
-
-.map-container {
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-}
-
-.map-info {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border-radius: 10px;
-    padding: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.map-info h5 {
-    color: #fff;
-    font-weight: bold;
-    margin-bottom: 0.5rem;
-}
-
-.map-info p {
-    color: rgba(255, 255, 255, 0.9);
-    margin-bottom: 0.25rem;
-}
-</style>

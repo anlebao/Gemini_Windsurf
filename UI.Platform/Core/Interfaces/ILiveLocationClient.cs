@@ -18,6 +18,7 @@ public interface ILiveLocationClient
         Guid subjectId,
         string? customerToken,
         Guid? customerDeviceId,
+        string? staffToken = null,
         CancellationToken ct = default);
 
     /// <summary>POST /api/realtime/location/ping — record the caller's position for a subject.</summary>
@@ -28,5 +29,6 @@ public interface ILiveLocationClient
         double lng,
         string? customerToken,
         Guid? customerDeviceId,
+        string? staffToken = null,
         CancellationToken ct = default);
 }

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
 using VanAn.Gateway.Controllers;
 using VanAn.Gateway.Hubs;
@@ -259,6 +260,9 @@ public class RealtimeControllerP3Tests
         resolver.Setup(r => r.ResolveTenantAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Tenant);
 
+        // P5: the controller resolves customer display names for the inbox (not exercised here).
+        var dbContext = new Mock<IVanAnDbContext>();
+
         // P4: order conversations fall back to the legacy adapter when the generic lookup misses.
         var chatService = new Mock<IChatService>();
         chatService.Setup(c => c.GetOrCreateConversationAsync(It.IsAny<Guid>(), It.IsAny<Guid?>()))
@@ -293,6 +297,7 @@ public class RealtimeControllerP3Tests
             identityResolver,
             messagingHub.Object,
             trackingHub.Object,
+            dbContext.Object,
             provider,
             NullLogger<RealtimeController>.Instance)
         {

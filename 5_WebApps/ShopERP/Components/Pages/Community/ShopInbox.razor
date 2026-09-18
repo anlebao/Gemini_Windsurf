@@ -1,0 +1,156 @@
+@page "/community/messages"
+@rendermode InteractiveServer
+@layout VanAn.ShopERP.Components.Pages.Admin.AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Components.Realtime
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject ShopInboxApiClient ApiClient
+@inject IThemeProvider ThemeProvider
+@inject ILogger<ShopInbox> Logger
+
+@attribute [Authorize(Roles = "Owner")]
+
+@* Realtime Platform P5 (2026-09-18): hộp thư tin nhắn chủ shop — mọi conversation
+   Shop/{tenantId} của khách hàng, dùng RealtimeChatPanel (UI Platform) phía chi tiết. *@
+<div class="shop-inbox @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Hộp thư tin nhắn</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadData">Làm mới</VanAButton>
+        </div>
+    </header>
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải hộp thư...</p>
+            </div>
+        </VanACard>
+    }
+    else if (_error != null)
+    {
+        <VanACard>
+            <div class="empty-state">
+                <p class="text-danger">@_error</p>
+                <VanAButton Variant="primary" Size="small" OnClick="LoadData">Thử lại</VanAButton>
+            </div>
+        </VanACard>
+    }
+    else if (_conversations.Count == 0)
+    {
+        <VanACard>
+            <div class="empty-state">
+                <i class="bi bi-chat-dots" style="font-size: 2.5rem; color: #6c757d;"></i>
+                <p class="mt-2">Chưa có cuộc trò chuyện nào. Khi khách hàng nhắn tin từ trang cửa hàng, hộp thư sẽ hiển thị tại đây.</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <div class="row g-3">
+            <!-- Conversation list -->
+            <div class="col-md-4">
+                <VanACard CssClass="conversation-list-card">
+                    <div class="list-group list-group-flush">
+                        @foreach (var conv in _conversations)
+                        {
+                            <button type="button"
+                                    class="list-group-item list-group-item-action @(conv.ConversationId == _selectedConversationId ? "active" : "")"
+                                    @onclick="() => SelectConversation(conv)">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <strong>@(conv.CustomerName ?? "Khách hàng")</strong>
+                                    @if (conv.LastMessageAt.HasValue)
+                                    {
+                                        <small>@conv.LastMessageAt.Value.ToLocalTime().ToString("HH:mm dd/MM")</small>
+                                    }
+                                </div>
+                                <div class="text-truncate small @(conv.ConversationId == _selectedConversationId ? "" : "text-muted")">
+                                    @(conv.LastMessage ?? "Chưa có tin nhắn")
+                                </div>
+                            </button>
+                        }
+                    </div>
+                </VanACard>
+            </div>
+
+            <!-- Chat -->
+            <div class="col-md-8">
+                @if (_selectedConversationId != Guid.Empty)
+                {
+                    <RealtimeChatPanel SubjectType="Shop"
+                                       SubjectId="_selectedTenantId"
+                                       CurrentUserId="_staffUserId"
+                                       StaffToken="_staffToken"
+                                       ScrollContainerId="inbox-chat-scroll" />
+                }
+                else
+                {
+                    <VanACard>
+                        <div class="empty-state">
+                            <i class="bi bi-chat-left-text" style="font-size: 2.5rem; color: #6c757d;"></i>
+                            <p class="mt-2">Chọn một cuộc trò chuyện để xem tin nhắn.</p>
+                        </div>
+                    </VanACard>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _isLoading = true;
+    private string? _error;
+    private List<ShopInboxConversationItem> _conversations = new();
+
+    private Guid _selectedConversationId;
+    private Guid _selectedTenantId;
+    private Guid _staffUserId;
+    private string? _staffToken;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _staffUserId = await ApiClient.GetCurrentUserIdAsync();
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            var result = await ApiClient.GetConversationsAsync();
+            _conversations = result.Conversations;
+
+            // Keep the selection if the conversation still exists (refreshes the panel token).
+            if (_selectedConversationId != Guid.Empty
+                && _conversations.All(c => c.ConversationId != _selectedConversationId))
+            {
+                _selectedConversationId = Guid.Empty;
+                _staffToken = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = "Không tải được hộp thư. Vui lòng thử lại.";
+            Logger.LogError(ex, "ShopInbox: load conversations failed");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SelectConversation(ShopInboxConversationItem conv)
+    {
+        _selectedConversationId = conv.ConversationId;
+        _selectedTenantId = conv.SubjectId;
+        // Fresh short-lived JWT per conversation — the panel authenticates as the shop side.
+        _staffToken = await ApiClient.MintOwnerTokenAsync();
+    }
+}

@@ -1,6 +1,6 @@
 # TASK CARD — Realtime Platform: Chat + Live Location (Reusable Across Modules)
 
-> **Status:** 🚧 IN PROGRESS — **P1 DONE + DEPLOYED + RV PASS (L1-L4)** (2026-09-17, `b12a99d2`) · **P2 DONE + DEPLOYED + RV L1 PASS** (2026-09-17, `2c3e0360`) · **P3 DONE + DEPLOYED** (2026-09-18, `d8072ec5`) · **P4 DONE + DEPLOYED** (2026-09-18, `d8072ec5`) · P5-P6 pending
+> **Status:** 🚧 IN PROGRESS — **P1 DONE + DEPLOYED + RV PASS (L1-L4)** (2026-09-17, `b12a99d2`) · **P2 DONE + DEPLOYED + RV L1 PASS** (2026-09-17, `2c3e0360`) · **P3 DONE + DEPLOYED** (2026-09-18, `d8072ec5`) · **P4 DONE + DEPLOYED** (2026-09-18, `d8072ec5`) · **P5 CODE COMPLETE (chưa deploy)** · P6 pending
 > **Review P2-P6 (2026-09-17):** 11 findings (F1-F11) — xem Section 20. Quyết định bổ sung: consumer = **Shop chat trên `/store/{slug}`** (không phải Logistics/JobMarket — xem F1); GPS trên trang shop = **map tĩnh + khoảng cách** (không realtime).
 > **P1 delivered:** D1 (Google customer sync) · D2/D3 (buyer tracking endpoint + map render) · D4 (checkout coords) · D5 (GPS resume) · D6 (guest chat/tracking via device id). Build 0 errors · 40/40 chat+delivery tests PASS · CI ALL PASSED · CD Multi-VPS SUCCESS.
 > **RV:** L1 API ✅ · L2 WASM ✅ · L3 Playwright guest UI ✅ · L4 guest send flow ✅ · L5 manual pending (user).
@@ -265,7 +265,7 @@ B5. Gắn UI (UI Platform — KHÔNG tự viết HTML/CSS)
 | **P2** | IMPLEMENT | ✅ **DONE** (2026-09-17) — DOM-1..DOM-4 + SVC-1..SVC-6 + **F2 (unique index)** + **F6 (tracking index)** + migration PG `20260917101938_AddRealtimePlatformP2` (có backfill `SubjectId`). Build 0 errors · guard ALL PASSED · 11/11 test mới · 248/248 Community regression PASS | 1 |
 | **P3** | IMPLEMENT | ✅ **DONE + DEPLOYED** (`d8072ec5`) — GW-1..GW-9 + **F3** (device token vào SignalR handshake qua query string). Build 0 errors · guard ALL PASSED · 37/37 Realtime tests PASS. Xem Section 18.7 | 1-2 |
 | **P4** | IMPLEMENT | ✅ **DONE + DEPLOYED** (`d8072ec5`) 2026-09-18 — UI-1..UI-13 + **F4** (`IRealtimeEndpointProvider` + RCL wwwroot + verify static assets qua publish **và production L2**: `_content/VanAn.UI.Platform/js/realtime.js` 200 trên diemthuong2) + **F11** (VanAInput thay `<input class="form-control">`). Build 0 errors · guard ALL PASSED · 56/56 Realtime tests PASS (37 P2/P3 + 4 fallback + 15 UI Platform) · Core.Tests 1635 PASS · CI ✅ · CD Multi-VPS ✅. Xem Section 18.8 | 1-2 |
-| **P5** | IMPLEMENT | **REVISED (2026-09-17): consumer = Shop chat + live location trên `/store/{slug}` (FullCommerce) + inbox chủ shop `/community/messages` (ShopERP)**. Logistics/JobMarket **KHÔNG** dùng làm consumer (chưa tồn tại — F1); giữ làm **P7** khi Sprint 8/9 thành module thật | 1-2 |
+| **P5** | IMPLEMENT | ✅ **DONE (code + tests, chưa deploy)** 2026-09-18 — consumer = **Shop chat** trên `/store/{slug}` (khách ↔ shop, subject `Shop/{tenantId}`) + **map tĩnh + khoảng cách** (F9 — VanAnMap thay Google iframe) + **inbox chủ shop** `/community/messages` (ShopERP). **F7/F8/F11** cũng xử lý. Build 0 errors · 66/66 Realtime tests (56 + T1-T9 P5 + T12 staff adapter). Xem Section 18.9 | 1-2 |
 | **P6** | IMPLEMENT | Tests + E2E + RV Layer 1-5 + reuse guide (`docs/UI_Platform_Implementation_Guide.md` bổ sung mục Realtime) | 1 |
 
 ### Rules
@@ -545,7 +545,75 @@ with `/hubs/messaging?customerDeviceId={guid}` and authenticates like any other 
 | `RealtimeGatewayP3Tests.cs` | T5-T15 — device guid via query + header, invalid inputs, resolver first-wins, no-validator→null, group naming, **default deny** for unregistered subject, registered authorizer delegation, staff JWT (absent/garbage/valid), customer token (no call when absent, identity when valid) |
 | `RealtimeControllerP3Tests.cs` | T16-T23 — 401 no identity, 400 invalid subjectType, 403 default deny, 403 skips service, 200 history, 400 (0,0) ping, ping stamped with the subject's tenant + pushed to `loc_` group, latest-with-no-ping = 200 + nulls |
 
-**Not yet done (P5-P6):** Shop chat + owner inbox (P5) · E2E + RV L1-5 + reuse guide (P6).
+**Not yet done (P6):** E2E + RV L1-5 + reuse guide.
+
+---
+
+## 18.9. P5 IMPLEMENTATION RECORD (2026-09-18)
+
+**Goal (REVISED 2026-09-17):** consumer thật đầu tiên = **Shop chat** — khách nhắn với cửa hàng trên
+`/store/{slug}` (subject `Shop/{tenantId}`), chủ shop trả lời từ inbox `/community/messages` (ShopERP).
+Logistics/JobMarket → P7 (chưa có entity — F1). GPS trang shop = **map tĩnh + khoảng cách** (F9).
+
+**Build:** `dotnet build VanAn.sln` 0 errors · **Tests:** 66/66 Realtime (56 P2-P4 + T1-T6 authorizer +
+T7-T9 controller + T12 staff adapter) · Core.Tests chờ kết quả full.
+
+### Server (CoreHub + Gateway)
+
+| # | File | Change |
+|---|---|---|
+| — | `IRealtimeParticipantAuthorizer` | + overload `CanAccessAsync(type, subjectId, userId, tenantId, ct)` (default → userId-only, giữ P2 semantics) — shop side là tenant không phải user |
+| — | `Adapters/ShopRealtimeAuthorizer.cs` (NEW) | Keyed `Shop`: staff có `tenant_id == subjectId` ∨ conversation initiator (CustomerId) ∨ participant row (guest device). Tenant-scoped query |
+| — | `RealtimeMessagingService` | `EnsureParticipantAsync` private → **public** (staff thêm vào participant trước khi send) · + `GetConversationsAsync(type, subjectId, take)` (inbox list) |
+| — | `RealtimeIdentity` | + `TenantId (Guid?)` — staff JWT `tenant_id` claim |
+| — | `StaffJwtValidator` | Parse `tenant_id` claim → identity.TenantId |
+| — | `RealtimeAuthorizerLookup` + `MessagingHub` + `TrackingHub` | + tenant-aware overload; hubs truyền `identity.TenantId` |
+| — | `RealtimeController` | `GetOrEnsureConversationAsync` + branch **Shop**: `EnsureConversationAsync(tenantId, Shop, subjectId, userId, subjectId, role, Shop)` (initiator = caller, counterpart = shop) · SendMessage: staff của Shop được `EnsureParticipantAsync` trước sender check · **NEW `GET /api/realtime/shop/conversations`** — inbox: staff-only (tenant từ JWT), list conversation Shop/{tenant} + last-message preview + customer name (PG Customers, 1 pass) |
+| — | `2_Gateway/Program.cs` | `AddKeyedScoped<…, ShopRealtimeAuthorizer>(RealtimeSubjectType.Shop)` |
+
+### KhachLink — `/store/{slug}` (FullCommerce)
+
+| # | File | Change |
+|---|---|---|
+| F8 | `Pages/Store.razor` | Tạo `customer_device_id` ngay trên trang store (không đợi Checkout) · load customer token + `GetCustomerIdAsync` (token hết hạn → fallback guest) · **section chat**: `<RealtimeChatPanel SubjectType="Shop" SubjectId="_store.Id" …>` |
+| F9/F11 | `Components/GoogleMaps.razor` | **Viết lại**: `VanAnMap` tĩnh (shop marker) thay iframe Google + **khoảng cách** (haversine từ `vananRealtime.getCurrentPosition`, badge "Cách bạn ~X km") · bỏ `<style>` inline · giữ param `ShopConfig` |
+
+### UI.Platform — staff auth
+
+| # | File | Change |
+|---|---|---|
+| — | `IRealtimeChatClient`/`ILiveLocationClient` | + optional `staffToken` (last param, non-breaking) |
+| — | `RealtimeHttpAdapter` | Precedence: staff Bearer → customer token → device id |
+| — | `RealtimeChatPanel` | + `[Parameter] StaffToken` — HTTP Bearer + SignalR `?access_token=` (WebSocket không set header được); guests giờ cũng connect SignalR (F3) |
+
+### ShopERP — inbox `/community/messages`
+
+| # | File | Change |
+|---|---|---|
+| F7 | `Services/ShopInboxApiClient.cs` (NEW) | Pattern TenantCommunityAdminApiClient — mint Owner JWT (tenant_id claim) → `GET api/realtime/shop/conversations` · expose `MintOwnerTokenAsync` (StaffToken cho panel) + `GetCurrentUserIdAsync` |
+| F7 | `Components/Pages/Community/ShopInbox.razor` (NEW) | `@page "/community/messages"` · AdminLayout · `[Authorize(Roles="Owner")]` · list conversations (tên khách + preview) trái, `RealtimeChatPanel` (StaffToken) phải |
+| — | `Components/App.razor` | + leaflet css/js + realtime.js từ `_content/VanAn.UI.Platform/...` |
+| — | `Components/Layout/NavMenu.razor` | + "Hộp thư tin nhắn" (CRM & Loyalty, Owner) |
+| — | `Program.cs` | + `AddScoped<ShopInboxApiClient>()` |
+
+### Tests (`6_Tests/VanAn.Core.Tests/Realtime/`)
+
+| File | Tests |
+|---|---|
+| `ShopRealtimeP5Tests.cs` (NEW) | T1-T2 staff tenant match/mismatch · T3 initiator · T4 guest participant · T5-T6 stranger/empty denied · T7 inbox staff 200 + customer name + preview · T8 inbox customer 403 · T9 Shop conversation ensure (initiator = caller, counterpart = shop) |
+| `RealtimeUiPlatformP4Tests.cs` (+1) | T12 staff token → Authorization Bearer |
+
+### Deviations (đã ghi nhận)
+
+- **Authorizer interface + overload tenant** (không nằm trong card P5 — cần thiết: shop side là tenant
+  không phải user; default impl giữ P2 semantics nên không breaking).
+- **Inbox endpoint `GET /api/realtime/shop/conversations`** (không có trong card) — cần cho trang inbox;
+  staff-only + tenant-scoped từ JWT claim.
+- **`EnsureParticipantAsync` public** — staff không phải conversation party mặc định; gọi sau authorizer
+  nên không mở rộng quyền.
+- **Không có feature-flag cho shop chat** — section chat hiển thị trên mọi `/store/{slug}` (page vốn là
+  commerce profile). Thêm flag nếu cần ở phase sau.
+- **Unread count chưa làm** trong inbox (chỉ last-message preview) — ngoài phạm vi P5.
 
 ---
 

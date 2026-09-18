@@ -116,6 +116,12 @@
     [Parameter] public string? CustomerToken { get; set; }
     /// <summary>D6 (2026-09-17): guest identity (localStorage "customer_device_id"). Guests chat over HTTP.</summary>
     [Parameter] public Guid? CustomerDeviceId { get; set; }
+    /// <summary>
+    /// P5 (2026-09-18): staff Bearer JWT (ShopERP minted, tenant_id claim) — the shop side of a
+    /// Shop conversation. Takes precedence over the customer credentials; sent as
+    /// Authorization: Bearer on HTTP and ?access_token= on the SignalR handshake.
+    /// </summary>
+    [Parameter] public string? StaffToken { get; set; }
     [Parameter] public string ScrollContainerId { get; set; } = "chat-scroll-container";
 
     private List<RealtimeChatMessage> _messages = new();
@@ -134,9 +140,14 @@
 
     private bool HasGuestIdentity => CustomerDeviceId.HasValue && CustomerDeviceId.Value != Guid.Empty;
 
+    /// <summary>P5: staff mode — the Bearer JWT is the only credential.</summary>
+    private bool IsStaff => !string.IsNullOrEmpty(StaffToken);
+
+    private bool HasAnyIdentity => IsStaff || !string.IsNullOrEmpty(CustomerToken) || HasGuestIdentity;
+
     protected override async Task OnInitializedAsync()
     {
-        if (string.IsNullOrEmpty(CustomerToken) && !HasGuestIdentity)
+        if (!HasAnyIdentity)
         {
             _error = "Chưa đăng nhập.";
             _loadingHistory = false;
@@ -176,7 +187,7 @@
     private async Task LoadHistoryAsync()
     {
         _loadingHistory = true;
-        var result = await ChatClient.GetHistoryAsync(SubjectType, SubjectId, CustomerToken, CustomerDeviceId);
+        var result = await ChatClient.GetHistoryAsync(SubjectType, SubjectId, CustomerToken, CustomerDeviceId, 100, StaffToken);
         if (result.Success)
         {
             _messages = result.Messages;
@@ -202,13 +213,21 @@
 
     private async Task ConnectSignalRAsync()
     {
-        if (string.IsNullOrEmpty(CustomerToken)) return;
+        if (!HasAnyIdentity) return;
 
         try
         {
             _connecting = true;
             // F4: hub URL comes from the endpoint provider (no manual derivation in the component).
-            var hubUrl = $"{Endpoints.GetMessagingHubUrl()}?customerToken={Uri.EscapeDataString(CustomerToken)}";
+            // P5: staff uses the SignalR access_token convention (WebSocket handshakes cannot set
+            // headers); customers keep the customerToken query, guests the customerDeviceId query.
+            string hubUrl;
+            if (IsStaff)
+                hubUrl = $"{Endpoints.GetMessagingHubUrl()}?access_token={Uri.EscapeDataString(StaffToken!)}";
+            else if (!string.IsNullOrEmpty(CustomerToken))
+                hubUrl = $"{Endpoints.GetMessagingHubUrl()}?customerToken={Uri.EscapeDataString(CustomerToken)}";
+            else
+                hubUrl = $"{Endpoints.GetMessagingHubUrl()}?customerDeviceId={CustomerDeviceId}";
 
             _hubConnection = new HubConnectionBuilder()
                 .WithUrl(hubUrl)
@@ -251,14 +270,14 @@
 
     private async Task SendMessage()
     {
-        if (string.IsNullOrWhiteSpace(_messageInput) || (string.IsNullOrEmpty(CustomerToken) && !HasGuestIdentity))
+        if (string.IsNullOrWhiteSpace(_messageInput) || !HasAnyIdentity)
             return;
 
         var content = _messageInput.Trim();
         _messageInput = string.Empty;
         _error = null;
 
-        var result = await ChatClient.SendMessageAsync(SubjectType, SubjectId, content, CustomerToken, CustomerDeviceId);
+        var result = await ChatClient.SendMessageAsync(SubjectType, SubjectId, content, CustomerToken, CustomerDeviceId, StaffToken);
         if (!result.Success)
         {
             _error = result.ErrorMessage;

@@ -24,8 +24,13 @@ public enum RealtimeIdentityKind
 /// <c>Order.CustomerDeviceId</c> and used as <c>Message.SenderId</c>/<c>DeliveryTracking.TrackerId</c>
 /// (see P1 D6). Keeping one guid across all three means an authorizer never has to translate
 /// between "who sent this" and "who may read this".
+///
+/// Realtime Platform P5 (2026-09-18): <see cref="TenantId"/> carries the staff JWT's
+/// <c>tenant_id</c> claim — the shop side of a Shop conversation is a tenant, not a user, and the
+/// authorizer needs this to answer "is this staff member the shop?". Customer/guest identities
+/// have no tenant (null).
 /// </summary>
-public sealed record RealtimeIdentity(Guid UserId, RealtimeIdentityKind Kind)
+public sealed record RealtimeIdentity(Guid UserId, RealtimeIdentityKind Kind, Guid? TenantId = null)
 {
     public bool IsGuest => Kind == RealtimeIdentityKind.Device;
 

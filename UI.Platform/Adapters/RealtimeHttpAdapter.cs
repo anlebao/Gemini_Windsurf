@@ -38,12 +38,12 @@ public class RealtimeHttpAdapter(
 
     public async Task<RealtimeChatHistoryResult> GetHistoryAsync(
         string subjectType, Guid subjectId, string? customerToken, Guid? customerDeviceId,
-        int take = 100, CancellationToken ct = default)
+        int take = 100, string? staffToken = null, CancellationToken ct = default)
     {
         try
         {
             var request = BuildGet($"/api/realtime/conversations/{subjectType}/{subjectId}?take={take}",
-                customerToken, customerDeviceId);
+                customerToken, customerDeviceId, staffToken);
             var resp = await CreateClient().SendAsync(request, ct);
             var body = await resp.Content.ReadAsStringAsync(ct);
 
@@ -74,12 +74,12 @@ public class RealtimeHttpAdapter(
 
     public async Task<RealtimeSendResult> SendMessageAsync(
         string subjectType, Guid subjectId, string content, string? customerToken, Guid? customerDeviceId,
-        CancellationToken ct = default)
+        string? staffToken = null, CancellationToken ct = default)
     {
         try
         {
             var request = BuildPost("/api/realtime/conversations/messages",
-                new { subjectType, subjectId, content }, customerToken, customerDeviceId);
+                new { subjectType, subjectId, content }, customerToken, customerDeviceId, staffToken);
             var resp = await CreateClient().SendAsync(request, ct);
             var body = await resp.Content.ReadAsStringAsync(ct);
 
@@ -112,12 +112,12 @@ public class RealtimeHttpAdapter(
 
     public async Task<RealtimeLocationResult> GetLatestAsync(
         string subjectType, Guid subjectId, string? customerToken, Guid? customerDeviceId,
-        CancellationToken ct = default)
+        string? staffToken = null, CancellationToken ct = default)
     {
         try
         {
             var request = BuildGet($"/api/realtime/location/{subjectType}/{subjectId}/latest",
-                customerToken, customerDeviceId);
+                customerToken, customerDeviceId, staffToken);
             var resp = await CreateClient().SendAsync(request, ct);
             var body = await resp.Content.ReadAsStringAsync(ct);
 
@@ -150,12 +150,12 @@ public class RealtimeHttpAdapter(
 
     public async Task<RealtimePingResult> RecordPingAsync(
         string subjectType, Guid subjectId, double lat, double lng, string? customerToken, Guid? customerDeviceId,
-        CancellationToken ct = default)
+        string? staffToken = null, CancellationToken ct = default)
     {
         try
         {
             var request = BuildPost("/api/realtime/location/ping",
-                new { subjectType, subjectId, lat, lng }, customerToken, customerDeviceId);
+                new { subjectType, subjectId, lat, lng }, customerToken, customerDeviceId, staffToken);
             var resp = await CreateClient().SendAsync(request, ct);
             var body = await resp.Content.ReadAsStringAsync(ct);
 
@@ -185,24 +185,27 @@ public class RealtimeHttpAdapter(
 
     // === internals ===
 
-    private HttpRequestMessage BuildGet(string path, string? customerToken, Guid? customerDeviceId)
+    private HttpRequestMessage BuildGet(string path, string? customerToken, Guid? customerDeviceId, string? staffToken = null)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, $"{_endpoints.GetGatewayBaseUrl()}{path}");
-        AddIdentityHeader(request, customerToken, customerDeviceId);
+        AddIdentityHeader(request, customerToken, customerDeviceId, staffToken);
         return request;
     }
 
-    private HttpRequestMessage BuildPost(string path, object body, string? customerToken, Guid? customerDeviceId)
+    private HttpRequestMessage BuildPost(string path, object body, string? customerToken, Guid? customerDeviceId, string? staffToken = null)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, $"{_endpoints.GetGatewayBaseUrl()}{path}");
-        AddIdentityHeader(request, customerToken, customerDeviceId);
+        AddIdentityHeader(request, customerToken, customerDeviceId, staffToken);
         request.Content = JsonContent.Create(body);
         return request;
     }
 
-    private static void AddIdentityHeader(HttpRequestMessage request, string? customerToken, Guid? customerDeviceId)
+    /// <summary>Identity precedence (P5): staff Bearer JWT → customer token → guest device id.</summary>
+    private static void AddIdentityHeader(HttpRequestMessage request, string? customerToken, Guid? customerDeviceId, string? staffToken = null)
     {
-        if (!string.IsNullOrEmpty(customerToken))
+        if (!string.IsNullOrEmpty(staffToken))
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
+        else if (!string.IsNullOrEmpty(customerToken))
             request.Headers.Add("X-Customer-Token", customerToken);
         else if (customerDeviceId.HasValue && customerDeviceId.Value != Guid.Empty)
             request.Headers.Add("X-Customer-Device-Id", customerDeviceId.Value.ToString());

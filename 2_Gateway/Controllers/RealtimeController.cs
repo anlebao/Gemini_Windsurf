@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
+using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
 using VanAn.Gateway.Hubs;
 using VanAn.Gateway.Realtime;
@@ -34,6 +36,7 @@ public class RealtimeController(
     RealtimeIdentityResolver identityResolver,
     IHubContext<MessagingHub> messagingHub,
     IHubContext<TrackingHub> trackingHub,
+    IVanAnDbContext dbContext,
     IServiceProvider services,
     ILogger<RealtimeController> logger) : ControllerBase
 {
@@ -47,6 +50,7 @@ public class RealtimeController(
     private readonly RealtimeIdentityResolver _identityResolver = identityResolver;
     private readonly IHubContext<MessagingHub> _messagingHub = messagingHub;
     private readonly IHubContext<TrackingHub> _trackingHub = trackingHub;
+    private readonly IVanAnDbContext _dbContext = dbContext;
     private readonly IServiceProvider _services = services;
     private readonly ILogger<RealtimeController> _logger = logger;
 
@@ -67,12 +71,18 @@ public class RealtimeController(
         if (!TryParseSubject(body.SubjectType, body.SubjectId.ToString(), out var subjectType, out var subjectId, out var parseError))
             return parseError!;
 
-        if (!await CanAccessAsync(subjectType, subjectId, identity.UserId, ct))
+        if (!await CanAccessAsync(subjectType, subjectId, identity, ct))
             return Forbidden(subjectType, subjectId);
 
         var conversation = await GetOrEnsureConversationAsync(subjectType, subjectId, identity, ct);
         if (conversation == null)
             return NotFound(new { error = "Chưa có cuộc trò chuyện cho chủ thể này." });
+
+        // P5: the shop side of a Shop conversation is a tenant, not a user — a staff member's id
+        // is not a conversation party, so add them as a participant (role Shop) before the sender
+        // check below. Access was already granted by the authorizer above, so this never widens it.
+        if (subjectType == RealtimeSubjectType.Shop && identity.Kind == RealtimeIdentityKind.Staff)
+            await _messaging.EnsureParticipantAsync(conversation, identity.UserId, RealtimeParticipantRole.Shop, ct);
 
         try
         {
@@ -112,7 +122,7 @@ public class RealtimeController(
         if (!TryParseSubject(subjectType, subjectId, out var type, out var id, out var parseError))
             return parseError!;
 
-        if (!await CanAccessAsync(type, id, identity.UserId, ct))
+        if (!await CanAccessAsync(type, id, identity, ct))
             return Forbidden(type, id);
 
         var conversation = await GetOrEnsureConversationAsync(type, id, identity, ct);
@@ -138,6 +148,75 @@ public class RealtimeController(
         });
     }
 
+    /// <summary>
+    /// P5: GET /api/realtime/shop/conversations — the shop inbox. Lists every customer
+    /// conversation of the caller's shop (staff JWT tenant_id claim), newest first, with a
+    /// last-message preview + resolved customer name. Customers who never opened a conversation
+    /// yet simply don't appear until the first message.
+    /// </summary>
+    [HttpGet("shop/conversations")]
+    public async Task<IActionResult> GetShopConversations(CancellationToken ct = default)
+    {
+        var identity = await ResolveIdentityAsync(ct);
+        if (identity == null)
+            return Unauthorized(new { error = "Cần Bearer token (staff)." });
+
+        if (identity.Kind != RealtimeIdentityKind.Staff || !identity.TenantId.HasValue || identity.TenantId.Value == Guid.Empty)
+            return StatusCode(403, new { error = "Chỉ chủ shop mới xem được hộp thư." });
+
+        var shopTenantId = identity.TenantId.Value;
+        var conversations = await _messaging.GetConversationsAsync(RealtimeSubjectType.Shop, shopTenantId, 100, ct);
+
+        // Resolve customer display names in one pass (guest device ids are not Customers).
+        var customerIds = conversations
+            .Where(c => c.CustomerId != Guid.Empty)
+            .Select(c => c.CustomerId)
+            .Distinct()
+            .ToList();
+        var names = new Dictionary<Guid, string>();
+        if (customerIds.Count > 0)
+        {
+            names = await _dbContext.Customers
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(c => customerIds.Contains(c.Id))
+                .ToDictionaryAsync(c => c.Id, c => c.FullName, ct);
+        }
+
+        var items = new List<ShopConversationItem>();
+        foreach (var c in conversations)
+        {
+            var last = (await _messaging.GetHistoryAsync(c.Id, 1, ct)).LastOrDefault();
+            items.Add(new ShopConversationItem
+            {
+                ConversationId = c.Id,
+                SubjectId = c.SubjectId,
+                CustomerId = c.CustomerId,
+                CustomerName = c.CustomerId != Guid.Empty && names.TryGetValue(c.CustomerId, out var n) ? n : null,
+                LastMessage = last?.Content,
+                LastMessageAt = last?.SentAt,
+                LastSenderId = last?.SenderId
+            });
+        }
+
+        return Ok(new
+        {
+            tenantId = shopTenantId,
+            conversations = items.OrderByDescending(i => i.LastMessageAt ?? DateTime.MinValue)
+        });
+    }
+
+    private sealed class ShopConversationItem
+    {
+        public Guid ConversationId { get; init; }
+        public Guid SubjectId { get; init; }
+        public Guid CustomerId { get; init; }
+        public string? CustomerName { get; init; }
+        public string? LastMessage { get; init; }
+        public DateTime? LastMessageAt { get; init; }
+        public Guid? LastSenderId { get; init; }
+    }
+
     /// <summary>Record a GPS ping for a subject and push it to the subject's tracking group.</summary>
     [HttpPost("location/ping")]
     public async Task<IActionResult> RecordPing([FromBody] RealtimePingRequest body, CancellationToken ct)
@@ -160,7 +239,7 @@ public class RealtimeController(
         if (body.Lat == 0 && body.Lng == 0)
             return BadRequest(new { error = "Tọa độ không hợp lệ. Vui lòng bật GPS." });
 
-        if (!await CanAccessAsync(type, id, identity.UserId, ct))
+        if (!await CanAccessAsync(type, id, identity, ct))
             return Forbidden(type, id);
 
         var tenantId = await _subjectResolver.ResolveTenantAsync(type, id, ct);
@@ -191,7 +270,7 @@ public class RealtimeController(
         if (!TryParseSubject(subjectType, subjectId, out var type, out var id, out var parseError))
             return parseError!;
 
-        if (!await CanAccessAsync(type, id, identity.UserId, ct))
+        if (!await CanAccessAsync(type, id, identity, ct))
             return Forbidden(type, id);
 
         var ping = await _liveLocation.GetLatestAsync(type, id, ct);
@@ -208,13 +287,14 @@ public class RealtimeController(
     }
 
     /// <summary>
-    /// Find a subject's conversation — or create it when the subject is an Order and it does not
-    /// exist yet. Order conversations are created lazily by the legacy adapter
-    /// (<see cref="IChatService.GetOrCreateConversationAsync"/>: a fresh order has no conversation
-    /// until a party opens chat, and the placeholder ShipperId is filled in when the shipper
-    /// accepts). P4 mirrors that here so the generic surface serves order chats exactly like
-    /// /api/community/chat/* — otherwise the UI migration (RealtimeChatPanel → /api/realtime/*)
-    /// would 404 on every fresh order (GW-6 keeps IChatService as the order adapter).
+    /// Find a subject's conversation — or create it when the subject is an Order or a Shop and it
+    /// does not exist yet.
+    ///   - Order: created lazily by the legacy adapter (<see cref="IChatService.GetOrCreateConversationAsync"/>)
+    ///     — a fresh order has no conversation until a party opens chat, and the placeholder
+    ///     ShipperId is filled in when the shipper accepts (P4; GW-6 keeps IChatService as the
+    ///     order adapter).
+    ///   - Shop (P5): created generically — initiator = the caller (customer/guest), counterpart =
+    ///     the shop itself (SubjectId == tenant id; see RealtimeSubjectResolver).
     /// The caller has already passed <see cref="CanAccessAsync"/>, so this never widens access.
     /// </summary>
     private async Task<Conversation?> GetOrEnsureConversationAsync(
@@ -224,18 +304,34 @@ public class RealtimeController(
         CancellationToken ct)
     {
         var conversation = await _messaging.GetConversationAsync(subjectType, subjectId, ct);
-        if (conversation != null || subjectType != RealtimeSubjectType.Order)
+        if (conversation != null)
             return conversation;
 
-        var guestDeviceId = identity.Kind == RealtimeIdentityKind.Device ? identity.UserId : (Guid?)null;
-        return await _chatService.GetOrCreateConversationAsync(subjectId, guestDeviceId);
+        if (subjectType == RealtimeSubjectType.Order)
+        {
+            var guestDeviceId = identity.Kind == RealtimeIdentityKind.Device ? identity.UserId : (Guid?)null;
+            return await _chatService.GetOrCreateConversationAsync(subjectId, guestDeviceId);
+        }
+
+        if (subjectType == RealtimeSubjectType.Shop)
+        {
+            var tenantId = await _subjectResolver.ResolveTenantAsync(subjectType, subjectId, ct);
+            if (tenantId == null)
+                return null;
+            // Counterpart is the shop itself (its tenant id doubles as the shop participant id).
+            return await _messaging.EnsureConversationAsync(
+                tenantId, subjectType, subjectId, identity.UserId, subjectId,
+                identity.RoleCode, RealtimeParticipantRole.Shop, ct);
+        }
+
+        return null;
     }
 
     private async Task<RealtimeIdentity?> ResolveIdentityAsync(CancellationToken ct)
         => await _identityResolver.ResolveAsync(HttpContext, ct);
 
-    private Task<bool> CanAccessAsync(RealtimeSubjectType type, Guid id, Guid userId, CancellationToken ct)
-        => RealtimeAuthorizerLookup.CanAccessAsync(_services, type, id, userId, ct);
+    private Task<bool> CanAccessAsync(RealtimeSubjectType type, Guid id, RealtimeIdentity identity, CancellationToken ct)
+        => RealtimeAuthorizerLookup.CanAccessAsync(_services, type, id, identity.UserId, identity.TenantId, ct);
 
     private ObjectResult Forbidden(RealtimeSubjectType type, Guid subjectId)
     {

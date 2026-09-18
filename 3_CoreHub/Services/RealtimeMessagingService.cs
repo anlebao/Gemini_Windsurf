@@ -150,6 +150,26 @@ public class RealtimeMessagingService(
         return messages;
     }
 
+    public async Task<List<Conversation>> GetConversationsAsync(
+        RealtimeSubjectType subjectType,
+        Guid subjectId,
+        int take = 100,
+        CancellationToken ct = default)
+    {
+        if (subjectId == Guid.Empty || take <= 0)
+            return new List<Conversation>();
+
+        var subjectCode = subjectType.ToString();
+
+        return await _dbContext.Conversations
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(c => c.SubjectType == subjectCode && c.SubjectId == subjectId)
+            .OrderByDescending(c => c.CreatedAt)
+            .Take(take)
+            .ToListAsync(ct);
+    }
+
     public async Task MarkAsReadAsync(Guid messageId, CancellationToken ct = default)
     {
         var message = await _dbContext.Messages
@@ -188,7 +208,7 @@ public class RealtimeMessagingService(
                         && (c.ShipperId == userId || c.CustomerId == userId), ct);
     }
 
-    private async Task EnsureParticipantAsync(Conversation conversation, Guid participantId, string roleCode, CancellationToken ct)
+    public async Task EnsureParticipantAsync(Conversation conversation, Guid participantId, string roleCode, CancellationToken ct)
     {
         if (participantId == Guid.Empty)
             return;

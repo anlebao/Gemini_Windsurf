@@ -4,6 +4,7 @@
 @using VanAn.KhachLink.Models
 @using VanAn.KhachLink.Services.Http
 @using VanAn.Shared.Domain
+@using VanAn.UI.Platform.Components.Realtime
 @page "/store/{Slug}"
 @page "/store/by-id/{TenantId}"
 @implements IDisposable
@@ -12,6 +13,7 @@
 @inject ProductHttpService ProductService
 @inject CatalogHttpService CatalogService
 @inject ISocialCampaignService CampaignService
+@inject CommunityHttpService CommunityHttp
 @inject NavigationManager Navigation
 @inject ILogger<Store> Logger
 @inject IJSRuntime JSRuntime
@@ -220,6 +222,30 @@ else
                     <div class="section-divider"></div>
                 </div>
                 <GoogleMaps ShopConfig="@_shopConfig" />
+            </section>
+        }
+
+        <!-- ════════════════════════════════════════════════════════════════
+             SHOP CHAT (Realtime Platform P5) — customer ↔ shop owner conversation.
+             Subject = Shop/{tenantId}; identity = customer id or guest device id (F8: the
+             device id is created on this page too, not only at Checkout).
+        ════════════════════════════════════════════════════════════════ -->
+        @if (ChatIdentity.HasValue)
+        {
+            <section class="store-section" id="shop-chat">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <span class="section-icon"><i class="bi bi-chat-dots-fill"></i></span>
+                        Trò Chuyện Với Cửa Hàng
+                    </h2>
+                    <div class="section-divider"></div>
+                </div>
+                <RealtimeChatPanel SubjectType="Shop"
+                                   SubjectId="_store.Id"
+                                   CurrentUserId="ChatIdentity.Value"
+                                   CustomerToken="_customerToken"
+                                   CustomerDeviceId="_customerDeviceId"
+                                   ScrollContainerId="shop-chat-scroll" />
             </section>
         }
 
@@ -585,6 +611,14 @@ else
     private bool _campaignLoading = true;
     private bool _vatDisplayEnabled = true;
 
+    // Realtime Platform P5: shop chat identity — logged-in customer id, else the guest device id.
+    private string? _customerToken;
+    private Guid? _customerId;
+    private Guid? _customerDeviceId;
+
+    /// <summary>Chat identity for the RealtimeChatPanel (customer id wins over guest device id).</summary>
+    private Guid? ChatIdentity => _customerId ?? _customerDeviceId;
+
     private string GetThemeClass() => _shopConfig?.ActiveTheme switch
     {
         ThemeType.Modern => "modern",
@@ -599,6 +633,34 @@ else
         _loading = true;
         // Cart drawer + cart state now managed by KhachLinkLayout (global floating cart).
         await CartService.LoadCartFromStorageAsync();
+
+        // Realtime Platform P5 (F8): the guest device id used to exist only after the first
+        // Checkout — a visitor who chats with the shop before ordering had no identity. Create it
+        // here (same localStorage key as Checkout/OrderTracking) and resolve the logged-in
+        // customer id so the shop chat works for both.
+        _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+        var deviceIdStr = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
+        if (string.IsNullOrEmpty(deviceIdStr))
+        {
+            deviceIdStr = Guid.NewGuid().ToString();
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_device_id", deviceIdStr);
+        }
+        if (Guid.TryParse(deviceIdStr, out var deviceId) && deviceId != Guid.Empty)
+            _customerDeviceId = deviceId;
+
+        if (!string.IsNullOrEmpty(_customerToken))
+        {
+            try
+            {
+                _customerId = await CommunityHttp.GetCustomerIdAsync(_customerToken);
+            }
+            catch { /* token invalid — fall back to guest chat */ }
+
+            // Token tồn tại nhưng hết hạn → chat bằng guest device id thay vì báo lỗi phiên.
+            if (_customerId == null)
+                _customerToken = null;
+        }
+
         try
         {
             // Support two routes: /store/{slug} and /store/by-id/{tenantId}

@@ -66,7 +66,17 @@ public class StaffJwtValidator(
                 ?? principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
             if (Guid.TryParse(sub, out var userId) && userId != Guid.Empty)
-                return Task.FromResult<RealtimeIdentity?>(new RealtimeIdentity(userId, RealtimeIdentityKind.Staff));
+            {
+                // P5: the staff JWT carries tenant_id (see JwtTokenService) — the shop side of a
+                // Shop conversation is a tenant, so the identity carries it for the authorizer.
+                Guid? tenantId = null;
+                var tenantClaim = principal.FindFirst("tenant_id")?.Value
+                    ?? principal.FindFirst("TenantId")?.Value;
+                if (Guid.TryParse(tenantClaim, out var tid) && tid != Guid.Empty)
+                    tenantId = tid;
+
+                return Task.FromResult<RealtimeIdentity?>(new RealtimeIdentity(userId, RealtimeIdentityKind.Staff, tenantId));
+            }
 
             _logger.LogDebug("StaffJwtValidator: token has no usable sub claim ({Sub})", sub);
             return Task.FromResult<RealtimeIdentity?>(null);

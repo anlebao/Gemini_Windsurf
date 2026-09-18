@@ -457,6 +457,10 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ILiveLocationService, VanAn.CoreHub.Services.LiveLocationService>();
             _ = builder.Services.AddKeyedScoped<VanAn.CoreHub.Services.IRealtimeParticipantAuthorizer, VanAn.CoreHub.Services.Adapters.OrderRealtimeAuthorizer>(
                 VanAn.Shared.Domain.RealtimeSubjectType.Order);
+            // Realtime Platform P5 (2026-09-18): shop chat — the shop side is a tenant (staff JWT
+            // tenant_id claim == SubjectId), the customer side is a conversation participant.
+            _ = builder.Services.AddKeyedScoped<VanAn.CoreHub.Services.IRealtimeParticipantAuthorizer, VanAn.CoreHub.Services.Adapters.ShopRealtimeAuthorizer>(
+                VanAn.Shared.Domain.RealtimeSubjectType.Shop);
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IRealtimeSubjectResolver, VanAn.CoreHub.Services.RealtimeSubjectResolver>();
 
             // Realtime Platform P3 (2026-09-17): identity for the generic hubs + /api/realtime/*.

@@ -46,6 +46,22 @@ public interface IRealtimeMessagingService
     /// <summary>History for a conversation, oldest first (bounded by <paramref name="take"/>).</summary>
     Task<List<Message>> GetHistoryAsync(Guid conversationId, int take = 100, CancellationToken ct = default);
 
+    /// <summary>All conversations for a subject — used by the shop inbox (P5) to list every
+    /// customer conversation of a tenant. Bounded by <paramref name="take"/>.</summary>
+    Task<List<Conversation>> GetConversationsAsync(
+        RealtimeSubjectType subjectType,
+        Guid subjectId,
+        int take = 100,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Add (or reactivate) a participant row for a conversation. P5: the shop side of a Shop
+    /// conversation is a tenant, not a user — a staff member's id is not a conversation party,
+    /// so the gateway ensures the staff sender is a participant before SendMessageAsync's
+    /// participant check. Safe after the authorizer has already granted access.
+    /// </summary>
+    Task EnsureParticipantAsync(Conversation conversation, Guid participantId, string roleCode, CancellationToken ct = default);
+
     Task MarkAsReadAsync(Guid messageId, CancellationToken ct = default);
 
     /// <summary>True when the user is an active participant (generic rows or the legacy pair).</summary>

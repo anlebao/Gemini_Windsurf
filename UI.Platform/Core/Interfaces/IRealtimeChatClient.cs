@@ -19,6 +19,7 @@ public interface IRealtimeChatClient
         string? customerToken,
         Guid? customerDeviceId,
         int take = 100,
+        string? staffToken = null,
         CancellationToken ct = default);
 
     /// <summary>POST /api/realtime/conversations/messages — send a message to a subject's conversation.</summary>
@@ -28,5 +29,6 @@ public interface IRealtimeChatClient
         string content,
         string? customerToken,
         Guid? customerDeviceId,
+        string? staffToken = null,
         CancellationToken ct = default);
 }

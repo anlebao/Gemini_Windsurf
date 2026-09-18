@@ -159,6 +159,21 @@ public class RealtimeUiPlatformP4Tests
         Assert.Equal(new DateTime(2026, 9, 18, 2, 0, 0, DateTimeKind.Utc), result.RecordedAt);
     }
 
+    [Fact(DisplayName = "T12: staff token authenticates via Authorization Bearer (P5)")]
+    public async Task GetHistoryAsync_StaffToken_SendsBearer()
+    {
+        var subjectId = Guid.NewGuid();
+        var handler = new MockHttpMessageHandler();
+        handler.When(HttpMethod.Get, $"{GatewayBase}/api/realtime/conversations/Shop/{subjectId}?take=100")
+               .WithHeaders("Authorization", "Bearer staff-jwt-123")
+               .Respond("application/json", """{"conversationId":"00000000-0000-0000-0000-000000000000","messages":[]}""");
+
+        var adapter = BuildAdapter(handler);
+        var result = await adapter.GetHistoryAsync("Shop", subjectId, null, null, 100, "staff-jwt-123");
+
+        Assert.True(result.Success);
+    }
+
     [Fact(DisplayName = "T11: HTTP errors map to ErrorCode + ErrorMessage from the body")]
     public async Task GetHistoryAsync_Forbidden_MapsError()
     {
