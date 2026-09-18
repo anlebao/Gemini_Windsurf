@@ -173,13 +173,13 @@ public class ShopRealtimeP5Tests : IDisposable
         Assert.Equal(403, status.StatusCode);
     }
 
-    [Fact(DisplayName = "T9: GET conversations/Shop/{tenantId} ensures a conversation (initiator = caller)")]
+    [Fact(DisplayName = "T9: GET conversations/Shop/{tenantId} — a fresh visitor creates the conversation (initiator = caller)")]
     public async Task GetConversation_Shop_EnsuresConversation()
     {
         var customerId = Guid.NewGuid();
         var (controller, messaging) = BuildController(_context, customerId, tenantId: null, kind: RealtimeIdentityKind.Customer);
 
-        // Generic lookup misses → Shop branch calls EnsureConversationAsync (mock returns a row).
+        // Generic lookup misses → Shop ensure (create-only) runs, then the authorizer gates.
         messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync((Conversation?)null);
         messaging.Setup(m => m.EnsureConversationAsync(
@@ -200,11 +200,38 @@ public class ShopRealtimeP5Tests : IDisposable
             RealtimeParticipantRole.Customer, RealtimeParticipantRole.Shop, It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Fact(DisplayName = "T10: a stranger cannot join an EXISTING shop conversation (create-only ensure)")]
+    public async Task GetConversation_Shop_ExistingConversation_StrangerDenied()
+    {
+        var strangerDevice = Guid.NewGuid();
+        var existing = new Conversation(Tenant, RealtimeSubjectType.Shop, ShopTenantId, Guid.NewGuid(), ShopTenantId);
+        var (controller, messaging) = BuildController(_context, strangerDevice, tenantId: null,
+            kind: RealtimeIdentityKind.Device, authorizerAllows: false);
+
+        messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(existing);
+        messaging.Setup(m => m.GetHistoryAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(new List<Message>());
+
+        var result = await controller.GetConversation(
+            nameof(RealtimeSubjectType.Shop), ShopTenantId.ToString(), 100, CancellationToken.None);
+
+        var status = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(403, status.StatusCode);
+        // The existing conversation was NOT joined — no ensure, no participant add.
+        messaging.Verify(m => m.EnsureConversationAsync(
+            It.IsAny<TenantId>(), It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(),
+            It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        messaging.Verify(m => m.EnsureParticipantAsync(
+            It.IsAny<Conversation>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     // === helpers ===
 
     private (RealtimeController Controller, Mock<IRealtimeMessagingService> Messaging) BuildController(
         IVanAnDbContext dbContext, Guid userId, Guid? tenantId,
-        RealtimeIdentityKind kind = RealtimeIdentityKind.Staff)
+        RealtimeIdentityKind kind = RealtimeIdentityKind.Staff,
+        bool authorizerAllows = true)
     {
         var identity = new RealtimeIdentity(userId, kind, tenantId);
 
@@ -226,7 +253,7 @@ public class ShopRealtimeP5Tests : IDisposable
 
         var services = new ServiceCollection();
         services.AddKeyedScoped<IRealtimeParticipantAuthorizer>(
-            RealtimeSubjectType.Shop, (_, _) => new StubShopAuthorizer(allows: true));
+            RealtimeSubjectType.Shop, (_, _) => new StubShopAuthorizer(allows: authorizerAllows));
         var provider = services.BuildServiceProvider();
 
         var (messagingHub, _) = HubMock<MessagingHub>();
