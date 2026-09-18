@@ -549,6 +549,24 @@ with `/hubs/messaging?customerDeviceId={guid}` and authenticates like any other 
 
 ---
 
+## 18.11. P6 MANUAL-TEST ROUND (2026-09-18) — 3 findings từ user + 2 bug nữa bị debug bắt
+
+User manual test (trang tenant profile + ShopERP inbox + KhachLink commiemphi mobile):
+
+| # | Finding | Root cause (verified) | Fix (deploy) |
+|---|---|---|---|
+| 1 | **Map chỉ khung xám** (GPS tracking) | `tile.openstreetmap.org` bị chặn từ network (verify: OSM `000` ERR_CONNECTION_REFUSED, CARTO/Esri `200`) — map init đúng nhưng 0 tile | **Tile provider fallback chain** trong `realtime.js` (OSM → CARTO voyager → Esri), switch trên `tileerror` + burst-lock per-map (`0e50cf51`) |
+| 2 | Chat **không auto-load (3-5s)** + **thiếu nút làm mới** | poll 8s (chỉ khi SignalR off) + không có refresh | poll **8s → 4s** + **nút làm mới** (bi-arrow-clockwise) trong header panel (`0e50cf51`) |
+| 3 | Mobile: nút **Gửi tràn màn hình** | input+button cùng hàng flex, không wrap trên màn hẹp | `RealtimeChatPanel.razor.css`: **stack dọc < 576px** (input + nút full-width riêng dòng), hàng ngang ≥576px (`0e50cf51`) |
+
+**2 bug nữa do debug dump phát hiện (round 2, `c76c0b4d`):**
+- **Nút refresh render rỗng (`<!--!-->`)** + 3× `Unable to set property 'disabled'` — truyền `disabled` (lowercase) qua unmatched attributes va chạm với `disabled` nội bộ của VanAnButton (`State.IsDisabled` + `@attributes` merge). Fix: dùng param **`Disabled`** (PascalCase). Nút Gửi cũng có cùng latent bug (cũng đổi). **Lưu ý:** `Checkout.razor:255` cũng dùng `disabled` lowercase — latent bug pre-existing, ngoài scope.
+- **Enter-to-send không hoạt động**: `@onkeypress` qua VanAInput AdditionalAttributes **render literal** (`@onkeypress="OnKeyPress"` trong DOM) — event handler KHÔNG bind được qua unmatched attributes. Fix: thêm param **`OnKeyPress`** (EventCallback) vào `VanAInput` (additive, no-op khi không có delegate).
+
+**Verify production (sau deploy):** `debug-map.spec.ts` (tiles load qua fallback — poll tới khi `tilesLoaded > 0`, OSM failed → CARTO 15/15) + `debug-panel-html.spec.ts` (refresh button render · mobile layout column + button below input + **no horizontal overflow** · **Enter-to-send gửi được tin**) — **16/16 E2E PASS**. CI ✅ (kèm fix teardown flaky `CustomerGlobalStaffBlockedTests` `3c009f7d`) · CD Multi-VPS ✅.
+
+---
+
 ## 18.10. P6 IMPLEMENTATION RECORD (2026-09-18)
 
 **Goal:** tests + E2E + RV Layer 1-5 + reuse guide.
