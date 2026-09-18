@@ -34,7 +34,7 @@
 
 ## 2. Current Objective
 
-**REALTIME PLATFORM — CHAT + LIVE LOCATION REUSABLE ACROSS MODULES — ✅ COMPLETE (2026-09-18) — P1-P6 DONE + DEPLOYED + RV L1-L3.**
+**REALTIME PLATFORM — CHAT + LIVE LOCATION REUSABLE ACROSS MODULES — ✅ COMPLETE (2026-09-18) — P1-P6 DONE + DEPLOYED + RV P1-P5 (L1 26/26 · L3 13/13).**
 
 Task card: `docs/AI/tasks/realtime_platform/task_card_01_realtime_chat_gps_reusable.md` (395+ dòng, đã duyệt).
 Origin: RV cho thấy chat + GPS **vẫn chết trên UI** dù fix `26dc9e62` đã deploy → root-cause analysis tìm ra 6 defect (D1-D6) + 8 điểm coupling (C1-C8).
@@ -215,7 +215,9 @@ Server A (Edge):              Server B (Central):
 ## 10. Maintenance Log
 
 > Full historical maintenance log (pre-2026-09-17): see `docs/AI/project_state_archive.md`.
-> **Last Updated:** 2026-09-18 · **Branch:** `main` @ `3fb71866` (Realtime Platform P1-P6 COMPLETE + DEPLOYED + RV L1-L3; E2E 12/12 PASS)
+> **Last Updated:** 2026-09-18 · **Branch:** `main` @ `b489ffb6` (Realtime Platform P1-P6 COMPLETE + DEPLOYED + RV P1-P5 PASS)
+
+* **2026-09-18 — REALTIME PLATFORM RV P1-P5 TRÊN PRODUCTION (`b489ffb6`).** Script `.devin/rv-realtime-p1-p5.sh` dùng order thật từ PG (SSH vanan-gateway → psql VanAnCoreHub): `01a0afac` (customer + device `81f43d82`) + `01a0b4a8` (guest + device `c9ea713e`). **L1 API 26/26:** legacy chat (guest 200 / wrong 403 / no-id 401 — device trên customer-order = 403 legacy by design, generic mới resolve qua Order.CustomerDeviceId) · tracking buyer/guest 200 + shopLat · generic Order history/send/round-trip/latest · Shop 401/create/send/privacy · hubs ×4 · L2 3 host. **L3 Playwright 13/13:** + `rv-realtime-order-ui.spec.ts` — order thật: chat panel ENABLED (fix P6), guest gửi tin qua UI xuất hiện, map leaflet render, 0 console error. **Bug thứ 3 RV bắt (`b489ffb6`):** device send trên order → 403 (conversation keyed theo CustomerId, device không phải participant) → fix `EnsureParticipantAsync` (Guest) cho Device trên Order subjects + T12. 69/69 Realtime tests · CI ✅ · CD Multi-VPS ✅. L4/L5 manual pending.
 
 * **2026-09-18 — REALTIME PLATFORM P6 — E2E + RV L1-L3 + REUSE GUIDE (`3fb71866`).** E2E specs mới chạy thẳng production: `realtime-shop-chat.spec.ts` (7) + `realtime-tracking.spec.ts` (5) = **12/12 PASS** qua `realtime-rv.config.ts` (config bỏ global-setup local + storageState, giữ reporters/timeouts). **RV:** L1 API (401/guest-create/send-readback/privacy-filter/400-validation) ✅ · L2 `_content/VanAn.UI.Platform/js/realtime.js` + leaflet **200 trên 3 host** (diemthuong2, api2/shoperp, timlathay) ✅ · L3 Playwright UI (store chat guest send + order-tracking render, 0 console error) ✅ · L4/L5 manual pending. **Bug 1 — Shop chat chicken-and-egg** (deploy `7406d83a` → fix `f05960c5`): khách mới 403 mãi vì authorizer trước ensure. Fix = **public widget**: Shop ensure create-only trước authorize; privacy = **history filter per-caller** (tin mình + shop reply; staff toàn bộ) + **per-user SignalR group** `msg_Shop_{tenant}_u_{userId}` (staff shared group, khách group riêng, push cả 2). Tests T10/T11 (filter/staff-all) + E2E P5-5 (device khác không thấy tin). **Bug 2 — Razor string-param binding** (deploy `3fb71866`): `Param="_field"` không `@` = **literal string** khi param nhận string → `CustomerToken="_customerToken"` gửi literal → 401 → chat input disabled; **ChatPanel + LeafletMap shim (P4) cũng dính — order chat logged-in 401 từ lúc P4 deploy** (E2E mới lộ). Fix: bind `@` cho mọi string param không-literal; verify literal `_customerToken` = 0 trong WASM. **Reuse guide:** `docs/UI_Platform_Implementation_Guide.md` + §Realtime (quick start 5 bước, checklist, identity, endpoints, static assets, E2E). Build 0 errors · guard ALL PASSED · 68/68 Realtime tests · Core.Tests 1647 PASS · CI ✅ · CD Multi-VPS ✅. Chi tiết: task card Section 18.10.
 

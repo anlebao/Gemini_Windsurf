@@ -561,15 +561,20 @@ with `/hubs/messaging?customerDeviceId={guid}` and authenticates like any other 
 | `e2e-tests/realtime-tracking.spec.ts` (5 tests) | P4-1 401 · P4-2 stranger 403 (default deny) · P4-3 ping (0,0) 400 · P4-4 invalid subject 400 · P4-5 order-tracking page render 0 lỗi | ✅ 5/5 |
 | `helpers/gps-mock.ts` | + mock `vananRealtime.getCurrentPosition` (thêm namespace, additive) | ✅ |
 
-### RV trên production (deploy `3fb71866`)
+### RV trên production (deploy `3fb71866` → `b489ffb6`)
 
 | Layer | Check | Result |
 |---|---|---|
-| L1 API | P5-1..P5-6 + P4-1..P4-4 (auth contracts, guest create, send/history, privacy filter, validation) | ✅ |
+| L1 API | **26/26** — script `.devin/rv-realtime-p1-p5.sh` (order thật `01a0afac` + device `81f43d82` + order guest `01a0b4a8`): legacy chat (guest 200 / wrong 403 / no-id 401) · tracking (buyer/guest 200 + shopLat) · **generic Order** history/send/round-trip/latest (P4 migration) · **P5 Shop** (401 / fresh-device create / send / privacy) · hubs ×4 · L2 static 3 host | ✅ |
 | L2 Static | `_content/VanAn.UI.Platform/js/realtime.js` + `lib/leaflet/*` **200** trên **3 host**: diemthuong2.khachvip.online · api2.khachvip.online/shoperp · timlathay.com (F4) | ✅ |
-| L3 Playwright | P5-7 UI (store chat send end-to-end) + P4-5 (page render) | ✅ |
+| L3 Playwright | **13/13** — shop-chat 7/7 + tracking 5/5 + `rv-realtime-order-ui.spec.ts`: **order thật** — chat panel ENABLED (fix P6) + guest gửi tin qua UI xuất hiện + map leaflet render + 0 console error | ✅ |
 | L4 UI flow | Shop inbox staff reply (cần login thật) | ⏳ manual |
 | L5 Manual | user | ⏳ |
+
+**Bug thứ 3 RV bắt được (`b489ffb6`):** guest device trên order — GET history 200 (authorizer qua
+`Order.CustomerDeviceId`) nhưng POST send 403 (conversation keyed theo CustomerId → device không phải
+participant → `SendMessageAsync` từ chối). Fix: `EnsureParticipantAsync` (role Guest) cho Device identity
+trên Order subjects (sau authorizer). Test T12 + E2E real-order UI PASS.
 
 ### 2 bug thật bị E2E bắt (production, đã fix + deploy)
 
