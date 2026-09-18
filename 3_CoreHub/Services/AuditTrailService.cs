@@ -362,19 +362,34 @@ namespace VanAn.CoreHub.Services
         /// </summary>
         private async Task<bool> IsAuditEnabledAsync(AuditableEntityType entityType, CancellationToken ct)
         {
-            if (!await _featureFlag.IsEnabledAsync("Audit_Enabled", defaultWhenMissing: true, ct))
-                return false;
-
-            var groupFlag = entityType switch
+            // Fix (2026-09-18): fail-safe in background scopes (NATS subscribers / hosted services).
+            // FeatureFlagApiClient resolves auth via HttpContext (Razor DI scope) and throws
+            // "Do not call GetAuthenticationStateAsync outside of the DI scope for a Razor component"
+            // when invoked from PaymentConfirmedSubscriber → aborted GenerateAccountingEntriesAsync
+            // after the first entry was persisted. Audit defaults to ENABLED (accounting integrity)
+            // with a warning when the flag cannot be resolved.
+            try
             {
-                AuditableEntityType.AccountingEntry or AuditableEntityType.PeriodClosing => "Audit_Accounting",
-                AuditableEntityType.KhachLinkInstance => "Audit_KhachLink",
-                AuditableEntityType.SecurityEvent => "Audit_Security",
-                _ => null
-            };
-            if (groupFlag == null)
+                if (!await _featureFlag.IsEnabledAsync("Audit_Enabled", defaultWhenMissing: true, ct))
+                    return false;
+
+                var groupFlag = entityType switch
+                {
+                    AuditableEntityType.AccountingEntry or AuditableEntityType.PeriodClosing => "Audit_Accounting",
+                    AuditableEntityType.KhachLinkInstance => "Audit_KhachLink",
+                    AuditableEntityType.SecurityEvent => "Audit_Security",
+                    _ => null
+                };
+                if (groupFlag == null)
+                    return true;
+                return await _featureFlag.IsEnabledAsync(groupFlag, defaultWhenMissing: true, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "IsAuditEnabledAsync: feature flag check failed (background scope?) — audit defaults to ENABLED");
                 return true;
-            return await _featureFlag.IsEnabledAsync(groupFlag, defaultWhenMissing: true, ct);
+            }
         }
 
         /// <summary>
