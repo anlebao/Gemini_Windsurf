@@ -18,6 +18,7 @@
        aria-label="@(AriaLabel ?? Label)"
        step="@Step"
        min="@Min"
+       @onkeypress="HandleKeyPress"
        @attributes="AdditionalAttributes" />
 
 @code {
@@ -60,8 +61,22 @@
     [Parameter(CaptureUnmatchedValues = true)]
     public Dictionary<string, object>? AdditionalAttributes { get; set; }
 
+    /// <summary>
+    /// Realtime Platform P6 (2026-09-18): keypress callback (Enter-to-send trong chat).
+    /// Event handlers KHÔNG bind được qua AdditionalAttributes (unmatched attribute render literal),
+    /// nên expose param riêng. No-op khi không có delegate.
+    /// </summary>
+    [Parameter]
+    public EventCallback<KeyboardEventArgs> OnKeyPress { get; set; }
+
     private string _currentValue = string.Empty;
     private bool _syncing;
+
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (OnKeyPress.HasDelegate)
+            await OnKeyPress.InvokeAsync(e);
+    }
 
     protected override void OnParametersSet()
     {

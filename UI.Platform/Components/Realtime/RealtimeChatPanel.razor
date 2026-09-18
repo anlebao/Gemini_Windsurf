@@ -22,9 +22,11 @@
         <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
             <h6 class="mb-0"><i class="bi bi-chat-dots text-primary"></i> Chat với khách hàng</h6>
             <div class="d-flex align-items-center gap-2">
-                @* P6 manual-test: nút làm mới nội dung chat thủ công *@
+                @* P6 manual-test: nút làm mới nội dung chat thủ công.
+                   Dùng param Disabled (PascalCase) — lowercase `disabled` qua unmatched
+                   attributes va chạm với disabled nội bộ của VanAnButton → render crash. *@
                 <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
-                             OnClick="LoadHistoryAsync" disabled="_loadingHistory"
+                             OnClick="LoadHistoryAsync" Disabled="_loadingHistory"
                              aria-label="Làm mới tin nhắn">
                     <i class="bi bi-arrow-clockwise"></i>
                 </VanAnButton>
@@ -103,13 +105,14 @@
             @* P6 manual-test: mobile — nút Gửi xuống dòng riêng (không tràn màn hình);
                desktop (≥576px) — input + nút cùng hàng. Xem RealtimeChatPanel.razor.css. *@
             <div class="chat-input-row">
-                @* F11: UI Platform VanAInput instead of a raw input.form-control *@
+                @* F11: UI Platform VanAInput instead of a raw input.form-control.
+                   Enter-to-send qua param OnKeyPress (unmatched @onkeypress KHÔNG bind — render literal). *@
                 <VanAInput AdditionalClasses="vanan-input-field" Placeholder="Nhập tin nhắn..."
                            @bind-Value="_messageInput"
-                           @onkeypress="OnKeyPress"
+                           OnKeyPress="OnKeyPress"
                            maxlength="2000"
                            Disabled="_tokenExpired" />
-                <VanAnButton Variant="ButtonVariant.Primary" OnClick="SendMessage" disabled="@_tokenExpired"
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="SendMessage" Disabled="_tokenExpired"
                              CssClass="chat-send-btn">
                     <i class="bi bi-send"></i> Gửi
                 </VanAnButton>
