@@ -457,6 +457,17 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ILiveLocationService, VanAn.CoreHub.Services.LiveLocationService>();
             _ = builder.Services.AddKeyedScoped<VanAn.CoreHub.Services.IRealtimeParticipantAuthorizer, VanAn.CoreHub.Services.Adapters.OrderRealtimeAuthorizer>(
                 VanAn.Shared.Domain.RealtimeSubjectType.Order);
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IRealtimeSubjectResolver, VanAn.CoreHub.Services.RealtimeSubjectResolver>();
+
+            // Realtime Platform P3 (2026-09-17): identity for the generic hubs + /api/realtime/*.
+            // Order matters — the resolver returns the first validator that accepts, so a signed-in
+            // customer carrying a device guid is treated as the customer (higher trust wins).
+            // Each validator reads the query string before the header: a browser WebSocket handshake
+            // cannot set custom headers, which is what kept guests on HTTP polling until now (F3).
+            _ = builder.Services.AddScoped<VanAn.Gateway.Realtime.IRealtimeTokenValidator, VanAn.Gateway.Realtime.CustomerTokenValidator>();
+            _ = builder.Services.AddScoped<VanAn.Gateway.Realtime.IRealtimeTokenValidator, VanAn.Gateway.Realtime.DeviceTokenValidator>();
+            _ = builder.Services.AddScoped<VanAn.Gateway.Realtime.IRealtimeTokenValidator, VanAn.Gateway.Realtime.StaffJwtValidator>();
+            _ = builder.Services.AddScoped<VanAn.Gateway.Realtime.RealtimeIdentityResolver>();
 
             // CC-S4 (Sprint 4): Salesman + Composite QR Referral + App-Install Bonus + Risk Scoring + FraudFlag
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ISalesmanService, VanAn.CoreHub.Services.SalesmanService>();
@@ -603,7 +614,7 @@ namespace VanAn.Gateway
 
             // W-1-T5 (S4, S5): Register NATS subscribers for SQLite→PostgreSQL sync flow
             // DataSyncSubscriber: subscribes vanan.shoperp.> → writes Order/Customer status to PostgreSQL
-            // SimpleAccountingEventHandler: subscribes vanan.shoperp.ordercompleted → creates accounting entries + HKD books
+            // SimpleAccountingEventHandler: subscribes vanan.shoperp.order.completed (+ legacy ordercompleted) → creates accounting entries + HKD books
             // Both run in Gateway scope (has VanAnDbContext = PostgreSQL).
             // Degraded mode: if NATS unavailable, services log warning and skip events.
             _ = builder.Services.AddHostedService<VanAn.Gateway.Services.DataSyncSubscriber>();
@@ -808,6 +819,10 @@ namespace VanAn.Gateway
                 _ = app.MapHub<KitchenHub>("/kitchenhub");
                 _ = app.MapHub<LocationHub>("/hubs/location");
                 _ = app.MapHub<ChatHub>("/hubs/chat");
+                // Realtime Platform P3 (2026-09-17): subject-agnostic hubs. The order-specific hubs
+                // above stay mapped — KhachLink builds that predate this still connect to them.
+                _ = app.MapHub<MessagingHub>("/hubs/messaging");
+                _ = app.MapHub<TrackingHub>("/hubs/tracking");
 
                 // Add YARP Reverse Proxy (after controllers so it only catches non-API routes)
                 _ = app.MapReverseProxy();

@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
-using VanAn.CoreHub.Infrastructure;
+using VanAn.Gateway.Realtime;
 using VanAn.Shared.Domain;
 
 namespace VanAn.Gateway.Hubs;
@@ -9,105 +8,64 @@ namespace VanAn.Gateway.Hubs;
 /// CC-S2 (Sprint 2): SignalR hub for real-time GPS delivery tracking.
 /// UC-06 (GPS tracking) — shipper pushes location → customer subscribes to order group.
 ///
-/// Auth: X-Customer-Token via query string "customerToken" (SignalR client can pass query string).
-/// Same pattern as CommunityController — forward to ShopERP /api/customer-identity/me for validation.
-/// KHÔNG dùng [Authorize] (JWT) — customer auth is custom X-Customer-Token.
+/// Realtime Platform P3 (2026-09-17): kept as the order-scoped adapter for KhachLink builds that
+/// predate <see cref="TrackingHub"/> (<c>/hubs/tracking</c>). Group name and method names unchanged;
+/// auth + access rules delegate to the shared realtime layer (see <see cref="ChatHub"/>).
 /// </summary>
 public class LocationHub(
-    IVanAnDbContext dbContext,
-    IHttpClientFactory httpClientFactory,
+    RealtimeIdentityResolver identityResolver,
+    IServiceProvider services,
     ILogger<LocationHub> logger) : Hub
 {
-    private readonly IVanAnDbContext _dbContext = dbContext;
-    private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
+    private readonly RealtimeIdentityResolver _identityResolver = identityResolver;
+    private readonly IServiceProvider _services = services;
     private readonly ILogger<LocationHub> _logger = logger;
 
     /// <summary>
-    /// Validate customer token on connection. Token passed via query string.
+    /// Validate identity on connection. Credentials arrive via query string (SignalR handshakes
+    /// cannot set custom headers).
     /// </summary>
     public override async Task OnConnectedAsync()
     {
-        var token = Context.GetHttpContext()?.Request.Query["customerToken"].ToString();
-        if (string.IsNullOrEmpty(token))
-            throw new HubException("Missing customerToken");
+        var httpContext = Context.GetHttpContext();
+        var identity = httpContext == null
+            ? null
+            : await _identityResolver.ResolveAsync(httpContext, Context.ConnectionAborted);
 
-        var customerId = await ValidateTokenAsync(token);
-        if (customerId == null)
-            throw new HubException("Invalid customerToken");
+        if (identity == null)
+            throw new HubException("Unauthorized: no valid customerToken or customerDeviceId.");
 
-        Context.Items["CustomerId"] = customerId.Value;
-        _logger.LogInformation("LocationHub: Customer {CustomerId} connected", customerId.Value);
+        Context.Items[MessagingHub.IdentityItemKey] = identity;
+        _logger.LogInformation("LocationHub: {Kind} {UserId} connected", identity.Kind, identity.UserId);
+
         await base.OnConnectedAsync();
     }
 
     /// <summary>
     /// Join order tracking group — shipper or customer subscribes to location updates.
-    /// Verifies the caller is the ShipperId or CustomerId of the order.
+    /// Verifies the caller may access the order (assigned shipper, conversation party, order owner
+    /// or the guest device that placed it).
     /// </summary>
     public async Task JoinOrderTracking(string orderId)
     {
-        if (!Guid.TryParse(orderId, out var orderGuid))
+        if (!Guid.TryParse(orderId, out var orderGuid) || orderGuid == Guid.Empty)
             throw new HubException("Invalid orderId");
 
-        var customerId = (Guid?)Context.Items["CustomerId"];
-        if (customerId == null)
-            throw new HubException("Not authenticated");
+        var identity = RequireIdentity();
 
-        // Verify customer has rights: is ShipperId of DeliveryTask OR CustomerId of Order
-        var hasAccess = await _dbContext.DeliveryTasks
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .AnyAsync(dt => dt.OrderId == orderGuid && dt.ShipperId == customerId.Value);
-
-        if (!hasAccess)
-        {
-            // Also check if customer is the order creator (CustomerId on Order)
-            hasAccess = await _dbContext.Orders
-                .IgnoreQueryFilters()
-                .AsNoTracking()
-                .AnyAsync(o => o.Id == orderGuid && o.CustomerId == customerId.Value);
-        }
-
-        if (!hasAccess)
+        if (!await RealtimeAuthorizerLookup.CanAccessAsync(_services, RealtimeSubjectType.Order, orderGuid, identity.UserId, Context.ConnectionAborted))
             throw new HubException("Access denied: not shipper or customer of this order");
 
         await Groups.AddToGroupAsync(Context.ConnectionId, $"order_{orderId}");
-        _logger.LogInformation("LocationHub: Customer {CustomerId} joined order_{OrderId}", customerId.Value, orderId);
+        _logger.LogInformation("LocationHub: {Kind} {UserId} joined order_{OrderId}", identity.Kind, identity.UserId, orderId);
     }
 
-    /// <summary>
-    /// Leave order tracking group.
-    /// </summary>
+    /// <summary>Leave order tracking group.</summary>
     public Task LeaveOrderTracking(string orderId)
         => Groups.RemoveFromGroupAsync(Context.ConnectionId, $"order_{orderId}");
 
-    /// <summary>
-    /// Validate customer token by forwarding to ShopERP /api/customer-identity/me.
-    /// </summary>
-    private async Task<Guid?> ValidateTokenAsync(string token)
-    {
-        try
-        {
-            var client = _httpClientFactory.CreateClient("shoperp");
-            var req = new HttpRequestMessage(HttpMethod.Get, "/api/customer-identity/me");
-            req.Headers.Add("X-Customer-Token", token);
-
-            var resp = await client.SendAsync(req);
-            if (!resp.IsSuccessStatusCode)
-                return null;
-
-            var content = await resp.Content.ReadFromJsonAsync<MeResponse>();
-            return content?.CustomerId;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "LocationHub: Error validating customer token");
-            return null;
-        }
-    }
-
-    private class MeResponse
-    {
-        public Guid? CustomerId { get; set; }
-    }
+    private RealtimeIdentity RequireIdentity()
+        => Context.Items.TryGetValue(MessagingHub.IdentityItemKey, out var value) && value is RealtimeIdentity identity
+            ? identity
+            : throw new HubException("Not authenticated");
 }

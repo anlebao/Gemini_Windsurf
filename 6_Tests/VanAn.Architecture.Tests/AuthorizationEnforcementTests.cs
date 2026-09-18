@@ -179,7 +179,14 @@ public class AuthorizationEnforcementTests
             // GTM Drill Machine W1: GrowthController — anonymous Merchant Audit for Directory landing
             // /kiem-tra-cua-hang (rate-limited via growth-audit policy: 10/hour/IP, XFF-forwarded client IP).
             // Returns public directory presence data only — M3: Pending tenants expose name/slug only, no phone.
-            "GrowthController"
+            "GrowthController",
+            // Realtime Platform P3: RealtimeController — customer/guest/staff-facing realtime surface.
+            // Authenticates through IRealtimeTokenValidator (X-Customer-Token / customerToken query,
+            // X-Customer-Device-Id / customerDeviceId query for guests, Bearer staff JWT) and authorizes
+            // each subject via the module's IRealtimeParticipantAuthorizer (default deny → 403).
+            // Class-level [Authorize] cannot be used: guests authenticate with a device guid, so the
+            // cookie/JWT pipeline would reject them before the endpoint runs.
+            "RealtimeController"
         };
 
         var controllers = GetControllers(GatewayAssembly)
