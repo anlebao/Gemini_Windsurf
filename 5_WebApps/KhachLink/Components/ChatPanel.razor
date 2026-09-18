@@ -1,15 +1,17 @@
 ﻿@* Realtime Platform P4 (UI-10): legacy shim — delegates to the UI Platform RealtimeChatPanel.
    Keeps the old Order-scoped parameter surface (OrderId) so the pages that use it don't change;
    the real implementation (generic SubjectType/SubjectId, IRealtimeChatClient, /hubs/messaging)
-   lives in UI.Platform/Components/Realtime/RealtimeChatPanel.razor. *@
+   lives in UI.Platform/Components/Realtime/RealtimeChatPanel.razor.
+   NOTE: string params MUST be bound with @ — Razor treats a bare identifier as a literal
+   string when the parameter accepts a string (P6 bug found by E2E). *@
 @using VanAn.UI.Platform.Components.Realtime
 
 <RealtimeChatPanel SubjectType="Order"
                    SubjectId="OrderId"
                    CurrentUserId="CurrentUserId"
-                   CustomerToken="CustomerToken"
+                   CustomerToken="@CustomerToken"
                    CustomerDeviceId="CustomerDeviceId"
-                   ScrollContainerId="ScrollContainerId" />
+                   ScrollContainerId="@ScrollContainerId" />
 
 @code {
     [Parameter] public Guid OrderId { get; set; }

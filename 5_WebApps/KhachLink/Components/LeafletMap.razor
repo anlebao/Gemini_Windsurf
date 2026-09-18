@@ -1,11 +1,13 @@
 ﻿@* Realtime Platform P4 (UI-10): legacy shim — delegates to the UI Platform VanAnMap.
    Keeps the old parameter surface so the pages that use it don't change; the real implementation
    (IMapJsAdapter → window.vananMap.* in UI.Platform realtime.js) lives in
-   UI.Platform/Components/Realtime/VanAnMap.razor. *@
+   UI.Platform/Components/Realtime/VanAnMap.razor.
+   NOTE: string params MUST be bound with @ — Razor treats a bare identifier as a literal
+   string when the parameter accepts a string (P6 bug found by E2E). *@
 @using VanAn.UI.Platform.Components.Realtime
 
-<VanAnMap MapElementId="MapElementId"
-          Height="Height"
+<VanAnMap MapElementId="@MapElementId"
+          Height="@Height"
           CenterLat="CenterLat"
           CenterLng="CenterLng"
           Zoom="Zoom"
