@@ -145,7 +145,7 @@ namespace VanAn.CoreHub.Services
                     throw new InvalidOperationException($"Kỳ kế toán {period.Year}/{period.Month:D2} đã đóng sổ. Không thể thêm bút toán mới.");
 
                 // C-1: Server-side duplicate detection — block identical entry within DuplicateWindowMinutes
-                await CheckDuplicateEntryAsync(tenantId, amount, accountCode, AccountingEntryType.Revenue);
+                await CheckDuplicateEntryAsync(tenantId, amount, accountCode, AccountingEntryType.Revenue, reference);
 
                 CoreAccountingEntry entry = CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(amount), description,
                     accountCode: accountCode, reference: reference, industrySector: industrySector, transactionDate: transactionDate);
@@ -196,7 +196,7 @@ namespace VanAn.CoreHub.Services
                     throw new InvalidOperationException($"Kỳ kế toán {period.Year}/{period.Month:D2} đã đóng sổ. Không thể thêm bút toán mới.");
 
                 // C-1: Server-side duplicate detection — block identical entry within DuplicateWindowMinutes
-                await CheckDuplicateEntryAsync(tenantId, amount, accountCode, AccountingEntryType.Expense);
+                await CheckDuplicateEntryAsync(tenantId, amount, accountCode, AccountingEntryType.Expense, reference);
 
                 CoreAccountingEntry entry = CoreAccountingEntry.CreateExpense(tenantId, period, new Money(amount), description,
                     accountCode: accountCode, vendor: vendor, category: category, reference: reference, industrySector: industrySector, transactionDate: transactionDate);
@@ -238,7 +238,12 @@ namespace VanAn.CoreHub.Services
         }
 
         // C-1: Duplicate detection helper — throws if a matching entry exists within DuplicateWindowMinutes
-        private async Task CheckDuplicateEntryAsync(TenantId tenantId, decimal amount, string? accountCode, AccountingEntryType entryType)
+        // Fix (2026-09-17): order-driven entries (reference set) are distinct documents — a second
+        // order with the same amount/accountCode must NOT be blocked. Only block when the SAME
+        // reference is re-booked (NATS redelivery / double-click) — full (type, amount, accountCode,
+        // reference) match. Production bug: 5 orders paid within 5 minutes, only the first got
+        // revenue entries (tenant "Vạn An Cafe (HKD Group 1)", 2026-09-17).
+        private async Task CheckDuplicateEntryAsync(TenantId tenantId, decimal amount, string? accountCode, AccountingEntryType entryType, string? reference = null)
         {
             DateTime windowStart = DateTime.UtcNow.AddMinutes(-DuplicateWindowMinutes);
             DateTime windowEnd = DateTime.UtcNow.AddSeconds(1); // slight buffer for clock skew
@@ -249,10 +254,16 @@ namespace VanAn.CoreHub.Services
                 windowEnd,
                 CancellationToken.None);
 
-            bool duplicate = recentEntries.Any(e =>
-                e.EntryType == entryType &&
-                e.Amount == amount &&
-                (e.AccountCode ?? string.Empty) == (accountCode ?? string.Empty));
+            bool duplicate = string.IsNullOrWhiteSpace(reference)
+                ? recentEntries.Any(e =>
+                    e.EntryType == entryType &&
+                    e.Amount == amount &&
+                    (e.AccountCode ?? string.Empty) == (accountCode ?? string.Empty))
+                : recentEntries.Any(e =>
+                    e.EntryType == entryType &&
+                    e.Amount == amount &&
+                    (e.AccountCode ?? string.Empty) == (accountCode ?? string.Empty) &&
+                    e.Reference == reference);
 
             if (duplicate)
                 throw new InvalidOperationException("Bút toán trùng lặp trong 5 phút vừa qua. Vui lòng kiểm tra lại trước khi tạo mới.");

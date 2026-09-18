@@ -56,14 +56,20 @@ namespace VanAn.CoreHub.Services.Events
                 try
                 {
                     // W-1-T6: Subscribe to subject that matches NatsSyncWorker.BuildSubject output.
-                    // NatsSyncWorker builds: "vanan.shoperp.{eventType.ToLowerInvariant().Replace('_', '.')}"
-                    // For "OrderCompleted" → "vanan.shoperp.ordercompleted"
-                    IAsyncSubscription subscription = connection.SubscribeAsync("vanan.shoperp.ordercompleted", async (sender, args) =>
+                    // BuildSubject splits camelCase: "OrderCompleted" → "vanan.shoperp.order.completed"
+                    // (RC-2 subject separation, 2026-07-16 — commit c2de0c2b).
+                    // The legacy pre-RC-2 subject "vanan.shoperp.ordercompleted" is kept for
+                    // back-compat with older publishers — both route to the same handler.
+                    IAsyncSubscription subscription = connection.SubscribeAsync("vanan.shoperp.order.completed", async (sender, args) =>
+                    {
+                        await HandleOrderCompletedEventAsync(args.Message, stoppingToken);
+                    });
+                    IAsyncSubscription legacySubscription = connection.SubscribeAsync("vanan.shoperp.ordercompleted", async (sender, args) =>
                     {
                         await HandleOrderCompletedEventAsync(args.Message, stoppingToken);
                     });
 
-                    _logger.LogInformation("Subscribed to OrderCompleted events (subject: vanan.shoperp.ordercompleted)");
+                    _logger.LogInformation("Subscribed to OrderCompleted events (subjects: vanan.shoperp.order.completed + vanan.shoperp.ordercompleted)");
 
                     // Keep running until cancellation
                     await Task.Delay(Timeout.Infinite, stoppingToken);

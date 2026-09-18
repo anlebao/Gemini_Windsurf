@@ -194,5 +194,29 @@ namespace VanAn.Core.Tests.Services
                 Times.AtLeastOnce,
                 "GenerateAccountingEntriesAsync (now public) must create revenue entries");
         }
+
+        [Fact]
+        public async Task GenerateAccountingEntriesAsync_ShouldSkip_WhenEntriesAlreadyExistByReference()
+        {
+            // Fix (2026-09-17): true idempotency — when this order already has accounting entries
+            // (by reference), GenerateAccountingEntriesAsync must NOT create them again (NATS
+            // redelivery / retry safety).
+            Guid orderId = Guid.NewGuid();
+            OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, Guid.NewGuid(), quantity: 1, unitPrice: 100m);
+            Order order = Order.Create(orderId, _testTenantId, null, [item]);
+
+            _ = _mockAccountingEntryRepository
+                .Setup(r => r.ExistsByReferenceAsync(_testTenantId, orderId.ToString(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(true);
+
+            // Act
+            await _orderService.GenerateAccountingEntriesAsync(order, _testTenantId);
+
+            // Assert: NO accounting entries created (skip path)
+            _mockAccountingService.Verify(
+                x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()),
+                Times.Never,
+                "GenerateAccountingEntriesAsync must skip when entries already exist for the order reference");
+        }
     }
 }

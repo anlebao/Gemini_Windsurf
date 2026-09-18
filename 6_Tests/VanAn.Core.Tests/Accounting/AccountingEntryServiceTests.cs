@@ -329,6 +329,68 @@ namespace VanAn.Core.Tests.Accounting
             _mockRepository.Verify(r => r.AddAsync(It.IsAny<CoreAccountingEntry>(), It.IsAny<CancellationToken>()), Times.Once);
         }
 
+        // ===== Fix (2026-09-17): Distinct orders with same amount must NOT be blocked =====
+
+        [Fact]
+        public async Task CreateRevenueEntryAsync_DistinctOrders_SameAmount_SameAccountCode_ShouldNotBeBlocked()
+        {
+            // Production bug: 5 orders paid within 5 minutes (identical amounts, accountCode 511),
+            // only the first got revenue entries. Distinct orders have distinct references — the
+            // duplicate check must compare reference, not just (amount, accountCode).
+            TenantId tenantId = new(Guid.NewGuid());
+            AccountingPeriod period = new(2024, 1);
+            decimal amount = 35000m;
+            string? accountCode = "511";
+
+            CoreAccountingEntry existingEntry = CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(amount),
+                "Doanh thu bán hàng (net) #order-1", accountCode: accountCode, reference: "order-1");
+
+            _mockPeriodClosing
+                .Setup(p => p.GetPeriodStatusAsync(period, tenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(PeriodClosingStatus.Open);
+
+            _mockRepository
+                .Setup(r => r.GetByTenantAndDateRangeAsync(tenantId, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync([existingEntry]);
+
+            // Act — same amount + accountCode but DIFFERENT reference → must succeed
+            VanAn.Shared.DTOs.AccountingEntryDto result = await _service.CreateRevenueEntryAsync(tenantId, period, amount,
+                "Doanh thu bán hàng (net) #order-2", accountCode: accountCode, reference: "order-2");
+
+            // Assert
+            Assert.NotNull(result);
+            _mockRepository.Verify(r => r.AddAsync(It.IsAny<CoreAccountingEntry>(), It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateRevenueEntryAsync_SameReference_ShouldStillBeBlocked()
+        {
+            // Same reference = same order re-booked (NATS redelivery / double-click) → still blocked.
+            TenantId tenantId = new(Guid.NewGuid());
+            AccountingPeriod period = new(2024, 1);
+            decimal amount = 35000m;
+            string? accountCode = "511";
+
+            CoreAccountingEntry existingEntry = CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(amount),
+                "Doanh thu bán hàng (net) #order-1", accountCode: accountCode, reference: "order-1");
+
+            _mockPeriodClosing
+                .Setup(p => p.GetPeriodStatusAsync(period, tenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(PeriodClosingStatus.Open);
+
+            _mockRepository
+                .Setup(r => r.GetByTenantAndDateRangeAsync(tenantId, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync([existingEntry]);
+
+            // Act & Assert — same reference → duplicate → throw
+            InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _service.CreateRevenueEntryAsync(tenantId, period, amount,
+                    "Doanh thu bán hàng (net) #order-1", accountCode: accountCode, reference: "order-1"));
+
+            Assert.Contains("Bút toán trùng lặp", ex.Message);
+            _mockRepository.Verify(r => r.AddAsync(It.IsAny<CoreAccountingEntry>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
         // ===== Sprint C — C-2: Period Closing Guard =====
 
         [Fact]

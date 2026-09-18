@@ -38,6 +38,16 @@ namespace VanAn.CoreHub.Repositories
             TenantId tenantId,
             CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// Fix (2026-09-17): True idempotency by reference — has this tenant already booked an entry
+        /// with the given reference (or a reference prefixed by it, e.g. reseller "{orderId}-SUP-REV")?
+        /// Used by GenerateAccountingEntriesAsync to skip orders whose accounting was already generated.
+        /// </summary>
+        Task<bool> ExistsByReferenceAsync(
+            TenantId tenantId,
+            string reference,
+            CancellationToken cancellationToken = default);
+
         // Only Add operations - no Update/Delete methods (immutable design)
         Task AddAsync(CoreAccountingEntry entry, CancellationToken cancellationToken = default);
         Task AddRangeAsync(IEnumerable<CoreAccountingEntry> entries, CancellationToken cancellationToken = default);

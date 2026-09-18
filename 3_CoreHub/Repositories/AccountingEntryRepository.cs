@@ -166,6 +166,27 @@ namespace VanAn.CoreHub.Repositories
                 .ToListAsync(cancellationToken);
         }
 
+        /// <summary>
+        /// Fix (2026-09-17): True idempotency by reference. Matches exact reference OR any reference
+        /// prefixed with "{reference}-" (reseller suffix pattern "{orderId}-SUP-REV" etc).
+        /// IgnoreQueryFilters + explicit tenant filter — safe in any scope (POS / subscriber / handler).
+        /// </summary>
+        public async Task<bool> ExistsByReferenceAsync(
+            TenantId tenantId,
+            string reference,
+            CancellationToken cancellationToken = default)
+        {
+            if (tenantId == null || string.IsNullOrWhiteSpace(reference))
+                return false;
+
+            return await _context.AccountingEntries
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .AnyAsync(e => e.TenantId == tenantId
+                    && e.Reference != null
+                    && (e.Reference == reference || e.Reference.StartsWith(reference + "-")), cancellationToken);
+        }
+
         public async Task AddAsync(CoreAccountingEntry entry, CancellationToken cancellationToken = default)
         {
             try

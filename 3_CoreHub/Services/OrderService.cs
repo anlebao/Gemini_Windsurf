@@ -168,6 +168,19 @@ namespace VanAn.CoreHub.Services
 
             try
             {
+                // Fix (2026-09-17): True idempotency by reference — skip entirely when this order
+                // already has accounting entries (exact reference or reseller "{orderId}-XXX" suffix).
+                // The old guard (CheckDuplicateEntryAsync 5-min window, no reference) wrongly blocked
+                // DISTINCT orders with identical amounts — production bug: 5 orders paid within
+                // 5 minutes, only the first got revenue entries (tenant "Vạn An Cafe (HKD Group 1)").
+                if (await _accountingEntryRepository.ExistsByReferenceAsync(tenantId, orderRef))
+                {
+                    _logger.LogInformation(
+                        "GenerateAccountingEntriesAsync: entries already exist for order {OrderId} (reference {Reference}) — skipping",
+                        order.Id, orderRef);
+                    return;
+                }
+
                 // Wave 5: Resolve industry sector — per-order override falls back to Tenant default
                 // Phase 3.5 fix: Select only DefaultIndustrySector (not full Tenant entity) to avoid
                 // SQLite "no such column: t.ShopInstanceId" error (ShopInstanceId is PG-only column).
