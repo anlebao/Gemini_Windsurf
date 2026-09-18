@@ -244,11 +244,14 @@ namespace VanAn.Integration.Tests
 
         protected override void Dispose(bool disposing)
         {
+            // Host trước, connection sau: đóng host (services ngừng dùng connection) RỒI mới
+            // đóng SqliteConnection. Thứ tự ngược trước đây gây teardown race —
+            // "ObjectDisposedException: The CancellationTokenSource has been disposed" (CI flake).
+            base.Dispose(disposing);
             if (disposing)
             {
                 _connection.Dispose();
             }
-            base.Dispose(disposing);
         }
     }
 
