@@ -1,0 +1,34 @@
+/* Realtime Platform P6 (2026-09-18) — chat input layout.
+   Mobile (mặc định): input + nút "Gửi" xếp dọc, nút full-width — không tràn màn hình.
+   Desktop (>=576px): input + nút cùng hàng.
+   ::deep pierces vào VanAInput/VanAnButton (component con) để áp class. */
+
+.chat-input-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.chat-input-row ::deep .vanan-input-field {
+    width: 100%;
+}
+
+.chat-input-row ::deep .chat-send-btn {
+    width: 100%;
+}
+
+@media (min-width: 576px) {
+    .chat-input-row {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .chat-input-row ::deep .vanan-input-field {
+        flex: 1 1 auto;
+        width: auto;
+    }
+
+    .chat-input-row ::deep .chat-send-btn {
+        width: auto;
+    }
+}

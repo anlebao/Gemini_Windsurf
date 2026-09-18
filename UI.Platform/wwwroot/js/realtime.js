@@ -48,6 +48,41 @@ window.vananRealtime = {
 let _maps = {};
 let _markers = {};
 
+// P6 RV (2026-09-18): tile.openstreetmap.org is UNREACHABLE from some networks
+// (ERR_CONNECTION_REFUSED — e.g. Vietnam) → a perfectly initialised map renders as a
+// gray frame with zero tiles. The old Google iframe worked because Google Maps embed
+// is accessible there. Fix: try OSM first, and on tile errors switch to the next
+// provider (CARTO / Esri — both reachable). Switching is per-map + burst-locked so a
+// host-level refusal (10 errors at once) only advances one provider.
+const TILE_PROVIDERS = [
+    { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors', subdomains: 'abc', maxZoom: 19 },
+    { url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors &copy; CARTO', subdomains: 'abcd', maxZoom: 19 },
+    { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', attribution: 'Tiles &copy; Esri', maxZoom: 18 }
+];
+
+function addTileLayer(map, index) {
+    const p = TILE_PROVIDERS[index];
+    const layer = L.tileLayer(p.url, {
+        attribution: p.attribution,
+        subdomains: p.subdomains,
+        maxZoom: p.maxZoom
+    });
+    layer.on('tileerror', () => {
+        if (map._vananTileSwitchLock) return;
+        map._vananTileSwitchLock = true;
+        if (map._vananTileProviderIndex < TILE_PROVIDERS.length - 1) {
+            map._vananTileProviderIndex++;
+            map.removeLayer(layer);
+            addTileLayer(map, map._vananTileProviderIndex);
+            console.warn('[vananMap] tile provider failed — switched to provider #' + (map._vananTileProviderIndex + 1));
+        }
+        // Burst lock: a host-level refusal fires many tileerror events at once.
+        setTimeout(() => { map._vananTileSwitchLock = false; }, 1500);
+    });
+    layer.addTo(map);
+    map._vananTileLayer = layer;
+}
+
 window.vananMap = {
     initMap: function (elementId, centerLat, centerLng, zoom) {
         const el = document.getElementById(elementId);
@@ -65,10 +100,9 @@ window.vananMap = {
             attributionControl: true
         }).setView([centerLat, centerLng], zoom || 14);
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors',
-            maxZoom: 19
-        }).addTo(map);
+        map._vananTileProviderIndex = 0;
+        map._vananTileSwitchLock = false;
+        addTileLayer(map, 0);
 
         _maps[elementId] = map;
         _markers[elementId] = {};

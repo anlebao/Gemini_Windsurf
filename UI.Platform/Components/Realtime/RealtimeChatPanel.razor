@@ -21,18 +21,26 @@
     <VanAnCard Shadow="true" CssClass="p-0 overflow-hidden">
         <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
             <h6 class="mb-0"><i class="bi bi-chat-dots text-primary"></i> Chat với khách hàng</h6>
-            @if (_isConnected)
-            {
-                <span class="badge bg-success">Đã kết nối</span>
-            }
-            else if (_connecting)
-            {
-                <span class="badge bg-warning text-dark">Đang kết nối...</span>
-            }
-            else
-            {
-                <span class="badge bg-secondary">Offline (HTTP only)</span>
-            }
+            <div class="d-flex align-items-center gap-2">
+                @* P6 manual-test: nút làm mới nội dung chat thủ công *@
+                <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                             OnClick="LoadHistoryAsync" disabled="_loadingHistory"
+                             aria-label="Làm mới tin nhắn">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </VanAnButton>
+                @if (_isConnected)
+                {
+                    <span class="badge bg-success">Đã kết nối</span>
+                }
+                else if (_connecting)
+                {
+                    <span class="badge bg-warning text-dark">Đang kết nối...</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary">Offline (HTTP only)</span>
+                }
+            </div>
         </div>
 
         <!-- Message list -->
@@ -92,14 +100,17 @@
                     <i class="bi bi-exclamation-triangle"></i> @_signalrWarning
                 </div>
             }
-            <div class="d-flex gap-2">
+            @* P6 manual-test: mobile — nút Gửi xuống dòng riêng (không tràn màn hình);
+               desktop (≥576px) — input + nút cùng hàng. Xem RealtimeChatPanel.razor.css. *@
+            <div class="chat-input-row">
                 @* F11: UI Platform VanAInput instead of a raw input.form-control *@
-                <VanAInput AdditionalClasses="flex-fill" Placeholder="Nhập tin nhắn..."
+                <VanAInput AdditionalClasses="vanan-input-field" Placeholder="Nhập tin nhắn..."
                            @bind-Value="_messageInput"
                            @onkeypress="OnKeyPress"
                            maxlength="2000"
                            Disabled="_tokenExpired" />
-                <VanAnButton Variant="ButtonVariant.Primary" OnClick="SendMessage" disabled="@_tokenExpired">
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="SendMessage" disabled="@_tokenExpired"
+                             CssClass="chat-send-btn">
                     <i class="bi bi-send"></i> Gửi
                 </VanAnButton>
             </div>
@@ -160,8 +171,9 @@
     }
 
     /// <summary>
-    /// Refresh the message list every 8s when SignalR is not connected (guest sessions or a failed
-    /// hub connection). Real-time is skipped — the HTTP history endpoint is the fallback.
+    /// Refresh the message list every 4s when SignalR is not connected (guest sessions or a failed
+    /// hub connection) — P6 manual-test: interval 8s → 4s. Real-time is skipped — the HTTP history
+    /// endpoint is the fallback; a manual refresh button is in the panel header.
     /// </summary>
     private void StartHistoryPolling()
     {
@@ -174,7 +186,7 @@
             {
                 try
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(8), token);
+                    await Task.Delay(TimeSpan.FromSeconds(4), token);
                     if (_isConnected) continue; // SignalR pushes messages — no polling needed
                     await LoadHistoryAsync();
                 }
