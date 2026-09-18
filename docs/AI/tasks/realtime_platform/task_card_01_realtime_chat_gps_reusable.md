@@ -1,6 +1,6 @@
 # TASK CARD — Realtime Platform: Chat + Live Location (Reusable Across Modules)
 
-> **Status:** 🚧 IN PROGRESS — **P1 DONE + DEPLOYED + RV PASS (L1-L4)** (2026-09-17, `b12a99d2`) · **P2 DONE + DEPLOYED + RV L1 PASS** (2026-09-17, `2c3e0360`) · **P3 CODE COMPLETE (chưa deploy)** · **P4 CODE COMPLETE (chưa deploy)** · P5-P6 pending
+> **Status:** 🚧 IN PROGRESS — **P1 DONE + DEPLOYED + RV PASS (L1-L4)** (2026-09-17, `b12a99d2`) · **P2 DONE + DEPLOYED + RV L1 PASS** (2026-09-17, `2c3e0360`) · **P3 DONE + DEPLOYED** (2026-09-18, `d8072ec5`) · **P4 DONE + DEPLOYED** (2026-09-18, `d8072ec5`) · P5-P6 pending
 > **Review P2-P6 (2026-09-17):** 11 findings (F1-F11) — xem Section 20. Quyết định bổ sung: consumer = **Shop chat trên `/store/{slug}`** (không phải Logistics/JobMarket — xem F1); GPS trên trang shop = **map tĩnh + khoảng cách** (không realtime).
 > **P1 delivered:** D1 (Google customer sync) · D2/D3 (buyer tracking endpoint + map render) · D4 (checkout coords) · D5 (GPS resume) · D6 (guest chat/tracking via device id). Build 0 errors · 40/40 chat+delivery tests PASS · CI ALL PASSED · CD Multi-VPS SUCCESS.
 > **RV:** L1 API ✅ · L2 WASM ✅ · L3 Playwright guest UI ✅ · L4 guest send flow ✅ · L5 manual pending (user).
@@ -263,8 +263,8 @@ B5. Gắn UI (UI Platform — KHÔNG tự viết HTML/CSS)
 | **P0** | ANALYZE | Verify D1..D6 trên production (log + DB) — xem Section 11 | 0.5 |
 | **P1** | FIX_ONLY | ✅ **DONE** — D1 (sync customer), D2/D3 (endpoint + map cho buyer), D4 (toạ độ checkout), D5 (GPS resume), D6 (guest device auth). Build 0 errors · 40/40 tests | 1-2 |
 | **P2** | IMPLEMENT | ✅ **DONE** (2026-09-17) — DOM-1..DOM-4 + SVC-1..SVC-6 + **F2 (unique index)** + **F6 (tracking index)** + migration PG `20260917101938_AddRealtimePlatformP2` (có backfill `SubjectId`). Build 0 errors · guard ALL PASSED · 11/11 test mới · 248/248 Community regression PASS | 1 |
-| **P3** | IMPLEMENT | ✅ **DONE (code + tests, chưa deploy)** — GW-1..GW-9 + **F3** (device token vào SignalR handshake qua query string). Build 0 errors · guard ALL PASSED · 37/37 Realtime tests PASS. Xem Section 18.7 | 1-2 |
-| **P4** | IMPLEMENT | ✅ **DONE (code + tests, chưa deploy)** 2026-09-18 — UI-1..UI-13 + **F4** (`IRealtimeEndpointProvider` + RCL wwwroot + verify static assets qua publish) + **F11** (VanAInput thay `<input class="form-control">`). Build 0 errors · guard ALL PASSED · 56/56 Realtime tests PASS (37 P2/P3 + 4 fallback + 15 UI Platform) · Core.Tests 1635 PASS. Xem Section 18.8 | 1-2 |
+| **P3** | IMPLEMENT | ✅ **DONE + DEPLOYED** (`d8072ec5`) — GW-1..GW-9 + **F3** (device token vào SignalR handshake qua query string). Build 0 errors · guard ALL PASSED · 37/37 Realtime tests PASS. Xem Section 18.7 | 1-2 |
+| **P4** | IMPLEMENT | ✅ **DONE + DEPLOYED** (`d8072ec5`) 2026-09-18 — UI-1..UI-13 + **F4** (`IRealtimeEndpointProvider` + RCL wwwroot + verify static assets qua publish **và production L2**: `_content/VanAn.UI.Platform/js/realtime.js` 200 trên diemthuong2) + **F11** (VanAInput thay `<input class="form-control">`). Build 0 errors · guard ALL PASSED · 56/56 Realtime tests PASS (37 P2/P3 + 4 fallback + 15 UI Platform) · Core.Tests 1635 PASS · CI ✅ · CD Multi-VPS ✅. Xem Section 18.8 | 1-2 |
 | **P5** | IMPLEMENT | **REVISED (2026-09-17): consumer = Shop chat + live location trên `/store/{slug}` (FullCommerce) + inbox chủ shop `/community/messages` (ShopERP)**. Logistics/JobMarket **KHÔNG** dùng làm consumer (chưa tồn tại — F1); giữ làm **P7** khi Sprint 8/9 thành module thật | 1-2 |
 | **P6** | IMPLEMENT | Tests + E2E + RV Layer 1-5 + reuse guide (`docs/UI_Platform_Implementation_Guide.md` bổ sung mục Realtime) | 1 |
 
