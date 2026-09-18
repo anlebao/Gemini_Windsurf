@@ -93,11 +93,12 @@ public class RealtimeController(
                 return NotFound(new { error = "Chưa có cuộc trò chuyện cho chủ thể này." });
         }
 
-        // P5: the shop side of a Shop conversation is a tenant, not a user — a staff member's id
-        // is not a conversation party, so add them as a participant (role Shop) before the sender
-        // check below. Access was already granted by the authorizer above, so this never widens it.
-        if (subjectType == RealtimeSubjectType.Shop && identity.Kind == RealtimeIdentityKind.Staff)
-            await _messaging.EnsureParticipantAsync(conversation, identity.UserId, RealtimeParticipantRole.Shop, ct);
+        // P5/P6: the shop side is a tenant, not a user — a sender's id is not a conversation
+        // party by default, so every Shop sender (staff AND customer) is added as a participant
+        // before the sender check below. Access was already granted by the authorizer above, so
+        // this never widens it.
+        if (subjectType == RealtimeSubjectType.Shop)
+            await _messaging.EnsureParticipantAsync(conversation, identity.UserId, identity.RoleCode, ct);
 
         try
         {
@@ -105,9 +106,15 @@ public class RealtimeController(
             if (message == null)
                 return NotFound(new { error = "Không tìm thấy cuộc trò chuyện." });
 
+            // P6: the shared group carries the thread to staff (inbox); the sender's per-user
+            // group carries it to the customer who sent it — never to other customers.
             await _messagingHub.Clients.Group(RealtimeGroups.Messaging(subjectType, subjectId))
                 .SendAsync("ReceiveMessage", message.Id.ToString(), message.SenderId.ToString(),
                     message.Content, message.SentAt.ToString("O"), ct);
+            if (subjectType == RealtimeSubjectType.Shop)
+                await _messagingHub.Clients.Group(RealtimeGroups.MessagingUser(subjectId, message.SenderId))
+                    .SendAsync("ReceiveMessage", message.Id.ToString(), message.SenderId.ToString(),
+                        message.Content, message.SentAt.ToString("O"), ct);
 
             return Ok(new
             {
@@ -158,6 +165,23 @@ public class RealtimeController(
         }
 
         var messages = await _messaging.GetHistoryAsync(conversation.Id, take, ct);
+
+        // P6: the shop conversation is a shared thread — a customer only sees their own messages
+        // plus the shop's replies (staff participants, role Shop); staff see the whole thread.
+        if (type == RealtimeSubjectType.Shop && identity.Kind != RealtimeIdentityKind.Staff)
+        {
+            var shopSenderIds = await _dbContext.ConversationParticipants
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(p => p.ConversationId == conversation.Id
+                         && p.RoleCode == RealtimeParticipantRole.Shop && p.IsActive)
+                .Select(p => p.ParticipantId)
+                .ToListAsync(ct);
+
+            messages = messages
+                .Where(m => m.SenderId == identity.UserId || shopSenderIds.Contains(m.SenderId))
+                .ToList();
+        }
 
         return Ok(new
         {
@@ -356,12 +380,13 @@ public class RealtimeController(
         RealtimeIdentity identity,
         CancellationToken ct)
     {
-        if (identity.Kind == RealtimeIdentityKind.Staff)
-            return null;
-
         var conversation = await _messaging.GetConversationAsync(RealtimeSubjectType.Shop, subjectId, ct);
         if (conversation != null)
             return conversation;
+
+        // Staff never creates — they only reply to conversations customers started.
+        if (identity.Kind == RealtimeIdentityKind.Staff)
+            return null;
 
         var tenantId = await _subjectResolver.ResolveTenantAsync(RealtimeSubjectType.Shop, subjectId, ct);
         if (tenantId == null)

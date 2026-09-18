@@ -55,13 +55,26 @@ public class MessagingHub(
         if (!await RealtimeAuthorizerLookup.CanAccessAsync(_services, type, id, identity.UserId, identity.TenantId, Context.ConnectionAborted))
             throw new HubException($"Access denied: not a participant of {type}/{id}");
 
-        await Groups.AddToGroupAsync(Context.ConnectionId, RealtimeGroups.Messaging(type, id));
+        // P6: the shop conversation is a shared thread — staff join the shared group (inbox),
+        // customers join their OWN per-user group so live pushes never cross customers.
+        var group = type == RealtimeSubjectType.Shop && identity.Kind != RealtimeIdentityKind.Staff
+            ? RealtimeGroups.MessagingUser(id, identity.UserId)
+            : RealtimeGroups.Messaging(type, id);
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, group);
         _logger.LogInformation("MessagingHub: {Kind} {UserId} joined {Subject}/{SubjectId}",
             identity.Kind, identity.UserId, type, id);
     }
 
     public Task LeaveConversation(string subjectType, string subjectId)
-        => Groups.RemoveFromGroupAsync(Context.ConnectionId, RealtimeGroups.Messaging(subjectType, subjectId));
+    {
+        var identity = RequireIdentity();
+        var group = subjectType == RealtimeSubjectType.Shop.ToString()
+                    && identity.Kind != RealtimeIdentityKind.Staff
+            ? RealtimeGroups.MessagingUser(Guid.TryParse(subjectId, out var id) ? id : Guid.Empty, identity.UserId)
+            : RealtimeGroups.Messaging(subjectType, subjectId);
+        return Groups.RemoveFromGroupAsync(Context.ConnectionId, group);
+    }
 
     private RealtimeIdentity RequireIdentity()
         => Context.Items.TryGetValue(IdentityItemKey, out var value) && value is RealtimeIdentity identity

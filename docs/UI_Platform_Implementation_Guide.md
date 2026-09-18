@@ -392,7 +392,82 @@ builder.Services.AddScoped<HKDBookExportService>();
 | `DocumentFormat.OpenXml` | 3.0.1 | DOCX export | `Directory.Packages.props` |
 
 ---
+
+## 💬 REALTIME PLATFORM (P4-P6 — 2026-09-18)
+
+Chat 2 chiều realtime + live location **tái sử dụng** — gắn vào module mới KHÔNG viết component/JS mới.
+Task card: `docs/AI/tasks/realtime_platform/task_card_01_realtime_chat_gps_reusable.md`.
+
+### Quick start (5 bước — consumer mới)
+
+```csharp
+// 1. Host registration (KhachLink/ShopERP/Directory đều đã gọi rồi)
+builder.Services.AddRealtimePlatform();   // endpoint provider + adapters + named HttpClient
+
+// 2. Server: implement authorizer cho subject type của module
+public class TicketRealtimeAuthorizer(...) : IRealtimeParticipantAuthorizer
+{
+    // CanAccessAsync(type, subjectId, userId, tenantId, ct):
+    //   - Customer/guest: thành viên conversation (initiator hoặc participant row)
+    //   - Staff: tenant của caller (JWT tenant_id claim) == subjectId nếu subject là tenant
+}
+// DI (Gateway Program.cs, keyed theo subject):
+builder.Services.AddKeyedScoped<IRealtimeParticipantAuthorizer, TicketRealtimeAuthorizer>(RealtimeSubjectType.Ticket);
+
+// 3. Tạo conversation ở domain event (idempotent)
+await _messaging.EnsureConversationAsync(tenantId, RealtimeSubjectType.Ticket, ticket.Id,
+    customerId, staffId, RealtimeParticipantRole.Customer, RealtimeParticipantRole.Staff);
+
+// 4. Ghi vị trí khi cần (trackerId server-stamp — client không gửi được)
+await _liveLocation.RecordPingAsync(tenantId, RealtimeSubjectType.Ticket, ticket.Id, null, lat, lng);
+```
+
+```razor
+@* 5. UI — dùng component UI Platform, KHÔNG tự viết chat/map *@
+<RealtimeChatPanel SubjectType="Ticket"          @* "Order" | "Shop" | ... (enum name) *@
+                   SubjectId="ticket.Id"
+                   CurrentUserId="_userId"        @* customer id / guest device id / staff id *@
+                   CustomerToken="_customerToken" @* HOẶC *@
+                   CustomerDeviceId="_deviceId"   @* HOẶC *@
+                   StaffToken="_staffJwt" />      @* staff (ShopERP mint Owner JWT) *@
+
+<VanAnMap MapElementId="ticket-map" Height="350px" ShopLat="..." ShopLng="..." />  @* map tĩnh *@
+```
+
+### Checklist module mới
+- [ ] `AddRealtimePlatform()` đã gọi trong host Program.cs
+- [ ] Authorizer implemented + keyed DI đăng ký (subject chưa đăng ký → **default deny**)
+- [ ] `RealtimeSubjectType` tái dùng (thêm enum value cần Domain approval)
+- [ ] Conversation ensure gọi ở đúng domain event (idempotent — unique index `(TenantId, SubjectType, SubjectId)`)
+- [ ] Mọi query cross-tenant có `IgnoreQueryFilters()` + comment lý do
+- [ ] UI dùng `RealtimeChatPanel`/`VanAnMap` — không bypass UI Platform (Gate)
+- [ ] Tests: 2 user khác tenant không thấy conversation của nhau
+
+### Identity (server tự resolve — client chỉ gửi credential)
+| Credential | Vị trí | Identity |
+|---|---|---|
+| `X-Customer-Token` / `customerToken` (query) | customer login | CustomerId |
+| `X-Customer-Device-Id` / `customerDeviceId` (query) | guest (localStorage `customer_device_id`) | device guid (chính là ParticipantId/SenderId/TrackerId) |
+| `Authorization: Bearer` / `access_token` (query) | staff JWT (ShopERP mint, có `tenant_id` claim) | staff userId + TenantId |
+
+### Endpoints (Gateway `/api/realtime/*`)
+- `GET  /conversations/{subjectType}/{subjectId}` — history (Shop: visitor tự tạo conversation create-only; Order: legacy ensure)
+- `POST /conversations/messages` — gửi tin (server push `ReceiveMessage` vào group `msg_{type}_{id}`)
+- `GET  /shop/conversations` — inbox chủ shop (staff-only, last-message preview)
+- `POST /location/ping` — ghi toạ độ (reject (0,0)) · `GET /location/{type}/{id}/latest` — ping mới nhất
+- Hubs: `/hubs/messaging` (group `msg_{type}_{id}`) · `/hubs/tracking` (group `loc_{type}_{id}`)
+
+### Static assets (F4)
+Leaflet + `realtime.js` served tại `_content/VanAn.UI.Platform/...` trên MỌI host đã reference RCL —
+không copy JS vào app. Chỉ cần thêm vào layout: `lib/leaflet/leaflet.{css,js}` + `js/realtime.js`.
+
+### E2E
+- `6_Testing/e2e-tests/realtime-shop-chat.spec.ts` — Shop chat (API auth + guest create/send + store page UI)
+- `6_Testing/e2e-tests/realtime-tracking.spec.ts` — generic location surface (auth + validation + migrated page)
+
+---
 **Created**: 3/5/2026
 **Next Review**: 3/6/2026
 **Owner**: UI Platform Team
 **Wave 8 Update**: 2026-07-04 — HKD Book accounting module added
+**Realtime Update**: 2026-09-18 — Realtime Platform P4-P6 (chat + live location reusable, reuse recipe 5 bước)

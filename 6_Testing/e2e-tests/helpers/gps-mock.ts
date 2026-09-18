@@ -42,23 +42,30 @@ export const GPS_MOCK_COORDS = {
 };
 
 /**
- * Injects mock `vananPWA.getCurrentPosition` into all pages created from
- * this context. Must be called BEFORE `context.newPage()` — `addInitScript`
- * runs on every new page navigation.
+ * Realtime Platform P4/P5 (2026-09-18): mocks the shared UI.Platform GPS helper
+ * (realtime.js → window.vananRealtime.getCurrentPosition) too — used by
+ * LocationTrackingService + GoogleMaps (store distance). Same coordinates.
+ */
+const mockGpsBody = `
+  var pos = {
+    lat: ${GPS_MOCK_COORDS.lat},
+    lng: ${GPS_MOCK_COORDS.lng},
+    Lat: ${GPS_MOCK_COORDS.Lat},
+    Lng: ${GPS_MOCK_COORDS.Lng},
+    Latitude: ${GPS_MOCK_COORDS.Latitude},
+    Longitude: ${GPS_MOCK_COORDS.Longitude}
+  };
+  (window.vananPWA || (window.vananPWA = {})).getCurrentPosition = () => Promise.resolve(pos);
+  (window.vananRealtime || (window.vananRealtime = {})).getCurrentPosition = () => Promise.resolve(pos);
+`;
+
+/**
+ * Injects mock `vananPWA.getCurrentPosition` + `vananRealtime.getCurrentPosition`
+ * into all pages created from this context. Must be called BEFORE
+ * `context.newPage()` — `addInitScript` runs on every new page navigation.
  */
 export async function injectGpsMock(context: BrowserContext): Promise<void> {
-  await context.addInitScript((coords) => {
-    (window as any).vananPWA = (window as any).vananPWA || {};
-    (window as any).vananPWA.getCurrentPosition = () =>
-      Promise.resolve({
-        lat: coords.lat,
-        lng: coords.lng,
-        Lat: coords.Lat,
-        Lng: coords.Lng,
-        Latitude: coords.Latitude,
-        Longitude: coords.Longitude,
-      });
-  }, GPS_MOCK_COORDS);
+  await context.addInitScript(mockGpsBody);
 }
 
 /**
@@ -67,16 +74,5 @@ export async function injectGpsMock(context: BrowserContext): Promise<void> {
  * For new contexts, prefer `injectGpsMock(context)`.
  */
 export async function injectGpsMockPage(page: Page): Promise<void> {
-  await page.addInitScript((coords) => {
-    (window as any).vananPWA = (window as any).vananPWA || {};
-    (window as any).vananPWA.getCurrentPosition = () =>
-      Promise.resolve({
-        lat: coords.lat,
-        lng: coords.lng,
-        Lat: coords.Lat,
-        Lng: coords.Lng,
-        Latitude: coords.Latitude,
-        Longitude: coords.Longitude,
-      });
-  }, GPS_MOCK_COORDS);
+  await page.addInitScript(mockGpsBody);
 }

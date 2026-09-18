@@ -55,7 +55,7 @@ public class ShopRealtimeP5Tests : IDisposable
     [Fact(DisplayName = "T1: staff whose tenant == shop is allowed")]
     public async Task Staff_WithMatchingTenant_IsAllowed()
     {
-        var authorizer = new ShopRealtimeAuthorizer(_context, NullLogger<ShopRealtimeAuthorizer>.Instance);
+        var authorizer = new ShopRealtimeAuthorizer(NullLogger<ShopRealtimeAuthorizer>.Instance);
         var staffUserId = Guid.NewGuid();
 
         var allowed = await authorizer.CanAccessAsync(
@@ -67,7 +67,7 @@ public class ShopRealtimeP5Tests : IDisposable
     [Fact(DisplayName = "T2: staff of another tenant is denied")]
     public async Task Staff_WithOtherTenant_IsDenied()
     {
-        var authorizer = new ShopRealtimeAuthorizer(_context, NullLogger<ShopRealtimeAuthorizer>.Instance);
+        var authorizer = new ShopRealtimeAuthorizer(NullLogger<ShopRealtimeAuthorizer>.Instance);
         var staffUserId = Guid.NewGuid();
 
         var allowed = await authorizer.CanAccessAsync(
@@ -84,7 +84,7 @@ public class ShopRealtimeP5Tests : IDisposable
         _context.Conversations.Add(conversation);
         await _context.SaveChangesAsync();
 
-        var authorizer = new ShopRealtimeAuthorizer(_context, NullLogger<ShopRealtimeAuthorizer>.Instance);
+        var authorizer = new ShopRealtimeAuthorizer(NullLogger<ShopRealtimeAuthorizer>.Instance);
         var allowed = await authorizer.CanAccessAsync(RealtimeSubjectType.Shop, ShopTenantId, customerId, CancellationToken.None);
 
         Assert.True(allowed);
@@ -101,27 +101,27 @@ public class ShopRealtimeP5Tests : IDisposable
             new ConversationParticipant(Tenant, conversation.Id, guestDeviceId, RealtimeParticipantRole.Guest));
         await _context.SaveChangesAsync();
 
-        var authorizer = new ShopRealtimeAuthorizer(_context, NullLogger<ShopRealtimeAuthorizer>.Instance);
+        var authorizer = new ShopRealtimeAuthorizer(NullLogger<ShopRealtimeAuthorizer>.Instance);
         var allowed = await authorizer.CanAccessAsync(RealtimeSubjectType.Shop, ShopTenantId, guestDeviceId, CancellationToken.None);
 
         Assert.True(allowed);
     }
 
-    [Fact(DisplayName = "T5: a stranger with no conversation is denied")]
-    public async Task Stranger_IsDenied()
+    [Fact(DisplayName = "T5: any visitor may access the shop chat (public widget — privacy is enforced by the history filter + per-user push groups)")]
+    public async Task Stranger_IsAllowed()
     {
         var stranger = Guid.NewGuid();
-        var authorizer = new ShopRealtimeAuthorizer(_context, NullLogger<ShopRealtimeAuthorizer>.Instance);
+        var authorizer = new ShopRealtimeAuthorizer(NullLogger<ShopRealtimeAuthorizer>.Instance);
 
         var allowed = await authorizer.CanAccessAsync(RealtimeSubjectType.Shop, ShopTenantId, stranger, CancellationToken.None);
 
-        Assert.False(allowed);
+        Assert.True(allowed);
     }
 
     [Fact(DisplayName = "T6: empty user id is denied")]
     public async Task EmptyUserId_IsDenied()
     {
-        var authorizer = new ShopRealtimeAuthorizer(_context, NullLogger<ShopRealtimeAuthorizer>.Instance);
+        var authorizer = new ShopRealtimeAuthorizer(NullLogger<ShopRealtimeAuthorizer>.Instance);
 
         var allowed = await authorizer.CanAccessAsync(RealtimeSubjectType.Shop, ShopTenantId, Guid.Empty, CancellationToken.None);
 
@@ -200,30 +200,73 @@ public class ShopRealtimeP5Tests : IDisposable
             RealtimeParticipantRole.Customer, RealtimeParticipantRole.Shop, It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    [Fact(DisplayName = "T10: a stranger cannot join an EXISTING shop conversation (create-only ensure)")]
-    public async Task GetConversation_Shop_ExistingConversation_StrangerDenied()
+    [Fact(DisplayName = "T10: a customer only sees their own messages + shop replies — never another customer's (history filter)")]
+    public async Task GetConversation_Shop_CustomerHistory_IsFiltered()
     {
-        var strangerDevice = Guid.NewGuid();
-        var existing = new Conversation(Tenant, RealtimeSubjectType.Shop, ShopTenantId, Guid.NewGuid(), ShopTenantId);
-        var (controller, messaging) = BuildController(_context, strangerDevice, tenantId: null,
-            kind: RealtimeIdentityKind.Device, authorizerAllows: false);
+        var customerA = Guid.NewGuid();
+        var customerB = Guid.NewGuid();
+        var staffId = Guid.NewGuid();
 
+        // Real context: conversation + shop-side participant (staff, role Shop) for the filter.
+        var conversation = new Conversation(Tenant, RealtimeSubjectType.Shop, ShopTenantId, customerA, ShopTenantId);
+        _context.Conversations.Add(conversation);
+        _context.ConversationParticipants.Add(
+            new ConversationParticipant(Tenant, conversation.Id, staffId, RealtimeParticipantRole.Shop));
+        await _context.SaveChangesAsync();
+
+        var (controller, messaging) = BuildController(_context, customerB, tenantId: null, kind: RealtimeIdentityKind.Device);
         messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-                 .ReturnsAsync(existing);
+                 .ReturnsAsync(conversation);
+        // The shared thread contains customer A's message + a shop reply (by staff).
         messaging.Setup(m => m.GetHistoryAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-                 .ReturnsAsync(new List<Message>());
+                 .ReturnsAsync(new List<Message>
+                 {
+                     new Message(Tenant, conversation.Id, customerA, "bí mật của khách A"),
+                     new Message(Tenant, conversation.Id, staffId, "shop trả lời")
+                 });
 
         var result = await controller.GetConversation(
             nameof(RealtimeSubjectType.Shop), ShopTenantId.ToString(), 100, CancellationToken.None);
 
-        var status = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(403, status.StatusCode);
-        // The existing conversation was NOT joined — no ensure, no participant add.
-        messaging.Verify(m => m.EnsureConversationAsync(
-            It.IsAny<TenantId>(), It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(),
-            It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        messaging.Verify(m => m.EnsureParticipantAsync(
-            It.IsAny<Conversation>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = System.Text.Json.JsonSerializer.Serialize(ok.Value, new System.Text.Json.JsonSerializerOptions
+        {
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        });
+        // Customer B does NOT see customer A's message; the shop reply is visible.
+        Assert.DoesNotContain("bí mật của khách A", json);
+        Assert.Contains("shop trả lời", json);
+    }
+
+    [Fact(DisplayName = "T11: staff sees the WHOLE shop thread (no per-caller filter)")]
+    public async Task GetConversation_Shop_StaffSeesAll()
+    {
+        var customerA = Guid.NewGuid();
+        var staffId = Guid.NewGuid();
+        var conversation = new Conversation(Tenant, RealtimeSubjectType.Shop, ShopTenantId, customerA, ShopTenantId);
+        _context.Conversations.Add(conversation);
+        await _context.SaveChangesAsync();
+
+        var (controller, messaging) = BuildController(_context, staffId, ShopTenantId, kind: RealtimeIdentityKind.Staff);
+        messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(conversation);
+        messaging.Setup(m => m.GetHistoryAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(new List<Message>
+                 {
+                     new Message(Tenant, conversation.Id, customerA, "tin khách A"),
+                     new Message(Tenant, conversation.Id, staffId, "tin shop")
+                 });
+
+        var result = await controller.GetConversation(
+            nameof(RealtimeSubjectType.Shop), ShopTenantId.ToString(), 100, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = System.Text.Json.JsonSerializer.Serialize(ok.Value, new System.Text.Json.JsonSerializerOptions
+        {
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        });
+        Assert.Contains("tin khách A", json);
+        Assert.Contains("tin shop", json);
     }
 
     // === helpers ===

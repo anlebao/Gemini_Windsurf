@@ -19,6 +19,15 @@ public static class RealtimeGroups
     public static string Messaging(RealtimeSubjectType subjectType, Guid subjectId)
         => Messaging(subjectType.ToString(), subjectId.ToString());
 
+    /// <summary>
+    /// Realtime Platform P6 (2026-09-18): per-user chat group for Shop subjects.
+    /// The shop conversation is a shared thread (1 conversation per tenant) — staff join the
+    /// shared group (inbox) while a customer joins THEIR OWN group so live pushes never cross
+    /// customers. The sender's per-user group also receives the push alongside the shared one.
+    /// </summary>
+    public static string MessagingUser(Guid subjectId, Guid userId)
+        => $"msg_{RealtimeSubjectType.Shop}_{subjectId}_u_{userId}";
+
     public static string Messaging(string subjectType, string subjectId)
         => $"msg_{subjectType}_{subjectId}";
 
