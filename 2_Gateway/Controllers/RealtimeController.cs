@@ -95,9 +95,11 @@ public class RealtimeController(
 
         // P5/P6: the shop side is a tenant, not a user — a sender's id is not a conversation
         // party by default, so every Shop sender (staff AND customer) is added as a participant
-        // before the sender check below. Access was already granted by the authorizer above, so
-        // this never widens it.
-        if (subjectType == RealtimeSubjectType.Shop)
+        // before the sender check below. P6 RV: the same applies to a guest DEVICE on an order —
+        // the order conversation is keyed to the customer (Conversation.CustomerId), so a device
+        // authorized via Order.CustomerDeviceId is not a party yet. Access was already granted by
+        // the authorizer above, so this never widens it.
+        if (subjectType == RealtimeSubjectType.Shop || identity.Kind == RealtimeIdentityKind.Device)
             await _messaging.EnsureParticipantAsync(conversation, identity.UserId, identity.RoleCode, ct);
 
         try

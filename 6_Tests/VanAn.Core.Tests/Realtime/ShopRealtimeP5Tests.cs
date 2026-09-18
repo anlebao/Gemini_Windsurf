@@ -238,6 +238,33 @@ public class ShopRealtimeP5Tests : IDisposable
         Assert.Contains("shop trả lời", json);
     }
 
+    [Fact(DisplayName = "T12: a guest DEVICE on an order becomes a participant before sending (P6 RV fix)")]
+    public async Task SendMessage_Order_DeviceSender_BecomesParticipant()
+    {
+        var device = Guid.NewGuid();
+        var customer = Guid.NewGuid();
+        // Legacy order conversation keyed to the customer — the device is NOT a party.
+        var conversation = new Conversation(Tenant, customer /*orderId*/, Guid.NewGuid() /*shipper*/, customer);
+        var (controller, messaging) = BuildController(_context, device, tenantId: null, kind: RealtimeIdentityKind.Device);
+        messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(conversation);
+        messaging.Setup(m => m.SendMessageAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync((Guid c, Guid s, string content, CancellationToken _) => new Message(Tenant, c, s, content));
+
+        var result = await controller.SendMessage(
+            new RealtimeController.SendRealtimeMessageRequest
+            {
+                SubjectType = nameof(RealtimeSubjectType.Order),
+                SubjectId = conversation.OrderId,
+                Content = "xin chào từ device"
+            }, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        // The device was added as a participant (role Guest) before the sender check.
+        messaging.Verify(m => m.EnsureParticipantAsync(
+            conversation, device, RealtimeParticipantRole.Guest, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     [Fact(DisplayName = "T11: staff sees the WHOLE shop thread (no per-caller filter)")]
     public async Task GetConversation_Shop_StaffSeesAll()
     {
@@ -297,6 +324,9 @@ public class ShopRealtimeP5Tests : IDisposable
         var services = new ServiceCollection();
         services.AddKeyedScoped<IRealtimeParticipantAuthorizer>(
             RealtimeSubjectType.Shop, (_, _) => new StubShopAuthorizer(allows: authorizerAllows));
+        // T12: order sends exercise the Order branch of SendMessage.
+        services.AddKeyedScoped<IRealtimeParticipantAuthorizer>(
+            RealtimeSubjectType.Order, (_, _) => new StubShopAuthorizer(allows: authorizerAllows));
         var provider = services.BuildServiceProvider();
 
         var (messagingHub, _) = HubMock<MessagingHub>();
