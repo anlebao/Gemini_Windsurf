@@ -20,5 +20,5 @@ export default defineConfig({
     ...base.use,
     storageState: undefined,
   },
-  testMatch: 'e2e-tests/realtime-*.spec.ts',
+  testMatch: ['e2e-tests/realtime-shop-chat.spec.ts', 'e2e-tests/realtime-tracking.spec.ts'],
 });

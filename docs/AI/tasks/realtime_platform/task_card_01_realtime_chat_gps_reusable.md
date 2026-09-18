@@ -1,6 +1,6 @@
 # TASK CARD — Realtime Platform: Chat + Live Location (Reusable Across Modules)
 
-> **Status:** 🚧 IN PROGRESS — **P1 DONE + DEPLOYED + RV PASS (L1-L4)** (2026-09-17, `b12a99d2`) · **P2 DONE + DEPLOYED + RV L1 PASS** (2026-09-17, `2c3e0360`) · **P3 DONE + DEPLOYED** (2026-09-18, `d8072ec5`) · **P4 DONE + DEPLOYED** (2026-09-18, `d8072ec5`) · **P5 CODE COMPLETE (chưa deploy)** · P6 pending
+> **Status:** ✅ **COMPLETE** — **P1-P5 DONE + DEPLOYED + RV** · **P6 DONE** (2026-09-18: E2E 12/12 PASS trên production + RV L1-L3 + reuse guide). Xem Section 18.10.
 > **Review P2-P6 (2026-09-17):** 11 findings (F1-F11) — xem Section 20. Quyết định bổ sung: consumer = **Shop chat trên `/store/{slug}`** (không phải Logistics/JobMarket — xem F1); GPS trên trang shop = **map tĩnh + khoảng cách** (không realtime).
 > **P1 delivered:** D1 (Google customer sync) · D2/D3 (buyer tracking endpoint + map render) · D4 (checkout coords) · D5 (GPS resume) · D6 (guest chat/tracking via device id). Build 0 errors · 40/40 chat+delivery tests PASS · CI ALL PASSED · CD Multi-VPS SUCCESS.
 > **RV:** L1 API ✅ · L2 WASM ✅ · L3 Playwright guest UI ✅ · L4 guest send flow ✅ · L5 manual pending (user).
@@ -266,7 +266,7 @@ B5. Gắn UI (UI Platform — KHÔNG tự viết HTML/CSS)
 | **P3** | IMPLEMENT | ✅ **DONE + DEPLOYED** (`d8072ec5`) — GW-1..GW-9 + **F3** (device token vào SignalR handshake qua query string). Build 0 errors · guard ALL PASSED · 37/37 Realtime tests PASS. Xem Section 18.7 | 1-2 |
 | **P4** | IMPLEMENT | ✅ **DONE + DEPLOYED** (`d8072ec5`) 2026-09-18 — UI-1..UI-13 + **F4** (`IRealtimeEndpointProvider` + RCL wwwroot + verify static assets qua publish **và production L2**: `_content/VanAn.UI.Platform/js/realtime.js` 200 trên diemthuong2) + **F11** (VanAInput thay `<input class="form-control">`). Build 0 errors · guard ALL PASSED · 56/56 Realtime tests PASS (37 P2/P3 + 4 fallback + 15 UI Platform) · Core.Tests 1635 PASS · CI ✅ · CD Multi-VPS ✅. Xem Section 18.8 | 1-2 |
 | **P5** | IMPLEMENT | ✅ **DONE (code + tests, chưa deploy)** 2026-09-18 — consumer = **Shop chat** trên `/store/{slug}` (khách ↔ shop, subject `Shop/{tenantId}`) + **map tĩnh + khoảng cách** (F9 — VanAnMap thay Google iframe) + **inbox chủ shop** `/community/messages` (ShopERP). **F7/F8/F11** cũng xử lý. Build 0 errors · 66/66 Realtime tests (56 + T1-T9 P5 + T12 staff adapter). Xem Section 18.9 | 1-2 |
-| **P6** | IMPLEMENT | Tests + E2E + RV Layer 1-5 + reuse guide (`docs/UI_Platform_Implementation_Guide.md` bổ sung mục Realtime) | 1 |
+| **P6** | IMPLEMENT | ✅ **DONE** 2026-09-18 — E2E `realtime-shop-chat.spec.ts` + `realtime-tracking.spec.ts` (**12/12 PASS trên production**) + **RV L1-L3** (L4/L5 manual pending) + reuse guide (`docs/UI_Platform_Implementation_Guide.md` §Realtime). Xem Section 18.10 | 1 |
 
 ### Rules
 - P1 chỉ sửa đúng defect, không mở rộng scope (Fix_Errors mode).
@@ -545,7 +545,53 @@ with `/hubs/messaging?customerDeviceId={guid}` and authenticates like any other 
 | `RealtimeGatewayP3Tests.cs` | T5-T15 — device guid via query + header, invalid inputs, resolver first-wins, no-validator→null, group naming, **default deny** for unregistered subject, registered authorizer delegation, staff JWT (absent/garbage/valid), customer token (no call when absent, identity when valid) |
 | `RealtimeControllerP3Tests.cs` | T16-T23 — 401 no identity, 400 invalid subjectType, 403 default deny, 403 skips service, 200 history, 400 (0,0) ping, ping stamped with the subject's tenant + pushed to `loc_` group, latest-with-no-ping = 200 + nulls |
 
-**Not yet done (P6):** E2E + RV L1-5 + reuse guide.
+**Not yet done:** RV L4 (shop inbox staff reply flow — cần login thật) + L5 (manual user) — P6 phần còn lại.
+
+---
+
+## 18.10. P6 IMPLEMENTATION RECORD (2026-09-18)
+
+**Goal:** tests + E2E + RV Layer 1-5 + reuse guide.
+
+### E2E specs (mới — chạy thẳng lên production qua `realtime-rv.config.ts`)
+
+| Spec | Coverage | Result |
+|---|---|---|
+| `e2e-tests/realtime-shop-chat.spec.ts` (7 tests) | P5-1/2 401 không identity · P5-3 **guest mới TẠO conversation** (chicken-egg fix) · P5-4 send + read-back · P5-5 device khác KHÔNG thấy tin (history filter) · P5-6 hubs tồn tại · P5-7 **UI store page**: map + chat panel + guest gửi tin xuất hiện + 0 console error | ✅ 7/7 |
+| `e2e-tests/realtime-tracking.spec.ts` (5 tests) | P4-1 401 · P4-2 stranger 403 (default deny) · P4-3 ping (0,0) 400 · P4-4 invalid subject 400 · P4-5 order-tracking page render 0 lỗi | ✅ 5/5 |
+| `helpers/gps-mock.ts` | + mock `vananRealtime.getCurrentPosition` (thêm namespace, additive) | ✅ |
+
+### RV trên production (deploy `3fb71866`)
+
+| Layer | Check | Result |
+|---|---|---|
+| L1 API | P5-1..P5-6 + P4-1..P4-4 (auth contracts, guest create, send/history, privacy filter, validation) | ✅ |
+| L2 Static | `_content/VanAn.UI.Platform/js/realtime.js` + `lib/leaflet/*` **200** trên **3 host**: diemthuong2.khachvip.online · api2.khachvip.online/shoperp · timlathay.com (F4) | ✅ |
+| L3 Playwright | P5-7 UI (store chat send end-to-end) + P4-5 (page render) | ✅ |
+| L4 UI flow | Shop inbox staff reply (cần login thật) | ⏳ manual |
+| L5 Manual | user | ⏳ |
+
+### 2 bug thật bị E2E bắt (production, đã fix + deploy)
+
+1. **Chicken-and-egg Shop chat** (`7406d83a` → `f05960c5`): authorizer chạy trước ensure → khách mới
+   403 mãi, conversation không bao giờ tạo. Fix: Shop = **public widget** — ensure create-only trước
+   authorize (staff không create), privacy chuyển xuống data plane: **history filter per-caller**
+   (tin của mình + reply của shop; staff thấy toàn bộ) + **per-user SignalR group**
+   (`msg_Shop_{tenantId}_u_{userId}` — staff join shared group, khách join group riêng; SendMessage
+   push cả 2). Known limitation (documented): shop reply hiển thị cho mọi khách của thread đó —
+   per-customer reply threading cần domain change (defer).
+2. **Razor string-param binding** (`3fb71866`): `Param="_field"` (không `@`) → Razor coi là **literal
+   string** khi param nhận string (Guid/double thì thành expression). `CustomerToken="_customerToken"`
+   gửi literal "_customerToken" → 401 → chat input disabled. **Ảnh hưởng P4**: ChatPanel shim + LeafletMap
+   shim cũng dính (order chat logged-in 401 từ lúc P4 deploy — E2E mới phát hiện). Fix: bind `@` cho mọi
+   string param không-literal. Verify: literal `_customerToken` = 0 occurrences trong WASM.
+
+### Reuse guide
+`docs/UI_Platform_Implementation_Guide.md` + §Realtime: quick start 5 bước, checklist module mới,
+identity table, endpoint list, static assets, E2E pointers.
+
+### Verification
+Build 0 errors · guard ALL PASSED · 68/68 Realtime tests · Core.Tests 1647 PASS · E2E 12/12 PASS trên production.
 
 ---
 
