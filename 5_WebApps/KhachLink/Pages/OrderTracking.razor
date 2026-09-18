@@ -1,5 +1,7 @@
 ﻿@page "/order-tracking/{OrderId:guid}"
 @using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Components.Realtime
+@using VanAn.UI.Platform.Core.Interfaces
 @using VanAn.KhachLink.Components.Layout
 @using VanAn.KhachLink.Services.Http
 @using VanAn.KhachLink.Components
@@ -8,6 +10,8 @@
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inject CommunityHttpService CommunityHttp
+@inject ILiveLocationClient LiveLocation
+@inject IRealtimeEndpointProvider Endpoints
 @implements IAsyncDisposable
 
 <PageTitle>Theo dõi đơn hàng</PageTitle>
@@ -155,17 +159,17 @@
             @if (_showMap)
             {
                 <VanAnCard Shadow="true" CssClass="mb-3 p-0 overflow-hidden">
-                    <LeafletMap MapElementId="customer-tracking-map"
-                                Height="400px"
-                                CenterLat="_centerLat"
-                                CenterLng="_centerLng"
-                                Zoom="14"
-                                ShopLat="_shopLat"
-                                ShopLng="_shopLng"
-                                CustomerLat="_customerLat"
-                                CustomerLng="_customerLng"
-                                ShipperLat="_shipperLat"
-                                ShipperLng="_shipperLng" />
+                    <VanAnMap MapElementId="customer-tracking-map"
+                              Height="400px"
+                              CenterLat="_centerLat"
+                              CenterLng="_centerLng"
+                              Zoom="14"
+                              ShopLat="_shopLat"
+                              ShopLng="_shopLng"
+                              CustomerLat="_customerLat"
+                              CustomerLng="_customerLng"
+                              ShipperLat="_shipperLat"
+                              ShipperLng="_shipperLng" />
                 </VanAnCard>
             }
 
@@ -303,6 +307,9 @@
     private double? _shipperLng;
 
     private HubConnection? _hubConnection;
+    // P4 (UI-11): generic tracking hub (/hubs/tracking) — live shipper pings recorded via the
+    // generic surface land in group loc_Order_{orderId}; the legacy hub stays for status pushes.
+    private HubConnection? _trackingHubConnection;
     private System.Threading.CancellationTokenSource? _pollingCts;
 
     // Status timeline steps
@@ -335,6 +342,7 @@
             await LoadOrderStatusAsync();
             await LoadTrackingAsync();
             await StartSignalRConnectionAsync();
+            await ConnectTrackingHubAsync();
             StartPolling();
         }
         catch (Exception)
@@ -414,6 +422,18 @@
             {
                 _shipperLat = t.ShipperLat;
                 _shipperLng = t.ShipperLng;
+                _isLiveTracking = true;
+            }
+
+            // P4 (UI-11): the live shipper ping comes from the generic realtime surface
+            // (GET /api/realtime/location/Order/{orderId}/latest) — the legacy tracking endpoint
+            // only sees pings keyed by DeliveryTaskId, and shippers now ping the generic surface.
+            // A fresh ping wins over the (possibly stale) snapshot from the tracking endpoint.
+            var live = await LiveLocation.GetLatestAsync("Order", OrderId, _customerToken, _customerDeviceId);
+            if (live.Success && HasCoords(live.Lat, live.Lng))
+            {
+                _shipperLat = live.Lat;
+                _shipperLng = live.Lng;
                 _isLiveTracking = true;
             }
 
@@ -518,6 +538,50 @@
     }
 
     /// <summary>
+    /// P4 (UI-11): join the generic tracking hub (/hubs/tracking, group loc_Order_{orderId}) so
+    /// pings recorded through the generic surface (POST /api/realtime/location/ping) move the
+    /// shipper marker live. The legacy hub above still carries status pushes (DeliveryStatusUpdate,
+    /// OrderStatusUpdated); guests have no SignalR and rely on the 15s polling fallback.
+    /// </summary>
+    private async Task ConnectTrackingHubAsync()
+    {
+        if (string.IsNullOrEmpty(_customerToken)) return;
+
+        try
+        {
+            // F4: hub URL comes from the endpoint provider (same derivation as the chat panel).
+            var hubUrl = $"{Endpoints.GetTrackingHubUrl()}?customerToken={Uri.EscapeDataString(_customerToken)}";
+            _trackingHubConnection = new HubConnectionBuilder()
+                .WithUrl(hubUrl)
+                .WithAutomaticReconnect()
+                .Build();
+
+            _trackingHubConnection.On<string, double, double, string>("LocationUpdate", (subjectId, lat, lng, recordedAt) =>
+            {
+                _shipperLat = lat;
+                _shipperLng = lng;
+                _isLiveTracking = true;
+                // A live ping is enough to draw the map even if shop/delivery coords are absent.
+                if (!_showMap && HasCoords(lat, lng))
+                {
+                    _centerLat = lat;
+                    _centerLng = lng;
+                    _showMap = true;
+                }
+                _lastUpdate = DateTime.Now;
+                StateHasChanged();
+            });
+
+            await _trackingHubConnection.StartAsync();
+            await _trackingHubConnection.InvokeAsync("JoinTracking", "Order", OrderId.ToString());
+        }
+        catch (Exception)
+        {
+            // Non-fatal — the 15s polling refreshes GetLatestAsync
+        }
+    }
+
+    /// <summary>
     /// Poll order status every 15 seconds as realtime fallback.
     /// Covers shop owner status changes (confirm/preparing/ready) that SignalR DeliveryStatusUpdate doesn't emit.
     /// </summary>
@@ -602,6 +666,16 @@
             {
                 await _hubConnection.InvokeAsync("LeaveOrderTracking", OrderId.ToString());
                 await _hubConnection.DisposeAsync();
+            }
+            catch { }
+        }
+
+        if (_trackingHubConnection != null)
+        {
+            try
+            {
+                await _trackingHubConnection.InvokeAsync("LeaveTracking", "Order", OrderId.ToString());
+                await _trackingHubConnection.DisposeAsync();
             }
             catch { }
         }

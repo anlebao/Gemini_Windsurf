@@ -1,0 +1,89 @@
+@* Realtime Platform P4 (UI-7): interactive map component — ported from
+   KhachLink/Components/LeafletMap.razor (CC-S2, UC-06).
+   Uses IMapJsAdapter (LeafletMapAdapter → window.vananMap.* in UI.Platform realtime.js).
+   Markers: shop (red), shipper (blue, moves), customer (green). *@
+@using VanAn.UI.Platform.Core.Interfaces
+@using VanAn.UI.Platform.Realtime
+@inject IMapJsAdapter MapAdapter
+
+<div id="@MapElementId" style="width: 100%; height: @Height; border-radius: 12px; overflow: hidden; z-index: 0;"></div>
+
+@code {
+    [Parameter] public string MapElementId { get; set; } = "leaflet-map";
+    [Parameter] public string Height { get; set; } = "400px";
+    [Parameter] public double CenterLat { get; set; } = 10.8;
+    [Parameter] public double CenterLng { get; set; } = 106.7;
+    [Parameter] public int Zoom { get; set; } = 14;
+
+    [Parameter] public double? ShopLat { get; set; }
+    [Parameter] public double? ShopLng { get; set; }
+    [Parameter] public double? ShipperLat { get; set; }
+    [Parameter] public double? ShipperLng { get; set; }
+    [Parameter] public double? CustomerLat { get; set; }
+    [Parameter] public double? CustomerLng { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await MapAdapter.InitMapAsync(MapElementId, CenterLat, CenterLng, Zoom);
+
+        // Add-or-move markers on EVERY render, not just the first: live GPS coordinates arrive
+        // after the map has mounted (SignalR push / poll), and previously the pins were
+        // added once on first render so the shipper marker never moved.
+        await UpsertMarkerAsync("shop", ShopLat, ShopLng, "Shop", "#dc3545");
+        await UpsertMarkerAsync("customer", CustomerLat, CustomerLng, "Khách hàng", "#28a745");
+        await UpsertMarkerAsync("shipper", ShipperLat, ShipperLng, "Shipper", "#007bff");
+    }
+
+    private async Task UpsertMarkerAsync(string key, double? lat, double? lng, string label, string color)
+    {
+        if (!lat.HasValue || !lng.HasValue || (lat.Value == 0 && lng.Value == 0)) return;
+        try
+        {
+            await MapAdapter.UpsertMarkerAsync(MapElementId, key, lat.Value, lng.Value, label, color);
+        }
+        catch { /* map not ready yet — next render retries */ }
+    }
+
+    /// <summary>
+    /// Update the shipper marker position (called by parent when GPS updates).
+    /// </summary>
+    public async Task UpdateShipperPositionAsync(double lat, double lng)
+    {
+        if (ShipperLat == lat && ShipperLng == lng) return;
+        ShipperLat = lat;
+        ShipperLng = lng;
+        await MapAdapter.UpdateMarkerAsync(MapElementId, "shipper", lat, lng);
+    }
+
+    /// <summary>
+    /// Draw a route line from shop to shipper or shipper to customer.
+    /// </summary>
+    public async Task DrawRouteAsync(double fromLat, double fromLng, double toLat, double toLng)
+    {
+        await MapAdapter.DrawRouteAsync(MapElementId, fromLat, fromLng, toLat, toLng);
+    }
+
+    /// <summary>
+    /// Fit map to show all visible markers.
+    /// </summary>
+    public async Task FitBoundsAsync()
+    {
+        var points = new List<RealtimeMapPoint>();
+        if (ShopLat.HasValue && ShopLng.HasValue)
+            points.Add(new RealtimeMapPoint { Lat = ShopLat.Value, Lng = ShopLng.Value });
+        if (ShipperLat.HasValue && ShipperLng.HasValue)
+            points.Add(new RealtimeMapPoint { Lat = ShipperLat.Value, Lng = ShipperLng.Value });
+        if (CustomerLat.HasValue && CustomerLng.HasValue)
+            points.Add(new RealtimeMapPoint { Lat = CustomerLat.Value, Lng = CustomerLng.Value });
+
+        if (points.Count > 1)
+            await MapAdapter.FitBoundsAsync(MapElementId, points);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await MapAdapter.RemoveMapAsync(MapElementId); }
+        catch { /* map already removed or JS interop not available */ }
+    }
+}

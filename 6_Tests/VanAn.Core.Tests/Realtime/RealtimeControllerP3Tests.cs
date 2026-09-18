@@ -159,6 +159,62 @@ public class RealtimeControllerP3Tests
         trackingClients.Verify(c => c.Group(RealtimeGroups.Tracking(RealtimeSubjectType.Order, SubjectId)), Times.Once);
     }
 
+    // === T24 (P4): a fresh order has no generic conversation — the legacy adapter creates it ===
+    [Fact(DisplayName = "T24: GetConversation_OrderSubject_NoConversation_EnsuresViaLegacyAdapter")]
+    public async Task GetConversation_OrderSubject_NoConversation_EnsuresViaLegacyAdapter()
+    {
+        var (controller, _, _, _) = Build(conversation: null);
+
+        var result = await controller.GetConversation(
+            nameof(RealtimeSubjectType.Order), SubjectId.ToString(), 100, CancellationToken.None);
+
+        // The fallback created a conversation → history is served, not 404.
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    // === T25 (P4): a non-Order subject without a conversation stays 404 — no legacy fallback ===
+    [Fact(DisplayName = "T25: GetConversation_NonOrderSubject_NoConversation_DoesNotFallback")]
+    public async Task GetConversation_NonOrderSubject_NoConversation_DoesNotFallback()
+    {
+        var (controller, messaging, _, _) = Build(conversation: null, registerShopAuthorizer: true);
+
+        var result = await controller.GetConversation(
+            nameof(RealtimeSubjectType.Shop), SubjectId.ToString(), 100, CancellationToken.None);
+
+        Assert.IsType<NotFoundObjectResult>(result);
+        messaging.Verify(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    // === T26 (P4): when the generic conversation exists, the legacy adapter is NOT consulted ===
+    [Fact(DisplayName = "T26: GetConversation_OrderSubject_ExistingConversation_SkipsLegacyEnsure")]
+    public async Task GetConversation_OrderSubject_ExistingConversation_SkipsLegacyEnsure()
+    {
+        var existing = new Conversation(Tenant, RealtimeSubjectType.Order, SubjectId, CallerId, Guid.Empty);
+        var (controller, _, _, _) = Build(conversation: existing);
+
+        var result = await controller.GetConversation(
+            nameof(RealtimeSubjectType.Order), SubjectId.ToString(), 100, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    // === T27 (P4): sending the first message on a fresh order creates the conversation too ===
+    [Fact(DisplayName = "T27: SendMessage_OrderSubject_NoConversation_FallsBackToLegacyEnsure")]
+    public async Task SendMessage_OrderSubject_NoConversation_FallsBackToLegacyEnsure()
+    {
+        var (controller, _, _, _) = Build(conversation: null);
+
+        var result = await controller.SendMessage(
+            new RealtimeController.SendRealtimeMessageRequest
+            {
+                SubjectType = nameof(RealtimeSubjectType.Order),
+                SubjectId = SubjectId,
+                Content = "Xin chào"
+            }, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+    }
+
     // === T23: "no ping yet" is an empty answer, not an error ===
     [Fact(DisplayName = "T23: GetLatestLocation_NoPing_Returns200WithNulls")]
     public async Task GetLatestLocation_NoPing_Returns200WithNulls()
@@ -181,7 +237,8 @@ public class RealtimeControllerP3Tests
             bool authenticated = true,
             Conversation? conversation = null,
             Guid? allowedUser = null,
-            bool registerOrderAuthorizer = true)
+            bool registerOrderAuthorizer = true,
+            bool registerShopAuthorizer = false)
     {
         var resolved = authenticated ? new RealtimeIdentity(CallerId, RealtimeIdentityKind.Customer) : null;
         var allowed = allowedUser ?? CallerId;
@@ -202,6 +259,11 @@ public class RealtimeControllerP3Tests
         resolver.Setup(r => r.ResolveTenantAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Tenant);
 
+        // P4: order conversations fall back to the legacy adapter when the generic lookup misses.
+        var chatService = new Mock<IChatService>();
+        chatService.Setup(c => c.GetOrCreateConversationAsync(It.IsAny<Guid>(), It.IsAny<Guid?>()))
+                   .ReturnsAsync((Guid orderId, Guid? _) => conversation ?? new Conversation(Tenant, RealtimeSubjectType.Order, orderId, CallerId, Guid.Empty));
+
         var identityResolver = new RealtimeIdentityResolver(
             new IRealtimeTokenValidator[] { new StubValidator(resolved) },
             NullLogger<RealtimeIdentityResolver>.Instance);
@@ -212,6 +274,11 @@ public class RealtimeControllerP3Tests
             services.AddKeyedScoped<IRealtimeParticipantAuthorizer>(
                 RealtimeSubjectType.Order, (_, _) => new SingleUserAuthorizer(allowed));
         }
+        if (registerShopAuthorizer)
+        {
+            services.AddKeyedScoped<IRealtimeParticipantAuthorizer>(
+                RealtimeSubjectType.Shop, (_, _) => new SingleUserAuthorizer(allowed));
+        }
 
         var provider = services.BuildServiceProvider();
 
@@ -221,6 +288,7 @@ public class RealtimeControllerP3Tests
         var controller = new RealtimeController(
             messaging.Object,
             location.Object,
+            chatService.Object,
             resolver.Object,
             identityResolver,
             messagingHub.Object,

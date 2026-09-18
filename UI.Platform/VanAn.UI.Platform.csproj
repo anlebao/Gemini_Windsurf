@@ -19,6 +19,10 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Forms" />
+    <!-- Realtime Platform P4: SignalR client for RealtimeChatPanel (hub connection) +
+         IHttpClientFactory for RealtimeHttpAdapter (named "realtime" client). -->
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
   </ItemGroup>
 
   <ItemGroup>

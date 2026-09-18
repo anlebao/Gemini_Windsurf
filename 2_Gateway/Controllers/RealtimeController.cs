@@ -29,6 +29,7 @@ namespace VanAn.Gateway.Controllers;
 public class RealtimeController(
     IRealtimeMessagingService messagingService,
     ILiveLocationService liveLocationService,
+    IChatService chatService,
     IRealtimeSubjectResolver subjectResolver,
     RealtimeIdentityResolver identityResolver,
     IHubContext<MessagingHub> messagingHub,
@@ -41,6 +42,7 @@ public class RealtimeController(
 
     private readonly IRealtimeMessagingService _messaging = messagingService;
     private readonly ILiveLocationService _liveLocation = liveLocationService;
+    private readonly IChatService _chatService = chatService;
     private readonly IRealtimeSubjectResolver _subjectResolver = subjectResolver;
     private readonly RealtimeIdentityResolver _identityResolver = identityResolver;
     private readonly IHubContext<MessagingHub> _messagingHub = messagingHub;
@@ -68,7 +70,7 @@ public class RealtimeController(
         if (!await CanAccessAsync(subjectType, subjectId, identity.UserId, ct))
             return Forbidden(subjectType, subjectId);
 
-        var conversation = await _messaging.GetConversationAsync(subjectType, subjectId, ct);
+        var conversation = await GetOrEnsureConversationAsync(subjectType, subjectId, identity, ct);
         if (conversation == null)
             return NotFound(new { error = "Chưa có cuộc trò chuyện cho chủ thể này." });
 
@@ -113,7 +115,7 @@ public class RealtimeController(
         if (!await CanAccessAsync(type, id, identity.UserId, ct))
             return Forbidden(type, id);
 
-        var conversation = await _messaging.GetConversationAsync(type, id, ct);
+        var conversation = await GetOrEnsureConversationAsync(type, id, identity, ct);
         if (conversation == null)
             return NotFound(new { error = "Chưa có cuộc trò chuyện cho chủ thể này." });
 
@@ -203,6 +205,30 @@ public class RealtimeController(
             trackerId = ping?.TrackerId,
             recordedAt = ping?.RecordedAt
         });
+    }
+
+    /// <summary>
+    /// Find a subject's conversation — or create it when the subject is an Order and it does not
+    /// exist yet. Order conversations are created lazily by the legacy adapter
+    /// (<see cref="IChatService.GetOrCreateConversationAsync"/>: a fresh order has no conversation
+    /// until a party opens chat, and the placeholder ShipperId is filled in when the shipper
+    /// accepts). P4 mirrors that here so the generic surface serves order chats exactly like
+    /// /api/community/chat/* — otherwise the UI migration (RealtimeChatPanel → /api/realtime/*)
+    /// would 404 on every fresh order (GW-6 keeps IChatService as the order adapter).
+    /// The caller has already passed <see cref="CanAccessAsync"/>, so this never widens access.
+    /// </summary>
+    private async Task<Conversation?> GetOrEnsureConversationAsync(
+        RealtimeSubjectType subjectType,
+        Guid subjectId,
+        RealtimeIdentity identity,
+        CancellationToken ct)
+    {
+        var conversation = await _messaging.GetConversationAsync(subjectType, subjectId, ct);
+        if (conversation != null || subjectType != RealtimeSubjectType.Order)
+            return conversation;
+
+        var guestDeviceId = identity.Kind == RealtimeIdentityKind.Device ? identity.UserId : (Guid?)null;
+        return await _chatService.GetOrCreateConversationAsync(subjectId, guestDeviceId);
     }
 
     private async Task<RealtimeIdentity?> ResolveIdentityAsync(CancellationToken ct)

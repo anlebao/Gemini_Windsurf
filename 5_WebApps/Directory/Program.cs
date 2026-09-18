@@ -1,7 +1,8 @@
-using VanAn.Directory.Components;
+﻿using VanAn.Directory.Components;
 using VanAn.Directory.Services;
 using VanAn.UI.Platform.Core.Interfaces;
 using VanAn.UI.Platform.Adapters;
+using VanAn.UI.Platform.Extensions;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -16,6 +17,10 @@ builder.Services.AddHttpContextAccessor();
 
 // UI Platform — VanAnButton/VanAnCard inject ICssAdapter
 builder.Services.AddScoped<ICssAdapter, BootstrapAdapter>();
+
+// Realtime Platform P4 (F4): realtime chat/map clients + endpoint provider
+// (host-agnostic RCL registration — the 3rd host referencing UI.Platform).
+builder.Services.AddRealtimePlatform();
 
 // JSON options — Gateway API returns enums as strings (e.g. "theme":"Classic")
 // System.Text.Json default uses numbers for enums → JsonException

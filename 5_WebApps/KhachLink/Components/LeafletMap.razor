@@ -1,10 +1,20 @@
-﻿@* CC-S2 (Sprint 2): LeafletMap component — interactive map with shop/shipper/customer markers.
-   Uses vendored Leaflet 1.9.4 (/lib/leaflet/). JS interop at /js/leaflet.js.
-   Markers: shop (red), shipper (blue, moves), customer (green). *@
-@using Microsoft.JSInterop
-@inject IJSRuntime JS
+﻿@* Realtime Platform P4 (UI-10): legacy shim — delegates to the UI Platform VanAnMap.
+   Keeps the old parameter surface so the pages that use it don't change; the real implementation
+   (IMapJsAdapter → window.vananMap.* in UI.Platform realtime.js) lives in
+   UI.Platform/Components/Realtime/VanAnMap.razor. *@
+@using VanAn.UI.Platform.Components.Realtime
 
-<div id="@MapElementId" style="width: 100%; height: @Height; border-radius: 12px; overflow: hidden; z-index: 0;"></div>
+<VanAnMap MapElementId="MapElementId"
+          Height="Height"
+          CenterLat="CenterLat"
+          CenterLng="CenterLng"
+          Zoom="Zoom"
+          ShopLat="ShopLat"
+          ShopLng="ShopLng"
+          ShipperLat="ShipperLat"
+          ShipperLng="ShipperLng"
+          CustomerLat="CustomerLat"
+          CustomerLng="CustomerLng" />
 
 @code {
     [Parameter] public string MapElementId { get; set; } = "leaflet-map";
@@ -19,69 +29,4 @@
     [Parameter] public double? ShipperLng { get; set; }
     [Parameter] public double? CustomerLat { get; set; }
     [Parameter] public double? CustomerLng { get; set; }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-            await JS.InvokeVoidAsync("leafletMap.initMap", MapElementId, CenterLat, CenterLng, Zoom);
-
-        // Add-or-move markers on EVERY render, not just the first: live GPS coordinates arrive
-        // after the map has mounted (SignalR push / 15s poll), and previously the pins were
-        // added once on first render so the shipper marker never moved.
-        await UpsertMarkerAsync("shop", ShopLat, ShopLng, "Shop", "#dc3545");
-        await UpsertMarkerAsync("customer", CustomerLat, CustomerLng, "Khách hàng", "#28a745");
-        await UpsertMarkerAsync("shipper", ShipperLat, ShipperLng, "Shipper", "#007bff");
-    }
-
-    private async Task UpsertMarkerAsync(string key, double? lat, double? lng, string label, string color)
-    {
-        if (!lat.HasValue || !lng.HasValue || (lat.Value == 0 && lng.Value == 0)) return;
-        try
-        {
-            await JS.InvokeVoidAsync("leafletMap.upsertMarker", MapElementId, key, lat.Value, lng.Value, label, color);
-        }
-        catch { /* map not ready yet — next render retries */ }
-    }
-
-    /// <summary>
-    /// Update the shipper marker position (called by parent when GPS updates).
-    /// </summary>
-    public async Task UpdateShipperPositionAsync(double lat, double lng)
-    {
-        if (ShipperLat == lat && ShipperLng == lng) return;
-        ShipperLat = lat;
-        ShipperLng = lng;
-        await JS.InvokeVoidAsync("leafletMap.updateMarker", MapElementId, "shipper", lat, lng);
-    }
-
-    /// <summary>
-    /// Draw a route line from shop to shipper or shipper to customer.
-    /// </summary>
-    public async Task DrawRouteAsync(double fromLat, double fromLng, double toLat, double toLng)
-    {
-        await JS.InvokeVoidAsync("leafletMap.drawRoute", MapElementId, fromLat, fromLng, toLat, toLng);
-    }
-
-    /// <summary>
-    /// Fit map to show all visible markers.
-    /// </summary>
-    public async Task FitBoundsAsync()
-    {
-        var points = new List<object>();
-        if (ShopLat.HasValue && ShopLng.HasValue)
-            points.Add(new { lat = ShopLat.Value, lng = ShopLng.Value });
-        if (ShipperLat.HasValue && ShipperLng.HasValue)
-            points.Add(new { lat = ShipperLat.Value, lng = ShipperLng.Value });
-        if (CustomerLat.HasValue && CustomerLng.HasValue)
-            points.Add(new { lat = CustomerLat.Value, lng = CustomerLng.Value });
-
-        if (points.Count > 1)
-            await JS.InvokeVoidAsync("leafletMap.fitBounds", MapElementId, points);
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        try { await JS.InvokeVoidAsync("leafletMap.removeMap", MapElementId); }
-        catch { /* map already removed or JS interop not available */ }
-    }
 }

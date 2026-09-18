@@ -46,6 +46,9 @@
     
     <!-- bUnit for Blazor component testing -->
     <PackageReference Include="bunit" />
+
+    <!-- Realtime Platform P4: MockHttp for RealtimeHttpAdapter URL/header/body assertions -->
+    <PackageReference Include="RichardSzalay.MockHttp" />
     
     <!-- Code coverage -->
     <PackageReference Include="coverlet.collector">

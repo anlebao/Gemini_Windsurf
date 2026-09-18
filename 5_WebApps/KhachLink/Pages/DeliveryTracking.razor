@@ -1,5 +1,7 @@
 ﻿@page "/community/delivery-tracking/{OrderId:guid}"
 @using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Components.Realtime
+@using VanAn.UI.Platform.Core.Interfaces
 @using VanAn.KhachLink.Components.Layout
 @using VanAn.KhachLink.Services
 @using VanAn.KhachLink.Services.Http
@@ -9,6 +11,7 @@
 @inject NavigationManager Navigation
 @inject CommunityHttpService CommunityHttp
 @inject LocationTrackingService LocationTracker
+@inject ILiveLocationClient LiveLocation
 @inject WalletHttpService WalletHttp
 
 <PageTitle>Theo dõi giao hàng</PageTitle>
@@ -68,17 +71,17 @@
             @if (_showMap)
             {
                 <VanAnCard Shadow="true" CssClass="mb-3 p-0 overflow-hidden">
-                    <LeafletMap MapElementId="delivery-map"
-                                Height="350px"
-                                CenterLat="_centerLat"
-                                CenterLng="_centerLng"
-                                Zoom="14"
-                                ShopLat="_shopLat"
-                                ShopLng="_shopLng"
-                                CustomerLat="_customerLat"
-                                CustomerLng="_customerLng"
-                                ShipperLat="_shipperLat"
-                                ShipperLng="_shipperLng" />
+                    <VanAnMap MapElementId="delivery-map"
+                              Height="350px"
+                              CenterLat="_centerLat"
+                              CenterLng="_centerLng"
+                              Zoom="14"
+                              ShopLat="_shopLat"
+                              ShopLng="_shopLng"
+                              CustomerLat="_customerLat"
+                              CustomerLng="_customerLng"
+                              ShipperLat="_shipperLat"
+                              ShipperLng="_shipperLng" />
                 </VanAnCard>
             }
 
@@ -450,20 +453,19 @@
     private void StartGpsTracking()
     {
         if (_isTracking) return;
-        // Gateway keys location pings by DeliveryTask.Id — fall back to OrderId only if the
-        // task id was never loaded (defensive; pings would be discarded server-side).
-        var trackingId = (_deliveryTaskId ?? Guid.Empty) != Guid.Empty
-            ? _deliveryTaskId!.Value.ToString()
-            : OrderId.ToString();
+        // P4 (UI-12): pings go through the generic realtime surface (POST /api/realtime/location/ping)
+        // with subject Order/{OrderId} — the customer subscribes to loc_Order_{orderId} on
+        // /hubs/tracking and the server stamps the tracker id from the caller's identity.
+        // (The legacy DeliveryTaskId-keyed endpoint is kept for old builds, no longer called here.)
         _isTracking = true;
-        LocationTracker.StartTracking(trackingId, _customerToken!, async (taskId, lat, lng) =>
+        LocationTracker.StartTracking(OrderId.ToString(), _customerToken!, async (taskId, lat, lng) =>
         {
             _shipperLat = lat;
             _shipperLng = lng;
             _lastGpsUpdate = DateTime.Now;
             await InvokeAsync(StateHasChanged);
             // Send to API (fire-and-forget, non-blocking)
-            _ = CommunityHttp.UpdateLocationAsync(_customerToken!, taskId, lat, lng);
+            _ = LiveLocation.RecordPingAsync("Order", OrderId, lat, lng, _customerToken, null);
         });
     }
 

@@ -1,5 +1,6 @@
 ﻿using VanAn.Shared.Services;
 using VanAn.UI.Platform.Core.Interfaces;
+using VanAn.UI.Platform.Extensions;
 using VanAn.UI.Platform.Services;
 using VanAn.UI.Platform.Adapters;
 using VanAn.KhachLink.Components;
@@ -25,6 +26,10 @@ namespace VanAn.KhachLink
             _ = builder.Services.AddScoped<ICssAdapter, BootstrapAdapter>();
             _ = builder.Services.AddScoped<IThemeProvider, ThemeProvider>();
             _ = builder.Services.AddScoped<ITenantService, TenantService>();
+
+            // Realtime Platform P4 (F4): realtime chat/map clients + endpoint provider.
+            // Derives the Gateway URL from the app origin — no per-deployment config needed.
+            _ = builder.Services.AddRealtimePlatform();
 
             // AuthenticationStateProvider: KhachLink WASM is customer-facing (no server auth).
             // Anonymous stub satisfies TenantService's dependency; tenant context comes from
@@ -83,7 +88,8 @@ namespace VanAn.KhachLink
 
             // CC-S1-T1/T2 (Sprint 1): Community Commerce HTTP service (nearby orders + accept)
             _ = builder.Services.AddScoped<Services.Http.CommunityHttpService>();
-            _ = builder.Services.AddScoped<Services.Http.ChatHttpService>();
+            // P4 (UI-10): ChatHttpService removed — ChatPanel is now a shim over the UI Platform
+            // RealtimeChatPanel, which uses IRealtimeChatClient (RealtimeHttpAdapter).
             _ = builder.Services.AddScoped<Services.Http.WalletHttpService>();
             // Loyalty Alliance Phase 5B: cross-tenant alliance wallet (points) HTTP client
             _ = builder.Services.AddScoped<Services.Http.AllianceWalletHttpService>();

@@ -54,7 +54,8 @@ public class LocationTrackingService(IJSRuntime js, ILogger<LocationTrackingServ
 
         try
         {
-            var pos = await _js.InvokeAsync<GeoPosition?>("vananPWA.getCurrentPosition");
+            // P4: use the UI Platform GPS helper (realtime.js) — same implementation, shared namespace.
+            var pos = await _js.InvokeAsync<GeoPosition?>("vananRealtime.getCurrentPosition");
             if (pos != null && _onLocationUpdate != null)
             {
                 await _onLocationUpdate(_deliveryTaskId, pos.Lat, pos.Lng);

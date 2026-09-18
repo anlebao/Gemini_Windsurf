@@ -1,0 +1,322 @@
+@* Realtime Platform P4 (UI-6): subject-agnostic chat panel — ported from
+   KhachLink/Components/ChatPanel.razor (CC-S3 UC-07).
+   Differences from the original:
+     - SubjectType/SubjectId replace the OrderId-only surface (Order, Shop, Ticket, ...).
+     - HTTP goes through IRealtimeChatClient → Gateway /api/realtime/conversations/* (generic).
+     - SignalR goes through IRealtimeEndpointProvider → /hubs/messaging (group msg_{type}_{id}).
+     - DeriveGatewayUrl removed (C8) — the endpoint provider owns URL derivation (F4).
+     - F11: VanAInput instead of a raw <input class="form-control">; no inline <style>. *@
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Core.Interfaces
+@using VanAn.UI.Platform.Realtime
+@using VanAn.UI.Platform.Tokens
+@using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.JSInterop
+@inject IJSRuntime JSRuntime
+@inject IRealtimeChatClient ChatClient
+@inject IRealtimeEndpointProvider Endpoints
+@inject NavigationManager Navigation
+
+<div class="chat-panel">
+    <VanAnCard Shadow="true" CssClass="p-0 overflow-hidden">
+        <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+            <h6 class="mb-0"><i class="bi bi-chat-dots text-primary"></i> Chat với khách hàng</h6>
+            @if (_isConnected)
+            {
+                <span class="badge bg-success">Đã kết nối</span>
+            }
+            else if (_connecting)
+            {
+                <span class="badge bg-warning text-dark">Đang kết nối...</span>
+            }
+            else
+            {
+                <span class="badge bg-secondary">Offline (HTTP only)</span>
+            }
+        </div>
+
+        <!-- Message list -->
+        <div id="@ScrollContainerId" style="max-height: 400px; overflow-y: auto; padding: 12px;" class="bg-light">
+            @if (_loadingHistory)
+            {
+                <div class="text-center py-3">
+                    <div class="spinner-border spinner-border-sm text-primary"></div>
+                </div>
+            }
+            else if (_error != null)
+            {
+                @* Error takes precedence over empty state — don't show "Chưa có tin nhắn" when LoadHistoryAsync failed *@
+            }
+            else if (_messages.Count == 0)
+            {
+                <div class="text-center text-muted py-3">
+                    <i class="bi bi-chat" style="font-size: 2rem;"></i>
+                    <div class="small mt-2">Chưa có tin nhắn. Hãy gửi tin nhắn đầu tiên!</div>
+                </div>
+            }
+            else
+            {
+                @foreach (var msg in _messages)
+                {
+                    var isOwn = msg.SenderId == CurrentUserId;
+                    <div class="d-flex @(isOwn ? "justify-content-end" : "justify-content-start") mb-2">
+                        <div style="max-width: 75%;">
+                            <div class="px-3 py-2 rounded @(isOwn ? "bg-primary text-white" : "bg-white border")">
+                                @msg.Content
+                            </div>
+                            <div class="small text-muted mt-1 @(isOwn ? "text-end" : "text-start")">
+                                @msg.SentAt.ToString("HH:mm")
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- Input row -->
+        <div class="p-3 border-top">
+            @if (_error != null)
+            {
+                <div class="alert alert-danger py-2 small mb-2">
+                    @_error
+                    @if (_tokenExpired)
+                    {
+                        <br />
+                        <a href="/login" class="text-decoration-underline fw-bold">Đăng nhập lại</a>
+                    }
+                </div>
+            }
+            @if (_signalrWarning != null)
+            {
+                <div class="alert alert-warning py-2 small mb-2">
+                    <i class="bi bi-exclamation-triangle"></i> @_signalrWarning
+                </div>
+            }
+            <div class="d-flex gap-2">
+                @* F11: UI Platform VanAInput instead of a raw input.form-control *@
+                <VanAInput AdditionalClasses="flex-fill" Placeholder="Nhập tin nhắn..."
+                           @bind-Value="_messageInput"
+                           @onkeypress="OnKeyPress"
+                           maxlength="2000"
+                           Disabled="_tokenExpired" />
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="SendMessage" disabled="@_tokenExpired">
+                    <i class="bi bi-send"></i> Gửi
+                </VanAnButton>
+            </div>
+        </div>
+    </VanAnCard>
+</div>
+
+@code {
+    /// <summary>Subject discriminator — "Order", "Shop", ... (matches server RealtimeSubjectType names).</summary>
+    [Parameter] public string SubjectType { get; set; } = "Order";
+    [Parameter] public Guid SubjectId { get; set; }
+    /// <summary>The caller's own participant id (customer id or guest device id) — used to align bubbles.</summary>
+    [Parameter] public Guid CurrentUserId { get; set; }
+    [Parameter] public string? CustomerToken { get; set; }
+    /// <summary>D6 (2026-09-17): guest identity (localStorage "customer_device_id"). Guests chat over HTTP.</summary>
+    [Parameter] public Guid? CustomerDeviceId { get; set; }
+    [Parameter] public string ScrollContainerId { get; set; } = "chat-scroll-container";
+
+    private List<RealtimeChatMessage> _messages = new();
+    private string _messageInput = string.Empty;
+    private bool _loadingHistory = true;
+    private bool _connecting = false;
+    private bool _isConnected = false;
+    private bool _tokenExpired = false;
+    private string? _error;
+    private string? _signalrWarning;
+    private HubConnection? _hubConnection;
+    // D6: guests (and any client whose SignalR failed) fall back to polling the history endpoint.
+    private System.Threading.CancellationTokenSource? _pollCts;
+
+    private string GroupName => $"msg_{SubjectType}_{SubjectId}";
+
+    private bool HasGuestIdentity => CustomerDeviceId.HasValue && CustomerDeviceId.Value != Guid.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrEmpty(CustomerToken) && !HasGuestIdentity)
+        {
+            _error = "Chưa đăng nhập.";
+            _loadingHistory = false;
+            return;
+        }
+
+        await LoadHistoryAsync();
+        await ConnectSignalRAsync();
+        StartHistoryPolling();
+    }
+
+    /// <summary>
+    /// Refresh the message list every 8s when SignalR is not connected (guest sessions or a failed
+    /// hub connection). Real-time is skipped — the HTTP history endpoint is the fallback.
+    /// </summary>
+    private void StartHistoryPolling()
+    {
+        _pollCts?.Cancel();
+        _pollCts = new System.Threading.CancellationTokenSource();
+        var token = _pollCts.Token;
+        _ = Task.Run(async () =>
+        {
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(8), token);
+                    if (_isConnected) continue; // SignalR pushes messages — no polling needed
+                    await LoadHistoryAsync();
+                }
+                catch (TaskCanceledException) { break; }
+                catch { /* keep polling */ }
+            }
+        }, token);
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        _loadingHistory = true;
+        var result = await ChatClient.GetHistoryAsync(SubjectType, SubjectId, CustomerToken, CustomerDeviceId);
+        if (result.Success)
+        {
+            _messages = result.Messages;
+        }
+        else
+        {
+            // 401 = token expired/invalid — show re-login guidance
+            if (result.ErrorCode == 401)
+            {
+                _error = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để sử dụng chat.";
+                _tokenExpired = true;
+            }
+            // 404 = subject has no conversation yet — friendly empty state, not an error
+            else if (result.ErrorCode == 404)
+                _error = null;
+            else
+                _error = result.ErrorMessage;
+        }
+        _loadingHistory = false;
+        await InvokeAsync(StateHasChanged);
+        await ScrollToBottomAsync();
+    }
+
+    private async Task ConnectSignalRAsync()
+    {
+        if (string.IsNullOrEmpty(CustomerToken)) return;
+
+        try
+        {
+            _connecting = true;
+            // F4: hub URL comes from the endpoint provider (no manual derivation in the component).
+            var hubUrl = $"{Endpoints.GetMessagingHubUrl()}?customerToken={Uri.EscapeDataString(CustomerToken)}";
+
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl(hubUrl)
+                .WithAutomaticReconnect()
+                .Build();
+
+            _hubConnection.On<string, string, string, string>("ReceiveMessage", (messageId, senderId, content, sentAt) =>
+            {
+                var msg = new RealtimeChatMessage
+                {
+                    Id = Guid.Parse(messageId),
+                    SenderId = Guid.Parse(senderId),
+                    Content = content,
+                    SentAt = DateTime.Parse(sentAt),
+                    IsRead = false
+                };
+                _messages.Add(msg);
+                _ = InvokeAsync(async () =>
+                {
+                    StateHasChanged();
+                    await ScrollToBottomAsync();
+                });
+            });
+
+            await _hubConnection.StartAsync();
+            await _hubConnection.InvokeAsync("JoinConversation", SubjectType, SubjectId.ToString());
+            _isConnected = true;
+        }
+        catch (Exception ex)
+        {
+            // Graceful degradation: HTTP still works for sending/receiving messages.
+            _signalrWarning = "Không thể kết nối chat real-time. Tin nhắn vẫn gửi được (không tức thời).";
+            System.Diagnostics.Debug.WriteLine($"RealtimeChatPanel SignalR connection failed: {ex.Message}");
+        }
+        finally
+        {
+            _connecting = false;
+        }
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(_messageInput) || (string.IsNullOrEmpty(CustomerToken) && !HasGuestIdentity))
+            return;
+
+        var content = _messageInput.Trim();
+        _messageInput = string.Empty;
+        _error = null;
+
+        var result = await ChatClient.SendMessageAsync(SubjectType, SubjectId, content, CustomerToken, CustomerDeviceId);
+        if (!result.Success)
+        {
+            _error = result.ErrorMessage;
+            // Restore message input on failure
+            _messageInput = content;
+        }
+        else if (!_isConnected)
+        {
+            // SignalR not connected — optimistically append locally so sender sees their message.
+            _messages.Add(new RealtimeChatMessage
+            {
+                Id = result.MessageId,
+                SenderId = CurrentUserId,
+                Content = content,
+                SentAt = result.SentAt,
+                IsRead = false
+            });
+            _ = InvokeAsync(async () =>
+            {
+                StateHasChanged();
+                await ScrollToBottomAsync();
+            });
+        }
+        // If SignalR connected, ReceiveMessage handler will append the message — no need to add manually.
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnKeyPress(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_messageInput))
+        {
+            await SendMessage();
+        }
+    }
+
+    private async Task ScrollToBottomAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("vananRealtime.scrollToBottom", ScrollContainerId);
+        }
+        catch { /* JS interop not available during prerender */ }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _pollCts?.Cancel();
+        _pollCts?.Dispose();
+        _pollCts = null;
+
+        if (_hubConnection != null)
+        {
+            try
+            {
+                await _hubConnection.InvokeAsync("LeaveConversation", SubjectType, SubjectId.ToString());
+                await _hubConnection.DisposeAsync();
+            }
+            catch { }
+        }
+    }
+}

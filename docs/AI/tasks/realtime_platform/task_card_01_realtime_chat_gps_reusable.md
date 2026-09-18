@@ -1,6 +1,6 @@
 # TASK CARD — Realtime Platform: Chat + Live Location (Reusable Across Modules)
 
-> **Status:** 🚧 IN PROGRESS — **P1 DONE + DEPLOYED + RV PASS (L1-L4)** (2026-09-17, `b12a99d2`) · **P2 DONE (code + migration + tests, chưa deploy)** · P3-P6 pending
+> **Status:** 🚧 IN PROGRESS — **P1 DONE + DEPLOYED + RV PASS (L1-L4)** (2026-09-17, `b12a99d2`) · **P2 DONE + DEPLOYED + RV L1 PASS** (2026-09-17, `2c3e0360`) · **P3 CODE COMPLETE (chưa deploy)** · **P4 CODE COMPLETE (chưa deploy)** · P5-P6 pending
 > **Review P2-P6 (2026-09-17):** 11 findings (F1-F11) — xem Section 20. Quyết định bổ sung: consumer = **Shop chat trên `/store/{slug}`** (không phải Logistics/JobMarket — xem F1); GPS trên trang shop = **map tĩnh + khoảng cách** (không realtime).
 > **P1 delivered:** D1 (Google customer sync) · D2/D3 (buyer tracking endpoint + map render) · D4 (checkout coords) · D5 (GPS resume) · D6 (guest chat/tracking via device id). Build 0 errors · 40/40 chat+delivery tests PASS · CI ALL PASSED · CD Multi-VPS SUCCESS.
 > **RV:** L1 API ✅ · L2 WASM ✅ · L3 Playwright guest UI ✅ · L4 guest send flow ✅ · L5 manual pending (user).
@@ -263,8 +263,8 @@ B5. Gắn UI (UI Platform — KHÔNG tự viết HTML/CSS)
 | **P0** | ANALYZE | Verify D1..D6 trên production (log + DB) — xem Section 11 | 0.5 |
 | **P1** | FIX_ONLY | ✅ **DONE** — D1 (sync customer), D2/D3 (endpoint + map cho buyer), D4 (toạ độ checkout), D5 (GPS resume), D6 (guest device auth). Build 0 errors · 40/40 tests | 1-2 |
 | **P2** | IMPLEMENT | ✅ **DONE** (2026-09-17) — DOM-1..DOM-4 + SVC-1..SVC-6 + **F2 (unique index)** + **F6 (tracking index)** + migration PG `20260917101938_AddRealtimePlatformP2` (có backfill `SubjectId`). Build 0 errors · guard ALL PASSED · 11/11 test mới · 248/248 Community regression PASS | 1 |
-| **P3** | IMPLEMENT | GW-1..GW-9 (hubs generic + API + adapters) + **F3: device token phải vào SignalR handshake** (không chỉ HTTP header) | 1-2 |
-| **P4** | IMPLEMENT | UI-1..UI-13 + **F4: `IRealtimeEndpointProvider` + verify RCL static assets trên 3 host** + **F11: fix vi phạm UI Platform khi port** (VanAInput thay `<input class="form-control">`, bỏ `<style>` inline) | 1-2 |
+| **P3** | IMPLEMENT | ✅ **DONE (code + tests, chưa deploy)** — GW-1..GW-9 + **F3** (device token vào SignalR handshake qua query string). Build 0 errors · guard ALL PASSED · 37/37 Realtime tests PASS. Xem Section 18.7 | 1-2 |
+| **P4** | IMPLEMENT | ✅ **DONE (code + tests, chưa deploy)** 2026-09-18 — UI-1..UI-13 + **F4** (`IRealtimeEndpointProvider` + RCL wwwroot + verify static assets qua publish) + **F11** (VanAInput thay `<input class="form-control">`). Build 0 errors · guard ALL PASSED · 56/56 Realtime tests PASS (37 P2/P3 + 4 fallback + 15 UI Platform) · Core.Tests 1635 PASS. Xem Section 18.8 | 1-2 |
 | **P5** | IMPLEMENT | **REVISED (2026-09-17): consumer = Shop chat + live location trên `/store/{slug}` (FullCommerce) + inbox chủ shop `/community/messages` (ShopERP)**. Logistics/JobMarket **KHÔNG** dùng làm consumer (chưa tồn tại — F1); giữ làm **P7** khi Sprint 8/9 thành module thật | 1-2 |
 | **P6** | IMPLEMENT | Tests + E2E + RV Layer 1-5 + reuse guide (`docs/UI_Platform_Implementation_Guide.md` bổ sung mục Realtime) | 1 |
 
@@ -477,6 +477,156 @@ After the P1 deploy the user's manual test found: chat OK, but (a) no GPS/map on
 - Card SVC-1/SVC-3 không có tham số `TenantId` → **đã thêm** (bắt buộc: `Conversation.TenantId` là required, Gateway không có ambient tenant).
 - `ConversationParticipant` dùng `.NET 8 keyed DI` thay vì registry tự viết.
 - `IChatService`/`ChatService` **giữ nguyên 100%** (không nhồi generic vào thân hàm) — xem F5.
+
+---
+
+## 18.7. P3 IMPLEMENTATION RECORD (2026-09-17)
+
+**Goal:** expose the P2 generic services through Gateway hubs + HTTP endpoints with one identity
+layer, and close **F3** (guests had no realtime — SignalR accepted only `customerToken`).
+
+**Build:** `dotnet build VanAn.sln` 0 errors · **Guard:** ALL PASSED · **Tests:** 37/37 Realtime PASS (11 P2 + 26 P3).
+
+### New files
+
+| # | File | Purpose |
+|---|---|---|
+| GW-3 | `2_Gateway/Realtime/RealtimeIdentity.cs` | `RealtimeIdentityKind {Customer, Device, Staff}` + `RealtimeIdentity(UserId, Kind)`; `RoleCode` maps to `RealtimeParticipantRole` |
+| GW-3 | `2_Gateway/Realtime/IRealtimeTokenValidator.cs` | One authentication strategy; returns null when it does not apply |
+| GW-3 | `2_Gateway/Realtime/CustomerTokenValidator.cs` | `customerToken` query **or** `X-Customer-Token` header → ShopERP `/api/customer-identity/me` |
+| GW-3 | `2_Gateway/Realtime/DeviceTokenValidator.cs` | **F3** — `customerDeviceId` query **or** `X-Customer-Device-Id` header → guest identity (device guid) |
+| GW-3 | `2_Gateway/Realtime/StaffJwtValidator.cs` | `access_token` query **or** `Authorization: Bearer` → validates HS256 with `Jwt:Secret/Issuer/Audience`, identity = `sub` |
+| GW-3 | `2_Gateway/Realtime/RealtimeIdentityResolver.cs` | Runs validators in registration order (Customer → Device → Staff); first accept wins |
+| GW-3 | `2_Gateway/Realtime/RealtimeRequestReader.cs` | Query-then-header credential reader shared by all three validators |
+| GW-3 | `2_Gateway/Realtime/RealtimeAuthorizerLookup.cs` | Keyed authorizer resolution, **default deny** for unregistered subject types |
+| GW-3 | `2_Gateway/Realtime/RealtimeSubjectParser.cs` | Parses `(subjectType, subjectId)` from SignalR string args |
+| GW-1/2 | `2_Gateway/Hubs/MessagingHub.cs` | `/hubs/messaging`, group `msg_{subjectType}_{subjectId}`, push `ReceiveMessage` |
+| GW-2 | `2_Gateway/Hubs/TrackingHub.cs` | `/hubs/tracking`, group `loc_{subjectType}_{subjectId}`, push `LocationUpdate` |
+| GW-4 | `2_Gateway/Controllers/RealtimeController.cs` | `/api/realtime/conversations/messages` · `GET /conversations/{type}/{id}` · `POST /location/ping` · `GET /location/{type}/{id}/latest` |
+| — | `3_CoreHub/Services/IRealtimeSubjectResolver.cs` + `RealtimeSubjectResolver.cs` | subject → `TenantId` (Order/Delivery from the entity, Shop = tenant id, unknown → null) |
+
+### Modified files
+
+| File | Change |
+|---|---|
+| `2_Gateway/Program.cs` | DI: `IRealtimeSubjectResolver`, 3 × `IRealtimeTokenValidator` (registration order = trust order), `RealtimeIdentityResolver`; `MapHub<MessagingHub>("/hubs/messaging")` + `MapHub<TrackingHub>("/hubs/tracking")` |
+| `2_Gateway/Hubs/ChatHub.cs` | **GW-6** — legacy `/hubs/chat` kept (same method + group names); token validation + join check now delegate to the shared resolver + keyed `OrderRealtimeAuthorizer`; private `/me` forward deleted |
+| `2_Gateway/Hubs/LocationHub.cs` | Same as ChatHub for `/hubs/location` |
+| `6_Tests/VanAn.Architecture.Tests/AuthorizationEnforcementTests.cs` | `RealtimeController` added to the W12-G7 exemption list (customer/guest-facing, header/query auth — `[Authorize]` would reject guests before the endpoint runs) |
+
+### F3 — device token in the SignalR handshake
+
+A browser WebSocket handshake cannot carry custom headers, which is why guests could only poll HTTP
+(P1 D6). Every validator now reads the **query string first**, then the header — so a guest connects
+with `/hubs/messaging?customerDeviceId={guid}` and authenticates like any other caller. The legacy
+`/hubs/chat` + `/hubs/location` accept the same, so the F3 gap closes on both paths.
+
+### Deviations from the card (recorded)
+
+- **New service `IRealtimeSubjectResolver`** (not in GW-1..GW-9). `ILiveLocationService.RecordPingAsync`
+  requires an explicit `TenantId` and Gateway has no ambient tenant; without a resolver the ping would
+  have to trust a caller-supplied tenant (multi-tenancy hole). Resolver returns null for unknown
+  subjects → `400`, never a guessed tenant.
+- **`RealtimeController` is in the W12-G7 exemption list** rather than carrying class-level `[Authorize]`
+  — same category and precedent as `CommunityController`/`DeviceRegistrationController`.
+- **Legacy hubs refactored, not left alone.** P2 deliberately left `ChatService` untouched (F5), but the
+  hubs' access checks were a verbatim duplicate of `OrderRealtimeAuthorizer`. Delegating removes the
+  divergence risk; the authorizer is a strict superset of the old rules (adds participant rows + guest
+  device + excludes cancelled tasks), so nobody who previously had access loses it. Group names and
+  client-facing method names are unchanged (SC7).
+- **`POST /location/ping` rejects (0, 0).** Unset coordinates default to 0 and silently centre maps in
+  the ocean — the D8 defect. Rejected at the API instead of persisted as noise.
+
+### P3 test coverage (`6_Tests/VanAn.Core.Tests/Realtime/`)
+
+| File | Tests |
+|---|---|
+| `RealtimePlatformP3Tests.cs` | T1-T4 — subject → tenant for Order / Delivery / Shop (exists vs missing) / unknown + empty |
+| `RealtimeGatewayP3Tests.cs` | T5-T15 — device guid via query + header, invalid inputs, resolver first-wins, no-validator→null, group naming, **default deny** for unregistered subject, registered authorizer delegation, staff JWT (absent/garbage/valid), customer token (no call when absent, identity when valid) |
+| `RealtimeControllerP3Tests.cs` | T16-T23 — 401 no identity, 400 invalid subjectType, 403 default deny, 403 skips service, 200 history, 400 (0,0) ping, ping stamped with the subject's tenant + pushed to `loc_` group, latest-with-no-ping = 200 + nulls |
+
+**Not yet done (P5-P6):** Shop chat + owner inbox (P5) · E2E + RV L1-5 + reuse guide (P6).
+
+---
+
+## 18.8. P4 IMPLEMENTATION RECORD (2026-09-18)
+
+**Goal:** extract the chat + map UI into UI.Platform (reusable across modules, SC6/SC10) and switch
+KhachLink from the legacy `/hubs/chat` + `/api/community/*` surface to the generic realtime surface.
+
+**Build:** `dotnet build VanAn.sln` 0 errors · **Guard:** ALL CHECKS PASSED · **Tests:** 56/56 Realtime
+(37 P2/P3 + 4 new fallback T24-T27 + 15 new UI Platform T1-T11) · **Core.Tests:** 1635 PASS (0 fail).
+
+### New files (UI.Platform — F4: RCL wwwroot + endpoint provider, host-agnostic)
+
+| # | File | Purpose |
+|---|---|---|
+| F4 | `Core/Interfaces/IRealtimeEndpointProvider.cs` | Gateway base + hub URL provider (the RCL never hard-codes a host) |
+| F4 | `Adapters/RealtimeEndpointUrls.cs` | Pure derivation logic — port of ChatPanel.DeriveGatewayUrl (C8): `*.khachvip.online` suffix maps 1:1, custom domains = same origin (nginx proxies `/api/` + `/hubs/`) |
+| F4 | `Adapters/NavigationRealtimeEndpointProvider.cs` | Default impl from `NavigationManager.BaseUri` — works on WASM + Server + SSR with zero config |
+| UI-1 | `Core/Interfaces/IRealtimeChatClient.cs` | `GetHistoryAsync` / `SendMessageAsync` (subject-type + id, customer token OR device id) |
+| UI-2 | `Core/Interfaces/ILiveLocationClient.cs` | `GetLatestAsync` / `RecordPingAsync` — **trackerId NOT a client param** (server stamps identity — no spoofing) |
+| UI-3 | `Core/Interfaces/IMapJsAdapter.cs` | Map interop abstraction (`ICssAdapter` pattern) |
+| UI-4 | `Adapters/RealtimeHttpAdapter.cs` | Impl both clients → `{gateway}/api/realtime/*`; named `"realtime"` HttpClient with **no base address** (absolute URLs per call — sidesteps WASM-vs-Server scoping, F4) |
+| UI-5 | `Adapters/LeafletMapAdapter.cs` | `IMapJsAdapter` → `window.vananMap.*` |
+| UI-6 | `Components/Realtime/RealtimeChatPanel.razor` | Port of ChatPanel — `SubjectType/SubjectId` params, `IRealtimeChatClient`, `/hubs/messaging` (group `msg_{type}_{id}`), **F11**: VanAInput thay `<input class="form-control">`; 404 = "chưa có cuộc trò chuyện" → empty state (không error) |
+| UI-7 | `Components/Realtime/VanAnMap.razor` | Port of LeafletMap — `IMapJsAdapter` |
+| UI-8 | `wwwroot/js/realtime.js` | `window.vananRealtime` (GPS + scrollToBottom, port từ pwa.js:606-633) + `window.vananMap` (port leaflet.js, rename namespace) |
+| UI-9 | `wwwroot/lib/leaflet/` | Vendored Leaflet 1.9.4 (copy từ KhachLink) |
+| — | `Realtime/RealtimeModels.cs` | Shared DTOs (history/send/location/ping results, map point) |
+| — | `Extensions/RealtimeServiceCollectionExtensions.cs` | `AddRealtimePlatform()` — 1-call registration (endpoint provider + adapters + named HttpClient) |
+
+### KhachLink changes (migration)
+
+| # | File | Change |
+|---|---|---|
+| UI-10 | `Components/ChatPanel.razor` | **Shim** → `RealtimeChatPanel` (SubjectType="Order", giữ params cũ) |
+| UI-10 | `Components/LeafletMap.razor` | **Shim** → `VanAnMap` (giữ params cũ) |
+| UI-11 | `Pages/OrderTracking.razor` | `VanAnMap` thay LeafletMap · shipper coords từ `ILiveLocationClient.GetLatestAsync("Order", orderId)` (generic surface) · join `/hubs/tracking` (group `loc_Order_{id}`) cho ping push live · legacy hub giữ cho status pushes (GW-6) · 15s poll fallback |
+| UI-12 | `Pages/DeliveryTracking.razor` | `VanAnMap` · ping qua `ILiveLocationClient.RecordPingAsync("Order", OrderId, ...)` thay `POST /api/community/location/update` (D5 resume giữ nguyên) |
+| — | `Program.cs` | `AddRealtimePlatform()` · bỏ đăng ký `ChatHttpService` |
+| — | `Services/Http/ChatHttpService.cs` | **Xoá** (dead sau migration — shim dùng IRealtimeChatClient) |
+| — | `wwwroot/index.html` | leaflet css/js + realtime.js từ `/_content/VanAn.UI.Platform/...` · bỏ `/js/leaflet.js` |
+| — | `Services/LocationTrackingService.cs` | GPS helper → `vananRealtime.getCurrentPosition` (realtime.js) |
+| — | `Pages/Checkout.razor` | UI-13 đã xong ở P1 (D4 — toạ độ checkout) |
+
+### Gateway change (bắt buộc cho migration — conversation lazy-create)
+
+`RealtimeController` (P3) trả 404 "Chưa có cuộc trò chuyện" khi conversation chưa tồn tại — đơn mới
+sẽ 404 cả history lẫn send nếu RealtimeChatPanel dùng thẳng generic surface. **Fix:** khi
+`subjectType == Order` và generic lookup miss → fallback `IChatService.GetOrCreateConversationAsync`
+(legacy adapter, GW-6) với guest device id từ identity (Device kind). Caller đã qua
+`IRealtimeParticipantAuthorizer` nên không mở rộng quyền. Non-Order subject → vẫn 404 (không fallback).
+
+### Hosts (F4 — "3 host")
+
+`AddRealtimePlatform()` đăng ký ở **KhachLink** (WASM) + **ShopERP** (Server, cho inbox P5) +
+**Directory** (SSR). **Verify static assets:** `dotnet publish KhachLink -c Release` → 
+`wwwroot/_content/VanAn.UI.Platform/js/realtime.js` + `lib/leaflet/leaflet.{js,css}` present ✓
+(cơ chế framework giống nhau cho Server/SSR — verify serving thật ở P6 RV L2).
+
+### Tests (`6_Tests/VanAn.Core.Tests/Realtime/`)
+
+| File | Tests |
+|---|---|
+| `RealtimeUiPlatformP4Tests.cs` (NEW) | T1-T3 DeriveGatewayBaseUrl (khachvip suffix / custom domain / localhost) · T4-T5 endpoint provider hub URLs · T6-T11 RealtimeHttpAdapter (URL + X-Customer-Token / X-Customer-Device-Id headers, subject POST body, null-coords 200, UTC round-trip parse, 403 error mapping) |
+| `RealtimeControllerP3Tests.cs` (+4) | T24 Order + no conversation → ensure via legacy adapter (200) · T25 Shop + no conversation → 404 (no fallback) · T26 existing conversation → legacy NOT consulted · T27 first-message send → fallback creates conversation |
+
+### Deviations so far (đã ghi nhận)
+
+- **RealtimeHttpAdapter không có trackerId param** (card UI-2 có) — RealtimeController stamp TrackerId
+  = identity.UserId server-side; client không gửi được trackerId. Ghi nhận: interface theo API thật.
+- **RealtimeController fallback Order→IChatService** (không nằm trong card P4) — bắt buộc để migration
+  không 404 trên đơn mới; additive, không đổi behavior surface generic cũ.
+- **ChatHttpService xoá hẳn** thay vì giữ shim (card UI-10 cho phép "hoặc xoá sau khi migrate hết trang").
+- **KhachLink vẫn giữ legacy `/hubs/location` trên OrderTracking** cho `DeliveryStatusUpdate` +
+  `OrderStatusUpdated` (generic TrackingHub chỉ mang LocationUpdate); generic hub thêm cho ping push.
+  Hậu quả: 3 SignalR connections khi đăng nhập (location + tracking + chat panel) — chấp nhận cho P4,
+  consolidate nếu cần ở phase sau.
+- **Ping generic Order/orderId** thay Delivery/DeliveryTaskId: DeliveryTaskId = Guid.Empty trên ping mới
+  → legacy tracking endpoint (đọc theo DeliveryTaskId) không thấy ping mới — khách/shipper đều đã migrate
+  sang generic surface (GetLatestAsync / RecordPingAsync) nên không ảnh hưởng UI hiện tại; legacy endpoint
+  giữ cho old builds (GW-6).
 
 ---
 

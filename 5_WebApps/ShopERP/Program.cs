@@ -1,4 +1,4 @@
-using VanAn.Shared.Domain;
+﻿using VanAn.Shared.Domain;
 using VanAn.Shared.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -26,6 +26,7 @@ using VanAn.CoreHub.Services.Providers.EInvoice;
 using VanAn.ShopERP.Infrastructure;
 using VanAn.ShopERP.Services;
 using VanAn.UI.Platform.Services;
+using VanAn.UI.Platform.Extensions;
 using Serilog;
 using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
 using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
@@ -228,6 +229,10 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<ITenantService, TenantService>();
             _ = builder.Services.AddScoped<IThemeProvider, ThemeProvider>();
             _ = builder.Services.AddScoped<UI.Platform.Core.Interfaces.ICssAdapter, UI.Platform.Adapters.BootstrapAdapter>();
+
+            // Realtime Platform P4 (F4): realtime chat/map clients + endpoint provider
+            // (needed by the shop inbox page in P5).
+            _ = builder.Services.AddRealtimePlatform();
 
             // Add SignalR client
             _ = builder.Services.AddSignalR();
