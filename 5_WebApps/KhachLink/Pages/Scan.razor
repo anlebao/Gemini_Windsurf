@@ -3,10 +3,12 @@
 @using VanAn.KhachLink.Components.Layout
 @using VanAn.KhachLink.Components.Shared
 @using VanAn.Shared.DTOs
+@using VanAn.Shared.Domain
 @inject NavigationManager Navigation
 @inject VanAn.KhachLink.Services.CartService CartService
 @inject VanAn.KhachLink.Services.Http.ProductHttpService ProductService
 @inject VanAn.KhachLink.Services.Http.CommunityHttpService CommunityHttp
+@inject VanAn.KhachLink.Services.Http.CatalogHttpService CatalogService
 @inject VanAn.KhachLink.Services.LastInteractionService LastInteractionService
 @inject IJSRuntime JSRuntime
 
@@ -295,7 +297,11 @@
             VatRate = resolved.VatRate,
             ImageUrl = resolved.ImageUrl,
             Description = resolved.Description,
-            IsActive = true
+            IsActive = true,
+            // Issue #177: propagate ProductType from Gateway FeaturedProducts so Free/Charity
+            // referral products get IsFree=true on the cart item (previously dropped → checkout
+            // showed the payment selector for a 0đ cart / Tier 0 rejected non-featured products).
+            ProductType = resolved.ProductType
         };
 
         await CartService.AddItemAsync(product, 1);
@@ -400,6 +406,25 @@
             _errorMessage = "Không tìm thấy sản phẩm từ mã QR. Sản phẩm có thể đã bị xóa hoặc không tồn tại.";
             StateHasChanged();
             return;
+        }
+
+        // Issue #177: the ShopERP product API has no ProductType field, so a 0-price Free/Charity
+        // product arrives as Paid → cart IsFree=false → checkout rejected "giá không hợp lệ" for
+        // non-featured products / payment selector shown for 0đ carts. Best-effort enrich from the
+        // featured catalog (mirrors Store.razor); fallback: any 0-price product is treated as Free.
+        if (_scannedProduct.Price <= 0)
+        {
+            _scannedProduct.ProductType = FeaturedProductType.Free;
+            try
+            {
+                var catalog = await CatalogService.GetRecommendedAsync(null, page: 1, pageSize: 100);
+                var match = catalog?.Products.FirstOrDefault(p => p.ProductId == _scannedProduct.ProductId);
+                if (match != null)
+                {
+                    _scannedProduct.ProductType = match.ProductType;
+                }
+            }
+            catch { /* non-critical — Free fallback already set */ }
         }
 
         // Add to cart

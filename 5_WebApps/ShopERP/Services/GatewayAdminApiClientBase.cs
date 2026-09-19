@@ -97,7 +97,14 @@ namespace VanAn.ShopERP.Services
         protected static async Task<T?> SendAndReadAsync<T>(HttpClient client, HttpRequestMessage request, CancellationToken ct = default)
         {
             HttpResponseMessage response = await client.SendAsync(request, ct);
-            response.EnsureSuccessStatusCode();
+            if (!response.IsSuccessStatusCode)
+            {
+                // Issue #180: surface the server's error message instead of the generic
+                // "Response status code does not indicate success: 400 (Bad Request)".
+                string body = await response.Content.ReadAsStringAsync(ct);
+                throw new InvalidOperationException(
+                    $"Gateway API {request.Method} {request.RequestUri} failed ({(int)response.StatusCode}): {body}");
+            }
             return await response.Content.ReadFromJsonAsync<T>(GatewayJsonOptions, ct);
         }
     }

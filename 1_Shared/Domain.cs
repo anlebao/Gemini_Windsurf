@@ -4380,14 +4380,15 @@ namespace VanAn.Shared.Domain
     }
 
     /// <summary>
-    /// ProductReferralConfig — per-product commission rate (2-5%) + app-install bonus.
+    /// ProductReferralConfig — per-product commission rate (0-50%) + app-install bonus.
     /// Sysadmin sets; fallback to ProductId if ProductShortCode not set.
+    /// Issue #178: range widened from 0.02-0.05 to 0-0.5 so Free/Charity products (rate=0) can be configured.
     /// </summary>
     public class ProductReferralConfig : BaseEntity, IMustHaveTenant
     {
         public Guid ProductId { get; protected set; } // unique (1 config per product)
         public string? ProductShortCode { get; protected set; } // 20 chars, unique within tenant
-        public decimal CommissionRate { get; protected set; } // 2-5% (0.02m - 0.05m), do sysadmin set
+        public decimal CommissionRate { get; protected set; } // 0-50% (0m - 0.5m), do sysadmin set
         public decimal AppInstallBonus { get; protected set; } // bonus cố định khi customer cài app qua referral
         public bool IsActive { get; protected set; } = true;
         public CommissionBase CommissionBase { get; protected set; } = CommissionBase.OnOrderTotal; // Sprint 7 — OnOrderTotal (Marketplace) vs OnMargin (Reseller)
@@ -4397,8 +4398,8 @@ namespace VanAn.Shared.Domain
         public ProductReferralConfig(TenantId tenantId, Guid productId, decimal commissionRate, decimal appInstallBonus, string? productShortCode = null, CommissionBase commissionBase = CommissionBase.OnOrderTotal)
             : base(tenantId)
         {
-            if (commissionRate < 0.02m || commissionRate > 0.05m)
-                throw new ArgumentOutOfRangeException(nameof(commissionRate), "CommissionRate must be between 0.02 and 0.05 (2-5%)");
+            if (commissionRate < 0m || commissionRate > 0.5m)
+                throw new ArgumentOutOfRangeException(nameof(commissionRate), "CommissionRate must be between 0 and 0.5 (0-50%)");
             if (appInstallBonus < 0m)
                 throw new ArgumentOutOfRangeException(nameof(appInstallBonus), "AppInstallBonus cannot be negative");
             ProductId = productId;
@@ -4411,8 +4412,8 @@ namespace VanAn.Shared.Domain
 
         public void Update(decimal commissionRate, decimal appInstallBonus, string? productShortCode, bool isActive, CommissionBase? commissionBase = null)
         {
-            if (commissionRate < 0.02m || commissionRate > 0.05m)
-                throw new ArgumentOutOfRangeException(nameof(commissionRate), "CommissionRate must be between 0.02 and 0.05 (2-5%)");
+            if (commissionRate < 0m || commissionRate > 0.5m)
+                throw new ArgumentOutOfRangeException(nameof(commissionRate), "CommissionRate must be between 0 and 0.5 (0-50%)");
             if (appInstallBonus < 0m)
                 throw new ArgumentOutOfRangeException(nameof(appInstallBonus), "AppInstallBonus cannot be negative");
             CommissionRate = commissionRate;

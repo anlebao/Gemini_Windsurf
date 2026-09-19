@@ -7,7 +7,7 @@ namespace VanAn.Gateway.Controllers
     /// <summary>
     /// CC-S4 (Sprint 4): Admin ProductReferralConfig CRUD — per-product commission rate + app-install bonus.
     /// Auth: SystemAdmin policy (JWT).
-    /// Validation: CommissionRate 0.02-0.05, AppInstallBonus >= 0, ProductShortCode unique.
+    /// Validation: CommissionRate 0-0.5 (Issue #178), AppInstallBonus >= 0, ProductShortCode unique.
     /// </summary>
     [ApiController]
     [Route("api/admin/products")]

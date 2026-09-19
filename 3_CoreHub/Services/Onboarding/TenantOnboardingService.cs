@@ -227,10 +227,11 @@ namespace VanAn.CoreHub.Services.Onboarding
                 tenant.UpdateProfile(tenant.Name, settingsWithContact);
             }
 
-            // 3. Update slug to clean slug (now UpdateSlug works — tenant is Active)
-            string publishedSlug = req.Slug;
-            if (string.IsNullOrWhiteSpace(publishedSlug))
-                publishedSlug = Slugify(tenant.Name);
+            // 3. Update slug to clean slug (now UpdateSlug works — tenant is Active).
+            // Issue #180 fix: BOTH the auto slug (from tenant name) and the user-provided slug
+            // go through Slugify so Vietnamese diacritics are stripped — Tenant.UpdateSlug
+            // only accepts [a-z0-9-] and used to throw ArgumentException → 400 (UnifiedErrorHandler).
+            string publishedSlug = Slugify(string.IsNullOrWhiteSpace(req.Slug) ? tenant.Name : req.Slug);
             tenant.UpdateSlug(publishedSlug);
 
             // 4. Assign to ShopInstance if provided (Multi-VPS routing)
@@ -294,8 +295,14 @@ namespace VanAn.CoreHub.Services.Onboarding
 
         private static string Slugify(string name)
         {
-            // Simple slugify: lowercase, remove diacritics, replace spaces with hyphens
+            // Simple slugify: lowercase, strip diacritics, replace spaces with hyphens.
+            // Issue #180: NFD normalize + remove combining marks FIRST — .NET \w matches
+            // Unicode letters, so without this step Vietnamese diacritics survive the
+            // [^\w\s-] removal ("Quán Cà Phê" → "quán-cà-phê") and Tenant.UpdateSlug
+            // (regex ^[a-z0-9-]+$) throws ArgumentException → 400 via UnifiedErrorHandler.
             var slug = name.Trim().ToLowerInvariant();
+            slug = slug.Normalize(System.Text.NormalizationForm.FormD);
+            slug = System.Text.RegularExpressions.Regex.Replace(slug, @"\p{Mn}", "");
             slug = System.Text.RegularExpressions.Regex.Replace(slug, @"[^\w\s-]", "");
             slug = System.Text.RegularExpressions.Regex.Replace(slug, @"\s+", "-");
             slug = System.Text.RegularExpressions.Regex.Replace(slug, @"-+", "-");

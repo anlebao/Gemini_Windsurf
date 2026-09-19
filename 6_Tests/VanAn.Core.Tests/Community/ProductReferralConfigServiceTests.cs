@@ -61,16 +61,29 @@ public class ProductReferralConfigServiceTests : IDisposable
     }
 
     // === T18: Create_InvalidRate_Throws ===
+    // Issue #178: range widened 0.02-0.05 → 0-0.5 (Free/Charity products use rate=0).
     [Fact(DisplayName = "T18: Create_InvalidRate_Throws")]
     public async Task Create_InvalidRate_Throws()
     {
-        // Rate < 0.02
+        // Rate < 0
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            _service.CreateAsync(ProductId, TenantId, 0.01m, 10000, "TR-001"));
+            _service.CreateAsync(ProductId, TenantId, -0.01m, 10000, "TR-001"));
 
-        // Rate > 0.05
+        // Rate > 0.5
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            _service.CreateAsync(ProductId, TenantId, 0.06m, 10000, "TR-001"));
+            _service.CreateAsync(ProductId, TenantId, 0.51m, 10000, "TR-001"));
+    }
+
+    // === T18b: Create_ZeroRate_Accepted (Issue #178 — Free/Charity) ===
+    [Fact(DisplayName = "T18b: Create_ZeroRate_Accepted")]
+    public async Task Create_ZeroRate_Accepted()
+    {
+        var result = await _service.CreateAsync(ProductId, TenantId, 0m, 0, "TR-FREE");
+
+        Assert.NotNull(result);
+        Assert.Equal(0m, result.CommissionRate);
+        Assert.Equal(0, result.AppInstallBonus);
+        Assert.True(result.IsActive);
     }
 
     // === T19: Update_ModifiesFields ===

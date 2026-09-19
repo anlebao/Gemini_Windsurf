@@ -269,5 +269,38 @@ namespace VanAn.Core.Tests.Services.Onboarding
                 s.CreateGroupAsync(It.Is<TenantId>(t => t == TestTenantId), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
                 Times.AtLeast(4));
         }
+
+        // ── Issue #180: VerifyAsync slug must be ASCII (no Vietnamese diacritics) ──
+
+        [Theory(DisplayName = "Issue #180: Slugify strips Vietnamese diacritics")]
+        [InlineData("Quán Cà Phê Test", "quan-ca-phe-test")]
+        [InlineData("Ốc Quê", "oc-que")]
+        [InlineData("Trà Sữa & Cà Phê", "tra-sua-ca-phe")]
+        [InlineData("Vạn An Holdings", "van-an-holdings")]
+        public void Slugify_StripsDiacritics(string name, string expectedSlug)
+        {
+            var method = typeof(TenantOnboardingService).GetMethod(
+                "Slugify", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            Assert.NotNull(method);
+
+            var result = (string)method!.Invoke(null, new object[] { name })!;
+
+            Assert.Equal(expectedSlug, result);
+            // Slug must satisfy Tenant.UpdateSlug validation (^[a-z0-9]+(?:-[a-z0-9]+)*$)
+            Assert.Matches(@"^[a-z0-9]+(?:-[a-z0-9]+)*$", result);
+        }
+
+        [Fact(DisplayName = "Issue #180: Slugify falls back to tenant-<guid> for names with no ASCII letters")]
+        public void Slugify_FallsBackForNonAsciiNames()
+        {
+            var method = typeof(TenantOnboardingService).GetMethod(
+                "Slugify", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            Assert.NotNull(method);
+
+            var result = (string)method!.Invoke(null, new object[] { "###" })!;
+
+            Assert.StartsWith("tenant-", result);
+            Assert.Matches(@"^[a-z0-9]+(?:-[a-z0-9]+)*$", result);
+        }
     }
 }

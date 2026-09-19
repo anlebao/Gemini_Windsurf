@@ -93,6 +93,10 @@ public class ReferralScanResult
     public string? ImageUrl { get; set; }
     public string? Description { get; set; }
     public bool IsFree { get; set; }
+
+    /// <summary>Issue #177: ProductType from FeaturedProducts (Paid/Free/Charity) so KhachLink
+    /// can set ProductDto.ProductType correctly (charity needs the donation step at checkout).</summary>
+    public FeaturedProductType ProductType { get; set; } = FeaturedProductType.Paid;
 }
 
 public class CommissionSummaryDto

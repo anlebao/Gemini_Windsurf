@@ -7,7 +7,7 @@ namespace VanAn.CoreHub.Services;
 
 /// <summary>
 /// CC-S4 (Sprint 4): Product referral config service — admin CRUD.
-/// Validation: CommissionRate 0.02-0.05, AppInstallBonus >= 0, ProductShortCode unique within tenant.
+/// Validation: CommissionRate 0-0.5 (Issue #178 — Free/Charity products use 0), AppInstallBonus >= 0, ProductShortCode unique within tenant.
 /// Tenant-aware: CreateAsync requires explicit tenantId (the tenant that owns the product).
 /// ListAllAsync optionally filters by tenant. ShortCode uniqueness is per-tenant.
 /// </summary>

@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using VanAn.Shared.Domain;
 
 namespace VanAn.KhachLink.Services.Http;
 
@@ -200,8 +201,14 @@ public class CommunityHttpService(IHttpClientFactory httpClientFactory, ILogger<
             if (!resp.IsSuccessStatusCode) return null;
 
             var body = await resp.Content.ReadAsStringAsync();
+            // JsonStringEnumConverter required since Gateway serializes FeaturedProductType as
+            // camelCase string (JsonSerializerDefaults.Web) — Issue #177 added ProductType to the DTO.
             return System.Text.Json.JsonSerializer.Deserialize<ReferralScanDto>(body,
-                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase) }
+                });
         }
         catch (Exception ex)
         {
@@ -782,6 +789,10 @@ public class ReferralScanDto
     public string? ImageUrl { get; set; }
     public string? Description { get; set; }
     public bool IsFree { get; set; }
+
+    /// <summary>Issue #177: FeaturedProductType from Gateway (Paid/Free/Charity) — used to set
+    /// ProductDto.ProductType so cart/checkout C2/C3 logic (free notice, charity donation step) works.</summary>
+    public FeaturedProductType ProductType { get; set; } = FeaturedProductType.Paid;
 }
 
 public class CommissionSummaryDto

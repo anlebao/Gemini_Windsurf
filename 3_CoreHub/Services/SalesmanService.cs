@@ -469,7 +469,8 @@ public class SalesmanService(
             VatRate = fp.VatRate,
             ImageUrl = fp.ImageUrl,
             Description = fp.DisplayDescription,
-            IsFree = fp.ProductType != FeaturedProductType.Paid
+            IsFree = fp.ProductType != FeaturedProductType.Paid,
+            ProductType = fp.ProductType
         };
     }
 

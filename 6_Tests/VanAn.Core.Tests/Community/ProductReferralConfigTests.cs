@@ -29,13 +29,26 @@ namespace VanAn.Core.Tests.Community
             var tenantId = new TenantId(Guid.NewGuid());
             var productId = Guid.NewGuid();
 
-            // Too low (< 0.02)
+            // Too low (< 0) — Issue #178 widened range to 0-0.5
             Assert.Throws<ArgumentOutOfRangeException>(() =>
-                new ProductReferralConfig(tenantId, productId, 0.01m, 20_000m));
+                new ProductReferralConfig(tenantId, productId, -0.01m, 20_000m));
 
-            // Too high (> 0.05)
+            // Too high (> 0.5)
             Assert.Throws<ArgumentOutOfRangeException>(() =>
-                new ProductReferralConfig(tenantId, productId, 0.06m, 20_000m));
+                new ProductReferralConfig(tenantId, productId, 0.51m, 20_000m));
+        }
+
+        [Fact(DisplayName = "18b: ProductReferralConfig_Create_ZeroRate_Accepted (Issue #178 — Free/Charity)")]
+        public void ProductReferralConfig_Create_ZeroRate_Accepted()
+        {
+            var tenantId = new TenantId(Guid.NewGuid());
+            var productId = Guid.NewGuid();
+
+            var config = new ProductReferralConfig(tenantId, productId, 0m, 0m, "P-FREE");
+
+            Assert.Equal(0m, config.CommissionRate);
+            Assert.Equal(0m, config.AppInstallBonus);
+            Assert.True(config.IsActive);
         }
     }
 }

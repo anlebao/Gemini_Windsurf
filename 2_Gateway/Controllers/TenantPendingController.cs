@@ -74,6 +74,12 @@ namespace VanAn.Gateway.Controllers
             {
                 return Conflict(new { error = ex.Message });
             }
+            catch (ArgumentException ex)
+            {
+                // Issue #180: ArgumentException (e.g. invalid slug) would otherwise bubble to
+                // UnifiedErrorHandler which maps it to a generic 400 with no useful message.
+                return BadRequest(new { error = ex.Message });
+            }
         }
 
         // ── Duplicates ───────────────────────────────────────────────────────
