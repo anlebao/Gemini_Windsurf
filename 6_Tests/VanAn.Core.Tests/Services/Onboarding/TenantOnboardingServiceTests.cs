@@ -274,9 +274,13 @@ namespace VanAn.Core.Tests.Services.Onboarding
 
         [Theory(DisplayName = "Issue #180: Slugify strips Vietnamese diacritics")]
         [InlineData("Quán Cà Phê Test", "quan-ca-phe-test")]
+        [InlineData("Quán Cà Phê RV 1789820861", "quan-ca-phe-rv-1789820861")]
         [InlineData("Ốc Quê", "oc-que")]
         [InlineData("Trà Sữa & Cà Phê", "tra-sua-ca-phe")]
         [InlineData("Vạn An Holdings", "van-an-holdings")]
+        [InlineData("Công Ty TNHH Hà Đăng Nguyên", "cong-ty-tnhh-ha-dang-nguyen")] // đ — NFD không decompose
+        [InlineData("Đặng Văn Ước", "dang-van-uoc")]
+        [InlineData("Trà Sữa 中", "tra-sua")] // non-ASCII phải bị loại
         public void Slugify_StripsDiacritics(string name, string expectedSlug)
         {
             var method = typeof(TenantOnboardingService).GetMethod(
