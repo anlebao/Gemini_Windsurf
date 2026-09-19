@@ -1,6 +1,6 @@
 # Task Card #178: Referral products QRcode — config + danh sách
 
-> **Status:** Phần 1 (config range) ✅ IMPLEMENTED 2026-09-19 · Phần 2 (QR list feature) PENDING — chờ deploy + RV
+> **Status:** Phần 1 ✅ FIXED + DEPLOYED + RV PRODUCTION PASS 2026-09-19 (POST rate=0 → 201) · Phần 2 (QR list feature) PENDING
 > **Priority:** P1 (phần 1 — config) · P2 (phần 2 — feature)
 > **Created:** 2026-09-19
 > **Master plan:** `docs/AI/tasks/issues_176_181/master_plan.md`

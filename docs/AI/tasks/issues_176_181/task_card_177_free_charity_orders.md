@@ -1,6 +1,6 @@
 # Task Card #177: Đơn hàng sản phẩm free/charity bị lỗi
 
-> **Status:** ✅ IMPLEMENTED 2026-09-19 (client-only fix, theo quyết định) — chờ deploy + RV
+> **Status:** ✅ IMPLEMENTED + DEPLOYED 2026-09-19 (client-only fix, theo quyết định) — UI test (L3/L4) pending
 > **Priority:** P1 — chặn đặt hàng free/charity
 > **Created:** 2026-09-19
 > **Master plan:** `docs/AI/tasks/issues_176_181/master_plan.md`

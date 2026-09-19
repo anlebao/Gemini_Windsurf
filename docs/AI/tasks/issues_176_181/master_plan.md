@@ -1,7 +1,7 @@
 # Master Plan — Issue Batch #176 → #181 (2026-09-19)
 
 **Created:** 2026-09-19
-**Status:** Batch 1 (#180 + #178 + #177) ✅ IMPLEMENTED 2026-09-19 — build 0 errors · guard ALL PASSED · Core.Tests 1655 PASS · chờ deploy + RV. Batch 2 pending.
+**Status:** Batch 1 ✅ FIXED + DEPLOYED + RV PRODUCTION PASS 2026-09-19 (`49d07bd5` + `7a32a9c7`): #180 200/slug chuẩn hóa · #178 201 rate=0 · #177 deploy WASM (UI test pending). Batch 2 pending.
 **Branch target:** `main`
 **Source:** 6 GitHub issues mở ngày 2026-09-18/19 (anlebao/Gemini_Windsurf)
 
