@@ -1,7 +1,8 @@
 ﻿@using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
-@using VanAn.UI.Platform.Models
 @using VanAn.ShopERP.Components.Shared
+@using VanAn.ShopERP.Services
+@using Microsoft.AspNetCore.Components.Authorization
 @inherits LayoutComponentBase
 
 <VanALayout>
@@ -17,36 +18,15 @@
 </VanALayout>
 
 @code {
-    private List<NavigationItem> EInvoiceMenuItems = new()
+    [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = null!;
+    [Inject] private IShopErpMenuService MenuService { get; set; } = null!;
+
+    private List<VanAn.UI.Platform.Models.NavigationItem> EInvoiceMenuItems = new();
+
+    protected override async Task OnInitializedAsync()
     {
-        new() { Title = "← Sitemap", Icon = "house-door", Url = "/sitemap" },
-        new() { Title = "Dashboard", Icon = "speedometer2", Url = "/einvoice" },
-        new()
-        {
-            Title = "Hóa Đơn", Icon = "receipt",
-            Children = new()
-            {
-                new() { Title = "Quản Lý Hóa Đơn", Icon = "receipt", Url = "/einvoice/invoices" },
-                new() { Title = "Quản Lý Cảnh Báo", Icon = "bell", Url = "/einvoice/alerts" },
-            }
-        },
-        new()
-        {
-            Title = "Cấu Hình", Icon = "gear",
-            Children = new()
-            {
-                new() { Title = "Nhà Cung Cấp", Icon = "plug", Url = "/einvoice/providers" },
-                new() { Title = "Cấu Hình Provider", Icon = "sliders", Url = "/einvoice/configuration" },
-            }
-        },
-        new()
-        {
-            Title = "Giám Sát", Icon = "activity",
-            Children = new()
-            {
-                new() { Title = "Health Monitoring", Icon = "heart-pulse", Url = "/einvoice/health" },
-            }
-        },
-        new() { Title = "Đăng xuất", Icon = "box-arrow-right", Url = "/Logout" }
-    };
+        // SSOT menu: same role-based menu as the other layouts (Hóa Đơn Điện Tử group included).
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        EInvoiceMenuItems = await MenuService.BuildAsync(authState.User);
+    }
 }

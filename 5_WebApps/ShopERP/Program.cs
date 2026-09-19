@@ -531,6 +531,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<Services.TenantCommunityAdminApiClient>(); // R2: Owner-scoped role activation
             // Realtime Platform P5 (2026-09-18): shop inbox — Owner JWT → /api/realtime/shop/conversations
             _ = builder.Services.AddScoped<Services.ShopInboxApiClient>();
+            // Nav menu SSOT (2026-09-19): single menu definition per role used by all layouts
+            _ = builder.Services.AddScoped<Services.IShopErpMenuService, Services.ShopErpMenuService>();
             _ = builder.Services.AddScoped<Services.CampaignApiClient>();
             _ = builder.Services.AddScoped<Services.TenantApiClient>();
             // Crawl-to-Onboard Phase 7 (2026-08-26): Claims queue + Pending + Duplicates + Crawl trigger.

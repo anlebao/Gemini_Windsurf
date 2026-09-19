@@ -10,6 +10,7 @@ using Bunit.JSInterop;
 using VanAn.UI.Platform.Components;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
+using VanAn.ShopERP.Services;
 
 namespace VanAn.ShopERP.Tests.Components;
 
@@ -58,6 +59,9 @@ public class ComponentTestBase : TestContext
         // Register UI Platform components
         Services.AddSingleton<VanALayout>();
         Services.AddSingleton<VanANavigation>();
+
+        // Register nav menu SSOT service (deps: ITenantProvider + IVasFeatureFlagService mocks above)
+        Services.AddSingleton<IShopErpMenuService, ShopErpMenuService>();
 
         // Bunit automatically discovers components from referenced assemblies
         // UI.Platform is already referenced in the project, so components should be discoverable

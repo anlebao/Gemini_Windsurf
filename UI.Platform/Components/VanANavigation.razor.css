@@ -12,7 +12,8 @@
     border-bottom: 1px solid #334155;
 }
 
-.vanan-navigation__item--active > .vanan-navigation__link {
+.vanan-navigation__item--active > .vanan-navigation__link,
+.vanan-navigation__link.active {
     background-color: #0ea5e9;
     color: #ffffff;
     font-weight: 600;
@@ -72,6 +73,12 @@
 .vanan-navigation__sublink:hover {
     background-color: #1e293b;
     color: #e2e8f0;
+}
+
+.vanan-navigation__sublink.active {
+    background-color: #1e293b;
+    color: #ffffff;
+    font-weight: 600;
 }
 
 .vanan-navigation__subicon {

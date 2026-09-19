@@ -1,7 +1,7 @@
 ﻿@using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
-@using VanAn.UI.Platform.Models
 @using VanAn.ShopERP.Components.Shared
+@using VanAn.ShopERP.Services
 @using Microsoft.AspNetCore.Components.Authorization
 @inherits LayoutComponentBase
 
@@ -19,148 +19,14 @@
 
 @code {
     [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = null!;
+    [Inject] private IShopErpMenuService MenuService { get; set; } = null!;
 
-    private List<NavigationItem> AdminMenuItems = new();
-    private bool _isSystemAdmin;
-    private bool _initialized;
+    private List<VanAn.UI.Platform.Models.NavigationItem> AdminMenuItems = new();
 
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        _isSystemAdmin = authState.User.IsInRole("SystemAdmin");
-        // Issue #103: When SystemAdmin is impersonating a tenant, render Owner menu
-        // (shop owner view) instead of SystemAdmin menu (platform admin view).
-        var isImpersonating = authState.User.FindFirst("impersonating")?.Value == "true";
-        AdminMenuItems = (_isSystemAdmin && !isImpersonating) ? BuildSystemAdminMenu() : BuildOwnerMenu();
-        _initialized = true;
-    }
-
-    /// <summary>
-    /// SystemAdmin menu — full access, grouped by business domain.
-    /// Groups are collapsible via VanANavigation's details/summary rendering.
-    /// </summary>
-    private static List<NavigationItem> BuildSystemAdminMenu()
-    {
-        return new()
-        {
-            new() { Title = "← Sitemap", Icon = "house-door", Url = "/sitemap" },
-            new()
-            {
-                Title = "Hệ thống", Icon = "server",
-                Children = new()
-                {
-                    new() { Title = "Tenants", Icon = "building", Url = "/admin/tenants" },
-                    new() { Title = "ShopERP Instances", Icon = "hdd-network", Url = "/admin/shop-instances" },
-                    new() { Title = "KhachLink Instances", Icon = "grid", Url = "/admin/khachlink-instances" },
-                    new() { Title = "Tenant Domains", Icon = "globe", Url = "/admin/domains" },
-                    new() { Title = "Người dùng", Icon = "people", Url = "/admin/users" },
-                    new() { Title = "Nhóm quyền", Icon = "person-lock", Url = "/admin/permission-groups" },
-                    new() { Title = "Audit Trail", Icon = "shield-check", Url = "/admin/audit-trail" },
-                    new() { Title = "Tenant Registrations", Icon = "person-plus", Url = "/admin/tenant-registrations" },
-                    new() { Title = "Background Services", Icon = "arrow-clockwise", Url = "/admin/background-services" },
-                }
-            },
-            new()
-            {
-                Title = "CRM & Loyalty", Icon = "award",
-                Children = new()
-                {
-                    new() { Title = "Cross-Tenant Overview", Icon = "globe", Url = "/admin/customers-global" },
-                    new() { Title = "Khách hàng (CRM)", Icon = "people-fill", Url = "/admin/customers" },
-                    new() { Title = "Chiến dịch khuyến mãi", Icon = "megaphone-fill", Url = "/admin/promo-campaigns" },
-                    new() { Title = "Push Campaigns", Icon = "bell-fill", Url = "/admin/push-campaigns" },
-                    new() { Title = "Khuyến mãi (Social)", Icon = "megaphone", Url = "/admin/campaigns" },
-                    new() { Title = "Quản lý Nhiệm vụ", Icon = "trophy", Url = "/admin/missions" },
-                    new() { Title = "Đổi điểm (Catalog)", Icon = "gift", Url = "/admin/redemption-catalog" },
-                    new() { Title = "Catalog Global", Icon = "globe2", Url = "/admin/global-redemption-catalog" },
-                    new() { Title = "Lịch sử đổi điểm", Icon = "clock-history", Url = "/admin/redemption-history" },
-                    new() { Title = "Loyalty Alliance Config", Icon = "award", Url = "/admin/loyalty-config" },
-                }
-            },
-            new()
-            {
-                Title = "Cộng tác viên", Icon = "people-fill",
-                Children = new()
-                {
-                    new() { Title = "Quản lý CTV", Icon = "people-fill", Url = "/admin/community/admin-panel" },
-                    new() { Title = "Fraud Review", Icon = "shield-exclamation", Url = "/admin/community/fraud-flags" },
-                    new() { Title = "Fraud Stats", Icon = "graph-up-arrow", Url = "/admin/community/fraud-stats" },
-                    new() { Title = "Device Registrations", Icon = "phone-vibrate", Url = "/admin/device-registrations" },
-                    new() { Title = "Cấu hình tính năng", Icon = "toggles", Url = "/settings/shop-features" },
-                    new() { Title = "Xác minh SMS", Icon = "phone", Url = "/admin/collaborator-verification" },
-                    new() { Title = "Quỹ Cộng Đồng", Icon = "piggy-bank", Url = "/admin/community-fund" },
-                    new() { Title = "Lịch sử Settlement", Icon = "cash-coin", Url = "/admin/settlements" },
-                }
-            },
-            new()
-            {
-                Title = "Thương mại", Icon = "shop",
-                Children = new()
-                {
-                    new() { Title = "Commerce Mode", Icon = "toggle2-on", Url = "/admin/commerce-mode" },
-                    new() { Title = "Referral Configs", Icon = "diagram-3", Url = "/admin/product-referral-configs" },
-                    new() { Title = "Giá Vốn SP", Icon = "tag", Url = "/admin/product-cost-prices" },
-                    new() { Title = "VALCN v2.0 Features", Icon = "toggles", Url = "/admin/valcn-features" },
-                    new() { Title = "Sản phẩm nổi bật", Icon = "star", Url = "/admin/featured-products" },
-                    new() { Title = "Reseller Kế toán", Icon = "receipt", Url = "/admin/reseller-accounting-reconciliation" },
-                }
-            },
-            new()
-            {
-                Title = "Infrastructure", Icon = "hdd-stack",
-                Children = new()
-                {
-                    new() { Title = "Network Dashboard", Icon = "graph-up", Url = "/admin/network-dashboard" },
-                    new() { Title = "Lưu trữ ảnh R2", Icon = "cloud-arrow-down", Url = "/admin/r2-storage" },
-                    new() { Title = "Cài đặt OCR", Icon = "camera", Url = "/admin/ocr-settings" },
-                    new() { Title = "Cấu hình KhachLink", Icon = "sliders2-vertical", Url = "/admin/khachlink-home-settings" },
-                }
-            },
-            new() { Title = "Đăng xuất", Icon = "box-arrow-right", Url = "/Logout" }
-        };
-    }
-
-    /// <summary>
-    /// Owner menu — only pages Owner is authorized to access (OwnerOnly policy).
-    /// SystemAdmin-only pages (Loyalty Alliance, Referral Configs, Commerce Mode,
-    /// VALCN Features, OCR Settings, Featured Products, etc.) are hidden.
-    /// </summary>
-    private static List<NavigationItem> BuildOwnerMenu()
-    {
-        return new()
-        {
-            new() { Title = "← Sitemap", Icon = "house-door", Url = "/sitemap" },
-            new()
-            {
-                Title = "Quản trị", Icon = "shield-lock",
-                Children = new()
-                {
-                    new() { Title = "Người dùng", Icon = "people", Url = "/admin/users" },
-                    new() { Title = "Nhóm quyền", Icon = "person-lock", Url = "/admin/permission-groups" },
-                }
-            },
-            new()
-            {
-                Title = "CRM & Loyalty", Icon = "award",
-                Children = new()
-                {
-                    new() { Title = "Khách hàng (CRM)", Icon = "people-fill", Url = "/admin/customers" },
-                    new() { Title = "Chiến dịch khuyến mãi", Icon = "megaphone-fill", Url = "/admin/promo-campaigns" },
-                    new() { Title = "Quản lý Nhiệm vụ", Icon = "trophy", Url = "/admin/missions" },
-                    new() { Title = "Đổi điểm (Catalog)", Icon = "gift", Url = "/admin/redemption-catalog" },
-                    new() { Title = "Lịch sử đổi điểm", Icon = "clock-history", Url = "/admin/redemption-history" },
-                }
-            },
-            new()
-            {
-                Title = "Tài chính", Icon = "graph-up-arrow",
-                Children = new()
-                {
-                    new() { Title = "Thông tin tài chính", Icon = "graph-up-arrow", Url = "/financial" },
-                    new() { Title = "Hồ sơ doanh nghiệp", Icon = "building-fill-gear", Url = "/admin/business-profile" },
-                }
-            },
-            new() { Title = "Đăng xuất", Icon = "box-arrow-right", Url = "/Logout" }
-        };
+        // SSOT menu: ShopErpMenuService handles SystemAdmin vs Owner (incl. Issue #103 impersonation).
+        AdminMenuItems = await MenuService.BuildAsync(authState.User);
     }
 }
