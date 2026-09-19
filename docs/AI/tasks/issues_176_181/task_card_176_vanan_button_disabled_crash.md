@@ -1,6 +1,6 @@
 # Task Card #176: VanAnButton `disabled` render crash (WASM)
 
-> **Status:** ALREADY FIXED + DEPLOYED · Phase B sweep ✅ DONE (`6ab09cbc`, Batch 2) — chờ RV đóng issue
+> **Status:** ✅ **ISSUE CLOSED 2026-09-19** — RV PRODUCTION PASS (store page 0 crash errors, sweep deployed `6ab09cbc` + `a620d1de`)
 > **Priority:** P3 (đóng issue) — fix gốc đã có trong HEAD
 > **Created:** 2026-09-19
 > **Master plan:** `docs/AI/tasks/issues_176_181/master_plan.md`

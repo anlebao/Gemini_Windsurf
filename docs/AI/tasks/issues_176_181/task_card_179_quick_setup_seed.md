@@ -1,6 +1,6 @@
 # Task Card #179: Quick-setup không lưu menu items / product list trống
 
-> **Status:** ✅ RV DONE + CODE FIXED (`6ab09cbc`, Batch 2 2026-09-19) — chờ deploy + RV lại
+> **Status:** ✅ RV DONE + CODE FIXED + DEPLOYED + RV PRODUCTION PASS (`6ab09cbc` + `a620d1de`, 2026-09-19)
 > **RV 2026-09-19 (vanan-shop-a):** tenant `1833b55c` → SQLite: 0 Products + 0 Tenants row. Container log (52.504 dòng, từ lúc start 13:33Z) KHÔNG có `ApplyTemplateAsync`/`Error during setup` → seed chưa từng persist trên container này (log của lần chạy user bị mất do redeploy). Bằng chứng seed mechanism HOẠT ĐỘNG: 2 tenant (35037648, B391C72B) có 32 products (F&B template) nhưng cũng KHÔNG có Tenants row (không FK). Defect verified: exception bị nuốt (`catch { Console.WriteLine }` QuickSetup.razor) + success screen hardcoded (`selectedTemplate.Products`). Fix: `GetSeedCountsAsync` (đọc DB thật) + error alert đỏ khi fail + không bao giờ fake success.
 > **Priority:** P2 — onboarding bị vỡ
 > **Created:** 2026-09-19
