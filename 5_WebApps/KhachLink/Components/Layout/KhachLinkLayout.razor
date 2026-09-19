@@ -9,6 +9,7 @@
 @using VanAn.KhachLink.Models
 @using VanAn.KhachLink.Components
 @using VanAn.KhachLink.Components.Shared
+@using Microsoft.AspNetCore.Components.Routing
 @inject IThemeProvider ThemeProvider
 @inject ITenantService TenantService
 @inject ShopConfigHttpService ShopConfigService
@@ -74,7 +75,8 @@ else
                         <i class="bi bi-download text-white"></i>
                     </button>
                 }
-                @if (_navFlags.ShowCart)
+                @* Issue #181: hide header cart icon on pages that already render cart contents (/cart, /checkout, /scan). *@
+                @if (_navFlags.ShowCart && !HideCartChrome)
                 {
                     <a href="/cart" id="nav-cart" class="header-icon-btn position-relative" aria-label="Giỏ hàng">
                         <i class="bi bi-cart3 text-white"></i>
@@ -139,8 +141,8 @@ else
     @* Sprint 2 P3.1: Onboarding tour — Directory → FullCommerce/Reseller *@
     <OnboardingTour Direction="@_profileChangeDirection" NewProfile="@(_instanceStyle?.Profile ?? KhachLinkProfile.FullCommerce)" />
 
-    @* Global floating CartDrawer — visible on ALL pages when cart has items (was Home.razor + Store.razor only). *@
-    @if (_navFlags.ShowCart && _cartState.Items.Count > 0)
+    @* Global floating CartDrawer — hidden on pages that already render cart contents (/cart, /checkout, /scan) — Issue #181. *@
+    @if (_navFlags.ShowCart && !HideCartChrome && _cartState.Items.Count > 0)
     {
         <CartDrawer
             CartItems="@_cartState.Items"
@@ -305,6 +307,17 @@ else
     private CartState _cartState = new();
     private bool _vatDisplayEnabled = true;
 
+    /// <summary>Issue #181: Hide cart chrome (header icon + floating drawer) on pages that already render cart contents (/cart, /checkout, /scan).</summary>
+    private bool HideCartChrome
+    {
+        get
+        {
+            var relative = Navigation.ToBaseRelativePath(Navigation.Uri);
+            var path = relative.Split('?', '#')[0].Trim('/');
+            return path is "cart" or "checkout" or "scan";
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         _currentTenantId = TenantService.GetCurrentTenantId();
@@ -313,6 +326,8 @@ else
         // Global cart subscription — CartDrawer + header badge update on any add/remove across all pages.
         _cartState = CartSvc.GetCartState();
         CartSvc.OnCartChanged += OnCartChanged;
+        // Issue #181: re-render layout on navigation so cart chrome visibility follows the page.
+        Navigation.LocationChanged += OnLocationChanged;
         await CartSvc.LoadCartFromStorageAsync();
         UpdateCartItemCount();
 
@@ -527,6 +542,9 @@ else
         StateHasChanged();
     }
 
+    /// <summary>Issue #181: Re-render on navigation so HideCartChrome follows the current route (incl. query-only changes like /scan?code=...).</summary>
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => StateHasChanged();
+
     /// <summary>Checkout from floating CartDrawer — Phase B: bypass /checkout for all-free carts.</summary>
     private async Task GoToCheckout()
     {
@@ -641,5 +659,6 @@ else
     public void Dispose()
     {
         CartSvc.OnCartChanged -= OnCartChanged;
+        Navigation.LocationChanged -= OnLocationChanged;
     }
 }

@@ -252,7 +252,7 @@
                         <!-- W1-T2: ProcessingBar shown during cash order submission -->
                         <ProcessingBar IsVisible="@isSendingCash" />
 
-                        <VanAnButton Variant="ButtonVariant.Success" FullWidth="true" OnClick="SubmitGuestOrder" data-testid="checkout-btn-place-order" disabled="@isSendingCash">
+                        <VanAnButton Variant="ButtonVariant.Success" FullWidth="true" OnClick="SubmitGuestOrder" data-testid="checkout-btn-place-order" Disabled="@isSendingCash">
                             @(selectedPaymentMethod == "cash" ? "Đặt hàng (Tiền mặt)"
                               : selectedPaymentMethod == "donation" ? "🤝 Xác nhận nhận quà từ thiện"
                               : selectedPaymentMethod == "free" ? "✅ Xác nhận nhận đồ miễn phí"

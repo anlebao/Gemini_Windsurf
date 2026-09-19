@@ -784,6 +784,94 @@ namespace VanAn.Gateway.Controllers
         }
 
         /// <summary>
+        /// Issue #178 ph2: GET /api/community/salesman/products?sourceDomain={host}
+        /// "Gian hàng của tôi" — the salesman's configured referral products (product + config +
+        /// composite code + qrUrl + live catalog price) + active featured products available to add.
+        /// QR composite is deterministic ("{salesmanCode}|{productShortCode}") — no storage needed.
+        /// </summary>
+        [HttpGet("salesman/products")]
+        public async Task<IActionResult> GetSalesmanProducts([FromQuery] string? sourceDomain = null)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            var (hasRole, roleError) = await CheckSalesmanRoleAsync(customerId.Value);
+            if (!hasRole) return roleError!;
+
+            try
+            {
+                var store = await _salesmanService.GetSalesmanStoreAsync(customerId.Value, sourceDomain);
+                return Ok(store);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting salesman store for {SalesmanId}", customerId.Value);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// Issue #178 ph2: POST /api/community/salesman/products/add
+        /// Add an active featured product to the salesman's store (creates ProductReferralConfig
+        /// with safe defaults 0.01 / 1000 VND — owner can adjust via admin UI).
+        /// </summary>
+        [HttpPost("salesman/products/add")]
+        public async Task<IActionResult> AddSalesmanProduct([FromBody] AddSalesmanProductRequest body)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            var (hasRole, roleError) = await CheckSalesmanRoleAsync(customerId.Value);
+            if (!hasRole) return roleError!;
+
+            if (body == null || body.ProductId == Guid.Empty)
+                return BadRequest(new { error = "ProductId không hợp lệ." });
+
+            try
+            {
+                var product = await _salesmanService.AddProductToStoreAsync(customerId.Value, body.ProductId);
+                if (product == null)
+                    return BadRequest(new { error = "Sản phẩm không tồn tại hoặc đã có cấu hình referral." });
+                return Ok(product);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding product {ProductId} to salesman store for {SalesmanId}", body.ProductId, customerId.Value);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// Issue #178 ph2: POST /api/community/salesman/products/remove
+        /// Remove a product from the salesman's store (soft — DeactivateAsync).
+        /// </summary>
+        [HttpPost("salesman/products/remove")]
+        public async Task<IActionResult> RemoveSalesmanProduct([FromBody] RemoveSalesmanProductRequest body)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            var (hasRole, roleError) = await CheckSalesmanRoleAsync(customerId.Value);
+            if (!hasRole) return roleError!;
+
+            if (body == null || body.ProductId == Guid.Empty)
+                return BadRequest(new { error = "ProductId không hợp lệ." });
+
+            try
+            {
+                var removed = await _salesmanService.RemoveProductFromStoreAsync(customerId.Value, body.ProductId);
+                if (!removed)
+                    return NotFound(new { error = "Không tìm thấy cấu hình referral cho sản phẩm này." });
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error removing product {ProductId} from salesman store for {SalesmanId}", body.ProductId, customerId.Value);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
         /// POST /api/community/app-install/attributed
         /// Attribute an app install to a salesman via composite referral code.
         /// </summary>
@@ -1186,6 +1274,18 @@ namespace VanAn.Gateway.Controllers
             public string? FingerprintHash { get; set; }
             public string? FingerprintSignals { get; set; }
             public string? DeviceToken { get; set; }
+        }
+
+        /// <summary>Issue #178 ph2: add product to salesman store.</summary>
+        public class AddSalesmanProductRequest
+        {
+            public Guid ProductId { get; set; }
+        }
+
+        /// <summary>Issue #178 ph2: remove product from salesman store.</summary>
+        public class RemoveSalesmanProductRequest
+        {
+            public Guid ProductId { get; set; }
         }
 
         public class ResolveReferralRequest

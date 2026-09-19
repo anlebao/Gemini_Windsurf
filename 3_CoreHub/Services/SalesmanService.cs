@@ -94,44 +94,9 @@ public class SalesmanService(
         // Get salesman role — load TRACKED so we can backfill a missing SalesmanCode (Issue #175).
         // Legacy roles (created before the constructor assigned a code, or inserted via raw SQL)
         // have a NULL SalesmanCode and would otherwise return null → "Không thể tạo mã QR".
-        var role = await _dbContext.CommunityRoles
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(r => r.CustomerId == salesmanId
-                && r.RoleType == CommunityRoleType.Salesman
-                && r.IsActive);
-
+        var role = await LoadSalesmanRoleWithCodeAsync(salesmanId);
         if (role == null)
-        {
-            _logger.LogWarning("GetCompositeSalesmanQr: No active Salesman role for {SalesmanId}", salesmanId);
             return null;
-        }
-
-        if (string.IsNullOrEmpty(role.SalesmanCode))
-        {
-            // Backfill with retry on unique-index collision (6-char random, collision risk is tiny).
-            for (int attempt = 0; attempt < 3; attempt++)
-            {
-                if (attempt == 0)
-                    role.EnsureSalesmanCode();
-                else
-                    role.RegenerateSalesmanCode();
-                try
-                {
-                    await _dbContext.SaveChangesAsync();
-                    _logger.LogInformation("GetCompositeSalesmanQr: Backfilled SalesmanCode for role {RoleId} (customer {SalesmanId})", role.Id, salesmanId);
-                    break;
-                }
-                catch (DbUpdateException ex) when (attempt < 2)
-                {
-                    _logger.LogWarning(ex, "GetCompositeSalesmanQr: SalesmanCode collision on attempt {Attempt}, regenerating", attempt);
-                }
-            }
-            if (string.IsNullOrEmpty(role.SalesmanCode))
-            {
-                _logger.LogError("GetCompositeSalesmanQr: Failed to persist SalesmanCode for role {RoleId} after 3 attempts", role.Id);
-                return null;
-            }
-        }
 
         // Get product referral config
         var config = await _dbContext.ProductReferralConfigs
@@ -188,6 +153,55 @@ public class SalesmanService(
 
         _logger.LogWarning("GetCompositeSalesmanQr: no KhachLink origin supplied or configured — falling back to default host");
         return "https://diemthuong.khachvip.online";
+    }
+
+    /// <summary>
+    /// Load the salesman role (TRACKED) and guarantee a persisted SalesmanCode — backfills a missing
+    /// code with retry on unique-index collision (Issue #175). Returns null when there is no active
+    /// Salesman role or the code could not be persisted.
+    /// </summary>
+    private async Task<CommunityRole?> LoadSalesmanRoleWithCodeAsync(Guid salesmanId)
+    {
+        var role = await _dbContext.CommunityRoles
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(r => r.CustomerId == salesmanId
+                && r.RoleType == CommunityRoleType.Salesman
+                && r.IsActive);
+
+        if (role == null)
+        {
+            _logger.LogWarning("LoadSalesmanRoleWithCode: No active Salesman role for {SalesmanId}", salesmanId);
+            return null;
+        }
+
+        if (string.IsNullOrEmpty(role.SalesmanCode))
+        {
+            // Backfill with retry on unique-index collision (6-char random, collision risk is tiny).
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                if (attempt == 0)
+                    role.EnsureSalesmanCode();
+                else
+                    role.RegenerateSalesmanCode();
+                try
+                {
+                    await _dbContext.SaveChangesAsync();
+                    _logger.LogInformation("LoadSalesmanRoleWithCode: Backfilled SalesmanCode for role {RoleId} (customer {SalesmanId})", role.Id, salesmanId);
+                    break;
+                }
+                catch (DbUpdateException ex) when (attempt < 2)
+                {
+                    _logger.LogWarning(ex, "LoadSalesmanRoleWithCode: SalesmanCode collision on attempt {Attempt}, regenerating", attempt);
+                }
+            }
+            if (string.IsNullOrEmpty(role.SalesmanCode))
+            {
+                _logger.LogError("LoadSalesmanRoleWithCode: Failed to persist SalesmanCode for role {RoleId} after 3 attempts", role.Id);
+                return null;
+            }
+        }
+
+        return role;
     }
 
     public async Task<CommissionSummaryDto> GetCommissionsAsync(Guid salesmanId)
@@ -471,6 +485,170 @@ public class SalesmanService(
             Description = fp.DisplayDescription,
             IsFree = fp.ProductType != FeaturedProductType.Paid,
             ProductType = fp.ProductType
+        };
+    }
+
+    /// <summary>
+    /// Issue #178 ph2: "Gian hàng của tôi" — salesman's configured referral products (with composite
+    /// QR + live catalog price) + active featured products still available to add.
+    /// </summary>
+    public async Task<SalesmanStoreDto> GetSalesmanStoreAsync(Guid salesmanId, string? khachLinkBaseUrl = null)
+    {
+        var role = await LoadSalesmanRoleWithCodeAsync(salesmanId);
+        if (role == null)
+            return new SalesmanStoreDto();
+
+        var configs = await _dbContext.ProductReferralConfigs
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(c => c.IsActive)
+            .ToListAsync();
+        var configuredProductIds = configs.Select(c => c.ProductId).ToHashSet();
+
+        var featured = await _dbContext.FeaturedProducts
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(f => f.IsActive)
+            .ToListAsync();
+
+        var tenantIds = featured.Select(f => f.TenantId).Distinct().ToList();
+        var tenants = await _dbContext.Tenants
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(t => tenantIds.Contains(t.Id))
+            .ToListAsync();
+        var tenantMap = tenants.ToDictionary(t => t.Id, t => t);
+
+        var configMap = configs.ToDictionary(c => c.ProductId, c => c);
+        var baseUrl = ResolveKhachLinkBaseUrl(khachLinkBaseUrl);
+        var salesmanCode = role.SalesmanCode!;
+
+        var products = new List<SalesmanStoreProductDto>();
+        var availableForAdd = new List<SalesmanAddableProductDto>();
+
+        foreach (var fp in featured)
+        {
+            var shopName = tenantMap.TryGetValue(fp.TenantId, out var tenant) && !string.IsNullOrWhiteSpace(tenant.Name)
+                ? tenant.Name
+                : "Unknown Shop";
+
+            if (configuredProductIds.Contains(fp.ProductId) && configMap.TryGetValue(fp.ProductId, out var config))
+            {
+                products.Add(BuildStoreProduct(fp, config, salesmanCode, shopName, baseUrl));
+            }
+            else
+            {
+                availableForAdd.Add(new SalesmanAddableProductDto
+                {
+                    ProductId = fp.ProductId,
+                    TenantId = fp.TenantId.Value,
+                    Name = fp.DisplayName,
+                    Price = fp.DisplayPrice,
+                    ProductType = fp.ProductType,
+                    ImageUrl = fp.ImageUrl,
+                    ShopName = shopName
+                });
+            }
+        }
+
+        return new SalesmanStoreDto
+        {
+            Products = products.OrderBy(p => p.Name).ToList(),
+            AvailableForAdd = availableForAdd.OrderBy(p => p.Name).ToList()
+        };
+    }
+
+    /// <summary>
+    /// Issue #178 ph2: Add an active featured product to the salesman's store by creating a
+    /// ProductReferralConfig with safe defaults (0.01 / 1000 VND — same as admin UI defaults).
+    /// Returns null when the product is not an active featured product or already has a config.
+    /// </summary>
+    public async Task<SalesmanStoreProductDto?> AddProductToStoreAsync(Guid salesmanId, Guid productId, string? khachLinkBaseUrl = null)
+    {
+        var role = await LoadSalesmanRoleWithCodeAsync(salesmanId);
+        if (role == null)
+            return null;
+
+        var fp = await _dbContext.FeaturedProducts
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(f => f.ProductId == productId && f.IsActive);
+
+        if (fp == null)
+        {
+            _logger.LogWarning("AddProductToStore: product {ProductId} is not an active FeaturedProduct", productId);
+            return null;
+        }
+
+        var existing = await _dbContext.ProductReferralConfigs
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .AnyAsync(c => c.ProductId == productId);
+
+        if (existing)
+        {
+            _logger.LogWarning("AddProductToStore: product {ProductId} already has a referral config", productId);
+            return null;
+        }
+
+        var config = new ProductReferralConfig(fp.TenantId, productId, 0.01m, 1000m);
+        _dbContext.ProductReferralConfigs.Add(config);
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation("AddProductToStore: config {ConfigId} created for product {ProductId} by salesman {SalesmanId}", config.Id, productId, salesmanId);
+
+        var tenant = await _dbContext.Tenants
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == fp.TenantId);
+        var shopName = tenant?.Name ?? "Unknown Shop";
+
+        return BuildStoreProduct(fp, config, role.SalesmanCode!, shopName, ResolveKhachLinkBaseUrl(khachLinkBaseUrl));
+    }
+
+    /// <summary>
+    /// Issue #178 ph2: Remove a product from the salesman's store (soft — DeactivateAsync).
+    /// Returns false when the config does not exist.
+    /// </summary>
+    public async Task<bool> RemoveProductFromStoreAsync(Guid salesmanId, Guid productId)
+    {
+        var role = await LoadSalesmanRoleWithCodeAsync(salesmanId);
+        if (role == null)
+            return false;
+
+        var config = await _dbContext.ProductReferralConfigs
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.ProductId == productId);
+
+        if (config == null)
+            return false;
+
+        config.Deactivate();
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation("RemoveProductFromStore: config {ConfigId} deactivated for product {ProductId} by salesman {SalesmanId}", config.Id, productId, salesmanId);
+        return true;
+    }
+
+    private static SalesmanStoreProductDto BuildStoreProduct(FeaturedProduct fp, ProductReferralConfig config, string salesmanCode, string shopName, string baseUrl)
+    {
+        var productShortCode = config.ProductShortCode ?? fp.ProductId.ToString()[..8].ToUpper();
+        var compositeCode = $"{salesmanCode}|{productShortCode}";
+
+        return new SalesmanStoreProductDto
+        {
+            ProductId = fp.ProductId,
+            TenantId = fp.TenantId.Value,
+            Name = fp.DisplayName,
+            Price = fp.DisplayPrice,
+            ProductType = fp.ProductType,
+            ImageUrl = fp.ImageUrl,
+            ShopName = shopName,
+            CommissionRate = config.CommissionRate,
+            AppInstallBonus = config.AppInstallBonus,
+            ProductShortCode = productShortCode,
+            CompositeCode = compositeCode,
+            QrUrl = $"{baseUrl}/scan?ref={Uri.EscapeDataString(compositeCode)}"
         };
     }
 

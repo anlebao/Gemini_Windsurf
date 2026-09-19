@@ -1,0 +1,286 @@
+@page "/community/salesman-store"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
+@using VanAn.Shared.Domain
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject CommunityHttpService CommunityHttp
+
+<PageTitle>Gian hàng của tôi</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width:700px;">
+        <h3 class="mb-3">
+            <i class="bi bi-shop text-primary"></i> Gian hàng của tôi
+        </h3>
+
+        @if (_loading)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Đang tải...</span></div>
+            </div>
+        }
+        else if (!_isLoggedIn)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-lock text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đăng nhập để xem gian hàng</h5>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập</VanAnButton>
+            </VanAnCard>
+        }
+        else if (_store == null)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-shield-x text-warning" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Không thể tải gian hàng</h5>
+                <p class="text-muted small">Tài khoản của bạn cần có quyền Salesman. Nếu đã có quyền, vui lòng thử lại.</p>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="LoadStoreAsync">Thử lại</VanAnButton>
+            </VanAnCard>
+        }
+        else
+        {
+            @if (!string.IsNullOrEmpty(_alertMessage))
+            {
+                <div class="alert alert-@(_alertType) alert-dismissible fade show" role="alert">
+                    @_alertMessage
+                    <button type="button" class="btn-close" @onclick="DismissAlert" aria-label="Đóng"></button>
+                </div>
+            }
+
+            @* Issue #178 ph2 B3: add a not-yet-configured product to the store *@
+            @if (_store.AvailableForAdd.Count > 0)
+            {
+                <VanAnCard Shadow="true" CssClass="p-3 mb-3">
+                    <h6 class="mb-2"><i class="bi bi-plus-circle text-primary"></i> Thêm sản phẩm vào gian hàng</h6>
+                    <div class="d-flex gap-2">
+                        <select class="form-select" @bind="_selectedAddProductId">
+                            <option value="@Guid.Empty">-- Chọn sản phẩm --</option>
+                            @foreach (var p in _store.AvailableForAdd)
+                            {
+                                <option value="@p.ProductId">@p.Name — @p.Price.ToString("N0") đ</option>
+                            }
+                        </select>
+                        <VanAnButton Variant="ButtonVariant.Primary" OnClick="AddProduct" Disabled="@(_selectedAddProductId == Guid.Empty)">
+                            <i class="bi bi-plus-lg"></i> Thêm
+                        </VanAnButton>
+                    </div>
+                    <p class="text-muted small mt-2 mb-0">Hoa hồng mặc định 1%, bonus cài app 1.000đ. Chủ shop có thể điều chỉnh tại trang quản trị.</p>
+                </VanAnCard>
+            }
+
+            @if (_store.Products.Count == 0)
+            {
+                <VanAnCard Shadow="true" CssClass="text-center p-5">
+                    <i class="bi bi-inbox text-muted" style="font-size:3rem;"></i>
+                    <p class="mt-3 text-muted">Gian hàng chưa có sản phẩm nào. Hãy thêm sản phẩm để tạo mã QR giới thiệu.</p>
+                </VanAnCard>
+            }
+            else
+            {
+                <p class="text-muted small mb-3">@_store.Products.Count sản phẩm trong gian hàng</p>
+                <div class="d-flex flex-column gap-3">
+                    @foreach (var product in _store.Products)
+                    {
+                        <VanAnCard Shadow="true" CssClass="p-3">
+                            <div class="d-flex justify-content-between align-items-start gap-2">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">@product.Name</h6>
+                                    <p class="text-muted small mb-1"><i class="bi bi-shop"></i> @product.ShopName</p>
+                                    <p class="mb-1">
+                                        <strong>@product.Price.ToString("N0") đ</strong>
+                                        @if (product.ProductType != FeaturedProductType.Paid)
+                                        {
+                                            <span class="badge bg-info ms-1">@(product.ProductType == FeaturedProductType.Free ? "Miễn phí" : "Từ thiện")</span>
+                                        }
+                                    </p>
+                                    <div class="mt-1">
+                                        <span class="badge bg-success">Hoa hồng: @product.CommissionRate.ToString("P1")</span>
+                                        @if (product.AppInstallBonus > 0)
+                                        {
+                                            <span class="badge bg-info ms-1">Bonus cài app: @product.AppInstallBonus.ToString("N0") đ</span>
+                                        }
+                                    </div>
+                                    <p class="font-monospace text-muted small mt-2 mb-0" title="Mã composite">@product.CompositeCode</p>
+                                </div>
+                                <div class="text-center">
+                                    <div class="qr-canvas-wrap mb-1">
+                                        <canvas id="@GetQrCanvasId(product.ProductId)"></canvas>
+                                    </div>
+                                    <div class="d-flex flex-column gap-1">
+                                        <VanAnButton Variant="ButtonVariant.Outline" OnClick="@(() => DownloadQr(product.ProductId, product.CompositeCode))">
+                                            <i class="bi bi-download"></i> Tải QR
+                                        </VanAnButton>
+                                        <VanAnButton Variant="ButtonVariant.Outline" OnClick="SyncPrice">
+                                            <i class="bi bi-arrow-repeat"></i> Đồng bộ giá
+                                        </VanAnButton>
+                                        <VanAnButton Variant="ButtonVariant.Error" OnClick="@(() => RemoveProduct(product.ProductId, product.Name))">
+                                            <i class="bi bi-trash"></i> Xóa
+                                        </VanAnButton>
+                                    </div>
+                                </div>
+                            </div>
+                        </VanAnCard>
+                    }
+                </div>
+            }
+        }
+    </div>
+</KhachLinkLayout>
+
+<style>
+    /* QR canvases in the store list — fluid, square, capped at 120px so cards fit phones. */
+    .qr-canvas-wrap {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+    }
+
+    .qr-canvas-wrap canvas {
+        display: block;
+        width: 100%;
+        max-width: 120px;
+        height: auto;
+        aspect-ratio: 1 / 1;
+        margin: 0 auto;
+    }
+</style>
+
+@code {
+    private bool _loading = true;
+    private bool _isLoggedIn = false;
+    private bool _qrRendered = false;
+    private string _customerToken = "";
+    private string _alertMessage = "";
+    private string _alertType = "success";
+    private Guid _selectedAddProductId = Guid.Empty;
+    private bool _busy = false;
+    private SalesmanStoreDto? _store;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _customerToken = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "customer_token") ?? "";
+        _isLoggedIn = !string.IsNullOrEmpty(_customerToken);
+
+        if (!_isLoggedIn)
+        {
+            _loading = false;
+            return;
+        }
+
+        await LoadStoreAsync();
+    }
+
+    private async Task LoadStoreAsync()
+    {
+        _loading = true;
+        _qrRendered = false;
+        try
+        {
+            // Pass THIS instance's host so QR codes point at the domain customers will use.
+            _store = await CommunityHttp.GetSalesmanStoreAsync(_customerToken, new Uri(Navigation.Uri).Host);
+        }
+        catch (Exception)
+        {
+            _store = null;
+        }
+        _loading = false;
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // QR canvases exist only after the store list renders — generate each product's QR once.
+        if (_store != null && !_qrRendered && _store.Products.Count > 0)
+        {
+            _qrRendered = true;
+            foreach (var p in _store.Products)
+            {
+                await JSRuntime.InvokeVoidAsync("vananQR.generate", GetQrCanvasId(p.ProductId), p.QrUrl, 160, 160);
+            }
+        }
+    }
+
+    private async Task AddProduct()
+    {
+        if (_busy || _selectedAddProductId == Guid.Empty) return;
+        _busy = true;
+        try
+        {
+            var added = await CommunityHttp.AddSalesmanProductAsync(_customerToken, _selectedAddProductId);
+            if (added != null)
+            {
+                _alertMessage = $"Đã thêm \"{added.Name}\" vào gian hàng (hoa hồng {added.CommissionRate:P1}).";
+                _alertType = "success";
+                _selectedAddProductId = Guid.Empty;
+                await LoadStoreAsync();
+            }
+            else
+            {
+                _alertMessage = "Không thể thêm sản phẩm. Sản phẩm có thể đã có cấu hình referral.";
+                _alertType = "danger";
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RemoveProduct(Guid productId, string productName)
+    {
+        if (_busy) return;
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Xóa \"{productName}\" khỏi gian hàng? Mã QR cũ sẽ ngừng hoạt động.");
+        if (!confirmed) return;
+
+        _busy = true;
+        try
+        {
+            var removed = await CommunityHttp.RemoveSalesmanProductAsync(_customerToken, productId);
+            if (removed)
+            {
+                _alertMessage = $"Đã xóa \"{productName}\" khỏi gian hàng.";
+                _alertType = "success";
+                await LoadStoreAsync();
+            }
+            else
+            {
+                _alertMessage = "Không thể xóa sản phẩm.";
+                _alertType = "danger";
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    /// <summary>Issue #178 ph2: "Đồng bộ giá" — re-fetch the store (price always comes live from the
+    /// FeaturedProducts catalog). The QR composite code is deterministic, so old QR codes keep working.</summary>
+    private async Task SyncPrice()
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            await LoadStoreAsync();
+            _alertMessage = "Giá đã được đồng bộ từ catalog. Mã QR cũ vẫn hoạt động — composite code không đổi.";
+            _alertType = "info";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task DownloadQr(Guid productId, string compositeCode)
+    {
+        await JSRuntime.InvokeVoidAsync("vananQR.download", GetQrCanvasId(productId), $"qr_{compositeCode}.png");
+    }
+
+    private void DismissAlert() => _alertMessage = "";
+
+    private void GoToLogin() => Navigation.NavigateTo("/login");
+
+    private static string GetQrCanvasId(Guid productId) => $"qr-{productId:N}";
+}

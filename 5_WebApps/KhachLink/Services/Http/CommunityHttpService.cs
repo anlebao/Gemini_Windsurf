@@ -187,6 +187,89 @@ public class CommunityHttpService(IHttpClientFactory httpClientFactory, ILogger<
     }
 
     /// <summary>
+    /// Issue #178 ph2: GET /api/community/salesman/products — "Gian hàng của tôi":
+    /// configured referral products (with composite QR + live catalog price) + products available to add.
+    /// </summary>
+    public async Task<SalesmanStoreDto?> GetSalesmanStoreAsync(string customerToken, string? sourceDomain = null)
+    {
+        try
+        {
+            var url = "/api/community/salesman/products";
+            if (!string.IsNullOrWhiteSpace(sourceDomain))
+                url += $"?sourceDomain={Uri.EscapeDataString(sourceDomain)}";
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("X-Customer-Token", customerToken);
+
+            var resp = await _httpClient.SendAsync(request);
+            if (!resp.IsSuccessStatusCode) return null;
+
+            var body = await resp.Content.ReadAsStringAsync();
+            return System.Text.Json.JsonSerializer.Deserialize<SalesmanStoreDto>(body,
+                new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase) }
+                });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "GetSalesmanStoreAsync failed");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Issue #178 ph2: POST /api/community/salesman/products/add — add a product to the store
+    /// (creates ProductReferralConfig with safe defaults).
+    /// </summary>
+    public async Task<SalesmanStoreProductDto?> AddSalesmanProductAsync(string customerToken, Guid productId)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "/api/community/salesman/products/add");
+            request.Headers.Add("X-Customer-Token", customerToken);
+            request.Content = JsonContent.Create(new { ProductId = productId });
+
+            var resp = await _httpClient.SendAsync(request);
+            if (!resp.IsSuccessStatusCode) return null;
+
+            var body = await resp.Content.ReadAsStringAsync();
+            return System.Text.Json.JsonSerializer.Deserialize<SalesmanStoreProductDto>(body,
+                new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase) }
+                });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AddSalesmanProductAsync failed for product {ProductId}", productId);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Issue #178 ph2: POST /api/community/salesman/products/remove — remove a product from the store (soft).
+    /// </summary>
+    public async Task<bool> RemoveSalesmanProductAsync(string customerToken, Guid productId)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "/api/community/salesman/products/remove");
+            request.Headers.Add("X-Customer-Token", customerToken);
+            request.Content = JsonContent.Create(new { ProductId = productId });
+
+            var resp = await _httpClient.SendAsync(request);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "RemoveSalesmanProductAsync failed for product {ProductId}", productId);
+            return false;
+        }
+    }
+
+    /// <summary>
     /// CC-S4 fix: GET /api/community/referral/{code} — anonymous resolve of a scanned composite
     /// referral code into the referred product's display info (so it can be added to the cart).
     /// </summary>
@@ -772,6 +855,41 @@ public class CompositeSalesmanQrDto
     public string CompositeCode { get; set; } = string.Empty;
     public string QrUrl { get; set; } = string.Empty;
     public Guid ProductId { get; set; }
+}
+
+// === Issue #178 ph2 — "Gian hàng của tôi" DTOs ===
+
+public class SalesmanStoreDto
+{
+    public List<SalesmanStoreProductDto> Products { get; set; } = new();
+    public List<SalesmanAddableProductDto> AvailableForAdd { get; set; } = new();
+}
+
+public class SalesmanStoreProductDto
+{
+    public Guid ProductId { get; set; }
+    public Guid TenantId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public FeaturedProductType ProductType { get; set; } = FeaturedProductType.Paid;
+    public string? ImageUrl { get; set; }
+    public string ShopName { get; set; } = string.Empty;
+    public decimal CommissionRate { get; set; }
+    public decimal AppInstallBonus { get; set; }
+    public string ProductShortCode { get; set; } = string.Empty;
+    public string CompositeCode { get; set; } = string.Empty;
+    public string QrUrl { get; set; } = string.Empty;
+}
+
+public class SalesmanAddableProductDto
+{
+    public Guid ProductId { get; set; }
+    public Guid TenantId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public FeaturedProductType ProductType { get; set; } = FeaturedProductType.Paid;
+    public string? ImageUrl { get; set; }
+    public string ShopName { get; set; } = string.Empty;
 }
 
 /// <summary>CC-S4 fix: resolved scanned referral code → referred product display info.</summary>

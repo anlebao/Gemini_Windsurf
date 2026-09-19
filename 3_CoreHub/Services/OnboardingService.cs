@@ -15,6 +15,13 @@ namespace VanAn.CoreHub.Services
         Task<OnboardingTemplate> ApplyTemplateAsync(Guid templateId, Guid shopId);
         Task<OnboardingTemplate> UpdateTemplateAsync(OnboardingTemplate template);
         Task<bool> DeleteTemplateAsync(Guid id);
+
+        /// <summary>
+        /// Issue #179: read the REAL seeded counts from the DB for a tenant (products/ingredients/recipes).
+        /// QuickSetup uses this for the success screen instead of hardcoded template metadata,
+        /// so the UI can never claim success for an empty/rolled-back seed.
+        /// </summary>
+        Task<(int Products, int Ingredients, int Recipes)> GetSeedCountsAsync(Guid shopId);
     }
 
     /// <summary>
@@ -151,6 +158,21 @@ namespace VanAn.CoreHub.Services
                 Description = $"Industry: {industryCode}. Seeded {seedResult.ProductsCreated} products, " +
                               $"{seedResult.IngredientsCreated} ingredients, {seedResult.RecipesCreated} recipes."
             };
+        }
+
+        public async Task<(int Products, int Ingredients, int Recipes)> GetSeedCountsAsync(Guid shopId)
+        {
+            var tenantId = new TenantId(shopId);
+            var products = await _dbContext.Products
+                .IgnoreQueryFilters()
+                .CountAsync(p => p.TenantId == tenantId && !p.IsDeleted);
+            var ingredients = await _dbContext.Ingredients
+                .IgnoreQueryFilters()
+                .CountAsync(i => i.TenantId == tenantId);
+            var recipes = await _dbContext.Recipes
+                .IgnoreQueryFilters()
+                .CountAsync(r => r.TenantId == tenantId);
+            return (products, ingredients, recipes);
         }
 
         public async Task<OnboardingTemplate> CreateTemplateAsync(OnboardingTemplate template)

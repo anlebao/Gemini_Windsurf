@@ -531,4 +531,128 @@ public class SalesmanServiceTests : IDisposable
         Assert.False(string.IsNullOrEmpty(reloaded.SalesmanCode));
         Assert.Equal(reloaded.SalesmanCode, result.SalesmanCode);
     }
+
+    // === Issue #178 ph2 — "Gian hàng của tôi" ===
+
+    // T19: GetSalesmanStore returns configured products (composite QR + live price) and available-to-add.
+    [Fact(DisplayName = "T19 (Issue #178): GetSalesmanStore_ReturnsConfiguredAndAddableProducts")]
+    public async Task GetSalesmanStore_ReturnsConfiguredAndAddableProducts()
+    {
+        await SeedTenantAsync(TenantId, "Shop A", 10.8, 106.7);
+        await SeedSalesmanRoleAsync();
+        await SeedFeaturedProductAsync(ProductId, TenantId, "Product 1", 50000);
+        var addableId = Guid.NewGuid();
+        await SeedFeaturedProductAsync(addableId, TenantId, "Product 2", 30000);
+        await SeedProductReferralConfigAsync(ProductId, 0.05m, 10000, "TR-001");
+
+        var store = await _service.GetSalesmanStoreAsync(SalesmanId);
+
+        // Configured product → Products with deterministic composite QR + live catalog price.
+        Assert.Single(store.Products);
+        var product = store.Products[0];
+        Assert.Equal(ProductId, product.ProductId);
+        Assert.Equal("Product 1", product.Name);
+        Assert.Equal(50000m, product.Price);
+        Assert.Equal("Shop A", product.ShopName);
+        Assert.Equal(0.05m, product.CommissionRate);
+        Assert.Equal(10000m, product.AppInstallBonus);
+        Assert.Equal("TR-001", product.ProductShortCode);
+        Assert.Contains("|TR-001", product.CompositeCode);
+        Assert.StartsWith("https://diemthuong.khachvip.online/scan?ref=", product.QrUrl);
+
+        // Non-configured product → AvailableForAdd.
+        Assert.Single(store.AvailableForAdd);
+        Assert.Equal(addableId, store.AvailableForAdd[0].ProductId);
+        Assert.Equal("Product 2", store.AvailableForAdd[0].Name);
+        Assert.Equal(30000m, store.AvailableForAdd[0].Price);
+    }
+
+    // T20: Not a salesman → empty store (no crash).
+    [Fact(DisplayName = "T20 (Issue #178): GetSalesmanStore_NoSalesmanRole_ReturnsEmpty")]
+    public async Task GetSalesmanStore_NoSalesmanRole_ReturnsEmpty()
+    {
+        var store = await _service.GetSalesmanStoreAsync(Guid.NewGuid());
+        Assert.Empty(store.Products);
+        Assert.Empty(store.AvailableForAdd);
+    }
+
+    // T21: AddProductToStore creates config with Issue #178 defaults (0.01 / 1000).
+    [Fact(DisplayName = "T21 (Issue #178): AddProductToStore_CreatesConfigWithDefaults")]
+    public async Task AddProductToStore_CreatesConfigWithDefaults()
+    {
+        await SeedTenantAsync(TenantId, "Shop A", 10.8, 106.7);
+        await SeedSalesmanRoleAsync();
+        await SeedFeaturedProductAsync(ProductId, TenantId, "Product 1", 50000);
+
+        var product = await _service.AddProductToStoreAsync(SalesmanId, ProductId, "diemthuong2.khachvip.online");
+
+        Assert.NotNull(product);
+        Assert.Equal(ProductId, product!.ProductId);
+        Assert.Equal(0.01m, product.CommissionRate);
+        Assert.Equal(1000m, product.AppInstallBonus);
+        Assert.False(string.IsNullOrEmpty(product.ProductShortCode));
+        Assert.Contains("|", product.CompositeCode);
+        Assert.StartsWith("https://diemthuong2.khachvip.online/scan?ref=", product.QrUrl);
+
+        var config = await _context.ProductReferralConfigs.IgnoreQueryFilters()
+            .FirstAsync(c => c.ProductId == ProductId);
+        Assert.True(config.IsActive);
+        Assert.Equal(0.01m, config.CommissionRate);
+    }
+
+    // T22: Add a product that already has a config → null.
+    [Fact(DisplayName = "T22 (Issue #178): AddProductToStore_AlreadyConfigured_ReturnsNull")]
+    public async Task AddProductToStore_AlreadyConfigured_ReturnsNull()
+    {
+        await SeedTenantAsync(TenantId, "Shop A", 10.8, 106.7);
+        await SeedSalesmanRoleAsync();
+        await SeedFeaturedProductAsync(ProductId, TenantId, "Product 1", 50000);
+        await SeedProductReferralConfigAsync(ProductId, 0.05m, 10000, "TR-001");
+
+        var product = await _service.AddProductToStoreAsync(SalesmanId, ProductId);
+
+        Assert.Null(product);
+    }
+
+    // T23: RemoveProductFromStore soft-deactivates the config.
+    [Fact(DisplayName = "T23 (Issue #178): RemoveProductFromStore_DeactivatesConfig")]
+    public async Task RemoveProductFromStore_DeactivatesConfig()
+    {
+        await SeedSalesmanRoleAsync();
+        await SeedProductReferralConfigAsync(ProductId, 0.05m, 10000, "TR-001");
+
+        var removed = await _service.RemoveProductFromStoreAsync(SalesmanId, ProductId);
+
+        Assert.True(removed);
+        var config = await _context.ProductReferralConfigs.IgnoreQueryFilters()
+            .FirstAsync(c => c.ProductId == ProductId);
+        Assert.False(config.IsActive);
+
+        // Second removal → config exists but already inactive — still returns true (idempotent soft remove).
+        var removedAgain = await _service.RemoveProductFromStoreAsync(SalesmanId, ProductId);
+        Assert.True(removedAgain);
+    }
+
+    // T24: GetSalesmanStore backfills a NULL SalesmanCode (legacy role) like GetCompositeSalesmanQr.
+    [Fact(DisplayName = "T24 (Issue #178): GetSalesmanStore_BackfillsNullSalesmanCode")]
+    public async Task GetSalesmanStore_BackfillsNullSalesmanCode()
+    {
+        await SeedTenantAsync(TenantId, "Shop A", 10.8, 106.7);
+        var role = new CommunityRole(new TenantId(TenantId), SalesmanId, CommunityRoleType.Salesman, Guid.NewGuid());
+        SetProp(role, "SalesmanCode", null);
+        _context.CommunityRoles.Add(role);
+        await _context.SaveChangesAsync();
+        await SeedFeaturedProductAsync(ProductId, TenantId, "Product 1", 50000);
+        await SeedProductReferralConfigAsync(ProductId, 0.05m, 10000, "TR-001");
+
+        var store = await _service.GetSalesmanStoreAsync(SalesmanId);
+
+        Assert.Single(store.Products);
+        Assert.False(string.IsNullOrEmpty(store.Products[0].CompositeCode));
+        Assert.Contains("|TR-001", store.Products[0].CompositeCode);
+
+        var reloaded = await _context.CommunityRoles.IgnoreQueryFilters()
+            .FirstAsync(r => r.CustomerId == SalesmanId && r.RoleType == CommunityRoleType.Salesman);
+        Assert.False(string.IsNullOrEmpty(reloaded.SalesmanCode));
+    }
 }

@@ -271,6 +271,22 @@
         }
         else if (setupResult != null)
         {
+            @if (!setupResult.Success)
+            {
+                <div class="setup-result" style="background: linear-gradient(135deg, #dc3545, #a71d2a);">
+                    <h2 class="mb-4">⚠️ Khởi tạo không thành công</h2>
+                    <p>Không thể lưu dữ liệu mẫu vào cơ sở dữ liệu cho tenant này.</p>
+                    @if (!string.IsNullOrEmpty(setupResult.Error))
+                    {
+                        <p class="small mb-0" style="word-break: break-word;">Lỗi: @setupResult.Error</p>
+                    }
+                    <div class="mt-4">
+                        <button class="btn btn-light btn-lg" @onclick="GoToTenants">← Quay lại</button>
+                    </div>
+                </div>
+            }
+            else
+            {
             <div class="setup-result">
                 <h2 class="mb-4">🎉 Khởi tạo thành công!</h2>
                 <div class="row">
@@ -304,6 +320,7 @@
                     </button>
                 </div>
             </div>
+            }
         }
     </div>
     } @* end else (tenant loaded) *@
@@ -453,6 +470,10 @@
             // using IOrderService). Avoids broken HTTP via GatewayClient (no BaseAddress).
             var applied = await OnboardingService.ApplyTemplateAsync(templateId, shopId);
 
+            // Issue #179: read REAL seeded counts from the DB — never trust hardcoded template
+            // metadata (the old code showed "32 products" even when the seed had failed/rolled back).
+            var (productCount, ingredientCount, recipeCount) = await OnboardingService.GetSeedCountsAsync(shopId);
+
             setupResult = new QuickSetupResponse
             {
                 Success = applied != null,
@@ -465,16 +486,40 @@
                     Phone = shopPhone,
                     Email = shopEmail
                 },
-                ProductsCount = selectedTemplate?.Products ?? 0,
-                IngredientsCount = selectedTemplate?.Ingredients ?? 0,
-                WorkflowStepsCount = selectedTemplate?.WorkflowSteps ?? 0,
+                ProductsCount = productCount,
+                IngredientsCount = ingredientCount,
+                WorkflowStepsCount = recipeCount,
                 EstimatedSetupTime = TimeSpan.FromMinutes(5),
                 NextSteps = new[] { "Configure products", "Set up inventory", "Test workflow" }
             };
+
+            if (applied == null || productCount == 0)
+            {
+                setupResult.Success = false;
+                setupResult.Error = applied == null
+                    ? "Không áp dụng được template."
+                    : "Template đã áp dụng nhưng không có sản phẩm nào được lưu vào cơ sở dữ liệu.";
+                Console.WriteLine($"[QuickSetup] Setup finished but DB has {productCount} products for tenant {shopId} (template {templateId})");
+            }
         }
         catch (Exception ex)
         {
+            // Issue #179: don't swallow — surface the error in the wizard (was: Console.WriteLine only).
             Console.WriteLine($"Error during setup: {ex.Message}");
+            setupResult = new QuickSetupResponse
+            {
+                Success = false,
+                ShopId = _selectedTenantId,
+                ShopInfo = new ShopInfo
+                {
+                    Name = shopName,
+                    Category = selectedTemplate?.Type ?? "",
+                    Address = shopAddress,
+                    Phone = shopPhone,
+                    Email = shopEmail
+                },
+                Error = ex.Message
+            };
         }
         finally
         {
@@ -526,6 +571,8 @@
         public int WorkflowStepsCount { get; set; }
         public TimeSpan EstimatedSetupTime { get; set; }
         public string[] NextSteps { get; set; } = Array.Empty<string>();
+        /// <summary>Issue #179: non-empty when setup failed — surfaced as a red alert in step 4.</summary>
+        public string? Error { get; set; }
     }
 
     public class ShopInfo

@@ -48,6 +48,28 @@ public interface ISalesmanService
     /// scan flow. Returns null when the code or the product is not found.
     /// </summary>
     Task<ReferralScanResult?> ResolveReferralForScanAsync(string referralCode);
+
+    /// <summary>
+    /// Issue #178 ph2: "Gian hàng của tôi" — the salesman's referral store.
+    /// Returns the salesman's configured referral products (with composite QR, current catalog price)
+    /// + active featured products still available to add (no referral config yet).
+    /// QR composite is deterministic ("{salesmanCode}|{productShortCode}") — no storage needed.
+    /// </summary>
+    Task<SalesmanStoreDto> GetSalesmanStoreAsync(Guid salesmanId, string? khachLinkBaseUrl = null);
+
+    /// <summary>
+    /// Issue #178 ph2: Add an active featured product to the salesman's store by creating a
+    /// ProductReferralConfig with safe defaults (CommissionRate 0.01, AppInstallBonus 1000 VND —
+    /// same defaults as the admin UI). Returns the new store product DTO, or null when the product
+    /// is not an active featured product or already has a config.
+    /// </summary>
+    Task<SalesmanStoreProductDto?> AddProductToStoreAsync(Guid salesmanId, Guid productId, string? khachLinkBaseUrl = null);
+
+    /// <summary>
+    /// Issue #178 ph2: Remove a product from the salesman's store (soft — DeactivateAsync).
+    /// Returns false when the config does not exist.
+    /// </summary>
+    Task<bool> RemoveProductFromStoreAsync(Guid salesmanId, Guid productId);
 }
 
 // === DTOs ===
@@ -136,4 +158,42 @@ public class AppInstallBonusRecordDto
     public string Status { get; set; } = string.Empty;
     public int RiskScore { get; set; }
     public DateTime InstalledAt { get; set; }
+}
+
+// === Issue #178 ph2 — "Gian hàng của tôi" DTOs ===
+
+/// <summary>Salesman store: configured referral products + products available to add.</summary>
+public class SalesmanStoreDto
+{
+    public List<SalesmanStoreProductDto> Products { get; set; } = new();
+    public List<SalesmanAddableProductDto> AvailableForAdd { get; set; } = new();
+}
+
+/// <summary>A configured referral product in the salesman's store (live price from FeaturedProducts).</summary>
+public class SalesmanStoreProductDto
+{
+    public Guid ProductId { get; set; }
+    public Guid TenantId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public FeaturedProductType ProductType { get; set; } = FeaturedProductType.Paid;
+    public string? ImageUrl { get; set; }
+    public string ShopName { get; set; } = string.Empty;
+    public decimal CommissionRate { get; set; }
+    public decimal AppInstallBonus { get; set; }
+    public string ProductShortCode { get; set; } = string.Empty;
+    public string CompositeCode { get; set; } = string.Empty;
+    public string QrUrl { get; set; } = string.Empty;
+}
+
+/// <summary>Active featured product without a referral config — can be added to the store.</summary>
+public class SalesmanAddableProductDto
+{
+    public Guid ProductId { get; set; }
+    public Guid TenantId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public FeaturedProductType ProductType { get; set; } = FeaturedProductType.Paid;
+    public string? ImageUrl { get; set; }
+    public string ShopName { get; set; } = string.Empty;
 }

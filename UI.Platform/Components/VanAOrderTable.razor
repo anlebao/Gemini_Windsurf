@@ -83,13 +83,13 @@
         @if (ShowPagination)
         {
             <div class="vanan-order-table__pagination">
-                <VanAnButton Variant="secondary" Size="small" OnClick="@PreviousPage" disabled="@(!HasPreviousPage)">
+                <VanAnButton Variant="secondary" Size="small" OnClick="@PreviousPage" Disabled="@(!HasPreviousPage)">
                     ← Previous
                 </VanAnButton>
                 <span class="vanan-order-table__page-info">
                     Page @CurrentPage of @TotalPages
                 </span>
-                <VanAnButton Variant="secondary" Size="small" OnClick="@NextPage" disabled="@(!HasNextPage)">
+                <VanAnButton Variant="secondary" Size="small" OnClick="@NextPage" Disabled="@(!HasNextPage)">
                     Next →
                 </VanAnButton>
             </div>

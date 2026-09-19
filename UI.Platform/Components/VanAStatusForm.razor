@@ -100,7 +100,7 @@
             }
             else
             {
-                <VanAnButton Variant="primary" OnClick="@HandleSubmit" disabled="@IsSubmitting">
+                <VanAnButton Variant="primary" OnClick="@HandleSubmit" Disabled="@IsSubmitting">
                     @(IsSubmitting ? "Updating..." : "Update Status")
                 </VanAnButton>
             }
