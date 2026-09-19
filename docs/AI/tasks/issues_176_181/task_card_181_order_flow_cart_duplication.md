@@ -1,6 +1,6 @@
 # Task Card #181: Luồng đặt hàng — ẩn giỏ hàng tại thanh toán + hết giỏ trùng
 
-> **Status:** PLANNED (root cause VERIFIED — awaiting implementation approval)
+> **Status:** ✅ CODE DONE (`6ab09cbc`, Batch 2 2026-09-19) — chờ deploy + RV
 > **Priority:** P2 — UX
 > **Created:** 2026-09-19
 > **Master plan:** `docs/AI/tasks/issues_176_181/master_plan.md`
