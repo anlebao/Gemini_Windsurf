@@ -217,6 +217,62 @@ public class CommunityOrderServiceTests : IDisposable
         Assert.Equal("Near Shop", result[0].ShopName);
     }
 
+    // === 2026-09-20: distance to DELIVERY POINT (fallback shop) + unlimited radius ===
+
+    [Fact(DisplayName = "T11: GetNearbyOrders_DistanceToDeliveryPoint_NotShop")]
+    public async Task GetNearbyOrders_DistanceToDeliveryPoint_NotShop()
+    {
+        // Shop ở Q1 (10.7526, 106.7396) — điểm giao ở Q11 (10.966, 106.594), cách shop ~28km.
+        // Shipper đứng NGAY điểm giao → đơn PHẢI hiện dù cách shop 28km > radius 5.
+        var shipperLat = 10.966007;
+        var shipperLng = 106.5945591;
+        await SeedTenantAsync(Tenant1Id, "Shop Q1", 10.7526, 106.7396);
+
+        var orderId = Guid.NewGuid();
+        var order = CreateDeliveryOrder(orderId, Tenant1Id, "confirmed");
+        SetProp(order, "DeliveryLat", 10.966007);
+        SetProp(order, "DeliveryLng", 106.5945591);
+        await SeedOrderAsync(order);
+
+        var result = await _service.GetNearbyOrdersAsync(shipperLat, shipperLng, 5, ShipperId);
+
+        Assert.Single(result);
+        Assert.Equal(orderId, result[0].OrderId);
+        Assert.InRange(result[0].DistanceKm, 0, 1); // shipper đứng tại điểm giao
+    }
+
+    [Fact(DisplayName = "T12: GetNearbyOrders_DeliveryPointFar_Excluded (kể cả shop gần)")]
+    public async Task GetNearbyOrders_DeliveryPointFar_Excluded()
+    {
+        // Shop ngay cạnh shipper, nhưng điểm giao cách 100km → đơn KHÔNG hiện (khoảng cách theo điểm giao).
+        var shipperLat = 10.8;
+        var shipperLng = 106.7;
+        await SeedTenantAsync(Tenant1Id, "Near Shop", 10.801, 106.701);
+
+        var order = CreateDeliveryOrder(Guid.NewGuid(), Tenant1Id, "ready");
+        SetProp(order, "DeliveryLat", 21.0285); // Hà Nội
+        SetProp(order, "DeliveryLng", 105.8542);
+        await SeedOrderAsync(order);
+
+        var result = await _service.GetNearbyOrdersAsync(shipperLat, shipperLng, 5, ShipperId);
+
+        Assert.Empty(result);
+    }
+
+    [Fact(DisplayName = "T13: GetNearbyOrders_RadiusZero_Unlimited")]
+    public async Task GetNearbyOrders_RadiusZero_Unlimited()
+    {
+        // radiusKm = 0 ("Không giới hạn") → đơn cách 2000km vẫn hiện.
+        var shipperLat = 10.7769;
+        var shipperLng = 106.7009;
+        await SeedTenantAsync(Tenant1Id, "HN Shop", 21.0285, 105.8542);
+        await SeedOrderAsync(CreateDeliveryOrder(Guid.NewGuid(), Tenant1Id, "ready"));
+
+        var result = await _service.GetNearbyOrdersAsync(shipperLat, shipperLng, 0, ShipperId);
+
+        Assert.Single(result);
+    }
+
     // === AcceptOrder tests ===
 
     [Fact(DisplayName = "T8: AcceptOrder_CreatesDeliveryTask")]

@@ -54,7 +54,13 @@ public class CommunityOrderService(
 
         var tenantMap = tenants.ToDictionary(t => t.Id, t => t);
 
-        // Calculate Haversine distance + filter by radius
+        // Calculate Haversine distance + filter by radius.
+        // 2026-09-20 fix: distance is measured from the shipper to the DELIVERY POINT
+        // (DeliveryLat/Lng — where the shipper actually has to go), falling back to the
+        // shop coordinates for orders without delivery coordinates. Previously it was always
+        // measured to the SHOP, so a delivery far from the shop (e.g. 28km) never showed up
+        // for shippers standing near the delivery point.
+        // radiusKm <= 0 → "không giới hạn khoảng cách" (shipper option, skip distance filter).
         var result = new List<NearbyOrderDto>();
         foreach (var order in candidates)
         {
@@ -63,11 +69,14 @@ public class CommunityOrderService(
 
             var shopLat = tenant.Settings?.Latitude ?? 0;
             var shopLng = tenant.Settings?.Longitude ?? 0;
-            if (shopLat == 0 && shopLng == 0)
-                continue; // shop without coordinates — skip
 
-            var distance = CalculateHaversineKm(lat, lng, shopLat, shopLng);
-            if (distance > radiusKm)
+            var targetLat = order.DeliveryLat ?? shopLat;
+            var targetLng = order.DeliveryLng ?? shopLng;
+            if (targetLat == 0 && targetLng == 0)
+                continue; // no reference point (no shop coords, no delivery coords) — skip
+
+            var distance = CalculateHaversineKm(lat, lng, targetLat, targetLng);
+            if (radiusKm > 0 && distance > radiusKm)
                 continue;
 
             result.Add(new NearbyOrderDto

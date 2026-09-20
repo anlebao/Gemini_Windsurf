@@ -157,7 +157,7 @@
                                 <div class="form-check">
                                     <input id="order-type-delivery" type="radio" name="orderType" value="DELIVERY"
                                            class="form-check-input" checked="@(selectedOrderType == "DELIVERY")"
-                                           @onchange="@(() => selectedOrderType = "DELIVERY")"
+                                           @onchange="@(() => SelectOrderType("DELIVERY"))"
                                            data-testid="order-type-delivery" />
                                     <label for="order-type-delivery" class="form-check-label">🛵 Giao hàng</label>
                                 </div>
@@ -185,6 +185,24 @@
                                 <div class="form-text text-muted small">📍 Địa chỉ giao hàng là bắt buộc khi chọn giao hàng.</div>
                             }
                         </div>
+
+                        @* 2026-09-20: bản đồ ghim vị trí giao hàng — mặc định = GPS khách, kéo/thả hoặc
+                           chạm bản đồ để chỉnh điểm giao chính xác (toạ độ gửi kèm đơn cho shipper). *@
+                        @if (selectedOrderType == "DELIVERY")
+                        {
+                            <div class="mb-3" data-testid="checkout-pin-map-section">
+                                <label class="form-label fw-bold">📍 Ghim vị trí giao hàng trên bản đồ</label>
+                                <div id="checkout-pin-map" style="height:240px; border-radius:8px; z-index:0;" data-testid="checkout-pin-map"></div>
+                                <div class="d-flex align-items-center gap-2 mt-2">
+                                    <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small" OnClick="UseCurrentLocation">
+                                        <i class="bi bi-crosshair"></i> Dùng vị trí hiện tại
+                                    </VanAnButton>
+                                    <small class="text-muted">Mặc định là vị trí GPS của bạn. Kéo/thả pin hoặc chạm vào bản đồ để chọn chính xác.</small>
+                                </div>
+                                <input type="hidden" id="delivery-lat" data-testid="delivery-lat-input" />
+                                <input type="hidden" id="delivery-lng" data-testid="delivery-lng-input" />
+                            </div>
+                        }
 
                         @if (selectedPaymentMethod == "transfer")
                         {
@@ -370,6 +388,11 @@
     // C3: tenant toggle — default ON (matches ShopFeatureSettingsEntity default).
     private bool _charityDonationEnabled = true;
 
+    // 2026-09-20: delivery pin map — mặc định = GPS khách; kéo/thả pin để chỉnh điểm giao.
+    private bool _pinMapInitialized = false;
+    private double _pinLat = 10.7769; // fallback trung tâm HCM (bị thay bởi GPS / pin)
+    private double _pinLng = 106.7009;
+
     protected override async Task OnInitializedAsync()
     {
         cartState = CartService.GetCartState();
@@ -402,6 +425,12 @@
             // Bucket A feature (approved 2026-07-07): guest fills form before order creation.
             cartSnapshot = cartState.Items.ToList();
             orderTotal = cartState.TotalAmount;
+
+            // 2026-09-20: khách chọn sẵn "Giao hàng" → khởi tạo map pin với GPS của họ.
+            if (selectedOrderType == "DELIVERY")
+            {
+                await InitializePinMapAsync();
+            }
             showGuestForm = true;
 
             // C2/C3 (2026-09-14): free/charity carts skip the payment method selector.
@@ -478,6 +507,81 @@
                 catch { /* non-critical — pre-fill is a convenience, not a hard requirement */ }
             }
 
+            StateHasChanged();
+        }
+        else if (selectedOrderType == "DELIVERY" && !_pinMapInitialized)
+        {
+            // User vừa chuyển sang "Giao hàng" → map div vừa render → khởi tạo pin.
+            await InitializePinMapAsync();
+        }
+    }
+
+    /// <summary>2026-09-20: chọn hình thức nhận hàng — DELIVERY hiện map ghim vị trí.</summary>
+    private async Task SelectOrderType(string orderType)
+    {
+        selectedOrderType = orderType;
+        if (orderType == "DELIVERY")
+        {
+            _pinMapInitialized = false;
+        }
+        StateHasChanged();
+        await Task.CompletedTask;
+    }
+
+    /// <summary>2026-09-20: khởi tạo bản đồ ghim vị trí giao hàng — mặc định = GPS khách hàng.
+    /// Hidden inputs delivery-lat/lng được JS ghi khi kéo/thả hoặc chạm bản đồ.</summary>
+    private async Task InitializePinMapAsync()
+    {
+        if (selectedOrderType != "DELIVERY")
+            return;
+
+        // Mặc định = vị trí GPS của khách (D4). Nếu chưa có GPS, dùng toạ độ mặc định và để khách ghim tay.
+        double lat = _pinLat;
+        double lng = _pinLng;
+        try
+        {
+            var pos = await JSRuntime.InvokeAsync<GeoPosition?>("vananPWA.getCurrentPosition");
+            if (pos != null && (pos.Lat != 0 || pos.Lng != 0))
+            {
+                lat = pos.Lat;
+                lng = pos.Lng;
+                _pinLat = lat;
+                _pinLng = lng;
+            }
+        }
+        catch { /* GPS denied — khách ghim tay trên bản đồ */ }
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("vananMap.pinLocation", "checkout-pin-map", "delivery-lat", "delivery-lng", lat, lng, 15);
+            _pinMapInitialized = true;
+        }
+        catch { /* map JS chưa sẵn sàng (RCL assets) — submit vẫn dùng GPS fallback D4 */ }
+    }
+
+    /// <summary>2026-09-20: nút "Dùng vị trí hiện tại" — lấy GPS mới + cập nhật pin.</summary>
+    private async Task UseCurrentLocation()
+    {
+        try
+        {
+            var pos = await JSRuntime.InvokeAsync<GeoPosition?>("vananPWA.getCurrentPosition");
+            if (pos != null && (pos.Lat != 0 || pos.Lng != 0))
+            {
+                _pinLat = pos.Lat;
+                _pinLng = pos.Lng;
+                _pinMapInitialized = false;
+                StateHasChanged();
+                await InitializePinMapAsync();
+            }
+            else
+            {
+                formError = "Không lấy được vị trí GPS. Vui lòng bật GPS hoặc ghim tay trên bản đồ.";
+                StateHasChanged();
+            }
+        }
+        catch (Exception)
+        {
+            formError = "Không lấy được vị trí GPS. Vui lòng bật GPS hoặc ghim tay trên bản đồ.";
             StateHasChanged();
         }
     }
@@ -574,23 +678,40 @@
             // Gateway resolves it → Order.SalesmanId + ReferralProductId → commission on completion.
             var referralCode = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "vanan_referral_code");
 
-            // D4 (2026-09-17): capture the delivery coordinates at checkout so the shipper's map can
-            // show the customer marker. Previously these were always null, so nobody could see the
-            // delivery location. GPS is optional — checkout proceeds without it on failure.
+            // D4 (2026-09-17) + 2026-09-20: capture the delivery coordinates at checkout so the
+            // shipper's map can show the customer marker. Ưu tiên toạ độ từ map PIN (delivery-lat/lng —
+            // mặc định = GPS khách, khách có thể kéo/thả để chỉnh); fallback GPS auto (D4).
+            // GPS optional — checkout proceeds without coordinates on failure.
             double? deliveryLat = null;
             double? deliveryLng = null;
             if (selectedOrderType == "DELIVERY")
             {
                 try
                 {
-                    var pos = await JSRuntime.InvokeAsync<GeoPosition?>("vananPWA.getCurrentPosition");
-                    if (pos != null)
+                    var latStr = await JSRuntime.InvokeAsync<string?>("eval", "document.getElementById('delivery-lat')?.value || ''");
+                    var lngStr = await JSRuntime.InvokeAsync<string?>("eval", "document.getElementById('delivery-lng')?.value || ''");
+                    if (double.TryParse(latStr, out var pinLat) && double.TryParse(lngStr, out var pinLng)
+                        && pinLat != 0 && pinLng != 0)
                     {
-                        deliveryLat = pos.Lat;
-                        deliveryLng = pos.Lng;
+                        deliveryLat = pinLat;
+                        deliveryLng = pinLng;
                     }
                 }
-                catch { /* GPS denied/unavailable — order still created without coordinates */ }
+                catch { /* pin inputs unavailable — fall back to GPS */ }
+
+                if (!deliveryLat.HasValue)
+                {
+                    try
+                    {
+                        var pos = await JSRuntime.InvokeAsync<GeoPosition?>("vananPWA.getCurrentPosition");
+                        if (pos != null)
+                        {
+                            deliveryLat = pos.Lat;
+                            deliveryLng = pos.Lng;
+                        }
+                    }
+                    catch { /* GPS denied/unavailable — order still created without coordinates */ }
+                }
             }
 
             var orderRequest = new

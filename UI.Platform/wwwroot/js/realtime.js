@@ -152,6 +152,32 @@ window.vananMap = {
         window.vananMap.addMarker(elementId, key, lat, lng, label, color);
     },
 
+    // Checkout delivery pin (2026-09-20): draggable marker + click-to-pin. Writes the pinned
+    // lat/lng into hidden inputs (latInputId/lngInputId) so Blazor reads them at submit.
+    pinLocation: function (elementId, latInputId, lngInputId, initialLat, initialLng, zoom) {
+        window.vananMap.initMap(elementId, initialLat, initialLng, zoom || 15);
+        const map = _maps[elementId];
+        if (!map) return;
+
+        const latInput = document.getElementById(latInputId);
+        const lngInput = document.getElementById(lngInputId);
+
+        const marker = L.marker([initialLat, initialLng], { draggable: true }).addTo(map);
+        _markers[elementId]['pin'] = marker;
+
+        const sync = function (ll) {
+            if (latInput) latInput.value = ll.lat.toFixed(6);
+            if (lngInput) lngInput.value = ll.lng.toFixed(6);
+        };
+        sync(marker.getLatLng());
+
+        marker.on('dragend', function () { sync(marker.getLatLng()); });
+        map.on('click', function (e) {
+            marker.setLatLng(e.latlng);
+            sync(e.latlng);
+        });
+    },
+
     drawRoute: function (elementId, fromLat, fromLng, toLat, toLng) {
         const map = _maps[elementId];
         if (!map) return;

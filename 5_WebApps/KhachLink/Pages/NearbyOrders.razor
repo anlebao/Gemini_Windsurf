@@ -50,7 +50,11 @@
         {
             <VanAnCard Shadow="true" CssClass="text-center p-5">
                 <i class="bi bi-inbox text-muted" style="font-size:3rem;"></i>
-                <p class="mt-3 text-muted">Không có đơn hàng giao nào trong bán kính @(_radiusKm)km.</p>
+                <p class="mt-3 text-muted">
+                    @(_radiusKm > 0
+                        ? $"Không có đơn hàng giao nào trong bán kính {_radiusKm}km."
+                        : "Không có đơn hàng giao nào trong phạm vi không giới hạn.")
+                </p>
                 <div class="d-flex gap-2 justify-content-center mt-3">
                     <button class="btn btn-sm btn-outline-primary" @onclick="IncreaseRadius">Tăng bán kính</button>
                     <button class="btn btn-sm btn-outline-secondary" @onclick="RetryGps">Cập nhật vị trí</button>
@@ -69,6 +73,7 @@
                         <option value="5">5 km</option>
                         <option value="10">10 km</option>
                         <option value="20">20 km</option>
+                        <option value="0">Không giới hạn</option>
                     </select>
                     <button class="btn btn-sm btn-primary" @onclick="LoadOrders"><i class="bi bi-arrow-clockwise"></i> Tải lại</button>
                 </div>
@@ -303,12 +308,14 @@
 
     private void IncreaseRadius()
     {
+        // Cycle 2 → 5 → 10 → 20 → 0 (không giới hạn) → 5
         _radiusKm = _radiusKm switch
         {
             2 => 5,
             5 => 10,
             10 => 20,
-            _ => 20
+            20 => 0,
+            _ => 5
         };
         _ = LoadOrders();
     }
