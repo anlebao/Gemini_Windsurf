@@ -19,5 +19,5 @@ export default defineConfig({
     ...base.use,
     storageState: undefined,
   },
-  testMatch: ['e2e-tests/rv-batch2.spec.ts'],
+  testMatch: ['e2e-tests/rv-batch2.spec.ts', 'e2e-tests/rv-batch2b.spec.ts'],
 });
