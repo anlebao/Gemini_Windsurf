@@ -1,8 +1,8 @@
 # Loyalty Points Integrity — Detail Coding Plan (v1.0)
 
 **Created:** 2026-09-20
-**Status:** 🔲 PENDING REVIEW — chờ user review plan trước khi IMPLEMENT
-**Mode:** ANALYZE (review xong, plan chờ duyệt) → IMPLEMENT sau khi approve
+**Status:** ✅ BATCH 1 COMPLETE + DEPLOYED + RV PRODUCTION PASS (2026-09-20, `ebbc1f5a` + `6023ad0`) — Batch 2-5 pending
+**Mode:** IMPLEMENT (Batch 1 xong) → Batch 2 (PG ledger authority) kế tiếp
 **Branch:** `main`
 **Liên quan:** `docs/plans/loyalty-consistency-fix-plan.md` (COMPLETE, Alliance routing), `docs/plans/loyalty-alliance-master-plan.md`, `docs/AI/tasks/loyalty_points_visibility_master_plan.md` (Phase 3 VND APPROVED)
 
