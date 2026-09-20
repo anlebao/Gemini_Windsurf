@@ -442,6 +442,23 @@ public class AdminController : ControllerBase
 
                     if (pgRow == null)
                     {
+                        // Batch 2 fix (T2.3): FK safety — PG Customers must own the row BEFORE creating
+                        // LoyaltyRewards (FK_LoyaltyRewards_Customers_CustomerId). SQLite POS customers
+                        // may not exist in PG yet → upsert a stub (single-identity sync, same pattern as
+                        // LoyaltySyncSubscriber / LoyaltyPointLedgerService.EnsureCustomerStubAsync).
+                        bool customerExists = await _pgDb.Customers
+                            .IgnoreQueryFilters()
+                            .AnyAsync(c => c.Id == sqliteRow.CustomerId && !c.IsDeleted);
+                        if (!customerExists)
+                        {
+                            var stub = new Customer(tenantIdValue, "Khách hàng", "N/A");
+                            typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("Id")!.SetValue(stub, sqliteRow.CustomerId);
+                            typeof(Customer).GetProperty(nameof(Customer.CustomerId))!.SetValue(stub, new CustomerId(sqliteRow.CustomerId));
+                            stub.UpdateCustomerDetails("Khách hàng", "N/A", null, "Bronze", null, true);
+                            _ = _pgDb.Customers.Add(stub);
+                            _logger.LogInformation("BackfillLoyaltyToPg: created PG customer stub {CustomerId} (FK safety)", sqliteRow.CustomerId);
+                        }
+
                         // Create PG row with the full SQLite state (single-identity: Id = Guid.NewGuid())
                         var newRow = new LoyaltyRewards(tenantIdValue, sqliteRow.CustomerId);
                         typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("Id")!.SetValue(newRow, Guid.NewGuid());
