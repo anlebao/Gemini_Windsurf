@@ -27,20 +27,17 @@ namespace VanAn.ShopERP.Services
         private readonly IServiceProvider _serviceProvider;
         private readonly IConfiguration _configuration;
         private readonly ILogger<BirthdayBonusJob> _logger;
-        private readonly VanAn.CoreHub.Services.IBackgroundServiceToggleService _toggleService;
         private readonly TimeSpan _runInterval = TimeSpan.FromHours(24);
         private readonly TimeSpan _initialDelay = TimeSpan.FromMinutes(5); // Wait 5 min after startup before first run
 
         public BirthdayBonusJob(
             IServiceProvider serviceProvider,
             IConfiguration configuration,
-            ILogger<BirthdayBonusJob> logger,
-            VanAn.CoreHub.Services.IBackgroundServiceToggleService toggleService)
+            ILogger<BirthdayBonusJob> logger)
         {
             _serviceProvider = serviceProvider;
             _configuration = configuration;
             _logger = logger;
-            _toggleService = toggleService;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -62,9 +59,16 @@ namespace VanAn.ShopERP.Services
             {
                 try
                 {
-                    // REQ-1.2: Runtime toggle — skip cycle if disabled via admin UI
-                    if (await _toggleService.IsEnabledAsync("BirthdayBonusJob", stoppingToken))
-                        await RunBirthdayBonusAsync(stoppingToken);
+                    // REQ-1.2: Runtime toggle — skip cycle if disabled via admin UI.
+                    // Resolve the scoped toggle service per cycle (hosted services are singletons
+                    // and must not capture scoped services in the constructor).
+                    using (IServiceScope toggleScope = _serviceProvider.CreateScope())
+                    {
+                        var toggleService = toggleScope.ServiceProvider
+                            .GetRequiredService<IBackgroundServiceToggleService>();
+                        if (await toggleService.IsEnabledAsync("BirthdayBonusJob", stoppingToken))
+                            await RunBirthdayBonusAsync(stoppingToken);
+                    }
                 }
                 catch (Exception ex)
                 {

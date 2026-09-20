@@ -27,20 +27,17 @@ namespace VanAn.ShopERP.Services
         private readonly IServiceProvider _serviceProvider;
         private readonly IConfiguration _configuration;
         private readonly ILogger<VoucherExpiryReminderJob> _logger;
-        private readonly VanAn.CoreHub.Services.IBackgroundServiceToggleService _toggleService;
         private readonly TimeSpan _runInterval = TimeSpan.FromHours(24);
         private readonly TimeSpan _initialDelay = TimeSpan.FromMinutes(8); // Offset from BirthdayBonusJob to avoid simultaneous scope creation
 
         public VoucherExpiryReminderJob(
             IServiceProvider serviceProvider,
             IConfiguration configuration,
-            ILogger<VoucherExpiryReminderJob> logger,
-            VanAn.CoreHub.Services.IBackgroundServiceToggleService toggleService)
+            ILogger<VoucherExpiryReminderJob> logger)
         {
             _serviceProvider = serviceProvider;
             _configuration = configuration;
             _logger = logger;
-            _toggleService = toggleService;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -61,9 +58,16 @@ namespace VanAn.ShopERP.Services
             {
                 try
                 {
-                    // REQ-1.2: Runtime toggle — skip cycle if disabled via admin UI
-                    if (await _toggleService.IsEnabledAsync("VoucherExpiryReminderJob", stoppingToken))
-                        await RunExpiryRemindersAsync(stoppingToken);
+                    // REQ-1.2: Runtime toggle — skip cycle if disabled via admin UI.
+                    // Resolve the scoped toggle service per cycle (hosted services are singletons
+                    // and must not capture scoped services in the constructor).
+                    using (IServiceScope toggleScope = _serviceProvider.CreateScope())
+                    {
+                        var toggleService = toggleScope.ServiceProvider
+                            .GetRequiredService<IBackgroundServiceToggleService>();
+                        if (await toggleService.IsEnabledAsync("VoucherExpiryReminderJob", stoppingToken))
+                            await RunExpiryRemindersAsync(stoppingToken);
+                    }
                 }
                 catch (Exception ex)
                 {

@@ -19,7 +19,6 @@ namespace VanAn.ShopERP.Services
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<PromoCampaignJob> _logger;
-        private readonly VanAn.CoreHub.Services.IBackgroundServiceToggleService _toggleService;
         private readonly TimeSpan _pollInterval = TimeSpan.FromSeconds(30);
         private readonly TimeSpan _initialDelay = TimeSpan.FromSeconds(15);
         private const int BatchSize = 50;
@@ -27,12 +26,10 @@ namespace VanAn.ShopERP.Services
 
         public PromoCampaignJob(
             IServiceProvider serviceProvider,
-            ILogger<PromoCampaignJob> logger,
-            VanAn.CoreHub.Services.IBackgroundServiceToggleService toggleService)
+            ILogger<PromoCampaignJob> logger)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
-            _toggleService = toggleService;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -47,9 +44,16 @@ namespace VanAn.ShopERP.Services
             {
                 try
                 {
-                    // REQ-1.2: Runtime toggle — skip cycle if disabled via admin UI
-                    if (await _toggleService.IsEnabledAsync("PromoCampaignJob", stoppingToken))
-                        await ProcessPendingCampaignsAsync(stoppingToken);
+                    // REQ-1.2: Runtime toggle — skip cycle if disabled via admin UI.
+                    // Resolve the scoped toggle service per cycle (hosted services are singletons
+                    // and must not capture scoped services in the constructor).
+                    using (IServiceScope toggleScope = _serviceProvider.CreateScope())
+                    {
+                        var toggleService = toggleScope.ServiceProvider
+                            .GetRequiredService<IBackgroundServiceToggleService>();
+                        if (await toggleService.IsEnabledAsync("PromoCampaignJob", stoppingToken))
+                            await ProcessPendingCampaignsAsync(stoppingToken);
+                    }
                 }
                 catch (Exception ex)
                 {

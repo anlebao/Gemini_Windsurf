@@ -15,18 +15,29 @@ namespace VanAn.ShopERP.Services
     {
         private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
 
-        public override Task<AuthenticationState> GetAuthenticationStateAsync()
+        public override async Task<AuthenticationState> GetAuthenticationStateAsync()
         {
             HttpContext? httpContext = _httpContextAccessor.HttpContext;
 
             if (httpContext != null)
             {
-                return Task.FromResult(new AuthenticationState(httpContext.User));
+                return new AuthenticationState(httpContext.User);
             }
 
-            // Interactive circuit: HttpContext is null, fall back to base
-            // (ServerAuthenticationStateProvider gets state from the circuit connection)
-            return base.GetAuthenticationStateAsync();
+            try
+            {
+                // Interactive circuit: HttpContext is null, fall back to base
+                // (ServerAuthenticationStateProvider gets state from the circuit connection)
+                return await base.GetAuthenticationStateAsync();
+            }
+            catch (InvalidOperationException)
+            {
+                // No HttpContext AND no active circuit — i.e. called from a background service
+                // (hosted job) outside any Razor component scope. There is no authenticated user
+                // here; return an anonymous principal instead of throwing so callers that mint
+                // system-level JWTs (GatewayAdminApiClientBase) fall back to their system defaults.
+                return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
+            }
         }
     }
 }
