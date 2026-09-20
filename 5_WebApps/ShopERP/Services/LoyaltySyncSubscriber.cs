@@ -149,22 +149,34 @@ namespace VanAn.ShopERP.Services
                                      select lr).FirstOrDefaultAsync(cancellationToken);
                 }
 
-                // 3) Create row when the customer exists locally but has no LoyaltyRewards row yet.
-                //    Previously skipped → Gateway-earned points were invisible for customers whose
-                //    local row was never created (e.g. order completed before first profile view).
+                // 3) Create the mirror row (customer stub + LoyaltyRewards) when the customer has no
+                //    local row yet. Previously skipped → Gateway-earned points were invisible for
+                //    guest orders completed on Gateway (stub customer lives in PG only) and for
+                //    customers whose local row was never created (e.g. order completed before first
+                //    profile view). Mirrors OrderSyncSubscriber Bug 4 stub pattern (single-identity).
                 if (rewards == null && tenantId.HasValue && customerId.HasValue && customerId.Value != Guid.Empty)
                 {
                     bool customerExists = await dbContext.Customers
                         .IgnoreQueryFilters()
                         .AnyAsync(c => c.Id == customerId.Value && !c.IsDeleted, cancellationToken);
-                    if (customerExists)
+
+                    if (!customerExists)
                     {
-                        rewards = new LoyaltyRewards(new TenantId(tenantId.Value), customerId.Value);
-                        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(rewards, Guid.NewGuid());
-                        _ = dbContext.LoyaltyRewards.Add(rewards);
-                        _logger.LogInformation("LoyaltySyncSubscriber: created LoyaltyRewards row for customer {CustomerId} tenant {TenantId}",
-                            customerId.Value, tenantId.Value);
+                        var stub = new Customer(new TenantId(tenantId.Value), "Khách hàng", "N/A");
+                        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(stub, customerId.Value);
+                        typeof(Customer).GetProperty(nameof(Customer.CustomerId))!.SetValue(stub, new CustomerId(customerId.Value));
+                        stub.UpdateCustomerDetails("Khách hàng", "N/A", null, "Bronze", customerDeviceId, true);
+                        _ = dbContext.Customers.Add(stub);
+                        _logger.LogInformation(
+                            "LoyaltySyncSubscriber: created customer stub {CustomerId} for loyalty mirror (tenant {TenantId}, device {DeviceId})",
+                            customerId.Value, tenantId.Value, customerDeviceId?.ToString() ?? "n/a");
                     }
+
+                    rewards = new LoyaltyRewards(new TenantId(tenantId.Value), customerId.Value);
+                    typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(rewards, Guid.NewGuid());
+                    _ = dbContext.LoyaltyRewards.Add(rewards);
+                    _logger.LogInformation("LoyaltySyncSubscriber: created LoyaltyRewards row for customer {CustomerId} tenant {TenantId}",
+                        customerId.Value, tenantId.Value);
                 }
 
                 if (rewards == null)

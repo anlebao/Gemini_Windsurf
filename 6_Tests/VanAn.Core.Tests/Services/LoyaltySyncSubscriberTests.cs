@@ -292,6 +292,37 @@ public class LoyaltySyncSubscriberTests
         }
     }
 
+    [Fact(DisplayName = "LPI-B1-6b: extended payload creates customer stub + rewards row when customer missing locally")]
+    public async Task SyncLoyaltyBalanceAsync_ExtendedPayload_CreatesCustomerStubAndRow()
+    {
+        var (subscriber, sp, db) = BuildSubscriber();
+
+        try
+        {
+            // NO seed — customer does not exist locally (guest order completed on Gateway:
+            // the stub customer was created in PG, never synced to this ShopERP SQLite).
+            byte[] payload = BuildExtendedPayload(
+                TestCustomerId, TestTenantGuid, pointBalance: 180, type: "EARN", points: 180,
+                reason: "Hoàn tiền từ chiến dịch G - Đơn hàng #999", deviceId: TestDeviceId);
+
+            await subscriber.SyncLoyaltyBalanceAsync(payload, CancellationToken.None);
+
+            using IServiceScope verifyScope = sp.CreateScope();
+            var verifyDb = verifyScope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
+            var customer = await verifyDb.Customers.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.Id == TestCustomerId);
+            Assert.NotNull(customer); // stub created
+            Assert.Equal(TestDeviceId, customer!.DeviceId);
+
+            var rewards = await verifyDb.LoyaltyRewards.IgnoreQueryFilters().FirstOrDefaultAsync(r => r.CustomerId == TestCustomerId);
+            Assert.NotNull(rewards);
+            Assert.Equal(180, rewards!.PointBalance);
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
     [Fact(DisplayName = "LPI-B1-7: max-merge preserves SQLite balance when PG is lower (POS points not lost)")]
     public async Task SyncLoyaltyBalanceAsync_MaxMerge_KeepsHigherLocalBalance()
     {
