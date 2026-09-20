@@ -74,5 +74,9 @@ namespace VanAn.Shared.Domain
         public const string AccountingEntryCreated = "AccountingEntryCreated";
         public const string HKDBooksGenerated = "HKDBooksGenerated";
         public const string LoyaltyPointsChanged = "LoyaltyPointsChanged";
+        // Loyalty Points Integrity (Batch 1): PG→SQLite mirror sync event.
+        // NatsSyncWorker normalizes to "loyalty.changed" + RoutingKey → subject
+        // "vanan.cloud.loyalty.changed.{customerDeviceId}" — matches LoyaltySyncSubscriber wildcard.
+        public const string LoyaltyChanged = "LoyaltyChanged";
     }
 }

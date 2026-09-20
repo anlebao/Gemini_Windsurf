@@ -16,7 +16,11 @@ namespace VanAn.CoreHub.Services
         ILoyaltyModeResolver? loyaltyModeResolver = null,
         IAllianceWalletService? allianceWalletService = null,
         ICustomerRepository? customerRepository = null,
-        IShopFeatureSettingsService? shopFeatureSettingsService = null) : ILoyaltyRewardsService
+        IShopFeatureSettingsService? shopFeatureSettingsService = null,
+        // Loyalty Points Integrity (Batch 1): unified PG→SQLite mirror sync (Silo earn/spend now
+        // publish "vanan.cloud.loyalty.changed.{deviceId}" so ShopERP LoyaltySyncSubscriber mirrors
+        // the Gateway PG balance — fixes "points awarded on Gateway but never credited to customer").
+        LoyaltyBalanceSyncPublisher? loyaltyBalanceSyncPublisher = null) : ILoyaltyRewardsService
     {
         private readonly ILoyaltyRewardsRepository _repository = repository;
         private readonly ILogger<LoyaltyRewardsService> _logger = logger;
@@ -29,6 +33,7 @@ namespace VanAn.CoreHub.Services
         private readonly ICustomerRepository? _customerRepository = customerRepository;
         // #121.1.2: Per-tenant toggle for phone verification requirement on redemption
         private readonly IShopFeatureSettingsService? _shopFeatureSettingsService = shopFeatureSettingsService;
+        private readonly LoyaltyBalanceSyncPublisher? _loyaltyBalanceSyncPublisher = loyaltyBalanceSyncPublisher;
 
         private static readonly JsonSerializerOptions EventJsonOptions = new()
         {
@@ -99,6 +104,10 @@ namespace VanAn.CoreHub.Services
 
                 // Phase 5: Direct NATS publish for immediate push notification (fire-and-forget)
                 await PublishLoyaltyPointsChangedNatsAsync(customerId, points, rewards.PointBalance, reason, isAdd: true);
+
+                // Loyalty Points Integrity (Batch 1): PG→SQLite mirror sync — SQLite read path
+                // (ShopERP /api/loyalty/my) must see the new balance. Fire-and-forget + Outbox fallback.
+                await PublishBalanceSyncAsync(customer, rewards.PointBalance, "EARN", points, reason);
 
                 _logger.LogInformation("Added {Points} points to customer {CustomerId}. New balance: {Balance}",
                     points, customerId, rewards.PointBalance);
@@ -199,6 +208,9 @@ namespace VanAn.CoreHub.Services
 
                 // Phase 5: Direct NATS publish for immediate push notification (fire-and-forget)
                 await PublishLoyaltyPointsChangedNatsAsync(customerId, -points, rewards.PointBalance, reason, isAdd: false);
+
+                // Loyalty Points Integrity (Batch 1): PG→SQLite mirror sync (spend must also mirror).
+                await PublishBalanceSyncAsync(customer, rewards.PointBalance, "SPEND", -points, reason);
 
                 _logger.LogInformation("Subtracted {Points} points from customer {CustomerId}. New balance: {Balance}",
                     points, customerId, rewards.PointBalance);
@@ -334,6 +346,36 @@ namespace VanAn.CoreHub.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to publish loyalty points changed event to NATS for CustomerId: {CustomerId}", customerId);
+            }
+        }
+
+        /// <summary>
+        /// Loyalty Points Integrity (Batch 1): publish PG→SQLite mirror sync event.
+        /// Uses the shared LoyaltyBalanceSyncPublisher (subject vanan.cloud.loyalty.changed.{deviceId}).
+        /// Fire-and-forget — mirror sync must never fail the loyalty operation (Outbox is the fallback).
+        /// </summary>
+        private async Task PublishBalanceSyncAsync(Customer customer, int newBalance, string type, int points, string reason)
+        {
+            if (_loyaltyBalanceSyncPublisher is null)
+            {
+                _logger.LogDebug("LoyaltyBalanceSync: publisher not available — mirror sync skipped for customer {CustomerId}", customer.Id);
+                return;
+            }
+
+            try
+            {
+                await _loyaltyBalanceSyncPublisher.PublishAsync(
+                    customerId: customer.Id,
+                    tenantId: customer.TenantId.Value,
+                    pointBalance: newBalance,
+                    type: type,
+                    points: points,
+                    reason: reason,
+                    customerDeviceId: customer.DeviceId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "LoyaltyBalanceSync: publish failed for customer {CustomerId} (type={Type})", customer.Id, type);
             }
         }
 

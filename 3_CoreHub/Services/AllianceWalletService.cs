@@ -18,12 +18,16 @@ public class AllianceWalletService(
     IVanAnDbContext dbContext,
     ILoyaltyModeResolver modeResolver,
     INatsEventPublisher? natsEventPublisher,
-    ILogger<AllianceWalletService> logger) : IAllianceWalletService
+    ILogger<AllianceWalletService> logger,
+    // Loyalty Points Integrity (Batch 1): unified PG→SQLite mirror sync publisher
+    // (replaces the local PublishLoyaltyChangedAsync so Silo + Alliance share one event shape).
+    LoyaltyBalanceSyncPublisher? loyaltyBalanceSyncPublisher = null) : IAllianceWalletService
 {
     private readonly IVanAnDbContext _dbContext = dbContext;
     private readonly ILoyaltyModeResolver _modeResolver = modeResolver;
     private readonly INatsEventPublisher? _natsEventPublisher = natsEventPublisher;
     private readonly ILogger<AllianceWalletService> _logger = logger;
+    private readonly LoyaltyBalanceSyncPublisher? _loyaltyBalanceSyncPublisher = loyaltyBalanceSyncPublisher;
 
     private static readonly JsonSerializerOptions EventJsonOptions = new()
     {
@@ -99,7 +103,7 @@ public class AllianceWalletService(
         _ = _dbContext.AllianceTransactions.Add(tx);
         await _dbContext.SaveChangesAsync();
 
-        await PublishLoyaltyChangedAsync(customerDeviceId, wallet.TotalPointBalance, tx);
+        await PublishLoyaltyChangedAsync(customerDeviceId, tenantId, wallet.TotalPointBalance, tx);
         _logger.LogInformation(
             "AllianceWallet AddPoints: device={Device} tenant={Tenant} +{Points} → balance={Balance}",
             customerDeviceId, tenantId, points, wallet.TotalPointBalance);
@@ -156,7 +160,7 @@ public class AllianceWalletService(
         _ = _dbContext.AllianceTransactions.Add(tx);
         await _dbContext.SaveChangesAsync();
 
-        await PublishLoyaltyChangedAsync(customerDeviceId, wallet.TotalPointBalance, tx);
+        await PublishLoyaltyChangedAsync(customerDeviceId, tenantId, wallet.TotalPointBalance, tx);
         _logger.LogInformation(
             "AllianceWallet DeductPoints: device={Device} tenant={Tenant} -{Points} → balance={Balance}",
             customerDeviceId, tenantId, points, wallet.TotalPointBalance);
@@ -206,7 +210,7 @@ public class AllianceWalletService(
         _ = _dbContext.AllianceTransactions.Add(tx);
         await _dbContext.SaveChangesAsync();
 
-        await PublishLoyaltyChangedAsync(customerDeviceId, wallet.TotalPointBalance, tx);
+        await PublishLoyaltyChangedAsync(customerDeviceId, tenantId, wallet.TotalPointBalance, tx);
         _logger.LogInformation(
             "AllianceWallet Refund: device={Device} tenant={Tenant} +{Points} → balance={Balance} (voucher={Voucher})",
             customerDeviceId, tenantId, points, wallet.TotalPointBalance, voucherCode);
@@ -283,7 +287,7 @@ public class AllianceWalletService(
                 reason: migrationReason);
             _ = _dbContext.AllianceTransactions.Add(tx);
 
-            await PublishLoyaltyChangedAsync(input.CustomerDeviceId, wallet.TotalPointBalance);
+            await PublishLoyaltyChangedAsync(input.CustomerDeviceId, tenantId, wallet.TotalPointBalance);
             processed++;
             totalPoints += input.PointBalance;
         }
@@ -397,7 +401,7 @@ public class AllianceWalletService(
                 var wallet = await _dbContext.AllianceWallets.FirstOrDefaultAsync(w => w.Id == walletId);
                 if (wallet is not null)
                 {
-                    await PublishLoyaltyChangedAsync(wallet.CustomerDeviceId, wallet.TotalPointBalance);
+                    await PublishLoyaltyChangedAsync(wallet.CustomerDeviceId, tenantId, wallet.TotalPointBalance);
                 }
             }
         }
@@ -419,12 +423,30 @@ public class AllianceWalletService(
     // ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Loyalty Consistency Fix Phase 3 (BUG #9): publish loyalty change with extended payload.
-    /// Optional transaction parameter adds type/points/reason/tenantId fields for history sync.
-    /// Legacy callers (consolidate/split — no tx context) pass null → balance-only payload (backward compat).
+    /// Loyalty Consistency Fix Phase 3 (BUG #9) + Loyalty Points Integrity (Batch 1):
+    /// publish loyalty change — delegated to the shared LoyaltyBalanceSyncPublisher
+    /// (subject vanan.cloud.loyalty.changed.{deviceId}, extended payload + Outbox fallback).
+    /// Alliance wallet operates on device identity — customerId is unknown here (Guid.Empty),
+    /// the subscriber falls back to device-based matching.
+    /// Legacy callers (consolidate/split — no tx) pass type=ADJUST with no delta (balance-only).
     /// </summary>
-    private async Task PublishLoyaltyChangedAsync(Guid customerDeviceId, int newBalance, AllianceTransaction? tx = null)
+    private async Task PublishLoyaltyChangedAsync(Guid customerDeviceId, Guid tenantId, int newBalance, AllianceTransaction? tx = null)
     {
+        if (_loyaltyBalanceSyncPublisher is not null)
+        {
+            await _loyaltyBalanceSyncPublisher.PublishAsync(
+                customerId: Guid.Empty, // unknown — device-based matching on the subscriber side
+                tenantId: tenantId,
+                pointBalance: newBalance,
+                type: tx?.Type.ToString() ?? "ADJUST",
+                points: tx?.Points,
+                reason: tx?.Reason,
+                customerDeviceId: customerDeviceId,
+                sourceOrderId: tx?.SourceOrderId);
+            return;
+        }
+
+        // Legacy fallback (publisher not registered) — old behavior preserved.
         if (_natsEventPublisher is null || !_natsEventPublisher.IsConnected)
         {
             return;

@@ -198,6 +198,10 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.IShopConfigService, CoreHub.Services.ShopConfigService>();
             _ = builder.Services.AddScoped<Shared.Services.ISocialCampaignService, CoreHub.Services.SocialCampaignService>();
             _ = builder.Services.AddScoped<CoreHub.Services.ILoyaltyRewardsService, CoreHub.Services.LoyaltyRewardsService>();
+            // Loyalty Points Integrity (Batch 1): unified PG→SQLite mirror sync publisher.
+            // Used by LoyaltyRewardsService (Silo earn/spend) — publishes vanan.cloud.loyalty.changed.{deviceId}
+            // so the local LoyaltySyncSubscriber (and other ShopERP VPS of the same tenant) mirror the balance.
+            _ = builder.Services.AddScoped<CoreHub.Services.LoyaltyBalanceSyncPublisher>();
             // TD-CUSTSYNC-001 / Issue #106: Customer identity merge service
             _ = builder.Services.AddScoped<CoreHub.Services.ICustomerMergeService, CoreHub.Services.CustomerMergeService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IOnboardingService, CoreHub.Services.OnboardingService>();

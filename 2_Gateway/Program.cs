@@ -650,6 +650,10 @@ namespace VanAn.Gateway
             // and by LoyaltyRewardsService itself for SubtractPointsAsync reversal path.
             _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.ILoyaltyRewardsRepository, VanAn.CoreHub.Infrastructure.Repositories.LoyaltyRewardsRepository>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ILoyaltyRewardsService, VanAn.CoreHub.Services.LoyaltyRewardsService>();
+            // Loyalty Points Integrity (Batch 1): unified PG→SQLite mirror sync publisher.
+            // Used by LoyaltyRewardsService (Silo) + AllianceWalletService (Alliance) — publishes
+            // vanan.cloud.loyalty.changed.{deviceId} (+ Outbox routing key) → ShopERP LoyaltySyncSubscriber.
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.LoyaltyBalanceSyncPublisher>();
 
             // VALCN v2.0 Phase 4: Refund orchestration (4-step reversal on cancel — feature-flagged, default OFF)
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IRefundOrchestrationService, VanAn.CoreHub.Services.RefundOrchestrationService>();

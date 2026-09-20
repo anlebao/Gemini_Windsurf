@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Common;
 using VanAn.ShopERP.Infrastructure;
 
 namespace VanAn.ShopERP.Services
@@ -83,7 +84,17 @@ namespace VanAn.ShopERP.Services
 
         /// <summary>
         /// Sync loyalty balance from PG (Gateway) → SQLite (ShopERP).
-        /// Finds local LoyaltyRewards by Customer.DeviceId, updates PointBalance to match PG wallet.
+        ///
+        /// Loyalty Points Integrity (Batch 1) — extended payload from LoyaltyBalanceSyncPublisher:
+        ///   { customerDeviceId?, customerId, tenantId, pointBalance, updatedAt, type, points, reason, sourceOrderId? }
+        /// Resolution order:
+        ///   1. (tenantId, customerId) — Silo events carry both → tenant-scoped row (fixes multi-tenant attribution).
+        ///   2. Device join (legacy balance-only payload / Alliance events — customerId unknown).
+        ///   3. Create the row if the customer exists locally but has no LoyaltyRewards row yet
+        ///      (previously skipped → PG-earned points never appeared for fresh customers).
+        /// Balance: MAX-merge (SQLite = max(SQLite, PG)) — preserves POS-only SQLite points during the
+        /// interim window before PG becomes the sole authority (Batch 2); never regresses local balance.
+        /// History: idempotent append (same timestamp + points + reason → skip).
         /// </summary>
         internal async Task SyncLoyaltyBalanceAsync(byte[] data, CancellationToken cancellationToken)
         {
@@ -97,7 +108,16 @@ namespace VanAn.ShopERP.Services
                 using JsonDocument doc = JsonDocument.Parse(json);
                 JsonElement root = doc.RootElement;
 
-                Guid customerDeviceId = root.GetProperty("customerDeviceId").GetGuid();
+                // Batch 1: customerDeviceId is optional (extended payload may carry customerId + tenantId instead)
+                Guid? customerDeviceId = root.TryGetProperty("customerDeviceId", out var devProp) && devProp.ValueKind == JsonValueKind.String
+                    ? Guid.Parse(devProp.GetString()!)
+                    : null;
+                Guid? customerId = root.TryGetProperty("customerId", out var cidProp) && cidProp.ValueKind == JsonValueKind.String
+                    ? Guid.Parse(cidProp.GetString()!)
+                    : null;
+                Guid? tenantId = root.TryGetProperty("tenantId", out var tidProp) && tidProp.ValueKind == JsonValueKind.String
+                    ? Guid.Parse(tidProp.GetString()!)
+                    : null;
                 int pointBalance = root.GetProperty("pointBalance").GetInt32();
 
                 // Loyalty Consistency Fix Phase 3 (BUG #9): optional extended fields for history sync
@@ -109,17 +129,49 @@ namespace VanAn.ShopERP.Services
                 using IServiceScope scope = _serviceProvider.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
 
-                // Find local LoyaltyRewards by joining Customer.DeviceId → LoyaltyRewards.CustomerId
-                var rewards = await (from c in dbContext.Customers.IgnoreQueryFilters()
+                // 1) Preferred match: (tenantId, customerId) — Silo events. Guid.Empty customerId = absent (Alliance).
+                LoyaltyRewards? rewards = null;
+                if (tenantId.HasValue && customerId.HasValue && customerId.Value != Guid.Empty)
+                {
+                    var tenantIdValue = new TenantId(tenantId.Value);
+                    rewards = await dbContext.LoyaltyRewards
+                        .IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(r => r.TenantId == tenantIdValue && r.CustomerId == customerId.Value, cancellationToken);
+                }
+
+                // 2) Fallback: device join (legacy balance-only payload / Alliance without customerId)
+                if (rewards == null && customerDeviceId.HasValue)
+                {
+                    rewards = await (from c in dbContext.Customers.IgnoreQueryFilters()
                                      join lr in dbContext.LoyaltyRewards.IgnoreQueryFilters()
                                          on c.Id equals lr.CustomerId
-                                     where c.DeviceId == customerDeviceId && !c.IsDeleted
+                                     where c.DeviceId == customerDeviceId.Value && !c.IsDeleted
                                      select lr).FirstOrDefaultAsync(cancellationToken);
+                }
+
+                // 3) Create row when the customer exists locally but has no LoyaltyRewards row yet.
+                //    Previously skipped → Gateway-earned points were invisible for customers whose
+                //    local row was never created (e.g. order completed before first profile view).
+                if (rewards == null && tenantId.HasValue && customerId.HasValue && customerId.Value != Guid.Empty)
+                {
+                    bool customerExists = await dbContext.Customers
+                        .IgnoreQueryFilters()
+                        .AnyAsync(c => c.Id == customerId.Value && !c.IsDeleted, cancellationToken);
+                    if (customerExists)
+                    {
+                        rewards = new LoyaltyRewards(new TenantId(tenantId.Value), customerId.Value);
+                        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(rewards, Guid.NewGuid());
+                        _ = dbContext.LoyaltyRewards.Add(rewards);
+                        _logger.LogInformation("LoyaltySyncSubscriber: created LoyaltyRewards row for customer {CustomerId} tenant {TenantId}",
+                            customerId.Value, tenantId.Value);
+                    }
+                }
 
                 if (rewards == null)
                 {
-                    // Customer has not shopped at this tenant — no local LoyaltyRewards row to update.
-                    _logger.LogDebug("LoyaltySyncSubscriber: no local LoyaltyRewards for device {DeviceId} — skipping", customerDeviceId);
+                    // No local customer/row to update.
+                    _logger.LogDebug("LoyaltySyncSubscriber: no local LoyaltyRewards for device {DeviceId} customer {CustomerId} — skipping",
+                        customerDeviceId?.ToString() ?? "n/a", customerId?.ToString() ?? "n/a");
                     return;
                 }
 
@@ -146,23 +198,26 @@ namespace VanAn.ShopERP.Services
                             .GetProperty(nameof(LoyaltyRewards.History))!
                             .SetValue(rewards, JsonSerializer.Serialize(history));
                         changed = true;
-                        _logger.LogInformation("LoyaltySyncSubscriber: appended history entry for device {DeviceId} (type={Type}, points={Points})", customerDeviceId, type, points);
+                        _logger.LogInformation("LoyaltySyncSubscriber: appended history entry for customer {CustomerId} (type={Type}, points={Points})",
+                            customerId?.ToString() ?? customerDeviceId?.ToString() ?? "n/a", type, points);
                     }
                 }
 
-                // Update PointBalance via reflection (PG source of truth sync)
-                if (rewards.PointBalance != pointBalance)
+                // Batch 1: MAX-merge — only raise the local balance toward the PG authority.
+                // Never decreases: POS-only points that haven't been backfilled to PG yet must not vanish.
+                if (pointBalance > rewards.PointBalance)
                 {
                     typeof(LoyaltyRewards)
                         .GetProperty(nameof(LoyaltyRewards.PointBalance))!
                         .SetValue(rewards, pointBalance);
                     changed = true;
+                    _logger.LogInformation("LoyaltySyncSubscriber: synced balance → {Balance} (customer {CustomerId})",
+                        pointBalance, customerId?.ToString() ?? customerDeviceId?.ToString() ?? "n/a");
                 }
 
                 if (changed)
                 {
                     _ = await dbContext.SaveChangesAsync(cancellationToken);
-                    _logger.LogInformation("LoyaltySyncSubscriber: synced device {DeviceId} → balance={Balance}", customerDeviceId, pointBalance);
                 }
             }
             catch (Exception ex)

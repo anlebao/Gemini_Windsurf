@@ -396,4 +396,135 @@ public class AdminController : ControllerBase
             });
         }
     }
+
+    /// <summary>
+    /// Loyalty Points Integrity (Batch 1): backfill local SQLite LoyaltyRewards → Gateway PG (additive).
+    /// One-time admin operation to consolidate POS-earned points (SQLite-only) into the PG authority
+    /// BEFORE the mirror sync starts overwriting SQLite with PG balances (Batch 2 cutover).
+    ///
+    /// Merge rule (idempotent):
+    ///   - PG row (TenantId, CustomerId) missing → create with SQLite balance + history as-is.
+    ///   - PG row exists → append ONLY SQLite history entries absent from PG (dedup by
+    ///     Timestamp + Points + Reason); PG balance += Σ missing entries (clamped ≥ 0).
+    ///   - SQLite row with EMPTY history + balance > 0 and PG row already exists → skip
+    ///     (no dedup key — avoids double-add on rerun).
+    /// Re-runnable: second run finds no missing entries → no change.
+    /// </summary>
+    [HttpPost("sync/loyalty-backfill-pg")]
+    public async Task<IActionResult> BackfillLoyaltyToPg()
+    {
+        try
+        {
+            _logger.LogInformation("BackfillLoyaltyToPg: starting loyalty backfill SQLite → PG");
+
+            var sqliteRewards = await _sqliteDb.LoyaltyRewards
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .ToListAsync();
+
+            int created = 0;
+            int updated = 0;
+            int skipped = 0;
+            int totalPointsAdded = 0;
+            var errors = new List<string>();
+
+            foreach (var sqliteRow in sqliteRewards)
+            {
+                try
+                {
+                    var tenantIdValue = new TenantId(sqliteRow.TenantId.Value);
+
+                    var pgRow = await _pgDb.LoyaltyRewards
+                        .IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(r => r.TenantId == tenantIdValue && r.CustomerId == sqliteRow.CustomerId);
+
+                    var sqliteHistory = DeserializeLoyaltyHistory(sqliteRow.History);
+
+                    if (pgRow == null)
+                    {
+                        // Create PG row with the full SQLite state (single-identity: Id = Guid.NewGuid())
+                        var newRow = new LoyaltyRewards(tenantIdValue, sqliteRow.CustomerId);
+                        typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("Id")!.SetValue(newRow, Guid.NewGuid());
+                        newRow.AddPoints(Math.Max(0, sqliteRow.PointBalance));
+                        newRow.UpdateHistory(sqliteRow.History);
+                        _ = _pgDb.LoyaltyRewards.Add(newRow);
+                        created++;
+                        totalPointsAdded += Math.Max(0, sqliteRow.PointBalance);
+                        continue;
+                    }
+
+                    // Edge: no dedup key — skip to avoid double-add on rerun
+                    if (sqliteHistory.Count == 0 && sqliteRow.PointBalance > 0)
+                    {
+                        skipped++;
+                        _logger.LogDebug("BackfillLoyaltyToPg: skipping customer {CustomerId} — SQLite row has empty history", sqliteRow.CustomerId);
+                        continue;
+                    }
+
+                    // Append SQLite-only history entries (dedup by Timestamp + Points + Reason)
+                    var pgHistory = DeserializeLoyaltyHistory(pgRow.History);
+                    var missing = sqliteHistory
+                        .Where(h => !pgHistory.Any(p => p.Timestamp == h.Timestamp && p.Points == h.Points && p.Reason == h.Reason))
+                        .ToList();
+
+                    if (missing.Count == 0)
+                    {
+                        skipped++;
+                        continue;
+                    }
+
+                    int delta = missing.Sum(m => m.Points);
+                    var merged = pgHistory.Concat(missing).ToList();
+                    typeof(LoyaltyRewards).GetProperty(nameof(LoyaltyRewards.History))!
+                        .SetValue(pgRow, System.Text.Json.JsonSerializer.Serialize(merged));
+                    typeof(LoyaltyRewards).GetProperty(nameof(LoyaltyRewards.PointBalance))!
+                        .SetValue(pgRow, Math.Max(0, pgRow.PointBalance + delta));
+                    updated++;
+                    totalPointsAdded += delta;
+                    _logger.LogInformation(
+                        "BackfillLoyaltyToPg: customer {CustomerId} tenant {TenantId} — merged {Missing} entry(ies), delta={Delta}",
+                        sqliteRow.CustomerId, tenantIdValue.Value, missing.Count, delta);
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"Customer {sqliteRow.CustomerId}: {ex.Message}");
+                    _logger.LogWarning(ex, "BackfillLoyaltyToPg: failed for customer {CustomerId}", sqliteRow.CustomerId);
+                }
+            }
+
+            await _pgDb.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "BackfillLoyaltyToPg: complete — total={Total}, created={Created}, updated={Updated}, skipped={Skipped}, pointsAdded={PointsAdded}, errors={Errors}",
+                sqliteRewards.Count, created, updated, skipped, totalPointsAdded, errors.Count);
+
+            return Ok(new
+            {
+                success = true,
+                totalInSqlite = sqliteRewards.Count,
+                created,
+                updated,
+                skipped,
+                pointsAdded = totalPointsAdded,
+                errorList = errors
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "BackfillLoyaltyToPg: FAILED — {Message}", ex.Message);
+            return StatusCode(500, new
+            {
+                success = false,
+                error = ex.Message,
+                stack = ex.StackTrace?.Split('\n').Take(5).ToArray(),
+                innerError = ex.InnerException?.Message
+            });
+        }
+    }
+
+    private static List<LoyaltyHistoryEntry> DeserializeLoyaltyHistory(string? json)
+    {
+        try { return System.Text.Json.JsonSerializer.Deserialize<List<LoyaltyHistoryEntry>>(json ?? "[]") ?? []; }
+        catch { return []; }
+    }
 }

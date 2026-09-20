@@ -195,6 +195,165 @@ public class LoyaltySyncSubscriberTests
         }
     }
 
+    // ──────────────────────────────────────────────────────────
+    // Loyalty Points Integrity (Batch 1) — extended payload tests
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Build an extended payload matching LoyaltyBalanceSyncPublisher shape:
+    /// { customerDeviceId?, customerId, tenantId, pointBalance, updatedAt, type, points, reason }.
+    /// </summary>
+    private static byte[] BuildExtendedPayload(
+        Guid customerId, Guid tenantId, int pointBalance, string type, int points, string reason,
+        string? updatedAt = null, Guid? deviceId = null)
+    {
+        return JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            customerDeviceId = deviceId?.ToString(),
+            customerId,
+            tenantId,
+            pointBalance,
+            updatedAt = updatedAt ?? DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+            type,
+            points,
+            reason
+        });
+    }
+
+    /// <summary>Seed only a Customer (no LoyaltyRewards row) — for the create-row test.</summary>
+    private static async Task SeedCustomerOnlyAsync(ShopERPDbContext db)
+    {
+        var customer = new Customer(TestTenantId, "Test Customer", "0901234567");
+        customer.UpdateCustomerDetails("Test Customer", "0901234567", null, "Bronze", TestDeviceId, true);
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(customer, TestCustomerId);
+        db.Customers.Add(customer);
+        await db.SaveChangesAsync();
+    }
+
+    [Fact(DisplayName = "LPI-B1-5: extended payload matches by (tenantId, customerId) — no device needed")]
+    public async Task SyncLoyaltyBalanceAsync_ExtendedPayload_MatchesByTenantAndCustomer()
+    {
+        var (subscriber, sp, db) = BuildSubscriber();
+
+        try
+        {
+            await SeedDataAsync(db, initialBalance: 100);
+
+            // No customerDeviceId in payload — resolution must use (tenantId, customerId)
+            byte[] payload = BuildExtendedPayload(
+                TestCustomerId, TestTenantGuid, pointBalance: 650, type: "EARN", points: 550,
+                reason: "Hoàn tiền từ chiến dịch X - Đơn hàng #123");
+
+            await subscriber.SyncLoyaltyBalanceAsync(payload, CancellationToken.None);
+
+            using IServiceScope verifyScope = sp.CreateScope();
+            var verifyDb = verifyScope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
+            var rewards = await verifyDb.LoyaltyRewards.FirstOrDefaultAsync(r => r.CustomerId == TestCustomerId);
+            Assert.NotNull(rewards);
+            Assert.Equal(650, rewards!.PointBalance); // max-merge raised to PG balance
+
+            var history = JsonSerializer.Deserialize<List<LoyaltyHistoryEntry>>(rewards.History);
+            Assert.NotNull(history);
+            Assert.Single(history!);
+            Assert.Equal("EARN", history![0].Type);
+            Assert.Equal(550, history[0].Points);
+            Assert.Contains("#123", history[0].Reason);
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
+    [Fact(DisplayName = "LPI-B1-6: extended payload creates LoyaltyRewards row when customer exists without one")]
+    public async Task SyncLoyaltyBalanceAsync_ExtendedPayload_CreatesMissingRow()
+    {
+        var (subscriber, sp, db) = BuildSubscriber();
+
+        try
+        {
+            await SeedCustomerOnlyAsync(db);
+
+            byte[] payload = BuildExtendedPayload(
+                TestCustomerId, TestTenantGuid, pointBalance: 250, type: "EARN", points: 250,
+                reason: "Hoàn tiền từ chiến dịch Y - Đơn hàng #456");
+
+            await subscriber.SyncLoyaltyBalanceAsync(payload, CancellationToken.None);
+
+            using IServiceScope verifyScope = sp.CreateScope();
+            var verifyDb = verifyScope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
+            var rewards = await verifyDb.LoyaltyRewards.FirstOrDefaultAsync(r => r.CustomerId == TestCustomerId);
+            Assert.NotNull(rewards);
+            Assert.Equal(250, rewards!.PointBalance);
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
+    [Fact(DisplayName = "LPI-B1-7: max-merge preserves SQLite balance when PG is lower (POS points not lost)")]
+    public async Task SyncLoyaltyBalanceAsync_MaxMerge_KeepsHigherLocalBalance()
+    {
+        var (subscriber, sp, db) = BuildSubscriber();
+
+        try
+        {
+            // Local SQLite has 400 (POS-earned points not yet backfilled to PG);
+            // PG currently only knows 300 (Gateway-earned) — must NOT regress the local balance.
+            await SeedDataAsync(db, initialBalance: 400);
+
+            byte[] payload = BuildExtendedPayload(
+                TestCustomerId, TestTenantGuid, pointBalance: 300, type: "EARN", points: 50,
+                reason: "Hoàn tiền từ chiến dịch Z - Đơn hàng #789");
+
+            await subscriber.SyncLoyaltyBalanceAsync(payload, CancellationToken.None);
+
+            using IServiceScope verifyScope = sp.CreateScope();
+            var verifyDb = verifyScope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
+            var rewards = await verifyDb.LoyaltyRewards.FirstOrDefaultAsync(r => r.CustomerId == TestCustomerId);
+            Assert.NotNull(rewards);
+            Assert.Equal(400, rewards!.PointBalance); // unchanged — local wins (max-merge)
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
+    [Fact(DisplayName = "LPI-B1-8: duplicate event is skipped (no duplicate history entry, no balance churn)")]
+    public async Task SyncLoyaltyBalanceAsync_DuplicateEvent_Skipped()
+    {
+        var (subscriber, sp, db) = BuildSubscriber();
+
+        try
+        {
+            await SeedDataAsync(db, initialBalance: 100);
+
+            string fixedTs = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+            byte[] payload = BuildExtendedPayload(
+                TestCustomerId, TestTenantGuid, pointBalance: 300, type: "EARN", points: 200,
+                reason: "Hoàn tiền từ chiến dịch K - Đơn hàng #111", updatedAt: fixedTs);
+
+            await subscriber.SyncLoyaltyBalanceAsync(payload, CancellationToken.None);
+            await subscriber.SyncLoyaltyBalanceAsync(payload, CancellationToken.None); // duplicate replay
+
+            using IServiceScope verifyScope = sp.CreateScope();
+            var verifyDb = verifyScope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
+            var rewards = await verifyDb.LoyaltyRewards.FirstOrDefaultAsync(r => r.CustomerId == TestCustomerId);
+            Assert.NotNull(rewards);
+            Assert.Equal(300, rewards!.PointBalance);
+
+            var history = JsonSerializer.Deserialize<List<LoyaltyHistoryEntry>>(rewards.History);
+            Assert.NotNull(history);
+            Assert.Single(history!); // only one entry despite replay
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
     /// <summary>
     /// Testable subclass that overrides NATS connection creation (no real NATS server)
     /// and captures the subscribed subject for assertion.
