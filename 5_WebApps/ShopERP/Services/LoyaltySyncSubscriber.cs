@@ -106,7 +106,41 @@ namespace VanAn.ShopERP.Services
             {
                 string json = Encoding.UTF8.GetString(data);
                 using JsonDocument doc = JsonDocument.Parse(json);
-                JsonElement root = doc.RootElement;
+
+                using IServiceScope scope = _serviceProvider.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
+                try
+                {
+                    await SyncRowCoreAsync(dbContext, doc.RootElement, cancellationToken);
+                }
+                catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+                {
+                    // Race: EVERY event is delivered TWICE by design (direct NATS publish + Outbox
+                    // fallback). Concurrent deliveries both saw "no stub" and both inserted → UNIQUE
+                    // collision → whole batch rolled back (stub + rewards row + history + balance).
+                    // Retry ONCE with a fresh context — the winner's rows are now visible and the
+                    // merge is idempotent (history dedup by timestamp+points+reason, MAX-merge balance).
+                    _logger.LogWarning(ex,
+                        "LoyaltySyncSubscriber: UNIQUE race (double delivery) — retrying once with a fresh context for {Event}",
+                        data.Length > 128 ? Encoding.UTF8.GetString(data).Substring(0, 128) : Encoding.UTF8.GetString(data));
+                    using IServiceScope retryScope = _serviceProvider.CreateScope();
+                    var retryDb = retryScope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
+                    await SyncRowCoreAsync(retryDb, doc.RootElement, cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "LoyaltySyncSubscriber: failed to sync loyalty balance from NATS message");
+            }
+        }
+
+        /// <summary>
+        /// Batch 2 hardening: single-delivery merge — (tenantId, customerId) match → device fallback →
+        /// create stub + row → idempotent history append → MAX-merge balance. Extracted from
+        /// SyncLoyaltyBalanceAsync so a UNIQUE-race retry can re-run it with a fresh context.
+        /// </summary>
+        private async Task SyncRowCoreAsync(ShopERPDbContext dbContext, JsonElement root, CancellationToken cancellationToken)
+        {
 
                 // Batch 1: customerDeviceId is optional (extended payload may carry customerId + tenantId instead)
                 Guid? customerDeviceId = root.TryGetProperty("customerDeviceId", out var devProp) && devProp.ValueKind == JsonValueKind.String
@@ -125,9 +159,6 @@ namespace VanAn.ShopERP.Services
                 int? points = root.TryGetProperty("points", out var p) && p.ValueKind == JsonValueKind.Number ? p.GetInt32() : null;
                 string? reason = root.TryGetProperty("reason", out var r) ? r.GetString() : null;
                 string? updatedAtStr = root.TryGetProperty("updatedAt", out var u) ? u.GetString() : null;
-
-                using IServiceScope scope = _serviceProvider.CreateScope();
-                var dbContext = scope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
 
                 // 1) Preferred match: (tenantId, customerId) — Silo events. Guid.Empty customerId = absent (Alliance).
                 LoyaltyRewards? rewards = null;
@@ -231,11 +262,15 @@ namespace VanAn.ShopERP.Services
                 {
                     _ = await dbContext.SaveChangesAsync(cancellationToken);
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "LoyaltySyncSubscriber: failed to sync loyalty balance from NATS message");
-            }
+        }
+
+        private static bool IsUniqueConstraintViolation(DbUpdateException ex)
+        {
+            // SQLite: SqliteException SqliteErrorCode 19 (SQLITE_CONSTRAINT — UNIQUE/PRIMARY KEY).
+            // Keep a message fallback so any provider variant is covered.
+            return ex.InnerException is Microsoft.Data.Sqlite.SqliteException { SqliteErrorCode: 19 }
+                || ex.InnerException?.Message?.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase) == true
+                || ex.Message.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase);
         }
 
         private static List<LoyaltyHistoryEntry> DeserializeHistory(string? json)

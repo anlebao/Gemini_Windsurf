@@ -385,6 +385,11 @@ public class LoyaltySyncSubscriberTests
         }
     }
 
+    // NOTE (Batch 2): double-delivery convergence (extended payload replayed) is already covered by
+    // LPI-B1-8 (SyncLoyaltyBalanceAsync_DuplicateEvent_Skipped) — 1 history entry, balance 300.
+    // The concurrent UNIQUE-race is handled defensively in the subscriber (retry-once with fresh
+    // context) and verified on production by the mirror sync.
+
     /// <summary>
     /// Testable subclass that overrides NATS connection creation (no real NATS server)
     /// and captures the subscribed subject for assertion.
