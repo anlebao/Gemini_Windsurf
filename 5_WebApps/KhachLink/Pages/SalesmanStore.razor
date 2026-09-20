@@ -1,4 +1,4 @@
-@page "/community/salesman-store"
+﻿@page "/community/salesman-store"
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.KhachLink.Components.Layout
 @using VanAn.KhachLink.Services.Http
@@ -10,7 +10,7 @@
 <PageTitle>Gian hàng của tôi</PageTitle>
 
 <KhachLinkLayout>
-    <div class="container py-4" style="max-width:700px;">
+    <div class="container py-4">
         <h3 class="mb-3">
             <i class="bi bi-shop text-primary"></i> Gian hàng của tôi
         </h3>
@@ -83,7 +83,7 @@
                     @foreach (var product in _store.Products)
                     {
                         <VanAnCard Shadow="true" CssClass="p-3">
-                            <div class="d-flex justify-content-between align-items-start gap-2">
+                            <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
                                 <div class="flex-grow-1">
                                     <h6 class="mb-1">@product.Name</h6>
                                     <p class="text-muted small mb-1"><i class="bi bi-shop"></i> @product.ShopName</p>
@@ -107,18 +107,19 @@
                                     <div class="qr-canvas-wrap mb-1">
                                         <canvas id="@GetQrCanvasId(product.ProductId)"></canvas>
                                     </div>
-                                    <div class="d-flex flex-column gap-1">
-                                        <VanAnButton Variant="ButtonVariant.Outline" OnClick="@(() => DownloadQr(product.ProductId, product.CompositeCode))">
-                                            <i class="bi bi-download"></i> Tải QR
-                                        </VanAnButton>
-                                        <VanAnButton Variant="ButtonVariant.Outline" OnClick="SyncPrice">
-                                            <i class="bi bi-arrow-repeat"></i> Đồng bộ giá
-                                        </VanAnButton>
-                                        <VanAnButton Variant="ButtonVariant.Error" OnClick="@(() => RemoveProduct(product.ProductId, product.Name))">
-                                            <i class="bi bi-trash"></i> Xóa
-                                        </VanAnButton>
-                                    </div>
                                 </div>
+                            </div>
+                            @* 3 nút xuống hàng riêng (dưới QR) — nhỏ gọn, không chiếm chỗ bên phải *@
+                            <div class="d-flex gap-2 flex-wrap justify-content-center mt-2">
+                                <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small" OnClick="@(() => DownloadQr(product.ProductId, product.CompositeCode))">
+                                    <i class="bi bi-download"></i> Tải QR
+                                </VanAnButton>
+                                <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small" OnClick="SyncPrice">
+                                    <i class="bi bi-arrow-repeat"></i> Đồng bộ giá
+                                </VanAnButton>
+                                <VanAnButton Variant="ButtonVariant.Error" Size="ButtonSize.Small" OnClick="@(() => RemoveProduct(product.ProductId, product.Name))">
+                                    <i class="bi bi-trash"></i> Xóa
+                                </VanAnButton>
                             </div>
                         </VanAnCard>
                     }
@@ -129,7 +130,8 @@
 </KhachLinkLayout>
 
 <style>
-    /* QR canvases in the store list — fluid, square, capped at 120px so cards fit phones. */
+    /* QR canvases in the store list — fluid, square, 220px so it scans fast (user feedback
+       2026-09-19: QR nhỏ + 3 nút dồn bên phải → QR to + nút xuống hàng riêng). */
     .qr-canvas-wrap {
         display: flex;
         justify-content: center;
@@ -139,7 +141,7 @@
     .qr-canvas-wrap canvas {
         display: block;
         width: 100%;
-        max-width: 120px;
+        max-width: 220px;
         height: auto;
         aspect-ratio: 1 / 1;
         margin: 0 auto;
@@ -196,7 +198,7 @@
             _qrRendered = true;
             foreach (var p in _store.Products)
             {
-                await JSRuntime.InvokeVoidAsync("vananQR.generate", GetQrCanvasId(p.ProductId), p.QrUrl, 160, 160);
+                await JSRuntime.InvokeVoidAsync("vananQR.generate", GetQrCanvasId(p.ProductId), p.QrUrl, 240, 240);
             }
         }
     }
