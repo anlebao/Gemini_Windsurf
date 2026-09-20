@@ -92,7 +92,8 @@ public class LoyaltyBudgetController(
     {
         public Guid TenantId { get; set; }
         public Guid CustomerId { get; set; }
-        public decimal OrderAmount { get; set; }
+        // Batch 2: nullable — null skips the PerOrderRateCap (non-order awards via the ledger).
+        public decimal? OrderAmount { get; set; }
         public int RequestedPoints { get; set; }
     }
 

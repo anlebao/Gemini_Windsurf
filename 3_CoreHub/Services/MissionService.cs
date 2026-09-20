@@ -76,8 +76,8 @@ namespace VanAn.CoreHub.Services
                 }
             }
 
-            // Silo fallback
-            bool awarded = await _loyaltyRewardsService.AddPointsAsync(customerId, points, reason);
+            // Silo fallback — Batch 2: tenant-scoped award (row at (customer, current tenant)).
+            bool awarded = await _loyaltyRewardsService.AddPointsAsync(customerId, _tenantProvider.TenantId, points, reason);
             if (awarded)
             {
                 var rewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(customerId);

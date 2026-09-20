@@ -185,10 +185,11 @@ namespace VanAn.CoreHub.Services
             try
             {
                 // SubtractPointsAsync enforces IdentityLevel >= Verified + balance check.
+                // Batch 2: tenant-scoped spend — only the row at (customer, current tenant) is deducted.
                 bool deducted;
                 try
                 {
-                    deducted = await _loyaltyRewardsService.SubtractPointsAsync(customerId, catalogItem.PointsRequired, $"Redeem: {catalogItem.ProductName}");
+                    deducted = await _loyaltyRewardsService.SubtractPointsAsync(customerId, _tenantProvider.TenantId, catalogItem.PointsRequired, $"Redeem: {catalogItem.ProductName}");
                 }
                 catch (IdentityLevelNotSufficientException)
                 {
@@ -421,8 +422,8 @@ namespace VanAn.CoreHub.Services
                 }
             }
 
-            // Silo fallback
-            return await _loyaltyRewardsService.AddPointsAsync(customerId, points, reason);
+            // Silo fallback — Batch 2: tenant-scoped refund (row at (customer, redeeming tenant)).
+            return await _loyaltyRewardsService.AddPointsAsync(customerId, tenantId, points, reason);
         }
 
         private static string GenerateVoucherCode()

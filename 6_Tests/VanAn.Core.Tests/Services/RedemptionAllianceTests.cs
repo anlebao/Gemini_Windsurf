@@ -79,7 +79,7 @@ public class RedemptionAllianceTests
             .ReturnsAsync((RedemptionCatalogItem c) => c);
 
         var loyaltyMock = new Mock<ILoyaltyRewardsService>();
-        loyaltyMock.Setup(l => l.SubtractPointsAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>()))
+        loyaltyMock.Setup(l => l.SubtractPointsAsync(It.IsAny<Guid>(), TestTenantGuid, It.IsAny<int>(), It.IsAny<string>()))
             .ReturnsAsync(true);
         loyaltyMock.Setup(l => l.GetCustomerRewardsAsync(It.IsAny<Guid>()))
             .ReturnsAsync(new LoyaltyRewards(TestTenantId, TestCustomerId));
@@ -130,7 +130,7 @@ public class RedemptionAllianceTests
 
             // LoyaltyRewardsService.SubtractPointsAsync must NOT be called (Alliance flow)
             loyaltyMock.Verify(
-                l => l.SubtractPointsAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>()),
+                l => l.SubtractPointsAsync(It.IsAny<Guid>(), TestTenantGuid, It.IsAny<int>(), It.IsAny<string>()),
                 Times.Never,
                 "Alliance mode must NOT deduct from local LoyaltyRewardsService");
 
@@ -167,7 +167,7 @@ public class RedemptionAllianceTests
 
             // LoyaltyRewardsService.SubtractPointsAsync MUST be called
             loyaltyMock.Verify(
-                l => l.SubtractPointsAsync(TestCustomerId, 100, It.Is<string>(s => s.Contains("Redeem"))),
+                l => l.SubtractPointsAsync(TestCustomerId, TestTenantGuid, 100, It.Is<string>(s => s.Contains("Redeem"))),
                 Times.Once,
                 "Silo mode must deduct from local LoyaltyRewardsService");
         }
@@ -201,7 +201,7 @@ public class RedemptionAllianceTests
                 w => w.DeductPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>()),
                 Times.Never);
             loyaltyMock.Verify(
-                l => l.SubtractPointsAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>()),
+                l => l.SubtractPointsAsync(It.IsAny<Guid>(), TestTenantGuid, It.IsAny<int>(), It.IsAny<string>()),
                 Times.Never);
         }
         finally
@@ -235,7 +235,7 @@ public class RedemptionAllianceTests
 
             // Local LoyaltyRewardsService must NOT be deducted (Alliance flow, wallet failed)
             loyaltyMock.Verify(
-                l => l.SubtractPointsAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>()),
+                l => l.SubtractPointsAsync(It.IsAny<Guid>(), TestTenantGuid, It.IsAny<int>(), It.IsAny<string>()),
                 Times.Never);
         }
         finally

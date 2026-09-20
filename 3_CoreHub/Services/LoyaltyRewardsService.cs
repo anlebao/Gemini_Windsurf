@@ -42,7 +42,10 @@ namespace VanAn.CoreHub.Services
 
         public async Task<LoyaltyRewards> GetOrCreateCustomerRewardsAsync(Guid customerId, TenantId tenantId)
         {
-            LoyaltyRewards? rewards = await _repository.GetByCustomerIdAsync(customerId);
+            // Loyalty Points Integrity (Batch 2): tenant-scoped row lookup — a customer holds one
+            // Silo row PER awarding tenant (unique index (TenantId, CustomerId)). Previously the
+            // lookup ignored the tenant → points earned at tenant B landed in tenant A's row.
+            LoyaltyRewards? rewards = await _repository.GetByCustomerAndTenantIdAsync(customerId, tenantId);
 
             if (rewards == null)
             {
@@ -58,7 +61,7 @@ namespace VanAn.CoreHub.Services
             return rewards;
         }
 
-        public async Task<bool> AddPointsAsync(Guid customerId, int points, string reason)
+        public async Task<bool> AddPointsAsync(Guid customerId, Guid tenantId, int points, string reason)
         {
             if (points <= 0)
             {
@@ -73,14 +76,15 @@ namespace VanAn.CoreHub.Services
             bool ownsTransaction = false;
             try
             {
-                // Get customer to retrieve tenant ID
+                // Get customer to retrieve device identity for the mirror sync (tenant comes from the caller).
                 Customer? customer = await _repository.GetCustomerByIdAsync(customerId);
                 if (customer == null)
                 {
                     throw new ArgumentException($"Customer with ID {customerId} not found");
                 }
 
-                LoyaltyRewards rewards = await GetOrCreateCustomerRewardsAsync(customerId, customer.TenantId);
+                // Batch 2: tenant attribution — the row at (customerId, tenantId) is credited.
+                LoyaltyRewards rewards = await GetOrCreateCustomerRewardsAsync(customerId, new TenantId(tenantId));
 
                 rewards.AddPoints(points, reason);
 
@@ -100,14 +104,14 @@ namespace VanAn.CoreHub.Services
                 await _repository.SaveChangesAsync();
 
                 // Phase 5: Enqueue LoyaltyPointsChanged outbox event (same transaction — reliable persistence)
-                EnqueueLoyaltyPointsChangedEvent(customer.TenantId, customerId, points, rewards.PointBalance, reason, isAdd: true);
+                EnqueueLoyaltyPointsChangedEvent(new TenantId(tenantId), customerId, points, rewards.PointBalance, reason, isAdd: true);
 
                 // Phase 5: Direct NATS publish for immediate push notification (fire-and-forget)
                 await PublishLoyaltyPointsChangedNatsAsync(customerId, points, rewards.PointBalance, reason, isAdd: true);
 
                 // Loyalty Points Integrity (Batch 1): PG→SQLite mirror sync — SQLite read path
                 // (ShopERP /api/loyalty/my) must see the new balance. Fire-and-forget + Outbox fallback.
-                await PublishBalanceSyncAsync(customer, rewards.PointBalance, "EARN", points, reason);
+                await PublishBalanceSyncAsync(customer, new TenantId(tenantId), rewards.PointBalance, "EARN", points, reason);
 
                 _logger.LogInformation("Added {Points} points to customer {CustomerId}. New balance: {Balance}",
                     points, customerId, rewards.PointBalance);
@@ -131,7 +135,7 @@ namespace VanAn.CoreHub.Services
             }
         }
 
-        public async Task<bool> SubtractPointsAsync(Guid customerId, int points, string reason)
+        public async Task<bool> SubtractPointsAsync(Guid customerId, Guid tenantId, int points, string reason)
         {
             if (points <= 0)
             {
@@ -146,7 +150,7 @@ namespace VanAn.CoreHub.Services
             bool ownsTransaction = false;
             try
             {
-                // Get customer to retrieve tenant ID
+                // Get customer to retrieve device identity for the mirror sync (tenant comes from the caller).
                 Customer? customer = await _repository.GetCustomerByIdAsync(customerId);
                 if (customer == null)
                 {
@@ -177,7 +181,8 @@ namespace VanAn.CoreHub.Services
                     throw new IdentityLevelNotSufficientException(customerId, customer.IdentityLevel, IdentityLevel.Verified);
                 }
 
-                LoyaltyRewards rewards = await GetOrCreateCustomerRewardsAsync(customerId, customer.TenantId);
+                // Batch 2: tenant attribution + "luật Silo" — only the redeeming tenant's row is deducted.
+                LoyaltyRewards rewards = await GetOrCreateCustomerRewardsAsync(customerId, new TenantId(tenantId));
 
                 if (rewards.PointBalance < points)
                 {
@@ -204,13 +209,13 @@ namespace VanAn.CoreHub.Services
                 await _repository.SaveChangesAsync();
 
                 // Phase 5: Enqueue LoyaltyPointsChanged outbox event (same transaction — reliable persistence)
-                EnqueueLoyaltyPointsChangedEvent(customer.TenantId, customerId, -points, rewards.PointBalance, reason, isAdd: false);
+                EnqueueLoyaltyPointsChangedEvent(new TenantId(tenantId), customerId, -points, rewards.PointBalance, reason, isAdd: false);
 
                 // Phase 5: Direct NATS publish for immediate push notification (fire-and-forget)
                 await PublishLoyaltyPointsChangedNatsAsync(customerId, -points, rewards.PointBalance, reason, isAdd: false);
 
                 // Loyalty Points Integrity (Batch 1): PG→SQLite mirror sync (spend must also mirror).
-                await PublishBalanceSyncAsync(customer, rewards.PointBalance, "SPEND", -points, reason);
+                await PublishBalanceSyncAsync(customer, new TenantId(tenantId), rewards.PointBalance, "SPEND", -points, reason);
 
                 _logger.LogInformation("Subtracted {Points} points from customer {CustomerId}. New balance: {Balance}",
                     points, customerId, rewards.PointBalance);
@@ -354,7 +359,7 @@ namespace VanAn.CoreHub.Services
         /// Uses the shared LoyaltyBalanceSyncPublisher (subject vanan.cloud.loyalty.changed.{deviceId}).
         /// Fire-and-forget — mirror sync must never fail the loyalty operation (Outbox is the fallback).
         /// </summary>
-        private async Task PublishBalanceSyncAsync(Customer customer, int newBalance, string type, int points, string reason)
+        private async Task PublishBalanceSyncAsync(Customer customer, TenantId tenantId, int newBalance, string type, int points, string reason)
         {
             if (_loyaltyBalanceSyncPublisher is null)
             {
@@ -364,9 +369,11 @@ namespace VanAn.CoreHub.Services
 
             try
             {
+                // Batch 2: tenantId is the ATTRIBUTION tenant (awarding for EARN, redeeming for SPEND)
+                // — NOT customer.TenantId, so the mirror lands on the correct per-tenant row.
                 await _loyaltyBalanceSyncPublisher.PublishAsync(
                     customerId: customer.Id,
-                    tenantId: customer.TenantId.Value,
+                    tenantId: tenantId.Value,
                     pointBalance: newBalance,
                     type: type,
                     points: points,
@@ -422,12 +429,12 @@ namespace VanAn.CoreHub.Services
                     }
                     else
                     {
-                        welcomeAwarded = await AddPointsAsync(customerId, 100, "Welcome bonus for joining loyalty program");
+                        welcomeAwarded = await AddPointsAsync(customerId, tenantId, 100, "Welcome bonus for joining loyalty program");
                     }
                 }
                 else
                 {
-                    welcomeAwarded = await AddPointsAsync(customerId, 100, "Welcome bonus for joining loyalty program");
+                    welcomeAwarded = await AddPointsAsync(customerId, customer.TenantId.Value, 100, "Welcome bonus for joining loyalty program");
                 }
 
                 _logger.LogInformation("Loyalty program activated for customer {CustomerId} (welcome bonus awarded: {Awarded})", customerId, welcomeAwarded);

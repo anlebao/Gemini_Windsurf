@@ -16,11 +16,12 @@ public interface ILoyaltyBudgetService
     /// </summary>
     /// <param name="tenantId">Tenant ID.</param>
     /// <param name="customerId">Customer ID (for per-customer daily limit check).</param>
-    /// <param name="orderAmount">Order total amount (for per-order rate cap check).</param>
+    /// <param name="orderAmount">Order total amount for the per-order rate cap. Null (non-order awards,
+    /// e.g. mission/welcome) SKIPS the PerOrderRateCap — monthly/daily/per-customer caps still apply.</param>
     /// <param name="requestedPoints">Points calculated by existing formula (rate × amount, clamped to min/max).</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>Adjusted points (0 = budget exhausted, skip reward; &gt;0 = capped points to award).</returns>
-    Task<int> CheckAndAdjustPointsAsync(Guid tenantId, Guid customerId, decimal orderAmount, int requestedPoints, CancellationToken ct = default);
+    Task<int> CheckAndAdjustPointsAsync(Guid tenantId, Guid customerId, decimal? orderAmount, int requestedPoints, CancellationToken ct = default);
 
     /// <summary>
     /// Record points issuance — atomically increment PointsIssuedThisMonth + PointsIssuedToday counters.

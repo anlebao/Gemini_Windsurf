@@ -29,6 +29,10 @@ namespace VanAn.Core.Tests.Services
             repo.Setup(r => r.GetByCustomerIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(rewards);
 
+            // Batch 2: tenant-scoped row lookup (LoyaltyRewardsService now reads per (customer, tenant)).
+            repo.Setup(r => r.GetByCustomerAndTenantIdAsync(It.IsAny<Guid>(), It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(rewards);
+
             repo.Setup(r => r.AddAsync(It.IsAny<LoyaltyRewards>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync((LoyaltyRewards r, CancellationToken _) => r);
 
@@ -64,7 +68,7 @@ namespace VanAn.Core.Tests.Services
             var (_, svc) = BuildSut(customer, rewards);
 
             // Act
-            var act = () => svc.SubtractPointsAsync(TestCustomerId, 100, "redeem reward");
+            var act = () => svc.SubtractPointsAsync(TestCustomerId, TestTenantId.Value, 100, "redeem reward");
 
             // Assert
             var ex = await act.Should().ThrowAsync<IdentityLevelNotSufficientException>();
@@ -82,7 +86,7 @@ namespace VanAn.Core.Tests.Services
             var (repo, svc) = BuildSut(customer, rewards);
 
             // Act
-            var result = await svc.SubtractPointsAsync(TestCustomerId, 100, "redeem reward");
+            var result = await svc.SubtractPointsAsync(TestCustomerId, TestTenantId.Value, 100, "redeem reward");
 
             // Assert
             result.Should().BeTrue();
@@ -99,7 +103,7 @@ namespace VanAn.Core.Tests.Services
             var (_, svc) = BuildSut(customer, rewards);
 
             // Act
-            var result = await svc.SubtractPointsAsync(TestCustomerId, 100, "redeem reward");
+            var result = await svc.SubtractPointsAsync(TestCustomerId, TestTenantId.Value, 100, "redeem reward");
 
             // Assert
             result.Should().BeTrue();
@@ -114,7 +118,7 @@ namespace VanAn.Core.Tests.Services
             var (_, svc) = BuildSut(customer, rewards);
 
             // Act
-            var act = () => svc.SubtractPointsAsync(TestCustomerId, 100, "redeem reward");
+            var act = () => svc.SubtractPointsAsync(TestCustomerId, TestTenantId.Value, 100, "redeem reward");
 
             // Assert
             await act.Should().ThrowAsync<IdentityLevelNotSufficientException>();
@@ -129,7 +133,7 @@ namespace VanAn.Core.Tests.Services
             var (repo, svc) = BuildSut(customer, rewards);
 
             // Act
-            var result = await svc.AddPointsAsync(TestCustomerId, 50, "earn from order");
+            var result = await svc.AddPointsAsync(TestCustomerId, TestTenantId.Value, 50, "earn from order");
 
             // Assert
             result.Should().BeTrue();
@@ -145,7 +149,7 @@ namespace VanAn.Core.Tests.Services
             var (_, svc) = BuildSut(customer, rewards);
 
             // Act
-            var result = await svc.SubtractPointsAsync(TestCustomerId, 100, "redeem reward");
+            var result = await svc.SubtractPointsAsync(TestCustomerId, TestTenantId.Value, 100, "redeem reward");
 
             // Assert — gate passed, but balance check returns false (not throw)
             result.Should().BeFalse();

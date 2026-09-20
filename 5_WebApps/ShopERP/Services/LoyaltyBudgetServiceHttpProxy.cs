@@ -31,7 +31,7 @@ public sealed class LoyaltyBudgetServiceHttpProxy(
     };
 
     public async Task<int> CheckAndAdjustPointsAsync(
-        Guid tenantId, Guid customerId, decimal orderAmount, int requestedPoints, CancellationToken ct = default)
+        Guid tenantId, Guid customerId, decimal? orderAmount, int requestedPoints, CancellationToken ct = default)
     {
         if (requestedPoints <= 0) return 0;
 

@@ -15,6 +15,13 @@ namespace VanAn.CoreHub.Repositories
         Task<LoyaltyRewards?> GetByCustomerIdAsync(Guid customerId, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Loyalty Points Integrity (Batch 2): gets the Silo rewards row scoped to a specific
+        /// (customer, tenant) pair. Tenant attribution: a customer can hold one row per awarding
+        /// tenant; Silo spend may only use the row of the redeeming tenant ("luật Silo").
+        /// </summary>
+        Task<LoyaltyRewards?> GetByCustomerAndTenantIdAsync(Guid customerId, TenantId tenantId, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Gets customer by ID (for tenant ID retrieval)
         /// </summary>
         Task<Customer?> GetCustomerByIdAsync(Guid customerId, CancellationToken cancellationToken = default);

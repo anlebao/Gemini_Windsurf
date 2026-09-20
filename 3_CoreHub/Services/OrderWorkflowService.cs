@@ -31,7 +31,11 @@ namespace VanAn.CoreHub.Services
         ILoyaltyBudgetService? loyaltyBudgetService = null,
         IFeatureFlagService? featureFlagService = null,
         IRefundOrchestrationService? refundOrchestrationService = null,
-        ISalesmanService? salesmanService = null) : IOrderWorkflowService
+        ISalesmanService? salesmanService = null,
+        // Loyalty Points Integrity (Batch 2, T1.6): PG ledger — single source of truth for the
+        // award write (guard + budget + mode routing + issuance record). Null in legacy test scopes
+        // → falls back to the inline implementation below (backward compatible).
+        ILoyaltyPointLedgerService? loyaltyPointLedgerService = null) : IOrderWorkflowService
     {
         private readonly IOrderRepository _orderRepository = orderRepository;
         private readonly ILogger<OrderWorkflowService> _logger = logger;
@@ -60,6 +64,8 @@ namespace VanAn.CoreHub.Services
         // CC-S4: Salesman commission — null in ShopERP/test scopes (ISalesmanService is Gateway-only).
         // When null, orders with a referral simply skip commission creation.
         private readonly ISalesmanService? _salesmanService = salesmanService;
+        // Loyalty Points Integrity (Batch 2, T1.6): PG ledger (Gateway in-proc / ShopERP HTTP proxy).
+        private readonly ILoyaltyPointLedgerService? _loyaltyPointLedgerService = loyaltyPointLedgerService;
         // _shopFeatureSettingsService already declared at line 34 (Wave 1-T6) — reused for Loyalty-C WS-A per-tenant formula override.
 
         // W-1-T7: CamelCase JSON options — matches SimpleAccountingEventHandler deserialization policy
@@ -611,6 +617,46 @@ namespace VanAn.CoreHub.Services
 
             string reason = $"Hoàn tiền từ chiến dịch {campaignName} - Đơn hàng #{order.Id}";
 
+            // === Loyalty Points Integrity (Batch 2, T1.6): PG ledger = single source of truth ===
+            // The centralized ledger handles: orderId double-award guard (RC3) → budget check →
+            // mode routing (Silo/Alliance) → LoyaltyIssuanceRecord (PG) → budget counters → mirror
+            // sync. Keeps the formula/config resolution above (rate/min/max) — calculator unification
+            // (D1 net revenue) lands in Batch 3.
+            if (_loyaltyPointLedgerService is not null)
+            {
+                Guid deviceGuid = Guid.TryParse(order.CustomerDeviceId, out var parsedDevice) ? parsedDevice : customer.DeviceId ?? customer.Id;
+                LedgerResult ledgerResult = await _loyaltyPointLedgerService.AwardAsync(new AwardRequest
+                {
+                    CustomerId = customer.Id,
+                    TenantId = order.TenantId.Value,
+                    Points = pointsToAward,
+                    Reason = reason,
+                    SourceOrderId = order.Id,
+                    CustomerDeviceId = deviceGuid,
+                    OrderAmount = order.TotalAmount,
+                    IdempotencyKey = $"earn:{order.Id}"
+                });
+
+                if (ledgerResult.Status == LedgerOperationStatus.Success)
+                {
+                    _logger.LogInformation("🎁 LOYALTY (LEDGER): Awarded {Points} points to customer {CustomerId} from order {OrderId} (balance={Balance})",
+                        pointsToAward, customer.Id, order.Id, ledgerResult.NewBalance);
+                }
+                else if (ledgerResult.Status == LedgerOperationStatus.Skipped)
+                {
+                    _logger.LogInformation("LOYALTY (LEDGER): Award skipped for order {OrderId}: {Reason}", order.Id, ledgerResult.Error);
+                }
+                else
+                {
+                    _logger.LogWarning("LOYALTY (LEDGER): Award failed for order {OrderId}: {Error}", order.Id, ledgerResult.Error);
+                }
+
+                return;
+            }
+
+            // ⚠️ LEGACY FALLBACK (no ILoyaltyPointLedgerService — test scopes only; production always
+            // registers the ledger). Keep behavior identical to pre-Batch-2.
+
             // === Loyalty Alliance Phase 2B: Mode routing ===
             // If mode=Alliance and tenant is an alliance member, route EARN to the cross-tenant PG wallet.
             // If mode=Silo, or tenant opted out (IsAllianceMember=false), fall through to the existing Silo flow.
@@ -653,7 +699,7 @@ namespace VanAn.CoreHub.Services
             }
 
             // === EXISTING: Silo flow (unchanged) ===
-            bool success = await _loyaltyRewardsService.AddPointsAsync(customer.Id, pointsToAward, reason);
+            bool success = await _loyaltyRewardsService.AddPointsAsync(customer.Id, customer.TenantId.Value, pointsToAward, reason);
 
             if (success)
             {

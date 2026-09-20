@@ -175,7 +175,7 @@ namespace VanAn.Core.Tests.Services
             customerRepo.Setup(r => r.UpdateAsync(It.IsAny<Customer>())).ReturnsAsync(customer);
 
             var loyaltyMock = new Mock<ILoyaltyRewardsService>();
-            loyaltyMock.Setup(l => l.AddPointsAsync(TestCustomerId, 50, It.IsAny<string>())).ReturnsAsync(true);
+            loyaltyMock.Setup(l => l.AddPointsAsync(TestCustomerId, TestTenantId.Value, 50, It.IsAny<string>())).ReturnsAsync(true);
             loyaltyMock.Setup(l => l.GetCustomerRewardsAsync(TestCustomerId)).ReturnsAsync(rewards);
 
             var tenantProvider = new Mock<ITenantProvider>();

@@ -650,6 +650,10 @@ namespace VanAn.Gateway
             // and by LoyaltyRewardsService itself for SubtractPointsAsync reversal path.
             _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.ILoyaltyRewardsRepository, VanAn.CoreHub.Infrastructure.Repositories.LoyaltyRewardsRepository>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ILoyaltyRewardsService, VanAn.CoreHub.Services.LoyaltyRewardsService>();
+            // Loyalty Points Integrity (Batch 2, T1.2): PG ledger — single source of truth for
+            // loyalty award/spend/refund/reversal (OrderWorkflowService + RefundOrchestrationService
+            // + InternalLoyaltyController). Emergency rollback: feature flag LoyaltyLedgerV2.
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ILoyaltyPointLedgerService, VanAn.CoreHub.Services.LoyaltyPointLedgerService>();
             // Loyalty Points Integrity (Batch 1): unified PG→SQLite mirror sync publisher.
             // Used by LoyaltyRewardsService (Silo) + AllianceWalletService (Alliance) — publishes
             // vanan.cloud.loyalty.changed.{deviceId} (+ Outbox routing key) → ShopERP LoyaltySyncSubscriber.

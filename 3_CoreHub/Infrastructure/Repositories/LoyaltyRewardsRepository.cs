@@ -11,11 +11,29 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
 
         public async Task<LoyaltyRewards?> GetByCustomerIdAsync(Guid customerId, CancellationToken cancellationToken = default)
         {
-            // Bug 6 fix: IgnoreQueryFilters — loyalty rewards lookup by CustomerId should
-            // not be restricted by tenant filter (CustomerId is globally unique PK).
+            // Loyalty Points Integrity (Batch 2): prefer the row of the CURRENT tenant context
+            // (query filter applies TenantId == ambient tenant). Since LoyaltyRewards is now
+            // per-(customer, tenant), reading the first row across tenants can surface the wrong
+            // tenant's balance. Fall back to IgnoreQueryFilters (first row) only when the ambient
+            // tenant has no row (e.g. SystemAdmin/background scope with TenantId = Empty).
+            LoyaltyRewards? scoped = await _context.LoyaltyRewards
+                .FirstOrDefaultAsync(r => r.CustomerId == customerId, cancellationToken);
+            if (scoped is not null)
+            {
+                return scoped;
+            }
+
             return await _context.LoyaltyRewards
                 .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(r => r.CustomerId == customerId, cancellationToken);
+        }
+
+        public async Task<LoyaltyRewards?> GetByCustomerAndTenantIdAsync(Guid customerId, TenantId tenantId, CancellationToken cancellationToken = default)
+        {
+            // Explicit cross-tenant lookup: (CustomerId, TenantId) unique index (LoyaltyRewardsConfiguration).
+            return await _context.LoyaltyRewards
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(r => r.CustomerId == customerId && r.TenantId == tenantId, cancellationToken);
         }
 
         public async Task<Customer?> GetCustomerByIdAsync(Guid customerId, CancellationToken cancellationToken = default)

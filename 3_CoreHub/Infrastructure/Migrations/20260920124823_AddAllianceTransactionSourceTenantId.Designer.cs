@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using VanAn.CoreHub.Infrastructure;
@@ -11,9 +12,11 @@ using VanAn.CoreHub.Infrastructure;
 namespace VanAn.CoreHub.Infrastructure.Migrations
 {
     [DbContext(typeof(VanAnDbContext))]
-    partial class VanAnDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260920124823_AddAllianceTransactionSourceTenantId")]
+    partial class AddAllianceTransactionSourceTenantId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -3342,7 +3345,8 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CustomerId");
+                    b.HasIndex("CustomerId")
+                        .IsUnique();
 
                     b.HasIndex("TenantId", "CustomerId")
                         .IsUnique();
@@ -5469,8 +5473,8 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
             modelBuilder.Entity("VanAn.Shared.Domain.LoyaltyRewards", b =>
                 {
                     b.HasOne("VanAn.Shared.Domain.Customer", "Customer")
-                        .WithMany("LoyaltyRewards")
-                        .HasForeignKey("CustomerId")
+                        .WithOne("LoyaltyRewards")
+                        .HasForeignKey("VanAn.Shared.Domain.LoyaltyRewards", "CustomerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -5586,7 +5590,8 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
 
             modelBuilder.Entity("VanAn.Shared.Domain.Customer", b =>
                 {
-                    b.Navigation("LoyaltyRewards");
+                    b.Navigation("LoyaltyRewards")
+                        .IsRequired();
 
                     b.Navigation("Orders");
                 });

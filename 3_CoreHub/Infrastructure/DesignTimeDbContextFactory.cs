@@ -15,6 +15,12 @@ namespace VanAn.CoreHub.Infrastructure
     {
         public VanAnDbContext CreateDbContext(string[] args)
         {
+            // Match runtime (2_Gateway/Program.cs): Npgsql 7+ legacy timestamp behavior must be
+            // enabled at DESIGN TIME too, otherwise dotnet ef scaffolds DateTime as
+            // "timestamp with time zone" while the snapshot/runtime model uses "timestamp without
+            // time zone" → every "migrations add" generates ~200 spurious AlterColumn operations.
+            AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
             var optionsBuilder = new DbContextOptionsBuilder<VanAnDbContext>();
 
             // Read connection string from environment (set by dev ops) or use PostgreSQL default.

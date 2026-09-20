@@ -197,7 +197,13 @@ namespace VanAn.ShopERP
             // Register CoreHub Services (FIX: Use CoreHub interfaces and implementations)
             _ = builder.Services.AddScoped<CoreHub.Services.IShopConfigService, CoreHub.Services.ShopConfigService>();
             _ = builder.Services.AddScoped<Shared.Services.ISocialCampaignService, CoreHub.Services.SocialCampaignService>();
-            _ = builder.Services.AddScoped<CoreHub.Services.ILoyaltyRewardsService, CoreHub.Services.LoyaltyRewardsService>();
+            // Loyalty Points Integrity (Batch 2, T1.4): POS writes route through the Gateway PG ledger
+            // (single source of truth). Reads stay on the local SQLite mirror. Replaces the direct
+            // CoreHub LoyaltyRewardsService (which wrote SQLite directly → points diverged from PG).
+            _ = builder.Services.AddScoped<CoreHub.Services.ILoyaltyRewardsService, Services.LoyaltyRewardsServiceHttpProxy>();
+            // Loyalty Points Integrity (Batch 2, T1.2): PG ledger proxy — OrderWorkflowService (POS
+            // order completion) + RefundOrchestrationService route every loyalty write here.
+            _ = builder.Services.AddScoped<CoreHub.Services.ILoyaltyPointLedgerService, Services.LoyaltyPointLedgerServiceHttpProxy>();
             // Loyalty Points Integrity (Batch 1): unified PG→SQLite mirror sync publisher.
             // Used by LoyaltyRewardsService (Silo earn/spend) — publishes vanan.cloud.loyalty.changed.{deviceId}
             // so the local LoyaltySyncSubscriber (and other ShopERP VPS of the same tenant) mirror the balance.

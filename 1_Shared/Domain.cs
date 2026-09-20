@@ -674,7 +674,10 @@ namespace VanAn.Shared.Domain
 
         // Navigation Properties
         public virtual ICollection<Order> Orders { get; } = new Collection<Order>();
-        public virtual LoyaltyRewards LoyaltyRewards { get; protected set; } = null!;
+        // Loyalty Points Integrity (Batch 2): 1:N — a customer holds ONE Silo row PER awarding tenant
+        // (unique index (TenantId, CustomerId)). Was 1:1 → EF deleted the previous row whenever a
+        // second tenant's row was created (cross-tenant point merging, RC2.4).
+        public virtual ICollection<LoyaltyRewards> LoyaltyRewards { get; } = new Collection<LoyaltyRewards>();
 
         protected Customer() { }
 
@@ -2512,6 +2515,13 @@ namespace VanAn.Shared.Domain
         public Guid? RefundTenantId { get; protected set; }
         public DateTime TransactionAt { get; protected set; }
         /// <summary>
+        /// Loyalty Points Integrity (Batch 2): tenant that OWNS the points consumed by this
+        /// transaction (Alliance REDEEM attribution). Null for EARN/ADJUST and for legacy rows.
+        /// Batch 4 (Phase 5) fills this via FIFO attribution when a customer redeems points earned
+        /// at a different tenant than the redeeming one.
+        /// </summary>
+        public Guid? SourceTenantId { get; protected set; }
+        /// <summary>
         /// Loyalty Consistency Fix Phase 0: stable key for retry-safe HTTP proxy calls.
         /// ShopERP HTTP proxy forwards this in X-Idempotency-Key header; Gateway stores it
         /// and returns cached result on retry with same key. Null for non-proxied calls (e.g. direct Gateway admin).
@@ -2538,6 +2548,23 @@ namespace VanAn.Shared.Domain
             RefundTenantId = refundTenantId;
             IdempotencyKey = idempotencyKey;
             TransactionAt = DateTime.UtcNow;
+        }
+
+        /// <summary>
+        /// Loyalty Points Integrity (Batch 2): sets the tenant that OWNS the points consumed
+        /// (Alliance REDEEM attribution). Set-once — a second call throws, keeping the log
+        /// append-only and preventing silent re-attribution.
+        /// </summary>
+        public void SetSourceTenant(Guid tenantId)
+        {
+            if (SourceTenantId.HasValue)
+            {
+                throw new InvalidOperationException(
+                    $"AllianceTransaction {Id} already has SourceTenantId {SourceTenantId.Value} — attribution is set-once (append-only log).");
+            }
+
+            SourceTenantId = tenantId;
+            UpdateAudit();
         }
     }
 

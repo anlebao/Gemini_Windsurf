@@ -34,7 +34,7 @@ public class LoyaltyBudgetService : ILoyaltyBudgetService
     }
 
     public async Task<int> CheckAndAdjustPointsAsync(
-        Guid tenantId, Guid customerId, decimal orderAmount, int requestedPoints, CancellationToken ct = default)
+        Guid tenantId, Guid customerId, decimal? orderAmount, int requestedPoints, CancellationToken ct = default)
     {
         if (requestedPoints <= 0) return 0;
 
@@ -51,13 +51,14 @@ public class LoyaltyBudgetService : ILoyaltyBudgetService
 
         int adjusted = requestedPoints;
 
-        // Check 1: Per-order rate cap (e.g. 3% of order amount)
-        if (config.PerOrderRateCap.HasValue)
+        // Check 1: Per-order rate cap (e.g. 3% of order amount) — SKIPPED for non-order awards
+        // (orderAmount null: mission/welcome/refund flows have no order to measure).
+        if (config.PerOrderRateCap.HasValue && orderAmount.HasValue)
         {
-            int perOrderCap = (int)(orderAmount * config.PerOrderRateCap.Value);
+            int perOrderCap = (int)(orderAmount.Value * config.PerOrderRateCap.Value);
             adjusted = Math.Min(adjusted, perOrderCap);
             _logger.LogDebug("LoyaltyBudget: PerOrderRateCap={Cap} → adjusted {Orig}→{New} (orderAmount={Amt})",
-                config.PerOrderRateCap.Value, requestedPoints, adjusted, orderAmount);
+                config.PerOrderRateCap.Value, requestedPoints, adjusted, orderAmount.Value);
         }
 
         // Check 2: Monthly budget

@@ -21,13 +21,17 @@ public class AllianceWalletService(
     ILogger<AllianceWalletService> logger,
     // Loyalty Points Integrity (Batch 1): unified PG→SQLite mirror sync publisher
     // (replaces the local PublishLoyaltyChangedAsync so Silo + Alliance share one event shape).
-    LoyaltyBalanceSyncPublisher? loyaltyBalanceSyncPublisher = null) : IAllianceWalletService
+    LoyaltyBalanceSyncPublisher? loyaltyBalanceSyncPublisher = null,
+    // Loyalty Points Integrity (Batch 2, T1.5): defense-in-depth budget check — protects EVERY
+    // wallet caller (Mission/Redemption refund/welcome/Internal API), not just the order workflow.
+    ILoyaltyBudgetService? loyaltyBudgetService = null) : IAllianceWalletService
 {
     private readonly IVanAnDbContext _dbContext = dbContext;
     private readonly ILoyaltyModeResolver _modeResolver = modeResolver;
     private readonly INatsEventPublisher? _natsEventPublisher = natsEventPublisher;
     private readonly ILogger<AllianceWalletService> _logger = logger;
     private readonly LoyaltyBalanceSyncPublisher? _loyaltyBalanceSyncPublisher = loyaltyBalanceSyncPublisher;
+    private readonly ILoyaltyBudgetService? _loyaltyBudgetService = loyaltyBudgetService;
 
     private static readonly JsonSerializerOptions EventJsonOptions = new()
     {
@@ -90,12 +94,38 @@ public class AllianceWalletService(
                 $"Wallet cap exceeded: {wallet.TotalPointBalance} + {points} > {maxWallet}");
         }
 
-        wallet.AddPoints(points);
+        // Batch 2 (T1.5): defense-in-depth budget check — tenant-level caps (monthly/daily) enforced
+        // for EVERY caller. Per-order rate cap is skipped (orderAmount null — wallet has no order
+        // context) and per-customer daily is skipped (customerId unknown here) — the ledger enforces
+        // those with full context before routing to the wallet. No config row → no cap (no-op).
+        int awardedPoints = points;
+        if (_loyaltyBudgetService is not null)
+        {
+            int checkedPoints = await _loyaltyBudgetService.CheckAndAdjustPointsAsync(
+                tenantId, customerId: Guid.Empty, orderAmount: null, requestedPoints: points);
+            if (checkedPoints <= 0)
+            {
+                _logger.LogWarning(
+                    "AllianceWallet AddPoints budget-rejected: device={Device} tenant={Tenant} points={Points} (budget exhausted)",
+                    customerDeviceId, tenantId, points);
+                return (false, wallet.TotalPointBalance, "Budget exhausted for this tenant");
+            }
+
+            if (checkedPoints < points)
+            {
+                _logger.LogInformation(
+                    "AllianceWallet AddPoints budget-capped: device={Device} tenant={Tenant} {Orig}→{New}",
+                    customerDeviceId, tenantId, points, checkedPoints);
+                awardedPoints = checkedPoints;
+            }
+        }
+
+        wallet.AddPoints(awardedPoints);
         var tx = new AllianceTransaction(
             walletId: wallet.Id,
             transactionTenantId: tenantId,
             type: AllianceTransactionType.EARN,
-            points: points,
+            points: awardedPoints,
             balanceAfter: wallet.TotalPointBalance,
             reason: reason,
             sourceOrderId: sourceOrderId,
@@ -103,10 +133,24 @@ public class AllianceWalletService(
         _ = _dbContext.AllianceTransactions.Add(tx);
         await _dbContext.SaveChangesAsync();
 
+        // Batch 2 (T1.5): record issuance counters for the ACTUAL awarded amount (single count —
+        // the ledger does NOT record for the Alliance branch; the wallet owns it).
+        if (_loyaltyBudgetService is not null)
+        {
+            try
+            {
+                await _loyaltyBudgetService.RecordIssuanceAsync(tenantId, awardedPoints);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "AllianceWallet AddPoints: RecordIssuanceAsync failed for tenant {TenantId} — counters may be stale", tenantId);
+            }
+        }
+
         await PublishLoyaltyChangedAsync(customerDeviceId, tenantId, wallet.TotalPointBalance, tx);
         _logger.LogInformation(
             "AllianceWallet AddPoints: device={Device} tenant={Tenant} +{Points} → balance={Balance}",
-            customerDeviceId, tenantId, points, wallet.TotalPointBalance);
+            customerDeviceId, tenantId, awardedPoints, wallet.TotalPointBalance);
         return (true, wallet.TotalPointBalance, null);
     }
 

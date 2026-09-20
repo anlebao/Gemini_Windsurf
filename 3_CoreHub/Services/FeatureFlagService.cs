@@ -23,6 +23,9 @@ public class FeatureFlagService : IFeatureFlagService
     [
         ("ValcnV2_PlatformFee", "Platform Fee (Marketplace)", "Tính PlatformFeeAmount trên Marketplace orders (Phase 2)", "Phase 2", false),
         ("ValcnV2_LoyaltyBudget", "Loyalty Budget Cap", "Check budget trước AddPoints + reset jobs (Phase 3)", "Phase 3", false),
+        // Loyalty Points Integrity (Batch 2): PG ledger single source of truth — default ON.
+        // Emergency OFF switch: SystemAdmin tắt → mọi loyalty WRITE bị skip/reject (rollback nhanh).
+        ("LoyaltyLedgerV2", "PG Ledger (Loyalty)", "PG ledger = single source of truth cho award/spend/refund (Batch 2, rollback switch)", "Phase 1", true),
         ("ValcnV2_RefundReversal", "Refund Reversal (UC-06)", "4-step reversal on order cancel (Phase 4)", "Phase 4", false),
         // Sprint 3 EXPANDED: audit toggles — default ON
         ("Audit_Enabled", "Audit Logging (Master)", "Bật/tắt TOÀN BỘ audit logging (mặc định: BẬT)", "Sprint 3", true),

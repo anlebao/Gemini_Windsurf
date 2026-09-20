@@ -27,6 +27,9 @@ public class RefundOrchestrationService : IRefundOrchestrationService
     private readonly IWalletService _walletService;
     private readonly IVanAnDbContext _dbContext;
     private readonly ILogger<RefundOrchestrationService> _logger;
+    // Loyalty Points Integrity (Batch 2): PG ledger reversal (mode-aware — Silo row / Alliance wallet).
+    // Null in legacy test scopes → falls back to the direct SubtractPointsAsync loop.
+    private readonly ILoyaltyPointLedgerService? _ledgerService;
 
     // Account code for "Phải trả khách hàng" (customer refund payable) — TT 152/2025/TT-BTC
     private const string RefundPayableAccountCode = "331";
@@ -37,7 +40,8 @@ public class RefundOrchestrationService : IRefundOrchestrationService
         IAccountingEntryRepository accountingEntryRepo,
         IWalletService walletService,
         IVanAnDbContext dbContext,
-        ILogger<RefundOrchestrationService> logger)
+        ILogger<RefundOrchestrationService> logger,
+        ILoyaltyPointLedgerService? ledgerService = null)
     {
         _loyaltyService = loyaltyService;
         _budgetService = budgetService;
@@ -45,6 +49,7 @@ public class RefundOrchestrationService : IRefundOrchestrationService
         _walletService = walletService;
         _dbContext = dbContext;
         _logger = logger;
+        _ledgerService = ledgerService;
     }
 
     public async Task OrchestrateReversalAsync(Guid orderId, TenantId tenantId, string reason, CancellationToken ct = default)
@@ -80,19 +85,37 @@ public class RefundOrchestrationService : IRefundOrchestrationService
         await _dbContext.SaveChangesAsync(ct);
 
         // ==================== STEP 2c: Loyalty reversal ====================
-        // Query LoyaltyIssuanceRecord by OrderId (Phase 1 entity) → SubtractPoints + MarkReversed + budget decrement.
-        var issuanceRecords = await _dbContext.LoyaltyIssuanceRecords
-            .Where(r => r.OrderId == orderId && r.TenantId == tenantId && !r.IsReversed)
-            .ToListAsync(ct);
-
+        // Query LoyaltyIssuanceRecord by OrderId (Phase 1 entity) → reverse points + MarkReversed + budget decrement.
+        // Batch 2: routed through the PG ledger (mode-aware — Silo row / Alliance wallet) when registered.
         var totalReversedPoints = 0;
-        foreach (var record in issuanceRecords)
+        if (_ledgerService is not null)
         {
-            await _loyaltyService.SubtractPointsAsync(record.CustomerId, record.PointsIssued, $"Reversal: {reason}");
-            record.MarkReversed();
-            totalReversedPoints += record.PointsIssued;
+            // Ledger reverses each non-reversed issuance record (marks them reversed) — mode-aware.
+            totalReversedPoints = await _ledgerService.RevertOrderAsync(orderId, tenantId, reason, ct);
         }
-        await _dbContext.SaveChangesAsync(ct);
+        else
+        {
+            var issuanceRecords = await _dbContext.LoyaltyIssuanceRecords
+                .Where(r => r.OrderId == orderId && r.TenantId == tenantId && !r.IsReversed)
+                .ToListAsync(ct);
+
+            foreach (var record in issuanceRecords)
+            {
+                try
+                {
+                    await _loyaltyService.SubtractPointsAsync(record.CustomerId, tenantId.Value, record.PointsIssued, $"Reversal: {reason}");
+                    record.MarkReversed();
+                    totalReversedPoints += record.PointsIssued;
+                }
+                catch (IdentityLevelNotSufficientException ex)
+                {
+                    // Reversal must never fail the whole refund because the customer is unverified —
+                    // log and skip this record's points (they stay on the row).
+                    _logger.LogWarning(ex, "Step 2c: loyalty reversal skipped for customer {CustomerId} (verification gate) — points retained", record.CustomerId);
+                }
+            }
+            await _dbContext.SaveChangesAsync(ct);
+        }
 
         if (totalReversedPoints > 0)
         {

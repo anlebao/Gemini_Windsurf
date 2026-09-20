@@ -13,10 +13,12 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
         {
             _ = builder.HasKey(e => e.Id);
 
-            // FK relationship to Customer (one-to-one)
+            // FK relationship to Customer — 1:N (Batch 2): a customer holds one Silo row per
+            // awarding tenant. Was 1:1 → EF treated a second row for the same customer as an orphan
+            // and DELETED the previous row (cross-tenant point merging, RC2.4).
             _ = builder.HasOne(e => e.Customer)
-                .WithOne(c => c.LoyaltyRewards)
-                .HasForeignKey<LoyaltyRewards>(e => e.CustomerId)
+                .WithMany(c => c.LoyaltyRewards)
+                .HasForeignKey(e => e.CustomerId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             _ = builder.Property(e => e.PointBalance)
