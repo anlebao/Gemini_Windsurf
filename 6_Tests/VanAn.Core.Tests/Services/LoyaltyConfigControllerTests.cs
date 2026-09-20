@@ -517,4 +517,211 @@ public class LoyaltyConfigControllerTests
             await sp.DisposeAsync();
         }
     }
+
+    // ──────────────────────────────────────────────────────────
+    // Batch 3 — Budget caps (PUT + Reset counters)
+    // ──────────────────────────────────────────────────────────
+
+    [Fact(DisplayName = "LA-LC-15: UpdateTenantConfig — budget caps persist + response returns caps")]
+    public async Task UpdateTenantConfig_BudgetCaps_PersistAndReturn()
+    {
+        var (controller, db, sp) = BuildController();
+
+        try
+        {
+            var body = new UpdateTenantConfigRequest
+            {
+                Mode = LoyaltyMode.Silo,
+                IsAllianceMember = false,
+                MonthlyPointsBudget = 10000,
+                DailyPointsBudget = 500,
+                PerCustomerDailyLimit = 100,
+                PerOrderRateCap = 0.03m
+            };
+
+            var result = await controller.UpdateTenantConfig(TestTenantGuid, body);
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var dto = Assert.IsType<TenantConfigDto>(ok.Value);
+            Assert.Equal(10000, dto.MonthlyPointsBudget);
+            Assert.Equal(500, dto.DailyPointsBudget);
+            Assert.Equal(100, dto.PerCustomerDailyLimit);
+            Assert.Equal(0.03m, dto.PerOrderRateCap);
+            Assert.Equal(0, dto.PointsIssuedThisMonth);
+            Assert.Equal(0, dto.PointsIssuedToday);
+
+            // Verify row persisted
+            var config = await db.LoyaltyTenantConfigs.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(c => c.TenantId == new TenantId(TestTenantGuid));
+            Assert.NotNull(config);
+            Assert.Equal(10000, config!.MonthlyPointsBudget);
+            Assert.Equal(0.03m, config.PerOrderRateCap);
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
+    [Fact(DisplayName = "LA-LC-16: UpdateTenantConfig — budget caps update existing row + counters returned")]
+    public async Task UpdateTenantConfig_BudgetCaps_UpdateExistingRow()
+    {
+        var (controller, db, sp) = BuildController();
+
+        try
+        {
+            // Seed existing config with runtime counters
+            var config = new LoyaltyTenantConfig(new TenantId(TestTenantGuid));
+            config.SetBudgetCaps(1000, null, null, null, "admin");
+            config.IncrementIssuedCounters(300, 50);
+            db.LoyaltyTenantConfigs.Add(config);
+            await db.SaveChangesAsync();
+
+            var body = new UpdateTenantConfigRequest
+            {
+                Mode = LoyaltyMode.Alliance,
+                IsAllianceMember = true,
+                MonthlyPointsBudget = 2000,
+                DailyPointsBudget = 600,
+                PerCustomerDailyLimit = null, // clear → unlimited
+                PerOrderRateCap = null        // clear → no cap
+            };
+
+            var result = await controller.UpdateTenantConfig(TestTenantGuid, body);
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var dto = Assert.IsType<TenantConfigDto>(ok.Value);
+            Assert.Equal(2000, dto.MonthlyPointsBudget);
+            Assert.Equal(600, dto.DailyPointsBudget);
+            Assert.Null(dto.PerCustomerDailyLimit);
+            Assert.Null(dto.PerOrderRateCap);
+            // Counters survive config update
+            Assert.Equal(300, dto.PointsIssuedThisMonth);
+            Assert.Equal(50, dto.PointsIssuedToday);
+
+            // Only 1 row (updated, not duplicated)
+            var count = await db.LoyaltyTenantConfigs.IgnoreQueryFilters().CountAsync();
+            Assert.Equal(1, count);
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
+    [Fact(DisplayName = "LA-LC-17: UpdateTenantConfig — negative budget returns 400")]
+    public async Task UpdateTenantConfig_NegativeBudget_Returns400()
+    {
+        var (controller, _, sp) = BuildController();
+
+        try
+        {
+            var body = new UpdateTenantConfigRequest
+            {
+                Mode = LoyaltyMode.Silo,
+                MonthlyPointsBudget = -1
+            };
+
+            var result = await controller.UpdateTenantConfig(TestTenantGuid, body);
+
+            var bad = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.NotNull(bad.Value);
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
+    [Fact(DisplayName = "LA-LC-18: UpdateTenantConfig — PerOrderRateCap > 1 returns 400")]
+    public async Task UpdateTenantConfig_RateCapOver100Percent_Returns400()
+    {
+        var (controller, _, sp) = BuildController();
+
+        try
+        {
+            var body = new UpdateTenantConfigRequest
+            {
+                Mode = LoyaltyMode.Silo,
+                PerOrderRateCap = 1.5m
+            };
+
+            var result = await controller.UpdateTenantConfig(TestTenantGuid, body);
+
+            var bad = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.NotNull(bad.Value);
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
+    [Fact(DisplayName = "LA-LC-19: ResetTenantCounters — daily resets PointsIssuedToday, keeps month")]
+    public async Task ResetTenantCounters_Daily_ResetsDailyCounter()
+    {
+        var (controller, db, sp) = BuildController();
+
+        try
+        {
+            var config = new LoyaltyTenantConfig(new TenantId(TestTenantGuid));
+            config.IncrementIssuedCounters(300, 50);
+            db.LoyaltyTenantConfigs.Add(config);
+            await db.SaveChangesAsync();
+
+            var result = await controller.ResetTenantCounters(TestTenantGuid, new ResetTenantCountersRequest { Scope = "daily" });
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var dto = Assert.IsType<TenantConfigDto>(ok.Value);
+            Assert.Equal(0, dto.PointsIssuedToday);
+            Assert.Equal(300, dto.PointsIssuedThisMonth); // monthly untouched
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
+    [Fact(DisplayName = "LA-LC-20: ResetTenantCounters — monthly resets PointsIssuedThisMonth")]
+    public async Task ResetTenantCounters_Monthly_ResetsMonthlyCounter()
+    {
+        var (controller, db, sp) = BuildController();
+
+        try
+        {
+            var config = new LoyaltyTenantConfig(new TenantId(TestTenantGuid));
+            config.IncrementIssuedCounters(300, 50);
+            db.LoyaltyTenantConfigs.Add(config);
+            await db.SaveChangesAsync();
+
+            var result = await controller.ResetTenantCounters(TestTenantGuid, new ResetTenantCountersRequest { Scope = "monthly" });
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var dto = Assert.IsType<TenantConfigDto>(ok.Value);
+            Assert.Equal(0, dto.PointsIssuedThisMonth);
+            Assert.Equal(50, dto.PointsIssuedToday); // daily untouched
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
+    [Fact(DisplayName = "LA-LC-21: ResetTenantCounters — invalid scope returns 400")]
+    public async Task ResetTenantCounters_InvalidScope_Returns400()
+    {
+        var (controller, _, sp) = BuildController();
+
+        try
+        {
+            var result = await controller.ResetTenantCounters(TestTenantGuid, new ResetTenantCountersRequest { Scope = "yearly" });
+
+            var bad = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.NotNull(bad.Value);
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
 }

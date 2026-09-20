@@ -567,24 +567,12 @@ namespace VanAn.CoreHub.Services
                 pointsToAward = Math.Min(maxPoints.Value, pointsToAward);
             }
 
-            // VALCN v2.0 Phase 3: Loyalty budget enforcement (feature-flagged, default OFF).
-            // When OFF: pointsToAward unchanged (existing behavior — no budget check).
-            // When ON: CheckAndAdjustPointsAsync applies caps (per-order, monthly, daily, per-customer).
-            //   If budget exhausted (returns 0) → skip reward, order still completes.
-            bool budgetCheckEnabled = false;
-            if (_featureFlagService != null && _loyaltyBudgetService != null)
-            {
-                try
-                {
-                    budgetCheckEnabled = await _featureFlagService.IsEnabledAsync("ValcnV2_LoyaltyBudget");
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Loyalty: Failed to check ValcnV2_LoyaltyBudget flag for order {OrderId} — defaulting to OFF (existing behavior)", order.Id);
-                }
-            }
-
-            if (budgetCheckEnabled)
+            // VALCN v2.0 Phase 3 / Batch 3: loyalty budget enforcement is ALWAYS ON (D3) — no feature
+            // flag gate. ValcnV2_LoyaltyBudget (default ON) is only an emergency OFF switch surfaced
+            // in the SystemAdmin feature-flag UI. CheckAndAdjustPointsAsync applies caps (per-order,
+            // monthly, daily, per-customer); if budget exhausted (returns 0) → skip reward, order
+            // still completes.
+            if (_loyaltyBudgetService != null)
             {
                 int originalPoints = pointsToAward;
                 pointsToAward = await _loyaltyBudgetService.CheckAndAdjustPointsAsync(
@@ -681,8 +669,8 @@ namespace VanAn.CoreHub.Services
                             // VALCN v2.0 Phase 1: Create LoyaltyIssuanceRecord for per-order tracking (Phase 4 reversal)
                             await CreateLoyaltyIssuanceRecordAsync(order.Id, customer.Id, order.TenantId, pointsToAward);
 
-                            // VALCN v2.0 Phase 3: Record issuance for budget counters (feature-flagged)
-                            if (budgetCheckEnabled)
+                            // VALCN v2.0 Phase 3 / Batch 3: record issuance for budget counters (always on)
+                            if (_loyaltyBudgetService != null)
                             {
                                 await _loyaltyBudgetService.RecordIssuanceAsync(order.TenantId.Value, pointsToAward);
                             }
@@ -709,8 +697,8 @@ namespace VanAn.CoreHub.Services
                 // VALCN v2.0 Phase 1: Create LoyaltyIssuanceRecord for per-order tracking (Phase 4 reversal)
                 await CreateLoyaltyIssuanceRecordAsync(order.Id, customer.Id, order.TenantId, pointsToAward);
 
-                // VALCN v2.0 Phase 3: Record issuance for budget counters (feature-flagged)
-                if (budgetCheckEnabled)
+                // VALCN v2.0 Phase 3 / Batch 3: record issuance for budget counters (always on)
+                if (_loyaltyBudgetService != null)
                 {
                     await _loyaltyBudgetService.RecordIssuanceAsync(order.TenantId.Value, pointsToAward);
                 }

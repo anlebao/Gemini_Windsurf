@@ -122,7 +122,11 @@ namespace VanAn.Gateway.Controllers
                     TenantId = tenantId,
                     Mode = null, // inherit global
                     IsAllianceMember = false,
-                    MaxWalletPoints = null // inherit global
+                    MaxWalletPoints = null, // inherit global
+                    MonthlyPointsBudget = null, // unlimited
+                    DailyPointsBudget = null,   // unlimited
+                    PerCustomerDailyLimit = null, // unlimited
+                    PerOrderRateCap = null      // no cap
                 });
             }
 
@@ -131,8 +135,11 @@ namespace VanAn.Gateway.Controllers
 
         /// <summary>
         /// PUT /api/platform/loyalty/tenant/{tenantId}/config — updates or creates per-tenant override.
-        /// Body: { mode, isAllianceMember, maxWalletPoints }
+        /// Body: { mode, isAllianceMember, maxWalletPoints, monthlyPointsBudget, dailyPointsBudget,
+        ///        perCustomerDailyLimit, perOrderRateCap }
         /// Null mode = inherit global. Null maxWalletPoints = inherit global.
+        /// Batch 3: budget caps (all nullable = unlimited) — monthlyPointsBudget/dailyPointsBudget/
+        /// perCustomerDailyLimit are int points, perOrderRateCap is a decimal fraction (0.03 = 3%).
         /// </summary>
         [HttpPut("tenant/{tenantId}/config")]
         public async Task<IActionResult> UpdateTenantConfig(Guid tenantId, [FromBody] UpdateTenantConfigRequest body)
@@ -148,6 +155,16 @@ namespace VanAn.Gateway.Controllers
 
             if (body.MaxWalletPoints.HasValue && body.MaxWalletPoints.Value < 0)
                 return BadRequest(new { error = "MaxWalletPoints không được âm." });
+
+            // Batch 3: budget cap validation (null = unlimited)
+            if (body.MonthlyPointsBudget.HasValue && body.MonthlyPointsBudget.Value < 0)
+                return BadRequest(new { error = "MonthlyPointsBudget không được âm." });
+            if (body.DailyPointsBudget.HasValue && body.DailyPointsBudget.Value < 0)
+                return BadRequest(new { error = "DailyPointsBudget không được âm." });
+            if (body.PerCustomerDailyLimit.HasValue && body.PerCustomerDailyLimit.Value < 0)
+                return BadRequest(new { error = "PerCustomerDailyLimit không được âm." });
+            if (body.PerOrderRateCap.HasValue && (body.PerOrderRateCap.Value < 0 || body.PerOrderRateCap.Value > 1))
+                return BadRequest(new { error = "PerOrderRateCap phải từ 0 đến 1 (0.03 = 3% giá trị đơn)." });
 
             string changedBy = GetChangedBy();
             var tenantIdValue = new TenantId(tenantId);
@@ -165,11 +182,53 @@ namespace VanAn.Gateway.Controllers
             config.SetMode(body.Mode, changedBy);
             config.SetAllianceMembership(body.IsAllianceMember, changedBy);
             config.SetMaxWalletPoints(body.MaxWalletPoints, changedBy);
+            config.SetBudgetCaps(body.MonthlyPointsBudget, body.DailyPointsBudget, body.PerCustomerDailyLimit, body.PerOrderRateCap, changedBy);
 
             _ = await _dbContext.SaveChangesAsync();
-            _logger.LogInformation("LoyaltyConfig: tenant {TenantId} config updated by {User} — mode={Mode}, isMember={IsMember}, maxWallet={MaxWallet}",
-                tenantId, changedBy, body.Mode?.ToString() ?? "inherit", body.IsAllianceMember, body.MaxWalletPoints?.ToString() ?? "inherit");
+            _logger.LogInformation("LoyaltyConfig: tenant {TenantId} config updated by {User} — mode={Mode}, isMember={IsMember}, maxWallet={MaxWallet}, monthlyBudget={Monthly}, dailyBudget={Daily}, perCustomerDaily={PerCustomerDaily}, perOrderRateCap={RateCap}",
+                tenantId, changedBy, body.Mode?.ToString() ?? "inherit", body.IsAllianceMember, body.MaxWalletPoints?.ToString() ?? "inherit",
+                body.MonthlyPointsBudget?.ToString() ?? "unlimited", body.DailyPointsBudget?.ToString() ?? "unlimited",
+                body.PerCustomerDailyLimit?.ToString() ?? "unlimited", body.PerOrderRateCap?.ToString() ?? "unlimited");
 
+            return Ok(TenantConfigDto.From(config));
+        }
+
+        /// <summary>
+        /// POST /api/platform/loyalty/tenant/{tenantId}/reset-counters — resets this tenant's runtime
+        /// budget counters (PointsIssuedToday / PointsIssuedThisMonth). SystemAdmin only.
+        /// Body: { scope: "daily" | "monthly" }. Used by the LoyaltyConfigAdmin "Reset" button.
+        /// Automatic global resets still run via LoyaltyBudgetDailyResetJob / LoyaltyBudgetMonthlyResetJob.
+        /// </summary>
+        [HttpPost("tenant/{tenantId}/reset-counters")]
+        public async Task<IActionResult> ResetTenantCounters(Guid tenantId, [FromBody] ResetTenantCountersRequest body)
+        {
+            if (tenantId == Guid.Empty)
+                return BadRequest(new { error = "TenantId không hợp lệ." });
+
+            if (body == null || (body.Scope != "daily" && body.Scope != "monthly"))
+                return BadRequest(new { error = "Scope không hợp lệ (phải là 'daily' hoặc 'monthly')." });
+
+            var tenantIdValue = new TenantId(tenantId);
+            var config = await _dbContext.LoyaltyTenantConfigs
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(c => c.TenantId == tenantIdValue);
+
+            if (config == null)
+                return NotFound(new { error = "Tenant chưa có cấu hình loyalty." });
+
+            string changedBy = GetChangedBy();
+            if (body.Scope == "daily")
+            {
+                config.ResetDailyCounter();
+                _logger.LogInformation("LoyaltyConfig: tenant {TenantId} daily counter reset by {User}", tenantId, changedBy);
+            }
+            else
+            {
+                config.ResetMonthlyCounter();
+                _logger.LogInformation("LoyaltyConfig: tenant {TenantId} monthly counter reset by {User}", tenantId, changedBy);
+            }
+
+            _ = await _dbContext.SaveChangesAsync();
             return Ok(TenantConfigDto.From(config));
         }
 
@@ -273,6 +332,14 @@ namespace VanAn.Gateway.Controllers
         public LoyaltyMode? Mode { get; set; } // null = inherit global
         public bool IsAllianceMember { get; set; }
         public int? MaxWalletPoints { get; set; } // null = inherit global
+        // Batch 3 — budget caps (null = unlimited / no cap)
+        public int? MonthlyPointsBudget { get; set; }
+        public int? DailyPointsBudget { get; set; }
+        public int? PerCustomerDailyLimit { get; set; }
+        public decimal? PerOrderRateCap { get; set; } // fraction, e.g. 0.03m = 3%
+        // Batch 3 — runtime counters (used for display in LoyaltyConfigAdmin)
+        public int PointsIssuedThisMonth { get; set; }
+        public int PointsIssuedToday { get; set; }
         public DateTime? LastChangedAt { get; set; }
         public string? LastChangedBy { get; set; }
 
@@ -282,6 +349,12 @@ namespace VanAn.Gateway.Controllers
             Mode = c.Mode,
             IsAllianceMember = c.IsAllianceMember,
             MaxWalletPoints = c.MaxWalletPoints,
+            MonthlyPointsBudget = c.MonthlyPointsBudget,
+            DailyPointsBudget = c.DailyPointsBudget,
+            PerCustomerDailyLimit = c.PerCustomerDailyLimit,
+            PerOrderRateCap = c.PerOrderRateCap,
+            PointsIssuedThisMonth = c.PointsIssuedThisMonth,
+            PointsIssuedToday = c.PointsIssuedToday,
             LastChangedAt = c.LastChangedAt,
             LastChangedBy = c.LastChangedBy
         };
@@ -292,6 +365,17 @@ namespace VanAn.Gateway.Controllers
         public LoyaltyMode? Mode { get; set; } // null = inherit global
         public bool IsAllianceMember { get; set; }
         public int? MaxWalletPoints { get; set; } // null = inherit global
+        // Batch 3 — budget caps (null = unlimited / no cap)
+        public int? MonthlyPointsBudget { get; set; }
+        public int? DailyPointsBudget { get; set; }
+        public int? PerCustomerDailyLimit { get; set; }
+        public decimal? PerOrderRateCap { get; set; } // fraction, e.g. 0.03m = 3%
+    }
+
+    public class ResetTenantCountersRequest
+    {
+        /// <summary>"daily" or "monthly".</summary>
+        public string Scope { get; set; } = "daily";
     }
 
     // === Migration DTOs (Phase 5A) ===

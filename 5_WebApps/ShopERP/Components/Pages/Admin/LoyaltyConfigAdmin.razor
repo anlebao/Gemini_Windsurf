@@ -4,6 +4,7 @@
 @using Microsoft.AspNetCore.Components.Web
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
+@using System.Globalization
 @using Microsoft.AspNetCore.Authorization
 @using VanAn.Shared.Domain
 @using VanAn.ShopERP.Services
@@ -146,9 +147,67 @@
                             <input id="tenant-maxwallet" type="number" class="vanan-input"
                                    @bind="_tenantForm.MaxWalletPointsStr" placeholder="inherit" min="1" step="1" />
                         </div>
+
+                        @* === Batch 3: Budget caps (để trống = không giới hạn) === *@
+                        <hr />
+                        <h6 class="mt-2"><i class="bi bi-pie-chart"></i> Ngân sách điểm (Budget Caps)</h6>
+                        <div class="row">
+                            <div class="col-md-6 form-group">
+                                <VanAInput Id="tenant-monthly-budget" Label="Ngân sách tháng (điểm)"
+                                           Type="number" Value="@_tenantForm.MonthlyPointsBudgetStr"
+                                           ValueChanged="v => _tenantForm.MonthlyPointsBudgetStr = v"
+                                           Min="0" Step="1" />
+                                <small class="text-muted d-block">Tối đa điểm tenant được tặng trong 1 tháng. Để trống = không giới hạn.</small>
+                            </div>
+                            <div class="col-md-6 form-group">
+                                <VanAInput Id="tenant-daily-budget" Label="Ngân sách ngày (điểm)"
+                                           Type="number" Value="@_tenantForm.DailyPointsBudgetStr"
+                                           ValueChanged="v => _tenantForm.DailyPointsBudgetStr = v"
+                                           Min="0" Step="1" />
+                                <small class="text-muted d-block">Tối đa điểm tenant được tặng trong 1 ngày.</small>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 form-group">
+                                <VanAInput Id="tenant-percustomer-daily" Label="Giới hạn mỗi khách / ngày (điểm)"
+                                           Type="number" Value="@_tenantForm.PerCustomerDailyLimitStr"
+                                           ValueChanged="v => _tenantForm.PerCustomerDailyLimitStr = v"
+                                           Min="0" Step="1" />
+                                <small class="text-muted d-block">Tối đa điểm 1 khách nhận được trong 1 ngày (theo LoyaltyIssuanceRecord PG).</small>
+                            </div>
+                            <div class="col-md-6 form-group">
+                                <VanAInput Id="tenant-perorder-ratecap" Label="Trần mỗi đơn (% giá trị đơn)"
+                                           Type="number" Value="@_tenantForm.PerOrderRateCapPctStr"
+                                           ValueChanged="v => _tenantForm.PerOrderRateCapPctStr = v"
+                                           Min="0" Max="100" Step="0.1" />
+                                <small class="text-muted d-block">Điểm tối đa = % × giá trị đơn. Ví dụ 3 = tối đa 3% đơn. Để trống = không giới hạn.</small>
+                            </div>
+                        </div>
+
+                        <div class="row mt-2">
+                            <div class="col-md-6">
+                                <div class="alert alert-info mb-0 py-2">
+                                    <strong>Đã dùng tháng này:</strong> @_tenantConfig.PointsIssuedThisMonth.ToString("N0") điểm
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-info mb-0 py-2">
+                                    <strong>Đã dùng hôm nay:</strong> @_tenantConfig.PointsIssuedToday.ToString("N0") điểm
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-2 d-flex gap-2">
+                            <VanAButton Variant="outline" Size="small" OnClick="OpenResetDailyConfirm">
+                                Reset counter hôm nay
+                            </VanAButton>
+                            <VanAButton Variant="outline" Size="small" OnClick="OpenResetMonthlyConfirm">
+                                Reset counter tháng
+                            </VanAButton>
+                        </div>
+
                         @if (_tenantConfig.LastChangedAt.HasValue)
                         {
-                            <small class="text-muted d-block">
+                            <small class="text-muted d-block mt-2">
                                 Lần cuối cập nhật: @_tenantConfig.LastChangedAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
                                 bởi @(_tenantConfig.LastChangedBy ?? "—")
                             </small>
@@ -258,6 +317,29 @@
     </VanAModal>
 }
 
+@* === Reset Counter Confirmation Modal (Batch 3) === *@
+@if (_showResetConfirm)
+{
+    <VanAModal Title="Xác nhận reset counter ngân sách"
+               IsVisible="true" OnClose="CloseResetConfirm" Size="small">
+        <Body>
+            <p>
+                Reset <strong>@(_resetScope == "daily" ? "counter hôm nay" : "counter tháng này")</strong>
+                cho tenant <strong>@(_tenants.FirstOrDefault(t => t.Id == _selectedTenantId)?.Name ?? "—")</strong>?
+            </p>
+            <p class="mb-0">
+                Counter sẽ về 0 — ngân sách đã dùng trước đó không tính lại. Các đơn đã tích điểm không bị ảnh hưởng.
+            </p>
+        </Body>
+        <Footer>
+            <VanAButton Variant="outline" OnClick="CloseResetConfirm">Huỷ</VanAButton>
+            <VanAButton Variant="danger" OnClick="ExecuteResetAsync" IsLoading="@_isResetting">
+                Xác nhận reset
+            </VanAButton>
+        </Footer>
+    </VanAModal>
+}
+
 @code {
     private bool _isLoading = true;
     private bool _isLoadingTenant;
@@ -279,6 +361,11 @@
     private string _migrationDirection = "consolidate";
     private bool _showMigrationConfirm;
     private MigrationResultDto? _migrationResult;
+
+    // Batch 3 — budget counter reset
+    private string _resetScope = "daily";
+    private bool _showResetConfirm;
+    private bool _isResetting;
 
     protected override async Task OnInitializedAsync() => await LoadAllAsync();
 
@@ -359,7 +446,13 @@
             {
                 ModeStr = _tenantConfig.Mode.HasValue ? _tenantConfig.Mode.Value.ToString() : "",
                 IsAllianceMember = _tenantConfig.IsAllianceMember,
-                MaxWalletPointsStr = _tenantConfig.MaxWalletPoints.HasValue ? _tenantConfig.MaxWalletPoints.Value.ToString() : ""
+                MaxWalletPointsStr = _tenantConfig.MaxWalletPoints.HasValue ? _tenantConfig.MaxWalletPoints.Value.ToString() : "",
+                MonthlyPointsBudgetStr = _tenantConfig.MonthlyPointsBudget.HasValue ? _tenantConfig.MonthlyPointsBudget.Value.ToString() : "",
+                DailyPointsBudgetStr = _tenantConfig.DailyPointsBudget.HasValue ? _tenantConfig.DailyPointsBudget.Value.ToString() : "",
+                PerCustomerDailyLimitStr = _tenantConfig.PerCustomerDailyLimit.HasValue ? _tenantConfig.PerCustomerDailyLimit.Value.ToString() : "",
+                PerOrderRateCapPctStr = _tenantConfig.PerOrderRateCap.HasValue
+                    ? (_tenantConfig.PerOrderRateCap.Value * 100).ToString("0.#", CultureInfo.InvariantCulture)
+                    : ""
             };
         }
         catch (Exception ex)
@@ -387,7 +480,13 @@
                     ? null
                     : Enum.Parse<LoyaltyMode>(_tenantForm.ModeStr),
                 IsAllianceMember = _tenantForm.IsAllianceMember,
-                MaxWalletPoints = int.TryParse(_tenantForm.MaxWalletPointsStr, out var mw) ? mw : null
+                MaxWalletPoints = int.TryParse(_tenantForm.MaxWalletPointsStr, out var mw) ? mw : null,
+                MonthlyPointsBudget = int.TryParse(_tenantForm.MonthlyPointsBudgetStr, out var mb) ? mb : null,
+                DailyPointsBudget = int.TryParse(_tenantForm.DailyPointsBudgetStr, out var db) ? db : null,
+                PerCustomerDailyLimit = int.TryParse(_tenantForm.PerCustomerDailyLimitStr, out var pcd) ? pcd : null,
+                PerOrderRateCap = decimal.TryParse(_tenantForm.PerOrderRateCapPctStr, NumberStyles.Number, CultureInfo.InvariantCulture, out var pct)
+                    ? pct / 100m
+                    : null
             };
             _tenantConfig = await LoyaltyApi.UpdateTenantConfigAsync(_selectedTenantId.Value, body);
             _alertMessage = "Đã lưu ghi đè cấu hình tenant.";
@@ -413,6 +512,46 @@
     }
 
     private void CloseMigrationConfirm() => _showMigrationConfirm = false;
+
+    // ── Batch 3: budget counter reset ──
+
+    private void OpenResetDailyConfirm()
+    {
+        _resetScope = "daily";
+        _showResetConfirm = true;
+    }
+
+    private void OpenResetMonthlyConfirm()
+    {
+        _resetScope = "monthly";
+        _showResetConfirm = true;
+    }
+
+    private void CloseResetConfirm() => _showResetConfirm = false;
+
+    private async Task ExecuteResetAsync()
+    {
+        if (!_selectedTenantId.HasValue) return;
+        _isResetting = true;
+        _alertMessage = string.Empty;
+        _showResetConfirm = false;
+        try
+        {
+            _tenantConfig = await LoyaltyApi.ResetTenantCountersAsync(_selectedTenantId.Value, _resetScope);
+            _alertMessage = _resetScope == "daily" ? "Đã reset counter hôm nay." : "Đã reset counter tháng.";
+            _alertType = "success";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to reset tenant loyalty counters");
+            _alertMessage = $"Lỗi reset counter: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isResetting = false;
+        }
+    }
 
     private async Task ExecuteMigrationAsync()
     {
@@ -510,5 +649,10 @@
         public string ModeStr { get; set; } = "";
         public bool IsAllianceMember { get; set; }
         public string MaxWalletPointsStr { get; set; } = "";
+        // Batch 3 — budget caps (empty string = unlimited)
+        public string MonthlyPointsBudgetStr { get; set; } = "";
+        public string DailyPointsBudgetStr { get; set; } = "";
+        public string PerCustomerDailyLimitStr { get; set; } = "";
+        public string PerOrderRateCapPctStr { get; set; } = ""; // percent, e.g. "3" = 3%
     }
 }

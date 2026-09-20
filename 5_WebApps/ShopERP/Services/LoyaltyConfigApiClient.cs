@@ -53,6 +53,18 @@ namespace VanAn.ShopERP.Services
                 ?? throw new InvalidOperationException("Gateway returned an empty tenant config response.");
         }
 
+        /// <summary>
+        /// Batch 3: reset this tenant's runtime budget counters (PointsIssuedToday / PointsIssuedThisMonth).
+        /// Scope: "daily" | "monthly".
+        /// </summary>
+        public async Task<TenantConfigDto> ResetTenantCountersAsync(Guid tenantId, string scope, CancellationToken ct = default)
+        {
+            var body = new ResetTenantCountersRequest { Scope = scope };
+            var req = await CreateRequestAsync(HttpMethod.Post, $"api/platform/loyalty/tenant/{tenantId}/reset-counters", body);
+            return await SendAndReadAsync<TenantConfigDto>(HttpClient, req, ct)
+                ?? throw new InvalidOperationException("Gateway returned an empty tenant config response.");
+        }
+
         // === Mode Switch Migration (Phase 5A — wires Phase 4) ===
 
         /// <summary>
@@ -116,6 +128,14 @@ namespace VanAn.ShopERP.Services
         public bool IsAllianceMember { get; set; }
         /// <summary>null = inherit global.</summary>
         public int? MaxWalletPoints { get; set; }
+        // Batch 3 — budget caps (null = unlimited / no cap)
+        public int? MonthlyPointsBudget { get; set; }
+        public int? DailyPointsBudget { get; set; }
+        public int? PerCustomerDailyLimit { get; set; }
+        public decimal? PerOrderRateCap { get; set; } // fraction, e.g. 0.03m = 3%
+        // Batch 3 — runtime counters
+        public int PointsIssuedThisMonth { get; set; }
+        public int PointsIssuedToday { get; set; }
         public DateTime? LastChangedAt { get; set; }
         public string? LastChangedBy { get; set; }
     }
@@ -127,6 +147,17 @@ namespace VanAn.ShopERP.Services
         public bool IsAllianceMember { get; set; }
         /// <summary>null = inherit global.</summary>
         public int? MaxWalletPoints { get; set; }
+        // Batch 3 — budget caps (null = unlimited / no cap)
+        public int? MonthlyPointsBudget { get; set; }
+        public int? DailyPointsBudget { get; set; }
+        public int? PerCustomerDailyLimit { get; set; }
+        public decimal? PerOrderRateCap { get; set; } // fraction, e.g. 0.03m = 3%
+    }
+
+    public sealed class ResetTenantCountersRequest
+    {
+        /// <summary>"daily" or "monthly".</summary>
+        public string Scope { get; set; } = "daily";
     }
 
     public sealed class MigrateRequest

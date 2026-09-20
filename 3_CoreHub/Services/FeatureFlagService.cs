@@ -22,7 +22,8 @@ public class FeatureFlagService : IFeatureFlagService
     private static readonly (string Name, string Display, string Desc, string Phase, bool Default)[] KnownFeatures =
     [
         ("ValcnV2_PlatformFee", "Platform Fee (Marketplace)", "Tính PlatformFeeAmount trên Marketplace orders (Phase 2)", "Phase 2", false),
-        ("ValcnV2_LoyaltyBudget", "Loyalty Budget Cap", "Check budget trước AddPoints + reset jobs (Phase 3)", "Phase 3", false),
+        // Batch 3: enforcement luôn chạy (D3) — flag chỉ là emergency OFF cho SystemAdmin, default ON.
+        ("ValcnV2_LoyaltyBudget", "Loyalty Budget Cap", "Budget cap luôn enforce (default ON, Batch 3) — tắt khẩn cấp qua SystemAdmin", "Phase 3", true),
         // Loyalty Points Integrity (Batch 2): PG ledger single source of truth — default ON.
         // Emergency OFF switch: SystemAdmin tắt → mọi loyalty WRITE bị skip/reject (rollback nhanh).
         ("LoyaltyLedgerV2", "PG Ledger (Loyalty)", "PG ledger = single source of truth cho award/spend/refund (Batch 2, rollback switch)", "Phase 1", true),
