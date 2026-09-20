@@ -24,6 +24,10 @@ on:
         required: false
         default: false
 
+concurrency:
+  group: cd-multivps-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
 
@@ -267,7 +271,7 @@ jobs:
             echo "=== Docker disk usage ==="
             sudo docker system df || true
             echo "=== Cleaning unused docker images ==="
-            sudo docker image prune -af || true
+            sudo docker image prune -af --filter "until=48h" || true
             echo "=== Disk space after cleanup ==="
             df -h / || true
 
@@ -369,7 +373,7 @@ jobs:
 
             # Pull & restart (with retry — transient network resets from ghcr.io CDN)
             for i in 1 2 3 4 5; do
-              sudo docker compose -f docker-compose.gateway.yml --env-file .env.gateway pull && break
+              timeout 600 sudo docker compose -f docker-compose.gateway.yml --env-file .env.gateway pull && break
               echo "⚠️ Pull attempt $i failed, retrying in 15s..."
               sleep 15
             done
@@ -434,7 +438,7 @@ jobs:
             ls -la /opt/vanan
             whoami
             # Free disk space from old docker images (prevent SCP/deploy fail from disk full)
-            sudo docker image prune -af || true
+            sudo docker image prune -af --filter "until=48h" || true
 
       - name: Validate SSH connectivity to KhachLink VPS
         uses: appleboy/ssh-action@v1.2.5
@@ -507,7 +511,7 @@ jobs:
 
             # Pull & restart (with retry — transient network resets from ghcr.io CDN)
             for i in 1 2 3 4 5; do
-              sudo docker compose -f docker-compose.khachlink.yml --env-file .env.khachlink pull && break
+              timeout 600 sudo docker compose -f docker-compose.khachlink.yml --env-file .env.khachlink pull && break
               echo "⚠️ Pull attempt $i failed, retrying in 15s..."
               sleep 15
             done
@@ -565,7 +569,7 @@ jobs:
             ls -la /opt/vanan
             whoami
             # Free disk space from old docker images (prevent SCP/deploy fail from disk full)
-            sudo docker image prune -af || true
+            sudo docker image prune -af --filter "until=48h" || true
 
       - name: Validate SSH connectivity to ShopERP VPS
         uses: appleboy/ssh-action@v1.2.5
@@ -656,7 +660,7 @@ jobs:
 
             # Pull & restart (with retry — transient network resets from ghcr.io CDN)
             for i in 1 2 3 4 5; do
-              sudo docker compose -f docker-compose.shoperp.yml --env-file .env.shoperp pull && break
+              timeout 600 sudo docker compose -f docker-compose.shoperp.yml --env-file .env.shoperp pull && break
               echo "⚠️ Pull attempt $i failed, retrying in 15s..."
               sleep 15
             done
