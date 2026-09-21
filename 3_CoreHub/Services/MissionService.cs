@@ -63,7 +63,8 @@ namespace VanAn.CoreHub.Services
                         var customer = await _customerRepository.GetByIdAsync(customerId);
                         Guid deviceGuid = customer?.DeviceId ?? customerId;
                         var (success, newBalance, error) = await _allianceWalletService.AddPointsAsync(
-                            deviceGuid, tenantId, points, reason, idempotencyKey: idempotencyKey);
+                            deviceGuid, tenantId, points, reason, idempotencyKey: idempotencyKey,
+                            customerId: customerId); // BUG-1 fix: real customerId → sync payload → SQLite mirror stub
                         if (!success)
                         {
                             _logger.LogWarning("Alliance mission award failed for customer {CustomerId}: {Error}", customerId, error);

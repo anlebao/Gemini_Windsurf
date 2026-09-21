@@ -35,7 +35,7 @@ public class MissionServiceAllianceTests
         // (Logic mirroring verified via OrderWorkflowAllianceTests pattern — same helper shape.)
 
         var walletMock = new Mock<IAllianceWalletService>();
-        walletMock.Setup(w => w.AddPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<string?>()))
+        walletMock.Setup(w => w.AddPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid>()))
             .ReturnsAsync((true, 600, (string?)null));
 
         var modeResolverMock = new Mock<ILoyaltyModeResolver>();

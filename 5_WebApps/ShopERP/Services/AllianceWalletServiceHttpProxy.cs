@@ -86,7 +86,7 @@ public class AllianceWalletServiceHttpProxy(
     /// <inheritdoc/>
     public async Task<(bool Success, int NewBalance, string? Error)> AddPointsAsync(
         Guid customerDeviceId, Guid tenantId, int points, string reason,
-        Guid? sourceOrderId = null, string? idempotencyKey = null)
+        Guid? sourceOrderId = null, string? idempotencyKey = null, Guid customerId = default)
     {
         idempotencyKey ??= AutoGenerateKey("add", customerDeviceId);
         var body = new
@@ -96,7 +96,8 @@ public class AllianceWalletServiceHttpProxy(
             points,
             reason,
             sourceOrderId,
-            idempotencyKey
+            idempotencyKey,
+            customerId
         };
         return await PostPointsAsync("add", body, customerDeviceId);
     }
@@ -104,7 +105,7 @@ public class AllianceWalletServiceHttpProxy(
     /// <inheritdoc/>
     public async Task<(bool Success, int NewBalance, string? Error)> DeductPointsAsync(
         Guid customerDeviceId, Guid tenantId, int points, string reason,
-        string? voucherCode = null, string? idempotencyKey = null)
+        string? voucherCode = null, string? idempotencyKey = null, Guid customerId = default)
     {
         idempotencyKey ??= AutoGenerateKey("deduct", customerDeviceId);
         var body = new
@@ -114,7 +115,8 @@ public class AllianceWalletServiceHttpProxy(
             points,
             reason,
             voucherCode,
-            idempotencyKey
+            idempotencyKey,
+            customerId
         };
         return await PostPointsAsync("deduct", body, customerDeviceId);
     }
@@ -122,7 +124,7 @@ public class AllianceWalletServiceHttpProxy(
     /// <inheritdoc/>
     public async Task<(bool Success, int NewBalance, string? Error)> RefundAsync(
         Guid customerDeviceId, Guid tenantId, int points, string reason,
-        string voucherCode, string? idempotencyKey = null)
+        string voucherCode, string? idempotencyKey = null, Guid customerId = default)
     {
         idempotencyKey ??= AutoGenerateKey("refund", customerDeviceId);
         var body = new
@@ -132,7 +134,8 @@ public class AllianceWalletServiceHttpProxy(
             points,
             reason,
             voucherCode,
-            idempotencyKey
+            idempotencyKey,
+            customerId
         };
         return await PostPointsAsync("refund", body, customerDeviceId);
     }

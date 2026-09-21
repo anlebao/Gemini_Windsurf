@@ -89,7 +89,7 @@ public class RedemptionAllianceTests
         modeResolverMock.Setup(m => m.IsAllianceMemberAsync(It.IsAny<Guid>())).ReturnsAsync(isAllianceMember);
 
         var walletMock = new Mock<IAllianceWalletService>();
-        walletMock.Setup(w => w.DeductPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>()))
+        walletMock.Setup(w => w.DeductPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<Guid>()))
             .ReturnsAsync((walletDeductSuccess, walletDeductNewBalance, walletError));
 
         var sut = new RedemptionService(
@@ -122,11 +122,11 @@ public class RedemptionAllianceTests
             Assert.True(result.Success);
             Assert.Equal(500, result.NewPointBalance);
 
-            // AllianceWalletService.DeductPointsAsync MUST be called
+            // AllianceWalletService.DeductPointsAsync MUST be called — BUG-1 fix: real customerId forwarded.
             walletMock.Verify(
-                w => w.DeductPointsAsync(TestDeviceId, TestTenantGuid, 100, It.Is<string>(s => s.Contains("Redeem")), It.IsAny<string?>(), It.IsAny<string?>()),
+                w => w.DeductPointsAsync(TestDeviceId, TestTenantGuid, 100, It.Is<string>(s => s.Contains("Redeem")), It.IsAny<string?>(), It.IsAny<string?>(), TestCustomerId),
                 Times.Once,
-                "Alliance mode + member must deduct from AllianceWalletService");
+                "Alliance mode + member must deduct from AllianceWalletService (with real customerId for sync stub)");
 
             // LoyaltyRewardsService.SubtractPointsAsync must NOT be called (Alliance flow)
             loyaltyMock.Verify(
@@ -161,7 +161,7 @@ public class RedemptionAllianceTests
 
             // AllianceWalletService.DeductPointsAsync must NOT be called
             walletMock.Verify(
-                w => w.DeductPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>()),
+                w => w.DeductPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<Guid>()),
                 Times.Never,
                 "Silo mode must NOT deduct from AllianceWalletService");
 
@@ -198,7 +198,7 @@ public class RedemptionAllianceTests
 
             // Neither wallet nor loyalty should be deducted
             walletMock.Verify(
-                w => w.DeductPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>()),
+                w => w.DeductPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<Guid>()),
                 Times.Never);
             loyaltyMock.Verify(
                 l => l.SubtractPointsAsync(It.IsAny<Guid>(), TestTenantGuid, It.IsAny<int>(), It.IsAny<string>()),
@@ -230,7 +230,7 @@ public class RedemptionAllianceTests
 
             // Wallet deduct was attempted (and failed)
             walletMock.Verify(
-                w => w.DeductPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>()),
+                w => w.DeductPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<Guid>()),
                 Times.Once);
 
             // Local LoyaltyRewardsService must NOT be deducted (Alliance flow, wallet failed)

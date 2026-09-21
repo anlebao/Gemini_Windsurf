@@ -129,7 +129,8 @@ public class LoyaltyPointLedgerService(
                     Guid deviceGuid = request.CustomerDeviceId ?? customer?.DeviceId ?? request.CustomerId;
                     var (ok, balance, error) = await _allianceWalletService.AddPointsAsync(
                         deviceGuid, request.TenantId, points, request.Reason, request.SourceOrderId,
-                        request.IdempotencyKey ?? (request.SourceOrderId.HasValue ? $"earn:{request.SourceOrderId.Value}" : null));
+                        request.IdempotencyKey ?? (request.SourceOrderId.HasValue ? $"earn:{request.SourceOrderId.Value}" : null),
+                        customerId: request.CustomerId); // BUG-1 fix: real customerId → sync payload → SQLite mirror stub
                     if (!ok)
                     {
                         _logger.LogWarning("Ledger: Alliance EARN failed for customer {CustomerId}: {Error}", request.CustomerId, error);
@@ -207,7 +208,8 @@ public class LoyaltyPointLedgerService(
                     Customer? customer = await GetCustomerCrossTenantAsync(request.CustomerId, cancellationToken);
                     Guid deviceGuid = customer?.DeviceId ?? request.CustomerId;
                     var (walletOk, balance, walletError) = await _allianceWalletService.DeductPointsAsync(
-                        deviceGuid, request.TenantId, request.Points, request.Reason, request.VoucherCode, request.IdempotencyKey);
+                        deviceGuid, request.TenantId, request.Points, request.Reason, request.VoucherCode, request.IdempotencyKey,
+                        customerId: request.CustomerId); // BUG-1 fix: real customerId → sync payload → SQLite mirror stub
                     if (!walletOk)
                     {
                         _logger.LogWarning("Ledger: Alliance REDEEM rejected for customer {CustomerId}: {Error}", request.CustomerId, walletError);
@@ -273,7 +275,8 @@ public class LoyaltyPointLedgerService(
                     Customer? customer = await GetCustomerCrossTenantAsync(request.CustomerId, cancellationToken);
                     Guid deviceGuid = customer?.DeviceId ?? request.CustomerId;
                     var (walletOk, balance, walletError) = await _allianceWalletService.RefundAsync(
-                        deviceGuid, request.TenantId, request.Points, request.Reason, request.VoucherCode ?? "CANCEL", request.IdempotencyKey);
+                        deviceGuid, request.TenantId, request.Points, request.Reason, request.VoucherCode ?? "CANCEL", request.IdempotencyKey,
+                        customerId: request.CustomerId); // BUG-1 fix: real customerId → sync payload → SQLite mirror stub
                     if (!walletOk)
                     {
                         _logger.LogWarning("Ledger: Alliance REFUND failed for customer {CustomerId}: {Error}", request.CustomerId, walletError);
@@ -333,7 +336,8 @@ public class LoyaltyPointLedgerService(
                 Guid deviceGuid = customer?.DeviceId ?? record.CustomerId;
                 var (ok, _, error) = await _allianceWalletService.DeductPointsAsync(
                     deviceGuid, record.TenantId.Value, record.PointsIssued, $"Reversal: {reason}",
-                    idempotencyKey: $"revert:{orderId}:{record.Id}");
+                    idempotencyKey: $"revert:{orderId}:{record.Id}",
+                    customerId: record.CustomerId); // BUG-1 fix: real customerId → sync payload → SQLite mirror stub
                 reversed = ok;
                 if (!ok)
                 {

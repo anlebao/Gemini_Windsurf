@@ -63,7 +63,7 @@ public class AllianceWalletService(
     /// <inheritdoc/>
     public async Task<(bool Success, int NewBalance, string? Error)> AddPointsAsync(
         Guid customerDeviceId, Guid tenantId, int points, string reason, Guid? sourceOrderId = null,
-        string? idempotencyKey = null)
+        string? idempotencyKey = null, Guid customerId = default)
     {
         if (points <= 0)
         {
@@ -147,7 +147,7 @@ public class AllianceWalletService(
             }
         }
 
-        await PublishLoyaltyChangedAsync(customerDeviceId, tenantId, wallet.TotalPointBalance, tx);
+        await PublishLoyaltyChangedAsync(customerDeviceId, tenantId, wallet.TotalPointBalance, tx, customerId);
         _logger.LogInformation(
             "AllianceWallet AddPoints: device={Device} tenant={Tenant} +{Points} → balance={Balance}",
             customerDeviceId, tenantId, awardedPoints, wallet.TotalPointBalance);
@@ -157,7 +157,7 @@ public class AllianceWalletService(
     /// <inheritdoc/>
     public async Task<(bool Success, int NewBalance, string? Error)> DeductPointsAsync(
         Guid customerDeviceId, Guid tenantId, int points, string reason, string? voucherCode = null,
-        string? idempotencyKey = null)
+        string? idempotencyKey = null, Guid customerId = default)
     {
         if (points <= 0)
         {
@@ -262,7 +262,7 @@ public class AllianceWalletService(
         }
         await _dbContext.SaveChangesAsync();
 
-        await PublishLoyaltyChangedAsync(customerDeviceId, tenantId, wallet.TotalPointBalance, firstTx);
+        await PublishLoyaltyChangedAsync(customerDeviceId, tenantId, wallet.TotalPointBalance, firstTx, customerId);
         _logger.LogInformation(
             "AllianceWallet DeductPoints: device={Device} tenant={Tenant} -{Points} → balance={Balance} (sources: {Sources})",
             customerDeviceId, tenantId, points, wallet.TotalPointBalance,
@@ -283,7 +283,7 @@ public class AllianceWalletService(
     /// <inheritdoc/>
     public async Task<(bool Success, int NewBalance, string? Error)> RefundAsync(
         Guid customerDeviceId, Guid tenantId, int points, string reason, string voucherCode,
-        string? idempotencyKey = null)
+        string? idempotencyKey = null, Guid customerId = default)
     {
         if (points <= 0)
         {
@@ -323,7 +323,7 @@ public class AllianceWalletService(
         _ = _dbContext.AllianceTransactions.Add(tx);
         await _dbContext.SaveChangesAsync();
 
-        await PublishLoyaltyChangedAsync(customerDeviceId, tenantId, wallet.TotalPointBalance, tx);
+        await PublishLoyaltyChangedAsync(customerDeviceId, tenantId, wallet.TotalPointBalance, tx, customerId);
         _logger.LogInformation(
             "AllianceWallet Refund: device={Device} tenant={Tenant} +{Points} → balance={Balance} (voucher={Voucher})",
             customerDeviceId, tenantId, points, wallet.TotalPointBalance, voucherCode);
@@ -587,16 +587,19 @@ public class AllianceWalletService(
     /// Loyalty Consistency Fix Phase 3 (BUG #9) + Loyalty Points Integrity (Batch 1):
     /// publish loyalty change — delegated to the shared LoyaltyBalanceSyncPublisher
     /// (subject vanan.cloud.loyalty.changed.{deviceId}, extended payload + Outbox fallback).
-    /// Alliance wallet operates on device identity — customerId is unknown here (Guid.Empty),
-    /// the subscriber falls back to device-based matching.
+    /// <paramref name="customerId"/> (BUG-1 fix): the PG customer PK when the caller knows it
+    /// (ledger/order/mission/redemption flows) — carried in the payload so the ShopERP subscriber
+    /// can bootstrap the mirror stub with the SAME customer identity as PG (device-based stub would
+    /// mismatch POS customers). Guid.Empty for raw wallet calls (e.g. internal API) → subscriber
+    /// falls back to device-based matching for existing rows.
     /// Legacy callers (consolidate/split — no tx) pass type=ADJUST with no delta (balance-only).
     /// </summary>
-    private async Task PublishLoyaltyChangedAsync(Guid customerDeviceId, Guid tenantId, int newBalance, AllianceTransaction? tx = null)
+    private async Task PublishLoyaltyChangedAsync(Guid customerDeviceId, Guid tenantId, int newBalance, AllianceTransaction? tx = null, Guid customerId = default)
     {
         if (_loyaltyBalanceSyncPublisher is not null)
         {
             await _loyaltyBalanceSyncPublisher.PublishAsync(
-                customerId: Guid.Empty, // unknown — device-based matching on the subscriber side
+                customerId: customerId,
                 tenantId: tenantId,
                 pointBalance: newBalance,
                 type: tx?.Type.ToString() ?? "ADJUST",

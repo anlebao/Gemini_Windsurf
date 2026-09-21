@@ -2,7 +2,10 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using System.Text;
+using System.Text.Json;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Tests.TestInfrastructure;
 using VanAn.Shared.Domain;
@@ -242,5 +245,81 @@ public class AllianceWalletAttributionTests : IDisposable
         var attributed = redeems.Single();
         attributed.SourceTenantId.Should().Be(tenantA);
         attributed.Points.Should().Be(-30);
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // BUG-1 (RV finding): Alliance sync payload MUST carry the real customerId so the
+    // ShopERP LoyaltySyncSubscriber can bootstrap the mirror stub with the SAME customer
+    // identity as PG (device-based stub would mismatch POS customers).
+    // ──────────────────────────────────────────────────────────
+
+    private sealed class PayloadCapture
+    {
+        public byte[]? Last { get; set; }
+    }
+
+    private (AllianceWalletService sut, PayloadCapture capture) BuildServiceWithCapturingPublisher()
+    {
+        var capture = new PayloadCapture();
+        var natsMock = new Mock<INatsEventPublisher>();
+        natsMock
+            .Setup(n => n.PublishAsync(It.IsAny<string>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()))
+            .Callback<string, byte[], CancellationToken>((_, p, _) => capture.Last = p)
+            .Returns(Task.CompletedTask);
+        var publisher = new LoyaltyBalanceSyncPublisher(
+            natsMock.Object, outboxRepository: null, NullLogger<LoyaltyBalanceSyncPublisher>.Instance);
+        var sut = new AllianceWalletService(
+            _db, _modeResolverMock.Object, natsEventPublisher: null,
+            NullLogger<AllianceWalletService>.Instance,
+            loyaltyBalanceSyncPublisher: publisher);
+        return (sut, capture);
+    }
+
+    private static JsonElement ParsePayload(PayloadCapture capture)
+    {
+        capture.Last.Should().NotBeNull("publisher must have emitted a NATS message");
+        using var doc = JsonDocument.Parse(Encoding.UTF8.GetString(capture.Last!));
+        return doc.RootElement.Clone();
+    }
+
+    [Fact(DisplayName = "AW-ATT-7 (BUG-1): AddPoints sync payload carries the real customerId (mirror stub bootstrap)")]
+    public async Task AddPoints_SyncPayload_CarriesCustomerId()
+    {
+        var device = Guid.NewGuid();
+        var tenant = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+
+        var (sut, capture) = BuildServiceWithCapturingPublisher();
+        await sut.AddPointsAsync(device, tenant, 100, "order earn", customerId: customerId);
+
+        JsonElement root = ParsePayload(capture);
+        root.GetProperty("customerId").GetString().Should().Be(customerId.ToString(),
+            "BUG-1: sync payload must carry the real customerId so the subscriber can create the mirror stub with PG identity");
+        root.GetProperty("customerDeviceId").GetString().Should().Be(device.ToString());
+        root.GetProperty("tenantId").GetString().Should().Be(tenant.ToString());
+    }
+
+    [Fact(DisplayName = "AW-ATT-8 (BUG-1): DeductPoints sync payload carries the real customerId; raw call (no customerId) → Guid.Empty (backward compat)")]
+    public async Task DeductPoints_SyncPayload_CarriesCustomerId()
+    {
+        var device = Guid.NewGuid();
+        var tenant = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+
+        var (sut, capture) = BuildServiceWithCapturingPublisher();
+        await sut.AddPointsAsync(device, tenant, 100, "earn", customerId: customerId);
+        await sut.DeductPointsAsync(device, tenant, 40, "redeem", "VC-1", customerId: customerId);
+
+        JsonElement root = ParsePayload(capture);
+        root.GetProperty("customerId").GetString().Should().Be(customerId.ToString(),
+            "BUG-1: spend sync payload must carry the real customerId");
+        root.GetProperty("type").GetString().Should().Be("REDEEM");
+
+        // Raw wallet call without customerId (e.g. direct internal API, no order context) →
+        // Guid.Empty string, subscriber falls back to device matching for existing rows.
+        await sut.DeductPointsAsync(device, tenant, 10, "raw redeem", "VC-2");
+        JsonElement raw = ParsePayload(capture);
+        raw.GetProperty("customerId").GetString().Should().Be(Guid.Empty.ToString(),
+            "callers without customerId keep Guid.Empty (device-based fallback on the subscriber)");
     }
 }

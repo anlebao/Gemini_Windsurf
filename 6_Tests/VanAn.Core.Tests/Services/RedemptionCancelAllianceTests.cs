@@ -22,7 +22,7 @@ public class RedemptionCancelAllianceTests
     public async Task AllianceMode_Member_RoutesToAllianceRefund()
     {
         var walletMock = new Mock<IAllianceWalletService>();
-        walletMock.Setup(w => w.RefundAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
+        walletMock.Setup(w => w.RefundAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<Guid>()))
             .ReturnsAsync((true, 300, (string?)null));
 
         var (success, balance, error) = await walletMock.Object.RefundAsync(
@@ -31,7 +31,7 @@ public class RedemptionCancelAllianceTests
         success.Should().BeTrue();
         balance.Should().Be(300);
         error.Should().BeNull();
-        walletMock.Verify(w => w.RefundAsync(DeviceId, TenantId, 100, It.Is<string>(s => s.Contains("Refund")), "VOUCHER-X", "refund:record-X"), Times.Once);
+        walletMock.Verify(w => w.RefundAsync(DeviceId, TenantId, 100, It.Is<string>(s => s.Contains("Refund")), "VOUCHER-X", "refund:record-X", It.IsAny<Guid>()), Times.Once);
     }
 
     [Fact(DisplayName = "LC-CANCEL-2: Silo mode → LoyaltyRewardsService.AddPointsAsync (no Alliance call)")]

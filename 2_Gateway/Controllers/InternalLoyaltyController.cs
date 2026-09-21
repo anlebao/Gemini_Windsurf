@@ -63,7 +63,7 @@ public class InternalLoyaltyController(
 
         var (success, balance, error) = await _walletService.AddPointsAsync(
             req.CustomerDeviceId, req.TenantId, req.Points, req.Reason,
-            req.SourceOrderId, req.IdempotencyKey);
+            req.SourceOrderId, req.IdempotencyKey, req.CustomerId);
 
         return success
             ? Ok(new PointsResponse { Success = true, NewBalance = balance })
@@ -79,7 +79,7 @@ public class InternalLoyaltyController(
 
         var (success, balance, error) = await _walletService.DeductPointsAsync(
             req.CustomerDeviceId, req.TenantId, req.Points, req.Reason,
-            req.VoucherCode, req.IdempotencyKey);
+            req.VoucherCode, req.IdempotencyKey, req.CustomerId);
 
         return success
             ? Ok(new PointsResponse { Success = true, NewBalance = balance })
@@ -95,7 +95,7 @@ public class InternalLoyaltyController(
 
         var (success, balance, error) = await _walletService.RefundAsync(
             req.CustomerDeviceId, req.TenantId, req.Points, req.Reason,
-            req.VoucherCode, req.IdempotencyKey);
+            req.VoucherCode, req.IdempotencyKey, req.CustomerId);
 
         return success
             ? Ok(new PointsResponse { Success = true, NewBalance = balance })
@@ -283,6 +283,8 @@ public class AddPointsRequest
     public string Reason { get; set; } = string.Empty;
     public Guid? SourceOrderId { get; set; }
     public string? IdempotencyKey { get; set; }
+    /// <summary>PG customer PK (BUG-1 fix) — carried into the sync event so ShopERP can bootstrap the mirror stub. Guid.Empty when unknown.</summary>
+    public Guid CustomerId { get; set; }
 }
 
 public class DeductPointsRequest
@@ -293,6 +295,8 @@ public class DeductPointsRequest
     public string Reason { get; set; } = string.Empty;
     public string? VoucherCode { get; set; }
     public string? IdempotencyKey { get; set; }
+    /// <summary>PG customer PK (BUG-1 fix) — carried into the sync event so ShopERP can bootstrap the mirror stub. Guid.Empty when unknown.</summary>
+    public Guid CustomerId { get; set; }
 }
 
 public class RefundPointsRequest
@@ -303,6 +307,8 @@ public class RefundPointsRequest
     public string Reason { get; set; } = string.Empty;
     public string VoucherCode { get; set; } = string.Empty;
     public string? IdempotencyKey { get; set; }
+    /// <summary>PG customer PK (BUG-1 fix) — carried into the sync event so ShopERP can bootstrap the mirror stub. Guid.Empty when unknown.</summary>
+    public Guid CustomerId { get; set; }
 }
 
 // === Batch 2 ledger response DTO ===

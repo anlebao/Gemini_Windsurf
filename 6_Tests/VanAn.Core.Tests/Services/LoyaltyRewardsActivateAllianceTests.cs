@@ -22,7 +22,7 @@ public class LoyaltyRewardsActivateAllianceTests
         var tenantId = Guid.NewGuid();
 
         var walletMock = new Mock<IAllianceWalletService>();
-        walletMock.Setup(w => w.AddPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), 100, It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<string?>()))
+        walletMock.Setup(w => w.AddPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), 100, It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid>()))
             .ReturnsAsync((true, 100, (string?)null));
 
         var (success, balance, error) = await walletMock.Object.AddPointsAsync(
@@ -33,7 +33,7 @@ public class LoyaltyRewardsActivateAllianceTests
         balance.Should().Be(100);
         error.Should().BeNull();
         walletMock.Verify(w => w.AddPointsAsync(
-            deviceId, tenantId, 100, It.IsAny<string>(), null, $"welcome:{customerId}"), Times.Once);
+            deviceId, tenantId, 100, It.IsAny<string>(), null, $"welcome:{customerId}", It.IsAny<Guid>()), Times.Once);
     }
 
     [Fact(DisplayName = "LC-ACT-2: Idempotency key is stable per customer (re-activation = same key, no double welcome bonus)")]

@@ -88,7 +88,7 @@ public class OrderWorkflowAllianceTests
 
         var walletServiceMock = new Mock<IAllianceWalletService>();
         walletServiceMock
-            .Setup(w => w.AddPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<string?>()))
+            .Setup(w => w.AddPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid>()))
             .ReturnsAsync((true, 500, (string?)null));
 
         services.AddSingleton(modeResolverMock.Object);
@@ -168,12 +168,12 @@ public class OrderWorkflowAllianceTests
             Assert.NotNull(result);
             Assert.Equal("completed", result.Status.Value);
 
-            // AllianceWalletService.AddPointsAsync MUST be called
+            // AllianceWalletService.AddPointsAsync MUST be called — BUG-1 fix: real customerId forwarded.
             walletServiceMock.Verify(
                 w => w.AddPointsAsync(
-                    It.IsAny<Guid>(), tenantId, It.IsAny<int>(), It.IsAny<string>(), order.Id, It.IsAny<string?>()),
+                    It.IsAny<Guid>(), tenantId, It.IsAny<int>(), It.IsAny<string>(), order.Id, It.IsAny<string?>(), customer.Id),
                 Times.Once,
-                "Alliance mode + member must route EARN to AllianceWalletService");
+                "Alliance mode + member must route EARN to AllianceWalletService (with real customerId for sync stub)");
 
             // LoyaltyRewardsService should NOT have created rewards for this customer
             // (Alliance flow returns before reaching Silo code)
@@ -209,7 +209,7 @@ public class OrderWorkflowAllianceTests
             // AllianceWalletService.AddPointsAsync must NOT be called
             walletServiceMock.Verify(
                 w => w.AddPointsAsync(
-                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<string?>()),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid>()),
                 Times.Never,
                 "Silo mode must NOT route to AllianceWalletService");
 
@@ -247,7 +247,7 @@ public class OrderWorkflowAllianceTests
             // AllianceWalletService must NOT be called (tenant opted out)
             walletServiceMock.Verify(
                 w => w.AddPointsAsync(
-                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<string?>()),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid>()),
                 Times.Never,
                 "Tenant opt-out (IsAllianceMember=false) must NOT route to AllianceWalletService");
 

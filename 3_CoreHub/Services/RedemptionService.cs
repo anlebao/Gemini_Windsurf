@@ -130,7 +130,8 @@ namespace VanAn.CoreHub.Services
                     var (success, newBalance, error) = await _allianceWalletService.DeductPointsAsync(
                         deviceGuid, tenantId, catalogItem.PointsRequired,
                         $"Redeem: {catalogItem.ProductName}", voucherCode,
-                        idempotencyKey: $"redeem:{voucherCode}");
+                        idempotencyKey: $"redeem:{voucherCode}",
+                        customerId: customerId); // BUG-1 fix: real customerId → sync payload → SQLite mirror stub
 
                     if (!success)
                     {
@@ -410,7 +411,8 @@ namespace VanAn.CoreHub.Services
                         var customer = await _dbContext.Customers.FirstOrDefaultAsync(c => c.Id == customerId);
                         Guid deviceGuid = customer?.DeviceId ?? customerId;
                         var (success, _, error) = await _allianceWalletService.RefundAsync(
-                            deviceGuid, tenantId, points, reason, voucherCode ?? "CANCEL", idempotencyKey);
+                            deviceGuid, tenantId, points, reason, voucherCode ?? "CANCEL", idempotencyKey,
+                            customerId: customerId); // BUG-1 fix: real customerId → sync payload → SQLite mirror stub
                         if (!success)
                         {
                             _logger.LogWarning("Alliance refund failed for customer {CustomerId}: {Error}", customerId, error);

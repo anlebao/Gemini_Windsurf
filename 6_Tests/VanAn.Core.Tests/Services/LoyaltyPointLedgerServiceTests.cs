@@ -48,9 +48,9 @@ public class LoyaltyPointLedgerServiceTests : IDisposable
         _modeResolverMock.Setup(m => m.IsAllianceMemberAsync(It.IsAny<Guid>())).ReturnsAsync(false);
 
         _walletMock = new Mock<IAllianceWalletService>();
-        _walletMock.Setup(w => w.AddPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<string?>()))
+        _walletMock.Setup(w => w.AddPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid>()))
             .ReturnsAsync((true, 500, (string?)null));
-        _walletMock.Setup(w => w.DeductPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>()))
+        _walletMock.Setup(w => w.DeductPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<Guid>()))
             .ReturnsAsync((true, 400, (string?)null));
 
         _budgetMock = new Mock<ILoyaltyBudgetService>();
@@ -233,7 +233,8 @@ public class LoyaltyPointLedgerServiceTests : IDisposable
 
         result.Status.Should().Be(LedgerOperationStatus.Success);
         result.NewBalance.Should().Be(500, "mock wallet balance");
-        _walletMock.Verify(w => w.AddPointsAsync(deviceId, TenantA, 100, It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<string?>()), Times.Once);
+        // BUG-1 fix: the ledger MUST pass the real customerId → sync payload → SQLite mirror stub bootstrap.
+        _walletMock.Verify(w => w.AddPointsAsync(deviceId, TenantA, 100, It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<string?>(), customerId), Times.Once);
     }
 
     [Fact(DisplayName = "LED-6: spend Alliance member → routes to AllianceWalletService (REDEEM)")]
@@ -257,7 +258,8 @@ public class LoyaltyPointLedgerServiceTests : IDisposable
 
         result.Status.Should().Be(LedgerOperationStatus.Success);
         result.NewBalance.Should().Be(400, "mock wallet balance");
-        _walletMock.Verify(w => w.DeductPointsAsync(deviceId, TenantA, 80, It.IsAny<string>(), "V1", It.IsAny<string?>()), Times.Once);
+        // BUG-1 fix: the ledger MUST pass the real customerId → sync payload → SQLite mirror stub bootstrap.
+        _walletMock.Verify(w => w.DeductPointsAsync(deviceId, TenantA, 80, It.IsAny<string>(), "V1", It.IsAny<string?>(), customerId), Times.Once);
     }
 
     // ──────────────────────────────────────────────────────────

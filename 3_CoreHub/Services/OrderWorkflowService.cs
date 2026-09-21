@@ -660,7 +660,8 @@ namespace VanAn.CoreHub.Services
                         Guid deviceGuid = Guid.TryParse(order.CustomerDeviceId, out var d) ? d : customer.Id;
                         var (allianceSuccess, newBalance, allianceError) = await _allianceWalletService.AddPointsAsync(
                             deviceGuid, order.TenantId.Value, pointsToAward, reason, order.Id,
-                            idempotencyKey: $"earn:{order.Id}");
+                            idempotencyKey: $"earn:{order.Id}",
+                            customerId: customer.Id); // BUG-1 fix: real customerId → sync payload → SQLite mirror stub
 
                         if (allianceSuccess)
                         {

@@ -20,29 +20,35 @@ public interface IAllianceWalletService
     /// Add (earn) points to the wallet at the given tenant.
     /// Enforces MaxWalletPoints cap. Returns (success, newBalance, error).
     /// Loyalty Consistency Fix Phase 0: idempotencyKey enables retry-safe HTTP proxy calls.
+    /// Loyalty Points Integrity (BUG-1 fix): <paramref name="customerId"/> is the PG customer PK
+    /// (Guid.Empty when unknown — e.g. raw internal API calls). It is carried into the PG→SQLite
+    /// sync event so LoyaltySyncSubscriber can bootstrap the local mirror stub with the SAME
+    /// customer identity as PG (device-based stub would mismatch POS customers).
     /// </summary>
     Task<(bool Success, int NewBalance, string? Error)> AddPointsAsync(
         Guid customerDeviceId, Guid tenantId, int points, string reason, Guid? sourceOrderId = null,
-        string? idempotencyKey = null);
+        string? idempotencyKey = null, Guid customerId = default);
 
     /// <summary>
     /// Deduct (redeem) points from the wallet at the given tenant.
     /// Enforces sufficient balance. Returns (success, newBalance, error).
     /// Loyalty Consistency Fix Phase 0: idempotencyKey enables retry-safe HTTP proxy calls.
+    /// <paramref name="customerId"/>: see AddPointsAsync (BUG-1 fix — propagated to the sync event).
     /// </summary>
     Task<(bool Success, int NewBalance, string? Error)> DeductPointsAsync(
         Guid customerDeviceId, Guid tenantId, int points, string reason, string? voucherCode = null,
-        string? idempotencyKey = null);
+        string? idempotencyKey = null, Guid customerId = default);
 
     /// <summary>
     /// Refund points back to the wallet. Per Q4, refund is attributed to the tenant
     /// where the redeem occurred (passed as <paramref name="tenantId"/>).
     /// Returns (success, newBalance, error).
     /// Loyalty Consistency Fix Phase 0: idempotencyKey enables retry-safe HTTP proxy calls.
+    /// <paramref name="customerId"/>: see AddPointsAsync (BUG-1 fix — propagated to the sync event).
     /// </summary>
     Task<(bool Success, int NewBalance, string? Error)> RefundAsync(
         Guid customerDeviceId, Guid tenantId, int points, string reason, string voucherCode,
-        string? idempotencyKey = null);
+        string? idempotencyKey = null, Guid customerId = default);
 
     /// <summary>Return recent transactions for a wallet, newest first.</summary>
     Task<IReadOnlyList<AllianceTransaction>> GetTransactionsAsync(Guid walletId, int limit = 20);
