@@ -1,9 +1,9 @@
 # HƯỚNG DẪN SỬ DỤNG CRM & LOYALTY — VẠN AN ECOSYSTEM
 
-> **Phiên bản:** MVP 1.2 — cập nhật 2026-08-03
-> **Áp dụng:** Loyalty Phase C + CRM + Promo Push + Loyalty Alliance (Phase 1-7 complete) + Loyalty Consistency Fix (BUG #0-#9 resolved, Phase 0-3 deployed, branch `main`)
+> **Phiên bản:** MVP 1.3 — cập nhật 2026-09-21
+> **Áp dụng:** Loyalty Phase C + CRM + Promo Push + Loyalty Alliance (Phase 1-7 complete) + Loyalty Consistency Fix (BUG #0-#9 resolved) + **Loyalty Points Integrity (Batch 1-5: PG ledger = single source of truth, budget caps, 1 công thức điểm, Alliance attribution FIFO + settlement) + BUG-1/BUG-1b/ordering-guard fixes (2026-09-20/21)**.
 > **Phạm vi:** Hệ thống CRM khách hàng, chương trình tích điểm (Silo + Alliance cross-tenant), nhiệm vụ (missions), chiến dịch khuyến mãi (promo push), đổi thưởng (redemption).
-> **Thay đổi v1.2:** Tất cả đường đọc/ghi điểm giờ route theo mode (Silo → SQLite, Alliance → PG qua HTTP proxy). Legacy `POST /api/loyalty/redeem` đã deprecate (410 Gone). NATS sync mở rộng sang history. Idempotency keys đảm bảo retry-safe khi Network/Gateway tạm thời không khả dụng.
+> **Thay đổi v1.3 (2026-09-21):** **PG ledger = single source of truth cho CẢ Silo lẫn Alliance** — mọi write (kể cả POS ShopERP) đi qua Gateway ledger/internal API; SQLite `LoyaltyRewards` chỉ là **mirror** (NATS sync cả 2 mode). Budget caps per-tenant (Batch 3). 1 công thức điểm duy nhất D1 = net revenue + checkout estimate server + banner điểm THẬT từ ledger (Batch 4). Alliance attribution khi tiêu điểm (D2: ưu tiên tenant hiện tại → FIFO, REDEEM ghi `SourceTenantId`) + settlement report (Batch 5). Legacy `POST /api/loyalty/redeem` deprecate (410 Gone). Idempotency keys retry-safe.
 
 ---
 
@@ -26,9 +26,9 @@ Hệ thống CRM-Loyalty của Vạn An phục vụ 3 đối tượng chính v�
 |---|---|---|---|
 | **System Admin** | Quản trị viên toàn hệ thống (Vạn An) | ShopERP Admin (`/admin/*`) | **Tất cả tenant** (cross-tenant) |
 | **Shop Owner** | Chủ cửa hàng / HKD | ShopERP Admin (`/admin/*`) | **Tenant của mình** (per-tenant) |
-| **Customer** | Khách hàng cuối | KhachLink PWA (`diemthuong.khachvip.online`) | **Tài khoản cá nhân** (token-based) |
+| **Customer** | Khách hàng cuối | KhachLink PWA (`diemthuong2.khachvip.online`) | **Tài khoản cá nhân** (token-based) |
 
-### Kiến trúc tổng quan (Option C — PG source of truth + routed async delivery, Option B — HTTP proxy cho Alliance writes/reads)
+### Kiến trúc tổng quan (Option C — PG source of truth + routed async delivery; ShopERP → Gateway HTTP proxy cho MỌI write loyalty — Silo lẫn Alliance)
 
 ```
 Customer (KhachLink WASM, 5002)
@@ -37,27 +37,32 @@ Customer (KhachLink WASM, 5002)
 Gateway (5001)  ── PostgreSQL (source of truth) ──┐
    │   • Orders + Accounting + Tenants            │
    │   • Users + FeaturedProducts                 │
-   │   • Loyalty Alliance: AllianceWallet,        │
-   │     AllianceTransaction (+ IdempotencyKey),  │
+   │   • Loyalty (CẢ 2 mode): LoyaltyRewards      │
+   │     (Silo — 1 row per (TenantId,CustomerId)),│
+   │     AllianceWallet + AllianceTransaction     │
+   │     (+ SourceTenantId, IdempotencyKey),      │
+   │     LoyaltyIssuanceRecord (per-order guard), │
    │     LoyaltyGlobalConfig, LoyaltyTenantConfig │
+   │     (+ budget caps + counters)               │
    │   • Internal API: /api/internal/loyalty/*    │
    │     [X-Internal-Api-Key auth]                │
    │                                              ▼
    └── NATS  vanan.cloud.loyalty.changed.{deviceId} ──► ShopERP (5003)
-      ▲                                              │  SQLite (replica)
-      │ HTTP proxy (cache 10s + idempotency)         │  LoyaltyRewards.PointBalance
-      │   • AllianceWalletServiceHttpProxy           │  + LoyaltyRewards.History
-      │   • LoyaltyModeResolverHttpProxy (cache 60s) ▲
-      │                                              │
+      ▲                                              │  SQLite (mirror)
+      │ HTTP proxy (cache + idempotency)             │  LoyaltyRewards.PointBalance
+      │   • LoyaltyRewardsServiceHttpProxy (Silo)    │  + LoyaltyRewards.History
+      │   • LoyaltyPointLedgerServiceHttpProxy       ▲
+      │   • AllianceWalletServiceHttpProxy (Alliance)│
+      │   • LoyaltyModeResolverHttpProxy (cache 60s) │
       └────── ShopERP (5003) ───────────────────────┘
                   Owner / SystemAdmin (Blazor Server, cookie auth)
 ```
 
 - **KhachLink** (Blazor WebAssembly PWA): giao diện khách hàng — đăng nhập OTP/Google, xem điểm (Silo + Alliance), làm nhiệm vụ, đổi thưởng, xem lịch sử đơn.
-- **ShopERP** (Blazor Server): giao diện quản trị — CRM, chiến dịch promo, quản lý missions, catalog đổi thưởng, users, **cấu hình Loyalty Alliance**. Trong Alliance mode, ShopERP **không kết nối trực tiếp PG** mà gọi qua Gateway internal API bằng HTTP proxy (multi-VPS ready).
+- **ShopERP** (Blazor Server): giao diện quản trị — CRM, chiến dịch promo, quản lý missions, catalog đổi thưởng, users, **cấu hình Loyalty Alliance + budget**. ShopERP **không kết nối trực tiếp PG** — mọi write loyalty (Silo lẫn Alliance, kể cả POS) gọi qua Gateway internal API bằng HTTP proxy (multi-VPS ready).
 - **Auth**: Khách hàng dùng `X-Customer-Token` (token-based, không cookie); Owner/SystemAdmin dùng Cookie auth + role claims. **Internal API** giữa ShopERP ↔ Gateway dùng `X-Internal-Api-Key` (shared secret trong config).
-- **HTTP proxy (Option B — Alliance writes/reads):** Khi mode=Alliance, các thao tác ghi điểm (welcome bonus, mission, redeem, refund) và đọc ví từ ShopERP đi qua `AllianceWalletServiceHttpProxy` → Gateway `InternalLoyaltyController` (5 endpoints) → PG. Wallet reads cache 10s, mode resolution cache 60s, write ops invalidate cache cho device đó. **Idempotency key** (`welcome:{customerId}`, `mission:{completionId}`, `redeem:{voucherCode}`, `refund:{recordId}`) đảm bảo retry-safe — Gateway check `AllianceTransactions.IdempotencyKey` trước khi xử lý, trùng key → trả cached result, không double-count.
-- **NATS sync (Alliance mode only):** Khi ví liên minh (PG) thay đổi, Gateway publish `vanan.cloud.loyalty.changed.{customerDeviceId}` với payload mở rộng (`{ customerDeviceId, pointBalance, type, points, reason, tenantId, updatedAt }`) → ShopERP `LoyaltySyncSubscriber` cập nhật `LoyaltyRewards.PointBalance` **và append vào `LoyaltyRewards.History`** (idempotent — skip duplicate cùng timestamp+points+reason). Legacy payload (chỉ balance) vẫn tương thích ngược. **PG là source of truth, SQLite là replica** — không ngược lại.
+- **HTTP proxy (mọi write loyalty):** Các thao tác ghi điểm từ ShopERP (POS award/spend/refund, welcome bonus, mission, redeem) đi qua proxy (`LoyaltyRewardsServiceHttpProxy`/`LoyaltyPointLedgerServiceHttpProxy`/`AllianceWalletServiceHttpProxy`) → Gateway `InternalLoyaltyController` (award/spend/refund/revert-order/balance/awarded + points/add|deduct|refund + wallet/{deviceId} + effective-config/{tenantId}) → PG ledger. Wallet reads cache 10s, mode resolution cache 60s, write ops invalidate cache cho device đó. **Idempotency key** (`earn:{orderId}`, `welcome:{customerId}`, `mission:{completionId}`, `redeem:{voucherCode}`, `refund:{recordId}`) đảm bảo retry-safe — Gateway check `AllianceTransactions.IdempotencyKey` trước khi xử lý, trùng key → trả cached result, không double-count. Gateway down (POS, decision D5): award/refund **skip + log (không fail order)**, spend **reject** — bù sau bằng data repair.
+- **NATS sync (cả Silo lẫn Alliance):** Khi PG balance thay đổi (bất kỳ mode nào), Gateway publish `vanan.cloud.loyalty.changed.{customerDeviceId}` với payload mở rộng (`{ customerDeviceId, customerId, tenantId, pointBalance, type, points, reason, updatedAt, sourceOrderId }`) → ShopERP `LoyaltySyncSubscriber` cập nhật `LoyaltyRewards.PointBalance` **và append vào `LoyaltyRewards.History`** (idempotent — skip duplicate cùng timestamp+points+reason). Payload mang **customerId thật** → subscriber tự tạo mirror stub (cùng identity PG) khi khách chưa có row local. Balance mirror **overwrite theo PG authority** (BUG-1b fix) + **ordering guard** (chỉ apply event không cũ hơn entry mới nhất — BUG ordering fix). Legacy payload (chỉ balance) vẫn tương thích ngược. **PG là source of truth, SQLite là mirror** — không ngược lại.
 - **Graceful fallback:** Nếu Gateway tạm thời không khả dụng khi đọc balance, `LoyaltyReadRouter` trả SQLite balance (có thể stale) thay vì lỗi — UI vẫn hoạt động, khách không thấy error page.
 
 ### Hai chế độ Loyalty: Silo vs Alliance
@@ -66,8 +71,8 @@ Hệ thống loyalty có **2 chế độ hoạt động**, do SystemAdmin cấu 
 
 | Chế độ | Lưu điểm | Dùng điểm | Phạm vi |
 |---|---|---|---|
-| **Silo** (mặc định) | SQLite của từng tenant | Chỉ tại tenant đó | Đóng (mỗi tenant độc lập) |
-| **Alliance** | PostgreSQL `AllianceWallet` (cross-tenant) | Tại mọi tenant thành viên liên minh | Mở (cross-tenant) |
+| **Silo** (mặc định) | PostgreSQL `LoyaltyRewards` — **1 row per (TenantId, CustomerId)** = single source of truth; SQLite là **mirror** (sync qua NATS) | Chỉ tại tenant đã tặng (**luật Silo per-tenant**): tiêu tại tenant khác → reject ("Không đủ điểm — điểm chỉ dùng được tại tenant đã tặng") | Đóng (mỗi tenant độc lập) |
+| **Alliance** | PostgreSQL `AllianceWallet` (cross-tenant) + `AllianceTransaction` (mọi REDEEM ghi **SourceTenantId** = tenant sở hữu điểm) | Tại mọi tenant thành viên liên minh — **ưu tiên điểm tenant đang tiêu trước, thiếu mới FIFO** tenant khác (D2) | Mở (cross-tenant) |
 
 **Quyết định nghiệp vụ (Spec v1.0):**
 - **Q1 — Switch Alliance→Silo:** điểm chia theo nguồn (tenant xuất xứ), không gộp.
@@ -75,6 +80,7 @@ Hệ thống loyalty có **2 chế độ hoạt động**, do SystemAdmin cấu 
 - **Q3 — Tenant Admin:** chỉ thấy transaction xảy ra tại tenant mình (không thấy cross-tenant).
 - **Q4 — Refund:** hoàn điểm về tenant nơi redeem xảy ra (không phải tenant tích điểm).
 - **Q5 — MaxWalletPoints:** configurable — global default 100,000 + per-tenant override.
+- **D2 (Batch 5) — Alliance consume attribution:** khi tiêu điểm, tiêu **điểm của tenant hiện tại trước** (netEarn của tenant đó), thiếu mới dùng các tenant khác theo **FIFO** (EARN sớm nhất còn dư trước); ghi **1 REDEEM entry per source tenant** (`TransactionTenantId` = tenant tiêu, `SourceTenantId` = tenant sở hữu).
 
 **Cách xác định mode hiệu quả:** `LoyaltyModeResolver.GetEffectiveModeAsync(tenantId)` — kiểm tra per-tenant override trước, nếu không có thì lấy global. Tenant opt-out (Q2) luôn trả về Silo.
 
@@ -83,7 +89,7 @@ Hệ thống loyalty có **2 chế độ hoạt động**, do SystemAdmin cấu 
 ## 2. SYSTEM ADMIN — QUẢN TRỊ HỆ THỐNG
 
 > **Đối tượng:** Nhân viên kỹ thuật / vận hành Vạn An, có quyền quản trị toàn hệ thống.
-> **Đăng nhập:** Tài khoản SystemAdmin tại `https://khachvip.online` (cookie auth, role = SystemAdmin).
+> **Đăng nhập:** Tài khoản SystemAdmin tại `https://app2.khachvip.online` (cookie auth, role = SystemAdmin).
 
 ### 2.1. Danh sách trang quản trị
 
@@ -98,7 +104,7 @@ Hệ thống loyalty có **2 chế độ hoạt động**, do SystemAdmin cấu 
 | Featured Products | `/admin/featured-products` | CRUD sản phẩm nổi bật (display name, tenant, display price, sort order) |
 | Social Campaigns | `/admin/campaigns` | CRUD chiến dịch social (campaign name, tenant, UTM source, tracking code), xem click/conversion stats |
 | Push Campaigns | `/admin/push-campaigns` | Quản lý chiến dịch push notification toàn hệ thống |
-| **Loyalty Alliance Config** | `/admin/loyalty-config` | Cấu hình chế độ Loyalty (Silo/Alliance) toàn cục + override per-tenant, MaxWalletPoints, trigger mode-switch migration (consolidate/split) |
+| **Loyalty Alliance Config** | `/admin/loyalty-config` | Cấu hình chế độ Loyalty (Silo/Alliance) toàn cục + override per-tenant, MaxWalletPoints, **4 budget caps + counters + nút Reset (Batch 3)**, trigger mode-switch migration (consolidate/split), **settlement report (Batch 5)** |
 | Audit Trail | `/admin/audit-trail` | Xem log audit (date range, action type, entity type, user ID, search term), export logs, detail modal |
 | Quản lý Users | `/admin/users` | CRUD user (display name, email, tenant, role), activate/deactivate, gán role — **chung với Owner** nhưng SA thấy tất cả tenant |
 
@@ -191,12 +197,19 @@ Trang này cho phép SystemAdmin **bật/tắt chế độ liên minh** (Allianc
 | Mode | `null` = kế thừa global, hoặc ép `Silo`/`Alliance` cho tenant này |
 | IsAllianceMember | `true` = tenant tham gia liên minh; `false` = opt-out (Q2 — bắt buộc Silo dù global=Alliance) |
 | MaxWalletPoints | `null` = kế thừa global, hoặc override cho tenant này |
+| **MonthlyPointsBudget** | (Batch 3) Ngân sách điểm tối đa tenant được tặng **trong tháng** — `null` = không giới hạn |
+| **DailyPointsBudget** | (Batch 3) Ngân sách điểm tối đa tenant được tặng **trong ngày** — `null` = không giới hạn |
+| **PerCustomerDailyLimit** | (Batch 3) Giới hạn điểm **mỗi khách mỗi ngày** — `null` = không giới hạn |
+| **PerOrderRateCap** | (Batch 3) Trần điểm mỗi đơn, dạng **phần trăm** (0.03 = 3% giá trị đơn) — `null` = không giới hạn |
+
+**Budget counters (Batch 3):** `PointsIssuedThisMonth` / `PointsIssuedToday` — số điểm đã cấp trong tháng/hôm nay, hiển thị trên form + có nút **Reset hôm nay / Reset tháng** (modal xác nhận, SystemAdmin). Counters được ghi atomic (mọi award path qua ledger) và **giảm khi reversal** (hủy đơn/refund). Budget **luôn enforce khi tenant có caps** (decision D3) — flag `ValcnV2_LoyaltyBudget` mặc định **ON**, chỉ là công tắc tắt khẩn cấp cho SystemAdmin; hết budget → award bị clamp/skip (order vẫn hoàn thành), không fail đơn.
 
 **Tạo/chỉnh sửa per-tenant config:**
 1. Tìm tenant trong danh sách → bấm **Chỉnh sửa**.
 2. Set `IsAllianceMember=true` để tenant tham gia liên minh.
 3. (Tùy chọn) Override Mode / MaxWalletPoints — để `null` nếu muốn kế thừa global.
-4. Bấm **Lưu**.
+4. (Tùy chọn, Batch 3) Nhập 4 budget cap — để trống (null) nếu không muốn giới hạn.
+5. Bấm **Lưu**.
 
 **Trigger mode-switch migration:**
 - **Silo → Alliance (Consolidate):** Khi chuyển global mode từ Silo sang Alliance, bấm **Migrate**. Hệ thống gộp điểm SQLite của từng tenant thành ví AllianceWallet (PG) cho mỗi khách + ghi transaction `ADJUST`. Idempotent — chạy lại không double-count.
@@ -221,21 +234,45 @@ Mỗi thao tác ghi điểm trong Alliance mode gắn idempotency key duy nhất
 
 > **Mẹo vận hành:** Nếu cần trace 1 giao dịch cụ thể trên PG, query `SELECT * FROM "AllianceTransactions" WHERE "IdempotencyKey" = 'welcome:{customerId}';` — mỗi thao tác nghiệp vụ có đúng 1 row (trừ khi retry, vẫn chỉ 1 row).
 
+### Công thức tính điểm (Batch 4 — 1 công thức duy nhất, decision D1)
+
+Mọi nơi tính điểm (award đơn hàng, banner tracking, checkout estimate) dùng chung `LoyaltyPointsCalculator`:
+
+- **Base = NET revenue** = `SubTotal − DiscountAmount` (KHÔNG gồm VAT + phí ship), clamp ≥ 0.
+- **Silo:** `base × rate` (rate từ tenant settings → PG `LoyaltyGlobalConfig` (int % → /100) → appsettings; rate 0 → fallback 0.1).
+- **Alliance:** `base ÷ VndPerPoint` (mặc định 1000 VND/điểm, Option A approved).
+- **Clamp min/max** (MinPointsPerOrder / MaxPointsPerOrder) — 1 nơi duy nhất; base ≤ 0 → 0 điểm (đơn free không min-clamp).
+- **Checkout estimate:** KhachLink gọi `GET /api/loyalty/estimate?tenantId=&subTotal=&discountAmount=` (server tính, không tự replicate công thức client).
+- **Banner tracking:** đọc **điểm THỰC TẾ đã award** từ PG ledger (`LoyaltyIssuanceRecord` — per order) — KHÔNG recompute theo config hiện tại.
+
+### Alliance attribution khi tiêu điểm + Settlement (Batch 5)
+
+- **Khi khách tiêu điểm tại tenant B** (Alliance): hệ thống xác định nguồn điểm theo **D2** — tiêu **netEarn của tenant B trước**, thiếu mới dùng các tenant khác theo **FIFO** (EARN sớm nhất còn dư). Ghi **1 REDEEM entry per source tenant**: `TransactionTenantId` = tenant tiêu, `SourceTenantId` = tenant sở hữu điểm, `RefundTenantId` = tenant tiêu (Q4).
+- **Breakdown ví** (`GET /api/loyalty/wallet`): hiển thị **netEarn theo tenant SỞ HỮU** = Σ EARN/ADJUST (theo TransactionTenantId) − Σ |REDEEM| (theo SourceTenantId) — attribution chính xác sau khi tiêu cross-tenant (vd: earn A=100, B=50; tiêu 80 tại B → REDEEM −50 (B→B) + −30 (A→B); breakdown A=70, B=0). Tổng breakdown = tổng điểm ví.
+- **Settlement report** (`GET /api/platform/loyalty/settlement?tenantId=`): cho SystemAdmin quyết định bù trừ giữa các tenant — `pointsEarnedAtTenant` (điểm tenant đã tặng) · `pointsConsumedAtTenant` (điểm của tenant đã bị tiêu — gồm cả **chi hộ** `pointsConsumedAtOtherTenants` khi tiêu tại tenant khác) · `pointsRedeemedByCustomersAtTenant` (điểm khách tiêu TẠI tenant) · `outstandingPoints` (= earned − consumed). **Report-only — không tự động trừ tiền.**
+
+### Backfill SQLite → PG (Batch 2, chạy 1 lần trước cutover)
+
+`POST /api/admin/sync/loyalty-backfill-pg` (SystemAdmin): cộng dồn điểm SQLite + PG theo từng (customer, tenant) — PG row = max(0, PG) + max(0, SQLite); history union idempotent. **Chạy lại an toàn** (dedup history theo timestamp+points+reason). Đã chạy trên production trước khi bật POS proxy write (Batch 2).
+
 **API tương ứng (SystemAdmin policy):**
 | Method | Endpoint | Mô tả |
 |---|---|---|
 | GET | `/api/platform/loyalty/config` | Lấy global config (hoặc defaults) |
 | PUT | `/api/platform/loyalty/config` | Cập nhật global config |
-| GET | `/api/platform/loyalty/tenant/{tenantId}/config` | Lấy per-tenant override (hoặc inherit) |
-| PUT | `/api/platform/loyalty/tenant/{tenantId}/config` | Cập nhật per-tenant override |
+| GET | `/api/platform/loyalty/tenant/{tenantId}/config` | Lấy per-tenant override (hoặc inherit) — trả kèm budget caps + counters |
+| PUT | `/api/platform/loyalty/tenant/{tenantId}/config` | Cập nhật per-tenant override (mode/member/maxWallet + **4 budget caps**; validation: âm → 400, rateCap ngoài 0..1 → 400) |
+| POST | `/api/platform/loyalty/tenant/{tenantId}/reset-counters` | Reset budget counters (body `{scope: "daily" | "monthly"}`) |
+| GET | `/api/platform/loyalty/settlement?tenantId=` | Settlement report (Batch 5 — xem ở trên) |
 | POST | `/api/platform/loyalty/migrate` | Trigger mode-switch migration (consolidate/split) |
+| POST | `/api/admin/sync/loyalty-backfill-pg` | Backfill SQLite → PG (Batch 2) |
 
 ---
 
 ## 3. SHOP OWNER — CHỦ CỬA HÀNG
 
 > **Đối tượng:** Chủ cửa hàng / HKD — quản lý CRM, gửi khuyến mãi, quản lý nhân viên.
-> **Đăng nhập:** Tài khoản Owner tại `https://khachvip.online` (cookie auth, role = Owner).
+> **Đăng nhập:** Tài khoản Owner tại `https://app2.khachvip.online` (cookie auth, role = Owner).
 > **Phạm vi:** Chỉ thấy dữ liệu **tenant của mình**.
 
 ### 3.1. Danh sách trang
@@ -357,7 +394,7 @@ Owner tạo tài khoản nhân viên với các role:
 ## 4. CUSTOMER — KHÁCH HÀNG
 
 > **Đối tượng:** Khách hàng cuối — tích điểm, làm nhiệm vụ, đổi thưởng.
-> **Truy cập:** PWA KhachLink tại `https://diemthuong.khachvip.online`
+> **Truy cập:** PWA KhachLink tại `https://diemthuong2.khachvip.online`
 > **Auth:** Đăng nhập bằng **Google OAuth** (miễn phí) hoặc **SĐT + OTP**.
 
 ### 4.1. Danh sách trang
@@ -424,10 +461,11 @@ Trang này chỉ hoạt động khi hệ thống đang ở **Alliance mode** và
 
 **Nội dung ví (state 4):**
 - **Thẻ tổng điểm** (gradient) — `TotalPointBalance` từ PG `AllianceWallet`.
-- **Breakdown theo tenant** — điểm tích lũy tại từng tenant (tên tenant được resolve qua API). Ví dụ:
+- **Breakdown theo tenant** — **điểm RÒNG (netEarn) theo tenant SỞ HỮU điểm** (Batch 5 attribution): Σ EARN/ADJUST − Σ |REDEEM| theo `SourceTenantId`. Ví dụ:
   - Cửa hàng A: 1,200 điểm
   - Cửa hàng B: 850 điểm
   - **Tổng: 2,050 điểm**
+  - (Nếu khách tiêu 300 điểm cross-tenant tại B mà điểm thuộc A → REDEEM ghi SourceTenantId=A → breakdown A giảm đúng 300, không trừ nhầm vào B.)
 - **Lịch sử giao dịch gần đây** (20 giao dịch mới nhất) — mỗi giao dịch có:
   - **Loại:** EARN (tích điểm) / REDEEM (đổi thưởng) / ADJUST (migration adjust)
   - **Icon + voucher code** (nếu là REDEEM)
@@ -451,7 +489,7 @@ Trang này chỉ hoạt động khi hệ thống đang ở **Alliance mode** và
 | GET | `/api/loyalty/wallet` | Lấy ví liên minh (Gateway PG) — trả `{ totalPointBalance, breakdown, recentTransactions }` |
 | GET | `/api/loyalty/my-identity` | Resolve token → deviceId (ShopERP forward, internal) |
 
-> **Lưu ý:** Endpoint `/api/loyalty/wallet` trả 404 nếu khách chưa có device identity (chưa từng đăng nhập từ device nào). Khách cần đăng nhập qua PWA ít nhất 1 lần để tạo device identity.
+> **Lưu ý:** Endpoint `/api/loyalty/wallet` trả **404** nếu khách chưa có device identity (chưa từng đăng nhập từ device nào — khách cần đăng nhập qua PWA ít nhất 1 lần). Nếu khách có device nhưng **chưa có ví** (chưa từng được tặng điểm Alliance) → trả **200** với `totalPointBalance: 0, isActive: false`.
 
 #### 4.2.5. Nhiệm vụ (`/missions`)
 
@@ -534,22 +572,22 @@ Trang nhiệm vụ hiển thị 2 phần:
 
 | URL | Đối tượng | Mô tả |
 |---|---|---|
-| `https://khachvip.online` | Owner / SA | ShopERP Admin (Blazor Server) |
-| `https://khachvip.online/admin/customers` | Owner | CRM khách hàng |
-| `https://khachvip.online/admin/customers-global` | SA | CRM cross-tenant |
-| `https://khachvip.online/admin/promo-campaigns` | Owner | Chiến dịch promo |
-| `https://khachvip.online/admin/missions` | SA / Owner | Quản lý nhiệm vụ |
-| `https://khachvip.online/admin/redemption-catalog` | SA / Owner | Catalog đổi thưởng |
-| `https://khachvip.online/admin/redemption-history` | SA / Owner | Lịch sử đổi thưởng |
-| `https://khachvip.online/admin/tenants` | SA | Quản lý tenant |
-| `https://khachvip.online/admin/audit-trail` | SA | Audit log |
-| `https://diemthuong.khachvip.online` | Customer | KhachLink PWA |
-| `https://diemthuong.khachvip.online/login` | Customer | Đăng nhập |
-| `https://diemthuong.khachvip.online/profile` | Customer | Hồ sơ |
-| `https://diemthuong.khachvip.online/my-loyalty` | Customer | Thẻ tích điểm |
-| `https://diemthuong.khachvip.online/missions` | Customer | Nhiệm vụ |
-| `https://diemthuong.khachvip.online/rewards` | Customer | Đổi thưởng |
-| `https://diemthuong.khachvip.online/my-orders` | Customer | Lịch sử đơn |
+| `https://app2.khachvip.online` | Owner / SA | ShopERP Admin (Blazor Server) |
+| `https://app2.khachvip.online/admin/customers` | Owner | CRM khách hàng |
+| `https://app2.khachvip.online/admin/customers-global` | SA | CRM cross-tenant |
+| `https://app2.khachvip.online/admin/promo-campaigns` | Owner | Chiến dịch promo |
+| `https://app2.khachvip.online/admin/missions` | SA / Owner | Quản lý nhiệm vụ |
+| `https://app2.khachvip.online/admin/redemption-catalog` | SA / Owner | Catalog đổi thưởng |
+| `https://app2.khachvip.online/admin/redemption-history` | SA / Owner | Lịch sử đổi thưởng |
+| `https://app2.khachvip.online/admin/tenants` | SA | Quản lý tenant |
+| `https://app2.khachvip.online/admin/audit-trail` | SA | Audit log |
+| `https://diemthuong2.khachvip.online` | Customer | KhachLink PWA |
+| `https://diemthuong2.khachvip.online/login` | Customer | Đăng nhập |
+| `https://diemthuong2.khachvip.online/profile` | Customer | Hồ sơ |
+| `https://diemthuong2.khachvip.online/my-loyalty` | Customer | Thẻ tích điểm |
+| `https://diemthuong2.khachvip.online/missions` | Customer | Nhiệm vụ |
+| `https://diemthuong2.khachvip.online/rewards` | Customer | Đổi thưởng |
+| `https://diemthuong2.khachvip.online/my-orders` | Customer | Lịch sử đơn |
 
 ### 5.3. API endpoints theo vai trò
 
@@ -568,6 +606,9 @@ Trang nhiệm vụ hiển thị 2 phần:
 | GET/POST/PUT/DELETE | `/api/redemption/catalog` | CRUD catalog |
 | POST | `/api/redemption/fulfill` | Fulfill voucher |
 | POST | `/api/redemption/cancel/{id}` | Hủy redemption |
+| GET | `/api/platform/loyalty/settlement?tenantId=` | Settlement report Alliance (Batch 5 — chi tiết §2.2.6) |
+| POST | `/api/platform/loyalty/tenant/{id}/reset-counters` | Reset budget counters daily/monthly (Batch 3) |
+| POST | `/api/admin/sync/loyalty-backfill-pg` | Backfill SQLite → PG (Batch 2) |
 
 #### Customer (X-Customer-Token header)
 | Method | Endpoint | Mô tả |
@@ -576,6 +617,7 @@ Trang nhiệm vụ hiển thị 2 phần:
 | POST | `/api/customer-identity/otp/verify` | Xác thực OTP |
 | GET | `/api/customer-identity/me` | Thông tin khách (mode-aware — PG balance khi Alliance, v1.2 BUG #7 fix) |
 | GET | `/api/loyalty/my` | Thông tin tích điểm (mode-aware — PG balance khi Alliance) |
+| GET | `/api/loyalty/estimate?tenantId=&subTotal=&discountAmount=` | Checkout estimate điểm (Batch 4 — server tính theo D1 net revenue, không replicate client) |
 | POST | `/api/loyalty/redeem` | ⚠️ **DEPRECATED — 410 Gone** (v1.2). Dùng `POST /api/redemption/redeem` (catalog-based, mode-aware) |
 | GET | `/api/missions/active` | Nhiệm vụ đang hoạt động |
 | GET | `/api/missions/my/progress` | Tiến độ nhiệm vụ |
@@ -617,7 +659,7 @@ A: Có 3 nguyên nhân:
 A: URL bài share phải hợp lệ — phải chứa `/posts/` hoặc `permalink?story_id=`. URL homepage hoặc profile cá nhân sẽ bị từ chối. Xem chi tiết tại `/missions` → bấm "Chia sẻ" → dán URL đúng định dạng.
 
 **Q: Điểm của tôi không tăng sau khi đặt hàng?**
-A: Điểm được cộng tự động khi đơn hàng chuyển sang **Completed**. Nếu đơn đã Completed nhưng điểm chưa tăng, liên hệ cửa hàng — có thể khách chưa được liên kết với đơn (guest checkout không có CustomerId).
+A: Điểm được cộng tự động khi đơn hàng chuyển sang **Completed**. Với đơn **guest** (chưa đăng nhập), hệ thống **tự tạo customer stub + row điểm** cho device của khách khi đơn hoàn thành (Batch 1 fix — đã verify production), nên điểm vẫn được cộng. Nếu đơn đã Completed nhưng điểm chưa tăng sau ~vài chục giây (NATS sync), liên hệ cửa hàng kiểm tra.
 
 > **Alliance mode (v1.2):** Điểm EARN từ đơn hàng được cộng vào PG AllianceWallet với idempotency key `earn:{orderId}` — retry-safe qua NATS. Nếu Gateway tạm thời không khả dụng, order sync sẽ retry; điểm cộng đúng 1 lần khi Gateway phục hồi.
 
@@ -652,17 +694,18 @@ A: Không — `LoyaltyReadRouter` có **graceful fallback**: nếu Gateway khôn
 **Q: Làm sao trace 1 giao dịch trên PostgreSQL?**
 A: Mỗi giao dịch có idempotency key duy nhất. Query trực tiếp:
 ```sql
-SELECT "TransactionId", "Type", "Points", "Reason", "TransactionTenantId", "TransactionAt"
+SELECT "Id", "Type", "Points", "Reason", "TransactionTenantId", "SourceTenantId", "TransactionAt"
 FROM "AllianceTransactions"
 WHERE "IdempotencyKey" = 'welcome:{customerId}';
 ```
-Tham khảo bảng idempotency key ở mục 2.2.6. Mỗi thao tác nghiệp vụ có đúng 1 row (trừ khi retry, vẫn chỉ 1 row).
+Tham khảo bảng idempotency key ở mục 2.2.6. Mỗi thao tác nghiệp vụ có đúng 1 row (trừ khi retry, vẫn chỉ 1 row). `SourceTenantId` (Batch 5) = tenant SỞ HỮU điểm bị tiêu trong REDEEM cross-tenant.
 
 **Q: NATS sync có đảm bảo history không bị duplicate?**
-A: Có — `LoyaltySyncSubscriber` check `(timestamp, points, reason)` trước khi append vào `LoyaltyRewards.History`. Nếu NATS redeliver cùng message, history entry đã tồn tại → skip. Balance update thì idempotent theo bản chất (last-write-wins).
+A: Có — `LoyaltySyncSubscriber` check `(timestamp, points, reason)` trước khi append vào `LoyaltyRewards.History`. Nếu NATS redeliver cùng message, history entry đã tồn tại → skip. **Balance mirror overwrite theo PG authority** (BUG-1b fix — mọi write qua PG ledger nên PG luôn đúng, kể cả SPEND giảm balance) + **ordering guard** (payload mang timestamp full-precision; event cũ tới sau không được clobber balance mới — event vẫn ghi vào history audit).
 
 ---
 
-> **Tài liệu này áp dụng cho phiên bản MVP 1.2 (Loyalty Alliance Phase 1-7 + Loyalty Consistency Fix BUG #0-#9 resolved, 2026-08-03).**
-> **Thay đổi v1.2:** Mode-aware balance reads (BUG #4/#7/#8) + mode-aware point writes (BUG #1/#2/#6) + legacy redeem 410 Gone (BUG #3/D3) + NATS history sync (BUG #9) + HTTP proxy infrastructure Option B (BUG #0). Phase 4 (VPS Runtime Verification 14-step) đang chờ thực hiện.
-> **Cập nhật tiếp theo:** sau khi Phase 4 VPS RV pass, hoặc khi có Sprint 1 (Nearby Orders) / tính năng mới.
+> **Tài liệu này áp dụng cho phiên bản MVP 1.3 (Loyalty Alliance Phase 1-7 + Loyalty Consistency Fix BUG #0-#9 + Loyalty Points Integrity Batch 1-5 + BUG-1/1b/ordering-guard, 2026-09-21).**
+> **Thay đổi v1.3:** PG ledger = single source of truth cho CẢ Silo + Alliance (mọi write qua Gateway internal API — POS proxy cutover Batch 2) · NATS sync cả 2 mode + payload mang customerId (mirror stub tự tạo, identity trùng PG) · mirror overwrite PG authority + ordering guard · budget caps 4 loại + counters + reset (Batch 3) · 1 công thức điểm D1 net revenue + `/api/loyalty/estimate` + banner điểm thật (Batch 4) · Alliance attribution FIFO (SourceTenantId) + settlement report + breakdown netEarn (Batch 5) · backfill `loyalty-backfill-pg` · URLs production (`app2`/`api2`/`diemthuong2`).
+> **Thay đổi v1.2:** Mode-aware balance reads (BUG #4/#7/#8) + mode-aware point writes (BUG #1/#2/#6) + legacy redeem 410 Gone (BUG #3/D3) + NATS history sync (BUG #9) + HTTP proxy infrastructure Option B (BUG #0).
+> **Cập nhật tiếp theo:** khi có tính năng mới (Sprint 1 Nearby Orders / Realtime Platform / Community Commerce) — hoặc khi kiến trúc loyalty thay đổi tiếp.
