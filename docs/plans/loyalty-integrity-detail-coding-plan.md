@@ -1,8 +1,8 @@
 # Loyalty Points Integrity — Detail Coding Plan (v1.0)
 
 **Created:** 2026-09-20
-**Status:** ✅ BATCH 1 COMPLETE + DEPLOYED + RV PRODUCTION PASS (2026-09-20, `ebbc1f5a` + `6023ad0`) — Batch 2-5 pending
-**Mode:** IMPLEMENT (Batch 1 xong) → Batch 2 (PG ledger authority) kế tiếp
+**Status:** ✅ BATCH 1-4 COMPLETE + DEPLOYED + RV PRODUCTION PASS (2026-09-20/21) — ✅ BATCH 5 CODE DONE (2026-09-21, `c1db4f6a`, Phase 5: Alliance attribution FIFO + settlement) — chờ push → CD → RV
+**Mode:** IMPLEMENT (Batch 5 xong, chờ deploy/RV)
 **Branch:** `main`
 **Liên quan:** `docs/plans/loyalty-consistency-fix-plan.md` (COMPLETE, Alliance routing), `docs/plans/loyalty-alliance-master-plan.md`, `docs/AI/tasks/loyalty_points_visibility_master_plan.md` (Phase 3 VND APPROVED)
 
