@@ -559,13 +559,14 @@ namespace VanAn.CoreHub.Services
                 return;
             }
 
-            // PointsRate * TotalAmount, clamped to [MinPointsPerOrder, MaxPointsPerOrder].
-            int pointsToAward = (int)(order.TotalAmount * rate);
-            pointsToAward = Math.Max(minPoints, pointsToAward);
-            if (maxPoints.HasValue)
-            {
-                pointsToAward = Math.Min(maxPoints.Value, pointsToAward);
-            }
+            // Loyalty Points Integrity (Batch 4, T4.1, D1): SINGLE points formula via
+            // LoyaltyPointsCalculator — award = banner = checkout-estimate (fix RC2). Base = NET
+            // revenue (SubTotal − DiscountAmount; VAT + shipping excluded — Order.SubTotal does
+            // not shrink with discount, it only reduces TotalAmount). Mode-aware: Silo rate vs
+            // Alliance VND-per-point (matches the ledger's mode routing).
+            decimal netRevenue = LoyaltyPointsCalculator.NetRevenue(order.SubTotal, order.DiscountAmount);
+            var formula = new PointsFormula(rate, minPoints, maxPoints, await ResolveFormulaModeAsync(order.TenantId.Value));
+            int pointsToAward = LoyaltyPointsCalculator.Calculate(netRevenue, formula);
 
             // VALCN v2.0 Phase 3 / Batch 3: loyalty budget enforcement is ALWAYS ON (D3) — no feature
             // flag gate. ValcnV2_LoyaltyBudget (default ON) is only an emergency OFF switch surfaced
@@ -703,6 +704,32 @@ namespace VanAn.CoreHub.Services
                     await _loyaltyBudgetService.RecordIssuanceAsync(order.TenantId.Value, pointsToAward);
                 }
             }
+        }
+
+        /// <summary>
+        /// Loyalty Points Integrity (Batch 4, T4.1): resolve the points formula mode — Alliance
+        /// (VND-per-point) when the tenant is an effective Alliance member, otherwise Silo (rate).
+        /// Mirrors the ledger's mode routing so the computed points match the route AwardAsync takes.
+        /// </summary>
+        private async Task<PointsFormulaMode> ResolveFormulaModeAsync(Guid tenantId)
+        {
+            if (_loyaltyModeResolver is not null)
+            {
+                try
+                {
+                    LoyaltyMode mode = await _loyaltyModeResolver.GetEffectiveModeAsync(tenantId);
+                    if (mode == LoyaltyMode.Alliance && await _loyaltyModeResolver.IsAllianceMemberAsync(tenantId))
+                    {
+                        return PointsFormulaMode.Alliance;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Loyalty: failed to resolve formula mode for tenant {TenantId} — defaulting to Silo", tenantId);
+                }
+            }
+
+            return PointsFormulaMode.Silo;
         }
 
         /// <summary>

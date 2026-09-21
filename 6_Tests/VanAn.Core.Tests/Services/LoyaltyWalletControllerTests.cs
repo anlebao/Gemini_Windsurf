@@ -82,6 +82,9 @@ public class LoyaltyWalletControllerTests
             httpClientFactoryMock.Object,
             walletMock.Object,
             dbContextMock.Object,
+            shopFeatureSettingsService: null,
+            loyaltyPointsConfig: null,
+            loyaltyModeResolver: null,
             NullLogger<LoyaltyController>.Instance);
 
         // Set up X-Customer-Token header
@@ -183,6 +186,9 @@ public class LoyaltyWalletControllerTests
             httpClientFactoryMock.Object,
             walletMock.Object,
             dbContextMock.Object,
+            shopFeatureSettingsService: null,
+            loyaltyPointsConfig: null,
+            loyaltyModeResolver: null,
             NullLogger<LoyaltyController>.Instance);
         controller.ControllerContext = new ControllerContext
         {

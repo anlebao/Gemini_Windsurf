@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using System.Text.Json;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Services;
 
@@ -23,11 +25,19 @@ namespace VanAn.Gateway.Controllers
         IHttpClientFactory httpClientFactory,
         IAllianceWalletService allianceWalletService,
         IVanAnDbContext dbContext,
+        // Loyalty Points Integrity (Batch 4, T4.3): checkout estimate — server-side formula
+        // resolution (tenant settings → PG LoyaltyGlobalConfig → appsettings) + mode.
+        IShopFeatureSettingsService? shopFeatureSettingsService,
+        IOptions<LoyaltyPointsConfig>? loyaltyPointsConfig,
+        ILoyaltyModeResolver? loyaltyModeResolver,
         ILogger<LoyaltyController> logger) : ControllerBase
     {
         private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
         private readonly IAllianceWalletService _allianceWalletService = allianceWalletService;
         private readonly IVanAnDbContext _dbContext = dbContext;
+        private readonly IShopFeatureSettingsService? _shopFeatureSettingsService = shopFeatureSettingsService;
+        private readonly IOptions<LoyaltyPointsConfig>? _loyaltyPointsConfig = loyaltyPointsConfig;
+        private readonly ILoyaltyModeResolver? _loyaltyModeResolver = loyaltyModeResolver;
         private readonly ILogger<LoyaltyController> _logger = logger;
 
         /// <summary>
@@ -35,6 +45,98 @@ namespace VanAn.Gateway.Controllers
         /// Public (anonymous) — KhachLink calls this on startup to decide whether
         /// to show "Ví liên minh" menu/icon. When mode=Silo, alliance wallet UI is hidden.
         /// </summary>
+        /// <summary>
+        /// Loyalty Points Integrity (Batch 4, T4.3): checkout points ESTIMATE computed server-side
+        /// with the SAME single formula as the award — LoyaltyPointsCalculator, decision D1:
+        /// base = NET revenue (subTotal − discountAmount; VAT + shipping excluded), clamped to
+        /// [Min, Max]. KhachLink calls this instead of replicating the formula client-side
+        /// (the old client code had no clamp, no discount, and included VAT + shipping).
+        /// Response: { loyaltyEnabled, points, mode, netRevenue }.
+        /// </summary>
+        [HttpGet("estimate")]
+        public async Task<IActionResult> GetPointsEstimate(
+            [FromQuery] Guid tenantId,
+            [FromQuery] decimal subTotal,
+            [FromQuery] decimal discountAmount)
+        {
+            try
+            {
+                decimal netRevenue = LoyaltyPointsCalculator.NetRevenue(subTotal, discountAmount);
+
+                // Config resolution (unchanged chain — mirrors the award path): appsettings
+                // LoyaltyPoints → PG LoyaltyGlobalConfig (int % → /100) → tenant settings.
+                decimal rate = _loyaltyPointsConfig?.Value.PointsRate ?? LoyaltyPointsCalculator.DefaultRate;
+                int minPoints = _loyaltyPointsConfig?.Value.MinPointsPerOrder ?? 10;
+                int? maxPoints = _loyaltyPointsConfig?.Value.MaxPointsPerOrder;
+                bool awardOnAll = _loyaltyPointsConfig?.Value.AwardOnAllOrders ?? true;
+                bool loyaltyEnabled = true;
+
+                var globalConfig = await _dbContext.LoyaltyGlobalConfigs.FirstOrDefaultAsync();
+                if (globalConfig != null && globalConfig.PointsRate > 0)
+                {
+                    rate = globalConfig.PointsRate / 100m;
+                    minPoints = globalConfig.MinPointsPerOrder;
+                    maxPoints = globalConfig.MaxPointsPerOrder;
+                }
+
+                if (_shopFeatureSettingsService is not null)
+                {
+                    try
+                    {
+                        var tenantSettings = await _shopFeatureSettingsService.GetSettingsAsync(tenantId);
+                        loyaltyEnabled = tenantSettings.Loyalty_Program_Enabled;
+                        if (tenantSettings.Loyalty_PointsRate > 0m) rate = tenantSettings.Loyalty_PointsRate;
+                        if (tenantSettings.Loyalty_MinPointsPerOrder > 0) minPoints = tenantSettings.Loyalty_MinPointsPerOrder;
+                        if (tenantSettings.Loyalty_MaxPointsPerOrder.HasValue) maxPoints = tenantSettings.Loyalty_MaxPointsPerOrder;
+                        awardOnAll = tenantSettings.Loyalty_AwardOnAllOrders;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Estimate: failed to load tenant loyalty settings for tenant {TenantId} — using global default", tenantId);
+                    }
+                }
+
+                // Mirror the award gate: loyalty disabled → 0 points; AwardOnAllOrders=false →
+                // points only for campaign-referred orders (unknowable at checkout) → 0 (the
+                // tracking banner then shows the REAL award). Never over-promise in the estimate.
+                if (!loyaltyEnabled || !awardOnAll)
+                {
+                    return Ok(new LoyaltyEstimateDto { LoyaltyEnabled = loyaltyEnabled, Points = 0, Mode = "Silo", NetRevenue = netRevenue });
+                }
+
+                PointsFormulaMode mode = PointsFormulaMode.Silo;
+                if (_loyaltyModeResolver is not null)
+                {
+                    try
+                    {
+                        if (await _loyaltyModeResolver.GetEffectiveModeAsync(tenantId) == LoyaltyMode.Alliance
+                            && await _loyaltyModeResolver.IsAllianceMemberAsync(tenantId))
+                        {
+                            mode = PointsFormulaMode.Alliance;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Estimate: mode resolution failed for tenant {TenantId} — defaulting to Silo", tenantId);
+                    }
+                }
+
+                int points = LoyaltyPointsCalculator.Calculate(netRevenue, new PointsFormula(rate, minPoints, maxPoints, mode));
+                return Ok(new LoyaltyEstimateDto
+                {
+                    LoyaltyEnabled = true,
+                    Points = points,
+                    Mode = mode.ToString(),
+                    NetRevenue = netRevenue
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error computing loyalty estimate for tenant {TenantId}", tenantId);
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+
         [HttpGet("mode")]
         public async Task<IActionResult> GetGlobalMode()
         {
@@ -207,6 +309,16 @@ namespace VanAn.Gateway.Controllers
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }
+    }
+
+    // === Estimate DTO ===
+
+    public class LoyaltyEstimateDto
+    {
+        public bool LoyaltyEnabled { get; set; }
+        public int Points { get; set; }
+        public string Mode { get; set; } = "Silo";
+        public decimal NetRevenue { get; set; }
     }
 
     // === Wallet DTOs ===

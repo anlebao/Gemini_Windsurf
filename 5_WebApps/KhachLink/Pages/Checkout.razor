@@ -1,4 +1,5 @@
 ﻿@page "/checkout"
+@using System.Globalization
 @using VanAn.KhachLink.Components
 @using VanAn.KhachLink.Components.Layout
 @using VanAn.KhachLink.Models
@@ -453,30 +454,29 @@
                 selectedPaymentMethod = HasCharityItems && _charityDonationEnabled ? "donation" : "free";
             }
 
-            // #99-3: Load tenant loyalty settings to estimate points + show/hide estimate banner.
-            // Uses first cart item's TenantId (multi-tenant cart: each item may be from different tenant;
-            // for estimate we use the first tenant's rate — actual award is per-order per-tenant).
+            // Batch 4 (T4.3): checkout estimate computed SERVER-side by the Gateway
+            // (GET /api/loyalty/estimate → LoyaltyPointsCalculator, D1 net revenue) — the SAME
+            // single formula as the actual award. Client no longer replicates the formula
+            // (old code: no clamp, no discount, VAT + shipping included → drifted from award).
+            // Uses the first cart item's TenantId (multi-tenant cart: estimate is per-tenant;
+            // the tracking banner shows the real per-order award). Cart has no discount → 0.
             var firstTenantItem = cartSnapshot.FirstOrDefault();
             if (firstTenantItem != null && firstTenantItem.TenantId != Guid.Empty)
             {
                 try
                 {
-                    var settingsClient = HttpClientFactory.CreateClient("gateway");
-                    var settingsResp = await settingsClient.GetAsync(
-                        $"/api/tenants/{firstTenantItem.TenantId}/feature-settings");
-                    if (settingsResp.IsSuccessStatusCode)
+                    var loyaltyClient = HttpClientFactory.CreateClient("gateway");
+                    decimal cartNetSubTotal = cartState.NetSubTotal; // pre-VAT (D1 base)
+                    var estimateResp = await loyaltyClient.GetAsync(
+                        $"/api/loyalty/estimate?tenantId={firstTenantItem.TenantId}" +
+                        $"&subTotal={cartNetSubTotal.ToString(CultureInfo.InvariantCulture)}&discountAmount=0");
+                    if (estimateResp.IsSuccessStatusCode)
                     {
-                        var settings = await settingsResp.Content.ReadFromJsonAsync<TenantSettingsDto>();
-                        if (settings != null)
+                        var estimate = await estimateResp.Content.ReadFromJsonAsync<LoyaltyEstimateDto>();
+                        if (estimate != null)
                         {
-                            _loyaltyEnabled = settings.Loyalty_Program_Enabled;
-                            if (_loyaltyEnabled)
-                            {
-                                decimal rate = settings.Loyalty_PointsRate > 0m
-                                    ? settings.Loyalty_PointsRate
-                                    : 0.1m; // global default fallback
-                                _estimatedPoints = (int)(orderTotal * rate);
-                            }
+                            _loyaltyEnabled = estimate.LoyaltyEnabled;
+                            _estimatedPoints = estimate.Points;
                         }
                     }
                 }
@@ -887,11 +887,13 @@
         public string? IdentityLevel { get; set; }
     }
 
-    // #99-3: Tenant settings DTO for loyalty estimate (subset of ShopFeatureSettingsDto)
-    private class TenantSettingsDto
+    // Batch 4 (T4.3): loyalty estimate response from Gateway GET /api/loyalty/estimate.
+    private class LoyaltyEstimateDto
     {
-        public bool Loyalty_Program_Enabled { get; set; } = true;
-        public decimal Loyalty_PointsRate { get; set; } = 0m;
+        public bool LoyaltyEnabled { get; set; }
+        public int Points { get; set; }
+        public string Mode { get; set; } = "Silo";
+        public decimal NetRevenue { get; set; }
     }
 
     // D4 (2026-09-17): shape returned by vananPWA.getCurrentPosition (pwa.js).
