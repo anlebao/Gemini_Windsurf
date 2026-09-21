@@ -178,14 +178,17 @@ public record CrawlTriggerApiRequest(
     string? Industry = null,
     string? Province = null,
     int MaxResults = 100,
-    string? SearchTerm = null);
+    string? SearchTerm = null,
+    // 2026-09-21 feature: đăng ký tenant bằng mã số thuế (1 hoặc danh sách)
+    List<string>? TaxCodes = null);
 
 public record CrawlTriggerApiResult(
     string Message,
     string? Source,
     string? Industry,
     string? Province,
-    int MaxResults);
+    int MaxResults,
+    int TaxCodeCount = 0);
 
 // ── Crawl status (polled by UI every 5s after trigger) ─────────────────────
 public record CrawlStatusApiDto(

@@ -22,6 +22,25 @@
         <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
     }
 
+    <VanACard Header="Đăng ký tenant bằng mã số thuế (MST)">
+        <p class="text-muted small mb-3">
+            Nhập <strong>1 hoặc nhiều mã số thuế</strong> (cách nhau bằng dấu phẩy, dấu chấm phẩy
+            hoặc xuống dòng) → hệ thống tra cứu doanhnghiep.vn → tạo <strong>Pending tenant</strong>
+            để verify trong tab "Pending" của Quản lý Tenant. MST 10 hoặc 13 chữ số.
+        </p>
+        <div class="form-group">
+            <label for="crawl-taxcodes">Danh sách mã số thuế</label>
+            <textarea id="crawl-taxcodes" class="vanan-input" rows="4"
+                      placeholder="VD:&#10;0312345678&#10;0101234567, 0209876543&#10;Mỗi dòng hoặc cách nhau bằng dấu phẩy"
+                      @bind="_taxCodeInput"></textarea>
+        </div>
+        <div class="modal-actions">
+            <VanAButton Variant="success" OnClick="HandleTaxCodeTrigger" IsLoading="@_isTriggering" Disabled="@(_status?.IsRunning == true)">
+                <i class="bi bi-search me-1"></i> Tra cứu &amp; tạo Pending tenant
+            </VanAButton>
+        </div>
+    </VanACard>
+
     <VanACard Header="Cấu hình crawl">
         <p class="text-muted small mb-3">
             Crawl business listings từ nguồn bên ngoài (doanhnghiep.vn)
@@ -88,10 +107,17 @@
         <VanACard Header="Kết quả trigger" CssClass="mt-3">
             <VanAAlert Type="success" Message="@_triggerResult.Message" Dismissible="false" />
             <div class="trigger-result">
-                <p><strong>Nguồn:</strong> @(_triggerResult.Source ?? "Tất cả")</p>
-                <p><strong>Ngành:</strong> @(_triggerResult.Industry ?? "Tất cả")</p>
-                <p><strong>Tỉnh:</strong> @(_triggerResult.Province ?? "Tất cả")</p>
-                <p><strong>Số lượng tối đa:</strong> @_triggerResult.MaxResults</p>
+                @if (_lastTaxCodeCount > 0)
+                {
+                    <p><strong>Mã số thuế:</strong> @_lastTaxCodeCount MST đang được tra cứu</p>
+                }
+                else
+                {
+                    <p><strong>Nguồn:</strong> @(_triggerResult.Source ?? "Tất cả")</p>
+                    <p><strong>Ngành:</strong> @(_triggerResult.Industry ?? "Tất cả")</p>
+                    <p><strong>Tỉnh:</strong> @(_triggerResult.Province ?? "Tất cả")</p>
+                    <p><strong>Số lượng tối đa:</strong> @_triggerResult.MaxResults</p>
+                }
             </div>
         </VanACard>
     }
@@ -177,6 +203,8 @@
 
 @code {
     private CrawlTriggerForm _form = new() { MaxResults = 100 };
+    private string _taxCodeInput = string.Empty;
+    private int _lastTaxCodeCount;
     private bool _isTriggering;
     private string _alertMessage = string.Empty;
     private string _alertType = "info";
@@ -188,6 +216,49 @@
     {
         // Load initial status (in case crawler is already running from previous trigger)
         await RefreshStatusAsync();
+    }
+
+    /// <summary>2026-09-21 feature: đăng ký tenant bằng mã số thuế — nhập 1 hoặc nhiều MST
+    /// (phân cách bằng dấu phẩy / chấm phẩy / xuống dòng) → tra cứu doanhnghiep.vn → Pending tenant.</summary>
+    private async Task HandleTaxCodeTrigger()
+    {
+        var codes = _taxCodeInput
+            .Split(new[] { ',', ';', '\n', '\r', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(c => c.Trim())
+            .Where(c => c.Length > 0)
+            .Distinct()
+            .ToList();
+
+        if (codes.Count == 0)
+        { ShowAlert("error", "Vui lòng nhập ít nhất 1 mã số thuế."); return; }
+
+        if (codes.Count > 500)
+        { ShowAlert("error", "Tối đa 500 mã số thuế mỗi lần."); return; }
+
+        var invalid = codes.Where(c => !IsValidTaxCode(c)).ToList();
+        if (invalid.Count > 0)
+        { ShowAlert("error", $"Mã số thuế không hợp lệ (phải 10 hoặc 13 chữ số): {string.Join(", ", invalid.Take(5))}"); return; }
+
+        _isTriggering = true;
+        try
+        {
+            _lastTaxCodeCount = codes.Count;
+            _triggerResult = await ClaimApi.TriggerCrawlAsync(new CrawlTriggerApiRequest(TaxCodes: codes));
+            ShowAlert("success", $"Đã gửi {codes.Count} mã số thuế để tra cứu. Kết quả hiển thị bên dưới.");
+            StartStatusPolling();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Tax-code trigger failed");
+            ShowAlert("error", $"Lỗi: {ex.Message}");
+        }
+        finally { _isTriggering = false; }
+    }
+
+    private static bool IsValidTaxCode(string taxCode)
+    {
+        var digits = taxCode.Replace("-", "").Trim();
+        return (digits.Length == 10 || digits.Length == 13) && digits.All(char.IsDigit);
     }
 
     private async Task HandleTrigger()
@@ -204,6 +275,7 @@
         _isTriggering = true;
         try
         {
+            _lastTaxCodeCount = 0;
             var request = new CrawlTriggerApiRequest(
                 Source: string.IsNullOrEmpty(_form.Source) ? null : _form.Source,
                 Industry: string.IsNullOrEmpty(_form.Industry) ? null : _form.Industry,

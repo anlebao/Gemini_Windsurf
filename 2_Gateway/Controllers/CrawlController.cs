@@ -111,9 +111,27 @@ namespace VanAn.Gateway.Controllers
         [ProducesResponseType(StatusCodes.Status202Accepted)]
         public async Task<IActionResult> TriggerCrawl([FromBody] CrawlTriggerRequest request)
         {
+            // 2026-09-21 feature: tax-code mode (đăng ký tenant bằng mã số thuế) — validate MST list.
+            if (request.TaxCodes is { Count: > 0 })
+            {
+                if (request.TaxCodes.Count > 500)
+                    return BadRequest(new { error = "Tối đa 500 mã số thuế mỗi lần." });
+
+                var cleaned = request.TaxCodes
+                    .Select(t => t.Trim())
+                    .Where(t => t.Length > 0)
+                    .Distinct()
+                    .ToList();
+                var invalid = cleaned.Where(t => !IsValidTaxCode(t)).ToList();
+                if (invalid.Count > 0)
+                    return BadRequest(new { error = $"Mã số thuế không hợp lệ (phải 10 hoặc 13 chữ số): {string.Join(", ", invalid.Take(5))}" });
+
+                request = request with { TaxCodes = cleaned };
+            }
+
             logger.LogInformation(
-                "Crawl trigger requested: source={Source}, industry={Industry}, province={Province}, maxResults={MaxResults}",
-                request.Source, request.Industry, request.Province, request.MaxResults);
+                "Crawl trigger requested: source={Source}, industry={Industry}, province={Province}, maxResults={MaxResults}, taxCodes={TaxCodeCount}",
+                request.Source, request.Industry, request.Province, request.MaxResults, request.TaxCodes?.Count ?? 0);
 
             // Forward to crawler worker via HttpClient (not YARP — YARP is for catch-all routes only)
             try
@@ -129,7 +147,8 @@ namespace VanAn.Gateway.Controllers
                     industry = request.Industry,
                     province = request.Province,
                     maxResults = request.MaxResults,
-                    searchTerm = request.SearchTerm
+                    searchTerm = request.SearchTerm,
+                    taxCodes = request.TaxCodes
                 }, jsonOpts);
 
                 // Fire-and-forget: don't block SysAdmin while crawler runs (can take minutes)
@@ -155,6 +174,14 @@ namespace VanAn.Gateway.Controllers
                 logger.LogError(ex, "Crawl trigger failed to start");
                 return StatusCode(500, "Crawl trigger failed to start.");
             }
+        }
+
+        /// <summary>Vietnamese tax code: 10 digits, optionally 13 digits with -xxx branch suffix (13 digits).</summary>
+        private static bool IsValidTaxCode(string taxCode)
+        {
+            if (string.IsNullOrWhiteSpace(taxCode)) return false;
+            var digits = taxCode.Replace("-", "").Trim();
+            return (digits.Length == 10 || digits.Length == 13) && digits.All(char.IsDigit);
         }
 
         /// <summary>
@@ -195,5 +222,6 @@ namespace VanAn.Gateway.Controllers
         string? Industry,      // Industry code filter
         string? Province,      // Province filter
         int MaxResults = 100,  // Max listings to crawl (default 100, max 500)
-        string? SearchTerm = null); // Search term for business name (e.g., "nhà hàng"). Null = use Industry or default.
+        string? SearchTerm = null, // Search term for business name (e.g., "nhà hàng"). Null = use Industry or default.
+        List<string>? TaxCodes = null); // 2026-09-21: MST list — register tenant(s) by tax code (findUnique).
 }

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
@@ -73,6 +74,22 @@ namespace VanAn.Gateway
                     // ShopERP clients expect string values, not int.
                     options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
                 });
+            // 2026-09-21 FIX (admin panel 500): Persistent Data Protection key ring.
+            // The Gateway previously ran with the lazy EphemeralDataProtectionProvider fallback in
+            // DataProtectionProviderAccessor.CreateProtector() → a NEW key every container restart →
+            // Customer.PhoneNumber/Email ciphertext (EncryptedStringConverter, Wave 2 PII) written by a
+            // previous instance could not be decrypted → CryptographicException "The payload was invalid"
+            // → HTTP 500 on community-admin eligible (includeIneligible) + activate-role.
+            // Persist keys to a mounted volume (DataProtection:KeyDirectory, default /app/keys) so the
+            // ring is stable across restarts. ApplicationName mirrors ShopERP ("VanAnShopERP") so the
+            // purpose strings are consistent if the key rings are ever shared.
+            string dataProtectionKeyDir = builder.Configuration.GetSection("DataProtection")["KeyDirectory"]
+                ?? Path.Combine(AppContext.BaseDirectory, "keys");
+            _ = Directory.CreateDirectory(dataProtectionKeyDir);
+            _ = builder.Services.AddDataProtection()
+                .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyDir))
+                .SetApplicationName(builder.Configuration.GetSection("DataProtection")["ApplicationName"] ?? "VanAnShopERP");
+
             // Phase 2 Scaling: SignalR with Redis backplane — enables horizontal scaling of Gateway.
             // Without backplane, multiple Gateway instances can't broadcast SignalR messages to clients
             // connected to other instances. Redis backplane syncs messages across all instances.
@@ -727,6 +744,12 @@ namespace VanAn.Gateway
 
             WebApplication app = builder.Build();
             rootProvider = app.Services;  // Late-bind for DynamicCors SetIsOriginAllowed lambda
+
+            // 2026-09-21 FIX: Wire the DI DataProtection provider (persistent key ring) into the
+            // static accessor used by EF Core EncryptedStringConverter (Customer.PhoneNumber/Email).
+            // Without this the accessor falls back to an EPHEMERAL provider → keys rotate per restart.
+            VanAn.CoreHub.Infrastructure.DataProtection.DataProtectionProviderAccessor.Initialize(
+                app.Services.GetRequiredService<Microsoft.AspNetCore.DataProtection.IDataProtectionProvider>());
 
             try
             {

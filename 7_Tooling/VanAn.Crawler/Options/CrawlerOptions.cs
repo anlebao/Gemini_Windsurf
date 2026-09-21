@@ -32,4 +32,12 @@ public sealed class CrawlerOptions
 
     /// <summary>doanhnghiep.vn free tier limit — 100 requests per day.</summary>
     public int DoanhNghiepDailyLimit { get; set; } = 100;
+
+    /// <summary>
+    /// doanhnghiep.vn API key (2026-09-14: public no-key tier DISABLED — 401 key_required).
+    /// Sent as `x-api-key: <key>` header (or `authorization: Bearer <key>`). Register FREE:
+    /// https://doanhnghiep.vn/api/docs — contact lienhe@doanhnghiep.vn.
+    /// Empty = requests will 401 (crawl returns 0 listings with a clear error).
+    /// </summary>
+    public string DoanhNghiepApiKey { get; set; } = "";
 }

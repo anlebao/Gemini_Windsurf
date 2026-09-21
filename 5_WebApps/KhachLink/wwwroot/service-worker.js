@@ -1,6 +1,15 @@
 ﻿// ============================================================================
-// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v19-merge-activate)
+// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v20-delivery-pin)
 // ============================================================================
+//
+// v20-delivery-pin (2026-09-21):
+//   - Static assets are CACHE-FIRST with NO expiry → users keep old JS forever after
+//     a deploy. The 2026-09-20 checkout delivery-pin feature added `vananMap.pinLocation`
+//     to realtime.js — returning users still ran the OLD cached realtime.js (no pinLocation),
+//     the Blazor catch swallowed the error, and the pin map never rendered.
+//   - Fix: bump ALL cache names v19 → v20 so the activate handler deletes the stale caches
+//     and every client re-fetches the current static assets (network-first fallback for JS).
+//
 // Cache strategy:
 //   - _framework/*.wasm/.dll/.js → network-first + cache fallback (WASM_CACHE)
 //     · Was cache-first — caused SRI mismatch after deploys (stale cached wasm
@@ -79,10 +88,10 @@
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v19-merge-activate';
-const STATIC_CACHE = 'vanan-static-v19-merge-activate';
-const DYNAMIC_CACHE = 'vanan-dynamic-v19-merge-activate';
-const WASM_CACHE = 'vanan-wasm-v19-merge-activate';
+const CACHE_NAME = 'vanan-khachlink-v20-delivery-pin';
+const STATIC_CACHE = 'vanan-static-v20-delivery-pin';
+const DYNAMIC_CACHE = 'vanan-dynamic-v20-delivery-pin';
+const WASM_CACHE = 'vanan-wasm-v20-delivery-pin';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [

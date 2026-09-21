@@ -117,8 +117,8 @@ public sealed class CrawlerCoordinator : BackgroundService
     /// </summary>
     public async Task<BatchCrawlResult> RunCrawlAsync(CrawlTriggerRequest request, CancellationToken ct = default)
     {
-        _logger.LogInformation("Crawl triggered: source={Source}, industry={Industry}, province={Province}, maxResults={MaxResults}",
-            request.Source, request.Industry, request.Province, request.MaxResults);
+        _logger.LogInformation("Crawl triggered: source={Source}, industry={Industry}, province={Province}, maxResults={MaxResults}, taxCodes={TaxCodeCount}",
+            request.Source, request.Industry, request.Province, request.MaxResults, request.TaxCodes?.Count ?? 0);
 
         // Prevent concurrent runs — if user clicks trigger multiple times before status poll
         // disables the button, 2nd+ clicks get rejected immediately.
@@ -145,46 +145,86 @@ public sealed class CrawlerCoordinator : BackgroundService
                 return errResult;
             }
 
-            // Fetch from all selected adapters
             var allListings = new List<CrawlListingDto>();
-            foreach (var adapter in selectedAdapters)
+
+            // 2026-09-21 feature: register tenant(s) by tax code (MST). Only doanhnghiep.vn
+            // supports MST lookup — skip the search-based flow entirely.
+            if (request.TaxCodes is { Count: > 0 })
             {
+                var restAdapter = selectedAdapters.OfType<RestApiAdapter>()
+                    .FirstOrDefault(a => a.Name.Equals("doanhnghiep.vn", StringComparison.OrdinalIgnoreCase))
+                    ?? _adapters.OfType<RestApiAdapter>().FirstOrDefault();
+                if (restAdapter is null)
+                {
+                    var errResult = new BatchCrawlResult(0, 0, [new BatchCrawlError("taxcodes", "doanhnghiep.vn adapter not registered — MST lookup unavailable")]);
+                    FinishRun(errResult, "doanhnghiep.vn adapter not registered — MST lookup unavailable");
+                    return errResult;
+                }
+
+                SetStatus($"Tra cứu {request.TaxCodes.Count} mã số thuế từ doanhnghiep.vn", restAdapter.Name);
                 try
                 {
-                    SetStatus($"Crawling from {adapter.Name}", adapter.Name);
-                    // Search term: user-provided > industry-specific Vietnamese term > generic "công ty"
-                    // "F&B" as a search query to doanhnghiep.vn returns ~1 result (literal match).
-                    // Map industry codes to Vietnamese search terms for better results.
-                    var searchTerm = request.SearchTerm
-                        ?? request.Industry switch
-                        {
-                            "F&B" => "nhà hàng",
-                            "SPA" => "spa",
-                            "RETAIL" => "cửa hàng",
-                            "SERVICE" => "dịch vụ",
-                            _ => "công ty"
-                        };
-                    var query = new CrawlQuery
-                    {
-                        SearchTerm = searchTerm,
-                        IndustryCode = request.Industry,
-                        Province = request.Province,
-                        MaxResults = request.MaxResults
-                    };
-                    var listings = await adapter.FetchAsync(query, ct);
-                    allListings.AddRange(listings);
+                    allListings = await restAdapter.FetchByTaxCodesAsync(request.TaxCodes, ct);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Adapter {Adapter} failed", adapter.Name);
+                    _logger.LogError(ex, "Tax-code fetch failed");
+                    var failResult = new BatchCrawlResult(0, 0, [new BatchCrawlError("taxcodes", ex.Message)]);
+                    FinishRun(failResult, $"Tra cứu MST thất bại: {ex.Message}");
+                    return failResult;
+                }
+            }
+            else
+            {
+                // Fetch from all selected adapters (search-based crawl)
+                foreach (var adapter in selectedAdapters)
+                {
+                    try
+                    {
+                        SetStatus($"Crawling from {adapter.Name}", adapter.Name);
+                        // Search term: user-provided > industry-specific Vietnamese term > generic "công ty"
+                        // "F&B" as a search query to doanhnghiep.vn returns ~1 result (literal match).
+                        // Map industry codes to Vietnamese search terms for better results.
+                        var searchTerm = request.SearchTerm
+                            ?? request.Industry switch
+                            {
+                                "F&B" => "nhà hàng",
+                                "SPA" => "spa",
+                                "RETAIL" => "cửa hàng",
+                                "SERVICE" => "dịch vụ",
+                                _ => "công ty"
+                            };
+                        var query = new CrawlQuery
+                        {
+                            SearchTerm = searchTerm,
+                            IndustryCode = request.Industry,
+                            Province = request.Province,
+                            MaxResults = request.MaxResults
+                        };
+                        var listings = await adapter.FetchAsync(query, ct);
+                        allListings.AddRange(listings);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Adapter {Adapter} failed", adapter.Name);
+                    }
                 }
             }
 
             if (allListings.Count == 0)
             {
-                _logger.LogInformation("No listings crawled — nothing to post to Gateway");
-                var emptyResult = new BatchCrawlResult(0, 0, []);
-                FinishRun(emptyResult, "No listings crawled (source returned 0 results or was blocked)");
+                // 2026-09-21: surface the source auth error (401 key_required) so the UI shows why.
+                var authErrors = selectedAdapters
+                    .OfType<RestApiAdapter>()
+                    .Where(a => !string.IsNullOrEmpty(a.LastAuthError))
+                    .Select(a => $"[{a.Name}] {a.LastAuthError}")
+                    .ToList();
+                var reason = authErrors.Count > 0
+                    ? string.Join(" | ", authErrors)
+                    : "No listings crawled (source returned 0 results or was blocked)";
+                _logger.LogInformation("No listings crawled — nothing to post to Gateway: {Reason}", reason);
+                var emptyResult = new BatchCrawlResult(0, 0, authErrors.Select(e => new BatchCrawlError("auth", e)).ToList());
+                FinishRun(emptyResult, reason);
                 return emptyResult;
             }
 

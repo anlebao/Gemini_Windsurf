@@ -178,6 +178,21 @@ window.vananMap = {
         });
     },
 
+    // 2026-09-21: move the delivery pin created by pinLocation (e.g. when GPS arrives
+    // after the map already rendered) without re-initialising the map. No-op if the
+    // map/pin doesn't exist yet.
+    setPinLocation: function (elementId, latInputId, lngInputId, lat, lng) {
+        const map = _maps[elementId];
+        const marker = map && _markers[elementId] && _markers[elementId]['pin'];
+        if (!map || !marker) return;
+        marker.setLatLng([lat, lng]);
+        map.panTo([lat, lng], { animate: true });
+        const latInput = document.getElementById(latInputId);
+        const lngInput = document.getElementById(lngInputId);
+        if (latInput) latInput.value = Number(lat).toFixed(6);
+        if (lngInput) lngInput.value = Number(lng).toFixed(6);
+    },
+
     drawRoute: function (elementId, fromLat, fromLng, toLat, toLng) {
         const map = _maps[elementId];
         if (!map) return;

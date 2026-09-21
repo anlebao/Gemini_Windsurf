@@ -22,6 +22,10 @@ public sealed class RestApiAdapter : IDataSourceAdapter
     private readonly string _baseUrl;
     private int _requestCount;
 
+    /// <summary>Set when the source API rejects auth (401). Surfaced in crawl status so the
+    /// admin UI shows WHY 0 listings were crawled.</summary>
+    public string? LastAuthError { get; private set; }
+
     public RestApiAdapter(
         HttpClient httpClient,
         CrawlerOptions options,
@@ -34,9 +38,124 @@ public sealed class RestApiAdapter : IDataSourceAdapter
         _logger = logger;
         _sourceName = sourceName;
         _baseUrl = baseUrl.TrimEnd('/');
+
+        // 2026-09-21 FIX (crawl 401): doanhnghiep.vn disabled the no-key public tier on
+        // 2026-09-14 — every request now requires `x-api-key` (free registration at
+        // https://doanhnghiep.vn/api/docs). Previously "no API key needed" (M2, 2026-08-26).
+        if (!string.IsNullOrWhiteSpace(options.DoanhNghiepApiKey))
+        {
+            _httpClient.DefaultRequestHeaders.Remove("x-api-key");
+            _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", options.DoanhNghiepApiKey);
+        }
     }
 
     public string Name => _sourceName;
+
+    /// <summary>
+    /// 2026-09-21 feature: fetch companies by a list of tax codes (MST). doanhnghiep.vn
+    /// search short-circuits to findUnique when q is a 10/13-digit MST; fallback to the
+    /// companies/{mst} detail endpoint. Used by "đăng ký tenant bằng mã số thuế".
+    /// </summary>
+    public async Task<List<CrawlListingDto>> FetchByTaxCodesAsync(List<string> taxCodes, CancellationToken ct = default)
+    {
+        var results = new List<CrawlListingDto>();
+        var seenMst = new HashSet<string>();
+
+        foreach (var raw in taxCodes)
+        {
+            var mst = raw.Trim();
+            if (string.IsNullOrEmpty(mst) || !seenMst.Add(mst)) continue;
+
+            try
+            {
+                // Try the detail endpoint first (most complete response).
+                var detailUrl = $"{_baseUrl}/api/v1/companies/{Uri.EscapeDataString(mst)}";
+                var detailResp = await _httpClient.GetAsync(detailUrl, ct);
+                _requestCount++;
+
+                if (detailResp.IsSuccessStatusCode)
+                {
+                    var detailJson = await detailResp.Content.ReadAsStringAsync(ct);
+                    using var detailDoc = JsonDocument.Parse(detailJson);
+                    var d = detailDoc.RootElement;
+                    var listing = MapDetailToListing(d, mst);
+                    if (listing is not null)
+                    {
+                        results.Add(listing);
+                        _logger.LogInformation("[{Source}] Tax-code {Mst}: {Name}", _sourceName, mst, listing.Name);
+                        continue;
+                    }
+                }
+                else if (detailResp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    LastAuthError = string.IsNullOrWhiteSpace(_options.DoanhNghiepApiKey)
+                        ? "Thiếu API key doanhnghiep.vn (Crawler__DoanhNghiepApiKey). Đăng ký MIỄN PHÍ: https://doanhnghiep.vn/api/docs"
+                        : "API key doanhnghiep.vn bị từ chối (401). Kiểm tra Crawler__DoanhNghiepApiKey.";
+                    _logger.LogWarning("[{Source}] Tax-code {Mst} detail failed: 401 — {Detail}", _sourceName, mst, LastAuthError);
+                    break;
+                }
+
+                // Fallback: search by MST (findUnique short-circuit)
+                var searchUrl = $"{_baseUrl}/api/v1/search?q={Uri.EscapeDataString(mst)}&limit=1&page=1";
+                var searchResp = await _httpClient.GetAsync(searchUrl, ct);
+                _requestCount++;
+                if (!searchResp.IsSuccessStatusCode) continue;
+
+                var searchJson = await searchResp.Content.ReadAsStringAsync(ct);
+                using var searchDoc = JsonDocument.Parse(searchJson);
+                if (!searchDoc.RootElement.TryGetProperty("items", out var itemsEl)) continue;
+                var items = itemsEl.EnumerateArray().ToList();
+                if (items.Count == 0)
+                {
+                    _logger.LogInformation("[{Source}] Tax-code {Mst}: not found", _sourceName, mst);
+                    continue;
+                }
+
+                var itemMst = items[0].TryGetProperty("mst", out var mstEl) ? mstEl.GetString() : mst;
+                var listing2 = MapDetailToListing(items[0], itemMst ?? mst);
+                if (listing2 is not null)
+                {
+                    results.Add(listing2);
+                    _logger.LogInformation("[{Source}] Tax-code {Mst}: {Name}", _sourceName, mst, listing2.Name);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[{Source}] Tax-code {Mst} fetch failed", _sourceName, mst);
+            }
+
+            await Task.Delay(_options.DefaultRateLimitMs, ct);
+        }
+
+        _logger.LogInformation("[{Source}] Tax-code fetch complete: {Count} listings", _sourceName, results.Count);
+        return results;
+    }
+
+    private static CrawlListingDto? MapDetailToListing(JsonElement d, string fallbackMst)
+    {
+        var mst = d.TryGetProperty("mst", out var mstEl) ? mstEl.GetString() : null;
+        if (string.IsNullOrEmpty(mst)) mst = fallbackMst;
+        if (string.IsNullOrEmpty(mst)) return null;
+
+        // Skip dissolved/terminated companies — only import operating ones.
+        var status = d.TryGetProperty("status", out var statusEl) ? statusEl.GetString() : null;
+        if (!string.IsNullOrEmpty(status) && status is "dissolved" or "suspended")
+        {
+            return null;
+        }
+
+        return new CrawlListingDto
+        {
+            Name = d.TryGetProperty("name_vi", out var nameEl) ? nameEl.GetString() ?? "" : "",
+            TaxCode = mst,
+            Address = d.TryGetProperty("address_full", out var addrEl) ? addrEl.GetString() : null,
+            ContactName = d.TryGetProperty("legal_rep_name", out var repEl) ? repEl.GetString() : null,
+            IndustryCode = d.TryGetProperty("industry_main_code", out var indEl) ? indEl.GetString() : null,
+            SourceSite = "doanhnghiep.vn",
+            SourceUrl = $"https://doanhnghiep.vn/dn/{mst}",
+            CrawledAt = DateTime.UtcNow
+        };
+    }
 
     public async Task<List<CrawlListingDto>> FetchAsync(CrawlQuery query, CancellationToken ct = default)
     {
@@ -63,7 +182,22 @@ public sealed class RestApiAdapter : IDataSourceAdapter
             var searchResp = await _httpClient.GetAsync(searchUrl, ct);
             if (!searchResp.IsSuccessStatusCode)
             {
-                _logger.LogWarning("[{Source}] Search page {Page} failed: {Status}", _sourceName, page, searchResp.StatusCode);
+                // 2026-09-21: 401 = API key missing/invalid (public tier disabled 2026-09-14).
+                // Surface the reason so the crawl status shows WHY 0 listings instead of silently
+                // returning "No listings crawled".
+                if (searchResp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    var errBody = await searchResp.Content.ReadAsStringAsync(ct);
+                    var detail = string.IsNullOrWhiteSpace(_options.DoanhNghiepApiKey)
+                        ? "Thiếu API key doanhnghiep.vn (Crawler__DoanhNghiepApiKey). Đăng ký MIỄN PHÍ: https://doanhnghiep.vn/api/docs"
+                        : $"API key doanhnghiep.vn bị từ chối (401). Kiểm tra Crawler__DoanhNghiepApiKey. {errBody[..Math.Min(errBody.Length, 200)]}";
+                    _logger.LogWarning("[{Source}] Search page {Page} failed: 401 Unauthorized — {Detail}", _sourceName, page, detail);
+                    LastAuthError = detail;
+                }
+                else
+                {
+                    _logger.LogWarning("[{Source}] Search page {Page} failed: {Status}", _sourceName, page, searchResp.StatusCode);
+                }
                 break;
             }
             _requestCount++;

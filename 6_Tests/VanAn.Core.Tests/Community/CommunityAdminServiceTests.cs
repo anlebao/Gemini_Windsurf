@@ -208,4 +208,53 @@ public class CommunityAdminServiceTests : IDisposable
         Assert.Contains(roles, r => r.Id == shipperRole.Id && !r.IsActive);
         Assert.Contains(roles, r => r.Id == salesmanRole.Id && r.IsActive);
     }
+
+    // === T9 (2026-09-21 fix): GetEligible_MasksPhone_DoesNotExposePii ===
+    // Regression for admin panel 500: eligible list must NOT materialize PhoneNumber/Email
+    // (EncryptedStringConverter) — previously the Gateway's ephemeral Data Protection key ring
+    // could not decrypt old ciphertext → CryptographicException → HTTP 500.
+    [Fact(DisplayName = "T9: GetEligible_MasksPhone_DoesNotExposePii")]
+    public async Task GetEligible_MasksPhone_DoesNotExposePii()
+    {
+        var eligible = CreateCustomer("Masked User", IdentityLevel.Verified, 1500);
+
+        var result = await _service.GetEligibleCustomersAsync(1, 20, includeIneligible: true);
+
+        var item = Assert.Single(result.Items, i => i.CustomerId == eligible.Id);
+        Assert.Equal("***", item.PhoneNumber);
+    }
+
+    // === T10 (2026-09-21 fix): ActivateRole_SurvivesUnreadablePii ===
+    // Regression for admin panel 500: activate-role must work even when the Customer row's
+    // PhoneNumber/Email ciphertext is NOT decryptable (lost key ring). Scalar projection
+    // skips the value converter entirely.
+    [Fact(DisplayName = "T10: ActivateRole_SurvivesUnreadablePii")]
+    public async Task ActivateRole_SurvivesUnreadablePii()
+    {
+        var customer = CreateCustomer("Broken PII", IdentityLevel.Verified, 1200);
+
+        // Corrupt the stored PII directly (simulates ciphertext written with a lost key).
+        _ = await _context.Database.ExecuteSqlRawAsync(
+            "UPDATE \"Customers\" SET \"PhoneNumber\" = 'corrupted-payload', \"Email\" = 'corrupted-payload' WHERE \"Id\" = {0}",
+            customer.Id);
+
+        // Old code (materializing the entity) throws CryptographicException here → 500.
+        var role = await _service.ActivateRoleAsync(customer.Id, CommunityRoleType.Shipper, AdminId);
+
+        Assert.NotNull(role);
+        Assert.Equal(customer.Id, role.CustomerId);
+        Assert.True(role.IsActive);
+    }
+
+    // === T11 (2026-09-21 fix): GetEligibleForTenant_MasksPhone ===
+    [Fact(DisplayName = "T11: GetEligibleForTenant_MasksPhone")]
+    public async Task GetEligibleForTenant_MasksPhone()
+    {
+        var eligible = CreateCustomer("Tenant Masked", IdentityLevel.Verified, 1500);
+
+        var result = await _service.GetEligibleCustomersForTenantAsync(TenantGuid, 1, 20, includeIneligible: true);
+
+        var item = Assert.Single(result.Items, i => i.CustomerId == eligible.Id);
+        Assert.Equal("***", item.PhoneNumber);
+    }
 }

@@ -1,243 +1,253 @@
-# Multi-VPS Deployment — Gateway VPS (Option C, 3-VPS split)
-# Deploy on: vanan-gateway VPS
-# Containers: postgres + nats + gateway + nginx (4 containers — fits e2-small 2GB)
-# Seq + KhachLink + Certbot run on SEPARATE VPS (vanan-khachlink).
-# ShopERP runs on SEPARATE VPS (vanan-shop-a).
-# Usage: docker compose -f docker-compose.gateway.yml up -d
-# Requires: .env.gateway file with all variables set
-
-services:
-  postgres:
-    image: postgres:15-alpine
-    # Phase 1 Scaling: max_connections=300 (match Npgsql pool), shared_buffers=256MB for 1000 tenant.
-    # Default max_connections=100 → pool exhaust at 100 concurrent query → 503.
-    command: ["postgres", "-c", "max_connections=300", "-c", "shared_buffers=256MB", "-c", "work_mem=4MB"]
-    environment:
-      - POSTGRES_DB=${POSTGRES_DB:-VanAnCoreHub}
-      - POSTGRES_USER=${POSTGRES_USER:-vanan_admin}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - vanan-network
-    # Multi-VPS: expose 5432 on host so shop-a VPS can connect via VPC internal IP.
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vanan_admin} -d ${POSTGRES_DB:-VanAnCoreHub}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  nats:
-    image: nats:2.10-alpine
-    command: ["-js", "-sd", "/data/jetstream", "-m", "8222"]
-    ports:
-      - "4222:4222"
-      - "127.0.0.1:8222:8222"
-    volumes:
-      - nats_data:/data/jetstream
-    networks:
-      - vanan-network
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/varz"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # Phase 2 Scaling: Redis — SignalR backplane for Gateway + distributed cache for ShopERP.
-  # If dedicated Redis VPS (vanan-redis) is provisioned (Phase 4), this service can be removed
-  # and REDIS_CONNECTION_STRING env var pointed to the dedicated VPS internal IP.
-  redis:
-    image: redis:7-alpine
-    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
-    ports:
-      - "6379:6379"
-    networks:
-      - vanan-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 384m
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  gateway:
-    image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-gateway:${IMAGE_TAG:-latest}
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:80
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-VanAnCoreHub};Username=${POSTGRES_USER:-vanan_admin};Password=${POSTGRES_PASSWORD}
-      - ConnectionStrings__Nats=nats://nats:4222
-      - Nats__Url=nats://nats:4222
-      - NATS__Url=nats://nats:4222
-      - Authentication__JwtSettings__SecretKey=${JWT_SECRET_KEY}
-      - Jwt__Secret=${JWT_SECRET_KEY}
-      # Dynamic CORS: static origins from appsettings.Production.json + dynamic from KhachLinkInstance registry.
-      # No Cors__AllowedOrigins__* env vars — managed via admin UI + DynamicCorsCacheHostedService.
-      # Seq runs on remote KhachLink VPS — use Serilog sink via HTTP
-      - Serilog__WriteTo__1__Args__serverUrl=http://${KHACHLINK_REMOTE_HOST}:5341
-      # Multi-VPS: ShopERP BaseUrl points to REMOTE VPS via VPC internal IP
-      - ShopERP__BaseUrl=http://${SHOPERP_REMOTE_HOST}:80/
-      - InternalLoyalty__ApiKey=${INTERNAL_LOYALTY_API_KEY:-vanan-internal-loyalty-prod-2026}
-      # NatsSyncWorker: poll every 10s (REQ-1.1 — reduce 50% DB query load, order delivery <10s OK for kitchen/POS)
-      - Sync__PollIntervalMs=10000
-      # Order sync seed: ShopInstance ID that matches ShopERP VPS SHOP_INSTANCE_ID.
-      # Gateway auto-creates this ShopInstance + assigns all tenants on startup if missing.
-      # MUST match docker-compose.shoperp.yml SHOP_INSTANCE_ID.
-      - SEED_SHOP_INSTANCE_ID=${SHOP_INSTANCE_ID}
-      # #126 Guard QR Verify — R1 complete, feature flag ON for production test.
-      # Default true (R1 deployed). Override via .env.gateway GUARD_QR_VERIFY_ENABLED=false to disable.
-      - Guard__QrVerifyEnabled=${GUARD_QR_VERIFY_ENABLED:-true}
-      # #130: Photo compression config (SystemAdmin adjustable via env vars)
-      - Guard__PhotoMaxDimension=${GUARD_PHOTO_MAX_DIMENSION:-1024}
-      - Guard__PhotoJpegQuality=${GUARD_PHOTO_JPEG_QUALITY:-0.7}
-      - Guard__MaxPhotoSizeKB=${GUARD_PHOTO_MAX_SIZE_KB:-100}
-      # #130: R2 storage credentials — override via .env.gateway (not baked into image).
-      # If not set, falls back to appsettings.json values (which may be stale).
-      - R2__Endpoint=${R2_ENDPOINT:-https://18947627801f833aecc202f086d66af5.r2.cloudflarestorage.com}
-      - R2__AccessKey=${R2_ACCESS_KEY:-acb543c587f9a2491dede99766a83760}
-      - R2__SecretKey=${R2_SECRET_KEY:-84df7752264a78f8744cc0207ad25d6046601ce8ec83817083a040c8d035fc7c}
-      - R2__BucketName=${R2_BUCKET_NAME:-vanan-guard-photos}
-      # KhachLink Multi-Profile R1 — feature flag (default OFF = no-op, existing behavior preserved)
-      # Set KHACHLINK_MULTIPROFILE_ENABLED=true in .env.gateway to enable multi-domain routing + profile-based NavFlags
-      - KhachLink__MultiProfileEnabled=${KHACHLINK_MULTIPROFILE_ENABLED:-false}
-      # Domain Reseller R1 — GoDaddy API for tenant domain DNS automation
-      # API key is a Personal Access Token (PAT) generated from GoDaddy developer portal.
-      # DefaultVpsIp is the Gateway VPS public IP — used for auto A record creation when linking domains.
-      - DomainRegistrar__GoDaddy__ApiKey=${GODADDY_API_KEY:-}
-      - DomainRegistrar__GoDaddy__ApiUrl=${GODADDY_API_URL:-https://api.godaddy.com}
-      - DomainRegistrar__DefaultVpsIp=${DOMAIN_REGISTRAR_DEFAULT_VPS_IP:-}
-      # Multi-VPS YARP: override cluster addresses to use VPC internal IPs
-      # (appsettings.json defaults to Docker hostnames "shoperp"/"khachlink" which are
-      # not resolvable when services are on separate VPSs)
-      - ReverseProxy__Clusters__shoperp-cluster__Destinations__destination1__Address=http://${SHOPERP_REMOTE_HOST}:80/
-      - ReverseProxy__Clusters__khachlink-cluster__Destinations__destination1__Address=http://${KHACHLINK_REMOTE_HOST}:80/
-      # Phase 2 Scaling: Redis backplane for SignalR + distributed cache.
-      # If REDIS_REMOTE_HOST is set, connect to dedicated Redis VPS; else use local redis service.
-      - ConnectionStrings__Redis=${REDIS_CONNECTION_STRING:-redis:6379}
-    networks:
-      - vanan-network
-    depends_on:
-      postgres:
-        condition: service_healthy
-      nats:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 1g  # Phase 1 Scaling: was 512m — OOM at 50+ concurrent request. e2-medium 4GB has headroom.
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  nginx:
-    image: nginx:1.25-alpine
-    environment:
-      - VANAN_DOMAIN=${VANAN_DOMAIN}
-      - SHOPERP_REMOTE_HOST=${SHOPERP_REMOTE_HOST}
-      - KHACHLINK_REMOTE_HOST=${KHACHLINK_REMOTE_HOST}
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/templates:/etc/nginx/templates:ro
-      - ./nginx/html:/usr/share/nginx/html:ro
-      - ./nginx/docker-entrypoint.multivps.sh:/docker-entrypoint.sh:ro
-      - certbot_www:/var/www/certbot:ro
-      - certbot_conf:/etc/letsencrypt:ro
-    entrypoint: ["/bin/sh", "/docker-entrypoint.sh"]
-    networks:
-      - vanan-network
-    depends_on:
-      - gateway
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # Crawl-to-Onboard Pipeline (Phase 5): Crawler worker — crawls business listings
-  # from doanhnghiep.vn + trangvangvietnam.com, posts to Gateway POST /api/v1/crawl/batch.
-  # Gateway forwards trigger via HttpClient to http://crawler:5010/trigger.
-  # Auth: crawler logs in via POST /api/platform/login (username + password from env).
-  crawler:
-    image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-crawler:${IMAGE_TAG:-latest}
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - Crawler__GatewayBaseUrl=http://gateway:80
-      - Crawler__AuthBaseUrl=http://${SHOPERP_REMOTE_HOST}:80
-      - Crawler__GatewayUsername=${CRAWLER_GATEWAY_USERNAME:-sysadmin@vanan.vn}
-      - Crawler__GatewayPassword=${CRAWLER_GATEWAY_PASSWORD}
-      - Crawler__ListenPort=5010
-      - Crawler__DefaultRateLimitMs=2000
-      - Crawler__MaxBatchSize=100
-      - Crawler__DoanhNghiepDailyLimit=100
-      - Crawler__UserAgent=VanAnCrawler/1.0 (+contact@vanan.vn)
-    networks:
-      - vanan-network
-    depends_on:
-      gateway:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:5010/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 256m
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-volumes:
-  postgres_data:
-  nats_data:
-  certbot_www:
-  certbot_conf:
-
-networks:
-  vanan-network:
-    driver: bridge
+# Multi-VPS Deployment — Gateway VPS (Option C, 3-VPS split)
+# Deploy on: vanan-gateway VPS
+# Containers: postgres + nats + gateway + nginx (4 containers — fits e2-small 2GB)
+# Seq + KhachLink + Certbot run on SEPARATE VPS (vanan-khachlink).
+# ShopERP runs on SEPARATE VPS (vanan-shop-a).
+# Usage: docker compose -f docker-compose.gateway.yml up -d
+# Requires: .env.gateway file with all variables set
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    # Phase 1 Scaling: max_connections=300 (match Npgsql pool), shared_buffers=256MB for 1000 tenant.
+    # Default max_connections=100 → pool exhaust at 100 concurrent query → 503.
+    command: ["postgres", "-c", "max_connections=300", "-c", "shared_buffers=256MB", "-c", "work_mem=4MB"]
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-VanAnCoreHub}
+      - POSTGRES_USER=${POSTGRES_USER:-vanan_admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - vanan-network
+    # Multi-VPS: expose 5432 on host so shop-a VPS can connect via VPC internal IP.
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vanan_admin} -d ${POSTGRES_DB:-VanAnCoreHub}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js", "-sd", "/data/jetstream", "-m", "8222"]
+    ports:
+      - "4222:4222"
+      - "127.0.0.1:8222:8222"
+    volumes:
+      - nats_data:/data/jetstream
+    networks:
+      - vanan-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/varz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Phase 2 Scaling: Redis — SignalR backplane for Gateway + distributed cache for ShopERP.
+  # If dedicated Redis VPS (vanan-redis) is provisioned (Phase 4), this service can be removed
+  # and REDIS_CONNECTION_STRING env var pointed to the dedicated VPS internal IP.
+  redis:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    networks:
+      - vanan-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 384m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  gateway:
+    image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-gateway:${IMAGE_TAG:-latest}
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-VanAnCoreHub};Username=${POSTGRES_USER:-vanan_admin};Password=${POSTGRES_PASSWORD}
+      - ConnectionStrings__Nats=nats://nats:4222
+      - Nats__Url=nats://nats:4222
+      - NATS__Url=nats://nats:4222
+      - Authentication__JwtSettings__SecretKey=${JWT_SECRET_KEY}
+      - Jwt__Secret=${JWT_SECRET_KEY}
+      # Dynamic CORS: static origins from appsettings.Production.json + dynamic from KhachLinkInstance registry.
+      # No Cors__AllowedOrigins__* env vars — managed via admin UI + DynamicCorsCacheHostedService.
+      # Seq runs on remote KhachLink VPS — use Serilog sink via HTTP
+      - Serilog__WriteTo__1__Args__serverUrl=http://${KHACHLINK_REMOTE_HOST}:5341
+      # Multi-VPS: ShopERP BaseUrl points to REMOTE VPS via VPC internal IP
+      - ShopERP__BaseUrl=http://${SHOPERP_REMOTE_HOST}:80/
+      - InternalLoyalty__ApiKey=${INTERNAL_LOYALTY_API_KEY:-vanan-internal-loyalty-prod-2026}
+      # NatsSyncWorker: poll every 10s (REQ-1.1 — reduce 50% DB query load, order delivery <10s OK for kitchen/POS)
+      - Sync__PollIntervalMs=10000
+      # Order sync seed: ShopInstance ID that matches ShopERP VPS SHOP_INSTANCE_ID.
+      # Gateway auto-creates this ShopInstance + assigns all tenants on startup if missing.
+      # MUST match docker-compose.shoperp.yml SHOP_INSTANCE_ID.
+      - SEED_SHOP_INSTANCE_ID=${SHOP_INSTANCE_ID}
+      # #126 Guard QR Verify — R1 complete, feature flag ON for production test.
+      # Default true (R1 deployed). Override via .env.gateway GUARD_QR_VERIFY_ENABLED=false to disable.
+      - Guard__QrVerifyEnabled=${GUARD_QR_VERIFY_ENABLED:-true}
+      # #130: Photo compression config (SystemAdmin adjustable via env vars)
+      - Guard__PhotoMaxDimension=${GUARD_PHOTO_MAX_DIMENSION:-1024}
+      - Guard__PhotoJpegQuality=${GUARD_PHOTO_JPEG_QUALITY:-0.7}
+      - Guard__MaxPhotoSizeKB=${GUARD_PHOTO_MAX_SIZE_KB:-100}
+      # #130: R2 storage credentials — override via .env.gateway (not baked into image).
+      # If not set, falls back to appsettings.json values (which may be stale).
+      - R2__Endpoint=${R2_ENDPOINT:-https://18947627801f833aecc202f086d66af5.r2.cloudflarestorage.com}
+      - R2__AccessKey=${R2_ACCESS_KEY:-acb543c587f9a2491dede99766a83760}
+      - R2__SecretKey=${R2_SECRET_KEY:-84df7752264a78f8744cc0207ad25d6046601ce8ec83817083a040c8d035fc7c}
+      - R2__BucketName=${R2_BUCKET_NAME:-vanan-guard-photos}
+      # KhachLink Multi-Profile R1 — feature flag (default OFF = no-op, existing behavior preserved)
+      # Set KHACHLINK_MULTIPROFILE_ENABLED=true in .env.gateway to enable multi-domain routing + profile-based NavFlags
+      - KhachLink__MultiProfileEnabled=${KHACHLINK_MULTIPROFILE_ENABLED:-false}
+      # Domain Reseller R1 — GoDaddy API for tenant domain DNS automation
+      # API key is a Personal Access Token (PAT) generated from GoDaddy developer portal.
+      # DefaultVpsIp is the Gateway VPS public IP — used for auto A record creation when linking domains.
+      - DomainRegistrar__GoDaddy__ApiKey=${GODADDY_API_KEY:-}
+      - DomainRegistrar__GoDaddy__ApiUrl=${GODADDY_API_URL:-https://api.godaddy.com}
+      - DomainRegistrar__DefaultVpsIp=${DOMAIN_REGISTRAR_DEFAULT_VPS_IP:-}
+      # Multi-VPS YARP: override cluster addresses to use VPC internal IPs
+      # (appsettings.json defaults to Docker hostnames "shoperp"/"khachlink" which are
+      # not resolvable when services are on separate VPSs)
+      - ReverseProxy__Clusters__shoperp-cluster__Destinations__destination1__Address=http://${SHOPERP_REMOTE_HOST}:80/
+      - ReverseProxy__Clusters__khachlink-cluster__Destinations__destination1__Address=http://${KHACHLINK_REMOTE_HOST}:80/
+      # Phase 2 Scaling: Redis backplane for SignalR + distributed cache.
+      # If REDIS_REMOTE_HOST is set, connect to dedicated Redis VPS; else use local redis service.
+      - ConnectionStrings__Redis=${REDIS_CONNECTION_STRING:-redis:6379}
+    # 2026-09-21 FIX (admin panel 500): persist Data Protection keys so the PII key ring
+    # (Customer.PhoneNumber/Email EncryptedStringConverter) survives container restarts.
+    # Without persistence the Gateway used an EPHEMERAL ring → new key each restart →
+    # old ciphertext unreadable → CryptographicException → HTTP 500 on community admin.
+    volumes:
+      - gateway_keys:/app/keys
+    networks:
+      - vanan-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1g  # Phase 1 Scaling: was 512m — OOM at 50+ concurrent request. e2-medium 4GB has headroom.
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    image: nginx:1.25-alpine
+    environment:
+      - VANAN_DOMAIN=${VANAN_DOMAIN}
+      - SHOPERP_REMOTE_HOST=${SHOPERP_REMOTE_HOST}
+      - KHACHLINK_REMOTE_HOST=${KHACHLINK_REMOTE_HOST}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/templates:/etc/nginx/templates:ro
+      - ./nginx/html:/usr/share/nginx/html:ro
+      - ./nginx/docker-entrypoint.multivps.sh:/docker-entrypoint.sh:ro
+      - certbot_www:/var/www/certbot:ro
+      - certbot_conf:/etc/letsencrypt:ro
+    entrypoint: ["/bin/sh", "/docker-entrypoint.sh"]
+    networks:
+      - vanan-network
+    depends_on:
+      - gateway
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Crawl-to-Onboard Pipeline (Phase 5): Crawler worker — crawls business listings
+  # from doanhnghiep.vn + trangvangvietnam.com, posts to Gateway POST /api/v1/crawl/batch.
+  # Gateway forwards trigger via HttpClient to http://crawler:5010/trigger.
+  # Auth: crawler logs in via POST /api/platform/login (username + password from env).
+  crawler:
+    image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-crawler:${IMAGE_TAG:-latest}
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - Crawler__GatewayBaseUrl=http://gateway:80
+      - Crawler__AuthBaseUrl=http://${SHOPERP_REMOTE_HOST}:80
+      - Crawler__GatewayUsername=${CRAWLER_GATEWAY_USERNAME:-sysadmin@vanan.vn}
+      - Crawler__GatewayPassword=${CRAWLER_GATEWAY_PASSWORD}
+      - Crawler__ListenPort=5010
+      - Crawler__DefaultRateLimitMs=2000
+      - Crawler__MaxBatchSize=100
+      - Crawler__DoanhNghiepDailyLimit=100
+      # 2026-09-21 FIX (crawl 401): doanhnghiep.vn requires an API key since 2026-09-14.
+      # Free registration: https://doanhnghiep.vn/api/docs (lienhe@doanhnghiep.vn).
+      - Crawler__DoanhNghiepApiKey=${DOANHNGHIEP_API_KEY:-}
+      - Crawler__UserAgent=VanAnCrawler/1.0 (+contact@vanan.vn)
+    networks:
+      - vanan-network
+    depends_on:
+      gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5010/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres_data:
+  nats_data:
+  certbot_www:
+  certbot_conf:
+  gateway_keys:
+
+networks:
+  vanan-network:
+    driver: bridge

@@ -40,4 +40,7 @@ public sealed record CrawlTriggerRequest(
     string? Industry,
     string? Province,
     int MaxResults = 100,
-    string? SearchTerm = null);
+    string? SearchTerm = null,
+    // 2026-09-21 feature: register tenant(s) by tax code — fetch each MST from doanhnghiep.vn
+    // (search?q=<mst> short-circuits to findUnique) and import as Pending tenants.
+    List<string>? TaxCodes = null);

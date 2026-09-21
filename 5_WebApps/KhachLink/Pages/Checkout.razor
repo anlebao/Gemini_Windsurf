@@ -202,6 +202,10 @@
                                 </div>
                                 <input type="hidden" id="delivery-lat" data-testid="delivery-lat-input" />
                                 <input type="hidden" id="delivery-lng" data-testid="delivery-lng-input" />
+                                @if (!string.IsNullOrEmpty(_pinMapError))
+                                {
+                                    <VanAnAlert Variant="AlertVariant.Warning" Message="@_pinMapError" class="mt-2" Dismissible="false" />
+                                }
                             </div>
                         }
 
@@ -391,6 +395,7 @@
 
     // 2026-09-20: delivery pin map — mặc định = GPS khách; kéo/thả pin để chỉnh điểm giao.
     private bool _pinMapInitialized = false;
+    private string? _pinMapError;
     private double _pinLat = 10.7769; // fallback trung tâm HCM (bị thay bởi GPS / pin)
     private double _pinLng = 106.7009;
 
@@ -529,34 +534,45 @@
     }
 
     /// <summary>2026-09-20: khởi tạo bản đồ ghim vị trí giao hàng — mặc định = GPS khách hàng.
-    /// Hidden inputs delivery-lat/lng được JS ghi khi kéo/thả hoặc chạm bản đồ.</summary>
+    /// Hidden inputs delivery-lat/lng được JS ghi khi kéo/thả hoặc chạm bản đồ.
+    /// 2026-09-21 FIX (map không hiển thị): khởi tạo map NGAY với toạ độ hiện có (không chờ GPS —
+    /// GPS có thể treo hàng giây khi hiện prompt xin quyền → trước đây map không bao giờ render),
+    /// sau đó cập nhật pin khi có GPS. Nếu JS map thiếu (cache cũ) → hiện lỗi thay vì im lặng.</summary>
     private async Task InitializePinMapAsync()
     {
         if (selectedOrderType != "DELIVERY")
             return;
 
-        // Mặc định = vị trí GPS của khách (D4). Nếu chưa có GPS, dùng toạ độ mặc định và để khách ghim tay.
         double lat = _pinLat;
         double lng = _pinLng;
+        try
+        {
+            // 1. Map trước — luôn render (kể cả khi GPS chưa trả lời)
+            await JSRuntime.InvokeVoidAsync("vananMap.pinLocation", "checkout-pin-map", "delivery-lat", "delivery-lng", lat, lng, 15);
+            _pinMapInitialized = true;
+            _pinMapError = null;
+        }
+        catch (Exception ex)
+        {
+            // JS map không sẵn sàng (VD: service worker cache cũ chưa có pinLocation) — báo lỗi rõ ràng,
+            // submit vẫn dùng GPS fallback D4.
+            _pinMapError = "Không tải được bản đồ. Vui lòng tải lại trang (cập nhật app) hoặc dùng 'Dùng vị trí hiện tại'.";
+            Console.WriteLine($"Pin map init failed: {ex.Message}");
+            return;
+        }
+
+        // 2. GPS sau — cập nhật pin khi có vị trí (không chặn map đã render)
         try
         {
             var pos = await JSRuntime.InvokeAsync<GeoPosition?>("vananPWA.getCurrentPosition");
             if (pos != null && (pos.Lat != 0 || pos.Lng != 0))
             {
-                lat = pos.Lat;
-                lng = pos.Lng;
-                _pinLat = lat;
-                _pinLng = lng;
+                _pinLat = pos.Lat;
+                _pinLng = pos.Lng;
+                await JSRuntime.InvokeVoidAsync("vananMap.setPinLocation", "checkout-pin-map", "delivery-lat", "delivery-lng", pos.Lat, pos.Lng);
             }
         }
         catch { /* GPS denied — khách ghim tay trên bản đồ */ }
-
-        try
-        {
-            await JSRuntime.InvokeVoidAsync("vananMap.pinLocation", "checkout-pin-map", "delivery-lat", "delivery-lng", lat, lng, 15);
-            _pinMapInitialized = true;
-        }
-        catch { /* map JS chưa sẵn sàng (RCL assets) — submit vẫn dùng GPS fallback D4 */ }
     }
 
     /// <summary>2026-09-20: nút "Dùng vị trí hiện tại" — lấy GPS mới + cập nhật pin.</summary>

@@ -75,6 +75,13 @@ public class CommunityAdminService(
 
         var total = await query.CountAsync();
 
+        // 2026-09-21 FIX (admin panel 500): DO NOT project PhoneNumber/Email.
+        // Customer.PhoneNumber/Email use an EncryptedStringConverter backed by ASP.NET
+        // Data Protection. The Gateway ran with an EPHEMERAL key ring (Initialize never
+        // called) → ciphertext written by a previous container instance cannot be
+        // decrypted → CryptographicException "The payload was invalid" → HTTP 500 on
+        // GET eligible (includeIneligible) + POST activate-role. Projecting only
+        // non-PII columns avoids materializing the encrypted values entirely.
         var customers = await query
             .OrderByDescending(c => c.LoyaltyPoints)
             .Skip((page - 1) * pageSize)
@@ -83,7 +90,6 @@ public class CommunityAdminService(
             {
                 c.Id,
                 c.FullName,
-                c.PhoneNumber,
                 c.LoyaltyPoints,
                 IdentityLevel = c.IdentityLevel.ToString()
             })
@@ -105,7 +111,8 @@ public class CommunityAdminService(
         {
             CustomerId = c.Id,
             FullName = c.FullName,
-            PhoneNumber = MaskPhone(c.PhoneNumber),
+            // PII not projected (see comment above) — UI shows a masked placeholder.
+            PhoneNumber = "***",
             LoyaltyPoints = c.LoyaltyPoints,
             IdentityLevel = c.IdentityLevel,
             ExistingRoles = rolesByCustomer.TryGetValue(c.Id, out var existing) ? existing : new List<string>()
@@ -116,10 +123,17 @@ public class CommunityAdminService(
 
     public async Task<CommunityRole> ActivateRoleAsync(Guid customerId, CommunityRoleType role, Guid activatedBy, bool bypassEligibility = false)
     {
-        // 1. Verify customer exists + meets criteria
+        // 1. Verify customer exists + meets criteria.
+        // 2026-09-21 FIX: project ONLY non-PII columns (Id/TenantId/IsActive/IdentityLevel/LoyaltyPoints).
+        // Materializing the entity decrypts PhoneNumber/Email (EncryptedStringConverter) — with the
+        // Gateway's ephemeral DataProtection key ring this throws CryptographicException on old rows
+        // → HTTP 500 on activate-role. Scalar projection skips the converters entirely.
         var customer = await _dbContext.Customers
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(c => c.Id == customerId);
+            .AsNoTracking()
+            .Where(c => c.Id == customerId)
+            .Select(c => new { c.Id, c.TenantId, c.IsActive, c.IdentityLevel, c.LoyaltyPoints })
+            .FirstOrDefaultAsync();
 
         if (customer == null)
             throw new InvalidOperationException($"Customer {customerId} not found.");
@@ -222,6 +236,7 @@ public class CommunityAdminService(
 
         var total = await query.CountAsync();
 
+        // 2026-09-21 FIX: PII (PhoneNumber/Email) NOT projected — see GetEligibleCustomersAsync comment.
         var customers = await query
             .OrderByDescending(c => c.LoyaltyPoints)
             .Skip((page - 1) * pageSize)
@@ -230,7 +245,6 @@ public class CommunityAdminService(
             {
                 c.Id,
                 c.FullName,
-                c.PhoneNumber,
                 c.LoyaltyPoints,
                 IdentityLevel = c.IdentityLevel.ToString()
             })
@@ -251,7 +265,7 @@ public class CommunityAdminService(
         {
             CustomerId = c.Id,
             FullName = c.FullName,
-            PhoneNumber = MaskPhone(c.PhoneNumber),
+            PhoneNumber = "***",
             LoyaltyPoints = c.LoyaltyPoints,
             IdentityLevel = c.IdentityLevel,
             ExistingRoles = rolesByCustomer.TryGetValue(c.Id, out var existing) ? existing : new List<string>()
@@ -262,10 +276,14 @@ public class CommunityAdminService(
 
     public async Task<CommunityRole> ActivateRoleForTenantAsync(Guid tenantId, Guid customerId, CommunityRoleType role, Guid activatedBy, bool bypassEligibility = false)
     {
-        // 1. Verify customer exists + belongs to calling tenant (IDOR guard)
+        // 1. Verify customer exists + belongs to calling tenant (IDOR guard).
+        // 2026-09-21 FIX: scalar projection (no PII decrypt) — see ActivateRoleAsync comment.
         var customer = await _dbContext.Customers
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(c => c.Id == customerId);
+            .AsNoTracking()
+            .Where(c => c.Id == customerId)
+            .Select(c => new { c.Id, c.TenantId, c.IsActive, c.IdentityLevel, c.LoyaltyPoints })
+            .FirstOrDefaultAsync();
 
         if (customer == null)
             throw new InvalidOperationException($"Customer {customerId} not found.");
@@ -340,11 +358,13 @@ public class CommunityAdminService(
 
     public async Task<List<CommunityRole>> GetCustomerRolesForTenantAsync(Guid tenantId, Guid customerId)
     {
-        // Verify customer belongs to tenant (IDOR guard)
+        // Verify customer belongs to tenant (IDOR guard) — scalar projection (no PII decrypt)
         var customer = await _dbContext.Customers
             .IgnoreQueryFilters()
             .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == customerId);
+            .Where(c => c.Id == customerId)
+            .Select(c => new { c.Id, c.TenantId })
+            .FirstOrDefaultAsync();
 
         if (customer == null)
             throw new InvalidOperationException($"Customer {customerId} not found.");
@@ -359,11 +379,5 @@ public class CommunityAdminService(
             .Where(r => r.CustomerId == customerId)
             .OrderByDescending(r => r.ActivatedAt)
             .ToListAsync();
-    }
-
-    private static string MaskPhone(string phone)
-    {
-        if (string.IsNullOrEmpty(phone) || phone.Length < 4) return phone;
-        return phone.Substring(0, 3) + "***" + phone[^2..];
     }
 }
