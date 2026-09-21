@@ -185,7 +185,10 @@ namespace VanAn.Gateway.Controllers
                         + "WHERE \"Id\" = {2}";
                     var p0 = needsPhoneWrite ? phoneProtector.Protect(newPhone ?? "") : "";
                     var p1 = needsEmailWrite ? emailProtector.Protect(newEmail ?? "") : "";
-                    _ = await _dbContext.Database.ExecuteSqlRawAsync(sql, p0, p1, row.Id, ct);
+                    // Use the (sql, IEnumerable<object?>, CancellationToken) overload — the
+                    // params object?[] overload would treat `ct` as a SQL parameter and EF
+                    // throws "no store type mapping for properties of type 'CancellationToken'".
+                    _ = await _dbContext.Database.ExecuteSqlRawAsync(sql, new object?[] { p0, p1, row.Id }, ct);
                     repaired++;
                 }
             }
