@@ -228,8 +228,9 @@ namespace VanAn.Gateway.Controllers
 
         private async Task<string?> TryRecoverPhoneFromOrdersAsync(Guid customerId, CancellationToken ct)
         {
+            // Order.CustomerInfo is OwnsOne → column is "CustomerInfo_PhoneNumber" (plaintext snapshot)
             var phone = await _dbContext.Database
-                .SqlQueryRaw<string?>("SELECT \"CustomerPhone\" AS Value FROM \"Orders\" WHERE \"CustomerId\" = {0} AND \"CustomerPhone\" IS NOT NULL AND \"CustomerPhone\" <> '' ORDER BY \"CreatedAt\" DESC LIMIT 1", customerId)
+                .SqlQueryRaw<string?>("SELECT \"CustomerInfo_PhoneNumber\" AS Value FROM \"Orders\" WHERE \"CustomerId\" = {0} AND \"CustomerInfo_PhoneNumber\" IS NOT NULL AND \"CustomerInfo_PhoneNumber\" <> '' ORDER BY \"CreatedAt\" DESC LIMIT 1", customerId)
                 .FirstOrDefaultAsync(ct);
             return string.IsNullOrEmpty(phone) ? null : phone;
         }
