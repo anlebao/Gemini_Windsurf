@@ -232,6 +232,55 @@ namespace VanAn.Gateway.Controllers
             return Ok(TenantConfigDto.From(config));
         }
 
+        // === Alliance Settlement Report (Batch 5, T5.2) ===
+
+        /// <summary>
+        /// GET /api/platform/loyalty/settlement?tenantId={id} — per-tenant Alliance settlement report.
+        /// Gives SystemAdmin the data to decide cross-tenant compensation:
+        ///   - pointsEarnedAtTenant:             points awarded (EARN) at this tenant.
+        ///   - pointsConsumedAtTenant:           points of THIS tenant consumed anywhere (SourceTenantId == tenant).
+        ///   - pointsConsumedAtOtherTenants:     subset of the above — consumed at OTHER tenants ("chi hộ").
+        ///   - pointsRedeemedByCustomersAtTenant: points customers spent AT this tenant (TransactionTenantId == tenant).
+        ///   - outstandingPoints:                pointsEarnedAtTenant − pointsConsumedAtTenant (net obligation).
+        /// Report-only — no automatic settlement/money movement. SystemAdmin only.
+        /// </summary>
+        [HttpGet("settlement")]
+        public async Task<IActionResult> GetSettlement([FromQuery] Guid tenantId)
+        {
+            if (tenantId == Guid.Empty)
+                return BadRequest(new { error = "TenantId không hợp lệ." });
+
+            var transactions = await _dbContext.AllianceTransactions
+                .Where(t => t.TransactionTenantId == tenantId || t.SourceTenantId == tenantId)
+                .ToListAsync();
+
+            int pointsEarnedAtTenant = transactions
+                .Where(t => t.TransactionTenantId == tenantId && t.Type == AllianceTransactionType.EARN)
+                .Sum(t => t.Points);
+            int pointsConsumedAtTenant = transactions
+                .Where(t => t.SourceTenantId == tenantId && t.Type == AllianceTransactionType.REDEEM)
+                .Sum(t => Math.Abs(t.Points));
+            int pointsConsumedAtOtherTenants = transactions
+                .Where(t => t.SourceTenantId == tenantId && t.TransactionTenantId != tenantId && t.Type == AllianceTransactionType.REDEEM)
+                .Sum(t => Math.Abs(t.Points));
+            int pointsRedeemedByCustomersAtTenant = transactions
+                .Where(t => t.TransactionTenantId == tenantId && t.Type == AllianceTransactionType.REDEEM)
+                .Sum(t => Math.Abs(t.Points));
+
+            _logger.LogInformation("LoyaltyConfig: settlement report for tenant {TenantId} — earned={Earned}, consumed={Consumed} (atOther={AtOther}), redeemedAtTenant={Redeemed}",
+                tenantId, pointsEarnedAtTenant, pointsConsumedAtTenant, pointsConsumedAtOtherTenants, pointsRedeemedByCustomersAtTenant);
+
+            return Ok(new SettlementReportDto
+            {
+                TenantId = tenantId,
+                PointsEarnedAtTenant = pointsEarnedAtTenant,
+                PointsConsumedAtTenant = pointsConsumedAtTenant,
+                PointsConsumedAtOtherTenants = pointsConsumedAtOtherTenants,
+                PointsRedeemedByCustomersAtTenant = pointsRedeemedByCustomersAtTenant,
+                OutstandingPoints = pointsEarnedAtTenant - pointsConsumedAtTenant
+            });
+        }
+
         // === Mode Switch Migration (Phase 5A — wires Phase 4 Consolidate/Split) ===
 
         /// <summary>
@@ -421,5 +470,22 @@ namespace VanAn.Gateway.Controllers
         public Guid CustomerDeviceId { get; set; }
         public Guid TenantId { get; set; }
         public int Points { get; set; }
+    }
+
+    // === Settlement DTO (Batch 5, T5.2) ===
+
+    public class SettlementReportDto
+    {
+        public Guid TenantId { get; set; }
+        /// <summary>Points awarded (EARN) at this tenant.</summary>
+        public int PointsEarnedAtTenant { get; set; }
+        /// <summary>Points of this tenant consumed anywhere (REDEEM with SourceTenantId == tenant).</summary>
+        public int PointsConsumedAtTenant { get; set; }
+        /// <summary>Points of this tenant consumed at OTHER tenants ("chi hộ" — subset of PointsConsumedAtTenant).</summary>
+        public int PointsConsumedAtOtherTenants { get; set; }
+        /// <summary>Points customers redeemed AT this tenant (REDEEM with TransactionTenantId == tenant).</summary>
+        public int PointsRedeemedByCustomersAtTenant { get; set; }
+        /// <summary>PointsEarnedAtTenant − PointsConsumedAtTenant — net outstanding obligation.</summary>
+        public int OutstandingPoints { get; set; }
     }
 }

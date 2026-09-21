@@ -51,6 +51,15 @@ public interface IAllianceWalletService
     Task<IReadOnlyList<AllianceTransaction>> GetTransactionsByTenantAsync(Guid walletId, Guid tenantId, int limit = 20);
 
     /// <summary>
+    /// Loyalty Points Integrity (Batch 5, T5.1): attribution-correct per-tenant net balance for a wallet.
+    /// net = Σ EARN/ADJUST (by TransactionTenantId) − Σ |REDEEM| (by SourceTenantId — the tenant that
+    /// OWNS the consumed points; legacy rows without SourceTenantId fall back to TransactionTenantId).
+    /// Sum over tenants == AllianceWallet.TotalPointBalance. Used for the customer wallet breakdown
+    /// (GET /api/loyalty/wallet) so cross-tenant redemptions charge the correct tenant.
+    /// </summary>
+    Task<IReadOnlyList<WalletTenantBalance>> GetTenantBalancesAsync(Guid walletId);
+
+    /// <summary>
     /// Loyalty Alliance Phase 4: Silo→Alliance migration — consolidate per-tenant SQLite
     /// LoyaltyRewards balances into cross-tenant PG AllianceWallets.
     /// Caller provides customer balances from ShopERP SQLite (AllianceWalletService is PG-only
@@ -88,3 +97,9 @@ public class MigrationResult
 
 /// <summary>Per-tenant allocation from Alliance→Silo split.</summary>
 public record WalletAllocation(Guid CustomerDeviceId, Guid TenantId, int Points);
+
+/// <summary>
+/// Loyalty Points Integrity (Batch 5, T5.1): net point balance attributed to a tenant in an
+/// Alliance wallet. See IAllianceWalletService.GetTenantBalancesAsync.
+/// </summary>
+public record WalletTenantBalance(Guid TenantId, int NetPoints);

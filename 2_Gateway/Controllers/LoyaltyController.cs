@@ -274,13 +274,16 @@ namespace VanAn.Gateway.Controllers
                 // Step 3: Query recent transactions
                 var transactions = await _allianceWalletService.GetTransactionsAsync(wallet.Id, limit: 20);
 
-                // Step 4: Build breakdown by tenant (sum points per tenant from transactions)
-                var breakdown = transactions
-                    .GroupBy(t => t.TransactionTenantId)
-                    .Select(g => new WalletBreakdownDto
+                // Step 4: Build breakdown by tenant — Batch 5 (T5.1) attribution-correct net balance.
+                // REDEEMs are charged to SourceTenantId (the tenant that OWNS the points), so a
+                // cross-tenant redemption does not wrongly zero out the redeeming tenant. Negative
+                // net (legacy edge cases) is clamped to 0 for display; sum over breakdown ≤ balance.
+                var tenantBalances = await _allianceWalletService.GetTenantBalancesAsync(wallet.Id);
+                var breakdown = tenantBalances
+                    .Select(b => new WalletBreakdownDto
                     {
-                        TenantId = g.Key,
-                        Points = g.Sum(t => t.Points)
+                        TenantId = b.TenantId,
+                        Points = Math.Max(0, b.NetPoints)
                     })
                     .ToList();
 

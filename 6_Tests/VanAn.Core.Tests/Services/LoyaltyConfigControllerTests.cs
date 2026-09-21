@@ -522,6 +522,104 @@ public class LoyaltyConfigControllerTests
     // Batch 3 — Budget caps (PUT + Reset counters)
     // ──────────────────────────────────────────────────────────
 
+    // ──────────────────────────────────────────────────────────
+    // Batch 5 — Settlement report (GET /api/platform/loyalty/settlement)
+    // ──────────────────────────────────────────────────────────
+
+    [Fact(DisplayName = "LA-LC-16: GetSettlement — per-tenant earn/consume/redeem numbers (cross-tenant attribution)")]
+    public async Task GetSettlement_CrossTenantRedemption_ReturnsCorrectNumbers()
+    {
+        var (controller, db, sp) = BuildController();
+
+        try
+        {
+            var tenantA = Guid.Parse("00000000-0000-0000-0000-000000000001");
+            var tenantB = Guid.Parse("00000000-0000-0000-0000-000000000002");
+            var wallet = new AllianceWallet(Guid.NewGuid(), null);
+            db.AllianceWallets.Add(wallet);
+            await db.SaveChangesAsync();
+
+            // A earned 100, B earned 50; customer redeemed 80 at B → B's 50 (B→B) + A's 30 (A→B).
+            db.AllianceTransactions.Add(new AllianceTransaction(wallet.Id, tenantA, AllianceTransactionType.EARN, 100, 100, "order A"));
+            db.AllianceTransactions.Add(new AllianceTransaction(wallet.Id, tenantB, AllianceTransactionType.EARN, 50, 150, "order B"));
+
+            var redeemB = new AllianceTransaction(wallet.Id, tenantB, AllianceTransactionType.REDEEM, -50, 100, "redeem at B", voucherCode: "VC-1");
+            redeemB.SetSourceTenant(tenantB);
+            db.AllianceTransactions.Add(redeemB);
+            var redeemA = new AllianceTransaction(wallet.Id, tenantB, AllianceTransactionType.REDEEM, -30, 70, "redeem at B", voucherCode: "VC-1");
+            redeemA.SetSourceTenant(tenantA);
+            db.AllianceTransactions.Add(redeemA);
+            await db.SaveChangesAsync();
+
+            // Tenant A: earned 100, own points consumed 30 (all "chi hộ" at B), nothing redeemed at A.
+            var resultA = await controller.GetSettlement(tenantA);
+            var okA = Assert.IsType<OkObjectResult>(resultA);
+            var reportA = Assert.IsType<SettlementReportDto>(okA.Value);
+            Assert.Equal(tenantA, reportA.TenantId);
+            Assert.Equal(100, reportA.PointsEarnedAtTenant);
+            Assert.Equal(30, reportA.PointsConsumedAtTenant);
+            Assert.Equal(30, reportA.PointsConsumedAtOtherTenants);
+            Assert.Equal(0, reportA.PointsRedeemedByCustomersAtTenant);
+            Assert.Equal(70, reportA.OutstandingPoints);
+
+            // Tenant B: earned 50, own points consumed 50 (at itself), 80 redeemed at B.
+            var resultB = await controller.GetSettlement(tenantB);
+            var okB = Assert.IsType<OkObjectResult>(resultB);
+            var reportB = Assert.IsType<SettlementReportDto>(okB.Value);
+            Assert.Equal(50, reportB.PointsEarnedAtTenant);
+            Assert.Equal(50, reportB.PointsConsumedAtTenant);
+            Assert.Equal(0, reportB.PointsConsumedAtOtherTenants);
+            Assert.Equal(80, reportB.PointsRedeemedByCustomersAtTenant);
+            Assert.Equal(0, reportB.OutstandingPoints);
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
+    [Fact(DisplayName = "LA-LC-17: GetSettlement — empty tenantId returns 400")]
+    public async Task GetSettlement_EmptyTenantId_Returns400()
+    {
+        var (controller, _, sp) = BuildController();
+
+        try
+        {
+            var result = await controller.GetSettlement(Guid.Empty);
+
+            var bad = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.NotNull(bad.Value);
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
+    [Fact(DisplayName = "LA-LC-18: GetSettlement — no transactions returns zero report")]
+    public async Task GetSettlement_NoTransactions_ReturnsZeroReport()
+    {
+        var (controller, _, sp) = BuildController();
+
+        try
+        {
+            var result = await controller.GetSettlement(TestTenantGuid);
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var report = Assert.IsType<SettlementReportDto>(ok.Value);
+            Assert.Equal(TestTenantGuid, report.TenantId);
+            Assert.Equal(0, report.PointsEarnedAtTenant);
+            Assert.Equal(0, report.PointsConsumedAtTenant);
+            Assert.Equal(0, report.PointsConsumedAtOtherTenants);
+            Assert.Equal(0, report.PointsRedeemedByCustomersAtTenant);
+            Assert.Equal(0, report.OutstandingPoints);
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
     [Fact(DisplayName = "LA-LC-15: UpdateTenantConfig — budget caps persist + response returns caps")]
     public async Task UpdateTenantConfig_BudgetCaps_PersistAndReturn()
     {

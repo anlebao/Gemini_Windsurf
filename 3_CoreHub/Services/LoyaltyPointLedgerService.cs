@@ -198,7 +198,7 @@ public class LoyaltyPointLedgerService(
                 return LedgerResult.Rejected($"Ledger disabled by feature flag {LedgerFlag}");
             }
 
-            // Alliance member → wallet deduct (FIFO SourceTenantId attribution arrives in Batch 4).
+            // Alliance member → wallet deduct (FIFO SourceTenantId attribution implemented in Batch 5, T5.1).
             if (_loyaltyModeResolver is not null && _allianceWalletService is not null)
             {
                 LoyaltyMode mode = await _loyaltyModeResolver.GetEffectiveModeAsync(request.TenantId);

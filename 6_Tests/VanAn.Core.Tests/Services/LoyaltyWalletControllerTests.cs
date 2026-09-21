@@ -39,7 +39,8 @@ public class LoyaltyWalletControllerTests
             Guid? identityDeviceId = null, // null → use TestDeviceId; Guid.Empty → send null in JSON
             string? identityPhoneNumber = "0901234567",
             AllianceWallet? wallet = null,
-            IReadOnlyList<AllianceTransaction>? transactions = null)
+            IReadOnlyList<AllianceTransaction>? transactions = null,
+            IReadOnlyList<WalletTenantBalance>? tenantBalances = null)
     {
         // Guid.Empty is sentinel for "send null deviceId in JSON response"
         Guid effectiveDeviceId = identityDeviceId.HasValue && identityDeviceId.Value == Guid.Empty
@@ -75,6 +76,9 @@ public class LoyaltyWalletControllerTests
         walletMock.Setup(w => w.GetWalletByDeviceIdAsync(It.IsAny<Guid>())).ReturnsAsync(wallet);
         walletMock.Setup(w => w.GetTransactionsAsync(It.IsAny<Guid>(), It.IsAny<int>()))
             .ReturnsAsync(transactions ?? new List<AllianceTransaction>());
+        // Batch 5 (T5.1): attribution-correct breakdown comes from GetTenantBalancesAsync.
+        walletMock.Setup(w => w.GetTenantBalancesAsync(It.IsAny<Guid>()))
+            .ReturnsAsync(tenantBalances ?? new List<WalletTenantBalance>());
 
         var dbContextMock = new Mock<IVanAnDbContext>();
 
@@ -127,7 +131,10 @@ public class LoyaltyWalletControllerTests
             CreateTransaction(AllianceTransactionType.EARN, 300, 500, TestTenantId, "Order #2")
         };
 
-        var (controller, walletMock) = BuildController(wallet: wallet, transactions: transactions);
+        var (controller, walletMock) = BuildController(
+            wallet: wallet,
+            transactions: transactions,
+            tenantBalances: new List<WalletTenantBalance> { new(TestTenantId, 500) });
 
         var result = await controller.GetWallet();
 
@@ -255,7 +262,10 @@ public class LoyaltyWalletControllerTests
             CreateTransaction(AllianceTransactionType.EARN, 300, 600, tenantB, "Order B1")
         };
 
-        var (controller, _) = BuildController(wallet: wallet, transactions: transactions);
+        var (controller, _) = BuildController(
+            wallet: wallet,
+            transactions: transactions,
+            tenantBalances: new List<WalletTenantBalance> { new(tenantA, 300), new(tenantB, 300) });
 
         var result = await controller.GetWallet();
 
@@ -268,5 +278,34 @@ public class LoyaltyWalletControllerTests
 
         var breakdownB = walletDto.Breakdown.First(b => b.TenantId == tenantB);
         Assert.Equal(300, breakdownB.Points);
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // Test 7: Negative net (legacy edge case) is clamped to 0 in breakdown
+    // ──────────────────────────────────────────────────────────
+
+    [Fact(DisplayName = "LA-W-7: GetWallet — breakdown clamps negative net to 0")]
+    public async Task GetWallet_Breakdown_ClampsNegativeToZero()
+    {
+        var wallet = CreateWallet(balance: 60);
+        var tenantA = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var tenantB = Guid.Parse("00000000-0000-0000-0000-000000000002");
+
+        // Legacy REDEEM without SourceTenantId can leave a tenant with negative net — clamp to 0.
+        var (controller, _) = BuildController(
+            wallet: wallet,
+            tenantBalances: new List<WalletTenantBalance> { new(tenantA, 100), new(tenantB, -40) });
+
+        var result = await controller.GetWallet();
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var walletDto = Assert.IsType<WalletResponse>(ok.Value);
+        Assert.Equal(2, walletDto.Breakdown.Count);
+
+        var breakdownA = walletDto.Breakdown.First(b => b.TenantId == tenantA);
+        Assert.Equal(100, breakdownA.Points);
+
+        var breakdownB = walletDto.Breakdown.First(b => b.TenantId == tenantB);
+        Assert.True(breakdownB.Points == 0, "negative net must be clamped to 0 for display");
     }
 }

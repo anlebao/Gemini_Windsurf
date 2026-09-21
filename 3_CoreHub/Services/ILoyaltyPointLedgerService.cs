@@ -12,7 +12,7 @@ namespace VanAn.CoreHub.Services;
 ///   - Centralized double-award guard BY ORDER (RC3): LoyaltyIssuanceRecord (PG) per order —
 ///     not the old per-DB history-JSON check.
 ///   - Tenant attribution (RC2.4): Silo rows are per (customer, tenant); Alliance REDEEM entries
-///     carry SourceTenantId (set in Batch 4 FIFO attribution).
+///     carry SourceTenantId (set in Batch 5 FIFO attribution).
 ///   - "Luật Silo": a customer can only spend points at the tenant that awarded them.
 ///   - Budget caps run on every award path (defense-in-depth in the write services too).
 ///
@@ -29,7 +29,7 @@ public interface ILoyaltyPointLedgerService
 
     /// <summary>
     /// Spend points (redemption). Silo: only the row of the REDEEMING tenant ("luật Silo").
-    /// Alliance: wallet deduct (FIFO SourceTenantId attribution lands in Batch 4).
+    /// Alliance: wallet deduct (FIFO SourceTenantId attribution lands in Batch 5).
     /// </summary>
     Task<LedgerResult> SpendAsync(SpendRequest request, CancellationToken cancellationToken = default);
 

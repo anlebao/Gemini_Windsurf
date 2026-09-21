@@ -146,6 +146,10 @@ public class AllianceWalletServiceHttpProxy(
         => throw new NotSupportedException("Transaction history reads are Gateway-only.");
 
     /// <inheritdoc/>
+    public Task<IReadOnlyList<WalletTenantBalance>> GetTenantBalancesAsync(Guid walletId)
+        => throw new NotSupportedException("Tenant balance breakdown is Gateway-only. Use GET /api/loyalty/wallet (customer-facing).");
+
+    /// <inheritdoc/>
     public Task<MigrationResult> ConsolidateWalletsAsync(Guid tenantId, IReadOnlyList<CustomerBalanceInput> customerBalances, string changedBy)
         => throw new NotSupportedException("Migration operations are Gateway-only admin ops.");
 

@@ -190,25 +190,94 @@ public class AllianceWalletService(
             return (false, wallet.TotalPointBalance, "Insufficient balance");
         }
 
+        // Loyalty Points Integrity (Batch 5, T5.1 — decision D2): attribution-aware consume.
+        // Determine the source of the consumed points BEFORE touching the pool:
+        //   1. Current (redeeming) tenant's own points first (netEarn at that tenant).
+        //   2. If insufficient → other tenants with positive netEarn, FIFO by earliest EARN/ADJUST.
+        //   3. Write ONE REDEEM entry per source tenant (append-only log):
+        //      TransactionTenantId = tenant spending, SourceTenantId = tenant owning the points.
+        var (netEarn, fifoOrder) = await ComputeNetEarnByTenantAsync(wallet.Id);
+
+        var sources = new List<(Guid TenantId, int Amount)>();
+        int remaining = points;
+
+        int currentTenantNet = netEarn.GetValueOrDefault(tenantId);
+        if (currentTenantNet > 0)
+        {
+            int take = Math.Min(currentTenantNet, remaining);
+            sources.Add((tenantId, take));
+            remaining -= take;
+        }
+
+        foreach (Guid sourceTenant in fifoOrder)
+        {
+            if (remaining <= 0)
+            {
+                break;
+            }
+
+            if (sourceTenant == tenantId)
+            {
+                continue; // current tenant already consumed above
+            }
+
+            int available = netEarn.GetValueOrDefault(sourceTenant);
+            if (available <= 0)
+            {
+                continue;
+            }
+
+            int take = Math.Min(available, remaining);
+            sources.Add((sourceTenant, take));
+            remaining -= take;
+        }
+
+        if (remaining > 0)
+        {
+            // Invariant violated: Σ netEarn == wallet balance, so this should be unreachable after
+            // the balance check. Refuse a partial deduction to keep the log consistent.
+            _logger.LogWarning(
+                "AllianceWallet DeductPoints rejected: device={Device} requested={Points} but only {Attributable} points attributable",
+                customerDeviceId, points, points - remaining);
+            return (false, wallet.TotalPointBalance, "Insufficient balance");
+        }
+
         wallet.DeductPoints(points);
-        var tx = new AllianceTransaction(
-            walletId: wallet.Id,
-            transactionTenantId: tenantId,
-            type: AllianceTransactionType.REDEEM,
-            points: -points,
-            balanceAfter: wallet.TotalPointBalance,
-            reason: reason,
-            voucherCode: voucherCode,
-            refundTenantId: tenantId, // Q4: refund returns to tenant where redeem occurred
-            idempotencyKey: idempotencyKey);
-        _ = _dbContext.AllianceTransactions.Add(tx);
+        AllianceTransaction? firstTx = null;
+        foreach (var (sourceTenant, amount) in sources)
+        {
+            var tx = new AllianceTransaction(
+                walletId: wallet.Id,
+                transactionTenantId: tenantId,
+                type: AllianceTransactionType.REDEEM,
+                points: -amount,
+                balanceAfter: wallet.TotalPointBalance,
+                reason: reason,
+                voucherCode: voucherCode,
+                refundTenantId: tenantId, // Q4: refund returns to tenant where redeem occurred
+                idempotencyKey: idempotencyKey);
+            tx.SetSourceTenant(sourceTenant);
+            firstTx ??= tx;
+            _ = _dbContext.AllianceTransactions.Add(tx);
+        }
         await _dbContext.SaveChangesAsync();
 
-        await PublishLoyaltyChangedAsync(customerDeviceId, tenantId, wallet.TotalPointBalance, tx);
+        await PublishLoyaltyChangedAsync(customerDeviceId, tenantId, wallet.TotalPointBalance, firstTx);
         _logger.LogInformation(
-            "AllianceWallet DeductPoints: device={Device} tenant={Tenant} -{Points} → balance={Balance}",
-            customerDeviceId, tenantId, points, wallet.TotalPointBalance);
+            "AllianceWallet DeductPoints: device={Device} tenant={Tenant} -{Points} → balance={Balance} (sources: {Sources})",
+            customerDeviceId, tenantId, points, wallet.TotalPointBalance,
+            string.Join(", ", sources.Select(s => $"{s.TenantId}:{s.Amount}")));
         return (true, wallet.TotalPointBalance, null);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<WalletTenantBalance>> GetTenantBalancesAsync(Guid walletId)
+    {
+        var (netEarn, _) = await ComputeNetEarnByTenantAsync(walletId);
+        return netEarn
+            .OrderBy(kv => kv.Key)
+            .Select(kv => new WalletTenantBalance(kv.Key, kv.Value))
+            .ToList();
     }
 
     /// <inheritdoc/>
@@ -460,6 +529,54 @@ public class AllianceWalletService(
             TotalPointsTransferred = totalPoints,
             Allocations = allocations
         };
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // Batch 5 (T5.1): per-tenant attribution
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Computes per-tenant net EARN from the wallet's append-only transaction log.
+    /// net[tenant] = Σ EARN/ADJUST (by TransactionTenantId) − Σ |REDEEM| (by SourceTenantId —
+    /// the tenant that OWNS the consumed points). Legacy REDEEM rows (SourceTenantId null) are
+    /// attributed to their TransactionTenantId (the pre-attribution behavior: the redeeming
+    /// tenant implicitly consumed its own pool share). Invariant: Σ net == wallet balance.
+    /// Also returns the FIFO order of tenants with positive net — earliest positive
+    /// contribution (EARN or positive ADJUST) first — used by DeductPointsAsync (decision D2).
+    /// </summary>
+    private async Task<(Dictionary<Guid, int> NetEarn, List<Guid> FifoOrder)> ComputeNetEarnByTenantAsync(Guid walletId)
+    {
+        var transactions = await _dbContext.AllianceTransactions
+            .Where(t => t.WalletId == walletId)
+            .ToListAsync();
+
+        var netEarn = new Dictionary<Guid, int>();
+        var earliestPositive = new Dictionary<Guid, DateTime>();
+
+        foreach (AllianceTransaction t in transactions)
+        {
+            Guid tenantKey = t.Type == AllianceTransactionType.REDEEM && t.SourceTenantId.HasValue
+                ? t.SourceTenantId.Value
+                : t.TransactionTenantId;
+
+            netEarn[tenantKey] = netEarn.GetValueOrDefault(tenantKey) + t.Points;
+
+            if (t.Points > 0 && t.Type != AllianceTransactionType.REDEEM)
+            {
+                if (!earliestPositive.TryGetValue(tenantKey, out DateTime current) || t.TransactionAt < current)
+                {
+                    earliestPositive[tenantKey] = t.TransactionAt;
+                }
+            }
+        }
+
+        List<Guid> fifoOrder = netEarn
+            .Where(kv => kv.Value > 0)
+            .OrderBy(kv => earliestPositive.GetValueOrDefault(kv.Key, DateTime.MaxValue))
+            .Select(kv => kv.Key)
+            .ToList();
+
+        return (netEarn, fifoOrder);
     }
 
     // ──────────────────────────────────────────────────────────
