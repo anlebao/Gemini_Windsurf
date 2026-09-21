@@ -246,9 +246,14 @@ namespace VanAn.ShopERP.Services
                     }
                 }
 
-                // Batch 1: MAX-merge — only raise the local balance toward the PG authority.
-                // Never decreases: POS-only points that haven't been backfilled to PG yet must not vanish.
-                if (pointBalance > rewards.PointBalance)
+                // Loyalty Points Integrity (Batch 2+, BUG-1b fix): PG ledger is the SINGLE source
+                // of truth — ALL loyalty writes (Silo + Alliance) route through the Gateway ledger
+                // (POS writes go via the internal API; the SQLite→PG backfill ran before the Batch 2
+                // cutover). The mirror therefore OVERWRITES the local balance with the authoritative
+                // PG balance. Batch 1 used MAX-merge to protect POS points pre-cutover — keeping it
+                // now would leave SPEND events unable to decrease the mirror (upward drift forever:
+                // local 150 after earn, PG 70 after spend → mirror never converges to PG).
+                if (pointBalance != rewards.PointBalance)
                 {
                     typeof(LoyaltyRewards)
                         .GetProperty(nameof(LoyaltyRewards.PointBalance))!

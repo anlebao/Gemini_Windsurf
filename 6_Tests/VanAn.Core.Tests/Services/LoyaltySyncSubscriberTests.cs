@@ -250,7 +250,7 @@ public class LoyaltySyncSubscriberTests
             var verifyDb = verifyScope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
             var rewards = await verifyDb.LoyaltyRewards.FirstOrDefaultAsync(r => r.CustomerId == TestCustomerId);
             Assert.NotNull(rewards);
-            Assert.Equal(650, rewards!.PointBalance); // max-merge raised to PG balance
+            Assert.Equal(650, rewards!.PointBalance); // PG authority — mirror overwritten to PG balance
 
             var history = JsonSerializer.Deserialize<List<LoyaltyHistoryEntry>>(rewards.History);
             Assert.NotNull(history);
@@ -323,20 +323,21 @@ public class LoyaltySyncSubscriberTests
         }
     }
 
-    [Fact(DisplayName = "LPI-B1-7: max-merge preserves SQLite balance when PG is lower (POS points not lost)")]
-    public async Task SyncLoyaltyBalanceAsync_MaxMerge_KeepsHigherLocalBalance()
+    [Fact(DisplayName = "LPI-B1-7 (BUG-1b): PG authority — mirror OVERWRITES local balance even when PG is lower (spend sync)")]
+    public async Task SyncLoyaltyBalanceAsync_OverwritesLocalBalance_PgAuthority()
     {
         var (subscriber, sp, db) = BuildSubscriber();
 
         try
         {
-            // Local SQLite has 400 (POS-earned points not yet backfilled to PG);
-            // PG currently only knows 300 (Gateway-earned) — must NOT regress the local balance.
+            // Local SQLite has 400 (stale — pre-cutover balance); PG is the authority and says 300
+            // (e.g. after a spend at the Gateway ledger). The mirror MUST converge to PG: keeping
+            // MAX-merge would freeze the mirror at 400 forever (upward drift on every spend).
             await SeedDataAsync(db, initialBalance: 400);
 
             byte[] payload = BuildExtendedPayload(
-                TestCustomerId, TestTenantGuid, pointBalance: 300, type: "EARN", points: 50,
-                reason: "Hoàn tiền từ chiến dịch Z - Đơn hàng #789");
+                TestCustomerId, TestTenantGuid, pointBalance: 300, type: "SPEND", points: -100,
+                reason: "Đổi điểm - Đơn hàng #789");
 
             await subscriber.SyncLoyaltyBalanceAsync(payload, CancellationToken.None);
 
@@ -344,7 +345,7 @@ public class LoyaltySyncSubscriberTests
             var verifyDb = verifyScope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
             var rewards = await verifyDb.LoyaltyRewards.FirstOrDefaultAsync(r => r.CustomerId == TestCustomerId);
             Assert.NotNull(rewards);
-            Assert.Equal(400, rewards!.PointBalance); // unchanged — local wins (max-merge)
+            Assert.Equal(300, rewards!.PointBalance); // PG wins — mirror overwrites (Batch 2+ authority)
         }
         finally
         {
