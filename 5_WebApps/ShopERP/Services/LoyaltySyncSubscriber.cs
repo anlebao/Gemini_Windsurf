@@ -221,12 +221,13 @@ namespace VanAn.ShopERP.Services
                 bool changed = false;
 
                 // BUG #9: append history entry when extended fields present (idempotent — skip duplicates)
+                DateTime? eventTs = null;
+                var history = DeserializeHistory(rewards.History);
                 if (type is not null && points.HasValue && reason is not null && updatedAtStr is not null)
                 {
-                    var history = DeserializeHistory(rewards.History);
-                    DateTime ts = DateTime.Parse(updatedAtStr, null, System.Globalization.DateTimeStyles.RoundtripKind);
+                    eventTs = DateTime.Parse(updatedAtStr, null, System.Globalization.DateTimeStyles.RoundtripKind);
                     // Idempotency: same timestamp + points + reason → already synced (skip duplicate)
-                    bool exists = history.Any(h => h.Timestamp == ts && h.Points == points.Value && h.Reason == reason);
+                    bool exists = history.Any(h => h.Timestamp == eventTs.Value && h.Points == points.Value && h.Reason == reason);
                     if (!exists)
                     {
                         history.Add(new LoyaltyHistoryEntry
@@ -234,7 +235,7 @@ namespace VanAn.ShopERP.Services
                             Type = type,
                             Points = points.Value,
                             Reason = reason,
-                            Timestamp = ts,
+                            Timestamp = eventTs.Value,
                             BalanceAfter = pointBalance
                         });
                         typeof(LoyaltyRewards)
@@ -253,7 +254,13 @@ namespace VanAn.ShopERP.Services
                 // PG balance. Batch 1 used MAX-merge to protect POS points pre-cutover — keeping it
                 // now would leave SPEND events unable to decrease the mirror (upward drift forever:
                 // local 150 after earn, PG 70 after spend → mirror never converges to PG).
-                if (pointBalance != rewards.PointBalance)
+                //
+                // Ordering guard (full-precision updatedAt): every event is delivered TWICE by design
+                // (direct NATS + Outbox fallback) and the two channels can interleave — an OLDER event
+                // must not clobber a NEWER authoritative balance. We only apply the balance when the
+                // event is not older than the newest history entry already processed.
+                bool isStaleEvent = eventTs.HasValue && history.Any() && eventTs.Value < history.Max(h => h.Timestamp);
+                if (!isStaleEvent && pointBalance != rewards.PointBalance)
                 {
                     typeof(LoyaltyRewards)
                         .GetProperty(nameof(LoyaltyRewards.PointBalance))!

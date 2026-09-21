@@ -58,7 +58,10 @@ public class LoyaltyBalanceSyncPublisherTests
         Assert.Equal("EARN", root.GetProperty("type").GetString());
         Assert.Equal(150, root.GetProperty("points").GetInt32());
         Assert.Contains("Đơn hàng #abc", root.GetProperty("reason").GetString()!);
-        Assert.False(string.IsNullOrEmpty(root.GetProperty("updatedAt").GetString()));
+        // Full-precision timestamp so the subscriber can ORDER events (double-delivery reordering guard).
+        string updatedAt = root.GetProperty("updatedAt").GetString()!;
+        Assert.False(string.IsNullOrEmpty(updatedAt));
+        Assert.Contains('.', updatedAt); // fractional seconds — distinguishable per event
     }
 
     [Fact(DisplayName = "LPI-B1-2: enqueues Outbox event LoyaltyChanged with RoutingKey = deviceId")]

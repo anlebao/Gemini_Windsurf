@@ -353,6 +353,44 @@ public class LoyaltySyncSubscriberTests
         }
     }
 
+    [Fact(DisplayName = "LPI-B1-9 (ordering guard): stale out-of-order event does NOT clobber the newer balance")]
+    public async Task SyncLoyaltyBalanceAsync_StaleOutOfOrderEvent_DoesNotClobberBalance()
+    {
+        var (subscriber, sp, db) = BuildSubscriber();
+
+        try
+        {
+            await SeedDataAsync(db, initialBalance: 100);
+
+            string later = "2026-09-21T10:00:05.0000000Z";   // spend processed FIRST
+            string earlier = "2026-09-21T10:00:01.0000000Z"; // earn happened EARLIER, arrives late
+
+            // 1) Spend event (newer, balance 70) — delivered first.
+            await subscriber.SyncLoyaltyBalanceAsync(
+                BuildExtendedPayload(TestCustomerId, TestTenantGuid, pointBalance: 70, type: "REDEEM", points: -30,
+                    reason: "Đổi điểm", updatedAt: later, deviceId: TestDeviceId), CancellationToken.None);
+
+            // 2) Stale EARN event (older timestamp, balance 100) — must NOT re-clobber back to 100.
+            await subscriber.SyncLoyaltyBalanceAsync(
+                BuildExtendedPayload(TestCustomerId, TestTenantGuid, pointBalance: 100, type: "EARN", points: 30,
+                    reason: "Đơn hàng cũ", updatedAt: earlier, deviceId: TestDeviceId), CancellationToken.None);
+
+            using IServiceScope verifyScope = sp.CreateScope();
+            var verifyDb = verifyScope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
+            var rewards = await verifyDb.LoyaltyRewards.FirstOrDefaultAsync(r => r.CustomerId == TestCustomerId);
+            Assert.NotNull(rewards);
+            Assert.True(rewards!.PointBalance == 70, "stale event must not clobber the newer authoritative balance");
+
+            var history = JsonSerializer.Deserialize<List<LoyaltyHistoryEntry>>(rewards.History);
+            Assert.NotNull(history);
+            Assert.Equal(2, history!.Count); // both events recorded (audit) — balance guarded separately
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
     [Fact(DisplayName = "LPI-B1-8: duplicate event is skipped (no duplicate history entry, no balance churn)")]
     public async Task SyncLoyaltyBalanceAsync_DuplicateEvent_Skipped()
     {

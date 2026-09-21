@@ -73,7 +73,9 @@ public sealed class LoyaltyBalanceSyncPublisher(
             customerId,
             tenantId,
             pointBalance,
-            updatedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+            // Full precision so the subscriber can ORDER events (double delivery — direct NATS +
+            // Outbox — can reorder them; second-precision timestamps made events indistinguishable).
+            updatedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ"),
             type,
             points,
             reason,
