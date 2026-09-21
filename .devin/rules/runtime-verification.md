@@ -145,6 +145,10 @@ Final check by user in real browser. Only if Layers 1-4 pass.
 | Disabled instance still shows full UI | JSON deserialize fails silently → null → fallback | Check DTO types match API response (string vs int) |
 | Old layout still renders | Wrong layout checked (nested vs outer) | Check `Routes.razor` for `DefaultLayout` — that's the outer layout |
 | Service Worker serves old cache | SW version not bumped or old SW registered | Bump SW cache version; unregister old SW in DevTools |
+| DLL grep for a string literal returns 0 → "fix not deployed" (false negative) | String literals live in the UTF-16 #US metadata heap; `grep` only reliably matches UTF-8 #Strings (type/method names) | Verify with type/method NAME markers or BEHAVIOR (runtime output format). See governance Pattern #13 |
+| `gcloud compute ssh … 'bash -s' < script.sh` garbage ("command not found") | plink.exe on Windows mangles stdin piping | `gcloud compute scp` the script then `ssh --command "bash /tmp/x.sh"`. See governance Pattern #14 |
+| Mirror/read-path shows a value that can never decrease (upward drift) after a write-path cutover | Legacy "protective" merge (MAX-merge) left in place after a new authority took over writes | Mirror must OVERWRITE with the authoritative value; rewrite the tests that codified the old contract. See governance Pattern #17 |
+| Event consumer applies state out of order (newer event applied, then stale event clobbers) | Outbox double-delivery (direct NATS + worker) interleaves events | Full-precision timestamps + consumer ordering guard (apply only if event ≥ newest applied). See governance Pattern #15 |
 
 ## RV SCRIPT TEMPLATE
 Save as `rv-<issue>.js` in repo root (gitignore or delete after RV complete):
@@ -174,6 +178,31 @@ const { chromium } = require('playwright');
     process.exit(pass ? 0 : 1);
 })();
 ```
+
+## PRODUCTION WRITE-PATH E2E RV — SAFE PATTERN (Loyalty Batch 5 + BUG-1, 2026-09-21)
+
+For features whose real path only activates under a mode not used in production yet (e.g. Alliance
+wallet when production is Silo), you can still E2E-test the DEPLOYED code safely:
+
+1. **Test tenants only** — pick tenants clearly named "Test"/designated RV tenants (e.g. "Vạn An
+   Test" `0dfab177…`). Verify `LoyaltyTenantConfigs` has NO rows for them before flipping
+   (`count = 0` → after RV, delete the created rows to restore pristine state).
+2. **Flip mode via the real SystemAdmin API** (PUT tenant config → `{"mode":1,"isAllianceMember":true}`)
+   — this exercises the deployed config surface itself.
+3. **Drive the deployed service through its internal API** (`/api/internal/loyalty/award|spend`)
+   with `X-Internal-Api-Key` read from the container env INSIDE the SSH script
+   (`docker exec <gw> sh -c 'printf "%s" "$InternalLoyalty__ApiKey"'`) — the key NEVER appears in
+   scripts/logs/conversation. Use a fresh test customer GUID (stub is created automatically).
+4. **Verify at 3 layers**: (a) API response (balance), (b) PG tx log (attribution columns,
+   wallet balance), (c) ShopERP SQLite mirror (stub + rewards row + history) — the mirror check is
+   what caught BUG-1/1b that PG-only checks would miss.
+5. **Cleanup BOTH sides + verify pristine**: PG (delete wallet + transactions + customer stub +
+   config rows; assert `0` rows in wallets/transactions/config) AND shop-a SQLite (delete
+   mirror stub + rewards row via host python3/sqlite3; assert `0`). Wait a few seconds for NATS
+   async processing before cleanup.
+6. **Behavioral L2 over grep markers**: to prove a string-literal fix deployed, verify its RUNTIME
+   output (e.g. history entry timestamps now contain fractional seconds), NOT `grep` on the DLL
+   (string literals live in the UTF-16 #US heap — see governance Pattern #13).
 
 ## CREDENTIALS (PRODUCTION VPS)
 - **ShopERP Login:** `baove@vanan.vn` (Guard) / `admin@vanan.vn` (Owner) / password: `2026@vanan`
