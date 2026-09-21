@@ -80,6 +80,102 @@ namespace VanAn.Gateway.Controllers
         }
 
         /// <summary>
+        /// 2026-09-21 feature: batch import + OPTIONAL auto-activate (Pending → Active).
+        /// Same dedup/skip semantics as POST /batch, but when ActivateImmediately=true each
+        /// imported tenant is verified (Pending → Active) with AUTO-GENERATED owner credentials
+        /// (returned once in the response for the SysAdmin to hand over). Used by the MST
+        /// registration flow ("Kích hoạt ngay").
+        /// </summary>
+        [HttpPost("batch-import")]
+        public async Task<ActionResult<CrawlBatchImportResult>> PostBatchImport(
+            [FromBody] CrawlBatchImportRequest request,
+            CancellationToken ct = default)
+        {
+            if (request.Listings is null || request.Listings.Count == 0)
+                return BadRequest("Listings list is empty.");
+
+            if (request.Listings.Count > 500)
+                return BadRequest("Max 500 listings per batch.");
+
+            var adminId = GetAdminUserId();
+            var imported = 0;
+            var skipped = 0;
+            var errors = new List<BatchCrawlError>();
+            var activated = new List<ActivatedTenantCredential>();
+
+            foreach (var listing in request.Listings)
+            {
+                try
+                {
+                    // Skip if tenant with same MST already exists (Active OR Pending)
+                    if (!string.IsNullOrWhiteSpace(listing.TaxCode))
+                    {
+                        var existing = await dbContext.Tenants
+                            .IgnoreQueryFilters()
+                            .AsNoTracking()
+                            .AnyAsync(t => t.Settings.TaxCode == listing.TaxCode, ct);
+                        if (existing)
+                        {
+                            skipped++;
+                            continue;
+                        }
+                    }
+
+                    var tenantId = await onboardingService.OnboardUnverifiedAsync(listing, ct);
+                    imported++;
+
+                    if (request.ActivateImmediately)
+                    {
+                        try
+                        {
+                            var username = $"owner{listing.TaxCode ?? Guid.NewGuid().ToString("N")[..6]}";
+                            var password = GenerateOwnerPassword();
+                            var verifyResult = await onboardingService.VerifyAsync(tenantId, new VerifyTenantRequest(
+                                OwnerUsername: username,
+                                OwnerPassword: password,
+                                OwnerDisplayName: listing.Name.Length > 80 ? listing.Name[..80] : listing.Name,
+                                ApprovedByUserId: adminId), ct);
+                            activated.Add(new ActivatedTenantCredential(
+                                listing.TaxCode ?? "",
+                                tenantId,
+                                username,
+                                password,
+                                verifyResult.PublishedSlug));
+                            logger.LogInformation(
+                                "Batch-import activated tenant {TenantId} ({Name}) — owner {Username}",
+                                tenantId, listing.Name, username);
+                        }
+                        catch (Exception verifyEx)
+                        {
+                            logger.LogWarning(verifyEx,
+                                "Batch-import: tenant {TenantId} created as Pending but activation failed",
+                                tenantId);
+                            errors.Add(new BatchCrawlError(
+                                listing.TaxCode ?? listing.Name,
+                                $"Đã tạo Pending nhưng kích hoạt thất bại: {verifyEx.Message}"));
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    errors.Add(new BatchCrawlError(
+                        listing.TaxCode ?? listing.Name,
+                        ex.Message));
+                    logger.LogWarning(ex, "Failed to import listing {TaxCode}", listing.TaxCode);
+                }
+            }
+
+            logger.LogInformation(
+                "Crawl batch-import: imported {Imported}, skipped {Skipped}, activated {Activated}, errors {Errors}",
+                imported, skipped, activated.Count, errors.Count);
+
+            return Ok(new CrawlBatchImportResult(imported, skipped, errors, activated));
+        }
+
+        private static string GenerateOwnerPassword() =>
+            $"VanAn{Convert.ToBase64String(Guid.NewGuid().ToByteArray())[..12].Replace('+', 'x').Replace('/', 'y').Replace('=', 'z')}!2026";
+
+        /// <summary>
         /// Audit trail: list CrawlSource records for a tenant (provenance).
         /// </summary>
         [HttpGet("sources/{tenantId:guid}")]
@@ -148,7 +244,8 @@ namespace VanAn.Gateway.Controllers
                     province = request.Province,
                     maxResults = request.MaxResults,
                     searchTerm = request.SearchTerm,
-                    taxCodes = request.TaxCodes
+                    taxCodes = request.TaxCodes,
+                    activateImmediately = request.ActivateImmediately
                 }, jsonOpts);
 
                 // Fire-and-forget: don't block SysAdmin while crawler runs (can take minutes)
@@ -174,6 +271,14 @@ namespace VanAn.Gateway.Controllers
                 logger.LogError(ex, "Crawl trigger failed to start");
                 return StatusCode(500, "Crawl trigger failed to start.");
             }
+        }
+
+        private Guid GetAdminUserId()
+        {
+            var userIdClaim = User.FindFirst("sub")?.Value
+                ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("userId")?.Value;
+            return Guid.TryParse(userIdClaim, out var id) ? id : Guid.Empty;
         }
 
         /// <summary>Vietnamese tax code: 10 digits, optionally 13 digits with -xxx branch suffix (13 digits).</summary>
@@ -223,5 +328,26 @@ namespace VanAn.Gateway.Controllers
         string? Province,      // Province filter
         int MaxResults = 100,  // Max listings to crawl (default 100, max 500)
         string? SearchTerm = null, // Search term for business name (e.g., "nhà hàng"). Null = use Industry or default.
-        List<string>? TaxCodes = null); // 2026-09-21: MST list — register tenant(s) by tax code (findUnique).
+        List<string>? TaxCodes = null, // 2026-09-21: MST list — register tenant(s) by tax code (findUnique).
+        bool ActivateImmediately = false); // 2026-09-21: true = auto-verify Pending → Active + auto owner credentials.
+
+    /// <summary>2026-09-21: batch-import request (MST flow with optional auto-activation).</summary>
+    public record CrawlBatchImportRequest(
+        List<CrawlListingDto> Listings,
+        bool ActivateImmediately = false);
+
+    /// <summary>2026-09-21: batch-import result with auto-generated owner credentials (shown once).</summary>
+    public record CrawlBatchImportResult(
+        int Imported,
+        int Skipped,
+        List<BatchCrawlError> Errors,
+        List<ActivatedTenantCredential> Activated);
+
+    /// <summary>Auto-generated owner credentials for an activated tenant (returned once).</summary>
+    public record ActivatedTenantCredential(
+        string TaxCode,
+        Guid TenantId,
+        string Username,
+        string Password,
+        string Slug);
 }

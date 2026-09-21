@@ -34,9 +34,17 @@
                       placeholder="VD:&#10;0312345678&#10;0101234567, 0209876543&#10;Mỗi dòng hoặc cách nhau bằng dấu phẩy"
                       @bind="_taxCodeInput"></textarea>
         </div>
+        <div class="form-check mb-2">
+            <input id="activate-immediately" type="checkbox" class="form-check-input" @bind="_activateImmediately" />
+            <label for="activate-immediately" class="form-check-label">
+                <strong>Kích hoạt ngay</strong> — tạo tenant <strong>Active</strong> luôn (không cần verify thủ công).
+                Hệ thống tự sinh tài khoản owner (hiển thị 1 lần trong kết quả bên dưới). Sau đó nhớ gán
+                ShopERP Instance trong trang Tenants.
+            </label>
+        </div>
         <div class="modal-actions">
             <VanAButton Variant="success" OnClick="HandleTaxCodeTrigger" IsLoading="@_isTriggering" Disabled="@(_status?.IsRunning == true)">
-                <i class="bi bi-search me-1"></i> Tra cứu &amp; tạo Pending tenant
+                <i class="bi bi-search me-1"></i> @(_activateImmediately ? "Tra cứu &amp; kích hoạt ngay" : "Tra cứu &amp; tạo Pending tenant")
             </VanAButton>
         </div>
     </VanACard>
@@ -150,6 +158,33 @@
                     {
                         <p><strong>Imported:</strong> <span class="text-success fw-bold">@_status.LastResult.Imported</span> tenant mới</p>
                         <p><strong>Skipped:</strong> <span class="text-warning fw-bold">@_status.LastResult.Skipped</span> đã tồn tại</p>
+                        @if (_status.LastResult.Activated?.Count > 0)
+                        {
+                            <p><strong>Đã kích hoạt (Active):</strong> <span class="text-success fw-bold">@_status.LastResult.Activated.Count</span> tenant</p>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered mt-1">
+                                    <thead>
+                                        <tr>
+                                            <th>MST</th>
+                                            <th>Tài khoản owner</th>
+                                            <th>Mật khẩu (hiện 1 lần)</th>
+                                            <th>Slug</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var cred in _status.LastResult.Activated)
+                                        {
+                                            <tr>
+                                                <td><code>@cred.TaxCode</code></td>
+                                                <td><code>@cred.Username</code></td>
+                                                <td><code>@cred.Password</code></td>
+                                                <td>@cred.Slug</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
                         @if (_status.LastResult.Errors?.Count > 0)
                         {
                             <p><strong>Errors:</strong> <span class="text-danger fw-bold">@_status.LastResult.Errors.Count</span></p>
@@ -204,6 +239,7 @@
 @code {
     private CrawlTriggerForm _form = new() { MaxResults = 100 };
     private string _taxCodeInput = string.Empty;
+    private bool _activateImmediately;
     private int _lastTaxCodeCount;
     private bool _isTriggering;
     private string _alertMessage = string.Empty;
@@ -243,8 +279,10 @@
         try
         {
             _lastTaxCodeCount = codes.Count;
-            _triggerResult = await ClaimApi.TriggerCrawlAsync(new CrawlTriggerApiRequest(TaxCodes: codes));
-            ShowAlert("success", $"Đã gửi {codes.Count} mã số thuế để tra cứu. Kết quả hiển thị bên dưới.");
+            _triggerResult = await ClaimApi.TriggerCrawlAsync(new CrawlTriggerApiRequest(TaxCodes: codes, ActivateImmediately: _activateImmediately));
+            ShowAlert("success", _activateImmediately
+                ? $"Đã gửi {codes.Count} mã số thuế để tra cứu + kích hoạt ngay. Tài khoản owner hiển thị bên dưới khi xong."
+                : $"Đã gửi {codes.Count} mã số thuế để tra cứu. Kết quả hiển thị bên dưới.");
             StartStatusPolling();
         }
         catch (Exception ex)

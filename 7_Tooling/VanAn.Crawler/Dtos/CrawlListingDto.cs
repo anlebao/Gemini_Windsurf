@@ -30,7 +30,12 @@ public sealed class CrawlQuery
 }
 
 /// <summary>Result of a batch POST to Gateway.</summary>
-public sealed record BatchCrawlResult(int Imported, int Skipped, List<BatchCrawlError> Errors);
+public sealed record BatchCrawlResult(
+    int Imported,
+    int Skipped,
+    List<BatchCrawlError> Errors,
+    // 2026-09-21: auto-activated tenants (batch-import with ActivateImmediately) — credentials shown once.
+    List<ActivatedTenantCredential>? Activated = null);
 
 public sealed record BatchCrawlError(string Identifier, string Error);
 
@@ -43,4 +48,14 @@ public sealed record CrawlTriggerRequest(
     string? SearchTerm = null,
     // 2026-09-21 feature: register tenant(s) by tax code — fetch each MST from doanhnghiep.vn
     // (search?q=<mst> short-circuits to findUnique) and import as Pending tenants.
-    List<string>? TaxCodes = null);
+    List<string>? TaxCodes = null,
+    // 2026-09-21 feature: true = auto-verify Pending → Active (Gateway generates owner credentials).
+    bool ActivateImmediately = false);
+
+/// <summary>Auto-generated owner credentials returned by Gateway batch-import (shown once to SysAdmin).</summary>
+public sealed record ActivatedTenantCredential(
+    string TaxCode,
+    Guid TenantId,
+    string Username,
+    string Password,
+    string Slug);

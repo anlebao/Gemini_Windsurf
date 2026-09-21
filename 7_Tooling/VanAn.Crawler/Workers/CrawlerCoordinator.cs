@@ -149,7 +149,8 @@ public sealed class CrawlerCoordinator : BackgroundService
 
             // 2026-09-21 feature: register tenant(s) by tax code (MST). Only doanhnghiep.vn
             // supports MST lookup — skip the search-based flow entirely.
-            if (request.TaxCodes is { Count: > 0 })
+            var taxCodeMode = request.TaxCodes is { Count: > 0 };
+            if (taxCodeMode)
             {
                 var restAdapter = selectedAdapters.OfType<RestApiAdapter>()
                     .FirstOrDefault(a => a.Name.Equals("doanhnghiep.vn", StringComparison.OrdinalIgnoreCase))
@@ -228,21 +229,28 @@ public sealed class CrawlerCoordinator : BackgroundService
                 return emptyResult;
             }
 
-            // Post to Gateway in batches
-            SetStatus($"Posting {allListings.Count} listings to Gateway");
+            // Post to Gateway in batches.
+            // 2026-09-21: tax-code mode with ActivateImmediately → POST /api/v1/crawl/batch-import
+            // (Gateway auto-verifies Pending → Active + returns generated owner credentials).
+            var endpoint = taxCodeMode && request.ActivateImmediately
+                ? "/api/v1/crawl/batch-import"
+                : "/api/v1/crawl/batch";
+            SetStatus($"Posting {allListings.Count} listings to Gateway ({endpoint})");
             var gatewayClient = _httpClientFactory.CreateClient("gateway");
             var imported = 0;
             var skipped = 0;
             var errors = new List<BatchCrawlError>();
+            var activated = new List<ActivatedTenantCredential>();
 
             foreach (var batch in Chunk(allListings, _options.MaxBatchSize))
             {
                 try
                 {
                     SetStatus($"Posting batch {imported + 1}-{imported + batch.Count} of {allListings.Count} to Gateway");
-                    _logger.LogInformation("Posting batch of {Count} listings to Gateway", batch.Count);
-                    var resp = await gatewayClient.PostAsJsonAsync(
-                        "/api/v1/crawl/batch", batch, ct);
+                    _logger.LogInformation("Posting batch of {Count} listings to Gateway {Endpoint}", batch.Count, endpoint);
+                    var resp = taxCodeMode && request.ActivateImmediately
+                        ? await gatewayClient.PostAsJsonAsync(endpoint, new { Listings = batch, ActivateImmediately = true }, ct)
+                        : await gatewayClient.PostAsJsonAsync(endpoint, batch, ct);
 
                     // Defensive: check Content-Type is JSON before deserializing.
                     var contentType = resp.Content.Headers.ContentType?.MediaType ?? "";
@@ -271,6 +279,8 @@ public sealed class CrawlerCoordinator : BackgroundService
                             skipped += result.Skipped;
                             if (result.Errors is not null)
                                 errors.AddRange(result.Errors);
+                            if (result.Activated is not null)
+                                activated.AddRange(result.Activated);
                         }
                     }
                 }
@@ -281,9 +291,9 @@ public sealed class CrawlerCoordinator : BackgroundService
                 }
             }
 
-            _logger.LogInformation("Crawl complete: imported={Imported}, skipped={Skipped}, errors={Errors}",
-                imported, skipped, errors.Count);
-            var finalResult = new BatchCrawlResult(imported, skipped, errors);
+            _logger.LogInformation("Crawl complete: imported={Imported}, skipped={Skipped}, activated={Activated}, errors={Errors}",
+                imported, skipped, activated.Count, errors.Count);
+            var finalResult = new BatchCrawlResult(imported, skipped, errors, activated);
             FinishRun(finalResult);
             return finalResult;
         }

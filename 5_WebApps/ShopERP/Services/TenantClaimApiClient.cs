@@ -180,7 +180,9 @@ public record CrawlTriggerApiRequest(
     int MaxResults = 100,
     string? SearchTerm = null,
     // 2026-09-21 feature: đăng ký tenant bằng mã số thuế (1 hoặc danh sách)
-    List<string>? TaxCodes = null);
+    List<string>? TaxCodes = null,
+    // 2026-09-21 feature: true = tự kích hoạt Pending → Active (sinh tài khoản owner tự động)
+    bool ActivateImmediately = false);
 
 public record CrawlTriggerApiResult(
     string Message,
@@ -203,6 +205,15 @@ public record CrawlStatusApiDto(
 public record CrawlResultApiDto(
     int Imported,
     int Skipped,
-    List<CrawlErrorApiDto>? Errors);
+    List<CrawlErrorApiDto>? Errors,
+    // 2026-09-21: auto-activated tenants (Kích hoạt ngay) — owner credentials shown once
+    List<ActivatedTenantCredentialApiDto>? Activated = null);
+
+public record ActivatedTenantCredentialApiDto(
+    string TaxCode,
+    Guid TenantId,
+    string Username,
+    string Password,
+    string Slug);
 
 public record CrawlErrorApiDto(string Identifier, string Error);
