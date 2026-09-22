@@ -218,9 +218,17 @@ public class SalesmanService(
             .Where(a => a.SalesmanId == salesmanId)
             .ToListAsync();
 
+        // TC-10 S5: use the persisted CommissionBaseAmount snapshot — deriving the
+        // base as CommissionAmount/CommissionRate is wrong for zero-rate rows and
+        // for OnMargin commissions (base = margin, not gross order total). The
+        // division fallback only covers legacy rows written before the snapshot
+        // column existed (CommissionBaseAmount == 0).
         return new CommissionSummaryDto
         {
-            TotalSales = referrals.Where(r => r.OrderId.HasValue).Sum(r => r.CommissionAmount / (r.CommissionRate > 0 ? r.CommissionRate : 1)),
+            TotalSales = referrals.Where(r => r.OrderId.HasValue)
+                .Sum(r => r.CommissionBaseAmount > 0
+                    ? r.CommissionBaseAmount
+                    : (r.CommissionRate > 0 ? r.CommissionAmount / r.CommissionRate : 0)),
             TotalCommission = referrals.Sum(r => r.CommissionAmount),
             PendingCommission = referrals.Where(r => r.CommissionStatus == CommissionStatus.Pending).Sum(r => r.CommissionAmount),
             PaidCommission = referrals.Where(r => r.CommissionStatus == CommissionStatus.Paid).Sum(r => r.CommissionAmount),
@@ -234,7 +242,9 @@ public class SalesmanService(
                 Id = r.Id,
                 OrderId = r.OrderId,
                 ProductId = r.ProductId,
-                OrderTotal = r.CommissionRate > 0 ? r.CommissionAmount / r.CommissionRate : 0,
+                OrderTotal = r.CommissionBaseAmount > 0
+                    ? r.CommissionBaseAmount
+                    : (r.CommissionRate > 0 ? r.CommissionAmount / r.CommissionRate : 0),
                 CommissionRate = r.CommissionRate,
                 CommissionAmount = r.CommissionAmount,
                 Status = r.CommissionStatus.ToString(),

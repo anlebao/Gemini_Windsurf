@@ -31,12 +31,10 @@
     <VanACard Header="Bộ lọc">
         <div class="form-row">
             <div class="form-group form-group-half">
-                <label for="filter-from">Từ ngày</label>
-                <input id="filter-from" type="date" class="vanan-input" @bind="_filterFromDate" />
+                <VanAInput Id="filter-from" Type="date" Label="Từ ngày" @bind-Value="_filterFromDateStr" />
             </div>
             <div class="form-group form-group-half">
-                <label for="filter-to">Đến ngày</label>
-                <input id="filter-to" type="date" class="vanan-input" @bind="_filterToDate" />
+                <VanAInput Id="filter-to" Type="date" Label="Đến ngày" @bind-Value="_filterToDateStr" />
             </div>
         </div>
         <div class="form-actions">
@@ -57,69 +55,72 @@
     else
     {
         <VanACard Header="@($"Giao dịch Settlement ({_response?.Total ?? 0})")">
-            @if (_response?.Items.Count > 0)
-            {
-              <div class="table-responsive">
-                <table class="vanan-table">
-                    <thead>
-                        <tr>
-                            <th>Ngày</th>
-                            <th>Tenant</th>
-                            <th>Owner</th>
-                            <th>Số tiền</th>
-                            <th>Số dư sau</th>
-                            <th>Mô tả</th>
-                            <th>Order ID</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var item in _response!.Items)
-                        {
-                            <tr>
-                                <td>@item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                                <td><code>@item.TenantId.ToString()[..8]...</code></td>
-                                <td><code>@item.OwnerId.ToString()[..8]...</code></td>
-                                <td class="@(item.Amount < 0 ? "text-danger" : "text-success")">
+            <div class="table-responsive">
+                <VanAnDataGrid TItem="SettlementItemDto" Items="_response?.Items" EmptyMessage="Chưa có giao dịch Settlement nào.">
+                    <Columns>
+                        <VanAnColumn TItem="SettlementItemDto" Title="Ngày">
+                            <Template Context="item">
+                                @item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                            </Template>
+                        </VanAnColumn>
+                        <VanAnColumn TItem="SettlementItemDto" Title="Tenant">
+                            <Template Context="item">
+                                <code>@item.TenantId.ToString()[..8]...</code>
+                            </Template>
+                        </VanAnColumn>
+                        <VanAnColumn TItem="SettlementItemDto" Title="Owner">
+                            <Template Context="item">
+                                <code>@item.OwnerId.ToString()[..8]...</code>
+                            </Template>
+                        </VanAnColumn>
+                        <VanAnColumn TItem="SettlementItemDto" Title="Số tiền">
+                            <Template Context="item">
+                                <span class="@(item.Amount < 0 ? "text-danger" : "text-success")">
                                     @item.Amount.ToString("N0") đ
-                                </td>
-                                <td>@item.BalanceAfter.ToString("N0") đ</td>
-                                <td>@item.Description</td>
-                                <td>
-                                    @if (item.RelatedOrderId.HasValue)
-                                    {
-                                        <code>@item.RelatedOrderId.Value.ToString()[..8]...</code>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted">-</span>
-                                    }
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-              </div>
+                                </span>
+                            </Template>
+                        </VanAnColumn>
+                        <VanAnColumn TItem="SettlementItemDto" Title="Số dư sau">
+                            <Template Context="item">
+                                @item.BalanceAfter.ToString("N0") đ
+                            </Template>
+                        </VanAnColumn>
+                        <VanAnColumn TItem="SettlementItemDto" Title="Mô tả">
+                            <Template Context="item">
+                                @item.Description
+                            </Template>
+                        </VanAnColumn>
+                        <VanAnColumn TItem="SettlementItemDto" Title="Order ID">
+                            <Template Context="item">
+                                @if (item.RelatedOrderId.HasValue)
+                                {
+                                    <code>@item.RelatedOrderId.Value.ToString()[..8]...</code>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </Template>
+                        </VanAnColumn>
+                    </Columns>
+                </VanAnDataGrid>
+            </div>
 
-                @* Pagination *@
-                @if (_response!.Total > _response.PageSize)
-                {
-                    var totalPages = (int)Math.Ceiling((double)_response.Total / _response.PageSize);
-                    <div class="pagination">
-                        @if (_currentPage > 1)
-                        {
-                            <VanAButton Variant="outline" Size="small" OnClick="PrevPage">Trước</VanAButton>
-                        }
-                        <span>Trang @_currentPage / @totalPages</span>
-                        @if (_currentPage < totalPages)
-                        {
-                            <VanAButton Variant="outline" Size="small" OnClick="NextPage">Sau</VanAButton>
-                        }
-                    </div>
-                }
-            }
-            else
+            @* Pagination *@
+            @if (_response != null && _response.Total > _response.PageSize)
             {
-                <p>Chưa có giao dịch Settlement nào.</p>
+                var totalPages = (int)Math.Ceiling((double)_response.Total / _response.PageSize);
+                <div class="pagination">
+                    @if (_currentPage > 1)
+                    {
+                        <VanAButton Variant="outline" Size="small" OnClick="PrevPage">Trước</VanAButton>
+                    }
+                    <span>Trang @_currentPage / @totalPages</span>
+                    @if (_currentPage < totalPages)
+                    {
+                        <VanAButton Variant="outline" Size="small" OnClick="NextPage">Sau</VanAButton>
+                    }
+                </div>
             }
         </VanACard>
     }
@@ -131,8 +132,8 @@
     private string _alertMessage = string.Empty;
     private string _alertType = "info";
     private int _currentPage = 1;
-    private DateTime? _filterFromDate;
-    private DateTime? _filterToDate;
+    private string _filterFromDateStr = string.Empty;
+    private string _filterToDateStr = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -145,8 +146,8 @@
         try
         {
             _response = await SettlementApi.ListAsync(
-                fromDate: _filterFromDate,
-                toDate: _filterToDate,
+                fromDate: ParseDate(_filterFromDateStr),
+                toDate: ParseDate(_filterToDateStr),
                 page: _currentPage,
                 pageSize: 20);
         }
@@ -161,6 +162,9 @@
             _isLoading = false;
         }
     }
+
+    private static DateTime? ParseDate(string value)
+        => DateTime.TryParse(value, out var d) ? d : null;
 
     private async Task PrevPage()
     {
@@ -182,8 +186,8 @@
 
     private void ClearFilters()
     {
-        _filterFromDate = null;
-        _filterToDate = null;
+        _filterFromDateStr = string.Empty;
+        _filterToDateStr = string.Empty;
         _currentPage = 1;
     }
 }

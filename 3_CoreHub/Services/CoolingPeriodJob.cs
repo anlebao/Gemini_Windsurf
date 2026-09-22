@@ -135,12 +135,34 @@ public class CoolingPeriodJob : BackgroundService
             {
                 if (attribution.BonusAmount > 0)
                 {
-                    // Create WalletTransaction for app-install bonus payout
+                    // TC-10 S4: dedup — the wallet tx carries RelatedTransactionId =
+                    // attribution.Id, so a previous run that committed the tx but
+                    // crashed before MarkPaid converges here instead of double-paying.
+                    var existingBonusTxId = await dbContext.WalletTransactions
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .Where(w => w.Type == WalletTransactionType.Commission
+                            && w.RelatedTransactionId == attribution.Id)
+                        .Select(w => (Guid?)w.Id)
+                        .FirstOrDefaultAsync(ct);
+
+                    if (existingBonusTxId.HasValue)
+                    {
+                        attribution.MarkPaid(existingBonusTxId.Value);
+                        await dbContext.SaveChangesAsync(ct);
+                        _logger.LogInformation("CoolingPeriodJob: AppInstallAttribution {Id} marked paid — bonus tx already exists", attribution.Id);
+                        continue;
+                    }
+
+                    // Create WalletTransaction for app-install bonus payout —
+                    // RelatedTransactionId links the tx back to this attribution
+                    // (no OrderId exists for app installs) for dedup + audit.
                     var txn = await walletService.CreateTransactionAsync(
                         attribution.SalesmanId,
                         WalletTransactionType.Commission,
                         attribution.BonusAmount,
-                        $"App-install bonus for product {attribution.ProductId}");
+                        $"App-install bonus for product {attribution.ProductId} (attribution {attribution.Id})",
+                        relatedTransactionId: attribution.Id);
 
                     attribution.MarkPaid(txn.Id);
                 }

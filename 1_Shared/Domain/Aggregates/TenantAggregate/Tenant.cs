@@ -48,6 +48,14 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         // No FK constraint in DB — just a reference (avoid cascade issues).
         public Guid? PotentialDuplicateOf { get; private set; }
 
+        // Settlement Batch-4 (TC-10 S1): the KhachLink Customer account that owns this shop.
+        // Links the owner's customer identity to the tenant for wallet/admin authorization
+        // (pending-advance list, confirm-advance-received, isShopOwner role flag).
+        // Nullable — set lazily on first verified-owner access (phone/email matches the
+        // owner-provided contact declared at Claim/Verify), or backfilled by SysAdmin.
+        // Guid? (PK reference), NOT a value object — Single-Identity Pattern. No FK constraint.
+        public Guid? OwnerCustomerId { get; private set; }
+
         // ── Lifecycle ─────────────────────────────────────────────────────────
         public TenantStatus Status { get; private set; } = TenantStatus.Active;
 
@@ -241,6 +249,21 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
                 throw new ArgumentException("Cannot mark tenant as duplicate of itself.", nameof(otherTenantId));
 
             PotentialDuplicateOf = otherTenantId;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Settlement Batch-4 (TC-10 S1): bind this tenant to the owner's KhachLink Customer account.
+        /// Called by the service layer after verifying the customer identity matches the
+        /// owner contact declared at Claim/Verify (phone or email). Re-binding is allowed
+        /// only by explicit service-layer decision (e.g. SysAdmin ownership transfer).
+        /// </summary>
+        public void AssignOwnerCustomer(Guid customerId)
+        {
+            if (customerId == Guid.Empty)
+                throw new ArgumentException("Owner customer id cannot be empty.", nameof(customerId));
+
+            OwnerCustomerId = customerId;
             UpdateAudit();
         }
 

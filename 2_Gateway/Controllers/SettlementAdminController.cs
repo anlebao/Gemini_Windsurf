@@ -40,7 +40,12 @@ namespace VanAn.Gateway.Controllers
                     .Where(t => t.Type == WalletTransactionType.Settlement);
 
                 if (tenantId.HasValue && tenantId.Value != Guid.Empty)
-                    query = query.Where(t => t.TenantId.Value == tenantId.Value);
+                {
+                    // TC-10 S2 (Pattern #8): construct the value object BEFORE the
+                    // comparison — `t.TenantId.Value` inside Where is not translatable.
+                    var filterTenantId = new TenantId(tenantId.Value);
+                    query = query.Where(t => t.TenantId == filterTenantId);
+                }
 
                 if (fromDate.HasValue)
                     query = query.Where(t => t.CreatedAt >= fromDate.Value);

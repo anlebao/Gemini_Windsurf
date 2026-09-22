@@ -103,6 +103,11 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             builder.Property(e => e.PotentialDuplicateOf)
                 .HasColumnName("PotentialDuplicateOf");
 
+            // Settlement Batch-4 (TC-10 S1): nullable PK reference to the owner's Customer row.
+            // No FK constraint (customer may not exist yet at Verify; avoids cascade issues).
+            builder.Property(e => e.OwnerCustomerId)
+                .HasColumnName("OwnerCustomerId");
+
             // Audit fields from BaseEntity
             builder.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");

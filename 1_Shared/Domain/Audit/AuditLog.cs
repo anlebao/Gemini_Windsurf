@@ -43,7 +43,8 @@ public enum AuditableEntityType
     LoyaltyRewards = 11,
     // Sprint 3: platform-level + security entities
     KhachLinkInstance = 12,  // P1.2 — KhachLink profile change audit
-    SecurityEvent = 13      // P3.3 — security incident (failed login, rate limit, suspicious activity)
+    SecurityEvent = 13,     // P3.3 — security incident (failed login, rate limit, suspicious activity)
+    WalletTransaction = 14  // Settlement Batch-4 (TC-10 S7) — wallet ledger movement audit
 }
 
 /// <summary>

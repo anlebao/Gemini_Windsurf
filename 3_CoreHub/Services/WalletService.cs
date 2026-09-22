@@ -6,6 +6,7 @@ using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.WalletAggregate;
+using VanAn.Shared.Domain.Audit;
 using VanAn.Shared.Domain.Common;
 using VanAn.Shared.Services;
 
@@ -28,6 +29,7 @@ namespace VanAn.CoreHub.Services
         private readonly IOrderService? _orderService;
         private readonly IOutboxRepository? _outboxRepository;
         private readonly IShopFeatureSettingsService? _shopFeatureSettingsService;
+        private readonly IAuditTrailService? _auditTrailService;
 
         public WalletService(
             IVanAnDbContext dbContext,
@@ -35,7 +37,8 @@ namespace VanAn.CoreHub.Services
             ILogger<WalletService> logger,
             IOrderService? orderService = null,
             IOutboxRepository? outboxRepository = null,
-            IShopFeatureSettingsService? shopFeatureSettingsService = null)
+            IShopFeatureSettingsService? shopFeatureSettingsService = null,
+            IAuditTrailService? auditTrailService = null)
         {
             _dbContext = dbContext;
             _tenantProvider = tenantProvider;
@@ -43,6 +46,7 @@ namespace VanAn.CoreHub.Services
             _orderService = orderService;
             _outboxRepository = outboxRepository;
             _shopFeatureSettingsService = shopFeatureSettingsService;
+            _auditTrailService = auditTrailService;
         }
 
         /// <summary>
@@ -122,6 +126,18 @@ namespace VanAn.CoreHub.Services
                                  _dbContext.ProviderName.Contains("Npgsql");
                 if (isPostgres)
                 {
+                    // TC-10 S8: serialize per-owner wallet writes. FOR UPDATE below can
+                    // only lock a row that EXISTS — two concurrent FIRST transactions for
+                    // a new owner would both read balanceBefore=0 and corrupt the balance
+                    // chain. The transaction-scoped advisory lock closes that gap; it is
+                    // released automatically on commit/rollback.
+                    if (_dbContext is DbContext efContext)
+                    {
+                        await efContext.Database.ExecuteSqlRawAsync(
+                            "SELECT pg_advisory_xact_lock(hashtextextended({0}, 0))",
+                            ownerId.ToString());
+                    }
+
                     // PG: SELECT FOR UPDATE locks the row for concurrent-safety.
                     // IgnoreQueryFilters is mandatory here: the raw SQL runs INSIDE the
                     // composed tenant filter, so LIMIT 1 picks the owner's globally-latest
@@ -160,7 +176,51 @@ namespace VanAn.CoreHub.Services
             _dbContext.WalletTransactions.Add(walletTx);
             await _dbContext.SaveChangesAsync();
             if (runningBalances != null) runningBalances[ownerId] = walletTx.BalanceAfter;
+
+            // TC-10 S7: append-only audit trail for every wallet movement — Reversal
+            // entries also flow through here. Best-effort: an audit failure must never
+            // roll back a financial transaction.
+            await TryAuditWalletTxAsync(walletTx);
             return walletTx;
+        }
+
+        /// <summary>
+        /// TC-10 S7: audit a wallet transaction creation. The audit row is persisted via
+        /// the async AuditLogQueue (non-accounting types), so it never blocks or
+        /// participates in the caller's ambient transaction.
+        /// </summary>
+        private async Task TryAuditWalletTxAsync(WalletTransaction walletTx)
+        {
+            if (_auditTrailService == null)
+                return;
+
+            try
+            {
+                var newValues = JsonSerializer.Serialize(new
+                {
+                    walletTx.OwnerId,
+                    Type = walletTx.Type.ToString(),
+                    walletTx.Amount,
+                    walletTx.BalanceAfter,
+                    walletTx.RelatedOrderId,
+                    walletTx.RelatedTransactionId,
+                    walletTx.Description
+                });
+                var correlationId = walletTx.RelatedOrderId?.ToString()
+                    ?? walletTx.RelatedTransactionId?.ToString();
+
+                await _auditTrailService.LogCreateAsync(
+                    AuditableEntityType.WalletTransaction,
+                    walletTx.Id,
+                    newValues,
+                    correlationId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Audit logging failed for WalletTransaction {Id} — wallet entry already persisted",
+                    walletTx.Id);
+            }
         }
 
         /// <summary>
@@ -469,6 +529,29 @@ namespace VanAn.CoreHub.Services
         /// completion (with fraud scoring + 24h cooling). The unpaid commission implicitly stays
         /// in PlatformWallet until payout — the split remains balanced.
         /// </summary>
+        /// <summary>
+        /// Settlement Batch-4 (TC-10 S3): margin split with VND rounding + rate invariant.
+        /// Amounts are whole VND — halves round away from zero (same convention as
+        /// InvoicePolicyService). Rates must be non-negative and their sum must not
+        /// exceed 1: commission (paid separately by CoolingPeriodJob) + platformFee +
+        /// communityFund must fit inside the margin; the remainder stays implicitly in
+        /// PlatformWallet as Vạn An net profit (decision: no dedicated ledger tx).
+        /// </summary>
+        private static (decimal platformFee, decimal communityFund) ComputeMarginSplit(
+            Guid orderId, decimal margin, decimal platformFeeRate, decimal communityFundRate)
+        {
+            if (platformFeeRate < 0m || communityFundRate < 0m)
+                throw new InvalidOperationException(
+                    $"Invalid fee config for order {orderId} — margin rates cannot be negative.");
+            if (platformFeeRate + communityFundRate > 1m)
+                throw new InvalidOperationException(
+                    $"Invalid fee config for order {orderId} — platformFeeRate ({platformFeeRate:P1}) + communityFundRate ({communityFundRate:P1}) exceeds 100% of margin.");
+
+            var platformFee = Math.Round(margin * platformFeeRate, 0, MidpointRounding.AwayFromZero);
+            var communityFund = Math.Round(margin * communityFundRate, 0, MidpointRounding.AwayFromZero);
+            return (platformFee, communityFund);
+        }
+
         private async Task<WalletTransaction> CreateResellerCodSplitCoreAsync(
             Guid shipperId, Order order, decimal codAmount, Dictionary<Guid, decimal> balances)
         {
@@ -480,8 +563,7 @@ namespace VanAn.CoreHub.Services
             var platformFeeRate = order.PlatformFeeRate ?? 0m;
             var communityFundRate = order.CommunityFundRate ?? 0m;
 
-            var platformFee = margin * platformFeeRate;
-            var communityFund = margin * communityFundRate;
+            var (platformFee, communityFund) = ComputeMarginSplit(orderId, margin, platformFeeRate, communityFundRate);
 
             // Financial balance invariant: codAmount = SellPrice + DeliveryFee = CostPrice + Margin + DeliveryFee
             // margin = platformFee + communityFund + commission(reserved, unpaid here) + vanAnNetProfit
@@ -747,50 +829,31 @@ namespace VanAn.CoreHub.Services
         /// </summary>
         public async Task<List<PendingAdvanceDto>> GetPendingAdvancesAsync(Guid shopOwnerId)
         {
-            // Get all AdvancePayment txs for orders in this tenant (shopOwnerId = TenantId)
-            var advanceTxs = await _dbContext.WalletTransactions
-                .IgnoreQueryFilters()
-                .AsNoTracking()
-                .Where(w => w.Type == WalletTransactionType.AdvancePayment && w.RelatedOrderId != null)
-                .ToListAsync();
-
-            // Get all Settlement txs that link to AdvancePayments
-            var settledTxIds = await _dbContext.WalletTransactions
-                .IgnoreQueryFilters()
-                .AsNoTracking()
-                .Where(w => w.Type == WalletTransactionType.Settlement && w.RelatedTransactionId != null)
-                .Select(w => w.RelatedTransactionId!.Value)
-                .ToListAsync();
-
-            var settledSet = settledTxIds.ToHashSet();
-
-            // Filter: orders belonging to this shop (tenant), not yet settled
-            // Use TenantId value object comparison (Pattern #8: construct value object before comparison)
-            var orderIds = advanceTxs.Where(a => a.RelatedOrderId.HasValue).Select(a => a.RelatedOrderId!.Value).Distinct().ToList();
-            if (orderIds.Count == 0)
-                return new List<PendingAdvanceDto>();
-
+            // TC-10 S6: push tenant/order filtering to the database — the previous
+            // version materialized EVERY AdvancePayment + Settlement row (all tenants)
+            // and joined in memory. Correlated EXISTS keep the whole filter server-side.
+            // Pattern #8: construct the TenantId value object before comparing.
             var shopTenantId = new TenantId(shopOwnerId);
-            var shopOrders = await _dbContext.Orders
+            return await _dbContext.WalletTransactions
                 .IgnoreQueryFilters()
                 .AsNoTracking()
-                .Where(o => orderIds.Contains(o.Id) && o.TenantId == shopTenantId)
-                .Select(o => o.Id)
-                .ToListAsync();
-
-            var shopOrderSet = shopOrders.ToHashSet();
-
-            return advanceTxs
-                .Where(a => a.RelatedOrderId.HasValue && shopOrderSet.Contains(a.RelatedOrderId.Value) && !settledSet.Contains(a.Id))
-                .Select(a => new PendingAdvanceDto
+                .Where(w => w.Type == WalletTransactionType.AdvancePayment
+                    && w.RelatedOrderId != null
+                    && _dbContext.Orders.IgnoreQueryFilters()
+                        .Any(o => o.Id == w.RelatedOrderId!.Value && o.TenantId == shopTenantId)
+                    && !_dbContext.WalletTransactions.IgnoreQueryFilters()
+                        .Any(s => s.Type == WalletTransactionType.Settlement
+                            && s.RelatedTransactionId == w.Id))
+                .OrderByDescending(w => w.CreatedAt)
+                .Select(w => new PendingAdvanceDto
                 {
-                    TransactionId = a.Id,
-                    ShipperId = a.OwnerId,
-                    OrderId = a.RelatedOrderId!.Value,
-                    Amount = -a.Amount, // AdvancePayment was -amount, display positive
-                    CreatedAt = a.CreatedAt
+                    TransactionId = w.Id,
+                    ShipperId = w.OwnerId,
+                    OrderId = w.RelatedOrderId!.Value,
+                    Amount = -w.Amount, // AdvancePayment was -amount, display positive
+                    CreatedAt = w.CreatedAt
                 })
-                .ToList();
+                .ToListAsync();
         }
 
         /// <summary>
@@ -996,9 +1059,26 @@ namespace VanAn.CoreHub.Services
                 await using var tx = await _dbContext.BeginTransactionAsync();
                 try
                 {
-                    var order = await _dbContext.Orders
-                        .IgnoreQueryFilters()
-                        .FirstOrDefaultAsync(o => o.Id == orderId);
+                    // TC-10 S9: lock the order row on PG. Without FOR UPDATE, two
+                    // concurrent confirms both read the pre-commit state under
+                    // READ COMMITTED, both pass the Paid checks, and double-write the
+                    // wallet split. The loser blocks here and re-reads post-commit.
+                    var isPostgres = _dbContext.ProviderName.Contains("PostgreSQL")
+                        || _dbContext.ProviderName.Contains("Npgsql");
+                    Order? order;
+                    if (isPostgres)
+                    {
+                        order = await _dbContext.Orders
+                            .FromSqlRaw("SELECT * FROM \"Orders\" WHERE \"Id\" = {0} FOR UPDATE", orderId)
+                            .IgnoreQueryFilters()
+                            .FirstOrDefaultAsync();
+                    }
+                    else
+                    {
+                        order = await _dbContext.Orders
+                            .IgnoreQueryFilters()
+                            .FirstOrDefaultAsync(o => o.Id == orderId);
+                    }
 
                     if (order == null)
                         throw new InvalidOperationException($"Order {orderId} not found.");
@@ -1017,6 +1097,16 @@ namespace VanAn.CoreHub.Services
                     if (order.Status == OrderStatusId.Cancelled)
                         throw new InvalidOperationException($"Order {orderId} is cancelled — cannot confirm external payment.");
 
+                    // TC-10 S9: a payment reference must be unique across orders — a
+                    // reused ref means a webhook replay or a double-pay attempt.
+                    var refAlreadyUsed = await _dbContext.Orders
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .AnyAsync(o => o.VietQR_TransactionId == paymentRef && o.Id != orderId);
+                    if (refAlreadyUsed)
+                        throw new InvalidOperationException(
+                            $"Payment reference '{paymentRef}' was already used for another order — replay rejected.");
+
                     // Verify amount = SellPrice + DeliveryFee (server-side authoritative)
                     var expectedAmount = (order.SellPrice ?? 0m) + (order.DeliveryFee ?? 0m);
                     if (amount != expectedAmount)
@@ -1029,8 +1119,7 @@ namespace VanAn.CoreHub.Services
                     var platformFeeRate = order.PlatformFeeRate ?? 0m;
                     var communityFundRate = order.CommunityFundRate ?? 0m;
 
-                    var platformFee = margin * platformFeeRate;
-                    var communityFund = margin * communityFundRate;
+                    var (platformFee, communityFund) = ComputeMarginSplit(orderId, margin, platformFeeRate, communityFundRate);
 
                     var balances = new Dictionary<Guid, decimal>();
 
@@ -1057,11 +1146,18 @@ namespace VanAn.CoreHub.Services
                     // 3. DeliveryFee (+deliveryFee, shipper) — Vạn An trả shipper
                     if (deliveryFee > 0)
                     {
-                        // ShipperId from DeliveryTask
+                        // TC-10 S9: pick the DELIVERED/active task — a plain
+                        // FirstOrDefault could return a cancelled or failed delivery
+                        // attempt and credit the fee to the wrong shipper.
                         var deliveryTask = await _dbContext.DeliveryTasks
                             .IgnoreQueryFilters()
                             .AsNoTracking()
-                            .FirstOrDefaultAsync(d => d.OrderId == orderId);
+                            .Where(d => d.OrderId == orderId
+                                && d.Status != DeliveryTaskStatus.Cancelled
+                                && d.Status != DeliveryTaskStatus.Failed)
+                            .OrderByDescending(d => d.Status == DeliveryTaskStatus.Delivered)
+                            .ThenByDescending(d => d.CreatedAt)
+                            .FirstOrDefaultAsync();
                         if (deliveryTask != null)
                         {
                             await CreateWalletTxCoreAsync(

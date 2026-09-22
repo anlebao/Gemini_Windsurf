@@ -76,25 +76,10 @@ namespace VanAn.Gateway.Controllers
                 .Where(r => r.CustomerId == customerId.Value && r.IsActive)
                 .ToListAsync();
 
-            // v1.2: Check if customer is a shop owner — has Settlement wallet transactions (shop wallet = TenantId as OwnerId)
-            // Pragmatic PoC approach: if customer has wallet tx with Type=Settlement, they're a shop owner.
-            // (Settlement txs are created for shop in COD flow + advance confirmation flow)
-            var customerTenantId = await _dbContext.Customers
-                .IgnoreQueryFilters()
-                .AsNoTracking()
-                .Where(c => c.Id == customerId.Value)
-                .Select(c => c.TenantId.Value)
-                .FirstOrDefaultAsync();
-
-            var isShopOwner = false;
-            if (customerTenantId != Guid.Empty)
-            {
-                isShopOwner = await _dbContext.WalletTransactions
-                    .IgnoreQueryFilters()
-                    .AsNoTracking()
-                    .AnyAsync(w => w.OwnerId == customerTenantId
-                        && w.Type == WalletTransactionType.Settlement);
-            }
+            // TC-10 S1: derive shop-owner status from Tenant.OwnerCustomerId (verified owner
+            // identity). The previous heuristic — "tenant has any Settlement wallet tx" — made
+            // EVERY customer of a selling tenant a shop owner (privilege escalation).
+            var isShopOwner = await TryGetShopOwnerTenantIdAsync(customerId.Value) != null;
 
             return Ok(new
             {
@@ -103,6 +88,70 @@ namespace VanAn.Gateway.Controllers
                 isShopOwner
             });
         }
+
+        /// <summary>
+        /// TC-10 S1: resolve the caller's tenant id only when they are the VERIFIED shop
+        /// owner, else null. Ownership comes from Tenant.OwnerCustomerId.
+        /// Lazy bind: when OwnerCustomerId is still null (tenants verified before the field
+        /// existed, or owners who joined KhachLink after Verify), the caller is bound once
+        /// when their contact info matches the owner-provided ContactPhone/ContactEmail
+        /// declared at Claim/Verify. The bind persists — later checks are a plain compare.
+        /// </summary>
+        private async Task<Guid?> TryGetShopOwnerTenantIdAsync(Guid customerId)
+        {
+            var customer = await _dbContext.Customers
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == customerId);
+            if (customer == null)
+                return null;
+
+            // Tracked — the lazy bind mutates OwnerCustomerId.
+            var tenant = await _dbContext.Tenants
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(t => t.Id == customer.TenantId);
+            if (tenant == null)
+                return null;
+
+            if (tenant.OwnerCustomerId == customerId)
+                return customer.TenantId.Value;
+
+            if (tenant.OwnerCustomerId == null && OwnerContactMatches(customer, tenant))
+            {
+                tenant.AssignOwnerCustomer(customerId);
+                await _dbContext.SaveChangesAsync();
+                _logger.LogInformation(
+                    "Bound owner customer {CustomerId} to tenant {TenantId} via verified contact match",
+                    customerId, tenant.Id.Value);
+                return customer.TenantId.Value;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Owner-contact match: phone compared digits-only (formatting-insensitive),
+        /// email compared case-insensitively. Contact fields are the values the owner
+        /// declared at Claim/Verify — SysAdmin-approved during onboarding.
+        /// </summary>
+        private static bool OwnerContactMatches(
+            Customer customer,
+            VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant tenant)
+        {
+            var contactPhone = tenant.Settings.ContactPhone;
+            if (!string.IsNullOrWhiteSpace(contactPhone)
+                && !string.IsNullOrWhiteSpace(customer.PhoneNumber)
+                && DigitsOnly(customer.PhoneNumber) == DigitsOnly(contactPhone))
+                return true;
+
+            var contactEmail = tenant.Settings.ContactEmail;
+            return !string.IsNullOrWhiteSpace(contactEmail)
+                && !string.IsNullOrWhiteSpace(customer.Email)
+                && string.Equals(customer.Email.Trim(), contactEmail.Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string DigitsOnly(string value)
+            => new(value.Where(char.IsDigit).ToArray());
 
         /// <summary>
         /// GET /api/community/my-roles
@@ -1083,17 +1132,14 @@ namespace VanAn.Gateway.Controllers
 
             try
             {
-                // Shop owner ID = TenantId of the customer's tenant
-                var customer = await _dbContext.Customers
-                    .IgnoreQueryFilters()
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(c => c.Id == customerId.Value);
+                // TC-10 S1: only the verified shop owner may list pending advances —
+                // previously ANY customer of the tenant could (settlement existence
+                // is not an ownership signal).
+                var shopOwnerId = await TryGetShopOwnerTenantIdAsync(customerId.Value);
+                if (shopOwnerId == null)
+                    return StatusCode(403, new { error = "Bạn không phải là chủ shop." });
 
-                if (customer == null)
-                    return NotFound(new { error = "Không tìm thấy khách hàng." });
-
-                var shopOwnerId = customer.TenantId.Value;
-                var pending = await _walletService.GetPendingAdvancesAsync(shopOwnerId);
+                var pending = await _walletService.GetPendingAdvancesAsync(shopOwnerId.Value);
                 return Ok(pending);
             }
             catch (Exception ex)
@@ -1120,18 +1166,19 @@ namespace VanAn.Gateway.Controllers
 
             try
             {
-                // Shop owner ID = TenantId of the customer's tenant
-                var customer = await _dbContext.Customers
-                    .IgnoreQueryFilters()
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(c => c.Id == customerId.Value);
+                // TC-10 S1: only the verified shop owner may confirm an advance —
+                // previously ANY customer of the tenant could.
+                var shopOwnerId = await TryGetShopOwnerTenantIdAsync(customerId.Value);
+                if (shopOwnerId == null)
+                    return StatusCode(403, new { error = "Bạn không phải là chủ shop." });
 
-                if (customer == null)
-                    return NotFound(new { error = "Không tìm thấy khách hàng." });
-
-                var shopOwnerId = customer.TenantId.Value;
-                var tx = await _walletService.ConfirmAdvanceReceivedAsync(shopOwnerId, body.AdvanceTransactionId);
+                var tx = await _walletService.ConfirmAdvanceReceivedAsync(shopOwnerId.Value, body.AdvanceTransactionId);
                 return Ok(new { transactionId = tx.Id, balanceAfter = tx.BalanceAfter });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // TC-10 S11: cross-tenant advance confirm → 403 (was 500).
+                return StatusCode(403, new { error = "Bạn không có quyền xác nhận khoản ứng này." });
             }
             catch (InvalidOperationException ex)
             {
