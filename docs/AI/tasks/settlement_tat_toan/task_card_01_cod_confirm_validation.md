@@ -1,6 +1,6 @@
 # Task Card TC-01: COD Confirm — amount do server derive + validation + race fix
 
-> **Status:** ⬜ PENDING (chờ duyệt)
+> **Status:** ✅ DONE + DEPLOYED + RV PASS (2026-09-22, `e9b4789a`) — amount server-derive (Marketplace CodAmount??TotalAmount, Reseller SellPrice+DeliveryFee); guards: cancelled/Paid order + DeliveryTask OutForDelivery/Delivered; flow 1 transaction. RV: sai amount→409, đúng→200, dup→409.
 > **Severity:** P0 — tiền (shipper tự khai số tiền thu hộ; race commit trùng)
 > **Findings:** C3, C9 (phần race của confirm-cod)
 > **Files:** `3_CoreHub/Services/WalletService.cs` (ConfirmCodAsync ~L162-225, ConfirmCodResellerAsync ~L232-345), `2_Gateway/Controllers/CommunityController.cs` (~L1003-1033)

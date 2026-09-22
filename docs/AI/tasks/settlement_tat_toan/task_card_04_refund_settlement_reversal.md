@@ -1,6 +1,6 @@
 # Task Card TC-04: Cancel/Refund — đảo toàn bộ settlement + commission cho đơn hủy
 
-> **Status:** ⬜ PENDING (chờ duyệt — kèm decision Q6 bật flag)
+> **Status:** ✅ CODE DONE + DEPLOYED (2026-09-22, `e9b4789a`) — Step 2d đảo mọi wallet tx của đơn (per-tx idempotent); referral Pending/Held→Rejected unconditional khi cancel (kể cả flag OFF). ⚠️ Wallet reversal vẫn gated `ValcnV2_RefundReversal` (default OFF) — chờ Q6.
 > **Severity:** P0 — tiền (đơn hủy/hoàn để lại tiền ảo trên ví; commission vẫn trả cho đơn hủy)
 > **Findings:** C7
 > **Files:** `3_CoreHub/Services/RefundOrchestrationService.cs` (~L126-141), `3_CoreHub/Services/CoolingPeriodJob.cs` (~L58-87), `3_CoreHub/Services/OrderWorkflowService.cs` (~L184-209), `1_Shared/Domain.cs` (SalesReferral ~L4317-4359)

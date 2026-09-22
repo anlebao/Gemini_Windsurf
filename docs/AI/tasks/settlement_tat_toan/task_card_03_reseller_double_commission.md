@@ -1,6 +1,6 @@
 # Task Card TC-03: Reseller commission — trả 2 lần + bypass anti-fraud
 
-> **Status:** ⬜ PENDING (chờ duyệt)
+> **Status:** ✅ DONE + DEPLOYED (2026-09-22, `e9b4789a`) — Option A: bỏ Commission leg khỏi Reseller COD/external split; CoolingPeriodJob dedup (order+salesman) + reject khi order cancelled/missing; FraudReview reverse mọi commission tx (không FirstOrDefault). Test T13 dual-mode đổi kỳ vọng.
 > **Severity:** P0 — tiền (commission Reseller trả ngay + trả lại sau 24h; bypass risk scoring)
 > **Findings:** C6
 > **Files:** `3_CoreHub/Services/OrderWorkflowService.cs` (~L264-294), `3_CoreHub/Services/WalletService.cs` (~L299-310, ~L627-637), `3_CoreHub/Services/CoolingPeriodJob.cs` (~L58-87), `3_CoreHub/Services/FraudReviewService.cs` (~L188-204), `3_CoreHub/Services/SalesmanService.cs` (CreateCommissionAsync ~L295-392)

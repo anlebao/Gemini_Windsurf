@@ -1,6 +1,6 @@
 # Task Card TC-02: Advance Payment — idempotency + cross-tenant hole
 
-> **Status:** ⬜ PENDING (chờ duyệt)
+> **Status:** ✅ DONE + DEPLOYED + RV PASS (2026-09-22, `e9b4789a`) — ConfirmAdvance idempotent (1 advance/order, check trong transaction); ConfirmAdvanceReceived verify order.TenantId==caller. RV: advance dup→409, cross-tenant→reject không Settlement, same-tenant→200, dup→409. Note: cross-tenant trả 500 thay 403 → TC-10/S11.
 > **Severity:** P0 — tiền (Reseller duplicate = in tiền; confirm-received cross-tenant)
 > **Findings:** C4, C5
 > **Files:** `3_CoreHub/Services/WalletService.cs` (ConfirmAdvanceAsync ~L351-415, ConfirmAdvanceReceivedAsync ~L421-454), `2_Gateway/Controllers/CommunityController.cs` (~L1041-1145)

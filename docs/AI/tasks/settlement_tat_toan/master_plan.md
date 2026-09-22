@@ -1,7 +1,7 @@
 # Master Plan — Settlement (Tất toán) Review Findings
 
 **Created:** 2026-09-22
-**Status:** REVIEW COMPLETE — findings listed, awaiting user approval per batch before IMPLEMENT
+**Status:** BATCH 1 ✅ DONE + DEPLOYED + RV PRODUCTION PASS (2026-09-22, `afcf5847`+`e9b4789a`) — TC-01..TC-04. Còn lại: Batch 2 (TC-05+TC-06, cần chốt Q2/Q3), TC-07 (Q5), TC-08 (Q1), TC-09 (Q4), TC-10
 **Branch target:** `main`
 **Source:** REVIEW_ONLY session 2026-09-22 — rà soát tất toán Salesman–Shipper–Owner Tenant–Platform + mức độ đổ số liệu về kế toán
 
@@ -47,6 +47,7 @@ Chốt Q1–Q6. Không code.
 
 ### Batch 1 — Money-safety hotfixes (P0, độc lập, có thể deploy riêng)
 TC-01 → TC-02 → TC-03 → TC-04. Mỗi card: fix + Core.Tests + guard-check + build.
+**✅ DONE 2026-09-22** — commit `e9b4789a` (+`afcf5847` docs), CD Multi-VPS SUCCESS, **RV production PASS**: confirm-cod sai amount → 409; đúng → 200 (COD+Settlement đúng PG); duplicate → 409; advance dup → 409; advance-received cross-tenant → reject (không Settlement); same-tenant → 200; dup → 409. Community tests 268 PASS (+7). Note: cross-tenant reject trả 500 thay 403 → gom TC-10/S11.
 
 ### Batch 2 — Accounting correctness (P1)
 TC-05 (handler dedup/retire — chặn nhân đôi trước) → TC-06 (COD → accounting) → TC-07 (wallet bridge, cần Q5).
@@ -67,10 +68,10 @@ TC-10 (admin + misc fixes, có thể tách nhỏ theo sub-item).
 
 ## Acceptance criteria (tổng)
 
-- [ ] Mọi wallet multi-tx flow atomic hoặc có idempotency key + dedup check
-- [ ] COD amount không do client khai — server derive từ order (SellPrice+DeliveryFee / TotalAmount)
-- [ ] Reseller commission trả đúng 1 lần, qua risk scoring + cooling như Marketplace
-- [ ] Cancel/refund đảo TOÀN BỘ wallet tx của đơn (không chỉ Commission) + SalesReferral→Rejected
+- [x] Mọi wallet multi-tx flow atomic hoặc có idempotency key + dedup check — **Batch 1** (ConfirmCod/Advance/AdvanceReceived/ExternalPayment giờ 1 transaction; advance + COD dedup)
+- [x] COD amount không do client khai — server derive từ order (SellPrice+DeliveryFee / TotalAmount) — **Batch 1, RV PASS**
+- [x] Reseller commission trả đúng 1 lần, qua risk scoring + cooling như Marketplace — **Batch 1** (bỏ leg commission khỏi split; CoolingPeriodJob dedup + order-cancelled guard)
+- [~] Cancel/refund đảo TOÀN BỘ wallet tx của đơn (không chỉ Commission) + SalesReferral→Rejected — **code DONE Batch 1** nhưng wallet reversal vẫn gated bởi `ValcnV2_RefundReversal` (default OFF — chờ Q6); referral voiding khi cancel đã unconditional
 - [ ] Mỗi OrderCompleted → đúng 1 bộ bút toán, net revenue, có dedup theo CorrelationId
 - [ ] Đơn COD confirm xong → có 511/3331/632 entries trên đúng tenant bookset
 - [ ] Ledger shipper có leg nộp tiền → balance khép về phí giao hàng thực nhận
