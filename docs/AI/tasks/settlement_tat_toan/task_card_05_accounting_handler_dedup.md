@@ -1,6 +1,6 @@
 # Task Card TC-05: SimpleAccountingEventHandler — revenue ghi trùng + không idempotent
 
-> **Status:** ✅ DONE (2026-09-22) — **Q2 = RETIRE** (user duyệt). Handler đã xoá khỏi DI + xoá file.
+> **Status:** ✅ DONE + DEPLOYED + RV PRODUCTION PASS (2026-09-22, `80dfdfc3`) — **Q2 = RETIRE** (user duyệt). Handler đã xoá khỏi DI + xoá file. RV: marker = 0 trong CoreHub+Gateway.dll; đơn COD RV chỉ tạo đúng 1 bộ 511/3331/632 (không còn gross-duplicate).
 > **Severity:** P1 — sổ sách (revenue PG bị nhân đôi + sai gross)
 > **Findings:** B2, B3, B6
 > **Files:** `3_CoreHub/Services/Events/SimpleAccountingEventHandler.cs`, `3_CoreHub/Services/OrderService.cs` (GenerateAccountingEntriesAsync ~L163-406), `2_Gateway/Program.cs` (~L638-642)

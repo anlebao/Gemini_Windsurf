@@ -1,6 +1,6 @@
 # Task Card TC-06: Đơn COD — trigger accounting khi thu tiền thật + platform bookset
 
-> **Status:** ✅ CODE DONE (2026-09-22) — **Q3 = MarkCodCollected → Paid** (domain change user duyệt); **bookset = PG + replicate SQLite** (tái dùng `OrderPaymentConfirmed` → `PaymentConfirmedSubscriber`, không cần subscriber mới).
+> **Status:** ✅ DONE + DEPLOYED + RV PRODUCTION PASS (2026-09-22, `80dfdfc3`) — **Q3 = MarkCodCollected → Paid**; **bookset = PG + replicate** (tái dùng `OrderPaymentConfirmed` → `PaymentConfirmedSubscriber`). RV: confirm-cod 65000 → order Paid/COD + ví + outbox + 1 bộ 511/3331/632 trên PG; shop-a SQLite order Paid + subscriber gen entries (accounting → PG qua AccountingConnection, dedup reference); duplicate → 409.
 > **Severity:** P1 — sổ sách (toàn bộ doanh thu COD không vào sổ kế toán)
 > **Findings:** B1, B5
 > **Files:** `3_CoreHub/Services/WalletService.cs` (MarkCodCollected call sites ~L218, ~L337, ~L664), `3_CoreHub/Services/OrderService.cs` (ConfirmPaymentAsync ~L1304-1366, GenerateAccountingEntriesAsync ~L163-406, GetPlatformAccountingTenantIdAsync ~L413-431), `1_Shared/Domain.cs` (Order.ConfirmPayment ~L1873-1879, MarkCodCollected ~L1767-1774)

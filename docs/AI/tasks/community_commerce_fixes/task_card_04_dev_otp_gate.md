@@ -51,6 +51,13 @@ configured and Google OAuth needs a real browser session).
 seeded PG data, then removed: env count `0`, endpoint `404`, secret+token files deleted,
 PG test data + ShopERP SQLite customer cleaned.
 
+**Re-used 2026-09-22 (lần 2)** for the Settlement Batch-2 RV (TC-05+TC-06 — COD→Paid +
+accounting trigger + PG→SQLite replication). Enabled inline on vanan-shop-a (fresh
+`DEV_TOKEN_SECRET`, `--force-recreate shoperp`), minted/reused test shipper
+`0900000002` (customerId `6e4edec9-…`), exercised `confirm-cod` (409 wrong amount →
+200 correct → 409 duplicate), verified PG + shop-a SQLite, then removed: `DevToken__Secret=`
+empty, endpoint `404`. PG fixture + wallet/accounting/outbox rows + SQLite order all deleted.
+
 **How it was enabled (NOT persisted to `.env.shoperp`):**
 
 ```bash

@@ -1,7 +1,7 @@
 # Master Plan — Settlement (Tất toán) Review Findings
 
 **Created:** 2026-09-22
-**Status:** BATCH 1 ✅ DEPLOYED + RV PASS (2026-09-22, `afcf5847`+`e9b4789a`) — TC-01..TC-04. BATCH 2 ✅ CODE DONE (2026-09-22) — TC-05 (Q2=retire) + TC-06 (Q3=MarkCodCollected→Paid, bookset=PG+replicate SQLite); chờ push/CD/RV + PG duplicate-cleanup. Còn lại: TC-07 (Q5), TC-08 (Q1), TC-09 (Q4), TC-10.
+**Status:** BATCH 1 ✅ DEPLOYED + RV PASS (2026-09-22, `afcf5847`+`e9b4789a`) — TC-01..TC-04. BATCH 2 ✅ DEPLOYED + RV PRODUCTION PASS (2026-09-22, `80dfdfc3`+`620e1de8`) — TC-05 (Q2=retire) + TC-06 (Q3=MarkCodCollected→Paid, bookset=PG+replicate); RV: confirm-cod 409/200/409, 1 bộ 511/3331/632 PG, SQLite order Paid. Còn lại: PG duplicate-cleanup (report→duyệt→reversal), TC-07 (Q5), TC-08 (Q1), TC-09 (Q4), TC-10.
 **Branch target:** `main`
 **Source:** REVIEW_ONLY session 2026-09-22 — rà soát tất toán Salesman–Shipper–Owner Tenant–Platform + mức độ đổ số liệu về kế toán
 
@@ -51,7 +51,7 @@ TC-01 → TC-02 → TC-03 → TC-04. Mỗi card: fix + Core.Tests + guard-check 
 
 ### Batch 2 — Accounting correctness (P1)
 TC-05 (handler dedup/retire — chặn nhân đôi trước) → TC-06 (COD → accounting) → TC-07 (wallet bridge, cần Q5).
-**✅ TC-05 + TC-06 CODE DONE 2026-09-22** — Q2=retire (handler xoá khỏi Gateway+CoreHub DI, file deleted; `DataSyncSubscriber` giữ nguyên data sync), Q3=MarkCodCollected→Paid + PaymentMethod=COD/EXTERNAL + outbox `OrderPaymentConfirmed` (routed theo ShopInstanceId) trong cùng tx + post-commit `GenerateAccountingEntriesAsync` trên PG (gated `Accounting_Sync_Enabled`, idempotent); ShopERP `PaymentConfirmedSubscriber` tái dùng → SQLite Paid + entries. B5: thiếu `PlatformAccountingTenantId` → LogWarning thay Debug. Tests +7 (Community 275 PASS); guard-check ALL PASSED; sln build 0 errors. **Chờ push/CD/RV + PG duplicate cleanup (report → duyệt → reversal).** TC-07 còn lại (Q5).
+**✅ TC-05 + TC-06 DEPLOYED + RV PRODUCTION PASS 2026-09-22** (`80dfdfc3`+`620e1de8`, CD SUCCESS) — Q2=retire (handler xoá khỏi Gateway+CoreHub DI, file deleted; `DataSyncSubscriber` giữ nguyên data sync), Q3=MarkCodCollected→Paid + PaymentMethod=COD/EXTERNAL + outbox `OrderPaymentConfirmed` (routed theo ShopInstanceId) trong cùng tx + post-commit `GenerateAccountingEntriesAsync` trên PG (gated `Accounting_Sync_Enabled`, idempotent); ShopERP `PaymentConfirmedSubscriber` tái dùng → SQLite Paid + entries (accounting ghi PG qua AccountingConnection — ADR-001). B5: thiếu `PlatformAccountingTenantId` → LogWarning. Tests +7; Core.Tests 1762 PASS; guard-check ALL PASSED. **RV:** confirm-cod 409 (sai amount) → 200 (Paid/COD + wallet + outbox + 1 bộ 511/3331/632 PG) → 409 (duplicate); SQLite order Paid/COD; cleanup pristine. **Còn lại:** PG duplicate cleanup (report → duyệt → reversal). TC-07 còn lại (Q5).
 
 ### Batch 3 — Settlement lifecycle (P0 mô hình, cần Q1/Q4)
 TC-08 (remittance leg) → TC-09 (payout flow).
