@@ -106,6 +106,12 @@ public sealed class GdtMstLookupSource
     {
         // 1. GET the form page → establishes the session cookie the captcha is bound to
         using var pageResp = await _http.GetAsync("/tcnnt/mstdn.jsp", ct);
+        if (pageResp.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        {
+            _logger.LogWarning("[{Source}] WAF rate-limited on page GET (attempt {Attempt}) — backing off", Name, attempt);
+            await Task.Delay(Math.Max(_options.GdtRateLimitMs, 10000), ct);
+            return null;
+        }
         if (!pageResp.IsSuccessStatusCode)
         {
             _logger.LogWarning("[{Source}] Page GET failed: {Status}", Name, pageResp.StatusCode);
@@ -115,6 +121,12 @@ public sealed class GdtMstLookupSource
         // 2. GET the captcha image (same cookie jar)
         var uid = Random.Shared.Next(100000, 999999);
         using var capResp = await _http.GetAsync($"/tcnnt/captcha.png?uid={uid}", ct);
+        if (capResp.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        {
+            _logger.LogWarning("[{Source}] WAF rate-limited on captcha GET (attempt {Attempt}) — backing off", Name, attempt);
+            await Task.Delay(Math.Max(_options.GdtRateLimitMs, 10000), ct);
+            return null;
+        }
         if (!capResp.IsSuccessStatusCode)
         {
             _logger.LogWarning("[{Source}] Captcha GET failed: {Status}", Name, capResp.StatusCode);
@@ -140,6 +152,12 @@ public sealed class GdtMstLookupSource
             ["captcha"] = captchaText
         });
         using var postResp = await _http.PostAsync("/tcnnt/mstdn.jsp", postContent, ct);
+        if (postResp.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        {
+            _logger.LogWarning("[{Source}] WAF rate-limited on POST (attempt {Attempt}) — backing off", Name, attempt);
+            await Task.Delay(Math.Max(_options.GdtRateLimitMs, 10000), ct);
+            return null;
+        }
         var html = await postResp.Content.ReadAsStringAsync(ct);
 
         // WAF / gateway rejection
@@ -194,14 +212,16 @@ public sealed class GdtMstLookupSource
             var stderr = await proc.StandardError.ReadToEndAsync(ct);
             await proc.WaitForExitAsync(ct);
 
-            // GDT captcha = 4 alphanumeric chars; strip everything else
+            // GDT captcha = 5 alphanumeric chars (verified 2026-09-22: raw OCR "224yh").
+            // Keep the FULL alphanumeric run (length 4-6); do NOT truncate — truncating to
+            // 4 always fails the server-side captcha check.
             var text = new string(stdout.Where(char.IsLetterOrDigit).ToArray());
-            if (text.Length < 4)
+            if (text.Length < 4 || text.Length > 6)
             {
-                _logger.LogDebug("[{Source}] OCR output too short ({Text}) stderr={Err}", Name, text.Length > 0 ? text : "''", stderr.Trim());
+                _logger.LogDebug("[{Source}] OCR output unexpected ({Text}) stderr={Err}", Name, text.Length > 0 ? text : "''", stderr.Trim());
                 return null;
             }
-            return text[..4];
+            return text;
         }
         catch (Exception ex)
         {
