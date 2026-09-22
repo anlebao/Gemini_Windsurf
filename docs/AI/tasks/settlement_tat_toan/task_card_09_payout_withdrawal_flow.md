@@ -1,6 +1,7 @@
 # Task Card TC-09: Payout/Withdrawal flow — đường tiền RA khỏi ledger
 
-> **Status:** ⬜ PENDING (cần decision Q4 — feature design trước)
+> **Status:** ✅ DONE (2026-09-22 — Settlement Batch-3)
+> **Decisions:** Q4a — entity `WithdrawalRequest` + flow Pending→Approved/Rejected→Paid ✅ approved. Q4b — pay bằng **bank ref thủ công** (admin nhập tay, KYC entity deferred).
 > **Severity:** P1 — feature thiếu (docs hứa rút tiền nhưng không có code; "tất toán" chỉ ghi sổ 1 chiều)
 > **Findings:** C8
 > **Files:** `1_Shared/Domain.cs` (WalletTransactionType.Withdrawal=4 ~L3734 — không có production caller), `3_CoreHub/Services/WalletService.cs`, `2_Gateway/Controllers/CommunityController.cs` (không có endpoint withdraw), `docs/user-guide/community-commerce/03-salesman.md` §7.2, `04-shipper.md` §10.3

@@ -1,6 +1,6 @@
 # Task Card TC-08: Shipper remittance leg — khép kín dòng tiền COD
 
-> **Status:** ⬜ PENDING (cần decision Q1 — semantics ví trước khi code)
+> **Status:** ✅ DONE (2026-09-22 — Settlement Batch-3; data reconcile lịch sử còn pending trên production)
 > **Severity:** P0 — mô hình (ledger không bao giờ khép; shipper được coi như giữ credit vô hạn)
 > **Findings:** C1, C2
 > **Files:** `3_CoreHub/Services/WalletService.cs` (~L199-225 Marketplace, ~L270-345 Reseller), `1_Shared/Domain.cs` (WalletTransactionType ~L3729-3746), `docs/user-guide/community-commerce/04-shipper.md` (§9.1-9.2, §10), `2_Gateway/Controllers/CommunityController.cs`, `5_WebApps/KhachLink/Pages/Wallet.razor`, `DeliveryTracking.razor`
@@ -11,6 +11,11 @@
 - **Implementation:** `ConfirmCodAsync` Marketplace chỉ tạo `Settlement(−amount, shop)` — **ngược dấu và thiếu cặp**; shipper giữ `+CODCollection` mãi, shop âm mãi.
 - **Reseller:** shipper `+CODCollection(full COD)` + `+DeliveryFee`, KHÔNG có debit khi nộp tiền về Vạn An → ví shipper = platform nợ shipper cả tiền COD hộ.
 - Không tồn tại tx type/endpoint nào cho "shipper nộp tiền" → ledger không khép ở mọi mode.
+
+## Design decision Q1 — ĐÃ CHỐT (2026-09-22)
+
+- **Q1a:** Nộp **theo đơn** — `POST /api/community/wallet/remit` (shipper, X-Customer-Token).
+- **Q1b:** Reseller COD nộp về **PlatformWallet** (`SystemWalletIds.PlatformWallet`).
 
 ## Design decision Q1 (cần user chốt)
 

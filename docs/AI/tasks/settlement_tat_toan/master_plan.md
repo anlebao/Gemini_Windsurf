@@ -1,7 +1,7 @@
 # Master Plan — Settlement (Tất toán) Review Findings
 
 **Created:** 2026-09-22
-**Status:** BATCH 1 ✅ DEPLOYED + RV PASS (2026-09-22, `afcf5847`+`e9b4789a`) — TC-01..TC-04. BATCH 2 ✅ DEPLOYED + RV PRODUCTION PASS (2026-09-22, `80dfdfc3`+`620e1de8`) — TC-05 (Q2=retire) + TC-06 (Q3=MarkCodCollected→Paid, bookset=PG+replicate); RV: confirm-cod 409/200/409, 1 bộ 511/3331/632 PG, SQLite order Paid. Còn lại: PG duplicate-cleanup (report→duyệt→reversal), TC-07 (Q5), TC-08 (Q1), TC-09 (Q4), TC-10.
+**Status:** BATCH 1 ✅ DEPLOYED + RV PASS (2026-09-22, `afcf5847`+`e9b4789a`) — TC-01..TC-04. BATCH 2 ✅ DEPLOYED + RV PRODUCTION PASS (2026-09-22, `80dfdfc3`+`620e1de8`) — TC-05 (Q2=retire) + TC-06 (Q3=MarkCodCollected→Paid, bookset=PG+replicate); RV: confirm-cod 409/200/409, 1 bộ 511/3331/632 PG, SQLite order Paid. BATCH 3 ✅ IMPLEMENTED (2026-09-22) — TC-08 (Q1: remit theo đơn, Reseller→PlatformWallet) + TC-09 (Q4: WithdrawalRequest Pending→Approve→Pay, bank ref tay). Còn lại: PG duplicate-cleanup (report→duyệt→reversal), wallet lịch sử reconcile (TC-08 scope), TC-07 (Q5), TC-10.
 **Branch target:** `main`
 **Source:** REVIEW_ONLY session 2026-09-22 — rà soát tất toán Salesman–Shipper–Owner Tenant–Platform + mức độ đổ số liệu về kế toán
 
@@ -55,6 +55,7 @@ TC-05 (handler dedup/retire — chặn nhân đôi trước) → TC-06 (COD → 
 
 ### Batch 3 — Settlement lifecycle (P0 mô hình, cần Q1/Q4)
 TC-08 (remittance leg) → TC-09 (payout flow).
+**✅ TC-08 + TC-09 IMPLEMENTED 2026-09-22** — Q1: remit **theo đơn** (`WalletTransactionType.Remittance=14`, Marketplace: −shipper/+shop; Reseller: −shipper/+PlatformWallet) + `RemitCodAsync`/`GetPendingRemittancesAsync` + `POST /api/community/wallet/remit` + `GET .../pending-remittances` + KhachLink Wallet UI (nút "Nộp tiền", CodHeld/AvailableBalance). Q4: entity `WithdrawalRequest` (Pending→Approved/Rejected→Paid, bank ref thủ công — KYC deferred) + `WalletService` request/approve/reject/pay (wallet tx tạo đúng 1 lần khi pay, min 500k, available = balance − COD held − pending) + `POST /api/community/wallet/withdraw` (+withdrawals, cancel) + `api/admin/withdrawals` (SystemAdmin) + ShopERP `Admin/Withdrawals.razor` + `WithdrawalApiClient` + EF migration `AddWithdrawalRequest`. Tests +16 (T23, T31–T45); wallet suite 72 PASS. **Còn lại:** data reconcile wallet tx lịch sử sai dấu (reversal + report — append-only), RV production.
 
 ### Batch 4 — Hardening (P2)
 TC-10 (admin + misc fixes, có thể tách nhỏ theo sub-item).
