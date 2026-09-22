@@ -5,6 +5,7 @@ using VanAn.CoreHub.Common;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Aggregates.WalletAggregate;
 using VanAn.Shared.Domain.Common;
 using VanAn.Shared.Services;
 
@@ -184,9 +185,22 @@ namespace VanAn.CoreHub.Services
 
             var balance = transactions.FirstOrDefault()?.BalanceAfter ?? 0m;
 
+            // TC-08/TC-09: số dư khả dụng = balance − COD đang giữ hộ − pending withdrawals
+            var codHeld = await ComputeHeldCodAsync(ownerId);
+            var pendingWithdrawalAmounts = await _dbContext.WithdrawalRequests
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(r => r.OwnerId == ownerId &&
+                    (r.Status == WithdrawalStatus.Pending || r.Status == WithdrawalStatus.Approved))
+                .Select(r => r.Amount)
+                .ToListAsync();
+            var pendingWithdrawals = pendingWithdrawalAmounts.Sum(); // SQLite can't Sum decimal server-side
+
             return new WalletSummaryDto
             {
                 Balance = balance,
+                CodHeld = codHeld,
+                AvailableBalance = balance - codHeld - pendingWithdrawals,
                 Transactions = transactions.Select(t => new WalletTransactionDto
                 {
                     Id = t.Id,
@@ -773,6 +787,161 @@ namespace VanAn.CoreHub.Services
         }
 
         /// <summary>
+        /// Settlement Batch-3 (TC-08, Q1): Shipper nộp tiền COD đã thu hộ — per-order remit (Q1a).
+        /// Marketplace: Remittance(-codAmount, shipper) + Settlement(+codAmount, shop wallet = TenantId).
+        /// Reseller: Remittance(-codAmount, shipper) + Settlement(+codAmount, PlatformWallet) (Q1b).
+        /// Closes the ledger loop: shipper nets to fee-only, beneficiary nets to zero (physical cash
+        /// handed over — no platform credit). Amount is derived server-side from the order; the
+        /// whole pair commits atomically and at most one Remittance can exist per order.
+        /// </summary>
+        public async Task<WalletTransaction> RemitCodAsync(Guid shipperId, Guid orderId)
+        {
+            WalletTransaction remitTx = null!;
+            await _dbContext.ExecuteAtomicAsync(async () =>
+            {
+                await using var tx = await _dbContext.BeginTransactionAsync();
+                try
+                {
+                    // 1. Load order (cross-tenant — delivery spans tenants)
+                    var order = await _dbContext.Orders
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(o => o.Id == orderId);
+
+                    if (order == null)
+                        throw new InvalidOperationException($"Order {orderId} not found.");
+                    if (order.Status == OrderStatusId.Cancelled)
+                        throw new InvalidOperationException($"Order {orderId} is cancelled — cannot remit COD.");
+                    if (order.CodCollectedAt == null)
+                        throw new InvalidOperationException($"COD not yet collected for order {orderId} — nothing to remit.");
+
+                    // 2. Verify caller is the shipper of this order's DeliveryTask
+                    var deliveryTask = await _dbContext.DeliveryTasks
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(d => d.OrderId == orderId && d.ShipperId == shipperId);
+
+                    if (deliveryTask == null)
+                        throw new UnauthorizedAccessException($"Caller is not the shipper of order {orderId}.");
+
+                    // 3. Idempotency: at most ONE remittance per order (checked inside the tx
+                    // so concurrent calls serialize instead of both passing).
+                    var existingRemit = await _dbContext.WalletTransactions
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .AnyAsync(w => w.RelatedOrderId == orderId && w.Type == WalletTransactionType.Remittance);
+                    if (existingRemit)
+                        throw new InvalidOperationException($"COD remittance for order {orderId} already exists — idempotency guard.");
+
+                    // 4. Server-side authoritative amount — same source as ConfirmCodAsync.
+                    decimal codAmount = order.CommerceMode == CommerceMode.Reseller
+                        ? (order.SellPrice ?? 0m) + (order.DeliveryFee ?? 0m)
+                        : (order.CodAmount ?? order.TotalAmount);
+
+                    var balances = new Dictionary<Guid, decimal>();
+
+                    // 5. Remittance (-codAmount, shipper) — shipper hands over the collected cash
+                    remitTx = await CreateWalletTxCoreAsync(
+                        shipperId,
+                        WalletTransactionType.Remittance,
+                        -codAmount,
+                        $"COD remittance for order {orderId}",
+                        orderId,
+                        null,
+                        balances);
+
+                    // 6. Settlement (+codAmount, beneficiary) — Marketplace: shop wallet
+                    //    (order.TenantId); Reseller: PlatformWallet (Q1b — Vạn An nhận COD hộ).
+                    var beneficiary = order.CommerceMode == CommerceMode.Reseller
+                        ? SystemWalletIds.PlatformWallet
+                        : order.TenantId.Value;
+                    await CreateWalletTxCoreAsync(
+                        beneficiary,
+                        WalletTransactionType.Settlement,
+                        codAmount,
+                        $"COD remittance received for order {orderId} ({order.CommerceMode})",
+                        orderId,
+                        remitTx.Id,
+                        balances);
+
+                    await tx.CommitAsync();
+
+                    _logger.LogInformation(
+                        "COD remitted: Order={OrderId} Shipper={ShipperId} Amount={Amount} Beneficiary={Beneficiary} Mode={Mode}",
+                        orderId, shipperId, codAmount, beneficiary, order.CommerceMode);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to remit COD: Order={OrderId} Shipper={ShipperId}",
+                        orderId, shipperId);
+                    await tx.RollbackAsync();
+                    throw;
+                }
+            });
+
+            return remitTx;
+        }
+
+        /// <summary>
+        /// TC-08: COD the shipper collected but has not yet remitted (and not reversed).
+        /// </summary>
+        public async Task<List<PendingRemittanceDto>> GetPendingRemittancesAsync(Guid shipperId)
+        {
+            var unremitted = await GetUnremittedCodTxsAsync(shipperId);
+            return unremitted
+                .Select(t => new PendingRemittanceDto
+                {
+                    OrderId = t.RelatedOrderId!.Value,
+                    Amount = t.Amount,
+                    CollectedAt = t.CreatedAt
+                })
+                .ToList();
+        }
+
+        /// <summary>
+        /// TC-08/TC-09: sum of COD amounts the owner collected but has not remitted/reversed —
+        /// "tiền đang giữ hộ" that must not be withdrawable. 0 for non-shippers.
+        /// </summary>
+        private async Task<decimal> ComputeHeldCodAsync(Guid ownerId)
+        {
+            var unremitted = await GetUnremittedCodTxsAsync(ownerId);
+            return unremitted.Sum(t => t.Amount);
+        }
+
+        /// <summary>
+        /// CODCollection txs for the owner whose orders have no Remittance leg yet and which were
+        /// not reversed. Wallet is append-only — reversal is detected via Reversal.RelatedTransactionId.
+        /// </summary>
+        private async Task<List<WalletTransaction>> GetUnremittedCodTxsAsync(Guid ownerId)
+        {
+            var codTxs = await _dbContext.WalletTransactions
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(w => w.OwnerId == ownerId && w.Type == WalletTransactionType.CODCollection && w.RelatedOrderId != null)
+                .ToListAsync();
+            if (codTxs.Count == 0)
+                return new List<WalletTransaction>();
+
+            var remittedOrderIds = (await _dbContext.WalletTransactions
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(w => w.Type == WalletTransactionType.Remittance && w.RelatedOrderId != null)
+                .Select(w => w.RelatedOrderId!.Value)
+                .ToListAsync()).ToHashSet();
+
+            var reversedTxIds = (await _dbContext.WalletTransactions
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(w => w.Type == WalletTransactionType.Reversal && w.RelatedTransactionId != null)
+                .Select(w => w.RelatedTransactionId!.Value)
+                .ToListAsync()).ToHashSet();
+
+            return codTxs
+                .Where(t => !remittedOrderIds.Contains(t.RelatedOrderId!.Value) && !reversedTxIds.Contains(t.Id))
+                .ToList();
+        }
+
+        /// <summary>
         /// Sprint 5: Reverse a wallet transaction by creating a Reversal entry.
         /// Original is NOT modified (immutable). Reversal Amount = -original.Amount.
         /// </summary>
@@ -980,6 +1149,248 @@ namespace VanAn.CoreHub.Services
                 amount, reason, approvedBy);
 
             return spendTx;
+        }
+
+        // ============================================================
+        // Settlement Batch-3 (TC-09, Q4): WithdrawalRequest lifecycle —
+        // Pending → Approved/Rejected (SystemAdmin) → Paid (manual bank ref).
+        // The Withdrawal wallet tx is created exactly once at pay time.
+        // ============================================================
+
+        /// <summary>TC-09: minimum withdrawal amount per docs (03-salesman §7.2, 04-shipper §10.3).</summary>
+        public const decimal MinWithdrawalAmount = 500_000m;
+
+        /// <summary>
+        /// TC-09: Owner requests a payout. Validates min amount + available balance
+        /// (ledger balance − COD đang giữ hộ) and blocks while another request is
+        /// Pending/Approved. The wallet tx is NOT created here — only at MarkPaid.
+        /// </summary>
+        public async Task<WithdrawalRequest> RequestWithdrawalAsync(Guid ownerId, decimal amount)
+        {
+            if (amount < MinWithdrawalAmount)
+                throw new ArgumentException($"Số tiền rút tối thiểu là {MinWithdrawalAmount:N0}đ.", nameof(amount));
+
+            WithdrawalRequest request = null!;
+            await _dbContext.ExecuteAtomicAsync(async () =>
+            {
+                await using var tx = await _dbContext.BeginTransactionAsync();
+                try
+                {
+                    // Chống double-spend: one open request per owner at a time (checked inside
+                    // the tx so concurrent requests serialize).
+                    var hasOpen = await _dbContext.WithdrawalRequests
+                        .IgnoreQueryFilters()
+                        .AnyAsync(r => r.OwnerId == ownerId &&
+                            (r.Status == WithdrawalStatus.Pending || r.Status == WithdrawalStatus.Approved));
+                    if (hasOpen)
+                        throw new InvalidOperationException(
+                            "A withdrawal request is already pending or approved — wait for it to be processed or cancel it first.");
+
+                    // Available balance = ledger balance − COD đang giữ hộ (TC-08)
+                    var lastTx = await _dbContext.WalletTransactions
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .Where(w => w.OwnerId == ownerId)
+                        .OrderByDescending(w => w.CreatedAt)
+                        .Select(w => w.BalanceAfter)
+                        .FirstOrDefaultAsync();
+                    var codHeld = await ComputeHeldCodAsync(ownerId);
+                    var available = lastTx - codHeld;
+                    if (amount > available)
+                        throw new InvalidOperationException(
+                            $"Insufficient available balance: {available:N0}đ (balance {lastTx:N0}đ − COD held {codHeld:N0}đ), requested {amount:N0}đ.");
+
+                    request = new WithdrawalRequest(new TenantId(_tenantProvider.TenantId), ownerId, amount);
+                    _dbContext.WithdrawalRequests.Add(request);
+                    await _dbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+
+                    _logger.LogInformation("Withdrawal requested: Id={RequestId} Owner={OwnerId} Amount={Amount}",
+                        request.Id, ownerId, amount);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to create withdrawal request: Owner={OwnerId} Amount={Amount}",
+                        ownerId, amount);
+                    await tx.RollbackAsync();
+                    throw;
+                }
+            });
+
+            return request;
+        }
+
+        /// <summary>TC-09: owner's own withdrawal request history (newest first).</summary>
+        public async Task<List<WithdrawalRequestDto>> GetWithdrawalsAsync(Guid ownerId)
+        {
+            return await _dbContext.WithdrawalRequests
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(r => r.OwnerId == ownerId)
+                .OrderByDescending(r => r.RequestedAt)
+                .Select(r => new WithdrawalRequestDto
+                {
+                    Id = r.Id,
+                    OwnerId = r.OwnerId,
+                    Amount = r.Amount,
+                    Status = r.Status.ToString(),
+                    BankReference = r.BankReference,
+                    RejectReason = r.RejectReason,
+                    RequestedAt = r.RequestedAt,
+                    ProcessedAt = r.ProcessedAt,
+                    WalletTransactionId = r.WalletTransactionId
+                })
+                .ToListAsync();
+        }
+
+        /// <summary>TC-09: owner cancels their own Pending request.</summary>
+        public async Task CancelWithdrawalAsync(Guid ownerId, Guid requestId)
+        {
+            var request = await _dbContext.WithdrawalRequests
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(r => r.Id == requestId);
+
+            if (request == null)
+                throw new InvalidOperationException($"Withdrawal request {requestId} not found.");
+            if (request.OwnerId != ownerId)
+                throw new UnauthorizedAccessException($"Withdrawal request {requestId} does not belong to this owner.");
+
+            request.Cancel();
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation("Withdrawal cancelled: Id={RequestId} Owner={OwnerId}", requestId, ownerId);
+        }
+
+        /// <summary>TC-09 admin: paginated request list across all owners.</summary>
+        public async Task<WithdrawalRequestListResult> GetWithdrawalRequestsAsync(WithdrawalStatus? status, int page, int pageSize)
+        {
+            var query = _dbContext.WithdrawalRequests
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .AsQueryable();
+
+            if (status.HasValue)
+                query = query.Where(r => r.Status == status.Value);
+
+            var total = await query.CountAsync();
+            var items = await query
+                .OrderByDescending(r => r.RequestedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(r => new WithdrawalRequestDto
+                {
+                    Id = r.Id,
+                    OwnerId = r.OwnerId,
+                    Amount = r.Amount,
+                    Status = r.Status.ToString(),
+                    BankReference = r.BankReference,
+                    RejectReason = r.RejectReason,
+                    RequestedAt = r.RequestedAt,
+                    ProcessedAt = r.ProcessedAt,
+                    WalletTransactionId = r.WalletTransactionId
+                })
+                .ToListAsync();
+
+            return new WithdrawalRequestListResult { Total = total, Page = page, PageSize = pageSize, Items = items };
+        }
+
+        /// <summary>TC-09 admin: Pending → Approved.</summary>
+        public async Task ApproveWithdrawalAsync(Guid requestId, Guid adminId)
+        {
+            var request = await _dbContext.WithdrawalRequests
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(r => r.Id == requestId);
+
+            if (request == null)
+                throw new InvalidOperationException($"Withdrawal request {requestId} not found.");
+
+            request.Approve(adminId);
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation("Withdrawal approved: Id={RequestId} Admin={AdminId}", requestId, adminId);
+        }
+
+        /// <summary>TC-09 admin: Pending/Approved → Rejected. No wallet tx is created.</summary>
+        public async Task RejectWithdrawalAsync(Guid requestId, Guid adminId, string reason)
+        {
+            var request = await _dbContext.WithdrawalRequests
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(r => r.Id == requestId);
+
+            if (request == null)
+                throw new InvalidOperationException($"Withdrawal request {requestId} not found.");
+
+            request.Reject(adminId, reason);
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation("Withdrawal rejected: Id={RequestId} Admin={AdminId} Reason={Reason}",
+                requestId, adminId, reason);
+        }
+
+        /// <summary>
+        /// TC-09 admin: Approved → Paid after the manual bank transfer (Q4b — admin nhập tay
+        /// bank ref). Creates WalletTransaction(Withdrawal, -amount) + marks the request Paid
+        /// in ONE transaction — a second pay attempt hits the Approved-status guard (409),
+        /// so the ledger can never be debited twice for one request.
+        /// </summary>
+        public async Task<WithdrawalRequest> MarkWithdrawalPaidAsync(Guid requestId, Guid adminId, string bankReference)
+        {
+            WithdrawalRequest result = null!;
+            await _dbContext.ExecuteAtomicAsync(async () =>
+            {
+                await using var tx = await _dbContext.BeginTransactionAsync();
+                try
+                {
+                    var request = await _dbContext.WithdrawalRequests
+                        .IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(r => r.Id == requestId);
+
+                    if (request == null)
+                        throw new InvalidOperationException($"Withdrawal request {requestId} not found.");
+                    if (request.Status != WithdrawalStatus.Approved)
+                        throw new InvalidOperationException(
+                            $"Withdrawal request {requestId} is {request.Status} — only Approved requests can be paid.");
+
+                    // Balance check at pay time — the balance may have dropped since approval.
+                    var lastTx = await _dbContext.WalletTransactions
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .Where(w => w.OwnerId == request.OwnerId)
+                        .OrderByDescending(w => w.CreatedAt)
+                        .Select(w => w.BalanceAfter)
+                        .FirstOrDefaultAsync();
+                    if (lastTx < request.Amount)
+                        throw new InvalidOperationException(
+                            $"Insufficient balance for payout: {lastTx:N0}đ, requested {request.Amount:N0}đ.");
+
+                    var walletTx = await CreateWalletTxCoreAsync(
+                        request.OwnerId,
+                        WalletTransactionType.Withdrawal,
+                        -request.Amount,
+                        $"Withdrawal payout for request {request.Id} (bank ref: {bankReference})",
+                        null,
+                        null,
+                        runningBalances: null);
+
+                    request.MarkPaid(adminId, bankReference, walletTx.Id);
+                    await _dbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    result = request;
+
+                    _logger.LogInformation(
+                        "Withdrawal paid: Id={RequestId} Owner={OwnerId} Amount={Amount} BankRef={BankRef} WalletTx={WalletTxId} Admin={AdminId}",
+                        requestId, request.OwnerId, request.Amount, bankReference, walletTx.Id, adminId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to pay withdrawal: Id={RequestId} Admin={AdminId}",
+                        requestId, adminId);
+                    await tx.RollbackAsync();
+                    throw;
+                }
+            });
+
+            return result;
         }
     }
 }

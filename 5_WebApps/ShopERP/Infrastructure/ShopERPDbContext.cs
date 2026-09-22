@@ -115,6 +115,7 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<Message> Messages { get; set; }
         public DbSet<SalesReferral> SalesReferrals { get; set; }
         public DbSet<WalletTransaction> WalletTransactions { get; set; }
+        public DbSet<VanAn.Shared.Domain.Aggregates.WalletAggregate.WithdrawalRequest> WithdrawalRequests { get; set; } // Settlement Batch-3 (TC-09) — PG-only, Ignored below
         public DbSet<ProductReferralConfig> ProductReferralConfigs { get; set; }
         public DbSet<AppInstallAttribution> AppInstallAttributions { get; set; }
         public DbSet<DeviceRegistration> DeviceRegistrations { get; set; }
@@ -257,6 +258,7 @@ namespace VanAn.ShopERP.Infrastructure
             _ = modelBuilder.Ignore<Message>();
             _ = modelBuilder.Ignore<SalesReferral>();
             _ = modelBuilder.Ignore<WalletTransaction>();
+            _ = modelBuilder.Ignore<VanAn.Shared.Domain.Aggregates.WalletAggregate.WithdrawalRequest>(); // TC-09 — wallet ledger is PG-only
             _ = modelBuilder.Ignore<ProductReferralConfig>();
             _ = modelBuilder.Ignore<AppInstallAttribution>();
             _ = modelBuilder.Ignore<DeviceRegistration>();

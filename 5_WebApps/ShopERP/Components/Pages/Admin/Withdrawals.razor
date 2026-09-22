@@ -1,0 +1,285 @@
+@page "/admin/withdrawals"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject WithdrawalApiClient WithdrawalApi
+@inject IThemeProvider ThemeProvider
+@inject ILogger<Withdrawals> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="withdrawals-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Yêu cầu rút tiền (Withdrawal Payouts)</h1>
+        <div class="header-actions">
+            <select class="form-select form-select-sm" style="width:auto" @bind="_statusFilter" @bind:after="LoadData">
+                <option value="">Tất cả</option>
+                <option value="Pending">Chờ duyệt</option>
+                <option value="Approved">Đã duyệt</option>
+                <option value="Paid">Đã chi</option>
+                <option value="Rejected">Từ chối</option>
+                <option value="Cancelled">Đã huỷ</option>
+            </select>
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadData">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải...</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="@($"Yêu cầu rút tiền ({_list?.Total ?? 0})")">
+            @if (_list?.Items.Count > 0)
+            {
+                <div class="table-responsive">
+                    <table class="vanan-table">
+                        <thead>
+                            <tr>
+                                <th>Ngày yêu cầu</th>
+                                <th>Owner</th>
+                                <th>Số tiền</th>
+                                <th>Trạng thái</th>
+                                <th>Bank ref / Lý do</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in _list!.Items)
+                            {
+                                <tr>
+                                    <td>@item.RequestedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td>@item.OwnerId.ToString().Substring(0, 8)…</td>
+                                    <td>@item.Amount.ToString("N0") đ</td>
+                                    <td><span class="badge @GetBadge(item.Status)">@GetStatusText(item.Status)</span></td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(item.BankReference))
+                                        {
+                                            <span>@item.BankReference</span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(item.RejectReason))
+                                        {
+                                            <span class="text-danger">@item.RejectReason</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (item.Status == "Pending")
+                                        {
+                                            <VanAButton Variant="primary" Size="small" OnClick="() => Approve(item.Id)">Duyệt</VanAButton>
+                                            <VanAButton Variant="outline" Size="small" OnClick="() => OpenRejectModal(item.Id)">Từ chối</VanAButton>
+                                        }
+                                        @if (item.Status == "Approved")
+                                        {
+                                            <VanAButton Variant="primary" Size="small" OnClick="() => OpenPayModal(item.Id)">Chi tiền</VanAButton>
+                                            <VanAButton Variant="outline" Size="small" OnClick="() => OpenRejectModal(item.Id)">Từ chối</VanAButton>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p>Chưa có yêu cầu rút tiền nào.</p>
+            }
+        </VanACard>
+    }
+</div>
+
+<!-- Pay modal — admin nhập bank ref sau khi chuyển khoản tay -->
+@if (_showPayModal)
+{
+    <VanAModal Title="Xác nhận đã chuyển khoản"
+               IsVisible="true" OnClose="ClosePayModal" Size="medium">
+        <Body>
+            <div class="form-group">
+                <VanAInput Id="pay-bankref" Label="Mã giao dịch ngân hàng *"
+                           Value="@_bankRef"
+                           ValueChanged="v => _bankRef = v" />
+            </div>
+            <small class="text-muted">Chỉ xác nhận sau khi đã chuyển khoản thật — sẽ trừ ví owner.</small>
+        </Body>
+        <Footer>
+            <VanAButton Variant="outline" OnClick="ClosePayModal">Huỷ</VanAButton>
+            <VanAButton Variant="primary" OnClick="ConfirmPay">Xác nhận đã chi</VanAButton>
+        </Footer>
+    </VanAModal>
+}
+
+<!-- Reject modal -->
+@if (_showRejectModal)
+{
+    <VanAModal Title="Từ chối yêu cầu rút tiền"
+               IsVisible="true" OnClose="CloseRejectModal" Size="medium">
+        <Body>
+            <div class="form-group">
+                <VanAInput Id="reject-reason" Label="Lý do từ chối *"
+                           Value="@_rejectReason"
+                           ValueChanged="v => _rejectReason = v" />
+            </div>
+        </Body>
+        <Footer>
+            <VanAButton Variant="outline" OnClick="CloseRejectModal">Huỷ</VanAButton>
+            <VanAButton Variant="primary" OnClick="ConfirmReject">Từ chối</VanAButton>
+        </Footer>
+    </VanAModal>
+}
+
+@code {
+    private bool _isLoading = true;
+    private WithdrawalListResultDto? _list;
+    private string _statusFilter = string.Empty;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    private bool _showPayModal;
+    private bool _showRejectModal;
+    private Guid _actionRequestId;
+    private string _bankRef = string.Empty;
+    private string _rejectReason = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            _list = await WithdrawalApi.ListAsync(string.IsNullOrWhiteSpace(_statusFilter) ? null : _statusFilter);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load withdrawal requests");
+            _alertMessage = $"Lỗi tải dữ liệu: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task Approve(Guid requestId)
+    {
+        try
+        {
+            await WithdrawalApi.ApproveAsync(requestId);
+            _alertMessage = "Đã duyệt yêu cầu.";
+            _alertType = "success";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi duyệt: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private void OpenPayModal(Guid requestId)
+    {
+        _actionRequestId = requestId;
+        _bankRef = string.Empty;
+        _showPayModal = true;
+    }
+
+    private void ClosePayModal() => _showPayModal = false;
+
+    private async Task ConfirmPay()
+    {
+        if (string.IsNullOrWhiteSpace(_bankRef))
+        {
+            _alertMessage = "Vui lòng nhập mã giao dịch ngân hàng.";
+            _alertType = "warning";
+            return;
+        }
+
+        try
+        {
+            await WithdrawalApi.PayAsync(_actionRequestId, _bankRef);
+            _alertMessage = "Đã ghi nhận chi tiền — ví owner đã trừ.";
+            _alertType = "success";
+            ClosePayModal();
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi chi tiền: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private void OpenRejectModal(Guid requestId)
+    {
+        _actionRequestId = requestId;
+        _rejectReason = string.Empty;
+        _showRejectModal = true;
+    }
+
+    private void CloseRejectModal() => _showRejectModal = false;
+
+    private async Task ConfirmReject()
+    {
+        if (string.IsNullOrWhiteSpace(_rejectReason))
+        {
+            _alertMessage = "Vui lòng nhập lý do từ chối.";
+            _alertType = "warning";
+            return;
+        }
+
+        try
+        {
+            await WithdrawalApi.RejectAsync(_actionRequestId, _rejectReason);
+            _alertMessage = "Đã từ chối yêu cầu.";
+            _alertType = "success";
+            CloseRejectModal();
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi từ chối: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private static string GetStatusText(string status) => status switch
+    {
+        "Pending" => "Chờ duyệt",
+        "Approved" => "Đã duyệt",
+        "Rejected" => "Từ chối",
+        "Paid" => "Đã chi",
+        "Cancelled" => "Đã huỷ",
+        _ => status
+    };
+
+    private static string GetBadge(string status) => status switch
+    {
+        "Pending" => "badge-warning",
+        "Approved" => "badge-info",
+        "Rejected" => "badge-danger",
+        "Paid" => "badge-success",
+        "Cancelled" => "badge-secondary",
+        _ => "badge-secondary"
+    };
+}

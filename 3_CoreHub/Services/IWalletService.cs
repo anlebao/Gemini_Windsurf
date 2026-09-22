@@ -81,12 +81,59 @@ namespace VanAn.CoreHub.Services
         /// Audit record created by CommunityFundService.SpendAsync.
         /// </summary>
         Task<WalletTransaction> SpendCommunityFundAsync(decimal amount, string reason, Guid approvedBy);
+
+        /// <summary>
+        /// Settlement Batch-3 (TC-08): Shipper nộp tiền COD đã thu hộ — theo đơn (Q1a).
+        /// Marketplace: Remittance(-codAmount, shipper) + Settlement(+codAmount, shop).
+        /// Reseller: Remittance(-codAmount, shipper) + Settlement(+codAmount, PlatformWallet) (Q1b).
+        /// Amount is derived server-side from the order — never client-supplied.
+        /// Idempotent: throws if a Remittance already exists for the order.
+        /// </summary>
+        Task<WalletTransaction> RemitCodAsync(Guid shipperId, Guid orderId);
+
+        /// <summary>
+        /// Settlement Batch-3 (TC-08): COD the shipper collected but has not yet remitted
+        /// (and not reversed) — "tiền đang giữ hộ".
+        /// </summary>
+        Task<List<PendingRemittanceDto>> GetPendingRemittancesAsync(Guid shipperId);
+
+        /// <summary>
+        /// Settlement Batch-3 (TC-09): Owner requests a payout. Validates min amount (500k),
+        /// available balance (ledger balance − COD held − pending requests), and rejects if a
+        /// Pending/Approved request already exists.
+        /// </summary>
+        Task<VanAn.Shared.Domain.Aggregates.WalletAggregate.WithdrawalRequest> RequestWithdrawalAsync(Guid ownerId, decimal amount);
+
+        /// <summary>TC-09: owner's own withdrawal request history.</summary>
+        Task<List<WithdrawalRequestDto>> GetWithdrawalsAsync(Guid ownerId);
+
+        /// <summary>TC-09: owner cancels their own Pending request.</summary>
+        Task CancelWithdrawalAsync(Guid ownerId, Guid requestId);
+
+        /// <summary>TC-09 admin: paginated withdrawal request list (all owners, optional status filter).</summary>
+        Task<WithdrawalRequestListResult> GetWithdrawalRequestsAsync(VanAn.Shared.Domain.Aggregates.WalletAggregate.WithdrawalStatus? status, int page, int pageSize);
+
+        /// <summary>TC-09 admin: Pending → Approved.</summary>
+        Task ApproveWithdrawalAsync(Guid requestId, Guid adminId);
+
+        /// <summary>TC-09 admin: Pending/Approved → Rejected (reason required).</summary>
+        Task RejectWithdrawalAsync(Guid requestId, Guid adminId, string reason);
+
+        /// <summary>
+        /// TC-09 admin: Approved → Paid after the manual bank transfer. Creates the
+        /// WalletTransaction(Withdrawal, -amount) exactly once in the same transaction.
+        /// </summary>
+        Task<VanAn.Shared.Domain.Aggregates.WalletAggregate.WithdrawalRequest> MarkWithdrawalPaidAsync(Guid requestId, Guid adminId, string bankReference);
     }
 
     /// <summary>Wallet summary DTO — balance + transaction history.</summary>
     public class WalletSummaryDto
     {
         public decimal Balance { get; set; }
+        /// <summary>TC-08: COD collected but not yet remitted ("đang giữ hộ") — 0 for non-shippers.</summary>
+        public decimal CodHeld { get; set; }
+        /// <summary>TC-09: Balance − CodHeld − Pending/Approved withdrawal requests.</summary>
+        public decimal AvailableBalance { get; set; }
         public List<WalletTransactionDto> Transactions { get; set; } = new();
     }
 
@@ -111,5 +158,36 @@ namespace VanAn.CoreHub.Services
         public Guid OrderId { get; set; }
         public decimal Amount { get; set; }
         public DateTime CreatedAt { get; set; }
+    }
+
+    /// <summary>TC-08: COD collected by shipper, not yet remitted.</summary>
+    public class PendingRemittanceDto
+    {
+        public Guid OrderId { get; set; }
+        public decimal Amount { get; set; }
+        public DateTime CollectedAt { get; set; }
+    }
+
+    /// <summary>TC-09: withdrawal request DTO for API responses.</summary>
+    public class WithdrawalRequestDto
+    {
+        public Guid Id { get; set; }
+        public Guid OwnerId { get; set; }
+        public decimal Amount { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string? BankReference { get; set; }
+        public string? RejectReason { get; set; }
+        public DateTime RequestedAt { get; set; }
+        public DateTime? ProcessedAt { get; set; }
+        public Guid? WalletTransactionId { get; set; }
+    }
+
+    /// <summary>TC-09 admin: paginated withdrawal request list.</summary>
+    public class WithdrawalRequestListResult
+    {
+        public int Total { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public List<WithdrawalRequestDto> Items { get; set; } = new();
     }
 }

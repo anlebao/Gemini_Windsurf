@@ -93,6 +93,7 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<Message> Messages { get; }
         DbSet<SalesReferral> SalesReferrals { get; }
         DbSet<WalletTransaction> WalletTransactions { get; }
+        DbSet<VanAn.Shared.Domain.Aggregates.WalletAggregate.WithdrawalRequest> WithdrawalRequests { get; } // Settlement Batch-3 (TC-09)
         DbSet<ProductReferralConfig> ProductReferralConfigs { get; } // v1.1 NEW
         DbSet<AppInstallAttribution> AppInstallAttributions { get; } // v1.1 NEW
         DbSet<DeviceRegistration> DeviceRegistrations { get; } // v1.2 NEW

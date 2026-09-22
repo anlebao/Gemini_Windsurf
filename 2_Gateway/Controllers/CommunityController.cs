@@ -1144,6 +1144,155 @@ namespace VanAn.Gateway.Controllers
             }
         }
 
+        /// <summary>
+        /// POST /api/community/wallet/remit
+        /// Settlement Batch-3 (TC-08): Shipper nộp tiền COD đã thu hộ cho một đơn.
+        /// Marketplace: Remittance(-cod, shipper) + Settlement(+cod, shop).
+        /// Reseller: Remittance(-cod, shipper) + Settlement(+cod, PlatformWallet).
+        /// Amount is derived server-side — client only supplies the order.
+        /// Auth: X-Customer-Token (must be shipper of the order's DeliveryTask).
+        /// </summary>
+        [HttpPost("wallet/remit")]
+        public async Task<IActionResult> RemitCod([FromBody] RemitCodRequest body)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            if (body == null || body.OrderId == Guid.Empty)
+                return BadRequest(new { error = "OrderId không hợp lệ." });
+
+            try
+            {
+                var tx = await _walletService.RemitCodAsync(customerId.Value, body.OrderId);
+                return Ok(new { transactionId = tx.Id, balanceAfter = tx.BalanceAfter });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return StatusCode(403, new { error = "Bạn không phải là shipper của đơn hàng này." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error remitting COD for order {OrderId}", body.OrderId);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// GET /api/community/wallet/pending-remittances
+        /// TC-08: COD the shipper collected but has not yet remitted ("đang giữ hộ").
+        /// Auth: X-Customer-Token.
+        /// </summary>
+        [HttpGet("wallet/pending-remittances")]
+        public async Task<IActionResult> GetPendingRemittances()
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            try
+            {
+                var pending = await _walletService.GetPendingRemittancesAsync(customerId.Value);
+                return Ok(pending);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting pending remittances for customer {CustomerId}", customerId.Value);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// POST /api/community/wallet/withdraw
+        /// Settlement Batch-3 (TC-09): owner requests a payout (Pending → admin approves/pays).
+        /// Min 500.000đ; blocked while another request is Pending/Approved.
+        /// Auth: X-Customer-Token.
+        /// </summary>
+        [HttpPost("wallet/withdraw")]
+        public async Task<IActionResult> RequestWithdrawal([FromBody] WithdrawalRequestBody body)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            if (body == null || body.Amount <= 0)
+                return BadRequest(new { error = "Amount phải lớn hơn 0." });
+
+            try
+            {
+                var request = await _walletService.RequestWithdrawalAsync(customerId.Value, body.Amount);
+                return Ok(new { requestId = request.Id, status = request.Status.ToString() });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating withdrawal request for customer {CustomerId}", customerId.Value);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// GET /api/community/wallet/withdrawals
+        /// TC-09: owner's own withdrawal request history.
+        /// Auth: X-Customer-Token.
+        /// </summary>
+        [HttpGet("wallet/withdrawals")]
+        public async Task<IActionResult> GetWithdrawals()
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            try
+            {
+                var withdrawals = await _walletService.GetWithdrawalsAsync(customerId.Value);
+                return Ok(withdrawals);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting withdrawals for customer {CustomerId}", customerId.Value);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// POST /api/community/wallet/withdrawals/{id}/cancel
+        /// TC-09: owner cancels their own Pending withdrawal request.
+        /// Auth: X-Customer-Token.
+        /// </summary>
+        [HttpPost("wallet/withdrawals/{id:guid}/cancel")]
+        public async Task<IActionResult> CancelWithdrawal(Guid id)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            try
+            {
+                await _walletService.CancelWithdrawalAsync(customerId.Value, id);
+                return Ok(new { requestId = id, status = "Cancelled" });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return StatusCode(403, new { error = "Yêu cầu rút tiền này không thuộc về bạn." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cancelling withdrawal {RequestId}", id);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
         // Sprint 7 Q5: confirm-external-payment endpoint REMOVED from this controller.
         // Reason: [AllowAnonymous] at class level bypasses [Authorize] at method level in ASP.NET Core,
         // creating an auth bypass on a financial endpoint (5-split wallet transaction).
@@ -1309,6 +1458,17 @@ namespace VanAn.Gateway.Controllers
         public class ConfirmAdvanceReceivedRequest
         {
             public Guid AdvanceTransactionId { get; set; }
+        }
+
+        // Settlement Batch-3 DTOs
+        public class RemitCodRequest
+        {
+            public Guid OrderId { get; set; }
+        }
+
+        public class WithdrawalRequestBody
+        {
+            public decimal Amount { get; set; }
         }
     }
 }

@@ -3751,7 +3751,9 @@ namespace VanAn.Shared.Domain
         CommunityFundSpend = 11, // Q3 — community fund disbursement (SysAdmin rút tiền tái đầu tư)
         // CC-S6-T5 — Collaborator SMS OTP + Deposit Wallet
         Deposit = 12,            // Collaborator nạp tiền vào ví (deposit for SMS OTP fees)
-        SmsOtpFee = 13           // SMS OTP verification fee deducted from deposit wallet
+        SmsOtpFee = 13,          // SMS OTP verification fee deducted from deposit wallet
+        // Settlement Batch-3 (TC-08, Q1) — shipper nộp tiền COD thu hộ về chủ sở hữu
+        Remittance = 14          // Shipper remits collected COD (Marketplace→shop / Reseller→PlatformWallet)
     }
 
     public enum CommissionStatus

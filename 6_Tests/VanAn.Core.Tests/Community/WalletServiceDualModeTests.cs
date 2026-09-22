@@ -428,6 +428,39 @@ public class WalletServiceDualModeTests : IDisposable
         Assert.Equal(150000m, tx.BalanceAfter); // 200K - 50K
     }
 
+    // === T23 (TC-08): Reseller COD remittance → PlatformWallet ===
+    [Fact(DisplayName = "T23: RemitCod_Reseller_ToPlatformWallet")]
+    public async Task RemitCod_Reseller_ToPlatformWallet()
+    {
+        await SeedTenantAsync();
+        var orderId = await SeedResellerOrderAsync(costPrice: 80000m, sellPrice: 100000m, deliveryFee: 15000m);
+        await SeedDeliveryTaskAsync(orderId);
+
+        var codAmount = 115000m; // sellPrice + deliveryFee
+        await _service.ConfirmCodAsync(ShipperId, orderId, codAmount);
+
+        // Before remit: shipper holds full COD (115k) + earned delivery fee (15k)
+        var shipperWallet = await _service.GetWalletAsync(ShipperId);
+        Assert.Equal(130000m, shipperWallet.Balance);
+        Assert.Equal(115000m, shipperWallet.CodHeld);
+        Assert.Equal(15000m, shipperWallet.AvailableBalance); // only the fee is his
+
+        var remitTx = await _service.RemitCodAsync(ShipperId, orderId);
+        Assert.Equal(WalletTransactionType.Remittance, remitTx.Type);
+        Assert.Equal(-115000m, remitTx.Amount);
+        Assert.Equal(15000m, remitTx.BalanceAfter); // shipper left with DeliveryFee only
+
+        // PlatformWallet received the COD leg
+        var platformTxs = await _context.WalletTransactions.IgnoreQueryFilters()
+            .Where(w => w.OwnerId == SystemWalletIds.PlatformWallet && w.RelatedOrderId == orderId)
+            .OrderBy(w => w.CreatedAt)
+            .ToListAsync();
+        var remitSettlement = platformTxs.Last();
+        Assert.Equal(WalletTransactionType.Settlement, remitSettlement.Type);
+        Assert.Equal(115000m, remitSettlement.Amount);
+        Assert.Equal(remitTx.Id, remitSettlement.RelatedTransactionId);
+    }
+
     private class StubTenantProvider : VanAn.Shared.Domain.Common.ITenantProvider
     {
         private readonly Guid _tenantId;

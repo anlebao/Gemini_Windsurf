@@ -36,6 +36,74 @@
                 <div class="display-6 fw-bold @(_balance >= 0 ? "text-success" : "text-danger")">
                     @_balance.ToString("N0")đ
                 </div>
+                @if (_codHeld > 0)
+                {
+                    <div class="small text-warning mt-2">
+                        <i class="bi bi-hourglass-split"></i> Đang giữ hộ COD: @_codHeld.ToString("N0")đ
+                    </div>
+                    <div class="small text-muted">Khả dụng rút: @_availableBalance.ToString("N0")đ</div>
+                }
+            </VanAnCard>
+
+            @if (!string.IsNullOrEmpty(_walletMessage))
+            {
+                <div class="alert @(_walletMessageIsError ? "alert-danger" : "alert-success") py-2">@_walletMessage</div>
+            }
+
+            <!-- Pending remittances (shipper view) — COD đã thu chưa nộp -->
+            @if (_pendingRemittances.Any())
+            {
+                <VanAnCard Shadow="true" CssClass="mb-3">
+                    <h6 class="mb-3"><i class="bi bi-cash-stack text-warning"></i> COD đang giữ hộ — cần nộp</h6>
+                    @foreach (var rem in _pendingRemittances)
+                    {
+                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                            <div>
+                                <div class="small text-muted">Đơn #@rem.OrderId.ToString()[..8]</div>
+                                <div class="fw-bold">@rem.Amount.ToString("N0")đ</div>
+                                <div class="small text-muted">Thu lúc @rem.CollectedAt.ToString("dd/MM/yyyy HH:mm")</div>
+                            </div>
+                            <VanAnButton Variant="ButtonVariant.Primary" OnClick="() => RemitCod(rem.OrderId)">
+                                <i class="bi bi-send"></i> Nộp tiền
+                            </VanAnButton>
+                        </div>
+                    }
+                </VanAnCard>
+            }
+
+            <!-- Withdrawal (TC-09) -->
+            <VanAnCard Shadow="true" CssClass="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0"><i class="bi bi-bank text-primary"></i> Rút tiền</h6>
+                    <VanAnButton Variant="ButtonVariant.Outline" OnClick="() => _showWithdrawModal = true">
+                        <i class="bi bi-arrow-down-circle"></i> Yêu cầu rút
+                    </VanAnButton>
+                </div>
+                <div class="small text-muted mb-2">Tối thiểu 500.000đ — admin duyệt rồi chuyển khoản.</div>
+                @if (_withdrawals.Any())
+                {
+                    @foreach (var w in _withdrawals)
+                    {
+                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                            <div>
+                                <div class="fw-bold">@w.Amount.ToString("N0")đ <span class="badge @GetWithdrawalBadge(w.Status)">@GetWithdrawalStatusText(w.Status)</span></div>
+                                <div class="small text-muted">@w.RequestedAt.ToString("dd/MM/yyyy HH:mm")</div>
+                                @if (!string.IsNullOrEmpty(w.BankReference))
+                                {
+                                    <div class="small text-muted">Ref: @w.BankReference</div>
+                                }
+                                @if (!string.IsNullOrEmpty(w.RejectReason))
+                                {
+                                    <div class="small text-danger">@w.RejectReason</div>
+                                }
+                            </div>
+                            @if (w.Status == "Pending")
+                            {
+                                <VanAnButton Variant="ButtonVariant.Secondary" OnClick="() => CancelWithdrawal(w.Id)">Huỷ</VanAnButton>
+                            }
+                        </div>
+                    }
+                }
             </VanAnCard>
 
             <!-- Pending advances (shop owner view) -->
@@ -95,13 +163,43 @@
     </div>
 </KhachLinkLayout>
 
+<!-- Withdraw request modal (TC-09) -->
+@if (_showWithdrawModal)
+{
+    <VanAnModal IsOpen="true"
+                Title="Yêu cầu rút tiền"
+                OnClose="() => _showWithdrawModal = false"
+                Closable="true">
+        <ChildContent>
+            <div class="mb-3">
+                <label class="form-label">Số tiền (VND)</label>
+                <input type="number" class="form-control" min="500000" step="1000"
+                       @bind="_withdrawAmount" @bind:event="oninput" />
+                <small class="text-muted">Tối thiểu 500.000đ — khả dụng: @_availableBalance.ToString("N0")đ</small>
+            </div>
+        </ChildContent>
+        <Footer>
+            <VanAnButton Variant="ButtonVariant.Secondary" OnClick="() => _showWithdrawModal = false">Huỷ</VanAnButton>
+            <VanAnButton Variant="ButtonVariant.Primary" OnClick="RequestWithdrawal">Gửi yêu cầu</VanAnButton>
+        </Footer>
+    </VanAnModal>
+}
+
 @code {
     private bool _loading = true;
     private bool _isLoggedIn = false;
     private string? _customerToken;
     private decimal _balance;
+    private decimal _codHeld;
+    private decimal _availableBalance;
+    private string? _walletMessage;
+    private bool _walletMessageIsError;
+    private bool _showWithdrawModal;
+    private decimal _withdrawAmount;
     private List<WalletHttpService.WalletTransactionResponse> _transactions = new();
     private List<WalletHttpService.PendingAdvanceResponse> _pendingAdvances = new();
+    private List<WalletHttpService.PendingRemittanceResponse> _pendingRemittances = new();
+    private List<WalletHttpService.WithdrawalItemResponse> _withdrawals = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -116,6 +214,8 @@
 
         await LoadWalletAsync();
         await LoadPendingAdvancesAsync();
+        await LoadPendingRemittancesAsync();
+        await LoadWithdrawalsAsync();
         _loading = false;
     }
 
@@ -125,9 +225,102 @@
         if (result.Success)
         {
             _balance = result.Balance;
+            _codHeld = result.CodHeld;
+            _availableBalance = result.AvailableBalance;
             _transactions = result.Transactions;
         }
     }
+
+    private async Task LoadPendingRemittancesAsync()
+    {
+        var result = await WalletHttp.GetPendingRemittancesAsync(_customerToken!);
+        if (result.Success)
+            _pendingRemittances = result.Items;
+    }
+
+    private async Task LoadWithdrawalsAsync()
+    {
+        var result = await WalletHttp.GetWithdrawalsAsync(_customerToken!);
+        if (result.Success)
+            _withdrawals = result.Items;
+    }
+
+    private async Task RemitCod(Guid orderId)
+    {
+        _walletMessage = null;
+        var result = await WalletHttp.RemitCodAsync(_customerToken!, orderId);
+        if (result.Success)
+        {
+            _walletMessage = "Đã ghi nhận nộp tiền COD.";
+            _walletMessageIsError = false;
+        }
+        else
+        {
+            _walletMessage = $"Không nộp được: {result.ErrorMessage}";
+            _walletMessageIsError = true;
+        }
+        await LoadWalletAsync();
+        await LoadPendingRemittancesAsync();
+    }
+
+    private async Task RequestWithdrawal()
+    {
+        _walletMessage = null;
+        var result = await WalletHttp.RequestWithdrawalAsync(_customerToken!, _withdrawAmount);
+        if (result.Success)
+        {
+            _walletMessage = "Đã gửi yêu cầu rút tiền — chờ admin duyệt.";
+            _walletMessageIsError = false;
+            _showWithdrawModal = false;
+            _withdrawAmount = 0;
+        }
+        else
+        {
+            _walletMessage = $"Không gửi được: {result.ErrorMessage}";
+            _walletMessageIsError = true;
+            _showWithdrawModal = false;
+        }
+        await LoadWalletAsync();
+        await LoadWithdrawalsAsync();
+    }
+
+    private async Task CancelWithdrawal(Guid requestId)
+    {
+        _walletMessage = null;
+        var result = await WalletHttp.CancelWithdrawalAsync(_customerToken!, requestId);
+        if (result.Success)
+        {
+            _walletMessage = "Đã huỷ yêu cầu rút tiền.";
+            _walletMessageIsError = false;
+        }
+        else
+        {
+            _walletMessage = $"Không huỷ được: {result.ErrorMessage}";
+            _walletMessageIsError = true;
+        }
+        await LoadWalletAsync();
+        await LoadWithdrawalsAsync();
+    }
+
+    private static string GetWithdrawalStatusText(string status) => status switch
+    {
+        "Pending" => "Chờ duyệt",
+        "Approved" => "Đã duyệt",
+        "Rejected" => "Bị từ chối",
+        "Paid" => "Đã chuyển khoản",
+        "Cancelled" => "Đã huỷ",
+        _ => status
+    };
+
+    private static string GetWithdrawalBadge(string status) => status switch
+    {
+        "Pending" => "bg-warning text-dark",
+        "Approved" => "bg-info",
+        "Rejected" => "bg-danger",
+        "Paid" => "bg-success",
+        "Cancelled" => "bg-secondary",
+        _ => "bg-secondary"
+    };
 
     private async Task LoadPendingAdvancesAsync()
     {
@@ -158,6 +351,7 @@
         "Withdrawal" => "bi bi-arrow-down-circle text-danger",
         "Settlement" => "bi bi-arrow-left-right text-info",
         "Reversal" => "bi bi-arrow-counterclockwise text-danger",
+        "Remittance" => "bi bi-send text-primary",
         _ => "bi bi-circle text-muted"
     };
 
@@ -169,6 +363,7 @@
         "Withdrawal" => "Rút tiền",
         "Settlement" => "Thanh toán",
         "Reversal" => "Hoàn giao dịch",
+        "Remittance" => "Nộp tiền COD",
         _ => type
     };
 }

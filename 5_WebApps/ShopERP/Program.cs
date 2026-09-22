@@ -570,6 +570,7 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<Services.CommerceModeApiClient>();
             _ = builder.Services.AddScoped<Services.TenantRegistrationApiClient>();
             _ = builder.Services.AddScoped<Services.CommunityFundApiClient>();
+            _ = builder.Services.AddScoped<Services.WithdrawalApiClient>(); // Settlement Batch-3 (TC-09)
             _ = builder.Services.AddScoped<Services.ProductCostPriceApiClient>();
             // CC-S6-T5 — Collaborator Verification admin API client
             _ = builder.Services.AddScoped<Services.CollaboratorVerificationApiClient>();
