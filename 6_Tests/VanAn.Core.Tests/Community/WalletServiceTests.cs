@@ -804,12 +804,27 @@ public class WalletServiceTests : IDisposable
             () => _service.CancelWithdrawalAsync(Guid.NewGuid(), request.Id));
     }
 
+    // === T46: BalanceAfter chains across tenant contexts (RV finding — FromSqlRaw
+    // composed inside the EF tenant filter: latest tx under another tenant was
+    // filtered out after LIMIT 1, silently resetting balanceBefore to 0) ===
+    [Fact(DisplayName = "T46: BalanceAfter_ChainsAcrossTenantContexts")]
+    public async Task BalanceAfter_ChainsAcrossTenantContexts()
+    {
+        await _service.CreateTransactionAsync(ShipperId, WalletTransactionType.Commission, 100000m, "T1 commission");
+
+        _tenantProvider.SetTenant(Guid.NewGuid());
+        var tx2 = await _service.CreateTransactionAsync(ShipperId, WalletTransactionType.Withdrawal, -40000m, "payout");
+
+        Assert.Equal(60000m, tx2.BalanceAfter);
+        _tenantProvider.SetTenant(TenantId);
+    }
+
     private sealed class StubTenantProvider : ITenantProvider
     {
         public StubTenantProvider(Guid tenantId) => TenantId = tenantId;
-        public Guid TenantId { get; }
+        public Guid TenantId { get; private set; }
         public string? CurrentUser => "test";
         public bool HasTenant => true;
-        public void SetTenant(Guid tenantId) { }
+        public void SetTenant(Guid tenantId) => TenantId = tenantId;
     }
 }

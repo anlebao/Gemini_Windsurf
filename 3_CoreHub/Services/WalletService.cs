@@ -122,11 +122,16 @@ namespace VanAn.CoreHub.Services
                                  _dbContext.ProviderName.Contains("Npgsql");
                 if (isPostgres)
                 {
-                    // PG: SELECT FOR UPDATE locks the row for concurrent-safety
+                    // PG: SELECT FOR UPDATE locks the row for concurrent-safety.
+                    // IgnoreQueryFilters is mandatory here: the raw SQL runs INSIDE the
+                    // composed tenant filter, so LIMIT 1 picks the owner's globally-latest
+                    // tx before the filter — a tx written under another tenant context
+                    // would be filtered out and silently return balanceBefore=0.
                     var lastTx = await _dbContext.WalletTransactions
                         .FromSqlRaw(
                             "SELECT * FROM \"WalletTransactions\" WHERE \"OwnerId\" = {0} ORDER BY \"CreatedAt\" DESC LIMIT 1 FOR UPDATE",
                             ownerId)
+                        .IgnoreQueryFilters()
                         .FirstOrDefaultAsync();
                     balanceBefore = lastTx?.BalanceAfter ?? 0m;
                 }
@@ -134,6 +139,7 @@ namespace VanAn.CoreHub.Services
                 {
                     // SQLite (tests): LINQ within transaction — database-level lock provides atomicity
                     var lastTx = await _dbContext.WalletTransactions
+                        .IgnoreQueryFilters()
                         .Where(w => w.OwnerId == ownerId)
                         .OrderByDescending(w => w.CreatedAt)
                         .FirstOrDefaultAsync();
@@ -163,6 +169,7 @@ namespace VanAn.CoreHub.Services
         public async Task<decimal> GetBalanceAsync(Guid ownerId)
         {
             var lastTx = await _dbContext.WalletTransactions
+                .IgnoreQueryFilters()
                 .Where(w => w.OwnerId == ownerId)
                 .OrderByDescending(w => w.CreatedAt)
                 .FirstOrDefaultAsync();
