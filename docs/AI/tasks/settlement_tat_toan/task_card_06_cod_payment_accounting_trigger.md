@@ -1,6 +1,6 @@
 # Task Card TC-06: Đơn COD — trigger accounting khi thu tiền thật + platform bookset
 
-> **Status:** ⬜ PENDING (chờ decision Q3 + domain approval cho Order change)
+> **Status:** ✅ CODE DONE (2026-09-22) — **Q3 = MarkCodCollected → Paid** (domain change user duyệt); **bookset = PG + replicate SQLite** (tái dùng `OrderPaymentConfirmed` → `PaymentConfirmedSubscriber`, không cần subscriber mới).
 > **Severity:** P1 — sổ sách (toàn bộ doanh thu COD không vào sổ kế toán)
 > **Findings:** B1, B5
 > **Files:** `3_CoreHub/Services/WalletService.cs` (MarkCodCollected call sites ~L218, ~L337, ~L664), `3_CoreHub/Services/OrderService.cs` (ConfirmPaymentAsync ~L1304-1366, GenerateAccountingEntriesAsync ~L163-406, GetPlatformAccountingTenantIdAsync ~L413-431), `1_Shared/Domain.cs` (Order.ConfirmPayment ~L1873-1879, MarkCodCollected ~L1767-1774)
@@ -14,6 +14,17 @@
 Đơn COD (community commerce — luồng chính): `MarkCodCollected` chỉ set `CodAmount`/`CodCollectedAt`, **`PaymentStatus` không đổi** → không bao giờ có bút toán. Doanh thu COD = 0 trên sổ HKD.
 
 Phụ (B5): Reseller platform bookset phụ thuộc `SystemSetting["PlatformAccountingTenantId"]` — chưa config → skip im lặng, platform fee income không hạch toán đâu cả.
+
+## Implementation (2026-09-22 — đã duyệt)
+
+- **Domain:** `Order.MarkCodCollected(codAmount, paymentMethod="COD", transactionId=null)` — set `PaymentStatus="Paid"` + `PaymentMethod` + `VietQR_TransactionId` (nếu có ref); thêm guard `PaymentStatus=="Paid"` → throw (chặn double-payment bất kể path).
+- **PaymentMethodConstants:** thêm `Cod="COD"` (→111) + `External="EXTERNAL"` (→112).
+- **WalletService** (Gateway-only service): ctor += optional `IOrderService`/`IOutboxRepository`/`IShopFeatureSettingsService` (không break tests/DI hiện có).
+  - `ConfirmCodAsync`: trong cùng tx → `MarkCodCollected(amount, COD, shipperTx.Id)` + `EnqueueOrderPaymentConfirmedAsync` (payload giống `MarkPaidAsync`, routingKey=`Tenant.ShopInstanceId`, correlationId=orderId); sau commit → `TryGenerateOrderAccountingAsync` (best-effort, gated `Accounting_Sync_Enabled`, reload order với Items+Product cho COGS).
+  - `ConfirmExternalPaymentAsync`: thêm guard `PaymentStatus=="Paid"` → throw; `MarkCodCollected(amount, EXTERNAL, paymentRef)` + outbox + accounting trigger tương tự.
+- **Replicate SQLite:** không cần subscriber mới — `OrderPaymentConfirmed` → `vanan.cloud.order.payment.confirmed.{shopInstanceId}` → `PaymentConfirmedSubscriber` mark Paid + `GenerateAccountingEntriesAsync` trên SQLite (idempotent theo reference + toggle-aware).
+- **B5:** reseller path thiếu `PlatformAccountingTenantId` → `LogWarning` (trước đây LogDebug — platform fee income bị skip im lặng).
+- **Tests:** +7 (T26-T30 WalletServiceTests: Paid/COD/ref, outbox event, accounting call, toggle-off skip, accounting-failure non-fatal; T16-T17 DualMode: external Paid/EXTERNAL/ref + outbox + entries, already-paid reject).
 
 ## Fix approach (đề xuất — Q3)
 

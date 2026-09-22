@@ -1,6 +1,6 @@
 # Task Card TC-05: SimpleAccountingEventHandler — revenue ghi trùng + không idempotent
 
-> **Status:** ⬜ PENDING (chờ decision Q2: retire hay fix)
+> **Status:** ✅ DONE (2026-09-22) — **Q2 = RETIRE** (user duyệt). Handler đã xoá khỏi DI + xoá file.
 > **Severity:** P1 — sổ sách (revenue PG bị nhân đôi + sai gross)
 > **Findings:** B2, B3, B6
 > **Files:** `3_CoreHub/Services/Events/SimpleAccountingEventHandler.cs`, `3_CoreHub/Services/OrderService.cs` (GenerateAccountingEntriesAsync ~L163-406), `2_Gateway/Program.cs` (~L638-642)
@@ -16,6 +16,13 @@ Mỗi `OrderCompleted` event, handler tạo **2 Revenue AccountingEntry** cùng 
 Không idempotent: `CreateEntryAsync` (L74-106 của AccountingEntryService) **không** gọi `CheckDuplicateEntryAsync`, không check CorrelationId; `message.Ack()` chỉ khi thành công → NATS redelivery = +2 entries mỗi lần. Subscribe 2 subject (`order.completed` + `ordercompleted`) → nếu publisher nào bắn cả hai → double.
 
 Timing: entry tạo lúc order **completed**, không phải lúc thực thu → vi phạm cash-basis mà comment OrderService tuyên bố.
+
+## Implementation (2026-09-22 — Option A)
+
+- Gỡ `AddHostedService<SimpleAccountingEventHandler>` khỏi `2_Gateway/Program.cs` + `3_CoreHub/Program.cs`; xoá `3_CoreHub/Services/Events/SimpleAccountingEventHandler.cs` (folder `Events/` trống → xoá luôn).
+- `vanan.shoperp.order.completed` vẫn được `DataSyncSubscriber` (`vanan.shoperp.>` wildcard) xử lý cho data sync — chỉ mất phần ghi revenue trùng/gross lên PG.
+- Authoritative path giữ nguyên: `OrderService.GenerateAccountingEntriesAsync` (net 511/3331/632 + JournalEntry, idempotent theo reference).
+- **Còn lại (deploy/RV phase):** cleanup entries trùng đã tồn tại trên PG — query theo CorrelationId → report danh sách cho user duyệt → đảo bằng `CreateReversal` (append-only, KHÔNG delete).
 
 ## Options (Q2 — cần user duyệt)
 

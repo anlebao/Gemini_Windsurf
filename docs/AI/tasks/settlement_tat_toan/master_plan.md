@@ -1,7 +1,7 @@
 # Master Plan — Settlement (Tất toán) Review Findings
 
 **Created:** 2026-09-22
-**Status:** BATCH 1 ✅ DONE + DEPLOYED + RV PRODUCTION PASS (2026-09-22, `afcf5847`+`e9b4789a`) — TC-01..TC-04. Còn lại: Batch 2 (TC-05+TC-06, cần chốt Q2/Q3), TC-07 (Q5), TC-08 (Q1), TC-09 (Q4), TC-10
+**Status:** BATCH 1 ✅ DEPLOYED + RV PASS (2026-09-22, `afcf5847`+`e9b4789a`) — TC-01..TC-04. BATCH 2 ✅ CODE DONE (2026-09-22) — TC-05 (Q2=retire) + TC-06 (Q3=MarkCodCollected→Paid, bookset=PG+replicate SQLite); chờ push/CD/RV + PG duplicate-cleanup. Còn lại: TC-07 (Q5), TC-08 (Q1), TC-09 (Q4), TC-10.
 **Branch target:** `main`
 **Source:** REVIEW_ONLY session 2026-09-22 — rà soát tất toán Salesman–Shipper–Owner Tenant–Platform + mức độ đổ số liệu về kế toán
 
@@ -22,8 +22,8 @@ Hệ thống có **2 sổ sách tách rời không cầu nối**: `WalletTransac
 | [TC-02](task_card_02_advance_idempotency_crosstenant.md) | C4 (ConfirmAdvance không idempotent, Reseller in tiền), C5 (ConfirmAdvanceReceived cross-tenant) | P0 — tiền | IMPLEMENT |
 | [TC-03](task_card_03_reseller_double_commission.md) | C6 (Reseller commission trả 2 lần + bypass risk scoring + FraudReview chỉ reverse FirstOrDefault) | P0 — tiền | IMPLEMENT |
 | [TC-04](task_card_04_refund_settlement_reversal.md) | C7 (cancel không đảo settlement tx, CoolingPeriodJob trả hoa hồng đơn hủy, flag default OFF, SalesReferral status stale) | P0 — tiền | IMPLEMENT (flag decision cần duyệt) |
-| [TC-05](task_card_05_accounting_handler_dedup.md) | B2 (revenue ×2 gross), B3 (không idempotent, dual-subject), B6 (cash-basis sai timing) | P1 — sổ sách | IMPLEMENT + quyết định retire hay fix |
-| [TC-06](task_card_06_cod_payment_accounting_trigger.md) | B1 (COD không qua GenerateAccountingEntriesAsync), B5 (PlatformAccountingTenantId chưa config → skip im lặng) | P1 — sổ sách | IMPLEMENT (domain method cần duyệt) |
+| [TC-05](task_card_05_accounting_handler_dedup.md) ✅ | B2 (revenue ×2 gross), B3 (không idempotent, dual-subject), B6 (cash-basis sai timing) | P1 — sổ sách | IMPLEMENT + quyết định retire hay fix |
+| [TC-06](task_card_06_cod_payment_accounting_trigger.md) ✅ | B1 (COD không qua GenerateAccountingEntriesAsync), B5 (PlatformAccountingTenantId chưa config → skip im lặng) | P1 — sổ sách | IMPLEMENT (domain method cần duyệt) |
 | [TC-07](task_card_07_wallet_accounting_bridge.md) | B4 (wallet → 0 bút toán: commission 641, platform fee, fund, COD receivable, advance, withdrawal...) | P1 — sổ sách | ANALYZE → duyệt mapping trước |
 | [TC-08](task_card_08_shipper_remittance_leg.md) | C1 (Marketplace settlement sai dấu/thiếu leg), C2 (Reseller thiếu leg nộp về platform) | P0 — mô hình | **DESIGN DECISION trước** (xem §Decisions) |
 | [TC-09](task_card_09_payout_withdrawal_flow.md) | C8 (không có Withdrawal/payout/remittance — docs hứa nhưng code không có) | P1 — feature thiếu | **DESIGN DECISION trước** |
@@ -34,8 +34,8 @@ Hệ thống có **2 sổ sách tách rời không cầu nối**: `WalletTransac
 | # | Quyết định | Ảnh hưởng |
 |---|---|---|
 | **Q1** | Semantics ví shipper COD: `CODCollection +amount` nghĩa là gì — "shipper đang GIỮ tiền hộ" (phải nợ) hay "platform nợ shipper"? Hiện ledger ghi +shipper nhưng không có leg nộp → đáp án quyết định TC-08 thiết kế như thế nào. Đề xuất: thêm tx `Remittance` — Marketplace: −shipper/+shop khi nộp; Reseller: −shipper/+PlatformWallet khi nộp về Vạn An. | TC-08, domain enum mới |
-| **Q2** | `SimpleAccountingEventHandler`: **retire** (OrderService path đã đủ 511/3331/632 + JournalEntry) hay **fix** (dedup + net amount)? Legacy handler đang ghi trùng gross trên PG. Đề xuất: retire hoặc gate OFF mặc định. | TC-05 |
-| **Q3** | COD order khi nào ghi nhận doanh thu: lúc `MarkCodCollected` (thực thu đúng TT 152) hay lúc delivered? Đề xuất: MarkCodCollected → set PaymentStatus=Paid → trigger GenerateAccountingEntriesAsync. **Domain modification** (Order) — cần approval. | TC-06 |
+| **Q2** | `SimpleAccountingEventHandler`: **retire** (OrderService path đã đủ 511/3331/632 + JournalEntry) hay **fix** (dedup + net amount)? Legacy handler đang ghi trùng gross trên PG. Đề xuất: retire hoặc gate OFF mặc định. **→ ✅ RETIRE (user duyệt 2026-09-22)** | TC-05 |
+| **Q3** | COD order khi nào ghi nhận doanh thu: lúc `MarkCodCollected` (thực thu đúng TT 152) hay lúc delivered? Đề xuất: MarkCodCollected → set PaymentStatus=Paid → trigger GenerateAccountingEntriesAsync. **Domain modification** (Order) — cần approval. **→ ✅ MarkCodCollected→Paid; bookset PG + replicate SQLite (user duyệt 2026-09-22)** | TC-06 |
 | **Q4** | Payout flow: ai duyệt, theo kỳ hay tức thời, min amount, bằng chứng chi? Docs đã hứa KYC + min 500k nhưng chưa có thiết kế. Đề xuất: WithdrawalRequest entity (Pending→Approved→Paid) + admin endpoint. **Domain mới** — cần approval. | TC-09 |
 | **Q5** | Wallet→Accounting bridge: map nào? Đề xuất tối thiểu: Commission→641 expense (platform tenant), PlatformFee→511 (platform tenant), CommunityFund→3388 (phải chi quỹ), DeliveryFee→641, COD shipper-held→138/131. Ghi ở tenant nào (supplier/reseller/platform)? | TC-07 |
 | **Q6** | `ValcnV2_RefundReversal` flag: bật default ON sau khi TC-04 hoàn thiện reversal coverage? Hiện default OFF = silent cancel. | TC-04 |
@@ -51,6 +51,7 @@ TC-01 → TC-02 → TC-03 → TC-04. Mỗi card: fix + Core.Tests + guard-check 
 
 ### Batch 2 — Accounting correctness (P1)
 TC-05 (handler dedup/retire — chặn nhân đôi trước) → TC-06 (COD → accounting) → TC-07 (wallet bridge, cần Q5).
+**✅ TC-05 + TC-06 CODE DONE 2026-09-22** — Q2=retire (handler xoá khỏi Gateway+CoreHub DI, file deleted; `DataSyncSubscriber` giữ nguyên data sync), Q3=MarkCodCollected→Paid + PaymentMethod=COD/EXTERNAL + outbox `OrderPaymentConfirmed` (routed theo ShopInstanceId) trong cùng tx + post-commit `GenerateAccountingEntriesAsync` trên PG (gated `Accounting_Sync_Enabled`, idempotent); ShopERP `PaymentConfirmedSubscriber` tái dùng → SQLite Paid + entries. B5: thiếu `PlatformAccountingTenantId` → LogWarning thay Debug. Tests +7 (Community 275 PASS); guard-check ALL PASSED; sln build 0 errors. **Chờ push/CD/RV + PG duplicate cleanup (report → duyệt → reversal).** TC-07 còn lại (Q5).
 
 ### Batch 3 — Settlement lifecycle (P0 mô hình, cần Q1/Q4)
 TC-08 (remittance leg) → TC-09 (payout flow).
@@ -72,8 +73,8 @@ TC-10 (admin + misc fixes, có thể tách nhỏ theo sub-item).
 - [x] COD amount không do client khai — server derive từ order (SellPrice+DeliveryFee / TotalAmount) — **Batch 1, RV PASS**
 - [x] Reseller commission trả đúng 1 lần, qua risk scoring + cooling như Marketplace — **Batch 1** (bỏ leg commission khỏi split; CoolingPeriodJob dedup + order-cancelled guard)
 - [~] Cancel/refund đảo TOÀN BỘ wallet tx của đơn (không chỉ Commission) + SalesReferral→Rejected — **code DONE Batch 1** nhưng wallet reversal vẫn gated bởi `ValcnV2_RefundReversal` (default OFF — chờ Q6); referral voiding khi cancel đã unconditional
-- [ ] Mỗi OrderCompleted → đúng 1 bộ bút toán, net revenue, có dedup theo CorrelationId
-- [ ] Đơn COD confirm xong → có 511/3331/632 entries trên đúng tenant bookset
+- [x] Mỗi OrderCompleted → đúng 1 bộ bút toán, net revenue, có dedup theo CorrelationId — **Batch 2** (SimpleAccountingEventHandler retired; duplicate PG entries cũ chờ reversal cleanup)
+- [x] Đơn COD confirm xong → có 511/3331/632 entries trên đúng tenant bookset — **Batch 2** (MarkCodCollected→Paid + outbox → PG + SQLite entries, chờ RV production)
 - [ ] Ledger shipper có leg nộp tiền → balance khép về phí giao hàng thực nhận
 - [ ] Withdrawal/payout có request→approve→pay flow + audit
 - [ ] Build 0 errors · guard-check.ps1 PASS · Core.Tests PASS sau mỗi card
