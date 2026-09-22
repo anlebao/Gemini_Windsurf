@@ -45,3 +45,14 @@
 - [ ] Số dư khả dụng không gồm tiền giữ hộ COD.
 - [ ] Không path nào tạo Withdrawal ngoài flow duyệt.
 - [ ] Build 0 errors · guard-check PASS · Core.Tests PASS.
+
+## ✅ RV PRODUCTION PASS (2026-09-22, `b5da7819` + `193006e6`, CD Multi-VPS SUCCESS)
+
+- `POST wallet/withdraw` 500k khi balance 15k → **409** "Insufficient available balance" · 100k → **400** dưới min · 500k hợp lệ → **200 Pending** · request thứ 2 khi đang mở → **409**.
+- `GET /api/admin/withdrawals` không JWT → **401**; SystemAdmin JWT → **200** list đúng request.
+- approve → **200 Approved** · pay không bankRef → **400** · pay bankRef `RVB3-V2` → **200 Paid** + `walletTransactionId` + `ProcessedBy`/`ProcessedAt`/`BankReference` đầy đủ · Withdrawal tx −500000 tạo đúng 1 lần · double-pay → **409** · approve đã-Paid → **409**.
+- Reject path: request → reject → **Status=3 Rejected**, không tạo Withdrawal tx.
+- Cancel path: owner cancel Pending → **Status=5 Cancelled** · cancel request của người khác → **403/409**.
+- ShopERP admin page `/admin/withdrawals` + menu "Duyệt rút tiền" (Cộng tác viên, SystemAdmin) + sitemap link.
+- **Bug found+fixed:** BalanceAfter chain bị phá khi tx mới nhất của owner thuộc tenant context khác (FromSqlRaw LIMIT bên trong tenant filter) → fix `193006e6` + T46; re-verify pay đúng **1,100,000**.
+- Cleanup pristine: 0 wallet tx / 0 request / 0 orders test còn lại trên PG.

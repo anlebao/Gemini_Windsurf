@@ -49,3 +49,15 @@ Câu hỏi phụ: shipper nộp **theo đơn** hay **gom cuối ngày/kỳ** (ba
 - [ ] Shipper balance sau remit chỉ còn phần thực nhận.
 - [ ] Dữ liệu cũ được reconcile bằng reversal, có report.
 - [ ] Build 0 errors · guard-check PASS · Core.Tests PASS.
+
+## ✅ RV PRODUCTION PASS (2026-09-22, `b5da7819` + `193006e6`, CD Multi-VPS SUCCESS)
+
+L2: `RemitCodAsync`/`WithdrawalRequest` trong CoreHub.dll · `WithdrawalAdminController`/`wallet/remit` trong Gateway.dll · `WithdrawalApiClient`/`admin/withdrawals` trong ShopERP.dll · migration `WithdrawalRequests` applied.
+
+L1 (fixtures trên tenant "Vạn An Test", shipper `6e4edec9`):
+- Marketplace: confirm-cod sai amount → **409**; đúng 65000 → **200**; pending-remittances liệt kê đơn; remit → **200** (shipper 65000→0); double-remit → **409**. Legs: CODCollection +65000 shipper · Settlement −65000 tenant · **Remittance −65000 shipper · Settlement +65000 tenant** — ledger khép.
+- Reseller (order CommerceMode=1, Sell 70000 + Fee 15000): confirm 85000 → **200**; remit → **200**. Legs: CODCollection +85000 shipper · Settlement +40000 tenant (giá vốn) · DeliveryFee +15000 shipper · PlatformFee +15000 Platform · CommunityFund +3000 · **Remittance −85000 shipper · Settlement +85000 → PlatformWallet** ✅ (Q1b đúng).
+- Wallet summary: `codHeld`/`availableBalance` đúng (available loại trừ pending withdrawal).
+- Cleanup: toàn bộ fixture xoá khỏi PG (orders/tasks/wallet/requests/outbox/journal), dev-token window đóng (env=0, endpoint 404).
+
+**Bug phát hiện + fixed trong RV:** `CreateWalletTxCoreAsync` PG path — `FromSqlRaw … LIMIT 1 FOR UPDATE` compose bên trong tenant filter → latest tx dưới tenant khác bị lọc sau LIMIT → `balanceBefore=0` → BalanceAfter sai (−500000 thay vì đúng). Fix `193006e6`: `IgnoreQueryFilters` trên last-tx lookups (PG + SQLite + `GetBalanceAsync`) + regression test T46. Re-verify production: pay → **BalanceAfter=1,100,000 đúng** (1.6M − 500k).
