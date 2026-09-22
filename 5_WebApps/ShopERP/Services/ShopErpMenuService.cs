@@ -263,6 +263,7 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                     new() { Title = "Xác minh SMS", Icon = "phone", Url = "/admin/collaborator-verification" },
                     new() { Title = "Quỹ Cộng Đồng", Icon = "piggy-bank", Url = "/admin/community-fund" },
                     new() { Title = "Lịch sử Settlement", Icon = "cash-coin", Url = "/admin/settlements" },
+                    new() { Title = "Duyệt rút tiền", Icon = "bank", Url = "/admin/withdrawals" },
                 }
             });
         }
