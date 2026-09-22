@@ -63,16 +63,21 @@ public class WalletServiceTests : IDisposable
         await _context.SaveChangesAsync();
     }
 
-    private async Task<Guid> SeedOrderAsync(decimal? codAmount = null, string paymentMethod = "COD")
+    private async Task<Guid> SeedOrderAsync(
+        decimal? codAmount = null,
+        string paymentMethod = "COD",
+        string status = "delivering",
+        string paymentStatus = "Pending")
     {
         var orderId = Guid.NewGuid();
         var order = new Order(new TenantId(TenantId), null, 0);
         SetProp(order, "Id", orderId);
         SetProp(order, "OrderId", new OrderId(orderId));
         SetProp(order, "OrderType", "DELIVERY");
-        SetProp(order, "Status", new OrderStatusId("delivering"));
+        SetProp(order, "Status", new OrderStatusId(status));
         SetProp(order, "TotalAmount", 100000m);
         SetProp(order, "PaymentMethod", paymentMethod);
+        SetProp(order, "PaymentStatus", paymentStatus);
         SetProp(order, "ShipperId", ShipperId);
         if (codAmount.HasValue)
             SetProp(order, "CodAmount", codAmount.Value);
@@ -81,9 +86,10 @@ public class WalletServiceTests : IDisposable
         return orderId;
     }
 
-    private async Task SeedDeliveryTaskAsync(Guid orderId)
+    private async Task SeedDeliveryTaskAsync(Guid orderId, DeliveryTaskStatus status = DeliveryTaskStatus.OutForDelivery)
     {
         var task = new DeliveryTask(new TenantId(TenantId), orderId, ShipperId, 10.8, 106.7, 10.9, 106.8);
+        SetProp(task, "Status", status);
         _context.DeliveryTasks.Add(task);
         await _context.SaveChangesAsync();
     }
@@ -358,6 +364,103 @@ public class WalletServiceTests : IDisposable
         Assert.Equal(-50000m, reversal.Amount);
         Assert.Equal(original.Id, reversal.RelatedTransactionId);
         Assert.Equal(0m, reversal.BalanceAfter); // 50k - 50k = 0
+    }
+
+    // ===== Settlement Batch-1 (TC-01 → TC-04) =====
+
+    // === T20: ConfirmCod_TaskNotOutForDelivery_Throws (TC-01) ===
+    [Fact(DisplayName = "T20: ConfirmCod_TaskNotOutForDelivery_Throws")]
+    public async Task ConfirmCod_TaskNotOutForDelivery_Throws()
+    {
+        await SeedTenantAsync();
+        var orderId = await SeedOrderAsync(codAmount: 50000m);
+        await SeedDeliveryTaskAsync(orderId, DeliveryTaskStatus.Assigned); // not yet out for delivery
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ConfirmCodAsync(ShipperId, orderId, 50000m));
+
+        // No partial wallet state
+        Assert.Empty(await _context.WalletTransactions.IgnoreQueryFilters().Where(t => t.RelatedOrderId == orderId).ToListAsync());
+    }
+
+    // === T21: ConfirmCod_AlreadyPaid_Throws (TC-01 — double-count hole) ===
+    [Fact(DisplayName = "T21: ConfirmCod_AlreadyPaid_Throws")]
+    public async Task ConfirmCod_AlreadyPaid_Throws()
+    {
+        await SeedTenantAsync();
+        var orderId = await SeedOrderAsync(codAmount: 50000m, paymentMethod: "VIETQR", paymentStatus: "Paid");
+        await SeedDeliveryTaskAsync(orderId);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ConfirmCodAsync(ShipperId, orderId, 50000m));
+    }
+
+    // === T22: ConfirmCod_CancelledOrder_Throws (TC-01) ===
+    [Fact(DisplayName = "T22: ConfirmCod_CancelledOrder_Throws")]
+    public async Task ConfirmCod_CancelledOrder_Throws()
+    {
+        await SeedTenantAsync();
+        var orderId = await SeedOrderAsync(codAmount: 50000m, status: "cancelled");
+        await SeedDeliveryTaskAsync(orderId, DeliveryTaskStatus.Delivered);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ConfirmCodAsync(ShipperId, orderId, 50000m));
+    }
+
+    // === T23: ConfirmCod_ExpectedIsTotalAmount_WhenNoCodSnapshot (TC-01 — shipper cannot self-declare) ===
+    [Fact(DisplayName = "T23: ConfirmCod_ExpectedIsTotalAmount_WhenNoCodSnapshot")]
+    public async Task ConfirmCod_ExpectedIsTotalAmount_WhenNoCodSnapshot()
+    {
+        await SeedTenantAsync();
+        var orderId = await SeedOrderAsync(); // CodAmount null → expected = TotalAmount = 100000
+        await SeedDeliveryTaskAsync(orderId);
+
+        // Shipper declares 50000 — must be rejected against authoritative TotalAmount
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ConfirmCodAsync(ShipperId, orderId, 50000m));
+
+        // Correct amount works
+        var tx = await _service.ConfirmCodAsync(ShipperId, orderId, 100000m);
+        Assert.Equal(100000m, tx.Amount);
+    }
+
+    // === T24: ConfirmAdvance_Duplicate_Throws (TC-02 — no money minting) ===
+    [Fact(DisplayName = "T24: ConfirmAdvance_Duplicate_Throws")]
+    public async Task ConfirmAdvance_Duplicate_Throws()
+    {
+        await SeedTenantAsync();
+        var orderId = await SeedOrderAsync();
+        await SeedDeliveryTaskAsync(orderId);
+
+        await _service.ConfirmAdvanceAsync(ShipperId, orderId, 30000m);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ConfirmAdvanceAsync(ShipperId, orderId, 30000m));
+
+        var advances = await _context.WalletTransactions.IgnoreQueryFilters()
+            .Where(t => t.RelatedOrderId == orderId && t.Type == WalletTransactionType.AdvancePayment)
+            .ToListAsync();
+        Assert.Single(advances);
+    }
+
+    // === T25: ConfirmAdvanceReceived_CrossTenant_Throws (TC-02) ===
+    [Fact(DisplayName = "T25: ConfirmAdvanceReceived_CrossTenant_Throws")]
+    public async Task ConfirmAdvanceReceived_CrossTenant_Throws()
+    {
+        await SeedTenantAsync();
+        var orderId = await SeedOrderAsync();
+        await SeedDeliveryTaskAsync(orderId);
+
+        var advanceTx = await _service.ConfirmAdvanceAsync(ShipperId, orderId, 30000m);
+
+        // A different tenant must not be able to confirm this shop's advance
+        var otherTenantId = Guid.NewGuid();
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _service.ConfirmAdvanceReceivedAsync(otherTenantId, advanceTx.Id));
+
+        // The real tenant can still confirm afterwards
+        var settlement = await _service.ConfirmAdvanceReceivedAsync(TenantId, advanceTx.Id);
+        Assert.Equal(30000m, settlement.Amount);
     }
 
     private sealed class StubTenantProvider : ITenantProvider

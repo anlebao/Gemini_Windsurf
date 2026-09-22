@@ -67,6 +67,41 @@ public class CoolingPeriodJob : BackgroundService
         {
             try
             {
+                // Settlement Batch-1 (TC-03/TC-04): two safety checks before paying.
+                if (referral.OrderId.HasValue)
+                {
+                    // 1. Never pay commission on a cancelled/missing order — previously a
+                    // cancelled order still paid out 24h later.
+                    var order = await dbContext.Orders
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(o => o.Id == referral.OrderId.Value, ct);
+                    if (order == null || order.Status == OrderStatusId.Cancelled)
+                    {
+                        referral.MarkRejected("Order cancelled or not found — commission voided");
+                        await dbContext.SaveChangesAsync(ct);
+                        _logger.LogInformation("CoolingPeriodJob: SalesReferral {Id} rejected — order cancelled/missing", referral.Id);
+                        continue;
+                    }
+
+                    // 2. Idempotency: skip if a Commission tx already exists for this
+                    // order+salesman (e.g. a previous run crashed between CreateTransactionAsync
+                    // and MarkCommissionPaid, or the commission was already paid by another flow).
+                    var alreadyPaid = await dbContext.WalletTransactions
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .AnyAsync(w => w.RelatedOrderId == referral.OrderId.Value
+                            && w.OwnerId == referral.SalesmanId
+                            && w.Type == WalletTransactionType.Commission, ct);
+                    if (alreadyPaid)
+                    {
+                        referral.MarkCommissionPaid();
+                        await dbContext.SaveChangesAsync(ct);
+                        _logger.LogInformation("CoolingPeriodJob: SalesReferral {Id} marked paid — commission tx already exists", referral.Id);
+                        continue;
+                    }
+                }
+
                 // Create WalletTransaction for commission payout
                 await walletService.CreateTransactionAsync(
                     referral.SalesmanId,

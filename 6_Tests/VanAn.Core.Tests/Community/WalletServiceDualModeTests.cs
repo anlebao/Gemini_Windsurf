@@ -119,9 +119,10 @@ public class WalletServiceDualModeTests : IDisposable
         return orderId;
     }
 
-    private async Task SeedDeliveryTaskAsync(Guid orderId)
+    private async Task SeedDeliveryTaskAsync(Guid orderId, DeliveryTaskStatus status = DeliveryTaskStatus.OutForDelivery)
     {
         var task = new DeliveryTask(_tenantId, orderId, ShipperId, 10.8, 106.7, 10.9, 106.8);
+        SetProp(task, "Status", status);
         _context.DeliveryTasks.Add(task);
         await _context.SaveChangesAsync();
     }
@@ -224,9 +225,12 @@ public class WalletServiceDualModeTests : IDisposable
         Assert.Equal(1000m, communityFundTx.Amount); // 20000 × 0.05
     }
 
-    // T13: Reseller COD — with salesman creates Commission tx (OnMargin)
-    [Fact(DisplayName = "T13: ResellerCOD_WithSalesman_CreatesCommission")]
-    public async Task ResellerCOD_WithSalesman_CreatesCommission()
+    // T13 (Batch-1 TC-03): Reseller COD — with salesman does NOT create a Commission tx.
+    // Commission is paid exactly once by CoolingPeriodJob via the SalesReferral created at order
+    // completion (fraud scoring + 24h cooling). Previously the COD split paid it immediately AND
+    // the cooling job paid it again → double commission.
+    [Fact(DisplayName = "T13: ResellerCOD_WithSalesman_NoImmediateCommission")]
+    public async Task ResellerCOD_WithSalesman_NoImmediateCommission()
     {
         await SeedTenantAsync();
         var orderId = await SeedResellerOrderAsync(withSalesman: true, withReferralConfig: true);
@@ -238,9 +242,7 @@ public class WalletServiceDualModeTests : IDisposable
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(t => t.RelatedOrderId == orderId && t.Type == WalletTransactionType.Commission);
 
-        Assert.NotNull(commissionTx);
-        // margin = 20K, commissionRate = 0.03 → commission = 600
-        Assert.Equal(600m, commissionTx!.Amount);
+        Assert.Null(commissionTx); // commission deferred to CoolingPeriodJob payout
     }
 
     // T14: Reseller advance — Vạn An ứng (PlatformWallet → tenant), not shipper

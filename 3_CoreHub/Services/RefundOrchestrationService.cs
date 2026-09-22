@@ -123,22 +123,49 @@ public class RefundOrchestrationService : IRefundOrchestrationService
             _logger.LogInformation("Step 2c: Reversed {Points} loyalty points for order {OrderId}", totalReversedPoints, orderId);
         }
 
-        // ==================== STEP 2d: Referral commission reversal ====================
-        // Query WalletTransaction by RelatedOrderId + Type == Commission (pattern from FraudReviewService.cs:191-197).
-        var commissionTxns = await _dbContext.WalletTransactions
+        // ==================== STEP 2d: Wallet settlement reversal (TC-04) ====================
+        // Previously this only reversed Commission — a cancelled order left COD/Settlement/
+        // Advance/DeliveryFee/PlatformFee/CommunityFund/ExternalPayment money on wallets.
+        // Now: reverse EVERY non-Reversal wallet tx for the order that has no reversal yet
+        // (per-tx idempotency — safe to retry after a mid-step failure).
+        var orderTxns = await _dbContext.WalletTransactions
             .IgnoreQueryFilters()
             .AsNoTracking()
-            .Where(w => w.RelatedOrderId == orderId && w.Type == WalletTransactionType.Commission)
+            .Where(w => w.RelatedOrderId == orderId && w.Type != WalletTransactionType.Reversal)
             .ToListAsync(ct);
 
-        foreach (var txn in commissionTxns)
+        var alreadyReversedIds = (await _dbContext.WalletTransactions
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(w => w.Type == WalletTransactionType.Reversal && w.RelatedTransactionId != null)
+            .Select(w => w.RelatedTransactionId!.Value)
+            .ToListAsync(ct)).ToHashSet();
+
+        foreach (var txn in orderTxns.Where(t => !alreadyReversedIds.Contains(t.Id)))
         {
             await _walletService.ReverseTransactionAsync(txn.OwnerId, txn.Id);
-            _logger.LogInformation("Step 2d: Reversed referral commission {Amount} for order {OrderId}", txn.Amount, orderId);
+            _logger.LogInformation("Step 2d: Reversed wallet tx {Type} {Amount} (owner {OwnerId}) for order {OrderId}",
+                txn.Type, txn.Amount, txn.OwnerId, orderId);
+        }
+
+        // Referral bookkeeping: pending/held referrals for a cancelled order must not pay out
+        // later via CoolingPeriodJob. Paid referrals stay Paid — the wallet reversal above is
+        // the money-side correction; flipping Paid→Rejected would lose the audit trail that a
+        // payout happened and was clawed back.
+        var referrals = await _dbContext.SalesReferrals
+            .IgnoreQueryFilters()
+            .Where(r => r.OrderId == orderId
+                && (r.CommissionStatus == CommissionStatus.Pending || r.CommissionStatus == CommissionStatus.Held))
+            .ToListAsync(ct);
+        foreach (var referral in referrals)
+        {
+            referral.MarkRejected($"Order cancelled — {reason}");
+            _logger.LogInformation("Step 2d: Marked SalesReferral {ReferralId} rejected for cancelled order {OrderId}",
+                referral.Id, orderId);
         }
         await _dbContext.SaveChangesAsync(ct);
 
-        _logger.LogInformation("VALCN v2.0 Phase 4: Full refund reversal completed for order {OrderId} (payment + accounting + loyalty + referral)", orderId);
+        _logger.LogInformation("VALCN v2.0 Phase 4: Full refund reversal completed for order {OrderId} (payment + accounting + loyalty + wallet + referral)", orderId);
     }
 
     /// <summary>

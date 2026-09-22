@@ -186,17 +186,26 @@ public class FraudReviewService(
             if (referral != null)
             {
                 // 3. Wallet reversal if commission already paid (check BEFORE MarkRejected changes status)
+                // Settlement Batch-1 (TC-03): reverse ALL commission txs for this order+salesman —
+                // previously FirstOrDefault left duplicates (e.g. legacy double-pay) unreversed.
                 if (referral.CommissionStatus == CommissionStatus.Paid)
                 {
-                    var commissionTx = await _dbContext.WalletTransactions
+                    var commissionTxs = await _dbContext.WalletTransactions
                         .IgnoreQueryFilters()
                         .AsNoTracking()
                         .Where(w => w.RelatedOrderId == referral.OrderId
                             && w.Type == WalletTransactionType.Commission
                             && w.OwnerId == referral.SalesmanId)
-                        .FirstOrDefaultAsync();
+                        .ToListAsync();
 
-                    if (commissionTx != null)
+                    var reversedIds = (await _dbContext.WalletTransactions
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .Where(w => w.Type == WalletTransactionType.Reversal && w.RelatedTransactionId != null)
+                        .Select(w => w.RelatedTransactionId!.Value)
+                        .ToListAsync()).ToHashSet();
+
+                    foreach (var commissionTx in commissionTxs.Where(t => !reversedIds.Contains(t.Id)))
                     {
                         await _walletService.ReverseTransactionAsync(referral.SalesmanId, commissionTx.Id);
                         sideEffects.Add($"WalletReversal:{commissionTx.Amount}");

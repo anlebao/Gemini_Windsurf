@@ -183,6 +183,31 @@ namespace VanAn.CoreHub.Services
         /// </summary>
         private async Task HandleOrderCancelledAsync(Order order, string reason)
         {
+            // Settlement Batch-1 (TC-04): void pending/held referrals UNCONDITIONALLY — a cancelled
+            // order must never pay commission via CoolingPeriodJob 24h later, even when the refund
+            // flag is OFF or the orchestration service is unavailable. Changes flush with the
+            // caller's SaveChangesAsync inside the same transition transaction.
+            try
+            {
+                if (_dbContext != null)
+                {
+                var staleReferrals = await _dbContext.SalesReferrals
+                    .IgnoreQueryFilters()
+                    .Where(r => r.OrderId == order.Id
+                        && (r.CommissionStatus == CommissionStatus.Pending || r.CommissionStatus == CommissionStatus.Held))
+                    .ToListAsync();
+                foreach (var referral in staleReferrals)
+                {
+                    referral.MarkRejected($"Order cancelled — {reason}");
+                    _logger.LogInformation("SalesReferral {ReferralId} voided — order {OrderId} cancelled", referral.Id, order.Id);
+                }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to void sales referrals for cancelled order {OrderId}", order.Id);
+            }
+
             if (_featureFlagService == null || _refundOrchestrationService == null)
             {
                 _logger.LogDebug("VALCN v2.0 Phase 4: Feature flag service or refund orchestration not available — skipping reversal for order {OrderId}", order.Id);

@@ -57,10 +57,52 @@ namespace VanAn.CoreHub.Services
 
                 try
                 {
+                    walletTx = await CreateWalletTxCoreAsync(
+                        ownerId, type, amount, description, relatedOrderId, relatedTransactionId,
+                        runningBalances: null);
+                    await tx.CommitAsync();
+
+                    _logger.LogInformation("WalletTransaction created: Id={Id} BalanceAfter={BalanceAfter}",
+                        walletTx.Id, walletTx.BalanceAfter);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to create WalletTransaction for Owner={OwnerId}", ownerId);
+                    await tx.RollbackAsync();
+                    throw;
+                }
+            });
+
+            return walletTx;
+        }
+
+        /// <summary>
+        /// Settlement Batch-1 refactor: shared ledger-creation core. The caller MUST hold an
+        /// ambient transaction (ExecuteAtomicAsync + BeginTransactionAsync). runningBalances
+        /// carries per-owner running balances inside a multi-entry batch (COD → Settlement →
+        /// fees) so the BalanceAfter chain stays correct within one commit — previously each
+        /// entry committed separately, allowing partial wallet state on mid-flow failure.
+        /// </summary>
+        private async Task<WalletTransaction> CreateWalletTxCoreAsync(
+            Guid ownerId,
+            WalletTransactionType type,
+            decimal amount,
+            string description,
+            Guid? relatedOrderId,
+            Guid? relatedTransactionId,
+            Dictionary<Guid, decimal>? runningBalances)
+        {
+            var tenantId = new TenantId(_tenantProvider.TenantId);
+
+            decimal balanceBefore;
+            if (runningBalances != null && runningBalances.TryGetValue(ownerId, out decimal cachedBalance))
+            {
+                balanceBefore = cachedBalance;
+            }
+            else
+            {
                 var isPostgres = _dbContext.ProviderName.Contains("PostgreSQL") ||
                                  _dbContext.ProviderName.Contains("Npgsql");
-
-                decimal balanceBefore;
                 if (isPostgres)
                 {
                     // PG: SELECT FOR UPDATE locks the row for concurrent-safety
@@ -80,32 +122,21 @@ namespace VanAn.CoreHub.Services
                         .FirstOrDefaultAsync();
                     balanceBefore = lastTx?.BalanceAfter ?? 0m;
                 }
-
-                walletTx = new WalletTransaction(
-                    tenantId,
-                    ownerId,
-                    type,
-                    amount,
-                    balanceBefore,
-                    description,
-                    relatedOrderId,
-                    relatedTransactionId);
-
-                _dbContext.WalletTransactions.Add(walletTx);
-                await _dbContext.SaveChangesAsync();
-                await tx.CommitAsync();
-
-                _logger.LogInformation("WalletTransaction created: Id={Id} BalanceAfter={BalanceAfter}",
-                    walletTx.Id, walletTx.BalanceAfter);
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to create WalletTransaction for Owner={OwnerId}", ownerId);
-                await tx.RollbackAsync();
-                throw;
-            }
-            });
 
+            var walletTx = new WalletTransaction(
+                tenantId,
+                ownerId,
+                type,
+                amount,
+                balanceBefore,
+                description,
+                relatedOrderId,
+                relatedTransactionId);
+
+            _dbContext.WalletTransactions.Add(walletTx);
+            await _dbContext.SaveChangesAsync();
+            if (runningBalances != null) runningBalances[ownerId] = walletTx.BalanceAfter;
             return walletTx;
         }
 
@@ -158,78 +189,123 @@ namespace VanAn.CoreHub.Services
         /// Sprint 5: Shipper confirms COD collection for an order.
         /// Creates CODCollection tx for shipper (+amount) + Settlement tx for shop (-amount).
         /// Sets Order.CodCollectedAt. Idempotency: throws if CodCollectedAt already set.
+        /// Settlement Batch-1 (TC-01): amount is verified against the authoritative order amount
+        /// (Marketplace: CodAmount snapshot ?? TotalAmount; Reseller: SellPrice + DeliveryFee),
+        /// the delivery task must be OutForDelivery/Delivered, the order must not be cancelled
+        /// or already paid, and the entire flow commits in ONE transaction — a mid-flow failure
+        /// can no longer leave wallet entries without the COD marker (or vice versa).
         /// </summary>
         public async Task<WalletTransaction> ConfirmCodAsync(Guid shipperId, Guid orderId, decimal amount)
         {
-            // 1. Load order + line items (cross-tenant — delivery spans tenants).
-            // Items are needed for the per-product referral commission base (Reseller split).
-            var order = await _dbContext.Orders
-                .IgnoreQueryFilters()
-                .Include(o => o.Items)
-                .FirstOrDefaultAsync(o => o.Id == orderId);
-
-            if (order == null)
-                throw new InvalidOperationException($"Order {orderId} not found.");
-
-            // 2. Idempotency: COD already collected
-            if (order.CodCollectedAt != null)
-                throw new InvalidOperationException($"COD already confirmed for order {orderId}.");
-
-            // 3. Verify caller is the shipper of this order's DeliveryTask
-            var deliveryTask = await _dbContext.DeliveryTasks
-                .IgnoreQueryFilters()
-                .AsNoTracking()
-                .FirstOrDefaultAsync(d => d.OrderId == orderId && d.ShipperId == shipperId);
-
-            if (deliveryTask == null)
-                throw new UnauthorizedAccessException($"Caller is not the shipper of order {orderId}.");
-
-            // 4. Verify amount matches Order.CodAmount (if set)
-            if (order.CodAmount.HasValue && order.CodAmount.Value != amount)
-                throw new InvalidOperationException($"Amount {amount} does not match Order.CodAmount {order.CodAmount.Value}.");
-
-            // 5. Branch by CommerceMode (Sprint 7)
-            if (order.CommerceMode == CommerceMode.Reseller)
+            WalletTransaction shipperTx = null!;
+            await _dbContext.ExecuteAtomicAsync(async () =>
             {
-                return await ConfirmCodResellerAsync(shipperId, order, amount);
-            }
+                await using var tx = await _dbContext.BeginTransactionAsync();
+                try
+                {
+                    // 1. Load order (tracked — MarkCodCollected mutates it). Cross-tenant query
+                    // because delivery spans tenants.
+                    var order = await _dbContext.Orders
+                        .IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(o => o.Id == orderId);
 
-            // === Marketplace path (existing Sprint 5 logic) ===
+                    if (order == null)
+                        throw new InvalidOperationException($"Order {orderId} not found.");
 
-            // 6. Create CODCollection tx for shipper (+amount)
-            var shipperTx = await CreateTransactionAsync(
-                shipperId,
-                WalletTransactionType.CODCollection,
-                amount,
-                $"COD collection for order {orderId}",
-                orderId);
+                    // 2. Idempotency + state guards (checked INSIDE the transaction so a racing
+                    // request cannot both pass validation and double-write wallet entries).
+                    if (order.CodCollectedAt != null)
+                        throw new InvalidOperationException($"COD already confirmed for order {orderId}.");
+                    if (order.Status == OrderStatusId.Cancelled)
+                        throw new InvalidOperationException($"Order {orderId} is cancelled — cannot confirm COD.");
+                    if (order.PaymentStatus == "Paid")
+                        throw new InvalidOperationException($"Order {orderId} already paid via {order.PaymentMethod} — no COD to collect.");
 
-            // 7. Create Settlement tx for shop (-amount) — shop wallet owner = TenantId
-            var shopOwnerId = order.TenantId.Value;
-            await CreateTransactionAsync(
-                shopOwnerId,
-                WalletTransactionType.Settlement,
-                -amount,
-                $"COD settlement for order {orderId} (shipper collected)",
-                orderId,
-                shipperTx.Id);
+                    // 3. Verify caller is the shipper of this order's DeliveryTask, and the
+                    // delivery is actually in progress/finished — COD cannot be collected for
+                    // an order that was never out for delivery.
+                    var deliveryTask = await _dbContext.DeliveryTasks
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(d => d.OrderId == orderId && d.ShipperId == shipperId);
 
-            // 8. Mark order COD collected
-            order.MarkCodCollected(amount);
-            await _dbContext.SaveChangesAsync();
+                    if (deliveryTask == null)
+                        throw new UnauthorizedAccessException($"Caller is not the shipper of order {orderId}.");
+                    if (deliveryTask.Status != DeliveryTaskStatus.OutForDelivery && deliveryTask.Status != DeliveryTaskStatus.Delivered)
+                        throw new InvalidOperationException(
+                            $"Order {orderId} delivery status is {deliveryTask.Status} — COD can only be confirmed when OutForDelivery or Delivered.");
 
-            _logger.LogInformation("COD confirmed: Order={OrderId} Shipper={ShipperId} Amount={Amount}",
-                orderId, shipperId, amount);
+                    // 4. TC-01: server-side authoritative amount — never trust the client value.
+                    // Marketplace: CodAmount snapshot (if the order created one) else TotalAmount.
+                    // Reseller: SellPrice + DeliveryFee (what the customer owes at the door).
+                    decimal expectedAmount = order.CommerceMode == CommerceMode.Reseller
+                        ? (order.SellPrice ?? 0m) + (order.DeliveryFee ?? 0m)
+                        : (order.CodAmount ?? order.TotalAmount);
+                    if (amount != expectedAmount)
+                        throw new InvalidOperationException(
+                            $"Amount {amount} does not match expected COD amount {expectedAmount} for order {orderId}.");
+
+                    var balances = new Dictionary<Guid, decimal>();
+
+                    // 5. Branch by CommerceMode (Sprint 7)
+                    if (order.CommerceMode == CommerceMode.Reseller)
+                    {
+                        shipperTx = await CreateResellerCodSplitCoreAsync(shipperId, order, amount, balances);
+                    }
+                    else
+                    {
+                        // === Marketplace path ===
+                        // 6. CODCollection (+amount, shipper)
+                        shipperTx = await CreateWalletTxCoreAsync(
+                            shipperId,
+                            WalletTransactionType.CODCollection,
+                            amount,
+                            $"COD collection for order {orderId}",
+                            orderId,
+                            null,
+                            balances);
+
+                        // 7. Settlement (-amount, shop) — shop wallet owner = TenantId
+                        await CreateWalletTxCoreAsync(
+                            order.TenantId.Value,
+                            WalletTransactionType.Settlement,
+                            -amount,
+                            $"COD settlement for order {orderId} (shipper collected)",
+                            orderId,
+                            shipperTx.Id,
+                            balances);
+                    }
+
+                    // 8. Mark order COD collected — same commit as the wallet entries.
+                    order.MarkCodCollected(amount);
+                    await _dbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+
+                    _logger.LogInformation("COD confirmed: Order={OrderId} Shipper={ShipperId} Amount={Amount} Mode={Mode}",
+                        orderId, shipperId, amount, order.CommerceMode);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to confirm COD: Order={OrderId} Shipper={ShipperId} Amount={Amount}",
+                        orderId, shipperId, amount);
+                    await tx.RollbackAsync();
+                    throw;
+                }
+            });
 
             return shipperTx;
         }
 
         /// <summary>
-        /// Sprint 7 — Reseller COD confirmation. 6 tx (5-split + CODCollection).
-        /// COD collected = CostPrice + DeliveryFee + Commission + PlatformFee + CommunityFund.
-        /// Vạn An là trung gian — phân phối toàn bộ dòng tiền.
+        /// Sprint 7 — Reseller COD split. Runs inside ConfirmCodAsync's ambient transaction.
+        /// Legs: CODCollection + Settlement(costPrice) + DeliveryFee + PlatformFee + CommunityFund.
+        /// Settlement Batch-1 (TC-03): the Commission leg was REMOVED — the referral commission is
+        /// paid exactly once by CoolingPeriodJob against the SalesReferral created at order
+        /// completion (with fraud scoring + 24h cooling). The unpaid commission implicitly stays
+        /// in PlatformWallet until payout — the split remains balanced.
         /// </summary>
-        private async Task<WalletTransaction> ConfirmCodResellerAsync(Guid shipperId, Order order, decimal codAmount)
+        private async Task<WalletTransaction> CreateResellerCodSplitCoreAsync(
+            Guid shipperId, Order order, decimal codAmount, Dictionary<Guid, decimal> balances)
         {
             var orderId = order.Id;
             var tenantId = order.TenantId.Value;
@@ -241,105 +317,73 @@ namespace VanAn.CoreHub.Services
 
             var platformFee = margin * platformFeeRate;
             var communityFund = margin * communityFundRate;
-            // Commission: only if salesman referred this order.
-            // CC-S4 fix: use the SAME per-product base as SalesmanService.CreateCommissionAsync
-            // (shared ReferralCommissionCalculator) so the reserved amount matches the SalesReferral
-            // actually created. Previously this used margin × rate while the commission used
-            // orderTotal × rate → the balance invariant could disagree with the payout.
-            decimal commission = 0m;
-            Guid? salesmanId = order.SalesmanId;
-            if (salesmanId.HasValue)
-            {
-                var config = await _dbContext.ProductReferralConfigs
-                    .IgnoreQueryFilters()
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(c => c.ProductId == order.ReferralProductId && c.IsActive);
-                if (config != null)
-                {
-                    commission = ReferralCommissionCalculator.ComputeBase(order, config) * config.CommissionRate;
-                }
-            }
 
-            // Financial balance invariant: costPrice + deliveryFee + commission + platformFee + communityFund = codAmount
-            // Note: codAmount = SellPrice + DeliveryFee (customer pays both)
-            // SellPrice = CostPrice + Margin → codAmount = CostPrice + Margin + DeliveryFee
-            // margin = platformFee + communityFund + commission + vanAnNetProfit
-            // So: costPrice + deliveryFee + commission + platformFee + communityFund = costPrice + deliveryFee + margin = codAmount ✓
+            // Financial balance invariant: codAmount = SellPrice + DeliveryFee = CostPrice + Margin + DeliveryFee
+            // margin = platformFee + communityFund + commission(reserved, unpaid here) + vanAnNetProfit
             // (assuming commission + platformFee + communityFund ≤ margin; remainder = VanAn net profit kept in PlatformWallet)
 
             // 1. CODCollection (+codAmount, shipper) — shipper thu hộ
-            var shipperTx = await CreateTransactionAsync(
+            var shipperTx = await CreateWalletTxCoreAsync(
                 shipperId,
                 WalletTransactionType.CODCollection,
                 codAmount,
                 $"COD collection for order {orderId} (Reseller)",
-                orderId);
+                orderId,
+                null,
+                balances);
 
             // 2. Settlement (+costPrice, tenant) — Vạn An trả tenant giá vốn
-            await CreateTransactionAsync(
+            await CreateWalletTxCoreAsync(
                 tenantId,
                 WalletTransactionType.Settlement,
                 costPrice,
                 $"Cost price settlement for order {orderId} (Reseller — Vạn An mua từ tenant)",
                 orderId,
-                shipperTx.Id);
+                shipperTx.Id,
+                balances);
 
             // 3. DeliveryFee (+deliveryFee, shipper) — Vạn An trả shipper phí giao
             if (deliveryFee > 0)
             {
-                await CreateTransactionAsync(
+                await CreateWalletTxCoreAsync(
                     shipperId,
                     WalletTransactionType.DeliveryFee,
                     deliveryFee,
                     $"Delivery fee for order {orderId} (Reseller)",
                     orderId,
-                    shipperTx.Id);
+                    shipperTx.Id,
+                    balances);
             }
 
-            // 4. Commission (+commission, salesman) — Vạn An trả salesman (if referral)
-            // Note: Commission tx created here for Reseller mode (in Marketplace, SalesmanService creates it separately)
-            if (commission > 0 && salesmanId.HasValue)
-            {
-                await CreateTransactionAsync(
-                    salesmanId.Value,
-                    WalletTransactionType.Commission,
-                    commission,
-                    $"Commission for order {orderId} (Reseller — OnMargin)",
-                    orderId,
-                    shipperTx.Id);
-            }
-
-            // 5. PlatformFee (+platformFee, PlatformWallet) — Vạn An giữ margin share
+            // 4. PlatformFee (+platformFee, PlatformWallet) — Vạn An giữ margin share
             if (platformFee > 0)
             {
-                await CreateTransactionAsync(
+                await CreateWalletTxCoreAsync(
                     SystemWalletIds.PlatformWallet,
                     WalletTransactionType.PlatformFee,
                     platformFee,
                     $"Platform fee for order {orderId} (Reseller — {platformFeeRate:P1} of margin)",
                     orderId,
-                    shipperTx.Id);
+                    shipperTx.Id,
+                    balances);
             }
 
-            // 6. CommunityFund (+communityFund, CommunityFundWallet) — quỹ cộng đồng
+            // 5. CommunityFund (+communityFund, CommunityFundWallet) — quỹ cộng đồng
             if (communityFund > 0)
             {
-                await CreateTransactionAsync(
+                await CreateWalletTxCoreAsync(
                     SystemWalletIds.CommunityFund,
                     WalletTransactionType.CommunityFund,
                     communityFund,
                     $"Community fund for order {orderId} (Reseller — {communityFundRate:P1} of margin)",
                     orderId,
-                    shipperTx.Id);
+                    shipperTx.Id,
+                    balances);
             }
 
-            // 7. Mark order COD collected
-            order.MarkCodCollected(codAmount);
-            await _dbContext.SaveChangesAsync();
-
             _logger.LogInformation(
-                "COD confirmed (Reseller): Order={OrderId} Shipper={ShipperId} COD={CodAmount} CostPrice={CostPrice} DeliveryFee={DeliveryFee} Commission={Commission} PlatformFee={PlatformFee} CommunityFund={CommunityFund}",
-                orderId, shipperId, codAmount, costPrice, deliveryFee, commission, platformFee, communityFund);
+                "COD confirmed (Reseller): Order={OrderId} Shipper={ShipperId} COD={CodAmount} CostPrice={CostPrice} DeliveryFee={DeliveryFee} PlatformFee={PlatformFee} CommunityFund={CommunityFund}",
+                orderId, shipperId, codAmount, costPrice, deliveryFee, platformFee, communityFund);
 
             return shipperTx;
         }
@@ -347,108 +391,187 @@ namespace VanAn.CoreHub.Services
         /// <summary>
         /// Sprint 5: Shipper confirms advance payment to shop (paid cash before pickup).
         /// Creates AdvancePayment tx for shipper (-amount). Pending shop confirmation via ConfirmAdvanceReceivedAsync.
+        /// Settlement Batch-1 (TC-02): the whole flow is atomic + idempotent — a second call for the
+        /// same order throws instead of minting a duplicate advance (previously N calls created N
+        /// AdvancePayment txs; on Reseller each call also credited real money to the tenant wallet).
         /// </summary>
         public async Task<WalletTransaction> ConfirmAdvanceAsync(Guid shipperId, Guid orderId, decimal amount)
         {
-            // 1. Load order (cross-tenant)
-            var order = await _dbContext.Orders
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(o => o.Id == orderId);
-
-            if (order == null)
-                throw new InvalidOperationException($"Order {orderId} not found.");
-
-            // 2. Verify caller is the shipper
-            var deliveryTask = await _dbContext.DeliveryTasks
-                .IgnoreQueryFilters()
-                .AsNoTracking()
-                .FirstOrDefaultAsync(d => d.OrderId == orderId && d.ShipperId == shipperId);
-
-            if (deliveryTask == null)
-                throw new UnauthorizedAccessException($"Caller is not the shipper of order {orderId}.");
-
-            // 3. Branch by CommerceMode (Sprint 7)
-            if (order.CommerceMode == CommerceMode.Reseller)
+            WalletTransaction advanceTx = null!;
+            await _dbContext.ExecuteAtomicAsync(async () =>
             {
-                // Reseller: Vạn An ứng tiền cho tenant (not shipper).
-                // Shipper still calls this endpoint (auth verification), but the actual advance
-                // is from PlatformWallet → tenant. Shipper just triggers the flow.
-                var tenantId = order.TenantId.Value;
+                await using var tx = await _dbContext.BeginTransactionAsync();
+                try
+                {
+                    // 1. Load order (cross-tenant)
+                    var order = await _dbContext.Orders
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(o => o.Id == orderId);
 
-                // AdvancePayment (-amount, PlatformWallet) — Vạn An ứng
-                var advanceTx = await CreateTransactionAsync(
-                    SystemWalletIds.PlatformWallet,
-                    WalletTransactionType.AdvancePayment,
-                    -amount,
-                    $"Advance payment to tenant for order {orderId} (Reseller — Vạn An ứng)",
-                    orderId);
+                    if (order == null)
+                        throw new InvalidOperationException($"Order {orderId} not found.");
+                    if (order.Status == OrderStatusId.Cancelled)
+                        throw new InvalidOperationException($"Order {orderId} is cancelled — cannot confirm advance.");
 
-                // Settlement (+amount, tenant) — tenant nhận
-                await CreateTransactionAsync(
-                    tenantId,
-                    WalletTransactionType.Settlement,
-                    amount,
-                    $"Advance received from Vạn An for order {orderId} (Reseller)",
-                    orderId,
-                    advanceTx.Id);
+                    // 2. Verify caller is the shipper
+                    var deliveryTask = await _dbContext.DeliveryTasks
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(d => d.OrderId == orderId && d.ShipperId == shipperId);
 
-                _logger.LogInformation("Advance confirmed (Reseller): Order={OrderId} Amount={Amount} (Vạn An → tenant)",
-                    orderId, amount);
+                    if (deliveryTask == null)
+                        throw new UnauthorizedAccessException($"Caller is not the shipper of order {orderId}.");
 
-                return advanceTx;
-            }
+                    // 3. TC-02 idempotency: at most ONE advance per order. Checked inside the
+                    // transaction so concurrent calls serialize instead of both passing.
+                    var existingAdvance = await _dbContext.WalletTransactions
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .AnyAsync(w => w.RelatedOrderId == orderId && w.Type == WalletTransactionType.AdvancePayment);
+                    if (existingAdvance)
+                        throw new InvalidOperationException($"Advance payment for order {orderId} already exists — idempotency guard.");
 
-            // === Marketplace path (existing Sprint 5 logic) ===
+                    var balances = new Dictionary<Guid, decimal>();
 
-            // 4. Create AdvancePayment tx for shipper (-amount — shipper paid cash, wallet goes negative)
-            var marketplaceAdvanceTx = await CreateTransactionAsync(
-                shipperId,
-                WalletTransactionType.AdvancePayment,
-                -amount,
-                $"Advance payment to shop for order {orderId}",
-                orderId);
+                    // 4. Branch by CommerceMode (Sprint 7)
+                    if (order.CommerceMode == CommerceMode.Reseller)
+                    {
+                        // Reseller: Vạn An ứng tiền cho tenant (not shipper).
+                        // Shipper still calls this endpoint (auth verification), but the actual advance
+                        // is from PlatformWallet → tenant. Shipper just triggers the flow.
+                        var tenantId = order.TenantId.Value;
 
-            _logger.LogInformation("Advance confirmed: Order={OrderId} Shipper={ShipperId} Amount={Amount}",
-                orderId, shipperId, amount);
+                        // AdvancePayment (-amount, PlatformWallet) — Vạn An ứng
+                        advanceTx = await CreateWalletTxCoreAsync(
+                            SystemWalletIds.PlatformWallet,
+                            WalletTransactionType.AdvancePayment,
+                            -amount,
+                            $"Advance payment to tenant for order {orderId} (Reseller — Vạn An ứng)",
+                            orderId,
+                            null,
+                            balances);
 
-            return marketplaceAdvanceTx;
+                        // Settlement (+amount, tenant) — tenant nhận
+                        await CreateWalletTxCoreAsync(
+                            tenantId,
+                            WalletTransactionType.Settlement,
+                            amount,
+                            $"Advance received from Vạn An for order {orderId} (Reseller)",
+                            orderId,
+                            advanceTx.Id,
+                            balances);
+
+                        _logger.LogInformation("Advance confirmed (Reseller): Order={OrderId} Amount={Amount} (Vạn An → tenant)",
+                            orderId, amount);
+                    }
+                    else
+                    {
+                        // === Marketplace path ===
+                        // AdvancePayment (-amount, shipper) — shipper paid cash, wallet goes negative
+                        advanceTx = await CreateWalletTxCoreAsync(
+                            shipperId,
+                            WalletTransactionType.AdvancePayment,
+                            -amount,
+                            $"Advance payment to shop for order {orderId}",
+                            orderId,
+                            null,
+                            balances);
+
+                        _logger.LogInformation("Advance confirmed: Order={OrderId} Shipper={ShipperId} Amount={Amount}",
+                            orderId, shipperId, amount);
+                    }
+
+                    await tx.CommitAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to confirm advance: Order={OrderId} Shipper={ShipperId} Amount={Amount}",
+                        orderId, shipperId, amount);
+                    await tx.RollbackAsync();
+                    throw;
+                }
+            });
+
+            return advanceTx;
         }
 
         /// <summary>
         /// Sprint 5: Shop confirms they received advance payment from shipper.
         /// Creates Settlement tx for shop (+amount), linked to original AdvancePayment via RelatedTransactionId.
+        /// Settlement Batch-1 (TC-02): verifies the advance's order actually belongs to the
+        /// confirming tenant before crediting — wallet queries bypass tenant filters, so without
+        /// this check any customer could confirm another shop's advance and credit their own
+        /// tenant wallet while marking the real shop's advance as settled.
         /// </summary>
         public async Task<WalletTransaction> ConfirmAdvanceReceivedAsync(Guid shopOwnerId, Guid advanceTransactionId)
         {
-            // 1. Load original AdvancePayment tx
-            var advanceTx = await _dbContext.WalletTransactions
-                .IgnoreQueryFilters()
-                .AsNoTracking()
-                .FirstOrDefaultAsync(w => w.Id == advanceTransactionId && w.Type == WalletTransactionType.AdvancePayment);
+            WalletTransaction settlementTx = null!;
+            await _dbContext.ExecuteAtomicAsync(async () =>
+            {
+                await using var tx = await _dbContext.BeginTransactionAsync();
+                try
+                {
+                    // 1. Load original AdvancePayment tx
+                    var advanceTx = await _dbContext.WalletTransactions
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(w => w.Id == advanceTransactionId && w.Type == WalletTransactionType.AdvancePayment);
 
-            if (advanceTx == null)
-                throw new InvalidOperationException($"AdvancePayment transaction {advanceTransactionId} not found.");
+                    if (advanceTx == null)
+                        throw new InvalidOperationException($"AdvancePayment transaction {advanceTransactionId} not found.");
 
-            // 2. Idempotency: check if settlement already exists for this advance
-            var existingSettlement = await _dbContext.WalletTransactions
-                .IgnoreQueryFilters()
-                .AsNoTracking()
-                .AnyAsync(w => w.RelatedTransactionId == advanceTransactionId && w.Type == WalletTransactionType.Settlement);
+                    // 2. Idempotency: check if settlement already exists for this advance
+                    var existingSettlement = await _dbContext.WalletTransactions
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .AnyAsync(w => w.RelatedTransactionId == advanceTransactionId && w.Type == WalletTransactionType.Settlement);
 
-            if (existingSettlement)
-                throw new InvalidOperationException($"Advance {advanceTransactionId} already confirmed.");
+                    if (existingSettlement)
+                        throw new InvalidOperationException($"Advance {advanceTransactionId} already confirmed.");
 
-            // 3. Create Settlement tx for shop (+amount)
-            var settlementTx = await CreateTransactionAsync(
-                shopOwnerId,
-                WalletTransactionType.Settlement,
-                -advanceTx.Amount, // AdvancePayment was -amount, so -(-amount) = +amount
-                $"Advance received from shipper for order {advanceTx.RelatedOrderId}",
-                advanceTx.RelatedOrderId,
-                advanceTransactionId);
+                    // 3. TC-02 cross-tenant guard: the advance must belong to an order of the
+                    // confirming tenant. Without this, wallet tx IDs are forgeable capability
+                    // tokens that credit arbitrary tenant wallets.
+                    if (advanceTx.RelatedOrderId == null)
+                        throw new InvalidOperationException($"Advance {advanceTransactionId} has no linked order — tenant ownership cannot be verified.");
 
-            _logger.LogInformation("Advance received confirmed: AdvanceTx={AdvanceTxId} Shop={ShopOwnerId} Amount={Amount}",
-                advanceTransactionId, shopOwnerId, -advanceTx.Amount);
+                    var orderTenantId = await _dbContext.Orders
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .Where(o => o.Id == advanceTx.RelatedOrderId.Value)
+                        .Select(o => o.TenantId)
+                        .FirstOrDefaultAsync();
+
+                    if (orderTenantId == null)
+                        throw new InvalidOperationException($"Order {advanceTx.RelatedOrderId} for advance {advanceTransactionId} not found.");
+                    if (orderTenantId.Value != shopOwnerId)
+                        throw new UnauthorizedAccessException(
+                            $"Shop {shopOwnerId} does not own the order for advance {advanceTransactionId} — cross-tenant confirm rejected.");
+
+                    // 4. Create Settlement tx for shop (+amount)
+                    settlementTx = await CreateWalletTxCoreAsync(
+                        shopOwnerId,
+                        WalletTransactionType.Settlement,
+                        -advanceTx.Amount, // AdvancePayment was -amount, so -(-amount) = +amount
+                        $"Advance received from shipper for order {advanceTx.RelatedOrderId}",
+                        advanceTx.RelatedOrderId,
+                        advanceTransactionId,
+                        runningBalances: null);
+
+                    await tx.CommitAsync();
+
+                    _logger.LogInformation("Advance received confirmed: AdvanceTx={AdvanceTxId} Shop={ShopOwnerId} Amount={Amount}",
+                        advanceTransactionId, shopOwnerId, -advanceTx.Amount);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to confirm advance received: AdvanceTx={AdvanceTxId} Shop={ShopOwnerId}",
+                        advanceTransactionId, shopOwnerId);
+                    await tx.RollbackAsync();
+                    throw;
+                }
+            });
 
             return settlementTx;
         }
@@ -536,137 +659,139 @@ namespace VanAn.CoreHub.Services
         /// <summary>
         /// Sprint 7 Q5: Confirm external payment (non-COD Reseller — VietQR/card).
         /// Reseller only — rejects Marketplace orders.
-        /// Creates 5-split: ExternalPayment + Settlement + DeliveryFee + Commission? + PlatformFee + CommunityFund.
+        /// Legs: ExternalPayment + Settlement(costPrice) + DeliveryFee + PlatformFee + CommunityFund.
+        /// Settlement Batch-1: whole split is atomic (one commit), and the Commission leg was
+        /// REMOVED (TC-03) — referral commission is paid exactly once by CoolingPeriodJob via the
+        /// SalesReferral created at order completion, after fraud scoring + cooling.
         /// </summary>
         public async Task<WalletTransaction> ConfirmExternalPaymentAsync(Guid orderId, decimal amount, string paymentRef)
         {
             if (string.IsNullOrWhiteSpace(paymentRef))
                 throw new ArgumentException("PaymentRef cannot be empty", nameof(paymentRef));
 
-            var order = await _dbContext.Orders
-                .IgnoreQueryFilters()
-                .Include(o => o.Items)
-                .FirstOrDefaultAsync(o => o.Id == orderId);
-
-            if (order == null)
-                throw new InvalidOperationException($"Order {orderId} not found.");
-
-            if (order.CommerceMode != CommerceMode.Reseller)
-                throw new InvalidOperationException($"Order {orderId} is not Reseller mode — external payment not applicable.");
-
-            if (order.CodCollectedAt != null)
-                throw new InvalidOperationException($"Order {orderId} already paid (COD collected).");
-
-            // Verify amount = SellPrice + DeliveryFee
-            var expectedAmount = (order.SellPrice ?? 0m) + (order.DeliveryFee ?? 0m);
-            if (amount != expectedAmount)
-                throw new InvalidOperationException($"Amount {amount} does not match expected SellPrice+DeliveryFee {expectedAmount}.");
-
-            var tenantId = order.TenantId.Value;
-            var margin = order.PlatformMargin ?? 0m;
-            var costPrice = order.CostPrice ?? 0m;
-            var deliveryFee = order.DeliveryFee ?? 0m;
-            var platformFeeRate = order.PlatformFeeRate ?? 0m;
-            var communityFundRate = order.CommunityFundRate ?? 0m;
-
-            var platformFee = margin * platformFeeRate;
-            var communityFund = margin * communityFundRate;
-
-            // Commission (if salesman referral) — same per-product base as SalesmanService.
-            decimal commission = 0m;
-            Guid? salesmanId = order.SalesmanId;
-            if (salesmanId.HasValue)
+            WalletTransaction externalTx = null!;
+            await _dbContext.ExecuteAtomicAsync(async () =>
             {
-                var config = await _dbContext.ProductReferralConfigs
-                    .IgnoreQueryFilters()
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(c => c.ProductId == order.ReferralProductId && c.IsActive);
-                if (config != null)
+                await using var tx = await _dbContext.BeginTransactionAsync();
+                try
                 {
-                    commission = ReferralCommissionCalculator.ComputeBase(order, config) * config.CommissionRate;
-                }
-            }
+                    var order = await _dbContext.Orders
+                        .IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(o => o.Id == orderId);
 
-            // 1. ExternalPayment (+amount, PlatformWallet) — customer pays Vạn An
-            var externalTx = await CreateTransactionAsync(
-                SystemWalletIds.PlatformWallet,
-                WalletTransactionType.ExternalPayment,
-                amount,
-                $"External payment for order {orderId} (Ref: {paymentRef})",
-                orderId);
+                    if (order == null)
+                        throw new InvalidOperationException($"Order {orderId} not found.");
 
-            // 2. Settlement (+costPrice, tenant) — Vạn An trả tenant giá vốn
-            await CreateTransactionAsync(
-                tenantId,
-                WalletTransactionType.Settlement,
-                costPrice,
-                $"Cost price settlement for order {orderId} (Reseller — external payment)",
-                orderId,
-                externalTx.Id);
+                    if (order.CommerceMode != CommerceMode.Reseller)
+                        throw new InvalidOperationException($"Order {orderId} is not Reseller mode — external payment not applicable.");
 
-            // 3. DeliveryFee (+deliveryFee, shipper) — Vạn An trả shipper
-            if (deliveryFee > 0)
-            {
-                // ShipperId from DeliveryTask
-                var deliveryTask = await _dbContext.DeliveryTasks
-                    .IgnoreQueryFilters()
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(d => d.OrderId == orderId);
-                if (deliveryTask != null)
-                {
-                    await CreateTransactionAsync(
-                        deliveryTask.ShipperId,
-                        WalletTransactionType.DeliveryFee,
-                        deliveryFee,
-                        $"Delivery fee for order {orderId} (Reseller — external payment)",
+                    if (order.CodCollectedAt != null)
+                        throw new InvalidOperationException($"Order {orderId} already paid (COD collected).");
+
+                    if (order.Status == OrderStatusId.Cancelled)
+                        throw new InvalidOperationException($"Order {orderId} is cancelled — cannot confirm external payment.");
+
+                    // Verify amount = SellPrice + DeliveryFee (server-side authoritative)
+                    var expectedAmount = (order.SellPrice ?? 0m) + (order.DeliveryFee ?? 0m);
+                    if (amount != expectedAmount)
+                        throw new InvalidOperationException($"Amount {amount} does not match expected SellPrice+DeliveryFee {expectedAmount}.");
+
+                    var tenantId = order.TenantId.Value;
+                    var margin = order.PlatformMargin ?? 0m;
+                    var costPrice = order.CostPrice ?? 0m;
+                    var deliveryFee = order.DeliveryFee ?? 0m;
+                    var platformFeeRate = order.PlatformFeeRate ?? 0m;
+                    var communityFundRate = order.CommunityFundRate ?? 0m;
+
+                    var platformFee = margin * platformFeeRate;
+                    var communityFund = margin * communityFundRate;
+
+                    var balances = new Dictionary<Guid, decimal>();
+
+                    // 1. ExternalPayment (+amount, PlatformWallet) — customer pays Vạn An
+                    externalTx = await CreateWalletTxCoreAsync(
+                        SystemWalletIds.PlatformWallet,
+                        WalletTransactionType.ExternalPayment,
+                        amount,
+                        $"External payment for order {orderId} (Ref: {paymentRef})",
                         orderId,
-                        externalTx.Id);
+                        null,
+                        balances);
+
+                    // 2. Settlement (+costPrice, tenant) — Vạn An trả tenant giá vốn
+                    await CreateWalletTxCoreAsync(
+                        tenantId,
+                        WalletTransactionType.Settlement,
+                        costPrice,
+                        $"Cost price settlement for order {orderId} (Reseller — external payment)",
+                        orderId,
+                        externalTx.Id,
+                        balances);
+
+                    // 3. DeliveryFee (+deliveryFee, shipper) — Vạn An trả shipper
+                    if (deliveryFee > 0)
+                    {
+                        // ShipperId from DeliveryTask
+                        var deliveryTask = await _dbContext.DeliveryTasks
+                            .IgnoreQueryFilters()
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(d => d.OrderId == orderId);
+                        if (deliveryTask != null)
+                        {
+                            await CreateWalletTxCoreAsync(
+                                deliveryTask.ShipperId,
+                                WalletTransactionType.DeliveryFee,
+                                deliveryFee,
+                                $"Delivery fee for order {orderId} (Reseller — external payment)",
+                                orderId,
+                                externalTx.Id,
+                                balances);
+                        }
+                    }
+
+                    // 4. PlatformFee (+platformFee, PlatformWallet)
+                    if (platformFee > 0)
+                    {
+                        await CreateWalletTxCoreAsync(
+                            SystemWalletIds.PlatformWallet,
+                            WalletTransactionType.PlatformFee,
+                            platformFee,
+                            $"Platform fee for order {orderId} (Reseller — external payment, {platformFeeRate:P1} of margin)",
+                            orderId,
+                            externalTx.Id,
+                            balances);
+                    }
+
+                    // 5. CommunityFund (+communityFund, CommunityFundWallet)
+                    if (communityFund > 0)
+                    {
+                        await CreateWalletTxCoreAsync(
+                            SystemWalletIds.CommunityFund,
+                            WalletTransactionType.CommunityFund,
+                            communityFund,
+                            $"Community fund for order {orderId} (Reseller — external payment, {communityFundRate:P1} of margin)",
+                            orderId,
+                            externalTx.Id,
+                            balances);
+                    }
+
+                    // Mark order as paid (use CodCollectedAt as payment confirmation marker)
+                    order.MarkCodCollected(amount);
+                    await _dbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+
+                    _logger.LogInformation(
+                        "External payment confirmed (Reseller): Order={OrderId} Amount={Amount} Ref={PaymentRef} CostPrice={CostPrice} DeliveryFee={DeliveryFee} PlatformFee={PlatformFee} CommunityFund={CommunityFund}",
+                        orderId, amount, paymentRef, costPrice, deliveryFee, platformFee, communityFund);
                 }
-            }
-
-            // 4. Commission (+commission, salesman)
-            if (commission > 0 && salesmanId.HasValue)
-            {
-                await CreateTransactionAsync(
-                    salesmanId.Value,
-                    WalletTransactionType.Commission,
-                    commission,
-                    $"Commission for order {orderId} (Reseller — external payment, OnMargin)",
-                    orderId,
-                    externalTx.Id);
-            }
-
-            // 5. PlatformFee (+platformFee, PlatformWallet)
-            if (platformFee > 0)
-            {
-                await CreateTransactionAsync(
-                    SystemWalletIds.PlatformWallet,
-                    WalletTransactionType.PlatformFee,
-                    platformFee,
-                    $"Platform fee for order {orderId} (Reseller — external payment, {platformFeeRate:P1} of margin)",
-                    orderId,
-                    externalTx.Id);
-            }
-
-            // 6. CommunityFund (+communityFund, CommunityFundWallet)
-            if (communityFund > 0)
-            {
-                await CreateTransactionAsync(
-                    SystemWalletIds.CommunityFund,
-                    WalletTransactionType.CommunityFund,
-                    communityFund,
-                    $"Community fund for order {orderId} (Reseller — external payment, {communityFundRate:P1} of margin)",
-                    orderId,
-                    externalTx.Id);
-            }
-
-            // Mark order as paid (use CodCollectedAt as payment confirmation marker)
-            order.MarkCodCollected(amount);
-            await _dbContext.SaveChangesAsync();
-
-            _logger.LogInformation(
-                "External payment confirmed (Reseller): Order={OrderId} Amount={Amount} Ref={PaymentRef} CostPrice={CostPrice} DeliveryFee={DeliveryFee} Commission={Commission} PlatformFee={PlatformFee} CommunityFund={CommunityFund}",
-                orderId, amount, paymentRef, costPrice, deliveryFee, commission, platformFee, communityFund);
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to confirm external payment: Order={OrderId} Amount={Amount} Ref={PaymentRef}",
+                        orderId, amount, paymentRef);
+                    await tx.RollbackAsync();
+                    throw;
+                }
+            });
 
             return externalTx;
         }
