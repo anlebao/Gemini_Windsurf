@@ -43,13 +43,17 @@ public sealed class CrawlerCoordinator : BackgroundService
         IHttpClientFactory httpClientFactory,
         CrawlerOptions options,
         IEnumerable<IDataSourceAdapter> adapters,
-        ILogger<CrawlerCoordinator> logger)
+        ILogger<CrawlerCoordinator> logger,
+        GdtMstLookupSource? gdtMstLookup = null)
     {
         _httpClientFactory = httpClientFactory;
         _options = options;
         _logger = logger;
         _adapters = adapters.ToList();
+        _gdtMstLookup = gdtMstLookup;
     }
+
+    private readonly GdtMstLookupSource? _gdtMstLookup;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -166,6 +170,29 @@ public sealed class CrawlerCoordinator : BackgroundService
                 try
                 {
                     allListings = await restAdapter.FetchByTaxCodesAsync(request.TaxCodes, ct);
+
+                    // 2026-09-22 fallback (opt-in): MSTs doanhnghiep.vn không trả về (401/key
+                    // thiếu hoặc không tìm thấy) → tra cứu lẻ qua tracuunnt.gdt.gov.vn (Tổng cục Thuế,
+                    // captcha OCR — rate-limited + daily cap, chỉ luồng MST, không crawl hàng loạt).
+                    if (_gdtMstLookup is not null && _options.GdtLookupEnabled)
+                    {
+                        var foundMsts = allListings
+                            .Where(l => !string.IsNullOrWhiteSpace(l.TaxCode))
+                            .Select(l => l.TaxCode!)
+                            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                        var missing = request.TaxCodes
+                            .Where(t => !foundMsts.Contains(t))
+                            .ToList();
+                        if (missing.Count > 0)
+                        {
+                            SetStatus($"Tra cứu {missing.Count} MST còn thiếu qua {_gdtMstLookup.Name}");
+                            foreach (var mst in missing)
+                            {
+                                var listing = await _gdtMstLookup.LookupByMstAsync(mst, ct);
+                                if (listing is not null) allListings.Add(listing);
+                            }
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {

@@ -23,7 +23,8 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
 EXPOSE 5010
 
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# 2026-09-22: tesseract-ocr — captcha OCR cho fallback nguồn tracuunnt.gdt.gov.vn (Tổng cục Thuế)
+RUN apt-get update && apt-get install -y curl tesseract-ocr tesseract-ocr-eng && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "VanAn.Crawler.dll"]

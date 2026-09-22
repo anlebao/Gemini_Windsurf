@@ -39,6 +39,25 @@ builder.Services.AddHttpClient("trangvang", client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd(crawlerOptions.UserAgent);
 });
 
+// 2026-09-22 fallback MST source: tracuunnt.gdt.gov.vn (Tổng cục Thuế).
+// Browser-like headers are REQUIRED — the GDT WAF rejects bare requests
+// ("Request Rejected"). A dedicated CookieContainer keeps the session across
+// page → captcha → POST (the captcha is bound to the session cookie).
+var gdtCookieContainer = new System.Net.CookieContainer();
+builder.Services.AddHttpClient("gdt", client =>
+{
+    client.BaseAddress = new Uri("https://tracuunnt.gdt.gov.vn");
+    client.Timeout = TimeSpan.FromSeconds(20);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36");
+    client.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+    client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("vi-VN,vi;q=0.9,en;q=0.8");
+})
+.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
+    CookieContainer = gdtCookieContainer,
+    AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
+});
+
 // Register adapters
 builder.Services.AddSingleton<IDataSourceAdapter>(sp =>
     new RestApiAdapter(
@@ -47,6 +66,13 @@ builder.Services.AddSingleton<IDataSourceAdapter>(sp =>
         sp.GetRequiredService<ILogger<RestApiAdapter>>(),
         "doanhnghiep.vn",
         "https://doanhnghiep.vn"));
+
+// 2026-09-22: GDT MST lookup fallback (captcha OCR — opt-in, rate-limited)
+builder.Services.AddSingleton(sp =>
+    new GdtMstLookupSource(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("gdt"),
+        crawlerOptions,
+        sp.GetRequiredService<ILogger<GdtMstLookupSource>>()));
 
 builder.Services.AddSingleton<IDataSourceAdapter>(sp =>
     new TrangVangHtmlAdapter(

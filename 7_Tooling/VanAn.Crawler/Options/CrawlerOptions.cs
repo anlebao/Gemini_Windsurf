@@ -40,4 +40,26 @@ public sealed class CrawlerOptions
     /// Empty = requests will 401 (crawl returns 0 listings with a clear error).
     /// </summary>
     public string DoanhNghiepApiKey { get; set; } = "";
+
+    // ── 2026-09-22: Fallback MST lookup — Tổng cục Thuế tracuunnt.gdt.gov.vn ──
+    // Official tax registry (authoritative for MST validity + status). Captcha-gated:
+    // GET page (cookies) → GET captcha.png → OCR (tesseract) → POST form.
+    // Usage policy: SINGLE-MST lookups ONLY (feature "đăng ký tenant bằng MST"),
+    // strict rate limit + small daily cap — the captcha is the site's own anti-spam gate.
+
+    /// <summary>Master switch — default OFF (opt-in). When ON, missing MSTs after the
+    /// doanhnghiep.vn lookup fall back to tracuunnt.gdt.gov.vn (one request per MST).</summary>
+    public bool GdtLookupEnabled { get; set; } = false;
+
+    /// <summary>Daily cap for GDT lookups (polite — captcha-gated site). Default 30.</summary>
+    public int GdtMaxPerDay { get; set; } = 30;
+
+    /// <summary>Captcha retries per MST (OCR is not 100%). Default 3.</summary>
+    public int GdtCaptchaRetries { get; set; } = 3;
+
+    /// <summary>Delay between GDT requests (ms). Default 5000 — keep it polite.</summary>
+    public int GdtRateLimitMs { get; set; } = 5000;
+
+    /// <summary>tesseract binary path (Dockerfile installs tesseract-ocr). Default "tesseract".</summary>
+    public string GdtOcrPath { get; set; } = "tesseract";
 }
