@@ -348,8 +348,11 @@ namespace VanAn.CoreHub.Services
         private async Task RecordOrderCompletedEventAsync(Order order)
         {
             // W-1-T7: Persist OrderCompleted event to Outbox table for reliable async processing.
-            // NatsSyncWorker will poll Outbox and publish to NATS → SimpleAccountingEventHandler
-            // creates accounting entries + HKD books in PostgreSQL.
+            // NatsSyncWorker polls Outbox and publishes to NATS → Gateway DataSyncSubscriber
+            // syncs order data to PG. Accounting entries are NOT created here — they are
+            // generated on payment (cash-basis): OrderService.GenerateAccountingEntriesAsync /
+            // WalletService COD trigger. (TC-05: SimpleAccountingEventHandler retired 2026-09-22 —
+            // it double-wrote gross revenue.)
             //
             // OutboxEvent constructor requires ElectronicInvoiceId (domain modeling limitation — R14).
             // For non-invoice events, pass Guid.Empty. Subscribers parse EventData for type-specific fields.

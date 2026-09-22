@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using VanAn.CoreHub.Services.Events;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Repositories;
@@ -146,8 +145,9 @@ namespace VanAn.CoreHub
                     // Order hub
                     _ = services.AddScoped<OrderHub>();
 
-                    // Event handling services
-                    _ = services.AddHostedService<SimpleAccountingEventHandler>();
+                    // Settlement Batch-2 (TC-05): SimpleAccountingEventHandler retired —
+                    // duplicate gross revenue entries on PG. Authoritative path:
+                    // OrderService.GenerateAccountingEntriesAsync (payment-confirm).
 
                     // E-Invoice Services (Sprint 3 â€” R4 DI wiring)
                     _ = services.AddMemoryCache();

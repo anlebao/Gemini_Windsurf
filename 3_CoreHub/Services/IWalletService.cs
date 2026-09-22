@@ -37,6 +37,8 @@ namespace VanAn.CoreHub.Services
         /// Sprint 5: Shipper confirms COD collection for an order.
         /// Creates WalletTransaction(CODCollection, +amount) for shipper + WalletTransaction(Settlement, -amount) for shop.
         /// Sets Order.CodCollectedAt via Order.MarkCodCollected(). Idempotency: throws if already collected.
+        /// TC-06: MarkCodCollected also marks the order Paid (method COD) and triggers
+        /// accounting (OrderPaymentConfirmed outbox → ShopERP replica + local bookset entries).
         /// </summary>
         Task<WalletTransaction> ConfirmCodAsync(Guid shipperId, Guid orderId, decimal amount);
 
@@ -67,7 +69,9 @@ namespace VanAn.CoreHub.Services
         /// <summary>
         /// Sprint 7 Q5: Confirm external payment (non-COD Reseller — VietQR/card).
         /// Reseller only — rejects Marketplace orders.
-        /// Creates 5-split: ExternalPayment + Settlement + DeliveryFee + Commission? + PlatformFee + CommunityFund.
+        /// Creates split: ExternalPayment + Settlement + DeliveryFee + PlatformFee + CommunityFund
+        /// (commission leg removed TC-03 — paid once via CoolingPeriodJob).
+        /// TC-06: marks the order Paid (method EXTERNAL) + triggers accounting like COD.
         /// </summary>
         Task<WalletTransaction> ConfirmExternalPaymentAsync(Guid orderId, decimal amount, string paymentRef);
 

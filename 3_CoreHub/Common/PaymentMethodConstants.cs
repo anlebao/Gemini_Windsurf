@@ -10,6 +10,10 @@ namespace VanAn.CoreHub.Common
         public const string Cash = "CASH";
         public const string VietQR = "VIETQR";
         public const string CreditCard = "CREDIT_CARD";
+        // Settlement Batch-2 (TC-06): COD = shipper collected cash at the door (111);
+        // EXTERNAL = Reseller order paid online directly to Vạn An (112).
+        public const string Cod = "COD";
+        public const string External = "EXTERNAL";
 
         /// <summary>
         /// Map PaymentMethod → cash account code (111 cash, 112 bank).
@@ -17,8 +21,8 @@ namespace VanAn.CoreHub.Common
         /// </summary>
         public static string MapCashAccount(string? paymentMethod) => paymentMethod switch
         {
-            Cash => "111",
-            VietQR or CreditCard => "112",
+            Cash or Cod => "111",
+            VietQR or CreditCard or External => "112",
             _ => "111" // safe fallback
         };
     }

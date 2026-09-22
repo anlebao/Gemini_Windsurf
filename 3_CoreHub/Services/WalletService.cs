@@ -1,8 +1,12 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using VanAn.CoreHub.Common;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
+using VanAn.Shared.Services;
 
 namespace VanAn.CoreHub.Services
 {
@@ -11,21 +15,33 @@ namespace VanAn.CoreHub.Services
     /// HR-SCALE-3: atomic BalanceAfter via SELECT FOR UPDATE pattern on PG (LINQ fallback on SQLite for tests).
     /// Sprint 5: ConfirmCodAsync/ConfirmAdvanceAsync/ConfirmAdvanceReceivedAsync/ReverseTransactionAsync/GetWalletAsync/GetPendingAdvancesAsync.
     /// Sprint 4 CoolingPeriodJob uses CreateTransactionAsync to pay commissions after 24h cooling.
+    /// Settlement Batch-2 (TC-06): COD/external payment also marks the order Paid, emits
+    /// OrderPaymentConfirmed (Outbox → NATS → ShopERP SQLite replica), and generates
+    /// accounting entries on the local bookset (Gateway PG).
     /// </summary>
     public class WalletService : IWalletService
     {
         private readonly IVanAnDbContext _dbContext;
         private readonly ITenantProvider _tenantProvider;
         private readonly ILogger<WalletService> _logger;
+        private readonly IOrderService? _orderService;
+        private readonly IOutboxRepository? _outboxRepository;
+        private readonly IShopFeatureSettingsService? _shopFeatureSettingsService;
 
         public WalletService(
             IVanAnDbContext dbContext,
             ITenantProvider tenantProvider,
-            ILogger<WalletService> logger)
+            ILogger<WalletService> logger,
+            IOrderService? orderService = null,
+            IOutboxRepository? outboxRepository = null,
+            IShopFeatureSettingsService? shopFeatureSettingsService = null)
         {
             _dbContext = dbContext;
             _tenantProvider = tenantProvider;
             _logger = logger;
+            _orderService = orderService;
+            _outboxRepository = outboxRepository;
+            _shopFeatureSettingsService = shopFeatureSettingsService;
         }
 
         /// <summary>
@@ -194,10 +210,15 @@ namespace VanAn.CoreHub.Services
         /// the delivery task must be OutForDelivery/Delivered, the order must not be cancelled
         /// or already paid, and the entire flow commits in ONE transaction — a mid-flow failure
         /// can no longer leave wallet entries without the COD marker (or vice versa).
+        /// Settlement Batch-2 (TC-06): collecting COD is the cash-basis payment event —
+        /// the order is marked Paid (method "COD"), an OrderPaymentConfirmed outbox event is
+        /// committed atomically (→ ShopERP SQLite replica + local accounting entries), and
+        /// accounting entries are generated on this bookset (Gateway PG) after commit.
         /// </summary>
         public async Task<WalletTransaction> ConfirmCodAsync(Guid shipperId, Guid orderId, decimal amount)
         {
             WalletTransaction shipperTx = null!;
+            Order? confirmedOrder = null;
             await _dbContext.ExecuteAtomicAsync(async () =>
             {
                 await using var tx = await _dbContext.BeginTransactionAsync();
@@ -277,9 +298,18 @@ namespace VanAn.CoreHub.Services
                     }
 
                     // 8. Mark order COD collected — same commit as the wallet entries.
-                    order.MarkCodCollected(amount);
+                    //    TC-06: also marks the order Paid (method COD, ref = CODCollection tx).
+                    order.MarkCodCollected(amount, PaymentMethodConstants.Cod, shipperTx.Id.ToString());
+
+                    // 9. TC-06: enqueue OrderPaymentConfirmed atomically — NatsSyncWorker publishes
+                    //    vanan.cloud.order.payment.confirmed.{shopInstanceId} → ShopERP
+                    //    PaymentConfirmedSubscriber marks the SQLite replica Paid + generates
+                    //    the tenant's local accounting entries (idempotent by order reference).
+                    await EnqueueOrderPaymentConfirmedAsync(order, shipperTx.Id.ToString());
+
                     await _dbContext.SaveChangesAsync();
                     await tx.CommitAsync();
+                    confirmedOrder = order;
 
                     _logger.LogInformation("COD confirmed: Order={OrderId} Shipper={ShipperId} Amount={Amount} Mode={Mode}",
                         orderId, shipperId, amount, order.CommerceMode);
@@ -293,7 +323,121 @@ namespace VanAn.CoreHub.Services
                 }
             });
 
+            // TC-06: accounting entries on this bookset (Gateway PG) — best-effort AFTER
+            // commit; payment state is already durable (same policy as ConfirmPaymentAsync).
+            if (confirmedOrder != null)
+                await TryGenerateOrderAccountingAsync(confirmedOrder.Id, confirmedOrder.TenantId.Value);
+
             return shipperTx;
+        }
+
+        /// <summary>
+        /// Settlement Batch-2 (TC-06): enqueue OrderPaymentConfirmed for the ShopERP replica.
+        /// Mirrors OrderService.MarkPaidAsync's event payload — routed by the tenant's
+        /// ShopInstanceId (PG-only column) so only the owning ShopERP instance consumes it.
+        /// Runs inside the caller's ambient transaction (outbox row commits with the
+        /// wallet entries + order mark). Routing-key lookup is best-effort — the column
+        /// does not exist on SQLite test contexts.
+        /// </summary>
+        private async Task EnqueueOrderPaymentConfirmedAsync(Order order, string transactionId)
+        {
+            if (_outboxRepository == null)
+            {
+                _logger.LogWarning(
+                    "OutboxRepository not available — OrderPaymentConfirmed for order {OrderId} not enqueued; ShopERP replica will not receive payment status",
+                    order.Id);
+                return;
+            }
+
+            string? routingKey = null;
+            try
+            {
+                var shopInstanceId = await _dbContext.Tenants
+                    .IgnoreQueryFilters()
+                    .Where(t => t.Id == order.TenantId && t.ShopInstanceId.HasValue)
+                    .Select(t => t.ShopInstanceId!.Value)
+                    .FirstOrDefaultAsync();
+                if (shopInstanceId != Guid.Empty)
+                    routingKey = shopInstanceId.ToString();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "ShopInstanceId lookup failed for tenant {TenantId} — OrderPaymentConfirmed will be published without routing key",
+                    order.TenantId.Value);
+            }
+
+            var payload = new
+            {
+                EventId = Guid.NewGuid(),
+                OrderId = order.Id,
+                TenantId = order.TenantId.Value,
+                TransactionId = transactionId,
+                PaymentMethod = order.PaymentMethod ?? PaymentMethodConstants.Cod,
+                PaidAt = DateTime.UtcNow
+            };
+
+            var outboxEvent = new OutboxEvent(
+                order.TenantId,
+                new ElectronicInvoiceId(Guid.Empty), // non-invoice event — R14 domain limitation
+                "OrderPaymentConfirmed",
+                JsonSerializer.Serialize(payload),
+                routingKey,
+                correlationId: order.Id);
+            // EnqueueAsync only tracks the entity — the caller's SaveChangesAsync commits it
+            // atomically with the order update.
+            await _outboxRepository.EnqueueAsync(outboxEvent);
+        }
+
+        /// <summary>
+        /// Settlement Batch-2 (TC-06): generate accounting entries on this process's bookset
+        /// (Gateway PG) after COD/external payment commits. Best-effort — payment state is
+        /// already durable; failures are logged for reconciliation (same policy as
+        /// OrderService.ConfirmPaymentAsync). Honours the tenant's Accounting_Sync_Enabled
+        /// toggle; GenerateAccountingEntriesAsync is idempotent via the order-reference
+        /// check so a later POS/webhook confirm cannot double-book.
+        /// </summary>
+        private async Task TryGenerateOrderAccountingAsync(Guid orderId, Guid tenantId)
+        {
+            if (_orderService == null)
+                return;
+
+            try
+            {
+                if (_shopFeatureSettingsService != null)
+                {
+                    bool accountingEnabled = await _shopFeatureSettingsService.IsEnabledAsync(
+                        tenantId, nameof(ShopFeatureSettingsDto.Accounting_Sync_Enabled));
+                    if (!accountingEnabled)
+                    {
+                        _logger.LogInformation(
+                            "Accounting sync disabled for tenant {TenantId} — skipping entry generation for order {OrderId}",
+                            tenantId, orderId);
+                        return;
+                    }
+                }
+
+                // Reload with Items+Product for COGS (mirrors ConfirmPaymentAsync's
+                // GetByIdWithIncludesAsync — Customer intentionally NOT included).
+                var orderWithItems = await _dbContext.Orders
+                    .IgnoreQueryFilters()
+                    .Include(o => o.Items)
+                    .ThenInclude(i => i.Product)
+                    .FirstOrDefaultAsync(o => o.Id == orderId);
+                if (orderWithItems == null)
+                {
+                    _logger.LogWarning("TryGenerateOrderAccounting: order {OrderId} not found — skipping entries", orderId);
+                    return;
+                }
+
+                await _orderService.GenerateAccountingEntriesAsync(orderWithItems, new TenantId(tenantId));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Accounting entry generation failed for order {OrderId} — payment already recorded; manual reconciliation may be needed",
+                    orderId);
+            }
         }
 
         /// <summary>
@@ -670,6 +814,7 @@ namespace VanAn.CoreHub.Services
                 throw new ArgumentException("PaymentRef cannot be empty", nameof(paymentRef));
 
             WalletTransaction externalTx = null!;
+            Order? confirmedOrder = null;
             await _dbContext.ExecuteAtomicAsync(async () =>
             {
                 await using var tx = await _dbContext.BeginTransactionAsync();
@@ -687,6 +832,11 @@ namespace VanAn.CoreHub.Services
 
                     if (order.CodCollectedAt != null)
                         throw new InvalidOperationException($"Order {orderId} already paid (COD collected).");
+
+                    // TC-06: Paid can now also come from COD/external marking — reject a
+                    // second payment confirmation regardless of which path paid first.
+                    if (order.PaymentStatus == "Paid")
+                        throw new InvalidOperationException($"Order {orderId} already paid via {order.PaymentMethod}.");
 
                     if (order.Status == OrderStatusId.Cancelled)
                         throw new InvalidOperationException($"Order {orderId} is cancelled — cannot confirm external payment.");
@@ -775,10 +925,13 @@ namespace VanAn.CoreHub.Services
                             balances);
                     }
 
-                    // Mark order as paid (use CodCollectedAt as payment confirmation marker)
-                    order.MarkCodCollected(amount);
+                    // Mark order as paid — TC-06: sets PaymentStatus=Paid (method EXTERNAL,
+                    // ref = caller's paymentRef) + emits OrderPaymentConfirmed atomically.
+                    order.MarkCodCollected(amount, PaymentMethodConstants.External, paymentRef);
+                    await EnqueueOrderPaymentConfirmedAsync(order, paymentRef);
                     await _dbContext.SaveChangesAsync();
                     await tx.CommitAsync();
+                    confirmedOrder = order;
 
                     _logger.LogInformation(
                         "External payment confirmed (Reseller): Order={OrderId} Amount={Amount} Ref={PaymentRef} CostPrice={CostPrice} DeliveryFee={DeliveryFee} PlatformFee={PlatformFee} CommunityFund={CommunityFund}",
@@ -792,6 +945,10 @@ namespace VanAn.CoreHub.Services
                     throw;
                 }
             });
+
+            // TC-06: accounting entries on this bookset (Gateway PG) — best-effort after commit.
+            if (confirmedOrder != null)
+                await TryGenerateOrderAccountingAsync(confirmedOrder.Id, confirmedOrder.TenantId.Value);
 
             return externalTx;
         }

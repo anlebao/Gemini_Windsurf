@@ -1,7 +1,9 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
@@ -285,6 +287,54 @@ public class WalletServiceDualModeTests : IDisposable
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.ConfirmExternalPaymentAsync(orderId, 100000m, "VQR-123"));
+    }
+
+    // ===== Settlement Batch-2 (TC-06): external payment → Paid + payment event + accounting =====
+
+    // T16: External payment — marks Paid (EXTERNAL) + enqueues payment event + triggers accounting
+    [Fact(DisplayName = "T16: ExternalPayment_MarksPaidAndTriggersAccounting")]
+    public async Task ExternalPayment_MarksPaidAndTriggersAccounting()
+    {
+        var outbox = new Mock<IOutboxRepository>();
+        var orderService = new Mock<IOrderService>();
+        var service = new WalletService(_context, _tenantProvider, NullLogger<WalletService>.Instance,
+            orderService.Object, outbox.Object);
+
+        await SeedTenantAsync();
+        var orderId = await SeedResellerOrderAsync(); // SellPrice 100K + DeliveryFee 15K = 115K
+        await SeedDeliveryTaskAsync(orderId);
+
+        var tx = await service.ConfirmExternalPaymentAsync(orderId, 115000m, "VQR-TEST-1");
+
+        Assert.Equal(WalletTransactionType.ExternalPayment, tx.Type);
+        var order = await _context.Orders.IgnoreQueryFilters().FirstAsync(o => o.Id == orderId);
+        Assert.Equal("Paid", order.PaymentStatus);
+        Assert.Equal("EXTERNAL", order.PaymentMethod);
+        Assert.Equal("VQR-TEST-1", order.VietQR_TransactionId);
+
+        outbox.Verify(o => o.EnqueueAsync(
+            It.Is<OutboxEvent>(e => e.EventType == "OrderPaymentConfirmed" && e.CorrelationId == orderId),
+            It.IsAny<CancellationToken>()), Times.Once);
+        orderService.Verify(o => o.GenerateAccountingEntriesAsync(
+            It.Is<Order>(x => x.Id == orderId), It.IsAny<TenantId>()), Times.Once);
+    }
+
+    // T17: External payment on already-paid order → rejected (TC-06 guard)
+    [Fact(DisplayName = "T17: ExternalPayment_AlreadyPaid_Throws")]
+    public async Task ExternalPayment_AlreadyPaid_Throws()
+    {
+        await SeedTenantAsync();
+        var orderId = await SeedResellerOrderAsync();
+        var order = await _context.Orders.IgnoreQueryFilters().FirstAsync(o => o.Id == orderId);
+        SetProp(order, "PaymentStatus", "Paid");
+        await _context.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ConfirmExternalPaymentAsync(orderId, 115000m, "VQR-DUP"));
+
+        // No wallet entries leaked
+        Assert.Empty(await _context.WalletTransactions.IgnoreQueryFilters()
+            .Where(t => t.RelatedOrderId == orderId).ToListAsync());
     }
 
     // T19: SalesmanService OnMargin — commission = margin × rate

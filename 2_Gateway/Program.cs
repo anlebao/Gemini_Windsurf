@@ -1,1164 +1,2329 @@
 using Microsoft.AspNetCore.Authentication;
+
 using Microsoft.AspNetCore.Authentication.Cookies;
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+
 using Microsoft.AspNetCore.DataProtection;
+
 using Microsoft.AspNetCore.HttpOverrides;
+
 using System.Security.Claims;
+
 using Microsoft.EntityFrameworkCore;
+
 using Microsoft.IdentityModel.Tokens;
+
 using System.ComponentModel.DataAnnotations.Schema;
+
 using System.Text;
+
 using System.Threading.RateLimiting;
+
 using VanAn.Shared.Services;
+
 using VanAn.Shared.Domain.Common;
+
 using VanAn.Shared.Domain;
+
 using VanAn.CoreHub.Services;
+
 using VanAn.CoreHub.Domain.Repositories;
+
 using VanAn.CoreHub.Repositories;
+
 using VanAn.CoreHub.Infrastructure.Repositories;
+
 using VanAn.Gateway.Middleware;
+
 using VanAn.Gateway.Hubs;
+
 using VanAn.Gateway.Services;
+
 using VanAn.CoreHub.Infrastructure;
+
 using VanAn.CoreHub.Infrastructure.Messaging;
+
 using Serilog;
+
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("VanAn.Tests")]
+
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("VanAn.Core.Tests")]
 
+
+
 namespace VanAn.Gateway
+
 {
+
     public partial class Program
+
     {
+
         public static async Task Main(string[] args)
+
         {
+
             // Npgsql 7+: Enable legacy timestamp behavior so DateTime with Kind=Unspecified works
+
             // with PostgreSQL 'timestamp with time zone' columns (same switch as ShopERP).
+
             AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
+
+
             // Wave 4: Clear the default inbound claim type map so JWT short-form claims ("role", "sub")
+
             // are NOT silently remapped to long Microsoft schema URLs at runtime.
+
             // This ensures RoleClaimType = "role" matches exactly what arrives in the JWT payload.
+
             System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+
+
 
             WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+
+
             // Architect: Dynamic file logging configuration
+
             _ = builder.Host.UseSerilog((context, config) =>
+
             {
+
                 _ = config.WriteTo.Console();
 
+
+
                 // Architect: Only enable Disk I/O logging if explicitly turned on in appsettings
+
                 if (context.Configuration.GetValue<bool>("LoggingConfig:EnableFileLogging"))
+
                 {
+
                     string? appName = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name;
+
                     _ = config.WriteTo.File(
+
                         path: Path.Combine(AppContext.BaseDirectory, "Logs", $"{appName}-.txt"),
+
                         rollingInterval: RollingInterval.Day,
+
                         retainedFileCountLimit: 2
+
                     );
+
                 }
+
             });
+
+
 
             // Add services to the container.
+
             // SaaS W1: Validate Production config — fail fast if __REPLACE_* sentinels remain
+
             if (builder.Environment.IsProduction())
+
             {
+
                 ValidateProductionConfig(builder.Configuration);
+
             }
+
+
 
             _ = builder.Services.AddControllers()
+
                 .AddJsonOptions(options =>
+
                 {
+
                     options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+
                     // Fix #87: Serialize enums as strings (CommerceMode, OrderStatus, etc.)
+
                     // ShopERP clients expect string values, not int.
+
                     options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+
                 });
+
             // 2026-09-21 FIX (admin panel 500): Persistent Data Protection key ring.
+
             // The Gateway previously ran with the lazy EphemeralDataProtectionProvider fallback in
+
             // DataProtectionProviderAccessor.CreateProtector() → a NEW key every container restart →
+
             // Customer.PhoneNumber/Email ciphertext (EncryptedStringConverter, Wave 2 PII) written by a
+
             // previous instance could not be decrypted → CryptographicException "The payload was invalid"
+
             // → HTTP 500 on community-admin eligible (includeIneligible) + activate-role.
+
             // Persist keys to a mounted volume (DataProtection:KeyDirectory, default /app/keys) so the
+
             // ring is stable across restarts. ApplicationName mirrors ShopERP ("VanAnShopERP") so the
+
             // purpose strings are consistent if the key rings are ever shared.
+
             string dataProtectionKeyDir = builder.Configuration.GetSection("DataProtection")["KeyDirectory"]
+
                 ?? Path.Combine(AppContext.BaseDirectory, "keys");
+
             _ = Directory.CreateDirectory(dataProtectionKeyDir);
+
             _ = builder.Services.AddDataProtection()
+
                 .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyDir))
+
                 .SetApplicationName(builder.Configuration.GetSection("DataProtection")["ApplicationName"] ?? "VanAnShopERP");
 
+
+
             // Phase 2 Scaling: SignalR with Redis backplane — enables horizontal scaling of Gateway.
+
             // Without backplane, multiple Gateway instances can't broadcast SignalR messages to clients
+
             // connected to other instances. Redis backplane syncs messages across all instances.
+
             var signalRBuilder = builder.Services.AddSignalR();
+
             var gatewayRedisConnection = builder.Configuration.GetConnectionString("Redis");
+
             if (!string.IsNullOrWhiteSpace(gatewayRedisConnection))
+
             {
+
                 signalRBuilder.AddStackExchangeRedis(gatewayRedisConnection, options =>
+
                 {
+
                     options.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("VanAn-SignalR");
+
                 });
+
                 Log.Information("SignalR Redis backplane configured: {RedisConnection}", gatewayRedisConnection);
+
             }
+
             else
+
             {
+
                 Log.Information("SignalR Redis backplane NOT configured (ConnectionStrings:Redis empty) — single-instance mode");
+
             }
+
+
 
             // Phase 1 Scaling: Response caching — enables [ResponseCache] attributes on controllers.
+
             // Reduces PG load for catalog/recommended endpoints (cache 5 min at CDN/browser).
+
             _ = builder.Services.AddResponseCaching();
 
+
+
             // Phase 1 Scaling: Rate limiting — classify by endpoint type to prevent abuse.
+
             // checkout: 10 req/min/IP (write — DB write + outbox + NATS publish)
+
             // catalog: 60 req/min/IP (read — cached query, cheap)
+
             // auth: 5 req/min/IP (BCrypt — brute-force protection)
+
             // Default: 120 req/min/IP (general API)
+
             _ = builder.Services.AddRateLimiter(options =>
+
             {
+
                 options.AddPolicy("checkout", context =>
+
                 {
+
                     string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
                     return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+
                     {
+
                         PermitLimit = 10,
+
                         Window = TimeSpan.FromMinutes(1),
+
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+
                         QueueLimit = 0
+
                     });
+
                 });
+
+
 
                 options.AddPolicy("catalog", context =>
+
                 {
+
                     string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
                     return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+
                     {
+
                         PermitLimit = 60,
+
                         Window = TimeSpan.FromMinutes(1),
+
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+
                         QueueLimit = 0
+
                     });
+
                 });
+
+
 
                 options.AddPolicy("auth", context =>
+
                 {
+
                     string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
                     return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+
                     {
+
                         PermitLimit = 5,
+
                         Window = TimeSpan.FromMinutes(1),
+
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+
                         QueueLimit = 0
+
                     });
+
                 });
+
             });
+
+
 
             // Crawl-to-Onboard (2026-08-25, M5): Rate limit for claim submit endpoint.
+
             // 3 requests per IP per day — prevents abuse of owner claim form.
+
             // Applied via [EnableRateLimiting("claim-submit")] on POST /api/v1/tenants/{id}/claims.
+
             _ = builder.Services.AddRateLimiter(options =>
+
             {
+
                 options.AddPolicy("claim-submit", context =>
+
                 {
+
                     string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
                     return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+
                     {
+
                         PermitLimit = 3,
+
                         Window = TimeSpan.FromHours(24),
+
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+
                         QueueLimit = 0
+
                     });
+
                 });
+
+
 
                 // Crawl-to-Onboard Phase 6 (O1): Rate limit for anonymous GPKD image upload.
+
                 // 10 uploads per IP per hour — generous for legitimate owners, blocks bulk abuse.
+
                 // Applied via [EnableRateLimiting("image-upload")] on POST /api/v1/images/upload.
+
                 options.AddPolicy("image-upload", context =>
+
                 {
+
                     string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
                     return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+
                     {
+
                         PermitLimit = 10,
+
                         Window = TimeSpan.FromHours(1),
+
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+
                         QueueLimit = 0
+
                     });
+
                 });
+
             });
+
+
 
             // GTM Drill Machine W1 (2026-09-06): Rate limit for public Merchant Audit.
+
             // 10 requests per IP per hour — anonymous report generation, blocks enumeration/scraping.
+
             // Applied via [EnableRateLimiting("growth-audit")] on GET /api/v1/growth/audit.
+
             // NOTE: Directory SSR calls this endpoint server-side — GrowthAuditService forwards
+
             // the end-user IP via X-Forwarded-For and UseForwardedHeaders (app pipeline) rewrites
+
             // RemoteIpAddress, so the partition key is the END USER's IP, not the Directory container.
+
             _ = builder.Services.AddRateLimiter(options =>
+
             {
+
                 options.AddPolicy("growth-audit", context =>
+
                 {
+
                     string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
                     return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+
                     {
+
                         PermitLimit = 10,
+
                         Window = TimeSpan.FromHours(1),
+
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+
                         QueueLimit = 0
+
                     });
+
                 });
+
                 // GTM Drill Machine W2 (2026-09-08): Rate limit for merchant registration submission.
+
                 // 5 requests per IP per 24h — generous hơn claim (3/24h) vì registration nhẹ hơn (no GPKD).
+
                 // Applied via [EnableRateLimiting("registration-submit")] on POST /api/v1/tenant-registrations.
+
                 options.AddPolicy("registration-submit", context =>
+
                 {
+
                     string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
                     return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+
                     {
+
                         PermitLimit = 5,
+
                         Window = TimeSpan.FromHours(24),
+
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+
                         QueueLimit = 0
+
                     });
+
                 });
+
                 // Return 429 (Too Many Requests) instead of default 503 for rate-limited audit requests.
+
                 options.OnRejected = async (context, cancellationToken) =>
+
                 {
+
                     // Sprint 3 P3.3: Log rate limit hit as security event (potential brute-force / abuse)
+
                     try
+
                     {
+
                         var auditService = context.HttpContext.RequestServices
+
                             .GetService<VanAn.CoreHub.Services.IAuditTrailService>();
+
                         if (auditService != null)
+
                         {
+
                             var clientIp = context.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
                             var userAgent = context.HttpContext.Request.Headers.UserAgent.ToString();
+
                             var endpoint = context.HttpContext.Request.Path.Value ?? "unknown";
+
                             // .NET 8 RateLimitLease has no GetAllTags() — use fallback label
+
                             var policy = "rate-limited";
 
+
+
                             await auditService.LogSecurityEventAsync(
+
                                 VanAn.Shared.Domain.Audit.AuditActionType.RateLimitHit,
+
                                 $"Rate limit hit: policy '{policy}' on '{endpoint}' from IP {clientIp}",
+
                                 correlationId: clientIp,
+
                                 ipAddress: clientIp,
+
                                 userAgent: userAgent,
+
                                 cancellationToken);
+
                         }
+
                     }
+
                     catch
+
                     {
+
                         // Best-effort — don't block 429 response if audit fails
+
                     }
+
+
 
                     context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+
                     context.HttpContext.Response.ContentType = "application/json";
+
                     await context.HttpContext.Response.WriteAsync(
+
                         """{"message":"Quá giới hạn yêu cầu. Vui lòng thử lại sau 1 giờ."}""", cancellationToken);
+
                 };
+
             });
+
+
 
             // Register CoreHub DbContext for monolithic architecture (in-process services)
+
             string connectionString = builder.Configuration.GetSection("ConnectionStrings")["DefaultConnection"]
+
                 ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection configuration is required in Gateway.");
+
             // Phase 1 Scaling: Increase Npgsql pool size for production (default 100 → 300).
+
             // 1000 tenant × 10% online = 100 concurrent query → default pool exhausts → 503.
+
             // Only append for Npgsql (production); SQLite (dev) doesn't need pool tuning.
+
             // NOTE: Npgsql accepts "Maximum Pool Size" (display name) or "MaxPoolSize" (property name),
+
             // but NOT "MaximumPoolSize" (camelCase no space) — that throws KeyNotFoundException.
+
             if (!connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase)
+
                 && !connectionString.Contains("Maximum Pool Size", StringComparison.OrdinalIgnoreCase)
+
                 && !connectionString.Contains("MaxPoolSize", StringComparison.OrdinalIgnoreCase))
+
             {
+
                 connectionString += ";Maximum Pool Size=300;Minimum Pool Size=10;Connection Idle Lifetime=300";
+
             }
+
             _ = builder.Services.AddDbContext<VanAn.CoreHub.Infrastructure.IVanAnDbContext, VanAn.CoreHub.Infrastructure.VanAnDbContext>(options =>
+
             {
+
                 // Auto-detect provider: SQLite ("Data Source=") for local dev, Npgsql ("Host=") for production
+
                 if (connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
+
                     options.UseSqlite(connectionString);
+
                 else
+
                     options.UseNpgsql(connectionString, npgsql =>
+
                     {
+
                         // Phase 1 Scaling: retry on transient failures (connection reset, failover)
+
                         npgsql.EnableRetryOnFailure(
+
                             maxRetryCount: 3,
+
                             maxRetryDelay: TimeSpan.FromSeconds(2),
+
                             errorCodesToAdd: null);
+
                     });
+
             });
+
+
 
             // Wave 1-3: Register IAccountingDbContext → VanAnDbContext (same instance, implements both interfaces).
+
             // Accounting repositories (AccountingEntryRepository, HKDBookRepository, AuditLogRepository) inject IAccountingDbContext.
+
             // Without this registration, Gateway crashes on startup with "Unable to resolve service for type IAccountingDbContext".
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Infrastructure.IAccountingDbContext>(provider =>
+
                 provider.GetRequiredService<VanAn.CoreHub.Infrastructure.VanAnDbContext>());
 
+
+
             // Wave 0: JWT + Cookie dual-scheme authentication
+
             // Cookie is default scheme (keeps Blazor UI working).
+
             // JwtBearer is secondary scheme for API endpoints — validate tokens issued by ShopERP.
+
             var jwtSecret = builder.Configuration["Jwt:Secret"]
+
                 ?? throw new InvalidOperationException("Jwt:Secret configuration is required in Gateway.");
+
             var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "VanAnShopERP";
+
             var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "VanAnApi";
 
+
+
             // VA-FI-MVP2 Bug 3 fix: Register IJwtTokenService for ShopErpProductCatalogService
+
             // (mints short-lived Owner JWTs to authenticate HTTP calls to ShopERP /api/products/manage).
+
             // Same secret/issuer/audience as ShopERP — tokens are cross-validated.
+
             _ = builder.Services.AddScoped<CoreHub.Services.IJwtTokenService, CoreHub.Services.JwtTokenService>();
 
+
+
             _ = builder.Services.AddAuthentication(options =>
+
             {
+
                 // Cookie remains the default scheme — Blazor UI continues to work unchanged
+
                 options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+
             })
+
                 .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
+
                 {
+
                     options.LoginPath = "/login";
+
                     options.ExpireTimeSpan = TimeSpan.FromHours(8);
+
                     // W4 Fix: Forward to JWT Bearer when Authorization header is present.
+
                     // This enables dual-scheme auth: Cookie for Blazor UI, JWT for API tests.
+
                     options.ForwardDefaultSelector = context =>
+
                     {
+
                         if (context.Request.Headers.TryGetValue("Authorization", out var auth)
+
                             && auth.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+
                         {
+
                             return JwtBearerDefaults.AuthenticationScheme;
+
                         }
+
                         return null; // Use Cookie (default scheme)
+
                     };
+
                 })
+
                 .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+
                 {
+
                     // Wave 4: DefaultInboundClaimTypeMap is cleared at startup so claims stay as short-form.
+
                     // RoleClaimType = "role" and NameClaimType = "sub" must match the JWT payload keys exactly.
+
                     options.MapInboundClaims = false;
+
                     options.TokenValidationParameters = new TokenValidationParameters
+
                     {
+
                         ValidateIssuerSigningKey = true,
+
                         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+
                         // FIX: IdentityModel v7.1.2 doesn't auto-try IssuerSigningKey when JWT has no kid header.
+
                         // JwtTokenService issues HS256 tokens without kid (symmetric key) — resolver must
+
                         // explicitly return the configured key. Without this, all [Authorize] endpoints return 401
+
                         // with "The signature key was not found".
+
                         IssuerSigningKeyResolver = (_, _, _, validationParameters) => new[] { validationParameters.IssuerSigningKey },
+
                         ValidateIssuer = true,
+
                         ValidIssuer = jwtIssuer,
+
                         ValidateAudience = true,
+
                         ValidAudience = jwtAudience,
+
                         ValidateLifetime = true,
+
                         ClockSkew = TimeSpan.Zero,
+
                         // FIX: JwtTokenService emits role as ClaimTypes.Role (long-form URI
+
                         // http://schemas.microsoft.com/ws/2008/06/identity/claims/role).
+
                         // With MapInboundClaims=false above, the claim type stays as the long-form URI.
+
                         // RoleClaimType must match the actual claim type so RequireRole() finds it.
+
                         RoleClaimType = ClaimTypes.Role,
+
                         NameClaimType = "sub"
+
                     };
+
                 });
+
+
 
             _ = builder.Services.AddAuthorizationBuilder()
+
                 .AddPolicy("RequireTenantAccess", policy =>
+
                     policy.RequireAuthenticatedUser()
+
                            .RequireClaim("tenant_id"))
+
                 .AddPolicy("RequireOwnerRole", policy =>
+
                     policy.RequireAuthenticatedUser()
+
                            .RequireClaim("tenant_id")
+
                            .RequireRole("Owner"))
+
                 .AddPolicy("RequireStoreKeeperRole", policy =>
+
                     policy.RequireAuthenticatedUser()
+
                            .RequireClaim("tenant_id")
+
                            .RequireRole("StoreKeeper"))
+
                 // Wave 5: SystemAdmin — cross-tenant operations (Tenant CRUD) - platform-level admin
+
                 .AddPolicy("SystemAdmin", policy =>
+
                     policy.RequireAuthenticatedUser()
+
                            .RequireRole("SystemAdmin"));
 
+
+
             // Wave 1 Phase 2: Register ITenantProvider for Gateway controllers
+
             _ = builder.Services.AddHttpContextAccessor();
+
             _ = builder.Services.AddScoped<ITenantProvider, HttpContextTenantProvider>();
 
+
+
             // Crawl-to-Onboard Phase 6 (O1): IImageStorageService (Cloudinary) for GPKD image upload.
+
             // KhachLink Claim form uploads GPKD image → Gateway → Cloudinary → URL stored in TenantClaimRequest.
+
             // Same registration as ShopERP (Program.cs:488). Cloudinary no-ops if config missing (dev/test safe).
+
             _ = builder.Services.AddScoped<IImageStorageService, CloudinaryImageStorageService>();
 
+
+
             // Phase 2 (Multi-VPS Checkout): Normalize JWT role claims — accept both short-form ("role")
+
             // and long-form (ClaimTypes.Role URI) in Bearer JWTs. See RoleClaimNormalizer for details.
+
             _ = builder.Services.AddTransient<IClaimsTransformation, VanAn.Gateway.Infrastructure.RoleClaimNormalizer>();
 
+
+
             // Add YARP Reverse Proxy
+
             _ = builder.Services.AddReverseProxy()
+
                 .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
+
+
             // Register VietQR Service
+
             _ = builder.Services.AddHttpClient<IVietQrService, VietQrService>();
+
             _ = builder.Services.AddScoped<IVietQrService, VietQrService>();
 
+
+
             // W17: Named HttpClient to forward requests to ShopERP
+
             _ = builder.Services.AddHttpClient("shoperp", client =>
+
             {
+
                 client.BaseAddress = new Uri(
+
                     builder.Configuration["ShopERP:BaseUrl"] ?? "http://shoperp:80/");
+
                 client.Timeout = TimeSpan.FromSeconds(10);
+
             });
+
+
 
             // Crawl-to-Onboard (Phase 5): Named HttpClient to forward crawl triggers to crawler worker
+
             _ = builder.Services.AddHttpClient("crawler", client =>
+
             {
+
                 client.BaseAddress = new Uri(
+
                     builder.Configuration["Crawler:BaseUrl"] ?? "http://crawler:5010");
+
                 client.Timeout = TimeSpan.FromMinutes(5); // crawl can take minutes
+
             });
+
+
 
             // Register MST Lookup Service (Business Lookup Proxy for KhachLink)
+
             _ = builder.Services.AddHttpClient("VietQR", client =>
+
             {
+
                 client.BaseAddress = new Uri("https://api.vietqr.io/v2/");
+
                 client.Timeout = TimeSpan.FromSeconds(3);
+
             });
+
             _ = builder.Services.AddScoped<IMstLookupService, MstLookupService>();
 
+
+
             // Register Swagger for API documentation
+
             _ = builder.Services.AddSwaggerGen(c =>
+
             {
+
                 c.SwaggerDoc("v1", new()
+
                 {
+
                     Title = "VanAn Gateway API",
+
                     Version = "v1",
+
                     Description = "VanAn Ecosystem Gateway Service API Documentation"
+
                 });
+
             });
+
+
 
             // Register ShopConfig Service
+
             _ = builder.Services.AddScoped<IShopConfigService, ShopConfigService>();
 
+
+
             // Register Onboarding Service
+
             _ = builder.Services.AddHttpClient<IOnboardingService, OnboardingService>();
+
             _ = builder.Services.AddScoped<IOnboardingService, OnboardingService>();
 
+
+
             // Wave 4: Notification services (INotificationService required by TenantManagementService + UserManagementService)
+
             _ = builder.Services.AddHttpClient<VanAn.CoreHub.Services.IEmailService, VanAn.CoreHub.Services.BrevoEmailService>(client =>
+
             {
+
                 client.Timeout = TimeSpan.FromSeconds(15);
+
             });
+
             _ = builder.Services.AddHttpClient<VanAn.CoreHub.Services.ISmsService, VanAn.CoreHub.Services.EsmsNotificationService>(client =>
+
             {
+
                 client.Timeout = TimeSpan.FromSeconds(15);
+
             });
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.INotificationService, VanAn.CoreHub.Services.CompositeNotificationService>();
 
+
+
             // Wave 4: Register Tenant Onboarding Service dependencies (used by TenantOnboardingService orchestrator)
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ITenantManagementService, VanAn.CoreHub.Services.TenantManagementService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IUserManagementService, VanAn.CoreHub.Services.UserManagementService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IRoleAssignmentService, VanAn.CoreHub.Services.RoleAssignmentService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IPermissionGroupService, VanAn.CoreHub.Services.PermissionGroupService>();
 
+
+
             // Community Commerce Sprint 0 v1.2/v1.4: RiskScoringService + WalletService base (PG-only)
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IRiskScoringService, VanAn.CoreHub.Services.RiskScoringService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IWalletService, VanAn.CoreHub.Services.WalletService>();
+
             // F3 fix 2026-07-26: DeviceRegistrationService — max 3 active devices per Customer enforcement
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IDeviceRegistrationService, VanAn.CoreHub.Services.DeviceRegistrationService>();
+
             // CC-S1-T1/T2 (Sprint 1): CommunityOrderService — nearby orders (Haversine) + accept (concurrency-safe)
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICommunityOrderService, VanAn.CoreHub.Services.CommunityOrderService>();
 
+
+
             // CC-S2 (Sprint 2): DeliveryWorkflowService — delivery state machine + GPS location recording
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IDeliveryWorkflowService, VanAn.CoreHub.Services.DeliveryWorkflowService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IChatService, VanAn.CoreHub.Services.ChatService>();
 
+
+
             // Realtime Platform P2 (2026-09-17): subject-agnostic messaging + live location.
+
             // Order-specific access rules move into a keyed authorizer so the legacy hubs and the
+
             // generic hubs share one implementation; an unregistered subject type is denied.
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IRealtimeMessagingService, VanAn.CoreHub.Services.RealtimeMessagingService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ILiveLocationService, VanAn.CoreHub.Services.LiveLocationService>();
+
             _ = builder.Services.AddKeyedScoped<VanAn.CoreHub.Services.IRealtimeParticipantAuthorizer, VanAn.CoreHub.Services.Adapters.OrderRealtimeAuthorizer>(
+
                 VanAn.Shared.Domain.RealtimeSubjectType.Order);
+
             // Realtime Platform P5 (2026-09-18): shop chat — the shop side is a tenant (staff JWT
+
             // tenant_id claim == SubjectId), the customer side is a conversation participant.
+
             _ = builder.Services.AddKeyedScoped<VanAn.CoreHub.Services.IRealtimeParticipantAuthorizer, VanAn.CoreHub.Services.Adapters.ShopRealtimeAuthorizer>(
+
                 VanAn.Shared.Domain.RealtimeSubjectType.Shop);
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IRealtimeSubjectResolver, VanAn.CoreHub.Services.RealtimeSubjectResolver>();
 
+
+
             // Realtime Platform P3 (2026-09-17): identity for the generic hubs + /api/realtime/*.
+
             // Order matters — the resolver returns the first validator that accepts, so a signed-in
+
             // customer carrying a device guid is treated as the customer (higher trust wins).
+
             // Each validator reads the query string before the header: a browser WebSocket handshake
+
             // cannot set custom headers, which is what kept guests on HTTP polling until now (F3).
+
             _ = builder.Services.AddScoped<VanAn.Gateway.Realtime.IRealtimeTokenValidator, VanAn.Gateway.Realtime.CustomerTokenValidator>();
+
             _ = builder.Services.AddScoped<VanAn.Gateway.Realtime.IRealtimeTokenValidator, VanAn.Gateway.Realtime.DeviceTokenValidator>();
+
             _ = builder.Services.AddScoped<VanAn.Gateway.Realtime.IRealtimeTokenValidator, VanAn.Gateway.Realtime.StaffJwtValidator>();
+
             _ = builder.Services.AddScoped<VanAn.Gateway.Realtime.RealtimeIdentityResolver>();
 
+
+
             // CC-S4 (Sprint 4): Salesman + Composite QR Referral + App-Install Bonus + Risk Scoring + FraudFlag
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ISalesmanService, VanAn.CoreHub.Services.SalesmanService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IAppInstallAttributionService, VanAn.CoreHub.Services.AppInstallAttributionService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IProductReferralConfigService, VanAn.CoreHub.Services.ProductReferralConfigService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IFraudFlagService, VanAn.CoreHub.Services.FraudFlagService>();
 
+
+
             // CC-S6 (Sprint 6): Community Admin + Fraud Review services
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICommunityAdminService, VanAn.CoreHub.Services.CommunityAdminService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IFraudReviewService, VanAn.CoreHub.Services.FraudReviewService>();
 
+
+
             // Sprint 7 — Commerce Mode Toggle: CommerceMode + CommunityFund services
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICommerceModeService, VanAn.CoreHub.Services.CommerceModeService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICommunityFundService, VanAn.CoreHub.Services.CommunityFundService>();
 
+
+
             // CC-S6-T5 — Collaborator SMS OTP + Deposit Wallet (toggle-gated)
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICollaboratorVerificationService, VanAn.CoreHub.Services.CollaboratorVerificationService>();
 
+
+
             // Loyalty Alliance System — Phase 2A: mode resolver + cross-tenant wallet service (PG-only)
+
             _ = builder.Services.AddScoped<VanAn.Shared.Services.ILoyaltyModeResolver, VanAn.CoreHub.Services.LoyaltyModeResolver>();
+
             _ = builder.Services.AddScoped<VanAn.Shared.Services.IAllianceWalletService, VanAn.CoreHub.Services.AllianceWalletService>();
 
+
+
             // Loyalty Consistency Fix Phase 0 (Option B): Internal API key for service-to-service auth.
+
             // ShopERP HTTP proxies call /api/internal/loyalty/* with X-Internal-Api-Key header.
+
             // Config: InternalLoyalty:ApiKey (env var: InternalLoyalty__ApiKey). Validated by InternalApiKeyAttribute.
+
             // No explicit DI binding needed — InternalApiKeyAttribute reads via IConfiguration at request time.
 
+
+
             // Wave 4: Register Tenant Onboarding Service + industry seed strategies
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.ITenantOnboardingService, VanAn.CoreHub.Services.Onboarding.TenantOnboardingService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.FnbSeedStrategy>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.SpaSeedStrategy>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.HotelSeedStrategy>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.BarberSeedStrategy>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.ClothesSeedStrategy>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.HealthySeedStrategy>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.PetShopSeedStrategy>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.RetailSeedStrategy>();
 
+
+
             // Crawl-to-Onboard Pipeline (2026-08-25): Claim service + Duplicate detection service
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Claims.ITenantClaimService, VanAn.CoreHub.Services.Claims.TenantClaimService>();
+
             // GTM Drill Machine W2 (2026-09-08): Tenant registration lifecycle + Turnstile verification.
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Registrations.ITenantRegistrationService, VanAn.CoreHub.Services.Registrations.TenantRegistrationService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Registrations.ITurnstileVerificationService, VanAn.CoreHub.Services.Registrations.TurnstileVerificationService>();
+
             _ = builder.Services.AddHttpClient("Turnstile");
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IDuplicateDetectionService, VanAn.CoreHub.Services.DuplicateDetectionService>();
 
+
+
             // Register Voice Command Services
+
             _ = builder.Services.AddScoped<IVoiceCommandService, VoiceCommandService>();
+
             _ = builder.Services.AddScoped<IAudioStorageService, AudioStorageService>();
+
             _ = builder.Services.AddMemoryCache();
+
             _ = builder.Services.AddScoped<ILocalizationService, LocalizationService>();
 
+
+
             // Wave 14: HMAC Request Signing — register CoreHub repo + service + Gateway adapter
+
             _ = builder.Services.AddScoped<VanAn.Shared.Repositories.IApiKeyRepository, VanAn.CoreHub.Infrastructure.Repositories.ApiKeyRepository>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IApiKeyManagementService, VanAn.CoreHub.Services.ApiKeyManagementService>();
+
             _ = builder.Services.AddScoped<IHmacApiKeyLookup, HmacApiKeyLookupAdapter>();
 
+
+
             // Wave 7: HKD Book accounting services — register repositories + services + calc engine.
+
             // PRIOR BUG: AccountingEntriesController injected IHKDBookService/IAccountingService/IReversalService
+
             // but Gateway Program.cs never registered them → runtime 500 on any endpoint using them.
+
             // Hidden because GatewayStartupTests only hit /health + auth-challenge routes.
+
             // Repository layer
+
             _ = builder.Services.AddScoped<IAccountingEntryRepository, AccountingEntryRepository>();
+
             _ = builder.Services.AddScoped<IHKDBookRepository, HKDBookRepository>();
+
             _ = builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.ISocialCampaignRepository, VanAn.CoreHub.Infrastructure.Repositories.SocialCampaignRepository>();
+
             _ = builder.Services.AddScoped<VanAn.Shared.Services.ISocialCampaignService, VanAn.CoreHub.Services.SocialCampaignService>();
+
             // P3 FIX: Register missing repositories needed by services
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.IOrderRepository, VanAn.CoreHub.Repositories.OrderRepository>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.IProductRepository, VanAn.CoreHub.Repositories.ProductRepository>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Domain.Repositories.ICustomerRepository, VanAn.CoreHub.Infrastructure.Repositories.CustomerRepository>();
+
             // #126: Guard QR Verify — repositories + R2 storage service + Guard service
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.IVehicleSessionRepository, VanAn.CoreHub.Repositories.VehicleSessionRepository>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.IGuardScanLogRepository, VanAn.CoreHub.Repositories.GuardScanLogRepository>();
+
             _ = builder.Services.AddSingleton<VanAn.CoreHub.Services.IR2StorageService, VanAn.CoreHub.Services.R2StorageService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IGuardService, VanAn.CoreHub.Services.GuardService>();
+
             // R2 Cleanup: photo cleanup service + background hosted service
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IR2CleanupService, VanAn.CoreHub.Services.R2CleanupService>();
+
             _ = builder.Services.Configure<VanAn.CoreHub.Infrastructure.R2CleanupOptions>(
+
                 builder.Configuration.GetSection("R2Cleanup"));
+
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Infrastructure.R2CleanupHostedService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Infrastructure.Repositories.ITenantProviderConfigurationService, VanAn.CoreHub.Infrastructure.Repositories.TenantProviderConfigurationService>();
+
             // Phase 5: Customer segmentation service for bulk push campaigns
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICustomerSegmentationService, VanAn.CoreHub.Services.CustomerSegmentationService>();
+
             // Core services
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IAccountingService, VanAn.CoreHub.Services.AccountingEntryService>();
+
             _ = builder.Services.AddScoped<IHKDBookService, HKDBookService>();
+
             _ = builder.Services.AddScoped<IReversalService, ReversalService>();
+
             _ = builder.Services.AddScoped<IPeriodClosingService, PeriodClosingService>();
+
             _ = builder.Services.AddScoped<IAuditTrailService, AuditTrailService>();
+
             // Sprint 3 EXPANDED: async audit queue + background writer
+
             _ = builder.Services.AddSingleton<VanAn.CoreHub.Services.AuditLogQueue>();
+
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.AuditLogBackgroundWriter>();
+
             // P3 FIX: Register missing services referenced by Gateway controllers
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IBuildService, VanAn.CoreHub.Services.BuildService>();
+
             _ = builder.Services.AddScoped<VanAn.Shared.Services.IKitchenService, VanAn.CoreHub.Services.KitchenService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IOrderService, VanAn.CoreHub.Services.OrderService>();
+
             // Section 5 fix (2026-09-16): OrdersController injects IOrderWorkflowService for unified
+
             // state-machine transitions (PUT /api/orders/{id}/status). Without this registration, DI
+
             // resolution throws InvalidOperationException → UnifiedErrorHandler returns 400 for ALL
+
             // OrdersController endpoints. ShopERP Program.cs line 216 already registers this; Gateway was missing it.
+
             _ = builder.Services.AddScoped<VanAn.Shared.Services.IOrderWorkflowService, VanAn.CoreHub.Services.OrderWorkflowService>();
+
             // W2-T6: Shop feature toggle settings — needed by OrderService.ConfirmPaymentAsync for accounting bypass
+
             _ = builder.Services.AddScoped<VanAn.Shared.Services.IShopFeatureSettingsService, VanAn.CoreHub.Services.ShopFeatureSettingsService>();
+
             _ = builder.Services.AddHttpClient<VanAn.CoreHub.Services.IShopInstanceService, VanAn.CoreHub.Services.ShopInstanceService>();
+
             // KhachLink Multi-Profile R1: KhachLink instance management (no HttpClient needed — DbContext only)
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IKhachLinkInstanceService, VanAn.CoreHub.Services.KhachLinkInstanceService>();
+
             // Domain Reseller R1: GoDaddy registrar service (HttpClient internally — no IHttpClientFactory needed for v1 MVP)
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.DomainRegistrar.IDomainRegistrarService, VanAn.CoreHub.Services.DomainRegistrar.GodaddyRegistrarService>();
+
             // Domain Reseller R1: TenantDomain management service (DbContext only)
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ITenantDomainService, VanAn.CoreHub.Services.TenantDomainService>();
+
             // VA-FI-MVP2 (2026-08-21): Financial Intelligence — BusinessProfile service + repository
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.IBusinessProfileRepository, VanAn.CoreHub.Repositories.BusinessProfileRepository>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.FinancialIntelligence.IBusinessProfileService, VanAn.CoreHub.Services.FinancialIntelligence.BusinessProfileService>();
+
             // VA-FI-MVP2 Phase 2: Calculation services (2026-08-21) — pure deterministic, Trust Level 1.
+
             // Prerequisites: IncomeStatementService + AccountChartService (consumed by BreakEven/ProfitSummary/TargetProfit).
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IIncomeStatementService, VanAn.CoreHub.Services.IncomeStatementService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IAccountChartService, VanAn.CoreHub.Services.AccountChartService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.FinancialIntelligence.IProfitSummaryService, VanAn.CoreHub.Services.FinancialIntelligence.ProfitSummaryService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.FinancialIntelligence.IBreakEvenAnalysisService, VanAn.CoreHub.Services.FinancialIntelligence.BreakEvenAnalysisService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.FinancialIntelligence.IUnitEconomicsService, VanAn.CoreHub.Services.FinancialIntelligence.UnitEconomicsService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.FinancialIntelligence.ITargetProfitService, VanAn.CoreHub.Services.FinancialIntelligence.TargetProfitService>();
+
             // VA-FI-MVP2 Bug 3 fix (2026-08-22): ShopERP product catalog HTTP bridge.
+
             // Fetches products from ShopERP SQLite (Option C Phase 3 — Gateway PG Products empty).
+
             // Used by UnitEconomicsService + BreakEvenAnalysisService.AnalyzeMultiProductAsync.
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.FinancialIntelligence.IShopErpProductCatalogService, VanAn.Gateway.Services.ShopErpProductCatalogService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IProviderManager, VanAn.CoreHub.Services.ProviderManager>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IExcelExportService, VanAn.CoreHub.Services.ExcelExportService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Orchestration.IWebhookService, VanAn.CoreHub.Services.Orchestration.WebhookService>();
+
             _ = builder.Services.AddScoped<VanAn.Shared.Services.IInventoryService, VanAn.CoreHub.Services.InventoryService>();
+
             // Calc engine (Wave 3 wiring replicated for Gateway in-process host)
+
             // Dependency order: IFormulaEngine -> IPreAggregationService -> IDataProvider
+
             // -> IBookResultCache -> TemplateFactory (concrete) -> IHKDBookGenerationService
+
             // Lazy<IFormulaEngine> breaks circular dependency: FormulaEngine -> DataProvider
+
             // -> PreAggregation -> FormulaEngine (SmartPreAggregationService uses Lazy<IFormulaEngine>)
+
             _ = builder.Services.AddScoped<Lazy<VanAn.CoreHub.Services.Formula.IFormulaEngine>>(
+
                 sp => new Lazy<VanAn.CoreHub.Services.Formula.IFormulaEngine>(() => sp.GetRequiredService<VanAn.CoreHub.Services.Formula.IFormulaEngine>()));
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Formula.IFormulaEngine, VanAn.CoreHub.Services.Formula.ProductionFormulaEngine>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.PreAggregation.IPreAggregationService, VanAn.CoreHub.Services.PreAggregation.SmartPreAggregationService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Data.IDataProvider, VanAn.CoreHub.Services.Data.ScopedDataProvider>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Cache.IBookResultCache, VanAn.CoreHub.Services.Cache.BookResultCache>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Template.TemplateFactory>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Template.IHKDBookGenerationService, VanAn.CoreHub.Services.Template.HKDBookGenerationService>();
 
+
+
             // W-1-T5 (S4, S5): Register NATS subscribers for SQLite→PostgreSQL sync flow
+
             // DataSyncSubscriber: subscribes vanan.shoperp.> → writes Order/Customer status to PostgreSQL
-            // SimpleAccountingEventHandler: subscribes vanan.shoperp.order.completed (+ legacy ordercompleted) → creates accounting entries + HKD books
-            // Both run in Gateway scope (has VanAnDbContext = PostgreSQL).
+
+            // Runs in Gateway scope (has VanAnDbContext = PostgreSQL).
+
             // Degraded mode: if NATS unavailable, services log warning and skip events.
+
+            // Settlement Batch-2 (TC-05, Q2 approved 2026-09-22): SimpleAccountingEventHandler
+            // RETIRED — it wrote duplicate gross-amount revenue entries to PG per OrderCompleted
+            // (no dedup, no period guard). Authoritative path: OrderService.GenerateAccountingEntriesAsync
+            // (payment-confirm, net 511/3331/632) + WalletService COD/external-payment trigger.
+
             _ = builder.Services.AddHostedService<VanAn.Gateway.Services.DataSyncSubscriber>();
-            _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.Events.SimpleAccountingEventHandler>();
+
+
 
             // Phase 3.5: EInvoiceSyncSubscriber — subscribes vanan.shoperp.einvoice.synced.>
+
             // ShopERP publishes e-invoice result after submission → this subscriber updates PG ElectronicInvoice table.
+
             _ = builder.Services.AddHostedService<VanAn.Gateway.Services.EInvoiceSyncSubscriber>();
 
+
+
             // Sync: Register Outbox + NatsSyncWorker for Gateway→ShopERP sync (PostgreSQL → NATS → SQLite)
+
             // Gateway writes orders to PostgreSQL; Outbox event is enqueued by OrderService.CreateOrderFromCommandAsync.
+
             // NatsSyncWorker polls Outbox (PostgreSQL) and publishes to NATS → ShopERP subscriber syncs to SQLite.
+
             // RC-2 fix: Gateway publishes with prefix "cloud" (vanan.cloud.*) to distinguish from
+
             // ShopERP's SQLite→PG direction (vanan.shoperp.*). ShopERP OrderSyncSubscriber listens to vanan.cloud.*.
+
             _ = builder.Services.AddSingleton<INatsEventPublisher, NatsEventPublisher>();
+
             _ = builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
+
             _ = builder.Services.AddHostedService<NatsSyncWorker>();
 
+
+
             // CC-S4 (Sprint 4 v1.2): Background jobs for risk scoring cooling period + held timeout
+
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.CoolingPeriodJob>();
+
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.HeldTimeoutJob>();
 
+
+
             // VALCN v2.0 Phase 3: Loyalty budget reset jobs (Gateway — PG is source of truth for LoyaltyTenantConfigs)
+
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.LoyaltyBudgetDailyResetJob>();
+
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.LoyaltyBudgetMonthlyResetJob>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ILoyaltyBudgetService, VanAn.CoreHub.Services.LoyaltyBudgetService>();
 
+
+
             // Loyalty rewards repository + service — required by RefundOrchestrationService (Phase 4)
+
             // and by LoyaltyRewardsService itself for SubtractPointsAsync reversal path.
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.ILoyaltyRewardsRepository, VanAn.CoreHub.Infrastructure.Repositories.LoyaltyRewardsRepository>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ILoyaltyRewardsService, VanAn.CoreHub.Services.LoyaltyRewardsService>();
+
             // Loyalty Points Integrity (Batch 2, T1.2): PG ledger — single source of truth for
+
             // loyalty award/spend/refund/reversal (OrderWorkflowService + RefundOrchestrationService
+
             // + InternalLoyaltyController). Emergency rollback: feature flag LoyaltyLedgerV2.
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ILoyaltyPointLedgerService, VanAn.CoreHub.Services.LoyaltyPointLedgerService>();
+
             // Loyalty Points Integrity (Batch 1): unified PG→SQLite mirror sync publisher.
+
             // Used by LoyaltyRewardsService (Silo) + AllianceWalletService (Alliance) — publishes
+
             // vanan.cloud.loyalty.changed.{deviceId} (+ Outbox routing key) → ShopERP LoyaltySyncSubscriber.
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.LoyaltyBalanceSyncPublisher>();
 
+
+
             // VALCN v2.0 Phase 4: Refund orchestration (4-step reversal on cancel — feature-flagged, default OFF)
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IRefundOrchestrationService, VanAn.CoreHub.Services.RefundOrchestrationService>();
 
+
+
             // VALCN v2.0 Phase 7: Network dashboard (cross-tenant aggregate metrics — read-only, 10-min cache)
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.INetworkDashboardService, VanAn.CoreHub.Services.NetworkDashboardService>();
 
+
+
             // REQ-1.2: Background service toggle — runtime on/off via SystemSetting (PG) + admin UI
+
             _ = builder.Services.AddSingleton<CoreHub.Services.IBackgroundServiceToggleService, CoreHub.Services.BackgroundServiceToggleService>();
 
+
+
             // VALCN v2.0 Phase 1: Feature flag toggle — default OFF (existing behavior preserved)
+
             _ = builder.Services.AddSingleton<CoreHub.Services.IFeatureFlagService, CoreHub.Services.FeatureFlagService>();
 
+
+
             // OCR Hub S2: OCR engine config — default Tesseract (backward compat)
+
             _ = builder.Services.AddSingleton<CoreHub.Services.IOcrConfigService, CoreHub.Services.OcrConfigService>();
+
+
 
             _ = builder.Services.AddScoped<CoreHub.Services.IOrderService, CoreHub.Services.OrderService>();
 
+
+
             // W0-T3: Register IOrderNotificationService (SignalR broadcast abstraction)
+
             // Implemented in Gateway using IHubContext<OrderHub> — CoreHub stays pure class library.
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Interfaces.IOrderNotificationService, VanAn.Gateway.Services.OrderNotificationService>();
 
+
+
             // Wave 14: Build HmacSigningOptions from configuration
+
             var hmacOptions = new VanAn.Gateway.Middleware.HmacSigningOptions();
+
             var protectedPaths = builder.Configuration
+
                 .GetSection("HmacSigning:ProtectedPaths")
+
                 .Get<string[]>() ?? [];
+
             hmacOptions.ProtectedPaths = protectedPaths.Select(p => new PathString(p)).ToList();
+
             _ = builder.Services.AddSingleton(hmacOptions);
 
+
+
             // Dynamic CORS: static origins from config + dynamic from KhachLinkInstance registry.
+
             // DynamicCorsService (Singleton) reads IMemoryCache only — no DB call in CORS callback.
+
             // DynamicCorsCacheHostedService pre-warms cache on startup + every 5 min.
+
             // No BuildServiceProvider() — uses host container's IDynamicCorsService (Singleton, safe from root).
+
             _ = builder.Services.AddSingleton<IDynamicCorsService, DynamicCorsService>();
+
             _ = builder.Services.AddHostedService<DynamicCorsCacheHostedService>();
 
+
+
             // Capture IServiceProvider — set after builder.Build() (line below).
+
             // The lambda is executed per-request (not at registration), so late binding is safe.
+
             IServiceProvider? rootProvider = null;
+
             _ = builder.Services.AddCors(options =>
+
             {
+
                 options.AddPolicy("DynamicCors", policy =>
+
                 {
+
                     policy.SetIsOriginAllowed(origin =>
+
                     {
+
                         // rootProvider is set immediately after builder.Build() (line 440).
+
                         // First request arrives after app.Run() — rootProvider is never null at request time.
+
                         var corsService = rootProvider!.GetRequiredService<IDynamicCorsService>();
+
                         return corsService.IsOriginAllowed(origin);
+
                     })
+
                     .AllowAnyMethod()
+
                     .AllowAnyHeader()
+
                     // #134-fix: Short preflight cache (60s) so deactivation of KhachLink
+
                     // instances takes effect faster. Default browser preflight cache is
+
                     // 5 min (Chrome) which delays enforcement of disabled instances.
+
                     .SetPreflightMaxAge(TimeSpan.FromSeconds(60));
+
                     // NO AllowCredentials — KhachLink WASM uses JWT Bearer, not cookies.
+
                 });
+
             });
+
+
 
             // #130: Increase Kestrel max request body size for photo upload (default 30MB, explicit for clarity)
+
             builder.WebHost.ConfigureKestrel(options =>
+
             {
+
                 options.Limits.MaxRequestBodySize = 10_000_000; // 10MB
+
             });
 
+
+
             WebApplication app = builder.Build();
+
             rootProvider = app.Services;  // Late-bind for DynamicCors SetIsOriginAllowed lambda
 
+
+
             // 2026-09-21 FIX: Wire the DI DataProtection provider (persistent key ring) into the
+
             // static accessor used by EF Core EncryptedStringConverter (Customer.PhoneNumber/Email).
+
             // Without this the accessor falls back to an EPHEMERAL provider → keys rotate per restart.
+
             VanAn.CoreHub.Infrastructure.DataProtection.DataProtectionProviderAccessor.Initialize(
+
                 app.Services.GetRequiredService<Microsoft.AspNetCore.DataProtection.IDataProtectionProvider>());
 
+
+
             try
+
             {
+
                 Log.Information("🚀 Starting Vạn An Gateway Service...");
 
+
+
                 // Apply PostgreSQL migrations on Gateway startup (production).
+
                 // The Gateway uses VanAnDbContext (PG) for Tenants, Orders, Accounting, etc.
+
                 // Previously relied on ShopERP to apply PG migrations — but if the Gateway starts
+
                 // before ShopERP (or ShopERP is on an older version), PG is missing new columns
+
                 // (e.g., TenantSettings_LegalForm/NavColor) and all Tenant queries fail with 500.
+
                 // Fix #101: Gateway applies its own PG migrations on startup.
+
                 if (!connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
+
                 {
+
                     try
+
                     {
+
                         using var migrateScope = app.Services.CreateScope();
+
                         var vanAnDb = migrateScope.ServiceProvider.GetRequiredService<VanAn.CoreHub.Infrastructure.VanAnDbContext>();
+
                         await vanAnDb.Database.MigrateAsync();
+
                         Log.Information("PostgreSQL database migrated (Gateway)");
 
+
+
                         // Order sync seed: ensure ShopInstance exists + tenants assigned.
+
                         // Without this, NATS routing key mismatch → orders never sync to ShopERP.
+
                         await SeedShopInstanceAndAssignTenantsAsync(migrateScope.ServiceProvider);
+
                     }
+
                     catch (Exception migrateEx)
+
                     {
+
                         Log.Warning(migrateEx, "PostgreSQL migration skipped (may already be applied by ShopERP)");
+
                     }
+
                 }
+
+
 
                 // Local dev SQLite schema sync: ShopERP's migration creates AccountingEntries with
+
                 // audit columns only (AccountingEntry DbSet removed from ShopERPDbContext per ADR-001).
+
                 // Gateway uses VanAnDbContext which expects full business columns (AccountCode, Amount,
+
                 // EntryType, etc.). On SQLite local dev, patch the missing columns via ALTER TABLE.
+
                 // Production uses PostgreSQL where VanAnDbContext migrations create the full schema.
+
                 if (connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
+
                 {
+
                     try
+
                     {
+
                         await EnsureSqliteAccountingSchemaAsync(app.Services);
+
                     }
+
                     catch (Exception schemaEx)
+
                     {
+
                         Log.Warning(schemaEx, "SQLite schema patch skipped (table may not exist yet in test/dev)");
+
                     }
+
                 }
+
+
 
                 // Configure the HTTP request pipeline.
+
                 if (app.Environment.IsDevelopment())
+
                 {
+
                     _ = app.UseSwagger();
+
                     _ = app.UseSwaggerUI();
+
                 }
+
+
 
                 // Add unified error handling middleware
+
                 _ = app.UseMiddleware<UnifiedErrorHandler>();
 
+
+
                 // Wave 7: Enable HTTPS redirection only in Production
+
                 if (!app.Environment.IsDevelopment())
+
                 {
+
                     _ = app.UseHttpsRedirection();
+
                 }
 
+
+
                 // Forwarded headers for nginx reverse proxy (Docker networking)
+
                 _ = app.UseForwardedHeaders(new ForwardedHeadersOptions
+
                 {
+
                     ForwardedHeaders = ForwardedHeaders.XForwardedFor |
+
                                        ForwardedHeaders.XForwardedProto |
+
                                        ForwardedHeaders.XForwardedHost,
+
                     // Clear loopback restrictions for Docker networking
+
                     KnownProxies = { },
+
                     KnownNetworks = { }
+
                 });
+
+
 
                 _ = app.UseCors("DynamicCors");
 
+
+
                 // Wave 1 Phase 2: Authentication & Authorization middleware
+
                 _ = app.UseAuthentication();
+
                 _ = app.UseAuthorization();
 
+
+
                 // Phase 1 Scaling: Rate limiting middleware — must run after auth (so [EnableRateLimiting] attributes apply)
+
                 // but before MapControllers (so endpoint policies are enforced).
+
                 _ = app.UseRateLimiter();
 
+
+
                 // Phase 1 Scaling: Response caching middleware — serves cached responses for [ResponseCache] endpoints.
+
                 // Must run after auth (so authorized responses aren't cached for wrong users) but before MapControllers.
+
                 _ = app.UseResponseCaching();
 
+
+
                 // Wave 14: HMAC Request Signing — validate signatures on protected paths
+
                 _ = app.UseMiddleware<VanAn.Gateway.Middleware.HmacSigningMiddleware>();
 
+
+
                 // Add Localization Middleware
+
                 _ = app.UseMiddleware<LocalizationMiddleware>();
 
+
+
                 // W4 Fix: Map controllers BEFORE YARP so Gateway's own API endpoints
+
                 // (OrdersController, VietQrController, etc.) take priority over the
+
                 // YARP fallback catch-all route ({**catch-all} → khachlink-cluster).
+
                 // Without this, /api/* requests get forwarded to KhachLink (HTML) instead
+
                 // of being handled by Gateway controllers.
+
                 _ = app.MapControllers();
+
                 _ = app.MapHub<OrderHub>("/orderHub");
+
                 _ = app.MapHub<KitchenHub>("/kitchenhub");
+
                 _ = app.MapHub<LocationHub>("/hubs/location");
+
                 _ = app.MapHub<ChatHub>("/hubs/chat");
+
                 // Realtime Platform P3 (2026-09-17): subject-agnostic hubs. The order-specific hubs
+
                 // above stay mapped — KhachLink builds that predate this still connect to them.
+
                 _ = app.MapHub<MessagingHub>("/hubs/messaging");
+
                 _ = app.MapHub<TrackingHub>("/hubs/tracking");
 
+
+
                 // Add YARP Reverse Proxy (after controllers so it only catches non-API routes)
+
                 _ = app.MapReverseProxy();
 
+
+
                 // Health check endpoint
+
                 _ = app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", Service = "VanAn Gateway", Timestamp = DateTime.UtcNow }));
 
+
+
                 // Phase 1 Scaling: Detailed health check — returns PG connection count, memory usage, process info.
+
                 // Used by monitoring (Phase 3 Prometheus) + capacity dashboard (Phase 2 admin UI).
+
                 _ = app.MapGet("/health/detail", async (VanAnDbContext db) =>
+
                 {
+
                     try
+
                     {
+
                         // PG connection count — should stay < 250 when 1000 tenant active (pool max 300)
+
                         var conn = db.Database.GetDbConnection();
+
                         await conn.OpenAsync();
+
                         using var cmd = conn.CreateCommand();
+
                         cmd.CommandText = "SELECT count(*) FROM pg_stat_activity";
+
                         var pgConnections = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+
                         await conn.CloseAsync();
 
+
+
                         var process = System.Diagnostics.Process.GetCurrentProcess();
+
                         var memoryMb = process.WorkingSet64 / (1024 * 1024);
 
+
+
                         return Results.Ok(new
+
                         {
+
                             Status = "Healthy",
+
                             Service = "VanAn Gateway",
+
                             Timestamp = DateTime.UtcNow,
+
                             PostgresConnections = pgConnections,
+
                             PostgresPoolMax = 300,
+
                             MemoryMb = memoryMb,
+
                             MemoryLimitMb = 1024,
+
                             UptimeMinutes = (int)(DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime()).TotalMinutes,
+
                             GcTotalMemoryMb = GC.GetTotalMemory(false) / (1024 * 1024),
+
                             Gen0Collections = GC.CollectionCount(0),
+
                             Gen1Collections = GC.CollectionCount(1),
+
                             Gen2Collections = GC.CollectionCount(2)
+
                         });
+
                     }
+
                     catch (Exception ex)
+
                     {
+
                         return Results.Problem(
+
                             title: "Health check failed",
+
                             detail: ex.Message,
+
                             statusCode: 503);
+
                     }
+
                 });
 
+
+
                 // ÉP CỨNG BINDING - Fix 404
+
                 // Respect ASPNETCORE_URLS env (Docker: http://+:80). Fallback to 5001 for local dev.
+
                 var aspUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
+
                 if (!string.IsNullOrEmpty(aspUrls))
+
                 {
+
                     app.Run();
+
                 }
+
                 else
+
                 {
+
                     app.Urls.Add("http://0.0.0.0:5001");
+
                     app.Run("http://0.0.0.0:5001");
+
                 }
+
             }
+
             catch (Exception ex)
+
             {
+
                 Log.Fatal(ex, "❌ Gateway Service terminated unexpectedly");
+
             }
+
             finally
+
             {
+
                 Log.CloseAndFlush();
+
             }
+
         }
 
+
+
         /// <summary>
+
         /// SaaS W1: Validate Production configuration — fail fast if __REPLACE_* sentinels remain.
+
         /// </summary>
+
         private static void ValidateProductionConfig(ConfigurationManager configuration)
+
         {
+
             string? jwtSecret = configuration["Jwt:Secret"];
+
             if (string.IsNullOrWhiteSpace(jwtSecret) || jwtSecret.Contains("__REPLACE_", StringComparison.Ordinal))
+
             {
+
                 throw new InvalidOperationException("Jwt:Secret is missing or still has __REPLACE_* sentinel. Set via Jwt__Secret env var.");
+
             }
+
             if (jwtSecret.Length < 32)
+
             {
+
                 throw new InvalidOperationException("Jwt:Secret must be at least 32 characters for HS256 security.");
+
             }
+
         }
 
+
+
         /// <summary>
+
         /// Local dev SQLite schema patch: add missing business columns to AccountingEntries table.
+
         /// ShopERP's ShopERPDbContext migration creates AccountingEntries with audit columns only
+
         /// (AccountingEntry DbSet removed per ADR-001). Gateway's VanAnDbContext expects full
+
         /// business columns. This method patches the gap via ALTER TABLE ADD COLUMN (SQLite-safe,
+
         /// idempotent — checks PRAGMA table_info before adding).
+
         /// </summary>
+
         private static async Task EnsureSqliteAccountingSchemaAsync(IServiceProvider services)
+
         {
+
             using IServiceScope scope = services.CreateScope();
+
             VanAnDbContext context = scope.ServiceProvider.GetRequiredService<VanAnDbContext>();
 
+
+
             // Columns that VanAnDbContext expects but ShopERP's migration doesn't create.
+
             // SQLite ALTER TABLE ADD COLUMN is null-tolerant for existing rows.
+
             (string Name, string Type)[] requiredColumns =
+
             [
+
                 ("Amount", "REAL NOT NULL DEFAULT 0"),
+
                 ("EntryType", "INTEGER NOT NULL DEFAULT 0"),
+
                 ("VatRate", "INTEGER NOT NULL DEFAULT 0"),
+
                 ("AccountingBookType", "INTEGER NOT NULL DEFAULT 0"),
+
                 ("PeriodYear", "INTEGER NOT NULL DEFAULT 2000"),
+
                 ("PeriodMonth", "INTEGER NOT NULL DEFAULT 1"),
+
                 ("ReversalEntryId", "TEXT"),
+
                 ("Description", "TEXT NOT NULL DEFAULT ''"),
+
                 ("AccountCode", "TEXT"),
+
                 ("Vendor", "TEXT"),
+
                 ("Category", "TEXT"),
+
                 ("Reference", "TEXT"),
+
                 ("IndustrySector", "INTEGER"),
+
             ];
 
+
+
             // Query existing columns
+
             var existingColumns = await context.Database.SqlQueryRaw<ColumnInfo>(
+
                 "PRAGMA table_info(AccountingEntries)").ToListAsync();
+
             var existingNames = existingColumns.Select(c => c.Name).ToHashSet();
 
+
+
             int added = 0;
+
             foreach ((string name, string type) in requiredColumns)
+
             {
+
                 if (!existingNames.Contains(name))
+
                 {
+
                     await context.Database.ExecuteSqlRawAsync(
+
                         $"ALTER TABLE AccountingEntries ADD COLUMN {name} {type}");
+
                     added++;
+
                 }
+
             }
+
+
 
             if (added > 0)
+
             {
+
                 Log.Information("SQLite schema patch: added {Count} missing columns to AccountingEntries", added);
+
             }
+
         }
+
+
 
         private class ColumnInfo
+
         {
+
             public int Cid { get; set; }
+
             public string Name { get; set; } = string.Empty;
+
             public string Type { get; set; } = string.Empty;
+
             public int NotNull { get; set; }
+
             [Column("dflt_value")]
+
             public string? DfltValue { get; set; }
+
             public int Pk { get; set; }
+
         }
+
+
 
         /// <summary>
+
         /// Order sync seed: ensures all tenants are assigned to an active ShopInstance.
+
         ///
+
         /// Without this, NATS routing key is null → orders published to unrouted subject
+
         /// → ShopERP subscriber never receives them → orders don't appear in ShopERP UI.
+
         ///
+
         /// Logic:
+
         /// 1. If SEED_SHOP_INSTANCE_ID is set and no matching ShopInstance exists → auto-create it
+
         /// 2. Find target ShopInstance — prefer SEED_SHOP_INSTANCE_ID match, else first active
+
         /// 3. Assign all unassigned tenants to it
+
         /// 4. If SEED_SHOP_INSTANCE_ID is set, reassign tenants currently on a DIFFERENT ShopInstance
+
         ///    (handles config drift: tenants assigned to old ID after secret change)
+
         ///
+
         /// SEED_SHOP_INSTANCE_ID env var (optional): if set, auto-creates the ShopInstance if
+
         /// missing and reassigns all tenants to it. Otherwise, the first active ShopInstance is used.
+
         /// </summary>
+
         private static async Task SeedShopInstanceAndAssignTenantsAsync(IServiceProvider serviceProvider)
+
         {
+
             try
+
             {
+
                 var db = serviceProvider.GetRequiredService<VanAnDbContext>();
 
+
+
                 // 1. Parse SEED_SHOP_INSTANCE_ID (optional)
+
                 Guid? preferredShopInstanceId = null;
+
                 string? seedIdStr = Environment.GetEnvironmentVariable("SEED_SHOP_INSTANCE_ID");
+
                 if (Guid.TryParse(seedIdStr, out Guid seedId) && seedId != Guid.Empty)
+
                 {
+
                     preferredShopInstanceId = seedId;
+
                 }
+
+
 
                 // 2. If SEED_SHOP_INSTANCE_ID is set but ShopInstance doesn't exist → auto-create
+
                 // VA-FI-MVP2 Bug 3 fix: use ShopERP:BaseUrl from config (not "http://localhost")
+
                 // so Gateway-to-ShopERP HTTP forwarding works in multi-VPS deployments.
+
                 var config = serviceProvider.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>();
+
                 string seedBaseUrl = Environment.GetEnvironmentVariable("ShopERP__BaseUrl")
+
                     ?? config["ShopERP:BaseUrl"]
+
                     ?? "http://shoperp:80/";
+
                 if (preferredShopInstanceId.HasValue)
+
                 {
+
                     bool exists = await db.ShopInstances
+
                         .IgnoreQueryFilters()
+
                         .AnyAsync(s => s.Id == preferredShopInstanceId.Value);
+
                     if (!exists)
+
                     {
+
                         var seedInstance = new ShopInstance(
+
                             baseUrl: seedBaseUrl,
+
                             label: $"Seeded {preferredShopInstanceId.Value.ToString()[..8]}",
+
                             maxTenants: 100);
+
                         // BaseEntity.Id has protected setter — use reflection to set the seed ID
+
                         // (seed operation, not domain business logic)
+
                         typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!
+
                             .SetValue(seedInstance, preferredShopInstanceId.Value);
+
                         db.ShopInstances.Add(seedInstance);
+
                         await db.SaveChangesAsync();
+
                         Log.Information("SeedShopInstance: auto-created ShopInstance {Id} (label={Label}, baseUrl={BaseUrl})",
+
                             seedInstance.Id, seedInstance.Label, seedInstance.BaseUrl);
+
                     }
+
                 }
+
+
 
                 // 2b. Fix existing ShopInstances with "http://localhost" BaseUrl (config drift from
+
                 // pre-fix seed code). Update to current ShopERP:BaseUrl so HTTP forwarding works.
+
                 var localhostInstances = await db.ShopInstances
+
                     .IgnoreQueryFilters()
+
                     .Where(s => s.BaseUrl == "http://localhost")
+
                     .ToListAsync();
+
                 if (localhostInstances.Count > 0)
+
                 {
+
                     foreach (var inst in localhostInstances)
+
                     {
+
                         typeof(ShopInstance).GetProperty(nameof(ShopInstance.BaseUrl))!
+
                             .SetValue(inst, seedBaseUrl);
+
                     }
+
                     await db.SaveChangesAsync();
+
                     Log.Information("SeedShopInstance: updated {Count} ShopInstance(s) with localhost BaseUrl → {BaseUrl}",
+
                         localhostInstances.Count, seedBaseUrl);
+
                 }
+
+
 
                 // 3. Find target ShopInstance — prefer SEED_SHOP_INSTANCE_ID match, else first active
+
                 var shopInstances = await db.ShopInstances
+
                     .IgnoreQueryFilters()
+
                     .Where(s => s.IsActive)
+
                     .ToListAsync();
+
+
 
                 ShopInstance? targetInstance = preferredShopInstanceId.HasValue
+
                     ? shopInstances.FirstOrDefault(s => s.Id == preferredShopInstanceId.Value)
+
                     : null;
+
                 targetInstance ??= shopInstances.FirstOrDefault();
 
+
+
                 if (targetInstance == null)
+
                 {
+
                     Log.Warning("SeedShopInstance: no active ShopInstance found — tenants cannot be assigned. " +
+
                                 "Create a ShopInstance via POST /api/v1/shop-instances");
+
                     return;
+
                 }
+
+
 
                 // 4. Assign unassigned tenants + reassign tenants on a DIFFERENT ShopInstance (config drift fix)
+
                 var tenantsToAssign = await db.Tenants
+
                     .IgnoreQueryFilters()
+
                     .Where(t => t.ShopInstanceId == null || t.ShopInstanceId != targetInstance.Id)
+
                     .ToListAsync();
+
+
 
                 if (tenantsToAssign.Count > 0)
+
                 {
+
                     int unassignedCount = tenantsToAssign.Count(t => t.ShopInstanceId == null);
+
                     int reassignedCount = tenantsToAssign.Count - unassignedCount;
+
                     foreach (var tenant in tenantsToAssign)
+
                     {
+
                         tenant.AssignToShopInstance(targetInstance.Id);
+
                     }
+
                     await db.SaveChangesAsync();
+
                     Log.Information("SeedShopInstance: assigned {Unassigned} new + reassigned {Reassigned} drifted tenant(s) to ShopInstance {Id} ({Label})",
+
                         unassignedCount, reassignedCount, targetInstance.Id, targetInstance.Label);
+
                 }
+
                 else
+
                 {
+
                     Log.Debug("SeedShopInstance: all tenants already assigned to ShopInstance {Id}", targetInstance.Id);
+
                 }
+
+
 
                 // #121.2: Seed default coordinates for tenants without lat/lng (test data).
+
                 // Default: HCM District 7 (10.7326, 106.7196) — enables Store Finder distance display.
+
                 var tenantsWithoutCoords = await db.Tenants
+
                     .IgnoreQueryFilters()
+
                     .Where(t => t.Settings != null && t.Settings.Latitude == null && t.Settings.Longitude == null)
+
                     .ToListAsync();
 
+
+
                 if (tenantsWithoutCoords.Count > 0)
+
                 {
+
                     // Spread tenants slightly around default point so distances differ
+
                     double baseLat = 10.7326, baseLng = 106.7196;
+
                     // Tenant + TenantSettings both have private setters — use reflection (seed operation, not domain logic)
+
                     var settingsProp = typeof(VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant)
+
                         .GetProperty(nameof(VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant.Settings))!;
+
                     for (int i = 0; i < tenantsWithoutCoords.Count; i++)
+
                     {
+
                         var t = tenantsWithoutCoords[i];
+
                         double offset = i * 0.005; // ~500m per tenant
+
                         var newSettings = t.Settings!.WithCoordinates(baseLat + offset, baseLng + offset);
+
                         settingsProp.SetValue(t, newSettings);
+
                     }
+
                     await db.SaveChangesAsync();
+
                     Log.Information("SeedCoords: set default coordinates for {Count} tenant(s) (HCM D7 area)", tenantsWithoutCoords.Count);
+
                 }
+
             }
+
             catch (Exception ex)
+
             {
+
                 Log.Warning(ex, "SeedShopInstance: failed — order sync may not work until tenants are assigned manually");
+
             }
+
         }
+
     }
 
+
+
     public partial class Program { }
+
 }
+

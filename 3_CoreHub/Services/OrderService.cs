@@ -392,6 +392,14 @@ namespace VanAn.CoreHub.Services
                             accountCode: "511", reference: $"{orderRef}-PLT-REV", industrySector: sector);
                     }
                 }
+                else if (!platformTenantId.HasValue || platformTenantId.Value == Guid.Empty)
+                {
+                    // Settlement Batch-2 (B5): missing config previously skipped silently —
+                    // platform fee income was never booked. Surface loudly (was LogDebug).
+                    _logger.LogWarning(
+                        "Reseller order {OrderId}: SystemSetting 'PlatformAccountingTenantId' not configured — platform fee income (fee={PlatformFee}, fund={CommunityFund}) NOT booked. SysAdmin must configure PlatformAccountingTenantId (1-time setup).",
+                        order.Id, margin * platformFeeRate, margin * communityFundRate);
+                }
             }
             else
             {

@@ -1763,15 +1763,24 @@ namespace VanAn.Shared.Domain
         /// CC-S5 (Sprint 5): F2 fix — Sprint 0 created CodAmount/CodCollectedAt fields but no domain method.
         /// Called by WalletService.ConfirmCodAsync when shipper confirms COD collection.
         /// Idempotency guard: throws if CodCollectedAt already set.
+        /// Settlement Batch-2 (TC-06, Q3 approved 2026-09-22): collecting the money IS the payment
+        /// event (TT 152 cash-basis — doanh thu ghi nhận theo thực thu), so this also marks the
+        /// order Paid ("COD" or "EXTERNAL") and triggers accounting downstream.
         /// </summary>
-        public void MarkCodCollected(decimal codAmount)
+        public void MarkCodCollected(decimal codAmount, string paymentMethod = "COD", string? transactionId = null)
         {
             if (codAmount < 0)
                 throw new ArgumentOutOfRangeException(nameof(codAmount), "CodAmount cannot be negative.");
             if (CodCollectedAt != null)
                 throw new InvalidOperationException($"Order {Id} COD already collected. Idempotency guard.");
+            if (PaymentStatus == "Paid")
+                throw new InvalidOperationException($"Order {Id} payment already confirmed via {PaymentMethod}. Idempotency guard.");
             CodAmount = codAmount;
             CodCollectedAt = DateTime.UtcNow;
+            PaymentStatus = "Paid";
+            PaymentMethod = paymentMethod;
+            if (!string.IsNullOrWhiteSpace(transactionId))
+                VietQR_TransactionId = transactionId;
             UpdateAudit();
         }
 

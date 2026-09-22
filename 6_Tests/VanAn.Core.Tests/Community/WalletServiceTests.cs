@@ -1,8 +1,11 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Services;
+using VanAn.Shared.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
 using VanAn.Shared.Domain.Common;
@@ -461,6 +464,108 @@ public class WalletServiceTests : IDisposable
         // The real tenant can still confirm afterwards
         var settlement = await _service.ConfirmAdvanceReceivedAsync(TenantId, advanceTx.Id);
         Assert.Equal(30000m, settlement.Amount);
+    }
+
+    // ===== Settlement Batch-2 (TC-06): COD collect → Paid + payment event + accounting =====
+
+    // === T26: ConfirmCod_MarksOrderPaid ===
+    [Fact(DisplayName = "T26: ConfirmCod_MarksOrderPaid_COD")]
+    public async Task ConfirmCod_MarksOrderPaid()
+    {
+        await SeedTenantAsync();
+        var orderId = await SeedOrderAsync(codAmount: 50000m);
+        await SeedDeliveryTaskAsync(orderId);
+
+        var tx = await _service.ConfirmCodAsync(ShipperId, orderId, 50000m);
+
+        var order = await _context.Orders.IgnoreQueryFilters().FirstAsync(o => o.Id == orderId);
+        Assert.Equal("Paid", order.PaymentStatus);
+        Assert.Equal("COD", order.PaymentMethod);
+        Assert.Equal(tx.Id.ToString(), order.VietQR_TransactionId); // ref = CODCollection wallet tx
+    }
+
+    // === T27: ConfirmCod_EnqueuesOrderPaymentConfirmed (atomic outbox → ShopERP replica) ===
+    [Fact(DisplayName = "T27: ConfirmCod_EnqueuesOrderPaymentConfirmed")]
+    public async Task ConfirmCod_EnqueuesOrderPaymentConfirmed()
+    {
+        var outbox = new Mock<IOutboxRepository>();
+        var service = new WalletService(_context, _tenantProvider, NullLogger<WalletService>.Instance,
+            outboxRepository: outbox.Object);
+
+        await SeedTenantAsync();
+        var orderId = await SeedOrderAsync(codAmount: 50000m);
+        await SeedDeliveryTaskAsync(orderId);
+
+        await service.ConfirmCodAsync(ShipperId, orderId, 50000m);
+
+        outbox.Verify(o => o.EnqueueAsync(
+            It.Is<OutboxEvent>(e => e.EventType == "OrderPaymentConfirmed" && e.CorrelationId == orderId),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    // === T28: ConfirmCod_GeneratesAccountingEntriesOnLocalBookset ===
+    [Fact(DisplayName = "T28: ConfirmCod_GeneratesAccountingEntries")]
+    public async Task ConfirmCod_GeneratesAccountingEntries()
+    {
+        var orderService = new Mock<IOrderService>();
+        var service = new WalletService(_context, _tenantProvider, NullLogger<WalletService>.Instance,
+            orderService: orderService.Object);
+
+        await SeedTenantAsync();
+        var orderId = await SeedOrderAsync(codAmount: 50000m);
+        await SeedDeliveryTaskAsync(orderId);
+
+        await service.ConfirmCodAsync(ShipperId, orderId, 50000m);
+
+        orderService.Verify(o => o.GenerateAccountingEntriesAsync(
+            It.Is<Order>(x => x.Id == orderId),
+            It.Is<TenantId>(t => t.Value == TenantId)), Times.Once);
+    }
+
+    // === T29: ConfirmCod_AccountingSyncDisabled_SkipsEntries (toggle honored, Paid still set) ===
+    [Fact(DisplayName = "T29: ConfirmCod_AccountingSyncDisabled_SkipsEntries")]
+    public async Task ConfirmCod_AccountingSyncDisabled_SkipsEntries()
+    {
+        var orderService = new Mock<IOrderService>();
+        var featureSettings = new Mock<IShopFeatureSettingsService>();
+        featureSettings
+            .Setup(f => f.IsEnabledAsync(TenantId, nameof(ShopFeatureSettingsDto.Accounting_Sync_Enabled), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        var service = new WalletService(_context, _tenantProvider, NullLogger<WalletService>.Instance,
+            orderService.Object, shopFeatureSettingsService: featureSettings.Object);
+
+        await SeedTenantAsync();
+        var orderId = await SeedOrderAsync(codAmount: 50000m);
+        await SeedDeliveryTaskAsync(orderId);
+
+        await service.ConfirmCodAsync(ShipperId, orderId, 50000m);
+
+        orderService.Verify(o => o.GenerateAccountingEntriesAsync(It.IsAny<Order>(), It.IsAny<TenantId>()), Times.Never);
+        var order = await _context.Orders.IgnoreQueryFilters().FirstAsync(o => o.Id == orderId);
+        Assert.Equal("Paid", order.PaymentStatus); // payment state unaffected by the toggle
+    }
+
+    // === T30: ConfirmCod_AccountingFailure_DoesNotFailConfirm (best-effort after commit) ===
+    [Fact(DisplayName = "T30: ConfirmCod_AccountingFailure_DoesNotFailConfirm")]
+    public async Task ConfirmCod_AccountingFailure_DoesNotFailConfirm()
+    {
+        var orderService = new Mock<IOrderService>();
+        orderService
+            .Setup(o => o.GenerateAccountingEntriesAsync(It.IsAny<Order>(), It.IsAny<TenantId>()))
+            .ThrowsAsync(new Exception("accounting boom"));
+        var service = new WalletService(_context, _tenantProvider, NullLogger<WalletService>.Instance,
+            orderService.Object);
+
+        await SeedTenantAsync();
+        var orderId = await SeedOrderAsync(codAmount: 50000m);
+        await SeedDeliveryTaskAsync(orderId);
+
+        // Accounting failure must NOT fail the COD confirm — payment state is durable.
+        var tx = await service.ConfirmCodAsync(ShipperId, orderId, 50000m);
+        Assert.Equal(WalletTransactionType.CODCollection, tx.Type);
+
+        var order = await _context.Orders.IgnoreQueryFilters().FirstAsync(o => o.Id == orderId);
+        Assert.Equal("Paid", order.PaymentStatus);
     }
 
     private sealed class StubTenantProvider : ITenantProvider
