@@ -34,6 +34,16 @@
 
 ## 2. Current Objective
 
+**FALLBACK NGUỒN MST: tracuunnt.gdt.gov.vn (Tổng cục Thuế) — ✅ IMPLEMENTED + DEPLOYED (2026-09-22, `e6871d38` + `e4b47b24` + `2ad51c9e` + `0ff2a8aa`, CD SUCCESS) — E2E chờ WAF nguội.**
+
+> User duyệt giải pháp (2026-09-22): bổ sung nguồn thay thế khi doanhnghiep.vn chưa có key. Investigation từ IP cloud GCP: dangkykinhdoanh.gov.vn 200 nhưng **61s** (SharePoint cũ → bỏ) · dichvucong.dkkd.gov.vn 000 (chết) · masothue.vn/ma-so-thue.vn/xemcongty/thongtindoanhnghiep.co **chặn IP cloud** (000/403) · masothue.com 200 nhưng search client-side (cần reverse API — bỏ) · **tracuunnt.gdt.gov.vn 200 từ cloud** nhưng **captcha-gated** → chọn làm fallback (chính thống, chuẩn MST/trạng thái).
+>
+> **Implement:** `GdtMstLookupSource` (mới) — GET mstdn.jsp (cookie session) → GET captcha.png → **OCR tesseract đa candidate** (psm 7/8/13 + whitelist alnum; verified đọc đúng "224yh", "x2bh"/"x62bh") → POST từng candidate trong cùng session captcha (captcha sai = "Vui lòng nhập đúng mã xác nhận!" → thử candidate kế; hết candidate → retry captcha mới tối đa 3). Parse bảng kết quả (tên/địa chỉ/người đại diện/trạng thái; skip tạm ngừng/chấm dứt). **Polite:** opt-in `Crawler__GdtLookupEnabled` (default false) · GdtMaxPerDay 30 · GdtRateLimitMs 5000 (+backoff 10s khi WAF 429) · chỉ dùng luồng MST lẻ. `CrawlerCoordinator` tax-code branch: doanhnghiep.vn trước → MST còn thiếu → GDT fallback. Dockerfile + tesseract-ocr 5.3.0. **CD preservation:** `CRAWLER_GDT_LOOKUP_ENABLED` + `DOANHNGHIEP_API_KEY` giữ qua mọi deploy (workflow `2ad51c9e`).
+>
+> **RV production:** flag bật (Crawler__GdtLookupEnabled=true) · trigger MST 0100107518 → phase "Tra cứu 1 MST còn thiếu qua tracuunnt.gdt.gov.vn" chạy đúng · OCR đọc captcha thật chuẩn · POST captcha sai bị server từ chối → candidate fix deploy. **⏳ E2E (tạo Pending tenant từ GDT) CHƯA verify:** WAF GDT rate-limit **429** IP gateway nặng (do loạt request lúc investigate/test trong vài giờ — cửa sổ WAF dài). Code xử lý 429 đúng (backoff + retry) — trong dùng thực tế (30 lookup/ngày, cách quãng) sẽ qua. **Cần chờ:** WAF nguội (vài giờ) rồi trigger 1 lần verify E2E, HOẶC user dùng từ máy khác (IP khác). doanhnghiep.vn key (nguồn chính) vẫn là ưu tiên.
+>
+> **Không bắn thêm request GDT** trong session này (tôn trọng WAF) — tránh kéo dài cửa sổ 429.
+
 **ADMIN PANEL 500 + MAP GHIM + CRAWL/MST — ✅ ALL FIXED + DEPLOYED + RV PRODUCTION PASS (2026-09-21, `9e18257f` + `66c48b62` + `f0924ed4` + `e0a4081a` + `99e2cd6f`, CD Multi-VPS SUCCESS).**
 
 > User report (4 mục): (1) danh sách cộng tác viên không load + SystemAdmin không nâng cấp được khách → Salesman/Shipper; (2) không show map ghim vị trí giao hàng; (3) crawl tenant không quét được; (4) feature đăng ký tenant bằng mã số thuế (1 hoặc danh sách).
