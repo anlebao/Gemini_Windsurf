@@ -45,6 +45,12 @@ configured and Google OAuth needs a real browser session).
 **Re-used again 2026-09-17** for the commission-base + self-referral RV
 (`task_card_07_commission_base_selfreferral.md`) — same enable → use → remove cycle.
 
+**Re-used 2026-09-22** for the Settlement Batch-1 RV (TC-01..TC-04 wallet money-safety —
+`docs/AI/tasks/settlement_tat_toan/`). Enabled inline on vanan-shop-a, minted test token for
+`+84909997771`, exercised confirm-cod/confirm-advance/confirm-advance-received against
+seeded PG data, then removed: env count `0`, endpoint `404`, secret+token files deleted,
+PG test data + ShopERP SQLite customer cleaned.
+
 **How it was enabled (NOT persisted to `.env.shoperp`):**
 
 ```bash

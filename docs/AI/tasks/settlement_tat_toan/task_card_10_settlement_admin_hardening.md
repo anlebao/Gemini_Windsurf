@@ -37,6 +37,9 @@ WalletService không ghi `AuditLog` (AccountingEntryService có `LogCreateAsync`
 ### S10 — Settlements.razor UI Platform (D10)
 Dùng raw `<table>`/`<input>` (`Settlements.razor:35-45, 63-100`) — kiểm tra UI Platform có table/date-picker component tương đương; migrate nếu có (UI Platform compliance).
 
+### S11 — `ConfirmAdvanceReceived` status code (phát hiện trong RV Batch-1, 2026-09-22)
+`CommunityController.ConfirmAdvanceReceived` không catch `UnauthorizedAccessException` → cross-tenant rejection trả **500 "Lỗi server"** thay vì 403 (guard vẫn chặn đúng — không tạo Settlement). Fix: thêm `catch (UnauthorizedAccessException) → 403` như `ConfirmCod`/`ConfirmAdvance`.
+
 ## Acceptance
 
 - [ ] Mỗi sub-task có test/verify riêng; list trong PR từng batch.
