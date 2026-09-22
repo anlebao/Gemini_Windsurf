@@ -339,6 +339,12 @@ jobs:
             # Domain Reseller R1: Preserve existing GoDaddy API key if GitHub secret is empty
             EXISTING_GODADDY_KEY=$(grep -E '^GODADDY_API_KEY=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
             FINAL_GODADDY_KEY="${DEPLOY_GODADDY_API_KEY:-$EXISTING_GODADDY_KEY}"
+            # 2026-09-21/22: Preserve crawler runtime config set manually on the VPS
+            # (doanhnghiep.vn API key + GDT fallback flag) — CD must NOT drop them.
+            EXISTING_DN_KEY=$(grep -E '^DOANHNGHIEP_API_KEY=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
+            FINAL_DN_KEY="${EXISTING_DN_KEY:-}"
+            EXISTING_GDT_FLAG=$(grep -E '^CRAWLER_GDT_LOOKUP_ENABLED=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
+            FINAL_GDT_FLAG="${EXISTING_GDT_FLAG:-false}"
 
             printf '%s\n' \
               "VANAN_DOMAIN=${DEPLOY_VANAN_DOMAIN}" \
@@ -366,6 +372,8 @@ jobs:
               "DOMAIN_REGISTRAR_DEFAULT_VPS_IP=${DEPLOY_VPS_GATEWAY_HOST:-}" \
               "CRAWLER_GATEWAY_USERNAME=sysadmin@vanan.vn" \
               "CRAWLER_GATEWAY_PASSWORD=2026@vanan" \
+              "DOANHNGHIEP_API_KEY=${FINAL_DN_KEY}" \
+              "CRAWLER_GDT_LOOKUP_ENABLED=${FINAL_GDT_FLAG}" \
               > .env.gateway
 
             # Login to GHCR
