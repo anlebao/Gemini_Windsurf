@@ -134,99 +134,126 @@ public sealed class GdtMstLookupSource
         }
         var capBytes = await capResp.Content.ReadAsByteArrayAsync(ct);
 
-        var captchaText = await OcrCaptchaAsync(capBytes, ct);
-        if (string.IsNullOrWhiteSpace(captchaText))
+        // OCR gives several candidates (psm 7/8/13 may disagree, e.g. "x2bh" vs "x62bh").
+        // Try each against the server within the SAME captcha/session — a wrong guess
+        // re-renders the form (captcha stays valid until a successful match).
+        var candidates = await OcrCaptchaCandidatesAsync(capBytes, ct);
+        if (candidates.Count == 0)
         {
             _logger.LogWarning("[{Source}] Captcha OCR failed (attempt {Attempt})", Name, attempt);
             return null;
         }
 
-        // 3. POST the search (same cookie jar)
-        using var postContent = new FormUrlEncodedContent(new Dictionary<string, string>
+        // 3. POST the search (same cookie jar) for each candidate
+        foreach (var captchaText in candidates)
         {
-            ["cm"] = "cm",
-            ["mst"] = mst,
-            ["fullname"] = "",
-            ["address"] = "",
-            ["cmt"] = "",
-            ["captcha"] = captchaText
-        });
-        using var postResp = await _http.PostAsync("/tcnnt/mstdn.jsp", postContent, ct);
-        if (postResp.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-        {
-            _logger.LogWarning("[{Source}] WAF rate-limited on POST (attempt {Attempt}) — backing off", Name, attempt);
-            await Task.Delay(Math.Max(_options.GdtRateLimitMs, 10000), ct);
-            return null;
-        }
-        var html = await postResp.Content.ReadAsStringAsync(ct);
+            using var postContent = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["cm"] = "cm",
+                ["mst"] = mst,
+                ["fullname"] = "",
+                ["address"] = "",
+                ["cmt"] = "",
+                ["captcha"] = captchaText
+            });
+            using var postResp = await _http.PostAsync("/tcnnt/mstdn.jsp", postContent, ct);
+            if (postResp.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            {
+                _logger.LogWarning("[{Source}] WAF rate-limited on POST (attempt {Attempt}) — backing off", Name, attempt);
+                await Task.Delay(Math.Max(_options.GdtRateLimitMs, 10000), ct);
+                return null;
+            }
+            var html = await postResp.Content.ReadAsStringAsync(ct);
 
-        // WAF / gateway rejection
-        if (html.Contains(WafMarker, StringComparison.OrdinalIgnoreCase))
-        {
-            _logger.LogWarning("[{Source}] WAF rejected request (attempt {Attempt})", Name, attempt);
-            return null;
+            // WAF / gateway rejection
+            if (html.Contains(WafMarker, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("[{Source}] WAF rejected request (attempt {Attempt})", Name, attempt);
+                return null;
+            }
+
+            // Wrong captcha → try the next OCR candidate (same captcha session)
+            if (html.Contains(CaptchaErrorMarker, StringComparison.OrdinalIgnoreCase)
+                || html.Contains(CaptchaErrorPlain, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogDebug("[{Source}] Captcha '{Captcha}' wrong (attempt {Attempt}) — next candidate", Name, captchaText, attempt);
+                continue;
+            }
+
+            // Not found
+            if (html.Contains(NotFoundMarker, StringComparison.OrdinalIgnoreCase)
+                || html.Contains(NotFoundPlain, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("[{Source}] MST {Mst} not found", Name, mst);
+                return null;
+            }
+
+            // Success — parse the result table
+            return ParseResultTable(html, mst);
         }
 
-        // Wrong captcha → retry with a fresh one
-        if (html.Contains(CaptchaErrorMarker, StringComparison.OrdinalIgnoreCase)
-            || html.Contains(CaptchaErrorPlain, StringComparison.OrdinalIgnoreCase))
-        {
-            _logger.LogDebug("[{Source}] Captcha wrong (attempt {Attempt}) — retrying", Name, attempt);
-            return null;
-        }
-
-        // Not found
-        if (html.Contains(NotFoundMarker, StringComparison.OrdinalIgnoreCase)
-            || html.Contains(NotFoundPlain, StringComparison.OrdinalIgnoreCase))
-        {
-            _logger.LogInformation("[{Source}] MST {Mst} not found", Name, mst);
-            return null;
-        }
-
-        return ParseResultTable(html, mst);
+        _logger.LogDebug("[{Source}] All OCR candidates rejected for MST {Mst} (attempt {Attempt})", Name, mst, attempt);
+        return null;
     }
 
-    /// <summary>OCR the captcha PNG via the tesseract binary. Returns the trimmed text (null on failure).</summary>
-    private async Task<string?> OcrCaptchaAsync(byte[] png, CancellationToken ct)
+    /// <summary>
+    /// OCR the captcha PNG via the tesseract binary. Returns DISTINCT candidates (order:
+    /// psm 7 first — it read "224yh"/"x2bh" correctly in production tests). GDT captcha =
+    /// 4-5 alphanumeric chars; alphanumeric whitelist removes punctuation misreads.
+    /// psm 7/8/13 can disagree (e.g. "x2bh" vs "x62bh") — TryLookupOnceAsync tries each.
+    /// </summary>
+    private async Task<List<string>> OcrCaptchaCandidatesAsync(byte[] png, CancellationToken ct)
     {
         var tmpDir = Path.Combine(Path.GetTempPath(), $"gdt_{Guid.NewGuid():N}");
         Directory.CreateDirectory(tmpDir);
         var imgPath = Path.Combine(tmpDir, "captcha.png");
+        var candidates = new List<string>();
         try
         {
             await File.WriteAllBytesAsync(imgPath, png, ct);
-            var psi = new ProcessStartInfo(_ocrPath, $"\"{imgPath}\" stdout --psm 7 -l eng")
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            using var proc = Process.Start(psi);
-            if (proc is null)
-            {
-                _logger.LogWarning("[{Source}] tesseract not found at '{Path}' — install tesseract-ocr in the image", Name, _ocrPath);
-                return null;
-            }
-            var stdout = await proc.StandardOutput.ReadToEndAsync(ct);
-            var stderr = await proc.StandardError.ReadToEndAsync(ct);
-            await proc.WaitForExitAsync(ct);
+            const string whitelist = "-c tessedit_char_whitelist=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+            string[] psms = { "--psm 7", "--psm 8", "--psm 13" };
 
-            // GDT captcha = 5 alphanumeric chars (verified 2026-09-22: raw OCR "224yh").
-            // Keep the FULL alphanumeric run (length 4-6); do NOT truncate — truncating to
-            // 4 always fails the server-side captcha check.
-            var text = new string(stdout.Where(char.IsLetterOrDigit).ToArray());
-            if (text.Length < 4 || text.Length > 6)
+            foreach (var psm in psms)
             {
-                _logger.LogDebug("[{Source}] OCR output unexpected ({Text}) stderr={Err}", Name, text.Length > 0 ? text : "''", stderr.Trim());
-                return null;
+                var psi = new ProcessStartInfo(_ocrPath, $"\"{imgPath}\" stdout -l eng {psm} {whitelist}")
+                {
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+                using var proc = Process.Start(psi);
+                if (proc is null)
+                {
+                    _logger.LogWarning("[{Source}] tesseract not found at '{Path}' — install tesseract-ocr in the image", Name, _ocrPath);
+                    return candidates;
+                }
+                var stdout = await proc.StandardOutput.ReadToEndAsync(ct);
+                var stderr = await proc.StandardError.ReadToEndAsync(ct);
+                await proc.WaitForExitAsync(ct);
+
+                var text = new string(stdout.Where(char.IsLetterOrDigit).ToArray());
+                if (text.Length is >= 4 and <= 6 && !candidates.Contains(text))
+                {
+                    candidates.Add(text);
+                    _logger.LogDebug("[{Source}] OCR ({Psm}) → {Text}", Name, psm, text);
+                }
+                else
+                {
+                    _logger.LogDebug("[{Source}] OCR ({Psm}) unexpected ({Text}) stderr={Err}",
+                        Name, psm, text.Length > 0 ? text : "''", stderr.Trim());
+                }
             }
-            return text;
+
+            if (candidates.Count == 0)
+                _logger.LogWarning("[{Source}] All OCR modes failed", Name);
+            return candidates;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "[{Source}] tesseract invocation failed", Name);
-            return null;
+            return candidates;
         }
         finally
         {
