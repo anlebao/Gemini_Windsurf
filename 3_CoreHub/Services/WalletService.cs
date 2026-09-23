@@ -133,8 +133,9 @@ namespace VanAn.CoreHub.Services
                     // released automatically on commit/rollback.
                     if (_dbContext is DbContext efContext)
                     {
+                        // CTE-wrapped: DO blocks cannot take bind parameters.
                         await efContext.Database.ExecuteSqlRawAsync(
-                            "SELECT pg_advisory_xact_lock(hashtextextended({0}, 0))",
+                            "WITH l AS (SELECT pg_advisory_xact_lock(hashtextextended({0}, 0))) SELECT 1",
                             ownerId.ToString());
                     }
 
