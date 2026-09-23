@@ -455,6 +455,7 @@ public class AdminController : ControllerBase
                             typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("Id")!.SetValue(stub, sqliteRow.CustomerId);
                             typeof(Customer).GetProperty(nameof(Customer.CustomerId))!.SetValue(stub, new CustomerId(sqliteRow.CustomerId));
                             stub.UpdateCustomerDetails("Khách hàng", "N/A", null, "Bronze", null, true);
+                            stub.MarkAsGuestStub(); // PG backfill stub — mergeable on later login
                             _ = _pgDb.Customers.Add(stub);
                             _logger.LogInformation("BackfillLoyaltyToPg: created PG customer stub {CustomerId} (FK safety)", sqliteRow.CustomerId);
                         }

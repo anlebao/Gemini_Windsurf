@@ -38,14 +38,30 @@ public class CustomerMergeService(
             return new CustomerMergeResult(0, 0);
         }
 
-        // 2. Find all ACTIVE customers with matching DeviceId (guest stubs from same device)
+        // 2. Link DeviceId to login customer (so future guest checkouts on same device
+        //    can find the login customer via DeviceId). Runs even when no stubs exist —
+        //    stamping a real account is safe because the Guest filter below excludes it.
+        loginCustomer.UpdateCustomerDetails(
+            loginCustomer.FullName,
+            loginCustomer.PhoneNumber,
+            loginCustomer.Email,
+            loginCustomer.CustomerTier,
+            deviceId,
+            loginCustomer.IsActive);
+        await _customerRepository.UpdateAsync(loginCustomer);
+
+        // 3. Find all ACTIVE customers with matching DeviceId (guest stubs from same device)
         //    Exclude the login customer itself. Use IgnoreQueryFilters to also find
         //    stubs that may have been soft-deleted by a previous merge (idempotency check).
+        //    CRITICAL: only IdentityLevel.Guest records are mergeable stubs — real login
+        //    accounts (Social/Verified) stamped with the same DeviceId by step 2 must never
+        //    be soft-deleted or have their points drained by another login on a shared device.
         var stubs = await _dbContext.Customers
             .IgnoreQueryFilters()
             .Where(c => c.DeviceId == deviceId
                 && c.Id != loginCustomerId
-                && !c.IsDeleted)
+                && !c.IsDeleted
+                && c.IdentityLevel == IdentityLevel.Guest)
             .ToListAsync();
 
         if (stubs.Count == 0)
@@ -109,17 +125,6 @@ public class CustomerMergeService(
             await _dbContext.SaveChangesAsync();
             _logger.LogInformation("MergeDeviceStubs: Merged {StubsMerged} stub(s) with 0 points (soft-deleted for cleanup)", stubsMerged);
         }
-
-        // 6. Link DeviceId to login customer (so future guest checkouts on same device
-        //    can find the login customer via DeviceId)
-        loginCustomer.UpdateCustomerDetails(
-            loginCustomer.FullName,
-            loginCustomer.PhoneNumber,
-            loginCustomer.Email,
-            loginCustomer.CustomerTier,
-            deviceId,
-            loginCustomer.IsActive);
-        await _customerRepository.UpdateAsync(loginCustomer);
 
         return new CustomerMergeResult(stubsMerged, totalPointsTransferred);
     }

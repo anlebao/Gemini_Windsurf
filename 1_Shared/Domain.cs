@@ -711,6 +711,19 @@ namespace VanAn.Shared.Domain
             UpdateAudit();
         }
 
+        /// <summary>
+        /// Mark this record as a system-created guest stub (guest checkout / device-based loyalty).
+        /// ctor default is Social, so stubs masquerade as real accounts unless explicitly marked —
+        /// CustomerMergeService only merges IdentityLevel.Guest records, protecting real accounts
+        /// that share a DeviceId. No-op if already above Social (never downgrades a real account).
+        /// </summary>
+        public void MarkAsGuestStub()
+        {
+            if (IdentityLevel > IdentityLevel.Social) return;
+            IdentityLevel = IdentityLevel.Guest;
+            UpdateAudit();
+        }
+
         public void SoftDelete()
         {
             MarkAsDeleted();

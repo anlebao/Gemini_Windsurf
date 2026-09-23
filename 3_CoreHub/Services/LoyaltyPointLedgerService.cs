@@ -469,6 +469,7 @@ public class LoyaltyPointLedgerService(
         typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(stub, customerId);
         typeof(Customer).GetProperty(nameof(Customer.CustomerId))!.SetValue(stub, new CustomerId(customerId));
         stub.UpdateCustomerDetails("Khách hàng", "N/A", null, "Bronze", deviceId, true);
+        stub.MarkAsGuestStub(); // FK-safety stub — mergeable by CustomerMergeService
 
         if (_customerRepository is not null)
         {

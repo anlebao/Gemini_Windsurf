@@ -61,6 +61,7 @@ namespace VanAn.CoreHub.Services
                 TenantId tenantId = new(Guid.NewGuid()); // Will be set by repository
                 Customer newCustomer = new(tenantId, displayName ?? "Khách hàng anonymity", "Unknown");
                 newCustomer.UpdateCustomerDetails(displayName ?? "Khách hàng anonymity", "Unknown", null, "Bronze", deviceId, true);
+                newCustomer.MarkAsGuestStub(); // device-only stub — mergeable on later login
 
                 Customer createdCustomer = await _repository.AddAsync(newCustomer);
 

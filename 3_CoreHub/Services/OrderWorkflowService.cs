@@ -774,6 +774,7 @@ namespace VanAn.CoreHub.Services
                 string phone = order.CustomerInfo?.PhoneNumber ?? "0000000000";
                 var customer = new Customer(order.TenantId, fullName, phone);
                 customer.UpdateCustomerDetails(fullName, phone, null, "Bronze", deviceId, true);
+                customer.MarkAsGuestStub(); // Guest identity — mergeable by CustomerMergeService
                 await _customerRepository.AddAsync(customer);
 
                 // TD-CUSTSYNC-001: Enqueue CustomerCreated outbox event for SQLite→PG sync.

@@ -41,10 +41,14 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .IsRequired()
                 .HasMaxLength(20);
 
+            // NO HasDefaultValue here: it would mark the property ValueGenerated.OnAdd, and EF
+            // omits values equal to the CLR default (IdentityLevel.Guest = 0) from INSERTs —
+            // the DB then stores Social and guest stubs can never persist as Guest.
+            // The Customer ctor already defaults to Social; existing DBs keep their
+            // DEFAULT constraint (harmless fallback for raw inserts).
             _ = builder.Property(e => e.IdentityLevel)
                 .IsRequired()
-                .HasConversion<int>()
-                .HasDefaultValue(IdentityLevel.Social);
+                .HasConversion<int>();
 
             _ = builder.Property(e => e.TotalSpent)
                 .HasPrecision(18, 2);

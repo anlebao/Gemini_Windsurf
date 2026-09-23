@@ -197,6 +197,7 @@ namespace VanAn.ShopERP.Services
                         typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(stub, customerId.Value);
                         typeof(Customer).GetProperty(nameof(Customer.CustomerId))!.SetValue(stub, new CustomerId(customerId.Value));
                         stub.UpdateCustomerDetails("Khách hàng", "N/A", null, "Bronze", customerDeviceId, true);
+                        stub.MarkAsGuestStub(); // loyalty mirror stub — mergeable on later login
                         _ = dbContext.Customers.Add(stub);
                         _logger.LogInformation(
                             "LoyaltySyncSubscriber: created customer stub {CustomerId} for loyalty mirror (tenant {TenantId}, device {DeviceId})",

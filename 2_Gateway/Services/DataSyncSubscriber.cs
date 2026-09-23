@@ -396,6 +396,17 @@ namespace VanAn.Gateway.Services
             typeof(BaseEntity).GetProperty("Id")!.SetValue(newCustomer, customerId);
             typeof(Customer).GetProperty("CustomerId")!.SetValue(newCustomer, new CustomerId(customerId));
 
+            // Propagate IdentityLevel — ctor defaults to Social, which would misclassify
+            // synced guest stubs as real accounts (CustomerMergeService only touches Guest).
+            if (data.TryGetProperty("IdentityLevel", out var ilProp) && ilProp.TryGetInt32(out var il))
+            {
+                var level = (IdentityLevel)il;
+                if (level == IdentityLevel.Guest)
+                    newCustomer.MarkAsGuestStub();
+                else
+                    newCustomer.UpgradeIdentityLevel(level);
+            }
+
             if (deviceId.HasValue)
             {
                 newCustomer.UpdateCustomerDetails(fullName, phoneNumber, email, "Bronze", deviceId, true);

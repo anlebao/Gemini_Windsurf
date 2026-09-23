@@ -282,6 +282,9 @@ namespace VanAn.ShopERP.Services
                             // Single-identity: align BaseEntity.Id (PK) with CustomerId (business key).
                             typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("Id")!.SetValue(customerStub, cid);
                             typeof(Customer).GetProperty("CustomerId")!.SetValue(customerStub, new CustomerId(cid));
+                            // FK-safety shell — not a verified identity. Guest marking keeps it
+                            // mergeable by CustomerMergeService and lets a later login upgrade it.
+                            customerStub.MarkAsGuestStub();
                             _ = dbContext.Customers.Add(customerStub);
                             _logger.LogInformation("OrderSyncSubscriber: auto-created customer stub {CustomerId} ({Name})",
                                 cid, cName);

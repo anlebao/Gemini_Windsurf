@@ -111,6 +111,14 @@ namespace VanAn.ShopERP.Controllers
             }
             else
             {
+                // A Google-authenticated login upgrades a device-created guest stub to a real
+                // Social account. Without this the record stays IdentityLevel.Guest and a later
+                // login on a shared device could still merge/soft-delete it.
+                if (customer.IdentityLevel < IdentityLevel.Social)
+                {
+                    customer.UpgradeIdentityLevel(IdentityLevel.Social);
+                    await _customerRepository.UpdateAsync(customer);
+                }
                 _logger.LogInformation("[GoogleAuth] Existing customer logged in via Google: {CustomerId} IdentityLevel={Level}", customer.Id, customer.IdentityLevel);
             }
 
