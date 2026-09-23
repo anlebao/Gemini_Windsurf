@@ -150,7 +150,6 @@ server {
     # 5r/m + burst=5: max 5 login attempts per minute per IP.
     location = /Login {
         limit_req zone=auth burst=5 nodelay;
-        limit_conn perip_conn 3;
         proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
@@ -373,7 +372,6 @@ server {
     # Layer 3: Login form — strict rate limit (brute-force protection)
     location = /Login {
         limit_req zone=auth burst=5 nodelay;
-        limit_conn perip_conn 3;
         proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
