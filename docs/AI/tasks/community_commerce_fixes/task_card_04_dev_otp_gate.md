@@ -58,6 +58,16 @@ accounting trigger + PG→SQLite replication). Enabled inline on vanan-shop-a (f
 200 correct → 409 duplicate), verified PG + shop-a SQLite, then removed: `DevToken__Secret=`
 empty, endpoint `404`. PG fixture + wallet/accounting/outbox rows + SQLite order all deleted.
 
+**Re-used 2026-09-23** for the community-role RV after the identity/merge fix + role-API
+500 fix (`a3eae6c2` + `c9afadd8`). Enabled inline on vanan-shop-a (fresh `DEV_TOKEN_SECRET`,
+secret in `~/.rvsec`), minted tokens for `0900000002` (Test Shipper `6e4edec9-…`) and
+`0900000099` (new `a9e4194a-…`), verified `GET /api/community/role` → 200
+`{isShipper:true}` / `{isShipper:true,isSalesman:true}` — previously 500 on
+CryptographicException (legacy key-ring PII). Cleanup: 5 test CommunityRoles rows deleted
+from PG (`aef5cefd-…` ×3, `a9e4194a-…` ×2), window closed (`DevToken__Secret` empty,
+endpoint `404`), `~/.rvsec`/`~/.rvtoken*` removed. Note: stale `/tmp/.rvsec` (root-owned,
+secret no longer valid) could not be removed by user `lebao` — needs root cleanup.
+
 **How it was enabled (NOT persisted to `.env.shoperp`):**
 
 ```bash
