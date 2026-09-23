@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
 using VanAn.Gateway.Hubs;
@@ -99,31 +100,53 @@ namespace VanAn.Gateway.Controllers
         /// </summary>
         private async Task<Guid?> TryGetShopOwnerTenantIdAsync(Guid customerId)
         {
-            var customer = await _dbContext.Customers
+            // Scalar projection only — materializing the full Customer decrypts PII
+            // (EncryptedStringConverter on PhoneNumber/Email) and throws
+            // CryptographicException for rows written with a legacy key ring,
+            // which would 500 /api/community/role and hide shipper/salesman icons.
+            var customerMeta = await _dbContext.Customers
                 .IgnoreQueryFilters()
                 .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.Id == customerId);
-            if (customer == null)
+                .Where(c => c.Id == customerId)
+                .Select(c => new { c.Id, c.TenantId })
+                .FirstOrDefaultAsync();
+            if (customerMeta == null)
                 return null;
 
-            // Tracked — the lazy bind mutates OwnerCustomerId.
-            var tenant = await _dbContext.Tenants
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(t => t.Id == customer.TenantId);
-            if (tenant == null)
-                return null;
-
-            if (tenant.OwnerCustomerId == customerId)
-                return customer.TenantId.Value;
-
-            if (tenant.OwnerCustomerId == null && OwnerContactMatches(customer, tenant))
+            try
             {
-                tenant.AssignOwnerCustomer(customerId);
-                await _dbContext.SaveChangesAsync();
-                _logger.LogInformation(
-                    "Bound owner customer {CustomerId} to tenant {TenantId} via verified contact match",
-                    customerId, tenant.Id.Value);
-                return customer.TenantId.Value;
+                // Tracked — the lazy bind mutates OwnerCustomerId.
+                var tenant = await _dbContext.Tenants
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(t => t.Id == customerMeta.TenantId);
+                if (tenant == null)
+                    return null;
+
+                if (tenant.OwnerCustomerId == customerId)
+                    return customerMeta.TenantId.Value;
+
+                if (tenant.OwnerCustomerId == null)
+                {
+                    // Lazy-bind path needs decrypted PII for contact match — may throw
+                    // CryptographicException on legacy rows; degrade to not-owner.
+                    var customer = await _dbContext.Customers
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(c => c.Id == customerId);
+                    if (customer != null && OwnerContactMatches(customer, tenant))
+                    {
+                        tenant.AssignOwnerCustomer(customerId);
+                        await _dbContext.SaveChangesAsync();
+                        _logger.LogInformation(
+                            "Bound owner customer {CustomerId} to tenant {TenantId} via verified contact match",
+                            customerId, tenant.Id.Value);
+                        return customerMeta.TenantId.Value;
+                    }
+                }
+            }
+            catch (CryptographicException ex)
+            {
+                _logger.LogWarning(ex, "Shop-owner check skipped for customer {CustomerId}: undecryptable legacy PII", customerId);
             }
 
             return null;
