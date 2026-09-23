@@ -114,6 +114,16 @@ public interface IShopFeatureSettingsService
     /// <summary>Update feature settings for a tenant. Creates if not exists.</summary>
     Task<ShopFeatureSettingsDto> UpdateSettingsAsync(Guid tenantId, ShopFeatureSettingsDto settings, CancellationToken ct = default);
 
+    /// <summary>
+    /// #185-3: Upsert settings delivered by the ShopERP→PG sync event
+    /// ("vanan.shoperp.shop.feature.settings.changed"). Same write as
+    /// <see cref="UpdateSettingsAsync"/> but MUST NOT re-publish the sync event
+    /// (prevents an echo loop on the Gateway side). Default = normal update
+    /// (safe fallback for stubs/HTTP clients that never receive sync events).
+    /// </summary>
+    Task<ShopFeatureSettingsDto> UpsertSyncedSettingsAsync(Guid tenantId, ShopFeatureSettingsDto settings, CancellationToken ct = default)
+        => UpdateSettingsAsync(tenantId, settings, ct);
+
     /// <summary>Check if a specific toggle is enabled for a tenant. Returns default if not configured.</summary>
     Task<bool> IsEnabledAsync(Guid tenantId, string toggleName, CancellationToken ct = default);
 }

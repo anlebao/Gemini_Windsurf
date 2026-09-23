@@ -4,8 +4,11 @@
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.ShopERP.Components.Pages.Admin
+@using VanAn.CoreHub.Services
+@using VanAn.Shared.Domain.Common
 @using Microsoft.AspNetCore.Authorization
-@inject HttpClient Http
+@inject ILoyaltyDashboardStatsService StatsService
+@inject ITenantProvider TenantProvider
 @inject ILogger<LoyaltyDashboard> Logger
 
 @attribute [Authorize]
@@ -108,32 +111,25 @@
         _errorMessage = null;
         try
         {
-            var resp = await Http.GetAsync("/api/loyalty/dashboard");
-            if (resp.IsSuccessStatusCode)
+            // #185-1: in-process call — Blazor Server must not HTTP itself via a raw
+            // HttpClient (no BaseAddress → "Lỗi kết nối"). Shares computation with
+            // GET /api/loyalty/dashboard via ILoyaltyDashboardStatsService.
+            Guid tenantId = TenantProvider.TenantId;
+            if (tenantId == Guid.Empty)
             {
-                _stats = await resp.Content.ReadFromJsonAsync<LoyaltyDashboardStats>();
+                _errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
             }
-            else
-            {
-                _errorMessage = $"Lỗi tải thống kê ({resp.StatusCode}). Vui lòng thử lại.";
-            }
+            _stats = await StatsService.GetStatsAsync(tenantId);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "#99-3: Error loading loyalty dashboard stats");
-            _errorMessage = "Lỗi kết nối. Vui lòng thử lại.";
+            _errorMessage = "Lỗi tải thống kê. Vui lòng thử lại.";
         }
         finally
         {
             _loading = false;
         }
-    }
-
-    private class LoyaltyDashboardStats
-    {
-        public int PointsPendingRedemption { get; set; }
-        public int PointsRedeemed { get; set; }
-        public int PointsInCampaigns { get; set; }
-        public int PointsReserved { get; set; }
     }
 }

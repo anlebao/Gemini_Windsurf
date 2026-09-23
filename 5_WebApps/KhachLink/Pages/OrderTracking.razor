@@ -97,7 +97,7 @@
             </VanAnCard>
 
             <!-- #99-3: Loyalty points banner — shows when order completed/delivered + points awarded -->
-            @if ((_orderStatus == "completed" || _orderStatus == "delivered") && _pointsAwarded > 0)
+            @if ((_orderStatus == "completed" || _orderStatus == "delivered") && _loyaltyEnabled && _pointsAwarded > 0)
             {
                 <VanAnCard Shadow="true" CssClass="mb-3 loyalty-points-banner" data-testid="loyalty-points-banner">
                     <div class="d-flex align-items-center">

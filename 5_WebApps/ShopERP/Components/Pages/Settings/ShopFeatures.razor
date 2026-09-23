@@ -14,6 +14,7 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject TenantApiClient TenantApi
 @inject CommerceModeApiClient CommerceModeApi
+@inject ILoyaltyBudgetService LoyaltyBudget
 
 <PageTitle>Cấu hình tính năng Shop</PageTitle>
 
@@ -294,9 +295,9 @@
                             <div class="col-md-6">
                                 <label class="form-label" for="loyalty-points-rate">Tỉ lệ tích điểm (0-1)</label>
                                 <input type="number" class="form-control" id="loyalty-points-rate"
-                                       min="0" max="1" step="0.001"
+                                       min="0" max="1" step="0.0001"
                                        @bind="settings.Loyalty_PointsRate" />
-                                <small class="text-muted">Ví dụ: 0.001 = 1 điểm / 1.000đ. 0.1 = 10% giá trị đơn. 0 = dùng mặc định.</small>
+                                <small class="text-muted">Tỉ lệ theo phần giá trị đơn (net, trừ giảm giá — VAT/ship không tính). Ví dụ: 0.0001 = 0.01%, 0.001 = 0.1% = 1 điểm / 1.000đ, 0.1 = 10%. 0 = dùng mặc định.</small>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label" for="loyalty-min-points">Điểm tối thiểu / đơn</label>
@@ -328,6 +329,55 @@
                                        id="loyalty-award-all" @bind="settings.Loyalty_AwardOnAllOrders" />
                             </div>
                         </div>
+                    </div>
+                </VanACard>
+
+                @* #185-4: read-only budget caps — owner xem, SystemAdmin set tại /admin/loyalty-config *@
+                <VanACard Header="📊 Ngân sách điểm (Budget Caps)" CssClass="mt-4" data-testid="loyalty-budget-card">
+                    <div class="features-form">
+                        @if (_budgetCaps == null)
+                        {
+                            <p class="text-muted small mb-0">Đang tải / không kết nối được máy chủ — thử tải lại trang.</p>
+                        }
+                        else if (!_budgetCaps.HasConfig)
+                        {
+                            <p class="text-muted small mb-0">
+                                Chưa có giới hạn ngân sách cho shop này — điểm thưởng không bị chặn trần.
+                                Liên hệ quản trị hệ thống nếu cần thiết lập.
+                            </p>
+                        }
+                        else
+                        {
+                            <p class="text-muted small mb-3">
+                                Giới hạn điểm thưởng do quản trị hệ thống thiết lập (chỉ xem — không chỉnh sửa tại đây).
+                            </p>
+                            <div class="row g-3 small">
+                                <div class="col-md-6">
+                                    <strong>Ngân sách tháng:</strong>
+                                    @(_budgetCaps.MonthlyPointsBudget?.ToString("N0") ?? "Không giới hạn")
+                                    @if (_budgetCaps.MonthlyPointsBudget.HasValue)
+                                    {
+                                        <span class="text-muted">(đã dùng @_budgetCaps.PointsIssuedThisMonth.ToString("N0"))</span>
+                                    }
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Ngân sách ngày:</strong>
+                                    @(_budgetCaps.DailyPointsBudget?.ToString("N0") ?? "Không giới hạn")
+                                    @if (_budgetCaps.DailyPointsBudget.HasValue)
+                                    {
+                                        <span class="text-muted">(đã dùng @_budgetCaps.PointsIssuedToday.ToString("N0"))</span>
+                                    }
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Giới hạn / khách / ngày:</strong>
+                                    @(_budgetCaps.PerCustomerDailyLimit?.ToString("N0") ?? "Không giới hạn")
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Trần tỉ lệ / đơn:</strong>
+                                    @(_budgetCaps.PerOrderRateCap.HasValue ? $"{_budgetCaps.PerOrderRateCap.Value:P2} giá trị đơn" : "Không giới hạn")
+                                </div>
+                            </div>
+                        }
                     </div>
                 </VanACard>
 
@@ -476,6 +526,7 @@
     private Dictionary<Guid, string> _tenantCommerceModes = new();
     private string _globalCommerceMode = "Marketplace";
     private bool _resellerFilterOnly = false;
+    private LoyaltyTenantCapsDto? _budgetCaps;
 
     protected override async Task OnInitializedAsync()
     {
@@ -519,6 +570,16 @@
 
             Guid tenantId = TenantProvider.TenantId;
             settings = await SettingsService.GetSettingsAsync(tenantId);
+
+            // #185-4: read-only budget caps snapshot (set by SystemAdmin in /admin/loyalty-config)
+            try
+            {
+                _budgetCaps = await LoyaltyBudget.GetCapsAsync(tenantId);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to load loyalty budget caps for tenant {TenantId}", tenantId);
+            }
         }
         catch (Exception ex)
         {

@@ -106,6 +106,26 @@ public sealed class LoyaltyBudgetServiceHttpProxy(
         }
     }
 
+    /// <summary>
+    /// #185-4: fetch read-only caps snapshot for owner display. Graceful degradation —
+    /// unreachable Gateway returns an empty DTO (page shows "không có cấu hình").
+    /// </summary>
+    public async Task<LoyaltyTenantCapsDto> GetCapsAsync(Guid tenantId, CancellationToken ct = default)
+    {
+        try
+        {
+            var client = _httpClientFactory.CreateClient("GatewayInternal");
+            var dto = await client.GetFromJsonAsync<LoyaltyTenantCapsDto>(
+                $"api/internal/loyalty-budget/caps?tenantId={tenantId}", JsonOptions, ct);
+            return dto ?? new LoyaltyTenantCapsDto { TenantId = tenantId };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "LoyaltyBudget HTTP caps unreachable for tenant {TenantId} — returning empty snapshot", tenantId);
+            return new LoyaltyTenantCapsDto { TenantId = tenantId };
+        }
+    }
+
     public Task ResetAllDailyCountersAsync(CancellationToken ct = default)
     {
         // Only called by Gateway-side reset jobs (direct PG access) — should never be called from ShopERP

@@ -1,921 +1,1858 @@
 ﻿@page "/checkout"
+
 @using System.Globalization
+
 @using VanAn.KhachLink.Components
+
 @using VanAn.KhachLink.Components.Layout
+
 @using VanAn.KhachLink.Models
+
 @using VanAn.UI.Platform.Components
+
 @using VanAn.KhachLink.Services.Http
+
 @inject VanAn.KhachLink.Services.CartService CartService
+
 @inject VanAn.KhachLink.Services.CheckoutFlowState CheckoutFlow
+
 @inject VanAn.KhachLink.Services.Http.ShopConfigHttpService ShopConfigHttp
+
 @inject ShopFeatureSettingsHttpService FeatureSettings
+
 @inject NavigationManager NavigationManager
+
 @inject IHttpClientFactory HttpClientFactory
+
 @inject IJSRuntime JSRuntime
+
 @implements IDisposable
+
+
 
 @* W1-T1: Payment method → "cash" shows ProcessingBar, "transfer" shows QR modal. *@
 
+
+
 <PageTitle>KhachLink - Thanh toán đơn hàng</PageTitle>
 
+
+
 <KhachLinkLayout>
+
     <div class="container py-4">
+
         <h3 class="mb-4">🛒 Thanh toán đơn hàng</h3>
 
+
+
         @if (isProcessing)
+
         {
+
             <VanAnCard>
+
                 <div class="text-center">
+
                     <VanASpinner Label="Đang tạo đơn hàng với mã QR thanh toán..." />
+
                 </div>
+
             </VanAnCard>
+
         }
+
         else if (orderCreated && _createdOrders.Count > 0)
+
         {
+
             <div class="row">
+
                 <div class="col-md-6">
+
                     <VanAnCard Header="📋 Chi tiết đơn hàng">
+
                         <div class="order-success alert-success" role="status">
+
                             <p><strong>✅ Đặt hàng thành công!</strong></p>
+
                             <p>📦 Đã tạo <strong>@_createdOrders.Count</strong> đơn hàng từ giỏ hàng của bạn.</p>
+
                         </div>
+
                         <hr />
+
+
 
                         @foreach (var order in _createdOrders)
+
                         {
+
                             <div class="mb-3 p-2 border rounded">
+
                                 <p><strong>Đơn hàng:</strong> <span class="order-id">@order.OrderId</span></p>
+
                                 <p><strong>Cửa hàng:</strong> @(string.IsNullOrEmpty(order.TenantName) ? order.TenantId.ToString() : order.TenantName)</p>
+
                                 @if (_vatDisplayEnabled && order.SubTotal > 0)
+
                                 {
+
                                     <div class="d-flex justify-content-between mb-1">
+
                                         <span>Tạm tính (chưa VAT):</span>
+
                                         <span>@order.SubTotal.ToString("N0") VNĐ</span>
+
                                     </div>
+
                                     <div class="d-flex justify-content-between mb-1">
+
                                         <span>VAT:</span>
+
                                         <span>@order.TotalVatAmount.ToString("N0") VNĐ</span>
+
                                     </div>
+
                                 }
+
                                 <div class="d-flex justify-content-between">
+
                                     <strong>Tổng:</strong>
+
                                     <strong>@order.Amount.ToString("N0") VNĐ</strong>
+
                                 </div>
+
                                 <div class="mt-2 d-flex gap-2 flex-wrap">
+
                                     <VanAnButton Variant="ButtonVariant.Outline" OnClick="@(() => NavigationManager.NavigateTo($"/order-tracking/{order.OrderId}"))">
+
                                         Theo dõi đơn hàng
+
                                     </VanAnButton>
+
                                     <VanAnButton Variant="ButtonVariant.Outline" OnClick="@(() => NavigationManager.NavigateTo($"/voice-note/{order.OrderId}"))" data-testid="checkout-link-voice-note">
+
                                         🎤 Ghi chú giọng nói
+
                                     </VanAnButton>
+
                                 </div>
+
                             </div>
+
                         }
 
+
+
                         <hr />
+
                         <div class="d-flex justify-content-between">
+
                             <h5 class="text-danger">Tổng tất cả:</h5>
+
                             <h5 class="text-danger">@orderTotal.ToString("N0") VNĐ</h5>
+
                         </div>
+
+
 
                         <div class="mt-3 d-flex gap-2">
+
                             <VanAnButton Variant="ButtonVariant.Primary" OnClick="OpenQrModal" data-testid="checkout-btn-qr-payment">
+
                                 📱 Thanh toán QR
+
                             </VanAnButton>
+
                             <VanAnButton Variant="ButtonVariant.Outline" OnClick="@(() => NavigationManager.NavigateTo($"/order-tracking/{_createdOrders[0].OrderId}"))" data-testid="checkout-link-tracking">
+
                                 Theo dõi đơn hàng đầu tiên
+
                             </VanAnButton>
+
                         </div>
+
                     </VanAnCard>
+
                 </div>
+
+
 
                 @if (_checkoutErrors.Count > 0)
+
                 {
+
                     <div class="col-md-6">
+
                         <VanAnCard Header="❌ Đơn hàng thất bại">
+
                             <VanAnAlert Variant="AlertVariant.Warning"
+
                                         Message="@($"Một số đơn hàng không thể tạo ({_checkoutErrors.Count} thất bại). Các sản phẩm liên quan vẫn còn trong giỏ hàng để bạn thử lại.")"
+
                                         Dismissible="false" />
+
                             @foreach (var err in _checkoutErrors)
+
                             {
+
                                 <div class="mb-2 p-2 border rounded">
+
                                     <p><strong>Cửa hàng:</strong> @(string.IsNullOrEmpty(err.TenantName) ? err.TenantId.ToString() : err.TenantName)</p>
+
                                     <p class="text-danger">@err.Error</p>
+
                                 </div>
+
                             }
+
                         </VanAnCard>
+
                     </div>
+
                 }
+
                 else if (!string.IsNullOrEmpty(qrImageUrl))
+
                 {
+
                     <div class="col-md-6">
+
                         <VanAnCard Header="📱 Quét mã QR để thanh toán">
+
                             <div class="text-center">
+
                                 <img src="@qrImageUrl" alt="VietQR Code" class="img-fluid" style="max-width: 300px;" />
+
                                 <VanAnAlert Variant="AlertVariant.Info" Message="@($"Mở ứng dụng ngân hàng và quét mã QR để thanh toán {orderTotal:N0} VNĐ")" Dismissible="false" />
+
                             </div>
+
                         </VanAnCard>
+
                     </div>
+
                 }
+
             </div>
+
+
 
             <QrPaymentModal IsOpen="@showQrModal"
+
                             Amount="@orderTotal"
+
                             OrderId="@(_createdOrders.Count > 0 ? _createdOrders[0].OrderId : string.Empty)"
+
                             TenantId="@(_createdOrders.Count > 0 ? _createdOrders[0].TenantId : Guid.Empty)"
+
                             OnPaymentCompleted="CloseQrModal" />
+
         }
+
         else if (showGuestForm)
+
         {
+
             <div class="row">
+
                 <div class="col-md-7">
+
                     <VanAnCard Header="@(_isLoggedIn ? "✅ Xác nhận thông tin giao hàng" : "✅ Thông tin khách hàng")">
+
                         @if (_isLoggedIn)
+
                         {
+
                             <VanAnAlert Variant="AlertVariant.Info"
+
                                         Message="Thông tin đã được điền sẵn từ tài khoản của bạn. Vui lòng kiểm tra và chỉnh sửa nếu cần."
+
                                         Dismissible="false" CssClass="mb-3" />
+
                         }
+
+
 
                         <!-- CC-S1: Order type selector — DINEIN / TAKEAWAY / DELIVERY -->
+
                         <div class="mb-3" data-testid="order-type-selector">
+
                             <label class="form-label fw-bold">Hình thức nhận hàng</label>
+
                             <div class="d-flex gap-3 flex-wrap">
+
                                 <div class="form-check">
+
                                     <input id="order-type-dinein" type="radio" name="orderType" value="DINEIN"
+
                                            class="form-check-input" checked="@(selectedOrderType == "DINEIN")"
+
                                            @onchange="@(() => selectedOrderType = "DINEIN")"
+
                                            data-testid="order-type-dinein" />
+
                                     <label for="order-type-dinein" class="form-check-label">🍽️ Tại quán</label>
+
                                 </div>
+
                                 <div class="form-check">
+
                                     <input id="order-type-takeaway" type="radio" name="orderType" value="TAKEAWAY"
+
                                            class="form-check-input" checked="@(selectedOrderType == "TAKEAWAY")"
+
                                            @onchange="@(() => selectedOrderType = "TAKEAWAY")"
+
                                            data-testid="order-type-takeaway" />
+
                                     <label for="order-type-takeaway" class="form-check-label">🥡 Mang về</label>
+
                                 </div>
+
                                 <div class="form-check">
+
                                     <input id="order-type-delivery" type="radio" name="orderType" value="DELIVERY"
+
                                            class="form-check-input" checked="@(selectedOrderType == "DELIVERY")"
+
                                            @onchange="@(() => SelectOrderType("DELIVERY"))"
+
                                            data-testid="order-type-delivery" />
+
                                     <label for="order-type-delivery" class="form-check-label">🛵 Giao hàng</label>
+
                                 </div>
+
                             </div>
+
                         </div>
 
+
+
                         <div class="mb-3">
+
                             <label for="guest-name" class="form-label">Họ và tên @if (selectedPaymentMethod == "transfer") { <span class="text-danger">*</span> }</label>
+
                             <input id="guest-name" type="text" class="form-control" @bind="guestName" @bind:event="oninput" placeholder="Nhập họ và tên" aria-label="Họ và tên" name="name" data-testid="checkout-input-name" />
+
                         </div>
 
+
+
                         <div class="mb-3">
-                            <label for="guest-phone" class="form-label">Số điện thoại @if (selectedPaymentMethod == "transfer") { <span class="text-danger">*</span> }</label>
+
+                            <label for="guest-phone" class="form-label">Số điện thoại @if (selectedPaymentMethod == "transfer" || selectedOrderType == "DELIVERY") { <span class="text-danger">*</span> }</label>
+
                             <input id="guest-phone" type="tel" class="form-control" @bind="guestPhone" @bind:event="oninput" placeholder="Nhập số điện thoại" aria-label="Số điện thoại" name="phone" data-testid="checkout-input-phone" />
+
                         </div>
 
-                        <div class="mb-3">
-                            <label for="guest-address" class="form-label">
-                                Địa chỉ @if (selectedOrderType == "DELIVERY") { <span class="text-danger">*</span> } else { <span class="text-muted small">(giao hàng)</span> }
-                            </label>
-                            <input id="guest-address" type="text" class="form-control" @bind="guestAddress" @bind:event="oninput"
-                                   placeholder="Nhập địa chỉ giao hàng" aria-label="Địa chỉ giao hàng" name="address" data-testid="checkout-input-address" />
-                            @if (selectedOrderType == "DELIVERY")
-                            {
+
+
+                        @* #185-5: địa chỉ chỉ hiển thị khi đơn "Giao hàng" *@
+
+                        @if (selectedOrderType == "DELIVERY")
+
+                        {
+
+                            <div class="mb-3">
+
+                                <label for="guest-address" class="form-label">
+
+                                    Địa chỉ <span class="text-danger">*</span>
+
+                                </label>
+
+                                <input id="guest-address" type="text" class="form-control" @bind="guestAddress" @bind:event="oninput"
+
+                                       placeholder="Nhập địa chỉ giao hàng" aria-label="Địa chỉ giao hàng" name="address" data-testid="checkout-input-address" />
+
                                 <div class="form-text text-muted small">📍 Địa chỉ giao hàng là bắt buộc khi chọn giao hàng.</div>
-                            }
-                        </div>
+
+                            </div>
+
+                        }
+
+
 
                         @* 2026-09-20: bản đồ ghim vị trí giao hàng — mặc định = GPS khách, kéo/thả hoặc
+
                            chạm bản đồ để chỉnh điểm giao chính xác (toạ độ gửi kèm đơn cho shipper). *@
+
                         @if (selectedOrderType == "DELIVERY")
+
                         {
+
                             <div class="mb-3" data-testid="checkout-pin-map-section">
+
                                 <label class="form-label fw-bold">📍 Ghim vị trí giao hàng trên bản đồ</label>
+
                                 <div id="checkout-pin-map" style="height:240px; border-radius:8px; z-index:0;" data-testid="checkout-pin-map"></div>
+
                                 <div class="d-flex align-items-center gap-2 mt-2">
+
                                     <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small" OnClick="UseCurrentLocation">
+
                                         <i class="bi bi-crosshair"></i> Dùng vị trí hiện tại
+
                                     </VanAnButton>
+
                                     <small class="text-muted">Mặc định là vị trí GPS của bạn. Kéo/thả pin hoặc chạm vào bản đồ để chọn chính xác.</small>
+
                                 </div>
+
                                 <input type="hidden" id="delivery-lat" data-testid="delivery-lat-input" />
+
                                 <input type="hidden" id="delivery-lng" data-testid="delivery-lng-input" />
+
                                 @if (!string.IsNullOrEmpty(_pinMapError))
+
                                 {
+
                                     <VanAnAlert Variant="AlertVariant.Warning" Message="@_pinMapError" class="mt-2" Dismissible="false" />
+
                                 }
+
                             </div>
+
                         }
+
+
 
                         @if (selectedPaymentMethod == "transfer")
+
                         {
+
                             <VanAnAlert Variant="AlertVariant.Info" Message="Vui lòng nhập họ tên để đối soát giao dịch chuyển khoản." Dismissible="false" />
+
                         }
+
+
 
                         @if (!string.IsNullOrEmpty(formError))
+
                         {
+
                             <VanAnAlert Variant="AlertVariant.Error" Message="@formError" Dismissible="false" />
+
                         }
+
+
 
                         <!-- W1-T1: Payment method selector — C2 (2026-09-14): hidden when ALL items are free/charity.
+
                              Mixed carts (paid + free) keep the selector for the paid portion. -->
+
                         @if (!AllItemsFree)
+
                         {
+
                             <div class="mb-3" data-testid="payment-method-selector">
+
                                 <label class="form-label fw-bold">Hình thức thanh toán</label>
+
                                 <div class="d-flex gap-3">
+
                                     <div class="form-check">
+
                                         <input id="payment-cash" type="radio" name="paymentMethod" value="cash"
+
                                                class="form-check-input" checked="@(selectedPaymentMethod == "cash")"
+
                                                @onchange="@(() => selectedPaymentMethod = "cash")"
+
                                                data-testid="payment-option-cash" />
+
                                         <label for="payment-cash" class="form-check-label">💵 Tiền mặt</label>
+
                                     </div>
+
                                     <div class="form-check">
+
                                         <input id="payment-transfer" type="radio" name="paymentMethod" value="transfer"
+
                                                class="form-check-input" checked="@(selectedPaymentMethod == "transfer")"
+
                                                @onchange="@(() => selectedPaymentMethod = "transfer")"
+
                                                data-testid="payment-option-transfer" />
+
                                         <label for="payment-transfer" class="form-check-label">🏦 Chuyển khoản (VietQR)</label>
+
                                     </div>
+
                                 </div>
+
                             </div>
+
                         }
+
                         else if (selectedPaymentMethod == "donation")
+
                         {
+
                             <!-- C3 (2026-09-14): "Quyên góp từ thiện" step — replaces the payment step for Charity carts
+
                                  (tenant toggle Charity_Donation_Enabled = ON). -->
+
                             <div class="mb-3 p-3 border rounded bg-light" data-testid="charity-donation-step">
+
                                 <div class="d-flex align-items-start gap-2">
+
                                     <span style="font-size: 1.75rem;">🤝</span>
+
                                     <div>
+
                                         <div class="fw-bold">Quyên góp từ thiện</div>
+
                                         <p class="mb-1 mt-1 text-muted small">
+
                                             Sản phẩm trong giỏ là quà từ thiện do cửa hàng và cộng đồng quyên góp.
+
                                             Bạn nhận món quà này hoàn toàn miễn phí — không cần thanh toán.
+
                                         </p>
+
                                         <p class="mb-0 small">
+
                                             Nếu muốn, bạn có thể góp thêm một phần để giúp những người khó khăn khác
+
                                             khi đến nhận quà tại cửa hàng.
+
                                         </p>
+
                                     </div>
+
                                 </div>
+
                             </div>
+
                         }
+
                         else
+
                         {
+
                             <!-- C2: all-free cart (no charity step) — no payment needed -->
+
                             <VanAnAlert Variant="AlertVariant.Info"
+
                                         Message="Đơn hàng miễn phí — không cần thanh toán. Nhấn nút bên dưới để xác nhận."
+
                                         Dismissible="false" data-testid="free-order-notice" />
+
                         }
+
+
 
                         <!-- W1-T2: ProcessingBar shown during cash order submission -->
+
                         <ProcessingBar IsVisible="@isSendingCash" />
 
+
+
                         <VanAnButton Variant="ButtonVariant.Success" FullWidth="true" OnClick="SubmitGuestOrder" data-testid="checkout-btn-place-order" Disabled="@isSendingCash">
+
                             @(selectedPaymentMethod == "cash" ? "Đặt hàng (Tiền mặt)"
+
                               : selectedPaymentMethod == "donation" ? "🤝 Xác nhận nhận quà từ thiện"
+
                               : selectedPaymentMethod == "free" ? "✅ Xác nhận nhận đồ miễn phí"
+
                               : "Đặt hàng (Chuyển khoản)")
+
                         </VanAnButton>
+
                     </VanAnCard>
+
                 </div>
+
+
 
                 <div class="col-md-5">
+
                     <VanAnCard Header="📋 Tóm tắt đơn hàng">
+
                         @foreach (var item in cartSnapshot)
+
                         {
+
                             <div class="d-flex justify-content-between mb-2">
+
                                 <span>@item.ProductName x @item.Quantity</span>
+
                                 <span>@item.TotalPrice.ToString("N0") VNĐ</span>
+
                             </div>
+
                         }
+
                         <hr />
+
                         @if (_vatDisplayEnabled)
+
                         {
+
                             <div class="d-flex justify-content-between mb-2">
+
                                 <span>Tạm tính (chưa VAT):</span>
+
                                 <span>@cartState.NetSubTotal.ToString("N0") VNĐ</span>
+
                             </div>
+
                             <div class="d-flex justify-content-between mb-2">
+
                                 <span>VAT:</span>
+
                                 <span>@cartState.TotalVatAmount.ToString("N0") VNĐ</span>
+
                             </div>
+
                             <hr />
+
                         }
+
                         <div class="d-flex justify-content-between">
+
                             <h5 class="text-danger">Tổng cộng:</h5>
+
                             <h5 class="text-danger">@orderTotal.ToString("N0") VNĐ</h5>
+
                         </div>
+
                         <!-- #99-3: Loyalty points estimate — shows when tenant has loyalty enabled -->
+
                         @if (_loyaltyEnabled && _estimatedPoints > 0)
+
                         {
+
                             <hr />
+
                             <div class="loyalty-estimate" data-testid="loyalty-estimate-banner">
+
                                 <div class="d-flex align-items-center text-success">
+
                                     <i class="bi bi-gift-fill me-2"></i>
+
                                     <div>
+
                                         <div class="fw-bold">Đơn hàng sẽ tích ~@_estimatedPoints điểm thưởng</div>
+
                                         <div class="small text-muted">Điểm được cộng khi đơn hàng hoàn thành.</div>
+
                                     </div>
+
                                 </div>
+
                             </div>
+
                         }
+
                     </VanAnCard>
+
                 </div>
+
             </div>
+
         }
+
         else
+
         {
+
             <VanAnAlert Variant="AlertVariant.Warning" Message="Không thể tạo đơn hàng. Vui lòng thử lại." Dismissible="false" />
+
             <div class="text-center mt-3">
+
                 <VanAnButton Variant="ButtonVariant.Primary" OnClick="@(() => NavigationManager.NavigateTo("/cart"))" data-testid="checkout-btn-back-cart">
+
                     Quay lại giỏ hàng
+
                 </VanAnButton>
+
             </div>
+
         }
+
     </div>
 
+
+
     <!-- Post-checkout: offer loyalty points signup for anonymous customers -->
+
     <IdentityUpgradeModal ShowModal="@_showLoyaltySignupModal"
+
                           OnDismiss="@DismissLoyaltySignup"
+
                           OnUpgradeComplete="@OnLoyaltySignupComplete" />
+
 </KhachLinkLayout>
 
+
+
 @code {
+
     private VanAn.KhachLink.Services.CartState cartState = new();
+
     private bool isProcessing;
+
     private bool orderCreated;
+
     private bool showQrModal;
+
     private bool showGuestForm;
+
     private string? qrImageUrl;
+
     private decimal orderTotal;
+
     private string? shopName;
+
     private List<CartItem> cartSnapshot = new();
+
     private bool _vatDisplayEnabled = true;
 
+
+
     // Phase 5: Multi-tenant checkout — multiple orders from one cart.
+
     private List<CreatedOrderItem> _createdOrders = new();
+
     private List<CheckoutErrorItem> _checkoutErrors = new();
 
+
+
     // Guest form fields
+
     private string guestName = string.Empty;
+
     private string guestPhone = string.Empty;
+
     private string guestAddress = string.Empty;
+
     private string? formError;
+
     // W1-T1: Payment method → "cash" or "transfer" (default: transfer for QR flow)
+
     private string selectedPaymentMethod = "transfer";
+
     // W1-T2: Cash flow processing state
+
     private bool isSendingCash;
+
     // CC-S1: Order type selector — DINEIN (default), TAKEAWAY, DELIVERY
+
     private string selectedOrderType = "DINEIN";
+
     // CC-S1: Delivery fee (client-side fixed for Phase 1; server-side calc deferred)
+
     private decimal _deliveryFee = 0;
 
+
+
     // Post-checkout loyalty signup: show IdentityUpgradeModal after order success for anonymous users
+
     private bool _showLoyaltySignupModal = false;
+
     private bool _isLoggedIn = false;
+
     // Logged-in customer ID (from localStorage "customer_id") — sent with checkout request
+
     // so the created order is linked to the Customer entity and appears in order history.
+
     private Guid? _customerId = null;
 
+
+
     // #99-3: Loyalty points estimate — loaded from tenant settings on first render
+
     private bool _loyaltyEnabled = true;
+
     private int _estimatedPoints = 0;
 
+
+
     // C2 (2026-09-14): all cart items free (Free or Charity) → skip payment method selector.
+
     private bool AllItemsFree => cartSnapshot.Count > 0 && cartSnapshot.All(i => i.IsFree);
+
     // C3 (2026-09-14): cart contains Charity products → "Quyên góp từ thiện" step replaces payment.
+
     private bool HasCharityItems => cartSnapshot.Any(i => i.IsCharity);
+
     // C3: tenant toggle — default ON (matches ShopFeatureSettingsEntity default).
+
     private bool _charityDonationEnabled = true;
 
+
+
     // 2026-09-20: delivery pin map — mặc định = GPS khách; kéo/thả pin để chỉnh điểm giao.
+
     private bool _pinMapInitialized = false;
+
     private string? _pinMapError;
+
     private double _pinLat = 10.7769; // fallback trung tâm HCM (bị thay bởi GPS / pin)
+
     private double _pinLng = 106.7009;
 
+
+
     protected override async Task OnInitializedAsync()
+
     {
+
         cartState = CartService.GetCartState();
+
         CartService.OnCartChanged += StateHasChanged;
+
     }
+
+
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
+
     {
+
         if (firstRender)
+
         {
+
             // JSRuntime is only available after hydration (not during static prerender).
+
             await CartService.LoadCartFromStorageAsync();
 
+
+
             // Check if customer is logged in (has customer_token in localStorage)
+
             var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+
             _isLoggedIn = !string.IsNullOrEmpty(token);
 
+
+
             // Load customerId from localStorage (saved at login by Login.razor / Google callback)
+
             var customerIdStr = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_id");
+
             if (Guid.TryParse(customerIdStr, out var parsedId))
+
                 _customerId = parsedId;
 
+
+
             if (cartState.GetTotalItems() == 0)
+
             {
+
                 NavigationManager.NavigateTo("/cart");
+
                 return;
+
             }
+
+
 
             // Snapshot cart for display + show guest form (no auto-create).
+
             // Bucket A feature (approved 2026-07-07): guest fills form before order creation.
+
             cartSnapshot = cartState.Items.ToList();
+
             orderTotal = cartState.TotalAmount;
 
+
+
             // 2026-09-20: khách chọn sẵn "Giao hàng" → khởi tạo map pin với GPS của họ.
+
             if (selectedOrderType == "DELIVERY")
+
             {
+
                 await InitializePinMapAsync();
+
             }
+
             showGuestForm = true;
+
+
 
             // C2/C3 (2026-09-14): free/charity carts skip the payment method selector.
+
             // - All items free + no charity (or toggle OFF) → "free" (no payment step, direct confirm).
+
             // - All items free + charity + toggle ON → "donation" ("Quyên góp từ thiện" step).
+
             // - Mixed cart (paid + free/charity) → payment selector stays for the paid portion.
+
             var firstCharityItem = cartSnapshot.FirstOrDefault(i => i.IsCharity);
+
             if (firstCharityItem != null && firstCharityItem.TenantId != Guid.Empty)
+
             {
+
                 try
+
                 {
+
                     var charitySettings = await FeatureSettings.GetSettingsAsync(firstCharityItem.TenantId);
+
                     _charityDonationEnabled = charitySettings?.Charity_Donation_Enabled ?? true;
+
                 }
+
                 catch { /* non-critical — default ON */ }
+
             }
+
+
 
             if (AllItemsFree)
+
             {
+
                 selectedPaymentMethod = HasCharityItems && _charityDonationEnabled ? "donation" : "free";
+
             }
+
+
 
             // Batch 4 (T4.3): checkout estimate computed SERVER-side by the Gateway
+
             // (GET /api/loyalty/estimate → LoyaltyPointsCalculator, D1 net revenue) — the SAME
+
             // single formula as the actual award. Client no longer replicates the formula
+
             // (old code: no clamp, no discount, VAT + shipping included → drifted from award).
+
             // Uses the first cart item's TenantId (multi-tenant cart: estimate is per-tenant;
+
             // the tracking banner shows the real per-order award). Cart has no discount → 0.
+
             var firstTenantItem = cartSnapshot.FirstOrDefault();
+
             if (firstTenantItem != null && firstTenantItem.TenantId != Guid.Empty)
+
             {
+
                 try
+
                 {
+
                     var loyaltyClient = HttpClientFactory.CreateClient("gateway");
+
                     decimal cartNetSubTotal = cartState.NetSubTotal; // pre-VAT (D1 base)
+
                     var estimateResp = await loyaltyClient.GetAsync(
+
                         $"/api/loyalty/estimate?tenantId={firstTenantItem.TenantId}" +
+
                         $"&subTotal={cartNetSubTotal.ToString(CultureInfo.InvariantCulture)}&discountAmount=0");
+
                     if (estimateResp.IsSuccessStatusCode)
+
                     {
+
                         var estimate = await estimateResp.Content.ReadFromJsonAsync<LoyaltyEstimateDto>();
+
                         if (estimate != null)
+
                         {
+
                             _loyaltyEnabled = estimate.LoyaltyEnabled;
+
                             _estimatedPoints = estimate.Points;
+
                         }
+
                     }
+
                 }
+
                 catch { /* non-critical — estimate is a convenience */ }
+
             }
+
+
 
             // Pre-fill name/phone from customer profile when logged in so the user
+
             // does not have to re-enter their info on every checkout.
+
             if (_isLoggedIn && !string.IsNullOrEmpty(token))
+
             {
+
                 try
+
                 {
+
                     var profileClient = HttpClientFactory.CreateClient("gateway");
+
                     profileClient.DefaultRequestHeaders.Add("X-Customer-Token", token);
+
                     var profileResp = await profileClient.GetAsync("/api/customers/me");
+
                     if (profileResp.IsSuccessStatusCode)
+
                     {
+
                         var profile = await profileResp.Content.ReadFromJsonAsync<CustomerProfileDto>();
+
                         if (profile != null)
+
                         {
+
                             if (!string.IsNullOrWhiteSpace(profile.FullName))
+
                                 guestName = profile.FullName;
+
                             if (!string.IsNullOrWhiteSpace(profile.PhoneNumber))
+
                                 guestPhone = profile.PhoneNumber;
+
                         }
+
                     }
+
                 }
+
                 catch { /* non-critical — pre-fill is a convenience, not a hard requirement */ }
+
             }
 
+
+
             StateHasChanged();
+
         }
+
         else if (selectedOrderType == "DELIVERY" && !_pinMapInitialized)
+
         {
+
             // User vừa chuyển sang "Giao hàng" → map div vừa render → khởi tạo pin.
+
             await InitializePinMapAsync();
+
         }
+
     }
+
+
 
     /// <summary>2026-09-20: chọn hình thức nhận hàng — DELIVERY hiện map ghim vị trí.</summary>
+
     private async Task SelectOrderType(string orderType)
+
     {
+
         selectedOrderType = orderType;
+
         if (orderType == "DELIVERY")
+
         {
+
             _pinMapInitialized = false;
+
         }
+
         StateHasChanged();
+
         await Task.CompletedTask;
+
     }
+
+
 
     /// <summary>2026-09-20: khởi tạo bản đồ ghim vị trí giao hàng — mặc định = GPS khách hàng.
+
     /// Hidden inputs delivery-lat/lng được JS ghi khi kéo/thả hoặc chạm bản đồ.
+
     /// 2026-09-21 FIX (map không hiển thị): khởi tạo map NGAY với toạ độ hiện có (không chờ GPS —
+
     /// GPS có thể treo hàng giây khi hiện prompt xin quyền → trước đây map không bao giờ render),
+
     /// sau đó cập nhật pin khi có GPS. Nếu JS map thiếu (cache cũ) → hiện lỗi thay vì im lặng.</summary>
+
     private async Task InitializePinMapAsync()
+
     {
+
         if (selectedOrderType != "DELIVERY")
+
             return;
+
+
 
         double lat = _pinLat;
+
         double lng = _pinLng;
+
         try
+
         {
+
             // 1. Map trước — luôn render (kể cả khi GPS chưa trả lời)
+
             await JSRuntime.InvokeVoidAsync("vananMap.pinLocation", "checkout-pin-map", "delivery-lat", "delivery-lng", lat, lng, 15);
+
             _pinMapInitialized = true;
+
             _pinMapError = null;
+
         }
+
         catch (Exception ex)
+
         {
+
             // JS map không sẵn sàng (VD: service worker cache cũ chưa có pinLocation) — báo lỗi rõ ràng,
+
             // submit vẫn dùng GPS fallback D4.
+
             _pinMapError = "Không tải được bản đồ. Vui lòng tải lại trang (cập nhật app) hoặc dùng 'Dùng vị trí hiện tại'.";
+
             Console.WriteLine($"Pin map init failed: {ex.Message}");
+
             return;
+
         }
+
+
 
         // 2. GPS sau — cập nhật pin khi có vị trí (không chặn map đã render)
+
         try
+
         {
+
             var pos = await JSRuntime.InvokeAsync<GeoPosition?>("vananPWA.getCurrentPosition");
+
             if (pos != null && (pos.Lat != 0 || pos.Lng != 0))
+
             {
+
                 _pinLat = pos.Lat;
+
                 _pinLng = pos.Lng;
+
                 await JSRuntime.InvokeVoidAsync("vananMap.setPinLocation", "checkout-pin-map", "delivery-lat", "delivery-lng", pos.Lat, pos.Lng);
+
             }
+
         }
+
         catch { /* GPS denied — khách ghim tay trên bản đồ */ }
+
     }
+
+
 
     /// <summary>2026-09-20: nút "Dùng vị trí hiện tại" — lấy GPS mới + cập nhật pin.</summary>
+
     private async Task UseCurrentLocation()
+
     {
+
         try
+
         {
+
             var pos = await JSRuntime.InvokeAsync<GeoPosition?>("vananPWA.getCurrentPosition");
+
             if (pos != null && (pos.Lat != 0 || pos.Lng != 0))
+
             {
+
                 _pinLat = pos.Lat;
+
                 _pinLng = pos.Lng;
+
                 _pinMapInitialized = false;
+
                 StateHasChanged();
+
                 await InitializePinMapAsync();
+
             }
+
             else
+
             {
+
                 formError = "Không lấy được vị trí GPS. Vui lòng bật GPS hoặc ghim tay trên bản đồ.";
+
                 StateHasChanged();
+
             }
+
         }
+
         catch (Exception)
+
         {
+
             formError = "Không lấy được vị trí GPS. Vui lòng bật GPS hoặc ghim tay trên bản đồ.";
+
             StateHasChanged();
+
         }
+
     }
+
+
 
     private async Task SubmitGuestOrder()
+
     {
+
         // Online guard: checkout requires real-time validation from Gateway (price, inventory).
+
         // Do NOT queue offline — financial transactions must be confirmed immediately.
+
         var isOnline = await JSRuntime.InvokeAsync<bool>("eval", "navigator.onLine");
+
         if (!isOnline)
+
         {
+
             formError = "Khong co ket noi mang. Vui long kiem tra 4G/Wifi de gui don hang.";
+
             StateHasChanged();
+
             return;
+
         }
+
+
 
         // Bug 2: Conditional validation — transfer requires name+phone for reconciliation, cash does not
+
         if (selectedPaymentMethod == "transfer")
+
         {
+
             if (string.IsNullOrWhiteSpace(guestName))
+
             {
+
                 formError = "Vui lòng nhập họ và tên để đối soát giao dịch chuyển khoản.";
+
                 return;
+
             }
+
             if (string.IsNullOrWhiteSpace(guestPhone))
+
             {
+
                 formError = "Vui lòng nhập số điện thoại để đối soát giao dịch chuyển khoản.";
+
                 return;
+
             }
+
         }
+
+
+
+        // #185-5: DELIVERY requires recipient phone — shipper must be able to call.
+
+        if (selectedOrderType == "DELIVERY" && string.IsNullOrWhiteSpace(guestPhone))
+
+        {
+
+            formError = "Vui lòng nhập số điện thoại người nhận khi chọn giao hàng.";
+
+            return;
+
+        }
+
+
 
         // CC-S1: DELIVERY requires delivery address
+
         if (selectedOrderType == "DELIVERY" && string.IsNullOrWhiteSpace(guestAddress))
+
         {
+
             formError = "Vui lòng nhập địa chỉ giao hàng khi chọn hình thức giao hàng.";
+
             return;
+
         }
+
+
 
         formError = null;
+
         isProcessing = true;
+
         // W1-T2: Cash flow uses ProcessingBar instead of QR spinner
+
         if (selectedPaymentMethod == "cash")
+
             isSendingCash = true;
+
         showGuestForm = false;
+
         StateHasChanged();
 
+
+
         try
+
         {
+
             // Persist guest info + payment method to CheckoutFlowState (scoped state machine)
+
             CheckoutFlow.CustomerName = guestName;
+
             CheckoutFlow.CustomerPhone = guestPhone;
+
             CheckoutFlow.CustomerAddress = guestAddress;
+
             CheckoutFlow.PaymentMethod = selectedPaymentMethod;
 
+
+
             // Bug 1a fix: Use real device ID from localStorage (not hardcoded "web-client")
+
             // so order history can filter by device ID for both guest and logged-in users.
+
             var deviceId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
+
             if (string.IsNullOrEmpty(deviceId))
+
             {
+
                 // Generate + persist a stable device ID for this browser
+
                 deviceId = Guid.NewGuid().ToString();
+
                 await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_device_id", deviceId);
+
             }
+
+
 
             // Bug 1a fix: Don't pass CustomerId if no Customer entity exists in DB.
+
             // FK constraint requires Customer to exist. Since Customers table may be empty,
+
             // passing an invalid CustomerId causes FK violation — checkout fails.
+
             // Instead, rely on CustomerDeviceId for order history linking.
+
             Guid? customerIdForOrder = null;
+
             if (_isLoggedIn && _customerId.HasValue)
+
             {
+
                 // Validate Customer exists before passing CustomerId
+
                 try
+
                 {
+
                     var checkClient = HttpClientFactory.CreateClient("gateway");
+
                     checkClient.DefaultRequestHeaders.Add("X-Customer-Token", 
+
                         await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token") ?? "");
+
                     var checkResp = await checkClient.GetAsync("/api/customers/me");
+
                     if (checkResp.IsSuccessStatusCode)
+
                         customerIdForOrder = _customerId;
+
                     else
+
                         _isLoggedIn = false; // token invalid — treat as guest
+
                 }
+
                 catch { /* if check fails, proceed as guest */ }
+
             }
+
+
 
             // Read campaign tracking code from localStorage (set by Campaign.razor /c/{trackingCode})
+
             var trackingCode = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "campaign_tracking_code");
 
+
+
             // R2.2: Read source domain for Reseller accounting (KhachLinkInstance.OwnerTenantId lookup)
+
             var sourceDomain = await JSRuntime.InvokeAsync<string?>("eval", "window.location.hostname");
 
+
+
             // CC-S4 fix: salesman referral code captured when the customer scanned a referral QR.
+
             // Gateway resolves it → Order.SalesmanId + ReferralProductId → commission on completion.
+
             var referralCode = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "vanan_referral_code");
 
+
+
             // D4 (2026-09-17) + 2026-09-20: capture the delivery coordinates at checkout so the
+
             // shipper's map can show the customer marker. Ưu tiên toạ độ từ map PIN (delivery-lat/lng —
+
             // mặc định = GPS khách, khách có thể kéo/thả để chỉnh); fallback GPS auto (D4).
+
             // GPS optional — checkout proceeds without coordinates on failure.
+
             double? deliveryLat = null;
+
             double? deliveryLng = null;
+
             if (selectedOrderType == "DELIVERY")
+
             {
+
                 try
+
                 {
+
                     var latStr = await JSRuntime.InvokeAsync<string?>("eval", "document.getElementById('delivery-lat')?.value || ''");
+
                     var lngStr = await JSRuntime.InvokeAsync<string?>("eval", "document.getElementById('delivery-lng')?.value || ''");
+
                     if (double.TryParse(latStr, out var pinLat) && double.TryParse(lngStr, out var pinLng)
+
                         && pinLat != 0 && pinLng != 0)
+
                     {
+
                         deliveryLat = pinLat;
+
                         deliveryLng = pinLng;
+
                     }
+
                 }
+
                 catch { /* pin inputs unavailable — fall back to GPS */ }
 
+
+
                 if (!deliveryLat.HasValue)
+
                 {
+
                     try
+
                     {
+
                         var pos = await JSRuntime.InvokeAsync<GeoPosition?>("vananPWA.getCurrentPosition");
+
                         if (pos != null)
+
                         {
+
                             deliveryLat = pos.Lat;
+
                             deliveryLng = pos.Lng;
+
                         }
+
                     }
+
                     catch { /* GPS denied/unavailable — order still created without coordinates */ }
+
                 }
+
             }
+
+
 
             var orderRequest = new
+
             {
+
                 CustomerDeviceId = deviceId,
+
                 OrderType = selectedOrderType,
+
                 Items = cartSnapshot.Select(i => new
+
                 {
+
                     ProductId = i.ProductId,
+
                     TenantId = i.TenantId,
+
                     ProductName = i.ProductName,
+
                     VatRate = i.VatRate,
+
                     Quantity = i.Quantity,
+
                     UnitPrice = i.UnitPrice,
+
                     IsFree = i.IsFree,
+
                     Notes = "",
+
                 }).ToList(),
+
                 // Issue 4: Pass customer note from cart page (replaces hardcoded "Đặt hàng từ web KhachLink")
+
                 CustomerNotes = string.IsNullOrWhiteSpace(cartState.OrderNote) ? "Đặt hàng từ web KhachLink" : cartState.OrderNote.Trim(),
+
                 CustomerName = guestName,
+
                 CustomerPhone = guestPhone,
+
                 CustomerAddress = guestAddress,
+
                 // Bug 1a fix: Only pass CustomerId if validated (Customer exists in DB)
+
                 CustomerId = customerIdForOrder,
+
                 // Campaign conversion tracking: pass tracking code so OrderWorkflowService can increment conversion
+
                 TrackingCode = trackingCode,
+
                 // R2.2: Source domain for Reseller accounting (KhachLinkInstance.OwnerTenantId lookup)
+
                 SourceDomain = sourceDomain,
+
                 // CC-S4 fix: composite salesman referral code (from scanned referral QR) — Gateway
+
                 // resolves it and links the order to the salesman for commission.
+
                 ReferralCode = string.IsNullOrWhiteSpace(referralCode) ? null : referralCode,
+
                 // CC-S1: Delivery fields — only meaningful when OrderType=DELIVERY
+
                 DeliveryAddress = selectedOrderType == "DELIVERY" ? guestAddress : null,
+
                 DeliveryLat = deliveryLat,
+
                 DeliveryLng = deliveryLng,
+
                 ShippingFee = selectedOrderType == "DELIVERY" ? _deliveryFee : 0
+
             };
 
+
+
             var http = HttpClientFactory.CreateClient("gateway");
+
             var response = await http.PostAsJsonAsync("api/public/orders/checkout", orderRequest);
 
+
+
             if (response.IsSuccessStatusCode)
+
             {
+
                 var result = await response.Content.ReadFromJsonAsync<CheckoutResponseResult>();
+
                 _createdOrders = result?.Orders ?? new();
+
                 _checkoutErrors = result?.Errors ?? new();
+
                 orderTotal = _createdOrders.Sum(o => o.Amount);
+
                 orderCreated = _createdOrders.Count > 0;
 
+
+
                 // Phase 5: Load VAT display toggle from the first successful tenant.
+
                 if (_createdOrders.Count > 0)
+
                 {
+
                     var firstTenantId = _createdOrders[0].TenantId;
+
                     try
+
                     {
+
                         _vatDisplayEnabled = await FeatureSettings.IsEnabledAsync(firstTenantId, nameof(ShopFeatureSettingsDto.VAT_Display_Enabled));
+
                     }
+
                     catch { /* non-critical — default to true */ }
 
+
+
                     try
+
                     {
+
                         var shopConfig = await ShopConfigHttp.GetShopConfigByTenantIdAsync(firstTenantId);
+
                         shopName = shopConfig?.ShopName;
+
                     }
+
                     catch { /* non-critical — shop name is optional display */ }
+
                 }
+
+
 
                 // Phase 5: Store created_orders in localStorage for OrderHistory.
+
                 if (_createdOrders.Count > 0)
+
                 {
+
                     var ordersForStorage = _createdOrders.Select(o => new
+
                     {
+
                         orderId = o.OrderId.ToString(),
+
                         tenantId = o.TenantId.ToString(),
+
                         amount = o.Amount
+
                     }).ToList();
+
                     var ordersJson = System.Text.Json.JsonSerializer.Serialize(ordersForStorage);
+
                     await JSRuntime.InvokeVoidAsync("localStorage.setItem", "created_orders", ordersJson);
+
                 }
+
+
 
                 // Phase 5: Partial cart clear — only remove items belonging to successful tenants.
+
                 var successfulTenantIds = _createdOrders.Select(o => o.TenantId).ToHashSet();
+
                 var itemsToKeep = cartState.Items.Where(i => !successfulTenantIds.Contains(i.TenantId)).ToList();
+
                 if (itemsToKeep.Count == 0)
+
                 {
+
                     await CartService.ClearCartAsync();
+
                 }
+
                 else
+
                 {
+
                     // Clear and re-add only failed-tenant items (so customer can retry).
+
                     await CartService.ClearCartAsync();
+
                     var state = CartService.GetCartState();
+
                     state.Items.AddRange(itemsToKeep);
+
                     // SaveCartToStorageAsync is called by ClearCartAsync; we need to persist the re-added items.
+
                     // CartService doesn't expose a public Save method for direct item manipulation,
+
                     // so we trigger a save by calling UpdateQuantityAsync on a kept item (no-op if single item).
+
                     // This is a workaround — a proper fix would add CartService.PersistAsync().
+
                     if (itemsToKeep.Count > 0)
+
                     {
+
                         await CartService.UpdateQuantityAsync(itemsToKeep[0].ProductId, itemsToKeep[0].Quantity);
+
                     }
+
                 }
+
+
 
                 // Post-checkout: show loyalty signup modal for anonymous customers
-                if (!_isLoggedIn && orderCreated)
+
+                if (!_isLoggedIn && orderCreated && _loyaltyEnabled)
+
                 {
+
                     _showLoyaltySignupModal = true;
+
                 }
+
+
 
                 // W1-T1 + C2/C3 (2026-09-14): cash + free + donation flows redirect to OrderTracking
+
                 // immediately — no QR payment step (zero-amount or pay-at-store orders).
+
                 if (selectedPaymentMethod != "transfer" && _createdOrders.Count == 1 && _checkoutErrors.Count == 0)
+
                 {
+
                     NavigationManager.NavigateTo($"/order-tracking/{_createdOrders[0].OrderId}");
+
                     return;
+
                 }
+
             }
+
             else
+
             {
+
                 var errorContent = await response.Content.ReadAsStringAsync();
+
                 Console.WriteLine($"Checkout API error: {response.StatusCode} — {errorContent}");
+
                 formError = $"Lỗi tạo đơn hàng ({response.StatusCode}). Vui lòng thử lại hoặc liên hệ quản.";
+
                 showGuestForm = true;
+
             }
+
         }
+
         catch (Exception ex)
+
         {
+
             Console.WriteLine($"Exception creating order: {ex.Message}");
+
             formError = $"Lỗi kết nối: {ex.Message}";
+
             showGuestForm = true;
+
         }
+
         finally
+
         {
+
             isProcessing = false;
+
             isSendingCash = false;
+
             StateHasChanged();
+
         }
+
     }
+
+
 
     private void OpenQrModal() => showQrModal = true;
+
     private void CloseQrModal() => showQrModal = false;
 
+
+
     // Post-checkout loyalty signup handlers
+
     private void DismissLoyaltySignup()
+
     {
+
         _showLoyaltySignupModal = false;
+
     }
+
+
 
     private void OnLoyaltySignupComplete()
+
     {
+
         _showLoyaltySignupModal = false;
+
         _isLoggedIn = true;
+
     }
+
+
 
     public void Dispose()
+
     {
+
         CartService.OnCartChanged -= StateHasChanged;
+
     }
+
+
 
     // Phase 5: CheckoutResponse shape moved to VanAn.KhachLink.Models.CheckoutResponseResult
+
     // (shared with KhachLinkLayout for Phase B direct free-order flow).
 
+
+
     // Profile DTO for pre-filling checkout form when customer is logged in.
+
     // Matches ShopERP CustomerIdentityController.GetMe response shape.
+
     private class CustomerProfileDto
+
     {
+
         public Guid CustomerId { get; set; }
+
         public string FullName { get; set; } = string.Empty;
+
         public string PhoneNumber { get; set; } = string.Empty;
+
         public string CustomerToken { get; set; } = string.Empty;
+
         public string Tier { get; set; } = "Bronze";
+
         public int PointBalance { get; set; }
+
         public string? IdentityLevel { get; set; }
+
     }
+
+
 
     // Batch 4 (T4.3): loyalty estimate response from Gateway GET /api/loyalty/estimate.
+
     private class LoyaltyEstimateDto
+
     {
+
         public bool LoyaltyEnabled { get; set; }
+
         public int Points { get; set; }
+
         public string Mode { get; set; } = "Silo";
+
         public decimal NetRevenue { get; set; }
+
     }
 
+
+
     // D4 (2026-09-17): shape returned by vananPWA.getCurrentPosition (pwa.js).
+
     private class GeoPosition
+
     {
+
         public double Lat { get; set; }
+
         public double Lng { get; set; }
+
     }
+
 }
+

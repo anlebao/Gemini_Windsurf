@@ -78,5 +78,11 @@ namespace VanAn.Shared.Domain
         // NatsSyncWorker normalizes to "loyalty.changed" + RoutingKey → subject
         // "vanan.cloud.loyalty.changed.{customerDeviceId}" — matches LoyaltySyncSubscriber wildcard.
         public const string LoyaltyChanged = "LoyaltyChanged";
+        // #185-3: ShopERP→PG shop feature settings sync event.
+        // NatsSyncWorker (ShopERP) publishes "vanan.shoperp.shop.feature.settings.changed" →
+        // Gateway DataSyncSubscriber upserts the PG ShopFeatureSettings row (closes the
+        // SQLite→PG config drift: toggles edited in /settings/shop-features never reached
+        // the Gateway-side order flow readers — estimate/banner/award).
+        public const string ShopFeatureSettingsChanged = "ShopFeatureSettingsChanged";
     }
 }

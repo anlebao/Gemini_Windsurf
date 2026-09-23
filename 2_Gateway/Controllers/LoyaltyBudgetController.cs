@@ -86,6 +86,25 @@ public class LoyaltyBudgetController(
         }
     }
 
+    /// <summary>
+    /// GET /api/internal/loyalty-budget/caps?tenantId=...
+    /// #185-4: read-only caps + counters snapshot for owner display in
+    /// ShopERP /settings/shop-features (caps remain SystemAdmin-only writes).
+    /// </summary>
+    [HttpGet("caps")]
+    public async Task<ActionResult<LoyaltyTenantCapsDto>> GetCaps([FromQuery] Guid tenantId, CancellationToken ct)
+    {
+        try
+        {
+            return Ok(await _budgetService.GetCapsAsync(tenantId, ct));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "LoyaltyBudget: GetCaps failed for tenant {TenantId}", tenantId);
+            return StatusCode(500, new { error = "Get caps failed" });
+        }
+    }
+
     // === Request/Response DTOs ===
 
     public class CheckAdjustRequest

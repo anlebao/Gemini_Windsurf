@@ -31,7 +31,8 @@ namespace VanAn.ShopERP.Controllers
         ITenantProvider tenantProvider,
         IShopFeatureSettingsService? shopFeatureSettingsService,
         IOptions<LoyaltyPointsConfig>? loyaltyPointsConfig,
-        ILogger<LoyaltyController> logger) : ControllerBase
+        ILogger<LoyaltyController> logger,
+        VanAn.CoreHub.Services.ILoyaltyDashboardStatsService? loyaltyDashboardStatsService = null) : ControllerBase
     {
         private readonly ILoyaltyRewardsService _loyaltyService = loyaltyService;
         private readonly ICustomerTokenService _customerTokenService = customerTokenService;
@@ -42,6 +43,7 @@ namespace VanAn.ShopERP.Controllers
         private readonly IShopFeatureSettingsService? _shopFeatureSettingsService = shopFeatureSettingsService;
         private readonly IOptions<LoyaltyPointsConfig>? _loyaltyPointsConfig = loyaltyPointsConfig;
         private readonly ILogger<LoyaltyController> _logger = logger;
+        private readonly VanAn.CoreHub.Services.ILoyaltyDashboardStatsService? _loyaltyDashboardStatsService = loyaltyDashboardStatsService;
 
         /// <summary>GET /api/loyalty/my — returns loyalty info for the authenticated customer.</summary>
         [HttpGet("my")]
@@ -106,58 +108,13 @@ namespace VanAn.ShopERP.Controllers
                     return Unauthorized(new { error = "Không xác định được tenant." });
                 }
 
-                // Resolve loyalty rate (per-tenant override or global default)
-                decimal rate = _loyaltyPointsConfig?.Value.PointsRate ?? 0.1m;
-                if (_shopFeatureSettingsService != null)
+                // #185-1: shared stats computation (LoyaltyDashboard.razor calls the same
+                // service in-process — no self-HTTP hop).
+                if (_loyaltyDashboardStatsService != null)
                 {
-                    try
-                    {
-                        var settings = await _shopFeatureSettingsService.GetSettingsAsync(new TenantId(tenantId));
-                        if (settings.Loyalty_PointsRate > 0m) rate = settings.Loyalty_PointsRate;
-                    }
-                    catch { /* fallback to global default */ }
+                    return Ok(await _loyaltyDashboardStatsService.GetStatsAsync(tenantId, HttpContext.RequestAborted));
                 }
-
-                // Metric 1: Points pending redemption (sum of all customer balances)
-                int pendingRedemption = await _dbContext.LoyaltyRewards
-                    .Where(lr => lr.TenantId == new TenantId(tenantId) && lr.IsActive)
-                    .SumAsync(lr => (int?)lr.PointBalance) ?? 0;
-
-                // Metric 2: Points redeemed (Fulfilled only — Cancelled already refunded)
-                int redeemed = await _dbContext.RedemptionRecords
-                    .Where(r => r.TenantId == new TenantId(tenantId) && r.Status == "Fulfilled")
-                    .SumAsync(r => (int?)r.PointsSpent) ?? 0;
-
-                // Metric 3: Points in active campaigns (pending orders with TrackingCode, not yet delivered/completed)
-                // "delivered" is a valid workflow status but not in OrderStatusId static props — use new OrderStatusId("delivered")
-                var deliveredStatus = new OrderStatusId("delivered");
-                var campaignOrderTotals = await _dbContext.Orders
-                    .Where(o => o.TenantId == new TenantId(tenantId)
-                        && o.TrackingCode != null
-                        && o.Status != OrderStatusId.Completed
-                        && o.Status != OrderStatusId.Cancelled
-                        && o.Status != deliveredStatus)
-                    .Select(o => o.TotalAmount)
-                    .ToListAsync();
-                int pointsInCampaigns = campaignOrderTotals.Sum(a => (int)(a * rate));
-
-                // Metric 4: Points reserved (ALL pending orders, not yet delivered/completed)
-                var allPendingOrderTotals = await _dbContext.Orders
-                    .Where(o => o.TenantId == new TenantId(tenantId)
-                        && o.Status != OrderStatusId.Completed
-                        && o.Status != OrderStatusId.Cancelled
-                        && o.Status != deliveredStatus)
-                    .Select(o => o.TotalAmount)
-                    .ToListAsync();
-                int pointsReserved = allPendingOrderTotals.Sum(a => (int)(a * rate));
-
-                return Ok(new LoyaltyDashboardStats
-                {
-                    PointsPendingRedemption = pendingRedemption,
-                    PointsRedeemed = redeemed,
-                    PointsInCampaigns = pointsInCampaigns,
-                    PointsReserved = pointsReserved
-                });
+                return StatusCode(500, new { error = "Dashboard stats service unavailable" });
             }
             catch (Exception ex)
             {
@@ -262,18 +219,5 @@ namespace VanAn.ShopERP.Controllers
         public string Reason { get; set; } = string.Empty;
         public DateTime Timestamp { get; set; }
         public int BalanceAfter { get; set; }
-    }
-
-    /// <summary>#99-3: Shop owner loyalty dashboard stats (4 metrics).</summary>
-    public class LoyaltyDashboardStats
-    {
-        /// <summary>Metric 1: Total points in customer wallets (not yet redeemed).</summary>
-        public int PointsPendingRedemption { get; set; }
-        /// <summary>Metric 2: Total points redeemed (Fulfilled vouchers only).</summary>
-        public int PointsRedeemed { get; set; }
-        /// <summary>Metric 3: Points estimated for active campaign orders (pending, with TrackingCode).</summary>
-        public int PointsInCampaigns { get; set; }
-        /// <summary>Metric 4: Points reserved for ALL pending orders (not yet completed/delivered).</summary>
-        public int PointsReserved { get; set; }
     }
 }

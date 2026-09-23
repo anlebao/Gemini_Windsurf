@@ -9,6 +9,7 @@ using System.Text.Json;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
+using VanAn.Shared.Services;
 
 namespace VanAn.Gateway.Services
 {
@@ -138,6 +139,10 @@ namespace VanAn.Gateway.Services
                     case "productdeleted":
                         // DISABLED per Option C
                         _logger.LogDebug("DataSyncSubscriber: product.sync disabled per Option C — event ignored");
+                        break;
+                    case "shop.feature.settings.changed":
+                    case "shopfeaturesettingschanged":
+                        await SyncShopFeatureSettingsAsync(doc.RootElement, scopeSp, cancellationToken);
                         break;
                     default:
                         _logger.LogDebug("DataSyncSubscriber: unhandled event type {EventType} (subject={Subject})",
@@ -577,6 +582,51 @@ namespace VanAn.Gateway.Services
             {
                 _logger.LogDebug("SyncPaymentStatusAsync: order {OrderId} already {PaymentStatus} in PostgreSQL", orderId, paymentStatus);
             }
+        }
+
+        /// <summary>
+        /// #185-3: Sync ShopFeatureSettingsChanged event — upsert the tenant's
+        /// ShopFeatureSettings row in PostgreSQL. Closes the SQLite→PG config drift
+        /// (loyalty toggle edited in /settings/shop-features never reached the
+        /// Gateway-side order flow readers: estimate / banner / award gate).
+        /// Payload shape: { tenantId, settings: { &lt;camelCase ShopFeatureSettingsDto&gt; } }
+        /// Fail-safe: missing tenantId/settings → log + refuse (no cross-tenant writes).
+        /// Idempotent: full-state upsert — redelivery just rewrites the same values.
+        /// </summary>
+        internal async Task SyncShopFeatureSettingsAsync(JsonElement data, IServiceProvider scopeSp, CancellationToken ct)
+        {
+            Guid tenantId = data.TryGetProperty("tenantId", out var tidProp) && tidProp.ValueKind == JsonValueKind.String
+                ? tidProp.GetGuid()
+                : Guid.Empty;
+            if (tenantId == Guid.Empty)
+            {
+                _logger.LogWarning("SyncShopFeatureSettingsAsync: missing tenantId — refusing to process (fail-safe)");
+                return;
+            }
+
+            if (!data.TryGetProperty("settings", out var settingsProp) || settingsProp.ValueKind != JsonValueKind.Object)
+            {
+                _logger.LogWarning("SyncShopFeatureSettingsAsync: missing settings payload for tenant {TenantId}", tenantId);
+                return;
+            }
+
+            var dto = settingsProp.Deserialize<ShopFeatureSettingsDto>(
+                new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+            if (dto == null)
+            {
+                _logger.LogWarning("SyncShopFeatureSettingsAsync: could not deserialize settings for tenant {TenantId}", tenantId);
+                return;
+            }
+
+            var tenantProvider = scopeSp.GetRequiredService<ITenantProvider>();
+            tenantProvider.SetTenant(tenantId);
+
+            var settingsService = scopeSp.GetRequiredService<IShopFeatureSettingsService>();
+            await settingsService.UpsertSyncedSettingsAsync(tenantId, dto, ct);
+
+            _logger.LogInformation(
+                "Synced ShopFeatureSettings for tenant {TenantId} → PostgreSQL (Loyalty={LoyaltyEnabled})",
+                tenantId, dto.Loyalty_Program_Enabled);
         }
 
         public override void Dispose()

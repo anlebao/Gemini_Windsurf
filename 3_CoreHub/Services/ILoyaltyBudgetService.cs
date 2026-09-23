@@ -45,4 +45,28 @@ public interface ILoyaltyBudgetService
     /// Reset PointsIssuedThisMonth to 0 for ALL tenants (called by LoyaltyBudgetMonthlyResetJob on 1st of month).
     /// </summary>
     Task ResetAllMonthlyCountersAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// #185-4: Read-only view of a tenant's budget caps + runtime counters
+    /// (for owner-facing display in /settings/shop-features — caps are set by
+    /// SystemAdmin in /admin/loyalty-config). Default = empty DTO (no caps).
+    /// </summary>
+    Task<LoyaltyTenantCapsDto> GetCapsAsync(Guid tenantId, CancellationToken ct = default)
+        => Task.FromResult(new LoyaltyTenantCapsDto { TenantId = tenantId });
+}
+
+/// <summary>
+/// #185-4: Read-only snapshot of per-tenant loyalty budget caps + counters.
+/// All caps nullable (null = unlimited / no override configured).
+/// </summary>
+public sealed class LoyaltyTenantCapsDto
+{
+    public Guid TenantId { get; set; }
+    public bool HasConfig { get; set; }
+    public int? MonthlyPointsBudget { get; set; }
+    public int? DailyPointsBudget { get; set; }
+    public int? PerCustomerDailyLimit { get; set; }
+    public decimal? PerOrderRateCap { get; set; }
+    public int PointsIssuedThisMonth { get; set; }
+    public int PointsIssuedToday { get; set; }
 }

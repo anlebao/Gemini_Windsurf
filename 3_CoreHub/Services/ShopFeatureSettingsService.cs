@@ -1,8 +1,10 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using VanAn.Shared.Services;
 using Microsoft.Extensions.Logging;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.Entities;
+using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
 
@@ -16,11 +18,21 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
 {
     private readonly IVanAnDbContext _context;
     private readonly ILogger<ShopFeatureSettingsService> _logger;
+    private readonly IOutboxRepository? _outboxRepository;
 
-    public ShopFeatureSettingsService(IVanAnDbContext context, ILogger<ShopFeatureSettingsService> logger)
+    private static readonly JsonSerializerOptions SyncJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
+    public ShopFeatureSettingsService(
+        IVanAnDbContext context,
+        ILogger<ShopFeatureSettingsService> logger,
+        IOutboxRepository? outboxRepository = null)
     {
         _context = context;
         _logger = logger;
+        _outboxRepository = outboxRepository;
     }
 
     public async Task<ShopFeatureSettingsDto> GetSettingsAsync(Guid tenantId, CancellationToken ct = default)
@@ -35,6 +47,32 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
     }
 
     public async Task<ShopFeatureSettingsDto> UpdateSettingsAsync(Guid tenantId, ShopFeatureSettingsDto settings, CancellationToken ct = default)
+    {
+        ShopFeatureSettingsEntity entity = await UpsertCoreAsync(tenantId, settings, ct);
+
+        // #185-3: enqueue SQLite→PG sync event in the SAME transaction — NatsSyncWorker
+        // publishes "vanan.shoperp.shop.feature.settings.changed" → Gateway DataSyncSubscriber
+        // upserts the PG row. On Gateway the same call enqueues into the PG outbox and is
+        // published as "vanan.cloud.*" (no subscriber — harmless).
+        await EnqueueSyncEventAsync(tenantId, settings, ct);
+
+        await _context.SaveChangesAsync(ct);
+        _logger.LogInformation("Updated shop feature settings for tenant {TenantId}", tenantId);
+        return ToDto(entity);
+    }
+
+    /// <inheritdoc />
+    public async Task<ShopFeatureSettingsDto> UpsertSyncedSettingsAsync(Guid tenantId, ShopFeatureSettingsDto settings, CancellationToken ct = default)
+    {
+        // #185-3: apply a settings payload received via the sync event — no re-publish
+        // (the event already came from the authoritative ShopERP copy).
+        ShopFeatureSettingsEntity entity = await UpsertCoreAsync(tenantId, settings, ct);
+        await _context.SaveChangesAsync(ct);
+        _logger.LogInformation("Upserted synced shop feature settings for tenant {TenantId}", tenantId);
+        return ToDto(entity);
+    }
+
+    private async Task<ShopFeatureSettingsEntity> UpsertCoreAsync(Guid tenantId, ShopFeatureSettingsDto settings, CancellationToken ct)
     {
         ShopFeatureSettingsEntity? entity = await GetEntityAsync(tenantId, ct);
         if (entity == null)
@@ -87,9 +125,20 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
             // C3 (2026-09-14): charity donation checkout step
             settings.Charity_Donation_Enabled);
 
-        await _context.SaveChangesAsync(ct);
-        _logger.LogInformation("Updated shop feature settings for tenant {TenantId}", tenantId);
-        return ToDto(entity);
+        return entity;
+    }
+
+    private async Task EnqueueSyncEventAsync(Guid tenantId, ShopFeatureSettingsDto settings, CancellationToken ct)
+    {
+        if (_outboxRepository == null) return;
+        // TenantId travels inside the payload (same convention as order.* sync events) —
+        // NatsSyncWorker publishes EventData verbatim; the subscriber extracts tenantId
+        // to set tenant context before upserting.
+        string payload = JsonSerializer.Serialize(
+            new { tenantId, settings }, SyncJsonOptions);
+        await _outboxRepository.EnqueueAsync(
+            new OutboxEvent(new TenantId(tenantId), new ElectronicInvoiceId(Guid.Empty),
+                EventTypes.ShopFeatureSettingsChanged, payload), ct);
     }
 
     public async Task<bool> IsEnabledAsync(Guid tenantId, string toggleName, CancellationToken ct = default)

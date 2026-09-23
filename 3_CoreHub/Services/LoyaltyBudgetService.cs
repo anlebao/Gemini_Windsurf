@@ -108,6 +108,27 @@ public class LoyaltyBudgetService : ILoyaltyBudgetService
         return adjusted;
     }
 
+    /// <inheritdoc />
+    public async Task<LoyaltyTenantCapsDto> GetCapsAsync(Guid tenantId, CancellationToken ct = default)
+    {
+        var config = await _dbContext.LoyaltyTenantConfigs
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.TenantId == new TenantId(tenantId), ct);
+
+        return new LoyaltyTenantCapsDto
+        {
+            TenantId = tenantId,
+            HasConfig = config != null,
+            MonthlyPointsBudget = config?.MonthlyPointsBudget,
+            DailyPointsBudget = config?.DailyPointsBudget,
+            PerCustomerDailyLimit = config?.PerCustomerDailyLimit,
+            PerOrderRateCap = config?.PerOrderRateCap,
+            PointsIssuedThisMonth = config?.PointsIssuedThisMonth ?? 0,
+            PointsIssuedToday = config?.PointsIssuedToday ?? 0
+        };
+    }
+
     public async Task RecordIssuanceAsync(Guid tenantId, int pointsIssued, CancellationToken ct = default)
     {
         if (pointsIssued <= 0) return;
