@@ -53,7 +53,9 @@
 >
 > **RV production PASS:** `GET /api/community/role` với token thật — Test Shipper `6e4edec9` → **200 `{isShipper:true}`** (trước fix: 500; Gateway log vẫn thấy CryptographicException nhưng được catch); customer test `a9e4194a` + 2 roles → **200 `{isShipper:true,isSalesman:true}`**. Cleanup: 5 test role rows PG deleted · dev-token window closed (`DevToken__Secret` empty, endpoint 404) · `~/.rvsec`/`~/.rvtoken*` xoá · ⚠️ `/tmp/.rvsec` cũ (root-owned, secret đã vô hiệu) không xoá được bằng user `lebao`.
 >
-> **Còn lại:** **data repair** — re-point `CommunityRoles.CustomerId` PG sang canonical ids (Thi Le 01 → `c7b2dc24`/`C9D10165`; Bảo Ấn Lê → `AA260799`/`06C5B36B`/`973239D9`; 3 id gắn role đã soft-delete: `616c70e6`, `45a8866d`, `4de64267`) → RV cuối: 2 user login thật → icons hiện. Legacy stub cũ (Social, không DeviceId) để nguyên — chỉ fix forward.
+> **Data repair DONE:** roles re-pointed — Thi Le 01 `616c70e6`→`C7B2DC24` (Shipper+Salesman active), Bảo Ấn Lê `45a8866d`+`4de64267`→`AA260799` (Shipper+Salesman active, grants 09-12 deactivated).
+>
+> **Còn lại:** RV cuối — 2 user login thật vào commienphi.timlathay.com → icons hiện; luân phiên login cùng máy không xoá nhau. Legacy stub cũ (Social, không DeviceId) để nguyên — chỉ fix forward.
 
 **FALLBACK NGUỒN MST: tracuunnt.gdt.gov.vn (Tổng cục Thuế) — ✅ IMPLEMENTED + DEPLOYED (2026-09-22, `e6871d38` + `e4b47b24` + `2ad51c9e` + `0ff2a8aa`, CD SUCCESS) — E2E chờ WAF nguội.**
 
@@ -158,7 +160,7 @@ Origin: user bug — "sau khi đơn thành công, điểm thưởng được tí
 
 **Shared-device merge fix (✅ DEPLOYED `a3eae6c2`+`c9afadd8` + RV role-API PASS):**
 - [x] Commit + push + CD Multi-VPS deploy + RV `/api/community/role` → 200 flags đúng (shipper+salesman) — crypto 500 fixed (`c9afadd8`)
-- [ ] **Data repair:** re-point `CommunityRoles.CustomerId` PG sang canonical ids — 3 stale ids: `616c70e6` (Thi Le 01 → `C9D10165`/`C7B2DC24`), `45a8866d`+`4de64267` (Bảo Ấn Lê → `AA260799`/`06C5B36B`/`973239D9`) — hoặc admin deactivate cũ + activate mới
+- [x] **Data repair DONE (2026-09-23):** re-point `CommunityRoles.CustomerId` PG — `616c70e6`→`C7B2DC24` (Thi Le 01, 2 rows), `45a8866d`+`4de64267`→`AA260799` (Bảo Ấn Lê, 6 rows; 2 grant cũ 09-12 deactivated, giữ grant 09-22). Canonical chọn = record live có Email + mới nhất. Kết quả: mỗi user 1 Shipper + 1 Salesman active; 0 active row trên dead ids. Lưu ý: `63cfb5aa` "An Tâm" = activation THẬT lúc 10:02 (admin concurrent) — không đụng
 - [ ] **RV cuối (user):** Thi Le 01 + Bảo Ấn Lê login thật vào commienphi.timlathay.com → icon shipper/salesman hiện; 2 account luân phiên cùng máy không xoá nhau
 - [ ] Legacy guest stubs cũ (IdentityLevel=Social, không DeviceId): để nguyên — fix forward only; đánh giá migration riêng nếu cần
 - [ ] ⚠️ `/tmp/.rvsec` trên vanan-shop-a (root-owned, secret đã vô hiệu) — cần root xoá khi có sudo
