@@ -21,7 +21,8 @@ namespace VanAn.CoreHub.Services
             decimal amount,
             string description,
             Guid? relatedOrderId = null,
-            Guid? relatedTransactionId = null);
+            Guid? relatedTransactionId = null,
+            TenantId? tenantIdOverride = null);
 
         /// <summary>
         /// Get current balance for an owner (last transaction's BalanceAfter, or 0 if no transactions).

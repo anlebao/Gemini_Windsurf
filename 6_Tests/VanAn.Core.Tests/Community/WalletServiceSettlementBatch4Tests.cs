@@ -300,6 +300,25 @@ public class WalletServiceSettlementBatch4Tests : IDisposable
         Assert.Equal(0m, record.CommissionAmount);
     }
 
+    // B4-9 (RV follow-up): order-linked wallet txs must carry the ORDER's tenant —
+    // production RV showed every tx written with TenantId=Guid.Empty because the
+    // request-scoped provider is empty on Gateway community/admin endpoints, which
+    // made the admin settlements tenant filter dead.
+    [Fact(DisplayName = "B4-9: WalletTx_TenantId_IsOrderTenant_NotProvider")]
+    public async Task WalletTx_TenantId_IsOrderTenant_NotProvider()
+    {
+        var orderTenant = new TenantId(Guid.NewGuid()); // differs from provider tenant
+        var orderId = await SeedMarketplaceOrderAsync(orderTenant);
+        await SeedDeliveryTaskAsync(orderId, orderTenant);
+
+        await _service.ConfirmCodAsync(ShipperId, orderId, 100000m);
+
+        var txs = await _context.WalletTransactions.IgnoreQueryFilters()
+            .Where(t => t.RelatedOrderId == orderId).ToListAsync();
+        Assert.NotEmpty(txs);
+        Assert.All(txs, t => Assert.Equal(orderTenant.Value, t.TenantId.Value));
+    }
+
     private sealed class StubTenantProvider : ITenantProvider
     {
         public StubTenantProvider(Guid tenantId) => TenantId = tenantId;

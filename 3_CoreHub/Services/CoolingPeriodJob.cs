@@ -102,13 +102,15 @@ public class CoolingPeriodJob : BackgroundService
                     }
                 }
 
-                // Create WalletTransaction for commission payout
+                // Create WalletTransaction for commission payout — carry the referral's
+                // tenant so admin settlement views can filter by tenant.
                 await walletService.CreateTransactionAsync(
                     referral.SalesmanId,
                     WalletTransactionType.Commission,
                     referral.CommissionAmount,
                     $"Commission payout for order {referral.OrderId}",
-                    referral.OrderId);
+                    referral.OrderId,
+                    tenantIdOverride: referral.TenantId);
 
                 referral.MarkCommissionPaid();
                 await dbContext.SaveChangesAsync(ct);
@@ -162,7 +164,8 @@ public class CoolingPeriodJob : BackgroundService
                         WalletTransactionType.Commission,
                         attribution.BonusAmount,
                         $"App-install bonus for product {attribution.ProductId} (attribution {attribution.Id})",
-                        relatedTransactionId: attribution.Id);
+                        relatedTransactionId: attribution.Id,
+                        tenantIdOverride: attribution.TenantId);
 
                     attribution.MarkPaid(txn.Id);
                 }

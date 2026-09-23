@@ -6,8 +6,8 @@ import { test, expect } from '@playwright/test';
  * date filters (VanAInput type=date), pagination shell.
  */
 
-const GATEWAY = 'https://api.khachvip.online';
-const SHOPERP = 'https://erp.khachvip.online';
+const GATEWAY = 'https://api2.khachvip.online';
+const SHOPERP = 'https://app2.khachvip.online';
 
 test.describe('TC-10 Settlement Admin — /admin/settlements', () => {
 
@@ -27,7 +27,7 @@ test.describe('TC-10 Settlement Admin — /admin/settlements', () => {
   test('TC10-3: /admin/settlements page loads (redirects to login when unauthenticated)', async ({ page }) => {
     await page.goto(`${SHOPERP}/admin/settlements`);
     const url = page.url();
-    expect(url).toContain('erp.khachvip.online');
+    expect(url).toContain('app2.khachvip.online');
   });
 
   test('TC10-4: Settlements page renders UI Platform data grid when authenticated', async ({ page }) => {

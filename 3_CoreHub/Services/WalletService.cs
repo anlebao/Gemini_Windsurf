@@ -60,7 +60,8 @@ namespace VanAn.CoreHub.Services
             decimal amount,
             string description,
             Guid? relatedOrderId = null,
-            Guid? relatedTransactionId = null)
+            Guid? relatedTransactionId = null,
+            TenantId? tenantIdOverride = null)
         {
             var tenantId = new TenantId(_tenantProvider.TenantId);
 
@@ -80,7 +81,7 @@ namespace VanAn.CoreHub.Services
                 {
                     walletTx = await CreateWalletTxCoreAsync(
                         ownerId, type, amount, description, relatedOrderId, relatedTransactionId,
-                        runningBalances: null);
+                        runningBalances: null, tenantIdOverride: tenantIdOverride);
                     await tx.CommitAsync();
 
                     _logger.LogInformation("WalletTransaction created: Id={Id} BalanceAfter={BalanceAfter}",
@@ -111,9 +112,14 @@ namespace VanAn.CoreHub.Services
             string description,
             Guid? relatedOrderId,
             Guid? relatedTransactionId,
-            Dictionary<Guid, decimal>? runningBalances)
+            Dictionary<Guid, decimal>? runningBalances,
+            TenantId? tenantIdOverride = null)
         {
-            var tenantId = new TenantId(_tenantProvider.TenantId);
+            // Settlement Batch-4 RV follow-up: order-linked legs must carry the ORDER's
+            // tenant — the request-scoped provider is empty on Gateway community/admin
+            // endpoints, which left every wallet tx at TenantId=Guid.Empty and made the
+            // admin settlements tenant filter dead. Non-order txs keep the provider value.
+            var tenantId = tenantIdOverride ?? new TenantId(_tenantProvider.TenantId);
 
             decimal balanceBefore;
             if (runningBalances != null && runningBalances.TryGetValue(ownerId, out decimal cachedBalance))
@@ -366,7 +372,8 @@ namespace VanAn.CoreHub.Services
                             $"COD collection for order {orderId}",
                             orderId,
                             null,
-                            balances);
+                            balances,
+                            order.TenantId);
 
                         // 7. Settlement (-amount, shop) — shop wallet owner = TenantId
                         await CreateWalletTxCoreAsync(
@@ -376,7 +383,8 @@ namespace VanAn.CoreHub.Services
                             $"COD settlement for order {orderId} (shipper collected)",
                             orderId,
                             shipperTx.Id,
-                            balances);
+                            balances,
+                            order.TenantId);
                     }
 
                     // 8. Mark order COD collected — same commit as the wallet entries.
@@ -578,7 +586,8 @@ namespace VanAn.CoreHub.Services
                 $"COD collection for order {orderId} (Reseller)",
                 orderId,
                 null,
-                balances);
+                balances,
+                order.TenantId);
 
             // 2. Settlement (+costPrice, tenant) — Vạn An trả tenant giá vốn
             await CreateWalletTxCoreAsync(
@@ -588,7 +597,8 @@ namespace VanAn.CoreHub.Services
                 $"Cost price settlement for order {orderId} (Reseller — Vạn An mua từ tenant)",
                 orderId,
                 shipperTx.Id,
-                balances);
+                balances,
+                order.TenantId);
 
             // 3. DeliveryFee (+deliveryFee, shipper) — Vạn An trả shipper phí giao
             if (deliveryFee > 0)
@@ -600,7 +610,8 @@ namespace VanAn.CoreHub.Services
                     $"Delivery fee for order {orderId} (Reseller)",
                     orderId,
                     shipperTx.Id,
-                    balances);
+                    balances,
+                    order.TenantId);
             }
 
             // 4. PlatformFee (+platformFee, PlatformWallet) — Vạn An giữ margin share
@@ -613,7 +624,8 @@ namespace VanAn.CoreHub.Services
                     $"Platform fee for order {orderId} (Reseller — {platformFeeRate:P1} of margin)",
                     orderId,
                     shipperTx.Id,
-                    balances);
+                    balances,
+                    order.TenantId);
             }
 
             // 5. CommunityFund (+communityFund, CommunityFundWallet) — quỹ cộng đồng
@@ -626,7 +638,8 @@ namespace VanAn.CoreHub.Services
                     $"Community fund for order {orderId} (Reseller — {communityFundRate:P1} of margin)",
                     orderId,
                     shipperTx.Id,
-                    balances);
+                    balances,
+                    order.TenantId);
             }
 
             _logger.LogInformation(
@@ -698,7 +711,8 @@ namespace VanAn.CoreHub.Services
                             $"Advance payment to tenant for order {orderId} (Reseller — Vạn An ứng)",
                             orderId,
                             null,
-                            balances);
+                            balances,
+                            order.TenantId);
 
                         // Settlement (+amount, tenant) — tenant nhận
                         await CreateWalletTxCoreAsync(
@@ -708,7 +722,8 @@ namespace VanAn.CoreHub.Services
                             $"Advance received from Vạn An for order {orderId} (Reseller)",
                             orderId,
                             advanceTx.Id,
-                            balances);
+                            balances,
+                            order.TenantId);
 
                         _logger.LogInformation("Advance confirmed (Reseller): Order={OrderId} Amount={Amount} (Vạn An → tenant)",
                             orderId, amount);
@@ -724,7 +739,8 @@ namespace VanAn.CoreHub.Services
                             $"Advance payment to shop for order {orderId}",
                             orderId,
                             null,
-                            balances);
+                            balances,
+                            order.TenantId);
 
                         _logger.LogInformation("Advance confirmed: Order={OrderId} Shipper={ShipperId} Amount={Amount}",
                             orderId, shipperId, amount);
@@ -805,7 +821,8 @@ namespace VanAn.CoreHub.Services
                         $"Advance received from shipper for order {advanceTx.RelatedOrderId}",
                         advanceTx.RelatedOrderId,
                         advanceTransactionId,
-                        runningBalances: null);
+                        runningBalances: null,
+                        tenantIdOverride: orderTenantId);
 
                     await tx.CommitAsync();
 
@@ -919,7 +936,8 @@ namespace VanAn.CoreHub.Services
                         $"COD remittance for order {orderId}",
                         orderId,
                         null,
-                        balances);
+                        balances,
+                        order.TenantId);
 
                     // 6. Settlement (+codAmount, beneficiary) — Marketplace: shop wallet
                     //    (order.TenantId); Reseller: PlatformWallet (Q1b — Vạn An nhận COD hộ).
@@ -933,7 +951,8 @@ namespace VanAn.CoreHub.Services
                         $"COD remittance received for order {orderId} ({order.CommerceMode})",
                         orderId,
                         remitTx.Id,
-                        balances);
+                        balances,
+                        order.TenantId);
 
                     await tx.CommitAsync();
 
@@ -1032,7 +1051,8 @@ namespace VanAn.CoreHub.Services
                 -original.Amount, // Negate original: if original was +50k, reversal is -50k
                 $"Reversal of transaction {originalTransactionId}",
                 original.RelatedOrderId,
-                originalTransactionId);
+                originalTransactionId,
+                tenantIdOverride: original.TenantId);
 
             _logger.LogInformation("Transaction reversed: Original={OriginalId} Reversal={ReversalId}",
                 originalTransactionId, reversalTx.Id);
@@ -1132,7 +1152,8 @@ namespace VanAn.CoreHub.Services
                         $"External payment for order {orderId} (Ref: {paymentRef})",
                         orderId,
                         null,
-                        balances);
+                        balances,
+                        order.TenantId);
 
                     // 2. Settlement (+costPrice, tenant) — Vạn An trả tenant giá vốn
                     await CreateWalletTxCoreAsync(
@@ -1142,7 +1163,8 @@ namespace VanAn.CoreHub.Services
                         $"Cost price settlement for order {orderId} (Reseller — external payment)",
                         orderId,
                         externalTx.Id,
-                        balances);
+                        balances,
+                        order.TenantId);
 
                     // 3. DeliveryFee (+deliveryFee, shipper) — Vạn An trả shipper
                     if (deliveryFee > 0)
@@ -1168,7 +1190,8 @@ namespace VanAn.CoreHub.Services
                                 $"Delivery fee for order {orderId} (Reseller — external payment)",
                                 orderId,
                                 externalTx.Id,
-                                balances);
+                                balances,
+                                order.TenantId);
                         }
                     }
 
@@ -1182,7 +1205,8 @@ namespace VanAn.CoreHub.Services
                             $"Platform fee for order {orderId} (Reseller — external payment, {platformFeeRate:P1} of margin)",
                             orderId,
                             externalTx.Id,
-                            balances);
+                            balances,
+                            order.TenantId);
                     }
 
                     // 5. CommunityFund (+communityFund, CommunityFundWallet)
@@ -1195,7 +1219,8 @@ namespace VanAn.CoreHub.Services
                             $"Community fund for order {orderId} (Reseller — external payment, {communityFundRate:P1} of margin)",
                             orderId,
                             externalTx.Id,
-                            balances);
+                            balances,
+                            order.TenantId);
                     }
 
                     // Mark order as paid — TC-06: sets PaymentStatus=Paid (method EXTERNAL,
