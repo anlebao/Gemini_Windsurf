@@ -1,6 +1,6 @@
 # Task Card 185-4: "Không tìm thấy chỗ thiết lập giới hạn ngân sách điểm thưởng cho từng tenant"
 
-> **Status:** DECISION APPROVED 2026-09-23 — **Option C: read-only**. Owner xem caps + counters (không sửa) trong `/settings/shop-features`; chỉ SystemAdmin set tại `/admin/loyalty-config`.
+> **Status:** DONE 2026-09-23 — commit 8a47f40a — Option C read-only: card "Ngân sách điểm" trong /settings/shop-features via GetCapsAsync + internal caps endpoint
 > **Priority:** P2
 > **Created:** 2026-09-23
 > **Master plan:** `docs/AI/tasks/issue_185_loyalty/master_plan.md`

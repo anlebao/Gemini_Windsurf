@@ -1,6 +1,6 @@
 # Task Card 185-3: Tắt "chương trình điểm thưởng" vẫn hiển thị điểm trong luồng mua hàng
 
-> **Status:** DECISION APPROVED 2026-09-23 — sync = **B1: Outbox `ShopFeatureSettingsChanged` → NATS → Gateway PG upsert** — Batch 1 (client) + Batch 2 (sync)
+> **Status:** DONE 2026-09-23 — commit 8a47f40a — Phase A (client gates) + Phase B (Outbox→NATS→PG upsert) implemented
 > **Priority:** P1 — toggle không có tác dụng = user trust issue
 > **Created:** 2026-09-23
 > **Master plan:** `docs/AI/tasks/issue_185_loyalty/master_plan.md`

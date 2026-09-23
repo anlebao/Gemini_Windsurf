@@ -1,6 +1,6 @@
 # Task Card 185-2: Tỷ lệ tích điểm (%) cho phép nhập 0.01
 
-> **Status:** DECISION 2026-09-23 — **Option C: KHÔNG đổi Domain**. Dùng per-tenant `Loyalty_PointsRate` (decimal, đã hỗ trợ 0.01%). Chỉ update UI hint. Phụ thuộc Card 03-sync để rate tới được Gateway.
+> **Status:** DONE 2026-09-23 — commit 8a47f40a — Option C (no Domain change): step 0.0001 + hint rõ 0.01%; rate giờ sync được lên PG nhờ Card 03
 > **Priority:** P2
 > **Created:** 2026-09-23
 > **Master plan:** `docs/AI/tasks/issue_185_loyalty/master_plan.md`

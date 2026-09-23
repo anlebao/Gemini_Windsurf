@@ -1,6 +1,6 @@
 # Task Card 185-5: Chỉ đơn "giao hàng" mới show địa chỉ + map GPS + bắt buộc SĐT người nhận
 
-> **Status:** VERIFIED — partial implementation, gap thật ở SĐT — Batch 1
+> **Status:** DONE 2026-09-23 — commit 8a47f40a (SĐT bắt buộc khi DELIVERY, address ẩn khi non-delivery)
 > **Priority:** P1 — shipper không gọi được khách = đơn giao thất bại
 > **Created:** 2026-09-23
 > **Master plan:** `docs/AI/tasks/issue_185_loyalty/master_plan.md`

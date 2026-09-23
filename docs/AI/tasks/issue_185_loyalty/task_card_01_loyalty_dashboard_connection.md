@@ -1,6 +1,6 @@
 # Task Card 185-1: /loyalty/dashboard — "Lỗi kết nối"
 
-> **Status:** VERIFIED — chờ implement (Batch 1)
+> **Status:** DONE 2026-09-23 — commit 8a47f40a (build 0 err, guard-check pass, Core.Tests 1793 pass)
 > **Priority:** P1 — trang thống kê điểm thưởng hoàn toàn không dùng được
 > **Created:** 2026-09-23
 > **Master plan:** `docs/AI/tasks/issue_185_loyalty/master_plan.md`
