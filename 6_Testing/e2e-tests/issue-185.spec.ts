@@ -94,4 +94,10 @@ test.describe('Issue #185 — delivery-only fields + loyalty gating', () => {
     expect(body).toHaveProperty('pointsIssuedThisMonth');
     expect(body).toHaveProperty('pointsIssuedToday');
   });
+
+  test('Collaborators API (Card 06): requires Owner JWT — anonymous → 401', async ({ request: req }) => {
+    // OwnerPanel default list data source — tenant comes from JWT (IDOR safe).
+    const resp = await req.get(`${GATEWAY}/api/v1/tenant-community/collaborators?page=1&pageSize=20`);
+    expect([401, 403]).toContain(resp.status());
+  });
 });

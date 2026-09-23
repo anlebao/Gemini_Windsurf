@@ -320,4 +320,60 @@ public class CommunityAdminServiceTenantScopedTests : IDisposable
         Assert.Single(resultA.Items); // A: eligible (600 >= 500)
         Assert.Empty(resultB.Items);  // B: NOT eligible (600 < 1000 default)
     }
+
+    // === #185-6: GetActiveCollaboratorsForTenantAsync (OwnerPanel default list) ===
+
+    // === CTV1: only customers with ACTIVE roles of the calling tenant ===
+    [Fact(DisplayName = "CTV1: collaborators list — only active roles, tenant-isolated")]
+    public async Task GetActiveCollaborators_OnlyActiveRoles_TenantIsolated()
+    {
+        var customerA = CreateCustomer(_tenantIdA, "CTV A", IdentityLevel.Verified, 1500);
+        var customerB = CreateCustomer(_tenantIdB, "CTV B", IdentityLevel.Verified, 1500);
+        var plainA = CreateCustomer(_tenantIdA, "No Role A", IdentityLevel.Verified, 2000);
+
+        await _service.ActivateRoleForTenantAsync(TenantA, customerA.Id, CommunityRoleType.Shipper, OwnerId);
+        await _service.ActivateRoleForTenantAsync(TenantB, customerB.Id, CommunityRoleType.Salesman, OwnerId);
+
+        var resultA = await _service.GetActiveCollaboratorsForTenantAsync(TenantA, 1, 20);
+        var resultB = await _service.GetActiveCollaboratorsForTenantAsync(TenantB, 1, 20);
+
+        Assert.Single(resultA.Items);
+        Assert.Equal(customerA.Id, resultA.Items[0].CustomerId);
+        Assert.Equal(new[] { "Shipper" }, resultA.Items[0].ExistingRoles);
+        Assert.NotNull(resultA.Items[0].FirstActivatedAt);
+
+        Assert.Single(resultB.Items);
+        Assert.Equal(customerB.Id, resultB.Items[0].CustomerId);
+    }
+
+    // === CTV2: deactivated role → customer drops out of the list ===
+    [Fact(DisplayName = "CTV2: collaborators list — deactivated role excluded")]
+    public async Task GetActiveCollaborators_DeactivatedRole_Excluded()
+    {
+        var customerA = CreateCustomer(_tenantIdA, "CTV A", IdentityLevel.Verified, 1500);
+        await _service.ActivateRoleForTenantAsync(TenantA, customerA.Id, CommunityRoleType.Shipper, OwnerId);
+        await _service.DeactivateRoleForTenantAsync(TenantA, customerA.Id, CommunityRoleType.Shipper);
+
+        var result = await _service.GetActiveCollaboratorsForTenantAsync(TenantA, 1, 20);
+        Assert.Empty(result.Items);
+        Assert.Equal(0, result.Total);
+    }
+
+    // === CTV3: customer with BOTH roles appears once with both role names ===
+    [Fact(DisplayName = "CTV3: collaborators list — dual roles grouped per customer")]
+    public async Task GetActiveCollaborators_DualRoles_Grouped()
+    {
+        var customerA = CreateCustomer(_tenantIdA, "CTV A", IdentityLevel.Verified, 1500);
+        await _service.ActivateRoleForTenantAsync(TenantA, customerA.Id, CommunityRoleType.Shipper, OwnerId);
+        await _service.ActivateRoleForTenantAsync(TenantA, customerA.Id, CommunityRoleType.Salesman, OwnerId);
+
+        var result = await _service.GetActiveCollaboratorsForTenantAsync(TenantA, 1, 20);
+
+        Assert.Single(result.Items);
+        Assert.Equal(2, result.Items[0].ExistingRoles.Count);
+        Assert.Contains("Shipper", result.Items[0].ExistingRoles);
+        Assert.Contains("Salesman", result.Items[0].ExistingRoles);
+        // PII must NOT be materialized — phone is masked placeholder
+        Assert.Equal("***", result.Items[0].PhoneNumber);
+    }
 }

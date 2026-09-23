@@ -44,6 +44,16 @@ namespace VanAn.ShopERP.Services
             return await SendAndReadAsync<EligibleCustomersResult>(_httpClient, req, ct) ?? new();
         }
 
+        /// <summary>
+        /// #185-6: customers of the calling tenant with ≥1 ACTIVE community role —
+        /// default OwnerPanel list.
+        /// </summary>
+        public async Task<EligibleCustomersResult> GetCollaboratorsAsync(int page = 1, int pageSize = 20, CancellationToken ct = default)
+        {
+            var req = await CreateRequestAsync(HttpMethod.Get, $"api/v1/tenant-community/collaborators?page={page}&pageSize={pageSize}");
+            return await SendAndReadAsync<EligibleCustomersResult>(_httpClient, req, ct) ?? new();
+        }
+
         public async Task<ActivateRoleResult> ActivateRoleAsync(Guid customerId, string role, bool bypassEligibility = false, CancellationToken ct = default)
         {
             var req = await CreateRequestAsync(HttpMethod.Post, $"api/v1/tenant-community/{customerId}/activate-role", new { Role = role, BypassEligibility = bypassEligibility });

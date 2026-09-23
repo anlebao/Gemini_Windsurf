@@ -39,6 +39,23 @@ namespace VanAn.Gateway.Controllers
         }
 
         /// <summary>
+        /// GET /api/v1/tenant-community/collaborators?page=1&amp;pageSize=20
+        /// #185-6: customers of the calling tenant who currently hold ≥1 ACTIVE
+        /// community role (Salesman/Shipper) — default OwnerPanel list.
+        /// tenant_id read from JWT claim (NOT route param — IDOR safe).
+        /// </summary>
+        [HttpGet("collaborators")]
+        public async Task<IActionResult> GetCollaborators([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        {
+            var tenantId = GetTenantIdFromClaim();
+            if (tenantId == Guid.Empty)
+                return Unauthorized(new { error = "Missing or invalid tenant_id claim." });
+
+            var result = await _communityAdminService.GetActiveCollaboratorsForTenantAsync(tenantId, page, pageSize);
+            return Ok(result);
+        }
+
+        /// <summary>
         /// POST /api/v1/tenant-community/{customerId}/activate-role
         /// Activate a community role (Shipper or Salesman) for a customer of the calling tenant.
         /// IDOR guard: service throws UnauthorizedAccessException if customer.TenantId != JWT tenant_id.

@@ -134,6 +134,8 @@ namespace VanAn.ShopERP.Services
         public int LoyaltyPoints { get; set; }
         public string IdentityLevel { get; set; } = string.Empty;
         public List<string> ExistingRoles { get; set; } = new();
+        /// <summary>#185-6: earliest active-role activation (collaborator list only).</summary>
+        public DateTime? FirstActivatedAt { get; set; }
     }
 
     public class ActivateRoleResult

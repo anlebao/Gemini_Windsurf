@@ -1,6 +1,6 @@
 # Task Card 185-6: /community/owner-panel — mặc định show danh sách Salesman + Shipper
 
-> **Status:** VERIFIED — chưa implement, feature mới — Batch 3
+> **Status:** DONE 2026-09-23 — default list = active collaborators (Salesman/Shipper); "＋ Thêm cộng tác viên" mở list khách hàng để nâng cấp
 > **Priority:** P2
 > **Created:** 2026-09-23
 > **Master plan:** `docs/AI/tasks/issue_185_loyalty/master_plan.md`

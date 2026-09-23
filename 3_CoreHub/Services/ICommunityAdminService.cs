@@ -64,6 +64,13 @@ public interface ICommunityAdminService
     /// Throws UnauthorizedAccessException if customer.TenantId != tenantId.
     /// </summary>
     Task<List<CommunityRole>> GetCustomerRolesForTenantAsync(Guid tenantId, Guid customerId);
+
+    /// <summary>
+    /// #185-6: Get customers of the tenant who currently hold ≥1 ACTIVE community role
+    /// (Salesman/Shipper) — the default OwnerPanel list. Scalar projections only
+    /// (no PII decrypt — 2026-09-21 CryptographicException lesson).
+    /// </summary>
+    Task<PagedResult<EligibleCustomerDto>> GetActiveCollaboratorsForTenantAsync(Guid tenantId, int page, int pageSize);
 }
 
 /// <summary>Paged result wrapper.</summary>
@@ -82,4 +89,6 @@ public class EligibleCustomerDto
     public int LoyaltyPoints { get; set; }
     public string IdentityLevel { get; set; } = string.Empty;
     public List<string> ExistingRoles { get; set; } = new();
+    /// <summary>#185-6: earliest active-role activation time (collaborator list only; null elsewhere).</summary>
+    public DateTime? FirstActivatedAt { get; set; }
 }
