@@ -1,6 +1,6 @@
 # Task Card NF-5: Notification hardening + cleanup (stubs, dead code, resilience)
 
-> **Status:** ✅ IMPLEMENTED 2026-09-24 (Batch 3 — commit sau RV). Done: **C0/E16** (send-side `DeserializePushSubscription` normalize nested↔flat, 4 tests) · **C1/E6** (xoá stub `SubscribeToNatsAsync`) · **C2/E7** (xoá dead `NotifyStaffAsync`/`NotifyCustomerAsync`/`GetStatusDisplay`; guard `Guid.Empty` tenant group) · **C3/E13** (+`preparing`/`delivering`/`completed`, bỏ `processing`) · **C4/E9** (NATS lazy reconnect throttle 30s trong `PublishAsync`) · **C7/E15** (backoff retry loop 10s→120s ×4 pages: Index/Detail/Kitchen/Dashboard) · **C8/E11** (repo ưu tiên `ITenantProvider`, lazy-eval sau filter) · **C9/E17** (`PromoCampaignJob` resolve push service chỉ khi có pending). **DEFER (đã duyệt):** C5 outbox (tech-debt) · C6 guest push (đụng Domain — chờ duyệt) · E12 proper setter (đụng Domain — chờ duyệt).
+> **Status:** ✅ IMPLEMENTED + DEPLOYED + RV PASS 2026-09-24 (commit `6449dccc`, CI/Acct-Tests/CD ALL SUCCESS). Done: **C0/E16** (send-side `DeserializePushSubscription` normalize nested↔flat, 4 tests) · **C1/E6** (xoá stub `SubscribeToNatsAsync`) · **C2/E7** (xoá dead `NotifyStaffAsync`/`NotifyCustomerAsync`/`GetStatusDisplay`; guard `Guid.Empty` tenant group) · **C3/E13** (+`preparing`/`delivering`/`completed`, bỏ `processing`) · **C4/E9** (NATS lazy reconnect throttle 30s trong `PublishAsync`) · **C7/E15** (backoff retry loop 10s→120s ×4 pages: Index/Detail/Kitchen/Dashboard) · **C8/E11** (repo ưu tiên `ITenantProvider`, lazy-eval sau filter) · **C9/E17** (`PromoCampaignJob` resolve push service chỉ khi có pending) · **C10/E18** (VAPID key-pair mismatch prod — FCM 403 → đồng bộ `VAPID_PRIVATE_KEY=uyoKYxEO…` vào `.env.shoperp`+`.env.gateway`+GitHub secret → `sent 1/1`). **DEFER (đã duyệt):** C5 outbox (tech-debt) · C6 guest push (đụng Domain — chờ duyệt) · E12 proper setter (đụng Domain — chờ duyệt).
 > **Priority:** P2
 > **Created:** 2026-09-24
 > **Master plan:** `docs\AI\tasks\notification_fix\master_plan.md`
@@ -50,6 +50,13 @@ Guest không login → không `customerId` → skip push. Subscribe flow cũng c
 
 ### C7 — SignalR retry 1-shot (E15)
 `Orders/Index.razor:644-649` — retry 1 lần sau 10s rồi bỏ. `WithAutomaticReconnect()` đã có (line 615) — retry loop thủ công chỉ cover initial-connect fail. Đề xuất: thay bằng `WithAutomaticReconnect` retry policy tuỳ biến (e.g. `[0, 2, 10, 30]s` rồi lặp) hoặc exponential backoff loop — áp dụng chung cho Detail/Kitchen/VanADashboard nếu cùng pattern.
+
+### C10 — VAPID key-pair mismatch (E18) — **✅ FIXED + RV PASS**
+- **Triệu chứng RV:** sau E16 fix, WebPush request tới được FCM nhưng `403 permission denied: invalid JWT provided`.
+- **Root cause:** `VAPID_PRIVATE_KEY` trên prod (`.env.shoperp`, `.env.gateway`, GitHub secret) = `od5GzI5…` → derive public `BJ1zc6uh…` ≠ public `BJIeg2Xok…` (hardcode `pwa.js` + `appsettings.json` + guide). Private đúng = `uyoKYxEO…` (trong `VAPID_KEY_GENERATION_GUIDE.md` + `.env`) — verify bằng openssl derive: MATCH.
+- **Fix:** `sed` sửa `VAPID_PRIVATE_KEY` trong `.env.shoperp` + `.env.gateway` → `docker compose --env-file … up -d` recreate → `gh secret set VAPID_PRIVATE_KEY` (CD đọc secret — không sửa sẽ revert ở deploy sau).
+- **RV:** publish `order.status.changed` → `Push notifications sent: 1/1` — FCM chấp nhận, push deliver.
+- **Lesson:** `docker compose up -d` trên VPS BẮT BUỘC `--env-file .env.shoperp` (file không tên `.env` → `${VAR}` interpolate rỗng → container crash `Jwt:Secret missing` — đã vấp 1 lần, recreate lại đúng).
 
 ### C8 — TenantId trên PushSubscription/PushNotificationDelivery (E11/E12)
 - `PushSubscriptionRepository.cs:15` — `_currentTenantId = Guid.Empty` trong ShopERP scope (ShopERPDbContext ≠ VanAnDbContext) → subscription tạo với `TenantId.Empty`. Resolve tenant thật từ `ResolveCustomerTenant`/tenant provider.

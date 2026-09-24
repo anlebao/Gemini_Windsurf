@@ -1,7 +1,7 @@
 # Master Plan — Notification Feature Fix (2026-09-24)
 
 **Created:** 2026-09-24
-**Status:** TC-01 → TC-04 ✅ IMPLEMENTED + DEPLOYED (commit `07827a4a`, CI/Acct-Tests/CD Multi-VPS ALL SUCCESS) · **RV 2026-09-24: pipeline E2E sống nhưng last-mile send FAIL — E16 mới (xem Batch 3)** · **TC-05 còn lại (P2, decisions đã duyệt)**
+**Status:** TC-01 → TC-05 ✅ ALL IMPLEMENTED + DEPLOYED (commits `07827a4a` + `6449dccc`, CI/Acct-Tests/CD Multi-VPS ALL SUCCESS) · **RV 2026-09-24 FINAL: PUSH THẬT DELIVER 1/1** (`Push notifications sent: 1/1` tới FCM) — E16 + E18 (VAPID mismatch) đã fix trên prod · Deferred: C5 outbox · C6 guest push · E12 Domain setter · shipper eligible fan-out
 **Decisions:** (1) TC-01 = Option A — YARP route `/api/notifications/*` → shoperp-cluster ✓ · (2) TC-04 scope = owner đơn-mới + salesman-completed + assigned-shipper-cancelled ✓ (shipper "đơn mới cần nhận" theo khu vực/eligible — defer phase sau, đã ghi plan trong card) · (3) TC-05 C5 = giữ push best-effort, mark tech-debt — route `order.status.changed` qua Outbox defer phase sau
 **Branch target:** `main`
 **Source:** Review session 2026-09-24 — "buyer, shipper, salesman, owner không nhận được thông báo trạng thái đơn hàng thay đổi"
@@ -33,6 +33,7 @@
 | **E16** | `NotificationsController.cs:45` vs `PushNotificationService.cs:98` (+7 chỗ deserialize khác) | **CONFIRMED PROD (RV 2026-09-24):** subscribe lưu `SubscriptionJson` = serialize cả `PushSubscriptionRequest` DTO → shape nested `{Endpoint, Keys:{P256dh,Auth}}`. Send side `JsonSerializer.Deserialize<WebPush.PushSubscription>` cần flat `{endpoint,p256dh,auth}` → P256dh/Auth = null → `GenerateRequestDetails` throw `ArgumentException: subscription must have 'auth' and 'p256dh' keys` → **100% send fail**. Trước bị che bởi RC-1 (không row nào tới được DB). Fix hướng: parse nested shape → `new PushSubscription(endpoint, p256dh, auth)` ở send side (an toàn với data cũ), hoặc flatten ở store side + migrate rows hiện có |
 | **E17** | prod ShopERP logs | `PushNotificationService initialized` mỗi ~30s — một background worker resolve scoped service theo poll (noise/perf, không lỗi chức năng) |
 | **E11-prod** | `PushSubscriptions` row thật trên prod | `TenantId='00000000-…'` (ShopERPDbContext `_currentTenantId=Guid.Empty`) — hiện vô hại vì `GetByCustomerIdAsync` chỉ filter `CustomerId+IsActive`, nhưng là multi-tenant data-quality debt |
+| **E18** | `/opt/vanan/.env.shoperp` + `.env.gateway` + GitHub secret `VAPID_PRIVATE_KEY` | **CONFIRMED PROD (RV 2026-09-24):** private key `od5GzI5…` deploy trên VPS derive ra public `BJ1zc6uh…` ≠ public `BJIeg2Xok…` mà client subscribe → FCM `403 invalid JWT` sau khi E16 fixed. Root cause: GitHub secret + env files chứa key pair khác với key trong `VAPID_KEY_GENERATION_GUIDE.md`/`.env`. **FIXED:** set `VAPID_PRIVATE_KEY=uyoKYxEO…` (derive đúng `BJIeg2Xok…`) vào `.env.shoperp` + `.env.gateway` + `gh secret set` → container recreate → `sent: 1/1` |
 
 ## Fix plan (thứ tự đề xuất)
 
@@ -44,9 +45,10 @@
 ### Batch 2 — Role fan-out — ✅ DONE 2026-09-24 (scope đã duyệt)
 4. **TC-04** ✅ — Owner đơn-mới (payload `OwnerCustomerId` + push trong `OrderSyncSubscriber`) · salesman-completed (`salesmanId` trong `order.status.changed` → `/community/sales-dashboard`) · assigned-shipper-cancelled (`assignedShipperId`=`Order.ShipperId` → `/community/active-deliveries`) · Gateway `rolesOnly` republish cho transition ShopERP-initiated · strict `GetGuid` parse (không TryParse-stub). Tests: `PushNotificationFanOutTests` 8/8. **Deferred:** shipper "đơn mới cần nhận" theo khu vực/eligible (plan trong card).
 
-### Batch 3 — Hardening + debt — ✅ IMPLEMENTED 2026-09-24 (build 0 errors · guard ALL PASSED · 12/12 fan-out+E16 tests)
+### Batch 3 — Hardening + debt — ✅ IMPLEMENTED + DEPLOYED + RV PASS 2026-09-24 (`6449dccc` + VAPID prod fix)
 5. **E16** ✅ — `PushNotificationService.DeserializePushSubscription` (internal static, case-insensitive, nested `Keys.*` + flat) thay 8 call-site deserialize; 4 tests mới.
 6. **TC-05** ✅ implemented items — xem `task_card_05` status. **DEFER:** C5 outbox (tech-debt, đã duyệt) · C6 guest push (đụng Domain) · E12 reflection setter (đụng Domain) — cả 2 chờ duyệt riêng.
+6b. **E18** ✅ — VAPID key-pair mismatch prod: `VAPID_PRIVATE_KEY` trong `.env.shoperp`/`.env.gateway`/GitHub secret không khớp public `BJIeg2Xok…` → FCM 403. Sửa cả 3 nơi về `uyoKYxEO…` (key đúng trong guide/.env) → RV `sent: 1/1`.
 7. **Deferred theo duyệt:** shipper "đơn mới cần nhận" (khu vực/eligible) — plan trong `task_card_04`.
 
 ## Hard stop checks
@@ -63,8 +65,8 @@
 - [x] **Deploy markers:** `rolesOnly`/`assignedShipperId`/`OwnerCustomerId` trong binaries; `PushNotificationBackgroundService` subscribed `order.status.changed`; `OrderSyncSubscriber` subscribed routed subjects `vanan.cloud.order.*.9e94f876-…`; `VAPID_PRIVATE_KEY` present (RC-3 clear trên prod)
 - [x] **SignalR hubs reachable:** `/orderHub/negotiate` 200, `/hubs/location/negotiate` 200
 - [x] **E2E NATS→consumer→send-attempt:** publish `order.status.changed` test (orderId `6947fb4b…`, customerId thật `6d0eba8a…`, salesmanId random) → ShopERP log: tìm đúng subscription → gọi WebPush cho buyer + bulk cho salesman (`Sent=0, Failed=1` vì random GUID không có sub) → `dispatched` logged. **Toàn bộ đường dẫn code hoạt động.**
-- [ ] **Last-mile WebPush send: FAIL — E16** (shape mismatch, xem bảng lỗi). `Push notifications sent: 0/1`.
-- [ ] TC-02/TC-03 realtime trong browser + TC-04 trên order thật (owner/salesman/shipper thật có subscription) — **cần tài khoản/device thật, chờ sau khi E16 fixed**
+- [x] **Last-mile WebPush send: PASS** (sau E16 + E18) — publish `order.status.changed` (orderId `f421bc61…`, customerId thật `6d0eba8a-bc93-…`) → `Push notifications sent: 1/1` — request qua FCM, không exception. Chuỗi lỗi đã dọn: E16 shape → 403 VAPID → ✅ delivered.
+- [ ] TC-02/TC-03 realtime trong browser + TC-04 trên order thật (owner/salesman/shipper thật có subscription) — **cần tài khoản/device thật**
 
 ## Task cards
 - `task_card_01_push_subscribe_routing.md` — RC-1 + RC-3 (P0)
