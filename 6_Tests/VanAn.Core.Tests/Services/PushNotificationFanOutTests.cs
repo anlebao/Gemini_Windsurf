@@ -215,5 +215,46 @@ namespace VanAn.Core.Tests.Services
                 It.IsAny<IReadOnlyList<Guid>>(), It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<string?>(), It.IsAny<Guid?>()), Times.Never);
         }
+
+        // ---------- E16: DeserializePushSubscription (nested vs flat shape) ----------
+
+        [Fact(DisplayName = "E16 T1: nested NotificationsController shape {Endpoint,Keys:{P256dh,Auth}} deserializes")]
+        public void Deserialize_NestedShape_ReturnsSubscription()
+        {
+            var json = """{"Endpoint":"https://push.example.com/sub/1","Keys":{"P256dh":"BP4x","Auth":"abc123"}}""";
+
+            var sub = PushNotificationService.DeserializePushSubscription(json);
+
+            Assert.NotNull(sub);
+            Assert.Equal("https://push.example.com/sub/1", sub!.Endpoint);
+            Assert.Equal("BP4x", sub.P256DH);
+            Assert.Equal("abc123", sub.Auth);
+        }
+
+        [Fact(DisplayName = "E16 T2: flat WebPush shape {endpoint,p256dh,auth} deserializes")]
+        public void Deserialize_FlatShape_ReturnsSubscription()
+        {
+            var json = """{"endpoint":"https://push.example.com/sub/2","p256dh":"BP4x","auth":"abc123"}""";
+
+            var sub = PushNotificationService.DeserializePushSubscription(json);
+
+            Assert.NotNull(sub);
+            Assert.Equal("https://push.example.com/sub/2", sub!.Endpoint);
+            Assert.Equal("BP4x", sub.P256DH);
+        }
+
+        [Fact(DisplayName = "E16 T3: missing keys → null (no send, no throw)")]
+        public void Deserialize_MissingKeys_ReturnsNull()
+        {
+            var json = """{"Endpoint":"https://push.example.com/sub/3"}""";
+
+            Assert.Null(PushNotificationService.DeserializePushSubscription(json));
+        }
+
+        [Fact(DisplayName = "E16 T4: invalid JSON → null (no send, no throw)")]
+        public void Deserialize_InvalidJson_ReturnsNull()
+        {
+            Assert.Null(PushNotificationService.DeserializePushSubscription("not-json"));
+        }
     }
 }

@@ -1,7 +1,6 @@
 # Task Card NF-5: Notification hardening + cleanup (stubs, dead code, resilience)
 
-> **Status:** PLAN — chưa implement. Decisions đã duyệt 2026-09-24: giữ push best-effort (C5); route `order.status.changed` qua Outbox = **tech-debt, defer phase sau**. Còn lại chờ duyệt/triển khai: E6 stub `SubscribeToNatsAsync`, E7 dead hub methods, E9 NATS reconnect, E13 status text, E15 SignalR retry, RC-2 guest push.
-> **➕ Findings từ RV production 2026-09-24 (commit `07827a4a`):** thêm **C0 (E16 — subscription JSON shape mismatch, P0 blocker send)** + **C9 (E17 — service re-init mỗi 30s)** + C8 xác nhận có row thật `TenantId.Empty` trên prod.
+> **Status:** ✅ IMPLEMENTED 2026-09-24 (Batch 3 — commit sau RV). Done: **C0/E16** (send-side `DeserializePushSubscription` normalize nested↔flat, 4 tests) · **C1/E6** (xoá stub `SubscribeToNatsAsync`) · **C2/E7** (xoá dead `NotifyStaffAsync`/`NotifyCustomerAsync`/`GetStatusDisplay`; guard `Guid.Empty` tenant group) · **C3/E13** (+`preparing`/`delivering`/`completed`, bỏ `processing`) · **C4/E9** (NATS lazy reconnect throttle 30s trong `PublishAsync`) · **C7/E15** (backoff retry loop 10s→120s ×4 pages: Index/Detail/Kitchen/Dashboard) · **C8/E11** (repo ưu tiên `ITenantProvider`, lazy-eval sau filter) · **C9/E17** (`PromoCampaignJob` resolve push service chỉ khi có pending). **DEFER (đã duyệt):** C5 outbox (tech-debt) · C6 guest push (đụng Domain — chờ duyệt) · E12 proper setter (đụng Domain — chờ duyệt).
 > **Priority:** P2
 > **Created:** 2026-09-24
 > **Master plan:** `docs\AI\tasks\notification_fix\master_plan.md`

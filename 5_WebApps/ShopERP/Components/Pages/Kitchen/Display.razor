@@ -318,15 +318,27 @@
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Kitchen Display: SignalR connection failed — 5s poll fallback active. Retrying in 10s...");
-            // Issue 8: Auto-retry SignalR connection after 10s — handles transient proxy/WebSocket failures.
-            // Guard: test host / app shutdown disposes HubConnection — retry task may fire after dispose.
+            Logger.LogWarning(ex, "Kitchen Display: SignalR connection failed — 5s poll fallback active. Retrying with backoff...");
+            // E15: exponential-backoff retry loop (10s→…→max 120s). Guard: component teardown disposes the connection.
             _ = Task.Run(async () =>
             {
-                await Task.Delay(10000);
-                try { if (_hubConnection is not null) await _hubConnection.StartAsync(); }
-                catch (ObjectDisposedException) { /* component torn down — ignore */ }
-                catch (Exception retryEx) { Logger.LogWarning(retryEx, "Kitchen Display: SignalR retry failed"); }
+                var delayMs = 10_000;
+                while (_hubConnection is { State: HubConnectionState.Disconnected })
+                {
+                    await Task.Delay(delayMs);
+                    try
+                    {
+                        await _hubConnection.StartAsync();
+                        Logger.LogInformation("Kitchen Display: SignalR reconnected after {Delay}s backoff", delayMs / 1000);
+                        break;
+                    }
+                    catch (ObjectDisposedException) { break; /* component torn down */ }
+                    catch (Exception retryEx)
+                    {
+                        Logger.LogWarning(retryEx, "Kitchen Display: SignalR retry failed — next attempt in {Delay}s", delayMs / 1000);
+                        delayMs = Math.Min(delayMs * 2, 120_000);
+                    }
+                }
             });
         }
     }

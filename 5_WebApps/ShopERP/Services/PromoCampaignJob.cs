@@ -71,10 +71,12 @@ namespace VanAn.ShopERP.Services
         {
             using IServiceScope scope = _serviceProvider.CreateScope();
             var campaignRepository = scope.ServiceProvider.GetRequiredService<IPromoCampaignRepository>();
-            var pushNotificationService = scope.ServiceProvider.GetService<PushNotificationService>();
 
             var pendingCampaigns = await campaignRepository.GetPendingCampaignsAsync();
             if (pendingCampaigns.Count == 0) return;
+
+            // E17: resolve push service only when there is real work — avoids ctor noise every 30s poll.
+            var pushNotificationService = scope.ServiceProvider.GetService<PushNotificationService>();
 
             _logger.LogInformation("PromoCampaignJob: processing {Count} pending campaign(s)", pendingCampaigns.Count);
 

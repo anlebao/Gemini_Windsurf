@@ -413,7 +413,28 @@
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "SignalR connection failed — detail will not auto-refresh");
+            Logger.LogWarning(ex, "SignalR connection failed — retrying with backoff");
+            // E15: exponential-backoff retry loop (10s→…→max 120s).
+            _ = Task.Run(async () =>
+            {
+                var delayMs = 10_000;
+                while (_hubConnection is { State: HubConnectionState.Disconnected })
+                {
+                    await Task.Delay(delayMs);
+                    try
+                    {
+                        await _hubConnection.StartAsync();
+                        Logger.LogInformation("SignalR reconnected after {Delay}s backoff", delayMs / 1000);
+                        break;
+                    }
+                    catch (ObjectDisposedException) { break; }
+                    catch (Exception retryEx)
+                    {
+                        Logger.LogWarning(retryEx, "SignalR retry failed — next attempt in {Delay}s", delayMs / 1000);
+                        delayMs = Math.Min(delayMs * 2, 120_000);
+                    }
+                }
+            });
         }
     }
 

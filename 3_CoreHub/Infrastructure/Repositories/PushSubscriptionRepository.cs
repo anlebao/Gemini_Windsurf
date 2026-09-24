@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Domain.Repositories;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Common;
 
 namespace VanAn.CoreHub.Infrastructure.Repositories
 {
@@ -9,10 +10,18 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
     /// Engineering Constitution Compliance: ALWAYS filter by tenant and soft delete
     /// Decoupled from VanAnDbContext using IVanAnDbContext for Offline-First architecture
     /// </summary>
-    public class PushSubscriptionRepository(IVanAnDbContext context) : IPushSubscriptionRepository
+    public class PushSubscriptionRepository(IVanAnDbContext context, ITenantProvider? tenantProvider = null) : IPushSubscriptionRepository
     {
         private readonly IVanAnDbContext _context = context;
-        private readonly Guid _currentTenantId = context is VanAnDbContext vanAnContext ? vanAnContext.CurrentTenantId : Guid.Empty;
+        private readonly ITenantProvider? _tenantProvider = tenantProvider;
+
+        // E11: prefer ITenantProvider (set by ResolveCustomerTenantAttribute / background jobs) —
+        // evaluated lazily because the filter sets the tenant AFTER repo construction.
+        // Falls back to the DbContext tenant for Gateway scope; Guid.Empty only as last resort.
+        private Guid CurrentTenantId =>
+            _tenantProvider is { TenantId: { } t } && t != Guid.Empty ? t
+            : _context is VanAnDbContext vanAnContext ? vanAnContext.CurrentTenantId
+            : Guid.Empty;
 
         public async Task<PushSubscription?> GetByIdAsync(Guid id)
         {
@@ -41,7 +50,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
         {
             // Create new subscription with proper constructor
             PushSubscription newSubscription = new(
-                new TenantId(_currentTenantId),
+                new TenantId(CurrentTenantId),
                 subscription.CustomerId,
                 subscription.SubscriptionJson,
                 subscription.UserAgent);
@@ -111,7 +120,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
 
             // Create new subscription
             return await AddAsync(new PushSubscription(
-                new TenantId(_currentTenantId),
+                new TenantId(CurrentTenantId),
                 customerId,
                 subscriptionJson,
                 userAgent));

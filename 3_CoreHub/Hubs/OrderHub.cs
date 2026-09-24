@@ -24,7 +24,8 @@ namespace VanAn.CoreHub.Hubs
             if (order != null)
             {
                 await Groups.AddToGroupAsync(Context.ConnectionId, $"order_{orderId}");
-                await Groups.AddToGroupAsync(Context.ConnectionId, $"tenant_{tenantId}");
+                if (tenantId != Guid.Empty)
+                    await Groups.AddToGroupAsync(Context.ConnectionId, $"tenant_{tenantId}");
 
                 _logger.LogInformation("Connection {ConnectionId} joined order group {OrderId}",
                     Context.ConnectionId, orderId);
@@ -34,57 +35,16 @@ namespace VanAn.CoreHub.Hubs
         public async Task JoinTenantGroup()
         {
             Guid tenantId = GetTenantId();
+            if (tenantId == Guid.Empty)
+            {
+                _logger.LogDebug("JoinTenantGroup skipped — no TenantId claim (anonymous connection)");
+                return;
+            }
+
             await Groups.AddToGroupAsync(Context.ConnectionId, $"tenant_{tenantId}");
 
             _logger.LogInformation("Connection {ConnectionId} joined tenant group {TenantId}",
                 Context.ConnectionId, tenantId);
-        }
-
-        public async Task NotifyStaffAsync(Order order)
-        {
-            await Clients.Group($"tenant_{order.TenantId}").SendAsync("OrderCreated", new
-            {
-                OrderId = order.Id,
-                CustomerName = order.CustomerInfo?.FullName ?? "Khách hàng",
-                TotalAmount = order.TotalPrice,
-                order.Status,
-                order.CreatedAt,
-                Items = order.Items.Select(i => new
-                {
-                    i.ProductName,
-                    i.Quantity,
-                    i.UnitPrice
-                }).ToList()
-            });
-
-            _logger.LogInformation("Notified staff for order {OrderId}", order.Id);
-        }
-
-        public async Task NotifyCustomerAsync(Guid orderId, OrderStatusId status)
-        {
-            await Clients.Group($"order_{orderId}").SendAsync("OrderStatusUpdated", new
-            {
-                OrderId = orderId,
-                Status = status.Value,
-                StatusDisplay = GetStatusDisplay(status),
-                Timestamp = DateTime.UtcNow
-            });
-
-            _logger.LogInformation("Notified customer for order {OrderId} status {Status}", orderId, status);
-        }
-
-        private static string GetStatusDisplay(OrderStatusId status)
-        {
-            return status.Value switch
-            {
-                "pending" => "🔄 Đang chờ xử lý",
-                "preparing" => "🔥 Đang chuẩn bị",
-                "ready" => "🎯 Sẵn sàng",
-                "delivering" => "🚚 Đang giao hàng",
-                "completed" => "✅ Hoàn thành",
-                "cancelled" => "❌ Đã hủy",
-                _ => status.Value
-            };
         }
 
         private Guid GetTenantId()

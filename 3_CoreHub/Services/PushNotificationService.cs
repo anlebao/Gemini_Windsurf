@@ -95,7 +95,7 @@ namespace VanAn.CoreHub.Services
                         var notificationId = Guid.NewGuid();
                         var payload = CreateOrderStatusPayload(notificationId, orderId, newStatus, customerName);
 
-                        var pushSubscription = JsonSerializer.Deserialize<WebPush.PushSubscription>(subscription.SubscriptionJson);
+                        var pushSubscription = DeserializePushSubscription(subscription.SubscriptionJson);
                         if (pushSubscription == null)
                         {
                             _logger.LogWarning("Failed to deserialize subscription {SubscriptionId}", subscription.PushSubscriptionId);
@@ -167,7 +167,7 @@ namespace VanAn.CoreHub.Services
                         var notificationId = Guid.NewGuid();
                         var payload = CreateLoyaltyPointsPayload(notificationId, pointsChange, newBalance, reason);
 
-                        var pushSubscription = JsonSerializer.Deserialize<WebPush.PushSubscription>(subscription.SubscriptionJson);
+                        var pushSubscription = DeserializePushSubscription(subscription.SubscriptionJson);
                         if (pushSubscription == null)
                         {
                             _logger.LogWarning("Failed to deserialize subscription {SubscriptionId}", subscription.PushSubscriptionId);
@@ -265,7 +265,7 @@ namespace VanAn.CoreHub.Services
                     {
                         try
                         {
-                            var pushSubscription = JsonSerializer.Deserialize<WebPush.PushSubscription>(subscription.SubscriptionJson);
+                            var pushSubscription = DeserializePushSubscription(subscription.SubscriptionJson);
                             if (pushSubscription == null)
                             {
                                 _logger.LogWarning("Subscription {SubscriptionId} has invalid JSON, soft-deleting", subscription.PushSubscriptionId);
@@ -399,12 +399,58 @@ namespace VanAn.CoreHub.Services
         {
             "pending" => "Đơn hàng của bạn đang chờ xác nhận",
             "confirmed" => "Đơn hàng của bạn đã được xác nhận",
-            "processing" => "Đơn hàng của bạn đang được pha chế",
+            "preparing" => "Đơn hàng của bạn đang được pha chế",
             "ready" => "Đơn hàng của bạn đã sẵn sàng",
+            "delivering" => "Đơn hàng của bạn đang được giao",
             "delivered" => "Đơn hàng của bạn đã được giao thành công",
+            "completed" => "Đơn hàng của bạn đã hoàn thành",
             "cancelled" => "Đơn hàng của bạn đã bị hủy",
             _ => $"Trạng thái đơn hàng: {status}"
         };
+
+        /// <summary>
+        /// Deserialize a stored push subscription (E16). Two JSON shapes exist in the DB:
+        ///   nested {"Endpoint":"...","Keys":{"P256dh":"...","Auth":"..."}} — written by NotificationsController
+        ///   flat   {"endpoint":"...","p256dh":"...","auth":"..."}           — WebPush.PushSubscription shape
+        /// Matching is case-insensitive. Returns null when endpoint/keys are absent or JSON is invalid.
+        /// Internal for VanAn.Core.Tests (InternalsVisibleTo).
+        /// </summary>
+        internal static WebPush.PushSubscription? DeserializePushSubscription(string subscriptionJson)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(subscriptionJson);
+                var root = doc.RootElement;
+                if (root.ValueKind != JsonValueKind.Object)
+                    return null;
+
+                var endpoint = FindString(root, "endpoint");
+                var p256dh = FindString(root, "p256dh") ?? FindString(root, "keys", "p256dh");
+                var auth = FindString(root, "auth") ?? FindString(root, "keys", "auth");
+
+                if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(p256dh) || string.IsNullOrEmpty(auth))
+                    return null;
+
+                return new WebPush.PushSubscription(endpoint, p256dh, auth);
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+
+            static string? FindString(JsonElement obj, string name, string? nested = null)
+            {
+                foreach (var prop in obj.EnumerateObject())
+                {
+                    if (!string.Equals(prop.Name, name, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (nested == null)
+                        return prop.Value.ValueKind == JsonValueKind.String ? prop.Value.GetString() : null;
+                    return prop.Value.ValueKind == JsonValueKind.Object ? FindString(prop.Value, nested) : null;
+                }
+                return null;
+            }
+        }
 
         /// <summary>
         /// Loyalty-C WS-C: Send a birthday notification + annual bonus points info to a customer.
@@ -435,7 +481,7 @@ namespace VanAn.CoreHub.Services
                     {
                         var notificationId = Guid.NewGuid();
                         var payload = CreateBirthdayPayload(notificationId, customerName, pointsAwarded);
-                        var pushSubscription = JsonSerializer.Deserialize<WebPush.PushSubscription>(subscription.SubscriptionJson);
+                        var pushSubscription = DeserializePushSubscription(subscription.SubscriptionJson);
                         if (pushSubscription == null) continue;
 
                         await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
@@ -497,7 +543,7 @@ namespace VanAn.CoreHub.Services
                     {
                         var notificationId = Guid.NewGuid();
                         var payload = CreateVoucherExpiryPayload(notificationId, voucherCode, productName, expiresAt, daysRemaining);
-                        var pushSubscription = JsonSerializer.Deserialize<WebPush.PushSubscription>(subscription.SubscriptionJson);
+                        var pushSubscription = DeserializePushSubscription(subscription.SubscriptionJson);
                         if (pushSubscription == null) continue;
 
                         await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
@@ -548,7 +594,7 @@ namespace VanAn.CoreHub.Services
                     {
                         var notificationId = Guid.NewGuid();
                         var payload = CreateRedemptionFulfilledPayload(notificationId, voucherCode, productName);
-                        var pushSubscription = JsonSerializer.Deserialize<WebPush.PushSubscription>(subscription.SubscriptionJson);
+                        var pushSubscription = DeserializePushSubscription(subscription.SubscriptionJson);
                         if (pushSubscription == null) continue;
 
                         await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
@@ -599,7 +645,7 @@ namespace VanAn.CoreHub.Services
                     {
                         var notificationId = Guid.NewGuid();
                         var payload = CreateRedemptionCancelledPayload(notificationId, voucherCode, pointsRefunded);
-                        var pushSubscription = JsonSerializer.Deserialize<WebPush.PushSubscription>(subscription.SubscriptionJson);
+                        var pushSubscription = DeserializePushSubscription(subscription.SubscriptionJson);
                         if (pushSubscription == null) continue;
 
                         await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
@@ -650,7 +696,7 @@ namespace VanAn.CoreHub.Services
                     {
                         var notificationId = Guid.NewGuid();
                         var payload = CreatePromoPayload(notificationId, title, message, url);
-                        var pushSubscription = JsonSerializer.Deserialize<WebPush.PushSubscription>(subscription.SubscriptionJson);
+                        var pushSubscription = DeserializePushSubscription(subscription.SubscriptionJson);
                         if (pushSubscription == null) continue;
 
                         await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
@@ -779,36 +825,6 @@ namespace VanAn.CoreHub.Services
             return !string.IsNullOrEmpty(_vapidPrivateKey) && 
                    !string.IsNullOrEmpty(_vapidPublicKey) && 
                    !string.IsNullOrEmpty(_vapidSubject);
-        }
-
-        /// <summary>
-        /// Subscribe to NATS "order.status.changed" subject (Session 3).
-        /// This will be called during service startup if NATS is available.
-        /// </summary>
-        public async Task SubscribeToNatsAsync(CancellationToken cancellationToken = default)
-        {
-            if (_natsPublisher == null)
-            {
-                _logger.LogWarning("NATS publisher not available - push notifications will not be event-driven");
-                return;
-            }
-
-            try
-            {
-                // Subscribe to order status changes
-                // Note: In a full implementation, this would be a BackgroundService that listens to NATS
-                // For Session 3, we'll implement a simple subscription hook
-                _logger.LogInformation("PushNotificationService subscribed to NATS order.status.changed subject");
-                
-                // The actual NATS subscription would be implemented as a BackgroundService
-                // that receives messages and triggers SendOrderStatusNotificationAsync
-                // This is a placeholder for the subscription mechanism
-                await Task.CompletedTask;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to subscribe to NATS for push notifications");
-            }
         }
     }
 }

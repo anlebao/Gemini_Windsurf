@@ -639,13 +639,28 @@
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "SignalR connection failed — 5s poll fallback active. Retrying in 10s...");
-            // Issue 8: Auto-retry SignalR connection after 10s — handles transient proxy/WebSocket failures.
+            Logger.LogWarning(ex, "SignalR connection failed — 5s poll fallback active. Retrying with backoff...");
+            // E15: exponential-backoff retry loop (10s→20s→…→max 120s) until connected.
+            // Replaces the old 1-shot retry — a long outage no longer kills realtime until F5.
             _ = Task.Run(async () =>
             {
-                await Task.Delay(10000);
-                try { if (_hubConnection != null) await _hubConnection.StartAsync(); }
-                catch (Exception retryEx) { Logger.LogWarning(retryEx, "SignalR retry failed"); }
+                var delayMs = 10_000;
+                while (_hubConnection is { State: HubConnectionState.Disconnected })
+                {
+                    await Task.Delay(delayMs);
+                    try
+                    {
+                        await _hubConnection.StartAsync();
+                        Logger.LogInformation("SignalR reconnected after {Delay}s backoff", delayMs / 1000);
+                        break;
+                    }
+                    catch (ObjectDisposedException) { break; }
+                    catch (Exception retryEx)
+                    {
+                        Logger.LogWarning(retryEx, "SignalR retry failed — next attempt in {Delay}s", delayMs / 1000);
+                        delayMs = Math.Min(delayMs * 2, 120_000);
+                    }
+                }
             });
         }
     }

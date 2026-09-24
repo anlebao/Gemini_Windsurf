@@ -44,9 +44,9 @@
 ### Batch 2 — Role fan-out — ✅ DONE 2026-09-24 (scope đã duyệt)
 4. **TC-04** ✅ — Owner đơn-mới (payload `OwnerCustomerId` + push trong `OrderSyncSubscriber`) · salesman-completed (`salesmanId` trong `order.status.changed` → `/community/sales-dashboard`) · assigned-shipper-cancelled (`assignedShipperId`=`Order.ShipperId` → `/community/active-deliveries`) · Gateway `rolesOnly` republish cho transition ShopERP-initiated · strict `GetGuid` parse (không TryParse-stub). Tests: `PushNotificationFanOutTests` 8/8. **Deferred:** shipper "đơn mới cần nhận" theo khu vực/eligible (plan trong card).
 
-### Batch 3 — Hardening + debt — ⏳ PLAN (decisions đã duyệt + findings từ RV)
-5. **E16 (P0 trong batch — blocker thực của toàn kênh push):** normalize subscription shape nested↔flat (xem bảng lỗi).
-6. **TC-05** — Cleanup: stub E6, dead hub methods E7, status text E13, NatsEventPublisher reconnect E9, SignalR retry E15, E17 (service re-init mỗi 30s), E11-prod (TenantId.Empty). Đã duyệt: giữ push best-effort; `order.status.changed` qua Outbox = tech-debt defer; RC-2 guest push còn mở.
+### Batch 3 — Hardening + debt — ✅ IMPLEMENTED 2026-09-24 (build 0 errors · guard ALL PASSED · 12/12 fan-out+E16 tests)
+5. **E16** ✅ — `PushNotificationService.DeserializePushSubscription` (internal static, case-insensitive, nested `Keys.*` + flat) thay 8 call-site deserialize; 4 tests mới.
+6. **TC-05** ✅ implemented items — xem `task_card_05` status. **DEFER:** C5 outbox (tech-debt, đã duyệt) · C6 guest push (đụng Domain) · E12 reflection setter (đụng Domain) — cả 2 chờ duyệt riêng.
 7. **Deferred theo duyệt:** shipper "đơn mới cần nhận" (khu vực/eligible) — plan trong `task_card_04`.
 
 ## Hard stop checks

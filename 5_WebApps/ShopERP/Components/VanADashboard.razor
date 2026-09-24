@@ -273,7 +273,28 @@
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "VanADashboard: SignalR connection failed — 60s poll fallback active");
+            Logger.LogWarning(ex, "VanADashboard: SignalR connection failed — 60s poll fallback active, retrying with backoff");
+            // E15: exponential-backoff retry loop (10s→…→max 120s).
+            _ = Task.Run(async () =>
+            {
+                var delayMs = 10_000;
+                while (_hubConnection is { State: HubConnectionState.Disconnected })
+                {
+                    await Task.Delay(delayMs);
+                    try
+                    {
+                        await _hubConnection.StartAsync();
+                        Logger.LogInformation("VanADashboard: SignalR reconnected after {Delay}s backoff", delayMs / 1000);
+                        break;
+                    }
+                    catch (ObjectDisposedException) { break; }
+                    catch (Exception retryEx)
+                    {
+                        Logger.LogWarning(retryEx, "VanADashboard: SignalR retry failed — next attempt in {Delay}s", delayMs / 1000);
+                        delayMs = Math.Min(delayMs * 2, 120_000);
+                    }
+                }
+            });
         }
     }
 
