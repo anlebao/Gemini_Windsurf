@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using VanAn.CoreHub.Services;
+using VanAn.Gateway.Services;
 using VanAn.Shared.Domain;
 
 namespace VanAn.Gateway.Controllers
@@ -425,40 +426,24 @@ namespace VanAn.Gateway.Controllers
             return Ok(new { items = statuses });
         }
 
-        /// <summary>Validate X-Customer-Token by forwarding to ShopERP /api/customer-identity/me.</summary>
+        /// <summary>Validate X-Customer-Token by forwarding to ShopERP /api/customer-identity/me.
+        /// 2026-09-24: ShopERP unavailable (5xx/network) → 503 retryable, NOT 401 —
+        /// a deploy window must not look like an expired session.</summary>
         private async Task<(Guid? CustomerId, IActionResult? Error)> ValidateTokenAndGetCustomerIdAsync()
         {
             if (!Request.Headers.TryGetValue("X-Customer-Token", out var token) || string.IsNullOrEmpty(token))
                 return (null, Unauthorized(new { error = "X-Customer-Token header is required." }));
 
-            try
-            {
-                var client = _httpClientFactory.CreateClient("shoperp");
-                var meReq = new HttpRequestMessage(HttpMethod.Get, "/api/customer-identity/me");
-                meReq.Headers.Add("X-Customer-Token", token.ToString());
+            var (status, customerId) = await CustomerTokenValidationHelper.ValidateAsync(
+                _httpClientFactory, token.ToString(), HttpContext.RequestAborted);
 
-                var meResp = await client.SendAsync(meReq);
-                if (!meResp.IsSuccessStatusCode)
-                    return (null, Unauthorized(new { error = "Token không hợp lệ hoặc đã hết hạn." }));
-
-                var meContent = await meResp.Content.ReadFromJsonAsync<MeResponse>(HttpContext.RequestAborted);
-                if (meContent?.CustomerId == null || meContent.CustomerId == Guid.Empty)
-                    return (null, Unauthorized(new { error = "Không tìm thấy khách hàng." }));
-
-                return (meContent.CustomerId.Value, null);
-            }
-            catch (HttpRequestException ex)
+            return status switch
             {
-                // Fail-closed: if ShopERP is unreachable, the token cannot be validated → 401.
-                // Returning 500 would leak infrastructure status; 401 is the secure default.
-                _logger.LogWarning(ex, "ShopERP unreachable while validating customer token for guard endpoint");
-                return (null, Unauthorized(new { error = "Token không hợp lệ hoặc đã hết hạn." }));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error validating customer token for guard claim endpoint");
-                return (null, StatusCode(500, new { error = "Lỗi xác thực token." }));
-            }
+                CustomerTokenValidationStatus.Valid => (customerId, null),
+                CustomerTokenValidationStatus.InvalidToken =>
+                    (null, Unauthorized(new { error = "Token không hợp lệ hoặc đã hết hạn." })),
+                _ => (null, StatusCode(503, new { error = "Dịch vụ đang bảo trì, vui lòng thử lại sau." }))
+            };
         }
 
         private static Guid ExtractTenantIdFromPayload(string payload)
@@ -515,11 +500,5 @@ namespace VanAn.Gateway.Controllers
         public record FlagRequest(string Reason);
 
         public record MySessionsRequest(List<Guid> SessionIds);
-
-        // Response from ShopERP /api/customer-identity/me (subset)
-        private class MeResponse
-        {
-            public Guid? CustomerId { get; set; }
-        }
     }
 }

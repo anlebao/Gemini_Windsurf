@@ -65,18 +65,57 @@ namespace VanAn.Core.Tests.Community
             Assert.NotNull(badRequest.Value);
         }
 
+        [Fact]
+        public async Task RegisterDevice_WhenShopErpUnavailable_Returns503()
+        {
+            var (controller, _) = BuildController(ShopErpMode.Down);
+            var req = new DeviceRegistrationController.RegisterDeviceRequest
+            {
+                DeviceToken = "token123",
+                FingerprintHash = "hash123"
+            };
+
+            var result = await controller.RegisterDevice(req);
+
+            // 2026-09-24: ShopERP down (502/network) must NOT be reported as invalid token (401) —
+            // a deploy window is retryable, not an expired session.
+            var statusCode = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(503, statusCode.StatusCode);
+        }
+
+        [Fact]
+        public async Task RegisterDevice_WhenTokenInvalid_Returns401()
+        {
+            var (controller, _) = BuildController(ShopErpMode.InvalidToken);
+            var req = new DeviceRegistrationController.RegisterDeviceRequest
+            {
+                DeviceToken = "token123",
+                FingerprintHash = "hash123"
+            };
+
+            var result = await controller.RegisterDevice(req);
+
+            var unauthorized = Assert.IsType<UnauthorizedObjectResult>(result);
+            Assert.NotNull(unauthorized.Value);
+        }
+
         private static (DeviceRegistrationController controller, MockDeviceRegistrationService service) BuildController(bool withValidToken = false)
+            => BuildController(withValidToken ? ShopErpMode.Valid : ShopErpMode.InvalidToken);
+
+        private static (DeviceRegistrationController controller, MockDeviceRegistrationService service) BuildController(ShopErpMode mode)
         {
             var service = new MockDeviceRegistrationService();
-            var httpFactory = new MockHttpClientFactory(withValidToken);
+            var httpFactory = new MockHttpClientFactory(mode);
             var controller = new DeviceRegistrationController(
                 service,
                 httpFactory,
                 NullLogger<DeviceRegistrationController>.Instance);
 
             var httpContext = new DefaultHttpContext();
-            if (withValidToken)
+            if (mode == ShopErpMode.Valid)
                 httpContext.Request.Headers["X-Customer-Token"] = "valid-token";
+            else
+                httpContext.Request.Headers["X-Customer-Token"] = "some-token";
             httpContext.Connection.RemoteIpAddress = System.Net.IPAddress.Loopback;
             controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
 
@@ -128,31 +167,46 @@ namespace VanAn.Core.Tests.Community
 
     /// <summary>
     /// Mock IHttpClientFactory — returns a fake HttpClient that responds to
-    /// /api/customer-identity/me with 200 + customerId (if withValidToken=true),
-    /// or 401 (if false).
+    /// /api/customer-identity/me with 200 + customerId (Valid), 401 (InvalidToken),
+    /// or 502 (Down — ShopERP down, e.g. during a deploy window).
     /// </summary>
+    internal enum ShopErpMode
+    {
+        Valid,
+        InvalidToken,
+        Down
+    }
+
     internal class MockHttpClientFactory : IHttpClientFactory
     {
-        private readonly bool _withValidToken;
+        private readonly ShopErpMode _mode;
 
-        public MockHttpClientFactory(bool withValidToken) => _withValidToken = withValidToken;
+        public MockHttpClientFactory(ShopErpMode mode) => _mode = mode;
+
+        public MockHttpClientFactory(bool withValidToken)
+            => _mode = withValidToken ? ShopErpMode.Valid : ShopErpMode.InvalidToken;
 
         public HttpClient CreateClient(string name)
         {
-            var handler = new MockHttpHandler(_withValidToken);
+            var handler = new MockHttpHandler(_mode);
             return new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
         }
 
         private class MockHttpHandler : HttpMessageHandler
         {
-            private readonly bool _withValidToken;
+            private readonly ShopErpMode _mode;
 
-            public MockHttpHandler(bool withValidToken) => _withValidToken = withValidToken;
+            public MockHttpHandler(ShopErpMode mode) => _mode = mode;
 
             protected override Task<HttpResponseMessage> SendAsync(
                 HttpRequestMessage request, CancellationToken cancellationToken)
             {
-                if (!_withValidToken)
+                if (_mode == ShopErpMode.Down)
+                {
+                    return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.BadGateway));
+                }
+
+                if (_mode == ShopErpMode.InvalidToken)
                 {
                     return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.Unauthorized));
                 }

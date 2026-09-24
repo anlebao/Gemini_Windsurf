@@ -52,6 +52,11 @@ namespace VanAn.Gateway.Controllers
                     ContentType = contentType
                 };
             }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                _logger.LogWarning(ex, "ShopERP unreachable while forwarding GetMe");
+                return StatusCode(503, new { error = "Dịch vụ đang bảo trì, vui lòng thử lại sau." });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error forwarding GetMe to ShopERP");

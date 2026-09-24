@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.CoreHub.Services;
+using VanAn.Gateway.Services;
 
 namespace VanAn.Gateway.Controllers
 {
@@ -37,28 +38,13 @@ namespace VanAn.Gateway.Controllers
             if (!Request.Headers.TryGetValue("X-Customer-Token", out var token) || string.IsNullOrEmpty(token))
                 return Unauthorized(new { error = "X-Customer-Token header is required." });
 
-            Guid customerId;
-            try
-            {
-                var client = _httpClientFactory.CreateClient("shoperp");
-                var meReq = new HttpRequestMessage(HttpMethod.Get, "/api/customer-identity/me");
-                meReq.Headers.Add("X-Customer-Token", token.ToString());
+            var (status, customerId) = await CustomerTokenValidationHelper.ValidateAsync(
+                _httpClientFactory, token.ToString(), HttpContext.RequestAborted);
 
-                var meResp = await client.SendAsync(meReq);
-                if (!meResp.IsSuccessStatusCode)
-                    return Unauthorized(new { error = "Token không hợp lệ hoặc đã hết hạn." });
-
-                var meContent = await meResp.Content.ReadFromJsonAsync<MeResponse>();
-                if (meContent?.CustomerId == null || meContent.CustomerId == Guid.Empty)
-                    return Unauthorized(new { error = "Không tìm thấy khách hàng." });
-
-                customerId = meContent.CustomerId.Value;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error validating customer token for device registration");
-                return StatusCode(500, new { error = "Lỗi xác thực token." });
-            }
+            if (status == CustomerTokenValidationStatus.InvalidToken)
+                return Unauthorized(new { error = "Token không hợp lệ hoặc đã hết hạn." });
+            if (status != CustomerTokenValidationStatus.Valid || customerId == null)
+                return StatusCode(503, new { error = "Dịch vụ đang bảo trì, vui lòng thử lại sau." });
 
             // 2. Validate request
             if (string.IsNullOrWhiteSpace(request.FingerprintHash))
@@ -74,7 +60,7 @@ namespace VanAn.Gateway.Controllers
                 var platform = request.Platform ?? "";
 
                 var result = await _deviceRegistrationService.RegisterDeviceAsync(
-                    customerId,
+                    customerId.Value,
                     request.DeviceToken,
                     request.FingerprintHash,
                     request.FingerprintSignals ?? "{}",
@@ -120,12 +106,6 @@ namespace VanAn.Gateway.Controllers
             public bool IsActive { get; set; }
             public bool FraudFlagRaised { get; set; }
             public string Message { get; set; } = string.Empty;
-        }
-
-        // Response from ShopERP /api/customer-identity/me (subset)
-        private class MeResponse
-        {
-            public Guid? CustomerId { get; set; }
         }
     }
 }

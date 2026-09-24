@@ -96,6 +96,8 @@ namespace VanAn.Gateway.Controllers
         /// <summary>
         /// Forward GET /api/customer-identity/me to ShopERP.
         /// Requires X-Customer-Token header.
+        /// 2026-09-24: ShopERP unreachable → 503 retryable (NOT 500) so a deploy window
+        /// is not misread by the client as a broken/expired identity.
         /// </summary>
         [HttpGet("me")]
         public async Task<IActionResult> GetMe()
@@ -116,6 +118,11 @@ namespace VanAn.Gateway.Controllers
                     Content = content,
                     ContentType = contentType
                 };
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                _logger.LogWarning(ex, "ShopERP unreachable while forwarding GetMe");
+                return StatusCode(503, new { error = "Dịch vụ đang bảo trì, vui lòng thử lại sau." });
             }
             catch (Exception ex)
             {

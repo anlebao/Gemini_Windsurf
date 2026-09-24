@@ -6,12 +6,14 @@ on:
     paths-ignore:
       - '**.md'
       - 'docs/**'
+      - '5_WebApps/ShopERP/wwwroot/guides/**'
       - '.devin/**'
   pull_request:
     branches: [ main, develop ]
     paths-ignore:
       - '**.md'
       - 'docs/**'
+      - '5_WebApps/ShopERP/wwwroot/guides/**'
       - '.devin/**'
   workflow_dispatch:
 

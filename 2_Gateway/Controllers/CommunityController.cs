@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
 using VanAn.Gateway.Hubs;
+using VanAn.Gateway.Services;
 using VanAn.Shared.Domain;
 
 namespace VanAn.Gateway.Controllers
@@ -1390,33 +1391,24 @@ namespace VanAn.Gateway.Controllers
         /// <summary>
         /// Validate X-Customer-Token by forwarding to ShopERP /api/customer-identity/me.
         /// Returns CustomerId if valid, or an IActionResult error if invalid.
+        /// 2026-09-24: ShopERP unavailable (5xx/network) → 503 retryable, NOT 401 —
+        /// a deploy window must not look like an expired session.
         /// </summary>
         private async Task<(Guid? CustomerId, IActionResult? Error)> ValidateTokenAndGetCustomerIdAsync()
         {
             if (!Request.Headers.TryGetValue("X-Customer-Token", out var token) || string.IsNullOrEmpty(token))
                 return (null, Unauthorized(new { error = "X-Customer-Token header is required." }));
 
-            try
+            var (status, customerId) = await CustomerTokenValidationHelper.ValidateAsync(
+                _httpClientFactory, token.ToString(), HttpContext.RequestAborted);
+
+            return status switch
             {
-                var client = _httpClientFactory.CreateClient("shoperp");
-                var meReq = new HttpRequestMessage(HttpMethod.Get, "/api/customer-identity/me");
-                meReq.Headers.Add("X-Customer-Token", token.ToString());
-
-                var meResp = await client.SendAsync(meReq);
-                if (!meResp.IsSuccessStatusCode)
-                    return (null, Unauthorized(new { error = "Token không hợp lệ hoặc đã hết hạn." }));
-
-                var meContent = await meResp.Content.ReadFromJsonAsync<MeResponse>();
-                if (meContent?.CustomerId == null || meContent.CustomerId == Guid.Empty)
-                    return (null, Unauthorized(new { error = "Không tìm thấy khách hàng." }));
-
-                return (meContent.CustomerId.Value, null);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error validating customer token for community endpoint");
-                return (null, StatusCode(500, new { error = "Lỗi xác thực token." }));
-            }
+                CustomerTokenValidationStatus.Valid => (customerId, null),
+                CustomerTokenValidationStatus.InvalidToken =>
+                    (null, Unauthorized(new { error = "Token không hợp lệ hoặc đã hết hạn." })),
+                _ => (null, StatusCode(503, new { error = "Dịch vụ đang bảo trì, vui lòng thử lại sau." }))
+            };
         }
 
         /// <summary>
@@ -1462,11 +1454,6 @@ namespace VanAn.Gateway.Controllers
                 return (false, StatusCode(403, new { error = "Bạn không có quyền Shipper." }));
 
             return (true, null);
-        }
-
-        private class MeResponse
-        {
-            public Guid? CustomerId { get; set; }
         }
 
         public class FailureRequest
