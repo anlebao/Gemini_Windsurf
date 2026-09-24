@@ -477,13 +477,23 @@ entity) với timestamp, senderId, receiverId.</li>
 PoC.</li>
 <li>Chat biến mất khi DeliveryTask = Delivered/Failed (hoặc giữ history
 nhưng không push mới).</li>
-<li>Auth ChatHub qua <code>X-Customer-Token</code> query string.</li>
+<li>Auth ChatHub qua <code>X-Customer-Token</code> query string.
+<strong>Guest customer</strong> (chưa đăng nhập) được xác thực bằng
+<code>X-Customer-Device-Id</code> — shipper vẫn chat được với họ như
+bình thường.</li>
 </ul>
 <hr />
 <h2 id="ứng-tiền-thu-cod-uc-11">9. ỨNG TIỀN + THU COD — UC-11</h2>
 <blockquote>
 <p><strong>Chỉ khi Order.PaymentMethod = COD.</strong> Reseller mode:
 Vạn An ứng tiền, shipper KHÔNG ứng.</p>
+</blockquote>
+<blockquote>
+<p><strong>Số tiền thực thu (2026-09-24):</strong> Khi xác nhận COD,
+shipper nhập <strong>số tiền thực tế đã thu</strong> từ khách — có thể
+khác số tiền trên đơn (khách trả thiếu/thừa, làm tròn tiền lẻ). Hệ thống
+<strong>ghi nhận số tiền thực thu</strong> vào ví + settlement, KHÔNG
+báo lỗi. Chênh lệch với số tiền đơn được log để admin đối soát.</p>
 </blockquote>
 <h3 id="marketplace-mode-shipper-ứng-thu-cod">9.1. Marketplace mode —
 Shipper ứng + thu COD</h3>
@@ -495,8 +505,8 @@ cầu advance payment).</li>
 <code>WalletTransaction(AdvancePayment)</code> -amount shipper, +amount
 shop.</li>
 <li>Shipper thu tiền của customer khi giao.</li>
-<li>Shipper xác nhận đã thu COD →
-<code>POST /api/community/wallet/confirm-cod</code> →
+<li>Shipper xác nhận đã thu COD (nhập <strong>số tiền thực thu</strong>)
+→ <code>POST /api/community/wallet/confirm-cod</code> →
 <code>WalletTransaction(CODCollection)</code> +amount shipper.</li>
 <li>Settlement record tạo: shipper chuyển tiền cho shop →
 <code>WalletTransaction(Settlement)</code> -amount shipper, +amount
@@ -511,8 +521,8 @@ shipper).</p>
 <li><strong>KHÔNG có “Ứng tiền cho shop” button</strong> (Vạn An ứng,
 không phải shipper).</li>
 <li>Shipper thu tiền customer khi giao.</li>
-<li>Shipper xác nhận đã thu COD →
-<code>POST /api/community/wallet/confirm-cod</code> → Vạn An tạo
+<li>Shipper xác nhận đã thu COD (nhập <strong>số tiền thực thu</strong>)
+→ <code>POST /api/community/wallet/confirm-cod</code> → Vạn An tạo
 <strong>6 transactions</strong> (xem README Section 6.2):
 <ul>
 <li>CODCollection (+COD cho shipper)</li>
@@ -659,6 +669,11 @@ nhận DeliveryFee.</p>
 <p><strong>Q: Giao thất bại thì sao?</strong> A: Bấm “Giao thất bại” +
 nhập reason. DeliveryTask=Failed. COD không thu. Nếu đã ứng tiền
 (Marketplace) → liên hệ admin để Reversal.</p>
+<p><strong>Q: Số tiền tôi thu thực tế khác số tiền trên đơn (khách thiếu
+tiền, làm tròn)?</strong> A: Nhập đúng <strong>số tiền thực tế đã
+thu</strong> khi xác nhận COD — hệ thống ghi nhận số thực thu vào ví,
+KHÔNG báo lỗi. Chênh lệch được log cho admin đối soát. Nếu nhập nhầm →
+liên hệ admin để Reversal.</p>
 <p><strong>Q: Customer không cung cấp vị trí giao hàng?</strong> A:
 OrderDetail hiện “Khách chưa cung cấp vị trí giao hàng — gọi khách để
 xác nhận”. Dùng chat (UC-07) hoặc SĐT để liên hệ.</p>

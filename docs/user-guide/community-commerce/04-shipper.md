@@ -241,12 +241,14 @@ Assigned → PickedUp → OutForDelivery → Delivered
 
 > **Chỉ khi Order.PaymentMethod = COD.** Reseller mode: Vạn An ứng tiền, shipper KHÔNG ứng.
 
+> **Số tiền thực thu (2026-09-24):** Khi xác nhận COD, shipper nhập **số tiền thực tế đã thu** từ khách — có thể khác số tiền trên đơn (khách trả thiếu/thừa, làm tròn tiền lẻ). Hệ thống **ghi nhận số tiền thực thu** vào ví + settlement, KHÔNG báo lỗi. Chênh lệch với số tiền đơn được log để admin đối soát.
+
 ### 9.1. Marketplace mode — Shipper ứng + thu COD
 
 1. Shipper thấy **"Cần ứng tiền"** trên đơn (nếu shop yêu cầu advance payment).
 2. Shipper xác nhận đã ứng tiền cho shop → `POST /api/community/wallet/confirm-advance` → `WalletTransaction(AdvancePayment)` -amount shipper, +amount shop.
 3. Shipper thu tiền của customer khi giao.
-4. Shipper xác nhận đã thu COD → `POST /api/community/wallet/confirm-cod` → `WalletTransaction(CODCollection)` +amount shipper.
+4. Shipper xác nhận đã thu COD (nhập **số tiền thực thu**) → `POST /api/community/wallet/confirm-cod` → `WalletTransaction(CODCollection)` +amount shipper.
 5. Settlement record tạo: shipper chuyển tiền cho shop → `WalletTransaction(Settlement)` -amount shipper, +amount shop.
 
 **Net flow shipper:** +COD (thu từ customer) -Settlement (trả shop) -AdvancePayment (ứng shop) = phí giao hàng (lợi nhuận shipper).
@@ -255,7 +257,7 @@ Assigned → PickedUp → OutForDelivery → Delivered
 
 1. **KHÔNG có "Ứng tiền cho shop" button** (Vạn An ứng, không phải shipper).
 2. Shipper thu tiền customer khi giao.
-3. Shipper xác nhận đã thu COD → `POST /api/community/wallet/confirm-cod` → Vạn An tạo **6 transactions** (xem README Section 6.2):
+3. Shipper xác nhận đã thu COD (nhập **số tiền thực thu**) → `POST /api/community/wallet/confirm-cod` → Vạn An tạo **6 transactions** (xem README Section 6.2):
    - CODCollection (+COD cho shipper)
    - Settlement (-COD, chuyển shop)
    - DeliveryFee (+delivery fee cho shipper)
@@ -334,6 +336,9 @@ A: KHÔNG. Vạn An ứng tiền cho shop. Bạn chỉ thu COD + nhận Delivery
 
 **Q: Giao thất bại thì sao?**
 A: Bấm "Giao thất bại" + nhập reason. DeliveryTask=Failed. COD không thu. Nếu đã ứng tiền (Marketplace) → liên hệ admin để Reversal.
+
+**Q: Số tiền tôi thu thực tế khác số tiền trên đơn (khách thiếu tiền, làm tròn)?**
+A: Nhập đúng **số tiền thực tế đã thu** khi xác nhận COD — hệ thống ghi nhận số thực thu vào ví, KHÔNG báo lỗi. Chênh lệch được log cho admin đối soát. Nếu nhập nhầm → liên hệ admin để Reversal.
 
 **Q: Customer không cung cấp vị trí giao hàng?**
 A: OrderDetail hiện "Khách chưa cung cấp vị trí giao hàng — gọi khách để xác nhận". Dùng chat (UC-07) hoặc SĐT để liên hệ.

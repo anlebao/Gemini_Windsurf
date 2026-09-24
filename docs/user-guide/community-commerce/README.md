@@ -164,6 +164,8 @@ Khi shipper confirm COD trong mode Reseller, Vạn An tạo 6 transactions:
 
 **Financial balance invariant:** Tổng tất cả tx amounts = COD amount collected.
 
+> **Số tiền COD ghi nhận = số tiền shipper THỰC THU** từ khách — có thể khác số tiền trên đơn (trả thiếu/thừa, làm tròn). Xác nhận không bị chặn; chênh lệch được log để admin đối soát.
+
 ---
 
 ## 7. CÂU HỎI THƯỜNG GẶP (FAQ RÚT GỌN)

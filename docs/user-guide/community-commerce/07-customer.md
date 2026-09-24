@@ -113,7 +113,7 @@ else
 1. Chọn product → thêm vào cart.
 2. Chọn quantity, modifiers (vd size, topping), notes.
 3. Chọn OrderType: **DELIVERY** (giao tận nơi) hoặc **TAKEAWAY** (đến lấy).
-4. Nhập delivery address + GPS location (cho DELIVERY).
+4. Với **DELIVERY**: nhập địa chỉ + SĐT, và **ghim vị trí giao hàng trên bản đồ** — kéo pin hoặc chạm vào bản đồ để đặt đúng vị trí. Nếu bạn cho phép GPS, pin tự đặt theo vị trí hiện tại (vẫn chỉnh tay được). Nếu từ chối GPS → kéo pin thủ công. Bản đồ (Leaflet) tự chuyển nguồn tile dự phòng nếu nguồn chính không tải được.
 5. Chọn PaymentMethod: **COD** (trả tiền khi nhận) hoặc **Online** (VietQR/card — Reseller mode).
 6. Review order → **Đặt hàng**.
 
@@ -393,6 +393,9 @@ A: CÓ — Guest mode (nhập tên + SĐT, không token). KHÔNG tích điểm (
 
 **Q: GPS của tôi có bị track không?**
 A: CHỈ khi bạn đặt hàng DELIVERY (cần delivery location) + khi tracking shipper. KHÔNG background track. PWA chỉ GPS khi tab active.
+
+**Q: Bản đồ ghim vị trí ở checkout không hiện / bị xám?**
+A: Bản đồ chỉ hiện cho đơn **DELIVERY**. Tiles tải từ nhiều nguồn — nếu nguồn chính bị chặn/mạng chậm, hệ thống tự chuyển nguồn dự phòng sau vài giây. Kiểm tra kết nối internet; nếu pin chưa đúng chỗ thì kéo pin hoặc chạm vào bản đồ để chỉnh, không cần GPS.
 
 **Q: Scan QR salesman có bắt buộc không?**
 A: KHÔNG. Tùy chọn. Scan → salesman nhận commission. Không scan → không có salesman.

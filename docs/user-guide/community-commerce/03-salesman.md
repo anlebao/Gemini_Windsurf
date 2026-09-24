@@ -130,11 +130,12 @@ Format: `{salesmanCode}|{productShortCode}`
 
 ### 4.4. Khi Order.Completed → SalesReferral tạo
 
-1. Order completed → server tạo `SalesReferral` với `RiskScore` computed (deterministic 0-100).
+1. Order completed → server tạo `SalesReferral` với `RiskScore` computed (deterministic 0-100). **Hoàn thành ở đâu cũng được tính** — kể cả khi shop/kitchen bấm "Hoàn thành" trên ShopERP POS (status sync về Gateway tự tạo referral, idempotent — không tạo trùng).
 2. `CommissionStatus` phụ thuộc RiskScore:
    - RiskScore < 60 → `Pending` → auto-approve sau 24h (cooling period)
    - RiskScore 60-79 → `Pending` hold 48h + `FraudFlag(Pending)` cho admin review
    - RiskScore ≥ 80 → `Rejected` (auto-reject) + `FraudFlag(Pending)`
+3. CoolingPeriodJob chạy **mỗi giờ** → commission `Pending` đủ 24h được trả vào ví (`WalletTransaction(Commission)`). Thực tế tiền về ví trong **~24-25h** sau khi đơn hoàn thành.
 
 ---
 
@@ -158,7 +159,7 @@ Login KhachLink → tab **"Doanh số"** (chỉ hiện khi có role Salesman).
 
 | Status | Ý nghĩa |
 |---|---|
-| Pending | Chờ approve (cooling 24h nếu RiskScore<60, hold 48h nếu 60-79) |
+| Pending | Chờ approve (cooling 24h nếu RiskScore<60, hold 48h nếu 60-79 — job trả ví mỗi giờ) |
 | Paid | Đã thanh toán vào wallet |
 | Rejected | Bị reject (RiskScore≥80 auto, hoặc admin confirm fraud) |
 | Held | Hold 48h chờ admin review |
@@ -211,7 +212,7 @@ Login KhachLink → tab **"Ví"** — hiển thị:
 - Balance ≥ amount rút.
 
 **Flow:**
-1. Bấm **Rút tiền** → nhập amount + bank account (đã KYC).
+1. Bấm **Rút tiền** → modal hiện → nhập số tiền cần rút (tối thiểu 500.000đ) + chọn bank account đã KYC → bấm xác nhận.
 2. `POST /api/community/wallet/withdraw` → tạo `WalletTransaction(Withdrawal)` -amount.
 3. Admin process payout (bank transfer).
 4. Balance cập nhật.

@@ -145,14 +145,21 @@ Ecosystem</h1>
 SỬ DỤNG COMMUNITY COMMERCE — VẠN AN ECOSYSTEM</h1>
 <blockquote>
 <p><strong>Phiên bản:</strong> PoC v1.5 + Sprint 7 Commerce Mode Toggle
-— cập nhật 2026-07-30 <strong>Áp dụng:</strong> Community Commerce
-Sprint 0-6 (đã deploy + VPS verified) + Sprint 7 Commerce Mode Toggle
-(S1-S4 complete, pending merge/VPS RV) <strong>Phạm vi:</strong> Module
-Shipper/Salesman (Community Commerce) + Commerce Mode Toggle
-(Marketplace ↔︎ Reseller) — “Mua giúp — Bán dùm”. <strong>Nền
-tảng:</strong> KhachLink PWA (Blazor WebAssembly,
-<code>diemthuong.khachvip.online</code>) + ShopERP Admin (Blazor Server,
-<code>khachvip.online</code>).</p>
++ KhachLink Multi-Profile + Customer Onboarding + GTM Drill Machine —
+cập nhật 2026-09-09 <strong>Áp dụng:</strong> Community Commerce Sprint
+0-7 (đã deploy + VPS verified) + KhachLink Profile Transition UX Sprint
+1-3 (PR #170) + Customer Onboarding via Google Login (PR #171) +
+Admin/Owner Override (PR #172) + GTM Drill Machine W1-W2. <strong>Phạm
+vi:</strong> Module Shipper/Salesman (Community Commerce) + Commerce
+Mode Toggle (Marketplace ↔︎ Reseller) + KhachLink Multi-Profile
+(FullCommerce ↔︎ Directory) + GTM Drill Machine — “Mua giúp — Bán dùm”.
+<strong>Nền tảng:</strong> KhachLink PWA (Blazor WebAssembly,
+<code>diemthuong2.khachvip.online</code> — FullCommerce,
+<code>commienphi.timlathay.com</code> — Reseller) + KhachLink Directory
+(Blazor SSR, <code>timlathay.com</code> — Directory profile) + ShopERP
+Admin (Blazor Server, <code>khachvip.online</code>). Multi-VPS:
+<code>vanan-gateway</code> + <code>vanan-shop-a</code> +
+<code>vanan-khachlink</code>.</p>
 </blockquote>
 <hr />
 <h2 id="mục-lục">MỤC LỤC</h2>
@@ -372,7 +379,9 @@ customer luôn optional SMS OTP (device fingerprint là primary).</p>
 <tr>
 <td>Guest</td>
 <td>0</td>
-<td>Khách vãng lai (không token, checkout as guest)</td>
+<td>Khách vãng lai (không token, checkout as guest). Vẫn có tracking +
+chat cho đơn DELIVERY của mình qua <code>CustomerDeviceId</code>. KHÔNG
+tích điểm.</td>
 </tr>
 <tr>
 <td>Social</td>
@@ -559,6 +568,11 @@ có) 5. PlatformFee (+platform fee vào platform wallet) 6. CommunityFund
 (+community fund vào community fund wallet)</p>
 <p><strong>Financial balance invariant:</strong> Tổng tất cả tx amounts
 = COD amount collected.</p>
+<blockquote>
+<p><strong>Số tiền COD ghi nhận = số tiền shipper THỰC THU</strong> từ
+khách — có thể khác số tiền trên đơn (trả thiếu/thừa, làm tròn). Xác
+nhận không bị chặn; chênh lệch được log để admin đối soát.</p>
+</blockquote>
 <hr />
 <h2 id="câu-hỏi-thường-gặp-faq-rút-gọn">7. CÂU HỎI THƯỜNG GẶP (FAQ RÚT
 GỌN)</h2>
@@ -579,12 +593,167 @@ Collaborator (Salesman/Shipper/Owner) mới bị thu phí khi toggle ON.</p>
 commission chốt đơn (2-5%) + app-install bonus. Cả 2 do SystemAdmin set
 per-product.</p>
 <hr />
+<h2 id="khachlink-multi-profile-fullcommerce-directory-pr-170">8.
+KHACHLINK MULTI-PROFILE (FullCommerce ↔︎ Directory) — PR #170</h2>
+<p>KhachLink chạy 2 profile khác nhau tùy tenant:</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Khía cạnh</th>
+<th>FullCommerce (WASM)</th>
+<th>Directory (SSR)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Nền tảng</strong></td>
+<td>Blazor WebAssembly PWA</td>
+<td>Blazor Server SSR</td>
+</tr>
+<tr>
+<td><strong>Domain</strong></td>
+<td><code>diemthuong2.khachvip.online</code> (FullCommerce),
+<code>commienphi.timlathay.com</code> (Reseller)</td>
+<td><code>timlathay.com</code></td>
+</tr>
+<tr>
+<td><strong>Cart / Checkout</strong></td>
+<td>CÓ</td>
+<td>KHÔNG</td>
+</tr>
+<tr>
+<td><strong>Order tracking / Chat shipper</strong></td>
+<td>CÓ</td>
+<td>KHÔNG</td>
+</tr>
+<tr>
+<td><strong>Wallet / Loyalty</strong></td>
+<td>CÓ</td>
+<td>KHÔNG</td>
+</tr>
+<tr>
+<td><strong>Mục đích</strong></td>
+<td>Cửa hàng F&amp;B full commerce</td>
+<td>Directory tìm cửa hàng + lead generation</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Profile Transition UX (Sprint 1-3, PR #170):</strong> -
+<strong>ProfileGuard.razor</strong> — route guard 7 trang commerce
+(cart, checkout, tracking, wallet, v.v.) → redirect về Home nếu tenant
+là Directory. - <strong>Profile indicator footer</strong> — hiển thị
+profile hiện tại (FullCommerce/Directory) trên KhachLinkLayout. -
+<strong>What’s New banner</strong> — thông báo 1 chiều khi admin đổi
+profile (FullCommerce→Directory: “tính năng commerce sẽ bị ẩn”;
+Directory→FullCommerce: “tính năng commerce đã mở”). - <strong>Cart
+preservation modal</strong> — khi FullCommerce→Directory + cart có items
+→ modal cảnh báo trước khi chuyển. - <strong>Onboarding tour</strong>
+(driver.js, vendored) — 3-step tour (cart→rewards→stores) khi
+Directory→FullCommerce, 1× per profile. - <strong>Audit trail</strong> —
+<code>KhachLinkInstanceAudit.razor</code>
+(<code>/admin/khachlink-instances/{id}/audit</code>) + AuditTrail.razor
+summary cards. Hybrid persist: Accounting SYNC, Security+KhachLink ASYNC
+(AuditLogQueue + AuditLogBackgroundWriter).</p>
+<p><strong>Owner/Admin đổi profile:</strong> qua
+<code>/admin/khachlink-instances</code> (SystemAdmin) — set
+<code>ProfileType</code> enum. Customer thấy thay đổi sau SW update
+(<code>vananTriggerSWUpdate()</code>).</p>
+<hr />
+<h2 id="customer-onboarding-via-google-login-pr-171">9. CUSTOMER
+ONBOARDING VIA GOOGLE LOGIN — PR #171</h2>
+<p>Customer đăng nhập Google lần đầu → tự động được gán đúng tenant theo
+domain:</p>
+<ol type="1">
+<li>KhachLink <code>Login.razor</code> truyền <code>klOrigin</code>
+(origin hiện tại) vào OAuth state.</li>
+<li><code>SocialAuthController</code> encode
+<code>redirectTo|klOrigin</code> trong OAuth state param.</li>
+<li>Google callback → server resolve
+<code>KhachLinkInstance.OwnerTenantId</code> theo domain origin.</li>
+<li>Customer mới tạo → gán vào tenant tương ứng (fallback default tenant
+cho platform-level domains không có owner).</li>
+<li>Customer cũ (email đã tồn tại) → reuse global identity (KHÔNG tạo
+duplicate customer trên tenant khác).</li>
+</ol>
+<p><strong>RV (2026-09-09):</strong> L1-L2 PASS. L3-L5 manual pending
+(cần Google login thật trên <code>commienphi.timlathay.com</code>).</p>
+<hr />
+<h2 id="adminowner-override-pr-172">10. ADMIN/OWNER OVERRIDE — PR
+#172</h2>
+<p>Kích hoạt role cộng tác viên có 2 path + bypass eligibility:</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Path</th>
+<th>URL</th>
+<th>Role</th>
+<th>Scope</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Admin Panel</td>
+<td><code>/admin/community/admin-panel</code></td>
+<td>SystemAdmin</td>
+<td>Cross-tenant</td>
+</tr>
+<tr>
+<td>Owner Panel</td>
+<td><code>/community/owner-panel</code></td>
+<td>Owner</td>
+<td>Tenant-scoped</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Tính năng (cả 2 panel):</strong> - Toggle <strong>“Hiển thị
+tất cả khách hàng”</strong> (<code>includeIneligible=true</code>) — xem
+cả customer chưa đủ điều kiện. - <strong>Bypass eligibility</strong> —
+body <code>{&quot;role&quot;:&quot;Shipper&quot;,&quot;bypassEligibility&quot;:true}</code> → kích
+hoạt bỏ qua check IdentityLevel/LoyaltyPoints. - <strong>Confirm
+dialog</strong> trước khi activate. - API:
+<code>GET /api/admin/community/eligible?includeIneligible=true</code> +
+<code>POST /api/admin/community/{id}/activate-role</code> (SystemAdmin)
+hoặc <code>GET /api/v1/tenant-community/eligible</code> +
+<code>POST /api/v1/tenant-community/{id}/activate-role</code> (Owner
+tenant-scoped).</p>
+<hr />
+<h2 id="gtm-drill-machine-w1-w2-lead-generation">11. GTM DRILL MACHINE
+(W1-W2) — Lead Generation</h2>
+<p><strong>W1 — Merchant Audit:</strong> Directory
+<code>/kiem-tra-cua-hang</code> (Blazor SSR) + Gateway
+<code>GET /api/v1/growth/audit?name=&amp;mst=</code> (rate-limit
+10/IP/h) — tenant check trạng thái active/pending privacy.</p>
+<p><strong>W2 — Interactive Demo + Registration:</strong> - KhachLink
+<code>/demo</code> — standalone storefront mock (session-only, không
+persist). - KhachLink <code>/claim</code> (<code>Register.razor</code>)
+— form đăng ký tenant mới + Turnstile + honeypot. -
+<code>POST /api/v1/tenant-registrations</code> (AllowAnonymous,
+rate-limit 5/IP/24h) → tạo <code>TenantRegistration</code> entity (PG
+migration <code>20260908023803</code>). - E2E
+<code>gtm-demo.spec.ts</code> 6/6 PASS trên production.</p>
+<p><strong>W3 NEXT:</strong> Revenue Proof (counters trên tenant
+GrowthDashboard) → W4 Referral → W5 consent + flag
+<code>GrowthMachine:Enabled</code>.</p>
+<hr />
 <blockquote>
 <p><strong>Xem chi tiết từng vai trò:</strong> Click vào file tương ứng
 trong bảng MỤC LỤC ở đầu trang. <strong>Tài liệu kỹ thuật:</strong>
 <code>docs/AI/tasks/community-commerce-requirements-spec-2c5017.md</code>
 (spec) + <code>community-commerce-master-plan-2c5017.md</code> (plan) +
-<code>commerce-mode-toggle-spec-v2-2c5017.md</code> (Sprint 7).</p>
+<code>commerce-mode-toggle-spec-v2-2c5017.md</code> (Sprint 7) +
+<code>docs/user-guide/KhachLink_Multi_Profile_Usage_Guide.md</code>
+(Multi-Profile) + <code>docs/AI/tasks/gtm_drill_mvp/</code> (GTM).</p>
 </blockquote>
 </body>
 </html>

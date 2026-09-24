@@ -337,7 +337,10 @@ creation (<code>referralCode</code> field).</li>
 → SalesReferral tạo</h3>
 <ol type="1">
 <li>Order completed → server tạo <code>SalesReferral</code> với
-<code>RiskScore</code> computed (deterministic 0-100).</li>
+<code>RiskScore</code> computed (deterministic 0-100). <strong>Hoàn
+thành ở đâu cũng được tính</strong> — kể cả khi shop/kitchen bấm “Hoàn
+thành” trên ShopERP POS (status sync về Gateway tự tạo referral,
+idempotent — không tạo trùng).</li>
 <li><code>CommissionStatus</code> phụ thuộc RiskScore:
 <ul>
 <li>RiskScore &lt; 60 → <code>Pending</code> → auto-approve sau 24h
@@ -347,6 +350,10 @@ creation (<code>referralCode</code> field).</li>
 <li>RiskScore ≥ 80 → <code>Rejected</code> (auto-reject) +
 <code>FraudFlag(Pending)</code></li>
 </ul></li>
+<li>CoolingPeriodJob chạy <strong>mỗi giờ</strong> → commission
+<code>Pending</code> đủ 24h được trả vào ví
+(<code>WalletTransaction(Commission)</code>). Thực tế tiền về ví trong
+<strong>~24-25h</strong> sau khi đơn hoàn thành.</li>
 </ol>
 <hr />
 <h2 id="doanh-số-hoa-hồng-sales-dashboard-uc-10">5. DOANH SỐ + HOA HỒNG
@@ -385,8 +392,8 @@ tách biệt.</li>
 <tbody>
 <tr>
 <td>Pending</td>
-<td>Chờ approve (cooling 24h nếu RiskScore&lt;60, hold 48h nếu
-60-79)</td>
+<td>Chờ approve (cooling 24h nếu RiskScore&lt;60, hold 48h nếu 60-79 —
+job trả ví mỗi giờ)</td>
 </tr>
 <tr>
 <td>Paid</td>
@@ -456,9 +463,9 @@ update/delete)</p>
 <p><strong>Điều kiện:</strong> - KYC bank account verified
 (admin-verified bank account required cho payout). - Min payout
 500.000đ. - Balance ≥ amount rút.</p>
-<p><strong>Flow:</strong> 1. Bấm <strong>Rút tiền</strong> → nhập amount
-+ bank account (đã KYC). 2.
-<code>POST /api/community/wallet/withdraw</code> → tạo
+<p><strong>Flow:</strong> 1. Bấm <strong>Rút tiền</strong> → modal hiện
+→ nhập số tiền cần rút (tối thiểu 500.000đ) + chọn bank account đã KYC →
+bấm xác nhận. 2. <code>POST /api/community/wallet/withdraw</code> → tạo
 <code>WalletTransaction(Withdrawal)</code> -amount. 3. Admin process
 payout (bank transfer). 4. Balance cập nhật.</p>
 <h3 id="reversal-pattern">7.3. Reversal pattern</h3>
