@@ -206,10 +206,66 @@ namespace VanAn.Gateway.Services
                 order.MarkAsCompleted();
                 await dbContext.SaveChangesAsync(ct);
                 _logger.LogInformation("Synced OrderCompleted for order {OrderId} → PostgreSQL status=completed (tenant {TenantId})", orderId, tenantId);
+
+                // Issue #187: ShopERP-driven completion bypassed the Gateway completion hooks —
+                // salesman commissions were never created for orders completed from the
+                // ShopERP/POS/kitchen side. Run the side-effects now (best-effort, idempotent).
+                await RunCompletionSideEffectsAsync(order, dbContext, scopeSp, ct);
             }
             else
             {
                 _logger.LogDebug("SyncOrderCompletedAsync: order {OrderId} already completed in PostgreSQL", orderId);
+            }
+        }
+
+        /// <summary>
+        /// Issue #187: completion side-effects for orders that were completed on the ShopERP
+        /// side and synced to PostgreSQL. OrderWorkflowService.HandleOrderCompletedAsync runs
+        /// these only in the scope where TransitionStatusAsync is called — the NATS sync path
+        /// previously just flipped the status, so SalesmanId/ReferralProductId orders never got
+        /// a SalesReferral → collaborator wallet was never credited.
+        ///
+        /// Best-effort: failures are logged and must NOT break the status sync.
+        /// Idempotent: a referral is only created when none exists for the order yet (the
+        /// completion may arrive via both order.completed and order.status.changed events).
+        /// </summary>
+        private async Task RunCompletionSideEffectsAsync(Order order, IVanAnDbContext dbContext, IServiceProvider scopeSp, CancellationToken ct)
+        {
+            if (!order.SalesmanId.HasValue || !order.ReferralProductId.HasValue)
+                return;
+
+            var salesmanService = scopeSp.GetService<VanAn.CoreHub.Services.ISalesmanService>();
+            if (salesmanService == null)
+            {
+                _logger.LogWarning(
+                    "Order {OrderId} has a salesman referral but ISalesmanService is not available in this scope — commission not created (issue #187)",
+                    order.Id);
+                return;
+            }
+
+            try
+            {
+                bool alreadyReferral = await dbContext.SalesReferrals
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .AnyAsync(r => r.OrderId == order.Id, ct);
+                if (alreadyReferral)
+                {
+                    _logger.LogDebug("Order {OrderId} already has a SalesReferral — skipping commission creation (issue #187)", order.Id);
+                    return;
+                }
+
+                var referral = await salesmanService.CreateCommissionAsync(order.Id);
+                if (referral != null)
+                {
+                    _logger.LogInformation(
+                        "DataSyncSubscriber: Salesman commission created for order {OrderId} (sync completion): salesman={SalesmanId}, product={ProductId}, commission={Amount}, status={Status}",
+                        order.Id, referral.SalesmanId, referral.ProductId, referral.CommissionAmount, referral.CommissionStatus);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "DataSyncSubscriber: Failed to create salesman commission for order {OrderId} — status sync will continue (issue #187)", order.Id);
             }
         }
 
@@ -260,6 +316,14 @@ namespace VanAn.Gateway.Services
                 order.UpdateOrderStatus(new OrderStatusId(newStatus));
                 await dbContext.SaveChangesAsync(ct);
                 _logger.LogInformation("Synced order {OrderId} status → {Status} in PostgreSQL (tenant {TenantId})", orderId, newStatus, tenantId);
+
+                // Issue #187: ShopERP-driven completion bypassed the Gateway completion hooks —
+                // salesman commissions were never created for orders completed from the
+                // ShopERP/POS/kitchen side. Run the side-effects now (best-effort, idempotent).
+                if (newStatus == "completed")
+                {
+                    await RunCompletionSideEffectsAsync(order, dbContext, scopeSp, ct);
+                }
 
                 // NF-3: Broadcast to KhachLink OrderTracking via LocationHub order_{orderId}.
                 // Previously ShopERP-driven status changes (confirmed/preparing/ready/completed)

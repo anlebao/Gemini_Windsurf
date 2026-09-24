@@ -206,16 +206,33 @@ public class WalletServiceTests : IDisposable
             _service.ConfirmCodAsync(wrongShipper, orderId, 50000m));
     }
 
-    // === T9: ConfirmCod_WrongAmount_Throws ===
-    [Fact(DisplayName = "T9: ConfirmCod_WrongAmount_Throws")]
-    public async Task ConfirmCod_WrongAmount_Throws()
+    // === T9 (issue #186): ConfirmCod_DifferentAmount_Accepted_RecordsActual ===
+    // Real-world COD: the cash collected at the door can legitimately differ from the order
+    // snapshot. The shipper's actual amount is authoritative — the confirm must succeed and
+    // the wallet legs + order CodAmount must reflect the ACTUAL amount, not the snapshot.
+    [Fact(DisplayName = "T9: ConfirmCod_DifferentAmount_Accepted_RecordsActual")]
+    public async Task ConfirmCod_DifferentAmount_Accepted_RecordsActual()
     {
         await SeedTenantAsync();
         var orderId = await SeedOrderAsync(codAmount: 50000m);
         await SeedDeliveryTaskAsync(orderId);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.ConfirmCodAsync(ShipperId, orderId, 99999m));
+        var tx = await _service.ConfirmCodAsync(ShipperId, orderId, 99999m);
+
+        Assert.Equal(WalletTransactionType.CODCollection, tx.Type);
+        Assert.Equal(99999m, tx.Amount); // actual collected amount recorded on shipper wallet
+        Assert.Equal(99999m, tx.BalanceAfter);
+
+        // Order reflects the ACTUAL amount collected (cash-basis — doanh thu theo thực thu)
+        var order = await _context.Orders.IgnoreQueryFilters().FirstAsync(o => o.Id == orderId);
+        Assert.Equal(99999m, order.CodAmount);
+        Assert.NotNull(order.CodCollectedAt);
+        Assert.Equal("Paid", order.PaymentStatus);
+
+        // Shop settlement = actual amount (ledger stays balanced)
+        var shopWallet = await _service.GetWalletAsync(TenantId);
+        Assert.Single(shopWallet.Transactions);
+        Assert.Equal(-99999m, shopWallet.Transactions[0].Amount);
     }
 
     // === T10: ConfirmAdvance_CreatesTransaction ===
@@ -410,21 +427,28 @@ public class WalletServiceTests : IDisposable
             _service.ConfirmCodAsync(ShipperId, orderId, 50000m));
     }
 
-    // === T23: ConfirmCod_ExpectedIsTotalAmount_WhenNoCodSnapshot (TC-01 — shipper cannot self-declare) ===
-    [Fact(DisplayName = "T23: ConfirmCod_ExpectedIsTotalAmount_WhenNoCodSnapshot")]
-    public async Task ConfirmCod_ExpectedIsTotalAmount_WhenNoCodSnapshot()
+    // === T23 (issue #186): ConfirmCod_RecordsDeclaredAmount_WhenNoCodSnapshot ===
+    // TC-01 originally rejected any amount ≠ expected. Real-world COD cash can legitimately
+    // differ — the shipper's ACTUAL declaration is authoritative and recorded (ledger balanced:
+    // shipper +amount, shop -amount). Amount > 0 remains the only hard guard.
+    [Fact(DisplayName = "T23: ConfirmCod_RecordsDeclaredAmount_WhenNoCodSnapshot")]
+    public async Task ConfirmCod_RecordsDeclaredAmount_WhenNoCodSnapshot()
     {
         await SeedTenantAsync();
         var orderId = await SeedOrderAsync(); // CodAmount null → expected = TotalAmount = 100000
         await SeedDeliveryTaskAsync(orderId);
 
-        // Shipper declares 50000 — must be rejected against authoritative TotalAmount
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.ConfirmCodAsync(ShipperId, orderId, 50000m));
+        // Shipper declares 50000 — recorded as-is (no hard rejection)
+        var tx = await _service.ConfirmCodAsync(ShipperId, orderId, 50000m);
+        Assert.Equal(50000m, tx.Amount);
 
-        // Correct amount works
-        var tx = await _service.ConfirmCodAsync(ShipperId, orderId, 100000m);
-        Assert.Equal(100000m, tx.Amount);
+        // Order + shop settlement reflect the actual amount
+        var order = await _context.Orders.IgnoreQueryFilters().FirstAsync(o => o.Id == orderId);
+        Assert.Equal(50000m, order.CodAmount);
+        Assert.Equal("Paid", order.PaymentStatus);
+        var shopWallet = await _service.GetWalletAsync(TenantId);
+        Assert.Single(shopWallet.Transactions);
+        Assert.Equal(-50000m, shopWallet.Transactions[0].Amount);
     }
 
     // === T24: ConfirmAdvance_Duplicate_Throws (TC-02 — no money minting) ===

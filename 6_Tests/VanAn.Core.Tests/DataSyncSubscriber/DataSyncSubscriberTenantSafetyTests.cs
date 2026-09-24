@@ -95,6 +95,32 @@ public class DataSyncSubscriberTenantSafetyTests : IDisposable
             logger: new Mock<ILogger<DataSyncSubscriber>>().Object);
     }
 
+    /// <summary>
+    /// Overlays a mock ISalesmanService on the existing scope's service provider so the
+    /// subscriber's GetService&lt;ISalesmanService&gt; resolves the mock while everything
+    /// else (IVanAnDbContext, ITenantProvider) falls through to the real scope.
+    /// </summary>
+    private static IServiceProvider BuildScopeWithSalesmanService(
+        IServiceScope scope, VanAn.CoreHub.Services.ISalesmanService salesman)
+        => new OverlayServiceProvider(scope.ServiceProvider, typeof(VanAn.CoreHub.Services.ISalesmanService), salesman);
+
+    private sealed class OverlayServiceProvider : IServiceProvider
+    {
+        private readonly IServiceProvider _inner;
+        private readonly Type _overrideType;
+        private readonly object _overrideInstance;
+
+        public OverlayServiceProvider(IServiceProvider inner, Type overrideType, object overrideInstance)
+        {
+            _inner = inner;
+            _overrideType = overrideType;
+            _overrideInstance = overrideInstance;
+        }
+
+        public object? GetService(Type serviceType)
+            => serviceType == _overrideType ? _overrideInstance : _inner.GetService(serviceType);
+    }
+
     private static JsonElement ParseJson(string json) => JsonSerializer.Deserialize<JsonElement>(json)!;
 
     // ──────────────────────────────────────────────────────────────
@@ -289,6 +315,93 @@ public class DataSyncSubscriberTenantSafetyTests : IDisposable
             .FirstOrDefaultAsync(o => o.Id == orderId);
         Assert.NotNull(orderCheck);
         Assert.Equal("pending", orderCheck!.Status.Value); // Still pending — tenant isolation
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // ISSUE #187: commission creation on ShopERP-driven completion
+    // ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task OrderSync_Completed_With_Salesman_Creates_Commission()
+    {
+        var (scope, dbContext) = CreateScope();
+
+        Guid orderId = Guid.NewGuid();
+        var order = Order.Create(orderId, new TenantId(TenantA), null, new List<OrderItem>());
+        order.SetSalesmanReferral(Guid.NewGuid(), Guid.NewGuid(), "TEST|PROD");
+        dbContext.Orders.Add(order);
+        await dbContext.SaveChangesAsync();
+
+        var referral = new SalesReferral(
+            new TenantId(TenantA), order.SalesmanId!.Value, "TEST", order.ReferralProductId!.Value, "PROD");
+        var salesmanMock = new Mock<VanAn.CoreHub.Services.ISalesmanService>();
+        salesmanMock.Setup(s => s.CreateCommissionAsync(orderId))
+            .ReturnsAsync(referral)
+            .Verifiable();
+
+        // Register the mock in the scope so GetService<ISalesmanService>() resolves it.
+        var scopeSp = BuildScopeWithSalesmanService(scope, salesmanMock.Object);
+
+        var subscriber = CreateSubscriber();
+        string json = $$"""{"orderId":"{{orderId}}","tenantId":"{{TenantA}}","oldStatus":"delivering","newStatus":"completed","timestamp":"2026-09-24T01:00:00Z"}""";
+
+        await subscriber.SyncOrderStatusAsync(ParseJson(json), dbContext, scopeSp, CancellationToken.None);
+
+        Order? updated = await dbContext.Orders.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(o => o.Id == orderId);
+        Assert.NotNull(updated);
+        Assert.Equal("completed", updated!.Status.Value);
+        salesmanMock.Verify(s => s.CreateCommissionAsync(orderId), Times.Once);
+    }
+
+    [Fact]
+    public async Task OrderSync_Completed_With_Existing_Referral_No_Duplicate()
+    {
+        var (scope, dbContext) = CreateScope();
+
+        Guid orderId = Guid.NewGuid();
+        var order = Order.Create(orderId, new TenantId(TenantA), null, new List<OrderItem>());
+        order.SetSalesmanReferral(Guid.NewGuid(), Guid.NewGuid(), "TEST|PROD");
+        dbContext.Orders.Add(order);
+        await dbContext.SaveChangesAsync();
+
+        // Referral already exists for this order (e.g. Gateway transition path created it).
+        var existing = new SalesReferral(
+            new TenantId(TenantA), order.SalesmanId!.Value, "TEST", order.ReferralProductId!.Value, "PROD");
+        existing.AttachToOrder(orderId, Guid.NewGuid(), 100000m, 0.03m, CommissionBase.OnOrderTotal);
+        dbContext.SalesReferrals.Add(existing);
+        await dbContext.SaveChangesAsync();
+
+        var salesmanMock = new Mock<VanAn.CoreHub.Services.ISalesmanService>();
+        var scopeSp = BuildScopeWithSalesmanService(scope, salesmanMock.Object);
+
+        var subscriber = CreateSubscriber();
+        string json = $$"""{"orderId":"{{orderId}}","tenantId":"{{TenantA}}","oldStatus":"delivering","newStatus":"completed","timestamp":"2026-09-24T01:00:00Z"}""";
+
+        await subscriber.SyncOrderStatusAsync(ParseJson(json), dbContext, scopeSp, CancellationToken.None);
+
+        salesmanMock.Verify(s => s.CreateCommissionAsync(It.IsAny<Guid>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task OrderSync_Completed_Without_Salesman_Does_Not_Create_Commission()
+    {
+        var (scope, dbContext) = CreateScope();
+
+        Guid orderId = Guid.NewGuid();
+        var order = Order.Create(orderId, new TenantId(TenantA), null, new List<OrderItem>());
+        dbContext.Orders.Add(order);
+        await dbContext.SaveChangesAsync();
+
+        var salesmanMock = new Mock<VanAn.CoreHub.Services.ISalesmanService>();
+        var scopeSp = BuildScopeWithSalesmanService(scope, salesmanMock.Object);
+
+        var subscriber = CreateSubscriber();
+        string json = $$"""{"orderId":"{{orderId}}","tenantId":"{{TenantA}}","oldStatus":"delivering","newStatus":"completed","timestamp":"2026-09-24T01:00:00Z"}""";
+
+        await subscriber.SyncOrderStatusAsync(ParseJson(json), dbContext, scopeSp, CancellationToken.None);
+
+        salesmanMock.Verify(s => s.CreateCommissionAsync(It.IsAny<Guid>()), Times.Never);
     }
 
     [Fact]

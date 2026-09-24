@@ -79,8 +79,26 @@ function addTileLayer(map, index) {
         // Burst lock: a host-level refusal fires many tileerror events at once.
         setTimeout(() => { map._vananTileSwitchLock = false; }, 1500);
     });
+    layer.on('load', () => { map._vananTilesLoaded = true; });
     layer.addTo(map);
     map._vananTileLayer = layer;
+}
+
+// Issue #185: a HANGING tile request never fires `tileerror` — the current provider is
+// refused (or blackholed) on some networks (e.g. OSM/CARTO in Vietnam), so the map stays a
+// gray frame forever and the fallback chain never advances. The watchdog in initMap forces
+// the switch when no tile has loaded within the timeout.
+function forceSwitchTileProvider(map) {
+    if (map._vananTileSwitchLock) return;
+    map._vananTileSwitchLock = true;
+    if (map._vananTileProviderIndex < TILE_PROVIDERS.length - 1) {
+        map._vananTileProviderIndex++;
+        map._vananTilesLoaded = false;
+        map.removeLayer(map._vananTileLayer);
+        addTileLayer(map, map._vananTileProviderIndex);
+        console.warn('[vananMap] tile watchdog — no tiles loaded, switched to provider #' + (map._vananTileProviderIndex + 1));
+    }
+    setTimeout(() => { map._vananTileSwitchLock = false; }, 1500);
 }
 
 window.vananMap = {
@@ -102,10 +120,26 @@ window.vananMap = {
 
         map._vananTileProviderIndex = 0;
         map._vananTileSwitchLock = false;
+        map._vananTilesLoaded = false;
         addTileLayer(map, 0);
 
         _maps[elementId] = map;
         _markers[elementId] = {};
+
+        // Issue #185: Leaflet renders a blank / 0-height map when initialised inside a
+        // container that is still animating or not yet laid out (common on mobile). Re-measure
+        // once the DOM settles so the map paints immediately instead of staying invisible.
+        setTimeout(function () { map.invalidateSize(); }, 0);
+        setTimeout(function () { map.invalidateSize(); }, 300);
+
+        // Issue #185: a HANGING tile request never fires `tileerror`, so the fallback chain
+        // never advances and the map stays a gray frame. If no tile has loaded within 8s,
+        // force-switch to the next provider (see forceSwitchTileProvider).
+        clearTimeout(map._vananTileWatchdog);
+        map._vananTileWatchdog = setTimeout(function () {
+            if (map._vananTilesLoaded) return;
+            forceSwitchTileProvider(map);
+        }, 8000);
     },
 
     addMarker: function (elementId, key, lat, lng, label, color) {

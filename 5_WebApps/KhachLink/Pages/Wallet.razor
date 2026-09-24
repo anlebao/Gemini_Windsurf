@@ -173,8 +173,12 @@
         <ChildContent>
             <div class="mb-3">
                 <label class="form-label">Số tiền (VND)</label>
+                @* Issue #187: trước đây @bind:event="oninput" → re-render toàn bộ modal sau MỖI phím gõ
+                   → trên mobile browser scroll/focus bị đẩy → textbox "nhảy xuống dưới cùng".
+                   Chuyển về onchange mặc định (giá trị vẫn được nạp trước khi click "Gửi yêu cầu" —
+                   blur input kích hoạt change, rồi click handler chạy sau). *@
                 <input type="number" class="form-control" min="500000" step="1000"
-                       @bind="_withdrawAmount" @bind:event="oninput" />
+                       @bind="_withdrawAmount" />
                 <small class="text-muted">Tối thiểu 500.000đ — khả dụng: @_availableBalance.ToString("N0")đ</small>
             </div>
         </ChildContent>

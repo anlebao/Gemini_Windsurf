@@ -344,15 +344,23 @@ namespace VanAn.CoreHub.Services
                         throw new InvalidOperationException(
                             $"Order {orderId} delivery status is {deliveryTask.Status} — COD can only be confirmed when OutForDelivery or Delivered.");
 
-                    // 4. TC-01: server-side authoritative amount — never trust the client value.
+                    // 4. TC-01 (issue #186 fix): the shipper's attestation of the ACTUAL cash collected
+                    // at the door is authoritative — real-world COD amounts legitimately differ from the
+                    // order snapshot (negotiated discounts, no exact change, partial payment...). Blocking
+                    // the confirm left the shipper stuck and the delivery un-completable.
                     // Marketplace: CodAmount snapshot (if the order created one) else TotalAmount.
                     // Reseller: SellPrice + DeliveryFee (what the customer owes at the door).
+                    // The wallet legs + MarkCodCollected(amount) all record the ACTUAL amount, so the
+                    // ledger stays balanced and the order reflects what was really collected.
                     decimal expectedAmount = order.CommerceMode == CommerceMode.Reseller
                         ? (order.SellPrice ?? 0m) + (order.DeliveryFee ?? 0m)
                         : (order.CodAmount ?? order.TotalAmount);
                     if (amount != expectedAmount)
-                        throw new InvalidOperationException(
-                            $"Amount {amount} does not match expected COD amount {expectedAmount} for order {orderId}.");
+                    {
+                        _logger.LogWarning(
+                            "COD amount mismatch for order {OrderId}: shipper reported {ActualAmount} vs expected {ExpectedAmount} — recording actual amount (issue #186)",
+                            orderId, amount, expectedAmount);
+                    }
 
                     var balances = new Dictionary<Guid, decimal>();
 
