@@ -54,11 +54,13 @@ test.describe('Issue #185 — delivery-only fields + loyalty gating', () => {
     await expect(page.locator('[data-testid="checkout-input-address"]')).toBeVisible();
 
     // Issue #185 comment (2026-09-24): the delivery pin map must appear so the buyer can
-    // drop the delivery location. Leaflet renders a .leaflet-container with tile <img>s.
+    // drop the delivery location. Leaflet adds the .leaflet-container class to the map div
+    // ITSELF (plus zoom controls + draggable marker + attribution) and tile <img>s inside.
     const pinMap = page.locator('#checkout-pin-map');
     await expect(pinMap).toBeVisible({ timeout: 15000 });
-    await expect(pinMap.locator('.leaflet-container')).toHaveCount(1, { timeout: 15000 });
-    await expect(pinMap.locator('img.leaflet-tile').first()).toBeVisible({ timeout: 20000 });
+    await expect(pinMap).toHaveClass(/leaflet-container/, { timeout: 15000 });
+    await expect(pinMap.locator('.leaflet-control-zoom')).toHaveCount(1, { timeout: 15000 });
+    await expect(pinMap.locator('img.leaflet-tile').first()).toBeVisible({ timeout: 25000 });
     await expect(page.locator('input#delivery-lat')).toHaveValue(/\d/);
 
     const phoneLabel = page.locator('label[for="guest-phone"]');
