@@ -1,6 +1,7 @@
 # Task Card NF-5: Notification hardening + cleanup (stubs, dead code, resilience)
 
 > **Status:** PLAN — chưa implement. Decisions đã duyệt 2026-09-24: giữ push best-effort (C5); route `order.status.changed` qua Outbox = **tech-debt, defer phase sau**. Còn lại chờ duyệt/triển khai: E6 stub `SubscribeToNatsAsync`, E7 dead hub methods, E9 NATS reconnect, E13 status text, E15 SignalR retry, RC-2 guest push.
+> **➕ Findings từ RV production 2026-09-24 (commit `07827a4a`):** thêm **C0 (E16 — subscription JSON shape mismatch, P0 blocker send)** + **C9 (E17 — service re-init mỗi 30s)** + C8 xác nhận có row thật `TenantId.Empty` trên prod.
 > **Priority:** P2
 > **Created:** 2026-09-24
 > **Master plan:** `docs\AI\tasks\notification_fix\master_plan.md`
@@ -11,6 +12,15 @@
 Dọn các lỗi nhỏ/stub/dead-code phát hiện trong review + tăng resilience. **Không** blocking cho TC-01..04.
 
 ## Danh sách
+
+### C0 — Subscription JSON shape mismatch (E16) — **P0, CONFIRMED PROD**
+- **Triệu chứng RV:** publish `order.status.changed` test lên NATS prod → consumer parse đúng, tìm đúng subscription, gọi WebPush → `System.ArgumentException: To send a message with a payload, the subscription must have 'auth' and 'p256dh' keys` (`GenerateRequestDetails`) → `sent: 0/1`.
+- **Root cause:** `NotificationsController.cs:45` lưu `JsonSerializer.Serialize(request)` — shape nested `{Endpoint, Keys:{P256dh,Auth}}` (PascalCase). Send side `JsonSerializer.Deserialize<WebPush.PushSubscription>` (`PushNotificationService.cs:98` + 7 chỗ khác) cần flat `{endpoint, p256dh, auth}` → `P256dh`/`Auth` null → throw.
+- Trước bị che bởi RC-1 (không row nào tới được DB). Route fix xong → row đầu tiên vào DB → bug lộ ra.
+- **Fix hướng (chọn khi implement):** (a) parse nested shape ở send side — đọc `Endpoint` + `Keys.P256dh`/`Keys.Auth` → `new PushSubscription(endpoint, p256dh, auth)` — tương thích data đã lưu; hoặc (b) flatten ở store side + migrate row cũ. Đề xuất (a) — ít rủi ro, không cần migration.
+
+### C9 — `PushNotificationService` re-init mỗi ~30s (E17)
+Prod log lặp `PushNotificationService initialized …` mỗi ~30s → một background worker (nghi NatsSyncWorker/VoucherExpiryReminderJob scope) resolve scoped service theo poll. Không lỗi chức năng — noise/perf nhỏ. Xác định worker gây ra và cache/singleton hoá nếu phù hợp.
 
 ### C1 — Xoá stub `SubscribeToNatsAsync` (E6)
 `PushNotificationService.cs:788-807` — placeholder tự nhận "This is a placeholder", không ai gọi. Subscription thật = `PushNotificationBackgroundService`. Xoá method hoặc mark `[Obsolete]` → xoá luôn (internal, không public contract).

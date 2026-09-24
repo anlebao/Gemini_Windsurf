@@ -1,7 +1,7 @@
 # Master Plan — Notification Feature Fix (2026-09-24)
 
 **Created:** 2026-09-24
-**Status:** TC-01 → TC-04 ✅ IMPLEMENTED 2026-09-24 — build `VanAn.sln` 0 errors · `guard-check.ps1` ALL PASSED · `PushNotificationFanOutTests` 8/8 PASS · CHƯA commit/deploy (staged local) · **TC-05 còn lại (P2, decisions đã duyệt)** + **RV production sau deploy**
+**Status:** TC-01 → TC-04 ✅ IMPLEMENTED + DEPLOYED (commit `07827a4a`, CI/Acct-Tests/CD Multi-VPS ALL SUCCESS) · **RV 2026-09-24: pipeline E2E sống nhưng last-mile send FAIL — E16 mới (xem Batch 3)** · **TC-05 còn lại (P2, decisions đã duyệt)**
 **Decisions:** (1) TC-01 = Option A — YARP route `/api/notifications/*` → shoperp-cluster ✓ · (2) TC-04 scope = owner đơn-mới + salesman-completed + assigned-shipper-cancelled ✓ (shipper "đơn mới cần nhận" theo khu vực/eligible — defer phase sau, đã ghi plan trong card) · (3) TC-05 C5 = giữ push best-effort, mark tech-debt — route `order.status.changed` qua Outbox defer phase sau
 **Branch target:** `main`
 **Source:** Review session 2026-09-24 — "buyer, shipper, salesman, owner không nhận được thông báo trạng thái đơn hàng thay đổi"
@@ -30,6 +30,9 @@
 | E9 | `NatsEventPublisher.cs:39-43,95-101` | Connect fail lúc startup → null vĩnh viễn, publish skip lặng (không reconnect) |
 | E13 | `PushNotificationService.cs:398` | `GetStatusMessage` thiếu `delivering`, `preparing`; có `processing` (status không tồn tại) |
 | E15 | `Orders/Index.razor:644` | SignalR retry chỉ 1 lần sau 10s → mất realtime vĩnh viễn đến khi F5 |
+| **E16** | `NotificationsController.cs:45` vs `PushNotificationService.cs:98` (+7 chỗ deserialize khác) | **CONFIRMED PROD (RV 2026-09-24):** subscribe lưu `SubscriptionJson` = serialize cả `PushSubscriptionRequest` DTO → shape nested `{Endpoint, Keys:{P256dh,Auth}}`. Send side `JsonSerializer.Deserialize<WebPush.PushSubscription>` cần flat `{endpoint,p256dh,auth}` → P256dh/Auth = null → `GenerateRequestDetails` throw `ArgumentException: subscription must have 'auth' and 'p256dh' keys` → **100% send fail**. Trước bị che bởi RC-1 (không row nào tới được DB). Fix hướng: parse nested shape → `new PushSubscription(endpoint, p256dh, auth)` ở send side (an toàn với data cũ), hoặc flatten ở store side + migrate rows hiện có |
+| **E17** | prod ShopERP logs | `PushNotificationService initialized` mỗi ~30s — một background worker resolve scoped service theo poll (noise/perf, không lỗi chức năng) |
+| **E11-prod** | `PushSubscriptions` row thật trên prod | `TenantId='00000000-…'` (ShopERPDbContext `_currentTenantId=Guid.Empty`) — hiện vô hại vì `GetByCustomerIdAsync` chỉ filter `CustomerId+IsActive`, nhưng là multi-tenant data-quality debt |
 
 ## Fix plan (thứ tự đề xuất)
 
@@ -41,8 +44,10 @@
 ### Batch 2 — Role fan-out — ✅ DONE 2026-09-24 (scope đã duyệt)
 4. **TC-04** ✅ — Owner đơn-mới (payload `OwnerCustomerId` + push trong `OrderSyncSubscriber`) · salesman-completed (`salesmanId` trong `order.status.changed` → `/community/sales-dashboard`) · assigned-shipper-cancelled (`assignedShipperId`=`Order.ShipperId` → `/community/active-deliveries`) · Gateway `rolesOnly` republish cho transition ShopERP-initiated · strict `GetGuid` parse (không TryParse-stub). Tests: `PushNotificationFanOutTests` 8/8. **Deferred:** shipper "đơn mới cần nhận" theo khu vực/eligible (plan trong card).
 
-### Batch 3 — Hardening + debt — ⏳ PLAN (decisions đã duyệt)
-5. **TC-05** — Cleanup: stub E6, dead hub methods E7, status text E13, NatsEventPublisher reconnect E9, SignalR retry E15. Đã duyệt: giữ push best-effort; `order.status.changed` qua Outbox = tech-debt defer; RC-2 guest push còn mở.
+### Batch 3 — Hardening + debt — ⏳ PLAN (decisions đã duyệt + findings từ RV)
+5. **E16 (P0 trong batch — blocker thực của toàn kênh push):** normalize subscription shape nested↔flat (xem bảng lỗi).
+6. **TC-05** — Cleanup: stub E6, dead hub methods E7, status text E13, NatsEventPublisher reconnect E9, SignalR retry E15, E17 (service re-init mỗi 30s), E11-prod (TenantId.Empty). Đã duyệt: giữ push best-effort; `order.status.changed` qua Outbox = tech-debt defer; RC-2 guest push còn mở.
+7. **Deferred theo duyệt:** shipper "đơn mới cần nhận" (khu vực/eligible) — plan trong `task_card_04`.
 
 ## Hard stop checks
 - Không card nào đụng `Domain.cs` hay `AccountingEntry` ✓
@@ -52,13 +57,14 @@
 - Gate 4: UI layout change → E2E spec `6_Testing/e2e-tests/` (TC-02 nếu đụng razor; TC-04 có UI toggle).
 - Playwright ISOLATION: không chạy E2E diện rộng trong IMPLEMENT; spec viết xong chạy khi có window.
 
-## Acceptance criteria
+## Acceptance criteria — RV 2026-09-24 trên prod
 - [x] Build `VanAn.sln` 0 errors · `guard-check.ps1` PASS · Core.Tests PASS (fan-out 8/8 + regression suites) — 2026-09-24
-- [ ] TC-01: customer bật push trên Profile → 200 + row trong `PushSubscriptions`; `push/status` trả `enabled:true` — **chờ RV production**
-- [ ] TC-02: owner đổi status trên ShopERP → màn hình Orders/Kitchen khác update realtime (không F5); status từ Gateway (shipper) cũng realtime — **chờ RV production**
-- [ ] TC-03: owner confirm trên ShopERP → buyer OrderTracking nhận `OrderStatusUpdated` realtime (<2s) — **chờ RV production**
-- [ ] TC-04: shipper/salesman/owner nhận push đúng sự kiện đã duyệt — **chờ RV production** (owner push cần `Tenant.OwnerCustomerId` đã bind trên PG — lazy bind qua CommunityController)
-- [ ] RV production: subscribe → 200; đổi status → push tới thiết bị thật; Gateway/ShopERP log không còn "No active push subscriptions" cho user đã subscribe; verify `VAPID_PRIVATE_KEY` trong `.env.shoperp`
+- [x] **TC-01 routing:** `/api/notifications/push/subscribe|status` trước 405/HTML qua khachlink → giờ **401 JSON từ ShopERP auth** (đúng service); `PushSubscriptions` có 1 row thật sau khi route mở ✓
+- [x] **Deploy markers:** `rolesOnly`/`assignedShipperId`/`OwnerCustomerId` trong binaries; `PushNotificationBackgroundService` subscribed `order.status.changed`; `OrderSyncSubscriber` subscribed routed subjects `vanan.cloud.order.*.9e94f876-…`; `VAPID_PRIVATE_KEY` present (RC-3 clear trên prod)
+- [x] **SignalR hubs reachable:** `/orderHub/negotiate` 200, `/hubs/location/negotiate` 200
+- [x] **E2E NATS→consumer→send-attempt:** publish `order.status.changed` test (orderId `6947fb4b…`, customerId thật `6d0eba8a…`, salesmanId random) → ShopERP log: tìm đúng subscription → gọi WebPush cho buyer + bulk cho salesman (`Sent=0, Failed=1` vì random GUID không có sub) → `dispatched` logged. **Toàn bộ đường dẫn code hoạt động.**
+- [ ] **Last-mile WebPush send: FAIL — E16** (shape mismatch, xem bảng lỗi). `Push notifications sent: 0/1`.
+- [ ] TC-02/TC-03 realtime trong browser + TC-04 trên order thật (owner/salesman/shipper thật có subscription) — **cần tài khoản/device thật, chờ sau khi E16 fixed**
 
 ## Task cards
 - `task_card_01_push_subscribe_routing.md` — RC-1 + RC-3 (P0)
