@@ -280,8 +280,8 @@ namespace VanAn.Gateway.Services
                 {
                     try
                     {
-                        bool hasSalesman = GetOptionalGuid(data, "salesmanId").HasValue;
-                        bool hasShipper = GetOptionalGuid(data, "assignedShipperId").HasValue;
+                        bool hasSalesman = JsonPayloadHelpers.GetOptionalGuid(data, "salesmanId").HasValue;
+                        bool hasShipper = JsonPayloadHelpers.GetOptionalGuid(data, "assignedShipperId").HasValue;
                         Guid? salesmanId = newStatus == "completed" && !hasSalesman ? order.SalesmanId : null;
                         Guid? shipperId = newStatus == "cancelled" && !hasShipper ? order.ShipperId : null;
 
@@ -681,21 +681,6 @@ namespace VanAn.Gateway.Services
             _logger.LogInformation(
                 "Synced ShopFeatureSettings for tenant {TenantId} → PostgreSQL (Loyalty={LoyaltyEnabled})",
                 tenantId, dto.Loyalty_Program_Enabled);
-        }
-
-        /// <summary>
-        /// NF-4: strict optional-Guid read from a sync event payload — NO TryParse
-        /// fallback (stub pattern). Absent or JSON null → null. Present but malformed
-        /// → GetGuid() throws → caller's catch logs it and skips the republish
-        /// instead of silently treating a corrupt id as "missing".
-        /// Guid.Empty → null ("no recipient" sentinel).
-        /// </summary>
-        private static Guid? GetOptionalGuid(JsonElement data, string property)
-        {
-            if (!data.TryGetProperty(property, out var el) || el.ValueKind == JsonValueKind.Null)
-                return null;
-            var value = el.GetGuid();
-            return value == Guid.Empty ? null : value;
         }
 
         public override void Dispose()

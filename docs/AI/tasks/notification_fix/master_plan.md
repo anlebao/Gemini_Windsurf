@@ -2,7 +2,7 @@
 
 **Created:** 2026-09-24
 **Status:** TC-01 → TC-05 ✅ ALL IMPLEMENTED + DEPLOYED (commits `07827a4a` + `6449dccc`, CI/Acct-Tests/CD Multi-VPS ALL SUCCESS) · **RV 2026-09-24 FINAL: PUSH THẬT DELIVER 1/1** (`Push notifications sent: 1/1` tới FCM) — E16 + E18 (VAPID mismatch) đã fix trên prod · Deferred: C5 outbox · C6 guest push · E12 Domain setter · shipper eligible fan-out
-**Decisions:** (1) TC-01 = Option A — YARP route `/api/notifications/*` → shoperp-cluster ✓ · (2) TC-04 scope = owner đơn-mới + salesman-completed + assigned-shipper-cancelled ✓ (shipper "đơn mới cần nhận" theo khu vực/eligible — defer phase sau, đã ghi plan trong card) · (3) TC-05 C5 = giữ push best-effort, mark tech-debt — route `order.status.changed` qua Outbox defer phase sau
+**Decisions:** (1) TC-01 ban đầu = Option A (YARP route) — **REVERSED 2026-09-24 sau review:** Gateway forward controller (W17-T4) đã cover `/api/notifications/*`, YARP route redundant → **đã gỡ bỏ**, giữ controller làm cơ chế duy nhất · (2) TC-04 scope = owner đơn-mới + salesman-completed + assigned-shipper-cancelled ✓ (shipper "đơn mới cần nhận" theo khu vực/eligible — defer phase sau, đã ghi plan trong card) · (3) TC-05 C5 = giữ push best-effort, mark tech-debt — route `order.status.changed` qua Outbox defer phase sau
 **Branch target:** `main`
 **Source:** Review session 2026-09-24 — "buyer, shipper, salesman, owner không nhận được thông báo trạng thái đơn hàng thay đổi"
 
@@ -10,7 +10,7 @@
 
 | # | Triệu chứng | Root cause (verified) | Loại |
 |---|---|---|---|
-| RC-1 | Buyer KHÔNG thể bật push (toggle luôn fail) | `Profile.razor:499` POST `/api/notifications/push/subscribe` → Gateway `api2` → **Gateway không có NotificationsController** + YARP không có route `/api/notifications/*` (`appsettings.json:88-171`) → `fallback-route` → khachlink-cluster → nginx static `try_files` → 405/HTML. `PushSubscriptions` SQLite luôn rỗng → `SendOrderStatusNotificationAsync` luôn trả 0 | Routing bug — FIX |
+| RC-1 | Buyer KHÔNG thể bật push (toggle luôn fail) | ~~Gateway không có NotificationsController + fallback khachlink 405~~ — **CHẨN ĐOÁN SAI (2026-09-24 review lại):** `2_Gateway/Controllers/NotificationsController.cs` (W17-T4, forward controller 4 endpoint) **đã tồn tại** từ base; `MapControllers()` chạy trước `MapReverseProxy()` (`Program.cs:1704/1726`) nên request `POST /api/notifications/push/subscribe` (`Profile.razor:499`) luôn được MVC controller bắt, KHÔNG thể rơi vào fallback khachlink. Nguyên nhân thật nghi vấn: binary Gateway prod **stale** (deploy trước W17-T4) + E16 (subscription JSON shape) + E18 (VAPID key mismatch). YARP `notifications-route` thêm trong TC-01 là **redundant** (MVC thắng precedence) → **đã gỡ bỏ 2026-09-24** | Routing bug — chẩn đoán SAI, fix thật = redeploy + E16 + E18 |
 | RC-2 | Guest checkout không bao giờ được push | `PushNotificationBackgroundService.cs:129-133` skip event khi `customerId == null` (guest order không có CustomerId) | Limitation — cần duyệt hướng |
 | RC-3 | Push fail nếu thiếu VAPID key | `PushNotificationService.cs:43-46` ctor THROW khi `VAPID_PRIVATE_KEY` unset → `GetService` throw → catch log → 0 sent. Dev config là placeholder | Config risk — verify VPS |
 | RC-4 | Owner/kitchen/POS UI không realtime khi đổi status | `IOrderNotificationService` **không đăng ký trong ShopERP DI** (0 match trong `5_WebApps/ShopERP`) → `OrderWorkflowService.cs:160`, `KitchenService.cs:166`, `OrderService.cs:1296` đều null → `OrderStatusChanged`/`PaymentConfirmed` listeners trong Orders/Index, Detail, Kitchen/Display, VanADashboard = **dead code** | Missing DI + impl — FIX |
@@ -38,7 +38,7 @@
 ## Fix plan (thứ tự đề xuất)
 
 ### Batch 1 — Khôi phục pipeline hiện có (không đụng Domain) — ✅ DONE 2026-09-24
-1. **TC-01** ✅ — YARP `notifications-route` → `shoperp-cluster` (`appsettings.json`). HMAC passive (không chặn).
+1. **TC-01** ✅→⚠️ — YARP `notifications-route` → `shoperp-cluster` (`appsettings.json`) đã thêm rồi **GỠ BỎ 2026-09-24** vì redundant (Gateway forward controller W17-T4 đã cover, MVC thắng precedence — xem RC-1 sửa lại). HMAC passive (không chặn).
 2. **TC-02** ✅ — `ShopErpOrderNotificationService` + DI + `OrderSyncSubscriber` broadcast `OrderStatusChanged` sau SQLite save.
 3. **TC-03** ✅ — `DataSyncSubscriber.SyncOrderStatusAsync` broadcast `OrderStatusUpdated` lên LocationHub sau PG save.
 
@@ -61,7 +61,7 @@
 
 ## Acceptance criteria — RV 2026-09-24 trên prod
 - [x] Build `VanAn.sln` 0 errors · `guard-check.ps1` PASS · Core.Tests PASS (fan-out 8/8 + regression suites) — 2026-09-24
-- [x] **TC-01 routing:** `/api/notifications/push/subscribe|status` trước 405/HTML qua khachlink → giờ **401 JSON từ ShopERP auth** (đúng service); `PushSubscriptions` có 1 row thật sau khi route mở ✓
+- [x] **TC-01 routing:** `/api/notifications/push/subscribe|status` → **401 JSON từ ShopERP auth** (đúng service); `PushSubscriptions` có 1 row thật ✓ — ⚠️ ghi chú sửa: kết quả này không chứng minh route bị thiếu; Gateway forward controller đã trả 401 như vậy từ trước (chẩn đoán RC-1 ban đầu sai, xem bảng root causes). YARP route đã gỡ 2026-09-24
 - [x] **Deploy markers:** `rolesOnly`/`assignedShipperId`/`OwnerCustomerId` trong binaries; `PushNotificationBackgroundService` subscribed `order.status.changed`; `OrderSyncSubscriber` subscribed routed subjects `vanan.cloud.order.*.9e94f876-…`; `VAPID_PRIVATE_KEY` present (RC-3 clear trên prod)
 - [x] **SignalR hubs reachable:** `/orderHub/negotiate` 200, `/hubs/location/negotiate` 200
 - [x] **E2E NATS→consumer→send-attempt:** publish `order.status.changed` test (orderId `6947fb4b…`, customerId thật `6d0eba8a…`, salesmanId random) → ShopERP log: tìm đúng subscription → gọi WebPush cho buyer + bulk cho salesman (`Sent=0, Failed=1` vì random GUID không có sub) → `dispatched` logged. **Toàn bộ đường dẫn code hoạt động.**

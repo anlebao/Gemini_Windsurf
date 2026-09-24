@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NATS.Client;
+using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.Messaging;
 
 namespace VanAn.CoreHub.Services
@@ -127,11 +128,11 @@ namespace VanAn.CoreHub.Services
                 }
 
                 Guid orderId = orderIdEl.GetGuid();
-                Guid? customerId = GetOptionalGuid(root, "customerId");
+                Guid? customerId = JsonPayloadHelpers.GetOptionalGuid(root, "customerId");
                 string newStatus = newStatusEl.GetString() ?? "unknown";
                 string? customerName = root.TryGetProperty("customerName", out var cn) && cn.ValueKind != JsonValueKind.Null ? cn.GetString() : null;
-                Guid? salesmanId = GetOptionalGuid(root, "salesmanId");
-                Guid? assignedShipperId = GetOptionalGuid(root, "assignedShipperId");
+                Guid? salesmanId = JsonPayloadHelpers.GetOptionalGuid(root, "salesmanId");
+                Guid? assignedShipperId = JsonPayloadHelpers.GetOptionalGuid(root, "assignedShipperId");
                 bool rolesOnly = root.TryGetProperty("rolesOnly", out var ro) && ro.ValueKind == JsonValueKind.True;
 
                 if (customerId == null && salesmanId == null && assignedShipperId == null)
@@ -187,21 +188,6 @@ namespace VanAn.CoreHub.Services
             {
                 _logger.LogError(ex, "PushNotificationBackgroundService: error handling NATS event");
             }
-        }
-
-        /// <summary>
-        /// Strict optional-Guid parse — NO TryParse fallback (stub pattern).
-        /// Absent or JSON null → null (field legitimately not provided).
-        /// Present but malformed → GetGuid() throws → the whole event is rejected
-        /// and logged by the caller, instead of silently dropping a recipient.
-        /// Guid.Empty → null ("no recipient" sentinel, never a real customer).
-        /// </summary>
-        private static Guid? GetOptionalGuid(JsonElement root, string property)
-        {
-            if (!root.TryGetProperty(property, out var el) || el.ValueKind == JsonValueKind.Null)
-                return null;
-            var value = el.GetGuid();
-            return value == Guid.Empty ? null : value;
         }
 
         /// <summary>
