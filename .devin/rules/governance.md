@@ -359,6 +359,12 @@ docker exec vanan-postgres psql -U vanan_admin -d VanAnCoreHub -c "<SQL>"
 
 **Port exposure:** Internal ports 5001/5002/5003 are NOT exposed to VPS localhost. Test via public domains or `docker exec` into containers.
 
+**VPS disk auto-cleanup (cron daily 03:00 UTC — tạo 2026-09-24 sau 2 lần disk 100% full):**
+- Script: `scripts/vps-disk-cleanup.sh` → deployed tại `/opt/vanan/scripts/vps-disk-cleanup.sh` trên `vanan-gateway` + `vanan-shop-a`
+- Cron (user `lebao`): `0 3 * * * /opt/vanan/scripts/vps-disk-cleanup.sh --prune-if-above 80 >> /home/lebao/vps-disk-cleanup.log 2>&1`
+- Hành vi: chỉ prune khi `/` usage ≥ 80% → `docker image prune -af` (images không container nào dùng — KHÔNG đụng volumes/containers/networks; CD pull lại khi deploy) + `journalctl --vacuum-size=100M`
+- Kiểm tra: log `/home/lebao/vps-disk-cleanup.log` · dry-run `bash /opt/vanan/scripts/vps-disk-cleanup.sh --check` · baseline sau cleanup 2026-09-24: gateway 52% (4.4G free) / shop-a 66% (3.2G free)
+
 ---
 
 ## GOAL
