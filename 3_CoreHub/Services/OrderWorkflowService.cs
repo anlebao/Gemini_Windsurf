@@ -420,6 +420,11 @@ namespace VanAn.CoreHub.Services
                 tenantId = order.TenantId.Value,
                 oldStatus = oldStatus.Value,
                 newStatus = newStatus.Value,
+                // NF-4: role fan-out fields so Gateway DataSyncSubscriber can tell whether
+                // the push payload already carried role recipients (dedup) and so ShopERP
+                // can persist ShipperId on the local replica for future transitions.
+                salesmanId = order.SalesmanId,
+                assignedShipperId = order.ShipperId,
                 timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
             };
             string eventData = JsonSerializer.Serialize(payload, EventJsonOptions);
@@ -967,6 +972,14 @@ namespace VanAn.CoreHub.Services
                     customerId = order.CustomerId,
                     oldStatus = oldStatus.Value,
                     newStatus = newStatus.Value,
+                    // NF-4: role fan-out — PushNotificationBackgroundService (ShopERP) pushes
+                    // per-role notifications. salesmanId/assignedShipperId are CustomerIds.
+                    // Null when this scope's DB lacks the data (SQLite replica doesn't sync
+                    // ShipperId until the status event carries it) — Gateway DataSyncSubscriber
+                    // republishes a rolesOnly event resolved from PG in that case.
+                    salesmanId = order.SalesmanId,
+                    assignedShipperId = order.ShipperId,
+                    orderType = order.OrderType,
                     timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
                 };
 

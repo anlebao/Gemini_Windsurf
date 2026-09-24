@@ -935,12 +935,37 @@ namespace VanAn.CoreHub.Services
                 // Without this, ShopERP Owner cannot see orders created via Gateway (KhachLink checkout).
                 if (_outboxRepository != null)
                 {
+                    // NF-4: resolve tenant owner for the "đơn mới" push — the ShopERP consumer
+                    // reads OwnerCustomerId from the payload (SQLite Tenants row may be stale).
+                    // Best-effort: a lookup failure must never block order creation.
+                    Guid? ownerCustomerId = null;
+                    try
+                    {
+                        if (_dbContext != null)
+                        {
+                            ownerCustomerId = await _dbContext.Tenants
+                                .Where(t => t.Id == tenantIdObj)
+                                .Select(t => t.OwnerCustomerId)
+                                .FirstOrDefaultAsync();
+                        }
+                    }
+                    catch (Exception ownerEx)
+                    {
+                        _logger.LogWarning(ownerEx, "Checkout: could not resolve OwnerCustomerId for tenant {TenantId} — owner push will be skipped", tenantId);
+                    }
+
                     var orderCreatedEvent = new
                     {
                         EventId = Guid.NewGuid(),
                         OrderId = createdOrder.Id,
                         TenantId = createdOrder.TenantId.Value,
                         CustomerId = createdOrder.CustomerId,
+                        // NF-4: role fan-out fields — owner push on ShopERP; salesman referral
+                        // fields keep the SQLite replica attributable for completed-order pushes.
+                        OwnerCustomerId = ownerCustomerId,
+                        SalesmanId = createdOrder.SalesmanId,
+                        ReferralProductId = createdOrder.ReferralProductId,
+                        ReferralCode = createdOrder.ReferralCode,
                         CustomerDeviceId = createdOrder.CustomerDeviceId ?? string.Empty,
                         Status = createdOrder.Status.Value,
                         TotalAmount = createdOrder.TotalAmount,

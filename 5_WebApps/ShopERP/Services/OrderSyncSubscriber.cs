@@ -363,6 +363,31 @@ namespace VanAn.ShopERP.Services
                         order.SetCustomerDeviceId(deviceId);
                 }
 
+                // NF-4: sync salesman referral attribution (CC-S4 fields added to the created
+                // payload). Keeps the SQLite replica attributable so ShopERP-published
+                // completed events carry salesmanId for the salesman push fan-out.
+                // Strict parse — malformed ids throw and are logged, never silently nulled.
+                if (root.TryGetProperty("SalesmanId", out var smProp) && smProp.ValueKind == JsonValueKind.String
+                    && root.TryGetProperty("ReferralProductId", out var rpProp) && rpProp.ValueKind == JsonValueKind.String
+                    && root.TryGetProperty("ReferralCode", out var rcProp))
+                {
+                    try
+                    {
+                        Guid salesmanId = smProp.GetGuid();
+                        Guid referralProductId = rpProp.GetGuid();
+                        string? referralCode = rcProp.GetString();
+                        if (salesmanId != Guid.Empty && referralProductId != Guid.Empty && !string.IsNullOrWhiteSpace(referralCode))
+                        {
+                            order.SetSalesmanReferral(salesmanId, referralProductId, referralCode.Trim());
+                        }
+                    }
+                    catch (Exception refEx)
+                    {
+                        _logger.LogWarning(refEx,
+                            "OrderSyncSubscriber: malformed referral fields for order {OrderId} — referral attribution NOT synced", orderId);
+                    }
+                }
+
                 // Set status if provided (default is "pending")
                 if (root.TryGetProperty("Status", out var statusProp))
                 {
@@ -386,6 +411,47 @@ namespace VanAn.ShopERP.Services
                 catch (Exception hubEx)
                 {
                     _logger.LogWarning(hubEx, "OrderSyncSubscriber: SignalR broadcast failed for {OrderId} (order already in SQLite)", orderId);
+                }
+
+                // NF-4: "đơn mới" push to the tenant owner — owner subscribes via KhachLink
+                // PWA, so PushSubscriptions (SQLite) keyed by CustomerId carries their
+                // subscription. Source: payload OwnerCustomerId (resolved on Gateway),
+                // fallback to the local Tenants row. Best-effort — never fails the sync.
+                try
+                {
+                    Guid? ownerCustomerId = null;
+                    if (root.TryGetProperty("OwnerCustomerId", out var ocProp) && ocProp.ValueKind != JsonValueKind.Null)
+                    {
+                        // Strict parse — malformed value throws → caught below, push skipped, error logged.
+                        Guid oc = ocProp.GetGuid();
+                        ownerCustomerId = oc == Guid.Empty ? null : oc;
+                    }
+                    if (ownerCustomerId == null)
+                    {
+                        ownerCustomerId = await dbContext.Tenants
+                            .Where(t => t.Id == order.TenantId)
+                            .Select(t => t.OwnerCustomerId)
+                            .FirstOrDefaultAsync(cancellationToken);
+                    }
+
+                    if (ownerCustomerId.HasValue && ownerCustomerId != order.CustomerId)
+                    {
+                        var pushService = scope.ServiceProvider.GetService<VanAn.CoreHub.Services.PushNotificationService>();
+                        if (pushService != null)
+                        {
+                            var (sent, _) = await pushService.SendBulkNotificationAsync(
+                                new[] { ownerCustomerId.Value },
+                                "Vạn An",
+                                $"Đơn hàng mới #{orderId.ToString()[..8]} — {order.TotalAmount:N0}đ vừa được đặt",
+                                "/");
+                            _logger.LogInformation("OrderSyncSubscriber: dispatched {Sent} new-order push(es) to owner {OwnerId} for {OrderId}",
+                                sent, ownerCustomerId, orderId);
+                        }
+                    }
+                }
+                catch (Exception pushEx)
+                {
+                    _logger.LogWarning(pushEx, "OrderSyncSubscriber: owner new-order push failed for {OrderId} (order already in SQLite)", orderId);
                 }
 
                 _logger.LogInformation("OrderSyncSubscriber: synced order {OrderId} → SQLite ({ItemCount} items, {Total} VND)",
@@ -428,8 +494,22 @@ namespace VanAn.ShopERP.Services
                     return;
                 }
 
+                // NF-4: persist shipper assignment carried on the status event. Gateway sets
+                // order.ShipperId when a shipper accepts (→ delivering); without syncing it the
+                // SQLite replica never knows the assignee and a later owner-cancel cannot
+                // fan out the shipper push. Strict parse — malformed value throws (outer catch).
+                if (root.TryGetProperty("assignedShipperId", out var shProp) && shProp.ValueKind != JsonValueKind.Null)
+                {
+                    Guid shipperId = shProp.GetGuid();
+                    if (shipperId != Guid.Empty && order.ShipperId != shipperId)
+                    {
+                        order.AssignShipper(shipperId);
+                    }
+                }
+
                 if (order.Status.Value != newStatus)
                 {
+                    string oldStatus = order.Status.Value;
                     order.UpdateOrderStatus(new OrderStatusId(newStatus));
                     if (newStatus == "completed")
                     {
@@ -457,6 +537,25 @@ namespace VanAn.ShopERP.Services
                     }
                     await dbContext.SaveChangesAsync(cancellationToken);
                     _logger.LogInformation("OrderSyncSubscriber: synced order {OrderId} status → {Status} in SQLite", orderId, newStatus);
+
+                    // NF-2: Broadcast OrderStatusChanged so staff pages (Orders/Kitchen/Dashboard)
+                    // refresh in realtime when status changes arrive from Gateway (e.g. shipper
+                    // accept → delivering, delivered → completed). Without this, synced status
+                    // updates were invisible until the 10-30s poll timer.
+                    try
+                    {
+                        await _hubContext.Clients.All.SendAsync("OrderStatusChanged",
+                            orderId, order.TenantId.Value, oldStatus, newStatus, cancellationToken);
+                    }
+                    catch (Exception hubEx)
+                    {
+                        _logger.LogWarning(hubEx, "OrderSyncSubscriber: SignalR status broadcast failed for {OrderId}", orderId);
+                    }
+                }
+                else if (dbContext.ChangeTracker.HasChanges())
+                {
+                    // Status already current but shipper assignment (or other fields) changed.
+                    await dbContext.SaveChangesAsync(cancellationToken);
                 }
             }
             catch (Exception ex)

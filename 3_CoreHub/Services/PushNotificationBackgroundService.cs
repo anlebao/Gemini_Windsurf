@@ -104,8 +104,14 @@ namespace VanAn.CoreHub.Services
 
         /// <summary>
         /// Parse the NATS payload and dispatch to PushNotificationService.
+        /// NF-4: fan-out to role recipients — buyer (customerId), salesman (salesmanId on
+        /// completed), assigned shipper (assignedShipperId on cancelled). Payloads with
+        /// "rolesOnly": true (republished by Gateway DataSyncSubscriber after resolving
+        /// recipients from PG) skip the buyer push — the buyer was already notified by
+        /// the original event.
+        /// Internal for VanAn.Core.Tests (InternalsVisibleTo).
         /// </summary>
-        private async Task HandleEventAsync(byte[] payload, CancellationToken cancellationToken)
+        internal async Task HandleEventAsync(byte[] payload, CancellationToken cancellationToken)
         {
             try
             {
@@ -113,22 +119,24 @@ namespace VanAn.CoreHub.Services
                 var root = doc.RootElement;
 
                 if (!root.TryGetProperty("orderId", out var orderIdEl) ||
-                    !root.TryGetProperty("customerId", out var customerIdEl) ||
                     !root.TryGetProperty("newStatus", out var newStatusEl))
                 {
-                    _logger.LogWarning("PushNotificationBackgroundService: payload missing required fields (orderId/customerId/newStatus). Payload: {Payload}",
+                    _logger.LogWarning("PushNotificationBackgroundService: payload missing required fields (orderId/newStatus). Payload: {Payload}",
                         JsonSerializer.Serialize(root));
                     return;
                 }
 
                 Guid orderId = orderIdEl.GetGuid();
-                Guid? customerId = customerIdEl.ValueKind == JsonValueKind.Null ? null : customerIdEl.GetGuid();
+                Guid? customerId = GetOptionalGuid(root, "customerId");
                 string newStatus = newStatusEl.GetString() ?? "unknown";
                 string? customerName = root.TryGetProperty("customerName", out var cn) && cn.ValueKind != JsonValueKind.Null ? cn.GetString() : null;
+                Guid? salesmanId = GetOptionalGuid(root, "salesmanId");
+                Guid? assignedShipperId = GetOptionalGuid(root, "assignedShipperId");
+                bool rolesOnly = root.TryGetProperty("rolesOnly", out var ro) && ro.ValueKind == JsonValueKind.True;
 
-                if (customerId == null)
+                if (customerId == null && salesmanId == null && assignedShipperId == null)
                 {
-                    _logger.LogDebug("PushNotificationBackgroundService: skipping push for OrderId={OrderId} (no customerId)", orderId);
+                    _logger.LogDebug("PushNotificationBackgroundService: skipping push for OrderId={OrderId} (no recipients)", orderId);
                     return;
                 }
 
@@ -141,7 +149,37 @@ namespace VanAn.CoreHub.Services
                     return;
                 }
 
-                int sent = await pushService.SendOrderStatusNotificationAsync(customerId.Value, orderId, newStatus, customerName);
+                int sent = 0;
+                string shortId = orderId.ToString()[..8];
+
+                // Buyer push — skipped on rolesOnly republishes (buyer already notified).
+                if (!rolesOnly && customerId.HasValue)
+                {
+                    sent += await pushService.SendOrderStatusNotificationAsync(customerId.Value, orderId, newStatus, customerName);
+                }
+
+                // NF-4: salesman push — referral order completed → commission incoming.
+                if (newStatus == "completed" && salesmanId.HasValue && salesmanId != customerId)
+                {
+                    var result = await pushService.SendBulkNotificationAsync(
+                        new[] { salesmanId.Value },
+                        "Vạn An",
+                        $"Đơn giới thiệu #{shortId} đã hoàn thành — hoa hồng sắp được ghi nhận",
+                        "/community/sales-dashboard");
+                    sent += result.SentCount;
+                }
+
+                // NF-4: assigned shipper push — the order they were delivering was cancelled.
+                if (newStatus == "cancelled" && assignedShipperId.HasValue && assignedShipperId != customerId)
+                {
+                    var result = await pushService.SendBulkNotificationAsync(
+                        new[] { assignedShipperId.Value },
+                        "Vạn An",
+                        $"Đơn giao #{shortId} đã bị hủy — bạn không cần giao đơn này nữa",
+                        "/community/active-deliveries");
+                    sent += result.SentCount;
+                }
+
                 _logger.LogInformation("PushNotificationBackgroundService dispatched {Sent} push notification(s) for OrderId={OrderId} Status={Status}",
                     sent, orderId, newStatus);
             }
@@ -149,6 +187,21 @@ namespace VanAn.CoreHub.Services
             {
                 _logger.LogError(ex, "PushNotificationBackgroundService: error handling NATS event");
             }
+        }
+
+        /// <summary>
+        /// Strict optional-Guid parse — NO TryParse fallback (stub pattern).
+        /// Absent or JSON null → null (field legitimately not provided).
+        /// Present but malformed → GetGuid() throws → the whole event is rejected
+        /// and logged by the caller, instead of silently dropping a recipient.
+        /// Guid.Empty → null ("no recipient" sentinel, never a real customer).
+        /// </summary>
+        private static Guid? GetOptionalGuid(JsonElement root, string property)
+        {
+            if (!root.TryGetProperty(property, out var el) || el.ValueKind == JsonValueKind.Null)
+                return null;
+            var value = el.GetGuid();
+            return value == Guid.Empty ? null : value;
         }
 
         /// <summary>

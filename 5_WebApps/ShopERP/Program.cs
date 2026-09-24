@@ -400,6 +400,10 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.PushNotificationService>();
             // FIX-BATCH-3: IHostedService that subscribes to NATS "order.status.changed" and dispatches to PushNotificationService
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.PushNotificationBackgroundService>();
+            // NF-2: IOrderNotificationService for ShopERP scope — broadcasts on local /orderHub
+            // so staff pages (Orders/Kitchen/Dashboard) update realtime. Was unregistered →
+            // every SignalR call in OrderWorkflowService/KitchenService/OrderService was a no-op.
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Interfaces.IOrderNotificationService, VanAn.ShopERP.Services.ShopErpOrderNotificationService>();
             // Phase 5: Customer segmentation service for bulk push campaigns
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICustomerSegmentationService, VanAn.CoreHub.Services.CustomerSegmentationService>();
             // Loyalty-B: Redemption system (catalog + redeem + fulfillment)

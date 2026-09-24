@@ -256,9 +256,63 @@ namespace VanAn.Gateway.Services
 
             if (order.Status.Value != newStatus)
             {
+                string oldStatus = order.Status.Value;
                 order.UpdateOrderStatus(new OrderStatusId(newStatus));
                 await dbContext.SaveChangesAsync(ct);
                 _logger.LogInformation("Synced order {OrderId} status → {Status} in PostgreSQL (tenant {TenantId})", orderId, newStatus, tenantId);
+
+                // NF-3: Broadcast to KhachLink OrderTracking via LocationHub order_{orderId}.
+                // Previously ShopERP-driven status changes (confirmed/preparing/ready/completed)
+                // updated PG silently — buyers only saw them via 15s polling. Registered on
+                // Gateway only; GetService is null-safe for test scopes without the service.
+                var notifier = scopeSp.GetService<VanAn.CoreHub.Interfaces.IOrderNotificationService>();
+                if (notifier != null)
+                {
+                    _ = notifier.NotifyOrderStatusChangedAsync(orderId, tenantId, oldStatus, newStatus);
+                }
+
+                // NF-4: Role fan-out for ShopERP-initiated transitions. The SQLite replica
+                // may lack SalesmanId/ShipperId, so the push event ShopERP published had no
+                // role recipients. Resolve them from the PG order (just saved above) and
+                // republish a rolesOnly "order.status.changed" — ShopERP's
+                // PushNotificationBackgroundService pushes only the missing roles.
+                if (newStatus is "completed" or "cancelled")
+                {
+                    try
+                    {
+                        bool hasSalesman = GetOptionalGuid(data, "salesmanId").HasValue;
+                        bool hasShipper = GetOptionalGuid(data, "assignedShipperId").HasValue;
+                        Guid? salesmanId = newStatus == "completed" && !hasSalesman ? order.SalesmanId : null;
+                        Guid? shipperId = newStatus == "cancelled" && !hasShipper ? order.ShipperId : null;
+
+                        if (salesmanId.HasValue || shipperId.HasValue)
+                        {
+                            var publisher = scopeSp.GetService<VanAn.CoreHub.Infrastructure.Messaging.INatsEventPublisher>();
+                            if (publisher != null)
+                            {
+                                var rolePayload = JsonSerializer.SerializeToUtf8Bytes(new
+                                {
+                                    orderId,
+                                    tenantId,
+                                    customerId = (Guid?)null,
+                                    newStatus,
+                                    salesmanId,
+                                    assignedShipperId = shipperId,
+                                    rolesOnly = true,
+                                    timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                                });
+                                await publisher.PublishAsync("order.status.changed", rolePayload);
+                                _logger.LogInformation(
+                                    "DataSyncSubscriber: republished rolesOnly order.status.changed for {OrderId} (salesman={SalesmanId}, shipper={ShipperId})",
+                                    orderId, salesmanId, shipperId);
+                            }
+                        }
+                    }
+                    catch (Exception roleEx)
+                    {
+                        _logger.LogWarning(roleEx, "DataSyncSubscriber: role fan-out republish failed for {OrderId}", orderId);
+                    }
+                }
             }
         }
 
@@ -627,6 +681,21 @@ namespace VanAn.Gateway.Services
             _logger.LogInformation(
                 "Synced ShopFeatureSettings for tenant {TenantId} → PostgreSQL (Loyalty={LoyaltyEnabled})",
                 tenantId, dto.Loyalty_Program_Enabled);
+        }
+
+        /// <summary>
+        /// NF-4: strict optional-Guid read from a sync event payload — NO TryParse
+        /// fallback (stub pattern). Absent or JSON null → null. Present but malformed
+        /// → GetGuid() throws → caller's catch logs it and skips the republish
+        /// instead of silently treating a corrupt id as "missing".
+        /// Guid.Empty → null ("no recipient" sentinel).
+        /// </summary>
+        private static Guid? GetOptionalGuid(JsonElement data, string property)
+        {
+            if (!data.TryGetProperty(property, out var el) || el.ValueKind == JsonValueKind.Null)
+                return null;
+            var value = el.GetGuid();
+            return value == Guid.Empty ? null : value;
         }
 
         public override void Dispose()

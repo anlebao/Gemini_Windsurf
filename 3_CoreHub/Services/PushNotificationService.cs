@@ -66,7 +66,7 @@ namespace VanAn.CoreHub.Services
         /// <param name="newStatus">New order status</param>
         /// <param name="customerName">Customer name (optional)</param>
         /// <returns>Number of notifications sent successfully</returns>
-        public async Task<int> SendOrderStatusNotificationAsync(
+        public virtual async Task<int> SendOrderStatusNotificationAsync(
             Guid customerId,
             Guid orderId,
             string newStatus,
@@ -234,7 +234,7 @@ namespace VanAn.CoreHub.Services
         /// <param name="actionUrl">URL to open on click</param>
         /// <param name="campaignPushJobId">Optional CampaignPushJob ID for tracking</param>
         /// <returns>Tuple of (sentCount, failedCount)</returns>
-        public async Task<(int SentCount, int FailedCount)> SendBulkNotificationAsync(
+        public virtual async Task<(int SentCount, int FailedCount)> SendBulkNotificationAsync(
             IReadOnlyList<Guid> customerIds,
             string title,
             string body,
