@@ -21,11 +21,13 @@ namespace VanAn.Gateway.Controllers
     public class LoyaltyConfigController(
         IVanAnDbContext dbContext,
         IAllianceWalletService allianceWalletService,
-        ILogger<LoyaltyConfigController> logger) : ControllerBase
+        ILogger<LoyaltyConfigController> logger,
+        VanAn.CoreHub.Infrastructure.Messaging.INatsEventPublisher? natsEventPublisher = null) : ControllerBase
     {
         private readonly IVanAnDbContext _dbContext = dbContext;
         private readonly IAllianceWalletService _allianceWalletService = allianceWalletService;
         private readonly ILogger<LoyaltyConfigController> _logger = logger;
+        private readonly VanAn.CoreHub.Infrastructure.Messaging.INatsEventPublisher? _natsEventPublisher = natsEventPublisher;
 
         // === Global Config ===
 
@@ -94,6 +96,11 @@ namespace VanAn.Gateway.Controllers
             _ = await _dbContext.SaveChangesAsync();
             _logger.LogInformation("LoyaltyConfig: global config updated by {User} — mode={Mode}, pointsRate={Rate}%, minPoints={Min}, maxPointsPerOrder={MaxPoints}, maxWalletPoints={MaxWallet}",
                 changedBy, body.Mode, body.PointsRate, body.MinPointsPerOrder, body.MaxPointsPerOrder, body.MaxWalletPoints);
+
+            // 2026-09-25 (config drift fix): replicate the global loyalty config to ShopERP SQLite so
+            // the ShopERP-side award path (OrderWorkflowService) reads the SAME formula as the
+            // Gateway-side checkout estimate. Subscriber: ShopERP LoyaltySyncSubscriber.
+            await PublishGlobalConfigChangedAsync(config);
 
             return Ok(GlobalConfigDto.From(config));
         }
@@ -332,6 +339,34 @@ namespace VanAn.Gateway.Controllers
         }
 
         // === Helpers ===
+
+        /// <summary>
+        /// Publishes "vanan.cloud.loyalty.config.changed" → ShopERP LoyaltySyncSubscriber upserts
+        /// the local SQLite LoyaltyGlobalConfigs mirror. Fire-and-forget: a missed event only delays
+        /// the mirror until the next admin save (config changes are rare).
+        /// </summary>
+        private async Task PublishGlobalConfigChangedAsync(LoyaltyGlobalConfig config)
+        {
+            if (_natsEventPublisher == null) return;
+            try
+            {
+                var payload = new
+                {
+                    mode = (int)config.Mode,
+                    pointsRate = config.PointsRate,
+                    minPointsPerOrder = config.MinPointsPerOrder,
+                    maxPointsPerOrder = config.MaxPointsPerOrder,
+                    maxWalletPoints = config.MaxWalletPoints,
+                    updatedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ")
+                };
+                byte[] bytes = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(payload);
+                await _natsEventPublisher.PublishAsync("vanan.cloud.loyalty.config.changed", bytes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "LoyaltyConfig: failed to publish global config change to NATS — ShopERP mirror may be stale until next update");
+            }
+        }
 
         private string GetChangedBy()
         {

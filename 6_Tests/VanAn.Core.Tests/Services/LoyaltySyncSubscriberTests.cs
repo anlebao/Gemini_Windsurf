@@ -186,7 +186,9 @@ public class LoyaltySyncSubscriberTests
             await subscriber.ExecuteAsyncPublic(CancellationToken.None);
             await Task.Delay(100); // allow background task to run
 
-            Assert.Equal("vanan.cloud.loyalty.changed.>", subscriber.CapturedSubject);
+            Assert.Contains("vanan.cloud.loyalty.changed.>", subscriber.CapturedSubjects);
+            // Task 2a (2026-09-25): global loyalty config mirror PG→SQLite subscription.
+            Assert.Contains("vanan.cloud.loyalty.config.changed", subscriber.CapturedSubjects);
             Assert.True(subscriber.CreateConnectionCalled);
         }
         finally
@@ -435,7 +437,7 @@ public class LoyaltySyncSubscriberTests
     /// </summary>
     private class TestableLoyaltySyncSubscriber : LoyaltySyncSubscriber
     {
-        public string? CapturedSubject { get; private set; }
+        public List<string> CapturedSubjects { get; } = new();
         public bool CreateConnectionCalled { get; private set; }
 
         public TestableLoyaltySyncSubscriber(
@@ -459,7 +461,7 @@ public class LoyaltySyncSubscriberTests
 
         protected override void RecordSubscription(string subject)
         {
-            CapturedSubject = subject;
+            CapturedSubjects.Add(subject);
         }
 
         /// <summary>REQ-1.2: Creates a toggle mock that returns true (enabled) for all services.</summary>

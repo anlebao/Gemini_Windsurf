@@ -68,6 +68,16 @@ namespace VanAn.ShopERP.Services
                 });
                 RecordSubscription(subject);
 
+                // 2026-09-25 (config drift fix): second subscription — mirror PG LoyaltyGlobalConfig
+                // into SQLite so the ShopERP-side loyalty award path reads the SAME global formula
+                // as the Gateway-side checkout estimate. Published by Gateway LoyaltyConfigController.
+                const string configSubject = "vanan.cloud.loyalty.config.changed";
+                _ = _subscriptionConnection.SubscribeAsync(configSubject, async (sender, args) =>
+                {
+                    await SyncGlobalConfigAsync(args.Message.Data, stoppingToken);
+                });
+                RecordSubscription(configSubject);
+
                 _logger.LogInformation(
                     "LoyaltySyncSubscriber connected to NATS {Url}, subscribed to {Subject}",
                     url, subject);
@@ -275,6 +285,51 @@ namespace VanAn.ShopERP.Services
                 {
                     _ = await dbContext.SaveChangesAsync(cancellationToken);
                 }
+        }
+
+        /// <summary>
+        /// 2026-09-25: mirror the PG LoyaltyGlobalConfig row into SQLite.
+        /// Subject: vanan.cloud.loyalty.config.changed (published by Gateway LoyaltyConfigController
+        /// after PUT /api/platform/loyalty/config). Payload: { mode, pointsRate, minPointsPerOrder,
+        /// maxPointsPerOrder, maxWalletPoints, updatedAt }. Idempotent full upsert of the single row.
+        /// </summary>
+        internal async Task SyncGlobalConfigAsync(byte[] data, CancellationToken cancellationToken)
+        {
+            if (!await _toggleService.IsEnabledAsync("LoyaltySyncSubscriber", cancellationToken))
+                return;
+
+            try
+            {
+                string json = Encoding.UTF8.GetString(data);
+                using JsonDocument doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+
+                using IServiceScope scope = _serviceProvider.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
+
+                var config = await dbContext.LoyaltyGlobalConfigs.FirstOrDefaultAsync(cancellationToken);
+                if (config == null)
+                {
+                    config = new LoyaltyGlobalConfig();
+                    _ = dbContext.LoyaltyGlobalConfigs.Add(config);
+                }
+
+                string changedBy = "nats:loyalty.config.changed";
+                if (root.TryGetProperty("mode", out var modeProp) && modeProp.ValueKind == JsonValueKind.Number)
+                    config.UpdateMode((LoyaltyMode)modeProp.GetInt32(), changedBy);
+                if (root.TryGetProperty("pointsRate", out var rateProp) && root.TryGetProperty("minPointsPerOrder", out var minProp))
+                    config.UpdatePointsFormula(rateProp.GetInt32(), minProp.GetInt32(), changedBy);
+                if (root.TryGetProperty("maxPointsPerOrder", out var maxProp) && root.TryGetProperty("maxWalletPoints", out var walletProp))
+                    config.UpdateLimits(maxProp.GetInt32(), walletProp.GetInt32(), changedBy);
+
+                _ = await dbContext.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation("LoyaltySyncSubscriber: mirrored LoyaltyGlobalConfig from PG (rate={Rate}%, maxPerOrder={Max})",
+                    config.PointsRate, config.MaxPointsPerOrder);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "LoyaltySyncSubscriber: failed to sync LoyaltyGlobalConfig from NATS message");
+            }
         }
 
         private static bool IsUniqueConstraintViolation(DbUpdateException ex)

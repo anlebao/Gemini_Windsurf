@@ -15,12 +15,17 @@ public class CustomerMergeService(
     ICustomerRepository customerRepository,
     ILoyaltyRewardsService loyaltyRewardsService,
     IVanAnDbContext dbContext,
-    ILogger<CustomerMergeService> logger) : ICustomerMergeService
+    ILogger<CustomerMergeService> logger,
+    VanAnDbContext? pgContext = null) : ICustomerMergeService
 {
     private readonly ICustomerRepository _customerRepository = customerRepository;
     private readonly ILoyaltyRewardsService _loyaltyRewardsService = loyaltyRewardsService;
     private readonly IVanAnDbContext _dbContext = dbContext;
     private readonly ILogger<CustomerMergeService> _logger = logger;
+    // 2026-09-25: community data (roles/referrals/wallet) is PG-only — in ShopERP scope
+    // _dbContext is SQLite and those entities are Ignored, so PG migration goes through
+    // this separate context (injected there; null in unit tests).
+    private readonly VanAnDbContext? _pgContext = pgContext;
 
     public async Task<CustomerMergeResult> MergeDeviceStubsIntoLoginAsync(Guid loginCustomerId, Guid deviceId)
     {
@@ -99,6 +104,12 @@ public class CustomerMergeService(
                     stubRewards.PointBalance, stub.Id, loginCustomerId);
             }
 
+            // 2026-09-25: migrate PG-side community data BEFORE soft-deleting the stub —
+            // otherwise salesman/shipper role, commission referrals, wallet ledger and
+            // withdrawal requests stay attached to a deleted customer and disappear from UI
+            // (prod incident: CTV wallet showed 0 because data was orphaned on a stub).
+            await MigrateCommunityDataAsync(stub.Id, loginCustomerId);
+
             // Soft-delete the stub to prevent future fragmentation
             stub.SoftDelete();
             stubsMerged++;
@@ -127,6 +138,57 @@ public class CustomerMergeService(
         }
 
         return new CustomerMergeResult(stubsMerged, totalPointsTransferred);
+    }
+
+    /// <summary>
+    /// Re-point PG-only community records from a merged stub to the login customer.
+    /// Runs on the PG context (community tables are Ignored in ShopERP SQLite).
+    /// Best-effort: failures are logged but do not abort the merge — the stub is still
+    /// soft-deleted so identity fragmentation stops; an orphaned row is recoverable by SQL.
+    /// </summary>
+    private async Task MigrateCommunityDataAsync(Guid stubId, Guid loginCustomerId)
+    {
+        var pg = _pgContext ?? (_dbContext as VanAnDbContext);
+        if (pg == null)
+        {
+            _logger.LogDebug("MigrateCommunityData: no PG context available — skipping (stub {StubId})", stubId);
+            return;
+        }
+
+        try
+        {
+            // IgnoreQueryFilters: community rows may belong to a tenant that differs from the
+            // ambient scope (guest stubs resolved cross-tenant, e.g. prod incident a5b6 stub
+            // merged under a 0001-scoped request). Only the OWNER FK is re-pointed — TenantId,
+            // amounts and statuses are preserved, so no cross-tenant data leak occurs.
+            int roles = await pg.CommunityRoles
+                .IgnoreQueryFilters()
+                .Where(r => r.CustomerId == stubId)
+                .ExecuteUpdateAsync(s => s.SetProperty(r => r.CustomerId, loginCustomerId));
+            int referrals = await pg.SalesReferrals
+                .IgnoreQueryFilters()
+                .Where(r => r.SalesmanId == stubId)
+                .ExecuteUpdateAsync(s => s.SetProperty(r => r.SalesmanId, loginCustomerId));
+            int walletTx = await pg.WalletTransactions
+                .IgnoreQueryFilters()
+                .Where(w => w.OwnerId == stubId)
+                .ExecuteUpdateAsync(s => s.SetProperty(w => w.OwnerId, loginCustomerId));
+            int withdrawals = await pg.WithdrawalRequests
+                .IgnoreQueryFilters()
+                .Where(w => w.OwnerId == stubId)
+                .ExecuteUpdateAsync(s => s.SetProperty(w => w.OwnerId, loginCustomerId));
+
+            if (roles + referrals + walletTx + withdrawals > 0)
+            {
+                _logger.LogInformation(
+                    "MigrateCommunityData: stub {StubId} → {LoginId}: roles={Roles} referrals={Referrals} walletTx={WalletTx} withdrawals={Withdrawals}",
+                    stubId, loginCustomerId, roles, referrals, walletTx, withdrawals);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "MigrateCommunityData: failed for stub {StubId} → {LoginId} — merge continues, fix orphaned rows via SQL", stubId, loginCustomerId);
+        }
     }
 
     private static List<LoyaltyHistoryEntry> ParseHistory(string historyJson)

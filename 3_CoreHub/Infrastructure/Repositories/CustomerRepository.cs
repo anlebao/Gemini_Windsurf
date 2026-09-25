@@ -23,8 +23,14 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
 
         public async Task<Customer?> GetByDeviceIdAsync(Guid deviceId)
         {
+            // 2026-09-25: deterministic ordering — a device can accumulate multiple customer rows
+            // (guest stubs recreated after each merge + real login accounts). Prefer the highest
+            // IdentityLevel (Verified > Social > Guest) then newest — so an order's loyalty/identity
+            // resolution lands on the customer's REAL account, not a random stub.
             return await _context.Customers
                 .Where(c => c.DeviceId == deviceId && !c.IsDeleted)
+                .OrderByDescending(c => c.IdentityLevel)
+                .ThenByDescending(c => c.CreatedAt)
                 .FirstOrDefaultAsync();
         }
 

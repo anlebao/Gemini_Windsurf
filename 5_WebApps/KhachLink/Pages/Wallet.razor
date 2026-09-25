@@ -233,6 +233,13 @@
             _availableBalance = result.AvailableBalance;
             _transactions = result.Transactions;
         }
+        else
+        {
+            // 2026-09-25: surface load failures — previously the page silently rendered a 0đ
+            // wallet on API error, which users reported as "ví không cập nhật".
+            _walletMessage = $"Không tải được ví: {result.ErrorMessage}";
+            _walletMessageIsError = true;
+        }
     }
 
     private async Task LoadPendingRemittancesAsync()

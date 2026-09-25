@@ -556,11 +556,16 @@ namespace VanAn.CoreHub.Services
                 }
             }
 
-            if (_shopFeatureSettingsService != null && customer.TenantId.Value != Guid.Empty)
+            // Loyalty tenant fix (2026-09-25): resolve per-tenant formula from ORDER tenant, not
+            // customer tenant — a guest/stub customer can belong to a different tenant than the
+            // order (device-identity reuse across shops). Reading customer.TenantId made the award
+            // use the WRONG tenant's rate/max/awardOnAllOrders (prod incident: order on tenant 0001
+            // awarded 5000 pts using tenant a5b6's rate=1.0/max=5000 config).
+            if (_shopFeatureSettingsService != null && order.TenantId.Value != Guid.Empty)
             {
                 try
                 {
-                    var tenantSettings = await _shopFeatureSettingsService.GetSettingsAsync(customer.TenantId);
+                    var tenantSettings = await _shopFeatureSettingsService.GetSettingsAsync(order.TenantId);
 
                     // #99-3: Check Loyalty_Program_Enabled toggle — tenant can disable loyalty entirely.
                     // Previously: toggle existed in ShopFeatureSettingsDto but was never checked → points
@@ -569,7 +574,7 @@ namespace VanAn.CoreHub.Services
                     if (!tenantSettings.Loyalty_Program_Enabled)
                     {
                         _logger.LogInformation("Loyalty: Skipped award for order {OrderId} — Loyalty_Program_Enabled=false for tenant {TenantId}",
-                            order.Id, customer.TenantId.Value);
+                            order.Id, order.TenantId.Value);
                         return;
                     }
 
@@ -581,7 +586,7 @@ namespace VanAn.CoreHub.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to load per-tenant loyalty formula for tenant {TenantId}. Using global default.", customer.TenantId);
+                    _logger.LogWarning(ex, "Failed to load per-tenant loyalty formula for tenant {TenantId}. Using global default.", order.TenantId);
                 }
             }
 

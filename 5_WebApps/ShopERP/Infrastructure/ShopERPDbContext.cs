@@ -264,12 +264,15 @@ namespace VanAn.ShopERP.Infrastructure
             _ = modelBuilder.Ignore<DeviceRegistration>();
             _ = modelBuilder.Ignore<FraudFlag>();
 
-            // Loyalty Alliance System: 4 entities are PG-only (Gateway VanAnDbContext).
+            // Loyalty Alliance System: Alliance wallet entities are PG-only (Gateway VanAnDbContext).
             // ShopERP SQLite ignores these — cross-tenant wallet system lives in PG.
             // DbSet declarations remain for IVanAnDbContext interface contract.
             // NOTE: These Ignore() calls MUST be after ApplyConfigurationsFromAssembly — otherwise
             // the CoreHub configurations (AllianceWalletConfiguration, etc.) re-add the entities to the model.
-            _ = modelBuilder.Ignore<LoyaltyGlobalConfig>();
+            // 2026-09-25: LoyaltyGlobalConfig is NO LONGER ignored — ShopERP needs a local mirror so the
+            // loyalty award path (OrderWorkflowService) reads the same global formula as the Gateway
+            // estimate. Mirrored via "vanan.cloud.loyalty.config.changed" → LoyaltySyncSubscriber.
+            // (LoyaltyTenantConfig/AllianceWallet/AllianceTransaction stay PG-only.)
             _ = modelBuilder.Ignore<LoyaltyTenantConfig>();
             _ = modelBuilder.Ignore<AllianceWallet>();
             _ = modelBuilder.Ignore<AllianceTransaction>();

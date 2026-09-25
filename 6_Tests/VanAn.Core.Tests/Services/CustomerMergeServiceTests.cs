@@ -7,6 +7,7 @@ using VanAn.CoreHub.Infrastructure.Repositories;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
+using VanAn.Shared.Domain.Aggregates.WalletAggregate;
 using Xunit;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 
@@ -162,6 +163,32 @@ public class CustomerMergeServiceTests : IDisposable
         Assert.Equal(0, result.PointsTransferred);
         var loginAfter = await _context.Customers.IgnoreQueryFilters().FirstAsync(c => c.Id == login.Id);
         Assert.Equal(deviceId, loginAfter.DeviceId);
+    }
+
+    [Fact(DisplayName = "Task 6 (2026-09-25): PG community data (roles/referrals/wallet/withdrawals) is re-pointed from merged guest stub to login customer")]
+    public async Task Merge_GuestStub_MigratesCommunityData()
+    {
+        var deviceId = Guid.NewGuid();
+        var login = AddRealCustomer("Real User", "real@test.com", IdentityLevel.Social, null);
+        var stub = AddGuestStub(deviceId, 0);
+
+        var role = new CommunityRole(_tenantId, stub.Id, CommunityRoleType.Salesman, login.Id);
+        var referral = new SalesReferral(_tenantId, stub.Id, "SM-TEST", Guid.NewGuid());
+        var walletTx = new WalletTransaction(_tenantId, stub.Id, WalletTransactionType.Commission, 1170m, 0m, "hoa hồng CTV");
+        var withdrawal = new WithdrawalRequest(_tenantId, stub.Id, 600_000m);
+        _context.AddRange(role, referral, walletTx, withdrawal);
+        await _context.SaveChangesAsync();
+
+        var result = await _service.MergeDeviceStubsIntoLoginAsync(login.Id, deviceId);
+
+        // AsNoTracking: ExecuteUpdateAsync bypasses the change tracker, but the seed entities are
+        // still TRACKED with the old owner FK — EF identity resolution would return the stale cached
+        // instance. Read from the DB to verify the actual rows were re-pointed.
+        Assert.Equal(1, result.StubsMerged);
+        Assert.Equal(login.Id, (await _context.CommunityRoles.AsNoTracking().IgnoreQueryFilters().FirstAsync(r => r.Id == role.Id)).CustomerId);
+        Assert.Equal(login.Id, (await _context.SalesReferrals.AsNoTracking().IgnoreQueryFilters().FirstAsync(r => r.Id == referral.Id)).SalesmanId);
+        Assert.Equal(login.Id, (await _context.WalletTransactions.AsNoTracking().IgnoreQueryFilters().FirstAsync(w => w.Id == walletTx.Id)).OwnerId);
+        Assert.Equal(login.Id, (await _context.WithdrawalRequests.AsNoTracking().IgnoreQueryFilters().FirstAsync(w => w.Id == withdrawal.Id)).OwnerId);
     }
 
     [Fact(DisplayName = "MarkAsGuestStub never downgrades a real (Verified+) account")]
