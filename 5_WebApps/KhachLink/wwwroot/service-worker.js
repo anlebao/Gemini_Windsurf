@@ -1,5 +1,12 @@
 ﻿// ============================================================================
-// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v20-delivery-pin)
+// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v21-wallet-currency)
+
+// v21-wallet-currency (2026-09-25):
+//   - Wallet withdraw modal: added vananAttachCurrencyFormatter/vananFormatCurrencyInput to
+//     vanan-interop.js (vi-VN amount formatting). Static JS is cache-first with NO expiry →
+//     returning users would keep the OLD vanan-interop.js (no formatter) forever.
+//   - Fix: bump ALL cache names v20 → v21 so the activate handler deletes the stale caches
+//     and every client re-fetches the current static assets (same lesson as v20-delivery-pin).
 // ============================================================================
 //
 // v20-delivery-pin (2026-09-21):
@@ -88,10 +95,10 @@
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v20-delivery-pin';
-const STATIC_CACHE = 'vanan-static-v20-delivery-pin';
-const DYNAMIC_CACHE = 'vanan-dynamic-v20-delivery-pin';
-const WASM_CACHE = 'vanan-wasm-v20-delivery-pin';
+const CACHE_NAME = 'vanan-khachlink-v21-wallet-currency';
+const STATIC_CACHE = 'vanan-static-v21-wallet-currency';
+const DYNAMIC_CACHE = 'vanan-dynamic-v21-wallet-currency';
+const WASM_CACHE = 'vanan-wasm-v21-wallet-currency';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
