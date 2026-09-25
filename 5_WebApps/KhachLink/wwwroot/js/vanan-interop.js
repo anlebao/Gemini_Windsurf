@@ -52,4 +52,37 @@
             return _turnstileToken;
         }
     };
+
+    // Currency auto-format (copy từ ShopERP App.razor — DynamicFormFields FieldType.Currency):
+    // strips non-digits, formats with vi-VN thousands separator ("."), preserves cursor at end.
+    // Client-side only → không gây re-render Blazor mỗi phím (giữ fix #187b không jump textbox).
+    window.vananFormatCurrencyInput = function (id) {
+        var el = document.getElementById(id);
+        if (!el) return '';
+        var raw = (el.value || '').replace(/\D/g, '');
+        if (raw === '') {
+            el.value = '';
+            return '';
+        }
+        var formatted = parseInt(raw, 10).toLocaleString('vi-VN');
+        el.value = formatted;
+        el.setSelectionRange(formatted.length, formatted.length);
+        return formatted;
+    };
+    window.vananAttachCurrencyFormatter = function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        if (el.dataset.vananCurrencyAttached) return; // idempotent
+        el.dataset.vananCurrencyAttached = 'true';
+        el.addEventListener('input', function () {
+            var raw = (el.value || '').replace(/\D/g, '');
+            if (raw === '') {
+                el.value = '';
+                return;
+            }
+            var formatted = parseInt(raw, 10).toLocaleString('vi-VN');
+            el.value = formatted;
+            el.setSelectionRange(formatted.length, formatted.length);
+        });
+    };
 })();

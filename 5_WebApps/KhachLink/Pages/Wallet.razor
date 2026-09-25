@@ -75,7 +75,7 @@
             <VanAnCard Shadow="true" CssClass="mb-3">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <h6 class="mb-0"><i class="bi bi-bank text-primary"></i> Rút tiền</h6>
-                    <VanAnButton Variant="ButtonVariant.Outline" OnClick="() => _showWithdrawModal = true">
+                    <VanAnButton Variant="ButtonVariant.Outline" OnClick="OpenWithdrawModal">
                         <i class="bi bi-arrow-down-circle"></i> Yêu cầu rút
                     </VanAnButton>
                 </div>
@@ -163,31 +163,33 @@
     </div>
 </KhachLinkLayout>
 
-<!-- Withdraw request modal (TC-09) -->
-@if (_showWithdrawModal)
-{
-    <VanAnModal IsOpen="true"
-                Title="Yêu cầu rút tiền"
-                OnClose="() => _showWithdrawModal = false"
-                Closable="true">
-        <ChildContent>
-            <div class="mb-3">
-                <label class="form-label">Số tiền (VND)</label>
-                @* Issue #187: trước đây @bind:event="oninput" → re-render toàn bộ modal sau MỖI phím gõ
-                   → trên mobile browser scroll/focus bị đẩy → textbox "nhảy xuống dưới cùng".
-                   Chuyển về onchange mặc định (giá trị vẫn được nạp trước khi click "Gửi yêu cầu" —
-                   blur input kích hoạt change, rồi click handler chạy sau). *@
-                <input type="number" class="form-control" min="500000" step="1000"
-                       @bind="_withdrawAmount" />
-                <small class="text-muted">Tối thiểu 500.000đ — khả dụng: @_availableBalance.ToString("N0")đ</small>
-            </div>
-        </ChildContent>
-        <Footer>
-            <VanAnButton Variant="ButtonVariant.Secondary" OnClick="() => _showWithdrawModal = false">Huỷ</VanAnButton>
-            <VanAnButton Variant="ButtonVariant.Primary" OnClick="RequestWithdrawal">Gửi yêu cầu</VanAnButton>
-        </Footer>
-    </VanAnModal>
-}
+<!-- Withdraw request modal (TC-09) — luôn render với IsOpen (chuẩn app: Checkout QrPaymentModal / LoyaltyCard IdentityUpgradeModal) -->
+<VanAnModal IsOpen="@_showWithdrawModal"
+            Title="Yêu cầu rút tiền"
+            OnClose="CloseWithdrawModal"
+            Closable="true">
+    <ChildContent>
+        <div class="mb-3">
+            <label class="form-label">Số tiền (VND)</label>
+            @* Format tiền tệ VN (copy pattern ShopERP DynamicFormFields FieldType.Currency):
+               JS vananAttachCurrencyFormatter định dạng dấu chấm phân cách ngay khi gõ (client-side,
+               không re-render Blazor mỗi phím → giữ fix #187b không jump textbox trên mobile).
+               @bind giữ onchange mặc định — giá trị nạp khi blur trước khi click "Gửi yêu cầu";
+               submit strip separators rồi parse (giống RevenueEntry/ExpenseEntry). *@
+            <input id="withdraw-amount-input"
+                   type="text"
+                   class="form-control"
+                   inputmode="numeric"
+                   placeholder="0"
+                   @bind="_withdrawAmountText" />
+            <small class="text-muted">Tối thiểu 500.000đ — khả dụng: @_availableBalance.ToString("N0")đ</small>
+        </div>
+    </ChildContent>
+    <Footer>
+        <VanAnButton Variant="ButtonVariant.Secondary" OnClick="CloseWithdrawModal">Huỷ</VanAnButton>
+        <VanAnButton Variant="ButtonVariant.Primary" OnClick="RequestWithdrawal">Gửi yêu cầu</VanAnButton>
+    </Footer>
+</VanAnModal>
 
 @code {
     private bool _loading = true;
@@ -200,6 +202,7 @@
     private bool _walletMessageIsError;
     private bool _showWithdrawModal;
     private decimal _withdrawAmount;
+    private string _withdrawAmountText = string.Empty;
     private List<WalletHttpService.WalletTransactionResponse> _transactions = new();
     private List<WalletHttpService.PendingAdvanceResponse> _pendingAdvances = new();
     private List<WalletHttpService.PendingRemittanceResponse> _pendingRemittances = new();
@@ -222,6 +225,31 @@
         await LoadWithdrawalsAsync();
         _loading = false;
     }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Gắn currency formatter khi modal mở (input chỉ tồn tại trong DOM khi modal render).
+        if (_showWithdrawModal)
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("vananAttachCurrencyFormatter", "withdraw-amount-input");
+            }
+            catch (Exception ex)
+            {
+                // Non-fatal: formatter chỉ là UX — nếu JS interop fail, vẫn parse được text thường.
+                Console.WriteLine($"Wallet: attach currency formatter failed: {ex.Message}");
+            }
+        }
+    }
+
+    private void OpenWithdrawModal()
+    {
+        _withdrawAmountText = _withdrawAmount > 0 ? _withdrawAmount.ToString("N0") : string.Empty;
+        _showWithdrawModal = true;
+    }
+
+    private void CloseWithdrawModal() => _showWithdrawModal = false;
 
     private async Task LoadWalletAsync()
     {
@@ -277,6 +305,17 @@
     private async Task RequestWithdrawal()
     {
         _walletMessage = null;
+        // Strip thousands separators trước khi parse (giống ShopERP RevenueEntry/ExpenseEntry):
+        // giá trị DOM đã được JS format "1.000.000" → bỏ "." để được "1000000".
+        var rawAmount = _withdrawAmountText.Replace(".", "").Replace(",", "").Trim();
+        if (!decimal.TryParse(rawAmount, out var amount) || amount <= 0)
+        {
+            _walletMessage = "Vui lòng nhập số tiền hợp lệ.";
+            _walletMessageIsError = true;
+            return;
+        }
+        _withdrawAmount = amount;
+
         var result = await WalletHttp.RequestWithdrawalAsync(_customerToken!, _withdrawAmount);
         if (result.Success)
         {
@@ -284,6 +323,7 @@
             _walletMessageIsError = false;
             _showWithdrawModal = false;
             _withdrawAmount = 0;
+            _withdrawAmountText = string.Empty;
         }
         else
         {
