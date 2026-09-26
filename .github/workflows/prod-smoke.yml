@@ -1,0 +1,71 @@
+name: Prod Smoke (scheduled)
+
+# P2: Scheduled READ-ONLY smoke against production VPS — early-warning layer
+# for availability + config drift (#185 class) WITHOUT paying the cost on every
+# deploy. 2x/day + manual dispatch. See 6_Testing/prod-smoke/prod-smoke.spec.ts.
+#
+# Design:
+#   - READ-ONLY only (health, auth path, page render, instance config GET).
+#     No order creation / no data writes — write-path E2E stays in post-deploy RV.
+#   - Failures here are drift signals, not deploy gates.
+#   - URLs default to production; override via secrets if they change.
+
+on:
+  schedule:
+    # 02:00 + 14:00 UTC = 09:00 + 21:00 VN
+    - cron: '0 2,14 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: prod-smoke
+  cancel-in-progress: false
+
+jobs:
+  prod-smoke:
+    name: Prod Read-Only Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install deps
+        working-directory: 6_Testing
+        run: npm install
+
+      - name: Install Playwright chromium
+        working-directory: 6_Testing
+        run: npx playwright install chromium --with-deps
+
+      - name: Write .env.test (production URLs)
+        working-directory: 6_Testing
+        run: |
+          cat > .env.test <<EOF
+          ENABLE_E2E=true
+          E2E_TEST_TIMEOUT=120
+          GATEWAY_URL=${{ secrets.PROD_GATEWAY_URL || 'https://api2.khachvip.online' }}
+          SHOPERP_URL=${{ secrets.PROD_SHOPERP_URL || 'https://app2.khachvip.online' }}
+          KHACHLINK_URL=${{ secrets.PROD_KHACHLINK_URL || 'https://timlathay.com' }}
+          EOF
+
+      - name: Run prod smoke
+        working-directory: 6_Testing
+        env:
+          GATEWAY_URL: ${{ secrets.PROD_GATEWAY_URL || 'https://api2.khachvip.online' }}
+          SHOPERP_URL: ${{ secrets.PROD_SHOPERP_URL || 'https://app2.khachvip.online' }}
+          KHACHLINK_URL: ${{ secrets.PROD_KHACHLINK_URL || 'https://timlathay.com' }}
+        run: npx playwright test --project=prod-smoke
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-smoke-report
+          path: 6_Testing/reports/
+          retention-days: 7
