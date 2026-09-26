@@ -268,6 +268,10 @@ Assert-Equal "C27 other tooling -> NO_DEPLOY" $r.classification "NO_DEPLOY"
 $r = Analyze @("1_Shared/Domain.cs")
 Assert-Set "C28 1_Shared -> [gateway,khachlink,shoperp,directory] (no crawler)" $r.deploy_set @("gateway", "khachlink", "shoperp", "directory")
 
+# C29b. .devin/** -> NO_DEPLOY (mirrors cd-multivps.yml paths-ignore; keeps ci-quick usable)
+$r = Analyze @(".devin/rules/governance.md")
+Assert-Equal "C29b .devin -> NO_DEPLOY" $r.classification "NO_DEPLOY"
+
 # C29. nginx_changed flag (gates gateway force-recreate)
 $r = Analyze @("nginx/nginx.conf")
 Assert-True "C29 nginx/nginx.conf -> nginx_changed" $r.nginx_changed "nginx_changed should be true"

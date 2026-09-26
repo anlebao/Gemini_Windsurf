@@ -115,6 +115,7 @@ no_deploy_paths:
   - 6_Testing/**
   - 4_MobileApps/**
   - 7_Tooling/**     # EXCEPT 7_Tooling/VanAn.Crawler/** (app path wins -> crawler deploy)
+  - .devin/**        # agent tooling/config — mirrors cd-multivps.yml paths-ignore
   - Ctmpocrtool/**   # stray temp tool: NOT in VanAn.sln, NOT built, NOT deployed
 
 # ------------------------------------------------------------
