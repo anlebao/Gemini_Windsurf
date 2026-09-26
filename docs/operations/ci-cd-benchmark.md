@@ -1,0 +1,49 @@
+# CI/CD Benchmark — Baseline & Acceptance Targets
+
+## Baseline (measured 2026-09-26, 10 most recent CD runs before P1 wiring)
+
+Source: GitHub Actions runs of `cd-multivps.yml` (events: push, all success).
+
+| Metric | p50 | p95 | max |
+|---|---|---|---|
+| `Build & Push Images` job (5 images, no-cache, sequential) | 346s (~5.8m) | 381s (~6.4m) | 381s |
+| Total CD workflow (build + deploy 3 VPS + smoke) | 610s (~10.2m) | 708s (~11.8m) | 708s |
+
+Plus local pre-push `ci-full.ps1 -SkipE2E`: ~12-17 min.
+=> Fix 1 dòng → production ≈ **25-30 phút**. Đây là gốc bệnh P1 giải quyết.
+
+## Measurement method (re-run after a few P1 deploys)
+
+```bash
+# build job durations
+for run in <run-ids>; do
+  gh api "repos/anlebao/Gemini_Windsurf/actions/runs/$run/jobs" \
+    -q '.jobs[] | select(.name | startswith("Build & Push")) |
+        [(.started_at|fromdateiso8601), (.completed_at|fromdateiso8601)] | .[1]-.[0]'
+done | sort -n | awk '... p50/p95 ...'
+
+# total workflow durations
+gh api "repos/anlebao/Gemini_Windsurf/actions/runs/$run" \
+  -q '[(.run_started_at|fromdateiso8601), (.updated_at|fromdateiso8601)] | .[1]-.[0]'
+```
+
+## Acceptance targets (P1 sign-off)
+
+| Scenario | Before | Target |
+|---|---|---|
+| Sửa 1 dòng ShopERP | ~30 phút | ≤ 8 phút |
+| Sửa 1 dòng KhachLink | ~30 phút | ≤ 8 phút |
+| Shared/CoreHub change | ~30 phút | ≤ 20 phút |
+| Deploy lỗi → rollback | manual recovery | ≤ 2-3 phút (`scripts/rollback-app.sh`) |
+
+**Adversarial gate (bắt buộc trước khi coi P1 đạt):**
+Cố tình tạo thay đổi Shared/CoreHub nhưng ép scoped deploy sai → classifier PHẢI
+chặn (đã có trong test matrix: `scripts/tests/impact-analysis.tests.ps1` D1/D2,
+66/66 PASS). Nếu test này fail → không được đưa optimization vào production.
+
+## Notes
+
+- P1 đã triển khai: scoped build/deploy (impact analysis), GHCR layer cache
+  (xóa no-cache), immutable SHA tags, conditional nginx recreate, ci-quick.ps1.
+- Kỳ vọng: build 1 image có cache ~1.5-3 phút; deploy 1 app ~2-4 phút.
+  Đo lại sau 3-5 CD runs để xác nhận p50/p95 thật (không đoán, không ghi số ảo).
