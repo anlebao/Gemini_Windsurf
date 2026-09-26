@@ -1,0 +1,155 @@
+# ============================================================
+# DEPLOYMENT IMPACT MAP — SINGLE SOURCE OF TRUTH
+# Change -> Impact analysis for VanAn CI/CD (P0 Safety Foundation)
+#
+# Rules of this file (NON-NEGOTIABLE):
+#   1. Dependency graph MUST be verified against *.csproj ProjectReference.
+#      NEVER add an app to `affects` without verifying its .csproj references
+#      the library. Verified 2026-09-26 from actual csproj files.
+#   2. Unknown -> FULL. Any changed path matching NO rule here escalates to
+#      FULL build + FULL deploy + FULL RV. False positive (deploy extra) is
+#      ALWAYS preferred over false negative (missed dependency).
+#   3. CI/CD reads THIS file only. Do NOT copy dependency rules into YAML
+#      workflow files — that creates drift.
+#
+# Glob semantics (implemented in scripts/impact-analysis.ps1):
+#   *  = any chars EXCEPT '/'  (cannot cross directory boundary)
+#   ** = any chars INCLUDING '/' (crosses directories)
+#   Patterns are matched against repo-relative paths (forward slashes).
+#   A pattern without '/' naturally anchors to repo root (e.g. docker-compose*.yml).
+# ============================================================
+version: 1
+
+# ------------------------------------------------------------
+# Deployed apps (image names match cd-multivps.yml build-and-push)
+# ------------------------------------------------------------
+apps:
+  gateway:
+    image: ghcr.io/anlebao/vanan-gateway
+    paths:
+      - 2_Gateway/**
+  khachlink:
+    image: ghcr.io/anlebao/vanan-khachlink
+    paths:
+      - 5_WebApps/KhachLink/**
+  shoperp:
+    image: ghcr.io/anlebao/vanan-shoperp
+    paths:
+      - 5_WebApps/ShopERP/**
+  directory:
+    image: ghcr.io/anlebao/vanan-directory
+    paths:
+      - 5_WebApps/Directory/**
+
+# ------------------------------------------------------------
+# Dependency graph — VERIFIED from *.csproj ProjectReference (2026-09-26)
+#
+#   VanAn.Shared        <- referenced by: Gateway, CoreHub, Accounting,
+#                          UI.Platform, ShopERP, KhachLink, Directory
+#   VanAn.Accounting    <- referenced by: 3_CoreHub (project + analyzer)
+#   VanAn.CoreHub       <- referenced by: Gateway, ShopERP
+#   VanAn.UI.Platform   <- referenced by: KhachLink, ShopERP, Directory (NOT Gateway)
+#
+# A change under `path` affects EVERY app in `affects` — even if the app's
+# own folder is untouched.
+# ------------------------------------------------------------
+dependencies:
+  - path: 1_Shared/**
+    affects: [gateway, khachlink, shoperp, directory]
+    reason: "VanAn.Shared.csproj referenced by ALL apps (Gateway/CoreHub/Accounting/UI.Platform/ShopERP/KhachLink/Directory)"
+  - path: VanAn.Accounting/**
+    affects: [gateway, shoperp]
+    reason: "VanAn.Accounting.csproj + Analyzers referenced by 3_CoreHub; CoreHub consumers = Gateway + ShopERP"
+  - path: 3_CoreHub/**
+    affects: [gateway, shoperp]
+    reason: "VanAn.CoreHub.csproj referenced by VanAn.Gateway + VanAn.ShopERP"
+  - path: UI.Platform/**
+    affects: [khachlink, shoperp, directory]
+    reason: "VanAn.UI.Platform.csproj referenced by KhachLink + ShopERP + Directory (NOT Gateway)"
+
+# ------------------------------------------------------------
+# Ops / deploy-level paths — ANY change here -> FULL deploy + FULL verification.
+# '*' cannot cross '/', so docker-compose*.yml / Dockerfile* anchor to repo root.
+# App-local Dockerfiles (e.g. 2_Gateway/Dockerfile) are covered by the app's
+# own path rule and affect only that app.
+# ------------------------------------------------------------
+ops_paths:
+  - docker-compose*.yml
+  - Dockerfile*
+  - nginx/**
+  - .env.*
+  - .github/**
+  - scripts/**
+  - VanAn.sln
+  - Directory.Build.props
+  - global.json
+  - NuGet.config
+
+# ------------------------------------------------------------
+# Paths that NEVER trigger deployment.
+# CI may still run relevant tests for these (verification only).
+# ------------------------------------------------------------
+no_deploy_paths:
+  - docs/**
+  - 6_Tests/**
+  - 6_Testing/**
+  - 4_MobileApps/**
+  - 7_Tooling/**
+  - Ctmpocrtool/**   # stray temp tool: NOT in VanAn.sln, NOT built, NOT deployed
+
+# ------------------------------------------------------------
+# Change intent detection -> verification level (contract-based, NOT
+# file-extension-only). First match wins per intent group; multiple groups
+# can match. Each intent adds items to the verification set.
+# ------------------------------------------------------------
+intents:
+  db_migration:
+    paths:
+      - "**/Migrations/**"
+      - "**/*DbContextModelSnapshot*.cs"
+    verification: [migration, integration, smoke]
+  api_contract:
+    paths:
+      - "**/Controllers/**"
+      - "**/Endpoints/**"
+    verification: [api, affected_e2e]
+  ui:
+    paths:
+      - "**/wwwroot/**"
+      - "**/*.razor"
+      - "**/*.razor.css"
+      - "**/*.js"
+      - "**/*.css"
+      - "**/Pages/**"
+    verification: [targeted_e2e]
+  startup_di:
+    paths:
+      - "**/Program.cs"
+      - "**/Startup.cs"
+      - "**/DependencyInjection.cs"
+      - "**/*ServiceCollectionExtensions*.cs"
+    verification: [startup_smoke, integration]
+  auth:
+    paths:
+      - "**/Auth/**"
+      - "**/Identity/**"
+      - "**/*Jwt*.cs"
+      - "**/*Token*.cs"
+      - "**/*Login*.cs"
+    verification: [auth_e2e]
+  payment:
+    paths:
+      - "**/Payment/**"
+      - "**/*Payment*.cs"
+      - "**/*Cod*.cs"
+    verification: [payment_e2e]
+  test_code:
+    paths:
+      - "6_Tests/**"
+      - "6_Testing/**"
+    verification: [unit, integration]
+
+# ------------------------------------------------------------
+# SAFETY VALVE — do not weaken.
+# ------------------------------------------------------------
+unknown: full
