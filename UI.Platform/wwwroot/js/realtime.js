@@ -43,6 +43,22 @@ window.vananRealtime = {
     }
 };
 
+
+// Fix Leaflet default marker icon 404s — the RCL lib/leaflet/ folder ships only
+// leaflet.css + leaflet.js; the default icon resolves to images/marker-icon*.png
+// relative to the CSS <link> path and 404s when the images/ folder is missing
+// (user report: _content/VanAn.UI.Platform/lib/leaflet/images/marker-icon-2x.png).
+// Point the default icon at the RCL's vendored images (same-origin — no external
+// CDN dependency, VN networks block unpkg/OSM per #185 lesson). Mirrors the
+// Directory app's directory-map.js pattern.
+if (window.L && L.Icon && L.Icon.Default) {
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.mergeOptions({
+        iconRetinaUrl: '/_content/VanAn.UI.Platform/lib/leaflet/images/marker-icon-2x.png',
+        iconUrl: '/_content/VanAn.UI.Platform/lib/leaflet/images/marker-icon.png',
+        shadowUrl: '/_content/VanAn.UI.Platform/lib/leaflet/images/marker-shadow.png'
+    });
+}
 // === Leaflet map interop (window.vananMap.*) ===
 
 let _maps = {};
