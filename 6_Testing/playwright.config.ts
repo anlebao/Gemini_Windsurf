@@ -7,6 +7,9 @@ export default defineConfig({
   testDir: './',
   globalSetup: './global-setup',
   testMatch: '**/*.spec.ts',
+  // P2: one-off diagnostic/debug specs live in archive-e2e/ — excluded from ALL projects.
+  // Restore a spec by git mv-ing it back to e2e-tests/ (they are regression candidates, not deletions).
+  testIgnore: 'archive-e2e/**',
   fullyParallel: config.E2E_TEST_PARALLEL,
   forbidOnly: !!process.env.CI,
   // Retry logic for network flakiness: 2 retries in CI, 1 locally
@@ -72,6 +75,20 @@ export default defineConfig({
         screenshot: 'only-on-failure',
         video: 'retain-on-failure',
         storageState: 'auth/admin.json'
+      }
+    },
+    // ─── Prod Smoke: scheduled READ-ONLY verification against production VPS ──
+    // Runs via .github/workflows/prod-smoke.yml (cron 2x/day + manual dispatch).
+    // Specs create their own auth contexts (storageState not used) — no writes.
+    {
+      name: 'prod-smoke',
+      testMatch: 'prod-smoke/**/*.spec.ts',
+      use: {
+        baseURL: process.env.PROD_SHOPERP_URL || config.SHOPERP_URL,
+        ignoreHTTPSErrors: true,
+        trace: 'on-first-retry',
+        screenshot: 'only-on-failure',
+        video: 'retain-on-failure'
       }
     },
     // ─── Legacy projects (kept for backward compatibility) ────────────────

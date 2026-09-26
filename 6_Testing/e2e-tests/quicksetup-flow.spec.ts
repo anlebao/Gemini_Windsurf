@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { createAuthenticatedPage } from './utils/prod-auth';
-import { loadEnvConfig } from '../../utils/env-config';
+import { loadEnvConfig } from '../utils/env-config';
 
 const config = loadEnvConfig();
 
