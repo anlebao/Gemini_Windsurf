@@ -12,6 +12,23 @@ Source: GitHub Actions runs of `cd-multivps.yml` (events: push, all success).
 Plus local pre-push `ci-full.ps1 -SkipE2E`: ~12-17 min.
 => Fix 1 dòng → production ≈ **25-30 phút**. Đây là gốc bệnh P1 giải quyết.
 
+## First P1 run (2026-09-26, commit 945413bf, CD run 36222283090 — SUCCESS)
+
+Full pipeline (5 builds, no cache yet — cache warms on this run):
+
+| Metric | Baseline p50 | First P1 run | Delta |
+|---|---|---|---|
+| Total CD workflow | 610s | **418s** | -31% |
+| Longest build (gateway, was sequential sum 346s) | 346s | **202s** | -42% |
+| Directory / crawler / khachlink / shoperp builds | — | 53s / 51s / 104s / 156s (parallel) | — |
+
+- Impact analysis job ran correctly: `deploy_action=full deploy_set=[gateway,khachlink,shoperp,directory,crawler] nginx_changed=False`
+- nginx force-recreate step **SKIPPED** (nginx untouched) — no unnecessary restart window
+- All deploys + smoke: SUCCESS
+
+Next runs: cache hit + scoped builds (single-app changes) → expect ≥50% further reduction.
+Re-measure p50/p95 after 3-5 P1 runs (method below).
+
 ## Measurement method (re-run after a few P1 deploys)
 
 ```bash
