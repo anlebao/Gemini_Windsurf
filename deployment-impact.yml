@@ -40,7 +40,27 @@ apps:
     image: ghcr.io/anlebao/vanan-directory
     paths:
       - 5_WebApps/Directory/**
+  crawler:
+    image: ghcr.io/anlebao/vanan-crawler
+    paths:
+      - 7_Tooling/VanAn.Crawler/**
 
+# ------------------------------------------------------------
+# Dependency graph — VERIFIED from *.csproj ProjectReference (2026-09-26)
+#
+#   VanAn.Shared        <- referenced by: Gateway, CoreHub, Accounting,
+#                          UI.Platform, ShopERP, KhachLink, Directory
+#   VanAn.Accounting    <- referenced by: 3_CoreHub (project + analyzer)
+#   VanAn.CoreHub       <- referenced by: Gateway, ShopERP
+#   VanAn.UI.Platform   <- referenced by: KhachLink, ShopERP, Directory (NOT Gateway)
+#
+#   VanAn.Crawler is STANDALONE — no ProjectReference to any project
+#   (enforced by ArchitectureRulesTests). Talks to Gateway via HTTP only.
+#   => 1_Shared changes do NOT affect crawler.
+#
+# A change under `path` affects EVERY app in `affects` — even if the app's
+# own folder is untouched.
+# ------------------------------------------------------------
 # ------------------------------------------------------------
 # Dependency graph — VERIFIED from *.csproj ProjectReference (2026-09-26)
 #
@@ -94,7 +114,7 @@ no_deploy_paths:
   - 6_Tests/**
   - 6_Testing/**
   - 4_MobileApps/**
-  - 7_Tooling/**
+  - 7_Tooling/**     # EXCEPT 7_Tooling/VanAn.Crawler/** (app path wins -> crawler deploy)
   - Ctmpocrtool/**   # stray temp tool: NOT in VanAn.sln, NOT built, NOT deployed
 
 # ------------------------------------------------------------

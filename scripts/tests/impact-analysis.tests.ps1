@@ -183,7 +183,7 @@ Assert-Set "C8 UI.Platform -> [khachlink,shoperp,directory]" $r.deploy_set @("kh
 $r = Analyze @("docker-compose.shoperp.yml")
 Assert-Equal "C9 compose -> OPS" $r.classification "OPS"
 Assert-Equal "C9 compose -> deploy_action full" $r.deploy_action "full"
-Assert-Set "C9 compose -> all 4 apps" $r.deploy_set @("gateway", "khachlink", "shoperp", "directory")
+Assert-Set "C9 compose -> all 5 apps (incl. crawler)" $r.deploy_set @("gateway", "khachlink", "shoperp", "directory", "crawler")
 
 # C10. nginx/nginx.conf -> OPS -> full
 $r = Analyze @("nginx/nginx.conf")
@@ -255,6 +255,27 @@ Assert-True "C24 ui intent -> targeted_e2e" ($r.verification_set -contains "targ
 $r = Analyze @("2_Gateway/Security/JwtValidator.cs")
 Assert-True "C25 auth intent -> auth_e2e" ($r.verification_set -contains "auth_e2e") "verification=$($r.verification_set -join ',')"
 
+# C26. Crawler change -> APP crawler only (standalone app, deployed on Gateway VPS compose)
+$r = Analyze @("7_Tooling/VanAn.Crawler/Program.cs")
+Assert-Equal "C26 crawler -> APP" $r.classification "APP"
+Assert-Set "C26 crawler -> deploy_set [crawler]" $r.deploy_set @("crawler")
+
+# C27. Other tooling (not crawler) -> NO_DEPLOY
+$r = Analyze @("7_Tooling/SomeTool/Foo.cs")
+Assert-Equal "C27 other tooling -> NO_DEPLOY" $r.classification "NO_DEPLOY"
+
+# C28. CRITICAL: 1_Shared does NOT affect crawler (standalone, no ProjectReference)
+$r = Analyze @("1_Shared/Domain.cs")
+Assert-Set "C28 1_Shared -> [gateway,khachlink,shoperp,directory] (no crawler)" $r.deploy_set @("gateway", "khachlink", "shoperp", "directory")
+
+# C29. nginx_changed flag (gates gateway force-recreate)
+$r = Analyze @("nginx/nginx.conf")
+Assert-True "C29 nginx/nginx.conf -> nginx_changed" $r.nginx_changed "nginx_changed should be true"
+$r = Analyze @("5_WebApps/ShopERP/Foo.cs")
+Assert-True "C29 ShopERP change -> nginx_changed false" (-not $r.nginx_changed) "nginx_changed should be false"
+$r = Analyze @("5_WebApps/KhachLink/nginx.conf")
+Assert-True "C29 app-local nginx.conf -> nginx_changed false" (-not $r.nginx_changed) "app-local nginx.conf must not flag root nginx"
+
 # ============================================================
 # D. ADVERSARIAL SAFETY TESTS (production sign-off gate)
 # ============================================================
@@ -284,7 +305,7 @@ Assert-True "D5 CoreHub + scope=gateway,shoperp -> allowed" (-not $r.blocked) $r
 # D6. ForceFull escalation always allowed even for tiny change
 $r = Analyze @("5_WebApps/ShopERP/Foo.cs") "" $true
 Assert-True "D6 ForceFull -> deploy_action full" ($r.deploy_action -eq "full") $r.deploy_action
-Assert-Set "D6 ForceFull -> all 4 apps" $r.deploy_set @("gateway", "khachlink", "shoperp", "directory")
+Assert-Set "D6 ForceFull -> all 5 apps (incl. crawler)" $r.deploy_set @("gateway", "khachlink", "shoperp", "directory", "crawler")
 
 # D7. ForceFull + wrong scope still BLOCKED (escalation cannot bypass scope guard)
 $r = Analyze @("5_WebApps/ShopERP/Foo.cs") "shoperp" $true

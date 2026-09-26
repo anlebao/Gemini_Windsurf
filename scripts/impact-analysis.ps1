@@ -107,7 +107,10 @@ function ConvertFrom-ImpactYaml {
 
     $items = [System.Collections.Generic.List[object]]::new()
     foreach ($line in $Lines) {
-        $trimmed = $line.TrimEnd()
+        # Strip inline comments (space followed by #) before parsing.
+        # Config values never contain '#' — only full-line and trailing comments.
+        $clean = $line -replace '\s+#.*$', ''
+        $trimmed = $clean.TrimEnd()
         if ($trimmed -match '^\s*#') { continue }
         if ($trimmed -match '^\s*$') { continue }
         if ($trimmed -match '\t') { throw "Tab indentation is not allowed in deployment-impact.yml: '$line'" }
@@ -271,10 +274,16 @@ function Invoke-ImpactAnalysis {
     $unknownPaths = @()
     $matchedRules = @()
     $intentSet = @{}
+    $nginxChanged = $false           # root ./nginx/** changed -> gateway nginx must be force-recreated
 
     foreach ($file in $files) {
         $fileSev = $null
         $fileApps = @{}
+
+        # root nginx config changed (gateway VPS nginx bind-mount — needs force-recreate)
+        if (-not $nginxChanged -and (Test-GlobMatch -Path $file -Pattern "nginx/**")) {
+            $nginxChanged = $true
+        }
 
         # ops (highest path-level trigger)
         if (Test-GlobMatchAny -Path $file -Patterns $cfg['ops_paths']) {
@@ -387,6 +396,7 @@ function Invoke-ImpactAnalysis {
         needs_ci          = ($severity -ne "NO_DEPLOY") -or ($intentSet.Count -gt 0)
         unknown_paths     = @($unknownPaths)
         matched_rules     = @($matchedRules)
+        nginx_changed     = [bool]$nginxChanged
         escalated         = $escalated
         blocked           = $blocked
         block_reason      = $blockReason
