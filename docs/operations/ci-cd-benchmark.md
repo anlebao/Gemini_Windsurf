@@ -29,6 +29,18 @@ Full pipeline (5 builds, no cache yet — cache warms on this run):
 Next runs: cache hit + scoped builds (single-app changes) → expect ≥50% further reduction.
 Re-measure p50/p95 after 3-5 P1 runs (method below).
 
+## Second P1 run (2026-09-26, commit 7c28645, CD run 36226473770 — SUCCESS, cache hit)
+
+| Metric | Baseline p50 | Run 1 (no cache) | Run 2 (cache hit) |
+|---|---|---|---|
+| Total CD workflow | 610s | 418s | **368s** |
+| Longest build (gateway) | 346s | 202s | **161s** |
+
+Cache effect: gateway -20% (202→161s). Scoped single-app runs (not yet exercised) are
+the remaining big win. Prod smoke scheduled run #1 (36226890919): **4 passed in 26.2s**
+— health, auth path, KhachLink render (2573 chars, title OK), instance config drift
+check (isActive=true, profile=Directory, navFlags captured).
+
 ## Measurement method (re-run after a few P1 deploys)
 
 ```bash
