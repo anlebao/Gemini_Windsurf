@@ -27,7 +27,10 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
         {
             builder.ToTable("Members",
                 t => t.HasCheckConstraint("CK_Members_SingleParty",
-                    "(MemberCustomerId IS NULL) <> (MemberTenantId IS NULL)"));
+                    // QUAN TRỌNG: tên cột phải QUOTED ("MemberCustomerId") — PostgreSQL lowercase hóa
+                    // identifier unquoted → 42703 "column membercustomerid does not exist" (prod incident 2026-09-29).
+                    // EF Core truyền nguyên chuỗi CHECK; Npgsql đặt tên cột quoted nên CHECK phải quote khớp.
+                    "(\"MemberCustomerId\" IS NULL) <> (\"MemberTenantId\" IS NULL)"));
 
             _ = builder.HasKey(e => e.Id);
 

@@ -100,7 +100,7 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Members", x => x.Id);
-                    table.CheckConstraint("CK_Members_SingleParty", "(MemberCustomerId IS NULL) <> (MemberTenantId IS NULL)");
+                    table.CheckConstraint("CK_Members_SingleParty", "(\"MemberCustomerId\" IS NULL) <> (\"MemberTenantId\" IS NULL)");
                     table.ForeignKey(
                         name: "FK_Members_Customers_MemberCustomerId",
                         column: x => x.MemberCustomerId,

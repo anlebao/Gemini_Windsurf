@@ -1167,7 +1167,7 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
 
                     b.ToTable("Members", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Members_SingleParty", "(MemberCustomerId IS NULL) <> (MemberTenantId IS NULL)");
+                            t.HasCheckConstraint("CK_Members_SingleParty", "(\"MemberCustomerId\" IS NULL) <> (\"MemberTenantId\" IS NULL)");
                         });
                 });
 
