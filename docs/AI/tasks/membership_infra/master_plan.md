@@ -1,7 +1,7 @@
 # Master Plan — Vạn An Membership Infrastructure (Hybrid)
 
 **Created:** 2026-09-29
-**Status:** PLAN APPROVED (user) — 3 architecture decisions locked + Data Integrity Contract agreed · Implementation in progress
+**Status:** ✅ BACKEND MVP COMPLETE + COMMITTED (`0442613d` + `c46f7d25`, 2026-09-29) — Phases 1-6 done · Core.Tests 25/25 membership PASS · VanAn.sln build 0 errors · guard-check ALL PASSED · **Chưa push** (chờ user) · Chưa apply migration lên prod PG (chờ deploy)
 **Branch target:** `main`
 **Source:** SRS `docs/requirements/SRS — Vạn An Membership Infrastruct.md` + review session 2026-09-29 ("so sánh verify tenant hiện có → chọn hướng hybrid")
 
