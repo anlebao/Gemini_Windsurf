@@ -186,7 +186,15 @@ public class AuthorizationEnforcementTests
             // each subject via the module's IRealtimeParticipantAuthorizer (default deny → 403).
             // Class-level [Authorize] cannot be used: guests authenticate with a device guid, so the
             // cookie/JWT pipeline would reject them before the endpoint runs.
-            "RealtimeController"
+            "RealtimeController",
+            // Membership Infrastructure (2026-09-29): membership controllers — mixed auth (like CommunityController):
+            // applicant endpoints use X-Customer-Token header auth (validated via ShopERP /me forward),
+            // HTX review endpoints use method-level [Authorize(Policy="HtxMembershipOfficer")] (Owner of HTX tenant JWT).
+            // Class-level [Authorize] cannot be used: anonymous customer-token endpoints + public member status verify
+            // (SRS §22 — QR scan) must bypass the cookie/JWT pipeline.
+            "MembershipApplicationsController",
+            "MembersController",
+            "MembershipProfileController"
         };
 
         var controllers = GetControllers(GatewayAssembly)
