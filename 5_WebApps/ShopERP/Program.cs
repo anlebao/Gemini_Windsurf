@@ -553,6 +553,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<Services.TenantApiClient>();
             // Crawl-to-Onboard Phase 7 (2026-08-26): Claims queue + Pending + Duplicates + Crawl trigger.
             _ = builder.Services.AddScoped<Services.TenantClaimApiClient>();
+            // Membership Infrastructure (2026-09-29): HTX review queue + member registry (Owner JWT — HtxMembershipOfficer).
+            _ = builder.Services.AddScoped<Services.MembershipApiClient>();
             // REQ-1.2: Background service toggle — admin UI + service runtime check
             _ = builder.Services.AddScoped<CoreHub.Services.IBackgroundServiceToggleService, Services.BackgroundServiceToggleApiClient>();
             // VALCN v2.0 Phase 1: Feature flag toggle — admin UI + service runtime check (default OFF)

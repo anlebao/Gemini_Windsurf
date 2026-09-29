@@ -748,7 +748,18 @@ namespace VanAn.Gateway
 
                     policy.RequireAuthenticatedUser()
 
-                           .RequireRole("SystemAdmin"));
+                           .RequireRole("SystemAdmin"))
+
+                // Membership Infrastructure (2026-09-29): HTX quyết định kết nạp thành viên (SRS §3.1, §6.5) —
+                // officer = Owner của tenant HTX (tenant_id claim + Owner role). KHÔNG phải SystemAdmin.
+                // Phase 2+: mở rộng sang MembershipOfficer role / PermissionGroup nếu cần phân quyền chi tiết.
+                .AddPolicy("HtxMembershipOfficer", policy =>
+
+                    policy.RequireAuthenticatedUser()
+
+                           .RequireClaim("tenant_id")
+
+                           .RequireRole("Owner"));
 
 
 
@@ -1069,6 +1080,13 @@ namespace VanAn.Gateway
             _ = builder.Services.AddHttpClient("Turnstile");
 
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IDuplicateDetectionService, VanAn.CoreHub.Services.DuplicateDetectionService>();
+
+            // Membership Infrastructure (2026-09-29): Application lifecycle + Member registry + Consent + HtxProfile.
+            // PG-only (Gateway source of truth — A3). HTX review queue (KHÔNG phải SysAdmin — Phase 4 authz).
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Membership.IMembershipApplicationService, VanAn.CoreHub.Services.Membership.MembershipApplicationService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Membership.IMemberRegistryService, VanAn.CoreHub.Services.Membership.MemberRegistryService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Membership.IConsentService, VanAn.CoreHub.Services.Membership.ConsentService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Membership.IHtxProfileService, VanAn.CoreHub.Services.Membership.HtxProfileService>();
 
 
 

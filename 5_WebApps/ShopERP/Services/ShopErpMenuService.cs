@@ -187,6 +187,20 @@ public sealed class ShopErpMenuService : IShopErpMenuService
             });
         }
 
+        // Membership Infrastructure (2026-09-29): Thành viên HTX — Owner (HTX quyết định kết nạp — SRS §3.1).
+        // Hiển thị khi tenant đã có HtxProfile (đăng ký Membership Infrastructure).
+        if (isOwner)
+        {
+            items.Add(new()
+            {
+                Title = "Thành viên HTX", Icon = "people",
+                Children = new()
+                {
+                    new() { Title = "Hồ sơ xét duyệt", Icon = "inbox", Url = "/admin/membership" },
+                }
+            });
+        }
+
         // Tài chính: Owner + SystemAdmin (was Owner-only in AdminLayout; SystemAdmin had no link before)
         if (isOwner || isSystemAdmin)
         {

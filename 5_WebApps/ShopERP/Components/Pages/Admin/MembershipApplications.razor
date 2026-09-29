@@ -1,0 +1,379 @@
+@page "/admin/membership"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject MembershipApiClient MembershipApi
+@inject ILogger<MembershipApplications> Logger
+
+@attribute [Authorize(Policy = "OwnerOnly")]
+
+<div class="membership-admin-page">
+    <header class="page-header">
+        <h1>Thành viên HTX</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadData">
+                <i class="bi bi-arrow-clockwise me-1"></i> Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <button class="nav-link @(_activeTab == "applications" ? "active" : "")" @onclick="ShowApplications">
+                <i class="bi bi-inbox me-1"></i> Hồ sơ xét duyệt
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(_activeTab == "members" ? "active" : "")" @onclick="ShowMembers">
+                <i class="bi bi-people me-1"></i> Sổ đăng ký thành viên
+            </button>
+        </li>
+    </ul>
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải dữ liệu...</p>
+            </div>
+        </VanACard>
+    }
+    else if (_activeTab == "applications")
+    {
+        <RenderApplications />
+    }
+    else
+    {
+        <RenderMembers />
+    }
+
+    @ReasonDialog
+</div>
+
+@code {
+    private string _activeTab = "applications";
+    private bool _isLoading = true;
+    private string? _alertMessage;
+    private string _alertType = "success";
+
+    private List<MembershipApplicationApiDto> _applications = new();
+    private List<MemberApiDto> _members = new();
+    private string _actionReason = string.Empty;
+    private Guid? _actionApplicationId;
+    private Guid? _actionMemberId;
+    private string _actionKind = string.Empty; // reject | request-info | suspend
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            _applications = await MembershipApi.ListApplicationsAsync(ct: CancellationToken.None);
+            _members = await MembershipApi.ListMembersAsync(ct: CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Load membership data failed");
+            ShowAlert("error", "Không tải được dữ liệu thành viên. Kiểm tra Gateway hoặc quyền Owner của tài khoản.");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ShowApplications()
+    {
+        _activeTab = "applications";
+        _actionApplicationId = null;
+        _actionMemberId = null;
+    }
+
+    private void ShowMembers()
+    {
+        _activeTab = "members";
+        _actionApplicationId = null;
+        _actionMemberId = null;
+    }
+
+    private void ShowAlert(string type, string message)
+    {
+        _alertType = type;
+        _alertMessage = message;
+    }
+
+    // ── Actions ─────────────────────────────────────────────────────────────
+
+    private async Task ApproveAsync(Guid applicationId)
+    {
+        try
+        {
+            var memberId = await MembershipApi.ApproveAsync(applicationId);
+            ShowAlert("success", $"Đã duyệt — thành viên {memberId} được kích hoạt.");
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Approve {ApplicationId} failed", applicationId);
+            ShowAlert("error", $"Duyệt thất bại: {ex.Message}");
+        }
+    }
+
+    private void StartRequestInfo(Guid applicationId) => OpenReasonDialog("request-info", applicationId);
+    private void StartReject(Guid applicationId) => OpenReasonDialog("reject", applicationId);
+    private void StartSuspend(Guid memberId) => OpenMemberReasonDialog("suspend", memberId);
+
+    private void OpenReasonDialog(string kind, Guid applicationId)
+    {
+        _actionKind = kind;
+        _actionApplicationId = applicationId;
+        _actionReason = string.Empty;
+    }
+
+    private void OpenMemberReasonDialog(string kind, Guid memberId)
+    {
+        _actionKind = kind;
+        _actionMemberId = memberId;
+        _actionReason = string.Empty;
+    }
+
+    private async Task ConfirmReasonActionAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_actionReason))
+        {
+            ShowAlert("error", "Vui lòng nhập lý do (bắt buộc — audit trail).");
+            return;
+        }
+
+        try
+        {
+            if (_actionApplicationId is not null)
+            {
+                if (_actionKind == "reject")
+                    await MembershipApi.RejectAsync(_actionApplicationId.Value, _actionReason);
+                else if (_actionKind == "request-info")
+                    await MembershipApi.RequestMoreInfoAsync(_actionApplicationId.Value, _actionReason);
+            }
+            else if (_actionMemberId is not null && _actionKind == "suspend")
+            {
+                await MembershipApi.SuspendMemberAsync(_actionMemberId.Value, _actionReason);
+            }
+
+            ShowAlert("success", "Đã cập nhật trạng thái.");
+            _actionApplicationId = null;
+            _actionMemberId = null;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Membership action failed");
+            ShowAlert("error", $"Thao tác thất bại: {ex.Message}");
+        }
+    }
+
+    private async Task ReactivateAsync(Guid memberId)
+    {
+        try
+        {
+            await MembershipApi.ReactivateMemberAsync(memberId);
+            ShowAlert("success", "Đã khôi phục thành viên.");
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Reactivate {MemberId} failed", memberId);
+            ShowAlert("error", $"Khôi phục thất bại: {ex.Message}");
+        }
+    }
+
+    private void CloseDialog() => _actionApplicationId = _actionMemberId = null;
+
+    // ── Render fragments ─────────────────────────────────────────────────────
+
+    private RenderFragment RenderApplications => __builder =>
+    {
+        if (_applications.Count == 0)
+        {
+            <VanACard><div class="empty-state"><p>Không có hồ sơ nào. Applicant nộp qua KhachLink <code>/membership/register/{{htxId}}</code>.</p></div></VanACard>
+            return;
+        }
+
+        <VanACard Header="@($"Hồ sơ xin gia nhập ({_applications.Count})")">
+            <p class="text-muted small mb-3">
+                Nộp đơn không tự động thành thành viên — HTX xem xét rồi duyệt (SRS §16).
+                Duyệt → tạo thành viên Active trong sổ đăng ký điện tử.
+            </p>
+            <table class="vanan-table">
+                <thead>
+                    <tr>
+                        <th>Applicant</th>
+                        <th>Vai trò</th>
+                        <th>Loại thành viên</th>
+                        <th>Điều lệ</th>
+                        <th>Nộp lúc</th>
+                        <th>Trạng thái</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in _applications)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@a.FullName</strong><br />
+                                <small class="text-muted">@a.PhoneNumber</small>
+                            </td>
+                            <td>@a.ExpectedRole</td>
+                            <td>@a.MembershipType</td>
+                            <td>@a.CharterVersion</td>
+                            <td>@(a.SubmittedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                            <td>
+                                <span class="badge @StatusBadgeClass(a.Status)">@a.Status</span>
+                                @if (!string.IsNullOrEmpty(a.NeedInfoReason))
+                                {
+                                    <br /><small class="text-muted">@a.NeedInfoReason</small>
+                                }
+                            </td>
+                            <td>
+                                @if (a.Status == "Submitted")
+                                {
+                                    <button class="btn btn-sm btn-success me-1" @onclick="() => ApproveAsync(a.Id)">
+                                        <i class="bi bi-check-lg"></i> Duyệt
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => StartRequestInfo(a.Id)">
+                                        <i class="bi bi-chat-left-text"></i> Yêu cầu bổ sung
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => StartReject(a.Id)">
+                                        <i class="bi bi-x-lg"></i> Từ chối
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">—</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </VanACard>;
+    };
+
+    private RenderFragment RenderMembers => __builder =>
+    {
+        if (_members.Count == 0)
+        {
+            <VanACard><div class="empty-state"><p>Sổ đăng ký thành viên đang trống.</p></div></VanACard>
+            return;
+        }
+
+        <VanACard Header="@($"Sổ đăng ký thành viên điện tử ({_members.Count})")">
+            <table class="vanan-table">
+                <thead>
+                    <tr>
+                        <th>Member ID</th>
+                        <th>Party</th>
+                        <th>Loại</th>
+                        <th>Gia nhập</th>
+                        <th>Trạng thái</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var m in _members)
+                    {
+                        <tr>
+                            <td><code>@m.MemberNumber</code></td>
+                            <td>
+                                @if (m.MemberCustomerId is not null)
+                                {
+                                    <span>Cá nhân <small class="text-muted">@m.MemberCustomerId.ToString()[..8]</small></span>
+                                }
+                                else
+                                {
+                                    <span>HKD/DN <small class="text-muted">@(m.MemberTenantId?.ToString()[..8])</small></span>
+                                }
+                            </td>
+                            <td>@m.MembershipType</td>
+                            <td>@m.JoinedAt.ToLocalTime().ToString("yyyy-MM-dd")</td>
+                            <td>
+                                <span class="badge @StatusBadgeClass(m.Status)">@m.Status</span>
+                                @if (!string.IsNullOrEmpty(m.StatusReason))
+                                {
+                                    <br /><small class="text-muted">@m.StatusReason</small>
+                                }
+                            </td>
+                            <td>
+                                @if (m.Status == "Active")
+                                {
+                                    <button class="btn btn-sm btn-outline-warning" @onclick="() => StartSuspend(m.Id)">
+                                        <i class="bi bi-pause"></i> Đình chỉ
+                                    </button>
+                                }
+                                else if (m.Status == "Suspended")
+                                {
+                                    <button class="btn btn-sm btn-outline-success" @onclick="() => ReactivateAsync(m.Id)">
+                                        <i class="bi bi-play"></i> Khôi phục
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">—</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </VanACard>;
+    };
+
+    private static string StatusBadgeClass(string status) => status switch
+    {
+        "Active" or "Approved" => "text-bg-success",
+        "Submitted" => "text-bg-primary",
+        "NeedInfo" => "text-bg-warning",
+        "Suspended" => "text-bg-secondary",
+        "Rejected" or "Terminated" or "Resigned" => "text-bg-danger",
+        _ => "text-bg-light"
+    };
+
+    // ── Reason dialog ────────────────────────────────────────────────────────
+
+    private RenderFragment ReasonDialog => __builder =>
+    {
+        if (_actionApplicationId is null && _actionMemberId is null) return;
+
+        <div class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.4);" @onclick="CloseDialog">
+            <div class="modal-dialog" @onclick:stopPropagation="true">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            @(_actionKind == "reject" ? "Từ chối hồ sơ" : _actionKind == "request-info" ? "Yêu cầu bổ sung" : "Đình chỉ thành viên")
+                        </h5>
+                        <button type="button" class="btn-close" @onclick="CloseDialog"></button>
+                    </div>
+                    <div class="modal-body">
+                        <label class="form-label">Lý do <span class="text-danger">*</span></label>
+                        <textarea class="form-control" rows="3" @bind="_actionReason" placeholder="Ghi rõ lý do — lưu vào audit trail"></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" @onclick="CloseDialog">Hủy</button>
+                        <button class="btn btn-primary" @onclick="ConfirmReasonActionAsync">Xác nhận</button>
+                    </div>
+                </div>
+            </div>
+        </div>;
+    };
+}

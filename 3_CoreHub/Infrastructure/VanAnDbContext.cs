@@ -9,6 +9,7 @@ using VanAn.Shared.Domain.Aggregates.ProductCostPriceAggregate;
 using VanAn.Shared.Domain.Aggregates.CommunityFundAggregate;
 using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
+using VanAn.Shared.Domain.Aggregates.MembershipAggregate;
 using VanAn.CoreHub.Domain;
 using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.CoreHub.Infrastructure.Messaging;
@@ -195,6 +196,23 @@ namespace VanAn.CoreHub.Infrastructure
         // PG-only (Gateway source of truth). NOT tenant-scoped (TenantId = Guid.Empty sentinel).
         // SysAdmin queue — reviewed + contacted/onboarded/rejected via TenantRegistrationController.
         public DbSet<TenantRegistration> TenantRegistrations { get; set; }
+
+        // Membership Infrastructure (2026-09-29): Hồ sơ xin gia nhập HTX (SRS §7, §13).
+        // PG-only (Gateway source of truth per A3). NOT mirrored to ShopERP SQLite.
+        // HTX review queue — approved/rejected bởi HTX Membership Officer (KHÔNG phải SysAdmin).
+        public DbSet<MembershipApplication> MembershipApplications { get; set; }
+
+        // Membership Infrastructure (2026-09-29): Thành viên HTX — Sổ đăng ký thành viên điện tử (SRS §17).
+        // PG-only. Polymorphic party: MemberCustomerId (FK Customers) XOR MemberTenantId (FK Tenants) + CHECK.
+        public DbSet<Member> Members { get; set; }
+
+        // Membership Infrastructure (2026-09-29): Bản ghi consent — phiên bản tài liệu đã xác nhận (SRS §14).
+        // PG-only. Append-only (không sửa/xóa — evidence).
+        public DbSet<ConsentRecord> ConsentRecords { get; set; }
+
+        // Membership Infrastructure (2026-09-29): Hồ sơ HTX — đánh dấu tenant là HTX + phiên bản Điều lệ.
+        // PG-only. 1 HtxProfile per tenant (unique index).
+        public DbSet<HtxProfile> HtxProfiles { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

@@ -7,6 +7,7 @@ using VanAn.Shared.Domain.Aggregates.ProductCostPriceAggregate;
 using VanAn.Shared.Domain.Aggregates.CommunityFundAggregate;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
+using VanAn.Shared.Domain.Aggregates.MembershipAggregate;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
 using UserTenant = VanAn.Shared.Domain.Aggregates.UserAggregate.UserTenant;
@@ -162,6 +163,14 @@ namespace VanAn.ShopERP.Infrastructure
         // entity is Ignored in OnModelCreating (never queried from ShopERP SQLite).
         public DbSet<TenantRegistration> TenantRegistrations { get; set; }
 
+        // Membership Infrastructure (2026-09-29): Membership tables are PG-only (Gateway source of truth — A3).
+        // DbSets exist for IVanAnDbContext interface contract; entities are Ignored in OnModelCreating
+        // (never queried from ShopERP SQLite). ShopERP truy cập qua MembershipApiClient (Owner JWT).
+        public DbSet<MembershipApplication> MembershipApplications { get; set; }
+        public DbSet<Member> Members { get; set; }
+        public DbSet<ConsentRecord> ConsentRecords { get; set; }
+        public DbSet<HtxProfile> HtxProfiles { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters
@@ -295,6 +304,13 @@ namespace VanAn.ShopERP.Infrastructure
             _ = modelBuilder.Ignore<TenantClaimRequest>();
             _ = modelBuilder.Ignore<CrawlSource>();
             _ = modelBuilder.Ignore<TenantRegistration>(); // D3: PG-only, never queried from ShopERP SQLite
+
+            // Membership Infrastructure (2026-09-29): PG-only (A3 — không sync SQLite).
+            // Ignore MUST be sau ApplyConfigurationsFromAssembly — nếu không config trong CoreHub re-adds chúng.
+            _ = modelBuilder.Ignore<MembershipApplication>();
+            _ = modelBuilder.Ignore<Member>();
+            _ = modelBuilder.Ignore<ConsentRecord>();
+            _ = modelBuilder.Ignore<HtxProfile>();
 
             // === VALUE OBJECT CONFIGURATIONS ===
             // Order: Configured via OrderConfiguration from CoreHub assembly (applied above via ApplyConfigurationsFromAssembly)

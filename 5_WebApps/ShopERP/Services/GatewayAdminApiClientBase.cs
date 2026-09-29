@@ -37,7 +37,14 @@ namespace VanAn.ShopERP.Services
             HttpClient.BaseAddress = new Uri(baseUrl);
         }
 
-        /// <summary>Mint a short-lived SystemAdmin JWT for the current authenticated user.</summary>
+        /// <summary>
+        /// Role gắn vào JWT mint cho Gateway. Mặc định SystemAdmin (admin endpoints).
+        /// Membership Infrastructure (2026-09-29): subclass override "Owner" cho HtxMembershipOfficer
+        /// (HTX quyết định kết nạp — KHÔNG phải SystemAdmin — SRS §3.1, §6.5).
+        /// </summary>
+        protected virtual string GatewayRole => "SystemAdmin";
+
+        /// <summary>Mint a short-lived JWT (GatewayRole) for the current authenticated user.</summary>
         protected async Task<string> MintSystemAdminTokenAsync()
         {
             AuthenticationState authState = await _authStateProvider.GetAuthenticationStateAsync();
@@ -64,7 +71,7 @@ namespace VanAn.ShopERP.Services
             return _jwtTokenService.GenerateToken(
                 Guid.TryParse(userId, out Guid id) ? id : Guid.NewGuid(),
                 email,
-                "SystemAdmin",
+                GatewayRole,
                 tenantId);
         }
 

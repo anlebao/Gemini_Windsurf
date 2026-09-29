@@ -52,6 +52,8 @@ namespace VanAn.KhachLink
 
             // Crawl-to-Onboard Phase 6: Tenant claim submission service.
             _ = builder.Services.AddScoped<Services.Http.ClaimHttpService>();
+            // Membership Infrastructure (2026-09-29): Hồ sơ xin gia nhập HTX + consent (SRS §7, §14).
+            _ = builder.Services.AddScoped<Services.Http.MembershipHttpService>();
             // GTM Drill Machine W2 (2026-09-08): Merchant registration from demo/direct form.
             _ = builder.Services.AddScoped<Services.Http.RegistrationHttpService>();
 

@@ -178,11 +178,29 @@ public class CustomerMergeService(
                 .Where(w => w.OwnerId == stubId)
                 .ExecuteUpdateAsync(s => s.SetProperty(w => w.OwnerId, loginCustomerId));
 
-            if (roles + referrals + walletTx + withdrawals > 0)
+            // Membership Infrastructure (2026-09-29, Data Integrity Contract mục 6):
+            // hồ sơ xin gia nhập + member registry + consent của stub phải re-point về login customer
+            // TRƯỚC khi soft-delete stub — nếu không member/hồ sơ trỏ vào customer chết logic = orphan.
+            // Lưu ý: nếu login customer đã có Member trong cùng (htx, customer) → unique index
+            // UX_Members_HtxCustomer ném DbUpdateException → catch bên dưới log + merge vẫn tiếp tục.
+            int applications = await pg.MembershipApplications
+                .IgnoreQueryFilters()
+                .Where(a => a.ApplicantCustomerId == stubId)
+                .ExecuteUpdateAsync(s => s.SetProperty(a => a.ApplicantCustomerId, loginCustomerId));
+            int memberships = await pg.Members
+                .IgnoreQueryFilters()
+                .Where(m => m.MemberCustomerId == stubId)
+                .ExecuteUpdateAsync(s => s.SetProperty(m => m.MemberCustomerId, loginCustomerId));
+            int consents = await pg.ConsentRecords
+                .IgnoreQueryFilters()
+                .Where(c => c.ApplicantCustomerId == stubId)
+                .ExecuteUpdateAsync(s => s.SetProperty(c => c.ApplicantCustomerId, loginCustomerId));
+
+            if (roles + referrals + walletTx + withdrawals + applications + memberships + consents > 0)
             {
                 _logger.LogInformation(
-                    "MigrateCommunityData: stub {StubId} → {LoginId}: roles={Roles} referrals={Referrals} walletTx={WalletTx} withdrawals={Withdrawals}",
-                    stubId, loginCustomerId, roles, referrals, walletTx, withdrawals);
+                    "MigrateCommunityData: stub {StubId} → {LoginId}: roles={Roles} referrals={Referrals} walletTx={WalletTx} withdrawals={Withdrawals} applications={Applications} memberships={Memberships} consents={Consents}",
+                    stubId, loginCustomerId, roles, referrals, walletTx, withdrawals, applications, memberships, consents);
             }
         }
         catch (Exception ex)

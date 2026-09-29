@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Audit;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
+using VanAn.Shared.Domain.Aggregates.MembershipAggregate;
 using VanAn.Shared.Domain.Aggregates.SystemSettingAggregate;
 using VanAn.Shared.Domain.Aggregates.ProductCostPriceAggregate;
 using VanAn.Shared.Domain.Aggregates.CommunityFundAggregate;
@@ -140,6 +141,18 @@ namespace VanAn.CoreHub.Infrastructure
         // PG-only (Gateway source of truth). NOT tenant-scoped (TenantId = Guid.Empty sentinel).
         // SysAdmin queue — reviewed + contacted/onboarded/rejected via TenantRegistrationController.
         DbSet<TenantRegistration> TenantRegistrations { get; }
+
+        // Membership Infrastructure (2026-09-29): Hồ sơ xin gia nhập HTX (PG-only, htx_id = TenantId).
+        DbSet<MembershipApplication> MembershipApplications { get; }
+
+        // Membership Infrastructure (2026-09-29): Thành viên HTX — registry (PG-only, polymorphic party + CHECK).
+        DbSet<Member> Members { get; }
+
+        // Membership Infrastructure (2026-09-29): Bản ghi consent (PG-only, append-only).
+        DbSet<ConsentRecord> ConsentRecords { get; }
+
+        // Membership Infrastructure (2026-09-29): Hồ sơ HTX — đánh dấu tenant + phiên bản Điều lệ (PG-only).
+        DbSet<HtxProfile> HtxProfiles { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
