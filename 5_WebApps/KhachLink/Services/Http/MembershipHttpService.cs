@@ -123,6 +123,43 @@ public class MembershipHttpService(IHttpClientFactory httpClientFactory, ILogger
         }
     }
 
+    /// <summary>
+    /// POST /api/membership/applications/{id}/documents — đính kèm tài liệu xác nhận
+    /// (chữ ký online / scan form giấy) vào hồ sơ (SRS §17.2). Applicant sở hữu hồ sơ.
+    /// </summary>
+    public async Task<(bool Success, string? Error)> AttachDocumentAsync(
+        string customerToken,
+        Guid applicationId,
+        string documentType,
+        string documentVersion,
+        string storageReference,
+        string? hash = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var body = new AttachDocumentRequestDto(documentType, documentVersion, storageReference, hash);
+            var response = await PostWithTokenAsync(
+                $"api/membership/applications/{applicationId}/documents", body, customerToken, ct);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await ReadErrorAsync(response, ct);
+                return (false, error ?? $"Đính kèm tài liệu thất bại (HTTP {response.StatusCode}).");
+            }
+            return (true, null);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Attach document exception");
+            return (false, "Lỗi kết nối khi đính kèm tài liệu. Vui lòng thử lại.");
+        }
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────────
 
     private async Task<HttpResponseMessage> PostWithTokenAsync(
@@ -174,3 +211,10 @@ public sealed record HtxProfileDto(
     string CharterVersion,
     string TermsVersion,
     string? CharterUrl);
+
+/// <summary>Request DTO mirrors AttachMembershipDocumentRequest.</summary>
+public sealed record AttachDocumentRequestDto(
+    string DocumentType,
+    string DocumentVersion,
+    string StorageReference,
+    string? Hash = null);

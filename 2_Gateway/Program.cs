@@ -1087,6 +1087,7 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Membership.IMemberRegistryService, VanAn.CoreHub.Services.Membership.MemberRegistryService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Membership.IConsentService, VanAn.CoreHub.Services.Membership.ConsentService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Membership.IHtxProfileService, VanAn.CoreHub.Services.Membership.HtxProfileService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Membership.IMembershipDocumentService, VanAn.CoreHub.Services.Membership.MembershipDocumentService>();
 
 
 

@@ -154,6 +154,9 @@ namespace VanAn.CoreHub.Infrastructure
         // Membership Infrastructure (2026-09-29): Hồ sơ HTX — đánh dấu tenant + phiên bản Điều lệ (PG-only).
         DbSet<HtxProfile> HtxProfiles { get; }
 
+        // Membership Infrastructure (2026-09-29): Tài liệu đính kèm hồ sơ (PG-only, append-only evidence).
+        DbSet<MembershipDocument> MembershipDocuments { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
 

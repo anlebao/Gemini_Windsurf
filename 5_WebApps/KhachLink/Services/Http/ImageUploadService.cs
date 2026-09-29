@@ -97,6 +97,57 @@ public class ImageUploadService(IHttpClientFactory httpClientFactory, ILogger<Im
     public Task<ImageUploadOutcome> UploadLogoAsync(IBrowserFile file, CancellationToken ct = default)
         => UploadGpkdAsync(file, "demo-logos", ct);
 
+    /// <summary>
+    /// Membership Infrastructure (2026-09-29): Upload raw bytes (VD: chữ ký online vẽ tay từ canvas)
+    /// lên Cloudinary → URL. Cùng endpoint + giới hạn như UploadGpkdAsync.
+    /// </summary>
+    /// <param name="bytes">Nội dung ảnh (PNG).</param>
+    /// <param name="filename">Tên file (VD: "signature.png").</param>
+    /// <param name="folder">Cloudinary folder (VD: "membership-signatures").</param>
+    public async Task<ImageUploadOutcome> UploadBytesAsync(byte[] bytes, string filename, string folder, CancellationToken ct = default)
+    {
+        if (bytes is null || bytes.Length == 0)
+            return ImageUploadOutcome.Failed("Không có dữ liệu ảnh.");
+        if (bytes.Length > MaxFileSize)
+            return ImageUploadOutcome.Failed("File quá lớn. Kích thước tối đa 5MB.");
+
+        try
+        {
+            using var form = new MultipartFormDataContent();
+            var fileContent = new ByteArrayContent(bytes);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+            form.Add(fileContent, "file", filename);
+
+            var response = await _httpClient.PostAsync($"api/v1/images/upload?folder={folder}", form, ct);
+
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                return ImageUploadOutcome.Failed("Bạn đã upload quá nhiều lần. Vui lòng thử lại sau 1 giờ.");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadFromJsonAsync<ErrorBody>(cancellationToken: ct);
+                _logger.LogWarning("Image upload (bytes) failed: {Status} {Error} (folder {Folder})", response.StatusCode, body?.Error, folder);
+                return ImageUploadOutcome.Failed(body?.Error ?? $"Upload thất bại (HTTP {response.StatusCode}).");
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<UploadResultBody>(cancellationToken: ct);
+            if (string.IsNullOrEmpty(result?.Url))
+                return ImageUploadOutcome.Failed("Server không trả về URL ảnh.");
+
+            _logger.LogInformation("Image (bytes) uploaded → {Url} (folder {Folder})", result.Url, folder);
+            return ImageUploadOutcome.Ok(result.Url);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Image upload (bytes) exception (folder {Folder})", folder);
+            return ImageUploadOutcome.Failed("Lỗi kết nối khi upload. Vui lòng thử lại.");
+        }
+    }
+
     // ── Local DTOs matching Gateway response bodies ─────────────────────────
     private sealed record UploadResultBody(string Url);
     private sealed record ErrorBody(string? Error);

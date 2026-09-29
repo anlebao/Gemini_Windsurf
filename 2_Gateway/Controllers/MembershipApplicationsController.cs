@@ -19,6 +19,7 @@ namespace VanAn.Gateway.Controllers
     [Route("api/membership/applications")]
     public class MembershipApplicationsController(
         IMembershipApplicationService applicationService,
+        IMembershipDocumentService documentService,
         IHttpClientFactory httpClientFactory,
         ILogger<MembershipApplicationsController> logger) : ControllerBase
     {
@@ -107,6 +108,61 @@ namespace VanAn.Gateway.Controllers
 
             var list = await applicationService.ListForApplicantAsync(customerId.Value, HttpContext.RequestAborted);
             return Ok(list);
+        }
+
+        // ── Documents (SRS §17.2 — chữ ký online, form giấy scan) ────────────
+
+        /// <summary>
+        /// Applicant đính kèm tài liệu xác nhận (chữ ký online / scan form giấy đã ký tay).
+        /// Upload ảnh qua POST /api/v1/images/upload (Cloudinary) trước, rồi attach URL vào đây.
+        /// </summary>
+        [HttpPost("{id:guid}/documents")]
+        [AllowAnonymous]
+        public async Task<IActionResult> AttachDocument(Guid id, [FromBody] AttachMembershipDocumentRequest request)
+        {
+            var (customerId, error) = await GetCustomerIdFromTokenAsync();
+            if (error is not null) return error;
+
+            if (!Enum.TryParse<MembershipDocumentType>(request.DocumentType, ignoreCase: true, out var documentType))
+                return BadRequest(new { error = $"Invalid DocumentType: {request.DocumentType}. Must be Charter/PaperApplication/Signature/IdProof/Other." });
+
+            try
+            {
+                var documentId = await documentService.AttachAsync(
+                    id, customerId.Value, documentType, request.DocumentVersion, request.StorageReference, request.Hash,
+                    HttpContext.RequestAborted);
+                return Ok(new { documentId });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        /// <summary>Danh sách tài liệu của hồ sơ (officer — tenant match; applicant tự xem qua my-applications).</summary>
+        [HttpGet("{id:guid}/documents")]
+        [Authorize(Policy = "HtxMembershipOfficer")]
+        public async Task<IActionResult> ListDocuments(Guid id)
+        {
+            var tenantId = GetTenantIdFromClaim();
+            if (tenantId == Guid.Empty)
+                return Unauthorized(new { error = "Missing or invalid tenant_id claim." });
+
+            var application = await applicationService.GetAsync(id, HttpContext.RequestAborted);
+            if (application is null) return NotFound(new { error = $"Application {id} not found." });
+            if (application.HtxTenantId != tenantId)
+                return Forbid();
+
+            var documents = await documentService.ListForApplicationAsync(id, HttpContext.RequestAborted);
+            return Ok(documents);
         }
 
         // ── HTX review (Membership Officer) ───────────────────────────────────

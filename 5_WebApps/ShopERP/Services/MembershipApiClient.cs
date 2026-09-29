@@ -67,6 +67,45 @@ public sealed class MembershipApiClient : GatewayAdminApiClientBase
         }
     }
 
+    // ── HtxProfile (SRS §14 — Điều lệ versioning) ───────────────────────────
+
+    /// <summary>GET /api/membership/htx-profile — hồ sơ HTX của tenant đang đăng nhập (null nếu chưa đăng ký).</summary>
+    public async Task<HtxProfileApiDto?> GetMyProfileAsync(CancellationToken ct = default)
+    {
+        var req = await CreateRequestAsync(HttpMethod.Get, "api/membership/htx-profile");
+        var resp = await HttpClient.SendAsync(req, ct);
+        if (resp.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<HtxProfileApiDto>(GatewayJsonOptions, ct);
+    }
+
+    /// <summary>POST /api/membership/htx-profile — đánh dấu tenant là HTX + version Điều lệ ban đầu.</summary>
+    public async Task<HtxProfileApiDto> CreateProfileAsync(string charterVersion, string termsVersion, CancellationToken ct = default)
+    {
+        var req = await CreateRequestAsync(HttpMethod.Post, "api/membership/htx-profile",
+            new { CharterVersion = charterVersion, TermsVersion = termsVersion });
+        return await SendAndReadAsync<HtxProfileApiDto>(HttpClient, req, ct)
+            ?? throw new InvalidOperationException("CreateProfile returned empty response.");
+    }
+
+    /// <summary>PUT /api/membership/htx-profile/charter — cập nhật Điều lệ.</summary>
+    public async Task UpdateCharterAsync(string charterVersion, string? charterUrl, CancellationToken ct = default)
+    {
+        var req = await CreateRequestAsync(HttpMethod.Put, "api/membership/htx-profile/charter",
+            new { CharterVersion = charterVersion, CharterUrl = charterUrl });
+        var resp = await HttpClient.SendAsync(req, ct);
+        resp.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>PUT /api/membership/htx-profile/terms — cập nhật điều kiện gia nhập.</summary>
+    public async Task UpdateTermsAsync(string termsVersion, CancellationToken ct = default)
+    {
+        var req = await CreateRequestAsync(HttpMethod.Put, "api/membership/htx-profile/terms",
+            new { TermsVersion = termsVersion });
+        var resp = await HttpClient.SendAsync(req, ct);
+        resp.EnsureSuccessStatusCode();
+    }
+
     // ── Member registry (SRS §17) ───────────────────────────────────────────
 
     /// <summary>GET /api/membership/members — sổ đăng ký thành viên của HTX.</summary>
@@ -135,3 +174,10 @@ public sealed record MemberApiDto(
     string? StatusReason);
 
 public sealed record ApproveResultApiDto(Guid MemberId);
+
+public sealed record HtxProfileApiDto(
+    Guid Id,
+    Guid HtxTenantId,
+    string CharterVersion,
+    string TermsVersion,
+    string? CharterUrl);

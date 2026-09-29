@@ -214,6 +214,10 @@ namespace VanAn.CoreHub.Infrastructure
         // PG-only. 1 HtxProfile per tenant (unique index).
         public DbSet<HtxProfile> HtxProfiles { get; set; }
 
+        // Membership Infrastructure (2026-09-29): Tài liệu đính kèm hồ sơ (SRS §17.2 — chữ ký online,
+        // form giấy scan). PG-only. Append-only evidence.
+        public DbSet<MembershipDocument> MembershipDocuments { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

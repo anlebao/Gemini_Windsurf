@@ -90,4 +90,22 @@ namespace VanAn.CoreHub.Services.Membership
         string CharterVersion,
         string TermsVersion,
         string? CharterUrl);
+
+    /// <summary>Tài liệu đính kèm hồ sơ (SRS §17.2 — chữ ký online, form giấy scan...).</summary>
+    public record MembershipDocumentDto(
+        Guid Id,
+        Guid HtxTenantId,
+        Guid ApplicationId,
+        string DocumentType,
+        string DocumentVersion,
+        string StorageReference,
+        string? Hash,
+        DateTime CreatedAt);
+
+    /// <summary>Request đính kèm tài liệu (applicant sở hữu hồ sơ).</summary>
+    public record AttachMembershipDocumentRequest(
+        string DocumentType,
+        string DocumentVersion,
+        string StorageReference,
+        string? Hash = null);
 }

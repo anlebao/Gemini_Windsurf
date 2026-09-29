@@ -1,0 +1,208 @@
+@page "/admin/membership/htx-profile"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject MembershipApiClient MembershipApi
+@inject ILogger<MembershipHtxProfile> Logger
+
+@attribute [Authorize(Policy = "OwnerOnly")]
+
+<div class="membership-htx-profile-page">
+    <header class="page-header">
+        <h1>Cấu hình HTX (Điều lệ)</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadProfile">
+                <i class="bi bi-arrow-clockwise me-1"></i> Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải cấu hình...</p>
+            </div>
+        </VanACard>
+    }
+    else if (_profile is null)
+    {
+        <VanACard Header="Chưa kích hoạt Membership Infrastructure">
+            <p class="text-muted mb-3">
+                Tenant của bạn chưa đăng ký là HTX. Tạo hồ sơ HTX để mở trang đăng ký thành viên
+                (KhachLink <code>/membership/register/{{htxId}}</code>). Applicant cần phiên bản Điều lệ
+                để đồng ý trước khi nộp hồ sơ (SRS §14).
+            </p>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Phiên bản Điều lệ <span class="text-danger">*</span></label>
+                    <input class="form-control" @bind="_charterVersion" placeholder="VD: v2026-09-01" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Phiên bản điều kiện gia nhập <span class="text-danger">*</span></label>
+                    <input class="form-control" @bind="_termsVersion" placeholder="VD: v2026-09-01" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Link Điều lệ (tùy chọn)</label>
+                    <input class="form-control" @bind="_charterUrl" placeholder="https://..." />
+                </div>
+            </div>
+            <div class="mt-3">
+                <VanAButton Variant="primary" OnClick="CreateProfile">
+                    <i class="bi bi-rocket-takeoff me-1"></i> Kích hoạt HTX
+                </VanAButton>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="Hồ sơ HTX hiện tại">
+            <table class="vanan-table">
+                <tbody>
+                    <tr><th style="width:200px;">HTX Tenant ID</th><td><code>@_profile.HtxTenantId</code></td></tr>
+                    <tr><th>Điều lệ (Charter)</th><td><strong>@_profile.CharterVersion</strong></td></tr>
+                    <tr><th>Điều kiện gia nhập</th><td>@_profile.TermsVersion</td></tr>
+                    <tr><th>Link Điều lệ</th><td>@(string.IsNullOrEmpty(_profile.CharterUrl) ? "—" : _profile.CharterUrl)</td></tr>
+                </tbody>
+            </table>
+
+            <hr />
+            <h6>Cập nhật phiên bản Điều lệ</h6>
+            <p class="text-muted small">Applicant mới sẽ đồng ý theo phiên bản mới nhất. Lịch sử consent cũ giữ nguyên (evidence).</p>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Phiên bản Điều lệ mới <span class="text-danger">*</span></label>
+                    <input class="form-control" @bind="_charterVersion" placeholder="VD: v2026-10-01" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Link Điều lệ mới</label>
+                    <input class="form-control" @bind="_charterUrl" placeholder="https://..." />
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <VanAButton Variant="primary" OnClick="UpdateCharter">
+                        <i class="bi bi-check-lg me-1"></i> Cập nhật Điều lệ
+                    </VanAButton>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Phiên bản điều kiện gia nhập mới <span class="text-danger">*</span></label>
+                    <input class="form-control" @bind="_termsVersion" placeholder="VD: v2026-10-01" />
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <VanAButton Variant="secondary" OnClick="UpdateTerms">
+                        <i class="bi bi-check-lg me-1"></i> Cập nhật điều kiện
+                    </VanAButton>
+                </div>
+            </div>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private bool _isLoading = true;
+    private string? _alertMessage;
+    private string _alertType = "success";
+    private HtxProfileApiDto? _profile;
+    private string _charterVersion = string.Empty;
+    private string _termsVersion = string.Empty;
+    private string? _charterUrl;
+
+    protected override async Task OnInitializedAsync() => await LoadProfile();
+
+    private async Task LoadProfile()
+    {
+        _isLoading = true;
+        try
+        {
+            _profile = await MembershipApi.GetMyProfileAsync();
+            if (_profile is not null)
+            {
+                _charterVersion = _profile.CharterVersion;
+                _termsVersion = _profile.TermsVersion;
+                _charterUrl = _profile.CharterUrl;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Load HtxProfile failed");
+            ShowAlert("error", "Không tải được cấu hình HTX. Kiểm tra Gateway hoặc quyền Owner.");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ShowAlert(string type, string message)
+    {
+        _alertType = type;
+        _alertMessage = message;
+    }
+
+    private async Task CreateProfile()
+    {
+        if (string.IsNullOrWhiteSpace(_charterVersion) || string.IsNullOrWhiteSpace(_termsVersion))
+        {
+            ShowAlert("error", "Vui lòng nhập phiên bản Điều lệ và điều kiện gia nhập.");
+            return;
+        }
+        try
+        {
+            _profile = await MembershipApi.CreateProfileAsync(_charterVersion.Trim(), _termsVersion.Trim());
+            ShowAlert("success", "✅ Đã kích hoạt HTX. Trang đăng ký thành viên đã mở.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Create HtxProfile failed");
+            ShowAlert("error", $"Kích hoạt thất bại: {ex.Message}");
+        }
+    }
+
+    private async Task UpdateCharter()
+    {
+        if (string.IsNullOrWhiteSpace(_charterVersion))
+        {
+            ShowAlert("error", "Vui lòng nhập phiên bản Điều lệ.");
+            return;
+        }
+        try
+        {
+            await MembershipApi.UpdateCharterAsync(_charterVersion.Trim(), string.IsNullOrWhiteSpace(_charterUrl) ? null : _charterUrl);
+            ShowAlert("success", "✅ Đã cập nhật phiên bản Điều lệ.");
+            await LoadProfile();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Update charter failed");
+            ShowAlert("error", $"Cập nhật thất bại: {ex.Message}");
+        }
+    }
+
+    private async Task UpdateTerms()
+    {
+        if (string.IsNullOrWhiteSpace(_termsVersion))
+        {
+            ShowAlert("error", "Vui lòng nhập phiên bản điều kiện gia nhập.");
+            return;
+        }
+        try
+        {
+            await MembershipApi.UpdateTermsAsync(_termsVersion.Trim());
+            ShowAlert("success", "✅ Đã cập nhật điều kiện gia nhập.");
+            await LoadProfile();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Update terms failed");
+            ShowAlert("error", $"Cập nhật thất bại: {ex.Message}");
+        }
+    }
+}

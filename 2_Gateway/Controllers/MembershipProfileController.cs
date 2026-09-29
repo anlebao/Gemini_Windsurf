@@ -35,6 +35,20 @@ namespace VanAn.Gateway.Controllers
             return Ok(profile);
         }
 
+        /// <summary>Hồ sơ HTX của tenant đang đăng nhập (officer — tenant từ JWT claim, IDOR-safe).</summary>
+        [HttpGet("htx-profile")]
+        [Authorize(Policy = "HtxMembershipOfficer")]
+        public async Task<IActionResult> GetMyProfile()
+        {
+            var tenantId = GetTenantIdFromClaim();
+            if (tenantId == Guid.Empty)
+                return Unauthorized(new { error = "Missing or invalid tenant_id claim." });
+
+            var profile = await htxProfileService.GetAsync(tenantId, HttpContext.RequestAborted);
+            if (profile is null) return NotFound(new { error = $"HTX {tenantId} chưa đăng ký Membership Infrastructure." });
+            return Ok(profile);
+        }
+
         /// <summary>Tạo hồ sơ HTX (đánh dấu tenant là HTX + version Điều lệ ban đầu).</summary>
         [HttpPost("htx-profile")]
         [Authorize(Policy = "HtxMembershipOfficer")]
@@ -69,6 +83,30 @@ namespace VanAn.Gateway.Controllers
             {
                 await htxProfileService.UpdateCharterAsync(
                     tenantId, request.CharterVersion, request.CharterUrl, HttpContext.RequestAborted);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        /// <summary>Cập nhật phiên bản điều kiện gia nhập.</summary>
+        [HttpPut("htx-profile/terms")]
+        [Authorize(Policy = "HtxMembershipOfficer")]
+        public async Task<IActionResult> UpdateTerms([FromBody] UpdateTermsRequest request)
+        {
+            var tenantId = GetTenantIdFromClaim();
+            if (tenantId == Guid.Empty)
+                return Unauthorized(new { error = "Missing or invalid tenant_id claim." });
+
+            try
+            {
+                await htxProfileService.UpdateTermsAsync(tenantId, request.TermsVersion, HttpContext.RequestAborted);
                 return NoContent();
             }
             catch (KeyNotFoundException ex)
@@ -151,6 +189,7 @@ namespace VanAn.Gateway.Controllers
 
     public record CreateHtxProfileRequest(string CharterVersion, string TermsVersion);
     public record UpdateCharterRequest(string CharterVersion, string? CharterUrl = null);
+    public record UpdateTermsRequest(string TermsVersion);
     public record RecordConsentRequest(
         Guid HtxTenantId,
         string DocumentType,

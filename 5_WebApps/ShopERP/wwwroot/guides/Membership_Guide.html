@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Hướng dẫn sử dụng Thành viên HTX — Vạn An Ecosystem</title>
+  <style>
+    html { color: #1a1a1a; background-color: #fdfdfd; }
+    body { margin: 0 auto; max-width: 42em; padding: 50px 50px; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.55; overflow-wrap: break-word; }
+    h1 { font-size: 1.6em; border-bottom: 2px solid #0d6efd; padding-bottom: 8px; }
+    h2 { font-size: 1.25em; margin-top: 1.8em; border-left: 4px solid #0d6efd; padding-left: 10px; }
+    h3 { font-size: 1.05em; margin-top: 1.2em; }
+    code { background: #f0f0f0; padding: 2px 5px; border-radius: 4px; font-size: 0.9em; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+    th, td { border: 1px solid #ccc; padding: 7px 10px; text-align: left; font-size: 0.95em; }
+    th { background: #f5f7fa; }
+    .note { background: #fff8e6; border-left: 4px solid #f0ad4e; padding: 10px 14px; margin: 12px 0; }
+    .ok { background: #eafaf1; border-left: 4px solid #28a745; padding: 10px 14px; margin: 12px 0; }
+    @media print { body { font-size: 12pt; } }
+  </style>
+</head>
+<body>
+
+<h1>Hướng dẫn sử dụng — Thành viên HTX (Membership Infrastructure)</h1>
+<p><em>Vạn An Ecosystem · 2026-09-29 · Phiên bản MVP</em></p>
+
+<h2>1. Giới thiệu</h2>
+<p>
+  Module <strong>Thành viên HTX</strong> số hóa quy trình kết nạp thành viên hợp tác xã:
+  applicant đăng ký qua KhachLink → HTX xem xét → duyệt → ghi vào <strong>Sổ đăng ký thành viên điện tử</strong>.
+  Nộp đơn <strong>không tự động</strong> trở thành thành viên — HTX quyết định theo Điều lệ (SRS §3.1).
+</p>
+
+<h2>2. Các cách xác nhận đồng tham gia HTX</h2>
+<table>
+  <tr><th>Cách</th><th>Thao tác</th><th>Trạng thái</th></tr>
+  <tr>
+    <td><strong>1. Đồng ý Điều lệ online</strong> (bắt buộc)</td>
+    <td>Applicant tick ô "Tôi đã đọc và đồng ý với Điều lệ v{version}" — hệ thống lưu version + thời điểm + IP/device (ConsentRecord, SRS §14).</td>
+    <td class="ok">✅ Đã có</td>
+  </tr>
+  <tr>
+    <td><strong>2. Chữ ký online vẽ tay</strong> (tùy chọn — bằng chứng)</td>
+    <td>Applicant vẽ chữ ký trên màn hình (canvas) → lưu ảnh làm evidence. Theo SRS §14: chữ ký vẽ tay KHÔNG tương đương chữ ký số pháp lý.</td>
+    <td class="ok">✅ Đã có</td>
+  </tr>
+  <tr>
+    <td><strong>3. In form giấy + ký tay</strong> (tùy chọn)</td>
+    <td>Applicant bấm "In form đăng ký" → in ra giấy → ký tay → chụp/scan → tải ảnh lên sau khi nộp hồ sơ (Assisted Registration, SRS §26-27).</td>
+    <td class="ok">✅ Đã có</td>
+  </tr>
+  <tr>
+    <td><strong>4. Chữ ký số</strong> (Viettel CA / VNPT CA)</td>
+    <td>Chỉ bắt buộc nếu Điều lệ HTX yêu cầu "chữ ký điện tử theo quy định pháp luật" (Luật Giao dịch điện tử 2023).</td>
+    <td>⏳ Phase 3 (SRS §40)</td>
+  </tr>
+</table>
+
+<h2>3. Hướng dẫn HTX (Owner / Quản lý)</h2>
+
+<h3>3.1 Kích hoạt HTX (lần đầu)</h3>
+<ol>
+  <li>Vào menu <strong>Thành viên HTX → Cấu hình HTX (Điều lệ)</strong>.</li>
+  <li>Nhập <strong>Phiên bản Điều lệ</strong> (VD: <code>v2026-09-01</code>) và <strong>Phiên bản điều kiện gia nhập</strong>.</li>
+  <li>Bấm <strong>Kích hoạt HTX</strong> — trang đăng ký KhachLink <code>/membership/register/{{htxId}}</code> bắt đầu hoạt động.</li>
+</ol>
+
+<h3>3.2 Cập nhật Điều lệ</h3>
+<p>Khi HTX sửa Điều lệ → nhập phiên bản mới + link tài liệu → <strong>Cập nhật Điều lệ</strong>.
+Applicant mới sẽ đồng ý theo phiên bản mới; lịch sử consent cũ giữ nguyên (bằng chứng).</p>
+
+<h3>3.3 Xét duyệt hồ sơ</h3>
+<ol>
+  <li>Menu <strong>Thành viên HTX → Hồ sơ xét duyệt</strong>.</li>
+  <li>Xem thông tin applicant (họ tên, SĐT, vai trò, loại thành viên, phiên bản Điều lệ đã đồng ý).</li>
+  <li>Chọn hành động:
+    <ul>
+      <li><strong>Duyệt</strong> → tạo thành viên Active trong Sổ đăng ký (Member ID dạng <code>MEM-{slug}-{số}</code>).</li>
+      <li><strong>Yêu cầu bổ sung</strong> → nhập lý do, hồ sơ về trạng thái Need Info.</li>
+      <li><strong>Từ chối</strong> → nhập lý do (bắt buộc — audit trail).</li>
+    </ul>
+  </li>
+</ol>
+
+<h3>3.4 Sổ đăng ký thành viên</h3>
+<p>Tab <strong>Sổ đăng ký thành viên</strong> trong cùng trang: danh sách thành viên (Member ID, loại, ngày gia nhập, trạng thái).
+Thao tác: <strong>Đình chỉ</strong> (kèm lý do) / <strong>Khôi phục</strong>. Thành viên không bao giờ bị xóa — chỉ đổi trạng thái (SRS §7).</p>
+
+<h2>4. Hướng dẫn Applicant (người xin gia nhập)</h2>
+<ol>
+  <li>Mở link đăng ký HTX (QR / link từ HTX) → điền thông tin ≤ 2 phút: họ tên, SĐT, khu vực, vai trò dự kiến, loại thành viên.</li>
+  <li>Tick đồng ý Điều lệ (bắt buộc).</li>
+  <li><strong>(Tùy chọn)</strong> Vẽ chữ ký online vào ô "Ký tên online".</li>
+  <li>Bấm <strong>Gửi hồ sơ</strong> → HTX xem xét.</li>
+  <li>Sau khi nộp, có thể <strong>In form đăng ký</strong> → ký tay → chụp/scan → <strong>Tải lên bản ký tay</strong> (bằng chứng bổ sung).</li>
+  <li>Chờ HTX duyệt. Nếu cần bổ sung, hồ sơ chuyển trạng thái Need Info — bổ sung rồi nộp lại.</li>
+</ol>
+<div class="note">
+  <strong>Lưu ý:</strong> SĐT đăng ký phải khớp với SĐT đã xác thực trên tài khoản. Mỗi người chỉ có 1 hồ sơ đang xét duyệt cho mỗi HTX.
+</div>
+
+<h2>5. Quyền hạn</h2>
+<table>
+  <tr><th>Vai trò</th><th>Quyền</th></tr>
+  <tr><td>Owner (HTX Management)</td><td>Kích hoạt HTX, cập nhật Điều lệ, duyệt/từ chối/yêu cầu bổ sung, đình chỉ/khôi phục thành viên</td></tr>
+  <tr><td>Applicant (khách hàng Vạn An)</td><td>Tạo hồ sơ, đồng ý Điều lệ, ký online, nộp/bổ sung hồ sơ, tải bản ký tay</td></tr>
+  <tr><td>Khách (quét QR)</td><td>Xem trạng thái thành viên (Active/HTX/ngày gia nhập — KHÔNG có thông tin cá nhân, SRS §22)</td></tr>
+</table>
+
+<h2>6. Câu hỏi thường gặp</h2>
+<h3>Tôi đã nộp đơn nhưng chưa thấy thành viên?</h3>
+<p>Nộp đơn ≠ thành viên. HTX phải duyệt hồ sơ trước (SRS §16). Theo dõi trạng thái trong phần hồ sơ của bạn.</p>
+<h3>Một người có thể tham gia nhiều HTX không?</h3>
+<p>Có — mỗi HTX là một hồ sơ riêng, không cần tạo tài khoản mới (SRS §19, Luật HTX 2023).</p>
+<h3>Chữ ký online có giá trị pháp lý như chữ ký số không?</h3>
+<p>Không. Chữ ký online chỉ là bằng chứng điện tử (electronic evidence). Nếu Điều lệ HTX yêu cầu chữ ký số, cần tích hợp chữ ký số (Phase 3).</p>
+
+</body>
+</html>

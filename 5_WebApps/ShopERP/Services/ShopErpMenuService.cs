@@ -197,6 +197,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                 Children = new()
                 {
                     new() { Title = "Hồ sơ xét duyệt", Icon = "inbox", Url = "/admin/membership" },
+                    // Cấu hình HTX: bật HTX + cập nhật phiên bản Điều lệ (consent — SRS §14)
+                    new() { Title = "Cấu hình HTX (Điều lệ)", Icon = "file-earmark-text", Url = "/admin/membership/htx-profile" },
                 }
             });
         }

@@ -170,6 +170,7 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<Member> Members { get; set; }
         public DbSet<ConsentRecord> ConsentRecords { get; set; }
         public DbSet<HtxProfile> HtxProfiles { get; set; }
+        public DbSet<MembershipDocument> MembershipDocuments { get; set; }
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
@@ -311,6 +312,7 @@ namespace VanAn.ShopERP.Infrastructure
             _ = modelBuilder.Ignore<Member>();
             _ = modelBuilder.Ignore<ConsentRecord>();
             _ = modelBuilder.Ignore<HtxProfile>();
+            _ = modelBuilder.Ignore<MembershipDocument>();
 
             // === VALUE OBJECT CONFIGURATIONS ===
             // Order: Configured via OrderConfiguration from CoreHub assembly (applied above via ApplyConfigurationsFromAssembly)

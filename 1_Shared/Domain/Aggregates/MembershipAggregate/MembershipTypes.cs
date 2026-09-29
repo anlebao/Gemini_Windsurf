@@ -91,4 +91,22 @@ namespace VanAn.Shared.Domain.Aggregates.MembershipAggregate
         Terms = 2,        // Điều kiện gia nhập / quyền nghĩa vụ
         DataPolicy = 3    // Chính sách dữ liệu
     }
+
+    /// <summary>
+    /// Membership Infrastructure (2026-09-29): Loại tài liệu đính kèm hồ sơ (SRS §17.2 MembershipDocument).
+    /// Các cách xác nhận đồng tham gia HTX:
+    /// - Signature: chữ ký online vẽ tay (canvas capture — EVIDENCE, KHÔNG phải chữ ký số — SRS §14).
+    /// - PaperApplication: form giấy đã in + ký tay + scan/ảnh upload (Assisted Registration — SRS §26-27).
+    /// - Charter: bản Điều lệ phiên bản được xác nhận (optional evidence).
+    /// - IdProof: giấy tờ định danh (Level 2+ — Phase 2).
+    /// Chữ ký số thật (Viettel CA/VNPT CA) = Phase 3 (SRS §40) — không nằm enum này.
+    /// </summary>
+    public enum MembershipDocumentType
+    {
+        Charter = 1,
+        PaperApplication = 2,
+        Signature = 3,
+        IdProof = 4,
+        Other = 5
+    }
 }
