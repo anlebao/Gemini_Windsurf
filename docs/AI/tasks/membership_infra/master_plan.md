@@ -1,7 +1,7 @@
 # Master Plan — Vạn An Membership Infrastructure (Hybrid)
 
 **Created:** 2026-09-29
-**Status:** ✅ BACKEND MVP COMPLETE + COMMITTED (`0442613d` + `c46f7d25`, 2026-09-29) — Phases 1-6 done · Core.Tests 25/25 membership PASS · VanAn.sln build 0 errors · guard-check ALL PASSED · **Chưa push** (chờ user) · Chưa apply migration lên prod PG (chờ deploy)
+**Status:** ✅ **DEPLOYED PROD + RV PASS** (2026-09-29, CD Multi-VPS `36550023981` SUCCESS cho `103e2a2`) — push `a17f5d37` → `103e2a2` (4 commits) · RV Layer 1-3 PASS (API 404 JSON đúng · markers Gateway DLL + KhachLink WASM · Playwright 5/5: login Owner, menu, /admin/membership render, data area, 0 console errors) · 2 prod incidents tìm ra + fix trong RV: (1) CHECK constraint PG 42703 crash ShopERP deploy (`31d9ab5` — quote identifier) · (2) RenderFragment private `<X />` → element rỗng (`103e2a2` — at-notation)
 **Branch target:** `main`
 **Source:** SRS `docs/requirements/SRS — Vạn An Membership Infrastruct.md` + review session 2026-09-29 ("so sánh verify tenant hiện có → chọn hướng hybrid")
 
