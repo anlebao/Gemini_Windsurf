@@ -75,8 +75,14 @@ public class MstLookupService(
         var normalized = NormalizeMst(mst);
         if (string.IsNullOrEmpty(normalized)) return null;
 
+        // IgnoreQueryFilters: Tenants is subject to the global tenant query filter
+        // (IMustHaveTenant — VanAnDbContext.OnModelCreating), but business info lookup
+        // is GLOBAL data (directory profiles, public per Luật Doanh nghiệp 2020), NOT
+        // tenant-scoped. Without this, the ambient tenant of the calling JWT filters out
+        // every tenant row → local-first always misses → burns doanhnghiep.vn quota.
         var tenant = await dbContext.Tenants
             .AsNoTracking()
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(t =>
                 t.Settings.TaxCode != null
                 && (t.Settings.TaxCode == mst || t.Settings.TaxCode.Replace("-", "") == normalized), ct);
@@ -131,14 +137,19 @@ public class MstLookupService(
             using var doc = JsonDocument.Parse(json);
             var d = doc.RootElement;
 
+            // ValueKind guard: doanhnghiep.vn returns "industry":null / "province":null for
+            // unknown MSTs (200 with sparse data) — TryGetProperty on a Null element then
+            // TryGetProperty("name_vi") throws InvalidOperationException. Guard with ValueKind.
             return new BusinessLookupResult(
                 d.TryGetProperty("mst", out var mstEl) ? mstEl.GetString() ?? mst : mst,
                 d.TryGetProperty("name_vi", out var nameEl) ? nameEl.GetString() ?? "" : "",
                 d.TryGetProperty("address_full", out var addrEl) ? addrEl.GetString() : null,
                 d.TryGetProperty("status", out var statusEl) ? statusEl.GetString() : null,
                 d.TryGetProperty("legal_rep_name", out var repEl) ? repEl.GetString() : null,
-                d.TryGetProperty("industry", out var indEl) && indEl.TryGetProperty("name_vi", out var indNameEl) ? indNameEl.GetString() : null,
-                d.TryGetProperty("province", out var provEl) && provEl.TryGetProperty("name_vi", out var provNameEl) ? provNameEl.GetString() : null,
+                d.TryGetProperty("industry", out var indEl) && indEl.ValueKind == System.Text.Json.JsonValueKind.Object
+                    && indEl.TryGetProperty("name_vi", out var indNameEl) ? indNameEl.GetString() : null,
+                d.TryGetProperty("province", out var provEl) && provEl.ValueKind == System.Text.Json.JsonValueKind.Object
+                    && provEl.TryGetProperty("name_vi", out var provNameEl) ? provNameEl.GetString() : null,
                 Source: "doanhnghiep.vn");
         }
     }

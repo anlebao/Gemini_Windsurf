@@ -155,6 +155,37 @@ public class MstLookupServiceTests
         finally { sp.Dispose(); db.Dispose(); }
     }
 
+    [Fact(DisplayName = "ML-4b: doanhnghiep.vn trả sparse data (industry/province null) → không crash, trả result")]
+    public async Task Remote_SparseNulls_NoCrash()
+    {
+        const string sparseJson = """
+            {"mst":"9999999999","name_vi":"Công Ty Cổ Phần Nội Thất Sơn Hà","status":"active",
+             "address_full":null,"legal_rep_name":null,"province":null,"industry":null}
+            """;
+        var (db, sp) = CreateDb();
+        try
+        {
+            var handler = new Mock<HttpMessageHandler>();
+            handler.Protected()
+                .Setup<Task<HttpResponseMessage>>("SendAsync", ItExpr.IsAny<HttpRequestMessage>(), ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(sparseJson) });
+            var client = new HttpClient(handler.Object) { BaseAddress = new Uri("https://doanhnghiep.vn") };
+            var factory = new Mock<IHttpClientFactory>();
+            factory.Setup(f => f.CreateClient("doanhnghiep")).Returns(client);
+            var service = new MstLookupService(factory.Object, new MemoryCache(new MemoryCacheOptions()),
+                Options.Create(new BusinessLookupOptions { ApiKey = "test-key" }), db, NullLogger<MstLookupService>.Instance);
+
+            var result = await service.LookupByTaxCodeAsync("9999999999");
+
+            Assert.NotNull(result);
+            Assert.Equal("Công Ty Cổ Phần Nội Thất Sơn Hà", result!.BusinessName);
+            Assert.Null(result.IndustryName);
+            Assert.Null(result.ProvinceName);
+            Assert.Equal("active", result.Status);
+        }
+        finally { sp.Dispose(); db.Dispose(); }
+    }
+
     [Fact(DisplayName = "ML-5: Cache hit — lookup cùng MST 2 lần chỉ gọi API 1 lần")]
     public async Task Remote_CacheHit_SecondCallNoHttp()
     {
