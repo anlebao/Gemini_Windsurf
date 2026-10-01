@@ -103,6 +103,11 @@ services:
       # Multi-VPS: ShopERP BaseUrl points to REMOTE VPS via VPC internal IP
       - ShopERP__BaseUrl=http://${SHOPERP_REMOTE_HOST}:80/
       - InternalLoyalty__ApiKey=${INTERNAL_LOYALTY_API_KEY:-vanan-internal-loyalty-prod-2026}
+      # 2026-10-01: Business-info lookup proxy (phiếu thu/chi MST lookup) — doanhnghiep.vn key
+      # shared with crawler (same DOANHNGHIEP_API_KEY from .env.gateway, preserved by CD).
+      - BusinessLookup__ApiKey=${DOANHNGHIEP_API_KEY:-}
+      - BusinessLookup__DailyLimit=${BUSINESS_LOOKUP_DAILY_LIMIT:-50}
+      - BusinessLookup__CacheMinutes=${BUSINESS_LOOKUP_CACHE_MINUTES:-1440}
       # NatsSyncWorker: poll every 10s (REQ-1.1 — reduce 50% DB query load, order delivery <10s OK for kitchen/POS)
       - Sync__PollIntervalMs=10000
       # Order sync seed: ShopInstance ID that matches ShopERP VPS SHOP_INSTANCE_ID.

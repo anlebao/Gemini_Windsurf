@@ -542,6 +542,8 @@ namespace VanAn.ShopERP
             // Domain Reseller R1: admin API client for TenantDomain CRUD + registrar DNS operations
             _ = builder.Services.AddScoped<Services.DomainRegistrarApiClient>();
             _ = builder.Services.AddScoped<Services.FeaturedProductApiClient>();
+            // 2026-10-01: business-info lookup (phiếu thu/chi MST → doanh nghiệp) via Gateway proxy
+            _ = builder.Services.AddScoped<Services.IBusinessInfoApiClient, Services.BusinessInfoApiClient>();
             _ = builder.Services.AddScoped<Services.ProductReferralConfigApiClient>();
             _ = builder.Services.AddScoped<Services.CommunityAdminApiClient>();
             _ = builder.Services.AddScoped<Services.TenantCommunityAdminApiClient>(); // R2: Owner-scoped role activation

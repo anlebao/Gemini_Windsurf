@@ -63,6 +63,9 @@ public class ComponentTestBase : TestContext
         // Register nav menu SSOT service (deps: ITenantProvider + IVasFeatureFlagService mocks above)
         Services.AddSingleton<IShopErpMenuService, ShopErpMenuService>();
 
+        // 2026-10-01: business-info lookup client (phiếu thu/chi MST) — mock by default
+        Services.AddSingleton<IBusinessInfoApiClient>(_ => new Mock<IBusinessInfoApiClient>().Object);
+
         // Bunit automatically discovers components from referenced assemblies
         // UI.Platform is already referenced in the project, so components should be discoverable
     }

@@ -16,6 +16,7 @@
 @inject ILogger<RevenueEntry> Logger
 @inject NavigationManager NavigationManager
 @inject Microsoft.JSInterop.IJSRuntime JSRuntime
+@inject IBusinessInfoApiClient BusinessInfo
 
 <div class="revenue-entry-page @ThemeProvider.CurrentTheme">
     <header class="page-header">
@@ -44,6 +45,59 @@
                 FieldDefinitions="@revenueFields" 
                 OnFieldChanged="HandleFieldChanged"
                 @ref="formFieldsRef" />
+            <div class="mt-2 d-flex align-items-center gap-2">
+                <VanAButton
+                    Variant="secondary"
+                    Size="small"
+                    Disabled="@_isLookupBusy"
+                    OnClick="LookupMstAsync">
+                    @(_isLookupBusy ? "Đang tra cứu..." : "Tra cứu MST")
+                </VanAButton>
+                @if (!string.IsNullOrWhiteSpace(lookupError))
+                {
+                    <span class="text-danger small">@lookupError</span>
+                }
+            </div>
+            @if (lookupResult is not null)
+            {
+                <div class="mt-3">
+                    <VanACard Header="Thông Tin Doanh Nghiệp">
+                        <div class="mb-2 fw-bold">@lookupResult.BusinessName</div>
+                        @if (!string.IsNullOrEmpty(lookupResult.Address))
+                        {
+                            <div class="small mb-1">@lookupResult.Address</div>
+                        }
+                        <div class="small mb-1">
+                            MST: @lookupResult.TaxCode
+                            @if (!string.IsNullOrEmpty(lookupResult.ProvinceName))
+                            {
+                                <span> · @lookupResult.ProvinceName</span>
+                            }
+                        </div>
+                        @if (!string.IsNullOrEmpty(lookupResult.LegalRepName))
+                        {
+                            <div class="small mb-1">Người đại diện: @lookupResult.LegalRepName</div>
+                        }
+                        @if (!string.IsNullOrEmpty(lookupResult.IndustryName))
+                        {
+                            <div class="small mb-1">Ngành: @lookupResult.IndustryName</div>
+                        }
+                        <div class="small">
+                            Trạng thái: <span class="badge @(lookupResult.Status == "active" ? "text-bg-success" : "text-bg-warning")">@StatusLabel(lookupResult.Status)</span>
+                            @if (lookupResult.Source == "vanan")
+                            {
+                                <span class="text-muted">(dữ liệu từ hệ thống VanAn)</span>
+                            }
+                        </div>
+                        @if (lookupResult.Status is "suspended" or "dissolved")
+                        {
+                            <div class="mt-2">
+                                <VanAAlert Variant="warning" Message="Doanh nghiệp đã tạm ngừng hoặc giải thể — kiểm tra kỹ trước khi ghi sổ." Dismissible="false" />
+                            </div>
+                        }
+                    </VanACard>
+                </div>
+            }
             <div class="mt-3">
                 <VanAButton 
                     Variant="primary" 
@@ -181,6 +235,14 @@
                 Type = PlatformComposite.FieldType.Text,
                 Placeholder = "VD: HĐ-001",
                 HelpText = "Số hóa đơn hoặc chứng từ liên quan"
+            },
+            new PlatformComposite.FormField
+            {
+                Id = "mst",
+                Label = "Mã Số Thuế (MST)",
+                Type = PlatformComposite.FieldType.Text,
+                Placeholder = "VD: 0302839105-001",
+                HelpText = "Nhập MST khách hàng/đối tác rồi bấm Tra cứu để lấy thông tin doanh nghiệp"
             }
         };
 
@@ -191,6 +253,84 @@
         {
             formData.Values[field.Id] = field.Value ?? string.Empty;
         }
+
+        lookupResult = null;
+        lookupError = null;
+    }
+
+    private BusinessInfoDto? lookupResult;
+    private string? lookupError;
+    private bool _isLookupBusy;
+
+    private async Task LookupMstAsync()
+    {
+        var mst = (formData.Values.GetValueOrDefault("mst") ?? "").Trim();
+        lookupError = null;
+        lookupResult = null;
+        if (!IsValidTaxCode(mst))
+        {
+            lookupError = "Mã số thuế không hợp lệ (10 hoặc 13 chữ số).";
+            return;
+        }
+
+        _isLookupBusy = true;
+        StateHasChanged();
+        try
+        {
+            lookupResult = await BusinessInfo.GetByMstAsync(mst);
+            if (lookupResult is null)
+            {
+                lookupError = "Không tìm thấy doanh nghiệp với mã số thuế này.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "MST lookup failed for {Mst}", mst);
+            lookupError = ExtractErrorMessage(ex);
+        }
+        finally
+        {
+            _isLookupBusy = false;
+            StateHasChanged();
+        }
+    }
+
+    private static bool IsValidTaxCode(string taxCode)
+    {
+        if (string.IsNullOrWhiteSpace(taxCode)) return false;
+        var digits = taxCode.Replace("-", "").Trim();
+        return (digits.Length == 10 || digits.Length == 13) && digits.All(char.IsDigit);
+    }
+
+    private static string StatusLabel(string? status) => status switch
+    {
+        "active" => "Đang hoạt động",
+        "suspended" => "Tạm ngừng",
+        "dissolved" => "Đã giải thể",
+        "pending" => "Chờ kích hoạt",
+        "converted" => "Đã chuyển đổi",
+        _ => status ?? "Không rõ"
+    };
+
+    private static string ExtractErrorMessage(Exception ex)
+    {
+        // GatewayAdminApiClientBase surfaces the server body as "Gateway API ... failed (400): {...}"
+        var msg = ex.Message;
+        var bodyStart = msg.IndexOf(": {", StringComparison.Ordinal);
+        if (bodyStart >= 0)
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(msg[(bodyStart + 2)..]);
+                if (doc.RootElement.TryGetProperty("error", out var errEl))
+                    return errEl.GetString() ?? msg;
+            }
+            catch
+            {
+                // fall through to raw message
+            }
+        }
+        return msg;
     }
 
     private List<PlatformComposite.FieldOption> GetRevenueAccounts()

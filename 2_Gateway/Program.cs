@@ -837,6 +837,29 @@ namespace VanAn.Gateway
 
 
 
+            // 2026-10-01: doanhnghiep.vn business-info lookup proxy (MST → company info
+            // for ShopERP phiếu thu/phiếu chi). API key sent via x-api-key, server-side only.
+
+            _ = builder.Services.AddHttpClient("doanhnghiep", client =>
+
+            {
+
+                client.BaseAddress = new Uri(builder.Configuration["BusinessLookup:BaseUrl"] ?? "https://doanhnghiep.vn");
+
+                client.Timeout = TimeSpan.FromSeconds(15);
+
+                var key = builder.Configuration["BusinessLookup:ApiKey"];
+
+                if (!string.IsNullOrWhiteSpace(key))
+
+                    client.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", key);
+
+            });
+
+            _ = builder.Services.Configure<BusinessLookupOptions>(builder.Configuration.GetSection("BusinessLookup"));
+
+
+
             // Register MST Lookup Service (Business Lookup Proxy for KhachLink)
 
             _ = builder.Services.AddHttpClient("VietQR", client =>
