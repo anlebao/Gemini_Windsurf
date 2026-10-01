@@ -92,15 +92,16 @@ public class WalletControllerIntegrationTests : IClassFixture<GatewayWebApplicat
         Assert.Equal(System.Net.HttpStatusCode.Unauthorized, resp.StatusCode);
     }
 
-    // === W7: ConfirmCod_InvalidToken_Returns401Or500 ===
-    [Fact(DisplayName = "W7: ConfirmCod_InvalidToken_Returns401Or500")]
+    // === W7: ConfirmCod_InvalidToken_Returns401Or503 ===
+    [Fact(DisplayName = "W7: ConfirmCod_InvalidToken_Returns401Or503")]
     public async Task ConfirmCod_InvalidToken_Returns401Or500()
     {
         _client.DefaultRequestHeaders.Add("X-Customer-Token", "invalid-token-12345");
         var resp = await _client.PostAsync("/api/community/wallet/confirm-cod",
             new StringContent("{\"orderId\":\"" + Guid.NewGuid() + "\",\"amount\":50000}", System.Text.Encoding.UTF8, "application/json"));
-        // 401 if ShopERP reachable + rejects token; 500 if ShopERP unreachable (test env connection refused)
-        Assert.True(resp.StatusCode == System.Net.HttpStatusCode.Unauthorized || resp.StatusCode == System.Net.HttpStatusCode.InternalServerError,
-            $"Expected 401 or 500, got {resp.StatusCode}");
+        // 6bc90106: CustomerTokenValidationHelper — token invalid + ShopERP reachable → 401;
+        // ShopERP unreachable (integration harness connection refused) → 503 "Dịch vụ đang bảo trì" (retryable).
+        Assert.True(resp.StatusCode == System.Net.HttpStatusCode.Unauthorized || resp.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable,
+            $"Expected 401 (invalid token) or 503 (ShopERP unreachable), got {resp.StatusCode}");
     }
 }
