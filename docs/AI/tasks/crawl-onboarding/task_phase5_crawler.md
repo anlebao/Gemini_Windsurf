@@ -3,7 +3,7 @@
 > **Master plan:** `docs/AI/plans/crawl-onboarding-master-plan.md`
 > **Research snapshot:** `docs/AI/plans/crawl-onboarding-research.md`
 > **Depends on:** Phase 4 complete (Gateway `/api/v1/crawl/batch` endpoint exists)
-> **Status:** PENDING
+> **Status:** ✅ COMPLETE — implemented + deployed 2026-09-21, **API key live + E2E verified 2026-10-01**
 
 ## 1. OBJECTIVE
 
@@ -17,10 +17,10 @@ New `7_Tooling/VanAn.Crawler.csproj` worker service. Hybrid adapters: `RestApiAd
 
 ## 3. PRE-CONDITIONS
 
-- [ ] Phase 4 done — Gateway endpoint exists
-- [ ] **Open M2** resolved: curl `doanhnghiep.vn` + `xinvoice.vn` API thật để verify endpoint path + response schema + field mapping
-- [ ] **Open O2** resolved: Gateway API key auth cho crawler (check `HmacApiKeyLookupAdapter.cs`)
-- [ ] `AngleSharp` version trong `Directory.Packages.props` ≥ 7 days old stable
+- [x] Phase 4 done — Gateway endpoint exists
+- [x] **Open M2** resolved 2026-10-01: curl thật `doanhnghiep.vn` với API key — `GET /api/v1/companies/{mst}` → 200, schema khớp 100% field mapping adapter (`mst, name_vi, address_full, legal_rep_name, status, industry_main_code, province.code`). `status` = `active/suspended/dissolved` (adapter skip suspended/dissolved ✅). Auth qua header `x-api-key` (hoặc `authorization: Bearer`) — adapter đã gửi `x-api-key` ✅. xinvoice.vn không cần thiết (doanhnghiep.vn là primary source).
+- [x] **Open O2** resolved: Gateway API key auth cho crawler (check `HmacApiKeyLookupAdapter.cs`)
+- [x] `AngleSharp` version trong `Directory.Packages.props` ≥ 7 days old stable
 
 ## 4. FILES TO CREATE
 
@@ -45,14 +45,14 @@ New `7_Tooling/VanAn.Crawler.csproj` worker service. Hybrid adapters: `RestApiAd
 
 ## 5. ACCEPTANCE CRITERIA
 
-- [ ] `dotnet build 7_Tooling/VanAn.Crawler.csproj` — 0 errors (standalone)
-- [ ] `dotnet build VanAn.sln` — 0 errors (solution with new project)
-- [ ] Crawler has NO ProjectReference to `3_CoreHub` or `1_Shared` (or only DTOs, not Domain) — layer boundary
-- [ ] Crawler has NO `IVanAnDbContext` injection
-- [ ] HTTP endpoint on port **5010** (correction C3)
-- [ ] `crawler-sources.json` field mapping matches real API schema (M2 verified)
-- [ ] Architecture test PASS with whitelist
-- [ ] Manual test: run crawler with mock adapter → POSTs to Gateway
+- [x] `dotnet build 7_Tooling/VanAn.Crawler.csproj` — 0 errors (standalone)
+- [x] `dotnet build VanAn.sln` — 0 errors (solution with new project)
+- [x] Crawler has NO ProjectReference to `3_CoreHub` or `1_Shared` (or only DTOs, not Domain) — layer boundary
+- [x] Crawler has NO `IVanAnDbContext` injection
+- [x] HTTP endpoint on port **5010** (correction C3)
+- [x] `crawler-sources.json` field mapping matches real API schema (M2 verified 2026-10-01 — curl thật)
+- [x] Architecture test PASS with whitelist
+- [x] Manual test: run crawler with mock adapter → POSTs to Gateway
 
 ## 6. VERIFICATION
 
@@ -62,6 +62,16 @@ dotnet build VanAn.sln
 dotnet test 6_Tests\VanAn.Architecture.Tests
 ```
 Crawler tests deferred to Phase 8.
+
+### E2E PRODUCTION VERIFIED (2026-10-01) — doanhnghiep.vn API key live
+
+API key `dnv_...` đã nhận từ doanhnghiep.vn (2026-10-01). Set `DOANHNGHIEP_API_KEY` trong `/opt/vanan/.env.gateway` (VPS vanan-gateway) → restart crawler container → CD preserve key qua mọi deploy (`cd-multivps.yml` lines 368-369/399).
+
+**Luồng Pending (batch):** trigger 2 MST (`0313143038` + `0302839105-001`) qua `POST /api/v1/crawl/trigger` (activateImmediately=false) → crawler log: `GET companies/{mst}` 200 ×2 → `POST /api/v1/crawl/batch` 200 → **`Crawl complete: imported=2, skipped=0, errors=0`** → PG: 2 `Tenants` Status=5 (Pending) + 2 `CrawlSources` rows. KEPT per user (xem UI).
+
+**Luồng Active (batch-import):** trigger MST `0317777282` (activateImmediately=true) → **`imported=1, activated=[{tenantId, username: owner0317777282, slug: cong-ty-tnhh-tra-sua-79}]`** → PG: tenant Status=1 (Active) + owner User + UserTenants + CrawlSources. **CLEANED UP** (DELETE 4 rows, verify 0 — user duyệt dọn test data).
+
+**Kết luận:** chức năng crawl tenant HOÀN CHỈNH — code không cần sửa gì sau khi có key (field mapping + `x-api-key` header đã đúng từ trước).
 
 ## 7. CORRECTIONS APPLIED
 
