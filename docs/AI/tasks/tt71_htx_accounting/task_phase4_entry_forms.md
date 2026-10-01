@@ -1,0 +1,47 @@
+# TASK CARD: Phase 4 — Phiếu thu/chi theo chuẩn tenant (TK HTX)
+
+> **Master plan:** `docs/AI/plans/tt71-htx-accounting-master-plan.md`
+> **Status:** PENDING (Q5: mẫu in chứng từ PL II?)
+
+## 1. OBJECTIVE
+
+`RevenueEntry.razor` + `ExpenseEntry.razor` dùng account options theo chuẩn kế toán của tenant (không hardcode DN).
+
+## 2. HIỆN TRẠNG (mâu thuẫn với TT 71)
+
+- `RevenueEntry.razor` `GetRevenueAccounts()`: **511/512/515/711** — 515, 711 KHÔNG tồn tại trong TT 71
+- `ExpenseEntry.razor` `GetExpenseAccounts()`: **621/622/627/641/642** — TT 71 chỉ có 642 (+658, 611/612)
+
+## 3. CHANGES
+
+| File | Change |
+|---|---|
+| `5_WebApps/ShopERP/Components/Pages/Accounting/RevenueEntry.razor` | `GetRevenueAccounts()`: branch theo tenant standard/type — HTX: 511 (bên ngoài), 512 (nội bộ), 558 (thu nhập khác); DN: giữ 511/512/515/711; HKD: giữ hiện tại |
+| `5_WebApps/ShopERP/Components/Pages/Accounting/ExpenseEntry.razor` | `GetExpenseAccounts()`: HTX: 642 (CP QLKD), 658 (chi phí khác) [+611/612 nếu duyệt]; DN/HKD: giữ |
+| (MỚI — dùng chung) `5_WebApps/ShopERP/Services/Accounting/AccountingAccountProvider.cs` | Helper `GetRevenueAccounts(TenantType/AccountingStandard)` + `GetExpenseAccounts(...)` — tránh duplicate logic 2 page |
+
+### Cách lấy standard của tenant
+
+- `ITenantProvider` (tenant id) → `TenantManagementService.GetTenantByIdAsync` → `Type`/`AccountingStandard` (Phase 1 xong sẽ có HTX→TT71)
+- Fallback nếu chưa có: `TenantType.HKD` → HKD (giữ); `Enterprise_*` → TT 133/99; HTX → TT 71
+- Cache nhẹ (1 lần/load form) — không query lại mỗi render
+
+## 4. UI PLATFORM
+
+- Giữ `DynamicFormFields` + VanAButton/VanACard/VanAAlert — KHÔNG custom HTML/CSS
+- Account select options thay đổi theo tenant là đủ (không đổi layout)
+- HelpText của field "Tài Khoản" có thể thêm note chuẩn áp dụng (VD: "Theo TT 71/2024 — Chế độ kế toán HTX")
+
+## 5. ACCEPTANCE
+
+- [ ] Tenant HTX: phiếu thu chỉ 511/512/558; phiếu chi chỉ 642/658
+- [ ] Tenant DN/HKD: options KHÔNG đổi (không regress)
+- [ ] ShopERP.Tests component render 2 page vẫn PASS (options thay đổi nhưng markup vẫn render)
+- [ ] (Q5 duyệt) Mẫu in phiếu thu/chi theo số hiệu TT 71 (PL II) — scope riêng
+
+## 6. VERIFICATION
+
+```powershell
+dotnet build VanAn.sln
+dotnet test 6_Tests\VanAn.ShopERP.Tests --filter "FullyQualifiedName~RevenueEntry|FullyQualifiedName~ExpenseEntry"
+```
