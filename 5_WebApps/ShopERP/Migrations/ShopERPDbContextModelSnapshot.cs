@@ -2055,6 +2055,9 @@ namespace VanAn.ShopERP.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool?>("IsInternalToHtx")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("IsSyncedToCoreHub")
                         .HasColumnType("INTEGER");
 

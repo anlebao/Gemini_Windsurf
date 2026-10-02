@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace VanAn.ShopERP.Infrastructure.Migrations
+namespace VanAn.ShopERP.Migrations
 {
     /// <inheritdoc />
     public partial class AddOrderHtxInternalFlag : Migration

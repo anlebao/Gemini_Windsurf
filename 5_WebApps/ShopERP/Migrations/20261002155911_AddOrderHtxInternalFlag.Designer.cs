@@ -8,7 +8,7 @@ using VanAn.ShopERP.Infrastructure;
 
 #nullable disable
 
-namespace VanAn.ShopERP.Infrastructure.Migrations
+namespace VanAn.ShopERP.Migrations
 {
     [DbContext(typeof(ShopERPDbContext))]
     [Migration("20261002155911_AddOrderHtxInternalFlag")]
