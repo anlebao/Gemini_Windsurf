@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.MembershipAggregate;
+using VanAn.Shared.Domain.Aggregates.TenantAggregate;
 
 namespace VanAn.CoreHub.Services.Membership
 {
@@ -107,6 +108,75 @@ namespace VanAn.CoreHub.Services.Membership
             logger.LogInformation("Member {MemberId} terminated: {Reason}", memberId, reason);
         }
 
+        /// <inheritdoc />
+        /// <summary>Luồng 2 (2026-10-02, user directive): SystemAdmin add tenant làm thành viên HTX.</summary>
+        public async Task<Guid> AddMemberAsync(
+            Guid htxTenantId,
+            Guid memberTenantId,
+            MembershipType membershipType,
+            decimal? capitalContributionAmount,
+            Guid reviewedByUserId,
+            CancellationToken ct = default)
+        {
+            if (memberTenantId == Guid.Empty)
+                throw new ArgumentException("Member tenant id cannot be empty.", nameof(memberTenantId));
+            if (reviewedByUserId == Guid.Empty)
+                throw new ArgumentException("ReviewedByUserId cannot be empty.", nameof(reviewedByUserId));
+
+            // Guard D6: góp vốn theo loại thành viên (Luật HTX 2023 + user directive).
+            if (membershipType == MembershipType.LinkedNonCapitalMember && capitalContributionAmount is not null)
+                throw new ArgumentException("Linked non-capital member cannot declare a capital contribution.", nameof(capitalContributionAmount));
+            if (membershipType != MembershipType.LinkedNonCapitalMember
+                && (capitalContributionAmount is null || capitalContributionAmount.Value <= 0))
+                throw new ArgumentException("Official and linked-capital members require a capital contribution amount (> 0).", nameof(capitalContributionAmount));
+
+            var htxTenantIdVo = new TenantId(htxTenantId);
+
+            // Guard: HTX phải đã kích hoạt Membership (HtxProfile tồn tại).
+            var htxExists = await dbContext.HtxProfiles
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .AnyAsync(p => p.TenantId == htxTenantIdVo, ct);
+            if (!htxExists)
+                throw new InvalidOperationException($"Tenant {htxTenantId} is not an HTX (no HtxProfile).");
+
+            // Guard D7: member tenant phải đã verify (Active).
+            var memberTenant = await dbContext.Tenants
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == new TenantId(memberTenantId), ct);
+            if (memberTenant is null || memberTenant.Status != TenantStatus.Active)
+                throw new InvalidOperationException(
+                    $"Tenant {memberTenantId} must be verified (Active) before joining an HTX as member.");
+            if (memberTenantId == htxTenantId)
+                throw new InvalidOperationException("A tenant cannot be a member of its own HTX (self-membership).");
+
+            // Duplicate guard: (htx, memberTenant) — unique index UX_Members_HtxTenant.
+            var exists = await dbContext.Members
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .AnyAsync(m => m.TenantId == htxTenantIdVo && m.MemberTenantId == new TenantId(memberTenantId), ct);
+            if (exists)
+                throw new InvalidOperationException($"Tenant {memberTenantId} is already a member of HTX {htxTenantId}.");
+
+            var memberNumber = await GenerateMemberNumberAsync(htxTenantIdVo, ct);
+            var member = Member.CreateActive(
+                htxTenantIdVo,
+                memberNumber,
+                membershipType,
+                memberCustomerId: null,
+                memberTenantId: new TenantId(memberTenantId),
+                capitalContributionAmount: capitalContributionAmount);
+
+            dbContext.Members.Add(member);
+            await dbContext.SaveChangesAsync(ct);
+
+            logger.LogInformation(
+                "Member {MemberId} ({MemberNumber}) added to HTX {HtxId} by SystemAdmin {AdminId} — tenant {MemberTenantId}, type {Type}, capital {Capital}",
+                member.Id, memberNumber, htxTenantId, reviewedByUserId, memberTenantId, membershipType, capitalContributionAmount);
+            return member.Id;
+        }
+
         public async Task<IReadOnlyList<MemberDto>> ListForCustomerAsync(Guid customerId, CancellationToken ct = default)
         {
             // "HTX của tôi" — member xem các HTX mình đang tham gia (multi-HTX — SRS §19).
@@ -122,6 +192,22 @@ namespace VanAn.CoreHub.Services.Membership
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────
+
+        /// <summary>Member number MEM-{htxSlug}-{seq:D6} (SRS §18) — unique index bảo vệ race.</summary>
+        private async Task<string> GenerateMemberNumberAsync(TenantId htxTenantId, CancellationToken ct)
+        {
+            var tenant = await dbContext.Tenants
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == htxTenantId, ct);
+            var slug = tenant?.Settings?.Slug ?? "HTX";
+
+            var count = await dbContext.Members
+                .IgnoreQueryFilters()
+                .CountAsync(m => m.TenantId == htxTenantId, ct);
+
+            return $"MEM-{slug}-{count + 1:D6}";
+        }
 
         private async Task<Member> LoadAsync(Guid memberId, CancellationToken ct)
         {

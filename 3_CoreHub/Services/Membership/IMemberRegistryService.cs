@@ -1,3 +1,5 @@
+using VanAn.Shared.Domain.Aggregates.MembershipAggregate;
+
 namespace VanAn.CoreHub.Services.Membership
 {
     /// <summary>
@@ -10,6 +12,18 @@ namespace VanAn.CoreHub.Services.Membership
     {
         /// <summary>Danh sách thành viên của 1 HTX (HTX officer, tenant-scoped).</summary>
         Task<IReadOnlyList<MemberDto>> ListForHtxAsync(Guid htxTenantId, string? status = null, CancellationToken ct = default);
+
+        /// <summary>
+        /// 2026-10-02 (Luồng 2 — SystemAdmin): thêm tenant làm thành viên HTX trực tiếp.
+        /// Guard: HTX phải có HtxProfile · member tenant phải Active (verify) · góp vốn theo loại (D6) · duplicate (htx, tenant).
+        /// </summary>
+        Task<Guid> AddMemberAsync(
+            Guid htxTenantId,
+            Guid memberTenantId,
+            MembershipType membershipType,
+            decimal? capitalContributionAmount,
+            Guid reviewedByUserId,
+            CancellationToken ct = default);
 
         /// <summary>Chi tiết 1 member (HTX officer).</summary>
         Task<MemberDto?> GetAsync(Guid memberId, CancellationToken ct = default);
