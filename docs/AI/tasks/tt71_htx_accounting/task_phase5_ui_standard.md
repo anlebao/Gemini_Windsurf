@@ -28,7 +28,7 @@ Các màn hình báo cáo chọn đúng chuẩn kế toán theo tenant; tenant H
 
 - Auto-map là DEFAULT — user vẫn có thể đổi select (giữ UX hiện tại)
 - HTX + HKD: HKD tenant KHÔNG dùng BCTC DN (HKD dùng sổ) — kiểm tra trạng thái hiện tại (có thể HKD đang hiện BCTC sai từ lâu — ngoài scope TT 71, note lại)
-- (Q4) `ShopErpMenuService` — menu kế toán theo loại tenant (HTX có thêm mục riêng?) — chờ duyệt
+- **Q4 = KHÔNG:** `TenantType.HTX` KHÔNG đổi `ShopErpMenuService`/feature flags ngoài kế toán — chỉ thêm "TT 71/2024 (HTX)" vào các select chuẩn kế toán
 
 ## 5. ACCEPTANCE
 

@@ -1,7 +1,7 @@
-# TASK CARD: Phase 4 — Phiếu thu/chi theo chuẩn tenant (TK HTX)
+# TASK CARD: Phase 4a — Phiếu thu/chi theo chuẩn tenant (TK HTX)
 
 > **Master plan:** `docs/AI/plans/tt71-htx-accounting-master-plan.md`
-> **Status:** PENDING (Q5: mẫu in chứng từ PL II?)
+> **Status:** PENDING — Q5 = CÓ (mẫu in → Phase 4b riêng: `task_phase4b_voucher_print.md`)
 
 ## 1. OBJECTIVE
 
@@ -37,7 +37,7 @@
 - [ ] Tenant HTX: phiếu thu chỉ 511/512/558; phiếu chi chỉ 642/658
 - [ ] Tenant DN/HKD: options KHÔNG đổi (không regress)
 - [ ] ShopERP.Tests component render 2 page vẫn PASS (options thay đổi nhưng markup vẫn render)
-- [ ] (Q5 duyệt) Mẫu in phiếu thu/chi theo số hiệu TT 71 (PL II) — scope riêng
+- [ ] Mẫu in chứng từ 01-TT/02-TT → Phase 4b (`task_phase4b_voucher_print.md`)
 
 ## 6. VERIFICATION
 

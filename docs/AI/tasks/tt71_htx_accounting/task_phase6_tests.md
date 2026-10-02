@@ -18,6 +18,7 @@ Test đầy đủ cho chart/template/form/mapping TT 71 + không regress các su
 | T5 | Domain test: `TenantType.HTX` + `SetTenantType` + HtxProfile → mapping | VanAn.Core.Tests | Tạo HtxProfile → tenant Type=HTX, Standard=TT71 |
 | T6 | ShopERP.Tests component: RevenueEntry/ExpenseEntry HTX options | VanAn.ShopERP.Tests | Tenant HTX → thu: 511/512/558, chi: 642/658; DN/HKD giữ nguyên |
 | T7 | UI standard select: TrialBalance auto-map HTX | VanAn.ShopERP.Tests | Render + selected value |
+| T8 | Voucher print (Phase 4b): Tt71ReceiptVoucher/Tt71PaymentVoucher render | VanAn.ShopERP.Tests | Mẫu 01-TT/02-TT: header, Nợ/Có, số tiền + chữ, chữ ký — data thật |
 
 ## 3. ACCEPTANCE
 

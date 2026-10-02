@@ -25,19 +25,20 @@ Bổ sung **Chế độ kế toán hợp tác xã (TT 71/2024/TT-BTC)** vào n�
 | Phiếu chi | TK hợp lệ: 642, 658, 611/612 | `ExpenseEntry.razor`: 621/622/627/641/642 (621/622/627/641 sai) |
 | BCTC | B01-HTX, B02-HTX, B09-HTX (không có B03) | Mẫu DN: `Tt99Templates` (B01-DN/B02-DN/B 03-DN) — `IncomeStatementService.cs:79`, `BalanceSheetService.cs:80`; CashFlowStatement.razor hiện "B 03-DN" |
 
-## 3. SCOPE (7 phases)
+## 3. SCOPE (7 phases — Q1-Q5 đã chốt 2026-10-01)
 
 | Phase | Tên | Layer | Gate | Task card |
 |---|---|---|---|---|
-| 1 | Domain: `AccountingStandard.TT71_2024` + `TenantType.HTX` + mapping | 1_Shared | **Gate 5 (Domain)** — cần user approval | `task_phase1_domain_standard.md` |
+| 1 | Domain: `AccountingStandard.TT71_2024` + `TenantType.HTX` + mapping + **backfill HTX cũ (Q3)** | 1_Shared + CoreHub | **Gate 5 (Domain)** — cần user approval | `task_phase1_domain_standard.md` |
 | 2 | Chart TT 71 seeder (PL I đầy đủ) | 3_CoreHub (Seed) | — | `task_phase2_chart_seed.md` |
-| 3 | Template BCTC HTX: `Tt71Templates` (B01-HTX + B02-HTX + B09-HTX) + nhánh service | 3_CoreHub + ShopERP | — | `task_phase3_report_templates.md` |
-| 4 | Phiếu thu/chi theo chuẩn tenant (account options động) | 5_WebApps/ShopERP | UI Platform compliance | `task_phase4_entry_forms.md` |
-| 5 | UI chọn chuẩn + auto-map tenant→standard (kể cả HTX) | 5_WebApps/ShopERP | UI Platform compliance | `task_phase5_ui_standard.md` |
+| 3 | Template BCTC HTX: `Tt71Templates` (B01-HTX + **B02-HTX + B09-HTX (Q2: làm luôn)**) + nhánh service | 3_CoreHub + ShopERP | — | `task_phase3_report_templates.md` |
+| 4a | Phiếu thu/chi theo chuẩn tenant (account options động) | 5_WebApps/ShopERP | UI Platform compliance | `task_phase4_entry_forms.md` |
+| 4b | **Mẫu in chứng từ PL II (Q5: CÓ)** — Phiếu thu **01-TT** + Phiếu chi **02-TT** (theo `docs/Accounting_Doc/phu-luc-II-Thong-tu-71.docx`) | 5_WebApps/ShopERP | UI Platform compliance | `task_phase4b_voucher_print.md` |
+| 5 | UI chọn chuẩn + auto-map tenant→standard (kể cả HTX); **Q4: KHÔNG đụng menu/feature flags ngoài kế toán** | 5_WebApps/ShopERP | UI Platform compliance | `task_phase5_ui_standard.md` |
 | 6 | Tests (seeder/template/form/mapper) | 6_Tests | — | `task_phase6_tests.md` |
 | 7 | RV production + tài liệu (state/task cards) | production | Playwright Gate 3 | `task_phase7_rv.md` |
 
-**Dependency chain:** 1 → 2 → 3 → 4 ∥ 5 → 6 → 7.
+**Dependency chain:** 1 → 2 → 3 → (4a ∥ 4b ∥ 5) → 6 → 7.
 
 ## 4. DESIGN DECISIONS (đề xuất — chờ user duyệt)
 
@@ -49,9 +50,9 @@ Bổ sung **Chế độ kế toán hợp tác xã (TT 71/2024/TT-BTC)** vào n�
 | D4 | `Tt71Templates` (mirror `Tt99Templates`): `BalanceSheetTt71` (B01-HTX), `IncomeStatementTt71` (B02-HTX), `NotesTt71` (B09-HTX — scope mở rộng, có thể defer) | B02-HTX tách **giao dịch nội bộ/ngoài** (01a/01b...20a/20b) — template line cần field nhãn + account mapping riêng |
 | D5 | Service branch: `IncomeStatementService`/`BalanceSheetService` — `standard == TT71_2024` → dùng `Tt71Templates` | CashFlow: TT 71 không yêu cầu → `CashFlowStatement.razor` ẩn tab khi tenant HTX |
 | D6 | Phiếu thu/chi: account options tính theo `TenantProvider` type/standard — HTX: thu = 511/512/558; chi = 642/658 (+611/612 nếu cần) | Tránh hardcode; helper dùng chung (giống `GetRevenueAccounts()` hiện tại nhưng có branch) |
-| D7 | **Sổ kế toán HTX (PL III) — DEFER**: file spec KHÔNG có PL III (chỉ I/II/IV). Cần file PL III riêng hoặc quyết định dùng sổ hiện có (Sổ nhật ký chung theo dõi theo TK TT 71) | Open Q1 |
-| D8 | Tenant HTX cũ (đã có HtxProfile trước phase 1): backfill `SetTenantType(HTX, TT71)` khi deploy | Script/migration data — chờ duyệt |
-| D9 | Chứng từ PL II (Phiếu thu/chi mẫu số TT 71): dùng page phiếu thu/chi hiện có, chỉ sửa TK + nhãn — KHÔNG làm mẫu in riêng (scope nhỏ) | Có thể làm Phase 4b nếu user cần mẫu in |
+| D7 | **Sổ kế toán HTX (PL III) — DEFER**: spec `Thông tư 71-2024-TT-BTC.doc` (PL I/II/IV) + `phu-luc-II-Thong-tu-71.docx` (PL II) đều KHÔNG có PL III. Cần file PL III riêng (user cung cấp sau) hoặc dùng sổ hiện có theo dõi theo TK TT 71 | Q1 RESOLVED 2026-10-01 — PL II có (chứng từ), PL III vẫn thiếu → defer sổ |
+| D8 | **Backfill tenant HTX cũ (Q3 = CÓ):** sau Phase 1, script cập nhật tenant đã có `HtxProfile` → `SetTenantType(HTX, TT71_2024)` (idempotent, chạy khi deploy) | Q3 RESOLVED |
+| D9 | **Mẫu in chứng từ PL II (Q5 = CÓ):** Phase 4b — Phiếu thu **01-TT** + Phiếu chi **02-TT** (structure từ `docs/Accounting_Doc/phu-luc-II-Thong-tu-71.docx`), render từ dữ liệu entry thật | Q5 RESOLVED |
 
 ## 5. CHART TÀI KHOẢN TT 71 (PL I — verified từ spec)
 
@@ -87,15 +88,15 @@ Bổ sung **Chế độ kế toán hợp tác xã (TT 71/2024/TT-BTC)** vào n�
 | Playwright Gate 3 | Phase 1-6 | Playwright DISABLED khi code; chỉ Phase 7 |
 | KhachLink HTTP-only | N/A | Không đụng KhachLink |
 
-## 8. OPEN QUESTIONS
+## 8. OPEN QUESTIONS (ALL RESOLVED 2026-10-01)
 
-| # | Question | Resolve before | Owner |
-|---|---|---|---|
-| Q1 | **PL III (Sổ kế toán HTX) không có trong file spec** — user có file PL III không? Nếu có → Phase sổ HTX riêng; nếu không → defer (D7), dùng sổ hiện có theo dõi TK TT 71 | Phase 4 (trước khi chốt scope sổ) | User |
-| Q2 | B09-HTX (Thuyết minh BCTC) làm ngay (Phase 3b) hay defer? | Phase 3 | User |
-| Q3 | Backfill tenant HTX cũ → `SetTenantType(HTX, TT71)` — chạy khi deploy hay để user tự chọn trong UI? | Phase 1 | User |
-| Q4 | `TenantType.HTX` có nên thay đổi `ShopErpMenuService`/feature flags không (ngoài kế toán)? | Phase 5 | Dev |
-| Q5 | Mẫu in chứng từ PL II (Phiếu thu/chi số hiệu TT 71) — có cần không? | Phase 4 | User |
+| # | Question | Resolution |
+|---|---|---|
+| Q1 | PL III (Sổ kế toán HTX)? | **RESOLVED:** user cung cấp `docs/Accounting_Doc/phu-luc-II-Thong-tu-71.docx` = **PL II chứng từ đầy đủ** (01-VT→07-VT, 01-BH→03-BH, **01-TT→09-TT** (Phiếu thu/chi), 01-TSCĐ→06-TSCĐ, 01a/01b-LĐTL→11-LĐTL). **PL III (sổ) vẫn chưa có** → sổ HTX defer (D7) |
+| Q2 | B09-HTX (Thuyết minh BCTC)? | **RESOLVED: làm luôn** — Phase 3 gồm B01-HTX + B02-HTX + B09-HTX |
+| Q3 | Backfill tenant HTX cũ? | **RESOLVED: CÓ** — `SetTenantType(HTX, TT71_2024)` idempotent khi deploy (Phase 1) |
+| Q4 | `TenantType.HTX` ảnh hưởng menu/feature flags ngoài kế toán? | **RESOLVED: KHÔNG** — chỉ trong scope kế toán |
+| Q5 | Mẫu in chứng từ PL II? | **RESOLVED: CÓ** — Phase 4b: Phiếu thu **01-TT** + Phiếu chi **02-TT** |
 
 ## 9. ACCEPTANCE CRITERIA
 
@@ -110,6 +111,7 @@ Bổ sung **Chế độ kế toán hợp tác xã (TT 71/2024/TT-BTC)** vào n�
 
 ## 10. RELATED FILES
 
-- **Spec:** `docs/specs/Thông tư 71-2024-TT-BTC.doc` + extract `.devin/tt71_extracted.txt`
+- **Spec:** `docs/specs/Thông tư 71-2024-TT-BTC.doc` (PL I + PL II + PL IV; extract `.devin/tt71_extracted.txt`)
+- **Spec PL II (chứng từ):** `docs/Accounting_Doc/phu-luc-II-Thong-tu-71.docx` (extract `.devin/tt71_pl2_extracted.txt`)
 - **Task cards:** `docs/AI/tasks/tt71_htx_accounting/task_phase{1-7}_*.md`
 - **Code refs:** `1_Shared/Domain.cs:3586,3601` (enum) · `3_CoreHub/Infrastructure/Seed/AccountChartSeeder.cs` · `3_CoreHub/Services/Data/Tt99Templates.cs` · `3_CoreHub/Services/{IncomeStatementService,BalanceSheetService,HKDBookService}.cs` · `5_WebApps/ShopERP/Components/Pages/Accounting/{RevenueEntry,ExpenseEntry,TrialBalance,FinancialReports}.razor`

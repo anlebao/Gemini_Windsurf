@@ -1,17 +1,17 @@
-# TASK CARD: Phase 3 — Template BCTC HTX (B01-HTX + B02-HTX [+ B09-HTX])
+# TASK CARD: Phase 3 — Template BCTC HTX (B01-HTX + B02-HTX + B09-HTX)
 
 > **Master plan:** `docs/AI/plans/tt71-htx-accounting-master-plan.md`
-> **Status:** PENDING (Q2: B09-HTX ngay hay defer)
+> **Status:** PENDING — Q2 = CÓ (B09-HTX làm luôn)
 
 ## 1. OBJECTIVE
 
-Tạo `Tt71Templates` (mirror `Tt99Templates.cs`) + nhánh service cho tenant HTX.
+Tạo `Tt71Templates` (mirror `Tt99Templates.cs`) + nhánh service cho tenant HTX: B01-HTX, B02-HTX, B09-HTX.
 
 ## 2. CHANGES
 
 | File | Change |
 |---|---|
-| `3_CoreHub/Services/Data/Tt71Templates.cs` (MỚI) | `BalanceSheetTt71` (B01-HTX) + `IncomeStatementTt71` (B02-HTX) [+ `NotesTt71` (B09-HTX) nếu Q2=ngay] — theo cấu trúc `Tt99ReportTemplate`/`Tt99TemplateLine` |
+| `3_CoreHub/Services/Data/Tt71Templates.cs` (MỚI) | `BalanceSheetTt71` (B01-HTX) + `IncomeStatementTt71` (B02-HTX) + `NotesTt71` (B09-HTX — Q2=ngay) — theo cấu trúc `Tt99ReportTemplate`/`Tt99TemplateLine` |
 | `3_CoreHub/Services/IncomeStatementService.cs` | Nhánh `standard == AccountingStandard.TT71_2024` → `GenerateWithTemplateAsync` với `Tt71Templates.IncomeStatementTt71` |
 | `3_CoreHub/Services/BalanceSheetService.cs` | Nhánh TT71 → `Tt71Templates.BalanceSheetTt71` |
 | `3_CoreHub/Services/CashFlowStatementService.cs` (nếu có) | TT 71 KHÔNG yêu cầu B03 — service không cần nhánh; UI ẩn tab (Phase 5) |
@@ -37,8 +37,10 @@ Tạo `Tt71Templates` (mirror `Tt99Templates.cs`) + nhánh service cho tenant HT
 - Tài sản: 110 Tiền · 120 ĐTTC · 130 Phải thu · 140 Hàng tồn kho · 150 TSCĐ (+ tài sản chung không chia) · 160 TSCĐ chung không chia?? · ... → **trích chi tiết từ `.devin/tt71_extracted.txt` khi implement** (mục "1. Báo cáo tình hình tài chính (Mẫu số B01 - HTX)")
 - Nguồn vốn: 310 Phải trả người bán · 320 Người mua trả tiền trước · 330 Thuế · 340... · VCSH 400 (gồm quỹ chung không chia 442) · Tổng 500
 
-### B09-HTX (Thuyết minh) — Q2
-- I. Đặc điểm hoạt động HTX · II. Kỳ kế toán/đơn vị tiền tệ · III. Chế độ kế toán áp dụng · IV. Thông tin bổ sung từng khoản mục...
+### B09-HTX (Thuyết minh — Q2 = CÓ)
+- I. Đặc điểm hoạt động của HTX (lĩnh vực/ngành nghề) · II. Kỳ kế toán, đơn vị tiền tệ · III. Chế độ kế toán áp dụng (nêu số hiệu TT 71) · IV. Thông tin bổ sung cho từng khoản mục B01-HTX (Tiền, ĐTTC, Phải thu, HTK, TSCĐ, TSCĐ chung không chia, Nợ phải trả, VCSH, Quỹ chung không chia...) · V. Thông tin bổ sung B02-HTX (doanh thu nội/ngoại, chi phí QLKD phân bổ...) · VI. Các chỉ tiêu ngoài bảng (001-008)
+- Trích chi tiết cấu trúc từ `.devin/tt71_extracted.txt` (mục "3. Bản thuyết minh Báo cáo tài chính (Mẫu số B09 - HTX)") khi implement
+- Có thể render dạng HTML/DOCX tĩnh (như IncomeStatement.razor export) — không cần service tính toán phức tạp (đa số là text + số từ B01/B02)
 
 ## 4. LƯU Ý
 
@@ -48,9 +50,9 @@ Tạo `Tt71Templates` (mirror `Tt99Templates.cs`) + nhánh service cho tenant HT
 
 ## 5. ACCEPTANCE
 
-- [ ] B01-HTX + B02-HTX render đúng mã số/nhãn TT 71
+- [ ] B01-HTX + B02-HTX + B09-HTX render đúng mã số/nhãn TT 71
 - [ ] HTX không sinh B03 (UI ẩn)
-- [ ] Test template: `Tt71TemplatesTests` (cấu trúc + tính toán số liệu giả)
+- [ ] Test template: `Tt71TemplatesTests` (cấu trúc + tính toán số liệu giả) + B09 render test
 
 ## 6. VERIFICATION
 
