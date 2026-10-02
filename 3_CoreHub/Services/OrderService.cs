@@ -9,6 +9,7 @@ using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Common;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate;
+using VanAn.Shared.Domain.Aggregates.MembershipAggregate;
 using UUIDNext;
 using VanAn.CoreHub.Commands;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
@@ -135,6 +136,21 @@ namespace VanAn.CoreHub.Services
 
             try
             {
+                // TT 71/2024 (2026-10-02, user directive): tenant bán là HTX → xác định giao dịch
+                // nội bộ (buyer = customer sở hữu tenant là member active của HTX) → 512/612; ngoài → 511/611.
+                if (_dbContext is not null)
+                {
+                    var sellingTenant = await _dbContext.Tenants
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(t => t.Id == tenant);
+                    if (sellingTenant is not null
+                        && sellingTenant.AccountingStandard == AccountingStandard.TT71_2024)
+                    {
+                        order.SetHtxInternalFlag(await IsBuyerHtxMemberAsync(tenant, order.CustomerId));
+                    }
+                }
+
                 // 1. Create order using repository (NO accounting entries — see ConfirmPaymentAsync)
                 Order newOrder = await _orderRepository.AddAsync(order);
 
@@ -206,6 +222,17 @@ namespace VanAn.CoreHub.Services
                 // W0-T3 (C3): Split VAT — net revenue on 511 + VAT liability on 3331 (if VAT > 0).
                 // W0-T8 (H2): Net revenue approach (HKD path) — credit 511 = SubTotal - DiscountAmount.
                 //   (Discount reduces revenue directly; VAS Gross+521 path deferred to W8 feature-flag.)
+                // TT 71/2024 (2026-10-02): định khoản theo standard tenant bán —
+                // HTX: doanh thu 512 (nội bộ) / 511 (bên ngoài); tenant khác giữ 511.
+                string revenueAccount = "511";
+                string cogsAccount = "632";
+                if (await IsHtxSellingTenantAsync(tenantId))
+                {
+                    bool internalTx = order.IsInternalToHtx == true;
+                    revenueAccount = internalTx ? "512" : "511";
+                    cogsAccount = internalTx ? "612" : "611"; // 632 KHÔNG tồn tại trong TT 71
+                }
+
                 decimal netRevenue = order.SubTotal - order.DiscountAmount;
                 // W0-T7 (H5): Pass order reference for traceability.
                 _ = await _accountingService.CreateRevenueEntryAsync(
@@ -213,7 +240,7 @@ namespace VanAn.CoreHub.Services
                     period,
                     netRevenue,
                     $"Doanh thu bán hàng (net) #{order.Id}",
-                    accountCode: "511",
+                    accountCode: revenueAccount,
                     reference: orderRef,
                     industrySector: sector);
 
@@ -249,12 +276,13 @@ namespace VanAn.CoreHub.Services
                 if (cogsAmount > 0)
                 {
                     // W0-T5 (B3): Fix AccountCode 621→632 (Giá vốn hàng bán).
+                    // TT 71 (2026-10-02): HTX dùng 611 (ngoài)/612 (nội) — 632 không tồn tại trong TT 71.
                     Shared.DTOs.AccountingEntryDto cogsEntry = await _accountingService.CreateExpenseEntryAsync(
                         tenantId,
                         period,
                         cogsAmount,
                         $"Giá vốn hàng bán #{order.Id}",
-                        accountCode: "632",
+                        accountCode: cogsAccount,
                         reference: orderRef,
                         industrySector: sector);
 
@@ -443,6 +471,36 @@ namespace VanAn.CoreHub.Services
         /// Uses actual Product.CostPrice per item; falls back to 70% of UnitPrice for legacy products
         /// (CostPrice not set); ultimate fallback 70% of TotalPrice when Items not loaded.
         /// </summary>
+        /// <summary>TT 71 (2026-10-02): tenant bán có AccountingStandard == TT71_2024?</summary>
+        private async Task<bool> IsHtxSellingTenantAsync(TenantId tenantId)
+        {
+            if (_dbContext is null) return false;
+            return await _dbContext.Tenants
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .AnyAsync(t => t.Id == tenantId && t.AccountingStandard == AccountingStandard.TT71_2024);
+        }
+
+        /// <summary>
+        /// TT 71 (2026-10-02): buyer (customer) có sở hữu tenant là member ACTIVE của HTX bán?
+        /// Buyer→tenant: Tenants.OwnerCustomerId == order.CustomerId (pattern Settlement S1).
+        /// </summary>
+        private async Task<bool> IsBuyerHtxMemberAsync(TenantId htxTenantId, Guid? customerId)
+        {
+            if (_dbContext is null || customerId is null || customerId == Guid.Empty) return false;
+            var buyerTenant = await _dbContext.Tenants
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.OwnerCustomerId == customerId);
+            if (buyerTenant is null) return false;
+            return await _dbContext.Members
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .AnyAsync(m => m.TenantId == htxTenantId
+                    && m.MemberTenantId == buyerTenant.Id
+                    && m.Status == MemberStatus.Active);
+        }
+
         private static decimal CalculateCogsAmount(Order order)
         {
             if (order.Items.Any())

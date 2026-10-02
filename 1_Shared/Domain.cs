@@ -1578,6 +1578,19 @@ namespace VanAn.Shared.Domain
         // Per-order override: if set, takes precedence over Tenant default.
         public IndustrySector? IndustrySector { get; protected set; }
 
+        // TT 71/2024 (2026-10-02, user directive): giao dịch nội bộ HTX — buyer (Customer.OwnerCustomerId)
+        // là member tenant active của HTX bán. Set tại CreateOrderAsync (Gateway order creator).
+        // Dùng cho định khoản: doanh thu 512/giá vốn 612 (nội bộ) vs 511/611 (bên ngoài) — B02-HTX.
+        // Null = tenant bán không phải HTX (không áp dụng).
+        public bool? IsInternalToHtx { get; protected set; }
+
+        /// <summary>TT 71 (2026-10-02): đánh dấu giao dịch nội bộ HTX (service — Gateway order creator).</summary>
+        public void SetHtxInternalFlag(bool isInternal)
+        {
+            IsInternalToHtx = isInternal;
+            UpdateAudit();
+        }
+
         // Navigation Properties
         public Customer? Customer { get; protected set; }
         public virtual ICollection<OrderItem> Items { get; protected set; } = new List<OrderItem>();
