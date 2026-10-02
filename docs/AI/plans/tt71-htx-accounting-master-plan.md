@@ -2,7 +2,7 @@
 
 > Created: 2026-10-01
 > Spec: `docs/specs/Thông tư 71-2024-TT-BTC.doc` (text extract: `.devin/tt71_extracted.txt`)
-> Status: 🏗 IN EXECUTION — **S1 ✅ (Phases 1+2, `597733ef`+`58fe2da8`) · S2 ✅ (Phase 3, `9ef8286c`) · S3 ✅ (Phases 4a/4b/5, `0dfb848f`)** — pushed + CD Multi-VPS SUCCESS ×3 2026-10-02 · Core.Tests 1872 PASS · ShopERP.Tests 116 PASS · guard ALL PASSED · **KẾ TIẾP: S4 (Phases 6+7)**
+> Status: 🏗 IN EXECUTION — **S1 ✅ (Phases 1+2, `597733ef`+`58fe2da8`) · S2 ✅ (Phase 3, `9ef8286c`) · S3 ✅ (Phases 4a/4b/5, `0dfb848f`) · S4 🏗 (Phase 6 tests DONE — Core.Tests 1872 · ShopERP.Tests 120 · Architecture 41 · guard ALL PASSED; Phase 7: L1 chart 89 TK PG ✅ + L2 markers ✅ + Gate 4 spec viết ✅ — L3/L4/L5 ⏳ chờ tenant HTX thật production)** — **KẾ TIẾP: user tạo tenant HTX thật → chạy `tt71-htx.spec.ts` (L3/L4) + manual (L5) → đóng phase 7**
 > Branch (proposed): `feature/tt71-htx-accounting`
 
 ## 1. MỤC TIÊU
@@ -35,8 +35,8 @@ Bổ sung **Chế độ kế toán hợp tác xã (TT 71/2024/TT-BTC)** vào n�
 | **4a** ✅ (S3) | Phiếu thu/chi theo chuẩn tenant (account options động) — DONE `0dfb848f` | 5_WebApps/ShopERP | UI Platform compliance | `task_phase4_entry_forms.md` |
 | **4b** ✅ (S3) | **Mẫu in chứng từ PL II (Q5: CÓ)** — Phiếu thu **01-TT** + Phiếu chi **02-TT** (theo `docs/Accounting_Doc/phu-luc-II-Thong-tu-71.docx`) — DONE `0dfb848f` | 5_WebApps/ShopERP | UI Platform compliance | `task_phase4b_voucher_print.md` |
 | **5** ✅ (S3) | UI chọn chuẩn + auto-map tenant→standard (kể cả HTX); **Q4: KHÔNG đụng menu/feature flags ngoài kế toán** — DONE `0dfb848f` | 5_WebApps/ShopERP | UI Platform compliance | `task_phase5_ui_standard.md` |
-| **6** ⏳ (S4) | Tests (seeder/template/form/mapper) | 6_Tests | — | `task_phase6_tests.md` |
-| **7** ⏳ (S4) | RV production + tài liệu (state/task cards) | production | Playwright Gate 3 | `task_phase7_rv.md` |
+| **6** ✅ (S4) | Tests (T1-T8 all PASS — seeder/template/service/form/UI/voucher) | 6_Tests | — | `task_phase6_tests.md` |
+| **7** 🏗 (S4) | RV production — L1 ✅ (chart 89 TK PG) + L2 ✅ (markers) + Gate 4 spec ✅ · L3/L4/L5 ⏳ chờ tenant HTX thật | production | Playwright Gate 3 | `task_phase7_rv.md` |
 
 **Dependency chain:** 1 → 2 → 3 → (4a ∥ 4b ∥ 5) → 6 → 7.
 
