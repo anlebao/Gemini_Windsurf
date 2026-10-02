@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @layout AdminLayout
 @using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Forms
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
 @using Microsoft.AspNetCore.Components.Authorization
@@ -18,6 +19,7 @@
 @inject ShopInstanceApiClient ShopInstanceApi
 @inject TenantApiClient TenantApi
 @inject TenantClaimApiClient ClaimApi
+@inject MembershipAdminApiClient MembershipAdminApi
 @inject IThemeProvider ThemeProvider
 @inject ILogger<TenantManagement> Logger
 @inject NavigationManager NavigationManager
@@ -169,6 +171,12 @@
                                 {
                                     <VanAButton Variant="primary" Size="small" OnClick="() => ImpersonateTenant(t)" IsLoading="@(_impersonatingTenantId == t.Id)">
                                         <i class="bi bi-person-badge me-1"></i> Impersonate
+                                    </VanAButton>
+                                }
+                                @if (t.Status == TenantStatus.Active)
+                                {
+                                    <VanAButton Variant="success" Size="small" OnClick="() => OpenHtxModal(t)">
+                                        <i class="bi bi-people me-1"></i> Chuyển thành HTX
                                     </VanAButton>
                                 }
                             </td>
@@ -853,6 +861,40 @@
     .verify-credentials code { background: #dcfce7; padding: 2px 6px; border-radius: 4px; }
 </style>
 
+@* 2026-10-02 (Luồng 1 — user directive): tenant → HTX — modal upload tài liệu tùy chọn *@
+<VanAnModal IsOpen="@_showHtxModal" Title="Chuyển thành Hợp tác xã (HTX)" Closable="true" OnClose="CloseHtxModal">
+    @if (_htxTarget != null)
+    {
+        <p class="text-muted mb-3">
+            Chuyển <strong>@_htxTarget.Name</strong> thành Hợp tác xã → áp dụng <strong>Chế độ kế toán HTX (TT 71/2024)</strong>:
+            phiếu thu 511/512/558 · phiếu chi 642/658 · BCTC B01/B02/B09-HTX.
+        </p>
+        <div class="mb-3">
+            <label class="form-label">Phiên bản Điều lệ (mặc định v1.0)</label>
+            <input class="form-control" @bind="_htxCharterVersion" placeholder="VD: v2026-10-01" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Tài liệu HTX (tùy chọn, không bắt buộc — Điều lệ/Giấy đăng ký)</label>
+            <InputFile OnChange="OnHtxDocumentSelected" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
+            @if (_htxDocUploading)
+            {
+                <div class="text-muted small mt-1">Đang tải lên...</div>
+            }
+            @if (!string.IsNullOrEmpty(_htxDocUrl))
+            {
+                <div class="text-success small mt-1">✅ Đã đính kèm tài liệu</div>
+            }
+        </div>
+        @if (!string.IsNullOrEmpty(_htxAlertMessage))
+        {
+            <VanAAlert Type="@_htxAlertType" Message="@_htxAlertMessage" CssClass="mb-3" />
+        }
+        <VanAButton Variant="primary" OnClick="ConfirmHtx" IsLoading="@_htxSaving">
+            <i class="bi bi-rocket-takeoff me-1"></i> Xác nhận chuyển thành HTX
+        </VanAButton>
+    }
+</VanAnModal>
+
 @code {
 #pragma warning disable CS0618 // Tenant obsolete — using new TenantAggregate.Tenant explicitly below
     // Tenants loaded from Gateway API (PostgreSQL) — NOT local SQLite
@@ -863,6 +905,79 @@
     private bool _isSaving;
     private string _alertMessage = string.Empty;
     private string _alertType = "info";
+
+    // ── 2026-10-02 (Luồng 1): tenant → HTX ──
+    private bool _showHtxModal;
+    private TenantApiDto? _htxTarget;
+    private string _htxCharterVersion = string.Empty;
+    private string? _htxDocUrl;
+    private bool _htxDocUploading;
+    private bool _htxSaving;
+    private string _htxAlertMessage = string.Empty;
+    private string _htxAlertType = "info";
+
+    private void OpenHtxModal(TenantApiDto t)
+    {
+        _htxTarget = t;
+        _htxCharterVersion = string.Empty;
+        _htxDocUrl = null;
+        _htxAlertMessage = string.Empty;
+        _showHtxModal = true;
+    }
+
+    private void CloseHtxModal()
+    {
+        _showHtxModal = false;
+        _htxTarget = null;
+    }
+
+    private async Task OnHtxDocumentSelected(InputFileChangeEventArgs e)
+    {
+        if (e.File is null) return;
+        _htxDocUploading = true;
+        _htxAlertMessage = string.Empty;
+        try
+        {
+            await using var stream = e.File.OpenReadStream(5 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            _htxDocUrl = await MembershipAdminApi.UploadDocumentAsync(ms.ToArray(), e.File.Name);
+        }
+        catch (Exception ex)
+        {
+            _htxAlertType = "error";
+            _htxAlertMessage = $"Tải tài liệu thất bại: {ex.Message}";
+        }
+        finally
+        {
+            _htxDocUploading = false;
+        }
+    }
+
+    private async Task ConfirmHtx()
+    {
+        if (_htxTarget is null) return;
+        _htxSaving = true;
+        _htxAlertMessage = string.Empty;
+        try
+        {
+            await MembershipAdminApi.CreateHtxProfileForTenantAsync(
+                _htxTarget.Id,
+                string.IsNullOrWhiteSpace(_htxCharterVersion) ? null : _htxCharterVersion.Trim(),
+                _htxDocUrl);
+            _htxAlertType = "success";
+            _htxAlertMessage = $"✅ {_htxTarget.Name} đã trở thành Hợp tác xã (TT 71).";
+        }
+        catch (Exception ex)
+        {
+            _htxAlertType = "error";
+            _htxAlertMessage = $"Lỗi: {ex.Message}";
+        }
+        finally
+        {
+            _htxSaving = false;
+        }
+    }
 
     // Create modal
     private bool _showCreateModal;
