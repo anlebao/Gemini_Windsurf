@@ -2,7 +2,7 @@
 
 > Created: 2026-10-01
 > Spec: `docs/specs/Thông tư 71-2024-TT-BTC.doc` (text extract: `.devin/tt71_extracted.txt`)
-> Status: 🏗 IN EXECUTION — **S1 ✅ (Phases 1+2, `597733ef`+`58fe2da8`) · S2 ✅ (Phase 3, `9ef8286c`)** — pushed + CD Multi-VPS SUCCESS 2026-10-02 · Core.Tests 1872 PASS · guard ALL PASSED · **KẾ TIẾP: S3 (Phases 4a/4b/5)**
+> Status: 🏗 IN EXECUTION — **S1 ✅ (Phases 1+2, `597733ef`+`58fe2da8`) · S2 ✅ (Phase 3, `9ef8286c`) · S3 ✅ (Phases 4a/4b/5, `0dfb848f`)** — pushed + CD Multi-VPS SUCCESS ×3 2026-10-02 · Core.Tests 1872 PASS · ShopERP.Tests 116 PASS · guard ALL PASSED · **KẾ TIẾP: S4 (Phases 6+7)**
 > Branch (proposed): `feature/tt71-htx-accounting`
 
 ## 1. MỤC TIÊU
@@ -32,9 +32,9 @@ Bổ sung **Chế độ kế toán hợp tác xã (TT 71/2024/TT-BTC)** vào n�
 | **1** ✅ (S1) | Domain: `AccountingStandard.TT71_2024` + `TenantType.HTX` + mapping + **backfill HTX cũ (Q3)** — DONE `597733ef` | 1_Shared + CoreHub | **Gate 5 (Domain)** — approved 2026-10-01 | `task_phase1_domain_standard.md` |
 | **2** ✅ (S1) | Chart TT 71 seeder (PL I đầy đủ — 89 TK) — DONE `58fe2da8` | 3_CoreHub (Seed) | — | `task_phase2_chart_seed.md` |
 | **3** ✅ (S2) | Template BCTC HTX: `Tt71Templates` (B01-HTX + B02-HTX + **B09-HTX (Q2: làm luôn)**) + nhánh service — DONE `9ef8286c` | 3_CoreHub + ShopERP | — | `task_phase3_report_templates.md` |
-| **4a** ⏳ (S3) | Phiếu thu/chi theo chuẩn tenant (account options động) | 5_WebApps/ShopERP | UI Platform compliance | `task_phase4_entry_forms.md` |
-| **4b** ⏳ (S3) | **Mẫu in chứng từ PL II (Q5: CÓ)** — Phiếu thu **01-TT** + Phiếu chi **02-TT** (theo `docs/Accounting_Doc/phu-luc-II-Thong-tu-71.docx`) | 5_WebApps/ShopERP | UI Platform compliance | `task_phase4b_voucher_print.md` |
-| **5** ⏳ (S3) | UI chọn chuẩn + auto-map tenant→standard (kể cả HTX); **Q4: KHÔNG đụng menu/feature flags ngoài kế toán** | 5_WebApps/ShopERP | UI Platform compliance | `task_phase5_ui_standard.md` |
+| **4a** ✅ (S3) | Phiếu thu/chi theo chuẩn tenant (account options động) — DONE `0dfb848f` | 5_WebApps/ShopERP | UI Platform compliance | `task_phase4_entry_forms.md` |
+| **4b** ✅ (S3) | **Mẫu in chứng từ PL II (Q5: CÓ)** — Phiếu thu **01-TT** + Phiếu chi **02-TT** (theo `docs/Accounting_Doc/phu-luc-II-Thong-tu-71.docx`) — DONE `0dfb848f` | 5_WebApps/ShopERP | UI Platform compliance | `task_phase4b_voucher_print.md` |
+| **5** ✅ (S3) | UI chọn chuẩn + auto-map tenant→standard (kể cả HTX); **Q4: KHÔNG đụng menu/feature flags ngoài kế toán** — DONE `0dfb848f` | 5_WebApps/ShopERP | UI Platform compliance | `task_phase5_ui_standard.md` |
 | **6** ⏳ (S4) | Tests (seeder/template/form/mapper) | 6_Tests | — | `task_phase6_tests.md` |
 | **7** ⏳ (S4) | RV production + tài liệu (state/task cards) | production | Playwright Gate 3 | `task_phase7_rv.md` |
 
@@ -104,10 +104,10 @@ Bổ sung **Chế độ kế toán hợp tác xã (TT 71/2024/TT-BTC)** vào n�
 - [x] `guard-check.ps1` PASS (S1 + S2)
 - [x] `AccountingStandard.TT71_2024` + `TenantType.HTX` tồn tại; tenant HTX (HtxProfile) auto-map TT 71 (Phase 1)
 - [x] AccountChart seed TT 71 (89 TK — cấp 1 + cấp 2/3) — không đụng TT 133/99 (Phase 2)
-- [ ] Phiếu thu HTX: chỉ 511/512/558; Phiếu chi HTX: chỉ 642/658 (và 611/612 nếu duyệt) — Phase 4a (S3)
-- [x] B01-HTX + B02-HTX render đúng cấu trúc (tách nội bộ/ngoài) ở mức service+template; HTX KHÔNG thấy B03 (CashFlow page chặn) — UI display hoàn chỉnh Phase 5 (S3)
-- [x] Tests mới PASS — T1-T4 (seeder/template/service) + Core.Tests 1872 + ShopERP.Tests 99 không regress; T5-T8 còn lại Phase 6 (S4)
-- [ ] RV production 5-layer PASS (per `.devin/rules/runtime-verification.md`) — RV nhẹ (markers) đã PASS sau S1/S2; RV đầy đủ Phase 7 (S4)
+- [x] Phiếu thu HTX: chỉ 511/512/558; Phiếu chi HTX: chỉ 642/658 (611/612 chưa duyệt — note) — Phase 4a (S3)
+- [x] B01-HTX + B02-HTX render đúng cấu trúc (tách nội bộ/ngoài) + UI display hoàn chỉnh (auto-map HTX → TT 71, FinancialReports hub ẩn B03) — Phase 5 (S3)
+- [x] Tests mới PASS — T1-T4 + T6 (phiếu thu/chi HTX options) + T8 (voucher render) + Core.Tests 1872 + ShopERP.Tests 116 không regress; T5/T7 còn lại Phase 6 (S4)
+- [ ] RV production 5-layer PASS (per `.devin/rules/runtime-verification.md`) — RV nhẹ (markers) đã PASS sau S1/S2/S3; RV đầy đủ Phase 7 (S4)
 
 ## 10. RELATED FILES
 

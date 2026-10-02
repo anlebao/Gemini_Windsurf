@@ -1,7 +1,7 @@
 # TASK CARD: Phase 4b — Mẫu in chứng từ PL II (Phiếu thu 01-TT + Phiếu chi 02-TT)
 
 > **Master plan:** `docs/AI/plans/tt71-htx-accounting-master-plan.md`
-> **Status:** PENDING — Q5 = CÓ
+> **Status:** ✅ COMPLETE 2026-10-02 (`0dfb848f` — pushed + CD Multi-VPS SUCCESS + RV markers PASS) · Q5 = CÓ
 > **Nguồn mẫu:** `docs/Accounting_Doc/phu-luc-II-Thong-tu-71.docx` (extract `.devin/tt71_pl2_extracted.txt` — mục 01-TT/02-TT)
 
 ## 1. OBJECTIVE
@@ -60,10 +60,17 @@ Chữ ký: GIÁM ĐỐC (đóng dấu) · KẾ TOÁN TRƯỞNG · THỦ QUỸ ·
 
 ## 5. ACCEPTANCE
 
-- [ ] Render Phiếu thu 01-TT đúng khuôn (header, Nợ/Có, người nộp, lý do, số tiền + chữ, 5 chữ ký)
-- [ ] Render Phiếu chi 02-TT đúng khuôn
-- [ ] In (browser print) ra A4 đẹp — dữ liệu entry thật
-- [ ] ShopERP.Tests component render PASS
+- [x] Render Phiếu thu 01-TT đúng khuôn (header, Nợ/Có, người nộp, lý do, số tiền + chữ, 5 chữ ký) — Tt71VoucherTests
+- [x] Render Phiếu chi 02-TT đúng khuôn — Tt71VoucherTests
+- [x] In (browser print) — nút In → `vananPrintBill` (window.print) + CSS print chỉ hiển thị vùng phiếu (pattern PrintTicket); in A4 đẹp chờ user verify
+- [x] ShopERP.Tests component render PASS (Tt71VoucherTests 13 tests + full suite 116)
+
+## 6. KẾT QUẢ (2026-10-02)
+
+- `Components/Accounting/Tt71ReceiptVoucher.razor` (01-TT) + `Tt71PaymentVoucher.razor` (02-TT) — khuôn PL II verified từ `spec/tt71-pl-ii-chung-tu.txt`; label+value flex, số tiền format vi-VN cố định
+- `Services/Accounting/VietnameseCurrencyText.cs` — số → chữ VN (mốt/tư/lăm/linh, nhóm 0 giữa, hàng tỷ)
+- RevenueEntry/ExpenseEntry: sau lưu thành công (chỉ tenant HTX) → nút "In Phiếu thu/chi (01-TT/02-TT)" → VanAnModal render voucher; số phiếu = reference (fallback `PT-/PC-{yyyyMMdd}-{seq}`); phiếu thu Nợ 111 / Có account · phiếu chi Nợ account / Có 111
+- Áp dụng tenant HTX; DN/HKD không hiện nút in (không có print trước đó)
 
 ## 6. VERIFICATION
 

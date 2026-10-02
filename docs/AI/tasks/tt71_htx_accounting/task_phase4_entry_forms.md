@@ -1,7 +1,7 @@
 # TASK CARD: Phase 4a — Phiếu thu/chi theo chuẩn tenant (TK HTX)
 
 > **Master plan:** `docs/AI/plans/tt71-htx-accounting-master-plan.md`
-> **Status:** PENDING — Q5 = CÓ (mẫu in → Phase 4b riêng: `task_phase4b_voucher_print.md`)
+> **Status:** ✅ COMPLETE 2026-10-02 (`0dfb848f` — pushed + CD Multi-VPS SUCCESS + RV markers PASS) · Q5 = CÓ (mẫu in → Phase 4b riêng: `task_phase4b_voucher_print.md`)
 
 ## 1. OBJECTIVE
 
@@ -34,10 +34,16 @@
 
 ## 5. ACCEPTANCE
 
-- [ ] Tenant HTX: phiếu thu chỉ 511/512/558; phiếu chi chỉ 642/658
-- [ ] Tenant DN/HKD: options KHÔNG đổi (không regress)
-- [ ] ShopERP.Tests component render 2 page vẫn PASS (options thay đổi nhưng markup vẫn render)
-- [ ] Mẫu in chứng từ 01-TT/02-TT → Phase 4b (`task_phase4b_voucher_print.md`)
+- [x] Tenant HTX: phiếu thu chỉ 511/512/558; phiếu chi chỉ 642/658 (T6 tests — không chứa 515/711/621/622/627/641)
+- [x] Tenant DN/HKD: options KHÔNG đổi (T6 Enterprise tests — không regress)
+- [x] ShopERP.Tests component render 2 page PASS (116 full suite)
+- [x] Mẫu in chứng từ 01-TT/02-TT → Phase 4b (`task_phase4b_voucher_print.md`)
+
+## 6. KẾT QUẢ (2026-10-02)
+
+- `5_WebApps/ShopERP/Services/Accounting/AccountingAccountProvider.cs` (mới) — single source: `GetRevenueAccounts/GetExpenseAccounts/GetAccountHelpText(TenantType?)`; HTX → thu 511/512/558 · chi 642/658; DN/HKD giữ nguyên
+- `RevenueEntry.razor`/`ExpenseEntry.razor`: inject `IVasFeatureFlagService` + `OnInitializedAsync` → `_tenantType` → options động + HelpText "Theo TT 71/2024 (Chế độ kế toán HTX)"
+- 611/612 (giá vốn nội/ngoài) chưa đưa vào phiếu chi HTX — chờ user duyệt (D6 "nếu duyệt")
 
 ## 6. VERIFICATION
 
