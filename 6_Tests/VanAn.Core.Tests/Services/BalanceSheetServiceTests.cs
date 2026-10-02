@@ -199,4 +199,65 @@ public class BalanceSheetServiceTests
         Assert.NotNull(line111);
         Assert.Equal(46_000_000m, line111!.EndingAmount, precision: 0);
     }
+
+    // ── TT 71 Phase 3 (T4): B01-HTX ──────────────────────────────────────
+
+    private async Task<(VanAnDbContext db, BalanceSheetService svc)> SetupTt71Async()
+    {
+        TestContextScope scope = VanAnDbContextTestFactory.Create();
+        scope.TenantProvider?.SetTenant(Tt71SampleDataSeeder.Tt71TenantGuid);
+        VanAnDbContext db = scope.Context;
+        _ = await AccountChartSeeder.SeedAsync(db, NullLogger.Instance);
+        await Tt71SampleDataSeeder.SeedAsync(db);
+        var chartSvc = new AccountChartService(db, NullLogger<AccountChartService>.Instance);
+        var svc = new BalanceSheetService(db, chartSvc, NullLogger<BalanceSheetService>.Instance);
+        return (db, svc);
+    }
+
+    // T4: B01-HTX cấu trúc + số liệu giả đúng (spec PL IV Mục I.1) + W2 invariant.
+    [Fact]
+    public async Task T4_TT71_GenerateAsync_B01Htx_StructureAndNumbers()
+    {
+        var (_, svc) = await SetupTt71Async();
+        BalanceSheet bs = await svc.GenerateAsync(
+            Tt71SampleDataSeeder.Tt71TenantId,
+            new AccountingPeriod(2026, 5),
+            AccountingStandard.TT71_2024);
+
+        decimal Ending(string code) => bs.Assets.Concat(bs.Liabilities).Concat(bs.Equity)
+            .First(l => l.ReportItemCode == code).EndingAmount;
+
+        // TÀI SẢN
+        Assert.Equal(163_500_000m, Ending("110"));  // 111 (108M) + 112 (55.5M)
+        Assert.Equal(0m, Ending("120"));
+        Assert.Equal(29_000_000m, Ending("130"));   // 131 30M - 1M giảm trừ
+        Assert.Equal(0m, Ending("137"));            // "Trong đó" — không cộng vào tổng
+        Assert.Equal(41_000_000m, Ending("140"));   // 156 50M - 6M - 3M
+        Assert.Equal(200_000_000m, Ending("150"));  // 151 (211 200M) + 152 (214 0)
+        Assert.Equal(100_000_000m, Ending("160"));  // 161 (212 100M) + 162 (2142 0)
+        Assert.Equal(0m, Ending("170"));
+        Assert.Equal(0m, Ending("180"));
+
+        // NỢ PHẢI TRẢ
+        Assert.Equal(30_000_000m, Ending("310"));
+        Assert.Equal(2_000_000m, Ending("330"));    // 3331 (1.5M) + 3334 (0.5M)
+        Assert.Equal(32_000_000m, Ending("300"));
+
+        // VCSH
+        Assert.Equal(400_000_000m, Ending("410"));
+        Assert.Equal(100_000_000m, Ending("440"));
+        Assert.Equal(1_500_000m, Ending("420"));    // NetIncome plug = LN kỳ (không có 421 đầu kỳ)
+        Assert.Equal(501_500_000m, Ending("400"));
+
+        // Tổng cân bằng (W2)
+        Assert.Equal(533_500_000m, Ending("200"));
+        Assert.Equal(533_500_000m, Ending("500"));
+        Assert.Equal(533_500_000m, bs.TotalAssetsEnding);
+        Assert.Equal(533_500_000m, bs.TotalLiabilitiesAndEquityEnding);
+
+        // Mã 500 (TỔNG CỘNG NGUỒN VỐN) nằm cuối Equity list (giống Mã 440 của B01-DN)
+        Assert.Equal("500", bs.Equity.Last().ReportItemCode);
+        // Mã 200 (TỔNG CỘNG TÀI SẢN) nằm cuối Assets list
+        Assert.Equal("200", bs.Assets.Last().ReportItemCode);
+    }
 }

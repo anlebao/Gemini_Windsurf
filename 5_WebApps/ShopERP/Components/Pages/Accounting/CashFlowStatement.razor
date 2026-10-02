@@ -62,7 +62,11 @@
         </div>
     </VanACard>
 
-    @if (loading)
+    @if (currentTenantType == TenantType.HTX)
+    {
+        <VanAAlert Type="info" Message="TT 71/2024 (Chế độ kế toán HTX) KHÔNG yêu cầu Báo cáo lưu chuyển tiền tệ (B03). Xem Báo cáo tình hình tài chính (B01-HTX) và Kết quả hoạt động (B02-HTX)." />
+    }
+    else if (loading)
     {
         <VanACard Header="Đang tạo báo cáo">
             <p>Đang tạo Báo Cáo Lưu Chuyển Tiền Tệ cho kỳ @selectedMonth/@selectedYear...</p>
@@ -184,6 +188,7 @@
     private int selectedMonth = DateTime.UtcNow.Month;
     private AccountingStandard selectedStandard = AccountingStandard.TT133_2016;
     private CashFlowMethod selectedMethod = CashFlowMethod.Direct;
+    private TenantType? currentTenantType;
 
     protected override async Task OnInitializedAsync()
     {
@@ -192,15 +197,24 @@
             try
             {
                 var tenantId = new TenantId(TenantProvider.TenantId);
-                var tenantType = await FeatureFlagService.GetTenantTypeAsync(tenantId);
-                selectedStandard = tenantType switch
+                currentTenantType = await FeatureFlagService.GetTenantTypeAsync(tenantId);
+                selectedStandard = currentTenantType switch
                 {
                     TenantType.Enterprise_Large => AccountingStandard.TT99_2025,
+                    TenantType.HTX => AccountingStandard.TT71_2024,
                     _ => AccountingStandard.TT133_2016
                 };
             }
             catch { /* fallback TT133 */ }
         }
+
+        // TT 71 (HTX) KHÔNG yêu cầu B03 — chặn sinh báo cáo, hiển thị thông báo.
+        if (currentTenantType == TenantType.HTX)
+        {
+            loading = false;
+            return;
+        }
+
         await GenerateReport();
     }
 

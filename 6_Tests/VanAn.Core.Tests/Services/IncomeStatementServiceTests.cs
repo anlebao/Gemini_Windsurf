@@ -183,4 +183,74 @@ public class IncomeStatementServiceTests
         int expenseCount = is_.Lines.Count(l => l.ReportItemCode.StartsWith("632") || l.ReportItemCode.StartsWith("642"));
         Assert.True(expenseCount >= 1, $"Expected >= 1 expense line, got {expenseCount}");
     }
+
+    // ── TT 71 Phase 3 (T3): B02-HTX ──────────────────────────────────────
+
+    private async Task<(VanAnDbContext db, IncomeStatementService svc)> SetupTt71Async()
+    {
+        TestContextScope scope = VanAnDbContextTestFactory.Create();
+        scope.TenantProvider?.SetTenant(Tt71SampleDataSeeder.Tt71TenantGuid);
+        VanAnDbContext db = scope.Context;
+        _ = await AccountChartSeeder.SeedAsync(db, NullLogger.Instance);
+        await Tt71SampleDataSeeder.SeedAsync(db);
+        var chartSvc = new AccountChartService(db, NullLogger<AccountChartService>.Instance);
+        var svc = new IncomeStatementService(db, chartSvc, NullLogger<IncomeStatementService>.Instance);
+        return (db, svc);
+    }
+
+    // T3: Generate với standard TT71 → cấu trúc B02-HTX + số liệu giả đúng (spec PL IV).
+    [Fact]
+    public async Task T3_TT71_GenerateAsync_B02Htx_StructureAndNumbers()
+    {
+        var (_, svc) = await SetupTt71Async();
+        IncomeStatement is_ = await svc.GenerateAsync(
+            Tt71SampleDataSeeder.Tt71TenantId,
+            new AccountingPeriod(2026, 5),
+            AccountingStandard.TT71_2024);
+
+        Assert.Equal(24, is_.Lines.Count());
+
+        decimal Amount(string code) => is_.Lines.First(l => l.ReportItemCode == code).EndingAmount;
+
+        // Tách nội bộ/ngoài (511 vs 512)
+        Assert.Equal(10_000_000m, Amount("01a"));
+        Assert.Equal(5_000_000m, Amount("01b"));
+        Assert.Equal(15_000_000m, Amount("01"));
+
+        // 521 (giảm trừ) trình bày DƯƠNG theo bên bình thường → 10 = 01 - 02 đúng
+        Assert.Equal(1_000_000m, Amount("02a"));
+        Assert.Equal(0m, Amount("02b"));
+        Assert.Equal(1_000_000m, Amount("02"));
+
+        Assert.Equal(9_000_000m, Amount("10a"));
+        Assert.Equal(5_000_000m, Amount("10b"));
+        Assert.Equal(14_000_000m, Amount("10"));
+
+        Assert.Equal(6_000_000m, Amount("11a"));
+        Assert.Equal(3_000_000m, Amount("11b"));
+        Assert.Equal(9_000_000m, Amount("11"));
+
+        Assert.Equal(4_000_000m, Amount("12"));
+        Assert.Equal(0m, Amount("12a"));
+        Assert.Equal(0m, Amount("12b"));
+
+        // 20a/20b không gồm 642 (không có dữ liệu phân bổ) → 20a + 20b ≠ 20 khi 12 > 0 (ghi chú tài liệu)
+        Assert.Equal(3_000_000m, Amount("20a"));
+        Assert.Equal(2_000_000m, Amount("20b"));
+        Assert.Equal(1_000_000m, Amount("20"));
+
+        Assert.Equal(2_000_000m, Amount("31"));
+        Assert.Equal(1_000_000m, Amount("32"));
+        Assert.Equal(1_000_000m, Amount("40"));
+        Assert.Equal(2_000_000m, Amount("50"));
+        Assert.Equal(500_000m, Amount("51"));
+        Assert.Equal(1_500_000m, Amount("60"));
+
+        // Tổng hợp
+        Assert.Equal(15_000_000m, is_.TotalRevenueEnding);
+        Assert.Equal(1_500_000m, is_.NetProfitEnding);
+        Assert.Equal(9_000_000m, is_.TotalCogsEnding);
+        Assert.Equal(4_000_000m, is_.TotalOpExEnding);
+        Assert.Equal(0m, is_.TotalRevenueOpening); // prior year 2025-05 không có dữ liệu
+    }
 }

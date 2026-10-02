@@ -30,7 +30,14 @@ public class FinancialStatementNotesService : IFinancialStatementNotesService
     public async Task<FinancialStatementNotes> GenerateAsync(
         TenantId tenantId, AccountingPeriod period, AccountingStandard standard, CancellationToken ct = default)
     {
-        _logger.LogInformation("Generating B 09-DN Financial Statement Notes for tenant {TenantId} period {Period}", tenantId, period);
+        _logger.LogInformation("Generating Financial Statement Notes for tenant {TenantId} period {Period} standard {Standard}", tenantId, period, standard);
+
+        // TT 71/2024 (HTX) — B09-HTX: cấu trúc riêng theo Phụ lục IV TT 71 (Mục I.3).
+        if (standard == AccountingStandard.TT71_2024)
+        {
+            return await GenerateTt71NotesAsync(tenantId, period, ct).ConfigureAwait(false);
+        }
+
         var tenant = await _tenantService.GetTenantByIdAsync(tenantId, ct);
         var settings = tenant?.Settings;
 
@@ -61,6 +68,7 @@ public class FinancialStatementNotesService : IFinancialStatementNotesService
             AccountingStandard.TT99_2025 => "Thông tư 99/2025/TT-BTC",
             AccountingStandard.TT133_2016 => "Thông tư 133/2016/TT-BTC",
             AccountingStandard.TT58_2026 => "Thông tư 58/2026/TT-BTC",
+            AccountingStandard.TT71_2024 => "Thông tư 71/2024/TT-BTC (Chế độ kế toán HTX)",
             _ => standard.ToString()
         };
         var phanIII = new NoteSection("III", "Chuẩn mực và Chế độ kế toán áp dụng", 1, "", new[]
@@ -110,5 +118,70 @@ public class FinancialStatementNotesService : IFinancialStatementNotesService
 
         return new FinancialStatementNotes(tenantId, period, DateTime.UtcNow, standard,
             new[] { phanI, phanII, phanIII, phanIV, phanX });
+    }
+
+    /// <summary>
+    /// TT 71/2024/TT-BTC — B09-HTX (Bản thuyết minh BCTC của HTX) theo Phụ lục IV Mục I.3:
+    ///   I. Đặc điểm hoạt động của HTX · II. Kỳ kế toán, đơn vị tiền tệ · III. Chế độ kế toán áp dụng
+    ///   IV. Thông tin bổ sung cho B01-HTX (13 mục) · V. Thông tin bổ sung cho B02-HTX
+    ///   VI. Những thông tin khác mà HTX cần thuyết minh
+    /// Cấu trúc TEXT template (như B09-DN) — chi tiết bảng IV/V theo dõi riêng theo yêu cầu quản lý.
+    /// </summary>
+    private async Task<FinancialStatementNotes> GenerateTt71NotesAsync(
+        TenantId tenantId, AccountingPeriod period, CancellationToken ct)
+    {
+        var tenant = await _tenantService.GetTenantByIdAsync(tenantId, ct);
+        var settings = tenant?.Settings;
+
+        // PHẦN I: Đặc điểm hoạt động của HTX (2 mục)
+        var phanI = new NoteSection("I", "Đặc điểm hoạt động của HTX", 1, "", new[]
+        {
+            new NoteSection("I.1", "Lĩnh vực kinh doanh", 2, settings?.BusinessField ?? "Chưa thiết lập", null),
+            new NoteSection("I.2", "Ngành nghề kinh doanh", 2, tenant?.DefaultIndustrySector?.ToString() ?? "Chưa thiết lập", null),
+        });
+
+        // PHẦN II: Kỳ kế toán, đơn vị tiền tệ (2 mục)
+        var phanII = new NoteSection("II", "Kỳ kế toán, đơn vị tiền tệ sử dụng trong kế toán", 1, "", new[]
+        {
+            new NoteSection("II.1", "Kỳ kế toán năm (ngày bắt đầu - ngày kết thúc)", 2, $"01/01/{period.Year} - 31/12/{period.Year}", null),
+            new NoteSection("II.2", "Đơn vị tiền tệ sử dụng trong kế toán", 2, "VNĐ (Đồng Việt Nam)", null),
+        });
+
+        // PHẦN III: Chế độ kế toán áp dụng (1 mục)
+        var phanIII = new NoteSection("III", "Chế độ kế toán áp dụng", 1,
+            "Chế độ kế toán HTX ban hành kèm theo Thông tư 71/2024/TT-BTC ngày 07/10/2024 của Bộ Tài chính", null);
+
+        // PHẦN IV: Thông tin bổ sung cho các khoản mục B01-HTX (13 mục — text template)
+        var phanIV = new NoteSection("IV", "Thông tin bổ sung cho các khoản mục trình bày trong Báo cáo tình hình tài chính", 1, "", new[]
+        {
+            new NoteSection("IV.1", "Tiền", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("IV.2", "Các khoản đầu tư tài chính", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("IV.3", "Các khoản phải thu", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("IV.4", "Phải thu của hoạt động cho vay nội bộ", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("IV.5", "Hàng tồn kho", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("IV.6", "Tài sản cố định", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("IV.7", "Tài sản chung không chia", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("IV.8", "Phải trả của hoạt động tín dụng nội bộ", 2, "Chỉ áp dụng cho HTX còn hợp đồng TDNB ký trước 01/9/2023 còn hiệu lực", null),
+            new NoteSection("IV.9", "Thuế và các khoản phải nộp Nhà nước", 2, "Chi tiết theo từng loại thuế", null),
+            new NoteSection("IV.10", "Phải trả khác", 2, "Chi tiết theo yêu cầu quản lý", null),
+            new NoteSection("IV.11", "Quỹ chung không chia", 2, "Chi tiết theo từng loại quỹ chung không chia và nguồn hình thành tài sản chung không chia", null),
+            new NoteSection("IV.12", "Thuyết minh thông tin về các TK ngoài bảng (loại 0)", 2, "001-008 theo Phụ lục I TT 71", null),
+            new NoteSection("IV.13", "Các thông tin khác do HTX tự thuyết minh, giải trình", 2, "Không có", null),
+        });
+
+        // PHẦN V: Thông tin bổ sung cho các khoản mục B02-HTX (4 mục)
+        var phanV = new NoteSection("V", "Thông tin bổ sung cho các khoản mục trình bày trong Báo cáo kết quả hoạt động kinh doanh", 1, "", new[]
+        {
+            new NoteSection("V.1", "Doanh thu của hoạt động sản xuất kinh doanh (giao dịch nội bộ/ngoài)", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("V.2", "Giá vốn hàng bán (giao dịch nội bộ/ngoài)", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("V.3", "Các khoản giảm trừ doanh thu", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("V.4", "Chi phí quản lý kinh doanh", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+        });
+
+        // PHẦN VI: Những thông tin khác mà HTX cần thuyết minh
+        var phanVI = new NoteSection("VI", "Những thông tin khác mà HTX cần thuyết minh", 1, "Không có", null);
+
+        return new FinancialStatementNotes(tenantId, period, DateTime.UtcNow, AccountingStandard.TT71_2024,
+            new[] { phanI, phanII, phanIII, phanIV, phanV, phanVI });
     }
 }

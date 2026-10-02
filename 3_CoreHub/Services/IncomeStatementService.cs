@@ -65,6 +65,12 @@ public class IncomeStatementService : IIncomeStatementService
             return await GenerateWithTemplateAsync(tenantId, period, standard, endingByAccount, openingByAccount, ct).ConfigureAwait(false);
         }
 
+        // TT 71/2024 (HTX) — B02-HTX: template riêng, tách giao dịch nội bộ/ngoài (511 vs 512, 611 vs 612).
+        if (standard == AccountingStandard.TT71_2024)
+        {
+            return await GenerateTt71Async(tenantId, period, endingByAccount, openingByAccount, ct).ConfigureAwait(false);
+        }
+
         return await GenerateFlatAsync(tenantId, period, standard, endingByAccount, openingByAccount, ct).ConfigureAwait(false);
     }
 
@@ -77,44 +83,10 @@ public class IncomeStatementService : IIncomeStatementService
         CancellationToken ct)
     {
         var template = Tt99Templates.IncomeStatementTt99;
-        var allAccounts = endingByAccount.Keys.Concat(openingByAccount.Keys).Distinct().ToHashSet(StringComparer.Ordinal);
 
         // Step 1: Calculate direct lines (non-calculated) from account codes.
-        var amounts = new Dictionary<string, (decimal Ending, decimal Opening)>(StringComparer.Ordinal);
-
-        foreach (var line in template.Lines)
-        {
-            if (line.IsCalculated || line.AccountCodes.Length == 0)
-            {
-                amounts[line.ReportItemCode] = (0, 0);
-                continue;
-            }
-
-            decimal ending = 0, opening = 0;
-            foreach (string code in line.AccountCodes)
-            {
-                foreach (string acct in allAccounts)
-                {
-                    if (acct.StartsWith(code, StringComparison.Ordinal) || acct == code)
-                    {
-                        decimal end = endingByAccount.GetValueOrDefault(acct);
-                        decimal op = openingByAccount.GetValueOrDefault(acct);
-
-                        // Determine sign convention from AccountChart.
-                        AccountChartEntry? chart = await _accountChart.GetAccountAsync(acct, standard, ct).ConfigureAwait(false);
-                        if (chart is not null && chart.Type is DomainAccountType.Expense)
-                        {
-                            // Expense accounts: debit balance = negative signed → negate to show as positive cost.
-                            end = -end;
-                            op = -op;
-                        }
-                        ending += end;
-                        opening += op;
-                    }
-                }
-            }
-            amounts[line.ReportItemCode] = (ending, opening);
-        }
+        // TT 99 convention: negate only Expense accounts (debit-normal) — backward compatible.
+        var amounts = await ComputeIncomeDirectLinesAsync(template, endingByAccount, openingByAccount, standard, presentByNormalSide: false, ct).ConfigureAwait(false);
 
         // Step 2: Calculate formula lines.
         // B 02-DN formulas (VERIFIED from Phụ lục IV TT 99):
@@ -172,6 +144,142 @@ public class IncomeStatementService : IIncomeStatementService
             // VA-FI-MVP2: expose COGS (mã 02) + OpEx (mã 11) — values already computed above.
             TotalCogsEnding: m02e, TotalCogsOpening: m02o,
             TotalOpExEnding: m11e, TotalOpExOpening: m11o);
+    }
+
+    /// <summary>
+    /// Computes direct (non-calculated) template lines from aggregated account balances.
+    /// Sign convention:
+    ///   presentByNormalSide = false (TT 99): negate Expense accounts (debit-normal) → positive cost.
+    ///   presentByNormalSide = true  (TT 71): negate every non-normal-credit account (!IsNormalCredit) —
+    ///     Expense (611/612/642/658/659) AND contra-revenue 521 (giảm trừ doanh thu, debit-normal) đều
+    ///     được trình bày dương theo bên bình thường; 511/512/558 (normal credit) giữ nguyên.
+    /// </summary>
+    private async Task<Dictionary<string, (decimal Ending, decimal Opening)>> ComputeIncomeDirectLinesAsync(
+        Tt99ReportTemplate template,
+        Dictionary<string, decimal> endingByAccount, Dictionary<string, decimal> openingByAccount,
+        AccountingStandard standard, bool presentByNormalSide, CancellationToken ct)
+    {
+        var allAccounts = endingByAccount.Keys.Concat(openingByAccount.Keys).Distinct().ToHashSet(StringComparer.Ordinal);
+        var amounts = new Dictionary<string, (decimal Ending, decimal Opening)>(StringComparer.Ordinal);
+
+        foreach (var line in template.Lines)
+        {
+            if (line.IsCalculated || line.AccountCodes.Length == 0)
+            {
+                amounts[line.ReportItemCode] = (0, 0);
+                continue;
+            }
+
+            decimal ending = 0, opening = 0;
+            foreach (string code in line.AccountCodes)
+            {
+                foreach (string acct in allAccounts)
+                {
+                    if (acct.StartsWith(code, StringComparison.Ordinal) || acct == code)
+                    {
+                        decimal end = endingByAccount.GetValueOrDefault(acct);
+                        decimal op = openingByAccount.GetValueOrDefault(acct);
+
+                        // Determine sign convention from AccountChart.
+                        AccountChartEntry? chart = await _accountChart.GetAccountAsync(acct, standard, ct).ConfigureAwait(false);
+                        if (chart is not null &&
+                            (presentByNormalSide ? !chart.IsNormalCredit : chart.Type is DomainAccountType.Expense))
+                        {
+                            // Debit-normal accounts: signed (Credit - Debit) is negative → negate to present positive.
+                            end = -end;
+                            op = -op;
+                        }
+                        ending += end;
+                        opening += op;
+                    }
+                }
+            }
+            amounts[line.ReportItemCode] = (ending, opening);
+        }
+
+        return amounts;
+    }
+
+    /// <summary>
+    /// TT 71 (HTX) — B02-HTX template-based generation: Mã số 01-60 với các chỉ tiêu tách
+    /// giao dịch bên ngoài (a) / nội bộ (b) theo Phụ lục IV TT 71/2024/TT-BTC.
+    /// Formulas: 01=01a+01b · 02=02a+02b · 10=01-02 · 10a=01a-02a · 10b=01b-02b
+    ///           11=11a+11b · 20=10-11-12 · 20a=10a-11a-12a · 20b=10b-11b-12b
+    ///           40=31-32 · 50=20+40 · 60=50-51
+    /// NOTE: 12a/12b (CP QLKD phân bổ nội/ngoại) = 0 (không có dữ liệu phân bổ) → 20a+20b
+    ///       KHÔNG khớp 20 khi 12 > 0 (20 giữ nguyên tổng 642 — ghi chú tài liệu).
+    /// </summary>
+    private async Task<IncomeStatement> GenerateTt71Async(
+        TenantId tenantId, AccountingPeriod period,
+        Dictionary<string, decimal> endingByAccount, Dictionary<string, decimal> openingByAccount,
+        CancellationToken ct)
+    {
+        var template = Tt71Templates.IncomeStatementTt71;
+
+        // Step 1: Direct lines — trình bày theo bên bình thường (negate khi !IsNormalCredit).
+        var amounts = await ComputeIncomeDirectLinesAsync(
+            template, endingByAccount, openingByAccount, AccountingStandard.TT71_2024, presentByNormalSide: true, ct).ConfigureAwait(false);
+
+        // Step 2: B02-HTX formulas (VERIFIED from Phụ lục IV TT 71 — Mục II).
+        decimal m01ae = amounts["01a"].Ending, m01ao = amounts["01a"].Opening;
+        decimal m01be = amounts["01b"].Ending, m01bo = amounts["01b"].Opening;
+        decimal m02ae = amounts["02a"].Ending, m02ao = amounts["02a"].Opening;
+        decimal m02be = amounts["02b"].Ending, m02bo = amounts["02b"].Opening;
+        decimal m11ae = amounts["11a"].Ending, m11ao = amounts["11a"].Opening;
+        decimal m11be = amounts["11b"].Ending, m11bo = amounts["11b"].Opening;
+        decimal m12e = amounts["12"].Ending, m12o = amounts["12"].Opening;
+        decimal m12ae = amounts["12a"].Ending, m12ao = amounts["12a"].Opening;
+        decimal m12be = amounts["12b"].Ending, m12bo = amounts["12b"].Opening;
+        decimal m31e = amounts["31"].Ending, m31o = amounts["31"].Opening;
+        decimal m32e = amounts["32"].Ending, m32o = amounts["32"].Opening;
+        decimal m51e = amounts["51"].Ending, m51o = amounts["51"].Opening;
+
+        decimal m01e = m01ae + m01be, m01o = m01ao + m01bo;
+        decimal m02e = m02ae + m02be, m02o = m02ao + m02bo;
+        decimal m10ae = m01ae - m02ae, m10ao = m01ao - m02ao;
+        decimal m10be = m01be - m02be, m10bo = m01bo - m02bo;
+        decimal m10e = m01e - m02e, m10o = m01o - m02o;
+        decimal m11e = m11ae + m11be, m11o = m11ao + m11bo;
+        decimal m20ae = m10ae - m11ae - m12ae, m20ao = m10ao - m11ao - m12ao;
+        decimal m20be = m10be - m11be - m12be, m20bo = m10bo - m11bo - m12bo;
+        decimal m20e = m10e - m11e - m12e, m20o = m10o - m11o - m12o;
+        decimal m40e = m31e - m32e, m40o = m31o - m32o;
+        decimal m50e = m20e + m40e, m50o = m20o + m40o;
+        decimal m60e = m50e - m51e, m60o = m50o - m51o;
+
+        amounts["01"] = (m01e, m01o);
+        amounts["02"] = (m02e, m02o);
+        amounts["10"] = (m10e, m10o);
+        amounts["10a"] = (m10ae, m10ao);
+        amounts["10b"] = (m10be, m10bo);
+        amounts["11"] = (m11e, m11o);
+        amounts["20"] = (m20e, m20o);
+        amounts["20a"] = (m20ae, m20ao);
+        amounts["20b"] = (m20be, m20bo);
+        amounts["40"] = (m40e, m40o);
+        amounts["50"] = (m50e, m50o);
+        amounts["60"] = (m60e, m60o);
+
+        // Step 3: Build FinancialStatementLine list.
+        var lines = new List<FinancialStatementLine>();
+        foreach (var line in template.Lines)
+        {
+            var (ending, opening) = amounts[line.ReportItemCode];
+            lines.Add(new FinancialStatementLine(
+                line.ReportItemCode, line.ReportItemName,
+                ending, opening, line.Level,
+                line.IsNormalNegative && ending < 0));
+        }
+
+        return new IncomeStatement(
+            tenantId, period, DateTime.UtcNow,
+            TotalRevenueEnding: m01e,
+            TotalRevenueOpening: m01o,
+            NetProfitEnding: m60e,
+            NetProfitOpening: m60o,
+            Lines: lines,
+            TotalCogsEnding: m11e, TotalCogsOpening: m11o,
+            TotalOpExEnding: m12e, TotalOpExOpening: m12o);
     }
 
     /// <summary>
