@@ -111,7 +111,35 @@ Bổ sung **Chế độ kế toán hợp tác xã (TT 71/2024/TT-BTC)** vào n�
 
 ## 10. RELATED FILES
 
-- **Spec:** `docs/specs/Thông tư 71-2024-TT-BTC.doc` (PL I + PL II + PL IV; extract `.devin/tt71_extracted.txt`)
-- **Spec PL II (chứng từ):** `docs/Accounting_Doc/phu-luc-II-Thong-tu-71.docx` (extract `.devin/tt71_pl2_extracted.txt`)
+- **Spec:** `docs/specs/Thông tư 71-2024-TT-BTC.doc` (PL I + PL II + PL IV)
+- **Spec PL II (chứng từ):** `docs/Accounting_Doc/phu-luc-II-Thong-tu-71.docx`
+- **Extract (committed cho session sau):** `docs/AI/tasks/tt71_htx_accounting/spec/tt71-pl-i-ii-iv.txt` + `spec/tt71-pl-ii-chung-tu.txt`
+
+## 11. EXECUTION STRATEGY (thống nhất 2026-10-01 — thực thi session mới)
+
+**Quyết định:** thực thi theo **nhiều session, mỗi session 1 cụm phase** (không làm liền 1 session lớn — Context Control per governance; plan có khối dữ liệu lớn: chart 51 TK + template B01/B02/B09 cần trích spec chính xác).
+
+### Phân cụm session
+| Session | Cụm phase | Nội dung | Đầu ra |
+|---|---|---|---|
+| **S1** | Phase 1 + 2 | Domain enum + HtxProfile hook + **backfill (dry-run → backup → run → verify)** + chart seed TT 71 + tests (T1, T5) | Commit + build + Core.Tests + guard PASS |
+| **S2** | Phase 3 | `Tt71Templates` (B01/B02/B09 — trích từ `spec/tt71-pl-i-ii-iv.txt`) + nhánh service + tests (T2-T4) | Commit + build + tests PASS |
+| **S3** | Phase 4a + 4b + 5 | Account options theo tenant + mẫu in 01-TT/02-TT + UI standard select | Commit + build + ShopERP.Tests PASS |
+| **S4** | Phase 6 + 7 | Full tests + deploy + RV production 5-layer + docs/state | CD SUCCESS + RV PASS |
+
+### An toàn (safety guard rails — bắt buộc mỗi session)
+1. **Enum append-only:** thêm `TT71_2024`/`HTX=5` CUỐI enum — KHÔNG đổi thứ tự (persisted value an toàn)
+2. **Backfill (Phase 1):** idempotent + **dry-run trước** (in danh sách tenant HtxProfile active sẽ đổi) → backup → run → verify count trước/sau; chỉ đụng tenant có HtxProfile (hiện rất ít)
+3. **Chart seed:** additive theo (Standard, Code) — TT 133/99 rows không đổi; seed chạy Clear+Reseed startup như cũ
+4. **Report/UI branch:** chỉ nhánh `standard == TT71_2024` / `Type == HTX` — path DN/HKD giữ nguyên (regression-safe); component tests chặn regress
+5. **Per-phase validation:** build sln + Core.Tests + ShopERP.Tests + guard-check SAU MỖI phase (không gom cuối)
+6. **Commit-per-phase:** mỗi phase 1 commit (message ghi rõ phase + spec nguồn) — rollback dễ
+7. **Deploy:** commit vào `main` → CD Multi-VPS per phase (thay đổi additive + tenant-scoped → HTX duy nhất bị ảnh hưởng; DN/HKD không đổi). RV nhẹ (markers) sau S1/S2; RV đầy đủ ở S4.
+8. **Spec trích:** dùng file extract đã commit (`spec/tt71-pl-i-ii-iv.txt`, `spec/tt71-pl-ii-chung-tu.txt`) — không mở .doc/.docx lại (tránh mất thời gian + lỗi encoding)
+
+### Điều kiện bắt đầu S1
+- [ ] User duyệt Gate 5 (Domain exception) — Phase 1
+- [ ] Master plan + task cards đã commit (`8947a691`)
+- [ ] Extract spec đã commit (folder `spec/`)
 - **Task cards:** `docs/AI/tasks/tt71_htx_accounting/task_phase{1-7}_*.md`
 - **Code refs:** `1_Shared/Domain.cs:3586,3601` (enum) · `3_CoreHub/Infrastructure/Seed/AccountChartSeeder.cs` · `3_CoreHub/Services/Data/Tt99Templates.cs` · `3_CoreHub/Services/{IncomeStatementService,BalanceSheetService,HKDBookService}.cs` · `5_WebApps/ShopERP/Components/Pages/Accounting/{RevenueEntry,ExpenseEntry,TrialBalance,FinancialReports}.razor`
