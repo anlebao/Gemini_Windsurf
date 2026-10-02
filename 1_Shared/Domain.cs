@@ -3588,7 +3588,8 @@ namespace VanAn.Shared.Domain
         HKD = 1,                    // Hộ kinh doanh (TT 152/2025/TT-BTC)
         Enterprise_SuperSmall = 2,  // DN siêu nhỏ (TT 58/2026)
         Enterprise_SME = 3,         // DN vừa và nhỏ (TT 133/2016)
-        Enterprise_Large = 4        // DN lớn (TT 99/2025)
+        Enterprise_Large = 4,       // DN lớn (TT 99/2025)
+        HTX = 5                     // Hợp tác xã (TT 71/2024/TT-BTC) — 2026-10-01 (append-only, KHÔNG đổi thứ tự)
     }
 
     /// <summary>
@@ -3598,7 +3599,7 @@ namespace VanAn.Shared.Domain
     public enum AccountType { Asset, Liability, Equity, Revenue, Expense }
 
     /// <summary>Vietnamese accounting standards supported by VAS module (D1 approved scope).</summary>
-    public enum AccountingStandard { TT99_2025, TT133_2016, TT58_2026 }
+    public enum AccountingStandard { TT99_2025, TT133_2016, TT58_2026, TT71_2024 } // TT71_2024: Chế độ kế toán HTX (append-only, 2026-10-01)
 
     /// <summary>
     /// B 03-DN method: TT 99 requires both direct + indirect methods.

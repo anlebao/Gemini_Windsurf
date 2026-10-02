@@ -1591,6 +1591,11 @@ namespace VanAn.Gateway
 
                         await SeedShopInstanceAndAssignTenantsAsync(migrateScope.ServiceProvider);
 
+                        // TT 71/2024 (Q3 — 2026-10-01): backfill tenant HTX cũ (đã có HtxProfile active)
+                        // → Type=HTX + AccountingStandard=TT71_2024. Idempotent (MarkAsHtx no-op khi đã HTX).
+
+                        await BackfillHtxTenantTypesAsync(migrateScope.ServiceProvider);
+
                     }
 
                     catch (Exception migrateEx)
@@ -2096,6 +2101,51 @@ namespace VanAn.Gateway
         /// missing and reassigns all tenants to it. Otherwise, the first active ShopInstance is used.
 
         /// </summary>
+
+        /// <summary>
+        /// TT 71/2024 (Q3 — 2026-10-01): backfill tenant HTX cũ (đã có HtxProfile active) →
+        /// Type=HTX + AccountingStandard=TT71_2024 (Chế độ kế toán HTX).
+        /// Idempotent: MarkAsHtx() no-op khi tenant đã là HTX; chỉ đụng tenant có HtxProfile active.
+        /// </summary>
+        private static async Task BackfillHtxTenantTypesAsync(IServiceProvider serviceProvider)
+        {
+            try
+            {
+                using var scope = serviceProvider.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<VanAnDbContext>();
+
+                // Tenants có HtxProfile active (Membership Infrastructure — marker "tenant là HTX").
+                var htxTenantIds = await db.HtxProfiles
+                    .IgnoreQueryFilters()
+                    .Where(p => !p.IsDeleted)
+                    .Select(p => p.TenantId.Value)
+                    .ToListAsync();
+                if (htxTenantIds.Count == 0)
+                    return;
+
+                var tenantsToFix = await db.Tenants
+                    .IgnoreQueryFilters()
+                    .Where(t => htxTenantIds.Contains(t.Id.Value) && t.Type != VanAn.Shared.Domain.TenantType.HTX)
+                    .ToListAsync();
+
+                int updated = 0;
+                foreach (var tenant in tenantsToFix)
+                {
+                    tenant.MarkAsHtx();
+                    updated++;
+                }
+
+                if (updated > 0)
+                {
+                    await db.SaveChangesAsync();
+                    Log.Information("TT71 backfill: {Count} tenant(s) marked HTX/TT71_2024 (HtxProfile active)", updated);
+                }
+            }
+            catch (Exception backfillEx)
+            {
+                Log.Warning(backfillEx, "TT71 HTX backfill failed (non-fatal — HtxProfileService vẫn set Type khi tạo profile mới)");
+            }
+        }
 
         private static async Task SeedShopInstanceAndAssignTenantsAsync(IServiceProvider serviceProvider)
 

@@ -350,6 +350,26 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         }
 
         /// <summary>
+        /// TT 71/2024 (2026-10-01): Mark this tenant as an Hợp tác xã (HTX) + Chế độ kế toán HTX.
+        /// HtxProfile (Membership Infrastructure) is the authoritative marker for "tenant is an HTX"
+        /// (quyết định A1) — so this method ALLOWS transition from any existing Type (null/HKD/
+        /// Enterprise_*) since an HtxProfile can only be created once and denotes a real legal-form
+        /// change (the tenant IS the HTX that other businesses join). One-way + audited, same as
+        /// SetTenantType. Used by HtxProfileService.GetOrCreateAsync + startup backfill (Q3).
+        /// </summary>
+        public void MarkAsHtx()
+        {
+            if (Status == TenantStatus.Inactive)
+                throw new InvalidOperationException("Cannot mark an inactive tenant as HTX.");
+            if (Type == TenantType.HTX)
+                return; // idempotent
+
+            Type = TenantType.HTX;
+            AccountingStandard = global::VanAn.Shared.Domain.AccountingStandard.TT71_2024;
+            UpdateAudit();
+        }
+
+        /// <summary>
         /// Wave 5: Set default industry sector for HKD Group 2 reporting (TT 152 S2a/S2b).
         /// Only meaningful for HouseholdBusiness tenants. Used as fallback when Order.IndustrySector is NULL.
         /// </summary>

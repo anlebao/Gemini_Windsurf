@@ -37,9 +37,25 @@ namespace VanAn.CoreHub.Services.Membership
 
             var profile = HtxProfile.Create(htxTenantIdVo, charterVersion, termsVersion);
             dbContext.HtxProfiles.Add(profile);
+
+            // TT 71/2024 (2026-10-01): HtxProfile là marker chính thức "tenant là HTX" (A1)
+            // → đồng thời phân loại tenant: Type=HTX + AccountingStandard=TT71_2024.
+            // IgnoreQueryFilters: lookup theo Id tường minh, tenant là dữ liệu global.
+            var tenant = await dbContext.Tenants
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(t => t.Id == new TenantId(htxTenantId), ct);
+            if (tenant is not null)
+            {
+                tenant.MarkAsHtx();
+            }
+            else
+            {
+                logger.LogWarning("HtxProfile created for tenant {HtxId} but tenant row NOT found — Type không được set", htxTenantId);
+            }
+
             await dbContext.SaveChangesAsync(ct);
 
-            logger.LogInformation("HtxProfile created for tenant {HtxId} (charter {CharterVersion}, terms {TermsVersion})",
+            logger.LogInformation("HtxProfile created for tenant {HtxId} (charter {CharterVersion}, terms {TermsVersion}) — marked HTX/TT71",
                 htxTenantId, charterVersion, termsVersion);
             return MapToDto(profile);
         }

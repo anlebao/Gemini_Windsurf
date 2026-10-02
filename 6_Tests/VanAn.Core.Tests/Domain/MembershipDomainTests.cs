@@ -1,6 +1,7 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.MembershipAggregate;
+using VanAn.Shared.Domain.Aggregates.TenantAggregate;
 using Xunit;
 
 namespace VanAn.Core.Tests.Domain;
@@ -310,6 +311,51 @@ public class MembershipDomainTests
         profile.UpdateCharter("v2026-10-01", "https://vanan.vn/charter-v2.pdf");
         profile.CharterVersion.Should().Be("v2026-10-01");
         profile.CharterUrl.Should().Be("https://vanan.vn/charter-v2.pdf");
+    }
+
+    // ── TT 71/2024 — Tenant.MarkAsHtx (2026-10-01) ──────────────────────────
+
+    [Fact(DisplayName = "TT71-MH1: MarkAsHtx từ Type=null → HTX + AccountingStandard=TT71_2024")]
+    public void MarkAsHtx_FromUnclassified_SetsHtxAndTt71()
+    {
+        var tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant.CreateCompany(new TenantId(Guid.NewGuid()), "HTX Sản Xuất Nông Nghiệp A");
+
+        tenant.MarkAsHtx();
+
+        tenant.Type.Should().Be(TenantType.HTX);
+        tenant.AccountingStandard.Should().Be(AccountingStandard.TT71_2024);
+    }
+
+    [Fact(DisplayName = "TT71-MH2: MarkAsHtx cho phép chuyển từ HKD/Enterprise (HtxProfile là marker chính thức)")]
+    public void MarkAsHtx_FromClassifiedTenant_AllowsTransition()
+    {
+        var hkd = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant.CreateHouseholdBusiness(new TenantId(Guid.NewGuid()), "HKD Test", HKDGroup.Group1);
+        hkd.MarkAsHtx();
+        hkd.Type.Should().Be(TenantType.HTX);
+
+        var dn = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant.CreateCompany(new TenantId(Guid.NewGuid()), "DN Test");
+        dn.SetTenantType(TenantType.Enterprise_SME, AccountingStandard.TT133_2016);
+        dn.MarkAsHtx();
+        dn.Type.Should().Be(TenantType.HTX);
+        dn.AccountingStandard.Should().Be(AccountingStandard.TT71_2024);
+    }
+
+    [Fact(DisplayName = "TT71-MH3: MarkAsHtx idempotent — gọi 2 lần không throw, giữ HTX")]
+    public void MarkAsHtx_Idempotent()
+    {
+        var tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant.CreateCompany(new TenantId(Guid.NewGuid()), "HTX B");
+        tenant.MarkAsHtx();
+        tenant.MarkAsHtx();
+        tenant.Type.Should().Be(TenantType.HTX);
+    }
+
+    [Fact(DisplayName = "TT71-MH4: MarkAsHtx trên tenant Inactive → throw")]
+    public void MarkAsHtx_Inactive_Throws()
+    {
+        var tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant.CreateCompany(new TenantId(Guid.NewGuid()), "HTX C");
+        tenant.Deactivate("test");
+        var act = () => tenant.MarkAsHtx();
+        act.Should().Throw<InvalidOperationException>();
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
