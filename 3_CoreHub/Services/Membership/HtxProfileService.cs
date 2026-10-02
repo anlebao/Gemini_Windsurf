@@ -30,11 +30,12 @@ namespace VanAn.CoreHub.Services.Membership
                 .ToListAsync(ct);
 
             // Tenant name cho dropdown review (SystemAdmin) — global lookup theo Id.
-            var tenantIds = profiles.Select(p => p.TenantId.Value).Distinct().ToList();
+            // Pattern #8: dùng VO list cho Contains (t.Id.Value không translate trong Where).
+            var tenantIdVos = profiles.Select(p => p.TenantId).Distinct().ToList();
             var tenantNames = await dbContext.Tenants
                 .IgnoreQueryFilters()
                 .AsNoTracking()
-                .Where(t => tenantIds.Contains(t.Id.Value))
+                .Where(t => tenantIdVos.Contains(t.Id))
                 .Select(t => new { t.Id.Value, t.Name })
                 .ToDictionaryAsync(t => t.Value, t => t.Name, ct);
 
