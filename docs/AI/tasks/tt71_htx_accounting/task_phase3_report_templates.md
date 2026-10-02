@@ -1,7 +1,7 @@
 # TASK CARD: Phase 3 — Template BCTC HTX (B01-HTX + B02-HTX + B09-HTX)
 
 > **Master plan:** `docs/AI/plans/tt71-htx-accounting-master-plan.md`
-> **Status:** PENDING — Q2 = CÓ (B09-HTX làm luôn)
+> **Status:** ✅ COMPLETE 2026-10-02 (`9ef8286c` — pushed + CD Multi-VPS SUCCESS + RV markers PASS) · Q2 = CÓ (B09-HTX làm luôn)
 
 ## 1. OBJECTIVE
 
@@ -50,11 +50,21 @@ Tạo `Tt71Templates` (mirror `Tt99Templates.cs`) + nhánh service cho tenant HT
 
 ## 5. ACCEPTANCE
 
-- [ ] B01-HTX + B02-HTX + B09-HTX render đúng mã số/nhãn TT 71
-- [ ] HTX không sinh B03 (UI ẩn)
-- [ ] Test template: `Tt71TemplatesTests` (cấu trúc + tính toán số liệu giả) + B09 render test
+- [x] B01-HTX + B02-HTX + B09-HTX render đúng mã số/nhãn TT 71 (service + template; UI display hoàn chỉnh Phase 5)
+- [x] HTX không sinh B03 (CashFlowStatement.razor chặn khi `TenantType.HTX` — VanAAlert "TT 71 KHÔNG yêu cầu B03")
+- [x] Test template: `Tt71TemplatesTests` (mới — cấu trúc B01/B02 + B09 render qua NotesService) + IncomeStatement T3 + BalanceSheet T4
 
-## 6. VERIFICATION
+## 6. KẾT QUẢ (2026-10-02)
+
+- `3_CoreHub/Services/Data/Tt71Templates.cs` (mới): `BalanceSheetTt71` (B01-HTX) + `IncomeStatementTt71` (B02-HTX) — trích trực tiếp từ `spec/tt71-pl-i-ii-iv.txt` (PL IV Mục I.1/I.2); reuse `Tt99ReportTemplate/Tt99TemplateLine` (generic)
+- `IncomeStatementService.GenerateTt71Async` — B02-HTX formulas; **sign convention `!IsNormalCredit`** (TT71) → 521 giảm trừ trình bày DƯƠNG, 10 = 01 − 02 đúng; TT99 path giữ nguyên (negate Expense only) qua `ComputeIncomeDirectLinesAsync` dùng chung
+- `BalanceSheetService.GenerateTt71Async` — B01-HTX totals 150/160/200/300/400/500 + NetIncome plug Mã 420 + W2 invariant (200 == 500) + classification 110-200/300-380/400-500; 137 "Trong đó" không cộng tổng; `ComputeBalanceSheetDirectLinesAsync` dùng chung
+- `FinancialStatementNotesService.GenerateTt71NotesAsync` — B09-HTX I-VI theo PL IV Mục I.3
+- `CashFlowStatement.razor` — chặn B03 khi tenant HTX
+- Tests: `Tt71TemplatesTests` (mới) + T3 + T4 — **Core.Tests 1872 PASS (+5) · guard ALL PASSED · build 0 errors · CD SUCCESS · RV markers PASS**
+- Ghi chú thiết kế (đã note trong template + tests): 12a/12b (CP QLKD phân bổ) = 0 → 20a+20b ≠ 20 khi 12 > 0 (20 giữ tổng 642); Mã 170 bỏ 333 (không tách bên — tránh double-count với Mã 330); Mã 320 (131 credit detail) = 0
+
+## 7. VERIFICATION
 
 ```powershell
 dotnet build VanAn.sln
