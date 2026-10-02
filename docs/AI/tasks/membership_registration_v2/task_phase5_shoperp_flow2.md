@@ -1,7 +1,7 @@
 # TASK CARD: Phase 5 — ShopERP Luồng 2 (Quản lý thành viên HTX — add/search/nâng cấp CTV)
 
 > **Master plan:** `docs/AI/plans/membership-registration-v2-master-plan.md`
-> **Status:** ⏳ PENDING
+> **Status:** ✅ COMPLETE 2026-10-03 (P5 `1803698a` — MembershipMembers + admin client)
 
 ## 1. CHANGES
 

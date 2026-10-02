@@ -1,7 +1,7 @@
 # TASK CARD: Phase 7 — Tests + validation
 
 > **Master plan:** `docs/AI/plans/membership-registration-v2-master-plan.md`
-> **Status:** ⏳ PENDING
+> **Status:** ✅ COMPLETE 2026-10-03 (P7 `ad978ef7` — 18 tests + guard PASS)
 
 ## 1. TEST LIST
 

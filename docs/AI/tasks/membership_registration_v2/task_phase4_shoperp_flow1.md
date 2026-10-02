@@ -1,7 +1,7 @@
 # TASK CARD: Phase 4 — ShopERP Luồng 1 (Tenant → HTX từ danh sách Tenants)
 
 > **Master plan:** `docs/AI/plans/membership-registration-v2-master-plan.md`
-> **Status:** ⏳ PENDING
+> **Status:** ✅ COMPLETE 2026-10-03 (P4 `0e95a72e` — Tenants nút HTX + modal upload)
 
 ## 1. CHANGES
 

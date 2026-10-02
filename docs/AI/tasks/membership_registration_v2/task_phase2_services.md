@@ -1,7 +1,7 @@
 # TASK CARD: Phase 2 — Services (provisioning CTV + AddMemberAsync + ListAsync)
 
 > **Master plan:** `docs/AI/plans/membership-registration-v2-master-plan.md`
-> **Status:** 🔨 IN-FLIGHT (1 phần code chưa commit — chờ duyệt plan)
+> **Status:** ✅ COMPLETE 2026-10-03 (P2 `1388bfe6` — AddMemberAsync + provisioning)
 
 ## 1. CHANGES
 

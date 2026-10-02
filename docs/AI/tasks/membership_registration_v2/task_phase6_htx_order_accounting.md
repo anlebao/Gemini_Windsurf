@@ -1,7 +1,7 @@
 # TASK CARD: Phase 6 — HTX Order Accounting (kết nối membership → kế toán TT 71)
 
 > **Master plan:** `docs/AI/plans/membership-registration-v2-master-plan.md`
-> **Status:** ⏳ PENDING — CHECK 2026-10-02 (user directive): chưa kết nối, thiếu tag nội bộ/ngoài, định khoản sai cho HTX (511/632 hardcode)
+> **Status:** ✅ COMPLETE 2026-10-03 (P6 `7c1e0010` + `P6b` — tag Order.IsInternalToHtx + định khoản 511/512/611/612)
 
 ## 1. VẤN ĐỀ (check)
 

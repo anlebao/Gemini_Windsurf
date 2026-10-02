@@ -1,7 +1,7 @@
 # TASK CARD: Phase 8 — RV production + tài liệu
 
 > **Master plan:** `docs/AI/plans/membership-registration-v2-master-plan.md`
-> **Status:** ⏳ PENDING
+> **Status:** 🏗 PARTIAL 2026-10-03 — deploy xong, L1/L2 chờ chạy (user: L3/L4/L5 thao tác thật)
 
 ## 1. RV CHECKLIST
 

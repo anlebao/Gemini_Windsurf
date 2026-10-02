@@ -1,7 +1,7 @@
 # TASK CARD: Phase 1 — Domain/Data (Member góp vốn + Tenant.CreateMembershipProfile + migration)
 
 > **Master plan:** `docs/AI/plans/membership-registration-v2-master-plan.md`
-> **Status:** 🔨 IN-FLIGHT (code chưa commit — chờ duyệt plan)
+> **Status:** ✅ COMPLETE 2026-10-03 (P1 `8e7a8149` — Member góp vốn + CreateMembershipProfile + migration)
 
 ## 1. CHANGES
 

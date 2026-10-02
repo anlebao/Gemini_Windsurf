@@ -1,7 +1,7 @@
 # TASK CARD: Phase 3 — API admin (Luồng 1 htx-profile + Luồng 2 members + nâng cấp CTV)
 
 > **Master plan:** `docs/AI/plans/membership-registration-v2-master-plan.md`
-> **Status:** ⏳ PENDING
+> **Status:** ✅ COMPLETE 2026-10-03 (P3 `296ea496` — MembershipAdminController)
 
 ## 1. CHANGES
 
