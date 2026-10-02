@@ -1,6 +1,7 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Infrastructure.Entities;
 using VanAn.CoreHub.Infrastructure.Seed;
 using VanAn.CoreHub.Tests.TestInfrastructure;
 using VanAn.Shared.Domain;
@@ -20,7 +21,8 @@ public class AccountChartSeederTests
     //   + 2 level-2 (3331, 1331) = 51 total
     //   TT 99 level-1 = 71 + 2 level-2 (3331, 1331) + 2 BĐSĐT sub-accounts (5117, 6327) = 75 total
     //   TT 58 = 0 (no chart of accounts — FIX-5)
-    //   Grand total = 126
+    //   TT 71/2024 (HTX) = 43 level-1 + 46 level-2/3 = 89 (off-balance 001-008 defer — như TT 133/99)
+    //   Grand total = 215
     [Fact]
     public async Task W3_SE1_SeedAsync_CreatesExpectedAccountCounts()
     {
@@ -32,11 +34,60 @@ public class AccountChartSeederTests
         int tt133 = await db.AccountCharts.CountAsync(e => e.Standard == AccountingStandard.TT133_2016);
         int tt99 = await db.AccountCharts.CountAsync(e => e.Standard == AccountingStandard.TT99_2025);
         int tt58 = await db.AccountCharts.CountAsync(e => e.Standard == AccountingStandard.TT58_2026);
+        int tt71 = await db.AccountCharts.CountAsync(e => e.Standard == AccountingStandard.TT71_2024);
 
         Assert.Equal(51, tt133); // 49 level-1 + 2 level-2 (3331, 1331)
         Assert.Equal(75, tt99);  // 71 level-1 + 2 level-2 (3331, 1331) + 2 BĐSĐT (5117, 6327)
         Assert.Equal(0, tt58);   // FIX-5: TT 58 has no chart of accounts
-        Assert.Equal(126, total);
+        Assert.Equal(89, tt71);  // TT 71/2024 HTX: 43 level-1 + 46 level-2/3
+        Assert.Equal(215, total);
+    }
+
+    // TT71-SE5 (2026-10-01): TT 71 chart — type mapping + đặc thù HTX
+    [Fact]
+    public async Task Tt71_SE5_Chart_HtxSpecificAccountsAndTypes()
+    {
+        using TestContextScope scope = VanAnDbContextTestFactory.Create();
+        VanAnDbContext db = scope.Context;
+
+        _ = await AccountChartSeeder.SeedAsync(db, NullLogger.Instance);
+
+        async Task<AccountChartEntity> Acct(string code)
+            => await db.AccountCharts.SingleAsync(e => e.Standard == AccountingStandard.TT71_2024 && e.AccountCode == code);
+
+        // Doanh thu nội bộ/ngoài + Thu nhập khác 558 (KHÔNG dùng 711)
+        Assert.Equal("Doanh thu từ giao dịch bên ngoài", (await Acct("511")).AccountName);
+        Assert.Equal(AccountType.Revenue, (await Acct("511")).Type);
+        Assert.Equal("Doanh thu từ giao dịch nội bộ", (await Acct("512")).AccountName);
+        Assert.Equal("Thu nhập khác", (await Acct("558")).AccountName);
+        Assert.Equal("Chi phí khác", (await Acct("658")).AccountName);
+        Assert.Equal("Chi phí thuế thu nhập doanh nghiệp", (await Acct("659")).AccountName);
+        Assert.Equal(AccountType.Expense, (await Acct("658")).Type);
+
+        // 521 giảm trừ doanh thu — normal debit (contra-revenue)
+        Assert.False((await Acct("521")).IsNormalCredit);
+
+        // 214/229 contra-asset — normal credit
+        Assert.True((await Acct("214")).IsNormalCredit);
+        Assert.True((await Acct("229")).IsNormalCredit);
+        Assert.Equal(AccountType.Asset, (await Acct("212")).Type); // Tài sản chung không chia (trùng mã TT 99 — key riêng)
+
+        // Đặc thù HTX: 442 Quỹ chung không chia + 136/336 nội bộ HTX + 132/332 tín dụng nội bộ
+        Assert.Equal("Quỹ chung không chia của HTX", (await Acct("442")).AccountName);
+        Assert.Equal(AccountType.Equity, (await Acct("442")).Type);
+        Assert.Equal("Phải thu giữa các đơn vị nội bộ trong HTX", (await Acct("136")).AccountName);
+        Assert.Equal("Phải trả của hoạt động tín dụng nội bộ", (await Acct("332")).AccountName);
+
+        // KHÔNG có TK DN không tồn tại trong TT 71
+        foreach (var forbidden in new[] { "515", "711", "621", "622", "627", "641", "632", "811", "821" })
+        {
+            Assert.False(await db.AccountCharts.AnyAsync(e => e.Standard == AccountingStandard.TT71_2024 && e.AccountCode == forbidden),
+                $"TT 71 KHÔNG được có TK {forbidden}");
+        }
+
+        // TT 133/99 không bị đụng (không regress)
+        Assert.Equal(51, await db.AccountCharts.CountAsync(e => e.Standard == AccountingStandard.TT133_2016));
+        Assert.Equal(75, await db.AccountCharts.CountAsync(e => e.Standard == AccountingStandard.TT99_2025));
     }
 
     // W3-SE2: Cleanup + Reseed is idempotent (clear+reseed produces same count)
@@ -51,7 +102,7 @@ public class AccountChartSeederTests
         int second = await AccountChartSeeder.SeedAsync(db, NullLogger.Instance);
 
         Assert.Equal(first, second);
-        Assert.Equal(126, second);
+        Assert.Equal(215, second);
     }
 
     // W3-SE3: TT 133 seeded first (R3 priority — verified by checking first inserted row)

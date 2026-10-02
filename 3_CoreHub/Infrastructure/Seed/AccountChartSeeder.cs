@@ -31,8 +31,9 @@ public static class AccountChartSeeder
 
         totalAdded += await SeedStandardAsync(dbContext, AccountingStandard.TT133_2016, GetTt133Accounts(), logger, ct).ConfigureAwait(false);
         totalAdded += await SeedStandardAsync(dbContext, AccountingStandard.TT99_2025, GetTt99Accounts(), logger, ct).ConfigureAwait(false);
+        totalAdded += await SeedStandardAsync(dbContext, AccountingStandard.TT71_2024, GetTt71Accounts(), logger, ct).ConfigureAwait(false);
 
-        logger?.LogInformation("W3 AccountChartSeeder: seeded {Count} total account chart entries across 2 standards", totalAdded);
+        logger?.LogInformation("W3 AccountChartSeeder: seeded {Count} total account chart entries across 3 standards", totalAdded);
         return totalAdded;
     }
 
@@ -290,5 +291,120 @@ public static class AccountChartSeeder
         // B 02-DN Mã 21 "Lãi/lỗ của hoạt động bán, thanh lý BĐS đầu tư" uses TK 5117/6327
         yield return ("5117", "Doanh thu kinh doanh BĐS đầu tư", AccountType.Revenue, true);
         yield return ("6327", "Giá vốn BĐS đầu tư", AccountType.Expense, false);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TT 71/2024 — Chế độ kế toán Hợp tác xã (43 level-1 + 46 level-2/3 = 89 accounts)
+    // Source: docs/specs/Thông tư 71-2024-TT-BTC.doc PL I (extract:
+    //   docs/AI/tasks/tt71_htx_accounting/spec/tt71-pl-i-ii-iv.txt) — verified 2026-10-01.
+    // Đặc thù HTX: tách giao dịch NỘI BỘ / BÊN NGOÀI (511/512, 611/612, 4211/4212, 132/332,
+    // 136/336); 558 Thu nhập khác + 658 Chi phí khác + 659 CP thuế TNDN; 442 Quỹ chung
+    // không chia; 212 Tài sản chung không chia (TRÙNG MÃ với TT 99 "TSCĐ thuê tài chính" —
+    // không xung đột vì key = Standard+Code, nhưng lookup phải truyền đúng standard).
+    // KHÔNG có: 515/711/621/622/623/627/641/811/821/632 — các TK này không tồn tại trong TT 71.
+    // Off-balance 001-008 (Ngoài bảng) defer — giống TT 133/99 (không seed TK ngoài bảng).
+    // ═══════════════════════════════════════════════════════════════════════════
+    private static IEnumerable<(string, string, AccountType, bool)> GetTt71Accounts()
+    {
+        // Loại Tài sản (Asset) — normal debit; ngoại lệ: 214/229 contra-asset (normal credit)
+        yield return ("111", "Tiền mặt", AccountType.Asset, false);
+        yield return ("1111", "Tiền Việt Nam", AccountType.Asset, false);
+        yield return ("1112", "Ngoại tệ", AccountType.Asset, false);
+        yield return ("112", "Tiền gửi Ngân hàng", AccountType.Asset, false);
+        yield return ("1121", "Tiền Việt Nam", AccountType.Asset, false);
+        yield return ("1122", "Ngoại tệ", AccountType.Asset, false);
+        yield return ("121", "Đầu tư tài chính", AccountType.Asset, false);
+        yield return ("1211", "Tiền gửi có kỳ hạn", AccountType.Asset, false);
+        yield return ("1218", "Đầu tư tài chính khác", AccountType.Asset, false);
+        yield return ("131", "Phải thu của khách hàng", AccountType.Asset, false);
+        yield return ("132", "Phải thu của hoạt động cho vay nội bộ", AccountType.Asset, false);
+        yield return ("1321", "Phải thu hoạt động cho vay nội bộ", AccountType.Asset, false);
+        yield return ("13211", "Phải thu về gốc cho vay nội bộ", AccountType.Asset, false);
+        yield return ("13212", "Phải thu về lãi cho vay nội bộ", AccountType.Asset, false);
+        yield return ("1322", "Phải thu hoạt động cho vay nội bộ khác", AccountType.Asset, false);
+        yield return ("133", "Thuế GTGT được khấu trừ", AccountType.Asset, false);
+        yield return ("1331", "Thuế GTGT được khấu trừ của hàng hóa, dịch vụ", AccountType.Asset, false);
+        yield return ("1332", "Thuế GTGT được khấu trừ của TSCĐ", AccountType.Asset, false);
+        yield return ("136", "Phải thu giữa các đơn vị nội bộ trong HTX", AccountType.Asset, false);
+        yield return ("1361", "Vốn kinh doanh ở đơn vị trực thuộc", AccountType.Asset, false);
+        yield return ("1368", "Phải thu khác giữa các đơn vị nội bộ", AccountType.Asset, false);
+        yield return ("138", "Phải thu khác", AccountType.Asset, false);
+        yield return ("141", "Tạm ứng", AccountType.Asset, false);
+        yield return ("151", "Hàng mua đang đi đường", AccountType.Asset, false);
+        yield return ("152", "Vật liệu, dụng cụ", AccountType.Asset, false);
+        yield return ("154", "Chi phí sản xuất, kinh doanh dở dang", AccountType.Asset, false);
+        yield return ("156", "Thành phẩm, hàng hóa", AccountType.Asset, false);
+        yield return ("157", "Hàng gửi đi bán", AccountType.Asset, false);
+        yield return ("211", "Tài sản cố định", AccountType.Asset, false);
+        yield return ("2111", "TSCĐ hữu hình", AccountType.Asset, false);
+        yield return ("2113", "TSCĐ vô hình", AccountType.Asset, false);
+        yield return ("2114", "TSCĐ thuê tài chính", AccountType.Asset, false);
+        yield return ("2117", "Bất động sản đầu tư", AccountType.Asset, false);
+        yield return ("212", "Tài sản chung không chia", AccountType.Asset, false);
+        yield return ("214", "Hao mòn tài sản cố định", AccountType.Asset, true);   // contra-asset
+        yield return ("2141", "Hao mòn TSCĐ hữu hình", AccountType.Asset, true);
+        yield return ("2142", "Hao mòn tài sản chung không chia", AccountType.Asset, true);
+        yield return ("2143", "Hao mòn TSCĐ vô hình", AccountType.Asset, true);
+        yield return ("2144", "Hao mòn TSCĐ thuê tài chính", AccountType.Asset, true);
+        yield return ("2147", "Hao mòn bất động sản đầu tư", AccountType.Asset, true);
+        yield return ("229", "Dự phòng tổn thất tài sản", AccountType.Asset, true); // contra-asset
+        yield return ("242", "Tài sản khác", AccountType.Asset, false);
+        yield return ("2421", "Chi phí chờ phân bổ", AccountType.Asset, false);
+        yield return ("2422", "Xây dựng cơ bản dở dang", AccountType.Asset, false);
+
+        // Loại Nợ phải trả (Liability) — normal credit
+        yield return ("331", "Phải trả cho người bán", AccountType.Liability, true);
+        yield return ("332", "Phải trả của hoạt động tín dụng nội bộ", AccountType.Liability, true);
+        yield return ("3321", "Phải trả từ hoạt động đi vay của thành viên", AccountType.Liability, true);
+        yield return ("33211", "Phải trả về gốc vay", AccountType.Liability, true);
+        yield return ("33212", "Phải trả về lãi vay", AccountType.Liability, true);
+        yield return ("3322", "Phải trả hoạt động tín dụng nội bộ khác", AccountType.Liability, true);
+        yield return ("333", "Thuế và các khoản phải nộp nhà nước", AccountType.Liability, true);
+        yield return ("3331", "Thuế giá trị gia tăng phải nộp", AccountType.Liability, true);
+        yield return ("3334", "Thuế thu nhập doanh nghiệp", AccountType.Liability, true);
+        yield return ("3338", "Thuế khác, phí, lệ phí và các khoản khác phải nộp Nhà nước", AccountType.Liability, true);
+        yield return ("334", "Phải trả người lao động", AccountType.Liability, true);
+        yield return ("335", "Các khoản phải nộp theo lương", AccountType.Liability, true);
+        yield return ("336", "Phải trả giữa các đơn vị nội bộ trong HTX", AccountType.Liability, true);
+        yield return ("3361", "Phải trả nội bộ về vốn kinh doanh", AccountType.Liability, true);
+        yield return ("3368", "Phải trả khác giữa các đơn vị nội bộ", AccountType.Liability, true);
+        yield return ("338", "Phải trả khác", AccountType.Liability, true);
+        yield return ("341", "Phải trả nợ vay", AccountType.Liability, true);
+        yield return ("342", "Khoản hỗ trợ của Nhà nước phải hoàn lại", AccountType.Liability, true);
+        yield return ("353", "Quỹ khen thưởng, phúc lợi", AccountType.Liability, true);
+        yield return ("3531", "Quỹ khen thưởng", AccountType.Liability, true);
+        yield return ("3532", "Quỹ phúc lợi", AccountType.Liability, true);
+        yield return ("3533", "Quỹ phúc lợi đã hình thành TSCĐ", AccountType.Liability, true);
+
+        // Loại Vốn chủ sở hữu (Equity) — normal credit
+        yield return ("411", "Vốn đầu tư của chủ sở hữu", AccountType.Equity, true);
+        yield return ("4111", "Vốn góp của thành viên", AccountType.Equity, true);
+        yield return ("4118", "Vốn khác", AccountType.Equity, true);
+        yield return ("418", "Các quỹ thuộc vốn chủ sở hữu", AccountType.Equity, true);
+        yield return ("421", "Lợi nhuận sau thuế chưa phân phối", AccountType.Equity, true);
+        yield return ("4211", "Lợi nhuận sau thuế chưa phân phối của giao dịch bên ngoài", AccountType.Equity, true);
+        yield return ("4212", "Lợi nhuận sau thuế chưa phân phối của giao dịch nội bộ", AccountType.Equity, true);
+        yield return ("442", "Quỹ chung không chia của HTX", AccountType.Equity, true);
+        yield return ("4421", "Quỹ chung không chia", AccountType.Equity, true);
+        yield return ("4422", "Nguồn hình thành tài sản chung không chia", AccountType.Equity, true);
+
+        // Loại Doanh thu (Revenue) — normal credit; ngoại lệ: 521 giảm trừ (normal debit)
+        yield return ("511", "Doanh thu từ giao dịch bên ngoài", AccountType.Revenue, true);
+        yield return ("5111", "Doanh thu bán hàng hóa", AccountType.Revenue, true);
+        yield return ("5112", "Doanh thu bán sản phẩm", AccountType.Revenue, true);
+        yield return ("5113", "Doanh thu cung cấp dịch vụ", AccountType.Revenue, true);
+        yield return ("512", "Doanh thu từ giao dịch nội bộ", AccountType.Revenue, true);
+        yield return ("521", "Các khoản giảm trừ doanh thu", AccountType.Revenue, false);
+        yield return ("558", "Thu nhập khác", AccountType.Revenue, true);
+
+        // Loại Chi phí (Expense) — normal debit
+        yield return ("611", "Giá vốn hàng bán của giao dịch bên ngoài", AccountType.Expense, false);
+        yield return ("612", "Chi phí của giao dịch nội bộ", AccountType.Expense, false);
+        yield return ("642", "Chi phí quản lý kinh doanh", AccountType.Expense, false);
+        yield return ("658", "Chi phí khác", AccountType.Expense, false);
+        yield return ("659", "Chi phí thuế thu nhập doanh nghiệp", AccountType.Expense, false);
+
+        // Xác định kết quả
+        yield return ("911", "Xác định kết quả kinh doanh", AccountType.Revenue, true);
     }
 }
