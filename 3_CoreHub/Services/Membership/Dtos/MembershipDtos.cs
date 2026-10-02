@@ -98,6 +98,27 @@ namespace VanAn.CoreHub.Services.Membership
         string TenantName,
         string CharterVersion);
 
+    // ── 2026-10-02 (user directive): 2 luồng admin — Luồng 1 tenant→HTX · Luồng 2 member add ──
+
+    /// <summary>Luồng 1: tạo HtxProfile hộ (SystemAdmin) — tài liệu upload tùy chọn qua CharterUrl.</summary>
+    public record CreateHtxProfileAdminRequest(
+        Guid HtxTenantId,
+        string? CharterVersion = null,
+        string? TermsVersion = null,
+        string? CharterUrl = null);
+
+    /// <summary>Luồng 2: thêm tenant làm thành viên HTX (SystemAdmin) — MembershipType string enum (camelCase).</summary>
+    public record AddHtxMemberRequest(
+        Guid HtxTenantId,
+        Guid MemberTenantId,
+        string MembershipType,
+        decimal? CapitalContributionAmount = null);
+
+    /// <summary>D4: nâng cấp cộng tác viên (Salesman/Shipper) thành tenant profile (SystemAdmin).</summary>
+    public record CollaboratorUpgradeRequest(
+        Guid CustomerId,
+        string? DisplayName = null);
+
     /// <summary>Tài liệu đính kèm hồ sơ (SRS §17.2 — chữ ký online, form giấy scan...).</summary>
     public record MembershipDocumentDto(
         Guid Id,
