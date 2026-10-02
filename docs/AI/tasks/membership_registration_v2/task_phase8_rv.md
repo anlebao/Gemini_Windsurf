@@ -1,4 +1,4 @@
-# TASK CARD: Phase 7 — RV production + tài liệu
+# TASK CARD: Phase 8 — RV production + tài liệu
 
 > **Master plan:** `docs/AI/plans/membership-registration-v2-master-plan.md`
 > **Status:** ⏳ PENDING

@@ -1,4 +1,4 @@
-# TASK CARD: Phase 6 — Tests + validation
+# TASK CARD: Phase 7 — Tests + validation
 
 > **Master plan:** `docs/AI/plans/membership-registration-v2-master-plan.md`
 > **Status:** ⏳ PENDING

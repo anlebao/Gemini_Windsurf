@@ -52,10 +52,11 @@
 | 3 | API admin: `POST /api/admin/membership/htx-profile` (SystemAdmin tạo hộ, Luồng 1) + `POST /api/admin/membership/members` (add, Luồng 2) + `POST /api/admin/membership/collaborator-upgrade` (D4) + `GET /api/membership/htx-profiles` + tenant search | 2_Gateway | `task_phase3_api_admin.md` | ⏳ |
 | 4 | ShopERP Luồng 1: `/admin/tenants` nút "Chuyển thành HTX" + modal upload tài liệu (tùy chọn) | 5_WebApps/ShopERP | `task_phase4_shoperp_flow1.md` | ⏳ |
 | 5 | ShopERP Luồng 2: trang quản lý thành viên HTX (list + add/search tenant + nâng cấp CTV) | 5_WebApps/ShopERP | `task_phase5_shoperp_flow2.md` | ⏳ |
-| 6 | Tests + validation | 6_Tests | `task_phase6_tests.md` | ⏳ |
-| 7 | RV production + docs | production | `task_phase7_rv.md` | ⏳ |
+| **6** | **HTX Order Accounting — kết nối membership → kế toán TT 71** (tag nội bộ/ngoài + định khoản 511/512, 611/612) | 1_Shared + 3_CoreHub | `task_phase6_htx_order_accounting.md` | ⏳ |
+| 7 | Tests + validation | 6_Tests | `task_phase7_tests.md` | ⏳ |
+| 8 | RV production + docs | production | `task_phase8_rv.md` | ⏳ |
 
-**Dependency chain:** 1 → 2 → 3 → (4 ∥ 5) → 6 → 7.
+**Dependency chain:** 1 → 2 → 3 → (4 ∥ 5) → 6 → (7 ∥ 8).
 
 ## 5. THIẾT KẾ CHI TIẾT
 
@@ -99,7 +100,26 @@
   - **"Nâng cấp CTV"** → modal: search cộng tác viên (customer Salesman/Shipper — tên/SĐT) → `POST /api/admin/membership/collaborator-upgrade` → trả tenant mới → tiếp tục "Thêm thành viên" với tenant đó.
   - Hành động member: Suspend/Terminate (MemberRegistryService có sẵn — tùy chọn thêm nút, giữ tối thiểu).
 
-### 5.6 Tests (Phase 6)
+### 5.6 HTX Order Accounting (Phase 6) — CHECK 2026-10-02 (user directive)
+
+**Kết quả check kết nối membership ↔ kế toán HTX:**
+| Câu hỏi | Trạng thái | Bằng chứng |
+|---|---|---|
+| Membership ↔ kế toán HTX đã kết nối? | ❌ CHƯA | Order/OrderService không tham chiếu `Member`/HtxProfile; member (tenant) không tham gia order flow |
+| Đủ thông tin phân biệt nội bộ/ngoài? | ❌ THIẾU | `Order` KHÔNG có field đánh dấu nội bộ/ngoài; không lookup counterparty là member của HTX bán |
+| Định khoản đúng luật TT 71? | ❌ CHƯA | `OrderService` HARDCODE `accountCode: "511"` (revenue) + `"632"` (COGS) — **632 KHÔNG tồn tại trong TT 71**; không branch theo `AccountingStandard` (HTX phải 511/512 + 611/612) |
+
+**Thiết kế Phase 6:**
+- **Tag nội bộ/ngoài tại `CreateOrderAsync`** (Gateway order creator): tenant bán là HTX (`AccountingStandard == TT71_2024` hoặc Type=HTX) → xác định buyer:
+  - Buyer = `Order.CustomerId` → tìm tenant có `OwnerCustomerId == customerId` (tenant sở hữu bởi buyer) → nếu tenant đó là **Member active của HTX bán** (`Members.TenantId == HTX && MemberTenantId == buyerTenant`) → **nội bộ**.
+  - Ngược lại → ngoài. Lưu **`Order.IsInternalToHtx`** (bool?, Domain change + migration PG + OrderCreated payload sync SQLite).
+- **Định khoản tại `ConfirmPaymentAsync`** (cash-basis TT 152 — accounting generation):
+  - Tenant standard TT71: revenue → **512** (nội) / **511** (ngoài); COGS → **612** (nội) / **611** (ngoài); VAT **3331** (giữ). LN nội/ngoài theo dõi qua tài khoản (4211/4212 — không cần entry riêng MVP).
+  - Tenant khác: giữ 511/632 (KHÔNG regress).
+- Scope: chỉ đơn của tenant bán = HTX (Marketplace đơn giản); reseller path KHÔNG mở rộng cho HTX (note — HTX reseller chưa hỗ trợ).
+- Tài liệu: B02-HTX tách 01a/01b (511/512) + 11a/11b (611/612) đã có (TT 71 S2) — Phase 6 cung cấp DỮ LIỆU đúng cho template.
+
+### 5.7 Tests (Phase 7)
 - Domain: `Member.CreateActive` capital guard · `Tenant.CreateMembershipProfile` (Type null/Active).
 - Service: `AddMemberAsync` (guard D6/D7, HTX có HtxProfile, duplicate) · provisioning (tạo/reuse/idempotent) · ListAsync.
 - API/controller: SystemAdmin htx-profile/members/collaborator-upgrade (200/400/409) · Owner bị chặn (403).
@@ -113,6 +133,7 @@
 - [ ] Tenant chưa Active → chặn add (D7) · NonCapital khai vốn → chặn (D6)
 - [ ] Collaborator nâng cấp thành tenant (Type=null, Active, OwnerCustomerId) → add thành viên được; nhiều HTX dùng chung 1 profile (D5)
 - [ ] Dữ liệu nằm ở PG (qua Gateway API từ ShopERP UI) — đúng kiến trúc
+- [ ] **HTX order accounting (Phase 6)**: đơn bán của HTX → tag nội bộ/ngoài đúng (buyer là member tenant → nội bộ) · định khoản 512/612 (nội) vs 511/611 (ngoài) · tenant DN giữ 511/632 (không regress) · B02-HTX 01a/01b + 11a/11b có số liệu đúng
 - [ ] Core.Tests/ShopERP.Tests/Architecture không regress · guard-check PASS · RV production
 
 ## 7. GATES & LƯU Ý
