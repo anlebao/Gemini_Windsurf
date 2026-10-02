@@ -9,6 +9,7 @@
 @using VanAn.UI.Platform.Models
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
+@using VanAn.ShopERP.Services.Accounting
 @inject VanAn.CoreHub.Services.IFinancialStatementNotesService NotesService
 @inject VanAn.ShopERP.Services.IFinancialReportExportService ExportService
 @inject VanAn.CoreHub.Services.IVasFeatureFlagService FeatureFlagService
@@ -19,7 +20,7 @@
 
 <div class="report-page @ThemeProvider.CurrentTheme">
     <header class="page-header">
-        <h1>Bản Thuyết Minh BCTC (B 09-DN)</h1>
+        <h1>Bản Thuyết Minh BCTC (@(selectedStandard == AccountingStandard.TT71_2024 ? "B 09-HTX" : "B 09-DN"))</h1>
         <div class="header-actions">
             <VanAButton Variant="secondary" Size="small" OnClick="GenerateReport">🔄 Tạo thuyết minh</VanAButton>
         </div>
@@ -45,6 +46,7 @@
                 <select @bind="selectedStandard">
                     <option value="@AccountingStandard.TT133_2016">TT 133/2016 (DN vừa)</option>
                     <option value="@AccountingStandard.TT99_2025">TT 99/2025 (DN lớn)</option>
+                    <option value="@AccountingStandard.TT71_2024">TT 71/2024 (HTX)</option>
                 </select>
             </label>
             <VanAButton Variant="primary" Size="small" OnClick="GenerateReport">Áp dụng</VanAButton>
@@ -101,11 +103,7 @@
             {
                 var tenantId = new TenantId(TenantProvider.TenantId);
                 var tenantType = await FeatureFlagService.GetTenantTypeAsync(tenantId);
-                selectedStandard = tenantType switch
-                {
-                    TenantType.Enterprise_Large => AccountingStandard.TT99_2025,
-                    _ => AccountingStandard.TT133_2016
-                };
+                selectedStandard = AccountingStandardResolver.Resolve(tenantType);
             }
             catch { /* fallback TT99 */ }
         }

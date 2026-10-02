@@ -1,0 +1,180 @@
+@* TT 71 Phase 4b (S3) — Phiếu chi (Mẫu số 02 - TT) theo Phụ lục II TT 71/2024/TT-BTC.
+   Render từ dữ liệu entry đã lưu; in qua vananPrintBill (window.print) với CSS print
+   chỉ hiển thị vùng phiếu (pattern giống PrintTicket). *@
+@using System.Globalization
+@using VanAn.ShopERP.Services.Accounting
+@using VanAn.UI.Platform.Components
+@inject IJSRuntime JSRuntime
+
+<div class="voucher-print-area">
+    <div class="voucher-head">
+        <div class="voucher-unit">Đơn vị: <strong>@DonVi</strong></div>
+        <div class="voucher-form-no">
+            <strong>Mẫu số 02 - TT</strong><br />
+            <span class="voucher-form-ref">(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07/10/2024 của Bộ trưởng Bộ Tài chính)</span>
+        </div>
+    </div>
+
+    <div class="voucher-title">PHIẾU CHI</div>
+    <div class="voucher-date">Ngày @Ngay</div>
+
+    <div class="voucher-body">
+        <div class="voucher-row"><span class="voucher-label">Quyển số: </span><span class="voucher-value">……</span></div>
+        <div class="voucher-row"><span class="voucher-label">Số: </span><span class="voucher-value">@SoPhieu</span></div>
+        <div class="voucher-row"><span class="voucher-label">Nợ: </span><span class="voucher-value">@No</span></div>
+        <div class="voucher-row"><span class="voucher-label">Có: </span><span class="voucher-value">@Co</span></div>
+        <div class="voucher-row">
+            <span class="voucher-label">Họ và tên người nhận tiền: </span>
+            <span class="voucher-value">@NguoiNhan</span>
+        </div>
+        <div class="voucher-row">
+            <span class="voucher-label">Địa chỉ: </span>
+            <span class="voucher-value">@DiaChi</span>
+        </div>
+        <div class="voucher-row">
+            <span class="voucher-label">Lý do chi: </span>
+            <span class="voucher-value">@LyDo</span>
+        </div>
+        <div class="voucher-row">
+            <span class="voucher-label">Số tiền: </span>
+            <span class="voucher-value">@FormatAmount(SoTien)</span>
+        </div>
+        <div class="voucher-row">
+            <span class="voucher-label">(Viết bằng chữ): </span>
+            <span class="voucher-value">@SoTienChu</span>
+        </div>
+        <div class="voucher-row">
+            <span class="voucher-label">Kèm theo: </span>
+            <span class="voucher-value">@KemTheo</span>
+            <span class="voucher-label voucher-gap">Chứng từ gốc: </span>
+            <span class="voucher-value">@ChungTuGoc</span>
+        </div>
+    </div>
+
+    <div class="voucher-signatures">
+        <div class="voucher-sig">
+            <div class="voucher-sig-title">GIÁM ĐỐC</div>
+            <div class="voucher-sig-sub">(Ký, họ tên, đóng dấu)</div>
+        </div>
+        <div class="voucher-sig">
+            <div class="voucher-sig-title">KẾ TOÁN TRƯỞNG</div>
+            <div class="voucher-sig-sub">(Ký, họ tên)</div>
+        </div>
+        <div class="voucher-sig">
+            <div class="voucher-sig-title">THỦ QUỸ</div>
+            <div class="voucher-sig-sub">(Ký, họ tên)</div>
+        </div>
+        <div class="voucher-sig">
+            <div class="voucher-sig-title">NGƯỜI LẬP PHIẾU</div>
+            <div class="voucher-sig-sub">(Ký, họ tên)</div>
+        </div>
+        <div class="voucher-sig">
+            <div class="voucher-sig-title">NGƯỜI NHẬN TIỀN</div>
+            <div class="voucher-sig-sub">(Ký, họ tên)</div>
+        </div>
+    </div>
+
+    <div class="voucher-footer">
+        <div>Đã nhận đủ số tiền (viết bằng chữ): <strong>@SoTienChu</strong></div>
+        <div>+ Tỷ giá ngoại tệ: ……………………………… + Số tiền quy đổi: ………………………………</div>
+        <div class="voucher-note">(Liên gửi ra ngoài phải đóng dấu)</div>
+    </div>
+
+    <div class="voucher-actions no-print">
+        <VanAButton Variant="primary" Size="small" OnClick="PrintAsync">🖨️ In phiếu chi</VanAButton>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string DonVi { get; set; } = string.Empty;
+    [Parameter] public string SoPhieu { get; set; } = string.Empty;
+    [Parameter] public string Ngay { get; set; } = string.Empty;
+    [Parameter] public string No { get; set; } = string.Empty;
+    [Parameter] public string Co { get; set; } = string.Empty;
+    [Parameter] public string NguoiNhan { get; set; } = string.Empty;
+    [Parameter] public string DiaChi { get; set; } = string.Empty;
+    [Parameter] public string LyDo { get; set; } = string.Empty;
+    [Parameter] public decimal SoTien { get; set; }
+    [Parameter] public string KemTheo { get; set; } = string.Empty;
+    [Parameter] public string ChungTuGoc { get; set; } = string.Empty;
+
+    private string SoTienChu => VietnameseCurrencyText.ToWords(SoTien);
+
+    private static string FormatAmount(decimal amount)
+    {
+        return amount.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"));
+    }
+
+    private async Task PrintAsync()
+    {
+        await JSRuntime.InvokeVoidAsync("vananPrintBill");
+    }
+}
+
+<style>
+    .voucher-print-area {
+        font-family: "Times New Roman", serif;
+        background: white;
+        color: black;
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 1.5rem;
+        font-size: 0.95rem;
+        line-height: 1.6;
+    }
+    .voucher-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 0.75rem;
+    }
+    .voucher-form-no { text-align: right; }
+    .voucher-form-ref { font-size: 0.75rem; }
+    .voucher-title {
+        text-align: center;
+        font-size: 1.3rem;
+        font-weight: 700;
+        letter-spacing: 2px;
+        margin: 0.5rem 0 0.25rem;
+    }
+    .voucher-date { text-align: center; margin-bottom: 1rem; }
+    .voucher-body {
+        border: 1px solid #333;
+        padding: 0.75rem 1rem;
+        min-height: 260px;
+    }
+    .voucher-row {
+        display: flex;
+        margin: 0.35rem 0;
+        align-items: baseline;
+    }
+    .voucher-label { min-width: 150px; font-weight: 600; }
+    .voucher-gap { margin-left: 1.5rem; }
+    .voucher-value { flex: 1; border-bottom: 1px dotted #999; padding: 0 0.25rem; }
+    .voucher-signatures {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 0.5rem;
+        margin: 1.5rem 0;
+        text-align: center;
+    }
+    .voucher-sig-title { font-weight: 700; margin-top: 2.5rem; }
+    .voucher-sig-sub { font-size: 0.75rem; }
+    .voucher-footer { margin-top: 0.5rem; }
+    .voucher-note { margin-top: 0.5rem; font-style: italic; font-size: 0.85rem; }
+    .voucher-actions { text-align: center; margin-top: 1rem; }
+
+    /* Print — chỉ hiển thị vùng phiếu */
+    @@media print {
+        body * { visibility: hidden; }
+        .voucher-print-area, .voucher-print-area * { visibility: visible; }
+        .voucher-print-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            max-width: 100%;
+            padding: 0.5rem;
+        }
+        .no-print { display: none !important; }
+    }
+</style>

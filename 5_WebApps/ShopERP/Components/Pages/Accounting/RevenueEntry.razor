@@ -10,7 +10,10 @@
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
 @using CoreAccountingService = VanAn.CoreHub.Services
+@using VanAn.ShopERP.Services.Accounting
+@using VanAn.ShopERP.Components.Accounting
 @inject CoreAccountingService.IAccountingService AccountingService
+@inject VanAn.CoreHub.Services.IVasFeatureFlagService FeatureFlagService
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
 @inject ILogger<RevenueEntry> Logger
@@ -38,6 +41,27 @@
     {
         <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" />
     }
+
+    @* TT 71 Phase 4b: in Phiếu thu 01-TT (chỉ tenant HTX) sau khi lưu thành công *@
+    @if (_tenantType == TenantType.HTX && _lastVoucher != null)
+    {
+        <div class="mt-3">
+            <VanAButton Variant="success" Size="small" OnClick="OpenPrintModal">
+                🖨️ In Phiếu thu (01-TT)
+            </VanAButton>
+        </div>
+    }
+
+    <VanAnModal IsOpen="@_showPrintModal" Title="Phiếu Thu (Mẫu số 01 - TT)" Closable="true" OnClose="ClosePrintModal">
+        @if (_lastVoucher != null)
+        {
+            <Tt71ReceiptVoucher SoPhieu="@_lastVoucher.SoPhieu" Ngay="@_lastVoucher.Ngay"
+                                No="@_lastVoucher.No" Co="@_lastVoucher.Co"
+                                NguoiNop="@_lastVoucher.NguoiNop" DiaChi="@_lastVoucher.DiaChi"
+                                LyDo="@_lastVoucher.LyDo" SoTien="@_lastVoucher.SoTien"
+                                KemTheo="@_lastVoucher.KemTheo" ChungTuGoc="@_lastVoucher.ChungTuGoc" />
+        }
+    </VanAnModal>
 
     <VanACard Header="Thông Tin Doanh Thu">
         <EditForm Model="@formData" OnValidSubmit="HandleSubmit">
@@ -116,11 +140,35 @@
     private string errorMessage = string.Empty;
     private PlatformComposite.FormData formData = new();
     private DynamicFormFields? formFieldsRef;
+    private TenantType? _tenantType;
 
-    protected override void OnInitialized()
+    // TT 71 Phase 4b: dữ liệu phiếu thu 01-TT của entry vừa lưu (để in)
+    private record VoucherData(string SoPhieu, string Ngay, string No, string Co, string NguoiNop,
+        string DiaChi, string LyDo, decimal SoTien, string KemTheo, string ChungTuGoc);
+    private VoucherData? _lastVoucher;
+    private bool _showPrintModal;
+
+    protected override async Task OnInitializedAsync()
     {
+        await LoadTenantTypeAsync();
         InitializeFields();
     }
+
+    private async Task LoadTenantTypeAsync()
+    {
+        if (!TenantProvider.HasTenant) return;
+        try
+        {
+            _tenantType = await FeatureFlagService.GetTenantTypeAsync(new TenantId(TenantProvider.TenantId));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Không lấy được TenantType — dùng options DN mặc định");
+        }
+    }
+
+    private void OpenPrintModal() => _showPrintModal = true;
+    private void ClosePrintModal() => _showPrintModal = false;
 
     private void HandleFieldChanged(PlatformComposite.FormField field)
     {
@@ -217,7 +265,7 @@
                 Value = "511",
                 Options = GetRevenueAccounts(),
                 Required = true,
-                HelpText = "Chọn tài khoản kế toán"
+                HelpText = AccountingAccountProvider.GetAccountHelpText(_tenantType)
             },
             new PlatformComposite.FormField
             {
@@ -333,15 +381,10 @@
         return msg;
     }
 
+    // TT 71 Phase 4a: options theo chuẩn tenant (HTX → 511/512/558; DN/HKD giữ nguyên)
     private List<PlatformComposite.FieldOption> GetRevenueAccounts()
     {
-        return new List<PlatformComposite.FieldOption>
-        {
-            new PlatformComposite.FieldOption { Value = "511", Label = "511 - Doanh thu bán hàng hóa" },
-            new PlatformComposite.FieldOption { Value = "512", Label = "512 - Doanh thu cung cấp dịch vụ" },
-            new PlatformComposite.FieldOption { Value = "515", Label = "515 - Doanh thu hoạt động khác" },
-            new PlatformComposite.FieldOption { Value = "711", Label = "711 - Chênh lệch tỷ giá hối đoái" }
-        };
+        return AccountingAccountProvider.GetRevenueAccounts(_tenantType);
     }
 
     private record RecentEntry(decimal Amount, DateTime Date, string AccountCode, DateTime SubmittedAt);
@@ -445,6 +488,25 @@
 
         // Track for duplicate detection
         _recentEntries.Add(new RecentEntry(amount, date, accountCode, now));
+
+        // TT 71 Phase 4b: capture dữ liệu phiếu thu 01-TT (chỉ tenant HTX) trước khi reset form
+        var reference = formData.Values.GetValueOrDefault("reference") ?? string.Empty;
+        if (_tenantType == TenantType.HTX)
+        {
+            _lastVoucher = new VoucherData(
+                SoPhieu: string.IsNullOrWhiteSpace(reference)
+                    ? $"PT-{date:yyyyMMdd}-{_recentEntries.Count}"
+                    : reference,
+                Ngay: date.ToString("dd/MM/yyyy"),
+                No: "111",
+                Co: accountCode,
+                NguoiNop: lookupResult?.BusinessName ?? string.Empty,
+                DiaChi: string.Empty,
+                LyDo: formData.Values["description"],
+                SoTien: amount,
+                KemTheo: string.Empty,
+                ChungTuGoc: reference);
+        }
 
         showSuccess = true;
         showError = false;

@@ -6,26 +6,34 @@
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Models
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.ShopERP.Services.Accounting
 @inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject VanAn.CoreHub.Services.IVasFeatureFlagService FeatureFlagService
 
 <div class="report-hub-page @ThemeProvider.CurrentTheme">
     <header class="page-header">
         <h1>Báo Cáo Tài Chính</h1>
     </header>
 
-    <VanACard Header="Bộ Báo Cáo Tài Chính năm (TT 99/2025/TT-BTC)">
+    <VanACard Header="@(isHtx ? "Bộ Báo Cáo Tài Chính năm (TT 71/2024/TT-BTC)" : "Bộ Báo Cáo Tài Chính năm (TT 99/2025/TT-BTC)")">
         <div class="report-links-grid">
             <a href="/accounting/balance-sheet" class="report-link-card">
-                📊 Báo Cáo Tình Hình Tài Chính (B 01-DN)
+                📊 Báo Cáo Tình Hình Tài Chính (@(isHtx ? "B 01-HTX" : "B 01-DN"))
             </a>
             <a href="/accounting/income-statement" class="report-link-card">
-                📈 Báo Cáo Kết Quả Hoạt Động Kinh Doanh (B 02-DN)
+                📈 Báo Cáo Kết Quả Hoạt Động @(isHtx ? "(B 02-HTX)" : "Kinh Doanh (B 02-DN)")
             </a>
-            <a href="/accounting/cash-flow-statement" class="report-link-card">
-                💰 Báo Cáo Lưu Chuyển Tiền Tệ (B 03-DN)
-            </a>
+            @if (!isHtx)
+            {
+                <a href="/accounting/cash-flow-statement" class="report-link-card">
+                    💰 Báo Cáo Lưu Chuyển Tiền Tệ (B 03-DN)
+                </a>
+            }
             <a href="/accounting/financial-statement-notes" class="report-link-card">
-                📝 Thuyết Minh Báo Cáo Tài Chính (B 09-DN)
+                📝 Thuyết Minh Báo Cáo Tài Chính (@(isHtx ? "B 09-HTX" : "B 09-DN"))
             </a>
         </div>
     </VanACard>
@@ -38,3 +46,20 @@
         </div>
     </VanACard>
 </div>
+
+@code {
+    private bool isHtx;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (TenantProvider.HasTenant)
+        {
+            try
+            {
+                var tenantType = await FeatureFlagService.GetTenantTypeAsync(new TenantId(TenantProvider.TenantId));
+                isHtx = AccountingAccountProvider.IsHtx(tenantType);
+            }
+            catch { /* fallback DN */ }
+        }
+    }
+}

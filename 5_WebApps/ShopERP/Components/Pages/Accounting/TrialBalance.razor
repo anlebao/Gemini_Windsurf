@@ -10,6 +10,7 @@
 @using VanAn.UI.Platform.Models
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
+@using VanAn.ShopERP.Services.Accounting
 @inject VanAn.CoreHub.Services.ITrialBalanceService TrialBalanceService
 @inject VanAn.ShopERP.Services.IFinancialReportExportService ExportService
 @inject VanAn.CoreHub.Services.IVasFeatureFlagService FeatureFlagService
@@ -48,6 +49,7 @@
                 <select @bind="selectedStandard">
                     <option value="@AccountingStandard.TT133_2016">TT 133/2016 (DN vừa)</option>
                     <option value="@AccountingStandard.TT99_2025">TT 99/2025 (DN lớn)</option>
+                    <option value="@AccountingStandard.TT71_2024">TT 71/2024 (HTX)</option>
                 </select>
             </label>
             <VanAButton Variant="primary" Size="small" OnClick="GenerateReport">Áp dụng</VanAButton>
@@ -126,11 +128,7 @@
             {
                 var tenantId = new TenantId(TenantProvider.TenantId);
                 var tenantType = await FeatureFlagService.GetTenantTypeAsync(tenantId);
-                selectedStandard = tenantType switch
-                {
-                    TenantType.Enterprise_Large => AccountingStandard.TT99_2025,
-                    _ => AccountingStandard.TT133_2016
-                };
+                selectedStandard = AccountingStandardResolver.Resolve(tenantType);
             }
             catch { /* fallback TT133 */ }
         }

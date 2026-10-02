@@ -10,6 +10,7 @@
 @using VanAn.UI.Platform.Models
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
+@using VanAn.ShopERP.Services.Accounting
 @inject VanAn.CoreHub.Services.ICashFlowStatementService CashFlowService
 @inject VanAn.ShopERP.Services.IFinancialReportExportService ExportService
 @inject VanAn.CoreHub.Services.IVasFeatureFlagService FeatureFlagService
@@ -198,12 +199,7 @@
             {
                 var tenantId = new TenantId(TenantProvider.TenantId);
                 currentTenantType = await FeatureFlagService.GetTenantTypeAsync(tenantId);
-                selectedStandard = currentTenantType switch
-                {
-                    TenantType.Enterprise_Large => AccountingStandard.TT99_2025,
-                    TenantType.HTX => AccountingStandard.TT71_2024,
-                    _ => AccountingStandard.TT133_2016
-                };
+                selectedStandard = AccountingStandardResolver.Resolve(currentTenantType);
             }
             catch { /* fallback TT133 */ }
         }
