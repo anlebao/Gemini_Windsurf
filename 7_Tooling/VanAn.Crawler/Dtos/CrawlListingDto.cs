@@ -50,7 +50,9 @@ public sealed record CrawlTriggerRequest(
     // (search?q=<mst> short-circuits to findUnique) and import as Pending tenants.
     List<string>? TaxCodes = null,
     // 2026-09-21 feature: true = auto-verify Pending → Active (Gateway generates owner credentials).
-    bool ActivateImmediately = false);
+    bool ActivateImmediately = false,
+    // 2026-10-02 (TT 71): true = tenant kích hoạt với loại hình Hợp tác xã (Gateway tạo HtxProfile → TT 71).
+    bool IsHtx = false);
 
 /// <summary>Auto-generated owner credentials returned by Gateway batch-import (shown once to SysAdmin).</summary>
 public sealed record ActivatedTenantCredential(

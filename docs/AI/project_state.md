@@ -50,7 +50,7 @@
 - [x] Validation: build sln 0 errors · ShopERP.Tests **116 PASS (+17)** · guard ALL PASSED · CD Multi-VPS SUCCESS · RV markers PASS (5 symbol trong ShopERP.dll production)
 
 **S4 — còn lại (chờ user — production hiện 0 tenant HTX):**
-- [ ] User tạo tenant HTX thật trên production (membership/HtxProfile → hook S1 tự đổi Type=HTX + Standard=TT71) — nếu có tenant HTX cũ có HtxProfile thì backfill startup đã xử lý
+- [ ] User tạo tenant HTX thật trên production — **Cách A (1 bước, UI mới):** `/admin/crawl-trigger` → MST → tick "Kích hoạt ngay" + "Loại hình: Hợp tác xã (HTX)" → tenant Active + HtxProfile tự tạo (TT 71 ngay). **Cách B (2 bước):** tạo tenant qua crawl → login **owner** → menu "Thành viên HTX" → "Cấu hình HTX (Điều lệ)" → "Kích hoạt HTX" (menu chỉ hiện cho Owner — SystemAdmin không thấy, by design)
 - [ ] Chạy `npx playwright test e2e-tests/tt71-htx.spec.ts` với session tenant HTX (L3/L4 — spec self-gating, đã commit)
 - [ ] L5 manual: nhập phiếu thu/chi HTX → in 01-TT/02-TT (A4) → xem B01/B02/B09-HTX + hub
 - [ ] Sau RV: đóng task card Phase 7 + master plan status DONE

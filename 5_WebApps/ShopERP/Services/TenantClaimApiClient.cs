@@ -182,7 +182,9 @@ public record CrawlTriggerApiRequest(
     // 2026-09-21 feature: đăng ký tenant bằng mã số thuế (1 hoặc danh sách)
     List<string>? TaxCodes = null,
     // 2026-09-21 feature: true = tự kích hoạt Pending → Active (sinh tài khoản owner tự động)
-    bool ActivateImmediately = false);
+    bool ActivateImmediately = false,
+    // 2026-10-02 (TT 71): true = tạo tenant loại hình Hợp tác xã (HtxProfile → TT 71)
+    bool IsHtx = false);
 
 public record CrawlTriggerApiResult(
     string Message,

@@ -19,6 +19,19 @@ Deploy + RV production 5-layer (theo `.devin/rules/runtime-verification.md`) + c
 - Production hiện tại: **0 HtxProfile / 0 tenant Type=5** (verified PG 2026-10-02) — backfill S1 không có tenant nào để đổi; không tạo fixture test trên production (tránh bẩn dữ liệu) — chờ user tạo tenant HTX thật
 - Nếu chạy spec với tenant test: dọn dữ liệu sau RV (chuẩn "cleanup pristine")
 
+### CÁCH TẠO MỚI 1 HỢP TÁC XÃ (HTX) — hướng dẫn thao tác
+
+**Cách A — nhanh (UI mới 2026-10-02, 1 bước):**
+1. SystemAdmin: `/admin/crawl-trigger` → nhập MST → tick **"Kích hoạt ngay"** + tick **"Loại hình: Hợp tác xã (HTX)"** (tự bật Kích hoạt ngay) → Tra cứu
+2. Hệ thống tạo tenant Active + owner credentials (hiện 1 lần trong kết quả) + **tự tạo HtxProfile** → tenant đã là **HTX (TT 71)** ngay
+3. Login owner → kiểm tra menu "Thành viên HTX" → "Cấu hình HTX (Điều lệ)" (có thể cập nhật phiên bản Điều lệ — mặc định v1.0)
+
+**Cách B — thủ công 2 bước (cách gốc):**
+1. SystemAdmin: `/admin/crawl-trigger` → nhập MST → "Kích hoạt ngay" → tenant Active + owner credentials
+2. Login **owner của tenant đó** (KHÔNG phải SystemAdmin — policy `HtxMembershipOfficer` = Owner + tenant claim, SRS §3.1/§6.5) → menu **"Thành viên HTX" → "Cấu hình HTX (Điều lệ)"** (`/admin/membership/htx-profile`) → nhập Phiên bản Điều lệ + điều kiện gia nhập → **"Kích hoạt HTX"** → hook S1 tự set Type=HTX + AccountingStandard=TT71
+
+**Lưu ý:** menu "Thành viên HTX" chỉ hiện cho **Owner** (SystemAdmin không thấy — by design). Sau khi tenant thành HTX: phiếu thu = 511/512/558, phiếu chi = 642/658, BCTC B01/B02/B09-HTX (auto-map), hub ẩn B03.
+
 ## 4. TÀI LIỆU
 
 - [x] `docs/AI/project_state.md` — Sections 2/3/4/10 (S1-S3 DONE + S4 tests; L3/L4/L5 user-pending)

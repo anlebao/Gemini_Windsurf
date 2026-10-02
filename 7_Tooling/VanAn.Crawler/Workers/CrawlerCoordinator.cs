@@ -276,7 +276,7 @@ public sealed class CrawlerCoordinator : BackgroundService
                     SetStatus($"Posting batch {imported + 1}-{imported + batch.Count} of {allListings.Count} to Gateway");
                     _logger.LogInformation("Posting batch of {Count} listings to Gateway {Endpoint}", batch.Count, endpoint);
                     var resp = taxCodeMode && request.ActivateImmediately
-                        ? await gatewayClient.PostAsJsonAsync(endpoint, new { Listings = batch, ActivateImmediately = true }, ct)
+                        ? await gatewayClient.PostAsJsonAsync(endpoint, new { Listings = batch, ActivateImmediately = true, IsHtx = request.IsHtx }, ct)
                         : await gatewayClient.PostAsJsonAsync(endpoint, batch, ct);
 
                     // Defensive: check Content-Type is JSON before deserializing.

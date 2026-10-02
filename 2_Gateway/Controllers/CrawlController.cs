@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Net.Http.Json;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Services.Membership;
 using VanAn.CoreHub.Services.Onboarding;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
 
@@ -12,6 +13,7 @@ namespace VanAn.Gateway.Controllers
     /// Crawl-to-Onboard Pipeline (2026-08-25): Crawl batch endpoint + audit trail.
     /// SysAdmin-only — accepts crawled business listings from crawler worker, creates Pending tenants.
     /// Crawler worker (Phase 5) authenticates via JWT (POST /api/platform/login) + posts to this endpoint.
+    /// 2026-10-02: IsHtx flag — batch-import kích hoạt ngay có thể tạo luôn HtxProfile (tenant HTX + TT 71).
     /// </summary>
     [ApiController]
     [Route("api/v1/crawl")]
@@ -19,6 +21,7 @@ namespace VanAn.Gateway.Controllers
     public class CrawlController(
         IVanAnDbContext dbContext,
         ITenantOnboardingService onboardingService,
+        IHtxProfileService htxProfileService,
         IHttpClientFactory httpClientFactory,
         ILogger<CrawlController> logger) : ControllerBase
     {
@@ -144,6 +147,27 @@ namespace VanAn.Gateway.Controllers
                             logger.LogInformation(
                                 "Batch-import activated tenant {TenantId} ({Name}) — owner {Username}",
                                 tenantId, listing.Name, username);
+
+                            // 2026-10-02 (TT 71): IsHtx=true → tạo luôn HtxProfile → tenant Type=HTX
+                            // + AccountingStandard=TT71_2024 (S1 hook trong GetOrCreateAsync).
+                            // Best-effort: fail không làm hỏng activation (tenant vẫn Active).
+                            if (request.IsHtx)
+                            {
+                                try
+                                {
+                                    await htxProfileService.GetOrCreateAsync(
+                                        tenantId, "v1.0", "v1.0", ct);
+                                    logger.LogInformation(
+                                        "Batch-import: tenant {TenantId} activated as HTX (TT 71) — profile created",
+                                        tenantId);
+                                }
+                                catch (Exception htxEx)
+                                {
+                                    logger.LogWarning(htxEx,
+                                        "Batch-import: tenant {TenantId} activated nhưng tạo HtxProfile thất bại (owner kích hoạt thủ công qua /admin/membership/htx-profile)",
+                                        tenantId);
+                                }
+                            }
                         }
                         catch (Exception verifyEx)
                         {
@@ -329,12 +353,14 @@ namespace VanAn.Gateway.Controllers
         int MaxResults = 100,  // Max listings to crawl (default 100, max 500)
         string? SearchTerm = null, // Search term for business name (e.g., "nhà hàng"). Null = use Industry or default.
         List<string>? TaxCodes = null, // 2026-09-21: MST list — register tenant(s) by tax code (findUnique).
-        bool ActivateImmediately = false); // 2026-09-21: true = auto-verify Pending → Active + auto owner credentials.
+        bool ActivateImmediately = false, // 2026-09-21: true = auto-verify Pending → Active + auto owner credentials.
+        bool IsHtx = false); // 2026-10-02 (TT 71): true = kích hoạt tenant ngay với loại hình Hợp tác xã (tạo HtxProfile → TT 71).
 
     /// <summary>2026-09-21: batch-import request (MST flow with optional auto-activation).</summary>
     public record CrawlBatchImportRequest(
         List<CrawlListingDto> Listings,
-        bool ActivateImmediately = false);
+        bool ActivateImmediately = false,
+        bool IsHtx = false); // 2026-10-02 (TT 71): true = tạo luôn HtxProfile khi activate (tenant HTX).
 
     /// <summary>2026-09-21: batch-import result with auto-generated owner credentials (shown once).</summary>
     public record CrawlBatchImportResult(

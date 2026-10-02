@@ -42,9 +42,17 @@
                 ShopERP Instance trong trang Tenants.
             </label>
         </div>
+        <div class="form-check mb-2">
+            <input id="is-htx" type="checkbox" class="form-check-input" @bind="_isHtx" @bind:after="OnIsHtxChanged" />
+            <label for="is-htx" class="form-check-label">
+                <strong>Loại hình: Hợp tác xã (HTX)</strong> — tenant dùng <strong>Chế độ kế toán HTX (TT 71/2024)</strong>:
+                phiếu thu 511/512/558, phiếu chi 642/658, BCTC B01/B02/B09-HTX.
+                (Tự bật "Kích hoạt ngay" — HTX cần tài khoản owner để kích hoạt Membership.)
+            </label>
+        </div>
         <div class="modal-actions">
             <VanAButton Variant="success" OnClick="HandleTaxCodeTrigger" IsLoading="@_isTriggering" Disabled="@(_status?.IsRunning == true)">
-                <i class="bi bi-search me-1"></i> @(_activateImmediately ? "Tra cứu &amp; kích hoạt ngay" : "Tra cứu &amp; tạo Pending tenant")
+                <i class="bi bi-search me-1"></i> @(_isHtx ? "Tra cứu &amp; tạo Hợp tác xã (HTX)" : (_activateImmediately ? "Tra cứu &amp; kích hoạt ngay" : "Tra cứu &amp; tạo Pending tenant"))
             </VanAButton>
         </div>
     </VanACard>
@@ -240,6 +248,7 @@
     private CrawlTriggerForm _form = new() { MaxResults = 100 };
     private string _taxCodeInput = string.Empty;
     private bool _activateImmediately;
+    private bool _isHtx;
     private int _lastTaxCodeCount;
     private bool _isTriggering;
     private string _alertMessage = string.Empty;
@@ -252,6 +261,12 @@
     {
         // Load initial status (in case crawler is already running from previous trigger)
         await RefreshStatusAsync();
+    }
+
+    /// <summary>2026-10-02 (TT 71): tick "Hợp tác xã" → tự bật "Kích hoạt ngay" (HTX cần owner credentials).</summary>
+    private void OnIsHtxChanged()
+    {
+        if (_isHtx) _activateImmediately = true;
     }
 
     /// <summary>2026-09-21 feature: đăng ký tenant bằng mã số thuế — nhập 1 hoặc nhiều MST
@@ -279,10 +294,13 @@
         try
         {
             _lastTaxCodeCount = codes.Count;
-            _triggerResult = await ClaimApi.TriggerCrawlAsync(new CrawlTriggerApiRequest(TaxCodes: codes, ActivateImmediately: _activateImmediately));
-            ShowAlert("success", _activateImmediately
-                ? $"Đã gửi {codes.Count} mã số thuế để tra cứu + kích hoạt ngay. Tài khoản owner hiển thị bên dưới khi xong."
-                : $"Đã gửi {codes.Count} mã số thuế để tra cứu. Kết quả hiển thị bên dưới.");
+            _triggerResult = await ClaimApi.TriggerCrawlAsync(new CrawlTriggerApiRequest(
+                TaxCodes: codes, ActivateImmediately: _activateImmediately, IsHtx: _isHtx));
+            ShowAlert("success", _isHtx
+                ? $"Đã gửi {codes.Count} mã số thuế để tra cứu + tạo Hợp tác xã (HTX). Tài khoản owner hiển thị bên dưới khi xong — login owner để quản lý HTX (Thành viên HTX)."
+                : _activateImmediately
+                    ? $"Đã gửi {codes.Count} mã số thuế để tra cứu + kích hoạt ngay. Tài khoản owner hiển thị bên dưới khi xong."
+                    : $"Đã gửi {codes.Count} mã số thuế để tra cứu. Kết quả hiển thị bên dưới.");
             StartStatusPolling();
         }
         catch (Exception ex)
