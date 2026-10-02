@@ -1,7 +1,7 @@
-# TASK CARD: Phase 2 — Chart tài khoản TT 71 (AccountChartSeeder)
+﻿# TASK CARD: Phase 2 — Chart tài khoản TT 71 (AccountChartSeeder)
 
 > **Master plan:** `docs/AI/plans/tt71-htx-accounting-master-plan.md`
-> **Status:** PENDING
+> **Status:** ✅ COMPLETE 2026-10-02 (58fe2da8 — deployed)
 
 ## 1. OBJECTIVE
 

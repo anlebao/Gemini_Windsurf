@@ -1,7 +1,7 @@
-# TASK CARD: Phase 1 — Domain: AccountingStandard.TT71_2024 + TenantType.HTX
+﻿# TASK CARD: Phase 1 — Domain: AccountingStandard.TT71_2024 + TenantType.HTX
 
 > **Master plan:** `docs/AI/plans/tt71-htx-accounting-master-plan.md`
-> **Status:** PENDING — cần user approval (Gate 5 Domain exception). Q3 = CÓ (backfill).
+> **Status:** ✅ COMPLETE 2026-10-02 (597733ef — Gate 5 approved, deployed)
 
 ## 1. OBJECTIVE
 
