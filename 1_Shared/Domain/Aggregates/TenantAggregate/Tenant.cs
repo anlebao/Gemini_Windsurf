@@ -179,6 +179,31 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
             return tenant;
         }
 
+        /// <summary>
+        /// Membership Infrastructure (2026-10-02, user directive): tạo tenant profile cho
+        /// cộng tác viên (Salesman/Shipper) được duyệt làm thành viên HTX.
+        /// - Type = null (KHÔNG loại hình — chỉ phục vụ membership, không commerce/accounting).
+        /// - Status = Active ngay (identity đã xác thực qua customer OTP — auto-verified).
+        /// - OwnerCustomerId được gán bởi service (SetOwnerCustomer) — collaborator sở hữu profile.
+        /// - BusinessType = HouseholdBusiness (cá nhân kinh doanh).
+        /// </summary>
+        public static Tenant CreateMembershipProfile(TenantId id, string name, TenantSettings? settings = null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+            var tenant = new Tenant
+            {
+                Id = id,
+                Name = name,
+                BusinessType = BusinessType.HouseholdBusiness,
+                Status = TenantStatus.Active,
+                Settings = settings ?? TenantSettings.Empty()
+            };
+            tenant.SetTenantId(id);
+            tenant.AddDomainEvent(new TenantCreatedEvent(id.Value, name, settings?.ContactEmail, DateTime.UtcNow));
+            return tenant;
+        }
+
         // ── Domain Methods ────────────────────────────────────────────────────
 
         /// <summary>Suspend tenant. Cannot suspend an already suspended or inactive tenant.</summary>

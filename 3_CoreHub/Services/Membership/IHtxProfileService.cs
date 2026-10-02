@@ -10,6 +10,9 @@ namespace VanAn.CoreHub.Services.Membership
         /// <summary>Lấy profile HTX của tenant — null nếu tenant chưa đăng ký Membership Infrastructure.</summary>
         Task<HtxProfileDto?> GetAsync(Guid htxTenantId, CancellationToken ct = default);
 
+        /// <summary>2026-10-02: danh sách MỌI HTX đã đăng ký Membership (SystemAdmin — bộ chọn review).</summary>
+        Task<IReadOnlyList<HtxProfileSummaryDto>> ListAsync(CancellationToken ct = default);
+
         /// <summary>Tạo mới nếu chưa có (đánh dấu tenant là HTX), trả về profile.</summary>
         Task<HtxProfileDto> GetOrCreateAsync(Guid htxTenantId, string charterVersion, string termsVersion, CancellationToken ct = default);
 

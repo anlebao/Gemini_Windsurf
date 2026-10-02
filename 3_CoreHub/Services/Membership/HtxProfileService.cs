@@ -22,6 +22,31 @@ namespace VanAn.CoreHub.Services.Membership
             return profile is null ? null : MapToDto(profile);
         }
 
+        public async Task<IReadOnlyList<HtxProfileSummaryDto>> ListAsync(CancellationToken ct = default)
+        {
+            var profiles = await dbContext.HtxProfiles
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .ToListAsync(ct);
+
+            // Tenant name cho dropdown review (SystemAdmin) — global lookup theo Id.
+            var tenantIds = profiles.Select(p => p.TenantId.Value).Distinct().ToList();
+            var tenantNames = await dbContext.Tenants
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(t => tenantIds.Contains(t.Id.Value))
+                .Select(t => new { t.Id.Value, t.Name })
+                .ToDictionaryAsync(t => t.Value, t => t.Name, ct);
+
+            return profiles
+                .OrderBy(p => tenantNames.GetValueOrDefault(p.TenantId.Value) ?? string.Empty)
+                .Select(p => new HtxProfileSummaryDto(
+                    HtxTenantId: p.TenantId.Value,
+                    TenantName: tenantNames.GetValueOrDefault(p.TenantId.Value) ?? "HTX",
+                    CharterVersion: p.CharterVersion))
+                .ToList();
+        }
+
         public async Task<HtxProfileDto> GetOrCreateAsync(
             Guid htxTenantId,
             string charterVersion,

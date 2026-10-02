@@ -35,6 +35,16 @@ namespace VanAn.Gateway.Controllers
             return Ok(profile);
         }
 
+        /// <summary>2026-10-02 (user directive): danh sách HTX đã kích hoạt Membership — SystemAdmin
+        /// chọn HTX để xét duyệt hồ sơ (review dropdown).</summary>
+        [HttpGet("htx-profiles")]
+        [Authorize(Roles = "SystemAdmin")]
+        public async Task<IActionResult> ListProfiles()
+        {
+            var profiles = await htxProfileService.ListAsync(HttpContext.RequestAborted);
+            return Ok(profiles);
+        }
+
         /// <summary>Hồ sơ HTX của tenant đang đăng nhập (officer — tenant từ JWT claim, IDOR-safe).</summary>
         [HttpGet("htx-profile")]
         [Authorize(Policy = "HtxMembershipOfficer")]

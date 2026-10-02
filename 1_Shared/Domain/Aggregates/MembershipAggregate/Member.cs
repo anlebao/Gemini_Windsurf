@@ -25,6 +25,10 @@ namespace VanAn.Shared.Domain.Aggregates.MembershipAggregate
         public string MemberNumber { get; private set; } = string.Empty;
         public MemberStatus Status { get; private set; } = MemberStatus.Active;
 
+        // Góp vốn cam kết (snapshot từ MembershipApplication — user directive 2026-10-02).
+        // HTX xác nhận đã thu qua CapitalFeeStatus (MVP chỉ theo dõi status — SRS §16).
+        public decimal? CapitalContributionAmount { get; private set; }
+
         // ── Registry timestamps (SRS §17.2) ───────────────────────────────────
         public DateTime JoinedAt { get; private set; }
         public DateTime? ApprovedAt { get; private set; }
@@ -49,7 +53,8 @@ namespace VanAn.Shared.Domain.Aggregates.MembershipAggregate
             string memberNumber,
             MembershipType membershipType,
             Guid? memberCustomerId = null,
-            TenantId? memberTenantId = null)
+            TenantId? memberTenantId = null,
+            decimal? capitalContributionAmount = null)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(memberNumber);
 
@@ -70,7 +75,8 @@ namespace VanAn.Shared.Domain.Aggregates.MembershipAggregate
                 Status = MemberStatus.Active,
                 JoinedAt = DateTime.UtcNow,
                 ApprovedAt = DateTime.UtcNow,
-                EffectiveAt = DateTime.UtcNow
+                EffectiveAt = DateTime.UtcNow,
+                CapitalContributionAmount = capitalContributionAmount
             };
             member.SetTenantId(htxTenantId);
             member.AddDomainEvent(new MemberActivatedEvent(

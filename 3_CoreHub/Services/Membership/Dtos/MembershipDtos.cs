@@ -62,7 +62,8 @@ namespace VanAn.CoreHub.Services.Membership
         DateTime? ApprovedAt,
         DateTime? EffectiveAt,
         DateTime? TerminatedAt,
-        string? StatusReason);
+        string? StatusReason,
+        decimal? CapitalContributionAmount); // 2026-10-02: vốn góp cam kết (Luồng 2 — SystemAdmin add)
 
     /// <summary>
     /// Public status verify (SRS §22) — KHÔNG PII: chỉ status + HTX name + joined date.
@@ -90,6 +91,12 @@ namespace VanAn.CoreHub.Services.Membership
         string CharterVersion,
         string TermsVersion,
         string? CharterUrl);
+
+    /// <summary>2026-10-02: summary HTX profile cho SystemAdmin review dropdown.</summary>
+    public record HtxProfileSummaryDto(
+        Guid HtxTenantId,
+        string TenantName,
+        string CharterVersion);
 
     /// <summary>Tài liệu đính kèm hồ sơ (SRS §17.2 — chữ ký online, form giấy scan...).</summary>
     public record MembershipDocumentDto(

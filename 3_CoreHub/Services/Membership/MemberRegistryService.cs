@@ -143,6 +143,7 @@ namespace VanAn.CoreHub.Services.Membership
             ApprovedAt: m.ApprovedAt,
             EffectiveAt: m.EffectiveAt,
             TerminatedAt: m.TerminatedAt,
-            StatusReason: m.StatusReason);
+            StatusReason: m.StatusReason,
+            CapitalContributionAmount: m.CapitalContributionAmount);
     }
 }

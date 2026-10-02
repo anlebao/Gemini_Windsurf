@@ -50,6 +50,9 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.TerminatedAt);
             _ = builder.Property(e => e.StatusReason).HasMaxLength(1000);
 
+            // ── Góp vốn cam kết (snapshot từ application — 2026-10-02) ──
+            _ = builder.Property(e => e.CapitalContributionAmount).HasPrecision(18, 2);
+
             // ── Audit fields từ BaseEntity ──
             _ = builder.Property(e => e.CreatedAt);
             _ = builder.Property(e => e.UpdatedAt);
