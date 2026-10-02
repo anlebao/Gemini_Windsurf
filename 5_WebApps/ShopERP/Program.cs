@@ -557,6 +557,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<Services.TenantClaimApiClient>();
             // Membership Infrastructure (2026-09-29): HTX review queue + member registry (Owner JWT — HtxMembershipOfficer).
             _ = builder.Services.AddScoped<Services.MembershipApiClient>();
+            // 2026-10-02 (user directive): 2 luồng admin — tenant→HTX + member add/nâng cấp CTV (SystemAdmin JWT).
+            _ = builder.Services.AddScoped<Services.MembershipAdminApiClient>();
             // REQ-1.2: Background service toggle — admin UI + service runtime check
             _ = builder.Services.AddScoped<CoreHub.Services.IBackgroundServiceToggleService, Services.BackgroundServiceToggleApiClient>();
             // VALCN v2.0 Phase 1: Feature flag toggle — admin UI + service runtime check (default OFF)

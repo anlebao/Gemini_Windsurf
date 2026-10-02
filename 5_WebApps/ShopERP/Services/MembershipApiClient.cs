@@ -171,7 +171,8 @@ public sealed record MemberApiDto(
     DateTime? ApprovedAt,
     DateTime? EffectiveAt,
     DateTime? TerminatedAt,
-    string? StatusReason);
+    string? StatusReason,
+    decimal? CapitalContributionAmount); // 2026-10-02: vốn góp cam kết (Luồng 2)
 
 public sealed record ApproveResultApiDto(Guid MemberId);
 

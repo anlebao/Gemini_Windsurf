@@ -226,6 +226,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                 Children = new()
                 {
                     new() { Title = "Tenants", Icon = "building", Url = "/admin/tenants" },
+                    // 2026-10-02 (Luồng 2 — user directive): quản lý thành viên HTX (SystemAdmin add tenant/nâng cấp CTV)
+                    new() { Title = "Thành viên HTX", Icon = "people", Url = "/admin/membership/members" },
                     new() { Title = "Hàng đợi Claim", Icon = "shield-check", Url = "/admin/claims" },
                     new() { Title = "Kích hoạt Crawl", Icon = "download", Url = "/admin/crawl-trigger" },
                     new() { Title = "Tenant Registrations", Icon = "person-plus", Url = "/admin/tenant-registrations" },

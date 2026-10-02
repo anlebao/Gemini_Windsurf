@@ -1,0 +1,328 @@
+@page "/admin/membership/members"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "SystemAdmin")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.Shared.Domain.Aggregates.TenantAggregate
+@using VanAn.UI.Platform.Components.Data
+@inject MembershipAdminApiClient MembershipAdminApi
+@inject TenantApiClient TenantApi
+@inject CommunityAdminApiClient CommunityAdminApi
+@inject IThemeProvider ThemeProvider
+@inject ILogger<MembershipMembers> Logger
+
+@* 2026-10-02 (Luồng 2 — user directive): chỉ tenant làm thành viên HTX — SystemAdmin
+   search tenant → add; cộng tác viên nâng cấp thành tenant trước (D4). *@
+<div class="report-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Thành viên HTX</h1>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" CssClass="mb-3" />
+    }
+
+    <VanACard Header="Chọn Hợp tác xã">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <select class="vanan-select" style="min-width:320px;" @bind="_selectedHtxId" @bind:after="LoadMembers">
+                <option value="">-- Chọn HTX --</option>
+                @foreach (var htx in _htxList)
+                {
+                    <option value="@htx.HtxTenantId">@htx.TenantName (Điều lệ @htx.CharterVersion)</option>
+                }
+            </select>
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadHtxList">
+                <i class="bi bi-arrow-clockwise me-1"></i> Làm mới
+            </VanAButton>
+            <VanAButton Variant="primary" Size="small" OnClick="OpenAddMemberModal" Disabled="@(string.IsNullOrEmpty(_selectedHtxId))">
+                <i class="bi bi-person-plus me-1"></i> Thêm thành viên
+            </VanAButton>
+            <VanAButton Variant="info" Size="small" OnClick="OpenUpgradeModal">
+                <i class="bi bi-arrow-up-circle me-1"></i> Nâng cấp CTV thành tenant
+            </VanAButton>
+        </div>
+    </VanACard>
+
+    @if (_loadingMembers)
+    {
+        <VanACard><div class="loading-state"><VanASpinner Size="large" /><p>Đang tải danh sách thành viên...</p></div></VanACard>
+    }
+    else if (_members.Count > 0)
+    {
+        <VanACard Header="@($"Danh sách thành viên ({_members.Count})")">
+            <VanAnDataGrid TItem="MemberApiDto" Items="@_members" EmptyMessage="Chưa có thành viên">
+                <Columns>
+                    <VanAnColumn TItem="MemberApiDto" Title="Số thành viên" Width="3">
+                        <Template Context="m"><code>@m.MemberNumber</code></Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="MemberApiDto" Title="Tenant" Width="4">
+                        <Template Context="m">@TenantName(m.MemberTenantId)</Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="MemberApiDto" Title="Loại thành viên" Width="3">
+                        <Template Context="m">@MembershipTypeLabel(m.MembershipType)</Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="MemberApiDto" Title="Vốn góp (VNĐ)" Width="2">
+                        <Template Context="m">@(m.CapitalContributionAmount?.ToString("N0") ?? "-")</Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="MemberApiDto" Title="Trạng thái" Width="2">
+                        <Template Context="m"><span class="status-badge status-@m.Status.ToLowerInvariant()">@m.Status</span></Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+        </VanACard>
+    }
+    else if (!string.IsNullOrEmpty(_selectedHtxId))
+    {
+        <VanACard><p class="text-muted">HTX này chưa có thành viên nào. Bấm "Thêm thành viên" để thêm tenant.</p></VanACard>
+    }
+
+    @* Modal: Thêm thành viên (search tenant → chọn loại + vốn góp) *@
+    <VanAnModal IsOpen="@_showAddModal" Title="Thêm thành viên (tenant)" Closable="true" OnClose="CloseAddModal">
+        <div class="mb-3">
+            <label class="form-label">Tìm tenant (tên/MST)</label>
+            <input class="form-control" @bind="_tenantSearch" @bind:event="oninput" placeholder="Gõ tên hoặc MST để lọc..." />
+            <div class="tenant-pick-list mt-2" style="max-height:220px;overflow-y:auto;border:1px solid #ddd;border-radius:6px;">
+                @foreach (var t in FilteredTenants)
+                {
+                    <div class="tenant-pick-item p-2 @(t.Id == _selectedTenantId ? "bg-primary-subtle" : "")"
+                         style="cursor:pointer;border-bottom:1px solid #f0f0f0;" @onclick="() => _selectedTenantId = t.Id">
+                        <strong>@t.Name</strong>
+                        <span class="text-muted small ms-2">@(t.TaxCode ?? "") · @(t.Status)</span>
+                    </div>
+                }
+                @if (!FilteredTenants.Any())
+                {
+                    <div class="p-2 text-muted small">Không tìm thấy tenant (chỉ hiện tenant đã verify — Active).</div>
+                }
+            </div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Loại thành viên</label>
+            <select class="form-select" @bind="_newMembershipType">
+                <option value="OfficialMember">Thành viên chính thức (góp vốn bắt buộc)</option>
+                <option value="LinkedCapitalMember">Thành viên liên kết góp vốn</option>
+                <option value="LinkedNonCapitalMember">Thành viên liên kết không góp vốn</option>
+            </select>
+        </div>
+        @if (_newMembershipType != "LinkedNonCapitalMember")
+        {
+            <div class="mb-3">
+                <label class="form-label">Số vốn góp cam kết (VNĐ) <span class="text-danger">*</span></label>
+                <input class="form-control" type="number" min="1" step="1000" @bind="_newCapital" placeholder="VD: 1000000" />
+                <div class="form-text">HTX xác nhận thu sau khi duyệt.</div>
+            </div>
+        }
+        <VanAButton Variant="primary" OnClick="ConfirmAddMember" IsLoading="_savingAdd">
+            <i class="bi bi-check-lg me-1"></i> Thêm thành viên
+        </VanAButton>
+    </VanAnModal>
+
+    @* Modal: Nâng cấp CTV (Salesman/Shipper) thành tenant *@
+    <VanAnModal IsOpen="@_showUpgradeModal" Title="Nâng cấp Cộng tác viên thành tenant" Closable="true" OnClose="CloseUpgradeModal">
+        <p class="text-muted small mb-3">
+            Chọn cộng tác viên (Salesman/Shipper) → hệ thống tự tạo tenant profile (không loại hình) →
+            sau đó thêm làm thành viên HTX. Nếu đã có tenant, sẽ tái sử dụng.
+        </p>
+        <div class="mb-3">
+            <label class="form-label">Tìm cộng tác viên (tên)</label>
+            <input class="form-control" @bind="_customerSearch" @bind:event="oninput" placeholder="Gõ tên để lọc..." />
+            <div class="mt-2" style="max-height:220px;overflow-y:auto;border:1px solid #ddd;border-radius:6px;">
+                @foreach (var c in FilteredCollaborators)
+                {
+                    <div class="p-2" style="cursor:pointer;border-bottom:1px solid #f0f0f0;" @onclick="() => _selectedCustomerId = c.CustomerId">
+                        <strong>@c.FullName</strong>
+                        <span class="text-muted small ms-2">@(string.Join(", ", c.ExistingRoles))</span>
+                    </div>
+                }
+                @if (!FilteredCollaborators.Any())
+                {
+                    <div class="p-2 text-muted small">Không tìm thấy cộng tác viên (Salesman/Shipper).</div>
+                }
+            </div>
+        </div>
+        <VanAButton Variant="primary" OnClick="ConfirmUpgrade" IsLoading="_savingUpgrade">
+            <i class="bi bi-arrow-up-circle me-1"></i> Nâng cấp
+        </VanAButton>
+    </VanAnModal>
+</div>
+
+@code {
+    private List<HtxProfileSummaryApiDto> _htxList = new();
+    private string _selectedHtxId = string.Empty;
+    private List<MemberApiDto> _members = new();
+    private bool _loadingMembers;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    private List<TenantApiDto> _allTenants = new();
+    private List<EligibleCustomerItem> _allCustomers = new();
+    private string _tenantSearch = string.Empty;
+    private string _customerSearch = string.Empty;
+    private Guid _selectedTenantId;
+    private Guid _selectedCustomerId;
+    private string _newMembershipType = "OfficialMember";
+    private decimal? _newCapital;
+    private bool _showAddModal;
+    private bool _showUpgradeModal;
+    private bool _savingAdd;
+    private bool _savingUpgrade;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadHtxList();
+        try
+        {
+            _allTenants = await TenantApi.ListAllAsync();
+            _allTenants = _allTenants.Where(t => t.Status == TenantStatus.Active).ToList();
+        }
+        catch (Exception ex) { Logger.LogWarning(ex, "Load tenants failed"); }
+        try
+        {
+            var result = await CommunityAdminApi.GetEligibleAsync(page: 1, pageSize: 500, includeIneligible: true);
+            _allCustomers = result.Items?.Where(c => c.ExistingRoles?.Contains("Salesman") == true || c.ExistingRoles?.Contains("Shipper") == true).ToList() ?? new();
+        }
+        catch (Exception ex) { Logger.LogWarning(ex, "Load customers failed"); }
+    }
+
+    private IEnumerable<TenantApiDto> FilteredTenants
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_tenantSearch)) return _allTenants;
+            var q = _tenantSearch.Trim().ToLowerInvariant();
+            return _allTenants.Where(t => t.Name.ToLowerInvariant().Contains(q)
+                || (t.TaxCode ?? string.Empty).Contains(q, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private IEnumerable<EligibleCustomerItem> FilteredCollaborators
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_customerSearch)) return _allCustomers;
+            var q = _customerSearch.Trim().ToLowerInvariant();
+            return _allCustomers.Where(c => c.FullName.ToLowerInvariant().Contains(q));
+        }
+    }
+
+    private string TenantName(Guid? tenantId) => _allTenants.FirstOrDefault(t => t.Id == tenantId)?.Name ?? tenantId?.ToString()[..8] ?? "-";
+
+    private static string MembershipTypeLabel(string type) => type switch
+    {
+        "OfficialMember" => "Chính thức",
+        "LinkedCapitalMember" => "Liên kết góp vốn",
+        "LinkedNonCapitalMember" => "Liên kết không góp vốn",
+        _ => type
+    };
+
+    private async Task LoadHtxList()
+    {
+        try
+        {
+            _htxList = await MembershipAdminApi.ListHtxProfilesAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowAlert("error", $"Không tải được danh sách HTX: {ex.Message}");
+        }
+    }
+
+    private async Task LoadMembers()
+    {
+        if (string.IsNullOrEmpty(_selectedHtxId)) { _members = new(); return; }
+        _loadingMembers = true;
+        try
+        {
+            _members = await MembershipAdminApi.ListMembersAsync(Guid.Parse(_selectedHtxId));
+        }
+        catch (Exception ex)
+        {
+            ShowAlert("error", $"Không tải được danh sách thành viên: {ex.Message}");
+        }
+        finally
+        {
+            _loadingMembers = false;
+        }
+    }
+
+    private void OpenAddMemberModal()
+    {
+        _tenantSearch = string.Empty;
+        _selectedTenantId = Guid.Empty;
+        _newMembershipType = "OfficialMember";
+        _newCapital = null;
+        _showAddModal = true;
+    }
+
+    private void CloseAddModal() => _showAddModal = false;
+
+    private async Task ConfirmAddMember()
+    {
+        if (string.IsNullOrEmpty(_selectedHtxId) || _selectedTenantId == Guid.Empty)
+        {
+            ShowAlert("error", "Vui lòng chọn tenant.");
+            return;
+        }
+        _savingAdd = true;
+        try
+        {
+            var result = await MembershipAdminApi.AddMemberAsync(
+                Guid.Parse(_selectedHtxId), _selectedTenantId, _newMembershipType, _newCapital);
+            ShowAlert("success", $"✅ Đã thêm thành viên {result.MemberNumber}.");
+            _showAddModal = false;
+            await LoadMembers();
+        }
+        catch (Exception ex)
+        {
+            ShowAlert("error", $"Lỗi: {ex.Message}");
+        }
+        finally
+        {
+            _savingAdd = false;
+        }
+    }
+
+    private void OpenUpgradeModal()
+    {
+        _customerSearch = string.Empty;
+        _selectedCustomerId = Guid.Empty;
+        _showUpgradeModal = true;
+    }
+
+    private void CloseUpgradeModal() => _showUpgradeModal = false;
+
+    private async Task ConfirmUpgrade()
+    {
+        if (_selectedCustomerId == Guid.Empty)
+        {
+            ShowAlert("error", "Vui lòng chọn cộng tác viên.");
+            return;
+        }
+        _savingUpgrade = true;
+        try
+        {
+            var customer = _allCustomers.FirstOrDefault(c => c.CustomerId == _selectedCustomerId);
+            var result = await MembershipAdminApi.UpgradeCollaboratorAsync(_selectedCustomerId, customer?.FullName);
+            ShowAlert("success", $"✅ Đã nâng cấp — tenant {result.TenantId} (tạo mới: {result.Created}). Giờ chọn tenant này trong mục 'Thêm thành viên'.");
+            _showUpgradeModal = false;
+            await OnInitializedAsync(); // refresh tenant list
+        }
+        catch (Exception ex)
+        {
+            ShowAlert("error", $"Lỗi: {ex.Message}");
+        }
+        finally
+        {
+            _savingUpgrade = false;
+        }
+    }
+
+    private void ShowAlert(string type, string message)
+    {
+        _alertType = type;
+        _alertMessage = message;
+    }
+}
