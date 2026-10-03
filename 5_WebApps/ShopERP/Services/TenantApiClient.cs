@@ -77,6 +77,8 @@ namespace VanAn.ShopERP.Services
         public Guid Id { get; init; }
         public string Name { get; init; } = "";
         public BusinessType BusinessType { get; init; }
+        /// <summary>HTX / Enterprise subtype classification (Type=null for plain Company tenants).</summary>
+        public TenantType? Type { get; init; }
         public TenantStatus Status { get; init; }
         public Guid? ShopInstanceId { get; init; }
         public string? ContactEmail { get; init; }

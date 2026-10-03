@@ -233,6 +233,7 @@ namespace VanAn.Gateway.Controllers
             Id = t.Id,
             Name = t.Name,
             BusinessType = t.BusinessType,
+            Type = t.Type,
             Status = t.Status,
             ShopInstanceId = t.ShopInstanceId,
             ContactEmail = t.Settings?.ContactEmail,
@@ -259,6 +260,8 @@ namespace VanAn.Gateway.Controllers
         public Guid Id { get; init; }
         public string Name { get; init; } = "";
         public BusinessType BusinessType { get; init; }
+        /// <summary>HTX / Enterprise subtype classification (Type=null for plain Company tenants).</summary>
+        public TenantType? Type { get; init; }
         public TenantStatus Status { get; init; }
         public Guid? ShopInstanceId { get; init; }
         public string? ContactEmail { get; init; }

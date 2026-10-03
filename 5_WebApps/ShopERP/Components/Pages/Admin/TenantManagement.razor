@@ -78,6 +78,33 @@
     <!-- Tenant list — Tab: All -->
     @if (_activeTab == "all")
     {
+    <!-- 2026-10-03: Bộ lọc nhanh — Loại hình + Tình trạng verify -->
+    <div class="tenant-filter-bar">
+        <div class="filter-group">
+            <label for="filter-businesstype">Loại hình</label>
+            <select id="filter-businesstype" class="vanan-select" @bind="_filterBusinessType" aria-label="Lọc theo loại hình">
+                <option value="">Tất cả</option>
+                <option value="hkd">Hộ kinh doanh</option>
+                <option value="dn">Doanh nghiệp</option>
+                <option value="htx">Hợp tác xã</option>
+                <option value="khac">Khác</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="filter-verifystatus">Tình trạng</label>
+            <select id="filter-verifystatus" class="vanan-select" @bind="_filterVerifyStatus" aria-label="Lọc theo tình trạng verify">
+                <option value="">Tất cả</option>
+                <option value="verified">Đã verify</option>
+                <option value="unverified">Chưa</option>
+            </select>
+        </div>
+        @if (_filterBusinessType != "" || _filterVerifyStatus != "")
+        {
+            <VanAButton Variant="outline" Size="small" OnClick="ClearFilters">
+                <i class="bi bi-x-circle me-1"></i> Xoá bộ lọc
+            </VanAButton>
+        }
+    </div>
     @if (_isLoading)
     {
         <VanACard>
@@ -95,9 +122,17 @@
             </div>
         </VanACard>
     }
+    else if (FilteredTenants.Count == 0)
+    {
+        <VanACard>
+            <div class="empty-state">
+                <p>Không có tenant phù hợp với bộ lọc hiện tại.</p>
+            </div>
+        </VanACard>
+    }
     else
     {
-        <VanACard Header="@($"Danh sách Tenant ({_tenants.Count})")">
+        <VanACard Header="@($"Danh sách Tenant ({FilteredTenants.Count}/{_tenants.Count})")">
             <table class="vanan-table">
                 <thead>
                     <tr>
@@ -107,15 +142,15 @@
                         <th>Email liên hệ</th>
                         <th>ShopERP Instance</th>
                         <th>Ngày tạo</th>
-                        <th>Hành động</th>
+                        <th class="action-header">Hành động</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var t in _tenants)
+                    @foreach (var t in FilteredTenants)
                     {
                         <tr>
                             <td><strong>@t.Name</strong></td>
-                            <td>@(t.BusinessType == BusinessType.HouseholdBusiness ? "Hộ kinh doanh" : "Công ty")</td>
+                            <td>@BusinessTypeLabel(t)</td>
                             <td>
                                 <span class="status-badge status-@t.Status.ToString().ToLower()">
                                     @StatusLabel(t.Status)
@@ -143,40 +178,40 @@
                             </td>
                             <td>@t.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")</td>
                             <td class="action-cell">
-                                <VanAButton Variant="primary" Size="small" OnClick="() => OpenEditModal(t)">
-                                    Sửa
+                                <VanAButton Variant="primary" Size="small" title="Sửa tenant" OnClick="() => OpenEditModal(t)">
+                                    <i class="bi bi-pencil-square"></i>
                                 </VanAButton>
-                                <VanAButton Variant="info" Size="small" OnClick="() => NavigateToQuickSetup(t)">
-                                    Khởi tạo nhanh
+                                <VanAButton Variant="info" Size="small" title="Khởi tạo nhanh" OnClick="() => NavigateToQuickSetup(t)">
+                                    <i class="bi bi-lightning-charge"></i>
                                 </VanAButton>
                                 @if (t.Status == TenantStatus.Active)
                                 {
-                                    <VanAButton Variant="outline" Size="small" OnClick="() => OpenSuspendModal(t)">
-                                        Tạm ngưng
+                                    <VanAButton Variant="outline" Size="small" title="Tạm ngưng" OnClick="() => OpenSuspendModal(t)">
+                                        <i class="bi bi-pause-circle"></i>
                                     </VanAButton>
                                 }
                                 @if (t.Status == TenantStatus.Suspended)
                                 {
-                                    <VanAButton Variant="secondary" Size="small" OnClick="() => ReactivateTenant(t)">
-                                        Kích hoạt
+                                    <VanAButton Variant="secondary" Size="small" title="Kích hoạt lại" OnClick="() => ReactivateTenant(t)">
+                                        <i class="bi bi-play-circle"></i>
                                     </VanAButton>
                                 }
                                 @if (t.Status != TenantStatus.Inactive)
                                 {
-                                    <VanAButton Variant="danger" Size="small" OnClick="() => OpenDeactivateModal(t)">
-                                        Vô hiệu hoá
+                                    <VanAButton Variant="danger" Size="small" title="Vô hiệu hoá" OnClick="() => OpenDeactivateModal(t)">
+                                        <i class="bi bi-slash-circle"></i>
                                     </VanAButton>
                                 }
                                 @if (t.Status == TenantStatus.Active)
                                 {
-                                    <VanAButton Variant="primary" Size="small" OnClick="() => ImpersonateTenant(t)" IsLoading="@(_impersonatingTenantId == t.Id)">
-                                        <i class="bi bi-person-badge me-1"></i> Impersonate
+                                    <VanAButton Variant="primary" Size="small" title="Impersonate" OnClick="() => ImpersonateTenant(t)" IsLoading="@(_impersonatingTenantId == t.Id)">
+                                        <i class="bi bi-person-badge"></i>
                                     </VanAButton>
                                 }
-                                @if (t.Status == TenantStatus.Active)
+                                @if (t.Status == TenantStatus.Active && t.Type != TenantType.HTX)
                                 {
-                                    <VanAButton Variant="success" Size="small" OnClick="() => OpenHtxModal(t)">
-                                        <i class="bi bi-people me-1"></i> Chuyển thành HTX
+                                    <VanAButton Variant="success" Size="small" title="Chuyển thành Hợp tác xã (TT 71)" OnClick="() => OpenHtxModal(t)">
+                                        <i class="bi bi-people"></i>
                                     </VanAButton>
                                 }
                             </td>
@@ -859,6 +894,20 @@
     }
     .verify-credentials p { margin: 0.25rem 0; }
     .verify-credentials code { background: #dcfce7; padding: 2px 6px; border-radius: 4px; }
+    /* 2026-10-03: Bộ lọc tenant + nút hành động icon (thu hẹp cột, hết scroll ngang) */
+    .tenant-filter-bar {
+        display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;
+        margin-bottom: 1rem; padding: 0.75rem 1rem;
+        background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 0.5rem;
+    }
+    .tenant-filter-bar .filter-group { display: flex; flex-direction: column; gap: 0.25rem; }
+    .tenant-filter-bar .filter-group label { font-size: 0.8rem; font-weight: 600; color: #374151; }
+    .tenant-filter-bar .vanan-select { min-width: 190px; }
+    .action-header { width: 1%; white-space: nowrap; }
+    .action-cell { white-space: nowrap; }
+    .tenant-management-page .action-cell .vanan-button { padding: 0.25rem 0.4rem; }
+    .tenant-management-page .action-cell .vanan-button__text:empty { display: none; }
+    .tenant-management-page .action-cell .vanan-button .bi { font-size: 1rem; line-height: 1; }
 </style>
 
 @* 2026-10-02 (Luồng 1 — user directive): tenant → HTX — modal upload tài liệu tùy chọn *@
@@ -1037,6 +1086,63 @@
     private List<DuplicateTenantApiDto> _duplicates = [];
     private bool _isLoadingPending;
     private bool _isLoadingDuplicates;
+
+    // ── 2026-10-03: Bộ lọc nhanh (Loại hình + Tình trạng verify) ──
+    private string _filterBusinessType = ""; // "" | hkd | dn | htx | khac
+    private string _filterVerifyStatus = ""; // "" | verified | unverified
+
+    private List<TenantApiDto> FilteredTenants
+    {
+        get
+        {
+            IEnumerable<TenantApiDto> q = _tenants;
+            switch (_filterBusinessType)
+            {
+                case "hkd":
+                    q = q.Where(t => t.BusinessType == BusinessType.HouseholdBusiness);
+                    break;
+                case "dn":
+                    q = q.Where(t => t.BusinessType == BusinessType.Company && t.Type != TenantType.HTX);
+                    break;
+                case "htx":
+                    q = q.Where(t => t.Type == TenantType.HTX);
+                    break;
+                case "khac":
+                    q = q.Where(t => t.BusinessType != BusinessType.Company
+                        && t.BusinessType != BusinessType.HouseholdBusiness
+                        && t.Type != TenantType.HTX);
+                    break;
+            }
+            switch (_filterVerifyStatus)
+            {
+                case "verified":
+                    // Đã verify = không còn Pending (Active/Suspended/Inactive/Converted)
+                    q = q.Where(t => t.Status != TenantStatus.Pending);
+                    break;
+                case "unverified":
+                    q = q.Where(t => t.Status == TenantStatus.Pending);
+                    break;
+            }
+            return q.ToList();
+        }
+    }
+
+    private void ClearFilters()
+    {
+        _filterBusinessType = "";
+        _filterVerifyStatus = "";
+    }
+
+    private static string BusinessTypeLabel(TenantApiDto t) => t.Type switch
+    {
+        TenantType.HTX => "Hợp tác xã",
+        _ => t.BusinessType switch
+        {
+            BusinessType.HouseholdBusiness => "Hộ kinh doanh",
+            BusinessType.Company => "Doanh nghiệp",
+            _ => "Khác"
+        }
+    };
 
     // Verify modal (direct verify Pending tenant)
     private bool _showVerifyModal;
