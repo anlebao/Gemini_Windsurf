@@ -97,32 +97,36 @@
 - Phase 3: Restock Forecast + Stockout Forecast + Forecast UI (1 tuần)
 - Phase 4: Profitability per Item/Shift + Export PDF/Excel + Telegram/Zalo bot + PWA offline + E2E (1 tuần)
 
-## SPRINT B2: HR-PAYROLL — CHẤM CÔNG + TÍNH LƯƠNG + THƯỞNG (PROPOSED 2026-10-03 — chờ user quyết định)
+## SPRINT B2: HR-PAYROLL — CHẤM CÔNG + TÍNH LƯƠNG + THƯỞNG (PROPOSED 2026-10-03 — SCOPE CHỐT 2026-10-03)
 
 > User hỏi: "có thể bổ sung thêm phần chấm công tính lương và thưởng cho nhân viên được không?"
-> Trả lời: **ĐƯỢC** — đề xuất là Sprint riêng (không trộn vào VA-IIE core — giữ module focus).
+> Trả lời: **ĐƯỢC** — Sprint riêng (không trộn vào VA-IIE core — giữ module focus).
+
+**Quyết định user (chốt 2026-10-03):**
+1. **Thứ tự:** SAU VA-IIE Phase 1-2 (Sprint B2) — thưởng KPI hao hụt cần dữ liệu VA-IIE
+2. **Hình thức lương:** CẢ 3 — cố định tháng + theo giờ + theo doanh số
+3. **Thưởng:** Doanh số + KPI hao hụt (gắn dữ liệu VA-IIE: Profitability per Shift, Food Cost, Waste Ratio)
+4. **Kế toán:** CÓ định khoản (lương/thưởng → TK chi phí nhân công theo chuẩn tenant: DN TT 133/99 → 642x; HKD TT 152 → TK phù hợp — chi tiết khi làm task card B2)
 
 **Vì sao khả thi (tie-in sẵn có):**
 - **Shift (VA-IIE) = nguồn chấm công tự động:** mở ca/đóng ca = check-in/check-out; ShiftType (Sáng/Trưa/Chiều/Tối/Full) = ca làm việc. Không cần thiết bị chấm công riêng.
-- **Thưởng gắn dữ liệu VA-IIE:** Profitability per Shift, Food Cost, Waste Ratio, doanh số ca → công thức thưởng (thưởng doanh số, thưởng ca giảm hao hụt, thưởng KPI).
+- **Thưởng gắn dữ liệu VA-IIE:** Profitability per Shift, Food Cost, Waste Ratio, doanh số ca → công thức thưởng.
 - **Lương = chi phí cố định:** đã có `BusinessProfile.MonthlyPayroll` (FI MVP-2) — bảng lương thực tế thay số ước lượng.
-- Commission/SalesReferral đã tồn tại (doanh số → hoa hồng) — nền tảng cho thưởng theo doanh số.
+- Commission/SalesReferral đã tồn tại — nền tảng cho thưởng theo doanh số.
 
 **Scope đề xuất (HR-MVP):**
-- `EmployeeProfile` (hồ sơ nhân viên: UserId FK, mức lương cơ bản, hình thức lương: cố định/giờ/doanh số, ngày vào, active)
-- `AttendanceRecord` (chấm công: auto từ Shift + nhập tay bù ca, nghỉ phép) — hoặc tái dùng Shift trực tiếp
-- `PayrollPeriod` + `PayrollEntry` (bảng lương tháng: lương cơ bản + phụ cấp + thưởng − khấu trừ, theo từng nhân viên; tổng = chi phí nhân công)
-- Bonus rules (thưởng doanh số / KPI / giảm hao hụt) — rule-based như Alert Engine
+- `EmployeeProfile` (hồ sơ nhân viên: UserId FK, lương cơ bản, hình thức lương: cố định/giờ/doanh số, ngày vào, active)
+- `AttendanceRecord` (chấm công: auto từ Shift + nhập tay bù ca, nghỉ phép)
+- `PayrollPeriod` + `PayrollEntry` (bảng lương tháng: lương cơ bản + phụ cấp + thưởng − khấu trừ; tổng = chi phí nhân công)
+- Bonus rules (thưởng doanh số / KPI hao hụt) — rule-based như Alert Engine
 - UI: Quản lý nhân viên (Owner), Chấm công + Bảng lương, phiếu lương cho Staff
 - Data: ShopERP SQLite per-tenant (operational). KHÔNG đưa lên PG ở MVP.
-- Accounting link (để sau): định khoản lương 642 → kế toán (chỉ khi user yêu cầu — HKD TT 152 đơn giản hơn DN)
+- **Định khoản lương** → AccountingEntry (PG) theo chuẩn tenant — cần phase riêng trong task card B2
 
-**Quyết định cần user:**
-1. Build HR-Payroll **sau VA-IIE Phase 1-2** (B2) hay **song song/trước**?
-2. `Shift.StaffName` (SRS VA-IIE) đổi thành `StaffUserId` (FK) — **bắt buộc nếu làm HR** (chấm công theo nhân viên thật)
-3. Lương theo hình thức nào trước: cố định tháng / theo giờ / theo doanh số (hay cả 3)?
-4. Thưởng: chỉ thưởng doanh số (nhanh) hay cả KPI hao hụt (cần VA-IIE data)?
-5. Có cần tích hợp kế toán (định khoản lương) ngay không, hay chỉ xuất bảng lương?
+**Điều kiện chuẩn bị từ VA-IIE (Sprint B — bắt buộc):**
+- [ ] `Shift.StaffName` (string) → `StaffUserId` (FK → User.Id) — chấm công theo nhân viên thật
+- [ ] VA-IIE xuất đủ dữ liệu KPI thưởng: doanh số/StaffShift, Profitability per Shift, Food Cost, Waste Ratio
+- [ ] `Order.StaffId` (FK User, nullable — **CHƯA tồn tại**, Order hiện không track nhân viên bán) → thêm khi B2 (thưởng doanh số theo nhân viên)
 
 ## OUT OF SCOPE
 
