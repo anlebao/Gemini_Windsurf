@@ -21,10 +21,27 @@
         </div>
     </div>
 }
+else if (ChildContent != null)
+{
+    @* 2026-10-03 fix: VanAAlert trước đây bỏ qua ChildContent — alert dạng markup (icon/link/strong)
+       không bao giờ render. Render ChildContent khi Message rỗng (additive — Message alerts giữ nguyên). *@
+    <div class="vanan-alert @GetAlertClass()" @attributes="AdditionalAttributes">
+        @if (Dismissible)
+        {
+            <button class="vanan-alert__close" @onclick="HandleDismiss" aria-label="Dismiss">
+                &times;
+            </button>
+        }
+        <div class="vanan-alert__content">@ChildContent</div>
+    </div>
+}
 
 @code {
     [Parameter]
     public string Message { get; set; } = string.Empty;
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
 
     [Parameter]
     public string Variant { get; set; } = "info"; // info, success, warning, error
