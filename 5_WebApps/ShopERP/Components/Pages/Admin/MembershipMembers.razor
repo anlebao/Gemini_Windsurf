@@ -37,7 +37,7 @@
             <VanAButton Variant="secondary" Size="small" OnClick="LoadHtxList">
                 <i class="bi bi-arrow-clockwise me-1"></i> Làm mới
             </VanAButton>
-            <VanAButton Variant="primary" Size="small" OnClick="OpenAddMemberModal" Disabled="@(string.IsNullOrEmpty(_selectedHtxId))">
+            <VanAButton Variant="primary" Size="small" OnClick="() => OpenAddMemberModal()" Disabled="@(string.IsNullOrEmpty(_selectedHtxId))">
                 <i class="bi bi-person-plus me-1"></i> Thêm thành viên
             </VanAButton>
             <VanAButton Variant="info" Size="small" OnClick="OpenUpgradeModal">
@@ -87,10 +87,16 @@
             <div class="tenant-pick-list mt-2" style="max-height:220px;overflow-y:auto;border:1px solid #ddd;border-radius:6px;">
                 @foreach (var t in FilteredTenants)
                 {
-                    <div class="tenant-pick-item p-2 @(t.Id == _selectedTenantId ? "bg-primary-subtle" : "")"
-                         style="cursor:pointer;border-bottom:1px solid #f0f0f0;" @onclick="() => _selectedTenantId = t.Id">
+                    var isSel = t.Id == _selectedTenantId;
+                    <div class="tenant-pick-item p-2"
+                         style="cursor:pointer;border-bottom:1px solid #f0f0f0; @(isSel ? "background-color:#fff3cd;border:1px solid #f0ad4e;font-weight:600;" : "")"
+                         @onclick="() => _selectedTenantId = t.Id">
                         <strong>@t.Name</strong>
                         <span class="text-muted small ms-2">@(t.TaxCode ?? "") · @(t.Status)</span>
+                        @if (isSel)
+                        {
+                            <span class="badge text-bg-warning ms-2">✓ Đã chọn</span>
+                        }
                     </div>
                 }
                 @if (!FilteredTenants.Any())
@@ -112,8 +118,12 @@
             <div class="mb-3">
                 <label class="form-label">Số vốn góp cam kết (VNĐ) <span class="text-danger">*</span></label>
                 <input class="form-control" type="number" min="1" step="1000" @bind="_newCapital" placeholder="VD: 1000000" />
-                <div class="form-text">HTX xác nhận thu sau khi duyệt.</div>
+                <div class="form-text">Bắt buộc với Thành viên chính thức / Liên kết góp vốn. HTX xác nhận thu sau khi duyệt.</div>
             </div>
+        }
+        @if (!string.IsNullOrEmpty(_addModalError))
+        {
+            <VanAAlert Type="error" Message="@_addModalError" CssClass="mb-3" />
         }
         <VanAButton Variant="primary" OnClick="ConfirmAddMember" IsLoading="_savingAdd">
             <i class="bi bi-check-lg me-1"></i> Thêm thành viên
@@ -132,9 +142,16 @@
             <div class="mt-2" style="max-height:220px;overflow-y:auto;border:1px solid #ddd;border-radius:6px;">
                 @foreach (var c in FilteredCollaborators)
                 {
-                    <div class="p-2" style="cursor:pointer;border-bottom:1px solid #f0f0f0;" @onclick="() => _selectedCustomerId = c.CustomerId">
+                    var isSel = c.CustomerId == _selectedCustomerId;
+                    <div class="p-2"
+                         style="cursor:pointer;border-bottom:1px solid #f0f0f0; @(isSel ? "background-color:#fff3cd;border:1px solid #f0ad4e;font-weight:600;" : "")"
+                         @onclick="() => _selectedCustomerId = c.CustomerId">
                         <strong>@c.FullName</strong>
                         <span class="text-muted small ms-2">@(string.Join(", ", c.ExistingRoles))</span>
+                        @if (isSel)
+                        {
+                            <span class="badge text-bg-warning ms-2">✓ Đã chọn</span>
+                        }
                     </div>
                 }
                 @if (!FilteredCollaborators.Any())
@@ -143,6 +160,10 @@
                 }
             </div>
         </div>
+        @if (!string.IsNullOrEmpty(_upgradeModalError))
+        {
+            <VanAAlert Type="error" Message="@_upgradeModalError" CssClass="mb-3" />
+        }
         <VanAButton Variant="primary" OnClick="ConfirmUpgrade" IsLoading="_savingUpgrade">
             <i class="bi bi-arrow-up-circle me-1"></i> Nâng cấp
         </VanAButton>
@@ -165,6 +186,8 @@
     private Guid _selectedCustomerId;
     private string _newMembershipType = "OfficialMember";
     private decimal? _newCapital;
+    private string _addModalError = string.Empty;
+    private string _upgradeModalError = string.Empty;
     private bool _showAddModal;
     private bool _showUpgradeModal;
     private bool _savingAdd;
@@ -248,22 +271,34 @@
         }
     }
 
-    private void OpenAddMemberModal()
+    private void OpenAddMemberModal(Guid? preselectTenantId = null)
     {
         _tenantSearch = string.Empty;
-        _selectedTenantId = Guid.Empty;
+        _selectedTenantId = preselectTenantId ?? Guid.Empty;
         _newMembershipType = "OfficialMember";
         _newCapital = null;
+        _addModalError = string.Empty;
         _showAddModal = true;
     }
 
-    private void CloseAddModal() => _showAddModal = false;
+    private void CloseAddModal()
+    {
+        _showAddModal = false;
+        _addModalError = string.Empty;
+    }
 
     private async Task ConfirmAddMember()
     {
+        _addModalError = string.Empty;
         if (string.IsNullOrEmpty(_selectedHtxId) || _selectedTenantId == Guid.Empty)
         {
-            ShowAlert("error", "Vui lòng chọn tenant.");
+            _addModalError = "Vui lòng chọn tenant trong danh sách.";
+            return;
+        }
+        if (_newMembershipType != "LinkedNonCapitalMember"
+            && (_newCapital is null || _newCapital.Value <= 0))
+        {
+            _addModalError = "Vui lòng nhập số vốn góp cam kết (> 0) — bắt buộc với loại thành viên này.";
             return;
         }
         _savingAdd = true;
@@ -277,7 +312,7 @@
         }
         catch (Exception ex)
         {
-            ShowAlert("error", $"Lỗi: {ex.Message}");
+            _addModalError = $"Lỗi: {ex.Message}";
         }
         finally
         {
@@ -289,16 +324,22 @@
     {
         _customerSearch = string.Empty;
         _selectedCustomerId = Guid.Empty;
+        _upgradeModalError = string.Empty;
         _showUpgradeModal = true;
     }
 
-    private void CloseUpgradeModal() => _showUpgradeModal = false;
+    private void CloseUpgradeModal()
+    {
+        _showUpgradeModal = false;
+        _upgradeModalError = string.Empty;
+    }
 
     private async Task ConfirmUpgrade()
     {
+        _upgradeModalError = string.Empty;
         if (_selectedCustomerId == Guid.Empty)
         {
-            ShowAlert("error", "Vui lòng chọn cộng tác viên.");
+            _upgradeModalError = "Vui lòng chọn cộng tác viên (Salesman/Shipper) trong danh sách.";
             return;
         }
         _savingUpgrade = true;
@@ -306,13 +347,17 @@
         {
             var customer = _allCustomers.FirstOrDefault(c => c.CustomerId == _selectedCustomerId);
             var result = await MembershipAdminApi.UpgradeCollaboratorAsync(_selectedCustomerId, customer?.FullName);
-            ShowAlert("success", $"✅ Đã nâng cấp — tenant {result.TenantId} (tạo mới: {result.Created}). Giờ chọn tenant này trong mục 'Thêm thành viên'.");
             _showUpgradeModal = false;
-            await OnInitializedAsync(); // refresh tenant list
+            await OnInitializedAsync(); // refresh tenant list (có tenant mới)
+            // Tự mở modal "Thêm thành viên" với tenant vừa nâng cấp được chọn sẵn (highlight vàng)
+            OpenAddMemberModal(preselectTenantId: result.TenantId);
+            ShowAlert("success", result.Created
+                ? $"✅ Đã nâng cấp CTV thành tenant. Chọn loại thành viên + nhập vốn góp rồi bấm Thêm."
+                : $"✅ CTV đã có sẵn tenant. Chọn loại thành viên + nhập vốn góp rồi bấm Thêm.");
         }
         catch (Exception ex)
         {
-            ShowAlert("error", $"Lỗi: {ex.Message}");
+            _upgradeModalError = $"Lỗi: {ex.Message}";
         }
         finally
         {
