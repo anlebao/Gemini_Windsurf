@@ -123,12 +123,14 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                 FROM "Recipes" r
                 JOIN "Ingredients" i ON i."Id" = r."IngredientId"
                 JOIN (
-                    SELECT "TenantId", "ProductId", MIN("Id") AS "KeeperId"
-                    FROM "Recipes" GROUP BY "TenantId", "ProductId"
-                ) k ON k."TenantId" = r."TenantId" AND k."ProductId" = r."ProductId";
+                    -- Keeper header per (TenantId, ProductId) — ROW_NUMBER (PG không có min(uuid))
+                    SELECT "TenantId", "ProductId", "Id" AS "KeeperId",
+                           ROW_NUMBER() OVER (PARTITION BY "TenantId", "ProductId" ORDER BY "Id") AS rn
+                    FROM "Recipes"
+                ) k ON k."TenantId" = r."TenantId" AND k."ProductId" = r."ProductId" AND k.rn = 1;
                 """);
 
-            // ── 5. Headers: giữ 1 row per (TenantId, ProductId) — keeper = MIN(Id); xoá các row dư ──
+            // ── 5. Headers: giữ 1 row per (TenantId, ProductId) — keeper = row đầu (ORDER BY Id); xoá các row dư ──
             migrationBuilder.Sql("""
                 DELETE FROM "Recipes" r USING (
                     SELECT "Id", ROW_NUMBER() OVER (PARTITION BY "TenantId", "ProductId" ORDER BY "Id") AS rn
