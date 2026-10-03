@@ -243,26 +243,47 @@ namespace VanAn.Core.Tests.Services.Onboarding
                 Assert.Contains(r.ProductId, productPkIds));
         }
 
-        // ── Recipe linkage: every recipe references a valid ingredient ID (base PK)
+        // ── Recipe linkage: every RecipeLine references a valid ingredient ID (base PK) ──
 
         [Fact]
-        public async Task SeedAsync_AllRecipes_LinkToExistingIngredient()
+        public async Task SeedAsync_AllRecipeLines_LinkToExistingIngredient()
         {
             await _strategy.SeedAsync(TestTenantId, _scope.Context);
             await _scope.Context.SaveChangesAsync();
 
-            // Recipe.IngredientId is FK → Ingredient.Id (base entity PK), not IngredientId value object
+            // VA-IIE refactor: Recipe = header + RecipeLine. Line.IngredientId → Ingredient.Id (base PK).
             var ingredientPkIds = await _scope.Context.Ingredients
                 .IgnoreQueryFilters()
                 .Select(i => i.Id)
                 .ToListAsync();
 
-            var recipes = await _scope.Context.Recipes
+            var recipeLines = await _scope.Context.RecipeLines
                 .IgnoreQueryFilters()
                 .ToListAsync();
 
-            Assert.All(recipes, r =>
-                Assert.Contains(r.IngredientId, ingredientPkIds));
+            Assert.NotEmpty(recipeLines);
+            Assert.All(recipeLines, l =>
+                Assert.Contains(l.IngredientId, ingredientPkIds));
+        }
+
+        // ── Recipe linkage: RecipeLine.Unit khớp Ingredient.Unit (Q3-C: nhất quán recipe & kiểm kê) ──
+
+        [Fact]
+        public async Task SeedAsync_AllRecipeLines_UnitMatchesIngredientUnit()
+        {
+            await _strategy.SeedAsync(TestTenantId, _scope.Context);
+            await _scope.Context.SaveChangesAsync();
+
+            var ingredientUnits = await _scope.Context.Ingredients
+                .IgnoreQueryFilters()
+                .ToDictionaryAsync(i => i.Id, i => i.Unit);
+
+            var recipeLines = await _scope.Context.RecipeLines
+                .IgnoreQueryFilters()
+                .ToListAsync();
+
+            Assert.All(recipeLines, l =>
+                Assert.Equal(ingredientUnits[l.IngredientId], l.Unit));
         }
 
         // ── Inventory count matches ingredient count ──────────────────────────────

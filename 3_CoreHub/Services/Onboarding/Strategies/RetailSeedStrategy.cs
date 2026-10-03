@@ -78,24 +78,24 @@ namespace VanAn.CoreHub.Services.Onboarding.Strategies
             // ── 4. Recipes (product ↔ ingredient — 1:1 wholesale→retail mapping) ──
             var recipes = new[]
             {
-                CreateRecipe(tenantId, products[0].Id, ingredients[0].Id, 1m/24m),
-                CreateRecipe(tenantId, products[1].Id, ingredients[1].Id, 1m/24m),
-                CreateRecipe(tenantId, products[2].Id, ingredients[2].Id, 1m/24m),
-                CreateRecipe(tenantId, products[3].Id, ingredients[3].Id, 1m/24m),
-                CreateRecipe(tenantId, products[4].Id, ingredients[4].Id, 1m/48m),
-                CreateRecipe(tenantId, products[5].Id, ingredients[5].Id, 1m/24m),
-                CreateRecipe(tenantId, products[6].Id, ingredients[6].Id, 1m/30m),
-                CreateRecipe(tenantId, products[7].Id, ingredients[7].Id, 1m/10m),
-                CreateRecipe(tenantId, products[8].Id, ingredients[8].Id, 1m/24m),
-                CreateRecipe(tenantId, products[9].Id, ingredients[9].Id, 1m/120m),
-                CreateRecipe(tenantId, products[10].Id, ingredients[10].Id, 1m/20m),
-                CreateRecipe(tenantId, products[11].Id, ingredients[11].Id, 1m/72m),
-                CreateRecipe(tenantId, products[12].Id, ingredients[12].Id, 5m/25m),
-                CreateRecipe(tenantId, products[13].Id, ingredients[13].Id, 1m/50m),
-                CreateRecipe(tenantId, products[14].Id, ingredients[14].Id, 0.250m/50m),
-                CreateRecipe(tenantId, products[15].Id, ingredients[15].Id, 1m/6m),
-                CreateRecipe(tenantId, products[16].Id, ingredients[16].Id, 1m/50m),
-                CreateRecipe(tenantId, products[17].Id, ingredients[17].Id, 1m/50m),
+                CreateRecipe(tenantId, products[0].Id, ingredients[0], 1m/24m),
+                CreateRecipe(tenantId, products[1].Id, ingredients[1], 1m/24m),
+                CreateRecipe(tenantId, products[2].Id, ingredients[2], 1m/24m),
+                CreateRecipe(tenantId, products[3].Id, ingredients[3], 1m/24m),
+                CreateRecipe(tenantId, products[4].Id, ingredients[4], 1m/48m),
+                CreateRecipe(tenantId, products[5].Id, ingredients[5], 1m/24m),
+                CreateRecipe(tenantId, products[6].Id, ingredients[6], 1m/30m),
+                CreateRecipe(tenantId, products[7].Id, ingredients[7], 1m/10m),
+                CreateRecipe(tenantId, products[8].Id, ingredients[8], 1m/24m),
+                CreateRecipe(tenantId, products[9].Id, ingredients[9], 1m/120m),
+                CreateRecipe(tenantId, products[10].Id, ingredients[10], 1m/20m),
+                CreateRecipe(tenantId, products[11].Id, ingredients[11], 1m/72m),
+                CreateRecipe(tenantId, products[12].Id, ingredients[12], 5m/25m),
+                CreateRecipe(tenantId, products[13].Id, ingredients[13], 1m/50m),
+                CreateRecipe(tenantId, products[14].Id, ingredients[14], 0.250m/50m),
+                CreateRecipe(tenantId, products[15].Id, ingredients[15], 1m/6m),
+                CreateRecipe(tenantId, products[16].Id, ingredients[16], 1m/50m),
+                CreateRecipe(tenantId, products[17].Id, ingredients[17], 1m/50m),
             };
             await dbContext.Recipes.AddRangeAsync(recipes, ct);
 
@@ -115,7 +115,11 @@ namespace VanAn.CoreHub.Services.Onboarding.Strategies
             decimal currentStock, decimal minStockThreshold, decimal pricePerUnit)
             => new(tenantId, name, unit, currentStock, minStockThreshold, pricePerUnit);
 
-        private static Recipe CreateRecipe(TenantId tenantId, Guid productId, Guid ingredientId, decimal qty)
-            => new(tenantId, productId, ingredientId, qty);
+        private static Recipe CreateRecipe(TenantId tenantId, Guid productId, Ingredient ingredient, decimal qty)
+        {
+            var recipe = new Recipe(tenantId, productId);
+            recipe.AddLine(ingredient.Id, qty, ingredient.Unit);
+            return recipe;
+        }
     }
 }

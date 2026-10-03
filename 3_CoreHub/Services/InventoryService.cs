@@ -55,16 +55,21 @@ namespace VanAn.CoreHub.Services
                 {
                     if (recipes.TryGetValue(item.ProductId, out Recipe? recipe))
                     {
-                        decimal totalDeduction = recipe.QuantityNeeded * item.Quantity;
+                        // VA-IIE refactor (2026-10-03): Recipe = header + RecipeLine (định mức nhiều nguyên liệu).
+                        // NOTE: caller phải Include(r => r.Lines) khi populate dictionary.
+                        foreach (RecipeLine line in recipe.Lines)
+                        {
+                            decimal totalDeduction = line.Quantity * item.Quantity;
 
-                        IngredientId ingredientId = new(recipe.IngredientId);
-                        if (deductions.ContainsKey(ingredientId))
-                        {
-                            deductions[ingredientId] += totalDeduction;
-                        }
-                        else
-                        {
-                            deductions[ingredientId] = totalDeduction;
+                            IngredientId ingredientId = new(line.IngredientId);
+                            if (deductions.ContainsKey(ingredientId))
+                            {
+                                deductions[ingredientId] += totalDeduction;
+                            }
+                            else
+                            {
+                                deductions[ingredientId] = totalDeduction;
+                            }
                         }
                     }
                     else

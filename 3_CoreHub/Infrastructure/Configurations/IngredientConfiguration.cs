@@ -35,11 +35,21 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.MinStockThreshold)
                 .HasPrecision(18, 4);
 
+            // VA-IIE (Sprint B, additive): phân loại + override ngưỡng variance per-item.
+            _ = builder.Property(e => e.Category)
+                .HasConversion<int>()
+                .IsRequired()
+                .HasDefaultValue(IngredientCategory.RawMaterial);
+
+            _ = builder.Property(e => e.VarianceThresholdPercent)
+                .HasPrecision(5, 2);
+
             _ = builder.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
             // Indexes
             _ = builder.HasIndex(e => new { e.TenantId, e.Name });
+            _ = builder.HasIndex(e => new { e.TenantId, e.Category });
         }
     }
 }

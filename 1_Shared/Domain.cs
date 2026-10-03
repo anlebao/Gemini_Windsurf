@@ -432,6 +432,13 @@ namespace VanAn.Shared.Domain
     public record RecipeId(Guid Value);
     public record InventoryId(Guid Value);
     public record OrderId(Guid Value);
+    // VA-IIE (Sprint B): Shift Report + Variance + Alert Engine business keys.
+    // Single-Identity Pattern: constructor syncs Id = BusinessKey.Value; EF config Ignore()s the VO.
+    public record ShiftId(Guid Value);
+    public record InventoryCountId(Guid Value);
+    public record ShiftAlertId(Guid Value);
+    public record TheoreticalConsumptionId(Guid Value);
+    public record RecipeLineId(Guid Value);
     // VA-FI-MVP2 (2026-08-21): Business Profile VO — Single-Identity (ignored in EF config).
     public record BusinessProfileId(Guid Value);
     public record OrderStatusId(string Value)
@@ -1436,11 +1443,17 @@ namespace VanAn.Shared.Domain
         public decimal MinStockThreshold { get; set; }
         public decimal PricePerUnit { get; set; }
 
+        // VA-IIE (Sprint B, additive): phân loại nguyên liệu + override ngưỡng variance per-item.
+        // ReorderPoint = MinStockThreshold (có sẵn) — KHÔNG thêm field trùng (SRS review #2, approved 2026-10-03).
+        public IngredientCategory Category { get; set; } = IngredientCategory.RawMaterial;
+        public decimal? VarianceThresholdPercent { get; set; }
+
         // EF Core constructor for materialization
         protected Ingredient() { }
 
         // SINGLE-IDENTITY: Align BaseEntity.Id (PK) with IngredientId (business key).
-        public Ingredient(TenantId tenantId, string name, string unit, decimal currentStock, decimal minStockThreshold, decimal pricePerUnit)
+        public Ingredient(TenantId tenantId, string name, string unit, decimal currentStock, decimal minStockThreshold, decimal pricePerUnit,
+            IngredientCategory category = IngredientCategory.RawMaterial, decimal? varianceThresholdPercent = null)
             : base(tenantId)
         {
             Id = IngredientId.Value;
@@ -1449,32 +1462,107 @@ namespace VanAn.Shared.Domain
             CurrentStock = currentStock;
             MinStockThreshold = minStockThreshold;
             PricePerUnit = pricePerUnit;
+            Category = category;
+            VarianceThresholdPercent = varianceThresholdPercent;
         }
     }
 
+    /// <summary>
+    /// Recipe header (VA-IIE Sprint B refactor — breaking, approved 2026-10-03):
+    /// 1 recipe = 1 sản phẩm, nhiều RecipeLine (ingredient định mức) + versioning.
+    /// Migration + backfill TOÀN BỘ (Q1-A): mỗi row flat cũ → Recipe v1 + RecipeLine; kg→g (Q3-C).
+    /// </summary>
     public class Recipe : BaseEntity
     {
         public RecipeId RecipeId { get; set; } = new RecipeId(Guid.NewGuid());
         public Guid ProductId { get; set; } // 🛡️ PHASE 3 FIX: Use Guid instead of ProductId
-        public Guid IngredientId { get; set; } // 🛡️ PHASE 3 FIX: Use Guid instead of IngredientId
-        public decimal QuantityNeeded { get; set; }
+
+        // VA-IIE: versioning + yield/waste (SRS §7.3)
+        public int Version { get; protected set; } = 1;
+        public decimal Yield { get; protected set; } = 1m;
+        public decimal WasteFactor { get; protected set; }
+        public bool IsActive { get; protected set; } = true;
+        public DateTime EffectiveFrom { get; protected set; } = DateTime.UtcNow;
 
         // Navigation properties
         // REMOVED: DataAnnotations violate Domain purity (FAIL-FAST MVP)
         public Product Product { get; set; } = null!;
-        public Ingredient Ingredient { get; set; } = null!;
+        public List<RecipeLine> Lines { get; protected set; } = [];
 
         // EF Core constructor for materialization
         protected Recipe() { }
 
         // SINGLE-IDENTITY: Align BaseEntity.Id (PK) with RecipeId (business key).
-        public Recipe(TenantId tenantId, Guid productId, Guid ingredientId, decimal quantityNeeded)
+        public Recipe(TenantId tenantId, Guid productId, decimal yield = 1m, decimal wasteFactor = 0m, bool isActive = true, DateTime? effectiveFrom = null)
             : base(tenantId)
         {
             Id = RecipeId.Value;
             ProductId = productId;
+            Version = 1;
+            Yield = yield;
+            WasteFactor = wasteFactor;
+            IsActive = isActive;
+            EffectiveFrom = effectiveFrom ?? DateTime.UtcNow;
+        }
+
+        /// <summary>
+        /// VA-IIE: thêm 1 định mức (RecipeLine) vào recipe. Unit = đơn vị cơ sở của ingredient
+        /// (NHẤT QUÁN giữa recipe & kiểm kê — Q3-C, approved 2026-10-03).
+        /// </summary>
+        public RecipeLine AddLine(Guid ingredientId, decimal quantity, string unit)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(unit, nameof(unit));
+            var line = new RecipeLine(TenantId, Id, ingredientId, quantity, unit);
+            Lines.Add(line);
+            UpdateAudit();
+            return line;
+        }
+
+        /// <summary>
+        /// VA-IIE: publish version mới — deactivate version hiện tại, tạo v+1 kèm copy toàn bộ lines (SRS §7.3).
+        /// </summary>
+        public Recipe PublishNewVersion(decimal yield = 1m, decimal wasteFactor = 0m, bool isActive = true)
+        {
+            IsActive = false;
+            UpdateAudit();
+            var next = new Recipe(TenantId, ProductId, yield, wasteFactor, isActive, DateTime.UtcNow);
+            next.Version = Version + 1;
+            foreach (RecipeLine line in Lines)
+            {
+                next.AddLine(line.IngredientId, line.Quantity, line.Unit);
+            }
+            return next;
+        }
+    }
+
+    /// <summary>
+    /// RecipeLine (VA-IIE Sprint B): 1 dòng định mức của Recipe — IngredientId + Quantity + Unit.
+    /// Single-Identity Pattern: RecipeLineId synced to Id; EF config Ignore()s the VO.
+    /// </summary>
+    public class RecipeLine : BaseEntity
+    {
+        public RecipeLineId RecipeLineId { get; set; } = new RecipeLineId(Guid.NewGuid());
+        public Guid RecipeId { get; set; } // FK → Recipe.Id (PK)
+        public Guid IngredientId { get; set; } // FK → Ingredient.Id (PK)
+        public decimal Quantity { get; set; }
+        public string Unit { get; set; } = string.Empty;
+
+        // Navigation properties
+        public Recipe Recipe { get; set; } = null!;
+        public Ingredient Ingredient { get; set; } = null!;
+
+        // EF Core constructor for materialization
+        protected RecipeLine() { }
+
+        // SINGLE-IDENTITY: Align BaseEntity.Id (PK) with RecipeLineId (business key).
+        public RecipeLine(TenantId tenantId, Guid recipeId, Guid ingredientId, decimal quantity, string unit)
+            : base(tenantId)
+        {
+            Id = RecipeLineId.Value;
+            RecipeId = recipeId;
             IngredientId = ingredientId;
-            QuantityNeeded = quantityNeeded;
+            Quantity = quantity;
+            Unit = unit;
         }
     }
 
@@ -1504,6 +1592,259 @@ namespace VanAn.Shared.Domain
             Quantity = newQuantity;
             LastUpdated = DateTime.UtcNow;
             UpdateAudit();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // VA-IIE (Sprint B) — SHIFT REPORT + VARIANCE + ALERT ENGINE (SRS §6.2)
+    // 4 entity mới + 5 enum mới (approved 2026-10-03). Per-tenant SQLite (ShopERP).
+    // Single-Identity Pattern 100%: constructor sync Id = BusinessKey.Value; EF Ignore()s the VO.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>Ca làm việc (Sáng/Trưa/Chiều/Tối/Full) — nguồn chấm công cho HR-Payroll B2.</summary>
+    public enum ShiftType
+    {
+        Morning = 1,   // Sáng
+        Midday = 2,    // Trưa
+        Afternoon = 3, // Chiều
+        Evening = 4,   // Tối
+        Full = 5       // Full ngày
+    }
+
+    /// <summary>Lifecycle bàn giao ca: Draft → Submitted → Acknowledged → Closed.</summary>
+    public enum ShiftStatus
+    {
+        Draft = 0,
+        Submitted = 1,
+        Acknowledged = 2,
+        Closed = 3
+    }
+
+    /// <summary>Loại kiểm kê: đầu ca / cuối ca.</summary>
+    public enum CountType
+    {
+        Opening = 1,
+        Closing = 2
+    }
+
+    /// <summary>Phân loại nguyên liệu (SRS §4.2).</summary>
+    public enum IngredientCategory
+    {
+        RawMaterial = 1, // Nguyên liệu chính (bột, sữa, đường...)
+        Consumable = 2,  // Vật tư tiêu hao (cốc, ống hút, bánh thành phẩm mua ngoài...)
+        Supply = 3       // Hàng hóa / vật dụng (không trực tiếp vào sản phẩm)
+    }
+
+    /// <summary>Mức độ nghiêm trọng cảnh báo.</summary>
+    public enum AlertSeverity
+    {
+        Warning = 1,
+        Critical = 2
+    }
+
+    /// <summary>
+    /// Ca làm việc + báo cáo cuối ca (mẫu giấy "ĐẦM COFFEE").
+    /// StaffUserId (FK → User.Id) thay StaffName string — chuẩn bị HR-Payroll B2 (approved 2026-10-03).
+    /// </summary>
+    public class Shift : BaseEntity
+    {
+        public ShiftId ShiftId { get; protected set; } = new ShiftId(Guid.NewGuid());
+        public ShiftType ShiftType { get; protected set; }
+        public DateTime StartTime { get; protected set; }
+        public DateTime? EndTime { get; protected set; }
+        public Guid StaffUserId { get; protected set; } // FK → Users (DemoUser).Id
+        public Guid? AcknowledgedBy { get; protected set; } // FK → Users (DemoUser).Id
+        public DateTime? AcknowledgedAt { get; protected set; }
+        public ShiftStatus Status { get; protected set; } = ShiftStatus.Draft;
+        public string? HandoverNotes { get; protected set; }
+        public decimal? CashCount { get; protected set; }   // tiền mặt thực đếm cuối ca
+        public decimal? PosCashTotal { get; protected set; } // tổng tiền POS trong ca
+
+        // Navigation properties
+        public VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser StaffUser { get; protected set; } = null!;
+
+        // EF Core constructor for materialization
+        protected Shift() { }
+
+        // SINGLE-IDENTITY: Align BaseEntity.Id (PK) with ShiftId (business key).
+        public Shift(TenantId tenantId, ShiftType shiftType, Guid staffUserId, DateTime? startTime = null)
+            : base(tenantId)
+        {
+            Id = ShiftId.Value;
+            ShiftType = shiftType;
+            StaffUserId = staffUserId;
+            StartTime = startTime ?? DateTime.UtcNow;
+            Status = ShiftStatus.Draft;
+        }
+
+        /// <summary>Đóng ca + nộp bàn giao: bắt buộc có EndTime + CashCount + PosCashTotal.</summary>
+        public void Submit(string? handoverNotes, decimal cashCount, decimal posCashTotal, DateTime? endTime = null)
+        {
+            if (Status != ShiftStatus.Draft)
+            {
+                throw new InvalidOperationException($"Cannot submit shift in status {Status}");
+            }
+            if (cashCount < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(cashCount), "Cash count cannot be negative");
+            }
+            EndTime = endTime ?? DateTime.UtcNow;
+            if (EndTime < StartTime)
+            {
+                throw new ArgumentOutOfRangeException(nameof(endTime), "EndTime cannot be before StartTime");
+            }
+            CashCount = cashCount;
+            PosCashTotal = posCashTotal;
+            HandoverNotes = handoverNotes;
+            Status = ShiftStatus.Submitted;
+            UpdateAudit();
+        }
+
+        /// <summary>Chủ/Quản lý xác nhận bàn giao ca.</summary>
+        public void Acknowledge(Guid acknowledgedBy)
+        {
+            if (Status != ShiftStatus.Submitted)
+            {
+                throw new InvalidOperationException($"Cannot acknowledge shift in status {Status}");
+            }
+            AcknowledgedBy = acknowledgedBy;
+            AcknowledgedAt = DateTime.UtcNow;
+            Status = ShiftStatus.Acknowledged;
+            UpdateAudit();
+        }
+
+        /// <summary>Chốt ca sau khi xác nhận.</summary>
+        public void Close()
+        {
+            if (Status != ShiftStatus.Acknowledged)
+            {
+                throw new InvalidOperationException($"Cannot close shift in status {Status}");
+            }
+            Status = ShiftStatus.Closed;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// Kiểm kê 1 nguyên liệu đầu/cuối ca. Bất biến sau khi Shift Closed (NFR-7 — sửa qua adjustment, Phase 2).
+    /// </summary>
+    public class InventoryCount : BaseEntity
+    {
+        public InventoryCountId InventoryCountId { get; protected set; } = new InventoryCountId(Guid.NewGuid());
+        public Guid ShiftId { get; protected set; } // FK → Shift.Id (PK)
+        public Guid IngredientId { get; protected set; } // FK → Ingredient.Id (PK)
+        public CountType CountType { get; protected set; }
+        public decimal Quantity { get; protected set; }
+        public string Unit { get; protected set; } = string.Empty; // đơn vị cơ sở (g/lon/gói/trái — Q3-C)
+        public decimal? MidShiftStockIn { get; protected set; } // nhập thêm trong ca
+
+        // Navigation properties
+        public Shift Shift { get; protected set; } = null!;
+        public Ingredient Ingredient { get; protected set; } = null!;
+
+        // EF Core constructor for materialization
+        protected InventoryCount() { }
+
+        // SINGLE-IDENTITY: Align BaseEntity.Id (PK) with InventoryCountId (business key).
+        public InventoryCount(TenantId tenantId, Guid shiftId, Guid ingredientId, CountType countType, decimal quantity, string unit, decimal? midShiftStockIn = null)
+            : base(tenantId)
+        {
+            Id = InventoryCountId.Value;
+            ShiftId = shiftId;
+            IngredientId = ingredientId;
+            CountType = countType;
+            Quantity = quantity;
+            Unit = unit;
+            MidShiftStockIn = midShiftStockIn;
+        }
+    }
+
+    /// <summary>
+    /// Cảnh báo sinh khi đóng ca (10 rules — Phase 2 IAlertEngine). In-app only (SRS §4.3).
+    /// </summary>
+    public class ShiftAlert : BaseEntity
+    {
+        public ShiftAlertId ShiftAlertId { get; protected set; } = new ShiftAlertId(Guid.NewGuid());
+        public Guid ShiftId { get; protected set; } // FK → Shift.Id (PK)
+        public string AlertCode { get; protected set; } = string.Empty; // ING_VARIANCE_HIGH, STOCK_LOW, ...
+        public AlertSeverity Severity { get; protected set; }
+        public string Message { get; protected set; } = string.Empty;
+        public Guid? IngredientId { get; protected set; } // FK → Ingredient.Id (nullable)
+        public decimal? VarianceValue { get; protected set; }
+        public decimal? VariancePercent { get; protected set; }
+        public bool IsResolved { get; protected set; }
+        public Guid? ResolvedBy { get; protected set; }
+        public DateTime? ResolvedAt { get; protected set; }
+        public string? ResolutionNote { get; protected set; }
+
+        // Navigation properties
+        public Shift Shift { get; protected set; } = null!;
+        public Ingredient? Ingredient { get; protected set; }
+
+        // EF Core constructor for materialization
+        protected ShiftAlert() { }
+
+        // SINGLE-IDENTITY: Align BaseEntity.Id (PK) with ShiftAlertId (business key).
+        public ShiftAlert(TenantId tenantId, Guid shiftId, string alertCode, AlertSeverity severity, string message,
+            Guid? ingredientId = null, decimal? varianceValue = null, decimal? variancePercent = null)
+            : base(tenantId)
+        {
+            Id = ShiftAlertId.Value;
+            ShiftId = shiftId;
+            AlertCode = alertCode;
+            Severity = severity;
+            Message = message;
+            IngredientId = ingredientId;
+            VarianceValue = varianceValue;
+            VariancePercent = variancePercent;
+        }
+
+        public void Resolve(Guid resolvedBy, string note)
+        {
+            if (IsResolved)
+            {
+                throw new InvalidOperationException("Alert is already resolved");
+            }
+            IsResolved = true;
+            ResolvedBy = resolvedBy;
+            ResolvedAt = DateTime.UtcNow;
+            ResolutionNote = note;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// Tiêu hao 1 nguyên liệu trong ca: Theoretical (POS × Recipe) vs Actual (Opening + MidShift − Closing).
+    /// Variance = Actual − Theoretical; VariancePercent = Variance / Theoretical × 100 (SRS §3.4).
+    /// </summary>
+    public class TheoreticalConsumption : BaseEntity
+    {
+        public TheoreticalConsumptionId TheoreticalConsumptionId { get; protected set; } = new TheoreticalConsumptionId(Guid.NewGuid());
+        public Guid ShiftId { get; protected set; } // FK → Shift.Id (PK)
+        public Guid IngredientId { get; protected set; } // FK → Ingredient.Id (PK)
+        public decimal TheoreticalQuantity { get; protected set; }
+        public decimal ActualQuantity { get; protected set; }
+        public decimal Variance { get; protected set; }
+        public decimal VariancePercent { get; protected set; }
+
+        // Navigation properties
+        public Shift Shift { get; protected set; } = null!;
+        public Ingredient Ingredient { get; protected set; } = null!;
+
+        // EF Core constructor for materialization
+        protected TheoreticalConsumption() { }
+
+        // SINGLE-IDENTITY: Align BaseEntity.Id (PK) with TheoreticalConsumptionId (business key).
+        public TheoreticalConsumption(TenantId tenantId, Guid shiftId, Guid ingredientId, decimal theoreticalQuantity, decimal actualQuantity)
+            : base(tenantId)
+        {
+            Id = TheoreticalConsumptionId.Value;
+            ShiftId = shiftId;
+            IngredientId = ingredientId;
+            TheoreticalQuantity = theoreticalQuantity;
+            ActualQuantity = actualQuantity;
+            Variance = actualQuantity - theoreticalQuantity;
+            VariancePercent = theoreticalQuantity == 0m ? 0m : (Variance / theoreticalQuantity) * 100m;
         }
     }
 

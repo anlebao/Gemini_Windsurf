@@ -74,51 +74,51 @@ namespace VanAn.CoreHub.Services.Onboarding.Strategies
             var recipes = new[]
             {
                 // Cắt tóc
-                R(tenantId, products[0].Id, khan.Id, 1m),
-                R(tenantId, products[1].Id, khan.Id, 1m),
-                R(tenantId, products[2].Id, khan.Id, 1m),
-                R(tenantId, products[3].Id, dauGoi.Id, 0.03m),
-                R(tenantId, products[3].Id, khan.Id, 1m),
-                R(tenantId, products[4].Id, khan.Id, 1m),
+                R(tenantId, products[0].Id, khan, 1m),
+                R(tenantId, products[1].Id, khan, 1m),
+                R(tenantId, products[2].Id, khan, 1m),
+                R(tenantId, products[3].Id, dauGoi, 0.03m),
+                R(tenantId, products[3].Id, khan, 1m),
+                R(tenantId, products[4].Id, khan, 1m),
                 // Nhuộm-uốn-duỗi
-                R(tenantId, products[5].Id, thuocNhuom.Id, 1m),
-                R(tenantId, products[5].Id, khan.Id, 2m),
-                R(tenantId, products[6].Id, thuocNhuom.Id, 2m),
-                R(tenantId, products[6].Id, khan.Id, 2m),
-                R(tenantId, products[7].Id, thuocUon.Id, 1m),
-                R(tenantId, products[7].Id, khan.Id, 2m),
-                R(tenantId, products[8].Id, thuocDuoi.Id, 1m),
-                R(tenantId, products[8].Id, khan.Id, 2m),
-                R(tenantId, products[9].Id, botKeratin.Id, 0.1m),
-                R(tenantId, products[9].Id, khan.Id, 2m),
+                R(tenantId, products[5].Id, thuocNhuom, 1m),
+                R(tenantId, products[5].Id, khan, 2m),
+                R(tenantId, products[6].Id, thuocNhuom, 2m),
+                R(tenantId, products[6].Id, khan, 2m),
+                R(tenantId, products[7].Id, thuocUon, 1m),
+                R(tenantId, products[7].Id, khan, 2m),
+                R(tenantId, products[8].Id, thuocDuoi, 1m),
+                R(tenantId, products[8].Id, khan, 2m),
+                R(tenantId, products[9].Id, botKeratin, 0.1m),
+                R(tenantId, products[9].Id, khan, 2m),
                 // Gội đầu
-                R(tenantId, products[10].Id, dauGoi.Id, 0.05m),
-                R(tenantId, products[10].Id, khan.Id, 1m),
-                R(tenantId, products[11].Id, dauGoi.Id, 0.05m),
-                R(tenantId, products[11].Id, dauXa.Id, 0.05m),
-                R(tenantId, products[11].Id, khan.Id, 2m),
-                R(tenantId, products[12].Id, dauGoi.Id, 0.03m),
-                R(tenantId, products[12].Id, khan.Id, 1m),
-                R(tenantId, products[13].Id, dauGoi.Id, 0.05m),
-                R(tenantId, products[13].Id, botKeratin.Id, 0.05m),
-                R(tenantId, products[13].Id, khan.Id, 2m),
+                R(tenantId, products[10].Id, dauGoi, 0.05m),
+                R(tenantId, products[10].Id, khan, 1m),
+                R(tenantId, products[11].Id, dauGoi, 0.05m),
+                R(tenantId, products[11].Id, dauXa, 0.05m),
+                R(tenantId, products[11].Id, khan, 2m),
+                R(tenantId, products[12].Id, dauGoi, 0.03m),
+                R(tenantId, products[12].Id, khan, 1m),
+                R(tenantId, products[13].Id, dauGoi, 0.05m),
+                R(tenantId, products[13].Id, botKeratin, 0.05m),
+                R(tenantId, products[13].Id, khan, 2m),
                 // Nail
-                R(tenantId, products[14].Id, sonMong.Id, 1m/12m),
-                R(tenantId, products[15].Id, sonMong.Id, 1m/6m),
-                R(tenantId, products[16].Id, gelNail.Id, 0.05m),
-                R(tenantId, products[16].Id, thuyTinhNail.Id, 1m),
-                R(tenantId, products[17].Id, gelNail.Id, 0.1m),
-                R(tenantId, products[17].Id, thuyTinhNail.Id, 10m),
-                R(tenantId, products[18].Id, sonMong.Id, 1m/6m),
-                R(tenantId, products[18].Id, gelNail.Id, 0.02m),
+                R(tenantId, products[14].Id, sonMong, 1m/12m),
+                R(tenantId, products[15].Id, sonMong, 1m/6m),
+                R(tenantId, products[16].Id, gelNail, 0.05m),
+                R(tenantId, products[16].Id, thuyTinhNail, 1m),
+                R(tenantId, products[17].Id, gelNail, 0.1m),
+                R(tenantId, products[17].Id, thuyTinhNail, 10m),
+                R(tenantId, products[18].Id, sonMong, 1m/6m),
+                R(tenantId, products[18].Id, gelNail, 0.02m),
                 // Makeup
-                R(tenantId, products[19].Id, makeupBase.Id, 0.02m),
-                R(tenantId, products[19].Id, phanChe.Id, 0.01m),
-                R(tenantId, products[20].Id, makeupBase.Id, 0.05m),
-                R(tenantId, products[20].Id, phanChe.Id, 0.02m),
-                R(tenantId, products[20].Id, khan.Id, 2m),
-                R(tenantId, products[21].Id, thuocUon.Id, 1m),
-                R(tenantId, products[21].Id, khan.Id, 2m),
+                R(tenantId, products[19].Id, makeupBase, 0.02m),
+                R(tenantId, products[19].Id, phanChe, 0.01m),
+                R(tenantId, products[20].Id, makeupBase, 0.05m),
+                R(tenantId, products[20].Id, phanChe, 0.02m),
+                R(tenantId, products[20].Id, khan, 2m),
+                R(tenantId, products[21].Id, thuocUon, 1m),
+                R(tenantId, products[21].Id, khan, 2m),
             };
             await dbContext.Recipes.AddRangeAsync(recipes, ct);
 
@@ -137,7 +137,11 @@ namespace VanAn.CoreHub.Services.Onboarding.Strategies
             decimal currentStock, decimal minStockThreshold, decimal pricePerUnit)
             => new(tenantId, name, unit, currentStock, minStockThreshold, pricePerUnit);
 
-        private static Recipe R(TenantId tenantId, Guid productId, Guid ingredientId, decimal qty)
-            => new(tenantId, productId, ingredientId, qty);
+        private static Recipe R(TenantId tenantId, Guid productId, Ingredient ingredient, decimal qty)
+        {
+            var recipe = new Recipe(tenantId, productId);
+            recipe.AddLine(ingredient.Id, qty, ingredient.Unit);
+            return recipe;
+        }
     }
 }

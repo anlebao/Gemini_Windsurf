@@ -44,6 +44,13 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<Ingredient> Ingredients { get; set; }
         public DbSet<Recipe> Recipes { get; set; }
 
+        // VA-IIE Sprint B (2026-10-03): Shift Report + Variance + Alert Engine — ShopERP SQLite (per-tenant operational data).
+        public DbSet<RecipeLine> RecipeLines { get; set; }
+        public DbSet<Shift> Shifts { get; set; }
+        public DbSet<InventoryCount> InventoryCounts { get; set; }
+        public DbSet<ShiftAlert> ShiftAlerts { get; set; }
+        public DbSet<TheoreticalConsumption> TheoreticalConsumptions { get; set; }
+
         // Additional tables required by IVanAnDbContext (for Offline Mode)
         // NOTE: Accounting DbSets (AccountingEntries, JournalEntries, AuditLogs,
         // PendingInvoiceQueues, AccountCharts, PeriodClosingStatuses) removed —

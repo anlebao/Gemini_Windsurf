@@ -5,7 +5,7 @@ using VanAn.Shared.Domain;
 namespace VanAn.CoreHub.Infrastructure.Configurations
 {
     /// <summary>
-    /// EF Core configuration for Recipe entity
+    /// EF Core configuration for Recipe entity (VA-IIE Sprint B refactor: header + RecipeLine).
     /// </summary>
     public class RecipeConfiguration : IEntityTypeConfiguration<Recipe>, IEntityConfiguration
     {
@@ -17,12 +17,27 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             // Ignore — no separate DB column. Code reads entity.Id, not entity.RecipeId.Value.
             _ = builder.Ignore(e => e.RecipeId);
 
+            _ = builder.Property(e => e.ProductId)
+                .IsRequired();
 
-            // NOTE: ProductId and IngredientId are Guid (not value objects) per PHASE 3 FIX
-            // See Domain.cs line 660-661: "Use Guid instead of ProductId/IngredientId"
+            _ = builder.Property(e => e.Version)
+                .IsRequired()
+                .HasDefaultValue(1);
 
-            _ = builder.Property(e => e.QuantityNeeded)
-                .HasPrecision(18, 4);
+            _ = builder.Property(e => e.Yield)
+                .HasPrecision(18, 4)
+                .HasDefaultValue(1m);
+
+            _ = builder.Property(e => e.WasteFactor)
+                .HasPrecision(18, 4)
+                .HasDefaultValue(0m);
+
+            _ = builder.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+
+            _ = builder.Property(e => e.EffectiveFrom)
+                .IsRequired();
 
             _ = builder.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
@@ -33,14 +48,14 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .HasForeignKey(e => e.ProductId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            _ = builder.HasOne(e => e.Ingredient)
-                .WithMany()
-                .HasForeignKey(e => e.IngredientId)
-                .OnDelete(DeleteBehavior.Restrict);
+            _ = builder.HasMany(e => e.Lines)
+                .WithOne(l => l.Recipe)
+                .HasForeignKey(l => l.RecipeId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             // Indexes
             _ = builder.HasIndex(e => new { e.TenantId, e.ProductId });
-            _ = builder.HasIndex(e => e.IngredientId);
+            _ = builder.HasIndex(e => new { e.TenantId, e.IsActive });
         }
     }
 }

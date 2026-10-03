@@ -43,10 +43,18 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<Product> Products { get; set; }
         public DbSet<Ingredient> Ingredients { get; set; }
         public DbSet<Recipe> Recipes { get; set; }
+
+        // VA-IIE Sprint B (2026-10-03): PG tables exist but stay EMPTY (user OK) — operational data lives in ShopERP SQLite.
+        public DbSet<RecipeLine> RecipeLines { get; set; }
+        public DbSet<Shift> Shifts { get; set; }
+        public DbSet<InventoryCount> InventoryCounts { get; set; }
+        public DbSet<ShiftAlert> ShiftAlerts { get; set; }
+        public DbSet<TheoreticalConsumption> TheoreticalConsumptions { get; set; }
         public DbSet<Inventory> Inventories { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<Customer> Customers { get; set; }
+
 
         // Facebook Lead Integration Entities
         public DbSet<Lead> Leads { get; set; }

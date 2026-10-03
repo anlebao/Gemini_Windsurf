@@ -74,52 +74,52 @@ namespace VanAn.CoreHub.Services.Onboarding.Strategies
             var recipes = new[]
             {
                 // Massage services
-                R(tenantId, products[0].Id, tinhDau.Id, 0.05m),
-                R(tenantId, products[0].Id, khan.Id, 2m),
-                R(tenantId, products[1].Id, tinhDau.Id, 0.1m),
-                R(tenantId, products[1].Id, khan.Id, 2m),
-                R(tenantId, products[2].Id, daNong.Id, 6m),
-                R(tenantId, products[2].Id, tinhDau.Id, 0.1m),
-                R(tenantId, products[3].Id, kemMassage.Id, 0.1m),
-                R(tenantId, products[3].Id, khan.Id, 2m),
-                R(tenantId, products[4].Id, tinhDau.Id, 0.15m),
-                R(tenantId, products[4].Id, khan.Id, 2m),
+                R(tenantId, products[0].Id, tinhDau, 0.05m),
+                R(tenantId, products[0].Id, khan, 2m),
+                R(tenantId, products[1].Id, tinhDau, 0.1m),
+                R(tenantId, products[1].Id, khan, 2m),
+                R(tenantId, products[2].Id, daNong, 6m),
+                R(tenantId, products[2].Id, tinhDau, 0.1m),
+                R(tenantId, products[3].Id, kemMassage, 0.1m),
+                R(tenantId, products[3].Id, khan, 2m),
+                R(tenantId, products[4].Id, tinhDau, 0.15m),
+                R(tenantId, products[4].Id, khan, 2m),
                 // Chăm sóc da
-                R(tenantId, products[5].Id, nuocHoaHong.Id, 0.1m),
-                R(tenantId, products[5].Id, khan.Id, 1m),
-                R(tenantId, products[6].Id, nuocHoaHong.Id, 0.1m),
-                R(tenantId, products[6].Id, khan.Id, 2m),
-                R(tenantId, products[7].Id, matNa.Id, 1m),
-                R(tenantId, products[7].Id, nuocHoaHong.Id, 0.1m),
-                R(tenantId, products[8].Id, serum.Id, 0.05m),
-                R(tenantId, products[8].Id, matNa.Id, 1m),
-                R(tenantId, products[9].Id, gelPeel.Id, 0.05m),
-                R(tenantId, products[9].Id, nuocHoaHong.Id, 0.1m),
+                R(tenantId, products[5].Id, nuocHoaHong, 0.1m),
+                R(tenantId, products[5].Id, khan, 1m),
+                R(tenantId, products[6].Id, nuocHoaHong, 0.1m),
+                R(tenantId, products[6].Id, khan, 2m),
+                R(tenantId, products[7].Id, matNa, 1m),
+                R(tenantId, products[7].Id, nuocHoaHong, 0.1m),
+                R(tenantId, products[8].Id, serum, 0.05m),
+                R(tenantId, products[8].Id, matNa, 1m),
+                R(tenantId, products[9].Id, gelPeel, 0.05m),
+                R(tenantId, products[9].Id, nuocHoaHong, 0.1m),
                 // Công nghệ
-                R(tenantId, products[10].Id, kemTrietLong.Id, 0.05m),
-                R(tenantId, products[11].Id, kemTrietLong.Id, 0.1m),
-                R(tenantId, products[12].Id, serum.Id, 0.05m),
-                R(tenantId, products[12].Id, khan.Id, 2m),
-                R(tenantId, products[13].Id, serum.Id, 0.05m),
-                R(tenantId, products[13].Id, khan.Id, 2m),
-                R(tenantId, products[14].Id, serum.Id, 0.1m),
+                R(tenantId, products[10].Id, kemTrietLong, 0.05m),
+                R(tenantId, products[11].Id, kemTrietLong, 0.1m),
+                R(tenantId, products[12].Id, serum, 0.05m),
+                R(tenantId, products[12].Id, khan, 2m),
+                R(tenantId, products[13].Id, serum, 0.05m),
+                R(tenantId, products[13].Id, khan, 2m),
+                R(tenantId, products[14].Id, serum, 0.1m),
                 // Sức khỏe
-                R(tenantId, products[15].Id, khoiXongHoi.Id, 2m),
-                R(tenantId, products[16].Id, khoiXongHoi.Id, 1m),
-                R(tenantId, products[16].Id, khan.Id, 2m),
-                R(tenantId, products[17].Id, daoGio.Id, 1m/30m),
-                R(tenantId, products[18].Id, thuocGiacHoi.Id, 1m/20m),
+                R(tenantId, products[15].Id, khoiXongHoi, 2m),
+                R(tenantId, products[16].Id, khoiXongHoi, 1m),
+                R(tenantId, products[16].Id, khan, 2m),
+                R(tenantId, products[17].Id, daoGio, 1m/30m),
+                R(tenantId, products[18].Id, thuocGiacHoi, 1m/20m),
                 // Combo
-                R(tenantId, products[19].Id, tinhDau.Id, 0.1m),
-                R(tenantId, products[19].Id, khoiXongHoi.Id, 2m),
-                R(tenantId, products[19].Id, khan.Id, 2m),
-                R(tenantId, products[20].Id, serum.Id, 0.05m),
-                R(tenantId, products[20].Id, matNa.Id, 1m),
-                R(tenantId, products[20].Id, tinhDau.Id, 0.1m),
-                R(tenantId, products[21].Id, tinhDau.Id, 0.15m),
-                R(tenantId, products[21].Id, matNa.Id, 1m),
-                R(tenantId, products[21].Id, serum.Id, 0.1m),
-                R(tenantId, products[21].Id, daNong.Id, 6m),
+                R(tenantId, products[19].Id, tinhDau, 0.1m),
+                R(tenantId, products[19].Id, khoiXongHoi, 2m),
+                R(tenantId, products[19].Id, khan, 2m),
+                R(tenantId, products[20].Id, serum, 0.05m),
+                R(tenantId, products[20].Id, matNa, 1m),
+                R(tenantId, products[20].Id, tinhDau, 0.1m),
+                R(tenantId, products[21].Id, tinhDau, 0.15m),
+                R(tenantId, products[21].Id, matNa, 1m),
+                R(tenantId, products[21].Id, serum, 0.1m),
+                R(tenantId, products[21].Id, daNong, 6m),
             };
             await dbContext.Recipes.AddRangeAsync(recipes, ct);
 
@@ -138,7 +138,11 @@ namespace VanAn.CoreHub.Services.Onboarding.Strategies
             decimal currentStock, decimal minStockThreshold, decimal pricePerUnit)
             => new(tenantId, name, unit, currentStock, minStockThreshold, pricePerUnit);
 
-        private static Recipe R(TenantId tenantId, Guid productId, Guid ingredientId, decimal qty)
-            => new(tenantId, productId, ingredientId, qty);
+        private static Recipe R(TenantId tenantId, Guid productId, Ingredient ingredient, decimal qty)
+        {
+            var recipe = new Recipe(tenantId, productId);
+            recipe.AddLine(ingredient.Id, qty, ingredient.Unit);
+            return recipe;
+        }
     }
 }

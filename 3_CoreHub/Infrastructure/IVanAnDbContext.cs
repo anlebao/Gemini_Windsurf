@@ -28,6 +28,14 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<Inventory> Inventories { get; }
         DbSet<Ingredient> Ingredients { get; }
         DbSet<Recipe> Recipes { get; }
+
+        // VA-IIE Sprint B (2026-10-03): Shift Report + Variance + Alert Engine — ShopERP SQLite (operational data).
+        // PG tables exist but stay empty (user OK — SRS §6.4 keeps VA-IIE data per-tenant SQLite only).
+        DbSet<RecipeLine> RecipeLines { get; }
+        DbSet<Shift> Shifts { get; }
+        DbSet<InventoryCount> InventoryCounts { get; }
+        DbSet<ShiftAlert> ShiftAlerts { get; }
+        DbSet<TheoreticalConsumption> TheoreticalConsumptions { get; }
         DbSet<LoyaltyRewards> LoyaltyRewards { get; }
         DbSet<LoyaltyIssuanceRecord> LoyaltyIssuanceRecords { get; }  // VALCN v2.0 Phase 1 — per-order loyalty tracking
         DbSet<SocialCampaign> SocialCampaigns { get; }

@@ -9,7 +9,10 @@ namespace VanAn.CoreHub.Services.Onboarding.Strategies
     /// Data sourced from docs/requirements/Menu_An_Uong.md §1 (Cafe — full menu).
     ///
     /// Seeds 1 shop + 32 products (7 cà phê + 5 trà + 5 trà sữa + 5 topping
-    ///   + 6 đồ uống khác + 4 bánh) + 15 ingredients + 30+ recipes + inventory.
+    ///   + 6 đồ uống khác + 4 bánh) + 15 ingredients + 32 recipes (48 RecipeLines) + inventory.
+    ///
+    /// VA-IIE refactor (2026-10-03, Q3-C approved): đơn vị cơ sở khối lượng = g (kg→g ×1000).
+    /// Đơn vị phi-SI (lon/gói/trái/cái/chai 1L) giữ nguyên — NHẤT QUÁN giữa RecipeLine.Unit & kiểm kê.
     /// </summary>
     public sealed class FnbSeedStrategy : IIndustrySeedStrategy
     {
@@ -78,84 +81,67 @@ namespace VanAn.CoreHub.Services.Onboarding.Strategies
             };
             await dbContext.Products.AddRangeAsync(products, ct);
 
-            // ── 3. Ingredients (15) ───────────────────────────────────────────────
-            var cafeBot = I(tenantId, "Cà phê bột", "kg", 100m, 5m, 200_000m);
-            var suaDac = I(tenantId, "Sữa đặc", "lon", 100m, 10m, 25_000m);
+            // ── 3. Ingredients (15) — VA-IIE Q3-C: khối lượng cơ sở = g ────────────
+            var cafeBot = I(tenantId, "Cà phê bột", "g", 100_000m, 5_000m, 200m, varianceThresholdPercent: 15m);
+            var suaDac = I(tenantId, "Sữa đặc", "lon", 100m, 10m, 25_000m, varianceThresholdPercent: 10m);
             var suaTuoi = I(tenantId, "Sữa tươi", "chai 1L", 50m, 10m, 35_000m);
-            var duong = I(tenantId, "Đường", "kg", 100m, 5m, 15_000m);
+            var duong = I(tenantId, "Đường", "g", 100_000m, 5_000m, 15m, varianceThresholdPercent: 20m);
             var traDen = I(tenantId, "Trà đen", "gói", 100m, 10m, 8_000m);
             var traXanh = I(tenantId, "Trà xanh", "gói", 50m, 5m, 12_000m);
             var dao = I(tenantId, "Đào hộp", "lon", 100m, 10m, 18_000m);
-            var botTranChau = I(tenantId, "Bột trân châu", "kg", 50m, 5m, 120_000m);
-            var botMatcha = I(tenantId, "Bột matcha", "kg", 20m, 3m, 800_000m);
-            var khoaiMon = I(tenantId, "Khoai môn", "kg", 50m, 5m, 60_000m);
+            var botTranChau = I(tenantId, "Bột trân châu", "g", 50_000m, 5_000m, 120m, varianceThresholdPercent: 15m);
+            var botMatcha = I(tenantId, "Bột matcha", "g", 20_000m, 3_000m, 800m);
+            var khoaiMon = I(tenantId, "Khoai môn", "g", 50_000m, 5_000m, 60m);
             var bo = I(tenantId, "Bơ", "trái", 100m, 10m, 15_000m);
             var xoai = I(tenantId, "Xoài", "trái", 100m, 10m, 15_000m);
             var cam = I(tenantId, "Cam tươi", "trái", 200m, 20m, 8_000m);
             var chanh = I(tenantId, "Chanh tươi", "trái", 200m, 20m, 3_000m);
-            var banhBanh = I(tenantId, "Bánh patisserie", "cái", 50m, 10m, 25_000m);
+            var banhBanh = I(tenantId, "Bánh patisserie", "cái", 50m, 10m, 25_000m, category: IngredientCategory.Consumable);
 
             var ingredients = new[] { cafeBot, suaDac, suaTuoi, duong, traDen, traXanh, dao, botTranChau, botMatcha, khoaiMon, bo, xoai, cam, chanh, banhBanh };
             await dbContext.Ingredients.AddRangeAsync(ingredients, ct);
 
-            // ── 4. Recipes (product ↔ ingredient) ─────────────────────────────────
+            // ── 4. Recipes (header + RecipeLine — VA-IIE Sprint B) ────────────────
             var recipes = new[]
             {
                 // Cà phê
-                R(tenantId, cafeDenDa.Id, cafeBot.Id, 0.02m),
-                R(tenantId, cafeDenDa.Id, duong.Id, 0.01m),
-                R(tenantId, cafeSuaDa.Id, cafeBot.Id, 0.02m),
-                R(tenantId, cafeSuaDa.Id, suaDac.Id, 0.03m),
-                R(tenantId, bacXiu.Id, cafeBot.Id, 0.01m),
-                R(tenantId, bacXiu.Id, suaDac.Id, 0.05m),
-                R(tenantId, bacXiu.Id, suaTuoi.Id, 0.1m),
-                R(tenantId, americano.Id, cafeBot.Id, 0.03m),
-                R(tenantId, cappuccino.Id, cafeBot.Id, 0.02m),
-                R(tenantId, cappuccino.Id, suaTuoi.Id, 0.15m),
-                R(tenantId, latte.Id, cafeBot.Id, 0.02m),
-                R(tenantId, latte.Id, suaTuoi.Id, 0.2m),
-                R(tenantId, mocha.Id, cafeBot.Id, 0.02m),
-                R(tenantId, mocha.Id, suaTuoi.Id, 0.15m),
+                R(tenantId, cafeDenDa.Id, (cafeBot, 20m), (duong, 10m)),
+                R(tenantId, cafeSuaDa.Id, (cafeBot, 20m), (suaDac, 0.03m)),
+                R(tenantId, bacXiu.Id, (cafeBot, 10m), (suaDac, 0.05m), (suaTuoi, 0.1m)),
+                R(tenantId, americano.Id, (cafeBot, 30m)),
+                R(tenantId, cappuccino.Id, (cafeBot, 20m), (suaTuoi, 0.15m)),
+                R(tenantId, latte.Id, (cafeBot, 20m), (suaTuoi, 0.2m)),
+                R(tenantId, mocha.Id, (cafeBot, 20m), (suaTuoi, 0.15m)),
                 // Trà
-                R(tenantId, traDaoCamSa.Id, dao.Id, 0.5m),
-                R(tenantId, traDaoCamSa.Id, traDen.Id, 0.05m),
-                R(tenantId, traVai.Id, traDen.Id, 0.05m),
-                R(tenantId, traChanh.Id, traDen.Id, 0.05m),
-                R(tenantId, traChanh.Id, chanh.Id, 1m),
-                R(tenantId, traTac.Id, traDen.Id, 0.05m),
-                R(tenantId, traSenVang.Id, traXanh.Id, 0.05m),
+                R(tenantId, traDaoCamSa.Id, (dao, 0.5m), (traDen, 0.05m)),
+                R(tenantId, traVai.Id, (traDen, 0.05m)),
+                R(tenantId, traChanh.Id, (traDen, 0.05m), (chanh, 1m)),
+                R(tenantId, traTac.Id, (traDen, 0.05m)),
+                R(tenantId, traSenVang.Id, (traXanh, 0.05m)),
                 // Trà sữa
-                R(tenantId, traSuaTruyenThong.Id, traDen.Id, 0.05m),
-                R(tenantId, traSuaTruyenThong.Id, suaDac.Id, 0.03m),
-                R(tenantId, traSuaOlong.Id, traDen.Id, 0.05m),
-                R(tenantId, traSuaOlong.Id, suaTuoi.Id, 0.1m),
-                R(tenantId, traSuaMatcha.Id, botMatcha.Id, 0.02m),
-                R(tenantId, traSuaMatcha.Id, suaTuoi.Id, 0.1m),
-                R(tenantId, traSuaKhoaiMon.Id, khoaiMon.Id, 0.1m),
-                R(tenantId, traSuaKhoaiMon.Id, suaTuoi.Id, 0.1m),
-                R(tenantId, traSuaSocola.Id, suaTuoi.Id, 0.15m),
+                R(tenantId, traSuaTruyenThong.Id, (traDen, 0.05m), (suaDac, 0.03m)),
+                R(tenantId, traSuaOlong.Id, (traDen, 0.05m), (suaTuoi, 0.1m)),
+                R(tenantId, traSuaMatcha.Id, (botMatcha, 20m), (suaTuoi, 0.1m)),
+                R(tenantId, traSuaKhoaiMon.Id, (khoaiMon, 100m), (suaTuoi, 0.1m)),
+                R(tenantId, traSuaSocola.Id, (suaTuoi, 0.15m)),
                 // Topping
-                R(tenantId, tranChauDen.Id, botTranChau.Id, 0.03m),
-                R(tenantId, tranChauTrang.Id, botTranChau.Id, 0.03m),
-                R(tenantId, thachRauCau.Id, duong.Id, 0.02m),
-                R(tenantId, puddingTrung.Id, suaDac.Id, 0.05m),
-                R(tenantId, cheeseFoam.Id, suaTuoi.Id, 0.05m),
+                R(tenantId, tranChauDen.Id, (botTranChau, 30m)),
+                R(tenantId, tranChauTrang.Id, (botTranChau, 30m)),
+                R(tenantId, thachRauCau.Id, (duong, 20m)),
+                R(tenantId, puddingTrung.Id, (suaDac, 0.05m)),
+                R(tenantId, cheeseFoam.Id, (suaTuoi, 0.05m)),
                 // Đồ uống khác
-                R(tenantId, nuocCamEp.Id, cam.Id, 3m),
-                R(tenantId, chanhDay.Id, chanh.Id, 2m),
-                R(tenantId, chanhDay.Id, duong.Id, 0.03m),
-                R(tenantId, sinhToBo.Id, bo.Id, 1m),
-                R(tenantId, sinhToBo.Id, suaTuoi.Id, 0.1m),
-                R(tenantId, sinhToXoai.Id, xoai.Id, 1m),
-                R(tenantId, sinhToXoai.Id, suaTuoi.Id, 0.1m),
-                R(tenantId, sodaVietQuat.Id, duong.Id, 0.02m),
-                R(tenantId, sodaChanh.Id, chanh.Id, 1m),
-                R(tenantId, sodaChanh.Id, duong.Id, 0.02m),
+                R(tenantId, nuocCamEp.Id, (cam, 3m)),
+                R(tenantId, chanhDay.Id, (chanh, 2m), (duong, 30m)),
+                R(tenantId, sinhToBo.Id, (bo, 1m), (suaTuoi, 0.1m)),
+                R(tenantId, sinhToXoai.Id, (xoai, 1m), (suaTuoi, 0.1m)),
+                R(tenantId, sodaVietQuat.Id, (duong, 20m)),
+                R(tenantId, sodaChanh.Id, (chanh, 1m), (duong, 20m)),
                 // Bánh — 1:1 với ingredient
-                R(tenantId, tiramisu.Id, banhBanh.Id, 1m),
-                R(tenantId, cheesecake.Id, banhBanh.Id, 1m),
-                R(tenantId, banhSuKem.Id, banhBanh.Id, 1m),
-                R(tenantId, croissantBo.Id, banhBanh.Id, 1m),
+                R(tenantId, tiramisu.Id, (banhBanh, 1m)),
+                R(tenantId, cheesecake.Id, (banhBanh, 1m)),
+                R(tenantId, banhSuKem.Id, (banhBanh, 1m)),
+                R(tenantId, croissantBo.Id, (banhBanh, 1m)),
             };
             await dbContext.Recipes.AddRangeAsync(recipes, ct);
 
@@ -174,10 +160,18 @@ namespace VanAn.CoreHub.Services.Onboarding.Strategies
         }
 
         private static Ingredient I(TenantId tenantId, string name, string unit,
-            decimal currentStock, decimal minStockThreshold, decimal pricePerUnit)
-            => new(tenantId, name, unit, currentStock, minStockThreshold, pricePerUnit);
+            decimal currentStock, decimal minStockThreshold, decimal pricePerUnit,
+            IngredientCategory category = IngredientCategory.RawMaterial, decimal? varianceThresholdPercent = null)
+            => new(tenantId, name, unit, currentStock, minStockThreshold, pricePerUnit, category, varianceThresholdPercent);
 
-        private static Recipe R(TenantId tenantId, Guid productId, Guid ingredientId, decimal qty)
-            => new(tenantId, productId, ingredientId, qty);
+        private static Recipe R(TenantId tenantId, Guid productId, params (Ingredient Ingredient, decimal Quantity)[] lines)
+        {
+            var recipe = new Recipe(tenantId, productId);
+            foreach ((Ingredient ingredient, decimal quantity) in lines)
+            {
+                recipe.AddLine(ingredient.Id, quantity, ingredient.Unit);
+            }
+            return recipe;
+        }
     }
 }

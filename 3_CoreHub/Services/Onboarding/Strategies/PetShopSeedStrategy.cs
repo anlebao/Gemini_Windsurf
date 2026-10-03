@@ -56,23 +56,23 @@ namespace VanAn.CoreHub.Services.Onboarding.Strategies
 
             var recipes = new[]
             {
-                R(tenantId, products[0].Id, ingredients[0].Id, 0.05m),
-                R(tenantId, products[0].Id, ingredients[3].Id, 2m),
-                R(tenantId, products[1].Id, ingredients[0].Id, 0.1m),
-                R(tenantId, products[1].Id, ingredients[3].Id, 3m),
-                R(tenantId, products[2].Id, ingredients[0].Id, 0.05m),
-                R(tenantId, products[2].Id, ingredients[3].Id, 2m),
-                R(tenantId, products[3].Id, ingredients[2].Id, 1m/100m),
-                R(tenantId, products[4].Id, ingredients[2].Id, 1m/100m),
-                R(tenantId, products[5].Id, ingredients[4].Id, 1m/20m),
-                R(tenantId, products[6].Id, ingredients[5].Id, 1m/20m),
-                R(tenantId, products[7].Id, ingredients[6].Id, 10m/25m),
-                R(tenantId, products[8].Id, ingredients[7].Id, 1m),
-                R(tenantId, products[9].Id, ingredients[8].Id, 1m),
-                R(tenantId, products[10].Id, ingredients[0].Id, 0.1m),
-                R(tenantId, products[10].Id, ingredients[2].Id, 1m/100m),
-                R(tenantId, products[10].Id, ingredients[3].Id, 3m),
-                R(tenantId, products[11].Id, ingredients[9].Id, 1m/200m),
+                R(tenantId, products[0].Id, ingredients[0], 0.05m),
+                R(tenantId, products[0].Id, ingredients[3], 2m),
+                R(tenantId, products[1].Id, ingredients[0], 0.1m),
+                R(tenantId, products[1].Id, ingredients[3], 3m),
+                R(tenantId, products[2].Id, ingredients[0], 0.05m),
+                R(tenantId, products[2].Id, ingredients[3], 2m),
+                R(tenantId, products[3].Id, ingredients[2], 1m/100m),
+                R(tenantId, products[4].Id, ingredients[2], 1m/100m),
+                R(tenantId, products[5].Id, ingredients[4], 1m/20m),
+                R(tenantId, products[6].Id, ingredients[5], 1m/20m),
+                R(tenantId, products[7].Id, ingredients[6], 10m/25m),
+                R(tenantId, products[8].Id, ingredients[7], 1m),
+                R(tenantId, products[9].Id, ingredients[8], 1m),
+                R(tenantId, products[10].Id, ingredients[0], 0.1m),
+                R(tenantId, products[10].Id, ingredients[2], 1m/100m),
+                R(tenantId, products[10].Id, ingredients[3], 3m),
+                R(tenantId, products[11].Id, ingredients[9], 1m/200m),
             };
             await dbContext.Recipes.AddRangeAsync(recipes, ct);
 
@@ -91,7 +91,11 @@ namespace VanAn.CoreHub.Services.Onboarding.Strategies
             decimal currentStock, decimal minStockThreshold, decimal pricePerUnit)
             => new(tenantId, name, unit, currentStock, minStockThreshold, pricePerUnit);
 
-        private static Recipe R(TenantId tenantId, Guid productId, Guid ingredientId, decimal qty)
-            => new(tenantId, productId, ingredientId, qty);
+        private static Recipe R(TenantId tenantId, Guid productId, Ingredient ingredient, decimal qty)
+        {
+            var recipe = new Recipe(tenantId, productId);
+            recipe.AddLine(ingredient.Id, qty, ingredient.Unit);
+            return recipe;
+        }
     }
 }
