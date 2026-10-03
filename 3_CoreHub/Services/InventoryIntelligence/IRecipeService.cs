@@ -30,5 +30,11 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
 
         /// <summary>Xoá cache active của product (gọi sau khi ghi).</summary>
         void InvalidateCache(Guid productId);
+
+        /// <summary>Danh sách product cho RecipeManagement UI (P3).</summary>
+        Task<IReadOnlyList<Product>> GetProductsAsync(CancellationToken ct = default);
+
+        /// <summary>Danh sách ingredient (đơn vị cơ sở) cho RecipeManagement UI (P3).</summary>
+        Task<IReadOnlyList<Ingredient>> GetIngredientsAsync(CancellationToken ct = default);
     }
 }

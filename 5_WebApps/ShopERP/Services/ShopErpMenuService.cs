@@ -77,6 +77,22 @@ public sealed class ShopErpMenuService : IShopErpMenuService
             });
         }
 
+        // VA-IIE (Sprint B, 2026-10-03): Kiểm kê / Inventory Intelligence — Owner + StoreKeeper (SRS §2).
+        if (isOwner || isStoreKeeper)
+        {
+            items.Add(new()
+            {
+                Title = "Kiểm kê", Icon = "clipboard-data",
+                Children = new()
+                {
+                    new() { Title = "Báo cáo ca", Icon = "journal-check", Url = "/inventory/shifts" },
+                    new() { Title = "Công thức pha chế", Icon = "cup-hot", Url = "/inventory/recipes" },
+                    new() { Title = "Tồn kho", Icon = "box-seam", Url = "/inventory/dashboard" },
+                    new() { Title = "Cảnh báo", Icon = "bell", Url = "/inventory/alerts" },
+                }
+            });
+        }
+
         // Sản phẩm: Owner
         if (isOwner)
         {

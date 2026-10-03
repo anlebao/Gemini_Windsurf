@@ -1,0 +1,266 @@
+@page "/inventory/alerts"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StoreManagement")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using AlertSeverity = VanAn.Shared.Domain.AlertSeverity
+@inject VanAn.CoreHub.Infrastructure.IVanAnDbContext DbContext
+@inject ITenantProvider TenantProvider
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILogger<AlertCenter> Logger
+
+<PageTitle>Cảnh báo - Vạn An</PageTitle>
+
+<div class="va-iie-alert-page">
+    <header class="page-header mb-4">
+        <h1><i class="bi bi-bell"></i> Cảnh báo (Alert Center)</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadAlerts">
+                <i class="bi bi-arrow-clockwise"></i> Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (_loading)
+    {
+        <VanASpinner Text="Đang tải..." />
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Variant="error" Message="@_errorMessage" Dismissible="true" OnDismiss="() => _errorMessage = null" />
+    }
+    else
+    {
+        <VanACard Header="Bộ lọc">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Mức độ</label>
+                    <VanASelect Id="alert-severity" Value="@_severityFilter" ValueChanged="OnSeverityFilterChanged"
+                                Options="@_severityOptions" AriaLabel="Mức độ" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Trạng thái</label>
+                    <VanASelect Id="alert-status" Value="@_statusFilter" ValueChanged="OnStatusFilterChanged"
+                                Options="@_statusOptions" AriaLabel="Trạng thái" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Tìm kiếm (mã / nội dung)</label>
+                    <VanAInput Id="alert-search" Value="@_search" ValueChanged="OnSearchChanged" Placeholder="vd: STOCK_LOW, hao hụt..." AriaLabel="Tìm kiếm" />
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <VanAButton Variant="outline" Size="small" OnClick="ResetFilters">
+                        <i class="bi bi-x-circle"></i> Xoá bộ lọc
+                    </VanAButton>
+                </div>
+            </div>
+        </VanACard>
+
+        <VanACard Header="@($"Danh sách cảnh báo ({_filteredAlerts.Count})")">
+            <VanAnDataGrid TItem="ShiftAlert" Items="@_filteredAlerts" EmptyMessage="Không có cảnh báo phù hợp.">
+                <Columns>
+                    <VanAnColumn TItem="ShiftAlert" Title="Mã" Width="2">
+                        <Template Context="a"><span class="fw-bold">@a.AlertCode</span></Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="ShiftAlert" Title="Mức độ" Width="2">
+                        <Template Context="a">
+                            <span class="badge @(a.Severity == AlertSeverity.Critical ? "bg-danger" : "bg-warning text-dark")">@(a.Severity == AlertSeverity.Critical ? "Critical" : "Warning")</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="ShiftAlert" Title="Nội dung" Width="5">
+                        <Template Context="a"><span>@a.Message</span></Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="ShiftAlert" Title="Thời gian" Width="3">
+                        <Template Context="a"><span>@a.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm")</span></Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="ShiftAlert" Title="Trạng thái" Width="2">
+                        <Template Context="a">
+                            <span class="badge @(a.IsResolved ? "bg-success" : "bg-secondary")">@(a.IsResolved ? "Đã xử lý" : "Chưa xử lý")</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="ShiftAlert" Title="" Width="2">
+                        <Template Context="a">
+                            @if (!a.IsResolved)
+                            {
+                                <VanAButton Variant="success" Size="small" OnClick="() => OpenResolveModal(a)">
+                                    <i class="bi bi-check2-circle"></i> Xử lý
+                                </VanAButton>
+                            }
+                        </Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+        </VanACard>
+    }
+</div>
+
+<!-- Modal resolve -->
+<VanAnModal IsOpen="@_resolveModalOpen" Title="Xử lý cảnh báo" OnClose="CloseResolveModal" OnConfirm="ResolveAlert"
+            ShowDefaultFooter="true" Closable="true">
+    @if (_resolvingAlert != null)
+    {
+        <p class="small mb-2"><strong>[@_resolvingAlert.AlertCode]</strong> @_resolvingAlert.Message</p>
+        <VanAInput Id="resolve-note" Value="@_resolveNote" ValueChanged="OnResolveNoteChanged"
+                   Placeholder="Ghi chú xử lý (vd: đã kiểm lại kho, nhập thêm hàng...)" AriaLabel="Ghi chú xử lý" />
+    }
+</VanAnModal>
+
+@code {
+    private IReadOnlyList<ShiftAlert> _allAlerts = [];
+    private IReadOnlyList<ShiftAlert> _filteredAlerts = [];
+
+    private string _severityFilter = "all";
+    private string _statusFilter = "unresolved";
+    private string _search = string.Empty;
+
+    private bool _loading = true;
+    private string? _errorMessage;
+
+    private ShiftAlert? _resolvingAlert;
+    private bool _resolveModalOpen;
+    private string _resolveNote = string.Empty;
+
+    private static readonly List<VanASelect.SelectOption> _severityOptions =
+    [
+        new("all", "Tất cả"), new("warning", "Warning"), new("critical", "Critical")
+    ];
+
+    private static readonly List<VanASelect.SelectOption> _statusOptions =
+    [
+        new("unresolved", "Chưa xử lý"), new("resolved", "Đã xử lý"), new("all", "Tất cả")
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAlerts();
+    }
+
+    private async Task LoadAlerts()
+    {
+        _loading = true;
+        _errorMessage = null;
+        try
+        {
+            _allAlerts = await DbContext.ShiftAlerts
+                .OrderByDescending(a => a.CreatedAt)
+                .Take(500)
+                .ToListAsync();
+            ApplyFilters();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VA-IIE: error loading alerts");
+            _errorMessage = "Lỗi tải cảnh báo. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        IEnumerable<ShiftAlert> query = _allAlerts;
+
+        if (_severityFilter == "warning")
+        {
+            query = query.Where(a => a.Severity == AlertSeverity.Warning);
+        }
+        else if (_severityFilter == "critical")
+        {
+            query = query.Where(a => a.Severity == AlertSeverity.Critical);
+        }
+
+        if (_statusFilter == "unresolved")
+        {
+            query = query.Where(a => !a.IsResolved);
+        }
+        else if (_statusFilter == "resolved")
+        {
+            query = query.Where(a => a.IsResolved);
+        }
+
+        if (!string.IsNullOrWhiteSpace(_search))
+        {
+            string term = _search.Trim();
+            query = query.Where(a => a.AlertCode.Contains(term, StringComparison.OrdinalIgnoreCase)
+                                     || a.Message.Contains(term, StringComparison.OrdinalIgnoreCase));
+        }
+
+        _filteredAlerts = query.ToList();
+    }
+
+    private void OnSeverityFilterChanged(string value)
+    {
+        _severityFilter = value;
+        ApplyFilters();
+    }
+
+    private void OnStatusFilterChanged(string value)
+    {
+        _statusFilter = value;
+        ApplyFilters();
+    }
+
+    private void OnSearchChanged(string value)
+    {
+        _search = value;
+        ApplyFilters();
+    }
+
+    private void ResetFilters()
+    {
+        _severityFilter = "all";
+        _statusFilter = "unresolved";
+        _search = string.Empty;
+        ApplyFilters();
+    }
+
+    private void OpenResolveModal(ShiftAlert alert)
+    {
+        _resolvingAlert = alert;
+        _resolveNote = string.Empty;
+        _resolveModalOpen = true;
+    }
+
+    private void CloseResolveModal()
+    {
+        _resolveModalOpen = false;
+        _resolvingAlert = null;
+    }
+
+    private async Task ResolveAlert()
+    {
+        if (_resolvingAlert == null)
+        {
+            return;
+        }
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            Guid userId = Guid.TryParse(authState.User.FindFirst("sub")?.Value, out var uid)
+                ? uid
+                : throw new InvalidOperationException("Không xác định được người dùng.");
+
+            _resolvingAlert.Resolve(userId, string.IsNullOrWhiteSpace(_resolveNote) ? "Đã xử lý" : _resolveNote);
+            _ = await DbContext.SaveChangesAsync();
+
+            CloseResolveModal();
+            await LoadAlerts();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VA-IIE: error resolving alert");
+            _errorMessage = "Không xử lý được cảnh báo. Vui lòng thử lại.";
+        }
+    }
+
+    private void OnResolveNoteChanged(string value) => _resolveNote = value;
+}

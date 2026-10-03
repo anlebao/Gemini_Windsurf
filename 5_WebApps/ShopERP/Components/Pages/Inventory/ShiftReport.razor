@@ -1,0 +1,597 @@
+@page "/inventory/shifts"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StoreManagement")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.CoreHub.Services.InventoryIntelligence
+@using VanAn.CoreHub.Services.InventoryIntelligence.Dtos
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using AlertSeverity = VanAn.Shared.Domain.AlertSeverity
+@inject IShiftReportService ShiftService
+@inject ITenantProvider TenantProvider
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILogger<ShiftReport> Logger
+
+<PageTitle>Báo cáo ca - Vạn An</PageTitle>
+
+<div class="va-iie-shift-page">
+    <header class="page-header mb-4">
+        <h1><i class="bi bi-journal-check"></i> Báo cáo ca (Kiểm kê cuối ca)</h1>
+        <div class="header-actions">
+            <VanASelect Id="shift-type-select" Value="@_newShiftType.ToString()" ValueChanged="OnShiftTypeChanged"
+                        Options="@_shiftTypeOptions" AriaLabel="Loại ca" />
+            <VanAButton Variant="primary" OnClick="() => _openShiftModal = true" Disabled="@(!TenantProvider.HasTenant)">
+                <i class="bi bi-play-circle"></i> Mở ca
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (_loading)
+    {
+        <VanASpinner Text="Đang tải..." />
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Variant="error" Message="@_errorMessage" Dismissible="true" OnDismiss="() => _errorMessage = null" />
+    }
+    else
+    {
+        <!-- Danh sách ca -->
+        <VanACard Header="Danh sách ca">
+            <VanAnDataGrid TItem="Shift" Items="@_shifts" EmptyMessage="Chưa có ca nào — bấm 'Mở ca' để bắt đầu.">
+                <Columns>
+                    <VanAnColumn TItem="Shift" Title="Ca" Width="2">
+                        <Template Context="s"><span>@ShiftTypeName(s.ShiftType)</span></Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="Shift" Title="Trạng thái" Width="2">
+                        <Template Context="s"><span class="badge @StatusBadgeClass(s.Status)">@StatusName(s.Status)</span></Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="Shift" Title="Mở ca" Width="3">
+                        <Template Context="s"><span>@s.StartTime.ToLocalTime().ToString("dd/MM HH:mm")</span></Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="Shift" Title="Đóng ca" Width="3">
+                        <Template Context="s"><span>@(s.EndTime?.ToLocalTime().ToString("dd/MM HH:mm") ?? "—")</span></Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="Shift" Title="Tiền mặt" Width="2">
+                        <Template Context="s"><span>@(s.CashCount?.ToString("N0") ?? "—")</span></Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="Shift" Title="" Width="2">
+                        <Template Context="s">
+                            <VanAButton Variant="outline" Size="small" OnClick="() => SelectShift(s.Id)">
+                                <i class="bi bi-eye"></i> Xem
+                            </VanAButton>
+                        </Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+        </VanACard>
+
+        @if (_selectedShift != null)
+        {
+            <div class="mt-4">
+                <VanACard Header="@($"Ca {ShiftTypeName(_selectedShift.ShiftType)} — {StatusName(_selectedShift.Status)}")">
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <VanAButton Variant="success" Size="small" Disabled="@(_selectedShift.Status != ShiftStatus.Submitted)" OnClick="AcknowledgeShift">
+                            <i class="bi bi-check2-circle"></i> Xác nhận bàn giao
+                        </VanAButton>
+                        <VanAButton Variant="secondary" Size="small" Disabled="@(_selectedShift.Status != ShiftStatus.Acknowledged)" OnClick="CloseShift">
+                            <i class="bi bi-lock-fill"></i> Chốt ca
+                        </VanAButton>
+                    </div>
+
+                    @if (_selectedShift.Status == ShiftStatus.Draft)
+                    {
+                        <!-- Phần 1+2: Kiểm kê đầu/cuối ca — "số + chọn đơn vị" (Q3-C) -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <VanASelect Id="count-ingredient" Value="@_countIngredientId.ToString()" ValueChanged="OnCountIngredientChanged"
+                                            Options="@_ingredientOptions" AriaLabel="Nguyên liệu" />
+                            </div>
+                            <div class="col-md-3">
+                                <VanASelect Id="count-type" Value="@_countType" ValueChanged="OnCountTypeChanged"
+                                            Options="@_countTypeOptions" AriaLabel="Đầu/Cuối ca" />
+                            </div>
+                            <div class="col-md-2">
+                                <VanAInput Id="count-qty" Type="number" Value="@_countQuantity" ValueChanged="OnCountQuantityChanged"
+                                           Placeholder="Số lượng" AriaLabel="Số lượng" />
+                            </div>
+                            <div class="col-md-2">
+                                <VanASelect Id="count-unit" Value="@_countUnit" ValueChanged="OnCountUnitChanged"
+                                            Options="@_unitOptions" AriaLabel="Đơn vị" />
+                            </div>
+                            <div class="col-md-1">
+                                <VanAButton Variant="primary" Size="small" OnClick="SaveInventoryCount" Disabled="@(_countIngredientId == Guid.Empty)">
+                                    <i class="bi bi-plus-lg"></i>
+                                </VanAButton>
+                            </div>
+                        </div>
+
+                        @if (_selectedCounts.Count > 0)
+                        {
+                            <VanAnDataGrid TItem="InventoryCountDto" Items="@_selectedCounts" EmptyMessage="Chưa có kiểm kê">
+                                <Columns>
+                                    <VanAnColumn TItem="InventoryCountDto" Title="Nguyên liệu" Width="4">
+                                        <Template Context="c"><span>@c.IngredientName</span></Template>
+                                    </VanAnColumn>
+                                    <VanAnColumn TItem="InventoryCountDto" Title="Loại" Width="2">
+                                        <Template Context="c"><span>@(c.CountType == CountType.Opening ? "Đầu ca" : "Cuối ca")</span></Template>
+                                    </VanAnColumn>
+                                    <VanAnColumn TItem="InventoryCountDto" Title="Số lượng" Width="2">
+                                        <Template Context="c"><span>@c.Quantity.ToString("N0") @c.Unit</span></Template>
+                                    </VanAnColumn>
+                                    <VanAnColumn TItem="InventoryCountDto" Title="Nhập thêm" Width="2">
+                                        <Template Context="c"><span>@(c.MidShiftStockIn?.ToString("N0") ?? "—")</span></Template>
+                                    </VanAnColumn>
+                                </Columns>
+                            </VanAnDataGrid>
+                        }
+
+                        <!-- Nhập thêm trong ca (restock) -->
+                        <div class="row g-3 mt-1 align-items-end">
+                            <div class="col-md-4">
+                                <VanASelect Id="restock-ingredient" Value="@_restockIngredientId.ToString()" ValueChanged="OnRestockIngredientChanged"
+                                            Options="@_ingredientOptions" AriaLabel="Nguyên liệu (nhập thêm)" />
+                            </div>
+                            <div class="col-md-2">
+                                <VanAInput Id="restock-qty" Type="number" Value="@_restockQuantity" ValueChanged="OnRestockQuantityChanged"
+                                           Placeholder="Số lượng nhập thêm" AriaLabel="Số lượng nhập thêm" />
+                            </div>
+                            <div class="col-md-2">
+                                <VanASelect Id="restock-unit" Value="@_restockUnit" ValueChanged="OnRestockUnitChanged"
+                                            Options="@_restockUnitOptions" AriaLabel="Đơn vị (nhập thêm)" />
+                            </div>
+                            <div class="col-md-2">
+                                <VanAButton Variant="secondary" Size="small" OnClick="AddRestock" Disabled="@(_restockIngredientId == Guid.Empty)">
+                                    <i class="bi bi-box-arrow-in-down"></i> Nhập thêm
+                                </VanAButton>
+                            </div>
+                        </div>
+
+                        <!-- Phần 5: Tiền mặt + ghi chú + Tính & Đóng ca -->
+                        <div class="row g-3 mt-2">
+                            <div class="col-md-3">
+                                <VanAInput Id="cash-count" Type="number" Value="@_cashCount" ValueChanged="OnCashCountChanged" Placeholder="Tiền mặt đếm cuối ca" AriaLabel="Tiền mặt" />
+                            </div>
+                            <div class="col-md-3">
+                                <VanAInput Id="pos-cash" Type="number" Value="@_posCashTotal" ValueChanged="OnPosCashChanged" Placeholder="Tổng tiền POS" AriaLabel="Tổng tiền POS" />
+                            </div>
+                            <div class="col-md-4">
+                                <VanAInput Id="handover-notes" Value="@_handoverNotes" ValueChanged="OnNotesChanged" Placeholder="Ghi chú bàn giao" AriaLabel="Ghi chú" />
+                            </div>
+                            <div class="col-md-2">
+                                <VanAButton Variant="primary" OnClick="SubmitShift" Loading="@_submitting">
+                                    <i class="bi bi-calculator"></i> Tính &amp; Đóng ca
+                                </VanAButton>
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Phần 1-6: Shift Report đầy đủ -->
+                    @if (_report != null)
+                    {
+                        <hr />
+                        <h5><i class="bi bi-clipboard-data"></i> Báo cáo ca — @_report.Shift.Status.ToString()</h5>
+
+                        <div class="row g-3 mt-1">
+                            <div class="col-md-6">
+                                <h6>Thông tin ca</h6>
+                                <ul class="small mb-2">
+                                    <li><strong>Loại ca:</strong> @ShiftTypeName(_report.Shift.ShiftType)</li>
+                                    <li><strong>Mở ca:</strong> @_report.Shift.StartTime.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</li>
+                                    <li><strong>Đóng ca:</strong> @(_report.Shift.EndTime?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</li>
+                                    <li><strong>Ghi chú:</strong> @(_report.Shift.HandoverNotes ?? "—")</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Tiền mặt</h6>
+                                <ul class="small mb-2">
+                                    <li><strong>Tiền mặt đếm:</strong> @(_report.Cash.CashCount?.ToString("N0") ?? "—")</li>
+                                    <li><strong>POS:</strong> @(_report.Cash.PosCashTotal?.ToString("N0") ?? "—")</li>
+                                    <li><strong>Chênh lệch:</strong> <span class="@(_report.Cash.IsMatched ? "text-success" : "text-danger fw-bold")">@(_report.Cash.Difference?.ToString("N0") ?? "—")</span></li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <h6>Kiểm kê</h6>
+                                <VanAnDataGrid TItem="InventoryCountDto" Items="@_report.OpeningCounts.Concat(_report.ClosingCounts).ToList()" EmptyMessage="Không có kiểm kê">
+                                    <Columns>
+                                        <VanAnColumn TItem="InventoryCountDto" Title="Nguyên liệu" Width="5">
+                                            <Template Context="c"><span>@c.IngredientName</span></Template>
+                                        </VanAnColumn>
+                                        <VanAnColumn TItem="InventoryCountDto" Title="Loại" Width="3">
+                                            <Template Context="c"><span>@(c.CountType == CountType.Opening ? "Đầu" : "Cuối")</span></Template>
+                                        </VanAnColumn>
+                                        <VanAnColumn TItem="InventoryCountDto" Title="Số lượng" Width="4">
+                                            <Template Context="c"><span>@c.Quantity.ToString("N0") @c.Unit</span></Template>
+                                        </VanAnColumn>
+                                    </Columns>
+                                </VanAnDataGrid>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Tiêu hao &amp; Variance</h6>
+                                <VanAnDataGrid TItem="ConsumptionDto" Items="@_report.Consumptions" EmptyMessage="Chưa có dữ liệu tiêu hao">
+                                    <Columns>
+                                        <VanAnColumn TItem="ConsumptionDto" Title="Nguyên liệu" Width="3">
+                                            <Template Context="c"><span>@c.IngredientName</span></Template>
+                                        </VanAnColumn>
+                                        <VanAnColumn TItem="ConsumptionDto" Title="Lý thuyết" Width="2">
+                                            <Template Context="c"><span>@c.TheoreticalQuantity.ToString("N0")</span></Template>
+                                        </VanAnColumn>
+                                        <VanAnColumn TItem="ConsumptionDto" Title="Thực tế" Width="2">
+                                            <Template Context="c"><span>@c.ActualQuantity.ToString("N0")</span></Template>
+                                        </VanAnColumn>
+                                        <VanAnColumn TItem="ConsumptionDto" Title="Variance" Width="3">
+                                            <Template Context="c"><span class="@(c.Variance > 0 ? "text-danger" : c.Variance < 0 ? "text-warning" : "")">@c.Variance.ToString("N0") (@c.VariancePercent.ToString("F1")%)</span></Template>
+                                        </VanAnColumn>
+                                    </Columns>
+                                </VanAnDataGrid>
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <h6>Cảnh báo</h6>
+                            @if (_report.Alerts.Count == 0)
+                            {
+                                <VanAAlert Variant="success" Message="Không có cảnh báo nào trong ca này." Dismissible="false" />
+                            }
+                            else
+                            {
+                                @foreach (var alert in _report.Alerts)
+                                {
+                                    <VanAAlert Variant="@(alert.Severity == AlertSeverity.Critical ? "error" : "warning")" Dismissible="false">
+                                        <strong>[@alert.AlertCode]</strong> @alert.Message
+                                    </VanAAlert>
+                                }
+                            }
+                        </div>
+                    }
+                </VanACard>
+            </div>
+        }
+    }
+</div>
+
+<!-- Modal mở ca -->
+<VanAnModal IsOpen="@_openShiftModal" Title="Mở ca mới" OnClose="CloseOpenShiftModal" OnConfirm="OpenShift"
+            ShowDefaultFooter="true" Closable="true">
+    <p>Loại ca: <strong>@ShiftTypeName(_newShiftType)</strong></p>
+    <VanAAlert Variant="info" Dismissible="false">Ca sẽ được mở cho nhân viên đang đăng nhập. Bắt đầu bằng kiểm kê đầu ca.</VanAAlert>
+</VanAnModal>
+
+@code {
+    private IReadOnlyList<Shift> _shifts = [];
+    private IReadOnlyList<Ingredient> _ingredients = [];
+    private Shift? _selectedShift;
+    private ShiftReportDto? _report;
+    private IReadOnlyList<InventoryCountDto> _selectedCounts = [];
+
+    private bool _loading = true;
+    private bool _submitting;
+    private string? _errorMessage;
+    private bool _openShiftModal;
+
+    private ShiftType _newShiftType = ShiftType.Morning;
+    private Guid _countIngredientId = Guid.Empty;
+    private string _countType = "1"; // Opening
+    private string _countQuantity = string.Empty;
+    private string _countUnit = "g";
+    private Guid _restockIngredientId = Guid.Empty;
+    private string _restockQuantity = string.Empty;
+    private string _restockUnit = "g";
+    private string _cashCount = string.Empty;
+    private string _posCashTotal = string.Empty;
+    private string _handoverNotes = string.Empty;
+
+    private static readonly List<VanASelect.SelectOption> _shiftTypeOptions =
+    [
+        new("1", "Sáng"), new("2", "Trưa"), new("3", "Chiều"), new("4", "Tối"), new("5", "Full ngày")
+    ];
+
+    private static readonly List<VanASelect.SelectOption> _countTypeOptions =
+    [
+        new("1", "Đầu ca"), new("2", "Cuối ca")
+    ];
+
+    private List<VanASelect.SelectOption> _ingredientOptions => _ingredients
+        .Select(i => new VanASelect.SelectOption(i.Id.ToString(), i.Name))
+        .ToList();
+
+    private List<VanASelect.SelectOption> _unitOptions => UnitOptionsFor(_countIngredientId);
+
+    private List<VanASelect.SelectOption> _restockUnitOptions => UnitOptionsFor(_restockIngredientId);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _ingredients = await ShiftService.GetIngredientsAsync();
+            await ReloadShiftsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VA-IIE: error loading shift report page");
+            _errorMessage = "Lỗi tải dữ liệu. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ReloadShiftsAsync()
+    {
+        _shifts = await ShiftService.ListShiftsAsync(from: DateTime.UtcNow.AddDays(-30));
+        if (_selectedShift != null)
+        {
+            _selectedShift = _shifts.FirstOrDefault(s => s.Id == _selectedShift.Id);
+        }
+    }
+
+    private async Task SelectShift(Guid shiftId)
+    {
+        _selectedShift = _shifts.FirstOrDefault(s => s.Id == shiftId);
+        await RefreshSelectedShiftAsync();
+    }
+
+    private async Task RefreshSelectedShiftAsync()
+    {
+        if (_selectedShift == null)
+        {
+            _report = null;
+            _selectedCounts = [];
+            return;
+        }
+        _selectedCounts = await LoadCountsAsync(_selectedShift.Id);
+        _report = _selectedShift.Status == ShiftStatus.Draft ? null : await ShiftService.GetShiftReportAsync(_selectedShift.Id);
+    }
+
+    private async Task<IReadOnlyList<InventoryCountDto>> LoadCountsAsync(Guid shiftId)
+    {
+        var shift = _shifts.FirstOrDefault(s => s.Id == shiftId);
+        if (shift == null)
+        {
+            return [];
+        }
+        var report = await ShiftService.GetShiftReportAsync(shiftId);
+        return report.OpeningCounts.Concat(report.ClosingCounts).ToList();
+    }
+
+    private async Task OpenShift()
+    {
+        _openShiftModal = false;
+        _errorMessage = null;
+        try
+        {
+            Guid userId = await CurrentUserIdAsync();
+            var tenantId = new TenantId(TenantProvider.TenantId);
+            await ShiftService.OpenShiftAsync(tenantId, _newShiftType, userId);
+            await ReloadShiftsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VA-IIE: error opening shift");
+            _errorMessage = "Không mở được ca. Vui lòng thử lại.";
+        }
+    }
+
+    private async Task SaveInventoryCount()
+    {
+        try
+        {
+            if (!decimal.TryParse(_countQuantity, out decimal qty) || qty <= 0)
+            {
+                _errorMessage = "Số lượng phải là số dương.";
+                return;
+            }
+            var (unit, factor) = ResolveUnit(_countIngredientId, _countUnit);
+            var countType = _countType == "2" ? CountType.Closing : CountType.Opening;
+            await ShiftService.AddInventoryCountAsync(_selectedShift!.Id, _countIngredientId, countType, qty * factor, unit);
+            _countQuantity = string.Empty;
+            _errorMessage = null;
+            await RefreshSelectedShiftAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VA-IIE: error saving inventory count");
+            _errorMessage = "Không lưu được kiểm kê. Vui lòng thử lại.";
+        }
+    }
+
+    private async Task AddRestock()
+    {
+        try
+        {
+            if (!decimal.TryParse(_restockQuantity, out decimal qty) || qty <= 0)
+            {
+                _errorMessage = "Số lượng nhập thêm phải là số dương.";
+                return;
+            }
+            var (unit, factor) = ResolveUnit(_restockIngredientId, _restockUnit);
+            await ShiftService.AddRestockAsync(_selectedShift!.Id, _restockIngredientId, qty * factor, unit);
+            _restockQuantity = string.Empty;
+            _errorMessage = null;
+            await RefreshSelectedShiftAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VA-IIE: error adding restock");
+            _errorMessage = "Không ghi nhận được nhập thêm. Vui lòng thử lại.";
+        }
+    }
+
+    private async Task SubmitShift()
+    {
+        if (!decimal.TryParse(_cashCount, out decimal cash))
+        {
+            _errorMessage = "Vui lòng nhập tiền mặt đếm cuối ca (số).";
+            return;
+        }
+        if (!decimal.TryParse(_posCashTotal, out decimal pos))
+        {
+            _errorMessage = "Vui lòng nhập tổng tiền POS (số).";
+            return;
+        }
+
+        _submitting = true;
+        _errorMessage = null;
+        try
+        {
+            Guid userId = await CurrentUserIdAsync();
+            await ShiftService.SubmitShiftAsync(_selectedShift!.Id, userId, cash, pos, _handoverNotes);
+            await ReloadShiftsAsync();
+            await RefreshSelectedShiftAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VA-IIE: error submitting shift");
+            _errorMessage = "Không đóng được ca. Vui lòng kiểm tra kiểm kê cuối ca và thử lại.";
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private async Task AcknowledgeShift()
+    {
+        try
+        {
+            Guid userId = await CurrentUserIdAsync();
+            await ShiftService.AcknowledgeShiftAsync(_selectedShift!.Id, userId);
+            await ReloadShiftsAsync();
+            await RefreshSelectedShiftAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VA-IIE: error acknowledging shift");
+            _errorMessage = "Không xác nhận được bàn giao.";
+        }
+    }
+
+    private async Task CloseShift()
+    {
+        try
+        {
+            Guid userId = await CurrentUserIdAsync();
+            await ShiftService.CloseShiftAsync(_selectedShift!.Id, userId);
+            await ReloadShiftsAsync();
+            await RefreshSelectedShiftAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VA-IIE: error closing shift");
+            _errorMessage = "Không chốt được ca.";
+        }
+    }
+
+    private async Task<Guid> CurrentUserIdAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (Guid.TryParse(authState.User.FindFirst("sub")?.Value, out Guid userId))
+        {
+            return userId;
+        }
+        throw new InvalidOperationException("Không xác định được người dùng hiện tại.");
+    }
+
+    private void CloseOpenShiftModal() => _openShiftModal = false;
+
+    private void OnShiftTypeChanged(string value) => _newShiftType = (ShiftType)int.Parse(value);
+
+    private void OnCountIngredientChanged(string value)
+    {
+        _countIngredientId = Guid.TryParse(value, out var id) ? id : Guid.Empty;
+        _countUnit = DefaultUnitFor(_countIngredientId);
+    }
+
+    private void OnCountTypeChanged(string value) => _countType = value;
+
+    private void OnCountQuantityChanged(string value) => _countQuantity = value;
+
+    private void OnCountUnitChanged(string value) => _countUnit = value;
+
+    private void OnRestockIngredientChanged(string value)
+    {
+        _restockIngredientId = Guid.TryParse(value, out var id) ? id : Guid.Empty;
+        _restockUnit = DefaultUnitFor(_restockIngredientId);
+    }
+
+    private void OnRestockQuantityChanged(string value) => _restockQuantity = value;
+
+    private void OnRestockUnitChanged(string value) => _restockUnit = value;
+
+    private void OnCashCountChanged(string value) => _cashCount = value;
+
+    private void OnPosCashChanged(string value) => _posCashTotal = value;
+
+    private void OnNotesChanged(string value) => _handoverNotes = value;
+
+    // ── Q3-C: "số + chọn đơn vị" — đơn vị cơ sở + quy đổi SI (kg → g ×1000) ──
+
+    private List<VanASelect.SelectOption> UnitOptionsFor(Guid ingredientId)
+    {
+        var ingredient = _ingredients.FirstOrDefault(i => i.Id == ingredientId);
+        if (ingredient == null)
+        {
+            return [new("g", "g")];
+        }
+        // Đơn vị cơ sở khối lượng = g → cho nhập kg (×1000). Phi-SI giữ nguyên (Q3-C).
+        if (ingredient.Unit == "g")
+        {
+            return [new("g", "g"), new("kg", "kg")];
+        }
+        return [new(ingredient.Unit, ingredient.Unit)];
+    }
+
+    private string DefaultUnitFor(Guid ingredientId)
+    {
+        var ingredient = _ingredients.FirstOrDefault(i => i.Id == ingredientId);
+        return ingredient?.Unit ?? "g";
+    }
+
+    private (string Unit, decimal Factor) ResolveUnit(Guid ingredientId, string selected)
+    {
+        var ingredient = _ingredients.FirstOrDefault(i => i.Id == ingredientId);
+        string baseUnit = ingredient?.Unit ?? "g";
+
+        // Quy đổi SI: kg → g (×1000). Phi-SI giữ nguyên (Q3-C).
+        if (baseUnit == "g" && selected == "kg")
+        {
+            return ("g", 1000m);
+        }
+        return (baseUnit, 1m);
+    }
+
+    private static string ShiftTypeName(ShiftType type) => type switch
+    {
+        ShiftType.Morning => "Sáng",
+        ShiftType.Midday => "Trưa",
+        ShiftType.Afternoon => "Chiều",
+        ShiftType.Evening => "Tối",
+        _ => "Full ngày"
+    };
+
+    private static string StatusName(ShiftStatus status) => status switch
+    {
+        ShiftStatus.Draft => "Draft",
+        ShiftStatus.Submitted => "Đã nộp",
+        ShiftStatus.Acknowledged => "Đã bàn giao",
+        _ => "Đã chốt"
+    };
+
+    private static string StatusBadgeClass(ShiftStatus status) => status switch
+    {
+        ShiftStatus.Draft => "bg-secondary",
+        ShiftStatus.Submitted => "bg-warning text-dark",
+        ShiftStatus.Acknowledged => "bg-info",
+        _ => "bg-success"
+    };
+}

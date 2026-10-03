@@ -35,5 +35,8 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
 
         /// <summary>Danh sách ca (theo thời gian, mới nhất trước).</summary>
         Task<IReadOnlyList<Shift>> ListShiftsAsync(DateTime? from = null, DateTime? to = null, CancellationToken ct = default);
+
+        /// <summary>Danh sách ingredient (đơn vị cơ sở) cho form kiểm kê — "số + chọn đơn vị" (Q3-C).</summary>
+        Task<IReadOnlyList<Ingredient>> GetIngredientsAsync(CancellationToken ct = default);
     }
 }

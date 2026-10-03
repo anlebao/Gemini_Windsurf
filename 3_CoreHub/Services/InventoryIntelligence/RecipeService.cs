@@ -122,6 +122,21 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
 
         public void InvalidateCache(Guid productId) => ActiveRecipeCache.TryRemove(productId, out _);
 
+        public async Task<IReadOnlyList<Product>> GetProductsAsync(CancellationToken ct = default)
+        {
+            return await _context.Products
+                .Where(p => !p.IsDeleted)
+                .OrderBy(p => p.Name)
+                .ToListAsync(ct);
+        }
+
+        public async Task<IReadOnlyList<Ingredient>> GetIngredientsAsync(CancellationToken ct = default)
+        {
+            return await _context.Ingredients
+                .OrderBy(i => i.Name)
+                .ToListAsync(ct);
+        }
+
         private Task<Recipe?> QueryActive(Guid productId, CancellationToken ct)
         {
             return _context.Recipes

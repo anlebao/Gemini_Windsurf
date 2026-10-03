@@ -1,0 +1,248 @@
+@page "/inventory/dashboard"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StoreManagement")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.CoreHub.Services.InventoryIntelligence
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using AlertSeverity = VanAn.Shared.Domain.AlertSeverity
+@inject VanAn.CoreHub.Infrastructure.IVanAnDbContext DbContext
+@inject IFoodCostService FoodCostService
+@inject ITenantProvider TenantProvider
+@inject ILogger<InventoryDashboard> Logger
+
+<PageTitle>Tồn kho - Vạn An</PageTitle>
+
+<div class="va-iie-dashboard-page">
+    <header class="page-header mb-4">
+        <h1><i class="bi bi-box-seam"></i> Tồn kho</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadDashboard">
+                <i class="bi bi-arrow-clockwise"></i> Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (_loading)
+    {
+        <VanASpinner Text="Đang tải..." />
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Variant="error" Message="@_errorMessage" Dismissible="true" OnDismiss="() => _errorMessage = null" />
+    }
+    else
+    {
+        <!-- Stat cards -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <VanACard>
+                    <div class="stat-card text-center py-3">
+                        <i class="bi bi-calendar-check text-primary" style="font-size:2rem;"></i>
+                        <h2 class="mt-2 mb-0">@_shiftsToday</h2>
+                        <p class="text-muted mb-0">Ca hôm nay</p>
+                    </div>
+                </VanACard>
+            </div>
+            <div class="col-md-3">
+                <VanACard>
+                    <div class="stat-card text-center py-3">
+                        <i class="bi bi-bell-fill text-danger" style="font-size:2rem;"></i>
+                        <h2 class="mt-2 mb-0">@_unresolvedAlerts</h2>
+                        <p class="text-muted mb-0">Cảnh báo chưa xử lý</p>
+                    </div>
+                </VanACard>
+            </div>
+            <div class="col-md-3">
+                <VanACard>
+                    <div class="stat-card text-center py-3">
+                        <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size:2rem;"></i>
+                        <h2 class="mt-2 mb-0">@_lowStockCount</h2>
+                        <p class="text-muted mb-0">Tồn dưới ngưỡng</p>
+                    </div>
+                </VanACard>
+            </div>
+            <div class="col-md-3">
+                <VanACard>
+                    <div class="stat-card text-center py-3">
+                        <i class="bi bi-percent text-success" style="font-size:2rem;"></i>
+                        <h2 class="mt-2 mb-0">@(_foodCost?.FoodCostPercent.ToString("F1") ?? "—")%</h2>
+                        <p class="text-muted mb-0">Food Cost % (ca gần nhất)</p>
+                    </div>
+                </VanACard>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <!-- Tồn kho theo ingredient -->
+            <div class="col-md-7">
+                <VanACard Header="Tồn kho theo nguyên liệu">
+                    <VanAnDataGrid TItem="Ingredient" Items="@_ingredients" EmptyMessage="Chưa có nguyên liệu (seed F&B sẽ tạo khi onboarding).">
+                        <Columns>
+                            <VanAnColumn TItem="Ingredient" Title="Nguyên liệu" Width="4">
+                                <Template Context="i"><span>@i.Name</span></Template>
+                            </VanAnColumn>
+                            <VanAnColumn TItem="Ingredient" Title="Loại" Width="2">
+                                <Template Context="i"><span class="badge bg-secondary">@CategoryName(i.Category)</span></Template>
+                            </VanAnColumn>
+                            <VanAnColumn TItem="Ingredient" Title="Tồn kho" Width="3">
+                                <Template Context="i">
+                                    <span>@i.CurrentStock.ToString("N0") @i.Unit</span>
+                                    <div class="progress mt-1" style="height:6px;">
+                                        <div class="progress-bar @StockBarClass(i)" role="progressbar"
+                                             style="width: @StockPercent(i)%"></div>
+                                    </div>
+                                </Template>
+                            </VanAnColumn>
+                            <VanAnColumn TItem="Ingredient" Title="Trạng thái" Width="3">
+                                <Template Context="i">
+                                    @if (i.CurrentStock < i.MinStockThreshold)
+                                    {
+                                        <span class="badge bg-danger">Dưới ngưỡng (@i.MinStockThreshold.ToString("N0"))</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-success">Đủ</span>
+                                    }
+                                </Template>
+                            </VanAnColumn>
+                        </Columns>
+                    </VanAnDataGrid>
+                </VanACard>
+            </div>
+
+            <!-- Widget cảnh báo -->
+            <div class="col-md-5">
+                <VanACard Header="Cảnh báo chưa xử lý">
+                    @if (_recentAlerts.Count == 0)
+                    {
+                        <VanAAlert Variant="success" Message="Không có cảnh báo nào đang chờ xử lý." Dismissible="false" />
+                    }
+                    else
+                    {
+                        @foreach (var alert in _recentAlerts)
+                        {
+                            <VanAAlert Variant="@(alert.Severity == AlertSeverity.Critical ? "error" : "warning")" Dismissible="false">
+                                <strong>[@alert.AlertCode]</strong> @alert.Message
+                            </VanAAlert>
+                        }
+                        <div class="mt-2">
+                            <a href="/inventory/alerts" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-bell"></i> Xem tất cả cảnh báo
+                            </a>
+                        </div>
+                    }
+                </VanACard>
+
+                <VanACard Header="Doanh số vs tiêu hao (ca gần nhất)" class="mt-3">
+                    @if (_foodCost == null || _foodCost.Cogs == 0 && _foodCost.Sales == 0)
+                    {
+                        <VanAAlert Variant="info" Dismissible="false">Chưa có ca đã đóng — mở ca và kiểm kê để xem phân tích.</VanAAlert>
+                    }
+                    else
+                    {
+                        <ul class="small mb-2">
+                            <li><strong>Doanh số:</strong> @_foodCost.Sales.ToString("N0")đ</li>
+                            <li><strong>COGS (thực tế):</strong> @_foodCost.Cogs.ToString("N0")đ</li>
+                            <li><strong>Chi phí lý thuyết:</strong> @_foodCost.TheoreticalCost.ToString("N0")đ</li>
+                            <li><strong>Hao hụt (waste):</strong>
+                                <span class="@(_foodCost.WasteCost > 0 ? "text-danger" : "text-success")">@_foodCost.WasteCost.ToString("N0")đ (@_foodCost.WasteRatioPercent.ToString("F1")%)</span>
+                            </li>
+                        </ul>
+                        <div class="progress mb-1" style="height:10px;">
+                            <div class="progress-bar bg-danger" role="progressbar" style="width: @WasteBarPercent()%"></div>
+                        </div>
+                        <small class="text-muted">Tỷ lệ hao hụt so với chi phí lý thuyết</small>
+                    }
+                </VanACard>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<Ingredient> _ingredients = [];
+    private IReadOnlyList<ShiftAlert> _recentAlerts = [];
+    private FoodCostReport? _foodCost;
+    private int _shiftsToday;
+    private int _unresolvedAlerts;
+    private int _lowStockCount;
+
+    private bool _loading = true;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboard();
+    }
+
+    private async Task LoadDashboard()
+    {
+        _loading = true;
+        _errorMessage = null;
+        try
+        {
+            var todayStart = DateTime.UtcNow.Date;
+
+            _ingredients = await DbContext.Ingredients.OrderBy(i => i.Name).ToListAsync();
+            _lowStockCount = _ingredients.Count(i => i.CurrentStock < i.MinStockThreshold);
+
+            _recentAlerts = await DbContext.ShiftAlerts
+                .Where(a => !a.IsResolved)
+                .OrderByDescending(a => a.CreatedAt)
+                .Take(5)
+                .ToListAsync();
+            _unresolvedAlerts = await DbContext.ShiftAlerts.CountAsync(a => !a.IsResolved);
+
+            _shiftsToday = await DbContext.Shifts.CountAsync(s => s.StartTime >= todayStart);
+
+            // Food cost ca đã chốt/đóng gần nhất (SRS §5.2).
+            var latestShift = await DbContext.Shifts
+                .Where(s => s.Status != ShiftStatus.Draft)
+                .OrderByDescending(s => s.EndTime)
+                .FirstOrDefaultAsync();
+            _foodCost = latestShift == null ? null : await FoodCostService.GetShiftFoodCostAsync(latestShift.Id);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VA-IIE: error loading inventory dashboard");
+            _errorMessage = "Lỗi tải dữ liệu. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static int StockPercent(Ingredient i)
+    {
+        if (i.MinStockThreshold <= 0)
+        {
+            return 100;
+        }
+        return (int)Math.Min(100, i.CurrentStock / i.MinStockThreshold * 100m);
+    }
+
+    private static string StockBarClass(Ingredient i)
+        => i.CurrentStock < i.MinStockThreshold ? "bg-danger" : "bg-success";
+
+    private int WasteBarPercent()
+    {
+        if (_foodCost == null || _foodCost.TheoreticalCost <= 0)
+        {
+            return 0;
+        }
+        return (int)Math.Min(100, _foodCost.WasteRatioPercent);
+    }
+
+    private static string CategoryName(IngredientCategory category) => category switch
+    {
+        IngredientCategory.RawMaterial => "Nguyên liệu",
+        IngredientCategory.Consumable => "Vật tư",
+        _ => "Vật dụng"
+    };
+}

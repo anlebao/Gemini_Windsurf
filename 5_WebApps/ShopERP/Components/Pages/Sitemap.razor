@@ -100,6 +100,32 @@
             </Authorized>
         </AuthorizeView>
 
+        @* ── VA-IIE (Sprint B): Kiểm kê & Kho (Owner + StoreKeeper) ── *@
+        <AuthorizeView Roles="Owner,StoreKeeper">
+            <Authorized>
+                <VanACard Header="📦 Kiểm kê & Kho (VA-IIE)" Hoverable="true" data-testid="card-va-iie">
+                    <div class="sitemap-links">
+                        <a href="/inventory/shifts" class="sitemap-link" data-testid="link-va-iie-shifts">
+                            <span class="sitemap-link-icon">📋</span>
+                            <span>Báo cáo ca (Kiểm kê cuối ca)</span>
+                        </a>
+                        <a href="/inventory/recipes" class="sitemap-link" data-testid="link-va-iie-recipes">
+                            <span class="sitemap-link-icon">☕</span>
+                            <span>Công thức pha chế (Recipe)</span>
+                        </a>
+                        <a href="/inventory/dashboard" class="sitemap-link" data-testid="link-va-iie-dashboard">
+                            <span class="sitemap-link-icon">📊</span>
+                            <span>Tồn kho</span>
+                        </a>
+                        <a href="/inventory/alerts" class="sitemap-link" data-testid="link-va-iie-alerts">
+                            <span class="sitemap-link-icon">🔔</span>
+                            <span>Cảnh báo (Alert Center)</span>
+                        </a>
+                    </div>
+                </VanACard>
+            </Authorized>
+        </AuthorizeView>
+
         @* ── Luồng 2: Kế Toán & Tài Chính ── *@
         <AuthorizeView Roles="Owner">
             <Authorized>

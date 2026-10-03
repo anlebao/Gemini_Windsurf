@@ -226,6 +226,13 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
             return await query.OrderByDescending(s => s.StartTime).ToListAsync(ct);
         }
 
+        public async Task<IReadOnlyList<Ingredient>> GetIngredientsAsync(CancellationToken ct = default)
+        {
+            return await _context.Ingredients
+                .OrderBy(i => i.Name)
+                .ToListAsync(ct);
+        }
+
         // ── Helpers ──────────────────────────────────────────────────────────────
 
         private async Task<Shift> GetShiftAsync(Guid shiftId, CancellationToken ct)
