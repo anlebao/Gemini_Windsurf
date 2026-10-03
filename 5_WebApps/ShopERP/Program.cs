@@ -230,6 +230,24 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<Shared.Services.IShopFeatureSettingsService, CoreHub.Services.ShopFeatureSettingsService>();
             // #185-1: shared loyalty dashboard stats — used by LoyaltyController + LoyaltyDashboard.razor (in-process)
             _ = builder.Services.AddScoped<CoreHub.Services.ILoyaltyDashboardStatsService, CoreHub.Services.LoyaltyDashboardStatsService>();
+            // VA-IIE Sprint B (P2, 2026-10-03): Inventory Intelligence services — in-process (pattern #185-1),
+            // per-tenant SQLite (ShopERP). 6 services + 10 alert rules (IAlertRule).
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IRecipeService, VanAn.CoreHub.Services.InventoryIntelligence.RecipeService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.ITheoreticalConsumptionService, VanAn.CoreHub.Services.InventoryIntelligence.TheoreticalConsumptionService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IVarianceAnalysisService, VanAn.CoreHub.Services.InventoryIntelligence.VarianceAnalysisService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IFoodCostService, VanAn.CoreHub.Services.InventoryIntelligence.FoodCostService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IAlertEngine, VanAn.CoreHub.Services.InventoryIntelligence.AlertEngine>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IAlertRule, VanAn.CoreHub.Services.InventoryIntelligence.AlertRules.IngVarianceHighRule>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IAlertRule, VanAn.CoreHub.Services.InventoryIntelligence.AlertRules.StockLowRule>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IAlertRule, VanAn.CoreHub.Services.InventoryIntelligence.AlertRules.ConsumptionOverLimitRule>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IAlertRule, VanAn.CoreHub.Services.InventoryIntelligence.AlertRules.SalesHighStockStableRule>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IAlertRule, VanAn.CoreHub.Services.InventoryIntelligence.AlertRules.StockDropNoSalesRule>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IAlertRule, VanAn.CoreHub.Services.InventoryIntelligence.AlertRules.MidShiftRestockUnusualRule>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IAlertRule, VanAn.CoreHub.Services.InventoryIntelligence.AlertRules.ConsumableOverStandardRule>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IAlertRule, VanAn.CoreHub.Services.InventoryIntelligence.AlertRules.CashMismatchRule>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IAlertRule, VanAn.CoreHub.Services.InventoryIntelligence.AlertRules.RecipeMissingRule>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IAlertRule, VanAn.CoreHub.Services.InventoryIntelligence.AlertRules.ShiftNotAcknowledgedRule>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IShiftReportService, VanAn.CoreHub.Services.InventoryIntelligence.ShiftReportService>();
             _ = builder.Services.AddScoped<Services.Accounting.AccountingUIService>();
             _ = builder.Services.AddHttpContextAccessor();
 

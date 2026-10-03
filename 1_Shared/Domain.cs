@@ -1519,17 +1519,39 @@ namespace VanAn.Shared.Domain
         }
 
         /// <summary>
-        /// VA-IIE: publish version mới — deactivate version hiện tại, tạo v+1 kèm copy toàn bộ lines (SRS §7.3).
+        /// VA-IIE: bật/tắt active cho 1 version recipe (SRS §3.2.3 — chỉ 1 active per product).
         /// </summary>
-        public Recipe PublishNewVersion(decimal yield = 1m, decimal wasteFactor = 0m, bool isActive = true)
+        public void SetActive(bool isActive)
+        {
+            IsActive = isActive;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// VA-IIE: publish version mới — deactivate version hiện tại, tạo v+1.
+        /// Nếu <paramref name="replacementLines"/> null → copy toàn bộ lines hiện tại;
+        /// ngược lại dùng lines mới (sửa định lượng — SRS §3.2.3).
+        /// </summary>
+        public Recipe PublishNewVersion(decimal yield = 1m, decimal wasteFactor = 0m, bool isActive = true,
+            IReadOnlyList<(Guid IngredientId, decimal Quantity, string Unit)>? replacementLines = null)
         {
             IsActive = false;
             UpdateAudit();
             var next = new Recipe(TenantId, ProductId, yield, wasteFactor, isActive, DateTime.UtcNow);
             next.Version = Version + 1;
-            foreach (RecipeLine line in Lines)
+            if (replacementLines is null)
             {
-                next.AddLine(line.IngredientId, line.Quantity, line.Unit);
+                foreach (RecipeLine line in Lines)
+                {
+                    next.AddLine(line.IngredientId, line.Quantity, line.Unit);
+                }
+            }
+            else
+            {
+                foreach ((Guid ingredientId, decimal quantity, string unit) in replacementLines)
+                {
+                    next.AddLine(ingredientId, quantity, unit);
+                }
             }
             return next;
         }
@@ -1756,6 +1778,22 @@ namespace VanAn.Shared.Domain
             Quantity = quantity;
             Unit = unit;
             MidShiftStockIn = midShiftStockIn;
+        }
+
+        /// <summary>VA-IIE (P2.1): cập nhật kiểm kê trong ca (Draft/Submitted — chặn sau Closed ở service, NFR-7).</summary>
+        public void Update(decimal quantity, string unit, decimal? midShiftStockIn = null)
+        {
+            Quantity = quantity;
+            Unit = unit;
+            MidShiftStockIn = midShiftStockIn;
+            UpdateAudit();
+        }
+
+        /// <summary>VA-IIE (P2.1): nhập thêm trong ca — cộng dồn MidShiftStockIn (SRS §3.1.2).</summary>
+        public void AddRestock(decimal quantity)
+        {
+            MidShiftStockIn = (MidShiftStockIn ?? 0m) + quantity;
+            UpdateAudit();
         }
     }
 
