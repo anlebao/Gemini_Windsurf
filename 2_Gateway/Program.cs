@@ -1111,6 +1111,8 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Membership.IConsentService, VanAn.CoreHub.Services.Membership.ConsentService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Membership.IHtxProfileService, VanAn.CoreHub.Services.Membership.HtxProfileService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Membership.IMembershipDocumentService, VanAn.CoreHub.Services.Membership.MembershipDocumentService>();
+            // 2026-10-03 (membership v2 — Luồng 2): nâng cấp cộng tác viên (Salesman/Shipper) thành tenant profile.
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Membership.ICollaboratorTenantProvisioningService, VanAn.CoreHub.Services.Membership.CollaboratorTenantProvisioningService>();
 
 
 
