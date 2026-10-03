@@ -15,6 +15,13 @@ namespace VanAn.CoreHub.Services
     public interface ILoyaltyDashboardStatsService
     {
         Task<LoyaltyDashboardStats> GetStatsAsync(Guid tenantId, CancellationToken ct = default);
+
+        /// <summary>
+        /// SystemAdmin (cross-tenant): aggregate loyalty stats across ALL tenants.
+        /// Bypasses the global TenantId query filter (same pattern as CustomerRepository
+        /// SystemAdmin lookups) and uses the global default loyalty rate.
+        /// </summary>
+        Task<LoyaltyDashboardStats> GetAllTenantsStatsAsync(CancellationToken ct = default);
     }
 
     public class LoyaltyDashboardStatsService(
@@ -40,22 +47,54 @@ namespace VanAn.CoreHub.Services
                 catch { /* fallback to global default */ }
             }
 
+            return await ComputeStatsAsync(tenantId, ignoreFilters: false, rate, ct);
+        }
+
+        /// <inheritdoc />
+        public async Task<LoyaltyDashboardStats> GetAllTenantsStatsAsync(CancellationToken ct = default)
+        {
+            // SystemAdmin aggregate: global default rate (per-tenant overrides vary — not applicable).
+            decimal rate = _loyaltyPointsConfig?.Value.PointsRate ?? 0.1m;
+            return await ComputeStatsAsync(tenantId: null, ignoreFilters: true, rate, ct);
+        }
+
+        private async Task<LoyaltyDashboardStats> ComputeStatsAsync(
+            Guid? tenantId, bool ignoreFilters, decimal rate, CancellationToken ct)
+        {
+            IQueryable<LoyaltyRewards> rewardsQuery = _dbContext.LoyaltyRewards;
+            IQueryable<RedemptionRecord> redemptionsQuery = _dbContext.RedemptionRecords;
+            IQueryable<Order> ordersQuery = _dbContext.Orders;
+
+            if (ignoreFilters)
+            {
+                // SystemAdmin all-tenants: bypass global TenantId query filter.
+                rewardsQuery = rewardsQuery.IgnoreQueryFilters();
+                redemptionsQuery = redemptionsQuery.IgnoreQueryFilters();
+                ordersQuery = ordersQuery.IgnoreQueryFilters();
+            }
+            if (tenantId.HasValue)
+            {
+                var tenantIdVo = new TenantId(tenantId.Value);
+                rewardsQuery = rewardsQuery.Where(lr => lr.TenantId == tenantIdVo);
+                redemptionsQuery = redemptionsQuery.Where(r => r.TenantId == tenantIdVo);
+                ordersQuery = ordersQuery.Where(o => o.TenantId == tenantIdVo);
+            }
+
             // Metric 1: Points pending redemption (sum of all customer balances)
-            int pendingRedemption = await _dbContext.LoyaltyRewards
-                .Where(lr => lr.TenantId == new TenantId(tenantId) && lr.IsActive)
+            int pendingRedemption = await rewardsQuery
+                .Where(lr => lr.IsActive)
                 .SumAsync(lr => (int?)lr.PointBalance, ct) ?? 0;
 
             // Metric 2: Points redeemed (Fulfilled only — Cancelled already refunded)
-            int redeemed = await _dbContext.RedemptionRecords
-                .Where(r => r.TenantId == new TenantId(tenantId) && r.Status == "Fulfilled")
+            int redeemed = await redemptionsQuery
+                .Where(r => r.Status == "Fulfilled")
                 .SumAsync(r => (int?)r.PointsSpent, ct) ?? 0;
 
             // Metric 3: Points in active campaigns (pending orders with TrackingCode, not yet delivered/completed)
             // "delivered" is a valid workflow status but not in OrderStatusId static props — use new OrderStatusId("delivered")
             var deliveredStatus = new OrderStatusId("delivered");
-            var campaignOrderTotals = await _dbContext.Orders
-                .Where(o => o.TenantId == new TenantId(tenantId)
-                    && o.TrackingCode != null
+            var campaignOrderTotals = await ordersQuery
+                .Where(o => o.TrackingCode != null
                     && o.Status != OrderStatusId.Completed
                     && o.Status != OrderStatusId.Cancelled
                     && o.Status != deliveredStatus)
@@ -64,9 +103,8 @@ namespace VanAn.CoreHub.Services
             int pointsInCampaigns = campaignOrderTotals.Sum(a => (int)(a * rate));
 
             // Metric 4: Points reserved (ALL pending orders, not yet delivered/completed)
-            var allPendingOrderTotals = await _dbContext.Orders
-                .Where(o => o.TenantId == new TenantId(tenantId)
-                    && o.Status != OrderStatusId.Completed
+            var allPendingOrderTotals = await ordersQuery
+                .Where(o => o.Status != OrderStatusId.Completed
                     && o.Status != OrderStatusId.Cancelled
                     && o.Status != deliveredStatus)
                 .Select(o => o.TotalAmount)

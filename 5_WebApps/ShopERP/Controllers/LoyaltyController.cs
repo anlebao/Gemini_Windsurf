@@ -105,6 +105,11 @@ namespace VanAn.ShopERP.Controllers
                 Guid tenantId = _tenantProvider.TenantId;
                 if (tenantId == Guid.Empty)
                 {
+                    // 2026-10-03: SystemAdmin (cross-tenant) → aggregate across ALL tenants.
+                    if (User.IsInRole("SystemAdmin") && _loyaltyDashboardStatsService != null)
+                    {
+                        return Ok(await _loyaltyDashboardStatsService.GetAllTenantsStatsAsync(HttpContext.RequestAborted));
+                    }
                     return Unauthorized(new { error = "Không xác định được tenant." });
                 }
 

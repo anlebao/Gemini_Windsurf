@@ -7,8 +7,10 @@
 @using VanAn.CoreHub.Services
 @using VanAn.Shared.Domain.Common
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @inject ILoyaltyDashboardStatsService StatsService
 @inject ITenantProvider TenantProvider
+@inject AuthenticationStateProvider AuthStateProvider
 @inject ILogger<LoyaltyDashboard> Logger
 
 @attribute [Authorize]
@@ -20,6 +22,13 @@
             <VanAButton Variant="secondary" OnClick="LoadStats">Làm mới</VanAButton>
         </div>
     </header>
+
+    @if (_isSystemAdmin)
+    {
+        <VanAAlert Type="info" Dismissible="false" CssClass="mb-3">
+            <i class="bi bi-people me-1"></i> Đang xem thống kê <strong>toàn hệ thống</strong> — tổng hợp tất cả tenant.
+        </VanAAlert>
+    }
 
     @if (_loading)
     {
@@ -98,6 +107,7 @@
 @code {
     private LoyaltyDashboardStats? _stats;
     private bool _loading = true;
+    private bool _isSystemAdmin;
     private string? _errorMessage;
 
     protected override async Task OnInitializedAsync()
@@ -117,9 +127,19 @@
             Guid tenantId = TenantProvider.TenantId;
             if (tenantId == Guid.Empty)
             {
+                // 2026-10-03: SystemAdmin (cross-tenant, không có TenantId) →
+                // xem thống kê TẤT CẢ tenant (aggregate, IgnoreQueryFilters).
+                var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+                if (authState.User.IsInRole("SystemAdmin"))
+                {
+                    _isSystemAdmin = true;
+                    _stats = await StatsService.GetAllTenantsStatsAsync();
+                    return;
+                }
                 _errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
                 return;
             }
+            _isSystemAdmin = false;
             _stats = await StatsService.GetStatsAsync(tenantId);
         }
         catch (Exception ex)
