@@ -1,7 +1,7 @@
 # MASTER PLAN: Quản lý thành viên HTX v2 (2 luồng admin — ShopERP, data sync PG)
 
 > Created: 2026-10-02 (revised 2026-10-02 — user đơn giản hóa triệt để, thay thiết kế applicant/application cũ)
-> Status: 🏗 CODE DONE (P1-P7 2026-10-03, pushed `fd18fba5` — CD chạy) · P8 RV: L1/L2 pending, L3/L4/L5 chờ user thao tác thật
+> Status: ✅ **DONE 2026-10-03** — P1-P8 hoàn tất · RV kế toán HTX production PASS (ngoài 511/611 · nội 512/612 · DN giữ 511/632 không regress) · 3 bug RV fix (P6b/c/d)
 > Branch: `main`
 
 ## 1. MỤC TIÊU
@@ -54,7 +54,7 @@
 | 5 | ShopERP Luồng 2: trang quản lý thành viên HTX (list + add/search tenant + nâng cấp CTV) | 5_WebApps/ShopERP | `task_phase5_shoperp_flow2.md` | ✅ `1803698a` |
 | **6** | **HTX Order Accounting — kết nối membership → kế toán TT 71** (tag nội bộ/ngoài + định khoản 511/512, 611/612) | 1_Shared + 3_CoreHub | `task_phase6_htx_order_accounting.md` | ✅ `7c1e0010` |
 | 7 | Tests + validation | 6_Tests | `task_phase7_tests.md` | ✅ `ad978ef7` (18 tests + guard PASS) |
-| 8 | RV production + docs | production | `task_phase8_rv.md` | 🏗 CD chạy — L1/L2 pending, L3-L5 chờ user |
+| 8 | RV production + docs | production | `task_phase8_rv.md` | ✅ 2026-10-03 — RV PASS + 3 bug fix (P6b/c/d) |
 
 **Dependency chain:** 1 → 2 → 3 → (4 ∥ 5) → 6 → (7 ∥ 8).
 
