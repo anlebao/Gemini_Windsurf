@@ -30,7 +30,7 @@
   - `ShiftAlert` (ShiftId FK, AlertCode, Severity Warning/Critical, Message, IngredientId?, VarianceValue?, VariancePercent?, IsResolved, ResolvedAt/By, ResolutionNote)
   - `TheoreticalConsumption` (ShiftId FK, IngredientId FK, TheoreticalQuantity, ActualQuantity, Variance, VariancePercent)
 - [ ] P1.2: **Ingredient extend additive** (entity đã tồn tại Domain.cs:1430): thêm `IngredientCategory Category` (RawMaterial/Consumable/Supply) + `VarianceThresholdPercent?` (override per-item). **ReorderPoint = dùng `MinStockThreshold` có sẵn — KHÔNG thêm field trùng.**
-- [ ] P1.3: **Recipe REFACTOR (breaking):** flat `Recipe` (1 row = ProductId+IngredientId+QuantityNeeded) → `Recipe` header (ProductId, Version, Yield=1, WasteFactor, IsActive, EffectiveFrom) + `RecipeLine` (RecipeId FK, IngredientId, Quantity, Unit). Migration + **backfill**: mỗi row flat cũ → Recipe v1 + RecipeLine. Audit mọi nơi dùng Recipe cũ (OrderService COGS, onboarding seed, ProductDetail, kế toán).
+- [ ] P1.3: **Recipe REFACTOR (breaking):** flat `Recipe` (1 row = ProductId+IngredientId+QuantityNeeded) → `Recipe` header (ProductId, Version, Yield=1, WasteFactor, IsActive, EffectiveFrom) + `RecipeLine` (RecipeId FK, IngredientId, Quantity, Unit). Migration + **backfill TOÀN BỘ (Q1-A)**: mỗi row flat cũ → Recipe v1 + RecipeLine (`IsActive` theo product); **quy đổi kg→g cho quantity seed (Q3-C)**. Audit mọi nơi dùng Recipe cũ (chỉ seed + count — verified, không có runtime consumer).
 - [ ] P1.4: EF configs + migration `AddShiftReportRecipeRefactor` (ShopERP SQLite). Enum mới: ShiftType, ShiftStatus, CountType, IngredientCategory, AlertSeverity (SRS §6.2).
 
 ### Phase 2 — Services (CoreHub, namespace `VanAn.CoreHub.Services.InventoryIntelligence`)
@@ -43,7 +43,7 @@
 - [ ] P2.7: Unit tests (variance calc, 10 alert rules, food cost, recipe versioning, shift lifecycle) + integration tests (shift workflow end-to-end)
 
 ### Phase 3 — API + UI (ShopERP)
-- [ ] P3.1: UI (UI Platform 100%, Gate 5): `ShiftReport.razor` (kiểm kê đầu/cuối, tiền mặt, ghi chú, tính & đóng ca, hiển thị 6 phần — SRS §5.1), `RecipeManagement.razor` (CRUD + version history), `InventoryDashboard.razor` (tồn kho + widget alert + chart), `AlertCenter.razor` (filter/resolve/history)
+- [ ] P3.1: UI (UI Platform 100%, Gate 5): `ShiftReport.razor` (kiểm kê đầu/cuối **nhập "số + chọn đơn vị" — Q3-C**, tiền mặt, ghi chú, tính & đóng ca, hiển thị 6 phần — SRS §5.1), `RecipeManagement.razor` (CRUD + version history), `InventoryDashboard.razor` (tồn kho + widget alert + chart), `AlertCenter.razor` (filter/resolve/history)
 - [ ] P3.2: NavMenu (Owner/StoreKeeper) + Sitemap
 - [ ] P3.3: REST API (SRS §7.6) — **DEFER đến Phase 4** (MVP in-process, tránh duplication; PWA/mobile chưa có demand). Ghi chú trong SRS nếu cần.
 - [ ] P3.4: E2E spec Gate 4: `va-iie-shift.spec.ts` (mở ca → kiểm kê → POS bán → đóng ca → variance + alert hiển thị)
@@ -93,8 +93,10 @@
 - Domain modification CHỈ khi được duyệt (task card này = đề xuất; user review → approve trước khi implement Phase 1)
 - `guard-check.ps1` + `dotnet build VanAn.sln` MUST PASS trước mọi commit
 
-## 7. MỞ (OPEN QUESTIONS — trước khi implement)
+## 7. OPEN QUESTIONS — ĐÃ CHỐT (user approved 2026-10-03)
 
-1. Recipe cũ có dữ liệu production không? (backfill: chuyển toàn bộ hay chỉ active products)
-2. Tenant F&B nào sẽ RV production? (cần user chọn/duyệt — đề xuất tenant "Đầm Coffee" mẫu nếu chưa có)
-3. Kiểm kê theo đơn vị cơ sở (g/ml/cái) — Ingredient hiện có Unit string tự do → có cần chuẩn hóa unit không (MVP: giữ nguyên, validation nhẹ)?
+| # | Câu hỏi | Quyết định | Chi tiết |
+|---|---|---|---|
+| 1 | Recipe cũ backfill? | **A — Toàn bộ** | Backfill MỌI dòng flat cũ → Recipe v1 + RecipeLine (giữ traceability, không mất data); `IsActive` theo trạng thái product hiện tại. Ground truth: Recipe KHÔNG được dùng trong runtime tính toán nào (chỉ seed + count — verified 2026-10-03) → refactor an toàn |
+| 2 | Tenant RV production? | **C + A** | Tạo tenant mẫu **"Đầm Coffee"** (đúng mẫu giấy SRS — crawl-trigger → kích hoạt ngay) làm RV chính + Test HKD cho smoke nhanh. Tenant F&B thật (Cafe Tân Quy, An Tâm) để dành cho HR-Payroll B2 |
+| 3 | Đơn vị cơ sở? | **C — Hybrid** | `RecipeLine.Unit` + `InventoryCount.Unit` (SRS đã có field); migration backfill seed quy đổi kg→g (0.02 kg → 20 g); UI kiểm kê nhập "số + chọn đơn vị" (1 kg → lưu 1000 g). Unit "lon/gói/trái" (không quy đổi SI) giữ làm đơn vị cơ sở riêng — chỉ cần NHẤT QUÁN giữa recipe & kiểm kê. Ground truth: seed hiện trộn kg/lon/gói/trái, Recipe flat không lưu unit (verified 2026-10-03) |
