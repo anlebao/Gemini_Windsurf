@@ -94,6 +94,47 @@ public class OrderServiceHtxAccountingTests
     }
 
     [Fact]
+    public async Task CreateOrderFromCommandAsync_HtxCheckout_MarksInternal()
+    {
+        // RV fix 2026-10-03: path đặt hàng thật (checkout) phải tag IsInternalToHtx
+        // (trước đây chỉ CreateOrderAsync — checkout luôn null → internal không định khoản 512/612).
+        var (scope, db, htxTenantId, _, memberOwnerCustomerId) = await SeedHtxWithMemberAsync();
+        // Bug 1a fix (checkout): CustomerId phải tồn tại trong DB — tenant = ActiveTenantId (TestTenantProvider filter)
+        var customer = new Customer(new TenantId(scope.ActiveTenantId), "RV Internal Buyer", "0900000002", "rv@vanan.vn");
+        typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("Id")!.SetValue(customer, memberOwnerCustomerId);
+        typeof(Customer).GetProperty("CustomerId")!.SetValue(customer, new CustomerId(memberOwnerCustomerId));
+        db.Customers.Add(customer);
+        await db.SaveChangesAsync();
+
+        _orderRepo.Setup(r => r.AddAsyncNoSave(It.IsAny<Order>(), It.IsAny<CancellationToken>())).ReturnsAsync((Order o, CancellationToken _) => o);
+        _orderRepo.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        var tx = new Moq.Mock<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction>();
+        tx.Setup(t => t.CommitAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _orderRepo.Setup(r => r.BeginTransactionAsync(It.IsAny<CancellationToken>())).ReturnsAsync(tx.Object);
+        var svc = BuildService(db);
+
+        var command = new VanAn.CoreHub.Commands.CreateOrderCommand
+        {
+            CustomerId = memberOwnerCustomerId,
+            Items =
+            [
+                new VanAn.CoreHub.Commands.OrderItemRequest
+                {
+                    ProductId = Guid.NewGuid(),
+                    ProductName = "RV HTX Internal",
+                    Quantity = 1,
+                    UnitPrice = 200000m,
+                    VatRate = 0.10m
+                }
+            ]
+        };
+
+        var created = await svc.CreateOrderFromCommandAsync(command, htxTenantId);
+        Assert.True(created.IsInternalToHtx);
+        Assert.Equal(memberOwnerCustomerId, created.CustomerId);
+    }
+
+    [Fact]
     public async Task CreateOrderAsync_NonHtxTenant_FlagNull()
     {
         TestContextScope scope = VanAnDbContextTestFactory.Create();

@@ -144,19 +144,7 @@ namespace VanAn.CoreHub.Services
             {
                 // TT 71/2024 (2026-10-02, user directive): tenant bán là HTX → xác định giao dịch
                 // nội bộ (buyer = customer sở hữu tenant là member active của HTX) → 512/612; ngoài → 511/611.
-                var orderDb = _pgDbContext ?? _dbContext;
-                if (orderDb is not null)
-                {
-                    var sellingTenant = await orderDb.Tenants
-                        .IgnoreQueryFilters()
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(t => t.Id == tenant);
-                    if (sellingTenant is not null
-                        && sellingTenant.AccountingStandard == AccountingStandard.TT71_2024)
-                    {
-                        order.SetHtxInternalFlag(await IsBuyerHtxMemberAsync(tenant, order.CustomerId));
-                    }
-                }
+                await ApplyHtxInternalTagAsync(order, tenant);
 
                 // 1. Create order using repository (NO accounting entries — see ConfirmPaymentAsync)
                 Order newOrder = await _orderRepository.AddAsync(order);
@@ -478,6 +466,26 @@ namespace VanAn.CoreHub.Services
         /// Uses actual Product.CostPrice per item; falls back to 70% of UnitPrice for legacy products
         /// (CostPrice not set); ultimate fallback 70% of TotalPrice when Items not loaded.
         /// </summary>
+        /// <summary>
+        /// TT 71 (2026-10-02/03): tag giao dịch nội bộ HTX — dùng chung CreateOrderAsync + CreateOrderFromCommandAsync.
+        /// Tenant bán là HTX (TT71) + buyer sở hữu tenant là member Active → nội bộ (512/612); ngược lại ngoài (511/611).
+        /// Đọc PG (pgDbContext ?? _dbContext) — AccountingStandard/Members là PG-only.
+        /// </summary>
+        private async Task ApplyHtxInternalTagAsync(Order order, TenantId tenantId)
+        {
+            var db = _pgDbContext ?? _dbContext;
+            if (db is null) return;
+            var sellingTenant = await db.Tenants
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == tenantId);
+            if (sellingTenant is not null
+                && sellingTenant.AccountingStandard == AccountingStandard.TT71_2024)
+            {
+                order.SetHtxInternalFlag(await IsBuyerHtxMemberAsync(tenantId, order.CustomerId));
+            }
+        }
+
         /// <summary>TT 71 (2026-10-02): tenant bán có AccountingStandard == TT71_2024?
         /// Đọc PG (pgDbContext ?? _dbContext) — AccountingStandard là PG-only (MarkAsHtx không sync SQLite).</summary>
         private async Task<bool> IsHtxSellingTenantAsync(TenantId tenantId)
@@ -969,6 +977,11 @@ namespace VanAn.CoreHub.Services
                 {
                     order.SetTrackingCode(command.TrackingCode.Trim());
                 }
+
+                // TT 71/2024 (2026-10-03, RV fix): path đặt hàng thật (checkout) — tag nội bộ/ngoài.
+                // Trước đây chỉ CreateOrderAsync (POS) có tag → đơn checkout IsInternalToHtx luôn null
+                // → internal không bao giờ định khoản 512/612 trên production.
+                await ApplyHtxInternalTagAsync(order, tenantIdObj);
 
                 // CC-S4: Salesman referral — Gateway resolved the composite code to (salesmanId, productId)
                 // before calling this. Stored on the order so SalesReferral commission can be created when
