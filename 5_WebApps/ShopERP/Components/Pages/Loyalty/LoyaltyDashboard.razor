@@ -25,9 +25,7 @@
 
     @if (_isSystemAdmin)
     {
-        <VanAAlert Type="info" Dismissible="false" CssClass="mb-3">
-            <i class="bi bi-people me-1"></i> Đang xem thống kê <strong>toàn hệ thống</strong> — tổng hợp tất cả tenant.
-        </VanAAlert>
+        <VanAAlert Type="info" Message="Đang xem thống kê toàn hệ thống — tổng hợp tất cả tenant." Dismissible="false" CssClass="mb-3" />
     }
 
     @if (_loading)
