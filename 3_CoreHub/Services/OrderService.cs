@@ -1054,6 +1054,9 @@ namespace VanAn.CoreHub.Services
                         SubTotal = createdOrder.SubTotal,
                         TotalVatAmount = createdOrder.TotalVatAmount,
                         PaymentStatus = createdOrder.PaymentStatus,
+                        // TT 71 (2026-10-03, RV fix): sync IsInternalToHtx → SQLite mirror — subscriber
+                        // sinh bút toán từ SQLite, thiếu flag → nội bộ (512/612) không bao giờ kích hoạt.
+                        IsInternalToHtx = createdOrder.IsInternalToHtx,
                         OrderType = createdOrder.OrderType ?? "DineIn",
                         // CC-S2 fix (Issue #2): include delivery fields in Outbox event so ShopERP
                         // subscriber can call SetOrderType with full delivery info (address, lat/lng
