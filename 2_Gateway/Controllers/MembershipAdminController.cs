@@ -90,6 +90,10 @@ namespace VanAn.Gateway.Controllers
             if (request.CustomerId == Guid.Empty)
                 return BadRequest(new { error = "customerId is required." });
 
+            // D4: chỉ cộng tác viên (Salesman/Shipper active) mới được nâng cấp.
+            if (!await collaboratorProvisioning.IsCollaboratorAsync(request.CustomerId, HttpContext.RequestAborted))
+                return BadRequest(new { error = "Customer is not an active collaborator (Salesman/Shipper)." });
+
             var existing = await collaboratorProvisioning.GetExistingProfileAsync(request.CustomerId, HttpContext.RequestAborted);
             if (existing is not null)
                 return Ok(new { tenantId = existing.Value, created = false });
@@ -99,6 +103,17 @@ namespace VanAn.Gateway.Controllers
                 string.IsNullOrWhiteSpace(request.DisplayName) ? "Hộ kinh doanh cá nhân" : request.DisplayName.Trim(),
                 ct: HttpContext.RequestAborted);
             return Ok(new { tenantId = tenantId.Value, created = true });
+        }
+
+        /// <summary>Luồng 2: danh sách thành viên của 1 HTX (SystemAdmin — bất kỳ HTX nào).</summary>
+        [HttpGet("members")]
+        public async Task<IActionResult> ListMembers([FromQuery] Guid htxTenantId, [FromQuery] string? status = null)
+        {
+            if (htxTenantId == Guid.Empty)
+                return BadRequest(new { error = "htxTenantId is required." });
+
+            var members = await memberRegistryService.ListForHtxAsync(htxTenantId, status, HttpContext.RequestAborted);
+            return Ok(members);
         }
 
         private Guid GetAdminUserId()
