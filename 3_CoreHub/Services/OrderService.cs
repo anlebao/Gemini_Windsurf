@@ -35,7 +35,8 @@ namespace VanAn.CoreHub.Services
         IOutboxRepository? outboxRepository = null,
         IProductRepository? productRepository = null,
         ICommerceModeService? commerceModeService = null,
-        IFeatureFlagService? featureFlagService = null) : IOrderService
+        IFeatureFlagService? featureFlagService = null,
+        VanAnDbContext? pgDbContext = null) : IOrderService
     {
         // EXISTING DEPENDENCIES (keep)
         private readonly IOrderRepository _orderRepository = orderRepository;
@@ -53,6 +54,11 @@ namespace VanAn.CoreHub.Services
 
         // Wave 5: DbContext for Tenant.DefaultIndustrySector lookup (Order.IndustrySector ?? Tenant.DefaultIndustrySector)
         private readonly IVanAnDbContext? _dbContext = dbContext;
+        // 2026-10-03 (RV fix): PG context cho quyết định HTX (standard + member) trên path ShopERP —
+        // ở ShopERP, IVanAnDbContext = ShopERPDbContext (SQLite) nhưng AccountingStandard/Members là
+        // PG-only (MarkAsHtx không sync SQLite; Members KHÔNG sync). Bút toán ghi PG nên quyết định
+        // phải đọc PG — dùng pgDbContext (VanAnDbContext) nếu có, fallback _dbContext (Gateway/tests).
+        private readonly VanAnDbContext? _pgDbContext = pgDbContext;
 
         // RC-7: Product repository for snapshotting ProductName + VatRate into OrderItem at creation time.
         // TT 152/2025/TT-BTC: VAT must come from server-side Product entity, not client claim.
@@ -138,9 +144,10 @@ namespace VanAn.CoreHub.Services
             {
                 // TT 71/2024 (2026-10-02, user directive): tenant bán là HTX → xác định giao dịch
                 // nội bộ (buyer = customer sở hữu tenant là member active của HTX) → 512/612; ngoài → 511/611.
-                if (_dbContext is not null)
+                var orderDb = _pgDbContext ?? _dbContext;
+                if (orderDb is not null)
                 {
-                    var sellingTenant = await _dbContext.Tenants
+                    var sellingTenant = await orderDb.Tenants
                         .IgnoreQueryFilters()
                         .AsNoTracking()
                         .FirstOrDefaultAsync(t => t.Id == tenant);
@@ -471,11 +478,13 @@ namespace VanAn.CoreHub.Services
         /// Uses actual Product.CostPrice per item; falls back to 70% of UnitPrice for legacy products
         /// (CostPrice not set); ultimate fallback 70% of TotalPrice when Items not loaded.
         /// </summary>
-        /// <summary>TT 71 (2026-10-02): tenant bán có AccountingStandard == TT71_2024?</summary>
+        /// <summary>TT 71 (2026-10-02): tenant bán có AccountingStandard == TT71_2024?
+        /// Đọc PG (pgDbContext ?? _dbContext) — AccountingStandard là PG-only (MarkAsHtx không sync SQLite).</summary>
         private async Task<bool> IsHtxSellingTenantAsync(TenantId tenantId)
         {
-            if (_dbContext is null) return false;
-            return await _dbContext.Tenants
+            var db = _pgDbContext ?? _dbContext;
+            if (db is null) return false;
+            return await db.Tenants
                 .IgnoreQueryFilters()
                 .AsNoTracking()
                 .AnyAsync(t => t.Id == tenantId && t.AccountingStandard == AccountingStandard.TT71_2024);
@@ -484,16 +493,18 @@ namespace VanAn.CoreHub.Services
         /// <summary>
         /// TT 71 (2026-10-02): buyer (customer) có sở hữu tenant là member ACTIVE của HTX bán?
         /// Buyer→tenant: Tenants.OwnerCustomerId == order.CustomerId (pattern Settlement S1).
+        /// Đọc PG — Members là PG-only (không sync SQLite).
         /// </summary>
         private async Task<bool> IsBuyerHtxMemberAsync(TenantId htxTenantId, Guid? customerId)
         {
-            if (_dbContext is null || customerId is null || customerId == Guid.Empty) return false;
-            var buyerTenant = await _dbContext.Tenants
+            var db = _pgDbContext ?? _dbContext;
+            if (db is null || customerId is null || customerId == Guid.Empty) return false;
+            var buyerTenant = await db.Tenants
                 .IgnoreQueryFilters()
                 .AsNoTracking()
                 .FirstOrDefaultAsync(t => t.OwnerCustomerId == customerId);
             if (buyerTenant is null) return false;
-            return await _dbContext.Members
+            return await db.Members
                 .IgnoreQueryFilters()
                 .AsNoTracking()
                 .AnyAsync(m => m.TenantId == htxTenantId

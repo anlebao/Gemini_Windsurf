@@ -302,6 +302,21 @@ namespace VanAn.ShopERP.Services
 
                 Order order = Order.Create(orderId, tenantIdObj, customerId, items);
 
+                // TT 71 (2026-10-03, RV fix): sync IsInternalToHtx từ payload (Gateway tag tại
+                // CreateOrderAsync) → SQLite mirror. KHÔNG có flag này thì path ShopERP
+                // (PaymentConfirmedSubscriber sinh bút toán từ SQLite) luôn coi đơn là NGOÀI (511/611)
+                // dù thực tế nội bộ → 512/612 không bao giờ kích hoạt.
+                if (root.TryGetProperty("IsInternalToHtx", out var htxFlagProp)
+                    && htxFlagProp.ValueKind == JsonValueKind.True)
+                {
+                    order.SetHtxInternalFlag(true);
+                }
+                else if (root.TryGetProperty("IsInternalToHtx", out var htxFlagProp2)
+                    && htxFlagProp2.ValueKind == JsonValueKind.False)
+                {
+                    order.SetHtxInternalFlag(false);
+                }
+
                 // Set customer info if provided
                 if (root.TryGetProperty("CustomerInfo", out var infoProp))
                 {
