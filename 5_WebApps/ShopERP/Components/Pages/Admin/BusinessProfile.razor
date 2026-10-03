@@ -2,13 +2,18 @@
 @rendermode InteractiveServer
 @layout AdminLayout
 @using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
 @using Microsoft.AspNetCore.Authorization
 @using VanAn.ShopERP.Services
 @using VanAn.CoreHub.Services.FinancialIntelligence.Dtos
 @using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Aggregates.TenantAggregate
 @inject FinancialIntelligenceHttpService FiClient
+@inject TenantApiClient TenantApi
+@inject AuthenticationStateProvider AuthStateProvider
 @inject IThemeProvider ThemeProvider
 @inject ILogger<BusinessProfile> Logger
 
@@ -32,6 +37,32 @@
         </span>
     </VanAAlert>
 
+    @* 2026-10-03 (Option B): SystemAdmin chọn tenant — hồ sơ doanh nghiệp gắn tenant cụ thể *@
+    @if (_isSystemAdmin)
+    {
+        <div class="mt-3 mb-3">
+            <VanACard Header="Chọn tenant để xem hồ sơ (SystemAdmin)">
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <input class="vanan-input" placeholder="Tìm tenant (tên/MST)..." @bind="_tenantSearch" @bind:event="oninput" style="min-width:240px;" aria-label="Tìm tenant" />
+                    <select class="vanan-select" style="min-width:340px;" @bind="_selectedTenantIdStr" @bind:after="OnTenantSelected" aria-label="Chọn tenant">
+                        <option value="">-- Chọn tenant (Active) --</option>
+                        @foreach (var t in FilteredTenants)
+                        {
+                            <option value="@t.Id">@t.Name @(!string.IsNullOrEmpty(t.TaxCode) ? $"({t.TaxCode})" : "")</option>
+                        }
+                    </select>
+                    <VanAButton Variant="secondary" Size="small" OnClick="LoadTenantsAsync">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Làm mới
+                    </VanAButton>
+                </div>
+                @if (!FilteredTenants.Any())
+                {
+                    <p class="text-muted small mt-2">Không tìm thấy tenant (chỉ hiện tenant đã verify — Active).</p>
+                }
+            </VanACard>
+        </div>
+    }
+
     @if (_loading)
     {
         <p>Đang tải...</p>
@@ -42,13 +73,19 @@
             <span>Không tải được hồ sơ. Kiểm tra kết nối Gateway.</span>
         </VanAAlert>
     }
+    else if (_isSystemAdmin && SelectedTenantId == null)
+    {
+        <VanAAlert Type="info" Dismissible="false">
+            <span>Vui lòng chọn tenant bên trên để xem / khai báo hồ sơ doanh nghiệp của tenant đó.</span>
+        </VanAAlert>
+    }
     else
     {
         @if (_existing != null)
         {
             <VanAAlert Type="success" Dismissible="false">
                 <span>
-                    Hồ sơ hiện tại — phiên bản @(_existing.Version), cập nhật @_existing.UpdatedAt.ToString("yyyy-MM-dd HH:mm").
+                    Hồ sơ hiện tại @(_isSystemAdmin ? $"— <strong>{CurrentTenantLabel}</strong>" : "") — phiên bản @(_existing.Version), cập nhật @_existing.UpdatedAt.ToString("yyyy-MM-dd HH:mm").
                     Tổng chi phí cố định: @FormatVnd(_existing.TotalMonthlyFixedCost).
                 </span>
             </VanAAlert>
@@ -155,6 +192,19 @@
     private string _errorMessage = string.Empty;
     private BusinessProfileDto? _existing;
 
+    // ── 2026-10-03 (Option B): SystemAdmin tenant selector ──
+    private bool _isSystemAdmin;
+    private List<TenantApiDto> _tenants = [];
+    private string _tenantSearch = string.Empty;
+    private string _selectedTenantIdStr = string.Empty;
+    private Guid? SelectedTenantId => Guid.TryParse(_selectedTenantIdStr, out var g) ? g : null;
+    private string CurrentTenantLabel
+        => _tenants.FirstOrDefault(t => t.Id == SelectedTenantId)?.Name ?? "—";
+    private List<TenantApiDto> FilteredTenants =>
+        _tenants.Where(t => string.IsNullOrWhiteSpace(_tenantSearch)
+            || t.Name.Contains(_tenantSearch, StringComparison.OrdinalIgnoreCase)
+            || (t.TaxCode?.Contains(_tenantSearch, StringComparison.OrdinalIgnoreCase) ?? false)).ToList();
+
     // Form fields — decimal backing + formatted string for UI
     private decimal _rent;
     private decimal _payroll;
@@ -179,8 +229,30 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _isSystemAdmin = authState.User.IsInRole("SystemAdmin");
+        if (_isSystemAdmin)
+        {
+            await LoadTenantsAsync();
+        }
         await LoadAsync();
     }
+
+    private async Task LoadTenantsAsync()
+    {
+        try
+        {
+            var all = await TenantApi.ListAllAsync();
+            _tenants = all.Where(t => t.Status == TenantStatus.Active).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load tenants for SystemAdmin selector");
+            _tenants = [];
+        }
+    }
+
+    private async Task OnTenantSelected() => await LoadAsync();
 
     private async Task LoadAsync()
     {
@@ -190,7 +262,13 @@
         _errorMessage = string.Empty;
         try
         {
-            _existing = await FiClient.GetBusinessProfileAsync();
+            // SystemAdmin chưa chọn tenant → prompt thay vì gọi Gateway (tránh 401 nuốt lỗi).
+            if (_isSystemAdmin && SelectedTenantId == null)
+            {
+                _existing = null;
+                return;
+            }
+            _existing = await FiClient.GetBusinessProfileAsync(SelectedTenantId);
             if (_existing != null)
             {
                 _rent = _existing.MonthlyRent;
@@ -237,7 +315,7 @@
             var dto = new UpdateBusinessProfileDto(
                 _rent, _payroll, _utilities, _marketing, _logistics, _other, _depreciation,
                 _capacity, _operatingDays, _pricingModel, _notes);
-            var result = await FiClient.UpdateBusinessProfileAsync(dto);
+            var result = await FiClient.UpdateBusinessProfileAsync(dto, SelectedTenantId);
             if (result == null)
             {
                 _errorMessage = "Lưu thất bại. Kiểm tra kết nối Gateway hoặc thử lại.";

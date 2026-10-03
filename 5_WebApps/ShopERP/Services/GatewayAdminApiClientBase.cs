@@ -44,8 +44,14 @@ namespace VanAn.ShopERP.Services
         /// </summary>
         protected virtual string GatewayRole => "SystemAdmin";
 
-        /// <summary>Mint a short-lived JWT (GatewayRole) for the current authenticated user.</summary>
-        protected async Task<string> MintSystemAdminTokenAsync()
+        /// <summary>
+        /// Mint a short-lived JWT (GatewayRole) for the current authenticated user.
+        /// 2026-10-03 (Option B — FI SystemAdmin tenant selector): tenantIdOverride chỉ được dùng
+        /// khi user hiện tại là SystemAdmin (cross-tenant) — Owner/Staff luôn dùng tenant của chính mình
+        /// (chống tenant-escalation). SystemAdmin cookie không có tenant_id claim → override cho phép
+        /// thao tác trên tenant được chọn (BusinessProfile, /financial).
+        /// </summary>
+        protected async Task<string> MintSystemAdminTokenAsync(Guid? tenantIdOverride = null)
         {
             AuthenticationState authState = await _authStateProvider.GetAuthenticationStateAsync();
             ClaimsPrincipal user = authState.User;
@@ -66,6 +72,12 @@ namespace VanAn.ShopERP.Services
                 ?? user.FindFirst("TenantId")?.Value;
             Guid tenantId = Guid.TryParse(tenantIdStr, out Guid tid) ? tid : Guid.Empty;
 
+            // SystemAdmin-only override: chọn tenant cụ thể để xem/sửa dữ liệu (Option B).
+            if (tenantIdOverride.HasValue && user.IsInRole("SystemAdmin"))
+            {
+                tenantId = tenantIdOverride.Value;
+            }
+
             _logger.LogDebug("Minting SystemAdmin JWT for user {UserId} ({Email}), tenant {TenantId}", userId, email, tenantId);
 
             return _jwtTokenService.GenerateToken(
@@ -76,9 +88,9 @@ namespace VanAn.ShopERP.Services
         }
 
         /// <summary>Create an HttpRequestMessage with SystemAdmin Bearer auth.</summary>
-        protected async Task<HttpRequestMessage> CreateRequestAsync(HttpMethod method, string relativeUri, object? body = null)
+        protected async Task<HttpRequestMessage> CreateRequestAsync(HttpMethod method, string relativeUri, object? body = null, Guid? tenantIdOverride = null)
         {
-            string token = await MintSystemAdminTokenAsync();
+            string token = await MintSystemAdminTokenAsync(tenantIdOverride);
             var request = new HttpRequestMessage(method, relativeUri);
             request.Headers.Authorization = new AuthenticationHeaderValue(JwtBearerDefaults.AuthenticationScheme, token);
             if (body != null)

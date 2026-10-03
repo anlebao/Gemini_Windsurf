@@ -37,18 +37,21 @@ namespace VanAn.ShopERP.Services
 
         // ── BusinessProfile ─────────────────────────────────────────────────────
 
-        /// <summary>GET /api/financial/business-profile — returns null if 404 (profile not yet declared).</summary>
-        public async Task<BusinessProfileDto?> GetBusinessProfileAsync(CancellationToken ct = default)
+        /// <summary>
+        /// GET /api/financial/business-profile — returns null if 404 (profile not yet declared).
+        /// tenantId: SystemAdmin override (chọn tenant) — null = tenant của user đang login (Owner).
+        /// </summary>
+        public async Task<BusinessProfileDto?> GetBusinessProfileAsync(Guid? tenantId = null, CancellationToken ct = default)
         {
-            return await GetAsync<BusinessProfileDto>("api/financial/business-profile", ct).ConfigureAwait(false);
+            return await GetAsync<BusinessProfileDto>("api/financial/business-profile", ct, tenantId).ConfigureAwait(false);
         }
 
         /// <summary>PUT /api/financial/business-profile (upsert).</summary>
-        public async Task<BusinessProfileDto?> UpdateBusinessProfileAsync(UpdateBusinessProfileDto dto, CancellationToken ct = default)
+        public async Task<BusinessProfileDto?> UpdateBusinessProfileAsync(UpdateBusinessProfileDto dto, Guid? tenantId = null, CancellationToken ct = default)
         {
             try
             {
-                HttpRequestMessage request = await CreateRequestAsync(HttpMethod.Put, "api/financial/business-profile", dto).ConfigureAwait(false);
+                HttpRequestMessage request = await CreateRequestAsync(HttpMethod.Put, "api/financial/business-profile", dto, tenantId).ConfigureAwait(false);
                 HttpResponseMessage response = await HttpClient.SendAsync(request, ct).ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
@@ -66,24 +69,24 @@ namespace VanAn.ShopERP.Services
 
         // ── Calculation endpoints ───────────────────────────────────────────────
 
-        public async Task<ProfitSummaryDto?> GetProfitSummaryAsync(AccountingPeriod period, AccountingStandard standard = AccountingStandard.TT99_2025, CancellationToken ct = default)
-            => await GetAsync<ProfitSummaryDto>($"api/financial/profit-summary?period={PeriodQuery(period)}&standard={standard}", ct).ConfigureAwait(false);
+        public async Task<ProfitSummaryDto?> GetProfitSummaryAsync(AccountingPeriod period, AccountingStandard standard = AccountingStandard.TT99_2025, Guid? tenantId = null, CancellationToken ct = default)
+            => await GetAsync<ProfitSummaryDto>($"api/financial/profit-summary?period={PeriodQuery(period)}&standard={standard}", ct, tenantId).ConfigureAwait(false);
 
-        public async Task<BreakEvenAnalysisDto?> GetBreakEvenAsync(AccountingPeriod period, AccountingStandard standard = AccountingStandard.TT99_2025, CancellationToken ct = default)
-            => await GetAsync<BreakEvenAnalysisDto>($"api/financial/break-even?period={PeriodQuery(period)}&standard={standard}", ct).ConfigureAwait(false);
+        public async Task<BreakEvenAnalysisDto?> GetBreakEvenAsync(AccountingPeriod period, AccountingStandard standard = AccountingStandard.TT99_2025, Guid? tenantId = null, CancellationToken ct = default)
+            => await GetAsync<BreakEvenAnalysisDto>($"api/financial/break-even?period={PeriodQuery(period)}&standard={standard}", ct, tenantId).ConfigureAwait(false);
 
-        public async Task<MultiProductBreakEvenDto?> GetMultiProductBreakEvenAsync(AccountingPeriod period, AccountingStandard standard = AccountingStandard.TT99_2025, CancellationToken ct = default)
-            => await GetAsync<MultiProductBreakEvenDto>($"api/financial/break-even/multi-product?period={PeriodQuery(period)}&standard={standard}", ct).ConfigureAwait(false);
+        public async Task<MultiProductBreakEvenDto?> GetMultiProductBreakEvenAsync(AccountingPeriod period, AccountingStandard standard = AccountingStandard.TT99_2025, Guid? tenantId = null, CancellationToken ct = default)
+            => await GetAsync<MultiProductBreakEvenDto>($"api/financial/break-even/multi-product?period={PeriodQuery(period)}&standard={standard}", ct, tenantId).ConfigureAwait(false);
 
-        public async Task<UnitEconomicsReportDto?> GetUnitEconomicsAsync(AccountingPeriod period, CancellationToken ct = default)
-            => await GetAsync<UnitEconomicsReportDto>($"api/financial/unit-economics?period={PeriodQuery(period)}", ct).ConfigureAwait(false);
+        public async Task<UnitEconomicsReportDto?> GetUnitEconomicsAsync(AccountingPeriod period, Guid? tenantId = null, CancellationToken ct = default)
+            => await GetAsync<UnitEconomicsReportDto>($"api/financial/unit-economics?period={PeriodQuery(period)}", ct, tenantId).ConfigureAwait(false);
 
-        public async Task<TargetProfitAnalysisDto?> AnalyzeTargetProfitAsync(AccountingPeriod period, AccountingStandard standard, decimal targetProfit, CancellationToken ct = default)
+        public async Task<TargetProfitAnalysisDto?> AnalyzeTargetProfitAsync(AccountingPeriod period, AccountingStandard standard, decimal targetProfit, Guid? tenantId = null, CancellationToken ct = default)
         {
             try
             {
                 var body = new TargetProfitRequestDto(period.Year, period.Month, standard, targetProfit);
-                HttpRequestMessage request = await CreateRequestAsync(HttpMethod.Post, "api/financial/target-profit", body).ConfigureAwait(false);
+                HttpRequestMessage request = await CreateRequestAsync(HttpMethod.Post, "api/financial/target-profit", body, tenantId).ConfigureAwait(false);
                 HttpResponseMessage response = await HttpClient.SendAsync(request, ct).ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
@@ -101,12 +104,12 @@ namespace VanAn.ShopERP.Services
 
         // ── Helpers ─────────────────────────────────────────────────────────────
 
-        /// <summary>GET helper — mints SystemAdmin JWT, sends request, returns null on any failure (graceful degradation).</summary>
-        private async Task<T?> GetAsync<T>(string relativeUri, CancellationToken ct) where T : class
+        /// <summary>GET helper — mints SystemAdmin JWT (tenant override), returns null on any failure (graceful degradation).</summary>
+        private async Task<T?> GetAsync<T>(string relativeUri, CancellationToken ct, Guid? tenantId = null) where T : class
         {
             try
             {
-                HttpRequestMessage request = await CreateRequestAsync(HttpMethod.Get, relativeUri).ConfigureAwait(false);
+                HttpRequestMessage request = await CreateRequestAsync(HttpMethod.Get, relativeUri, tenantIdOverride: tenantId).ConfigureAwait(false);
                 HttpResponseMessage response = await HttpClient.SendAsync(request, ct).ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {

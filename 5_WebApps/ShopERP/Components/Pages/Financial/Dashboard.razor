@@ -2,13 +2,18 @@
 @rendermode InteractiveServer
 @layout AdminLayout
 @using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
 @using Microsoft.AspNetCore.Authorization
 @using VanAn.ShopERP.Services
 @using VanAn.CoreHub.Services.FinancialIntelligence.Dtos
 @using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Aggregates.TenantAggregate
 @inject FinancialIntelligenceHttpService FiClient
+@inject TenantApiClient TenantApi
+@inject AuthenticationStateProvider AuthStateProvider
 @inject IThemeProvider ThemeProvider
 @inject NavigationManager Navigation
 @inject ILogger<Dashboard> Logger
@@ -17,7 +22,7 @@
 
 <div class="tenant-management-page @ThemeProvider.CurrentTheme">
     <header class="page-header">
-        <h1>Dashboard tài chính</h1>
+        <h1>Dashboard tài chính @(_isSystemAdmin ? $"— {CurrentTenantLabel}" : "")</h1>
         <div class="header-actions">
             <label>Kỳ: </label>
             <select @bind="_selectedMonth" @bind:after="ReloadAsync" class="form-input" style="width: 130px;">
@@ -36,7 +41,39 @@
         </div>
     </header>
 
-    @if (_loading)
+    @* 2026-10-03 (Option B): SystemAdmin chọn tenant — số liệu tài chính gắn tenant cụ thể *@
+    @if (_isSystemAdmin)
+    {
+        <div class="mb-3">
+            <VanACard Header="Chọn tenant để xem số liệu (SystemAdmin)">
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <input class="vanan-input" placeholder="Tìm tenant (tên/MST)..." @bind="_tenantSearch" @bind:event="oninput" style="min-width:240px;" aria-label="Tìm tenant" />
+                    <select class="vanan-select" style="min-width:340px;" @bind="_selectedTenantIdStr" @bind:after="ReloadAsync" aria-label="Chọn tenant">
+                        <option value="">-- Chọn tenant (Active) --</option>
+                        @foreach (var t in FilteredTenants)
+                        {
+                            <option value="@t.Id">@t.Name @(!string.IsNullOrEmpty(t.TaxCode) ? $"({t.TaxCode})" : "")</option>
+                        }
+                    </select>
+                    <VanAButton Variant="secondary" Size="small" OnClick="LoadTenantsAsync">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Làm mới
+                    </VanAButton>
+                </div>
+                @if (!FilteredTenants.Any())
+                {
+                    <p class="text-muted small mt-2">Không tìm thấy tenant (chỉ hiện tenant đã verify — Active).</p>
+                }
+            </VanACard>
+        </div>
+    }
+
+    @if (_isSystemAdmin && SelectedTenantId == null)
+    {
+        <VanAAlert Type="info" Dismissible="false">
+            <span>Vui lòng chọn tenant bên trên để xem số liệu tài chính của tenant đó.</span>
+        </VanAAlert>
+    }
+    else if (_loading)
     {
         <p>Đang tải dữ liệu kỳ @_selectedYear-@_selectedMonth.ToString("00")...</p>
     }
@@ -172,6 +209,19 @@
     private int _selectedMonth = DateTime.UtcNow.Month;
     private int _selectedYear = DateTime.UtcNow.Year;
 
+    // ── 2026-10-03 (Option B): SystemAdmin tenant selector ──
+    private bool _isSystemAdmin;
+    private List<TenantApiDto> _tenants = [];
+    private string _tenantSearch = string.Empty;
+    private string _selectedTenantIdStr = string.Empty;
+    private Guid? SelectedTenantId => Guid.TryParse(_selectedTenantIdStr, out var g) ? g : null;
+    private string CurrentTenantLabel
+        => _tenants.FirstOrDefault(t => t.Id == SelectedTenantId)?.Name ?? "—";
+    private List<TenantApiDto> FilteredTenants =>
+        _tenants.Where(t => string.IsNullOrWhiteSpace(_tenantSearch)
+            || t.Name.Contains(_tenantSearch, StringComparison.OrdinalIgnoreCase)
+            || (t.TaxCode?.Contains(_tenantSearch, StringComparison.OrdinalIgnoreCase) ?? false)).ToList();
+
     private ProfitSummaryDto? _profit;
     private BreakEvenAnalysisDto? _breakEven;
     private UnitEconomicsReportDto? _unitEconomics;
@@ -187,7 +237,27 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _isSystemAdmin = authState.User.IsInRole("SystemAdmin");
+        if (_isSystemAdmin)
+        {
+            await LoadTenantsAsync();
+        }
         await ReloadAsync();
+    }
+
+    private async Task LoadTenantsAsync()
+    {
+        try
+        {
+            var all = await TenantApi.ListAllAsync();
+            _tenants = all.Where(t => t.Status == TenantStatus.Active).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load tenants for SystemAdmin selector");
+            _tenants = [];
+        }
     }
 
     private async Task ReloadAsync()
@@ -199,10 +269,15 @@
         _target = null;
         try
         {
+            // SystemAdmin chưa chọn tenant → prompt thay vì gọi Gateway.
+            if (_isSystemAdmin && SelectedTenantId == null)
+            {
+                return;
+            }
             var period = new AccountingPeriod(_selectedYear, _selectedMonth);
-            _profit = await FiClient.GetProfitSummaryAsync(period);
-            _breakEven = await FiClient.GetBreakEvenAsync(period);
-            _unitEconomics = await FiClient.GetUnitEconomicsAsync(period);
+            _profit = await FiClient.GetProfitSummaryAsync(period, tenantId: SelectedTenantId);
+            _breakEven = await FiClient.GetBreakEvenAsync(period, tenantId: SelectedTenantId);
+            _unitEconomics = await FiClient.GetUnitEconomicsAsync(period, tenantId: SelectedTenantId);
             ProcessWarnings();
             ProcessUnitEconomics();
         }
@@ -252,7 +327,7 @@
         try
         {
             var period = new AccountingPeriod(_selectedYear, _selectedMonth);
-            _target = await FiClient.AnalyzeTargetProfitAsync(period, AccountingStandard.TT99_2025, _targetProfit);
+            _target = await FiClient.AnalyzeTargetProfitAsync(period, AccountingStandard.TT99_2025, _targetProfit, SelectedTenantId);
         }
         catch (Exception ex)
         {
