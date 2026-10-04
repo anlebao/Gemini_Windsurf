@@ -33,6 +33,13 @@ public class VaIiePagesTests : ComponentTestBase
         // Card "Danh sách ca" render (empty message "Chưa có ca nào")
         cut.WaitForAssertion(() => cut.FindAll(".vanan-card__title").Should().NotBeEmpty());
         cut.Markup.Should().Contain("Chưa có ca nào");
+
+        // 2026-10-03 RV fix: modal footer phải render <button> thật (VanAButton — không phải
+        // custom element <vananbutton>) để click được trên production SSR.
+        var openButton = cut.FindAll("button").First(b => b.TextContent.Contains("Mở ca"));
+        openButton.Click();
+        cut.WaitForAssertion(() => cut.FindAll(".modal button").Select(b => b.TextContent).Should().Contain(c => c.Contains("Confirm")));
+        cut.WaitForAssertion(() => cut.Markup.Should().NotContain("<vananbutton"));
     }
 
     [Fact]

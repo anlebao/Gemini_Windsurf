@@ -48,19 +48,22 @@
                 }
                 else if (ShowDefaultFooter)
                 {
+                    @* 2026-10-03 RV fix: default footer dùng VanAButton (không phải Atomic VanAnButton).
+                       Atomic VanAnButton render thành custom element <vananbutton> trên SSR production
+                       (không click được) — VanAButton render <button> chuẩn. *@
                     <div class="modal-footer">
-                        <VanAnButton Variant="ButtonVariant.Secondary"
-                                    @onclick="HandleClose"
+                        <VanAButton Variant="secondary"
+                                    OnClick="HandleClose"
                                     Disabled="@State.IsDisabled">
                             Cancel
-                        </VanAnButton>
+                        </VanAButton>
 
-                        <VanAnButton Variant="ButtonVariant.Primary"
-                                    @onclick="HandleConfirm"
+                        <VanAButton Variant="primary"
+                                    OnClick="HandleConfirm"
                                     Loading="@State.IsLoading"
                                     Disabled="@State.IsDisabled">
                             Confirm
-                        </VanAnButton>
+                        </VanAButton>
                     </div>
                 }
             </div>
