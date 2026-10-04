@@ -4,6 +4,7 @@
 @attribute [Authorize(Policy = "StoreManagement")]
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
@@ -12,8 +13,10 @@
 @using VanAn.CoreHub.Services.InventoryIntelligence.Dtos
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
+@using VanAn.CoreHub.Infrastructure
 @using AlertSeverity = VanAn.Shared.Domain.AlertSeverity
 @inject IShiftReportService ShiftService
+@inject IVanAnDbContext DbContext
 @inject ITenantProvider TenantProvider
 @inject AuthenticationStateProvider AuthStateProvider
 @inject ILogger<ShiftReport> Logger
@@ -372,8 +375,11 @@
         {
             Guid userId = await CurrentUserIdAsync();
             var tenantId = new TenantId(TenantProvider.TenantId);
-            await ShiftService.OpenShiftAsync(tenantId, _newShiftType, userId);
+            Shift shift = await ShiftService.OpenShiftAsync(tenantId, _newShiftType, userId);
             await ReloadShiftsAsync();
+            // Auto-select ca vừa mở — form kiểm kê hiển thị ngay (RV 2026-10-03).
+            _selectedShift = _shifts.FirstOrDefault(s => s.Id == shift.Id) ?? shift;
+            await RefreshSelectedShiftAsync();
         }
         catch (Exception ex)
         {
@@ -495,11 +501,28 @@
     private async Task<Guid> CurrentUserIdAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        if (Guid.TryParse(authState.User.FindFirst("sub")?.Value, out Guid userId))
+        string? claimId = authState.User.FindFirst("sub")?.Value
+            ?? authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (Guid.TryParse(claimId, out Guid userId))
         {
-            return userId;
+            // FK Shift.StaffUserId → Users (SQLite): impersonated sysadmin không tồn tại local.
+            if (await DbContext.Users.AnyAsync(u => u.Id == userId))
+            {
+                return userId;
+            }
         }
-        throw new InvalidOperationException("Không xác định được người dùng hiện tại.");
+
+        // Impersonation fallback: sysadmin acting as tenant Owner → dùng Owner user của tenant.
+        Guid tenantId = TenantProvider.TenantId;
+        Guid? ownerId = await DbContext.Users
+            .Where(u => u.TenantId == new TenantId(tenantId)
+                        && u.Role == VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole.Owner
+                        && u.IsActive)
+            .Select(u => (Guid?)u.Id)
+            .FirstOrDefaultAsync();
+
+        return ownerId ?? throw new InvalidOperationException("Không xác định được người dùng hiện tại.");
     }
 
     private void CloseOpenShiftModal() => _openShiftModal = false;

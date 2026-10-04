@@ -20,6 +20,7 @@ public class VaIiePagesTests : ComponentTestBase
     [Fact]
     public void ShiftReport_Renders_WithEmptyData()
     {
+        RegisterSqliteContext(); // page injects IVanAnDbContext (CurrentUserIdAsync — user lookup)
         var shiftService = new Mock<IShiftReportService>();
         shiftService.Setup(s => s.ListShiftsAsync(It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
