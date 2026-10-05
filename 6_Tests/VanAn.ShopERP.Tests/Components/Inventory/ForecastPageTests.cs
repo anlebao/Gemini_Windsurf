@@ -29,6 +29,8 @@ public class ForecastPageTests : ComponentTestBase
         cut.WaitForAssertion(() => cut.Find("h1").TextContent.Should().Contain("Dự báo tồn kho"));
         // 4 stat cards render
         cut.WaitForAssertion(() => cut.FindAll(".stat-card").Should().HaveCount(4));
+        // Nút Xuất Excel (Phase 4) render
+        cut.WaitForAssertion(() => cut.FindAll("button").Should().Contain(b => b.TextContent.Contains("Xuất Excel")));
         // Empty states: Restock + Stockout + Trend
         cut.Markup.Should().Contain("Không có nguyên liệu cần nhập");
         cut.Markup.Should().Contain("Chưa có nguyên liệu với dữ liệu tiêu hao");

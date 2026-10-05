@@ -148,6 +148,11 @@
                         <ul class="small mb-2">
                             <li><strong>Doanh số:</strong> @_foodCost.Sales.ToString("N0")đ</li>
                             <li><strong>COGS (thực tế):</strong> @_foodCost.Cogs.ToString("N0")đ</li>
+                            <li><strong>Lợi nhuận ca:</strong>
+                                <span class="@(_foodCost.Sales - _foodCost.Cogs >= 0 ? "text-success" : "text-danger fw-bold")">
+                                    @((_foodCost.Sales - _foodCost.Cogs).ToString("N0"))đ
+                                </span>
+                            </li>
                             <li><strong>Chi phí lý thuyết:</strong> @_foodCost.TheoreticalCost.ToString("N0")đ</li>
                             <li><strong>Hao hụt (waste):</strong>
                                 <span class="@(_foodCost.WasteCost > 0 ? "text-danger" : "text-success")">@_foodCost.WasteCost.ToString("N0")đ (@_foodCost.WasteRatioPercent.ToString("F1")%)</span>

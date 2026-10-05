@@ -9,8 +9,10 @@
 @using VanAn.CoreHub.Services.InventoryIntelligence
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
+@using VanAn.ShopERP.Services
 @inject IForecastService ForecastService
 @inject ITenantProvider TenantProvider
+@inject IJSRuntime JSRuntime
 @inject ILogger<Forecast> Logger
 
 <PageTitle>Dự báo tồn kho - Vạn An</PageTitle>
@@ -21,6 +23,13 @@
         <div class="header-actions">
             <VanAButton Variant="secondary" Size="small" OnClick="LoadForecast">
                 <i class="bi bi-arrow-clockwise"></i> Làm mới
+            </VanAButton>
+            <VanAButton Variant="outline" Size="small" OnClick="ExportForecastExcelAsync" Disabled="@(_exporting || _report is null)">
+                @if (_exporting) { <span>Đang xuất...</span> }
+                else
+                {
+                    <i class="bi bi-file-earmark-excel"></i> <span>Xuất Excel</span>
+                }
             </VanAButton>
             <VanAButton Variant="primary" Size="small" OnClick="() => _configModalOpen = true" Disabled="@(!TenantProvider.HasTenant)">
                 <i class="bi bi-gear"></i> Cấu hình dự báo
@@ -226,6 +235,7 @@
     private bool _loading = true;
     private string? _errorMessage;
     private string? _configError;
+    private bool _exporting;
 
     private bool _configModalOpen;
     private int _windowDays = 14;
@@ -299,6 +309,34 @@
         _trendDays = _report != null && _report.Trend.TryGetValue(_selectedTrendIngredientId, out var days)
             ? days
             : [];
+    }
+
+    // VA-IIE Phase 4 (2026-10-05): Export Excel Restock + Stockout (SRS §8.6).
+    private async Task ExportForecastExcelAsync()
+    {
+        if (_report == null)
+        {
+            return;
+        }
+        _exporting = true;
+        _errorMessage = null;
+        try
+        {
+            byte[] bytes = await VaIIeExportService.ExportForecastExcelAsync(_report);
+            string base64 = Convert.ToBase64String(bytes);
+            string fileName = $"Forecast_{DateTime.UtcNow:yyyyMMdd}.xlsx";
+            await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VA-IIE: error exporting forecast Excel");
+            _errorMessage = "Xuất Excel thất bại. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _exporting = false;
+        }
     }
 
     private int CountStatus(ForecastStatus status)

@@ -14,11 +14,14 @@
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
 @using VanAn.CoreHub.Infrastructure
+@using VanAn.ShopERP.Services
 @using AlertSeverity = VanAn.Shared.Domain.AlertSeverity
 @inject IShiftReportService ShiftService
 @inject IVanAnDbContext DbContext
 @inject ITenantProvider TenantProvider
 @inject AuthenticationStateProvider AuthStateProvider
+@inject IProfitabilityService ProfitabilityService
+@inject IJSRuntime JSRuntime
 @inject ILogger<ShiftReport> Logger
 
 <PageTitle>Báo cáo ca - Vạn An</PageTitle>
@@ -179,7 +182,21 @@
                     @if (_report != null)
                     {
                         <hr />
-                        <h5><i class="bi bi-clipboard-data"></i> Báo cáo ca — @_report.Shift.Status.ToString()</h5>
+                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
+                            <h5 class="mb-0"><i class="bi bi-clipboard-data"></i> Báo cáo ca — @_report.Shift.Status.ToString()</h5>
+                            <div class="d-flex gap-2">
+                                <VanAButton Variant="primary" Size="small" OnClick="ExportReportExcelAsync" Disabled="@_exporting">
+                                    @if (_exporting) { <span>Đang xuất...</span> }
+                                    else
+                                    {
+                                        <i class="bi bi-file-earmark-excel"></i> <span>Xuất Excel</span>
+                                    }
+                                </VanAButton>
+                                <VanAButton Variant="outline" Size="small" OnClick="PrintReport">
+                                    <i class="bi bi-printer"></i> In báo cáo
+                                </VanAButton>
+                            </div>
+                        </div>
 
                         <div class="row g-3 mt-1">
                             <div class="col-md-6">
@@ -255,6 +272,59 @@
                                 }
                             }
                         </div>
+
+                        <!-- Phần 7: Lợi nhuận ca (SRS §5.2 Profitability per Item/Shift — Phase 4) -->
+                        <div class="mt-3">
+                            <h6><i class="bi bi-graph-up"></i> Lợi nhuận ca (Doanh thu − Food Cost)</h6>
+                            @if (_profitability == null)
+                            {
+                                <VanAAlert Variant="info" Dismissible="false">Đang tải dữ liệu lợi nhuận...</VanAAlert>
+                            }
+                            else
+                            {
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <ul class="small mb-2">
+                                            <li><strong>Doanh số ca:</strong> @_profitability.Sales.ToString("N0")đ</li>
+                                            <li><strong>COGS (thực tế):</strong> @_profitability.Cogs.ToString("N0")đ</li>
+                                            <li><strong>Lợi nhuận ca:</strong>
+                                                <span class="@(_profitability.ShiftProfit >= 0 ? "text-success" : "text-danger fw-bold")">
+                                                    @_profitability.ShiftProfit.ToString("N0")đ (@_profitability.ShiftProfitPercent.ToString("F1")%)
+                                                </span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-md-8">
+                                        @if (_profitability.Items.Count == 0)
+                                        {
+                                            <p class="small text-muted mb-0">Chưa có dữ liệu lợi nhuận theo món.</p>
+                                        }
+                                        else
+                                        {
+                                            <VanAnDataGrid TItem="ProfitabilityPerItem" Items="@_profitability.Items.Take(5).ToList()" EmptyMessage="—">
+                                                <Columns>
+                                                    <VanAnColumn TItem="ProfitabilityPerItem" Title="Món" Width="4">
+                                                        <Template Context="i"><span>@i.ProductName</span></Template>
+                                                    </VanAnColumn>
+                                                    <VanAnColumn TItem="ProfitabilityPerItem" Title="SL bán" Width="2">
+                                                        <Template Context="i"><span>@i.UnitsSold</span></Template>
+                                                    </VanAnColumn>
+                                                    <VanAnColumn TItem="ProfitabilityPerItem" Title="Doanh thu" Width="3">
+                                                        <Template Context="i"><span>@i.Revenue.ToString("N0")</span></Template>
+                                                    </VanAnColumn>
+                                                    <VanAnColumn TItem="ProfitabilityPerItem" Title="Food Cost" Width="3">
+                                                        <Template Context="i"><span>@i.FoodCost.ToString("N0")</span></Template>
+                                                    </VanAnColumn>
+                                                    <VanAnColumn TItem="ProfitabilityPerItem" Title="Lợi nhuận" Width="3">
+                                                        <Template Context="i"><span class="@(i.Profit >= 0 ? "text-success" : "text-danger")">@i.Profit.ToString("N0")</span></Template>
+                                                    </VanAnColumn>
+                                                </Columns>
+                                            </VanAnDataGrid>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
                     }
                 </VanACard>
             </div>
@@ -279,8 +349,10 @@
 
     private bool _loading = true;
     private bool _submitting;
+    private bool _exporting;
     private string? _errorMessage;
     private bool _openShiftModal;
+    private ProfitabilityReport? _profitability;
 
     private ShiftType _newShiftType = ShiftType.Morning;
     private Guid _countIngredientId = Guid.Empty;
@@ -361,6 +433,7 @@
         }
         _selectedCounts = await LoadCountsAsync(_selectedShift.Id);
         _report = _selectedShift.Status == ShiftStatus.Draft ? null : await ShiftService.GetShiftReportAsync(_selectedShift.Id);
+        _profitability = _selectedShift.Status == ShiftStatus.Draft ? null : await ProfitabilityService.GetShiftProfitabilityAsync(_selectedShift.Id);
     }
 
     private async Task<IReadOnlyList<InventoryCountDto>> LoadCountsAsync(Guid shiftId)
@@ -533,6 +606,39 @@
     }
 
     private void CloseOpenShiftModal() => _openShiftModal = false;
+
+    // VA-IIE Phase 4 (2026-10-05): Export Excel + print view (vananPrintBill — precedent Tt71/PrintBill).
+    private async Task ExportReportExcelAsync()
+    {
+        if (_report == null)
+        {
+            return;
+        }
+        _exporting = true;
+        _errorMessage = null;
+        try
+        {
+            byte[] bytes = await VaIIeExportService.ExportShiftReportExcelAsync(_report);
+            string base64 = Convert.ToBase64String(bytes);
+            string fileName = $"BaoCaoCa_{_report.Shift.StartTime.ToLocalTime():yyyyMMdd}_{_report.Shift.Id:N}.xlsx";
+            await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VA-IIE: error exporting shift report Excel");
+            _errorMessage = "Xuất Excel thất bại. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _exporting = false;
+        }
+    }
+
+    private async Task PrintReport()
+    {
+        await JSRuntime.InvokeVoidAsync("vananPrintBill");
+    }
 
     private void OnShiftTypeChanged(string value) => _newShiftType = (ShiftType)int.Parse(value);
 

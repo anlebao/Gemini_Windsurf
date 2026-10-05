@@ -28,6 +28,8 @@ public class VaIiePagesTests : ComponentTestBase
         shiftService.Setup(s => s.GetIngredientsAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
         Services.AddSingleton(shiftService.Object);
+        // Phase 4: page injects IProfitabilityService (chỉ gọi khi có ca đã đóng — empty data không gọi).
+        Services.AddSingleton(new Mock<IProfitabilityService>().Object);
 
         var cut = RenderComponent<ShopERP.Components.Pages.Inventory.ShiftReport>();
 
