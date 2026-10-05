@@ -439,6 +439,8 @@ namespace VanAn.Shared.Domain
     public record ShiftAlertId(Guid Value);
     public record TheoreticalConsumptionId(Guid Value);
     public record RecipeLineId(Guid Value);
+    // VA-IIE Phase 3-4 (2026-10-05): per-tenant config cho Forecast + bot alert.
+    public record VaIIeTenantConfigId(Guid Value);
     // VA-FI-MVP2 (2026-08-21): Business Profile VO — Single-Identity (ignored in EF config).
     public record BusinessProfileId(Guid Value);
     public record OrderStatusId(string Value)
@@ -1886,10 +1888,71 @@ namespace VanAn.Shared.Domain
         }
     }
 
+    /// <summary>
+    /// VA-IIE Phase 3-4 (2026-10-05): cấu hình per-tenant cho Forecast (SRS §7.5) + bot alert (config-only).
+    /// 1 row / tenant (precedent LoyaltyTenantConfig). Per-tenant CHUNG — KHÔNG field per-ingredient
+    /// (quyết định user 2026-10-05). Lưu ShopERP SQLite (dữ liệu vận hành per-tenant — SRS §6.4);
+    /// PG table tồn tại nhưng empty (pattern Sprint B).
+    /// </summary>
+    public class VaIIeTenantConfig : BaseEntity
+    {
+        public VaIIeTenantConfigId VaIIeTenantConfigId { get; protected set; } = new VaIIeTenantConfigId(Guid.NewGuid());
+
+        // Forecast (SRS §7.5): AvgDailyConsumption rolling window + LeadTimeDays + SafetyDays.
+        public int AvgDailyConsumptionWindowDays { get; protected set; } = 14;
+        public int LeadTimeDays { get; protected set; } = 2;
+        public int SafetyDays { get; protected set; } = 1;
+
+        // Bot alert (Phase 4 — config-only, quyết định user 2026-10-05): KHÔNG gọi API thật khi chưa cấu hình.
+        // Token/secret hiển thị masked trong UI — không echo vào log/conversation (secrets governance).
+        public bool TelegramEnabled { get; protected set; }
+        public string? TelegramBotToken { get; protected set; }
+        public string? TelegramChatId { get; protected set; }
+        public bool ZaloEnabled { get; protected set; }
+        public string? ZaloAccessToken { get; protected set; }
+        public string? ZaloRecipientId { get; protected set; }
+
+        // EF Core constructor for materialization
+        protected VaIIeTenantConfig() { }
+
+        // SINGLE-IDENTITY: Align BaseEntity.Id (PK) with VaIIeTenantConfigId (business key).
+        public VaIIeTenantConfig(TenantId tenantId)
+            : base(tenantId)
+        {
+            Id = VaIIeTenantConfigId.Value;
+        }
+
+        public void UpdateForecastConfig(int windowDays, int leadTimeDays, int safetyDays)
+        {
+            if (windowDays < 1)
+                throw new ArgumentException("WindowDays phải ≥ 1.", nameof(windowDays));
+            if (leadTimeDays < 0)
+                throw new ArgumentException("LeadTimeDays không được âm.", nameof(leadTimeDays));
+            if (safetyDays < 0)
+                throw new ArgumentException("SafetyDays không được âm.", nameof(safetyDays));
+            AvgDailyConsumptionWindowDays = windowDays;
+            LeadTimeDays = leadTimeDays;
+            SafetyDays = safetyDays;
+            UpdateAudit();
+        }
+
+        public void UpdateNotificationConfig(
+            bool telegramEnabled, string? telegramBotToken, string? telegramChatId,
+            bool zaloEnabled, string? zaloAccessToken, string? zaloRecipientId)
+        {
+            TelegramEnabled = telegramEnabled;
+            TelegramBotToken = telegramBotToken;
+            TelegramChatId = telegramChatId;
+            ZaloEnabled = zaloEnabled;
+            ZaloAccessToken = zaloAccessToken;
+            ZaloRecipientId = zaloRecipientId;
+            UpdateAudit();
+        }
+    }
+
     public class Order : BaseEntity
     {
         public OrderId OrderId { get; protected set; } = new OrderId(Guid.NewGuid());
-
         // Customer Information (CRM Integration)
         public Guid? CustomerId { get; protected set; }
         public string? CustomerDeviceId { get; protected set; } // Zero-friction identity fallback

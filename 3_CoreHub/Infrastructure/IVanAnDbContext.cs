@@ -36,6 +36,8 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<InventoryCount> InventoryCounts { get; }
         DbSet<ShiftAlert> ShiftAlerts { get; }
         DbSet<TheoreticalConsumption> TheoreticalConsumptions { get; }
+        // VA-IIE Phase 3-4 (2026-10-05): per-tenant config forecast + bot alert (ShopERP SQLite; PG empty).
+        DbSet<VaIIeTenantConfig> VaIIeTenantConfigs { get; }
         DbSet<LoyaltyRewards> LoyaltyRewards { get; }
         DbSet<LoyaltyIssuanceRecord> LoyaltyIssuanceRecords { get; }  // VALCN v2.0 Phase 1 — per-order loyalty tracking
         DbSet<SocialCampaign> SocialCampaigns { get; }

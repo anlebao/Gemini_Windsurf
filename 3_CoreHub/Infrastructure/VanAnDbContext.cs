@@ -50,6 +50,8 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<InventoryCount> InventoryCounts { get; set; }
         public DbSet<ShiftAlert> ShiftAlerts { get; set; }
         public DbSet<TheoreticalConsumption> TheoreticalConsumptions { get; set; }
+        // VA-IIE Phase 3-4 (2026-10-05): PG table exists but stays EMPTY (pattern Sprint B).
+        public DbSet<VaIIeTenantConfig> VaIIeTenantConfigs { get; set; }
         public DbSet<Inventory> Inventories { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }

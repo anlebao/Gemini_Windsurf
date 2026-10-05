@@ -89,6 +89,7 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                     new() { Title = "Công thức pha chế", Icon = "cup-hot", Url = "/inventory/recipes" },
                     new() { Title = "Tồn kho", Icon = "box-seam", Url = "/inventory/dashboard" },
                     new() { Title = "Cảnh báo", Icon = "bell", Url = "/inventory/alerts" },
+                    new() { Title = "Dự báo", Icon = "graph-up-arrow", Url = "/inventory/forecast" },
                 }
             });
         }

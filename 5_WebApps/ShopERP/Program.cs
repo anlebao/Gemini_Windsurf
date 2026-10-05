@@ -248,6 +248,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IAlertRule, VanAn.CoreHub.Services.InventoryIntelligence.AlertRules.RecipeMissingRule>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IAlertRule, VanAn.CoreHub.Services.InventoryIntelligence.AlertRules.ShiftNotAcknowledgedRule>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IShiftReportService, VanAn.CoreHub.Services.InventoryIntelligence.ShiftReportService>();
+            // VA-IIE Phase 3 (2026-10-05): Forecast (Restock + Stockout) — SRS §7.5.
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IForecastService, VanAn.CoreHub.Services.InventoryIntelligence.ForecastService>();
             _ = builder.Services.AddScoped<Services.Accounting.AccountingUIService>();
             _ = builder.Services.AddHttpContextAccessor();
 

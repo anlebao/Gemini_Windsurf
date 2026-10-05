@@ -1,0 +1,371 @@
+@page "/inventory/forecast"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StoreManagement")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.CoreHub.Services.InventoryIntelligence
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@inject IForecastService ForecastService
+@inject ITenantProvider TenantProvider
+@inject ILogger<Forecast> Logger
+
+<PageTitle>Dự báo tồn kho - Vạn An</PageTitle>
+
+<div class="va-iie-forecast-page">
+    <header class="page-header mb-4">
+        <h1><i class="bi bi-graph-up-arrow"></i> Dự báo tồn kho</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadForecast">
+                <i class="bi bi-arrow-clockwise"></i> Làm mới
+            </VanAButton>
+            <VanAButton Variant="primary" Size="small" OnClick="() => _configModalOpen = true" Disabled="@(!TenantProvider.HasTenant)">
+                <i class="bi bi-gear"></i> Cấu hình dự báo
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (_loading)
+    {
+        <VanASpinner Text="Đang tải..." />
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Variant="error" Message="@_errorMessage" Dismissible="true" OnDismiss="() => _errorMessage = null" />
+    }
+    else
+    {
+        <!-- Stat cards -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <VanACard>
+                    <div class="stat-card text-center py-3">
+                        <i class="bi bi-exclamation-octagon-fill text-danger" style="font-size:2rem;"></i>
+                        <h2 class="mt-2 mb-0">@CountStatus(ForecastStatus.Critical)</h2>
+                        <p class="text-muted mb-0">Nguy cơ hết hàng</p>
+                    </div>
+                </VanACard>
+            </div>
+            <div class="col-md-3">
+                <VanACard>
+                    <div class="stat-card text-center py-3">
+                        <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size:2rem;"></i>
+                        <h2 class="mt-2 mb-0">@CountStatus(ForecastStatus.Warning)</h2>
+                        <p class="text-muted mb-0">Sắp cạn</p>
+                    </div>
+                </VanACard>
+            </div>
+            <div class="col-md-3">
+                <VanACard>
+                    <div class="stat-card text-center py-3">
+                        <i class="bi bi-check-circle-fill text-success" style="font-size:2rem;"></i>
+                        <h2 class="mt-2 mb-0">@CountStatus(ForecastStatus.Ok)</h2>
+                        <p class="text-muted mb-0">Còn đủ hàng</p>
+                    </div>
+                </VanACard>
+            </div>
+            <div class="col-md-3">
+                <VanACard>
+                    <div class="stat-card text-center py-3">
+                        <i class="bi bi-hourglass-split text-secondary" style="font-size:2rem;"></i>
+                        <h2 class="mt-2 mb-0">@CountStatus(ForecastStatus.NoData)</h2>
+                        <p class="text-muted mb-0">Chưa đủ dữ liệu</p>
+                    </div>
+                </VanACard>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <!-- Restock Forecast -->
+            <div class="col-md-7">
+                <VanACard Header="@($"Restock Forecast — cần nhập trong {_report?.LeadTimeDays + _report?.SafetyDays} ngày")">
+                    @if (_report is null || _report.RestockItems.Count == 0)
+                    {
+                        <VanAAlert Variant="success" Message="Không có nguyên liệu cần nhập. Tất cả còn đủ hàng (hoặc chưa có dữ liệu tiêu hao)." Dismissible="false" />
+                    }
+                    else
+                    {
+                        <VanAnDataGrid TItem="ForecastItem" Items="@_report.RestockItems" EmptyMessage="Không có nguyên liệu cần nhập.">
+                            <Columns>
+                                <VanAnColumn TItem="ForecastItem" Title="Nguyên liệu" Width="4">
+                                    <Template Context="i"><span>@i.Name</span></Template>
+                                </VanAnColumn>
+                                <VanAnColumn TItem="ForecastItem" Title="Tồn kho" Width="2">
+                                    <Template Context="i"><span>@i.CurrentStock.ToString("N0") @i.Unit</span></Template>
+                                </VanAnColumn>
+                                <VanAnColumn TItem="ForecastItem" Title="Tiêu hao/ngày" Width="2">
+                                    <Template Context="i"><span>@i.AvgDailyConsumption.ToString("N1") @i.Unit</span></Template>
+                                </VanAnColumn>
+                                <VanAnColumn TItem="ForecastItem" Title="Còn đủ (ngày)" Width="2">
+                                    <Template Context="i"><span>@DaysLabel(i)</span></Template>
+                                </VanAnColumn>
+                                <VanAnColumn TItem="ForecastItem" Title="Đề xuất nhập" Width="2">
+                                    <Template Context="i">
+                                        <strong>@i.SuggestedOrderQuantity.ToString("N0") @i.Unit</strong>
+                                    </Template>
+                                </VanAnColumn>
+                                <VanAnColumn TItem="ForecastItem" Title="Mức độ" Width="2">
+                                    <Template Context="i"><span class="badge @StatusBadgeClass(i.Status)">@StatusName(i.Status)</span></Template>
+                                </VanAnColumn>
+                            </Columns>
+                        </VanAnDataGrid>
+                    }
+                </VanACard>
+            </div>
+
+            <!-- Stockout Forecast -->
+            <div class="col-md-5">
+                <VanACard Header="Stockout Forecast — ngày còn lại">
+                    @if (_report is null || _report.StockoutItems.Count == 0)
+                    {
+                        <VanAAlert Variant="info" Message="Chưa có nguyên liệu với dữ liệu tiêu hao. Đóng ít nhất 1 ca để hệ thống tính tiêu hao trung bình." Dismissible="false" />
+                    }
+                    else
+                    {
+                        <VanAnDataGrid TItem="ForecastItem" Items="@_report.StockoutItems" EmptyMessage="Chưa có dữ liệu.">
+                            <Columns>
+                                <VanAnColumn TItem="ForecastItem" Title="Nguyên liệu" Width="5">
+                                    <Template Context="i"><span>@i.Name</span></Template>
+                                </VanAnColumn>
+                                <VanAnColumn TItem="ForecastItem" Title="Ngày còn lại" Width="4">
+                                    <Template Context="i">
+                                        <span>@DaysLabel(i)</span>
+                                        <div class="progress mt-1" style="height:6px;">
+                                            <div class="progress-bar @StockBarClass(i)" role="progressbar" style="width: @StockPercent(i)%"></div>
+                                        </div>
+                                    </Template>
+                                </VanAnColumn>
+                                <VanAnColumn TItem="ForecastItem" Title="Mức độ" Width="3">
+                                    <Template Context="i"><span class="badge @StatusBadgeClass(i.Status)">@StatusName(i.Status)</span></Template>
+                                </VanAnColumn>
+                            </Columns>
+                        </VanAnDataGrid>
+                    }
+                </VanACard>
+            </div>
+        </div>
+
+        <!-- Trend -->
+        <VanACard Header="@($"Tiêu hao theo ngày ({_report?.WindowDays} ngày gần nhất)")" class="mt-3">
+            @if (_report is null || _report.Trend.Count == 0)
+            {
+                <VanAAlert Variant="info" Message="Chưa có dữ liệu tiêu hao trong window — đóng ca để tích lũy dữ liệu dự báo." Dismissible="false" />
+            }
+            else
+            {
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted">Nguyên liệu</label>
+                        <select class="form-select" aria-label="Nguyên liệu trend" @bind="_selectedTrendIngredientId" @bind:after="RefreshTrend">
+                            @foreach (var kv in _report.Trend.OrderByDescending(kv => kv.Value.Sum(d => d.Quantity)))
+                            {
+                                <option value="@kv.Key">@IngredientName(kv.Key)</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                @if (_trendDays.Count > 0)
+                {
+                    <div class="small">
+                        @foreach (var day in _trendDays)
+                        {
+                            <div class="d-flex align-items-center mb-1">
+                                <span class="me-2" style="width:90px;">@day.Date.ToLocalTime().ToString("dd/MM")</span>
+                                <div class="progress flex-grow-1" style="height:14px;">
+                                    <div class="progress-bar bg-info" role="progressbar" style="width: @TrendPercent(day.Quantity)%"></div>
+                                </div>
+                                <span class="ms-2" style="width:80px; text-align:right;">@day.Quantity.ToString("N0")</span>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        </VanACard>
+
+        <!-- Ghi chú phương pháp -->
+        <VanAAlert Variant="info" Dismissible="false" class="mt-3">
+            <strong>Phương pháp:</strong> Tiêu hao trung bình/ngày (ADC) = tổng tiêu hao lý thuyết trong
+            @(_report?.WindowDays ?? 14) ngày qua ÷ số ngày có ca đóng. Ngày còn lại = tồn kho ÷ ADC.
+            Đề xuất nhập = ADC × (thời gian nhập + an toàn) − tồn kho hiện tại. Cảnh báo khi ngày còn lại
+            ≤ @(_report?.LeadTimeDays + _report?.SafetyDays ?? 3) ngày (thời gian nhập + an toàn).
+        </VanAAlert>
+    }
+</div>
+
+<!-- Modal cấu hình dự báo -->
+<VanAnModal IsOpen="@_configModalOpen" Title="Cấu hình dự báo" OnClose="() => _configModalOpen = false" OnConfirm="SaveConfig"
+            ShowDefaultFooter="true" Closable="true">
+    <div class="mb-3">
+        <label class="form-label">Số ngày tính tiêu hao trung bình (window)</label>
+        <input type="number" class="form-control" min="1" max="90" @bind="_windowDays" aria-label="Window days" />
+        <small class="text-muted">Mặc định 14 ngày. Càng dài càng ổn định nhưng phản ứng chậm với xu hướng mới.</small>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Thời gian nhập hàng (Lead Time — ngày)</label>
+        <input type="number" class="form-control" min="0" max="60" @bind="_leadTimeDays" aria-label="Lead time days" />
+        <small class="text-muted">Số ngày từ lúc đặt đến lúc hàng về.</small>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Ngày an toàn (Safety Days)</label>
+        <input type="number" class="form-control" min="0" max="60" @bind="_safetyDays" aria-label="Safety days" />
+        <small class="text-muted">Đệm thêm phòng trường hợp nhập trễ hoặc bán đột biến.</small>
+    </div>
+    @if (!string.IsNullOrEmpty(_configError))
+    {
+        <VanAAlert Variant="error" Message="@_configError" Dismissible="true" OnDismiss="() => _configError = null" />
+    }
+</VanAnModal>
+
+@code {
+    private ForecastReport? _report;
+    private IReadOnlyList<DailyConsumption> _trendDays = [];
+
+    private bool _loading = true;
+    private string? _errorMessage;
+    private string? _configError;
+
+    private bool _configModalOpen;
+    private int _windowDays = 14;
+    private int _leadTimeDays = 2;
+    private int _safetyDays = 1;
+    private Guid _selectedTrendIngredientId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadForecast();
+    }
+
+    private async Task LoadForecast()
+    {
+        _loading = true;
+        _errorMessage = null;
+        try
+        {
+            if (!TenantProvider.HasTenant)
+            {
+                _errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
+            TenantId tenantId = new(TenantProvider.TenantId);
+
+            _report = await ForecastService.GetForecastAsync(tenantId);
+            _windowDays = _report.WindowDays;
+            _leadTimeDays = _report.LeadTimeDays;
+            _safetyDays = _report.SafetyDays;
+
+            Guid first = _report.Trend.Count > 0
+                ? _report.Trend.OrderByDescending(kv => kv.Value.Sum(d => d.Quantity)).First().Key
+                : Guid.Empty;
+            _selectedTrendIngredientId = _report.Trend.ContainsKey(_selectedTrendIngredientId) ? _selectedTrendIngredientId : first;
+            RefreshTrend();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VA-IIE: error loading forecast");
+            _errorMessage = "Lỗi tải dữ liệu dự báo. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SaveConfig()
+    {
+        _configError = null;
+        try
+        {
+            if (!TenantProvider.HasTenant)
+            {
+                return;
+            }
+            TenantId tenantId = new(TenantProvider.TenantId);
+            await ForecastService.UpdateConfigAsync(tenantId, _windowDays, _leadTimeDays, _safetyDays);
+            _configModalOpen = false;
+            await LoadForecast();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VA-IIE: error saving forecast config");
+            _configError = "Lưu cấu hình thất bại. Kiểm tra giá trị nhập vào.";
+        }
+    }
+
+    private void RefreshTrend()
+    {
+        _trendDays = _report != null && _report.Trend.TryGetValue(_selectedTrendIngredientId, out var days)
+            ? days
+            : [];
+    }
+
+    private int CountStatus(ForecastStatus status)
+        => _report?.StockoutItems.Count(i => i.Status == status) ?? 0;
+
+    private static string DaysLabel(ForecastItem i)
+        => i.DaysRemaining == int.MaxValue ? "—" : i.DaysRemaining.ToString("N0");
+
+    private int StockPercent(ForecastItem i)
+    {
+        if (i.DaysRemaining == int.MaxValue || i.ThresholdDays <= 0)
+        {
+            return 100;
+        }
+        return (int)Math.Min(100, i.DaysRemaining / (decimal)(i.ThresholdDays * 2) * 100m);
+    }
+
+    private static string StockBarClass(ForecastItem i) => i.Status switch
+    {
+        ForecastStatus.Critical => "bg-danger",
+        ForecastStatus.Warning => "bg-warning",
+        ForecastStatus.Ok => "bg-success",
+        _ => "bg-secondary"
+    };
+
+    private static string StatusBadgeClass(ForecastStatus status) => status switch
+    {
+        ForecastStatus.Critical => "bg-danger",
+        ForecastStatus.Warning => "bg-warning",
+        ForecastStatus.Ok => "bg-success",
+        _ => "bg-secondary"
+    };
+
+    private static string StatusName(ForecastStatus status) => status switch
+    {
+        ForecastStatus.Critical => "Nguy cơ hết",
+        ForecastStatus.Warning => "Sắp cạn",
+        ForecastStatus.Ok => "Đủ",
+        _ => "Chưa đủ dữ liệu"
+    };
+
+    private string IngredientName(Guid id)
+    {
+        foreach (ForecastItem item in _report?.RestockItems ?? [])
+        {
+            if (item.IngredientId == id)
+            {
+                return item.Name;
+            }
+        }
+        foreach (ForecastItem item in _report?.StockoutItems ?? [])
+        {
+            if (item.IngredientId == id)
+            {
+                return item.Name;
+            }
+        }
+        return id.ToString();
+    }
+
+    private int TrendPercent(decimal quantity)
+    {
+        decimal max = _trendDays.Count == 0 ? 0m : _trendDays.Max(d => d.Quantity);
+        if (max <= 0m)
+        {
+            return 0;
+        }
+        return (int)Math.Min(100, quantity / max * 100m);
+    }
+}

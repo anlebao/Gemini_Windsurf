@@ -50,6 +50,8 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<InventoryCount> InventoryCounts { get; set; }
         public DbSet<ShiftAlert> ShiftAlerts { get; set; }
         public DbSet<TheoreticalConsumption> TheoreticalConsumptions { get; set; }
+        // VA-IIE Phase 3-4 (2026-10-05): per-tenant config forecast + bot alert — ShopERP SQLite.
+        public DbSet<VaIIeTenantConfig> VaIIeTenantConfigs { get; set; }
 
         // Additional tables required by IVanAnDbContext (for Offline Mode)
         // NOTE: Accounting DbSets (AccountingEntries, JournalEntries, AuditLogs,
