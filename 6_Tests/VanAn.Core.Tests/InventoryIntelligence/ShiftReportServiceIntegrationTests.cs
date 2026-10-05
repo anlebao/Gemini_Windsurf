@@ -220,5 +220,9 @@ namespace VanAn.Core.Tests.InventoryIntelligence
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
                 () => service.SubmitShiftAsync(shift.Id, staffId, -1m, 0m));
         }
+
+        // NOTE: tenant isolation tests (ListShifts per-tenant) nằm ở VanAn.ShopERP.Tests/InventoryIntelligence —
+        // ShopERPDbContext (không có global tenant filter, giống production). VanAnDbContext test factory có
+        // global filter (CurrentTenantIdValue) nên không dùng được cho test này.
     }
 }

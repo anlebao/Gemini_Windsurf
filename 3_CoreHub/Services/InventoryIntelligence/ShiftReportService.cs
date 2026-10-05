@@ -167,7 +167,7 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
             DateTime end = shift.EndTime ?? DateTime.UtcNow;
             List<Order> orders = await _context.Orders
                 .Include(o => o.Items)
-                .Where(o => o.CreatedAt >= shift.StartTime && o.CreatedAt <= end)
+                .Where(o => o.CreatedAt >= shift.StartTime && o.CreatedAt <= end && o.TenantId == shift.TenantId)
                 .OrderByDescending(o => o.CreatedAt)
                 .ToListAsync(ct);
 
@@ -212,9 +212,9 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
             };
         }
 
-        public async Task<IReadOnlyList<Shift>> ListShiftsAsync(DateTime? from = null, DateTime? to = null, CancellationToken ct = default)
+        public async Task<IReadOnlyList<Shift>> ListShiftsAsync(TenantId tenantId, DateTime? from = null, DateTime? to = null, CancellationToken ct = default)
         {
-            IQueryable<Shift> query = _context.Shifts;
+            IQueryable<Shift> query = _context.Shifts.Where(s => s.TenantId == tenantId);
             if (from is not null)
             {
                 query = query.Where(s => s.StartTime >= from);
@@ -226,9 +226,11 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
             return await query.OrderByDescending(s => s.StartTime).ToListAsync(ct);
         }
 
-        public async Task<IReadOnlyList<Ingredient>> GetIngredientsAsync(CancellationToken ct = default)
+        public async Task<IReadOnlyList<Ingredient>> GetIngredientsAsync(TenantId tenantId, CancellationToken ct = default)
         {
+            // Multi-tenancy: catalog chung 1 SQLite nhiều tenant — filter theo TenantId (RV 2026-10-04).
             return await _context.Ingredients
+                .Where(i => i.TenantId == tenantId)
                 .OrderBy(i => i.Name)
                 .ToListAsync(ct);
         }
@@ -266,7 +268,7 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
             DateTime end = shift.EndTime ?? DateTime.UtcNow;
             List<Order> orders = await _context.Orders
                 .Include(o => o.Items)
-                .Where(o => o.CreatedAt >= shift.StartTime && o.CreatedAt <= end)
+                .Where(o => o.CreatedAt >= shift.StartTime && o.CreatedAt <= end && o.TenantId == shift.TenantId)
                 .ToListAsync(ct);
 
             Dictionary<Guid, decimal> revenueByProduct = [];

@@ -21,11 +21,12 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
         {
             DateTime end = shift.EndTime ?? DateTime.UtcNow;
 
-            // 1. Order Completed trong ca (kèm items) — SRS §3.3.
+            // 1. Order Completed trong ca (kèm items) — SRS §3.3. Multi-tenancy: filter theo shift.TenantId
+            //    (catalog chung 1 SQLite nhiều tenant — RV 2026-10-04).
             List<(Guid ProductId, decimal Quantity, DateTime OrderTime)> items = [];
             var orders = await _context.Orders
                 .Include(o => o.Items)
-                .Where(o => o.CreatedAt >= shift.StartTime && o.CreatedAt <= end)
+                .Where(o => o.CreatedAt >= shift.StartTime && o.CreatedAt <= end && o.TenantId == shift.TenantId)
                 .ToListAsync(ct);
 
             foreach (Order order in orders)

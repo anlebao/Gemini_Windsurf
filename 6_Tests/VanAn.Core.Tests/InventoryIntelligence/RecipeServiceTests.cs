@@ -152,5 +152,9 @@ namespace VanAn.Core.Tests.InventoryIntelligence
                 Assert.Equal(1, versions[1].Version);
             }
         }
+
+        // NOTE: tenant isolation tests (GetProducts/GetIngredients/ListShifts per-tenant) nằm ở
+        // VanAn.ShopERP.Tests/InventoryIntelligence — ShopERPDbContext (không có global tenant filter,
+        // giống production). VanAnDbContext test factory có global filter nên không dùng được cho test này.
     }
 }

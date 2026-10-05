@@ -148,7 +148,15 @@
         _errorMessage = null;
         try
         {
+            if (!TenantProvider.HasTenant)
+            {
+                _errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
+            TenantId tenantId = new(TenantProvider.TenantId);
+            // Multi-tenancy: catalog chung 1 SQLite nhiều tenant — filter theo TenantId (RV 2026-10-04).
             _allAlerts = await DbContext.ShiftAlerts
+                .Where(a => a.TenantId == tenantId)
                 .OrderByDescending(a => a.CreatedAt)
                 .Take(500)
                 .ToListAsync();

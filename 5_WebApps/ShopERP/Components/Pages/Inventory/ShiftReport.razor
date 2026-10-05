@@ -275,6 +275,7 @@
     private Shift? _selectedShift;
     private ShiftReportDto? _report;
     private IReadOnlyList<InventoryCountDto> _selectedCounts = [];
+    private TenantId _tenantId = null!;
 
     private bool _loading = true;
     private bool _submitting;
@@ -315,7 +316,13 @@
     {
         try
         {
-            _ingredients = await ShiftService.GetIngredientsAsync();
+            if (!TenantProvider.HasTenant)
+            {
+                _errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
+            _tenantId = new TenantId(TenantProvider.TenantId);
+            _ingredients = await ShiftService.GetIngredientsAsync(_tenantId);
             await ReloadShiftsAsync();
         }
         catch (Exception ex)
@@ -331,7 +338,7 @@
 
     private async Task ReloadShiftsAsync()
     {
-        _shifts = await ShiftService.ListShiftsAsync(from: DateTime.UtcNow.AddDays(-30));
+        _shifts = await ShiftService.ListShiftsAsync(_tenantId, from: DateTime.UtcNow.AddDays(-30));
         if (_selectedShift != null)
         {
             _selectedShift = _shifts.FirstOrDefault(s => s.Id == _selectedShift.Id);

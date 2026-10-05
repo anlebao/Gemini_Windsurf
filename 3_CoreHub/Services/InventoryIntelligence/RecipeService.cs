@@ -122,17 +122,19 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
 
         public void InvalidateCache(Guid productId) => ActiveRecipeCache.TryRemove(productId, out _);
 
-        public async Task<IReadOnlyList<Product>> GetProductsAsync(CancellationToken ct = default)
+        public async Task<IReadOnlyList<Product>> GetProductsAsync(TenantId tenantId, CancellationToken ct = default)
         {
+            // Multi-tenancy: catalog chung 1 SQLite nhiều tenant — filter theo TenantId (RV 2026-10-04).
             return await _context.Products
-                .Where(p => !p.IsDeleted)
+                .Where(p => p.TenantId == tenantId && !p.IsDeleted)
                 .OrderBy(p => p.Name)
                 .ToListAsync(ct);
         }
 
-        public async Task<IReadOnlyList<Ingredient>> GetIngredientsAsync(CancellationToken ct = default)
+        public async Task<IReadOnlyList<Ingredient>> GetIngredientsAsync(TenantId tenantId, CancellationToken ct = default)
         {
             return await _context.Ingredients
+                .Where(i => i.TenantId == tenantId)
                 .OrderBy(i => i.Name)
                 .ToListAsync(ct);
         }

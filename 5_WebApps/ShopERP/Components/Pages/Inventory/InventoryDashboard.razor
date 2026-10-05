@@ -186,23 +186,33 @@
         _errorMessage = null;
         try
         {
+            if (!TenantProvider.HasTenant)
+            {
+                _errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
+            TenantId tenantId = new(TenantProvider.TenantId);
             var todayStart = DateTime.UtcNow.Date;
 
-            _ingredients = await DbContext.Ingredients.OrderBy(i => i.Name).ToListAsync();
+            // Multi-tenancy: catalog chung 1 SQLite nhiều tenant — filter theo TenantId (RV 2026-10-04).
+            _ingredients = await DbContext.Ingredients
+                .Where(i => i.TenantId == tenantId)
+                .OrderBy(i => i.Name)
+                .ToListAsync();
             _lowStockCount = _ingredients.Count(i => i.CurrentStock < i.MinStockThreshold);
 
             _recentAlerts = await DbContext.ShiftAlerts
-                .Where(a => !a.IsResolved)
+                .Where(a => !a.IsResolved && a.TenantId == tenantId)
                 .OrderByDescending(a => a.CreatedAt)
                 .Take(5)
                 .ToListAsync();
-            _unresolvedAlerts = await DbContext.ShiftAlerts.CountAsync(a => !a.IsResolved);
+            _unresolvedAlerts = await DbContext.ShiftAlerts.CountAsync(a => !a.IsResolved && a.TenantId == tenantId);
 
-            _shiftsToday = await DbContext.Shifts.CountAsync(s => s.StartTime >= todayStart);
+            _shiftsToday = await DbContext.Shifts.CountAsync(s => s.TenantId == tenantId && s.StartTime >= todayStart);
 
-            // Food cost ca đã chốt/đóng gần nhất (SRS §5.2).
+            // Food cost ca đã chốt/đóng gần nhất của tenant (SRS §5.2).
             var latestShift = await DbContext.Shifts
-                .Where(s => s.Status != ShiftStatus.Draft)
+                .Where(s => s.TenantId == tenantId && s.Status != ShiftStatus.Draft)
                 .OrderByDescending(s => s.EndTime)
                 .FirstOrDefaultAsync();
             _foodCost = latestShift == null ? null : await FoodCostService.GetShiftFoodCostAsync(latestShift.Id);

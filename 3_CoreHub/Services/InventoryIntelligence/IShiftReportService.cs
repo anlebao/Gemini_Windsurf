@@ -33,10 +33,10 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
         /// <summary>Báo cáo cuối ca đầy đủ — 6 phần (SRS §5.1).</summary>
         Task<Dtos.ShiftReportDto> GetShiftReportAsync(Guid shiftId, CancellationToken ct = default);
 
-        /// <summary>Danh sách ca (theo thời gian, mới nhất trước).</summary>
-        Task<IReadOnlyList<Shift>> ListShiftsAsync(DateTime? from = null, DateTime? to = null, CancellationToken ct = default);
+        /// <summary>Danh sách ca của 1 tenant (theo thời gian, mới nhất trước) — multi-tenancy filter.</summary>
+        Task<IReadOnlyList<Shift>> ListShiftsAsync(TenantId tenantId, DateTime? from = null, DateTime? to = null, CancellationToken ct = default);
 
-        /// <summary>Danh sách ingredient (đơn vị cơ sở) cho form kiểm kê — "số + chọn đơn vị" (Q3-C).</summary>
-        Task<IReadOnlyList<Ingredient>> GetIngredientsAsync(CancellationToken ct = default);
+        /// <summary>Danh sách ingredient của tenant (đơn vị cơ sở) cho form kiểm kê — "số + chọn đơn vị" (Q3-C). Multi-tenancy filter.</summary>
+        Task<IReadOnlyList<Ingredient>> GetIngredientsAsync(TenantId tenantId, CancellationToken ct = default);
     }
 }

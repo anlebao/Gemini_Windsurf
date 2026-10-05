@@ -92,11 +92,11 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
                 .Where(i => ingredientIds.Contains(i.Id))
                 .ToDictionaryAsync(i => i.Id, ct);
 
-            // Orders + recipes cho per-item food cost
+            // Orders + recipes cho per-item food cost. Multi-tenancy: filter theo shift.TenantId (RV 2026-10-04).
             DateTime end = shift.EndTime ?? DateTime.UtcNow;
             List<Order> orders = await _context.Orders
                 .Include(o => o.Items)
-                .Where(o => o.CreatedAt >= shift.StartTime && o.CreatedAt <= end)
+                .Where(o => o.CreatedAt >= shift.StartTime && o.CreatedAt <= end && o.TenantId == shift.TenantId)
                 .ToListAsync(ct);
 
             Dictionary<Guid, int> unitsSold = [];

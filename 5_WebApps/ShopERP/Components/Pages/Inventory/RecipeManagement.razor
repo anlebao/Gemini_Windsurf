@@ -181,6 +181,7 @@
     private List<EditableLine> _editLines = [];
     private string _yield = "1";
     private string _wasteFactor = "0";
+    private TenantId _tenantId = null!;
 
     private bool _loading = true;
     private bool _saving;
@@ -194,6 +195,12 @@
     {
         try
         {
+            if (!TenantProvider.HasTenant)
+            {
+                _errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
+            _tenantId = new TenantId(TenantProvider.TenantId);
             await ReloadAll();
         }
         catch (Exception ex)
@@ -209,8 +216,8 @@
 
     private async Task ReloadAll()
     {
-        _products = await RecipeService.GetProductsAsync();
-        _ingredients = await RecipeService.GetIngredientsAsync();
+        _products = await RecipeService.GetProductsAsync(_tenantId);
+        _ingredients = await RecipeService.GetIngredientsAsync(_tenantId);
 
         _activeVersionByProduct = [];
         foreach (var product in _products)
