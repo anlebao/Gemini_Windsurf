@@ -42,6 +42,21 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
             return config;
         }
 
+        public async Task<VaIIeTenantConfig> UpdateNotificationConfigAsync(
+            TenantId tenantId,
+            bool telegramEnabled, string? telegramBotToken, string? telegramChatId,
+            bool zaloEnabled, string? zaloAccessToken, string? zaloRecipientId,
+            CancellationToken ct = default)
+        {
+            VaIIeTenantConfig config = await GetConfigAsync(tenantId, ct);
+            config.UpdateNotificationConfig(telegramEnabled, telegramBotToken, telegramChatId, zaloEnabled, zaloAccessToken, zaloRecipientId);
+            _ = await _context.SaveChangesAsync(ct);
+            // KHÔNG log token — secrets governance.
+            _logger.LogInformation("VaIIeTenantConfig notification updated for tenant {TenantId}: Telegram={TelegramEnabled} Zalo={ZaloEnabled}",
+                tenantId.Value, telegramEnabled, zaloEnabled);
+            return config;
+        }
+
         public async Task<ForecastReport> GetForecastAsync(TenantId tenantId, CancellationToken ct = default)
         {
             VaIIeTenantConfig config = await GetConfigAsync(tenantId, ct);

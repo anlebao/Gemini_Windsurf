@@ -252,6 +252,10 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IForecastService, VanAn.CoreHub.Services.InventoryIntelligence.ForecastService>();
             // VA-IIE Phase 4 (2026-10-05): Profitability per Item/Shift — SRS §5.2.
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.InventoryIntelligence.IProfitabilityService, VanAn.CoreHub.Services.InventoryIntelligence.ProfitabilityService>();
+            // VA-IIE Phase 4 (2026-10-05): Alert notifier — config-only (Telegram + Zalo stub, fail-safe dispatcher).
+            _ = builder.Services.AddSingleton<VanAn.CoreHub.Services.InventoryIntelligence.TelegramAlertNotifier>();
+            _ = builder.Services.AddSingleton<VanAn.CoreHub.Services.InventoryIntelligence.ZaloAlertNotifier>();
+            _ = builder.Services.AddSingleton<VanAn.CoreHub.Services.InventoryIntelligence.IAlertNotifier, VanAn.CoreHub.Services.InventoryIntelligence.AlertNotifierDispatcher>();
             _ = builder.Services.AddScoped<Services.Accounting.AccountingUIService>();
             _ = builder.Services.AddHttpContextAccessor();
 

@@ -14,13 +14,17 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
         ITheoreticalConsumptionService theoreticalConsumptionService,
         IVarianceAnalysisService varianceAnalysisService,
         IAlertEngine alertEngine,
-        ILogger<ShiftReportService> logger) : IShiftReportService
+        ILogger<ShiftReportService> logger,
+        IAlertNotifier? alertNotifier = null,
+        IForecastService? forecastService = null) : IShiftReportService
     {
         private readonly IVanAnDbContext _context = context;
         private readonly ITheoreticalConsumptionService _theoreticalConsumptionService = theoreticalConsumptionService;
         private readonly IVarianceAnalysisService _varianceAnalysisService = varianceAnalysisService;
         private readonly IAlertEngine _alertEngine = alertEngine;
         private readonly ILogger<ShiftReportService> _logger = logger;
+        private readonly IAlertNotifier? _alertNotifier = alertNotifier;
+        private readonly IForecastService? _forecastService = forecastService;
 
         public async Task<Shift> OpenShiftAsync(TenantId tenantId, ShiftType shiftType, Guid staffUserId, DateTime? startTime = null, CancellationToken ct = default)
         {
@@ -115,6 +119,12 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
 
                 _logger.LogInformation("Shift {ShiftId} submitted — {ConsumptionCount} consumptions, {AlertCount} alerts",
                     shiftId, consumptions.Count, alerts.Count);
+
+                // 5. Notifier bot (Phase 4 — config-only): sau commit, fail-safe (không fail đóng ca).
+                if (_alertNotifier is not null && _forecastService is not null && alerts.Count > 0)
+                {
+                    await NotifyAlertsAsync(shift, alerts, ct);
+                }
                 return shift;
             }
             catch
@@ -236,6 +246,20 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────────
+
+        private async Task NotifyAlertsAsync(Shift shift, IReadOnlyList<ShiftAlert> alerts, CancellationToken ct)
+        {
+            try
+            {
+                VaIIeTenantConfig config = await _forecastService!.GetConfigAsync(shift.TenantId, ct);
+                await _alertNotifier!.NotifyAsync(alerts, config, ct);
+            }
+            catch (Exception ex)
+            {
+                // Fail-safe: lỗi notifier không được fail ca đã đóng (SRS §4.3 — in-app là kênh chính).
+                _logger.LogWarning(ex, "Shift {ShiftId}: alert notifier thất bại — bỏ qua (ca vẫn đã đóng)", shift.Id);
+            }
+        }
 
         private async Task<Shift> GetShiftAsync(Guid shiftId, CancellationToken ct)
         {

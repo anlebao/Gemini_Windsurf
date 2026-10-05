@@ -59,6 +59,13 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
         /// <summary>Cập nhật config forecast per-tenant.</summary>
         Task<VaIIeTenantConfig> UpdateConfigAsync(TenantId tenantId, int windowDays, int leadTimeDays, int safetyDays, CancellationToken ct = default);
 
+        /// <summary>Cập nhật config notification bot per-tenant (Phase 4 — config-only: Telegram/Zalo).</summary>
+        Task<VaIIeTenantConfig> UpdateNotificationConfigAsync(
+            TenantId tenantId,
+            bool telegramEnabled, string? telegramBotToken, string? telegramChatId,
+            bool zaloEnabled, string? zaloAccessToken, string? zaloRecipientId,
+            CancellationToken ct = default);
+
         /// <summary>Tính Restock + Stockout forecast cho tenant (pure read — không persist).</summary>
         Task<ForecastReport> GetForecastAsync(TenantId tenantId, CancellationToken ct = default);
     }

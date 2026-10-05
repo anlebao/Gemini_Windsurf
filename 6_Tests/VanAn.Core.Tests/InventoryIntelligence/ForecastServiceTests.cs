@@ -216,6 +216,29 @@ namespace VanAn.Core.Tests.InventoryIntelligence
         }
 
         [Fact]
+        public async Task UpdateNotificationConfig_PersistsValues()
+        {
+            using var scope = VanAnDbContextTestFactory.Create();
+            scope.TenantProvider!.SetTenant(TenantId.Value);
+            var ctx = scope.Context;
+            var service = BuildService(ctx);
+
+            var updated = await service.UpdateNotificationConfigAsync(
+                TenantId, true, "123456:token", "chat-1", true, "zalo-token", "user-1");
+
+            Assert.True(updated.TelegramEnabled);
+            Assert.Equal("123456:token", updated.TelegramBotToken);
+            Assert.Equal("chat-1", updated.TelegramChatId);
+            Assert.True(updated.ZaloEnabled);
+            Assert.Equal("zalo-token", updated.ZaloAccessToken);
+            Assert.Equal("user-1", updated.ZaloRecipientId);
+
+            var reloaded = await ctx.VaIIeTenantConfigs.FirstAsync(c => c.TenantId == TenantId);
+            Assert.True(reloaded.TelegramEnabled);
+            Assert.Equal("chat-1", reloaded.TelegramChatId);
+        }
+
+        [Fact]
         public async Task Forecast_Trend_GroupsByDay()
         {
             using var scope = VanAnDbContextTestFactory.Create();

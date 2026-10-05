@@ -12,9 +12,11 @@
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
 @using AlertSeverity = VanAn.Shared.Domain.AlertSeverity
+@using VanAn.CoreHub.Services.InventoryIntelligence
 @inject VanAn.CoreHub.Infrastructure.IVanAnDbContext DbContext
 @inject ITenantProvider TenantProvider
 @inject AuthenticationStateProvider AuthStateProvider
+@inject IForecastService ForecastService
 @inject ILogger<AlertCenter> Logger
 
 <PageTitle>Cảnh báo - Vạn An</PageTitle>
@@ -23,6 +25,13 @@
     <header class="page-header mb-4">
         <h1><i class="bi bi-bell"></i> Cảnh báo (Alert Center)</h1>
         <div class="header-actions">
+            <AuthorizeView Roles="Owner">
+                <Authorized>
+                    <VanAButton Variant="outline" Size="small" OnClick="OpenNotificationConfig" Disabled="@(!TenantProvider.HasTenant)">
+                        <i class="bi bi-telegram"></i> Cảnh báo Telegram/Zalo
+                    </VanAButton>
+                </Authorized>
+            </AuthorizeView>
             <VanAButton Variant="secondary" Size="small" OnClick="LoadAlerts">
                 <i class="bi bi-arrow-clockwise"></i> Làm mới
             </VanAButton>
@@ -112,6 +121,47 @@
     }
 </VanAnModal>
 
+<!-- Modal cấu hình cảnh báo Telegram/Zalo (Phase 4 — config-only) -->
+<VanAnModal IsOpen="@_notificationModalOpen" Title="Cảnh báo qua Telegram / Zalo" OnClose="CloseNotificationModal" OnConfirm="SaveNotificationConfig"
+            ShowDefaultFooter="true" Closable="true">
+    <VanAAlert Variant="info" Dismissible="false">
+        Kênh ngoài (bot) chỉ gửi cảnh báo <strong>Critical</strong> sau khi đóng ca. Cảnh báo in-app vẫn luôn hoạt động.
+        MVP hỗ trợ lưu cấu hình (config-only) — bot sẽ gửi khi token được kết nối.
+    </VanAAlert>
+    <hr />
+    <h6><i class="bi bi-telegram"></i> Telegram</h6>
+    <div class="form-check mb-2">
+        <input type="checkbox" class="form-check-input" id="telegram-enabled" @bind="_telegramEnabled" aria-label="Bật Telegram" />
+        <label class="form-check-label" for="telegram-enabled">Bật gửi qua Telegram</label>
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Bot Token</label>
+        <input type="password" class="form-control" placeholder="123456:ABC-DEF..." @bind="_telegramBotToken" aria-label="Telegram bot token" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Chat ID</label>
+        <input type="text" class="form-control" placeholder="-1001234567890" @bind="_telegramChatId" aria-label="Telegram chat id" />
+    </div>
+    <hr />
+    <h6><i class="bi bi-chat-dots"></i> Zalo (ZNS)</h6>
+    <div class="form-check mb-2">
+        <input type="checkbox" class="form-check-input" id="zalo-enabled" @bind="_zaloEnabled" aria-label="Bật Zalo" />
+        <label class="form-check-label" for="zalo-enabled">Bật gửi qua Zalo</label>
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Access Token (OA)</label>
+        <input type="password" class="form-control" placeholder="..." @bind="_zaloAccessToken" aria-label="Zalo access token" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Người nhận (User ID)</label>
+        <input type="text" class="form-control" placeholder="..." @bind="_zaloRecipientId" aria-label="Zalo recipient id" />
+    </div>
+    @if (!string.IsNullOrEmpty(_notificationError))
+    {
+        <VanAAlert Variant="error" Message="@_notificationError" Dismissible="true" OnDismiss="() => _notificationError = null" />
+    }
+</VanAnModal>
+
 @code {
     private IReadOnlyList<ShiftAlert> _allAlerts = [];
     private IReadOnlyList<ShiftAlert> _filteredAlerts = [];
@@ -126,6 +176,16 @@
     private ShiftAlert? _resolvingAlert;
     private bool _resolveModalOpen;
     private string _resolveNote = string.Empty;
+
+    // Phase 4 — config notification (config-only): Telegram + Zalo.
+    private bool _notificationModalOpen;
+    private string? _notificationError;
+    private bool _telegramEnabled;
+    private string _telegramBotToken = string.Empty;
+    private string _telegramChatId = string.Empty;
+    private bool _zaloEnabled;
+    private string _zaloAccessToken = string.Empty;
+    private string _zaloRecipientId = string.Empty;
 
     private static readonly List<VanASelect.SelectOption> _severityOptions =
     [
@@ -271,4 +331,53 @@
     }
 
     private void OnResolveNoteChanged(string value) => _resolveNote = value;
+
+    // ── Phase 4: config notification (config-only) ─────────────────────────────
+
+    private async Task OpenNotificationConfig()
+    {
+        _notificationError = null;
+        try
+        {
+            TenantId tenantId = new(TenantProvider.TenantId);
+            VaIIeTenantConfig config = await ForecastService.GetConfigAsync(tenantId);
+            _telegramEnabled = config.TelegramEnabled;
+            _telegramBotToken = config.TelegramBotToken ?? string.Empty;
+            _telegramChatId = config.TelegramChatId ?? string.Empty;
+            _zaloEnabled = config.ZaloEnabled;
+            _zaloAccessToken = config.ZaloAccessToken ?? string.Empty;
+            _zaloRecipientId = config.ZaloRecipientId ?? string.Empty;
+            _notificationModalOpen = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VA-IIE: error loading notification config");
+            _errorMessage = "Lỗi tải cấu hình cảnh báo. Vui lòng thử lại.";
+        }
+    }
+
+    private void CloseNotificationModal() => _notificationModalOpen = false;
+
+    private async Task SaveNotificationConfig()
+    {
+        _notificationError = null;
+        try
+        {
+            TenantId tenantId = new(TenantProvider.TenantId);
+            await ForecastService.UpdateNotificationConfigAsync(
+                tenantId,
+                _telegramEnabled,
+                string.IsNullOrWhiteSpace(_telegramBotToken) ? null : _telegramBotToken,
+                string.IsNullOrWhiteSpace(_telegramChatId) ? null : _telegramChatId,
+                _zaloEnabled,
+                string.IsNullOrWhiteSpace(_zaloAccessToken) ? null : _zaloAccessToken,
+                string.IsNullOrWhiteSpace(_zaloRecipientId) ? null : _zaloRecipientId);
+            _notificationModalOpen = false;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VA-IIE: error saving notification config");
+            _notificationError = "Lưu cấu hình thất bại. Vui lòng thử lại.";
+        }
+    }
 }

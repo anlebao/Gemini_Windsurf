@@ -79,7 +79,22 @@ public class VaIiePagesTests : ComponentTestBase
     {
         RegisterSqliteContext();
 
-        var cut = RenderComponent<ShopERP.Components.Pages.Inventory.AlertCenter>();
+        // Phase 4: page injects IForecastService (config notification modal) + AuthorizeView Roles (Owner).
+        var forecastService = new Mock<IForecastService>();
+        forecastService.Setup(f => f.GetConfigAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new VaIIeTenantConfig(new TenantId(Guid.Empty)));
+        Services.AddSingleton(forecastService.Object);
+        Services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationPolicyProvider,
+            Microsoft.AspNetCore.Authorization.DefaultAuthorizationPolicyProvider>();
+        var authService = new Mock<Microsoft.AspNetCore.Authorization.IAuthorizationService>();
+        authService.Setup(a => a.AuthorizeAsync(It.IsAny<System.Security.Claims.ClaimsPrincipal>(), It.IsAny<object?>(), It.IsAny<string>()))
+            .ReturnsAsync(Microsoft.AspNetCore.Authorization.AuthorizationResult.Success());
+        authService.Setup(a => a.AuthorizeAsync(It.IsAny<System.Security.Claims.ClaimsPrincipal>(), It.IsAny<object?>(), It.IsAny<IEnumerable<Microsoft.AspNetCore.Authorization.IAuthorizationRequirement>>()))
+            .ReturnsAsync(Microsoft.AspNetCore.Authorization.AuthorizationResult.Success());
+        Services.AddSingleton(authService.Object);
+
+        var cut = RenderComponent<Microsoft.AspNetCore.Components.Authorization.CascadingAuthenticationState>(
+            p => p.AddChildContent<ShopERP.Components.Pages.Inventory.AlertCenter>());
 
         cut.WaitForAssertion(() => cut.Find("h1").TextContent.Should().Contain("Cảnh báo"));
         // Bộ lọc mức độ render
