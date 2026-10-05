@@ -166,6 +166,11 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.HasIndex(e => new { e.TenantId, e.StartAt });
             _ = builder.HasIndex(e => e.StaffId);
             _ = builder.HasIndex(e => new { e.TenantId, e.OrderId });
+            // AC-C04 double-booking guard — final line of defense: 1 staff không thể có 2 booking
+            // cùng StartAt (NULL StaffId = "bất kỳ ai" → multiple NULLs allowed).
+            _ = builder.HasIndex(e => new { e.TenantId, e.StaffId, e.StartAt }).IsUnique();
+            // Optimistic concurrency (§19.1) — mỗi transition bump Version; EF so WHERE Version = X.
+            _ = builder.Property(e => e.Version).IsConcurrencyToken();
         }
     }
 

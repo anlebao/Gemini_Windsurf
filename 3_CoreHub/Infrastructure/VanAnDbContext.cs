@@ -250,6 +250,10 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<CommissionRule> CommissionRules { get; set; }
         public DbSet<CommissionLedgerEntry> CommissionLedgerEntries { get; set; }
 
+        // Booking & Staff Scheduling (SRS §21.1) — durable idempotency store cho create booking.
+        // Infra entity (KHÔNG domain entity — pattern ProcessedWebhookKey). PG-only.
+        public DbSet<BookingIdempotencyRecord> BookingIdempotencyRecords { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

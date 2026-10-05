@@ -1114,6 +1114,13 @@ namespace VanAn.Gateway
             // 2026-10-03 (membership v2 — Luồng 2): nâng cấp cộng tác viên (Salesman/Shipper) thành tenant profile.
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Membership.ICollaboratorTenantProvisioningService, VanAn.CoreHub.Services.Membership.CollaboratorTenantProvisioningService>();
 
+            // Booking & Staff Scheduling (SRS v1.1 MVP — P2 Services core, 2026-10-05).
+            // Data sống ở Gateway PG (D1) — public + tenant booking API đều ở Gateway.
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Booking.IStaffService, VanAn.CoreHub.Services.Booking.StaffService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Booking.IOfferingService, VanAn.CoreHub.Services.Booking.OfferingService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Booking.IAvailabilityService, VanAn.CoreHub.Services.Booking.AvailabilityService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Booking.IBookingService, VanAn.CoreHub.Services.Booking.BookingService>();
+
 
 
             // Register Voice Command Services
