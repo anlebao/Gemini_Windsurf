@@ -4,7 +4,7 @@
 > Source SRS: `docs/requirements/van_an_appointment_booking_srs_v1.1_mvp (1).md` (v1.1 MVP — 44 sections)
 > Master plan: `docs/AI/plans/booking-scheduling-master-plan.md` (ACTIVE — chờ approve)
 > Branch: `main`
-> Status: **PLAN READY (2026-10-05) — chờ user approve → IMPLEMENT theo session-per-phase**
+> Status: **P1 DONE (2026-10-05, `a8ce5482` — guard ALL PASSED · build 0 errors · BookingDomainTests 26 PASS) — ⏳ Session P2 Services core**
 
 ---
 
@@ -32,19 +32,19 @@
 
 ## 3. SCOPE (7 phases per master plan §4)
 
-### Phase 1 — Domain + EF + migration PG + seed (task `task_booking_phase1_domain.md`)
+### Phase 1 — Domain + EF + migration PG + seed (task `task_booking_phase1_domain.md`) ✅ DONE `a8ce5482`
 
-- [ ] **P1.1 Domain (1_Shared/Domain.cs, Single-Identity 100% — Id = PK, business key VO Ignore, constructor sync `Id = XxxId.Value`):**
+- [x] **P1.1 Domain (1_Shared/Domain.cs, Single-Identity 100% — Id = PK, business key VO Ignore, constructor sync `Id = XxxId.Value`):**
   - Staff & Scheduling: `Staff` (+ StaffUserId nullable → Users.Id, precedent Shift.StaffUserId) · `StaffService` (skill eligibility) · `StaffWorkingSchedule` (weekday recurring + break) · `StaffScheduleOverride` (WORKING/LEAVE/UNAVAILABLE/BREAK)
   - Catalog: `ServiceCategory` · `AppointmentOffering` (SERVICE/PACKAGE + duration/price snapshot + required_staff_skill) · `AppointmentOfferingItem` (package con) · `AddOn` (non-scheduling only)
   - Booking: `Booking` (public_booking_code opaque · 9 state §9.1 + internal sub-states §9.2 · snapshot §8.4 · version optimistic concurrency §19.1 · OrderId? D2) · `BookingItem` · `BookingStaffAssignment` (0..1 primary, immutable history) · `BookingEvent` (audit §23) · **`BookingTenantConfig`** (feature-flag per tenant — Q5 chốt: IsEnabled default false + deposit policy §16.1 + cancel/reschedule policy + e-invoice applicability §16.5; get-or-create pattern VaIIeTenantConfig; 1 row/tenant unique index — **chỉ tenant enabled mới resolve QR/bookings**)
   - QR/Commission: `QRChannel` (qr_token opaque hash §7.2) · `AttributionSession` (first-qualified-wins + expiry §7.4-7.5) · `CommissionRule` · `CommissionLedgerEntry` (source BOOKING|ORDER — ledger hợp nhất D3 · state PENDING/EARNED/VOIDED/PAID/REVERSED §17.4 · immutable sau finalized §17.5) · `TaxWithholdingPolicy` (versioned — inputs §17.3, mốc 5tr/lần NĐ 253/2026, KHÔNG hard-code 10%)
   - Financial: `PaymentTransaction` (type SECURITY_DEPOSIT/PREPAYMENT/FINAL §16.2 · status 7 state §16.3) · `InvoiceIntegrationRecord` (invoice_status + invoice_trigger snapshot §16.4)
   - Enums: BookingStatus (9), BookingSubState, DepositType, PaymentStatus (7), InvoiceStatus, InvoiceTrigger, StaffScheduleOverrideType, CommissionLedgerState, TaxPayeeType (EMPLOYEE/INDIVIDUAL_CONTRACTOR/BUSINESS_ENTITY/OTHER §17.2)
-- [ ] **P1.2 EF configs (19)** — Ignore VO + precision + indexes (unique: staff schedule, QR token, booking code, BookingTenantConfig.TenantId) + DbSet trên Gateway DbContext (PG — D1; xác nhận `IVanAnDbContext` auto-apply scope như precedent VaIIeTenantConfig)
-- [ ] **P1.3 Migration PG `AddBookingScheduling`** (Gateway DbContext — pattern Sprint B PG-empty) + verify migration test
-- [ ] **P1.4 Seed:** service categories mẫu + 1 tenant demo (get-or-create — không bắt buộc backfill)
-- [ ] **P1.5 Tests:** entity lifecycle (booking 9-state transitions hợp lệ/bất hợp lệ, snapshot, ledger immutability + reversal) → Core.Tests PASS
+- [x] **P1.2 EF configs (19)** — Ignore VO + precision + indexes (unique: staff schedule, QR token, booking code, BookingTenantConfig.TenantId) + DbSet trên Gateway DbContext (PG — D1; xác nhận `IVanAnDbContext` auto-apply scope như precedent VaIIeTenantConfig)
+- [x] **P1.3 Migration PG `AddBookingScheduling`** (Gateway DbContext — pattern Sprint B PG-empty) + verify migration test
+- [x] **P1.4 Seed:** service categories mẫu + 1 tenant demo (get-or-create — không bắt buộc backfill)
+- [x] **P1.5 Tests:** entity lifecycle (booking 9-state transitions hợp lệ/bất hợp lệ, snapshot, ledger immutability + reversal) → Core.Tests PASS
 
 ### Phase 2 — Services core (task `task_booking_phase2_services.md`)
 

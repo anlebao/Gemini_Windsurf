@@ -2,7 +2,7 @@
 
 > Created: 2026-10-05 (user review SRS + chốt 5 quyết định 2026-10-05)
 > Source SRS: `docs/requirements/van_an_appointment_booking_srs_v1.1_mvp (1).md` (44 sections, 7 phases §36)
-> Status: **ACTIVE — plan + task card chờ user approve → IMPLEMENT**
+> Status: **ACTIVE — P1 DONE (`a8ce5482`, 2026-10-05) → Session P2 Services core**
 > Branch: `main`
 > Priority: **ƯU TIÊN TRƯỚC Sprint B2 (HR-Payroll)** — quyết định user 2026-10-05 (D5)
 
@@ -62,7 +62,7 @@ Xây **Appointment Booking Infrastructure** dùng chung cho tenant mô hình d�
 
 | Phase | Nội dung | Layer | Task card | Trạng thái |
 |---|---|---|---|---|
-| **1** | **Domain + EF + migration PG + seed** — Staff/StaffService/StaffWorkingSchedule/StaffScheduleOverride/ServiceCategory/AppointmentOffering/AppointmentOfferingItem/AddOn/QRChannel/AttributionSession/Booking/BookingItem/BookingStaffAssignment/PaymentTransaction/InvoiceIntegrationRecord/BookingEvent/CommissionRule/CommissionLedgerEntry/BookingTenantConfig (19 entity + 6 enum) | 1_Shared + 2_Gateway (migrations) | `task_booking_phase1_domain.md` | ⏳ pending |
+| **1** | **Domain + EF + migration PG + seed** — Staff/StaffService/StaffWorkingSchedule/StaffScheduleOverride/ServiceCategory/AppointmentOffering/AppointmentOfferingItem/AddOn/QRChannel/AttributionSession/Booking/BookingItem/BookingStaffAssignment/PaymentTransaction/InvoiceIntegrationRecord/BookingEvent/CommissionRule/CommissionLedgerEntry/BookingTenantConfig (19 entity + 6 enum) | 1_Shared + 2_Gateway (migrations) | `task_booking_phase1_domain.md` | ✅ `a8ce5482` (26 tests PASS) |
 | **2** | **Services core** — IStaffService · IOfferingService · IAvailabilityService (skill match + schedule + conflict) · IBookingService (state machine + idempotency + **double-booking prevention** + audit events + outbox) | 3_CoreHub | `task_booking_phase2_services.md` | ⏳ pending |
 | **3** | **Services QR/Commission/Financial + Order hook** — IQRAttributionService (first-qualified-wins + expiry) · ICommissionService (qualification = COMPLETED + paid + attribution valid; reversal; ledger hợp nhất D3) · TaxWithholdingPolicy adapter (NĐ 253/2026 — 5tr/lần, KHÔNG hard-code 10%) · IBookingFinancialService (deposit classification SECURITY/PREPAYMENT/FINAL + InvoiceIntegrationRecord + outbox facts) · **hook Booking→Order (D2)** | 3_CoreHub | `task_booking_phase3_services2.md` | ⏳ pending |
 | **4** | **Public API (Gateway) + KhachLink customer UI** — 6 public endpoints (QR resolve, offerings, availability, create + Idempotency-Key, status polling + ETag, cancel) · 4 screens tap-first + Status page (5s/10-15s polling, terminal-stop) · Quick Tags + SpeechRecognition JS interop (text-only, fallback input) · lazy-load route | 2_Gateway + 5_WebApps/KhachLink | `task_booking_phase4_public_api_ui.md` | ⏳ pending |
