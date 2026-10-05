@@ -2,8 +2,8 @@
 
 > Created: 2026-08-21
 > Source: `Van_An_SRS_Financial_Intelligence_MVP2.md` + `Van_An_SRS_Inventory_Intelligence_Engine.md`
-> Updated: 2026-10-03
-> Status: **SPRINT A COMPLETE (deployed + RV pass) — Sprint B ACTIVE (user approved 2026-10-03) — HR-Payroll PROPOSED (pending user decision)**
+> Updated: 2026-10-05
+> Status: **SPRINT A + B COMPLETE (deployed + RV pass) — SPRINT C-D ACTIVE (P3+P4a+P4b code done 2026-10-05, chờ deploy RV) — HR-Payroll PROPOSED (sau VA-IIE P3-4)**
 
 ## SEQUENCE DECISION
 
@@ -29,9 +29,9 @@
 | # | Item | Sprint | Effort | Risk | Status |
 |---|---|---|---|---|---|
 | 1 | Financial Intelligence MVP-2 | A | 2-3 tuần | Thấp | ✅ **COMPLETE 2026-10-03** — deployed + RV pass |
-| 2 | VA-IIE Phase 1-2 (Shift + Variance + Alert) | B | 3-4 tuần | Trung bình | ▶ **ACTIVE** (user approved 2026-10-03) |
-| 3 | VA-IIE Phase 3 (Forecast) | C (defer) | 1 tuần | Thấp | Pending (sau Sprint B) |
-| 4 | VA-IIE Phase 4 (Export + Bot) | D (defer) | 1 tuần | Thấp | Pending (sau Sprint B) |
+| 2 | VA-IIE Phase 1-2 (Shift + Variance + Alert) | B | 3-4 tuần | Trung bình | ✅ **COMPLETE 2026-10-03/04** — deployed + RV pass |
+| 3 | VA-IIE Phase 3 (Forecast) | C (defer) | 1 tuần | Thấp | ▶ **ACTIVE 2026-10-05** (P3 code done `880b1249` — chờ deploy RV) |
+| 4 | VA-IIE Phase 4 (Export + Bot) | D (defer) | 1 tuần | Thấp | ▶ **ACTIVE 2026-10-05** (P4a `4a94dd9e` + P4b `9ef418e8` — chờ deploy RV) |
 | 5 | VA-IIE Phase 5 (ML) | OUT (R&D) | — | — | — |
 | 6 | Business OS MVP-3 (Plan + Forecast) | E (future) | 2-3 tuần | Trung bình | Pending |
 | 7 | Business OS MVP-4 (Scenario) | F (future) | 2-3 tuần | Trung bình | Pending |
@@ -92,10 +92,14 @@
 
 **Task card:** `task_va_iie_phase1_2.md` — tạo khi bắt đầu Sprint B
 
-## SPRINT C-D: VA-IIE Phase 3-4 (DEFER — sau Sprint B)
+## SPRINT C-D: VA-IIE Phase 3-4 (ACTIVE — user approved 2026-10-05; code done, chờ deploy RV)
 
-- Phase 3: Restock Forecast + Stockout Forecast + Forecast UI (1 tuần)
-- Phase 4: Profitability per Item/Shift + Export PDF/Excel + Telegram/Zalo bot + PWA offline + E2E (1 tuần)
+> User directive 2026-10-05: **VA-IIE Phase 3-4 TRƯỚC → Sprint B2 SAU** (thay thứ tự cũ "sau Sprint B merge").
+> Task card: `task_va_iie_phase3_4.md` — 4 quyết định user chốt (bot config-only · PWA defer · Order.StaffId → B2 · forecast config per-tenant chung).
+
+- **Phase 3 (Forecast):** ✅ P3 code done (`880b1249`, 2026-10-05) — Restock + Stockout Forecast + Forecast UI + trend (1 tuần)
+- **Phase 4 (Polish):** ✅ P4a (`4a94dd9e`) Profitability per Item/Shift + Export PDF/Excel · ✅ P4b (`9ef418e8`) Telegram/Zalo bot config-only + E2E (1 tuần)
+- ⏳ P4c: Deploy + RV production → đóng task card + master plan status
 
 ## SPRINT B2: HR-PAYROLL — CHẤM CÔNG + TÍNH LƯƠNG + THƯỞNG (PROPOSED 2026-10-03 — SCOPE CHỐT 2026-10-03)
 
@@ -140,7 +144,7 @@
 1. **Sprint A (MVP-2)** — ✅ COMPLETE 2026-10-03 (deployed + RV pass)
 2. **Sprint B (VA-IIE Phase 1-2)** — ACTIVE (user approved 2026-10-03) — tạo task card + implement
 3. **Sprint B2 (HR-Payroll)** — PROPOSED — sau khi user chốt scope (xem SPRINT B2)
-4. **Sprint C-D (VA-IIE P3-4)** — sau Sprint B merge
+4. **Sprint C-D (VA-IIE P3-4)** — ACTIVE (user approved 2026-10-05, thứ tự: trước Sprint B2) — P3+P4a+P4b code done, chờ P4c deploy RV
 5. **Sprint E-F (Business OS MVP-3/4)** — sau MVP-2 stable 3-6 tháng + tenant demand
 
 ## CONSTRAINTS

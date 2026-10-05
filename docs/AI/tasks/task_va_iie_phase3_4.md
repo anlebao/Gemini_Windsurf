@@ -4,7 +4,7 @@
 > Source SRS: `docs/requirements/Van_An_SRS_Inventory_Intelligence_Engine.md` (§7.5 Forecast, §8.6 Forecast UI, §5.2 Analytics, Phase 3-4 roadmap §10)
 > Master plan: `docs/AI/tasks/master_plan_financial_intelligence_mvp2_va_iie.md` (SPRINT C-D, status DEFER → ACTIVE)
 > Branch: `main`
-> Status: PLANNED — chờ user review task card trước khi implement
+> Status: **CODE DONE P3 + P4a + P4b (2026-10-05: `880b1249` + `4a94dd9e` + `9ef418e8` — Core.Tests 1977 · ShopERP.Tests 136 · guard ALL PASSED) — ⏳ P4c Deploy + RV pending**
 
 ---
 
@@ -31,49 +31,49 @@
 
 ### Phase 3 — Forecasting (SRS §7.5, §8.6)
 
-- [ ] **P3.1 Domain (1_Shared/Domain.cs, Single-Identity):** `VaIIeTenantConfig` entity mới — per-tenant 1 row (precedent `LoyaltyTenantConfig`), lưu ShopERP SQLite:
+- [x] **P3.1 Domain (1_Shared/Domain.cs, Single-Identity):** `VaIIeTenantConfig` entity mới — per-tenant 1 row (precedent `LoyaltyTenantConfig`), lưu ShopERP SQLite:
   - `AvgDailyConsumptionWindowDays` (int = 14) — rolling window ADC (SRS §7.5)
   - `LeadTimeDays` (int = 2) — thời gian nhập hàng (SRS: "Lead Time")
   - `SafetyDays` (int = 1) — ngày an toàn (SRS: "Safety Days")
   - Notification (Phase 4, config-only): `TelegramEnabled` (bool=false), `TelegramBotToken` (string? masked), `TelegramChatId` (string?), `ZaloEnabled` (bool=false), `ZaloAccessToken` (string? masked), `ZaloRecipientId` (string?)
   - Constructor `Id = VaIIeTenantConfigId.Value` sync + EF `Ignore` VO + update methods (`UpdateForecastConfig`, `UpdateNotificationConfig`) + `UpdateAudit()`
   - **KHÔNG thêm field per-ingredient** (LeadTime/SafetyDays per-tenant chung — quyết định user 2026-10-05)
-- [ ] **P3.2 EF config + migration ShopERP** (`AddVaIIeTenantConfig`) + `DbSet` trên ShopERPDbContext + IVanAnDbContext + seed mặc định cho tenant F&B hiện hữu (get-or-create khi đọc — fallback defaults, không cần backfill data)
-- [ ] **P3.3 `IForecastService` + `ForecastService`** (`3_CoreHub/Services/InventoryIntelligence/`, namespace `VanAn.CoreHub.Services.InventoryIntelligence`):
+- [x] **P3.2 EF config + migration ShopERP** (`AddVaIIeTenantConfig`) + `DbSet` trên ShopERPDbContext + IVanAnDbContext + seed mặc định cho tenant F&B hiện hữu (get-or-create khi đọc — fallback defaults, không cần backfill data)
+- [x] **P3.3 `IForecastService` + `ForecastService`** (`3_CoreHub/Services/InventoryIntelligence/`, namespace `VanAn.CoreHub.Services.InventoryIntelligence`):
   - `GetForecastAsync(TenantId, ct)` → `ForecastReport` { GeneratedAt, WindowDays, LeadTimeDays, SafetyDays, Items[] }
   - **ADC (AvgDailyConsumption)** per ingredient = Σ `TheoreticalConsumption.TheoreticalQuantity` trong window [now − WindowDays, now] ÷ **số ngày có dữ liệu ca trong window** (min 1; 0 ca → `HasData=false` — "Chưa đủ dữ liệu"); **filter theo TenantId** (bài học multi-tenancy a21f97f2 — KHÔNG query cross-tenant, join Shift để lấy TenantId + ShiftDate)
   - **StockoutDays** = `CurrentStock` ÷ ADC (ADC > 0); nếu ADC = 0 hoặc CurrentStock = 0 → xử lý edge (0 ngày → Critical "hết hàng")
   - **Restock suggestion** = max(0, ADC × (LeadTimeDays + SafetyDays) − CurrentStock) (làm tròn lên 0.5 đơn vị — round half up theo Unit)
   - **Trạng thái:** Critical (StockoutDays ≤ LeadTime+Safety) / Warning (StockoutDays ≤ 2×(LeadTime+Safety)) / OK / NoData
   - **Trend:** 14 ngày gần nhất — tiêu hao theo ngày per ingredient (cho UI trend table)
-- [ ] **P3.4 UI `/inventory/forecast` (Forecast.razor)** — UI Platform 100% (Gate 5):
+- [x] **P3.4 UI `/inventory/forecast` (Forecast.razor)** — UI Platform 100% (Gate 5):
   - Card cấu hình forecast (Owner): WindowDays / LeadTimeDays / SafetyDays → save `VaIIeTenantConfig` (modal VanAnModal + VanAForm, precedent AlertCenter/ShiftReport)
   - Bảng **Restock Forecast**: nguyên liệu, tồn kho, ADC, ngày còn lại, đề xuất nhập (số + đơn vị) + badge trạng thái
   - Bảng **Stockout Forecast**: nguyên liệu, ngày còn lại (StockoutDays), ngưỡng (LeadTime+Safety), badge Critical/Warning/OK
   - **Trend table**: tiêu hao 7/14 ngày per ingredient (progress bar precedent InventoryDashboard — KHÔNG thêm chart lib mới)
   - NavMenu "Dự báo" (Owner/StoreKeeper) + Sitemap card
-- [ ] **P3.5 Tests:** `ForecastServiceTests` (ADC rolling window, stockout days, restock qty, edge: no-data/ADC=0/CurrentStock=0, làm tròn) + integration (seed shifts → forecast đúng) + bUnit `ForecastPageTests` → Core.Tests + ShopERP.Tests PASS
+- [x] **P3.5 Tests:** `ForecastServiceTests` (ADC rolling window, stockout days, restock qty, edge: no-data/ADC=0/CurrentStock=0, làm tròn) + integration (seed shifts → forecast đúng) + bUnit `ForecastPageTests` → Core.Tests + ShopERP.Tests PASS
 
 ### Phase 4 — Polish & Integration (SRS §5.2, §8.5, §10 Phase 4)
 
-- [ ] **P4.1 Profitability per Item / per Shift:** mở rộng `IFoodCostService` (hoặc service con `IProfitabilityService`):
+- [x] **P4.1 Profitability per Item / per Shift:** mở rộng `IFoodCostService` (hoặc service con `IProfitabilityService`):
   - Per Item: `ProfitabilityPerItem` = Revenue − FoodCost per món (kế thừa `FoodCostPerItem` đã có — thêm field `Profit`/`ProfitPercent`)
   - Per Shift: `ShiftProfitability` = Sales − Cogs (đã có trong `FoodCostReport` — expose qua DTO mới `ProfitabilityReport`)
   - UI: section "Lợi nhuận ca" trên ShiftReport (tóm tắt 6 phần) + widget top món lãi/lỗ trên InventoryDashboard
-- [ ] **P4.2 Export PDF/Excel:**
+- [x] **P4.2 Export PDF/Excel:**
   - **Excel:** `VaIIeExportService` (ShopERP `Services/`, EPPlus — precedent `FinancialExportService`, đã có trong Directory.Packages.props 7.6.1):
     - `ExportShiftReportExcelAsync` (6 phần báo cáo ca — SRS §5.1)
     - `ExportForecastExcelAsync` (Restock + Stockout + config)
     - `ExportAnalyticsExcelAsync` (Variance + Food Cost per shift — nguồn ShiftReport/InventoryDashboard data)
   - **PDF:** print view qua `vananPrintBill` (precedent Tt71ReceiptVoucher/PrintBill — repo KHÔNG có PDF lib server-side; user duyệt approach này trong task card) — thêm CSS print + nút "In báo cáo" trên ShiftReport
   - Nút "Xuất Excel" + "In" trên ShiftReport / Forecast / InventoryDashboard (download qua `vanAn.downloadFile` — precedent BreakEven.razor)
-- [ ] **P4.3 Bot alert — CONFIG-ONLY (quyết định user 2026-10-05):**
+- [x] **P4.3 Bot alert — CONFIG-ONLY (quyết định user 2026-10-05):**
   - `IAlertNotifier` interface (SendCriticalAsync/SendWarningAsync — `3_CoreHub/Services/InventoryIntelligence/`)
   - `NullAlertNotifier` (log-only, fail-safe khi chưa cấu hình) + `TelegramAlertNotifier`/`ZaloAlertNotifier` **stub** (định nghĩa contract + payload, KHÔNG gọi API thật — chưa có token; ghi chú "khi có token → implement HTTP call")
   - Config UI: modal trên AlertCenter (Owner) — Telegram (enabled, bot token masked, chat id) + Zalo (enabled, access token masked, recipient) → `VaIIeTenantConfig.UpdateNotificationConfig`
   - Hook: sau `SubmitShiftAsync` sinh alert → gọi notifier cho Critical (log-only ở MVP)
   - **Secret governance:** token hiển thị masked (••••), KHÔNG echo vào log/conversation, không commit token
-- [ ] **P4.4 E2E Gate 4:** spec `va-iie-forecast.spec.ts` (Forecast page render: config card + 2 bảng hoặc empty state; nút Xuất Excel/In render) + extend `va-iie-shift.spec.ts` nếu cần (nút export trên ShiftReport)
+- [x] **P4.4 E2E Gate 4:** spec `va-iie-forecast.spec.ts` (Forecast page render: config card + 2 bảng hoặc empty state; nút Xuất Excel/In render) + extend `va-iie-shift.spec.ts` nếu cần (nút export trên ShiftReport)
 - [ ] **P4.5 Validation & RV:** `guard-check.ps1` + `dotnet build VanAn.sln` + Core.Tests + ShopERP.Tests ALL PASS → deploy (CD Multi-VPS) → RV 5 lớp (L1 API/markers → L2 login → L3 E2E → L4 flow → L5 manual) → cập nhật project_state + master plan + đóng task card
 
 ## 4. USER DECISIONS — ĐÃ CHỐT (2026-10-05)
