@@ -4,7 +4,7 @@
 > Source SRS: `docs/requirements/van_an_appointment_booking_srs_v1.1_mvp (1).md` (v1.1 MVP — 44 sections)
 > Master plan: `docs/AI/plans/booking-scheduling-master-plan.md` (ACTIVE — chờ approve)
 > Branch: `main`
-> Status: **P1 DONE (2026-10-05, `a8ce5482` — guard ALL PASSED · build 0 errors · BookingDomainTests 26 PASS) — ⏳ Session P2 Services core**
+> Status: **P1 + P2 DONE (2026-10-05, `a8ce5482` + `1a98c7b9` — guard ALL PASSED · build 0 errors · BookingDomainTests 26 PASS + BookingServiceTests 47 PASS) — ⏳ Session P3 QR/Commission/Financial**
 
 ---
 
@@ -46,14 +46,14 @@
 - [x] **P1.4 Seed:** service categories mẫu + 1 tenant demo (get-or-create — không bắt buộc backfill)
 - [x] **P1.5 Tests:** entity lifecycle (booking 9-state transitions hợp lệ/bất hợp lệ, snapshot, ledger immutability + reversal) → Core.Tests PASS
 
-### Phase 2 — Services core (task `task_booking_phase2_services.md`)
+### Phase 2 — Services core (task `task_booking_phase2_services.md`) ✅ DONE `1a98c7b9`
 
-- [ ] **P2.1 `IStaffService`** (`3_CoreHub/Services/Booking/`, namespace `VanAn.CoreHub.Services.Booking`): CRUD staff + skills + schedule + override — **mọi query filter TenantId** (lesson a21f97f2)
-- [ ] **P2.2 `IOfferingService`:** CRUD category/offering/package/add-on (snapshot fields — đổi catalog không ảnh hưởng booking cũ)
-- [ ] **P2.3 `IAvailabilityService`:** `GetAvailableSlotsAsync(tenantId, offeringId, date, staffId?)` — active ∧ skill match ∧ working interval ∧ không break/leave/unavailable ∧ không conflict (SRS §11.4-11.5); tenant admin xem lý do unavailable tối thiểu; **chỉ trả available cho customer** (Risk 3)
-- [ ] **P2.4 `IBookingService`:** create (Idempotency-Key §21.1) · state machine (validate §9.3, backend authoritative §37.2) · confirm/reject idempotent (§21.2) · assign/change staff (idempotent + re-check conflict §21.3/§13) · check-in/start/complete · cancel theo policy · status polling DTO (public token, ETag-ready §10.3) · BookingEvent mọi transition (§23-24)
-- [ ] **P2.5 Double-booking prevention (§12, AC-C04):** server re-check + atomic conflict transaction PG (SELECT … FOR UPDATE precedent WalletService HR-SCALE-3) → tối đa 1 request thành công; business conflict 409 message tiếng Việt thân thiện (§6.5) — **KHÔNG stub, KHÔNG dựa UI lock**
-- [ ] **P2.6 Tests:** integration — create/idempotent/confirm/assign/**race 2 requests**/isolation → Core.Tests PASS
+- [x] **P2.1 `IStaffService`** (`3_CoreHub/Services/Booking/`, namespace `VanAn.CoreHub.Services.Booking`): CRUD staff + skills + schedule + override — **mọi query filter TenantId** (lesson a21f97f2)
+- [x] **P2.2 `IOfferingService`:** CRUD category/offering/package/add-on (snapshot fields — đổi catalog không ảnh hưởng booking cũ)
+- [x] **P2.3 `IAvailabilityService`:** `GetAvailableSlotsAsync(tenantId, offeringId, date, staffId?)` — active ∧ skill match ∧ working interval ∧ không break/leave/unavailable ∧ không conflict (SRS §11.4-11.5); tenant admin xem lý do unavailable tối thiểu (matrix §14); **chỉ trả available cho customer** (Risk 3)
+- [x] **P2.4 `IBookingService`:** create (Idempotency-Key §21.1 qua `BookingIdempotencyRecord` infra entity) · state machine (validate §9.3, backend authoritative §37.2) · confirm/reject idempotent (§21.2) · assign/change staff (idempotent + re-check conflict §21.3/§13) · check-in/start/complete · cancel theo policy · status polling DTO (public token, ETag-ready §10.3) · BookingEvent mọi transition (§23-24)
+- [x] **P2.5 Double-booking prevention (§12, AC-C04):** server re-check + atomic conflict transaction PG (advisory lock + SELECT … FOR UPDATE — precedent WalletService HR-SCALE-3) + unique index (TenantId, StaffId, StartAt) → tối đa 1 request thành công; business conflict 409 message tiếng Việt thân thiện (§6.5) — **KHÔNG stub, KHÔNG dựa UI lock**
+- [x] **P2.6 Tests:** integration — create/idempotent/confirm/assign/**race 2 requests**/isolation (+47: Staff 8 · Offering 6 · Availability 11 · BookingService 19 · Concurrency 3) → Core.Tests 2054 PASS
 
 ### Phase 3 — QR/Commission/Financial services + Order hook (task `task_booking_phase3_services2.md`)
 
