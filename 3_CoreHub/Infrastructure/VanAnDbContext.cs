@@ -228,6 +228,28 @@ namespace VanAn.CoreHub.Infrastructure
         // form giấy scan). PG-only. Append-only evidence.
         public DbSet<MembershipDocument> MembershipDocuments { get; set; }
 
+        // Booking & Staff Scheduling (SRS v1.1 MVP — 2026-10-05, plan booking-scheduling-master-plan.md).
+        // PG-ONLY (D1 — Gateway source of truth). KHÔNG thêm vào IVanAnDbContext (tránh ShopERPDbContext SQLite).
+        public DbSet<BookingTenantConfig> BookingTenantConfigs { get; set; }
+        public DbSet<ServiceCategory> ServiceCategories { get; set; }
+        public DbSet<AppointmentOffering> AppointmentOfferings { get; set; }
+        public DbSet<AppointmentOfferingItem> AppointmentOfferingItems { get; set; }
+        public DbSet<AddOn> AddOns { get; set; }
+        public DbSet<Staff> Staffs { get; set; }
+        public DbSet<StaffService> StaffServices { get; set; }
+        public DbSet<StaffWorkingSchedule> StaffWorkingSchedules { get; set; }
+        public DbSet<StaffScheduleOverride> StaffScheduleOverrides { get; set; }
+        public DbSet<QRChannel> QRChannels { get; set; }
+        public DbSet<AttributionSession> AttributionSessions { get; set; }
+        public DbSet<Booking> Bookings { get; set; }
+        public DbSet<BookingItem> BookingItems { get; set; }
+        public DbSet<BookingStaffAssignment> BookingStaffAssignments { get; set; }
+        public DbSet<BookingEvent> BookingEvents { get; set; }
+        public DbSet<PaymentTransaction> PaymentTransactions { get; set; }
+        public DbSet<InvoiceIntegrationRecord> InvoiceIntegrationRecords { get; set; }
+        public DbSet<CommissionRule> CommissionRules { get; set; }
+        public DbSet<CommissionLedgerEntry> CommissionLedgerEntries { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

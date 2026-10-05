@@ -5345,4 +5345,1133 @@ namespace VanAn.Shared.Domain
     }
 
     public record GuardScanLogId(Guid Value);
+
+    // ============================================================================
+    // BOOKING & STAFF SCHEDULING (SRS v1.1 MVP — 2026-10-05, plan booking-scheduling-master-plan.md)
+    // Data lives in Gateway PG ONLY (D1) — no SQLite replica. Single-Identity Pattern 100%.
+    // ============================================================================
+
+    // --- Enums ---
+
+    /// <summary>Customer-visible booking statuses (SRS §9.1).</summary>
+    public enum BookingStatus
+    {
+        PendingConfirmation = 1,
+        Confirmed = 2,
+        StaffAssigned = 3,
+        CheckedIn = 4,
+        InService = 5,
+        Completed = 6,
+        Cancelled = 7,
+        Rejected = 8,
+        NoShow = 9
+    }
+
+    /// <summary>Internal sub-states (SRS §9.2) — không tạo top-level status phức tạp UI.</summary>
+    public enum BookingSubState
+    {
+        None = 0,
+        DepositPending = 1,
+        DepositPaid = 2,
+        DepositFailed = 3,
+        StaffAssignmentPending = 4,
+        RescheduleRequested = 5
+    }
+
+    /// <summary>Payment states (SRS §16.3).</summary>
+    public enum PaymentStatus
+    {
+        NotRequired = 0,
+        Pending = 1,
+        Paid = 2,
+        Failed = 3,
+        PartiallyRefunded = 4,
+        Refunded = 5,
+        Forfeited = 6
+    }
+
+    /// <summary>Invoice integration states (SRS §16.4). Tên đổi thành BookingInvoiceStatus để tránh xung đột enum InvoiceStatus (e-invoice engine).</summary>
+    public enum BookingInvoiceStatus
+    {
+        NotRequired = 0,
+        Pending = 1,
+        Issued = 2,
+        Failed = 3,
+        Cancelled = 4
+    }
+
+    /// <summary>Invoice trigger — snapshot tax/integration policy (SRS §16.4). KHÔNG cho frontend tự chọn.</summary>
+    public enum InvoiceTrigger
+    {
+        NotApplicable = 0,
+        OnPayment = 1,
+        OnCompletion = 2,
+        ExternalRule = 3
+    }
+
+    /// <summary>Offering type (SRS §8.2). Package có duration đã cấu hình trước.</summary>
+    public enum OfferingType
+    {
+        Service = 1,
+        Package = 2
+    }
+
+    /// <summary>Schedule override type (SRS §11.3 — exact date override / leave / unavailable / break).</summary>
+    public enum StaffScheduleOverrideType
+    {
+        Working = 1,
+        Leave = 2,
+        Unavailable = 3,
+        Break = 4
+    }
+
+    /// <summary>Deposit policy modes (SRS §16.1).</summary>
+    public enum DepositPolicy
+    {
+        None = 0,
+        Fixed = 1,
+        Percentage = 2
+    }
+
+    /// <summary>Bản chất khoản tiền (SRS §16.2) — phân biệt đặt cọc/tạm ứng/thanh toán để HĐĐT+kế toán quyết định đúng.</summary>
+    public enum MoneyNatureType
+    {
+        SecurityDeposit = 1,        // khoản đặt cọc/bảo đảm thực hiện
+        PrepaymentForService = 2,   // tiền trả trước cho dịch vụ
+        FinalPayment = 3            // tiền thanh toán khi hoàn tất
+    }
+
+    /// <summary>Commission ledger source (D3 — ledger hợp nhất BOOKING | ORDER).</summary>
+    public enum CommissionSourceType
+    {
+        Booking = 1,
+        Order = 2
+    }
+
+    /// <summary>Commission ledger states (SRS §17.4). Immutable sau finalized — reversal tạo entry mới.</summary>
+    public enum CommissionLedgerState
+    {
+        Pending = 1,
+        Earned = 2,
+        Voided = 3,
+        Paid = 4,
+        Reversed = 5
+    }
+
+    public enum CommissionType
+    {
+        FixedAmount = 1,
+        Percentage = 2
+    }
+
+    /// <summary>Qualification — MVP single rule: COMPLETED + payment qualified + attribution valid (SRS §17.1).</summary>
+    public enum CommissionQualificationStatus
+    {
+        Qualified = 1
+    }
+
+    /// <summary>Loại người nhận commission (SRS §17.2) — phục vụ thuế/chi trả.</summary>
+    public enum TaxPayeeType
+    {
+        Employee = 1,
+        IndividualContractor = 2,
+        BusinessEntity = 3,
+        Other = 4
+    }
+
+    // --- Entities ---
+
+    /// <summary>
+    /// Per-tenant booking feature config (Q5 chốt 2026-10-05): chỉ tenant enabled mới resolve QR/bookings.
+    /// Pattern VaIIeTenantConfig (get-or-create, 1 row/tenant, unique TenantId index).
+    /// </summary>
+    public class BookingTenantConfig : BaseEntity
+    {
+        public BookingTenantConfigId BookingTenantConfigId { get; protected set; } = new BookingTenantConfigId(Guid.NewGuid());
+
+        // Feature-flag (Q5): default OFF — chỉ tenant demo/dịch vụ được enable; không regress F&B.
+        public bool IsEnabled { get; protected set; }
+
+        // Deposit policy (SRS §16.1): NONE / FIXED / PERCENTAGE (nếu payment engine hỗ trợ).
+        public DepositPolicy DepositPolicy { get; protected set; } = DepositPolicy.None;
+        public decimal? DepositFixedAmount { get; protected set; }
+        public decimal? DepositPercentage { get; protected set; }
+
+        // Cancel/reschedule policy text hiển thị cho khách (SRS §5.2 Screen 4).
+        public string? CancelReschedulePolicy { get; protected set; }
+
+        // E-invoice applicability profile ref (SRS §16.5) — snapshot theo tax profile của Accounting module.
+        public string? EinvoiceMode { get; protected set; }
+
+        protected BookingTenantConfig() { }
+
+        public BookingTenantConfig(TenantId tenantId)
+            : base(tenantId)
+        {
+            Id = BookingTenantConfigId.Value;
+        }
+
+        public void Enable() { IsEnabled = true; UpdateAudit(); }
+        public void Disable() { IsEnabled = false; UpdateAudit(); }
+
+        public void UpdateDepositPolicy(DepositPolicy policy, decimal? fixedAmount, decimal? percentage)
+        {
+            if (policy == DepositPolicy.Fixed && (fixedAmount is null or <= 0))
+                throw new ArgumentException("DepositPolicy.Fixed yêu cầu DepositFixedAmount > 0.", nameof(fixedAmount));
+            if (policy == DepositPolicy.Percentage && (percentage is null or <= 0 or > 100))
+                throw new ArgumentException("DepositPolicy.Percentage yêu cầu DepositPercentage trong (0, 100].", nameof(percentage));
+            if (policy == DepositPolicy.None)
+            {
+                fixedAmount = null;
+                percentage = null;
+            }
+            DepositPolicy = policy;
+            DepositFixedAmount = fixedAmount;
+            DepositPercentage = percentage;
+            UpdateAudit();
+        }
+
+        public void UpdatePolicyText(string? cancelReschedulePolicy, string? einvoiceMode)
+        {
+            CancelReschedulePolicy = cancelReschedulePolicy;
+            EinvoiceMode = einvoiceMode;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>Service category cho catalog booking (SRS §19).</summary>
+    public class ServiceCategory : BaseEntity
+    {
+        public ServiceCategoryId ServiceCategoryId { get; protected set; } = new ServiceCategoryId(Guid.NewGuid());
+        public string Name { get; protected set; } = string.Empty;
+        public int DisplayOrder { get; protected set; }
+        public bool IsActive { get; protected set; } = true;
+
+        protected ServiceCategory() { }
+
+        public ServiceCategory(TenantId tenantId, string name, int displayOrder = 0)
+            : base(tenantId)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new ArgumentException("Category name required.", nameof(name));
+            Id = ServiceCategoryId.Value;
+            Name = name;
+            DisplayOrder = displayOrder;
+        }
+
+        public void Update(string name, int displayOrder, bool isActive)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new ArgumentException("Category name required.", nameof(name));
+            Name = name;
+            DisplayOrder = displayOrder;
+            IsActive = isActive;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// AppointmentOffering — đơn vị scheduling của MVP (SRS §8.2). Duration + price SNAPSHOT tại booking time.
+    /// Khách KHÔNG tự ghép N service — package/combo do tenant cấu hình (SRS §5.2 MVP rule).
+    /// </summary>
+    public class AppointmentOffering : BaseEntity
+    {
+        public AppointmentOfferingId AppointmentOfferingId { get; protected set; } = new AppointmentOfferingId(Guid.NewGuid());
+        public Guid? CategoryId { get; protected set; }
+        public OfferingType OfferingType { get; protected set; } = OfferingType.Service;
+        public string DisplayName { get; protected set; } = string.Empty;
+        public int DurationMinutes { get; protected set; }          // thời lượng scheduling (snapshot)
+        public decimal Price { get; protected set; }                // giá dự kiến (snapshot)
+        public string? RequiredSkillCode { get; protected set; }    // optional — eligibility chính qua StaffService junction
+        public string? Description { get; protected set; }
+        public bool IsActive { get; protected set; } = true;
+
+        protected AppointmentOffering() { }
+
+        public AppointmentOffering(
+            TenantId tenantId, string displayName, OfferingType offeringType,
+            int durationMinutes, decimal price, Guid? categoryId = null,
+            string? requiredSkillCode = null, string? description = null)
+            : base(tenantId)
+        {
+            if (string.IsNullOrWhiteSpace(displayName))
+                throw new ArgumentException("Offering name required.", nameof(displayName));
+            if (durationMinutes <= 0)
+                throw new ArgumentException("DurationMinutes phải > 0.", nameof(durationMinutes));
+            if (price < 0)
+                throw new ArgumentException("Price không được âm.", nameof(price));
+            Id = AppointmentOfferingId.Value;
+            DisplayName = displayName;
+            OfferingType = offeringType;
+            DurationMinutes = durationMinutes;
+            Price = price;
+            CategoryId = categoryId;
+            RequiredSkillCode = requiredSkillCode;
+            Description = description;
+        }
+
+        public void Update(
+            string displayName, OfferingType offeringType, int durationMinutes, decimal price,
+            Guid? categoryId, string? requiredSkillCode, string? description, bool isActive)
+        {
+            if (string.IsNullOrWhiteSpace(displayName))
+                throw new ArgumentException("Offering name required.", nameof(displayName));
+            if (durationMinutes <= 0)
+                throw new ArgumentException("DurationMinutes phải > 0.", nameof(durationMinutes));
+            if (price < 0)
+                throw new ArgumentException("Price không được âm.", nameof(price));
+            DisplayName = displayName;
+            OfferingType = offeringType;
+            DurationMinutes = durationMinutes;
+            Price = price;
+            CategoryId = categoryId;
+            RequiredSkillCode = requiredSkillCode;
+            Description = description;
+            IsActive = isActive;
+            UpdateAudit();
+        }
+
+        public void Activate() { IsActive = true; UpdateAudit(); }
+        public void Deactivate() { IsActive = false; UpdateAudit(); }
+    }
+
+    /// <summary>Package item — snapshot child service (SRS §8.2: package duration đã cấu hình trước).</summary>
+    public class AppointmentOfferingItem : BaseEntity
+    {
+        public AppointmentOfferingItemId AppointmentOfferingItemId { get; protected set; } = new AppointmentOfferingItemId(Guid.NewGuid());
+        public Guid OfferingId { get; protected set; }          // parent package
+        public Guid? ChildOfferingId { get; protected set; }    // nullable — service offering nếu có
+        public string ChildName { get; protected set; } = string.Empty;   // snapshot
+        public int Quantity { get; protected set; } = 1;
+        public decimal UnitPriceSnapshot { get; protected set; }
+
+        protected AppointmentOfferingItem() { }
+
+        public AppointmentOfferingItem(TenantId tenantId, Guid offeringId, string childName, int quantity, decimal unitPriceSnapshot, Guid? childOfferingId = null)
+            : base(tenantId)
+        {
+            if (string.IsNullOrWhiteSpace(childName))
+                throw new ArgumentException("Child name required.", nameof(childName));
+            if (quantity <= 0)
+                throw new ArgumentException("Quantity phải > 0.", nameof(quantity));
+            Id = AppointmentOfferingItemId.Value;
+            OfferingId = offeringId;
+            ChildOfferingId = childOfferingId;
+            ChildName = childName;
+            Quantity = quantity;
+            UnitPriceSnapshot = unitPriceSnapshot;
+        }
+    }
+
+    /// <summary>AddOn — chỉ non-scheduling (SRS §8.3): nước uống/sản phẩm/phụ thu cố định.</summary>
+    public class AddOn : BaseEntity
+    {
+        public AddOnId AddOnId { get; protected set; } = new AddOnId(Guid.NewGuid());
+        public string Name { get; protected set; } = string.Empty;
+        public decimal Price { get; protected set; }
+        public bool IsActive { get; protected set; } = true;
+
+        protected AddOn() { }
+
+        public AddOn(TenantId tenantId, string name, decimal price)
+            : base(tenantId)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new ArgumentException("Add-on name required.", nameof(name));
+            if (price < 0)
+                throw new ArgumentException("Price không được âm.", nameof(price));
+            Id = AddOnId.Value;
+            Name = name;
+            Price = price;
+        }
+
+        public void Update(string name, decimal price, bool isActive)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new ArgumentException("Add-on name required.", nameof(name));
+            if (price < 0)
+                throw new ArgumentException("Price không được âm.", nameof(price));
+            Name = name;
+            Price = price;
+            IsActive = isActive;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// Staff — nhân viên/kỹ thuật viên/bác sĩ (SRS §11.1). StaffUserId nullable FK → Users.Id (precedent Shift.StaffUserId)
+    /// — B2 HR-Payroll sẽ dùng. Eligibility qua StaffService junction (SRS §11.2).
+    /// </summary>
+    public class Staff : BaseEntity
+    {
+        public StaffId StaffId { get; protected set; } = new StaffId(Guid.NewGuid());
+        public string DisplayName { get; protected set; } = string.Empty;
+        public string? Role { get; protected set; }          // "Technician"/"Doctor"/"Hairdresser" — flexible
+        public string? AvatarUrl { get; protected set; }
+        public Guid? StaffUserId { get; protected set; }     // FK → Users.Id (nullable — MVP cho phép staff chưa có user)
+        public bool IsActive { get; protected set; } = true;
+
+        protected Staff() { }
+
+        public Staff(TenantId tenantId, string displayName, string? role = null, Guid? staffUserId = null)
+            : base(tenantId)
+        {
+            if (string.IsNullOrWhiteSpace(displayName))
+                throw new ArgumentException("Staff display name required.", nameof(displayName));
+            Id = StaffId.Value;
+            DisplayName = displayName;
+            Role = role;
+            StaffUserId = staffUserId;
+        }
+
+        public void Update(string displayName, string? role, string? avatarUrl, Guid? staffUserId, bool isActive)
+        {
+            if (string.IsNullOrWhiteSpace(displayName))
+                throw new ArgumentException("Staff display name required.", nameof(displayName));
+            DisplayName = displayName;
+            Role = role;
+            AvatarUrl = avatarUrl;
+            StaffUserId = staffUserId;
+            IsActive = isActive;
+            UpdateAudit();
+        }
+
+        public void Activate() { IsActive = true; UpdateAudit(); }
+        public void Deactivate() { IsActive = false; UpdateAudit(); }
+    }
+
+    /// <summary>Staff ↔ Offering eligibility junction (SRS §11.2). Unique (StaffId, OfferingId).</summary>
+    public class StaffService : BaseEntity
+    {
+        public StaffServiceId StaffServiceId { get; protected set; } = new StaffServiceId(Guid.NewGuid());
+        public Guid StaffId { get; protected set; }
+        public Guid OfferingId { get; protected set; }
+
+        protected StaffService() { }
+
+        public StaffService(TenantId tenantId, Guid staffId, Guid offeringId)
+            : base(tenantId)
+        {
+            Id = StaffServiceId.Value;
+            StaffId = staffId;
+            OfferingId = offeringId;
+        }
+    }
+
+    /// <summary>Working schedule — weekday recurring + break (SRS §11.3).</summary>
+    public class StaffWorkingSchedule : BaseEntity
+    {
+        public StaffWorkingScheduleId StaffWorkingScheduleId { get; protected set; } = new StaffWorkingScheduleId(Guid.NewGuid());
+        public Guid StaffId { get; protected set; }
+        public int Weekday { get; protected set; }             // 0=Sunday .. 6=Saturday (DayOfWeek)
+        public TimeSpan StartTime { get; protected set; }
+        public TimeSpan EndTime { get; protected set; }
+        public TimeSpan? BreakStart { get; protected set; }
+        public TimeSpan? BreakEnd { get; protected set; }
+        public bool IsActive { get; protected set; } = true;
+
+        protected StaffWorkingSchedule() { }
+
+        public StaffWorkingSchedule(TenantId tenantId, Guid staffId, int weekday, TimeSpan startTime, TimeSpan endTime, TimeSpan? breakStart = null, TimeSpan? breakEnd = null)
+            : base(tenantId)
+        {
+            if (weekday is < 0 or > 6)
+                throw new ArgumentException("Weekday phải trong [0,6] (DayOfWeek).", nameof(weekday));
+            if (startTime >= endTime)
+                throw new ArgumentException("StartTime phải < EndTime.", nameof(startTime));
+            Id = StaffWorkingScheduleId.Value;
+            StaffId = staffId;
+            Weekday = weekday;
+            StartTime = startTime;
+            EndTime = endTime;
+            BreakStart = breakStart;
+            BreakEnd = breakEnd;
+        }
+
+        public void Update(TimeSpan startTime, TimeSpan endTime, TimeSpan? breakStart, TimeSpan? breakEnd, bool isActive)
+        {
+            if (startTime >= endTime)
+                throw new ArgumentException("StartTime phải < EndTime.", nameof(startTime));
+            StartTime = startTime;
+            EndTime = endTime;
+            BreakStart = breakStart;
+            BreakEnd = breakEnd;
+            IsActive = isActive;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>Exact date override — working/leave/unavailable/break (SRS §11.3).</summary>
+    public class StaffScheduleOverride : BaseEntity
+    {
+        public StaffScheduleOverrideId StaffScheduleOverrideId { get; protected set; } = new StaffScheduleOverrideId(Guid.NewGuid());
+        public Guid StaffId { get; protected set; }
+        public DateTime Date { get; protected set; }           // date-only (normalized UTC date)
+        public StaffScheduleOverrideType OverrideType { get; protected set; }
+        public TimeSpan? StartTime { get; protected set; }
+        public TimeSpan? EndTime { get; protected set; }
+        public string? Note { get; protected set; }
+
+        protected StaffScheduleOverride() { }
+
+        public StaffScheduleOverride(
+            TenantId tenantId, Guid staffId, DateTime date, StaffScheduleOverrideType overrideType,
+            TimeSpan? startTime = null, TimeSpan? endTime = null, string? note = null)
+            : base(tenantId)
+        {
+            Id = StaffScheduleOverrideId.Value;
+            StaffId = staffId;
+            Date = date.Date;
+            OverrideType = overrideType;
+            StartTime = startTime;
+            EndTime = endTime;
+            Note = note;
+        }
+    }
+
+    /// <summary>
+    /// QRChannel — opaque qr_token, hash lưu DB (SRS §7.2/§25). KHÔNG nhúng dữ liệu nhạy cảm/commission rule vào QR.
+    /// </summary>
+    public class QRChannel : BaseEntity
+    {
+        public QRChannelId QRChannelId { get; protected set; } = new QRChannelId(Guid.NewGuid());
+        public string QrTokenHash { get; protected set; } = string.Empty;   // unguessable + hashed
+        public Guid? SalesmanId { get; protected set; }
+        public Guid? CampaignId { get; protected set; }
+        public bool IsActive { get; protected set; } = true;
+        public DateTime? RevokedAt { get; protected set; }
+
+        protected QRChannel() { }
+
+        public QRChannel(TenantId tenantId, string qrTokenHash, Guid? salesmanId = null, Guid? campaignId = null)
+            : base(tenantId)
+        {
+            if (string.IsNullOrWhiteSpace(qrTokenHash))
+                throw new ArgumentException("QR token hash required.", nameof(qrTokenHash));
+            Id = QRChannelId.Value;
+            QrTokenHash = qrTokenHash;
+            SalesmanId = salesmanId;
+            CampaignId = campaignId;
+        }
+
+        public void Revoke()
+        {
+            if (IsActive)
+            {
+                IsActive = false;
+                RevokedAt = DateTime.UtcNow;
+                UpdateAudit();
+            }
+        }
+    }
+
+    /// <summary>
+    /// AttributionSession — QR scan → attribution (SRS §7.4). First-qualified-wins (§7.5): refresh không tạo mới,
+    /// không đổi salesman. Booking tạo ra gắn immutable attribution snapshot.
+    /// </summary>
+    public class AttributionSession : BaseEntity
+    {
+        public AttributionSessionId AttributionSessionId { get; protected set; } = new AttributionSessionId(Guid.NewGuid());
+        public Guid QrId { get; protected set; }
+        public Guid? SalesmanId { get; protected set; }
+        public Guid? CampaignId { get; protected set; }
+        public string AnonymousSessionId { get; protected set; } = string.Empty;
+        public DateTime FirstSeenAt { get; protected set; }
+        public DateTime LastSeenAt { get; protected set; }
+        public DateTime? AttributionExpiryAt { get; protected set; }
+        public bool IsQualified { get; protected set; }        // first qualified attribution wins
+
+        protected AttributionSession() { }
+
+        public AttributionSession(TenantId tenantId, Guid qrId, string anonymousSessionId, Guid? salesmanId = null, Guid? campaignId = null, DateTime? attributionExpiryAt = null)
+            : base(tenantId)
+        {
+            if (string.IsNullOrWhiteSpace(anonymousSessionId))
+                throw new ArgumentException("Anonymous session id required.", nameof(anonymousSessionId));
+            Id = AttributionSessionId.Value;
+            QrId = qrId;
+            SalesmanId = salesmanId;
+            CampaignId = campaignId;
+            AnonymousSessionId = anonymousSessionId;
+            FirstSeenAt = DateTime.UtcNow;
+            LastSeenAt = DateTime.UtcNow;
+            AttributionExpiryAt = attributionExpiryAt;
+        }
+
+        /// <summary>Refresh — cập nhật LastSeenAt, KHÔNG tạo session mới, KHÔNG đổi salesman (§7.5).</summary>
+        public void Refresh()
+        {
+            LastSeenAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        public void MarkQualified()
+        {
+            IsQualified = true;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// Booking — aggregate trung tâm (SRS §8.1, §19.1). State machine §9.3 — backend authoritative (Risk: frontend không tự đổi status).
+    /// Price/duration SNAPSHOT (§8.4). Version = optimistic concurrency (§19.1).
+    /// </summary>
+    public class Booking : BaseEntity
+    {
+        public BookingId BookingId { get; protected set; } = new BookingId(Guid.NewGuid());
+        public string PublicBookingCode { get; protected set; } = string.Empty;  // opaque, non-sequential (§25)
+        public Guid? CustomerId { get; protected set; }
+        public string? CustomerDeviceId { get; protected set; }                  // zero-friction identity fallback
+
+        public DateTime StartAt { get; protected set; }
+        public DateTime EndAt { get; protected set; }
+
+        public BookingStatus Status { get; protected set; } = BookingStatus.PendingConfirmation;
+        public BookingSubState SubState { get; protected set; } = BookingSubState.None;
+
+        // Offering SNAPSHOT (SRS §8.4) — đổi catalog không ảnh hưởng booking cũ.
+        public Guid OfferingId { get; protected set; }
+        public string OfferingNameSnapshot { get; protected set; } = string.Empty;
+        public int OfferingDurationSnapshot { get; protected set; }
+        public decimal OfferingPriceSnapshot { get; protected set; }
+
+        public Guid? StaffId { get; protected set; }        // 0..1 primary staff (MVP)
+        public Guid? AttributionId { get; protected set; }  // immutable attribution snapshot (§7.6)
+        public Guid? OrderId { get; protected set; }        // D2 — completed booking → Order
+
+        // Deposit (SRS §16)
+        public bool DepositRequired { get; protected set; }
+        public MoneyNatureType? DepositType { get; protected set; }
+        public decimal? DepositAmount { get; protected set; }
+
+        // Financial state
+        public decimal EstimatedTotal { get; protected set; }
+        public decimal? ActualTotal { get; protected set; }
+        public PaymentStatus PaymentStatus { get; protected set; } = PaymentStatus.NotRequired;
+        public BookingInvoiceStatus InvoiceStatus { get; protected set; } = BookingInvoiceStatus.NotRequired;
+        public InvoiceTrigger InvoiceTrigger { get; protected set; } = InvoiceTrigger.NotApplicable;
+
+        public string? CustomerNote { get; protected set; }
+        public string? CancellationReason { get; protected set; }
+        public DateTime? CheckedInAt { get; protected set; }
+        public DateTime? CompletedAt { get; protected set; }
+
+        /// <summary>Optimistic concurrency (§19.1) — tăng mỗi transition; service dùng WHERE Version = X.</summary>
+        public int Version { get; protected set; }
+
+        protected Booking() { }
+
+        public Booking(
+            TenantId tenantId, string publicBookingCode, Guid offeringId,
+            string offeringNameSnapshot, int offeringDurationSnapshot, decimal offeringPriceSnapshot,
+            DateTime startAt, DateTime endAt, decimal estimatedTotal,
+            Guid? customerId = null, string? customerDeviceId = null, Guid? attributionId = null)
+            : base(tenantId)
+        {
+            if (string.IsNullOrWhiteSpace(publicBookingCode))
+                throw new ArgumentException("Public booking code required.", nameof(publicBookingCode));
+            if (startAt >= endAt)
+                throw new ArgumentException("StartAt phải < EndAt.", nameof(startAt));
+            if (estimatedTotal < 0)
+                throw new ArgumentException("EstimatedTotal không được âm.", nameof(estimatedTotal));
+            Id = BookingId.Value;
+            PublicBookingCode = publicBookingCode;
+            CustomerId = customerId;
+            CustomerDeviceId = customerDeviceId;
+            OfferingId = offeringId;
+            OfferingNameSnapshot = offeringNameSnapshot;
+            OfferingDurationSnapshot = offeringDurationSnapshot;
+            OfferingPriceSnapshot = offeringPriceSnapshot;
+            StartAt = startAt;
+            EndAt = endAt;
+            EstimatedTotal = estimatedTotal;
+            AttributionId = attributionId;
+            Status = BookingStatus.PendingConfirmation;
+        }
+
+        // --- Deposit helpers (SRS §16.1) ---
+        public void SetDepositRequirement(bool required, MoneyNatureType? depositType, decimal? amount)
+        {
+            if (required && (depositType is null || amount is null or <= 0))
+                throw new ArgumentException("Deposit required cần depositType + amount > 0.", nameof(amount));
+            DepositRequired = required;
+            DepositType = depositType;
+            DepositAmount = amount;
+            if (required)
+            {
+                if (PaymentStatus == PaymentStatus.NotRequired)
+                    PaymentStatus = PaymentStatus.Pending;
+                SubState = BookingSubState.DepositPending;   // §9.2 internal sub-state
+            }
+            UpdateAudit();
+        }
+
+        public void RecordDepositPaid()
+        {
+            PaymentStatus = PaymentStatus.Paid;
+            if (SubState == BookingSubState.DepositPending)
+                SubState = BookingSubState.DepositPaid;
+            UpdateAudit();
+        }
+
+        public void RecordDepositFailed()
+        {
+            PaymentStatus = PaymentStatus.Failed;
+            SubState = BookingSubState.DepositFailed;
+            UpdateAudit();
+        }
+
+        // --- State machine (SRS §9.3 — allowed transitions; invalid → throw) ---
+        private void Bump()
+        {
+            Version++;
+            UpdateAudit();
+        }
+
+        public void Confirm()
+        {
+            if (Status != BookingStatus.PendingConfirmation)
+                throw new InvalidOperationException($"Không thể xác nhận booking ở trạng thái {Status}.");
+            Status = BookingStatus.Confirmed;
+            Bump();
+        }
+
+        public void Reject(string? reason = null)
+        {
+            if (Status != BookingStatus.PendingConfirmation)
+                throw new InvalidOperationException($"Không thể từ chối booking ở trạng thái {Status}.");
+            Status = BookingStatus.Rejected;
+            CancellationReason = reason;
+            Bump();
+        }
+
+        public void Cancel(string? reason = null)
+        {
+            if (Status is not (BookingStatus.PendingConfirmation or BookingStatus.Confirmed))
+                throw new InvalidOperationException($"Không thể hủy booking ở trạng thái {Status}.");
+            Status = BookingStatus.Cancelled;
+            CancellationReason = reason;
+            Bump();
+        }
+
+        public void AssignStaff(Guid staffId)
+        {
+            if (Status is not (BookingStatus.PendingConfirmation or BookingStatus.Confirmed))
+                throw new InvalidOperationException($"Không thể phân công staff ở trạng thái {Status}.");
+            StaffId = staffId;
+            Status = BookingStatus.StaffAssigned;
+            SubState = BookingSubState.None;
+            Bump();
+        }
+
+        public void ChangeStaff(Guid staffId)
+        {
+            if (Status is not (BookingStatus.Confirmed or BookingStatus.StaffAssigned))
+                throw new InvalidOperationException($"Không thể đổi staff ở trạng thái {Status}.");
+            StaffId = staffId;
+            Status = BookingStatus.StaffAssigned;
+            Bump();
+        }
+
+        public void CheckIn()
+        {
+            if (Status != BookingStatus.StaffAssigned)
+                throw new InvalidOperationException($"Không thể check-in booking ở trạng thái {Status}.");
+            Status = BookingStatus.CheckedIn;
+            CheckedInAt = DateTime.UtcNow;
+            Bump();
+        }
+
+        public void StartService()
+        {
+            if (Status != BookingStatus.CheckedIn)
+                throw new InvalidOperationException($"Không thể bắt đầu phục vụ booking ở trạng thái {Status}.");
+            Status = BookingStatus.InService;
+            Bump();
+        }
+
+        public void Complete(decimal actualTotal)
+        {
+            if (Status != BookingStatus.InService)
+                throw new InvalidOperationException($"Không thể hoàn tất booking ở trạng thái {Status}.");
+            if (actualTotal < 0)
+                throw new ArgumentException("ActualTotal không được âm.", nameof(actualTotal));
+            Status = BookingStatus.Completed;
+            ActualTotal = actualTotal;
+            CompletedAt = DateTime.UtcNow;
+            Bump();
+        }
+
+        public void MarkNoShow(string? reason = null)
+        {
+            if (Status != BookingStatus.StaffAssigned)
+                throw new InvalidOperationException($"Không thể đánh dấu vắng mặt booking ở trạng thái {Status}.");
+            Status = BookingStatus.NoShow;
+            CancellationReason = reason;
+            Bump();
+        }
+
+        // --- Financial facts (SRS §16.4) ---
+        public void UpdatePaymentStatus(PaymentStatus status)
+        {
+            PaymentStatus = status;
+            UpdateAudit();
+        }
+
+        public void UpdateInvoiceFacts(BookingInvoiceStatus invoiceStatus, InvoiceTrigger invoiceTrigger)
+        {
+            InvoiceStatus = invoiceStatus;
+            InvoiceTrigger = invoiceTrigger;
+            UpdateAudit();
+        }
+
+        /// <summary>D2 — gắn Order tạo từ booking completed (idempotent — không ghi đè).</summary>
+        public void AttachOrder(Guid orderId)
+        {
+            if (OrderId is not null)
+                throw new InvalidOperationException("Booking đã có Order gắn kèm.");
+            OrderId = orderId;
+            UpdateAudit();
+        }
+
+        public void SetCustomerNote(string? note)
+        {
+            CustomerNote = note;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>Booking line — offering + add-ons snapshots (SRS §8.1, §19.1).</summary>
+    public class BookingItem : BaseEntity
+    {
+        public BookingItemId BookingItemId { get; protected set; } = new BookingItemId(Guid.NewGuid());
+        public Guid BookingId { get; protected set; }
+        public string ItemType { get; protected set; } = "OFFERING";   // OFFERING | ADD_ON
+        public Guid? OfferingId { get; protected set; }
+        public Guid? AddOnId { get; protected set; }
+        public string Name { get; protected set; } = string.Empty;     // snapshot
+        public int Quantity { get; protected set; } = 1;
+        public decimal UnitPrice { get; protected set; }               // snapshot
+        public int DurationMinutes { get; protected set; }             // add-on = 0 (non-scheduling)
+
+        protected BookingItem() { }
+
+        public BookingItem(TenantId tenantId, Guid bookingId, string itemType, string name, int quantity, decimal unitPrice, int durationMinutes = 0, Guid? offeringId = null, Guid? addOnId = null)
+            : base(tenantId)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new ArgumentException("Item name required.", nameof(name));
+            if (quantity <= 0)
+                throw new ArgumentException("Quantity phải > 0.", nameof(quantity));
+            Id = BookingItemId.Value;
+            BookingId = bookingId;
+            ItemType = itemType;
+            OfferingId = offeringId;
+            AddOnId = addOnId;
+            Name = name;
+            Quantity = quantity;
+            UnitPrice = unitPrice;
+            DurationMinutes = durationMinutes;
+        }
+    }
+
+    /// <summary>Staff assignment history — immutable entries; reassign tạo entry mới (SRS §13, §19).</summary>
+    public class BookingStaffAssignment : BaseEntity
+    {
+        public BookingStaffAssignmentId BookingStaffAssignmentId { get; protected set; } = new BookingStaffAssignmentId(Guid.NewGuid());
+        public Guid BookingId { get; protected set; }
+        public Guid StaffId { get; protected set; }
+        public Guid? AssignedBy { get; protected set; }
+        public string AssignmentType { get; protected set; } = "ASSIGN";  // ASSIGN | REASSIGN
+        public DateTime AssignedAt { get; protected set; }
+
+        protected BookingStaffAssignment() { }
+
+        public BookingStaffAssignment(TenantId tenantId, Guid bookingId, Guid staffId, Guid? assignedBy = null, string assignmentType = "ASSIGN")
+            : base(tenantId)
+        {
+            Id = BookingStaffAssignmentId.Value;
+            BookingId = bookingId;
+            StaffId = staffId;
+            AssignedBy = assignedBy;
+            AssignmentType = assignmentType;
+            AssignedAt = DateTime.UtcNow;
+        }
+    }
+
+    /// <summary>Booking audit event store (SRS §23 — mọi transition phát event, auditable).</summary>
+    public class BookingEvent : BaseEntity
+    {
+        public BookingEventId BookingEventId { get; protected set; } = new BookingEventId(Guid.NewGuid());
+        public Guid BookingId { get; protected set; }
+        public string EventType { get; protected set; } = string.Empty;  // BookingCreated/Confirmed/Rejected/StaffAssigned/...
+        public string ActorType { get; protected set; } = "SYSTEM";      // CUSTOMER | TENANT | SYSTEM
+        public Guid? ActorId { get; protected set; }
+        public string? Metadata { get; protected set; }                  // JSON — before/after values (§24)
+        public DateTime OccurredAt { get; protected set; }
+
+        protected BookingEvent() { }
+
+        public BookingEvent(TenantId tenantId, Guid bookingId, string eventType, string actorType = "SYSTEM", Guid? actorId = null, string? metadata = null)
+            : base(tenantId)
+        {
+            if (string.IsNullOrWhiteSpace(eventType))
+                throw new ArgumentException("Event type required.", nameof(eventType));
+            Id = BookingEventId.Value;
+            BookingId = bookingId;
+            EventType = eventType;
+            ActorType = actorType;
+            ActorId = actorId;
+            Metadata = metadata;
+            OccurredAt = DateTime.UtcNow;
+        }
+    }
+
+    /// <summary>PaymentTransaction — lưu bản chất khoản tiền (SRS §16.2/§16.3). Method CASH/VIETQR (reuse VietQrService).</summary>
+    public class PaymentTransaction : BaseEntity
+    {
+        public PaymentTransactionId PaymentTransactionId { get; protected set; } = new PaymentTransactionId(Guid.NewGuid());
+        public Guid BookingId { get; protected set; }
+        public MoneyNatureType Type { get; protected set; }
+        public decimal Amount { get; protected set; }
+        public string Method { get; protected set; } = "CASH";   // CASH | VIETQR | ...
+        public PaymentStatus Status { get; protected set; } = PaymentStatus.Pending;
+        public string? ProviderRef { get; protected set; }
+        public DateTime? CapturedAt { get; protected set; }
+        public DateTime? RefundedAt { get; protected set; }
+
+        protected PaymentTransaction() { }
+
+        public PaymentTransaction(TenantId tenantId, Guid bookingId, MoneyNatureType type, decimal amount, string method = "CASH")
+            : base(tenantId)
+        {
+            if (amount <= 0)
+                throw new ArgumentException("Amount phải > 0.", nameof(amount));
+            Id = PaymentTransactionId.Value;
+            BookingId = bookingId;
+            Type = type;
+            Amount = amount;
+            Method = method;
+        }
+
+        public void MarkPaid(string? providerRef = null)
+        {
+            Status = PaymentStatus.Paid;
+            ProviderRef = providerRef;
+            CapturedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        public void MarkFailed()
+        {
+            Status = PaymentStatus.Failed;
+            UpdateAudit();
+        }
+
+        public void MarkRefunded()
+        {
+            Status = PaymentStatus.Refunded;
+            RefundedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        public void MarkForfeited()
+        {
+            Status = PaymentStatus.Forfeited;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>InvoiceIntegrationRecord — financial facts per booking (SRS §16.4). invoice_trigger SNAPSHOT — không cho frontend chọn.</summary>
+    public class InvoiceIntegrationRecord : BaseEntity
+    {
+        public InvoiceIntegrationRecordId InvoiceIntegrationRecordId { get; protected set; } = new InvoiceIntegrationRecordId(Guid.NewGuid());
+        public Guid BookingId { get; protected set; }
+        public BookingInvoiceStatus InvoiceStatus { get; protected set; } = BookingInvoiceStatus.NotRequired;
+        public InvoiceTrigger InvoiceTrigger { get; protected set; } = InvoiceTrigger.NotApplicable;
+        public string? Provider { get; protected set; }
+        public string? Reference { get; protected set; }
+        public string? ErrorCode { get; protected set; }
+        public DateTime? IssuedAt { get; protected set; }
+
+        protected InvoiceIntegrationRecord() { }
+
+        public InvoiceIntegrationRecord(TenantId tenantId, Guid bookingId, InvoiceTrigger invoiceTrigger)
+            : base(tenantId)
+        {
+            Id = InvoiceIntegrationRecordId.Value;
+            BookingId = bookingId;
+            InvoiceTrigger = invoiceTrigger;
+        }
+
+        public void UpdateStatus(BookingInvoiceStatus status, string? provider = null, string? reference = null, string? errorCode = null)
+        {
+            InvoiceStatus = status;
+            Provider = provider;
+            Reference = reference;
+            ErrorCode = errorCode;
+            if (status == BookingInvoiceStatus.Issued)
+                IssuedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>CommissionRule (SRS §17.2). Qualification MVP single rule: COMPLETED + paid + attribution valid.</summary>
+    public class CommissionRule : BaseEntity
+    {
+        public CommissionRuleId CommissionRuleId { get; protected set; } = new CommissionRuleId(Guid.NewGuid());
+        public Guid? OfferingId { get; protected set; }       // null = áp dụng mọi offering
+        public Guid? SalesmanId { get; protected set; }      // null = áp dụng mọi salesman
+        public CommissionType CommissionType { get; protected set; }
+        public decimal CommissionValue { get; protected set; }
+        public CommissionQualificationStatus QualificationStatus { get; protected set; } = CommissionQualificationStatus.Qualified;
+        public bool IsActive { get; protected set; } = true;
+
+        protected CommissionRule() { }
+
+        public CommissionRule(TenantId tenantId, CommissionType commissionType, decimal commissionValue, Guid? offeringId = null, Guid? salesmanId = null)
+            : base(tenantId)
+        {
+            if (commissionValue < 0)
+                throw new ArgumentException("CommissionValue không được âm.", nameof(commissionValue));
+            if (commissionType == CommissionType.Percentage && commissionValue > 100)
+                throw new ArgumentException("Percentage không được > 100.", nameof(commissionValue));
+            Id = CommissionRuleId.Value;
+            OfferingId = offeringId;
+            SalesmanId = salesmanId;
+            CommissionType = commissionType;
+            CommissionValue = commissionValue;
+        }
+
+        public void Update(CommissionType commissionType, decimal commissionValue, Guid? offeringId, Guid? salesmanId, bool isActive)
+        {
+            if (commissionValue < 0)
+                throw new ArgumentException("CommissionValue không được âm.", nameof(commissionValue));
+            if (commissionType == CommissionType.Percentage && commissionValue > 100)
+                throw new ArgumentException("Percentage không được > 100.", nameof(commissionValue));
+            CommissionType = commissionType;
+            CommissionValue = commissionValue;
+            OfferingId = offeringId;
+            SalesmanId = salesmanId;
+            IsActive = isActive;
+            UpdateAudit();
+        }
+
+        public void Activate() { IsActive = true; UpdateAudit(); }
+        public void Deactivate() { IsActive = false; UpdateAudit(); }
+    }
+
+    /// <summary>
+    /// CommissionLedgerEntry — ledger hợp nhất BOOKING|ORDER (D3, SRS §17.2). IMMUTABLE sau finalized (§17.5):
+    /// rule/tax snapshot không mutate; điều chỉnh = reversal entry mới (RelatedEntryId) — pattern WalletTransaction.
+    /// </summary>
+    public class CommissionLedgerEntry : BaseEntity
+    {
+        public CommissionLedgerEntryId CommissionLedgerEntryId { get; protected set; } = new CommissionLedgerEntryId(Guid.NewGuid());
+        public CommissionSourceType SourceType { get; protected set; }
+        public Guid? BookingId { get; protected set; }
+        public Guid? OrderId { get; protected set; }
+        public Guid SalesmanId { get; protected set; }
+        public Guid? QrId { get; protected set; }
+        public string RuleSnapshotJson { get; protected set; } = string.Empty;     // snapshot rule tại thời điểm finalize
+        public decimal BaseAmount { get; protected set; }
+        public decimal GrossCommissionAmount { get; protected set; }
+        public string? TaxRuleVersion { get; protected set; }
+        public decimal TaxWithheldAmount { get; protected set; }
+        public decimal NetCommissionAmount { get; protected set; }
+        public string? WithholdingReasonCode { get; protected set; }
+        public string Currency { get; protected set; } = "VND";
+        public CommissionLedgerState State { get; protected set; } = CommissionLedgerState.Pending;
+        public Guid? RelatedEntryId { get; protected set; }   // reversal entry reference
+        public DateTime? FinalizedAt { get; protected set; }
+        public DateTime? PaidAt { get; protected set; }
+
+        protected CommissionLedgerEntry() { }
+
+        public CommissionLedgerEntry(
+            TenantId tenantId, CommissionSourceType sourceType, Guid salesmanId,
+            string ruleSnapshotJson, decimal baseAmount, decimal grossCommissionAmount,
+            decimal taxWithheldAmount, decimal netCommissionAmount,
+            Guid? bookingId = null, Guid? orderId = null, Guid? qrId = null,
+            string? taxRuleVersion = null, string? withholdingReasonCode = null, string currency = "VND")
+            : base(tenantId)
+        {
+            if (salesmanId == Guid.Empty)
+                throw new ArgumentException("SalesmanId required.", nameof(salesmanId));
+            if (string.IsNullOrWhiteSpace(ruleSnapshotJson))
+                throw new ArgumentException("Rule snapshot required.", nameof(ruleSnapshotJson));
+            if (baseAmount < 0 || grossCommissionAmount < 0 || taxWithheldAmount < 0 || netCommissionAmount < 0)
+                throw new ArgumentException("Số tiền không được âm.", nameof(baseAmount));
+            Id = CommissionLedgerEntryId.Value;
+            SourceType = sourceType;
+            BookingId = bookingId;
+            OrderId = orderId;
+            SalesmanId = salesmanId;
+            QrId = qrId;
+            RuleSnapshotJson = ruleSnapshotJson;
+            BaseAmount = baseAmount;
+            GrossCommissionAmount = grossCommissionAmount;
+            TaxRuleVersion = taxRuleVersion;
+            TaxWithheldAmount = taxWithheldAmount;
+            NetCommissionAmount = netCommissionAmount;
+            WithholdingReasonCode = withholdingReasonCode;
+            Currency = currency;
+        }
+
+        public void MarkEarned()
+        {
+            if (State != CommissionLedgerState.Pending)
+                throw new InvalidOperationException($"Chỉ PENDING mới finalize được (hiện {State}).");
+            State = CommissionLedgerState.Earned;
+            FinalizedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        public void MarkPaid()
+        {
+            if (State != CommissionLedgerState.Earned)
+                throw new InvalidOperationException($"Chỉ EARNED mới paid được (hiện {State}).");
+            State = CommissionLedgerState.Paid;
+            PaidAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        /// <summary>Void trước khi paid (fraud/cancel).</summary>
+        public void Void()
+        {
+            if (State is not (CommissionLedgerState.Pending or CommissionLedgerState.Earned))
+                throw new InvalidOperationException($"Không thể void entry {State}.");
+            State = CommissionLedgerState.Voided;
+            UpdateAudit();
+        }
+
+        /// <summary>Reversal sau paid — tạo entry mới (RelatedEntryId) ở service; entry này đánh dấu Reversed.</summary>
+        public void MarkReversed()
+        {
+            State = CommissionLedgerState.Reversed;
+            UpdateAudit();
+        }
+    }
+
+    // --- Value Objects (Single-Identity: constructor sync Id = XxxId.Value) ---
+
+    public record BookingTenantConfigId(Guid Value);
+    public record ServiceCategoryId(Guid Value);
+    public record AppointmentOfferingId(Guid Value);
+    public record AppointmentOfferingItemId(Guid Value);
+    public record AddOnId(Guid Value);
+    public record StaffId(Guid Value);
+    public record StaffServiceId(Guid Value);
+    public record StaffWorkingScheduleId(Guid Value);
+    public record StaffScheduleOverrideId(Guid Value);
+    public record QRChannelId(Guid Value);
+    public record AttributionSessionId(Guid Value);
+    public record BookingId(Guid Value);
+    public record BookingItemId(Guid Value);
+    public record BookingStaffAssignmentId(Guid Value);
+    public record BookingEventId(Guid Value);
+    public record PaymentTransactionId(Guid Value);
+    public record InvoiceIntegrationRecordId(Guid Value);
+    public record CommissionRuleId(Guid Value);
+    public record CommissionLedgerEntryId(Guid Value);
 }
