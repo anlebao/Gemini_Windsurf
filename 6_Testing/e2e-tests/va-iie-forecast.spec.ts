@@ -47,11 +47,9 @@ test.describe('VanAn Ecosystem - VA-IIE Forecast UI E2E Tests', () => {
     await page.goto(`${config.SHOPERP_URL}/inventory/forecast`);
     await page.waitForLoadState('networkidle');
 
-    // Restock card (title) hoặc alert rỗng/error
+    // Restock card title (data loaded) HOẶC error alert — CSS comma + .first() tránh strict violation
     await expect(
-      page.locator('.vanan-card__title:has-text("Restock Forecast")')
-        .or(page.locator('.vanan-alert:has-text("Không có nguyên liệu cần nhập")'))
-        .or(page.locator('.vanan-alert:has-text("Lỗi tải dữ liệu dự báo")'))
+      page.locator('.vanan-card__title:has-text("Restock Forecast"), .vanan-alert:has-text("Lỗi tải dữ liệu dự báo")').first()
     ).toBeVisible({ timeout: 15000 });
 
     await expect(

@@ -74,7 +74,7 @@
   - Hook: sau `SubmitShiftAsync` sinh alert → gọi notifier cho Critical (log-only ở MVP)
   - **Secret governance:** token hiển thị masked (••••), KHÔNG echo vào log/conversation, không commit token
 - [x] **P4.4 E2E Gate 4:** spec `va-iie-forecast.spec.ts` (Forecast page render: config card + 2 bảng hoặc empty state; nút Xuất Excel/In render) + extend `va-iie-shift.spec.ts` nếu cần (nút export trên ShiftReport)
-- [ ] **P4.5 Validation & RV:** `guard-check.ps1` + `dotnet build VanAn.sln` + Core.Tests + ShopERP.Tests ALL PASS → deploy (CD Multi-VPS) → RV 5 lớp (L1 API/markers → L2 login → L3 E2E → L4 flow → L5 manual) → cập nhật project_state + master plan + đóng task card
+- [ ] **P4.5 Validation & RV:** ✅ guard-check + build + Core.Tests 1983 + ShopERP.Tests 136 ALL PASS · ✅ deploy CD Multi-VPS #37288970345 SUCCESS + smoke · ✅ **L1** markers production + migrations applied (SQLite 20261005053034 + PG 20261005053120 — VaIIeTenantConfigs 0 rows) · ✅ **L2** health 200 (gateway/shoperp/forecast route) · ✅ **L3** E2E `va-iie-forecast.spec.ts` production **5/5 PASS** (impersonate tenant 1 — app2.khachvip.online, storageState cookie + host-resolver-rules) · ✅ **L4** UI flow production (Samho 35037648: 15 ingredients NoData badges + stat cards 0/0/0/15 + trend empty + multi-tenancy không leak; spec fix strict-mode `.first()` → CSS comma) · ⏳ **L5 manual (user):** mở ca → kiểm kê → đóng ca trên tenant F&B thật → forecast tính ADC/Stockout/Restock → Xuất Excel/In → đóng task card + master plan
 
 ## 4. USER DECISIONS — ĐÃ CHỐT (2026-10-05)
 
