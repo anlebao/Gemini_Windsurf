@@ -7,6 +7,7 @@ using Moq;
 using VanAn.CoreHub.Services.InventoryIntelligence;
 using VanAn.ShopERP.Infrastructure;
 using VanAn.ShopERP.Services;
+using VanAn.Shared.Domain;
 
 namespace VanAn.ShopERP.Tests.Components.Inventory;
 
@@ -22,9 +23,9 @@ public class VaIiePagesTests : ComponentTestBase
     {
         RegisterSqliteContext(); // page injects IVanAnDbContext (CurrentUserIdAsync — user lookup)
         var shiftService = new Mock<IShiftReportService>();
-        shiftService.Setup(s => s.ListShiftsAsync(It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
+        shiftService.Setup(s => s.ListShiftsAsync(It.IsAny<TenantId>(), It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
-        shiftService.Setup(s => s.GetIngredientsAsync(It.IsAny<CancellationToken>()))
+        shiftService.Setup(s => s.GetIngredientsAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
         Services.AddSingleton(shiftService.Object);
 
@@ -47,8 +48,8 @@ public class VaIiePagesTests : ComponentTestBase
     public void RecipeManagement_Renders_WithEmptyData()
     {
         var recipeService = new Mock<IRecipeService>();
-        recipeService.Setup(r => r.GetProductsAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
-        recipeService.Setup(r => r.GetIngredientsAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        recipeService.Setup(r => r.GetProductsAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        recipeService.Setup(r => r.GetIngredientsAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
         Services.AddSingleton(recipeService.Object);
 
         var cut = RenderComponent<ShopERP.Components.Pages.Inventory.RecipeManagement>();
