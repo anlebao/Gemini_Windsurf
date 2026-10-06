@@ -141,7 +141,8 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.HasKey(e => e.Id);
             _ = builder.Ignore(e => e.AttributionSessionId);
             _ = builder.Property(e => e.AnonymousSessionId).HasMaxLength(128).IsRequired();
-            _ = builder.HasIndex(e => new { e.TenantId, e.QrId, e.AnonymousSessionId });
+            // §26.3 rapid-scan guard: 1 session / (tenant, qr, anonymous session) — get-or-create không tạo vô hạn.
+            _ = builder.HasIndex(e => new { e.TenantId, e.QrId, e.AnonymousSessionId }).IsUnique();
             _ = builder.HasIndex(e => e.SalesmanId);
         }
     }

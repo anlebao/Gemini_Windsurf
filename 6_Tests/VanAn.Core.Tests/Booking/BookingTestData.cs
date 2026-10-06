@@ -77,5 +77,44 @@ namespace VanAn.Core.Tests.BookingScheduling
             await ctx.SaveChangesAsync(ct);
             return staff.Id;
         }
+
+        /// <summary>Seed tenant ACTIVE (QR resolve §7.3 yêu cầu tenant active).</summary>
+        public static async Task<TenantId> SeedActiveTenantAsync(VanAnDbContext ctx, TenantId tenantId, CancellationToken ct = default)
+        {
+            if (!await ctx.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Id == tenantId, ct))
+            {
+                var tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant.CreateCompany(tenantId, "Tenant Booking Test");
+                ctx.Tenants.Add(tenant);
+                await ctx.SaveChangesAsync(ct);
+            }
+            return tenantId;
+        }
+
+        /// <summary>Seed Customer + CommunityRole Salesman (QR salesman ∈ tenant §7.3). Trả salesmanId (= Customer.Id).</summary>
+        public static async Task<Guid> SeedSalesmanAsync(VanAnDbContext ctx, TenantId tenantId, string name = "Salesman A", CancellationToken ct = default)
+        {
+            var customer = new Customer(tenantId, name, "0900000000");
+            ctx.Customers.Add(customer);
+            await ctx.SaveChangesAsync(ct);
+            ctx.CommunityRoles.Add(new CommunityRole(tenantId, customer.Id, CommunityRoleType.Salesman, activatedBy: Guid.NewGuid()));
+            await ctx.SaveChangesAsync(ct);
+            return customer.Id;
+        }
+
+        /// <summary>
+        /// Seed Product stub (Id = productId) — pattern OrderSyncSubscriber auto-create stub.
+        /// Test schema (EnsureCreated) còn FK_OrderItems_Products_ProductId (PG đã drop qua migration,
+        /// SQLite test vẫn có) → OrderItem.ProductId phải trỏ tới Product tồn tại.
+        /// </summary>
+        public static async Task SeedProductStubAsync(VanAnDbContext ctx, TenantId tenantId, Guid productId, string name, decimal price, CancellationToken ct = default)
+        {
+            if (await ctx.Products.IgnoreQueryFilters().AnyAsync(p => p.Id == productId, ct))
+                return;
+            var stub = new Product(tenantId, name, "Synced from Gateway", price, "Synced", true, null, 0.10m, 0m);
+            typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("Id")!.SetValue(stub, productId);
+            typeof(Product).GetProperty("ProductId")!.SetValue(stub, new ProductId(productId));
+            ctx.Products.Add(stub);
+            await ctx.SaveChangesAsync(ct);
+        }
     }
 }

@@ -5910,6 +5910,18 @@ namespace VanAn.Shared.Domain
             IsQualified = true;
             UpdateAudit();
         }
+
+        /// <summary>Attribution period mới sau khi session hết hạn (§7.5) — reset first/last seen + salesman/campaign (1 row / key).</summary>
+        public void ResetPeriod(Guid? salesmanId, Guid? campaignId, DateTime? attributionExpiryAt = null)
+        {
+            SalesmanId = salesmanId;
+            CampaignId = campaignId;
+            FirstSeenAt = DateTime.UtcNow;
+            LastSeenAt = DateTime.UtcNow;
+            AttributionExpiryAt = attributionExpiryAt;
+            IsQualified = true;   // scan mới trong period mới → qualified
+            UpdateAudit();
+        }
     }
 
     /// <summary>
@@ -6385,6 +6397,8 @@ namespace VanAn.Shared.Domain
         public Guid? RelatedEntryId { get; protected set; }   // reversal entry reference
         public DateTime? FinalizedAt { get; protected set; }
         public DateTime? PaidAt { get; protected set; }
+        // P3.2 (approved 2026-10-06): link payout → WalletTransaction (Commission + Reversal — reuse).
+        public Guid? WalletTransactionId { get; protected set; }
 
         protected CommissionLedgerEntry() { }
 
@@ -6393,7 +6407,8 @@ namespace VanAn.Shared.Domain
             string ruleSnapshotJson, decimal baseAmount, decimal grossCommissionAmount,
             decimal taxWithheldAmount, decimal netCommissionAmount,
             Guid? bookingId = null, Guid? orderId = null, Guid? qrId = null,
-            string? taxRuleVersion = null, string? withholdingReasonCode = null, string currency = "VND")
+            string? taxRuleVersion = null, string? withholdingReasonCode = null, string currency = "VND",
+            Guid? relatedEntryId = null)
             : base(tenantId)
         {
             if (salesmanId == Guid.Empty)
@@ -6416,6 +6431,7 @@ namespace VanAn.Shared.Domain
             NetCommissionAmount = netCommissionAmount;
             WithholdingReasonCode = withholdingReasonCode;
             Currency = currency;
+            RelatedEntryId = relatedEntryId;
         }
 
         public void MarkEarned()
@@ -6427,12 +6443,14 @@ namespace VanAn.Shared.Domain
             UpdateAudit();
         }
 
-        public void MarkPaid()
+        public void MarkPaid(Guid? walletTransactionId = null)
         {
             if (State != CommissionLedgerState.Earned)
                 throw new InvalidOperationException($"Chỉ EARNED mới paid được (hiện {State}).");
             State = CommissionLedgerState.Paid;
             PaidAt = DateTime.UtcNow;
+            if (walletTransactionId.HasValue)
+                WalletTransactionId = walletTransactionId;
             UpdateAudit();
         }
 
@@ -6449,6 +6467,16 @@ namespace VanAn.Shared.Domain
         public void MarkReversed()
         {
             State = CommissionLedgerState.Reversed;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// P3.2 — link reversal entry tới WalletTransaction hoàn lại (Reversal) khi original đã PAID (§26.6).
+        /// KHÔNG đổi State (entry reversal ở trạng thái Reversed — không qua EARNED/PAID).
+        /// </summary>
+        public void RecordReversalWalletTransaction(Guid walletTransactionId)
+        {
+            WalletTransactionId = walletTransactionId;
             UpdateAudit();
         }
     }

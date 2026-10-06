@@ -1121,6 +1121,12 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Booking.IAvailabilityService, VanAn.CoreHub.Services.Booking.AvailabilityService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Booking.IBookingService, VanAn.CoreHub.Services.Booking.BookingService>();
 
+            // P3 (2026-10-06) — QR attribution / Commission ledger / Financial facts / Tax adapter.
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Booking.IQRAttributionService, VanAn.CoreHub.Services.Booking.QRAttributionService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Booking.ITaxWithholdingPolicyAdapter, VanAn.CoreHub.Services.Booking.TaxWithholdingPolicyAdapter>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Booking.ICommissionService, VanAn.CoreHub.Services.Booking.CommissionService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Booking.IBookingFinancialService, VanAn.CoreHub.Services.Booking.BookingFinancialService>();
+
 
 
             // Register Voice Command Services

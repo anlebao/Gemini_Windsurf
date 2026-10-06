@@ -1,15 +1,18 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using VanAn.CoreHub.Commands;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 // Namespace "Booking" xung đột type Booking (lesson P1 — CS0118) → alias cho domain entity.
 using BookingEntity = VanAn.Shared.Domain.Booking;
+using OrderEntity = VanAn.Shared.Domain.Order;
 
 namespace VanAn.CoreHub.Services.Booking
 {
     /// <summary>
     /// BookingService — create (Idempotency-Key §21.1) + state machine 9-state (§9.3) + BookingEvent audit (§23-24)
-    /// + double-booking prevention (SRS §12, AC-C04).
+    /// + double-booking prevention (SRS §12, AC-C04) + Booking→Order hook tại COMPLETED (D2/Q1, P3.5).
     ///
     /// Design note create-with-staff: customer chọn staff cụ thể → slot phải được LOCK ngay tại create
     /// (SRS §12 "atomic conflict check tại create"; AC-C04 "tối đa 1 request thành công"). Domain không có
@@ -20,11 +23,18 @@ namespace VanAn.CoreHub.Services.Booking
     /// (precedent WalletService HR-SCALE-3) + unique index (TenantId, StaffId, StartAt) là defense-in-depth;
     /// SQLite (tests) — LINQ fallback + unique index backstop. Tối đa 1 request thành công; còn lại 409
     /// BookingConflictException với message thân thiện (§6.5).
+    ///
+    /// P3.5 hook (D2, Q1 = COMPLETED): tại transition COMPLETED → CreateOrderCommand từ offering/add-on snapshots
+    /// → path CreateOrderFromCommandAsync hiện có (giữ ApplyHtxInternalTagAsync — lesson P6c) → Booking.OrderId.
+    /// Idempotent R7: booking.OrderId != null → skip; recovery khi crash giữa create/attach → lookup theo
+    /// TrackingCode = PublicBookingCode. Fail-safe: lỗi order KHÔNG fail transition (retry ở lần CompleteAsync sau).
     /// </summary>
     public sealed class BookingService(
         VanAnDbContext context,
         IAvailabilityService availabilityService,
-        ILogger<BookingService> logger) : IBookingService
+        ILogger<BookingService> logger,
+        IOrderService? orderService = null,
+        IBookingFinancialService? financialService = null) : IBookingService
     {
         /// <summary>Message conflict customer-friendly (SRS §6.5) — KHÔNG hiển thị mã kỹ thuật.</summary>
         public const string ConflictMessage = "Khung giờ này vừa có người đặt. Vui lòng chọn khung giờ khác.";
@@ -41,6 +51,8 @@ namespace VanAn.CoreHub.Services.Booking
         private readonly VanAnDbContext _context = context;
         private readonly IAvailabilityService _availabilityService = availabilityService;
         private readonly ILogger<BookingService> _logger = logger;
+        private readonly IOrderService? _orderService = orderService;
+        private readonly IBookingFinancialService? _financialService = financialService;
 
         // ── Create (Idempotency-Key §21.1 + double-booking AC-C04) ──────────
 
@@ -119,15 +131,16 @@ namespace VanAn.CoreHub.Services.Booking
                     booking.SetCustomerNote(command.CustomerNote);
 
                     // Deposit policy từ BookingTenantConfig (§16.1 Screen 3 — "Đặt cọc số tiền đã cấu hình").
-                    // Phân loại tiền: SECURITY_DEPOSIT (đặt cọc/bảo đảm thực hiện §16.2) — P3 financial refine theo tax profile.
+                    // P3.4 refine §16.2: phân loại bản chất khoản tiền theo tax profile tenant (KHÔNG hard-code).
+                    MoneyNatureType depositNature = _financialService?.ResolveDepositNature(config) ?? MoneyNatureType.SecurityDeposit;
                     if (config.DepositPolicy == DepositPolicy.Fixed && config.DepositFixedAmount is > 0)
                     {
-                        booking.SetDepositRequirement(true, MoneyNatureType.SecurityDeposit, config.DepositFixedAmount);
+                        booking.SetDepositRequirement(true, depositNature, config.DepositFixedAmount);
                     }
                     else if (config.DepositPolicy == DepositPolicy.Percentage && config.DepositPercentage is > 0)
                     {
                         decimal amount = Math.Round(estimatedTotal * config.DepositPercentage.Value / 100m, 0, MidpointRounding.AwayFromZero);
-                        booking.SetDepositRequirement(true, MoneyNatureType.SecurityDeposit, amount);
+                        booking.SetDepositRequirement(true, depositNature, amount);
                     }
 
                     // Khách chọn staff cụ thể → assign ngay (slot locked — design note ở header).
@@ -202,8 +215,19 @@ namespace VanAn.CoreHub.Services.Booking
         public Task<BookingEntity> StartServiceAsync(TenantId tenantId, Guid bookingId, Guid? actorId = null, CancellationToken ct = default)
             => TransitionAsync(tenantId, bookingId, BookingStatus.InService, "BookingStarted", "TENANT", actorId, b => b.StartService(), ct);
 
-        public Task<BookingEntity> CompleteAsync(TenantId tenantId, Guid bookingId, decimal actualTotal, Guid? actorId = null, CancellationToken ct = default)
-            => TransitionAsync(tenantId, bookingId, BookingStatus.Completed, "BookingCompleted", "TENANT", actorId, b => b.Complete(actualTotal), ct);
+        /// <summary>
+        /// COMPLETED (D2/Q1) — transition + P3.5 hook: financial facts (ServiceCompleted/InvoiceRequired §16.6)
+        /// + Booking→Order (CreateOrderFromCommandAsync — giữ HTX tag, idempotent R7, fail-safe).
+        /// TransitionAsync idempotent → retry sau lỗi hook sẽ chạy lại recovery path.
+        /// </summary>
+        public async Task<BookingEntity> CompleteAsync(TenantId tenantId, Guid bookingId, decimal actualTotal, Guid? actorId = null, CancellationToken ct = default)
+        {
+            BookingEntity booking = await TransitionAsync(
+                tenantId, bookingId, BookingStatus.Completed, "BookingCompleted", "TENANT", actorId,
+                b => b.Complete(actualTotal), ct);
+            await EnsureOrderAndFactsAsync(tenantId, booking, ct);
+            return booking;
+        }
 
         public Task<BookingEntity> MarkNoShowAsync(TenantId tenantId, Guid bookingId, string? reason, Guid? actorId = null, CancellationToken ct = default)
             => TransitionAsync(tenantId, bookingId, BookingStatus.NoShow, "BookingNoShow", "TENANT", actorId, b => b.MarkNoShow(reason), ct);
@@ -383,6 +407,94 @@ namespace VanAn.CoreHub.Services.Booking
         private async Task<BookingEntity> GetBookingOrThrowAsync(TenantId tenantId, Guid bookingId, CancellationToken ct)
             => await GetBookingAsync(tenantId, bookingId, ct)
                ?? throw new NotFoundException("Booking không tồn tại trong tenant này.");
+
+        // ── P3.5 Booking→Order hook (D2, Q1 = COMPLETED) ─────────────────────
+
+        /// <summary>
+        /// Sau transition COMPLETED: ghi financial facts + tạo Order từ offering/add-on snapshots.
+        /// - Idempotent R7: booking.OrderId != null → skip; recovery khi crash giữa create/attach → lookup TrackingCode.
+        /// - Fail-safe (precedent P4b alert hook): lỗi KHÔNG fail transition — retry ở lần CompleteAsync kế tiếp.
+        /// </summary>
+        private async Task EnsureOrderAndFactsAsync(TenantId tenantId, BookingEntity booking, CancellationToken ct)
+        {
+            // Financial facts (§16.6) — fail-safe, không block order hook.
+            if (_financialService is not null)
+            {
+                try
+                {
+                    await _financialService.RecordServiceCompletedAsync(tenantId, booking.Id, ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "RecordServiceCompletedAsync failed (non-blocking): booking={BookingId}", booking.Id);
+                }
+            }
+
+            // D2 — Order hook (Q1 = COMPLETED).
+            if (_orderService is null)
+            {
+                _logger.LogDebug("IOrderService not wired — skip Booking→Order hook (tests/legacy).");
+                return;
+            }
+            if (booking.OrderId is not null)
+                return;   // idempotent R7
+
+            try
+            {
+                // Recovery: order đã tạo nhưng AttachOrder chưa kịp lưu (crash) → tìm theo TrackingCode.
+                Guid? existingOrderId = await _context.Orders.IgnoreQueryFilters()
+                    .Where(o => o.TrackingCode == booking.PublicBookingCode)
+                    .Select(o => (Guid?)o.Id)
+                    .FirstOrDefaultAsync(ct);
+                if (existingOrderId is not null)
+                {
+                    booking.AttachOrder(existingOrderId.Value);
+                    _ = await _context.SaveChangesAsync(ct);
+                    _logger.LogInformation("Booking→Order recovery (attach existing): booking={BookingId} order={OrderId}", booking.Id, existingOrderId.Value);
+                    return;
+                }
+
+                List<BookingItem> items = await _context.BookingItems.IgnoreQueryFilters()
+                    .Where(i => i.BookingId == booking.Id)
+                    .OrderBy(i => i.ItemType)
+                    .ToListAsync(ct);
+                if (items.Count == 0)
+                {
+                    _logger.LogWarning("Booking→Order skipped — booking {BookingId} không có items.", booking.Id);
+                    return;
+                }
+
+                var command = new CreateOrderCommand
+                {
+                    CustomerId = booking.CustomerId,
+                    CustomerDeviceId = booking.CustomerDeviceId is not null && Guid.TryParse(booking.CustomerDeviceId, out Guid deviceGuid)
+                        ? deviceGuid
+                        : Guid.Empty,
+                    CustomerNotes = booking.CustomerNote,
+                    TrackingCode = booking.PublicBookingCode,   // idempotency recovery key
+                    Items = items.Select(i => new OrderItemRequest
+                    {
+                        ProductId = i.OfferingId ?? i.AddOnId ?? Guid.NewGuid(),
+                        Quantity = i.Quantity,
+                        UnitPrice = i.UnitPrice,
+                        TenantId = tenantId.Value,
+                        ProductName = i.Name,
+                        VatRate = 0.10m
+                    }).ToList()
+                };
+
+                OrderEntity order = await _orderService.CreateOrderFromCommandAsync(command, tenantId.Value);
+                booking.AttachOrder(order.Id);
+                _ = await _context.SaveChangesAsync(ct);
+                _logger.LogInformation("Booking→Order created: booking={BookingId} order={OrderId} total={Total}",
+                    booking.Id, order.Id, order.TotalAmount);
+            }
+            catch (Exception ex)
+            {
+                // Fail-safe: không fail transition COMPLETED — retry ở lần CompleteAsync kế tiếp (idempotent).
+                _logger.LogError(ex, "Booking→Order hook failed (retry on next complete): booking={BookingId}", booking.Id);
+            }
+        }
 
         private async Task<BookingEntity?> FindByIdempotencyKeyAsync(string idempotencyKey, CancellationToken ct)
         {
