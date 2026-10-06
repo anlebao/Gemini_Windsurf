@@ -19,32 +19,21 @@
 
 ## 2. VẤN ĐỀ CÒN LẠI — CẦN QUYẾT ĐỊNH / FIX TIẾP
 
-### P1 — §9.3 cancel gap (CẦN USER APPROVE — đổi spec state machine)
-- **Hiện trạng:** `Booking.Cancel` chỉ cho `PendingConfirmation | Confirmed` (§9.3 MVP đúng spec).
-- **Vấn đề thực tế:** create-with-staff (KhachLink Screen 2 chọn staff) → booking **StaffAssigned ngay** → khách KHÔNG hủy được (Status page nút Hủy → 400) + tenant queue Hủy → 400. Đây là **đường đi phổ biến** (khách chọn staff).
-- **Đề xuất A (khuyến nghị):** mở rộng `STAFF_ASSIGNED → CANCELLED` trong domain `Booking.Cancel` (+ test + cập nhật SRS §9.3). Impact: public cancel + tenant cancel + sweep cleanup tự sạch.
-- **Đề xuất B:** giữ MVP — tenant xử lý qua NoShow (cần assign → no-show); thêm ghi chú UI "đã gán staff không hủy được".
-- Effort: A = domain 1 dòng + tests ~3 + SRS note. B = 0 code (chỉ docs).
+### ✅ P1 — §9.3 cancel gap (DONE 2026-10-06 — user approve mở rộng state machine, `fc203395`)
+- `STAFF_ASSIGNED → CANCELLED` thêm vào `Booking.Cancel` (CheckedIn/InService vẫn không hủy).
+- Tests: domain + service (CheckedIn vẫn reject) + SRS §9.3 note + queue ShopERP bỏ nút Hủy InService.
 
-### P2 — DTO `BookingQueueItemDto` thiếu `OrderId`
-- ShopERP queue/chi tiết không hiển thị link Order sau COMPLETED (D2 hook chạy OK — verify PG).
-- Fix: thêm `Guid? OrderId` vào DTO + From() + ShopERP queue hiển thị mã đơn (nhỏ).
-- Effort: ~30 phút (DTO + razor).
+### ✅ P2 — DTO `BookingQueueItemDto` thêm `OrderId` (DONE `fc203395`)
+- Gateway DTO + ShopERP client + queue hiển thị "🧾 Đơn: ..." cho Completed (`booking-order-link`).
 
-### P3 — Demo data thiếu AddOn
-- KhachLink Screen 3 "add-on chips" rỗng (chưa seed AddOn cho tenant demo).
-- Fix: seed 2 add-ons (nước uống 20k / phụ thu phòng 50k) qua PG + sweep thêm check create-with-add-on.
-- Effort: ~20 phút.
+### ✅ P3 — Seed AddOn demo (DONE — PG seed + sweep D11 create-with-add-on)
+- Nước uống 20k / Phụ thu phòng VIP 50k (tenant A).
 
-### P4 — KhachLink customer spec timing flake
-- `booking-customer.spec.ts` test 2 (full flow) skip do WASM boot > timeout ở vài run (probe UI chạy OK — không phải bug product).
-- Fix: tăng timeout 15s→30s + waitForLoadState('networkidle') sau click offering; retry 1 lần nếu slot chưa render.
-- Effort: ~15 phút.
+### ✅ P4 — Customer spec timing (DONE `fc203395`)
+- WASM cold boot timeout 15s→30s + networkidle sau click.
 
-### P5 — Offering demo names mất dấu tiếng Việt
-- Seed SQL dùng ASCII ("Massage 60 phut", "Cat toc") để tránh encoding — hiển thị kém.
-- Fix: update PG bằng chuỗi có dấu (UTF-8) qua psql file script.
-- Effort: ~10 phút.
+### ✅ P5 — Offering names có dấu (DONE — PG update)
+- "Massage 60 phút", "Massage 90 phút", "Cắt tóc nam".
 
 ## 3. QUY TRÌNH XÁC NHẬN SAU FIX
 1. `guard-check.ps1` + `dotnet build VanAn.sln` + Core.Tests + ShopERP.Tests PASS
