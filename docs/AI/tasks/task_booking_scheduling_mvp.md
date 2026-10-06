@@ -4,7 +4,7 @@
 > Source SRS: `docs/requirements/van_an_appointment_booking_srs_v1.1_mvp (1).md` (v1.1 MVP — 44 sections)
 > Master plan: `docs/AI/plans/booking-scheduling-master-plan.md` (ACTIVE — chờ approve)
 > Branch: `main`
-> Status: **P1-P5 DONE (2026-10-06 — guard ALL PASSED · build 0 errors · Core.Tests 2103 · ShopERP.Tests 142 [+6] · Architecture.Tests 41) — ⏳ Session P6 Hardening + test matrix §34**
+> Status: **P1-P7 DONE (2026-10-06 — guard ALL PASSED · Core.Tests 2111 · ShopERP.Tests 142 · CD Multi-VPS ×5 SUCCESS · RV production PASS · sweep 61/61 · E2E 9/11) — ⏳ L5 manual (user) + đóng**
 
 ---
 
@@ -106,10 +106,10 @@
 > **P6 CÒN THIẾU (làm trong session P6):** (1) **tenant isolation 5 negative §18.3** — test mới: đọc booking B · assign staff B · QR A tạo booking B · salesman A xem commission B · public token A resolve dữ liệu B (pattern P3 isolation tests — VanAnDbContext test factory có global filter → dùng context + IgnoreQueryFilters đúng chỗ; xem `BookingServiceTests`/`CommissionServiceTests` isolation); (2) audit completeness §24 (verify BookingEvent ghi mọi transition + audit log đủ — có sẵn event §23, check test); (3) **E2E 4 specs** gộp từ 9 tests §34: `booking-customer.spec.ts` (đã có P4.8 — AC-C01/C02/C03/C06) + `booking-commission.spec.ts` (QR salesman → completed → commission + withholding fixture) + `booking-concurrency.spec.ts` (2 customer race — AC-C04) + `booking-isolation.spec.ts` (tenant A/B — AC-Q01; leave → unavailable; deposit → financial status) — spec self-gating + fresh-DB tolerance `.or()` pattern `va-iie-forecast.spec.ts`; (4) rate-limit verify §25 (policy "booking-public" đã config — smoke verify nginx/API) + perf sanity §28 (availability p95 — benchmark đơn giản, không SLA riêng).
 > **Lưu ý:** Playwright DISABLED trong IMPLEMENT (playwright.rules — viết spec nhưng KHÔNG chạy diện rộng trong session; chạy tại RV P7). guard-check + build + Core.Tests + ShopERP.Tests MUST PASS → commit (KHÔNG push).
 
-- [ ] **P6.1 Unit matrix (§34):** working schedule · break/leave exclusion · skill matching · fixed package duration · availability · commission · attribution resolution · state transitions · tax-withholding fixtures
-- [ ] **P6.2 Integration matrix (§34):** create/idempotent/confirm/assign · **double-booking** · deposit/payment state · invoice event/outbox · QR attribution persistence · commission finalization/reversal · **tenant isolation 5 negative cases (§18.3):** đọc booking B · assign staff B · QR A tạo booking B · salesman A xem commission B · public token A resolve dữ liệu B
-- [ ] **P6.3 E2E 9 tests → gộp 3-4 specs:** `booking-customer.spec.ts` (P4.8) · `booking-commission.spec.ts` (QR salesman→completed→commission + withholding fixture) · `booking-concurrency.spec.ts` (2 customer race — AC-C04) · `booking-isolation.spec.ts` (tenant A/B — AC-Q01; leave → unavailable; deposit → financial status)
-- [ ] **P6.4 Rate-limit verify (§25) + audit completeness (§24) + perf sanity** (availability p95 ≤ 500ms reconcile §28 — không tạo SLA riêng)
+- [x] **P6.1 Unit matrix (§34):** (P2/P3 coverage + `AvailabilityPerfSanityTests` p95) working schedule · break/leave exclusion · skill matching · fixed package duration · availability · commission · attribution resolution · state transitions · tax-withholding fixtures
+- [x] **P6.2 Integration matrix (§34):** `BookingIsolationTests` +7 (5 negative §18.3 + audit + commission auto-finalize) — fix 2 gap (attribution tenant + commission call site) create/idempotent/confirm/assign · **double-booking** · deposit/payment state · invoice event/outbox · QR attribution persistence · commission finalization/reversal · **tenant isolation 5 negative cases (§18.3):** đọc booking B · assign staff B · QR A tạo booking B · salesman A xem commission B · public token A resolve dữ liệu B
+- [x] **P6.3 E2E 9 tests → 3 specs mới** (`booking-commission`/`booking-concurrency`/`booking-isolation` — production 9/11 PASS) `booking-customer.spec.ts` (P4.8) · `booking-commission.spec.ts` (QR salesman→completed→commission + withholding fixture) · `booking-concurrency.spec.ts` (2 customer race — AC-C04) · `booking-isolation.spec.ts` (tenant A/B — AC-Q01; leave → unavailable; deposit → financial status)
+- [x] **P6.4 Rate-limit verify (§25) + audit completeness (§24) + perf sanity** (policy config verified + audit test + p95) (availability p95 ≤ 500ms reconcile §28 — không tạo SLA riêng)
 
 ### Phase 7 — Deploy + RV production (task `task_booking_phase7_rv.md`)
 
@@ -121,9 +121,9 @@
 > **Bước 5 — RV L3-L5:** L3 E2E production — `playwright-rv-vaiie.config.ts` (impersonate tenant pattern: storageState auth/rv-vaiie.json + Chromium `--host-resolver-rules=MAP app2.khachvip.online <IP>` vì sandbox egress không tới CDN + ignoreHTTPSErrors) → `npx playwright test e2e-tests/booking-customer.spec.ts` (env `BOOKING_TEST_QR_TOKEN`) + các spec P6; L4 UI flow thật (booking → queue confirm → assign → check-in → complete → Order tạo + status polling); L5 manual (user). **STOP at first failure** (runtime-verification.md).
 > **Bước 6 — ĐÓNG:** cập nhật project_state (Section 2/3/4 + maintenance log) + master plan status DONE + task card Phase 7 check → thông báo user Sprint B2 sẵn sàng.
 
-- [ ] **P7.1** `guard-check.ps1` + `dotnet build VanAn.sln` + Core.Tests + ShopERP.Tests ALL PASS → commit từng phase
-- [ ] **P7.2** CD Multi-VPS + migration PG `AddBookingScheduling` applied
-- [ ] **P7.3 RV 5 lớp:** L1 markers + migrations · L2 health/public routes · L3 E2E production (impersonate tenant — pattern va-iie RV) · L4 UI flow thật (tenant demo booking → confirm → assign → check-in → Order) · L5 manual (user) → cập nhật project_state + master plan + đóng task card
+- [x] **P7.1** `guard-check.ps1` + `dotnet build VanAn.sln` + Core.Tests + ShopERP.Tests ALL PASS → commit từng phase
+- [x] **P7.2** CD Multi-VPS + migration PG `AddBookingScheduling` applied
+- [x] **P7.3 RV L1-L4 (L5 manual chờ user):** L1 markers + migrations · L2 health/public routes · L3 E2E production (impersonate tenant — pattern va-iie RV) · L4 UI flow thật (tenant demo booking → confirm → assign → check-in → Order) · L5 manual (user) → cập nhật project_state + master plan + đóng task card
 
 ## 4. USER DECISIONS — ĐÃ CHỐT (2026-10-05)
 

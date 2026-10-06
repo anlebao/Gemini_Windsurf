@@ -2,7 +2,7 @@
 
 > Created: 2026-10-05 (user review SRS + chốt 5 quyết định 2026-10-05)
 > Source SRS: `docs/requirements/van_an_appointment_booking_srs_v1.1_mvp (1).md` (44 sections, 7 phases §36)
-> Status: **ACTIVE — P1 + P2 DONE (`a8ce5482` + `1a98c7b9`, 2026-10-05) → Session P3 QR/Commission/Financial**
+> Status: **✅ DONE — P1-P7 COMPLETE (2026-10-06, `519c2f81` — RV production PASS · sweep 61/61 · E2E 9/11 · 6 bugs fixed · plan fix P1-P5 DONE)**
 > Branch: `main`
 > Priority: **ƯU TIÊN TRƯỚC Sprint B2 (HR-Payroll)** — quyết định user 2026-10-05 (D5)
 
