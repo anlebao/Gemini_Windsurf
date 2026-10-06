@@ -1,0 +1,258 @@
+@page "/booking/{QrToken}"
+
+@using VanAn.KhachLink.Services.Http
+@using VanAn.KhachLink.Components.Layout
+
+@inject BookingPublicHttpService BookingApi
+@inject BookingFlowState Flow
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+
+<PageTitle>@(Flow.Qr?.TenantName ?? "Đặt lịch hẹn")</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-3" style="max-width: 720px;">
+        <BookingStepBar CurrentStep="1" />
+
+        @if (_isLoading)
+        {
+            <VanAnCard>
+                <div class="text-center py-4">
+                    <VanASpinner Label="Đang tải dịch vụ..." />
+                </div>
+            </VanAnCard>
+        }
+        else if (!string.IsNullOrEmpty(_loadError))
+        {
+            <VanAnCard>
+                <VanAnAlert Variant="AlertVariant.Error" Message="@_loadError" Dismissible="false" />
+                <VanAnButton Variant="ButtonVariant.Primary" FullWidth="true" OnClick="LoadAsync">
+                    Thử lại
+                </VanAnButton>
+            </VanAnCard>
+        }
+        else if (Flow.Catalog is not null)
+        {
+            @* Tenant branding (SRS §5.2 Screen 1) *@
+            <div class="text-center mb-3">
+                <h1 class="h4 mb-1" data-testid="booking-tenant-name">@Flow.Catalog.TenantName</h1>
+                <div class="text-muted small">Đặt lịch hẹn nhanh chóng — không cần tài khoản</div>
+            </div>
+
+            @* Category chips (§5.2) *@
+            @if (Flow.Catalog.Categories.Count > 0)
+            {
+                <div class="d-flex gap-2 overflow-auto pb-2 mb-3" data-testid="booking-category-chips">
+                    <button type="button"
+                            class="btn btn-sm rounded-pill @(_selectedCategory is null ? "btn-primary" : "btn-outline-secondary")"
+                            @onclick="() => { _selectedCategory = null; }">
+                        Tất cả
+                    </button>
+                    @foreach (var category in Flow.Catalog.Categories.OrderBy(c => c.DisplayOrder))
+                    {
+                        <button type="button"
+                                class="btn btn-sm rounded-pill @(_selectedCategory == category.Id ? "btn-primary" : "btn-outline-secondary")"
+                                @onclick="() => { _selectedCategory = category.Id; }">
+                            @category.Name
+                        </button>
+                    }
+                </div>
+            }
+
+            @* Offering cards (§5.2 — service đơn + package thời lượng cố định) *@
+            <div class="d-grid gap-2 mb-3" data-testid="booking-offering-list">
+                @foreach (var offering in _visibleOfferings)
+                {
+                    var isSelected = Flow.Offering?.Id == offering.Id;
+                    <button type="button"
+                            class="booking-offering-card text-start w-100 @(isSelected ? "selected" : "")"
+                            data-testid="booking-offering-@offering.Id"
+                            @onclick="() => SelectOffering(offering)">
+                        <div class="d-flex justify-content-between align-items-center gap-2">
+                            <div>
+                                <div class="fw-semibold">@offering.DisplayName</div>
+                                <div class="text-muted small">
+                                    ⏱ @offering.DurationMinutes phút
+                                    @if (offering.IsPackage)
+                                    {
+                                        <span class="badge text-bg-warning ms-1">Gói</span>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrEmpty(offering.Description))
+                                {
+                                    <div class="text-muted small">@offering.Description</div>
+                                }
+                            </div>
+                            <div class="fw-bold text-nowrap">@offering.Price.ToString("N0") đ</div>
+                        </div>
+                    </button>
+                }
+            </div>
+
+            @* Add-ons (SRS §8.3 — non-scheduling) *@
+            @if (Flow.Offering is not null && Flow.Catalog.AddOns.Count > 0)
+            {
+                <div class="mb-3">
+                    <div class="fw-semibold mb-2">Thêm lựa chọn (tùy chọn)</div>
+                    <div class="d-flex flex-wrap gap-2" data-testid="booking-addon-chips">
+                        @foreach (var addOn in Flow.Catalog.AddOns)
+                        {
+                            var isAdded = Flow.SelectedAddOns.Any(a => a.Id == addOn.Id);
+                            <button type="button"
+                                    class="btn btn-sm @(isAdded ? "btn-success" : "btn-outline-secondary") rounded-pill"
+                                    data-testid="booking-addon-@addOn.Id"
+                                    @onclick="() => ToggleAddOn(addOn)">
+                                @addOn.Name · +@addOn.Price.ToString("N0") đ
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+
+            @* Sticky bottom summary (§5.2) *@
+            @if (Flow.Offering is not null)
+            {
+                var total = Flow.ComputeTotal(Flow.Offering.Price);
+                <div class="sticky-bottom bg-white border-top rounded-top shadow-sm p-3 mt-3" data-testid="booking-summary">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <div class="fw-semibold">@Flow.Offering.DisplayName</div>
+                            <div class="text-muted small">
+                                @Flow.Offering.DurationMinutes phút
+                                @if (Flow.SelectedAddOns.Count > 0)
+                                {
+                                    <span> · +@Flow.SelectedAddOns.Count mục chọn</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="fw-bold fs-5">@total.ToString("N0") đ</div>
+                    </div>
+                    <VanAnButton Variant="ButtonVariant.Success" FullWidth="true"
+                                 OnClick="@(() => Nav.NavigateTo($"/booking/{QrToken}/time"))"
+                                 data-testid="booking-btn-continue">
+                        Tiếp tục →
+                    </VanAnButton>
+                </div>
+            }
+        }
+    </div>
+</KhachLinkLayout>
+
+<style>
+    .booking-offering-card {
+        border: 1px solid #dee2e6; border-radius: 12px; padding: 12px 14px;
+        background: #fff; min-height: 44px;
+    }
+    .booking-offering-card.selected {
+        border-color: var(--bs-primary, #0d6efd);
+        background: var(--bs-primary-bg-subtle, #e7f1ff);
+        box-shadow: 0 0 0 1px var(--bs-primary, #0d6efd);
+    }
+    .booking-offering-card:active { transform: scale(0.99); }
+    .booking-stepbar .step-line { min-width: 20px; }
+</style>
+
+@code {
+    [Parameter] public string QrToken { get; set; } = string.Empty;
+
+    private bool _isLoading = true;
+    private string? _loadError;
+    private Guid? _selectedCategory;
+
+    private List<BookingOfferingDto> _visibleOfferings => Flow.Catalog?.Offerings
+        .Where(o => _selectedCategory is null || o.CategoryId == _selectedCategory)
+        .ToList() ?? [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(QrToken))
+        {
+            _loadError = "Liên kết đặt lịch không hợp lệ.";
+            _isLoading = false;
+            return;
+        }
+
+        Flow.QrToken = QrToken;
+
+        // Zero-friction identity (§4.1): anonymous session (attribution §7.4) + device id persist trong localStorage.
+        Flow.AnonymousSessionId ??= await GetOrCreateLocalValueAsync("booking_anon_session");
+        Flow.DeviceId ??= await GetOrCreateLocalValueAsync("customer_device_id");
+
+        // QR mới hoặc chưa resolve → load lại (refresh QR không đổi salesman — §7.5).
+        if (Flow.Qr is null || Flow.QrToken != QrToken || Flow.Catalog is null)
+        {
+            await LoadAsync();
+        }
+        else
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _loadError = null;
+        StateHasChanged();
+
+        try
+        {
+            var qr = await BookingApi.ResolveQrAsync(QrToken, Flow.AnonymousSessionId!);
+            if (qr is null)
+            {
+                _loadError = "Mã QR không hợp lệ hoặc cửa hàng chưa mở đặt lịch hẹn.";
+                return;
+            }
+
+            var catalog = await BookingApi.GetCatalogAsync(qr.TenantId);
+            if (catalog is null)
+            {
+                _loadError = "Cửa hàng chưa mở tính năng đặt lịch hẹn.";
+                return;
+            }
+
+            Flow.Qr = qr;
+            Flow.Catalog = catalog;
+            Flow.ResetSelections();
+        }
+        catch (BookingApiException ex)
+        {
+            _loadError = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            _loadError = "Không tải được dịch vụ. Vui lòng kiểm tra kết nối và thử lại.";
+            Console.Error.WriteLine($"Booking load error: {ex}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SelectOffering(BookingOfferingDto offering)
+    {
+        Flow.Offering = offering;
+        Flow.SelectedAddOns = [];
+    }
+
+    private void ToggleAddOn(BookingAddOnDto addOn)
+    {
+        if (Flow.SelectedAddOns.Any(a => a.Id == addOn.Id))
+            Flow.SelectedAddOns.RemoveAll(a => a.Id == addOn.Id);
+        else
+            Flow.SelectedAddOns.Add(addOn);
+    }
+
+    private async Task<string> GetOrCreateLocalValueAsync(string key)
+    {
+        string? value = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", key);
+        if (string.IsNullOrEmpty(value))
+        {
+            value = Guid.NewGuid().ToString("N");
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", key, value);
+        }
+        return value;
+    }
+}

@@ -1,0 +1,34 @@
+@* Booking progress (SRS §6.4): Dịch vụ → Thời gian → Ghi chú → Xác nhận *@
+<div class="booking-stepbar d-flex align-items-center justify-content-center gap-1 mb-3" data-testid="booking-stepbar">
+    @foreach (var step in _steps)
+    {
+        var idx = _steps.IndexOf(step) + 1;
+        var state = idx < CurrentStep ? "done" : idx == CurrentStep ? "active" : "todo";
+        <div class="d-flex align-items-center gap-1 @(idx < _steps.Count ? "flex-grow-1" : "")" style="max-width: 110px;">
+            <span class="step-dot @state" data-testid="booking-step-@idx">@(idx < CurrentStep ? "✓" : idx.ToString())</span>
+            <span class="step-label small text-nowrap @(idx == CurrentStep ? "fw-bold text-primary" : "text-muted")">@step</span>
+            @if (idx < _steps.Count)
+            {
+                <span class="step-line flex-grow-1 @(idx < CurrentStep ? "done" : "")"></span>
+            }
+        </div>
+    }
+</div>
+
+<style>
+    .booking-stepbar .step-dot {
+        width: 24px; height: 24px; border-radius: 50%;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 0.75rem; color: #fff; background: #dee2e6; flex-shrink: 0;
+    }
+    .booking-stepbar .step-dot.active { background: var(--bs-primary, #0d6efd); }
+    .booking-stepbar .step-dot.done { background: var(--bs-success, #198754); }
+    .booking-stepbar .step-line { height: 2px; background: #dee2e6; }
+    .booking-stepbar .step-line.done { background: var(--bs-success, #198754); }
+</style>
+
+@code {
+    private static readonly List<string> _steps = ["Dịch vụ", "Thời gian", "Ghi chú", "Xác nhận"];
+
+    [Parameter] public int CurrentStep { get; set; } = 1;
+}

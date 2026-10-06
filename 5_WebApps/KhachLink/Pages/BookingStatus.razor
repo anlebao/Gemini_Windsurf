@@ -1,0 +1,258 @@
+@page "/booking/status/{Code}"
+@implements IDisposable
+
+@using VanAn.KhachLink.Services.Http
+@using VanAn.KhachLink.Components.Layout
+
+@inject BookingPublicHttpService BookingApi
+@inject NavigationManager Nav
+
+<PageTitle>Trạng thái đặt lịch</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-3" style="max-width: 720px;">
+        <VanAnCard Header="📅 Trạng thái đặt lịch">
+            @if (_isLoading && _status is null)
+            {
+                <div class="text-center py-4"><VanASpinner Label="Đang tải trạng thái..." /></div>
+            }
+            else if (_loadError is not null)
+            {
+                <VanAnAlert Variant="AlertVariant.Error" Message="@_loadError" Dismissible="false" />
+                <VanAnButton Variant="ButtonVariant.Primary" FullWidth="true" OnClick="RefreshAsync">Làm mới</VanAnButton>
+            }
+            else if (_status is not null)
+            {
+                <div class="text-center mb-3">
+                    <div class="fs-1">@_statusIcon</div>
+                    <div class="h5 mb-1 fw-bold" data-testid="booking-status-label">@GetStatusLabel(_status.Status)</div>
+                    <div class="text-muted small">
+                        Mã đặt lịch: <span class="fw-semibold" data-testid="booking-code">@_status.PublicBookingCode</span>
+                    </div>
+                </div>
+
+                <div class="mb-1 d-flex justify-content-between">
+                    <span class="text-muted">Dịch vụ</span>
+                    <span class="fw-semibold">@_status.OfferingName</span>
+                </div>
+                <div class="mb-1 d-flex justify-content-between">
+                    <span class="text-muted">Thời gian</span>
+                    <span class="fw-semibold" data-testid="booking-status-time">@_status.StartAt.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")</span>
+                </div>
+                <div class="mb-1 d-flex justify-content-between">
+                    <span class="text-muted">Nhân viên</span>
+                    <span class="fw-semibold">@(_status.StaffName ?? "Chưa phân công")</span>
+                </div>
+                <div class="mb-1 d-flex justify-content-between">
+                    <span class="text-muted">Tổng dự kiến</span>
+                    <span class="fw-semibold">@_status.EstimatedTotal.ToString("N0") đ</span>
+                </div>
+                <div class="mb-1 d-flex justify-content-between">
+                    <span class="text-muted">Thanh toán</span>
+                    <span class="fw-semibold">@GetPaymentLabel(_status.PaymentStatus)</span>
+                </div>
+
+                @if (_status.IsTerminal)
+                {
+                    <VanAnAlert Variant="@_terminalVariant"
+                                Message="@GetTerminalMessage(_status)" Dismissible="false" class="mt-2" />
+                }
+                else
+                {
+                    <div class="text-center text-muted small mt-2" data-testid="booking-polling-note">
+                        Trang tự động cập nhật mỗi @(_pollIntervalSeconds) giây...
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(_pollError))
+                {
+                    <VanAnAlert Variant="AlertVariant.Warning" Message="@_pollError" Dismissible="false" class="mt-2" />
+                }
+
+                <div class="d-flex gap-2 mt-3">
+                    @if (!_status.IsTerminal)
+                    {
+                        <VanAnButton Variant="ButtonVariant.Outline" OnClick="CancelAsync"
+                                     Disabled="@_isCancelling" data-testid="booking-btn-cancel">
+                            @(_isCancelling ? "Đang hủy..." : "Hủy lịch hẹn")
+                        </VanAnButton>
+                    }
+                    <VanAnButton Variant="ButtonVariant.Outline" OnClick="RefreshAsync">Làm mới</VanAnButton>
+                </div>
+            }
+        </VanAnCard>
+
+        <div class="text-center mt-3">
+            <VanAnButton Variant="ButtonVariant.Ghost" OnClick="@(() => Nav.NavigateTo("/"))">← Về trang chủ</VanAnButton>
+        </div>
+    </div>
+</KhachLinkLayout>
+
+@code {
+    [Parameter] public string Code { get; set; } = string.Empty;
+
+    private PublicBookingStatusDto? _status;
+    private bool _isLoading = true;
+    private string? _loadError;
+    private string? _pollError;
+    private bool _isCancelling;
+
+    private CancellationTokenSource? _pollCts;
+    private int _pollCount;
+    private int _pollIntervalSeconds = 5;
+
+    private string _statusIcon => _status?.Status switch
+    {
+        "Completed" => "✅",
+        "Cancelled" or "Rejected" or "NoShow" => "⚠️",
+        _ => "🕐"
+    };
+
+    private AlertVariant _terminalVariant => _status?.Status == "Completed" ? AlertVariant.Success : AlertVariant.Warning;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _pollCts = new CancellationTokenSource();
+        await RefreshAsync();
+        _ = PollLoopAsync(_pollCts.Token);
+    }
+
+    private async Task PollLoopAsync(CancellationToken ct)
+    {
+        try
+        {
+            while (!ct.IsCancellationRequested && !(_status?.IsTerminal ?? false))
+            {
+                await Task.Delay(TimeSpan.FromSeconds(_pollIntervalSeconds), ct);
+                if (ct.IsCancellationRequested)
+                    return;
+
+                // §10.2: 5s × 2 phút đầu → 10-15s sau; dừng ở terminal state.
+                _pollCount++;
+                if (_pollCount >= 24)
+                    _pollIntervalSeconds = 15;
+
+                await PollOnceAsync(ct);
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            // component disposed — stop polling
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Booking poll loop error: {ex}");
+        }
+    }
+
+    private async Task PollOnceAsync(CancellationToken ct)
+    {
+        try
+        {
+            var (dto, _) = await BookingApi.GetStatusAsync(Code, ct);
+            if (dto is null)
+            {
+                _loadError = "Không tìm thấy lịch hẹn này.";
+                _isLoading = false;
+            }
+            else
+            {
+                _status = dto;
+                _loadError = null;
+                _pollError = null;
+                _isLoading = false;
+            }
+        }
+        catch (BookingApiException ex)
+        {
+            _pollError = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            _pollError = "Mất kết nối — đang thử lại...";
+            Console.Error.WriteLine($"Booking poll error: {ex}");
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshAsync()
+    {
+        _loadError = null;
+        await PollOnceAsync(CancellationToken.None);
+    }
+
+    private async Task CancelAsync()
+    {
+        if (_isCancelling)
+            return;
+        _isCancelling = true;
+        _pollError = null;
+        StateHasChanged();
+
+        try
+        {
+            var (success, message, _) = await BookingApi.CancelBookingAsync(Code, "Khách tự hủy");
+            if (success)
+            {
+                await RefreshAsync();
+            }
+            else
+            {
+                _pollError = message;
+            }
+        }
+        catch (Exception ex)
+        {
+            _pollError = "Không hủy được lịch. Vui lòng thử lại.";
+            Console.Error.WriteLine($"Booking cancel error: {ex}");
+        }
+        finally
+        {
+            _isCancelling = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string GetStatusLabel(string status) => status switch
+    {
+        "PendingConfirmation" => "Đã gửi — chờ cửa hàng xác nhận",
+        "Confirmed" => "Đã xác nhận",
+        "StaffAssigned" => "Đã phân công nhân viên",
+        "CheckedIn" => "Đã đến — chờ phục vụ",
+        "InService" => "Đang phục vụ",
+        "Completed" => "Hoàn tất",
+        "Cancelled" => "Đã hủy",
+        "Rejected" => "Bị từ chối",
+        "NoShow" => "Không đến",
+        _ => status
+    };
+
+    private static string GetPaymentLabel(string paymentStatus) => paymentStatus switch
+    {
+        "NotRequired" => "Không yêu cầu",
+        "Pending" => "Chưa thanh toán",
+        "Paid" => "Đã thanh toán",
+        "Failed" => "Thanh toán thất bại",
+        "Refunded" => "Đã hoàn tiền",
+        "Forfeited" => "Cọc bị giữ",
+        _ => paymentStatus
+    };
+
+    private static string GetTerminalMessage(PublicBookingStatusDto status) => status.Status switch
+    {
+        "Completed" => "Lịch hẹn đã hoàn tất. Cảm ơn bạn!",
+        "Cancelled" => "Lịch hẹn đã hủy.",
+        "Rejected" => "Cửa hàng không thể nhận lịch này. Vui lòng đặt lại khung giờ khác.",
+        "NoShow" => "Bạn không đến đúng giờ nên lịch đã bị đóng.",
+        _ => string.Empty
+    };
+
+    public void Dispose()
+    {
+        _pollCts?.Cancel();
+        _pollCts?.Dispose();
+    }
+}

@@ -286,6 +286,32 @@ namespace VanAn.Gateway
 
                 });
 
+                // Booking P4.1 (SRS §25 — public endpoints MUST be rate-limited).
+
+                // 120 req/min/IP: cho phép status polling 5s (~12/min) + tải trang + retry mà không chặn khách.
+
+                options.AddPolicy("booking-public", context =>
+
+                {
+
+                    string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+                    return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+
+                    {
+
+                        PermitLimit = 120,
+
+                        Window = TimeSpan.FromMinutes(1),
+
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+
+                        QueueLimit = 0
+
+                    });
+
+                });
+
 
 
                 options.AddPolicy("auth", context =>

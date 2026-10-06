@@ -1,0 +1,246 @@
+@page "/booking/{QrToken}/time"
+
+@using VanAn.KhachLink.Services.Http
+@using VanAn.KhachLink.Components.Layout
+
+@inject BookingPublicHttpService BookingApi
+@inject BookingFlowState Flow
+@inject NavigationManager Nav
+
+<PageTitle>Chọn thời gian — @(Flow.Catalog?.TenantName ?? "Đặt lịch")</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-3" style="max-width: 720px;">
+        <BookingStepBar CurrentStep="2" />
+
+        @if (Flow.Offering is null)
+        {
+            <VanAnCard>
+                <VanAnAlert Variant="AlertVariant.Warning" Message="Vui lòng chọn dịch vụ trước." Dismissible="false" />
+                <VanAnButton Variant="ButtonVariant.Outline" OnClick="GoBack">← Chọn dịch vụ</VanAnButton>
+            </VanAnCard>
+        }
+        else
+        {
+            <div class="mb-2">
+                <div class="fw-semibold">@Flow.Offering.DisplayName</div>
+                <div class="text-muted small">⏱ @Flow.Offering.DurationMinutes phút · @Flow.Offering.Price.ToString("N0") đ</div>
+            </div>
+
+            @* Horizontal date picker (§5.2) *@
+            <div class="d-flex gap-2 overflow-auto pb-2 mb-3" data-testid="booking-date-picker">
+                @foreach (var day in _days)
+                {
+                    var isSelected = _selectedDay == day;
+                    <button type="button"
+                            class="btn text-center @(isSelected ? "btn-primary" : "btn-outline-secondary")"
+                            style="min-width: 64px;"
+                            data-testid="booking-date-@(day.ToString("yyyyMMdd"))"
+                            @onclick="() => SelectDay(day)">
+                        <div class="small">@day.ToString("ddd")</div>
+                        <div class="fw-bold">@day.ToString("dd/MM")</div>
+                    </button>
+                }
+            </div>
+
+            @* Staff filter (server-filtered §11.5 — Bất kỳ ai / cụ thể) *@
+            @if (_availableStaff.Count > 0)
+            {
+                <div class="d-flex flex-wrap gap-2 mb-3" data-testid="booking-staff-filter">
+                    <button type="button"
+                            class="btn btn-sm @(_selectedStaffId is null ? "btn-primary" : "btn-outline-secondary") rounded-pill"
+                            data-testid="booking-staff-any"
+                            @onclick="@(() => SelectStaff(null, "Bất kỳ ai phù hợp"))">
+                        Bất kỳ ai phù hợp
+                    </button>
+                    @foreach (var staff in _availableStaff)
+                    {
+                        <button type="button"
+                                class="btn btn-sm @(_selectedStaffId == staff.Key ? "btn-primary" : "btn-outline-secondary") rounded-pill"
+                                data-testid="booking-staff-@staff.Key"
+                                @onclick="() => SelectStaff(staff.Key, staff.Value)">
+                            @staff.Value
+                        </button>
+                    }
+                </div>
+            }
+
+            @if (_isLoadingSlots)
+            {
+                <div class="text-center py-4"><VanASpinner Label="Đang kiểm tra lịch trống..." /></div>
+            }
+            else if (_slots.Count == 0)
+            {
+                <VanAnAlert Variant="AlertVariant.Info"
+                            Message="Ngày này hiện không còn khung giờ trống. Vui lòng chọn ngày hoặc nhân viên khác."
+                            Dismissible="false" data-testid="booking-no-slots" />
+            }
+            else
+            {
+                <div class="d-grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));" data-testid="booking-slot-grid">
+                    @foreach (var slot in _slots)
+                    {
+                        var isSelected = Flow.SelectedSlotStart == slot.StartAt;
+                        <button type="button"
+                                class="btn btn-lg @(isSelected ? "btn-success" : "btn-outline-primary")"
+                                style="min-height: 56px;"
+                                data-testid="booking-slot-@(slot.StartAt.ToString("HHmm"))"
+                                @onclick="() => SelectSlot(slot)">
+                            <div class="fw-bold fs-6">@slot.StartAt.ToVietnamTime().ToString("HH:mm")</div>
+                            <div class="small">@slot.StaffName</div>
+                        </button>
+                    }
+                </div>
+            }
+
+            @* Sticky bottom summary (§5.2) *@
+            <div class="sticky-bottom bg-white border-top rounded-top shadow-sm p-3 mt-3" data-testid="booking-summary">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div>
+                        <div class="fw-semibold">@Flow.Offering.DisplayName</div>
+                        <div class="text-muted small">
+                            @if (Flow.HasSelectedSlot)
+                            {
+                                <span data-testid="booking-selected-time">
+                                    @Flow.SelectedSlotStart!.Value.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")
+                                    @if (!string.IsNullOrEmpty(Flow.SelectedStaffName))
+                                    {
+                                        <text> · @Flow.SelectedStaffName</text>
+                                    }
+                                </span>
+                            }
+                            else
+                            {
+                                <span>Chưa chọn khung giờ</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="fw-bold">@Flow.Offering.Price.ToString("N0") đ</div>
+                </div>
+                <div class="d-flex gap-2">
+                    <VanAnButton Variant="ButtonVariant.Outline" OnClick="GoBack">←</VanAnButton>
+                    <VanAnButton Variant="ButtonVariant.Success" FullWidth="true"
+                                 OnClick="ContinueAsync"
+                                 Disabled="!Flow.HasSelectedSlot"
+                                 data-testid="booking-btn-continue">
+                        Tiếp tục →
+                    </VanAnButton>
+                </div>
+            </div>
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    [Parameter] public string QrToken { get; set; } = string.Empty;
+
+    private readonly List<DateTime> _days = [];
+    private DateTime _selectedDay;
+    private bool _isLoadingSlots;
+    private List<AvailableSlotDto> _slots = [];
+    private Dictionary<Guid, string> _availableStaff = [];
+    private Guid? _selectedStaffId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Flow.Offering is null)
+            return;
+
+        _days.AddRange(Enumerable.Range(0, 7).Select(i => DateTime.UtcNow.Date.AddDays(i)));
+        _selectedDay = _days.First();
+
+        // Giữ lựa chọn ngày/giờ khi quay lại từ màn 3 (back-forward UX).
+        if (Flow.SelectedSlotStart is not null)
+        {
+            var local = Flow.SelectedSlotStart.Value.ToVietnamTime();
+            var matchingDay = _days.FirstOrDefault(d => d == DateOnly.FromDateTime(local).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc));
+            if (matchingDay != default)
+                _selectedDay = matchingDay;
+            _selectedStaffId = Flow.SelectedStaffId;
+        }
+
+        await LoadSlotsAsync();
+    }
+
+    private async Task SelectDay(DateTime day)
+    {
+        if (_selectedDay == day)
+            return;
+        _selectedDay = day;
+        await LoadSlotsAsync();
+    }
+
+    private async Task SelectStaff(Guid? staffId, string staffName)
+    {
+        if (_selectedStaffId == staffId)
+            return;
+        _selectedStaffId = staffId;
+        Flow.StaffFilterName = staffName;
+        Flow.SelectedStaffId = null;
+        Flow.SelectedStaffName = null;
+        Flow.SelectedSlotStart = null;
+        await LoadSlotsAsync();
+    }
+
+    private async Task LoadSlotsAsync()
+    {
+        _isLoadingSlots = true;
+        _slots = [];
+        _availableStaff = [];
+        StateHasChanged();
+
+        try
+        {
+            var dateOnly = DateOnly.FromDateTime(_selectedDay);
+            var slots = await BookingApi.GetAvailabilityAsync(
+                Flow.Qr!.TenantId, Flow.Offering!.Id, dateOnly, _selectedStaffId);
+
+            // Bất kỳ ai → dedup slot cùng giờ (giữ staff đầu tiên).
+            if (_selectedStaffId is null)
+            {
+                _slots = slots.GroupBy(s => s.StartAt)
+                              .Select(g => g.First())
+                              .OrderBy(s => s.StartAt)
+                              .ToList();
+            }
+            else
+            {
+                _slots = slots.OrderBy(s => s.StartAt).ToList();
+            }
+
+            _availableStaff = slots
+                .GroupBy(s => s.StaffId)
+                .Select(g => (g.Key, Name: g.First().StaffName))
+                .ToDictionary(x => x.Key, x => x.Name);
+        }
+        catch (BookingApiException ex)
+        {
+            _slots = [];
+            _loadError = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            _slots = [];
+            _loadError = "Không kiểm tra được lịch trống. Vui lòng thử lại.";
+            Console.Error.WriteLine($"Booking availability error: {ex}");
+        }
+        finally
+        {
+            _isLoadingSlots = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SelectSlot(AvailableSlotDto slot)
+    {
+        Flow.SelectedSlotStart = slot.StartAt;
+        Flow.SelectedStaffId = slot.StaffId;
+        Flow.SelectedStaffName = slot.StaffName;
+    }
+
+    private void ContinueAsync() => Nav.NavigateTo($"/booking/{QrToken}/note");
+
+    private void GoBack() => Nav.NavigateTo($"/booking/{QrToken}");
+
+    private string? _loadError;
+}

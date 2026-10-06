@@ -61,6 +61,10 @@ namespace VanAn.KhachLink
             _ = builder.Services.AddScoped<Services.CartService>();
             _ = builder.Services.AddScoped<Services.CheckoutFlowState>();
 
+            // Booking P4 (SRS v1.1 MVP): scoped flow state 4 màn hình + Gateway public API client.
+            _ = builder.Services.AddScoped<Services.BookingFlowState>();
+            _ = builder.Services.AddScoped<Services.Http.BookingPublicHttpService>();
+
             // Register PWA Services
             _ = builder.Services.AddScoped<Services.PWA.PWAService>();
 

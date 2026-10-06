@@ -1,0 +1,156 @@
+@page "/booking/{QrToken}/confirm"
+
+@using VanAn.KhachLink.Services.Http
+@using VanAn.KhachLink.Components.Layout
+
+@inject BookingPublicHttpService BookingApi
+@inject BookingFlowState Flow
+@inject NavigationManager Nav
+
+<PageTitle>Xác nhận — @(Flow.Catalog?.TenantName ?? "Đặt lịch")</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-3" style="max-width: 720px;">
+        <BookingStepBar CurrentStep="4" />
+
+        @if (Flow.Offering is null || !Flow.HasSelectedSlot || Flow.Qr is null)
+        {
+            <VanAnCard>
+                <VanAnAlert Variant="AlertVariant.Warning" Message="Thiếu thông tin đặt lịch. Vui lòng chọn lại dịch vụ và khung giờ." Dismissible="false" />
+                <VanAnButton Variant="ButtonVariant.Outline" OnClick="@(() => Nav.NavigateTo($"/booking/{QrToken}"))">← Bắt đầu lại</VanAnButton>
+            </VanAnCard>
+        }
+        else
+        {
+            var total = Flow.ComputeTotal(Flow.Offering.Price);
+            var deposit = Flow.ComputeDepositAmount(total);
+            var note = BuildNote();
+
+            <VanAnCard Header="📋 Kiểm tra lại thông tin">
+                <div class="mb-1 d-flex justify-content-between">
+                    <span class="text-muted">Cửa hàng</span>
+                    <span class="fw-semibold" data-testid="confirm-tenant">@Flow.Catalog!.TenantName</span>
+                </div>
+                <div class="mb-1 d-flex justify-content-between">
+                    <span class="text-muted">Dịch vụ</span>
+                    <span class="fw-semibold" data-testid="confirm-offering">@Flow.Offering.DisplayName</span>
+                </div>
+                <div class="mb-1 d-flex justify-content-between">
+                    <span class="text-muted">Thời gian</span>
+                    <span class="fw-semibold" data-testid="confirm-time">@Flow.SelectedSlotStart!.Value.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")</span>
+                </div>
+                <div class="mb-1 d-flex justify-content-between">
+                    <span class="text-muted">Nhân viên</span>
+                    <span class="fw-semibold" data-testid="confirm-staff">@(Flow.SelectedStaffName ?? "Cửa hàng sẽ phân công")</span>
+                </div>
+                @if (Flow.SelectedAddOns.Count > 0)
+                {
+                    <div class="mb-1 d-flex justify-content-between">
+                        <span class="text-muted">Lựa chọn thêm</span>
+                        <span class="fw-semibold">@string.Join(", ", Flow.SelectedAddOns.Select(a => a.Name))</span>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(note))
+                {
+                    <div class="mb-1 d-flex justify-content-between">
+                        <span class="text-muted">Ghi chú</span>
+                        <span class="fw-semibold text-end" data-testid="confirm-note">@note</span>
+                    </div>
+                }
+                <hr />
+                <div class="mb-1 d-flex justify-content-between">
+                    <span>Tổng dự kiến</span>
+                    <span class="fw-bold" data-testid="confirm-total">@total.ToString("N0") đ</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>Đặt cọc</span>
+                    <span data-testid="confirm-deposit">@(deposit is not null ? $"{deposit.Value.ToString("N0")} đ" : "Không đặt cọc")</span>
+                </div>
+            </VanAnCard>
+
+            @if (!string.IsNullOrEmpty(Flow.Catalog!.CancelPolicy))
+            {
+                <VanAnAlert Variant="AlertVariant.Info" Message="@Flow.Catalog.CancelPolicy" Dismissible="false" class="mt-2" />
+            }
+
+            @if (!string.IsNullOrEmpty(_submitError))
+            {
+                <VanAnAlert Variant="AlertVariant.Error" Message="@_submitError" Dismissible="false" class="mt-2" data-testid="booking-submit-error" />
+            }
+
+            <div class="sticky-bottom bg-white border-top rounded-top shadow-sm p-3 mt-3">
+                <div class="d-flex gap-2">
+                    <VanAnButton Variant="ButtonVariant.Outline" OnClick="GoBack" Disabled="@_isSubmitting">←</VanAnButton>
+                    <VanAnButton Variant="ButtonVariant.Success" FullWidth="true"
+                                 OnClick="SubmitAsync"
+                                 Disabled="@_isSubmitting"
+                                 data-testid="booking-btn-submit">
+                        @(_isSubmitting ? "Đang gửi..." : "XÁC NHẬN ĐẶT LỊCH")
+                    </VanAnButton>
+                </div>
+                <div class="form-text text-center mt-2">Nhấn một lần — hệ thống chống trùng sẽ bảo vệ nếu mạng chập chờn.</div>
+            </div>
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    [Parameter] public string QrToken { get; set; } = string.Empty;
+
+    private bool _isSubmitting;
+    private string? _submitError;
+
+    private string BuildNote()
+    {
+        var parts = new List<string>(Flow.QuickTags);
+        if (!string.IsNullOrWhiteSpace(Flow.Note))
+            parts.Add(Flow.Note.Trim());
+        return parts.Count > 0 ? string.Join(". ", parts) : string.Empty;
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_isSubmitting)
+            return;
+
+        _isSubmitting = true;
+        _submitError = null;
+        StateHasChanged();
+
+        // §29: KHÔNG báo thành công trước server persist — retry cùng Idempotency-Key (§21.1).
+        try
+        {
+            var request = new CreateBookingRequestDto
+            {
+                TenantId = Flow.Qr!.TenantId,
+                OfferingId = Flow.Offering!.Id,
+                StartAt = Flow.SelectedSlotStart!.Value,
+                StaffId = Flow.SelectedStaffId,
+                CustomerDeviceId = Flow.DeviceId,
+                CustomerNote = BuildNote(),
+                AddOns = Flow.SelectedAddOns.Select(a => new PublicAddOnLineDto { AddOnId = a.Id, Quantity = 1 }).ToList(),
+                AttributionId = Flow.Qr.AttributionSessionId
+            };
+
+            var result = await BookingApi.CreateBookingAsync(request, Flow.IdempotencyKey);
+            Flow.CreatedBooking = result;
+            Nav.NavigateTo($"/booking/status/{result.PublicBookingCode}");
+        }
+        catch (BookingApiException ex)
+        {
+            _submitError = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            _submitError = "Không gửi được đặt lịch. Vui lòng kiểm tra kết nối và thử lại — lịch sẽ không bị trùng.";
+            Console.Error.WriteLine($"Booking create error: {ex}");
+        }
+        finally
+        {
+            _isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GoBack() => Nav.NavigateTo($"/booking/{QrToken}/note");
+}

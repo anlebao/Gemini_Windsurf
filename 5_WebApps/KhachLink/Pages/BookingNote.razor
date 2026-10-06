@@ -1,0 +1,210 @@
+@page "/booking/{QrToken}/note"
+@implements IAsyncDisposable
+
+@using VanAn.KhachLink.Services.Http
+@using VanAn.KhachLink.Components.Layout
+
+@inject BookingFlowState Flow
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Ghi chú — @(Flow.Catalog?.TenantName ?? "Đặt lịch")</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-3" style="max-width: 720px;">
+        <BookingStepBar CurrentStep="3" />
+
+        @if (Flow.Offering is null || !Flow.HasSelectedSlot)
+        {
+            <VanAnCard>
+                <VanAnAlert Variant="AlertVariant.Warning" Message="Vui lòng chọn dịch vụ và khung giờ trước." Dismissible="false" />
+                <VanAnButton Variant="ButtonVariant.Outline" OnClick="GoBack">← Quay lại</VanAnButton>
+            </VanAnCard>
+        }
+        else
+        {
+            var total = Flow.ComputeTotal(Flow.Offering.Price);
+            var deposit = Flow.ComputeDepositAmount(total);
+
+            @* Quick Tags (§15.1 — chips nhanh hơn mic) *@
+            <div class="mb-3" data-testid="booking-quick-tags">
+                <div class="fw-semibold mb-2">Ghi chú nhanh</div>
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach (var tag in _quickTags)
+                    {
+                        var isSelected = Flow.QuickTags.Contains(tag);
+                        <button type="button"
+                                class="btn btn-sm @(isSelected ? "btn-primary" : "btn-outline-secondary") rounded-pill"
+                                data-testid="booking-tag-@tag.Replace(" ", "-")"
+                                @onclick="() => ToggleTag(tag)">
+                            @tag
+                        </button>
+                    }
+                </div>
+            </div>
+
+            @* Voice-to-text (§15 — text-only, KHÔNG upload audio; fallback text input §15.3) *@
+            <div class="mb-3" data-testid="booking-note-input">
+                <div class="fw-semibold mb-2">Ghi chú cho cửa hàng (tùy chọn)</div>
+                <div class="input-group">
+                    <textarea id="booking-note-textarea"
+                              class="form-control"
+                              rows="3"
+                              placeholder="VD: Lần đầu đến, cần chuẩn bị trước..."
+                              @bind="FreeText"
+                              @bind:event="oninput"
+                              data-testid="booking-note-textarea"></textarea>
+                    <button type="button"
+                            class="btn @(_isRecording ? "btn-danger" : "btn-outline-primary")"
+                            style="min-width: 52px;"
+                            title="@(_isRecording ? "Đang nghe — chạm để dừng" : "Nói ghi chú ngắn")"
+                            data-testid="booking-mic-btn"
+                            @onclick="ToggleRecording">
+                        @(_isRecording ? "⏹" : "🎙")
+                    </button>
+                </div>
+                @if (!_speechSupported)
+                {
+                    <div class="form-text text-muted">Trình duyệt không hỗ trợ nhận dạng giọng nói — vui lòng gõ trực tiếp.</div>
+                }
+                @if (!string.IsNullOrEmpty(_speechError))
+                {
+                    <VanAnAlert Variant="AlertVariant.Warning" Message="@_speechError" Dismissible="false" />
+                }
+            </div>
+
+            @* Deposit (§16.1 — server-authoritative; hiển thị theo policy tenant) *@
+            <div class="mb-3" data-testid="booking-deposit">
+                <div class="fw-semibold mb-2">Đặt cọc</div>
+                <div class="form-check mb-1">
+                    <input class="form-check-input" type="radio" id="deposit-none" checked="@(deposit is null)" disabled />
+                    <label class="form-check-label" for="deposit-none">Không đặt cọc</label>
+                </div>
+                <div class="form-check mb-1">
+                    <input class="form-check-input" type="radio" id="deposit-required" checked="@(deposit is not null)" disabled />
+                    <label class="form-check-label" for="deposit-required">
+                        @(deposit is not null ? $"Đặt cọc {deposit.Value.ToString("N0")} đ" : "Đặt cọc theo chính sách cửa hàng")
+                    </label>
+                </div>
+                @if (deposit is not null)
+                {
+                    <div class="form-text text-muted">Theo chính sách của cửa hàng — áp dụng khi xác nhận đặt lịch.</div>
+                }
+            </div>
+
+            @* Sticky bottom summary (§5.2) *@
+            <div class="sticky-bottom bg-white border-top rounded-top shadow-sm p-3 mt-3" data-testid="booking-summary">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="fw-semibold">@Flow.Offering.DisplayName</div>
+                    <div class="fw-bold">@total.ToString("N0") đ</div>
+                </div>
+                <div class="d-flex gap-2">
+                    <VanAnButton Variant="ButtonVariant.Outline" OnClick="GoBack">←</VanAnButton>
+                    <VanAnButton Variant="ButtonVariant.Success" FullWidth="true"
+                                 OnClick="ContinueAsync"
+                                 data-testid="booking-btn-continue">
+                        Tiếp tục →
+                    </VanAnButton>
+                </div>
+            </div>
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    private static readonly string[] _quickTags = ["Phòng riêng", "Lần đầu đến", "Kỹ thuật viên nữ", "Cần chuẩn bị trước"];
+
+    [Parameter] public string QrToken { get; set; } = string.Empty;
+
+    private string FreeText = string.Empty;
+    private bool _speechSupported;
+    private bool _isRecording;
+    private string? _speechError;
+    private DotNetObjectReference<BookingNote>? _dotNetRef;
+
+    protected override async Task OnInitializedAsync()
+    {
+        FreeText = Flow.Note ?? string.Empty;
+        _speechSupported = await JSRuntime.InvokeAsync<bool>("isSpeechRecognitionSupported");
+    }
+
+    private void ToggleTag(string tag)
+    {
+        if (Flow.QuickTags.Contains(tag))
+            Flow.QuickTags.Remove(tag);
+        else
+            Flow.QuickTags.Add(tag);
+    }
+
+    private async Task ToggleRecording()
+    {
+        if (_isRecording)
+        {
+            await JSRuntime.InvokeVoidAsync("stopRecording");
+            _isRecording = false;
+            return;
+        }
+
+        _speechError = null;
+        try
+        {
+            _dotNetRef ??= DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("initializeSpeechRecognition", _dotNetRef, "booking-note-textarea");
+            await JSRuntime.InvokeVoidAsync("startRecording");
+            _isRecording = true;
+        }
+        catch (Exception ex)
+        {
+            _speechError = "Không khởi động được micro. Vui lòng gõ ghi chú trực tiếp.";
+            Console.Error.WriteLine($"Speech init error: {ex}");
+        }
+    }
+
+    [JSInvokable]
+    public void SetTranscriptionText(string text)
+    {
+        FreeText = string.IsNullOrWhiteSpace(FreeText) ? text : $"{FreeText} {text}".Trim();
+        _isRecording = false;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnVoiceError(string message)
+    {
+        _speechError = message;
+        _isRecording = false;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnRecordingEnd()
+    {
+        _isRecording = false;
+        StateHasChanged();
+    }
+
+    private void ContinueAsync()
+    {
+        Flow.Note = BuildNote();
+        Nav.NavigateTo($"/booking/{QrToken}/confirm");
+    }
+
+    private string BuildNote()
+    {
+        var parts = new List<string>(Flow.QuickTags);
+        if (!string.IsNullOrWhiteSpace(FreeText))
+            parts.Add(FreeText.Trim());
+        return parts.Count > 0 ? string.Join(". ", parts) : string.Empty;
+    }
+
+    private void GoBack() => Nav.NavigateTo($"/booking/{QrToken}/time");
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_isRecording)
+        {
+            try { await JSRuntime.InvokeVoidAsync("stopRecording"); } catch { /* ignore */ }
+        }
+        _dotNetRef?.Dispose();
+    }
+}
