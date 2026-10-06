@@ -1,6 +1,6 @@
 # SRS — THU CHI & CÔNG NỢ (PHẢI THU / PHẢI TRẢ) v1.0
 
-> **Ngày:** 2026-10-06 · **Trạng thái:** DRAFT — chờ user review
+> **Ngày:** 2026-10-06 · **Trạng thái:** DRAFT v1.1 — user đã chốt Q1-Q4 (2026-10-06): bán chịu không ghi 511 ✓ · nhập tay ✓ · **tra MST → tên công ty** ✓ · **tuổi nợ <30/30-60/60-90/>90** ✓ · **truy ngược lịch sử thanh toán nợ** ✓
 > **Nền tảng:** Module kế toán hiện tại (TT 71 HKD / TT 133 DN / TT 99 DN lớn) — mở rộng tối thiểu, KHÔNG thiết kế lại
 > **Nguyên tắc:** "những điều chưa rõ → giả định kịch bản ĐƠN GIẢN NHẤT" (mọi giả định đánh dấu **[G#]**)
 
@@ -44,12 +44,15 @@
 | 2 | Báo cáo công nợ tổng hợp | **MỚI** — bảng phải thu / phải trả theo đối tượng + số dư cuối kỳ |
 | 3 | Sổ theo dõi phải thu / phải trả | **MỚI** — chi tiết từng đối tượng: phát sinh → đã thu/trả → còn lại |
 | 4 | Ghi nhận bán chịu / mua chịu | **MỚI** — qua Phiếu thu/chi loại "Công nợ" |
+| 5 | **Phân loại tuổi nợ (aging)** *(Q4 — user chốt)* | **MỚI** — báo cáo công nợ thêm phân nhóm: <30 · 30-60 · 60-90 · >90 ngày |
+| 6 | **Truy ngược lịch sử thanh toán nợ** *(user chốt)* | **MỚI** — từ 1 khoản nợ xem toàn bộ các lần đã thu/trả + còn lại (FIFO động) |
+| 7 | **Tra mã số thuế (MST) → tên công ty** *(Q3 — user chốt)* | **MỚI** — reuse cơ chế tra MST đã có (Gateway `GET /api/v1/business-info/{mst}` + `BusinessInfoApiClient` — phiếu thu/chi hiện tại đã dùng) |
 
-### 3.2 Ngoài phạm vi (ghi nợ — KHÔNG làm MVP) [G10]
+### 3.2 Ngoài phạm vi (ghi nợ — KHÔNG làm MVP) [G13]
 
 - Tự động sinh công nợ từ Order/POS/checkout (chỉ nhập tay qua phiếu — tránh đụng OrderService, không regress)
-- Danh bạ khách hàng / nhà cung cấp riêng (đối tượng = tên nhập tay)
-- Hạn thanh toán, quá hạn, lãi chậm trả, phân loại tuổi nợ (aging)
+- Danh bạ khách hàng / nhà cung cấp riêng (đối tượng = tên nhập tay / tra MST tự điền)
+- Hạn thanh toán, quá hạn, lãi chậm trả (chỉ phân loại tuổi nợ — không tính lãi)
 - Hợp đồng / hóa đơn / biên bản đối chiếu công nợ
 - Công nợ ngoại tệ, công nợ nội bộ, tạm ứng nhân viên (141/138)
 - Tự động đối trừ công nợ với đơn hàng
@@ -70,6 +73,9 @@
 | [G8] | **Đơn vị VNĐ** | Không ngoại tệ. |
 | [G9] | **Số dư có thể âm** | Cho phép số dư âm (khách trả thừa / trả trước) — hiển thị bình thường, không chặn. |
 | [G10] | **Xóa = đảo ngược** | Sai sót → đảo bút toán (reversal — cơ chế đã có), không xóa. |
+| [G11] | **Tra MST = tiện ích điền tên** *(Q3)* | Ô "Đối tượng" có nút **"Tra MST"**: nhập MST → gọi `GET /api/v1/business-info/{mst}` (reuse `BusinessInfoApiClient` — phiếu thu/chi hiện tại đã dùng) → **tự điền tên công ty** vào ô Đối tượng. Đối tượng vẫn là chuỗi tên [G2]; MST được ghi kèm vào diễn giải phiếu để truy vết (vd `"Bán chịu — Cty TNHH X (MST 0312345678)"`). |
+| [G12] | **Tuổi nợ tính FIFO động** *(Q4)* | Không lưu mapping khoản↔thanh toán. Khi hiển thị: thanh toán **tự động trừ vào khoản phát sinh CŨ NHẤT còn dư trước** (FIFO — tính động từ chuỗi phiếu). Tuổi nợ của phần dư = ngày hiện tại − ngày phát sinh khoản. Nhóm: **<30 · 30-60 · 60-90 · >90 ngày**. Không tính lãi, không "quá hạn" (không có hạn thanh toán). |
+| [G13] | **Ngoài phạm vi** | Danh sách mục 3.2 — không làm MVP (ghi nợ roadmap). |
 
 ---
 
@@ -87,9 +93,10 @@
 
 **FR-2.** Khi chọn loại "Ghi nhận phải thu" / "Thu tiền khách trả nợ":
 - Ô **"Đối tượng (khách hàng)"** hiện ra, bắt buộc nhập [G2].
+- Ô **"Mã số thuế (tùy chọn)"** + nút **"Tra cứu"** → tự điền tên công ty vào ô Đối tượng [G11] (reuse tra MST đã có).
 - Lưu: `AccountingEntry(AccountCode="131", Vendor=<đối tượng>, Amount=<số tiền>, ReferenceType=<"RECEIVABLE" | "RECEIVABLE_PAYMENT">)`.
 - "Ghi nhận phải thu" → Amount **dương** (tăng nợ) · "Thu tiền khách trả nợ" → Amount **âm** (giảm nợ) [G9].
-- Diễn giải tự động gợi ý: `"Bán chịu — {đối tượng}"` / `"Thu tiền khách trả nợ — {đối tượng}"` (vẫn sửa được).
+- Diễn giải tự động gợi ý: `"Bán chịu — {đối tượng}"` / `"Thu tiền khách trả nợ — {đối tượng}"` (vẫn sửa được); có MST → kèm `(MST {mã})` [G11].
 
 **FR-3.** Báo cáo kết quả kinh doanh (IncomeStatement) **KHÔNG** tính entry 131 từ 2 loại phiếu mới [G6].
 
@@ -103,7 +110,7 @@
 | **Ghi nhận phải trả** *(MỚI)* | Mua chịu — tăng nợ phải trả | **331** | **BẮT BUỘC** |
 | **Trả tiền người bán** *(MỚI)* | Trả nợ — giảm nợ phải trả | **331** | **BẮT BUỘC** |
 
-**FR-5.** "Ghi nhận phải trả" → Amount dương (tăng nợ) · "Trả tiền người bán" → Amount âm (giảm nợ) · `ReferenceType=<"PAYABLE" | "PAYABLE_PAYMENT">`.
+**FR-5.** "Ghi nhận phải trả" → Amount dương (tăng nợ) · "Trả tiền người bán" → Amount âm (giảm nợ) · `ReferenceType=<"PAYABLE" | "PAYABLE_PAYMENT">`. Ô MST + "Tra cứu" tương tự FR-2 [G11].
 
 **FR-6.** IncomeStatement KHÔNG tính entry 331 từ 2 loại phiếu mới [G6].
 
@@ -113,19 +120,20 @@
 
 ```
 BÁO CÁO CÔNG NỢ — THÁNG 10/2026
-──────────────────────────────────────────────
-PHẢI THU (131)                         Số dư
-  Khách A                             5.000.000
-  Cty TNHH X                          2.000.000
-  ...                                 ...
-  TỔNG PHẢI THU                      9.000.000
-──────────────────────────────────────────────
+──────────────────────────────────────────────────────────────────
+PHẢI THU (131)                         Đầu kỳ  PS tăng  Đã thu  Cuối kỳ | Tuổi nợ (cuối kỳ)
+  Khách A                                  0   5.000.000 2.000.000 3.000.000 | <30: 0 · 30-60: 3tr · 60-90: 0 · >90: 0
+  Cty TNHH X                          2.000.000         0         0 2.000.000 | >90: 2tr
+  ...                                    ...       ...       ...      ... | ...
+  TỔNG PHẢI THU                       2.000.000 5.000.000 2.000.000 5.000.000 |
+──────────────────────────────────────────────────────────────────
 PHẢI TRẢ (331)
-  Nhà cung cấp Y                      3.000.000
-  TỔNG PHẢI TRẢ                      3.000.000
+  Nhà cung cấp Y                          0   3.000.000 1.000.000 2.000.000 | <30: 2tr
+  TỔNG PHẢI TRẢ                          0   3.000.000 1.000.000 2.000.000 |
 ```
 
-- Cột hiển thị: **Tên đối tượng · Đầu kỳ · Phát sinh tăng · Đã thu/trả · Cuối kỳ** (tính theo [G7]).
+- Cột hiển thị: **Tên đối tượng · Đầu kỳ · Phát sinh tăng · Đã thu/trả · Cuối kỳ · Tuổi nợ** (tính theo [G7][G12]).
+- **Tuổi nợ**: phân nhóm **<30 · 30-60 · 60-90 · >90 ngày** — tính FIFO động trên chuỗi phát sinh/thanh toán [G12] *(Q4)*.
 - Chỉ hiển thị đối tượng có số dư khác 0 (hoặc bộ lọc "Tất cả / Còn nợ / Hết nợ").
 - Chọn tháng + nút **Xem**; nút **In / Xuất Excel** (tái dùng EPPlus pattern hiện có).
 - Số liệu: query `AccountingEntry` `AccountCode IN (131, 331)` group by `Vendor` — **không cần bảng mới** [G1][G2].
@@ -146,6 +154,11 @@ Cuối kỳ                                               Số dư 3.000.000
 
 - Nguồn: entries `AccountCode=131 AND Vendor=<đối tượng>` sắp theo ngày — cộng dồn số dư [G7].
 - Mỗi dòng có nút **"Đảo bút toán"** (reversal — cơ chế đã có) khi nhập sai [G10].
+
+**FR-8.1.** **Truy ngược lịch sử thanh toán nợ** *(user chốt)*: bấm vào **1 khoản nợ** (1 phiếu "Ghi nhận phải thu/trả") → modal **"Lịch sử thanh toán khoản nợ"**:
+- Liệt kê **mọi phiếu thanh toán đã trừ vào khoản này** (theo FIFO động [G12]): ngày · số tiền · số dư còn lại của khoản sau mỗi lần.
+- Ví dụ: khoản 5.000.000 (01/10) → 15/10 thu 2.000.000 (còn 3.000.000) · 20/10 thu 1.000.000 (còn 2.000.000) · **còn nợ 2.000.000**.
+- Không cần lưu mapping — tính động từ chuỗi phiếu của đối tượng [G12].
 
 ### 5.5 Menu & truy cập
 
@@ -179,6 +192,15 @@ Cuối kỳ                                               Số dư 3.000.000
 **Kịch bản C — Nhập sai → đảo bút toán:**
 - Phiếu "Ghi nhận phải thu" nhập nhầm 5tr (đúng 500k) → đảo bút toán (reversal) → tạo lại phiếu đúng → số dư tự khớp [G10].
 
+**Kịch bản D — Tuổi nợ + truy ngược lịch sử thanh toán** *(Q4)*:
+- 01/07 bán chịu 5tr "Khách A" · 15/08 bán chịu thêm 3tr · 20/09 khách trả 2tr.
+- FIFO: 2tr trả vào khoản 01/07 → khoản 01/07 còn 3tr (>90 ngày), khoản 15/08 còn 3tr (30-60 ngày).
+- Báo cáo cuối kỳ: Khách A **còn 6tr** — tuổi nợ: **>90: 3tr · 30-60: 3tr**.
+- Bấm khoản 01/07 → lịch sử: 20/09 trả 2tr → còn 3tr ✓.
+
+**Kịch bản E — Tra MST** *(Q3)*:
+- Phiếu thu công nợ: nhập MST `0312345678` → nút "Tra cứu" → tự điền **"Công Ty TNHH X"** vào ô Đối tượng + diễn giải kèm MST ✓.
+
 ---
 
 ## 8. YÊU CẦU PHI CHỨC NĂNG
@@ -193,24 +215,28 @@ Cuối kỳ                                               Số dư 3.000.000
 ## 9. TIÊU CHÍ HOÀN THÀNH (DoD)
 
 - [ ] Phiếu thu/chi có 3 loại phiếu (doanh thu/chi phí giữ nguyên + 2 loại công nợ), đối tượng bắt buộc khi chọn loại công nợ
+- [ ] Ô "Tra MST" trên phiếu công nợ → tự điền tên công ty (reuse `GET /api/v1/business-info/{mst}`) [G11]
 - [ ] Phiếu "Ghi nhận phải thu/trả" và "Thu/Trả nợ" tạo AccountingEntry 131/331 + Vendor + ReferenceType đúng dấu
 - [ ] IncomeStatement/BalanceSheet KHÔNG regress (test hồi quy PASS — Core.Tests hiện có)
-- [ ] Báo cáo công nợ tổng hợp: đúng đầu kỳ/phát sinh/cuối kỳ theo đối tượng (test 3 kịch bản A/B/C)
+- [ ] Báo cáo công nợ tổng hợp: đúng đầu kỳ/phát sinh/cuối kỳ theo đối tượng (test kịch bản A/B/C)
+- [ ] **Báo cáo có phân loại tuổi nợ <30/30-60/60-90/>90 ngày (FIFO động)** (test kịch bản D) [G12]
+- [ ] **Truy ngược lịch sử thanh toán từng khoản nợ** (modal: các lần thu/trả + còn lại) (test kịch bản D)
 - [ ] Sổ theo dõi chi tiết: cộng dồn số dư đúng + đảo bút toán hoạt động
 - [ ] Menu "Công nợ" + Sitemap + bUnit
 - [ ] `guard-check.ps1` + `dotnet build VanAn.sln` + Core.Tests + ShopERP.Tests PASS
-- [ ] E2E (Gate 4): spec công nợ (phiếu thu công nợ → báo cáo → sổ chi tiết)
+- [ ] E2E (Gate 4): spec công nợ (phiếu thu công nợ + tra MST → báo cáo + tuổi nợ → sổ chi tiết → lịch sử thanh toán)
 
 ---
 
-## 10. OPEN QUESTIONS (chờ user — nếu không trả lời, giữ giả định mặc định)
+## 10. QUYẾT ĐỊNH USER (2026-10-06)
 
-| # | Câu hỏi | Giả định mặc định |
+| # | Câu hỏi | Quyết định |
 |---|---|---|
-| OQ1 | Bán chịu có cần ghi nhận đồng thời doanh thu (511) không? | **KHÔNG** — phiếu công nợ chỉ theo dõi 131; người dùng tự ghi doanh thu khi thu tiền (phiếu thu doanh thu) [G6] |
-| OQ2 | Có cần tự động gắn công nợ từ đơn hàng bán chịu không? | **KHÔNG** — nhập tay qua phiếu [G3] |
-| OQ3 | Có cần danh bạ khách hàng/nhà cung cấp không? | **KHÔNG** — tên tự nhập [G2] |
-| OQ4 | Có cần tuổi nợ (quá hạn 30/60/90 ngày) không? | **KHÔNG** — chỉ số dư [G10] |
+| Q1 | Bán chịu có ghi đồng thời doanh thu (511) không? | **KHÔNG** — phiếu công nợ chỉ theo dõi 131; ghi doanh thu khi thu tiền [G6] *(user đồng ý đề xuất)* |
+| Q2 | Tự động gắn công nợ từ đơn hàng? | **KHÔNG** — nhập tay qua phiếu [G3] *(user đồng ý đề xuất)* |
+| Q3 | Đối tượng công nợ nhập thế nào? | **Tên tự nhập + tùy chọn tra MST → tự điền tên công ty** [G11] *(user chốt)* |
+| Q4 | Có phân loại tuổi nợ không? | **CÓ** — <30 / 30-60 / 60-90 / >90 ngày, FIFO động [G12] *(user chốt)* |
+| Q5 | *(bổ sung user)* | **CÓ — truy ngược lịch sử các lần thanh toán nợ** (từng khoản: đã thu/trả bao nhiêu lần, còn lại) [G12][FR-8.1] |
 
 ---
 
