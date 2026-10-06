@@ -34,7 +34,8 @@ namespace VanAn.CoreHub.Services.Booking
         IAvailabilityService availabilityService,
         ILogger<BookingService> logger,
         IOrderService? orderService = null,
-        IBookingFinancialService? financialService = null) : IBookingService
+        IBookingFinancialService? financialService = null,
+        ICommissionService? commissionService = null) : IBookingService
     {
         /// <summary>Message conflict customer-friendly (SRS §6.5) — KHÔNG hiển thị mã kỹ thuật.</summary>
         public const string ConflictMessage = "Khung giờ này vừa có người đặt. Vui lòng chọn khung giờ khác.";
@@ -53,6 +54,7 @@ namespace VanAn.CoreHub.Services.Booking
         private readonly ILogger<BookingService> _logger = logger;
         private readonly IOrderService? _orderService = orderService;
         private readonly IBookingFinancialService? _financialService = financialService;
+        private readonly ICommissionService? _commissionService = commissionService;
 
         // ── Create (Idempotency-Key §21.1 + double-booking AC-C04) ──────────
 
@@ -86,6 +88,16 @@ namespace VanAn.CoreHub.Services.Booking
             DateTime endAt = startAt.AddMinutes(offering.DurationMinutes);
             if (startAt <= DateTime.UtcNow)
                 throw new ValidationException("Thời gian đặt phải ở tương lai.");
+
+            // Attribution (SRS §7.6 immutable snapshot, Risk 5 — KHÔNG tin tenant từ client):
+            // session phải thuộc CHÍNH tenant đặt lịch — QR tenant A không thể tạo booking cho tenant B (§18.3).
+            if (command.AttributionId is not null)
+            {
+                bool attributionInTenant = await _context.AttributionSessions.IgnoreQueryFilters()
+                    .AnyAsync(s => s.TenantId == tenantId && s.Id == command.AttributionId.Value, ct);
+                if (!attributionInTenant)
+                    throw new ValidationException("Mã giới thiệu không hợp lệ cho tenant này.");
+            }
 
             // Staff cụ thể → validate skill + slot server-side TRƯỚC transaction (message thân thiện).
             if (command.StaffId is not null)
@@ -427,6 +439,20 @@ namespace VanAn.CoreHub.Services.Booking
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "RecordServiceCompletedAsync failed (non-blocking): booking={BookingId}", booking.Id);
+                }
+            }
+
+            // Commission qualification §17.1 (COMPLETED + payment qualified + attribution valid) — fail-safe,
+            // idempotent (booking đã có entry → trả entry hiện có, không double-create).
+            if (_commissionService is not null)
+            {
+                try
+                {
+                    _ = await _commissionService.FinalizeCommissionForBookingAsync(tenantId, booking.Id, ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "FinalizeCommissionForBookingAsync failed (non-blocking): booking={BookingId}", booking.Id);
                 }
             }
 

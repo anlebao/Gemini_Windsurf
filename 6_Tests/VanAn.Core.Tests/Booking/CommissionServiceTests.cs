@@ -39,7 +39,7 @@ namespace VanAn.Core.Tests.BookingScheduling
         }
 
         /// <summary>Tạo booking hoàn tất đầy đủ (create → confirm → assign → check-in → start → complete).</summary>
-        private static async Task<BookingEntity> CompleteBookingAsync(VanAnDbContext ctx, Guid attributionId, decimal actualTotal = 300_000m,
+        private static async Task<BookingEntity> CompleteBookingAsync(VanAnDbContext ctx, Guid? attributionId, decimal actualTotal = 300_000m,
             Guid? staffId = null, Guid? offeringId = null)
         {
             var bookingSvc = BuildBookingService(ctx);
@@ -103,7 +103,9 @@ namespace VanAn.Core.Tests.BookingScheduling
             scope.TenantProvider!.SetTenant(BookingTestData.TenantId.Value);
             var ctx = scope.Context;
             await SeedCommissionRuleAsync(ctx);
-            var booking = await CompleteBookingAsync(ctx, attributionId: Guid.NewGuid());   // attribution không tồn tại
+            // Booking KHÔNG có attribution hợp lệ (null) → không qualified (§17.1) → không tạo ledger entry.
+            // Lưu ý P6 hardening: attribution Guid bất kỳ giờ bị TỪ CHỐI tại create (Risk 5 §18.3 — QR A không tạo booking B).
+            var booking = await CompleteBookingAsync(ctx, attributionId: null);
 
             var entry = await BuildCommissionService(ctx).FinalizeCommissionForBookingAsync(BookingTestData.TenantId, booking.Id);
 
