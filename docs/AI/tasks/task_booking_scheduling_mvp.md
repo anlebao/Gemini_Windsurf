@@ -4,7 +4,7 @@
 > Source SRS: `docs/requirements/van_an_appointment_booking_srs_v1.1_mvp (1).md` (v1.1 MVP — 44 sections)
 > Master plan: `docs/AI/plans/booking-scheduling-master-plan.md` (ACTIVE — chờ approve)
 > Branch: `main`
-> Status: **P1 + P2 + P3 + P4 DONE (2026-10-06 — guard ALL PASSED · build 0 errors · Core.Tests 2103 · ShopERP.Tests 136 · Architecture.Tests 41) — ⏳ Session P5 ShopERP tenant UI**
+> Status: **P1-P5 DONE (2026-10-06 — guard ALL PASSED · build 0 errors · Core.Tests 2103 · ShopERP.Tests 142 [+6] · Architecture.Tests 41) — ⏳ Session P6 Hardening + test matrix §34**
 
 ---
 
@@ -26,7 +26,7 @@
   - Session 2 (P2): IStaffService/IOfferingService/IAvailabilityService/IBookingService + double-booking + tests → guard PASS → commit
   - Session 3 (P3): IQRAttributionService/ICommissionService/TaxWithholdingPolicy/IBookingFinancialService + Order hook (D2) + tests → guard PASS → commit
   - Session 4 (P4): Gateway public API + KhachLink 4 screens + Status polling + E2E spec ✅ DONE `45c615b2` + `c09d3efe` (guard ALL PASSED · build 0 errors · Core.Tests 2103 · ShopERP.Tests 136 · Architecture.Tests 41 — CHƯA push)
-  - Session 5 (P5): ShopERP 7 pages + NavMenu + Sitemap + bUnit → guard PASS → commit
+  - Session 5 (P5): ShopERP 7 pages + NavMenu + Sitemap + bUnit ✅ DONE `fd9f6c79` (guard ALL PASSED · build 0 errors · Core.Tests 2103 · ShopERP.Tests 142 — CHƯA push)
   - Session 6 (P6): Test matrix đầy đủ (§34) + 9 E2E (3-4 specs) → guard + build PASS
   - Session 7 (P7): Deploy CD Multi-VPS + migrations PG + RV L1-L5 → cập nhật project_state + master plan status + đóng task card
 
@@ -89,14 +89,14 @@
 
 ### Phase 5 — ShopERP tenant UI (task `task_booking_phase5_shoperp_ui.md`)
 
-- [ ] **P5.1 `/booking/queue`:** PENDING_CONFIRMATION list (AC-T01) + detail + confirm/reject (AC-T02) + assign/change staff (AC-T03 — capability+available list trước §13, re-check conflict)
-- [ ] **P5.2 `/booking/staff`:** staff CRUD + skill/service eligibility (§11.2)
-- [ ] **P5.3 `/booking/schedules`:** working schedule config — weekday + exact override + leave/break (§11.3)
-- [ ] **P5.4 `/booking/availability`:** **who-is-available dashboard** (AC-T05 §14 — staff/skill/time/status table)
-- [ ] **P5.5 `/booking/calendar`:** staff day/week calendar (AC-T04)
-- [ ] **P5.6 `/booking/deposits`:** deposit tracking (§16) + `/booking/qr-channels` (tạo QR tenant/campaign/salesman + revoke §26.1) + `/booking/commission` (rules + ledger + salesman view)
-- [ ] **P5.7 NavMenu (IShopErpMenuService) + Sitemap** + bUnit tests → ShopERP.Tests PASS
-- [ ] **P5.8** Tenant ops qua Gateway API (`GatewayAdminApiClientBase` pattern + `Guid? tenantId` override — precedent FI SystemAdmin)
+- [x] **P5.1 `/booking/queue`** ✅ (`fd9f6c79`): status filter chips (AC-T01) + list/detail + confirm/reject/no-show/cancel (AC-T02) + assign/change staff modal — **eligible-staff endpoint** (capability §11.2 + ValidateSlotAsync §12/§13 — available badge + reason)
+- [x] **P5.2 `/booking/staff`** ✅: staff CRUD (create/update/active) + skills (offering checkboxes — SetStaffServicesAsync §11.2)
+- [x] **P5.3 `/booking/schedules`** ✅: weekday recurring editor (start/end/break) + exact-date override (Leave/Unavailable/Working/Break §11.3)
+- [x] **P5.4 `/booking/availability`** ✅: who-is-available matrix staff × slot (AC-T05 §14) + offering filter
+- [x] **P5.5 `/booking/calendar`** ✅: day view (AC-T04) — giờ/khách/dịch vụ/nhân viên/trạng thái
+- [x] **P5.6** ✅ `/booking/deposits` (§16 — tracking + "Đã nhận cọc" get-or-create PENDING→PAID + hoàn cọc) · `/booking/qr-channels` (tạo QR token ngẫu nhiên §25 + salesman + expiry + **raw token hiển thị 1 lần** hash DB §7.2 + revoke §26.1) · `/booking/commission` (ledger D3 + salesman filter + payout → WalletTransaction §17.4 + tổng thuế TNCN)
+- [x] **P5.7** ✅ NavMenu "Đặt lịch hẹn" (Owner+StoreKeeper — IShopErpMenuService) + Sitemap card-booking + **bUnit +6** (`BookingPagesTests`) → **ShopERP.Tests 142 PASS**
+- [x] **P5.8** ✅ Tenant ops qua Gateway API: `BookingTenantApiClient` (GatewayAdminApiClientBase pattern — JWT tenant_id claim; D1: ShopERP KHÔNG query PG) + Gateway tenant API extensions (staff CRUD/skills, catalog reads, schedules CRUD, config Q5, QR channels, salesmen, commission ledger+pay, deposits+received/refund, eligible-staff)
 
 ### Phase 6 — Hardening + full test matrix (task `task_booking_phase6_hardening.md`)
 
