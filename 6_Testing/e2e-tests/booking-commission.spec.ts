@@ -112,6 +112,9 @@ test.describe('VanAn Ecosystem - Booking Commission Ledger (AC-Q03/Q04/Q05)', ()
 
     const transitions: Array<[string, object?]> = [
       [`/api/tenant/booking/bookings/${createdBookingId}/confirm`, undefined],
+      // Deposit PAID trước complete — qualification §17.1 yêu cầu payment qualified
+      // (!DepositRequired || PaymentStatus == Paid) — deposit Fixed 100k phải PAID mới EARNED.
+      [`/api/tenant/booking/bookings/${createdBookingId}/deposit/received`, { amount: 100000 }],
       [`/api/tenant/booking/bookings/${createdBookingId}/assign-staff`, { staffId: STAFF_ID }],
       [`/api/tenant/booking/bookings/${createdBookingId}/check-in`, undefined],
       [`/api/tenant/booking/bookings/${createdBookingId}/start`, undefined],
@@ -138,16 +141,13 @@ test.describe('VanAn Ecosystem - Booking Commission Ledger (AC-Q03/Q04/Q05)', ()
       taxRuleVersion?: string; walletTransactionId?: string;
     }>;
     const entry = ledger.find((e) => e.bookingId === createdBookingId);
-    if (!entry) {
+    if (!entry && !COMMISSION_RULE) {
       // Tenant chưa có CommissionRule → KHÔNG có entry (qualification cần rule — §17.1) — báo + skip.
-      if (!COMMISSION_RULE) {
-        reporter.setArchitectDecision('Tenant chưa cấu hình CommissionRule — không có ledger entry (kỳ vọng đúng §17.1)');
-        test.skip(true, 'Chưa có CommissionRule — set BOOKING_TEST_COMMISSION_RULE=true sau khi seed rule (RV P7)');
-        return;
-      }
-      test.fail(true, 'Booking COMPLETED nhưng không có commission ledger entry');
+      reporter.setArchitectDecision('Tenant chưa cấu hình CommissionRule — không có ledger entry (kỳ vọng đúng §17.1)');
+      test.skip(true, 'Chưa có CommissionRule — set BOOKING_TEST_COMMISSION_RULE=true sau khi seed rule (RV P7)');
       return;
     }
+    expect(entry, 'Booking COMPLETED + deposit PAID nhưng không có commission ledger entry — kiểm tra qualification §17.1').toBeTruthy();
 
     expect(entry.salesmanId).toBe(salesmanId);
     expect(entry.state).toBe('EARNED');
