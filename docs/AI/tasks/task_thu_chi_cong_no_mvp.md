@@ -4,7 +4,7 @@
 > Source SRS: `docs/requirements/van_an_thu_chi_cong_no_srs_v1.md` (v1.1 — user chốt Q1-Q5 2026-10-06)
 > Master plan: `docs/AI/plans/thu-chi-cong-no-master-plan.md` (ACTIVE — chờ approve)
 > Branch: `main`
-> Status: **✅ APPROVED (2026-10-06, user) — ✅ Session 1: P1 Services DONE (2026-10-07 — Core.Tests 2130 PASS · guard ALL PASSED · build 0 errors) — ⏳ Session 2: P2 UI (kế tiếp)**
+> Status: **✅ APPROVED (2026-10-06, user) — ✅ Session 1: P1 Services DONE (2026-10-07 — Core.Tests 2130 PASS · guard ALL PASSED · build 0 errors) — ✅ Session 2: P2 UI DONE (2026-10-07 — ShopERP.Tests 161 PASS · guard ALL PASSED) — ⏳ Session 3: P3 E2E (kế tiếp)**
 
 ---
 
@@ -22,8 +22,8 @@
 - **Skills (max 3):** `domain-integrity-validation` (AccountingEntry immutable — KHÔNG đụng Domain.cs) + `pattern-based-fixing` (regress báo cáo) + `test-system-upgrade` (test matrix)
 - **Session strategy (session-per-phase — precedent Booking/VA-IIE):**
   - Session 1 (P1): Services core + FIFO aging + tests → guard/build/Core.Tests PASS → commit ✅ DONE 2026-10-07
-  - Session 2 (P2): UI phiếu thu/chi 3 loại + 2 trang + menu + bUnit → guard/ShopERP.Tests PASS → commit ⏳ KẾ TIẾP
-  - Session 3 (P3): E2E spec + full test matrix → guard/build/tests PASS
+  - Session 2 (P2): UI phiếu thu/chi 3 loại + 2 trang + menu + bUnit → guard/ShopERP.Tests PASS → commit ✅ DONE 2026-10-07
+  - Session 3 (P3): E2E spec + full test matrix → guard/build/tests PASS ⏳ KẾ TIẾP
   - Session 4 (P4): PUSH → CD Multi-VPS (KHÔNG migration) → RV L1-L5 → đóng
 
 ## 3. SCOPE (4 phases per master plan §4)
@@ -56,13 +56,15 @@
 - [x] **P1.3 Reversal [DONE 2026-10-07]:** tái dùng cơ chế reversal hiện có (`AccountingEntry.CreateReversal`) — cặp gốc+đảo net=0 loại khỏi stream FIFO/báo cáo → số dư tự khớp [G10] (test scenario C PASS)
 - [x] **P1.4 Tests (Core.Tests) [DONE 2026-10-07 — +19, Core.Tests 2130 PASS]:** kịch bản A (bán chịu 5tr + thu 2tr → cuối kỳ 3tr; aging 30-60: 3tr) · B (mua chịu/trả nợ → 331 cuối kỳ 2tr) · C (reversal phiếu nợ + reversal phiếu thu) · D (FIFO tuổi nợ: 2 khoản 01/07 + 15/08, trả 20/09 → >90: 3tr · 30-60: 3tr) · D2 (lịch sử thanh toán khoản: 1 lần trả 2tr → còn 3tr; khoản đã đảo → null) · isolation tenant · [G6] (Adjustment+CashBankBook; không lọt revenue total) · validations (amount ≤ 0, đối tượng trống, kỳ đóng) · P1 decisions #2/#3 (2 phiếu cùng tiền đều tạo được; tie-break CreatedAt)
 
-### Phase 2 — UI (task `task_thu_chi_cong_no_phase2_ui.md`) ⏳
+### Phase 2 — UI (task `task_thu_chi_cong_no_phase2_ui.md`) ✅ DONE 2026-10-07
 
-- [ ] **P2.1 Phiếu thu** (`RevenueEntry.razor`): dropdown "Loại phiếu" {Thu doanh thu · Ghi nhận phải thu · Thu tiền khách trả nợ} → loại công nợ: hiện ô **Đối tượng (bắt buộc)** + ô **MST + nút "Tra cứu"** (reuse `BusinessInfoApiClient` — điền tên vào Đối tượng [G11]) + whitelist account 131 + diễn giải gợi ý kèm MST → gọi `ICongNoService.CreateReceivableAsync`
-- [ ] **P2.2 Phiếu chi** (`ExpenseEntry.razor`): tương tự — {Chi phí · Ghi nhận phải trả · Trả tiền người bán} → 331
-- [ ] **P2.3 Trang `/accounting/cong-no`** (UI Platform 100%): bộ lọc tháng + bảng 2 khối 131/331 (mockup SRS FR-7: Đầu kỳ · PS tăng · Đã thu/trả · Cuối kỳ · Tuổi nợ) + lọc "Tất cả/Còn nợ/Hết nợ" + **In / Xuất Excel** (EPPlus pattern) + click đối tượng → sổ chi tiết
-- [ ] **P2.4 Trang `/accounting/cong-no/{loai}/{doiTuong}`**: sổ chi tiết cộng dồn (FR-8) + click 1 khoản nợ → **modal "Lịch sử thanh toán khoản nợ"** (FR-8.1) + nút **Đảo bút toán** mỗi dòng [G10]
-- [ ] **P2.5 NavMenu "Kế toán → Công nợ"** (Owner) + Sitemap + **bUnit** (phiếu thu 3 loại + đối tượng bắt buộc + tra MST điền tên + báo cáo render + sổ render) → ShopERP.Tests PASS
+- [x] **P2.1 Phiếu thu** (`RevenueEntry.razor`): dropdown "Loại phiếu" {Thu doanh thu · Ghi nhận phải thu · Thu tiền khách trả nợ} → loại công nợ: hiện ô **Đối tượng (bắt buộc)** + ô **MST + nút "Tra cứu"** (reuse `BusinessInfoApiClient` — điền tên vào Đối tượng [G11]) + whitelist account 131 + diễn giải gợi ý kèm MST → gọi `ICongNoService.CreateReceivableAsync` (isPayment = loại "Thu tiền khách trả nợ") — bỏ duplicate-check client cho phiếu công nợ (P1 decision #2)
+- [x] **P2.2 Phiếu chi** (`ExpenseEntry.razor`): tương tự — {Chi phí · Ghi nhận phải trả · Trả tiền người bán} → 331 → `CreatePayableAsync`; ẩn vendor/category khi loại công nợ
+- [x] **P2.3 Trang `/accounting/cong-no`** (`CongNoReport.razor` — UI Platform 100%): bộ lọc tháng (năm/tháng + nút Xem) + bảng 2 khối 131/331 (mockup SRS FR-7: Đầu kỳ · PS tăng · Đã thu/trả · Cuối kỳ · Tuổi nợ 4 nhóm + dòng TỔNG) + chips lọc "Tất cả/Còn nợ/Hết nợ" + **In** (vananPrintBill) / **Xuất Excel** (CSV `vanAn.downloadFile` — pattern TransactionHistory) + click đối tượng → sổ chi tiết (`/accounting/cong-no/{loai}/{doiTuong}?year=&month=`)
+- [x] **P2.4 Trang `/accounting/cong-no/{loai}/{doiTuong}`** (`CongNoLedger.razor`): sổ chi tiết cộng dồn (FR-8: Ngày · Diễn giải · Tăng · Giảm · Số dư + đầu kỳ/cuối kỳ; badge "đảo" cho reversal) + nút **Lịch sử** trên khoản nợ → modal "Lịch sử thanh toán khoản nợ" (FR-8.1 — FIFO động, số dư còn lại sau mỗi lần) + nút **Đảo bút toán** mỗi dòng [G10] (modal lý do → `IReversalService`)
+- [x] **P2.5 NavMenu "Kế toán → Công Nợ"** (Owner — `ShopErpMenuService`) + Sitemap (`link-accounting-cong-no`) + AccountingIndex quick action + **bUnit +19** (phiếu thu/chi 3 loại render + đối tượng bắt buộc + tra MST điền tên [G11] + báo cáo render/chips/link + sổ render + modal lịch sử + đảo bút toán) → **ShopERP.Tests 161 PASS**
+>
+> **Ghi chú kiến trúc P2 (bài học):** UI.Platform `DynamicFormFields` KHÔNG có `_Imports.razor` → Razor compiler của UI.Platform xuất `@bind` như attribute LITERAL (đã chứng minh qua generated g.cs: `AddMarkupContent("<input @bind=...>")` — chỉ khi thêm `_Imports.razor` vào UI.Platform thì `@bind` mới biên dịch thành `CreateBinder`). Các trang hiện tại bù bằng JS interop đọc DOM lúc submit ("DOM là source of truth"). → P2 đặt **Loại phiếu/Đối tượng/MST là native controls trong trang host** (ShopERP biên dịch @bind chuẩn — bUnit test được), DynamicFormFields chỉ giữ date/amount/account/description/reference. KHÔNG sửa UI.Platform (ngoài scope — tránh regress mọi form).
 
 ### Phase 3 — E2E + hardening (task `task_thu_chi_cong_no_phase3_e2e.md`) ⏳
 

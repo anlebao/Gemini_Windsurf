@@ -1,0 +1,335 @@
+@page "/accounting/cong-no/{loai}/{doiTuong}"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "OwnerOnly")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.Shared.DTOs
+@using System.Globalization
+@using VanAn.CoreHub.Services
+@using VanAn.CoreHub.Services.CongNo
+@inject ICongNoService CongNoService
+@inject IReversalService ReversalService
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject ILogger<CongNoLedger> Logger
+@inject NavigationManager NavigationManager
+
+<div class="cong-no-ledger-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>@LedgerTitle</h1>
+        <VanAButton Variant="secondary" Size="small" OnClick="GoBack">← Quay Lại</VanAButton>
+    </header>
+
+    @if (showError)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" />
+    }
+
+    @if (!isLoading && ledger != null)
+    {
+        <VanACard Header="@($"{ledger.DoiTuong} — {AccountName} (TK {ledger.AccountCode}) — Kỳ {ledger.Month:D2}/{ledger.Year}")" data-testid="congno-ledger-card">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle" data-testid="congno-ledger-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Ngày</th>
+                            <th>Diễn giải</th>
+                            <th class="text-end">Tăng</th>
+                            <th class="text-end">Giảm</th>
+                            <th class="text-end">Số dư</th>
+                            <th class="text-center">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="table-light">
+                            <td colspan="2"><em>Số dư đầu kỳ</em></td>
+                            <td></td>
+                            <td></td>
+                            <td class="text-end fw-bold">@Fmt(ledger.DauKy)</td>
+                            <td></td>
+                        </tr>
+                        @foreach (var line in ledger.Lines)
+                        {
+                            <tr data-testid="congno-ledger-line">
+                                <td>@line.TransactionDate.ToString("dd/MM/yyyy")</td>
+                                <td>
+                                    @line.Description
+                                    @if (line.IsReversal)
+                                    {
+                                        <span class="badge text-bg-secondary ms-1">đảo</span>
+                                    }
+                                </td>
+                                <td class="text-end">@Fmt(line.Tang)</td>
+                                <td class="text-end">@Fmt(line.Giam)</td>
+                                <td class="text-end fw-bold">@Fmt(line.SoDu)</td>
+                                <td class="text-center">
+                                    <div class="d-flex justify-content-center gap-1">
+                                        @if (line.Tang > 0 && !line.IsReversal)
+                                        {
+                                            @* FR-8.1: click 1 khoản nợ → lịch sử thanh toán (FIFO động) *@
+                                            <VanAButton Variant="info" Size="small" OnClick="() => ShowKhoanNoHistory(line.EntryId)">
+                                                Lịch sử
+                                            </VanAButton>
+                                        }
+                                        @if (!line.IsReversal)
+                                        {
+                                            <VanAButton Variant="danger" Size="small" OnClick="() => OpenReversalModal(line.EntryId, line.Description)">
+                                                Đảo
+                                            </VanAButton>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        <tr class="table-secondary fw-bold">
+                            <td colspan="2"><em>Cuối kỳ</em></td>
+                            <td></td>
+                            <td></td>
+                            <td class="text-end">@Fmt(ledger.CuoiKy)</td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            @if (ledger.Lines.Count == 0)
+            {
+                <div class="text-muted small py-2">Không có phát sinh trong kỳ.</div>
+            }
+        </VanACard>
+    }
+
+    <!-- Modal: Lịch sử thanh toán khoản nợ (FR-8.1) -->
+    @if (showKhoanNoModal)
+    {
+        <VanAModal Title="Lịch Sử Thanh Toán Khoản Nợ" IsVisible="true" OnClose="CloseKhoanNoModal">
+            <Body>
+                @if (khoanNo == null)
+                {
+                    <div class="text-muted">Không tìm thấy khoản nợ (có thể đã bị đảo bút toán).</div>
+                }
+                else
+                {
+                    <div class="mb-2">
+                        <strong>@khoanNo.DoiTuong</strong> (TK @khoanNo.AccountCode) — @khoanNo.TransactionDate.ToString("dd/MM/yyyy")
+                    </div>
+                    <div class="mb-3 small text-muted">@khoanNo.Description</div>
+                    <div class="mb-3">
+                        <span class="me-3">Số tiền: <strong>@Fmt(khoanNo.SoTien)</strong></span>
+                        <span class="me-3">Đã thu/trả: <strong>@Fmt(khoanNo.DaThanhToan)</strong></span>
+                        <span>Còn nợ: <strong class="@(khoanNo.ConLai > 0 ? "text-danger" : "")">@Fmt(khoanNo.ConLai)</strong></span>
+                    </div>
+                    @if (khoanNo.Payments.Count == 0)
+                    {
+                        <div class="text-muted small">Khoản này chưa được thanh toán.</div>
+                    }
+                    else
+                    {
+                        <table class="table table-sm" data-testid="khoan-no-payments-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Ngày</th>
+                                    <th>Diễn giải</th>
+                                    <th class="text-end">Thu/trả</th>
+                                    <th class="text-end">Còn lại</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var payment in khoanNo.Payments)
+                                {
+                                    <tr>
+                                        <td>@payment.TransactionDate.ToString("dd/MM/yyyy")</td>
+                                        <td>@payment.Description</td>
+                                        <td class="text-end">@Fmt(payment.SoTien)</td>
+                                        <td class="text-end">@Fmt(payment.SoDuConLai)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                }
+            </Body>
+        </VanAModal>
+    }
+
+    <!-- Modal: Đảo bút toán (G10) -->
+    @if (showReversalModal)
+    {
+        <VanAModal Title="Đảo Bút Toán" IsVisible="true" OnClose="CloseReversalModal">
+            <Body>
+                <p class="small">Đảo bút toán: <strong>@reversalTargetDescription</strong></p>
+                <p class="small text-muted">Sai sót phải sửa bằng đảo bút toán (AccountingEntry immutable) — không xóa.</p>
+                <div class="mb-3">
+                    <label class="form-label small">Lý do đảo (bắt buộc)</label>
+                    <input type="text" class="form-control" @bind="reversalReason" placeholder="VD: Nhập sai số tiền" />
+                </div>
+                <div class="d-flex gap-2 justify-content-end">
+                    <VanAButton Variant="secondary" Size="small" OnClick="CloseReversalModal">Hủy</VanAButton>
+                    <VanAButton Variant="danger" Size="small" Disabled="isReversing" OnClick="ConfirmReversal">
+                        @(isReversing ? "Đang đảo..." : "Xác Nhận Đảo")
+                    </VanAButton>
+                </div>
+                @if (!string.IsNullOrEmpty(reversalError))
+                {
+                    <div class="text-danger small mt-2">@reversalError</div>
+                }
+            </Body>
+        </VanAModal>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Loai { get; set; }
+    [Parameter] public string? DoiTuong { get; set; }
+
+    [SupplyParameterFromQuery(Name = "year")] public int? QueryYear { get; set; }
+    [SupplyParameterFromQuery(Name = "month")] public int? QueryMonth { get; set; }
+
+    private DoiTuongLedgerDto? ledger;
+    private bool isLoading;
+    private bool showError;
+    private string errorMessage = string.Empty;
+
+    private KhoanNoPaymentsDto? khoanNo;
+    private bool showKhoanNoModal;
+
+    private Guid? reversalTargetEntryId;
+    private string reversalTargetDescription = string.Empty;
+    private string reversalReason = string.Empty;
+    private bool showReversalModal;
+    private bool isReversing;
+    private string? reversalError;
+
+    private string AccountCode => Loai == "thu" ? "131" : Loai == "tra" ? "331" : string.Empty;
+    private string AccountName => Loai == "thu" ? "Sổ Theo Dõi Phải Thu" : Loai == "tra" ? "Sổ Theo Dõi Phải Trả" : string.Empty;
+    private string LedgerTitle => string.IsNullOrEmpty(AccountName) ? "Sổ Công Nợ" : $"{AccountName}";
+
+    private static string Fmt(decimal value) => value.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLedger();
+    }
+
+    private async Task LoadLedger()
+    {
+        showError = false;
+        if (string.IsNullOrEmpty(AccountCode) || string.IsNullOrWhiteSpace(DoiTuong))
+        {
+            showError = true;
+            errorMessage = "Đường dẫn không hợp lệ. Loại sổ phải là 'thu' (131) hoặc 'tra' (331).";
+            return;
+        }
+        if (!TenantProvider.HasTenant)
+        {
+            showError = true;
+            errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+            return;
+        }
+
+        // Kỳ mặc định = tháng hiện tại; ưu tiên query từ báo cáo tổng hợp (?year=&month=)
+        int year = QueryYear is > 2000 and < 2100 ? QueryYear.Value : DateTime.Now.Year;
+        int month = QueryMonth is >= 1 and <= 12 ? QueryMonth.Value : DateTime.Now.Month;
+
+        isLoading = true;
+        StateHasChanged();
+        try
+        {
+            ledger = await CongNoService.GetDoiTuongLedgerAsync(
+                new TenantId(TenantProvider.TenantId),
+                AccountCode,
+                DoiTuong,
+                year,
+                month);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading cong-no ledger for tenant {TenantId}", TenantProvider.TenantId);
+            showError = true;
+            errorMessage = $"Lỗi tải sổ: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ShowKhoanNoHistory(Guid khoanNoEntryId)
+    {
+        khoanNo = null;
+        showKhoanNoModal = true;
+        StateHasChanged();
+        try
+        {
+            khoanNo = await CongNoService.GetKhoanNoPaymentsAsync(
+                new TenantId(TenantProvider.TenantId), khoanNoEntryId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading khoan-no payments for entry {EntryId}", khoanNoEntryId);
+        }
+    }
+
+    private void CloseKhoanNoModal()
+    {
+        showKhoanNoModal = false;
+        khoanNo = null;
+    }
+
+    private void OpenReversalModal(Guid entryId, string description)
+    {
+        reversalTargetEntryId = entryId;
+        reversalTargetDescription = description;
+        reversalReason = string.Empty;
+        reversalError = null;
+        showReversalModal = true;
+    }
+
+    private void CloseReversalModal()
+    {
+        showReversalModal = false;
+        reversalTargetEntryId = null;
+    }
+
+    private async Task ConfirmReversal()
+    {
+        if (!reversalTargetEntryId.HasValue) return;
+        if (string.IsNullOrWhiteSpace(reversalReason))
+        {
+            reversalError = "Vui lòng nhập lý do đảo bút toán.";
+            return;
+        }
+
+        isReversing = true;
+        reversalError = null;
+        StateHasChanged();
+        try
+        {
+            await ReversalService.CreateReversalEntryAsync(
+                new AccountingEntryId(reversalTargetEntryId.Value),
+                new TenantId(TenantProvider.TenantId),
+                reversalReason);
+            showReversalModal = false;
+            reversalTargetEntryId = null;
+            await LoadLedger();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error reversing entry {EntryId}", reversalTargetEntryId.Value);
+            reversalError = $"Lỗi khi đảo: {ex.Message}";
+        }
+        finally
+        {
+            isReversing = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo("/accounting/cong-no");
+    }
+}

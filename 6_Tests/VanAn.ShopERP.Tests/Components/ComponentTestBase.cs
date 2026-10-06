@@ -2,6 +2,7 @@ using VanAn.UI.Platform.Services;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.Logging;
 using VanAn.CoreHub.Services;
+using VanAn.CoreHub.Services.CongNo;
 using Bunit;
 using VanAn.UI.Platform.Core.Interfaces;
 using VanAn.UI.Platform.Adapters;
@@ -65,6 +66,10 @@ public class ComponentTestBase : TestContext
 
         // 2026-10-01: business-info lookup client (phiếu thu/chi MST) — mock by default
         Services.AddSingleton<IBusinessInfoApiClient>(_ => new Mock<IBusinessInfoApiClient>().Object);
+
+        // THU CHI & CÔNG NỢ MVP (P2, 2026-10-07): ICongNoService + IReversalService — mock by default
+        Services.AddSingleton<ICongNoService>(_ => new Mock<ICongNoService>().Object);
+        Services.AddSingleton<IReversalService>(_ => new Mock<IReversalService>().Object);
 
         // Bunit automatically discovers components from referenced assemblies
         // UI.Platform is already referenced in the project, so components should be discoverable

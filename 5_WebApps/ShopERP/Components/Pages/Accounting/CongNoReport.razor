@@ -1,0 +1,273 @@
+@page "/accounting/cong-no"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "OwnerOnly")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.Shared.DTOs
+@using System.Globalization
+@using VanAn.CoreHub.Services.CongNo
+@using VanAn.ShopERP.Services
+@inject ICongNoService CongNoService
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject ILogger<CongNoReport> Logger
+@inject NavigationManager NavigationManager
+@inject Microsoft.JSInterop.IJSRuntime JSRuntime
+
+<div class="cong-no-report-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Báo Cáo Công Nợ</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="PrintReport">🖨️ In Báo Cáo</VanAButton>
+            <VanAButton Variant="secondary" Size="small" OnClick="ExportToExcel">📊 Xuất Excel</VanAButton>
+        </div>
+    </header>
+
+    @if (showError)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" />
+    }
+
+    <!-- Bộ lọc tháng -->
+    <VanACard Header="Bộ Lọc">
+        <div class="filter-panel d-flex align-items-end gap-2 flex-wrap">
+            <div>
+                <label class="form-label small mb-1">Năm</label>
+                <select class="form-select" @bind="selectedYear" data-testid="congno-filter-year">
+                    @for (var y = DateTime.Now.Year + 1; y >= DateTime.Now.Year - 2; y--)
+                    {
+                        <option value="@y">@y</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <label class="form-label small mb-1">Tháng</label>
+                <select class="form-select" @bind="selectedMonth" data-testid="congno-filter-month">
+                    @for (var m = 1; m <= 12; m++)
+                    {
+                        <option value="@m">Tháng @m</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <VanAButton Variant="primary" Size="small" OnClick="LoadReport">Xem</VanAButton>
+            </div>
+            <div class="ms-auto d-flex align-items-center gap-2">
+                <span class="small text-muted">Lọc:</span>
+                <div class="btn-group btn-group-sm" role="group" data-testid="congno-filter-chip">
+                    <button type="button" class="btn @(filterState == "all" ? "btn-primary" : "btn-outline-primary")" @onclick="SetFilterAll">Tất cả</button>
+                    <button type="button" class="btn @(filterState == "due" ? "btn-primary" : "btn-outline-primary")" @onclick="SetFilterDue">Còn nợ</button>
+                    <button type="button" class="btn @(filterState == "paid" ? "btn-primary" : "btn-outline-primary")" @onclick="SetFilterPaid">Hết nợ</button>
+                </div>
+            </div>
+        </div>
+    </VanACard>
+
+    @if (isLoading)
+    {
+        <div class="text-center my-4 text-muted">Đang tải dữ liệu...</div>
+    }
+    else if (report != null)
+    {
+        @foreach (var group in report.Groups)
+        {
+            <VanACard Header="@($"{group.AccountName} ({group.AccountCode}) — {ReportTitle}")" class="mt-3" data-testid="@($"congno-group-{group.AccountCode}")">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle" data-testid="@($"congno-table-{group.AccountCode}")">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Đối tượng</th>
+                                <th class="text-end">Đầu kỳ</th>
+                                <th class="text-end">PS tăng</th>
+                                <th class="text-end">Đã thu/trả</th>
+                                <th class="text-end">Cuối kỳ</th>
+                                <th class="text-center">Tuổi nợ &lt;30</th>
+                                <th class="text-center">30-60</th>
+                                <th class="text-center">60-90</th>
+                                <th class="text-center">&gt;90</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in FilteredRows(group))
+                            {
+                                <tr class="@(row.CuoiKy < 0 ? "table-warning" : "")" data-testid="congno-row">
+                                    <td>
+                                        <a href="@LedgerUrl(group.AccountCode, row.DoiTuong)" class="text-decoration-none"
+                                           data-testid="congno-row-link" title="Xem sổ chi tiết">
+                                            @row.DoiTuong
+                                            @if (row.CuoiKy < 0)
+                                            {
+                                                <span class="badge text-bg-warning ms-1">trả trước</span>
+                                            }
+                                        </a>
+                                    </td>
+                                    <td class="text-end">@Fmt(row.DauKy)</td>
+                                    <td class="text-end">@Fmt(row.PhatSinh)</td>
+                                    <td class="text-end">@Fmt(row.DaThuTra)</td>
+                                    <td class="text-end fw-bold">@Fmt(row.CuoiKy)</td>
+                                    <td class="text-center">@Fmt(row.Aging.Duoi30)</td>
+                                    <td class="text-center">@Fmt(row.Aging.Tu30Den60)</td>
+                                    <td class="text-center">@Fmt(row.Aging.Tu60Den90)</td>
+                                    <td class="text-center">@Fmt(row.Aging.Tren90)</td>
+                                </tr>
+                            }
+                            <tr class="table-secondary fw-bold">
+                                <td>TỔNG</td>
+                                <td class="text-end">@Fmt(group.TongDauKy)</td>
+                                <td class="text-end">@Fmt(group.TongPhatSinh)</td>
+                                <td class="text-end">@Fmt(group.TongDaThuTra)</td>
+                                <td class="text-end">@Fmt(group.TongCuoiKy)</td>
+                                <td class="text-center">@Fmt(group.TongAging.Duoi30)</td>
+                                <td class="text-center">@Fmt(group.TongAging.Tu30Den60)</td>
+                                <td class="text-center">@Fmt(group.TongAging.Tu60Den90)</td>
+                                <td class="text-center">@Fmt(group.TongAging.Tren90)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                @if (group.Rows.Count == 0)
+                {
+                    <div class="text-muted small py-2">Không có đối tượng công nợ trong kỳ.</div>
+                }
+            </VanACard>
+        }
+    }
+</div>
+
+@code {
+    private CongNoReportDto? report;
+    private int selectedYear = DateTime.Now.Year;
+    private int selectedMonth = DateTime.Now.Month;
+    private string filterState = "all"; // all | due | paid
+    private bool isLoading;
+    private bool showError;
+    private string errorMessage = string.Empty;
+
+    private string ReportTitle => $"{selectedMonth:D2}/{selectedYear}";
+
+    private static string Fmt(decimal value) => value.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadReport();
+    }
+
+    private async Task LoadReport()
+    {
+        if (!TenantProvider.HasTenant)
+        {
+            showError = true;
+            errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+            return;
+        }
+
+        isLoading = true;
+        showError = false;
+        StateHasChanged();
+        try
+        {
+            report = await CongNoService.GetCongNoReportAsync(
+                new TenantId(TenantProvider.TenantId), selectedYear, selectedMonth);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading cong-no report for tenant {TenantId}", TenantProvider.TenantId);
+            showError = true;
+            errorMessage = $"Lỗi tải báo cáo: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SetFilterAll() => SetFilter("all");
+    private void SetFilterDue() => SetFilter("due");
+    private void SetFilterPaid() => SetFilter("paid");
+
+    private void SetFilter(string state)
+    {
+        filterState = state;
+        StateHasChanged();
+    }
+
+    private IEnumerable<CongNoRowDto> FilteredRows(CongNoGroupDto group)
+    {
+        return filterState switch
+        {
+            "due" => group.Rows.Where(r => r.CuoiKy != 0),
+            "paid" => group.Rows.Where(r => r.CuoiKy == 0),
+            _ => group.Rows
+        };
+    }
+
+    private string LedgerUrl(string accountCode, string doiTuong)
+    {
+        var loai = accountCode == "131" ? "thu" : "tra";
+        return $"/accounting/cong-no/{loai}/{Uri.EscapeDataString(doiTuong)}?year={selectedYear}&month={selectedMonth}";
+    }
+
+    private async Task PrintReport()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("vananPrintBill");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Print failed");
+        }
+    }
+
+    private async Task ExportToExcel()
+    {
+        try
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"BAO CAO CONG NO - THANG {selectedMonth}/{selectedYear}");
+            foreach (var group in report?.Groups ?? [])
+            {
+                sb.AppendLine();
+                sb.AppendLine($"{group.AccountName} ({group.AccountCode})");
+                sb.AppendLine("Doi tuong,Dau ky,PS tang,Da thu/tra,Cuoi ky,Aging <30,Aging 30-60,Aging 60-90,Aging >90");
+                foreach (var row in group.Rows)
+                {
+                    sb.AppendLine(string.Join(",",
+                        EscapeCsv(row.DoiTuong),
+                        row.DauKy.ToString(CultureInfo.InvariantCulture),
+                        row.PhatSinh.ToString(CultureInfo.InvariantCulture),
+                        row.DaThuTra.ToString(CultureInfo.InvariantCulture),
+                        row.CuoiKy.ToString(CultureInfo.InvariantCulture),
+                        row.Aging.Duoi30.ToString(CultureInfo.InvariantCulture),
+                        row.Aging.Tu30Den60.ToString(CultureInfo.InvariantCulture),
+                        row.Aging.Tu60Den90.ToString(CultureInfo.InvariantCulture),
+                        row.Aging.Tren90.ToString(CultureInfo.InvariantCulture)));
+                }
+                sb.AppendLine($"TONG,{group.TongDauKy.ToString(CultureInfo.InvariantCulture)},{group.TongPhatSinh.ToString(CultureInfo.InvariantCulture)},{group.TongDaThuTra.ToString(CultureInfo.InvariantCulture)},{group.TongCuoiKy.ToString(CultureInfo.InvariantCulture)}");
+            }
+
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+            string base64 = Convert.ToBase64String(bytes);
+            string fileName = $"cong-no_{selectedYear}{selectedMonth:D2}.csv";
+            await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64, "text/csv", fileName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error exporting cong-no report to CSV");
+        }
+    }
+
+    private static string EscapeCsv(string? field)
+    {
+        if (string.IsNullOrEmpty(field)) return string.Empty;
+        bool needsQuote = field.Contains(',') || field.Contains('"') || field.Contains('\n');
+        if (!needsQuote) return field;
+        string escaped = field.Replace("\"", "\"\"");
+        return "\"" + escaped + "\"";
+    }
+}

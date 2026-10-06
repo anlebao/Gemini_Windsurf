@@ -81,6 +81,11 @@
                 </VanAButton>
                 <VanAButton
                     Variant="secondary"
+                    OnClick="() => NavigateToCongNo()">
+                    🤝 Công Nợ
+                </VanAButton>
+                <VanAButton
+                    Variant="secondary"
                     OnClick="() => NavigateToBalance()">
                     💰 Số Dư Tài Khoản
                 </VanAButton>
@@ -187,6 +192,11 @@
     private void NavigateToHistory()
     {
         NavigationManager.NavigateTo("/accounting/history");
+    }
+
+    private void NavigateToCongNo()
+    {
+        NavigationManager.NavigateTo("/accounting/cong-no");
     }
 
     private void NavigateToBalance()

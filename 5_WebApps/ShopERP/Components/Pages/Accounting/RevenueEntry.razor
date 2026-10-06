@@ -13,6 +13,7 @@
 @using VanAn.ShopERP.Services.Accounting
 @using VanAn.ShopERP.Components.Accounting
 @inject CoreAccountingService.IAccountingService AccountingService
+@inject VanAn.CoreHub.Services.CongNo.ICongNoService CongNoService
 @inject VanAn.CoreHub.Services.IVasFeatureFlagService FeatureFlagService
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
@@ -65,10 +66,41 @@
 
     <VanACard Header="Thông Tin Doanh Thu">
         <EditForm Model="@formData" OnValidSubmit="HandleSubmit">
+            @* THU CHI & CÔNG NỢ MVP (P2.1, SRS §5.1 FR-1): Loại phiếu thu 3 lựa chọn — native select
+               (trang host quản lý — tránh phụ thuộc @bind của DynamicFormFields) *@
+            <div class="mb-3">
+                <label for="voucherType" class="form-label">Loại Phiếu Thu <span class="text-danger">*</span></label>
+                <select id="voucherType" class="form-select" @bind="_voucherType" @bind:event="onchange" @bind:after="HandleVoucherTypeChanged" data-testid="voucher-type-select">
+                    @foreach (var opt in GetVoucherTypeOptions())
+                    {
+                        <option value="@opt.Value" selected="@(opt.Value == _voucherType)">@opt.Label</option>
+                    }
+                </select>
+                <small class="form-text text-muted">Thu doanh thu (ghi doanh thu) · Ghi nhận phải thu (bán chịu — TK 131) · Thu tiền khách trả nợ (giảm phải thu)</small>
+            </div>
+
+            @* FR-2: ô Đối tượng BẮT BUỘC với phiếu công nợ (bán chịu / thu nợ) *@
+            @if (IsCongNoType)
+            {
+                <div class="mb-3">
+                    <label for="doiTuong" class="form-label">Đối Tượng (khách hàng) <span class="text-danger">*</span></label>
+                    <input id="doiTuong" type="text" class="form-control" @bind="doiTuong" placeholder="Tên khách hàng / công ty" data-testid="doi-tuong-input" />
+                    <small class="form-text text-muted">Cùng chuỗi tên = cùng đối tượng [G2] — bắt buộc với phiếu công nợ</small>
+                </div>
+            }
+
             <DynamicFormFields 
                 FieldDefinitions="@revenueFields" 
                 OnFieldChanged="HandleFieldChanged"
                 @ref="formFieldsRef" />
+
+            @* [G11]: ô MST + Tra cứu — native (trang host quản lý) *@
+            <div class="mb-3">
+                <label for="mst" class="form-label">Mã Số Thuế (MST)</label>
+                <input id="mst" type="text" class="form-control" @bind="mstInput"
+                       placeholder="VD: 0302839105-001" data-testid="mst-input" />
+                <small class="form-text text-muted">@(IsCongNoType ? "Nhập MST đối tượng rồi bấm Tra cứu → tự điền tên công ty vào Đối tượng [G11]" : "Nhập MST khách hàng/đối tác rồi bấm Tra cứu để lấy thông tin doanh nghiệp")</small>
+            </div>
             <div class="mt-2 d-flex align-items-center gap-2">
                 <VanAButton
                     Variant="secondary"
@@ -173,12 +205,21 @@
     private void HandleFieldChanged(PlatformComposite.FormField field)
     {
         formData.Values[field.Id] = field.Value?.ToString() ?? string.Empty;
-        
+
         // Clear field error when value changes
         if (formFieldsRef != null)
         {
             formFieldsRef.ClearFieldErrors();
         }
+    }
+
+    /// <summary>
+    /// THU CHI & CÔNG NỢ MVP (P2.1): đổi "Loại phiếu thu" (native select — trang host) →
+    /// rebuild fields (ẩn/hiện Đối tượng, whitelist TK 131 vs 5xx/7xx) — giữ giá trị đã nhập.
+    /// </summary>
+    private void HandleVoucherTypeChanged()
+    {
+        RebuildFields();
     }
 
     private void ValidateForm()
@@ -236,7 +277,11 @@
     private void InitializeFields()
     {
         var today = DateTime.Now.ToString("yyyy-MM-dd");
+        var isCongNo = IsCongNoType;
 
+        // Loại phiếu (voucherType) + Đối tượng (doiTuong) + MST (mst) là native controls
+        // trong trang host (ShopERP — @bind hoạt động); DynamicFormFields chỉ giữ các field
+        // còn lại (date/amount/account/description/reference).
         revenueFields = new List<PlatformComposite.FormField>
         {
             new PlatformComposite.FormField
@@ -255,26 +300,28 @@
                 Type = PlatformComposite.FieldType.Currency,
                 Placeholder = "0.00",
                 Required = true,
-                HelpText = "Nhập số tiền doanh thu"
+                HelpText = isCongNo ? "Số tiền ghi nhận công nợ / thu nợ" : "Nhập số tiền doanh thu"
             },
             new PlatformComposite.FormField
             {
                 Id = "account",
                 Label = "Tài Khoản",
                 Type = PlatformComposite.FieldType.Select,
-                Value = "511",
-                Options = GetRevenueAccounts(),
+                Value = isCongNo ? "131" : "511",
+                Options = isCongNo ? GetCongNoReceivableAccounts() : GetRevenueAccounts(),
                 Required = true,
-                HelpText = AccountingAccountProvider.GetAccountHelpText(_tenantType)
+                HelpText = isCongNo
+                    ? "TK 131 - Phải thu khách hàng (phiếu công nợ — bán chịu không ghi doanh thu [G6])"
+                    : AccountingAccountProvider.GetAccountHelpText(_tenantType)
             },
             new PlatformComposite.FormField
             {
                 Id = "description",
                 Label = "Diễn Giải",
                 Type = PlatformComposite.FieldType.TextArea,
-                Placeholder = "Nhập diễn giải giao dịch",
+                Placeholder = isCongNo ? "VD: Bán chịu — {đối tượng} (MST ...)" : "Nhập diễn giải giao dịch",
                 Required = true,
-                HelpText = "Mô tả chi tiết về doanh thu"
+                HelpText = "Mô tả chi tiết — để trống sẽ tự gợi ý theo loại phiếu"
             },
             new PlatformComposite.FormField
             {
@@ -283,14 +330,6 @@
                 Type = PlatformComposite.FieldType.Text,
                 Placeholder = "VD: HĐ-001",
                 HelpText = "Số hóa đơn hoặc chứng từ liên quan"
-            },
-            new PlatformComposite.FormField
-            {
-                Id = "mst",
-                Label = "Mã Số Thuế (MST)",
-                Type = PlatformComposite.FieldType.Text,
-                Placeholder = "VD: 0302839105-001",
-                HelpText = "Nhập MST khách hàng/đối tác rồi bấm Tra cứu để lấy thông tin doanh nghiệp"
             }
         };
 
@@ -306,13 +345,75 @@
         lookupError = null;
     }
 
+    /// <summary>
+    /// THU CHI & CÔNG NỢ MVP (P2.1): rebuild danh sách field khi đổi loại phiếu —
+    /// giữ giá trị đã nhập cho các field vẫn còn (date/amount/description/reference).
+    /// </summary>
+    private void RebuildFields()
+    {
+        var preserved = new Dictionary<string, string>(formData.Values);
+        InitializeFields();
+        foreach (var kv in preserved)
+        {
+            if (formData.Values.ContainsKey(kv.Key))
+            {
+                formData.Values[kv.Key] = kv.Value;
+                var field = revenueFields.FirstOrDefault(f => f.Id == kv.Key);
+                if (field != null)
+                {
+                    field.Value = kv.Value;
+                }
+            }
+        }
+        // Whitelist: chuyển loại công nợ → account = 131; về doanh thu → mặc định 511
+        var accountField = revenueFields.FirstOrDefault(f => f.Id == "account");
+        if (accountField != null)
+        {
+            var forced = IsCongNoType ? "131" : "511";
+            accountField.Value = forced;
+            formData.Values["account"] = forced;
+        }
+        StateHasChanged();
+    }
+
+    // Loại phiếu thu (SRS §5.1 FR-1)
+    private const string VoucherTypeRevenue = "revenue";            // Thu doanh thu (hiện tại)
+    private const string VoucherTypeReceivable = "receivable";      // Ghi nhận phải thu (bán chịu)
+    private const string VoucherTypePayment = "receivable-payment"; // Thu tiền khách trả nợ
+
+    private string _voucherType = VoucherTypeRevenue;
+
+    // Native controls (trang host — @bind hoạt động trong ShopERP)
+    private string doiTuong = string.Empty;
+    private string mstInput = string.Empty;
+
+    private bool IsCongNoType => _voucherType is VoucherTypeReceivable or VoucherTypePayment;
+
+    private List<PlatformComposite.FieldOption> GetVoucherTypeOptions()
+    {
+        return
+        [
+            new() { Value = VoucherTypeRevenue, Label = "Thu doanh thu" },
+            new() { Value = VoucherTypeReceivable, Label = "Ghi nhận phải thu" },
+            new() { Value = VoucherTypePayment, Label = "Thu tiền khách trả nợ" }
+        ];
+    }
+
+    private static List<PlatformComposite.FieldOption> GetCongNoReceivableAccounts()
+    {
+        return
+        [
+            new() { Value = "131", Label = "131 - Phải thu khách hàng" }
+        ];
+    }
+
     private BusinessInfoDto? lookupResult;
     private string? lookupError;
     private bool _isLookupBusy;
 
     private async Task LookupMstAsync()
     {
-        var mst = (formData.Values.GetValueOrDefault("mst") ?? "").Trim();
+        var mst = mstInput.Trim();
         lookupError = null;
         lookupResult = null;
         if (!IsValidTaxCode(mst))
@@ -329,6 +430,25 @@
             if (lookupResult is null)
             {
                 lookupError = "Không tìm thấy doanh nghiệp với mã số thuế này.";
+            }
+            else if (IsCongNoType)
+            {
+                // THU CHI & CÔNG NỢ MVP (P2.1, SRS §5.2 FR-2 [G11]): tra MST → tự điền tên công ty vào Đối tượng
+                doiTuong = lookupResult.BusinessName;
+                // Gợi ý diễn giải kèm MST (nếu đang trống)
+                var descField = revenueFields.FirstOrDefault(f => f.Id == "description");
+                if (descField != null && string.IsNullOrWhiteSpace(descField.Value))
+                {
+                    var suggested = _voucherType == VoucherTypePayment
+                        ? $"Thu tiền khách trả nợ — {lookupResult.BusinessName}"
+                        : $"Bán chịu — {lookupResult.BusinessName}";
+                    if (!string.IsNullOrWhiteSpace(mst))
+                    {
+                        suggested += $" (MST {mst})";
+                    }
+                    descField.Value = suggested;
+                    formData.Values["description"] = suggested;
+                }
             }
         }
         catch (Exception ex)
@@ -449,49 +569,95 @@
             return;
         }
 
-        // Validate account code format (must be 5xx for revenue)
+        // Validate account code format: công nợ → 131; doanh thu → 5xx/7xx
         var accountCode = formData.Values.GetValueOrDefault("account") ?? string.Empty;
-        if (string.IsNullOrEmpty(accountCode) || !IsValidRevenueAccountCode(accountCode))
+        if (IsCongNoType)
+        {
+            if (accountCode != "131")
+            {
+                showError = true;
+                errorMessage = "Phiếu công nợ phải thu chỉ dùng TK 131 (Phải thu khách hàng).";
+                return;
+            }
+        }
+        else if (string.IsNullOrEmpty(accountCode) || !IsValidRevenueAccountCode(accountCode))
         {
             showError = true;
             errorMessage = "Mã tài khoản không hợp lệ. Doanh thu phải thuộc nhóm 5xx hoặc 7xx.";
             return;
         }
 
-        // Duplicate check: same amount + date + account within 5 minutes
-        var now = DateTime.Now;
-        _recentEntries.RemoveAll(e => (now - e.SubmittedAt).TotalMinutes > 5);
-        var duplicate = _recentEntries.FirstOrDefault(e =>
-            e.Amount == amount && e.Date.Date == date.Date && e.AccountCode == accountCode);
-
-        if (duplicate != null)
+        // THU CHI & CÔNG NỢ MVP (P2.1): đối tượng BẮT BUỘC với phiếu công nợ (FR-2)
+        var doiTuong = this.doiTuong.Trim();
+        if (IsCongNoType && string.IsNullOrWhiteSpace(doiTuong))
         {
             showError = true;
-            errorMessage = "Phát hiện bút toán trùng lặp (cùng số tiền, ngày, tài khoản trong 5 phút). Vui lòng kiểm tra lại.";
+            errorMessage = "Đối tượng (khách hàng) là bắt buộc với phiếu công nợ.";
             return;
+        }
+
+        // Duplicate check: same amount + date + account within 5 minutes
+        // (chỉ áp dụng cho phiếu doanh thu — phiếu công nợ bỏ qua, P1 decision #2)
+        var now = DateTime.Now;
+        _recentEntries.RemoveAll(e => (now - e.SubmittedAt).TotalMinutes > 5);
+        if (!IsCongNoType)
+        {
+            var duplicate = _recentEntries.FirstOrDefault(e =>
+                e.Amount == amount && e.Date.Date == date.Date && e.AccountCode == accountCode);
+
+            if (duplicate != null)
+            {
+                showError = true;
+                errorMessage = "Phát hiện bút toán trùng lặp (cùng số tiền, ngày, tài khoản trong 5 phút). Vui lòng kiểm tra lại.";
+                return;
+            }
         }
 
         // Create accounting period
         var period = new AccountingPeriod(date.Year, date.Month);
         var tenantId = new TenantId(TenantProvider.TenantId);
+        var description = formData.Values["description"];
+        var reference = formData.Values.GetValueOrDefault("reference") ?? string.Empty;
+        var mst = mstInput.Trim();
 
-        // Create accounting entry using IAccountingService — pass user-entered date as transactionDate
-        // so TransactionHistory shows the correct date (not DateTime.UtcNow at creation time).
-        await AccountingService.CreateRevenueEntryAsync(
-            tenantId,
-            period,
-            amount,
-            formData.Values["description"],
-            accountCode: accountCode,
-            reference: formData.Values.GetValueOrDefault("reference"),
-            transactionDate: date);
+        if (IsCongNoType)
+        {
+            // Công nợ phải thu: ghi nhận bán chịu (+) hoặc thu tiền khách trả nợ (−) — [G9]
+            // Diễn giải để trống → service tự gợi ý kèm MST [G11]; nếu nhập tay thì gắn thêm MST để truy vết.
+            if (!string.IsNullOrWhiteSpace(mst) && !description.Contains(mst, StringComparison.OrdinalIgnoreCase))
+            {
+                description = $"{description} (MST {mst})";
+            }
 
-        // Track for duplicate detection
-        _recentEntries.Add(new RecentEntry(amount, date, accountCode, now));
+            await CongNoService.CreateReceivableAsync(
+                tenantId,
+                amount,
+                doiTuong,
+                string.IsNullOrWhiteSpace(description) ? null : description,
+                date,
+                isPayment: _voucherType == VoucherTypePayment,
+                mst: string.IsNullOrWhiteSpace(mst) ? null : mst,
+                reference: string.IsNullOrWhiteSpace(reference) ? null : reference);
+        }
+        else
+        {
+            // Create accounting entry using IAccountingService — pass user-entered date as transactionDate
+            // so TransactionHistory shows the correct date (not DateTime.UtcNow at creation time).
+            await AccountingService.CreateRevenueEntryAsync(
+                tenantId,
+                period,
+                amount,
+                description,
+                accountCode: accountCode,
+                reference: reference,
+                transactionDate: date);
+
+            // Track for duplicate detection
+            _recentEntries.Add(new RecentEntry(amount, date, accountCode, now));
+        }
 
         // TT 71 Phase 4b: capture dữ liệu phiếu thu 01-TT (chỉ tenant HTX) trước khi reset form
-        var reference = formData.Values.GetValueOrDefault("reference") ?? string.Empty;
-        if (_tenantType == TenantType.HTX)
+        if (!IsCongNoType && _tenantType == TenantType.HTX)
         {
             _lastVoucher = new VoucherData(
                 SoPhieu: string.IsNullOrWhiteSpace(reference)
@@ -514,6 +680,9 @@
 
         // Reset form
         formData = new PlatformComposite.FormData();
+        _voucherType = VoucherTypeRevenue;
+        doiTuong = string.Empty;
+        mstInput = string.Empty;
         InitializeFields();
     }
     catch (Exception ex)

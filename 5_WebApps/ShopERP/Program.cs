@@ -226,6 +226,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.IOrderService, CoreHub.Services.OrderService>();
             _ = builder.Services.AddScoped<Shared.Services.IOrderWorkflowService, CoreHub.Services.OrderWorkflowService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IAccountingService, CoreHub.Services.AccountingEntryService>();
+            // THU CHI & CÔNG NỢ MVP (P2, 2026-10-07): phiếu 131/331 + báo cáo + tuổi nợ FIFO (in-process, PG)
+            _ = builder.Services.AddScoped<CoreHub.Services.CongNo.ICongNoService, CoreHub.Services.CongNo.CongNoService>();
             // KhachLink Full Flow W0: Shop feature toggle settings
             _ = builder.Services.AddScoped<Shared.Services.IShopFeatureSettingsService, CoreHub.Services.ShopFeatureSettingsService>();
             // #185-1: shared loyalty dashboard stats — used by LoyaltyController + LoyaltyDashboard.razor (in-process)
