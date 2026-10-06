@@ -4,7 +4,7 @@
 > Source SRS: `docs/requirements/van_an_appointment_booking_srs_v1.1_mvp (1).md` (v1.1 MVP — 44 sections)
 > Master plan: `docs/AI/plans/booking-scheduling-master-plan.md` (ACTIVE — chờ approve)
 > Branch: `main`
-> Status: **P1 + P2 + P3 DONE (2026-10-06 — guard ALL PASSED · build 0 errors · BookingDomainTests 26 + BookingServiceTests 47 + P3 tests 49 PASS · Core.Tests 2103 · ShopERP.Tests 136) — ⏳ Session P4 Public API + KhachLink UI**
+> Status: **P1 + P2 + P3 + P4 DONE (2026-10-06 — guard ALL PASSED · build 0 errors · Core.Tests 2103 · ShopERP.Tests 136 · Architecture.Tests 41) — ⏳ Session P5 ShopERP tenant UI**
 
 ---
 
@@ -25,7 +25,7 @@
   - Session 1 (P1): Domain 18 entities + EF configs + migration PG + seed → guard/build/tests PASS → commit
   - Session 2 (P2): IStaffService/IOfferingService/IAvailabilityService/IBookingService + double-booking + tests → guard PASS → commit
   - Session 3 (P3): IQRAttributionService/ICommissionService/TaxWithholdingPolicy/IBookingFinancialService + Order hook (D2) + tests → guard PASS → commit
-  - Session 4 (P4): Gateway public API + KhachLink 4 screens + Status polling + E2E spec → guard PASS → commit
+  - Session 4 (P4): Gateway public API + KhachLink 4 screens + Status polling + E2E spec ✅ DONE `45c615b2` + `c09d3efe` (guard ALL PASSED · build 0 errors · Core.Tests 2103 · ShopERP.Tests 136 · Architecture.Tests 41 — CHƯA push)
   - Session 5 (P5): ShopERP 7 pages + NavMenu + Sitemap + bUnit → guard PASS → commit
   - Session 6 (P6): Test matrix đầy đủ (§34) + 9 E2E (3-4 specs) → guard + build PASS
   - Session 7 (P7): Deploy CD Multi-VPS + migrations PG + RV L1-L5 → cập nhật project_state + master plan status + đóng task card
@@ -78,14 +78,14 @@
 > **Tái dùng:** `VietQrService` (deposit QR — Screen 3) · `BookingStatusDto` (Status page polling) · GatewayAdminApiClientBase (tenant API — pattern FI SystemAdmin, P5 dùng lại) · JS interop precedent (KhachLink gps-mock.ts / SpeechRecognition stub — text-only).
 > **Lưu ý Gate:** UI Platform 100% (Gate 5 — KHÔNG bypass) · E2E spec `booking-customer.spec.ts` (Gate 4, P4.8) · Playwright DISABLED trong IMPLEMENT (playwright.rules) · `guard-check.ps1` + `dotnet build VanAn.sln` + Core.Tests MUST PASS trước commit · commit KHÔNG push trừ khi user yêu cầu.
 
-- [ ] **P4.1 Gateway public API** (map conventions §20): `GET /api/public/booking/qr/{qrToken}` · `GET .../tenants/{tenantId}/services` · `GET .../availability` · `POST .../bookings` (Idempotency-Key) · `GET .../bookings/{publicBookingToken}` (ETag/Last-Modified §10.3) · `POST .../cancel` + rate-limit (nginx) + opaque token, không trả internal IDs/commission (§25)
-- [ ] **P4.2 Gateway tenant API:** `/api/tenant/booking/...` — queue/confirm/reject/assign/change-staff/check-in/start/complete/availability/staff/schedules/financial-status (authorize tenant claim)
-- [ ] **P4.3 KhachLink Screen 1 — Offering:** tenant branding (từ QR resolve) + category chips + offering cards (giá/duration) + add-on chips (non-scheduling) + sticky summary (§5.2) — UI Platform 100% (Gate 5)
-- [ ] **P4.4 Screen 2 — Time & Staff:** horizontal date picker + time slot large buttons + staff filter (Bất kỳ ai / cụ thể — server-filtered §11.5) — 1 primary staff, KHÔNG N-service (§5.2)
-- [ ] **P4.5 Screen 3 — Note & Deposit:** Quick Tags chips (Phòng riêng/Lần đầu đến/KTV nữ/Cần chuẩn bị trước) + 🎙 SpeechRecognition JS interop (text-only + editable + fallback text input — **KHÔNG upload audio** §15.2-15.3) + deposit selector (§16.1)
-- [ ] **P4.6 Screen 4 — Confirm + submit:** summary + policy + CTA lớn → submit với idempotency key (client retry §29 — KHÔNG báo thành công trước server persist) → Status page
-- [ ] **P4.7 Status page:** polling 5s × 2 phút → 10-15s (§10.2) · dừng ở terminal state · nút Làm mới · lỗi hướng dẫn hành động (§6.5) · lazy-load route (WASM lazy assembly — R5)
-- [ ] **P4.8 E2E spec** `booking-customer.spec.ts` (QR→offering→time→quick tag/STT-fallback→booking→status polling confirm — AC-C01/C02/C03/C06) + Sitemap
+- [x] **P4.1 Gateway public API** ✅ (`45c615b2` — `PublicBookingController`): `GET /api/public/booking/qr/{qrToken}` (resolve §7.3-7.6 → tenant branding + AttributionSessionId) · `GET .../tenants/{tenantId}/services` (catalog: categories/offerings/add-ons + deposit policy §16.1 + cancel policy; gate Q5 IsEnabled → 404 friendly) · `GET .../availability` (slots §11.5 — chỉ available, Risk 3) · `POST .../bookings` (Idempotency-Key §21.1 bắt buộc; conflict → 409 message §6.5) · `GET .../bookings/{publicBookingToken}` (ETag theo Version §10.3 + If-None-Match 304) · `POST .../bookings/{token}/cancel` — public-safe §25 (không trả commission/conflicts/internal IDs; khách anonymous, CustomerId null + CustomerDeviceId §4.1) + rate-limit "booking-public" 120/min/IP
+- [x] **P4.2 Gateway tenant API** ✅ (`TenantBookingController` — JWT tenant_id claim, mọi query filter TenantId): queue/detail · confirm/reject/assign/change-staff/check-in/start/complete/no-show/cancel (idempotent §21.2-21.3, conflict 409) · `availability` who-is-available matrix §14 · staff/schedules · financial-status §16 (deposit tx + payment/invoice state) — P5 ShopERP UI sẽ dùng
+- [x] **P4.3 KhachLink Screen 1 — Offering** ✅ (`BookingOffering.razor` `/booking/{QrToken}`): tenant branding (QR resolve) + category chips + offering cards (giá/duration + badge Gói) + add-on chips (non-scheduling §8.3) + sticky summary §5.2 + step bar §6.4 + zero-friction identity (booking_anon_session + customer_device_id localStorage §4.1)
+- [x] **P4.4 Screen 2 — Time & Staff** ✅ (`BookingTime.razor` `/booking/{QrToken}/time`): horizontal date picker 7 ngày + slot large buttons (min 56px §6.3) + staff filter (Bất kỳ ai / cụ thể — server-filtered §11.5, dedup slot cùng giờ) + giữ lựa chọn khi back
+- [x] **P4.5 Screen 3 — Note & Deposit** ✅ (`BookingNote.razor` `/booking/{QrToken}/note`): Quick Tags chips §15.1 + 🎙 SpeechRecognition JS interop (reuse voice-note.js — text-only §15.2, fallback textarea §15.3, KHÔNG upload audio) + deposit hiển thị theo policy §16.1 (server-authoritative — radio disabled)
+- [x] **P4.6 Screen 4 — Confirm + submit** ✅ (`BookingConfirm.razor` `/booking/{QrToken}/confirm`): summary (tenant/thời gian/offering/add-ons/total/deposit/staff/note) + policy §5.2 + CTA "XÁC NHẬN ĐẶT LỊCH" + submit Idempotency-Key (client retry §29 — KHÔNG báo thành công trước server persist) → Status page
+- [x] **P4.7 Status page** ✅ (`BookingStatus.razor` `/booking/status/{code}`): polling 5s × 2 phút → 15s §10.2 + dừng terminal state + nút Làm mới + hủy lịch + error hướng dẫn §6.5 + mã đặt lịch opaque §25. ⚠️ lazy-load WASM assembly (R5) DEFER — KhachLink chưa cấu hình lazy assemblies
+- [x] **P4.8 E2E spec** ✅ `booking-customer.spec.ts` (QR→offering→time→quick tag/text note→confirm→status polling — AC-C01/C02/C03/C06, self-gating `BOOKING_TEST_QR_TOKEN` cho RV P7) — Sitemap: KhachLink không có sitemap page (ShopERP P5 sẽ thêm nav)
 
 ### Phase 5 — ShopERP tenant UI (task `task_booking_phase5_shoperp_ui.md`)
 
