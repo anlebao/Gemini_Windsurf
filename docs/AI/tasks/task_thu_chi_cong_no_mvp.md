@@ -4,7 +4,7 @@
 > Source SRS: `docs/requirements/van_an_thu_chi_cong_no_srs_v1.md` (v1.1 — user chốt Q1-Q5 2026-10-06)
 > Master plan: `docs/AI/plans/thu-chi-cong-no-master-plan.md` (ACTIVE — chờ approve)
 > Branch: `main`
-> Status: **PLAN READY — chờ user approve → Session P1 Services**
+> Status: **✅ APPROVED (2026-10-06, user) — ⏳ Session 1: P1 Services (PREP note ở Phase 1, base `d56be1c9`)**
 
 ---
 
@@ -18,7 +18,7 @@
 ## 2. ACTIVE WORKFLOW ROUTING
 
 - **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT — 7 step)
-- **Execution Mode:** ANALYZE (hiện tại — plan + task card chờ duyệt) → IMPLEMENT (sau user approve)
+- **Execution Mode:** IMPLEMENT (user approved 2026-10-06) — Session 1 P1 Services
 - **Skills (max 3):** `domain-integrity-validation` (AccountingEntry immutable — KHÔNG đụng Domain.cs) + `pattern-based-fixing` (regress báo cáo) + `test-system-upgrade` (test matrix)
 - **Session strategy (session-per-phase — precedent Booking/VA-IIE):**
   - Session 1 (P1): Services core + FIFO aging + tests → guard/build/Core.Tests PASS → commit
@@ -29,6 +29,13 @@
 ## 3. SCOPE (4 phases per master plan §4)
 
 ### Phase 1 — Services core + tests (task `task_thu_chi_cong_no_phase1_services.md`) ⏳
+
+> **Session P1 PREP (làm ở session MỚI — base `d56be1c9` = plan + task card approved):**
+> Đọc trước: `docs/AI/project_state.md` (mục 2/3/4 — Thu chi & Công nợ) + SRS v1.1 `docs/requirements/van_an_thu_chi_cong_no_srs_v1.md` (§5.1-5.2, §6, giả định G1-G13) + master plan §5.1-5.2 + `3_CoreHub/Services/AccountingEntryService.cs` (CreateRevenue/ExpenseEntryAsync + CheckDuplicateEntryAsync — pattern phiếu) + `IAccountingService.cs` + `HKDBookService.cs` (phiếu → sổ HKD B01-B09).
+> **PHÁT HIỆN KIẾN TRÚC (2026-10-06 — đã verify):** (1) phiếu thu/chi (`AccountingEntry`) nuôi **sổ HKD** (`HKDBookService.RecordRevenueAsync/RecordExpenseAsync` → B01-B09) — KHÔNG phải IncomeStatement/TrialBalance (các báo cáo DN này đọc **JournalEntry** riêng). → entry công nợ 131/331 sẽ **tự xuất hiện trong sổ nhật ký + sổ cái HKD** (đúng bản chất kế toán — sổ cái TK 131/331 là nơi theo dõi); [G6] = verify B02 (kết quả KD HKD) lọc theo AccountCode 5xx/6xx → 131/331 không lọt (dự kiến tự nhiên đúng — cần test chốt). (2) `AccountingEntryService` server **không chặn** 131/331 + Amount âm (chỉ UI whitelist 5xx/7xx + 6xx). (3) `AccountingEntry` có `Vendor` + `ReferenceType`/`ReferenceId` sẵn sàng.
+> **Open items P1 (quyết định tại P1):** (1) EntryType cho phiếu công nợ — nếu HKD sổ cái/B02 lọc theo AccountCode thì EntryType Revenue/Expense hay Adjustment không ảnh hưởng; chọn theo pattern gần nhất (RecordRevenueAsync) + test chốt [G6]; (2) `CheckDuplicateEntryAsync` (cùng amount+account+type trong 5') — phiếu công nợ trùng số tiền hợp lệ (2 khách cùng 5tr) → cân nhắc bỏ qua duplicate-check cho ReferenceType công nợ hoặc reference-aware; (3) FIFO tuổi nợ — tie-break `TransactionDate` + `CreatedAt`; (4) transactionDate truyền ngày user nhập (lesson phiếu thu — không dùng UtcNow).
+> **Tái dùng:** `IAccountingEntryRepository` (HKDBookService pattern) · filter TenantId (lesson a21f97f2) · `VanAnDbContextTestFactory` global filter → dùng `IgnoreQueryFilters()` đúng chỗ (lesson P3 booking) · reversal pattern (`AccountingEntry` ReversalEntries).
+> **Validation cuối session:** guard-check + build VanAn.sln + Core.Tests + ShopERP.Tests MUST PASS → commit (KHÔNG push trừ khi user yêu cầu).
 
 - [ ] **P1.1 Xác minh nền:** IncomeStatement/TrialBalance filter theo EntryType hay AccountCode → entry 131/331 KHÔNG lọt vào doanh thu/chi phí [G6]; quyết EntryType cho phiếu công nợ (Revenue/Expense vs Adjustment — nếu filter theo EntryType → dùng Adjustment). Kiểm tra cách `CheckDuplicateEntryAsync` ảnh hưởng phiếu công nợ (cùng amount+account+type trong 5' → chặn trùng; công nợ cùng số tiền lặp lại hợp lệ? → tinh chỉnh reference-aware nếu cần).
 - [ ] **P1.2 `ICongNoService`/`CongNoService`** (3_CoreHub/Services/CongNo/ hoặc mở rộng AccountingEntryService — chốt tại P1):

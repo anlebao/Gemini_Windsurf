@@ -1,7 +1,7 @@
 # MASTER PLAN: THU CHI & CÔNG NỢ (PHẢI THU / PHẢI TRẢ) MVP
 
 > Created: 2026-10-06 (user chốt Q1-Q5 — SRS v1.1 `docs/requirements/van_an_thu_chi_cong_no_srs_v1.md`)
-> Status: **ACTIVE — chờ approve → P1 Services**
+> Status: **✅ APPROVED (2026-10-06, user) — ⏳ Session 1: P1 Services core**
 > Branch: `main` · Priority: tiếp nối Booking (Booking P1-P7 DONE)
 
 ---
