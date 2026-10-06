@@ -8,6 +8,10 @@ using VanAn.CoreHub.Services.Booking;
 using VanAn.Shared.Domain;
 // Namespace "Booking" xung đột type Booking (lesson P1 — CS0118) → alias cho domain entity.
 using BookingEntity = VanAn.Shared.Domain.Booking;
+// Services-layer exceptions (Exceptions.cs) — KHÁC VanAn.Shared.Domain.NotFoundException/ValidationException
+// (RV P6 bug: catch không alias → services exception không được bắt → 500 thay vì 404/400 friendly).
+using NotFoundException = VanAn.CoreHub.Services.NotFoundException;
+using ValidationException = VanAn.CoreHub.Services.ValidationException;
 
 namespace VanAn.Gateway.Controllers;
 
