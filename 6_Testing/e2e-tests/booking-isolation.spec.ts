@@ -103,7 +103,8 @@ test.describe('VanAn Ecosystem - Booking Tenant Isolation (AC-Q01 §18.3)', () =
       test.skip(true, `Availability tenant A lỗi ${avail.status()} — cần seed (RV P7)`);
       return;
     }
-    const slots = await avail.json() as Array<{ startAt: string }>;
+    const slots = (await avail.json() as Array<{ startAt: string }>)
+      .filter((s) => new Date(s.startAt).getTime() > Date.now()); // chỉ slot tương lai (RV hardening)
     if (slots.length === 0) {
       test.skip(true, 'Tenant A chưa có slot — cần seed schedule (RV P7)');
       return;
@@ -193,7 +194,8 @@ test.describe('VanAn Ecosystem - Booking Tenant Isolation (AC-Q01 §18.3)', () =
       `?tenantId=${tenantA}&offeringId=${OFFERING_A}&date=${process.env.BOOKING_TEST_DATE ?? ''}`
     );
     if (!avail.ok()) return;
-    const slots = await avail.json() as Array<{ startAt: string }>;
+    const slots = (await avail.json() as Array<{ startAt: string }>)
+      .filter((s) => new Date(s.startAt).getTime() > Date.now()); // chỉ slot tương lai (RV hardening)
     if (slots.length === 0) {
       test.skip(true, 'Tenant A chưa có slot (RV P7)');
       return;

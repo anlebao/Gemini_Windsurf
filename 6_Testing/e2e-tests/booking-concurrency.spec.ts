@@ -61,7 +61,8 @@ test.describe('VanAn Ecosystem - Booking Double-Booking Race (AC-C04)', () => {
       test.skip(true, `Availability API lỗi ${availRes.status()} — cần seed schedule (RV P7)`);
       return;
     }
-    const slots = await availRes.json() as Array<{ startAt: string }>;
+    const slots = (await availRes.json() as Array<{ startAt: string }>)
+      .filter((s) => new Date(s.startAt).getTime() > Date.now()); // chỉ slot tương lai (RV hardening)
     const targetSlot = slots.find((s) => s.startAt.includes(TEST_SLOT));
     if (!targetSlot) {
       test.skip(true, `Slot ${TEST_SLOT} không available — cần seed schedule/ngày (RV P7)`);
@@ -144,7 +145,8 @@ test.describe('VanAn Ecosystem - Booking Double-Booking Race (AC-C04)', () => {
       `?tenantId=${tenantId}&offeringId=${OFFERING_ID}&date=${TEST_DATE}&staffId=${STAFF_ID}`
     );
     if (!availRes.ok()) return;
-    const slots = await availRes.json() as Array<{ startAt: string }>;
+    const slots = (await availRes.json() as Array<{ startAt: string }>)
+      .filter((s) => new Date(s.startAt).getTime() > Date.now()); // chỉ slot tương lai (RV hardening)
     const targetSlot = slots.find((s) => s.startAt.includes(TEST_SLOT));
     if (!targetSlot) {
       test.skip(true, `Slot ${TEST_SLOT} không available (RV P7)`);
