@@ -1,0 +1,370 @@
+@page "/booking/queue"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StoreManagement")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.ShopERP.Services
+@inject IBookingTenantApiClient BookingApi
+@inject ILogger<BookingQueue> Logger
+
+<PageTitle>Hàng đợi đặt lịch - Vạn An</PageTitle>
+
+<div class="booking-queue-page">
+    <header class="page-header mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="mb-0"><i class="bi bi-calendar2-check"></i> Hàng đợi đặt lịch</h1>
+        <div class="d-flex gap-2 align-items-center">
+            <input type="date" class="form-control form-control-sm" style="max-width:170px;" @bind="_fromDate" @bind:format="yyyy-MM-dd" />
+            <span>→</span>
+            <input type="date" class="form-control form-control-sm" style="max-width:170px;" @bind="_toDate" @bind:format="yyyy-MM-dd" />
+            <VanAButton Variant="primary" Size="small" OnClick="LoadAsync">
+                <i class="bi bi-arrow-clockwise"></i> Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @* Status filter chips (AC-T01) *@
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        @foreach (var filter in _statusFilters)
+        {
+            <button type="button"
+                    class="btn btn-sm @(_selectedStatus == filter.Key ? "btn-primary" : "btn-outline-secondary") rounded-pill"
+                    data-testid="queue-filter-@(filter.Key ?? "all")"
+                    @onclick="() => SelectStatus(filter.Key)">
+                @filter.Label
+            </button>
+        }
+    </div>
+
+    @if (_loading)
+    {
+        <VanASpinner Text="Đang tải danh sách..." />
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Variant="error" Message="@_errorMessage" Dismissible="true" OnDismiss="() => _errorMessage = null" />
+    }
+    else if (_bookings.Count == 0)
+    {
+        <VanAAlert Variant="info" Message="Chưa có lịch hẹn nào trong khoảng thời gian này." Dismissible="false" data-testid="queue-empty" />
+    }
+    else
+    {
+        <div class="d-grid gap-2" data-testid="queue-list">
+            @foreach (var booking in _bookings)
+            {
+                <VanACard class="mb-2">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <div class="fw-semibold">
+                                @booking.OfferingNameSnapshot
+                                <span class="badge @StatusBadge(booking.Status)">@StatusLabel(booking.Status)</span>
+                                @if (booking.DepositRequired)
+                                {
+                                    <span class="badge @DepositBadge(booking.PaymentStatus)">Cọc @(booking.DepositAmount?.ToString("N0") ?? "")đ</span>
+                                }
+                            </div>
+                            <div class="text-muted small">
+                                🕐 @booking.StartAt.ToVietnamString() · Mã: <span class="fw-semibold">@booking.PublicBookingCode</span>
+                                @if (!string.IsNullOrEmpty(booking.CustomerDeviceId))
+                                {
+                                    <span> · Khách: <span class="fw-semibold">@booking.CustomerDeviceId[..Math.Min(8, booking.CustomerDeviceId.Length)]</span></span>
+                                }
+                            </div>
+                            @if (!string.IsNullOrEmpty(booking.CustomerNote))
+                            {
+                                <div class="text-muted small">📝 @booking.CustomerNote</div>
+                            }
+                        </div>
+                        <div class="d-flex gap-1 flex-wrap">
+                            @if (booking.Status == "PendingConfirmation")
+                            {
+                                <VanAButton Variant="success" Size="small" OnClick="() => ConfirmAsync(booking)">✓ Xác nhận</VanAButton>
+                                <VanAButton Variant="outline" Size="small" OnClick="() => OpenReject(booking)">✕ Từ chối</VanAButton>
+                                <VanAButton Variant="outline" Size="small" OnClick="() => NoShowAsync(booking)">Vắng mặt</VanAButton>
+                                <VanAButton Variant="outline" Size="small" OnClick="() => CancelAsync(booking)">Hủy</VanAButton>
+                            }
+                            else if (booking.Status == "Confirmed")
+                            {
+                                <VanAButton Variant="primary" Size="small" OnClick="() => OpenAssign(booking)">👤 Phân công</VanAButton>
+                                <VanAButton Variant="outline" Size="small" OnClick="() => NoShowAsync(booking)">Vắng mặt</VanAButton>
+                                <VanAButton Variant="outline" Size="small" OnClick="() => CancelAsync(booking)">Hủy</VanAButton>
+                            }
+                            else if (booking.Status == "StaffAssigned")
+                            {
+                                <VanAButton Variant="primary" Size="small" OnClick="() => CheckInAsync(booking)">✅ Check-in</VanAButton>
+                                <VanAButton Variant="outline" Size="small" OnClick="() => OpenAssign(booking)">👤 Đổi nhân viên</VanAButton>
+                                <VanAButton Variant="outline" Size="small" OnClick="() => CancelAsync(booking)">Hủy</VanAButton>
+                            }
+                            else if (booking.Status == "CheckedIn")
+                            {
+                                <VanAButton Variant="primary" Size="small" OnClick="() => StartAsync(booking)">▶ Bắt đầu</VanAButton>
+                            }
+                            else if (booking.Status == "InService")
+                            {
+                                <VanAButton Variant="success" Size="small" OnClick="() => OpenComplete(booking)">💵 Hoàn tất</VanAButton>
+                                <VanAButton Variant="outline" Size="small" OnClick="() => CancelAsync(booking)">Hủy</VanAButton>
+                            }
+                            else if (booking.Status is "Cancelled" or "Rejected" or "NoShow")
+                            {
+                                <span class="text-muted small">Đã đóng</span>
+                            }
+                        </div>
+                    </div>
+                </VanACard>
+            }
+        </div>
+    }
+</div>
+
+@* Modal phân công nhân viên (AC-T03 — SRS §13: capability + available trước) *@
+<VanAnModal IsOpen="@(_assignBooking is not null)" Title="Phân công nhân viên" OnClose="CloseAssign" Closable="true">
+    @if (_assignBooking is not null)
+    {
+        <div class="mb-2 text-muted small">
+            <strong>@_assignBooking.OfferingNameSnapshot</strong> · @_assignBooking.StartAt.ToVietnamString()
+        </div>
+        @if (_eligibleLoading)
+        {
+            <VanASpinner Text="Đang kiểm tra nhân viên phù hợp..." />
+        }
+        else if (_eligibleStaff.Count == 0)
+        {
+            <VanAAlert Variant="warning" Message="Không có nhân viên phù hợp dịch vụ này. Vui lòng cấu hình kỹ năng nhân viên trước." Dismissible="false" />
+        }
+        else
+        {
+            <div class="d-grid gap-2">
+                @foreach (var staff in _eligibleStaff)
+                {
+                    <button type="button"
+                            class="btn text-start @(staff.IsAvailable ? "btn-outline-success" : "btn-outline-secondary")"
+                            disabled="@(!staff.IsAvailable)"
+                            data-testid="eligible-staff-@staff.StaffId"
+                            @onclick="() => AssignAsync(_assignBooking, staff.StaffId)">
+                        <div class="d-flex justify-content-between">
+                            <span>👤 @staff.StaffName</span>
+                            @if (staff.IsAvailable)
+                            {
+                                <span class="badge text-bg-success">Sẵn sàng</span>
+                            }
+                            else
+                            {
+                                <span class="badge text-bg-secondary">@(staff.UnavailableReason ?? "Bận")</span>
+                            }
+                        </div>
+                    </button>
+                }
+            </div>
+        }
+    }
+</VanAnModal>
+
+@* Modal từ chối *@
+<VanAnModal IsOpen="@(_rejectBooking is not null)" Title="Từ chối lịch hẹn" OnClose="() => _rejectBooking = null" OnConfirm="RejectAsync" ShowDefaultFooter="true" Closable="true">
+    <div class="mb-3">
+        <label class="form-label">Lý do từ chối (khách sẽ thấy)</label>
+        <input type="text" class="form-control" @bind="_rejectReason" placeholder="VD: Hết chỗ khung giờ này" />
+    </div>
+</VanAnModal>
+
+@* Modal hoàn tất (nhập tổng tiền thực tế) *@
+<VanAnModal IsOpen="@(_completeBooking is not null)" Title="Hoàn tất lịch hẹn" OnClose="() => _completeBooking = null" OnConfirm="CompleteAsync" ShowDefaultFooter="true" Closable="true">
+    <div class="mb-3">
+        <label class="form-label">Tổng tiền thực tế (VNĐ)</label>
+        <input type="number" class="form-control" min="0" step="1000" @bind="_actualTotal" />
+        <small class="text-muted">Dự kiến: @(_completeBooking?.EstimatedTotal.ToString("N0") ?? "0") đ — sẽ tạo đơn hàng khi hoàn tất.</small>
+    </div>
+</VanAnModal>
+
+@if (!string.IsNullOrEmpty(_actionError))
+{
+    <VanAAlert Variant="error" Message="@_actionError" Dismissible="true" OnDismiss="() => _actionError = null" class="mt-2" />
+}
+
+@code {
+    private List<BookingQueueItemDto> _bookings = [];
+    private List<EligibleStaffDto> _eligibleStaff = [];
+    private bool _loading = true;
+    private bool _eligibleLoading;
+    private string? _errorMessage;
+    private string? _actionError;
+    private string? _selectedStatus;
+    private DateOnly _fromDate = DateOnly.FromDateTime(DateTime.Now.AddDays(-1));
+    private DateOnly _toDate = DateOnly.FromDateTime(DateTime.Now.AddDays(14));
+
+    private BookingQueueItemDto? _assignBooking;
+    private BookingQueueItemDto? _rejectBooking;
+    private BookingQueueItemDto? _completeBooking;
+    private string _rejectReason = string.Empty;
+    private decimal _actualTotal;
+
+    private static readonly (string? Key, string Label)[] _statusFilters =
+    [
+        (null, "Tất cả"),
+        ("PendingConfirmation", "Chờ xác nhận"),
+        ("Confirmed", "Đã xác nhận"),
+        ("StaffAssigned", "Đã phân công"),
+        ("CheckedIn", "Đã đến"),
+        ("InService", "Đang phục vụ"),
+        ("Completed", "Hoàn tất"),
+        ("Cancelled", "Đã hủy"),
+    ];
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private void SelectStatus(string? status)
+    {
+        _selectedStatus = status;
+        _ = LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            var fromUtc = _fromDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            var toUtc = _toDate.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
+            var result = await BookingApi.GetQueueAsync(
+                _selectedStatus is null ? null : Enum.Parse<VanAn.Shared.Domain.BookingStatus>(_selectedStatus),
+                fromUtc, toUtc);
+            if (!result.Ok)
+            {
+                _errorMessage = result.Error;
+                _bookings = [];
+            }
+            else
+            {
+                _bookings = result.Data ?? [];
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking queue load failed");
+            _errorMessage = "Không tải được danh sách lịch hẹn.";
+            _bookings = [];
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    // ── Transitions ─────────────────────────────────────────────────────────
+
+    private async Task ConfirmAsync(BookingQueueItemDto booking)
+        => await RunActionAsync(async () => await BookingApi.ConfirmAsync(booking.BookingId), "xác nhận");
+
+    private async Task RejectAsync()
+    {
+        var booking = _rejectBooking;
+        _rejectBooking = null;
+        if (booking is null) return;
+        await RunActionAsync(async () => await BookingApi.RejectAsync(booking.BookingId, _rejectReason), "từ chối");
+        _rejectReason = string.Empty;
+    }
+
+    private async Task NoShowAsync(BookingQueueItemDto booking)
+        => await RunActionAsync(async () => await BookingApi.NoShowAsync(booking.BookingId, "Khách không đến"), "đóng no-show");
+
+    private async Task CancelAsync(BookingQueueItemDto booking)
+        => await RunActionAsync(async () => await BookingApi.CancelAsync(booking.BookingId, "Hủy từ cửa hàng"), "hủy");
+
+    private async Task CheckInAsync(BookingQueueItemDto booking)
+        => await RunActionAsync(async () => await BookingApi.CheckInAsync(booking.BookingId), "check-in");
+
+    private async Task StartAsync(BookingQueueItemDto booking)
+        => await RunActionAsync(async () => await BookingApi.StartAsync(booking.BookingId), "bắt đầu phục vụ");
+
+    private async Task CompleteAsync()
+    {
+        var booking = _completeBooking;
+        _completeBooking = null;
+        if (booking is null) return;
+        await RunActionAsync(async () => await BookingApi.CompleteAsync(booking.BookingId, _actualTotal), "hoàn tất");
+    }
+
+    private async Task RunActionAsync(Func<Task<ApiResponse<BookingQueueItemDto>>> action, string actionName)
+    {
+        _actionError = null;
+        StateHasChanged();
+        var result = await action();
+        if (!result.Ok)
+        {
+            _actionError = result.Error;
+        }
+        await LoadAsync();
+    }
+
+    // ── Assign modal ────────────────────────────────────────────────────────
+
+    private async Task OpenAssign(BookingQueueItemDto booking)
+    {
+        _assignBooking = booking;
+        _eligibleStaff = [];
+        _eligibleLoading = true;
+        StateHasChanged();
+
+        var result = await BookingApi.GetEligibleStaffAsync(booking.BookingId);
+        _eligibleStaff = result.Ok ? result.Data ?? [] : [];
+        if (!result.Ok) _actionError = result.Error;
+        _eligibleLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task AssignAsync(BookingQueueItemDto booking, Guid staffId)
+    {
+        _assignBooking = null;
+        await RunActionAsync(async () => await BookingApi.AssignStaffAsync(booking.BookingId, staffId), "phân công");
+    }
+
+    private void CloseAssign() => _assignBooking = null;
+
+    private void OpenReject(BookingQueueItemDto booking)
+    {
+        _rejectBooking = booking;
+        _rejectReason = string.Empty;
+    }
+
+    private void OpenComplete(BookingQueueItemDto booking)
+    {
+        _completeBooking = booking;
+        _actualTotal = booking.EstimatedTotal;
+    }
+
+    // ── Labels ──────────────────────────────────────────────────────────────
+
+    private static string StatusLabel(string status) => status switch
+    {
+        "PendingConfirmation" => "Chờ xác nhận",
+        "Confirmed" => "Đã xác nhận",
+        "StaffAssigned" => "Đã phân công",
+        "CheckedIn" => "Đã đến",
+        "InService" => "Đang phục vụ",
+        "Completed" => "Hoàn tất",
+        "Cancelled" => "Đã hủy",
+        "Rejected" => "Bị từ chối",
+        "NoShow" => "Vắng mặt",
+        _ => status
+    };
+
+    private static string StatusBadge(string status) => status switch
+    {
+        "PendingConfirmation" => "text-bg-warning",
+        "Confirmed" or "StaffAssigned" => "text-bg-info",
+        "CheckedIn" or "InService" => "text-bg-primary",
+        "Completed" => "text-bg-success",
+        _ => "text-bg-secondary"
+    };
+
+    private static string DepositBadge(string paymentStatus) => paymentStatus switch
+    {
+        "Paid" => "text-bg-success",
+        "Pending" => "text-bg-warning",
+        _ => "text-bg-secondary"
+    };
+}

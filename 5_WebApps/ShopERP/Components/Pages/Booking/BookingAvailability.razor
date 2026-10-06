@@ -1,0 +1,132 @@
+@page "/booking/availability"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StoreManagement")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.ShopERP.Services
+@inject IBookingTenantApiClient BookingApi
+@inject ILogger<BookingAvailability> Logger
+
+<PageTitle>Ai đang rảnh - Vạn An</PageTitle>
+
+<div class="booking-availability-page">
+    <header class="page-header mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="mb-0"><i class="bi bi-people"></i> Ai đang rảnh hôm nay?</h1>
+        <div class="d-flex gap-2 align-items-center">
+            <input type="date" class="form-control form-control-sm" style="max-width:170px;" @bind="_date" @bind:format="yyyy-MM-dd" />
+            <select class="form-select form-select-sm" style="max-width:240px;" @bind="_selectedOfferingId" @bind:after="LoadAsync">
+                <option value="@Guid.Empty">Tất cả dịch vụ</option>
+                @foreach (var offering in _offerings)
+                {
+                    <option value="@offering.Id">@offering.DisplayName</option>
+                }
+            </select>
+            <VanAButton Variant="primary" Size="small" OnClick="LoadAsync">
+                <i class="bi bi-arrow-clockwise"></i> Xem
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (_loading)
+    {
+        <VanASpinner Text="Đang kiểm tra lịch trống..." />
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Variant="error" Message="@_errorMessage" Dismissible="true" OnDismiss="() => _errorMessage = null" />
+    }
+    else if (_matrix.Count == 0)
+    {
+        <VanAAlert Variant="info" Message="Chưa có nhân viên hoặc không có dữ liệu lịch cho ngày này." Dismissible="false" data-testid="availability-empty" />
+    }
+    else
+    {
+        // Nhóm theo staff → bảng staff × slot (AC-T05 — SRS §14)
+        var byStaff = _matrix.GroupBy(m => m.StaffId);
+        <VanACard>
+            <table class="table table-hover align-middle mb-0" data-testid="availability-matrix">
+                <thead>
+                    <tr>
+                        <th style="min-width:140px;">Nhân viên</th>
+                        @foreach (var slotStart in _slotStarts)
+                        {
+                            <th class="text-center small">@slotStart.ToString("HH:mm")</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var group in byStaff)
+                    {
+                        var slots = group.OrderBy(s => s.SlotStartAt).ToList();
+                        <tr>
+                            <td class="fw-semibold">@group.First().StaffName</td>
+                            @foreach (var slot in slots)
+                            {
+                                <td class="text-center">
+                                    @if (slot.IsAvailable)
+                                    {
+                                        <span class="badge text-bg-success" title="Rảnh">✓</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge text-bg-secondary" title="@(slot.UnavailableReason ?? "Bận")">✗</span>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private List<StaffAvailabilityDto> _matrix = [];
+    private List<BookingOfferingDto> _offerings = [];
+    private List<DateTime> _slotStarts = [];
+    private DateOnly _date = DateOnly.FromDateTime(DateTime.Now);
+    private Guid _selectedOfferingId = Guid.Empty;
+    private bool _loading = true;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var offeringsResult = await BookingApi.GetOfferingsAsync(activeOnly: true);
+        _offerings = offeringsResult.Ok ? offeringsResult.Data ?? [] : [];
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            var result = await BookingApi.GetAvailabilityMatrixAsync(
+                _date, _selectedOfferingId == Guid.Empty ? null : _selectedOfferingId);
+            if (!result.Ok)
+            {
+                _errorMessage = result.Error;
+                _matrix = [];
+            }
+            else
+            {
+                _matrix = result.Data ?? [];
+                _slotStarts = _matrix.Select(m => m.SlotStartAt).Distinct().OrderBy(t => t).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking availability load failed");
+            _errorMessage = "Không tải được bảng lịch trống.";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+}

@@ -598,6 +598,9 @@ namespace VanAn.ShopERP
             // VA-FI-MVP2 Phase 3 (2026-08-21): Financial Intelligence — HTTP proxy to Gateway
             // (ShopERP does NOT inject IVanAnDbContext for MVP-2 — accounting source of truth is Gateway PG).
             _ = builder.Services.AddScoped<Services.FinancialIntelligenceHttpService>();
+            // Booking P5.8 (2026-10-06, SRS v1.1 MVP): tenant booking ops — HTTP proxy to Gateway
+            // (booking data sống ở Gateway PG — D1; ShopERP KHÔNG query booking tables trực tiếp).
+            _ = builder.Services.AddScoped<Services.IBookingTenantApiClient, Services.BookingTenantApiClient>();
             // Loyalty Alliance Phase 5A — admin config + migration API client (Gateway PG)
             _ = builder.Services.AddScoped<Services.LoyaltyConfigApiClient>();
             // #100: KhachLink home settings admin API client (Gateway PG — global, not per-tenant)

@@ -1,0 +1,327 @@
+@page "/booking/schedules"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StoreManagement")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.ShopERP.Services
+@inject IBookingTenantApiClient BookingApi
+@inject ILogger<BookingSchedules> Logger
+
+<PageTitle>Lịch làm việc - Vạn An</PageTitle>
+
+<div class="booking-schedules-page">
+    <header class="page-header mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="mb-0"><i class="bi bi-calendar-week"></i> Lịch làm việc nhân viên</h1>
+        <div class="d-flex gap-2 align-items-center">
+            <select class="form-select form-select-sm" style="max-width:260px;" @bind="_selectedStaffId" @bind:after="LoadSchedulesAsync">
+                @foreach (var staff in _staff)
+                {
+                    <option value="@staff.Id">@staff.DisplayName</option>
+                }
+            </select>
+            <VanAButton Variant="primary" Size="small" OnClick="LoadSchedulesAsync">
+                <i class="bi bi-arrow-clockwise"></i> Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (_loading)
+    {
+        <VanASpinner Text="Đang tải..." />
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Variant="error" Message="@_errorMessage" Dismissible="true" OnDismiss="() => _errorMessage = null" />
+    }
+    else
+    {
+        <div class="row g-3">
+            <div class="col-md-7">
+                <VanACard Header="Lịch tuần (lặp lại)">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Ngày</th>
+                                <th>Bắt đầu</th>
+                                <th>Kết thúc</th>
+                                <th>Nghỉ giữa ca</th>
+                                <th style="width:70px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var day in _weekdays)
+                            {
+                                var schedule = _schedules.FirstOrDefault(s => s.Weekday == day.Key);
+                                <tr>
+                                    <td class="fw-semibold">@day.Value</td>
+                                    <td>
+                                        <input type="time" class="form-control form-control-sm" value="@(schedule?.StartTime ?? "09:00")"
+                                               @onchange="@((e) => SetDraft(day.Key, "StartTime", e.Value?.ToString()))" />
+                                    </td>
+                                    <td>
+                                        <input type="time" class="form-control form-control-sm" value="@(schedule?.EndTime ?? "18:00")"
+                                               @onchange="@((e) => SetDraft(day.Key, "EndTime", e.Value?.ToString()))" />
+                                    </td>
+                                    <td>
+                                        <div class="d-flex gap-1">
+                                            <input type="time" class="form-control form-control-sm" value="@(schedule?.BreakStart ?? "")"
+                                                   @onchange="@((e) => SetDraft(day.Key, "BreakStart", e.Value?.ToString()))" />
+                                            <span class="align-self-center">–</span>
+                                            <input type="time" class="form-control form-control-sm" value="@(schedule?.BreakEnd ?? "")"
+                                                   @onchange="@((e) => SetDraft(day.Key, "BreakEnd", e.Value?.ToString()))" />
+                                        </div>
+                                    </td>
+                                    <td class="text-end">
+                                        <VanAButton Variant="primary" Size="small"
+                                                    OnClick="() => SaveScheduleAsync(day.Key)"
+                                                    data-testid="@($"save-schedule-{day.Key}")">
+                                            💾 Lưu
+                                        </VanAButton>
+                                        @if (schedule is not null)
+                                        {
+                                            <VanAButton Variant="outline" Size="small" OnClick="() => DeleteScheduleAsync(schedule)">🗑</VanAButton>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </VanACard>
+            </div>
+
+            <div class="col-md-5">
+                <VanACard Header="Ngày đặc biệt (nghỉ phép / không phục vụ)">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <input type="date" class="form-control form-control-sm" @bind="_overrideDate" @bind:format="yyyy-MM-dd" />
+                            <select class="form-select form-select-sm mt-2" @bind="_overrideType">
+                                <option value="Leave">Nghỉ phép</option>
+                                <option value="Unavailable">Không phục vụ</option>
+                                <option value="Working">Làm thêm</option>
+                                <option value="Break">Nghỉ giữa ca</option>
+                            </select>
+                            <div class="d-flex gap-1 mt-2">
+                                <input type="time" class="form-control form-control-sm" @bind="_overrideStart" />
+                                <span class="align-self-center">–</span>
+                                <input type="time" class="form-control form-control-sm" @bind="_overrideEnd" />
+                            </div>
+                            <input type="text" class="form-control form-control-sm mt-2" @bind="_overrideNote" placeholder="Ghi chú (tùy chọn)" />
+                        </div>
+                        <VanAButton Variant="primary" Size="small" OnClick="AddOverrideAsync">Thêm</VanAButton>
+                    </div>
+
+                    <hr />
+                    @if (_overrides.Count == 0)
+                    {
+                        <div class="text-muted small">Chưa có ngày đặc biệt.</div>
+                    }
+                    else
+                    {
+                        <div class="d-grid gap-1">
+                            @foreach (var ov in _overrides.OrderBy(o => o.Date))
+                            {
+                                <div class="d-flex justify-content-between align-items-center border rounded px-2 py-1 small">
+                                    <div>
+                                        <span class="badge @OverrideBadge(ov.OverrideType)">@OverrideLabel(ov.OverrideType)</span>
+                                        <span class="ms-1">@ov.Date.ToVietnamTime().ToString("dd/MM/yyyy")</span>
+                                        @if (ov.StartTime is not null)
+                                        {
+                                            <span class="text-muted"> · @ov.StartTime–@ov.EndTime</span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(ov.Note))
+                                        {
+                                            <span class="text-muted"> · @ov.Note</span>
+                                        }
+                                    </div>
+                                    <VanAButton Variant="outline" Size="small" OnClick="() => DeleteOverrideAsync(ov)">🗑</VanAButton>
+                                </div>
+                            }
+                        </div>
+                    }
+                </VanACard>
+            </div>
+        </div>
+    }
+</div>
+
+@if (!string.IsNullOrEmpty(_actionError))
+{
+    <VanAAlert Variant="error" Message="@_actionError" Dismissible="true" OnDismiss="() => _actionError = null" class="mt-2" />
+}
+
+@code {
+    private List<StaffDto> _staff = [];
+    private List<WorkingScheduleDto> _schedules = [];
+    private List<ScheduleOverrideDto> _overrides = [];
+    private Guid _selectedStaffId;
+    private bool _loading = true;
+    private string? _errorMessage;
+    private string? _actionError;
+
+    private DateOnly _overrideDate = DateOnly.FromDateTime(DateTime.Now.AddDays(1));
+    private string _overrideType = "Leave";
+    private TimeOnly? _overrideStart;
+    private TimeOnly? _overrideEnd;
+    private string? _overrideNote;
+
+    private static readonly (int Key, string Value)[] _weekdays =
+    [
+        (0, "Chủ nhật"), (1, "Thứ 2"), (2, "Thứ 3"), (3, "Thứ 4"),
+        (4, "Thứ 5"), (5, "Thứ 6"), (6, "Thứ 7")
+    ];
+
+    private readonly Dictionary<int, Dictionary<string, string?>> _drafts = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var staffResult = await BookingApi.GetStaffAsync();
+        if (staffResult.Ok)
+        {
+            _staff = staffResult.Data ?? [];
+            if (_staff.Count > 0)
+                _selectedStaffId = _staff[0].Id;
+        }
+        else
+        {
+            _errorMessage = staffResult.Error;
+        }
+        await LoadSchedulesAsync();
+    }
+
+    private async Task LoadSchedulesAsync()
+    {
+        if (_selectedStaffId == Guid.Empty || _staff.Count == 0)
+        {
+            _loading = false;
+            StateHasChanged();
+            return;
+        }
+        _loading = true;
+        _errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            var result = await BookingApi.GetSchedulesAsync(_selectedStaffId);
+            if (!result.Ok)
+            {
+                _errorMessage = result.Error;
+                _schedules = [];
+                _overrides = [];
+            }
+            else
+            {
+                _schedules = result.Data?.Schedules ?? [];
+                _overrides = result.Data?.Overrides ?? [];
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking schedules load failed");
+            _errorMessage = "Không tải được lịch làm việc.";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SetDraft(int weekday, string field, string? value)
+    {
+        if (!_drafts.TryGetValue(weekday, out var draft))
+        {
+            draft = [];
+            _drafts[weekday] = draft;
+        }
+        draft[field] = value;
+    }
+
+    private async Task SaveScheduleAsync(int weekday)
+    {
+        _actionError = null;
+        if (_drafts.TryGetValue(weekday, out var draft))
+        {
+            var result = await BookingApi.UpsertScheduleAsync(
+                _selectedStaffId, weekday,
+                ParseTime(draft.GetValueOrDefault("StartTime") ?? "09:00"),
+                ParseTime(draft.GetValueOrDefault("EndTime") ?? "18:00"),
+                ParseTimeOrNull(draft.GetValueOrDefault("BreakStart")),
+                ParseTimeOrNull(draft.GetValueOrDefault("BreakEnd")));
+            if (!result.Ok)
+            {
+                _actionError = result.Error;
+                return;
+            }
+        }
+        else
+        {
+            var existing = _schedules.FirstOrDefault(s => s.Weekday == weekday);
+            var result = await BookingApi.UpsertScheduleAsync(
+                _selectedStaffId, weekday,
+                ParseTime(existing?.StartTime ?? "09:00"),
+                ParseTime(existing?.EndTime ?? "18:00"),
+                ParseTimeOrNull(existing?.BreakStart),
+                ParseTimeOrNull(existing?.BreakEnd));
+            if (!result.Ok)
+            {
+                _actionError = result.Error;
+                return;
+            }
+        }
+        await LoadSchedulesAsync();
+    }
+
+    private async Task DeleteScheduleAsync(WorkingScheduleDto schedule)
+    {
+        var result = await BookingApi.DeleteScheduleAsync(schedule.Id);
+        if (!result.Ok) _actionError = result.Error;
+        await LoadSchedulesAsync();
+    }
+
+    private async Task AddOverrideAsync()
+    {
+        var result = await BookingApi.AddOverrideAsync(
+            _selectedStaffId, _overrideDate, _overrideType,
+            _overrideStart.HasValue ? _overrideStart.Value.ToTimeSpan() : null,
+            _overrideEnd.HasValue ? _overrideEnd.Value.ToTimeSpan() : null,
+            _overrideNote);
+        if (!result.Ok)
+        {
+            _actionError = result.Error;
+            return;
+        }
+        await LoadSchedulesAsync();
+    }
+
+    private async Task DeleteOverrideAsync(ScheduleOverrideDto ov)
+    {
+        var result = await BookingApi.DeleteOverrideAsync(ov.Id);
+        if (!result.Ok) _actionError = result.Error;
+        await LoadSchedulesAsync();
+    }
+
+    private static TimeSpan ParseTime(string value)
+        => TimeSpan.TryParseExact(value, @"hh\:mm", System.Globalization.CultureInfo.InvariantCulture, out var result) ? result : TimeSpan.Zero;
+
+    private static TimeSpan? ParseTimeOrNull(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : ParseTime(value);
+
+    private static string OverrideLabel(string type) => type switch
+    {
+        "Leave" => "Nghỉ phép",
+        "Unavailable" => "Không phục vụ",
+        "Working" => "Làm thêm",
+        "Break" => "Nghỉ giữa ca",
+        _ => type
+    };
+
+    private static string OverrideBadge(string type) => type switch
+    {
+        "Leave" => "text-bg-danger",
+        "Unavailable" => "text-bg-secondary",
+        "Working" => "text-bg-success",
+        "Break" => "text-bg-warning",
+        _ => "text-bg-info"
+    };
+}

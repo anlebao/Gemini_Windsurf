@@ -29,15 +29,21 @@ namespace VanAn.Gateway.Controllers;
 public class TenantBookingController(
     IBookingService bookingService,
     IStaffService staffService,
+    IOfferingService offeringService,
     IAvailabilityService availabilityService,
     IBookingFinancialService financialService,
+    IQRAttributionService qrService,
+    ICommissionService commissionService,
     VanAnDbContext dbContext,
     ILogger<TenantBookingController> logger) : ControllerBase
 {
     private readonly IBookingService _bookingService = bookingService;
     private readonly IStaffService _staffService = staffService;
+    private readonly IOfferingService _offeringService = offeringService;
     private readonly IAvailabilityService _availabilityService = availabilityService;
     private readonly IBookingFinancialService _financialService = financialService;
+    private readonly IQRAttributionService _qrService = qrService;
+    private readonly ICommissionService _commissionService = commissionService;
     private readonly VanAnDbContext _dbContext = dbContext;
     private readonly ILogger<TenantBookingController> _logger = logger;
 
@@ -197,6 +203,388 @@ public class TenantBookingController(
             ActualTotal: booking.ActualTotal));
     }
 
+    // ── Staff CRUD + skills (P5.2 — SRS §11.1-11.2) ──────────────────────────
+
+    [HttpPost("staff")]
+    public async Task<ActionResult<StaffDto>> CreateStaff([FromBody] CreateStaffRequest request, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        try
+        {
+            Staff staff = await _staffService.CreateStaffAsync(tenantId, request.DisplayName, request.Role, request.StaffUserId, ct);
+            return Ok(ToStaffDto(staff));
+        }
+        catch (ValidationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpPut("staff/{staffId:guid}")]
+    public async Task<ActionResult<StaffDto>> UpdateStaff(Guid staffId, [FromBody] UpdateStaffRequest request, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        try
+        {
+            Staff staff = await _staffService.UpdateStaffAsync(
+                tenantId, staffId, request.DisplayName, request.Role, request.AvatarUrl, request.StaffUserId, request.IsActive, ct);
+            return Ok(ToStaffDto(staff));
+        }
+        catch (ValidationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (NotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    /// <summary>Skills hiện tại của staff (StaffService junction — SRS §11.2).</summary>
+    [HttpGet("staff/{staffId:guid}/services")]
+    public async Task<ActionResult<List<StaffServiceDto>>> GetStaffServices(Guid staffId, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        var junction = await _staffService.ListStaffServicesAsync(tenantId, staffId, ct);
+        return Ok(junction.Select(j => new StaffServiceDto(j.OfferingId)).ToList());
+    }
+
+    /// <summary>Thay thế toàn bộ skills staff (idempotent replace — SRS §11.2).</summary>
+    [HttpPost("staff/{staffId:guid}/services")]
+    public async Task<IActionResult> SetStaffServices(Guid staffId, [FromBody] SetStaffServicesRequest request, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        try
+        {
+            await _staffService.SetStaffServicesAsync(tenantId, staffId, request.OfferingIds ?? [], ct);
+            return Ok(new { message = "Đã cập nhật dịch vụ của nhân viên." });
+        }
+        catch (ValidationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // ── Catalog reads (P5.2 skill setup + queue display) ─────────────────────
+
+    [HttpGet("categories")]
+    public async Task<ActionResult<List<BookingCategoryDto>>> GetCategories(CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        var categories = await _offeringService.ListCategoriesAsync(tenantId, false, ct);
+        return Ok(categories.Select(c => new BookingCategoryDto(c.Id, c.Name, c.DisplayOrder)).ToList());
+    }
+
+    [HttpGet("offerings")]
+    public async Task<ActionResult<List<BookingOfferingDto>>> GetOfferings([FromQuery] bool activeOnly = false, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        var offerings = await _offeringService.ListOfferingsAsync(tenantId, null, activeOnly, ct);
+        return Ok(offerings.Select(o => new BookingOfferingDto(
+            o.Id, o.CategoryId, o.OfferingType.ToString(), o.DisplayName, o.DurationMinutes, o.Price, o.Description)).ToList());
+    }
+
+    // ── Schedules (P5.3 — SRS §11.3) ─────────────────────────────────────────
+
+    [HttpPost("staff/{staffId:guid}/schedules")]
+    public async Task<ActionResult<WorkingScheduleDto>> UpsertSchedule(Guid staffId, [FromBody] UpsertScheduleRequest request, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        if (request.Weekday is < 0 or > 6)
+            return BadRequest(new { message = "Weekday phải trong 0 (Chủ nhật)..6 (Thứ 7)." });
+        if (!TryParseTime(request.StartTime, out TimeSpan start) || !TryParseTime(request.EndTime, out TimeSpan end))
+            return BadRequest(new { message = "Giờ làm việc không hợp lệ (HH:mm)." });
+        TimeSpan? breakStart = TryParseTimeOrNull(request.BreakStart);
+        TimeSpan? breakEnd = TryParseTimeOrNull(request.BreakEnd);
+        try
+        {
+            StaffWorkingSchedule schedule = await _staffService.UpsertWorkingScheduleAsync(
+                tenantId, staffId, request.Weekday.Value, start, end, breakStart, breakEnd, ct);
+            return Ok(new WorkingScheduleDto(schedule.Id, schedule.Weekday, schedule.StartTime, schedule.EndTime, schedule.BreakStart, schedule.BreakEnd));
+        }
+        catch (ValidationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpDelete("schedules/{scheduleId:guid}")]
+    public async Task<IActionResult> DeleteSchedule(Guid scheduleId, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        await _staffService.DeleteWorkingScheduleAsync(tenantId, scheduleId, ct);
+        return Ok(new { message = "Đã xóa lịch làm việc." });
+    }
+
+    [HttpPost("staff/{staffId:guid}/overrides")]
+    public async Task<ActionResult<ScheduleOverrideDto>> AddOverride(Guid staffId, [FromBody] AddOverrideRequest request, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        if (!DateOnly.TryParseExact(request.Date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateOnly day))
+            return BadRequest(new { message = "Ngày không hợp lệ (yyyy-MM-dd)." });
+        if (!Enum.TryParse<StaffScheduleOverrideType>(request.OverrideType, ignoreCase: true, out var overrideType))
+            return BadRequest(new { message = "Loại override không hợp lệ (Working/Leave/Unavailable/Break)." });
+        try
+        {
+            StaffScheduleOverride overrideItem = await _staffService.AddOverrideAsync(
+                tenantId, staffId, day.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc), overrideType,
+                TryParseTimeOrNull(request.StartTime), TryParseTimeOrNull(request.EndTime), request.Note, ct);
+            return Ok(new ScheduleOverrideDto(overrideItem.Id, overrideItem.Date, overrideItem.OverrideType.ToString(), overrideItem.StartTime, overrideItem.EndTime, overrideItem.Note));
+        }
+        catch (ValidationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpDelete("overrides/{overrideId:guid}")]
+    public async Task<IActionResult> DeleteOverride(Guid overrideId, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        await _staffService.DeleteOverrideAsync(tenantId, overrideId, ct);
+        return Ok(new { message = "Đã xóa override." });
+    }
+
+    // ── BookingTenantConfig (P5.6 — Q5 enable + deposit policy §16.1) ────────
+
+    [HttpGet("config")]
+    public async Task<ActionResult<BookingTenantConfigDto>> GetConfig(CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        BookingTenantConfig config = await _bookingService.GetConfigAsync(tenantId, ct);
+        return Ok(ToConfigDto(config));
+    }
+
+    [HttpPut("config")]
+    public async Task<ActionResult<BookingTenantConfigDto>> UpdateConfig([FromBody] UpdateBookingConfigRequest request, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        if (!Enum.TryParse<DepositPolicy>(request.DepositPolicy, ignoreCase: true, out var policy))
+            return BadRequest(new { message = "DepositPolicy không hợp lệ (None/Fixed/Percentage)." });
+        try
+        {
+            BookingTenantConfig config = await _bookingService.UpdateConfigAsync(
+                tenantId, request.IsEnabled, policy, request.DepositFixedAmount, request.DepositPercentage,
+                request.CancelReschedulePolicy, request.EinvoiceMode, ct);
+            return Ok(ToConfigDto(config));
+        }
+        catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // ── QR channels (P5.6 — SRS §26.1) ───────────────────────────────────────
+
+    [HttpPost("qr-channels")]
+    public async Task<ActionResult<QrChannelCreatedDto>> CreateQrChannel([FromBody] CreateQrChannelRequest request, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        if (string.IsNullOrWhiteSpace(request.QrToken))
+            return BadRequest(new { message = "Thiếu qrToken." });
+        try
+        {
+            QRChannel channel = await _qrService.CreateQrChannelAsync(
+                tenantId, request.QrToken, request.SalesmanId, request.CampaignId, request.AttributionExpiryAt, ct);
+            // Raw token trả về ĐÚNG 1 lần tại creation — UI hiển thị link đặt lịch; sau đó chỉ hash được lưu (§7.2).
+            return Ok(new QrChannelCreatedDto(
+                channel.Id, channel.QrTokenHash, request.QrToken, channel.SalesmanId, channel.CampaignId,
+                channel.IsActive, channel.RevokedAt, channel.CreatedAt));
+        }
+        catch (ValidationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpGet("qr-channels")]
+    public async Task<ActionResult<List<QrChannelDto>>> GetQrChannels(CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        var channels = await _dbContext.QRChannels.IgnoreQueryFilters()
+            .Where(q => q.TenantId == tenantId)
+            .OrderByDescending(q => q.CreatedAt)
+            .Select(q => new QrChannelDto(q.Id, q.QrTokenHash, q.SalesmanId, q.CampaignId, q.IsActive, q.RevokedAt, q.CreatedAt))
+            .ToListAsync(ct);
+        return Ok(channels);
+    }
+
+    [HttpPost("qr-channels/{qrId:guid}/revoke")]
+    public async Task<IActionResult> RevokeQrChannel(Guid qrId, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        await _qrService.RevokeQrAsync(tenantId, qrId, ct);
+        return Ok(new { message = "Đã thu hồi mã QR." });
+    }
+
+    /// <summary>Salesmen (active CommunityRole Salesman) trong tenant — cho QR channel + commission filter.</summary>
+    [HttpGet("salesmen")]
+    public async Task<ActionResult<List<SalesmanDto>>> GetSalesmen(CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        var salesmen = await (from r in _dbContext.CommunityRoles.IgnoreQueryFilters()
+                              join c in _dbContext.Customers.IgnoreQueryFilters() on r.CustomerId equals c.Id into gj
+                              from c in gj.DefaultIfEmpty()
+                              where r.TenantId == tenantId && r.RoleType == CommunityRoleType.Salesman && r.IsActive
+                              select new SalesmanDto(r.CustomerId, c != null ? c.FullName : "CTV", r.CreatedAt))
+            .ToListAsync(ct);
+        return Ok(salesmen);
+    }
+
+    // ── Commission ledger (P5.6 — D3 ledger hợp nhất, SRS §17) ───────────────
+
+    [HttpGet("commission/ledger")]
+    public async Task<ActionResult<List<CommissionLedgerDto>>> GetCommissionLedger(
+        [FromQuery] Guid? salesmanId = null, [FromQuery] Guid? bookingId = null, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        var entries = await _commissionService.GetLedgerAsync(tenantId, salesmanId, bookingId, ct);
+        var results = new List<CommissionLedgerDto>();
+        foreach (var entry in entries)
+        {
+            string? bookingCode = null;
+            if (entry.BookingId is not null)
+                bookingCode = await _dbContext.Bookings.IgnoreQueryFilters()
+                    .Where(b => b.Id == entry.BookingId.Value)
+                    .Select(b => b.PublicBookingCode)
+                    .FirstOrDefaultAsync(ct);
+            results.Add(new CommissionLedgerDto(
+                entry.Id, entry.SourceType.ToString(), entry.BookingId, bookingCode, entry.SalesmanId,
+                entry.BaseAmount, entry.GrossCommissionAmount, entry.TaxWithheldAmount, entry.NetCommissionAmount,
+                entry.TaxRuleVersion, entry.WithholdingReasonCode, entry.State.ToString(), entry.WalletTransactionId,
+                entry.FinalizedAt, entry.PaidAt));
+        }
+        return Ok(results);
+    }
+
+    [HttpPost("commission/ledger/{entryId:guid}/pay")]
+    public async Task<ActionResult<CommissionLedgerDto>> PayCommission(Guid entryId, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        try
+        {
+            CommissionLedgerEntry entry = await _commissionService.PayCommissionAsync(tenantId, entryId, ct);
+            return Ok(new CommissionLedgerDto(
+                entry.Id, entry.SourceType.ToString(), entry.BookingId, null, entry.SalesmanId,
+                entry.BaseAmount, entry.GrossCommissionAmount, entry.TaxWithheldAmount, entry.NetCommissionAmount,
+                entry.TaxRuleVersion, entry.WithholdingReasonCode, entry.State.ToString(), entry.WalletTransactionId,
+                entry.FinalizedAt, entry.PaidAt));
+        }
+        catch (ValidationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // ── Deposits (P5.6 — SRS §16) ────────────────────────────────────────────
+
+    /// <summary>Bookings cần/đã đặt cọc (deposit tracking page).</summary>
+    [HttpGet("deposits")]
+    public async Task<ActionResult<List<DepositItemDto>>> GetDeposits(CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        var bookings = await _dbContext.Bookings.IgnoreQueryFilters()
+            .Where(b => b.TenantId == tenantId && b.DepositRequired)
+            .OrderBy(b => b.StartAt)
+            .ToListAsync(ct);
+
+        var results = new List<DepositItemDto>();
+        foreach (var booking in bookings)
+        {
+            PaymentTransaction? deposit = await _financialService.GetDepositAsync(tenantId, booking.Id, ct);
+            results.Add(new DepositItemDto(
+                booking.Id, booking.PublicBookingCode, booking.OfferingNameSnapshot, booking.StartAt,
+                booking.DepositAmount, booking.DepositType?.ToString(), booking.PaymentStatus.ToString(),
+                deposit?.Id, deposit?.Status.ToString(), booking.CustomerDeviceId, booking.Status.ToString()));
+        }
+        return Ok(results);
+    }
+
+    /// <summary>Xác nhận đã nhận cọc (get-or-create PENDING → PAID + outbox DepositPaid §16.6).</summary>
+    [HttpPost("bookings/{bookingId:guid}/deposit/received")]
+    public async Task<ActionResult<FinancialStatusDto>> MarkDepositReceived(Guid bookingId, [FromBody] DepositReceivedRequest? request, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        try
+        {
+            PaymentTransaction? existing = await _financialService.GetDepositAsync(tenantId, bookingId, ct);
+            PaymentTransaction tx;
+            if (existing is null)
+            {
+                BookingEntity? booking = await _bookingService.GetBookingAsync(tenantId, bookingId, ct);
+                if (booking is null)
+                    return NotFound(new { message = "Không tìm thấy lịch hẹn." });
+                decimal amount = request?.Amount ?? booking.DepositAmount ?? booking.EstimatedTotal;
+                tx = await _financialService.CaptureDepositAsync(tenantId, bookingId, amount, "CASH", request?.ProviderRef, ct);
+                if (tx.Status != PaymentStatus.Paid)
+                    tx = await _financialService.ConfirmDepositAsync(tenantId, bookingId, tx.Id, request?.ProviderRef, ct);
+            }
+            else
+            {
+                tx = existing.Status == PaymentStatus.Paid
+                    ? existing
+                    : await _financialService.ConfirmDepositAsync(tenantId, bookingId, existing.Id, request?.ProviderRef, ct);
+            }
+            return Ok(new FinancialStatusDto(bookingId, true, tx.Amount, tx.Type.ToString(), tx.Status.ToString(), tx.Id,
+                tx.Status.ToString(), "Pending", "OnPayment", tx.Amount, null));
+        }
+        catch (ValidationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (NotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    [HttpPost("bookings/{bookingId:guid}/deposit/refund")]
+    public async Task<ActionResult<FinancialStatusDto>> RefundDeposit(Guid bookingId, [FromBody] DepositRefundRequest? request, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        try
+        {
+            PaymentTransaction tx = await _financialService.RefundDepositAsync(tenantId, bookingId, request?.ProviderRef, ct);
+            return Ok(new FinancialStatusDto(bookingId, true, tx.Amount, tx.Type.ToString(), tx.Status.ToString(), tx.Id,
+                tx.Status.ToString(), "Pending", "OnPayment", tx.Amount, null));
+        }
+        catch (ValidationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (NotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    // ── Eligible staff cho assignment (P5.1 — SRS §13: capability + available) ─
+
+    /// <summary>Staff có skill phù hợp offering + availability tại slot booking (server re-check §12).</summary>
+    [HttpGet("bookings/{bookingId:guid}/eligible-staff")]
+    public async Task<ActionResult<List<EligibleStaffDto>>> GetEligibleStaff(Guid bookingId, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        BookingEntity? booking = await _bookingService.GetBookingAsync(tenantId, bookingId, ct);
+        if (booking is null)
+            return NotFound(new { message = "Không tìm thấy lịch hẹn." });
+
+        var eligible = await _staffService.ListEligibleStaffAsync(tenantId, booking.OfferingId, true, ct);
+        var results = new List<EligibleStaffDto>();
+        foreach (var staff in eligible)
+        {
+            AvailabilityCheckResult check = await _availabilityService.ValidateSlotAsync(tenantId, booking.OfferingId, staff.Id, booking.StartAt, ct);
+            results.Add(new EligibleStaffDto(staff.Id, staff.DisplayName, check.IsAvailable, check.UnavailableReason));
+        }
+        return Ok(results.OrderByDescending(s => s.IsAvailable).ThenBy(s => s.StaffName).ToList());
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────────
 
     private TenantId ResolveTenantId()
@@ -205,6 +593,17 @@ public class TenantBookingController(
             ?? User.FindFirst("TenantId")?.Value;
         return Guid.TryParse(tenantClaim, out Guid tenantId) ? new TenantId(tenantId) : new TenantId(Guid.Empty);
     }
+
+    private static bool TryParseTime(string? value, out TimeSpan result)
+        => TimeSpan.TryParseExact(value, @"hh\:mm", System.Globalization.CultureInfo.InvariantCulture, out result);
+
+    private static TimeSpan? TryParseTimeOrNull(string? value)
+        => TryParseTime(value, out TimeSpan result) ? result : null;
+
+    private static StaffDto ToStaffDto(Staff s) => new(s.Id, s.DisplayName, s.Role, s.AvatarUrl, s.IsActive);
+
+    private static BookingTenantConfigDto ToConfigDto(BookingTenantConfig c) => new(
+        c.IsEnabled, c.DepositPolicy.ToString(), c.DepositFixedAmount, c.DepositPercentage, c.CancelReschedulePolicy, c.EinvoiceMode);
 
     private async Task<ActionResult<BookingQueueItemDto>> TransitionAsync(Guid bookingId, Func<Task<BookingEntity>> action, CancellationToken ct)
     {
@@ -315,3 +714,53 @@ public record FinancialStatusDto(
     string InvoiceTrigger,
     decimal EstimatedTotal,
     decimal? ActualTotal);
+
+// ── P5 DTOs (Staff CRUD / catalog / schedules / config / QR / commission / deposits / eligible) ──
+
+public record CreateStaffRequest(string DisplayName, string? Role = null, Guid? StaffUserId = null);
+
+public record UpdateStaffRequest(string DisplayName, string? Role, string? AvatarUrl, Guid? StaffUserId, bool IsActive);
+
+public record StaffServiceDto(Guid OfferingId);
+
+public record SetStaffServicesRequest(List<Guid>? OfferingIds);
+
+public record UpsertScheduleRequest(int? Weekday, string? StartTime, string? EndTime, string? BreakStart, string? BreakEnd);
+
+public record AddOverrideRequest(string Date, string OverrideType, string? StartTime = null, string? EndTime = null, string? Note = null);
+
+public record BookingTenantConfigDto(
+    bool IsEnabled, string DepositPolicy, decimal? DepositFixedAmount, decimal? DepositPercentage,
+    string? CancelReschedulePolicy, string? EinvoiceMode);
+
+public record UpdateBookingConfigRequest(
+    bool IsEnabled, string DepositPolicy, decimal? DepositFixedAmount = null, decimal? DepositPercentage = null,
+    string? CancelReschedulePolicy = null, string? EinvoiceMode = null);
+
+public record CreateQrChannelRequest(string QrToken, Guid? SalesmanId = null, Guid? CampaignId = null, DateTime? AttributionExpiryAt = null);
+
+public record QrChannelDto(Guid Id, string QrTokenHash, Guid? SalesmanId, Guid? CampaignId, bool IsActive, DateTime? RevokedAt, DateTime CreatedAt);
+
+/// <summary>Create response — RawToken trả về ĐÚNG 1 lần (UI cần hiển thị link đặt lịch; DB chỉ lưu hash §7.2).</summary>
+public record QrChannelCreatedDto(
+    Guid Id, string QrTokenHash, string RawToken, Guid? SalesmanId, Guid? CampaignId,
+    bool IsActive, DateTime? RevokedAt, DateTime CreatedAt);
+
+public record SalesmanDto(Guid CustomerId, string Name, DateTime CreatedAt);
+
+public record CommissionLedgerDto(
+    Guid EntryId, string SourceType, Guid? BookingId, string? BookingCode, Guid SalesmanId,
+    decimal BaseAmount, decimal GrossCommissionAmount, decimal TaxWithheldAmount, decimal NetCommissionAmount,
+    string? TaxRuleVersion, string? WithholdingReasonCode, string State, Guid? WalletTransactionId,
+    DateTime? FinalizedAt, DateTime? PaidAt);
+
+public record DepositItemDto(
+    Guid BookingId, string PublicBookingCode, string OfferingName, DateTime StartAt,
+    decimal? DepositAmount, string? DepositType, string PaymentStatus,
+    Guid? DepositTransactionId, string? DepositStatus, string? CustomerDeviceId, string BookingStatus);
+
+public record DepositReceivedRequest(decimal? Amount, string? ProviderRef = null);
+
+public record DepositRefundRequest(string? ProviderRef = null);
+
+public record EligibleStaffDto(Guid StaffId, string StaffName, bool IsAvailable, string? UnavailableReason);

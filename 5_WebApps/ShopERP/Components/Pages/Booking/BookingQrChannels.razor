@@ -1,0 +1,228 @@
+@page "/booking/qr-channels"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StoreManagement")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.ShopERP.Services
+@inject IBookingTenantApiClient BookingApi
+@inject IConfiguration Configuration
+@inject IJSRuntime JSRuntime
+@inject ILogger<BookingQrChannels> Logger
+
+<PageTitle>Mã QR đặt lịch - Vạn An</PageTitle>
+
+<div class="booking-qr-page">
+    <header class="page-header mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="mb-0"><i class="bi bi-qr-code"></i> Mã QR đặt lịch</h1>
+        <VanAButton Variant="primary" Size="small" OnClick="OpenCreate">
+            <i class="bi bi-plus-circle"></i> Tạo mã QR
+        </VanAButton>
+    </header>
+
+    <VanAAlert Variant="info" Dismissible="false" class="mb-3">
+        Khách quét QR → mở trang đặt lịch của cửa hàng. Mã QR gắn salesman (nếu có) → hoa hồng tự động theo attribution (SRS §7).
+    </VanAAlert>
+
+    @if (_loading)
+    {
+        <VanASpinner Text="Đang tải..." />
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Variant="error" Message="@_errorMessage" Dismissible="true" OnDismiss="() => _errorMessage = null" />
+    }
+    else
+    {
+        <VanACard>
+            @if (_channels.Count == 0)
+            {
+                <VanAAlert Variant="info" Message="Chưa có mã QR nào. Tạo mã đầu tiên để khách đặt lịch." Dismissible="false" data-testid="qr-empty" />
+            }
+            else
+            {
+                <table class="table table-hover align-middle mb-0" data-testid="qr-table">
+                    <thead>
+                        <tr>
+                            <th>Liên kết đặt lịch</th>
+                            <th>Salesman</th>
+                            <th>Ngày tạo</th>
+                            <th>Trạng thái</th>
+                            <th style="width:110px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var channel in _channels)
+                        {
+                            var link = _createdTokens.TryGetValue(channel.Id, out var token)
+                                ? $"{_khachLinkBase}/booking/{token}"
+                                : null;
+                            <tr>
+                                <td>
+                                    @if (link is not null)
+                                    {
+                                        <div class="small text-break" data-testid="qr-link-@channel.Id">@link</div>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mt-1"
+                                                @onclick="@(() => CopyLinkAsync(link))">📋 Sao chép</button>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">Token không hiển thị lại (bảo mật §7.2) — tạo mã mới nếu cần link.</span>
+                                    }
+                                </td>
+                                <td>@SalesmanName(channel.SalesmanId)</td>
+                                <td>@channel.CreatedAt.ToVietnamString()</td>
+                                <td>
+                                    @if (channel.IsActive)
+                                    {
+                                        <span class="badge text-bg-success">Hoạt động</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge text-bg-secondary">Đã thu hồi</span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    @if (channel.IsActive)
+                                    {
+                                        <VanAButton Variant="outline" Size="small" OnClick="() => RevokeAsync(channel)">Thu hồi</VanAButton>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </VanACard>
+    }
+</div>
+
+@* Modal tạo QR *@
+<VanAnModal IsOpen="@_isCreating" Title="Tạo mã QR đặt lịch" OnClose="() => _isCreating = false" OnConfirm="CreateAsync" ShowDefaultFooter="true" Closable="true">
+    <div class="mb-3">
+        <label class="form-label">Gắn salesman (CTV) — tùy chọn</label>
+        <select class="form-select" @bind="_salesmanId">
+            <option value="@Guid.Empty">— Không gắn —</option>
+            @foreach (var salesman in _salesmen)
+            {
+                <option value="@salesman.CustomerId">@salesman.Name</option>
+            }
+        </select>
+        <small class="text-muted">Khách quét QR này → booking qualified sẽ tính hoa hồng cho salesman (§7.5 first-qualified-wins).</small>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Hạn attribution (tùy chọn)</label>
+        <input type="datetime-local" class="form-control" @bind="_expiry" />
+        <small class="text-muted">Để trống = không hết hạn. Sau hạn, attribution session reset.</small>
+    </div>
+    @if (!string.IsNullOrEmpty(_createError))
+    {
+        <VanAAlert Variant="error" Message="@_createError" Dismissible="true" OnDismiss="() => _createError = null" />
+    }
+</VanAnModal>
+
+@if (!string.IsNullOrEmpty(_actionError))
+{
+    <VanAAlert Variant="error" Message="@_actionError" Dismissible="true" OnDismiss="() => _actionError = null" class="mt-2" />
+}
+
+@code {
+    private List<QrChannelDto> _channels = [];
+    private List<SalesmanDto> _salesmen = [];
+    private readonly Dictionary<Guid, string> _createdTokens = [];
+    private bool _loading = true;
+    private bool _isCreating;
+    private string? _errorMessage;
+    private string? _actionError;
+    private string? _createError;
+    private Guid _salesmanId = Guid.Empty;
+    private DateTime? _expiry;
+    private string _khachLinkBase = "https://khachvip.online";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _khachLinkBase = Configuration["KhachLink:BaseUrl"] ?? _khachLinkBase;
+        var salesmenResult = await BookingApi.GetSalesmenAsync();
+        _salesmen = salesmenResult.Ok ? salesmenResult.Data ?? [] : [];
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            var result = await BookingApi.GetQrChannelsAsync();
+            if (!result.Ok)
+            {
+                _errorMessage = result.Error;
+                _channels = [];
+            }
+            else
+            {
+                _channels = result.Data ?? [];
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking QR channels load failed");
+            _errorMessage = "Không tải được danh sách mã QR.";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenCreate()
+    {
+        _isCreating = true;
+        _salesmanId = Guid.Empty;
+        _expiry = null;
+        _createError = null;
+    }
+
+    private async Task CreateAsync()
+    {
+        _createError = null;
+        // Token ngẫu nhiên (unguessable §25) — server hash khi lưu (§7.2).
+        string token = Guid.NewGuid().ToString("N");
+        DateTime? expiry = _expiry?.ToUniversalTime();
+
+        var result = await BookingApi.CreateQrChannelAsync(
+            token,
+            _salesmanId == Guid.Empty ? null : _salesmanId,
+            campaignId: null,
+            expiry);
+
+        if (!result.Ok)
+        {
+            _createError = result.Error;
+            return;
+        }
+        _createdTokens[result.Data!.Id] = result.Data.RawToken;
+        _isCreating = false;
+        await LoadAsync();
+    }
+
+    private async Task RevokeAsync(QrChannelDto channel)
+    {
+        _actionError = null;
+        var result = await BookingApi.RevokeQrChannelAsync(channel.Id);
+        if (!result.Ok) _actionError = result.Error;
+        await LoadAsync();
+    }
+
+    private async Task CopyLinkAsync(string link)
+    {
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", link);
+    }
+
+    private string SalesmanName(Guid? salesmanId)
+        => salesmanId.HasValue
+            ? _salesmen.FirstOrDefault(s => s.CustomerId == salesmanId.Value)?.Name ?? "CTV #" + salesmanId.Value.ToString()[..8]
+            : "—";
+}

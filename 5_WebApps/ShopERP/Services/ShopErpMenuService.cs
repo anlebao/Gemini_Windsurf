@@ -94,6 +94,27 @@ public sealed class ShopErpMenuService : IShopErpMenuService
             });
         }
 
+        // Booking P5 (2026-10-06, SRS v1.1 MVP): Đặt lịch hẹn — Owner + StoreKeeper
+        // (queue ops + staff/schedules/availability; QR/commission là tenant ops đặt lịch).
+        if (isOwner || isStoreKeeper)
+        {
+            items.Add(new()
+            {
+                Title = "Đặt lịch hẹn", Icon = "calendar2-check",
+                Children = new()
+                {
+                    new() { Title = "Hàng đợi đặt lịch", Icon = "inbox", Url = "/booking/queue" },
+                    new() { Title = "Ai đang rảnh", Icon = "people", Url = "/booking/availability" },
+                    new() { Title = "Lịch hẹn", Icon = "calendar3", Url = "/booking/calendar" },
+                    new() { Title = "Nhân viên", Icon = "person-badge", Url = "/booking/staff" },
+                    new() { Title = "Lịch làm việc", Icon = "calendar-week", Url = "/booking/schedules" },
+                    new() { Title = "Đặt cọc", Icon = "cash-coin", Url = "/booking/deposits" },
+                    new() { Title = "Mã QR đặt lịch", Icon = "qr-code", Url = "/booking/qr-channels" },
+                    new() { Title = "Hoa hồng CTV", Icon = "cash-stack", Url = "/booking/commission" },
+                }
+            });
+        }
+
         // Sản phẩm: Owner
         if (isOwner)
         {

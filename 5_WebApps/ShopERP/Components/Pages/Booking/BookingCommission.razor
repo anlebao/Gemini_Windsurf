@@ -1,0 +1,202 @@
+@page "/booking/commission"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StoreManagement")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.ShopERP.Services
+@inject IBookingTenantApiClient BookingApi
+@inject ILogger<BookingCommission> Logger
+
+<PageTitle>Hoa hồng CTV - Vạn An</PageTitle>
+
+<div class="booking-commission-page">
+    <header class="page-header mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="mb-0"><i class="bi bi-cash-stack"></i> Hoa hồng cộng tác viên</h1>
+        <div class="d-flex gap-2 align-items-center">
+            <select class="form-select form-select-sm" style="max-width:240px;" @bind="_salesmanId" @bind:after="LoadAsync">
+                <option value="@Guid.Empty">Tất cả CTV</option>
+                @foreach (var salesman in _salesmen)
+                {
+                    <option value="@salesman.CustomerId">@salesman.Name</option>
+                }
+            </select>
+            <VanAButton Variant="primary" Size="small" OnClick="LoadAsync">
+                <i class="bi bi-arrow-clockwise"></i> Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @* Tóm tắt *@
+    @if (!_loading && _entries.Count > 0)
+    {
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <VanACard>
+                    <div class="stat-card text-center py-2">
+                        <div class="fw-bold fs-5">@_entries.Where(e => e.State is "Pending" or "Earned").Sum(e => e.NetCommissionAmount).ToString("N0") đ</div>
+                        <div class="text-muted small">Chưa thanh toán</div>
+                    </div>
+                </VanACard>
+            </div>
+            <div class="col-md-4">
+                <VanACard>
+                    <div class="stat-card text-center py-2">
+                        <div class="fw-bold fs-5">@_entries.Where(e => e.State == "Paid").Sum(e => e.NetCommissionAmount).ToString("N0") đ</div>
+                        <div class="text-muted small">Đã thanh toán</div>
+                    </div>
+                </VanACard>
+            </div>
+            <div class="col-md-4">
+                <VanACard>
+                    <div class="stat-card text-center py-2">
+                        <div class="fw-bold fs-5">@_entries.Sum(e => e.TaxWithheldAmount).ToString("N0") đ</div>
+                        <div class="text-muted small">Đã khấu trừ thuế TNCN</div>
+                    </div>
+                </VanACard>
+            </div>
+        </div>
+    }
+
+    @if (_loading)
+    {
+        <VanASpinner Text="Đang tải..." />
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Variant="error" Message="@_errorMessage" Dismissible="true" OnDismiss="() => _errorMessage = null" />
+    }
+    else
+    {
+        <VanACard>
+            @if (_entries.Count == 0)
+            {
+                <VanAAlert Variant="info" Message="Chưa có khoản hoa hồng nào. Hoa hồng được ghi nhận khi booking hoàn tất + qualified (§17.1)." Dismissible="false" data-testid="commission-empty" />
+            }
+            else
+            {
+                <table class="table table-hover align-middle mb-0" data-testid="commission-table">
+                    <thead>
+                        <tr>
+                            <th>CTV</th>
+                            <th>Booking</th>
+                            <th>Doanh thu</th>
+                            <th>Hoa hồng</th>
+                            <th>Thuế</th>
+                            <th>Thực nhận</th>
+                            <th>Trạng thái</th>
+                            <th style="width:120px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var entry in _entries.OrderByDescending(e => e.FinalizedAt ?? e.PaidAt ?? DateTime.MinValue))
+                        {
+                            <tr>
+                                <td class="fw-semibold">@SalesmanName(entry.SalesmanId)</td>
+                                <td class="small">@(entry.BookingCode ?? "—")</td>
+                                <td>@entry.BaseAmount.ToString("N0") đ</td>
+                                <td>@entry.GrossCommissionAmount.ToString("N0") đ</td>
+                                <td class="small">@entry.TaxWithheldAmount.ToString("N0") đ</td>
+                                <td class="fw-semibold">@entry.NetCommissionAmount.ToString("N0") đ</td>
+                                <td><span class="badge @StateBadge(entry.State)">@StateLabel(entry.State)</span></td>
+                                <td class="text-end">
+                                    @if (entry.State == "Earned")
+                                    {
+                                        <VanAButton Variant="success" Size="small" OnClick="() => PayAsync(entry)">Thanh toán</VanAButton>
+                                    }
+                                    @if (!string.IsNullOrEmpty(entry.WithholdingReasonCode))
+                                    {
+                                        <div class="text-muted small mt-1" title="@entry.TaxRuleVersion">@entry.WithholdingReasonCode</div>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </VanACard>
+    }
+</div>
+
+@if (!string.IsNullOrEmpty(_actionError))
+{
+    <VanAAlert Variant="error" Message="@_actionError" Dismissible="true" OnDismiss="() => _actionError = null" class="mt-2" />
+}
+
+@code {
+    private List<CommissionLedgerDto> _entries = [];
+    private List<SalesmanDto> _salesmen = [];
+    private Guid _salesmanId = Guid.Empty;
+    private bool _loading = true;
+    private string? _errorMessage;
+    private string? _actionError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var salesmenResult = await BookingApi.GetSalesmenAsync();
+        _salesmen = salesmenResult.Ok ? salesmenResult.Data ?? [] : [];
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            var result = await BookingApi.GetCommissionLedgerAsync(
+                _salesmanId == Guid.Empty ? null : _salesmanId, bookingId: null);
+            if (!result.Ok)
+            {
+                _errorMessage = result.Error;
+                _entries = [];
+            }
+            else
+            {
+                _entries = result.Data ?? [];
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking commission load failed");
+            _errorMessage = "Không tải được sổ hoa hồng.";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task PayAsync(CommissionLedgerDto entry)
+    {
+        _actionError = null;
+        var result = await BookingApi.PayCommissionAsync(entry.EntryId);
+        if (!result.Ok) _actionError = result.Error;
+        await LoadAsync();
+    }
+
+    private string SalesmanName(Guid salesmanId)
+        => _salesmen.FirstOrDefault(s => s.CustomerId == salesmanId)?.Name ?? "CTV #" + salesmanId.ToString()[..8];
+
+    private static string StateLabel(string state) => state switch
+    {
+        "Pending" => "Chờ",
+        "Earned" => "Đã ghi nhận",
+        "Paid" => "Đã thanh toán",
+        "Voided" => "Vô hiệu",
+        "Reversed" => "Đã đảo",
+        _ => state
+    };
+
+    private static string StateBadge(string state) => state switch
+    {
+        "Pending" => "text-bg-secondary",
+        "Earned" => "text-bg-warning",
+        "Paid" => "text-bg-success",
+        "Voided" => "text-bg-danger",
+        "Reversed" => "text-bg-info",
+        _ => "text-bg-secondary"
+    };
+}

@@ -1,0 +1,293 @@
+@page "/booking/staff"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StoreManagement")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.ShopERP.Services
+@inject IBookingTenantApiClient BookingApi
+@inject ILogger<BookingStaff> Logger
+
+<PageTitle>Quản lý nhân viên - Vạn An</PageTitle>
+
+<div class="booking-staff-page">
+    <header class="page-header mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="mb-0"><i class="bi bi-people"></i> Nhân viên phục vụ</h1>
+        <VanAButton Variant="primary" Size="small" OnClick="OpenCreate">
+            <i class="bi bi-person-plus"></i> Thêm nhân viên
+        </VanAButton>
+    </header>
+
+    @if (_loading)
+    {
+        <VanASpinner Text="Đang tải..." />
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Variant="error" Message="@_errorMessage" Dismissible="true" OnDismiss="() => _errorMessage = null" />
+    }
+    else
+    {
+        <VanACard>
+            @if (_staff.Count == 0)
+            {
+                <VanAAlert Variant="info" Message="Chưa có nhân viên. Thêm nhân viên đầu tiên để nhận lịch hẹn." Dismissible="false" />
+            }
+            else
+            {
+                <table class="table table-hover align-middle mb-0" data-testid="staff-table">
+                    <thead>
+                        <tr>
+                            <th>Nhân viên</th>
+                            <th>Vai trò</th>
+                            <th>Dịch vụ phục vụ</th>
+                            <th>Trạng thái</th>
+                            <th style="width:180px;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var staff in _staff)
+                        {
+                            <tr>
+                                <td class="fw-semibold">@staff.DisplayName</td>
+                                <td>@(staff.Role ?? "—")</td>
+                                <td class="small">
+                                    @{
+                                        var skills = _skillsByStaff.TryGetValue(staff.Id, out var list) ? list : [];
+                                    }
+                                    @if (skills.Count == 0)
+                                    {
+                                        <span class="text-muted">Chưa cấu hình</span>
+                                    }
+                                    else
+                                    {
+                                        @string.Join(", ", skills.Select(s => OfferingName(s.OfferingId)))
+                                    }
+                                </td>
+                                <td>
+                                    @if (staff.IsActive)
+                                    {
+                                        <span class="badge text-bg-success">Hoạt động</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge text-bg-secondary">Ngưng</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <VanAButton Variant="outline" Size="small" OnClick="() => OpenEdit(staff)">✏️ Sửa</VanAButton>
+                                        <VanAButton Variant="outline" Size="small" OnClick="() => OpenSkills(staff)">🧰 Dịch vụ</VanAButton>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </VanACard>
+    }
+</div>
+
+@* Modal thêm/sửa nhân viên *@
+<VanAnModal IsOpen="@(_editing is not null || _isCreating)" Title="@(_isCreating ? "Thêm nhân viên" : "Sửa nhân viên")"
+            OnClose="CloseEditor" OnConfirm="SaveStaffAsync" ShowDefaultFooter="true" Closable="true">
+    <div class="mb-3">
+        <label class="form-label">Tên nhân viên *</label>
+        <input type="text" class="form-control" @bind="_editName" placeholder="VD: Nguyễn Văn A" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Vai trò</label>
+        <input type="text" class="form-control" @bind="_editRole" placeholder="VD: Kỹ thuật viên / Thợ cắt tóc" />
+    </div>
+    <div class="form-check mb-3">
+        <input type="checkbox" class="form-check-input" id="staff-active" @bind="_editActive" />
+        <label class="form-check-label" for="staff-active">Đang hoạt động</label>
+    </div>
+    @if (!string.IsNullOrEmpty(_editorError))
+    {
+        <VanAAlert Variant="error" Message="@_editorError" Dismissible="true" OnDismiss="() => _editorError = null" />
+    }
+</VanAnModal>
+
+@* Modal cấu hình dịch vụ (SRS §11.2 — StaffService junction) *@
+<VanAnModal IsOpen="@(_skillsStaff is not null)" Title="Dịch vụ nhân viên phục vụ được" OnClose="() => _skillsStaff = null" OnConfirm="SaveSkillsAsync" ShowDefaultFooter="true" Closable="true">
+    @if (_skillsStaff is not null)
+    {
+        <div class="mb-2 text-muted small"><strong>@_skillsStaff.DisplayName</strong> — chọn dịch vụ nhân viên có thể phục vụ.</div>
+        @if (_offerings.Count == 0)
+        {
+            <VanAAlert Variant="info" Message="Chưa có dịch vụ nào. Dịch vụ do cửa hàng cấu hình (P5.2 catalog read)." Dismissible="false" />
+        }
+        else
+        {
+            <div class="d-grid gap-2">
+                @foreach (var offering in _offerings)
+                {
+                    var isChecked = _selectedSkillIds.Contains(offering.Id);
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input"
+                               id="skill-@offering.Id"
+                               checked="@isChecked"
+                               @onchange="() => ToggleSkill(offering.Id)" />
+                        <label class="form-check-label" for="skill-@offering.Id">
+                            @offering.DisplayName
+                            <span class="text-muted small">· @offering.DurationMinutes phút · @offering.Price.ToString("N0")đ</span>
+                        </label>
+                    </div>
+                }
+            </div>
+        }
+    }
+</VanAnModal>
+
+@if (!string.IsNullOrEmpty(_actionError))
+{
+    <VanAAlert Variant="error" Message="@_actionError" Dismissible="true" OnDismiss="() => _actionError = null" class="mt-2" />
+}
+
+@code {
+    private List<StaffDto> _staff = [];
+    private List<BookingOfferingDto> _offerings = [];
+    private Dictionary<Guid, List<StaffServiceDto>> _skillsByStaff = [];
+    private bool _loading = true;
+    private bool _isCreating;
+    private string? _errorMessage;
+    private string? _actionError;
+    private string? _editorError;
+
+    private StaffDto? _editing;
+    private StaffDto? _skillsStaff;
+    private string _editName = string.Empty;
+    private string? _editRole;
+    private bool _editActive = true;
+    private List<Guid> _selectedSkillIds = [];
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            var staffResult = await BookingApi.GetStaffAsync();
+            if (!staffResult.Ok)
+            {
+                _errorMessage = staffResult.Error;
+                _staff = [];
+            }
+            else
+            {
+                _staff = staffResult.Data ?? [];
+            }
+
+            var offeringResult = await BookingApi.GetOfferingsAsync();
+            _offerings = offeringResult.Ok ? offeringResult.Data ?? [] : [];
+
+            _skillsByStaff = [];
+            foreach (var staff in _staff)
+            {
+                var skills = await BookingApi.GetStaffServicesAsync(staff.Id);
+                if (skills.Ok)
+                    _skillsByStaff[staff.Id] = skills.Data ?? [];
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking staff load failed");
+            _errorMessage = "Không tải được danh sách nhân viên.";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string OfferingName(Guid offeringId)
+        => _offerings.FirstOrDefault(o => o.Id == offeringId)?.DisplayName ?? "Dịch vụ #" + offeringId.ToString()[..8];
+
+    // ── Editor ──────────────────────────────────────────────────────────────
+
+    private void OpenCreate()
+    {
+        _isCreating = true;
+        _editing = null;
+        _editName = string.Empty;
+        _editRole = null;
+        _editActive = true;
+        _editorError = null;
+    }
+
+    private void OpenEdit(StaffDto staff)
+    {
+        _isCreating = false;
+        _editing = staff;
+        _editName = staff.DisplayName;
+        _editRole = staff.Role;
+        _editActive = staff.IsActive;
+        _editorError = null;
+    }
+
+    private void CloseEditor()
+    {
+        _isCreating = false;
+        _editing = null;
+    }
+
+    private async Task SaveStaffAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_editName))
+        {
+            _editorError = "Vui lòng nhập tên nhân viên.";
+            return;
+        }
+        _editorError = null;
+
+        ApiResponse<StaffDto> result = _isCreating
+            ? await BookingApi.CreateStaffAsync(_editName.Trim(), _editRole)
+            : await BookingApi.UpdateStaffAsync(_editing!.Id, _editName.Trim(), _editRole, _editing.AvatarUrl, _editActive);
+
+        if (!result.Ok)
+        {
+            _editorError = result.Error;
+            return;
+        }
+        CloseEditor();
+        await LoadAsync();
+    }
+
+    // ── Skills ──────────────────────────────────────────────────────────────
+
+    private void OpenSkills(StaffDto staff)
+    {
+        _skillsStaff = staff;
+        _selectedSkillIds = _skillsByStaff.TryGetValue(staff.Id, out var list)
+            ? list.Select(s => s.OfferingId).ToList()
+            : [];
+        _actionError = null;
+    }
+
+    private void ToggleSkill(Guid offeringId)
+    {
+        if (_selectedSkillIds.Contains(offeringId))
+            _selectedSkillIds.Remove(offeringId);
+        else
+            _selectedSkillIds.Add(offeringId);
+    }
+
+    private async Task SaveSkillsAsync()
+    {
+        if (_skillsStaff is null) return;
+        var result = await BookingApi.SetStaffServicesAsync(_skillsStaff.Id, _selectedSkillIds);
+        if (!result.Ok)
+        {
+            _actionError = result.Error;
+            return;
+        }
+        _skillsStaff = null;
+        await LoadAsync();
+    }
+}

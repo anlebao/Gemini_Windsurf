@@ -130,6 +130,48 @@
             </Authorized>
         </AuthorizeView>
 
+        @* ── Booking P5 (SRS v1.1 MVP): Đặt lịch hẹn (Owner + StoreKeeper) ── *@
+        <AuthorizeView Roles="Owner,StoreKeeper">
+            <Authorized>
+                <VanACard Header="📅 Đặt lịch hẹn (Booking)" Hoverable="true" data-testid="card-booking">
+                    <div class="sitemap-links">
+                        <a href="/booking/queue" class="sitemap-link" data-testid="link-booking-queue">
+                            <span class="sitemap-link-icon">📥</span>
+                            <span>Hàng đợi đặt lịch</span>
+                        </a>
+                        <a href="/booking/availability" class="sitemap-link" data-testid="link-booking-availability">
+                            <span class="sitemap-link-icon">👥</span>
+                            <span>Ai đang rảnh</span>
+                        </a>
+                        <a href="/booking/calendar" class="sitemap-link" data-testid="link-booking-calendar">
+                            <span class="sitemap-link-icon">🗓️</span>
+                            <span>Lịch hẹn</span>
+                        </a>
+                        <a href="/booking/staff" class="sitemap-link" data-testid="link-booking-staff">
+                            <span class="sitemap-link-icon">🧑‍🔧</span>
+                            <span>Nhân viên</span>
+                        </a>
+                        <a href="/booking/schedules" class="sitemap-link" data-testid="link-booking-schedules">
+                            <span class="sitemap-link-icon">⏰</span>
+                            <span>Lịch làm việc</span>
+                        </a>
+                        <a href="/booking/deposits" class="sitemap-link" data-testid="link-booking-deposits">
+                            <span class="sitemap-link-icon">💵</span>
+                            <span>Đặt cọc</span>
+                        </a>
+                        <a href="/booking/qr-channels" class="sitemap-link" data-testid="link-booking-qr">
+                            <span class="sitemap-link-icon">🔳</span>
+                            <span>Mã QR đặt lịch</span>
+                        </a>
+                        <a href="/booking/commission" class="sitemap-link" data-testid="link-booking-commission">
+                            <span class="sitemap-link-icon">💰</span>
+                            <span>Hoa hồng CTV</span>
+                        </a>
+                    </div>
+                </VanACard>
+            </Authorized>
+        </AuthorizeView>
+
         @* ── Luồng 2: Kế Toán & Tài Chính ── *@
         <AuthorizeView Roles="Owner">
             <Authorized>

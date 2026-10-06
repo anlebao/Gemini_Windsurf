@@ -1,0 +1,169 @@
+@page "/booking/deposits"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StoreManagement")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.ShopERP.Services
+@inject IBookingTenantApiClient BookingApi
+@inject ILogger<BookingDeposits> Logger
+
+<PageTitle>Quản lý đặt cọc - Vạn An</PageTitle>
+
+<div class="booking-deposits-page">
+    <header class="page-header mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="mb-0"><i class="bi bi-cash-coin"></i> Đặt cọc</h1>
+        <VanAButton Variant="primary" Size="small" OnClick="LoadAsync">
+            <i class="bi bi-arrow-clockwise"></i> Làm mới
+        </VanAButton>
+    </header>
+
+    @if (_loading)
+    {
+        <VanASpinner Text="Đang tải..." />
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Variant="error" Message="@_errorMessage" Dismissible="true" OnDismiss="() => _errorMessage = null" />
+    }
+    else
+    {
+        <VanACard>
+            @if (_deposits.Count == 0)
+            {
+                <VanAAlert Variant="info" Message="Chưa có lịch hẹn nào yêu cầu đặt cọc." Dismissible="false" data-testid="deposits-empty" />
+            }
+            else
+            {
+                <table class="table table-hover align-middle mb-0" data-testid="deposits-table">
+                    <thead>
+                        <tr>
+                            <th>Lịch hẹn</th>
+                            <th>Thời gian</th>
+                            <th>Số cọc</th>
+                            <th>Loại</th>
+                            <th>Trạng thái</th>
+                            <th style="width:220px;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _deposits)
+                        {
+                            <tr>
+                                <td>
+                                    <span class="fw-semibold">@item.OfferingName</span>
+                                    <div class="text-muted small">Mã: @item.PublicBookingCode</div>
+                                </td>
+                                <td>@item.StartAt.ToVietnamString()</td>
+                                <td class="fw-semibold">@(item.DepositAmount?.ToString("N0") ?? "—") đ</td>
+                                <td class="small">@DepositTypeLabel(item.DepositType)</td>
+                                <td>
+                                    <span class="badge @DepositStatusBadge(item.DepositStatus ?? item.PaymentStatus)">@DepositStatusLabel(item.DepositStatus ?? item.PaymentStatus)</span>
+                                </td>
+                                <td>
+                                    @if (item.DepositStatus != "Paid" && item.BookingStatus is not ("Cancelled" or "Rejected" or "NoShow"))
+                                    {
+                                        <VanAButton Variant="success" Size="small" OnClick="() => MarkReceivedAsync(item)">💵 Đã nhận cọc</VanAButton>
+                                    }
+                                    @if (item.DepositStatus == "Paid" && item.BookingStatus is not ("Cancelled" or "Rejected" or "NoShow"))
+                                    {
+                                        <VanAButton Variant="outline" Size="small" OnClick="() => RefundAsync(item)">↩ Hoàn cọc</VanAButton>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </VanACard>
+    }
+</div>
+
+@if (!string.IsNullOrEmpty(_actionError))
+{
+    <VanAAlert Variant="error" Message="@_actionError" Dismissible="true" OnDismiss="() => _actionError = null" class="mt-2" />
+}
+
+@code {
+    private List<DepositItemDto> _deposits = [];
+    private bool _loading = true;
+    private string? _errorMessage;
+    private string? _actionError;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            var result = await BookingApi.GetDepositsAsync();
+            if (!result.Ok)
+            {
+                _errorMessage = result.Error;
+                _deposits = [];
+            }
+            else
+            {
+                _deposits = result.Data ?? [];
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking deposits load failed");
+            _errorMessage = "Không tải được danh sách cọc.";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task MarkReceivedAsync(DepositItemDto item)
+    {
+        _actionError = null;
+        var result = await BookingApi.MarkDepositReceivedAsync(item.BookingId, item.DepositAmount);
+        if (!result.Ok) _actionError = result.Error;
+        await LoadAsync();
+    }
+
+    private async Task RefundAsync(DepositItemDto item)
+    {
+        _actionError = null;
+        var result = await BookingApi.RefundDepositAsync(item.BookingId);
+        if (!result.Ok) _actionError = result.Error;
+        await LoadAsync();
+    }
+
+    private static string DepositTypeLabel(string? type) => type switch
+    {
+        "SecurityDeposit" => "Cọc bảo đảm",
+        "PrepaymentForService" => "Trả trước",
+        "FinalPayment" => "Thanh toán",
+        _ => type ?? "—"
+    };
+
+    private static string DepositStatusLabel(string status) => status switch
+    {
+        "NotRequired" => "Không yêu cầu",
+        "Pending" => "Chưa nhận",
+        "Paid" => "Đã nhận",
+        "Failed" => "Thất bại",
+        "Refunded" => "Đã hoàn",
+        "Forfeited" => "Bị giữ cọc",
+        _ => status
+    };
+
+    private static string DepositStatusBadge(string status) => status switch
+    {
+        "Paid" => "text-bg-success",
+        "Pending" => "text-bg-warning",
+        "Refunded" => "text-bg-info",
+        "Forfeited" => "text-bg-secondary",
+        "Failed" => "text-bg-danger",
+        _ => "text-bg-secondary"
+    };
+}

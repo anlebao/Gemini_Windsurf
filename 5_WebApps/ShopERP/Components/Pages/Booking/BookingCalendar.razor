@@ -1,0 +1,151 @@
+@page "/booking/calendar"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StoreManagement")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.ShopERP.Services
+@inject IBookingTenantApiClient BookingApi
+@inject ILogger<BookingCalendar> Logger
+
+<PageTitle>Lịch hẹn - Vạn An</PageTitle>
+
+<div class="booking-calendar-page">
+    <header class="page-header mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="mb-0"><i class="bi bi-calendar3"></i> Lịch hẹn</h1>
+        <div class="d-flex gap-2 align-items-center">
+            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => ShiftDay(-1)">◀</button>
+            <input type="date" class="form-control form-control-sm" style="max-width:170px;" @bind="_date" @bind:format="yyyy-MM-dd" />
+            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => ShiftDay(1)">▶</button>
+            <VanAButton Variant="primary" Size="small" OnClick="LoadAsync">
+                <i class="bi bi-arrow-clockwise"></i> Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (_loading)
+    {
+        <VanASpinner Text="Đang tải lịch..." />
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Variant="error" Message="@_errorMessage" Dismissible="true" OnDismiss="() => _errorMessage = null" />
+    }
+    else
+    {
+        <VanACard Header="@($"Lịch hẹn ngày {@_date:dd/MM/yyyy}")">
+            @if (_bookings.Count == 0)
+            {
+                <VanAAlert Variant="info" Message="Không có lịch hẹn trong ngày này." Dismissible="false" data-testid="calendar-empty" />
+            }
+            else
+            {
+                <table class="table align-middle mb-0" data-testid="calendar-list">
+                    <thead>
+                        <tr>
+                            <th>Giờ</th>
+                            <th>Khách</th>
+                            <th>Dịch vụ</th>
+                            <th>Nhân viên</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var booking in _bookings.OrderBy(b => b.StartAt))
+                        {
+                            <tr>
+                                <td class="fw-semibold">@booking.StartAt.ToVietnamTime().ToString("HH:mm")–@booking.EndAt.ToVietnamTime().ToString("HH:mm")</td>
+                                <td>
+                                    @(string.IsNullOrEmpty(booking.CustomerDeviceId) ? "Khách" : "Khách " + booking.CustomerDeviceId[..Math.Min(8, booking.CustomerDeviceId.Length)])
+                                    <div class="text-muted small">@booking.PublicBookingCode</div>
+                                </td>
+                                <td>@booking.OfferingNameSnapshot</td>
+                                <td>@StaffName(booking.StaffId)</td>
+                                <td><span class="badge @StatusBadge(booking.Status)">@StatusLabel(booking.Status)</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </VanACard>
+    }
+</div>
+
+@code {
+    private List<BookingQueueItemDto> _bookings = [];
+    private List<StaffDto> _staff = [];
+    private DateOnly _date = DateOnly.FromDateTime(DateTime.Now);
+    private bool _loading = true;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var staffResult = await BookingApi.GetStaffAsync();
+        _staff = staffResult.Ok ? staffResult.Data ?? [] : [];
+        await LoadAsync();
+    }
+
+    private void ShiftDay(int delta)
+    {
+        _date = _date.AddDays(delta);
+        _ = LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            var fromUtc = _date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            var toUtc = _date.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
+            var result = await BookingApi.GetQueueAsync(from: fromUtc, to: toUtc);
+            if (!result.Ok)
+            {
+                _errorMessage = result.Error;
+                _bookings = [];
+            }
+            else
+            {
+                _bookings = result.Data ?? [];
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking calendar load failed");
+            _errorMessage = "Không tải được lịch hẹn.";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string StaffName(Guid? staffId)
+        => staffId.HasValue ? _staff.FirstOrDefault(s => s.Id == staffId.Value)?.DisplayName ?? "—" : "Chưa phân công";
+
+    private static string StatusLabel(string status) => status switch
+    {
+        "PendingConfirmation" => "Chờ xác nhận",
+        "Confirmed" => "Đã xác nhận",
+        "StaffAssigned" => "Đã phân công",
+        "CheckedIn" => "Đã đến",
+        "InService" => "Đang phục vụ",
+        "Completed" => "Hoàn tất",
+        "Cancelled" => "Đã hủy",
+        "Rejected" => "Bị từ chối",
+        "NoShow" => "Vắng mặt",
+        _ => status
+    };
+
+    private static string StatusBadge(string status) => status switch
+    {
+        "PendingConfirmation" => "text-bg-warning",
+        "Confirmed" or "StaffAssigned" => "text-bg-info",
+        "CheckedIn" or "InService" => "text-bg-primary",
+        "Completed" => "text-bg-success",
+        _ => "text-bg-secondary"
+    };
+}
