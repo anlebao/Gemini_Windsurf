@@ -58,19 +58,21 @@ test.describe('VanAn Ecosystem - Booking Customer Flow (SRS v1.1 MVP)', () => {
     await page.waitForLoadState('networkidle');
 
     // ── Screen 1: chọn offering đầu tiên ──
+    // RV P6 P4: WASM boot cold cache có thể > 15s → timeout 30s + networkidle.
+    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     const offeringCard = page.locator('[data-testid="booking-offering-list"] .booking-offering-card').first();
-    if (!(await offeringCard.isVisible({ timeout: 15000 }).catch(() => false))) {
+    if (!(await offeringCard.isVisible({ timeout: 30000 }).catch(() => false))) {
       test.skip(true, 'Tenant chưa có offering active — cần seed data (RV P7)');
       return;
     }
     await offeringCard.click();
-    await expect(page.locator('[data-testid="booking-btn-continue"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[data-testid="booking-btn-continue"]')).toBeVisible({ timeout: 15000 });
     await page.locator('[data-testid="booking-btn-continue"]').click();
 
     // ── Screen 2: chọn ngày + slot ──
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     const datePicker = page.locator('[data-testid="booking-date-picker"] button').first();
-    if (!(await datePicker.isVisible({ timeout: 10000 }).catch(() => false))) {
+    if (!(await datePicker.isVisible({ timeout: 15000 }).catch(() => false))) {
       test.skip(true, 'Không vào được màn chọn thời gian');
       return;
     }
@@ -80,10 +82,10 @@ test.describe('VanAn Ecosystem - Booking Customer Flow (SRS v1.1 MVP)', () => {
     for (let i = 0; i < 7 && !slotClicked; i++) {
       const dayBtn = page.locator('[data-testid="booking-date-picker"] button').nth(i);
       await dayBtn.click();
-      await page.waitForTimeout(1200); // chờ availability API trả về
+      await page.waitForTimeout(2500); // chờ availability API trả về
 
       const slotBtn = page.locator('[data-testid="booking-slot-grid"] button').first();
-      if (await slotBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      if (await slotBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
         await slotBtn.click();
         slotClicked = true;
       }

@@ -103,11 +103,19 @@
                             else if (booking.Status == "InService")
                             {
                                 <VanAButton Variant="success" Size="small" OnClick="() => OpenComplete(booking)">💵 Hoàn tất</VanAButton>
-                                <VanAButton Variant="outline" Size="small" OnClick="() => CancelAsync(booking)">Hủy</VanAButton>
+                                @* §9.3: InService → Cancelled không hợp lệ (đã bắt đầu phục vụ) — không offer Hủy *@
                             }
                             else if (booking.Status is "Cancelled" or "Rejected" or "NoShow")
                             {
                                 <span class="text-muted small">Đã đóng</span>
+                            }
+                            else if (booking.Status == "Completed")
+                            {
+                                <span class="text-muted small">✅ Đã hoàn tất</span>
+                                @if (booking.OrderId is not null)
+                                {
+                                    <span class="text-muted small" data-testid="booking-order-link">🧾 Đơn: @booking.OrderId.Value.ToString("N")[..8]</span>
+                                }
                             }
                         </div>
                     </div>

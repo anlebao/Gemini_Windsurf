@@ -664,7 +664,8 @@ public record BookingQueueItemDto(
     BookingInvoiceStatus InvoiceStatus,
     int Version,
     DateTime CreatedAt,
-    DateTime? CompletedAt)
+    DateTime? CompletedAt,
+    Guid? OrderId)   // RV P6 P2: D2 hook link — queue/chi tiết hiển thị Order tạo từ booking
 {
     public static BookingQueueItemDto From(BookingEntity b) => new(
         b.Id,
@@ -687,7 +688,8 @@ public record BookingQueueItemDto(
         b.InvoiceStatus,
         b.Version,
         b.CreatedAt,
-        b.CompletedAt);
+        b.CompletedAt,
+        b.OrderId);
 }
 
 public record RejectBookingRequest(string? Reason);

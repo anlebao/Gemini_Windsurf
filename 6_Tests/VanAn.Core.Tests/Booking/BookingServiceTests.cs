@@ -337,12 +337,23 @@ namespace VanAn.Core.Tests.BookingScheduling
             var again = await svc.CancelAsync(BookingTestData.TenantId, booking.Id, "Khách hủy");
             Assert.Equal(BookingStatus.Cancelled, again.Status);
 
-            // StaffAssigned → cancel không hợp lệ (backend authoritative §37.2).
+            // RV P6 decision (user approve 2026-10-06): StaffAssigned → cancel HỢP LỆ
+            // (create-with-staff — khách chọn staff lúc đặt — phải hủy được).
             var assigned = await svc.CreateBookingAsync(BookingTestData.TenantId,
                 Command(offeringId, BookingTestData.At(15, 0), staffId), "cancel-key-2");
             Assert.Equal(BookingStatus.StaffAssigned, assigned.Status);
+            var assignedCancelled = await svc.CancelAsync(BookingTestData.TenantId, assigned.Id, "Khách đổi ý");
+            Assert.Equal(BookingStatus.Cancelled, assignedCancelled.Status);
+
+            // CheckedIn → cancel vẫn KHÔNG hợp lệ (§9.3).
+            var checkedIn = await svc.CreateBookingAsync(BookingTestData.TenantId,
+                Command(offeringId, BookingTestData.At(16, 0)), "cancel-key-3");
+            await svc.ConfirmAsync(BookingTestData.TenantId, checkedIn.Id);
+            await svc.AssignStaffAsync(BookingTestData.TenantId, checkedIn.Id, staffId);
+            await svc.CheckInAsync(BookingTestData.TenantId, checkedIn.Id);
+            Assert.Equal(BookingStatus.CheckedIn, checkedIn.Status);
             await Assert.ThrowsAsync<ValidationException>(() =>
-                svc.CancelAsync(BookingTestData.TenantId, assigned.Id, "test"));
+                svc.CancelAsync(BookingTestData.TenantId, checkedIn.Id, "test"));
         }
 
         [Fact]

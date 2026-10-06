@@ -20,7 +20,7 @@ public class BookingQueuePageTests : ComponentTestBase
         StaffId: null, CustomerId: null, CustomerDeviceId: "device-abc", CustomerNote: "Phòng riêng",
         DepositRequired: true, DepositAmount: 50000, DepositType: "SecurityDeposit",
         PaymentStatus: "Pending", InvoiceStatus: "NotRequired", Version: 1,
-        CreatedAt: DateTime.UtcNow, CompletedAt: null);
+        CreatedAt: DateTime.UtcNow, CompletedAt: null, OrderId: null);
 
     [Fact]
     public void Queue_Renders_BookingList_And_Confirm_CallsClient()

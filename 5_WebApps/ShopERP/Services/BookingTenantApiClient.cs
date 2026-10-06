@@ -14,7 +14,7 @@ public record BookingQueueItemDto(
     DateTime StartAt, DateTime EndAt, decimal EstimatedTotal, decimal? ActualTotal, Guid? StaffId,
     Guid? CustomerId, string? CustomerDeviceId, string? CustomerNote, bool DepositRequired,
     decimal? DepositAmount, string? DepositType, string PaymentStatus, string InvoiceStatus, int Version,
-    DateTime CreatedAt, DateTime? CompletedAt);
+    DateTime CreatedAt, DateTime? CompletedAt, Guid? OrderId);
 
 public record BookingCategoryDto(Guid Id, string Name, int DisplayOrder);
 

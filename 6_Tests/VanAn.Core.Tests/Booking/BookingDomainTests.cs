@@ -97,10 +97,20 @@ namespace VanAn.Core.Tests.BookingScheduling
             confirmed.Cancel();
             Assert.Equal(BookingStatus.Cancelled, confirmed.Status);
 
+            // RV P6 decision (user approve 2026-10-06): STAFF_ASSIGNED → CANCELLED hợp lệ —
+            // create-with-staff (khách chọn staff) phải hủy được.
             var assigned = NewBooking();
             assigned.Confirm();
             assigned.AssignStaff(StaffA);
-            Assert.Throws<InvalidOperationException>(() => assigned.Cancel());     // StaffAssigned → Cancel không hợp lệ
+            assigned.Cancel("Khách đổi ý");
+            Assert.Equal(BookingStatus.Cancelled, assigned.Status);
+
+            // CheckedIn/InService vẫn KHÔNG hủy (đã bắt đầu phục vụ).
+            var checkedIn = NewBooking();
+            checkedIn.Confirm();
+            checkedIn.AssignStaff(StaffA);
+            checkedIn.CheckIn();
+            Assert.Throws<InvalidOperationException>(() => checkedIn.Cancel());
         }
 
         [Fact]

@@ -256,6 +256,22 @@ if (slotStaff) {
   check('D10 Create (with staff) → 200 StaffAssigned', r.status === 200 && r.data?.status === 'StaffAssigned', f(r.data));
 }
 
+// with add-on (P3 — demo data AddOns)
+{
+  const cat = await api('GET', `/api/public/booking/tenants/${V.TID_A}/services`);
+  const addOn = asArray(cat.data?.addOns)[0];
+  if (addOn) {
+    const slotAo = await getFutureSlot(V.TID_A, V.OFF_A, null);
+    if (slotAo) {
+      const r = await createBooking({
+        tenantId: V.TID_A, offeringId: V.OFF_A, startAt: slotAo, staffId: null,
+        customerDeviceId: `sweep-ao-${Date.now()}`, customerNote: 'RV addon', addOns: [{ addOnId: addOn.id, quantity: 1 }], attributionId: ATTR_A,
+      }, `sweep-ao-${Date.now()}`);
+      check('D11 Create (with add-on) → 200 + total = offering + addon', r.status === 200 && r.data?.estimatedTotal === 320000, f(r.data));
+    } else check('D11 (skip — no slot)', false, 'no future slot');
+  } else check('D11 (skip — chưa seed AddOn)', false, 'no add-on');
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // E. TENANT API — queue / transitions / order hook / commission
 // ═══════════════════════════════════════════════════════════════════════════
@@ -282,7 +298,7 @@ if (createdId) {
   check('E6 Start → InService', st.status === 200 && st.data?.status === 'InService', f(st.data));
 
   const co = await T('/complete', { actualTotal: 300000 });
-  check('E7 Complete → Completed (Order hook verify qua PG: TrackingCode=booking code)', co.status === 200 && co.data?.status === 'Completed', f(co.data));
+  check('E7 Complete → Completed + OrderId tạo (D2 hook)', co.status === 200 && co.data?.status === 'Completed' && !!co.data?.orderId, f(co.data));
 
   // commission auto-finalize (P6 hardening)
   const led = await api('GET', `/api/tenant/booking/commission/ledger?bookingId=${createdId}`, { token: V.TOK_A });

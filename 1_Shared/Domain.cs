@@ -6059,7 +6059,10 @@ namespace VanAn.Shared.Domain
 
         public void Cancel(string? reason = null)
         {
-            if (Status is not (BookingStatus.PendingConfirmation or BookingStatus.Confirmed))
+            // §9.3 + RV P6 decision (user approve 2026-10-06): mở rộng STAFF_ASSIGNED → CANCELLED —
+            // create-with-staff (khách chọn staff lúc đặt) → StaffAssigned ngay → khách/tenant phải
+            // hủy được (Status page Hủy + queue Hủy). CheckedIn/InService vẫn không hủy (đã phục vụ).
+            if (Status is not (BookingStatus.PendingConfirmation or BookingStatus.Confirmed or BookingStatus.StaffAssigned))
                 throw new InvalidOperationException($"Không thể hủy booking ở trạng thái {Status}.");
             Status = BookingStatus.Cancelled;
             CancellationReason = reason;
