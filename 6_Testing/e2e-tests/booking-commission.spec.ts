@@ -150,7 +150,7 @@ test.describe('VanAn Ecosystem - Booking Commission Ledger (AC-Q03/Q04/Q05)', ()
     expect(entry, 'Booking COMPLETED + deposit PAID nhưng không có commission ledger entry — kiểm tra qualification §17.1').toBeTruthy();
 
     expect(entry.salesmanId).toBe(salesmanId);
-    expect(entry.state).toBe('EARNED');
+    expect(entry.state).toBe('Earned'); // enum ToString (DTO)
     expect(entry.grossCommissionAmount).toBeGreaterThan(0);
     expect(entry.netCommissionAmount).toBeGreaterThan(0);
     // Tax snapshot version (NĐ 253/2026 adapter — §17.3): luôn có version khi tạo entry.
@@ -164,7 +164,7 @@ test.describe('VanAn Ecosystem - Booking Commission Ledger (AC-Q03/Q04/Q05)', ()
     );
     expect(payRes.ok(), `Pay commission thất bại: ${payRes.status()}`).toBeTruthy();
     const paid = await payRes.json() as { state?: string; walletTransactionId?: string };
-    expect(paid.state).toBe('PAID');
+    expect(paid.state).toBe('Paid'); // enum ToString (DTO)
     expect(paid.walletTransactionId).toBeTruthy();
     reporter.log('Commission PAID + WalletTransaction link verified');
   });
