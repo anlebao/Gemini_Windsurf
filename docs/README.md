@@ -71,7 +71,7 @@ operations/             # Huong dan van hanh
 ---
 
 ### **3. HUONG DAN SU DUNG**
-**File:** `user-guide/user-manual.md`
+**File:** `user-guide/user-manual.md` · `user-guide/Booking_Guide.md` (Dặt lịch hẹn — booking/staff scheduling)
 
 **Nôi dung:**
 - Bat dau
@@ -83,6 +83,7 @@ operations/             # Huong dan van hanh
 - Tính nang nâng cao
 - Troubleshooting
 - Mobile App
+- **Dặt lịch hẹn** (`Booking_Guide.md`): kích hoạt + tạo QR · hàng đợi/duyệt/gán nhân viên/check-in/hoàn tất · nhân viên & lịch làm việc · đặt cọc/hoàn cọc · hoa hồng cộng tác viên · hướng dẫn khách hàng 4 màn hình + theo dõi lịch
 - Tips & Tricks
 - Câp nhât moi
 
