@@ -57,6 +57,12 @@
 
 ### Phase 3 — QR/Commission/Financial services + Order hook (task `task_booking_phase3_services2.md`)
 
+> **Session P3 PREP (làm ở session MỚI — 2026-10-06, base `031c43b0` = P2 deployed + RV PASS production):**
+> Đọc trước: `docs/AI/project_state.md` (mục 2/4 — P2 DONE) + SRS §7 (QR/attribution) · §16 (deposit/payment/invoice facts) · §17 (commission/ledger) · §23-24 (events/audit) + `1_Shared/Domain.cs` (QRChannel/AttributionSession/CommissionRule/CommissionLedgerEntry/TaxWithholdingPolicy/PaymentTransaction/InvoiceIntegrationRecord/Booking — đã có P1) + P2 services pattern (`3_CoreHub/Services/Booking/` — alias `BookingEntity`/`StaffServiceEntity` cho namespace/type xung đột; mọi query `IgnoreQueryFilters`+TenantId; `ExecuteAtomicAsync`+advisory lock pattern cho write).
+> **Open items kế thừa từ P2:** (1) deposit classification đang set `SecurityDeposit` trong create — P3.4 phải refine theo tax profile (§16.2, NĐ 70/2025: invoice tại thời điểm thu tiền trước; KHÔNG hard-code); (2) design note create-with-staff (StaffAssigned ngay) chờ review ở P4 flow; (3) P2 chưa emit outbox — P3.4 bổ sung facts.
+> **Tái dùng:** `SalesReferral`/`WalletTransaction` (commission payout pattern) · `VietQrService` · `OutboxEvent`/`OutboxMessage` · `CreateOrderFromCommandAsync` + `ApplyHtxInternalTagAsync` (lesson P6c) · `IAlertNotifier` stub.
+> Validation cuối session: guard-check + build + Core.Tests → commit (KHÔNG push trừ khi user yêu cầu).
+
 - [ ] **P3.1 `IQRAttributionService`:** resolve qr_token (token active ∧ tenant active ∧ salesman ∈ tenant — §7.3, **không tin tenant từ client** Risk 5) · AttributionSession create/update (rapid-scan guard §26.3, refresh không đổi §26.4) · snapshot vào booking (§7.6)
 - [ ] **P3.2 `ICommissionService`:** qualification = COMPLETED + payment qualified + attribution valid (§17.1, Risk 4) → CommissionLedgerEntry (rule snapshot + tax snapshot) · finalize/reverse (refund/cancel → reversal §26.6, AC-Q03-Q05) · ledger hợp nhất (D3) · payout → WalletTransaction (Commission + Reversal — reuse)
 - [ ] **P3.3 `TaxWithholdingPolicyAdapter`:** versioned — inputs §17.3 → gross/withheld/net + reason code; **KHÔNG hard-code 10%** (§17.3/§43.2); test fixtures versioned
