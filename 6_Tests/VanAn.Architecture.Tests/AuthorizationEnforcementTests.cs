@@ -194,7 +194,11 @@ public class AuthorizationEnforcementTests
             // (SRS §22 — QR scan) must bypass the cookie/JWT pipeline.
             "MembershipApplicationsController",
             "MembersController",
-            "MembershipProfileController"
+            "MembershipProfileController",
+            // Booking P4.1 (SRS §25): PublicBookingController is the anonymous customer booking
+            // surface (KhachLink WASM) — public endpoints are [AllowAnonymous] + rate-limited
+            // ("booking-public" policy). TenantBookingController keeps class-level [Authorize].
+            "PublicBookingController"
         };
 
         var controllers = GetControllers(GatewayAssembly)
