@@ -169,7 +169,13 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.HasIndex(e => new { e.TenantId, e.OrderId });
             // AC-C04 double-booking guard — final line of defense: 1 staff không thể có 2 booking
             // cùng StartAt (NULL StaffId = "bất kỳ ai" → multiple NULLs allowed).
-            _ = builder.HasIndex(e => new { e.TenantId, e.StaffId, e.StartAt }).IsUnique();
+            // RV P6 fix: filtered index CHỈ trên trạng thái ACTIVE (1-5) — booking Completed/Cancelled/
+            // Rejected/NoShow không được chặn vĩnh viễn việc đặt lại slot (đúng §12 — conflict chỉ tính
+            // active). Unique index đầy đủ (không filter) khiến slot staff đã xong không thể đặt lại.
+            _ = builder.HasIndex(e => new { e.TenantId, e.StaffId, e.StartAt })
+                .IsUnique()
+                .HasDatabaseName("IX_Bookings_TenantId_StaffId_StartAt")
+                .HasFilter("\"Status\" IN (1, 2, 3, 4, 5)");
             // Optimistic concurrency (§19.1) — mỗi transition bump Version; EF so WHERE Version = X.
             _ = builder.Property(e => e.Version).IsConcurrencyToken();
         }

@@ -40,7 +40,7 @@ test.describe('VanAn Ecosystem - Booking Commission Ledger (AC-Q03/Q04/Q05)', ()
       reporter.setArchitectDecision('Bypassed by Architect - E2E tests disabled');
       test.skip();
     }
-    if (!QR_TOKEN || !TENANT_ID || !TENANT_TOKEN || !OFFERING_ID || !STAFF_ID || !TEST_DATE || !TEST_SLOT) {
+    if (!QR_TOKEN || !TENANT_ID || !TENANT_TOKEN || !OFFERING_ID || !STAFF_ID || !TEST_DATE) {
       reporter.setArchitectDecision('Thiếu BOOKING_TEST_* env (QR/tenant/token/offering/staff/date/slot) — skip (RV P7 seed)');
       test.skip();
     }
@@ -70,9 +70,9 @@ test.describe('VanAn Ecosystem - Booking Commission Ledger (AC-Q03/Q04/Q05)', ()
     }
     const slots = (await availRes.json() as Array<{ startAt: string }>)
       .filter((s) => new Date(s.startAt).getTime() > Date.now()); // chỉ slot tương lai (RV hardening)
-    const targetSlot = slots.find((s) => s.startAt.includes(TEST_SLOT));
+    const targetSlot = slots.find((s) => s.startAt.includes(TEST_SLOT)) ?? slots[0];
     if (!targetSlot) {
-      test.skip(true, `Slot ${TEST_SLOT} không available (RV P7)`);
+      test.skip(true, 'Không có slot tương lai (RV P7)');
       return;
     }
 
