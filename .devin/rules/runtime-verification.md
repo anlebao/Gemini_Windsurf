@@ -14,6 +14,21 @@ Code can build + pass CI but still fail at runtime due to:
 
 ## RV PROTOCOL (5 LAYERS — STOP AT FIRST FAILURE)
 
+### RV SWEEP-FIRST METHODOLOGY (lesson 2026-10-06 — Booking P6/P7, user chốt)
+
+> **KHÔNG fix case-by-case trong RV.** Khi 1 feature bước vào RV production, viết **RV sweep script toàn diện TRƯỚC** và chạy 1 lần để thu TOÀN BỘ FAIL, rồi mới phân tích + fix theo nhóm.
+
+1. **Sweep script** (precedent `6_Testing/rv-scripts/booking-rv-sweep.mjs` — node, ~60 checks/lần):
+   - Bao phủ: toàn bộ API surface (public + tenant) · UI route render · isolation (§18.3) · feature-gate · revoke/edge cases · happy path + negative path.
+   - Mỗi check: in `[PASS]/[FAIL]` + response JSON detail → report file (`.devin/booking-rv-report.json`).
+2. **Phân tích FAIL theo CỤM/root-cause** (không fix từng dòng FAIL):
+   - **Cascade**: FAIL phụ do FAIL gốc (vd assign 400 → check-in/start/complete/commission fail) → fix gốc, các FAIL phụ tự hết.
+   - **Cùng class** → 1 fix chung (vd exceptions binding sai ở 2 controller; CancellationToken param).
+   - **Kỳ vọng test sai** → sửa CHECK không sửa code: enum ToString ('Earned'≠'EARNED'), DTO thiếu field (xác minh DB trực tiếp psql trước khi kết luận bug), state machine reject ĐÚNG theo spec, data collision do test run trước.
+3. **Sweep phải re-run được**: self-cleanup dữ liệu test (cancel/complete) + dùng ngày/slot/đối tượng ĐỘNG mỗi run (hết slot hôm nay → dùng ngày mai).
+4. **Fix theo nhóm → 1 deploy → re-sweep TOÀN BỘ** (không chỉ re-test case vừa fix). CD ~15-17 phút/vòng — sweep-first giảm từ N vòng case-by-case xuống 1-2 vòng.
+5. E2E specs (Playwright) chạy SAU khi sweep sạch (0 FAIL) — spec là verify cuối, không phải công cụ dò bug đầu tiên.
+
 ### Layer 1: API-Level Checks (curl/Invoke-WebRequest — 10 seconds)
 Fastest verification. No browser needed. Check before anything else.
 

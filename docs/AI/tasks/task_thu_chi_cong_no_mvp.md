@@ -63,6 +63,8 @@
 
 ### Phase 4 — Deploy + RV (task `task_thu_chi_cong_no_phase4_rv.md`) ⏳
 
+> **Sweep-first (lesson governance #27 — KHÔNG fix case-by-case):** viết RV sweep script `cong-no-rv-sweep.mjs` (phiếu công nợ + tra MST + báo cáo + tuổi nợ FIFO + sổ + lịch sử thanh toán + reversal + isolation) chạy 1 lần thu toàn bộ FAIL → phân tích theo cụm (cascade/cùng class/kỳ vọng sai) → fix nhóm → 1 deploy → re-sweep toàn bộ. E2E spec chạy sau khi sweep sạch.
+
 - [ ] **P4.1 PUSH** (FAST PUSH `env -u GH_TOKEN -u GITHUB_TOKEN git push --no-verify` — pattern #11) + verify sha (`git ls-remote`/gh api — keyring valid)
 - [ ] **P4.2 CD Multi-VPS** (KHÔNG migration — không entity mới) — poll `gh run list --json status,conclusion`
 - [ ] **P4.3 RV L1/L2:** markers (ShopERP.dll `CongNoService`/`CongNo` + Gateway dll nếu đổi) · `/health` 200 · route probe
