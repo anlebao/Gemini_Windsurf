@@ -386,6 +386,29 @@ namespace VanAn.Shared.Domain
                 industrySector: industrySector, correlationId: correlationId, transactionDate: transactionDate);
         }
 
+        // THU CHI & CÔNG NỢ MVP (approved 2026-10-06 — P1, additive factory — P1 decision #1):
+        // Công nợ phiếu (TK 131/331) cần EntryType.Adjustment + BookType.CashBankBook để KHÔNG
+        // lọt vào doanh thu/chi phí [G6]: GetRevenueTotalAsync/GetExpenseTotalAsync lọc theo
+        // BookType (RevenueBook/ExpenseBook); GetTodayRevenueAsync lọc EntryType.Revenue.
+        // CreateRevenue không nhận vendor (đối tượng công nợ bắt buộc); CreateExpense buộc
+        // semantics ExpenseBook/Expense — không dùng được. Factory thuần additive, giữ nguyên
+        // tính immutable (chỉ tạo entry mới) — KHÔNG thêm cột/bảng/migration.
+        public static AccountingEntry CreateDebt(
+            TenantId tenantId,
+            AccountingPeriod period,
+            Money amount,
+            string description,
+            string accountCode,
+            string? vendor = null,
+            string? reference = null,
+            DateTime? transactionDate = null)
+        {
+            return new(tenantId, amount.Value, AccountingEntryType.Adjustment, VatRate.Zero,
+                AccountingBookType.CashBankBook, period.Year, period.Month, description,
+                reversalEntryId: null, accountCode: accountCode, vendor: vendor, reference: reference,
+                transactionDate: transactionDate);
+        }
+
         public static AccountingEntry CreateReversal(AccountingEntry original, string reason)
         {
             ArgumentNullException.ThrowIfNull(original);

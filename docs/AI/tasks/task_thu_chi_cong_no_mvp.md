@@ -4,7 +4,7 @@
 > Source SRS: `docs/requirements/van_an_thu_chi_cong_no_srs_v1.md` (v1.1 — user chốt Q1-Q5 2026-10-06)
 > Master plan: `docs/AI/plans/thu-chi-cong-no-master-plan.md` (ACTIVE — chờ approve)
 > Branch: `main`
-> Status: **✅ APPROVED (2026-10-06, user) — ⏳ Session 1: P1 Services (PREP note ở Phase 1, base `d56be1c9`)**
+> Status: **✅ APPROVED (2026-10-06, user) — ✅ Session 1: P1 Services DONE (2026-10-07 — Core.Tests 2130 PASS · guard ALL PASSED · build 0 errors) — ⏳ Session 2: P2 UI (kế tiếp)**
 
 ---
 
@@ -21,8 +21,8 @@
 - **Execution Mode:** IMPLEMENT (user approved 2026-10-06) — Session 1 P1 Services
 - **Skills (max 3):** `domain-integrity-validation` (AccountingEntry immutable — KHÔNG đụng Domain.cs) + `pattern-based-fixing` (regress báo cáo) + `test-system-upgrade` (test matrix)
 - **Session strategy (session-per-phase — precedent Booking/VA-IIE):**
-  - Session 1 (P1): Services core + FIFO aging + tests → guard/build/Core.Tests PASS → commit
-  - Session 2 (P2): UI phiếu thu/chi 3 loại + 2 trang + menu + bUnit → guard/ShopERP.Tests PASS → commit
+  - Session 1 (P1): Services core + FIFO aging + tests → guard/build/Core.Tests PASS → commit ✅ DONE 2026-10-07
+  - Session 2 (P2): UI phiếu thu/chi 3 loại + 2 trang + menu + bUnit → guard/ShopERP.Tests PASS → commit ⏳ KẾ TIẾP
   - Session 3 (P3): E2E spec + full test matrix → guard/build/tests PASS
   - Session 4 (P4): PUSH → CD Multi-VPS (KHÔNG migration) → RV L1-L5 → đóng
 
@@ -34,19 +34,27 @@
 > Đọc trước: `docs/AI/project_state.md` (mục 2/3/4 — Thu chi & Công nợ) + SRS v1.1 `docs/requirements/van_an_thu_chi_cong_no_srs_v1.md` (§5.1-5.2, §6, giả định G1-G13) + master plan §5.1-5.2 + `3_CoreHub/Services/AccountingEntryService.cs` (CreateRevenue/ExpenseEntryAsync + CheckDuplicateEntryAsync — pattern phiếu) + `IAccountingService.cs` + `HKDBookService.cs` (phiếu → sổ HKD B01-B09).
 > **PHÁT HIỆN KIẾN TRÚC (2026-10-06 — đã verify):** (1) phiếu thu/chi (`AccountingEntry`) nuôi **sổ HKD** (`HKDBookService.RecordRevenueAsync/RecordExpenseAsync` → B01-B09) — KHÔNG phải IncomeStatement/TrialBalance (các báo cáo DN này đọc **JournalEntry** riêng). → entry công nợ 131/331 sẽ **tự xuất hiện trong sổ nhật ký + sổ cái HKD** (đúng bản chất kế toán — sổ cái TK 131/331 là nơi theo dõi); [G6] = verify B02 (kết quả KD HKD) lọc theo AccountCode 5xx/6xx → 131/331 không lọt (dự kiến tự nhiên đúng — cần test chốt). (2) `AccountingEntryService` server **không chặn** 131/331 + Amount âm (chỉ UI whitelist 5xx/7xx + 6xx). (3) `AccountingEntry` có `Vendor` + `ReferenceType`/`ReferenceId` sẵn sàng.
 > **Open items P1 (quyết định tại P1):** (1) EntryType cho phiếu công nợ — nếu HKD sổ cái/B02 lọc theo AccountCode thì EntryType Revenue/Expense hay Adjustment không ảnh hưởng; chọn theo pattern gần nhất (RecordRevenueAsync) + test chốt [G6]; (2) `CheckDuplicateEntryAsync` (cùng amount+account+type trong 5') — phiếu công nợ trùng số tiền hợp lệ (2 khách cùng 5tr) → cân nhắc bỏ qua duplicate-check cho ReferenceType công nợ hoặc reference-aware; (3) FIFO tuổi nợ — tie-break `TransactionDate` + `CreatedAt`; (4) transactionDate truyền ngày user nhập (lesson phiếu thu — không dùng UtcNow).
+>
+> **✅ P1 DECISIONS (2026-10-07 — Session 1, ghi nhận để P2/P3/P4 dùng):**
+> 1. **EntryType = `Adjustment` + BookType = `CashBankBook`** cho phiếu công nợ — qua factory **additive** `AccountingEntry.CreateDebt(...)` (P1.2). Lý do [G6] đã verify: `CreateRevenue` KHÔNG nhận vendor (đối tượng bắt buộc); `CreateExpense` buộc Expense semantics → lọt `GetExpenseTotalAsync`; RevenueBook/Expense lọt `GetRevenueTotalAsync`/`GetTodayRevenueAsync` (lọc theo BookType/EntryType). Adjustment+CashBankBook trung tính ở mọi nơi (PeriodClosing chỉ tách Revenue/Expense; HKDTaxReporting CashBankBook → null). Factory thuần additive — giữ nguyên immutability, KHÔNG cột/bảng/migration.
+> 2. **Bỏ qua duplicate-check 5'** cho phiếu công nợ (nhập tay chủ ý như bút toán sổ cái; 2 khách cùng 5tr hợp lệ — `CongNoService` gọi `repository.AddAsync` trực tiếp, không qua `AccountingEntryService`). **Giữ period-closing guard** (kỳ đóng → chặn).
+> 3. **FIFO tie-break** `TransactionDate` + `CreatedAt`; **cặp (gốc + đảo) net = 0 bị loại khỏi stream** (đảo = hủy bút toán — scenario C; reversal-of-reversal net ≠ 0 giữ nguyên); reversal entry resolve vendor về entry gốc (`CreateReversal` không copy Vendor).
+> 4. **transactionDate user nhập** → period tự suy ra từ transactionDate (không param period riêng — tránh lệch kỳ); **tuổi nợ tính tại cuối kỳ báo cáo** (không phải hôm nay — deterministic + đúng mockup FR-7).
+> 5. `ReferenceType` (RECEIVABLE/PAYABLE...) KHÔNG dùng được — domain field không settable qua factory (KHÔNG đụng Domain.cs thêm). Phân biệt loại phiếu bằng **AccountCode 131/331 + dấu Amount (+ = ghi nợ, − = thu/trả nợ)** — đủ cho FIFO + báo cáo. `Reference` string để chừa chứng từ.
+> 6. **[G6] verified trong code (P1.1):** IncomeStatement (DN/HTX) + TrialBalance + HKD B01-B09 đọc **JournalEntry** riêng (KHÔNG phải AccountingEntry) → entry công nợ KHÔNG BAO GIỜ lọt (PREP note cũ nói "phiếu thu nuôi sổ HKD qua RecordRevenueAsync" — thực tế `RecordRevenueAsync` là dead code, HKD books đọc JournalEntries do OrderService/Seeder tạo). Kênh rò rỉ duy nhất = GetRevenueTotalAsync/GetExpenseTotalAsync (BookType) + GetTodayRevenueAsync (EntryType) → đã chặn bởi decision #1.
 > **Tái dùng:** `IAccountingEntryRepository` (HKDBookService pattern) · filter TenantId (lesson a21f97f2) · `VanAnDbContextTestFactory` global filter → dùng `IgnoreQueryFilters()` đúng chỗ (lesson P3 booking) · reversal pattern (`AccountingEntry` ReversalEntries).
 > **Validation cuối session:** guard-check + build VanAn.sln + Core.Tests + ShopERP.Tests MUST PASS → commit (KHÔNG push trừ khi user yêu cầu).
 
-- [ ] **P1.1 Xác minh nền:** IncomeStatement/TrialBalance filter theo EntryType hay AccountCode → entry 131/331 KHÔNG lọt vào doanh thu/chi phí [G6]; quyết EntryType cho phiếu công nợ (Revenue/Expense vs Adjustment — nếu filter theo EntryType → dùng Adjustment). Kiểm tra cách `CheckDuplicateEntryAsync` ảnh hưởng phiếu công nợ (cùng amount+account+type trong 5' → chặn trùng; công nợ cùng số tiền lặp lại hợp lệ? → tinh chỉnh reference-aware nếu cần).
-- [ ] **P1.2 `ICongNoService`/`CongNoService`** (3_CoreHub/Services/CongNo/ hoặc mở rộng AccountingEntryService — chốt tại P1):
-  - `CreateReceivableAsync(tenantId, period, amount, doiTuong, mst?, description, transactionDate, bool isPayment)` — 131 dương (bán chịu) / âm (thu nợ)
-  - `CreatePayableAsync(...)` — 331 dương (mua chịu) / âm (trả nợ)
-  - `GetCongNoReportAsync(tenantId, year, month)` → `CongNoReportDto` (2 khối 131/331; mỗi đối tượng: Đầu kỳ · PS tăng · Đã thu/trả · Cuối kỳ · **Tuổi nợ <30/30-60/60-90/>90 — FIFO động** [G12])
-  - `GetDoiTuongLedgerAsync(tenantId, accountCode, vendor, year, month)` — sổ cộng dồn
-  - `GetKhoanNoPaymentsAsync(tenantId, khoanNoEntryId)` — lịch sử thanh toán 1 khoản (FIFO động) [FR-8.1]
-  - Mọi query filter TenantId (lesson a21f97f2) · tuổi nợ dựa TransactionDate (+CreatedAt tie-break) [G12]
-- [ ] **P1.3 Reversal:** đảo phiếu công nợ (reversal hiện có) → số dư tự khớp [G10]
-- [ ] **P1.4 Tests (Core.Tests):** kịch bản A (bán chịu 5tr + thu 2tr → cuối kỳ 3tr) · B (mua chịu/trả nợ) · C (reversal) · D (FIFO tuổi nợ: 2 khoản 01/07 + 15/08, trả 20/09 → >90: 3tr · 30-60: 3tr) · D2 (lịch sử thanh toán khoản) · isolation tenant · IncomeStatement không tính 131/331 (regress) → Core.Tests PASS
+- [x] **P1.1 Xác minh nền [DONE 2026-10-07]:** IncomeStatement/TrialBalance/B01-B09 đọc **JournalEntry** riêng (KHÔNG phải AccountingEntry) → entry 131/331 KHÔNG lọt doanh thu/chi phí [G6] ✓ (chi tiết: P1 decisions #6). Kênh rò rỉ duy nhất = revenue/expense totals theo BookType/EntryType → chốt EntryType=Adjustment + BookType=CashBankBook (decision #1). Duplicate-check: bỏ qua cho phiếu công nợ (decision #2 — 2 khách cùng số tiền hợp lệ).
+- [x] **P1.2 `ICongNoService`/`CongNoService` [DONE 2026-10-07]:** `3_CoreHub/Services/CongNo/` (namespace `VanAn.CoreHub.Services.CongNo` — precedent Booking):
+  - `CreateReceivableAsync(tenantId, amount, doiTuong, description?, transactionDate, isPayment, mst?, reference?)` — 131 dương (bán chịu) / âm (thu nợ) — diễn giải mặc định `"Bán chịu — {đối tượng} (MST xxx)"` / `"Thu tiền khách trả nợ — {đối tượng}"` [G11]
+  - `CreatePayableAsync(...)` — 331 tương tự (`"Mua chịu — ..."` / `"Trả tiền người bán — ..."`)
+  - `GetCongNoReportAsync(tenantId, year, month)` → `CongNoReportDto` (2 khối 131/331; mỗi đối tượng: Đầu kỳ · PS tăng · Đã thu/trả · Cuối kỳ · **Tuổi nợ <30/30-60/60-90/>90 — FIFO động** [G12] tại cuối kỳ)
+  - `GetDoiTuongLedgerAsync(tenantId, accountCode, vendor, year, month)` — sổ cộng dồn (Ngày · Diễn giải · Tăng · Giảm · Số dư + đầu kỳ/cuối kỳ; entry đảo hiển thị kèm cặp gốc — audit-friendly)
+  - `GetKhoanNoPaymentsAsync(tenantId, khoanNoEntryId)` — lịch sử thanh toán 1 khoản (FIFO động, mỗi lần + số dư còn lại) [FR-8.1]; null nếu khoản không tồn tại/đã đảo
+  - Mọi query filter TenantId (lesson a21f97f2) · repo mới `IAccountingEntryRepository.GetByTenantAndAccountCodesAsync` (lọc theo TransactionDate — không CreatedAt — đúng ngày nghiệp vụ) · DI trong `3_CoreHub/Program.cs`
+- [x] **P1.3 Reversal [DONE 2026-10-07]:** tái dùng cơ chế reversal hiện có (`AccountingEntry.CreateReversal`) — cặp gốc+đảo net=0 loại khỏi stream FIFO/báo cáo → số dư tự khớp [G10] (test scenario C PASS)
+- [x] **P1.4 Tests (Core.Tests) [DONE 2026-10-07 — +19, Core.Tests 2130 PASS]:** kịch bản A (bán chịu 5tr + thu 2tr → cuối kỳ 3tr; aging 30-60: 3tr) · B (mua chịu/trả nợ → 331 cuối kỳ 2tr) · C (reversal phiếu nợ + reversal phiếu thu) · D (FIFO tuổi nợ: 2 khoản 01/07 + 15/08, trả 20/09 → >90: 3tr · 30-60: 3tr) · D2 (lịch sử thanh toán khoản: 1 lần trả 2tr → còn 3tr; khoản đã đảo → null) · isolation tenant · [G6] (Adjustment+CashBankBook; không lọt revenue total) · validations (amount ≤ 0, đối tượng trống, kỳ đóng) · P1 decisions #2/#3 (2 phiếu cùng tiền đều tạo được; tie-break CreatedAt)
 
 ### Phase 2 — UI (task `task_thu_chi_cong_no_phase2_ui.md`) ⏳
 

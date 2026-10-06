@@ -93,6 +93,31 @@ namespace VanAn.CoreHub.Repositories
             }
         }
 
+        public async Task<IEnumerable<CoreAccountingEntry>> GetByTenantAndAccountCodesAsync(
+            TenantId tenantId,
+            IEnumerable<string> accountCodes,
+            CancellationToken cancellationToken = default)
+        {
+            if (tenantId == null)
+            {
+                throw new ArgumentNullException(nameof(tenantId), "TenantId cannot be null");
+            }
+
+            List<string> codes = accountCodes?.Where(c => !string.IsNullOrWhiteSpace(c)).Distinct().ToList() ?? [];
+            if (codes.Count == 0)
+            {
+                return [];
+            }
+
+            // Direct TenantId comparison (Known Error Pattern #1/#8 — NEVER EF.Property<Guid>).
+            // AccountCode filter with string Contains — maps to SQL IN (...).
+            return await _context.AccountingEntries
+                .Where(e => e.TenantId == tenantId && e.AccountCode != null && codes.Contains(e.AccountCode))
+                .OrderBy(e => e.TransactionDate)
+                .ThenBy(e => e.CreatedAt)
+                .ToListAsync(cancellationToken);
+        }
+
         public async Task<IEnumerable<CoreAccountingEntry>> GetByTenantAndPeriodAsync(
             TenantId tenantId,
             AccountingPeriod period,

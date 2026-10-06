@@ -24,6 +24,17 @@ namespace VanAn.CoreHub.Repositories
             DateTime startDate,
             DateTime endDate,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// THU CHI & CÔNG NỢ MVP (P1): Get all entries for a tenant filtered by account codes
+        /// (e.g. "131"/"331") — ordered by TransactionDate then CreatedAt for FIFO aging +
+        /// sổ cộng dồn. Uses TransactionDate (user-entered), NOT CreatedAt — so báo cáo tháng
+        /// phản ánh đúng ngày nghiệp vụ (lesson: transactionDate user-nhập, không UtcNow).
+        /// </summary>
+        Task<IEnumerable<CoreAccountingEntry>> GetByTenantAndAccountCodesAsync(
+            TenantId tenantId,
+            IEnumerable<string> accountCodes,
+            CancellationToken cancellationToken = default);
         Task<IEnumerable<CoreAccountingEntry>> GetByPeriodAsync(
             TenantId tenantId,
             AccountingPeriod period,
