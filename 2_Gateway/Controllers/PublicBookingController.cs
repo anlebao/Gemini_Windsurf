@@ -144,7 +144,11 @@ public class PublicBookingController(
         });
     }
 
-    /// <summary>Available slots (SRS §11.5 — chỉ trả available, KHÔNG trả lý do unavailable cho khách, Risk 3).</summary>
+    /// <summary>
+    /// Available slots (SRS §11.5 — chỉ trả available, KHÔNG trả lý do unavailable cho khách, Risk 3).
+    /// RV P6 hardening: lọc slot QUÁ KHỨ (backend authoritative §37.2) — khách không thể đặt giờ đã qua
+    /// (tránh 400 "Thời gian đặt phải ở tương lai" ở create; UI đã filter nhưng API phải tự đúng).
+    /// </summary>
     [HttpGet("availability")]
     [AllowAnonymous]
     public async Task<ActionResult<List<AvailableSlotResponse>>> GetAvailability(
@@ -158,7 +162,11 @@ public class PublicBookingController(
             return BadRequest(new { message = "Ngày không hợp lệ (định dạng yyyy-MM-dd)." });
 
         var slots = await _availabilityService.GetAvailableSlotsAsync(new TenantId(tenantId), offeringId, day, staffId, ct);
-        return Ok(slots.Select(s => new AvailableSlotResponse(s.StartAt, s.EndAt, s.StaffId, s.StaffName)).ToList());
+        DateTime nowUtc = DateTime.UtcNow;
+        return Ok(slots
+            .Where(s => s.StartAt > nowUtc)
+            .Select(s => new AvailableSlotResponse(s.StartAt, s.EndAt, s.StaffId, s.StaffName))
+            .ToList());
     }
 
     /// <summary>

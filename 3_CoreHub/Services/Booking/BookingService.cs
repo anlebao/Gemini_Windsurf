@@ -540,9 +540,12 @@ namespace VanAn.CoreHub.Services.Booking
             if (isPostgres)
             {
                 // CTE-wrapped: DO blocks không nhận bind parameters (lesson WalletService).
+                // RV P6 bug: ct phải là CancellationToken (overload riêng), KHÔNG được nằm trong
+                // params object[] — "no store type mapping for CancellationToken" → create/assign
+                // có staff LUÔN 400 trên PG (SQLite tests không bắt — isPostgres=false).
                 _ = await _context.Database.ExecuteSqlRawAsync(
                     "WITH l AS (SELECT pg_advisory_xact_lock(hashtextextended({0}, 0))) SELECT 1",
-                    $"{tenantId.Value}:{staffId}", ct);
+                    new object[] { $"{tenantId.Value}:{staffId}" }, ct);
             }
         }
 
