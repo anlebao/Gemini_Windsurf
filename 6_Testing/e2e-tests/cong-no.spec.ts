@@ -129,8 +129,8 @@ test.describe('VanAn Ecosystem - Công Nợ (131/331) E2E Tests', () => {
     await page.fill('#description', `Bán chịu — ${doiTuong}`);
     await page.click('button:has-text("Lưu Doanh Thu")');
 
-    await expect(page.locator('.vanan-alert-success, .alert-success, [class*="alert-success"]'))
-      .toContainText('thành công', { timeout: 15000 });
+    // Success alert — VanAAlert class là "vanan-alert vanan-alert--success" (không phải .vanan-alert-success)
+    await expect(page.locator('.vanan-alert:has-text("thành công")')).toBeVisible({ timeout: 15000 });
 
     // 2) Báo cáo công nợ → dòng đối tượng với số dư cuối kỳ
     await page.goto(`${shopErpUrl}/accounting/cong-no`);
@@ -150,17 +150,17 @@ test.describe('VanAn Ecosystem - Công Nợ (131/331) E2E Tests', () => {
 
     // 4) Lịch sử thanh toán khoản nợ (FR-8.1) — chưa thanh toán
     await ledgerLine.locator('button:has-text("Lịch sử")').click();
-    await expect(page.locator('.modal:has-text("Lịch Sử Thanh Toán Khoản Nợ")')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('.modal:has-text("Lịch Sử Thanh Toán Khoản Nợ")')).toContainText('chưa được thanh toán');
-    await expect(page.locator('.modal:has-text("Lịch Sử Thanh Toán Khoản Nợ")')).toContainText(amountVn);
+    await expect(page.locator('.vanan-modal:has-text("Lịch Sử Thanh Toán Khoản Nợ")')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.vanan-modal:has-text("Lịch Sử Thanh Toán Khoản Nợ")')).toContainText('chưa được thanh toán');
+    await expect(page.locator('.vanan-modal:has-text("Lịch Sử Thanh Toán Khoản Nợ")')).toContainText(amountVn);
 
     // 5) Cleanup: đảo bút toán (G10 — immutable, không xóa)
-    await page.locator('.modal button:has-text("Đóng"), .modal [aria-label="Close"], .modal .btn-close').first().click().catch(() => {});
+    await page.locator('.vanan-modal button:has-text("Đóng"), .vanan-modal [aria-label="Close"]').first().click().catch(() => {});
     await page.keyboard.press('Escape').catch(() => {});
     await ledgerLine.locator('button:has-text("Đảo")').click();
-    await expect(page.locator('.modal:has-text("Đảo Bút Toán")')).toBeVisible({ timeout: 10000 });
-    await page.locator('.modal input').fill('E2E cleanup');
-    await page.locator('.modal button:has-text("Xác Nhận Đảo")').click();
+    await expect(page.locator('.vanan-modal:has-text("Đảo Bút Toán")')).toBeVisible({ timeout: 10000 });
+    await page.locator('.vanan-modal input').fill('E2E cleanup');
+    await page.locator('.vanan-modal button:has-text("Xác Nhận Đảo")').click();
 
     // Sổ reload → dòng đảo xuất hiện (badge "đảo"), số dư về 0
     await expect(
