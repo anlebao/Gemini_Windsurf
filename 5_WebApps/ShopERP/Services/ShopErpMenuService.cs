@@ -372,6 +372,9 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                     new() { Title = "CRM & Loyalty", Icon = "award", Url = "guides/CRM_Loyalty_Guide.html" },
                     new() { Title = "VALCN v2.0 Platform", Icon = "toggles", Url = "guides/VALCN_V2_Platform_User_Guide.html" },
                     new() { Title = "Community Commerce", Icon = "people-fill", Url = "guides/community-commerce/README.html" },
+                    // 2026-10-07: guides kế toán + đặt lịch hẹn (HTML trong wwwroot/guides — deploy qua CD)
+                    new() { Title = "Hướng dẫn kế toán", Icon = "journal-text", Url = "guides/Accounting_Guide.html" },
+                    new() { Title = "Hướng dẫn đặt lịch hẹn", Icon = "calendar2-check", Url = "guides/Booking_Guide.html" },
                 }
             });
         }
