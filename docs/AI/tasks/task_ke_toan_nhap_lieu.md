@@ -40,7 +40,7 @@
 - [x] **P2.5 `IBackfillJournalEntriesService`:** Preview (dry-run đếm eligible: Revenue/Expense + 5xx/6xx/7xx + chưa đảo + chưa bị đảo + chưa có JE) · Run (tạo qua bridge + đối chiếu) · **KHÔNG tự startup** — endpoint Gateway `POST /api/accounting/backfill-journal-entries?dryRun=true` (tenant-scoped; dryRun mặc định TRUE — an toàn)
 - [x] **P2.6 DI:** CoreHub + ShopERP + Gateway Program.cs (bridge + backfill)
 - [x] **P2.7 Tests (+15):** `ManualEntryJournalBridgeTests` (12 — revenue/expense/công nợ [G6]/reversal skip/idempotent/fail-safe/reversal JE đảo Nợ-Có/hooks AccountingEntryService + ReversalService) + `BackfillJournalEntriesServiceTests` (3 — preview dry-run/run đối chiếu/loại đã có JE + phiếu đã đảo) + update `AccountingEntriesControllerTests` (mock backfill) → **Core.Tests 2147 PASS (+15)** · ShopERP.Tests 163 PASS
-- [x] **Validation:** build VanAn.sln 0 errors · guard ALL PASSED · commit → **push Đợt 2 + CD + RV L1-L4 + chạy backfill + đối chiếu**
+- [x] **Validation:** build VanAn.sln 0 errors · guard ALL PASSED · commit `fa07b31a` → **push Đợt 2 (CD #37643335425 SUCCESS) + RV L1-L4 PASS:** L1 markers (`ManualEntryJournalBridge`/`BackfillJournalEntriesService` ×2 trong CoreHub.dll) · L2 backfill endpoint live (dry-run → 65 eligible) · L3 **backfill run 65/65 + SQL đối chiếu 65 JE == 65 eligible (tenant 1)** · L4 **phiếu thu mới qua Gateway API → JE `ManualEntry` tự sinh đúng ngày nghiệp vụ** + **reversal → JE `ManualReversal` (IsReversal=true) đồng bộ** + Sổ HKD page mở (test data đã dọn — net zero)
 
 ### Phase 3 — #2 Số dư đầu kỳ (task `task_ke_toan_nhap_lieu_phase3_opening_balance.md`) ⏳
 
