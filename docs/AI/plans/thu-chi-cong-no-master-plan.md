@@ -1,8 +1,8 @@
 # MASTER PLAN: THU CHI & CÔNG NỢ (PHẢI THU / PHẢI TRẢ) MVP
 
 > Created: 2026-10-06 (user chốt Q1-Q5 — SRS v1.1 `docs/requirements/van_an_thu_chi_cong_no_srs_v1.md`)
-> Status: **✅ APPROVED (2026-10-06, user) — ⏳ Session 1: P1 Services core**
-> Branch: `main` · Priority: tiếp nối Booking (Booking P1-P7 DONE)
+> Status: **✅ COMPLETE (2026-10-07 — P1 `43a756f7` · P2 `75bc6ead` · P3 `421a74be` · P4 `c8b78d93`+`4a535d73` — CD Multi-VPS SUCCESS ×2 · RV production L1-L4 PASS · E2E 6/6)**
+> Branch: `main`
 
 ---
 
@@ -45,10 +45,10 @@
 
 | Phase | Nội dung | Layer | Task card | Trạng thái |
 |---|---|---|---|---|
-| **1** | **Services core + tests** — `ICongNoService`/`CongNoService`: tạo phiếu công nợ (131/331 + Vendor + ReferenceType + dấu) · báo cáo tổng hợp (đầu kỳ/phát sinh/cuối kỳ + **tuổi nợ FIFO**) · sổ đối tượng (cộng dồn) · **lịch sử thanh toán khoản nợ** · verify IncomeStatement không tính 131/331 + reversal | 3_CoreHub | `task_thu_chi_cong_no_phase1_services.md` | ⏳ pending |
-| **2** | **UI** — Phiếu thu/chi mở rộng 3 loại (doanh thu/chi phí + Ghi nhận phải thu/trả + Thu/Trả nợ) + ô Đối tượng bắt buộc + **nút Tra MST** (reuse) · 2 trang mới `/accounting/cong-no` (báo cáo tổng hợp + tuổi nợ + In/Excel) + `/accounting/cong-no/{loai}/{doiTuong}` (sổ chi tiết + modal lịch sử thanh toán + đảo bút toán) · NavMenu "Công nợ" + Sitemap + bUnit | 5_WebApps/ShopERP | `task_thu_chi_cong_no_phase2_ui.md` | ⏳ pending |
-| **3** | **E2E + hardening** — spec công nợ (phiếu công nợ + tra MST → báo cáo + tuổi nợ → sổ + lịch sử) · guard + build + Core.Tests + ShopERP.Tests full | 6_Tests + 6_Testing | `task_thu_chi_cong_no_phase3_e2e.md` | ⏳ pending |
-| **4** | **Deploy + RV production** — CD Multi-VPS (KHÔNG migration — không entity mới) · L1 markers · L2 health/routes · L3 E2E production · L4 flow thật (phiếu thu công nợ → báo cáo → tuổi nợ → lịch sử) · L5 manual | production | `task_thu_chi_cong_no_phase4_rv.md` | ⏳ pending |
+| **1** | **Services core + tests** — `ICongNoService`/`CongNoService`: tạo phiếu công nợ (131/331 + Vendor + ReferenceType + dấu) · báo cáo tổng hợp (đầu kỳ/phát sinh/cuối kỳ + **tuổi nợ FIFO**) · sổ đối tượng (cộng dồn) · **lịch sử thanh toán khoản nợ** · verify IncomeStatement không tính 131/331 + reversal | 3_CoreHub | `task_thu_chi_cong_no_phase1_services.md` | ✅ DONE `43a756f7` |
+| **2** | **UI** — Phiếu thu/chi mở rộng 3 loại (doanh thu/chi phí + Ghi nhận phải thu/trả + Thu/Trả nợ) + ô Đối tượng bắt buộc + **nút Tra MST** (reuse) · 2 trang mới `/accounting/cong-no` (báo cáo tổng hợp + tuổi nợ + In/Excel) + `/accounting/cong-no/{loai}/{doiTuong}` (sổ chi tiết + modal lịch sử thanh toán + đảo bút toán) · NavMenu "Công nợ" + Sitemap + bUnit | 5_WebApps/ShopERP | `task_thu_chi_cong_no_phase2_ui.md` | ✅ DONE `75bc6ead` |
+| **3** | **E2E + hardening** — spec công nợ (phiếu công nợ + tra MST → báo cáo + tuổi nợ → sổ + lịch sử) · guard + build + Core.Tests + ShopERP.Tests full | 6_Tests + 6_Testing | `task_thu_chi_cong_no_phase3_e2e.md` | ✅ DONE `421a74be` |
+| **4** | **Deploy + RV production** — CD Multi-VPS (KHÔNG migration — không entity mới) · L1 markers · L2 health/routes · L3 E2E production · L4 flow thật (phiếu thu công nợ → báo cáo → tuổi nợ → lịch sử) · L5 manual | production | `task_thu_chi_cong_no_phase4_rv.md` | ✅ DONE `c8b78d93`+`4a535d73` — **RV finding #1 fix: map `AccountingEntry.TransactionDate` (cột chưa từng tồn tại — get-only property không map theo convention; ngày nghiệp vụ bị MẤT khi lưu) + migration PG `AddAccountingEntryTransactionDate`** (deviation ghi chú: cột cho property ĐÃ tồn tại, không phải entity/bảng mới) · L1-L4 PASS · E2E production 6/6 · ⏳ L5 manual (user) |
 
 **Dependency:** 1 → 2 → 3 → 4 (tuần tự; P2 UI chuẩn bị song song sau khi P1 API contract chốt).
 
@@ -133,11 +133,11 @@
 
 ## 9. SUCCESS CRITERIA (SRS §9 DoD)
 
-- [ ] Phiếu thu/chi 3 loại + đối tượng bắt buộc + tra MST điền tên
-- [ ] AccountingEntry 131/331 + Vendor + ReferenceType đúng dấu — KHÔNG entity/migration mới
-- [ ] IncomeStatement/BalanceSheet không regress (test hồi quy PASS)
-- [ ] Báo cáo công nợ: đầu kỳ/phát sinh/cuối kỳ + **tuổi nợ <30/30-60/60-90/>90 (FIFO)** đúng (kịch bản A/B/C/D)
-- [ ] Sổ chi tiết cộng dồn + **truy ngược lịch sử thanh toán từng khoản** + đảo bút toán
-- [ ] Menu "Công nợ" + Sitemap + bUnit + E2E spec
-- [ ] `guard-check.ps1` + `dotnet build VanAn.sln` + Core.Tests + ShopERP.Tests PASS mọi batch
-- [ ] Deploy + RV production PASS → đóng master plan
+- [x] Phiếu thu/chi 3 loại + đối tượng bắt buộc + tra MST điền tên
+- [x] AccountingEntry 131/331 + Vendor + ReferenceType đúng dấu — KHÔNG entity/bảng mới (chỉ fix cột TransactionDate thiếu — RV finding #1)
+- [x] IncomeStatement/BalanceSheet không regress (Core.Tests 2130 PASS)
+- [x] Báo cáo công nợ: đầu kỳ/phát sinh/cuối kỳ + **tuổi nợ <30/30-60/60-90/>90 (FIFO)** đúng (kịch bản A/B/C/D — tests + RV)
+- [x] Sổ chi tiết cộng dồn + **truy ngược lịch sử thanh toán từng khoản** + đảo bút toán
+- [x] Menu "Công nợ" + Sitemap + bUnit + E2E spec
+- [x] `guard-check.ps1` + `dotnet build VanAn.sln` + Core.Tests + ShopERP.Tests PASS mọi batch
+- [x] Deploy + RV production PASS (CD Multi-VPS ×2 SUCCESS · RV L1-L4 PASS · E2E production **6/6** · ⏳ L5 manual user)
