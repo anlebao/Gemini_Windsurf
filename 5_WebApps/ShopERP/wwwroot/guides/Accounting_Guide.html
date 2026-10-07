@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Hướng dẫn sử dụng module kế toán — Vạn An Ecosystem</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Hướng dẫn sử dụng module kế toán — Vạn An
+Ecosystem</h1>
+</header>
+<h1 id="hướng-dẫn-sử-dụng-module-kế-toán--vạn-an-ecosystem">HƯỚNG DẪN SỬ
+DỤNG MODULE KẾ TOÁN — VẠN AN ECOSYSTEM</h1>
+<blockquote>
+<p><strong>Phiên bản:</strong> MVP v1.1 — cập nhật 2026-10-07 <strong>Áp
+dụng:</strong> Module kế toán Vạn An — Thu chi · Công nợ (Phải thu/Phải
+trả) · Sổ sách · Báo cáo tài chính — dành cho chủ hộ kinh doanh (HKD) và
+doanh nghiệp nhỏ. <strong>Phạm vi:</strong> Nhập phiếu thu/chi (3 loại
+mỗi loại) · Tra cứu MST · Lịch sử giao dịch · Báo cáo công nợ + tuổi nợ
+· Sổ theo dõi phải thu/phải trả + lịch sử thanh toán · Số dư tài khoản ·
+Đóng kỳ kế toán · Sổ HKD (TT 152) / Báo cáo tài chính. <strong>Luồng
+tổng thể:</strong> Ghi nhận nghiệp vụ qua Phiếu → kiểm tra Lịch sử giao
+dịch → theo dõi Công nợ (báo cáo + sổ + tuổi nợ) → cuối tháng Đóng kỳ →
+xem Sổ HKD / Báo cáo tài chính.</p>
+</blockquote>
+<hr />
+<h2 id="mục-lục">MỤC LỤC</h2>
+<ol type="1">
+<li><a href="#1-tổng-quan--vai-trò">Tổng quan &amp; vai trò</a></li>
+<li><a href="#2-nguyên-tắc-kế-toán-quan-trọng">Nguyên tắc kế toán quan
+trọng</a></li>
+<li><a href="#3-phiếu-thu--3-loại-phiếu">Phiếu thu — 3 loại
+phiếu</a></li>
+<li><a href="#4-phiếu-chi--3-loại-phiếu">Phiếu chi — 3 loại
+phiếu</a></li>
+<li><a href="#5-tra-cứu-mst-mã-số-thuế">Tra cứu MST (mã số
+thuế)</a></li>
+<li><a href="#6-lịch-sử-giao-dịch">Lịch sử giao dịch</a></li>
+<li><a href="#7-báo-cáo-công-nợ-tổng-hợp--tuổi-nợ">Báo cáo công nợ tổng
+hợp + tuổi nợ</a></li>
+<li><a href="#8-sổ-theo-dõi-phải-thu--phải-trả">Sổ theo dõi phải thu /
+phải trả</a></li>
+<li><a href="#9-số-dư-tài-khoản">Số dư tài khoản</a></li>
+<li><a href="#10-đóng-kỳ-kế-toán">Đóng kỳ kế toán</a></li>
+<li><a href="#11-sổ-hkd-tt-152--báo-cáo-tài-chính">Sổ HKD (TT 152) &amp;
+Báo cáo tài chính</a></li>
+<li><a href="#12-câu-hỏi-thường-gặp-faq">Câu hỏi thường gặp
+(FAQ)</a></li>
+</ol>
+<hr />
+<h2 id="1-tổng-quan--vai-trò">1. TỔNG QUAN &amp; VAI TRÒ</h2>
+<table>
+<thead>
+<tr>
+<th>Vai trò</th>
+<th>Mô tả</th>
+<th>Nền tảng truy cập</th>
+<th>Phạm vi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Chủ shop / Owner</strong></td>
+<td>Người duy nhất được ghi sổ kế toán, xem báo cáo, đóng kỳ</td>
+<td>ShopERP — menu <strong>"Kế Toán"</strong>
+(<code>/accounting/*</code>)</td>
+<td><strong>Shop của mình</strong> (per-tenant)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Module kế toán đáp ứng 4 nhu cầu:</strong></p>
+<ol type="1">
+<li><strong>Thu chi</strong> — ghi nhận tiền thu vào / chi ra qua Phiếu
+thu / Phiếu chi.</li>
+<li><strong>Phải thu</strong> — khách hàng còn nợ bao nhiêu (bán chịu
+chưa thu).</li>
+<li><strong>Phải trả</strong> — mình còn nợ người bán / nhà cung cấp bao
+nhiêu (mua chịu chưa trả).</li>
+<li><strong>Theo dõi</strong> — từng khách / người bán: phát sinh → đã
+thu/trả → còn lại + <strong>tuổi nợ</strong> + <strong>lịch sử thanh
+toán từng khoản nợ</strong>.</li>
+</ol>
+<p><strong>Vào module:</strong> đăng nhập ShopERP bằng tài khoản
+<strong>Owner</strong> → menu <strong>"Kế Toán"</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Menu</th>
+<th>Trang</th>
+<th>Công dụng</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Kế Toán</td>
+<td><code>/accounting</code></td>
+<td>Dashboard: doanh thu/chi phí/lợi nhuận tháng + thao tác nhanh</td>
+</tr>
+<tr>
+<td>Lịch Sử Giao Dịch</td>
+<td><code>/accounting/history</code></td>
+<td>Xem mọi bút toán theo tháng</td>
+</tr>
+<tr>
+<td><strong>Công Nợ</strong></td>
+<td><code>/accounting/cong-no</code></td>
+<td>Báo cáo phải thu/phải trả + tuổi nợ</td>
+</tr>
+<tr>
+<td>Số Dư Tài Khoản</td>
+<td><code>/accounting/balance</code></td>
+<td>Số dư từng tài khoản kế toán</td>
+</tr>
+<tr>
+<td>Đóng Kỳ Kế Toán</td>
+<td><code>/accounting/period-closing</code></td>
+<td>Khóa sổ cuối tháng</td>
+</tr>
+<tr>
+<td>Sổ HKD (TT 152) / Báo Cáo Tài Chính</td>
+<td><code>/accounting/hkd-books</code> /
+<code>/accounting/financial-reports</code></td>
+<td>Sổ sách &amp; báo cáo theo chuẩn kế toán</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>💡 Mọi trang cũng có trong <strong>Sitemap</strong>
+(<code>/sitemap</code> → thẻ "💰 Kế Toán &amp; Tài Chính").</p>
+</blockquote>
+<hr />
+<h2 id="2-nguyên-tắc-kế-toán-quan-trọng">2. NGUYÊN TẮC KẾ TOÁN QUAN
+TRỌNG</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Nguyên tắc</th>
+<th>Ý nghĩa thực tế</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>Bút toán không sửa, không xóa</strong></td>
+<td>Mọi phiếu sau khi lưu là <strong>bất biến</strong> (append-only).
+Sai sót → dùng nút <strong>"Đảo"</strong> (đảo bút toán) rồi lập phiếu
+mới đúng.</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Đảo bút toán</strong></td>
+<td>Tạo phiếu đảo có số tiền ngược dấu + ghi lý do → số dư tự khớp lại.
+Phiếu gốc + phiếu đảo đều hiển thị trong sổ (minh bạch, kiểm toán
+được).</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Kỳ đóng sổ</strong></td>
+<td>Cuối tháng đóng kỳ → <strong>không thể thêm/đảo bút toán</strong>
+vào kỳ đã đóng. Muốn sửa → mở lại kỳ (nếu được) hoặc hạch toán vào kỳ
+sau.</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Bán chịu không ghi doanh thu</strong></td>
+<td>Phiếu "Ghi nhận phải thu" chỉ theo dõi công nợ (TK 131) —
+<strong>không</strong> tính vào doanh thu. Khi khách trả tiền, ghi doanh
+thu bằng phiếu thu thường.</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Mua chịu không ghi chi phí</strong></td>
+<td>Phiếu "Ghi nhận phải trả" chỉ theo dõi công nợ (TK 331) — không tính
+vào chi phí. Khi trả tiền, ghi chi phí bằng phiếu chi thường.</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>Tra MST</strong></td>
+<td>Nhập mã số thuế + nút "Tra cứu" → tự điền tên công ty vào Đối tượng
+(không cần gõ tay).</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-phiếu-thu--3-loại-phiếu">3. PHIẾU THU — 3 LOẠI PHIẾU</h2>
+<p>Vào ShopERP → <strong>Kế Toán → Nhập Doanh Thu</strong>
+(<code>/accounting/revenue</code>) hoặc nút <strong>"➕ Nhập Doanh
+Thu"</strong> trên dashboard.</p>
+<p>Chọn <strong>"Loại Phiếu Thu"</strong> (3 lựa chọn):</p>
+<table>
+<thead>
+<tr>
+<th>Loại phiếu</th>
+<th>Khi nào dùng</th>
+<th>Tài khoản</th>
+<th>Số tiền</th>
+<th>Ô "Đối tượng"</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Thu doanh thu</strong> <em>(mặc định)</em></td>
+<td>Khách trả tiền, mình ghi doanh thu thật</td>
+<td>5xx / 7xx</td>
+<td>dương</td>
+<td>Ẩn (không bắt buộc)</td>
+</tr>
+<tr>
+<td><strong>Ghi nhận phải thu</strong></td>
+<td><strong>Bán chịu</strong> cho khách (chưa thu tiền)</td>
+<td><strong>131</strong> — Phải thu</td>
+<td>dương (tăng nợ)</td>
+<td><strong>BẮT BUỘC</strong></td>
+</tr>
+<tr>
+<td><strong>Thu tiền khách trả nợ</strong></td>
+<td>Khách trả nợ khoản đã bán chịu</td>
+<td><strong>131</strong> — Phải thu</td>
+<td>âm (giảm nợ)</td>
+<td><strong>BẮT BUỘC</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Các bước lập phiếu:</strong></p>
+<ol type="1">
+<li>Chọn <strong>Loại Phiếu Thu</strong>.</li>
+<li>Chọn <strong>Ngày</strong> phát sinh (mặc định hôm nay — có thể nhập
+ngày trước).</li>
+<li>Nhập <strong>Số Tiền</strong>.</li>
+<li>Nếu loại công nợ: nhập <strong>Đối Tượng (khách hàng)</strong> — có
+thể <strong>Tra MST</strong> để tự điền tên công ty (xem <a
+href="#5-tra-cứu-mst-mã-số-thuế">mục 5</a>).</li>
+<li>Chọn <strong>Tài Khoản</strong> (tự động gợi ý đúng theo loại phiếu
+— công nợ chỉ có 131).</li>
+<li><strong>Diễn Giải</strong> — để trống sẽ tự gợi ý:
+<code>Bán chịu — {khách} (MST ...)</code> /
+<code>Thu tiền khách trả nợ — {khách}</code>.</li>
+<li>(Tùy chọn) <strong>Số Chứng Từ</strong> — số hóa đơn/chứng từ liên
+quan.</li>
+<li>Nhấn <strong>"Lưu Doanh Thu"</strong> → thấy thông báo "Đã lưu doanh
+thu thành công!".</li>
+</ol>
+<blockquote>
+<p>💡 <strong>Hai phiếu cùng số tiền trong 5 phút:</strong> hệ thống chỉ
+cảnh báo trùng lặp cho phiếu <em>thu doanh thu</em>; phiếu công nợ của 2
+khách khác nhau cùng số tiền là hợp lệ, không bị chặn.</p>
+</blockquote>
+<hr />
+<h2 id="4-phiếu-chi--3-loại-phiếu">4. PHIẾU CHI — 3 LOẠI PHIẾU</h2>
+<p>Vào ShopERP → <strong>Kế Toán → Nhập Chi Phí</strong>
+(<code>/accounting/expenses</code>) hoặc nút <strong>"➖ Nhập Chi
+Phí"</strong> trên dashboard.</p>
+<p>Chọn <strong>"Loại Phiếu Chi"</strong> (3 lựa chọn):</p>
+<table>
+<thead>
+<tr>
+<th>Loại phiếu</th>
+<th>Khi nào dùng</th>
+<th>Tài khoản</th>
+<th>Số tiền</th>
+<th>Ô "Đối tượng"</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Chi phí</strong> <em>(mặc định)</em></td>
+<td>Chi tiền mua hàng/dịch vụ, ghi chi phí thật</td>
+<td>6xx</td>
+<td>dương</td>
+<td>Không bắt buộc (có ô Nhà cung cấp)</td>
+</tr>
+<tr>
+<td><strong>Ghi nhận phải trả</strong></td>
+<td><strong>Mua chịu</strong> nguyên liệu/hàng hóa (chưa trả tiền)</td>
+<td><strong>331</strong> — Phải trả</td>
+<td>dương (tăng nợ)</td>
+<td><strong>BẮT BUỘC</strong></td>
+</tr>
+<tr>
+<td><strong>Trả tiền người bán</strong></td>
+<td>Trả nợ cho người bán khoản đã mua chịu</td>
+<td><strong>331</strong> — Phải trả</td>
+<td>âm (giảm nợ)</td>
+<td><strong>BẮT BUỘC</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Thao tác tương tự phiếu thu: chọn loại → ngày → số tiền → <strong>Đối
+tượng (nhà cung cấp)</strong> (loại công nợ) → tài khoản (tự gợi ý 331)
+→ diễn giải (tự gợi ý <code>Mua chịu — {người bán}</code> /
+<code>Trả tiền người bán — {người bán}</code>) → <strong>"Lưu Chi
+Phí"</strong>.</p>
+<hr />
+<h2 id="5-tra-cứu-mst-mã-số-thuế">5. TRA CỨU MST (MÃ SỐ THUẾ)</h2>
+<p>Trên phiếu thu/chi loại công nợ (hoặc phiếu thường):</p>
+<ol type="1">
+<li>Nhập <strong>Mã Số Thuế</strong> (10 hoặc 13 chữ số) vào ô MST.</li>
+<li>Nhấn nút <strong>"Tra cứu MST"</strong>.</li>
+<li>Hệ thống gọi cổng thông tin doanh nghiệp → hiện <strong>thẻ thông
+tin</strong> (tên công ty, địa chỉ, trạng thái hoạt động...) và
+<strong>tự điền tên công ty vào ô Đối tượng</strong> + gợi ý diễn giải
+kèm MST.</li>
+</ol>
+<blockquote>
+<p>⚠️ Nếu MST không tồn tại / hệ thống tra cứu tạm gián đoạn (quá tải),
+sẽ hiện thông báo thân thiện — bạn vẫn có thể <strong>gõ tên đối tượng
+bằng tay</strong>. Cùng chuỗi tên = cùng đối tượng (nên gõ chuẩn để gom
+đúng 1 khách).</p>
+</blockquote>
+<hr />
+<h2 id="6-lịch-sử-giao-dịch">6. LỊCH SỬ GIAO DỊCH</h2>
+<p>Vào <strong>Kế Toán → Lịch Sử Giao Dịch</strong>
+(<code>/accounting/history</code>):</p>
+<ul>
+<li>Danh sách <strong>mọi bút toán</strong> (thu, chi, công nợ, đảo)
+theo khoảng ngày.</li>
+<li><strong>Tìm kiếm</strong> theo diễn giải, <strong>lọc</strong> theo
+khoản tiền (min/max) và loại tài khoản.</li>
+<li>Nút <strong>"Chi Tiết"</strong> trên mỗi dòng → xem đầy đủ thông tin
+phiếu.</li>
+<li>Nút <strong>"📊 Export Excel"</strong> → tải file CSV mở được bằng
+Excel.</li>
+</ul>
+<hr />
+<h2 id="7-báo-cáo-công-nợ-tổng-hợp--tuổi-nợ">7. BÁO CÁO CÔNG NỢ TỔNG HỢP
++ TUỔI NỢ</h2>
+<p>Vào <strong>Kế Toán → Công Nợ</strong>
+(<code>/accounting/cong-no</code>) — báo cáo theo tháng, 2 khối:</p>
+<p><strong>PHẢI THU (131)</strong> và <strong>PHẢI TRẢ (331)</strong>,
+mỗi đối tượng một dòng:</p>
+<table>
+<thead>
+<tr>
+<th>Đối tượng</th>
+<th>Đầu kỳ</th>
+<th>PS tăng</th>
+<th>Đã thu/trả</th>
+<th>Cuối kỳ</th>
+<th>Tuổi nợ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Khách A</td>
+<td>0</td>
+<td>5.000.000</td>
+<td>2.000.000</td>
+<td>3.000.000</td>
+<td>&lt;30: 0 · 30-60: 3tr · 60-90: 0 · &gt;90: 0</td>
+</tr>
+<tr>
+<td>Công Ty TNHH X</td>
+<td>2.000.000</td>
+<td>0</td>
+<td>0</td>
+<td>2.000.000</td>
+<td>&gt;90: 2tr</td>
+</tr>
+<tr>
+<td><strong>TỔNG</strong></td>
+<td>...</td>
+<td>...</td>
+<td>...</td>
+<td>...</td>
+<td>...</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Thao tác:</strong></p>
+<ul>
+<li><strong>Đổi tháng</strong>: chọn Năm + Tháng → nút
+<strong>"Xem"</strong>.</li>
+<li><strong>Lọc nhanh</strong>: chips <strong>Tất cả / Còn nợ / Hết
+nợ</strong>.</li>
+<li><strong>In báo cáo</strong>: nút <strong>"🖨️ In Báo
+Cáo"</strong>.</li>
+<li><strong>Xuất Excel</strong>: nút <strong>"📊 Xuất Excel"</strong>
+(file CSV mở bằng Excel).</li>
+<li><strong>Xem sổ chi tiết 1 đối tượng</strong>: bấm vào <strong>tên
+đối tượng</strong> → sang <a href="#8-sổ-theo-dõi-phải-thu--phải-trả">Sổ
+theo dõi</a>.</li>
+<li>Nếu đối tượng <strong>trả thừa / trả trước</strong> (số dư âm) →
+hiện badge <strong>"trả trước"</strong> (hệ thống không chặn, hiển thị
+bình thường).</li>
+</ul>
+<p><strong>Tuổi nợ</strong> (tính theo <strong>FIFO</strong> — thanh
+toán trừ vào khoản <strong>cũ nhất</strong> trước):</p>
+<table>
+<thead>
+<tr>
+<th>Nhóm</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>&lt; 30 ngày</td>
+<td>Nợ mới phát sinh trong tháng</td>
+</tr>
+<tr>
+<td>30–60 ngày</td>
+<td>Nợ từ 1-2 tháng trước</td>
+</tr>
+<tr>
+<td>60–90 ngày</td>
+<td>Nợ từ 2-3 tháng trước</td>
+</tr>
+<tr>
+<td>&gt; 90 ngày</td>
+<td>Nợ quá 3 tháng — cần chú ý thu hồi</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>💡 <strong>Ví dụ:</strong> bán chịu 5tr ngày 01/07 + 3tr ngày 15/08,
+khách trả 2tr ngày 20/09 → 2tr trả vào khoản 01/07 (cũ nhất) → khoản
+01/07 còn <strong>3tr (&gt;90 ngày)</strong>, khoản 15/08 còn
+<strong>3tr (30-60 ngày)</strong>.</p>
+</blockquote>
+<hr />
+<h2 id="8-sổ-theo-dõi-phải-thu--phải-trả">8. SỔ THEO DÕI PHẢI THU / PHẢI
+TRẢ</h2>
+<p>Từ báo cáo công nợ, bấm tên đối tượng → sổ chi tiết cộng dồn:</p>
+<pre><code>SỔ THEO DÕI PHẢI THU — Khách A (TK 131) — Kỳ 10/2026
+──────────────────────────────────────────────
+Ngày       Diễn giải                    Tăng      Giảm      Số dư
+01/10      Bán chịu — Khách A         5.000.000           5.000.000
+15/10      Thu tiền khách trả nợ                2.000.000  3.000.000
+──────────────────────────────────────────────
+Cuối kỳ                                               Số dư 3.000.000</code></pre>
+<p><strong>Thao tác trên mỗi dòng:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Nút</th>
+<th>Công dụng</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>"Lịch sử"</strong> <em>(chỉ dòng khoản nợ — Tăng &gt;
+0)</em></td>
+<td>Mở <strong>"Lịch Sử Thanh Toán Khoản Nợ"</strong>: khoản này đã được
+thu/trả những lần nào, mỗi lần bao nhiêu, <strong>còn nợ bao
+nhiêu</strong> (tính FIFO động)</td>
+</tr>
+<tr>
+<td><strong>"Đảo"</strong></td>
+<td>Nhập sai → đảo bút toán: nhập <strong>lý do</strong> → "Xác Nhận
+Đảo" → số dư tự khớp lại; dòng đảo hiển thị kèm badge
+<strong>"đảo"</strong></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>⚠️ Phiếu <strong>"Thu tiền khách trả nợ"</strong> và <strong>"Trả
+tiền người bán"</strong> cũng có nút Đảo (nhập sai lần thu/trả → đảo để
+phục hồi số dư khoản nợ).</p>
+</blockquote>
+<hr />
+<h2 id="9-số-dư-tài-khoản">9. SỐ DƯ TÀI KHOẢN</h2>
+<p>Vào <strong>Kế Toán → Số Dư Tài Khoản</strong>
+(<code>/accounting/balance</code>): tổng hợp số dư từng tài khoản kế
+toán (111 Tiền mặt, 131 Phải thu, 331 Phải trả, 511 Doanh thu...) — dùng
+để đối chiếu nhanh.</p>
+<hr />
+<h2 id="10-đóng-kỳ-kế-toán">10. ĐÓNG KỲ KẾ TOÁN</h2>
+<p>Vào <strong>Kế Toán → Đóng Kỳ Kế Toán</strong>
+(<code>/accounting/period-closing</code>), cuối mỗi tháng:</p>
+<ol type="1">
+<li>Chọn <strong>kỳ (tháng/năm)</strong> cần đóng.</li>
+<li>Hệ thống kiểm tra số liệu (doanh thu/chi phí) → nhấn <strong>Đóng
+kỳ</strong>.</li>
+<li>Kỳ đã đóng: <strong>không thể thêm phiếu hoặc đảo bút toán</strong>
+vào kỳ đó (có thông báo "Kỳ kế toán đã đóng sổ").</li>
+<li>Nếu cần sửa số liệu kỳ đã đóng → dùng tính năng <strong>mở lại
+kỳ</strong> (nếu có) hoặc hạch toán bổ sung vào kỳ hiện tại.</li>
+</ol>
+<hr />
+<h2 id="11-sổ-hkd-tt-152--báo-cáo-tài-chính">11. SỔ HKD (TT 152) &amp;
+BÁO CÁO TÀI CHÍNH</h2>
+<p>Tùy loại hình kinh doanh, menu "Kế Toán" hiển thị:</p>
+<p><strong>Hộ kinh doanh (HKD):</strong> <strong>Sổ Kế Toán HKD</strong>
+(<code>/accounting/hkd-books</code>) — bộ sổ theo TT
+152/2025/TT-BTC:</p>
+<ul>
+<li>S1a — Sổ theo dõi hàng hóa/dịch vụ cung ứng</li>
+<li>S2a — Sổ theo dõi hàng hóa/dịch vụ cung ứng (nộp thuế GTGT)</li>
+<li>S2b — Sổ doanh thu bán hàng hóa/dịch vụ</li>
+<li>S2c — Sổ chi tiết doanh thu, chi phí</li>
+<li>S2d — Sổ chi tiết vật liệu, dụng cụ, sản phẩm, hàng hóa</li>
+<li>S2e — Sổ chi tiết tiền</li>
+<li>S3a — Sổ tổng hợp theo mẫu (nếu có)</li>
+</ul>
+<p><strong>Doanh nghiệp:</strong> <strong>Báo Cáo Tài Chính</strong>
+(<code>/accounting/financial-reports</code>) — hub gồm:</p>
+<ul>
+<li>Bảng cân đối số phát sinh (Trial Balance)</li>
+<li>Báo cáo kết quả kinh doanh (Income Statement)</li>
+<li>Bảng cân đối kế toán (Balance Sheet)</li>
+<li>Báo cáo lưu chuyển tiền tệ (Cash Flow)</li>
+<li>Thuyết minh báo cáo tài chính (Notes)</li>
+</ul>
+<blockquote>
+<p>💡 Phiếu công nợ (131/331) <strong>không</strong> xuất hiện trong
+doanh thu/chi phí — đúng bản chất: bán chịu chưa phải doanh thu, mua
+chịu chưa phải chi phí. Chúng chỉ theo dõi trong báo cáo công nợ + sổ
+cái tài khoản.</p>
+</blockquote>
+<hr />
+<h2 id="12-câu-hỏi-thường-gặp-faq">12. CÂU HỎI THƯỜNG GẶP (FAQ)</h2>
+<p><strong>Q1. Nhập sai phiếu thì sửa thế nào?</strong> Không sửa được
+trực tiếp (bút toán bất biến). Dùng nút <strong>"Đảo"</strong> trên dòng
+phiếu trong sổ/lịch sử → nhập lý do → lập phiếu mới đúng.</p>
+<p><strong>Q2. Khách trả thừa / trả trước thì sao?</strong> Hệ thống cho
+phép số dư âm và hiển thị badge <strong>"trả trước"</strong> — không
+chặn, không tính lãi.</p>
+<p><strong>Q3. Hai khách cùng bán chịu 5 triệu trong 5 phút có bị chặn
+không?</strong> Không. Phiếu công nợ không áp dụng chống trùng (chỉ
+phiếu thu doanh thu/chi phí mới cảnh báo trùng trong 5 phút).</p>
+<p><strong>Q4. Làm sao biết khoản nợ cũ còn bao nhiêu chưa thu?</strong>
+Báo cáo Công Nợ → bấm tên đối tượng → sổ chi tiết → nút <strong>"Lịch
+sử"</strong> trên khoản nợ → xem từng lần thu/trả + số còn lại.</p>
+<p><strong>Q5. Tuổi nợ tính theo ngày nào?</strong> Theo <strong>ngày
+phát sinh khoản nợ</strong> (ngày trên phiếu) so với <strong>cuối kỳ báo
+cáo</strong>; thanh toán trừ vào khoản cũ nhất trước (FIFO).</p>
+<p><strong>Q6. Cuối tháng cần làm gì?</strong></p>
+<ol type="1">
+<li>Rà soát Lịch sử giao dịch + Báo cáo công nợ → 2) Đảo các phiếu nhập
+sai → 3) <strong>Đóng kỳ kế toán</strong> → 4) Xem/lưu Sổ HKD hoặc Báo
+cáo tài chính.</li>
+</ol>
+<p><strong>Q7. Tra MST báo lỗi "Mã số thuế không hợp lệ"?</strong> MST
+phải 10 hoặc 13 chữ số (bỏ dấu "-"). Nếu đúng mà vẫn lỗi → hệ thống tra
+cứu tạm gián đoạn → nhập tên đối tượng bằng tay.</p>
+<p><strong>Q8. Ai được xem module kế toán?</strong> Chỉ tài khoản
+<strong>Owner</strong> (chủ shop). Nhân viên/khác không vào được.</p>
+<hr />
+<p><em>Tài liệu đi kèm: SRS Thu chi &amp; Công nợ v1.1
+(<code>docs/requirements/van_an_thu_chi_cong_no_srs_v1.md</code>) ·
+Master plan
+(<code>docs/AI/plans/thu-chi-cong-no-master-plan.md</code>).</em></p>
+</body>
+</html>

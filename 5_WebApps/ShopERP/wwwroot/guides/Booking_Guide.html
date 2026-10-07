@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Hướng dẫn sử dụng Đặt lịch hẹn (Appointment Booking) — Vạn An Ecosystem</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Hướng dẫn sử dụng Đặt lịch hẹn (Appointment Booking) —
+Vạn An Ecosystem</h1>
+</header>
+<h1
+id="hướng-dẫn-sử-dụng-đặt-lịch-hẹn-appointment-booking--vạn-an-ecosystem">HƯỚNG
+DẪN SỬ DỤNG ĐẶT LỊCH HẸN (APPOINTMENT BOOKING) — VẠN AN ECOSYSTEM</h1>
+<blockquote>
+<p><strong>Phiên bản:</strong> MVP v1.1 — cập nhật 2026-10-06 <strong>Áp
+dụng:</strong> Appointment Booking &amp; Staff Scheduling MVP (SRS v1.1)
+— dành cho mô hình dịch vụ theo lịch hẹn: Spa / Hair Salon / Massage /
+Karaoke / Clinic. <strong>Phạm vi:</strong> Khách hàng đặt lịch qua
+KhachLink (4 màn hình + trang theo dõi) · Chủ shop/quản lý xử lý lịch
+hẹn qua ShopERP (8 trang) · Hoa hồng cho cộng tác viên giới thiệu (QR).
+<strong>Luồng tổng thể:</strong> QR → chọn dịch vụ → chọn giờ &amp; nhân
+viên → ghi chú &amp; cọc → xác nhận → shop duyệt → gán nhân viên → đón
+khách → hoàn tất → tạo Đơn hàng → tính hoa hồng (nếu có).</p>
+</blockquote>
+<hr />
+<h2 id="mục-lục">MỤC LỤC</h2>
+<ol type="1">
+<li><a href="#1-tổng-quan--vai-trò">Tổng quan &amp; vai trò</a></li>
+<li><a href="#2-chuẩn-bị--bật-tính-năng--tạo-mã-qr">Chuẩn bị — Bật tính
+năng &amp; tạo mã QR</a></li>
+<li><a href="#3-shop-owner--storekeeper--quản-lý-lịch-hẹn-shoperp">Shop
+Owner / StoreKeeper — Quản lý lịch hẹn (ShopERP)</a></li>
+<li><a href="#4-nhân-viên--lịch-làm-việc">Nhân viên &amp; lịch làm
+việc</a></li>
+<li><a href="#5-đặt-cọc--hoàn-cọc">Đặt cọc &amp; hoàn cọc</a></li>
+<li><a href="#6-hoa-hồng-cộng-tác-viên">Hoa hồng cộng tác viên</a></li>
+<li><a href="#7-customer--khách-hàng-đặt-lịch-khachlink">Customer —
+Khách hàng đặt lịch (KhachLink)</a></li>
+<li><a href="#8-bảng-tra-cứu-nhanh-trạng-thái">Bảng tra cứu nhanh trạng
+thái</a></li>
+<li><a href="#9-câu-hỏi-thường-gặp-faq">Câu hỏi thường gặp
+(FAQ)</a></li>
+</ol>
+<hr />
+<h2 id="1-tổng-quan--vai-trò">1. TỔNG QUAN &amp; VAI TRÒ</h2>
+<table>
+<thead>
+<tr>
+<th>Vai trò</th>
+<th>Mô tả</th>
+<th>Nền tảng truy cập</th>
+<th>Phạm vi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Shop Owner / StoreKeeper</strong></td>
+<td>Chủ shop / quản lý — duyệt lịch, gán nhân viên, xử lý cọc, theo dõi
+hoa hồng</td>
+<td>ShopERP — menu <strong>"Đặt lịch hẹn"</strong>
+(<code>/booking/*</code>)</td>
+<td><strong>Shop của mình</strong> (per-tenant)</td>
+</tr>
+<tr>
+<td><strong>Customer</strong></td>
+<td>Khách hàng cuối — đặt lịch không cần đăng ký</td>
+<td>KhachLink PWA — link <code>/booking/{mã QR}</code></td>
+<td>Chính lịch hẹn của mình</td>
+</tr>
+<tr>
+<td><strong>Collaborator (Salesman)</strong></td>
+<td>Cộng tác viên giới thiệu qua mã QR riêng → hưởng hoa hồng khi lịch
+hoàn tất</td>
+<td>Nhận hoa hồng qua ví điện tử (Wallet)</td>
+<td>Lịch do QR của mình giới thiệu</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Đặc điểm chính:</strong></p>
+<ul>
+<li><strong>Không cần đăng ký tài khoản</strong> — khách đặt lịch nặc
+danh (zero-friction), hệ thống nhận diện qua thiết bị.</li>
+<li><strong>Chống đặt trùng giờ</strong> — một nhân viên chỉ nhận 1 lịch
+trong cùng khung giờ; 2 khách đặt cùng lúc → 1 người được, người kia
+nhận thông báo "khung giờ vừa có người đặt".</li>
+<li><strong>Chỉ shop đã kích hoạt mới nhận đặt lịch</strong>
+(feature-flag từng shop) — F&amp;B/không dịch vụ không bị ảnh
+hưởng.</li>
+<li><strong>Hoàn tất lịch → tự động tạo Đơn hàng</strong> — doanh thu về
+đúng luồng kế toán hiện có.</li>
+<li><strong>Hoa hồng chỉ tính khi đủ điều kiện</strong>: lịch HOÀN TẤT +
+đã thu đủ cọc (nếu có) + QR còn hiệu lực.</li>
+</ul>
+<hr />
+<h2 id="2-chuẩn-bị--bật-tính-năng--tạo-mã-qr">2. CHUẨN BỊ — BẬT TÍNH
+NĂNG &amp; TẠO MÃ QR</h2>
+<h3 id="21-kích-hoạt-tính-năng-đặt-lịch">2.1 Kích hoạt tính năng đặt
+lịch</h3>
+<p>Tính năng được kích hoạt <strong>theo từng shop</strong> (mặc định
+TẮT). Khi kích hoạt, shop chọn <strong>chính sách đặt cọc</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Chính sách cọc</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Không cọc</td>
+<td>Khách không phải đặt cọc khi xác nhận lịch</td>
+</tr>
+<tr>
+<td>Cọc cố định (VNĐ)</td>
+<td>Khách đặt cọc số tiền cố định (vd 100.000đ)</td>
+</tr>
+<tr>
+<td>Cọc theo phần trăm</td>
+<td>Cọc = % tổng giá trị dịch vụ</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Chủ shop cần làm:</strong> liên hệ quản trị Vạn An (hoặc qua
+API tenant — <code>PUT /api/tenant/booking/config</code>) để bật tính
+năng + chọn chính sách cọc + nhập nội dung chính sách hủy (vd: "Hủy
+trước 2 giờ").</p>
+</blockquote>
+<h3 id="22-tạo-mã-qr-đặt-lịch">2.2 Tạo mã QR đặt lịch</h3>
+<p>Vào ShopERP → <strong>Đặt lịch hẹn → Mã QR</strong>
+(<code>/booking/qr-channels</code>):</p>
+<ol type="1">
+<li>Nhấn <strong>"Tạo mã QR"</strong>.</li>
+<li>Chọn <strong>cộng tác viên giới thiệu</strong> (nếu có — để tính hoa
+hồng), hoặc để trống (khách vào thẳng, không ghi nhận hoa hồng).</li>
+<li>Nhấn tạo → hệ thống sinh <strong>mã QR + link đặt lịch</strong> (vd
+<code>https://.../booking/4F3C1A2B-...</code>).</li>
+<li><strong>Lưu lại link ngay</strong> — mã QR chỉ hiển thị <strong>ĐÚNG
+MỘT LẦN</strong> (bảo mật §7.2); sau khi đóng màn hình không xem lại
+được.</li>
+<li>In/dán mã QR ở quầy, bàn, hoặc gửi link cho khách / cộng tác
+viên.</li>
+</ol>
+<p><strong>Thu hồi mã QR:</strong> nếu mã bị lộ hoặc hết chiến dịch →
+nhấn <strong>"Thu hồi"</strong> → mã cũ không nhận đặt lịch nữa (lịch đã
+đặt trước đó vẫn giữ nguyên).</p>
+<blockquote>
+<p>💡 <strong>Mẹo:</strong> tạo 1 mã QR riêng cho từng cộng tác viên →
+biết chính xác ai giới thiệu lịch nào → hoa hồng đúng người.</p>
+</blockquote>
+<hr />
+<h2 id="3-shop-owner--storekeeper--quản-lý-lịch-hẹn-shoperp">3. SHOP
+OWNER / STOREKEEPER — QUẢN LÝ LỊCH HẸN (SHOPERP)</h2>
+<p>Vào ShopERP → menu <strong>"Đặt lịch hẹn"</strong> (8 trang).</p>
+<h3 id="31-hàng-đợi-đặt-lịch-bookingqueue">3.1 Hàng đợi đặt lịch
+(<code>/booking/queue</code>)</h3>
+<p>Trang chính mỗi ngày — danh sách lịch hẹn theo trạng thái:</p>
+<ul>
+<li><strong>Bộ lọc nhanh</strong> theo trạng thái: Tất cả · Chờ xác nhận
+· Đã xác nhận · Đã phân công · Đã đến · Đang phục vụ · Hoàn tất · Đã
+hủy.</li>
+<li>Mỗi lịch hiển thị: tên dịch vụ, khung giờ, mã lịch, khách (mã thiết
+bị / ghi chú), badge cọc.</li>
+</ul>
+<p><strong>Thao tác theo trạng thái:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Trạng thái lịch</th>
+<th>Nút thao tác</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Chờ xác nhận</strong></td>
+<td>✓ Xác nhận · ✕ Từ chối · Vắng mặt · Hủy</td>
+<td>Duyệt lịch khách mới đặt</td>
+</tr>
+<tr>
+<td><strong>Đã xác nhận</strong></td>
+<td>👤 Phân công · Vắng mặt · Hủy</td>
+<td>Chọn nhân viên phục vụ</td>
+</tr>
+<tr>
+<td><strong>Đã phân công</strong></td>
+<td>✅ Check-in · 👤 Đổi nhân viên · Hủy</td>
+<td>Khách đã đến quầy</td>
+</tr>
+<tr>
+<td><strong>Đã đến</strong></td>
+<td>▶ Bắt đầu</td>
+<td>Bắt đầu phục vụ</td>
+</tr>
+<tr>
+<td><strong>Đang phục vụ</strong></td>
+<td>💵 Hoàn tất</td>
+<td>Nhập tổng tiền thực tế → tạo Đơn hàng</td>
+</tr>
+<tr>
+<td><strong>Hoàn tất</strong></td>
+<td>— (hiển thị 🧾 Đơn hàng)</td>
+<td>Đã tạo đơn + tính hoa hồng (nếu đủ điều kiện)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Phân công / đổi nhân viên:</strong> nhấn <strong>👤 Phân
+công</strong> → modal hiển thị <strong>danh sách nhân viên phù
+hợp</strong> (đúng kỹ năng dịch vụ + rảnh khung giờ) với badge
+<strong>"Sẵn sàng"</strong> hoặc lý do bận (vd "Đã có lịch 14:00"). Chỉ
+chọn nhân viên <strong>Sẵn sàng</strong> — hệ thống kiểm tra lại xung
+đột ngay khi lưu.</p>
+<p><strong>Hoàn tất:</strong> nhập <strong>tổng tiền thực tế</strong>
+(mặc định = giá dịch vụ) → xác nhận → hệ thống <strong>tự động tạo Đơn
+hàng</strong> (theo dõi ở trang Đơn hàng như đơn bán thường) và
+<strong>tính hoa hồng</strong> (nếu đủ điều kiện).</p>
+<h3 id="32-xem-ai-rảnh-bookingavailability">3.2 Xem ai rảnh
+(<code>/booking/availability</code>)</h3>
+<p>Bảng <strong>nhân viên × khung giờ</strong> trong ngày: ✓ = rảnh, ✗ =
+bận kèm lý do (ngoài giờ làm việc / nghỉ / đã có lịch / không có kỹ
+năng). Dùng để chủ động gán lịch hoặc tư vấn khách.</p>
+<h3 id="33-lịch-theo-ngày-bookingcalendar">3.3 Lịch theo ngày
+(<code>/booking/calendar</code>)</h3>
+<p>Xem lịch hẹn theo ngày (◀ ▶ chuyển ngày): bảng <strong>giờ · khách ·
+dịch vụ · nhân viên · trạng thái</strong> — dùng cho quầy lễ tân điều
+phối.</p>
+<hr />
+<h2 id="4-nhân-viên--lịch-làm-việc">4. NHÂN VIÊN &amp; LỊCH LÀM
+VIỆC</h2>
+<h3 id="41-quản-lý-nhân-viên-bookingstaff">4.1 Quản lý nhân viên
+(<code>/booking/staff</code>)</h3>
+<ul>
+<li><strong>Thêm nhân viên</strong>: tên + vai trò (vd "KTV", "Thợ cắt
+tóc") → lưu.</li>
+<li><strong>Gán kỹ năng</strong>: nhấn "Kỹ năng" → tích chọn
+<strong>dịch vụ</strong> nhân viên được phục vụ (vd KTV Lan: Massage 60'
++ 90'; KTV Hoa: chỉ Massage 60').
+<ul>
+<li>Nhân viên KHÔNG có kỹ năng phù hợp → <strong>không xuất
+hiện</strong> trong danh sách phân công cho dịch vụ đó.</li>
+</ul></li>
+<li><strong>Vô hiệu hóa</strong>: bỏ tick "Đang hoạt động" → không nhận
+lịch mới (lịch cũ giữ nguyên).</li>
+</ul>
+<h3 id="42-lịch-làm-việc-bookingschedules">4.2 Lịch làm việc
+(<code>/booking/schedules</code>)</h3>
+<ul>
+<li><strong>Lịch tuần (recurring)</strong>: 7 ngày × giờ bắt đầu/kết
+thúc + <strong>giờ nghỉ giữa ca</strong> (vd 12:00–13:00). Khách không
+đặt được lịch trùng giờ nghỉ.</li>
+<li><strong>Lịch đặc biệt (override) theo ngày cụ thể</strong> — 4 loại:
+<ul>
+<li><strong>Đi làm</strong> (ngoài lịch tuần, vd tăng ca)</li>
+<li><strong>Nghỉ phép</strong> — nhân viên nghỉ ngày đó (không nhận
+lịch)</li>
+<li><strong>Không có mặt</strong> (bận việc khác)</li>
+<li><strong>Nghỉ giữa ca</strong> (nghỉ thêm 1 khung giờ riêng)</li>
+</ul></li>
+</ul>
+<blockquote>
+<p>💡 Mẹo: nghỉ phép nên khai báo sớm → khách xem giờ trống sẽ
+<strong>không thấy</strong> giờ của nhân viên nghỉ (hệ thống tự
+loại).</p>
+</blockquote>
+<hr />
+<h2 id="5-đặt-cọc--hoàn-cọc">5. ĐẶT CỌC &amp; HOÀN CỌC</h2>
+<p>Trang <strong>Đặt cọc</strong> (<code>/booking/deposits</code>) —
+danh sách lịch có yêu cầu cọc + trạng thái thanh toán.</p>
+<h3 id="51-nhận-cọc">5.1 Nhận cọc</h3>
+<ol type="1">
+<li>Khách đặt lịch → lịch có yêu cầu cọc hiển thị badge <strong>"Cọc
+100.000đ — Chưa thu"</strong>.</li>
+<li>Khách chuyển khoản / trả tiền mặt tại quầy → nhấn <strong>"Đã nhận
+cọc"</strong> → hệ thống ghi nhận <strong>Đã thu cọc</strong> (trạng
+thái thanh toán của lịch chuyển sang <strong>Đã thanh
+toán</strong>).</li>
+<li>Trạng thái cọc đủ là <strong>điều kiện bắt buộc</strong> để tính hoa
+hồng cho cộng tác viên (xem mục 6).</li>
+</ol>
+<h3 id="52-hoàn-cọc">5.2 Hoàn cọc</h3>
+<p>Khách hủy lịch hợp lệ theo chính sách (vd hủy trước 2 giờ) → nhấn
+<strong>"Hoàn cọc"</strong> → hệ thống ghi nhận hoàn tiền + <strong>tự
+động đảo hoa hồng</strong> (nếu hoa hồng đã tính cho lịch này).</p>
+<blockquote>
+<p><strong>Lưu ý:</strong> cọc không thu → lịch hoàn tất vẫn
+<strong>không tính hoa hồng</strong> (điều kiện "đã thu cọc" chưa
+đủ).</p>
+</blockquote>
+<hr />
+<h2 id="6-hoa-hồng-cộng-tác-viên">6. HOA HỒNG CỘNG TÁC VIÊN</h2>
+<p>Trang <strong>Hoa hồng</strong> (<code>/booking/commission</code>) —
+sổ cái hoa hồng hợp nhất (booking + đơn hàng).</p>
+<h3 id="61-điều-kiện-được-hưởng-hoa-hồng-đủ-tất-cả">6.1 Điều kiện được
+hưởng hoa hồng (đủ TẤT CẢ)</h3>
+<ol type="1">
+<li>Lịch do <strong>QR của cộng tác viên</strong> giới thiệu (khách vào
+qua link QR có gắn tên).</li>
+<li>Lịch <strong>HOÀN TẤT</strong> (đã tạo đơn hàng).</li>
+<li><strong>Đã thu đủ cọc</strong> (nếu lịch có yêu cầu cọc).</li>
+<li>Mã QR <strong>còn hiệu lực</strong> tại thời điểm khách đặt.</li>
+</ol>
+<h3 id="62-xem--thanh-toán">6.2 Xem &amp; thanh toán</h3>
+<ul>
+<li>Lọc theo cộng tác viên → bảng sổ cái: giá trị đơn, <strong>hoa hồng
+(gross)</strong> → <strong>thuế TNCN khấu trừ</strong> (theo quy định NĐ
+253/2026 — mốc 5.000.000đ/lần) → <strong>số thực nhận
+(net)</strong>.</li>
+<li>Lịch <strong>chưa đủ điều kiện</strong> → không xuất hiện (không
+tính).</li>
+<li>Nhấn <strong>"Thanh toán"</strong> cho lịch đã đủ điều kiện (trạng
+thái <strong>Đã tích lũy</strong>) → tiền hoa hồng chuyển vào <strong>ví
+điện tử của cộng tác viên</strong> (trạng thái <strong>Đã thanh
+toán</strong>).</li>
+</ul>
+<h3 id="63-hủy-lịch-sau-khi-đã-tính-hoa-hồng">6.3 Hủy lịch sau khi đã
+tính hoa hồng</h3>
+<p>Hoàn cọc / hủy lịch đã hoàn tất → hệ thống <strong>tự động tạo bút
+toán đảo (reversal)</strong> — hoa hồng được hoàn lại đúng giá trị, ví
+cộng tác viên được trừ tương ứng (không mất tiền của shop).</p>
+<hr />
+<h2 id="7-customer--khách-hàng-đặt-lịch-khachlink">7. CUSTOMER — KHÁCH
+HÀNG ĐẶT LỊCH (KHACHLINK)</h2>
+<p>Khách quét mã QR (hoặc mở link đặt lịch) → <strong>4 màn hình đặt
+lịch</strong> trên điện thoại, <strong>không cần đăng ký tài
+khoản</strong>:</p>
+<h3 id="màn-1--chọn-dịch-vụ">Màn 1 — Chọn dịch vụ</h3>
+<ul>
+<li>Hiển thị tên shop + danh mục (chips) + <strong>thẻ dịch vụ</strong>
+(tên, thời lượng, giá) + <strong>dịch vụ phụ thêm</strong> (vd nước
+uống, phụ thu phòng VIP).</li>
+<li>Chọn dịch vụ (có thể chọn kèm dịch vụ phụ) → nhấn <strong>"Tiếp
+tục"</strong> (thanh tổng tiền hiển thị cố định ở đáy màn hình).</li>
+</ul>
+<h3 id="màn-2--chọn-thời-gian--nhân-viên">Màn 2 — Chọn thời gian &amp;
+nhân viên</h3>
+<ul>
+<li><strong>Chọn ngày</strong> (7 ngày tới) → danh sách <strong>khung
+giờ trống</strong> (nút lớn, dễ bấm).</li>
+<li>Lọc <strong>"Bất kỳ ai" / chọn nhân viên cụ thể</strong> — chỉ hiển
+thị giờ nhân viên đó rảnh.</li>
+<li>Nếu chọn nhân viên cụ thể → lịch <strong>được gán ngay</strong> cho
+nhân viên đó.</li>
+</ul>
+<h3 id="màn-3--ghi-chú--đặt-cọc">Màn 3 — Ghi chú &amp; đặt cọc</h3>
+<ul>
+<li><strong>Thẻ ghi chú nhanh</strong>: Phòng riêng / Lần đầu đến / KTV
+nữ / Cần chuẩn bị trước (chạm để chọn).</li>
+<li>🎙 <strong>Ghi chú bằng giọng nói</strong>: chạm micro, nói, hệ thống
+chuyển thành chữ (có thể sửa lại; không lưu âm thanh).</li>
+<li><strong>Đặt cọc</strong> (nếu shop yêu cầu): hiển thị số tiền cọc cố
+định theo chính sách shop (không tự chọn số khác).</li>
+</ul>
+<h3 id="màn-4--xác-nhận">Màn 4 — Xác nhận</h3>
+<ul>
+<li>Kiểm tra lại: dịch vụ · thời gian · nhân viên · ghi chú · tổng tiền
+· số cọc · <strong>chính sách hủy</strong> của shop.</li>
+<li>Nhấn <strong>"XÁC NHẬN ĐẶT LỊCH"</strong> → chờ hệ thống lưu thành
+công (bấm lại không tạo trùng).</li>
+</ul>
+<h3 id="trang-theo-dõi-lịch-status">Trang theo dõi lịch (Status)</h3>
+<ul>
+<li>Sau khi đặt → trang theo dõi tự cập nhật: <strong>Đã gửi → Shop đang
+xử lý → Đã xác nhận → Đã phân công</strong> (tự làm mới mỗi 5 giây, sau
+2 phút giãn ra 15 giây).</li>
+<li><strong>Mã lịch hẹn</strong> hiển thị (giữ lại để đối chiếu với
+shop).</li>
+<li>Nút <strong>"Làm mới"</strong> để xem ngay; nút <strong>"Hủy
+lịch"</strong> (chỉ khi chưa phục vụ — theo chính sách hủy của
+shop).</li>
+<li>Trạng thái kết thúc (Hoàn tất / Đã hủy / Từ chối / Vắng mặt) → tự
+dừng cập nhật.</li>
+</ul>
+<hr />
+<h2 id="8-bảng-tra-cứu-nhanh-trạng-thái">8. BẢNG TRA CỨU NHANH TRẠNG
+THÁI</h2>
+<table>
+<thead>
+<tr>
+<th>Trạng thái</th>
+<th>Ý nghĩa</th>
+<th>Ai chuyển</th>
+<th>Chuyển tiếp tới</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Chờ xác nhận</strong></td>
+<td>Khách vừa đặt</td>
+<td>Hệ thống (khách)</td>
+<td>Shop xác nhận / từ chối / hủy</td>
+</tr>
+<tr>
+<td><strong>Đã xác nhận</strong></td>
+<td>Shop duyệt lịch</td>
+<td>Shop</td>
+<td>Phân công nhân viên / hủy / vắng mặt</td>
+</tr>
+<tr>
+<td><strong>Đã phân công</strong></td>
+<td>Đã chọn nhân viên</td>
+<td>Shop</td>
+<td>Check-in / đổi nhân viên / hủy / vắng mặt</td>
+</tr>
+<tr>
+<td><strong>Đã đến</strong></td>
+<td>Khách có mặt tại quầy</td>
+<td>Shop</td>
+<td>Bắt đầu phục vụ</td>
+</tr>
+<tr>
+<td><strong>Đang phục vụ</strong></td>
+<td>Đang làm dịch vụ</td>
+<td>Shop</td>
+<td>Hoàn tất</td>
+</tr>
+<tr>
+<td><strong>Hoàn tất</strong></td>
+<td>Xong → tạo Đơn hàng + tính hoa hồng</td>
+<td>Shop</td>
+<td><em>(kết thúc)</em></td>
+</tr>
+<tr>
+<td><strong>Đã hủy / Từ chối / Vắng mặt</strong></td>
+<td>Kết thúc không phục vụ</td>
+<td>Khách / Shop</td>
+<td><em>(kết thúc)</em></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9-câu-hỏi-thường-gặp-faq">9. CÂU HỎI THƯỜNG GẶP (FAQ)</h2>
+<p><strong>Q1: Khách đặt trùng giờ cùng nhân viên?</strong> Hệ thống
+chặn — 1 nhân viên chỉ nhận 1 lịch/khung giờ; khách đặt sau nhận thông
+báo "Khung giờ này vừa có người đặt. Vui lòng chọn khung giờ khác."</p>
+<p><strong>Q2: Lịch đã gán nhân viên mà khách muốn hủy?</strong> Được —
+khách hủy từ trang theo dõi hoặc shop hủy từ Hàng đợi (trước khi khách
+đến; sau khi check-in không hủy được, chỉ hoàn tất hoặc vắng mặt).</p>
+<p><strong>Q3: Lịch hoàn tất nhưng chưa thấy Đơn hàng?</strong> Đơn hàng
+được tạo tự động ngay khi hoàn tất (kiểm tra trang Đơn hàng, mã đơn gắn
+với mã lịch). Nếu chưa thấy, kiểm tra trạng thái cọc — hoặc bấm Hoàn tất
+lại lần nữa (hệ thống không tạo trùng).</p>
+<p><strong>Q4: Vì sao lịch hoàn tất nhưng không có hoa hồng?</strong>
+Chưa đủ điều kiện: QR không gắn cộng tác viên · cọc chưa thu đủ · hoặc
+mã QR bị thu hồi trước khi khách đặt. Xem mục 6.1.</p>
+<p><strong>Q5: Nhân viên nghỉ nhưng khách vẫn đặt được?</strong> Khai
+báo nghỉ tại <strong>Lịch làm việc → Thêm lịch đặc biệt → Nghỉ
+phép</strong> cho đúng ngày → hệ thống tự ẩn giờ của nhân viên đó.</p>
+<p><strong>Q6: Khách đặt lịch có cần tài khoản?</strong> Không — đặt nặc
+danh qua thiết bị (mã lịch dùng để đối chiếu).</p>
+<p><strong>Q7: Có thể đổi nhân viên sau khi đã phân công?</strong> Có —
+Hàng đợi → nút <strong>"Đổi nhân viên"</strong> → chọn nhân viên Sẵn
+sàng (hệ thống kiểm tra xung đột ngay).</p>
+<p><strong>Q8: Hoa hồng bị trừ thuế?</strong> Có — khấu trừ thuế TNCN
+theo quy định hiện hành (NĐ 253/2026, mốc 5.000.000đ/lần); sổ cái hiển
+thị rõ gross → thuế → net.</p>
+<hr />
+<blockquote>
+<p><strong>Hỗ trợ:</strong> Liên hệ quản trị Vạn An để kích hoạt tính
+năng đặt lịch, cấu hình cọc/chính sách, hoặc báo lỗi. Tài liệu kỹ thuật:
+<code>docs/AI/plans/booking-rv-fix-plan.md</code> ·
+<code>docs/requirements/van_an_appointment_booking_srs_v1.1_mvp (1).md</code>.</p>
+</blockquote>
+</body>
+</html>

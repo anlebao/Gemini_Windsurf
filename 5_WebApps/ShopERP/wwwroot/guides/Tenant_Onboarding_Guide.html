@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Hướng dẫn Onboarding Tenant — SystemAdmin</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Hướng dẫn Onboarding Tenant — SystemAdmin</h1>
+</header>
+<h1 id="hướng-dẫn-onboarding-tenant--systemadmin">Hướng dẫn Onboarding
+Tenant — SystemAdmin</h1>
+<blockquote>
+<p><strong>Phiên bản:</strong> R1.2 (Domain Reseller R1 + KhachLink
+Multi-Profile R1) <strong>Ngày tạo:</strong> 2026-08-18 <strong>Role yêu
+cầu:</strong> <code>SystemAdmin</code> (cross-tenant) <strong>Truy
+cập:</strong> <code>https://app2.khachvip.online</code> → NavMenu →
+Admin section</p>
+</blockquote>
+<p>Tài liệu này hướng dẫn SystemAdmin hoàn tất onboarding 1 tenant mới
+với KhachLink storefront (FullCommerce hoặc Reseller) — bao gồm 2 lựa
+chọn domain:</p>
+<ol type="1">
+<li><strong>Subdomain <code>*.khachvip.online</code></strong> (dùng
+wildcard cert, không cần mua domain riêng)</li>
+<li><strong>Domain riêng tenant mua từ GoDaddy</strong> (vd
+<code>shopa.com</code> — dùng Domain Reseller)</li>
+</ol>
+<hr />
+<h2 id="0-quy-trình-tổng-quan">0. Quy trình tổng quan</h2>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│ 1. TẠO TENANT (TenantManagement)                                    │
+│    → Tenant record + tenant ID + onboarding seed (products/recipes)  │
+└──────────────────────┬──────────────────────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────────────────┐
+│ 2. TẠO SHOPINSTANCE (ShopERP Instances)                             │
+│    → Gán tenant vào 1 ShopERP VPS (SQLite per-tenant)                │
+└──────────────────────┬──────────────────────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────────────────┐
+│ 3. CHỌN DOMAIN (2 lựa chọn)                                         │
+│    ├─ A. Subdomain *.khachvip.online (wildcard cert)                │
+│    │   → Tạo KhachLinkInstance qua /admin/khachlink-instances        │
+│    │   → Tạo A record GoDaddy (subdomain → VPS IP)                   │
+│    │   → SSL: wildcard cert đã có sẵn                                │
+│    └─ B. Domain riêng (tenant mua từ GoDaddy)                        │
+│        → Tạo TenantDomain record qua /admin/domains                  │
+│        → Tạo A record GoDaddy API (apex → VPS IP)                    │
+│        → Tạo KhachLinkInstance + link tới TenantDomain               │
+│        → SSL: cron init-ssl-tenant-domains.sh (1h)                   │
+└──────────────────────┬──────────────────────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────────────────┐
+│ 4. VERIFY                                                           │
+│    → Truy cập https://&lt;domain&gt; → KhachLink loads đúng tenant context │
+│    → Test: add-to-cart, checkout, order history                      │
+└─────────────────────────────────────────────────────────────────────┘</code></pre>
+<hr />
+<h2 id="1-bước-1--tạo-tenant-tenantmanagement">1. Bước 1 — Tạo Tenant
+(TenantManagement)</h2>
+<h3 id="11-truy-cập-trang-quản-lý-tenant">1.1 Truy cập trang quản lý
+tenant</h3>
+<ol type="1">
+<li>Login ShopERP với tài khoản SystemAdmin.</li>
+<li>NavMenu → <strong>Tenant Management</strong> →
+<code>/admin/tenants</code>.</li>
+<li>Click <strong>"+ Thêm tenant"</strong>.</li>
+</ol>
+<h3 id="12-điền-thông-tin-tenant">1.2 Điền thông tin tenant</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Mô tả</th>
+<th>Ví dụ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Tenant Name</strong></td>
+<td>Tên cửa hàng/doanh nghiệp</td>
+<td>"Shop A Coffee"</td>
+</tr>
+<tr>
+<td><strong>Business Type</strong></td>
+<td>Loại HKD (F&amp;B, Retail, Service...)</td>
+<td>F&amp;B</td>
+</tr>
+<tr>
+<td><strong>Legal Form</strong></td>
+<td>Hình thức pháp lý (HKD, Company...)</td>
+<td>HKD</td>
+</tr>
+<tr>
+<td><strong>Tax Code</strong></td>
+<td>Mã số thuế (nếu có)</td>
+<td>0123456789</td>
+</tr>
+<tr>
+<td><strong>Contact Email</strong></td>
+<td>Email chủ tenant</td>
+<td><a href="mailto:owner@shopa.com">owner@shopa.com</a></td>
+</tr>
+<tr>
+<td><strong>Contact Phone</strong></td>
+<td>SĐT chủ tenant</td>
+<td>0901234567</td>
+</tr>
+</tbody>
+</table>
+<ol start="4" type="1">
+<li>Save → hệ thống tạo tenant record + tự onboarding seed
+(products/recipes theo Business Type).</li>
+</ol>
+<h3 id="13-lưu-tenant-id">1.3 Lưu Tenant ID</h3>
+<ul>
+<li>Sau khi tạo, tenant có <strong>Tenant ID</strong> (UUID). Ghi lại ID
+này — cần cho bước 3.</li>
+<li>VD: <code>12345678-1234-1234-1234-123456789abc</code></li>
+</ul>
+<hr />
+<h2 id="2-bước-2--gán-tenant-vào-shopinstance">2. Bước 2 — Gán Tenant
+vào ShopInstance</h2>
+<h3 id="21-truy-cập-shoperp-instances">2.1 Truy cập ShopERP
+Instances</h3>
+<ol type="1">
+<li>NavMenu → <strong>ShopERP Instances</strong> →
+<code>/admin/shop-instances</code>.</li>
+<li>Kiểm tra ShopInstance hiện có (mỗi VPS = 1 ShopInstance).</li>
+</ol>
+<h3 id="22-gán-tenant-vào-shopinstance">2.2 Gán tenant vào
+ShopInstance</h3>
+<ol type="1">
+<li>Click <strong>Edit</strong> trên ShopInstance muốn gán (thường là
+ShopInstance default nếu chỉ 1 VPS).</li>
+<li>Add tenant ID (từ bước 1.3) vào danh sách tenants của
+ShopInstance.</li>
+<li>Save.</li>
+</ol>
+<blockquote>
+<p><strong>Lưu ý:</strong> 1 tenant chỉ thuộc 1 ShopInstance. Đừng gán 1
+tenant vào 2 ShopInstance — sẽ gây order routing sai.</p>
+</blockquote>
+<hr />
+<h2 id="3-bước-3--chọn-domain-a-subdomain-hoặc-b-domain-riêng">3. Bước 3
+— Chọn Domain (A: Subdomain hoặc B: Domain riêng)</h2>
+<h3
+id="3a-lựa-chọn-a--subdomain-khachviponline-nhanh-không-cần-mua-domain">3A.
+Lựa chọn A — Subdomain <code>*.khachvip.online</code> (nhanh, không cần
+mua domain)</h3>
+<h4 id="3a1-tạo-khachlinkinstance">3A.1 Tạo KhachLinkInstance</h4>
+<ol type="1">
+<li>NavMenu → <strong>KhachLink Instances</strong> →
+<code>/admin/khachlink-instances</code>.</li>
+<li>Click <strong>"+ Thêm instance"</strong>.</li>
+<li>Điền form:
+<ul>
+<li><strong>Label</strong>: <code>Shop A KhachLink</code> (tên dễ nhận
+biết)</li>
+<li><strong>Profile</strong>: <code>FullCommerce (Type 4)</code> (hoặc
+<code>Reseller (Type 5)</code> nếu R2 đã merge)</li>
+<li><strong>Custom Domain</strong>: <code>shopa.khachvip.online</code>
+(subdomain mới — chưa trùng instance khác)</li>
+<li><strong>Owner Tenant</strong>: chọn <code>Shop A Coffee</code> (từ
+dropdown — tenant tạo ở bước 1)</li>
+<li><strong>Nav Flags</strong>: giữ preset (FullCommerce: all true trừ
+ShowJobs) hoặc override từng flag.</li>
+</ul></li>
+<li>Save → hệ thống tạo instance + tự động thêm domain vào CORS
+allowlist (≤ 5 phút).</li>
+</ol>
+<h4 id="3a2-tạo-dns-a-record-godaddy">3A.2 Tạo DNS A record
+(GoDaddy)</h4>
+<p><strong>Cách 1 — GoDaddy UI:</strong></p>
+<ol type="1">
+<li>Login GoDaddy → Domain Manager → <code>khachvip.online</code> →
+DNS.</li>
+<li>Add record:
+<ul>
+<li>Type: <code>A</code></li>
+<li>Name: <code>shopa</code> (subdomain — không nhập full
+<code>shopa.khachvip.online</code>)</li>
+<li>Value: <code>136.85.94.119</code> (Gateway VPS IP)</li>
+<li>TTL: <code>600</code> (10 phút — propagate nhanh)</li>
+</ul></li>
+<li>Save.</li>
+</ol>
+<p><strong>Cách 2 — Gateway API (tự động, cần SystemAdmin
+JWT):</strong></p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Tạo A record qua Gateway → GoDaddy API</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-X</span> PUT <span class="st">&quot;https://api2.khachvip.online/api/v1/domains/khachvip.online/a-record&quot;</span> <span class="dt">\</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">-H</span> <span class="st">&quot;Authorization: Bearer &lt;SYSTEMADMIN_JWT&gt;&quot;</span> <span class="dt">\</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">-H</span> <span class="st">&quot;Content-Type: application/json&quot;</span> <span class="dt">\</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">-d</span> <span class="st">&#39;{&quot;name&quot;:&quot;shopa&quot;,&quot;ipAddress&quot;:&quot;136.85.94.119&quot;,&quot;ttl&quot;:600}&#39;</span></span></code></pre></div>
+<h4 id="3a3-ssl--không-cần-làm-gì">3A.3 SSL — KHÔNG cần làm gì</h4>
+<ul>
+<li>Wildcard cert <code>*.khachvip.online</code> đã có sẵn (Sprint 5,
+<code>afe84723</code>).</li>
+<li>Subdomain mới tự động được cert cover → HTTPS hoạt động ngay khi DNS
+propagate.</li>
+</ul>
+<h4 id="3a4-verify">3A.4 Verify</h4>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Đợi DNS propagate (5-30 phút)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="ex">dig</span> shopa.khachvip.online +short</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co"># → 136.85.94.119</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Test HTTPS</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-sI</span> https://shopa.khachvip.online <span class="kw">|</span> <span class="fu">head</span> <span class="at">-3</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co"># → HTTP/2 200</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Test by-domain API</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-s</span> https://api2.khachvip.online/api/v1/khachlink-instances/by-domain/shopa.khachvip.online <span class="kw">|</span> <span class="ex">jq</span> .ownerTenantId</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="co"># → &quot;&lt;tenant ID của Shop A&gt;&quot;</span></span></code></pre></div>
+<p>Mở trình duyệt → <code>https://shopa.khachvip.online</code> →
+KhachLink loads với tenant context = Shop A Coffee.</p>
+<hr />
+<h3
+id="3b-lựa-chọn-b--domain-riêng-tenant-mua-từ-godaddy-vd-shopacom">3B.
+Lựa chọn B — Domain riêng tenant mua từ GoDaddy (vd
+<code>shopa.com</code>)</h3>
+<h4 id="3b1-tenant-mua-domain-ngoài-hệ-thống">3B.1 Tenant mua domain
+(ngoài hệ thống)</h4>
+<ol type="1">
+<li>Tenant tự mua domain tại GoDaddy: <a
+href="https://www.godaddy.com">https://www.godaddy.com</a> (hoặc Mắt
+Bão, Namecheap...).</li>
+<li>Tenant cung cấp cho SystemAdmin:
+<ul>
+<li><strong>Domain name</strong>: <code>shopa.com</code></li>
+<li><strong>Registrant email</strong>: <code>owner@shopa.com</code>
+(dùng cho renewal alerts)</li>
+<li><strong>EPP code</strong> (nếu cần transfer — KHÔNG cần cho R1, chỉ
+khi tenant muốn Vạn An manage domain)</li>
+</ul></li>
+<li>SystemAdmin lưu thông tin này — sẽ nhập vào bước 3B.2.</li>
+</ol>
+<blockquote>
+<p><strong>R1 scope:</strong> Tenant tự mua + renew domain. Vạn An chỉ
+quản lý DNS A record + SSL. <strong>R2 (sắp tới):</strong> Vạn An
+reseller domain qua GoDaddy API — tenant mua qua Vạn An storefront, auto
+everything.</p>
+</blockquote>
+<h4 id="3b2-tạo-tenantdomain-record-tracking">3B.2 Tạo TenantDomain
+record (tracking)</h4>
+<ol type="1">
+<li>NavMenu → <strong>Tenant Domains</strong> →
+<code>/admin/domains</code>.</li>
+<li>Click <strong>"+ Thêm domain"</strong> (hoặc nút tương ứng).</li>
+<li>Điền form:
+<ul>
+<li><strong>Domain</strong>: <code>shopa.com</code> (full domain, không
+có scheme/path)</li>
+<li><strong>Owner Tenant</strong>: chọn <code>Shop A Coffee</code></li>
+<li><strong>Registrant Email</strong>: <code>owner@shopa.com</code></li>
+<li><strong>Registrar</strong>: <code>GoDaddy</code> (default)</li>
+<li><strong>Ngày hết hạn</strong>: nhập ngày tenant báo (vd
+<code>2027-08-17</code>)</li>
+</ul></li>
+<li>Save → hệ thống tạo TenantDomain record (status =
+<code>Pending</code>).</li>
+</ol>
+<h4 id="3b3-tạo-a-record-godaddy-api--tự-động">3B.3 Tạo A record
+(GoDaddy API — tự động)</h4>
+<p><strong>Cách 1 — Qua Gateway admin UI:</strong></p>
+<ol type="1">
+<li>Trên trang <code>/admin/domains</code>, click <strong>DNS</strong>
+trên row của <code>shopa.com</code>.</li>
+<li>Modal hiển thị DNS records hiện tại (trống nếu domain mới).</li>
+<li>Click <strong>"Add A record"</strong> (hoặc nút tương ứng):
+<ul>
+<li>Name: <code>@</code> (apex domain — <code>shopa.com</code>)</li>
+<li>IP: <code>136.85.94.119</code> (Gateway VPS IP — auto-fill
+default)</li>
+<li>TTL: <code>600</code></li>
+</ul></li>
+<li>Save → Gateway gọi GoDaddy API → A record tạo trên GoDaddy DNS.</li>
+</ol>
+<p><strong>Cách 2 — Qua API trực tiếp:</strong></p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-X</span> PUT <span class="st">&quot;https://api2.khachvip.online/api/v1/domains/shopa.com/a-record&quot;</span> <span class="dt">\</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">-H</span> <span class="st">&quot;Authorization: Bearer &lt;SYSTEMADMIN_JWT&gt;&quot;</span> <span class="dt">\</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">-H</span> <span class="st">&quot;Content-Type: application/json&quot;</span> <span class="dt">\</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">-d</span> <span class="st">&#39;{&quot;name&quot;:&quot;@&quot;,&quot;ipAddress&quot;:&quot;136.85.94.119&quot;,&quot;ttl&quot;:600}&#39;</span></span></code></pre></div>
+<p>Verify A record đã tạo:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-s</span> <span class="st">&quot;https://api2.khachvip.online/api/v1/domains/shopa.com/dns-records&quot;</span> <span class="dt">\</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">-H</span> <span class="st">&quot;Authorization: Bearer &lt;SYSTEMADMIN_JWT&gt;&quot;</span> <span class="kw">|</span> <span class="ex">jq</span> <span class="st">&#39;.[] | select(.type==&quot;A&quot; and .name==&quot;@&quot;)&#39;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co"># → [{&quot;data&quot;:&quot;136.85.94.119&quot;,&quot;name&quot;:&quot;@&quot;,&quot;ttl&quot;:600,&quot;type&quot;:&quot;A&quot;}]</span></span></code></pre></div>
+<blockquote>
+<p><strong>Lưu ý:</strong> Domain phải có NS = GoDaddy default
+(<code>ns69/ns70.domaincontrol.com</code>) để GoDaddy API quản lý DNS.
+Nếu tenant đã đổi NS sang Cloudflare/other → A record phải tạo ở DNS
+provider đó (manual).</p>
+</blockquote>
+<h4 id="3b4-tạo-khachlinkinstance--link-tenantdomain">3B.4 Tạo
+KhachLinkInstance + link TenantDomain</h4>
+<ol type="1">
+<li>NavMenu → <strong>KhachLink Instances</strong> →
+<code>/admin/khachlink-instances</code>.</li>
+<li>Click <strong>"+ Thêm instance"</strong>.</li>
+<li>Điền form:
+<ul>
+<li><strong>Label</strong>: <code>Shop A KhachLink</code></li>
+<li><strong>Profile</strong>: <code>FullCommerce (Type 4)</code> (hoặc
+<code>Reseller</code> nếu R2)</li>
+<li><strong>Custom Domain</strong>: <code>shopa.com</code> (phải khớp
+với TenantDomain ở bước 3B.2)</li>
+<li><strong>Owner Tenant</strong>: chọn <code>Shop A Coffee</code></li>
+<li><strong>Nav Flags</strong>: giữ preset hoặc override.</li>
+</ul></li>
+<li>Save → hệ thống <strong>tự động detect</strong> TenantDomain
+matching + <strong>auto-link</strong> + <strong>auto-create A
+record</strong> (nếu chưa có).</li>
+</ol>
+<blockquote>
+<p><strong>Auto-link logic:</strong> Khi tạo KhachLinkInstance với
+CustomDomain = <code>shopa.com</code>, hệ thống tìm TenantDomain có
+Domain = <code>shopa.com</code>. Nếu tìm thấy + chưa link → tự động link
++ tạo A record apex → VPS IP.</p>
+</blockquote>
+<h4 id="3b5-ssl--cron-tự-động-chờ--1-giờ">3B.5 SSL — cron tự động (chờ ≤
+1 giờ)</h4>
+<ul>
+<li>Cron <code>init-ssl-tenant-domains.sh</code> chạy mỗi 1 giờ trên
+Gateway VPS.</li>
+<li>Script query <code>TenantDomains</code> table → tìm active domains
+có link KLI → request Let's Encrypt cert qua webroot challenge.</li>
+<li><strong>KHÔNG cần SSH VPS</strong> — cron tự chạy.</li>
+</ul>
+<p><strong>Kiểm tra SSL status:</strong></p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Đợi DNS propagate + cron chạy (≤ 1 giờ)</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="ex">dig</span> shopa.com +short</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co"># → 136.85.94.119</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Test HTTPS (sau khi cron issue cert)</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-sI</span> https://shopa.com <span class="kw">|</span> <span class="fu">head</span> <span class="at">-3</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co"># → HTTP/2 200 (SSL OK)</span></span></code></pre></div>
+<blockquote>
+<p><strong>Troubleshooting:</strong> Nếu sau 1 giờ HTTPS vẫn fail:</p>
+<ol type="1">
+<li>Check DNS: <code>dig shopa.com +short</code> → phải trả VPS IP</li>
+<li>Check cert:
+<code>curl -vI https://shopa.com 2&gt;&amp;1 | grep -i ssl</code> → nếu
+"unable to find certificate" → cron chưa chạy hoặc challenge fail</li>
+<li>Manual trigger (cần SSH VPS):
+<code>sudo bash /opt/vanan/scripts/init-ssl-tenant-domains.sh</code></li>
+<li>Check nginx: domain riêng cần explicit server block trong
+<code>nginx/templates/vanan.multivps.conf.template</code> (thêm theo
+pattern <code>@@EXT_DOMAIN_START:shopa.com@@</code> — xem
+<code>timlathay.com</code> làm mẫu)</li>
+</ol>
+</blockquote>
+<h4 id="3b6-verify">3B.6 Verify</h4>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. by-domain API</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-s</span> https://api2.khachvip.online/api/v1/khachlink-instances/by-domain/shopa.com <span class="kw">|</span> <span class="ex">jq</span> .ownerTenantId</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co"># → &quot;&lt;tenant ID của Shop A&gt;&quot;</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. HTTPS</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-sI</span> https://shopa.com <span class="kw">|</span> <span class="fu">head</span> <span class="at">-3</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co"># → HTTP/2 200</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. DNS records</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-s</span> <span class="st">&quot;https://api2.khachvip.online/api/v1/domains/shopa.com/dns-records&quot;</span> <span class="dt">\</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">-H</span> <span class="st">&quot;Authorization: Bearer &lt;SYSTEMADMIN_JWT&gt;&quot;</span> <span class="kw">|</span> <span class="ex">jq</span> <span class="st">&#39;.[] | select(.type==&quot;A&quot;)&#39;</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="co"># → apex A record → VPS IP</span></span></code></pre></div>
+<p>Mở trình duyệt → <code>https://shopa.com</code> → KhachLink loads với
+tenant context = Shop A Coffee.</p>
+<hr />
+<h2 id="4-so-sánh-2-lựa-chọn-domain">4. So sánh 2 lựa chọn domain</h2>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>A: Subdomain <code>*.khachvip.online</code></th>
+<th>B: Domain riêng từ GoDaddy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Chi phí</strong></td>
+<td>$0 (Vạn An bear cost renew <code>khachvip.online</code>)</td>
+<td>Tenant tự trả (~$12-23/năm cho <code>.com</code>)</td>
+</tr>
+<tr>
+<td><strong>Thời gian setup</strong></td>
+<td>5-30 phút (chỉ đợi DNS propagate)</td>
+<td>1-2 giờ (DNS + chờ cron SSL ≤ 1h)</td>
+</tr>
+<tr>
+<td><strong>SSL</strong></td>
+<td>Wildcard cert có sẵn (0 bước)</td>
+<td>Cron Let's Encrypt (≤ 1h)</td>
+</tr>
+<tr>
+<td><strong>Branding</strong></td>
+<td><code>shopa.khachvip.online</code> (subdomain)</td>
+<td><code>shopa.com</code> (domain riêng — chuyên nghiệp hơn)</td>
+</tr>
+<tr>
+<td><strong>DNS management</strong></td>
+<td>GoDaddy API (auto qua admin UI)</td>
+<td>GoDaddy API (auto qua admin UI)</td>
+</tr>
+<tr>
+<td><strong>Renewal</strong></td>
+<td>Vạn An quản lý</td>
+<td>Tenant tự renew (SystemAdmin theo dõi expiry)</td>
+</tr>
+<tr>
+<td><strong>Phù hợp</strong></td>
+<td>Tenant nhỏ, thử nghiệm, không quan trọng branding</td>
+<td>Tenant lớn, cần branding riêng, e-commerce nghiêm túc</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-fullcommerce-vs-reseller--khác-biệt">5. FullCommerce vs
+Reseller — khác biệt</h2>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>FullCommerce (Type 4)</th>
+<th>Reseller (Type 5)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Mục đích</strong></td>
+<td>Cửa hàng online của 1 tenant</td>
+<td>Tenant trung gian bán lại cho tenant con</td>
+</tr>
+<tr>
+<td><strong>Profile</strong></td>
+<td><code>FullCommerce = 0</code></td>
+<td><code>Reseller = 4</code></td>
+</tr>
+<tr>
+<td><strong>OwnerTenantId</strong></td>
+<td>Tenant owner (bắt buộc != null)</td>
+<td>Reseller tenant (bắt buộc != null)</td>
+</tr>
+<tr>
+<td><strong>Nav flags preset</strong></td>
+<td>All true (trừ ShowJobs)</td>
+<td>All true (trừ ShowJobs) — giống FullCommerce</td>
+</tr>
+<tr>
+<td><strong>Commerce mode</strong></td>
+<td><code>Marketplace</code> (default)</td>
+<td><code>Reseller</code> (qua
+<code>TenantSettings.CommerceModeOverride</code>)</td>
+</tr>
+<tr>
+<td><strong>Products</strong></td>
+<td>Tenant owner's products</td>
+<td>Reseller tenant's products + commission from sub-tenants</td>
+</tr>
+<tr>
+<td><strong>Order flow</strong></td>
+<td>Customer → tenant owner</td>
+<td>Customer → reseller → sub-tenant (commission split)</td>
+</tr>
+<tr>
+<td><strong>Release</strong></td>
+<td>✅ R1 (available now)</td>
+<td>⏳ R2 (Sprint 7 — pending)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>R2 status:</strong> Nếu dropdown Profile không có option
+<code>Reseller</code> → R2 chưa merge. Dùng FullCommerce tạm thời,
+upgrade lên Reseller sau khi R2 deploy.</p>
+</blockquote>
+<hr />
+<h2 id="6-checklist-onboarding-print-friendly">6. Checklist onboarding
+(print-friendly)</h2>
+<h3 id="fullcommerce--subdomain">FullCommerce + Subdomain</h3>
+<ul class="task-list">
+<li><label><input type="checkbox" />1. Tạo tenant
+(TenantManagement)</label></li>
+<li><label><input type="checkbox" />2. Gán tenant vào
+ShopInstance</label></li>
+<li><label><input type="checkbox" />3A.1. Tạo KhachLinkInstance
+(Profile=FullCommerce, Domain=shopa.khachvip.online, OwnerTenant=Shop
+A)</label></li>
+<li><label><input type="checkbox" />3A.2. Tạo DNS A record (GoDaddy UI
+hoặc API: shopa.khachvip.online → 136.85.94.119)</label></li>
+<li><label><input type="checkbox" />3A.3. SSL — bỏ qua (wildcard cert có
+sẵn)</label></li>
+<li><label><input type="checkbox" />3A.4. Verify:
+<code>curl -sI https://shopa.khachvip.online</code> → 200</label></li>
+<li><label><input type="checkbox" />3A.4. Verify: mở trình duyệt →
+KhachLink loads đúng tenant</label></li>
+</ul>
+<h3 id="fullcommerce--domain-riêng-godaddy">FullCommerce + Domain riêng
+(GoDaddy)</h3>
+<ul class="task-list">
+<li><label><input type="checkbox" />1. Tạo tenant
+(TenantManagement)</label></li>
+<li><label><input type="checkbox" />2. Gán tenant vào
+ShopInstance</label></li>
+<li><label><input type="checkbox" />3B.1. Tenant mua domain
+<code>shopa.com</code> tại GoDaddy</label></li>
+<li><label><input type="checkbox" />3B.2. Tạo TenantDomain record
+(/admin/domains — Domain=shopa.com, OwnerTenant=Shop A)</label></li>
+<li><label><input type="checkbox" />3B.3. Tạo A record (GoDaddy API qua
+admin UI: @ → 136.85.94.119)</label></li>
+<li><label><input type="checkbox" />3B.4. Tạo KhachLinkInstance
+(Profile=FullCommerce, Domain=shopa.com, OwnerTenant=Shop A) → auto-link
+TenantDomain</label></li>
+<li><label><input type="checkbox" />3B.5. Chờ cron SSL (≤ 1 giờ) — hoặc
+manual trigger trên VPS</label></li>
+<li><label><input type="checkbox" />3B.6. Verify:
+<code>curl -sI https://shopa.com</code> → 200</label></li>
+<li><label><input type="checkbox" />3B.6. Verify: mở trình duyệt →
+KhachLink loads đúng tenant</label></li>
+</ul>
+<h3 id="reseller--subdomain-sau-r2-merge">Reseller + Subdomain (sau R2
+merge)</h3>
+<ul class="task-list">
+<li><label><input type="checkbox" />1. Tạo reseller tenant
+(TenantManagement)</label></li>
+<li><label><input type="checkbox" />2. Gán tenant vào
+ShopInstance</label></li>
+<li><label><input type="checkbox" />3A.1. Tạo KhachLinkInstance
+(Profile=Reseller, Domain=reseller.khachvip.online, OwnerTenant=Reseller
+Tenant)</label></li>
+<li><label><input type="checkbox" />3A.2. Tạo DNS A record
+(reseller.khachvip.online → 136.85.94.119)</label></li>
+<li><label><input type="checkbox" />3A.3. SSL — bỏ qua (wildcard cert có
+sẵn)</label></li>
+<li><label><input type="checkbox" />3A.4. Verify + test commission
+flow</label></li>
+</ul>
+<h3 id="reseller--domain-riêng-sau-r2-merge">Reseller + Domain riêng
+(sau R2 merge)</h3>
+<ul class="task-list">
+<li><label><input type="checkbox" />1. Tạo reseller tenant
+(TenantManagement)</label></li>
+<li><label><input type="checkbox" />2. Gán tenant vào
+ShopInstance</label></li>
+<li><label><input type="checkbox" />3B.1. Reseller mua domain
+<code>reseller.com</code> tại GoDaddy</label></li>
+<li><label><input type="checkbox" />3B.2. Tạo TenantDomain record
+(/admin/domains)</label></li>
+<li><label><input type="checkbox" />3B.3. Tạo A record (GoDaddy
+API)</label></li>
+<li><label><input type="checkbox" />3B.4. Tạo KhachLinkInstance
+(Profile=Reseller, Domain=reseller.com) → auto-link</label></li>
+<li><label><input type="checkbox" />3B.5. Chờ cron SSL (≤ 1
+giờ)</label></li>
+<li><label><input type="checkbox" />3B.6. Verify + test commission
+flow</label></li>
+</ul>
+<hr />
+<h2 id="7-troubleshooting">7. Troubleshooting</h2>
+<h3 id="71-khachlink-loads-nhưng-sai-tenant-fullcommerce">7.1 KhachLink
+loads nhưng sai tenant (FullCommerce)</h3>
+<p><strong>Triệu chứng:</strong> Mở
+<code>https://shopa.khachvip.online</code> → trang hiển thị sản phẩm của
+tenant khác.</p>
+<p><strong>Nguyên nhân:</strong> <code>OwnerTenantId</code> trong
+KhachLinkInstance sai hoặc null.</p>
+<p><strong>Fix:</strong></p>
+<ol type="1">
+<li>Vào <code>/admin/khachlink-instances</code> → Edit instance.</li>
+<li>Kiểm tra <code>Owner Tenant</code> — phải là
+<code>Shop A Coffee</code> (không phải "Platform (no tenant)").</li>
+<li>Nếu sai → Deactivate instance + tạo instance mới (OwnerTenantId
+không thể edit sau khi tạo).</li>
+</ol>
+<h3 id="72-https-fail-domain-riêng">7.2 HTTPS fail (domain riêng)</h3>
+<p><strong>Triệu chứng:</strong> <code>curl -sI https://shopa.com</code>
+→ <code>ERR_SSL_PROTOCOL_ERROR</code> hoặc cert mismatch.</p>
+<p><strong>Nguyên nhân:</strong> Cron SSL chưa chạy hoặc DNS chưa
+propagate.</p>
+<p><strong>Fix:</strong></p>
+<ol type="1">
+<li><code>dig shopa.com +short</code> → phải trả
+<code>136.85.94.119</code>. Nếu trống → DNS chưa propagate (chờ 30 phút)
+hoặc A record sai.</li>
+<li>Nếu DNS OK → SSH Gateway VPS → chạy manual:
+<div class="sourceCode" id="cb8"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash /opt/vanan/scripts/init-ssl-tenant-domains.sh</span></code></pre></div></li>
+<li>Nếu cert đã issue nhưng HTTPS vẫn fail → nginx chưa có server block
+cho domain này. Thêm explicit server block vào
+<code>nginx/templates/vanan.multivps.conf.template</code> (pattern
+<code>@@EXT_DOMAIN_START:shopa.com@@</code> — xem
+<code>timlathay.com</code> làm mẫu) + restart nginx.</li>
+</ol>
+<h3 id="73-domain-search-trả-lỗi-tra-cứu-400-bad-request">7.3 Domain
+search trả "Lỗi tra cứu: 400 Bad Request"</h3>
+<p><strong>Triệu chứng:</strong> <code>/admin/domains</code> → tra cứu
+domain → lỗi 400.</p>
+<p><strong>Nguyên nhân:</strong> <code>GODADDY_API_KEY</code> chưa set
+trong <code>.env.gateway</code> trên VPS.</p>
+<p><strong>Fix:</strong></p>
+<ol type="1">
+<li>Check GitHub secret <code>GODADDY_API_KEY</code> đã set:
+<code>gh secret list | grep GODADDY</code>.</li>
+<li>Trigger CD redeploy: push 1 commit nhỏ → CD sẽ ghi lại
+<code>.env.gateway</code> với API key.</li>
+<li>Verify:
+<code>curl -s "https://api2.khachvip.online/api/v1/domains/health" -H "Authorization: Bearer &lt;JWT&gt;"</code>
+→ <code>{"healthy":true}</code>.</li>
+</ol>
+<h3 id="74-auto-link-không-xảy-ra-khi-tạo-khachlinkinstance">7.4
+Auto-link KHÔNG xảy ra khi tạo KhachLinkInstance</h3>
+<p><strong>Triệu chứng:</strong> Tạo KhachLinkInstance với CustomDomain
+= TenantDomain.Domain nhưng TenantDomain.KhachLinkInstanceId vẫn
+null.</p>
+<p><strong>Nguyên nhân:</strong></p>
+<ul>
+<li>TenantDomain chưa tồn tại (chưa tạo ở <code>/admin/domains</code>
+trước).</li>
+<li>Hoặc <code>DomainRegistrar:DefaultVpsIp</code> chưa set trong
+<code>.env.gateway</code>.</li>
+</ul>
+<p><strong>Fix:</strong></p>
+<ol type="1">
+<li>Tạo TenantDomain trước (bước 3B.2) RỒI mới tạo
+KhachLinkInstance.</li>
+<li>Check env var:
+<code>DOMAIN_REGISTRAR_DEFAULT_VPS_IP=136.85.94.119</code> trong
+<code>.env.gateway</code>.</li>
+<li>Manual link: vào <code>/admin/domains</code> → click "Gắn KLI" trên
+row TenantDomain → chọn KhachLinkInstance + nhập VPS IP.</li>
+</ol>
+<h3 id="75-tenant-domain-hết-hạn-expiry">7.5 Tenant domain hết hạn
+(expiry)</h3>
+<p><strong>Triệu chứng:</strong> Cron
+<code>MarkExpiredDomainsAsync</code> set status = <code>Expired</code> →
+KhachLink instance nên disable.</p>
+<p><strong>Fix:</strong></p>
+<ol type="1">
+<li>Nhắc tenant renew domain tại GoDaddy TRƯỚC khi hết hạn 30 ngày.</li>
+<li>Sau khi tenant renew → update <code>ExpiresAt</code> trong
+<code>/admin/domains</code> → status trở lại <code>Active</code>.</li>
+<li>Nếu tenant không renew → Deactivate KhachLinkInstance + remove A
+record (DNS record tự expire khi domain expire).</li>
+</ol>
+<hr />
+<h2 id="8-tham-chiếu">8. Tham chiếu</h2>
+<table>
+<thead>
+<tr>
+<th>Tài liệu</th>
+<th>Path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>KhachLink Multi-Profile Usage Guide</td>
+<td><code>docs/user-guide/KhachLink_Multi_Profile_Usage_Guide.md</code></td>
+</tr>
+<tr>
+<td>Multi-VPS Deployment Guide</td>
+<td><code>docs/operations/Multi_VPS_Deployment_Guide.md</code> §6.1</td>
+</tr>
+<tr>
+<td>Domain Reseller R1 code</td>
+<td><code>1_Shared/Domain/Aggregates/DomainResellerAggregate/</code> +
+<code>3_CoreHub/Services/DomainRegistrar/</code></td>
+</tr>
+<tr>
+<td>GoDaddy API verified 2026-08-17</td>
+<td>Read + write + delete all PASS on production
+<code>khachvip.online</code></td>
+</tr>
+<tr>
+<td>GitHub secret</td>
+<td><code>GODADDY_API_KEY</code> (Personal Access Token)</td>
+</tr>
+<tr>
+<td>Cron SSL script</td>
+<td><code>scripts/init-ssl-tenant-domains.sh</code> (1h interval)</td>
+</tr>
+<tr>
+<td>Admin pages</td>
+<td><code>/admin/tenants</code> · <code>/admin/shop-instances</code> ·
+<code>/admin/khachlink-instances</code> ·
+<code>/admin/domains</code></td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>

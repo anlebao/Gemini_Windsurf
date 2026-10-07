@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Hướng dẫn sử dụng — Vạn An Ecosystem</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Hướng dẫn sử dụng — Vạn An Ecosystem</h1>
+</header>
+<h1 id="huong-dan-su-dung---vanan-ecosystem">HUONG DAN SU DUNG - VANAN
+ECOSYSTEM</h1>
+<h2 id="thong-tin-chung"><strong>THONG TIN CHUNG</strong></h2>
+<p><strong>Tên Hê Thông:</strong> VanAn Ecosystem<br />
+<strong>Phiên Ban Hiên Tai:</strong> MVP 1.0<br />
+<strong>Ngày Câp Nhât:</strong> 10/04/2026<br />
+<strong>Dành Cho:</strong> Khách hàng, Nhân viên, Quan lý viên</p>
+<hr />
+<h2 id="1-bat-dau"><strong>1. BAT DAU</strong></h2>
+<h3 id="11-truy-câp-hê-thông"><strong>1.1 Truy Câp Hê
+Thông</strong></h3>
+<p><strong>Cách truy câp:</strong></p>
+<ul>
+<li><strong>Web App:</strong> <code>https://vanan.shop</code></li>
+<li><strong>Mobile App:</strong> Tai tu App Store/Google Play</li>
+<li><strong>Admin Panel:</strong>
+<code>https://admin.vanan.shop</code></li>
+</ul>
+<p><strong>Tai khoan dang nhap:</strong></p>
+<ul>
+<li><strong>Khách hàng:</strong> Sô diên thoai hoac email</li>
+<li><strong>Nhân viên:</strong> Ma nhân viên + mat khâu</li>
+<li><strong>Quan lý:</strong> Admin + mat khâu</li>
+</ul>
+<h3 id="12-giao-diên-chính"><strong>1.2 Giao Diên Chính</strong></h3>
+<p><strong>Menu chính:</strong></p>
+<ul>
+<li><strong>Trang chu:</strong> Thông tin chung</li>
+<li><strong>Menu:</strong> Danh sách món an</li>
+<li><strong>Don hang:</strong> Lich su don hang</li>
+<li><strong>Tai khoan:</strong> Quan ly thông tin</li>
+<li><strong>Hô trô:</strong> Liên hê hô trô</li>
+</ul>
+<hr />
+<h2 id="2-dat-hang-online"><strong>2. DAT HANG ONLINE</strong></h2>
+<h3 id="21-chon-mon-an"><strong>2.1 Chon Mon An</strong></h3>
+<p><strong>Cách chon món:</strong></p>
+<ol type="1">
+<li>Vào menu "Menu"</li>
+<li>Chon danh muc (Món chính, Tráng miêng, Do uông)</li>
+<li>Xem chi tiêt món an (gia, mô tà, hình anh)</li>
+<li>Nút "Thêm vào gio hang"</li>
+</ol>
+<p><strong>Thông tin món an:</strong></p>
+<ul>
+<li>Tên món</li>
+<li>Gia (da bao gôm VAT 10%)</li>
+<li>Mo ta chi tiêt</li>
+<li>Thoi gian chuan bi</li>
+<li>Thành phân chính</li>
+</ul>
+<h3 id="22-gio-hang"><strong>2.2 Gio Hang</strong></h3>
+<p><strong>Quan ly gio hang:</strong></p>
+<ul>
+<li>Xem danh sách món da chon</li>
+<li>Thay doi sô luong</li>
+<li>Xóa món</li>
+<li>Nhâp ghi chú (yêu câu dâc biêt)</li>
+<li>Tính toán tông tiên</li>
+</ul>
+<p><strong>Ghi chú don hàng:</strong></p>
+<ul>
+<li>Yêu câu dâc biêt (ít duong, không hành)</li>
+<li>Thông tin giao hàng</li>
+<li>Thoi gian giao hàng mong muôn</li>
+</ul>
+<h3 id="23-thanh-toan"><strong>2.3 Thanh Toan</strong></h3>
+<p><strong>Phuong thuc thanh toán:</strong></p>
+<ul>
+<li><strong>Tiên mât</strong> (nghiêp vu)</li>
+<li><strong>The ngân hàng</strong> (POS)</li>
+<li><strong>Chuyên khoan</strong> (QR code)</li>
+<li><strong>Ví diên tu</strong> (MoMo, ZaloPay)</li>
+</ul>
+<p><strong>Thông tin thanh toán:</strong></p>
+<ul>
+<li>Tông tiên món</li>
+<li>Thuê VAT (10%)</li>
+<li>Phí giao hàng (nêu có)</li>
+<li>Tông thanh toán</li>
+</ul>
+<hr />
+<h2 id="3-quan-ly-don-hang"><strong>3. QUAN LY DON HANG</strong></h2>
+<h3 id="31-theo-doi-don-hang"><strong>3.1 Theo Doi Don
+Hang</strong></h3>
+<p><strong>Trang thái don hàng:</strong></p>
+<ul>
+<li><strong>Draft:</strong> Don hang mói tao</li>
+<li><strong>Confirmed:</strong> Da xác nhân</li>
+<li><strong>Preparing:</strong> Dang chuan bi</li>
+<li><strong>Ready:</strong> San sang giao/lây</li>
+<li><strong>Completed:</strong> Hoàn thành</li>
+<li><strong>Cancelled:</strong> Da huy</li>
+</ul>
+<p><strong>Cách theo dõi:</strong></p>
+<ol type="1">
+<li>Vào "Don hang"</li>
+<li>Chon don hang cân xem</li>
+<li>Xem chi tiêt trang thái</li>
+<li>Nhân thông báo câp nhât</li>
+</ol>
+<h3 id="32-lich-su-don-hang"><strong>3.2 Lich Su Don Hang</strong></h3>
+<p><strong>Thông tin don hàng:</strong></p>
+<ul>
+<li>Ma don hàng</li>
+<li>Ngày dat</li>
+<li>Danh sách món</li>
+<li>Tông tiên</li>
+<li>Trang thái</li>
+<li>Thoi gian hoàn thành</li>
+</ul>
+<p><strong>Tính nang:</strong></p>
+<ul>
+<li>Dat lai don hàng</li>
+<li>Danh gia món an</li>
+<li>Liên hê hô trô</li>
+</ul>
+<hr />
+<h2 id="4-quan-ly-tai-khoan"><strong>4. QUAN LY TAI KHOAN</strong></h2>
+<h3 id="41-thông-tin-ca-nhan"><strong>4.1 Thông Tin Ca
+Nhan</strong></h3>
+<p><strong>Câp nhât thông tin:</strong></p>
+<ul>
+<li>Hò và tên</li>
+<li>Sô diên thoai</li>
+<li>Email</li>
+<li>Dia chi</li>
+<li>Ngày sinh</li>
+</ul>
+<p><strong>Xác minh tài khoan:</strong></p>
+<ul>
+<li>OTP qua SMS</li>
+<li>Email xác nhân</li>
+<li>CCCD/CMND (nêu cân)</li>
+</ul>
+<h3 id="42-dia-chi-giao-hang"><strong>4.2 Dia Chi Giao
+Hang</strong></h3>
+<p><strong>Quan ly dia chi:</strong></p>
+<ul>
+<li>Thêm dia chi mói</li>
+<li>Sua dia chi</li>
+<li>Xóa dia chi</li>
+<li>Chon dia chi mac dình</li>
+</ul>
+<p><strong>Thông tin dia chi:</strong></p>
+<ul>
+<li>Tên nguoi nhân</li>
+<li>Sô diên thoai</li>
+<li>Dia chi chi tiêt</li>
+<li>Ghi chú (nêu có)</li>
+</ul>
+<h3 id="43-loyalty-program"><strong>4.3 Loyalty Program</strong></h3>
+<p><strong>Tích diem:</strong></p>
+<ul>
+<li>1 diem = 1.000 VN tiêu</li>
+<li>Tích diem khi thanh toán</li>
+<li>Dùng diem dôi tiên</li>
+</ul>
+<p><strong>Câp bô khách hàng:</strong></p>
+<ul>
+<li><strong>Bronze:</strong> 0-500 diem</li>
+<li><strong>Silver:</strong> 501-2.000 diem</li>
+<li><strong>Gold:</strong> 2.001+ diem</li>
+</ul>
+<p><strong>Quyên lôi:</strong></p>
+<ul>
+<li>Giam gia theo câp bô</li>
+<li>Quà tang sinh nhât</li>
+<li>Uu tiên giao hàng</li>
+</ul>
+<hr />
+<h2 id="5-dành-cho-nhân-viên"><strong>5. DÀNH CHO NHÂN
+VIÊN</strong></h2>
+<h3 id="51-kitchen-display-system-kds"><strong>5.1 Kitchen Display
+System (KDS)</strong></h3>
+<p><strong>Giao diên bep:</strong></p>
+<ul>
+<li>Danh sách don hàng chua xu ly</li>
+<li>Chi tiêt món an</li>
+<li>Thoi gian chô</li>
+<li>Ghi chú don hàng</li>
+</ul>
+<p><strong>Quy trình bep:</strong></p>
+<ol type="1">
+<li>Nhân don hàng mói</li>
+<li>Chuan bi nguyên liêu</li>
+<li>Làm món theo yêu câu</li>
+<li>Câp nhât trang thái "Ready"</li>
+<li>Giao cho nhân viên phuc vu</li>
+</ol>
+<p><strong>Voice Commands:</strong></p>
+<ul>
+<li>"Bep: Don #123 san sang"</li>
+<li>"Bep: Thêm 1 phô Bo Kho"</li>
+<li>"Bep: Huy mon #456"</li>
+</ul>
+<h3 id="52-quan-ly-ban"><strong>5.2 Quan Ly Ban</strong></h3>
+<p><strong>Trang thái ban:</strong></p>
+<ul>
+<li><strong>Trông:</strong> Ban trong</li>
+<li><strong>Có khách:</strong> Dang su dung</li>
+<li><strong>Chuan bi:</strong> Sâp xong</li>
+<li><strong>Thanh toán:</strong> Chô thanh toán</li>
+</ul>
+<p><strong>Chuc nang:</strong></p>
+<ul>
+<li>Phân ban cho khách</li>
+<li>Chuyen ban</li>
+<li>Gôp ban</li>
+<li>Thanh toán</li>
+</ul>
+<h3 id="53-xu-ly-don-hang"><strong>5.3 Xu Ly Don Hang</strong></h3>
+<p><strong>Nhan don hàng:</strong></p>
+<ul>
+<li>Don hàng online</li>
+<li>Don hàng tai quay</li>
+<li>Don hàng giao hàng</li>
+</ul>
+<p><strong>Xu ly:</strong></p>
+<ul>
+<li>Xác nhân thông tin</li>
+<li>Kiêm tra kho</li>
+<li>Chuân bi món</li>
+<li>Giao cho khách</li>
+</ul>
+<hr />
+<h2 id="6-dành-cho-quan-ly"><strong>6. DÀNH CHO QUAN LY</strong></h2>
+<h3 id="61-dashboard"><strong>6.1 Dashboard</strong></h3>
+<p><strong>Tông quan:</strong></p>
+<ul>
+<li>Doanh thu hôm nay</li>
+<li>Sô luong don hàng</li>
+<li>Khách hàng mói</li>
+<li>Top bán chay</li>
+</ul>
+<p><strong>Bieu do:</strong></p>
+<ul>
+<li>Doanh thu theo ngày</li>
+<li>Phân tích món bán</li>
+<li>Hiêu suât nhân viên</li>
+<li>Lich su kinh doanh</li>
+</ul>
+<h3 id="62-quan-ly-san-pham"><strong>6.2 Quan Ly San Pham</strong></h3>
+<p><strong>Menu:</strong></p>
+<ul>
+<li>Thêm món mói</li>
+<li>Sua thông tin món</li>
+<li>Tâm trang thái</li>
+<li>Câp nhât gia</li>
+</ul>
+<p><strong>Nguyên liêu:</strong></p>
+<ul>
+<li>Quan ly kho</li>
+<li>Câp nhât gia nhap</li>
+<li>Theo dõi sô luong</li>
+<li>Cánh báo tôn kho</li>
+</ul>
+<h3 id="63-quan-ly-nhan-vien"><strong>6.3 Quan Ly Nhan
+Vien</strong></h3>
+<p><strong>Thông tin nhân viên:</strong></p>
+<ul>
+<li>Thêm nhân viên mói</li>
+<li>Phân công công viêc</li>
+<li>Quan ly lich làm</li>
+<li>Tính lâm luong</li>
+</ul>
+<p><strong>Phân quyên:</strong></p>
+<ul>
+<li>Admin: Toàn quyên</li>
+<li>Manager: Quan ly</li>
+<li>Staff: Nhân viên</li>
+<li>Cashier: Thu ngân</li>
+</ul>
+<h3 id="64-bao-cao"><strong>6.4 Bao Cao</strong></h3>
+<p><strong>Loai báo cáo:</strong></p>
+<ul>
+<li>Báo cáo doanh thu</li>
+<li>Báo cáo tôn kho</li>
+<li>Báo cáo khách hàng</li>
+<li>Báo cáo nhân viên</li>
+</ul>
+<p><strong>Xuât báo cáo:</strong></p>
+<ul>
+<li>PDF</li>
+<li>Excel</li>
+<li>In trân tiêt</li>
+<li>Gôi email</li>
+</ul>
+<hr />
+<h2 id="7-tính-nang-nang-cao"><strong>7. TÍNH NANG NANG
+CAO</strong></h2>
+<h3 id="71-voice-commands"><strong>7.1 Voice Commands</strong></h3>
+<p><strong>Lênh voice:</strong></p>
+<ul>
+<li>"Dat 1 phô Bo Kho"</li>
+<li>"Goi ban so 5"</li>
+<li>"Thanh toán ban 3"</li>
+<li>"Hô trô"</li>
+</ul>
+<p><strong>Hô trô ngôn ngû:</strong></p>
+<ul>
+<li>Tiêng Viêt</li>
+<li>Tiêng Anh</li>
+<li>Tiêng Trung</li>
+</ul>
+<h3 id="72-real-time-updates"><strong>7.2 Real-time
+Updates</strong></h3>
+<p><strong>Thông báo thoi gian thuc:</strong></p>
+<ul>
+<li>Don hàng mói</li>
+<li>Câp nhât trang thái</li>
+<li>Khuyen mai</li>
+<li>Thông báo hê thông</li>
+</ul>
+<p><strong>Sync dô liêu:</strong></p>
+<ul>
+<li>Dong bô giua các kênh</li>
+<li>Câp nhât ngay lâp túc</li>
+<li>Không mât dô liêu</li>
+</ul>
+<h3 id="73-facebook-integration"><strong>7.3 Facebook
+Integration</strong></h3>
+<p><strong>Tích hop Facebook:</strong></p>
+<ul>
+<li>Nhân tin tiêm nang</li>
+<li>Tao khách hàng mói</li>
+<li>Marketing automation</li>
+<li>Tracking ROI</li>
+</ul>
+<hr />
+<h2 id="8-troubleshooting"><strong>8. TROUBLESHOOTING</strong></h2>
+<h3 id="81-vân-de-pho-biên"><strong>8.1 Vân De Pho Biên</strong></h3>
+<p><strong>Không dang nhap duoc:</strong></p>
+<ul>
+<li>Kiêm tra Internet</li>
+<li>Kiêm tra tai khoan/mat khâu</li>
+<li>Thoát và dang nhap lai</li>
+<li>Liên hê hô trô</li>
+</ul>
+<p><strong>Don hàng không hiên:</strong></p>
+<ul>
+<li>Kiêm tra lich su don hàng</li>
+<li>Kiêm tra trang thái thanh toán</li>
+<li>Liên hê cua hàng</li>
+</ul>
+<p><strong>Giao diên cham:</strong></p>
+<ul>
+<li>Kiêm tra ket nôi Internet</li>
+<li>Xoa cache trinh duyêt</li>
+<li>Dung app diên thoai</li>
+</ul>
+<h3 id="82-lien-he-hô-trô"><strong>8.2 Lien He Hô Trô</strong></h3>
+<p><strong>Cách liên hê:</strong></p>
+<ul>
+<li><strong>Hotline:</strong> 1900-xxxx</li>
+<li><strong>Email:</strong> <a
+href="mailto:support@vanan.shop">support@vanan.shop</a></li>
+<li><strong>Live Chat:</strong> Trên web</li>
+<li><strong>Zalo:</strong> 09xx-xxx-xxx</li>
+</ul>
+<p><strong>Thoi gian hô trô:</strong></p>
+<ul>
+<li><strong>Hotline:</strong> 8:00 - 22:00 hàng ngày</li>
+<li><strong>Email:</strong> Phàn hôi trong 24h</li>
+<li><strong>Live Chat:</strong> 8:00 - 22:00</li>
+</ul>
+<hr />
+<h2 id="9-mobile-app"><strong>9. MOBILE APP</strong></h2>
+<h3 id="91-tai-và-cài-dat"><strong>9.1 Tai và Cài Dat</strong></h3>
+<p><strong>iOS:</strong></p>
+<ol type="1">
+<li>Mô App Store</li>
+<li>Tim "VanAn Shop"</li>
+<li>Nút "Tai"</li>
+<li>Cho tai xong</li>
+</ol>
+<p><strong>Android:</strong></p>
+<ol type="1">
+<li>Mô Google Play</li>
+<li>Tim "VanAn Shop"</li>
+<li>Nút "Cài dat"</li>
+<li>Cho cài dat xong</li>
+</ol>
+<h3 id="92-tính-nang-mobile"><strong>9.2 Tính Nang Mobile</strong></h3>
+<p><strong>Chuc nang:</strong></p>
+<ul>
+<li>Dat hàng nhanh</li>
+<li>Theo dõi don hàng</li>
+<li>Thanh toán diên tu</li>
+<li>Luu thong tin</li>
+<li>Push notifications</li>
+</ul>
+<p><strong>Uu tiên mobile:</strong></p>
+<ul>
+<li>Giao diên thuân tiên</li>
+<li>Tôi uu hóa cho màn hình nhô</li>
+<li>Offline mode (công nang co ban)</li>
+</ul>
+<hr />
+<h2 id="10-tips--tricks"><strong>10. TIPS &amp; TRICKS</strong></h2>
+<h3 id="101-mêo-dat-hàng"><strong>10.1 Mêo Dat Hàng</strong></h3>
+<p><strong>Tiêt kiêm thoi gian:</strong></p>
+<ul>
+<li>Luu dia chi hay dùng</li>
+<li>Dùng "Dat lai" don hàng yêu thích</li>
+<li>Chon "Giao nhanh" nêu cân gap</li>
+</ul>
+<p><strong>Tiêt kiêm tiên:</strong></p>
+<ul>
+<li>Kiêm tra khuyen mai</li>
+<li>Dung diem loyalty</li>
+<li>Dat trong gio vàng (giâm giá)</li>
+</ul>
+<h3 id="102-mêo-quan-ly"><strong>10.2 Mêo Quan Ly</strong></h3>
+<p><strong>Hiêu suât cao:</strong></p>
+<ul>
+<li>Dùng voice commands</li>
+<li>KDS hiên thi ro ràng</li>
+<li>Auto-sync không trôi dô liêu</li>
+</ul>
+<p><strong>Tôi uu hóa:</strong></p>
+<ul>
+<li>Câp nhât menu thuong xuyên</li>
+<li>Theo dõi tôn kho</li>
+<li>Phân tích báo cáo</li>
+</ul>
+<hr />
+<h2 id="11-cap-nhat-môi"><strong>11. CAP NHAT MÔI</strong></h2>
+<h3 id="111-phiên-ban-môi"><strong>11.1 Phiên Ban Môi</strong></h3>
+<p><strong>Phiên ban hiên tai:</strong> 1.0.0<br />
+<strong>Ngày phat hành:</strong> 10/04/2026<br />
+<strong>Tính nang mói:</strong></p>
+<ul>
+<li>Voice commands</li>
+<li>Real-time sync</li>
+<li>Facebook integration</li>
+<li>Mobile app</li>
+</ul>
+<h3 id="112-lên-kê-hoach"><strong>11.2 Lên Kê Hoach</strong></h3>
+<p><strong>Phiên ban 1.1 (Dê kiêm):</strong></p>
+<ul>
+<li>Giao hàng theo dõi GPS</li>
+<li>Thanh toán quét QR</li>
+<li>Báo cáo nâng cao</li>
+<li>Multi-language</li>
+</ul>
+<p><strong>Phiên ban 2.0 (Tuong lai):</strong></p>
+<ul>
+<li>AI recommendations</li>
+<li>Chatbot support</li>
+<li>Advanced analytics</li>
+<li>Cloud deployment</li>
+</ul>
+<hr />
+<h2 id="phê-duyêt-tài-liêu"><strong>PHÊ DUYÊT TÀI LIÊU</strong></h2>
+<p><strong>Ngày:</strong> 10/04/2026<br />
+<strong>Ngày Viêt:</strong> [Tên]<br />
+<strong>Ngày Phê Duyêt:</strong> [Tên]<br />
+<strong>Chuc Vu:</strong> Product Manager<br />
+<strong>Email:</strong> <a
+href="mailto:product@vanan.shop">product@vanan.shop</a></p>
+<hr />
+<p><em>Luu y: Tài liêu này se câp nhât khi có tính nang mói hoac thay
+doi giao diên. Vui lòng kiêm tra phiên ban mói nhât.</em></p>
+</body>
+</html>

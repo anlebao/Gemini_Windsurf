@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Hướng dẫn sử dụng Crawl-to-Onboard Pipeline</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Hướng dẫn sử dụng Crawl-to-Onboard Pipeline</h1>
+</header>
+<h1 id="hướng-dẫn-sử-dụng-crawl-to-onboard-pipeline">Hướng dẫn sử dụng
+Crawl-to-Onboard Pipeline</h1>
+<blockquote>
+<p><strong>Phiên bản:</strong> R1.0 (Phase 1-8 complete) <strong>Ngày
+tạo:</strong> 2026-08-26 <strong>Module:</strong> Crawl-to-Onboard
+Tenant Pipeline <strong>Trạng thái:</strong> Đã triển khai (Deployed) +
+Xác minh thời gian chạy (RV PASS)</p>
+</blockquote>
+<p>Tài liệu này hướng dẫn 3 nhóm người dùng sử dụng module
+Crawl-to-Onboard Pipeline — từ crawl business listings tự động → tạo
+Pending tenant → owner Claim qua GPKD → SysAdmin approve → tenant
+Active.</p>
+<hr />
+<h2 id="mục-lục">Mục lục</h2>
+<ol type="1">
+<li><a href="#1-tổng-quan-quy-trình">Tổng quan quy trình</a></li>
+<li><a href="#2-hướng-dẫn-cho-owner-tenant">Hướng dẫn cho Owner Tenant
+(Claim ownership)</a></li>
+<li><a href="#3-hướng-dẫn-cho-systemadmin">Hướng dẫn cho SystemAdmin
+(Quản lý Pending + Claims + Duplicates)</a></li>
+<li><a href="#4-hướng-dẫn-cho-developer--deployment-staff">Hướng dẫn cho
+Developer / Deployment Staff</a></li>
+<li><a href="#5-sơ-đồ-kiến-trúc--data-flow">Sơ đồ kiến trúc + Data
+flow</a></li>
+<li><a href="#6-api-reference">API Reference</a></li>
+<li><a href="#7-cấu-hình-configuration">Cấu hình
+(Configuration)</a></li>
+<li><a href="#8-khắc-phục-sự-cố-troubleshooting">Khắc phục sự cố
+(Troubleshooting)</a></li>
+<li><a href="#9-câu-hỏi-thường-gặp-faq">Câu hỏi thường gặp
+(FAQ)</a></li>
+</ol>
+<hr />
+<h2 id="1-tổng-quan-quy-trình">1. Tổng quan quy trình</h2>
+<h3 id="11-mục-đích">1.1. Mục đích</h3>
+<p>Pipeline tự động hóa việc tìm kiếm + onboarding tenant mới từ các
+nguồn business listing công khai (trangvangvietnam.com, doanhnghiep.vn).
+Thay vì SysAdmin phải nhập tay thông tin tenant, hệ thống:</p>
+<ol type="1">
+<li><strong>Crawl</strong> danh sách doanh nghiệp từ nguồn công
+khai</li>
+<li>Tạo <strong>Pending tenant</strong> (profile read-only, ẩn SĐT theo
+Luật 91/2025 + ND356/2025)</li>
+<li>Owner doanh nghiệp <strong>Claim</strong> ownership bằng cách upload
+Giấy phép kinh doanh (GPKD)</li>
+<li>SysAdmin <strong>Review + Approve</strong> claim → tenant chuyển
+sang Active + tạo admin user + permission groups</li>
+</ol>
+<h3 id="12-sơ-đồ-quy-trình">1.2. Sơ đồ quy trình</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│ 1. CRAWL (SysAdmin trigger hoặc scheduled)                               │
+│    SysAdmin → /admin/crawl-trigger → POST /api/v1/crawl/trigger (202)   │
+│    → Crawler worker crawl trangvangvietnam.com / doanhnghiep.vn          │
+│    → POST /api/v1/crawl/batch (max 500 listings/batch)                   │
+└──────────────────────────────┬──────────────────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────────────────┐
+│ 2. PENDING TENANT CREATED                                                │
+│    → TenantStatus.Pending (Status=5)                                     │
+│    → Slug: pending-{MST}-{random} (vd: pending-0106463914-a1b2c3)        │
+│    → Settings.CrawledPhone stored internal (KHÔNG hiển thị)              │
+│    → Settings.ContactPhone = null (ẩn section SĐT trên profile)          │
+│    → CrawlSource audit record (SourceSite + SourceUrl + RawJson)         │
+│    → Duplicate check: cùng MST → mark PotentialDuplicateOf (H5)          │
+└──────────────────────────────┬──────────────────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────────────────┐
+│ 3. OWNER CLAIM (Owner doanh nghiệp)                                      │
+│    Owner truy cập https://{domain}/store/{slug}                         │
+│    → Thấy banner &quot;Doanh nghiệp chưa xác minh&quot; + nút &quot;Nhận quyền&quot;        │
+│    → Click → /store/{slug}/claim form:                                   │
+│      - Họ tên + SĐT + Email (optional)                                   │
+│      - MST (cross-check vs Settings.TaxCode)                             │
+│      - Upload ảnh GPKD (Cloudinary, rate-limited 10/giờ/IP)              │
+│    → POST /api/v1/tenants/{tenantId}/claims (AllowAnonymous, 3/24h)     │
+│    → TenantClaimRequest record (Status=Submitted)                        │
+└──────────────────────────────┬──────────────────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────────────────┐
+│ 4. SYSADMIN REVIEW + APPROVE                                             │
+│    SysAdmin → /admin/claims → Claims Queue                               │
+│    → Xem GPKD image + cross-check MST                                    │
+│    → Approve: nhập owner credentials (username + password + slug)        │
+│      → POST /api/v1/claims/{id}/approve                                  │
+│      → VerifyAsync: tạo Owner user + 4 permission groups + Activate      │
+│      → TenantStatus.Active + slug update (vd: cafe-abc)                  │
+│      → ContactPhone = owner-provided (consent per M3)                    │
+│      → Publish TenantVerifiedEvent → NATS → ShopERP SQLite sync          │
+│    → OR Reject: nhập lý do                                               │
+│      → POST /api/v1/claims/{id}/reject                                   │
+│      → TenantClaimRequest.Status=Rejected                                │
+└──────────────────────────────┬──────────────────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────────────────┐
+│ 5. TENANT ACTIVE + OWNER LOGIN                                           │
+│    Owner login ShopERP với credentials từ SysAdmin                       │
+│    → Full commerce features (products, orders, accounting)               │
+│    → KhachLink storefront hiển thị đầy đủ (SĐT, commerce UI)             │
+└─────────────────────────────────────────────────────────────────────────┘</code></pre>
+<h3 id="13-vai-trò-roles">1.3. Vai trò (Roles)</h3>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Quyền</th>
+<th>Truy cập</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Owner (chủ doanh nghiệp)</strong></td>
+<td>Claim ownership Pending tenant, login sau khi Active</td>
+<td>KhachLink <code>/store/{slug}/claim</code>, ShopERP login</td>
+</tr>
+<tr>
+<td><strong>SystemAdmin</strong></td>
+<td>Trigger crawl, review claims, approve/reject, resolve duplicates,
+verify pending</td>
+<td>ShopERP <code>/admin/*</code> (app2.khachvip.online)</td>
+</tr>
+<tr>
+<td><strong>Anonymous (khách)</strong></td>
+<td>Xem Pending tenant profile (ẩn SĐT + commerce UI)</td>
+<td>KhachLink <code>/store/{slug}</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="14-tuân-thủ-pháp-lý-legal-compliance">1.4. Tuân thủ pháp lý
+(Legal compliance)</h3>
+<ul>
+<li><strong>Luật 91/2025/QH15 + ND356/2025/NĐ-CP</strong> (effective
+01/01/2026): SĐT = dữ liệu cá nhân cơ bản</li>
+<li><strong>Crawl SĐT</strong>: lưu <code>CrawledPhone</code> internal
+(KHÔNG hiển thị trên Pending profile)</li>
+<li><strong>Pending profile</strong>: Ẩn hoàn toàn section SĐT
+(Phone=null từ Gateway) — tránh "công khai" per Điều 16</li>
+<li><strong>Sau Verify</strong>: <code>ContactPhone</code> =
+owner-provided (consent) — KHÔNG copy từ CrawledPhone</li>
+<li><strong>Data minimization</strong>: CrawledPhone nên xóa sau Verify
+(đánh giá định kỳ per Điều 19(2))</li>
+<li><strong>Rate limit</strong>: Claim submit 3 req/IP/24h, Image upload
+10/giờ/IP</li>
+</ul>
+<hr />
+<h2 id="2-hướng-dẫn-cho-owner-tenant">2. Hướng dẫn cho Owner Tenant</h2>
+<h3
+id="21-nhận-quyền-sở-hữu-claim-ownership-cho-doanh-nghiệp-pending">2.1.
+Nhận quyền sở hữu (Claim ownership) cho doanh nghiệp Pending</h3>
+<h4 id="bước-1-truy-cập-storefront">Bước 1: Truy cập storefront</h4>
+<p>Mở trình duyệt → nhập URL storefront của doanh nghiệp:</p>
+<pre><code>https://{domain}/store/{slug}</code></pre>
+<ul>
+<li><code>{domain}</code>: domain KhachLink (vd:
+<code>diemthuong2.khachvip.online</code>)</li>
+<li><code>{slug}</code>: slug dạng <code>pending-{MST}-{random}</code>
+(vd: <code>pending-0106463914-a1b2c3</code>)</li>
+</ul>
+<h4 id="bước-2-nhận-diện-pending-tenant">Bước 2: Nhận diện Pending
+tenant</h4>
+<p>Trang storefront hiển thị:</p>
+<ul>
+<li><strong>Banner vàng</strong>: "Doanh nghiệp chưa xác minh — Nếu bạn
+là chủ doanh nghiệp, hãy nhận quyền sở hữu"</li>
+<li><strong>Nút "Nhận quyền"</strong>: link đến
+<code>/store/{slug}/claim</code></li>
+<li><strong>Section SĐT ẨN</strong>: không hiển thị số điện thoại (theo
+Luật 91/2025)</li>
+<li><strong>Commerce UI ẨN</strong>: không hiển thị sản phẩm, giỏ hàng,
+đặt hàng</li>
+</ul>
+<h4 id="bước-3-điền-form-claim">Bước 3: Điền form Claim</h4>
+<p>Click "Nhận quyền" → trang <code>/store/{slug}/claim</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Trường</th>
+<th>Yêu cầu</th>
+<th>Ghi chú</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Họ và tên</td>
+<td>Bắt buộc</td>
+<td>Tên chủ doanh nghiệp</td>
+</tr>
+<tr>
+<td>Số điện thoại</td>
+<td>Bắt buộc</td>
+<td>SĐT liên lạc (sau Verify = ContactPhone)</td>
+</tr>
+<tr>
+<td>Email</td>
+<td>Tùy chọn</td>
+<td>Email liên lạc</td>
+</tr>
+<tr>
+<td>Mã số thuế (MST)</td>
+<td>Bắt buộc</td>
+<td>Cross-check vs MST trong hệ thống — phải khớp</td>
+</tr>
+<tr>
+<td>Ảnh GPKD</td>
+<td>Bắt buộc</td>
+<td>Upload ảnh Giấy phép kinh doanh (jpg/png/webp, max 5MB)</td>
+</tr>
+</tbody>
+</table>
+<h4 id="bước-4-upload-ảnh-gpkd">Bước 4: Upload ảnh GPKD</h4>
+<ol type="1">
+<li>Click "Chọn file" → chọn ảnh GPKD (jpg/png/webp, max 5MB)</li>
+<li>Hệ thống upload lên Cloudinary (anonymous, rate-limited
+10/giờ/IP)</li>
+<li>Ảnh preview hiển thị sau khi upload thành công</li>
+<li>Nếu lỗi 429 (Too Many Requests): đợi 1 giờ rồi thử lại</li>
+</ol>
+<h4 id="bước-5-submit-claim">Bước 5: Submit Claim</h4>
+<ol type="1">
+<li>Kiểm tra thông tin → click "Gửi yêu cầu"</li>
+<li>Thành công: "Yêu cầu đã gửi. SysAdmin sẽ liên hệ trong 24-48h."</li>
+<li>Lỗi 409 (Conflict): đã có claim đang chờ → liên hệ SysAdmin</li>
+<li>Lỗi 429 (Too Many Requests): giới hạn 3 claim/24h/IP → đợi ngày hôm
+sau</li>
+</ol>
+<h4 id="bước-6-nhận-credentials-sau-khi-approve">Bước 6: Nhận
+credentials sau khi Approve</h4>
+<ul>
+<li>SysAdmin approve → owner nhận credentials (username + password) qua
+SĐT/email</li>
+<li>Login tại <code>https://app2.khachvip.online</code> → sử dụng đầy đủ
+ShopERP features</li>
+</ul>
+<h3 id="22-lưu-ý-quan-trọng">2.2. Lưu ý quan trọng</h3>
+<ul>
+<li><strong>MST phải khớp</strong>: MST trong form Claim phải trùng với
+MST crawled từ nguồn công khai</li>
+<li><strong>GPKD rõ nét</strong>: ảnh mờ/nhòe có thể bị reject —
+SysAdmin sẽ kiểm tra</li>
+<li><strong>Rate limit</strong>: 3 claim/24h/IP — không spam submit</li>
+<li><strong>SĐT consent</strong>: SĐT trong form Claim = SĐT hiển thị
+trên storefront sau Active (consent per Luật 91/2025)</li>
+</ul>
+<hr />
+<h2 id="3-hướng-dẫn-cho-systemadmin">3. Hướng dẫn cho SystemAdmin</h2>
+<h3 id="31-truy-cập">3.1. Truy cập</h3>
+<pre><code>URL: https://app2.khachvip.online
+Login: sysadmin@vanan.vn / [password từ Seed:SysAdminPassword]
+NavMenu → Hệ thống group:
+  - Quản lý Tenant (TenantManagement)
+  - Hàng đợi Claim (ClaimsQueue)
+  - Kích hoạt Crawl (CrawlTrigger)</code></pre>
+<h3 id="32-trigger-crawl-kích-hoạt-crawl">3.2. Trigger Crawl (Kích hoạt
+crawl)</h3>
+<h4 id="mục-đích">Mục đích</h4>
+<p>Crawl business listings từ trangvangvietnam.com / doanhnghiep.vn →
+tạo Pending tenants tự động.</p>
+<h4 id="steps">Steps</h4>
+<ol type="1">
+<li>NavMenu → <strong>Hệ thống</strong> → <strong>Kích hoạt
+Crawl</strong> (<code>/admin/crawl-trigger</code>)</li>
+<li>Điền form:</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Trường</th>
+<th>Mô tả</th>
+<th>Ví dụ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nguồn (Source)</td>
+<td>Site crawl</td>
+<td><code>trangvangvietnam</code> hoặc <code>doanhnghiep</code></td>
+</tr>
+<tr>
+<td>Ngành (Industry)</td>
+<td>Lọc theo ngành</td>
+<td><code>F&amp;B</code>, <code>Retail</code>, <code>Service</code></td>
+</tr>
+<tr>
+<td>Tỉnh/Thành (Province)</td>
+<td>Lọc theo tỉnh</td>
+<td><code>Hà Nội</code>, <code>Hồ Chí Minh</code></td>
+</tr>
+<tr>
+<td>Số lượng (MaxResults)</td>
+<td>Max listings crawl</td>
+<td><code>100</code> (default), max 500/batch</td>
+</tr>
+</tbody>
+</table>
+<ol start="3" type="1">
+<li>Click <strong>"Kích hoạt"</strong> → hệ thống trả về 202
+Accepted</li>
+<li>Crawler worker chạy async (background) → crawl listings → POST
+<code>/api/v1/crawl/batch</code></li>
+<li>Mỗi listing → tạo Pending tenant (nếu MST chưa tồn tại) hoặc mark
+duplicate (nếu MST đã có)</li>
+</ol>
+<h4 id="kiểm-tra-kết-quả">Kiểm tra kết quả</h4>
+<ol type="1">
+<li>NavMenu → <strong>Hệ thống</strong> → <strong>Quản lý
+Tenant</strong> → tab <strong>Pending</strong></li>
+<li>Danh sách Pending tenants mới hiển thị (Status=Pending, slug
+<code>pending-{MST}-*</code>)</li>
+<li>Tab <strong>Trùng lặp</strong> hiển thị tenants bị mark duplicate
+(cùng MST)</li>
+</ol>
+<h3 id="33-quản-lý-pending-tenants">3.3. Quản lý Pending Tenants</h3>
+<h4 id="tab-pending-admintenants--tab-pending">Tab "Pending"
+(<code>/admin/tenants</code> → tab Pending)</h4>
+<p>Danh sách tenants Status=Pending với:</p>
+<ul>
+<li>Tên doanh nghiệp + MST + địa chỉ</li>
+<li>Nguồn crawl (SourceSite + SourceUrl)</li>
+<li>Ngày tạo</li>
+</ul>
+<h4 id="verify-pending-tenant-bypass-claim">Verify Pending Tenant
+(bypass claim)</h4>
+<p>Dùng khi cần kích hoạt tenant trực tiếp (không qua Claim form):</p>
+<ol type="1">
+<li>Click <strong>"Verify"</strong> trên tenant row → modal mở:</li>
+<li>Nhập:</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Trường</th>
+<th>Mô tả</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Owner Username</td>
+<td>Username cho owner (vd: <code>owner@abc.vn</code>)</td>
+</tr>
+<tr>
+<td>Owner Password</td>
+<td>Password (auto-generated, có thể override)</td>
+</tr>
+<tr>
+<td>Owner Display Name</td>
+<td>Tên hiển thị (vd: <code>Nguyễn Văn A</code>)</td>
+</tr>
+<tr>
+<td>Owner Phone</td>
+<td>SĐT owner (consent — sẽ là ContactPhone)</td>
+</tr>
+<tr>
+<td>Slug</td>
+<td>Slug mới (vd: <code>cafe-abc</code> — thay
+<code>pending-{MST}-*</code>)</td>
+</tr>
+</tbody>
+</table>
+<ol start="3" type="1">
+<li>Click <strong>"Xác minh"</strong> → hệ thống:
+<ul>
+<li>Tạo Owner user + 4 permission groups (Owner, StoreKeeper, Guard,
+Staff)</li>
+<li>Tenant Status → Active</li>
+<li>Slug update → published slug</li>
+<li>Publish TenantVerifiedEvent → NATS → ShopERP SQLite sync</li>
+</ul></li>
+<li>Credentials hiển thị <strong>MỘT LẦN</strong> — copy + gửi cho
+owner</li>
+</ol>
+<h4 id="resolve-duplicate-giải-quyết-trùng-lặp">Resolve Duplicate (Giải
+quyết trùng lặp)</h4>
+<p>Khi 2+ tenants có cùng MST (duplicate):</p>
+<ol type="1">
+<li>Tab <strong>Trùng lặp</strong> → danh sách tenants có
+<code>PotentialDuplicateOf != null</code></li>
+<li>Click <strong>"Giải quyết"</strong> → modal:
+<ul>
+<li><strong>Keep</strong>: tenant sẽ Verify (chính canonical)</li>
+<li><strong>Deactivate</strong>: tenant sẽ Inactive (bị trùng)</li>
+<li><strong>Reason</strong>: lý do (vd: "MST trùng, giữ tenant tạo
+trước")</li>
+</ul></li>
+<li>Click <strong>"Xác nhận"</strong> → tenant duplicate → Inactive,
+tenant canonical → có thể Verify</li>
+</ol>
+<h3 id="34-review--approve-claims">3.4. Review + Approve Claims</h3>
+<h4 id="claims-queue-adminclaims">Claims Queue
+(<code>/admin/claims</code>)</h4>
+<p>Danh sách claims Status=Submitted với:</p>
+<ul>
+<li>Tên doanh nghiệp + MST + claimant info</li>
+<li>Ảnh GPKD (link Cloudinary — click để xem)</li>
+<li>Cross-check MST link (tra cứu MST trên Tổng cục Thuế)</li>
+</ul>
+<h4 id="approve-claim">Approve Claim</h4>
+<ol type="1">
+<li>Click <strong>"Xem GPKD"</strong> → kiểm tra ảnh GPKD rõ nét + thông
+tin khớp</li>
+<li>Click <strong>"Cross-check MST"</strong> → tra cứu MST trên Tổng cục
+Thuế (external link)</li>
+<li>Nếu OK → click <strong>"Approve"</strong> → modal:</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Trường</th>
+<th>Mô tả</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Owner Username</td>
+<td>Username cho owner</td>
+</tr>
+<tr>
+<td>Owner Password</td>
+<td>Password (auto-generated)</td>
+</tr>
+<tr>
+<td>Owner Display Name</td>
+<td>Tên hiển thị</td>
+</tr>
+<tr>
+<td>Owner Phone</td>
+<td>SĐT (default = claimant phone)</td>
+</tr>
+<tr>
+<td>Slug</td>
+<td>Slug mới (auto-suggest từ tên doanh nghiệp)</td>
+</tr>
+</tbody>
+</table>
+<ol start="4" type="1">
+<li>Click <strong>"Approve"</strong> → hệ thống:
+<ul>
+<li>VerifyAsync: tạo Owner user + permission groups + Activate
+tenant</li>
+<li>Claim Status → Approved + ReviewedAt + ReviewedByUserId</li>
+<li>Credentials hiển thị <strong>MỘT LẦN</strong> — copy + gửi cho
+owner</li>
+</ul></li>
+<li>Nếu lỗi 409: tenant đã Active (đã verify trước đó) → reject
+claim</li>
+</ol>
+<h4 id="reject-claim">Reject Claim</h4>
+<ol type="1">
+<li>Click <strong>"Reject"</strong> → modal:
+<ul>
+<li><strong>Lý do từ chối</strong> (vd: "GPKD không rõ nét", "MST không
+khớp")</li>
+</ul></li>
+<li>Click <strong>"Reject"</strong> → Claim Status → Rejected +
+RejectionReason</li>
+<li>Owner có thể submit claim lại (nếu trong rate limit)</li>
+</ol>
+<h3 id="35-best-practices">3.5. Best practices</h3>
+<ul>
+<li><strong>Kiểm tra GPKD cẩn thận</strong>: ảnh rõ nét, thông tin khớp
+với MST</li>
+<li><strong>Cross-check MST</strong>: luôn tra cứu MST trên Tổng cục
+Thuế trước approve</li>
+<li><strong>Slug clean</strong>: dùng slug dạng
+<code>{ten-doanh-nghiep}</code> (vd: <code>cafe-abc</code>, không dấu,
+không space)</li>
+<li><strong>Credentials bảo mật</strong>: gửi credentials qua kênh bảo
+mật (SMS/email riêng), không hiển thị công khai</li>
+<li><strong>Duplicate check</strong>: nếu tab Trùng lặp có entries →
+resolve trước khi approve claim</li>
+<li><strong>Crawl batch nhỏ</strong>: max 100-200 listings/batch để
+tránh rate limit từ nguồn crawl</li>
+</ul>
+<hr />
+<h2 id="4-hướng-dẫn-cho-developer--deployment-staff">4. Hướng dẫn cho
+Developer / Deployment Staff</h2>
+<h3 id="41-kiến-trúc-tổng-thể">4.1. Kiến trúc tổng thể</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                         KIẾN TRÚC MODULE                                │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────────┐  │
+│  │  KhachLink   │    │   Gateway    │    │      CoreHub             │  │
+│  │  (WASM)      │───▶│  (YARP+API)  │───▶│  (Services, in-process)  │  │
+│  │              │    │              │    │                          │  │
+│  │ - Store.razor│    │ Controllers: │    │ Services:                │  │
+│  │ - Claim.razor│    │ - ImageUpload│    │ - TenantOnboarding       │  │
+│  │ - ImageUpload│    │ - Crawl      │    │ - TenantClaim            │  │
+│  │   Service    │    │ - TenantClaim│    │ - DuplicateDetection     │  │
+│  │ - ClaimHttp  │    │ - TenantPend │    │                          │  │
+│  │   Service    │    │              │    │ DbContext (PG):          │  │
+│  └──────────────┘    └──────┬───────┘    │ - Tenants                │  │
+│                             │            │ - TenantClaimRequests    │  │
+│                             │            │ - CrawlSources           │  │
+│                             │            └──────────────────────────┘  │
+│                             │                                           │
+│                     ┌───────▼────────┐                                  │
+│                     │  PostgreSQL    │                                  │
+│                     │  (Gateway VPS) │                                  │
+│                     └────────────────┘                                  │
+│                                                                         │
+│  ┌──────────────┐              ┌──────────────────────────┐            │
+│  │   Crawler    │              │       ShopERP            │            │
+│  │   Worker     │──HTTP──────▶│  (Blazor Server)         │            │
+│  │   (7_Tooling)│              │                          │            │
+│  │              │              │ - TenantManagement.razor │            │
+│  │ - RestApi    │              │ - ClaimsQueue.razor      │            │
+│  │   Adapter    │              │ - CrawlTrigger.razor     │            │
+│  │ - HtmlAdapter│              │ - TenantClaimApiClient   │            │
+│  │              │              │ - TenantSyncSubscriber   │            │
+│  │ Port 5010    │              │                          │            │
+│  └──────────────┘              │ SQLite (per-tenant):     │            │
+│                                │ - Tenants (synced via    │            │
+│                                │   NATS TenantVerified)   │            │
+│                                └──────────────────────────┘            │
+│                                                                         │
+│                     ┌────────────────┐                                  │
+│                     │     NATS       │                                  │
+│                     │  (Message bus) │                                  │
+│                     │                │                                  │
+│                     │ Subjects:      │                                  │
+│                     │ - tenant.      │                                  │
+│                     │   verified     │                                  │
+│                     │ - tenant.      │                                  │
+│                     │   profile.     │                                  │
+│                     │   updated      │                                  │
+│                     └────────────────┘                                  │
+└─────────────────────────────────────────────────────────────────────────┘</code></pre>
+<h3 id="42-cấu-trúc-code">4.2. Cấu trúc code</h3>
+<pre><code>1_Shared/Domain/
+├── Aggregates/TenantAggregate/
+│   ├── Tenant.cs                    # +CreateUnverified, +Verify, +PotentialDuplicateOf
+│   ├── TenantSettings.cs            # +CrawledPhone field, +WithCrawledPhone method
+│   ├── TenantStatus.cs              # +Pending=5
+│   ├── TenantClaimRequest.cs        # NEW aggregate (claim lifecycle)
+│   └── CrawlSource.cs               # NEW audit entity
+└── Events/
+    └── TenantEvents.cs              # 5 events (Pending, Verified, ClaimRequested, ClaimApproved, ProfileUpdated)
+
+2_Gateway/Controllers/
+├── ImageUploadController.cs         # NEW — anonymous Cloudinary upload
+├── CrawlController.cs               # Phase 4 — batch + trigger + sources
+├── TenantClaimController.cs         # Phase 4 — submit + list + approve + reject
+└── TenantPendingController.cs       # Phase 4 — pending list + verify + duplicates
+
+3_CoreHub/Services/
+├── TenantOnboardingService.cs       # +OnboardUnverifiedAsync +VerifyAsync
+├── TenantClaimService.cs            # NEW — claim lifecycle
+├── DuplicateDetectionService.cs     # NEW — duplicate detection + resolution
+├── Claims/ClaimDtos.cs              # NEW DTOs
+└── Onboarding/CrawlDtos.cs          # NEW DTOs
+
+5_WebApps/KhachLink/
+├── Pages/Store.razor                # +Pending banner + Claim button
+├── Pages/Claim.razor                # NEW — claim form
+├── Services/Http/ClaimHttpService.cs     # NEW
+└── Services/Http/ImageUploadService.cs   # NEW
+
+5_WebApps/ShopERP/
+├── Components/Pages/Admin/
+│   ├── TenantManagement.razor       # +3 tabs (All/Pending/Duplicates) + Verify/Resolve modals
+│   ├── ClaimsQueue.razor            # NEW — claims queue
+│   └── CrawlTrigger.razor           # NEW — crawl trigger form
+├── Services/TenantClaimApiClient.cs # NEW — Gateway API client
+└── Services/TenantSyncSubscriber.cs # Phase 4 — NATS → SQLite sync
+
+7_Tooling/VanAn.Crawler/            # Phase 5 — crawler worker
+├── RestApiAdapter.cs               # doanhnghiep.vn REST API
+├── TrangVangHtmlAdapter.cs         # trangvangvietnam.com HTML scrape
+└── Program.cs                      # Worker service, port 5010
+
+6_Tests/VanAn.Core.Tests/
+├── Domain/TenantPendingTests.cs          # 20 domain tests
+├── Services/Onboarding/OnboardUnverifiedTests.cs  # 10 service tests
+└── Services/Claims/TenantClaimServiceTests.cs     # 13 service tests</code></pre>
+<h3 id="43-database-schema">4.3. Database schema</h3>
+<h4 id="postgresql-gateway--source-of-truth">PostgreSQL (Gateway —
+source of truth)</h4>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode sql"><code class="sourceCode sql"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Tenants table (existing + 2 new columns)</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>Tenants:</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="op">+</span> PotentialDuplicateOf    UUID <span class="kw">NULL</span>  <span class="co">-- Guid? (correction C1, no FK constraint)</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="op">+</span> Settings_CrawledPhone   <span class="dt">VARCHAR</span>(<span class="dv">50</span>) <span class="kw">NULL</span>  <span class="co">-- internal, NOT displayed</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- NEW: TenantClaimRequests table</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>TenantClaimRequests:</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">Id</span>                UUID PK</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  TenantId          UUID FK <span class="op">-&gt;</span> Tenants.<span class="kw">Id</span> (FK <span class="kw">Restrict</span>)</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>  ClaimantName      <span class="dt">VARCHAR</span> <span class="kw">NOT</span> <span class="kw">NULL</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  ClaimantPhone     <span class="dt">VARCHAR</span> <span class="kw">NOT</span> <span class="kw">NULL</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>  ClaimantEmail     <span class="dt">VARCHAR</span> <span class="kw">NULL</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>  GpkdImageUrl      <span class="dt">VARCHAR</span> <span class="kw">NOT</span> <span class="kw">NULL</span>  <span class="co">-- Cloudinary URL</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>  TaxCodeSubmitted  <span class="dt">VARCHAR</span> <span class="kw">NOT</span> <span class="kw">NULL</span>  <span class="co">-- cross-check vs Settings.TaxCode</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>  Status            <span class="dt">INT</span> <span class="kw">NOT</span> <span class="kw">NULL</span>      <span class="co">-- 0=Submitted, 1=Approved, 2=Rejected</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>  SubmittedAt       <span class="dt">TIMESTAMP</span> <span class="kw">NOT</span> <span class="kw">NULL</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>  ReviewedByUserId  UUID <span class="kw">NULL</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>  ReviewedAt        <span class="dt">TIMESTAMP</span> <span class="kw">NULL</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>  RejectionReason   <span class="dt">VARCHAR</span> <span class="kw">NULL</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- BaseEntity: CreatedAt, UpdatedAt, CreatedBy, UpdatedBy, IsDeleted</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Indexes: IX_TenantClaimRequests_TenantId, IX_TenantClaimRequests_Status</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a><span class="co">-- NEW: CrawlSources table (audit trail)</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>CrawlSources:</span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>  <span class="kw">Id</span>          UUID PK</span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>  TenantId    UUID FK <span class="op">-&gt;</span> Tenants.<span class="kw">Id</span> (FK <span class="kw">Cascade</span>)</span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>  SourceSite  <span class="dt">VARCHAR</span> <span class="kw">NOT</span> <span class="kw">NULL</span>  <span class="co">-- &quot;trangvangvietnam&quot;, &quot;doanhnghiep&quot;</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>  SourceUrl   <span class="dt">VARCHAR</span> <span class="kw">NOT</span> <span class="kw">NULL</span>  <span class="co">-- original listing URL</span></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>  RawJson     TEXT <span class="kw">NULL</span>         <span class="co">-- full crawled data JSON</span></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>  CrawledAt   <span class="dt">TIMESTAMP</span> <span class="kw">NOT</span> <span class="kw">NULL</span></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- BaseEntity fields</span></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Index: IX_CrawlSources_TenantId</span></span></code></pre></div>
+<h4 id="sqlite-shoperp--per-tenant-synced-via-nats">SQLite (ShopERP —
+per-tenant, synced via NATS)</h4>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode sql"><code class="sourceCode sql"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Tenants table (ONLY 2 new columns — TenantClaimRequests/CrawlSources NOT in SQLite)</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>Tenants:</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="op">+</span> PotentialDuplicateOf    TEXT <span class="kw">NULL</span>  <span class="co">-- Guid? as TEXT (SQLite)</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="op">+</span> Settings_CrawledPhone   TEXT <span class="kw">NULL</span></span></code></pre></div>
+<h3 id="44-migrations">4.4. Migrations</h3>
+<div class="sourceCode" id="cb8"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># CoreHub PG migration (Phase 2)</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> 3_CoreHub</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="ex">dotnet</span> ef migrations add AddCrawlOnboarding <span class="at">--output-dir</span> Migrations</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Auto-generated: 2 new tables + 2 new Tenants columns + 3 indexes</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="co"># ShopERP SQLite migration (Phase 2 — hand-written, correction C2)</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> 5_WebApps/ShopERP</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="co"># 20260825225206_AddCrawlOnboardingTenantsColumns.cs</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="co"># ONLY 2 Tenants columns (TenantClaimRequests/CrawlSources NOT in SQLite)</span></span></code></pre></div>
+<h3 id="45-build--deploy">4.5. Build + Deploy</h3>
+<h4 id="build-local">Build local</h4>
+<div class="sourceCode" id="cb9"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ex">dotnet</span> build VanAn.sln</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="co"># 0 errors expected</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="ex">dotnet</span> test 6_Tests/VanAn.Core.Tests/VanAn.Core.Tests.csproj</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="co"># 1480+ passed (20 domain + 23 service tests for crawl-onboard)</span></span></code></pre></div>
+<h4 id="deploy-cd-multi-vps">Deploy (CD Multi-VPS)</h4>
+<div class="sourceCode" id="cb10"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push origin main</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Pre-push hook: full CI pipeline (build + unit tests + startup + arch + integration)</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co"># CD Multi-VPS: deploys to 3 VPS (gateway + shop-a + khachlink)</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="co">#   - vanan-gateway (asia-southeast1-a) — Gateway + PG + NATS + nginx</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="co">#   - vanan-shop-a (asia-southeast1-b) — ShopERP + SQLite</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="co">#   - vanan-khachlink (asia-southeast1-c) — KhachLink WASM + nginx</span></span></code></pre></div>
+<h4 id="manual-deploy-if-cd-fails">Manual deploy (if CD fails)</h4>
+<div class="sourceCode" id="cb11"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># SSH to gateway VPS</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="ex">gcloud</span> compute ssh vanan-gateway <span class="at">--zone</span> asia-southeast1-a <span class="at">--project</span> vanan-prod</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /opt/vanan</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> pull origin main</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose <span class="at">-f</span> docker-compose.prod.yml up <span class="at">-d</span> <span class="at">--build</span> gateway nginx</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="co"># SSH to shop VPS</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="ex">gcloud</span> compute ssh vanan-shop-a <span class="at">--zone</span> asia-southeast1-b <span class="at">--project</span> vanan-prod</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /opt/vanan</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> pull origin main</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose <span class="at">-f</span> docker-compose.prod.yml up <span class="at">-d</span> <span class="at">--build</span> shoperp</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a><span class="co"># SSH to khachlink VPS</span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a><span class="ex">gcloud</span> compute ssh vanan-khachlink <span class="at">--zone</span> asia-southeast1-c <span class="at">--project</span> vanan-prod</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /opt/vanan</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> pull origin main</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose <span class="at">-f</span> docker-compose.prod.yml up <span class="at">-d</span> <span class="at">--build</span> khachlink nginx</span></code></pre></div>
+<h3 id="46-cấu-hình-configuration">4.6. Cấu hình (Configuration)</h3>
+<h4 id="gateway-2_gatewayappsettingsjson">Gateway
+(<code>2_Gateway/appsettings.json</code>)</h4>
+<div class="sourceCode" id="cb12"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;Cloudinary&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;CloudName&quot;</span><span class="fu">:</span> <span class="st">&quot;your-cloud-name&quot;</span><span class="fu">,</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;ApiKey&quot;</span><span class="fu">:</span> <span class="st">&quot;your-api-key&quot;</span><span class="fu">,</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;ApiSecret&quot;</span><span class="fu">:</span> <span class="st">&quot;your-api-secret&quot;</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;Crawler&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;BaseUrl&quot;</span><span class="fu">:</span> <span class="st">&quot;http://crawler:5010&quot;</span><span class="fu">,</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;ApiKey&quot;</span><span class="fu">:</span> <span class="st">&quot;crawler-jwt-service-account&quot;</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;Authentication&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;JwtSettings&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;SecretKey&quot;</span><span class="fu">:</span> <span class="st">&quot;your-jwt-secret&quot;</span></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h4 id="crawler-worker-7_toolingvanancrawlerappsettingsjson">Crawler
+Worker (<code>7_Tooling/VanAn.Crawler/appsettings.json</code>)</h4>
+<div class="sourceCode" id="cb13"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;Gateway&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;BaseUrl&quot;</span><span class="fu">:</span> <span class="st">&quot;http://gateway:80&quot;</span><span class="fu">,</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;ApiKey&quot;</span><span class="fu">:</span> <span class="st">&quot;crawler-jwt-service-account&quot;</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;CrawlSources&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;TrangVangVietnam&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;BaseUrl&quot;</span><span class="fu">:</span> <span class="st">&quot;https://trangvangvietnam.com&quot;</span><span class="fu">,</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;RateLimitMs&quot;</span><span class="fu">:</span> <span class="dv">3000</span><span class="fu">,</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;MaxPages&quot;</span><span class="fu">:</span> <span class="dv">50</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">},</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;DoanhNghiep&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;BaseUrl&quot;</span><span class="fu">:</span> <span class="st">&quot;https://doanhnghiep.vn&quot;</span><span class="fu">,</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;ApiKey&quot;</span><span class="fu">:</span> <span class="st">&quot;your-api-key&quot;</span></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h4 id="rate-limits-2_gatewayprogramcs">Rate limits
+(<code>2_Gateway/Program.cs</code>)</h4>
+<div class="sourceCode" id="cb14"><pre
+class="sourceCode csharp"><code class="sourceCode cs"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Claim submit: 3 req/IP/24h (FixedWindow)</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>options<span class="op">.</span><span class="fu">AddFixedWindowLimiter</span><span class="op">(</span><span class="st">&quot;claim-submit&quot;</span><span class="op">,</span> opt <span class="op">=&gt;</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    opt<span class="op">.</span><span class="fu">PermitLimit</span> <span class="op">=</span> <span class="dv">3</span><span class="op">;</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    opt<span class="op">.</span><span class="fu">Window</span> <span class="op">=</span> TimeSpan<span class="op">.</span><span class="fu">FromHours</span><span class="op">(</span><span class="dv">24</span><span class="op">);</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a><span class="op">});</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Image upload: 10 req/IP/hour (FixedWindow)</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>options<span class="op">.</span><span class="fu">AddFixedWindowLimiter</span><span class="op">(</span><span class="st">&quot;image-upload&quot;</span><span class="op">,</span> opt <span class="op">=&gt;</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>    opt<span class="op">.</span><span class="fu">PermitLimit</span> <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>    opt<span class="op">.</span><span class="fu">Window</span> <span class="op">=</span> TimeSpan<span class="op">.</span><span class="fu">FromHours</span><span class="op">(</span><span class="dv">1</span><span class="op">);</span></span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a><span class="op">});</span></span></code></pre></div>
+<h3 id="47-testing">4.7. Testing</h3>
+<div class="sourceCode" id="cb15"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Domain tests (20 tests)</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="ex">dotnet</span> test 6_Tests/VanAn.Core.Tests/VanAn.Core.Tests.csproj <span class="dt">\</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--filter</span> <span class="st">&quot;FullyQualifiedName~TenantPendingTests&quot;</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Service tests (23 tests)</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="ex">dotnet</span> test 6_Tests/VanAn.Core.Tests/VanAn.Core.Tests.csproj <span class="dt">\</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">--filter</span> <span class="st">&quot;FullyQualifiedName~OnboardUnverifiedTests|FullyQualifiedName~TenantClaimServiceTests&quot;</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Full test suite</span></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a><span class="ex">dotnet</span> test 6_Tests/VanAn.Core.Tests/VanAn.Core.Tests.csproj</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Expected: 1480+ passed, 0 failed, 20 skipped</span></span></code></pre></div>
+<h3 id="48-runtime-verification-rv">4.8. Runtime Verification (RV)</h3>
+<div class="sourceCode" id="cb16"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Layer 1: API checks</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Get SystemAdmin JWT</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="ex">gcloud</span> compute ssh vanan-shop-a <span class="at">--zone</span> asia-southeast1-b <span class="at">--project</span> vanan-prod <span class="dt">\</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--command</span><span class="op">=</span><span class="st">&quot;bash /tmp/rv_login.sh&quot;</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Run API checks</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a><span class="ex">gcloud</span> compute ssh vanan-gateway <span class="at">--zone</span> asia-southeast1-a <span class="at">--project</span> vanan-prod <span class="dt">\</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">--command</span><span class="op">=</span><span class="st">&quot;bash /tmp/rv_phase678_api.sh &#39;&lt;JWT_TOKEN&gt;&#39;&quot;</span></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Layer 5: DB inspection</span></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a><span class="ex">gcloud</span> compute ssh vanan-gateway <span class="at">--zone</span> asia-southeast1-a <span class="at">--project</span> vanan-prod <span class="dt">\</span></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">--command</span><span class="op">=</span><span class="st">&quot;printf &#39;SELECT column_name, data_type FROM information_schema.columns WHERE table_name = </span><span class="dt">\&quot;</span><span class="st">TenantClaimRequests</span><span class="dt">\&quot;</span><span class="st"> ORDER BY ordinal_position;\n&#39; | docker exec -i vanan-postgres-1 psql -U vanan_admin -d VanAnCoreHub -t&quot;</span></span></code></pre></div>
+<hr />
+<h2 id="5-sơ-đồ-kiến-trúc--data-flow">5. Sơ đồ kiến trúc + Data
+flow</h2>
+<h3
+id="51-data-flow-option-c--pg-source-of-truth--routed-async-delivery">5.1.
+Data flow (Option C — PG source of truth + routed async delivery)</h3>
+<pre><code>KhachLink (WASM)  →  Gateway (API)  →  CoreHub (Services)  →  PostgreSQL
+     │                    │                    │
+     │                    │                    └─ TenantOnboardingService
+     │                    │                    └─ TenantClaimService
+     │                    │                    └─ DuplicateDetectionService
+     │                    │
+     │                    ├─ ImageUploadController (anonymous, Cloudinary)
+     │                    ├─ CrawlController (SystemAdmin)
+     │                    ├─ TenantClaimController (anonymous + SystemAdmin)
+     │                    └─ TenantPendingController (SystemAdmin)
+     │
+     └─ Store.razor (Pending banner + Claim button)
+     └─ Claim.razor (claim form + GPKD upload)
+
+Crawler Worker  →  Gateway (POST /api/v1/crawl/batch)
+     │
+     ├─ RestApiAdapter (doanhnghiep.vn)
+     └─ TrangVangHtmlAdapter (trangvangvietnam.com)
+
+ShopERP (Blazor Server)
+     │
+     ├─ TenantManagement.razor (3 tabs: All/Pending/Duplicates)
+     ├─ ClaimsQueue.razor (claims queue)
+     ├─ CrawlTrigger.razor (crawl trigger form)
+     ├─ TenantClaimApiClient (wraps Gateway API)
+     └─ TenantSyncSubscriber (NATS → SQLite sync)
+
+NATS (message bus)
+     ├─ vanan.cloud.tenant.verified    → TenantSyncSubscriber → SQLite upsert
+     └─ vanan.cloud.tenant.profile.updated → TenantSyncSubscriber → SQLite upsert</code></pre>
+<h3 id="52-event-flow-verify-tenant">5.2. Event flow (Verify
+tenant)</h3>
+<pre><code>1. SysAdmin → POST /api/v1/claims/{id}/approve
+2. TenantClaimService.ApproveClaimAsync
+   → TenantOnboardingService.VerifyAsync
+     → CreateUser (Owner role)
+     → CreatePermissionGroups (4 groups)
+     → Tenant.Verify() → Status=Active
+     → Tenant.UpdateSlug(publishedSlug)
+     → OutboxMessage(TenantVerifiedEvent)
+   → Claim.Status = Approved
+3. OutboxProcessor → NATS publish &quot;vanan.cloud.tenant.verified&quot;
+4. ShopERP TenantSyncSubscriber → SQLite Tenant upsert (same Guid tenantId)
+5. Response: VerifyResult (ownerUserId, permissionGroupsCreated, publishedSlug)</code></pre>
+<hr />
+<h2 id="6-api-reference">6. API Reference</h2>
+<h3 id="61-anonymous-endpoints">6.1. Anonymous endpoints</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Mô tả</th>
+<th>Rate limit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/tenants/by-slug/{slug}</code></td>
+<td>Get tenant by slug (Pending: Phone=null, IsPending=true,
+ClaimUrl)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/tenants/{tenantId}/claims</code></td>
+<td>Submit claim (GPKD upload)</td>
+<td>3/24h/IP</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/images/upload</code></td>
+<td>Upload image to Cloudinary (multipart/form-data)</td>
+<td>10/giờ/IP</td>
+</tr>
+</tbody>
+</table>
+<h3 id="62-systemadmin-endpoints-jwt-bearer">6.2. SystemAdmin endpoints
+(JWT Bearer)</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Mô tả</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/tenants/pending</code></td>
+<td>List Pending tenants</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/tenants/{id}/verify</code></td>
+<td>Verify Pending tenant (bypass claim)</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/tenants/duplicates</code></td>
+<td>List duplicate tenants</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/tenants/duplicates/resolve</code></td>
+<td>Resolve duplicate (keep + deactivate)</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/claims</code></td>
+<td>List submitted claims</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/claims/{id}</code></td>
+<td>Get claim detail</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/claims/{id}/approve</code></td>
+<td>Approve claim (returns credentials ONCE)</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/claims/{id}/reject</code></td>
+<td>Reject claim</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/crawl/trigger</code></td>
+<td>Trigger crawl (202 Accepted)</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/crawl/batch</code></td>
+<td>Batch crawl (max 500 listings)</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/crawl/sources/{tenantId}</code></td>
+<td>Get crawl audit trail</td>
+</tr>
+</tbody>
+</table>
+<h3 id="63-requestresponse-examples">6.3. Request/Response examples</h3>
+<h4 id="submit-claim">Submit Claim</h4>
+<pre class="http"><code>POST /api/v1/tenants/{tenantId}/claims
+Content-Type: application/json
+
+{
+  &quot;claimantName&quot;: &quot;Nguyễn Văn A&quot;,
+  &quot;claimantPhone&quot;: &quot;0901234567&quot;,
+  &quot;claimantEmail&quot;: &quot;owner@abc.vn&quot;,
+  &quot;gpkdImageUrl&quot;: &quot;https://res.cloudinary.com/.../gpkd.jpg&quot;,
+  &quot;taxCodeSubmitted&quot;: &quot;0106463914&quot;
+}
+
+Response: 201 Created
+{
+  &quot;claimId&quot;: &quot;uuid&quot;,
+  &quot;status&quot;: &quot;Submitted&quot;
+}</code></pre>
+<h4 id="approve-claim-1">Approve Claim</h4>
+<pre class="http"><code>POST /api/v1/claims/{claimId}/approve
+Authorization: Bearer &lt;SystemAdmin JWT&gt;
+Content-Type: application/json
+
+{
+  &quot;ownerUsername&quot;: &quot;owner@abc.vn&quot;,
+  &quot;ownerPassword&quot;: &quot;Password123!&quot;,
+  &quot;ownerDisplayName&quot;: &quot;Nguyễn Văn A&quot;,
+  &quot;ownerPhone&quot;: &quot;0901234567&quot;,
+  &quot;slug&quot;: &quot;cafe-abc&quot;
+}
+
+Response: 200 OK
+{
+  &quot;tenantId&quot;: &quot;uuid&quot;,
+  &quot;ownerUserId&quot;: &quot;uuid&quot;,
+  &quot;permissionGroupsCreated&quot;: 4,
+  &quot;publishedSlug&quot;: &quot;cafe-abc&quot;
+}</code></pre>
+<h4 id="trigger-crawl">Trigger Crawl</h4>
+<pre class="http"><code>POST /api/v1/crawl/trigger
+Authorization: Bearer &lt;SystemAdmin JWT&gt;
+Content-Type: application/json
+
+{
+  &quot;sourceSite&quot;: &quot;trangvangvietnam&quot;,
+  &quot;industry&quot;: &quot;F&amp;B&quot;,
+  &quot;province&quot;: &quot;Hồ Chí Minh&quot;,
+  &quot;maxResults&quot;: 100
+}
+
+Response: 202 Accepted
+{
+  &quot;message&quot;: &quot;Crawl trigger forwarded to crawler worker.&quot;,
+  &quot;request&quot;: { &quot;source&quot;: &quot;trangvangvietnam&quot;, &quot;maxResults&quot;: 100 }
+}</code></pre>
+<hr />
+<h2 id="7-cấu-hình-configuration">7. Cấu hình (Configuration)</h2>
+<h3 id="71-environment-variables-docker">7.1. Environment variables
+(Docker)</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Service</th>
+<th>Mô tả</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Cloudinary__CloudName</code></td>
+<td>Gateway</td>
+<td>Cloudinary cloud name</td>
+</tr>
+<tr>
+<td><code>Cloudinary__ApiKey</code></td>
+<td>Gateway</td>
+<td>Cloudinary API key</td>
+</tr>
+<tr>
+<td><code>Cloudinary__ApiSecret</code></td>
+<td>Gateway</td>
+<td>Cloudinary API secret</td>
+</tr>
+<tr>
+<td><code>Crawler__BaseUrl</code></td>
+<td>Gateway</td>
+<td>Crawler worker URL (http://crawler:5010)</td>
+</tr>
+<tr>
+<td><code>Crawler__ApiKey</code></td>
+<td>Gateway</td>
+<td>Crawler JWT service account key</td>
+</tr>
+<tr>
+<td><code>Seed__SysAdminPassword</code></td>
+<td>ShopERP</td>
+<td>SystemAdmin password (override default)</td>
+</tr>
+<tr>
+<td><code>ConnectionStrings__DefaultConnection</code></td>
+<td>Gateway</td>
+<td>PostgreSQL connection string</td>
+</tr>
+</tbody>
+</table>
+<h3 id="72-rate-limits">7.2. Rate limits</h3>
+<table>
+<thead>
+<tr>
+<th>Policy</th>
+<th>Limit</th>
+<th>Window</th>
+<th>Endpoint</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>claim-submit</code></td>
+<td>3 req</td>
+<td>24h</td>
+<td>POST /api/v1/tenants/{id}/claims</td>
+</tr>
+<tr>
+<td><code>image-upload</code></td>
+<td>10 req</td>
+<td>1h</td>
+<td>POST /api/v1/images/upload</td>
+</tr>
+<tr>
+<td><code>api</code></td>
+<td>200 burst</td>
+<td>—</td>
+<td>All /api/ endpoints (global)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-khắc-phục-sự-cố-troubleshooting">8. Khắc phục sự cố
+(Troubleshooting)</h2>
+<h3 id="81-owner-claim-submit-lỗi">8.1. Owner: Claim submit lỗi</h3>
+<table>
+<thead>
+<tr>
+<th>Lỗi</th>
+<th>Nguyên nhân</th>
+<th>Khắc phục</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>404 Not Found</td>
+<td>Tenant không tồn tại hoặc đã Active</td>
+<td>Kiểm tra slug trên KhachLink</td>
+</tr>
+<tr>
+<td>409 Conflict</td>
+<td>Đã có claim Submitted cho tenant này</td>
+<td>Đợi SysAdmin review claim cũ</td>
+</tr>
+<tr>
+<td>429 Too Many Requests</td>
+<td>Giới hạn 3 claim/24h/IP</td>
+<td>Đợi 24h rồi thử lại</td>
+</tr>
+<tr>
+<td>400 Bad Request</td>
+<td>MST không khớp</td>
+<td>Kiểm tra MST trên GPKD vs MST hệ thống</td>
+</tr>
+</tbody>
+</table>
+<h3 id="82-owner-image-upload-lỗi">8.2. Owner: Image upload lỗi</h3>
+<table>
+<thead>
+<tr>
+<th>Lỗi</th>
+<th>Nguyên nhân</th>
+<th>Khắc phục</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>400 Bad Request</td>
+<td>File rỗng hoặc sai format</td>
+<td>Dùng jpg/png/webp, max 5MB</td>
+</tr>
+<tr>
+<td>429 Too Many Requests</td>
+<td>Giới hạn 10 upload/giờ/IP</td>
+<td>Đợi 1 giờ</td>
+</tr>
+<tr>
+<td>500 Server Error</td>
+<td>Cloudinary config sai</td>
+<td>Liên hệ admin</td>
+</tr>
+</tbody>
+</table>
+<h3 id="83-systemadmin-approve-claim-lỗi">8.3. SystemAdmin: Approve
+claim lỗi</h3>
+<table>
+<thead>
+<tr>
+<th>Lỗi</th>
+<th>Nguyên nhân</th>
+<th>Khắc phục</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>409 Conflict</td>
+<td>Tenant đã Active (verified trước đó)</td>
+<td>Reject claim</td>
+</tr>
+<tr>
+<td>400 Bad Request</td>
+<td>Slug đã tồn tại</td>
+<td>Đổi slug khác</td>
+</tr>
+<tr>
+<td>500 Server Error</td>
+<td>User creation fail (email trùng)</td>
+<td>Đổi owner username/email</td>
+</tr>
+</tbody>
+</table>
+<h3 id="84-systemadmin-crawl-trigger-không-tạo-tenant">8.4. SystemAdmin:
+Crawl trigger không tạo tenant</h3>
+<table>
+<thead>
+<tr>
+<th>Triệu chứng</th>
+<th>Nguyên nhân</th>
+<th>Khắc phục</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>202 nhưng không có Pending tenant</td>
+<td>Crawler worker không chạy</td>
+<td>Kiểm tra crawler container: <code>docker ps</code></td>
+</tr>
+<tr>
+<td></td>
+<td>MST đã tồn tại (skip duplicate)</td>
+<td>Check tab Trùng lặp</td>
+</tr>
+<tr>
+<td></td>
+<td>Crawl source trả 0 kết quả</td>
+<td>Thay đổi keywords/province</td>
+</tr>
+</tbody>
+</table>
+<h3 id="85-developer-build-lỗi">8.5. Developer: Build lỗi</h3>
+<table>
+<thead>
+<tr>
+<th>Lỗi</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CS0246: TenantId not found</code></td>
+<td>Add
+<code>using VanAn.Shared.Domain.Aggregates.TenantAggregate;</code></td>
+</tr>
+<tr>
+<td><code>CS0104: VerifyResult ambiguous</code></td>
+<td>Add
+<code>using VerifyResult = VanAn.CoreHub.Services.Onboarding.VerifyResult;</code></td>
+</tr>
+<tr>
+<td>EF Core LINQ translation fail (Pattern #8)</td>
+<td>Use <code>t.Id == new TenantId(guid)</code> NOT
+<code>t.Id.Value == guid</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="86-developer-duplicatedetectionservice-400-error">8.6.
+Developer: DuplicateDetectionService 400 error</h3>
+<pre><code>System.InvalidOperationException: The LINQ expression &#39;__canonicalIds_0&#39; could not be translated</code></pre>
+<p><strong>Root cause</strong>:
+<code>canonicalIds.Contains(t.Id.Value)</code> — <code>t.Id</code> is
+<code>TenantId</code> value object, <code>.Value</code> in
+<code>Where</code> fails LINQ translation (Pattern #8).</p>
+<p><strong>Fix</strong>: Convert to <code>List&lt;TenantId&gt;</code> +
+use <code>Contains(t.Id)</code>:</p>
+<div class="sourceCode" id="cb23"><pre
+class="sourceCode csharp"><code class="sourceCode cs"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> canonicalIds <span class="op">=</span> duplicates</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">Select</span><span class="op">(</span>t <span class="op">=&gt;</span> <span class="kw">new</span> <span class="fu">TenantId</span><span class="op">(</span>t<span class="op">.</span><span class="fu">PotentialDuplicateOf</span><span class="op">!.</span><span class="fu">Value</span><span class="op">))</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">Distinct</span><span class="op">()</span></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">ToList</span><span class="op">();</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> canonicalTenants <span class="op">=</span> await dbContext<span class="op">.</span><span class="fu">Tenants</span></span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">IgnoreQueryFilters</span><span class="op">()</span></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">Where</span><span class="op">(</span>t <span class="op">=&gt;</span> canonicalIds<span class="op">.</span><span class="fu">Contains</span><span class="op">(</span>t<span class="op">.</span><span class="fu">Id</span><span class="op">))</span>  <span class="co">// NOT t.Id.Value</span></span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">ToDictionaryAsync</span><span class="op">(</span>t <span class="op">=&gt;</span> t<span class="op">.</span><span class="fu">Id</span><span class="op">.</span><span class="fu">Value</span><span class="op">,</span> t <span class="op">=&gt;</span> t<span class="op">.</span><span class="fu">Name</span><span class="op">,</span> ct<span class="op">);</span></span></code></pre></div>
+<hr />
+<h2 id="9-câu-hỏi-thường-gặp-faq">9. Câu hỏi thường gặp (FAQ)</h2>
+<h3 id="q1-tại-sao-sđt-không-hiển-thị-trên-pending-tenant">Q1: Tại sao
+SĐT không hiển thị trên Pending tenant?</h3>
+<p><strong>A</strong>: Theo Luật 91/2025/QH15 + ND356/2025/NĐ-CP
+(effective 01/01/2026), SĐT là dữ liệu cá nhân cơ bản. Việc "công khai"
+SĐT crawled trên storefront vi phạm Điều 16. Pipeline HIDE hoàn toàn
+section SĐT trên Pending profile (Phone=null từ Gateway). Sau khi owner
+Claim + SysAdmin Approve, SĐT owner-provided (consent) mới hiển thị.</p>
+<h3 id="q2-owner-có-thể-claim-tenant-đã-active-không">Q2: Owner có thể
+claim tenant đã Active không?</h3>
+<p><strong>A</strong>: Không. Claim chỉ dành cho tenant Status=Pending.
+Tenant Active đã có owner → không cần claim.</p>
+<h3 id="q3-hai-tenant-có-cùng-mst--xử-lý-thế-nào">Q3: Hai tenant có cùng
+MST — xử lý thế nào?</h3>
+<p><strong>A</strong>: Pipeline tự động mark tenant thứ 2 là duplicate
+của tenant thứ 1 (correction H5 — first canonical). SysAdmin resolve
+duplicate: Verify tenant "keep" + Deactivate tenant "duplicate". KHÔNG
+merge data.</p>
+<h3 id="q4-credentials-sau-approve-hiển-thị-bao-lâu">Q4: Credentials sau
+Approve hiển thị bao lâu?</h3>
+<p><strong>A</strong>: Credentials (username + password) hiển thị
+<strong>MỘT LẦN</strong> trong modal Approve. SysAdmin phải copy + gửi
+cho owner ngay. Nếu mất, cần reset password qua UserManagement.</p>
+<h3 id="q5-crawler-crawl-bao-nhiêu-listings-mỗi-batch">Q5: Crawler crawl
+bao nhiêu listings mỗi batch?</h3>
+<p><strong>A</strong>: Max 500 listings/batch (POST
+/api/v1/crawl/batch). Mỗi listing có MST → check duplicate → tạo Pending
+tenant (nếu MST chưa có) hoặc skip (nếu MST đã tồn tại).</p>
+<h3 id="q6-tenant-pending-có-sync-sang-shoperp-sqlite-không">Q6: Tenant
+Pending có sync sang ShopERP SQLite không?</h3>
+<p><strong>A</strong>: Không. Chỉ tenant Active (sau Verify) mới sync
+PG→SQLite qua NATS (<code>TenantVerifiedEvent</code> →
+<code>TenantSyncSubscriber</code>). Pending tenant KHÔNG sync (Option A
+— H7).</p>
+<h3 id="q7-image-upload-lưu-ở-đâu">Q7: Image upload lưu ở đâu?</h3>
+<p><strong>A</strong>: Cloudinary (cloud-based image storage). Gateway
+nhận multipart upload → upload lên Cloudinary → trả về URL. URL lưu
+trong <code>TenantClaimRequests.GpkdImageUrl</code>.</p>
+<h3 id="q8-làm-sao-xóa-crawledphone-sau-verify-data-minimization">Q8:
+Làm sao xóa CrawledPhone sau Verify (data minimization)?</h3>
+<p><strong>A</strong>: Hiện tại CrawledPhone vẫn lưu sau Verify (đánh
+giá định kỳ per Điều 19(2)). Tech debt: thêm cleanup job xóa
+CrawledPhone sau Verify + sau thời gian retention (vd: 90 ngày).</p>
+<hr />
+<h2 id="phụ-lục-tham-chiếu">Phụ lục: Tham chiếu</h2>
+<ul>
+<li><strong>Master plan</strong>:
+<code>docs/AI/plans/crawl-onboarding-master-plan.md</code> (114 dòng —
+12 locked decisions, 8 corrections)</li>
+<li><strong>Task cards</strong>:
+<code>docs/AI/tasks/crawl-onboarding/task_phase{1-8}_*.md</code> (8
+files)</li>
+<li><strong>PRs</strong>: #162 (Phase 1-4), #163 (Phase 5), #164 (Phase
+6+7+8)</li>
+<li><strong>Domain entities</strong>:
+<code>1_Shared/Domain/Aggregates/TenantAggregate/</code></li>
+<li><strong>Services</strong>: <code>3_CoreHub/Services/</code>
+(TenantOnboardingService, TenantClaimService,
+DuplicateDetectionService)</li>
+<li><strong>Tests</strong>:
+<code>6_Tests/VanAn.Core.Tests/Domain/TenantPendingTests.cs</code> +
+<code>Services/Onboarding/OnboardUnverifiedTests.cs</code> +
+<code>Services/Claims/TenantClaimServiceTests.cs</code></li>
+</ul>
+<hr />
+<blockquote>
+<p><strong>Tài liệu này được tạo bởi Devin AI — Crawl-to-Onboard
+Pipeline Phase 6+7+8 (2026-08-26)</strong> <strong>Cập nhật
+khi:</strong> có thay đổi API, thêm crawl source, hoặc thay đổi legal
+compliance.</p>
+</blockquote>
+</body>
+</html>
