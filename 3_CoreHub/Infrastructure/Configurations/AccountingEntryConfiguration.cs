@@ -48,6 +48,13 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+            // RV finding (2026-10-07, Thu chi & Công nợ P4): TransactionDate là get-only
+            // auto-property — EF Core KHÔNG map get-only properties theo convention → cột
+            // chưa từng tồn tại, ngày nghiệp vụ user nhập bị MẤT khi lưu (history hiển thị
+            // 01/01/0001). Báo cáo công nợ/FIFO aging phụ thuộc TransactionDate → map + migration
+            // AddAccountingEntryTransactionDate (backfill CURRENT_TIMESTAMP cho rows cũ).
+            _ = builder.Property(e => e.TransactionDate);
+
             _ = builder.Property(e => e.ReversalEntryId);
             // Note: ReversalEntryId is already Guid?, no converter needed
 

@@ -15,6 +15,10 @@ import { TestReporter } from '../utils/test-reporter';
 const config = loadEnvConfig();
 const reporter = new TestReporter('CongNo E2E');
 
+// ShopERP base — mặc định từ .env.test (api.khachvip.online/shoperp — local dev);
+// production RV override bằng env CONGNO_SHOPERP_URL (vd app2.khachvip.online — ShopERP thật).
+const shopErpBase = process.env.CONGNO_SHOPERP_URL || config.SHOPERP_URL;
+
 test.describe.configure({ mode: isTierEnabled('e2e') ? 'parallel' : 'skip' });
 
 test.describe('VanAn Ecosystem - Công Nợ (131/331) E2E Tests', () => {
@@ -27,16 +31,24 @@ test.describe('VanAn Ecosystem - Công Nợ (131/331) E2E Tests', () => {
   });
 
   test.beforeEach(async ({ page, request }) => {
-    // Dev login endpoint (precedent accounting-entry-flow.spec.ts)
-    const shopErpUrl = config.SHOPERP_URL;
+    // Dev login endpoint CHỈ tồn tại trong DEBUG build (#if DEBUG — DevLoginController).
+    // - Local dev E2E: POST /dev/login → cookie session Owner.
+    // - Production RV (playwright-rv-congno.config.ts): dev login 404 → bỏ qua,
+    //   session lấy từ storageState auth/rv-congno.json (login thật adminvanan1).
+    const shopErpUrl = shopErpBase;
     const devLoginUrl = `${shopErpUrl}/dev/login`;
 
-    const response = await request.post(devLoginUrl);
-    if (!response.ok()) {
-      throw new Error(`Dev login failed: ${response.status()}`);
+    try {
+      const response = await request.post(devLoginUrl, { timeout: 8000 });
+      if (response.ok()) {
+        const body = await response.json();
+        console.log(`Dev login successful: tenantId=${body.tenantId}, role=${body.role}`);
+      } else {
+        console.log(`Dev login unavailable (${response.status()}) — dùng storageState (production RV)`);
+      }
+    } catch {
+      console.log('Dev login unavailable — dùng storageState (production RV)');
     }
-    const body = await response.json();
-    console.log(`Dev login successful: tenantId=${body.tenantId}, role=${body.role}`);
 
     await page.goto(`${shopErpUrl}/dashboard`);
     await page.waitForLoadState('networkidle');
@@ -45,7 +57,7 @@ test.describe('VanAn Ecosystem - Công Nợ (131/331) E2E Tests', () => {
   // ─── RENDER TESTS (Gate 4) ───────────────────────────────────────────────
 
   test('Phiếu thu công nợ render 3 loại phiếu + Đối tượng bắt buộc', async ({ page }) => {
-    await page.goto(`${config.SHOPERP_URL}/accounting/revenue`);
+    await page.goto(`${shopErpBase}/accounting/revenue`);
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('h1:has-text("Nhập Doanh Thu")')).toBeVisible({ timeout: 15000 });
@@ -63,7 +75,7 @@ test.describe('VanAn Ecosystem - Công Nợ (131/331) E2E Tests', () => {
   });
 
   test('Báo cáo công nợ render 2 khối + chips lọc', async ({ page }) => {
-    await page.goto(`${config.SHOPERP_URL}/accounting/cong-no`);
+    await page.goto(`${shopErpBase}/accounting/cong-no`);
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('h1:has-text("Báo Cáo Công Nợ")')).toBeVisible({ timeout: 15000 });
@@ -79,7 +91,7 @@ test.describe('VanAn Ecosystem - Công Nợ (131/331) E2E Tests', () => {
   });
 
   test('Sổ chi tiết render (sổ phải thu)', async ({ page }) => {
-    await page.goto(`${config.SHOPERP_URL}/accounting/cong-no/thu/Kh%C3%A1ch%20A`);
+    await page.goto(`${shopErpBase}/accounting/cong-no/thu/Kh%C3%A1ch%20A`);
     await page.waitForLoadState('networkidle');
 
     // Sổ render (data hoặc empty state) — không phải lỗi route
@@ -89,18 +101,16 @@ test.describe('VanAn Ecosystem - Công Nợ (131/331) E2E Tests', () => {
   });
 
   test('Sitemap shows Công Nợ link for Owner', async ({ page }) => {
-    await page.goto(`${config.SHOPERP_URL}/sitemap`);
+    await page.goto(`${shopErpBase}/sitemap`);
     await page.waitForLoadState('networkidle');
 
-    await expect(
-      page.locator('[data-testid="link-accounting-cong-no"]').or(page.locator('[data-testid="card-accounting"]'))
-    ).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('[data-testid="link-accounting-cong-no"]')).toBeVisible({ timeout: 15000 });
   });
 
   // ─── FULL FLOW: phiếu công nợ → báo cáo → sổ → lịch sử → đảo ─────────────
 
   test('Flow: bán chịu → báo cáo công nợ → sổ → lịch sử → đảo bút toán', async ({ page }) => {
-    const shopErpUrl = config.SHOPERP_URL;
+    const shopErpUrl = shopErpBase;
     const doiTuong = `E2E Khách ${Date.now()}`;
     const amount = '1234567';
     const amountVn = '1.234.567'; // vi-VN format trong báo cáo/sổ
@@ -112,6 +122,9 @@ test.describe('VanAn Ecosystem - Công Nợ (131/331) E2E Tests', () => {
     await page.selectOption('#voucherType', 'receivable');
     await expect(page.locator('#doiTuong')).toBeVisible({ timeout: 10000 });
     await page.fill('#doiTuong', doiTuong);
+    // Ngày: DynamicFormFields @bind là literal (UI.Platform) → DOM input TRỐNG dù field.Value có mặc định
+    // → bắt buộc fill ngày (cùng pattern accounting-entry-flow.spec.ts)
+    await page.fill('#date', new Date().toISOString().slice(0, 10));
     await page.fill('#amount', amount);
     await page.fill('#description', `Bán chịu — ${doiTuong}`);
     await page.click('button:has-text("Lưu Doanh Thu")');
@@ -158,7 +171,7 @@ test.describe('VanAn Ecosystem - Công Nợ (131/331) E2E Tests', () => {
   // ─── TRA MST [G11] — tolerant (network/rate-limit có thể fail — R6) ───────
 
   test('Tra MST điền tên công ty vào Đối tượng (hoặc lỗi thân thiện)', async ({ page }) => {
-    await page.goto(`${config.SHOPERP_URL}/accounting/revenue`);
+    await page.goto(`${shopErpBase}/accounting/revenue`);
     await page.waitForLoadState('networkidle');
 
     await page.selectOption('#voucherType', 'receivable');
