@@ -208,7 +208,8 @@ namespace VanAn.Core.Tests.Accounting
                 CoreAccountingEntry.CreateExpense(tenantId, period, new Money(500m, "VND"), "Test 2")
             ];
 
-            _ = _mockRepository.Setup(r => r.GetByTenantAndPeriodAsync(tenantId, period, It.IsAny<CancellationToken>()))
+            // NHẬP LIỆU & SỔ SÁCH P1 (#3): service lọc theo TransactionDate (không còn CreatedAt)
+            _ = _mockRepository.Setup(r => r.GetByTenantAndTransactionDatePeriodAsync(tenantId, period, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(periodEntries);
 
             // Act
@@ -223,7 +224,66 @@ namespace VanAn.Core.Tests.Accounting
                 Assert.Equal(period.Month, e.PeriodMonth);
             });
 
-            _mockRepository.Verify(r => r.GetByTenantAndPeriodAsync(tenantId, period, It.IsAny<CancellationToken>()), Times.Once);
+            _mockRepository.Verify(r => r.GetByTenantAndTransactionDatePeriodAsync(tenantId, period, It.IsAny<CancellationToken>()), Times.Once);
+            _mockRepository.Verify(r => r.GetByTenantAndPeriodAsync(tenantId, period, It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        // ===== NHẬP LIỆU & SỔ SÁCH P1 (#3 — ngày nghiệp vụ): Lịch sử giao dịch / Số dư / doanh thu
+        // theo TransactionDate (phiếu ngày cũ hiển thị đúng kỳ nghiệp vụ) — duplicate-check vẫn CreatedAt =====
+
+        [Fact]
+        public async Task GetEntriesByDateRangeAsync_ShouldUseTransactionDateRepo()
+        {
+            // Arrange
+            Guid tenantGuid = Guid.NewGuid();
+            TenantId tenantId = new(tenantGuid);
+            DateTime start = new(2024, 1, 1);
+            DateTime end = new(2024, 1, 31);
+
+            CoreAccountingEntry entryA = CoreAccountingEntry.CreateRevenue(
+                tenantId, AccountingPeriod.Create(2024, 1), new Money(1000m), "A", transactionDate: new DateTime(2024, 1, 5));
+            CoreAccountingEntry entryB = CoreAccountingEntry.CreateExpense(
+                tenantId, AccountingPeriod.Create(2024, 1), new Money(500m), "B", transactionDate: new DateTime(2024, 1, 15));
+
+            _ = _mockRepository
+                .Setup(r => r.GetByTenantAndTransactionDateRangeAsync(tenantId, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync([entryA, entryB]);
+
+            // Act
+            IEnumerable<Shared.DTOs.AccountingEntryDto> result = await _service.GetEntriesByDateRangeAsync(tenantGuid, start, end);
+
+            // Assert — gọi repo TransactionDate, KHÔNG gọi repo CreatedAt cũ
+            Assert.Equal(2, result.Count());
+            _mockRepository.Verify(r => r.GetByTenantAndTransactionDateRangeAsync(tenantId, start, end, It.IsAny<CancellationToken>()), Times.Once);
+            _mockRepository.Verify(r => r.GetByTenantAndDateRangeAsync(tenantId, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task GetTodayRevenueAsync_ShouldUseTransactionDateRepo_AndSumRevenueOnly()
+        {
+            // Arrange
+            Guid tenantGuid = Guid.NewGuid();
+            TenantId tenantId = new(tenantGuid);
+            DateTime today = DateTime.UtcNow.Date;
+
+            // Repo (mô phỏng filter TransactionDate hôm nay) trả 1 doanh thu + 1 chi phí
+            CoreAccountingEntry revenue = CoreAccountingEntry.CreateRevenue(
+                tenantId, AccountingPeriod.Create(today.Year, today.Month), new Money(1000m), "Thu hôm nay", transactionDate: today);
+            CoreAccountingEntry expense = CoreAccountingEntry.CreateExpense(
+                tenantId, AccountingPeriod.Create(today.Year, today.Month), new Money(500m), "Chi hôm nay", transactionDate: today);
+
+            _ = _mockRepository
+                .Setup(r => r.GetByTenantAndTransactionDateRangeAsync(tenantId, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync([revenue, expense]);
+
+            // Act
+            decimal result = await _service.GetTodayRevenueAsync(tenantGuid);
+
+            // Assert — chỉ sum EntryType.Revenue + dùng repo TransactionDate
+            Assert.Equal(1000m, result);
+            _mockRepository.Verify(r => r.GetByTenantAndTransactionDateRangeAsync(
+                tenantId, today, today.AddDays(1).AddTicks(-1), It.IsAny<CancellationToken>()), Times.Once);
+            _mockRepository.Verify(r => r.GetByTenantAndDateRangeAsync(tenantId, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]

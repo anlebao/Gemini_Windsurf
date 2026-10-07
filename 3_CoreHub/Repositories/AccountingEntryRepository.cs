@@ -118,6 +118,61 @@ namespace VanAn.CoreHub.Repositories
                 .ToListAsync(cancellationToken);
         }
 
+        public async Task<IEnumerable<CoreAccountingEntry>> GetByTenantAndTransactionDateRangeAsync(
+            TenantId tenantId,
+            DateTime startDate,
+            DateTime endDate,
+            CancellationToken cancellationToken = default)
+        {
+            if (tenantId == null)
+            {
+                throw new ArgumentNullException(nameof(tenantId), "TenantId cannot be null");
+            }
+
+            if (startDate > endDate)
+            {
+                throw new ArgumentException("StartDate cannot be greater than EndDate", nameof(startDate));
+            }
+
+            // P1 (#3 — ngày nghiệp vụ): filter TransactionDate (không CreatedAt) — phiếu nhập
+            // ngày cũ hiển thị đúng kỳ nghiệp vụ. Inclusive end (giữ convention method cũ).
+            // Direct TenantId comparison (Known Error Pattern #1/#8).
+            return await _context.AccountingEntries
+                .Where(e => e.TenantId == tenantId &&
+                            e.TransactionDate >= startDate &&
+                            e.TransactionDate <= endDate)
+                .OrderByDescending(e => e.TransactionDate)
+                .ThenByDescending(e => e.CreatedAt)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<IEnumerable<CoreAccountingEntry>> GetByTenantAndTransactionDatePeriodAsync(
+            TenantId tenantId,
+            AccountingPeriod period,
+            CancellationToken cancellationToken = default)
+        {
+            if (tenantId == null)
+            {
+                throw new ArgumentNullException(nameof(tenantId), "TenantId cannot be null");
+            }
+
+            if (period == null)
+            {
+                throw new ArgumentNullException(nameof(period), "AccountingPeriod cannot be null");
+            }
+
+            DateTime startDate = period.StartDate;
+            DateTime endDate = period.EndDate;
+
+            return await _context.AccountingEntries
+                .Where(e => e.TenantId == tenantId &&
+                            e.TransactionDate >= startDate &&
+                            e.TransactionDate <= endDate)
+                .OrderByDescending(e => e.TransactionDate)
+                .ThenByDescending(e => e.CreatedAt)
+                .ToListAsync(cancellationToken);
+        }
+
         public async Task<IEnumerable<CoreAccountingEntry>> GetByTenantAndPeriodAsync(
             TenantId tenantId,
             AccountingPeriod period,

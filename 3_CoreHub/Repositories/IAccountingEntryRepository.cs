@@ -35,6 +35,24 @@ namespace VanAn.CoreHub.Repositories
             TenantId tenantId,
             IEnumerable<string> accountCodes,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// NHẬP LIỆU & SỔ SÁCH P1 (#3 — ngày nghiệp vụ): get entries filtered by TransactionDate
+        /// (ngày nghiệp vụ user nhập) thay vì CreatedAt — cho Lịch sử giao dịch / Số dư tài khoản /
+        /// doanh thu dashboard. Ordered TransactionDate DESC + CreatedAt DESC (giữ UX "mới nhất trước").
+        /// KHÔNG dùng cho duplicate-check 5' (phải theo CreatedAt — thời điểm tạo).
+        /// </summary>
+        Task<IEnumerable<CoreAccountingEntry>> GetByTenantAndTransactionDateRangeAsync(
+            TenantId tenantId,
+            DateTime startDate,
+            DateTime endDate,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>NHẬP LIỆU & SỔ SÁCH P1 (#3): entries có TransactionDate trong kỳ (period.StartDate..EndDate).</summary>
+        Task<IEnumerable<CoreAccountingEntry>> GetByTenantAndTransactionDatePeriodAsync(
+            TenantId tenantId,
+            AccountingPeriod period,
+            CancellationToken cancellationToken = default);
         Task<IEnumerable<CoreAccountingEntry>> GetByPeriodAsync(
             TenantId tenantId,
             AccountingPeriod period,

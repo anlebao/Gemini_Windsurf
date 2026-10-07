@@ -1,9 +1,9 @@
 # TASK CARD: KẾ TOÁN — NHẬP LIỆU & SỔ SÁCH ĐẦY ĐỦ (Import Excel · Số dư đầu kỳ · Ngày nghiệp vụ · Phiếu tay → Sổ HKD/BCTC)
 
 > Created: 2026-10-07 (user directive: tenant mới bắt đầu dùng kế toán phải nhập được dữ liệu cũ từ Excel; chốt xử lý #1-#4)
-> Master plan: `docs/AI/plans/ke-toan-nhap-lieu-master-plan.md` (Q1-Q5 user chốt 2026-10-07 — chiến lược §6 chờ duyệt lần cuối)
+> Master plan: `docs/AI/plans/ke-toan-nhap-lieu-master-plan.md` (Q1-Q5 user chốt + chiến lược §6 approved 2026-10-07)
 > Branch: `main`
-> Status: **✅ Q1-Q5 CHỐT — ⏳ CHỜ USER DUYỆT CHIẾN LƯỢC, CHƯA IMPLEMENT**
+> Status: **✅ P1 (#3) DONE — ⏳ P2 (#4 JournalEntry) kế tiếp**
 
 ---
 
@@ -23,15 +23,13 @@
 
 ## 3. SCOPE (6 phases)
 
-### Phase 1 — #3 Ngày nghiệp vụ (task `task_ke_toan_nhap_lieu_phase1_transaction_date.md`) ⏳
+### Phase 1 — #3 Ngày nghiệp vụ (task `task_ke_toan_nhap_lieu_phase1_transaction_date.md`) ✅ DONE 2026-10-07
 
-> **PREP:** đọc `IAccountingEntryRepository` (2 method CreatedAt — KHÔNG sửa) + `TransactionHistory.razor` (L207) + `AccountBalance.razor` (L140-152) + `AccountingEntryService.GetTodayRevenueAsync/GetRevenueByDateRangeAsync/CheckDuplicateEntryAsync`.
-
-- [ ] **P1.1 Repo:** thêm `GetByTenantAndTransactionDateRangeAsync` + `GetByTenantAndTransactionDatePeriodAsync` (filter TransactionDate, sort TransactionDate+CreatedAt) — **GIỮ method cũ** (duplicate-check + OrderService không đổi)
-- [ ] **P1.2 UI:** TransactionHistory + AccountBalance chuyển sang method mới
-- [ ] **P1.3 Dashboard:** GetTodayRevenueAsync/GetRevenueByDateRangeAsync chuyển TransactionDate (nếu không ảnh hưởng call site khác)
-- [ ] **P1.4 Tests:** phiếu ngày cũ → đúng kỳ ở 2 màn; duplicate 5' regress PASS; isolation
-- [ ] **Validation:** guard + build + Core.Tests + ShopERP.Tests PASS → commit (KHÔNG push)
+- [x] **P1.1 Repo:** thêm `GetByTenantAndTransactionDateRangeAsync` + `GetByTenantAndTransactionDatePeriodAsync` (filter TransactionDate, sort TransactionDate DESC + CreatedAt DESC — giữ UX "mới nhất trước") — **GIỮ method cũ** (duplicate-check + OrderService không đổi)
+- [x] **P1.2 Service:** chuyển nội bộ `GetEntriesByDateRangeAsync` (TransactionHistory) + `GetEntriesByTenantAndPeriodAsync` (AccountBalance + dashboard) + `GetTodayRevenueAsync`/`GetRevenueByDateRangeAsync` sang repo TransactionDate — KHÔNG đổi UI (method names ổn định); verify call sites: tất cả là hiển thị + controller tìm theo Id (an toàn)
+- [x] **P1.3 Migration `BackfillAccountingEntryTransactionDate`:** data fix — `UPDATE TransactionDate = CreatedAt WHERE TransactionDate = '0001-01-01'` (rows tồn tại trước khi cột có — nếu không, lịch sử sẽ ẩn phiếu cũ sau khi chuyển sang TransactionDate) — schema-neutral, Down no-op
+- [x] **P1.4 Tests (+2):** `GetEntriesByDateRangeAsync_ShouldUseTransactionDateRepo` + `GetTodayRevenueAsync_ShouldUseTransactionDateRepo_AndSumRevenueOnly` + cập nhật test period sang repo mới (Verify old method Never) — **duplicate SC4/SC5/SC6 giữ nguyên** (vẫn mock repo CreatedAt — đúng semantics chống double-click 5') → **Core.Tests 2132 PASS (+2)** · ShopERP.Tests 163 PASS
+- [x] **Validation:** build VanAn.sln 0 errors · guard ALL PASSED · commit → **push Đợt 1 + CD + RV L1/L2**
 
 ### Phase 2 — #4 JournalEntry cho phiếu tay (task `task_ke_toan_nhap_lieu_phase2_journal_entry.md`) ⏳
 

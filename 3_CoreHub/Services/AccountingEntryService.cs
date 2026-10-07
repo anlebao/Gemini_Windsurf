@@ -31,7 +31,9 @@ namespace VanAn.CoreHub.Services
             {
                 TenantId tenantIdObj = new(tenantId);
                 DateTime today = DateTime.UtcNow.Date;
-                IEnumerable<CoreAccountingEntry> entries = await _repository.GetByTenantAndDateRangeAsync(
+                // P1 (#3 — ngày nghiệp vụ): doanh thu "hôm nay" theo TransactionDate (phiếu
+                // nhập ngày cũ không tính vào hôm nay dù được tạo hôm nay).
+                IEnumerable<CoreAccountingEntry> entries = await _repository.GetByTenantAndTransactionDateRangeAsync(
                     tenantIdObj,
                     today,
                     today.AddDays(1).AddTicks(-1),
@@ -53,7 +55,8 @@ namespace VanAn.CoreHub.Services
             try
             {
                 TenantId tenantIdObj = new(tenantId);
-                IEnumerable<CoreAccountingEntry> entries = await _repository.GetByTenantAndDateRangeAsync(
+                // P1 (#3 — ngày nghiệp vụ): filter theo TransactionDate.
+                IEnumerable<CoreAccountingEntry> entries = await _repository.GetByTenantAndTransactionDateRangeAsync(
                     tenantIdObj,
                     startDate,
                     endDate,
@@ -327,7 +330,9 @@ namespace VanAn.CoreHub.Services
         {
             try
             {
-                IEnumerable<CoreAccountingEntry> entries = await _repository.GetByTenantAndPeriodAsync(tenantId, period, CancellationToken.None);
+                // P1 (#3 — ngày nghiệp vụ): entries theo TransactionDate trong kỳ (trước đây CreatedAt —
+                // phiếu nhập ngày cũ hiện sai kỳ ở Số dư tài khoản/dashboard).
+                IEnumerable<CoreAccountingEntry> entries = await _repository.GetByTenantAndTransactionDatePeriodAsync(tenantId, period, CancellationToken.None);
                 return entries.Select(e => new AccountingEntryDto
                 {
                     Id = e.Id,
@@ -401,7 +406,9 @@ namespace VanAn.CoreHub.Services
             try
             {
                 TenantId tenantIdObj = new(tenantId);
-                IEnumerable<CoreAccountingEntry> entries = await _repository.GetByTenantAndDateRangeAsync(
+                // P1 (#3 — ngày nghiệp vụ): Lịch sử giao dịch theo TransactionDate (phiếu ngày cũ
+                // hiển thị đúng kỳ nghiệp vụ thay vì kỳ nhập liệu CreatedAt).
+                IEnumerable<CoreAccountingEntry> entries = await _repository.GetByTenantAndTransactionDateRangeAsync(
                     tenantIdObj,
                     startDate,
                     endDate,
