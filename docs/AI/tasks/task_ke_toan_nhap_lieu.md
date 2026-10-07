@@ -1,9 +1,9 @@
 # TASK CARD: KẾ TOÁN — NHẬP LIỆU & SỔ SÁCH ĐẦY ĐỦ (Import Excel · Số dư đầu kỳ · Ngày nghiệp vụ · Phiếu tay → Sổ HKD/BCTC)
 
 > Created: 2026-10-07 (user directive: tenant mới bắt đầu dùng kế toán phải nhập được dữ liệu cũ từ Excel; chốt xử lý #1-#4)
-> Master plan: `docs/AI/plans/ke-toan-nhap-lieu-master-plan.md` (DRAFT — **CHỜ USER REVIEW**)
+> Master plan: `docs/AI/plans/ke-toan-nhap-lieu-master-plan.md` (Q1-Q5 user chốt 2026-10-07 — chiến lược §6 chờ duyệt lần cuối)
 > Branch: `main`
-> Status: **⏳ PLAN ONLY — CHỜ REVIEW, CHƯA IMPLEMENT**
+> Status: **✅ Q1-Q5 CHỐT — ⏳ CHỜ USER DUYỆT CHIẾN LƯỢC, CHƯA IMPLEMENT**
 
 ---
 
@@ -77,15 +77,17 @@
 - [ ] **P6.4 RV L3/L4:** E2E production + flow thật (tenant demo: khai đầu kỳ + import Excel thật → đối chiếu công nợ/B01/BCTC) · L5 manual
 - [ ] **P6.5 ĐÓNG:** project_state + master plan + task card → báo user
 
-## 4. QUYẾT ĐỊNH ĐỀ XUẤT (chờ user chốt — master plan §3)
+## 4. QUYẾT ĐỊNH — USER CHỐT (2026-10-07)
 
-| # | Câu hỏi | Đề xuất |
+| # | Câu hỏi | Quyết định (user đồng ý đề xuất) |
 |---|---|---|
-| Q1 | Công nợ 131/331 có tạo JournalEntry không? | KHÔNG (G6) |
+| Q1 | Công nợ 131/331 có tạo JournalEntry không? | **KHÔNG** (G6) |
 | Q2 | Số dư đầu kỳ Nợ≠Có? | Chặn — cho nhập 421 để bù |
 | Q3 | Format import? | xlsx + CSV |
 | Q4 | Import lỗi giữa chừng? | Dry-run — 0 lỗi mới lưu |
 | Q5 | Phạm vi JournalEntry? | Thu/chi/đầu kỳ — công nợ ngoài |
+
+> Chiến lược implement an toàn: master plan §6 (4 đợt push · backfill JE kiểm soát · idempotency · fail-safe · rollback · test chiến lược) — **chờ user duyệt lần cuối rồi bắt đầu P1.**
 
 ## 5. CONSTRAINTS (governance)
 

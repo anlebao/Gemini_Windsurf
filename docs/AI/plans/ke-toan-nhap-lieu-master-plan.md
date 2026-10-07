@@ -1,7 +1,7 @@
 # MASTER PLAN: KẾ TOÁN — NHẬP LIỆU & SỔ SÁCH ĐẦY ĐỦ (Import Excel · Số dư đầu kỳ · Ngày nghiệp vụ · Phiếu tay → Sổ HKD/BCTC)
 
 > Created: 2026-10-07 (user directive: "các việc phải làm để 1 tenant bắt đầu dùng phần mềm kế toán, dữ liệu cũ nhập vào như thế nào — trước đây dùng Excel" → chốt: xử lý #1 #2 #3 #4)
-> Status: **⏳ DRAFT — CHỜ USER REVIEW (chưa implement)**
+> Status: **✅ Q1-Q5 USER CHỐT (2026-10-07) — ⏳ CHỜ USER DUYỆT CHIẾN LƯỢC §6 (chưa implement)**
 > Branch: `main` · Priority: tiếp nối Thu chi & Công nợ (P1-P4 DONE, L5 manual chờ user)
 > Nền tảng: module kế toán hiện tại + Công nợ MVP đã deploy (`bda6df1e`)
 
@@ -113,18 +113,57 @@
 
 ---
 
-## 6. EXECUTION STRATEGY (session-per-phase — precedent Công nợ/Booking)
+## 6. EXECUTION STRATEGY (an toàn, đầy đủ — user review Q1-Q5 đồng ý 2026-10-07)
 
-| Session | Phase | Deliverable | Validation |
-|---|---|---|---|
-| S1 | P1 (#3) | Repo TransactionDate + 2 màn + dashboard | guard + build + Core.Tests + ShopERP.Tests |
-| S2 | P2 (#4) | JournalEntry phiếu tay + reversal sync + fail-safe | guard + build + Core.Tests |
-| S3 | P3 (#2) | OpeningBalance service + UI + menu | guard + Core.Tests + ShopERP.Tests |
-| S4 | P4 (#1) | ImportService + mẫu + UI | guard + Core.Tests + ShopERP.Tests |
-| S5 | P5 | E2E spec + full matrix | guard + build + tests |
-| S6 | P6 | PUSH + CD + RV L1-L5 | RV protocol |
+> **Quyết định chốt (user):** Q1 công nợ KHÔNG tạo JE [G6] · Q2 đầu kỳ ΣNợ=ΣCó (+421) · Q3 xlsx+CSV · Q4 dry-run 0 lỗi mới lưu · Q5 JE cho thu/chi/đầu kỳ.
 
-**Test delta ước lượng:** Core.Tests ~2130 → ~2160-2190 · ShopERP.Tests ~163 → ~170-175 · E2E +4-6.
+### 6.1 Nguyên tắc an toàn chung
+
+1. **Phase nhỏ, commit riêng, ship được độc lập** — mỗi phase: guard + build + Core.Tests + ShopERP.Tests PASS trước commit.
+2. **Push theo đợt (4 đợt)** — cân bằng chi phí CD (~9-15'/run) với RV sớm:
+   - **Đợt 1 — P1 (#3):** push + CD + RV L1/L2 + smoke production (thay đổi query — rủi ro thấp nhưng cần chắc chắn không vỡ dashboard/duplicate).
+   - **Đợt 2 — P2 (#4):** push + CD + **backfill JE (kiểm soát)** + **RV L1-L4** (quan trọng nhất — kiểm chứng: phiếu tay vào B01-B09/BCTC · công nợ KHÔNG lọt [G6] · reversal đồng bộ).
+   - **Đợt 3 — P3+P4 (#2+#1):** push + CD + RV L1-L4 (khai đầu kỳ + import thật trên tenant demo → đối chiếu công nợ/B01/BCTC).
+   - **Đợt 4 — P5+P6:** E2E production + full RV + đóng.
+3. **Idempotency mọi thao tác tạo dữ liệu:**
+   - JE: `ReferenceType="ManualEntry"` + `ReferenceId=AccountingEntry.Id` → `ExistsByReference` trước khi tạo (retry an toàn, không trùng).
+   - Opening balance: unique (tenant, period) — 1 lần/kỳ; sửa = đảo + khai lại.
+   - Import: dry-run bắt buộc (Q4); giới hạn 2000 dòng/lần import.
+4. **Fail-safe:** lỗi tạo JE KHÔNG chặn phiếu (log + ghi chú — kế toán đơn ưu tiên ghi sổ đúng); lỗi 1 dòng import không ảnh hưởng các dòng khác (nhưng dry-run chặn lưu khi có lỗi — Q4).
+5. **Rollback #4 (rủi ro cao nhất):** revert commit hook (phiếu mới không tạo JE); JE đã tạo là dữ liệu ĐÚNG (Nợ=Có) — giữ lại không gây hại; cleanup service (xóa JE theo ReferenceId) nếu cần khôi phục nguyên trạng.
+
+### 6.2 Chiến tiết theo phase
+
+**P1 (#3) — an toàn:** thêm method repo MỚI (không sửa method cũ — duplicate-check 5' + OrderService không đổi) · verify call sites `GetTodayRevenueAsync`/`GetRevenueByDateRangeAsync` (chỉ dashboard → chuyển; có call site khác → thêm method mới riêng) · UI chuyển TransactionHistory + AccountBalance · tests: phiếu ngày cũ đúng kỳ ở 2 màn + duplicate 5' regress + dashboard không đổi.
+
+**P2 (#4) — an toàn (đợt 2):**
+- Hook tạo JE nằm trong component riêng `ManualEntryJournalBridge` (tách khỏi AccountingEntryService/CongNoService — dễ test + rollback) — gọi SAU khi phiếu lưu thành công.
+- Định khoản: thu 5xx/7xx `Nợ 111 / Có {TK}` · chi 6xx `Nợ {TK} / Có 111` · EntryDate=TransactionDate · `AddToBookAsync(S2b_HKD)` (template đọc theo EntryDate — đủ cho cả bộ sổ).
+- **Backfill JE (sau deploy, kiểm soát):** `IBackfillJournalEntriesService` — quét AccountingEntries 5xx/6xx (non-reversed, chưa có JE theo ReferenceId) → tạo JE; **dry-run đếm trước, chạy theo lô, đối chiếu SQL** (Σ eligible == Σ JE tạo); endpoint SystemAdmin `POST /api/accounting/backfill-journal-entries` (dry-run/run) — KHÔNG tự chạy khi startup.
+- Reversal phiếu tay → tạo JE reversal (đảo Nợ/Có) — chỉ khi phiếu gốc CÓ JE (tra ReferenceId); idempotent.
+- Tests: JE cân bằng Nợ=Có · vào B01/B02/BCTC · **công nợ KHÔNG tạo JE ([G6] — test chốt)** · reversal đồng bộ · backfill idempotent + đối chiếu.
+
+**P3 (#2) — an toàn + đầy đủ (2 phần):**
+- **(a) Số dư TK tổng** (111/112/156/211/311/333/334/421...): màn khai Nợ/Có + ΣNợ=ΣCó (bù 421 — Q2) → AccountingEntry (Adjustment, "Số dư đầu kỳ", TransactionDate = ngày đầu kỳ − 1) + JE "Số dư đầu kỳ" (Nợ TK dư Nợ / Có TK dư Có — từng line) → BalanceSheet/B01 đúng.
+- **(b) Công nợ cũ theo đối tượng** (khách A 5tr · NCC Y 3tr — nguồn Excel thường có danh sách này): tự tạo **phiếu 131/331 per đối tượng** (Vendor + ngày khai báo) → báo cáo công nợ Đầu kỳ + tuổi nợ đúng theo đối tượng (**KHÔNG JE — Q1**).
+- Unique (tenant, period) + kỳ trước mốc phải Open (period-closing guard) + tests (BalanceSheet/B01 · công nợ theo đối tượng · chênh Nợ≠Có chặn · khai lại chặn · isolation).
+
+**P4 (#1) — an toàn:** parse + validate từng dòng (ngày/TK/tiền/đối tượng/kỳ chưa đóng) → **dry-run bảng lỗi theo dòng (Q4)** → 0 lỗi mới lưu qua services (tự động JE nhờ P2) · mẫu xlsx+CSV cùng bộ cột · giới hạn 2000 dòng · tests (import OK · lỗi liệt kê + không ghi gì · xlsx==csv · isolation).
+
+### 6.3 Test chiến lược
+
+| Lớp | Nội dung |
+|---|---|
+| Unit | Mỗi phase: services (JE mapping · opening balance · import validate) |
+| Integration | JE cân bằng + vào template B01/B02/BCTC · opening balance → BalanceSheet/B01 · import → phiếu+JE |
+| [G6] regress | Công nợ KHÔNG tạo JE · B02 không gồm 131/331 (test chốt mỗi phase đụng JE) |
+| Full matrix | guard + build + Core.Tests (~2130→~2160-2190) + ShopERP.Tests (~163→~170-175) + Architecture — MỖI phase |
+| E2E (P5) | `accounting-import.spec.ts` — self-gating + storageState production |
+| RV (P2/P6) | L1 markers + L2 health + L3 E2E + L4 flow thật + đối chiếu dữ liệu (SQL counts) |
+
+### 6.4 Thứ tự phase (dependency)
+
+P1 (#3) → P2 (#4 + backfill) → P3 (#2 — cần JE của P2) → P4 (#1 — cần services P2/P3) → P5 (E2E) → P6 (Deploy+RV+đóng).
 
 ---
 
@@ -139,6 +178,9 @@
 | R5 | **JournalEntry fail chặn phiếu** | Fail-safe: phiếu vẫn lưu, log + ghi chú (R2 Công nợ precedent) |
 | R6 | **Tuổi nợ của số dư đầu kỳ 131 không đúng ngày gốc** | Ghi chú UI: khai sớm (ngày trước mốc) để tuổi nợ gần đúng; không có cách biết ngày gốc thật |
 | R7 | **Regress Công nợ / Booking** | Chỉ thêm method/service — không sửa logic hiện có; full matrix + RV |
+| R8 | **Backfill JE sai/trùng** | Idempotent (ReferenceId) + dry-run đếm + đối chiếu SQL + chạy lô nhỏ trước |
+| R9 | **B02/BCTC đổi số liệu sau #4** (phiếu tay giờ vào) — người dùng thấy "khác trước" | Đúng mục tiêu; thông báo + ghi chú release; công nợ vẫn không vào ([G6] test) |
+| R10 | **Rollback #4 phức tạp** | Hook tách riêng (`ManualEntryJournalBridge`) — revert 1 commit; JE đã tạo là dữ liệu đúng, giữ hoặc cleanup theo ReferenceId |
 
 ---
 
