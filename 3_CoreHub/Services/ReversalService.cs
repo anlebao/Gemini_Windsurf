@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Repositories;
+using VanAn.CoreHub.Services.Journal;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
 
 namespace VanAn.CoreHub.Services
@@ -11,10 +12,13 @@ namespace VanAn.CoreHub.Services
     /// </summary>
     public class ReversalService(
         IAccountingEntryRepository repository,
-        ILogger<ReversalService> logger) : IReversalService
+        ILogger<ReversalService> logger,
+        IManualEntryJournalBridge? journalBridge = null) : IReversalService
     {
         private readonly IAccountingEntryRepository _repository = repository;
         private readonly ILogger<ReversalService> _logger = logger;
+        // NHẬP LIỆU & SỔ SÁCH P2 (#4): đảo phiếu tay → JE reversal đồng bộ (nếu phiếu gốc có JE) — optional + fail-safe
+        private readonly IManualEntryJournalBridge? _journalBridge = journalBridge;
 
         public async Task<CoreAccountingEntry> CreateReversalEntryAsync(
             AccountingEntryId originalEntryId,
@@ -45,6 +49,19 @@ namespace VanAn.CoreHub.Services
 
                 // Add only the new reversal entry - never modify the original
                 await _repository.AddAsync(reversalEntry, cancellationToken);
+
+                // NHẬP LIỆU & SỔ SÁCH P2 (#4): JE reversal đồng bộ (nếu phiếu gốc có JE) — fail-safe
+                if (_journalBridge != null)
+                {
+                    try
+                    {
+                        _ = await _journalBridge.CreateReversalForAsync(originalEntry, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Journal bridge reversal failed for entry {EntryId} — reversal đã lưu (fail-safe)", originalEntry.Id);
+                    }
+                }
 
                 _logger.LogInformation("Reversal entry created: {ReversalId} for original entry {OriginalId}, reason: {Reason}",
                     reversalEntry.Id, originalEntryId, reason);

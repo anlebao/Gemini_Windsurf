@@ -21,6 +21,7 @@ namespace VanAn.Core.Tests.Accounting
         private readonly Mock<IAccountingService> _mockAccountingService;
         private readonly Mock<IReversalService> _mockReversalService;
         private readonly Mock<IHKDBookService> _mockHKDBookService;
+        private readonly Mock<VanAn.CoreHub.Services.Journal.IBackfillJournalEntriesService> _mockBackfillService;
         private readonly Mock<ILogger<AccountingEntriesController>> _mockLogger;
         private readonly AccountingEntriesController _controller;
 
@@ -29,11 +30,13 @@ namespace VanAn.Core.Tests.Accounting
             _mockAccountingService = new Mock<IAccountingService>();
             _mockReversalService = new Mock<IReversalService>();
             _mockHKDBookService = new Mock<IHKDBookService>();
+            _mockBackfillService = new Mock<VanAn.CoreHub.Services.Journal.IBackfillJournalEntriesService>();
             _mockLogger = new Mock<ILogger<AccountingEntriesController>>();
             _controller = new AccountingEntriesController(
                 _mockAccountingService.Object,
                 _mockReversalService.Object,
                 _mockHKDBookService.Object,
+                _mockBackfillService.Object,
                 _mockLogger.Object);
         }
 

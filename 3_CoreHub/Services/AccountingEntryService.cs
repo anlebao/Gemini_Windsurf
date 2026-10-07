@@ -3,6 +3,7 @@ using VanAn.Shared.Domain;
 using VanAn.Shared.DTOs;
 using VanAn.Shared.Domain.Audit;
 using VanAn.CoreHub.Repositories;
+using VanAn.CoreHub.Services.Journal;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
 
 namespace VanAn.CoreHub.Services
@@ -15,12 +16,16 @@ namespace VanAn.CoreHub.Services
         IAccountingEntryRepository repository,
         IAuditTrailService auditTrailService,
         IPeriodClosingService periodClosingService,
-        ILogger<AccountingEntryService> logger) : IAccountingService
+        ILogger<AccountingEntryService> logger,
+        IManualEntryJournalBridge? journalBridge = null) : IAccountingService
     {
         private readonly IAccountingEntryRepository _repository = repository;
         private readonly IAuditTrailService _auditTrailService = auditTrailService;
         private readonly IPeriodClosingService _periodClosingService = periodClosingService;
         private readonly ILogger<AccountingEntryService> _logger = logger;
+        // NHẬP LIỆU & SỔ SÁCH P2 (#4): phiếu tay → JournalEntry (Sổ HKD/BCTC). Optional —
+        // không có bridge (test/legacy) → phiếu vẫn hoạt động như cũ (không tạo JE).
+        private readonly IManualEntryJournalBridge? _journalBridge = journalBridge;
 
         // C-1: Duplicate detection window (configurable constant)
         private const int DuplicateWindowMinutes = 5;
@@ -154,6 +159,9 @@ namespace VanAn.CoreHub.Services
                     accountCode: accountCode, reference: reference, industrySector: industrySector, transactionDate: transactionDate);
                 await _repository.AddAsync(entry);
 
+                // NHẬP LIỆU & SỔ SÁCH P2 (#4): phiếu tay → JournalEntry (Sổ HKD B01-B09/BCTC) — fail-safe
+                await CreateJournalEntrySafeAsync(entry);
+
                 // Audit log: Revenue entry creation
                 var newValues = System.Text.Json.JsonSerializer.Serialize(new { Amount = amount, Description = description, Period = period.ToString(), Type = "Revenue", AccountCode = accountCode, IndustrySector = industrySector?.ToString() });
                 await _auditTrailService.LogCreateAsync(
@@ -204,6 +212,9 @@ namespace VanAn.CoreHub.Services
                 CoreAccountingEntry entry = CoreAccountingEntry.CreateExpense(tenantId, period, new Money(amount), description,
                     accountCode: accountCode, vendor: vendor, category: category, reference: reference, industrySector: industrySector, transactionDate: transactionDate);
                 await _repository.AddAsync(entry);
+
+                // NHẬP LIỆU & SỔ SÁCH P2 (#4): phiếu tay → JournalEntry (Sổ HKD B01-B09/BCTC) — fail-safe
+                await CreateJournalEntrySafeAsync(entry);
 
                 // Audit log: Expense entry creation
                 var newValues = System.Text.Json.JsonSerializer.Serialize(new { Amount = amount, Description = description, Period = period.ToString(), Type = "Expense", AccountCode = accountCode, Vendor = vendor, Category = category, IndustrySector = industrySector?.ToString() });
@@ -375,6 +386,9 @@ namespace VanAn.CoreHub.Services
                 CoreAccountingEntry reversalEntry = CoreAccountingEntry.CreateReversal(originalEntry, reason);
                 await _repository.AddAsync(reversalEntry, CancellationToken.None);
 
+                // NHẬP LIỆU & SỔ SÁCH P2 (#4): đảo phiếu tay → JE reversal (nếu phiếu gốc có JE) — fail-safe
+                await CreateJournalReversalSafeAsync(originalEntry);
+
                 _logger.LogInformation("Created reversal entry {ReversalId} for original entry {OriginalId}",
                     reversalEntry.Id, originalEntryId);
 
@@ -434,6 +448,42 @@ namespace VanAn.CoreHub.Services
                 _logger.LogError(ex, "Error getting entries for tenant {TenantId} from {StartDate} to {EndDate}",
                     tenantId, startDate, endDate);
                 throw;
+            }
+        }
+
+        // NHẬP LIỆU & SỔ SÁCH P2 (#4): hook tạo JournalEntry cho phiếu tay — fail-safe kép
+        // (bridge đã fail-safe nội bộ; hook thêm try/catch phòng bridge lỗi lạ → phiếu vẫn lưu).
+        private async Task CreateJournalEntrySafeAsync(CoreAccountingEntry entry)
+        {
+            if (_journalBridge == null)
+            {
+                return;
+            }
+
+            try
+            {
+                _ = await _journalBridge.CreateForAccountingEntryAsync(entry);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Journal bridge create failed for entry {EntryId} — phiếu đã lưu (fail-safe)", entry.Id);
+            }
+        }
+
+        private async Task CreateJournalReversalSafeAsync(CoreAccountingEntry originalEntry)
+        {
+            if (_journalBridge == null)
+            {
+                return;
+            }
+
+            try
+            {
+                _ = await _journalBridge.CreateReversalForAsync(originalEntry);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Journal bridge reversal failed for entry {EntryId} — reversal đã lưu (fail-safe)", originalEntry.Id);
             }
         }
 

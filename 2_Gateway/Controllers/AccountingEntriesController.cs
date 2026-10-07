@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Services;
+using VanAn.CoreHub.Services.Journal;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
 
 namespace VanAn.Gateway.Controllers
@@ -24,11 +25,13 @@ namespace VanAn.Gateway.Controllers
         IAccountingService accountingEntryService,
         IReversalService reversalService,
         IHKDBookService hkdBookService,
+        IBackfillJournalEntriesService backfillJournalEntriesService,
         ILogger<AccountingEntriesController> logger) : ControllerBase
     {
         private readonly IAccountingService _accountingEntryService = accountingEntryService;
         private readonly IReversalService _reversalService = reversalService;
         private readonly IHKDBookService _hkdBookService = hkdBookService;
+        private readonly IBackfillJournalEntriesService _backfillJournalEntriesService = backfillJournalEntriesService;
         private readonly ILogger<AccountingEntriesController> _logger = logger;
 
         /// <summary>
@@ -212,6 +215,39 @@ namespace VanAn.Gateway.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating reversal entry for original entry {OriginalId}", id);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        /// <summary>
+        /// NHẬP LIỆU & SỔ SÁCH P2 (#4): backfill JournalEntry cho phiếu thu/chi nhập tay tồn tại
+        /// trước khi P2 deploy (chưa có JE → chưa vào Sổ HKD B01-B09/BCTC).
+        /// dryRun mặc định TRUE (an toàn — chỉ đếm, không ghi); dryRun=false mới tạo JE (idempotent).
+        /// </summary>
+        [HttpPost("backfill-journal-entries")]
+        public async Task<ActionResult<BackfillJournalEntriesResult>> BackfillJournalEntries([FromQuery] bool dryRun = true)
+        {
+            try
+            {
+                Guid tenantGuid = GetTenantIdFromClaim();
+                if (tenantGuid == Guid.Empty)
+                {
+                    return Unauthorized(new { error = "Tenant ID required in JWT claim" });
+                }
+
+                TenantId tenantId = new(tenantGuid);
+                BackfillJournalEntriesResult result = dryRun
+                    ? await _backfillJournalEntriesService.PreviewAsync(tenantId)
+                    : await _backfillJournalEntriesService.RunAsync(tenantId);
+
+                _logger.LogInformation("BackfillJournalEntries (dryRun={DryRun}): {Message} — tenant {TenantId}",
+                    dryRun, result.Message, tenantGuid);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error backfilling journal entries for tenant");
                 return StatusCode(500, "Internal server error");
             }
         }

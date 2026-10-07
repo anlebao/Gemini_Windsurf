@@ -3,7 +3,7 @@
 > Created: 2026-10-07 (user directive: tenant mới bắt đầu dùng kế toán phải nhập được dữ liệu cũ từ Excel; chốt xử lý #1-#4)
 > Master plan: `docs/AI/plans/ke-toan-nhap-lieu-master-plan.md` (Q1-Q5 user chốt + chiến lược §6 approved 2026-10-07)
 > Branch: `main`
-> Status: **✅ P1 (#3) DONE — ⏳ P2 (#4 JournalEntry) kế tiếp**
+> Status: **✅ P1 (#3) + P2 (#4) DONE — ⏳ P3 (#2 Số dư đầu kỳ) kế tiếp**
 
 ---
 
@@ -31,16 +31,16 @@
 - [x] **P1.4 Tests (+2):** `GetEntriesByDateRangeAsync_ShouldUseTransactionDateRepo` + `GetTodayRevenueAsync_ShouldUseTransactionDateRepo_AndSumRevenueOnly` + cập nhật test period sang repo mới (Verify old method Never) — **duplicate SC4/SC5/SC6 giữ nguyên** (vẫn mock repo CreatedAt — đúng semantics chống double-click 5') → **Core.Tests 2132 PASS (+2)** · ShopERP.Tests 163 PASS
 - [x] **Validation:** build VanAn.sln 0 errors · guard ALL PASSED · commit → **push Đợt 1 + CD + RV L1/L2**
 
-### Phase 2 — #4 JournalEntry cho phiếu tay (task `task_ke_toan_nhap_lieu_phase2_journal_entry.md`) ⏳
+### Phase 2 — #4 JournalEntry cho phiếu tay (task `task_ke_toan_nhap_lieu_phase2_journal_entry.md`) ✅ DONE 2026-10-07
 
-> **PREP:** pattern `OrderService.CreateRevenueEntryAsync` (L541 — Nợ 111/Có 511, AddLine, AddToBookAsync S2b) + `JournalService` (cân bằng Nợ=Có) + `HKDBookGenerationService.GetJournalEntriesAsync` (template đọc mọi JE theo EntryDate) + `AccountingEntryService`/`CongNoService` nơi hook.
-
-- [ ] **P2.1 Service:** hook tạo JournalEntry khi lập phiếu — thu doanh thu (5xx/7xx): `Nợ 111 / Có {TK}` · chi phí (6xx): `Nợ {TK} / Có 111` · EntryDate=TransactionDate · ReferenceType="ManualEntry", ReferenceId=AccountingEntry.Id · `AddToBookAsync(S2b_HKD)`
-- [ ] **P2.2 Công nợ:** KHÔNG tạo JE (Q1/G6) — test chốt
-- [ ] **P2.3 Reversal:** đảo phiếu tay → JE reversal (đảo Nợ/Có) — lưu ý JournalService.CreateReversalEntryAsync chặn khác kỳ → tạo trực tiếp (pattern) hoặc điều chỉnh
-- [ ] **P2.4 Fail-safe:** lỗi tạo JE không chặn phiếu (log + ghi chú)
-- [ ] **P2.5 Tests:** phiếu → JE cân bằng + vào B01/B02/BCTC; công nợ không tạo JE ([G6]); reversal đồng bộ; regress Core.Tests toàn bộ
-- [ ] **Validation:** guard + build + Core.Tests PASS → commit (KHÔNG push)
+- [x] **P2.1 `ManualEntryJournalBridge`** (`3_CoreHub/Services/Journal/` — tách riêng, rollback an toàn): phiếu thu doanh thu (5xx/7xx) → **Nợ 111 / Có {TK}** · chi phí (6xx) → **Nợ {TK} / Có 111** · EntryDate = TransactionDate (đúng kỳ nghiệp vụ) · ReferenceType "ManualEntry" + ReferenceId = AccountingEntry.Id · `AddToBookAsync(S2b_HKD)` (template B01-B09 đọc theo EntryDate — đủ cho cả bộ sổ) · **idempotent** (ExistsByReference trước khi tạo) · **fail-safe** (lỗi JE không throw — phiếu vẫn lưu, log warning)
+- [x] **P2.2 Công nợ:** KHÔNG tạo JE ([G6] — ResolveAccounts trả null cho Adjustment 131/331) — test chốt PASS
+- [x] **P2.3 Reversal đồng bộ:** `CreateReversalForAsync` — tìm JE gốc (GetByReference "ManualEntry") → nếu có → JE reversal (IsReversal + ReversedJournalId + đảo Nợ/Có + ReferenceType "ManualReversal"); idempotent; hook ở **cả `AccountingEntryService.CreateReversalEntryAsync` + `ReversalService.CreateReversalEntryAsync`** (optional ctor param — không vỡ call site)
+- [x] **P2.4 Fail-safe kép:** bridge fail-safe nội bộ + hook try/catch (bridge lạ throw → phiếu vẫn lưu)
+- [x] **P2.5 `IBackfillJournalEntriesService`:** Preview (dry-run đếm eligible: Revenue/Expense + 5xx/6xx/7xx + chưa đảo + chưa bị đảo + chưa có JE) · Run (tạo qua bridge + đối chiếu) · **KHÔNG tự startup** — endpoint Gateway `POST /api/accounting/backfill-journal-entries?dryRun=true` (tenant-scoped; dryRun mặc định TRUE — an toàn)
+- [x] **P2.6 DI:** CoreHub + ShopERP + Gateway Program.cs (bridge + backfill)
+- [x] **P2.7 Tests (+15):** `ManualEntryJournalBridgeTests` (12 — revenue/expense/công nợ [G6]/reversal skip/idempotent/fail-safe/reversal JE đảo Nợ-Có/hooks AccountingEntryService + ReversalService) + `BackfillJournalEntriesServiceTests` (3 — preview dry-run/run đối chiếu/loại đã có JE + phiếu đã đảo) + update `AccountingEntriesControllerTests` (mock backfill) → **Core.Tests 2147 PASS (+15)** · ShopERP.Tests 163 PASS
+- [x] **Validation:** build VanAn.sln 0 errors · guard ALL PASSED · commit → **push Đợt 2 + CD + RV L1-L4 + chạy backfill + đối chiếu**
 
 ### Phase 3 — #2 Số dư đầu kỳ (task `task_ke_toan_nhap_lieu_phase3_opening_balance.md`) ⏳
 

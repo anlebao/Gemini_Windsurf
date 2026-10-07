@@ -226,6 +226,26 @@ namespace VanAn.CoreHub.Repositories
             }
         }
 
+        public async Task<bool> ExistsByReferenceAsync(
+            TenantId tenantId,
+            string referenceType,
+            Guid referenceId,
+            CancellationToken cancellationToken = default)
+        {
+            return await _context.JournalEntries
+                .AnyAsync(e => e.TenantId == tenantId && e.ReferenceType == referenceType && e.ReferenceId == referenceId, cancellationToken);
+        }
+
+        public async Task<JournalEntry?> GetByReferenceAsync(
+            TenantId tenantId,
+            string referenceType,
+            Guid referenceId,
+            CancellationToken cancellationToken = default)
+        {
+            return await _context.JournalEntries
+                .FirstOrDefaultAsync(e => e.TenantId == tenantId && e.ReferenceType == referenceType && e.ReferenceId == referenceId, cancellationToken);
+        }
+
         public async Task AddAsync(JournalEntry entry)
         {
             try

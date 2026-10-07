@@ -87,6 +87,26 @@ namespace VanAn.CoreHub.Repositories
             AccountingBookType bookType,
             AccountingPeriod period,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// NHẬP LIỆU & SỔ SÁCH P2 (#4): check tồn tại JournalEntry theo (ReferenceType, ReferenceId)
+        /// — dùng cho idempotency của ManualEntryJournalBridge (phiếu tay → JE) + backfill.
+        /// </summary>
+        Task<bool> ExistsByReferenceAsync(
+            TenantId tenantId,
+            string referenceType,
+            Guid referenceId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// NHẬP LIỆU & SỔ SÁCH P2 (#4): lấy JournalEntry theo (ReferenceType, ReferenceId) — để
+        /// tìm JE gốc của phiếu tay khi đảo bút toán (tạo JE reversal tương ứng).
+        /// </summary>
+        Task<JournalEntry?> GetByReferenceAsync(
+            TenantId tenantId,
+            string referenceType,
+            Guid referenceId,
+            CancellationToken cancellationToken = default);
     }
 
     /// <summary>

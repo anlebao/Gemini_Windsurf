@@ -24,6 +24,7 @@ using VanAn.CoreHub.Services.Data;
 using VanAn.CoreHub.Services.PreAggregation;
 using VanAn.CoreHub.Services.Cache;
 using VanAn.CoreHub.Services.CongNo;
+using VanAn.CoreHub.Services.Journal;
 using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
 
@@ -107,6 +108,9 @@ namespace VanAn.CoreHub
                     _ = services.AddScoped<IHKDBookService, HKDBookService>();
                     // THU CHI & CÔNG NỢ MVP (P1, 2026-10-06): phiếu 131/331 + báo cáo + tuổi nợ FIFO
                     _ = services.AddScoped<ICongNoService, CongNoService>();
+                    // NHẬP LIỆU & SỔ SÁCH P2 (#4, 2026-10-07): phiếu tay → JournalEntry (Sổ HKD/BCTC) + backfill
+                    _ = services.AddScoped<IManualEntryJournalBridge, ManualEntryJournalBridge>();
+                    _ = services.AddScoped<IBackfillJournalEntriesService, BackfillJournalEntriesService>();
                     _ = services.AddScoped<IOrderService, OrderService>();
                     _ = services.AddScoped<IAuditTrailService, AuditTrailService>();
                     // Sprint 3 EXPANDED: audit toggle + async queue + background writer
