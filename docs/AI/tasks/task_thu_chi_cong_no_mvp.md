@@ -4,7 +4,7 @@
 > Source SRS: `docs/requirements/van_an_thu_chi_cong_no_srs_v1.md` (v1.1 — user chốt Q1-Q5 2026-10-06)
 > Master plan: `docs/AI/plans/thu-chi-cong-no-master-plan.md` (ACTIVE — chờ approve)
 > Branch: `main`
-> Status: **✅ APPROVED (2026-10-06, user) — ✅ Session 1: P1 Services DONE (2026-10-07 — Core.Tests 2130 PASS · guard ALL PASSED · build 0 errors) — ✅ Session 2: P2 UI DONE (2026-10-07 — ShopERP.Tests 161 PASS · guard ALL PASSED) — ⏳ Session 3: P3 E2E (kế tiếp)**
+> Status: **✅ APPROVED (2026-10-06, user) — ✅ Session 1: P1 Services DONE (2026-10-07 — Core.Tests 2130 PASS · guard ALL PASSED) — ✅ Session 2: P2 UI DONE (2026-10-07 — ShopERP.Tests 161 PASS · guard ALL PASSED) — ✅ Session 3: P3 E2E + hardening DONE (2026-10-07 — guard ALL PASSED · Core.Tests 2130 · ShopERP.Tests 161 · Architecture PASS · build 0 errors) — ⏳ Session 4: P4 Deploy + RV (kế tiếp)**
 
 ---
 
@@ -23,8 +23,8 @@
 - **Session strategy (session-per-phase — precedent Booking/VA-IIE):**
   - Session 1 (P1): Services core + FIFO aging + tests → guard/build/Core.Tests PASS → commit ✅ DONE 2026-10-07
   - Session 2 (P2): UI phiếu thu/chi 3 loại + 2 trang + menu + bUnit → guard/ShopERP.Tests PASS → commit ✅ DONE 2026-10-07
-  - Session 3 (P3): E2E spec + full test matrix → guard/build/tests PASS ⏳ KẾ TIẾP
-  - Session 4 (P4): PUSH → CD Multi-VPS (KHÔNG migration) → RV L1-L5 → đóng
+  - Session 3 (P3): E2E spec + full test matrix → guard/build/tests PASS ✅ DONE 2026-10-07
+  - Session 4 (P4): PUSH → CD Multi-VPS (KHÔNG migration) → RV L1-L5 → đóng ⏳ KẾ TIẾP
 
 ## 3. SCOPE (4 phases per master plan §4)
 
@@ -66,10 +66,14 @@
 >
 > **Ghi chú kiến trúc P2 (bài học):** UI.Platform `DynamicFormFields` KHÔNG có `_Imports.razor` → Razor compiler của UI.Platform xuất `@bind` như attribute LITERAL (đã chứng minh qua generated g.cs: `AddMarkupContent("<input @bind=...>")` — chỉ khi thêm `_Imports.razor` vào UI.Platform thì `@bind` mới biên dịch thành `CreateBinder`). Các trang hiện tại bù bằng JS interop đọc DOM lúc submit ("DOM là source of truth"). → P2 đặt **Loại phiếu/Đối tượng/MST là native controls trong trang host** (ShopERP biên dịch @bind chuẩn — bUnit test được), DynamicFormFields chỉ giữ date/amount/account/description/reference. KHÔNG sửa UI.Platform (ngoài scope — tránh regress mọi form).
 
-### Phase 3 — E2E + hardening (task `task_thu_chi_cong_no_phase3_e2e.md`) ⏳
+### Phase 3 — E2E + hardening (task `task_thu_chi_cong_no_phase3_e2e.md`) ✅ DONE 2026-10-07
 
-- [ ] **P3.1 E2E spec `cong-no.spec.ts`** (Gate 4): phiếu thu "Ghi nhận phải thu" + tra MST → báo cáo công nợ (số dư + tuổi nợ) → sổ chi tiết → lịch sử thanh toán — self-gating pattern
-- [ ] **P3.2 Full test matrix:** guard-check + build VanAn.sln + Core.Tests + ShopERP.Tests + Architecture PASS → commit (KHÔNG push trừ khi user yêu cầu)
+- [x] **P3.1 E2E spec `cong-no.spec.ts`** (Gate 4 — `6_Testing/e2e-tests/`): 6 tests self-gating (precedent va-iie-forecast + accounting-entry-flow — `isTierEnabled('e2e')` + dev login):
+  - Render: phiếu thu công nợ (3 loại phiếu + Đối tượng bắt buộc + TK 131) · báo cáo 2 khối + chips · sổ chi tiết · Sitemap `link-accounting-cong-no`
+  - **Full flow:** phiếu thu "Ghi nhận phải thu" (đối tượng + số tiền duy nhất timestamp) → báo cáo công nợ (dòng + số dư cuối kỳ vi-VN) → click → sổ chi tiết → nút Lịch sử → modal "Lịch sử thanh toán khoản nợ" (chưa thanh toán) → **cleanup bằng đảo bút toán** (G10 — immutable, không xóa; assert dòng "Reversal of:" xuất hiện + badge "đảo")
+  - Tra MST [G11] tolerant: điền tên công ty HOẶC lỗi thân thiện (404/429/502 — R6, network phụ thuộc)
+  - **KHÔNG chạy** trong session này (Playwright DISABLED khi IMPLEMENT — chạy ở P4 RV production hoặc user window)
+- [x] **P3.2 Full test matrix:** guard-check ALL PASSED (windsurf + architecture + Roslyn + Release build 1 warning + fast test gate) · `dotnet build VanAn.sln` 0 errors · **Core.Tests 2130 PASS** · **ShopERP.Tests 161 PASS** · Architecture.Tests PASS → commit (KHÔNG push)
 
 ### Phase 4 — Deploy + RV (task `task_thu_chi_cong_no_phase4_rv.md`) ⏳
 
