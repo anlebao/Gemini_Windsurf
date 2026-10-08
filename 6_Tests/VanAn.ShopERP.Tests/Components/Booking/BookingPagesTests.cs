@@ -110,6 +110,8 @@ public class BookingQrChannelsPageTests : ComponentTestBase
         var channels = new List<QrChannelDto>();
         var createdId = Guid.NewGuid();
         var api = new Mock<IBookingTenantApiClient>();
+        api.Setup(a => a.GetConfigAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<BookingTenantConfigDto>.Success(new BookingTenantConfigDto(true, "None", null, null, null, null)));
         api.Setup(a => a.GetQrChannelsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => ApiResponse<List<QrChannelDto>>.Success(channels.ToList()));
         api.Setup(a => a.GetSalesmenAsync(It.IsAny<CancellationToken>()))
@@ -135,6 +137,82 @@ public class BookingQrChannelsPageTests : ComponentTestBase
         cut.FindAll(".modal button").First(b => b.TextContent.Contains("Confirm")).Click();
         api.Verify(a => a.CreateQrChannelAsync(It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()), Times.Once);
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("/booking/raw-token"));
+    }
+
+    [Fact]
+    public void QrChannels_ShowsConfigWarning_WhenBookingDisabled()
+    {
+        var api = new Mock<IBookingTenantApiClient>();
+        api.Setup(a => a.GetConfigAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<BookingTenantConfigDto>.Success(new BookingTenantConfigDto(false, "None", null, null, null, null)));
+        api.Setup(a => a.GetQrChannelsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<List<QrChannelDto>>.Success([]));
+        api.Setup(a => a.GetSalesmenAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<List<SalesmanDto>>.Success([]));
+        Services.AddSingleton(api.Object);
+        Services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+
+        var cut = RenderComponent<ShopERP.Components.Pages.Booking.BookingQrChannels>();
+
+        cut.WaitForAssertion(() => cut.Find("[data-testid='qr-config-warning']").Should().NotBeNull());
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("/booking/config"));
+    }
+}
+
+public class BookingConfigPageTests : ComponentTestBase
+{
+    private static Mock<IBookingTenantApiClient> MockApi(BookingTenantConfigDto config)
+    {
+        var api = new Mock<IBookingTenantApiClient>();
+        api.Setup(a => a.GetConfigAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<BookingTenantConfigDto>.Success(config));
+        return api;
+    }
+
+    [Fact]
+    public void Config_Renders_Form_And_Save_CallsClient()
+    {
+        var api = MockApi(new BookingTenantConfigDto(false, "None", null, null, null, null));
+        Services.AddSingleton(api.Object);
+
+        var cut = RenderComponent<ShopERP.Components.Pages.Booking.BookingConfig>();
+
+        cut.WaitForAssertion(() => cut.Find("h1").TextContent.Should().Contain("Cấu hình đặt lịch"));
+        cut.WaitForAssertion(() => cut.Find("[data-testid='config-toggle']").Should().NotBeNull());
+        cut.WaitForAssertion(() => cut.Find("select").Attributes["value"]?.Value.Should().Be("None"));
+
+        cut.FindAll("button").First(b => b.TextContent.Contains("Lưu cấu hình")).Click();
+        api.Verify(a => a.UpdateConfigAsync(false, "None", null, null, null, null, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public void Config_Enable_And_Save_ShowsSuccess()
+    {
+        var api = MockApi(new BookingTenantConfigDto(false, "None", null, null, null, null));
+        api.Setup(a => a.UpdateConfigAsync(It.IsAny<bool>(), It.IsAny<string>(), It.IsAny<decimal?>(), It.IsAny<decimal?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<BookingTenantConfigDto>.Success(new BookingTenantConfigDto(true, "None", null, null, "Hủy trước 4h.", null)));
+        Services.AddSingleton(api.Object);
+
+        var cut = RenderComponent<ShopERP.Components.Pages.Booking.BookingConfig>();
+
+        cut.WaitForAssertion(() => cut.Find("[data-testid='config-toggle']").Should().NotBeNull());
+        cut.Find("[data-testid='config-toggle']").Change(true);
+        cut.FindAll("button").First(b => b.TextContent.Contains("Lưu cấu hình")).Click();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("đang BẬT"));
+        api.Verify(a => a.UpdateConfigAsync(true, "None", null, null, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public void Config_FixedDeposit_ShowsAmountField()
+    {
+        var api = MockApi(new BookingTenantConfigDto(true, "Fixed", 100000, null, null, null));
+        Services.AddSingleton(api.Object);
+
+        var cut = RenderComponent<ShopERP.Components.Pages.Booking.BookingConfig>();
+
+        cut.WaitForAssertion(() => cut.Find("[data-testid='config-toggle']").Should().NotBeNull());
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("100000"));
     }
 }
 

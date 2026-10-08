@@ -24,6 +24,14 @@
         Khách quét QR → mở trang đặt lịch của cửa hàng. Mã QR gắn salesman (nếu có) → hoa hồng tự động theo attribution (SRS §7).
     </VanAAlert>
 
+    @if (!_bookingEnabled && !_loading && string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Variant="warning" Dismissible="false" class="mb-3" data-testid="qr-config-warning">
+            <strong>Tính năng đặt lịch đang TẮT</strong> — khách quét mã QR sẽ không đặt được.
+            <a href="/booking/config" class="alert-link">Bật ngay tại Cấu hình đặt lịch →</a>
+        </VanAAlert>
+    }
+
     @if (_loading)
     {
         <VanASpinner Text="Đang tải..." />
@@ -131,6 +139,7 @@
     private List<SalesmanDto> _salesmen = [];
     private readonly Dictionary<Guid, string> _createdTokens = [];
     private bool _loading = true;
+    private bool _bookingEnabled;
     private bool _isCreating;
     private string? _errorMessage;
     private string? _actionError;
@@ -142,6 +151,8 @@
     protected override async Task OnInitializedAsync()
     {
         _khachLinkBase = Configuration["KhachLink:BaseUrl"] ?? _khachLinkBase;
+        var configResult = await BookingApi.GetConfigAsync();
+        _bookingEnabled = configResult.Ok && configResult.Data?.IsEnabled == true;
         var salesmenResult = await BookingApi.GetSalesmenAsync();
         _salesmen = salesmenResult.Ok ? salesmenResult.Data ?? [] : [];
         await LoadAsync();

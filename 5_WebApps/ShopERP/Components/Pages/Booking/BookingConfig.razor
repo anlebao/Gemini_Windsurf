@@ -1,0 +1,209 @@
+@page "/booking/config"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StoreManagement")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.ShopERP.Services
+@inject IBookingTenantApiClient BookingApi
+@inject ILogger<BookingConfig> Logger
+
+<PageTitle>Cấu hình đặt lịch - Vạn An</PageTitle>
+
+<div class="booking-config-page">
+    <header class="page-header mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="mb-0"><i class="bi bi-gear"></i> Cấu hình đặt lịch</h1>
+    </header>
+
+    @if (_loading)
+    {
+        <VanASpinner Text="Đang tải..." />
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Variant="error" Message="@_errorMessage" Dismissible="true" OnDismiss="() => _errorMessage = null" />
+    }
+    else
+    {
+        <VanACard Header="Trạng thái tính năng">
+            <div class="form-check form-switch fs-5 mb-2">
+                <input class="form-check-input" type="checkbox" id="config-enabled" @bind="_isEnabled" data-testid="config-toggle" />
+                <label class="form-check-label" for="config-enabled">Bật đặt lịch hẹn</label>
+            </div>
+            @if (_isEnabled)
+            {
+                <VanAAlert Variant="success" Dismissible="false" class="mb-0">
+                    Đang BẬT — khách quét mã QR sẽ vào được trang đặt lịch của cửa hàng.
+                </VanAAlert>
+            }
+            else
+            {
+                <VanAAlert Variant="warning" Dismissible="false" class="mb-0">
+                    Đang TẮT — khách quét mã QR sẽ thấy thông báo cửa hàng chưa mở đặt lịch.
+                    Bật tính năng để khách đặt lịch qua QR.
+                </VanAAlert>
+            }
+        </VanACard>
+
+        <VanACard Header="Chính sách đặt cọc" class="mt-3">
+            <div class="mb-3">
+                <label class="form-label">Chính sách đặt cọc</label>
+                <VanASelect Id="config-deposit-policy" Value="@_depositPolicy" ValueChanged="OnDepositPolicyChanged" Options="DepositPolicyOptions" />
+                <small class="text-muted">Khách sẽ thấy lựa chọn đặt cọc theo chính sách này ở màn xác nhận (SRS §16.1).</small>
+            </div>
+            @if (_depositPolicy == "Fixed")
+            {
+                <div class="mb-3" style="max-width: 260px;">
+                    <label class="form-label">Số tiền cố định (đ)</label>
+                    <VanAInput Id="config-deposit-amount" Type="number" Value="@(_depositFixedAmount?.ToString() ?? "")" ValueChanged="OnFixedAmountChanged" Min="0" />
+                </div>
+            }
+            else if (_depositPolicy == "Percentage")
+            {
+                <div class="mb-3" style="max-width: 260px;">
+                    <label class="form-label">Phần trăm đặt cọc (%)</label>
+                    <VanAInput Id="config-deposit-percent" Type="number" Value="@(_depositPercentage?.ToString() ?? "")" ValueChanged="OnPercentageChanged" Min="0" />
+                </div>
+            }
+        </VanACard>
+
+        <VanACard Header="Chính sách hủy & hóa đơn" class="mt-3">
+            <div class="mb-3">
+                <label class="form-label">Chính sách hủy / đổi lịch</label>
+                <textarea class="form-control" rows="3" @bind="_cancelPolicy"
+                          placeholder="VD: Hủy trước 4 giờ không mất cọc. Đổi lịch miễn phí trước 12h..." data-testid="config-cancel-policy"></textarea>
+                <small class="text-muted">Hiển thị cho khách ở màn xác nhận đặt lịch.</small>
+            </div>
+            <div class="mb-3" style="max-width: 380px;">
+                <label class="form-label">Chế độ hóa đơn điện tử (tùy chọn)</label>
+                <VanAInput Id="config-einvoice-mode" Value="@(_einvoiceMode ?? "")" ValueChanged="OnEinvoiceModeChanged"
+                           Placeholder="VD: FullInvoice — để trống dùng mặc định" />
+                <small class="text-muted">Snapshot theo hồ sơ thuế của tenant (SRS §16.5). Để trống nếu không chắc chắn.</small>
+            </div>
+        </VanACard>
+
+        <div class="mt-3 d-flex align-items-center gap-2">
+            <VanAButton Variant="primary" OnClick="SaveAsync" Disabled="@_saving" data-testid="config-save">
+                <i class="bi bi-check-circle"></i> @(_saving ? "Đang lưu..." : "Lưu cấu hình")
+            </VanAButton>
+            @if (!string.IsNullOrEmpty(_saveSuccess))
+            {
+                <VanAAlert Variant="success" Message="@_saveSuccess" Dismissible="true" OnDismiss="() => _saveSuccess = null" class="mb-0" data-testid="config-success" />
+            }
+        </div>
+        @if (!string.IsNullOrEmpty(_saveError))
+        {
+            <VanAAlert Variant="error" Message="@_saveError" Dismissible="true" OnDismiss="() => _saveError = null" class="mt-2" data-testid="config-error" />
+        }
+    }
+</div>
+
+@code {
+    private static readonly IReadOnlyList<VanASelect.SelectOption> DepositPolicyOptions =
+    [
+        new("None", "Không đặt cọc"),
+        new("Fixed", "Số tiền cố định"),
+        new("Percentage", "Phần trăm (%)"),
+    ];
+
+    private bool _loading = true;
+    private bool _saving;
+    private string? _errorMessage;
+    private string? _saveError;
+    private string? _saveSuccess;
+
+    private bool _isEnabled;
+    private string _depositPolicy = "None";
+    private decimal? _depositFixedAmount;
+    private decimal? _depositPercentage;
+    private string? _cancelPolicy;
+    private string? _einvoiceMode;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            var result = await BookingApi.GetConfigAsync();
+            if (!result.Ok)
+            {
+                _errorMessage = result.Error;
+            }
+            else if (result.Data is not null)
+            {
+                ApplyConfig(result.Data);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking config load failed");
+            _errorMessage = "Không tải được cấu hình đặt lịch.";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _saveError = null;
+        _saveSuccess = null;
+        _saving = true;
+        StateHasChanged();
+        try
+        {
+            var result = await BookingApi.UpdateConfigAsync(
+                _isEnabled, _depositPolicy, _depositFixedAmount, _depositPercentage, _cancelPolicy, _einvoiceMode);
+            if (!result.Ok)
+            {
+                _saveError = result.Error;
+            }
+            else if (result.Data is not null)
+            {
+                ApplyConfig(result.Data);
+                _saveSuccess = _isEnabled
+                    ? "Đã lưu cấu hình — đặt lịch hẹn đang BẬT."
+                    : "Đã lưu cấu hình — đặt lịch hẹn đang TẮT.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking config save failed");
+            _saveError = "Không lưu được cấu hình. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _saving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ApplyConfig(BookingTenantConfigDto config)
+    {
+        _isEnabled = config.IsEnabled;
+        _depositPolicy = config.DepositPolicy;
+        _depositFixedAmount = config.DepositFixedAmount;
+        _depositPercentage = config.DepositPercentage;
+        _cancelPolicy = config.CancelReschedulePolicy;
+        _einvoiceMode = config.EinvoiceMode;
+    }
+
+    private void OnDepositPolicyChanged(string value) => _depositPolicy = value;
+
+    private void OnFixedAmountChanged(string value)
+        => _depositFixedAmount = decimal.TryParse(value, out var amount) ? amount : null;
+
+    private void OnPercentageChanged(string value)
+        => _depositPercentage = decimal.TryParse(value, out var percent) ? percent : null;
+
+    private void OnEinvoiceModeChanged(string value) => _einvoiceMode = value;
+}
