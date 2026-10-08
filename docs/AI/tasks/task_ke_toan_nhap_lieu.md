@@ -3,7 +3,7 @@
 > Created: 2026-10-07 (user directive: tenant mới bắt đầu dùng kế toán phải nhập được dữ liệu cũ từ Excel; chốt xử lý #1-#4)
 > Master plan: `docs/AI/plans/ke-toan-nhap-lieu-master-plan.md` (Q1-Q5 user chốt + chiến lược §6 approved 2026-10-07)
 > Branch: `main`
-> Status: **✅ P1 (#3) + P2 (#4) DONE (deploy + RV PASS) — 🔄 P3 (#2) CODE DONE (chưa commit/push — chờ session mới: guard → commit → Đợt 3 push → CD → RV) — ⏳ P4 (#1 Import Excel) kế tiếp**
+> Status: **✅ P1 (#3) + P2 (#4) + P3 (#2) DONE (deploy + RV PASS) — ✅ P4 (#1 Import Excel) CODE DONE + COMMITTED (chưa push — ⏳ P5 E2E kế tiếp)**
 
 ---
 
@@ -56,11 +56,11 @@
 
 > **PREP:** EPPlus (đã có) · `IAccountingService`/`ICongNoService` (đầu vào import) · P2 (JournalEntry tự sinh) · mẫu cột khớp UI phiếu.
 
-- [ ] **P4.1 Mẫu file:** xlsx + CSV — cột `Ngày | Loại phiếu | Tài khoản | Số tiền | Đối tượng | MST | Diễn giải | Số chứng từ` (Loại phiếu khớp 6 giá trị UI)
-- [ ] **P4.2 `IImportService.ImportAsync`:** parse + validate từng dòng (ngày/TK/tiền/đối tượng/kỳ chưa đóng) → **dry-run bảng lỗi** (Q4) → 0 lỗi mới lưu (qua services — giữ immutable + guard + dấu)
-- [ ] **P4.3 UI `/accounting/import`:** tải mẫu + upload + bảng kết quả/lỗi · NavMenu + Sitemap + bUnit
-- [ ] **P4.4 Tests:** import hợp lệ tạo đúng phiếu + JE · dòng lỗi liệt kê + không ghi gì (dry-run) · xlsx == csv · isolation
-- [ ] **Validation:** guard + build + Core.Tests + ShopERP.Tests PASS → commit (KHÔNG push)
+- [x] **P4.1 Mẫu file:** xlsx + CSV — cột `Ngày | Loại phiếu | Tài khoản | Số tiền | Đối tượng | MST | Diễn giải | Số chứng từ` (Loại phiếu khớp 6 giá trị UI)
+- [x] **P4.2 `IImportService.ImportAsync`:** parse + validate từng dòng (ngày/TK/tiền/đối tượng/kỳ chưa đóng) → **dry-run bảng lỗi** (Q4) → 0 lỗi mới lưu (qua services — giữ immutable + guard + dấu)
+- [x] **P4.3 UI `/accounting/import`:** tải mẫu + upload + bảng kết quả/lỗi · NavMenu + Sitemap + bUnit
+- [x] **P4.4 Tests:** import hợp lệ tạo đúng phiếu + JE · dòng lỗi liệt kê + không ghi gì (dry-run) · xlsx == csv · isolation
+- [x] **Validation:** guard ALL PASSED (18:22) + build 1 warning + Core.Tests 8/8 mới (full gate PASS) + ShopERP.Tests 172/172 → **commit `877901c4` (KHÔNG push)**
 
 ### Phase 5 — E2E + hardening (task `task_ke_toan_nhap_lieu_phase5_e2e.md`) ⏳
 
