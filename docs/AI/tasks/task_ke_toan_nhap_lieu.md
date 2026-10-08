@@ -3,7 +3,7 @@
 > Created: 2026-10-07 (user directive: tenant mới bắt đầu dùng kế toán phải nhập được dữ liệu cũ từ Excel; chốt xử lý #1-#4)
 > Master plan: `docs/AI/plans/ke-toan-nhap-lieu-master-plan.md` (Q1-Q5 user chốt + chiến lược §6 approved 2026-10-07)
 > Branch: `main`
-> Status: **✅ P1 (#3) + P2 (#4) + P3 (#2) DONE (deploy + RV PASS) — ✅ P4 (#1 Import Excel) CODE DONE + COMMITTED (chưa push — ⏳ P5 E2E kế tiếp)**
+> Status: **✅ P1-P4 DONE (P4 deployed + RV PASS) — ⏳ P5 E2E (spec committed) + P6 đóng**
 
 ---
 
@@ -66,7 +66,6 @@
 
 - [ ] **P5.1 E2E `accounting-import.spec.ts`** (self-gating + storageState production pattern): khai số dư đầu kỳ → import Excel (mẫu) → báo cáo công nợ Đầu kỳ + Sổ HKD B01/B02 + BCTC thấy số liệu · reversal · lỗi dòng
 - [ ] **P5.2 Full test matrix:** guard + build + Core.Tests + ShopERP.Tests + Architecture PASS → commit
-
 ### Phase 6 — Deploy + RV (task `task_ke_toan_nhap_lieu_phase6_rv.md`) ⏳
 
 - [ ] **P6.1 PUSH** (FAST PUSH pattern #11) + verify sha
