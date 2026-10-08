@@ -1,0 +1,251 @@
+@page "/accounting/import"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "OwnerOnly")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using VanAn.UI.Platform.Components
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.CoreHub.Services.Import
+@inject IImportService ImportService
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject IJSRuntime JSRuntime
+@inject ILogger<ImportEntries> Logger
+
+<div class="import-entries-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Import Dữ Liệu Từ Excel</h1>
+        <p class="text-muted">Nhập hàng loạt dữ liệu cũ (đang theo dõi bằng Excel) — khớp phiếu thu/chi hiện có. Tải mẫu → điền → upload → xem lỗi theo dòng → lưu (0 lỗi mới được lưu).</p>
+    </header>
+
+    @if (showSuccess)
+    {
+        <VanAAlert Type="success" Message="@successMessage" Dismissible="true" OnDismiss="() => showSuccess = false" />
+    }
+    @if (showError)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => showError = false" />
+    }
+
+    <VanACard Header="1) Tải Mẫu File">
+        <p class="small text-muted">Mẫu gồm 8 cột: <strong>Ngày | Loại phiếu | Tài khoản | Số tiền | Đối tượng | MST | Diễn giải | Số chứng từ</strong> — Loại phiếu: <code>thu-doanh-thu</code> · <code>chi-phí</code> · <code>ghi-nhan-phai-thu</code> · <code>thu-tien-khach-tra-no</code> · <code>ghi-nhan-phai-tra</code> · <code>tra-tien-nguoi-ban</code></p>
+        <div class="d-flex gap-2 flex-wrap">
+            <VanAButton Variant="secondary" Size="small" OnClick="DownloadXlsxTemplate">Tải mẫu Excel (.xlsx)</VanAButton>
+            <VanAButton Variant="secondary" Size="small" OnClick="DownloadCsvTemplate">Tải mẫu CSV (.csv)</VanAButton>
+        </div>
+    </VanACard>
+
+    <VanACard Header="2) Upload File" class="mt-3">
+        <div class="mb-2">
+            <InputFile OnChange="OnFileSelected" accept=".xlsx,.csv" data-testid="import-file-input" />
+        </div>
+        @if (isProcessing)
+        {
+            <p class="text-muted">Đang xử lý...</p>
+        }
+        else if (preview != null)
+        {
+            <div class="d-flex align-items-center gap-3 mb-2">
+                <span class="badge text-bg-success">@preview.ValidRows dòng hợp lệ</span>
+                <span class="badge @(preview.ErrorRows > 0 ? "text-bg-danger" : "text-bg-secondary")">@preview.ErrorRows dòng lỗi</span>
+                <span class="small text-muted">@preview.Message</span>
+                @if (preview.ErrorRows == 0 && preview.TotalRows > 0)
+                {
+                    <VanAButton Variant="primary" Size="small" Disabled="isSaving" OnClick="ConfirmImport">💾 Lưu @preview.TotalRows Dòng</VanAButton>
+                }
+            </div>
+            @if (preview.Errors.Count > 0)
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped" data-testid="import-errors-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 90px">Dòng</th>
+                                <th>Lỗi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var err in preview.Errors)
+                            {
+                                <tr data-testid="import-error-row">
+                                    <td>@err.RowNumber</td>
+                                    <td class="text-danger small">@err.Error</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+        else if (result != null)
+        {
+            <div class="d-flex align-items-center gap-3 mb-2">
+                <span class="badge text-bg-success">Đã lưu @result.ImportedRows/@result.TotalRows</span>
+                <span class="small text-muted">@result.Message</span>
+            </div>
+            @if (result.Errors.Count > 0)
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped" data-testid="import-errors-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 90px">Dòng</th>
+                                <th>Lỗi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var err in result.Errors)
+                            {
+                                <tr data-testid="import-error-row">
+                                    <td>@err.RowNumber</td>
+                                    <td class="text-danger small">@err.Error</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    </VanACard>
+</div>
+
+@code {
+    private const long MaxFileSize = 2 * 1024 * 1024; // 2MB — đủ ~2000 dòng
+    private ImportPreviewResult? preview;
+    private ImportResult? result;
+    private bool isProcessing;
+    private bool isSaving;
+    private bool showSuccess;
+    private bool showError;
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    private async Task DownloadXlsxTemplate() => await DownloadTemplate(ImportFileFormat.Xlsx);
+    private async Task DownloadCsvTemplate() => await DownloadTemplate(ImportFileFormat.Csv);
+
+    private async Task DownloadTemplate(ImportFileFormat format)
+    {
+        try
+        {
+            byte[] bytes = await ImportService.GenerateTemplateAsync(format);
+            string extension = format == ImportFileFormat.Xlsx ? "xlsx" : "csv";
+            string mime = format == ImportFileFormat.Xlsx
+                ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                : "text/csv";
+            await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", Convert.ToBase64String(bytes), mime, $"vanan-import-mau.{extension}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Download template failed");
+            showError = true;
+            errorMessage = $"Lỗi tải mẫu: {ex.Message}";
+        }
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        preview = null;
+        result = null;
+        showSuccess = false;
+        showError = false;
+        if (!TenantProvider.HasTenant)
+        {
+            showError = true;
+            errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+            return;
+        }
+
+        if (e.File == null)
+        {
+            return;
+        }
+
+        string fileName = e.File.Name;
+        if (!fileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)
+            && !fileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+        {
+            showError = true;
+            errorMessage = "Chỉ nhận file .xlsx hoặc .csv.";
+            return;
+        }
+
+        isProcessing = true;
+        StateHasChanged();
+        try
+        {
+            await using Stream stream = e.File.OpenReadStream(MaxFileSize);
+            lastUploadStream?.Dispose();
+            lastUploadStream = new MemoryStream();
+            await stream.CopyToAsync(lastUploadStream);
+            lastFileName = fileName;
+            lastUploadStream.Position = 0;
+
+            preview = await ImportService.PreviewAsync(new TenantId(TenantProvider.TenantId), lastUploadStream, fileName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Import preview failed — file {FileName}", fileName);
+            showError = true;
+            errorMessage = $"Lỗi đọc file: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ConfirmImport()
+    {
+        if (preview == null || preview.ErrorRows > 0 || preview.TotalRows == 0)
+        {
+            return;
+        }
+
+        isSaving = true;
+        StateHasChanged();
+        try
+        {
+            // Re-validate nội bộ trong ImportAsync (Q4) — chỉ lưu khi vẫn 0 lỗi
+            if (lastUploadStream == null || lastFileName == null)
+            {
+                showError = true;
+                errorMessage = "File không còn trong bộ nhớ — hãy upload lại.";
+                return;
+            }
+
+            lastUploadStream.Position = 0;
+            result = await ImportService.ImportAsync(new TenantId(TenantProvider.TenantId), lastUploadStream, lastFileName);
+            preview = null;
+            if (result.Errors.Count == 0)
+            {
+                showSuccess = true;
+                successMessage = result.Message;
+            }
+            else
+            {
+                showError = true;
+                errorMessage = result.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Import save failed for tenant {TenantId}", TenantProvider.TenantId);
+            showError = true;
+            errorMessage = $"Lỗi lưu: {ex.Message}";
+        }
+        finally
+        {
+            lastUploadStream = null;
+            lastFileName = null;
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    // Giữ bản sao stream + tên file để ConfirmImport chạy ImportAsync (Blazor Server: file không tồn tại ngoài event handler)
+    private MemoryStream? lastUploadStream;
+    private string? lastFileName;
+}

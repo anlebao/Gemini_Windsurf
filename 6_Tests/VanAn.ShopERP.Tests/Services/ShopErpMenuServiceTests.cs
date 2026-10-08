@@ -56,4 +56,20 @@ public class ShopErpMenuServiceTests
         // Assert — "Hướng dẫn" chỉ dành cho SystemAdmin (hành vi hiện tại giữ nguyên)
         items.Should().NotContain(i => i.Title == "Hướng dẫn");
     }
+
+    [Fact]
+    public async Task BuildAsync_Owner_IncludesImportExcel()
+    {
+        // Arrange — NHẬP LIỆU & SỔ SÁCH P4 (#1): menu Kế Toán có "Import Excel" (Owner)
+        var service = CreateService();
+        var user = PrincipalWithRoles("Owner");
+
+        // Act
+        var items = await service.BuildAsync(user);
+
+        // Assert
+        var keToan = items.SingleOrDefault(i => i.Title == "Kế Toán");
+        keToan.Should().NotBeNull();
+        keToan!.Children.Should().Contain(c => c.Title == "Import Excel" && c.Url == "/accounting/import");
+    }
 }

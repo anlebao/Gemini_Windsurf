@@ -24,6 +24,26 @@ JSInterop.Mode = JSRuntimeMode.Loose;
 ```
 **Notes:** Loose mode allows JS calls to pass without actual implementation
 
+#### Pattern: Assert JS Invocation After Button Click
+**Use Case:** Verify a component called `JSInterop.InvokeVoidAsync("jsFn", ...)` after a user action
+**Implementation:**
+```csharp
+[Fact]
+public void Component_ShouldCallJs_WhenButtonClicked()
+{
+    var cut = RenderComponent<ComponentType>();
+    cut.FindAll("button").First(b => b.TextContent!.Contains("Tải mẫu")).Click();
+
+    // Loose mode GHI invocation vào JSInterop.Invocations — assert TRỰC TIẾP trên đó.
+    // ⚠️ KHÔNG dùng VerifyInvoke trên handler SetupVoid: Loose mode route qua auto-handler
+    // → VerifyInvoke trả 0 dù invocation đã xảy ra (lỗi đã gặp 2026-10-08 ImportExcel P4).
+    cut.WaitForAssertion(() => JSInterop.Invocations.Should().Contain(i => i.Identifier == "vanAn.downloadFile"));
+    var args = JSInterop.Invocations.First(i => i.Identifier == "vanAn.downloadFile").Arguments;
+    args[1].Should().Be("text/csv");
+}
+```
+**Notes:** `JSInterop.Invocations` là `JSRuntimeInvocationDictionary` (enumerable các `JSRuntimeInvocation` có `Identifier` + `Arguments`) — KHÔNG phải `IDictionary` (không có `.Keys`/`.TryGetValue`). `SetupVoid` vẫn cần thiết nếu dùng Strict mode.
+
 #### Pattern: Layout Component Stub
 **Use Case:** Pages using layout components
 **Implementation:**

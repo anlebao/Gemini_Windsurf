@@ -139,6 +139,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                 new() { Title = "Công Nợ", Icon = "people", Url = "/accounting/cong-no" },
                 // NHẬP LIỆU & SỔ SÁCH P3 (2026-10-07): khai báo số dư đầu kỳ (dữ liệu cũ từ Excel)
                 new() { Title = "Số Dư Đầu Kỳ", Icon = "flag-fill", Url = "/accounting/opening-balance" },
+                // NHẬP LIỆU & SỔ SÁCH P4 (2026-10-08): import Excel hàng loạt (xlsx+csv — dry-run 0 lỗi mới lưu)
+                new() { Title = "Import Excel", Icon = "file-earmark-arrow-up", Url = "/accounting/import" },
                 new() { Title = "Số Dư Tài Khoản", Icon = "currency-exchange", Url = "/accounting/balance" },
                 new() { Title = "Đóng Kỳ Kế Toán", Icon = "lock-fill", Url = "/accounting/period-closing" },
             };
