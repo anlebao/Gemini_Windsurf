@@ -52,9 +52,9 @@ test.describe('VanAn Ecosystem - Đặt lịch nhanh từ ShopERP (Feature 3)', 
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('h1')).toContainText('Đặt lịch nhanh', { timeout: 15000 });
-    // Catalog: có dịch vụ hoặc empty-state hợp lệ (tenant chưa cấu hình).
-    const catalog = page.locator('text=Chọn dịch vụ');
-    await expect(catalog.or(page.locator('text=Tính năng đặt lịch đang TẮT'))).toBeVisible({ timeout: 15000 });
+    // Catalog: có dịch vụ (card render) hoặc tenant chưa bật (warning).
+    await expect(page.locator('.vanan-card__title', { hasText: 'Chọn dịch vụ' })
+      .or(page.locator('text=Tính năng đặt lịch đang TẮT'))).toBeVisible({ timeout: 15000 });
   });
 
   // ─── FLOW TEST (production RV — tenant booking đã seed) ─────────────────
@@ -79,8 +79,17 @@ test.describe('VanAn Ecosystem - Đặt lịch nhanh từ ShopERP (Feature 3)', 
     await expect(chooseButton).toBeVisible({ timeout: 15000 });
     await chooseButton.click();
 
-    // Slot đầu tiên (chỉ available — server filter) → click.
-    const slot = page.locator('[data-testid^="slot-"]').first();
+    // Slot đầu tiên (chỉ available — server filter). Nếu ngày mặc định hết slot (clock server khác
+    // clock máy chạy test) → dò 7 ngày tới bằng cách đổi input date (press Tab để fire change — lesson #29).
+    const dateInput = page.locator('[data-testid="booking-date"]');
+    let slot = page.locator('[data-testid^="slot-"]').first();
+    for (let d = 0; d < 7 && !(await slot.isVisible({ timeout: 1500 }).catch(() => false)); d++) {
+      const dt = new Date();
+      dt.setDate(dt.getDate() + d + 1);
+      await dateInput.fill(dt.toISOString().slice(0, 10));
+      await dateInput.press('Tab');
+      await page.waitForTimeout(2500);
+    }
     await expect(slot).toBeVisible({ timeout: 15000 });
     await slot.click();
 
@@ -95,21 +104,28 @@ test.describe('VanAn Ecosystem - Đặt lịch nhanh từ ShopERP (Feature 3)', 
     const success = page.locator('[data-testid="booking-create-success"]');
     await expect(success).toBeVisible({ timeout: 20000 });
     const successText = await success.innerText();
-    const codeMatch = successText.match(/BK-[A-Z0-9-]+/);
-    expect(codeMatch, 'Phải có mã booking BK-...').toBeTruthy();
+    const codeMatch = successText.match(/[0-9A-F]{16}/);
+    expect(codeMatch, 'Phải có mã booking (16 hex)').toBeTruthy();
     const bookingCode = codeMatch![0];
     console.log(`Booking created: ${bookingCode}`);
 
-    // Queue hiển thị booking (Confirmed — auto-confirm Q3).
+    // Queue hiển thị booking (Confirmed — auto-confirm Q3). Blazor Server cần circuit connect
+    // (lesson #29) — retry reload tối đa 3 lần nếu chưa kịp render.
     await page.goto(`${shopErpBase}/booking/queue`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator(`text=${bookingCode}`).first()).toBeVisible({ timeout: 20000 });
+    await expect(page.locator('h1')).toContainText('Hàng đợi đặt lịch', { timeout: 20000 });
+    const card = page.locator(`div.mb-2:has-text("${bookingCode}")`).first();
+    for (let i = 0; i < 3 && !(await card.isVisible().catch(() => false)); i++) {
+      await page.reload({ waitUntil: 'networkidle' });
+      await page.waitForTimeout(4000);
+    }
+    await expect(card).toBeVisible({ timeout: 30000 });
 
     // Cleanup: hủy qua queue (Confirmed → CANCELLED §9.3) — đảm bảo re-runnable.
-    const card = page.locator(`.vanan-card:has-text("${bookingCode}")`).first();
-    await expect(card).toBeVisible({ timeout: 20000 });
     await card.locator('button', { hasText: 'Hủy' }).click();
-    await expect(page.locator(`text=${bookingCode}`).first()).toBeHidden({ timeout: 20000 }).catch(() => {
+    await page.waitForTimeout(3000);
+    await page.reload({ waitUntil: 'networkidle' });
+    await expect(page.locator(`div.mb-2:has-text("${bookingCode}")`).first()).toBeHidden({ timeout: 20000 }).catch(() => {
       console.log(`Cleanup: booking ${bookingCode} có thể đã hết hạn filter — bỏ qua`);
     });
   });
