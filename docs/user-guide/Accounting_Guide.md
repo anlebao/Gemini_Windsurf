@@ -1,9 +1,9 @@
 # HƯỚNG DẪN SỬ DỤNG MODULE KẾ TOÁN — VẠN AN ECOSYSTEM
 
-> **Phiên bản:** MVP v1.1 — cập nhật 2026-10-07
-> **Áp dụng:** Module kế toán Vạn An — Thu chi · Công nợ (Phải thu/Phải trả) · Sổ sách · Báo cáo tài chính — dành cho chủ hộ kinh doanh (HKD) và doanh nghiệp nhỏ.
-> **Phạm vi:** Nhập phiếu thu/chi (3 loại mỗi loại) · Tra cứu MST · Lịch sử giao dịch · Báo cáo công nợ + tuổi nợ · Sổ theo dõi phải thu/phải trả + lịch sử thanh toán · Số dư tài khoản · Đóng kỳ kế toán · Sổ HKD (TT 152) / Báo cáo tài chính.
-> **Luồng tổng thể:** Ghi nhận nghiệp vụ qua Phiếu → kiểm tra Lịch sử giao dịch → theo dõi Công nợ (báo cáo + sổ + tuổi nợ) → cuối tháng Đóng kỳ → xem Sổ HKD / Báo cáo tài chính.
+> **Phiên bản:** MVP v1.2 — cập nhật 2026-10-08
+> **Áp dụng:** Module kế toán Vạn An — Thu chi · Công nợ (Phải thu/Phải trả) · Nhập liệu (Số dư đầu kỳ · Import Excel) · Sổ sách · Báo cáo tài chính — dành cho chủ hộ kinh doanh (HKD) và doanh nghiệp nhỏ.
+> **Phạm vi:** Nhập phiếu thu/chi (3 loại mỗi loại) · Tra cứu MST · Lịch sử giao dịch (theo ngày nghiệp vụ) · Báo cáo công nợ + tuổi nợ · Sổ theo dõi phải thu/phải trả + lịch sử thanh toán · **Số dư đầu kỳ** · **Import Excel hàng loạt** · Số dư tài khoản · Đóng kỳ kế toán · Sổ HKD (TT 152) / Báo cáo tài chính.
+> **Luồng tổng thể:** Bắt đầu dùng phần mềm → **khai Số dư đầu kỳ** (dữ liệu cũ từ Excel) → **Import Excel** hoặc nhập Phiếu → kiểm tra Lịch sử giao dịch → theo dõi Công nợ (báo cáo + sổ + tuổi nợ) → cuối tháng Đóng kỳ → xem Sổ HKD / Báo cáo tài chính.
 
 ---
 
@@ -18,9 +18,11 @@
 7. [Báo cáo công nợ tổng hợp + tuổi nợ](#7-báo-cáo-công-nợ-tổng-hợp--tuổi-nợ)
 8. [Sổ theo dõi phải thu / phải trả](#8-sổ-theo-dõi-phải-thu--phải-trả)
 9. [Số dư tài khoản](#9-số-dư-tài-khoản)
-10. [Đóng kỳ kế toán](#10-đóng-kỳ-kế-toán)
-11. [Sổ HKD (TT 152) & Báo cáo tài chính](#11-sổ-hkd-tt-152--báo-cáo-tài-chính)
-12. [Câu hỏi thường gặp (FAQ)](#12-câu-hỏi-thường-gặp-faq)
+10. [Số dư đầu kỳ (dữ liệu cũ từ Excel)](#10-số-dư-đầu-kỳ-dữ-liệu-cũ-từ-excel)
+11. [Import dữ liệu từ Excel](#11-import-dữ-liệu-từ-excel)
+12. [Đóng kỳ kế toán](#12-đóng-kỳ-kế-toán)
+13. [Sổ HKD (TT 152) & Báo cáo tài chính](#13-sổ-hkd-tt-152--báo-cáo-tài-chính)
+14. [Câu hỏi thường gặp (FAQ)](#14-câu-hỏi-thường-gặp-faq)
 
 ---
 
@@ -42,8 +44,10 @@
 | Menu | Trang | Công dụng |
 |---|---|---|
 | Kế Toán | `/accounting` | Dashboard: doanh thu/chi phí/lợi nhuận tháng + thao tác nhanh |
-| Lịch Sử Giao Dịch | `/accounting/history` | Xem mọi bút toán theo tháng |
+| Lịch Sử Giao Dịch | `/accounting/history` | Xem mọi bút toán theo tháng (theo ngày nghiệp vụ) |
 | **Công Nợ** | `/accounting/cong-no` | Báo cáo phải thu/phải trả + tuổi nợ |
+| **Số Dư Đầu Kỳ** | `/accounting/opening-balance` | Khai số dư tài khoản + công nợ cũ khi mới bắt đầu dùng phần mềm |
+| **Import Excel** | `/accounting/import` | Nhập hàng loạt dữ liệu cũ từ file Excel (xlsx/csv) |
 | Số Dư Tài Khoản | `/accounting/balance` | Số dư từng tài khoản kế toán |
 | Đóng Kỳ Kế Toán | `/accounting/period-closing` | Khóa sổ cuối tháng |
 | Sổ HKD (TT 152) / Báo Cáo Tài Chính | `/accounting/hkd-books` / `/accounting/financial-reports` | Sổ sách & báo cáo theo chuẩn kế toán |
@@ -89,6 +93,8 @@ Chọn **"Loại Phiếu Thu"** (3 lựa chọn):
 8. Nhấn **"Lưu Doanh Thu"** → thấy thông báo "Đã lưu doanh thu thành công!".
 
 > 💡 **Hai phiếu cùng số tiền trong 5 phút:** hệ thống chỉ cảnh báo trùng lặp cho phiếu *thu doanh thu*; phiếu công nợ của 2 khách khác nhau cùng số tiền là hợp lệ, không bị chặn.
+>
+> 💡 Phiếu **"Thu doanh thu"** lưu xong **tự động vào Sổ HKD / Báo cáo tài chính** (định khoản Nợ 111 / Có {TK doanh thu}); phiếu công nợ (131) **không** vào doanh thu — chỉ theo dõi công nợ (xem [mục 13](#13-sổ-hkd-tt-152--báo-cáo-tài-chính)).
 
 ---
 
@@ -125,6 +131,7 @@ Trên phiếu thu/chi loại công nợ (hoặc phiếu thường):
 Vào **Kế Toán → Lịch Sử Giao Dịch** (`/accounting/history`):
 
 - Danh sách **mọi bút toán** (thu, chi, công nợ, đảo) theo khoảng ngày.
+- **Theo ngày nghiệp vụ:** danh sách hiển thị theo **ngày bạn nhập trên phiếu** (TransactionDate), không phải ngày hệ thống lưu — phiếu nhập tay cho ngày cũ (ví dụ ngày 15/09 nhập vào 05/10) hiển thị đúng **kỳ phát sinh thực tế** (kỳ 9/2026).
 - **Tìm kiếm** theo diễn giải, **lọc** theo khoản tiền (min/max) và loại tài khoản.
 - Nút **"Chi Tiết"** trên mỗi dòng → xem đầy đủ thông tin phiếu.
 - Nút **"📊 Export Excel"** → tải file CSV mở được bằng Excel.
@@ -194,9 +201,65 @@ Cuối kỳ                                               Số dư 3.000.000
 
 Vào **Kế Toán → Số Dư Tài Khoản** (`/accounting/balance`): tổng hợp số dư từng tài khoản kế toán (111 Tiền mặt, 131 Phải thu, 331 Phải trả, 511 Doanh thu...) — dùng để đối chiếu nhanh.
 
+> 💡 Số dư tính theo **ngày nghiệp vụ** trên phiếu (không phải ngày nhập) — phiếu nhập tay ngày cũ nằm đúng kỳ phát sinh. Số dư còn gồm cả **số dư đầu kỳ** đã khai (xem [mục 10](#10-số-dư-đầu-kỳ-dữ-liệu-cũ-từ-excel)).
+
 ---
 
-## 10. ĐÓNG KỲ KẾ TOÁN
+## 10. SỐ DƯ ĐẦU KỲ (DỮ LIỆU CŨ TỪ EXCEL)
+
+> **Khi nào cần:** shop mới bắt đầu dùng phần mềm kế toán, trước đây theo dõi bằng Excel → khai số dư các tài khoản + công nợ cũ **tại thời điểm trước mốc bắt đầu** để báo cáo từ mốc bắt đầu có số liệu đúng.
+
+Vào **Kế Toán → Số Dư Đầu Kỳ** (`/accounting/opening-balance`):
+
+**Phần 1 — Số dư các tài khoản (Nợ = Có):**
+- Liệt kê từng tài khoản còn số dư: Tiền mặt (111), Tiền gửi (112), Phải thu (131), Phải trả (331), Hàng hóa (156), TSCĐ (211), Vay nợ (311), Thuế (333), Phải trả người lao động (334), Lợi nhuận chưa phân phối (421)...
+- Nhập **Dư Nợ** hoặc **Dư Có** cho từng tài khoản (không nhập cả hai cùng lúc; không nhập TK doanh thu/chi phí 5xx-8xx — chúng không có số dư đầu kỳ).
+- Hệ thống hiển thị **Tổng Nợ / Tổng Có**; yêu cầu **Tổng Nợ = Tổng Có** (nguyên tắc kế toán). Nếu chênh → nút **"Bù vào 421"** tự thêm dòng 421 (Lợi nhuận chưa phân phối) để cân bằng.
+
+**Phần 2 — Công nợ cũ theo đối tượng (từ Excel):**
+- Liệt kê khách còn nợ (TK 131 — Phải thu) và người bán mình còn nợ (TK 331 — Phải trả), mỗi người một dòng: **TK · Đối tượng · Số tiền**.
+- Sau khi lưu, các đối tượng này xuất hiện trong **Báo cáo Công Nợ** với cột **Đầu kỳ** + **tuổi nợ tính từ ngày khai báo** (đúng theo từng đối tượng).
+
+**Sau khi lưu:**
+- Hệ thống tự tạo bút toán "Số dư đầu kỳ" → **Sổ HKD / Bảng cân đối (B01)** hiển thị số dư đầu kỳ đúng; số dư tài khoản tự bao gồm số dư đầu kỳ.
+- **Chỉ khai 1 lần/kỳ.** Muốn sửa → **đảo bút toán** số dư đầu kỳ đã khai rồi khai lại.
+- Kỳ liền trước mốc bắt đầu phải đang **mở** (chưa đóng sổ) — nếu kỳ đã đóng, mở lại kỳ hoặc chọn mốc khác.
+
+---
+
+## 11. IMPORT DỮ LIỆU TỪ EXCEL
+
+> **Khi nào cần:** nhập hàng loạt dữ liệu cũ (đang theo dõi bằng Excel) thành các phiếu thu/chi — nhanh hơn gõ tay từng phiếu.
+
+Vào **Kế Toán → Import Excel** (`/accounting/import`):
+
+**Bước 1 — Tải mẫu:** nút **"Tải mẫu Excel (.xlsx)"** hoặc **"Tải mẫu CSV (.csv)"** — mẫu gồm **8 cột**:
+
+| Ngày | Loại phiếu | Tài khoản | Số tiền | Đối tượng | MST | Diễn giải | Số chứng từ |
+|---|---|---|---|---|---|---|---|
+| `15/10/2026` | `thu-doanh-thu` | `511` | `1000000` | *(trống — phiếu thu thường)* | | Thu tiền bán hàng | PT-0001 |
+| `15/10/2026` | `ghi-nhan-phai-thu` | `131` | `2000000` | `Công ty ABC` | `0312345678` | Bán chịu | HD-0001 |
+
+**Loại phiếu** (6 giá trị — khớp phiếu thu/chi):
+
+| Giá trị | Ý nghĩa | Tài khoản |
+|---|---|---|
+| `thu-doanh-thu` | Thu doanh thu | 5xx / 7xx |
+| `chi-phí` | Chi phí | 6xx |
+| `ghi-nhan-phai-thu` | Bán chịu (tăng phải thu) | 131 |
+| `thu-tien-khach-tra-no` | Khách trả nợ (giảm phải thu) | 131 |
+| `ghi-nhan-phai-tra` | Mua chịu (tăng phải trả) | 331 |
+| `tra-tien-nguoi-ban` | Trả nợ người bán (giảm phải trả) | 331 |
+
+**Bước 2 — Upload:** chọn file (`.xlsx` hoặc `.csv`, tối đa **2.000 dòng/lần**) → hệ thống **kiểm tra từng dòng** (ngày hợp lệ, tài khoản đúng loại phiếu, số tiền > 0, đối tượng bắt buộc với phiếu công nợ, kỳ chưa đóng) → hiện **bảng lỗi theo dòng** (số dòng + lý do).
+
+**Bước 3 — Lưu:** **chỉ khi 0 dòng lỗi** mới hiện nút **"💾 Lưu N Dòng"**. Bấm lưu → các dòng được tạo thành phiếu như nhập tay (phiếu thu/chi tự vào Sổ HKD/BCTC; phiếu công nợ vào báo cáo công nợ).
+
+> ⚠️ **Có dòng lỗi → không lưu gì cả** (kể cả các dòng đúng) — sửa file rồi tải lại. Tránh 2 dòng **cùng số tiền/tài khoản/chứng từ trong 5 phút** (trùng lặp bị báo lỗi — nên điền Số chứng từ khác nhau).
+
+---
+
+## 12. ĐÓNG KỲ KẾ TOÁN
 
 Vào **Kế Toán → Đóng Kỳ Kế Toán** (`/accounting/period-closing`), cuối mỗi tháng:
 
@@ -207,7 +270,7 @@ Vào **Kế Toán → Đóng Kỳ Kế Toán** (`/accounting/period-closing`), c
 
 ---
 
-## 11. SỔ HKD (TT 152) & BÁO CÁO TÀI CHÍNH
+## 13. SỔ HKD (TT 152) & BÁO CÁO TÀI CHÍNH
 
 Tùy loại hình kinh doanh, menu "Kế Toán" hiển thị:
 
@@ -227,11 +290,13 @@ Tùy loại hình kinh doanh, menu "Kế Toán" hiển thị:
 - Báo cáo lưu chuyển tiền tệ (Cash Flow)
 - Thuyết minh báo cáo tài chính (Notes)
 
+> 💡 **Phiếu nhập tay tự vào sổ:** phiếu **"Thu doanh thu"** và **"Chi phí"** lưu xong tự tạo bút toán sổ cái (thu: Nợ 111 / Có {TK}; chi: Nợ {TK} / Có 111) → xuất hiện đầy đủ trong Sổ HKD B01-B09 / Báo cáo tài chính, đúng **ngày nghiệp vụ** trên phiếu. **Số dư đầu kỳ** đã khai (xem [mục 10](#10-số-dư-đầu-kỳ-dữ-liệu-cũ-từ-excel)) cũng vào sổ (cột Đầu kỳ).
+>
 > 💡 Phiếu công nợ (131/331) **không** xuất hiện trong doanh thu/chi phí — đúng bản chất: bán chịu chưa phải doanh thu, mua chịu chưa phải chi phí. Chúng chỉ theo dõi trong báo cáo công nợ + sổ cái tài khoản.
 
 ---
 
-## 12. CÂU HỎI THƯỜNG GẶP (FAQ)
+## 14. CÂU HỎI THƯỜNG GẶP (FAQ)
 
 **Q1. Nhập sai phiếu thì sửa thế nào?**
 Không sửa được trực tiếp (bút toán bất biến). Dùng nút **"Đảo"** trên dòng phiếu trong sổ/lịch sử → nhập lý do → lập phiếu mới đúng.
@@ -257,6 +322,21 @@ MST phải 10 hoặc 13 chữ số (bỏ dấu "-"). Nếu đúng mà vẫn lỗ
 **Q8. Ai được xem module kế toán?**
 Chỉ tài khoản **Owner** (chủ shop). Nhân viên/khác không vào được.
 
+**Q9. Shop mới dùng phần mềm, dữ liệu cũ đang ở Excel thì làm sao?**
+1) **Khai Số Dư Đầu Kỳ** (mục 10) — số dư từng tài khoản + công nợ cũ theo khách/người bán · 2) **Import Excel** (mục 11) — nhập hàng loạt phiếu thu/chi từ file mẫu · 3) Rà soát Lịch sử giao dịch + Báo cáo công nợ → báo cáo từ mốc bắt đầu đã đúng số liệu.
+
+**Q10. Import Excel báo lỗi ở vài dòng, tôi có lưu được phần đúng không?**
+Không — hệ thống **chỉ lưu khi 0 dòng lỗi** (an toàn, tránh lưu nửa chừng). Sửa các dòng lỗi theo gợi ý (số dòng + lý do) rồi tải lại file.
+
+**Q11. Phiếu tôi nhập tay có vào Sổ HKD / Báo cáo tài chính không?**
+Có — phiếu **Thu doanh thu** và **Chi phí** tự động vào sổ (đúng ngày nghiệp vụ trên phiếu). Phiếu công nợ (bán chịu/mua chịu) thì không (đúng bản chất — xem [mục 13](#13-sổ-hkd-tt-152--báo-cáo-tài-chính)).
+
+**Q12. Lịch sử giao dịch / số dư tài khoản hiển thị theo ngày nào?**
+Theo **ngày nghiệp vụ** (ngày bạn nhập trên phiếu), không phải ngày nhập hệ thống — phiếu nhập cho ngày cũ hiển thị đúng kỳ phát sinh thực tế.
+
+**Q13. Tôi khai sai số dư đầu kỳ thì sửa thế nào?**
+Số dư đầu kỳ chỉ khai **1 lần/kỳ**. Muốn sửa → **đảo bút toán** số dư đầu kỳ đã khai rồi khai lại (xem [mục 10](#10-số-dư-đầu-kỳ-dữ-liệu-cũ-từ-excel)).
+
 ---
 
-*Tài liệu đi kèm: SRS Thu chi & Công nợ v1.1 (`docs/requirements/van_an_thu_chi_cong_no_srs_v1.md`) · Master plan (`docs/AI/plans/thu-chi-cong-no-master-plan.md`).*
+*Tài liệu đi kèm: SRS Thu chi & Công nợ v1.1 (`docs/requirements/van_an_thu_chi_cong_no_srs_v1.md`) · Master plan Công nợ (`docs/AI/plans/thu-chi-cong-no-master-plan.md`) · Master plan Nhập liệu & Sổ sách (`docs/AI/plans/ke-toan-nhap-lieu-master-plan.md`).*
