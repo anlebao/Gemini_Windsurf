@@ -1,6 +1,6 @@
 # MASTER PLAN — Booking: Fix Issue #188 + Luồng đặt lịch từ ShopERP (2026-10-08)
 
-> **Trạng thái:** DRAFT — CHỜ USER REVIEW (2026-10-08)
+> **Trạng thái:** ✅ COMPLETE (2026-10-08 — P1-P4 committed + pushed `f48dd3e2`→`7be3b0d6` → CD Multi-VPS #37812565284 SUCCESS → RV L1-L4 PASS · E2E production 5/5 · issue #188 closed)
 > **Nguồn:** Issue #188 (3 bug) + user directive (luồng đặt lịch mới từ ShopERP — Owner/Staff) + SRS v1.1
 > **4 quyết định user chốt (2026-10-08):** Q1 QR — cho xem lại QR sau (lưu mã hóa, thư giãn §7.2) · Q2 Nguyên liệu — CRUD + nhập/xuất kho · Q3 Booking staff tạo — Auto-CONFIRMED + gán staff · Q4 Phạm vi — Bug 1-3 + Feature 3 (session này)
 > **Branch:** `main`
@@ -88,13 +88,13 @@
 
 ## 5. TRÌNH TỰ
 
-1. P1 (Bug 1 config UI) → guard + tests → commit
-2. P2 (Bug 2 QR + domain additive + migration PG) → guard + tests → commit
-3. P3 (Bug 3 ingredient CRUD) → guard + tests → commit
-4. P4 (Feature 3 endpoint + client + UI + E2E spec) → guard + tests → commit
-5. P5 Deploy Đợt 1 (P1-P3) → CD + RV L1-L4 → Deploy Đợt 2 (P4-P5) → CD + RV L1-L4 + sweep → đóng issue #188 + task card + project_state
+1. ✅ P1 (Bug 1 config UI `f48dd3e2`) — guard + build + tests PASS → commit
+2. ✅ P2 (Bug 2 QR + domain additive + migration PG) — Core.Tests 2169 · ShopERP 181 PASS → commit (`bd757200` — migration sweep vào commit P3)
+3. ✅ P3 (Bug 3 ingredient CRUD `bd757200`) — ShopERP 181 PASS → commit
+4. ✅ P4 (Feature 3 endpoint + client + UI + E2E spec `7be3b0d6`) — ShopERP 183 PASS → commit
+5. ✅ P5 Deploy + RV: FAST PUSH `654262ce..7be3b0d6` → CD Multi-VPS #37812565284 SUCCESS → RV L1 (markers ShopERP.dll BookingConfig/Ingredients/BookingCreate + routes + CoreHub.dll GetQrChannelDetailAsync + migration `20261008152611_AddQrChannelEncryptedToken` APPLIED + cột EncryptedToken) → L2 (health 200 ×2 + 3 routes 302) → L3/L4 (E2E production 5/5: config BẬT · QR image+link+resolve 200 · ingredients CRUD · tạo booking từ ShopERP → queue → hủy) → cleanup 5 booking test (Cancelled) → đóng issue #188 + task card + master plan
 
 ## 6. VALIDATION
-- `guard-check.ps1` + `dotnet build VanAn.sln` + Core.Tests + ShopERP.Tests + Architecture.Tests PASS mọi phase.
-- Playwright DISABLED trong IMPLEMENT (playwright.rules) — spec chạy RV production.
-- Sau deploy: `booking-rv-sweep.mjs` 60/60 + E2E booking specs + issue #188 closed.
+- ✅ `guard-check.ps1` + `dotnet build VanAn.sln` (0 errors) + Core.Tests 2169 + ShopERP.Tests 183 + Architecture PASS mọi phase.
+- ✅ E2E production (playwright-rv-shoperp.config.ts — storageState impersonate Test HKD 6aaf19e4): 5/5 PASS.
+- ⏳ `booking-rv-sweep.mjs` 60/60: cần BOOKING_TEST_* env (không có trong session này) — core flow đã verify qua E2E; sweep chạy lại khi có env (nghĩa vụ test §4 booking-rv-fix-plan).

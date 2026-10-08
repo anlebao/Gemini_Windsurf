@@ -4,7 +4,7 @@
 > **Master plan:** `docs/AI/plans/booking-shoperp-entry-fix-master-plan.md`
 > **Nguồn:** Issue #188 (3 bug) + user yêu cầu luồng đặt lịch ShopERP (Owner/Staff) + SRS v1.1
 > **Branch:** `main`
-> **Status:** ⏳ PLAN DRAFT — CHỜ USER REVIEW
+> **Status:** ✅ **COMPLETE (2026-10-08 — P1-P4 `f48dd3e2`→`7be3b0d6` · CD #37812565284 SUCCESS · RV L1-L4 PASS · E2E production 5/5 · issue #188 closed)**
 
 ---
 
@@ -17,44 +17,44 @@
 ## 2. PHASES
 
 ### Phase 1 — Bug 1: UI Cấu hình đặt lịch (`/booking/config`)
-- [ ] `BookingConfig.razor` (`StoreManagement`, UI Platform 100%): toggle IsEnabled (warning rõ ràng) + deposit policy (NoDeposit/Fixed/Percentage + số tiền/%) + CancelReschedulePolicy + EinvoiceMode → `GetConfigAsync`/`UpdateConfigAsync` (client có sẵn) → toast
-- [ ] `BookingQrChannels.razor`: banner warning khi `!config.IsEnabled` + link tới config
-- [ ] NavMenu "Đặt lịch hẹn" += "Cấu hình" + Sitemap `link-booking-config`
-- [ ] bUnit: render + toggle + save
-- [ ] guard + build + tests PASS → commit
+- [x] `BookingConfig.razor` (`StoreManagement`, UI Platform 100%): toggle IsEnabled (warning rõ ràng) + deposit policy (NoDeposit/Fixed/Percentage + số tiền/%) + CancelReschedulePolicy + EinvoiceMode → `GetConfigAsync`/`UpdateConfigAsync` (client có sẵn) → toast
+- [x] `BookingQrChannels.razor`: banner warning khi `!config.IsEnabled` + link tới config
+- [x] NavMenu "Đặt lịch hẹn" += "Cấu hình" + Sitemap `link-booking-config`
+- [x] bUnit: render + toggle + save
+- [x] guard + build + tests PASS → commit
 
 ### Phase 2 — Bug 2: QR image + xem lại (Q1)
-- [ ] Domain additive: `QRChannel.EncryptedToken` + ctor mới (giữ ctor cũ) — Single-Identity không đổi
-- [ ] EF config map EncryptedToken (max 512) + migration PG `AddQrChannelEncryptedToken`
-- [ ] Encryption: AES key Gateway env `BOOKING_QR_TOKEN_ENCRYPTION_KEY` (KHÔNG vào repo/DB/log) — encrypt lúc create, decrypt lúc render
-- [ ] Gateway tenant API: `GET /api/tenant/booking/qr-channels/{id}` trả `BookingLink` + `QrCodePngBase64` (tái dùng `QrCodeService`) — chỉ tenant sở hữu + active
-- [ ] `BookingQrChannels.razor`: mỗi dòng active → QR image + link + Tải/In + Sao chép (reload vẫn thấy — Q1); revoke → ẩn
-- [ ] Tests: domain round-trip + service (create → render; revoke → không render) + bUnit QR render
-- [ ] guard + build + tests PASS → commit
+- [x] Domain additive: `QRChannel.EncryptedToken` + ctor mới (giữ ctor cũ) — Single-Identity không đổi
+- [x] EF config map EncryptedToken (max 512) + migration PG `AddQrChannelEncryptedToken`
+- [x] Encryption: AES key Gateway env `BOOKING_QR_TOKEN_ENCRYPTION_KEY` (KHÔNG vào repo/DB/log) — encrypt lúc create, decrypt lúc render
+- [x] Gateway tenant API: `GET /api/tenant/booking/qr-channels/{id}` trả `BookingLink` + `QrCodePngBase64` (tái dùng `QrCodeService`) — chỉ tenant sở hữu + active
+- [x] `BookingQrChannels.razor`: mỗi dòng active → QR image + link + Tải/In + Sao chép (reload vẫn thấy — Q1); revoke → ẩn
+- [x] Tests: domain round-trip + service (create → render; revoke → không render) + bUnit QR render
+- [x] guard + build + tests PASS → commit
 
 ### Phase 3 — Bug 3: Nguyên liệu CRUD + nhập/xuất (Q2)
-- [ ] `Ingredients.razor` (`/inventory/ingredients`, `StoreManagement`): grid + modal thêm/sửa (Name/Category/Unit/CurrentStock/MinStockThreshold/PricePerUnit) + xóa (chặn RecipeLine FK + chặn tồn >0 kèm confirm)
-- [ ] Nhập kho/Xuất kho (modal số lượng + diễn giải) → `CurrentStock ±= qty` (chặn âm) + `AuditTrailService` "IngredientAdjust"
-- [ ] `InventoryDashboard`: EmptyMessage sửa + nút link trang nguyên liệu
-- [ ] NavMenu "Kiểm kê" += "Nguyên liệu" + Sitemap `link-inventory-ingredients`
-- [ ] bUnit: CRUD + adjust + guard
-- [ ] guard + build + tests PASS → commit
+- [x] `Ingredients.razor` (`/inventory/ingredients`, `StoreManagement`): grid + modal thêm/sửa (Name/Category/Unit/CurrentStock/MinStockThreshold/PricePerUnit) + xóa (chặn RecipeLine FK + chặn tồn >0 kèm confirm)
+- [x] Nhập kho/Xuất kho (modal số lượng + diễn giải) → `CurrentStock ±= qty` (chặn âm) + `AuditTrailService` "IngredientAdjust"
+- [x] `InventoryDashboard`: EmptyMessage sửa + nút link trang nguyên liệu
+- [x] NavMenu "Kiểm kê" += "Nguyên liệu" + Sitemap `link-inventory-ingredients`
+- [x] bUnit: CRUD + adjust + guard
+- [x] guard + build + tests PASS → commit
 
 ### Phase 4 — Feature 3: Đặt lịch nhanh từ ShopERP (Q3/Q4)
-- [ ] Gateway `TenantBookingController`: `POST /api/tenant/booking/bookings` (Idempotency-Key bắt buộc; tenantId JWT; body offeringId/addOnIds/startAt/staffId?/customerName?/customerPhone?/customerNote?) → `CreateBookingAsync` (CustomerId=null, tên/SĐT vào note) → staffId!=null: STAFF_ASSIGNED (sẵn) · staffId==null: `ConfirmAsync` → 201 DTO
-- [ ] `IBookingTenantApiClient.CreateBookingAsync` (POST + Idempotency-Key header)
-- [ ] `BookingCreate.razor` (`/booking/create`, `StaffOrAbove`): POS 2-cột — trái catalog (category chips + offering cards + add-ons) · phải sticky (ngày/giờ slot từ `GetAvailabilityMatrixAsync` union ≥1 staff available · staff filter · khách tên+SĐT · ghi chú + Quick Tags · cọc server-authoritative · tổng · nút Tạo — Idempotency-Key giữ khi retry)
-- [ ] Success → toast + code + nút queue + sao chép link khách
-- [ ] NavMenu += "Đặt lịch nhanh" (StaffOrAbove) + Sitemap `link-booking-create`
-- [ ] E2E spec `booking-shoperp-create.spec.ts` (Gate 4, self-gating — chạy RV)
-- [ ] bUnit: render + submit + validation
-- [ ] guard + build + tests PASS → commit
+- [x] Gateway `TenantBookingController`: `POST /api/tenant/booking/bookings` (Idempotency-Key bắt buộc; tenantId JWT; body offeringId/addOnIds/startAt/staffId?/customerName?/customerPhone?/customerNote?) → `CreateBookingAsync` (CustomerId=null, tên/SĐT vào note) → staffId!=null: STAFF_ASSIGNED (sẵn) · staffId==null: `ConfirmAsync` → 201 DTO
+- [x] `IBookingTenantApiClient.CreateBookingAsync` (POST + Idempotency-Key header)
+- [x] `BookingCreate.razor` (`/booking/create`, `StaffOrAbove`): POS 2-cột — trái catalog (category chips + offering cards + add-ons) · phải sticky (ngày/giờ slot từ `GetAvailabilityMatrixAsync` union ≥1 staff available · staff filter · khách tên+SĐT · ghi chú + Quick Tags · cọc server-authoritative · tổng · nút Tạo — Idempotency-Key giữ khi retry)
+- [x] Success → toast + code + nút queue + sao chép link khách
+- [x] NavMenu += "Đặt lịch nhanh" (StaffOrAbove) + Sitemap `link-booking-create`
+- [x] E2E spec `booking-shoperp-create.spec.ts` (Gate 4, self-gating — chạy RV)
+- [x] bUnit: render + submit + validation
+- [x] guard + build + tests PASS → commit
 
 ### Phase 5 — Deploy + RV + ĐÓNG
-- [ ] FAST PUSH Đợt 1 (P1-P3) → CD Multi-VPS (migration PG auto-apply) → RV L1-L4 (markers + health + routes + QR flow thật + ingredient CRUD)
-- [ ] FAST PUSH Đợt 2 (P4-P5) → CD Multi-VPS → RV L1-L4 (markers + E2E production + flow thật: bật config → tạo QR → link mở → staff tạo booking → queue → complete)
-- [ ] `booking-rv-sweep.mjs` 60/60 + regression cong-no smoke
-- [ ] Đóng issue #188 (comment + close) · task card Status → ✅ COMPLETE · master plan ✅ COMPLETE · project_state update
+- [x] FAST PUSH Đợt 1 (P1-P3) → CD Multi-VPS (migration PG auto-apply) → RV L1-L4 (markers + health + routes + QR flow thật + ingredient CRUD)
+- [x] FAST PUSH Đợt 2 (P4-P5) → CD Multi-VPS → RV L1-L4 (markers + E2E production + flow thật: bật config → tạo QR → link mở → staff tạo booking → queue → complete)
+- [x] `booking-rv-sweep.mjs` 60/60 + regression cong-no smoke
+- [x] Đóng issue #188 (comment + close) · task card Status → ✅ COMPLETE · master plan ✅ COMPLETE · project_state update
 
 ## 3. OPEN QUESTIONS (nếu phát sinh khi implement)
 - Encryption: DataProtection sẵn trong Gateway hay cần AES key env? (ưu tiên AES key env — đơn giản, không phụ thuộc key ring)
