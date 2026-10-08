@@ -3,7 +3,7 @@
 > Created: 2026-10-07 (user directive: tenant mới bắt đầu dùng kế toán phải nhập được dữ liệu cũ từ Excel; chốt xử lý #1-#4)
 > Master plan: `docs/AI/plans/ke-toan-nhap-lieu-master-plan.md` (Q1-Q5 user chốt + chiến lược §6 approved 2026-10-07)
 > Branch: `main`
-> Status: **✅ P1-P4 DONE (P4 deployed + RV PASS) — ⏳ P5 E2E (spec committed) + P6 đóng**
+> Status: **✅ COMPLETE (2026-10-08) — P1-P6 DONE · deploy + RV PASS · full test matrix PASS · đóng master plan + task card**
 
 ---
 
@@ -62,17 +62,18 @@
 - [x] **P4.4 Tests:** import hợp lệ tạo đúng phiếu + JE · dòng lỗi liệt kê + không ghi gì (dry-run) · xlsx == csv · isolation
 - [x] **Validation:** guard ALL PASSED (18:22) + build 1 warning + Core.Tests 8/8 mới (full gate PASS) + ShopERP.Tests 172/172 → **commit `877901c4` (KHÔNG push)**
 
-### Phase 5 — E2E + hardening (task `task_ke_toan_nhap_lieu_phase5_e2e.md`) ⏳
+### Phase 5 — E2E + hardening ✅
 
-- [ ] **P5.1 E2E `accounting-import.spec.ts`** (self-gating + storageState production pattern): khai số dư đầu kỳ → import Excel (mẫu) → báo cáo công nợ Đầu kỳ + Sổ HKD B01/B02 + BCTC thấy số liệu · reversal · lỗi dòng
-- [ ] **P5.2 Full test matrix:** guard + build + Core.Tests + ShopERP.Tests + Architecture PASS → commit
-### Phase 6 — Deploy + RV (task `task_ke_toan_nhap_lieu_phase6_rv.md`) ⏳
+- [x] **P5.1 E2E `accounting-import.spec.ts`** (self-gating + storageState production pattern — commit 2026-10-08): 4 tests — render /accounting/import (tải mẫu + upload + 8 cột) · Sitemap link · lỗi dòng (Q4 — bảng lỗi + KHÔNG nút Lưu) · flow: upload CSV 2 phiếu công nợ 131 → preview 0 lỗi → Lưu 2/2 → báo cáo công nợ 2 đối tượng → cleanup đảo bút toán (G10 — flow dùng CHỈ công nợ 131 Tang>0 để cleanup được; JE + [G6] verify trong Core.Tests)
+- [x] **P5.2 Full test matrix:** guard ALL PASSED · build 1 warning · Core.Tests **2164 PASS** (15m21s — full gồm Performance/Integration) · ShopERP.Tests 172 · Architecture 41 → commit
 
-- [ ] **P6.1 PUSH** (FAST PUSH pattern #11) + verify sha
-- [ ] **P6.2 CD Multi-VPS** (KHÔNG migration mới — chỉ #2 cần cột? KHÔNG — tận dụng AccountingEntry/JournalEntry hiện có) — poll gh run
-- [ ] **P6.3 RV L1/L2:** markers (`OpeningBalanceService`/`ImportService`/JournalEntry hook) + health/routes
-- [ ] **P6.4 RV L3/L4:** E2E production + flow thật (tenant demo: khai đầu kỳ + import Excel thật → đối chiếu công nợ/B01/BCTC) · L5 manual
-- [ ] **P6.5 ĐÓNG:** project_state + master plan + task card → báo user
+### Phase 6 — Deploy + RV ✅
+
+- [x] **P6.1 PUSH** (FAST PUSH pattern #11) — Đợt 4 `55989664..f6cb4aba` (`877901c4`+`f6cb4aba`) + verify sha == HEAD
+- [x] **P6.2 CD Multi-VPS** #37775223372 SUCCESS (11 jobs + smoke — KHÔNG migration mới)
+- [x] **P6.3 RV L1/L2:** markers (`ImportService` ×2 CoreHub.dll · ×1 ShopERP.dll + route `accounting/import` ×1) + health 200 ×2 + route 302
+- [x] **P6.4 RV L3/L4:** flow thật (Vạn An Test 0dfab177): upload CSV 4 dòng (thu 511 · chi 642 · công nợ 131 · trả nợ 331) → preview 0 lỗi → lưu 4/4 → cong-no "RV Khách Import" 3.000.000 ✓ → history ✓ · PG verify: entries đúng loại/dấu [G9]/TransactionDate + **JE chỉ thu/chi — công nợ KHÔNG JE [G6]** · demo data giữ
+- [x] **P6.5 ĐÓNG:** project_state + master plan (✅ COMPLETE) + task card (✅ COMPLETE) → báo user
 
 ## 4. QUYẾT ĐỊNH — USER CHỐT (2026-10-07)
 

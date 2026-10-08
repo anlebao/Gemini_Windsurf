@@ -1,7 +1,7 @@
 # MASTER PLAN: KẾ TOÁN — NHẬP LIỆU & SỔ SÁCH ĐẦY ĐỦ (Import Excel · Số dư đầu kỳ · Ngày nghiệp vụ · Phiếu tay → Sổ HKD/BCTC)
 
 > Created: 2026-10-07 (user directive: "các việc phải làm để 1 tenant bắt đầu dùng phần mềm kế toán, dữ liệu cũ nhập vào như thế nào — trước đây dùng Excel" → chốt: xử lý #1 #2 #3 #4)
-> Status: **✅ Q1-Q5 USER CHỐT (2026-10-07) — ⏳ CHỜ USER DUYỆT CHIẾN LƯỢC §6 (chưa implement)**
+> Status: **✅ COMPLETE (2026-10-08) — P1-P6 DONE · deploy + RV PASS toàn bộ (P1 `bd9fa774` Đợt 1 · P2 `fa07b31a` Đợt 2 · P3 `2fc7eb86`+`714d4b52` Đợt 3 · P4 `877901c4`+`f6cb4aba` Đợt 4 · P5 spec `accounting-import.spec.ts` · full test matrix: Core.Tests 2164 PASS · ShopERP 172 · guard ALL PASSED) — demo data giữ trên Vạn An Test (0dfab177)**
 > Branch: `main` · Priority: tiếp nối Thu chi & Công nợ (P1-P4 DONE, L5 manual chờ user)
 > Nền tảng: module kế toán hiện tại + Công nợ MVP đã deploy (`bda6df1e`)
 
