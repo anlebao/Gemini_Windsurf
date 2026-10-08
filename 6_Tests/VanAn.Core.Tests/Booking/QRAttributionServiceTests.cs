@@ -212,5 +212,84 @@ namespace VanAn.Core.Tests.BookingScheduling
             Assert.Equal(first.AttributionSessionId, second.AttributionSessionId);   // 1 row / key — reset period
             Assert.True(second.IsQualified);
         }
+
+        // ── Q1 (2026-10-08 — issue #188 bug 2): EncryptedToken + xem lại QR/link ──
+
+        [Fact]
+        public async Task CreateQr_StoresEncryptedToken_NotPlaintext()
+        {
+            using var scope = VanAnDbContextTestFactory.Create();
+            scope.TenantProvider!.SetTenant(BookingTestData.TenantId.Value);
+            await BookingTestData.SeedActiveTenantAsync(scope.Context, BookingTestData.TenantId);
+            var svc = BuildService(scope.Context);
+
+            await svc.CreateQrChannelAsync(BookingTestData.TenantId, "tok-secret-1");
+
+            var qr = await scope.Context.QRChannels.IgnoreQueryFilters().FirstAsync();
+            Assert.False(string.IsNullOrWhiteSpace(qr.EncryptedToken));
+            Assert.NotEqual("tok-secret-1", qr.EncryptedToken);          // mã hóa, không plaintext
+            Assert.DoesNotContain("tok-secret-1", qr.EncryptedToken);
+        }
+
+        [Fact]
+        public async Task Detail_ActiveQr_ReturnsLinkAndQrPng()
+        {
+            using var scope = VanAnDbContextTestFactory.Create();
+            scope.TenantProvider!.SetTenant(BookingTestData.TenantId.Value);
+            await BookingTestData.SeedActiveTenantAsync(scope.Context, BookingTestData.TenantId);
+            var svc = BuildService(scope.Context);
+            var qr = await svc.CreateQrChannelAsync(BookingTestData.TenantId, "tok-secret-2");
+
+            var detail = await svc.GetQrChannelDetailAsync(BookingTestData.TenantId, qr.Id, "https://khachvip.online");
+
+            Assert.True(detail.IsActive);
+            Assert.Equal("https://khachvip.online/booking/tok-secret-2", detail.BookingLink);
+            Assert.NotNull(detail.QrCodePngBase64);
+            Assert.StartsWith("data:image/png;base64,", detail.QrCodePngBase64);
+        }
+
+        [Fact]
+        public async Task Detail_RevokedQr_ReturnsNullLink()
+        {
+            using var scope = VanAnDbContextTestFactory.Create();
+            scope.TenantProvider!.SetTenant(BookingTestData.TenantId.Value);
+            await BookingTestData.SeedActiveTenantAsync(scope.Context, BookingTestData.TenantId);
+            var svc = BuildService(scope.Context);
+            var qr = await svc.CreateQrChannelAsync(BookingTestData.TenantId, "tok-secret-3");
+            await svc.RevokeQrAsync(BookingTestData.TenantId, qr.Id);
+
+            var detail = await svc.GetQrChannelDetailAsync(BookingTestData.TenantId, qr.Id, "https://khachvip.online");
+
+            Assert.False(detail.IsActive);
+            Assert.Null(detail.BookingLink);
+            Assert.Null(detail.QrCodePngBase64);
+            Assert.NotNull(detail.RevokedAt);
+        }
+
+        [Fact]
+        public async Task Detail_CrossTenant_ThrowsNotFound()
+        {
+            using var scope = VanAnDbContextTestFactory.Create();
+            scope.TenantProvider!.SetTenant(BookingTestData.TenantId.Value);
+            await BookingTestData.SeedActiveTenantAsync(scope.Context, BookingTestData.TenantId);
+            var svc = BuildService(scope.Context);
+            var qr = await svc.CreateQrChannelAsync(BookingTestData.TenantId, "tok-secret-4");
+
+            // Tenant khác đọc QR tenant A → NotFound (không leak cross-tenant).
+            await Assert.ThrowsAsync<NotFoundException>(() =>
+                svc.GetQrChannelDetailAsync(BookingTestData.OtherTenantId, qr.Id, "https://khachvip.online"));
+        }
+
+        [Fact]
+        public async Task Detail_UnknownQr_ThrowsNotFound()
+        {
+            using var scope = VanAnDbContextTestFactory.Create();
+            scope.TenantProvider!.SetTenant(BookingTestData.TenantId.Value);
+            await BookingTestData.SeedActiveTenantAsync(scope.Context, BookingTestData.TenantId);
+            var svc = BuildService(scope.Context);
+
+            await Assert.ThrowsAsync<NotFoundException>(() =>
+                svc.GetQrChannelDetailAsync(BookingTestData.TenantId, Guid.NewGuid(), "https://khachvip.online"));
+        }
     }
 }

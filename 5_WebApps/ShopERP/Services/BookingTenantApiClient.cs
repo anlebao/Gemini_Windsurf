@@ -46,6 +46,10 @@ public record QrChannelCreatedDto(
     Guid Id, string QrTokenHash, string RawToken, Guid? SalesmanId, Guid? CampaignId,
     bool IsActive, DateTime? RevokedAt, DateTime CreatedAt);
 
+/// <summary>Q1 (2026-10-08 — issue #188 bug 2): chi tiết QR — link đặt lịch + QR PNG render lại sau khi tạo.</summary>
+public record QrChannelDetailDto(
+    Guid Id, string? BookingLink, string? QrCodePngBase64, bool IsActive, DateTime? RevokedAt);
+
 public record SalesmanDto(Guid CustomerId, string Name, DateTime CreatedAt);
 
 public record CommissionLedgerDto(
@@ -109,6 +113,7 @@ public interface IBookingTenantApiClient
     Task<ApiResponse<BookingTenantConfigDto>> UpdateConfigAsync(bool isEnabled, string depositPolicy, decimal? fixedAmount, decimal? percentage, string? cancelPolicy, string? einvoiceMode, CancellationToken ct = default);
     Task<ApiResponse<List<QrChannelDto>>> GetQrChannelsAsync(CancellationToken ct = default);
     Task<ApiResponse<QrChannelCreatedDto>> CreateQrChannelAsync(string qrToken, Guid? salesmanId, Guid? campaignId, DateTime? expiry, CancellationToken ct = default);
+    Task<ApiResponse<QrChannelDetailDto>> GetQrChannelAsync(Guid qrId, CancellationToken ct = default);
     Task<ApiResponse<bool>> RevokeQrChannelAsync(Guid qrId, CancellationToken ct = default);
     Task<ApiResponse<List<SalesmanDto>>> GetSalesmenAsync(CancellationToken ct = default);
     Task<ApiResponse<List<CommissionLedgerDto>>> GetCommissionLedgerAsync(Guid? salesmanId = null, Guid? bookingId = null, CancellationToken ct = default);
@@ -255,6 +260,9 @@ public sealed class BookingTenantApiClient : GatewayAdminApiClientBase, IBooking
 
     public Task<ApiResponse<bool>> RevokeQrChannelAsync(Guid qrId, CancellationToken ct = default)
         => PostAsync<bool>($"{Base}/qr-channels/{qrId}/revoke", null, ct);
+
+    public Task<ApiResponse<QrChannelDetailDto>> GetQrChannelAsync(Guid qrId, CancellationToken ct = default)
+        => GetAsync<QrChannelDetailDto>($"{Base}/qr-channels/{qrId}", ct);
 
     public Task<ApiResponse<List<SalesmanDto>>> GetSalesmenAsync(CancellationToken ct = default)
         => GetAsync<List<SalesmanDto>>($"{Base}/salesmen", ct);

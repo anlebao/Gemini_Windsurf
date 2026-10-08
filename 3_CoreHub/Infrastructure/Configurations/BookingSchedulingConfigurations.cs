@@ -129,6 +129,8 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.HasKey(e => e.Id);
             _ = builder.Ignore(e => e.QRChannelId);
             _ = builder.Property(e => e.QrTokenHash).HasMaxLength(128).IsRequired();
+            // Q1 (2026-10-08): token mã hóa DataProtection — nullable (QR cũ không có), max 1024 đủ cho AES-256 base64.
+            _ = builder.Property(e => e.EncryptedToken).HasMaxLength(1024);
             _ = builder.HasIndex(e => e.QrTokenHash).IsUnique(); // unguessable token hash
             _ = builder.HasIndex(e => new { e.TenantId, e.IsActive });
         }

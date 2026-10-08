@@ -39,6 +39,7 @@ public class TenantBookingController(
     IQRAttributionService qrService,
     ICommissionService commissionService,
     VanAnDbContext dbContext,
+    IConfiguration configuration,
     ILogger<TenantBookingController> logger) : ControllerBase
 {
     private readonly IBookingService _bookingService = bookingService;
@@ -49,6 +50,7 @@ public class TenantBookingController(
     private readonly IQRAttributionService _qrService = qrService;
     private readonly ICommissionService _commissionService = commissionService;
     private readonly VanAnDbContext _dbContext = dbContext;
+    private readonly IConfiguration _configuration = configuration;
     private readonly ILogger<TenantBookingController> _logger = logger;
 
     // ── Queue / detail ──────────────────────────────────────────────────────
@@ -417,6 +419,31 @@ public class TenantBookingController(
         return Ok(channels);
     }
 
+    /// <summary>
+    /// Q1 (2026-10-08 — issue #188 bug 2): chi tiết QR cho tenant — decrypt EncryptedToken → link đặt lịch
+    /// + QR PNG render lại (QRCoder). Chỉ tenant sở hữu + channel active. Revoked/legacy → link/QR null.
+    /// </summary>
+    [HttpGet("qr-channels/{qrId:guid}")]
+    public async Task<ActionResult<QrChannelDetailDto>> GetQrChannelDetail(Guid qrId, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+
+        string khachLinkBase = _configuration["KhachLink:BaseUrl"] ?? "https://khachvip.online";
+        QrChannelDetailResult detail;
+        try
+        {
+            detail = await _qrService.GetQrChannelDetailAsync(tenantId, qrId, khachLinkBase, ct);
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        return Ok(new QrChannelDetailDto(
+            detail.QrId, detail.BookingLink, detail.QrCodePngBase64, detail.IsActive, detail.RevokedAt));
+    }
+
     [HttpPost("qr-channels/{qrId:guid}/revoke")]
     public async Task<IActionResult> RevokeQrChannel(Guid qrId, CancellationToken ct = default)
     {
@@ -751,6 +778,10 @@ public record QrChannelDto(Guid Id, string QrTokenHash, Guid? SalesmanId, Guid? 
 public record QrChannelCreatedDto(
     Guid Id, string QrTokenHash, string RawToken, Guid? SalesmanId, Guid? CampaignId,
     bool IsActive, DateTime? RevokedAt, DateTime CreatedAt);
+
+/// <summary>Q1 (2026-10-08 — issue #188 bug 2): chi tiết QR — link đặt lịch + QR PNG (render lại sau khi tạo).</summary>
+public record QrChannelDetailDto(
+    Guid Id, string? BookingLink, string? QrCodePngBase64, bool IsActive, DateTime? RevokedAt);
 
 public record SalesmanDto(Guid CustomerId, string Name, DateTime CreatedAt);
 

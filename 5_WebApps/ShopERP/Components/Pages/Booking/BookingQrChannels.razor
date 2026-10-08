@@ -62,20 +62,36 @@
                     <tbody>
                         @foreach (var channel in _channels)
                         {
-                            var link = _createdTokens.TryGetValue(channel.Id, out var token)
-                                ? $"{_khachLinkBase}/booking/{token}"
-                                : null;
+                            var detail = _details.TryGetValue(channel.Id, out var d) ? d : null;
                             <tr>
                                 <td>
-                                    @if (link is not null)
+                                    @if (channel.IsActive && detail?.BookingLink is not null)
                                     {
-                                        <div class="small text-break" data-testid="qr-link-@channel.Id">@link</div>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary mt-1"
-                                                @onclick="@(() => CopyLinkAsync(link))">📋 Sao chép</button>
+                                        <div class="d-flex align-items-start gap-2">
+                                            <img src="@detail.QrCodePngBase64" alt="Mã QR đặt lịch" width="96" height="96"
+                                                 class="border rounded" data-testid="qr-image-@channel.Id" />
+                                            <div>
+                                                <div class="small text-break" data-testid="qr-link-@channel.Id">@detail.BookingLink</div>
+                                                <div class="mt-1 d-flex gap-1 flex-wrap">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                            @onclick="@(() => DownloadQrAsync(detail))">
+                                                        ⬇️ Tải QR
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                            @onclick="@(() => CopyLinkAsync(detail.BookingLink))">📋 Sao chép link</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                    else if (channel.IsActive)
+                                    {
+                                        <span class="text-muted small" data-testid="qr-legacy-@channel.Id">
+                                            Mã QR cũ (tạo trước khi có tính năng này) không hiển thị lại được — tạo mã mới nếu cần.
+                                        </span>
                                     }
                                     else
                                     {
-                                        <span class="text-muted small">Token không hiển thị lại (bảo mật §7.2) — tạo mã mới nếu cần link.</span>
+                                        <span class="text-muted small">Đã thu hồi — không hiển thị.</span>
                                     }
                                 </td>
                                 <td>@SalesmanName(channel.SalesmanId)</td>
@@ -137,7 +153,7 @@
 @code {
     private List<QrChannelDto> _channels = [];
     private List<SalesmanDto> _salesmen = [];
-    private readonly Dictionary<Guid, string> _createdTokens = [];
+    private readonly Dictionary<Guid, QrChannelDetailDto> _details = [];
     private bool _loading = true;
     private bool _bookingEnabled;
     private bool _isCreating;
@@ -175,6 +191,20 @@
             {
                 _channels = result.Data ?? [];
             }
+
+            // Q1 (2026-10-08 — issue #188 bug 2): load chi tiết QR (link + QR PNG) cho channel active —
+            // xem lại bất kỳ lúc nào (token mã hóa DataProtection, không lưu plaintext).
+            _details.Clear();
+            var active = _channels.Where(c => c.IsActive).ToList();
+            var detailTasks = active.Select(async channel =>
+            {
+                var detail = await BookingApi.GetQrChannelAsync(channel.Id);
+                if (detail.Ok && detail.Data is not null)
+                {
+                    _details[channel.Id] = detail.Data;
+                }
+            });
+            await Task.WhenAll(detailTasks);
         }
         catch (Exception ex)
         {
@@ -199,7 +229,7 @@
     private async Task CreateAsync()
     {
         _createError = null;
-        // Token ngẫu nhiên (unguessable §25) — server hash khi lưu (§7.2).
+        // Token ngẫu nhiên (unguessable §25) — server hash khi lưu (§7.2) + mã hóa để xem lại QR (Q1).
         string token = Guid.NewGuid().ToString("N");
         DateTime? expiry = _expiry?.ToUniversalTime();
 
@@ -214,7 +244,6 @@
             _createError = result.Error;
             return;
         }
-        _createdTokens[result.Data!.Id] = result.Data.RawToken;
         _isCreating = false;
         await LoadAsync();
     }
@@ -230,6 +259,18 @@
     private async Task CopyLinkAsync(string link)
     {
         await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", link);
+    }
+
+    private async Task DownloadQrAsync(QrChannelDetailDto detail)
+    {
+        if (string.IsNullOrWhiteSpace(detail.QrCodePngBase64))
+        {
+            return;
+        }
+        string base64 = detail.QrCodePngBase64.Contains(',')
+            ? detail.QrCodePngBase64[(detail.QrCodePngBase64.IndexOf(',') + 1)..]
+            : detail.QrCodePngBase64;
+        await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64, "image/png", $"qr-dat-lich-{detail.Id.ToString()[..8]}.png");
     }
 
     private string SalesmanName(Guid? salesmanId)

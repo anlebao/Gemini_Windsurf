@@ -1,6 +1,10 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using QRCoder;
+using System.Security.Cryptography;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.Shared.Domain;
 // "Tenant" ambiguous (obsolete record vs AggregateRoot) → alias entity.
 using TenantEntity = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
@@ -159,7 +163,10 @@ public sealed class QRAttributionService(
                 throw new ValidationException("Salesman không thuộc tenant hoặc chưa kích hoạt vai trò cộng tác viên.");
         }
 
-        var qr = new QRChannel(tenantId, HashToken(qrToken), salesmanId, campaignId);
+        // Q1 (2026-10-08 — issue #188 bug 2): lưu thêm token mã hóa (DataProtection key ring server)
+        // để tenant xem lại link/QR sau khi tạo. Hash vẫn giữ cho resolve (§7.2).
+        string? encryptedToken = DataProtectionProviderAccessor.CreateProtector(QrTokenProtectorPurpose).Protect(qrToken);
+        var qr = new QRChannel(tenantId, HashToken(qrToken), salesmanId, campaignId, encryptedToken);
         _context.QRChannels.Add(qr);
         try
         {
@@ -172,6 +179,31 @@ public sealed class QRAttributionService(
 
         _logger.LogInformation("QR channel created: qr={QrId} tenant={TenantId} salesman={SalesmanId}", qr.Id, tenantId.Value, salesmanId);
         return qr;
+    }
+
+    public async Task<QrChannelDetailResult> GetQrChannelDetailAsync(TenantId tenantId, Guid qrId, string bookingBaseUrl, CancellationToken ct = default)
+    {
+        QRChannel? qr = await _context.QRChannels.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(q => q.TenantId == tenantId && q.Id == qrId, ct)
+            ?? throw new NotFoundException("QR không tồn tại trong tenant này.");
+
+        // Revoked hoặc legacy (tạo trước Q1 — không có EncryptedToken) → không render lại được.
+        if (!qr.IsActive || string.IsNullOrWhiteSpace(qr.EncryptedToken))
+            return new QrChannelDetailResult(qr.Id, null, null, qr.IsActive, qr.RevokedAt);
+
+        string token;
+        try
+        {
+            token = DataProtectionProviderAccessor.CreateProtector(QrTokenProtectorPurpose).Unprotect(qr.EncryptedToken);
+        }
+        catch (CryptographicException)
+        {
+            _logger.LogWarning("QR token decrypt failed (key ring đổi?): qr={QrId}", qr.Id);
+            return new QrChannelDetailResult(qr.Id, null, null, qr.IsActive, qr.RevokedAt);
+        }
+
+        string link = $"{bookingBaseUrl.TrimEnd('/')}/booking/{token}";
+        return new QrChannelDetailResult(qr.Id, link, GenerateQrPngBase64(link), qr.IsActive, qr.RevokedAt);
     }
 
     public async Task RevokeQrAsync(TenantId tenantId, Guid qrId, CancellationToken ct = default)
@@ -197,9 +229,22 @@ public sealed class QRAttributionService(
     private static bool IsValid(AttributionSession session)
         => session.AttributionExpiryAt is null || session.AttributionExpiryAt > DateTime.UtcNow;
 
+    /// <summary>Purpose cho DataProtection — token QR (Q1 2026-10-08).</summary>
+    private const string QrTokenProtectorPurpose = "Booking.QrToken";
+
     /// <summary>SHA-256 hash — token opaque, không lưu plaintext (§7.2).</summary>
     public static string HashToken(string token)
         => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token)));
+
+    /// <summary>Render QR PNG (base64 data URI) từ content — QRCoder ECC Q (chuẩn repo, precedent QrCodeService).</summary>
+    private static string GenerateQrPngBase64(string content)
+    {
+        using QRCodeGenerator generator = new();
+        QRCodeData data = generator.CreateQrCode(content, QRCodeGenerator.ECCLevel.Q);
+        using PngByteQRCode qr = new(data);
+        byte[] png = qr.GetGraphic(20);
+        return $"data:image/png;base64,{Convert.ToBase64String(png)}";
+    }
 
     private static bool IsUniqueViolation(DbUpdateException ex)
     {

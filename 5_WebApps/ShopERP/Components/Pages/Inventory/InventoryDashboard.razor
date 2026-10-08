@@ -81,7 +81,13 @@
             <!-- Tồn kho theo ingredient -->
             <div class="col-md-7">
                 <VanACard Header="Tồn kho theo nguyên liệu">
-                    <VanAnDataGrid TItem="Ingredient" Items="@_ingredients" EmptyMessage="Chưa có nguyên liệu (seed F&B sẽ tạo khi onboarding).">
+                    <div class="d-flex justify-content-end mb-2">
+                        <a href="/inventory/ingredients" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-plus-circle"></i> Thêm / Nhập nguyên liệu
+                        </a>
+                    </div>
+                    <VanAnDataGrid TItem="Ingredient" Items="@_ingredients"
+                                   EmptyMessage="Chưa có nguyên liệu. Bấm 'Thêm / Nhập nguyên liệu' để bắt đầu.">
                         <Columns>
                             <VanAnColumn TItem="Ingredient" Title="Nguyên liệu" Width="4">
                                 <Template Context="i"><span>@i.Name</span></Template>

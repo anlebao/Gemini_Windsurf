@@ -12,6 +12,14 @@ public sealed record QrResolveResult(
     bool IsQualified,
     bool IsNewSession);
 
+/// <summary>Chi tiết QR cho tenant (Q1 2026-10-08 — issue #188 bug 2): link + QR PNG render lại sau khi tạo.</summary>
+public sealed record QrChannelDetailResult(
+    Guid QrId,
+    string? BookingLink,
+    string? QrCodePngBase64,
+    bool IsActive,
+    DateTime? RevokedAt);
+
 /// <summary>
 /// IQRAttributionService — QR attribution (SRS §7). Resolve qr_token → tenant + campaign + salesman + attribution policy.
 ///
@@ -37,4 +45,10 @@ public interface IQRAttributionService
 
     /// <summary>Đọc AttributionSession (P3.2 commission — attribution valid = IsQualified ∧ chưa hết hạn).</summary>
     Task<AttributionSession?> GetAttributionAsync(TenantId tenantId, Guid attributionId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Chi tiết QR cho tenant (Q1 2026-10-08): decrypt EncryptedToken → link đặt lịch + QR PNG (QRCoder).
+    /// Chỉ tenant sở hữu + channel active. Revoked/legacy (không EncryptedToken) → BookingLink/QR null.
+    /// </summary>
+    Task<QrChannelDetailResult> GetQrChannelDetailAsync(TenantId tenantId, Guid qrId, string bookingBaseUrl, CancellationToken ct = default);
 }

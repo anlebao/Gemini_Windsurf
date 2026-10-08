@@ -87,6 +87,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                 {
                     new() { Title = "Báo cáo ca", Icon = "journal-check", Url = "/inventory/shifts" },
                     new() { Title = "Công thức pha chế", Icon = "cup-hot", Url = "/inventory/recipes" },
+                    // Issue #188 bug 3 (2026-10-08): CRUD + nhập/xuất nguyên liệu thủ công (không phụ thuộc seed F&B)
+                    new() { Title = "Nguyên liệu", Icon = "box2", Url = "/inventory/ingredients" },
                     new() { Title = "Tồn kho", Icon = "box-seam", Url = "/inventory/dashboard" },
                     new() { Title = "Cảnh báo", Icon = "bell", Url = "/inventory/alerts" },
                     new() { Title = "Dự báo", Icon = "graph-up-arrow", Url = "/inventory/forecast" },

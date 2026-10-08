@@ -5859,6 +5859,10 @@ namespace VanAn.Shared.Domain
     {
         public QRChannelId QRChannelId { get; protected set; } = new QRChannelId(Guid.NewGuid());
         public string QrTokenHash { get; protected set; } = string.Empty;   // unguessable + hashed
+        // Q1 (2026-10-08, issue #188 bug 2 — user approve): token mã hóa (DataProtection, server key ring)
+        // để tenant xem lại QR/link bất kỳ lúc nào. Thư giãn §7.2: hash vẫn là lookup cho resolve;
+        // EncryptedToken chỉ decrypt server-side khi tenant (StoreManagement JWT) yêu cầu.
+        public string? EncryptedToken { get; protected set; }
         public Guid? SalesmanId { get; protected set; }
         public Guid? CampaignId { get; protected set; }
         public bool IsActive { get; protected set; } = true;
@@ -5866,7 +5870,7 @@ namespace VanAn.Shared.Domain
 
         protected QRChannel() { }
 
-        public QRChannel(TenantId tenantId, string qrTokenHash, Guid? salesmanId = null, Guid? campaignId = null)
+        public QRChannel(TenantId tenantId, string qrTokenHash, Guid? salesmanId = null, Guid? campaignId = null, string? encryptedToken = null)
             : base(tenantId)
         {
             if (string.IsNullOrWhiteSpace(qrTokenHash))
@@ -5875,6 +5879,7 @@ namespace VanAn.Shared.Domain
             QrTokenHash = qrTokenHash;
             SalesmanId = salesmanId;
             CampaignId = campaignId;
+            EncryptedToken = encryptedToken;
         }
 
         public void Revoke()

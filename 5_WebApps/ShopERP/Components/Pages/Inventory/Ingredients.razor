@@ -1,0 +1,455 @@
+@page "/inventory/ingredients"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StoreManagement")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.CoreHub.Services
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Audit
+@using VanAn.Shared.Domain.Common
+@inject VanAn.CoreHub.Infrastructure.IVanAnDbContext DbContext
+@inject ITenantProvider TenantProvider
+@inject IAuditTrailService AuditTrailService
+@inject ILogger<Ingredients> Logger
+
+<PageTitle>Nguyên liệu - Vạn An</PageTitle>
+
+<div class="ingredients-page">
+    <header class="page-header mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="mb-0"><i class="bi bi-box-seam"></i> Nguyên liệu</h1>
+        <VanAButton Variant="primary" Size="small" OnClick="OpenCreate" data-testid="ingredient-add">
+            <i class="bi bi-plus-circle"></i> Thêm nguyên liệu
+        </VanAButton>
+    </header>
+
+    @if (_loading)
+    {
+        <VanASpinner Text="Đang tải..." />
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Variant="error" Message="@_errorMessage" Dismissible="true" OnDismiss="() => _errorMessage = null" />
+    }
+    else
+    {
+        <VanACard>
+            <VanAnDataGrid TItem="Ingredient" Items="@_ingredients"
+                           EmptyMessage="Chưa có nguyên liệu. Bấm 'Thêm nguyên liệu' để nhập kho liệu đầu tiên.">
+                <Columns>
+                    <VanAnColumn TItem="Ingredient" Title="Nguyên liệu" Width="4">
+                        <Template Context="i"><span>@i.Name</span></Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="Ingredient" Title="Loại" Width="2">
+                        <Template Context="i"><span class="badge bg-secondary">@CategoryName(i.Category)</span></Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="Ingredient" Title="Đơn vị" Width="1">
+                        <Template Context="i"><span>@i.Unit</span></Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="Ingredient" Title="Tồn kho" Width="2">
+                        <Template Context="i">
+                            <span data-testid="stock-@i.Id">@i.CurrentStock.ToString("N0")</span>
+                            @if (i.CurrentStock < i.MinStockThreshold)
+                            {
+                                <span class="badge bg-danger ms-1">Dưới ngưỡng</span>
+                            }
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="Ingredient" Title="Ngưỡng" Width="1">
+                        <Template Context="i"><span>@i.MinStockThreshold.ToString("N0")</span></Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="Ingredient" Title="Giá/đơn vị" Width="2">
+                        <Template Context="i"><span>@i.PricePerUnit.ToString("N0")đ</span></Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="Ingredient" Title="Thao tác" Width="4">
+                        <Template Context="i">
+                            <div class="d-flex gap-1 flex-wrap">
+                                <VanAButton Variant="primary" Size="small" OnClick="() => OpenAdjust(i, true)" data-testid="@($"adjust-in-{i.Id}")">
+                                    <i class="bi bi-arrow-down-circle"></i> Nhập
+                                </VanAButton>
+                                <VanAButton Variant="outline" Size="small" OnClick="() => OpenAdjust(i, false)" data-testid="@($"adjust-out-{i.Id}")">
+                                    <i class="bi bi-arrow-up-circle"></i> Xuất
+                                </VanAButton>
+                                <VanAButton Variant="outline" Size="small" OnClick="() => OpenEdit(i)">
+                                    <i class="bi bi-pencil"></i> Sửa
+                                </VanAButton>
+                                <VanAButton Variant="error" Size="small" OnClick="() => OpenDelete(i)">
+                                    <i class="bi bi-trash"></i> Xóa
+                                </VanAButton>
+                            </div>
+                        </Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+        </VanACard>
+    }
+</div>
+
+@* Modal Thêm/Sửa nguyên liệu *@
+<VanAnModal IsOpen="@_isEditing" Title="@(_editingId == Guid.Empty ? "Thêm nguyên liệu" : "Sửa nguyên liệu")"
+            OnClose="() => _isEditing = false" OnConfirm="SaveIngredientAsync" ShowDefaultFooter="true" Closable="true">
+    <div class="mb-3">
+        <label class="form-label">Tên nguyên liệu *</label>
+        <input type="text" class="form-control" @bind="_name" placeholder="VD: Cà phê rang xay" data-testid="ingredient-name" />
+    </div>
+    <div class="row g-2 mb-3">
+        <div class="col-6">
+            <label class="form-label">Loại</label>
+            <VanASelect Id="ingredient-category" Value="@(_category.ToString())" ValueChanged="OnCategoryChanged" Options="CategoryOptions" />
+        </div>
+        <div class="col-6">
+            <label class="form-label">Đơn vị *</label>
+            <input type="text" class="form-control" @bind="_unit" placeholder="VD: kg, lít, cái" data-testid="ingredient-unit" />
+        </div>
+    </div>
+    <div class="row g-2 mb-3">
+        <div class="col-4">
+            <label class="form-label">Tồn kho</label>
+            <input type="number" class="form-control" @bind="_currentStock" min="0" step="0.01" data-testid="ingredient-stock" />
+        </div>
+        <div class="col-4">
+            <label class="form-label">Ngưỡng cảnh báo</label>
+            <input type="number" class="form-control" @bind="_minStock" min="0" step="0.01" data-testid="ingredient-threshold" />
+        </div>
+        <div class="col-4">
+            <label class="form-label">Giá/đơn vị (đ)</label>
+            <input type="number" class="form-control" @bind="_pricePerUnit" min="0" data-testid="ingredient-price" />
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(_formError))
+    {
+        <VanAAlert Variant="error" Message="@_formError" Dismissible="true" OnDismiss="() => _formError = null" />
+    }
+</VanAnModal>
+
+@* Modal Nhập/Xuất kho *@
+<VanAnModal IsOpen="@_isAdjusting" Title="@($"{(_adjustIsIn ? "Nhập kho" : "Xuất kho")} — {_adjustingName}")"
+            OnClose="() => _isAdjusting = false" OnConfirm="SaveAdjustAsync" ShowDefaultFooter="true" Closable="true">
+    <div class="mb-3">
+        <label class="form-label">Số lượng (@_adjustingUnit) *</label>
+        <input type="number" class="form-control" @bind="_adjustQty" min="0" step="0.01" data-testid="adjust-qty" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Diễn giải</label>
+        <input type="text" class="form-control" @bind="_adjustNote" placeholder="VD: Nhập hàng từ nhà cung cấp, hao hụt..." />
+    </div>
+    @if (!string.IsNullOrEmpty(_adjustError))
+    {
+        <VanAAlert Variant="error" Message="@_adjustError" Dismissible="true" OnDismiss="() => _adjustError = null" />
+    }
+</VanAnModal>
+
+@* Modal Xóa *@
+<VanAnModal IsOpen="@_isDeleting" Title="Xóa nguyên liệu" OnClose="() => _isDeleting = false" OnConfirm="DeleteIngredientAsync" ShowDefaultFooter="true" Closable="true">
+    <p>Xóa nguyên liệu <strong>@_deletingName</strong>?</p>
+    @if (_deletingStock > 0)
+    {
+        <VanAAlert Variant="warning" Dismissible="false">
+            Nguyên liệu còn <strong>@_deletingStock.ToString("N0") @_deletingUnit</strong> — xóa sẽ làm mất số tồn kho này.
+        </VanAAlert>
+    }
+    @if (!string.IsNullOrEmpty(_deleteError))
+    {
+        <VanAAlert Variant="error" Message="@_deleteError" Dismissible="true" OnDismiss="() => _deleteError = null" />
+    }
+</VanAnModal>
+
+@if (!string.IsNullOrEmpty(_actionError))
+{
+    <VanAAlert Variant="error" Message="@_actionError" Dismissible="true" OnDismiss="() => _actionError = null" class="mt-2" data-testid="ingredients-error" />
+}
+@if (!string.IsNullOrEmpty(_successMessage))
+{
+    <VanAAlert Variant="success" Message="@_successMessage" Dismissible="true" OnDismiss="() => _successMessage = null" class="mt-2" data-testid="ingredients-success" />
+}
+
+@code {
+    private static readonly IReadOnlyList<VanASelect.SelectOption> CategoryOptions =
+    [
+        new("RawMaterial", "Nguyên liệu"),
+        new("Consumable", "Vật tư"),
+        new("Supply", "Vật dụng"),
+    ];
+
+    private IReadOnlyList<Ingredient> _ingredients = [];
+    private bool _loading = true;
+    private string? _errorMessage;
+    private string? _actionError;
+    private string? _successMessage;
+
+    // Form thêm/sửa
+    private bool _isEditing;
+    private string? _formError;
+    private Guid _editingId = Guid.Empty;
+    private string _name = string.Empty;
+    private IngredientCategory _category = IngredientCategory.RawMaterial;
+    private string _unit = string.Empty;
+    private decimal _currentStock;
+    private decimal _minStock;
+    private decimal _pricePerUnit;
+
+    // Nhập/xuất
+    private bool _isAdjusting;
+    private string? _adjustError;
+    private Guid _adjustingId = Guid.Empty;
+    private string _adjustingName = string.Empty;
+    private string _adjustingUnit = string.Empty;
+    private bool _adjustIsIn;
+    private decimal _adjustQty;
+    private string _adjustNote = string.Empty;
+
+    // Xóa
+    private bool _isDeleting;
+    private string? _deleteError;
+    private Guid _deletingId = Guid.Empty;
+    private string _deletingName = string.Empty;
+    private string _deletingUnit = string.Empty;
+    private decimal _deletingStock;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            if (!TenantProvider.HasTenant)
+            {
+                _errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
+            TenantId tenantId = new(TenantProvider.TenantId);
+            _ingredients = await DbContext.Ingredients
+                .Where(i => i.TenantId == tenantId)
+                .OrderBy(i => i.Name)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Ingredients load failed");
+            _errorMessage = "Không tải được danh sách nguyên liệu.";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenCreate()
+    {
+        _editingId = Guid.Empty;
+        _name = string.Empty;
+        _category = IngredientCategory.RawMaterial;
+        _unit = string.Empty;
+        _currentStock = 0;
+        _minStock = 0;
+        _pricePerUnit = 0;
+        _formError = null;
+        _isEditing = true;
+    }
+
+    private void OpenEdit(Ingredient ingredient)
+    {
+        _editingId = ingredient.Id;
+        _name = ingredient.Name;
+        _category = ingredient.Category;
+        _unit = ingredient.Unit;
+        _currentStock = ingredient.CurrentStock;
+        _minStock = ingredient.MinStockThreshold;
+        _pricePerUnit = ingredient.PricePerUnit;
+        _formError = null;
+        _isEditing = true;
+    }
+
+    private async Task SaveIngredientAsync()
+    {
+        _formError = null;
+        _successMessage = null;
+        if (string.IsNullOrWhiteSpace(_name) || string.IsNullOrWhiteSpace(_unit))
+        {
+            _formError = "Tên và đơn vị là bắt buộc.";
+            return;
+        }
+        if (_currentStock < 0 || _minStock < 0 || _pricePerUnit < 0)
+        {
+            _formError = "Giá trị không được âm.";
+            return;
+        }
+        try
+        {
+            TenantId tenantId = new(TenantProvider.TenantId);
+            if (_editingId == Guid.Empty)
+            {
+                var ingredient = new Ingredient(
+                    tenantId, _name.Trim(), _unit.Trim(), _currentStock, _minStock, _pricePerUnit, _category);
+                DbContext.Ingredients.Add(ingredient);
+                await DbContext.SaveChangesAsync();
+                _ = await AuditTrailService.LogCreateAsync(
+                    AuditableEntityType.Inventory, ingredient.Id,
+                    System.Text.Json.JsonSerializer.Serialize(new { ingredient.Name, ingredient.Unit, ingredient.CurrentStock }),
+                    cancellationToken: CancellationToken.None);
+                _successMessage = $"Đã thêm nguyên liệu \"{ingredient.Name}\".";
+            }
+            else
+            {
+                Ingredient? ingredient = await DbContext.Ingredients
+                    .FirstOrDefaultAsync(i => i.TenantId == tenantId && i.Id == _editingId);
+                if (ingredient is null)
+                {
+                    _formError = "Nguyên liệu không tồn tại.";
+                    return;
+                }
+                string oldValues = System.Text.Json.JsonSerializer.Serialize(new { ingredient.Name, ingredient.Unit, ingredient.CurrentStock });
+                ingredient.Name = _name.Trim();
+                ingredient.Unit = _unit.Trim();
+                ingredient.Category = _category;
+                ingredient.CurrentStock = _currentStock;
+                ingredient.MinStockThreshold = _minStock;
+                ingredient.PricePerUnit = _pricePerUnit;
+                await DbContext.SaveChangesAsync();
+                _ = await AuditTrailService.LogUpdateAsync(
+                    AuditableEntityType.Inventory, ingredient.Id, oldValues,
+                    System.Text.Json.JsonSerializer.Serialize(new { ingredient.Name, ingredient.Unit, ingredient.CurrentStock }),
+                    cancellationToken: CancellationToken.None);
+                _successMessage = $"Đã cập nhật nguyên liệu \"{ingredient.Name}\".";
+            }
+            _isEditing = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Ingredients save failed");
+            _formError = "Không lưu được nguyên liệu. Vui lòng thử lại.";
+        }
+    }
+
+    private void OpenAdjust(Ingredient ingredient, bool isIn)
+    {
+        _adjustingId = ingredient.Id;
+        _adjustingName = ingredient.Name;
+        _adjustingUnit = ingredient.Unit;
+        _adjustIsIn = isIn;
+        _adjustQty = 0;
+        _adjustNote = string.Empty;
+        _adjustError = null;
+        _isAdjusting = true;
+    }
+
+    private async Task SaveAdjustAsync()
+    {
+        _adjustError = null;
+        _successMessage = null;
+        if (_adjustQty <= 0)
+        {
+            _adjustError = "Số lượng phải lớn hơn 0.";
+            return;
+        }
+        try
+        {
+            TenantId tenantId = new(TenantProvider.TenantId);
+            Ingredient? ingredient = await DbContext.Ingredients
+                .FirstOrDefaultAsync(i => i.TenantId == tenantId && i.Id == _adjustingId);
+            if (ingredient is null)
+            {
+                _adjustError = "Nguyên liệu không tồn tại.";
+                return;
+            }
+            decimal delta = _adjustIsIn ? _adjustQty : -_adjustQty;
+            decimal newStock = ingredient.CurrentStock + delta;
+            if (newStock < 0)
+            {
+                _adjustError = $"Không đủ tồn kho để xuất (còn {ingredient.CurrentStock.ToString("N0")} {ingredient.Unit}).";
+                return;
+            }
+            string oldValues = System.Text.Json.JsonSerializer.Serialize(new { ingredient.CurrentStock });
+            ingredient.CurrentStock = newStock;
+            await DbContext.SaveChangesAsync();
+            _ = await AuditTrailService.LogUpdateAsync(
+                AuditableEntityType.Inventory, ingredient.Id, oldValues,
+                System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    ingredient.CurrentStock,
+                    Action = _adjustIsIn ? "NHAP_KHO" : "XUAT_KHO",
+                    Quantity = _adjustQty,
+                    Note = _adjustNote
+                }),
+                cancellationToken: CancellationToken.None);
+            _successMessage = $"Đã {( _adjustIsIn ? "nhập" : "xuất" )} {_adjustQty.ToString("N0")} {ingredient.Unit} — tồn kho còn {ingredient.CurrentStock.ToString("N0")}.";
+            _isAdjusting = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Ingredients adjust failed");
+            _adjustError = "Không điều chỉnh được tồn kho. Vui lòng thử lại.";
+        }
+    }
+
+    private void OpenDelete(Ingredient ingredient)
+    {
+        _deletingId = ingredient.Id;
+        _deletingName = ingredient.Name;
+        _deletingUnit = ingredient.Unit;
+        _deletingStock = ingredient.CurrentStock;
+        _deleteError = null;
+        _isDeleting = true;
+    }
+
+    private async Task DeleteIngredientAsync()
+    {
+        _deleteError = null;
+        _successMessage = null;
+        try
+        {
+            TenantId tenantId = new(TenantProvider.TenantId);
+            Ingredient? ingredient = await DbContext.Ingredients
+                .FirstOrDefaultAsync(i => i.TenantId == tenantId && i.Id == _deletingId);
+            if (ingredient is null)
+            {
+                _deleteError = "Nguyên liệu không tồn tại.";
+                return;
+            }
+
+            // Guard FK: recipe đang dùng nguyên liệu này → chặn xóa.
+            bool inRecipe = await DbContext.RecipeLines.AnyAsync(rl => rl.IngredientId == ingredient.Id);
+            if (inRecipe)
+            {
+                _deleteError = "Không xóa được — nguyên liệu đang được dùng trong công thức pha chế. Sửa hoặc xóa công thức trước.";
+                return;
+            }
+
+            string oldValues = System.Text.Json.JsonSerializer.Serialize(new { ingredient.Name, ingredient.CurrentStock });
+            DbContext.Ingredients.Remove(ingredient);
+            await DbContext.SaveChangesAsync();
+            _ = await AuditTrailService.LogDeleteAsync(
+                AuditableEntityType.Inventory, ingredient.Id, oldValues,
+                cancellationToken: CancellationToken.None);
+            _successMessage = $"Đã xóa nguyên liệu \"{ingredient.Name}\".";
+            _isDeleting = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Ingredients delete failed");
+            _deleteError = "Không xóa được nguyên liệu. Vui lòng thử lại.";
+        }
+    }
+
+    private void OnCategoryChanged(string value)
+        => _category = Enum.TryParse<IngredientCategory>(value, out var category) ? category : IngredientCategory.RawMaterial;
+
+    private static string CategoryName(IngredientCategory category) => category switch
+    {
+        IngredientCategory.RawMaterial => "Nguyên liệu",
+        IngredientCategory.Consumable => "Vật tư",
+        _ => "Vật dụng"
+    };
+}

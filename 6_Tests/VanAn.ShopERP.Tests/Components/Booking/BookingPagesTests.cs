@@ -116,6 +116,9 @@ public class BookingQrChannelsPageTests : ComponentTestBase
             .ReturnsAsync(() => ApiResponse<List<QrChannelDto>>.Success(channels.ToList()));
         api.Setup(a => a.GetSalesmenAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(ApiResponse<List<SalesmanDto>>.Success([]));
+        api.Setup(a => a.GetQrChannelAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<QrChannelDetailDto>.Success(
+                new QrChannelDetailDto(createdId, "https://khachvip.online/booking/raw-token", "data:image/png;base64,QUJD", true, null)));
         api.Setup(a => a.CreateQrChannelAsync(It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
             .Returns(() =>
             {
@@ -131,12 +134,14 @@ public class BookingQrChannelsPageTests : ComponentTestBase
         cut.WaitForAssertion(() => cut.Find("h1").TextContent.Should().Contain("Mã QR đặt lịch"));
         cut.WaitForAssertion(() => cut.Find("[data-testid='qr-empty']").Should().NotBeNull());
 
-        // Tạo QR → CreateQrChannelAsync + link hiển thị (raw token 1 lần)
+        // Tạo QR → CreateQrChannelAsync + link + QR image hiển thị (Q1 — render lại từ EncryptedToken)
         cut.FindAll("button").First(b => b.TextContent.Contains("Tạo mã QR")).Click();
         cut.WaitForAssertion(() => cut.FindAll(".modal").Should().NotBeEmpty());
         cut.FindAll(".modal button").First(b => b.TextContent.Contains("Confirm")).Click();
         api.Verify(a => a.CreateQrChannelAsync(It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()), Times.Once);
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("/booking/raw-token"));
+        api.Verify(a => a.GetQrChannelAsync(createdId, It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("https://khachvip.online/booking/raw-token"));
+        cut.WaitForAssertion(() => cut.Find($"[data-testid='qr-image-{createdId}']").Should().NotBeNull());
     }
 
     [Fact]
