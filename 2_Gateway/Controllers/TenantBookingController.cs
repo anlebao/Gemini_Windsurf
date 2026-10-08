@@ -87,6 +87,70 @@ public class TenantBookingController(
         return Ok(BookingQueueItemDto.From(booking));
     }
 
+    /// <summary>
+    /// Feature 3 (2026-10-08 — luồng đặt lịch từ ShopERP, Owner/Staff tạo thay khách):
+    /// tenant-scoped create — KHÔNG cần QR/attribution. Idempotency-Key bắt buộc (§21.1).
+    /// Q3: staffId != null → STAFF_ASSIGNED ngay (create-with-staff); staffId null → auto CONFIRMED.
+    /// Khách: CustomerId null (chưa có tài khoản) — tên/SĐT lưu vào CustomerNote (MVP).
+    /// </summary>
+    [HttpPost("bookings")]
+    public async Task<ActionResult<BookingQueueItemDto>> CreateBooking([FromBody] CreateTenantBookingRequest request, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+
+        string idempotencyKey = Request.Headers["Idempotency-Key"].ToString();
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+            return BadRequest(new { message = "Thiếu Idempotency-Key — bắt buộc cho tạo lịch hẹn (chống trùng khi retry)." });
+
+        if (request.StartAt.Kind == DateTimeKind.Unspecified)
+            request = request with { StartAt = DateTime.SpecifyKind(request.StartAt, DateTimeKind.Utc) };
+
+        var command = new CreateBookingCommand(
+            request.OfferingId,
+            request.StartAt.ToUniversalTime(),
+            request.StaffId,
+            CustomerId: null,
+            CustomerDeviceId: null,
+            CustomerNote: BuildCustomerNote(request.CustomerName, request.CustomerPhone, request.CustomerNote),
+            AddOns: (request.AddOnIds ?? []).Select(id => new AddOnLine(id, 1)).ToList());
+        try
+        {
+            BookingEntity booking = await _bookingService.CreateBookingAsync(tenantId, command, idempotencyKey, ct);
+            // Q3 auto-confirm: có staff → đã StaffAssigned; không staff → confirm luôn.
+            if (booking.StaffId is null && booking.Status == BookingStatus.PendingConfirmation)
+            {
+                booking = await _bookingService.ConfirmAsync(tenantId, booking.Id, ct: ct);
+            }
+            _logger.LogInformation("Tenant booking created (ShopERP): booking={BookingId} code={Code} tenant={TenantId} staff={StaffId}",
+                booking.Id, booking.PublicBookingCode, tenantId.Value, booking.StaffId);
+            return StatusCode(StatusCodes.Status201Created, BookingQueueItemDto.From(booking));
+        }
+        catch (BookingConflictException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("add-ons")]
+    public async Task<ActionResult<List<BookingAddOnDto>>> GetAddOns(CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        var addOns = await _offeringService.ListAddOnsAsync(tenantId, true, ct);
+        return Ok(addOns.Select(a => new BookingAddOnDto(a.Id, a.Name, a.Price)).ToList());
+    }
+
     // ── Transitions (idempotent §21.2-21.3) ─────────────────────────────────
 
     [HttpPost("bookings/{bookingId:guid}/confirm")]
@@ -633,6 +697,16 @@ public class TenantBookingController(
 
     private static StaffDto ToStaffDto(Staff s) => new(s.Id, s.DisplayName, s.Role, s.AvatarUrl, s.IsActive);
 
+    /// <summary>Gom tên/SĐT/ghi chú khách vào CustomerNote (CustomerId null — khách chưa có tài khoản, MVP).</summary>
+    private static string? BuildCustomerNote(string? customerName, string? customerPhone, string? customerNote)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(customerName)) parts.Add($"KH: {customerName.Trim()}");
+        if (!string.IsNullOrWhiteSpace(customerPhone)) parts.Add($"SĐT: {customerPhone.Trim()}");
+        if (!string.IsNullOrWhiteSpace(customerNote)) parts.Add(customerNote.Trim());
+        return parts.Count == 0 ? null : string.Join(" · ", parts);
+    }
+
     private static BookingTenantConfigDto ToConfigDto(BookingTenantConfig c) => new(
         c.IsEnabled, c.DepositPolicy.ToString(), c.DepositFixedAmount, c.DepositPercentage, c.CancelReschedulePolicy, c.EinvoiceMode);
 
@@ -724,6 +798,11 @@ public record RejectBookingRequest(string? Reason);
 public record AssignStaffRequest(Guid StaffId);
 
 public record CompleteBookingRequest(decimal ActualTotal);
+
+/// <summary>Feature 3 (2026-10-08): tạo lịch hẹn từ ShopERP — staff/owner đặt thay khách.</summary>
+public record CreateTenantBookingRequest(
+    Guid OfferingId, List<Guid>? AddOnIds, DateTime StartAt, Guid? StaffId,
+    string? CustomerName = null, string? CustomerPhone = null, string? CustomerNote = null);
 
 public record StaffAvailabilityDto(Guid StaffId, string StaffName, DateTime SlotStartAt, DateTime SlotEndAt, bool IsAvailable, string? UnavailableReason);
 

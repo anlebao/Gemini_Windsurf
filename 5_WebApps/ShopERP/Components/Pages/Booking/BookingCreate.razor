@@ -1,0 +1,484 @@
+@page "/booking/create"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StaffOrAbove")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.ShopERP.Services
+@inject IBookingTenantApiClient BookingApi
+@inject IConfiguration Configuration
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@inject ILogger<BookingCreate> Logger
+
+<PageTitle>Đặt lịch nhanh - Vạn An</PageTitle>
+
+<div class="booking-create-page">
+    <header class="page-header mb-3">
+        <h1><i class="bi bi-calendar-plus"></i> Đặt lịch nhanh</h1>
+    </header>
+
+    @if (_loading)
+    {
+        <VanASpinner Text="Đang tải..." />
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Variant="error" Message="@_errorMessage" Dismissible="true" OnDismiss="() => _errorMessage = null" />
+    }
+    else if (!_config.IsEnabled)
+    {
+        <VanAAlert Variant="warning" Dismissible="false">
+            <strong>Tính năng đặt lịch đang TẮT</strong> — bật tại
+            <a href="/booking/config" class="alert-link">Cấu hình đặt lịch →</a> trước khi tạo lịch hẹn.
+        </VanAAlert>
+    }
+    else if (_createdBooking is not null)
+    {
+        <VanACard>
+            <VanAAlert Variant="success" Dismissible="false" data-testid="booking-create-success">
+                <strong>Đã tạo lịch hẹn thành công!</strong> Mã: <span class="fw-semibold">@_createdBooking.PublicBookingCode</span>
+            </VanAAlert>
+            <div class="d-flex gap-2 flex-wrap mt-3">
+                <VanAButton Variant="primary" OnClick="@(() => NavigationManager.NavigateTo("/booking/queue"))">
+                    Xem danh sách chờ
+                </VanAButton>
+                <VanAButton Variant="outline" OnClick="CopyCustomerLink">
+                    <i class="bi bi-clipboard"></i> Sao chép link khách theo dõi
+                </VanAButton>
+                <VanAButton Variant="secondary" OnClick="ResetForm">
+                    <i class="bi bi-plus-circle"></i> Tạo lịch hẹn khác
+                </VanAButton>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <div class="booking-create-layout">
+            @* Cột trái — catalog (POS-style) *@
+            <div class="booking-create-catalog">
+                <VanACard Header="📋 Chọn dịch vụ">
+                    <div class="d-flex gap-1 flex-wrap mb-2">
+                        <button type="button" class="btn btn-sm @(_selectedCategoryId == Guid.Empty ? "btn-primary" : "btn-outline-secondary")"
+                                @onclick="() => SelectCategory(null)" data-testid="category-all">Tất cả</button>
+                        @foreach (var category in _categories)
+                        {
+                            <button type="button" class="btn btn-sm @(_selectedCategoryId == category.Id ? "btn-primary" : "btn-outline-secondary")"
+                                    @onclick="() => SelectCategory(category.Id)" data-testid="@($"category-{category.Id}")">
+                                @category.Name
+                            </button>
+                        }
+                    </div>
+
+                    @if (_visibleOfferings.Count == 0)
+                    {
+                        <p>Chưa có dịch vụ nào. Thêm dịch vụ tại mục Nhân viên → Dịch vụ đặt lịch.</p>
+                    }
+                    else
+                    {
+                        @foreach (var offering in _visibleOfferings)
+                        {
+                            <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-2 @(_selectedOffering?.Id == offering.Id ? "border-primary bg-primary-subtle" : "")"
+                                 data-testid="@($"offering-{offering.Id}")">
+                                <div>
+                                    <div class="fw-semibold">@offering.DisplayName</div>
+                                    <small class="text-muted">
+                                        @offering.DurationMinutes phút · @offering.Price.ToString("N0")đ
+                                        @if (offering.OfferingType == "Package")
+                                        {
+                                            <span class="badge bg-info ms-1">Gói</span>
+                                        }
+                                    </small>
+                                </div>
+                                <VanAButton Variant="@(_selectedOffering?.Id == offering.Id ? "primary" : "outline")" Size="small"
+                                            OnClick="() => SelectOffering(offering)">
+                                    @(_selectedOffering?.Id == offering.Id ? "Đã chọn" : "Chọn")
+                                </VanAButton>
+                            </div>
+                        }
+                    }
+
+                    @if (_addOns.Count > 0)
+                    {
+                        <h6 class="mt-3">Thêm vào (tùy chọn)</h6>
+                        <div class="d-flex gap-1 flex-wrap">
+                            @foreach (var addOn in _addOns)
+                            {
+                                <button type="button"
+                                        class="btn btn-sm @(_selectedAddOnIds.Contains(addOn.Id) ? "btn-success" : "btn-outline-secondary")"
+                                        @onclick="() => ToggleAddOn(addOn.Id)" data-testid="@($"addon-{addOn.Id}")">
+                                    @addOn.Name (+@addOn.Price.ToString("N0")đ)
+                                </button>
+                            }
+                        </div>
+                    }
+                </VanACard>
+            </div>
+
+            @* Cột phải — panel đặt lịch (sticky) *@
+            <div class="booking-create-panel">
+                <VanACard Header="🗓️ Lịch hẹn mới">
+                    @if (_selectedOffering is null)
+                    {
+                        <VanAAlert Variant="info" Dismissible="false">Chọn dịch vụ bên trái để bắt đầu.</VanAAlert>
+                    }
+                    else
+                    {
+                        <div class="mb-2">
+                            <label class="form-label">Ngày</label>
+                            <input type="date" class="form-control" value="@(_selectedDate.ToString("yyyy-MM-dd"))"
+                                   min="@(DateTime.Today.ToString("yyyy-MM-dd"))" max="@(DateTime.Today.AddDays(14).ToString("yyyy-MM-dd"))"
+                                   @onchange="OnDateChanged" data-testid="booking-date" />
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label">Giờ</label>
+                            @if (_slots.Count == 0)
+                            {
+                                <small class="text-muted">Không có khung giờ trống trong ngày này.</small>
+                            }
+                            else
+                            {
+                                <div class="d-flex gap-1 flex-wrap">
+                                    @foreach (var slot in _slots)
+                                    {
+                                        <button type="button"
+                                                class="btn btn-sm @(_selectedSlot == slot.StartAt ? "btn-primary" : "btn-outline-secondary")"
+                                                @onclick="() => SelectSlot(slot)" data-testid="@($"slot-{slot.StartAt:HHmm}")">
+                                            @slot.StartAt.ToVietnamTimeString()
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        </div>
+
+                        @if (_selectedSlot is not null)
+                        {
+                            <div class="mb-2">
+                                <label class="form-label">Nhân viên phục vụ</label>
+                                <select class="form-select" @bind="_selectedStaffId" data-testid="booking-staff">
+                                    <option value="@Guid.Empty">— Bất kỳ ai phù hợp —</option>
+                                    @foreach (var staff in _availableStaff)
+                                    {
+                                        <option value="@staff.StaffId">@staff.StaffName</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+
+                        <hr />
+                        <div class="mb-2">
+                            <label class="form-label">Khách hàng</label>
+                            <input type="text" class="form-control mb-1" @bind="_customerName" placeholder="Tên khách hàng" data-testid="booking-customer-name" />
+                            <input type="text" class="form-control" @bind="_customerPhone" placeholder="Số điện thoại" data-testid="booking-customer-phone" />
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label">Ghi chú</label>
+                            <textarea class="form-control" rows="2" @bind="_note" placeholder="Yêu cầu, lưu ý..." data-testid="booking-note"></textarea>
+                            <div class="d-flex gap-1 flex-wrap mt-1">
+                                @foreach (var tag in QuickTags)
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-info" @onclick="() => AddQuickTag(tag)">@tag</button>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Dịch vụ:</span>
+                            <span>@_selectedOffering.DisplayName — @_selectedOffering.Price.ToString("N0")đ</span>
+                        </div>
+                        @if (_selectedAddOns.Count > 0)
+                        {
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Thêm vào:</span>
+                                <span>@(_selectedAddOns.Sum(a => a.Price).ToString("N0"))đ</span>
+                            </div>
+                        }
+                        <div class="d-flex justify-content-between fw-bold mb-1">
+                            <span>Tổng cộng:</span>
+                            <span data-testid="booking-total">@_total.ToString("N0")đ</span>
+                        </div>
+                        <div class="small text-muted mb-3" data-testid="booking-deposit">
+                            @DepositText
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(_submitError))
+                        {
+                            <VanAAlert Variant="error" Message="@_submitError" Dismissible="true" OnDismiss="() => _submitError = null" data-testid="booking-create-error" />
+                        }
+                        <VanAButton Variant="success" OnClick="SubmitAsync" Disabled="@(_submitting || _selectedSlot is null)"
+                                    style="width:100%; padding:12px; font-size:1.05rem; font-weight:bold;"
+                                    data-testid="booking-create-submit">
+                            @(_submitting ? "Đang tạo..." : "Tạo lịch hẹn")
+                        </VanAButton>
+                    }
+                </VanACard>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .booking-create-layout {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 1rem;
+        align-items: start;
+    }
+
+    .booking-create-catalog {
+        max-height: calc(100vh - 140px);
+        overflow-y: auto;
+    }
+
+    .booking-create-panel {
+        position: sticky;
+        top: 1rem;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+    }
+
+    @@media (max-width: 768px) {
+        .booking-create-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .booking-create-panel {
+            position: static;
+        }
+    }
+</style>
+
+@code {
+    private static readonly string[] QuickTags = ["Phòng riêng", "Lần đầu đến", "Kỹ thuật viên nữ", "Cần chuẩn bị trước"];
+
+    private record SlotGroup(DateTime StartAt, List<StaffAvailabilityDto> Staff);
+
+    private bool _loading = true;
+    private string? _errorMessage;
+    private string? _submitError;
+    private bool _submitting;
+
+    private List<BookingCategoryDto> _categories = [];
+    private List<BookingOfferingDto> _offerings = [];
+    private List<BookingAddOnDto> _addOns = [];
+    private BookingTenantConfigDto _config = new(false, "None", null, null, null, null);
+
+    private Guid _selectedCategoryId = Guid.Empty;
+    private BookingOfferingDto? _selectedOffering;
+    private readonly HashSet<Guid> _selectedAddOnIds = [];
+
+    private DateOnly _selectedDate = DateOnly.FromDateTime(DateTime.Today);
+    private List<SlotGroup> _slots = [];
+    private DateTime? _selectedSlot;
+    private List<StaffAvailabilityDto> _availableStaff = [];
+    private Guid _selectedStaffId = Guid.Empty;
+
+    private string _customerName = string.Empty;
+    private string _customerPhone = string.Empty;
+    private string _note = string.Empty;
+
+    private string? _idempotencyKey;
+    private BookingQueueItemDto? _createdBooking;
+    private string _khachLinkBase = "https://khachvip.online";
+
+    private List<BookingOfferingDto> _visibleOfferings
+        => _selectedCategoryId == Guid.Empty
+            ? _offerings
+            : _offerings.Where(o => o.CategoryId == _selectedCategoryId).ToList();
+
+    private List<BookingAddOnDto> _selectedAddOns
+        => _addOns.Where(a => _selectedAddOnIds.Contains(a.Id)).ToList();
+
+    private decimal _total
+        => (_selectedOffering?.Price ?? 0) + _selectedAddOns.Sum(a => a.Price);
+
+    private string DepositText
+    {
+        get
+        {
+            if (_config.DepositPolicy == "Fixed" && _config.DepositFixedAmount is > 0)
+                return $"Đặt cọc: {_config.DepositFixedAmount:N0}đ (theo cấu hình).";
+            if (_config.DepositPolicy == "Percentage" && _config.DepositPercentage is > 0)
+            {
+                decimal amount = Math.Round(_total * _config.DepositPercentage.Value / 100m, 0, MidpointRounding.AwayFromZero);
+                return $"Đặt cọc: {_config.DepositPercentage.Value:F0}% = {amount:N0}đ (theo cấu hình).";
+            }
+            return "Không yêu cầu đặt cọc.";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _khachLinkBase = Configuration["KhachLink:BaseUrl"] ?? _khachLinkBase;
+        _loading = true;
+        try
+        {
+            var configResult = await BookingApi.GetConfigAsync();
+            _config = configResult.Data ?? _config;
+            var categories = await BookingApi.GetCategoriesAsync();
+            if (categories.Ok) _categories = categories.Data ?? [];
+            var offerings = await BookingApi.GetOfferingsAsync(activeOnly: true);
+            if (offerings.Ok) _offerings = offerings.Data ?? [];
+            var addOns = await BookingApi.GetAddOnsAsync();
+            if (addOns.Ok) _addOns = addOns.Data ?? [];
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking create catalog load failed");
+            _errorMessage = "Không tải được danh mục đặt lịch.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void SelectCategory(Guid? categoryId)
+    {
+        _selectedCategoryId = categoryId ?? Guid.Empty;
+    }
+
+    private void SelectOffering(BookingOfferingDto offering)
+    {
+        _selectedOffering = _selectedOffering?.Id == offering.Id ? null : offering;
+        _selectedSlot = null;
+        _availableStaff = [];
+        _selectedStaffId = Guid.Empty;
+        if (_selectedOffering is not null)
+        {
+            _ = LoadSlotsAsync();
+        }
+    }
+
+    private void ToggleAddOn(Guid addOnId)
+    {
+        if (!_selectedAddOnIds.Remove(addOnId))
+        {
+            _selectedAddOnIds.Add(addOnId);
+        }
+    }
+
+    private async Task OnDateChanged(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParse(e.Value?.ToString(), out var date))
+        {
+            _selectedDate = date;
+        }
+        _selectedSlot = null;
+        _availableStaff = [];
+        _selectedStaffId = Guid.Empty;
+        await LoadSlotsAsync();
+    }
+
+    private async Task LoadSlotsAsync()
+    {
+        if (_selectedOffering is null)
+        {
+            _slots = [];
+            return;
+        }
+        _slots = [];
+        try
+        {
+            var result = await BookingApi.GetAvailabilityMatrixAsync(_selectedDate, _selectedOffering.Id);
+            if (!result.Ok || result.Data is null)
+            {
+                return;
+            }
+            DateTime nowUtc = DateTime.UtcNow;
+            _slots = result.Data
+                .GroupBy(m => m.SlotStartAt)
+                .Select(g => new SlotGroup(g.Key, g.Where(x => x.IsAvailable).ToList()))
+                .Where(g => g.Staff.Count > 0 && g.StartAt > nowUtc)
+                .OrderBy(g => g.StartAt)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking create slots load failed");
+        }
+    }
+
+    private void SelectSlot(SlotGroup slot)
+    {
+        _selectedSlot = slot.StartAt;
+        _availableStaff = slot.Staff;
+        _selectedStaffId = Guid.Empty;
+    }
+
+    private void AddQuickTag(string tag)
+    {
+        if (_note.Contains(tag, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+        _note = string.IsNullOrWhiteSpace(_note) ? tag : $"{_note.TrimEnd()} · {tag}";
+    }
+
+    private async Task SubmitAsync()
+    {
+        _submitError = null;
+        _submitting = true;
+        try
+        {
+            if (_selectedOffering is null || _selectedSlot is null)
+            {
+                _submitError = "Chọn dịch vụ và khung giờ trước.";
+                return;
+            }
+            _idempotencyKey ??= Guid.NewGuid().ToString("N");
+            Guid? staffId = _selectedStaffId == Guid.Empty ? null : _selectedStaffId;
+            var result = await BookingApi.CreateBookingAsync(
+                _selectedOffering.Id, _selectedAddOnIds.ToList(), _selectedSlot.Value, staffId,
+                string.IsNullOrWhiteSpace(_customerName) ? null : _customerName.Trim(),
+                string.IsNullOrWhiteSpace(_customerPhone) ? null : _customerPhone.Trim(),
+                string.IsNullOrWhiteSpace(_note) ? null : _note.Trim(),
+                _idempotencyKey);
+            if (!result.Ok || result.Data is null)
+            {
+                // Giữ Idempotency-Key khi retry (§21.1 — không tạo trùng).
+                _submitError = result.Error ?? "Không tạo được lịch hẹn.";
+                return;
+            }
+            _createdBooking = result.Data;
+            _idempotencyKey = null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking create submit failed");
+            _submitError = "Không tạo được lịch hẹn. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private void ResetForm()
+    {
+        _createdBooking = null;
+        _selectedOffering = null;
+        _selectedSlot = null;
+        _availableStaff = [];
+        _selectedStaffId = Guid.Empty;
+        _selectedAddOnIds.Clear();
+        _customerName = string.Empty;
+        _customerPhone = string.Empty;
+        _note = string.Empty;
+        _submitError = null;
+        _slots = [];
+    }
+
+    private async Task CopyCustomerLink()
+    {
+        if (_createdBooking is null)
+        {
+            return;
+        }
+        string link = $"{_khachLinkBase.TrimEnd('/')}/booking/status/{_createdBooking.PublicBookingCode}";
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", link);
+    }
+}

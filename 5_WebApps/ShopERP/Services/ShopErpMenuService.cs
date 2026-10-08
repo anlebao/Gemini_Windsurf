@@ -71,6 +71,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                 Children = new()
                 {
                     new() { Title = "POS", Icon = "bag", Url = "/pos" },
+                    // Feature 3 (2026-10-08): đặt lịch nhanh — Owner/StoreKeeper/Staff tạo thay khách
+                    new() { Title = "Đặt lịch nhanh", Icon = "calendar-plus", Url = "/booking/create" },
                     new() { Title = "Bếp", Icon = "fire", Url = "/kitchen" },
                     new() { Title = "Đơn hàng", Icon = "list-check", Url = "/orders" },
                 }

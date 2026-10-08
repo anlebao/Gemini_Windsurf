@@ -21,6 +21,8 @@ public record BookingCategoryDto(Guid Id, string Name, int DisplayOrder);
 public record BookingOfferingDto(
     Guid Id, Guid? CategoryId, string OfferingType, string DisplayName, int DurationMinutes, decimal Price, string? Description);
 
+public record BookingAddOnDto(Guid Id, string Name, decimal Price);
+
 public record StaffDto(Guid Id, string DisplayName, string? Role, string? AvatarUrl, bool IsActive);
 
 public record StaffServiceDto(Guid OfferingId);
@@ -80,6 +82,11 @@ public interface IBookingTenantApiClient
     // Queue / transitions
     Task<ApiResponse<List<BookingQueueItemDto>>> GetQueueAsync(BookingStatus? status = null, DateTime? from = null, DateTime? to = null, CancellationToken ct = default);
     Task<ApiResponse<BookingQueueItemDto>> GetBookingAsync(Guid bookingId, CancellationToken ct = default);
+    // Feature 3 (2026-10-08): staff/owner tạo lịch hẹn thay khách (tenant-scoped, Idempotency-Key bắt buộc).
+    Task<ApiResponse<BookingQueueItemDto>> CreateBookingAsync(
+        Guid offeringId, IReadOnlyList<Guid> addOnIds, DateTime startAt, Guid? staffId,
+        string? customerName, string? customerPhone, string? customerNote,
+        string idempotencyKey, CancellationToken ct = default);
     Task<ApiResponse<BookingQueueItemDto>> ConfirmAsync(Guid bookingId, CancellationToken ct = default);
     Task<ApiResponse<BookingQueueItemDto>> RejectAsync(Guid bookingId, string? reason, CancellationToken ct = default);
     Task<ApiResponse<BookingQueueItemDto>> AssignStaffAsync(Guid bookingId, Guid staffId, CancellationToken ct = default);
@@ -99,6 +106,7 @@ public interface IBookingTenantApiClient
     Task<ApiResponse<bool>> SetStaffServicesAsync(Guid staffId, List<Guid> offeringIds, CancellationToken ct = default);
     Task<ApiResponse<List<BookingCategoryDto>>> GetCategoriesAsync(CancellationToken ct = default);
     Task<ApiResponse<List<BookingOfferingDto>>> GetOfferingsAsync(bool activeOnly = false, CancellationToken ct = default);
+    Task<ApiResponse<List<BookingAddOnDto>>> GetAddOnsAsync(CancellationToken ct = default);
     Task<ApiResponse<StaffScheduleDto>> GetSchedulesAsync(Guid staffId, CancellationToken ct = default);
     Task<ApiResponse<WorkingScheduleDto>> UpsertScheduleAsync(Guid staffId, int weekday, TimeSpan start, TimeSpan end, TimeSpan? breakStart, TimeSpan? breakEnd, CancellationToken ct = default);
     Task<ApiResponse<bool>> DeleteScheduleAsync(Guid scheduleId, CancellationToken ct = default);
@@ -163,6 +171,36 @@ public sealed class BookingTenantApiClient : GatewayAdminApiClientBase, IBooking
     public Task<ApiResponse<BookingQueueItemDto>> GetBookingAsync(Guid bookingId, CancellationToken ct = default)
         => GetAsync<BookingQueueItemDto>($"{Base}/bookings/{bookingId}", ct);
 
+    public async Task<ApiResponse<BookingQueueItemDto>> CreateBookingAsync(
+        Guid offeringId, IReadOnlyList<Guid> addOnIds, DateTime startAt, Guid? staffId,
+        string? customerName, string? customerPhone, string? customerNote,
+        string idempotencyKey, CancellationToken ct = default)
+    {
+        try
+        {
+            HttpRequestMessage request = await CreateRequestAsync(HttpMethod.Post, $"{Base}/bookings", new
+            {
+                offeringId,
+                addOnIds,
+                startAt,
+                staffId,
+                customerName,
+                customerPhone,
+                customerNote
+            }, null);
+            if (!string.IsNullOrWhiteSpace(idempotencyKey))
+            {
+                request.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey);
+            }
+            return await SendAsync<BookingQueueItemDto>(request, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "BookingTenantApi POST {Url} failed", $"{Base}/bookings");
+            return ApiResponse<BookingQueueItemDto>.Failure("Không kết nối được máy chủ đặt lịch.");
+        }
+    }
+
     public Task<ApiResponse<BookingQueueItemDto>> ConfirmAsync(Guid bookingId, CancellationToken ct = default)
         => PostAsync<BookingQueueItemDto>($"{Base}/bookings/{bookingId}/confirm", null, ct);
 
@@ -215,6 +253,9 @@ public sealed class BookingTenantApiClient : GatewayAdminApiClientBase, IBooking
 
     public Task<ApiResponse<List<BookingOfferingDto>>> GetOfferingsAsync(bool activeOnly = false, CancellationToken ct = default)
         => GetAsync<List<BookingOfferingDto>>($"{Base}/offerings?activeOnly={activeOnly}", ct);
+
+    public Task<ApiResponse<List<BookingAddOnDto>>> GetAddOnsAsync(CancellationToken ct = default)
+        => GetAsync<List<BookingAddOnDto>>($"{Base}/add-ons", ct);
 
     public Task<ApiResponse<StaffScheduleDto>> GetSchedulesAsync(Guid staffId, CancellationToken ct = default)
         => GetAsync<StaffScheduleDto>($"{Base}/staff/{staffId}/schedules", ct);

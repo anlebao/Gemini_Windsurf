@@ -173,7 +173,6 @@ public class BookingConfigPageTests : ComponentTestBase
             .ReturnsAsync(ApiResponse<BookingTenantConfigDto>.Success(config));
         return api;
     }
-
     [Fact]
     public void Config_Renders_Form_And_Save_CallsClient()
     {
@@ -244,5 +243,85 @@ public class BookingDepositsPageTests : ComponentTestBase
 
         cut.FindAll("button").First(b => b.TextContent.Contains("Đã nhận cọc")).Click();
         api.Verify(a => a.MarkDepositReceivedAsync(It.IsAny<Guid>(), It.IsAny<decimal?>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+}
+
+public class BookingCreatePageTests : ComponentTestBase
+{
+    private static Mock<IBookingTenantApiClient> MockCatalogApi(DateTime slotStart)
+    {
+        var offeringId = Guid.NewGuid();
+        var api = new Mock<IBookingTenantApiClient>();
+        api.Setup(a => a.GetConfigAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<BookingTenantConfigDto>.Success(new BookingTenantConfigDto(true, "Fixed", 50000, null, null, null)));
+        api.Setup(a => a.GetCategoriesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<List<BookingCategoryDto>>.Success([new BookingCategoryDto(Guid.NewGuid(), "Massage", 1)]));
+        api.Setup(a => a.GetOfferingsAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<List<BookingOfferingDto>>.Success([
+                new BookingOfferingDto(offeringId, null, "Service", "Massage 60 phút", 60, 300000, null)
+            ]));
+        api.Setup(a => a.GetAddOnsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<List<BookingAddOnDto>>.Success([new BookingAddOnDto(Guid.NewGuid(), "Nước uống", 20000)]));
+        api.Setup(a => a.GetAvailabilityMatrixAsync(It.IsAny<DateOnly>(), It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<List<StaffAvailabilityDto>>.Success([
+                new StaffAvailabilityDto(Guid.NewGuid(), "Nguyễn Văn A", slotStart, slotStart.AddMinutes(60), true, null)
+            ]));
+        return api;
+    }
+
+    [Fact]
+    public void Create_Renders_SelectsOfferingSlot_And_Submit_CallsClient()
+    {
+        var slotStart = DateTime.UtcNow.AddHours(2);
+        var api = MockCatalogApi(slotStart);
+        api.Setup(a => a.CreateBookingAsync(
+                It.IsAny<Guid>(), It.IsAny<IReadOnlyList<Guid>>(), It.IsAny<DateTime>(), It.IsAny<Guid?>(),
+                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<BookingQueueItemDto>.Success(new BookingQueueItemDto(
+                Guid.NewGuid(), "BK-FAST-001", "Confirmed", "None", "Massage 60 phút", slotStart, slotStart.AddMinutes(60),
+                300000, null, null, null, null, "KH: Nguyễn Văn Khách", true, 50000, "SecurityDeposit",
+                "Pending", "NotRequired", 1, DateTime.UtcNow, null, null)));
+        Services.AddSingleton(api.Object);
+        Services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+
+        var cut = RenderComponent<ShopERP.Components.Pages.Booking.BookingCreate>();
+
+        cut.WaitForAssertion(() => cut.Find("h1").TextContent.Should().Contain("Đặt lịch nhanh"));
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Massage 60 phút"));
+
+        // Chọn dịch vụ → slot xuất hiện → chọn slot → điền khách → submit
+        cut.FindAll("button").First(b => b.TextContent.Contains("Chọn")).Click();
+        cut.WaitForAssertion(() => cut.Find($"[data-testid='slot-{slotStart.ToString("HHmm")}']").Should().NotBeNull());
+        cut.Find($"[data-testid='slot-{slotStart.ToString("HHmm")}']").Click();
+        cut.WaitForAssertion(() => cut.Find("[data-testid='booking-staff']").Should().NotBeNull());
+        cut.Find("[data-testid='booking-customer-name']").Change("Nguyễn Văn Khách");
+        cut.Find("[data-testid='booking-customer-phone']").Change("0909123456");
+        cut.FindAll("button").First(b => b.TextContent.Contains("Tạo lịch hẹn")).Click();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("BK-FAST-001"));
+        api.Verify(a => a.CreateBookingAsync(
+            It.IsAny<Guid>(), It.IsAny<IReadOnlyList<Guid>>(), slotStart, null,
+            "Nguyễn Văn Khách", "0909123456", It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public void Create_ShowsDisabledWarning_WhenConfigOff()
+    {
+        var api = new Mock<IBookingTenantApiClient>();
+        api.Setup(a => a.GetConfigAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<BookingTenantConfigDto>.Success(new BookingTenantConfigDto(false, "None", null, null, null, null)));
+        api.Setup(a => a.GetCategoriesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<List<BookingCategoryDto>>.Success([]));
+        api.Setup(a => a.GetOfferingsAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<List<BookingOfferingDto>>.Success([]));
+        api.Setup(a => a.GetAddOnsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<List<BookingAddOnDto>>.Success([]));
+        Services.AddSingleton(api.Object);
+        Services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+
+        var cut = RenderComponent<ShopERP.Components.Pages.Booking.BookingCreate>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Tính năng đặt lịch đang TẮT"));
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("/booking/config"));
     }
 }
