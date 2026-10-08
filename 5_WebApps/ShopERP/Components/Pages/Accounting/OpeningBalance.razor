@@ -1,0 +1,257 @@
+@page "/accounting/opening-balance"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "OwnerOnly")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.Shared.DTOs
+@using System.Globalization
+@using VanAn.CoreHub.Services.CongNo
+@inject IOpeningBalanceService OpeningBalanceService
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject ILogger<OpeningBalance> Logger
+
+<div class="opening-balance-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Khai Báo Số Dư Đầu Kỳ</h1>
+        <VanAButton Variant="secondary" Size="small" OnClick="LoadExisting">📂 Xem đã khai</VanAButton>
+    </header>
+
+    @if (showSuccess)
+    {
+        <VanAAlert Type="success" Message="@successMessage" Dismissible="true" />
+    }
+    @if (showError)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" />
+    }
+
+    <VanACard Header="Kỳ Bắt Đầu Sử Dụng Phần Mềm">
+        <p class="small text-muted">
+            Khai số dư các tài khoản + công nợ cũ (đang theo dõi bằng Excel) tại <strong>cuối kỳ trước</strong> mốc bắt đầu —
+            báo cáo từ mốc bắt đầu sẽ có số dư đúng. Chỉ khai <strong>1 lần/kỳ</strong> (sửa = đảo bút toán cũ rồi khai lại).
+        </p>
+        <div class="d-flex align-items-end gap-2 flex-wrap">
+            <div>
+                <label class="form-label small mb-1">Tháng bắt đầu</label>
+                <select class="form-select" @bind="selectedMonth" data-testid="ob-filter-month">
+                    @for (var m = 1; m <= 12; m++)
+                    {
+                        <option value="@m">Tháng @m</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <label class="form-label small mb-1">Năm bắt đầu</label>
+                <select class="form-select" @bind="selectedYear" data-testid="ob-filter-year">
+                    @for (var y = DateTime.Now.Year; y >= DateTime.Now.Year - 3; y--)
+                    {
+                        <option value="@y">@y</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </VanACard>
+
+    <VanACard Header="1) Số Dư Các Tài Khoản (Nợ = Có)" class="mt-3">
+        <div class="table-responsive">
+            <table class="table table-sm align-middle" data-testid="ob-accounts-table">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 40px"></th>
+                        <th style="width: 120px">Tài khoản</th>
+                        <th>Dư Nợ</th>
+                        <th>Dư Có</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var line in accountLines)
+                    {
+                        <tr data-testid="ob-account-line">
+                            <td><button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveAccountLine(line)">✕</button></td>
+                            <td><input class="form-control form-control-sm" @bind="line.AccountCode" placeholder="vd 111" /></td>
+                            <td><input type="number" class="form-control form-control-sm" @bind="line.Debit" min="0" step="1000" /></td>
+                            <td><input type="number" class="form-control form-control-sm" @bind="line.Credit" min="0" step="1000" /></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <VanAButton Variant="secondary" Size="small" OnClick="AddAccountLine">+ Thêm tài khoản</VanAButton>
+            <span class="small">
+                Tổng Nợ: <strong>@Fmt(TotalDebit)</strong> · Tổng Có: <strong>@Fmt(TotalCredit)</strong>
+                @if (Math.Abs(TotalDebit - TotalCredit) > 0.01m)
+                {
+                    <span class="text-danger"> — chênh @Fmt(Math.Abs(TotalDebit - TotalCredit)) (thêm TK 421 để bù)</span>
+                }
+            </span>
+            @if (Math.Abs(TotalDebit - TotalCredit) > 0.01m)
+            {
+                <VanAButton Variant="info" Size="small" OnClick="BalanceWith421">Bù vào 421</VanAButton>
+            }
+        </div>
+    </VanACard>
+
+    <VanACard Header="2) Công Nợ Cũ Theo Đối Tượng (từ Excel)" class="mt-3">
+        <p class="small text-muted">Liệt kê khách còn nợ (TK 131) và người bán mình còn nợ (TK 331) — sẽ xuất hiện trong báo cáo Công Nợ.</p>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle" data-testid="ob-congno-table">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 40px"></th>
+                        <th style="width: 120px">TK</th>
+                        <th>Đối tượng</th>
+                        <th>Số tiền</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var line in congNoLines)
+                    {
+                        <tr data-testid="ob-congno-line">
+                            <td><button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveCongNoLine(line)">✕</button></td>
+                            <td>
+                                <select class="form-select form-select-sm" @bind="line.AccountCode">
+                                    <option value="131">131 - Phải thu</option>
+                                    <option value="331">331 - Phải trả</option>
+                                </select>
+                            </td>
+                            <td><input class="form-control form-control-sm" @bind="line.DoiTuong" placeholder="Tên khách / người bán" /></td>
+                            <td><input type="number" class="form-control form-control-sm" @bind="line.Amount" min="0" step="1000" /></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <VanAButton Variant="secondary" Size="small" OnClick="AddCongNoLine">+ Thêm đối tượng</VanAButton>
+    </VanACard>
+
+    <div class="mt-3">
+        <VanAButton Variant="primary" OnClick="Save">💾 Lưu Số Dư Đầu Kỳ</VanAButton>
+    </div>
+</div>
+
+@code {
+    private int selectedYear = DateTime.Now.Year;
+    private int selectedMonth = DateTime.Now.Month;
+    private readonly List<OpeningBalanceLineDto> accountLines = [];
+    private readonly List<OpeningBalanceCongNoLineDto> congNoLines = [];
+    private bool showSuccess;
+    private bool showError;
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+    private bool isSaving;
+
+    private decimal TotalDebit => accountLines.Sum(l => l.Debit);
+    private decimal TotalCredit => accountLines.Sum(l => l.Credit);
+
+    private static string Fmt(decimal value) => value.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"));
+
+    private void AddAccountLine() => accountLines.Add(new OpeningBalanceLineDto());
+    private void RemoveAccountLine(OpeningBalanceLineDto line) => accountLines.Remove(line);
+    private void AddCongNoLine() => congNoLines.Add(new OpeningBalanceCongNoLineDto());
+    private void RemoveCongNoLine(OpeningBalanceCongNoLineDto line) => congNoLines.Remove(line);
+
+    private void BalanceWith421()
+    {
+        decimal diff = TotalDebit - TotalCredit;
+        var existing = accountLines.FirstOrDefault(l => l.AccountCode == "421");
+        if (existing == null)
+        {
+            existing = new OpeningBalanceLineDto { AccountCode = "421", AccountName = "Lợi nhuận chưa phân phối" };
+            accountLines.Add(existing);
+        }
+        if (diff > 0)
+        {
+            existing.Credit += diff; // thừa Nợ → bù Có 421
+        }
+        else
+        {
+            existing.Debit += -diff; // thừa Có → bù Nợ 421
+        }
+    }
+
+    private async Task LoadExisting()
+    {
+        showError = false;
+        showSuccess = false;
+        if (!TenantProvider.HasTenant)
+        {
+            showError = true;
+            errorMessage = "Không xác định được tenant.";
+            return;
+        }
+        try
+        {
+            var dto = await OpeningBalanceService.GetAsync(new TenantId(TenantProvider.TenantId), selectedYear, selectedMonth);
+            accountLines.Clear();
+            congNoLines.Clear();
+            if (dto.Exists)
+            {
+                accountLines.AddRange(dto.Lines);
+                congNoLines.AddRange(dto.CongNoLines);
+                successMessage = $"Đã tải số dư đầu kỳ {selectedMonth:D2}/{selectedYear} (có thể đã khai).";
+                showSuccess = true;
+            }
+            else
+            {
+                errorMessage = $"Kỳ {selectedMonth:D2}/{selectedYear} chưa khai số dư đầu kỳ.";
+                showError = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "OpeningBalance load failed");
+            showError = true;
+            errorMessage = $"Lỗi tải: {ex.Message}";
+        }
+    }
+
+    private async Task Save()
+    {
+        showError = false;
+        showSuccess = false;
+        if (!TenantProvider.HasTenant)
+        {
+            showError = true;
+            errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+            return;
+        }
+
+        // Loại bỏ dòng rỗng
+        var validAccounts = accountLines.Where(l => !string.IsNullOrWhiteSpace(l.AccountCode)).ToList();
+        var validCongNo = congNoLines.Where(l => !string.IsNullOrWhiteSpace(l.DoiTuong)).ToList();
+
+        isSaving = true;
+        StateHasChanged();
+        try
+        {
+            var request = new OpeningBalanceRequestDto
+            {
+                Year = selectedYear,
+                Month = selectedMonth,
+                Lines = validAccounts,
+                CongNoLines = validCongNo
+            };
+            var result = await OpeningBalanceService.SaveAsync(new TenantId(TenantProvider.TenantId), request);
+            successMessage = result.Message;
+            showSuccess = true;
+            accountLines.Clear();
+            congNoLines.Clear();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "OpeningBalance save failed for tenant {TenantId}", TenantProvider.TenantId);
+            showError = true;
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+}

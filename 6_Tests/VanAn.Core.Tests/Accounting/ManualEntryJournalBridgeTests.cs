@@ -210,6 +210,41 @@ namespace VanAn.Core.Tests.Accounting
             _hkdRepo.Verify(r => r.AddToBookAsync(It.IsAny<JournalEntry>(), It.IsAny<AccountingBookType>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
+        // ===== NHẬP LIỆU & SỔ SÁCH P3 (#2): reversal JE số dư đầu kỳ (OpeningBalance) =====
+
+        [Fact]
+        public async Task CreateReversalFor_OpeningBalanceJournalEntry_CreatesOpeningBalanceReversal()
+        {
+            // Arrange — phiếu số dư đầu kỳ có JE "OpeningBalance"
+            TenantId tenant = new(Guid.NewGuid());
+            CoreAccountingEntry opening = CoreAccountingEntry.CreateDebt(
+                tenant, new AccountingPeriod(2026, 9), new Money(10_000_000m), "Số dư đầu kỳ 10/2026", accountCode: string.Empty, transactionDate: new DateTime(2026, 9, 30));
+            JournalEntry openingJe = new(tenant, opening.TransactionDate, opening.Description, ManualEntryJournalBridge.OpeningBalanceReferenceType, opening.Id);
+            openingJe.AddLine("111", 10_000_000m, 0m, "Số dư đầu kỳ");
+            openingJe.AddLine("421", 0m, 10_000_000m, "Số dư đầu kỳ");
+
+            _ = _hkdRepo.Setup(r => r.GetByReferenceAsync(tenant, ManualEntryJournalBridge.ManualEntryReferenceType, opening.Id, It.IsAny<CancellationToken>()))
+                .ReturnsAsync((JournalEntry?)null); // không phải phiếu tay
+            _ = _hkdRepo.Setup(r => r.GetByReferenceAsync(tenant, ManualEntryJournalBridge.OpeningBalanceReferenceType, opening.Id, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(openingJe);
+            _ = _hkdRepo.Setup(r => r.ExistsByReferenceAsync(tenant, ManualEntryJournalBridge.OpeningBalanceReversalReferenceType, opening.Id, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(false);
+
+            // Act
+            bool created = await _bridge.CreateReversalForAsync(opening);
+
+            // Assert — JE reversal OpeningBalanceReversal: đảo Nợ/Có, IsReversal, ReversedJournalId
+            created.Should().BeTrue();
+            _hkdRepo.Verify(r => r.AddToBookAsync(
+                It.Is<JournalEntry>(je =>
+                    je.IsReversal &&
+                    je.ReferenceType == ManualEntryJournalBridge.OpeningBalanceReversalReferenceType &&
+                    je.ReversedJournalId == openingJe.JournalEntryId &&
+                    je.Lines.First(l => l.AccountNumber == "111").CreditAmount == 10_000_000m &&
+                    je.Lines.First(l => l.AccountNumber == "421").DebitAmount == 10_000_000m),
+                AccountingBookType.S2b_HKD, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
         // ===== Hooks: AccountingEntryService + ReversalService =====
 
         [Fact]

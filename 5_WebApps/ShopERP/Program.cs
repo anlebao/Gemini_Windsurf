@@ -231,6 +231,8 @@ namespace VanAn.ShopERP
             // NHẬP LIỆU & SỔ SÁCH P2 (#4, 2026-10-07): phiếu tay → JournalEntry (Sổ HKD/BCTC) + backfill
             _ = builder.Services.AddScoped<CoreHub.Services.Journal.IManualEntryJournalBridge, CoreHub.Services.Journal.ManualEntryJournalBridge>();
             _ = builder.Services.AddScoped<CoreHub.Services.Journal.IBackfillJournalEntriesService, CoreHub.Services.Journal.BackfillJournalEntriesService>();
+            // NHẬP LIỆU & SỔ SÁCH P3 (#2, 2026-10-07): khai báo số dư đầu kỳ
+            _ = builder.Services.AddScoped<CoreHub.Services.CongNo.IOpeningBalanceService, CoreHub.Services.CongNo.OpeningBalanceService>();
             // KhachLink Full Flow W0: Shop feature toggle settings
             _ = builder.Services.AddScoped<Shared.Services.IShopFeatureSettingsService, CoreHub.Services.ShopFeatureSettingsService>();
             // #185-1: shared loyalty dashboard stats — used by LoyaltyController + LoyaltyDashboard.razor (in-process)

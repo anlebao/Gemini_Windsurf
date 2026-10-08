@@ -31,6 +31,9 @@ namespace VanAn.CoreHub.Services.Journal
     {
         public const string ManualEntryReferenceType = "ManualEntry";
         public const string ManualReversalReferenceType = "ManualReversal";
+        // NHẬP LIỆU & SỔ SÁCH P3 (#2): số dư đầu kỳ — JE "OpeningBalance" + reversal tương ứng
+        public const string OpeningBalanceReferenceType = "OpeningBalance";
+        public const string OpeningBalanceReversalReferenceType = "OpeningBalanceReversal";
         public const string CashAccount = "111";
 
         private readonly IHKDBookRepository _hkdBookRepository = hkdBookRepository;
@@ -86,14 +89,21 @@ namespace VanAn.CoreHub.Services.Journal
         {
             try
             {
+                // Tìm JE gốc: phiếu tay (ManualEntry) HOẶC số dư đầu kỳ (OpeningBalance — P3)
                 JournalEntry? originalJournalEntry = await _hkdBookRepository.GetByReferenceAsync(
-                    originalEntry.TenantId, ManualEntryReferenceType, originalEntry.Id, cancellationToken);
+                    originalEntry.TenantId, ManualEntryReferenceType, originalEntry.Id, cancellationToken)
+                    ?? await _hkdBookRepository.GetByReferenceAsync(
+                    originalEntry.TenantId, OpeningBalanceReferenceType, originalEntry.Id, cancellationToken);
                 if (originalJournalEntry == null)
                 {
                     return false; // phiếu không có JE gốc (công nợ / phiếu cũ trước P2) — không cần JE reversal
                 }
 
-                if (await _hkdBookRepository.ExistsByReferenceAsync(originalEntry.TenantId, ManualReversalReferenceType, originalEntry.Id, cancellationToken))
+                string reversalReferenceType = originalJournalEntry.ReferenceType == OpeningBalanceReferenceType
+                    ? OpeningBalanceReversalReferenceType
+                    : ManualReversalReferenceType;
+
+                if (await _hkdBookRepository.ExistsByReferenceAsync(originalEntry.TenantId, reversalReferenceType, originalEntry.Id, cancellationToken))
                 {
                     return false; // idempotent
                 }
@@ -102,7 +112,7 @@ namespace VanAn.CoreHub.Services.Journal
                     originalEntry.TenantId,
                     originalEntry.TransactionDate,
                     $"Reversal of: {originalEntry.Description}",
-                    ManualReversalReferenceType,
+                    reversalReferenceType,
                     originalEntry.Id,
                     isReversal: true,
                     reversedJournalId: originalJournalEntry.JournalEntryId);

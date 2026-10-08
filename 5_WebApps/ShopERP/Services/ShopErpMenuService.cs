@@ -137,6 +137,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                 new() { Title = "Lịch Sử Giao Dịch", Icon = "clock-history", Url = "/accounting/history" },
                 // THU CHI & CÔNG NỢ MVP (P2.5, 2026-10-07): báo cáo công nợ 131/331 + tuổi nợ FIFO
                 new() { Title = "Công Nợ", Icon = "people", Url = "/accounting/cong-no" },
+                // NHẬP LIỆU & SỔ SÁCH P3 (2026-10-07): khai báo số dư đầu kỳ (dữ liệu cũ từ Excel)
+                new() { Title = "Số Dư Đầu Kỳ", Icon = "flag-fill", Url = "/accounting/opening-balance" },
                 new() { Title = "Số Dư Tài Khoản", Icon = "currency-exchange", Url = "/accounting/balance" },
                 new() { Title = "Đóng Kỳ Kế Toán", Icon = "lock-fill", Url = "/accounting/period-closing" },
             };

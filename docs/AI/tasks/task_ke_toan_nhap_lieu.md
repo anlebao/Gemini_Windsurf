@@ -3,7 +3,7 @@
 > Created: 2026-10-07 (user directive: tenant mới bắt đầu dùng kế toán phải nhập được dữ liệu cũ từ Excel; chốt xử lý #1-#4)
 > Master plan: `docs/AI/plans/ke-toan-nhap-lieu-master-plan.md` (Q1-Q5 user chốt + chiến lược §6 approved 2026-10-07)
 > Branch: `main`
-> Status: **✅ P1 (#3) + P2 (#4) DONE — ⏳ P3 (#2 Số dư đầu kỳ) kế tiếp**
+> Status: **✅ P1 (#3) + P2 (#4) DONE (deploy + RV PASS) — 🔄 P3 (#2) CODE DONE (chưa commit/push — chờ session mới: guard → commit → Đợt 3 push → CD → RV) — ⏳ P4 (#1 Import Excel) kế tiếp**
 
 ---
 
@@ -42,15 +42,15 @@
 - [x] **P2.7 Tests (+15):** `ManualEntryJournalBridgeTests` (12 — revenue/expense/công nợ [G6]/reversal skip/idempotent/fail-safe/reversal JE đảo Nợ-Có/hooks AccountingEntryService + ReversalService) + `BackfillJournalEntriesServiceTests` (3 — preview dry-run/run đối chiếu/loại đã có JE + phiếu đã đảo) + update `AccountingEntriesControllerTests` (mock backfill) → **Core.Tests 2147 PASS (+15)** · ShopERP.Tests 163 PASS
 - [x] **Validation:** build VanAn.sln 0 errors · guard ALL PASSED · commit `fa07b31a` → **push Đợt 2 (CD #37643335425 SUCCESS) + RV L1-L4 PASS:** L1 markers (`ManualEntryJournalBridge`/`BackfillJournalEntriesService` ×2 trong CoreHub.dll) · L2 backfill endpoint live (dry-run → 65 eligible) · L3 **backfill run 65/65 + SQL đối chiếu 65 JE == 65 eligible (tenant 1)** · L4 **phiếu thu mới qua Gateway API → JE `ManualEntry` tự sinh đúng ngày nghiệp vụ** + **reversal → JE `ManualReversal` (IsReversal=true) đồng bộ** + Sổ HKD page mở (test data đã dọn — net zero)
 
-### Phase 3 — #2 Số dư đầu kỳ (task `task_ke_toan_nhap_lieu_phase3_opening_balance.md`) ⏳
+### Phase 3 — #2 Số dư đầu kỳ (task `task_ke_toan_nhap_lieu_phase3_opening_balance.md`) 🔄 CODE DONE — chờ guard + push Đợt 3 + CD + RV
 
-> **PREP:** danh mục TK hiện có (AccountChart) · pattern BalanceSheet/B01 (số dư TK) · JournalEntry (P2) · period-closing guard.
-
-- [ ] **P3.1 `IOpeningBalanceService`:** `SaveOpeningBalancesAsync(tenantId, year, month, lines[])` — validate TK/không âm/ΣNợ=ΣCó (bù 421 — Q2) · kỳ trước mốc phải Open · idempotent (1 lần/kỳ)
-- [ ] **P3.2 Tạo dữ liệu:** AccountingEntry tổng (Adjustment, "Số dư đầu kỳ", TransactionDate = ngày đầu kỳ − 1) + JournalEntry "Số dư đầu kỳ" (Nợ TK dư Nợ / Có TK dư Có)
-- [ ] **P3.3 UI `/accounting/opening-balance`:** chọn kỳ + bảng TK (mã/tên/Nợ/Có) + tổng + lưu · NavMenu "Kế toán → Số dư đầu kỳ" + Sitemap + bUnit
-- [ ] **P3.4 Tests:** BalanceSheet/B01 số dư đúng · công nợ Đầu kỳ đúng (131/331) · chênh Nợ≠Có bị chặn · khai lại bị chặn · isolation
-- [ ] **Validation:** guard + build + Core.Tests + ShopERP.Tests PASS → commit (KHÔNG push)
+- [x] **P3.1 `IOpeningBalanceService`** (`3_CoreHub/Services/CongNo/OpeningBalanceService.cs`): `SaveAsync`/`GetAsync` — validate TK (3 số, chặn 5xx/6xx/7xx/8xx — kết quả KD không có số dư đầu kỳ) · không âm · **ΣNợ == ΣCó** (chênh → throw kèm số chênh + gợi ý dòng 421 — Q2) · **period-closing guard** (kỳ TRƯỚC mốc bắt đầu phải Open) · **khai 1 lần/kỳ** (chặn khai lại — sửa = đảo bút toán cũ rồi khai lại) · multi-tenancy (repo filter — lesson a21f97f2)
+- [x] **P3.2 Tạo dữ liệu:** (a) 1 AccountingEntry tổng (Adjustment, "Số dư đầu kỳ {MM}/{yyyy}", TransactionDate = **ngày cuối kỳ trước** — đầu kỳ của báo cáo) + 1 JournalEntry **"OpeningBalance"** (ReferenceType + ReferenceId = entry; Nợ TK dư Nợ / Có TK dư Có — từng line) → BalanceSheet/B01 · (b) **công nợ cũ theo đối tượng** (131/331 per khách/người bán — nguồn Excel) qua `ICongNoService` (phiếu + Vendor, ngày khai báo) → báo cáo công nợ Đầu kỳ + tuổi nợ đúng — **KHÔNG JE [Q1/G6]**
+- [x] **P3.3 Bridge mở rộng:** `ManualEntryJournalBridge.CreateReversalForAsync` hỗ trợ JE gốc **"OpeningBalance"** (reversal → "OpeningBalanceReversal", đảo Nợ/Có, idempotent) — cho phép sửa đầu kỳ qua đảo
+- [x] **P3.4 UI `/accounting/opening-balance`** (`OpeningBalance.razor` — UI Platform 100%): chọn kỳ bắt đầu · phần 1 "Số Dư Các Tài Khoản" (bảng TK + Nợ/Có + thêm/xoá dòng + tổng + cảnh báo chênh + nút **"Bù vào 421"**) · phần 2 "Công Nợ Cũ Theo Đối Tượng" (TK 131/331 + đối tượng + tiền) · nút Lưu + "Xem đã khai" · NavMenu "Kế toán → **Số Dư Đầu Kỳ**" + Sitemap `link-accounting-opening-balance` · bUnit +5
+- [x] **P3.5 Tests (+9 Core / +5 bUnit):** `OpeningBalanceServiceTests` (8 — hợp lệ tạo entry+JE 3 lines · công nợ 131/331 qua CongNoService không JE · ΣNợ≠ΣCó chặn + gợi ý 421 · TK 511 chặn · kỳ trước đóng chặn · khai lại chặn · isolation tenant · Get trả dữ liệu) + bridge OpeningBalance reversal (1) + `OpeningBalancePageTests` (5 — render 2 phần · thêm dòng · chênh + nút bù 421 · lưu gọi service) → **Core.Tests 2156 PASS (+9)** · ShopERP.Tests 168 PASS (+5)
+- [x] **Validation đã chạy:** build VanAn.sln 0 errors · Core.Tests 2156 · ShopERP.Tests 168
+- [ ] **Còn lại (session mới):** guard-check.ps1 full → commit → **push Đợt 3 + CD + RV L1-L4** (khai đầu kỳ thật trên tenant demo → đối chiếu BalanceSheet/B01 + công nợ Đầu kỳ)
 
 ### Phase 4 — #1 Import Excel (task `task_ke_toan_nhap_lieu_phase4_import_excel.md`) ⏳
 

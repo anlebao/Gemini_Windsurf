@@ -71,6 +71,9 @@ public class ComponentTestBase : TestContext
         Services.AddSingleton<ICongNoService>(_ => new Mock<ICongNoService>().Object);
         Services.AddSingleton<IReversalService>(_ => new Mock<IReversalService>().Object);
 
+        // NHẬP LIỆU & SỔ SÁCH P3 (2026-10-07): IOpeningBalanceService — mock by default
+        Services.AddSingleton<IOpeningBalanceService>(_ => new Mock<IOpeningBalanceService>().Object);
+
         // Bunit automatically discovers components from referenced assemblies
         // UI.Platform is already referenced in the project, so components should be discoverable
     }
