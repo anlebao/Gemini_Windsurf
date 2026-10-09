@@ -1,12 +1,16 @@
 ﻿@using Microsoft.AspNetCore.Components.Authorization
 @using VanAn.UI.Platform.Components
 @using VanAn.ShopERP.Services
+@using VanAn.CoreHub.Services
+@using VanAn.Shared.Domain.Common
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IShopErpMenuService MenuService
+@inject ITenantProvider TenantProvider
+@inject ITenantManagementService TenantManagementService
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">VanAn.ShopERP</a>
+        <a class="navbar-brand" href="">@(string.IsNullOrEmpty(_tenantName) ? "VanAn.ShopERP" : _tenantName)</a>
     </div>
 </div>
 
@@ -18,11 +22,26 @@
 
 @code {
     private List<VanAn.UI.Platform.Models.NavigationItem> _menuItems = new();
+    private string _tenantName = string.Empty; // tên tenant hiện hành (user directive 2026-10-09)
 
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         // SSOT menu: same definition per role as AdminLayout/AccountingLayout/EInvoiceLayout.
         _menuItems = await MenuService.BuildAsync(authState.User);
+
+        // Brand hiển thị tên tenant hiện hành (thay "VanAn.ShopERP").
+        if (TenantProvider.HasTenant)
+        {
+            try
+            {
+                var tenant = await TenantManagementService.GetTenantByIdAsync(new TenantId(TenantProvider.TenantId));
+                _tenantName = tenant?.Name ?? string.Empty;
+            }
+            catch
+            {
+                // Giữ fallback "VanAn.ShopERP" khi không lấy được tenant.
+            }
+        }
     }
 }

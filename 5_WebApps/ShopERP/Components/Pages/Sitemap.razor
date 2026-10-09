@@ -15,11 +15,11 @@
 @inject ITenantManagementService TenantManagementService
 @inject ITenantProvider TenantProvider
 
-<PageTitle>Sitemap - Vạn An Ecosystem</PageTitle>
+<PageTitle>Sitemap - @(string.IsNullOrEmpty(_tenantName) ? "Vạn An" : _tenantName)</PageTitle>
 
 <div class="sitemap-page @ThemeProvider.CurrentTheme" data-testid="sitemap-page">
     <header class="sitemap-header">
-        <h1 data-testid="sitemap-title">Vạn An Ecosystem</h1>
+        <h1 data-testid="sitemap-title">@(string.IsNullOrEmpty(_tenantName) ? "Vạn An Ecosystem" : _tenantName)</h1>
         <p class="sitemap-subtitle">Chào mừng, <strong>@_displayName</strong> (@_roleName)</p>
         <div class="sitemap-header-actions">
             <VanAButton
@@ -34,43 +34,47 @@
 
     <div class="sitemap-grid" data-testid="sitemap-grid">
 
-        @* ── Luồng 1: Quản lý Đơn Hàng ── *@
-        <VanACard Header="📦 Quản lý Đơn Hàng" Hoverable="true" data-testid="card-orders">
-            <div class="sitemap-links">
-                <a href="/" class="sitemap-link" data-testid="link-orders-home">
-                    <span class="sitemap-link-icon">🏠</span>
-                    <span>Dashboard</span>
-                </a>
-                <AuthorizeView Roles="Staff,StoreKeeper,Owner,SystemAdmin">
-                    <Authorized>
-                        <a href="/orders" class="sitemap-link" data-testid="link-orders-list">
-                            <span class="sitemap-link-icon">📋</span>
-                            <span>Danh sách đơn hàng</span>
+        @* ── Luồng 1: Quản lý Đơn Hàng (ẨN với Kế toán trưởng/Kế toán công nợ — user directive 2026-10-09) ── *@
+        <AuthorizeView Roles="Staff,StoreKeeper,Owner,Masterchef,Guard,SystemAdmin">
+            <Authorized>
+                <VanACard Header="📦 Quản lý Đơn Hàng" Hoverable="true" data-testid="card-orders">
+                    <div class="sitemap-links">
+                        <a href="/" class="sitemap-link" data-testid="link-orders-home">
+                            <span class="sitemap-link-icon">🏠</span>
+                            <span>Dashboard</span>
                         </a>
-                        <a href="/pos" class="sitemap-link" data-testid="link-pos">
-                            <span class="sitemap-link-icon">🛒</span>
-                            <span>POS — Tạo đơn hàng</span>
-                        </a>
-                    </Authorized>
-                </AuthorizeView>
-                <AuthorizeView Roles="Staff,StoreKeeper,Owner,Masterchef,SystemAdmin">
-                    <Authorized>
-                        <a href="/kitchen" class="sitemap-link" data-testid="link-kitchen-display">
-                            <span class="sitemap-link-icon">🍳</span>
-                            <span>Màn hình bếp</span>
-                        </a>
-                    </Authorized>
-                </AuthorizeView>
-                <AuthorizeView Roles="Guard">
-                    <Authorized>
-                        <a href="/guard/scan" class="sitemap-link" data-testid="link-guard-scan">
-                            <span class="sitemap-link-icon">📷</span>
-                            <span>Quét QR Guard</span>
-                        </a>
-                    </Authorized>
-                </AuthorizeView>
-            </div>
-        </VanACard>
+                        <AuthorizeView Roles="Staff,StoreKeeper,Owner,SystemAdmin" Context="innerAuth">
+                            <Authorized>
+                                <a href="/orders" class="sitemap-link" data-testid="link-orders-list">
+                                    <span class="sitemap-link-icon">📋</span>
+                                    <span>Danh sách đơn hàng</span>
+                                </a>
+                                <a href="/pos" class="sitemap-link" data-testid="link-pos">
+                                    <span class="sitemap-link-icon">🛒</span>
+                                    <span>POS — Tạo đơn hàng</span>
+                                </a>
+                            </Authorized>
+                        </AuthorizeView>
+                        <AuthorizeView Roles="Staff,StoreKeeper,Owner,Masterchef,SystemAdmin" Context="innerAuth">
+                            <Authorized>
+                                <a href="/kitchen" class="sitemap-link" data-testid="link-kitchen-display">
+                                    <span class="sitemap-link-icon">🍳</span>
+                                    <span>Màn hình bếp</span>
+                                </a>
+                            </Authorized>
+                        </AuthorizeView>
+                        <AuthorizeView Roles="Guard" Context="innerAuth">
+                            <Authorized>
+                                <a href="/guard/scan" class="sitemap-link" data-testid="link-guard-scan">
+                                    <span class="sitemap-link-icon">📷</span>
+                                    <span>Quét QR Guard</span>
+                                </a>
+                            </Authorized>
+                        </AuthorizeView>
+                    </div>
+                </VanACard>
+            </Authorized>
+        </AuthorizeView>
 
         @* ── Product Management ── *@
         <AuthorizeView Roles="Owner">
@@ -594,6 +598,7 @@
     private string _displayName = string.Empty;
     private string _roleName = string.Empty;
     private string _khachLinkUrl = string.Empty;
+    private string _tenantName = string.Empty; // tên tenant hiện hành (user directive 2026-10-09)
     private bool _isCompanyTenant; // VAS BCTC reports only show for Company (DN) tenants, not HKD
 
     protected override async Task OnInitializedAsync()
@@ -624,6 +629,7 @@
             try
             {
                 var tenant = await TenantManagementService.GetTenantByIdAsync(new TenantId(TenantProvider.TenantId));
+                _tenantName = tenant?.Name ?? string.Empty;
                 _isCompanyTenant = tenant?.BusinessType == BusinessType.Company;
             }
             catch (Exception)
