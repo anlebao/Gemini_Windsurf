@@ -14,6 +14,7 @@
 @inject IConfiguration Configuration
 @inject ITenantManagementService TenantManagementService
 @inject ITenantProvider TenantProvider
+@inject ILogger<Sitemap> Logger
 
 <PageTitle>Sitemap - @(string.IsNullOrEmpty(_tenantName) ? "Vạn An" : _tenantName)</PageTitle>
 
@@ -622,8 +623,8 @@
         // Load KhachLink URL from configuration
         _khachLinkUrl = Configuration["ExternalUrls:KhachLink"] ?? string.Empty;
 
-        // Load tenant BusinessType to decide whether to show VAS BCTC reports card.
-        // HKD tenants use TT 152 HKD books (separate card); Company tenants use VAS BCTC reports.
+        // Load tenant name + BusinessType để quyết định VAS BCTC vs Sổ HKD.
+        // RV diag 2026-10-09 (tạm): log claims + provider + lookup để tìm lý do tenant name không resolve.
         if (TenantProvider.HasTenant)
         {
             try
@@ -631,12 +632,27 @@
                 var tenant = await TenantManagementService.GetTenantByIdAsync(new TenantId(TenantProvider.TenantId));
                 _tenantName = tenant?.Name ?? string.Empty;
                 _isCompanyTenant = tenant?.BusinessType == BusinessType.Company;
+                Logger.LogInformation("RV sitemap tenant OK: id={TenantId} name={Name} isCompany={IsCompany}",
+                    TenantProvider.TenantId, _tenantName, _isCompanyTenant);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Logger.LogError(ex, "RV sitemap tenant lookup FAILED: providerId={TenantId} claimTenantId={C1}/{C2}/{C3}",
+                    TenantProvider.TenantId,
+                    user.FindFirst("tenant_id")?.Value ?? "-",
+                    user.FindFirst("TenantId")?.Value ?? "-",
+                    user.FindFirst("tenantId")?.Value ?? "-");
                 // If tenant lookup fails, default to showing VAS reports (backward compatible)
                 _isCompanyTenant = true;
             }
+        }
+        else
+        {
+            Logger.LogWarning("RV sitemap HasTenant=FALSE: claimTenantId={C1}/{C2}/{C3} providerId={P}",
+                user.FindFirst("tenant_id")?.Value ?? "-",
+                user.FindFirst("TenantId")?.Value ?? "-",
+                user.FindFirst("tenantId")?.Value ?? "-",
+                TenantProvider.TenantId);
         }
     }
 
