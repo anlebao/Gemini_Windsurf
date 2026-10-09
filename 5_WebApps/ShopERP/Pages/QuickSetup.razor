@@ -4,12 +4,14 @@
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.WebUtilities
+@using Microsoft.EntityFrameworkCore
 @using VanAn.CoreHub.Services
 @using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
 @inject IOnboardingService OnboardingService
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
-@inject ITenantManagementService TenantService
+@inject VanAn.CoreHub.Infrastructure.VanAnDbContext PgDbContext
 
 <PageTitle>Khởi tạo nhanh - VanAn ERP</PageTitle>
 
@@ -382,10 +384,14 @@
             return;
         }
 
-        // Load tenant info for display (in-process CoreHub service — Option B)
+        // Load tenant info for display (PG source of truth — root cause: TenantManagementService
+        // nhận IVanAnDbContext = SQLite mirror 5 tenant cũ → đọc TRỰC TIẾP từ VanAnDbContext).
         try
         {
-            var tenant = await TenantService.GetTenantByIdAsync(new TenantId(_selectedTenantId));
+            var tenant = await PgDbContext.Tenants
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == new TenantId(_selectedTenantId));
             _tenantName = tenant?.Name;
         }
         catch (Exception ex)

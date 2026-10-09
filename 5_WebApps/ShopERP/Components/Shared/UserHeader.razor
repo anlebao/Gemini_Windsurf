@@ -1,6 +1,7 @@
 ﻿@* UserHeader Component — hiển thị tenant name + username + role + logout trong layout header *@
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
 @using VanAn.CoreHub.Services
 @using VanAn.Shared.Domain.Common
 
@@ -100,7 +101,7 @@
 
 @code {
     [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = null!;
-    [Inject] private ITenantManagementService TenantManagementService { get; set; } = null!;
+    [Inject] private VanAn.CoreHub.Infrastructure.VanAnDbContext PgDbContext { get; set; } = null!;
 
     private string _displayName = string.Empty;
     private string _role = string.Empty;
@@ -119,14 +120,19 @@
 
             _role = user.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
 
-            // Resolve tenant name from JWT claim (tenant_id or TenantId)
+            // Resolve tenant name from JWT claim (tenant_id or TenantId).
+            // Fix 2026-10-09 (root cause: TenantManagementService nhận IVanAnDbContext = SQLite mirror 5 tenant cũ)
+            // → đọc TRỰC TIẾP từ PG (source of truth). Không xác định đúng TenantId → giữ chuỗi gốc.
             var tenantClaim = user.FindFirst("tenant_id")?.Value
                 ?? user.FindFirst("TenantId")?.Value;
             if (Guid.TryParse(tenantClaim, out var tenantId) && tenantId != Guid.Empty)
             {
                 try
                 {
-                    var tenant = await TenantManagementService.GetTenantByIdAsync(new TenantId(tenantId));
+                    var tenant = await PgDbContext.Tenants
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(t => t.Id == new TenantId(tenantId));
                     _tenantName = tenant?.Name ?? string.Empty;
                 }
                 catch (Exception ex)

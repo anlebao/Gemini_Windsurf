@@ -2,13 +2,14 @@
 @rendermode InteractiveServer
 @attribute [Authorize(Roles = "Guard")]
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
 @using VanAn.UI.Platform.Components
 @using VanAn.ShopERP.Services
 @using VanAn.CoreHub.Services
 @using VanAn.Shared.Domain.Common
 @using VanAn.Shared.Domain.Aggregates.TenantAggregate
 @inject GuardApiClient GuardApi
-@inject ITenantManagementService TenantService
+@inject VanAn.CoreHub.Infrastructure.VanAnDbContext PgDbContext
 @inject ITenantProvider TenantProvider
 @inject ILogger<PrintTicket> Logger
 @inject IJSRuntime JSRuntime
@@ -128,14 +129,18 @@
                 session = await GuardApi.GetSessionAsync(SessionId);
                 if (session != null)
                 {
-                    // Fetch real tenant info (name + address + phone) from PG via TenantManagementService.
-                    // Replaces hardcoded "VẠN AN" — ticket now shows the actual tenant's name + address.
+                    // Fetch real tenant info (name + address + phone) from PG (source of truth) trực tiếp.
+                    // Fix 2026-10-09 (root cause: TenantManagementService nhận IVanAnDbContext = SQLite mirror 5 tenant cũ)
+                    // → đọc TRỰC TIẾP từ VanAnDbContext. Ticket shows the actual tenant's name + address.
                     tenantId = TenantProvider.TenantId;
                     if (tenantId != Guid.Empty)
                     {
                         try
                         {
-                            var tenant = await TenantService.GetTenantByIdAsync(new TenantId(tenantId));
+                            var tenant = await PgDbContext.Tenants
+                                .IgnoreQueryFilters()
+                                .AsNoTracking()
+                                .FirstOrDefaultAsync(t => t.Id == new TenantId(tenantId));
                             if (tenant != null)
                             {
                                 tenantName = tenant.Name;

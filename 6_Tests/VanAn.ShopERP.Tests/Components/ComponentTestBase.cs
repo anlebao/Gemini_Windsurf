@@ -54,6 +54,13 @@ public class ComponentTestBase : TestContext
         // (AccountingLayout renders UserHeader which [Inject]s ITenantManagementService).
         Services.AddSingleton<ITenantManagementService>(sp => new Mock<ITenantManagementService>().Object);
 
+        // Register VanAnDbContext (PG) mock — required by UserHeader/NavMenu/Sitemap
+        // (2026-10-09 fix: tenant name đọc TRỰC TIẾP từ PG — source of truth, không qua SQLite mirror).
+        // Mock instance: constructor chỉ lưu options; query Tenants sẽ trả null → component catch (fallback giữ chuỗi gốc).
+        var pgOptions = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<VanAn.CoreHub.Infrastructure.VanAnDbContext>().Options;
+        Services.AddSingleton(new Mock<VanAn.CoreHub.Infrastructure.VanAnDbContext>(
+            pgOptions, new Mock<ITenantProvider>().Object).Object);
+
         // Configure JSInterop for components with JavaScript interop
         JSInterop.Mode = JSRuntimeMode.Loose;
 
