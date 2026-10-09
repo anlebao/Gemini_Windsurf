@@ -8,12 +8,14 @@
 @using VanAn.CoreHub.Services
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
+@using Microsoft.EntityFrameworkCore
 @inject IThemeProvider ThemeProvider
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IConfiguration Configuration
 @inject ITenantManagementService TenantManagementService
 @inject ITenantProvider TenantProvider
+@inject VanAn.CoreHub.Infrastructure.VanAnDbContext PgDbContext
 @inject ILogger<Sitemap> Logger
 
 <PageTitle>Sitemap - @(string.IsNullOrEmpty(_tenantName) ? "Vạn An" : _tenantName)</PageTitle>
@@ -632,8 +634,16 @@
                 var tenant = await TenantManagementService.GetTenantByIdAsync(new TenantId(TenantProvider.TenantId));
                 _tenantName = tenant?.Name ?? string.Empty;
                 _isCompanyTenant = tenant?.BusinessType == BusinessType.Company;
-                Logger.LogInformation("RV sitemap tenant OK: id={TenantId} name={Name} isCompany={IsCompany}",
-                    TenantProvider.TenantId, _tenantName, _isCompanyTenant);
+                // RV diag sâu: kiểm tra context thật
+                Guid tid = TenantProvider.TenantId;
+                string conn = PgDbContext.Database.GetConnectionString() ?? "";
+                int pos = conn.IndexOf(";", StringComparison.Ordinal);
+                Logger.LogInformation("RV sitemap tenant OK: id={TenantId} name={Name} isCompany={IsCompany} conn={Conn} count={Count} rawName={Raw} anyIdEq={Any}",
+                    tid, _tenantName, _isCompanyTenant,
+                    pos > 0 ? conn[..pos] : conn,
+                    await PgDbContext.Tenants.IgnoreQueryFilters().CountAsync(),
+                    await PgDbContext.Tenants.IgnoreQueryFilters().Where(t => t.Id.Value == tid).Select(t => t.Name).FirstOrDefaultAsync() ?? "-",
+                    await PgDbContext.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Id == new TenantId(tid)));
             }
             catch (Exception ex)
             {
