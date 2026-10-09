@@ -46,7 +46,8 @@ test.describe('RV ShopERP — issue #188 (config/QR/ingredients) production', ()
 
     // Mở link THẬT trong browser (host-resolver → gateway) — PWA KhachLink phải load + hiển thị màn đặt lịch.
     await page.goto(linkText, { waitUntil: 'networkidle', timeout: 60000 });
-    await expect(page.locator('text=Dịch vụ → Thời gian').or(page.locator('text=Chọn dịch vụ'))).toBeVisible({ timeout: 40000 });
+    await expect(page.locator('text=Đặt lịch hẹn nhanh chóng').or(page.locator('text=1 Dịch vụ 2 Thời gian'))).toBeVisible({ timeout: 40000 });
+    await expect(page.locator('h1').or(page.locator('text=Test HKD'))).toBeVisible({ timeout: 10000 });
     console.log('Khách mở link QR → PWA đặt lịch render OK');
 
     // QR link mở được (KhachLink catalog — tenant enabled → 200 JSON).
@@ -58,7 +59,9 @@ test.describe('RV ShopERP — issue #188 (config/QR/ingredients) production', ()
     const body = await resolve.json();
     expect(body.tenantName).toBeTruthy();
 
-    // Cleanup: revoke QR vừa tạo.
+    // Cleanup: revoke QR vừa tạo — quay lại trang QR (hiện đang ở PWA KhachLink).
+    await page.goto('https://app2.khachvip.online/booking/qr-channels', { waitUntil: 'networkidle' });
+    await expect(page.locator('h1')).toContainText('Mã QR đặt lịch', { timeout: 20000 });
     await page.locator('button', { hasText: 'Thu hồi' }).first().click();
     await expect(qrImage).toBeHidden({ timeout: 15000 }).catch(() => {
       console.log('QR revoke — ẩn image OK (hoặc đã re-render)');
