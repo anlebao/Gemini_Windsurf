@@ -9,7 +9,8 @@ main {
 }
 
 .sidebar {
-    background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+    /* Option A (2026-10-09): bỏ gradient navy→tím mặc định — dark hiện đại slate */
+    background-image: linear-gradient(180deg, #0f172a 0%, #111827 100%);
 }
 
 .top-row {
