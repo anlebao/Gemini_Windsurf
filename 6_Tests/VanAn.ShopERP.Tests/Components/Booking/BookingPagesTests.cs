@@ -325,3 +325,74 @@ public class BookingCreatePageTests : ComponentTestBase
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("/booking/config"));
     }
 }
+
+public class BookingServicesPageTests : ComponentTestBase
+{
+    private static Mock<IBookingTenantApiClient> MockCatalogApi()
+    {
+        var api = new Mock<IBookingTenantApiClient>();
+        api.Setup(a => a.GetCategoriesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<List<BookingCategoryDto>>.Success([]));
+        api.Setup(a => a.GetOfferingsAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<List<BookingOfferingDto>>.Success([]));
+        api.Setup(a => a.GetAddOnsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<List<BookingAddOnDto>>.Success([]));
+        return api;
+    }
+
+    [Fact]
+    public void Services_Renders_EmptyState()
+    {
+        Services.AddSingleton(MockCatalogApi().Object);
+
+        var cut = RenderComponent<ShopERP.Components.Pages.Booking.BookingServices>();
+
+        cut.WaitForAssertion(() => cut.Find("h1").TextContent.Should().Contain("Dịch vụ đặt lịch"));
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Chưa có dịch vụ nào"));
+        cut.WaitForAssertion(() => cut.Find("[data-testid='offering-add']").Should().NotBeNull());
+    }
+
+    [Fact]
+    public void Services_CreateOffering_CallsClient()
+    {
+        var api = MockCatalogApi();
+        api.Setup(a => a.CreateOfferingAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<decimal>(),
+                It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<BookingOfferingDto>.Success(new BookingOfferingDto(Guid.NewGuid(), null, "Service", "Massage 60 phút", 60, 300000, null)));
+        Services.AddSingleton(api.Object);
+
+        var cut = RenderComponent<ShopERP.Components.Pages.Booking.BookingServices>();
+        cut.WaitForAssertion(() => cut.Find("h1").TextContent.Should().Contain("Dịch vụ đặt lịch"));
+
+        cut.FindAll("button").First(b => b.TextContent.Contains("Thêm dịch vụ")).Click();
+        cut.WaitForAssertion(() => cut.FindAll(".modal").Should().NotBeEmpty());
+        cut.Find("[data-testid='offering-name']").Change("Massage 60 phút");
+        cut.Find("[data-testid='offering-duration']").Change("60");
+        cut.Find("[data-testid='offering-price']").Change("300000");
+        cut.FindAll(".modal button").First(b => b.TextContent.Contains("Confirm")).Click();
+
+        api.Verify(a => a.CreateOfferingAsync(
+            "Massage 60 phút", "Service", 60, 300000m, It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Đã thêm dịch vụ"));
+    }
+
+    [Fact]
+    public void Services_CreateCategory_CallsClient()
+    {
+        var api = MockCatalogApi();
+        api.Setup(a => a.CreateCategoryAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiResponse<BookingCategoryDto>.Success(new BookingCategoryDto(Guid.NewGuid(), "Massage", 0)));
+        Services.AddSingleton(api.Object);
+
+        var cut = RenderComponent<ShopERP.Components.Pages.Booking.BookingServices>();
+        cut.WaitForAssertion(() => cut.Find("h1").TextContent.Should().Contain("Dịch vụ đặt lịch"));
+
+        cut.FindAll("button").First(b => b.TextContent.Contains("Thêm danh mục")).Click();
+        cut.WaitForAssertion(() => cut.FindAll(".modal").Should().NotBeEmpty());
+        cut.Find("[data-testid='category-name']").Change("Massage");
+        cut.FindAll(".modal button").First(b => b.TextContent.Contains("Confirm")).Click();
+
+        api.Verify(a => a.CreateCategoryAsync("Massage", 0, It.IsAny<CancellationToken>()), Times.Once);
+    }
+}

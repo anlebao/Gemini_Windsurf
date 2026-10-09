@@ -350,9 +350,120 @@ public class TenantBookingController(
         if (tenantId.Value == Guid.Empty)
             return Unauthorized(new { error = "Missing tenant_id claim" });
         var offerings = await _offeringService.ListOfferingsAsync(tenantId, null, activeOnly, ct);
-        return Ok(offerings.Select(o => new BookingOfferingDto(
-            o.Id, o.CategoryId, o.OfferingType.ToString(), o.DisplayName, o.DurationMinutes, o.Price, o.Description)).ToList());
+        return Ok(offerings.Select(ToOfferingDto).ToList());
     }
+
+    // ── Catalog CRUD (Fix 2026-10-09 — bug 2: không có UI tạo dịch vụ → staff skills rỗng) ──
+
+    [HttpPost("categories")]
+    public async Task<ActionResult<BookingCategoryDto>> CreateCategory([FromBody] UpsertCategoryRequest request, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return BadRequest(new { message = "Tên danh mục là bắt buộc." });
+        try
+        {
+            var category = await _offeringService.CreateCategoryAsync(tenantId, request.Name.Trim(), request.DisplayOrder, ct);
+            return StatusCode(StatusCodes.Status201Created, new BookingCategoryDto(category.Id, category.Name, category.DisplayOrder));
+        }
+        catch (ValidationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpPut("categories/{categoryId:guid}")]
+    public async Task<ActionResult<BookingCategoryDto>> UpdateCategory(Guid categoryId, [FromBody] UpsertCategoryRequest request, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return BadRequest(new { message = "Tên danh mục là bắt buộc." });
+        try
+        {
+            var category = await _offeringService.UpdateCategoryAsync(tenantId, categoryId, request.Name.Trim(), request.DisplayOrder, request.IsActive, ct);
+            return Ok(new BookingCategoryDto(category.Id, category.Name, category.DisplayOrder));
+        }
+        catch (ValidationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (NotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    [HttpPost("offerings")]
+    public async Task<ActionResult<BookingOfferingDto>> CreateOffering([FromBody] UpsertOfferingRequest request, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        if (string.IsNullOrWhiteSpace(request.DisplayName) || request.DurationMinutes <= 0 || request.Price < 0)
+            return BadRequest(new { message = "Tên dịch vụ, thời lượng > 0 và giá >= 0 là bắt buộc." });
+        if (!Enum.TryParse<OfferingType>(request.OfferingType, ignoreCase: true, out var type))
+            return BadRequest(new { message = "OfferingType không hợp lệ (Service/Package)." });
+        try
+        {
+            var offering = await _offeringService.CreateOfferingAsync(tenantId, new CreateOfferingCommand(
+                request.DisplayName.Trim(), type, request.DurationMinutes, request.Price,
+                request.CategoryId, request.RequiredSkillCode, request.Description), ct);
+            return StatusCode(StatusCodes.Status201Created, ToOfferingDto(offering));
+        }
+        catch (ValidationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpPut("offerings/{offeringId:guid}")]
+    public async Task<ActionResult<BookingOfferingDto>> UpdateOffering(Guid offeringId, [FromBody] UpsertOfferingRequest request, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        if (string.IsNullOrWhiteSpace(request.DisplayName) || request.DurationMinutes <= 0 || request.Price < 0)
+            return BadRequest(new { message = "Tên dịch vụ, thời lượng > 0 và giá >= 0 là bắt buộc." });
+        if (!Enum.TryParse<OfferingType>(request.OfferingType, ignoreCase: true, out var type))
+            return BadRequest(new { message = "OfferingType không hợp lệ (Service/Package)." });
+        try
+        {
+            var offering = await _offeringService.UpdateOfferingAsync(tenantId, offeringId, new CreateOfferingCommand(
+                request.DisplayName.Trim(), type, request.DurationMinutes, request.Price,
+                request.CategoryId, request.RequiredSkillCode, request.Description), request.IsActive, ct);
+            return Ok(ToOfferingDto(offering));
+        }
+        catch (ValidationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (NotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    [HttpPost("add-ons")]
+    public async Task<ActionResult<BookingAddOnDto>> CreateAddOn([FromBody] UpsertAddOnRequest request, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Price < 0)
+            return BadRequest(new { message = "Tên add-on và giá >= 0 là bắt buộc." });
+        try
+        {
+            var addOn = await _offeringService.CreateAddOnAsync(tenantId, request.Name.Trim(), request.Price, ct);
+            return StatusCode(StatusCodes.Status201Created, new BookingAddOnDto(addOn.Id, addOn.Name, addOn.Price));
+        }
+        catch (ValidationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpPut("add-ons/{addOnId:guid}")]
+    public async Task<ActionResult<BookingAddOnDto>> UpdateAddOn(Guid addOnId, [FromBody] UpsertAddOnRequest request, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Price < 0)
+            return BadRequest(new { message = "Tên add-on và giá >= 0 là bắt buộc." });
+        try
+        {
+            var addOn = await _offeringService.UpdateAddOnAsync(tenantId, addOnId, request.Name.Trim(), request.Price, request.IsActive, ct);
+            return Ok(new BookingAddOnDto(addOn.Id, addOn.Name, addOn.Price));
+        }
+        catch (ValidationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (NotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    private static BookingOfferingDto ToOfferingDto(AppointmentOffering o)
+        => new(o.Id, o.CategoryId, o.OfferingType.ToString(), o.DisplayName, o.DurationMinutes, o.Price, o.Description);
 
     // ── Schedules (P5.3 — SRS §11.3) ─────────────────────────────────────────
 
@@ -494,7 +605,11 @@ public class TenantBookingController(
         if (tenantId.Value == Guid.Empty)
             return Unauthorized(new { error = "Missing tenant_id claim" });
 
-        string khachLinkBase = _configuration["KhachLink:BaseUrl"] ?? "https://khachvip.online";
+        // Fix 2026-10-09 (bug: khách không truy cập link QR): khachvip.online DNS → 161.118.212.110 (chết).
+        // Domain KhachLink PWA hoạt động = diemthuong2.khachvip.online (ShopERP env ExternalUrls__KhachLink).
+        string khachLinkBase = _configuration["KhachLink:BaseUrl"]
+            ?? _configuration["ExternalUrls:KhachLink"]
+            ?? "https://diemthuong2.khachvip.online";
         QrChannelDetailResult detail;
         try
         {
@@ -803,6 +918,15 @@ public record CompleteBookingRequest(decimal ActualTotal);
 public record CreateTenantBookingRequest(
     Guid OfferingId, List<Guid>? AddOnIds, DateTime StartAt, Guid? StaffId,
     string? CustomerName = null, string? CustomerPhone = null, string? CustomerNote = null);
+
+/// <summary>Catalog CRUD (Fix 2026-10-09 — bug 2: UI quản lý dịch vụ đặt lịch).</summary>
+public record UpsertCategoryRequest(string Name, int DisplayOrder = 0, bool IsActive = true);
+
+public record UpsertOfferingRequest(
+    string DisplayName, string OfferingType, int DurationMinutes, decimal Price,
+    Guid? CategoryId = null, string? RequiredSkillCode = null, string? Description = null, bool IsActive = true);
+
+public record UpsertAddOnRequest(string Name, decimal Price, bool IsActive = true);
 
 public record StaffAvailabilityDto(Guid StaffId, string StaffName, DateTime SlotStartAt, DateTime SlotEndAt, bool IsAvailable, string? UnavailableReason);
 

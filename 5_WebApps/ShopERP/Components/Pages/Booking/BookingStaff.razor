@@ -117,7 +117,11 @@
         <div class="mb-2 text-muted small"><strong>@_skillsStaff.DisplayName</strong> — chọn dịch vụ nhân viên có thể phục vụ.</div>
         @if (_offerings.Count == 0)
         {
-            <VanAAlert Variant="info" Message="Chưa có dịch vụ nào. Dịch vụ do cửa hàng cấu hình (P5.2 catalog read)." Dismissible="false" />
+            <VanAAlert Variant="info" Dismissible="false">
+                Chưa có dịch vụ nào.
+                <a href="/booking/services" class="alert-link">Tạo dịch vụ đặt lịch tại đây →</a>
+                (cửa hàng cấu hình dịch vụ trước, sau đó gắn cho nhân viên).
+            </VanAAlert>
         }
         else
         {

@@ -282,7 +282,7 @@
 
     private string? _idempotencyKey;
     private BookingQueueItemDto? _createdBooking;
-    private string _khachLinkBase = "https://khachvip.online";
+    private string _khachLinkBase = "https://diemthuong2.khachvip.online";
 
     private List<BookingOfferingDto> _visibleOfferings
         => _selectedCategoryId == Guid.Empty
@@ -312,7 +312,10 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _khachLinkBase = Configuration["KhachLink:BaseUrl"] ?? _khachLinkBase;
+        // Fix 2026-10-09: khachvip.online DNS chết — ưu tiên env ExternalUrls:KhachLink (diemthuong2).
+        _khachLinkBase = Configuration["ExternalUrls:KhachLink"]
+            ?? Configuration["KhachLink:BaseUrl"]
+            ?? _khachLinkBase;
         _loading = true;
         try
         {

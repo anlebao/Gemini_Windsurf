@@ -117,6 +117,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                     new() { Title = "Hoa hồng CTV", Icon = "cash-stack", Url = "/booking/commission" },
                     // Issue #188 P1 (2026-10-08): UI kích hoạt đặt lịch — bật/tắt + chính sách cọc + hủy + hóa đơn
                     new() { Title = "Cấu hình đặt lịch", Icon = "gear", Url = "/booking/config" },
+                    // Fix 2026-10-09 (bug 2): quản lý dịch vụ đặt lịch — tạo offering/category/add-on để gắn staff skills
+                    new() { Title = "Dịch vụ đặt lịch", Icon = "grid", Url = "/booking/services" },
                 }
             });
         }

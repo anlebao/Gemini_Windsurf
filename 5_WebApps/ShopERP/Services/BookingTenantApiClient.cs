@@ -107,6 +107,13 @@ public interface IBookingTenantApiClient
     Task<ApiResponse<List<BookingCategoryDto>>> GetCategoriesAsync(CancellationToken ct = default);
     Task<ApiResponse<List<BookingOfferingDto>>> GetOfferingsAsync(bool activeOnly = false, CancellationToken ct = default);
     Task<ApiResponse<List<BookingAddOnDto>>> GetAddOnsAsync(CancellationToken ct = default);
+    // Catalog CRUD (Fix 2026-10-09 — bug 2: quản lý dịch vụ đặt lịch /booking/services)
+    Task<ApiResponse<BookingCategoryDto>> CreateCategoryAsync(string name, int displayOrder, CancellationToken ct = default);
+    Task<ApiResponse<BookingCategoryDto>> UpdateCategoryAsync(Guid categoryId, string name, int displayOrder, bool isActive, CancellationToken ct = default);
+    Task<ApiResponse<BookingOfferingDto>> CreateOfferingAsync(string displayName, string offeringType, int durationMinutes, decimal price, Guid? categoryId, string? description, CancellationToken ct = default);
+    Task<ApiResponse<BookingOfferingDto>> UpdateOfferingAsync(Guid offeringId, string displayName, string offeringType, int durationMinutes, decimal price, Guid? categoryId, string? description, bool isActive, CancellationToken ct = default);
+    Task<ApiResponse<BookingAddOnDto>> CreateAddOnAsync(string name, decimal price, CancellationToken ct = default);
+    Task<ApiResponse<BookingAddOnDto>> UpdateAddOnAsync(Guid addOnId, string name, decimal price, bool isActive, CancellationToken ct = default);
     Task<ApiResponse<StaffScheduleDto>> GetSchedulesAsync(Guid staffId, CancellationToken ct = default);
     Task<ApiResponse<WorkingScheduleDto>> UpsertScheduleAsync(Guid staffId, int weekday, TimeSpan start, TimeSpan end, TimeSpan? breakStart, TimeSpan? breakEnd, CancellationToken ct = default);
     Task<ApiResponse<bool>> DeleteScheduleAsync(Guid scheduleId, CancellationToken ct = default);
@@ -256,6 +263,28 @@ public sealed class BookingTenantApiClient : GatewayAdminApiClientBase, IBooking
 
     public Task<ApiResponse<List<BookingAddOnDto>>> GetAddOnsAsync(CancellationToken ct = default)
         => GetAsync<List<BookingAddOnDto>>($"{Base}/add-ons", ct);
+
+    // ── Catalog CRUD (Fix 2026-10-09 — bug 2) ──────────────────────────────
+
+    public Task<ApiResponse<BookingCategoryDto>> CreateCategoryAsync(string name, int displayOrder, CancellationToken ct = default)
+        => PostAsync<BookingCategoryDto>($"{Base}/categories", new { name, displayOrder }, ct);
+
+    public Task<ApiResponse<BookingCategoryDto>> UpdateCategoryAsync(Guid categoryId, string name, int displayOrder, bool isActive, CancellationToken ct = default)
+        => PostAsync<BookingCategoryDto>($"{Base}/categories/{categoryId}", new { name, displayOrder, isActive }, ct, HttpMethod.Put);
+
+    public Task<ApiResponse<BookingOfferingDto>> CreateOfferingAsync(string displayName, string offeringType, int durationMinutes, decimal price, Guid? categoryId, string? description, CancellationToken ct = default)
+        => PostAsync<BookingOfferingDto>($"{Base}/offerings",
+            new { displayName, offeringType, durationMinutes, price, categoryId, description }, ct);
+
+    public Task<ApiResponse<BookingOfferingDto>> UpdateOfferingAsync(Guid offeringId, string displayName, string offeringType, int durationMinutes, decimal price, Guid? categoryId, string? description, bool isActive, CancellationToken ct = default)
+        => PostAsync<BookingOfferingDto>($"{Base}/offerings/{offeringId}",
+            new { displayName, offeringType, durationMinutes, price, categoryId, description, isActive }, ct, HttpMethod.Put);
+
+    public Task<ApiResponse<BookingAddOnDto>> CreateAddOnAsync(string name, decimal price, CancellationToken ct = default)
+        => PostAsync<BookingAddOnDto>($"{Base}/add-ons", new { name, price }, ct);
+
+    public Task<ApiResponse<BookingAddOnDto>> UpdateAddOnAsync(Guid addOnId, string name, decimal price, bool isActive, CancellationToken ct = default)
+        => PostAsync<BookingAddOnDto>($"{Base}/add-ons/{addOnId}", new { name, price, isActive }, ct, HttpMethod.Put);
 
     public Task<ApiResponse<StaffScheduleDto>> GetSchedulesAsync(Guid staffId, CancellationToken ct = default)
         => GetAsync<StaffScheduleDto>($"{Base}/staff/{staffId}/schedules", ct);

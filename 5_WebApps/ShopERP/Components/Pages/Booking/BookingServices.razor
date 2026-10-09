@@ -1,0 +1,504 @@
+@page "/booking/services"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StoreManagement")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.ShopERP.Services
+@inject IBookingTenantApiClient BookingApi
+@inject ILogger<BookingServices> Logger
+
+<PageTitle>Dịch vụ đặt lịch - Vạn An</PageTitle>
+
+<div class="booking-services-page">
+    <header class="page-header mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="mb-0"><i class="bi bi-grid"></i> Dịch vụ đặt lịch</h1>
+    </header>
+
+    <VanAAlert Variant="info" Dismissible="false" class="mb-3">
+        Cấu hình dịch vụ (offering) + danh mục + thêm vào (add-on) — sau đó gắn dịch vụ cho nhân viên tại mục
+        <a href="/booking/staff" class="alert-link">Nhân viên → Dịch vụ nhân viên phục vụ được</a> (SRS §11.2).
+    </VanAAlert>
+
+    @if (_loading)
+    {
+        <VanASpinner Text="Đang tải..." />
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Variant="error" Message="@_errorMessage" Dismissible="true" OnDismiss="() => _errorMessage = null" />
+    }
+    else
+    {
+        <div class="row g-3">
+            @* ── Dịch vụ (offerings) ── *@
+            <div class="col-12">
+                <VanACard Header="💆 Dịch vụ đặt lịch (Appointment Offering)">
+                    <div class="d-flex justify-content-end mb-2">
+                        <VanAButton Variant="primary" Size="small" OnClick="OpenOfferingCreate" data-testid="offering-add">
+                            <i class="bi bi-plus-circle"></i> Thêm dịch vụ
+                        </VanAButton>
+                    </div>
+                    <VanAnDataGrid TItem="BookingOfferingDto" Items="@_offerings"
+                                   EmptyMessage="Chưa có dịch vụ nào. Bấm 'Thêm dịch vụ' để tạo dịch vụ đầu tiên (VD: Massage 60 phút, Cắt tóc...).">
+                        <Columns>
+                            <VanAnColumn TItem="BookingOfferingDto" Title="Dịch vụ" Width="4">
+                                <Template Context="o">
+                                    <span>@o.DisplayName</span>
+                                    @if (o.OfferingType == "Package")
+                                    {
+                                        <span class="badge bg-info ms-1">Gói</span>
+                                    }
+                                </Template>
+                            </VanAnColumn>
+                            <VanAnColumn TItem="BookingOfferingDto" Title="Thời lượng" Width="2">
+                                <Template Context="o"><span>@o.DurationMinutes phút</span></Template>
+                            </VanAnColumn>
+                            <VanAnColumn TItem="BookingOfferingDto" Title="Giá" Width="2">
+                                <Template Context="o"><span>@o.Price.ToString("N0")đ</span></Template>
+                            </VanAnColumn>
+                            <VanAnColumn TItem="BookingOfferingDto" Title="Danh mục" Width="2">
+                                <Template Context="o"><span>@CategoryName(o.CategoryId)</span></Template>
+                            </VanAnColumn>
+                            <VanAnColumn TItem="BookingOfferingDto" Title="Thao tác" Width="3">
+                                <Template Context="o">
+                                    <div class="d-flex gap-1 flex-wrap">
+                                        <VanAButton Variant="outline" Size="small" OnClick="() => OpenOfferingEdit(o)">
+                                            <i class="bi bi-pencil"></i> Sửa
+                                        </VanAButton>
+                                        <VanAButton Variant="@(o.OfferingType == "Package" ? "secondary" : "outline")" Size="small"
+                                                    OnClick="() => ToggleOfferingActive(o)"
+                                                    Disabled="@(o.OfferingType == "Package")"
+                                                    data-testid="@($"offering-toggle-{o.Id}")">
+                                            @(IsOfferingActive(o) ? "Tạm ẩn" : "Kích hoạt")
+                                        </VanAButton>
+                                    </div>
+                                </Template>
+                            </VanAnColumn>
+                        </Columns>
+                    </VanAnDataGrid>
+                </VanACard>
+            </div>
+
+            @* ── Danh mục ── *@
+            <div class="col-lg-6">
+                <VanACard Header="🗂️ Danh mục (Category)">
+                    <div class="d-flex justify-content-end mb-2">
+                        <VanAButton Variant="primary" Size="small" OnClick="OpenCategoryCreate" data-testid="category-add">
+                            <i class="bi bi-plus-circle"></i> Thêm danh mục
+                        </VanAButton>
+                    </div>
+                    <VanAnDataGrid TItem="BookingCategoryDto" Items="@_categories" EmptyMessage="Chưa có danh mục (không bắt buộc).">
+                        <Columns>
+                            <VanAnColumn TItem="BookingCategoryDto" Title="Tên" Width="6">
+                                <Template Context="c"><span>@c.Name</span></Template>
+                            </VanAnColumn>
+                            <VanAnColumn TItem="BookingCategoryDto" Title="Thứ tự" Width="3">
+                                <Template Context="c"><span>@c.DisplayOrder</span></Template>
+                            </VanAnColumn>
+                            <VanAnColumn TItem="BookingCategoryDto" Title="Thao tác" Width="3">
+                                <Template Context="c">
+                                    <VanAButton Variant="outline" Size="small" OnClick="() => OpenCategoryEdit(c)">
+                                        <i class="bi bi-pencil"></i> Sửa
+                                    </VanAButton>
+                                </Template>
+                            </VanAnColumn>
+                        </Columns>
+                    </VanAnDataGrid>
+                </VanACard>
+            </div>
+
+            @* ── Add-ons ── *@
+            <div class="col-lg-6">
+                <VanACard Header="➕ Thêm vào (Add-on)">
+                    <div class="d-flex justify-content-end mb-2">
+                        <VanAButton Variant="primary" Size="small" OnClick="OpenAddOnCreate" data-testid="addon-add">
+                            <i class="bi bi-plus-circle"></i> Thêm add-on
+                        </VanAButton>
+                    </div>
+                    <VanAnDataGrid TItem="BookingAddOnDto" Items="@_addOns" EmptyMessage="Chưa có add-on (tùy chọn — VD: Nước uống, Phụ thu phòng VIP).">
+                        <Columns>
+                            <VanAnColumn TItem="BookingAddOnDto" Title="Tên" Width="6">
+                                <Template Context="a"><span>@a.Name</span></Template>
+                            </VanAnColumn>
+                            <VanAnColumn TItem="BookingAddOnDto" Title="Giá" Width="3">
+                                <Template Context="a"><span>@a.Price.ToString("N0")đ</span></Template>
+                            </VanAnColumn>
+                            <VanAnColumn TItem="BookingAddOnDto" Title="Thao tác" Width="3">
+                                <Template Context="a">
+                                    <VanAButton Variant="outline" Size="small" OnClick="() => OpenAddOnEdit(a)">
+                                        <i class="bi bi-pencil"></i> Sửa
+                                    </VanAButton>
+                                </Template>
+                            </VanAnColumn>
+                        </Columns>
+                    </VanAnDataGrid>
+                </VanACard>
+            </div>
+        </div>
+    }
+</div>
+
+@* Modal dịch vụ *@
+<VanAnModal IsOpen="@_isOfferingEditing" Title="@(_offeringEditingId == Guid.Empty ? "Thêm dịch vụ" : "Sửa dịch vụ")"
+            OnClose="() => _isOfferingEditing = false" OnConfirm="SaveOfferingAsync" ShowDefaultFooter="true" Closable="true">
+    <div class="mb-2">
+        <label class="form-label">Tên dịch vụ *</label>
+        <input type="text" class="form-control" @bind="_offeringName" placeholder="VD: Massage 60 phút" data-testid="offering-name" />
+    </div>
+    <div class="row g-2 mb-2">
+        <div class="col-6">
+            <label class="form-label">Loại</label>
+            <VanASelect Id="offering-type" Value="@_offeringType" ValueChanged="OnOfferingTypeChanged" Options="OfferingTypeOptions" />
+        </div>
+        <div class="col-6">
+            <label class="form-label">Danh mục</label>
+            <VanASelect Id="offering-category" Value="@(_offeringCategoryId?.ToString() ?? Guid.Empty.ToString())" ValueChanged="OnOfferingCategoryChanged"
+                        Options="CategorySelectOptions" />
+        </div>
+    </div>
+    <div class="row g-2 mb-2">
+        <div class="col-6">
+            <label class="form-label">Thời lượng (phút) *</label>
+            <input type="number" class="form-control" @bind="_offeringDuration" min="5" step="5" data-testid="offering-duration" />
+        </div>
+        <div class="col-6">
+            <label class="form-label">Giá (đ) *</label>
+            <input type="number" class="form-control" @bind="_offeringPrice" min="0" data-testid="offering-price" />
+        </div>
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Mô tả</label>
+        <textarea class="form-control" rows="2" @bind="_offeringDescription" placeholder="Mô tả ngắn (tùy chọn)"></textarea>
+    </div>
+    @if (!string.IsNullOrEmpty(_offeringError))
+    {
+        <VanAAlert Variant="error" Message="@_offeringError" Dismissible="true" OnDismiss="() => _offeringError = null" />
+    }
+</VanAnModal>
+
+@* Modal danh mục *@
+<VanAnModal IsOpen="@_isCategoryEditing" Title="@(_categoryEditingId == Guid.Empty ? "Thêm danh mục" : "Sửa danh mục")"
+            OnClose="() => _isCategoryEditing = false" OnConfirm="SaveCategoryAsync" ShowDefaultFooter="true" Closable="true">
+    <div class="mb-2">
+        <label class="form-label">Tên danh mục *</label>
+        <input type="text" class="form-control" @bind="_categoryName" placeholder="VD: Massage, Cắt tóc..." data-testid="category-name" />
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Thứ tự hiển thị</label>
+        <input type="number" class="form-control" @bind="_categoryOrder" min="0" />
+    </div>
+    @if (!string.IsNullOrEmpty(_categoryError))
+    {
+        <VanAAlert Variant="error" Message="@_categoryError" Dismissible="true" OnDismiss="() => _categoryError = null" />
+    }
+</VanAnModal>
+
+@* Modal add-on *@
+<VanAnModal IsOpen="@_isAddOnEditing" Title="@(_addOnEditingId == Guid.Empty ? "Thêm add-on" : "Sửa add-on")"
+            OnClose="() => _isAddOnEditing = false" OnConfirm="SaveAddOnAsync" ShowDefaultFooter="true" Closable="true">
+    <div class="mb-2">
+        <label class="form-label">Tên add-on *</label>
+        <input type="text" class="form-control" @bind="_addOnName" placeholder="VD: Nước uống, Phụ thu phòng VIP..." data-testid="addon-name" />
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Giá (đ) *</label>
+        <input type="number" class="form-control" @bind="_addOnPrice" min="0" data-testid="addon-price" />
+    </div>
+    @if (!string.IsNullOrEmpty(_addOnError))
+    {
+        <VanAAlert Variant="error" Message="@_addOnError" Dismissible="true" OnDismiss="() => _addOnError = null" />
+    }
+</VanAnModal>
+
+@if (!string.IsNullOrEmpty(_actionError))
+{
+    <VanAAlert Variant="error" Message="@_actionError" Dismissible="true" OnDismiss="() => _actionError = null" class="mt-2" data-testid="services-error" />
+}
+@if (!string.IsNullOrEmpty(_successMessage))
+{
+    <VanAAlert Variant="success" Message="@_successMessage" Dismissible="true" OnDismiss="() => _successMessage = null" class="mt-2" data-testid="services-success" />
+}
+
+@code {
+    private static readonly IReadOnlyList<VanASelect.SelectOption> OfferingTypeOptions =
+    [
+        new("Service", "Dịch vụ đơn"),
+        new("Package", "Gói / Combo"),
+    ];
+
+    private List<BookingCategoryDto> _categories = [];
+    private List<BookingOfferingDto> _offerings = [];
+    private List<BookingAddOnDto> _addOns = [];
+    private readonly HashSet<Guid> _inactiveOfferings = [];
+
+    private bool _loading = true;
+    private string? _errorMessage;
+    private string? _actionError;
+    private string? _successMessage;
+
+    // Offering form
+    private bool _isOfferingEditing;
+    private string? _offeringError;
+    private Guid _offeringEditingId = Guid.Empty;
+    private string _offeringName = string.Empty;
+    private string _offeringType = "Service";
+    private Guid? _offeringCategoryId;
+    private int _offeringDuration = 60;
+    private decimal _offeringPrice;
+    private string _offeringDescription = string.Empty;
+
+    // Category form
+    private bool _isCategoryEditing;
+    private string? _categoryError;
+    private Guid _categoryEditingId = Guid.Empty;
+    private string _categoryName = string.Empty;
+    private int _categoryOrder;
+
+    // Add-on form
+    private bool _isAddOnEditing;
+    private string? _addOnError;
+    private Guid _addOnEditingId = Guid.Empty;
+    private string _addOnName = string.Empty;
+    private decimal _addOnPrice;
+
+    private IReadOnlyList<VanASelect.SelectOption> CategorySelectOptions
+        => [new(Guid.Empty.ToString(), "— Không có —"), .. _categories.Select(c => new VanASelect.SelectOption(c.Id.ToString(), c.Name))];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            var categories = await BookingApi.GetCategoriesAsync();
+            if (categories.Ok) _categories = categories.Data ?? [];
+            var offerings = await BookingApi.GetOfferingsAsync(activeOnly: false);
+            if (offerings.Ok) _offerings = offerings.Data ?? [];
+            var addOns = await BookingApi.GetAddOnsAsync();
+            if (addOns.Ok) _addOns = addOns.Data ?? [];
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking services load failed");
+            _errorMessage = "Không tải được danh sách dịch vụ.";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string CategoryName(Guid? categoryId)
+        => categoryId is null ? "—" : _categories.FirstOrDefault(c => c.Id == categoryId.Value)?.Name ?? "—";
+
+    private bool IsOfferingActive(BookingOfferingDto offering)
+    {
+        if (_inactiveOfferings.Contains(offering.Id)) return false;
+        var active = _offerings.FirstOrDefault(o => o.Id == offering.Id);
+        return active is not null;
+    }
+
+    private void OpenOfferingCreate()
+    {
+        _offeringEditingId = Guid.Empty;
+        _offeringName = string.Empty;
+        _offeringType = "Service";
+        _offeringCategoryId = null;
+        _offeringDuration = 60;
+        _offeringPrice = 0;
+        _offeringDescription = string.Empty;
+        _offeringError = null;
+        _isOfferingEditing = true;
+    }
+
+    private void OpenOfferingEdit(BookingOfferingDto offering)
+    {
+        _offeringEditingId = offering.Id;
+        _offeringName = offering.DisplayName;
+        _offeringType = offering.OfferingType;
+        _offeringCategoryId = offering.CategoryId;
+        _offeringDuration = offering.DurationMinutes;
+        _offeringPrice = offering.Price;
+        _offeringDescription = offering.Description ?? string.Empty;
+        _offeringError = null;
+        _isOfferingEditing = true;
+    }
+
+    private async Task SaveOfferingAsync()
+    {
+        _offeringError = null;
+        _successMessage = null;
+        if (string.IsNullOrWhiteSpace(_offeringName) || _offeringDuration <= 0 || _offeringPrice < 0)
+        {
+            _offeringError = "Tên dịch vụ, thời lượng > 0 và giá >= 0 là bắt buộc.";
+            return;
+        }
+        try
+        {
+            Guid? categoryId = _offeringCategoryId == Guid.Empty ? null : _offeringCategoryId;
+            if (_offeringEditingId == Guid.Empty)
+            {
+                var result = await BookingApi.CreateOfferingAsync(
+                    _offeringName.Trim(), _offeringType, _offeringDuration, _offeringPrice, categoryId,
+                    string.IsNullOrWhiteSpace(_offeringDescription) ? null : _offeringDescription.Trim());
+                if (!result.Ok) { _offeringError = result.Error; return; }
+                _successMessage = $"Đã thêm dịch vụ \"{result.Data!.DisplayName}\".";
+            }
+            else
+            {
+                var result = await BookingApi.UpdateOfferingAsync(
+                    _offeringEditingId, _offeringName.Trim(), _offeringType, _offeringDuration, _offeringPrice, categoryId,
+                    string.IsNullOrWhiteSpace(_offeringDescription) ? null : _offeringDescription.Trim(), isActive: true);
+                if (!result.Ok) { _offeringError = result.Error; return; }
+                _successMessage = $"Đã cập nhật dịch vụ \"{result.Data!.DisplayName}\".";
+            }
+            _isOfferingEditing = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking services offering save failed");
+            _offeringError = "Không lưu được dịch vụ. Vui lòng thử lại.";
+        }
+    }
+
+    private async Task ToggleOfferingActive(BookingOfferingDto offering)
+    {
+        _actionError = null;
+        _successMessage = null;
+        bool nextActive = !IsOfferingActive(offering);
+        try
+        {
+            var result = await BookingApi.UpdateOfferingAsync(
+                offering.Id, offering.DisplayName, offering.OfferingType, offering.DurationMinutes, offering.Price,
+                offering.CategoryId, offering.Description, nextActive);
+            if (!result.Ok) { _actionError = result.Error; return; }
+            if (nextActive) _inactiveOfferings.Remove(offering.Id); else _inactiveOfferings.Add(offering.Id);
+            _successMessage = nextActive
+                ? $"Đã kích hoạt dịch vụ \"{offering.DisplayName}\"."
+                : $"Đã tạm ẩn dịch vụ \"{offering.DisplayName}\" (khách không đặt được).";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking services offering toggle failed");
+            _actionError = "Không cập nhật được dịch vụ. Vui lòng thử lại.";
+        }
+    }
+
+    private void OpenCategoryCreate()
+    {
+        _categoryEditingId = Guid.Empty;
+        _categoryName = string.Empty;
+        _categoryOrder = 0;
+        _categoryError = null;
+        _isCategoryEditing = true;
+    }
+
+    private void OpenCategoryEdit(BookingCategoryDto category)
+    {
+        _categoryEditingId = category.Id;
+        _categoryName = category.Name;
+        _categoryOrder = category.DisplayOrder;
+        _categoryError = null;
+        _isCategoryEditing = true;
+    }
+
+    private async Task SaveCategoryAsync()
+    {
+        _categoryError = null;
+        _successMessage = null;
+        if (string.IsNullOrWhiteSpace(_categoryName))
+        {
+            _categoryError = "Tên danh mục là bắt buộc.";
+            return;
+        }
+        try
+        {
+            if (_categoryEditingId == Guid.Empty)
+            {
+                var result = await BookingApi.CreateCategoryAsync(_categoryName.Trim(), _categoryOrder);
+                if (!result.Ok) { _categoryError = result.Error; return; }
+                _successMessage = $"Đã thêm danh mục \"{result.Data!.Name}\".";
+            }
+            else
+            {
+                var result = await BookingApi.UpdateCategoryAsync(_categoryEditingId, _categoryName.Trim(), _categoryOrder, isActive: true);
+                if (!result.Ok) { _categoryError = result.Error; return; }
+                _successMessage = $"Đã cập nhật danh mục \"{result.Data!.Name}\".";
+            }
+            _isCategoryEditing = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking services category save failed");
+            _categoryError = "Không lưu được danh mục. Vui lòng thử lại.";
+        }
+    }
+
+    private void OpenAddOnCreate()
+    {
+        _addOnEditingId = Guid.Empty;
+        _addOnName = string.Empty;
+        _addOnPrice = 0;
+        _addOnError = null;
+        _isAddOnEditing = true;
+    }
+
+    private void OpenAddOnEdit(BookingAddOnDto addOn)
+    {
+        _addOnEditingId = addOn.Id;
+        _addOnName = addOn.Name;
+        _addOnPrice = addOn.Price;
+        _addOnError = null;
+        _isAddOnEditing = true;
+    }
+
+    private async Task SaveAddOnAsync()
+    {
+        _addOnError = null;
+        _successMessage = null;
+        if (string.IsNullOrWhiteSpace(_addOnName) || _addOnPrice < 0)
+        {
+            _addOnError = "Tên add-on và giá >= 0 là bắt buộc.";
+            return;
+        }
+        try
+        {
+            if (_addOnEditingId == Guid.Empty)
+            {
+                var result = await BookingApi.CreateAddOnAsync(_addOnName.Trim(), _addOnPrice);
+                if (!result.Ok) { _addOnError = result.Error; return; }
+                _successMessage = $"Đã thêm add-on \"{result.Data!.Name}\".";
+            }
+            else
+            {
+                var result = await BookingApi.UpdateAddOnAsync(_addOnEditingId, _addOnName.Trim(), _addOnPrice, isActive: true);
+                if (!result.Ok) { _addOnError = result.Error; return; }
+                _successMessage = $"Đã cập nhật add-on \"{result.Data!.Name}\".";
+            }
+            _isAddOnEditing = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking services add-on save failed");
+            _addOnError = "Không lưu được add-on. Vui lòng thử lại.";
+        }
+    }
+
+    private void OnOfferingTypeChanged(string value) => _offeringType = value;
+
+    private void OnOfferingCategoryChanged(string value)
+        => _offeringCategoryId = Guid.TryParse(value, out var id) && id != Guid.Empty ? id : null;
+}

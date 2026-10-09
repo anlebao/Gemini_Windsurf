@@ -85,4 +85,27 @@ test.describe('RV ShopERP — issue #188 (config/QR/ingredients) production', ()
     await page.locator('.modal button', { hasText: 'Confirm' }).click();
     await expect(page.locator('tr', { hasText: name }).first()).toBeHidden({ timeout: 15000 });
   });
+
+  test('Services: tạo dịch vụ → hiển thị → tạm ẩn (cleanup)', async ({ page }) => {
+    const name = `RV Dịch vụ ${Date.now()}`;
+    await page.goto('https://app2.khachvip.online/booking/services');
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.locator('h1')).toContainText('Dịch vụ đặt lịch', { timeout: 20000 });
+    await page.locator('[data-testid="offering-add"]').click();
+    await expect(page.locator('.modal')).toBeVisible();
+    await page.locator('[data-testid="offering-name"]').fill(name);
+    await page.locator('[data-testid="offering-duration"]').fill('45');
+    await page.locator('[data-testid="offering-price"]').fill('250000');
+    await page.locator('.modal button', { hasText: 'Confirm' }).click();
+
+    await expect(page.locator('[data-testid="services-success"]')).toBeVisible({ timeout: 20000 });
+    const row = page.locator(`tr:has-text("${name}")`).first();
+    await expect(row).toBeVisible({ timeout: 15000 });
+
+    // Cleanup: tạm ẩn.
+    await row.locator('button', { hasText: 'Tạm ẩn' }).click();
+    await expect(row.locator('button', { hasText: 'Kích hoạt' })).toBeVisible({ timeout: 15000 });
+    console.log(`Offering created + deactivated: ${name}`);
+  });
 });

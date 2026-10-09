@@ -6,7 +6,7 @@ import { defineConfig, devices } from '@playwright/test';
 // - ignoreHTTPSErrors: cert www2.khachvip.online cho app2 (hợp lệ trên DNS thật).
 export default defineConfig({
   testDir: './e2e-tests',
-  testMatch: /(booking-shoperp-create|rv-shoperp)\.spec\.ts/,
+  testMatch: /(booking-shoperp-create|booking-services|rv-shoperp)\.spec\.ts/,
   fullyParallel: false,
   retries: 0,
   workers: 1,
