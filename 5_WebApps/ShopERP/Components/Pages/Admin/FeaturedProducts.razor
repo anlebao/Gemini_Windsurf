@@ -10,7 +10,7 @@
 @using VanAn.ShopERP.Infrastructure
 @using VanAn.Shared.Domain
 @inject FeaturedProductApiClient FeaturedProductApi
-@inject ITenantManagementService TenantService
+@inject TenantApiClient TenantApi
 @inject IThemeProvider ThemeProvider
 @inject ILogger<FeaturedProducts> Logger
 @inject ShopERPDbContext ShopERPDb
@@ -140,7 +140,7 @@
                                 aria-label="Tenant" required>
                             @foreach (var t in _tenants)
                             {
-                                <option value="@t.Id.Value" selected="@(t.Id.Value == _form.TenantId)">@t.Name</option>
+                                <option value="@t.Id" selected="@(t.Id == _form.TenantId)">@t.Name</option>
                             }
                         </select>
                     </div>
@@ -264,7 +264,7 @@
 
 @code {
     private List<FeaturedProductDto> _items = new();
-    private List<VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant> _tenants = new();
+    private List<VanAn.ShopERP.Services.TenantApiDto> _tenants = new();
     // Section A fix (2026-07-23): Product picker — load from ShopERP SQLite, filter by selected tenant.
     private List<Product> _products = new();
     private bool _isLoading = true;
@@ -298,7 +298,22 @@
         try
         {
             _items = await FeaturedProductApi.ListAsync();
-            _tenants = (await TenantService.ListTenantsAsync()).ToList();
+            // Fix 2026-10-09 (root cause: TenantService.ListTenantsAsync đọc IVanAnDbContext = SQLite mirror 5 tenant cũ)
+            // → load TRỰC TIẾP từ Gateway admin API (PG — source of truth) + lọc tenant ĐÃ VERIFY (pattern UserManagement).
+            try
+            {
+                _tenants = (await TenantApi.ListAllAsync())
+                    .Where(t => t.Status != VanAn.Shared.Domain.Aggregates.TenantAggregate.TenantStatus.Pending)
+                    .OrderBy(t => t.Name)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to load tenants from Gateway — fallback SQLite mirror");
+                _tenants = (await ShopERPDb.Tenants.ToListAsync())
+                    .Select(t => new VanAn.ShopERP.Services.TenantApiDto { Id = t.Id.Value, Name = t.Name })
+                    .ToList();
+            }
         }
         catch (Exception ex)
         {
@@ -314,7 +329,7 @@
 
     private string TenantLabel(Guid tenantId)
     {
-        var t = _tenants.FirstOrDefault(x => x.Id.Value == tenantId);
+        var t = _tenants.FirstOrDefault(x => x.Id == tenantId);
         return t?.Name ?? tenantId.ToString()[..8];
     }
 
@@ -419,7 +434,7 @@
     {
         _isEdit = false;
         _editId = null;
-        Guid defaultTenantId = _tenants.FirstOrDefault()?.Id.Value ?? Guid.Empty;
+        Guid defaultTenantId = _tenants.FirstOrDefault()?.Id ?? Guid.Empty;
         _form = new CreateFeaturedProductRequest
         {
             ProductId = Guid.Empty,

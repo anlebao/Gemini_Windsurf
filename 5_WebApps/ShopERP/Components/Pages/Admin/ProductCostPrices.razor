@@ -7,7 +7,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using VanAn.ShopERP.Services
 @inject ProductCostPriceApiClient CostPriceApi
-@inject ITenantManagementService TenantService
+@inject TenantApiClient TenantApi
 @inject IThemeProvider ThemeProvider
 @inject ILogger<ProductCostPrices> Logger
 
@@ -101,7 +101,7 @@
                     <option value="">-- Chọn Tenant --</option>
                     @foreach (var t in _tenants)
                     {
-                        <option value="@t.Id.Value" selected="@(t.Id.Value == _formTenantId)">@t.Name</option>
+                        <option value="@t.Id" selected="@(t.Id == _formTenantId)">@t.Name</option>
                     }
                 </select>
             </div>
@@ -131,7 +131,7 @@
     private string _alertMessage = string.Empty;
     private string _alertType = "info";
 
-    private List<VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant> _tenants = new();
+    private List<VanAn.ShopERP.Services.TenantApiDto> _tenants = new();
 
     // Modal
     private bool _showModal;
@@ -151,11 +151,17 @@
     {
         try
         {
-            _tenants = (await TenantService.ListTenantsAsync()).ToList();
+            // Fix 2026-10-09 (root cause: TenantService.ListTenantsAsync đọc IVanAnDbContext = SQLite mirror 5 tenant cũ)
+            // → load TRỰC TIẾP từ Gateway admin API (PG — source of truth) + lọc tenant ĐÃ VERIFY (pattern UserManagement).
+            _tenants = (await TenantApi.ListAllAsync())
+                .Where(t => t.Status != VanAn.Shared.Domain.Aggregates.TenantAggregate.TenantStatus.Pending)
+                .OrderBy(t => t.Name)
+                .ToList();
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Failed to load tenants");
+            Logger.LogError(ex, "Failed to load tenants from Gateway — fallback empty");
+            _tenants = new();
         }
     }
 
@@ -181,7 +187,7 @@
 
     private string TenantLabel(Guid tenantId)
     {
-        var t = _tenants.FirstOrDefault(x => x.Id.Value == tenantId);
+        var t = _tenants.FirstOrDefault(x => x.Id == tenantId);
         return t?.Name ?? tenantId.ToString().Substring(0, 8) + "...";
     }
 

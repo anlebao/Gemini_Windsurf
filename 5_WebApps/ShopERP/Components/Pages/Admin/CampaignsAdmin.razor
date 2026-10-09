@@ -10,8 +10,8 @@
 @using VanAn.Shared.Domain.Common
 @using VanAn.ShopERP.Services
 @inject CampaignApiClient CampaignApi
+@inject TenantApiClient TenantApi
 @* ShopApiClient removed 2026-07-21 — Shop entity deleted. *@
-@inject ITenantManagementService TenantService
 @inject IThemeProvider ThemeProvider
 @inject ILogger<CampaignsAdmin> Logger
 
@@ -211,8 +211,14 @@
     {
         try
         {
-            var tenants = await TenantService.ListTenantsAsync();
-            _tenants = tenants.Select(t => new TenantInfo { Id = t.Id, Name = t.Name }).ToList();
+            // Fix 2026-10-09 (root cause: TenantService.ListTenantsAsync đọc IVanAnDbContext = SQLite mirror 5 tenant cũ)
+            // → load TRỰC TIẾP từ Gateway admin API (PG — source of truth) + lọc tenant ĐÃ VERIFY (pattern UserManagement).
+            var tenants = await TenantApi.ListAllAsync();
+            _tenants = tenants
+                .Where(t => t.Status != VanAn.Shared.Domain.Aggregates.TenantAggregate.TenantStatus.Pending)
+                .OrderBy(t => t.Name)
+                .Select(t => new TenantInfo { Id = t.Id, Name = t.Name })
+                .ToList();
         }
         catch (Exception ex)
         {
