@@ -13,10 +13,8 @@
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IConfiguration Configuration
-@inject ITenantManagementService TenantManagementService
 @inject ITenantProvider TenantProvider
 @inject VanAn.CoreHub.Infrastructure.VanAnDbContext PgDbContext
-@inject ILogger<Sitemap> Logger
 
 <PageTitle>Sitemap - @(string.IsNullOrEmpty(_tenantName) ? "Vạn An" : _tenantName)</PageTitle>
 
@@ -626,47 +624,25 @@
         _khachLinkUrl = Configuration["ExternalUrls:KhachLink"] ?? string.Empty;
 
         // Load tenant name + BusinessType để quyết định VAS BCTC vs Sổ HKD.
-        // RV diag 2026-10-09 (tạm): log claims + provider + lookup để tìm lý do tenant name không resolve.
+        // Fix 2026-10-09 (root cause: TenantManagementService nhận IVanAnDbContext = SQLite mirror chỉ 5 tenant cũ
+        // → tenant thật không tìm thấy). Đọc TRỰC TIẾP từ PG (VanAnDbContext accounting — source of truth).
+        // Nếu không xác định đúng TenantId → giữ nguyên chuỗi gốc (không lấy tên tenant bất kỳ).
         if (TenantProvider.HasTenant)
         {
-            // RV diag sâu (tạm): service lookup riêng + context query riêng — tránh một lỗi che lỗi khác.
             try
             {
-                var tenant = await TenantManagementService.GetTenantByIdAsync(new TenantId(TenantProvider.TenantId));
+                var tenant = await PgDbContext.Tenants
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(t => t.Id == new TenantId(TenantProvider.TenantId));
                 _tenantName = tenant?.Name ?? string.Empty;
                 _isCompanyTenant = tenant?.BusinessType == BusinessType.Company;
-                Logger.LogInformation("RV diag SERVICE: id={TenantId} name={Name} isCompany={IsCompany}",
-                    TenantProvider.TenantId, _tenantName, _isCompanyTenant);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Logger.LogError(ex, "RV diag SERVICE FAILED: id={TenantId}", TenantProvider.TenantId);
+                // Nếu PG lookup lỗi → fallback hiển thị VAS (backward compatible); _tenantName giữ chuỗi gốc.
                 _isCompanyTenant = true;
             }
-
-            try
-            {
-                Guid tid = TenantProvider.TenantId;
-                string conn = PgDbContext.Database.GetConnectionString() ?? "";
-                int pos = conn.IndexOf(";", StringComparison.Ordinal);
-                int count = await PgDbContext.Tenants.IgnoreQueryFilters().CountAsync();
-                var found = await PgDbContext.Tenants.IgnoreQueryFilters()
-                    .FirstOrDefaultAsync(t => t.Id == new TenantId(tid));
-                Logger.LogInformation("RV diag CTX: conn={Conn} count={Count} found={Found}",
-                    pos > 0 ? conn[..pos] : conn, count, found?.Name ?? "-");
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "RV diag CTX FAILED: id={TenantId}", TenantProvider.TenantId);
-            }
-        }
-        else
-        {
-            Logger.LogWarning("RV sitemap HasTenant=FALSE: claimTenantId={C1}/{C2}/{C3} providerId={P}",
-                user.FindFirst("tenant_id")?.Value ?? "-",
-                user.FindFirst("TenantId")?.Value ?? "-",
-                user.FindFirst("tenantId")?.Value ?? "-",
-                TenantProvider.TenantId);
         }
     }
 

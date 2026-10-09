@@ -1,4 +1,5 @@
 ﻿@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
 @using VanAn.UI.Platform.Components
 @using VanAn.ShopERP.Services
 @using VanAn.CoreHub.Services
@@ -6,7 +7,7 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IShopErpMenuService MenuService
 @inject ITenantProvider TenantProvider
-@inject ITenantManagementService TenantManagementService
+@inject VanAn.CoreHub.Infrastructure.VanAnDbContext PgDbContext
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -31,11 +32,16 @@
         _menuItems = await MenuService.BuildAsync(authState.User);
 
         // Brand hiển thị tên tenant hiện hành (thay "VanAn.ShopERP").
+        // Fix 2026-10-09 (root cause: TenantManagementService nhận IVanAnDbContext = SQLite mirror 5 tenant cũ)
+        // → đọc TRỰC TIẾP từ PG (source of truth). Không xác định đúng TenantId → giữ chuỗi gốc.
         if (TenantProvider.HasTenant)
         {
             try
             {
-                var tenant = await TenantManagementService.GetTenantByIdAsync(new TenantId(TenantProvider.TenantId));
+                var tenant = await PgDbContext.Tenants
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(t => t.Id == new TenantId(TenantProvider.TenantId));
                 _tenantName = tenant?.Name ?? string.Empty;
             }
             catch
