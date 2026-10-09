@@ -629,31 +629,35 @@
         // RV diag 2026-10-09 (tạm): log claims + provider + lookup để tìm lý do tenant name không resolve.
         if (TenantProvider.HasTenant)
         {
+            // RV diag sâu (tạm): service lookup riêng + context query riêng — tránh một lỗi che lỗi khác.
             try
             {
                 var tenant = await TenantManagementService.GetTenantByIdAsync(new TenantId(TenantProvider.TenantId));
                 _tenantName = tenant?.Name ?? string.Empty;
                 _isCompanyTenant = tenant?.BusinessType == BusinessType.Company;
-                // RV diag sâu: kiểm tra context thật
-                Guid tid = TenantProvider.TenantId;
-                string conn = PgDbContext.Database.GetConnectionString() ?? "";
-                int pos = conn.IndexOf(";", StringComparison.Ordinal);
-                Logger.LogInformation("RV sitemap tenant OK: id={TenantId} name={Name} isCompany={IsCompany} conn={Conn} count={Count} rawName={Raw} anyIdEq={Any}",
-                    tid, _tenantName, _isCompanyTenant,
-                    pos > 0 ? conn[..pos] : conn,
-                    await PgDbContext.Tenants.IgnoreQueryFilters().CountAsync(),
-                    await PgDbContext.Tenants.IgnoreQueryFilters().Where(t => t.Id.Value == tid).Select(t => t.Name).FirstOrDefaultAsync() ?? "-",
-                    await PgDbContext.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Id == new TenantId(tid)));
+                Logger.LogInformation("RV diag SERVICE: id={TenantId} name={Name} isCompany={IsCompany}",
+                    TenantProvider.TenantId, _tenantName, _isCompanyTenant);
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex, "RV sitemap tenant lookup FAILED: providerId={TenantId} claimTenantId={C1}/{C2}/{C3}",
-                    TenantProvider.TenantId,
-                    user.FindFirst("tenant_id")?.Value ?? "-",
-                    user.FindFirst("TenantId")?.Value ?? "-",
-                    user.FindFirst("tenantId")?.Value ?? "-");
-                // If tenant lookup fails, default to showing VAS reports (backward compatible)
+                Logger.LogError(ex, "RV diag SERVICE FAILED: id={TenantId}", TenantProvider.TenantId);
                 _isCompanyTenant = true;
+            }
+
+            try
+            {
+                Guid tid = TenantProvider.TenantId;
+                string conn = PgDbContext.Database.GetConnectionString() ?? "";
+                int pos = conn.IndexOf(";", StringComparison.Ordinal);
+                int count = await PgDbContext.Tenants.IgnoreQueryFilters().CountAsync();
+                var found = await PgDbContext.Tenants.IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(t => t.Id == new TenantId(tid));
+                Logger.LogInformation("RV diag CTX: conn={Conn} count={Count} found={Found}",
+                    pos > 0 ? conn[..pos] : conn, count, found?.Name ?? "-");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "RV diag CTX FAILED: id={TenantId}", TenantProvider.TenantId);
             }
         }
         else
