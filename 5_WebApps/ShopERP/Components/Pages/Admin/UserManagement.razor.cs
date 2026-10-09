@@ -4,9 +4,10 @@ using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
 using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.ShopERP.Services;
 using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
 using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
-using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
+using TenantStatus = VanAn.Shared.Domain.Aggregates.TenantAggregate.TenantStatus;
 
 namespace VanAn.ShopERP.Components.Pages.Admin
 {
@@ -25,7 +26,9 @@ namespace VanAn.ShopERP.Components.Pages.Admin
         private readonly CreateUserForm _createForm = new();
         private bool _isSystemAdmin = false;
         private Dictionary<Guid, string> _tenantNames = new();
-        private List<Tenant> _allTenants = new();
+        private List<TenantApiDto> _allTenants = new();
+
+        [Inject] private TenantApiClient TenantApi { get; set; } = default!;
 
         protected override async Task OnInitializedAsync()
         {
@@ -37,15 +40,28 @@ namespace VanAn.ShopERP.Components.Pages.Admin
             }
             catch { /* AuthStateProvider not available */ }
 
-            // Bug 3: Load tenant names for display + tenant selector
+            // Fix 2026-10-09 (bug: combo tenant chỉ 5-6 tenant cũ): tenant selector phải đọc
+            // PG (source of truth — Option C) qua Gateway admin API, KHÔNG đọc SQLite mirror
+            // (TenantSyncSubscriber chỉ sync 5 tenant cũ). Lọc tenants ĐÃ VERIFY (Status != Pending).
             if (DbContext != null)
             {
                 try
                 {
-                    _allTenants = await DbContext.Tenants.ToListAsync();
-                    _tenantNames = _allTenants.ToDictionary(t => t.Id.Value, t => t.Name);
+                    var all = await TenantApi.ListAllAsync();
+                    _allTenants = all
+                        .Where(t => t.Status != TenantStatus.Pending)
+                        .OrderBy(t => t.Name)
+                        .ToList();
+                    _tenantNames = _allTenants.ToDictionary(t => t.Id, t => t.Name);
+                    Logger.LogInformation("UserManagement: loaded {Count} verified tenants from Gateway PG", _allTenants.Count);
                 }
-                catch (Exception ex) { Logger.LogWarning(ex, "Failed to load tenants"); }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Failed to load tenants from Gateway — fallback SQLite mirror");
+                    var local = await DbContext.Tenants.ToListAsync();
+                    _allTenants = local.Select(t => new TenantApiDto { Id = t.Id.Value, Name = t.Name }).ToList();
+                    _tenantNames = _allTenants.ToDictionary(t => t.Id, t => t.Name);
+                }
             }
 
             // SystemAdmin: default EMPTY — no data loaded until filter selected

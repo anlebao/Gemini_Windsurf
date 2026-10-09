@@ -109,7 +109,7 @@
                             <select id="user-tenant" class="vanan-select" @bind="_createForm.TenantId" aria-label="Tenant" required>
                                 @foreach (var t in _allTenants)
                                 {
-                                    <option value="@t.Id.Value">@t.Name</option>
+                                    <option value="@t.Id">@t.Name</option>
                                 }
                             </select>
                         </div>
