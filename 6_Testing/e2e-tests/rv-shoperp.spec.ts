@@ -40,8 +40,14 @@ test.describe('RV ShopERP — issue #188 (config/QR/ingredients) production', ()
     const link = page.locator('[data-testid^="qr-link-"]').first();
     await expect(link).toBeVisible();
     const linkText = await link.innerText();
-    expect(linkText).toMatch(/https:\/\/khachvip\.online\/booking\/[a-f0-9]{32}/);
+    // Fix 2026-10-09 (bug 1): link phải dùng diemthuong2 (khachvip.online DNS chết).
+    expect(linkText).toMatch(/https:\/\/diemthuong2\.khachvip\.online\/booking\/[a-f0-9]{32}/);
     console.log(`QR link: ${linkText}`);
+
+    // Mở link THẬT trong browser (host-resolver → gateway) — PWA KhachLink phải load + hiển thị màn đặt lịch.
+    await page.goto(linkText, { waitUntil: 'networkidle', timeout: 60000 });
+    await expect(page.locator('text=Dịch vụ → Thời gian').or(page.locator('text=Chọn dịch vụ'))).toBeVisible({ timeout: 40000 });
+    console.log('Khách mở link QR → PWA đặt lịch render OK');
 
     // QR link mở được (KhachLink catalog — tenant enabled → 200 JSON).
     const qrToken = linkText.split('/booking/')[1];
