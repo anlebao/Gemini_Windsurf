@@ -1,7 +1,7 @@
 @page "/accounting/cong-no"
 @rendermode InteractiveServer
 @layout AccountingLayout
-@attribute [Authorize(Policy = "OwnerOnly")]
+@attribute [Authorize(Policy = "AccountingAccess")]
 @using Microsoft.AspNetCore.Authorization
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Data

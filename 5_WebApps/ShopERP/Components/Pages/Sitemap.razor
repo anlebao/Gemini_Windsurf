@@ -100,8 +100,8 @@
             </Authorized>
         </AuthorizeView>
 
-        @* ── VA-IIE (Sprint B): Kiểm kê & Kho (Owner + StoreKeeper) ── *@
-        <AuthorizeView Roles="Owner,StoreKeeper">
+        @* ── VA-IIE (Sprint B): Kiểm kê & Kho (Owner + StoreKeeper + Kế toán trưởng) ── *@
+        <AuthorizeView Roles="Owner,StoreKeeper,ChiefAccountant">
             <Authorized>
                 <VanACard Header="📦 Kiểm kê & Kho (VA-IIE)" Hoverable="true" data-testid="card-va-iie">
                     <div class="sitemap-links">
@@ -189,7 +189,7 @@
         </AuthorizeView>
 
         @* ── Luồng 2: Kế Toán & Tài Chính ── *@
-        <AuthorizeView Roles="Owner">
+        <AuthorizeView Roles="Owner,ChiefAccountant,DebtAccountant">
             <Authorized>
                 <VanACard Header="💰 Kế Toán & Tài Chính" Hoverable="true" data-testid="card-accounting">
                     <div class="sitemap-links">
@@ -205,10 +205,12 @@
                             <span class="sitemap-link-icon">📈</span>
                             <span>Nhập Doanh Thu</span>
                         </a>
+                        <AuthorizeView Roles="Owner,ChiefAccountant,SystemAdmin" Context="innerAuth">
                         <a href="/accounting/history" class="sitemap-link" data-testid="link-accounting-history">
                             <span class="sitemap-link-icon">📜</span>
                             <span>Lịch Sử Giao Dịch</span>
                         </a>
+                        </AuthorizeView>
                         <a href="/accounting/cong-no" class="sitemap-link" data-testid="link-accounting-cong-no">
                             <span class="sitemap-link-icon">🤝</span>
                             <span>Công Nợ (131/331)</span>
@@ -217,14 +219,17 @@
                             <span class="sitemap-link-icon">🚩</span>
                             <span>Số Dư Đầu Kỳ</span>
                         </a>
+                        <AuthorizeView Roles="Owner,ChiefAccountant,SystemAdmin" Context="innerAuth">
                         <a href="/accounting/import" class="sitemap-link" data-testid="link-accounting-import">
                             <span class="sitemap-link-icon">📥</span>
                             <span>Import Excel</span>
                         </a>
+                        </AuthorizeView>
                         <a href="/accounting/balance" class="sitemap-link" data-testid="link-accounting-balance">
                             <span class="sitemap-link-icon">💰</span>
                             <span>Số Dư Tài Khoản</span>
                         </a>
+                        <AuthorizeView Roles="Owner,ChiefAccountant,SystemAdmin" Context="innerAuth">
                         <a href="/accounting/period-closing" class="sitemap-link" data-testid="link-period-closing">
                             <span class="sitemap-link-icon">📅</span>
                             <span>Đóng Kỳ Kế Toán</span>
@@ -233,13 +238,14 @@
                             <span class="sitemap-link-icon">📚</span>
                             <span>Sổ HKD (TT 152)</span>
                         </a>
+                        </AuthorizeView>
                     </div>
                 </VanACard>
             </Authorized>
         </AuthorizeView>
 
         @* ── Luồng 2b: Phân tích tài chính (Financial Intelligence MVP-2) ── *@
-        <AuthorizeView Roles="Owner">
+        <AuthorizeView Roles="Owner,ChiefAccountant,SystemAdmin">
             <Authorized>
                 <VanACard Header="📊 Phân tích tài chính" Hoverable="true" data-testid="card-financial-intelligence">
                     <div class="sitemap-links">
@@ -265,7 +271,7 @@
         </AuthorizeView>
 
         @* ── Luồng 2b: BCTC VAS (Company tenants only — HKD uses TT 152 HKD books) ── *@
-        <AuthorizeView Roles="Owner">
+        <AuthorizeView Roles="Owner,ChiefAccountant,SystemAdmin">
             <Authorized>
                 @if (_isCompanyTenant)
                 {

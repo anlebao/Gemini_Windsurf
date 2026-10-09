@@ -739,6 +739,15 @@ namespace VanAn.ShopERP
                 .AddPolicy("StaffOrAbove", policy => policy.RequireRole(UserRole.Staff.ToString(), UserRole.StoreKeeper.ToString(), UserRole.Owner.ToString(), "SystemAdmin"))
                 // KitchenAccess: StaffOrAbove + Masterchef (kitchen-only role)
                 .AddPolicy("KitchenAccess", policy => policy.RequireRole(UserRole.Staff.ToString(), UserRole.StoreKeeper.ToString(), UserRole.Owner.ToString(), UserRole.Masterchef.ToString(), "SystemAdmin"))
+                // 2026-10-09 (user directive — 2 role kế toán): phân quyền theo nhóm chức năng.
+                // Kiểm kê: Owner + StoreKeeper + Kế toán trưởng (KHÔNG gồm Kế toán công nợ).
+                .AddPolicy("InventoryAccess", policy => policy.RequireRole(UserRole.Owner.ToString(), UserRole.StoreKeeper.ToString(), UserRole.ChiefAccountant.ToString(), "SystemAdmin"))
+                // Kế toán (chung): Owner + Kế toán trưởng + Kế toán công nợ.
+                .AddPolicy("AccountingAccess", policy => policy.RequireRole(UserRole.Owner.ToString(), UserRole.ChiefAccountant.ToString(), UserRole.DebtAccountant.ToString(), "SystemAdmin"))
+                // Kế toán đầy đủ (history/import/đóng kỳ/Sổ HKD/BCTC): KHÔNG gồm Kế toán công nợ.
+                .AddPolicy("AccountingFullAccess", policy => policy.RequireRole(UserRole.Owner.ToString(), UserRole.ChiefAccountant.ToString(), "SystemAdmin"))
+                // Tài chính: Owner + Kế toán trưởng (+ SystemAdmin).
+                .AddPolicy("FinancialAccess", policy => policy.RequireRole(UserRole.Owner.ToString(), UserRole.ChiefAccountant.ToString(), "SystemAdmin"))
                 // Wave 5: SystemAdmin — cross-tenant Tenant CRUD (platform-level admin)
                 .AddPolicy("SystemAdmin", policy => policy.RequireRole("SystemAdmin"));
 

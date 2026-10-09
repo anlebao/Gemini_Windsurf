@@ -1,7 +1,7 @@
 ﻿@page "/accounting/financial-statement-notes"
 @rendermode InteractiveServer
 @layout AccountingLayout
-@attribute [Authorize(Policy = "OwnerOnly")]
+@attribute [Authorize(Policy = "AccountingFullAccess")]
 @using System.Globalization
 @using Microsoft.AspNetCore.Authorization
 @using VanAn.UI.Platform.Components

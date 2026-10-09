@@ -3,6 +3,7 @@ using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
 using VanAn.UI.Platform.Models;
+using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 
 namespace VanAn.ShopERP.Services;
 
@@ -44,6 +45,9 @@ public sealed class ShopErpMenuService : IShopErpMenuService
         var isStoreKeeper = user.IsInRole("StoreKeeper");
         var isOwner = user.IsInRole("Owner");
         var isGuard = user.IsInRole("Guard");
+        // 2026-10-09 (user directive): 2 role kế toán — kế toán trưởng (3 nhóm), kế toán công nợ (Kế toán subset).
+        var isChiefAccountant = user.IsInRole(UserRole.ChiefAccountant.ToString());
+        var isDebtAccountant = user.IsInRole(UserRole.DebtAccountant.ToString());
         var isSystemAdmin = user.IsInRole("SystemAdmin");
         // Issue #103: When SystemAdmin is impersonating, treat as Owner for menu visibility.
         // Hide platform-admin menus (Hệ thống, CRM Global, Hướng dẫn) and show Owner menus instead.
@@ -79,8 +83,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
             });
         }
 
-        // VA-IIE (Sprint B, 2026-10-03): Kiểm kê / Inventory Intelligence — Owner + StoreKeeper (SRS §2).
-        if (isOwner || isStoreKeeper)
+        // VA-IIE (Sprint B, 2026-10-03): Kiểm kê / Inventory Intelligence — Owner + StoreKeeper + Kế toán trưởng (SRS §2).
+        if (isOwner || isStoreKeeper || isChiefAccountant)
         {
             items.Add(new()
             {
@@ -136,25 +140,36 @@ public sealed class ShopErpMenuService : IShopErpMenuService
             });
         }
 
-        // Kế Toán: Owner
-        if (isOwner)
+        // Kế Toán: Owner + Kế toán trưởng (đầy đủ) + Kế toán công nợ (subset — ẩn Lịch sử giao dịch,
+        // Import Excel, Đóng kỳ kế toán, Sổ HKD, Báo cáo tài chính — user directive 2026-10-09).
+        if (isOwner || isChiefAccountant || isDebtAccountant)
         {
+            bool fullAccounting = isOwner || isChiefAccountant;
             var accountingChildren = new List<NavigationItem>
             {
                 new() { Title = "Kế Toán", Icon = "journal-text", Url = "/accounting" },
-                new() { Title = "Lịch Sử Giao Dịch", Icon = "clock-history", Url = "/accounting/history" },
-                // THU CHI & CÔNG NỢ MVP (P2.5, 2026-10-07): báo cáo công nợ 131/331 + tuổi nợ FIFO
-                new() { Title = "Công Nợ", Icon = "people", Url = "/accounting/cong-no" },
-                // NHẬP LIỆU & SỔ SÁCH P3 (2026-10-07): khai báo số dư đầu kỳ (dữ liệu cũ từ Excel)
-                new() { Title = "Số Dư Đầu Kỳ", Icon = "flag-fill", Url = "/accounting/opening-balance" },
-                // NHẬP LIỆU & SỔ SÁCH P4 (2026-10-08): import Excel hàng loạt (xlsx+csv — dry-run 0 lỗi mới lưu)
-                new() { Title = "Import Excel", Icon = "file-earmark-arrow-up", Url = "/accounting/import" },
-                new() { Title = "Số Dư Tài Khoản", Icon = "currency-exchange", Url = "/accounting/balance" },
-                new() { Title = "Đóng Kỳ Kế Toán", Icon = "lock-fill", Url = "/accounting/period-closing" },
             };
+            if (fullAccounting)
+            {
+                accountingChildren.Add(new() { Title = "Lịch Sử Giao Dịch", Icon = "clock-history", Url = "/accounting/history" });
+            }
+            // THU CHI & CÔNG NỢ MVP (P2.5, 2026-10-07): báo cáo công nợ 131/331 + tuổi nợ FIFO
+            accountingChildren.Add(new() { Title = "Công Nợ", Icon = "people", Url = "/accounting/cong-no" });
+            // NHẬP LIỆU & SỔ SÁCH P3 (2026-10-07): khai báo số dư đầu kỳ (dữ liệu cũ từ Excel)
+            accountingChildren.Add(new() { Title = "Số Dư Đầu Kỳ", Icon = "flag-fill", Url = "/accounting/opening-balance" });
+            if (fullAccounting)
+            {
+                // NHẬP LIỆU & SỔ SÁCH P4 (2026-10-08): import Excel hàng loạt (xlsx+csv — dry-run 0 lỗi mới lưu)
+                accountingChildren.Add(new() { Title = "Import Excel", Icon = "file-earmark-arrow-up", Url = "/accounting/import" });
+            }
+            accountingChildren.Add(new() { Title = "Số Dư Tài Khoản", Icon = "currency-exchange", Url = "/accounting/balance" });
+            if (fullAccounting)
+            {
+                accountingChildren.Add(new() { Title = "Đóng Kỳ Kế Toán", Icon = "lock-fill", Url = "/accounting/period-closing" });
+            }
 
             // Preserve AccountingLayout behavior: HKD tenants see "Sổ HKD", Enterprise tenants see "Báo Cáo Tài Chính"
-            if (_tenantProvider.HasTenant)
+            if (fullAccounting && _tenantProvider.HasTenant)
             {
                 try
                 {
@@ -255,8 +270,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
             });
         }
 
-        // Tài chính: Owner + SystemAdmin (was Owner-only in AdminLayout; SystemAdmin had no link before)
-        if (isOwner || isSystemAdmin)
+        // Tài chính: Owner + Kế toán trưởng + SystemAdmin (user directive 2026-10-09 — thêm ChiefAccountant).
+        if (isOwner || isSystemAdmin || isChiefAccountant)
         {
             items.Add(new()
             {

@@ -20,5 +20,18 @@ namespace VanAn.Shared.Domain.Aggregates.UserAggregate
                 .ToList()
                 .AsReadOnly();
         }
+
+        /// <summary>Tên hiển thị tiếng Việt cho role (UI dropdown + cột vai trò).</summary>
+        public static string GetRoleDisplayName(UserRole role) => role switch
+        {
+            UserRole.Owner => "Chủ quán (Owner)",
+            UserRole.StoreKeeper => "Thủ kho (StoreKeeper)",
+            UserRole.Guard => "Bảo vệ (Guard)",
+            UserRole.Staff => "Nhân viên (Staff)",
+            UserRole.Masterchef => "Bếp trưởng (Masterchef)",
+            UserRole.ChiefAccountant => "Kế toán trưởng",
+            UserRole.DebtAccountant => "Kế toán công nợ",
+            _ => role.ToString()
+        };
     }
 }
