@@ -70,6 +70,32 @@ namespace VanAn.ShopERP.Services
             var resp = await HttpClient.SendAsync(req, ct);
             resp.EnsureSuccessStatusCode();
         }
+
+        // ── Lifecycle (2026-10-09): qua Gateway PG (source of truth) — KHÔNG gọi service in-process
+        // (IVanAnDbContext = SQLite mirror chỉ 5 tenant cũ — lifecycle không tác động tenant thật).
+
+        public async Task SuspendAsync(Guid tenantId, string reason, CancellationToken ct = default)
+        {
+            var req = await CreateRequestAsync(HttpMethod.Post, $"api/v1/tenants/{tenantId}/suspend",
+                new { Reason = reason });
+            var resp = await HttpClient.SendAsync(req, ct);
+            resp.EnsureSuccessStatusCode();
+        }
+
+        public async Task ReactivateAsync(Guid tenantId, CancellationToken ct = default)
+        {
+            var req = await CreateRequestAsync(HttpMethod.Post, $"api/v1/tenants/{tenantId}/reactivate");
+            var resp = await HttpClient.SendAsync(req, ct);
+            resp.EnsureSuccessStatusCode();
+        }
+
+        public async Task DeactivateAsync(Guid tenantId, string reason, CancellationToken ct = default)
+        {
+            var req = await CreateRequestAsync(HttpMethod.Post, $"api/v1/tenants/{tenantId}/deactivate",
+                new { Reason = reason });
+            var resp = await HttpClient.SendAsync(req, ct);
+            resp.EnsureSuccessStatusCode();
+        }
     }
 
     public record TenantApiDto

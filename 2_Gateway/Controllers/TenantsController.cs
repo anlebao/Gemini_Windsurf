@@ -228,6 +228,80 @@ namespace VanAn.Gateway.Controllers
             }
         }
 
+        // ── Lifecycle (2026-10-09): suspend/reactivate/deactivate qua Gateway PG (source of truth).
+        // Trước đây ShopERP gọi ITenantManagementService in-process → IVanAnDbContext = SQLite mirror
+        // (chỉ 5 tenant cũ) → lifecycle không tác động tenant thật. Endpoint này chạy service với
+        // VanAnDbContext (PG) — pattern #UserManagement/#TenantName 2026-10-09.
+
+        [HttpPost("{tenantId:guid}/suspend")]
+        public async Task<ActionResult> Suspend(Guid tenantId, [FromBody] LifecycleRequest request)
+        {
+            try
+            {
+                await _tenantService.SuspendAsync(new TenantId(tenantId), request.Reason);
+                return Ok(new { success = true });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error suspending tenant {TenantId}", tenantId);
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        [HttpPost("{tenantId:guid}/reactivate")]
+        public async Task<ActionResult> Reactivate(Guid tenantId)
+        {
+            try
+            {
+                await _tenantService.ReactivateAsync(new TenantId(tenantId));
+                return Ok(new { success = true });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reactivating tenant {TenantId}", tenantId);
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        [HttpPost("{tenantId:guid}/deactivate")]
+        public async Task<ActionResult> Deactivate(Guid tenantId, [FromBody] LifecycleRequest request)
+        {
+            try
+            {
+                await _tenantService.DeactivateAsync(new TenantId(tenantId), request.Reason);
+                return Ok(new { success = true });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deactivating tenant {TenantId}", tenantId);
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
         private static TenantDto MapToDto(Tenant t) => new()
         {
             Id = t.Id,
@@ -318,6 +392,12 @@ namespace VanAn.Gateway.Controllers
     public record AssignShopInstanceRequest
     {
         public Guid ShopInstanceId { get; init; }
+    }
+
+    /// <summary>Lifecycle (suspend/deactivate) request body — admin reason (audit trail).</summary>
+    public record LifecycleRequest
+    {
+        public string Reason { get; init; } = "";
     }
 
     /// <summary>Bug 1 fix: Request body for PUT /api/v1/tenants/{id}/business-type.</summary>

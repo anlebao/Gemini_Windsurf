@@ -14,7 +14,6 @@
 @using VanAn.ShopERP.Services
 @using System.Threading.Tasks
 @using System.Text
-@inject ITenantManagementService TenantService
 @inject TenantOnboardingApiClient OnboardingApiClient
 @inject ShopInstanceApiClient ShopInstanceApi
 @inject TenantApiClient TenantApi
@@ -79,7 +78,13 @@
     @if (_activeTab == "all")
     {
     <!-- 2026-10-03: Bộ lọc nhanh — Loại hình + Tình trạng verify -->
+    <!-- 2026-10-09: + Search tên/MST + Filter ShopERP Instance -->
     <div class="tenant-filter-bar">
+        <div class="filter-group filter-group-search">
+            <label for="filter-search">Tìm kiếm</label>
+            <input id="filter-search" type="text" class="vanan-input" @bind="_filterSearch"
+                   placeholder="Tên tenant hoặc mã số thuế..." aria-label="Tìm tenant theo tên hoặc MST" />
+        </div>
         <div class="filter-group">
             <label for="filter-businesstype">Loại hình</label>
             <select id="filter-businesstype" class="vanan-select" @bind="_filterBusinessType" aria-label="Lọc theo loại hình">
@@ -98,7 +103,17 @@
                 <option value="unverified">Chưa</option>
             </select>
         </div>
-        @if (_filterBusinessType != "" || _filterVerifyStatus != "")
+        <div class="filter-group">
+            <label for="filter-shopinstance">ShopERP Instance</label>
+            <select id="filter-shopinstance" class="vanan-select" @bind="_filterShopInstanceId" aria-label="Lọc theo ShopERP Instance">
+                <option value="">Tất cả</option>
+                @foreach (var inst in _shopInstances)
+                {
+                    <option value="@inst.Id">@inst.Label</option>
+                }
+            </select>
+        </div>
+        @if (_filterBusinessType != "" || _filterVerifyStatus != "" || _filterShopInstanceId != "" || !string.IsNullOrWhiteSpace(_filterSearch))
         {
             <VanAButton Variant="outline" Size="small" OnClick="ClearFilters">
                 <i class="bi bi-x-circle me-1"></i> Xoá bộ lọc
@@ -903,6 +918,9 @@
     .tenant-filter-bar .filter-group { display: flex; flex-direction: column; gap: 0.25rem; }
     .tenant-filter-bar .filter-group label { font-size: 0.8rem; font-weight: 600; color: #374151; }
     .tenant-filter-bar .vanan-select { min-width: 190px; }
+    /* 2026-10-09: search tên/MST — rộng hơn + input padding */
+    .tenant-filter-bar .filter-group-search { flex: 1 1 260px; }
+    .tenant-filter-bar .filter-group-search .vanan-input { min-width: 260px; }
     .action-header { width: 1%; white-space: nowrap; }
     .action-cell { white-space: nowrap; }
     .tenant-management-page .action-cell .vanan-button { padding: 0.25rem 0.4rem; }
@@ -1090,6 +1108,9 @@
     // ── 2026-10-03: Bộ lọc nhanh (Loại hình + Tình trạng verify) ──
     private string _filterBusinessType = ""; // "" | hkd | dn | htx | khac
     private string _filterVerifyStatus = ""; // "" | verified | unverified
+    // ── 2026-10-09: Search tên/MST + Filter ShopERP Instance ──
+    private string _filterSearch = "";
+    private string _filterShopInstanceId = ""; // "" | Guid
 
     private List<TenantApiDto> FilteredTenants
     {
@@ -1123,6 +1144,17 @@
                     q = q.Where(t => t.Status == TenantStatus.Pending);
                     break;
             }
+            if (!string.IsNullOrWhiteSpace(_filterSearch))
+            {
+                var term = _filterSearch.Trim();
+                q = q.Where(t =>
+                    t.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || (t.TaxCode?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false));
+            }
+            if (Guid.TryParse(_filterShopInstanceId, out var shopInstanceId) && shopInstanceId != Guid.Empty)
+            {
+                q = q.Where(t => t.ShopInstanceId == shopInstanceId);
+            }
             return q.ToList();
         }
     }
@@ -1131,6 +1163,8 @@
     {
         _filterBusinessType = "";
         _filterVerifyStatus = "";
+        _filterSearch = "";
+        _filterShopInstanceId = "";
     }
 
     private static string BusinessTypeLabel(TenantApiDto t) => t.Type switch
@@ -1507,7 +1541,9 @@
         _isSaving = true;
         try
         {
-            await TenantService.SuspendAsync(new TenantId(_selectedTenant.Id), _reasonInput);
+            // Fix 2026-10-09 (root cause: TenantService.SuspendAsync nhận IVanAnDbContext = SQLite mirror 5 tenant cũ)
+            // → gọi Gateway admin API (PG — source of truth) qua TenantApiClient.
+            await TenantApi.SuspendAsync(_selectedTenant.Id, _reasonInput);
             _showSuspendModal = false;
             ShowAlert("success", $"Tenant '{_selectedTenant.Name}' đã được tạm ngưng.");
             await LoadTenants();
@@ -1522,7 +1558,7 @@
         _isSaving = true;
         try
         {
-            await TenantService.ReactivateAsync(new TenantId(t.Id));
+            await TenantApi.ReactivateAsync(t.Id);
             ShowAlert("success", $"Tenant '{t.Name}' đã được kích hoạt lại.");
             await LoadTenants();
         }
@@ -1540,7 +1576,8 @@
         _isSaving = true;
         try
         {
-            await TenantService.DeactivateAsync(new TenantId(_selectedTenant.Id), _reasonInput);
+            // Fix 2026-10-09: gọi Gateway admin API (PG — source of truth) qua TenantApiClient.
+            await TenantApi.DeactivateAsync(_selectedTenant.Id, _reasonInput);
             _showDeactivateModal = false;
             ShowAlert("success", $"Tenant '{_selectedTenant.Name}' đã bị vô hiệu hoá.");
             await LoadTenants();
