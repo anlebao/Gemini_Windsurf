@@ -144,10 +144,13 @@ namespace VanAn.Gateway.Controllers
         /// Store Finder — find tenants near a GPS location.
         /// Replaces GET /api/shops/nearby.
         /// Crawl-to-Onboard (2026-08-26): includes Pending tenants (name only, no phone/address per Luật 91/2025).
+        /// Fix #190 (2026-10-14): trả về TenantSearchResultDto WRAPPER (nhất quán với /api/tenants/search —
+        /// trước đây trả bare array → KhachLink StoreFinder deserialize SearchResultDto vỡ
+        /// "DeserializeUnableToConvertValue Path: $ ... BytePositionInLine: 1").
         /// </summary>
         [HttpGet("nearby")]
         [AllowAnonymous]
-        public async Task<ActionResult<List<TenantStoreDto>>> GetNearby(
+        public async Task<ActionResult<TenantSearchResultDto>> GetNearby(
             [FromQuery] double? lat,
             [FromQuery] double? lng,
             [FromQuery] double radiusKm = 10.0)
@@ -174,7 +177,12 @@ namespace VanAn.Gateway.Controllers
                 var nearbyTenantIds = nearby.Select(x => x.Tenant.Id.Value).ToList();
                 var khachLinkDomainMap = await BuildKhachLinkDomainMapAsync(nearbyTenantIds);
 
-                return Ok(nearby.Select(x => MapToStoreDto(x.Tenant, x.Distance, khachLinkDomainMap)).ToList());
+                return Ok(new TenantSearchResultDto
+                {
+                    Results = nearby.Select(x => MapToStoreDto(x.Tenant, x.Distance, khachLinkDomainMap)).ToList(),
+                    SuggestedKeywords = [],
+                    MatchStrategy = "nearby"
+                });
             }
             catch (Exception ex)
             {

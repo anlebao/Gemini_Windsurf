@@ -393,6 +393,15 @@
                 .AsNoTracking()
                 .FirstOrDefaultAsync(t => t.Id == new TenantId(_selectedTenantId));
             _tenantName = tenant?.Name;
+            // Issue #191 (2026-10-14): prefill form Step 2 với thông tin tenant làm mặc định
+            // (tên, địa chỉ, SĐT, email) — user chỉ chỉnh nếu cần, không nhập lại từ đầu.
+            if (tenant is not null)
+            {
+                shopName = tenant.Name ?? "";
+                shopAddress = tenant.Settings?.Address ?? "";
+                shopPhone = tenant.Settings?.ContactPhone ?? "";
+                shopEmail = tenant.Settings?.ContactEmail ?? "";
+            }
         }
         catch (Exception ex)
         {

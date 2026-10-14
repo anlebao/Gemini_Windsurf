@@ -49,7 +49,9 @@ public class CatalogService
         }
     }
 
-    /// <summary>Find nearby stores by user location.</summary>
+    /// <summary>Find nearby stores by user location.
+    /// Fix #190 (2026-10-14): Gateway /api/tenants/nearby giờ trả TenantSearchResultDto WRAPPER
+    /// (nhất quán với search) — đọc .Results thay vì List trần.</summary>
     public async Task<List<TenantStoreDto>> GetNearbyStoresAsync(double lat, double lng, int radiusKm = 5)
     {
         try
@@ -60,7 +62,8 @@ public class CatalogService
                 _logger.LogWarning("GetNearbyStoresAsync: {Status}", resp.StatusCode);
                 return [];
             }
-            return await resp.Content.ReadFromJsonAsync<List<TenantStoreDto>>(_jsonOptions) ?? [];
+            var result = await resp.Content.ReadFromJsonAsync<TenantSearchResultDto>(_jsonOptions);
+            return result?.Results ?? [];
         }
         catch (Exception ex)
         {
