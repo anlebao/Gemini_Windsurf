@@ -1,7 +1,15 @@
 ﻿// ============================================================================
-// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v21-wallet-currency)
+// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v22-booking-entry)
 
-// v21-wallet-currency (2026-09-25):
+// v22-booking-entry (2026-10-14):
+//   - Storefront /store/{slug} + /store/by-id/{tenantId}: thêm section "Đặt Lịch Hẹn"
+//     (entry point booking — CTA link + QR). WASM là network-first nên tự cập nhật,
+//     nhưng static JS (vanan-interop.js...) cache-first với NO expiry → user cũ giữ
+//     cache cũ vô thời hạn (lesson v20/v21). Bump ALL cache names v21 → v22 để activate
+//     handler xóa cache cũ + mọi client re-fetch assets hiện tại.
+// ============================================================================
+//
+// v22-booking-entry (2026-09-25):
 //   - Wallet withdraw modal: added vananAttachCurrencyFormatter/vananFormatCurrencyInput to
 //     vanan-interop.js (vi-VN amount formatting). Static JS is cache-first with NO expiry →
 //     returning users would keep the OLD vanan-interop.js (no formatter) forever.
@@ -95,10 +103,10 @@
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v21-wallet-currency';
-const STATIC_CACHE = 'vanan-static-v21-wallet-currency';
-const DYNAMIC_CACHE = 'vanan-dynamic-v21-wallet-currency';
-const WASM_CACHE = 'vanan-wasm-v21-wallet-currency';
+const CACHE_NAME = 'vanan-khachlink-v22-booking-entry';
+const STATIC_CACHE = 'vanan-static-v22-booking-entry';
+const DYNAMIC_CACHE = 'vanan-dynamic-v22-booking-entry';
+const WASM_CACHE = 'vanan-wasm-v22-booking-entry';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
