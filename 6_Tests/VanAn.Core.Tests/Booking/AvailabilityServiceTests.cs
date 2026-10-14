@@ -42,7 +42,7 @@ namespace VanAn.Core.Tests.BookingScheduling
             Assert.All(slots, s => Assert.True(s.StartAt.TimeOfDay < new TimeSpan(12, 0, 0) || s.StartAt.TimeOfDay >= new TimeSpan(13, 0, 0)));
             Assert.DoesNotContain(slots, s => s.StartAt.Hour is 12);
             Assert.Contains(slots, s => s.StartAt.Hour == 13);
-            Assert.Equal(new DateTime(2026, 10, 12, 16, 0, 0, DateTimeKind.Utc), slots[^1].StartAt);
+            Assert.Equal(BookingTestData.TestMonday.ToDateTime(new TimeOnly(16, 0), DateTimeKind.Utc), slots[^1].StartAt);
         }
 
         [Fact]

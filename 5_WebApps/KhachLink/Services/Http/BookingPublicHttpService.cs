@@ -30,6 +30,16 @@ public class BookingPublicHttpService
         return await response.Content.ReadFromJsonAsync<QrResolveResultDto>(cancellationToken: ct);
     }
 
+    /// <summary>BS-3 (2026-10-14): entry point đặt lịch công khai — link + QR PNG cho trang hồ sơ cửa hàng.</summary>
+    public async Task<BookingEntryDto?> GetEntryAsync(Guid tenantId, CancellationToken ct = default)
+    {
+        HttpResponseMessage response = await _httpClient.GetAsync($"api/public/booking/entry?tenantId={tenantId}", ct);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            return null;
+        await EnsureSuccessAsync(response, ct);
+        return await response.Content.ReadFromJsonAsync<BookingEntryDto>(cancellationToken: ct);
+    }
+
     public async Task<BookingCatalogDto?> GetCatalogAsync(Guid tenantId, CancellationToken ct = default)
     {
         HttpResponseMessage response = await _httpClient.GetAsync($"api/public/booking/tenants/{tenantId}/services", ct);

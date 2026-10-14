@@ -38,6 +38,7 @@ public class PublicBookingController(
     IAvailabilityService availabilityService,
     IBookingService bookingService,
     VanAnDbContext dbContext,
+    IConfiguration configuration,
     ILogger<PublicBookingController> logger) : ControllerBase
 {
     private readonly IQRAttributionService _qrService = qrService;
@@ -45,7 +46,45 @@ public class PublicBookingController(
     private readonly IAvailabilityService _availabilityService = availabilityService;
     private readonly IBookingService _bookingService = bookingService;
     private readonly VanAnDbContext _dbContext = dbContext;
+    private readonly IConfiguration _configuration = configuration;
     private readonly ILogger<PublicBookingController> _logger = logger;
+
+    /// <summary>
+    /// BS-3 (2026-10-14, user approve): entry point đặt lịch CÔNG KHAI cho trang hồ sơ cửa hàng
+    /// (KhachLink /store/{slug} — tenant profile page). Trả link đặt lịch + QR PNG của QR channel
+    /// mặc định (active, KHÔNG gắn salesman — không attribution). READ-ONLY: channel mặc định được
+    /// tạo từ ShopERP (BookingConfig → BookingEntryPoint get-or-create). Không tạo channel ở đây.
+    /// enabled=false (chưa bật đặt lịch) hoặc chưa có channel → trả null (Store.razor ẩn card).
+    /// </summary>
+    [HttpGet("entry")]
+    [AllowAnonymous]
+    public async Task<ActionResult<BookingEntryResponse>> GetEntry([FromQuery] Guid tenantId, CancellationToken ct = default)
+    {
+        if (tenantId == Guid.Empty)
+            return BadRequest(new { message = "Thiếu tenantId." });
+
+        TenantId tenantIdObj = new(tenantId);
+        bool enabled = await _dbContext.BookingTenantConfigs.IgnoreQueryFilters()
+            .AnyAsync(c => c.TenantId == tenantIdObj && c.IsEnabled, ct);
+        if (!enabled)
+            return Ok(new BookingEntryResponse(false, null, null));
+
+        QRChannel? channel = await _dbContext.QRChannels.IgnoreQueryFilters()
+            .Where(q => q.TenantId == tenantIdObj && q.IsActive && q.SalesmanId == null)
+            .OrderByDescending(q => q.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+        if (channel is null)
+            return Ok(new BookingEntryResponse(true, null, null));
+
+        string khachLinkBase = _configuration["KhachLink:BaseUrl"]
+            ?? _configuration["ExternalUrls:KhachLink"]
+            ?? "https://diemthuong2.khachvip.online";
+        QrChannelDetailResult detail = await _qrService.GetQrChannelDetailAsync(tenantIdObj, channel.Id, khachLinkBase, ct);
+        return Ok(new BookingEntryResponse(
+            enabled && detail.IsActive,
+            detail.IsActive ? detail.BookingLink : null,
+            detail.IsActive ? detail.QrCodePngBase64 : null));
+    }
 
     /// <summary>
     /// Resolve QR token → tenant + salesman + attribution session (SRS §7.3-7.6).
@@ -318,6 +357,9 @@ public class PublicBookingController(
 }
 
 // ── Request / Response DTOs (public-safe — §25) ──────────────────────────────
+
+/// <summary>BS-3 (2026-10-14): entry point đặt lịch công khai — link + QR PNG (Store.razor tenant profile page).</summary>
+public record BookingEntryResponse(bool Enabled, string? BookingLink, string? QrCodePngBase64);
 
 public record QrResolveResponse(
     Guid QrId,

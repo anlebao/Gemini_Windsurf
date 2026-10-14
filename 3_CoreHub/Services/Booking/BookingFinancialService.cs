@@ -16,11 +16,13 @@ namespace VanAn.CoreHub.Services.Booking;
 public sealed class BookingFinancialService(
     VanAnDbContext context,
     IOutboxRepository? outboxRepository,
-    ILogger<BookingFinancialService> logger) : IBookingFinancialService
+    ILogger<BookingFinancialService> logger,
+    IBookingAccountingService? accountingService = null) : IBookingFinancialService
 {
     private readonly VanAnDbContext _context = context;
     private readonly IOutboxRepository? _outboxRepository = outboxRepository;
     private readonly ILogger<BookingFinancialService> _logger = logger;
+    private readonly IBookingAccountingService? _accountingService = accountingService;
 
     /// <summary>§16.2 — phân loại theo tax profile (EinvoiceMode của tenant). Default SecurityDeposit (behavior P2 giữ nguyên).</summary>
     public MoneyNatureType ResolveDepositNature(BookingTenantConfig config)
@@ -70,6 +72,19 @@ public sealed class BookingFinancialService(
         if (ResolveInvoiceTrigger(nature, config) == InvoiceTrigger.OnPayment)
             await EmitInvoiceRequiredAsync(tenantId, bookingId, ResolveInvoiceTrigger(nature, config), ct);
 
+        // Fix 2b (2026-10-14): cọc đã thanh toán → kế toán TK 3387 (bản chất riêng, không doanh thu) — fail-safe.
+        if (_accountingService is not null)
+        {
+            try
+            {
+                await _accountingService.RecordDepositPaidAsync(tenantId, bookingId, tx.Id, tx.Amount, tx.Type, DateTime.UtcNow, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Booking deposit accounting failed (non-blocking): booking={BookingId} tx={TxId}", bookingId, tx.Id);
+            }
+        }
+
         _ = await _context.SaveChangesAsync(ct);
         _logger.LogInformation("Deposit PAID: booking={BookingId} tx={TxId} amount={Amount} nature={Nature}", bookingId, tx.Id, amount, nature);
         return tx;
@@ -93,6 +108,19 @@ public sealed class BookingFinancialService(
         if (ResolveInvoiceTrigger(tx.Type, config) == InvoiceTrigger.OnPayment)
             await EmitInvoiceRequiredAsync(tenantId, bookingId, ResolveInvoiceTrigger(tx.Type, config), ct);
 
+        // Fix 2b (2026-10-14): cọc confirmed → kế toán TK 3387 (idempotent per tx) — fail-safe.
+        if (_accountingService is not null)
+        {
+            try
+            {
+                await _accountingService.RecordDepositPaidAsync(tenantId, bookingId, tx.Id, tx.Amount, tx.Type, DateTime.UtcNow, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Booking deposit accounting failed (non-blocking): booking={BookingId} tx={TxId}", bookingId, tx.Id);
+            }
+        }
+
         _ = await _context.SaveChangesAsync(ct);
         _logger.LogInformation("Deposit confirmed: booking={BookingId} tx={TxId}", bookingId, tx.Id);
         return tx;
@@ -113,6 +141,19 @@ public sealed class BookingFinancialService(
         await EmitAsync(tenantId, "PaymentCaptured", new { bookingId, tx.Id, amount, providerRef }, ct);
         if (ResolveInvoiceTrigger(MoneyNatureType.FinalPayment, config) == InvoiceTrigger.OnPayment)
             await EmitInvoiceRequiredAsync(tenantId, bookingId, ResolveInvoiceTrigger(MoneyNatureType.FinalPayment, config), ct);
+
+        // Fix 2b (2026-10-14): thanh toán cuối → doanh thu 511/3331 (cash-basis — skip nếu đã có revenue) — fail-safe.
+        if (_accountingService is not null)
+        {
+            try
+            {
+                await _accountingService.RecordFinalPaymentAsync(tenantId, bookingId, tx.Id, tx.Amount, DateTime.UtcNow, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Booking final payment accounting failed (non-blocking): booking={BookingId} tx={TxId}", bookingId, tx.Id);
+            }
+        }
 
         _ = await _context.SaveChangesAsync(ct);
         _logger.LogInformation("Final payment captured: booking={BookingId} tx={TxId} amount={Amount}", bookingId, tx.Id, amount);
@@ -158,6 +199,21 @@ public sealed class BookingFinancialService(
         }
 
         await EmitAsync(tenantId, "ServiceCompleted", new { bookingId, booking.ActualTotal, booking.EstimatedTotal }, ct);
+
+        // Fix 2b (2026-10-14): dịch vụ hoàn thành → doanh thu 511/3331 (anchor SRS — fail-safe, idempotent).
+        if (_accountingService is not null)
+        {
+            try
+            {
+                decimal total = booking.ActualTotal ?? booking.EstimatedTotal;
+                await _accountingService.RecordServiceCompletedAsync(tenantId, bookingId, total, booking.CompletedAt ?? DateTime.UtcNow, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Booking service completed accounting failed (non-blocking): booking={BookingId}", bookingId);
+            }
+        }
+
         _ = await _context.SaveChangesAsync(ct);
         _logger.LogInformation("ServiceCompleted facts recorded: booking={BookingId} trigger={Trigger}", bookingId, trigger);
     }

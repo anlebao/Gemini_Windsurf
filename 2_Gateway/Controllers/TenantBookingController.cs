@@ -189,6 +189,51 @@ public class TenantBookingController(
     public async Task<ActionResult<BookingQueueItemDto>> Complete(Guid bookingId, [FromBody] CompleteBookingRequest? request, CancellationToken ct = default)
         => await TransitionAsync(bookingId, () => _bookingService.CompleteAsync(ResolveTenantId(), bookingId, request?.ActualTotal ?? 0m, actorId: null, ct), ct);
 
+    /// <summary>
+    /// BS-1 (2026-10-14, user approve): điều chỉnh nội dung booking (dịch vụ/giờ/staff/add-on/ghi chú) —
+    /// cho phép ở trạng thái active (PendingConfirmation..InService, kể cả đã check-in). Field null = giữ nguyên.
+    /// Re-validate slot/conflict server-side (SRS §12, exclude self) + refresh snapshots + BookingEvent audit.
+    /// </summary>
+    [HttpPut("bookings/{bookingId:guid}")]
+    public async Task<ActionResult<BookingQueueItemDto>> UpdateBooking(Guid bookingId, [FromBody] UpdateTenantBookingRequest? request, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        if (request is null)
+            return BadRequest(new { message = "Thiếu dữ liệu cập nhật." });
+
+        var command = new UpdateBookingCommand(
+            request.OfferingId,
+            request.StartAt is null ? null : (request.StartAt.Value.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(request.StartAt.Value, DateTimeKind.Utc)
+                : request.StartAt.Value),
+            request.StaffId,
+            request.AddOnIds,
+            request.CustomerNote,
+            request.CustomerName,
+            request.CustomerPhone);
+        try
+        {
+            BookingEntity updated = await _bookingService.UpdateBookingAsync(tenantId, bookingId, command, ct);
+            _logger.LogInformation("Booking updated via API: booking={BookingId} tenant={TenantId} status={Status}",
+                updated.Id, tenantId.Value, updated.Status);
+            return Ok(BookingQueueItemDto.From(updated));
+        }
+        catch (BookingConflictException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
     [HttpPost("bookings/{bookingId:guid}/no-show")]
     public async Task<ActionResult<BookingQueueItemDto>> NoShow(Guid bookingId, [FromBody] RejectBookingRequest? request, CancellationToken ct = default)
         => await TransitionAsync(bookingId, () => _bookingService.MarkNoShowAsync(ResolveTenantId(), bookingId, request?.Reason, actorId: null, ct), ct);
@@ -789,7 +834,7 @@ public class TenantBookingController(
         var results = new List<EligibleStaffDto>();
         foreach (var staff in eligible)
         {
-            AvailabilityCheckResult check = await _availabilityService.ValidateSlotAsync(tenantId, booking.OfferingId, staff.Id, booking.StartAt, ct);
+            AvailabilityCheckResult check = await _availabilityService.ValidateSlotAsync(tenantId, booking.OfferingId, staff.Id, booking.StartAt, ct: ct);
             results.Add(new EligibleStaffDto(staff.Id, staff.DisplayName, check.IsAvailable, check.UnavailableReason));
         }
         return Ok(results.OrderByDescending(s => s.IsAvailable).ThenBy(s => s.StaffName).ToList());
@@ -861,6 +906,7 @@ public class TenantBookingController(
 
 public record BookingQueueItemDto(
     Guid BookingId,
+    Guid OfferingId,   // BS-1 (2026-10-14): UI chỉnh sửa lịch hẹn cần offering hiện tại
     string PublicBookingCode,
     BookingStatus Status,
     BookingSubState SubState,
@@ -885,6 +931,7 @@ public record BookingQueueItemDto(
 {
     public static BookingQueueItemDto From(BookingEntity b) => new(
         b.Id,
+        b.OfferingId,
         b.PublicBookingCode,
         b.Status,
         b.SubState,
@@ -917,6 +964,11 @@ public record CompleteBookingRequest(decimal ActualTotal);
 /// <summary>Feature 3 (2026-10-08): tạo lịch hẹn từ ShopERP — staff/owner đặt thay khách.</summary>
 public record CreateTenantBookingRequest(
     Guid OfferingId, List<Guid>? AddOnIds, DateTime StartAt, Guid? StaffId,
+    string? CustomerName = null, string? CustomerPhone = null, string? CustomerNote = null);
+
+/// <summary>BS-1 (2026-10-14): điều chỉnh nội dung booking — field null = giữ nguyên.</summary>
+public record UpdateTenantBookingRequest(
+    Guid? OfferingId = null, List<Guid>? AddOnIds = null, DateTime? StartAt = null, Guid? StaffId = null,
     string? CustomerName = null, string? CustomerPhone = null, string? CustomerNote = null);
 
 /// <summary>Catalog CRUD (Fix 2026-10-09 — bug 2: UI quản lý dịch vụ đặt lịch).</summary>

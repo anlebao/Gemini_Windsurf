@@ -1,0 +1,158 @@
+@* BS-3 (2026-10-14, user approve): Entry point đặt lịch — link khách bấm + QR code để khách quét.
+    Get-or-create 1 QR channel mặc định (không gắn salesman) per tenant, hiển thị link + QR PNG.
+    Dùng chung ở /booking/config (tab entry point) + /admin/business-profile (tenant profile page). *@
+@namespace VanAn.ShopERP.Components.Shared
+@using VanAn.ShopERP.Services
+@using VanAn.UI.Platform.Components
+@inject IBookingTenantApiClient BookingApi
+@inject IJSRuntime JSRuntime
+
+<VanACard Header="🔗 Entry point đặt lịch (khách)">
+    <p class="text-muted small mb-2">
+        Khách bấm link hoặc quét mã QR → mở trang đặt lịch hẹn của cửa hàng (không gắn CTV hoa hồng).
+        Link/QR này giống hệt mã QR mặc định tại <a href="/booking/qr-channels">Mã QR đặt lịch</a>.
+    </p>
+
+    @if (_loading)
+    {
+        <VanASpinner Text="Đang tải entry point..." />
+    }
+    else if (!string.IsNullOrEmpty(_error))
+    {
+        <VanAAlert Variant="error" Message="@_error" Dismissible="true" OnDismiss="() => _error = null" />
+    }
+    else if (!_enabled)
+    {
+        <VanAAlert Variant="warning" Dismissible="false" class="mb-0">
+            <strong>Tính năng đặt lịch đang TẮT</strong> — bật tại
+            <a href="/booking/config" class="alert-link">Cấu hình đặt lịch →</a> trước khi chia sẻ.
+        </VanAAlert>
+    }
+    else if (_detail is null || string.IsNullOrEmpty(_detail.BookingLink))
+    {
+        <VanAAlert Variant="info" Message="Chưa có mã QR mặc định — đang tự tạo..." Dismissible="false" />
+    }
+    else
+    {
+        <div class="d-flex align-items-start gap-3 flex-wrap">
+            <img src="@_detail.QrCodePngBase64" alt="Mã QR đặt lịch" width="128" height="128"
+                 class="border rounded" data-testid="entrypoint-qr" />
+            <div class="flex-grow-1" style="min-width: 240px;">
+                <label class="form-label">Liên kết đặt lịch</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" readonly value="@_detail.BookingLink"
+                           data-testid="entrypoint-link" />
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => CopyLinkAsync(_detail!.BookingLink!)">
+                        📋 Sao chép
+                    </button>
+                </div>
+                <small class="text-muted">Đặt ở bàn thu ngân, kệ quầy, hoặc gửi qua Zalo/Facebook cho khách.</small>
+                <div class="mt-2 d-flex gap-2 flex-wrap">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="DownloadQrAsync">
+                        ⬇️ Tải QR
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CreateNewAsync">
+                        🔄 Tạo mã mới (thu hồi mã hiện tại)
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</VanACard>
+
+@code {
+    private QrChannelDetailDto? _detail;
+    private bool _loading = true;
+    private bool _enabled;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+        try
+        {
+            var configResult = await BookingApi.GetConfigAsync();
+            _enabled = configResult.Ok && configResult.Data?.IsEnabled == true;
+
+            var channelsResult = await BookingApi.GetQrChannelsAsync();
+            var channels = channelsResult.Ok ? channelsResult.Data ?? [] : [];
+            // Entry point mặc định: channel active KHÔNG gắn salesman (không attribution) — ưu tiên mới nhất.
+            var defaultChannel = channels
+                .Where(c => c.IsActive && c.SalesmanId is null)
+                .OrderByDescending(c => c.CreatedAt)
+                .FirstOrDefault();
+
+            if (defaultChannel is null)
+            {
+                // Get-or-create: tạo 1 channel mặc định (token ngẫu nhiên unguessable §25).
+                string token = Guid.NewGuid().ToString("N");
+                var created = await BookingApi.CreateQrChannelAsync(token, salesmanId: null, campaignId: null, expiry: null);
+                if (created.Ok && created.Data is not null)
+                {
+                    var detail = await BookingApi.GetQrChannelAsync(created.Data.Id);
+                    _detail = detail.Ok ? detail.Data : null;
+                    if (_detail is null && detail.Ok is false)
+                        _error = detail.Error;
+                }
+                else
+                {
+                    _error = created.Error;
+                }
+            }
+            else
+            {
+                var detail = await BookingApi.GetQrChannelAsync(defaultChannel.Id);
+                _detail = detail.Ok ? detail.Data : null;
+                if (detail.Ok is false)
+                    _error = detail.Error;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking entry point load failed");
+            _error = "Không tải được entry point đặt lịch.";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CreateNewAsync()
+    {
+        _error = null;
+        // Thu hồi channel mặc định cũ rồi tạo mới — giữ đúng 1 entry point mặc định.
+        var channelsResult = await BookingApi.GetQrChannelsAsync();
+        var oldDefault = (channelsResult.Ok ? channelsResult.Data ?? [] : [])
+            .Where(c => c.IsActive && c.SalesmanId is null)
+            .ToList();
+        foreach (var channel in oldDefault)
+        {
+            _ = await BookingApi.RevokeQrChannelAsync(channel.Id);
+        }
+        await LoadAsync();
+    }
+
+    private async Task CopyLinkAsync(string link)
+        => await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", link);
+
+    private async Task DownloadQrAsync()
+    {
+        if (_detail is null || string.IsNullOrWhiteSpace(_detail.QrCodePngBase64))
+            return;
+        string base64 = _detail.QrCodePngBase64.Contains(',')
+            ? _detail.QrCodePngBase64[(_detail.QrCodePngBase64.IndexOf(',') + 1)..]
+            : _detail.QrCodePngBase64;
+        await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64, "image/png", "vanan-booking-entrypoint-qr.png");
+    }
+
+    [Inject] private ILogger<BookingEntryPoint> Logger { get; set; } = null!;
+}

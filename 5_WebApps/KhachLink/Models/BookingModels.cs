@@ -16,6 +16,15 @@ public class QrResolveResultDto
     public bool IsNewSession { get; set; }
 }
 
+// ── Entry point (BS-3 — GET /api/public/booking/entry?tenantId=) ────────────
+
+public class BookingEntryDto
+{
+    public bool Enabled { get; set; }
+    public string? BookingLink { get; set; }
+    public string? QrCodePngBase64 { get; set; }
+}
+
 // ── Catalog (GET /api/public/booking/tenants/{id}/services) ─────────────────
 
 public class BookingCatalogDto

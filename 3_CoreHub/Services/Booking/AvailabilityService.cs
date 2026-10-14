@@ -70,7 +70,7 @@ namespace VanAn.CoreHub.Services.Booking
                     for (DateTime slot = start; slot.AddMinutes(duration) <= end; slot = slot.AddMinutes(SlotStepMinutes))
                     {
                         var slotEnd = slot.AddMinutes(duration);
-                        string? reason = await GetUnavailableReasonAsync(tenantId, staff.Id, offeringId, slot, slotEnd, ct);
+                        string? reason = await GetUnavailableReasonAsync(tenantId, staff.Id, offeringId, slot, slotEnd, ct: ct);
                         result.Add(new StaffAvailabilityStatus(staff.Id, staff.DisplayName, slot, slotEnd, reason is null, reason));
                     }
                 }
@@ -80,7 +80,7 @@ namespace VanAn.CoreHub.Services.Booking
         }
 
         public async Task<AvailabilityCheckResult> ValidateSlotAsync(
-            TenantId tenantId, Guid offeringId, Guid staffId, DateTime startAt, CancellationToken ct = default)
+            TenantId tenantId, Guid offeringId, Guid staffId, DateTime startAt, Guid? excludeBookingId = null, CancellationToken ct = default)
         {
             AppointmentOffering offering = await GetOfferingOrThrowAsync(tenantId, offeringId, ct);
             var slotEnd = startAt.AddMinutes(offering.DurationMinutes);
@@ -102,7 +102,7 @@ namespace VanAn.CoreHub.Services.Booking
             if (!insideInterval)
                 return new AvailabilityCheckResult(false, "Ngoài khung giờ làm việc của staff.");
 
-            string? reason = await GetUnavailableReasonAsync(tenantId, staffId, offeringId, startAt, slotEnd, ct);
+            string? reason = await GetUnavailableReasonAsync(tenantId, staffId, offeringId, startAt, slotEnd, excludeBookingId, ct);
             if (reason is not null)
                 return new AvailabilityCheckResult(false, reason);
 
@@ -234,9 +234,10 @@ namespace VanAn.CoreHub.Services.Booking
             return slots.Where(s => !ranges.Any(r => s.StartAt < r.EndAt && s.EndAt > r.StartAt)).ToList();
         }
 
-        /// <summary>Lý do unavailable tối thiểu cho 1 slot (tenant admin). Null = available.</summary>
+        /// <summary>Lý do unavailable tối thiểu cho 1 slot (tenant admin). Null = available.
+        /// excludeBookingId: BS-1 — loại chính booking đang edit khỏi conflict check.</summary>
         private async Task<string?> GetUnavailableReasonAsync(
-            TenantId tenantId, Guid staffId, Guid? offeringId, DateTime slotStart, DateTime slotEnd, CancellationToken ct)
+            TenantId tenantId, Guid staffId, Guid? offeringId, DateTime slotStart, DateTime slotEnd, Guid? excludeBookingId = null, CancellationToken ct = default)
         {
             // Break/leave/unavailable đã được xử lý trong GetWorkingIntervalAsync — kiểm tra interval phủ slot.
             IEnumerable<(DateTime Start, DateTime End)> intervals = await GetWorkingIntervalAsync(
@@ -255,6 +256,7 @@ namespace VanAn.CoreHub.Services.Booking
             bool conflict = await _context.Bookings.IgnoreQueryFilters()
                 .AnyAsync(b => b.TenantId == tenantId
                                && b.StaffId == staffId
+                               && (excludeBookingId == null || b.Id != excludeBookingId)
                                && ActiveStatuses.Contains(b.Status)
                                && b.StartAt < slotEnd
                                && b.EndAt > slotStart, ct);

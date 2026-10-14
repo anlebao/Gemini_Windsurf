@@ -6182,6 +6182,44 @@ namespace VanAn.Shared.Domain
             CustomerNote = note;
             UpdateAudit();
         }
+
+        /// <summary>
+        /// BS-1 (2026-10-14, user approve): điều chỉnh nội dung booking kể cả khi khách đã check-in.
+        /// Cho phép ở trạng thái active (PendingConfirmation..InService) — Completed/Cancelled/Rejected/NoShow đóng.
+        /// Cập nhật offering SNAPSHOT (SRS §8.4) + thời gian + EstimatedTotal; staffId/customerNote chỉ đổi khi được truyền.
+        /// Service layer re-validate slot/conflict TRƯỚC khi gọi (SRS §12); guard này chỉ chặn trạng thái đã đóng.
+        /// </summary>
+        public void UpdateContent(
+            Guid offeringId, string offeringName, int offeringDuration, decimal offeringPrice,
+            DateTime startAt, DateTime endAt, decimal estimatedTotal, Guid? staffId = null, string? customerNote = null)
+        {
+            if (Status is not (BookingStatus.PendingConfirmation or BookingStatus.Confirmed
+                              or BookingStatus.StaffAssigned or BookingStatus.CheckedIn or BookingStatus.InService))
+                throw new InvalidOperationException($"Không thể chỉnh sửa booking ở trạng thái {Status}.");
+            if (string.IsNullOrWhiteSpace(offeringName))
+                throw new ArgumentException("Tên dịch vụ bắt buộc.", nameof(offeringName));
+            if (offeringDuration <= 0)
+                throw new ArgumentException("Thời lượng dịch vụ phải > 0.", nameof(offeringDuration));
+            if (offeringPrice < 0)
+                throw new ArgumentException("Giá dịch vụ không được âm.", nameof(offeringPrice));
+            if (startAt >= endAt)
+                throw new ArgumentException("StartAt phải < EndAt.", nameof(startAt));
+            if (estimatedTotal < 0)
+                throw new ArgumentException("EstimatedTotal không được âm.", nameof(estimatedTotal));
+
+            OfferingId = offeringId;
+            OfferingNameSnapshot = offeringName;
+            OfferingDurationSnapshot = offeringDuration;
+            OfferingPriceSnapshot = offeringPrice;
+            StartAt = startAt;
+            EndAt = endAt;
+            EstimatedTotal = estimatedTotal;
+            if (staffId is not null)
+                StaffId = staffId;
+            if (customerNote is not null)
+                CustomerNote = customerNote;
+            Bump();
+        }
     }
 
     /// <summary>Booking line — offering + add-ons snapshots (SRS §8.1, §19.1).</summary>

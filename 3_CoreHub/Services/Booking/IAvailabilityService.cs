@@ -27,7 +27,8 @@ public interface IAvailabilityService
     Task<IReadOnlyList<StaffAvailabilityStatus>> GetStaffAvailabilityMatrixAsync(
         TenantId tenantId, DateOnly date, Guid? offeringId = null, CancellationToken ct = default);
 
-    /// <summary>Server-side re-check 1 slot (dùng trong create/assign/change-staff — SRS §12).</summary>
+    /// <summary>Server-side re-check 1 slot (dùng trong create/assign/change-staff — SRS §12).
+    /// excludeBookingId: BS-1 (2026-10-14) — loại chính booking đang edit khỏi conflict check.</summary>
     Task<AvailabilityCheckResult> ValidateSlotAsync(
-        TenantId tenantId, Guid offeringId, Guid staffId, DateTime startAt, CancellationToken ct = default);
+        TenantId tenantId, Guid offeringId, Guid staffId, DateTime startAt, Guid? excludeBookingId = null, CancellationToken ct = default);
 }

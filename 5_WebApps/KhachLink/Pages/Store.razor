@@ -14,6 +14,7 @@
 @inject CatalogHttpService CatalogService
 @inject ISocialCampaignService CampaignService
 @inject CommunityHttpService CommunityHttp
+@inject BookingPublicHttpService BookingPublic
 @inject NavigationManager Navigation
 @inject ILogger<Store> Logger
 @inject IJSRuntime JSRuntime
@@ -124,6 +125,33 @@ else
     </section>
 
     <div class="store-body">
+
+        @* BS-3 (2026-10-14): entry point đặt lịch — khách bấm link hoặc quét QR (tenant profile page) *@
+        @if (_bookingEntry is { Enabled: true, BookingLink: not null })
+        {
+            <section class="store-section" id="booking">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <span class="section-icon"><i class="bi bi-calendar2-check-fill"></i></span>
+                        Đặt Lịch Hẹn
+                    </h2>
+                    <div class="section-divider"></div>
+                </div>
+                <div class="booking-entry-card">
+                    <div class="booking-entry-info">
+                        <p>Đặt lịch hẹn trước tại <strong>@_store.Name</strong> — chọn dịch vụ và khung giờ phù hợp, không phải chờ đợi.</p>
+                        <a class="btn-cta" href="@_bookingEntry.BookingLink" data-testid="store-booking-cta">📅 Đặt lịch hẹn ngay</a>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_bookingEntry.QrCodePngBase64))
+                    {
+                        <div class="booking-entry-qr">
+                            <img src="@_bookingEntry.QrCodePngBase64" alt="Mã QR đặt lịch hẹn" width="110" height="110" data-testid="store-booking-qr" />
+                            <small>Quét mã để đặt lịch</small>
+                        </div>
+                    }
+                </div>
+            </section>
+        }
 
         @if (!_store.IsPending)
         {
@@ -586,6 +614,42 @@ else
         --store-accent-color: #f0e68c;
     }
 
+    /* ── BS-3: BOOKING ENTRY (đặt lịch hẹn) ─────────────────────────── */
+    .booking-entry-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+        background: var(--store-accent-gradient, linear-gradient(135deg, #198754, #157347));
+        color: #fff;
+        border-radius: 16px;
+        padding: 1.5rem 1.75rem;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    }
+    .booking-entry-info { flex: 1 1 260px; }
+    .booking-entry-info p { margin: 0 0 0.9rem; font-size: 1rem; line-height: 1.5; }
+    .booking-entry-info .btn-cta {
+        display: inline-block;
+        background: #fff;
+        color: #157347;
+        font-weight: 700;
+        padding: 0.6rem 1.25rem;
+        border-radius: 999px;
+        text-decoration: none;
+    }
+    .booking-entry-qr {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.35rem;
+        background: #fff;
+        border-radius: 12px;
+        padding: 0.5rem;
+    }
+    .booking-entry-qr img { display: block; border-radius: 8px; }
+    .booking-entry-qr small { color: #157347; font-weight: 600; }
+
     /* ── RESPONSIVE ──────────────────────────────────────────────────── */
     @@media (max-width: 768px) {
         .store-hero { min-height: 60vh; padding: 3rem 1rem; }
@@ -610,6 +674,8 @@ else
     private List<VanAn.Shared.Domain.SocialCampaign> _campaigns = new();
     private bool _campaignLoading = true;
     private bool _vatDisplayEnabled = true;
+    // BS-3 (2026-10-14): entry point đặt lịch công khai — link + QR (ẩn nếu chưa bật/chưa có QR).
+    private BookingEntryDto? _bookingEntry;
 
     // Realtime Platform P5: shop chat identity — logged-in customer id, else the guest device id.
     private string? _customerToken;
@@ -690,6 +756,17 @@ else
             var productsTask = LoadProductsAsync(_store.Id);
             var campaignsTask = LoadCampaignsAsync(_store.Id);
             await Task.WhenAll(productsTask, campaignsTask);
+
+            // BS-3 (2026-10-14): entry point đặt lịch — best-effort, lỗi → ẩn card (không fail trang).
+            try
+            {
+                Guid entryTenantId = _store.TenantId != Guid.Empty ? _store.TenantId : _store.Id;
+                _bookingEntry = await BookingPublic.GetEntryAsync(entryTenantId);
+            }
+            catch (Exception entryEx)
+            {
+                Logger.LogWarning(entryEx, "Booking entry load failed for store {StoreId} — hidden", _store.Id);
+            }
         }
         catch (Exception ex)
         {

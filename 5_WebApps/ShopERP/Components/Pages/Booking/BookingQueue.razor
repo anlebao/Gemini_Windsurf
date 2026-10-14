@@ -77,6 +77,10 @@
                             }
                         </div>
                         <div class="d-flex gap-1 flex-wrap">
+                            @if (booking.Status is "PendingConfirmation" or "Confirmed" or "StaffAssigned" or "CheckedIn" or "InService")
+                            {
+                                <VanAButton Variant="outline" Size="small" OnClick="() => OpenEdit(booking)">✏️ Sửa</VanAButton>
+                            }
                             @if (booking.Status == "PendingConfirmation")
                             {
                                 <VanAButton Variant="success" Size="small" OnClick="() => ConfirmAsync(booking)">✓ Xác nhận</VanAButton>
@@ -114,7 +118,11 @@
                                 <span class="text-muted small">✅ Đã hoàn tất</span>
                                 @if (booking.OrderId is not null)
                                 {
-                                    <span class="text-muted small" data-testid="booking-order-link">🧾 Đơn: @booking.OrderId.Value.ToString("N")[..8]</span>
+                                    @* BS-2 (2026-10-14): mã order là hyperlink → /orders/{id} để đối chiếu nhanh *@
+                                    <a href="/orders/@booking.OrderId" class="text-muted small fw-semibold"
+                                       data-testid="booking-order-link" title="Mở đơn hàng để đối chiếu">
+                                        🧾 Đơn: @booking.OrderId.Value.ToString("N")[..8] →
+                                    </a>
                                 }
                             }
                         </div>
@@ -183,6 +191,71 @@
         <input type="number" class="form-control" min="0" step="1000" @bind="_actualTotal" />
         <small class="text-muted">Dự kiến: @(_completeBooking?.EstimatedTotal.ToString("N0") ?? "0") đ — sẽ tạo đơn hàng khi hoàn tất.</small>
     </div>
+</VanAnModal>
+
+@* BS-1 modal chỉnh sửa lịch hẹn (kể cả sau check-in — PendingConfirmation..InService) *@
+<VanAnModal IsOpen="@(_editBooking is not null)" Title="Chỉnh sửa lịch hẹn" OnClose="() => _editBooking = null" OnConfirm="SaveEditAsync" ShowDefaultFooter="true" Closable="true">
+    @if (_editBooking is not null)
+    {
+        <div class="mb-2 text-muted small">
+            <strong>@_editBooking.OfferingNameSnapshot</strong> · @_editBooking.StartAt.ToVietnamString()
+            — thay đổi dịch vụ/giờ sẽ kiểm tra lại khung giờ trống.
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Dịch vụ</label>
+            <select class="form-select" @bind="_editOfferingId" data-testid="edit-booking-offering">
+                @foreach (var offering in _editOfferings)
+                {
+                    <option value="@offering.Id">@offering.DisplayName (@offering.DurationMinutes phút · @offering.Price.ToString("N0")đ)</option>
+                }
+            </select>
+        </div>
+        @if (_editAddOns.Count > 0)
+        {
+            <div class="mb-3">
+                <label class="form-label">Thêm vào — <span class="text-muted">chọn rồi lưu = thay thế danh sách hiện tại; bỏ trống = giữ nguyên</span></label>
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach (var addOn in _editAddOns)
+                    {
+                        <label class="btn btn-sm @(_editAddOnIds.Contains(addOn.Id) ? "btn-success" : "btn-outline-secondary")" data-testid="edit-booking-addon-@addOn.Id">
+                            <input type="checkbox" class="d-none" checked="@(_editAddOnIds.Contains(addOn.Id))" @onchange="() => ToggleEditAddOn(addOn.Id)" />
+                            @addOn.Name (+@addOn.Price.ToString("N0")đ)
+                        </label>
+                    }
+                </div>
+            </div>
+        }
+        <div class="mb-3">
+            <label class="form-label">Thời gian bắt đầu</label>
+            <input type="datetime-local" class="form-control" value="@_editStartAt" @onchange="OnEditStartChanged" data-testid="edit-booking-start" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Nhân viên (chọn mới để đổi — re-check khung giờ)</label>
+            <select class="form-select" @bind="_editStaffId" data-testid="edit-booking-staff">
+                <option value="@Guid.Empty">— Giữ nguyên (@(_editBooking.StaffId is null ? "chưa phân công" : "hiện tại")) —</option>
+                @foreach (var staff in _editStaff)
+                {
+                    <option value="@staff.Id">@staff.DisplayName</option>
+                }
+            </select>
+        </div>
+        <div class="mb-2">
+            <label class="form-label">Tên khách</label>
+            <input type="text" class="form-control" @bind="_editCustomerName" placeholder="Tên khách (tùy chọn)" />
+        </div>
+        <div class="mb-2">
+            <label class="form-label">Số điện thoại</label>
+            <input type="text" class="form-control" @bind="_editCustomerPhone" placeholder="SĐT (tùy chọn)" />
+        </div>
+        <div class="mb-2">
+            <label class="form-label">Ghi chú</label>
+            <textarea class="form-control" rows="2" @bind="_editCustomerNote" placeholder="Ghi chú khách..."></textarea>
+        </div>
+        @if (!string.IsNullOrEmpty(_editError))
+        {
+            <VanAAlert Variant="error" Message="@_editError" Dismissible="true" OnDismiss="() => _editError = null" />
+        }
+    }
 </VanAnModal>
 
 @if (!string.IsNullOrEmpty(_actionError))
@@ -342,6 +415,91 @@
     {
         _completeBooking = booking;
         _actualTotal = booking.EstimatedTotal;
+    }
+
+    // ── BS-1: Chỉnh sửa lịch hẹn (kể cả sau check-in) ───────────────────────
+
+    private BookingQueueItemDto? _editBooking;
+    private List<BookingOfferingDto> _editOfferings = [];
+    private List<BookingAddOnDto> _editAddOns = [];
+    private List<StaffDto> _editStaff = [];
+    private Guid _editOfferingId;
+    private readonly List<Guid> _editAddOnIds = [];
+    private string _editStartAt = string.Empty;
+    private Guid _editStaffId = Guid.Empty;
+    private string _editCustomerName = string.Empty;
+    private string _editCustomerPhone = string.Empty;
+    private string _editCustomerNote = string.Empty;
+    private string? _editError;
+
+    private async Task OpenEdit(BookingQueueItemDto booking)
+    {
+        _editBooking = booking;
+        _editError = null;
+        _editOfferingId = booking.OfferingId;
+        _editAddOnIds.Clear();
+        _editStartAt = booking.StartAt.ToLocalTime().ToString("yyyy-MM-ddTHH:mm");
+        _editStaffId = Guid.Empty;
+        _editCustomerNote = booking.CustomerNote ?? string.Empty;
+        // Tên/SĐT khách đang nằm trong note ("KH: ... · SĐT: ...") — giữ nguyên note, cho phép bổ sung.
+        _editCustomerName = string.Empty;
+        _editCustomerPhone = string.Empty;
+        StateHasChanged();
+
+        var catalogResult = await BookingApi.GetOfferingsAsync(activeOnly: false);
+        var staffResult = await BookingApi.GetStaffAsync();
+        var addOnsResult = await BookingApi.GetAddOnsAsync();
+        _editOfferings = catalogResult.Ok ? catalogResult.Data ?? [] : [];
+        _editStaff = staffResult.Ok ? staffResult.Data ?? [] : [];
+        _editAddOns = addOnsResult.Ok ? addOnsResult.Data ?? [] : [];
+        StateHasChanged();
+    }
+
+    private void ToggleEditAddOn(Guid addOnId)
+    {
+        if (_editAddOnIds.Contains(addOnId))
+            _editAddOnIds.Remove(addOnId);
+        else
+            _editAddOnIds.Add(addOnId);
+    }
+
+    private void OnEditStartChanged(ChangeEventArgs e)
+        => _editStartAt = e.Value?.ToString() ?? string.Empty;
+
+    private async Task SaveEditAsync()
+    {
+        var booking = _editBooking;
+        if (booking is null) return;
+        _editError = null;
+        StateHasChanged();
+
+        DateTime? startAt = null;
+        if (!string.IsNullOrWhiteSpace(_editStartAt)
+            && DateTime.TryParse(_editStartAt, out DateTime parsed))
+        {
+            startAt = DateTime.SpecifyKind(parsed, DateTimeKind.Local).ToUniversalTime();
+        }
+
+        Guid? newStaffId = _editStaffId == Guid.Empty ? null : _editStaffId;
+
+        var result = await BookingApi.UpdateBookingAsync(
+            booking.BookingId,
+            _editOfferingId == Guid.Empty ? null : _editOfferingId,
+            _editAddOnIds.Count == 0 ? null : _editAddOnIds.ToList(),
+            startAt,
+            newStaffId,
+            string.IsNullOrWhiteSpace(_editCustomerName) ? null : _editCustomerName,
+            string.IsNullOrWhiteSpace(_editCustomerPhone) ? null : _editCustomerPhone,
+            string.IsNullOrWhiteSpace(_editCustomerNote) ? null : _editCustomerNote);
+
+        if (!result.Ok)
+        {
+            _editError = result.Error;
+            StateHasChanged();
+            return;
+        }
+        _editBooking = null;
+        await LoadAsync();
     }
 
     // ── Labels ──────────────────────────────────────────────────────────────

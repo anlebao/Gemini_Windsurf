@@ -1152,6 +1152,8 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Booking.ITaxWithholdingPolicyAdapter, VanAn.CoreHub.Services.Booking.TaxWithholdingPolicyAdapter>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Booking.ICommissionService, VanAn.CoreHub.Services.Booking.CommissionService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Booking.IBookingFinancialService, VanAn.CoreHub.Services.Booking.BookingFinancialService>();
+            // Fix 2b (2026-10-14): consumer DepositPaid/PaymentCaptured/ServiceCompleted → AccountingEntry (511/3331; cọc 3387).
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Booking.IBookingAccountingService, VanAn.CoreHub.Services.Booking.BookingAccountingService>();
 
 
 

@@ -39,6 +39,21 @@ public sealed record BookingStatusDto(
     Guid? OrderId);
 
 /// <summary>
+/// Command điều chỉnh nội dung booking (BS-1, 2026-10-14 — user approve: kể cả khi khách đã check-in).
+/// Tất cả field nullable = "giữ nguyên". OfferingId/StartAt/AddOnIds null → không đổi hạng mục đó.
+/// StaffId: truyền Guid mới = đổi nhân viên (re-validate slot); null = giữ nhân viên hiện tại.
+/// CustomerName/CustomerPhone gộp vào CustomerNote (pattern create tenant booking).
+/// </summary>
+public sealed record UpdateBookingCommand(
+    Guid? OfferingId,
+    DateTime? StartAt,
+    Guid? StaffId,
+    IReadOnlyList<Guid>? AddOnIds,
+    string? CustomerNote,
+    string? CustomerName = null,
+    string? CustomerPhone = null);
+
+/// <summary>
 /// IBookingService — create (Idempotency-Key §21.1) · state machine 9-state (§9.3, backend authoritative §37.2)
 /// · confirm/reject/cancel idempotent (§21.2) · assign/change staff idempotent + re-check conflict (§21.3, §13)
 /// · check-in/start/complete · no-show · status polling DTO (§10) · BookingEvent mọi transition (§23-24)
@@ -49,6 +64,13 @@ public interface IBookingService
 {
     /// <summary>Create booking — idempotent theo Idempotency-Key (retry không tạo booking trùng).</summary>
     Task<BookingEntity> CreateBookingAsync(TenantId tenantId, CreateBookingCommand command, string idempotencyKey, CancellationToken ct = default);
+
+    /// <summary>
+    /// BS-1 (2026-10-14): điều chỉnh nội dung booking (dịch vụ/giờ/staff/add-on/ghi chú) —
+    /// cho phép ở trạng thái active (PendingConfirmation..InService, kể cả đã check-in).
+    /// Re-validate slot/conflict (SRS §12) + refresh snapshots + BookingEvent audit. Idempotent (không field đổi = no-op).
+    /// </summary>
+    Task<BookingEntity> UpdateBookingAsync(TenantId tenantId, Guid bookingId, UpdateBookingCommand command, CancellationToken ct = default);
 
     // ── State machine transitions (idempotent) ─────────────────────────────
     Task<BookingEntity> ConfirmAsync(TenantId tenantId, Guid bookingId, Guid? actorId = null, CancellationToken ct = default);

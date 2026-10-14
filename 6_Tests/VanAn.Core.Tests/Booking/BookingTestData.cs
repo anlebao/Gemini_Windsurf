@@ -13,11 +13,24 @@ namespace VanAn.Core.Tests.BookingScheduling
         public static readonly TenantId TenantId = new(Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"));
         public static readonly TenantId OtherTenantId = new(Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"));
 
-        /// <summary>Monday 2026-10-12 — các test dùng schedule weekday khớp.</summary>
-        public static readonly DateOnly TestMonday = new(2026, 10, 12);
+        /// <summary>
+        /// Monday KẾ TIẾP từ hôm nay — fix time-bomb 2026-10-14 (trước đây cố định 2026-10-12 → hết hạn).
+        /// Booking phải ở tương lai (CreateBookingAsync guard); schedule weekday khớp Monday (9-17, break 12-13).
+        /// </summary>
+        public static readonly DateOnly TestMonday = NextMonday();
 
+        private static DateOnly NextMonday()
+        {
+            DateOnly today = DateOnly.FromDateTime(DateTime.UtcNow);
+            int daysUntilMonday = ((int)DayOfWeek.Monday - (int)today.DayOfWeek + 7) % 7;
+            if (daysUntilMonday == 0)
+                daysUntilMonday = 7;   // hôm nay đã là Monday → dùng Monday tuần sau (giờ trong ngày có thể trôi qua)
+            return today.AddDays(daysUntilMonday);
+        }
+
+        /// <summary>Giờ trong ngày TestMonday. day (mặc định 12) = offset tương đối từ Monday (11=Chủ nhật, 13=Thứ 3...).</summary>
         public static DateTime At(int hour, int minute = 0, int day = 12)
-            => new(2026, 10, day, hour, minute, 0, DateTimeKind.Utc);
+            => TestMonday.AddDays(day - 12).ToDateTime(new TimeOnly(hour, minute), DateTimeKind.Utc);
 
         public static async Task<BookingTenantConfig> EnsureConfigAsync(VanAnDbContext ctx, TenantId tenantId, bool enabled = true, CancellationToken ct = default)
         {

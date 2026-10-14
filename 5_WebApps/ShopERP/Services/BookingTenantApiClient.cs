@@ -10,7 +10,7 @@ namespace VanAn.ShopERP.Services;
 // ── DTOs (mirror Gateway /api/tenant/booking — P4.2 + P5 extensions) ─────────
 
 public record BookingQueueItemDto(
-    Guid BookingId, string PublicBookingCode, string Status, string SubState, string OfferingNameSnapshot,
+    Guid BookingId, Guid OfferingId, string PublicBookingCode, string Status, string SubState, string OfferingNameSnapshot,
     DateTime StartAt, DateTime EndAt, decimal EstimatedTotal, decimal? ActualTotal, Guid? StaffId,
     Guid? CustomerId, string? CustomerDeviceId, string? CustomerNote, bool DepositRequired,
     decimal? DepositAmount, string? DepositType, string PaymentStatus, string InvoiceStatus, int Version,
@@ -137,6 +137,10 @@ public interface IBookingTenantApiClient
     Task<ApiResponse<FinancialStatusDto>> MarkDepositReceivedAsync(Guid bookingId, decimal? amount, CancellationToken ct = default);
     Task<ApiResponse<FinancialStatusDto>> RefundDepositAsync(Guid bookingId, CancellationToken ct = default);
     Task<ApiResponse<FinancialStatusDto>> GetFinancialStatusAsync(Guid bookingId, CancellationToken ct = default);
+    // BS-1 (2026-10-14): điều chỉnh nội dung booking — field null = giữ nguyên.
+    Task<ApiResponse<BookingQueueItemDto>> UpdateBookingAsync(
+        Guid bookingId, Guid? offeringId, IReadOnlyList<Guid>? addOnIds, DateTime? startAt, Guid? staffId,
+        string? customerName, string? customerPhone, string? customerNote, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -231,6 +235,22 @@ public sealed class BookingTenantApiClient : GatewayAdminApiClientBase, IBooking
 
     public Task<ApiResponse<BookingQueueItemDto>> NoShowAsync(Guid bookingId, string? reason, CancellationToken ct = default)
         => PostAsync<BookingQueueItemDto>($"{Base}/bookings/{bookingId}/no-show", new { reason }, ct);
+
+    /// <summary>BS-1 (2026-10-14): PUT /bookings/{id} — điều chỉnh nội dung booking (field null = giữ nguyên).</summary>
+    public Task<ApiResponse<BookingQueueItemDto>> UpdateBookingAsync(
+        Guid bookingId, Guid? offeringId, IReadOnlyList<Guid>? addOnIds, DateTime? startAt, Guid? staffId,
+        string? customerName, string? customerPhone, string? customerNote, CancellationToken ct = default)
+        => PutAsync<BookingQueueItemDto>($"{Base}/bookings/{bookingId}",
+            new
+            {
+                offeringId,
+                addOnIds,
+                startAt,
+                staffId,
+                customerName,
+                customerPhone,
+                customerNote
+            }, ct);
 
     public Task<ApiResponse<BookingQueueItemDto>> CancelAsync(Guid bookingId, string? reason, CancellationToken ct = default)
         => PostAsync<BookingQueueItemDto>($"{Base}/bookings/{bookingId}/cancel", new { reason }, ct);

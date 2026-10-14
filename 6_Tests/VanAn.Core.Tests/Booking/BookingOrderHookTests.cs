@@ -67,6 +67,53 @@ namespace VanAn.Core.Tests.BookingScheduling
             Assert.Equal(booking.OfferingId, item.ProductId);
         }
 
+        /// <summary>
+        /// Fix 1 (2026-10-14): Order hook phải route theo Tenant.ShopInstanceId (pattern PublicOrdersController).
+        /// Trước đây routingKey=null → Outbox event không có suffix .{shopInstanceId} → ShopERP subscriber
+        /// (chỉ subscribe subject có suffix) không nhận → order không sync sang SQLite → "không tạo được order".
+        /// </summary>
+        [Fact]
+        public async Task Complete_CreatesOrder_RoutedToTenantShopInstance()
+        {
+            using var scope = VanAnDbContextTestFactory.Create();
+            scope.TenantProvider!.SetTenant(BookingTestData.TenantId.Value);
+            var ctx = scope.Context;
+            var orderSvc = new FakeOrderService(ctx);
+            var svc = BuildBookingService(ctx, orderSvc);
+            var booking = await BookThroughToServiceAsync(ctx, svc);
+
+            // Seed Tenant + ShopInstance → routingKey phải = ShopInstanceId (dạng "N").
+            var shopInstance = new ShopInstance("http://shoperp:5003", "VPS-1 HCM");
+            ctx.ShopInstances.Add(shopInstance);
+            var tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant.CreateCompany(BookingTestData.TenantId, "Tenant Booking Test");
+            typeof(VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant).GetProperty("ShopInstanceId")!.SetValue(tenant, shopInstance.Id);
+            ctx.Tenants.Add(tenant);
+            await ctx.SaveChangesAsync();
+
+            var completed = await svc.CompleteAsync(BookingTestData.TenantId, booking.Id, 300_000m);
+
+            Assert.NotNull(completed.OrderId);
+            Assert.Equal(shopInstance.Id.ToString(), orderSvc.LastRoutingKey);
+        }
+
+        /// <summary>Tenant chưa gán ShopInstance → routingKey null nhưng order vẫn tạo (không fail hook).</summary>
+        [Fact]
+        public async Task Complete_NoShopInstance_RoutingKeyNull_OrderStillCreated()
+        {
+            using var scope = VanAnDbContextTestFactory.Create();
+            scope.TenantProvider!.SetTenant(BookingTestData.TenantId.Value);
+            var ctx = scope.Context;
+            var orderSvc = new FakeOrderService(ctx);
+            var svc = BuildBookingService(ctx, orderSvc);
+            var booking = await BookThroughToServiceAsync(ctx, svc);
+
+            // Không seed Tenant/ShopInstance → routingKey null (log warning), order vẫn tạo.
+            var completed = await svc.CompleteAsync(BookingTestData.TenantId, booking.Id, 300_000m);
+
+            Assert.NotNull(completed.OrderId);
+            Assert.Null(orderSvc.LastRoutingKey);
+        }
+
         [Fact]
         public async Task Complete_Twice_NoDoubleCreate()
         {
@@ -128,11 +175,14 @@ namespace VanAn.Core.Tests.BookingScheduling
         {
             public int CreatedOrders { get; private set; }
             public bool ThrowOnCreate { get; init; }
+            /// <summary>Fix 1 — routing key truyền vào CreateOrderFromCommandAsync (null nếu tenant chưa gán ShopInstance).</summary>
+            public string? LastRoutingKey { get; private set; }
 
             public Task<OrderEntity> CreateOrderFromCommandAsync(CreateOrderCommand command, Guid tenantId, string? routingKey = null)
             {
                 if (ThrowOnCreate)
                     throw new InvalidOperationException("simulated order service failure");
+                LastRoutingKey = routingKey;
                 OrderEntity order = CreateOrderForBooking(ctx, command, new TenantId(tenantId));
                 CreatedOrders++;
                 return Task.FromResult(order);

@@ -102,7 +102,7 @@ namespace VanAn.CoreHub.Services.Booking
             // Staff cụ thể → validate skill + slot server-side TRƯỚC transaction (message thân thiện).
             if (command.StaffId is not null)
             {
-                AvailabilityCheckResult check = await _availabilityService.ValidateSlotAsync(tenantId, offering.Id, command.StaffId.Value, startAt, ct);
+                AvailabilityCheckResult check = await _availabilityService.ValidateSlotAsync(tenantId, offering.Id, command.StaffId.Value, startAt, ct: ct);
                 if (!check.IsAvailable)
                     throw new BookingConflictException(check.UnavailableReason ?? ConflictMessage);
             }
@@ -244,6 +244,175 @@ namespace VanAn.CoreHub.Services.Booking
         public Task<BookingEntity> MarkNoShowAsync(TenantId tenantId, Guid bookingId, string? reason, Guid? actorId = null, CancellationToken ct = default)
             => TransitionAsync(tenantId, bookingId, BookingStatus.NoShow, "BookingNoShow", "TENANT", actorId, b => b.MarkNoShow(reason), ct);
 
+        // ── BS-1: điều chỉnh nội dung booking (kể cả sau check-in) ──────────
+
+        /// <summary>
+        /// BS-1 (2026-10-14, user approve): edit dịch vụ/giờ/staff/add-on/ghi chú — cho phép ở trạng thái
+        /// active (PendingConfirmation..InService, kể cả đã check-in). Mọi field nullable = giữ nguyên.
+        /// Re-validate slot server-side (SRS §12, exclude chính booking), refresh offering/add-on SNAPSHOT (§8.4),
+        /// BookingEvent "BookingUpdated" audit (§23-24). Idempotent — không field thay đổi → trả về nguyên trạng.
+        /// </summary>
+        public async Task<BookingEntity> UpdateBookingAsync(
+            TenantId tenantId, Guid bookingId, UpdateBookingCommand command, CancellationToken ct = default)
+        {
+            BookingEntity booking = await GetBookingOrThrowAsync(tenantId, bookingId, ct);
+            if (booking.Status is BookingStatus.Completed or BookingStatus.Cancelled or BookingStatus.Rejected or BookingStatus.NoShow)
+                throw new ValidationException($"Không thể chỉnh sửa booking ở trạng thái {booking.Status}.");
+
+            // ── Offering: đổi (validate active) hoặc giữ nguyên ──
+            Guid offeringId = booking.OfferingId;
+            AppointmentOffering offering;
+            bool offeringChanged = command.OfferingId is not null && command.OfferingId != booking.OfferingId;
+            if (offeringChanged)
+            {
+                offering = await _context.AppointmentOfferings.IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(o => o.TenantId == tenantId && o.Id == command.OfferingId && o.IsActive, ct)
+                    ?? throw new NotFoundException("Dịch vụ không tồn tại hoặc không hoạt động.");
+                offeringId = offering.Id;
+            }
+            else
+            {
+                offering = await _context.AppointmentOfferings.IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(o => o.TenantId == tenantId && o.Id == booking.OfferingId, ct)
+                    ?? throw new NotFoundException("Dịch vụ của booking không còn tồn tại.");
+            }
+
+            // ── StartAt: đổi (validate tương lai) hoặc giữ ──
+            DateTime startAt = booking.StartAt;
+            if (command.StartAt is not null)
+            {
+                if (command.StartAt.Value.Kind == DateTimeKind.Unspecified)
+                    startAt = DateTime.SpecifyKind(command.StartAt.Value, DateTimeKind.Utc);
+                else
+                    startAt = command.StartAt.Value.ToUniversalTime();
+                if (startAt <= DateTime.UtcNow)
+                    throw new ValidationException("Thời gian đặt phải ở tương lai.");
+            }
+            bool startChanged = startAt != booking.StartAt;
+            DateTime endAt = startAt.AddMinutes(offering.DurationMinutes);
+
+            // ── Staff: null = giữ; khác = đổi (re-validate slot, exclude self); dịch vụ/giờ đổi → re-check staff hiện tại ──
+            Guid? staffId = booking.StaffId;
+            bool staffChanged = false;
+            if (command.StaffId is not null && command.StaffId != Guid.Empty && command.StaffId != booking.StaffId)
+            {
+                AvailabilityCheckResult check = await _availabilityService.ValidateSlotAsync(tenantId, offeringId, command.StaffId.Value, startAt, booking.Id, ct);
+                if (!check.IsAvailable)
+                    throw new BookingConflictException(check.UnavailableReason ?? ConflictMessage);
+                staffId = command.StaffId;
+                staffChanged = true;
+            }
+            else if (booking.StaffId is not null && (offeringChanged || startChanged))
+            {
+                // Dịch vụ/giờ đổi → slot mới phải còn khả dụng với staff hiện tại.
+                AvailabilityCheckResult check = await _availabilityService.ValidateSlotAsync(tenantId, offeringId, booking.StaffId.Value, startAt, booking.Id, ct);
+                if (!check.IsAvailable)
+                    throw new BookingConflictException(check.UnavailableReason ?? ConflictMessage);
+            }
+
+            // Conflict double-check trong DB (exclude self) — chỉ khi có thay đổi ảnh hưởng slot.
+            if (staffId is not null && (offeringChanged || startChanged || staffChanged))
+            {
+                BookingEntity? conflict = await FindConflictAsync(tenantId, staffId.Value, startAt, endAt, booking.Id, ct);
+                if (conflict is not null)
+                    throw new BookingConflictException(ConflictMessage);
+            }
+
+            // ── Add-ons: null = giữ hiện tại; khác = thay thế (validate active) ──
+            List<AddOn> addOns = [];
+            if (command.AddOnIds is not null)
+            {
+                foreach (Guid addOnId in command.AddOnIds)
+                {
+                    AddOn? addOn = await _context.AddOns.IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(a => a.TenantId == tenantId && a.Id == addOnId && a.IsActive, ct)
+                        ?? throw new ValidationException($"Add-on {addOnId} không tồn tại hoặc không hoạt động.");
+                    addOns.Add(addOn);
+                }
+            }
+            else
+            {
+                List<Guid> currentAddOnIds = await _context.BookingItems.IgnoreQueryFilters()
+                    .Where(i => i.BookingId == booking.Id && i.ItemType == "ADD_ON" && i.AddOnId.HasValue)
+                    .Select(i => i.AddOnId!.Value)
+                    .ToListAsync(ct);
+                if (currentAddOnIds.Count > 0)
+                {
+                    addOns = await _context.AddOns.IgnoreQueryFilters()
+                        .Where(a => a.TenantId == tenantId && currentAddOnIds.Contains(a.Id))
+                        .ToListAsync(ct);
+                }
+            }
+
+            decimal estimatedTotal = offering.Price + addOns.Sum(a => a.Price);
+
+            // ── No-op: không field thay đổi → trả về nguyên trạng (idempotent) ──
+            bool contentChanged = offeringChanged || startChanged || staffChanged
+                || command.AddOnIds is not null || command.CustomerNote is not null
+                || command.CustomerName is not null || command.CustomerPhone is not null;
+            if (!contentChanged)
+            {
+                _logger.LogDebug("Booking update no-op: booking={BookingId}", booking.Id);
+                return booking;
+            }
+
+            // ── Domain update (snapshot + thời gian + staff + note) ──
+            string? customerNote = command.CustomerNote;
+            if (command.CustomerName is not null || command.CustomerPhone is not null)
+            {
+                customerNote = BuildCustomerNote(command.CustomerName, command.CustomerPhone, command.CustomerNote ?? booking.CustomerNote);
+            }
+            booking.UpdateContent(
+                offeringId, offering.DisplayName, offering.DurationMinutes, offering.Price,
+                startAt, endAt, estimatedTotal, staffId, customerNote);
+
+            if (staffChanged)
+            {
+                _context.BookingStaffAssignments.Add(new BookingStaffAssignment(
+                    tenantId, booking.Id, staffId!.Value, assignedBy: null, "REASSIGN"));
+            }
+
+            // ── Replace BookingItems khi dịch vụ/add-on đổi (snapshot mới §8.4) ──
+            if (offeringChanged || command.AddOnIds is not null)
+            {
+                List<BookingItem> existingItems = await _context.BookingItems.IgnoreQueryFilters()
+                    .Where(i => i.BookingId == booking.Id)
+                    .ToListAsync(ct);
+                _context.BookingItems.RemoveRange(existingItems);
+                _context.BookingItems.Add(new BookingItem(
+                    tenantId, booking.Id, "OFFERING", offering.DisplayName, 1,
+                    offering.Price, offering.DurationMinutes, offering.Id));
+                foreach (AddOn addOn in addOns)
+                {
+                    _context.BookingItems.Add(new BookingItem(
+                        tenantId, booking.Id, "ADD_ON", addOn.Name, 1, addOn.Price, 0, addOnId: addOn.Id));
+                }
+            }
+
+            _context.BookingEvents.Add(new BookingEvent(
+                tenantId, booking.Id, "BookingUpdated", "TENANT", actorId: null,
+                System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    offeringId, startAt, endAt, staffId,
+                    addOnIds = addOns.Select(a => a.Id).ToList(),
+                    estimatedTotal
+                })));
+
+            _ = await _context.SaveChangesAsync(ct);
+            _logger.LogInformation("Booking updated: booking={BookingId} offering={OfferingId} start={StartAt} staff={StaffId}",
+                booking.Id, offeringId, startAt, staffId);
+            return booking;
+        }
+
+        private static string BuildCustomerNote(string? customerName, string? customerPhone, string? customerNote)
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(customerName)) parts.Add($"KH: {customerName.Trim()}");
+            if (!string.IsNullOrWhiteSpace(customerPhone)) parts.Add($"SĐT: {customerPhone.Trim()}");
+            if (!string.IsNullOrWhiteSpace(customerNote)) parts.Add(customerNote.Trim());
+            return parts.Count > 0 ? string.Join(" · ", parts) : string.Empty;
+        }
+
         // ── Assign / change staff (§21.3 idempotent + §13 re-check) ─────────
 
         public async Task<BookingEntity> AssignStaffAsync(TenantId tenantId, Guid bookingId, Guid staffId, Guid? actorId = null, CancellationToken ct = default)
@@ -364,7 +533,7 @@ namespace VanAn.CoreHub.Services.Booking
 
             // §13: manual override luôn re-check conflict server-side (message thân thiện trước).
             AvailabilityCheckResult check = await _availabilityService.ValidateSlotAsync(
-                tenantId, booking.OfferingId, staffId, booking.StartAt, ct);
+                tenantId, booking.OfferingId, staffId, booking.StartAt, ct: ct);
             if (!check.IsAvailable)
                 throw new BookingConflictException(check.UnavailableReason ?? ConflictMessage);
 
@@ -490,6 +659,14 @@ namespace VanAn.CoreHub.Services.Booking
                     return;
                 }
 
+                // Fix 1 (2026-10-14, user approve — verify bug "booking hoàn tất không tạo order"):
+                // Routing key = Tenant.ShopInstanceId (pattern PublicOrdersController) — KHÔNG được null.
+                // Trước đây routingKey=null → Outbox event ra subject "vanan.cloud.order.created" (không có
+                // suffix .{shopInstanceId}) → ShopERP OrderSyncSubscriber (chỉ subscribe subject có suffix —
+                // Phase 4 chống cross-VPS leak) không nhận → order chỉ tồn tại ở Gateway PG, không bao giờ
+                // sync sang ShopERP SQLite → Owner không thấy đơn → doanh thu không vào luồng kế toán hiện có.
+                string? routingKey = await ResolveShopInstanceRoutingKeyAsync(tenantId, ct);
+
                 var command = new CreateOrderCommand
                 {
                     CustomerId = booking.CustomerId,
@@ -509,11 +686,11 @@ namespace VanAn.CoreHub.Services.Booking
                     }).ToList()
                 };
 
-                OrderEntity order = await _orderService.CreateOrderFromCommandAsync(command, tenantId.Value);
+                OrderEntity order = await _orderService.CreateOrderFromCommandAsync(command, tenantId.Value, routingKey);
                 booking.AttachOrder(order.Id);
                 _ = await _context.SaveChangesAsync(ct);
-                _logger.LogInformation("Booking→Order created: booking={BookingId} order={OrderId} total={Total}",
-                    booking.Id, order.Id, order.TotalAmount);
+                _logger.LogInformation("Booking→Order created: booking={BookingId} order={OrderId} total={Total} routingKey={RoutingKey}",
+                    booking.Id, order.Id, order.TotalAmount, routingKey ?? "(none)");
             }
             catch (Exception ex)
             {
@@ -546,6 +723,35 @@ namespace VanAn.CoreHub.Services.Booking
                 _ = await _context.Database.ExecuteSqlRawAsync(
                     "WITH l AS (SELECT pg_advisory_xact_lock(hashtextextended({0}, 0))) SELECT 1",
                     new object[] { $"{tenantId.Value}:{staffId}" }, ct);
+            }
+        }
+
+        /// <summary>
+        /// Fix 1 (2026-10-14): resolve ShopInstanceId của tenant → routing key cho Outbox OrderCreated event
+        /// (pattern PublicOrdersController — Phase 3 Multi-VPS). null = tenant chưa gán ShopInstance (đơn vẫn tạo
+        /// ở PG, nhưng ShopERP không nhận — log để phát hiện sớm). Best-effort, không fail order creation.
+        /// </summary>
+        private async Task<string?> ResolveShopInstanceRoutingKeyAsync(TenantId tenantId, CancellationToken ct)
+        {
+            try
+            {
+                Guid? shopInstanceId = await _context.Tenants
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .Where(t => t.Id == tenantId && t.ShopInstanceId.HasValue)
+                    .Select(t => t.ShopInstanceId)
+                    .FirstOrDefaultAsync(ct);
+                if (shopInstanceId is null || shopInstanceId == Guid.Empty)
+                {
+                    _logger.LogWarning("Booking→Order: tenant {TenantId} chưa gán ShopInstanceId — order không route được tới ShopERP.", tenantId.Value);
+                    return null;
+                }
+                return shopInstanceId.Value.ToString();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Booking→Order: resolve ShopInstanceId failed for tenant {TenantId} — routingKey null.", tenantId.Value);
+                return null;
             }
         }
 

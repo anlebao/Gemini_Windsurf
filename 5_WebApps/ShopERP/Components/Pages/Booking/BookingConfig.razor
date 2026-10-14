@@ -5,6 +5,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using VanAn.UI.Platform.Components
 @using VanAn.ShopERP.Services
+@using VanAn.ShopERP.Components.Shared
 @inject IBookingTenantApiClient BookingApi
 @inject ILogger<BookingConfig> Logger
 
@@ -81,6 +82,11 @@
                 <small class="text-muted">Snapshot theo hồ sơ thuế của tenant (SRS §16.5). Để trống nếu không chắc chắn.</small>
             </div>
         </VanACard>
+
+        @* BS-3 (2026-10-14): tab entry point — link + QR để khách đặt lịch *@
+        <div class="mt-3">
+            <BookingEntryPoint />
+        </div>
 
         <div class="mt-3 d-flex align-items-center gap-2">
             <VanAButton Variant="primary" OnClick="SaveAsync" Disabled="@_saving" data-testid="config-save">

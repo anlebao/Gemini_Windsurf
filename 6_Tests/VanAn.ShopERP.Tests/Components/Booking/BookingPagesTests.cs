@@ -14,7 +14,7 @@ namespace VanAn.ShopERP.Tests.Components.Booking;
 public class BookingQueuePageTests : ComponentTestBase
 {
     private static BookingQueueItemDto SampleBooking(string status) => new(
-        BookingId: Guid.NewGuid(), PublicBookingCode: "BK-TEST-001", Status: status, SubState: "None",
+        BookingId: Guid.NewGuid(), OfferingId: Guid.NewGuid(), PublicBookingCode: "BK-TEST-001", Status: status, SubState: "None",
         OfferingNameSnapshot: "Massage thư giãn 60 phút", StartAt: DateTime.UtcNow.AddHours(3),
         EndAt: DateTime.UtcNow.AddHours(4), EstimatedTotal: 300000, ActualTotal: null,
         StaffId: null, CustomerId: null, CustomerDeviceId: "device-abc", CustomerNote: "Phòng riêng",
@@ -278,7 +278,7 @@ public class BookingCreatePageTests : ComponentTestBase
                 It.IsAny<Guid>(), It.IsAny<IReadOnlyList<Guid>>(), It.IsAny<DateTime>(), It.IsAny<Guid?>(),
                 It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(ApiResponse<BookingQueueItemDto>.Success(new BookingQueueItemDto(
-                Guid.NewGuid(), "BK-FAST-001", "Confirmed", "None", "Massage 60 phút", slotStart, slotStart.AddMinutes(60),
+                Guid.NewGuid(), Guid.NewGuid(), "BK-FAST-001", "Confirmed", "None", "Massage 60 phút", slotStart, slotStart.AddMinutes(60),
                 300000, null, null, null, null, "KH: Nguyễn Văn Khách", true, 50000, "SecurityDeposit",
                 "Pending", "NotRequired", 1, DateTime.UtcNow, null, null)));
         Services.AddSingleton(api.Object);
