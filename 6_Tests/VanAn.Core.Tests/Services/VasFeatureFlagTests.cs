@@ -113,6 +113,47 @@ public class VasFeatureFlagTests
         Assert.False(isReadOnly, "Active tenant should not be read-only");
     }
 
+    // 2026-10-15 (fix báo cáo HTX): pgDbContext ưu tiên — mirror (SQLite) HKD nhưng PG HTX
+    // → GetTenantTypeAsync/CanAccessVasReportsAsync phải đọc PG (source of truth).
+    [Fact]
+    public async Task W8_FF10_PgPreference_ReturnsPgType_WhenMirrorIsStale()
+    {
+        using TestContextScope mirrorScope = VanAnDbContextTestFactory.Create();
+        using TestContextScope pgScope = VanAnDbContextTestFactory.Create();
+
+        var tenantId = new TenantId(Guid.NewGuid());
+
+        // "SQLite mirror" — Type=HKD (MarkAsHtx không sync xuống mirror)
+        var mirrorTenant = Tenant.CreateHouseholdBusiness(tenantId, "Mirror HKD", HKDGroup.Group1);
+        mirrorScope.Context.Tenants.Add(mirrorTenant);
+        await mirrorScope.Context.SaveChangesAsync();
+
+        // PG (source of truth) — Type=HTX + TT71
+        var pgTenant = Tenant.CreateCompany(tenantId, "PG HTX");
+        pgTenant.MarkAsHtx();
+        pgScope.Context.Tenants.Add(pgTenant);
+        await pgScope.Context.SaveChangesAsync();
+
+        var flagSvc = new VasFeatureFlagService(
+            mirrorScope.Context,
+            NullLogger<VasFeatureFlagService>.Instance,
+            pgScope.Context); // pgDbContext ưu tiên
+
+        TenantType? type = await flagSvc.GetTenantTypeAsync(tenantId);
+        Assert.Equal(TenantType.HTX, type);
+        // HTX != HKD → được vào hub BCTC (menu "Báo Cáo Tài Chính" + isHtx=true → B01-HTX)
+        Assert.True(await flagSvc.CanAccessVasReportsAsync(tenantId));
+    }
+
+    [Fact]
+    public async Task W8_FF11_PgPreference_FallsBackToDbContext_WhenNoPgContext()
+    {
+        // Không truyền pgDbContext → đọc IVanAnDbContext (Gateway/tests) như cũ
+        var (_, flagSvc, _, hkdId) = await SetupWithHkdAsync();
+        TenantType? type = await flagSvc.GetTenantTypeAsync(hkdId);
+        Assert.Equal(TenantType.HKD, type);
+    }
+
     // ── Tenant Conversion Tests (D9) ──────────────────────────────────────
 
     // W8-CONV1: ConvertHkdToEnterprise creates new DN tenant with PredecessorTenantId link.

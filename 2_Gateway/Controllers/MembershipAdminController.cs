@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.CoreHub.Services.Membership;
+using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.MembershipAggregate;
 
 namespace VanAn.Gateway.Controllers
@@ -46,6 +47,34 @@ namespace VanAn.Gateway.Controllers
             catch (ArgumentException ex)
             {
                 return BadRequest(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+        }
+
+        /// <summary>Luồng 1 (2026-10-15): chuyển ngược HTX → Công ty/HKD (SystemAdmin).
+        /// CHẶN khi còn thành viên (Q3). Xóa HtxProfile + revert Tenant.Type/AccountingStandard.</summary>
+        [HttpPost("htx-profile/revert")]
+        public async Task<IActionResult> RevertHtxProfile([FromBody] RevertHtxAdminRequest request)
+        {
+            if (request.HtxTenantId == Guid.Empty)
+                return BadRequest(new { error = "htxTenantId is required." });
+
+            if (!TryResolveTargetType(request.TargetType, out var targetType, out var targetStandard))
+                return BadRequest(new { error = $"TargetType không hợp lệ: '{request.TargetType}'. Hợp lệ: HKD, Enterprise_SME, Enterprise_Large." });
+
+            try
+            {
+                await htxProfileService.RevertAsync(request.HtxTenantId, targetType, targetStandard, HttpContext.RequestAborted);
+                logger.LogInformation("SystemAdmin reverted tenant {HtxId} HTX → {TargetType} (standard {Standard})",
+                    request.HtxTenantId, targetType, targetStandard?.ToString() ?? "null");
+                return Ok(new { reverted = true, tenantId = request.HtxTenantId, targetType = targetType.ToString() });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
             }
             catch (InvalidOperationException ex)
             {
@@ -121,6 +150,29 @@ namespace VanAn.Gateway.Controllers
             var claim = User.FindFirst("sub")?.Value
                 ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             return Guid.TryParse(claim, out var userId) ? userId : Guid.Empty;
+        }
+
+        /// <summary>Map TargetType (string API) → TenantType + AccountingStandard (HKD → null, TT 152 implied).</summary>
+        private static bool TryResolveTargetType(string? targetType, out TenantType type, out AccountingStandard? standard)
+        {
+            type = default;
+            standard = null;
+            switch (targetType?.Trim().ToLowerInvariant())
+            {
+                case "hkd":
+                    type = TenantType.HKD;
+                    return true;
+                case "enterprise_sme" or "company_sme" or "sme":
+                    type = TenantType.Enterprise_SME;
+                    standard = AccountingStandard.TT133_2016;
+                    return true;
+                case "enterprise_large" or "company_large" or "large":
+                    type = TenantType.Enterprise_Large;
+                    standard = AccountingStandard.TT99_2025;
+                    return true;
+                default:
+                    return false;
+            }
         }
     }
 }

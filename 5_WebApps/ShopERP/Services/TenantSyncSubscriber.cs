@@ -57,6 +57,9 @@ namespace VanAn.ShopERP.Services
             // (unlike OrderSyncSubscriber which routes by ShopInstanceId).
             const string verifiedSubject = "vanan.cloud.tenant.verified";
             const string profileUpdatedSubject = "vanan.cloud.tenant.profile.updated";
+            // 2026-10-15 (fix báo cáo HTX): MarkAsHtx/revert chỉ ghi PG → event này cập nhật
+            // SQLite mirror Type/AccountingStandard cho khớp PG (source of truth).
+            const string typeChangedSubject = "vanan.cloud.tenant.type.changed";
 
             string url = _configuration.GetValue<string>("Nats:Url")
                 ?? _configuration.GetValue<string>("NATS:Url")
@@ -90,9 +93,14 @@ namespace VanAn.ShopERP.Services
                         await SyncTenantProfileUpdatedAsync(args.Message.Data, stoppingToken);
                     });
 
+                    _ = _subscriptionConnection.SubscribeAsync(typeChangedSubject, async (sender, args) =>
+                    {
+                        await SyncTenantTypeChangedAsync(args.Message.Data, stoppingToken);
+                    });
+
                     _logger.LogInformation(
-                        "TenantSyncSubscriber connected to NATS {Url}, subscribed to {Verified} + {ProfileUpdated}",
-                        url, verifiedSubject, profileUpdatedSubject);
+                        "TenantSyncSubscriber connected to NATS {Url}, subscribed to {Verified} + {ProfileUpdated} + {TypeChanged}",
+                        url, verifiedSubject, profileUpdatedSubject, typeChangedSubject);
 
                     // Connected successfully — wait indefinitely until cancelled
                     await Task.Delay(Timeout.Infinite, stoppingToken);
@@ -285,6 +293,71 @@ namespace VanAn.ShopERP.Services
             }
 
             await dbContext.SaveChangesAsync(ct);
+        }
+        /// <summary>
+        /// 2026-10-15 (fix báo cáo HTX): handle "vanan.cloud.tenant.type.changed" — MarkAsHtx
+        /// (HtxProfileService) hoặc RevertAsync chỉ ghi PG; event này đồng bộ SQLite mirror
+        /// Type/AccountingStandard cho khớp PG (source of truth) → UI kế toán resolve đúng TT 71.
+        /// Payload: { TenantId, Type (int?), AccountingStandard (int?), UpdatedAt }.
+        /// Idempotent: re-delivery an toàn (MarkAsHtx/RevertTenantType đều có guard riêng).
+        /// </summary>
+        internal async Task SyncTenantTypeChangedAsync(byte[] data, CancellationToken ct)
+        {
+            try
+            {
+                string json = Encoding.UTF8.GetString(data);
+                using var doc = JsonDocument.Parse(json);
+
+                var tenantId = doc.RootElement.GetProperty("TenantId").GetGuid();
+                var type = doc.RootElement.TryGetProperty("Type", out var typeEl) && typeEl.ValueKind == JsonValueKind.Number
+                    ? (TenantType?)(TenantType)typeEl.GetInt32()
+                    : null;
+                var standard = doc.RootElement.TryGetProperty("AccountingStandard", out var stdEl) && stdEl.ValueKind == JsonValueKind.Number
+                    ? (AccountingStandard?)(AccountingStandard)stdEl.GetInt32()
+                    : null;
+
+                using var scope = _serviceProvider.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
+
+                var tenantIdVo = new TenantId(tenantId);
+                var existing = await dbContext.Tenants
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(t => t.Id == tenantIdVo, ct);
+                if (existing is null)
+                {
+                    _logger.LogWarning(
+                        "TenantSyncSubscriber: type.changed cho tenant {TenantId} nhưng mirror row không tồn tại — skip (tenant chưa sync qua verified/profile.updated)",
+                        tenantId);
+                    return;
+                }
+
+                if (type == TenantType.HTX)
+                {
+                    // HTX → TT 71 (MarkAsHtx set standard = TT71 luôn)
+                    existing.MarkAsHtx();
+                }
+                else if (existing.Type == TenantType.HTX && type is not null)
+                {
+                    // Revert HTX → Công ty/HKD
+                    existing.RevertTenantType(type.Value, standard);
+                }
+                else
+                {
+                    // Không phải transition liên quan HTX — mirror giữ nguyên
+                    _logger.LogDebug("TenantSyncSubscriber: type.changed {TenantId} bỏ qua (mirror Type={MirrorType}, event Type={EventType})",
+                        tenantId, existing.Type?.ToString() ?? "null", type?.ToString() ?? "null");
+                    return;
+                }
+
+                await dbContext.SaveChangesAsync(ct);
+                _logger.LogInformation(
+                    "TenantSyncSubscriber: tenant {TenantId} SQLite mirror Type → {Type} / Standard → {Standard}",
+                    tenantId, existing.Type?.ToString() ?? "null", existing.AccountingStandard?.ToString() ?? "null");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "TenantSyncSubscriber: failed to process tenant type.changed event");
+            }
         }
     }
 }

@@ -1,3 +1,5 @@
+using VanAn.Shared.Domain;
+
 namespace VanAn.CoreHub.Services.Membership
 {
     /// <summary>
@@ -21,5 +23,13 @@ namespace VanAn.CoreHub.Services.Membership
 
         /// <summary>Cập nhật phiên bản điều kiện gia nhập.</summary>
         Task UpdateTermsAsync(Guid htxTenantId, string termsVersion, CancellationToken ct = default);
+
+        /// <summary>
+        /// 2026-10-15 (user directive): Revert HTX → Công ty/HKD (chuyển ngược).
+        /// Guard: tenant phải có HtxProfile (throw nếu chưa có); CHẶN nếu còn Member
+        /// (bảo toàn dữ liệu — phải tự xóa thành viên trước). Xóa HtxProfile + revert
+        /// Tenant.Type/AccountingStandard + publish vanan.cloud.tenant.type.changed.
+        /// </summary>
+        Task RevertAsync(Guid htxTenantId, TenantType targetType, AccountingStandard? targetStandard, CancellationToken ct = default);
     }
 }

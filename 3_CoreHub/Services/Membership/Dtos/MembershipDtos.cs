@@ -107,6 +107,11 @@ namespace VanAn.CoreHub.Services.Membership
         string? TermsVersion = null,
         string? CharterUrl = null);
 
+    /// <summary>2026-10-15: chuyển ngược HTX → Công ty/HKD (SystemAdmin). TargetType: HKD | Enterprise_SME | Enterprise_Large.</summary>
+    public record RevertHtxAdminRequest(
+        Guid HtxTenantId,
+        string TargetType);
+
     /// <summary>Luồng 2: thêm tenant làm thành viên HTX (SystemAdmin) — MembershipType string enum (camelCase).</summary>
     public record AddHtxMemberRequest(
         Guid HtxTenantId,

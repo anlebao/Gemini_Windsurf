@@ -30,11 +30,19 @@ public interface IVasFeatureFlagService
 
 /// <summary>
 /// VAS Wave 8 — Feature flag service implementation.
-/// Queries Tenant aggregate from IVanAnDbContext to determine VAS access.
+/// 2026-10-15 (fix báo cáo HTX): GetTenantTypeAsync/IsReadOnlyAsync ưu tiên đọc
+/// VanAnDbContext (PostgreSQL — source of truth, MarkAsHtx chỉ ghi PG) khi có;
+/// fallback IVanAnDbContext (Gateway/tests — cùng PG). Trong ShopERP, IVanAnDbContext =
+/// ShopERPDbContext (SQLite mirror) KHÔNG được sync Type khi MarkAsHtx → đọc mirror
+/// sẽ hiển thị báo cáo HKD thay vì TT 71 (pattern OrderService P6b).
 /// </summary>
-public class VasFeatureFlagService(IVanAnDbContext dbContext, ILogger<VasFeatureFlagService> logger) : IVasFeatureFlagService
+public class VasFeatureFlagService(
+    IVanAnDbContext dbContext,
+    ILogger<VasFeatureFlagService> logger,
+    VanAnDbContext? pgDbContext = null) : IVasFeatureFlagService
 {
     private readonly IVanAnDbContext _dbContext = dbContext;
+    private readonly VanAnDbContext? _pgDbContext = pgDbContext;
     private readonly ILogger<VasFeatureFlagService> _logger = logger;
 
     /// <inheritdoc />
@@ -55,22 +63,34 @@ public class VasFeatureFlagService(IVanAnDbContext dbContext, ILogger<VasFeature
     /// <inheritdoc />
     public async Task<TenantType?> GetTenantTypeAsync(TenantId tenantId, CancellationToken ct = default)
     {
-        Tenant? tenant = await _dbContext.Tenants
-            .AsNoTracking()
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(t => t.Id == tenantId, ct)
-            .ConfigureAwait(false);
+        var tenant = _pgDbContext is not null
+            ? await _pgDbContext.Tenants
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(t => t.Id == tenantId, ct)
+                .ConfigureAwait(false)
+            : await _dbContext.Tenants
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(t => t.Id == tenantId, ct)
+                .ConfigureAwait(false);
         return tenant?.Type;
     }
 
     /// <inheritdoc />
     public async Task<bool> IsReadOnlyAsync(TenantId tenantId, CancellationToken ct = default)
     {
-        Tenant? tenant = await _dbContext.Tenants
-            .AsNoTracking()
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(t => t.Id == tenantId, ct)
-            .ConfigureAwait(false);
+        var tenant = _pgDbContext is not null
+            ? await _pgDbContext.Tenants
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(t => t.Id == tenantId, ct)
+                .ConfigureAwait(false)
+            : await _dbContext.Tenants
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(t => t.Id == tenantId, ct)
+                .ConfigureAwait(false);
         return tenant?.IsConverted() ?? false;
     }
 }

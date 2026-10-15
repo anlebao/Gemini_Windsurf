@@ -229,6 +229,12 @@
                                         <i class="bi bi-people"></i>
                                     </VanAButton>
                                 }
+                                @if (t.Status == TenantStatus.Active && t.Type == TenantType.HTX)
+                                {
+                                    <VanAButton Variant="warning" Size="small" title="Chuyển về Công ty/HKD (bỏ chế độ HTX)" OnClick="() => OpenRevertHtxModal(t)">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </VanAButton>
+                                }
                             </td>
                         </tr>
                     }
@@ -962,6 +968,33 @@
     }
 </VanAnModal>
 
+@* 2026-10-15 (user directive): HTX → Công ty/HKD — chuyển ngược (chặn khi còn thành viên) *@
+<VanAnModal IsOpen="@_showRevertHtxModal" Title="Chuyển về Công ty/HKD (bỏ chế độ HTX)" Closable="true" OnClose="CloseRevertHtxModal">
+    @if (_revertHtxTarget != null)
+    {
+        <p class="text-muted mb-3">
+            Chuyển <strong>@_revertHtxTarget.Name</strong> từ Hợp tác xã về loại hình khác →
+            bỏ <strong>Chế độ kế toán HTX (TT 71/2024)</strong>. Hồ sơ HTX (HtxProfile) sẽ bị xóa.
+        </p>
+        <VanAAlert Type="warning" Message="Chỉ chuyển ngược được khi HTX KHÔNG còn thành viên. Bút toán cũ (511/512, 611/612) giữ nguyên lịch sử; order mới sẽ định khoản theo loại hình mới." CssClass="mb-3" />
+        <div class="mb-3">
+            <label class="form-label">Loại hình mục tiêu *</label>
+            <select class="vanan-select" @bind="_revertTargetType">
+                <option value="HKD">Hộ kinh doanh (TT 152)</option>
+                <option value="Enterprise_SME">Công ty — DN vừa và nhỏ (TT 133)</option>
+                <option value="Enterprise_Large">Công ty — DN lớn (TT 99)</option>
+            </select>
+        </div>
+        @if (!string.IsNullOrEmpty(_revertHtxAlertMessage))
+        {
+            <VanAAlert Type="@_revertHtxAlertType" Message="@_revertHtxAlertMessage" CssClass="mb-3" />
+        }
+        <VanAButton Variant="danger" OnClick="ConfirmRevertHtx" IsLoading="@_revertHtxSaving">
+            <i class="bi bi-arrow-counterclockwise me-1"></i> Xác nhận chuyển về @(_revertTargetType == "HKD" ? "Hộ kinh doanh" : "Công ty")
+        </VanAButton>
+    }
+</VanAnModal>
+
 @code {
 #pragma warning disable CS0618 // Tenant obsolete — using new TenantAggregate.Tenant explicitly below
     // Tenants loaded from Gateway API (PostgreSQL) — NOT local SQLite
@@ -996,6 +1029,51 @@
     {
         _showHtxModal = false;
         _htxTarget = null;
+    }
+
+    // ── 2026-10-15 (user directive): HTX → Công ty/HKD (chuyển ngược) ──
+    private bool _showRevertHtxModal;
+    private TenantApiDto? _revertHtxTarget;
+    private string _revertTargetType = "HKD";
+    private bool _revertHtxSaving;
+    private string _revertHtxAlertMessage = string.Empty;
+    private string _revertHtxAlertType = "info";
+
+    private void OpenRevertHtxModal(TenantApiDto t)
+    {
+        _revertHtxTarget = t;
+        _revertTargetType = "HKD";
+        _revertHtxAlertMessage = string.Empty;
+        _showRevertHtxModal = true;
+    }
+
+    private void CloseRevertHtxModal()
+    {
+        _showRevertHtxModal = false;
+        _revertHtxTarget = null;
+    }
+
+    private async Task ConfirmRevertHtx()
+    {
+        if (_revertHtxTarget is null) return;
+        _revertHtxSaving = true;
+        _revertHtxAlertMessage = string.Empty;
+        try
+        {
+            await MembershipAdminApi.RevertHtxProfileAsync(_revertHtxTarget.Id, _revertTargetType);
+            _revertHtxAlertType = "success";
+            _revertHtxAlertMessage = $"✅ {_revertHtxTarget.Name} đã chuyển về {(_revertTargetType == "HKD" ? "Hộ kinh doanh" : "Công ty")}.";
+            await LoadTenants();
+        }
+        catch (Exception ex)
+        {
+            _revertHtxAlertType = "error";
+            _revertHtxAlertMessage = $"Lỗi: {ex.Message}";
+        }
+        finally
+        {
+            _revertHtxSaving = false;
+        }
     }
 
     private async Task OnHtxDocumentSelected(InputFileChangeEventArgs e)

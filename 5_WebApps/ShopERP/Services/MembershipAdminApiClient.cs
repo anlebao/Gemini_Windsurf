@@ -43,6 +43,21 @@ public sealed class MembershipAdminApiClient : GatewayAdminApiClientBase
         }
     }
 
+    /// <summary>POST /api/admin/membership/htx-profile/revert — 2026-10-15: HTX → Công ty/HKD
+    /// (chặn khi còn thành viên). TargetType: HKD | Enterprise_SME | Enterprise_Large.</summary>
+    public async Task RevertHtxProfileAsync(
+        Guid htxTenantId, string targetType, CancellationToken ct = default)
+    {
+        var req = await CreateRequestAsync(HttpMethod.Post, "api/admin/membership/htx-profile/revert",
+            new { HtxTenantId = htxTenantId, TargetType = targetType });
+        var resp = await HttpClient.SendAsync(req, ct);
+        if (!resp.IsSuccessStatusCode)
+        {
+            string body = await resp.Content.ReadAsStringAsync(ct);
+            throw new InvalidOperationException($"RevertHtxProfile failed ({(int)resp.StatusCode}): {body}");
+        }
+    }
+
     /// <summary>POST /api/admin/membership/members — Luồng 2: thêm tenant làm thành viên HTX.</summary>
     public async Task<AddMemberResultApiDto> AddMemberAsync(
         Guid htxTenantId, Guid memberTenantId, string membershipType, decimal? capitalContributionAmount = null,

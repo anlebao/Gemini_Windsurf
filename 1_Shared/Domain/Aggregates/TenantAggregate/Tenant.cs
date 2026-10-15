@@ -395,6 +395,27 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         }
 
         /// <summary>
+        /// TT 71/2024 (2026-10-15, user directive): Reverse conversion — HTX → Công ty/HKD.
+        /// Mirrors MarkAsHtx (one-way audited transition) but in the opposite direction.
+        /// Guard: tenant MUST currently be HTX; inactive → throw.
+        /// NOTE: HtxProfile removal + member guard are enforced at service layer (HtxProfileService.RevertAsync),
+        /// NOT here — Domain stays pure (no reference to membership aggregate).
+        /// </summary>
+        public void RevertTenantType(TenantType targetType, AccountingStandard? targetStandard)
+        {
+            if (Status == TenantStatus.Inactive)
+                throw new InvalidOperationException("Cannot update tenant type of an inactive tenant.");
+            if (Type != TenantType.HTX)
+                throw new InvalidOperationException($"Tenant is not an HTX (Type={Type}). Cannot revert to {targetType}.");
+            if (targetType == TenantType.HTX)
+                throw new InvalidOperationException("Cannot revert to HTX — use MarkAsHtx instead.");
+
+            Type = targetType;
+            AccountingStandard = targetStandard;
+            UpdateAudit();
+        }
+
+        /// <summary>
         /// Wave 5: Set default industry sector for HKD Group 2 reporting (TT 152 S2a/S2b).
         /// Only meaningful for HouseholdBusiness tenants. Used as fallback when Order.IndustrySector is NULL.
         /// </summary>
