@@ -145,4 +145,60 @@ public class ShopErpMenuServiceTests
         items.Should().NotContain(i => i.Title == "Kế Toán");
         items.Should().NotContain(i => i.Title == "Tài chính");
     }
+
+    // ── Issue #192 (2026-10-15): menu khớp loại hình tenant — "Thành viên HTX" CHỈ cho HTX ──
+
+    [Fact]
+    public async Task BuildAsync_Owner_HtxTenant_SeesThanhVienHtxMenu()
+    {
+        var tenantProvider = new Mock<ITenantProvider>();
+        tenantProvider.Setup(t => t.HasTenant).Returns(true);
+        tenantProvider.Setup(t => t.TenantId).Returns(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        var featureFlag = new Mock<IVasFeatureFlagService>();
+        featureFlag.Setup(f => f.GetTenantTypeAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
+                   .ReturnsAsync(TenantType.HTX);
+        var service = new ShopErpMenuService(tenantProvider.Object, featureFlag.Object);
+        var user = PrincipalWithRoles("Owner");
+
+        var items = await service.BuildAsync(user);
+
+        var thanhVienHtx = items.SingleOrDefault(i => i.Title == "Thành viên HTX");
+        thanhVienHtx.Should().NotBeNull();
+        thanhVienHtx!.Children.Should().Contain(c => c.Url == "/admin/membership");
+        thanhVienHtx.Children.Should().Contain(c => c.Url == "/admin/membership/htx-profile");
+    }
+
+    [Fact]
+    public async Task BuildAsync_Owner_HkdTenant_DoesNotSeeThanhVienHtxMenu()
+    {
+        var tenantProvider = new Mock<ITenantProvider>();
+        tenantProvider.Setup(t => t.HasTenant).Returns(true);
+        tenantProvider.Setup(t => t.TenantId).Returns(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        var featureFlag = new Mock<IVasFeatureFlagService>();
+        featureFlag.Setup(f => f.GetTenantTypeAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
+                   .ReturnsAsync(TenantType.HKD);
+        var service = new ShopErpMenuService(tenantProvider.Object, featureFlag.Object);
+        var user = PrincipalWithRoles("Owner");
+
+        var items = await service.BuildAsync(user);
+
+        items.Should().NotContain(i => i.Title == "Thành viên HTX");
+    }
+
+    [Fact]
+    public async Task BuildAsync_Owner_EnterpriseTenant_DoesNotSeeThanhVienHtxMenu()
+    {
+        var tenantProvider = new Mock<ITenantProvider>();
+        tenantProvider.Setup(t => t.HasTenant).Returns(true);
+        tenantProvider.Setup(t => t.TenantId).Returns(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        var featureFlag = new Mock<IVasFeatureFlagService>();
+        featureFlag.Setup(f => f.GetTenantTypeAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
+                   .ReturnsAsync(TenantType.Enterprise_SME);
+        var service = new ShopErpMenuService(tenantProvider.Object, featureFlag.Object);
+        var user = PrincipalWithRoles("Owner");
+
+        var items = await service.BuildAsync(user);
+
+        items.Should().NotContain(i => i.Title == "Thành viên HTX");
+    }
 }

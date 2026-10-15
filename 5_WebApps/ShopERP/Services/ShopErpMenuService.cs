@@ -57,6 +57,21 @@ public sealed class ShopErpMenuService : IShopErpMenuService
             isOwner = true;
         }
 
+        // Issue #192 (2026-10-15): menu "Thành viên HTX" CHỈ hiển thị khi tenant là Hợp tác xã
+        // (Type=HTX — đọc PG source of truth qua IVasFeatureFlagService, pattern P6b).
+        bool isHtxTenant = false;
+        if (_tenantProvider.HasTenant)
+        {
+            try
+            {
+                isHtxTenant = await _featureFlagService.GetTenantTypeAsync(new TenantId(_tenantProvider.TenantId)) == TenantType.HTX;
+            }
+            catch
+            {
+                isHtxTenant = false;
+            }
+        }
+
         // Home / Sitemap
         items.Add(new() { Title = "Home", Icon = "house-door-fill", Url = isMasterchef ? "/kitchen" : "/sitemap" });
 
@@ -255,8 +270,9 @@ public sealed class ShopErpMenuService : IShopErpMenuService
         }
 
         // Membership Infrastructure (2026-09-29): Thành viên HTX — Owner (HTX quyết định kết nạp — SRS §3.1).
-        // Hiển thị khi tenant đã có HtxProfile (đăng ký Membership Infrastructure).
-        if (isOwner)
+        // Issue #192 (2026-10-15): CHỈ hiển thị khi tenant thực sự là Hợp tác xã (Type=HTX).
+        // DN/HKD Owner không được thấy menu này (menu phải khớp loại hình tenant).
+        if (isOwner && isHtxTenant)
         {
             items.Add(new()
             {
