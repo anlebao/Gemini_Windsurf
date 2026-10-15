@@ -1,0 +1,181 @@
+@page "/notifications"
+@using VanAn.KhachLink.Services.Http
+@inject NotificationHttpService NotificationHttp
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@inject ILogger<Notifications> Logger
+
+@* Notification Hub (2026-10-15): inbox thông báo khách (KhachLink WASM). *@
+<div class="notifications-page">
+    <header class="notif-header">
+        <h1>Thông Báo</h1>
+        <div class="notif-header-actions">
+            <button class="btn btn-sm btn-outline-secondary" @onclick="LoadData">Làm mới</button>
+            <button class="btn btn-sm btn-primary" @onclick="MarkAllRead" disabled="@_isSaving">
+                <i class="bi bi-check2-all"></i> Đánh dấu tất cả đã đọc
+            </button>
+        </div>
+    </header>
+
+    @if (!_isLoggedIn)
+    {
+        <div class="empty-state">
+            <i class="bi bi-bell-slash" style="font-size: 2.5rem; color: #6c757d;"></i>
+            <p class="mt-2">Vui lòng đăng nhập để xem thông báo.</p>
+        </div>
+    }
+    else if (_loading)
+    {
+        <div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>
+    }
+    else if (_items.Count == 0)
+    {
+        <div class="empty-state">
+            <i class="bi bi-bell-slash" style="font-size: 2.5rem; color: #6c757d;"></i>
+            <p class="mt-2">Bạn chưa có thông báo nào.</p>
+        </div>
+    }
+    else
+    {
+        <div class="notif-list">
+            @foreach (var item in _items)
+            {
+                <button type="button" class="notif-item @(item.IsRead ? "is-read" : "is-unread")" @onclick="() => OpenItem(item)">
+                    <div class="notif-item-icon">@CategoryIcon(item.Category)</div>
+                    <div class="notif-item-body">
+                        <div class="notif-item-title">
+                            <strong>@(item.Title ?? "Thông báo")</strong>
+                            @if (!item.IsRead)
+                            {
+                                <span class="notif-unread-dot"></span>
+                            }
+                        </div>
+                        <div class="notif-item-text">@item.Body</div>
+                        <div class="notif-item-meta">
+                            <span class="notif-category">@CategoryLabel(item.Category)</span>
+                            <span>@item.CreatedAt.ToLocalTime().ToString("HH:mm dd/MM/yyyy")</span>
+                        </div>
+                    </div>
+                </button>
+            }
+        </div>
+    }
+</div>
+
+<style>
+    .notifications-page { max-width: 720px; margin: 0 auto; }
+    .notif-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+    .notif-header h1 { font-size: 1.4rem; margin: 0; }
+    .notif-header-actions { display: flex; gap: 0.5rem; }
+    .empty-state { text-align: center; padding: 3rem 1rem; color: #6c757d; background: white; border-radius: 12px; }
+    .notif-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .notif-item {
+        display: flex; gap: 0.75rem; align-items: flex-start; text-align: left; width: 100%;
+        background: white; border: 1px solid #eee; border-radius: 10px; padding: 0.75rem 1rem; cursor: pointer;
+    }
+    .notif-item.is-unread { background: #f0f7ff; border-color: #cfe3ff; }
+    .notif-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .notif-item-icon { font-size: 1.3rem; }
+    .notif-item-body { flex: 1; min-width: 0; }
+    .notif-item-title { display: flex; align-items: center; gap: 0.5rem; }
+    .notif-unread-dot { width: 9px; height: 9px; border-radius: 50%; background: #dc3545; display: inline-block; }
+    .notif-item-text { font-size: 0.9rem; color: #374151; margin: 0.2rem 0; word-break: break-word; }
+    .notif-item-meta { display: flex; gap: 0.75rem; font-size: 0.75rem; color: #6b7280; }
+    .notif-category { color: #007bff; font-weight: 600; }
+</style>
+
+@code {
+    private bool _loading = true;
+    private bool _isLoggedIn;
+    private bool _isSaving;
+    private string? _customerToken;
+    private List<CustomerNotificationItem> _items = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+        if (string.IsNullOrEmpty(_customerToken))
+        {
+            _isLoggedIn = false;
+            _loading = false;
+            return;
+        }
+        _isLoggedIn = true;
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        try
+        {
+            var result = await NotificationHttp.GetListAsync(_customerToken!);
+            _items = result.Success ? result.Items : new();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Notifications: load failed");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OpenItem(CustomerNotificationItem item)
+    {
+        if (!item.IsRead)
+        {
+            await NotificationHttp.MarkReadAsync(_customerToken!, item.NotificationId);
+            item.IsRead = true;
+        }
+        if (!string.IsNullOrWhiteSpace(item.ActionUrl))
+            NavigationManager.NavigateTo(item.ActionUrl);
+        else
+            await LoadData();
+    }
+
+    private async Task MarkAllRead()
+    {
+        _isSaving = true;
+        try
+        {
+            await NotificationHttp.MarkAllReadAsync(_customerToken!);
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Notifications: mark all read failed");
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private static string CategoryLabel(string? category) => category switch
+    {
+        "OrderStatus" => "Đơn hàng",
+        "Loyalty" => "Điểm thưởng",
+        "Promotion" => "Khuyến mãi",
+        "Gift" => "Quà tặng",
+        "System" => "Hệ thống",
+        "Security" => "Bảo mật",
+        "Chat" => "Tin nhắn",
+        "Booking" => "Đặt lịch",
+        _ => "Thông báo"
+    };
+
+    private static string CategoryIcon(string? category) => category switch
+    {
+        "OrderStatus" => "📦",
+        "Loyalty" => "⭐",
+        "Promotion" => "🏷️",
+        "Gift" => "🎁",
+        "System" => "⚙️",
+        "Security" => "🔒",
+        "Chat" => "💬",
+        "Booking" => "📅",
+        _ => "🔔"
+    };
+}

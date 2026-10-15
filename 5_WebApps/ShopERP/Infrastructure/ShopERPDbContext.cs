@@ -103,6 +103,10 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<CampaignPushJob> CampaignPushJobs { get; set; }
         public DbSet<PushNotificationDelivery> PushNotificationDeliveries { get; set; }
 
+        // Notification Hub (2026-10-15): TenantNotification PG-only (Gateway).
+        // DbSet exists to satisfy IVanAnDbContext interface contract; ShopERP đọc qua Gateway API.
+        public DbSet<TenantNotification> TenantNotifications { get; set; }
+
         // Loyalty-B: Redemption system — ShopERP SQLite (tenant-scoped business data).
         public DbSet<RedemptionCatalogItem> RedemptionCatalogItems { get; set; }
         public DbSet<RedemptionRecord> RedemptionRecords { get; set; }

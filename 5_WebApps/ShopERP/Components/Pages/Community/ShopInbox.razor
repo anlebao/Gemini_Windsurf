@@ -17,7 +17,12 @@
    Shop/{tenantId} của khách hàng, dùng RealtimeChatPanel (UI Platform) phía chi tiết. *@
 <div class="shop-inbox @ThemeProvider.CurrentTheme">
     <header class="page-header">
-        <h1>Hộp thư tin nhắn</h1>
+        <h1>Hộp thư tin nhắn
+            @if (_totalUnread > 0)
+            {
+                <span class="inbox-unread-total" title="Tin chưa đọc">@_totalUnread chưa đọc</span>
+            }
+        </h1>
         <div class="header-actions">
             <VanAButton Variant="secondary" Size="small" OnClick="LoadData">Làm mới</VanAButton>
         </div>
@@ -64,10 +69,16 @@
                                     @onclick="() => SelectConversation(conv)">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <strong>@(conv.CustomerName ?? "Khách hàng")</strong>
-                                    @if (conv.LastMessageAt.HasValue)
-                                    {
-                                        <small>@conv.LastMessageAt.Value.ToLocalTime().ToString("HH:mm dd/MM")</small>
-                                    }
+                                    <span class="d-flex align-items-center gap-2">
+                                        @if (conv.UnreadCount > 0)
+                                        {
+                                            <span class="inbox-conv-badge" title="Tin chưa đọc">@conv.UnreadCount</span>
+                                        }
+                                        @if (conv.LastMessageAt.HasValue)
+                                        {
+                                            <small>@conv.LastMessageAt.Value.ToLocalTime().ToString("HH:mm dd/MM")</small>
+                                        }
+                                    </span>
                                 </div>
                                 <div class="text-truncate small @(conv.ConversationId == _selectedConversationId ? "" : "text-muted")">
                                     @(conv.LastMessage ?? "Chưa có tin nhắn")
@@ -102,10 +113,24 @@
     }
 </div>
 
+<style>
+    .inbox-unread-total {
+        display: inline-block; background: var(--vanan-danger, #dc3545); color: white;
+        font-size: 0.75rem; font-weight: 700; border-radius: 12px; padding: 2px 10px; margin-left: 0.5rem;
+        vertical-align: middle;
+    }
+    .inbox-conv-badge {
+        display: inline-block; background: var(--vanan-danger, #dc3545); color: white;
+        font-size: 0.7rem; font-weight: 700; min-width: 18px; height: 18px; line-height: 18px;
+        text-align: center; border-radius: 9px; padding: 0 5px;
+    }
+</style>
+
 @code {
     private bool _isLoading = true;
     private string? _error;
     private List<ShopInboxConversationItem> _conversations = new();
+    private int _totalUnread;
 
     private Guid _selectedConversationId;
     private Guid _selectedTenantId;
@@ -126,6 +151,7 @@
         {
             var result = await ApiClient.GetConversationsAsync();
             _conversations = result.Conversations;
+            _totalUnread = result.TotalUnread;
 
             // Keep the selection if the conversation still exists (refreshes the panel token).
             if (_selectedConversationId != Guid.Empty
@@ -152,5 +178,21 @@
         _selectedTenantId = conv.SubjectId;
         // Fresh short-lived JWT per conversation — the panel authenticates as the shop side.
         _staffToken = await ApiClient.MintOwnerTokenAsync();
+
+        // Notification Hub (2026-10-15): mở hội thoại → đánh dấu tin của khách đã đọc (fail-safe).
+        if (conv.UnreadCount > 0)
+        {
+            int unread = conv.UnreadCount;
+            try
+            {
+                await ApiClient.MarkConversationReadAsync(conv.ConversationId);
+                conv.UnreadCount = 0;
+                _totalUnread = Math.Max(0, _totalUnread - unread);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "ShopInbox: mark conversation read failed for {ConvId}", conv.ConversationId);
+            }
+        }
     }
 }

@@ -97,6 +97,8 @@ namespace VanAn.KhachLink
             // P4 (UI-10): ChatHttpService removed — ChatPanel is now a shim over the UI Platform
             // RealtimeChatPanel, which uses IRealtimeChatClient (RealtimeHttpAdapter).
             _ = builder.Services.AddScoped<Services.Http.WalletHttpService>();
+            // Notification Hub (2026-10-15): inbox thông báo khách — Gateway /api/v1/notifications/customer
+            _ = builder.Services.AddScoped<Services.Http.NotificationHttpService>();
             // Loyalty Alliance Phase 5B: cross-tenant alliance wallet (points) HTTP client
             _ = builder.Services.AddScoped<Services.Http.AllianceWalletHttpService>();
             // Loyalty mode resolver — KhachLink hides "Ví liên minh" UI when mode=Silo

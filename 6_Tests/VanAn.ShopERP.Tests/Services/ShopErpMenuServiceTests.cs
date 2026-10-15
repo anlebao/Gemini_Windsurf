@@ -201,4 +201,32 @@ public class ShopErpMenuServiceTests
 
         items.Should().NotContain(i => i.Title == "Thành viên HTX");
     }
+
+    // ── Notification Hub (2026-10-15): menu "Thông báo" cho Owner/ChiefAccountant có tenant ──
+
+    [Fact]
+    public async Task BuildAsync_OwnerWithTenant_SeesThongBaoMenu()
+    {
+        var tenantProvider = new Mock<ITenantProvider>();
+        tenantProvider.Setup(t => t.HasTenant).Returns(true);
+        tenantProvider.Setup(t => t.TenantId).Returns(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        var service = new ShopErpMenuService(tenantProvider.Object, new Mock<IVasFeatureFlagService>().Object);
+        var user = PrincipalWithRoles("Owner");
+
+        var items = await service.BuildAsync(user);
+
+        items.Should().Contain(i => i.Title == "Thông báo" && i.Url == "/notifications");
+    }
+
+    [Fact]
+    public async Task BuildAsync_OwnerWithoutTenant_NoThongBaoMenu()
+    {
+        // SystemAdmin chưa impersonate (không tenant) — ẩn "Thông báo" (API cần tenant_id).
+        var service = CreateService();
+        var user = PrincipalWithRoles("Owner");
+
+        var items = await service.BuildAsync(user);
+
+        items.Should().NotContain(i => i.Title == "Thông báo");
+    }
 }

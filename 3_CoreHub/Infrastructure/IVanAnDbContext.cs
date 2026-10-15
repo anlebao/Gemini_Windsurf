@@ -82,6 +82,9 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<CampaignPushJob> CampaignPushJobs { get; }
         DbSet<PushNotificationDelivery> PushNotificationDeliveries { get; }
 
+        // Notification Hub (2026-10-15): thông báo owner tenant (PG-only, tenant-scoped)
+        DbSet<TenantNotification> TenantNotifications { get; }
+
         // Loyalty-B: Redemption system (ShopERP SQLite, tenant-scoped)
         DbSet<RedemptionCatalogItem> RedemptionCatalogItems { get; }
         DbSet<RedemptionRecord> RedemptionRecords { get; }

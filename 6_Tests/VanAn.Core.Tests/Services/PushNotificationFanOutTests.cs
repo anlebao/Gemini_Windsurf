@@ -5,6 +5,7 @@ using Moq;
 using System.Text.Json;
 using VanAn.CoreHub.Domain.Repositories;
 using VanAn.CoreHub.Services;
+using VanAn.Shared.Domain;
 using Xunit;
 
 namespace VanAn.Core.Tests.Services
@@ -42,7 +43,7 @@ namespace VanAn.Core.Tests.Services
                 .ReturnsAsync(1);
             pushMock.Setup(p => p.SendBulkNotificationAsync(
                     It.IsAny<IReadOnlyList<Guid>>(), It.IsAny<string>(), It.IsAny<string>(),
-                    It.IsAny<string?>(), It.IsAny<Guid?>()))
+                    It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<NotificationCategory?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
                 .ReturnsAsync((1, 0));
 
             var services = new ServiceCollection()
@@ -75,7 +76,7 @@ namespace VanAn.Core.Tests.Services
             push.Verify(p => p.SendOrderStatusNotificationAsync(BuyerId, OrderId, "confirmed", null), Times.Once);
             push.Verify(p => p.SendBulkNotificationAsync(
                 It.IsAny<IReadOnlyList<Guid>>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string?>(), It.IsAny<Guid?>()), Times.Never);
+                It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<NotificationCategory?>(), It.IsAny<string?>(), It.IsAny<Guid?>()), Times.Never);
         }
 
         [Fact(DisplayName = "NF-4 T2: completed + salesmanId → buyer push AND salesman push to sales-dashboard")]
@@ -97,7 +98,7 @@ namespace VanAn.Core.Tests.Services
                 "Vạn An",
                 It.Is<string>(b => b.Contains("hoàn thành")),
                 "/community/sales-dashboard",
-                null), Times.Once);
+                null, It.IsAny<NotificationCategory?>(), It.IsAny<string?>(), It.IsAny<Guid?>()), Times.Once);
         }
 
         [Fact(DisplayName = "NF-4 T3: cancelled + assignedShipperId → buyer push AND shipper push to active-deliveries")]
@@ -119,7 +120,7 @@ namespace VanAn.Core.Tests.Services
                 "Vạn An",
                 It.Is<string>(b => b.Contains("bị hủy")),
                 "/community/active-deliveries",
-                null), Times.Once);
+                null, It.IsAny<NotificationCategory?>(), It.IsAny<string?>(), It.IsAny<Guid?>()), Times.Once);
         }
 
         [Fact(DisplayName = "NF-4 T4: rolesOnly republish skips buyer, still pushes role recipient")]
@@ -140,7 +141,7 @@ namespace VanAn.Core.Tests.Services
                 It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string?>()), Times.Never);
             push.Verify(p => p.SendBulkNotificationAsync(
                 It.Is<IReadOnlyList<Guid>>(l => l.Count == 1 && l[0] == SalesmanId),
-                It.IsAny<string>(), It.IsAny<string>(), "/community/sales-dashboard", null), Times.Once);
+                It.IsAny<string>(), It.IsAny<string>(), "/community/sales-dashboard", null, It.IsAny<NotificationCategory?>(), It.IsAny<string?>(), It.IsAny<Guid?>()), Times.Once);
         }
 
         [Fact(DisplayName = "NF-4 T5: salesmanId == buyer customerId → no duplicate role push")]
@@ -159,7 +160,7 @@ namespace VanAn.Core.Tests.Services
             push.Verify(p => p.SendOrderStatusNotificationAsync(BuyerId, OrderId, "completed", null), Times.Once);
             push.Verify(p => p.SendBulkNotificationAsync(
                 It.IsAny<IReadOnlyList<Guid>>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string?>(), It.IsAny<Guid?>()), Times.Never);
+                It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<NotificationCategory?>(), It.IsAny<string?>(), It.IsAny<Guid?>()), Times.Never);
         }
 
         [Fact(DisplayName = "NF-4 T6: no recipients → nothing sent")]
@@ -193,7 +194,7 @@ namespace VanAn.Core.Tests.Services
                 It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string?>()), Times.Never);
             push.Verify(p => p.SendBulkNotificationAsync(
                 It.IsAny<IReadOnlyList<Guid>>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string?>(), It.IsAny<Guid?>()), Times.Never);
+                It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<NotificationCategory?>(), It.IsAny<string?>(), It.IsAny<Guid?>()), Times.Never);
         }
 
         [Fact(DisplayName = "NF-4 T8: role push does NOT fire on non-matching status (delivering ≠ completed)")]
@@ -213,7 +214,7 @@ namespace VanAn.Core.Tests.Services
             push.Verify(p => p.SendOrderStatusNotificationAsync(BuyerId, OrderId, "delivering", null), Times.Once);
             push.Verify(p => p.SendBulkNotificationAsync(
                 It.IsAny<IReadOnlyList<Guid>>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string?>(), It.IsAny<Guid?>()), Times.Never);
+                It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<NotificationCategory?>(), It.IsAny<string?>(), It.IsAny<Guid?>()), Times.Never);
         }
 
         // ---------- E16: DeserializePushSubscription (nested vs flat shape) ----------

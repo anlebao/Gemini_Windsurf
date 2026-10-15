@@ -47,6 +47,14 @@ public sealed class ShopInboxApiClient
         return await SendAndReadAsync<ShopInboxResult>(_httpClient, req, ct) ?? new();
     }
 
+    /// <summary>Notification Hub (2026-10-15): POST /api/realtime/shop/conversations/{id}/read —
+    /// shop đã mở hội thoại → đánh dấu tin của khách trong hội thoại là đã đọc.</summary>
+    public async Task MarkConversationReadAsync(Guid conversationId, CancellationToken ct = default)
+    {
+        var req = await CreateRequestAsync(HttpMethod.Post, $"api/realtime/shop/conversations/{conversationId}/read");
+        _ = await _httpClient.SendAsync(req, ct);
+    }
+
     /// <summary>
     /// Mint a short-lived Owner JWT for the current user — used as the RealtimeChatPanel.StaffToken
     /// so the chat authenticates as the shop side (staff identity + tenant_id claim).
@@ -120,6 +128,7 @@ public class ShopInboxResult
 {
     public Guid TenantId { get; set; }
     public List<ShopInboxConversationItem> Conversations { get; set; } = new();
+    public int TotalUnread { get; set; }
 }
 
 public class ShopInboxConversationItem
@@ -131,4 +140,5 @@ public class ShopInboxConversationItem
     public string? LastMessage { get; set; }
     public DateTime? LastMessageAt { get; set; }
     public Guid? LastSenderId { get; set; }
+    public int UnreadCount { get; set; }
 }

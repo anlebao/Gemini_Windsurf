@@ -30,6 +30,17 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             builder.Property(e => e.ClickedAt);
             builder.Property(e => e.ActionUrl).HasMaxLength(500);
 
+            // Notification Hub (2026-10-15): nội dung inbox in-app của khách + trạng thái đọc.
+            builder.Property(e => e.Category)
+                .HasConversion<int?>();
+            builder.Property(e => e.Title).HasMaxLength(200);
+            builder.Property(e => e.Body).HasMaxLength(2000);
+            builder.Property(e => e.IsRead)
+                .HasDefaultValue(false);
+            builder.Property(e => e.ReadAt);
+            builder.Property(e => e.ReferenceType).HasMaxLength(50);
+            builder.Property(e => e.ReferenceId);
+
             builder.Property(e => e.TenantId).IsRequired();
 
             builder.HasQueryFilter(e => !e.IsDeleted);

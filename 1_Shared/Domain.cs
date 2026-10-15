@@ -1028,6 +1028,21 @@ namespace VanAn.Shared.Domain
         protected PushNotificationDelivery() { }
 
         public PushNotificationDelivery(TenantId tenantId, Guid customerId, Guid? campaignPushJobId, string? actionUrl = null)
+            : this(tenantId, customerId, campaignPushJobId, actionUrl, null, null, null)
+        {
+        }
+
+        /// <summary>Notification Hub (2026-10-15): ctor mở rộng — nội dung inbox (category/title/body).</summary>
+        public PushNotificationDelivery(
+            TenantId tenantId,
+            Guid customerId,
+            Guid? campaignPushJobId,
+            string? actionUrl,
+            NotificationCategory? category,
+            string? title,
+            string? body,
+            string? referenceType = null,
+            Guid? referenceId = null)
             : base(tenantId)
         {
             if (customerId == Guid.Empty)
@@ -1037,12 +1052,125 @@ namespace VanAn.Shared.Domain
             CampaignPushJobId = campaignPushJobId;
             ActionUrl = actionUrl;
             Status = "Delivered";
+            Category = category;
+            Title = title;
+            Body = body;
+            ReferenceType = referenceType;
+            ReferenceId = referenceId;
         }
 
         public void MarkAsClicked()
         {
             Status = "Clicked";
             ClickedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        // ── Notification Hub (2026-10-15, user directive): bản ghi này vừa là vết web push
+        //    vừa là bản ghi INBOX IN-APP của khách (KhachLink) — bổ sung nội dung + trạng thái đọc. ──
+        public NotificationCategory? Category { get; protected set; }
+        public string? Title { get; protected set; }
+        public string? Body { get; protected set; }
+        public bool IsRead { get; protected set; }
+        public DateTime? ReadAt { get; protected set; }
+
+        /// <summary>Liên kết nguồn (VD "Order", "Campaign", "Voucher"... — idempotency guard).</summary>
+        public string? ReferenceType { get; protected set; }
+        public Guid? ReferenceId { get; protected set; }
+
+        /// <summary>Idempotent — đánh dấu khách đã đọc (inbox in-app).</summary>
+        public void MarkAsRead()
+        {
+            if (IsRead) return;
+            IsRead = true;
+            ReadAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+    }
+
+    // ====================== NOTIFICATION HUB (2026-10-15) ======================
+    // D approved (Gate 5 — user directive): TenantNotification cho OWNER tenant +
+    // NotificationCategory (append-only — KHÔNG đổi thứ tự/giá trị) + PushNotificationDelivery
+    // mở rộng thành inbox khách. Domain PURE — records/entities, không EF.
+
+    /// <summary>
+    /// Nhóm/nội dung thông báo — append-only. Giá trị lưu DB, KHÔNG đổi thứ tự.
+    /// </summary>
+    public enum NotificationCategory
+    {
+        OrderStatus = 1, // Trạng thái đơn hàng
+        Loyalty = 2,     // Điểm thưởng
+        Promotion = 3,   // Khuyến mãi
+        Gift = 4,        // Quà tặng
+        System = 5,      // Hệ thống (cảnh báo tồn kho, e-invoice, đóng kỳ...)
+        Security = 6,    // Bảo mật (claim, login thiết bị mới, thay đổi quyền...)
+        Chat = 7,        // Tin nhắn chat khách hàng
+        Booking = 8      // Đặt lịch hẹn
+    }
+
+    /// <summary>Mức độ nghiêm trọng của thông báo owner.</summary>
+    public enum TenantNotificationSeverity
+    {
+        Info = 0,
+        Warning = 1,
+        Critical = 2
+    }
+
+    /// <summary>
+    /// Notification Hub (2026-10-15): thông báo cho OWNER tenant (ShopERP).
+    /// PG-only (Gateway source of truth — pattern PushNotificationDelivery/FeaturedProduct);
+    /// ShopERP đọc qua Gateway API (tenant JWT — pattern ShopInboxApiClient).
+    /// Append-only: nội dung bất biến — chỉ đổi IsRead/ReadAt (audit qua UpdateAudit).
+    /// </summary>
+    public class TenantNotification : BaseEntity, IMustHaveTenant
+    {
+        public NotificationCategory Category { get; protected set; }
+        public string Title { get; protected set; } = string.Empty;
+        public string Body { get; protected set; } = string.Empty;
+        public string? ActionUrl { get; protected set; }
+
+        /// <summary>Liên kết nguồn (VD "Order", "ShiftAlert", "TenantClaim", "Booking"...).</summary>
+        public string? ReferenceType { get; protected set; }
+        public Guid? ReferenceId { get; protected set; }
+
+        public TenantNotificationSeverity Severity { get; protected set; } = TenantNotificationSeverity.Info;
+        public bool IsRead { get; protected set; }
+        public DateTime? ReadAt { get; protected set; }
+
+        protected TenantNotification() { }
+
+        public TenantNotification(
+            TenantId tenantId,
+            NotificationCategory category,
+            string title,
+            string body,
+            string? actionUrl = null,
+            string? referenceType = null,
+            Guid? referenceId = null,
+            TenantNotificationSeverity severity = TenantNotificationSeverity.Info)
+            : base(tenantId)
+        {
+            if (string.IsNullOrWhiteSpace(title))
+                throw new ArgumentException("Title cannot be empty.", nameof(title));
+            if (string.IsNullOrWhiteSpace(body))
+                throw new ArgumentException("Body cannot be empty.", nameof(body));
+
+            Category = category;
+            Title = title;
+            Body = body;
+            ActionUrl = actionUrl;
+            ReferenceType = referenceType;
+            ReferenceId = referenceId;
+            Severity = severity;
+            IsRead = false;
+        }
+
+        /// <summary>Idempotent — owner đã đọc.</summary>
+        public void MarkAsRead()
+        {
+            if (IsRead) return;
+            IsRead = true;
+            ReadAt = DateTime.UtcNow;
             UpdateAudit();
         }
     }

@@ -1,0 +1,236 @@
+@page "/notifications"
+@rendermode InteractiveServer
+@layout VanAn.ShopERP.Components.Pages.Accounting.AccountingLayout
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.ShopERP.Services
+@inject NotificationApiClient NotificationApi
+@inject IThemeProvider ThemeProvider
+@inject ILogger<Notifications> Logger
+@inject NavigationManager NavigationManager
+
+@attribute [Authorize(Roles = "Owner,ChiefAccountant,SystemAdmin")]
+
+<div class="notifications-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Thông Báo</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadData">Làm mới</VanAButton>
+            <VanAButton Variant="primary" Size="small" OnClick="MarkAllRead" IsLoading="@_isSaving">
+                <i class="bi bi-check2-all me-1"></i> Đánh dấu tất cả đã đọc
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    <!-- Tabs group theo loại -->
+    <div class="notif-tabs">
+        <button type="button" class="notif-tab @(_selectedCategory == null ? "active" : "")" @onclick="() => SelectCategory(null)">
+            Tất cả
+        </button>
+        @foreach (var cat in _categories)
+        {
+            <button type="button" class="notif-tab @(_selectedCategory == cat.Key ? "active" : "")" @onclick="() => SelectCategory(cat.Key)">
+                @cat.Value
+            </button>
+        }
+    </div>
+
+    <label class="notif-unread-filter">
+        <input type="checkbox" @bind="_unreadOnly" @bind:after="LoadData" />
+        Chỉ hiện chưa đọc
+    </label>
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state"><VanASpinner Size="large" /><p>Đang tải thông báo...</p></div>
+        </VanACard>
+    }
+    else if (_items.Count == 0)
+    {
+        <VanACard>
+            <div class="empty-state">
+                <i class="bi bi-bell-slash" style="font-size: 2.5rem; color: #6c757d;"></i>
+                <p class="mt-2">Không có thông báo @(_unreadOnly ? "chưa đọc" : "") nào.</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard CssClass="notif-list-card">
+            <div class="notif-list">
+                @foreach (var item in _items)
+                {
+                    <button type="button" class="notif-item @(item.IsRead ? "is-read" : "is-unread")" @onclick="() => OpenItem(item)">
+                        <div class="notif-item-icon">@CategoryIcon(item.Category)</div>
+                        <div class="notif-item-body">
+                            <div class="notif-item-title">
+                                <strong>@item.Title</strong>
+                                @if (!item.IsRead)
+                                {
+                                    <span class="notif-unread-dot" title="Chưa đọc"></span>
+                                }
+                            </div>
+                            <div class="notif-item-text">@item.Body</div>
+                            <div class="notif-item-meta">
+                                <span class="notif-category">@CategoryLabel(item.Category)</span>
+                                <span>@item.CreatedAt.ToLocalTime().ToString("HH:mm dd/MM/yyyy")</span>
+                            </div>
+                        </div>
+                    </button>
+                }
+            </div>
+        </VanACard>
+    }
+</div>
+
+<style>
+    .notifications-page .page-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
+    .notifications-page .header-actions { display: flex; gap: 0.5rem; }
+    .notif-tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+    .notif-tab {
+        border: 1px solid #e5e7eb; background: #f8fafc; border-radius: 16px;
+        padding: 0.3rem 0.85rem; font-size: 0.82rem; font-weight: 600; color: #4b5563; cursor: pointer;
+    }
+    .notif-tab.active { background: var(--vanan-primary, #007bff); border-color: var(--vanan-primary, #007bff); color: white; }
+    .notif-unread-filter { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; margin-bottom: 0.75rem; }
+    .notif-list { display: flex; flex-direction: column; }
+    .notif-item {
+        display: flex; gap: 0.75rem; align-items: flex-start; text-align: left; width: 100%;
+        border: none; border-bottom: 1px solid #f1f5f9; background: transparent; padding: 0.75rem 0.5rem; cursor: pointer;
+    }
+    .notif-item:hover { background: #f8fafc; }
+    .notif-item.is-unread { background: rgba(0, 123, 255, 0.04); }
+    .notif-item-icon { font-size: 1.25rem; padding-top: 0.1rem; }
+    .notif-item-body { flex: 1; min-width: 0; }
+    .notif-item-title { display: flex; align-items: center; gap: 0.5rem; }
+    .notif-unread-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--vanan-danger, #dc3545); display: inline-block; }
+    .notif-item-text { font-size: 0.88rem; color: #374151; margin: 0.15rem 0; word-break: break-word; }
+    .notif-item-meta { display: flex; gap: 0.75rem; font-size: 0.75rem; color: #6b7280; }
+    .notif-category { color: var(--vanan-primary, #007bff); font-weight: 600; }
+</style>
+
+@code {
+    private readonly List<KeyValuePair<string, string>> _categories = new()
+    {
+        new("OrderStatus", "Đơn hàng"),
+        new("Loyalty", "Điểm thưởng"),
+        new("Promotion", "Khuyến mãi"),
+        new("Gift", "Quà tặng"),
+        new("System", "Hệ thống"),
+        new("Security", "Bảo mật"),
+        new("Chat", "Tin nhắn"),
+        new("Booking", "Đặt lịch")
+    };
+
+    private string? _selectedCategory;
+    private bool _unreadOnly;
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private List<OwnerNotificationItem> _items = new();
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        _alertMessage = string.Empty;
+        try
+        {
+            _items = await NotificationApi.GetListAsync(_selectedCategory, _unreadOnly);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Notifications: load failed");
+            _alertType = "error";
+            _alertMessage = "Không tải được thông báo. Kiểm tra Gateway.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void SelectCategory(string? category)
+    {
+        _selectedCategory = category;
+        _ = LoadData();
+    }
+
+    private async Task OpenItem(OwnerNotificationItem item)
+    {
+        if (!item.IsRead)
+        {
+            try
+            {
+                await NotificationApi.MarkReadAsync(item.Id);
+                item.IsRead = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Notifications: mark read failed for {Id}", item.Id);
+            }
+        }
+        if (!string.IsNullOrWhiteSpace(item.ActionUrl))
+            NavigationManager.NavigateTo(item.ActionUrl);
+        else
+            await LoadData();
+    }
+
+    private async Task MarkAllRead()
+    {
+        _isSaving = true;
+        _alertMessage = string.Empty;
+        try
+        {
+            await NotificationApi.MarkAllReadAsync();
+            _alertType = "success";
+            _alertMessage = "Đã đánh dấu tất cả thông báo là đã đọc.";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Notifications: mark all read failed");
+            _alertType = "error";
+            _alertMessage = $"Lỗi: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private static string CategoryLabel(string category) => category switch
+    {
+        "OrderStatus" => "Đơn hàng",
+        "Loyalty" => "Điểm thưởng",
+        "Promotion" => "Khuyến mãi",
+        "Gift" => "Quà tặng",
+        "System" => "Hệ thống",
+        "Security" => "Bảo mật",
+        "Chat" => "Tin nhắn",
+        "Booking" => "Đặt lịch",
+        _ => category
+    };
+
+    private static string CategoryIcon(string category) => category switch
+    {
+        "OrderStatus" => "📦",
+        "Loyalty" => "⭐",
+        "Promotion" => "🏷️",
+        "Gift" => "🎁",
+        "System" => "⚙️",
+        "Security" => "🔒",
+        "Chat" => "💬",
+        "Booking" => "📅",
+        _ => "🔔"
+    };
+}

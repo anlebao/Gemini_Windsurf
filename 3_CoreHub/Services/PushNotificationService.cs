@@ -105,7 +105,9 @@ namespace VanAn.CoreHub.Services
                         await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
 
                         // Phase 5: Create PushNotificationDelivery record for click tracking
-                        await CreateDeliveryRecordAsync(customerId, notificationId, null, $"/order-tracking/{orderId}");
+                        // Notification Hub (2026-10-15): ghi nội dung inbox in-app của khách.
+                        await CreateDeliveryRecordAsync(customerId, notificationId, null, $"/order-tracking/{orderId}",
+                            NotificationCategory.OrderStatus, "Cập nhật đơn hàng", GetStatusMessage(newStatus), "Order", orderId);
 
                         subscription.Renew();
                         await _subscriptionRepository.UpdateAsync(subscription);
@@ -177,7 +179,11 @@ namespace VanAn.CoreHub.Services
                         await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
 
                         // Phase 5: Create PushNotificationDelivery record for click tracking
-                        await CreateDeliveryRecordAsync(customerId, notificationId, null, "/my-loyalty");
+                        // Notification Hub (2026-10-15): ghi nội dung inbox in-app của khách.
+                        string directionStr = pointsChange > 0 ? "+" : "";
+                        string loyaltyBody = $"{directionStr}{pointsChange} điểm. Số dư: {newBalance} điểm";
+                        await CreateDeliveryRecordAsync(customerId, notificationId, null, "/my-loyalty",
+                            NotificationCategory.Loyalty, "Điểm thưởng", loyaltyBody, "Loyalty", null);
 
                         subscription.Renew();
                         await _subscriptionRepository.UpdateAsync(subscription);
@@ -239,7 +245,10 @@ namespace VanAn.CoreHub.Services
             string title,
             string body,
             string? actionUrl = null,
-            Guid? campaignPushJobId = null)
+            Guid? campaignPushJobId = null,
+            NotificationCategory? category = null,
+            string? referenceType = null,
+            Guid? referenceId = null)
         {
             if (customerIds.Count == 0)
                 return (0, 0);
@@ -279,7 +288,9 @@ namespace VanAn.CoreHub.Services
                             await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
 
                             // Phase 5: Create PushNotificationDelivery record for click tracking
-                            await CreateDeliveryRecordAsync(customerId, notificationId, campaignPushJobId, actionUrl);
+                            // Notification Hub (2026-10-15): ghi nội dung inbox in-app của khách.
+                            await CreateDeliveryRecordAsync(customerId, notificationId, campaignPushJobId, actionUrl,
+                                category ?? NotificationCategory.Promotion, title, body, referenceType, referenceId);
 
                             subscription.Renew();
                             await _subscriptionRepository.UpdateAsync(subscription);
@@ -325,7 +336,9 @@ namespace VanAn.CoreHub.Services
         /// Phase 5: Create PushNotificationDelivery record for click tracking.
         /// Called after each successful push send. Best-effort — failures logged but don't block push.
         /// </summary>
-        private async Task CreateDeliveryRecordAsync(Guid customerId, Guid notificationId, Guid? campaignPushJobId, string? actionUrl)
+        private async Task CreateDeliveryRecordAsync(Guid customerId, Guid notificationId, Guid? campaignPushJobId, string? actionUrl,
+            NotificationCategory? category = null, string? title = null, string? body = null,
+            string? referenceType = null, Guid? referenceId = null)
         {
             if (_dbContext == null) return;
 
@@ -335,7 +348,12 @@ namespace VanAn.CoreHub.Services
                     new TenantId(Guid.Empty), // Set by EF interceptor from current tenant context
                     customerId,
                     campaignPushJobId,
-                    actionUrl);
+                    actionUrl,
+                    category,
+                    title,
+                    body,
+                    referenceType,
+                    referenceId);
 
                 // Override the auto-generated NotificationId with our tracking ID
                 typeof(PushNotificationDelivery).GetProperty("NotificationId")?.SetValue(delivery, notificationId);

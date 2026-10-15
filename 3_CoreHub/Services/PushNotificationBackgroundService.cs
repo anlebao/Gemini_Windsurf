@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -6,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using NATS.Client;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.Messaging;
+using VanAn.Shared.Domain;
 
 namespace VanAn.CoreHub.Services
 {
@@ -183,6 +185,24 @@ namespace VanAn.CoreHub.Services
 
                 _logger.LogInformation("PushNotificationBackgroundService dispatched {Sent} push notification(s) for OrderId={OrderId} Status={Status}",
                     sent, orderId, newStatus);
+
+                // Notification Hub (2026-10-15): owner notification — trạng thái đơn hàng
+                // (tenantId có sẵn trong payload — OrderWorkflowService.PublishOrderStatusChangedEventAsync).
+                Guid? tenantId = JsonPayloadHelpers.GetOptionalGuid(root, "tenantId");
+                if (tenantId.HasValue)
+                {
+                    var notificationCenter = scope.ServiceProvider.GetService<INotificationCenterService>();
+                    if (notificationCenter != null)
+                    {
+                        await notificationCenter.CreateForOwnerAsync(
+                            new TenantId(tenantId.Value),
+                            NotificationCategory.OrderStatus,
+                            "Cập nhật đơn hàng",
+                            $"{customerName ?? "Khách hàng"} — {OrderStatusMessage(newStatus)} (#{shortId})",
+                            $"/orders/{orderId}",
+                            "Order", orderId);
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -225,6 +245,31 @@ namespace VanAn.CoreHub.Services
                 int sent = await pushService.SendLoyaltyPointsChangedNotificationAsync(customerId, pointsChange, newBalance, reason);
                 _logger.LogInformation("PushNotificationBackgroundService dispatched {Sent} loyalty push notification(s) for CustomerId={CustomerId} PointsChange={PointsChange}",
                     sent, customerId, pointsChange);
+
+                // Notification Hub (2026-10-15): owner notification — điểm thưởng
+                // (resolve tenant từ customer — payload loyalty không có tenantId).
+                var db = scope.ServiceProvider.GetService<IVanAnDbContext>();
+                if (db != null)
+                {
+                    var customer = await db.Customers
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(c => c.Id == customerId, cancellationToken);
+                    if (customer != null)
+                    {
+                        var notificationCenter = scope.ServiceProvider.GetService<INotificationCenterService>();
+                        if (notificationCenter != null)
+                        {
+                            string direction = pointsChange > 0 ? "+" : "";
+                            await notificationCenter.CreateForOwnerAsync(
+                                customer.TenantId,
+                                NotificationCategory.Loyalty,
+                                "Điểm thưởng",
+                                $"Khách {customer.FullName} — {direction}{pointsChange} điểm (số dư {newBalance})",
+                                "/admin/customers",
+                                "Loyalty", customerId);
+                        }
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -236,11 +281,24 @@ namespace VanAn.CoreHub.Services
         {
             if (_disposed) return;
             _disposed = true;
-
             _cts?.Dispose();
             try { _subscription?.Dispose(); } catch { }
             try { _loyaltySubscription?.Dispose(); } catch { }
             try { _subscriptionConnection?.Dispose(); } catch { }
         }
+
+        /// <summary>Message tiếng Việt cho trạng thái đơn (owner notification — mirror PushNotificationService.GetStatusMessage).</summary>
+        private static string OrderStatusMessage(string status) => status switch
+        {
+            "pending" => "đơn hàng đang chờ xác nhận",
+            "confirmed" => "đơn hàng đã được xác nhận",
+            "preparing" => "đơn hàng đang được pha chế",
+            "ready" => "đơn hàng đã sẵn sàng",
+            "delivering" => "đơn hàng đang được giao",
+            "delivered" => "đơn hàng đã giao thành công",
+            "completed" => "đơn hàng đã hoàn thành",
+            "cancelled" => "đơn hàng đã bị hủy",
+            _ => $"trạng thái đơn hàng: {status}"
+        };
     }
 }

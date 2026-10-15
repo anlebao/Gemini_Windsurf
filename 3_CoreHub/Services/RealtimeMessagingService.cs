@@ -15,7 +15,8 @@ namespace VanAn.CoreHub.Services;
 /// </summary>
 public class RealtimeMessagingService(
     IVanAnDbContext dbContext,
-    ILogger<RealtimeMessagingService> logger) : IRealtimeMessagingService
+    ILogger<RealtimeMessagingService> logger,
+    INotificationCenterService? notificationCenter = null) : IRealtimeMessagingService
 {
     private const int MaxContentLength = 2000;
 
@@ -127,6 +128,39 @@ public class RealtimeMessagingService(
 
         _logger.LogInformation("SendMessage: Message {MsgId} sent in conversation {ConvId} by {SenderId}",
             message.Id, conversationId, senderId);
+
+        // Notification Hub (2026-10-15): tin chat mới từ KHÁCH → thông báo owner
+        // (subject Shop/{tenantId}). Fail-safe: lỗi không làm hỏng gửi tin.
+        if (notificationCenter is not null && conversation.SubjectType == RealtimeSubjectType.Shop.ToString())
+        {
+            try
+            {
+                string? senderRole = await _dbContext.ConversationParticipants
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .Where(p => p.ConversationId == conversationId && p.ParticipantId == senderId && p.IsActive)
+                    .Select(p => p.RoleCode)
+                    .FirstOrDefaultAsync(ct);
+
+                bool isCustomerSender = senderRole is RealtimeParticipantRole.Customer or RealtimeParticipantRole.Guest
+                    || (string.IsNullOrEmpty(senderRole) && conversation.CustomerId == senderId); // legacy pair
+                if (isCustomerSender)
+                {
+                    string preview = content.Length > 120 ? content[..120] + "…" : content;
+                    await notificationCenter.CreateForOwnerAsync(
+                        conversation.TenantId,
+                        NotificationCategory.Chat,
+                        "Tin nhắn khách hàng",
+                        preview,
+                        "/community/messages",
+                        "Chat", message.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "SendMessage: failed to notify owner for message {MsgId} — skipped (fail-safe)", message.Id);
+            }
+        }
 
         return message;
     }

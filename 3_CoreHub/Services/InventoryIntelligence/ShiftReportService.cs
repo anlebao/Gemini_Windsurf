@@ -16,7 +16,8 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
         IAlertEngine alertEngine,
         ILogger<ShiftReportService> logger,
         IAlertNotifier? alertNotifier = null,
-        IForecastService? forecastService = null) : IShiftReportService
+        IForecastService? forecastService = null,
+        INotificationCenterService? notificationCenter = null) : IShiftReportService
     {
         private readonly IVanAnDbContext _context = context;
         private readonly ITheoreticalConsumptionService _theoreticalConsumptionService = theoreticalConsumptionService;
@@ -25,6 +26,7 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
         private readonly ILogger<ShiftReportService> _logger = logger;
         private readonly IAlertNotifier? _alertNotifier = alertNotifier;
         private readonly IForecastService? _forecastService = forecastService;
+        private readonly INotificationCenterService? _notificationCenter = notificationCenter;
 
         public async Task<Shift> OpenShiftAsync(TenantId tenantId, ShiftType shiftType, Guid staffUserId, DateTime? startTime = null, CancellationToken ct = default)
         {
@@ -124,6 +126,27 @@ namespace VanAn.CoreHub.Services.InventoryIntelligence
                 if (_alertNotifier is not null && _forecastService is not null && alerts.Count > 0)
                 {
                     await NotifyAlertsAsync(shift, alerts, ct);
+                }
+
+                // Notification Hub (2026-10-15): cảnh báo ca → thông báo owner (System) — fail-safe.
+                if (_notificationCenter is not null && alerts.Count > 0)
+                {
+                    try
+                    {
+                        int critical = alerts.Count(a => a.Severity == AlertSeverity.Critical);
+                        await _notificationCenter.CreateForOwnerAsync(
+                            shift.TenantId,
+                            NotificationCategory.System,
+                            "Cảnh báo khi đóng ca",
+                            $"{alerts.Count} cảnh báo ({(critical > 0 ? critical + " nghiêm trọng" : "không có cảnh báo nghiêm trọng")}) — ca {shift.ShiftType} {shift.StartTime:HH:mm}",
+                            "/inventory/alert-center",
+                            "ShiftAlert", shift.Id,
+                            critical > 0 ? TenantNotificationSeverity.Warning : TenantNotificationSeverity.Info);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "ShiftReportService: failed to notify owner for shift {ShiftId} — skipped (fail-safe)", shift.Id);
+                    }
                 }
                 return shift;
             }

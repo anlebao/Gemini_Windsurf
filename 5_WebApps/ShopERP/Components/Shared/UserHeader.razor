@@ -4,6 +4,8 @@
 @using Microsoft.EntityFrameworkCore
 @using VanAn.CoreHub.Services
 @using VanAn.Shared.Domain.Common
+@using VanAn.ShopERP.Services
+@implements IDisposable
 
 <div class="user-header">
     @if (!string.IsNullOrEmpty(_tenantName))
@@ -12,6 +14,16 @@
             <i class="bi bi-shop"></i>
             <span class="user-header__tenant-name">@_tenantName</span>
         </div>
+    }
+    @if (_hasTenant)
+    {
+        <a href="/notifications" class="user-header__bell" aria-label="Thông báo" title="Thông báo">
+            <i class="bi bi-bell"></i>
+            @if (_unreadCount > 0)
+            {
+                <span class="user-header__bell-badge">@(_unreadCount > 99 ? "99+" : _unreadCount.ToString())</span>
+            }
+        </a>
     }
     <div class="user-header__info">
         <i class="bi bi-person-circle user-header__icon"></i>
@@ -74,6 +86,35 @@
         font-size: 0.75rem;
         font-weight: 600;
     }
+    .user-header__bell {
+        position: relative;
+        display: flex;
+        align-items: center;
+        color: var(--vanan-primary, #007bff);
+        font-size: 1.15rem;
+        text-decoration: none;
+        padding: 4px 6px;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+    .user-header__bell:hover {
+        background: rgba(0, 123, 255, 0.1);
+    }
+    .user-header__bell-badge {
+        position: absolute;
+        top: -2px;
+        right: -4px;
+        background: var(--vanan-danger, #dc3545);
+        color: white;
+        font-size: 0.68rem;
+        font-weight: 700;
+        min-width: 17px;
+        height: 17px;
+        line-height: 17px;
+        text-align: center;
+        border-radius: 10px;
+        padding: 0 4px;
+    }
     .user-header__logout {
         display: flex;
         align-items: center;
@@ -102,10 +143,17 @@
 @code {
     [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = null!;
     [Inject] private VanAn.CoreHub.Infrastructure.VanAnDbContext PgDbContext { get; set; } = null!;
+    [Inject] private NotificationApiClient NotificationApi { get; set; } = null!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = null!;
 
     private string _displayName = string.Empty;
     private string _role = string.Empty;
     private string _tenantName = string.Empty;
+    private Guid _tenantId = Guid.Empty;
+    private bool _hasTenant;
+    private int _unreadCount;
+    private bool _isDisposed;
+    private System.Threading.Timer? _pollTimer;
 
     protected override async Task OnInitializedAsync()
     {
@@ -127,6 +175,8 @@
                 ?? user.FindFirst("TenantId")?.Value;
             if (Guid.TryParse(tenantClaim, out var tenantId) && tenantId != Guid.Empty)
             {
+                _tenantId = tenantId;
+                _hasTenant = true;
                 try
                 {
                     var tenant = await PgDbContext.Tenants
@@ -141,5 +191,44 @@
                 }
             }
         }
+
+        if (_hasTenant)
+        {
+            await RefreshUnreadAsync();
+            // Poll fallback — badge luôn cập nhật kể cả khi miss realtime event.
+            _pollTimer = new System.Threading.Timer(async _ => await RefreshUnreadAsync(), null, TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(60));
+            // Refresh khi chuyển trang (sau khi mark-read trên /notifications).
+            NavigationManager.LocationChanged += OnLocationChanged;
+        }
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        _ = InvokeAsync(RefreshUnreadAsync);
+    }
+
+    private async Task RefreshUnreadAsync()
+    {
+        if (_isDisposed || !_hasTenant) return;
+        try
+        {
+            int count = await NotificationApi.GetUnreadCountAsync();
+            if (_unreadCount != count)
+            {
+                _unreadCount = count;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch
+        {
+            // Gateway không truy cập được — giữ badge cũ (không làm hỏng header).
+        }
+    }
+
+    public void Dispose()
+    {
+        _isDisposed = true;
+        NavigationManager.LocationChanged -= OnLocationChanged;
+        _pollTimer?.Dispose();
     }
 }

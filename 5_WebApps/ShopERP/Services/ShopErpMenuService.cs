@@ -286,6 +286,12 @@ public sealed class ShopErpMenuService : IShopErpMenuService
             });
         }
 
+        // Notification Hub (2026-10-15): Thông báo — Owner + Kế toán trưởng + SystemAdmin (impersonate có tenant).
+        if ((isOwner || isChiefAccountant || isSystemAdmin) && _tenantProvider.HasTenant)
+        {
+            items.Add(new() { Title = "Thông báo", Icon = "bell", Url = "/notifications" });
+        }
+
         // Tài chính: Owner + Kế toán trưởng + SystemAdmin (user directive 2026-10-09 — thêm ChiefAccountant).
         if (isOwner || isSystemAdmin || isChiefAccountant)
         {

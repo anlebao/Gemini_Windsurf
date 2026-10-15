@@ -238,9 +238,26 @@ public class RealtimeController(
         }
 
         var items = new List<ShopConversationItem>();
+        int totalUnread = 0;
         foreach (var c in conversations)
         {
             var last = (await _messaging.GetHistoryAsync(c.Id, 1, ct)).LastOrDefault();
+
+            // Notification Hub (2026-10-15): unread = tin của KHÁCH (không phải shop/staff) chưa đọc.
+            var shopSenderIds = await _dbContext.ConversationParticipants
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(p => p.ConversationId == c.Id && p.RoleCode == RealtimeParticipantRole.Shop && p.IsActive)
+                .Select(p => p.ParticipantId)
+                .ToListAsync(ct);
+            int unreadCount = await _dbContext.Messages
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .CountAsync(m => m.ConversationId == c.Id && !m.IsRead
+                              && m.SenderId != identity.UserId
+                              && !shopSenderIds.Contains(m.SenderId), ct);
+            totalUnread += unreadCount;
+
             items.Add(new ShopConversationItem
             {
                 ConversationId = c.Id,
@@ -249,15 +266,53 @@ public class RealtimeController(
                 CustomerName = c.CustomerId != Guid.Empty && names.TryGetValue(c.CustomerId, out var n) ? n : null,
                 LastMessage = last?.Content,
                 LastMessageAt = last?.SentAt,
-                LastSenderId = last?.SenderId
+                LastSenderId = last?.SenderId,
+                UnreadCount = unreadCount
             });
         }
 
         return Ok(new
         {
             tenantId = shopTenantId,
+            totalUnread,
             conversations = items.OrderByDescending(i => i.LastMessageAt ?? DateTime.MinValue)
         });
+    }
+
+    /// <summary>
+    /// Notification Hub (2026-10-15): POST /api/realtime/shop/conversations/{conversationId}/read —
+    /// shop/staff đã mở hội thoại → đánh dấu tin của khách trong hội thoại là ĐÃ ĐỌC.
+    /// (Message.IsRead từng được tạo nhưng chưa nơi nào wire — issue chat stats Q1.)
+    /// </summary>
+    [HttpPost("shop/conversations/{conversationId:guid}/read")]
+    public async Task<IActionResult> MarkShopConversationRead(Guid conversationId, CancellationToken ct = default)
+    {
+        var identity = await ResolveIdentityAsync(ct);
+        if (identity == null)
+            return Unauthorized(new { error = "Cần Bearer token (staff)." });
+        if (identity.Kind != RealtimeIdentityKind.Staff || !identity.TenantId.HasValue || identity.TenantId.Value == Guid.Empty)
+            return StatusCode(403, new { error = "Chỉ chủ shop mới đánh dấu đã đọc." });
+
+        var shopSenderIds = await _dbContext.ConversationParticipants
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(p => p.ConversationId == conversationId && p.RoleCode == RealtimeParticipantRole.Shop && p.IsActive)
+            .Select(p => p.ParticipantId)
+            .ToListAsync(ct);
+
+        var unread = await _dbContext.Messages
+            .IgnoreQueryFilters()
+            .Where(m => m.ConversationId == conversationId && !m.IsRead
+                     && m.SenderId != identity.UserId
+                     && !shopSenderIds.Contains(m.SenderId))
+            .ToListAsync(ct);
+
+        foreach (var m in unread)
+            m.MarkAsRead();
+        if (unread.Count > 0)
+            await _dbContext.SaveChangesAsync(ct);
+
+        return Ok(new { conversationId, markedRead = unread.Count });
     }
 
     private sealed class ShopConversationItem
@@ -269,6 +324,7 @@ public class RealtimeController(
         public string? LastMessage { get; init; }
         public DateTime? LastMessageAt { get; init; }
         public Guid? LastSenderId { get; init; }
+        public int UnreadCount { get; init; }
     }
 
     /// <summary>Record a GPS ping for a subject and push it to the subject's tracking group.</summary>

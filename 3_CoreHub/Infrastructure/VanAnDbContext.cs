@@ -135,6 +135,9 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<CampaignPushJob> CampaignPushJobs { get; set; }
         public DbSet<PushNotificationDelivery> PushNotificationDeliveries { get; set; }
 
+        // Notification Hub (2026-10-15): thông báo owner tenant (PG-only — Gateway source of truth)
+        public DbSet<TenantNotification> TenantNotifications { get; set; }
+
         // Loyalty-B: Redemption system — DbSets for interface compliance.
         // Storage is ShopERP SQLite; Gateway PG ignores these (configurations auto-applied but tables not used).
         public DbSet<RedemptionCatalogItem> RedemptionCatalogItems { get; set; }

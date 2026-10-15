@@ -435,6 +435,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.PushNotificationService>();
             // FIX-BATCH-3: IHostedService that subscribes to NATS "order.status.changed" and dispatches to PushNotificationService
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.PushNotificationBackgroundService>();
+            // Notification Hub (2026-10-15): thông báo owner + inbox khách (ghi PG — VanAnDbContext)
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.INotificationCenterService, VanAn.CoreHub.Services.NotificationCenterService>();
             // NF-2: IOrderNotificationService for ShopERP scope — broadcasts on local /orderHub
             // so staff pages (Orders/Kitchen/Dashboard) update realtime. Was unregistered →
             // every SignalR call in OrderWorkflowService/KitchenService/OrderService was a no-op.
@@ -584,6 +586,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<Services.TenantCommunityAdminApiClient>(); // R2: Owner-scoped role activation
             // Realtime Platform P5 (2026-09-18): shop inbox — Owner JWT → /api/realtime/shop/conversations
             _ = builder.Services.AddScoped<Services.ShopInboxApiClient>();
+            // Notification Hub (2026-10-15): thông báo owner — Owner JWT → /api/v1/notifications/owner/*
+            _ = builder.Services.AddScoped<Services.NotificationApiClient>();
             // Nav menu SSOT (2026-09-19): single menu definition per role used by all layouts
             _ = builder.Services.AddScoped<Services.IShopErpMenuService, Services.ShopErpMenuService>();
             _ = builder.Services.AddScoped<Services.CampaignApiClient>();

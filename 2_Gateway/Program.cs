@@ -1137,6 +1137,10 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Membership.IConsentService, VanAn.CoreHub.Services.Membership.ConsentService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Membership.IHtxProfileService, VanAn.CoreHub.Services.Membership.HtxProfileService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Membership.IMembershipDocumentService, VanAn.CoreHub.Services.Membership.MembershipDocumentService>();
+            // Notification Hub (2026-10-15): thông báo owner + inbox khách (ghi PG — source of truth)
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.INotificationCenterService, VanAn.CoreHub.Services.NotificationCenterService>();
+            // Notification Hub (2026-10-15): NATS notification.created → NotificationsHub (badge realtime)
+            _ = builder.Services.AddHostedService<VanAn.Gateway.Services.NotificationHubNotifier>();
             // 2026-10-03 (membership v2 — Luồng 2): nâng cấp cộng tác viên (Salesman/Shipper) thành tenant profile.
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Membership.ICollaboratorTenantProvisioningService, VanAn.CoreHub.Services.Membership.CollaboratorTenantProvisioningService>();
 
@@ -1812,6 +1816,9 @@ namespace VanAn.Gateway
                 _ = app.MapHub<MessagingHub>("/hubs/messaging");
 
                 _ = app.MapHub<TrackingHub>("/hubs/tracking");
+
+                // Notification Hub (2026-10-15): /hubs/notifications — badge realtime owner + khách
+                _ = app.MapHub<VanAn.Gateway.Hubs.NotificationsHub>("/hubs/notifications");
 
 
 

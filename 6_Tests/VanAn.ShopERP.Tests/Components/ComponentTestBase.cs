@@ -1,6 +1,8 @@
 using VanAn.UI.Platform.Services;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Services.CongNo;
 using Bunit;
@@ -74,6 +76,19 @@ public class ComponentTestBase : TestContext
         // 2026-10-01: business-info lookup client (phiếu thu/chi MST) — mock by default
         Services.AddSingleton<IBusinessInfoApiClient>(_ => new Mock<IBusinessInfoApiClient>().Object);
 
+        // Notification Hub (2026-10-15): NotificationApiClient mock — UserHeader bell badge.
+        // Concrete sealed class — dùng instance THẬT với handler trả 500 → GetUnreadCountAsync
+        // throw → catch fail-safe trong UserHeader (badge = 0, không làm hỏng render).
+        var notifHttpClient = new HttpClient(new StubHttpHandler()) { BaseAddress = new Uri("http://localhost") };
+        var notifFactory = new Mock<IHttpClientFactory>();
+        notifFactory.Setup(f => f.CreateClient("GatewayClient")).Returns(notifHttpClient);
+        Services.AddSingleton(new NotificationApiClient(
+            notifFactory.Object,
+            new ConfigurationBuilder().Build(),
+            Mock.Of<IJwtTokenService>(),
+            new TestAuthenticationStateProvider(),
+            NullLogger<NotificationApiClient>.Instance));
+
         // THU CHI & CÔNG NỢ MVP (P2, 2026-10-07): ICongNoService + IReversalService — mock by default
         Services.AddSingleton<ICongNoService>(_ => new Mock<ICongNoService>().Object);
         Services.AddSingleton<IReversalService>(_ => new Mock<IReversalService>().Object);
@@ -83,5 +98,12 @@ public class ComponentTestBase : TestContext
 
         // Bunit automatically discovers components from referenced assemblies
         // UI.Platform is already referenced in the project, so components should be discoverable
+    }
+
+    /// <summary>Trả 500 cho mọi request — NotificationApiClient fail-safe (catch trong UserHeader).</summary>
+    private sealed class StubHttpHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.InternalServerError));
     }
 }

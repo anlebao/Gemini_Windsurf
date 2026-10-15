@@ -4,6 +4,9 @@
 @using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate
 @inject KhachLinkHomeSettingsHttpService HomeSettingsService
 @inject KhachLinkInstanceHttpService InstanceHttp
+@inject NotificationHttpService NotificationHttp
+@inject IJSRuntime JSRuntime
+@implements IDisposable
 @inherits LayoutComponentBase
 
 @if (_isInstanceDisabled)
@@ -33,6 +36,16 @@ else
                 {
                     <a href="/cart" class="app-header-btn" aria-label="Giỏ hàng">
                         <i class="bi bi-cart3"></i>
+                    </a>
+                }
+                @if (!string.IsNullOrEmpty(_customerToken))
+                {
+                    <a href="/notifications" class="app-header-btn notif-bell" aria-label="Thông báo" title="Thông báo">
+                        <i class="bi bi-bell"></i>
+                        @if (_unreadCount > 0)
+                        {
+                            <span class="notif-badge">@(_unreadCount > 99 ? "99+" : _unreadCount.ToString())</span>
+                        }
                     </a>
                 }
                 @if (_navFlags.ShowProfile)
@@ -115,6 +128,12 @@ else
         transition: background 0.2s;
     }
     .app-header-btn:hover { background: rgba(255,255,255,0.25); color: white; }
+    .notif-bell { position: relative; }
+    .notif-badge {
+        position: absolute; top: -3px; right: -3px; background: #dc3545; color: white;
+        font-size: 0.62rem; font-weight: 700; min-width: 16px; height: 16px; line-height: 16px;
+        text-align: center; border-radius: 8px; padding: 0 4px;
+    }
 
     /* Body: sidebar + main side-by-side on desktop, stacked on mobile */
     .khachlink-body {
@@ -184,6 +203,12 @@ else
     private bool _isInstanceDisabled;
     private KhachLinkNavFlagsDto _navFlags = new(); // default: all true (FullCommerce fallback)
 
+    // Notification Hub (2026-10-15): badge số thông báo chưa đọc (khách).
+    private string? _customerToken;
+    private int _unreadCount;
+    private bool _disposed;
+    private System.Threading.Timer? _notifTimer;
+
     protected override async Task OnInitializedAsync()
     {
         // #134: Fetch instance config first — if disabled, skip everything else
@@ -218,5 +243,44 @@ else
         {
             // Default to showing nav if fetch fails — don't break UX
         }
+
+        // Notification badge — chỉ khi có customer token (đã đăng nhập).
+        try
+        {
+            _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+            if (!string.IsNullOrEmpty(_customerToken))
+            {
+                await RefreshUnreadAsync();
+                _notifTimer = new System.Threading.Timer(async _ => await RefreshUnreadAsync(), null, TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(60));
+            }
+        }
+        catch
+        {
+            // Không đọc được token — bỏ badge.
+        }
+    }
+
+    private async Task RefreshUnreadAsync()
+    {
+        if (_disposed || string.IsNullOrEmpty(_customerToken)) return;
+        try
+        {
+            int count = await NotificationHttp.GetUnreadCountAsync(_customerToken);
+            if (_unreadCount != count)
+            {
+                _unreadCount = count;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch
+        {
+            // Giữ badge cũ — không làm hỏng layout.
+        }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _notifTimer?.Dispose();
     }
 }

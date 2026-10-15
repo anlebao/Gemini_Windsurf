@@ -35,7 +35,8 @@ namespace VanAn.CoreHub.Services.Booking
         ILogger<BookingService> logger,
         IOrderService? orderService = null,
         IBookingFinancialService? financialService = null,
-        ICommissionService? commissionService = null) : IBookingService
+        ICommissionService? commissionService = null,
+        INotificationCenterService? notificationCenter = null) : IBookingService
     {
         /// <summary>Message conflict customer-friendly (SRS §6.5) — KHÔNG hiển thị mã kỹ thuật.</summary>
         public const string ConflictMessage = "Khung giờ này vừa có người đặt. Vui lòng chọn khung giờ khác.";
@@ -55,6 +56,7 @@ namespace VanAn.CoreHub.Services.Booking
         private readonly IOrderService? _orderService = orderService;
         private readonly IBookingFinancialService? _financialService = financialService;
         private readonly ICommissionService? _commissionService = commissionService;
+        private readonly INotificationCenterService? _notificationCenter = notificationCenter;
 
         // ── Create (Idempotency-Key §21.1 + double-booking AC-C04) ──────────
 
@@ -207,6 +209,27 @@ namespace VanAn.CoreHub.Services.Booking
 
             _logger.LogInformation("Booking created: {BookingId} code={Code} tenant={TenantId} staff={StaffId}",
                 booking.Id, booking.PublicBookingCode, tenantId.Value, command.StaffId);
+
+            // Notification Hub (2026-10-15): đặt lịch mới → thông báo owner (fail-safe).
+            if (_notificationCenter is not null)
+            {
+                try
+                {
+                    string staffText = command.StaffId.HasValue ? $" · nhân viên đã chọn" : "";
+                    await _notificationCenter.CreateForOwnerAsync(
+                        tenantId,
+                        NotificationCategory.Booking,
+                        "Đặt lịch mới",
+                        $"{offering.DisplayName} — {startAt.ToLocalTime():HH:mm dd/MM}{staffText} · mã {booking.PublicBookingCode}",
+                        "/booking/queue",
+                        "Booking", booking.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Booking created: failed to notify owner for booking {BookingId} — skipped (fail-safe)", booking.Id);
+                }
+            }
+
             return booking;
         }
 
