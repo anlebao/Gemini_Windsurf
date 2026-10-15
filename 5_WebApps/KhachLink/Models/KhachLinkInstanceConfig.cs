@@ -20,6 +20,9 @@ public sealed class KhachLinkInstanceConfig
     public string? NavColor { get; set; }
     public string? HeaderColor { get; set; }
     public string? FooterColor { get; set; }
+    // Icon app (PWA) (2026-10-15): URL tương đối tới icon endpoint (nginx proxy cùng origin).
+    public string? IconUrl { get; set; }
+    public DateTime? IconUpdatedAt { get; set; }
     /// <summary>Sprint 2 P2.1: Server-side UpdatedAt timestamp — used to detect profile change (compare with localStorage lastSeenProfileAt).</summary>
     public DateTime UpdatedAt { get; set; }
 }

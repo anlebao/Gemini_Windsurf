@@ -94,6 +94,9 @@ public class KhachLinkInstanceHttpService(
                 NavColor = dto.NavColor,
                 HeaderColor = dto.HeaderColor,
                 FooterColor = dto.FooterColor,
+                // Icon app (PWA) (2026-10-15): URL tương đối — nginx proxy cùng origin.
+                IconUrl = dto.IconUrl,
+                IconUpdatedAt = dto.IconUpdatedAt,
                 UpdatedAt = dto.UpdatedAt,
                 NavFlags = new KhachLinkNavFlagsDto
                 {
@@ -178,6 +181,9 @@ public class KhachLinkInstanceHttpService(
         public string? NavColor { get; set; }
         public string? HeaderColor { get; set; }
         public string? FooterColor { get; set; }
+        // Icon app (PWA) (2026-10-15): URL tương đối tới icon endpoint.
+        public string? IconUrl { get; set; }
+        public DateTime? IconUpdatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public NavFlagsResponse? NavFlags { get; set; }
     }

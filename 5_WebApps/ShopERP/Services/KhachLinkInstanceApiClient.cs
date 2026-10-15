@@ -56,6 +56,23 @@ namespace VanAn.ShopERP.Services
             var response = await HttpClient.SendAsync(req, ct);
             response.EnsureSuccessStatusCode();
         }
+
+        /// <summary>Icon app (PWA) (2026-10-15): upload icon (base64 PNG ≤2MB).</summary>
+        public async Task SetIconAsync(Guid id, string iconBase64, string contentType, CancellationToken ct = default)
+        {
+            var req = await CreateRequestAsync(HttpMethod.Put, $"api/v1/khachlink-instances/{id}/icon",
+                new { IconBase64 = iconBase64, ContentType = contentType });
+            var response = await HttpClient.SendAsync(req, ct);
+            response.EnsureSuccessStatusCode();
+        }
+
+        /// <summary>Icon app (PWA): xóa override → về icon mặc định theo Profile.</summary>
+        public async Task ClearIconAsync(Guid id, CancellationToken ct = default)
+        {
+            var req = await CreateRequestAsync(HttpMethod.Delete, $"api/v1/khachlink-instances/{id}/icon");
+            var response = await HttpClient.SendAsync(req, ct);
+            response.EnsureSuccessStatusCode();
+        }
     }
 
     // ── DTOs (mirror Gateway KhachLinkInstanceController DTOs) ───────────────
@@ -77,6 +94,9 @@ namespace VanAn.ShopERP.Services
         public string? NavColor { get; set; }
         public string? HeaderColor { get; set; }
         public string? FooterColor { get; set; }
+        // Icon app (PWA) (2026-10-15): URL tương đối tới icon endpoint (nginx proxy cùng origin).
+        public string? IconUrl { get; set; }
+        public DateTime? IconUpdatedAt { get; set; }
     }
 
     public sealed class KhachLinkNavFlagsDto

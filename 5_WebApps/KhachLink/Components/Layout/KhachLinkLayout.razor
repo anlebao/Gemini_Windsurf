@@ -54,7 +54,11 @@ else
     <header class="khachlink-hero-header">
         <div class="hero-content d-flex justify-content-between align-items-center px-3 py-2">
             <div class="d-flex align-items-center gap-2">
-                @if (!string.IsNullOrEmpty(_instanceStyle?.LogoUrl))
+                @if (!string.IsNullOrEmpty(_instanceStyle?.IconUrl))
+                {
+                    <img src="@_instanceStyle.IconUrl" alt="@(_shopConfig?.ShopName ?? "Logo")" class="shop-logo" />
+                }
+                else if (!string.IsNullOrEmpty(_instanceStyle?.LogoUrl))
                 {
                     <img src="@_instanceStyle.LogoUrl" alt="@(_shopConfig?.ShopName ?? "Logo")" class="shop-logo" />
                 }

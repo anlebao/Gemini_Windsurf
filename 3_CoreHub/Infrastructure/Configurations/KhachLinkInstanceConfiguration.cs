@@ -63,6 +63,16 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .HasMaxLength(20)
                 .IsRequired(false);
 
+            // Icon app (PWA) (2026-10-15): bytes trong PG — SystemAdmin upload; null = default theo Profile.
+            builder.Property(e => e.IconData)
+                .HasColumnType("bytea")
+                .IsRequired(false);
+            builder.Property(e => e.IconContentType)
+                .HasMaxLength(50)
+                .IsRequired(false);
+            builder.Property(e => e.IconUpdatedAt)
+                .IsRequired(false);
+
             // Owned nav flags — 15 flattened bool columns with defaults matching FullCommerce preset
             builder.OwnsOne(e => e.NavFlags, nf =>
             {

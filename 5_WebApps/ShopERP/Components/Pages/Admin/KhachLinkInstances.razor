@@ -12,6 +12,7 @@
 @inject IThemeProvider ThemeProvider
 @inject ILogger<KhachLinkInstances> Logger
 @inject NavigationManager NavigationManager
+@inject IConfiguration Configuration
 
 @attribute [Authorize(Policy = "SystemAdmin")]
 
@@ -254,6 +255,30 @@
                         <small class="text-muted">Hiển thị logo trên header KhachLink. Để trống = dùng icon shop mặc định.</small>
                     </div>
                     <div class="form-group">
+                        <label class="fw-semibold">Icon ứng dụng (PWA — phân biệt loại)</label>
+                        <small class="text-muted d-block mb-2">
+                            Icon hiển thị trên điện thoại khách khi cài PWA + logo header KhachLink.
+                            Chưa upload = icon mặc định theo loại (Profile). PNG ≤ 2MB.
+                        </small>
+                        <div class="d-flex align-items-center gap-3">
+                            <img src="@_iconPreviewUrl" alt="Icon app" class="kli-icon-preview" />
+                            <div class="d-flex flex-column gap-1">
+                                <label class="btn btn-sm btn-outline-primary mb-0" style="cursor:pointer;">
+                                    <i class="bi bi-upload me-1"></i> Tải icon lên
+                                    <InputFile OnChange="OnIconSelected" accept=".png,image/png" hidden />
+                                </label>
+                                @if (_editOriginal?.IconUpdatedAt != null)
+                                {
+                                    <VanAButton Variant="outline" Size="small" OnClick="ClearIcon">Dùng mặc định theo loại</VanAButton>
+                                }
+                                @if (!string.IsNullOrEmpty(_iconMessage))
+                                {
+                                    <small class="text-@(_iconMessageIsError ? "danger" : "success")">@_iconMessage</small>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
                         <label class="fw-semibold">Tùy chỉnh màu (override)</label>
                         <small class="text-muted d-block mb-2">
                             Override màu nav (sidebar), header (top bar), footer.
@@ -348,6 +373,10 @@
     }
     .khachlink-instances-page .confirm-diff-list li {
         padding: 0.125rem 0;
+    }
+    .khachlink-instances-page .kli-icon-preview {
+        width: 64px; height: 64px; border-radius: 12px;
+        border: 1px solid #e5e7eb; object-fit: cover; background: #f8fafc;
     }
 </style>
 
@@ -470,6 +499,10 @@
             HeaderColor = item.HeaderColor,
             FooterColor = item.FooterColor
         };
+        // Icon app (PWA) (2026-10-15)
+        _iconMessage = string.Empty;
+        _iconMessageIsError = false;
+        _iconPreviewUrl = BuildIconPreviewUrl(item);
         _showModal = true;
     }
 
@@ -477,6 +510,74 @@
     {
         _showModal = false;
         _showConfirmModal = false;
+    }
+
+    // ── Icon app (PWA) (2026-10-15, user directive) ──
+    private string _iconPreviewUrl = string.Empty;
+    private string _iconMessage = string.Empty;
+    private bool _iconMessageIsError;
+
+    private string GatewayPublicBase => Configuration["Gateway:PublicBaseUrl"] ?? "";
+
+    private string BuildIconPreviewUrl(KhachLinkInstanceDto item)
+    {
+        string path = $"api/public/khachlink-instances/icons/{item.Id}";
+        return string.IsNullOrEmpty(GatewayPublicBase) ? path : $"{GatewayPublicBase.TrimEnd('/')}/{path}";
+    }
+
+    private async Task OnIconSelected(InputFileChangeEventArgs e)
+    {
+        if (e.File is null) return;
+        if (e.File.Size > 2 * 1024 * 1024)
+        {
+            _iconMessage = "Icon vượt quá 2MB.";
+            _iconMessageIsError = true;
+            return;
+        }
+
+        _iconMessage = string.Empty;
+        try
+        {
+            await using var stream = e.File.OpenReadStream(2 * 1024 * 1024 + 1);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            string base64 = Convert.ToBase64String(ms.ToArray());
+            await InstanceApi.SetIconAsync(_editId!.Value, base64, e.File.ContentType ?? "image/png");
+
+            _iconMessage = "Đã lưu icon ứng dụng.";
+            _iconMessageIsError = false;
+            var fresh = _items.FirstOrDefault(i => i.Id == _editId.Value);
+            if (fresh != null) fresh.IconUpdatedAt = DateTime.UtcNow;
+            _iconPreviewUrl = BuildIconPreviewUrl(fresh ?? new KhachLinkInstanceDto { Id = _editId.Value });
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "KhachLinkInstances: icon upload failed for {Id}", _editId);
+            _iconMessage = $"Lỗi tải icon: {ex.Message}";
+            _iconMessageIsError = true;
+        }
+    }
+
+    private async Task ClearIcon()
+    {
+        _iconMessage = string.Empty;
+        try
+        {
+            await InstanceApi.ClearIconAsync(_editId!.Value);
+            _iconMessage = "Đã dùng icon mặc định theo loại.";
+            _iconMessageIsError = false;
+            var fresh = _items.FirstOrDefault(i => i.Id == _editId.Value);
+            if (fresh != null) fresh.IconUpdatedAt = null;
+            _iconPreviewUrl = BuildIconPreviewUrl(fresh ?? new KhachLinkInstanceDto { Id = _editId.Value });
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "KhachLinkInstances: clear icon failed for {Id}", _editId);
+            _iconMessage = $"Lỗi: {ex.Message}";
+            _iconMessageIsError = true;
+        }
     }
 
     private void OnProfileChanged(string value)

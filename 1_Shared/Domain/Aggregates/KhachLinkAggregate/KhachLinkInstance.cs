@@ -64,6 +64,20 @@ namespace VanAn.Shared.Domain.Aggregates.KhachLinkAggregate
         /// <summary>Footer color override. Null = inherit from tenant ShopConfig.</summary>
         public string? FooterColor { get; private set; }
 
+        // ── Icon app (PWA) (2026-10-15, user directive) ─────────────────────────
+        // Icon riêng cho từng instance — phân biệt theo loại (Profile); SystemAdmin upload.
+        // Dùng cho: manifest PWA (icon app trên điện thoại khách) + logo header KhachLink (Q3).
+        // Null = dùng icon mặc định theo Profile (Gateway assets).
+
+        /// <summary>PNG bytes của icon app. Null = icon mặc định theo Profile.</summary>
+        public byte[]? IconData { get; private set; }
+
+        /// <summary>Content type của icon (image/png).</summary>
+        public string? IconContentType { get; private set; }
+
+        /// <summary>Thời điểm icon được upload — null nếu chưa override (đang dùng mặc định).</summary>
+        public DateTime? IconUpdatedAt { get; private set; }
+
         // EF Core materialization
         private KhachLinkInstance() { }
 
@@ -178,6 +192,32 @@ namespace VanAn.Shared.Domain.Aggregates.KhachLinkAggregate
             NavColor = string.IsNullOrWhiteSpace(navColor) ? null : navColor;
             HeaderColor = string.IsNullOrWhiteSpace(headerColor) ? null : headerColor;
             FooterColor = string.IsNullOrWhiteSpace(footerColor) ? null : footerColor;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Icon app (PWA) (2026-10-15, user directive): set icon bytes (SystemAdmin upload).
+        /// <paramref name="data"/> null = xóa override → về icon mặc định theo Profile.
+        /// </summary>
+        public void UpdateIcon(byte[]? data, string? contentType)
+        {
+            if (data is null || data.Length == 0)
+            {
+                IconData = null;
+                IconContentType = null;
+                IconUpdatedAt = null;
+                UpdateAudit();
+                return;
+            }
+
+            if (data.Length > 2 * 1024 * 1024)
+                throw new ArgumentException("Icon vượt quá giới hạn 2MB.", nameof(data));
+            if (string.IsNullOrWhiteSpace(contentType))
+                throw new ArgumentException("ContentType không được để trống.", nameof(contentType));
+
+            IconData = data;
+            IconContentType = contentType.Trim();
+            IconUpdatedAt = DateTime.UtcNow;
             UpdateAudit();
         }
     }

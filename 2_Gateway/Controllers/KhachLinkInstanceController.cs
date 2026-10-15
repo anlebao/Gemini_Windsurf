@@ -223,6 +223,55 @@ namespace VanAn.Gateway.Controllers
             return NoContent();
         }
 
+        /// <summary>
+        /// Icon app (PWA) (2026-10-15): upload icon (SystemAdmin). Body JSON { iconBase64, contentType }.
+        /// Limit 2MB (Domain guard). Xóa override (về default theo Profile) bằng DELETE /{id}/icon.
+        /// </summary>
+        [HttpPut("{id:guid}/icon")]
+        [Authorize(Policy = "SystemAdmin", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        public async Task<IActionResult> UpdateIcon(Guid id, [FromBody] UpdateKhachLinkIconRequest request, CancellationToken ct = default)
+        {
+            if (request is null || string.IsNullOrWhiteSpace(request.IconBase64))
+                return BadRequest(new { error = "iconBase64 là bắt buộc." });
+
+            byte[] bytes;
+            try
+            {
+                bytes = Convert.FromBase64String(request.IconBase64);
+            }
+            catch (FormatException)
+            {
+                return BadRequest(new { error = "iconBase64 không hợp lệ." });
+            }
+
+            if (bytes.Length > 2 * 1024 * 1024)
+                return BadRequest(new { error = "Icon vượt quá giới hạn 2MB." });
+
+            try
+            {
+                var updated = await _instanceService.UpdateIconAsync(
+                    id, bytes, string.IsNullOrWhiteSpace(request.ContentType) ? "image/png" : request.ContentType.Trim(), ct);
+                if (!updated)
+                    return NotFound();
+                return NoContent();
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        /// <summary>Icon app (PWA): xóa override → về icon mặc định theo Profile (SystemAdmin).</summary>
+        [HttpDelete("{id:guid}/icon")]
+        [Authorize(Policy = "SystemAdmin", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        public async Task<IActionResult> ClearIcon(Guid id, CancellationToken ct = default)
+        {
+            var updated = await _instanceService.UpdateIconAsync(id, null, null, ct);
+            if (!updated)
+                return NotFound();
+            return NoContent();
+        }
+
         /// <summary>Map entity to DTO.</summary>
         private static KhachLinkInstanceDto ToDto(KhachLinkInstance i) => new()
         {
@@ -240,6 +289,9 @@ namespace VanAn.Gateway.Controllers
             NavColor = i.NavColor,
             HeaderColor = i.HeaderColor,
             FooterColor = i.FooterColor,
+            // Icon app (PWA) (2026-10-15): IconUrl tương đối (nginx proxy /khachlink-icons/*).
+            IconUrl = $"khachlink-icons/{i.Id}.png",
+            IconUpdatedAt = i.IconUpdatedAt,
             NavFlags = new KhachLinkNavFlagsDto
             {
                 ShowHome = i.NavFlags.ShowHome,
@@ -280,6 +332,9 @@ namespace VanAn.Gateway.Controllers
         public string? NavColor { get; set; }
         public string? HeaderColor { get; set; }
         public string? FooterColor { get; set; }
+        // Icon app (PWA) (2026-10-15): URL tương đối tới icon endpoint (nginx proxy cùng origin).
+        public string? IconUrl { get; set; }
+        public DateTime? IconUpdatedAt { get; set; }
     }
 
     public sealed class KhachLinkNavFlagsDto
@@ -320,5 +375,12 @@ namespace VanAn.Gateway.Controllers
         public string? NavColor { get; set; }
         public string? HeaderColor { get; set; }
         public string? FooterColor { get; set; }
+    }
+
+    /// <summary>Icon app (PWA): upload icon (base64, ≤2MB PNG).</summary>
+    public sealed class UpdateKhachLinkIconRequest
+    {
+        public string IconBase64 { get; set; } = string.Empty;
+        public string? ContentType { get; set; }
     }
 }

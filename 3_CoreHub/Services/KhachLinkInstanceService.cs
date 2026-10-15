@@ -234,5 +234,40 @@ namespace VanAn.CoreHub.Services
             _logger?.LogInformation("Activated KhachLinkInstance {Id} '{Label}'", instance.Id, instance.Label);
             return true;
         }
+
+        /// <inheritdoc />
+        public async Task<bool> UpdateIconAsync(Guid id, byte[]? data, string? contentType, CancellationToken ct = default)
+        {
+            var instance = await _dbContext.KhachLinkInstances
+                .FirstOrDefaultAsync(i => i.Id == id, ct);
+            if (instance is null)
+                return false;
+
+            instance.UpdateIcon(data, contentType);
+            await _dbContext.SaveChangesAsync(ct);
+
+            if (data is null || data.Length == 0)
+                _logger?.LogInformation("Cleared icon of KhachLinkInstance {Id} (dùng mặc định theo Profile)", instance.Id);
+            else
+                _logger?.LogInformation("Updated icon of KhachLinkInstance {Id} ({Bytes} bytes, {Type})", instance.Id, data.Length, contentType);
+
+            // Audit (best-effort).
+            try
+            {
+                await _auditTrailService.LogUpdateAsync(
+                    AuditableEntityType.KhachLinkInstance,
+                    id,
+                    data is null ? "Icon=override" : $"Icon={data.Length} bytes",
+                    data is null ? "Icon=default" : $"Icon={data.Length} bytes ({contentType})",
+                    correlationId: id.ToString(),
+                    ct);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Failed to log audit trail for KhachLinkInstance {Id} icon update", id);
+            }
+
+            return true;
+        }
     }
 }

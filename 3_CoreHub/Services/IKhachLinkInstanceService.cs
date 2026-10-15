@@ -43,5 +43,11 @@ namespace VanAn.CoreHub.Services
             CancellationToken ct = default);
         Task<bool> DeactivateAsync(Guid id, CancellationToken ct = default);
         Task<bool> ActivateAsync(Guid id, CancellationToken ct = default);
+
+        /// <summary>
+        /// Icon app (PWA) (2026-10-15, user directive): set/clear icon bytes.
+        /// data null = clear override → về icon mặc định theo Profile.
+        /// </summary>
+        Task<bool> UpdateIconAsync(Guid id, byte[]? data, string? contentType, CancellationToken ct = default);
     }
 }

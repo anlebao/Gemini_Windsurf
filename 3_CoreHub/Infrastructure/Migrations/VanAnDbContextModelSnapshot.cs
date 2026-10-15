@@ -1002,6 +1002,16 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<string>("IconContentType")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<byte[]>("IconData")
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTime?>("IconUpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
