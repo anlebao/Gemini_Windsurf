@@ -239,10 +239,13 @@
                             <span class="sitemap-link-icon">📅</span>
                             <span>Đóng Kỳ Kế Toán</span>
                         </a>
-                        <a href="/accounting/hkd-books" class="sitemap-link" data-testid="link-hkd-books">
-                            <span class="sitemap-link-icon">📚</span>
-                            <span>Sổ HKD (TT 152)</span>
-                        </a>
+                        @if (!_canAccessVasReports)
+                        {
+                            <a href="/accounting/hkd-books" class="sitemap-link" data-testid="link-hkd-books">
+                                <span class="sitemap-link-icon">📚</span>
+                                <span>Sổ HKD (TT 152)</span>
+                            </a>
+                        }
                         </AuthorizeView>
                     </div>
                 </VanACard>
@@ -275,10 +278,10 @@
             </Authorized>
         </AuthorizeView>
 
-        @* ── Luồng 2b: BCTC VAS (Company tenants only — HKD uses TT 152 HKD books) ── *@
+        @* ── Luồng 2b: BCTC VAS (non-HKD tenants — HTX/DN dùng BCTC; HKD dùng TT 152 HKD books) ── *@
         <AuthorizeView Roles="Owner,ChiefAccountant,SystemAdmin">
             <Authorized>
-                @if (_isCompanyTenant)
+                @if (_canAccessVasReports)
                 {
                 <VanACard Header="📊 Báo Cáo Tài Chính (VAS)" Hoverable="true" data-testid="card-vas-reports">
                     <div class="sitemap-links">
@@ -600,7 +603,9 @@
     private string _roleName = string.Empty;
     private string _khachLinkUrl = string.Empty;
     private string _tenantName = string.Empty; // tên tenant hiện hành (user directive 2026-10-09)
-    private bool _isCompanyTenant; // VAS BCTC reports only show for Company (DN) tenants, not HKD
+    // Issue #192 (2026-10-15): BCTC chỉ cho tenant KHÔNG phải HKD (HTX/DN — theo Tenant.Type,
+    // KHÔNG dùng BusinessType vì HTX từ HKD vẫn giữ BusinessType=HouseholdBusiness).
+    private bool _canAccessVasReports;
 
     protected override async Task OnInitializedAsync()
     {
@@ -636,12 +641,13 @@
                     .AsNoTracking()
                     .FirstOrDefaultAsync(t => t.Id == new TenantId(TenantProvider.TenantId));
                 _tenantName = tenant?.Name ?? string.Empty;
-                _isCompanyTenant = tenant?.BusinessType == BusinessType.Company;
+                // BCTC cho HTX/DN (Type != HKD); giống CanAccessVasReportsAsync (null → false)
+                _canAccessVasReports = tenant?.Type is not null && tenant?.Type != TenantType.HKD;
             }
             catch (Exception)
             {
                 // Nếu PG lookup lỗi → fallback hiển thị VAS (backward compatible); _tenantName giữ chuỗi gốc.
-                _isCompanyTenant = true;
+                _canAccessVasReports = true;
             }
         }
     }
