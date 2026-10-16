@@ -73,6 +73,62 @@ public class AuditToggleAndQueueTests
         public Task<int> GetCountAsync(DateTime? fromDate = null, DateTime? toDate = null) => Task.FromResult(0);
     }
 
+    /// <summary>
+    /// Stub IAuditLogRepository mô phỏng guard thật của AuditLogRepository (Production):
+    /// AddAsync ném InvalidOperationException khi log.TenantId != tenant hiện tại của scope
+    /// (repro RV 2026-10-16: AuditLogBackgroundWriter flush failed — tenant ID does not match).
+    /// Tenant hiện tại đọc từ ITenantProvider (giống VanAnDbContext.CurrentTenantId Production).
+    /// </summary>
+    private sealed class TenantEnforcingStubAuditLogRepository(ITenantProvider provider) : IAuditLogRepository
+    {
+        public int AddCount;
+
+        public Task<AuditLog> AddAsync(AuditLog auditLog)
+        {
+            if (auditLog.TenantId != new TenantId(provider.TenantId))
+            {
+                throw new InvalidOperationException("AuditLog tenant ID does not match current tenant");
+            }
+            AddCount++;
+            return Task.FromResult(auditLog);
+        }
+
+        public Task<IReadOnlyList<AuditLog>> AddRangeAsync(IEnumerable<AuditLog> auditLogs)
+        {
+            foreach (var log in auditLogs)
+            {
+                if (log.TenantId != new TenantId(provider.TenantId))
+                {
+                    throw new InvalidOperationException("AuditLog tenant ID does not match current tenant");
+                }
+            }
+            var list = auditLogs.ToList();
+            AddCount += list.Count;
+            return Task.FromResult<IReadOnlyList<AuditLog>>(list);
+        }
+
+        public Task<AuditLog?> GetByIdAsync(Guid id) => Task.FromResult<AuditLog?>(null);
+        public Task<AuditLogPagedResult> GetByQueryAsync(AuditLogQuery query) => Task.FromResult(new AuditLogPagedResult());
+        public Task<AuditLogPagedResult> GetByQueryCrossTenantAsync(AuditLogQuery query) => Task.FromResult(new AuditLogPagedResult());
+        public Task<IReadOnlyList<AuditLog>> GetByEntityAsync(AuditableEntityType entityType, Guid entityId, int maxResults = 100)
+            => Task.FromResult<IReadOnlyList<AuditLog>>([]);
+        public Task<IReadOnlyList<AuditLog>> GetByCorrelationIdAsync(string correlationId)
+            => Task.FromResult<IReadOnlyList<AuditLog>>([]);
+        public Task<IReadOnlyList<AuditLog>> GetRecentAsync(int count = 50)
+            => Task.FromResult<IReadOnlyList<AuditLog>>([]);
+        public Task<int> GetCountAsync(DateTime? fromDate = null, DateTime? toDate = null) => Task.FromResult(0);
+    }
+
+    /// <summary>Stub ITenantProvider có SetTenant override (giống HttpContextTenantProvider Production).</summary>
+    private sealed class StubTenantProvider : ITenantProvider
+    {
+        private Guid _override = Guid.Empty;
+        public Guid TenantId => _override;
+        public string? CurrentUser => "test";
+        public bool HasTenant => _override != Guid.Empty;
+        public void SetTenant(Guid tenantId) => _override = tenantId;
+    }
+
     private static AuditTrailService CreateService(
         StubFeatureFlagService flags,
         StubAuditLogRepository repo,
@@ -277,6 +333,7 @@ public class AuditToggleAndQueueTests
         var repo = new StubAuditLogRepository();
         var services = new ServiceCollection();
         services.AddScoped<IAuditLogRepository>(_ => repo);
+        services.AddScoped<ITenantProvider>(_ => new StubTenantProvider());
         using var provider = services.BuildServiceProvider();
         var writer = new AuditLogBackgroundWriter(
             queue,
@@ -303,6 +360,7 @@ public class AuditToggleAndQueueTests
         var repo = new StubAuditLogRepository();
         var services = new ServiceCollection();
         services.AddScoped<IAuditLogRepository>(_ => repo);
+        services.AddScoped<ITenantProvider>(_ => new StubTenantProvider());
         using var provider = services.BuildServiceProvider();
         var writer = new AuditLogBackgroundWriter(
             queue,
@@ -312,5 +370,40 @@ public class AuditToggleAndQueueTests
         await writer.FlushAsync();
 
         Assert.Equal(0, repo.AddCount);  // queue rỗng → repository không bị call
+    }
+
+    /// <summary>
+    /// RV 2026-10-16 (accounting-legal W1): audit async queue trong background scope có
+    /// CurrentTenantId = Guid.Empty (không có HttpContext) → repo guard "tenant ID does not
+    /// match" ném → mọi audit log không phải accounting (Order, SecurityEvent...) bị DROP.
+    /// Fix: writer phải SetTenant(log.TenantId) trước mỗi AddAsync (pattern BirthdayBonusJob).
+    /// </summary>
+    [Fact]
+    public async Task AuditLogBackgroundWriter_FlushAsync_SetsTenantPerLog_WhenRepoEnforcesTenant()
+    {
+        var queue = new AuditLogQueue();
+        var provider = new StubTenantProvider();
+        var repo = new TenantEnforcingStubAuditLogRepository(provider);
+        var services = new ServiceCollection();
+        services.AddScoped<IAuditLogRepository>(_ => repo);
+        services.AddScoped<ITenantProvider>(_ => provider);
+        using var providerHost = services.BuildServiceProvider();
+        var writer = new AuditLogBackgroundWriter(
+            queue,
+            providerHost.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<AuditLogBackgroundWriter>.Instance);
+
+        Guid tenantA = Guid.NewGuid();
+        Guid tenantB = Guid.NewGuid();
+        // Batch hỗn hợp nhiều tenant (queue singleton, flush chung) — từng log phải được
+        // ghi đúng tenant của nó.
+        queue.TryEnqueue(AuditLog.ForCreate(new TenantId(tenantA), AuditableEntityType.Order, Guid.NewGuid(), "{\"Reason\":\"a\"}", "test"));
+        queue.TryEnqueue(AuditLog.ForCreate(new TenantId(tenantA), AuditableEntityType.Order, Guid.NewGuid(), "{\"Reason\":\"a2\"}", "test"));
+        queue.TryEnqueue(AuditLog.ForCreate(new TenantId(tenantB), AuditableEntityType.Order, Guid.NewGuid(), "{\"Reason\":\"b\"}", "test"));
+
+        await writer.FlushAsync();
+
+        Assert.Equal(3, repo.AddCount);  // KHÔNG log nào bị drop
+        Assert.Equal(0, queue.Count);
     }
 }

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using VanAn.CoreHub.Domain.Repositories;
 using VanAn.Shared.Domain.Audit;
+using VanAn.Shared.Domain.Common;
 
 namespace VanAn.CoreHub.Services;
 
@@ -67,8 +68,15 @@ public class AuditLogBackgroundWriter : BackgroundService
             {
                 using var scope = _scopeFactory.CreateScope();
                 var repository = scope.ServiceProvider.GetRequiredService<IAuditLogRepository>();
+                // RV 2026-10-16 fix: background scope không có HttpContext → CurrentTenantId =
+                // Guid.Empty → repo guard "AuditLog tenant ID does not match current tenant"
+                // (AuditLogRepository.AddAsync) ném → mọi audit log async (Order/SecurityEvent/
+                // KhachLink...) bị DROP. SetTenant theo từng log (pattern BirthdayBonusJob/
+                // VoucherExpiryReminderJob) — batch có thể chứa log của NHIỀU tenant.
+                var tenantProvider = scope.ServiceProvider.GetRequiredService<ITenantProvider>();
                 foreach (var log in batch)
                 {
+                    tenantProvider.SetTenant(log.TenantId.Value);
                     await repository.AddAsync(log);
                 }
                 _logger.LogDebug("AuditLogBackgroundWriter: flushed {Count} audit logs", batch.Count);
