@@ -628,8 +628,11 @@ server {
 # timlathay.com — KhachLink Directory instance (external domain)
 # Separate cert from *.khachvip.online (different root domain).
 # SSL cert obtained via scripts/init-ssl-timlathay.sh (separate certbot run).
-# Routes to KhachLink container — runtime resolves Directory instance config by Host header.
-# Entry point strips HTTPS block (443) if cert doesn't exist yet — HTTP block proxies content.
+# 2026-10-16 (PWA install fix): proxies to KhachLink nginx (port 80) instead of
+# the Directory SSR container (8080) directly — so manifest.json / service-worker.js /
+# khachlink-icons/ are served (PWA installable). KhachLink nginx maps
+# $is_directory (timlathay.com=1) → Directory SSR container (8080) for pages,
+# same pattern as *.timlathay.com wildcard below.
 # ============================================================
 server {
     listen 80;
@@ -639,9 +642,9 @@ server {
         root /var/www/certbot;
     }
 
-    # Proxy to KhachLink over HTTP (cert not yet issued = HTTPS would fail with wrong cert)
+    # Proxy to KhachLink nginx (port 80) — profile-aware routing via map $is_directory
     location / {
-        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:8080;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -670,7 +673,7 @@ server {
     location = /504.html { root /usr/share/nginx/html; internal; }
 
     location /_framework/ {
-        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:8080;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -682,7 +685,7 @@ server {
     }
 
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|map)$ {
-        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:8080;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -693,7 +696,7 @@ server {
 
     location /_blazor {
         limit_conn perip_conn 10;
-        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:8080;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
         proxy_set_header   Connection "upgrade";
@@ -773,7 +776,7 @@ server {
     location / {
         limit_req zone=dir_web burst=200 nodelay;
         limit_conn perip_conn 10;
-        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:8080;
+        proxy_pass         http://${KHACHLINK_REMOTE_HOST}:80;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
         proxy_set_header   Connection "upgrade";

@@ -195,10 +195,24 @@ window.vananPWA = {
             return false;
         }
 
-        // Android/Desktop: beforeinstallprompt hasn't fired or was already consumed.
-        // This means Chrome has SUPPRESSED the install prompt — reloading won't help.
-        // Common causes: user dismissed prompt too many times, or app was previously installed.
-        // Fix: user must clear site data in Chrome settings, then reload.
+        // Android/Desktop: beforeinstallprompt hasn't fired yet (Chrome engagement
+        // heuristic: needs a tap + ~30s of use) or was already consumed.
+        // Frictionless flow (2026-10-16): persist an install-requested flag →
+        // the native prompt AUTO-FIRES on the next visit. No complex browser
+        // steps (no chrome://settings data clearing needed).
+        this.requestInstallOnNextVisit();
+        return false;
+    },
+
+    // Frictionless install (2026-10-16): Chrome only fires beforeinstallprompt
+    // after the engagement heuristic is met (user tapped the page + viewed ~30s).
+    // If the user taps install before that, persist a flag — on the NEXT visit the
+    // native prompt auto-fires, so the user never has to clear site data or use
+    // the browser menu.
+    requestInstallOnNextVisit() {
+        try {
+            localStorage.setItem('vanan_install_requested', '1');
+        } catch (e) { /* storage unavailable — fall back to toast only */ }
         this.showInstallHelpToast('Android', null);
         return false;
     },
@@ -220,15 +234,14 @@ window.vananPWA = {
                 '<div style="opacity:0.9;margin-bottom:12px;">' + hint + '</div>' +
                 '<button onclick="window.location.reload()" style="background:white;color:#8B4513;border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">Đã hiểu</button>';
         } else {
-            // Android/Desktop: Chrome suppressed beforeinstallprompt — need clear site data
+            // Android/Desktop: prompt not ready (engagement heuristic ~30s) or Chrome
+            // suppressed it. Frictionless: the native prompt auto-fires next visit.
             toast.innerHTML =
-                '<div style="font-weight:600;margin-bottom:8px;font-size:15px;">Chrome đã tắt prompt cài đặt</div>' +
-                '<div style="opacity:0.9;margin-bottom:10px;font-size:13px;">Để cài app, cần xóa dữ liệu site:</div>' +
+                '<div style="font-weight:600;margin-bottom:8px;font-size:15px;">App đang chuẩn bị cài đặt</div>' +
+                '<div style="opacity:0.9;margin-bottom:10px;font-size:13px;line-height:1.5;">Hộp thoại cài đặt sẽ <b>tự động hiện</b> ở lần mở app kế tiếp — bạn không cần làm gì thêm.</div>' +
                 '<div style="background:rgba(255,255,255,0.15);border-radius:8px;padding:10px;margin-bottom:12px;text-align:left;font-size:12px;line-height:1.6;">' +
-                '1. Mở <b>chrome://settings/content/all</b><br>' +
-                '2. Tìm <b>' + window.location.hostname + '</b><br>' +
-                '3. Nhấn <b>Xóa dữ liệu</b> (Delete data)<br>' +
-                '4. Quay lại đây — prompt cài đặt sẽ hiện' +
+                'Nếu hộp thoại không hiện: mở menu trình duyệt <b>⋮ → "Thêm vào Màn hình chính"</b>.<br>' +
+                'Chrome yêu cầu dùng app khoảng <b>30 giây</b> trước khi cho phép cài (quy định của Chrome).' +
                 '</div>' +
                 '<button onclick="var t=document.getElementById(\'vanan-install-help-toast\'); if(t) t.remove();" style="background:white;color:#8B4513;border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">Đã hiểu</button>';
         }
@@ -654,6 +667,20 @@ window.addEventListener('beforeinstallprompt', (e) => {
     window.vananPWA.deferredPrompt = e;
     console.log('[PWA] beforeinstallprompt FIRED — app is installable, deferredPrompt captured');
     console.log('[PWA] platforms:', e.platforms, 'userChoice result:', e.userChoice);
+
+    // Frictionless install (2026-10-16): if the user tapped "Cài app" on a previous
+    // visit before Chrome was ready (engagement heuristic), auto-fire the native
+    // prompt now — no data clearing / browser menu steps required.
+    var installRequested = false;
+    try { installRequested = localStorage.getItem('vanan_install_requested') === '1'; } catch (err) {}
+    if (installRequested) {
+        try { localStorage.removeItem('vanan_install_requested'); } catch (err) {}
+        setTimeout(() => {
+            window.vananPWA.showInstallPrompt();
+        }, 1500);
+        return;
+    }
+
     // Notify Blazor so it can show the install button at the right time
     // (only when the browser confirms the app is installable)
     if (window.vananPWA.dotNetRef) {
@@ -670,7 +697,7 @@ setTimeout(() => {
         console.log('[PWA]   2. App already installed (check matchMedia standalone)');
         console.log('[PWA]   3. Engagement heuristic not met (visit + interact more)');
         console.log('[PWA]   4. Chrome version too old (need Chrome 70+)');
-        console.log('[PWA] Fix: chrome://settings/content/all → search "diemthuong" → Delete data → reload');
+        console.log('[PWA] Fix: tap "Cài app" once → native prompt auto-fires on the next visit (no data clearing needed)');
     }
 }, 5000);
 

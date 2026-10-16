@@ -1,5 +1,15 @@
 ﻿// ============================================================================
-// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v23-khachlink-icon)
+// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v24-pwa-frictionless)
+
+// v24-pwa-frictionless (2026-10-16):
+//   - pwa.js changed: install flow is now frictionless — tapping "Cài app" when
+//     Chrome isn't ready persists an install-requested flag; the native prompt
+//     AUTO-FIRES on the next visit (no chrome://settings data-clearing steps).
+//   - Static JS is cache-first with NO expiry → returning users would keep the
+//     OLD pwa.js (clear-data toast) forever. Fix: bump ALL cache names v23 → v24
+//     so the activate handler deletes stale caches and every client re-fetches
+//     the current static assets (same lesson as v20/v21/v23).
+// ============================================================================
 
 // v23-khachlink-icon (2026-10-14):
 //   - Storefront /store/{slug} + /store/by-id/{tenantId}: thêm section "Đặt Lịch Hẹn"
@@ -103,10 +113,10 @@
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v23-khachlink-icon';
-const STATIC_CACHE = 'vanan-static-v23-khachlink-icon';
-const DYNAMIC_CACHE = 'vanan-dynamic-v23-khachlink-icon';
-const WASM_CACHE = 'vanan-wasm-v23-khachlink-icon';
+const CACHE_NAME = 'vanan-khachlink-v24-pwa-frictionless';
+const STATIC_CACHE = 'vanan-static-v24-pwa-frictionless';
+const DYNAMIC_CACHE = 'vanan-dynamic-v24-pwa-frictionless';
+const WASM_CACHE = 'vanan-wasm-v24-pwa-frictionless';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
