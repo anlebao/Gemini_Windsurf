@@ -402,6 +402,22 @@ jobs:
             # Login to GHCR
             echo "${DEPLOY_GITHUB_TOKEN}" | sudo docker login ghcr.io -u "${DEPLOY_GITHUB_ACTOR}" --password-stdin
 
+            # Conditional image fallback: images are rebuilt ONLY when their app is in
+            # the impact-analysis deploy set (e.g. crawler unchanged in an
+            # accounting-only deploy). `docker compose pull` fails hard on a missing
+            # tag (2026-10-16: W1 deploy failed pulling vanan-crawler:<sha>), so
+            # re-tag the existing `latest` locally when the SHA tag was not pushed.
+            ensure_image() {
+              local image="$1"
+              if ! sudo docker image inspect "$image" >/dev/null 2>&1; then
+                local base="${image%:*}"
+                echo "Image $image not pushed (app unchanged) — re-tagging ${base}:latest locally"
+                sudo docker pull "${base}:latest" >/dev/null 2>&1 || true
+                sudo docker tag "${base}:latest" "$image" || true
+              fi
+            }
+            ensure_image "${DEPLOY_REGISTRY}/${DEPLOY_REPO_OWNER}/vanan-crawler:${DEPLOY_IMAGE_TAG}"
+
             # Pull & restart (with retry — transient network resets from ghcr.io CDN)
             for i in 1 2 3 4 5; do
               timeout 600 sudo docker compose -f docker-compose.gateway.yml --env-file .env.gateway pull && break
@@ -556,6 +572,21 @@ jobs:
 
             # Login to GHCR
             echo "${DEPLOY_GITHUB_TOKEN}" | sudo docker login ghcr.io -u "${DEPLOY_GITHUB_ACTOR}" --password-stdin
+
+            # Conditional image fallback (same as gateway deploy): khachlink/directory
+            # images are rebuilt only when their app is in the deploy set — re-tag
+            # `latest` locally when the SHA tag was not pushed so compose pull succeeds.
+            ensure_image() {
+              local image="$1"
+              if ! sudo docker image inspect "$image" >/dev/null 2>&1; then
+                local base="${image%:*}"
+                echo "Image $image not pushed (app unchanged) — re-tagging ${base}:latest locally"
+                sudo docker pull "${base}:latest" >/dev/null 2>&1 || true
+                sudo docker tag "${base}:latest" "$image" || true
+              fi
+            }
+            ensure_image "${DEPLOY_REGISTRY}/${DEPLOY_REPO_OWNER}/vanan-khachlink:${DEPLOY_IMAGE_TAG}"
+            ensure_image "${DEPLOY_REGISTRY}/${DEPLOY_REPO_OWNER}/vanan-directory:${DEPLOY_IMAGE_TAG}"
 
             # Pull & restart (with retry — transient network resets from ghcr.io CDN)
             for i in 1 2 3 4 5; do
