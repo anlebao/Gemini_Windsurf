@@ -253,7 +253,13 @@ function Invoke-ImpactAnalysis {
     }
 
     # ---- collect changed files ----
-    if ($ChangedFiles.Count -eq 0) {
+    # $ChangedFiles may be $null when invoked with only -DiffBase (CI path).
+    # Guard with -not FIRST: Set-StrictMode -Version 3.0 throws on $null.Count
+    # ("The property 'Count' cannot be found on this object") — which crashed
+    # impact analysis in CI, fell back to fail-closed FULL and hardcoded
+    # nginx_changed=$false → gateway nginx was NEVER force-recreated for
+    # nginx/** changes (fix 2026-10-16, PWA timlathay.com deploy).
+    if (-not $ChangedFiles -or $ChangedFiles.Count -eq 0) {
         if (-not $DiffBase) { throw "Provide -ChangedFiles or -DiffBase." }
         $diff = & git diff --name-only $DiffBase HEAD 2>$null
         if ($LASTEXITCODE -ne 0) { throw "git diff --name-only $DiffBase HEAD failed." }
