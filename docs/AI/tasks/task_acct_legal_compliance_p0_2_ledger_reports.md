@@ -3,7 +3,7 @@
 > Created: 2026-10-16 (user directive master plan P0-P2)
 > Master plan: `docs/AI/plans/accounting-legal-compliance-master-plan.md` (Phase P0.2)
 > Branch: `main`
-> Status: ✅ **Q2 CHỐT (2026-10-16): chia 2 đợt — Đ1 (Nhật ký chung + Sổ Cái) READY IMPLEMENT (Wave 1) · Đ2 (Sổ chi tiết) Wave 2**
+> Status: ✅ **Q2 CHỐT (2026-10-16) · Đ1 CODE DONE + COMMITTED `8584edd8` (guard PASS · build 0 errors · tests PASS) — ⏳ push + CD + RV L1-L3 (session mới) · Đ2 (Sổ chi tiết) Wave 2**
 
 ---
 
