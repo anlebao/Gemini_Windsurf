@@ -1,0 +1,226 @@
+@page "/accounting/ledger"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "AccountingFullAccess")]
+@using System.Globalization
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.UI.Platform.Models
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.CoreHub.Services.GeneralLedger
+@inject IGeneralLedgerService GeneralLedgerService
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject IJSRuntime JSRuntime
+@inject ILogger<Ledger> Logger
+
+<div class="report-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Sổ Cái</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="PrintReport">
+                🖨️ In báo cáo
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (errorMessage != null)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+    }
+
+    <VanACard Header="Kỳ báo cáo & tài khoản">
+        <div class="period-picker-row">
+            <label>Năm: <input type="number" min="2000" max="2100" @bind="selectedYear" /></label>
+            <label>Tháng:
+                <select @bind="selectedMonth">
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        <option value="@m">@m</option>
+                    }
+                </select>
+            </label>
+            <label>Tài khoản:
+                <select @bind="selectedAccountCode">
+                    <option value="">— Chọn TK —</option>
+                    @foreach (var acc in accounts)
+                    {
+                        <option value="@acc.AccountCode">@acc.AccountCode @(acc.AccountName is null ? "" : $" - {acc.AccountName}")</option>
+                    }
+                </select>
+            </label>
+            <VanAButton Variant="primary" Size="small" OnClick="LoadReport">Áp dụng</VanAButton>
+            <VanAButton Variant="success" Size="small" OnClick="ExportCsv" Disabled="@(report == null)">📊 Xuất CSV</VanAButton>
+        </div>
+    </VanACard>
+
+    @if (loading)
+    {
+        <VanACard Header="Đang tải">
+            <p>Đang tải Sổ Cái...</p>
+        </VanACard>
+    }
+    else if (report != null)
+    {
+        <VanACard Header="@LedgerHeader">
+            <div class="totals-row">
+                <strong>Dư đầu kỳ:</strong> <span>@report.OpeningBalance.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                <strong>PS Nợ:</strong> <span>@report.PeriodDebitTotal.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                <strong>PS Có:</strong> <span>@report.PeriodCreditTotal.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                <strong>Dư cuối kỳ:</strong> <span>@report.ClosingBalance.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+            </div>
+            <VanAnDataGrid TItem="LedgerRowDto" Items="@report.Rows" EmptyMessage="Không có phát sinh trong kỳ">
+                <Columns>
+                    <VanAnColumn TItem="LedgerRowDto" Title="Ngày" Width="2">
+                        <Template Context="r">
+                            <span>@r.EntryDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="LedgerRowDto" Title="Số CT" Width="2">
+                        <Template Context="r">
+                            <span>@r.JournalNo</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="LedgerRowDto" Title="Diễn giải" Width="4">
+                        <Template Context="r">
+                            <span>@r.Description</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="LedgerRowDto" Title="Nợ" Width="2">
+                        <Template Context="r">
+                            <span>@r.Debit.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="LedgerRowDto" Title="Có" Width="2">
+                        <Template Context="r">
+                            <span>@r.Credit.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="LedgerRowDto" Title="Số dư" Width="2">
+                        <Template Context="r">
+                            <span>@r.RunningBalance.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                        </Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private List<AccountActivityDto> accounts = new();
+    private LedgerReportDto? report;
+    private bool loading = true;
+    private string? errorMessage;
+
+    private string LedgerHeader =>
+        report == null ? "Sổ Cái" : $"Sổ cái tài khoản {report.AccountCode} {report.AccountName ?? ""}";
+
+    private int selectedYear = DateTime.UtcNow.Year;
+    private int selectedMonth = DateTime.UtcNow.Month;
+    private string selectedAccountCode = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAccounts();
+        if (accounts.Count > 0 && string.IsNullOrEmpty(selectedAccountCode))
+        {
+            selectedAccountCode = accounts[0].AccountCode;
+        }
+        await LoadReport();
+    }
+
+    private async Task LoadAccounts()
+    {
+        try
+        {
+            if (!TenantProvider.HasTenant) return;
+            TenantId tenantId = new(TenantProvider.TenantId);
+            accounts = (await GeneralLedgerService.GetAccountsAsync(tenantId, selectedYear, selectedMonth)).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading accounts");
+        }
+    }
+
+    private async Task LoadReport()
+    {
+        loading = true;
+        errorMessage = null;
+        report = null;
+        try
+        {
+            if (!TenantProvider.HasTenant)
+            {
+                errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(selectedAccountCode))
+            {
+                errorMessage = "Vui lòng chọn tài khoản.";
+                return;
+            }
+
+            TenantId tenantId = new(TenantProvider.TenantId);
+            report = await GeneralLedgerService.GetLedgerAsync(tenantId, selectedYear, selectedMonth, selectedAccountCode);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading ledger for {Year}-{Month} TK {Account}", selectedYear, selectedMonth, selectedAccountCode);
+            errorMessage = $"Lỗi tải Sổ Cái: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task PrintReport() => await JSRuntime.InvokeVoidAsync("vananPrintBill");
+
+    private async Task ExportCsv()
+    {
+        if (report == null) return;
+        try
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"SO CAI TK {report.AccountCode} {report.AccountName} - THANG {selectedMonth}/{selectedYear}");
+            sb.AppendLine($"DU DAU KY,{report.OpeningBalance.ToString(CultureInfo.InvariantCulture)}");
+            sb.AppendLine("Ngay,So CT,Dien giai,No,Co,So du");
+            foreach (var r in report.Rows)
+            {
+                sb.AppendLine(string.Join(",",
+                    r.EntryDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
+                    EscapeCsv(r.JournalNo),
+                    EscapeCsv(r.Description),
+                    r.Debit.ToString(CultureInfo.InvariantCulture),
+                    r.Credit.ToString(CultureInfo.InvariantCulture),
+                    r.RunningBalance.ToString(CultureInfo.InvariantCulture)));
+            }
+            sb.AppendLine($"TONG PS NO,{report.PeriodDebitTotal.ToString(CultureInfo.InvariantCulture)}");
+            sb.AppendLine($"TONG PS CO,{report.PeriodCreditTotal.ToString(CultureInfo.InvariantCulture)}");
+            sb.AppendLine($"DU CUOI KY,{report.ClosingBalance.ToString(CultureInfo.InvariantCulture)}");
+
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+            string base64 = Convert.ToBase64String(bytes);
+            string fileName = $"so-cai-{selectedAccountCode}_{selectedYear}{selectedMonth:D2}.csv";
+            await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64, "text/csv", fileName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error exporting ledger to CSV");
+        }
+    }
+
+    private static string EscapeCsv(string? field)
+    {
+        if (string.IsNullOrEmpty(field)) return string.Empty;
+        bool needsQuote = field.Contains(',') || field.Contains('"') || field.Contains('\n');
+        if (!needsQuote) return field;
+        string escaped = field.Replace("\"", "\"\"");
+        return "\"" + escaped + "\"";
+    }
+}

@@ -235,6 +235,20 @@
                             <span>Số Dư Tài Khoản</span>
                         </a>
                         <AuthorizeView Roles="Owner,ChiefAccountant,SystemAdmin" Context="innerAuth">
+                        <a href="/accounting/journal" class="sitemap-link" data-testid="link-accounting-journal">
+                            <span class="sitemap-link-icon">📔</span>
+                            <span>Sổ Nhật Ký Chung</span>
+                        </a>
+                        <a href="/accounting/ledger" class="sitemap-link" data-testid="link-accounting-ledger">
+                            <span class="sitemap-link-icon">📖</span>
+                            <span>Sổ Cái</span>
+                        </a>
+                        <a href="/accounting/cash-payment-review" class="sitemap-link" data-testid="link-accounting-cash-payment-review">
+                            <span class="sitemap-link-icon">💵</span>
+                            <span>Rà Soát Tiền Mặt ≥ 20tr</span>
+                        </a>
+                        </AuthorizeView>
+                        <AuthorizeView Roles="Owner,ChiefAccountant,SystemAdmin" Context="innerAuth">
                         <a href="/accounting/period-closing" class="sitemap-link" data-testid="link-period-closing">
                             <span class="sitemap-link-icon">📅</span>
                             <span>Đóng Kỳ Kế Toán</span>

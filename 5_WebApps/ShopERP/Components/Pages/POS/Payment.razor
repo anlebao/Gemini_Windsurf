@@ -8,10 +8,13 @@
 @using VanAn.UI.Platform.Tokens
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
+@using VanAn.Shared.Domain.Audit
 @using VanAn.Shared.DTOs
 @using VanAn.CoreHub.Services
 @inject IOrderWorkflowService OrderWorkflowService
 @inject IOrderService OrderService
+@inject IAuditTrailService AuditTrail
+@inject CoreHub.Services.Payment.IPaymentComplianceService PaymentCompliance
 @inject ITenantProvider TenantProvider
 @inject ILogger<Payment> Logger
 @inject NavigationManager NavigationManager
@@ -86,6 +89,25 @@
                             </VanAButton>
                         </div>
                     }
+
+                    @if (showCashWarning)
+                    {
+                        <VanACard Header="⚠️ Cảnh báo thanh toán tiền mặt ≥ 20 triệu" data-testid="pos-cash-warning">
+                            <VanAAlert Type="warning" Message="Tổng đơn từ 20.000.000 đ trở lên thanh toán bằng tiền mặt: hóa đơn KHÔNG đủ điều kiện khấu trừ GTGT / chi phí TNDN (TT 219/2013/TT-BTC Điều 15.2.b). Vui lòng đổi sang chuyển khoản hoặc nhập lý do để xác nhận." Dismissible="false" />
+                            <div class="mt-2">
+                                <label class="form-label small">Lý do (bắt buộc):</label>
+                                <input class="form-control" @bind="pendingCashReason" data-testid="pos-cash-warning-reason" />
+                            </div>
+                            <div class="mt-3 d-flex gap-2">
+                                <VanAButton Variant="primary" OnClick="ConfirmCashWarning" disabled="@(string.IsNullOrWhiteSpace(pendingCashReason))" data-testid="pos-btn-cash-warning-confirm">
+                                    Xác nhận thanh toán tiền mặt
+                                </VanAButton>
+                                <VanAButton Variant="secondary" OnClick="CancelCashWarning" data-testid="pos-btn-cash-warning-cancel">
+                                    Hủy (đổi hình thức)
+                                </VanAButton>
+                            </div>
+                        </VanACard>
+                    }
                     else if (selectedPaymentMethod == "transfer")
                     {
                         <VanAAlert Type="warning" Message="QR thanh toán cần kết nối internet. Nếu offline, dùng tiền mặt." Dismissible="false" />
@@ -156,6 +178,10 @@
     private string? errorMessage;
     private string selectedPaymentMethod = "cash";
     private string? qrImageUrl;
+    // TUÂN THỦ PHÁP LÝ P0.1 (2026-10-16): cảnh báo tiền mặt ≥ 20 triệu
+    private bool showCashWarning;
+    private string? pendingCashReason;
+    private string? pendingMethod;
     // Bank account info for transfer QR generation
     private string _bankName = string.Empty;
     private string _bankAccountNo = string.Empty;
@@ -251,11 +277,79 @@
 
     private async Task ConfirmPayment(string method)
     {
+        if (order == null) return;
+
+        // TUÂN THỦ PHÁP LÝ P0.1 (2026-10-16): cảnh báo thanh toán tiền mặt ≥ 20 triệu
+        // (TT 219/2013/TT-BTC Điều 15.2.b) — Q1: cảnh báo + bắt buộc lý do, KHÔNG chặn cứng.
+        try
+        {
+            var compliance = await PaymentCompliance.EvaluateAsync(
+                new TenantId(TenantProvider.TenantId),
+                order.TotalAmount,
+                method == "cash" ? "CASH" : "TRANSFER");
+            if (compliance.NeedsReview)
+            {
+                pendingMethod = method;
+                pendingCashReason = null;
+                showCashWarning = true;
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            // Fail-safe: không chặn thanh toán khi service lỗi.
+            Logger.LogWarning(ex, "Payment compliance check failed — proceeding without warning for order {OrderId}", OrderId);
+        }
+
+        await CompletePayment(method, reason: null);
+    }
+
+    private async Task ConfirmCashWarning()
+    {
+        string method = pendingMethod ?? "cash";
+        string? reason = pendingCashReason;
+        showCashWarning = false;
+        pendingMethod = null;
+        pendingCashReason = null;
+        await CompletePayment(method, reason);
+    }
+
+    private void CancelCashWarning()
+    {
+        showCashWarning = false;
+        pendingMethod = null;
+        pendingCashReason = null;
+    }
+
+    private async Task CompletePayment(string method, string? reason)
+    {
         isProcessing = true;
         errorMessage = null;
         try
         {
             Guid tenantId = TenantProvider.TenantId;
+
+            // Ghi vết lý do xác nhận vượt ngưỡng tiền mặt (audit — P0.1)
+            if (!string.IsNullOrWhiteSpace(reason))
+            {
+                try
+                {
+                    await AuditTrail.LogCreateAsync(
+                        AuditableEntityType.Order,
+                        OrderId,
+                        System.Text.Json.JsonSerializer.Serialize(new
+                        {
+                            Method = method,
+                            Reason = reason,
+                            Amount = order?.TotalAmount
+                        }),
+                        correlationId: OrderId.ToString());
+                }
+                catch (Exception auditEx)
+                {
+                    Logger.LogWarning(auditEx, "Audit log failed for cash warning override on order {OrderId}", OrderId);
+                }
+            }
 
             // Confirm payment via IOrderService (generates accounting entries).
             string transactionId = $"POS_{method.ToUpper()}_{OrderId}_{DateTime.UtcNow:yyyyMMddHHmmss}";

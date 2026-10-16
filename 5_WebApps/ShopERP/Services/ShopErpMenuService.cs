@@ -176,6 +176,10 @@ public sealed class ShopErpMenuService : IShopErpMenuService
             {
                 // NHẬP LIỆU & SỔ SÁCH P4 (2026-10-08): import Excel hàng loạt (xlsx+csv — dry-run 0 lỗi mới lưu)
                 accountingChildren.Add(new() { Title = "Import Excel", Icon = "file-earmark-arrow-up", Url = "/accounting/import" });
+                // TUÂN THỦ PHÁP LÝ P0 (2026-10-16): Sổ Nhật ký chung + Sổ Cái (P0.2-Đ1) + Rà soát tiền mặt ≥ 20tr (P0.1)
+                accountingChildren.Add(new() { Title = "Sổ Nhật Ký Chung", Icon = "journal-text", Url = "/accounting/journal" });
+                accountingChildren.Add(new() { Title = "Sổ Cái", Icon = "book", Url = "/accounting/ledger" });
+                accountingChildren.Add(new() { Title = "Rà Soát Tiền Mặt ≥ 20tr", Icon = "cash-stack", Url = "/accounting/cash-payment-review" });
             }
             accountingChildren.Add(new() { Title = "Số Dư Tài Khoản", Icon = "currency-exchange", Url = "/accounting/balance" });
             if (fullAccounting)

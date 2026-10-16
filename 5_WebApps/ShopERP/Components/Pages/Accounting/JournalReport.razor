@@ -1,0 +1,219 @@
+@page "/accounting/journal"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "AccountingFullAccess")]
+@using System.Globalization
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.UI.Platform.Models
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.CoreHub.Services.GeneralLedger
+@inject IGeneralLedgerService GeneralLedgerService
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject IJSRuntime JSRuntime
+@inject ILogger<JournalReport> Logger
+
+<div class="report-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Sổ Nhật Ký Chung</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="PrintReport">
+                🖨️ In báo cáo
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (errorMessage != null)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+    }
+
+    <VanACard Header="Kỳ báo cáo">
+        <div class="period-picker-row">
+            <label>Năm: <input type="number" min="2000" max="2100" @bind="selectedYear" /></label>
+            <label>Tháng:
+                <select @bind="selectedMonth">
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        <option value="@m">@m</option>
+                    }
+                </select>
+            </label>
+            <VanAButton Variant="primary" Size="small" OnClick="LoadReport">Áp dụng</VanAButton>
+            <VanAButton Variant="success" Size="small" OnClick="ExportCsv">📊 Xuất CSV</VanAButton>
+        </div>
+    </VanACard>
+
+    @if (loading)
+    {
+        <VanACard Header="Đang tải">
+            <p>Đang tải Sổ Nhật Ký Chung...</p>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="Bút toán trong kỳ">
+            <VanAnDataGrid TItem="JournalRow" Items="@rows" EmptyMessage="Không có bút toán trong kỳ">
+                <Columns>
+                    <VanAnColumn TItem="JournalRow" Title="Ngày" Width="2">
+                        <Template Context="r">
+                            <span>@r.EntryDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="JournalRow" Title="Số CT" Width="2">
+                        <Template Context="r">
+                            <span>@r.JournalNo</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="JournalRow" Title="Diễn giải" Width="5">
+                        <Template Context="r">
+                            <span>@r.Description</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="JournalRow" Title="TK Nợ" Width="1">
+                        <Template Context="r">
+                            <span>@r.DebitAccount</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="JournalRow" Title="TK Có" Width="1">
+                        <Template Context="r">
+                            <span>@r.CreditAccount</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="JournalRow" Title="Số tiền" Width="2">
+                        <Template Context="r">
+                            <span>@r.Amount.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                        </Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+            @if (totalDebit > 0 || totalCredit > 0)
+            {
+                <div class="totals-row">
+                    <strong>Tổng Nợ:</strong> <span>@totalDebit.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                    <strong>Tổng Có:</strong> <span>@totalCredit.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                    @if (totalDebit != totalCredit)
+                    {
+                        <VanAAlert Type="warning" Message="⚠️ Tổng Nợ ≠ Tổng Có — kiểm tra dữ liệu!" />
+                    }
+                </div>
+            }
+        </VanACard>
+    }
+</div>
+
+@code {
+    private List<JournalRow> rows = new();
+    private decimal totalDebit;
+    private decimal totalCredit;
+    private bool loading = true;
+    private string? errorMessage;
+
+    private int selectedYear = DateTime.UtcNow.Year;
+    private int selectedMonth = DateTime.UtcNow.Month;
+
+    private sealed class JournalRow
+    {
+        public DateTime EntryDate { get; init; }
+        public string JournalNo { get; init; } = "";
+        public string Description { get; init; } = "";
+        public string DebitAccount { get; init; } = "";
+        public string CreditAccount { get; init; } = "";
+        public decimal Amount { get; init; }
+    }
+
+    protected override async Task OnInitializedAsync() => await LoadReport();
+
+    private async Task LoadReport()
+    {
+        loading = true;
+        errorMessage = null;
+        try
+        {
+            if (!TenantProvider.HasTenant)
+            {
+                errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
+
+            TenantId tenantId = new(TenantProvider.TenantId);
+            var entries = await GeneralLedgerService.GetJournalAsync(tenantId, selectedYear, selectedMonth);
+
+            var list = new List<JournalRow>();
+            foreach (var entry in entries)
+            {
+                foreach (var line in entry.Lines)
+                {
+                    list.Add(new JournalRow
+                    {
+                        EntryDate = entry.EntryDate,
+                        JournalNo = entry.JournalNo,
+                        Description = line.Description ?? entry.Description,
+                        DebitAccount = line.DebitAmount > 0 ? line.AccountNumber : "",
+                        CreditAccount = line.CreditAmount > 0 ? line.AccountNumber : "",
+                        Amount = line.DebitAmount > 0 ? line.DebitAmount : line.CreditAmount
+                    });
+                }
+            }
+
+            rows = list;
+            totalDebit = entries.Sum(e => e.TotalDebit);
+            totalCredit = entries.Sum(e => e.TotalCredit);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading journal for {Year}-{Month}", selectedYear, selectedMonth);
+            errorMessage = $"Lỗi tải Sổ Nhật Ký Chung: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task PrintReport() => await JSRuntime.InvokeVoidAsync("vananPrintBill");
+
+    private async Task ExportCsv()
+    {
+        try
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"SO NHAT KY CHUNG - THANG {selectedMonth}/{selectedYear}");
+            sb.AppendLine("Ngay,So CT,Dien giai,TK No,TK Co,So tien");
+            foreach (var r in rows)
+            {
+                sb.AppendLine(string.Join(",",
+                    r.EntryDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
+                    EscapeCsv(r.JournalNo),
+                    EscapeCsv(r.Description),
+                    EscapeCsv(r.DebitAccount),
+                    EscapeCsv(r.CreditAccount),
+                    r.Amount.ToString(CultureInfo.InvariantCulture)));
+            }
+            sb.AppendLine($"TONG NO,{totalDebit.ToString(CultureInfo.InvariantCulture)}");
+            sb.AppendLine($"TONG CO,{totalCredit.ToString(CultureInfo.InvariantCulture)}");
+
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+            string base64 = Convert.ToBase64String(bytes);
+            string fileName = $"nhat-ky-chung_{selectedYear}{selectedMonth:D2}.csv";
+            await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64, "text/csv", fileName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error exporting journal to CSV");
+        }
+    }
+
+    private static string EscapeCsv(string? field)
+    {
+        if (string.IsNullOrEmpty(field)) return string.Empty;
+        bool needsQuote = field.Contains(',') || field.Contains('"') || field.Contains('\n');
+        if (!needsQuote) return field;
+        string escaped = field.Replace("\"", "\"\"");
+        return "\"" + escaped + "\"";
+    }
+}

@@ -124,6 +124,9 @@ namespace VanAn.CoreHub
                     // Sprint C: Period Closing guard (required by AccountingEntryService)
                     _ = services.AddScoped<IReversalService, ReversalService>();
                     _ = services.AddScoped<IPeriodClosingService, PeriodClosingService>();
+                    // TUÂN THỦ PHÁP LÝ P0 (2026-10-16): Sổ Nhật ký chung + Sổ Cái (P0.2-Đ1) + kiểm soát ≥20 triệu (P0.1)
+                    _ = services.AddScoped<Services.GeneralLedger.IGeneralLedgerService, Services.GeneralLedger.GeneralLedgerService>();
+                    _ = services.AddScoped<Services.Payment.IPaymentComplianceService, Services.Payment.PaymentComplianceService>();
 
                     // Background task queue
                     _ = services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();

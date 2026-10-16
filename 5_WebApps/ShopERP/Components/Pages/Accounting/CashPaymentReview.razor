@@ -1,0 +1,208 @@
+@page "/accounting/cash-payment-review"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "AccountingFullAccess")]
+@using System.Globalization
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.UI.Platform.Models
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.CoreHub.Services.Payment
+@inject IPaymentComplianceService PaymentCompliance
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject IJSRuntime JSRuntime
+@inject ILogger<CashPaymentReview> Logger
+
+<div class="report-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Rà Soát Thanh Toán Tiền Mặt ≥ 20 Triệu</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="PrintReport">
+                🖨️ In báo cáo
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (errorMessage != null)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+    }
+
+    <VanACard Header="Kỳ báo cáo">
+        <div class="period-picker-row">
+            <label>Năm: <input type="number" min="2000" max="2100" @bind="selectedYear" /></label>
+            <label>Tháng:
+                <select @bind="selectedMonth">
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        <option value="@m">@m</option>
+                    }
+                </select>
+            </label>
+            <VanAButton Variant="primary" Size="small" OnClick="LoadReport">Áp dụng</VanAButton>
+            <VanAButton Variant="success" Size="small" OnClick="ExportCsv" Disabled="@(report == null)">📊 Xuất CSV</VanAButton>
+        </div>
+    </VanACard>
+
+    @if (loading)
+    {
+        <VanACard Header="Đang tải">
+            <p>Đang tải báo cáo...</p>
+        </VanACard>
+    }
+    else if (report != null)
+    {
+        @if (report.Items.Count == 0 && report.SameDayAggregates.Count == 0)
+        {
+            <VanAAlert Type="success" Message="Không có giao dịch thanh toán tiền mặt ≥ 20 triệu trong kỳ." />
+        }
+
+        <VanACard Header="Đơn hàng ≥ 20 triệu thanh toán tiền mặt">
+            <VanAnDataGrid TItem="CashPaymentReviewItemDto" Items="@report.Items" EmptyMessage="Không có đơn hàng nào">
+                <Columns>
+                    <VanAnColumn TItem="CashPaymentReviewItemDto" Title="Mã đơn" Width="3">
+                        <Template Context="i">
+                            <span>@i.TrackingCode</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="CashPaymentReviewItemDto" Title="Ngày" Width="2">
+                        <Template Context="i">
+                            <span>@i.OrderDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="CashPaymentReviewItemDto" Title="Số tiền" Width="3">
+                        <Template Context="i">
+                            <span>@i.Amount.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="CashPaymentReviewItemDto" Title="Hình thức" Width="2">
+                        <Template Context="i">
+                            <span>@i.PaymentMethod</span>
+                        </Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+        </VanACard>
+
+        <VanACard Header="Gộp phiếu cùng ngày cùng nhà cung cấp (tổng ≥ 20 triệu)">
+            <VanAnDataGrid TItem="SameDayAggregateDto" Items="@report.SameDayAggregates" EmptyMessage="Không có trường hợp gộp nào">
+                <Columns>
+                    <VanAnColumn TItem="SameDayAggregateDto" Title="Nhà cung cấp" Width="5">
+                        <Template Context="a">
+                            <span>@a.Vendor</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="SameDayAggregateDto" Title="Ngày" Width="2">
+                        <Template Context="a">
+                            <span>@a.Date.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="SameDayAggregateDto" Title="Số phiếu" Width="2">
+                        <Template Context="a">
+                            <span>@a.EntryCount</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="SameDayAggregateDto" Title="Tổng tiền" Width="3">
+                        <Template Context="a">
+                            <span>@a.TotalAmount.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                        </Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private CashPaymentReviewDto? report;
+    private bool loading = true;
+    private string? errorMessage;
+
+    private int selectedYear = DateTime.UtcNow.Year;
+    private int selectedMonth = DateTime.UtcNow.Month;
+
+    protected override async Task OnInitializedAsync() => await LoadReport();
+
+    private async Task LoadReport()
+    {
+        loading = true;
+        errorMessage = null;
+        report = null;
+        try
+        {
+            if (!TenantProvider.HasTenant)
+            {
+                errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
+
+            TenantId tenantId = new(TenantProvider.TenantId);
+            report = await PaymentCompliance.GetCashPaymentReviewAsync(tenantId, selectedYear, selectedMonth);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading cash payment review for {Year}-{Month}", selectedYear, selectedMonth);
+            errorMessage = $"Lỗi tải báo cáo: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task PrintReport() => await JSRuntime.InvokeVoidAsync("vananPrintBill");
+
+    private async Task ExportCsv()
+    {
+        if (report == null) return;
+        try
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"RA SOAT THANH TOAN TIEN MAT >= {report.Threshold.ToString("N0", CultureInfo.InvariantCulture)} - THANG {selectedMonth}/{selectedYear}");
+            sb.AppendLine();
+            sb.AppendLine("DON HANG >= 20 TRIEU THANH TOAN TIEN MAT");
+            sb.AppendLine("Ma don,Ngay,So tien,Hinh thuc");
+            foreach (var i in report.Items)
+            {
+                sb.AppendLine(string.Join(",",
+                    EscapeCsv(i.TrackingCode),
+                    i.OrderDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
+                    i.Amount.ToString(CultureInfo.InvariantCulture),
+                    EscapeCsv(i.PaymentMethod)));
+            }
+            sb.AppendLine();
+            sb.AppendLine("GOP PHIEU CUNG NGAY CUNG NCC");
+            sb.AppendLine("Nha cung cap,Ngay,So phieu,Tong tien");
+            foreach (var a in report.SameDayAggregates)
+            {
+                sb.AppendLine(string.Join(",",
+                    EscapeCsv(a.Vendor),
+                    a.Date.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
+                    a.EntryCount.ToString(CultureInfo.InvariantCulture),
+                    a.TotalAmount.ToString(CultureInfo.InvariantCulture)));
+            }
+
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+            string base64 = Convert.ToBase64String(bytes);
+            string fileName = $"ra-soat-tien-mat_{selectedYear}{selectedMonth:D2}.csv";
+            await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64, "text/csv", fileName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error exporting cash payment review to CSV");
+        }
+    }
+
+    private static string EscapeCsv(string? field)
+    {
+        if (string.IsNullOrEmpty(field)) return string.Empty;
+        bool needsQuote = field.Contains(',') || field.Contains('"') || field.Contains('\n');
+        if (!needsQuote) return field;
+        string escaped = field.Replace("\"", "\"\"");
+        return "\"" + escaped + "\"";
+    }
+}
