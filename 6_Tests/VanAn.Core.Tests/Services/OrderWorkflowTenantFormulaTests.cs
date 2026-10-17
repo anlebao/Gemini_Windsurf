@@ -124,8 +124,9 @@ public class OrderWorkflowTenantFormulaTests
     }
 
     private static (ServiceProvider sp, VanAnDbContext db, IOrderWorkflowService workflow,
-        ILoyaltyRewardsService loyalty, FakeShopFeatureSettingsService settings)
-        BuildServices()
+        ILoyaltyRewardsService loyalty, FakeShopFeatureSettingsService settings,
+        TestTenantProvider tenantProvider)
+        BuildServices(Guid? ambientTenant = null)
     {
         var connection = new SqliteConnection($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared");
         connection.Open();
@@ -176,7 +177,7 @@ public class OrderWorkflowTenantFormulaTests
         // Ambient = CUSTOMER tenant — mirrors the prod incident: award ran on the ShopERP scope of
         // the shop's own tenant (a5b6…), where the cross-tenant customer is visible to the
         // IMustHaveTenant query filter while the ORDER tenant (0001…) is different.
-        tenantProvider.SetTenant(CustomerTenantId);
+        tenantProvider.SetTenant(ambientTenant ?? CustomerTenantId);
         services.AddSingleton<ITenantProvider>(tenantProvider);
 
         var modeResolverMock = new Mock<ILoyaltyModeResolver>();
@@ -190,7 +191,7 @@ public class OrderWorkflowTenantFormulaTests
         VanAnDbContext db = sp.GetRequiredService<VanAnDbContext>();
         _ = db.Database.EnsureCreated();
         return (sp, db, sp.GetRequiredService<IOrderWorkflowService>(),
-            sp.GetRequiredService<ILoyaltyRewardsService>(), settings);
+            sp.GetRequiredService<ILoyaltyRewardsService>(), settings, tenantProvider);
     }
 
     /// <summary>Seed order on <paramref name="orderTenant"/> owned by a customer on <paramref name="customerTenant"/>.</summary>
@@ -219,7 +220,7 @@ public class OrderWorkflowTenantFormulaTests
     [Fact(DisplayName = "Prod regression: AwardOnAllOrders=false on ORDER tenant blocks award even when CUSTOMER tenant has awardOnAll=true")]
     public async Task Award_UsesOrderTenant_AwardOnAllOrders()
     {
-        var (sp, db, workflow, loyalty, settings) = BuildServices();
+        var (sp, db, workflow, loyalty, settings, _) = BuildServices();
         try
         {
             // Prod incident shape: order tenant restrictive, customer tenant permissive.
@@ -262,7 +263,7 @@ public class OrderWorkflowTenantFormulaTests
     [Fact(DisplayName = "Prod regression: points computed with ORDER tenant rate/max, not customer tenant's")]
     public async Task Award_UsesOrderTenant_RateAndMax()
     {
-        var (sp, db, workflow, loyalty, settings) = BuildServices();
+        var (sp, db, workflow, loyalty, settings, _) = BuildServices();
         try
         {
             settings.Settings[OrderTenantId] = new ShopFeatureSettingsDto
@@ -292,6 +293,118 @@ public class OrderWorkflowTenantFormulaTests
                 .FirstOrDefaultAsync(r => r.CustomerId == customer.Id);
             Assert.NotNull(rewards);
             Assert.Equal(50, rewards!.PointBalance); // 50,000 × 0.001 — NOT 5000 (customer-tenant bug)
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
+    /// <summary>
+    /// Seed a GUEST order (CustomerId = null, only CustomerDeviceId) on <paramref name="orderTenant"/>,
+    /// with a customer on <paramref name="customerTenant"/> sharing the same device.
+    /// </summary>
+    private static async Task<(Customer customer, Order order)> SeedGuestOrderAsync(
+        VanAnDbContext db, Guid orderTenant, Guid customerTenant, decimal unitPrice,
+        bool guestStub = false)
+    {
+        var deviceId = Guid.NewGuid();
+        var customer = new Customer(new TenantId(customerTenant), "Cross-Tenant Customer", "0901234567");
+        customer.UpdateCustomerDetails("Cross-Tenant Customer", "0901234567", null, "Bronze", deviceId, true);
+        if (guestStub)
+            customer.MarkAsGuestStub();
+        await db.Customers.AddAsync(customer);
+
+        var product = new Product(new TenantId(orderTenant), "Test Product", "Desc", unitPrice, "Cat");
+        await db.Products.AddAsync(product);
+        await db.SaveChangesAsync();
+
+        var orderItem = new OrderItem(new TenantId(orderTenant), Guid.Empty, product.Id, 1, unitPrice, "Test Product", 0.10m);
+        var order = Order.Create(Guid.NewGuid(), new TenantId(orderTenant), null, new List<OrderItem> { orderItem });
+        order.SetCustomerDeviceId(deviceId.ToString());
+        typeof(Order).GetProperty(nameof(Order.Status))!.SetValue(order, new OrderStatusId("preparing"));
+
+        await db.Orders.AddAsync(order);
+        await db.SaveChangesAsync();
+        return (customer, order);
+    }
+
+    [Fact(DisplayName = "2026-10-17 regression: guest order attaches award to the device's REAL account cross-tenant — no new stub")]
+    public async Task GuestOrder_AttachesAward_ToCrossTenantRealAccount()
+    {
+        // Ambient = ORDER's shop tenant — mirrors prod (OrderSyncSubscriber runs under the
+        // shop scope). The customer's real account lives on a DIFFERENT tenant.
+        var (sp, db, workflow, loyalty, settings, tenantProvider) = BuildServices(OrderTenantId);
+        try
+        {
+            settings.Settings[OrderTenantId] = new ShopFeatureSettingsDto
+            {
+                Loyalty_Program_Enabled = true,
+                Loyalty_AwardOnAllOrders = true,
+                Loyalty_PointsRate = 0.001m,          // 1 pt / 1000đ → 50,000đ = 50 pts
+                Loyalty_MinPointsPerOrder = 1,
+            };
+
+            var (realCustomer, order) = await SeedGuestOrderAsync(db, OrderTenantId, CustomerTenantId, 50000m);
+            int customerCountBefore = await db.Customers.IgnoreQueryFilters().CountAsync();
+
+            var result = await workflow.TransitionStatusAsync(order.Id, new OrderStatusId("completed"));
+            Assert.NotNull(result);
+
+            // Award landed on the REAL account (cross-tenant), not on a freshly minted stub.
+            var rewards = await db.LoyaltyRewards.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(r => r.CustomerId == realCustomer.Id);
+            Assert.NotNull(rewards);
+            Assert.True(rewards!.PointBalance > 0);
+
+            int customerCountAfter = await db.Customers.IgnoreQueryFilters().CountAsync();
+            Assert.Equal(customerCountBefore, customerCountAfter); // no new stub minted
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
+    [Fact(DisplayName = "2026-10-17 regression: foreign Guest stub is NOT picked — fresh stub minted in order tenant")]
+    public async Task GuestOrder_ForeignGuestStub_NotPicked_FreshStubMinted()
+    {
+        var (sp, db, workflow, loyalty, settings, tenantProvider) = BuildServices(OrderTenantId);
+        try
+        {
+            settings.Settings[OrderTenantId] = new ShopFeatureSettingsDto
+            {
+                Loyalty_Program_Enabled = true,
+                Loyalty_AwardOnAllOrders = true,
+                Loyalty_PointsRate = 0.001m,
+                Loyalty_MinPointsPerOrder = 1,
+            };
+
+            var (foreignStub, order) = await SeedGuestOrderAsync(db, OrderTenantId, CustomerTenantId, 50000m, guestStub: true);
+
+            var result = await workflow.TransitionStatusAsync(order.Id, new OrderStatusId("completed"));
+            Assert.NotNull(result);
+
+            // A NEW stub must be minted on the ORDER tenant — the foreign Guest stub
+            // (different tenant) is not a valid award target.
+            var sameDeviceCustomers = await db.Customers.IgnoreQueryFilters()
+                .Where(c => c.DeviceId == foreignStub.DeviceId)
+                .ToListAsync();
+            Assert.Equal(2, sameDeviceCustomers.Count);
+
+            var newStub = sameDeviceCustomers.Single(c => c.Id != foreignStub.Id);
+            Assert.Equal(OrderTenantId, newStub.TenantId.Value);
+            Assert.Equal(IdentityLevel.Guest, newStub.IdentityLevel);
+
+            var newStubRewards = await db.LoyaltyRewards.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(r => r.CustomerId == newStub.Id);
+            Assert.NotNull(newStubRewards);
+            Assert.True(newStubRewards!.PointBalance > 0);
+
+            var foreignRewards = await db.LoyaltyRewards.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(r => r.CustomerId == foreignStub.Id);
+            Assert.True(foreignRewards == null || foreignRewards.PointBalance == 0,
+                "Foreign-tenant guest stub must not receive the award.");
         }
         finally
         {

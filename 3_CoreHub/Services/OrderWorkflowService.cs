@@ -472,6 +472,27 @@ namespace VanAn.CoreHub.Services
                 && Guid.TryParse(order.CustomerDeviceId, out Guid deviceId))
             {
                 customer = await _customerRepository.GetByDeviceIdAsync(deviceId);
+
+                // 2026-10-17 (identity fragmentation fix): when the same-tenant lookup misses
+                // — or only finds a Guest stub — look for the device's REAL login account
+                // across tenants. A customer registered on shop A may guest-checkout on
+                // shop B; awarding to (order.Tenant, realCustomer.Id) keeps Batch-2 tenant
+                // attribution while putting points on an identity the customer can see
+                // (prod incident 2026-10-17: 3000 pts landed on a new invisible stub).
+                if (customer == null || customer.IdentityLevel == IdentityLevel.Guest)
+                {
+                    Customer? realAccount = await _customerRepository.GetRealAccountByDeviceIdAsync(deviceId);
+                    if (realAccount != null)
+                    {
+                        if (customer != null && customer.Id != realAccount.Id)
+                        {
+                            _logger.LogInformation(
+                                "Loyalty: preferring cross-tenant real account {RealId} over same-tenant guest stub {StubId} for order {OrderId}",
+                                realAccount.Id, customer.Id, order.Id);
+                        }
+                        customer = realAccount;
+                    }
+                }
             }
 
             // Fallback 2: create Customer stub from DeviceId + CustomerInfo

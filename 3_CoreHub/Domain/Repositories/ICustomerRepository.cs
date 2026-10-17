@@ -20,6 +20,18 @@ namespace VanAn.CoreHub.Domain.Repositories
         Task<Customer?> GetByDeviceIdAsync(Guid deviceId);
 
         /// <summary>
+        /// 2026-10-17 (loyalty identity fragmentation fix): cross-tenant device lookup that
+        /// returns ONLY real login accounts (IdentityLevel &gt; Guest — Social/Verified/etc.).
+        /// IgnoreQueryFilters: a device can belong to a customer registered on another shop
+        /// tenant; the loyalty award path uses this to attach points to the customer's REAL
+        /// identity instead of minting yet another guest stub. Guest stubs are excluded —
+        /// awarding to a foreign stub is invisible to the customer anyway.
+        /// Ordering: highest IdentityLevel, then newest — same preference as GetByDeviceIdAsync.
+        /// Internal service use only — NOT for customer-facing reads.
+        /// </summary>
+        Task<Customer?> GetRealAccountByDeviceIdAsync(Guid deviceId);
+
+        /// <summary>
         /// Get all active customers (non-deleted, same tenant)
         /// </summary>
         Task<IReadOnlyList<Customer>> GetAllActiveAsync();

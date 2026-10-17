@@ -34,6 +34,20 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
                 .FirstOrDefaultAsync();
         }
 
+        public async Task<Customer?> GetRealAccountByDeviceIdAsync(Guid deviceId)
+        {
+            // 2026-10-17: cross-tenant real-account resolution for the loyalty award path.
+            // Guest stubs excluded — only an account the customer can log into is worth
+            // attaching points to (prod incident 2026-10-17: 3000 pts landed on an
+            // invisible same-tenant stub while the real account lived on another tenant).
+            return await _context.Customers
+                .IgnoreQueryFilters()
+                .Where(c => c.DeviceId == deviceId && !c.IsDeleted && c.IdentityLevel != IdentityLevel.Guest)
+                .OrderByDescending(c => c.IdentityLevel)
+                .ThenByDescending(c => c.CreatedAt)
+                .FirstOrDefaultAsync();
+        }
+
         public async Task<IReadOnlyList<Customer>> GetAllActiveAsync()
         {
             return await _context.Customers
