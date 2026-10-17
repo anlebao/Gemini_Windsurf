@@ -53,3 +53,20 @@
 ## 7. DEFERRED
 
 - Đăng ký sử dụng HĐĐT với cơ quan thuế (flow đăng ký nội bộ — cần tích hợp cổng TCT, tách task riêng) · đối chiếu trạng thái hóa đơn đầu vào (P1.4) · ký hiệu/mẫu hóa đơn tùy biến theo ngành
+## 8. ✅ DONE — W2 (2026-10-17, commit `a3688428`)
+
+**Đã implement (additive, không phá contract):**
+- `EInvoiceRequest` += `InvoiceForm` (`string?`, default null) + `IsCashierGeneratedInvoice` (`bool`, default false) — positional tail, back-compat.
+- `EInvoiceDataKeys` (IEInvoiceProvider.cs): `invoiceForm`/`isCashierInvoice` keys + `coMa`/`khongMa`/`mayTinhTien` values (Điều 26 Luật QLT 2025 — 3 loại HĐĐT).
+- `Program.cs` ×2 (CoreHub + ShopERP): populate từ config `EInvoiceConfig:InvoiceForm` (default `khongMa`) + `EInvoiceConfig:IsCashierGeneratedInvoice` (default false) — chuyển đổi có mã khi rủi ro = đổi config, không đổi code.
+- `ViettelEInvoiceProvider.BuildPayload` += `metadata[]` `invoiceForm`/`isCashierInvoice` (khi có). MISA: chưa map payload (chờ spec mới) — ghi trong mapping table.
+- **Điều 8 TT 91/2026 — ngừng/tạm ngừng HĐĐT:** `SystemSetting` key `EInvoice_Usage_Suspended` (+ `_Reason`) per-tenant (key-value, không migration) · guard trong `ComplianceService.ValidateComplianceAsync`/`IsCompliantAsync` (IgnoreQueryFilters + filter TenantId tường minh) · `IEInvoiceOrchestrator.SetEInvoiceUsageSuspendedAsync` upsert · endpoint `POST /api/einvoice/usage-suspension` (Roles Admin/Owner/SystemAdmin) · DTO `SetUsageSuspensionRequest`.
+- Mapping table NĐ 254/2026 + TT 91/2026 thêm vào `docs/design/EInvoice multi provider integration.md` (§P0.4 — 3 loại HĐĐT, cashier-invoice không bắt buộc ký số, suspension, chuyển đổi có mã 10 ngày, W3 dependency điều chỉnh/thay thế).
+- `InvoiceType` enum KHÔNG đổi (constraint Domain.cs) — cashier-invoice qua metadata Services-layer.
+- Outbox/idempotency/EInvoiceSyncSubscriber không đổi hành vi.
+
+**Tests:** `EInvoiceRequestTests` +3 (defaults/set/constants khớp mapping doc) · `ViettelEInvoiceProviderTests` +2 (metadata payload có/không) · `MisaEInvoiceProviderTests` +1 (contract unchanged) · `ComplianceServiceTests` +4 (suspension throw/false/other-tenant) · `EInvoiceOrchestratorTests` +2 (upsert/toggle) · `EInvoiceDISmokeTests` +1.
+**Validation:** build 0 errors · guard ALL PASSED · Core.Tests 2228 · ShopERP.Tests 209 · Integration 51.
+**Deploy + RV:** `a3688428` → CD Multi-VPS SUCCESS → RV L1 (`SetEInvoiceUsageSuspendedAsync`×2 + `usage-suspension`×1 production DLL) · L2 (health 200) PASS.
+
+**Còn lại / DEFERRED giữ nguyên:** đăng ký HĐĐT với CQT · đối chiếu HĐ đầu vào (P1.4) · điều chỉnh/thay thế HĐĐT (W3/P0.3) · map `InvoiceForm` vào MISA payload khi provider cập nhật spec.

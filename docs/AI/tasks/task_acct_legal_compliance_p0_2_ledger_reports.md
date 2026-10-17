@@ -69,3 +69,19 @@
 ## 7. DEFERRED
 
 - Sổ chi tiết TSCĐ/khấu hao (bảng tính khấu hao) · phân bổ chi phí trả trước (242) · sổ quỹ tiền mặt theo TT 200 cũ (đã hết hiệu lực — TT 99/2025 mẫu sổ mới) · xuất XML chuẩn eTax (P0.4/P1.4 liên quan)
+## 8. ĐỢT 2 (W2) — ✅ DONE (2026-10-17, commit `a3688428`)
+
+**Scope Đ2:** Sổ chi tiết TK theo đối tượng — hybrid nguồn (AccountingEntry cho 131/331 công nợ · JournalEntry cho TK khác).
+
+**Đã implement:**
+- `IGeneralLedgerService` += `GetSubLedgerAsync` + `GetSubLedgerDoiTuongAsync` + `SubLedgerReportDto`/`SubLedgerRowDto`.
+- `GeneralLedgerService.LoadCongNoSubLedgerAsync` (131/331 — Vendor=đối tượng, reversal resolve Vendor về entry gốc qua chuỗi ReversalEntryId — convention CongNoService) + `LoadJournalSubLedgerAsync` (TK khác — đối tượng resolve qua ReferenceId→AccountingEntry.Vendor, Order-linked = null).
+- `SubLedger.razor` `/accounting/sub-ledger` (query `tk` + `doiTuong`, UI Platform, filter Năm/Tháng/TK/Đối tượng, In + Xuất Excel).
+- `LedgerExcelExportService.ExportSoChiTietExcel` — **Mẫu S38-DN** (`docs/Accounting_Doc/SoChiTiet_Mau-S38-DN.docx` — 9 cột: Ngày ghi sổ | CT Số | CT Ngày | Diễn giải | Đối tượng | TK ĐƯ | PS Nợ | PS Có | Dư Nợ | Dư Có).
+- NavMenu "Sổ Chi Tiết" + Sitemap.
+- Tests: `GeneralLedgerServiceTests` +6 (131/331/hybrid/ordering/balances/isolation/reversal resolve) · `SubLedgerPageTests` bUnit · E2E spec `accounting-legal-w2-rv.spec.ts`.
+
+**Validation:** build 0 errors · guard ALL PASSED · Core.Tests 2228 · ShopERP.Tests 209 · Integration 51 (fixture chạm).
+**Deploy + RV:** FAST PUSH `a3688428` → CD Multi-VPS SUCCESS (CI + Accounting Tests + CD đều success) → **RV L1-L3 PASS**: L1 markers (`GetSubLedgerAsync`×2 CoreHub.dll · `sub-ledger`/`ExportSoChiTietExcel`/`SubLedger` ShopERP.dll · image `a3688428` cả 2 VPS) · L2 health app2/api2 200 + `/accounting/sub-ledger` 302→Login · L3 Playwright production **3/3** (render + filter đối tượng + TK 111 cột S38-DN + Excel `so-chi-tiet-111_202610.xlsx`).
+
+**Ghi chú:** Sổ Cái 131/331 (Đợt 1) vẫn dựa JournalEntry — công nợ không tạo JE ([G6]); Sổ chi tiết 131/331 dùng AccountingEntry là nguồn đúng. Reversal `TransactionDate` = ngày tạo đảo (không copy ngày gốc) — khớp convention CongNo `BuildLedgerViewAsync`.
