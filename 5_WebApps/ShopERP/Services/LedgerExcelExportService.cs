@@ -2,6 +2,7 @@ using System.Globalization;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using VanAn.CoreHub.Services.GeneralLedger;
+using VanAn.Shared.DTOs;
 
 namespace VanAn.ShopERP.Services
 {
@@ -375,6 +376,207 @@ namespace VanAn.ShopERP.Services
             Center(ws.Cells[row, 8, row + 1, 8]);
 
             return package.GetAsByteArray();
+        }
+
+        /// <summary>
+        /// 2026-10-17 (user directive): Báo cáo công nợ tổng hợp — 1 workbook 2 sheets theo mẫu
+        /// docs/Accounting_Doc/KeToan_CongNo_BaoCao:
+        ///   "Phải thu KH (131)"  ← mẫu "4. Tổng hợp công nợ phải thu khách hàng.xlsx"
+        ///   "Phải trả NCC (331)" ← mẫu "1. Tổng hợp công nợ phải trả nhà cung cấp.xlsx"
+        /// Quy ước dấu CongNoService: dương = còn nợ. 131 dư Nợ (dương→Nợ, âm→Có);
+        /// 331 dư Có (dương→Có, âm→Nợ). Phát sinh = tăng nợ, Đã thu/trả = giảm nợ.
+        /// Lũy kế phát sinh (331) = |dư đầu kỳ cùng chiều| + phát sinh trong kỳ.
+        /// Các cột mẫu chưa có nguồn dữ liệu (Mã, Địa chỉ, MST, nhóm, nợ tối đa, ghi chú) để trống.
+        /// </summary>
+        public static byte[] ExportCongNoTongHopExcel(
+            CongNoReportDto report,
+            TenantInfoDto? tenant)
+        {
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            using ExcelPackage package = new();
+
+            CongNoGroupDto? receivable = report.Groups.FirstOrDefault(g => g.AccountCode == "131");
+            CongNoGroupDto? payable = report.Groups.FirstOrDefault(g => g.AccountCode == "331");
+
+            WriteReceivableSheet(package, receivable, report, tenant);
+            WritePayableSheet(package, payable, report, tenant);
+
+            return package.GetAsByteArray();
+        }
+
+        /// <summary>Sheet phải thu KH — mẫu 4: A Mã KH | B Tên KH | C TK CN | D:E Đầu kỳ | F:G PS | H:I Cuối kỳ | J Ghi chú.</summary>
+        private static void WriteReceivableSheet(ExcelPackage package, CongNoGroupDto? group, CongNoReportDto report, TenantInfoDto? tenant)
+        {
+            ExcelWorksheet ws = package.Workbook.Worksheets.Add("Phải thu KH (131)");
+
+            ws.Cells["A1"].Value = "TỔNG HỢP CÔNG NỢ PHẢI THU KHÁCH HÀNG";
+            ws.Cells["A1:J1"].Merge = true;
+            Center(ws.Cells["A1:J1"], bold: true, size: 14);
+            ws.Cells["A2"].Value = $"Chi nhánh: {tenant?.Name ?? "............................"}";
+            ws.Cells["A3"].Value = $"Kỳ báo cáo: Tháng {report.Month}/{report.Year}";
+
+            int[] widths = [12, 30, 10, 15, 15, 15, 15, 15, 15, 14];
+            for (int i = 0; i < widths.Length; i++) ws.Column(i + 1).Width = widths[i];
+
+            int headerRow = 5;
+            ws.Cells[headerRow, 1].Value = "Mã khách hàng";
+            ws.Cells[headerRow, 2].Value = "Tên khách hàng";
+            ws.Cells[headerRow, 3].Value = "TK công nợ";
+            MergeGroupHeader(ws, headerRow, 4, "Số dư đầu kỳ");
+            MergeGroupHeader(ws, headerRow, 6, "Phát sinh");
+            MergeGroupHeader(ws, headerRow, 8, "Số dư cuối kỳ");
+            ws.Cells[headerRow, 10].Value = "Ghi chú";
+            ws.Cells[headerRow, 1, headerRow + 1, 3].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+            ws.Cells[headerRow + 1, 4].Value = "Nợ"; ws.Cells[headerRow + 1, 5].Value = "Có";
+            ws.Cells[headerRow + 1, 6].Value = "Nợ"; ws.Cells[headerRow + 1, 7].Value = "Có";
+            ws.Cells[headerRow + 1, 8].Value = "Nợ"; ws.Cells[headerRow + 1, 9].Value = "Có";
+
+            ExcelRange headerRange = ws.Cells[headerRow, 1, headerRow + 1, 10];
+            Center(headerRange, bold: true);
+            headerRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+            headerRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+
+            int row = headerRow + 2;
+            if (group != null)
+            {
+                foreach (CongNoRowDto r in group.Rows)
+                {
+                    ws.Cells[row, 2].Value = r.DoiTuong;
+                    ws.Cells[row, 3].Value = "131";
+                    // 131 dư Nợ: dương → Nợ, âm → Có; PS tăng → Nợ; Đã thu → Có
+                    WriteSignedPair(ws, row, 4, r.DauKy);
+                    if (r.PhatSinh != 0) ws.Cells[row, 6].Value = r.PhatSinh;
+                    if (r.DaThuTra != 0) ws.Cells[row, 7].Value = r.DaThuTra;
+                    WriteSignedPair(ws, row, 8, r.CuoiKy);
+                    row++;
+                }
+
+                ws.Cells[row, 1].Value = "Tổng cộng";
+                WriteSignedPair(ws, row, 4, group.TongDauKy);
+                if (group.TongPhatSinh != 0) ws.Cells[row, 6].Value = group.TongPhatSinh;
+                if (group.TongDaThuTra != 0) ws.Cells[row, 7].Value = group.TongDaThuTra;
+                WriteSignedPair(ws, row, 8, group.TongCuoiKy);
+                ws.Cells[row, 1, row, 10].Style.Font.Bold = true;
+                ws.Cells[row, 1, row, 10].Style.Border.Top.Style = ExcelBorderStyle.Double;
+            }
+
+            ApplyAmountFormat(ws, headerRow + 2, row, 4, 9);
+        }
+
+        /// <summary>Sheet phải trả NCC — mẫu 1: A Mã NCC | B Tên | C Địa chỉ | D MST | E:F Đầu kỳ | G:H PS | I:J Lũy kế | K:L Cuối kỳ | M:N nhóm | O nợ tối đa.</summary>
+        private static void WritePayableSheet(ExcelPackage package, CongNoGroupDto? group, CongNoReportDto report, TenantInfoDto? tenant)
+        {
+            ExcelWorksheet ws = package.Workbook.Worksheets.Add("Phải trả NCC (331)");
+
+            ws.Cells["A1"].Value = "TỔNG HỢP CÔNG NỢ PHẢI TRẢ NHÀ CUNG CẤP";
+            ws.Cells["A1:O1"].Merge = true;
+            Center(ws.Cells["A1:O1"], bold: true, size: 14);
+            ws.Cells["A2"].Value = $"Chi nhánh: {tenant?.Name ?? "............................"}";
+            ws.Cells["A3"].Value = $"Kỳ báo cáo: Tháng {report.Month}/{report.Year}";
+
+            int[] widths = [12, 30, 18, 14, 15, 15, 15, 15, 15, 15, 15, 15, 12, 18, 12];
+            for (int i = 0; i < widths.Length; i++) ws.Column(i + 1).Width = widths[i];
+
+            int headerRow = 5;
+            ws.Cells[headerRow, 1].Value = "Mã nhà cung cấp";
+            ws.Cells[headerRow, 2].Value = "Tên nhà cung cấp";
+            ws.Cells[headerRow, 3].Value = "Địa chỉ";
+            ws.Cells[headerRow, 4].Value = "Mã số thuế";
+            MergeGroupHeader(ws, headerRow, 5, "Số dư đầu kỳ");
+            MergeGroupHeader(ws, headerRow, 7, "Phát sinh");
+            MergeGroupHeader(ws, headerRow, 9, "Lũy kế phát sinh");
+            MergeGroupHeader(ws, headerRow, 11, "Số dư cuối kỳ");
+            ws.Cells[headerRow, 13].Value = "Mã nhóm nhà cung cấp";
+            ws.Cells[headerRow, 14].Value = "Tên nhóm nhà cung cấp";
+            ws.Cells[headerRow, 15].Value = "Số nợ tối đa";
+            ws.Cells[headerRow, 1, headerRow + 1, 4].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+            ws.Cells[headerRow, 13, headerRow + 1, 15].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+            for (int c = 5; c <= 12; c += 2)
+            {
+                ws.Cells[headerRow + 1, c].Value = "Nợ";
+                ws.Cells[headerRow + 1, c + 1].Value = "Có";
+            }
+
+            ExcelRange headerRange = ws.Cells[headerRow, 1, headerRow + 1, 15];
+            Center(headerRange, bold: true);
+            headerRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+            headerRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+
+            int row = headerRow + 2;
+            if (group != null)
+            {
+                // Dòng "TK Công nợ: 331" + tổng của khối — đúng mẫu
+                ws.Cells[row, 1].Value = "TK Công nợ: 331";
+                WritePayablePair(ws, row, 5, group.TongDauKy);
+                WritePayablePair(ws, row, 7, group.TongPhatSinh, group.TongDaThuTra);
+                WriteLuyKePair(ws, row, group.TongDauKy, group.TongPhatSinh, group.TongDaThuTra);
+                WritePayablePair(ws, row, 11, group.TongCuoiKy);
+                ws.Cells[row, 1].Style.Font.Bold = true;
+                row++;
+
+                foreach (CongNoRowDto r in group.Rows)
+                {
+                    ws.Cells[row, 2].Value = r.DoiTuong;
+                    // 331 dư Có: dương → Có, âm → Nợ; PS tăng (mua chịu) → Có; Đã trả → Nợ
+                    WritePayablePair(ws, row, 5, r.DauKy);
+                    WritePayablePair(ws, row, 7, r.PhatSinh, r.DaThuTra);
+                    WriteLuyKePair(ws, row, r.DauKy, r.PhatSinh, r.DaThuTra);
+                    WritePayablePair(ws, row, 11, r.CuoiKy);
+                    row++;
+                }
+
+                ws.Cells[row, 1].Value = "Tổng cộng";
+                WritePayablePair(ws, row, 5, group.TongDauKy);
+                WritePayablePair(ws, row, 7, group.TongPhatSinh, group.TongDaThuTra);
+                WriteLuyKePair(ws, row, group.TongDauKy, group.TongPhatSinh, group.TongDaThuTra);
+                WritePayablePair(ws, row, 11, group.TongCuoiKy);
+                ws.Cells[row, 1, row, 15].Style.Font.Bold = true;
+                ws.Cells[row, 1, row, 15].Style.Border.Top.Style = ExcelBorderStyle.Double;
+            }
+
+            ApplyAmountFormat(ws, headerRow + 2, row, 5, 12);
+        }
+
+        /// <summary>TK dư Nợ (131): dương → cột Nợ (col), âm → cột Có (col+1).</summary>
+        private static void WriteSignedPair(ExcelWorksheet ws, int row, int col, decimal value)
+        {
+            if (value > 0) ws.Cells[row, col].Value = value;
+            else if (value < 0) ws.Cells[row, col + 1].Value = -value;
+        }
+
+        /// <summary>TK dư Có (331): dương → cột Có (col+1), âm → cột Nợ (col).</summary>
+        private static void WritePayablePair(ExcelWorksheet ws, int row, int col, decimal balance)
+        {
+            if (balance > 0) ws.Cells[row, col + 1].Value = balance;
+            else if (balance < 0) ws.Cells[row, col].Value = -balance;
+        }
+
+        /// <summary>331 phát sinh: tăng nợ (mua chịu) → Có; giảm nợ (đã trả) → Nợ.</summary>
+        private static void WritePayablePair(ExcelWorksheet ws, int row, int col, decimal phatSinh, decimal daThuTra)
+        {
+            if (daThuTra != 0) ws.Cells[row, col].Value = daThuTra;
+            if (phatSinh != 0) ws.Cells[row, col + 1].Value = phatSinh;
+        }
+
+        /// <summary>Lũy kế 331: Nợ = |dư đầu kỳ âm| + đã trả; Có = dư đầu kỳ dương + phát sinh.</summary>
+        private static void WriteLuyKePair(ExcelWorksheet ws, int row, decimal dauKy, decimal phatSinh, decimal daThuTra)
+        {
+            decimal luyKeNo = (dauKy < 0 ? -dauKy : 0) + daThuTra;
+            decimal luyKeCo = (dauKy > 0 ? dauKy : 0) + phatSinh;
+            if (luyKeNo != 0) ws.Cells[row, 9].Value = luyKeNo;
+            if (luyKeCo != 0) ws.Cells[row, 10].Value = luyKeCo;
+        }
+
+        private static void MergeGroupHeader(ExcelWorksheet ws, int row, int col, string label)
+        {
+            ws.Cells[row, col, row, col + 1].Merge = true;
+            ws.Cells[row, col].Value = label;
+        }
+
+        private static void ApplyAmountFormat(ExcelWorksheet ws, int fromRow, int toRow, int fromCol, int toCol)
+        {
+            if (toRow < fromRow) return;
+            ws.Cells[fromRow, fromCol, toRow, toCol].Style.Numberformat.Format = AmountFormat;
         }
 
         // ── Helpers ──

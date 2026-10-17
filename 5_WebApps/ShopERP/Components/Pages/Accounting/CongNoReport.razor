@@ -12,6 +12,7 @@
 @using VanAn.CoreHub.Services.CongNo
 @using VanAn.ShopERP.Services
 @inject ICongNoService CongNoService
+@inject VanAn.CoreHub.Services.GeneralLedger.IGeneralLedgerService GeneralLedgerService
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
 @inject ILogger<CongNoReport> Logger
@@ -226,48 +227,22 @@
 
     private async Task ExportToExcel()
     {
+        if (report == null || !TenantProvider.HasTenant) return;
         try
         {
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"BAO CAO CONG NO - THANG {selectedMonth}/{selectedYear}");
-            foreach (var group in report?.Groups ?? [])
-            {
-                sb.AppendLine();
-                sb.AppendLine($"{group.AccountName} ({group.AccountCode})");
-                sb.AppendLine("Doi tuong,Dau ky,PS tang,Da thu/tra,Cuoi ky,Aging <30,Aging 30-60,Aging 60-90,Aging >90");
-                foreach (var row in group.Rows)
-                {
-                    sb.AppendLine(string.Join(",",
-                        EscapeCsv(row.DoiTuong),
-                        row.DauKy.ToString(CultureInfo.InvariantCulture),
-                        row.PhatSinh.ToString(CultureInfo.InvariantCulture),
-                        row.DaThuTra.ToString(CultureInfo.InvariantCulture),
-                        row.CuoiKy.ToString(CultureInfo.InvariantCulture),
-                        row.Aging.Duoi30.ToString(CultureInfo.InvariantCulture),
-                        row.Aging.Tu30Den60.ToString(CultureInfo.InvariantCulture),
-                        row.Aging.Tu60Den90.ToString(CultureInfo.InvariantCulture),
-                        row.Aging.Tren90.ToString(CultureInfo.InvariantCulture)));
-                }
-                sb.AppendLine($"TONG,{group.TongDauKy.ToString(CultureInfo.InvariantCulture)},{group.TongPhatSinh.ToString(CultureInfo.InvariantCulture)},{group.TongDaThuTra.ToString(CultureInfo.InvariantCulture)},{group.TongCuoiKy.ToString(CultureInfo.InvariantCulture)}");
-            }
-
-            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+            // 2026-10-17 (user directive): xuất .xlsx theo mẫu KeToan_CongNo_BaoCao —
+            // 1 file, 2 sheets: "Phải thu KH (131)" + "Phải trả NCC (331)".
+            TenantId tenantId = new(TenantProvider.TenantId);
+            var tenantInfo = await GeneralLedgerService.GetTenantInfoAsync(tenantId);
+            byte[] bytes = LedgerExcelExportService.ExportCongNoTongHopExcel(report, tenantInfo);
             string base64 = Convert.ToBase64String(bytes);
-            string fileName = $"cong-no_{selectedYear}{selectedMonth:D2}.csv";
-            await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64, "text/csv", fileName);
+            string fileName = $"tong-hop-cong-no_{selectedYear}{selectedMonth:D2}.xlsx";
+            await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error exporting cong-no report to CSV");
+            Logger.LogError(ex, "Error exporting cong-no report to Excel");
         }
-    }
-
-    private static string EscapeCsv(string? field)
-    {
-        if (string.IsNullOrEmpty(field)) return string.Empty;
-        bool needsQuote = field.Contains(',') || field.Contains('"') || field.Contains('\n');
-        if (!needsQuote) return field;
-        string escaped = field.Replace("\"", "\"\"");
-        return "\"" + escaped + "\"";
     }
 }

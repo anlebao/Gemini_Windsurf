@@ -67,6 +67,12 @@ public class CongNoReportTests : ComponentTestBase
         congNoMock.Setup(c => c.GetCongNoReportAsync(It.IsAny<TenantId>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
                   .ReturnsAsync(report);
         Services.AddSingleton(congNoMock.Object);
+
+        // 2026-10-17: Xuất Excel theo mẫu cần TenantInfo (tên đơn vị/chi nhánh)
+        var glMock = new Mock<VanAn.CoreHub.Services.GeneralLedger.IGeneralLedgerService>();
+        glMock.Setup(s => s.GetTenantInfoAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
+              .ReturnsAsync(new VanAn.CoreHub.Services.GeneralLedger.TenantInfoDto("Vạn An Test", "123 Lê Lợi"));
+        Services.AddSingleton(glMock.Object);
     }
 
     [Fact]
@@ -150,5 +156,23 @@ public class CongNoReportTests : ComponentTestBase
         link.GetAttribute("href").Should().Contain("/accounting/cong-no/thu/");
         link.GetAttribute("href").Should().Contain("year=");
         link.GetAttribute("href").Should().Contain("month=");
+    }
+
+    [Fact]
+    public void CongNoReport_ExportExcel_DownloadsXlsx_TwoSheets()
+    {
+        // Arrange — 2026-10-17: Xuất Excel theo mẫu → 1 file .xlsx 2 sheets (131 + 331)
+        RegisterCongNoService(BuildReport());
+        var cut = RenderComponent<ShopERP.Components.Pages.Accounting.CongNoReport>();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Xuất Excel"));
+
+        // Act
+        cut.FindAll("button").First(b => b.TextContent.Contains("Xuất Excel")).Click();
+
+        // Assert — vanAn.downloadFile với mime xlsx + tên file tong-hop-cong-no_*.xlsx
+        cut.WaitForAssertion(() => JSInterop.Invocations.Should().Contain(i => i.Identifier == "vanAn.downloadFile"));
+        var args = JSInterop.Invocations.First(i => i.Identifier == "vanAn.downloadFile").Arguments;
+        args[1].Should().Be("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        args[2].ToString()!.Should().StartWith("tong-hop-cong-no_").And.EndWith(".xlsx");
     }
 }

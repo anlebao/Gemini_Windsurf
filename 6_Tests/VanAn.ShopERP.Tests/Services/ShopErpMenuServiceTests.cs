@@ -28,6 +28,19 @@ public class ShopErpMenuServiceTests
         return new ClaimsPrincipal(new ClaimsIdentity(claims, "Test"));
     }
 
+    /// <summary>Flatten đệ quy — menu Kế Toán có nhóm con 2 cấp (2026-10-17).</summary>
+    private static IEnumerable<NavigationItem> Flatten(IEnumerable<NavigationItem> items)
+    {
+        foreach (var i in items)
+        {
+            yield return i;
+            foreach (var c in Flatten(i.Children))
+            {
+                yield return c;
+            }
+        }
+    }
+
     [Fact]
     public async Task BuildAsync_SystemAdmin_IncludesHướngDẫnGuideLinks()
     {
@@ -99,7 +112,10 @@ public class ShopErpMenuServiceTests
         keToan!.Children.Should().Contain(c => c.Title == "Lịch Sử Giao Dịch" && c.Url == "/accounting/history");
         keToan.Children.Should().Contain(c => c.Title == "Import Excel" && c.Url == "/accounting/import");
         keToan.Children.Should().Contain(c => c.Title == "Đóng Kỳ Kế Toán" && c.Url == "/accounting/period-closing");
-        keToan.Children.Should().Contain(c => c.Title == "Sổ HKD (TT 152)" && c.Url == "/accounting/hkd-books");
+        // 2026-10-17: Sổ HKD lồng trong nhóm con "Sổ HKD"; các sổ lồng trong "Sổ Sách"
+        var soHkd = keToan.Children.SingleOrDefault(c => c.Title == "Sổ HKD");
+        soHkd.Should().NotBeNull();
+        soHkd!.Children.Should().Contain(c => c.Title == "Sổ HKD (TT 152)" && c.Url == "/accounting/hkd-books");
         // KHÔNG thấy các nhóm khác (Vận hành/POS, Sản phẩm, Quản trị...)
         items.Should().NotContain(i => i.Title == "Vận hành");
         items.Should().NotContain(i => i.Title == "Sản phẩm");
@@ -120,17 +136,23 @@ public class ShopErpMenuServiceTests
         items.Should().NotContain(i => i.Title == "Vận hành");
         var keToan = items.SingleOrDefault(i => i.Title == "Kế Toán");
         keToan.Should().NotBeNull();
-        // Có: Kế Toán index + Công Nợ + Số Dư Đầu Kỳ + Số Dư Tài Khoản
+        // Có: Kế Toán index + Báo Cáo Quản Trị>Công Nợ + Số Dư Đầu Kỳ + Số Dư Tài Khoản
         keToan!.Children.Should().Contain(c => c.Url == "/accounting");
-        keToan.Children.Should().Contain(c => c.Title == "Công Nợ" && c.Url == "/accounting/cong-no");
+        var bcQuanTri = keToan.Children.SingleOrDefault(c => c.Title == "Báo Cáo Quản Trị");
+        bcQuanTri.Should().NotBeNull();
+        bcQuanTri!.Children.Should().Contain(c => c.Title == "Công Nợ" && c.Url == "/accounting/cong-no");
         keToan.Children.Should().Contain(c => c.Title == "Số Dư Đầu Kỳ" && c.Url == "/accounting/opening-balance");
         keToan.Children.Should().Contain(c => c.Title == "Số Dư Tài Khoản" && c.Url == "/accounting/balance");
-        // Ẩn: Lịch sử giao dịch · Import Excel · Đóng kỳ kế toán · Sổ HKD · Báo cáo tài chính
-        keToan.Children.Should().NotContain(c => c.Url == "/accounting/history");
-        keToan.Children.Should().NotContain(c => c.Url == "/accounting/import");
-        keToan.Children.Should().NotContain(c => c.Url == "/accounting/period-closing");
-        keToan.Children.Should().NotContain(c => c.Url == "/accounting/hkd-books");
-        keToan.Children.Should().NotContain(c => c.Url == "/accounting/financial-reports");
+        // Ẩn (mọi cấp): Lịch sử giao dịch · Import Excel · Đóng kỳ · Sổ sách · Sổ HKD · BCTC
+        var flat = Flatten(keToan.Children).ToList();
+        flat.Should().NotContain(c => c.Url == "/accounting/history");
+        flat.Should().NotContain(c => c.Url == "/accounting/import");
+        flat.Should().NotContain(c => c.Url == "/accounting/period-closing");
+        flat.Should().NotContain(c => c.Url == "/accounting/hkd-books");
+        flat.Should().NotContain(c => c.Url == "/accounting/financial-reports");
+        flat.Should().NotContain(c => c.Title == "Sổ Sách");
+        flat.Should().NotContain(c => c.Title == "Sổ HKD");
+        flat.Should().NotContain(c => c.Title == "Báo Cáo Tài Chính");
     }
 
     [Fact]
@@ -228,5 +250,64 @@ public class ShopErpMenuServiceTests
         var items = await service.BuildAsync(user);
 
         items.Should().NotContain(i => i.Title == "Thông báo");
+    }
+
+    // ── 2026-10-17 (user directive): nhóm menu con trong "Kế Toán" — 4 nhóm ──
+
+    [Fact]
+    public async Task BuildAsync_Owner_HkdTenant_AccountingSubGroups()
+    {
+        var tenantProvider = new Mock<ITenantProvider>();
+        tenantProvider.Setup(t => t.HasTenant).Returns(true);
+        tenantProvider.Setup(t => t.TenantId).Returns(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        var featureFlag = new Mock<IVasFeatureFlagService>();
+        featureFlag.Setup(f => f.CanAccessVasReportsAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
+                   .ReturnsAsync(false); // HKD → nhóm "Sổ HKD", không có "Báo Cáo Tài Chính"
+        var service = new ShopErpMenuService(tenantProvider.Object, featureFlag.Object);
+        var user = PrincipalWithRoles("Owner");
+
+        var items = await service.BuildAsync(user);
+
+        var keToan = items.Single(i => i.Title == "Kế Toán");
+
+        // Nhóm "Sổ Sách" — 3 sổ DN
+        var soSach = keToan.Children.Single(c => c.Title == "Sổ Sách");
+        soSach.Children.Should().Contain(c => c.Url == "/accounting/journal");
+        soSach.Children.Should().Contain(c => c.Url == "/accounting/ledger");
+        soSach.Children.Should().Contain(c => c.Url == "/accounting/sub-ledger");
+
+        // Nhóm "Báo Cáo Quản Trị" — Công Nợ
+        var bcqt = keToan.Children.Single(c => c.Title == "Báo Cáo Quản Trị");
+        bcqt.Children.Should().Contain(c => c.Url == "/accounting/cong-no");
+
+        // HKD → nhóm "Sổ HKD" có link hkd-books; KHÔNG có nhóm "Báo Cáo Tài Chính"
+        var soHkd = keToan.Children.Single(c => c.Title == "Sổ HKD");
+        soHkd.Children.Should().Contain(c => c.Url == "/accounting/hkd-books");
+        keToan.Children.Should().NotContain(c => c.Title == "Báo Cáo Tài Chính");
+
+        // Link cũ không còn nằm phẳng (đã vào nhóm)
+        keToan.Children.Should().NotContain(c => c.Url == "/accounting/cong-no");
+        keToan.Children.Should().NotContain(c => c.Url == "/accounting/ledger");
+    }
+
+    [Fact]
+    public async Task BuildAsync_Owner_EnterpriseTenant_BaoCaoTaiChinhGroup_NoSoHkd()
+    {
+        var tenantProvider = new Mock<ITenantProvider>();
+        tenantProvider.Setup(t => t.HasTenant).Returns(true);
+        tenantProvider.Setup(t => t.TenantId).Returns(Guid.Parse("00000000-0000-0000-0000-000000000002"));
+        var featureFlag = new Mock<IVasFeatureFlagService>();
+        featureFlag.Setup(f => f.CanAccessVasReportsAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
+                   .ReturnsAsync(true); // DN → nhóm "Báo Cáo Tài Chính", không có "Sổ HKD"
+        var service = new ShopErpMenuService(tenantProvider.Object, featureFlag.Object);
+        var user = PrincipalWithRoles("Owner");
+
+        var items = await service.BuildAsync(user);
+
+        var keToan = items.Single(i => i.Title == "Kế Toán");
+        var bctc = keToan.Children.Single(c => c.Title == "Báo Cáo Tài Chính");
+        bctc.Children.Should().Contain(c => c.Url == "/accounting/financial-reports");
+        keToan.Children.Should().NotContain(c => c.Title == "Sổ HKD");
+        Flatten(keToan.Children).Should().NotContain(c => c.Url == "/accounting/hkd-books");
     }
 }

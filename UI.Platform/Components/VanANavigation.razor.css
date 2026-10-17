@@ -152,6 +152,18 @@
     transform: rotate(180deg);
 }
 
+/* ── Nested sub-groups (level 2+, e.g. Kế Toán → Sổ Sách) — slightly lighter than top groups ── */
+::deep .vanan-navigation__submenu .vanan-navigation__summary {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.45rem 0.875rem;
+    color: #cbd5e1;
+}
+
+::deep .vanan-navigation__submenu .vanan-navigation__submenu {
+    margin-left: 0.75rem;
+}
+
 /* Horizontal variant */
 .vanan-navigation--horizontal ::deep .vanan-navigation__list {
     display: flex;

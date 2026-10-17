@@ -168,19 +168,13 @@ public sealed class ShopErpMenuService : IShopErpMenuService
             {
                 accountingChildren.Add(new() { Title = "Lịch Sử Giao Dịch", Icon = "clock-history", Url = "/accounting/history" });
             }
-            // THU CHI & CÔNG NỢ MVP (P2.5, 2026-10-07): báo cáo công nợ 131/331 + tuổi nợ FIFO
-            accountingChildren.Add(new() { Title = "Công Nợ", Icon = "people", Url = "/accounting/cong-no" });
             // NHẬP LIỆU & SỔ SÁCH P3 (2026-10-07): khai báo số dư đầu kỳ (dữ liệu cũ từ Excel)
             accountingChildren.Add(new() { Title = "Số Dư Đầu Kỳ", Icon = "flag-fill", Url = "/accounting/opening-balance" });
             if (fullAccounting)
             {
                 // NHẬP LIỆU & SỔ SÁCH P4 (2026-10-08): import Excel hàng loạt (xlsx+csv — dry-run 0 lỗi mới lưu)
                 accountingChildren.Add(new() { Title = "Import Excel", Icon = "file-earmark-arrow-up", Url = "/accounting/import" });
-                // TUÂN THỦ PHÁP LÝ P0 (2026-10-16): Sổ Nhật ký chung + Sổ Cái (P0.2-Đ1) + Rà soát tiền mặt ≥ 20tr (P0.1)
-                accountingChildren.Add(new() { Title = "Sổ Nhật Ký Chung", Icon = "journal-text", Url = "/accounting/journal" });
-                accountingChildren.Add(new() { Title = "Sổ Cái", Icon = "book", Url = "/accounting/ledger" });
-                // P0.2-Đ2 (W2, 2026-10-17): Sổ Chi Tiết TK (Mẫu S38-DN)
-                accountingChildren.Add(new() { Title = "Sổ Chi Tiết", Icon = "book-half", Url = "/accounting/sub-ledger" });
+                // TUÂN THỦ PHÁP LÝ P0 (2026-10-16): Rà soát tiền mặt ≥ 20tr (P0.1)
                 accountingChildren.Add(new() { Title = "Rà Soát Tiền Mặt ≥ 20tr", Icon = "cash-stack", Url = "/accounting/cash-payment-review" });
             }
             accountingChildren.Add(new() { Title = "Số Dư Tài Khoản", Icon = "currency-exchange", Url = "/accounting/balance" });
@@ -188,6 +182,36 @@ public sealed class ShopErpMenuService : IShopErpMenuService
             {
                 accountingChildren.Add(new() { Title = "Đóng Kỳ Kế Toán", Icon = "lock-fill", Url = "/accounting/period-closing" });
             }
+
+            // 2026-10-17 (user directive): nhóm menu con trong "Kế Toán" —
+            // 1/ Sổ Sách · 2/ Báo Cáo Tài Chính · 3/ Báo Cáo Quản Trị · 4/ Sổ HKD (tenant HKD).
+            if (fullAccounting)
+            {
+                // 1/ Sổ Sách — Nhật ký chung (P0.2-Đ1) + Sổ Cái + Sổ Chi Tiết (P0.2-Đ2, Mẫu S38-DN)
+                accountingChildren.Add(new()
+                {
+                    Title = "Sổ Sách",
+                    Icon = "journal-bookmark",
+                    Children =
+                    {
+                        new() { Title = "Sổ Nhật Ký Chung", Icon = "journal-text", Url = "/accounting/journal" },
+                        new() { Title = "Sổ Cái", Icon = "book", Url = "/accounting/ledger" },
+                        new() { Title = "Sổ Chi Tiết", Icon = "book-half", Url = "/accounting/sub-ledger" },
+                    }
+                });
+            }
+
+            // 3/ Báo Cáo Quản Trị — công nợ 131/331 + tuổi nợ FIFO (THU CHI & CÔNG NỢ MVP).
+            // KHÔNG gate fullAccounting: Kế toán công nợ được xem báo cáo công nợ (2026-10-09).
+            accountingChildren.Add(new()
+            {
+                Title = "Báo Cáo Quản Trị",
+                Icon = "clipboard2-data",
+                Children =
+                {
+                    new() { Title = "Công Nợ", Icon = "people", Url = "/accounting/cong-no" },
+                }
+            });
 
             // Preserve AccountingLayout behavior: HKD tenants see "Sổ HKD", Enterprise tenants see "Báo Cáo Tài Chính"
             if (fullAccounting && _tenantProvider.HasTenant)
@@ -197,17 +221,43 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                     var isEnterprise = await _featureFlagService.CanAccessVasReportsAsync(new TenantId(_tenantProvider.TenantId));
                     if (isEnterprise)
                     {
-                        accountingChildren.Add(new() { Title = "Báo Cáo Tài Chính", Icon = "bar-chart", Url = "/accounting/financial-reports" });
+                        // 2/ Báo Cáo Tài Chính — chỉ tenant DN/HTX (HTX render B01-HTX/B02-HTX/B09-HTX)
+                        accountingChildren.Add(new()
+                        {
+                            Title = "Báo Cáo Tài Chính",
+                            Icon = "bar-chart",
+                            Children =
+                            {
+                                new() { Title = "Báo Cáo Tài Chính", Icon = "bar-chart", Url = "/accounting/financial-reports" },
+                            }
+                        });
                     }
                     else
                     {
-                        accountingChildren.Add(new() { Title = "Sổ HKD (TT 152)", Icon = "book", Url = "/accounting/hkd-books" });
+                        // 4/ Sổ HKD — sổ sách/báo cáo riêng cho tenant loại hình Hộ Kinh Doanh (TT 152)
+                        accountingChildren.Add(new()
+                        {
+                            Title = "Sổ HKD",
+                            Icon = "book",
+                            Children =
+                            {
+                                new() { Title = "Sổ HKD (TT 152)", Icon = "book", Url = "/accounting/hkd-books" },
+                            }
+                        });
                     }
                 }
                 catch
                 {
                     // Safe default: HKD is the common case
-                    accountingChildren.Add(new() { Title = "Sổ HKD (TT 152)", Icon = "book", Url = "/accounting/hkd-books" });
+                    accountingChildren.Add(new()
+                    {
+                        Title = "Sổ HKD",
+                        Icon = "book",
+                        Children =
+                        {
+                            new() { Title = "Sổ HKD (TT 152)", Icon = "book", Url = "/accounting/hkd-books" },
+                        }
+                    });
                 }
             }
 
