@@ -3,7 +3,17 @@
 > Created: 2026-10-16 (user directive master plan P0-P2)
 > Master plan: `docs/AI/plans/accounting-legal-compliance-master-plan.md` (Phase P0.3 — dep: sau P0.4)
 > Branch: `main`
-> Status: 📋 PLANNED — chờ P0.4 (chuẩn dữ liệu NĐ 254/2026) + Q&A
+> Status: � IMPLEMENTED — commit `34f29d26` (2026-10-17) · guard+build+tests PASS · chờ deploy + RV
+
+> **Implementation notes (W3, 2026-10-17):**
+> - Provider contract: thay vì `AdjustInvoiceAsync` riêng, chọn `EInvoiceRequest += EInvoiceAdjustmentInfo` (tail param) — vì CẢ Viettel lẫn MISA xử lý điều chỉnh/thay thế qua CÙNG endpoint tạo hóa đơn → tái dùng 100% pipeline outbox/worker/retry/idempotency, IEInvoiceProvider không đổi (test doubles không vỡ).
+> - Viettel: `adjustmentType` 3=thay thế / 5=điều chỉnh + `adjustmentInvoiceType` (1=tiền, 2=thông tin — suy ra từ so sánh totals với HĐ gốc) + `originalInvoiceId` + `originalInvoiceIssueDate` + `invoiceNote`. Default HĐ gốc sửa 0→1 theo spec.
+> - MISA: `ReferenceType` 1=thay thế / 2=điều chỉnh + `OrgInvSeries` (snapshot `InvoiceSeries`, fallback config) + `OrgInvNo` + `OrgInvDate` + `OrgInvTemplateNo` + `OrgInvoiceType=1`.
+> - Domain (Gate 5 — approved): `InvoiceStatus += Adjusted=7/Replaced=8`, `InvoiceAdjustmentType`, 6 trường linkage nullable + `MarkAsAdjustmentOf/MarkAsAdjusted/MarkAsReplaced`, `AuditableEntityType += ElectronicInvoice=15`, `AuditLog.ForInvoiceCorrection`. Migration `20261017153433_AddElectronicInvoiceAdjustment` (PG).
+> - Orchestrator: `AdjustInvoiceAsync` (guard TaxApproved + ProviderInvoiceNumber + reason bắt buộc → HĐ mới linked PendingSend + mark gốc + outbox `InvoiceCreated` + audit `Correction`/ElectronicInvoice) + `ListInvoicesAsync`.
+> - Fix pipeline gap phát hiện trong W3: `submitAction` ×2 (CoreHub + ShopERP) trước đây KHÔNG gọi `MarkAsSentToProvider` → HĐ kẹt PendingSend, webhook TaxApproved luôn fail. Đã thêm mark + `SetInvoiceSeries` + save khi provider trả success.
+> - UI: `InvoiceManagement.razor` — list thật (thay stub) + Điều Chỉnh/Thay Thế trên TaxApproved + modal lý do bắt buộc + override fields + ghi chú kê khai Điều 10 + badge ĐC/TT + status mới. Fix VanAModal dùng `<Body>/<Footer>` fragment (trước render rỗng).
+> - Validation: `dotnet build` 0 lỗi · `guard-check.ps1` ALL PASSED · Core.Tests 82 (e-invoice scope) · ShopERP bUnit 8/8 · E2E spec `einvoice-adjust-replace.spec.ts` (chạy ở RV — Gate 4).
 
 ---
 
