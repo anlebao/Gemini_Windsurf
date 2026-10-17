@@ -3,7 +3,7 @@
 > Created: 2026-10-16 (user directive master plan P0-P2)
 > Master plan: `docs/AI/plans/accounting-legal-compliance-master-plan.md` (Phase P0.2)
 > Branch: `main`
-> Status: ✅ **Q2 CHỐT (2026-10-16) · ✅ Đ1 (Nhật ký chung + Sổ Cái) DONE + DEPLOYED + RV L1-L3 PASS (2026-10-16 — RV: Journal T10 data + tổng Nợ/Có · Sổ Cái TK 111 dư đầu/PS/dư cuối — tenant Vạn An Trading a5b6c7d8) · ⏳ Đ2 (Sổ chi tiết TK) Wave 2**
+> Status: ✅ **Q2 CHỐT (2026-10-16) · ✅ Đ1 (Nhật ký chung + Sổ Cái) DONE + DEPLOYED + RV L1-L3 PASS + ✅ XUẤT EXCEL THEO MẪU TT 99/2025 (`8f3bbf02`, 2026-10-17 — S02c1-DN/S03b-DN, RV export download + unzip verify PASS) · ⏳ Đ2 (Sổ chi tiết TK) Wave 2**
 
 ---
 
