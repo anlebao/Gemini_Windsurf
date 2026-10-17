@@ -71,6 +71,23 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.FailureReason)
                 .HasMaxLength(1000);
 
+            // W3 (P0.3) — HĐĐT điều chỉnh/thay thế (nullable, additive)
+            _ = builder.Property(e => e.InvoiceSeries)
+                .HasMaxLength(50);
+
+            _ = builder.Property(e => e.OriginalInvoiceId);
+
+            _ = builder.Property(e => e.AdjustmentType)
+                .HasConversion<int?>();
+
+            _ = builder.Property(e => e.AdjustmentReason)
+                .HasMaxLength(1000);
+
+            _ = builder.Property(e => e.OriginalProviderInvoiceNumber)
+                .HasMaxLength(100);
+
+            _ = builder.Property(e => e.OriginalInvoiceIssueDate);
+
             // Unique index on IdempotencyKey (legal compliance — prevent duplicate invoices)
             _ = builder.HasIndex(e => e.IdempotencyKey)
                 .IsUnique();

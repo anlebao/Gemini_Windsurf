@@ -44,7 +44,8 @@ public enum AuditableEntityType
     // Sprint 3: platform-level + security entities
     KhachLinkInstance = 12,  // P1.2 — KhachLink profile change audit
     SecurityEvent = 13,     // P3.3 — security incident (failed login, rate limit, suspicious activity)
-    WalletTransaction = 14  // Settlement Batch-4 (TC-10 S7) — wallet ledger movement audit
+    WalletTransaction = 14,  // Settlement Batch-4 (TC-10 S7) — wallet ledger movement audit
+    ElectronicInvoice = 15   // W3 (P0.3) — hóa đơn điện tử điều chỉnh/thay thế (Điều 10 TT 91/2026)
 }
 
 /// <summary>
@@ -255,6 +256,40 @@ public sealed class AuditLog : BaseEntity
             OldValues = null,
             NewValues = null,
             Reason = correctionReason,
+            UserId = userId,
+            UserName = userName,
+            CorrelationId = correlationId,
+            IpAddress = ipAddress,
+            UserAgent = userAgent,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    /// <summary>
+    /// W3 (P0.3): Factory method — audit cho hóa đơn điện tử điều chỉnh/thay thế
+    /// (Điều 10 TT 91/2026). EntityType = ElectronicInvoice; EntityId = hóa đơn gốc.
+    /// </summary>
+    public static AuditLog ForInvoiceCorrection(
+        TenantId tenantId,
+        Guid originalInvoiceId,
+        Guid newInvoiceId,
+        string adjustmentType,
+        string reason,
+        string userId,
+        string? userName = null,
+        string? correlationId = null,
+        string? ipAddress = null,
+        string? userAgent = null)
+    {
+        return new AuditLog
+        {
+            TenantId = tenantId,
+            Action = AuditActionType.Correction,
+            EntityType = AuditableEntityType.ElectronicInvoice,
+            EntityId = originalInvoiceId,
+            OldValues = $"{{\"OriginalInvoiceId\":\"{originalInvoiceId}\"}}",
+            NewValues = $"{{\"NewInvoiceId\":\"{newInvoiceId}\",\"AdjustmentType\":\"{adjustmentType}\"}}",
+            Reason = reason,
             UserId = userId,
             UserName = userName,
             CorrelationId = correlationId,

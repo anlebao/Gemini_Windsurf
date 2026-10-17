@@ -311,6 +311,141 @@ public class ElectronicInvoiceTests
         // Assert
         invoice.Status.Should().Be(InvoiceStatus.TaxApproved);
     }
+
+    // ── W3 (P0.3 — Điều 10 TT 91/2026): điều chỉnh/thay thế ──────────────────
+
+    private ElectronicInvoice CreateTaxApprovedInvoice()
+    {
+        var invoice = new ElectronicInvoice(
+            _tenantId, _orderId,
+            new InvoiceIdempotencyKey(Guid.NewGuid().ToString()),
+            InvoiceType.Goods, 100000m, 10000m, 110000m,
+            "Customer Name", "TaxCode", "Address");
+        invoice.Submit();
+        invoice.MarkAsSentToProvider(new ProviderId("viettel"));
+        invoice.MarkAsTaxApproved("VT-001");
+        return invoice;
+    }
+
+    [Fact]
+    public void MarkAsAdjustmentOf_ShouldSetLinkageFields()
+    {
+        var original = CreateTaxApprovedInvoice();
+        original.SetInvoiceSeries("1C25TAA");
+        var adjustment = new ElectronicInvoice(
+            _tenantId, _orderId,
+            new InvoiceIdempotencyKey(Guid.NewGuid().ToString()),
+            InvoiceType.Goods, 100000m, 10000m, 110000m,
+            "Customer Name", "TaxCode", "Address");
+
+        adjustment.MarkAsAdjustmentOf(original, InvoiceAdjustmentType.Adjust, "Sai mã số thuế");
+
+        adjustment.OriginalInvoiceId.Should().Be(original.InvoiceId.Value);
+        adjustment.AdjustmentType.Should().Be(InvoiceAdjustmentType.Adjust);
+        adjustment.AdjustmentReason.Should().Be("Sai mã số thuế");
+        adjustment.OriginalProviderInvoiceNumber.Should().Be("VT-001");
+        adjustment.OriginalInvoiceIssueDate.Should().Be(original.ApprovedAt);
+        adjustment.InvoiceSeries.Should().Be("1C25TAA");
+    }
+
+    [Fact]
+    public void MarkAsAdjustmentOf_EmptyReason_ShouldThrow()
+    {
+        var original = CreateTaxApprovedInvoice();
+        var adjustment = new ElectronicInvoice(
+            _tenantId, _orderId,
+            new InvoiceIdempotencyKey(Guid.NewGuid().ToString()),
+            InvoiceType.Goods, 100000m, 10000m, 110000m,
+            "Customer Name", "TaxCode", "Address");
+
+        Assert.Throws<ArgumentException>(() =>
+            adjustment.MarkAsAdjustmentOf(original, InvoiceAdjustmentType.Adjust, " "));
+    }
+
+    [Fact]
+    public void MarkAsAdjustmentOf_OriginalNotIssued_ShouldThrow()
+    {
+        var original = new ElectronicInvoice( // Draft — chưa có ProviderInvoiceNumber
+            _tenantId, _orderId,
+            new InvoiceIdempotencyKey(Guid.NewGuid().ToString()),
+            InvoiceType.Goods, 100000m, 10000m, 110000m,
+            "Customer Name", "TaxCode", "Address");
+        var adjustment = new ElectronicInvoice(
+            _tenantId, _orderId,
+            new InvoiceIdempotencyKey(Guid.NewGuid().ToString()),
+            InvoiceType.Goods, 100000m, 10000m, 110000m,
+            "Customer Name", "TaxCode", "Address");
+
+        Assert.Throws<InvalidOperationException>(() =>
+            adjustment.MarkAsAdjustmentOf(original, InvoiceAdjustmentType.Adjust, "Lý do"));
+    }
+
+    [Fact]
+    public void MarkAsAdjusted_FromTaxApproved_ShouldTransition()
+    {
+        var invoice = CreateTaxApprovedInvoice();
+
+        invoice.MarkAsAdjusted();
+
+        invoice.Status.Should().Be(InvoiceStatus.Adjusted);
+    }
+
+    [Fact]
+    public void MarkAsAdjusted_WhenNotTaxApproved_ShouldThrow()
+    {
+        var invoice = new ElectronicInvoice(
+            _tenantId, _orderId, _idempotencyKey,
+            InvoiceType.Goods, 100000m, 10000m, 110000m,
+            "Customer Name", "TaxCode", "Address");
+
+        Assert.Throws<InvalidOperationException>(() => invoice.MarkAsAdjusted());
+    }
+
+    [Fact]
+    public void MarkAsReplaced_FromTaxApproved_ShouldTransition()
+    {
+        var invoice = CreateTaxApprovedInvoice();
+
+        invoice.MarkAsReplaced();
+
+        invoice.Status.Should().Be(InvoiceStatus.Replaced);
+    }
+
+    [Fact]
+    public void MarkAsReplaced_WhenNotTaxApproved_ShouldThrow()
+    {
+        var invoice = new ElectronicInvoice(
+            _tenantId, _orderId, _idempotencyKey,
+            InvoiceType.Goods, 100000m, 10000m, 110000m,
+            "Customer Name", "TaxCode", "Address");
+
+        Assert.Throws<InvalidOperationException>(() => invoice.MarkAsReplaced());
+    }
+
+    [Fact]
+    public void AdjustedInvoice_ShouldNotBeAdjustableAgain()
+    {
+        var invoice = CreateTaxApprovedInvoice();
+        invoice.MarkAsAdjusted();
+
+        Assert.Throws<InvalidOperationException>(() => invoice.MarkAsAdjusted());
+        Assert.Throws<InvalidOperationException>(() => invoice.MarkAsReplaced());
+    }
+
+    [Fact]
+    public void SetInvoiceSeries_ShouldSetValue()
+    {
+        var invoice = new ElectronicInvoice(
+            _tenantId, _orderId, _idempotencyKey,
+            InvoiceType.Goods, 100000m, 10000m, 110000m,
+            "Customer Name", "TaxCode", "Address");
+
+        invoice.SetInvoiceSeries("1C25TAA");
+        invoice.InvoiceSeries.Should().Be("1C25TAA");
+
+        invoice.SetInvoiceSeries("   "); // whitespace → giữ nguyên
+        invoice.InvoiceSeries.Should().Be("1C25TAA");
+    }
 }
 
 public class InvoiceAggregateTests

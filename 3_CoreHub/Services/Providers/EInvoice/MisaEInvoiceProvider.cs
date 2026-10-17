@@ -248,6 +248,23 @@ public class MisaEInvoiceProvider : IEInvoiceProvider
             .ToList();
         payload.TaxRateInfo = taxRateInfos;
 
+        // W3 (P0.3 — Điều 10 TT 91/2026): điều chỉnh/thay thế qua CÙNG endpoint phát hành.
+        // ReferenceType: 1 = Thay thế, 2 = Điều chỉnh + Org* fields của hóa đơn gốc.
+        if (request.Adjustment is not null)
+        {
+            payload.ReferenceType =
+                request.Adjustment.Type == InvoiceAdjustmentType.Replace ? 1 : 2;
+            payload.OrgInvoiceType = 1; // HĐ theo NĐ 123 (hệ thống chỉ phát hành loại này)
+            payload.OrgInvSeries =
+                request.Adjustment.OriginalInvoiceSeries ?? _config.InvoiceSeries;
+            // Mẫu số = ký tự đầu của ký hiệu theo tài liệu MISA (vd 1C24MAA → "1")
+            var series = payload.OrgInvSeries;
+            payload.OrgInvTemplateNo = string.IsNullOrEmpty(series) ? null : series[..1];
+            payload.OrgInvNo = request.Adjustment.OriginalProviderInvoiceNumber;
+            payload.OrgInvDate =
+                request.Adjustment.OriginalInvoiceIssueDate.ToString("yyyy-MM-ddTHH:mm:ssZ");
+        }
+
         return payload;
     }
 

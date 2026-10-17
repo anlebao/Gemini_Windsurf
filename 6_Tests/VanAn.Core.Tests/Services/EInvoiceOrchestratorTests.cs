@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Moq;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.Messaging;
+using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Services.Orchestration;
 using VanAn.Shared.Domain;
 using Xunit;
@@ -453,5 +454,204 @@ public class EInvoiceOrchestratorTests : IDisposable
 
         flags.Should().HaveCount(1);
         flags[0].Value.Should().Be("false");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // W3 (P0.3 — Điều 10 TT 91/2026): AdjustInvoiceAsync + ListInvoicesAsync
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private EInvoiceOrchestrator CreateOrchestratorWithAudit(Mock<IAuditTrailService> auditMock)
+        => new(
+            _policyServiceMock.Object,
+            _retryServiceMock.Object,
+            _fallbackServiceMock.Object,
+            _complianceServiceMock.Object,
+            _webhookServiceMock.Object,
+            _outboxRepositoryMock.Object,
+            _dbContext,
+            auditMock.Object);
+
+    private ElectronicInvoice SeedTaxApprovedInvoice(TenantId tenantId, string providerInvNo = "VT-001")
+    {
+        var invoice = new ElectronicInvoice(
+            tenantId,
+            new OrderId(Guid.NewGuid()),
+            new InvoiceIdempotencyKey(Guid.NewGuid().ToString("N")),
+            InvoiceType.Goods, 100_000m, 10_000m, 110_000m,
+            "Khách A", "0123456789", "Hà Nội");
+        invoice.Submit();
+        invoice.MarkAsSentToProvider(new ProviderId("viettel"));
+        invoice.MarkAsTaxApproved(providerInvNo);
+        invoice.SetInvoiceSeries("1C25TAA");
+        _dbContext.ElectronicInvoices.Add(invoice);
+        _dbContext.SaveChanges();
+        return invoice;
+    }
+
+    [Fact]
+    public async Task AdjustInvoiceAsync_EmptyReason_Throws()
+    {
+        var invoiceId = new ElectronicInvoiceId(Guid.NewGuid());
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            _orchestrator.AdjustInvoiceAsync(
+                invoiceId, InvoiceAdjustmentType.Adjust, "  "));
+    }
+
+    [Fact]
+    public async Task AdjustInvoiceAsync_NotFound_Throws()
+    {
+        var invoiceId = new ElectronicInvoiceId(Guid.NewGuid());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _orchestrator.AdjustInvoiceAsync(
+                invoiceId, InvoiceAdjustmentType.Adjust, "Lý do"));
+    }
+
+    [Fact]
+    public async Task AdjustInvoiceAsync_NotTaxApproved_Throws()
+    {
+        var tenantId = new TenantId(Guid.NewGuid());
+        var draft = new ElectronicInvoice(
+            tenantId, new OrderId(Guid.NewGuid()),
+            new InvoiceIdempotencyKey(Guid.NewGuid().ToString("N")),
+            InvoiceType.Goods, 100_000m, 10_000m, 110_000m,
+            "Khách A", "0123456789", "Hà Nội");
+        _dbContext.ElectronicInvoices.Add(draft);
+        await _dbContext.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _orchestrator.AdjustInvoiceAsync(
+                draft.InvoiceId, InvoiceAdjustmentType.Adjust, "Sai số tiền"));
+    }
+
+    [Fact]
+    public async Task AdjustInvoiceAsync_CreatesLinkedInvoice_MarksOriginal_EnqueuesOutbox()
+    {
+        var tenantId = new TenantId(Guid.NewGuid());
+        var original = SeedTaxApprovedInvoice(tenantId);
+        OutboxEvent? captured = null;
+        _outboxRepositoryMock
+            .Setup(o => o.EnqueueAsync(It.IsAny<OutboxEvent>(), It.IsAny<CancellationToken>()))
+            .Callback<OutboxEvent, CancellationToken>((e, _) => captured = e)
+            .Returns(Task.CompletedTask);
+
+        var newId = await _orchestrator.AdjustInvoiceAsync(
+            original.InvoiceId, InvoiceAdjustmentType.Adjust, "Sai số tiền hàng");
+
+        var created = await _dbContext.ElectronicInvoices
+            .FirstOrDefaultAsync(i => i.InvoiceId == newId);
+        created.Should().NotBeNull();
+        created!.Status.Should().Be(InvoiceStatus.PendingSend);
+        created.OriginalInvoiceId.Should().Be(original.InvoiceId.Value);
+        created.AdjustmentType.Should().Be(InvoiceAdjustmentType.Adjust);
+        created.AdjustmentReason.Should().Be("Sai số tiền hàng");
+        created.OriginalProviderInvoiceNumber.Should().Be("VT-001");
+
+        var refreshedOriginal = await _dbContext.ElectronicInvoices
+            .FirstOrDefaultAsync(i => i.InvoiceId == original.InvoiceId);
+        refreshedOriginal!.Status.Should().Be(InvoiceStatus.Adjusted);
+
+        captured.Should().NotBeNull();
+        captured!.InvoiceId.Value.Should().Be(newId.Value);
+        captured.EventType.Should().Be("InvoiceCreated");
+    }
+
+    [Fact]
+    public async Task AdjustInvoiceAsync_Replace_MarksOriginalReplaced()
+    {
+        var tenantId = new TenantId(Guid.NewGuid());
+        var original = SeedTaxApprovedInvoice(tenantId);
+        _outboxRepositoryMock
+            .Setup(o => o.EnqueueAsync(It.IsAny<OutboxEvent>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var newId = await _orchestrator.AdjustInvoiceAsync(
+            original.InvoiceId, InvoiceAdjustmentType.Replace, "Sai mã số thuế người mua");
+
+        var created = await _dbContext.ElectronicInvoices
+            .FirstOrDefaultAsync(i => i.InvoiceId == newId);
+        created!.AdjustmentType.Should().Be(InvoiceAdjustmentType.Replace);
+
+        var refreshedOriginal = await _dbContext.ElectronicInvoices
+            .FirstOrDefaultAsync(i => i.InvoiceId == original.InvoiceId);
+        refreshedOriginal!.Status.Should().Be(InvoiceStatus.Replaced);
+    }
+
+    [Fact]
+    public async Task AdjustInvoiceAsync_NewData_OverridesOriginalFields()
+    {
+        var tenantId = new TenantId(Guid.NewGuid());
+        var original = SeedTaxApprovedInvoice(tenantId);
+        _outboxRepositoryMock
+            .Setup(o => o.EnqueueAsync(It.IsAny<OutboxEvent>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var newId = await _orchestrator.AdjustInvoiceAsync(
+            original.InvoiceId, InvoiceAdjustmentType.Adjust, "Sai tên khách",
+            new InvoiceAdjustmentData(CustomerName: "Khách B", Amount: 200_000m));
+
+        var created = await _dbContext.ElectronicInvoices
+            .FirstOrDefaultAsync(i => i.InvoiceId == newId);
+        created!.CustomerName.Should().Be("Khách B");
+        created.Amount.Should().Be(200_000m);
+        created.VatAmount.Should().Be(10_000m);        // giữ nguyên
+        created.CustomerTaxCode.Should().Be("0123456789"); // giữ nguyên
+    }
+
+    [Fact]
+    public async Task AdjustInvoiceAsync_LogsCorrectionAudit()
+    {
+        var tenantId = new TenantId(Guid.NewGuid());
+        var original = SeedTaxApprovedInvoice(tenantId);
+        var auditMock = new Mock<IAuditTrailService>();
+        var orchestrator = CreateOrchestratorWithAudit(auditMock);
+        _outboxRepositoryMock
+            .Setup(o => o.EnqueueAsync(It.IsAny<OutboxEvent>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var newId = await orchestrator.AdjustInvoiceAsync(
+            original.InvoiceId, InvoiceAdjustmentType.Replace, "Sai MST");
+
+        auditMock.Verify(a => a.LogInvoiceCorrectionAsync(
+            original.InvoiceId.Value,
+            newId.Value,
+            InvoiceAdjustmentType.Replace.ToString(),
+            "Sai MST",
+            It.IsAny<string?>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task AdjustInvoiceAsync_AlreadyAdjusted_Throws()
+    {
+        var tenantId = new TenantId(Guid.NewGuid());
+        var original = SeedTaxApprovedInvoice(tenantId);
+        _outboxRepositoryMock
+            .Setup(o => o.EnqueueAsync(It.IsAny<OutboxEvent>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        await _orchestrator.AdjustInvoiceAsync(
+            original.InvoiceId, InvoiceAdjustmentType.Adjust, "Lần 1");
+
+        // Lần 2: original đã Adjusted → guard chặn (không tạo trùng hóa đơn điều chỉnh)
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _orchestrator.AdjustInvoiceAsync(
+                original.InvoiceId, InvoiceAdjustmentType.Adjust, "Lần 2"));
+    }
+
+    [Fact]
+    public async Task ListInvoicesAsync_ReturnsOnlyTenantInvoices_NewestFirst()
+    {
+        var tenantA = new TenantId(Guid.NewGuid());
+        var tenantB = new TenantId(Guid.NewGuid());
+        var invA = SeedTaxApprovedInvoice(tenantA, "VT-A");
+        SeedTaxApprovedInvoice(tenantB, "VT-B");
+
+        var list = await _orchestrator.ListInvoicesAsync(tenantA);
+
+        list.Should().HaveCount(1);
+        list[0].InvoiceId.Should().Be(invA.InvoiceId);
+        list[0].ProviderInvoiceNumber.Should().Be("VT-A");
     }
 }

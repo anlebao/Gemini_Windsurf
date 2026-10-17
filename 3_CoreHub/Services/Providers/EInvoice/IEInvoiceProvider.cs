@@ -42,7 +42,9 @@ public record EInvoiceRequest(
     string PaymentType,
     // P0.4 (W2, 2026-10-17 — NĐ 254/2026 + TT 91/2026): additive, default giữ contract cũ.
     string? InvoiceForm = null,
-    bool IsCashierGeneratedInvoice = false
+    bool IsCashierGeneratedInvoice = false,
+    // W3 (P0.3 — Điều 10 TT 91/2026): thông tin điều chỉnh/thay thế. Null = hóa đơn gốc.
+    EInvoiceAdjustmentInfo? Adjustment = null
 )
 {
     /// <summary>
@@ -74,6 +76,25 @@ public static class EInvoiceDataKeys
     /// <summary>InvoiceForm: hóa đơn điện tử khởi tạo từ máy tính tiền.</summary>
     public const string FormMayTinhTien = "mayTinhTien";
 }
+
+/// <summary>
+/// W3 (P0.3 — Điều 10 TT 91/2026, Điều 19 NĐ 254/2026): thông tin hóa đơn điều chỉnh/thay thế.
+/// Cả Viettel (createInvoice + adjustmentType) và MISA (/invoice + ReferenceType/Org*)
+/// đều xử lý điều chỉnh qua CÙNG endpoint tạo hóa đơn — provider tự map từ record này.
+/// </summary>
+public record EInvoiceAdjustmentInfo(
+    /// <summary>Adjust = điều chỉnh · Replace = thay thế.</summary>
+    InvoiceAdjustmentType Type,
+    /// <summary>Số hóa đơn gốc tại provider (Viettel originalInvoiceId / MISA OrgInvNo).</summary>
+    string OriginalProviderInvoiceNumber,
+    /// <summary>Ngày phát hành hóa đơn gốc (Viettel originalInvoiceIssueDate / MISA OrgInvDate).</summary>
+    DateTime OriginalInvoiceIssueDate,
+    /// <summary>Lý do điều chỉnh/thay thế (bắt buộc — Viettel invoiceNote / MISA ghi chú).</summary>
+    string Reason,
+    /// <summary>Ký hiệu hóa đơn gốc (MISA OrgInvSeries). Null → provider fallback config.</summary>
+    string? OriginalInvoiceSeries,
+    /// <summary>Loại điều chỉnh Viettel adjustmentInvoiceType: 1 = tiền, 2 = thông tin. Null → provider tự suy.</summary>
+    int? AdjustmentInvoiceType = null);
 
 /// <summary>
 /// E-Invoice Response - Raw response structure from E-Invoice providers

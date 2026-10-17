@@ -19,6 +19,7 @@ public class EInvoiceOrchestrator : IEInvoiceOrchestrator
     private readonly IWebhookService _webhookService;
     private readonly IOutboxRepository _outboxRepository;
     private readonly VanAnDbContext _dbContext;
+    private readonly IAuditTrailService? _auditTrailService;
 
     public EInvoiceOrchestrator(
         IInvoicePolicyService policyService,
@@ -27,7 +28,8 @@ public class EInvoiceOrchestrator : IEInvoiceOrchestrator
         IComplianceService complianceService,
         IWebhookService webhookService,
         IOutboxRepository outboxRepository,
-        VanAnDbContext dbContext)
+        VanAnDbContext dbContext,
+        IAuditTrailService? auditTrailService = null)
     {
         _policyService = policyService;
         _retryService = retryService;
@@ -36,6 +38,7 @@ public class EInvoiceOrchestrator : IEInvoiceOrchestrator
         _webhookService = webhookService;
         _outboxRepository = outboxRepository;
         _dbContext = dbContext;
+        _auditTrailService = auditTrailService;
     }
 
     public async Task<ElectronicInvoiceId> CreateInvoiceAsync(
@@ -107,6 +110,121 @@ public class EInvoiceOrchestrator : IEInvoiceOrchestrator
             .FirstOrDefaultAsync(i => i.InvoiceId == invoiceId, cancellationToken);
 
         return invoice?.Status;
+    }
+
+    /// <summary>
+    /// W3 (P0.3): list invoices của tenant — mới nhất trước, kèm line items.
+    /// </summary>
+    public async Task<IReadOnlyList<ElectronicInvoice>> ListInvoicesAsync(
+        TenantId tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.ElectronicInvoices
+            .AsNoTracking()
+            .Include(i => i.Items)
+            .Where(i => i.TenantId == tenantId)
+            .OrderByDescending(i => i.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// W3 (P0.3 — Điều 10 TT 91/2026): tạo hóa đơn điều chỉnh/thay thế.
+    /// Guard: chỉ hóa đơn TaxApproved có ProviderInvoiceNumber mới được xử lý sai sót
+    /// (hóa đơn chưa phát hành sửa trực tiếp; hóa đơn hủy theo quy trình riêng — DEFERRED).
+    /// </summary>
+    public async Task<ElectronicInvoiceId> AdjustInvoiceAsync(
+        ElectronicInvoiceId originalInvoiceId,
+        InvoiceAdjustmentType adjustmentType,
+        string reason,
+        InvoiceAdjustmentData? newData = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (originalInvoiceId is null || originalInvoiceId.Value == Guid.Empty)
+            throw new ArgumentException("Original invoice id is required.", nameof(originalInvoiceId));
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new ArgumentException("Adjustment reason is required (Điều 10 TT 91/2026).", nameof(reason));
+
+        var original = await _dbContext.ElectronicInvoices
+            .Include(i => i.Items)
+            .FirstOrDefaultAsync(i => i.InvoiceId == originalInvoiceId, cancellationToken)
+            ?? throw new InvalidOperationException($"Invoice {originalInvoiceId.Value} not found.");
+
+        if (original.Status != InvoiceStatus.TaxApproved)
+            throw new InvalidOperationException(
+                $"Only issued (TaxApproved) invoices can be adjusted/replaced. Current status: {original.Status}.");
+        if (original.ProviderInvoiceNumber is null)
+            throw new InvalidOperationException(
+                "Original invoice has no provider invoice number — cannot adjust an unissued invoice.");
+
+        // Hóa đơn mới kế thừa dữ liệu gốc; field nào có newData thì override.
+        var invoice = new ElectronicInvoice(
+            original.TenantId,
+            original.OrderId,
+            new InvoiceIdempotencyKey(Guid.NewGuid().ToString("N")),
+            original.InvoiceType,
+            newData?.Amount ?? original.Amount,
+            newData?.VatAmount ?? original.VatAmount,
+            newData?.TotalAmount ?? original.TotalAmount,
+            newData?.CustomerName ?? original.CustomerName,
+            newData?.CustomerTaxCode ?? original.CustomerTaxCode,
+            newData?.CustomerAddress ?? original.CustomerAddress);
+
+        invoice.MarkAsAdjustmentOf(original, adjustmentType, reason);
+        invoice.Submit(); // Draft → PendingSend — đi pipeline outbox như hóa đơn thường
+
+        // Copy line items từ hóa đơn gốc (điều chỉnh tiền ở tổng — MVP scope).
+        foreach (var item in original.Items)
+        {
+            var copy = new InvoiceItem(
+                original.TenantId,
+                invoice.InvoiceId,
+                item.ItemCode,
+                item.ItemName,
+                item.Unit,
+                item.Quantity,
+                item.UnitPrice,
+                item.VatRate);
+            invoice.Items.Add(copy);
+        }
+
+        if (adjustmentType == InvoiceAdjustmentType.Replace)
+            original.MarkAsReplaced();
+        else
+            original.MarkAsAdjusted();
+
+        var outboxEvent = new OutboxEvent(
+            original.TenantId,
+            invoice.InvoiceId,
+            "InvoiceCreated",
+            System.Text.Json.JsonSerializer.Serialize(new { invoiceId = invoice.InvoiceId.Value }));
+
+        using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _dbContext.ElectronicInvoices.AddAsync(invoice, cancellationToken);
+            _dbContext.ElectronicInvoices.Update(original);
+            await _outboxRepository.EnqueueAsync(outboxEvent, cancellationToken);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        // Audit Correction — async queue (fire-and-forget), Pattern #31 writer SetTenant per log.
+        if (_auditTrailService is not null)
+        {
+            await _auditTrailService.LogInvoiceCorrectionAsync(
+                original.InvoiceId.Value,
+                invoice.InvoiceId.Value,
+                adjustmentType.ToString(),
+                reason,
+                cancellationToken: cancellationToken);
+        }
+
+        return invoice.InvoiceId;
     }
 
     public async Task SubmitInvoiceAsync(

@@ -3723,6 +3723,13 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                     b.Property<Guid>("InvoiceId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AdjustmentReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int?>("AdjustmentType")
+                        .HasColumnType("integer");
+
                     b.Property<decimal>("Amount")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -3767,6 +3774,10 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("InvoiceSeries")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<int>("InvoiceType")
                         .HasColumnType("integer");
 
@@ -3775,6 +3786,16 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
 
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uuid");
+
+                    b.Property<Guid?>("OriginalInvoiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("OriginalInvoiceIssueDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("OriginalProviderInvoiceNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("ProviderInvoiceNumber")
                         .HasMaxLength(100)

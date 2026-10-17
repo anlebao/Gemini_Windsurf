@@ -484,4 +484,128 @@ public class MisaEInvoiceProviderTests
         result.Success.Should().BeTrue();
         result.ProviderInvoiceNumber.Should().Be("MS-P04");
     }
+
+    // ── TC-M17: W3 (P0.3) — điều chỉnh → ReferenceType=2 + Org* fields ────────
+    // Điều 10 TT 91/2026: điều chỉnh qua CÙNG endpoint phát hành.
+    [Fact]
+    public async Task Submit_Adjustment_PayloadMapsReferenceType2_OrgFields()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.AddResponse("auth/token", HttpMethod.Post,
+            new
+            {
+                Success = true,
+                Data = new { access_token = "misa-token" },
+                ErrorCode = (string?)null
+            });
+        handler.AddResponse("api/integration/invoice", HttpMethod.Post,
+            new
+            {
+                Success = true,
+                Data = new { InvNo = "MS-ADJ", TransactionID = "tx-adj" },
+                ErrorCode = (string?)null
+            });
+
+        var capturingHandler = new CapturingHandler(handler, "api/integration/invoice");
+        var client = new HttpClient(capturingHandler) { BaseAddress = new Uri("https://testapi.meinvoice.vn/") };
+        var provider = new MisaEInvoiceProvider(client, Options.Create(MakeConfig()),
+            NullLogger<MisaEInvoiceProvider>.Instance);
+
+        var request = MakeRequest() with
+        {
+            Adjustment = new EInvoiceAdjustmentInfo(
+                InvoiceAdjustmentType.Adjust,
+                "0001234",
+                new DateTime(2026, 10, 1, 8, 0, 0, DateTimeKind.Utc),
+                "Sai số tiền",
+                "1C25TAA")
+        };
+        var result = await provider.SubmitInvoiceAsync(request);
+
+        result.Success.Should().BeTrue();
+        var payload = capturingHandler.CapturedBody!;
+        payload.Should().Contain("\"ReferenceType\":2");
+        payload.Should().Contain("\"OrgInvoiceType\":1");
+        payload.Should().Contain("\"OrgInvSeries\":\"1C25TAA\"");
+        payload.Should().Contain("\"OrgInvTemplateNo\":\"1\"");
+        payload.Should().Contain("\"OrgInvNo\":\"0001234\"");
+        payload.Should().Contain("\"OrgInvDate\":\"2026-10-01T08:00:00Z\"");
+    }
+
+    // ── TC-M18: W3 (P0.3) — thay thế → ReferenceType=1 ────────────────────────
+    [Fact]
+    public async Task Submit_Replacement_PayloadMapsReferenceType1()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.AddResponse("auth/token", HttpMethod.Post,
+            new
+            {
+                Success = true,
+                Data = new { access_token = "misa-token" },
+                ErrorCode = (string?)null
+            });
+        handler.AddResponse("api/integration/invoice", HttpMethod.Post,
+            new
+            {
+                Success = true,
+                Data = new { InvNo = "MS-REP", TransactionID = "tx-rep" },
+                ErrorCode = (string?)null
+            });
+
+        var capturingHandler = new CapturingHandler(handler, "api/integration/invoice");
+        var client = new HttpClient(capturingHandler) { BaseAddress = new Uri("https://testapi.meinvoice.vn/") };
+        var provider = new MisaEInvoiceProvider(client, Options.Create(MakeConfig()),
+            NullLogger<MisaEInvoiceProvider>.Instance);
+
+        var request = MakeRequest() with
+        {
+            Adjustment = new EInvoiceAdjustmentInfo(
+                InvoiceAdjustmentType.Replace,
+                "0005678",
+                DateTime.UtcNow,
+                "Sai tên người mua",
+                OriginalInvoiceSeries: null) // fallback → _config.InvoiceSeries
+        };
+        var result = await provider.SubmitInvoiceAsync(request);
+
+        result.Success.Should().BeTrue();
+        var payload = capturingHandler.CapturedBody!;
+        payload.Should().Contain("\"ReferenceType\":1");
+        payload.Should().Contain("\"OrgInvSeries\":\"1C25TAA\""); // fallback config
+        payload.Should().Contain("\"OrgInvNo\":\"0005678\"");
+    }
+
+    // ── TC-M19: W3 (P0.3) — hóa đơn gốc → vắng ReferenceType/Org* ─────────────
+    [Fact]
+    public async Task Submit_RootInvoice_PayloadHasNoReferenceType()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.AddResponse("auth/token", HttpMethod.Post,
+            new
+            {
+                Success = true,
+                Data = new { access_token = "misa-token" },
+                ErrorCode = (string?)null
+            });
+        handler.AddResponse("api/integration/invoice", HttpMethod.Post,
+            new
+            {
+                Success = true,
+                Data = new { InvNo = "MS-ROOT", TransactionID = "tx-root" },
+                ErrorCode = (string?)null
+            });
+
+        var capturingHandler = new CapturingHandler(handler, "api/integration/invoice");
+        var client = new HttpClient(capturingHandler) { BaseAddress = new Uri("https://testapi.meinvoice.vn/") };
+        var provider = new MisaEInvoiceProvider(client, Options.Create(MakeConfig()),
+            NullLogger<MisaEInvoiceProvider>.Instance);
+
+        var result = await provider.SubmitInvoiceAsync(MakeRequest());
+
+        result.Success.Should().BeTrue();
+        var payload = capturingHandler.CapturedBody!;
+        payload.Should().NotContain("ReferenceType");
+        payload.Should().NotContain("OrgInvNo");
+        payload.Should().NotContain("OrgInvSeries");
+    }
 }

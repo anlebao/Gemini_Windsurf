@@ -230,7 +230,6 @@ public class ViettelEInvoiceProvider : IEInvoiceProvider
                 InvoiceSeries = _config.SerialNumber,
                 InvoiceDate = epochMs,
                 CurrencyCode = string.IsNullOrWhiteSpace(request.CurrencyCode) ? "VND" : request.CurrencyCode,
-                AdjustmentType = 0, // 0 = original
                 PaymentType = string.IsNullOrWhiteSpace(request.PaymentType) ? "CASH" : request.PaymentType,
                 TransactionUuid = request.TransactionUuid
             },
@@ -252,6 +251,25 @@ public class ViettelEInvoiceProvider : IEInvoiceProvider
                 DiscountAmount = 0m
             }
         };
+
+        // W3 (P0.3 — Điều 10 TT 91/2026): điều chỉnh/thay thế qua CÙNG createInvoice endpoint.
+        // adjustmentType: 1=gốc (default trong DTO), 3=thay thế, 5=điều chỉnh.
+        // adjustmentInvoiceType: 1=điều chỉnh tiền, 2=điều chỉnh thông tin.
+        if (request.Adjustment is not null)
+        {
+            payload.GeneralInvoiceInfo.AdjustmentType =
+                request.Adjustment.Type == InvoiceAdjustmentType.Replace ? 3 : 5;
+            if (request.Adjustment.Type == InvoiceAdjustmentType.Adjust)
+            {
+                payload.GeneralInvoiceInfo.AdjustmentInvoiceType =
+                    request.Adjustment.AdjustmentInvoiceType ?? 2; // default: điều chỉnh thông tin
+            }
+            payload.GeneralInvoiceInfo.OriginalInvoiceId =
+                request.Adjustment.OriginalProviderInvoiceNumber;
+            payload.GeneralInvoiceInfo.OriginalInvoiceIssueDate =
+                new DateTimeOffset(request.Adjustment.OriginalInvoiceIssueDate).ToUnixTimeMilliseconds();
+            payload.GeneralInvoiceInfo.InvoiceNote = request.Adjustment.Reason;
+        }
 
         // Map line items from EInvoiceRequest.LineItems → itemInfo[]
         foreach (var item in request.LineItems)

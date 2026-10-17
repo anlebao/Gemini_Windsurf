@@ -3,6 +3,18 @@ using VanAn.Shared.Domain;
 namespace VanAn.CoreHub.Services.Orchestration;
 
 /// <summary>
+/// W3 (P0.3): dữ liệu mới khi điều chỉnh/thay thế hóa đơn — field null = giữ nguyên giá trị gốc.
+/// Theo Điều 10 TT 91/2026: điều chỉnh thông tin (buyer) hoặc điều chỉnh tiền (amounts).
+/// </summary>
+public record InvoiceAdjustmentData(
+    decimal? Amount = null,
+    decimal? VatAmount = null,
+    decimal? TotalAmount = null,
+    string? CustomerName = null,
+    string? CustomerTaxCode = null,
+    string? CustomerAddress = null);
+
+/// <summary>
 /// IEInvoiceOrchestrator - ONLY coordination, NO business logic
 /// Anti-God Service pattern: Orchestrator delegates to focused services
 /// </summary>
@@ -29,6 +41,27 @@ public interface IEInvoiceOrchestrator
     /// </summary>
     Task<ElectronicInvoice?> GetInvoiceAsync(
         ElectronicInvoiceId invoiceId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// W3 (P0.3): list invoices of a tenant (UI InvoiceManagement — thay placeholder stub).
+    /// </summary>
+    Task<IReadOnlyList<ElectronicInvoice>> ListInvoicesAsync(
+        TenantId tenantId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// W3 (P0.3 — Điều 10 TT 91/2026): tạo hóa đơn điều chỉnh/thay thế cho hóa đơn gốc
+    /// đã phát hành (TaxApproved). Tạo ElectronicInvoice mới linked → outbox → pipeline
+    /// submit như hóa đơn thường (provider nhận adjustmentType/ReferenceType).
+    /// Đồng thời mark hóa đơn gốc Adjusted/Replaced + audit Correction.
+    /// </summary>
+    /// <returns>ElectronicInvoiceId của hóa đơn điều chỉnh/thay thế mới.</returns>
+    Task<ElectronicInvoiceId> AdjustInvoiceAsync(
+        ElectronicInvoiceId originalInvoiceId,
+        InvoiceAdjustmentType adjustmentType,
+        string reason,
+        InvoiceAdjustmentData? newData = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

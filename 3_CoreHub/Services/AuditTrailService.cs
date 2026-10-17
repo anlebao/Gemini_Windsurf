@@ -226,6 +226,42 @@ namespace VanAn.CoreHub.Services
             return await PersistAsync(auditLog, AuditableEntityType.AccountingEntry, cancellationToken);
         }
 
+        /// <summary>
+        /// W3 (P0.3): audit hóa đơn điện tử điều chỉnh/thay thế (Điều 10 TT 91/2026).
+        /// Toggle gate: ElectronicInvoice — nhóm audit mặc định (không phải Accounting).
+        /// </summary>
+        public async Task<AuditLog?> LogInvoiceCorrectionAsync(
+            Guid originalInvoiceId,
+            Guid newInvoiceId,
+            string adjustmentType,
+            string reason,
+            string? correlationId = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (!await IsAuditEnabledAsync(AuditableEntityType.ElectronicInvoice, cancellationToken))
+                return null;
+
+            var tenantId = new TenantId(_tenantProvider.TenantId);
+            var userId = GetCurrentUserId();
+            var userName = GetCurrentUserName();
+
+            _logger.LogInformation(
+                "Logging INVOICE CORRECTION {Type} for invoice {Original} -> {New} by user {UserId}. Reason: {Reason}",
+                adjustmentType, originalInvoiceId, newInvoiceId, userId, reason);
+
+            var auditLog = AuditLog.ForInvoiceCorrection(
+                tenantId,
+                originalInvoiceId,
+                newInvoiceId,
+                adjustmentType,
+                reason,
+                userId,
+                userName,
+                correlationId);
+
+            return await PersistAsync(auditLog, AuditableEntityType.ElectronicInvoice, cancellationToken);
+        }
+
         public async Task<AuditLog?> LogReversalAsync(
             Guid originalEntryId,
             Guid reversalEntryId,

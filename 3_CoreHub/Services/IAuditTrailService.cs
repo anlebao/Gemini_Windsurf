@@ -71,6 +71,19 @@ namespace VanAn.CoreHub.Services
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// W3 (P0.3): Log e-invoice adjustment/replacement (Điều 10 TT 91/2026).
+        /// EntityType = ElectronicInvoice, EntityId = original invoice.
+        /// Returns null when audit toggle is OFF.
+        /// </summary>
+        Task<AuditLog?> LogInvoiceCorrectionAsync(
+            Guid originalInvoiceId,
+            Guid newInvoiceId,
+            string adjustmentType,
+            string reason,
+            string? correlationId = null,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Log reversal entry. Returns null when audit toggle is OFF (Sprint 3 EXPANDED).
         /// </summary>
         Task<AuditLog?> LogReversalAsync(

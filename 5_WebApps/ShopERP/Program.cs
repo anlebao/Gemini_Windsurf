@@ -385,6 +385,33 @@ namespace VanAn.ShopERP
                             ? builder.Configuration["ViettelConfig:TaxCode"] ?? string.Empty
                             : builder.Configuration["MisaConfig:CompanyCode"] ?? string.Empty;
 
+                        // W3 (P0.3 — Điều 10 TT 91/2026): map adjustment info từ entity.
+                        EInvoiceAdjustmentInfo? adjustmentInfo = null;
+                        if (invoice.AdjustmentType is not null)
+                        {
+                            int? adjInvType = null;
+                            if (invoice.AdjustmentType == InvoiceAdjustmentType.Adjust
+                                && invoice.OriginalInvoiceId is Guid origId)
+                            {
+                                var orig = await db.ElectronicInvoices.AsNoTracking()
+                                    .FirstOrDefaultAsync(
+                                        i => i.InvoiceId == new VanAn.Shared.Domain.ElectronicInvoiceId(origId), ct);
+                                if (orig is not null)
+                                {
+                                    adjInvType = orig.TotalAmount != invoice.TotalAmount
+                                        || orig.VatAmount != invoice.VatAmount
+                                        || orig.Amount != invoice.Amount ? 1 : 2;
+                                }
+                            }
+                            adjustmentInfo = new EInvoiceAdjustmentInfo(
+                                invoice.AdjustmentType.Value,
+                                invoice.OriginalProviderInvoiceNumber ?? string.Empty,
+                                invoice.OriginalInvoiceIssueDate ?? invoice.CreatedAt,
+                                invoice.AdjustmentReason ?? string.Empty,
+                                invoice.InvoiceSeries,
+                                adjInvType);
+                        }
+
                         var request  = new EInvoiceRequest(
                             invoice.TenantId, invoice.InvoiceId, invoice.OrderId, invoice.InvoiceType,
                             invoice.Amount, invoice.VatAmount, invoice.TotalAmount,
@@ -397,11 +424,23 @@ namespace VanAn.ShopERP
                             builder.Configuration["EInvoiceConfig:InvoiceForm"]
                                 ?? EInvoiceDataKeys.FormKhongMa,
                             bool.TryParse(builder.Configuration["EInvoiceConfig:IsCashierGeneratedInvoice"], out bool cashier)
-                                && cashier);
+                                && cashier,
+                            Adjustment: adjustmentInfo);
 
                         var response = await provider.SubmitInvoiceAsync(request, ct);
                         if (response.Success)
+                        {
                             breaker.RecordSuccess(providerId);
+                            // W3 (P0.3): fix pipeline gap — mark SentToProvider + snapshot series
+                            if (invoice.Status == VanAn.Shared.Domain.InvoiceStatus.PendingSend)
+                            {
+                                invoice.MarkAsSentToProvider(new VanAn.Shared.Domain.ProviderId(providerId));
+                                invoice.SetInvoiceSeries(providerId == "viettel"
+                                    ? builder.Configuration["ViettelConfig:SerialNumber"]
+                                    : builder.Configuration["MisaConfig:InvoiceSeries"]);
+                                await db.SaveChangesAsync(ct);
+                            }
+                        }
                         else
                         {
                             breaker.RecordFailure(providerId);

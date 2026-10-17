@@ -87,8 +87,32 @@ public class ViettelGeneralInvoiceInfo
     [JsonPropertyName("currencyCode")]
     public string CurrencyCode { get; set; } = "VND";
 
+    /// <summary>
+    /// Trạng thái điều chỉnh hóa đơn (Viettel spec): 1 = hóa đơn gốc, 3 = thay thế, 5 = điều chỉnh.
+    /// W3 (P0.3): sửa default 0 → 1 theo spec; 3/5 khi request.Adjustment != null.
+    /// </summary>
     [JsonPropertyName("adjustmentType")]
-    public int AdjustmentType { get; set; } = 0; // 0 = original, 1 = replacement, 3 = cancellation
+    public int AdjustmentType { get; set; } = 1;
+
+    /// <summary>W3 (P0.3): loại điều chỉnh khi adjustmentType=5 — 1 = điều chỉnh tiền, 2 = điều chỉnh thông tin.</summary>
+    [JsonPropertyName("adjustmentInvoiceType")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? AdjustmentInvoiceType { get; set; }
+
+    /// <summary>W3 (P0.3): số hóa đơn gốc (bắt buộc khi thay thế/điều chỉnh).</summary>
+    [JsonPropertyName("originalInvoiceId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OriginalInvoiceId { get; set; }
+
+    /// <summary>W3 (P0.3): ngày lập hóa đơn gốc — epoch milliseconds.</summary>
+    [JsonPropertyName("originalInvoiceIssueDate")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? OriginalInvoiceIssueDate { get; set; }
+
+    /// <summary>W3 (P0.3): diễn giải điều chỉnh/thay thế (lý do).</summary>
+    [JsonPropertyName("invoiceNote")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? InvoiceNote { get; set; }
 
     [JsonPropertyName("paymentType")]
     public string PaymentType { get; set; } = "CASH";

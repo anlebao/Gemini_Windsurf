@@ -7,7 +7,6 @@
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Models
 @using VanAn.Shared.Domain.Common
-@using VanAn.ShopERP.EInvoice.Dtos
 @using VanAn.CoreHub.Services.Orchestration
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
@@ -53,8 +52,11 @@
                     <option value="Draft">Nháp</option>
                     <option value="PendingSend">Đang Gửi</option>
                     <option value="SentToProvider">Đã Gửi</option>
-                    <option value="Approved">Đã Duyệt</option>
+                    <option value="TaxApproved">Đã Phát Hành</option>
+                    <option value="Failed">Thất Bại</option>
                     <option value="Rejected">Bị Từ Chối</option>
+                    <option value="Adjusted">Đã Điều Chỉnh</option>
+                    <option value="Replaced">Đã Thay Thế</option>
                 </select>
             </div>
         </VanACard>
@@ -75,6 +77,7 @@
                     <thead>
                         <tr>
                             <th>Ngày Tạo</th>
+                            <th>Số HĐ</th>
                             <th>Khách Hàng</th>
                             <th>Tổng Tiền</th>
                             <th>Loại</th>
@@ -88,26 +91,50 @@
                         {
                             <tr>
                                 <td>@inv.CreatedAt.ToString("dd/MM/yyyy")</td>
+                                <td data-testid="invoice-number">@(inv.ProviderInvoiceNumber ?? "—")</td>
                                 <td><span data-testid="invoice-customer">@inv.CustomerName</span></td>
                                 <td>@inv.TotalAmount.ToString("N0") ₫</td>
-                                <td>@inv.InvoiceType</td>
                                 <td>
-                                    <span class="badge @GetInvoiceStatusClass(inv.Status)" data-testid="invoice-status">
-                                        @GetInvoiceStatusLabel(inv.Status)
+                                    @inv.InvoiceType
+                                    @if (inv.AdjustmentType == InvoiceAdjustmentType.Adjust)
+                                    {
+                                        <span class="badge badge-info" data-testid="badge-adjusted-invoice">ĐC</span>
+                                    }
+                                    else if (inv.AdjustmentType == InvoiceAdjustmentType.Replace)
+                                    {
+                                        <span class="badge badge-info" data-testid="badge-replaced-invoice">TT</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="badge @GetInvoiceStatusClass(inv.Status.ToString())" data-testid="invoice-status">
+                                        @GetInvoiceStatusLabel(inv.Status.ToString())
                                     </span>
                                 </td>
-                                <td>@(inv.CurrentProvider ?? "—")</td>
+                                <td>@(inv.CurrentProvider?.Value ?? "—")</td>
                                 <td>
-                                    @if (inv.Status == "Draft")
+                                    @if (inv.Status == InvoiceStatus.Draft)
                                     {
                                         <VanAButton Variant="primary" Size="small"
-                                            OnClick="() => SubmitInvoice(inv.InvoiceId)"
+                                            OnClick="() => SubmitInvoice(inv.InvoiceId.Value)"
                                             data-testid="btn-submit">
                                             Gửi
                                         </VanAButton>
                                     }
+                                    @if (inv.Status == InvoiceStatus.TaxApproved)
+                                    {
+                                        <VanAButton Variant="secondary" Size="small"
+                                            OnClick="() => ShowAdjustModal(inv.InvoiceId.Value, InvoiceAdjustmentType.Adjust)"
+                                            data-testid="btn-adjust-invoice">
+                                            Điều Chỉnh
+                                        </VanAButton>
+                                        <VanAButton Variant="secondary" Size="small"
+                                            OnClick="() => ShowAdjustModal(inv.InvoiceId.Value, InvoiceAdjustmentType.Replace)"
+                                            data-testid="btn-replace-invoice">
+                                            Thay Thế
+                                        </VanAButton>
+                                    }
                                     <VanAButton Variant="secondary" Size="small"
-                                        OnClick="() => ViewInvoice(inv.InvoiceId)">
+                                        OnClick="() => ViewInvoice(inv.InvoiceId.Value)">
                                         Chi Tiết
                                     </VanAButton>
                                 </td>
@@ -123,51 +150,107 @@
     @if (showCreateModal)
     {
         <VanAModal Title="Tạo Hóa Đơn Điện Tử" IsVisible="true" OnClose="CloseCreateModal">
-            <div class="form-group">
-                <label>Mã Đơn Hàng:</label>
-                <input class="form-control" @bind="CreateModel.OrderId"
-                       placeholder="Mã đơn hàng" data-testid="input-order-id" />
-            </div>
-            <div class="form-group">
-                <label>Tên Khách Hàng:</label>
-                <input class="form-control" @bind="CreateModel.CustomerName"
-                       placeholder="Tên khách hàng" data-testid="input-customer-name" />
-            </div>
-            <div class="form-group">
-                <label>Mã Số Thuế Khách Hàng:</label>
-                <input class="form-control" @bind="CreateModel.CustomerTaxCode"
-                       placeholder="Mã số thuế" data-testid="input-tax-code" />
-            </div>
-            <div class="form-group">
-                <label>Địa Chỉ Khách Hàng:</label>
-                <input class="form-control" @bind="CreateModel.CustomerAddress"
-                       placeholder="Địa chỉ" data-testid="input-address" />
-            </div>
-            <div class="form-group">
-                <label>Số Tiền (chưa VAT):</label>
-                <input class="form-control" @bind="CreateModel.AmountText"
-                       placeholder="0" data-testid="input-amount" />
-            </div>
-            <div class="form-group">
-                <label>Tiền VAT:</label>
-                <input class="form-control" @bind="CreateModel.VatAmountText"
-                       placeholder="0" data-testid="input-vat" />
-            </div>
-            <div class="form-group">
-                <label>Loại Hóa Đơn:</label>
-                <select class="form-select" @bind="CreateModel.InvoiceType" data-testid="select-invoice-type">
-                    <option value="Goods">Hàng Hóa</option>
-                    <option value="Services">Dịch Vụ</option>
-                    <option value="HKD">Hộ Kinh Doanh</option>
-                    <option value="Mixed">Hỗn Hợp</option>
-                </select>
-            </div>
-            <div class="form-actions">
-                <VanAButton Variant="primary" OnClick="CreateInvoice" data-testid="btn-confirm-create">
-                    Tạo Hóa Đơn
-                </VanAButton>
-                <VanAButton Variant="secondary" OnClick="CloseCreateModal">Hủy</VanAButton>
-            </div>
+            <Body>
+                <div class="form-group">
+                    <label>Mã Đơn Hàng:</label>
+                    <input class="form-control" @bind="CreateModel.OrderId"
+                           placeholder="Mã đơn hàng" data-testid="input-order-id" />
+                </div>
+                <div class="form-group">
+                    <label>Tên Khách Hàng:</label>
+                    <input class="form-control" @bind="CreateModel.CustomerName"
+                           placeholder="Tên khách hàng" data-testid="input-customer-name" />
+                </div>
+                <div class="form-group">
+                    <label>Mã Số Thuế Khách Hàng:</label>
+                    <input class="form-control" @bind="CreateModel.CustomerTaxCode"
+                           placeholder="Mã số thuế" data-testid="input-tax-code" />
+                </div>
+                <div class="form-group">
+                    <label>Địa Chỉ Khách Hàng:</label>
+                    <input class="form-control" @bind="CreateModel.CustomerAddress"
+                           placeholder="Địa chỉ" data-testid="input-address" />
+                </div>
+                <div class="form-group">
+                    <label>Số Tiền (chưa VAT):</label>
+                    <input class="form-control" @bind="CreateModel.AmountText"
+                           placeholder="0" data-testid="input-amount" />
+                </div>
+                <div class="form-group">
+                    <label>Tiền VAT:</label>
+                    <input class="form-control" @bind="CreateModel.VatAmountText"
+                           placeholder="0" data-testid="input-vat" />
+                </div>
+                <div class="form-group">
+                    <label>Loại Hóa Đơn:</label>
+                    <select class="form-select" @bind="CreateModel.InvoiceType" data-testid="select-invoice-type">
+                        <option value="Goods">Hàng Hóa</option>
+                        <option value="Services">Dịch Vụ</option>
+                        <option value="HKD">Hộ Kinh Doanh</option>
+                        <option value="Mixed">Hỗn Hợp</option>
+                    </select>
+                </div>
+            </Body>
+            <Footer>
+                <div class="form-actions">
+                    <VanAButton Variant="primary" OnClick="CreateInvoice" data-testid="btn-confirm-create">
+                        Tạo Hóa Đơn
+                    </VanAButton>
+                    <VanAButton Variant="secondary" OnClick="CloseCreateModal">Hủy</VanAButton>
+                </div>
+            </Footer>
+        </VanAModal>
+    }
+
+    <!-- W3 (P0.3): Modal Điều Chỉnh / Thay Thế — Điều 10 TT 91/2026 -->
+    @if (showAdjustModal)
+    {
+        <VanAModal Title="@(adjustType == InvoiceAdjustmentType.Replace ? "Thay Thế Hóa Đơn" : "Điều Chỉnh Hóa Đơn")"
+                   IsVisible="true" OnClose="CloseAdjustModal">
+            <Body>
+                <div data-testid="adjust-modal">
+                    <VanAAlert Variant="info"
+                        Message="@($"Hóa đơn gốc: {adjustInvoiceNo}. Lý do bắt buộc (Điều 10 TT 91/2026). Người bán kê khai ở kỳ phát sinh hóa đơn {(adjustType == InvoiceAdjustmentType.Replace ? "thay thế" : "điều chỉnh")}; người mua kê khai ở kỳ nhận được hóa đơn.")"
+                        data-testid="adjust-legal-note" />
+                    <div class="form-group">
+                        <label>Lý do @(adjustType == InvoiceAdjustmentType.Replace ? "thay thế" : "điều chỉnh") *:</label>
+                        <textarea class="form-control" rows="2" @bind="adjustReason" data-testid="adjust-reason-input"
+                            placeholder="VD: Sai mã số thuế người mua / Sai số tiền..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Tên khách hàng (để trống = giữ nguyên):</label>
+                        <input class="form-control" @bind="adjustCustomerName" data-testid="adjust-customer-name" />
+                    </div>
+                    <div class="form-group">
+                        <label>Mã số thuế khách hàng (để trống = giữ nguyên):</label>
+                        <input class="form-control" @bind="adjustCustomerTax" data-testid="adjust-customer-tax" />
+                    </div>
+                    <div class="form-group">
+                        <label>Địa chỉ khách hàng (để trống = giữ nguyên):</label>
+                        <input class="form-control" @bind="adjustCustomerAddress" data-testid="adjust-customer-address" />
+                    </div>
+                    <div class="form-group">
+                        <label>Số tiền chưa VAT (để trống = giữ nguyên):</label>
+                        <input class="form-control" @bind="adjustAmount" data-testid="adjust-amount" placeholder="VD: 1000000" />
+                    </div>
+                    <div class="form-group">
+                        <label>Tiền VAT (để trống = giữ nguyên):</label>
+                        <input class="form-control" @bind="adjustVatAmount" data-testid="adjust-vat-amount" />
+                    </div>
+                    <div class="form-group">
+                        <label>Tổng thanh toán (để trống = giữ nguyên):</label>
+                        <input class="form-control" @bind="adjustTotalAmount" data-testid="adjust-total-amount" />
+                    </div>
+                </div>
+            </Body>
+            <Footer>
+                <div class="form-actions">
+                    <VanAButton Variant="primary" OnClick="ConfirmAdjust" Disabled="adjustSaving" data-testid="confirm-adjust">
+                        @(adjustSaving ? "Đang xử lý..." : "Xác Nhận")
+                    </VanAButton>
+                    <VanAButton Variant="secondary" OnClick="CloseAdjustModal">Hủy</VanAButton>
+                </div>
+            </Footer>
         </VanAModal>
     }
 </div>
@@ -175,14 +258,26 @@
 @code {
     private bool isLoading = false;
     private bool showCreateModal = false;
+    private bool showAdjustModal = false;
+    private bool adjustSaving = false;
+    private Guid adjustInvoiceId;
+    private string adjustInvoiceNo = string.Empty;
+    private InvoiceAdjustmentType adjustType = InvoiceAdjustmentType.Adjust;
+    private string adjustReason = string.Empty;
+    private string adjustCustomerName = string.Empty;
+    private string adjustCustomerTax = string.Empty;
+    private string adjustCustomerAddress = string.Empty;
+    private string adjustAmount = string.Empty;
+    private string adjustVatAmount = string.Empty;
+    private string adjustTotalAmount = string.Empty;
     private string successMessage = string.Empty;
     private string errorMessage = string.Empty;
     private string statusFilter = string.Empty;
-    private List<InvoiceDto> Invoices = new();
+    private List<ElectronicInvoice> Invoices = new();
 
-    private List<InvoiceDto> FilteredInvoices => string.IsNullOrEmpty(statusFilter)
+    private List<ElectronicInvoice> FilteredInvoices => string.IsNullOrEmpty(statusFilter)
         ? Invoices
-        : Invoices.Where(i => i.Status == statusFilter).ToList();
+        : Invoices.Where(i => i.Status.ToString() == statusFilter).ToList();
 
     private CreateInvoiceFormModel CreateModel = new();
 
@@ -215,8 +310,8 @@
         isLoading = true;
         try
         {
-            // Placeholder: will call list endpoint when added to IEInvoiceOrchestrator
-            Invoices = new List<InvoiceDto>();
+            Invoices = (await EInvoiceOrchestrator.ListInvoicesAsync(
+                new TenantId(TenantProvider.TenantId))).ToList();
         }
         catch (Exception ex)
         {
@@ -233,7 +328,7 @@
     {
         if (filterValue == "EMPTY")
         {
-            Invoices = new List<InvoiceDto>();
+            Invoices = new List<ElectronicInvoice>();
             StateHasChanged();
             return;
         }
@@ -316,14 +411,86 @@
 
     private void CloseCreateModal() => showCreateModal = false;
 
+    private void ShowAdjustModal(Guid invoiceId, InvoiceAdjustmentType type)
+    {
+        var inv = Invoices.FirstOrDefault(i => i.InvoiceId.Value == invoiceId);
+        adjustInvoiceId = invoiceId;
+        adjustInvoiceNo = inv?.ProviderInvoiceNumber ?? invoiceId.ToString()[..8];
+        adjustType = type;
+        adjustReason = string.Empty;
+        adjustCustomerName = string.Empty;
+        adjustCustomerTax = string.Empty;
+        adjustCustomerAddress = string.Empty;
+        adjustAmount = string.Empty;
+        adjustVatAmount = string.Empty;
+        adjustTotalAmount = string.Empty;
+        successMessage = string.Empty;
+        errorMessage = string.Empty;
+        showAdjustModal = true;
+    }
+
+    private void CloseAdjustModal() => showAdjustModal = false;
+
+    private async Task ConfirmAdjust()
+    {
+        if (string.IsNullOrWhiteSpace(adjustReason))
+        {
+            errorMessage = "Lý do điều chỉnh/thay thế là bắt buộc (Điều 10 TT 91/2026).";
+            return;
+        }
+
+        // Parse optional new-data fields — để trống = giữ nguyên giá trị gốc.
+        if (!string.IsNullOrWhiteSpace(adjustAmount) && !decimal.TryParse(adjustAmount, out _))
+        { errorMessage = "Số tiền chưa VAT không hợp lệ."; return; }
+        if (!string.IsNullOrWhiteSpace(adjustVatAmount) && !decimal.TryParse(adjustVatAmount, out _))
+        { errorMessage = "Tiền VAT không hợp lệ."; return; }
+        if (!string.IsNullOrWhiteSpace(adjustTotalAmount) && !decimal.TryParse(adjustTotalAmount, out _))
+        { errorMessage = "Tổng thanh toán không hợp lệ."; return; }
+
+        var newData = new InvoiceAdjustmentData(
+            Amount: decimal.TryParse(adjustAmount, out var amt) ? amt : null,
+            VatAmount: decimal.TryParse(adjustVatAmount, out var vat) ? vat : null,
+            TotalAmount: decimal.TryParse(adjustTotalAmount, out var tot) ? tot : null,
+            CustomerName: string.IsNullOrWhiteSpace(adjustCustomerName) ? null : adjustCustomerName,
+            CustomerTaxCode: string.IsNullOrWhiteSpace(adjustCustomerTax) ? null : adjustCustomerTax,
+            CustomerAddress: string.IsNullOrWhiteSpace(adjustCustomerAddress) ? null : adjustCustomerAddress);
+
+        adjustSaving = true;
+        try
+        {
+            await EInvoiceOrchestrator.AdjustInvoiceAsync(
+                new ElectronicInvoiceId(adjustInvoiceId),
+                adjustType,
+                adjustReason,
+                newData);
+
+            successMessage = adjustType == InvoiceAdjustmentType.Replace
+                ? "Đã tạo hóa đơn thay thế — đang gửi sang nhà cung cấp."
+                : "Đã tạo hóa đơn điều chỉnh — đang gửi sang nhà cung cấp.";
+            errorMessage = string.Empty;
+            CloseAdjustModal();
+            await LoadInvoices();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error adjusting invoice {InvoiceId}", adjustInvoiceId);
+            errorMessage = $"Tạo hóa đơn {(adjustType == InvoiceAdjustmentType.Replace ? "thay thế" : "điều chỉnh")} thất bại: {ex.Message}";
+        }
+        finally
+        {
+            adjustSaving = false;
+        }
+    }
+
     private void HandleStatusFilter(ChangeEventArgs e) =>
         statusFilter = e.Value?.ToString() ?? string.Empty;
 
     private static string GetInvoiceStatusClass(string status) => status switch
     {
-        "Approved" => "badge-success",
+        "TaxApproved" => "badge-success",
+        "Adjusted" or "Replaced" => "badge-info",
         "SentToProvider" or "PendingSend" => "badge-warning",
-        "Rejected" => "badge-danger",
+        "Rejected" or "Failed" => "badge-danger",
         _ => "badge-secondary"
     };
 
@@ -332,8 +499,11 @@
         "Draft" => "Nháp",
         "PendingSend" => "Đang Gửi",
         "SentToProvider" => "Đã Gửi",
-        "Approved" => "Đã Duyệt",
+        "TaxApproved" => "Đã Phát Hành",
+        "Failed" => "Thất Bại",
         "Rejected" => "Bị Từ Chối",
+        "Adjusted" => "Đã Điều Chỉnh",
+        "Replaced" => "Đã Thay Thế",
         _ => status
     };
 

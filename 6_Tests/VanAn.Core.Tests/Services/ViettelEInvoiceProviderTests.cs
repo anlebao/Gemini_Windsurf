@@ -450,6 +450,102 @@ public class ViettelEInvoiceProviderTests
         payload.Should().NotContain("invoiceForm");
         payload.Should().NotContain("isCashierInvoice");
     }
+
+    // ── TC-V18: W3 (P0.3) — điều chỉnh → adjustmentType=5 + originalInvoiceId ──
+    // Điều 10 TT 91/2026: điều chỉnh qua CÙNG createInvoice endpoint.
+    [Fact]
+    public async Task Submit_Adjustment_PayloadMapsAdjustmentFields()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.AddResponse("auth/login", HttpMethod.Post,
+            new { access_token = "vt-token" });
+        handler.AddResponse("createInvoice", HttpMethod.Post,
+            new { errorCode = "0", result = new { invoiceNo = "VT-ADJ" } });
+
+        var capturingHandler = new CapturingHandler(handler, "createInvoice");
+        var client = new HttpClient(capturingHandler) { BaseAddress = new Uri("https://vinvoice.viettel.vn/") };
+        var provider = new ViettelEInvoiceProvider(client, Options.Create(MakeConfig()),
+            NullLogger<ViettelEInvoiceProvider>.Instance);
+
+        var issueDate = new DateTime(2026, 10, 1, 8, 0, 0, DateTimeKind.Utc);
+        var request = MakeRequest() with
+        {
+            Adjustment = new EInvoiceAdjustmentInfo(
+                InvoiceAdjustmentType.Adjust,
+                "VT-ORIG-001",
+                issueDate,
+                "Sai ma so thue nguoi mua", // ASCII — System.Text.Json escape unicode thành \uXXXX
+                "1C25TAA",
+                AdjustmentInvoiceType: 2)
+        };
+        var result = await provider.SubmitInvoiceAsync(request);
+
+        result.Success.Should().BeTrue();
+        var payload = capturingHandler.CapturedBody!;
+        payload.Should().Contain("\"adjustmentType\":5");
+        payload.Should().Contain("\"adjustmentInvoiceType\":2");
+        payload.Should().Contain("\"originalInvoiceId\":\"VT-ORIG-001\"");
+        payload.Should().Contain("originalInvoiceIssueDate");
+        payload.Should().Contain("\"invoiceNote\":\"Sai ma so thue nguoi mua\"");
+    }
+
+    // ── TC-V19: W3 (P0.3) — thay thế → adjustmentType=3, KHÔNG adjustmentInvoiceType ──
+    [Fact]
+    public async Task Submit_Replacement_PayloadMapsAdjustmentType3()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.AddResponse("auth/login", HttpMethod.Post,
+            new { access_token = "vt-token" });
+        handler.AddResponse("createInvoice", HttpMethod.Post,
+            new { errorCode = "0", result = new { invoiceNo = "VT-REP" } });
+
+        var capturingHandler = new CapturingHandler(handler, "createInvoice");
+        var client = new HttpClient(capturingHandler) { BaseAddress = new Uri("https://vinvoice.viettel.vn/") };
+        var provider = new ViettelEInvoiceProvider(client, Options.Create(MakeConfig()),
+            NullLogger<ViettelEInvoiceProvider>.Instance);
+
+        var request = MakeRequest() with
+        {
+            Adjustment = new EInvoiceAdjustmentInfo(
+                InvoiceAdjustmentType.Replace,
+                "VT-ORIG-002",
+                DateTime.UtcNow,
+                "Hóa đơn sai tên người mua",
+                "1C25TAA")
+        };
+        var result = await provider.SubmitInvoiceAsync(request);
+
+        result.Success.Should().BeTrue();
+        var payload = capturingHandler.CapturedBody!;
+        payload.Should().Contain("\"adjustmentType\":3");
+        payload.Should().NotContain("adjustmentInvoiceType");
+        payload.Should().Contain("\"originalInvoiceId\":\"VT-ORIG-002\"");
+    }
+
+    // ── TC-V20: W3 (P0.3) — hóa đơn gốc → adjustmentType=1 (spec), vắng trường gốc ──
+    [Fact]
+    public async Task Submit_RootInvoice_AdjustmentTypeIs1_NoOriginalFields()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.AddResponse("auth/login", HttpMethod.Post,
+            new { access_token = "vt-token" });
+        handler.AddResponse("createInvoice", HttpMethod.Post,
+            new { errorCode = "0", result = new { invoiceNo = "VT-ROOT" } });
+
+        var capturingHandler = new CapturingHandler(handler, "createInvoice");
+        var client = new HttpClient(capturingHandler) { BaseAddress = new Uri("https://vinvoice.viettel.vn/") };
+        var provider = new ViettelEInvoiceProvider(client, Options.Create(MakeConfig()),
+            NullLogger<ViettelEInvoiceProvider>.Instance);
+
+        var result = await provider.SubmitInvoiceAsync(MakeRequest());
+
+        result.Success.Should().BeTrue();
+        var payload = capturingHandler.CapturedBody!;
+        payload.Should().Contain("\"adjustmentType\":1");
+        payload.Should().NotContain("originalInvoiceId");
+        payload.Should().NotContain("originalInvoiceIssueDate");
+        payload.Should().NotContain("invoiceNote");
+    }
 }
 
 /// <summary>

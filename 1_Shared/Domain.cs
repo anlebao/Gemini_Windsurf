@@ -3436,7 +3436,19 @@ namespace VanAn.Shared.Domain
         SentToProvider = 3,   // Submitted, waiting for callback
         TaxApproved = 4,      // Approved by tax authority
         Failed = 5,          // Submission failed
-        Rejected = 6          // Rejected by tax authority
+        Rejected = 6,        // Rejected by tax authority
+        Adjusted = 7,        // W3 (P0.3): hóa đơn gốc đã bị điều chỉnh bởi hóa đơn mới (Điều 10 TT 91/2026)
+        Replaced = 8         // W3 (P0.3): hóa đơn gốc đã bị thay thế bởi hóa đơn mới (Điều 19 NĐ 254/2026)
+    }
+
+    /// <summary>
+    /// Invoice Adjustment Type - Loại xử lý hóa đơn sai sót (W3 — P0.3).
+    /// Adjust = điều chỉnh (sai tiền/thuế suất/diễn giải), Replace = thay thế (sai MST/tên/địa chỉ).
+    /// </summary>
+    public enum InvoiceAdjustmentType
+    {
+        Adjust = 1,
+        Replace = 2
     }
 
     /// <summary>
@@ -3527,6 +3539,22 @@ namespace VanAn.Shared.Domain
         public DateTime? ApprovedAt { get; protected set; }
         public string? ProviderInvoiceNumber { get; protected set; }
         public string? FailureReason { get; protected set; }
+
+        // ── W3 (P0.3) — HĐĐT điều chỉnh/thay thế (Điều 10 TT 91/2026, Điều 19 NĐ 254/2026) ──
+        // Trên hóa đơn ĐIỀU CHỈNH/THAY THẾ (mới): 4 trường linkage + reason.
+        // Trên hóa đơn GỐC: Status chuyển Adjusted/Replaced qua MarkAsAdjusted/MarkAsReplaced.
+        /// <summary>Ký hiệu hóa đơn (series) tại provider — snapshot khi submit thành công (MISA OrgInvSeries).</summary>
+        public string? InvoiceSeries { get; protected set; }
+        /// <summary>InvoiceId của hóa đơn gốc mà hóa đơn này điều chỉnh/thay thế (null = hóa đơn gốc).</summary>
+        public Guid? OriginalInvoiceId { get; protected set; }
+        /// <summary>Loại xử lý: Adjust (điều chỉnh) / Replace (thay thế). Null = hóa đơn gốc.</summary>
+        public InvoiceAdjustmentType? AdjustmentType { get; protected set; }
+        /// <summary>Lý do điều chỉnh/thay thế (bắt buộc theo TT 91/2026).</summary>
+        public string? AdjustmentReason { get; protected set; }
+        /// <summary>Số hóa đơn của hóa đơn gốc tại provider (Viettel originalInvoiceId / MISA OrgInvNo).</summary>
+        public string? OriginalProviderInvoiceNumber { get; protected set; }
+        /// <summary>Ngày phát hành hóa đơn gốc (Viettel originalInvoiceIssueDate / MISA OrgInvDate).</summary>
+        public DateTime? OriginalInvoiceIssueDate { get; protected set; }
 
         // Navigation (read-only)
         public virtual ICollection<SubmitAttempt> SubmitAttempts { get; protected set; } = new List<SubmitAttempt>();
@@ -3623,6 +3651,64 @@ namespace VanAn.Shared.Domain
 
             Status = InvoiceStatus.Rejected;
             FailureReason = rejectionReason;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// W3 (P0.3): Snapshot ký hiệu hóa đơn (series) tại provider khi submit thành công.
+        /// Gọi từ submit pipeline sau khi provider trả kết quả — phục vụ MISA OrgInvSeries khi điều chỉnh.
+        /// </summary>
+        public void SetInvoiceSeries(string? invoiceSeries)
+        {
+            if (!string.IsNullOrWhiteSpace(invoiceSeries))
+            {
+                InvoiceSeries = invoiceSeries;
+                UpdateAudit();
+            }
+        }
+
+        /// <summary>
+        /// W3 (P0.3): Đánh dấu hóa đơn này là hóa đơn điều chỉnh/thay thế của hóa đơn gốc.
+        /// Gọi ngay sau khi tạo (Status còn Draft/PendingSend).
+        /// </summary>
+        public void MarkAsAdjustmentOf(ElectronicInvoice original, InvoiceAdjustmentType adjustmentType, string reason)
+        {
+            ArgumentNullException.ThrowIfNull(original);
+            if (string.IsNullOrWhiteSpace(reason))
+                throw new ArgumentException("Adjustment reason is required (Điều 10 TT 91/2026).", nameof(reason));
+            if (original.ProviderInvoiceNumber is null)
+                throw new InvalidOperationException("Original invoice has no ProviderInvoiceNumber — cannot adjust an unissued invoice.");
+
+            OriginalInvoiceId = original.InvoiceId.Value;
+            AdjustmentType = adjustmentType;
+            AdjustmentReason = reason;
+            OriginalProviderInvoiceNumber = original.ProviderInvoiceNumber;
+            OriginalInvoiceIssueDate = original.ApprovedAt ?? original.CreatedAt;
+            InvoiceSeries = original.InvoiceSeries;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// W3 (P0.3): Mark original as adjusted - State transition: TaxApproved → Adjusted
+        /// </summary>
+        public void MarkAsAdjusted()
+        {
+            if (Status != InvoiceStatus.TaxApproved)
+                throw new InvalidOperationException($"Cannot mark as adjusted in status {Status}. Expected: TaxApproved");
+
+            Status = InvoiceStatus.Adjusted;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// W3 (P0.3): Mark original as replaced - State transition: TaxApproved → Replaced
+        /// </summary>
+        public void MarkAsReplaced()
+        {
+            if (Status != InvoiceStatus.TaxApproved)
+                throw new InvalidOperationException($"Cannot mark as replaced in status {Status}. Expected: TaxApproved");
+
+            Status = InvoiceStatus.Replaced;
             UpdateAudit();
         }
     }

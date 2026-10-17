@@ -119,6 +119,37 @@ public class MisaInvoicePayload
     [JsonPropertyName("PaymentType")]
     public string PaymentType { get; set; } = "CASH";
 
+    // ── W3 (P0.3 — Điều 10 TT 91/2026): điều chỉnh/thay thế qua CÙNG endpoint phát hành ──
+    /// <summary>Tính chất hóa đơn: 1 = Thay thế, 2 = Điều chỉnh. Null = hóa đơn gốc.</summary>
+    [JsonPropertyName("ReferenceType")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? ReferenceType { get; set; }
+
+    /// <summary>Loại hóa đơn bị thay thế/điều chỉnh: 1 = HĐ theo NĐ 123, 3 = HĐ theo NĐ 51.</summary>
+    [JsonPropertyName("OrgInvoiceType")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? OrgInvoiceType { get; set; }
+
+    /// <summary>Mẫu số hóa đơn gốc (ký tự đầu của ký hiệu, vd "1" cho 1C24MAA).</summary>
+    [JsonPropertyName("OrgInvTemplateNo")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OrgInvTemplateNo { get; set; }
+
+    /// <summary>Ký hiệu hóa đơn gốc (vd C25MAA).</summary>
+    [JsonPropertyName("OrgInvSeries")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OrgInvSeries { get; set; }
+
+    /// <summary>Số hóa đơn gốc bị điều chỉnh/thay thế.</summary>
+    [JsonPropertyName("OrgInvNo")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OrgInvNo { get; set; }
+
+    /// <summary>Ngày lập hóa đơn gốc (ISO 8601).</summary>
+    [JsonPropertyName("OrgInvDate")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OrgInvDate { get; set; }
+
     /// <summary>Line items — OriginalInvoiceDetail[] per MISA spec.</summary>
     [JsonPropertyName("OriginalInvoiceDetail")]
     public List<MisaInvoiceDetail> OriginalInvoiceDetail { get; set; } = new();
