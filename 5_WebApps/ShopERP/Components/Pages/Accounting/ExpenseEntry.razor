@@ -15,6 +15,7 @@
 @using VanAn.ShopERP.Components.Accounting
 @inject CoreAccountingService.IAccountingService AccountingService
 @inject VanAn.CoreHub.Services.CongNo.ICongNoService CongNoService
+@inject VanAn.CoreHub.Services.IBalanceAlertService BalanceAlertService
 @inject VanAn.CoreHub.Services.IVasFeatureFlagService FeatureFlagService
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
@@ -42,6 +43,13 @@
     @if (showError)
     {
         <VanAAlert data-testid="expense-error-alert" Variant="error" Message="@errorMessage" Dismissible="true" />
+    }
+
+    @* W4 (P1.3 — TT 152/2025): cảnh báo âm quỹ TK 111 (non-blocking) khi khoản chi/trả nợ
+       sẽ làm số dư tiền mặt âm — kế toán kiểm soát, phiếu vẫn lưu. *@
+    @if (!string.IsNullOrEmpty(balanceWarning))
+    {
+        <VanAAlert data-testid="expense-balance-warning" Variant="warning" Message="@balanceWarning" Dismissible="true" OnDismiss="() => balanceWarning = string.Empty" />
     }
 
     @* TT 71 Phase 4b: in Phiếu chi 02-TT (chỉ tenant HTX) sau khi lưu thành công *@
@@ -174,6 +182,7 @@
     private bool showError = false;
     private string errorMessage = string.Empty;
     private bool _isSubmitting = false;
+    private string balanceWarning = string.Empty;  // W4 (P1.3): cảnh báo âm quỹ 111
     private PlatformComposite.FormData formData = new();
     private DynamicFormFields? formFieldsRef;
     private TenantType? _tenantType;
@@ -761,6 +770,26 @@
             }
         }
         Logger.LogInformation("Duplicate check passed");
+
+        // W4 (P1.3): cảnh báo âm quỹ TK 111 — non-blocking (vẫn lưu phiếu).
+        // Phiếu chi + trả nợ người bán đều ghi Có 111; "ghi nhận phải trả" (mua chịu) không chi tiền.
+        balanceWarning = string.Empty;
+        if (_voucherType is VoucherTypeExpense or VoucherTypePayment)
+        {
+            try
+            {
+                var cashAlert = await BalanceAlertService.CheckCashBalanceAsync(
+                    new TenantId(TenantProvider.TenantId), amount);
+                if (cashAlert != null)
+                {
+                    balanceWarning = cashAlert.Message;
+                }
+            }
+            catch (Exception alertEx)
+            {
+                Logger.LogWarning(alertEx, "Balance alert check failed — continuing save (non-blocking)");
+            }
+        }
 
         // Create accounting period
         var period = new AccountingPeriod(date.Year, date.Month);

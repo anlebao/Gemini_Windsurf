@@ -613,6 +613,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.IFinancialStatementNotesService, CoreHub.Services.FinancialStatementNotesService>();
             // TUÂN THỦ PHÁP LÝ P0 (2026-10-16): Sổ Nhật ký chung + Sổ Cái (P0.2-Đ1) + kiểm soát ≥20 triệu (P0.1)
             _ = builder.Services.AddScoped<CoreHub.Services.GeneralLedger.IGeneralLedgerService, CoreHub.Services.GeneralLedger.GeneralLedgerService>();
+            // W4 (P1.3): cảnh báo âm quỹ TK111 / âm kho TK152·156 — non-blocking warnings.
+            _ = builder.Services.AddScoped<CoreHub.Services.IBalanceAlertService, CoreHub.Services.BalanceAlertService>();
             _ = builder.Services.AddScoped<CoreHub.Services.Payment.IPaymentComplianceService, CoreHub.Services.Payment.PaymentComplianceService>();
             // W8: VAS feature flag + tenant conversion services
             _ = builder.Services.AddScoped<CoreHub.Services.IVasFeatureFlagService, CoreHub.Services.VasFeatureFlagService>();

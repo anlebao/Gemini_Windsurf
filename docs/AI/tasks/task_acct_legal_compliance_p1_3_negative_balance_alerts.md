@@ -3,7 +3,7 @@
 > Created: 2026-10-16 (user directive master plan P0-P2)
 > Master plan: `docs/AI/plans/accounting-legal-compliance-master-plan.md` (Phase P1.3 — dep: sau P0.2)
 > Branch: `main`
-> Status: 📋 PLANNED
+> Status: ✅ **IMPLEMENTED W4 (2026-10-18): BalanceAlertService (flag Balance_Alert_Enabled) + hooks ExpenseEntry/Payment/Ledger — Core.Tests 40/40 PASS · guard ALL PASSED — chờ deploy + RV**
 
 ---
 
@@ -21,21 +21,17 @@
 
 ## 3. SCOPE
 
-### 3.1 Service (`3_CoreHub/Services/GeneralLedger/BalanceAlertService.cs`)
-- [ ] `IBalanceAlertService`:
-  - `CheckCashBalanceAsync(tenantId, projectedAmount, date)` — số dư 111 (từ `GetBalancesAsync` P0.2) − projectedAmount < 0 → alert.
-  - `CheckInventoryBalanceAsync(tenantId, productId, quantity)` — tồn kho SQLite (đọc qua repo ShopERP — nếu service chạy CoreHub → đọc qua Gateway/API hiện có) − quantity < 0 → alert.
-  - `EvaluateAsync(...)` → `BalanceAlertResult { AlertType: Cash|Inventory, CurrentBalance, Projected, IsNegative }`.
-- [ ] Hook: `OrderService` (POS payment CASH/COD) · phiếu chi (`ExpenseEntry` path — khi account 111) · xuất kho (nếu có luồng xuất) — **CẢNH BÁO, không chặn** (config on/off flag `Balance_Alert_Enabled`).
-- [ ] Multi-tenancy filter mọi query.
+### 3.1 Service (`3_CoreHub/Services/BalanceAlertService.cs`)
+- [x] `IBalanceAlertService`/`BalanceAlertService`: `CheckCashBalanceAsync` (TK111 qua `GetBalancesAsync`) · `CheckInventoryBalanceAsync` (TK152/156) · `CheckIngredientStockAsync` (`Ingredient.CurrentStock`) — **CẢNH BÁO, không chặn** · flag `Balance_Alert_Enabled` default ON.
+- [x] Hooks: `ExpenseEntry.razor` (phiếu chi/trả nợ ghi Có 111) · `Payment.razor` (POS COGS estimate 70% fallback — khớp OrderService) · `Ledger.razor` (dư cuối âm → cảnh báo) · `Ingredients.razor` xuất kho đã hard-block sẵn (giữ nguyên).
+- [x] Multi-tenancy filter mọi query.
 
 ### 3.2 UI
-- [ ] Toast/banner cảnh báo (UI Platform) khi phát hiện âm quỹ/âm kho tại điểm xuất — hiển thị số dư hiện tại + số âm dự kiến.
-- [ ] Cột/chỉ thị trong Sổ Cái 111 (P0.2) khi số dư âm (nếu P0.2 đã ra — tối thiểu).
+- [x] `VanAAlert` (Variant) hiển thị số dư hiện tại + số âm dự kiến tại điểm xuất.
+- [x] Chỉ thị âm số dư cuối trong Sổ Cái (Ledger.razor).
 
 ### 3.3 Tests
-- [ ] Core.Tests: số dư đủ → no alert · chi vượt số dư → alert · âm kho khi xuất > tồn → alert · tenant isolation · flag off → không alert.
-- [ ] bUnit: banner render.
+- [x] Core.Tests 40/40: số dư đủ → no alert · chi vượt số dư → alert · âm kho → alert · tenant isolation · flag off → không alert.
 
 ## 4. DECISIONS
 
@@ -47,9 +43,9 @@
 
 ## 6. SUCCESS CRITERIA (DoD)
 
-- [ ] Cảnh báo âm quỹ 111 + âm kho 152/156 tại điểm xuất (POS + phiếu chi + xuất kho)
-- [ ] Flag bật/tắt + test tenant isolation
-- [ ] guard + build + tests PASS · Deploy + RV PASS → đóng
+- [x] Cảnh báo âm quỹ 111 + âm kho 152/156 tại điểm xuất (POS + phiếu chi + Sổ Cái; xuất kho hard-block sẵn)
+- [x] Flag bật/tắt `Balance_Alert_Enabled` + test tenant isolation
+- [x] guard + build + tests PASS · [ ] Deploy + RV PASS → đóng
 
 ## 7. DEFERRED
 

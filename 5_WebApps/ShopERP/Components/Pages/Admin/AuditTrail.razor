@@ -186,6 +186,7 @@
                                 <th>Mức độ</th>
                                 <th>Entity</th>
                                 <th>User</th>
+                                <th>IP / UA</th>
                                 <th>Lý do</th>
                                 <th>Chi tiết</th>
                             </tr>
@@ -211,6 +212,21 @@
                                     </td>
                                     <td class="user">
                                         <div class="user-name">@(log.UserName ?? log.UserId ?? "System")</div>
+                                    </td>
+                                    <td class="ip-ua">
+                                        @* W4 (P1.1): IP + User-Agent trong vết kiểm toán (TT 99/2025 Điều 28) *@
+                                        @if (!string.IsNullOrEmpty(log.IpAddress) || !string.IsNullOrEmpty(log.UserAgent))
+                                        {
+                                            <div class="ip-address">@(log.IpAddress ?? "-")</div>
+                                            @if (!string.IsNullOrEmpty(log.UserAgent))
+                                            {
+                                                <div class="user-agent text-muted" title="@log.UserAgent">@Truncate(log.UserAgent, 25)</div>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
                                     </td>
                                     <td class="reason">
                                         @if (!string.IsNullOrEmpty(log.Reason))
@@ -291,6 +307,20 @@
                 <label>User:</label>
                 <span>@(SelectedLog.UserName ?? SelectedLog.UserId ?? "System")</span>
             </div>
+            @if (!string.IsNullOrEmpty(SelectedLog.IpAddress))
+            {
+                <div class="detail-row">
+                    <label>IP Address:</label>
+                    <span>@SelectedLog.IpAddress</span>
+                </div>
+            }
+            @if (!string.IsNullOrEmpty(SelectedLog.UserAgent))
+            {
+                <div class="detail-row">
+                    <label>User-Agent:</label>
+                    <span>@SelectedLog.UserAgent</span>
+                </div>
+            }
             @if (!string.IsNullOrEmpty(SelectedLog.Reason))
             {
                 <div class="detail-row">

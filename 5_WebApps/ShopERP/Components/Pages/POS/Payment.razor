@@ -14,6 +14,7 @@
 @inject IOrderWorkflowService OrderWorkflowService
 @inject IOrderService OrderService
 @inject IAuditTrailService AuditTrail
+@inject IBalanceAlertService BalanceAlertService
 @inject CoreHub.Services.Payment.IPaymentComplianceService PaymentCompliance
 @inject ITenantProvider TenantProvider
 @inject ILogger<Payment> Logger
@@ -31,6 +32,12 @@
     @if (errorMessage != null)
     {
         <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+    }
+
+    @* W4 (P1.3 — TT 152/2025): cảnh báo âm kho TK 152/156 theo COGS ước tính — non-blocking *@
+    @if (inventoryWarning != null)
+    {
+        <VanAAlert Variant="warning" Message="@inventoryWarning" Dismissible="true" OnDismiss="() => inventoryWarning = null" data-testid="pos-inventory-warning" />
     }
 
     @if (loading)
@@ -176,6 +183,7 @@
     private bool loading = true;
     private bool isProcessing = false;
     private string? errorMessage;
+    private string? inventoryWarning;  // W4 (P1.3): cảnh báo âm kho 152/156
     private string selectedPaymentMethod = "cash";
     private string? qrImageUrl;
     // TUÂN THỦ PHÁP LÝ P0.1 (2026-10-16): cảnh báo tiền mặt ≥ 20 triệu
@@ -299,6 +307,25 @@
         {
             // Fail-safe: không chặn thanh toán khi service lỗi.
             Logger.LogWarning(ex, "Payment compliance check failed — proceeding without warning for order {OrderId}", OrderId);
+        }
+
+        // W4 (P1.3 — TT 152/2025): cảnh báo âm kho TK 152/156 — COGS ghi Có 156 sau khi
+        // payment confirmed. Non-blocking: hiển thị banner, vẫn cho thanh toán.
+        try
+        {
+            // COGS ước tính = 70% tổng đơn (fallback hợp nhất của OrderService.CalculateCogsAmount
+            // — CostPrice không có trong OrderDetailDto; đây là cảnh báo, không phải số liệu sổ).
+            decimal estimatedCogs = order.TotalAmount * 0.7m;
+            var alert = await BalanceAlertService.CheckInventoryBalanceAsync(
+                new TenantId(TenantProvider.TenantId), estimatedCogs);
+            if (alert != null)
+            {
+                inventoryWarning = alert.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Inventory balance alert check failed — proceeding for order {OrderId}", OrderId);
         }
 
         await CompletePayment(method, reason: null);

@@ -131,19 +131,22 @@ namespace VanAn.Core.Tests.Accounting
         }
 
         // ── ReopenPeriodAsync ────────────────────────────────────────────────
+        // W4 (P1.2): signature mới + approverRoles (Owner/ChiefAccountant/SystemAdmin).
+
+        private static readonly string[] OwnerRole = ["Owner"];
 
         [Fact]
         public async Task ReopenPeriodAsync_CreatesReversalEntry()
         {
             string reason = "Correction required for Q4 audit";
             _ = _mockService
-                .Setup(s => s.ReopenPeriodAsync(_period, _tenantId, _userId, reason, It.IsAny<CancellationToken>()))
+                .Setup(s => s.ReopenPeriodAsync(_period, _tenantId, _userId, reason, OwnerRole, It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
-            await _mockService.Object.ReopenPeriodAsync(_period, _tenantId, _userId, reason);
+            await _mockService.Object.ReopenPeriodAsync(_period, _tenantId, _userId, reason, OwnerRole);
 
             _mockService.Verify(
-                s => s.ReopenPeriodAsync(_period, _tenantId, _userId, reason, It.IsAny<CancellationToken>()),
+                s => s.ReopenPeriodAsync(_period, _tenantId, _userId, reason, OwnerRole, It.IsAny<CancellationToken>()),
                 Times.Once);
         }
 
@@ -152,13 +155,13 @@ namespace VanAn.Core.Tests.Accounting
         {
             string reason = "Audit correction";
             _ = _mockService
-                .Setup(s => s.ReopenPeriodAsync(_period, _tenantId, _userId, reason, It.IsAny<CancellationToken>()))
+                .Setup(s => s.ReopenPeriodAsync(_period, _tenantId, _userId, reason, OwnerRole, It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
             _ = _mockService
                 .Setup(s => s.GetPeriodStatusAsync(_period, _tenantId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(PeriodClosingStatus.Open);
 
-            await _mockService.Object.ReopenPeriodAsync(_period, _tenantId, _userId, reason);
+            await _mockService.Object.ReopenPeriodAsync(_period, _tenantId, _userId, reason, OwnerRole);
             PeriodClosingStatus status = await _mockService.Object.GetPeriodStatusAsync(_period, _tenantId);
 
             Assert.Equal(PeriodClosingStatus.Open, status);
@@ -169,13 +172,42 @@ namespace VanAn.Core.Tests.Accounting
         {
             string reason = "Mistake";
             _ = _mockService
-                .Setup(s => s.ReopenPeriodAsync(_period, _tenantId, _userId, reason, It.IsAny<CancellationToken>()))
+                .Setup(s => s.ReopenPeriodAsync(_period, _tenantId, _userId, reason, OwnerRole, It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new InvalidOperationException("Cannot reopen period 2025-12: it is not closed."));
 
             InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
-                () => _mockService.Object.ReopenPeriodAsync(_period, _tenantId, _userId, reason));
+                () => _mockService.Object.ReopenPeriodAsync(_period, _tenantId, _userId, reason, OwnerRole));
 
             Assert.Contains("not closed", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // ── W4 (P1.2): PreviewReopenAsync + role gate contract ───────────────
+
+        [Fact]
+        public async Task PreviewReopenAsync_ReturnsEntryCountAndTotal()
+        {
+            _ = _mockService
+                .Setup(s => s.PreviewReopenAsync(_period, _tenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new ReopenPreview(5, 12_500_000m));
+
+            ReopenPreview preview = await _mockService.Object.PreviewReopenAsync(_period, _tenantId);
+
+            Assert.Equal(5, preview.EntryCount);
+            Assert.Equal(12_500_000m, preview.TotalAmount);
+        }
+
+        [Fact]
+        public async Task ReopenPeriodAsync_UnauthorizedRole_Throws()
+        {
+            string[] debtAccountantOnly = ["DebtAccountant"];
+            _ = _mockService
+                .Setup(s => s.ReopenPeriodAsync(_period, _tenantId, _userId, "r", debtAccountantOnly, It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new UnauthorizedAccessException("requires approval"));
+
+            UnauthorizedAccessException ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(
+                () => _mockService.Object.ReopenPeriodAsync(_period, _tenantId, _userId, "r", debtAccountantOnly));
+
+            Assert.Contains("approval", ex.Message, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

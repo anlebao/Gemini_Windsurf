@@ -1,7 +1,10 @@
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using System.Net;
+using System.Security.Claims;
 using VanAn.CoreHub.Domain.Repositories;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
@@ -129,16 +132,28 @@ public class AuditToggleAndQueueTests
         public void SetTenant(Guid tenantId) => _override = tenantId;
     }
 
+    /// <summary>
+    /// W4 (P1.1): stub AuthenticationStateProvider — Blazor Server circuit principal.
+    /// Trả principal cố định (claims auth cookie), giống HttpContextAuthenticationStateProvider Production.
+    /// </summary>
+    private sealed class StubAuthStateProvider(ClaimsPrincipal? principal) : AuthenticationStateProvider
+    {
+        public override Task<AuthenticationState> GetAuthenticationStateAsync()
+            => Task.FromResult(new AuthenticationState(principal ?? new ClaimsPrincipal(new ClaimsIdentity())));
+    }
+
     private static AuditTrailService CreateService(
         StubFeatureFlagService flags,
         StubAuditLogRepository repo,
-        AuditLogQueue queue)
+        AuditLogQueue queue,
+        Mock<IHttpContextAccessor>? httpAccessor = null,
+        AuthenticationStateProvider? authStateProvider = null)
     {
         var tenantProvider = new Mock<ITenantProvider>();
         tenantProvider.SetupGet(t => t.TenantId).Returns(Guid.Empty);
         tenantProvider.SetupGet(t => t.HasTenant).Returns(false);
 
-        var httpAccessor = new Mock<IHttpContextAccessor>();
+        httpAccessor ??= new Mock<IHttpContextAccessor>();
 
         return new AuditTrailService(
             repo,
@@ -146,7 +161,8 @@ public class AuditToggleAndQueueTests
             NullLogger<AuditTrailService>.Instance,
             httpAccessor.Object,
             flags,
-            queue);
+            queue,
+            authStateProvider);
     }
 
     // ---- 1. Toggle gating ----
@@ -405,5 +421,113 @@ public class AuditToggleAndQueueTests
 
         Assert.Equal(3, repo.AddCount);  // KHÔNG log nào bị drop
         Assert.Equal(0, queue.Count);
+    }
+
+    // ---- 4. W4 (P1.1): IP/User-Agent capture ----
+
+    [Fact]
+    public async Task LogCreateAsync_CapturesForwardedIpAndUserAgent_FromHttpContext()
+    {
+        var flags = new StubFeatureFlagService();
+        var repo = new StubAuditLogRepository();
+        var queue = new AuditLogQueue();
+        var httpAccessor = new Mock<IHttpContextAccessor>();
+        var http = new DefaultHttpContext();
+        http.Request.Headers["X-Forwarded-For"] = "203.0.113.9, 10.0.0.1";
+        http.Request.Headers.UserAgent = "Mozilla/5.0 TestAgent";
+        httpAccessor.SetupGet(a => a.HttpContext).Returns(http);
+        var sut = CreateService(flags, repo, queue, httpAccessor);
+
+        var result = await sut.LogCreateAsync(AuditableEntityType.AccountingEntry, Guid.NewGuid(), "{}");
+
+        Assert.NotNull(result);
+        Assert.Single(repo.AddedLogs);
+        // X-Forwarded-For: lấy hop ĐẦU TIÊN (client thật qua Gateway/nginx), không phải proxy cuối.
+        Assert.Equal("203.0.113.9", repo.AddedLogs[0].IpAddress);
+        Assert.Equal("Mozilla/5.0 TestAgent", repo.AddedLogs[0].UserAgent);
+    }
+
+    [Fact]
+    public async Task LogCreateAsync_RemoteIpFallback_WhenNoForwardedHeader()
+    {
+        var flags = new StubFeatureFlagService();
+        var repo = new StubAuditLogRepository();
+        var queue = new AuditLogQueue();
+        var httpAccessor = new Mock<IHttpContextAccessor>();
+        var http = new DefaultHttpContext();
+        http.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.7");
+        httpAccessor.SetupGet(a => a.HttpContext).Returns(http);
+        var sut = CreateService(flags, repo, queue, httpAccessor);
+
+        await sut.LogCreateAsync(AuditableEntityType.AccountingEntry, Guid.NewGuid(), "{}");
+
+        Assert.Single(repo.AddedLogs);
+        Assert.Equal("198.51.100.7", repo.AddedLogs[0].IpAddress);
+    }
+
+    [Fact]
+    public async Task LogCreateAsync_ClaimsFallback_InBlazorCircuit_NoHttpContext()
+    {
+        // Blazor Server circuit: HttpContext = null sau khi circuit thiết lập.
+        // IP/UA vẫn resolve từ claims "client_ip"/"client_ua" gắn lúc sign-in (auth cookie).
+        var flags = new StubFeatureFlagService();
+        var repo = new StubAuditLogRepository();
+        var queue = new AuditLogQueue();
+        var httpAccessor = new Mock<IHttpContextAccessor>();
+        httpAccessor.SetupGet(a => a.HttpContext).Returns((HttpContext?)null);
+
+        var circuitPrincipal = new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.NameIdentifier, "user-42"),
+                new Claim(ClaimTypes.Name, "Kế toán trưởng"),
+                new Claim("client_ip", "192.0.2.55"),
+                new Claim("client_ua", "CircuitAgent/1.0"),
+            ],
+            authenticationType: "cookie"));
+        var sut = CreateService(flags, repo, queue, httpAccessor, new StubAuthStateProvider(circuitPrincipal));
+
+        await sut.LogCreateAsync(AuditableEntityType.AccountingEntry, Guid.NewGuid(), "{}");
+
+        Assert.Single(repo.AddedLogs);
+        Assert.Equal("192.0.2.55", repo.AddedLogs[0].IpAddress);
+        Assert.Equal("CircuitAgent/1.0", repo.AddedLogs[0].UserAgent);
+        Assert.Equal("user-42", repo.AddedLogs[0].UserId);
+        Assert.Equal("Kế toán trưởng", repo.AddedLogs[0].UserName);
+    }
+
+    [Fact]
+    public async Task LogCreateAsync_BackgroundScope_NullIpUa_StillLogs()
+    {
+        // NATS/hosted service: không HttpContext, không principal → IP/UA = null, vẫn ghi audit.
+        var flags = new StubFeatureFlagService();
+        var repo = new StubAuditLogRepository();
+        var queue = new AuditLogQueue();
+        var sut = CreateService(flags, repo, queue);  // no HttpContext, no auth provider
+
+        var result = await sut.LogCreateAsync(AuditableEntityType.AccountingEntry, Guid.NewGuid(), "{}");
+
+        Assert.NotNull(result);
+        Assert.Single(repo.AddedLogs);
+        Assert.Null(repo.AddedLogs[0].IpAddress);
+        Assert.Null(repo.AddedLogs[0].UserAgent);
+    }
+
+    [Fact]
+    public async Task LogPeriodReopenAsync_CapturesIpUa_AndWritesSync()
+    {
+        var flags = new StubFeatureFlagService();
+        var repo = new StubAuditLogRepository();
+        var queue = new AuditLogQueue();
+        var httpAccessor = new Mock<IHttpContextAccessor>();
+        var http = new DefaultHttpContext();
+        http.Request.Headers["X-Forwarded-For"] = "203.0.113.99";
+        httpAccessor.SetupGet(a => a.HttpContext).Returns(http);
+        var sut = CreateService(flags, repo, queue, httpAccessor);
+
+        var result = await sut.LogPeriodReopenAsync(new AccountingPeriod(2026, 9), "Reopen sau audit");
+
+        Assert.NotNull(result);
+        Assert.Equal(1, repo.AddCount);  // PeriodClosing → SYNC
+        Assert.Equal("203.0.113.99", repo.AddedLogs[0].IpAddress);
     }
 }

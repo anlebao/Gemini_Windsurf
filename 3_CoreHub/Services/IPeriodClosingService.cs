@@ -19,11 +19,25 @@ namespace VanAn.CoreHub.Services
             Guid userId,
             CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// W4 (P1.2): non-mutating preview trước khi mở lại kỳ — số bút toán sẽ bị đảo ngược + tổng giá trị.
+        /// </summary>
+        Task<ReopenPreview> PreviewReopenAsync(
+            AccountingPeriod period,
+            TenantId tenantId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Mở lại kỳ kế toán đã đóng — toàn bộ bút toán trong kỳ bị đảo ngược (Reversal Entry).
+        /// W4 (P1.2): <paramref name="approverRoles"/> phải chứa Owner, ChiefAccountant hoặc
+        /// SystemAdmin; <paramref name="reason"/> bắt buộc không rỗng.
+        /// </summary>
         Task ReopenPeriodAsync(
             AccountingPeriod period,
             TenantId tenantId,
             Guid userId,
             string reason,
+            IReadOnlyList<string> approverRoles,
             CancellationToken cancellationToken = default);
 
         Task<PeriodClosingStatus> GetPeriodStatusAsync(

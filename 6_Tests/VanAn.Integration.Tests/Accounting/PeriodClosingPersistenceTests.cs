@@ -43,7 +43,9 @@ public class PeriodClosingPersistenceTests : IClassFixture<TestDatabaseFixture>
         IAccountingDbContext dbContext,
         TenantId tenantId,
         AccountingPeriod period,
-        List<CoreAccountingEntry>? entries = null)
+        List<CoreAccountingEntry>? entries = null,
+        Mock<IAuditTrailService>? auditMock = null,
+        Mock<IReversalService>? reversalMock = null)
     {
         entries ??=
         [
@@ -55,13 +57,13 @@ public class PeriodClosingPersistenceTests : IClassFixture<TestDatabaseFixture>
             .Setup(r => r.GetByTenantAndPeriodAsync(tenantId, period, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entries);
 
-        Mock<IReversalService> mockReversal = new();
+        Mock<IReversalService> mockReversal = reversalMock ?? new();
         _ = mockReversal
             .Setup(r => r.CreateReversalEntryAsync(
                 It.IsAny<AccountingEntryId>(), It.IsAny<TenantId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(1_000_000m, "VND"), "Reversal"));
 
-        Mock<IAuditTrailService> mockAudit = new();
+        Mock<IAuditTrailService> mockAudit = auditMock ?? new();
         _ = mockAudit
             .Setup(a => a.LogPeriodCloseAsync(It.IsAny<AccountingPeriod>(), It.IsAny<string>(),
                 It.IsAny<string?>(), It.IsAny<CancellationToken>()))
@@ -148,9 +150,9 @@ public class PeriodClosingPersistenceTests : IClassFixture<TestDatabaseFixture>
         PeriodClosingService service = CreateService(dbContext, tenantId, period);
         _ = await service.ClosePeriodAsync(period, tenantId, Guid.NewGuid());
 
-        // Act — reopen with a reason
+        // Act — reopen with a reason (W4 P1.2: approverRoles bắt buộc)
         string reopenReason = "Correction needed for VAT adjustment";
-        await service.ReopenPeriodAsync(period, tenantId, Guid.NewGuid(), reopenReason);
+        await service.ReopenPeriodAsync(period, tenantId, Guid.NewGuid(), reopenReason, ["Owner"]);
 
         // Assert — DB record shows Open + ReopenReason persisted
         PeriodClosingStatusEntity? dbRecord = await dbContext.PeriodClosingStatuses
@@ -202,5 +204,97 @@ public class PeriodClosingPersistenceTests : IClassFixture<TestDatabaseFixture>
 
         await contextB.DisposeAsync();
         await contextA2.DisposeAsync();
+    }
+
+    // ── W4 (P1.2): reopen approval gate + preview ────────────────────────────
+
+    [Fact]
+    public async Task PreviewReopen_ReturnsEntryCountAndTotalAmount_WithoutMutating()
+    {
+        TenantId tenantId = new(Guid.NewGuid());
+        AccountingPeriod period = new(2026, 10);
+        _fixture.SetCurrentTenant(tenantId);
+        VanAnDbContext dbContext = _fixture.CreateFreshDbContext();
+
+        List<CoreAccountingEntry> entries =
+        [
+            CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(2_000_000m, "VND"), "R1"),
+            CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(500_000m, "VND"), "R2"),
+            CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(-300_000m, "VND"), "Adj"),
+        ];
+        PeriodClosingService service = CreateService(dbContext, tenantId, period, entries);
+
+        ReopenPreview preview = await service.PreviewReopenAsync(period, tenantId);
+
+        Assert.Equal(3, preview.EntryCount);
+        Assert.Equal(2_800_000m, preview.TotalAmount);  // Sum |Amount|
+        // Non-mutating: không có status record nào được tạo trong DB.
+        Assert.Empty(await dbContext.PeriodClosingStatuses.ToListAsync());
+        await dbContext.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task ReopenPeriod_UnauthorizedRole_Throws_AndKeepsClosed()
+    {
+        // Arrange — close period first
+        TenantId tenantId = new(Guid.NewGuid());
+        AccountingPeriod period = new(2026, 11);
+        _fixture.SetCurrentTenant(tenantId);
+        VanAnDbContext dbContext = _fixture.CreateFreshDbContext();
+        Mock<IReversalService> reversalMock = new();
+        PeriodClosingService service = CreateService(dbContext, tenantId, period, reversalMock: reversalMock);
+        _ = await service.ClosePeriodAsync(period, tenantId, Guid.NewGuid());
+
+        // Act — DebtAccountant KHÔNG có quyền mở lại kỳ
+        UnauthorizedAccessException ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => service.ReopenPeriodAsync(period, tenantId, Guid.NewGuid(), "test", ["DebtAccountant"]));
+
+        Assert.Contains("phê duyệt", ex.Message);
+        // Assert — không bút toán nào bị đảo ngược, kỳ vẫn Closed
+        reversalMock.Verify(
+            r => r.CreateReversalEntryAsync(
+                It.IsAny<AccountingEntryId>(), It.IsAny<TenantId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        Assert.Equal(PeriodClosingStatus.Closed, await service.GetPeriodStatusAsync(period, tenantId));
+        await dbContext.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task ReopenPeriod_EmptyReason_Throws()
+    {
+        TenantId tenantId = new(Guid.NewGuid());
+        AccountingPeriod period = new(2026, 12);
+        _fixture.SetCurrentTenant(tenantId);
+        VanAnDbContext dbContext = _fixture.CreateFreshDbContext();
+        PeriodClosingService service = CreateService(dbContext, tenantId, period);
+        _ = await service.ClosePeriodAsync(period, tenantId, Guid.NewGuid());
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => service.ReopenPeriodAsync(period, tenantId, Guid.NewGuid(), "  ", ["Owner"]));
+        await dbContext.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task ReopenPeriod_ChiefAccountantRole_Succeeds_AndAuditsReason()
+    {
+        // Arrange — close period first
+        TenantId tenantId = new(Guid.NewGuid());
+        AccountingPeriod period = new(2027, 1);
+        _fixture.SetCurrentTenant(tenantId);
+        VanAnDbContext dbContext = _fixture.CreateFreshDbContext();
+        Mock<IAuditTrailService> auditMock = new();
+        PeriodClosingService service = CreateService(dbContext, tenantId, period, auditMock: auditMock);
+        _ = await service.ClosePeriodAsync(period, tenantId, Guid.NewGuid());
+
+        // Act — ChiefAccountant reopen
+        string reason = "Điều chỉnh sau kiểm toán";
+        await service.ReopenPeriodAsync(period, tenantId, Guid.NewGuid(), reason, ["ChiefAccountant"]);
+
+        // Assert — reopen audit ghi đúng reason (user nằm trong AuditLog qua request context)
+        auditMock.Verify(
+            a => a.LogPeriodReopenAsync(period, reason, It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+        Assert.Equal(PeriodClosingStatus.Open, await service.GetPeriodStatusAsync(period, tenantId));
+        await dbContext.DisposeAsync();
     }
 }

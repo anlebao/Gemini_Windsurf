@@ -11,6 +11,7 @@ using VanAn.CoreHub.Interfaces;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.Entities;
 using VanAn.CoreHub.Services;
+using VanAn.ShopERP.Services;
 using Microsoft.EntityFrameworkCore;
 using BCrypt.Net;
 using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
@@ -93,6 +94,9 @@ namespace VanAn.ShopERP.Pages
                 new Claim("TenantId", tenantId.ToString())
             ];
 
+            // W4 (P1.1): client_ip/client_ua claims → audit IP/UserAgent trong Blazor circuit.
+            SignInClaims.AppendClientInfo(claims, HttpContext);
+
             ClaimsIdentity claimsIdentity = new(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             AuthenticationProperties authProperties = new()
             {
@@ -169,6 +173,9 @@ namespace VanAn.ShopERP.Pages
                 new Claim("sub", platformUser.Email ?? platformUser.Username),
                 new Claim("role", role),
             ];
+
+            // W4 (P1.1): client_ip/client_ua claims → audit IP/UserAgent trong Blazor circuit.
+            SignInClaims.AppendClientInfo(claims, HttpContext);
 
             ClaimsIdentity claimsIdentity = new(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             AuthenticationProperties authProperties = new()

@@ -3,7 +3,7 @@
 > Created: 2026-10-16 (user directive master plan P0-P2)
 > Master plan: `docs/AI/plans/accounting-legal-compliance-master-plan.md` (Phase P1.1)
 > Branch: `main`
-> Status: ✅ **Q3 CHỐT (2026-10-16): Option A (IP/UserAgent) — hash-chain (B) DEFER — READY IMPLEMENT (Wave 4)**
+> Status: ✅ **IMPLEMENTED W4 (2026-10-18): Option A (IP/UserAgent) — Core.Tests 18/18 audit PASS · guard ALL PASSED — chờ deploy + RV**
 
 ---
 
@@ -22,9 +22,10 @@
 ## 3. SCOPE
 
 ### 3.1 Option A — IP/UserAgent capture (bắt buộc)
-- [ ] `AuditTrailService`: helper `GetIpAddress()` (`HttpContext.Connection.RemoteIpAddress?.ToString()` + X-Forwarded-For qua Gateway) + `GetUserAgent()` (`Request.Headers["User-Agent"]`) → truyền vào **mọi** factory call (Create/Update/Delete/PeriodClose/Reopen/Correction/Reversal).
-- [ ] Fallback `null` khi background scope (NATS/hosted) — không crash (fail-safe pattern đã có).
-- [ ] UI `AuditTrail.razor`: hiển thị cột IP/UserAgent nếu có.
+- [x] `AuditTrailService`: `ExtractIpAddress()` (`X-Forwarded-For` → `RemoteIpAddress` → claim `client_ip`) + `ExtractUserAgent()` (header → claim `client_ua`) → truyền vào **mọi** factory call.
+- [x] Blazor circuit: `GetPrincipalAsync()` fallback `AuthenticationStateProvider` (optional ctor param) — user/IP/UA resolve được trong circuit, `"system"` cho background scope.
+- [x] Claims `client_ip`/`client_ua` (`SignInClaims` helper) tại mọi điểm SignIn: Login, PlatformUserLogin, DevLogin, Impersonate, ExitImpersonate, AdminController.
+- [x] UI `AuditTrail.razor`: cột IP/UserAgent + hiển thị trong modal chi tiết.
 
 ### 3.2 Option B — Hash-chain tamper-evident — ⏸️ DEFER (Q3 2026-10-16: chỉ làm A)
 - [ ] (Deferred — triển khai khi cần chuẩn "cảnh báo can thiệp có chủ ý" Điều 28 TT 99/2025) Domain `AuditLog` += `PrevHash`/`Hash` (SHA-256) · migration `AddAuditLogHashChain` + backfill · `IVerifyAuditIntegrityService` + UI "Kiểm tra vết kiểm toán" · tests phát hiện giả mạo.
@@ -41,9 +42,9 @@
 
 ## 6. SUCCESS CRITERIA (DoD)
 
-- [ ] (A) Mọi AuditLog Create/Update/Delete/PeriodClose/Reopen/Correction/Reversal có IP + UserAgent
+- [x] (A) Mọi AuditLog Create/Update/Delete/PeriodClose/Reopen/Correction/Reversal có IP + UserAgent (Core.Tests 18/18)
 - [ ] (B — DEFER theo Q3) Hash-chain + kiểm tra toàn vẹn + test phát hiện giả mạo (khi có nhu cầu)
-- [ ] guard + build + tests PASS · Deploy + RV PASS → đóng
+- [x] guard + build + tests PASS · [ ] Deploy + RV PASS → đóng
 
 ## 7. DEFERRED
 

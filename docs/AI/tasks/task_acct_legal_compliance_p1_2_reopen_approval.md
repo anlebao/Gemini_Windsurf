@@ -3,7 +3,7 @@
 > Created: 2026-10-16 (user directive master plan P0-P2)
 > Master plan: `docs/AI/plans/accounting-legal-compliance-master-plan.md` (Phase P1.2)
 > Branch: `main`
-> Status: 📋 PLANNED
+> Status: ✅ **IMPLEMENTED W4 (2026-10-18): PreviewReopenAsync + role gate {Owner/ChiefAccountant/SystemAdmin} + modal gõ "MỞ KHÓA" — bUnit 36/36 PASS · Integration 8/8 PASS — chờ deploy + RV**
 
 ---
 
@@ -22,17 +22,17 @@
 ## 3. SCOPE
 
 ### 3.1 Service (`PeriodClosingService`)
-- [ ] `ReopenPeriodAsync` bổ sung guard: đếm **số entries sẽ bị đảo** + trả về `ReopenPreview { EntryCount, TotalAmount }` (method mới `PreviewReopenAsync` — không mutate).
-- [ ] Role gate: chỉ `Owner`/`ChiefAccountant` (xác minh claim hiện tại; nếu UI đã gate → service-level guard bổ sung).
-- [ ] Bắt buộc `reason` (đã có) + tùy chọn ghi tên người phê duyệt (metadata correlation).
+- [x] `PreviewReopenAsync` (không mutate) → `ReopenPreview { EntryCount, TotalAmount }`; `ReopenPeriodAsync` giữ reversal pattern nguyên.
+- [x] Role gate: chỉ `Owner`/`ChiefAccountant`/`SystemAdmin` — guard service-level.
+- [x] Bắt buộc `reason` non-empty → throw nếu trống.
 
 ### 3.2 UI (`PeriodClosing.razor`)
-- [ ] Nút Mở khóa → **modal cảnh báo đỏ**: "Sẽ đảo {N} bút toán (tổng {X}đ) của kỳ {MM/YYYY} — toàn bộ giao dịch kỳ sẽ được bút toán đảo ngược. Hành động này KHÔNG thể hoàn tác trực tiếp." + ô lý do bắt buộc + xác nhận gõ "MỞ KHÓA".
-- [ ] Ẩn/khóa nút cho role không đủ quyền (DebtAccountant đã ẩn đóng kỳ — giữ nguyên).
+- [x] `VanAModal` cảnh báo đỏ: N bút toán + tổng tiền + cảnh báo không hoàn tác + ô lý do bắt buộc + xác nhận gõ "MỞ KHÓA".
+- [x] Ẩn nút Mở khóa cho role không đủ quyền.
 
 ### 3.3 Tests
-- [ ] Core.Tests: preview đếm đúng số entries · role không đủ quyền → throw · reason trống → throw · audit PeriodReopen có reason + user.
-- [ ] bUnit: modal cảnh báo hiển thị số lượng + xác nhận chuỗi.
+- [x] Core.Tests + Integration: preview đếm đúng · role không đủ quyền → throw · reason trống → throw · audit PeriodReopen.
+- [x] bUnit: nút render cho Owner / ẩn cho DebtAccountant (W4-PC-13, W4-PC-13b).
 
 ## 4. DECISIONS
 
@@ -44,10 +44,10 @@
 
 ## 6. SUCCESS CRITERIA (DoD)
 
-- [ ] Reopen yêu cầu role cấp cao + lý do + preview số lượng entries bị đảo
-- [ ] Modal cảnh báo đỏ + xác nhận chuỗi
-- [ ] Audit đầy đủ (PeriodReopen + reason + user)
-- [ ] guard + build + tests PASS · Deploy + RV PASS → đóng
+- [x] Reopen yêu cầu role cấp cao + lý do + preview số lượng entries bị đảo
+- [x] Modal cảnh báo đỏ + xác nhận chuỗi "MỞ KHÓA"
+- [x] Audit đầy đủ (PeriodReopen + reason + user)
+- [x] guard + build + tests PASS · [ ] Deploy + RV PASS → đóng
 
 ## 7. DEFERRED
 

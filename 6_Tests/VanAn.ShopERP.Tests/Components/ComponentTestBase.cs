@@ -96,6 +96,10 @@ public class ComponentTestBase : TestContext
         // NHẬP LIỆU & SỔ SÁCH P3 (2026-10-07): IOpeningBalanceService — mock by default
         Services.AddSingleton<IOpeningBalanceService>(_ => new Mock<IOpeningBalanceService>().Object);
 
+        // W4 (P1.3, 2026-10-18): IBalanceAlertService — mock by default (Payment/ExpenseEntry inject).
+        // Default returns null (no alert); tests needing alerts override before render.
+        Services.AddSingleton<IBalanceAlertService>(_ => new Mock<IBalanceAlertService>().Object);
+
         // Bunit automatically discovers components from referenced assemblies
         // UI.Platform is already referenced in the project, so components should be discoverable
     }

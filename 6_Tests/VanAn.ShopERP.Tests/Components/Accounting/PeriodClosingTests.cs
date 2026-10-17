@@ -1,6 +1,8 @@
 using System.Reflection;
 using Bunit;
 using FluentAssertions;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
@@ -208,9 +210,45 @@ public class PeriodClosingTests : ComponentTestBase
         cut.Markup.Should().Contain("đã được đóng sổ");
     }
 
-    [Fact(DisplayName = "W4-PC-13: Page renders 'Mở Lại Kỳ Này' button when status is Closed")]
+    /// <summary>W4 (P1.2): set private canReopen field (kết quả role check từ auth state).</summary>
+    private static void SetCanReopen(
+        IRenderedComponent<ShopERP.Components.Pages.Accounting.PeriodClosing> cut,
+        bool canReopen)
+    {
+        typeof(ShopERP.Components.Pages.Accounting.PeriodClosing)
+            .GetField("canReopen", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(cut.Instance, canReopen);
+    }
+
+    /// <summary>W4 (P1.2): set private reopenPreview field để modal hiển thị impact.</summary>
+    private static void SetReopenPreview(
+        IRenderedComponent<ShopERP.Components.Pages.Accounting.PeriodClosing> cut,
+        ReopenPreview preview)
+    {
+        typeof(ShopERP.Components.Pages.Accounting.PeriodClosing)
+            .GetField("reopenPreview", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(cut.Instance, preview);
+    }
+
+    /// <summary>
+    /// W4 (P1.2): gán roles cho AuthenticationStateProvider TRƯỚC khi render —
+    /// replace registration bằng instance TestAuthenticationStateProvider đã SetRoles.
+    /// (KHÔNG GetService — resolve đóng băng Services provider, chặn AddSingleton sau đó.)
+    /// </summary>
+    private void SetTestRoles(params string[] roles)
+    {
+        var provider = new TestAuthenticationStateProvider();
+        provider.SetRoles(roles);
+        var existing = Services.First(d => d.ServiceType == typeof(AuthenticationStateProvider));
+        Services.Remove(existing);
+        Services.AddSingleton<AuthenticationStateProvider>(provider);
+    }
+
+    [Fact(DisplayName = "W4-PC-13: Page renders 'Mở Lại Kỳ Này' button when status is Closed + role Owner")]
     public void Page_Renders_ReopenButton_WhenStatusClosed()
     {
+        // W4 (P1.2): nút chỉ hiện cho role phê duyệt (Owner/ChiefAccountant/SystemAdmin).
+        SetTestRoles("Owner");
         var mock = SetupService(status: PeriodClosingStatus.Closed);
         var cut = RenderClosing(mock);
         cut.Render();
@@ -218,16 +256,34 @@ public class PeriodClosingTests : ComponentTestBase
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Mở Lại Kỳ Này"));
     }
 
-    [Fact(DisplayName = "W4-PC-14: Reopen dialog renders reason input and 'Xác Nhận Mở Lại' button")]
+    [Fact(DisplayName = "W4-PC-13b: Reopen button ẨN với role không đủ quyền (DebtAccountant)")]
+    public void Page_Hides_ReopenButton_ForInsufficientRole()
+    {
+        SetTestRoles("DebtAccountant");
+        var mock = SetupService(status: PeriodClosingStatus.Closed);
+        var cut = RenderClosing(mock);
+        cut.Render();
+
+        cut.Markup.Should().NotContain("Mở Lại Kỳ Này");
+    }
+
+    [Fact(DisplayName = "W4-PC-14: Reopen modal — cảnh báo đỏ, đếm bút toán, lý do + gõ 'MỞ KHÓA'")]
     public void ReopenDialog_Renders_ReasonInput_AndConfirmButton()
     {
         var cut = RenderClosing();
         SetWizardStep(cut, StepIdle, currentStatus: PeriodClosingStatus.Closed, showReopenDialog: true);
+        SetReopenPreview(cut, new ReopenPreview(12, 45_600_000m));
+        cut.Render();
 
+        // Strong warning + typed confirmation (TT 152/2025)
         cut.Markup.Should().Contain("Mở Lại Kỳ Kế Toán");
+        cut.Markup.Should().Contain("ĐẢO NGƯỢC");
         cut.Markup.Should().Contain("Lý do mở lại");
+        cut.Markup.Should().Contain("MỞ KHÓA");
         cut.Markup.Should().Contain("Xác Nhận Mở Lại");
-        cut.Markup.Should().Contain("Bút toán Đảo Ngược cho toàn bộ entries");
+        // Preview: số bút toán sẽ bị đảo ngược + tổng giá trị
+        cut.Markup.Should().Contain("12");
+        cut.Markup.Should().Contain("45,600,000");
     }
 
     [Fact(DisplayName = "W4-PC-15: Page renders error alert on ValidatePeriodAsync exception")]

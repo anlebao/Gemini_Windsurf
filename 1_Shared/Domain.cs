@@ -3414,6 +3414,12 @@ namespace VanAn.Shared.Domain
     /// </summary>
     public record ClosingEntry(Guid PeriodId, AccountingPeriod Period, DateTime ClosingDate, Guid CreatedBy);
 
+    /// <summary>
+    /// W4 (P1.2 — TT 152/2025): preview không-thay-đổi-dữ-liệu trước khi mở lại kỳ kế toán.
+    /// Hiển thị trong cảnh báo UI: toàn bộ bút toán trong kỳ sẽ bị đảo ngược (reversal entries).
+    /// </summary>
+    public record ReopenPreview(int EntryCount, decimal TotalAmount);
+
     // ====================== VALUE OBJECTS & EF CORE CONFIGURATIONS ======================
 
     // Value Objects (LeadId thêm vào, CustomerId ã tón tai ó dòng 180)

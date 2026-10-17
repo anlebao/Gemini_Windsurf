@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain.Common;
+using VanAn.ShopERP.Services;
 using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 
 #if DEBUG
@@ -52,6 +53,9 @@ namespace VanAn.ShopERP.Controllers
                 new("sub",            TestUserEmail),
                 new("role",           TestRole),
             };
+
+            // W4 (P1.1): client_ip/client_ua claims → audit IP/UserAgent trong Blazor circuit.
+            SignInClaims.AppendClientInfo(claims, HttpContext);
 
             var identity  = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             var principal = new ClaimsPrincipal(identity);
@@ -137,6 +141,9 @@ namespace VanAn.ShopERP.Controllers
                 new("role",           roleString),
             };
 
+            // W4 (P1.1): client_ip/client_ua claims → audit IP/UserAgent trong Blazor circuit.
+            SignInClaims.AppendClientInfo(claims, HttpContext);
+
             var identity  = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             var principal = new ClaimsPrincipal(identity);
 
@@ -182,6 +189,9 @@ namespace VanAn.ShopERP.Controllers
                 new("sub", "systemadmin@vanan.vn"),
                 new("role", PlatformRole.SystemAdmin.ToString()),
             };
+
+            // W4 (P1.1): client_ip/client_ua claims → audit IP/UserAgent trong Blazor circuit.
+            SignInClaims.AppendClientInfo(claims, HttpContext);
 
             var identity  = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             var principal = new ClaimsPrincipal(identity);
@@ -235,6 +245,9 @@ namespace VanAn.ShopERP.Controllers
                 new("sub",            "systemadmin@vanan.vn"),
                 new("role",           PlatformRole.SystemAdmin.ToString()),
             };
+
+            // W4 (P1.1): client_ip/client_ua claims → audit IP/UserAgent trong Blazor circuit.
+            SignInClaims.AppendClientInfo(claims, HttpContext);
 
             var identity  = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             var principal = new ClaimsPrincipal(identity);
@@ -300,6 +313,9 @@ namespace VanAn.ShopERP.Controllers
                 new("sub",            vasUserEmail),
                 new("role",           vasRole),
             };
+
+            // W4 (P1.1): client_ip/client_ua claims → audit IP/UserAgent trong Blazor circuit.
+            SignInClaims.AppendClientInfo(claims, HttpContext);
 
             var identity  = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             var principal = new ClaimsPrincipal(identity);

@@ -1,4 +1,5 @@
 using Bunit;
+using System.Reflection;
 using Xunit;
 using Moq;
 using VanAn.Shared.DTOs;
@@ -152,5 +153,20 @@ public class ExpenseEntryTests : ComponentTestBase
         cut.Find("#voucherType").Change("payable");
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Đối Tượng (nhà cung cấp)"));
         cut.Markup.Should().Contain("<span class=\"text-danger\">*</span>");
+    }
+
+    [Fact]
+    public void ExpenseEntry_BalanceWarning_RendersBanner()
+    {
+        // W4 (P1.3): banner cảnh báo âm quỹ 111 render khi balanceWarning được set
+        // (non-blocking — set trước khi lưu, không chặn phiếu chi).
+        var cut = RenderComponent<ShopERP.Components.Pages.Accounting.ExpenseEntry>();
+        var pageType = typeof(ShopERP.Components.Pages.Accounting.ExpenseEntry);
+        pageType.GetField("balanceWarning", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(cut.Instance, "⚠ Âm quỹ tiền mặt: TK 111 hiện có 0đ, khoản chi 500.000đ sẽ làm quỹ âm -500.000đ.");
+        cut.Render();
+
+        cut.Markup.Should().Contain("expense-balance-warning");
+        cut.Markup.Should().Contain("Âm quỹ tiền mặt");
     }
 }

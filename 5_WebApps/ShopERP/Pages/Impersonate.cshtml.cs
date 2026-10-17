@@ -12,6 +12,7 @@ using System.Text.Json.Serialization;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
+using VanAn.ShopERP.Services;
 using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 
 namespace VanAn.ShopERP.Pages;
@@ -99,6 +100,9 @@ public class ImpersonateModel(
             new("impersonating", "true"),
             new("impersonated_tenant_name", tenant.Name),
         };
+
+        // W4 (P1.1): refresh client_ip/client_ua claims → audit IP/UserAgent trong Blazor circuit.
+        SignInClaims.AppendClientInfo(claims, HttpContext);
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);

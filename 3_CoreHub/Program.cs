@@ -127,6 +127,8 @@ namespace VanAn.CoreHub
                     // TUÂN THỦ PHÁP LÝ P0 (2026-10-16): Sổ Nhật ký chung + Sổ Cái (P0.2-Đ1) + kiểm soát ≥20 triệu (P0.1)
                     _ = services.AddScoped<Services.GeneralLedger.IGeneralLedgerService, Services.GeneralLedger.GeneralLedgerService>();
                     _ = services.AddScoped<Services.Payment.IPaymentComplianceService, Services.Payment.PaymentComplianceService>();
+                    // TUÂN THỦ PHÁP LÝ W4 (P1.3, 2026-10-18): cảnh báo âm quỹ 111 / âm kho 152·156
+                    _ = services.AddScoped<IBalanceAlertService, BalanceAlertService>();
 
                     // Background task queue
                     _ = services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();

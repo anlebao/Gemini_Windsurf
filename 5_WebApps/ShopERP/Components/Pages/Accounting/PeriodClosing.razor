@@ -8,6 +8,7 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
+@using System.Security.Claims
 @using CoreServices = VanAn.CoreHub.Services
 @inject CoreServices.IPeriodClosingService PeriodClosingService
 @inject IThemeProvider ThemeProvider
@@ -140,30 +141,51 @@
     {
         <VanACard Title="Trạng Thái Kỳ Hiện Tại">
             <p>Kỳ <strong>@selectedYear-@selectedMonth.ToString("D2")</strong>: <strong>@currentStatus</strong></p>
-            @if (currentStatus == PeriodClosingStatus.Closed)
+            @* W4 (P1.2): ẩn thao tác mở lại kỳ với role không đủ quyền — service vẫn enforce lại. *@
+            @if (currentStatus == PeriodClosingStatus.Closed && canReopen)
             {
-                <VanAButton Variant="secondary" OnClick="ShowReopenDialog">Mở Lại Kỳ Này</VanAButton>
+                <VanAButton Variant="danger" OnClick="ShowReopenDialog">⚠ Mở Lại Kỳ Này</VanAButton>
             }
         </VanACard>
     }
 
-    @if (showReopenDialog)
-    {
-        <VanACard Title="Mở Lại Kỳ Kế Toán">
-            <VanAAlert Type="warning" Message="Mở lại kỳ sẽ tạo Bút toán Đảo Ngược cho toàn bộ entries trong kỳ này." />
+    @* W4 (P1.2 — TT 152/2025): cảnh báo mạnh trước khi mở lại kỳ — đảo ngược TOÀN BỘ bút toán *@
+    <VanAModal Title="⚠ CẢNH BÁO: Mở Lại Kỳ Kế Toán Đã Đóng"
+               IsVisible="@showReopenDialog"
+               Size="medium"
+               CloseOnBackdrop="false"
+               CloseOnEscape="false"
+               OnClose="CancelReopen">
+        <Body>
+            <VanAAlert Variant="error"
+                       Message="HÀNH ĐỘNG NGUY HIỂM: Toàn bộ bút toán trong kỳ này sẽ bị ĐẢO NGƯỢC (reversal entries). Thao tác này chỉ dành cho Owner / Kế toán trưởng và được ghi vào vết kiểm toán." />
+            @if (reopenPreview != null)
+            {
+                <div class="reopen-impact">
+                    <p><strong>Tác động:</strong></p>
+                    <ul>
+                        <li>Số bút toán sẽ bị đảo ngược: <strong>@reopenPreview.EntryCount</strong></li>
+                        <li>Tổng giá trị: <strong>@reopenPreview.TotalAmount.ToString("N0") đ</strong></li>
+                    </ul>
+                </div>
+            }
             <div class="form-group">
                 <label>Lý do mở lại <span class="required">*</span></label>
                 <input type="text" class="form-control" @bind="reopenReason" placeholder="Nhập lý do mở lại kỳ..." />
             </div>
-            <div class="wizard-actions">
-                <VanAButton Variant="secondary" OnClick="() => showReopenDialog = false">Huỷ</VanAButton>
-                <VanAButton Variant="danger" IsLoading="@isLoading" OnClick="ExecuteReopen"
-                    Disabled="@string.IsNullOrWhiteSpace(reopenReason)">
-                    Xác Nhận Mở Lại
-                </VanAButton>
+            <div class="form-group">
+                <label>Gõ <strong>MỞ KHÓA</strong> để xác nhận <span class="required">*</span></label>
+                <input type="text" class="form-control" @bind="reopenConfirmText" placeholder="MỞ KHÓA" />
             </div>
-        </VanACard>
-    }
+        </Body>
+        <Footer>
+            <VanAButton Variant="secondary" OnClick="CancelReopen">Huỷ</VanAButton>
+            <VanAButton Variant="danger" IsLoading="@isLoading" OnClick="ExecuteReopen"
+                Disabled="@(!CanConfirmReopen)">
+                Xác Nhận Mở Lại
+            </VanAButton>
+        </Footer>
+    </VanAModal>
 </div>
 
 @code {
@@ -178,11 +200,24 @@
     private bool isLoading;
     private bool showReopenDialog;
     private string reopenReason = string.Empty;
+    private string reopenConfirmText = string.Empty;
+    private ReopenPreview? reopenPreview;
+    private bool canReopen;
     private string errorMessage = string.Empty;
     private string successMessage = string.Empty;
 
+    // W4 (P1.2): xác nhận hợp lệ = lý do không rỗng + gõ đúng "MỞ KHÓA".
+    private bool CanConfirmReopen =>
+        !string.IsNullOrWhiteSpace(reopenReason)
+        && string.Equals(reopenConfirmText.Trim(), "MỞ KHÓA", StringComparison.Ordinal);
+
     protected override async Task OnInitializedAsync()
     {
+        // W4 (P1.2): role gate UI — chỉ Owner/ChiefAccountant/SystemAdmin thấy nút mở lại.
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        canReopen = authState.User.IsInRole("Owner")
+            || authState.User.IsInRole("ChiefAccountant")
+            || authState.User.IsInRole("SystemAdmin");
         await RefreshStatusAsync();
     }
 
@@ -253,7 +288,7 @@
 
     private async Task ExecuteReopen()
     {
-        if (string.IsNullOrWhiteSpace(reopenReason)) return;
+        if (!CanConfirmReopen) return;
         isLoading = true;
         try
         {
@@ -264,11 +299,19 @@
             }
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             var userId = Guid.TryParse(authState.User.FindFirst("sub")?.Value, out var uid) ? uid : Guid.NewGuid();
+            // W4 (P1.2): truyền roles của người thực hiện — service enforce phê duyệt cấp cao.
+            List<string> approverRoles = authState.User.Claims
+                .Where(c => c.Type == ClaimTypes.Role || c.Type == "role")
+                .Select(c => c.Value)
+                .ToList();
             var period = new AccountingPeriod(selectedYear, selectedMonth);
-            await PeriodClosingService.ReopenPeriodAsync(period, new TenantId(TenantProvider.TenantId), userId, reopenReason);
+            await PeriodClosingService.ReopenPeriodAsync(
+                period, new TenantId(TenantProvider.TenantId), userId, reopenReason, approverRoles);
             successMessage = $"Kỳ {selectedYear}-{selectedMonth:D2} đã được mở lại thành công.";
             showReopenDialog = false;
             reopenReason = string.Empty;
+            reopenConfirmText = string.Empty;
+            reopenPreview = null;
             await RefreshStatusAsync();
         }
         catch (Exception ex)
@@ -279,7 +322,37 @@
         finally { isLoading = false; }
     }
 
-    private void ShowReopenDialog() { showReopenDialog = true; ClearMessages(); }
+    private async Task ShowReopenDialog()
+    {
+        ClearMessages();
+        reopenReason = string.Empty;
+        reopenConfirmText = string.Empty;
+        reopenPreview = null;
+        showReopenDialog = true;
+
+        // W4 (P1.2): preview tác động (số bút toán + tổng giá trị sẽ bị đảo ngược) — non-mutating.
+        try
+        {
+            if (TenantProvider.HasTenant)
+            {
+                var period = new AccountingPeriod(selectedYear, selectedMonth);
+                reopenPreview = await PeriodClosingService.PreviewReopenAsync(
+                    period, new TenantId(TenantProvider.TenantId));
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "PreviewReopen failed for {Year}-{Month}", selectedYear, selectedMonth);
+        }
+    }
+
+    private void CancelReopen()
+    {
+        showReopenDialog = false;
+        reopenReason = string.Empty;
+        reopenConfirmText = string.Empty;
+        reopenPreview = null;
+    }
     private void ResetWizard() { currentStep = WizardStep.Idle; validationResult = null; closingEntry = null; ClearMessages(); }
     private void GoBack() => NavigationManager.NavigateTo("/accounting");
     private void ClearError() => errorMessage = string.Empty;

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using System.Security.Claims;
 using VanAn.CoreHub.Services;
+using VanAn.ShopERP.Services;
 
 namespace VanAn.ShopERP.Pages;
 
@@ -58,6 +59,9 @@ public class ExitImpersonateModel(
 
         // Re-add SystemAdmin role (was stripped during impersonation to enforce data isolation)
         claims.Add(new Claim(ClaimTypes.Role, "SystemAdmin"));
+
+        // W4 (P1.1): refresh client_ip/client_ua claims → audit IP/UserAgent trong Blazor circuit.
+        SignInClaims.AppendClientInfo(claims, HttpContext);
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);

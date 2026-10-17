@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System.Security.Claims;
@@ -24,6 +25,10 @@ namespace VanAn.CoreHub.Services
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IFeatureFlagService _featureFlag;   // NEW — Sprint 3 toggle
         private readonly AuditLogQueue _auditQueue;          // NEW — Sprint 3 async queue
+        // W4 (P1.1, 2026-10-18): AuthenticationStateProvider fallback — Blazor Server circuit
+        // có HttpContext = null; claims principal (gồm claims "client_ip"/"client_ua" gắn lúc
+        // sign-in) vẫn resolve được qua circuit → IP/UserAgent ghi được cho thao tác UI.
+        private readonly AuthenticationStateProvider? _authStateProvider;
 
         public AuditTrailService(
             IAuditLogRepository auditLogRepository,
@@ -31,7 +36,8 @@ namespace VanAn.CoreHub.Services
             ILogger<AuditTrailService> logger,
             IHttpContextAccessor httpContextAccessor,
             IFeatureFlagService featureFlag,
-            AuditLogQueue auditQueue)
+            AuditLogQueue auditQueue,
+            AuthenticationStateProvider? authStateProvider = null)
         {
             _auditLogRepository = auditLogRepository;
             _tenantProvider = tenantProvider;
@@ -39,6 +45,7 @@ namespace VanAn.CoreHub.Services
             _httpContextAccessor = httpContextAccessor;
             _featureFlag = featureFlag;
             _auditQueue = auditQueue;
+            _authStateProvider = authStateProvider;
         }
 
         public async Task<AuditLog?> LogCreateAsync(
@@ -53,21 +60,22 @@ namespace VanAn.CoreHub.Services
                 return null;
 
             var tenantId = new TenantId(_tenantProvider.TenantId);
-            var userId = GetCurrentUserId();
-            var userName = GetCurrentUserName();
+            RequestContext ctx = await GetRequestContextAsync();
 
             _logger.LogDebug(
                 "Logging CREATE for {EntityType} {EntityId} by user {UserId}",
-                entityType, entityId, userId);
+                entityType, entityId, ctx.UserId);
 
             var auditLog = AuditLog.ForCreate(
                 tenantId,
                 entityType,
                 entityId,
                 newValues,
-                userId,
-                userName,
-                correlationId);
+                ctx.UserId,
+                ctx.UserName,
+                correlationId,
+                ctx.IpAddress,
+                ctx.UserAgent);
 
             // Sprint 3 EXPANDED: hybrid persist (AccountingEntry → sync; khác → async queue)
             return await PersistAsync(auditLog, entityType, cancellationToken);
@@ -86,12 +94,11 @@ namespace VanAn.CoreHub.Services
                 return null;
 
             var tenantId = new TenantId(_tenantProvider.TenantId);
-            var userId = GetCurrentUserId();
-            var userName = GetCurrentUserName();
+            RequestContext ctx = await GetRequestContextAsync();
 
             _logger.LogDebug(
                 "Logging UPDATE for {EntityType} {EntityId} by user {UserId}",
-                entityType, entityId, userId);
+                entityType, entityId, ctx.UserId);
 
             var auditLog = AuditLog.ForUpdate(
                 tenantId,
@@ -99,9 +106,11 @@ namespace VanAn.CoreHub.Services
                 entityId,
                 oldValues,
                 newValues,
-                userId,
-                userName,
-                correlationId);
+                ctx.UserId,
+                ctx.UserName,
+                correlationId,
+                ctx.IpAddress,
+                ctx.UserAgent);
 
             return await PersistAsync(auditLog, entityType, cancellationToken);
         }
@@ -118,21 +127,22 @@ namespace VanAn.CoreHub.Services
                 return null;
 
             var tenantId = new TenantId(_tenantProvider.TenantId);
-            var userId = GetCurrentUserId();
-            var userName = GetCurrentUserName();
+            RequestContext ctx = await GetRequestContextAsync();
 
             _logger.LogDebug(
                 "Logging DELETE for {EntityType} {EntityId} by user {UserId}",
-                entityType, entityId, userId);
+                entityType, entityId, ctx.UserId);
 
             var auditLog = AuditLog.ForDelete(
                 tenantId,
                 entityType,
                 entityId,
                 oldValues,
-                userId,
-                userName,
-                correlationId);
+                ctx.UserId,
+                ctx.UserName,
+                correlationId,
+                ctx.IpAddress,
+                ctx.UserAgent);
 
             return await PersistAsync(auditLog, entityType, cancellationToken);
         }
@@ -148,21 +158,22 @@ namespace VanAn.CoreHub.Services
                 return null;
 
             var tenantId = new TenantId(_tenantProvider.TenantId);
-            var userId = GetCurrentUserId();
-            var userName = GetCurrentUserName();
+            RequestContext ctx = await GetRequestContextAsync();
 
             _logger.LogInformation(
                 "Logging PERIOD CLOSE for {Period} by user {UserId}. Reason: {Reason}",
-                period, userId, reason);
+                period, ctx.UserId, reason);
 
             var auditLog = AuditLog.ForPeriodClose(
                 tenantId,
                 period.Year,
                 period.Month,
                 reason,
-                userId,
-                userName,
-                correlationId);
+                ctx.UserId,
+                ctx.UserName,
+                correlationId,
+                ctx.IpAddress,
+                ctx.UserAgent);
 
             return await PersistAsync(auditLog, AuditableEntityType.PeriodClosing, cancellationToken);
         }
@@ -178,21 +189,22 @@ namespace VanAn.CoreHub.Services
                 return null;
 
             var tenantId = new TenantId(_tenantProvider.TenantId);
-            var userId = GetCurrentUserId();
-            var userName = GetCurrentUserName();
+            RequestContext ctx = await GetRequestContextAsync();
 
             _logger.LogInformation(
                 "Logging PERIOD REOPEN for {Period} by user {UserId}. Reason: {Reason}",
-                period, userId, reason);
+                period, ctx.UserId, reason);
 
             var auditLog = AuditLog.ForPeriodReopen(
                 tenantId,
                 period.Year,
                 period.Month,
                 reason,
-                userId,
-                userName,
-                correlationId);
+                ctx.UserId,
+                ctx.UserName,
+                correlationId,
+                ctx.IpAddress,
+                ctx.UserAgent);
 
             return await PersistAsync(auditLog, AuditableEntityType.PeriodClosing, cancellationToken);
         }
@@ -208,20 +220,21 @@ namespace VanAn.CoreHub.Services
                 return null;
 
             var tenantId = new TenantId(_tenantProvider.TenantId);
-            var userId = GetCurrentUserId();
-            var userName = GetCurrentUserName();
+            RequestContext ctx = await GetRequestContextAsync();
 
             _logger.LogInformation(
                 "Logging CORRECTION for entry {EntryId} by user {UserId}. Reason: {Reason}",
-                originalEntryId, userId, correctionReason);
+                originalEntryId, ctx.UserId, correctionReason);
 
             var auditLog = AuditLog.ForCorrection(
                 tenantId,
                 originalEntryId,
                 correctionReason,
-                userId,
-                userName,
-                correlationId);
+                ctx.UserId,
+                ctx.UserName,
+                correlationId,
+                ctx.IpAddress,
+                ctx.UserAgent);
 
             return await PersistAsync(auditLog, AuditableEntityType.AccountingEntry, cancellationToken);
         }
@@ -242,12 +255,11 @@ namespace VanAn.CoreHub.Services
                 return null;
 
             var tenantId = new TenantId(_tenantProvider.TenantId);
-            var userId = GetCurrentUserId();
-            var userName = GetCurrentUserName();
+            RequestContext ctx = await GetRequestContextAsync();
 
             _logger.LogInformation(
                 "Logging INVOICE CORRECTION {Type} for invoice {Original} -> {New} by user {UserId}. Reason: {Reason}",
-                adjustmentType, originalInvoiceId, newInvoiceId, userId, reason);
+                adjustmentType, originalInvoiceId, newInvoiceId, ctx.UserId, reason);
 
             var auditLog = AuditLog.ForInvoiceCorrection(
                 tenantId,
@@ -255,9 +267,11 @@ namespace VanAn.CoreHub.Services
                 newInvoiceId,
                 adjustmentType,
                 reason,
-                userId,
-                userName,
-                correlationId);
+                ctx.UserId,
+                ctx.UserName,
+                correlationId,
+                ctx.IpAddress,
+                ctx.UserAgent);
 
             return await PersistAsync(auditLog, AuditableEntityType.ElectronicInvoice, cancellationToken);
         }
@@ -274,21 +288,22 @@ namespace VanAn.CoreHub.Services
                 return null;
 
             var tenantId = new TenantId(_tenantProvider.TenantId);
-            var userId = GetCurrentUserId();
-            var userName = GetCurrentUserName();
+            RequestContext ctx = await GetRequestContextAsync();
 
             _logger.LogInformation(
                 "Logging REVERSAL for entry {OriginalEntryId} -> {ReversalEntryId} by user {UserId}. Reason: {Reason}",
-                originalEntryId, reversalEntryId, userId, reversalReason);
+                originalEntryId, reversalEntryId, ctx.UserId, reversalReason);
 
             var auditLog = AuditLog.ForReversal(
                 tenantId,
                 originalEntryId,
                 reversalEntryId,
                 reversalReason,
-                userId,
-                userName,
-                correlationId);
+                ctx.UserId,
+                ctx.UserName,
+                correlationId,
+                ctx.IpAddress,
+                ctx.UserAgent);
 
             return await PersistAsync(auditLog, AuditableEntityType.AccountingEntry, cancellationToken);
         }
@@ -299,7 +314,7 @@ namespace VanAn.CoreHub.Services
         {
             // ISSUE #2 FIX: SystemAdmin without tenant_id (not impersonating) sees cross-tenant audit logs.
             // When impersonating, _tenantProvider.HasTenant is true → normal tenant-filtered query.
-            if (IsSystemAdminWithoutTenant())
+            if (await IsSystemAdminWithoutTenantAsync())
             {
                 _logger.LogDebug(
                     "Querying audit logs cross-tenant (SystemAdmin platform mode)");
@@ -368,22 +383,21 @@ namespace VanAn.CoreHub.Services
                 return null;
 
             var tenantId = new TenantId(_tenantProvider.TenantId);
-            var userId = GetCurrentUserId();
-            var userName = GetCurrentUserName();
+            RequestContext ctx = await GetRequestContextAsync();
 
             _logger.LogWarning(
                 "SECURITY EVENT: {ActionType} — {Description} by user {UserId}",
-                actionType, description, userId);
+                actionType, description, ctx.UserId);
 
             var auditLog = AuditLog.ForSecurityEvent(
                 tenantId,
                 actionType,
                 description,
-                userId,
-                userName,
+                ctx.UserId,
+                ctx.UserName,
                 correlationId,
-                ipAddress,
-                userAgent);
+                ipAddress ?? ctx.IpAddress,
+                userAgent ?? ctx.UserAgent);
 
             // Security → ASYNC fire-and-forget (PersistAsync: SecurityEvent không phải accounting → enqueue)
             return await PersistAsync(auditLog, AuditableEntityType.SecurityEvent, cancellationToken);
@@ -446,15 +460,90 @@ namespace VanAn.CoreHub.Services
 
         #endregion
 
-        #region Helper Methods - User Context
+        #region Helper Methods - Request/User Context (W4 P1.1: IP/UserAgent capture)
 
         /// <summary>
-        /// Gets the current user ID from HTTP context claims.
-        /// Falls back to "system" when no HTTP context is available (e.g. background services).
+        /// W4 (P1.1 — 2026-10-18): resolved request context (user + IP + UserAgent).
+        /// IP/UserAgent nguồn: HttpContext headers (X-Forwarded-For qua Gateway/nginx → RemoteIpAddress;
+        /// User-Agent header) → fallback claims "client_ip"/"client_ua" trên auth cookie (gắn lúc
+        /// sign-in ShopERP) → null khi background scope (NATS/hosted — không HttpContext, không claims).
         /// </summary>
-        private string GetCurrentUserId()
+        private sealed record RequestContext(
+            string UserId,
+            string UserName,
+            string? IpAddress,
+            string? UserAgent);
+
+        /// <summary>
+        /// Resolve claims principal: HttpContext.User khi có request thật (API/SSR) —
+        /// fallback AuthenticationStateProvider trong Blazor Server circuit
+        /// (claims từ auth cookie vẫn resolve được; HttpContext null sau khi circuit thiết lập).
+        /// </summary>
+        private async Task<ClaimsPrincipal?> GetPrincipalAsync()
         {
-            var user = _httpContextAccessor.HttpContext?.User;
+            ClaimsPrincipal? principal = _httpContextAccessor.HttpContext?.User;
+            if (principal?.Identity?.IsAuthenticated == true)
+            {
+                return principal;
+            }
+
+            if (_authStateProvider == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                AuthenticationState state = await _authStateProvider.GetAuthenticationStateAsync();
+                return state.User.Identity?.IsAuthenticated == true ? state.User : null;
+            }
+            catch (InvalidOperationException)
+            {
+                // Ngoài DI scope Razor (background service) — không có auth state.
+                return null;
+            }
+        }
+
+        private async Task<RequestContext> GetRequestContextAsync()
+        {
+            HttpContext? http = _httpContextAccessor.HttpContext;
+            ClaimsPrincipal? principal = await GetPrincipalAsync();
+
+            string? ip = ExtractIpAddress(http) ?? principal?.FindFirst("client_ip")?.Value;
+            string? ua = ExtractUserAgent(http) ?? principal?.FindFirst("client_ua")?.Value;
+
+            return new RequestContext(
+                GetUserId(principal),
+                GetUserName(principal),
+                ip,
+                ua);
+        }
+
+        /// <summary>IP client: X-Forwarded-For (hop đầu tiên — Gateway/nginx forward) → RemoteIpAddress.</summary>
+        private static string? ExtractIpAddress(HttpContext? http)
+        {
+            if (http == null) return null;
+            string? forwarded = http.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(forwarded))
+            {
+                return forwarded.Split(',')[0].Trim();
+            }
+            return http.Connection.RemoteIpAddress?.ToString();
+        }
+
+        private static string? ExtractUserAgent(HttpContext? http)
+        {
+            if (http == null) return null;
+            string? ua = http.Request.Headers.UserAgent;
+            return string.IsNullOrWhiteSpace(ua) ? null : ua;
+        }
+
+        /// <summary>
+        /// User ID từ claims principal.
+        /// Falls back to "system" khi không có principal (background services).
+        /// </summary>
+        private static string GetUserId(ClaimsPrincipal? user)
+        {
             if (user?.Identity?.IsAuthenticated != true)
                 return "system";
 
@@ -464,12 +553,11 @@ namespace VanAn.CoreHub.Services
         }
 
         /// <summary>
-        /// Gets the current user name from HTTP context claims.
-        /// Falls back to "System" when no HTTP context is available.
+        /// User name từ claims principal.
+        /// Falls back to "System" khi không có principal.
         /// </summary>
-        private string GetCurrentUserName()
+        private static string GetUserName(ClaimsPrincipal? user)
         {
-            var user = _httpContextAccessor.HttpContext?.User;
             if (user?.Identity?.IsAuthenticated != true)
                 return "System";
 
@@ -483,10 +571,11 @@ namespace VanAn.CoreHub.Services
         /// <summary>
         /// Checks if the current user is a SystemAdmin without a valid tenant_id (platform mode).
         /// In this mode, audit queries should be cross-tenant.
+        /// W4: resolve principal qua GetRequestContextAsync (circuit-aware).
         /// </summary>
-        private bool IsSystemAdminWithoutTenant()
+        private async Task<bool> IsSystemAdminWithoutTenantAsync()
         {
-            var user = _httpContextAccessor.HttpContext?.User;
+            ClaimsPrincipal? user = await GetPrincipalAsync();
             if (user?.Identity?.IsAuthenticated != true)
                 return false;
 

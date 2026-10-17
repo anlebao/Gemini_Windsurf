@@ -13,6 +13,7 @@ using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
+using VanAn.ShopERP.Services;
 
 namespace VanAn.ShopERP.Controllers;
 
@@ -102,6 +103,9 @@ public class AdminController : ControllerBase
             new("impersonated_tenant_name", tenant.Name),
         };
 
+        // W4 (P1.1): refresh client_ip/client_ua claims → audit IP/UserAgent trong Blazor circuit.
+        SignInClaims.AppendClientInfo(claims, HttpContext);
+
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
 
@@ -183,6 +187,9 @@ public class AdminController : ControllerBase
 
         // Re-add SystemAdmin role (was stripped during impersonation to enforce data isolation)
         claims.Add(new Claim(ClaimTypes.Role, "SystemAdmin"));
+
+        // W4 (P1.1): refresh client_ip/client_ua claims → audit IP/UserAgent trong Blazor circuit.
+        SignInClaims.AppendClientInfo(claims, HttpContext);
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);

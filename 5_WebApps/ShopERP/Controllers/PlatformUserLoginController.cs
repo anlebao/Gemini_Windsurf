@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain.Common;
+using VanAn.ShopERP.Services;
 
 namespace VanAn.ShopERP.Controllers;
 
@@ -42,6 +43,9 @@ public class PlatformUserLoginController : ControllerBase
             new("sub", result.Email),
             new("role", result.Role),
         };
+
+        // W4 (P1.1): client_ip/client_ua claims → audit IP/UserAgent trong Blazor circuit.
+        SignInClaims.AppendClientInfo(claims, HttpContext);
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);

@@ -108,13 +108,42 @@ namespace VanAn.CoreHub.Services
             return closingEntry;
         }
 
+        /// <summary>W4 (P1.2): vai trò được phép mở lại kỳ đã đóng (phê duyệt cấp cao).</summary>
+        private static readonly string[] ReopenApproverRoles = ["Owner", "ChiefAccountant", "SystemAdmin"];
+
+        /// <inheritdoc />
+        public async Task<ReopenPreview> PreviewReopenAsync(
+            AccountingPeriod period,
+            TenantId tenantId,
+            CancellationToken cancellationToken = default)
+        {
+            // Non-mutating: chỉ đọc số bút toán + tổng giá trị sẽ bị đảo ngược.
+            IEnumerable<AccountingEntry> entries = await _entryRepository.GetByTenantAndPeriodAsync(
+                tenantId, period, cancellationToken);
+            List<AccountingEntry> list = entries.ToList();
+            return new ReopenPreview(list.Count, list.Sum(e => Math.Abs(e.Amount)));
+        }
+
         public async Task ReopenPeriodAsync(
             AccountingPeriod period,
             TenantId tenantId,
             Guid userId,
             string reason,
+            IReadOnlyList<string> approverRoles,
             CancellationToken cancellationToken = default)
         {
+            // W4 (P1.2 — TT 152/2025): service-level phê duyệt — mở lại kỳ đã đóng là thao tác
+            // đảo ngược TOÀN BỘ bút toán, chỉ Owner/ChiefAccountant/SystemAdmin được phép.
+            if (approverRoles == null || !approverRoles.Any(r => ReopenApproverRoles.Contains(r)))
+            {
+                throw new UnauthorizedAccessException(
+                    "Mở lại kỳ kế toán yêu cầu phê duyệt của Owner, Kế toán trưởng hoặc SystemAdmin.");
+            }
+            if (string.IsNullOrWhiteSpace(reason))
+            {
+                throw new ArgumentException("Lý do mở lại kỳ kế toán là bắt buộc.", nameof(reason));
+            }
+
             _logger.LogInformation("Reopening period {Period} for tenant {TenantId}. Reason: {Reason}", period, tenantId.Value, reason);
 
             // Tracked query (no AsNoTracking) — entity will be modified + saved

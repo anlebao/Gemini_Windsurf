@@ -65,12 +65,19 @@
     }
     else if (report != null)
     {
+        @* W4 (P1.3 — TT 152/2025): chỉ thị đỏ khi số dư cuối kỳ ÂM (âm quỹ/âm kho sổ sách). *@
+        @if (report.ClosingBalance < 0)
+        {
+            <VanAAlert Variant="error"
+                       Message="@($"⚠ ÂM SỐ DƯ: TK {report.AccountCode} dư cuối kỳ {report.ClosingBalance:N0} đ — kiểm tra lại phát sinh trong kỳ (âm quỹ/âm kho vi phạm nguyên tắc kế toán).")"
+                       Dismissible="false" />
+        }
         <VanACard Header="@LedgerHeader">
             <div class="totals-row">
                 <strong>Dư đầu kỳ:</strong> <span>@report.OpeningBalance.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
                 <strong>PS Nợ:</strong> <span>@report.PeriodDebitTotal.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
                 <strong>PS Có:</strong> <span>@report.PeriodCreditTotal.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
-                <strong>Dư cuối kỳ:</strong> <span>@report.ClosingBalance.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                <strong>Dư cuối kỳ:</strong> <span class="@(report.ClosingBalance < 0 ? "text-danger fw-bold" : "")">@report.ClosingBalance.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
             </div>
             <VanAnDataGrid TItem="LedgerRowDto" Items="@report.Rows" EmptyMessage="Không có phát sinh trong kỳ">
                 <Columns>
@@ -101,7 +108,8 @@
                     </VanAnColumn>
                     <VanAnColumn TItem="LedgerRowDto" Title="Số dư" Width="2">
                         <Template Context="r">
-                            <span>@r.RunningBalance.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                            @* W4 (P1.3): số dư âm → đỏ *@
+                            <span class="@(r.RunningBalance < 0 ? "text-danger fw-bold" : "")">@r.RunningBalance.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
                         </Template>
                     </VanAnColumn>
                 </Columns>
