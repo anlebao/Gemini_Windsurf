@@ -176,7 +176,7 @@ public class GeneralLedgerServiceTests : IClassFixture<TestDatabaseFixture>
     }
 
     [Fact]
-    public async Task GetJournalAsync_IsTenantIsolated()
+    public async Task GetLedgerAsync_IsTenantIsolated()
     {
         // Arrange — tenant A có dữ liệu
         TenantId tenantA = new(Guid.NewGuid());
@@ -195,5 +195,76 @@ public class GeneralLedgerServiceTests : IClassFixture<TestDatabaseFixture>
 
         // Assert
         Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetLedgerAsync_RowsIncludeCounterpartAccount()
+    {
+        // Arrange — bút toán 1: Nợ 111/Có 511 · bút toán 2: Nợ 642/Có 111
+        TenantId tenantId = new(Guid.NewGuid());
+        _fixture.SetCurrentTenant(tenantId);
+        VanAnDbContext db = _fixture.CreateFreshDbContext();
+        db.JournalEntries.Add(CreateEntry(tenantId, new DateTime(2026, 7, 5), "Thu tiền",
+            ("111", 3_000_000, 0), ("511", 0, 3_000_000)));
+        db.JournalEntries.Add(CreateEntry(tenantId, new DateTime(2026, 7, 15), "Chi phí",
+            ("642", 2_000_000, 0), ("111", 0, 2_000_000)));
+        _ = await db.SaveChangesAsync();
+
+        // Act — Sổ Cái TK 111
+        GeneralLedgerService service = CreateService(db);
+        LedgerReportDto report = await service.GetLedgerAsync(tenantId, 2026, 7, "111");
+
+        // Assert — TK đối ứng của từng dòng (phía còn lại của bút toán)
+        Assert.Equal(2, report.Rows.Count);
+        Assert.Equal("511", report.Rows[0].CounterpartAccount);
+        Assert.Equal("642", report.Rows[1].CounterpartAccount);
+    }
+
+    [Fact]
+    public async Task GetQuarterTotalsAsync_SumsFromQuarterStart()
+    {
+        // Arrange — tháng 6 (Q2) Nợ 5tr (ngoài quý) · tháng 7 (Q3) Nợ 3tr · tháng 9 (Q3) Có 2tr
+        TenantId tenantId = new(Guid.NewGuid());
+        _fixture.SetCurrentTenant(tenantId);
+        VanAnDbContext db = _fixture.CreateFreshDbContext();
+        db.JournalEntries.Add(CreateEntry(tenantId, new DateTime(2026, 6, 20), "Tháng 6 — Q2",
+            ("111", 5_000_000, 0), ("511", 0, 5_000_000)));
+        db.JournalEntries.Add(CreateEntry(tenantId, new DateTime(2026, 7, 5), "Tháng 7 — Q3",
+            ("111", 3_000_000, 0), ("511", 0, 3_000_000)));
+        db.JournalEntries.Add(CreateEntry(tenantId, new DateTime(2026, 9, 10), "Tháng 9 — Q3",
+            ("642", 2_000_000, 0), ("111", 0, 2_000_000)));
+        _ = await db.SaveChangesAsync();
+
+        // Act — kỳ báo cáo tháng 7 (Q3): lũy kế từ 01/07 → 31/07 (chỉ tháng 7, không gồm tháng 9 sau kỳ)
+        GeneralLedgerService service = CreateService(db);
+        QuarterTotalsDto result = await service.GetQuarterTotalsAsync(tenantId, 2026, 7, "111");
+
+        // Assert — 5tr tháng 6 (Q2) bị loại; tháng 9 (sau kỳ 7) không nằm trong phạm vi 01/07–31/07
+        Assert.Equal(3_000_000m, result.DebitTotal);
+        Assert.Equal(0m, result.CreditTotal);
+    }
+
+    [Fact]
+    public async Task GetTenantInfoAsync_ReturnsNameAndAddress()
+    {
+        // Arrange — tạo tenant có Settings.Address
+        TenantId tenantId = new(Guid.NewGuid());
+        _fixture.SetCurrentTenant(tenantId);
+        VanAnDbContext db = _fixture.CreateFreshDbContext();
+        var tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant.CreateCompany(
+            tenantId, "Vạn An Test DN",
+            new VanAn.Shared.Domain.Aggregates.TenantAggregate.TenantSettings(null, null, "123 Lê Lợi, Q.1"));
+        db.Tenants.Add(tenant);
+        db.Entry(tenant).Property("TenantId").CurrentValue = tenantId;
+        _ = await db.SaveChangesAsync();
+
+        // Act
+        GeneralLedgerService service = CreateService(db);
+        TenantInfoDto? info = await service.GetTenantInfoAsync(tenantId);
+
+        // Assert
+        Assert.NotNull(info);
+        Assert.Equal("Vạn An Test DN", info.Name);
+        Assert.Equal("123 Lê Lợi, Q.1", info.Address);
     }
 }

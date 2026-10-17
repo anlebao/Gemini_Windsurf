@@ -55,4 +55,36 @@ public class JournalPageTests : ComponentTestBase
         // Assert
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Không có bút toán trong kỳ"));
     }
+
+    [Fact]
+    public void Journal_ExportExcel_DownloadsXlsx_WhenClicked()
+    {
+        // Arrange — nút Xuất Excel → vanAn.downloadFile với mime xlsx (Mẫu S03b-DN).
+        var mock = new Mock<IGeneralLedgerService>();
+        mock.Setup(s => s.GetJournalAsync(It.IsAny<TenantId>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<JournalEntryDto>
+            {
+                new(Guid.NewGuid(), "J20261015-ABC12345", new DateTime(2026, 10, 15), "Thu tiền", null, false, null,
+                    new List<JournalEntryLineDto>
+                    {
+                        new("111", 1_000_000, 0, null),
+                        new("511", 0, 1_000_000, null)
+                    })
+            });
+        mock.Setup(s => s.GetTenantInfoAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TenantInfoDto("Vạn An Test", "123 Lê Lợi, Q.1"));
+        Services.AddSingleton(mock.Object);
+
+        var cut = RenderComponent<ShopERP.Components.Pages.Accounting.JournalReport>();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Xuất Excel"));
+
+        // Act
+        cut.FindAll("button").First(b => b.TextContent.Contains("Xuất Excel")).Click();
+
+        // Assert — gọi vanAn.downloadFile với base64 + mime xlsx + tên file .xlsx
+        cut.WaitForAssertion(() => JSInterop.Invocations.Should().Contain(i => i.Identifier == "vanAn.downloadFile"));
+        var args = JSInterop.Invocations.First(i => i.Identifier == "vanAn.downloadFile").Arguments;
+        args[1].Should().Be("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        args[2].ToString()!.Should().EndWith(".xlsx");
+    }
 }

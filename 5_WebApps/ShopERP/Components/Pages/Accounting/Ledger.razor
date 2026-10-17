@@ -53,7 +53,7 @@
                 </select>
             </label>
             <VanAButton Variant="primary" Size="small" OnClick="LoadReport">Áp dụng</VanAButton>
-            <VanAButton Variant="success" Size="small" OnClick="ExportCsv" Disabled="@(report == null)">📊 Xuất CSV</VanAButton>
+            <VanAButton Variant="success" Size="small" OnClick="ExportExcel" Disabled="@(report == null)">📊 Xuất Excel</VanAButton>
         </div>
     </VanACard>
 
@@ -181,46 +181,27 @@
 
     private async Task PrintReport() => await JSRuntime.InvokeVoidAsync("vananPrintBill");
 
-    private async Task ExportCsv()
+    // TUÂN THỦ PHÁP LÝ P0.2-Đ1 (2026-10-16): Xuất Excel theo Mẫu S02c1-DN (MauSoCaiKeToan.docx)
+    // — cột Ngày ghi sổ | Chứng từ (Số hiệu, Ngày tháng) | Diễn giải | TK đối ứng | Nợ/Có | Ghi chú
+    // + dòng Số dư đầu kỳ / Cộng PS tháng / Số dư cuối kỳ / Cộng lũy kế từ đầu quý.
+    private async Task ExportExcel()
     {
         if (report == null) return;
         try
         {
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"SO CAI TK {report.AccountCode} {report.AccountName} - THANG {selectedMonth}/{selectedYear}");
-            sb.AppendLine($"DU DAU KY,{report.OpeningBalance.ToString(CultureInfo.InvariantCulture)}");
-            sb.AppendLine("Ngay,So CT,Dien giai,No,Co,So du");
-            foreach (var r in report.Rows)
-            {
-                sb.AppendLine(string.Join(",",
-                    r.EntryDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
-                    EscapeCsv(r.JournalNo),
-                    EscapeCsv(r.Description),
-                    r.Debit.ToString(CultureInfo.InvariantCulture),
-                    r.Credit.ToString(CultureInfo.InvariantCulture),
-                    r.RunningBalance.ToString(CultureInfo.InvariantCulture)));
-            }
-            sb.AppendLine($"TONG PS NO,{report.PeriodDebitTotal.ToString(CultureInfo.InvariantCulture)}");
-            sb.AppendLine($"TONG PS CO,{report.PeriodCreditTotal.ToString(CultureInfo.InvariantCulture)}");
-            sb.AppendLine($"DU CUOI KY,{report.ClosingBalance.ToString(CultureInfo.InvariantCulture)}");
-
-            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+            if (!TenantProvider.HasTenant) return;
+            TenantId tenantId = new(TenantProvider.TenantId);
+            var tenantInfo = await GeneralLedgerService.GetTenantInfoAsync(tenantId);
+            var quarter = await GeneralLedgerService.GetQuarterTotalsAsync(tenantId, selectedYear, selectedMonth, report.AccountCode);
+            byte[] bytes = LedgerExcelExportService.ExportSoCaiExcel(report, selectedYear, selectedMonth, tenantInfo, quarter);
             string base64 = Convert.ToBase64String(bytes);
-            string fileName = $"so-cai-{selectedAccountCode}_{selectedYear}{selectedMonth:D2}.csv";
-            await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64, "text/csv", fileName);
+            string fileName = $"so-cai-{report.AccountCode}_{selectedYear}{selectedMonth:D2}.xlsx";
+            await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error exporting ledger to CSV");
+            Logger.LogError(ex, "Error exporting ledger to Excel");
         }
-    }
-
-    private static string EscapeCsv(string? field)
-    {
-        if (string.IsNullOrEmpty(field)) return string.Empty;
-        bool needsQuote = field.Contains(',') || field.Contains('"') || field.Contains('\n');
-        if (!needsQuote) return field;
-        string escaped = field.Replace("\"", "\"\"");
-        return "\"" + escaped + "\"";
     }
 }

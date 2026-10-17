@@ -44,7 +44,7 @@
                 </select>
             </label>
             <VanAButton Variant="primary" Size="small" OnClick="LoadReport">Áp dụng</VanAButton>
-            <VanAButton Variant="success" Size="small" OnClick="ExportCsv">📊 Xuất CSV</VanAButton>
+            <VanAButton Variant="success" Size="small" OnClick="ExportExcel">📊 Xuất Excel</VanAButton>
         </div>
     </VanACard>
 
@@ -177,43 +177,25 @@
 
     private async Task PrintReport() => await JSRuntime.InvokeVoidAsync("vananPrintBill");
 
-    private async Task ExportCsv()
+    // TUÂN THỦ PHÁP LÝ P0.2-Đ1 (2026-10-16): Xuất Excel theo Mẫu S03b-DN (SoNhatKy_HT_NhatKyChung.docx)
+    // — cột Ngày ghi sổ | Chứng từ | Diễn giải | Nhật ký chung (Trang sổ/STT dòng) | TK đối ứng | Nợ/Có.
+    private async Task ExportExcel()
     {
         try
         {
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"SO NHAT KY CHUNG - THANG {selectedMonth}/{selectedYear}");
-            sb.AppendLine("Ngay,So CT,Dien giai,TK No,TK Co,So tien");
-            foreach (var r in rows)
-            {
-                sb.AppendLine(string.Join(",",
-                    r.EntryDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
-                    EscapeCsv(r.JournalNo),
-                    EscapeCsv(r.Description),
-                    EscapeCsv(r.DebitAccount),
-                    EscapeCsv(r.CreditAccount),
-                    r.Amount.ToString(CultureInfo.InvariantCulture)));
-            }
-            sb.AppendLine($"TONG NO,{totalDebit.ToString(CultureInfo.InvariantCulture)}");
-            sb.AppendLine($"TONG CO,{totalCredit.ToString(CultureInfo.InvariantCulture)}");
-
-            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+            if (!TenantProvider.HasTenant) return;
+            TenantId tenantId = new(TenantProvider.TenantId);
+            var tenantInfo = await GeneralLedgerService.GetTenantInfoAsync(tenantId);
+            var entries = await GeneralLedgerService.GetJournalAsync(tenantId, selectedYear, selectedMonth);
+            byte[] bytes = LedgerExcelExportService.ExportSoNhatKyExcel(entries, selectedYear, selectedMonth, tenantInfo);
             string base64 = Convert.ToBase64String(bytes);
-            string fileName = $"nhat-ky-chung_{selectedYear}{selectedMonth:D2}.csv";
-            await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64, "text/csv", fileName);
+            string fileName = $"so-nhat-ky-chung_{selectedYear}{selectedMonth:D2}.xlsx";
+            await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error exporting journal to CSV");
+            Logger.LogError(ex, "Error exporting journal to Excel");
         }
-    }
-
-    private static string EscapeCsv(string? field)
-    {
-        if (string.IsNullOrEmpty(field)) return string.Empty;
-        bool needsQuote = field.Contains(',') || field.Contains('"') || field.Contains('\n');
-        if (!needsQuote) return field;
-        string escaped = field.Replace("\"", "\"\"");
-        return "\"" + escaped + "\"";
     }
 }

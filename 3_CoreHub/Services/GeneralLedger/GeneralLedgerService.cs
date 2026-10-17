@@ -12,6 +12,8 @@ namespace VanAn.CoreHub.Services.GeneralLedger;
 /// </summary>
 public class GeneralLedgerService(IAccountingDbContext db, ILogger<GeneralLedgerService> logger) : IGeneralLedgerService
 {
+    // Tenants nằm trên VanAnDbContext (PG) — pattern AuditLogRepository (_vanAnContext = context as VanAnDbContext).
+    private readonly VanAnDbContext? _vanAnContext = db as VanAnDbContext;
     public async Task<IReadOnlyList<JournalEntryDto>> GetJournalAsync(
         TenantId tenantId,
         int year,
@@ -63,6 +65,12 @@ public class GeneralLedgerService(IAccountingDbContext db, ILogger<GeneralLedger
         decimal running = opening;
         foreach (JournalEntry entry in inPeriod)
         {
+            // TK đối ứng: các TK khác trong cùng bút toán (phía đối ứng của dòng này).
+            string? counterpart = string.Join(", ",
+                entry.Lines
+                    .Where(l => l.AccountNumber != accountCode)
+                    .Select(l => l.AccountNumber)
+                    .Distinct());
             foreach (JournalEntryLine line in entry.Lines.Where(l => l.AccountNumber == accountCode))
             {
                 running += line.DebitAmount - line.CreditAmount;
@@ -72,7 +80,8 @@ public class GeneralLedgerService(IAccountingDbContext db, ILogger<GeneralLedger
                     entry.Description,
                     line.DebitAmount,
                     line.CreditAmount,
-                    running));
+                    running,
+                    counterpart));
             }
         }
 
@@ -159,6 +168,58 @@ public class GeneralLedgerService(IAccountingDbContext db, ILogger<GeneralLedger
         }
 
         return result;
+    }
+
+    public async Task<QuarterTotalsDto> GetQuarterTotalsAsync(
+        TenantId tenantId,
+        int year,
+        int month,
+        string accountCode,
+        CancellationToken cancellationToken = default)
+    {
+        AccountingPeriod period = AccountingPeriod.FromDateTime(new DateTime(year, month, 1));
+        // Đầu quý: tháng 1/4/7/10 của năm.
+        int quarterStartMonth = ((month - 1) / 3) * 3 + 1;
+        DateTime quarterStart = new(year, quarterStartMonth, 1);
+
+        List<JournalEntry> quarterEntries = await db.JournalEntries
+            .Where(e => e.TenantId == tenantId
+                && e.EntryDate >= quarterStart
+                && e.EntryDate <= period.EndDate
+                && e.Lines.Any(l => l.AccountNumber == accountCode))
+            .ToListAsync(cancellationToken);
+
+        decimal debit = quarterEntries.SelectMany(e => e.Lines)
+            .Where(l => l.AccountNumber == accountCode)
+            .Sum(l => l.DebitAmount);
+        decimal credit = quarterEntries.SelectMany(e => e.Lines)
+            .Where(l => l.AccountNumber == accountCode)
+            .Sum(l => l.CreditAmount);
+
+        return new QuarterTotalsDto(debit, credit);
+    }
+
+    public async Task<TenantInfoDto?> GetTenantInfoAsync(
+        TenantId tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (_vanAnContext == null) return null;
+            // Tenants tự tham chiếu (TenantId = Id của chính nó) — IgnoreQueryFilters để tra cứu
+            // theo Id, tránh phụ thuộc CurrentTenantId ambient (pattern seed HKDBookGenerationService).
+            var tenant = await _vanAnContext.Tenants
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
+            if (tenant == null) return null;
+            return new TenantInfoDto(tenant.Name, tenant.Settings?.Address);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Tenant info lookup failed for {TenantId}", tenantId.Value);
+            return null;
+        }
     }
 
     private static JournalEntryDto MapJournalEntry(JournalEntry entry) => new(

@@ -68,4 +68,37 @@ public class LedgerPageTests : ComponentTestBase
         // Assert
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Vui lòng chọn tài khoản"));
     }
+
+    [Fact]
+    public void Ledger_ExportExcel_DownloadsXlsx_WhenClicked()
+    {
+        // Arrange — nút Xuất Excel → vanAn.downloadFile với mime xlsx (Mẫu S02c1-DN).
+        var mock = new Mock<IGeneralLedgerService>();
+        mock.Setup(s => s.GetAccountsAsync(It.IsAny<TenantId>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<AccountActivityDto> { new("111", "Tiền mặt", 3_000_000, 0) });
+        mock.Setup(s => s.GetLedgerAsync(It.IsAny<TenantId>(), It.IsAny<int>(), It.IsAny<int>(), "111", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LedgerReportDto(
+                "111", "Tiền mặt", 5_000_000, 3_000_000, 2_000_000, 6_000_000,
+                new List<LedgerRowDto>
+                {
+                    new(new DateTime(2026, 10, 5), "J20261005-ABC", "Thu tiền", 3_000_000, 0, 8_000_000, "511")
+                }));
+        mock.Setup(s => s.GetTenantInfoAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TenantInfoDto("Vạn An Test", "123 Lê Lợi, Q.1"));
+        mock.Setup(s => s.GetQuarterTotalsAsync(It.IsAny<TenantId>(), It.IsAny<int>(), It.IsAny<int>(), "111", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new QuarterTotalsDto(3_000_000, 2_000_000));
+        Services.AddSingleton(mock.Object);
+
+        var cut = RenderComponent<ShopERP.Components.Pages.Accounting.Ledger>();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Xuất Excel"));
+
+        // Act
+        cut.FindAll("button").First(b => b.TextContent.Contains("Xuất Excel")).Click();
+
+        // Assert — gọi vanAn.downloadFile với base64 + mime xlsx + tên file .xlsx
+        cut.WaitForAssertion(() => JSInterop.Invocations.Should().Contain(i => i.Identifier == "vanAn.downloadFile"));
+        var args = JSInterop.Invocations.First(i => i.Identifier == "vanAn.downloadFile").Arguments;
+        args[1].Should().Be("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        args[2].ToString()!.Should().EndWith(".xlsx");
+    }
 }
