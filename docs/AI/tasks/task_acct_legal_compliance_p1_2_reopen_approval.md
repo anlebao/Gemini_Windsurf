@@ -3,7 +3,7 @@
 > Created: 2026-10-16 (user directive master plan P0-P2)
 > Master plan: `docs/AI/plans/accounting-legal-compliance-master-plan.md` (Phase P1.2)
 > Branch: `main`
-> Status: ✅ **IMPLEMENTED W4 (2026-10-18): PreviewReopenAsync + role gate {Owner/ChiefAccountant/SystemAdmin} + modal gõ "MỞ KHÓA" — bUnit 36/36 PASS · Integration 8/8 PASS — chờ deploy + RV**
+> Status: ✅ **DONE + DEPLOYED + RV L1-L3 PASS (2026-10-18, `06d27d7d`+`a11543ff`) — PreviewReopenAsync + role gate + modal "MỞ KHÓA"**
 
 ---
 
@@ -47,7 +47,7 @@
 - [x] Reopen yêu cầu role cấp cao + lý do + preview số lượng entries bị đảo
 - [x] Modal cảnh báo đỏ + xác nhận chuỗi "MỞ KHÓA"
 - [x] Audit đầy đủ (PeriodReopen + reason + user)
-- [x] guard + build + tests PASS · [ ] Deploy + RV PASS → đóng
+- [x] guard + build + tests PASS · [x] Deploy + RV PASS (CD `06d27d7d`/`a11543ff` + L1-L3) → đóng
 
 ## 7. DEFERRED
 

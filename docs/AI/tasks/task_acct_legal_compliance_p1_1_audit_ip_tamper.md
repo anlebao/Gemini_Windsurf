@@ -3,7 +3,7 @@
 > Created: 2026-10-16 (user directive master plan P0-P2)
 > Master plan: `docs/AI/plans/accounting-legal-compliance-master-plan.md` (Phase P1.1)
 > Branch: `main`
-> Status: ✅ **IMPLEMENTED W4 (2026-10-18): Option A (IP/UserAgent) — Core.Tests 18/18 audit PASS · guard ALL PASSED — chờ deploy + RV**
+> Status: ✅ **DONE + DEPLOYED + RV L1-L3 PASS (2026-10-18, `06d27d7d`+`a11543ff`) — Option A (IP/UserAgent) · RV fix: modal chi tiết thiếu Body → `a11543ff`**
 
 ---
 
@@ -44,7 +44,7 @@
 
 - [x] (A) Mọi AuditLog Create/Update/Delete/PeriodClose/Reopen/Correction/Reversal có IP + UserAgent (Core.Tests 18/18)
 - [ ] (B — DEFER theo Q3) Hash-chain + kiểm tra toàn vẹn + test phát hiện giả mạo (khi có nhu cầu)
-- [x] guard + build + tests PASS · [ ] Deploy + RV PASS → đóng
+- [x] guard + build + tests PASS · [x] Deploy + RV PASS (CD `06d27d7d`/`a11543ff` + L1-L3) → đóng
 
 ## 7. DEFERRED
 

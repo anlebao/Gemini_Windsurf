@@ -3,7 +3,7 @@
 > Created: 2026-10-16 (user directive master plan P0-P2)
 > Master plan: `docs/AI/plans/accounting-legal-compliance-master-plan.md` (Phase P1.3 — dep: sau P0.2)
 > Branch: `main`
-> Status: ✅ **IMPLEMENTED W4 (2026-10-18): BalanceAlertService (flag Balance_Alert_Enabled) + hooks ExpenseEntry/Payment/Ledger — Core.Tests 40/40 PASS · guard ALL PASSED — chờ deploy + RV**
+> Status: ✅ **DONE + DEPLOYED + RV L1-L3 PASS (2026-10-18, `06d27d7d`+`a11543ff`) — BalanceAlertService flag Balance_Alert_Enabled + hooks**
 
 ---
 
@@ -45,7 +45,7 @@
 
 - [x] Cảnh báo âm quỹ 111 + âm kho 152/156 tại điểm xuất (POS + phiếu chi + Sổ Cái; xuất kho hard-block sẵn)
 - [x] Flag bật/tắt `Balance_Alert_Enabled` + test tenant isolation
-- [x] guard + build + tests PASS · [ ] Deploy + RV PASS → đóng
+- [x] guard + build + tests PASS · [x] Deploy + RV PASS (CD `06d27d7d`/`a11543ff` + L1-L3) → đóng
 
 ## 7. DEFERRED
 
