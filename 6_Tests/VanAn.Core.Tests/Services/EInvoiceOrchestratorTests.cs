@@ -412,4 +412,46 @@ public class EInvoiceOrchestratorTests : IDisposable
         result.Should().NotBeNull();
         result.Should().Be(InvoiceStatus.Draft);
     }
+
+    // ── P0.4 (W2 — Điều 8 TT 91/2026): EInvoice_Usage_Suspended upsert ────────
+    [Fact]
+    public async Task SetEInvoiceUsageSuspendedAsync_NewFlag_UpsertsSystemSettings()
+    {
+        var tenantId = new TenantId(Guid.NewGuid());
+
+        await _orchestrator.SetEInvoiceUsageSuspendedAsync(
+            tenantId, suspended: true, reason: "TB 123/CCT", updatedBy: null);
+
+        var flag = await _dbContext.SystemSettings
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(s => s.TenantId == tenantId
+                && s.Key == ComplianceService.EInvoiceUsageSuspendedKey);
+        var reason = await _dbContext.SystemSettings
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(s => s.TenantId == tenantId
+                && s.Key == ComplianceService.EInvoiceUsageSuspendedReasonKey);
+
+        flag.Should().NotBeNull();
+        flag!.Value.Should().Be("true");
+        reason.Should().NotBeNull();
+        reason!.Value.Should().Be("TB 123/CCT");
+    }
+
+    [Fact]
+    public async Task SetEInvoiceUsageSuspendedAsync_ToggleOff_UpdatesExistingFlag()
+    {
+        var tenantId = new TenantId(Guid.NewGuid());
+
+        await _orchestrator.SetEInvoiceUsageSuspendedAsync(tenantId, suspended: true);
+        await _orchestrator.SetEInvoiceUsageSuspendedAsync(tenantId, suspended: false);
+
+        var flags = await _dbContext.SystemSettings
+            .IgnoreQueryFilters()
+            .Where(s => s.TenantId == tenantId
+                && s.Key == ComplianceService.EInvoiceUsageSuspendedKey)
+            .ToListAsync();
+
+        flags.Should().HaveCount(1);
+        flags[0].Value.Should().Be("false");
+    }
 }

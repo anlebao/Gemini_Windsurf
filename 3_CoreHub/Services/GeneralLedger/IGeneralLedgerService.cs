@@ -50,6 +50,28 @@ public interface IGeneralLedgerService
         int month,
         string accountCode,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// P0.2-Đ2 (W2, 2026-10-17): Sổ chi tiết TK — Mẫu S38-DN (TT 99/2025).
+    /// Nguồn hybrid: TK 131/331 đọc AccountingEntry (công nợ KHÔNG tạo JournalEntry — [G6]);
+    /// TK khác đọc JournalEntry + resolve đối tượng qua ReferenceId → AccountingEntry.Vendor.
+    /// doiTuong = null → toàn bộ đối tượng.
+    /// </summary>
+    Task<SubLedgerReportDto> GetSubLedgerAsync(
+        TenantId tenantId,
+        int year,
+        int month,
+        string accountCode,
+        string? doiTuong = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Danh sách đối tượng (Vendor) có phát sinh trên TK — dropdown Sổ chi tiết.</summary>
+    Task<IReadOnlyList<string>> GetSubLedgerDoiTuongAsync(
+        TenantId tenantId,
+        int year,
+        int month,
+        string accountCode,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>Dòng chi tiết của bút toán (Nợ/Có).</summary>
@@ -119,3 +141,28 @@ public sealed record TenantInfoDto(
 public sealed record QuarterTotalsDto(
     decimal DebitTotal,
     decimal CreditTotal);
+
+/// <summary>
+/// Dòng Sổ chi tiết (Mẫu S38-DN): ngày · số CT · diễn giải · TK đối ứng · đối tượng · PS Nợ/Có · số dư.
+/// RunningBalance theo convention Debit−Credit (dương = dư Nợ, âm = dư Có) — nhất quán LedgerRowDto.
+/// </summary>
+public sealed record SubLedgerRowDto(
+    DateTime EntryDate,
+    string JournalNo,
+    string Description,
+    string? CounterpartAccount,
+    string? DoiTuong,
+    decimal Debit,
+    decimal Credit,
+    decimal RunningBalance);
+
+/// <summary>Sổ chi tiết của 1 TK trong kỳ (lọc theo đối tượng nếu có).</summary>
+public sealed record SubLedgerReportDto(
+    string AccountCode,
+    string? AccountName,
+    string? DoiTuong,
+    decimal OpeningBalance,
+    decimal PeriodDebitTotal,
+    decimal PeriodCreditTotal,
+    decimal ClosingBalance,
+    IReadOnlyList<SubLedgerRowDto> Rows);

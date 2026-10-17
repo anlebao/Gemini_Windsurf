@@ -252,6 +252,131 @@ namespace VanAn.ShopERP.Services
             return package.GetAsByteArray();
         }
 
+        /// <summary>
+        /// P0.2-Đ2 (W2, 2026-10-17): Xuất Sổ chi tiết các TK (Mẫu S38-DN — SoChiTiet_Mau-S38-DN.docx)
+        /// — 9 cột: Ngày ghi sổ | Chứng từ (Số hiệu, Ngày tháng) | Diễn giải | TK đối ứng | PS Nợ/Có | Dư Nợ/Có.
+        /// Đối tượng ghi ở phần đầu (theo mẫu); khi xem tất cả đối tượng thì gắn "— ĐT: X" vào diễn giải.
+        /// </summary>
+        public static byte[] ExportSoChiTietExcel(
+            SubLedgerReportDto report,
+            int year,
+            int month,
+            TenantInfoDto? tenant)
+        {
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            using ExcelPackage package = new();
+            ExcelWorksheet ws = package.Workbook.Worksheets.Add("Sổ chi tiết");
+
+            // ── Phần đầu (như mẫu S38-DN) ──
+            ws.Cells["A1"].Value = $"Đơn vị: {tenant?.Name ?? "............................"}";
+            ws.Cells["A2"].Value = $"Địa chỉ: {tenant?.Address ?? "............................"}";
+            ws.Cells["H1"].Value = "Mẫu số S38-DN";
+            ws.Cells["H2"].Value = Form99Note;
+            ws.Cells["H1:H2"].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+            ws.Cells["H1"].Style.Font.Bold = true;
+
+            ws.Cells["A4"].Value = "SỔ CHI TIẾT CÁC TÀI KHOẢN";
+            ws.Cells["A4:I4"].Merge = true;
+            Center(ws.Cells["A4:I4"], bold: true, size: 16);
+
+            ws.Cells["A6"].Value = $"Tài khoản: {report.AccountCode}{(report.AccountName is null ? "" : $" - {report.AccountName}")}";
+            ws.Cells["F6"].Value = $"Đối tượng: {report.DoiTuong ?? "Tất cả"}";
+            ws.Cells["G6"].Value = "Loại tiền: VNĐ";
+            ws.Cells["H6"].Value = $"Năm: {year} — Tháng: {month}";
+            ws.Cells["H6"].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+
+            // ── Header bảng 3 dòng (mẫu S38-DN): A | B/C | D | E | F:G (PS) | H:I (Dư) ──
+            int headerRow = 8;
+            int[] widths = [14, 12, 12, 34, 12, 15, 15, 15, 15];
+            for (int i = 0; i < widths.Length; i++) ws.Column(i + 1).Width = widths[i];
+
+            // Dòng 1: A "Ngày, tháng ghi sổ" · B:C "Chứng từ" · D "Diễn giải" · E "TK đối ứng" · F:G "Số phát sinh" · H:I "Số dư"
+            ws.Cells[headerRow, 1].Value = "Ngày, tháng ghi sổ";
+            ws.Cells[headerRow, 2, headerRow, 3].Merge = true;
+            ws.Cells[headerRow, 2].Value = "Chứng từ";
+            ws.Cells[headerRow, 4].Value = "Diễn giải";
+            ws.Cells[headerRow, 5].Value = "TK đối ứng";
+            ws.Cells[headerRow, 6, headerRow, 7].Merge = true;
+            ws.Cells[headerRow, 6].Value = "Số phát sinh";
+            ws.Cells[headerRow, 8, headerRow, 9].Merge = true;
+            ws.Cells[headerRow, 8].Value = "Số dư";
+            // Dòng 2: B "Số hiệu" · C "Ngày tháng" · F "Nợ" · G "Có" · H "Nợ" · I "Có"
+            ws.Cells[headerRow + 1, 2].Value = "Số hiệu";
+            ws.Cells[headerRow + 1, 3].Value = "Ngày tháng";
+            ws.Cells[headerRow + 1, 6].Value = "Nợ";
+            ws.Cells[headerRow + 1, 7].Value = "Có";
+            ws.Cells[headerRow + 1, 8].Value = "Nợ";
+            ws.Cells[headerRow + 1, 9].Value = "Có";
+            // Hàng ký hiệu cột — đúng mẫu: A B C D E 1 2 3 4
+            ws.Cells[headerRow + 2, 1].Value = "A";
+            ws.Cells[headerRow + 2, 2].Value = "B";
+            ws.Cells[headerRow + 2, 3].Value = "C";
+            ws.Cells[headerRow + 2, 4].Value = "D";
+            ws.Cells[headerRow + 2, 5].Value = "E";
+            ws.Cells[headerRow + 2, 6].Value = "1";
+            ws.Cells[headerRow + 2, 7].Value = "2";
+            ws.Cells[headerRow + 2, 8].Value = "3";
+            ws.Cells[headerRow + 2, 9].Value = "4";
+
+            ExcelRange headerRange = ws.Cells[headerRow, 1, headerRow + 2, 9];
+            Center(headerRange, bold: true);
+            headerRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+            headerRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+
+            bool showPartyInDesc = report.DoiTuong is null; // xem tất cả đối tượng → gắn ĐT vào diễn giải
+
+            // ── Dữ liệu ──
+            int row = headerRow + 3;
+            WriteBalanceRow38(ws, row++, "- Số dư đầu kỳ", report.OpeningBalance);
+
+            foreach (SubLedgerRowDto r in report.Rows)
+            {
+                ws.Cells[row, 1].Value = r.EntryDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+                ws.Cells[row, 2].Value = r.JournalNo;
+                ws.Cells[row, 3].Value = r.EntryDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+                ws.Cells[row, 4].Value = showPartyInDesc && r.DoiTuong != null
+                    ? $"{r.Description} — ĐT: {r.DoiTuong}"
+                    : r.Description;
+                ws.Cells[row, 5].Value = r.CounterpartAccount;
+                if (r.Debit > 0) ws.Cells[row, 6].Value = r.Debit;
+                if (r.Credit > 0) ws.Cells[row, 7].Value = r.Credit;
+                WriteRunningBalance(ws, row, r.RunningBalance);
+                row++;
+            }
+
+            // Cộng số phát sinh
+            ws.Cells[row, 4].Value = "- Cộng số phát sinh";
+            if (report.PeriodDebitTotal != 0) ws.Cells[row, 6].Value = report.PeriodDebitTotal;
+            if (report.PeriodCreditTotal != 0) ws.Cells[row, 7].Value = report.PeriodCreditTotal;
+            ws.Cells[row, 5].Value = "x";
+            ws.Cells[row, 8].Value = "x";
+            ws.Cells[row, 9].Value = "x";
+            StyleSummary38(ws, row);
+            row++;
+            // Số dư cuối kỳ
+            WriteBalanceRow38(ws, row++, "- Số dư cuối kỳ", report.ClosingBalance, bold: true);
+
+            ExcelRange dataRange = ws.Cells[headerRow, 1, row - 1, 9];
+            dataRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+            dataRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+
+            // ── Phần cuối (như mẫu: số trang + ngày mở sổ + chữ ký) ──
+            row += 2;
+            ws.Cells[row, 1].Value = "- Sổ này có .... trang, đánh số từ trang 01 đến trang ....\n- Ngày mở sổ: ...";
+            ws.Cells[row, 1].Style.WrapText = true;
+            ws.Cells[row, 4].Value = "Người ghi sổ";
+            ws.Cells[row, 6].Value = "Kế toán trưởng";
+            ws.Cells[row, 8].Value = $"Ngày ..... tháng ..... năm {year}";
+            ws.Cells[row + 1, 4].Value = "(Ký, họ tên)";
+            ws.Cells[row + 1, 6].Value = "(Ký, họ tên)";
+            ws.Cells[row + 1, 8].Value = "Người đại diện theo pháp luật";
+            ws.Cells[row + 2, 8].Value = "(Ký, họ tên, đóng dấu)";
+            Center(ws.Cells[row, 4, row + 1, 6], bold: true);
+            Center(ws.Cells[row, 8, row + 1, 8]);
+
+            return package.GetAsByteArray();
+        }
+
         // ── Helpers ──
 
         private static void WriteBalanceRow(ExcelWorksheet ws, int row, string label, decimal balance, bool bold = false)
@@ -274,6 +399,32 @@ namespace VanAn.ShopERP.Services
         {
             ws.Cells[row, 4].Style.Font.Bold = true;
             for (int c = 6; c <= 7; c++)
+            {
+                ws.Cells[row, c].Style.Font.Bold = true;
+                ws.Cells[row, c].Style.Border.Top.Style = ExcelBorderStyle.Double;
+            }
+        }
+
+        // ── Helpers S38-DN (Dư Nợ = cột 8, Dư Có = cột 9) ──
+
+        private static void WriteBalanceRow38(ExcelWorksheet ws, int row, string label, decimal balance, bool bold = false)
+        {
+            ws.Cells[row, 4].Value = label;
+            if (balance > 0) ws.Cells[row, 8].Value = balance;
+            else if (balance < 0) ws.Cells[row, 9].Value = -balance;
+            if (bold) StyleSummary38(ws, row);
+        }
+
+        private static void WriteRunningBalance(ExcelWorksheet ws, int row, decimal balance)
+        {
+            if (balance > 0) ws.Cells[row, 8].Value = balance;
+            else if (balance < 0) ws.Cells[row, 9].Value = -balance;
+        }
+
+        private static void StyleSummary38(ExcelWorksheet ws, int row)
+        {
+            ws.Cells[row, 4].Style.Font.Bold = true;
+            for (int c = 6; c <= 9; c++)
             {
                 ws.Cells[row, c].Style.Font.Bold = true;
                 ws.Cells[row, c].Style.Border.Top.Style = ExcelBorderStyle.Double;

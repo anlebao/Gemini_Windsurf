@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Aggregates.SystemSettingAggregate;
 
 namespace VanAn.CoreHub.Services.Orchestration;
 
@@ -124,5 +125,61 @@ public class EInvoiceOrchestrator : IEInvoiceOrchestrator
         CancellationToken cancellationToken = default)
     {
         await _webhookService.ProcessWebhookAsync(providerId, providerInvoiceNumber, callbackData, cancellationToken);
+    }
+
+    /// <summary>
+    /// P0.4 (W2, 2026-10-17 — Điều 8 TT 91/2026): upsert SystemSetting theo tenant.
+    /// IgnoreQueryFilters + filter TenantId tường minh (ambient tenant có thể khác trong worker context).
+    /// </summary>
+    public async Task SetEInvoiceUsageSuspendedAsync(
+        TenantId tenantId,
+        bool suspended,
+        string? reason = null,
+        Guid? updatedBy = null,
+        CancellationToken cancellationToken = default)
+    {
+        var flag = await _dbContext.SystemSettings
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(
+                s => s.TenantId == tenantId
+                    && s.Key == ComplianceService.EInvoiceUsageSuspendedKey,
+                cancellationToken);
+
+        if (flag is null)
+        {
+            flag = new SystemSetting(
+                tenantId,
+                ComplianceService.EInvoiceUsageSuspendedKey,
+                suspended ? "true" : "false",
+                updatedBy);
+            await _dbContext.SystemSettings.AddAsync(flag, cancellationToken);
+        }
+        else
+        {
+            flag.Update(suspended ? "true" : "false", updatedBy);
+        }
+
+        if (reason is not null)
+        {
+            var reasonSetting = await _dbContext.SystemSettings
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(
+                    s => s.TenantId == tenantId
+                        && s.Key == ComplianceService.EInvoiceUsageSuspendedReasonKey,
+                    cancellationToken);
+
+            if (reasonSetting is null)
+            {
+                await _dbContext.SystemSettings.AddAsync(
+                    new SystemSetting(tenantId, ComplianceService.EInvoiceUsageSuspendedReasonKey, reason, updatedBy),
+                    cancellationToken);
+            }
+            else
+            {
+                reasonSetting.Update(reason, updatedBy);
+            }
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }

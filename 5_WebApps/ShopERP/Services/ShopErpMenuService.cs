@@ -179,6 +179,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                 // TUÂN THỦ PHÁP LÝ P0 (2026-10-16): Sổ Nhật ký chung + Sổ Cái (P0.2-Đ1) + Rà soát tiền mặt ≥ 20tr (P0.1)
                 accountingChildren.Add(new() { Title = "Sổ Nhật Ký Chung", Icon = "journal-text", Url = "/accounting/journal" });
                 accountingChildren.Add(new() { Title = "Sổ Cái", Icon = "book", Url = "/accounting/ledger" });
+                // P0.2-Đ2 (W2, 2026-10-17): Sổ Chi Tiết TK (Mẫu S38-DN)
+                accountingChildren.Add(new() { Title = "Sổ Chi Tiết", Icon = "book-half", Url = "/accounting/sub-ledger" });
                 accountingChildren.Add(new() { Title = "Rà Soát Tiền Mặt ≥ 20tr", Icon = "cash-stack", Url = "/accounting/cash-payment-review" });
             }
             accountingChildren.Add(new() { Title = "Số Dư Tài Khoản", Icon = "currency-exchange", Url = "/accounting/balance" });

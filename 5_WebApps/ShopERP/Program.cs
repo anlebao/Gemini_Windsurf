@@ -392,7 +392,12 @@ namespace VanAn.ShopERP
                             invoice.SubmittedAt ?? DateTime.UtcNow,
                             new Dictionary<string, string>(), supplierTaxCode,
                             invoice.Items.ToList() as IReadOnlyList<VanAn.Shared.Domain.InvoiceItem>,
-                            "VND", "CASH");
+                            "VND", "CASH",
+                            // P0.4 (NĐ 254/2026 + TT 91/2026): loại HĐĐT + cờ máy tính tiền — config-driven.
+                            builder.Configuration["EInvoiceConfig:InvoiceForm"]
+                                ?? EInvoiceDataKeys.FormKhongMa,
+                            bool.TryParse(builder.Configuration["EInvoiceConfig:IsCashierGeneratedInvoice"], out bool cashier)
+                                && cashier);
 
                         var response = await provider.SubmitInvoiceAsync(request, ct);
                         if (response.Success)

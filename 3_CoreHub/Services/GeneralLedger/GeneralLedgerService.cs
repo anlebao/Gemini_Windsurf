@@ -14,6 +14,10 @@ public class GeneralLedgerService(IAccountingDbContext db, ILogger<GeneralLedger
 {
     // Tenants nằm trên VanAnDbContext (PG) — pattern AuditLogRepository (_vanAnContext = context as VanAnDbContext).
     private readonly VanAnDbContext? _vanAnContext = db as VanAnDbContext;
+
+    // TK công nợ — KHÔNG ghi JournalEntry (quyết định [G6] Thu chi & Công nợ).
+    private const string ReceivableAccount = "131";
+    private const string PayableAccount = "331";
     public async Task<IReadOnlyList<JournalEntryDto>> GetJournalAsync(
         TenantId tenantId,
         int year,
@@ -221,6 +225,202 @@ public class GeneralLedgerService(IAccountingDbContext db, ILogger<GeneralLedger
             return null;
         }
     }
+
+    // ===================== SỔ CHI TIẾT (P0.2-Đ2 — Mẫu S38-DN) =====================
+
+    public async Task<SubLedgerReportDto> GetSubLedgerAsync(
+        TenantId tenantId,
+        int year,
+        int month,
+        string accountCode,
+        string? doiTuong = null,
+        CancellationToken cancellationToken = default)
+    {
+        SubLedgerData data = accountCode is ReceivableAccount or PayableAccount
+            ? await LoadCongNoSubLedgerAsync(tenantId, year, month, accountCode, doiTuong, cancellationToken)
+            : await LoadJournalSubLedgerAsync(tenantId, year, month, accountCode, doiTuong, cancellationToken);
+
+        string? accountName = await GetAccountNameAsync(accountCode, cancellationToken);
+        return new SubLedgerReportDto(
+            accountCode,
+            accountName,
+            doiTuong,
+            data.OpeningBalance,
+            data.Rows.Sum(r => r.Debit),
+            data.Rows.Sum(r => r.Credit),
+            data.ClosingBalance,
+            data.Rows);
+    }
+
+    public async Task<IReadOnlyList<string>> GetSubLedgerDoiTuongAsync(
+        TenantId tenantId,
+        int year,
+        int month,
+        string accountCode,
+        CancellationToken cancellationToken = default)
+    {
+        // Toàn bộ đối tượng có Vendor trên TK (không giới hạn kỳ — để chọn cả đối tượng chỉ còn số dư đầu kỳ).
+        return await db.AccountingEntries
+            .Where(e => e.TenantId == tenantId && e.AccountCode == accountCode && e.Vendor != null)
+            .Select(e => e.Vendor!)
+            .Distinct()
+            .OrderBy(v => v)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Sổ chi tiết 131/331 từ AccountingEntry (phiếu công nợ — Vendor = đối tượng, Amount dấu +/−).
+    /// Convention Nợ−Có: 131 Amount>0 → Nợ · 331 Amount>0 → Có (dư Có → RunningBalance âm).
+    /// </summary>
+    private async Task<SubLedgerData> LoadCongNoSubLedgerAsync(
+        TenantId tenantId,
+        int year,
+        int month,
+        string accountCode,
+        string? doiTuong,
+        CancellationToken cancellationToken)
+    {
+        AccountingPeriod period = AccountingPeriod.FromDateTime(new DateTime(year, month, 1));
+        bool isPayable = accountCode == PayableAccount;
+
+        List<AccountingEntry> all = await db.AccountingEntries
+            .Where(e => e.TenantId == tenantId && e.AccountCode == accountCode)
+            .ToListAsync(cancellationToken);
+
+        // Vendor của entry đảo resolve về Vendor entry gốc qua chuỗi ReversalEntryId
+        // (reversal không copy Vendor — cùng quy tắc CongNoService).
+        Dictionary<Guid, AccountingEntry> byId = all.ToDictionary(e => e.Id);
+        string? ResolveDoiTuong(AccountingEntry entry)
+        {
+            AccountingEntry? cur = entry;
+            while (cur != null && string.IsNullOrEmpty(cur.Vendor))
+            {
+                cur = cur.ReversalEntryId.HasValue && byId.TryGetValue(cur.ReversalEntryId.Value, out AccountingEntry? prev)
+                    ? prev
+                    : null;
+            }
+            return cur?.Vendor;
+        }
+
+        decimal Signed(AccountingEntry e) => isPayable ? -e.Amount : e.Amount;
+
+        decimal opening = all
+            .Where(e => e.TransactionDate < period.StartDate
+                && (doiTuong == null || string.Equals(ResolveDoiTuong(e), doiTuong, StringComparison.Ordinal)))
+            .Sum(Signed);
+
+        var rows = new List<SubLedgerRowDto>();
+        decimal running = opening;
+        foreach (AccountingEntry e in all
+            .Where(e => e.TransactionDate >= period.StartDate && e.TransactionDate <= period.EndDate)
+            .OrderBy(e => e.TransactionDate)
+            .ThenBy(e => e.CreatedAt))
+        {
+            string? party = ResolveDoiTuong(e);
+            if (doiTuong != null && !string.Equals(party, doiTuong, StringComparison.Ordinal)) continue;
+
+            decimal debit = isPayable ? (e.Amount < 0 ? -e.Amount : 0m) : (e.Amount > 0 ? e.Amount : 0m);
+            decimal credit = isPayable ? (e.Amount > 0 ? e.Amount : 0m) : (e.Amount < 0 ? -e.Amount : 0m);
+            running += debit - credit;
+            rows.Add(new SubLedgerRowDto(
+                e.TransactionDate,
+                e.Reference ?? string.Empty,
+                e.Description,
+                CounterpartAccount: null,
+                party,
+                debit,
+                credit,
+                running));
+        }
+
+        return new SubLedgerData(opening, running, rows);
+    }
+
+    /// <summary>
+    /// Sổ chi tiết TK thường từ JournalEntry — cùng logic Sổ Cái + đối tượng resolve
+    /// qua ReferenceId → AccountingEntry.Vendor (JE nguồn ManualEntry/OpeningBalance).
+    /// </summary>
+    private async Task<SubLedgerData> LoadJournalSubLedgerAsync(
+        TenantId tenantId,
+        int year,
+        int month,
+        string accountCode,
+        string? doiTuong,
+        CancellationToken cancellationToken)
+    {
+        AccountingPeriod period = AccountingPeriod.FromDateTime(new DateTime(year, month, 1));
+
+        List<JournalEntry> before = await db.JournalEntries
+            .Where(e => e.TenantId == tenantId
+                && e.EntryDate < period.StartDate
+                && e.Lines.Any(l => l.AccountNumber == accountCode))
+            .ToListAsync(cancellationToken);
+
+        List<JournalEntry> inPeriod = await db.JournalEntries
+            .Where(e => e.TenantId == tenantId
+                && e.EntryDate >= period.StartDate
+                && e.EntryDate <= period.EndDate
+                && e.Lines.Any(l => l.AccountNumber == accountCode))
+            .OrderBy(e => e.EntryDate)
+            .ThenBy(e => e.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        List<Guid> refIds = before.Concat(inPeriod)
+            .Where(e => e.ReferenceId.HasValue)
+            .Select(e => e.ReferenceId!.Value)
+            .Distinct()
+            .ToList();
+        Dictionary<Guid, string?> vendors = refIds.Count == 0
+            ? new Dictionary<Guid, string?>()
+            : await db.AccountingEntries
+                .Where(e => e.TenantId == tenantId && refIds.Contains(e.Id))
+                .ToDictionaryAsync(e => e.Id, e => e.Vendor, cancellationToken);
+
+        string? ResolveDoiTuong(JournalEntry entry) =>
+            entry.ReferenceId.HasValue && vendors.TryGetValue(entry.ReferenceId.Value, out string? vendor)
+                ? vendor
+                : null;
+
+        decimal opening = 0m;
+        foreach (JournalEntry entry in before)
+        {
+            if (doiTuong != null && !string.Equals(ResolveDoiTuong(entry), doiTuong, StringComparison.Ordinal)) continue;
+            opening += entry.Lines.Where(l => l.AccountNumber == accountCode).Sum(l => l.DebitAmount - l.CreditAmount);
+        }
+
+        var rows = new List<SubLedgerRowDto>();
+        decimal running = opening;
+        foreach (JournalEntry entry in inPeriod)
+        {
+            string? party = ResolveDoiTuong(entry);
+            if (doiTuong != null && !string.Equals(party, doiTuong, StringComparison.Ordinal)) continue;
+            string? counterpart = string.Join(", ",
+                entry.Lines
+                    .Where(l => l.AccountNumber != accountCode)
+                    .Select(l => l.AccountNumber)
+                    .Distinct());
+            foreach (JournalEntryLine line in entry.Lines.Where(l => l.AccountNumber == accountCode))
+            {
+                running += line.DebitAmount - line.CreditAmount;
+                rows.Add(new SubLedgerRowDto(
+                    entry.EntryDate,
+                    entry.JournalNo,
+                    entry.Description,
+                    counterpart,
+                    party,
+                    line.DebitAmount,
+                    line.CreditAmount,
+                    running));
+            }
+        }
+
+        return new SubLedgerData(opening, running, rows);
+    }
+
+    private sealed record SubLedgerData(
+        decimal OpeningBalance,
+        decimal ClosingBalance,
+        List<SubLedgerRowDto> Rows);
 
     private static JournalEntryDto MapJournalEntry(JournalEntry entry) => new(
         entry.Id,

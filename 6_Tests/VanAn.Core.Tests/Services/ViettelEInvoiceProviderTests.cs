@@ -396,6 +396,60 @@ public class ViettelEInvoiceProviderTests
 
         result.Should().BeFalse();
     }
+
+    // ── TC-V16: P0.4 — InvoiceForm + IsCashierInvoice → metadata[] ───────────
+    // NĐ 254/2026 + TT 91/2026: hóa đơn máy tính tiền (không bắt buộc ký số).
+    [Fact]
+    public async Task Submit_WithInvoiceForm_PayloadIncludesP04Metadata()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.AddResponse("auth/login", HttpMethod.Post,
+            new { access_token = "vt-token" });
+        handler.AddResponse("createInvoice", HttpMethod.Post,
+            new { errorCode = "0", result = new { invoiceNo = "VT-P04" } });
+
+        var capturingHandler = new CapturingHandler(handler, "createInvoice");
+        var client = new HttpClient(capturingHandler) { BaseAddress = new Uri("https://vinvoice.viettel.vn/") };
+        var provider = new ViettelEInvoiceProvider(client, Options.Create(MakeConfig()),
+            NullLogger<ViettelEInvoiceProvider>.Instance);
+
+        var request = MakeRequest() with
+        {
+            InvoiceForm = EInvoiceDataKeys.FormMayTinhTien,
+            IsCashierGeneratedInvoice = true
+        };
+        var result = await provider.SubmitInvoiceAsync(request);
+
+        result.Success.Should().BeTrue();
+        var payload = capturingHandler.CapturedBody!;
+        payload.Should().Contain("\"key\":\"invoiceForm\"");
+        payload.Should().Contain("\"value\":\"mayTinhTien\"");
+        payload.Should().Contain("\"key\":\"isCashierInvoice\"");
+        payload.Should().Contain("\"value\":\"true\"");
+    }
+
+    // ── TC-V17: P0.4 — không truyền InvoiceForm → metadata vắng (contract cũ) ─
+    [Fact]
+    public async Task Submit_WithoutInvoiceForm_PayloadHasNoP04Metadata()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.AddResponse("auth/login", HttpMethod.Post,
+            new { access_token = "vt-token" });
+        handler.AddResponse("createInvoice", HttpMethod.Post,
+            new { errorCode = "0", result = new { invoiceNo = "VT-P04B" } });
+
+        var capturingHandler = new CapturingHandler(handler, "createInvoice");
+        var client = new HttpClient(capturingHandler) { BaseAddress = new Uri("https://vinvoice.viettel.vn/") };
+        var provider = new ViettelEInvoiceProvider(client, Options.Create(MakeConfig()),
+            NullLogger<ViettelEInvoiceProvider>.Instance);
+
+        var result = await provider.SubmitInvoiceAsync(MakeRequest());
+
+        result.Success.Should().BeTrue();
+        var payload = capturingHandler.CapturedBody!;
+        payload.Should().NotContain("invoiceForm");
+        payload.Should().NotContain("isCashierInvoice");
+    }
 }
 
 /// <summary>

@@ -245,7 +245,12 @@ namespace VanAn.CoreHub
                                     supplierTaxCode,
                                     invoice.Items.ToList() as IReadOnlyList<VanAn.Shared.Domain.InvoiceItem>,
                                     "VND",
-                                    "CASH");
+                                    "CASH",
+                                    // P0.4 (NĐ 254/2026 + TT 91/2026): loại HĐĐT + cờ máy tính tiền — config-driven.
+                                    context.Configuration["EInvoiceConfig:InvoiceForm"]
+                                        ?? EInvoiceDataKeys.FormKhongMa,
+                                    bool.TryParse(context.Configuration["EInvoiceConfig:IsCashierGeneratedInvoice"], out bool cashier)
+                                        && cashier);
 
                                 var response = await provider.SubmitInvoiceAsync(request, ct);
 

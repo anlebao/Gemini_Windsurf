@@ -1,5 +1,6 @@
 using VanAn.CoreHub.Services.Orchestration;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Aggregates.SystemSettingAggregate;
 using VanAn.Integration.Tests.Infrastructure;
 using Xunit;
 using FluentAssertions;
@@ -159,5 +160,69 @@ public class ComplianceServiceTests : IntegrationTestBase
 
         // Assert
         result.Should().BeFalse();
+    }
+
+    // ── P0.4 (W2 — Điều 8 TT 91/2026): ngừng/tạm ngừng sử dụng HĐĐT ──────────
+    private async Task<ElectronicInvoice> SeedValidInvoiceAsync()
+    {
+        var invoice = new ElectronicInvoice(
+            TestTenantId, new OrderId(Guid.NewGuid()),
+            new InvoiceIdempotencyKey(Guid.NewGuid().ToString()),
+            InvoiceType.Goods, 100000m, 10000m, 110000m,
+            "Test Customer", "1234567890", "Test Address");
+        await _dbContext.ElectronicInvoices.AddAsync(invoice);
+        await _dbContext.SaveChangesAsync();
+        return invoice;
+    }
+
+    [Fact]
+    public async Task ValidateComplianceAsync_EInvoiceUsageSuspended_Throws()
+    {
+        var invoice = await SeedValidInvoiceAsync();
+        await _dbContext.SystemSettings.AddAsync(
+            new SystemSetting(TestTenantId, ComplianceService.EInvoiceUsageSuspendedKey, "true"));
+        await _dbContext.SaveChangesAsync();
+
+        var act = async () => await _sut.ValidateComplianceAsync(invoice.InvoiceId);
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*ngừng/tạm ngừng sử dụng hóa đơn điện tử*");
+    }
+
+    [Fact]
+    public async Task IsCompliantAsync_EInvoiceUsageSuspended_ReturnsFalse()
+    {
+        var invoice = await SeedValidInvoiceAsync();
+        await _dbContext.SystemSettings.AddAsync(
+            new SystemSetting(TestTenantId, ComplianceService.EInvoiceUsageSuspendedKey, "true"));
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.IsCompliantAsync(invoice.InvoiceId);
+
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ValidateComplianceAsync_SuspensionFlagFalse_Passes()
+    {
+        var invoice = await SeedValidInvoiceAsync();
+        await _dbContext.SystemSettings.AddAsync(
+            new SystemSetting(TestTenantId, ComplianceService.EInvoiceUsageSuspendedKey, "false"));
+        await _dbContext.SaveChangesAsync();
+
+        var act = async () => await _sut.ValidateComplianceAsync(invoice.InvoiceId);
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task ValidateComplianceAsync_SuspensionOtherTenant_Passes()
+    {
+        var invoice = await SeedValidInvoiceAsync();
+        await _dbContext.SystemSettings.AddAsync(
+            new SystemSetting(new TenantId(Guid.NewGuid()),
+                ComplianceService.EInvoiceUsageSuspendedKey, "true"));
+        await _dbContext.SaveChangesAsync();
+
+        var act = async () => await _sut.ValidateComplianceAsync(invoice.InvoiceId);
+        await act.Should().NotThrowAsync();
     }
 }

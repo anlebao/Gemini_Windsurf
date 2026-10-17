@@ -39,7 +39,10 @@ public record EInvoiceRequest(
     string SupplierTaxCode,
     IReadOnlyList<InvoiceItem> LineItems,
     string CurrencyCode,
-    string PaymentType
+    string PaymentType,
+    // P0.4 (W2, 2026-10-17 — NĐ 254/2026 + TT 91/2026): additive, default giữ contract cũ.
+    string? InvoiceForm = null,
+    bool IsCashierGeneratedInvoice = false
 )
 {
     /// <summary>
@@ -47,6 +50,29 @@ public record EInvoiceRequest(
     /// Format: 32-char hex (N format) of the InvoiceId Guid.
     /// </summary>
     public string TransactionUuid => InvoiceId.Value.ToString("N");
+}
+
+/// <summary>
+/// P0.4 (W2, 2026-10-17): chuẩn khóa/giá trị NĐ 254/2026 + TT 91/2026 (hiệu lực 01/07/2026 —
+/// bãi bỏ NĐ 123/2020, NĐ 70/2025, TT 32/2025). Dùng cho EInvoiceRequest.InvoiceForm +
+/// AdditionalData keys + provider metadata mapping.
+/// </summary>
+public static class EInvoiceDataKeys
+{
+    /// <summary>AdditionalData key: loại hóa đơn (Điều 26 Luật QLT 2025 — 3 loại).</summary>
+    public const string InvoiceForm = "invoiceForm";
+
+    /// <summary>AdditionalData key: hóa đơn khởi tạo từ máy tính tiền (không bắt buộc chữ ký số).</summary>
+    public const string IsCashierInvoice = "isCashierInvoice";
+
+    /// <summary>InvoiceForm: hóa đơn điện tử có mã của cơ quan thuế.</summary>
+    public const string FormCoMa = "coMa";
+
+    /// <summary>InvoiceForm: hóa đơn điện tử không có mã của cơ quan thuế.</summary>
+    public const string FormKhongMa = "khongMa";
+
+    /// <summary>InvoiceForm: hóa đơn điện tử khởi tạo từ máy tính tiền.</summary>
+    public const string FormMayTinhTien = "mayTinhTien";
 }
 
 /// <summary>

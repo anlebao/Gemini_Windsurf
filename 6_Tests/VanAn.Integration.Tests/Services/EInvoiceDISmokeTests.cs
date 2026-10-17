@@ -146,4 +146,19 @@ public class EInvoiceDISmokeTests
 
         act.Should().NotThrow();
     }
+
+    // ── P0.4 (W2 — NĐ 254/2026 + TT 91/2026): smoke test mapping + suspension ──
+    [Fact]
+    public async Task P04_SetEInvoiceUsageSuspended_SmokeTest()
+    {
+        var provider = BuildEInvoiceServices();
+        using var scope = provider.CreateScope();
+        var orchestrator = scope.ServiceProvider.GetRequiredService<IEInvoiceOrchestrator>();
+        var tenantId = new TenantId(Guid.NewGuid());
+
+        var act = async () => await orchestrator.SetEInvoiceUsageSuspendedAsync(
+            tenantId, suspended: true, reason: "TB 456/CCT");
+
+        await act.Should().NotThrowAsync();
+    }
 }

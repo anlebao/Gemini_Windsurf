@@ -519,6 +519,9 @@ c:\VibeCoding\Gemini_Windsurf\
 3. **Clean Architecture**: Domain-driven design principles
 4. **Microservices Patterns**: Provider pattern implementation
 5. **Vietnamese Tax Regulations**: HKD compliance requirements
+6. **Luật Quản lý thuế 2025 (108/2025/QH15)**: Khung pháp lý HĐĐT thế hệ mới
+7. **Nghị định 254/2026/NĐ-CP**: Quy định hóa đơn điện tử (hiệu lực 01/07/2026 — bãi bỏ NĐ 123/2020)
+8. **Thông tư 91/2026/TT-BTC**: Hướng dẫn thi hành NĐ 254/2026 (hiệu lực 01/07/2026 — bãi bỏ TT 32/2025)
 
 ---
 
@@ -615,6 +618,68 @@ For questions or issues related to this implementation:
 
 ---
 
-*Last Updated: May 3, 2026*
-*Version: 1.2 - Security & Production Gaps Fixed*
+## 📑 P0.4 — Bảng mapping chuẩn dữ liệu HĐĐT NĐ 254/2026 + TT 91/2026 (W2, 2026-10-17)
+
+### **Khung pháp lý mới**
+| Văn bản | Hiệu lực | Thay thế |
+|---|---|---|
+| Luật Quản lý thuế 2025 (108/2025/QH15) | 01/07/2026 | Luật QLT 2019 (phần HĐĐT) |
+| Nghị định 254/2026/NĐ-CP | 01/07/2026 | NĐ 123/2020 + NĐ 70/2025 |
+| Thông tư 91/2026/TT-BTC | 01/07/2026 | TT 32/2025 |
+
+### **3 loại hóa đơn điện tử (Điều 26 Luật QLT 2025)**
+| `EInvoiceDataKeys` value | Loại hóa đơn | Chữ ký số |
+|---|---|---|
+| `coMa` | HĐĐT **có mã** của cơ quan thuế | Bắt buộc |
+| `khongMa` | HĐĐT **không mã** của cơ quan thuế | Bắt buộc |
+| `mayTinhTien` | HĐĐT khởi tạo **từ máy tính tiền** (POS/cash register) | **Không bắt buộc** chữ ký số |
+
+> ⚠️ Hóa đơn máy tính tiền (`mayTinhTien` + `IsCashierGeneratedInvoice=true`) là hóa đơn do
+> thu ngân lập trên máy tính tiền có kết nối truyền dữ liệu đến CQT — theo NĐ 254/2026
+> **không bắt buộc chữ ký số** và không bắt buộc có mã của CQT trên từng hóa đơn.
+> `InvoiceType` domain enum KHÔNG đổi (constraint "KHÔNG đụng Domain.cs") — phân biệt
+> cashier-invoice qua `EInvoiceRequest.InvoiceForm` + `IsCashierGeneratedInvoice`
+> (Services-layer metadata, additive).
+
+### **Bảng mapping EInvoiceRequest → Provider payloads**
+| `EInvoiceRequest` | MISA `MisaInvoicePayload` | Viettel `ViettelInvoicePayload` | Ghi chú pháp lý |
+|---|---|---|---|
+| `TenantId` | — (auth `CompanyCode`) | — (auth + `{supplierTaxCode}` route) | Tenant isolation |
+| `InvoiceId` → `TransactionUuid` | — | `generalInvoiceInfo.transactionUuid` | Idempotency key |
+| `InvoiceType` (Goods/Services/Mixed/HKD) | — (series qua config) | `generalInvoiceInfo.invoiceType` = `01GTKT`/`02GTKT` | Ký hiệu/mẫu do provider config (`MisaConfig:InvoiceSeries`, `ViettelConfig:TemplateCode`/`SerialNumber`) |
+| `Amount` | `AmountWithoutTax` | `summarizeInfo.totalAmountWithoutTax` | |
+| `VatAmount` | `VatAmount` | `summarizeInfo.totalVatAmount` | |
+| `TotalAmount` | `TotalAmount` | `summarizeInfo.totalAmount` | |
+| `CustomerName` | `BuyerName` | `buyerInfo.buyerName` | |
+| `CustomerTaxCode` | `BuyerTaxCode` | `buyerInfo.buyerTaxCode` | ≥10 ký tự (ComplianceService) |
+| `CustomerAddress` | `BuyerAddress` | `buyerInfo.buyerAddress` | |
+| `InvoiceDate` | `InvDate` (ISO) | `generalInvoiceInfo.invoiceDate` (epoch ms) | Thời điểm lập theo NĐ 254/2026 |
+| `SupplierTaxCode` | — | `sellerInfo.sellerTaxCode` + route | Fallback `_config.TaxCode` |
+| `LineItems[]` | `OriginalInvoiceDetail[]` + `TaxRateInfo[]` | `itemInfo[]` + `taxBreakdowns[]` | |
+| `CurrencyCode` | `CurrencyCode` (default `VND`) | `generalInvoiceInfo.currencyCode` (default `VND`) | |
+| `PaymentType` | `PaymentType` (default `CASH`) | `generalInvoiceInfo.paymentType` (default `CASH`) | |
+| `AdditionalData` | — | — | Reserved — W3 adjustment/replacement |
+| **`InvoiceForm`** *(W2 additive)* | — *(chưa map — chờ spec MISA mới)* | `metadata[key="invoiceForm"]` = `coMa|khongMa|mayTinhTien` | Điều 26 Luật QLT 2025 |
+| **`IsCashierGeneratedInvoice`** *(W2 additive)* | — *(chưa map)* | `metadata[key="isCashierInvoice"]` = `true|false` | HĐ máy tính tiền — không bắt buộc ký số |
+
+Nguồn giá trị: `EInvoiceConfig:InvoiceForm` + `EInvoiceConfig:IsCashierGeneratedInvoice`
+(config-driven — `Program.cs` CoreHub & ShopERP, default `khongMa`/`false`).
+
+### **Ngừng/tạm ngừng sử dụng HĐĐT (Điều 8 TT 91/2026)**
+- `SystemSetting` key `EInvoice_Usage_Suspended` = `"true"` (+ `EInvoice_Usage_Suspended_Reason`) — **key-value, không cần migration**.
+- Guard: `ComplianceService.ValidateComplianceAsync` + `IsCompliantAsync` — chặn `SubmitInvoiceAsync` trước khi gọi provider (outbox/idempotency không đổi).
+- Setter: `IEInvoiceOrchestrator.SetEInvoiceUsageSuspendedAsync` + endpoint `POST /api/einvoice/usage-suspension` (Roles: Admin/Owner/SystemAdmin).
+
+### **Chuyển đổi có mã khi rủi ro (NĐ 254/2026)**
+- DN thuộc diện rủi ro cao về thuế phải dùng HĐĐT có mã trong **10 ngày** sau thông báo CQT.
+- Triển khai: bật `EInvoiceConfig:InvoiceForm = coMa` (config) — không cần đổi code.
+
+### **Phụ thuộc W3 (P0.3 — điều chỉnh/thay thế hóa đơn)**
+- `AdditionalData` + `ViettelInvoicePayload.generalInvoiceInfo.adjustmentType` đã dự phòng (`0 = original`).
+- Điều chỉnh/thay thế HĐĐT theo Điều 19 NĐ 254/2026 → **W3**, không thuộc W2.
+
+---
+
+*Last Updated: October 17, 2026*
+*Version: 1.3 - P0.4 NĐ 254/2026 + TT 91/2026 data-standard mapping (W2)*
 *Status: Production Ready*

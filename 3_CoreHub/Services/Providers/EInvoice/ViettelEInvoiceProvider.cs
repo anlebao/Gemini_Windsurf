@@ -281,6 +281,26 @@ public class ViettelEInvoiceProvider : IEInvoiceProvider
             .ToList();
         payload.TaxBreakdowns = taxBreakdowns;
 
+        // P0.4 (NĐ 254/2026 + TT 91/2026): đánh dấu loại HĐĐT (có mã/không mã/máy tính tiền)
+        // qua metadata[] — additive, không đổi contract payload hiện có.
+        if (request.InvoiceForm != null || request.IsCashierGeneratedInvoice)
+        {
+            payload.Metadata ??= new List<ViettelMetadata>();
+            if (request.InvoiceForm != null)
+            {
+                payload.Metadata.Add(new ViettelMetadata
+                {
+                    Key = EInvoiceDataKeys.InvoiceForm,
+                    Value = request.InvoiceForm
+                });
+            }
+            payload.Metadata.Add(new ViettelMetadata
+            {
+                Key = EInvoiceDataKeys.IsCashierInvoice,
+                Value = request.IsCashierGeneratedInvoice ? "true" : "false"
+            });
+        }
+
         return payload;
     }
 

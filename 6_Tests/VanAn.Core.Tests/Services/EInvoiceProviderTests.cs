@@ -271,6 +271,47 @@ public class EInvoiceRequestTests
         request.TransactionUuid.Should().Be(invoiceId.Value.ToString("N"));
         request.TransactionUuid.Should().HaveLength(32);
     }
+
+    // ── P0.4 (W2 — NĐ 254/2026 + TT 91/2026): additive fields ────────────────
+    [Fact]
+    public void EInvoiceRequest_P04Fields_DefaultToNullAndFalse()
+    {
+        // Back-compat: call sites không truyền 2 tham số cuối → giá trị mặc định
+        var request = new EInvoiceRequest(
+            new TenantId(Guid.NewGuid()), new ElectronicInvoiceId(Guid.NewGuid()),
+            new OrderId(Guid.NewGuid()), InvoiceType.Goods, 100m, 10m, 110m,
+            "C", "T", "A", DateTime.UtcNow, new Dictionary<string, string>(),
+            "SUP-TAX", new List<InvoiceItem>(), "VND", "CASH");
+
+        request.InvoiceForm.Should().BeNull();
+        request.IsCashierGeneratedInvoice.Should().BeFalse();
+    }
+
+    [Fact]
+    public void EInvoiceRequest_P04Fields_CanBeSet()
+    {
+        var request = new EInvoiceRequest(
+            new TenantId(Guid.NewGuid()), new ElectronicInvoiceId(Guid.NewGuid()),
+            new OrderId(Guid.NewGuid()), InvoiceType.HKD, 100m, 10m, 110m,
+            "C", "T", "A", DateTime.UtcNow, new Dictionary<string, string>(),
+            "SUP-TAX", new List<InvoiceItem>(), "VND", "CASH",
+            InvoiceForm: EInvoiceDataKeys.FormMayTinhTien,
+            IsCashierGeneratedInvoice: true);
+
+        request.InvoiceForm.Should().Be("mayTinhTien");
+        request.IsCashierGeneratedInvoice.Should().BeTrue();
+    }
+
+    [Fact]
+    public void EInvoiceDataKeys_Values_MatchMappingDoc()
+    {
+        // Khớp bảng mapping trong "docs/design/EInvoice multi provider integration.md" (P0.4)
+        EInvoiceDataKeys.InvoiceForm.Should().Be("invoiceForm");
+        EInvoiceDataKeys.IsCashierInvoice.Should().Be("isCashierInvoice");
+        EInvoiceDataKeys.FormCoMa.Should().Be("coMa");
+        EInvoiceDataKeys.FormKhongMa.Should().Be("khongMa");
+        EInvoiceDataKeys.FormMayTinhTien.Should().Be("mayTinhTien");
+    }
 }
 
 public class EInvoiceResponseTests

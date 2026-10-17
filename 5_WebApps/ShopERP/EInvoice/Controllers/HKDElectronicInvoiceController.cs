@@ -244,6 +244,44 @@ public class HKDElectronicInvoiceController : ControllerBase
     }
 
     /// <summary>
+    /// P0.4 (W2 — Điều 8 TT 91/2026): bật/tắt cờ ngừng/tạm ngừng sử dụng HĐĐT
+    /// theo thông báo của cơ quan thuế. Chỉ Admin/Owner/SystemAdmin.
+    /// POST /api/einvoice/usage-suspension
+    /// </summary>
+    [HttpPost("usage-suspension")]
+    [Authorize(Roles = "Admin,Owner,SystemAdmin")]
+    public async Task<ActionResult> SetUsageSuspension(
+        [FromBody] SetUsageSuspensionRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!_tenantProvider.HasTenant)
+        {
+            return Unauthorized(new { Error = "Tenant access required" });
+        }
+
+        var tenantId = new TenantId(_tenantProvider.TenantId);
+        var userId = GetUserId();
+
+        _logger.LogInformation(
+            "Set EInvoice usage suspension for tenant {Tenant}: suspended={Suspended}, reason={Reason}",
+            tenantId.Value,
+            request.Suspended,
+            request.Reason);
+
+        await _orchestrator.SetEInvoiceUsageSuspendedAsync(
+            tenantId, request.Suspended, request.Reason, userId, cancellationToken);
+
+        return Ok(new { Suspended = request.Suspended });
+    }
+
+    private Guid? GetUserId()
+    {
+        var claim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
+            ?? User.FindFirst("sub");
+        return Guid.TryParse(claim?.Value, out var id) ? id : null;
+    }
+
+    /// <summary>
     /// Map domain entity to DTO
     /// </summary>
     private static InvoiceDto MapToDto(ElectronicInvoice invoice, List<InvoiceItemDto> items)

@@ -1,0 +1,258 @@
+@page "/accounting/sub-ledger"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "AccountingFullAccess")]
+@using System.Globalization
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.UI.Platform.Models
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.CoreHub.Services.GeneralLedger
+@inject IGeneralLedgerService GeneralLedgerService
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject IJSRuntime JSRuntime
+@inject ILogger<SubLedger> Logger
+
+<div class="report-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Sổ Chi Tiết Tài Khoản</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="PrintReport">
+                🖨️ In báo cáo
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (errorMessage != null)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+    }
+
+    <VanACard Header="Kỳ báo cáo & tài khoản">
+        <div class="period-picker-row">
+            <label>Năm: <input type="number" min="2000" max="2100" @bind="selectedYear" /></label>
+            <label>Tháng:
+                <select @bind="selectedMonth">
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        <option value="@m">@m</option>
+                    }
+                </select>
+            </label>
+            <label>Tài khoản:
+                <select @bind="selectedAccountCode">
+                    <option value="">— Chọn TK —</option>
+                    @foreach (var acc in accounts)
+                    {
+                        <option value="@acc.AccountCode">@acc.AccountCode @(acc.AccountName is null ? "" : $" - {acc.AccountName}")</option>
+                    }
+                </select>
+            </label>
+            <label>Đối tượng:
+                <select @bind="selectedDoiTuong" disabled="@(doiTuongList.Count == 0)">
+                    <option value="">— Tất cả —</option>
+                    @foreach (var dt in doiTuongList)
+                    {
+                        <option value="@dt">@dt</option>
+                    }
+                </select>
+            </label>
+            <VanAButton Variant="primary" Size="small" OnClick="LoadReport">Áp dụng</VanAButton>
+            <VanAButton Variant="success" Size="small" OnClick="ExportExcel" Disabled="@(report == null)">📊 Xuất Excel</VanAButton>
+        </div>
+    </VanACard>
+
+    @if (loading)
+    {
+        <VanACard Header="Đang tải">
+            <p>Đang tải Sổ Chi Tiết...</p>
+        </VanACard>
+    }
+    else if (report != null)
+    {
+        <VanACard Header="@LedgerHeader">
+            <div class="totals-row">
+                <strong>Dư đầu kỳ:</strong> <span>@report.OpeningBalance.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                <strong>PS Nợ:</strong> <span>@report.PeriodDebitTotal.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                <strong>PS Có:</strong> <span>@report.PeriodCreditTotal.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                <strong>Dư cuối kỳ:</strong> <span>@report.ClosingBalance.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+            </div>
+            <VanAnDataGrid TItem="SubLedgerRowDto" Items="@report.Rows" EmptyMessage="Không có phát sinh trong kỳ">
+                <Columns>
+                    <VanAnColumn TItem="SubLedgerRowDto" Title="Ngày" Width="2">
+                        <Template Context="r">
+                            <span>@r.EntryDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="SubLedgerRowDto" Title="Số CT" Width="2">
+                        <Template Context="r">
+                            <span>@r.JournalNo</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="SubLedgerRowDto" Title="Diễn giải" Width="3">
+                        <Template Context="r">
+                            <span>@r.Description</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="SubLedgerRowDto" Title="Đối tượng" Width="2">
+                        <Template Context="r">
+                            <span>@r.DoiTuong</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="SubLedgerRowDto" Title="TK ĐƯ" Width="1">
+                        <Template Context="r">
+                            <span>@r.CounterpartAccount</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="SubLedgerRowDto" Title="PS Nợ" Width="2">
+                        <Template Context="r">
+                            <span>@(r.Debit > 0 ? r.Debit.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) : "")</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="SubLedgerRowDto" Title="PS Có" Width="2">
+                        <Template Context="r">
+                            <span>@(r.Credit > 0 ? r.Credit.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) : "")</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="SubLedgerRowDto" Title="Dư Nợ" Width="2">
+                        <Template Context="r">
+                            <span>@(r.RunningBalance > 0 ? r.RunningBalance.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) : "")</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="SubLedgerRowDto" Title="Dư Có" Width="2">
+                        <Template Context="r">
+                            <span>@(r.RunningBalance < 0 ? (-r.RunningBalance).ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) : "")</span>
+                        </Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+        </VanACard>
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "tk")]
+    public string? Tk { get; set; }
+
+    [SupplyParameterFromQuery(Name = "doiTuong")]
+    public string? DoiTuongParam { get; set; }
+
+    private List<AccountActivityDto> accounts = new();
+    private List<string> doiTuongList = new();
+    private SubLedgerReportDto? report;
+    private bool loading = true;
+    private string? errorMessage;
+
+    private string LedgerHeader =>
+        report == null ? "Sổ Chi Tiết" : $"Sổ chi tiết tài khoản {report.AccountCode} {report.AccountName ?? ""}{(report.DoiTuong is null ? "" : " — " + report.DoiTuong)}";
+
+    private int selectedYear = DateTime.UtcNow.Year;
+    private int selectedMonth = DateTime.UtcNow.Month;
+    private string selectedAccountCode = "";
+    private string selectedDoiTuong = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(Tk)) selectedAccountCode = Tk;
+        if (!string.IsNullOrWhiteSpace(DoiTuongParam)) selectedDoiTuong = DoiTuongParam;
+        await LoadAccounts();
+        if (accounts.Count > 0 && string.IsNullOrEmpty(selectedAccountCode))
+        {
+            selectedAccountCode = accounts[0].AccountCode;
+        }
+        await LoadDoiTuong();
+        await LoadReport();
+    }
+
+    private async Task LoadAccounts()
+    {
+        try
+        {
+            if (!TenantProvider.HasTenant) return;
+            TenantId tenantId = new(TenantProvider.TenantId);
+            accounts = (await GeneralLedgerService.GetAccountsAsync(tenantId, selectedYear, selectedMonth)).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading accounts");
+        }
+    }
+
+    private async Task LoadDoiTuong()
+    {
+        try
+        {
+            if (!TenantProvider.HasTenant || string.IsNullOrWhiteSpace(selectedAccountCode)) return;
+            TenantId tenantId = new(TenantProvider.TenantId);
+            doiTuongList = (await GeneralLedgerService.GetSubLedgerDoiTuongAsync(tenantId, selectedYear, selectedMonth, selectedAccountCode)).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading doi tuong list");
+        }
+    }
+
+    private async Task LoadReport()
+    {
+        loading = true;
+        errorMessage = null;
+        report = null;
+        try
+        {
+            if (!TenantProvider.HasTenant)
+            {
+                errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(selectedAccountCode))
+            {
+                errorMessage = "Vui lòng chọn tài khoản.";
+                return;
+            }
+
+            TenantId tenantId = new(TenantProvider.TenantId);
+            report = await GeneralLedgerService.GetSubLedgerAsync(
+                tenantId, selectedYear, selectedMonth, selectedAccountCode,
+                string.IsNullOrWhiteSpace(selectedDoiTuong) ? null : selectedDoiTuong);
+            await LoadDoiTuong();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading sub-ledger for {Year}-{Month} TK {Account}", selectedYear, selectedMonth, selectedAccountCode);
+            errorMessage = $"Lỗi tải Sổ Chi Tiết: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task PrintReport() => await JSRuntime.InvokeVoidAsync("vananPrintBill");
+
+    // TUÂN THỦ PHÁP LÝ P0.2-Đ2 (2026-10-17): Xuất Excel theo Mẫu S38-DN (SoChiTiet_Mau-S38-DN.docx)
+    // — cột Ngày ghi sổ | Chứng từ | Diễn giải | TK đối ứng | PS Nợ/Có | Dư Nợ/Có
+    // + dòng Số dư đầu kỳ / Cộng số phát sinh / Số dư cuối kỳ.
+    private async Task ExportExcel()
+    {
+        if (report == null) return;
+        try
+        {
+            if (!TenantProvider.HasTenant) return;
+            TenantId tenantId = new(TenantProvider.TenantId);
+            var tenantInfo = await GeneralLedgerService.GetTenantInfoAsync(tenantId);
+            byte[] bytes = LedgerExcelExportService.ExportSoChiTietExcel(report, selectedYear, selectedMonth, tenantInfo);
+            string base64 = Convert.ToBase64String(bytes);
+            string fileName = $"so-chi-tiet-{report.AccountCode}_{selectedYear}{selectedMonth:D2}.xlsx";
+            await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error exporting sub-ledger to Excel");
+        }
+    }
+}

@@ -53,4 +53,15 @@ public interface IEInvoiceOrchestrator
         string providerInvoiceNumber,
         string callbackData,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// P0.4 (W2, 2026-10-17 — Điều 8 TT 91/2026): bật/tắt cờ ngừng/tạm ngừng sử dụng HĐĐT
+    /// theo thông báo của cơ quan thuế. Lưu SystemSetting theo tenant — không cần migration.
+    /// </summary>
+    Task SetEInvoiceUsageSuspendedAsync(
+        TenantId tenantId,
+        bool suspended,
+        string? reason = null,
+        Guid? updatedBy = null,
+        CancellationToken cancellationToken = default);
 }

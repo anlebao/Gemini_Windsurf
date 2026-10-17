@@ -10,6 +10,15 @@ namespace VanAn.CoreHub.Services.Orchestration;
 /// </summary>
 public class ComplianceService : IComplianceService
 {
+    /// <summary>
+    /// P0.4 (W2, 2026-10-17): SystemSetting key — DN ngừng/tạm ngừng sử dụng HĐĐT
+    /// theo thông báo của cơ quan thuế (Điều 8, TT 91/2026). Value "true" = chặn submit.
+    /// </summary>
+    public const string EInvoiceUsageSuspendedKey = "EInvoice_Usage_Suspended";
+
+    /// <summary>SystemSetting key — lý do/số hiệu thông báo ngừng sử dụng HĐĐT.</summary>
+    public const string EInvoiceUsageSuspendedReasonKey = "EInvoice_Usage_Suspended_Reason";
+
     private readonly VanAnDbContext? _dbContext;
 
     public ComplianceService() : this(null!) { }
@@ -38,6 +47,8 @@ public class ComplianceService : IComplianceService
         if (invoice is null)
             throw new InvalidOperationException($"Invoice {invoiceId.Value} not found.");
 
+        await ThrowIfEInvoiceUsageSuspendedAsync(invoice.TenantId, cancellationToken);
+
         ValidateTT152Compliance(invoice);
     }
 
@@ -60,12 +71,44 @@ public class ComplianceService : IComplianceService
 
         try
         {
+            await ThrowIfEInvoiceUsageSuspendedAsync(invoice.TenantId, cancellationToken);
             ValidateTT152Compliance(invoice);
             return true;
         }
         catch
         {
             return false;
+        }
+    }
+
+    /// <summary>
+    /// P0.4 (NĐ 254/2026 + TT 91/2026, Điều 8): chặn xuất HĐĐT khi doanh nghiệp
+    /// ngừng/tạm ngừng sử dụng hóa đơn điện tử theo thông báo của cơ quan thuế.
+    /// Flag lưu trong SystemSettings theo tenant (IgnoreQueryFilters vì ambient
+    /// tenant có thể khác invoice.TenantId trong NATS worker context).
+    /// </summary>
+    private async Task ThrowIfEInvoiceUsageSuspendedAsync(
+        TenantId tenantId, CancellationToken cancellationToken)
+    {
+        var suspended = await _dbContext!.SystemSettings
+            .IgnoreQueryFilters()
+            .AnyAsync(
+                s => s.TenantId == tenantId
+                    && s.Key == EInvoiceUsageSuspendedKey
+                    && s.Value == "true",
+                cancellationToken);
+
+        if (suspended)
+        {
+            var reason = await _dbContext.SystemSettings
+                .IgnoreQueryFilters()
+                .Where(s => s.TenantId == tenantId && s.Key == EInvoiceUsageSuspendedReasonKey)
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            throw new InvalidOperationException(
+                $"TT 91/2026 Điều 8: doanh nghiệp đang ngừng/tạm ngừng sử dụng hóa đơn điện tử " +
+                $"({EInvoiceUsageSuspendedKey}=true{(reason is not null ? $", lý do: {reason}" : string.Empty)}).");
         }
     }
 

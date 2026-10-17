@@ -267,4 +267,209 @@ public class GeneralLedgerServiceTests : IClassFixture<TestDatabaseFixture>
         Assert.Equal("Vạn An Test DN", info.Name);
         Assert.Equal("123 Lê Lợi, Q.1", info.Address);
     }
+
+    // ===================== P0.2-Đ2 (W2): SỔ CHI TIẾT TK =====================
+
+    private static AccountingEntry CreateDebtEntry(
+        TenantId tenantId,
+        string accountCode,
+        decimal signedAmount,
+        string? vendor,
+        DateTime transactionDate,
+        string description = "Công nợ")
+    {
+        return AccountingEntry.CreateDebt(
+            tenantId,
+            new AccountingPeriod(transactionDate.Year, transactionDate.Month),
+            new Money(signedAmount),
+            description,
+            accountCode,
+            vendor: vendor,
+            transactionDate: transactionDate);
+    }
+
+    [Fact]
+    public async Task GetSubLedgerAsync_JournalAccount_ReturnsRowsWithDoiTuong()
+    {
+        // Arrange — JE tham chiếu AccountingEntry có Vendor → đối tượng resolve qua ReferenceId
+        TenantId tenantId = new(Guid.NewGuid());
+        _fixture.SetCurrentTenant(tenantId);
+        VanAnDbContext db = _fixture.CreateFreshDbContext();
+
+        AccountingEntry expense = AccountingEntry.CreateDebt(
+            tenantId, new AccountingPeriod(2026, 7), new Money(2_000_000m), "Chi phí NCC A",
+            "642", vendor: "NCC A", transactionDate: new DateTime(2026, 7, 15));
+        db.AccountingEntries.Add(expense);
+        JournalEntry entry = new(tenantId, new DateTime(2026, 7, 15), "Chi phí NCC A",
+            "ManualEntry", expense.Id);
+        entry.AddLine("642", 2_000_000m, 0m);
+        entry.AddLine("111", 0m, 2_000_000m);
+        db.JournalEntries.Add(entry);
+        _ = await db.SaveChangesAsync();
+
+        // Act
+        GeneralLedgerService service = CreateService(db);
+        SubLedgerReportDto report = await service.GetSubLedgerAsync(tenantId, 2026, 7, "642");
+
+        // Assert
+        Assert.Equal("642", report.AccountCode);
+        Assert.Single(report.Rows);
+        Assert.Equal(2_000_000m, report.Rows[0].Debit);
+        Assert.Equal("NCC A", report.Rows[0].DoiTuong);
+        Assert.Equal("111", report.Rows[0].CounterpartAccount);
+        Assert.Equal(0m, report.OpeningBalance);
+        Assert.Equal(2_000_000m, report.ClosingBalance);
+    }
+
+    [Fact]
+    public async Task GetSubLedgerAsync_131_BuildsFromAccountingEntries_ByDoiTuong()
+    {
+        // Arrange — công nợ 131 KHÔNG có JournalEntry (G6): nguồn AccountingEntry + Vendor
+        TenantId tenantId = new(Guid.NewGuid());
+        _fixture.SetCurrentTenant(tenantId);
+        VanAnDbContext db = _fixture.CreateFreshDbContext();
+
+        db.AccountingEntries.AddRange(
+            CreateDebtEntry(tenantId, "131", 3_000_000m, "Khách A", new DateTime(2026, 6, 20), "Bán chịu — Khách A"),
+            CreateDebtEntry(tenantId, "131", 5_000_000m, "Khách A", new DateTime(2026, 7, 5), "Bán chịu — Khách A"),
+            CreateDebtEntry(tenantId, "131", -2_000_000m, "Khách A", new DateTime(2026, 7, 10), "Thu tiền khách trả nợ — Khách A"),
+            CreateDebtEntry(tenantId, "131", 1_000_000m, "Khách B", new DateTime(2026, 7, 12), "Bán chịu — Khách B"));
+        _ = await db.SaveChangesAsync();
+
+        // Act — sổ chi tiết 131 lọc đối tượng "Khách A"
+        GeneralLedgerService service = CreateService(db);
+        SubLedgerReportDto report = await service.GetSubLedgerAsync(tenantId, 2026, 7, "131", "Khách A");
+
+        // Assert — đầu kỳ 3tr (tháng 6) · PS Nợ 5tr · PS Có 2tr · cuối kỳ 6tr — chỉ Khách A
+        Assert.Equal("131", report.AccountCode);
+        Assert.Equal("Khách A", report.DoiTuong);
+        Assert.Equal(3_000_000m, report.OpeningBalance);
+        Assert.Equal(5_000_000m, report.PeriodDebitTotal);
+        Assert.Equal(2_000_000m, report.PeriodCreditTotal);
+        Assert.Equal(6_000_000m, report.ClosingBalance);
+        Assert.Equal(2, report.Rows.Count);
+        Assert.All(report.Rows, r => Assert.Equal("Khách A", r.DoiTuong));
+        Assert.Equal(8_000_000m, report.Rows[0].RunningBalance);
+        Assert.Equal(6_000_000m, report.Rows[1].RunningBalance);
+    }
+
+    [Fact]
+    public async Task GetSubLedgerAsync_131_AllDoiTuong_IncludesBothParties()
+    {
+        // Arrange
+        TenantId tenantId = new(Guid.NewGuid());
+        _fixture.SetCurrentTenant(tenantId);
+        VanAnDbContext db = _fixture.CreateFreshDbContext();
+        db.AccountingEntries.AddRange(
+            CreateDebtEntry(tenantId, "131", 5_000_000m, "Khách A", new DateTime(2026, 7, 5)),
+            CreateDebtEntry(tenantId, "131", 1_000_000m, "Khách B", new DateTime(2026, 7, 12)));
+        _ = await db.SaveChangesAsync();
+
+        // Act — không lọc đối tượng → toàn bộ đối tượng trên TK 131
+        GeneralLedgerService service = CreateService(db);
+        SubLedgerReportDto report = await service.GetSubLedgerAsync(tenantId, 2026, 7, "131");
+
+        // Assert
+        Assert.Null(report.DoiTuong);
+        Assert.Equal(2, report.Rows.Count);
+        Assert.Equal(6_000_000m, report.PeriodDebitTotal);
+        Assert.Equal(6_000_000m, report.ClosingBalance);
+    }
+
+    [Fact]
+    public async Task GetSubLedgerAsync_331_MapsCreditConvention()
+    {
+        // Arrange — 331 dư Có: Amount>0 (mua chịu) → PS Có · Amount<0 (trả nợ) → PS Nợ · dư âm = dư Có
+        TenantId tenantId = new(Guid.NewGuid());
+        _fixture.SetCurrentTenant(tenantId);
+        VanAnDbContext db = _fixture.CreateFreshDbContext();
+        db.AccountingEntries.AddRange(
+            CreateDebtEntry(tenantId, "331", 4_000_000m, "NCC X", new DateTime(2026, 7, 3), "Mua chịu — NCC X"),
+            CreateDebtEntry(tenantId, "331", -1_500_000m, "NCC X", new DateTime(2026, 7, 20), "Trả tiền người bán — NCC X"));
+        _ = await db.SaveChangesAsync();
+
+        // Act
+        GeneralLedgerService service = CreateService(db);
+        SubLedgerReportDto report = await service.GetSubLedgerAsync(tenantId, 2026, 7, "331", "NCC X");
+
+        // Assert — convention Debit−Credit: cuối kỳ −2.5tr → hiển thị Dư Có 2.5tr trên mẫu S38
+        Assert.Equal(4_000_000m, report.PeriodCreditTotal);
+        Assert.Equal(1_500_000m, report.PeriodDebitTotal);
+        Assert.Equal(-2_500_000m, report.ClosingBalance);
+        Assert.Equal(0m, report.Rows[0].Debit);
+        Assert.Equal(4_000_000m, report.Rows[0].Credit);
+        Assert.Equal(1_500_000m, report.Rows[1].Debit);
+        Assert.Equal(0m, report.Rows[1].Credit);
+    }
+
+    [Fact]
+    public async Task GetSubLedgerAsync_ReversalResolvesDoiTuongFromRoot()
+    {
+        // Arrange — entry đảo bút toán không copy Vendor → resolve về Vendor entry gốc.
+        // Lưu ý: CreateReversal giữ Period gốc nhưng TransactionDate = UtcNow
+        // (reversal thuộc kỳ phát sinh — convention CongNoService BuildLedgerViewAsync)
+        // → seed gốc cùng ngày với reversal để cả cặp nằm trong kỳ query.
+        TenantId tenantId = new(Guid.NewGuid());
+        _fixture.SetCurrentTenant(tenantId);
+        VanAnDbContext db = _fixture.CreateFreshDbContext();
+
+        DateTime entryDate = DateTime.UtcNow;
+        AccountingEntry original = CreateDebtEntry(tenantId, "131", 3_000_000m, "Khách A", entryDate, "Bán chịu — Khách A");
+        AccountingEntry reversal = AccountingEntry.CreateReversal(original, "RV test");
+        db.AccountingEntries.AddRange(original, reversal);
+        _ = await db.SaveChangesAsync();
+
+        // Act — lọc đúng đối tượng gốc vẫn thấy cả cặp gốc + đảo
+        GeneralLedgerService service = CreateService(db);
+        SubLedgerReportDto report = await service.GetSubLedgerAsync(
+            tenantId, reversal.TransactionDate.Year, reversal.TransactionDate.Month, "131", "Khách A");
+
+        // Assert — reversal resolve Vendor về "Khách A" → 2 dòng, net về 0
+        Assert.Equal(2, report.Rows.Count);
+        Assert.All(report.Rows, r => Assert.Equal("Khách A", r.DoiTuong));
+        Assert.Equal(0m, report.ClosingBalance);
+    }
+
+    [Fact]
+    public async Task GetSubLedgerDoiTuongAsync_ReturnsDistinctVendors()
+    {
+        // Arrange
+        TenantId tenantId = new(Guid.NewGuid());
+        _fixture.SetCurrentTenant(tenantId);
+        VanAnDbContext db = _fixture.CreateFreshDbContext();
+        db.AccountingEntries.AddRange(
+            CreateDebtEntry(tenantId, "131", 5_000_000m, "Khách B", new DateTime(2026, 7, 5)),
+            CreateDebtEntry(tenantId, "131", 1_000_000m, "Khách A", new DateTime(2026, 7, 12)),
+            CreateDebtEntry(tenantId, "331", 2_000_000m, "NCC X", new DateTime(2026, 7, 3)));
+        _ = await db.SaveChangesAsync();
+
+        // Act — đối tượng của TK 131 không lẫn NCC của 331
+        GeneralLedgerService service = CreateService(db);
+        IReadOnlyList<string> result = await service.GetSubLedgerDoiTuongAsync(tenantId, 2026, 7, "131");
+
+        // Assert — OrderBy Ordinal
+        Assert.Equal(new[] { "Khách A", "Khách B" }, result);
+    }
+
+    [Fact]
+    public async Task GetSubLedgerAsync_IsTenantIsolated()
+    {
+        // Arrange — tenant A có công nợ 131
+        TenantId tenantA = new(Guid.NewGuid());
+        _fixture.SetCurrentTenant(tenantA);
+        VanAnDbContext dbA = _fixture.CreateFreshDbContext();
+        dbA.AccountingEntries.Add(CreateDebtEntry(tenantA, "131", 5_000_000m, "Khách A", new DateTime(2026, 7, 5)));
+        _ = await dbA.SaveChangesAsync();
+
+        // Act — tenant B không thấy
+        TenantId tenantB = new(Guid.NewGuid());
+        _fixture.SetCurrentTenant(tenantB);
+        VanAnDbContext dbB = _fixture.CreateFreshDbContext();
+        GeneralLedgerService service = CreateService(dbB);
+        SubLedgerReportDto report = await service.GetSubLedgerAsync(tenantB, 2026, 7, "131");
+
+        // Assert
+        Assert.Empty(report.Rows);
+        Assert.Equal(0m, report.ClosingBalance);
+    }
 }

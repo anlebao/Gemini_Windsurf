@@ -452,4 +452,36 @@ public class MisaEInvoiceProviderTests
 
         result.Should().BeFalse();
     }
+
+    // ── TC-M16: P0.4 — request có InvoiceForm/isCashier vẫn submit OK ─────────
+    // NĐ 254/2026 + TT 91/2026: fields additive không phá contract MISA payload.
+    [Fact]
+    public async Task Submit_WithP04Fields_ContractUnchanged_ReturnsSuccess()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.AddResponse("auth/token", HttpMethod.Post,
+            new
+            {
+                Success = true,
+                Data = new { access_token = "misa-token" },
+                ErrorCode = (string?)null
+            });
+        handler.AddResponse("api/integration/invoice", HttpMethod.Post,
+            new
+            {
+                Success = true,
+                Data = new { InvNo = "MS-P04", TransactionID = "tx-p04", ReservationCode = "RES-P04" },
+                ErrorCode = (string?)null
+            });
+
+        var request = MakeRequest() with
+        {
+            InvoiceForm = EInvoiceDataKeys.FormKhongMa,
+            IsCashierGeneratedInvoice = false
+        };
+        var result = await MakeProvider(handler).SubmitInvoiceAsync(request);
+
+        result.Success.Should().BeTrue();
+        result.ProviderInvoiceNumber.Should().Be("MS-P04");
+    }
 }
