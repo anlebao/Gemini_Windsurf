@@ -85,11 +85,30 @@
 ## 4. Next Actions
 
 **▶ TUÂN THỦ PHÁP LÝ KẾ TOÁN/ERP P0-P2 (master plan `docs/AI/plans/accounting-legal-compliance-master-plan.md` + 13 task cards `docs/AI/tasks/task_acct_legal_compliance_*` — user chốt Q1-Q4 2026-10-16):**
-- [ ] **W1 (đang làm):** P0.1 `IPaymentComplianceService` (Evaluate ≥20M tiền mặt + gộp cùng ngày cùng NCC + `GetCashPaymentReviewAsync`) + hook Order/POS/phiếu chi + modal cảnh báo + trang `/accounting/cash-payment-review` · P0.2-Đ1 `IGeneralLedgerService` (`GetJournalAsync`/`GetLedgerAsync`/`GetBalancesAsync`) + `/accounting/journal` + `/accounting/ledger` + menu/Sitemap + Core.Tests + bUnit → guard + build + tests PASS → FAST PUSH + CD + RV L1-L3
-- [ ] **W2:** P0.2-Đ2 Sổ chi tiết TK + P0.4 chuẩn dữ liệu HĐĐT NĐ 254/2026 + TT 91/2026 (DTO mapping + tests)
+- [x] **W1 ✅ DONE + DEPLOYED + RV L1-L3 PASS (2026-10-16/17):** P0.1 kiểm soát ≥20 triệu (modal POS + `/accounting/cash-payment-review` + audit reason — fix async queue `5731ed31`) · P0.2-Đ1 Nhật ký chung + Sổ Cái (`/accounting/journal` + `/accounting/ledger`) + **Xuất Excel theo Mẫu TT 99/2025** (S02c1-DN + S03b-DN — `8f3bbf02`). Commits: `8584edd8` `0b12849a` `c2442520` `19c7a642` `5731ed31` `df961fbe` `8f3bbf02` `68d5f399` `ff411ff0`. CD: #38922403257 + #38932459737 + #38996230046 ALL SUCCESS.
+- [ ] **W2 (SESSION MỚI — handoff bên dưới):** P0.2-Đ2 Sổ chi tiết TK (112/131/331...) + P0.4 chuẩn dữ liệu HĐĐT NĐ 254/2026 + TT 91/2026 (DTO mapping + tests)
 - [ ] **W3:** P0.3 HĐĐT điều chỉnh/thay thế (provider + orchestrator + UI)
 - [ ] **W4:** P1.1 audit IP/UserAgent · P1.2 reopen phê duyệt + cảnh báo · P1.3 âm quỹ/âm kho
 - [ ] **W5:** P1.4 hóa đơn đầu vào + DN bỏ trốn · P1.5 checklist TT 152/2025 + TT 58/2026 + Quy chế PMKT · P2 khảo sát (chỉ tài liệu)
+
+### HANDOFF W2 — đọc khi mở SESSION MỚI (2026-10-17)
+
+**Bước 1 — Đọc:** `project_state.md` §2 (mục TUÂN THỦ PHÁP LÝ — W1 DONE) + `docs/AI/plans/accounting-legal-compliance-master-plan.md` §6 (waves) + task cards `task_acct_legal_compliance_p0_2_ledger_reports.md` (phần Đ2) + `task_acct_legal_compliance_p0_4_einvoice_standard_254.md`.
+
+**Bước 2 — IMPLEMENT W2:**
+- **P0.2-Đ2 Sổ chi tiết TK:** `IGeneralLedgerService.GetSubLedgerAsync(tenantId, year, month, accountCode, doiTuong)` (task card §3.2/§3.3 — chi tiết theo TK 112/131/331, dư đầu kỳ/PS/dư cuối) + trang `/accounting/sub-ledger?tk=&doiTuong=` (UI Platform, bUnit, menu "Kế toán → Sổ sách", Sitemap) + **Xuất Excel theo mẫu TT 99/2025** (pattern `LedgerExcelExportService` — tìm mẫu Sổ chi tiết: tài liệu `docs/Accounting_Doc/` nếu có, hoặc Mẫu S12/S13 theo hình thức; tham khảo cấu trúc S02c1-DN đã làm).
+- **P0.4 chuẩn dữ liệu HĐĐT:** rà soát `MisaDTOs.cs`/`ViettelDTOs.cs` + `EInvoiceRequest` mapping (kỳ hiệu lực cũ NĐ 123/2020 era → NĐ 254/2026 + TT 91/2026 — hóa đơn máy tính tiền, ký hiệu/mẫu mới, có mã/không mã) + cập nhật tests (`EInvoiceProviderTests`, `EInvoiceDISmokeTests`) + tài liệu mapping table.
+- **Validation:** guard-check.ps1 + dotnet build VanAn.sln + Core.Tests + ShopERP.Tests MUST PASS.
+
+**Bước 3 — Push + Deploy + RV:** FAST PUSH (`git push --no-verify origin main` — điều kiện: guard+build+tests PASS trong session) → CD Multi-VPS tự chạy → verify `gh api repos/anlebao/Gemini_Windsurf/branches/main --jq '.commit.sha'` vs `git rev-parse HEAD` → RV L1 (marker DLL + routes) · L2 (health 200 + routes 302) · L3 (Playwright production — impersonate Owner, storageState qua `rv-w1-auth.cjs` — **chạy lại sau mỗi redeploy vì cookie hết hạn**; spec mới theo pattern `accounting-legal-w1-rv.spec.ts` + `playwright-rv-w1.config.ts`; export check qua `rv-w1-export-check.cjs`).
+
+**Bài học W1 áp dụng cho W2 (đã ghi commit message W1):**
+- Razor: **tránh class name `Journal`** (vỡ RazorSourceGenerator) — đặt tên `JournalReport`; **tránh `$"\"{...}"` trong @code** (dùng concatenation).
+- Blazor Server @bind: Playwright `fill()` không đủ — dùng `pressSequentially` + `blur()` (Pattern #29); chờ circuit connect ~8s sau goto trước khi click.
+- CD: `ensure_image()` đã fix (Pattern #32) — KHÔNG cần sửa lại; nếu deploy fail vì image thiếu → kiểm tra deploy_set.
+- Audit async mới: nhớ `AuditLogBackgroundWriter` đã SetTenant per log (Pattern #31) — audit Order/UI async giờ ghi được PG.
+- Tenant info header sổ: `GetTenantInfoAsync` đọc qua `_vanAnContext as VanAnDbContext` (pattern AuditLogRepository).
+- Format tiền VNĐ: cart dùng "N0" invariant (dấu phẩy), báo cáo dùng vi-VN (dấu chấm) — regex test phải chấp nhận cả 2.
 
 **▶ APPOINTMENT BOOKING — FIX BUG + NÂNG CẤP (🔵 SESSION 2026-10-08 — ✅ P1-P5 DONE + DEPLOYED + RV PASS + issue #188 CLOSED):**
 - [x] **Bước 1 — Khởi tạo session (2026-10-08):** load SRS v1.1 + task card + fix plan §2/§4 → verify issue #188 (3 bug confirmed) → khảo sát POS → 4 quyết định user chốt → master plan + task card
