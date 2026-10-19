@@ -12,13 +12,10 @@
             <div class="top-row px-4">
                 <AuthorizeView>
                     <Authorized>
-                        <span class="text-muted me-3">
-                            <i class="bi bi-person-circle"></i>
-                            @context.User.Identity?.Name
-                        </span>
-                        <a href="/Logout" class="btn btn-outline-danger btn-sm" title="Đăng xuất">
-                            <i class="bi bi-box-arrow-right"></i> Đăng xuất
-                        </a>
+                        @* Issue #193: dùng chung UserHeader (tenant + bell thông báo + user + logout)
+                           như Accounting/Admin/EInvoice layout — trước đây top-row chỉ có
+                           name + logout, không có icon thông báo. *@
+                        <UserHeader />
                     </Authorized>
                     <NotAuthorized>
                         <a href="/Login" class="btn btn-primary btn-sm">

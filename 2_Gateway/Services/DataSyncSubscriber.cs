@@ -404,6 +404,23 @@ namespace VanAn.Gateway.Services
             var tenantProvider = scopeSp.GetRequiredService<ITenantProvider>();
             tenantProvider.SetTenant(tenantId);
 
+            // Issue #194: thông báo owner "Đơn hàng mới" cho đơn tạo trên ShopERP (POS/edge).
+            // Chạy TRƯỚC exists check — đơn có thể đã tồn tại nhưng notification chưa ghi
+            // (ShopERP offline lúc tạo đơn → CreateForOwnerAsync ở OrderService bị swallow).
+            // Idempotent: dedupe theo (TenantId, ReferenceType="OrderCreated", ReferenceId=orderId).
+            var notificationCenter = scopeSp.GetService<VanAn.CoreHub.Services.INotificationCenterService>();
+            if (notificationCenter != null)
+            {
+                await notificationCenter.CreateForOwnerAsync(
+                    new TenantId(tenantId),
+                    NotificationCategory.OrderStatus,
+                    "Đơn hàng mới",
+                    $"Đơn mới #{orderId.ToString()[..8]}",
+                    $"/orders/{orderId}",
+                    "OrderCreated", orderId,
+                    ct: ct);
+            }
+
             bool exists = await dbContext.Orders.AnyAsync(o => o.Id == orderId, ct);
             if (exists)
             {

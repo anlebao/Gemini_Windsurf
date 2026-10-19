@@ -159,10 +159,13 @@
         }
     }
 
-    private void SelectCategory(string? category)
+    // Issue #194: phải await LoadData — bản void + fire-and-forget khiến Blazor render xong
+    // handler trước khi load xong, không có StateHasChanged → danh sách không refresh,
+    // filter trông như "không hoạt động".
+    private async Task SelectCategory(string? category)
     {
         _selectedCategory = category;
-        _ = LoadData();
+        await LoadData();
     }
 
     private async Task OpenItem(OwnerNotificationItem item)

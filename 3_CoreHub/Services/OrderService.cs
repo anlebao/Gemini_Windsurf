@@ -36,7 +36,8 @@ namespace VanAn.CoreHub.Services
         IProductRepository? productRepository = null,
         ICommerceModeService? commerceModeService = null,
         IFeatureFlagService? featureFlagService = null,
-        VanAnDbContext? pgDbContext = null) : IOrderService
+        VanAnDbContext? pgDbContext = null,
+        INotificationCenterService? notificationCenter = null) : IOrderService
     {
         // EXISTING DEPENDENCIES (keep)
         private readonly IOrderRepository _orderRepository = orderRepository;
@@ -75,6 +76,10 @@ namespace VanAn.CoreHub.Services
 
         // VALCN v2.0 Phase 2: Feature flag for per-tenant PlatformFee on Marketplace orders (default OFF)
         private readonly IFeatureFlagService? _featureFlagService = featureFlagService;
+
+        // Issue #194: Notification Hub — ghi TenantNotification "Đơn hàng mới" vào PG khi tạo đơn.
+        // Fail-safe bên trong service (không bao giờ throw / không làm hỏng tạo đơn).
+        private readonly INotificationCenterService? _notificationCenter = notificationCenter;
 
         /// <summary>
         /// Get today's order count for a specific tenant
@@ -152,6 +157,8 @@ namespace VanAn.CoreHub.Services
                 _logger.LogInformation("Created order {OrderId} for tenant {TenantId}. Accounting pending payment confirmation.",
                     newOrder.Id, tenantId);
 
+                await NotifyOwnerOrderCreatedAsync(newOrder);
+
                 return newOrder;
             }
             catch (Exception ex)
@@ -159,6 +166,29 @@ namespace VanAn.CoreHub.Services
                 _logger.LogError(ex, "Error creating order for tenant {TenantId}", tenantId);
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Issue #194: ghi thông báo "Đơn hàng mới" cho owner tenant (Notification Hub — PG).
+        /// Gọi sau khi order đã commit. ReferenceType "OrderCreated" phân biệt với "Order"
+        /// (thông báo đổi trạng thái — PushNotificationBackgroundService) để không dính dedupe.
+        /// Fail-safe: CreateForOwnerAsync tự swallow exception — không làm hỏng luồng tạo đơn.
+        /// </summary>
+        private async Task NotifyOwnerOrderCreatedAsync(Order order)
+        {
+            if (_notificationCenter is null) return;
+            string shortId = order.Id.ToString()[..8];
+            string customerName = order.CustomerInfo?.FullName;
+            string body = string.IsNullOrWhiteSpace(customerName)
+                ? $"Đơn mới {order.TotalAmount:N0}đ (#{shortId})"
+                : $"{customerName} — đơn mới {order.TotalAmount:N0}đ (#{shortId})";
+            await _notificationCenter.CreateForOwnerAsync(
+                order.TenantId,
+                NotificationCategory.OrderStatus,
+                "Đơn hàng mới",
+                body,
+                $"/orders/{order.Id}",
+                "OrderCreated", order.Id);
         }
 
         /// <summary>
@@ -714,6 +744,8 @@ namespace VanAn.CoreHub.Services
                     await _orderHub.NotifyStaffAsync(savedOrder);
                 }
 
+                await NotifyOwnerOrderCreatedAsync(savedOrder);
+
                 _logger.LogInformation("Created order {OrderId} with queue for tenant {TenantId}",
                     savedOrder.Id, tenantId);
 
@@ -1131,6 +1163,8 @@ namespace VanAn.CoreHub.Services
                 }
 
                 _logger.LogInformation("Created order {OrderId} from Gateway command", createdOrder.Id);
+
+                await NotifyOwnerOrderCreatedAsync(createdOrder);
 
                 return createdOrder;
             }

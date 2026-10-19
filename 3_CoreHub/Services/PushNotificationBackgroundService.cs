@@ -136,6 +136,30 @@ namespace VanAn.CoreHub.Services
                 Guid? salesmanId = JsonPayloadHelpers.GetOptionalGuid(root, "salesmanId");
                 Guid? assignedShipperId = JsonPayloadHelpers.GetOptionalGuid(root, "assignedShipperId");
                 bool rolesOnly = root.TryGetProperty("rolesOnly", out var ro) && ro.ValueKind == JsonValueKind.True;
+                string shortId = orderId.ToString()[..8];
+
+                // Create a scope to resolve scoped services
+                using var scope = _serviceProvider.CreateScope();
+
+                // Notification Hub (2026-10-15): owner notification — trạng thái đơn hàng
+                // (tenantId có sẵn trong payload — OrderWorkflowService.PublishOrderStatusChangedEventAsync).
+                // Issue #194: chạy TRƯỚC early-return "no recipients" — đơn không có customer
+                // (POS walk-in) vẫn phải tạo TenantNotification cho owner.
+                Guid? tenantId = JsonPayloadHelpers.GetOptionalGuid(root, "tenantId");
+                if (tenantId.HasValue)
+                {
+                    var notificationCenter = scope.ServiceProvider.GetService<INotificationCenterService>();
+                    if (notificationCenter != null)
+                    {
+                        await notificationCenter.CreateForOwnerAsync(
+                            new TenantId(tenantId.Value),
+                            NotificationCategory.OrderStatus,
+                            "Cập nhật đơn hàng",
+                            $"{customerName ?? "Khách hàng"} — {OrderStatusMessage(newStatus)} (#{shortId})",
+                            $"/orders/{orderId}",
+                            "Order", orderId);
+                    }
+                }
 
                 if (customerId == null && salesmanId == null && assignedShipperId == null)
                 {
@@ -143,8 +167,6 @@ namespace VanAn.CoreHub.Services
                     return;
                 }
 
-                // Create a scope to resolve scoped PushNotificationService
-                using var scope = _serviceProvider.CreateScope();
                 var pushService = scope.ServiceProvider.GetService<PushNotificationService>();
                 if (pushService == null)
                 {
@@ -153,7 +175,6 @@ namespace VanAn.CoreHub.Services
                 }
 
                 int sent = 0;
-                string shortId = orderId.ToString()[..8];
 
                 // Buyer push — skipped on rolesOnly republishes (buyer already notified).
                 if (!rolesOnly && customerId.HasValue)
@@ -185,24 +206,6 @@ namespace VanAn.CoreHub.Services
 
                 _logger.LogInformation("PushNotificationBackgroundService dispatched {Sent} push notification(s) for OrderId={OrderId} Status={Status}",
                     sent, orderId, newStatus);
-
-                // Notification Hub (2026-10-15): owner notification — trạng thái đơn hàng
-                // (tenantId có sẵn trong payload — OrderWorkflowService.PublishOrderStatusChangedEventAsync).
-                Guid? tenantId = JsonPayloadHelpers.GetOptionalGuid(root, "tenantId");
-                if (tenantId.HasValue)
-                {
-                    var notificationCenter = scope.ServiceProvider.GetService<INotificationCenterService>();
-                    if (notificationCenter != null)
-                    {
-                        await notificationCenter.CreateForOwnerAsync(
-                            new TenantId(tenantId.Value),
-                            NotificationCategory.OrderStatus,
-                            "Cập nhật đơn hàng",
-                            $"{customerName ?? "Khách hàng"} — {OrderStatusMessage(newStatus)} (#{shortId})",
-                            $"/orders/{orderId}",
-                            "Order", orderId);
-                    }
-                }
             }
             catch (Exception ex)
             {
