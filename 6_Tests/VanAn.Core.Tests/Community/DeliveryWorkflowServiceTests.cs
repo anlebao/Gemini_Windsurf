@@ -280,7 +280,7 @@ public class FakeOrderWorkflowService : IOrderWorkflowService
 
     public FakeOrderWorkflowService(VanAnDbContext context) => _context = context;
 
-    public Task<Order?> TransitionStatusAsync(Guid orderId, OrderStatusId newStatus, string? reason = null)
+    public Task<Order?> TransitionStatusAsync(Guid orderId, OrderStatusId newStatus, string? reason = null, string? changedBy = null)
     {
         TransitionCalled = true;
         TransitionOrderId = orderId;

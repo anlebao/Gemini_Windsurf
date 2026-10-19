@@ -158,6 +158,11 @@ namespace VanAn.CoreHub.Services
                     {
                         // Fallback: direct entity mutation (preserves pre-fix behavior for tests + null scope).
                         orderItem.Order.UpdateOrderStatus(OrderStatusId.Ready);
+                        // Issue #195 (Q2): fallback 路径也补写 OrderStatusHistory（主路径由
+                        // OrderWorkflowService 记录；此处避免 delegated=false 时历史缺失）。
+                        _ = await _context.OrderStatusHistories.AddAsync(
+                            new OrderStatusHistory(orderItem.Order.TenantId, orderItem.OrderId,
+                                oldOrderStatus, OrderStatusId.Ready.Value, "kitchen", "all_items_completed"));
                     }
 
                     _ = await _context.SaveChangesAsync();

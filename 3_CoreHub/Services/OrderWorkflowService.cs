@@ -35,7 +35,11 @@ namespace VanAn.CoreHub.Services
         // Loyalty Points Integrity (Batch 2, T1.6): PG ledger — single source of truth for the
         // award write (guard + budget + mode routing + issuance record). Null in legacy test scopes
         // → falls back to the inline implementation below (backward compatible).
-        ILoyaltyPointLedgerService? loyaltyPointLedgerService = null) : IOrderWorkflowService
+        ILoyaltyPointLedgerService? loyaltyPointLedgerService = null,
+        // Issue #195 (2026-10-19): configurable order flow — resolve transitions từ
+        // OrderFlowProfile (PG qua OrderFlowService / HTTP qua ShopERP client).
+        // Null trong test scopes → fallback hardcode maps bên dưới (backward compatible).
+        VanAn.Shared.Services.IOrderFlowService? orderFlowService = null) : IOrderWorkflowService
     {
         private readonly IOrderRepository _orderRepository = orderRepository;
         private readonly ILogger<OrderWorkflowService> _logger = logger;
@@ -66,6 +70,8 @@ namespace VanAn.CoreHub.Services
         private readonly ISalesmanService? _salesmanService = salesmanService;
         // Loyalty Points Integrity (Batch 2, T1.6): PG ledger (Gateway in-proc / ShopERP HTTP proxy).
         private readonly ILoyaltyPointLedgerService? _loyaltyPointLedgerService = loyaltyPointLedgerService;
+        // Issue #195: configurable order flow resolver (null → legacy hardcode maps).
+        private readonly VanAn.Shared.Services.IOrderFlowService? _orderFlowService = orderFlowService;
         // _shopFeatureSettingsService already declared at line 34 (Wave 1-T6) — reused for Loyalty-C WS-A per-tenant formula override.
 
         // W-1-T7: CamelCase JSON options — matches SimpleAccountingEventHandler deserialization policy
@@ -74,7 +80,7 @@ namespace VanAn.CoreHub.Services
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
 
-        public async Task<Order?> TransitionStatusAsync(Guid orderId, OrderStatusId newStatus, string? reason = null)
+        public async Task<Order?> TransitionStatusAsync(Guid orderId, OrderStatusId newStatus, string? reason = null, string? changedBy = null)
         {
             // C1 fix (2026-09-14): run the whole transition (load → validate → update → outbox → commit)
             // inside the EF execution strategy. Gateway PG runs NpgsqlRetryingExecutionStrategy (Phase 1
@@ -85,14 +91,14 @@ namespace VanAn.CoreHub.Services
             {
                 Order? result = null;
                 await _dbContext.ExecuteAtomicAsync(
-                    async () => result = await TransitionStatusCoreAsync(orderId, newStatus, reason));
+                    async () => result = await TransitionStatusCoreAsync(orderId, newStatus, reason, changedBy));
                 return result;
             }
 
-            return await TransitionStatusCoreAsync(orderId, newStatus, reason);
+            return await TransitionStatusCoreAsync(orderId, newStatus, reason, changedBy);
         }
 
-        private async Task<Order?> TransitionStatusCoreAsync(Guid orderId, OrderStatusId newStatus, string? reason = null)
+        private async Task<Order?> TransitionStatusCoreAsync(Guid orderId, OrderStatusId newStatus, string? reason = null, string? changedBy = null)
         {
             using IDbContextTransaction transaction = await _orderRepository.BeginTransactionAsync();
             try
@@ -105,7 +111,7 @@ namespace VanAn.CoreHub.Services
                     return null;
                 }
 
-                if (!await IsTransitionValidAsync(order.Status, newStatus, order.TenantId.Value))
+                if (!await IsTransitionValidAsync(order.Status, newStatus, order.TenantId.Value, order.SourceType))
                 {
                     _logger.LogWarning("Invalid status transition for order {OrderId}: {CurrentStatus} -> {NewStatus}",
                         orderId, order.Status.Value, newStatus.Value);
@@ -116,6 +122,15 @@ namespace VanAn.CoreHub.Services
                 order.UpdateOrderStatus(newStatus);
 
                 _ = await _orderRepository.UpdateAsync(order);
+
+                // Issue #195 (approved Q2): ghi lịch sử trạng thái — timeline UI + audit.
+                // Cùng transaction với order update → atomic; null-safe khi thiếu DbContext (test scopes).
+                if (_dbContext != null)
+                {
+                    _ = await _dbContext.OrderStatusHistories.AddAsync(
+                        new OrderStatusHistory(order.TenantId, order.Id, oldStatus.Value, newStatus.Value, changedBy, reason));
+                }
+
                 await _orderRepository.SaveChangesAsync();
 
                 // 🛡️ PHASE 3: Event-Driven & Core Services
@@ -921,8 +936,26 @@ namespace VanAn.CoreHub.Services
         /// When kitchen toggle OFF: bypass preparing/ready, allow confirmed→completed directly.
         /// When kitchen toggle ON (default): normal flow pending→preparing→ready→completed.
         /// </summary>
-        private async Task<bool> IsTransitionValidAsync(OrderStatusId currentStatus, OrderStatusId newStatus, Guid? tenantId)
+        private async Task<bool> IsTransitionValidAsync(OrderStatusId currentStatus, OrderStatusId newStatus, Guid? tenantId, string? sourceType = null)
         {
+            // Issue #195: ưu tiên OrderFlowProfile (tenant → system → builtin qua resolver).
+            // Booking orders (SourceType="booking") resolve booking flow — chỉ
+            // "Thanh toán" + "Hoàn thành" (approved 0.2). Resolver fail → legacy maps.
+            if (_orderFlowService != null)
+            {
+                try
+                {
+                    return await _orderFlowService.IsTransitionAllowedAsync(
+                        tenantId ?? Guid.Empty, sourceType, currentStatus.Value, newStatus.Value);
+                }
+                catch (Exception flowEx)
+                {
+                    _logger.LogWarning(flowEx,
+                        "OrderFlow resolve failed for tenant {TenantId} source={Source} — legacy fallback",
+                        tenantId, sourceType ?? "null");
+                }
+            }
+
             // W1-T6: Check kitchen toggle — default ON if service unavailable or no tenant context
             bool kitchenEnabled = true;
             if (tenantId.HasValue && tenantId.Value != Guid.Empty && _shopFeatureSettingsService != null)

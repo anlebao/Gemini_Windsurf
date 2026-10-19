@@ -3,15 +3,19 @@
 @attribute [Authorize(Policy = "StaffOrAbove")]
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.EntityFrameworkCore
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Components.Data
 @using VanAn.UI.Platform.Models
 @using VanAn.UI.Platform.Tokens
 @using VanAn.Shared.Domain
+@using VanAn.Shared.Services
 @using VanAn.CoreHub.Services
 @inject IOrderWorkflowService OrderWorkflowService
 @inject IOrderService OrderService
+@inject IOrderFlowService FlowResolver
+@inject VanAn.CoreHub.Infrastructure.IVanAnDbContext DbContext
 @inject ILogger<Detail> Logger
 @inject NavigationManager NavigationManager
 @inject IThemeProvider ThemeProvider
@@ -33,7 +37,7 @@
 
     @if (errorMessage != null)
     {
-        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+        <VanAAlert Variant="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
     }
 
     @if (loading)
@@ -51,30 +55,52 @@
     else
     {
         <VanACard Header="Thông tin đơn hàng">
-            <div class="order-info-grid">
-                <div><strong>Mã đơn:</strong> @(order.TrackingCode ?? order.Id.ToString()[..8])</div>
-                <div><strong>Thời gian:</strong> @order.OrderDate.ToVietnamTimeString()</div>
-                <div><strong>Trạng thái:</strong> <OrderStatusBadge Status="@order.Status?.Value" /></div>
-                <div><strong>Thanh toán:</strong> <span class="payment-badge">@order.PaymentStatus</span></div>
-                <div><strong>Tổng tiền:</strong> @order.TotalAmount.ToString("N0") đ</div>
-                <div><strong>Phương thức:</strong> @order.PaymentMethod</div>
+            @* Issue #195 (1.1/1.2): nhóm thông tin theo chủ đề — đơn / khách hàng / thanh toán *@
+            <div class="detail-groups">
+                <div class="info-group">
+                    <div class="info-group__title">Đơn hàng</div>
+                    <div class="info-row"><span class="info-label">Mã đơn</span><span>@(order.TrackingCode ?? order.Id.ToString()[..8])</span></div>
+                    <div class="info-row"><span class="info-label">Thời gian</span><span>@order.OrderDate.ToVietnamTimeString()</span></div>
+                    <div class="info-row"><span class="info-label">Trạng thái</span><span><OrderStatusBadge Status="@order.Status?.Value" /></span></div>
+                    <div class="info-row"><span class="info-label">Loại đơn</span><span>@TranslateOrderType(order.OrderType)</span></div>
+                    <div class="info-row"><span class="info-label">Nguồn</span><span>@TranslateSourceType(order.SourceType)</span></div>
+                </div>
+                <div class="info-group">
+                    <div class="info-group__title">Khách hàng</div>
+                    <div class="info-row"><span class="info-label">Tên</span><span>@(string.IsNullOrWhiteSpace(order.CustomerName) ? "—" : order.CustomerName)</span></div>
+                    <div class="info-row"><span class="info-label">SĐT</span><span>@(string.IsNullOrWhiteSpace(order.CustomerPhone) ? "—" : order.CustomerPhone)</span></div>
+                    @if (!string.IsNullOrWhiteSpace(order.CustomerNotes))
+                    {
+                        <div class="info-row"><span class="info-label">Ghi chú</span><span>@order.CustomerNotes</span></div>
+                    }
+                </div>
+                <div class="info-group">
+                    <div class="info-group__title">Thanh toán</div>
+                    <div class="info-row"><span class="info-label">Tổng tiền</span><span class="amount">@order.TotalAmount.ToString("N0") đ</span></div>
+                    <div class="info-row"><span class="info-label">Phương thức</span><span>@(order.PaymentMethod ?? "—")</span></div>
+                    <div class="info-row"><span class="info-label">Trạng thái</span><span class="payment-badge">@order.PaymentStatus</span></div>
+                </div>
             </div>
 
-            @if (order.Status?.Value == "pending")
+            @* Issue #195: action buttons driven by resolved flow — trạng thái tiếp theo hợp lệ *@
+            @if (actionSteps.Count > 0)
             {
-                <div class="action-row">
-                    <VanAButton Variant="primary" OnClick="ConfirmOrder" data-testid="btn-confirm-detail">
-                        ✓ Xác nhận đơn hàng
-                    </VanAButton>
+                <div class="action-row" data-testid="flow-actions">
+                    @foreach (var step in actionSteps)
+                    {
+                        <VanAButton Variant="@VariantFor(step.Code)" OnClick="@(() => TransitionOrderStatus(step.Code))" data-testid="@TestIdFor(step.Code)">
+                            @IconFor(step.Code) @step.DisplayName
+                        </VanAButton>
+                    }
                 </div>
             }
 
-            @* W1-T4: Kitchen buttons — only when Kitchen_Workflow_Enabled is ON *@
-            @if (kitchenEnabled && order.Status?.Value == "confirmed")
+            @* W3-T1: Admin "Đã thanh toán" — visible only when PaymentStatus=Pending *@
+            @if (order.PaymentStatus == "Pending")
             {
                 <div class="action-row">
-                    <VanAButton Variant="primary" OnClick="StartPreparing" data-testid="btn-start-preparing">
-                        ⏳ Bắt đầu làm
+                    <VanAButton Variant="primary" OnClick="ConfirmPayment" data-testid="btn-confirm-payment">
+                        💰 Đã thanh toán
                     </VanAButton>
                 </div>
             }
@@ -88,56 +114,38 @@
                     </VanAButton>
                 </div>
             }
-
-            @if (kitchenEnabled && order.Status?.Value == "preparing")
-            {
-                <div class="action-row">
-                    <VanAButton Variant="success" OnClick="MarkReady" data-testid="btn-mark-ready">
-                        ✅ Sẵn sàng giao
-                    </VanAButton>
-                </div>
-            }
-
-            @if (kitchenEnabled && order.Status?.Value == "ready")
-            {
-                <div class="action-row">
-                    <VanAButton Variant="primary" OnClick="CompleteOrder" data-testid="btn-complete">
-                        ✔️ Hoàn tất
-                    </VanAButton>
-                </div>
-            }
-
-            @* W1-T5: Kitchen bypass — when toggle OFF, show "Hoàn tất" directly from confirmed *@
-            @if (!kitchenEnabled && order.Status?.Value == "confirmed")
-            {
-                <div class="action-row">
-                    <VanAButton Variant="success" OnClick="CompleteOrder" data-testid="btn-complete-bypass">
-                        ✔️ Hoàn tất đơn hàng
-                    </VanAButton>
-                </div>
-            }
-
-            @* W3-T1: Admin "Đã thanh toán" — visible only when PaymentStatus=Pending *@
-            @if (order.PaymentStatus == "Pending")
-            {
-                <div class="action-row">
-                    <VanAButton Variant="primary" OnClick="ConfirmPayment" data-testid="btn-confirm-payment">
-                        💰 Đã thanh toán
-                    </VanAButton>
-                </div>
-            }
         </VanACard>
 
-        <VanACard Header="Timeline trạng thái">
-            <div class="timeline">
-                @foreach (var step in statusTimeline)
+        <VanACard Header="@($"Tiến trình đơn hàng{(flowResolution?.Source == "database" ? $" — {flowResolution.ProfileName}" : "")}")">
+            @* Issue #195 (1.2): timeline driven by resolved flow + OrderStatusHistory timestamps.
+               done = đã đi qua (có history); current = trạng thái hiện tại; next = bước có thể tới. *@
+            <div class="timeline" data-testid="status-timeline">
+                @foreach (var step in timelineSteps)
                 {
-                    <div class="timeline-step @(step.IsCompleted ? "completed" : "")">
+                    <div class="timeline-step @step.StateClass" data-testid="timeline-step-@step.Code">
                         <span class="timeline-dot"></span>
                         <span class="timeline-label">@step.DisplayName</span>
+                        @if (step.ReachedAt.HasValue)
+                        {
+                            <span class="timeline-time">@step.ReachedAt.Value.ToVietnamTimeString()</span>
+                        }
+                        @if (step.IsNext)
+                        {
+                            <span class="timeline-next-hint">tiếp theo</span>
+                        }
                     </div>
                 }
             </div>
+            @if (nextSteps.Count > 0)
+            {
+                <div class="next-steps" data-testid="next-statuses">
+                    <span class="next-steps__label">Trạng thái tiếp theo:</span>
+                    @foreach (var s in nextSteps)
+                    {
+                        <span class="next-chip">@s.DisplayName</span>
+                    }
+                </div>
+            }
         </VanACard>
 
         <VanACard Header="Sản phẩm trong đơn">
@@ -171,7 +179,12 @@
     private bool loading = true;
     private string? errorMessage;
     private HubConnection? _hubConnection;
-    private List<TrackingStep> statusTimeline = new();
+    // Issue #195: resolved flow + status history + derived UI state
+    private OrderFlowResolution? flowResolution;
+    private List<VanAn.Shared.Domain.OrderStatusHistory> statusHistory = new();
+    private List<TimelineStep> timelineSteps = new();
+    private List<OrderFlowStepDto> nextSteps = new();
+    private List<OrderFlowStepDto> actionSteps = new();
     // W1-T4: Kitchen toggle — controls visibility of kitchen transition buttons
     private bool kitchenEnabled = true;
     // W3-T6: Voice note toggle — sub-toggle for TTS (when voice OFF, TTS also OFF)
@@ -199,6 +212,7 @@
                 kitchenEnabled = true;
             }
         }
+        BuildFlowState();
         await StartSignalRConnection();
     }
 
@@ -219,7 +233,8 @@
             else
             {
                 order = MapToDto(domainOrder);
-                BuildStatusTimeline();
+                await LoadFlowAndHistoryAsync(domainOrder);
+                BuildFlowState();
             }
         }
         catch (Exception ex)
@@ -233,11 +248,144 @@
         }
     }
 
-    // R2-0e: Direct service call instead of HTTP PUT.
-    private async Task ConfirmOrder()
+    /// <summary>Issue #195: load resolved flow + status history for the loaded order.</summary>
+    private async Task LoadFlowAndHistoryAsync(Order domainOrder)
     {
-        await TransitionOrderStatus("confirmed");
+        try
+        {
+            flowResolution = await FlowResolver.ResolveFlowAsync(domainOrder.TenantId.Value, domainOrder.SourceType);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "OrderFlow resolve failed for order {OrderId} — builtin default", OrderId);
+            flowResolution = OrderFlowService.BuildBuiltin(domainOrder.SourceType);
+        }
+
+        try
+        {
+            statusHistory = await DbContext.OrderStatusHistories
+                .Where(h => h.OrderId == OrderId)
+                .OrderBy(h => h.CreatedAt)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load status history for order {OrderId}", OrderId);
+            statusHistory = new();
+        }
     }
+
+    /// <summary>
+    /// Issue #195 (1.2): build timeline + next/action steps from resolved flow.
+    /// Builtin flow cho đơn thường khi kitchen toggle OFF → ẩn bước bếp (giữ semantics W1-T5).
+    /// </summary>
+    private void BuildFlowState()
+    {
+        timelineSteps = new();
+        nextSteps = new();
+        actionSteps = new();
+        if (order?.Status?.Value == null || flowResolution == null) return;
+
+        string current = order.Status.Value;
+        bool isBooking = order.SourceType == "booking";
+        // Kitchen OFF + builtin (không có DB profile) cho đơn thường → ẩn bước bếp khỏi UI.
+        bool hideKitchenSteps = !isBooking && !kitchenEnabled && flowResolution.Source == "builtin";
+
+        var nextCodes = flowResolution.NextOf(current).ToList();
+        if (hideKitchenSteps)
+        {
+            nextCodes = nextCodes.Where(c => c is not ("preparing" or "ready")).ToList();
+        }
+
+        var reachedAt = statusHistory
+            .GroupBy(h => h.ToStatus)
+            .ToDictionary(g => g.Key, g => g.Max(h => h.CreatedAt));
+
+        timelineSteps = flowResolution.Steps
+            .Where(s => !hideKitchenSteps || s.Code is not ("preparing" or "ready"))
+            .OrderBy(s => s.SortOrder)
+            .Select(s =>
+            {
+                bool isCurrent = s.Code == current;
+                bool done = reachedAt.ContainsKey(s.Code) && !isCurrent;
+                bool isNext = nextCodes.Contains(s.Code);
+                return new TimelineStep
+                {
+                    Code = s.Code,
+                    DisplayName = s.DisplayName,
+                    IsCurrent = isCurrent,
+                    IsNext = isNext,
+                    ReachedAt = reachedAt.TryGetValue(s.Code, out DateTime t) ? t : null,
+                    StateClass = isCurrent ? "current" : done ? "completed" : isNext ? "next" : ""
+                };
+            })
+            .ToList();
+
+        // Nếu status hiện tại không nằm trong flow (đơn cũ/edge case) — chèn node hiện tại.
+        if (timelineSteps.All(s => s.Code != current))
+        {
+            timelineSteps.Add(new TimelineStep
+            {
+                Code = current,
+                DisplayName = current,
+                IsCurrent = true,
+                ReachedAt = reachedAt.TryGetValue(current, out DateTime t) ? t : null,
+                StateClass = "current"
+            });
+        }
+
+        nextSteps = nextCodes
+            .Select(c => flowResolution.GetStep(c) ?? new OrderFlowStepDto(c, c, 999, false, new()))
+            .ToList();
+        actionSteps = nextSteps;
+    }
+
+    private static string VariantFor(string code) => code switch
+    {
+        "completed" => "success",
+        "cancelled" => "error",
+        _ => "primary"
+    };
+
+    private static string IconFor(string code) => code switch
+    {
+        "confirmed" => "✓",
+        "preparing" => "⏳",
+        "ready" => "✅",
+        "delivering" => "🚚",
+        "delivered" => "📦",
+        "completed" => "✔️",
+        "cancelled" => "✕",
+        _ => "→"
+    };
+
+    // Giữ testid cũ cho các action đã có E2E; code mới → btn-flow-{code}.
+    private static string TestIdFor(string code) => code switch
+    {
+        "confirmed" => "btn-confirm-detail",
+        "preparing" => "btn-start-preparing",
+        "ready" => "btn-mark-ready",
+        "completed" => "btn-complete",
+        "cancelled" => "btn-cancel-order",
+        _ => $"btn-flow-{code}"
+    };
+
+    private static string TranslateSourceType(string? sourceType) => sourceType switch
+    {
+        "pos" => "POS (tại quầy)",
+        "checkout" => "Online (checkout)",
+        "booking" => "Đặt lịch",
+        _ => "—"
+    };
+
+    private static string TranslateOrderType(string? orderType) => orderType switch
+    {
+        "DINEIN" or "DineIn" => "Tại chỗ",
+        "DELIVERY" or "Delivery" => "Giao hàng",
+        "TAKEAWAY" or "Takeaway" => "Mang đi",
+        null or "" => "—",
+        _ => orderType
+    };
 
     /// <summary>
     /// W3-T1: Admin manually confirms payment received.
@@ -261,32 +409,6 @@
     }
 
     /// <summary>
-    /// W1-T4: Transition order to "preparing" (kitchen starts making the order).
-    /// R2-0e: Direct IOrderWorkflowService call (no HTTP).
-    /// </summary>
-    private async Task StartPreparing()
-    {
-        await TransitionOrderStatus("preparing");
-    }
-
-    /// <summary>
-    /// W1-T4: Transition order to "ready" (kitchen finished, ready for pickup/delivery).
-    /// </summary>
-    private async Task MarkReady()
-    {
-        await TransitionOrderStatus("ready");
-    }
-
-    /// <summary>
-    /// W1-T5: Transition order to "completed" (final state — triggers loyalty/accounting/outbox).
-    /// Works for both kitchen ON (ready→completed) and kitchen OFF (confirmed→completed bypass).
-    /// </summary>
-    private async Task CompleteOrder()
-    {
-        await TransitionOrderStatus("completed");
-    }
-
-    /// <summary>
     /// W3-T4: TTS — read voice note text via Web Speech API (speechSynthesis).
     /// Called when chef clicks "Đọc ghi chú" button. Sub-toggle: only available when Voice_Note_Enabled = ON.
     /// </summary>
@@ -304,8 +426,8 @@
     }
 
     /// <summary>
-    /// W1-T4/T5: R2-0e — Shared transition method, direct IOrderWorkflowService call.
-    /// OrderWorkflowService validates transition + handles kitchen bypass + records outbox events.
+    /// Issue #195: transition theo flow — mọi action button đi qua OrderWorkflowService
+    /// (validation theo profile + OrderStatusHistory + Outbox sync).
     /// </summary>
     private async Task TransitionOrderStatus(string newStatus)
     {
@@ -333,6 +455,7 @@
     }
 
     // R2-0e: Map domain Order entity to page DTO (replaces HTTP JSON deserialization).
+    // Issue #195 (1.1): map CustomerInfo + SourceType + OrderType cho layout mới.
     private OrderDetailDto MapToDto(Order domainOrder)
     {
         return new OrderDetailDto
@@ -346,6 +469,11 @@
             TotalAmount = domainOrder.TotalAmount,
             TenantId = domainOrder.TenantId?.Value,
             VoiceNoteText = domainOrder.VoiceNoteText,
+            CustomerName = domainOrder.CustomerInfo?.FullName,
+            CustomerPhone = domainOrder.CustomerInfo?.PhoneNumber,
+            CustomerNotes = domainOrder.CustomerNotes,
+            SourceType = domainOrder.SourceType,
+            OrderType = domainOrder.OrderType,
             Items = domainOrder.Items?.Select(i => new OrderItemDto
             {
                 Id = i.Id,
@@ -356,30 +484,6 @@
                 KitchenStatus = i.KitchenStatus.ToString()
             }).ToList() ?? new()
         };
-    }
-
-    private void BuildStatusTimeline()
-    {
-        if (order?.Status?.Value == null) return;
-
-        var allSteps = new[]
-        {
-            new { Id = "pending",    DisplayName = "Chờ xác nhận",  Seq = 1 },
-            new { Id = "confirmed",  DisplayName = "Đã xác nhận",   Seq = 2 },
-            new { Id = "preparing",  DisplayName = "Đang làm",      Seq = 3 },
-            new { Id = "ready",      DisplayName = "Sẵn sàng",       Seq = 4 },
-            new { Id = "completed",  DisplayName = "Hoàn thành",     Seq = 5 },
-        };
-
-        string currentStatus = order.Status.Value;
-        int currentSeq = allSteps.FirstOrDefault(s => s.Id == currentStatus)?.Seq ?? 1;
-
-        statusTimeline = allSteps.Select(s => new TrackingStep
-        {
-            Id = s.Id,
-            DisplayName = s.DisplayName,
-            IsCompleted = s.Seq <= currentSeq
-        }).ToList();
     }
 
     private async Task StartSignalRConnection()
@@ -446,11 +550,15 @@
         }
     }
 
-    private class TrackingStep
+    // Issue #195: timeline node — done/current/next + timestamp từ OrderStatusHistory.
+    private class TimelineStep
     {
-        public string Id { get; set; } = "";
+        public string Code { get; set; } = "";
         public string DisplayName { get; set; } = "";
-        public bool IsCompleted { get; set; }
+        public bool IsCurrent { get; set; }
+        public bool IsNext { get; set; }
+        public DateTime? ReachedAt { get; set; }
+        public string StateClass { get; set; } = "";
     }
 
     // R2-0e: DTOs — now populated from domain Order entity via MapToDto (replaces HTTP JSON deserialization).
@@ -468,6 +576,12 @@
         public Guid? TenantId { get; set; }
         // W3-T4: Voice note text for TTS playback at kitchen
         public string? VoiceNoteText { get; set; }
+        // Issue #195 (1.1): khách hàng + nguồn đơn
+        public string? CustomerName { get; set; }
+        public string? CustomerPhone { get; set; }
+        public string? CustomerNotes { get; set; }
+        public string? SourceType { get; set; }
+        public string? OrderType { get; set; }
     }
 
     private class OrderStatusDto
@@ -485,3 +599,156 @@
         public string KitchenStatus { get; set; } = "";
     }
 }
+
+<style>
+    /* Issue #195 (1.2): grouped info layout + flow timeline styles.
+       Note: .timeline/.action-row/.payment-badge had no prior style definitions —
+       base styles included here so the timeline renders as an actual step bar. */
+    .action-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+    }
+
+    .payment-badge {
+        display: inline-block;
+        padding: 2px 10px;
+        border-radius: 10px;
+        font-size: 0.8rem;
+        background: var(--va-color-bg-subtle, #e9ecef);
+    }
+
+    .timeline {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 0;
+    }
+
+    .timeline-step {
+        display: flex;
+        align-items: center;
+        flex: 1 0 auto;
+        min-width: 0;
+    }
+
+    .timeline-step:not(:last-child)::after {
+        content: "";
+        flex: 1 1 24px;
+        height: 2px;
+        background: var(--va-color-border, #dee2e6);
+        margin: 0 8px;
+        min-width: 16px;
+    }
+
+    .timeline-step.completed:not(:last-child)::after,
+    .timeline-step.current:not(:last-child)::after {
+        background: var(--va-color-primary, #0d6efd);
+    }
+
+    .timeline-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid var(--va-color-border, #adb5bd);
+        background: #fff;
+        flex-shrink: 0;
+    }
+
+    .timeline-step.completed .timeline-dot {
+        background: var(--va-color-success, #198754);
+        border-color: var(--va-color-success, #198754);
+    }
+
+    .timeline-step.current .timeline-dot {
+        background: var(--va-color-primary, #0d6efd);
+        border-color: var(--va-color-primary, #0d6efd);
+        box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
+    }
+
+    .timeline-step.next .timeline-dot {
+        border-style: dashed;
+    }
+
+    .timeline-step.completed .timeline-label {
+        color: var(--va-color-success, #198754);
+    }
+
+    .detail-groups {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+        margin-bottom: 8px;
+    }
+
+    .info-group__title {
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--va-color-text-secondary, #6c757d);
+        margin-bottom: 8px;
+        border-bottom: 1px solid var(--va-color-border, #e9ecef);
+        padding-bottom: 4px;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 3px 0;
+        font-size: 0.95rem;
+    }
+
+    .info-label {
+        color: var(--va-color-text-secondary, #6c757d);
+        flex-shrink: 0;
+    }
+
+    .info-row .amount {
+        font-weight: 600;
+    }
+
+    .timeline-step.current .timeline-label {
+        font-weight: 700;
+    }
+
+    .timeline-step.next .timeline-label {
+        color: var(--va-color-text-secondary, #6c757d);
+    }
+
+    .timeline-time {
+        margin-left: 8px;
+        font-size: 0.8rem;
+        color: var(--va-color-text-secondary, #6c757d);
+    }
+
+    .timeline-next-hint {
+        margin-left: 6px;
+        font-size: 0.75rem;
+        color: var(--va-color-primary, #0d6efd);
+        border: 1px solid var(--va-color-primary, #0d6efd);
+        border-radius: 8px;
+        padding: 0 6px;
+    }
+
+    .next-steps {
+        margin-top: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .next-steps__label {
+        font-size: 0.85rem;
+        color: var(--va-color-text-secondary, #6c757d);
+    }
+
+    .next-chip {
+        font-size: 0.8rem;
+        border: 1px dashed var(--va-color-border, #adb5bd);
+        border-radius: 12px;
+        padding: 2px 10px;
+    }
+</style>

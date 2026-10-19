@@ -40,6 +40,7 @@ namespace VanAn.Gateway.Controllers
                 }
 
                 // Delegate order creation to service layer - Clean Architecture
+                command.SourceType ??= "checkout"; // Issue #195
                 Order createdOrder = await _orderService.CreateOrderFromCommandAsync(command, tenantId);
 
                 // Notify ShopERP via SignalR

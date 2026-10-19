@@ -138,6 +138,12 @@ namespace VanAn.CoreHub.Infrastructure
         // Notification Hub (2026-10-15): thông báo owner tenant (PG-only — Gateway source of truth)
         public DbSet<TenantNotification> TenantNotifications { get; set; }
 
+        // Issue #195 (2026-10-19): Order flow config (PG-only — Gateway source of truth)
+        // + lịch sử trạng thái đơn (append-only, cả PG lẫn SQLite).
+        public DbSet<OrderFlowProfile> OrderFlowProfiles { get; set; }
+        public DbSet<OrderFlowStep> OrderFlowSteps { get; set; }
+        public DbSet<OrderStatusHistory> OrderStatusHistories { get; set; }
+
         // Loyalty-B: Redemption system — DbSets for interface compliance.
         // Storage is ShopERP SQLite; Gateway PG ignores these (configurations auto-applied but tables not used).
         public DbSet<RedemptionCatalogItem> RedemptionCatalogItems { get; set; }

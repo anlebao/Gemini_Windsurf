@@ -58,6 +58,10 @@ namespace VanAn.CoreHub.Commands
 
         /// <summary>CC-S4: Raw composite referral code as scanned ("{salesmanCode}|{productShortCode}").</summary>
         public string? ReferralCode { get; set; }
+
+        /// <summary>Issue #195: nguồn tạo đơn — "pos" | "checkout" | "booking". Null = legacy/unknown.
+        /// Set bởi caller: POS page → "pos", checkout controllers → "checkout", BookingService → "booking".</summary>
+        public string? SourceType { get; set; }
     }
 
     public class OrderItemRequest

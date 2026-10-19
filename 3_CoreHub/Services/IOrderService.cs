@@ -87,5 +87,19 @@ namespace VanAn.CoreHub.Services
         /// Returns null if order not found.
         /// </summary>
         Task<Order?> GetOrderByIdForPublicTrackingAsync(Guid orderId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Issue #195 (2.4): server-side paged order list — tránh load toàn bộ đơn vào memory.
+        /// status null/empty/"ALL" → không lọc trạng thái; from/to theo OrderDate (UTC, [from, to)).
+        /// Trả (page items, totalCount) sắp xếp OrderDate desc.
+        /// </summary>
+        Task<(List<Order> Orders, int TotalCount)> GetOrdersPageAsync(
+            Guid tenantId, string? status, DateTime? from, DateTime? to, int page, int pageSize,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>SystemAdmin: paged list across ALL tenants (no tenant filter).</summary>
+        Task<(List<Order> Orders, int TotalCount)> GetAllOrdersPageAsync(
+            string? status, DateTime? from, DateTime? to, int page, int pageSize,
+            CancellationToken cancellationToken = default);
     }
 }

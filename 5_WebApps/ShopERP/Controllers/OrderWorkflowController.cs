@@ -61,7 +61,8 @@ namespace VanAn.ShopERP.Controllers
                 Order? order = await _orderWorkflowService.TransitionStatusAsync(
                     orderId,
                     new OrderStatusId(request.Status),
-                    request.Reason);
+                    request.Reason,
+                    request.ChangedBy);
 
                 return order == null ? NotFound() : Ok(order);
             }
@@ -165,5 +166,6 @@ namespace VanAn.ShopERP.Controllers
     {
         public string Status { get; set; } = string.Empty;
         public string? Reason { get; set; }
+        public string? ChangedBy { get; set; }
     }
 }

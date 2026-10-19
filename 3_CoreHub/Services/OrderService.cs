@@ -137,6 +137,58 @@ namespace VanAn.CoreHub.Services
         }
 
         /// <summary>
+        /// Issue #195 (2.4): server-side paged order list. Include Items để list page hiển thị
+        /// mà không cần N+1; Status VO có converter nên so sánh chuỗi qua OrderStatusId.
+        /// </summary>
+        public async Task<(List<Order> Orders, int TotalCount)> GetOrdersPageAsync(
+            Guid tenantId, string? status, DateTime? from, DateTime? to, int page, int pageSize,
+            CancellationToken cancellationToken = default)
+        {
+            if (_dbContext == null) return (new List<Order>(), 0);
+            var tid = new TenantId(tenantId);
+            IQueryable<Order> q = _dbContext.Orders.Where(o => o.TenantId == tid);
+            q = ApplyOrderListFilters(q, status, from, to);
+            int total = await q.CountAsync(cancellationToken);
+            List<Order> items = await q
+                .OrderByDescending(o => o.OrderDate)
+                .Skip(Math.Max(0, page - 1) * pageSize)
+                .Take(pageSize)
+                .Include(o => o.Items)
+                .ToListAsync(cancellationToken);
+            return (items, total);
+        }
+
+        /// <summary>SystemAdmin: paged list across ALL tenants — IgnoreQueryFilters.</summary>
+        public async Task<(List<Order> Orders, int TotalCount)> GetAllOrdersPageAsync(
+            string? status, DateTime? from, DateTime? to, int page, int pageSize,
+            CancellationToken cancellationToken = default)
+        {
+            if (_dbContext == null) return (new List<Order>(), 0);
+            IQueryable<Order> q = _dbContext.Orders.IgnoreQueryFilters();
+            q = ApplyOrderListFilters(q, status, from, to);
+            int total = await q.CountAsync(cancellationToken);
+            List<Order> items = await q
+                .OrderByDescending(o => o.OrderDate)
+                .Skip(Math.Max(0, page - 1) * pageSize)
+                .Take(pageSize)
+                .Include(o => o.Items)
+                .ToListAsync(cancellationToken);
+            return (items, total);
+        }
+
+        private static IQueryable<Order> ApplyOrderListFilters(IQueryable<Order> q, string? status, DateTime? from, DateTime? to)
+        {
+            if (!string.IsNullOrWhiteSpace(status) && status != "ALL")
+            {
+                var statusId = new OrderStatusId(status);
+                q = q.Where(o => o.Status == statusId);
+            }
+            if (from.HasValue) q = q.Where(o => o.OrderDate >= from.Value);
+            if (to.HasValue) q = q.Where(o => o.OrderDate < to.Value);
+            return q;
+        }
+
+        /// <summary>
         /// Create new order. Accounting entries are NOT generated here.
         /// Sprint B: Accounting entries generated only after payment confirmed via ConfirmPaymentAsync().
         /// TT 152/2025/TT-BTC: doanh thu ghi nhận theo thực thu (cash-basis accounting).
@@ -157,6 +209,7 @@ namespace VanAn.CoreHub.Services
                 _logger.LogInformation("Created order {OrderId} for tenant {TenantId}. Accounting pending payment confirmation.",
                     newOrder.Id, tenantId);
 
+                await RecordOrderCreatedHistoryAsync(newOrder);
                 await NotifyOwnerOrderCreatedAsync(newOrder);
 
                 return newOrder;
@@ -174,6 +227,25 @@ namespace VanAn.CoreHub.Services
         /// (thông báo đổi trạng thái — PushNotificationBackgroundService) để không dính dedupe.
         /// Fail-safe: CreateForOwnerAsync tự swallow exception — không làm hỏng luồng tạo đơn.
         /// </summary>
+        /// <summary>
+        /// Issue #195 (approved Q2): ghi bản ghi tạo đơn vào OrderStatusHistory
+        /// (FromStatus="" → trạng thái hiện tại). Best-effort — không làm hỏng tạo đơn.
+        /// </summary>
+        private async Task RecordOrderCreatedHistoryAsync(Order order)
+        {
+            if (_dbContext == null) return;
+            try
+            {
+                _ = await _dbContext.OrderStatusHistories.AddAsync(
+                    new OrderStatusHistory(order.TenantId, order.Id, "", order.Status.Value, "system", "order_created"));
+                _ = await _dbContext.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "OrderStatusHistory write failed for order {OrderId} — non-blocking", order.Id);
+            }
+        }
+
         private async Task NotifyOwnerOrderCreatedAsync(Order order)
         {
             if (_notificationCenter is null) return;
@@ -661,6 +733,13 @@ namespace VanAn.CoreHub.Services
 
             _ = await _orderRepository.UpdateAsync(order);
 
+            // Issue #195 (Q2): obsolete 兼容路径也补写 OrderStatusHistory。
+            if (_dbContext != null)
+            {
+                _ = await _dbContext.OrderStatusHistories.AddAsync(
+                    new OrderStatusHistory(order.TenantId, order.Id, oldStatus.Value, newStatus, "legacy-api", null));
+            }
+
             // Enqueue Outbox event so NatsSyncWorker publishes "vanan.shoperp.order.status.changed"
             // → Gateway DataSyncSubscriber updates PostgreSQL → KhachLink OrderTracking sees new status.
             if (_outboxRepository != null)
@@ -728,6 +807,9 @@ namespace VanAn.CoreHub.Services
                 using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction = await _orderRepository.BeginTransactionAsync();
 
                 Order savedOrder = await _orderRepository.AddAsync(order);
+
+                // Issue #195 (approved Q2): bản ghi đầu tiên của OrderStatusHistory — cùng transaction.
+                await RecordOrderCreatedHistoryAsync(savedOrder);
 
                 // Sprint B: Accounting entries removed from order creation.
                 // They are generated only after payment confirmed via ConfirmPaymentAsync().
@@ -984,6 +1066,9 @@ namespace VanAn.CoreHub.Services
                 // When null/empty, Order keeps default DINEIN.
                 order.SetOrderType(command.OrderType, command.DeliveryAddress, command.DeliveryLat, command.DeliveryLng, command.ShippingFee);
 
+                // Issue #195: nguồn tạo đơn (pos/checkout/booking) — resolve OrderFlowProfile theo nguồn.
+                order.SetSourceType(command.SourceType);
+
                 // Bucket A feature (approved 2026-07-07): attach guest customer info if provided.
                 // CustomerInfo value object is persisted via OwnsOne (columns already exist).
                 if (!string.IsNullOrWhiteSpace(command.CustomerName)
@@ -1044,6 +1129,14 @@ namespace VanAn.CoreHub.Services
                 // from 2026-08-22 (last successful order 2026-08-21 14:41).
                 Order createdOrder = await _orderRepository.AddAsyncNoSave(order);
 
+                // Issue #195 (approved Q2): bản ghi đầu tiên của OrderStatusHistory (""→trạng thái tạo)
+                // — stage cùng change tracker → commit atomic với order + outbox.
+                if (_dbContext != null)
+                {
+                    _ = await _dbContext.OrderStatusHistories.AddAsync(
+                        new OrderStatusHistory(createdOrder.TenantId, createdOrder.Id, "", createdOrder.Status.Value, "system", "order_created"));
+                }
+
                 // Sync: Enqueue OrderCreated event to Outbox for NATS → ShopERP SQLite sync
                 // Gateway writes to PostgreSQL; ShopERP reads from SQLite (Owner UI).
                 // Without this, ShopERP Owner cannot see orders created via Gateway (KhachLink checkout).
@@ -1090,6 +1183,8 @@ namespace VanAn.CoreHub.Services
                         // sinh bút toán từ SQLite, thiếu flag → nội bộ (512/612) không bao giờ kích hoạt.
                         IsInternalToHtx = createdOrder.IsInternalToHtx,
                         OrderType = createdOrder.OrderType ?? "DineIn",
+                        // Issue #195: sync SourceType → SQLite mirror + PG sync payload.
+                        SourceType = createdOrder.SourceType,
                         // CC-S2 fix (Issue #2): include delivery fields in Outbox event so ShopERP
                         // subscriber can call SetOrderType with full delivery info (address, lat/lng
                         // for shipper distance calculation). Previously missing → DELIVERY orders

@@ -225,6 +225,10 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<Shared.Services.ICustomerService, CoreHub.Services.CustomerService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IOrderService, CoreHub.Services.OrderService>();
             _ = builder.Services.AddScoped<Shared.Services.IOrderWorkflowService, CoreHub.Services.OrderWorkflowService>();
+            // Issue #195 (2026-10-19): order flow resolve qua Gateway API (PG source of truth)
+            // — OrderWorkflowService inject optional IOrderFlowService cho dynamic transitions.
+            _ = builder.Services.AddScoped<Shared.Services.IOrderFlowService, VanAn.ShopERP.Services.OrderFlowApiClient>();
+            _ = builder.Services.AddScoped<Services.OrderFlowAdminApiClient>(); // #195 P3a: SystemAdmin CRUD client
             _ = builder.Services.AddScoped<CoreHub.Services.IAccountingService, CoreHub.Services.AccountingEntryService>();
             // THU CHI & CÔNG NỢ MVP (P2, 2026-10-07): phiếu 131/331 + báo cáo + tuổi nợ FIFO (in-process, PG)
             _ = builder.Services.AddScoped<CoreHub.Services.CongNo.ICongNoService, CoreHub.Services.CongNo.CongNoService>();

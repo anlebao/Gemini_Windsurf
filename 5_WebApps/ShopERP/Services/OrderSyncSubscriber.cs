@@ -403,6 +403,14 @@ namespace VanAn.ShopERP.Services
                     }
                 }
 
+                // Issue #195: nguồn đơn (pos/checkout/booking) — giữ khi sync PG→SQLite.
+                if (root.TryGetProperty("SourceType", out var srcProp))
+                {
+                    string? srcType = srcProp.GetString();
+                    if (!string.IsNullOrWhiteSpace(srcType))
+                        order.SetSourceType(srcType);
+                }
+
                 // Set status if provided (default is "pending")
                 if (root.TryGetProperty("Status", out var statusProp))
                 {
@@ -414,6 +422,10 @@ namespace VanAn.ShopERP.Services
                 }
 
                 await dbContext.Orders.AddAsync(order, cancellationToken);
+                // Issue #195 (Q2): bản ghi tạo đơn vào OrderStatusHistory (SQLite mirror).
+                // Fully-qualified — tránh trùng tên với VanAn.ShopERP.Services.OrderStatusHistory (DTO).
+                await dbContext.OrderStatusHistories.AddAsync(
+                    new VanAn.Shared.Domain.OrderStatusHistory(order.TenantId, order.Id, "", order.Status.Value, "sync:gateway", "order_created"), cancellationToken);
                 await dbContext.SaveChangesAsync(cancellationToken);
 
                 // A: Broadcast OrderCreated via SignalR so Blazor UI auto-refreshes instantly.
@@ -526,6 +538,9 @@ namespace VanAn.ShopERP.Services
                 {
                     string oldStatus = order.Status.Value;
                     order.UpdateOrderStatus(new OrderStatusId(newStatus));
+                    // Issue #195 (Q2): Gateway 侧发起的 transition 经 NATS 同步到 SQLite — 补写历史记录。
+                    await dbContext.OrderStatusHistories.AddAsync(
+                        new VanAn.Shared.Domain.OrderStatusHistory(order.TenantId, order.Id, oldStatus, newStatus, "sync:gateway", null), cancellationToken);
                     if (newStatus == "completed")
                     {
                         order.MarkAsCompleted();

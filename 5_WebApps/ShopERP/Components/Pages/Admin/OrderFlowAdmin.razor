@@ -1,0 +1,415 @@
+@page "/admin/order-flow"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "SystemAdmin")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.Shared.Services
+@using VanAn.ShopERP.Services
+@inject OrderFlowAdminApiClient FlowApi
+@inject TenantApiClient TenantApi
+@inject IThemeProvider ThemeProvider
+@inject ILogger<OrderFlowAdmin> Logger
+
+<div class="order-flow-admin-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1><i class="bi bi-diagram-3"></i> Cấu hình luồng đơn hàng</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadAllAsync" IsLoading="@_isLoading">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Variant="@_alertType" Message="@_alertMessage" Dismissible="true" OnDismiss="() => _alertMessage = string.Empty" />
+    }
+
+    <VanACard>
+        <ChildContent>
+            <div class="alert alert-info mb-0 py-2">
+                Luồng trạng thái đơn áp dụng theo thứ tự ưu tiên: <strong>Nhóm sản phẩm → Tenant → Hệ thống → Mặc định</strong>.
+                Mỗi (tenant, nguồn đơn, nhóm sản phẩm) chỉ có 1 profile đang hoạt động — lưu sẽ thay thế toàn bộ bước.
+            </div>
+        </ChildContent>
+    </VanACard>
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <ChildContent>
+                <div class="loading-state"><VanASpinner Size="large" /><p>Đang tải cấu hình...</p></div>
+            </ChildContent>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="Danh sách luồng (profiles)">
+            <ChildContent>
+                <div class="form-group">
+                    <label for="flow-tenant-filter">Lọc theo tenant</label>
+                    <select id="flow-tenant-filter" class="vanan-select" value="@_filterTenantId" @onchange="OnFilterTenantChangedAsync" data-testid="flow-tenant-filter">
+                        <option value="">Tất cả (hệ thống + mọi tenant)</option>
+                        <option value="@Guid.Empty">Chỉ Hệ thống</option>
+                        @foreach (var t in _tenants)
+                        {
+                            <option value="@t.Id">@t.Name</option>
+                        }
+                    </select>
+                </div>
+
+                @if (_profiles.Count == 0)
+                {
+                    <p class="text-muted">Chưa có luồng nào — hệ thống đang dùng luồng mặc định.</p>
+                }
+                else
+                {
+                    <table class="vanan-table" data-testid="flow-profile-table">
+                        <thead>
+                            <tr>
+                                <th>Phạm vi</th>
+                                <th>Tên luồng</th>
+                                <th>Nguồn đơn</th>
+                                <th>Nhóm SP</th>
+                                <th>Số bước</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in _profiles)
+                            {
+                                <tr data-testid="flow-profile-row">
+                                    <td><span class="flow-scope-badge flow-scope-@p.Scope.ToLowerInvariant()">@ScopeLabel(p)</span></td>
+                                    <td>@p.Name</td>
+                                    <td>@(p.SourceType ?? "mọi nguồn")</td>
+                                    <td>@(p.CategoryKey ?? "—")</td>
+                                    <td>@p.Steps.Count</td>
+                                    <td class="text-end">
+                                        <VanAButton Variant="outline" Size="small" OnClick="() => EditProfile(p)" data-testid="btn-edit-flow">
+                                            Sửa
+                                        </VanAButton>
+                                        <VanAButton Variant="error" Size="small" OnClick="() => DeactivateAsync(p)" data-testid="btn-deactivate-flow">
+                                            Vô hiệu
+                                        </VanAButton>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </ChildContent>
+        </VanACard>
+
+        <VanACard Header="@(_editingProfileId.HasValue ? "Chỉnh sửa luồng" : "Tạo luồng mới")">
+            <ChildContent>
+                <div class="row">
+                    <div class="col-md-4 form-group">
+                        <label for="flow-tenant">Phạm vi (tenant)</label>
+                        <select id="flow-tenant" class="vanan-select" @bind="_formTenantId" data-testid="flow-form-tenant">
+                            <option value="">Hệ thống (áp cho mọi tenant)</option>
+                            @foreach (var t in _tenants)
+                            {
+                                <option value="@t.Id">@t.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4 form-group">
+                        <label for="flow-source">Nguồn đơn</label>
+                        <select id="flow-source" class="vanan-select" @bind="_formSourceType" data-testid="flow-form-source">
+                            <option value="">Mọi nguồn</option>
+                            <option value="pos">pos</option>
+                            <option value="checkout">checkout</option>
+                            <option value="booking">booking</option>
+                        </select>
+                        <small class="text-muted d-block">booking = luồng rút gọn (Thanh toán → Hoàn thành).</small>
+                    </div>
+                    <div class="col-md-4 form-group">
+                        <VanAInput Id="flow-category" Label="Nhóm sản phẩm (tuỳ chọn)"
+                                   Value="@_formCategoryKey" ValueChanged="v => _formCategoryKey = v" />
+                        <small class="text-muted d-block">Để trống = áp mọi nhóm. Nhập = luồng riêng cho đơn nhóm đó.</small>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <VanAInput Id="flow-name" Label="Tên luồng"
+                               Value="@_formName" ValueChanged="v => _formName = v" />
+                </div>
+
+                <h6 class="mt-3"><i class="bi bi-list-ol"></i> Các bước (steps)</h6>
+                <table class="vanan-table flow-steps-table" data-testid="flow-steps-table">
+                    <thead>
+                        <tr>
+                            <th style="width:40px">#</th>
+                            <th>Mã</th>
+                            <th>Tên hiển thị</th>
+                            <th style="width:90px">Kết thúc?</th>
+                            <th>Chuyển được sang (cách nhau bởi dấu phẩy)</th>
+                            <th style="width:60px"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < _formSteps.Count; i++)
+                        {
+                            int idx = i;
+                            var step = _formSteps[idx];
+                            <tr data-testid="flow-step-row">
+                                <td>@(idx + 1)</td>
+                                <td>
+                                    <input class="vanan-input" value="@step.Code" @onchange="e => step.Code = e.Value?.ToString() ?? string.Empty"
+                                           placeholder="pending" data-testid="step-code" />
+                                </td>
+                                <td>
+                                    <input class="vanan-input" value="@step.DisplayName" @onchange="e => step.DisplayName = e.Value?.ToString() ?? string.Empty"
+                                           placeholder="Chờ xác nhận" data-testid="step-name" />
+                                </td>
+                                <td class="text-center">
+                                    <input type="checkbox" checked="@step.IsTerminal" @onchange="e => step.IsTerminal = e.Value is bool b && b" data-testid="step-terminal" />
+                                </td>
+                                <td>
+                                    <input class="vanan-input" value="@step.AllowedNextCsv" @onchange="e => step.AllowedNextCsv = e.Value?.ToString() ?? string.Empty"
+                                           placeholder="confirmed, cancelled" data-testid="step-next" />
+                                </td>
+                                <td>
+                                    <VanAButton Variant="error" Size="small" OnClick="() => RemoveStep(idx)" data-testid="btn-remove-step">✕</VanAButton>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <div class="mt-2 d-flex gap-2">
+                    <VanAButton Variant="outline" Size="small" OnClick="AddStep" data-testid="btn-add-step">
+                        + Thêm bước
+                    </VanAButton>
+                </div>
+            </ChildContent>
+            <Footer>
+                <div class="d-flex gap-2">
+                    <VanAButton Variant="primary" OnClick="SaveProfileAsync" IsLoading="@_isSaving" data-testid="btn-save-flow">
+                        Lưu luồng
+                    </VanAButton>
+                    @if (_editingProfileId.HasValue)
+                    {
+                        <VanAButton Variant="outline" OnClick="ResetForm" data-testid="btn-cancel-edit-flow">
+                            Hủy chỉnh sửa
+                        </VanAButton>
+                    }
+                </div>
+            </Footer>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    private List<OrderFlowProfileDto> _profiles = new();
+    private List<TenantApiDto> _tenants = new();
+    private string _filterTenantId = string.Empty;
+
+    private Guid? _editingProfileId;
+    private string _formTenantId = string.Empty;
+    private string _formSourceType = string.Empty;
+    private string _formCategoryKey = string.Empty;
+    private string _formName = string.Empty;
+    private List<StepForm> _formSteps = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _tenants = await TenantApi.ListAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load tenants for order-flow admin");
+        }
+        ResetForm();
+        await LoadAllAsync();
+    }
+
+    private async Task LoadAllAsync()
+    {
+        _isLoading = true;
+        _alertMessage = string.Empty;
+        try
+        {
+            Guid? tid = _filterTenantId switch
+            {
+                "" => null,
+                var s when Guid.Parse(s) == Guid.Empty => Guid.Empty,
+                var s => Guid.Parse(s)
+            };
+            _profiles = await FlowApi.GetProfilesAsync(tid);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load order flow profiles");
+            _alertType = "error";
+            _alertMessage = $"Không tải được danh sách luồng: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task OnFilterTenantChangedAsync(ChangeEventArgs e)
+    {
+        _filterTenantId = e.Value?.ToString() ?? string.Empty;
+        await LoadAllAsync();
+    }
+
+    private static string ScopeLabel(OrderFlowProfileDto p) => p.Scope switch
+    {
+        "System" => "Hệ thống",
+        "Tenant" => "Tenant",
+        "Category" => "Nhóm SP",
+        _ => p.Scope
+    };
+
+    private void EditProfile(OrderFlowProfileDto p)
+    {
+        _editingProfileId = p.Id;
+        _formTenantId = p.TenantId == Guid.Empty ? string.Empty : p.TenantId.ToString();
+        _formSourceType = p.SourceType ?? string.Empty;
+        _formCategoryKey = p.CategoryKey ?? string.Empty;
+        _formName = p.Name;
+        _formSteps = p.Steps
+            .OrderBy(s => s.SortOrder)
+            .Select(s => new StepForm
+            {
+                Code = s.Code,
+                DisplayName = s.DisplayName,
+                IsTerminal = s.IsTerminal,
+                AllowedNextCsv = string.Join(", ", s.AllowedNextCodes)
+            })
+            .ToList();
+    }
+
+    private void ResetForm()
+    {
+        _editingProfileId = null;
+        _formTenantId = string.Empty;
+        _formSourceType = string.Empty;
+        _formCategoryKey = string.Empty;
+        _formName = string.Empty;
+        // Template mặc định: luồng bếp chuẩn — admin sửa lại cho nhanh.
+        _formSteps = new List<StepForm>
+        {
+            new() { Code = "pending", DisplayName = "Chờ xác nhận", AllowedNextCsv = "confirmed, cancelled" },
+            new() { Code = "confirmed", DisplayName = "Đã xác nhận", AllowedNextCsv = "preparing, cancelled" },
+            new() { Code = "preparing", DisplayName = "Đang làm", AllowedNextCsv = "ready, cancelled" },
+            new() { Code = "ready", DisplayName = "Sẵn sàng", AllowedNextCsv = "delivered, completed, cancelled" },
+            new() { Code = "delivered", DisplayName = "Đã giao", AllowedNextCsv = "completed" },
+            new() { Code = "completed", DisplayName = "Hoàn thành", IsTerminal = true },
+            new() { Code = "cancelled", DisplayName = "Đã hủy", IsTerminal = true }
+        };
+    }
+
+    private void AddStep() => _formSteps.Add(new StepForm());
+    private void RemoveStep(int idx)
+    {
+        if (idx >= 0 && idx < _formSteps.Count) _formSteps.RemoveAt(idx);
+    }
+
+    private async Task SaveProfileAsync()
+    {
+        if (_isSaving) return;
+        if (string.IsNullOrWhiteSpace(_formName))
+        {
+            _alertType = "warning";
+            _alertMessage = "Nhập tên luồng.";
+            return;
+        }
+        if (_formSteps.Count == 0 || _formSteps.Any(s => string.IsNullOrWhiteSpace(s.Code)))
+        {
+            _alertType = "warning";
+            _alertMessage = "Mỗi bước cần có mã (code) — không được để trống.";
+            return;
+        }
+
+        _isSaving = true;
+        _alertMessage = string.Empty;
+        try
+        {
+            var request = new UpsertOrderFlowRequestBody
+            {
+                TenantId = string.IsNullOrWhiteSpace(_formTenantId) ? null : Guid.Parse(_formTenantId),
+                SourceType = string.IsNullOrWhiteSpace(_formSourceType) ? null : _formSourceType,
+                CategoryKey = string.IsNullOrWhiteSpace(_formCategoryKey) ? null : _formCategoryKey.Trim(),
+                Name = _formName.Trim(),
+                Steps = _formSteps.Select((s, i) => new UpsertOrderFlowStepBody
+                {
+                    Code = s.Code.Trim().ToLowerInvariant(),
+                    DisplayName = string.IsNullOrWhiteSpace(s.DisplayName) ? s.Code.Trim() : s.DisplayName.Trim(),
+                    SortOrder = i + 1,
+                    IsTerminal = s.IsTerminal,
+                    AllowedNextCodes = s.AllowedNextCsv
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Select(c => c.ToLowerInvariant())
+                        .ToList()
+                }).ToList()
+            };
+
+            await FlowApi.UpsertProfileAsync(request);
+            _alertType = "success";
+            _alertMessage = _editingProfileId.HasValue ? "Đã cập nhật luồng." : "Đã tạo luồng mới.";
+            ResetForm();
+            await LoadAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save order flow profile");
+            _alertType = "error";
+            _alertMessage = $"Lưu thất bại: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task DeactivateAsync(OrderFlowProfileDto p)
+    {
+        try
+        {
+            await FlowApi.DeactivateAsync(p.Id);
+            _alertType = "success";
+            _alertMessage = $"Đã vô hiệu luồng '{p.Name}'.";
+            if (_editingProfileId == p.Id) ResetForm();
+            await LoadAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to deactivate order flow profile {Id}", p.Id);
+            _alertType = "error";
+            _alertMessage = $"Vô hiệu thất bại: {ex.Message}";
+        }
+    }
+
+    private sealed class StepForm
+    {
+        public string Code { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public bool IsTerminal { get; set; }
+        public string AllowedNextCsv { get; set; } = string.Empty;
+    }
+}
+
+<style>
+    .flow-scope-badge {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .flow-scope-system { background: #e7f1ff; color: #0d6efd; }
+    .flow-scope-tenant { background: #d1e7dd; color: #198754; }
+    .flow-scope-category { background: #fff3cd; color: #664d03; }
+    .flow-steps-table input.vanan-input { font-size: 0.85rem; padding: 0.25rem 0.5rem; }
+</style>

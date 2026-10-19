@@ -2521,6 +2521,160 @@ namespace VanAn.Shared.Domain
         public double? DeliveryLng { get; protected set; }
         public decimal? CodAmount { get; protected set; }
         public DateTime? CodCollectedAt { get; protected set; }
+
+        /// <summary>
+        /// Issue #195 (approved Q3, 2026-10-19): nguồn tạo đơn — "pos" | "checkout" | "booking".
+        /// Nullable additive — đơn legacy = NULL. Dùng để resolve OrderFlowProfile theo nguồn
+        /// (VD: đơn từ booking chỉ cần Thanh toán + Hoàn thành).
+        /// </summary>
+        public string? SourceType { get; protected set; }
+
+        /// <summary>Issue #195: set nguồn tạo đơn tại creation time. Whitelist chặt — giá trị lạ → throw.</summary>
+        public void SetSourceType(string? sourceType)
+        {
+            if (string.IsNullOrWhiteSpace(sourceType)) return;
+            var normalized = sourceType.Trim().ToLowerInvariant();
+            var allowed = new[] { "pos", "checkout", "booking" };
+            if (!allowed.Contains(normalized))
+                throw new ArgumentException($"Invalid SourceType '{sourceType}'. Allowed: {string.Join(", ", allowed)}", nameof(sourceType));
+            SourceType = normalized;
+            UpdateAudit();
+        }
+    }
+
+    // ====================== ORDER FLOW CONFIG + STATUS HISTORY (Issue #195, 2026-10-19) ======================
+    // Approved (Gate 5 — Q1/Q2/Q3 chốt): trạng thái/hành động đơn cấu hình được theo scope
+    // system → tenant → category. PG-only (Gateway source of truth — pattern FeaturedProduct);
+    // ShopERP đọc qua Gateway tenant API (OrderFlowService + cache), KHÔNG query trực tiếp.
+    // OrderStatusHistory tồn tại CẢ PG và ShopERP SQLite — ghi ở scope thực thi transition.
+
+    /// <summary>Scope áp dụng của flow profile — append-only, giá trị lưu DB.</summary>
+    public enum OrderFlowScope
+    {
+        System = 1,   // default toàn hệ thống (TenantId = Guid.Empty)
+        Tenant = 2,   // riêng từng tenant
+        Category = 3  // theo nhóm sản phẩm — định nghĩa trước, resolution deferred
+    }
+
+    /// <summary>
+    /// Profile luồng trạng thái đơn — tập step + transitions thay cho map hardcode
+    /// trong OrderWorkflowService. SourceType: null = mọi nguồn đơn; "booking" =
+    /// chỉ đơn từ booking (SRS 0.2 — chỉ cần Thanh toán + Hoàn thành).
+    /// Resolution: (tenant + sourceType) → (tenant, null) → (system + sourceType) → (system, null) → hardcode fallback.
+    /// </summary>
+    public class OrderFlowProfile : BaseEntity
+    {
+        public OrderFlowProfileId OrderFlowProfileId { get; protected set; } = new OrderFlowProfileId(Guid.NewGuid());
+        public OrderFlowScope Scope { get; protected set; }
+        public string? SourceType { get; protected set; }
+        public string? CategoryKey { get; protected set; }
+        public string Name { get; protected set; } = string.Empty;
+        public bool IsActive { get; protected set; }
+        public virtual ICollection<OrderFlowStep> Steps { get; protected set; } = new List<OrderFlowStep>();
+
+        protected OrderFlowProfile() { }
+
+        public OrderFlowProfile(TenantId tenantId, OrderFlowScope scope, string name, string? sourceType = null, string? categoryKey = null)
+            : base(tenantId)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new ArgumentException("Name cannot be empty.", nameof(name));
+            if (scope == OrderFlowScope.Tenant && tenantId.Value == Guid.Empty)
+                throw new ArgumentException("Tenant scope requires a real TenantId.", nameof(tenantId));
+            // SINGLE-IDENTITY: align PK với business key.
+            Id = OrderFlowProfileId.Value;
+            Scope = scope;
+            Name = name.Trim();
+            SourceType = string.IsNullOrWhiteSpace(sourceType) ? null : sourceType.Trim().ToLowerInvariant();
+            CategoryKey = categoryKey;
+            IsActive = true;
+        }
+
+        public void UpdateDetails(string name, string? sourceType, string? categoryKey)
+        {
+            if (!string.IsNullOrWhiteSpace(name)) Name = name.Trim();
+            SourceType = string.IsNullOrWhiteSpace(sourceType) ? null : sourceType.Trim().ToLowerInvariant();
+            CategoryKey = categoryKey;
+            UpdateAudit();
+        }
+
+        public void Activate() { IsActive = true; UpdateAudit(); }
+        public void Deactivate() { IsActive = false; UpdateAudit(); }
+    }
+
+    /// <summary>
+    /// Một bước (trạng thái) trong OrderFlowProfile. AllowedNextCodes = danh sách
+    /// code step tiếp theo hợp lệ (= "hành động" khả dụng trên UI).
+    /// </summary>
+    public class OrderFlowStep : BaseEntity
+    {
+        public OrderFlowStepId OrderFlowStepId { get; protected set; } = new OrderFlowStepId(Guid.NewGuid());
+        public Guid ProfileId { get; protected set; }
+        public string Code { get; protected set; } = string.Empty;
+        public string DisplayName { get; protected set; } = string.Empty;
+        public int SortOrder { get; protected set; }
+        public bool IsTerminal { get; protected set; }
+        public List<string> AllowedNextCodes { get; protected set; } = new();
+
+        protected OrderFlowStep() { }
+
+        public OrderFlowStep(TenantId tenantId, Guid profileId, string code, string displayName, int sortOrder, bool isTerminal = false, IEnumerable<string>? allowedNextCodes = null)
+            : base(tenantId)
+        {
+            if (profileId == Guid.Empty) throw new ArgumentException("ProfileId cannot be empty.", nameof(profileId));
+            if (string.IsNullOrWhiteSpace(code)) throw new ArgumentException("Code cannot be empty.", nameof(code));
+            if (string.IsNullOrWhiteSpace(displayName)) throw new ArgumentException("DisplayName cannot be empty.", nameof(displayName));
+            // SINGLE-IDENTITY: align PK với business key.
+            Id = OrderFlowStepId.Value;
+            ProfileId = profileId;
+            Code = code.Trim().ToLowerInvariant();
+            DisplayName = displayName.Trim();
+            SortOrder = sortOrder;
+            IsTerminal = isTerminal;
+            AllowedNextCodes = allowedNextCodes?.Select(c => c.Trim().ToLowerInvariant()).Where(c => c.Length > 0).ToList() ?? new();
+        }
+
+        public void Update(string displayName, int sortOrder, bool isTerminal, IEnumerable<string>? allowedNextCodes)
+        {
+            if (!string.IsNullOrWhiteSpace(displayName)) DisplayName = displayName.Trim();
+            SortOrder = sortOrder;
+            IsTerminal = isTerminal;
+            if (allowedNextCodes != null)
+                AllowedNextCodes = allowedNextCodes.Select(c => c.Trim().ToLowerInvariant()).Where(c => c.Length > 0).ToList();
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// Lịch sử chuyển trạng thái đơn (append-only — audit, không update/xóa).
+    /// Ghi tại scope thực thi transition: ShopERP (SQLite) khi transition ở POS/kitchen/UI;
+    /// Gateway (PG) khi sync status từ NATS. Timeline UI đọc bảng này (Q2 approved).
+    /// FromStatus = "" nghĩa là bản ghi tạo đơn. ChangedAt = CreatedAt (BaseEntity).
+    /// </summary>
+    public class OrderStatusHistory : BaseEntity
+    {
+        public OrderStatusHistoryId OrderStatusHistoryId { get; protected set; } = new OrderStatusHistoryId(Guid.NewGuid());
+        public Guid OrderId { get; protected set; }
+        public string FromStatus { get; protected set; } = string.Empty;
+        public string ToStatus { get; protected set; } = string.Empty;
+        public string? ChangedBy { get; protected set; }
+        public string? Reason { get; protected set; }
+
+        protected OrderStatusHistory() { }
+
+        public OrderStatusHistory(TenantId tenantId, Guid orderId, string fromStatus, string toStatus, string? changedBy = null, string? reason = null)
+            : base(tenantId)
+        {
+            if (orderId == Guid.Empty) throw new ArgumentException("OrderId cannot be empty.", nameof(orderId));
+            if (string.IsNullOrWhiteSpace(toStatus)) throw new ArgumentException("ToStatus cannot be empty.", nameof(toStatus));
+            // SINGLE-IDENTITY: align PK với business key.
+            Id = OrderStatusHistoryId.Value;
+            OrderId = orderId;
+            FromStatus = fromStatus ?? string.Empty;
+            ToStatus = toStatus;
+            ChangedBy = changedBy;
+            Reason = reason;
+        }
     }
 
     // Demo User cho ShopERP với Multi-tenancy
@@ -6791,4 +6945,7 @@ namespace VanAn.Shared.Domain
     public record InvoiceIntegrationRecordId(Guid Value);
     public record CommissionRuleId(Guid Value);
     public record CommissionLedgerEntryId(Guid Value);
+    public record OrderFlowProfileId(Guid Value);
+    public record OrderFlowStepId(Guid Value);
+    public record OrderStatusHistoryId(Guid Value);
 }

@@ -100,6 +100,9 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(o => o.OwnerTenantId);
             _ = builder.HasIndex(o => o.OwnerTenantId);
 
+            // Issue #195 (approved Q3): nguồn tạo đơn "pos"|"checkout"|"booking" — nullable additive.
+            _ = builder.Property(o => o.SourceType).HasMaxLength(20);
+
             // Navigation properties
             _ = builder.HasOne(o => o.Customer)
                   .WithMany(c => c.Orders)

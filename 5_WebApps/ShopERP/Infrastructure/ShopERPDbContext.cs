@@ -107,6 +107,15 @@ namespace VanAn.ShopERP.Infrastructure
         // DbSet exists to satisfy IVanAnDbContext interface contract; ShopERP đọc qua Gateway API.
         public DbSet<TenantNotification> TenantNotifications { get; set; }
 
+        // Issue #195 (2026-10-19): Order flow profiles PG-only (Gateway — ShopERP đọc qua
+        // Gateway tenant API). DbSet contract-only; entities Ignored in OnModelCreating.
+        public DbSet<OrderFlowProfile> OrderFlowProfiles { get; set; }
+        public DbSet<OrderFlowStep> OrderFlowSteps { get; set; }
+
+        // Issue #195: lịch sử trạng thái đơn — bảng THẬT trong SQLite (ghi tại
+        // OrderWorkflowService khi transition ở ShopERP; timeline UI đọc local).
+        public DbSet<OrderStatusHistory> OrderStatusHistories { get; set; }
+
         // Loyalty-B: Redemption system — ShopERP SQLite (tenant-scoped business data).
         public DbSet<RedemptionCatalogItem> RedemptionCatalogItems { get; set; }
         public DbSet<RedemptionRecord> RedemptionRecords { get; set; }
@@ -326,6 +335,12 @@ namespace VanAn.ShopERP.Infrastructure
             _ = modelBuilder.Ignore<ConsentRecord>();
             _ = modelBuilder.Ignore<HtxProfile>();
             _ = modelBuilder.Ignore<MembershipDocument>();
+
+            // Issue #195 (2026-10-19): OrderFlowProfile/Step PG-only (Gateway source of truth —
+            // ShopERP đọc qua Gateway tenant API, không query SQLite).
+            // Ignore MUST be sau ApplyConfigurationsFromAssembly — nếu không config re-adds chúng.
+            _ = modelBuilder.Ignore<OrderFlowProfile>();
+            _ = modelBuilder.Ignore<OrderFlowStep>();
 
             // === VALUE OBJECT CONFIGURATIONS ===
             // Order: Configured via OrderConfiguration from CoreHub assembly (applied above via ApplyConfigurationsFromAssembly)

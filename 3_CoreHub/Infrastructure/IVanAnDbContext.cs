@@ -170,6 +170,15 @@ namespace VanAn.CoreHub.Infrastructure
         // Membership Infrastructure (2026-09-29): Tài liệu đính kèm hồ sơ (PG-only, append-only evidence).
         DbSet<MembershipDocument> MembershipDocuments { get; }
 
+        // Issue #195 (2026-10-19): Order flow profiles — cấu hình trạng thái/hành động đơn.
+        // PG-only (Gateway source of truth — ShopERP đọc qua Gateway tenant API).
+        DbSet<OrderFlowProfile> OrderFlowProfiles { get; }
+        DbSet<OrderFlowStep> OrderFlowSteps { get; }
+
+        // Issue #195 (2026-10-19): Lịch sử chuyển trạng thái đơn (append-only).
+        // CẢ PG và ShopERP SQLite — ghi ở scope thực thi transition.
+        DbSet<OrderStatusHistory> OrderStatusHistories { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
 

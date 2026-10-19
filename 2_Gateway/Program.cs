@@ -1141,6 +1141,10 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.INotificationCenterService, VanAn.CoreHub.Services.NotificationCenterService>();
             // Notification Hub (2026-10-15): NATS notification.created → NotificationsHub (badge realtime)
             _ = builder.Services.AddHostedService<VanAn.Gateway.Services.NotificationHubNotifier>();
+            // Issue #195 (2026-10-19): configurable order flow — PG resolve + SystemAdmin CRUD.
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.OrderFlowService>();
+            _ = builder.Services.AddScoped<VanAn.Shared.Services.IOrderFlowService>(sp => sp.GetRequiredService<VanAn.CoreHub.Services.OrderFlowService>());
+            _ = builder.Services.AddScoped<VanAn.Shared.Services.IOrderFlowAdminService>(sp => sp.GetRequiredService<VanAn.CoreHub.Services.OrderFlowService>());
             // 2026-10-03 (membership v2 — Luồng 2): nâng cấp cộng tác viên (Salesman/Shipper) thành tenant profile.
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Membership.ICollaboratorTenantProvisioningService, VanAn.CoreHub.Services.Membership.CollaboratorTenantProvisioningService>();
 
@@ -1646,6 +1650,19 @@ namespace VanAn.Gateway
                         // → Type=HTX + AccountingStandard=TT71_2024. Idempotent (MarkAsHtx no-op khi đã HTX).
 
                         await BackfillHtxTenantTypesAsync(migrateScope.ServiceProvider);
+
+                        // Issue #195 (2026-10-19): seed system default order-flow profiles
+                        // (luồng bếp mặc định + booking Thanh toán→Hoàn thành). Idempotent.
+                        try
+                        {
+                            var orderFlow = migrateScope.ServiceProvider
+                                .GetRequiredService<VanAn.CoreHub.Services.OrderFlowService>();
+                            await orderFlow.EnsureSystemDefaultsAsync();
+                        }
+                        catch (Exception flowSeedEx)
+                        {
+                            Log.Warning(flowSeedEx, "OrderFlow system defaults seed failed — builtin fallback applies");
+                        }
 
                     }
 

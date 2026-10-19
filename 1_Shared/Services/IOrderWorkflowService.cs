@@ -4,7 +4,7 @@ namespace VanAn.Shared.Services
 {
     public interface IOrderWorkflowService
     {
-        Task<Order?> TransitionStatusAsync(Guid orderId, OrderStatusId newStatus, string? reason = null);
+        Task<Order?> TransitionStatusAsync(Guid orderId, OrderStatusId newStatus, string? reason = null, string? changedBy = null);
         Task<Order?> GetOrderAsync(Guid orderId);
         Task<List<Order>> GetOrdersByCustomerAsync(string customerDeviceId);
         Task<List<Order>> GetOrdersByStatusAsync(OrderStatusId status);

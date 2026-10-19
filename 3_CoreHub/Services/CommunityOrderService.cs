@@ -157,7 +157,12 @@ public class CommunityOrderService(
         order.AssignShipper(shipperId);
         if (order.DeliveryLat.HasValue && order.DeliveryLng.HasValue)
             order.SetDeliveryLocation(order.DeliveryLat.Value, order.DeliveryLng.Value);
+        string prevStatus = order.Status.Value;
         order.UpdateOrderStatus(new OrderStatusId("delivering"));
+
+        // Issue #195 (Q2): shipper accept 是直接改状态路径 — 补写 OrderStatusHistory。
+        await _dbContext.OrderStatusHistories.AddAsync(
+            new OrderStatusHistory(order.TenantId, order.Id, prevStatus, "delivering", $"shipper:{shipperId}", "shipper_accept"));
 
         // CC-S3 fix: If conversation already exists (customer chatted before shipper accepted),
         // update ShipperId from placeholder Guid.Empty to the actual shipper.

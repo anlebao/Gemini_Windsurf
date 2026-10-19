@@ -314,6 +314,9 @@ namespace VanAn.Gateway.Services
             {
                 string oldStatus = order.Status.Value;
                 order.UpdateOrderStatus(new OrderStatusId(newStatus));
+                // Issue #195 (Q2): ghi transition vào OrderStatusHistory (PG mirror).
+                await dbContext.OrderStatusHistories.AddAsync(
+                    new OrderStatusHistory(order.TenantId, order.Id, oldStatus, newStatus, "sync:shoperp", null), ct);
                 await dbContext.SaveChangesAsync(ct);
                 _logger.LogInformation("Synced order {OrderId} status → {Status} in PostgreSQL (tenant {TenantId})", orderId, newStatus, tenantId);
 
@@ -473,6 +476,14 @@ namespace VanAn.Gateway.Services
                     order.SetCustomerDeviceId(deviceId);
             }
 
+            // Issue #195: nguồn đơn (pos/checkout/booking) — giữ khi sync SQLite→PG.
+            if (data.TryGetProperty("SourceType", out var srcProp))
+            {
+                string? srcType = srcProp.GetString();
+                if (!string.IsNullOrWhiteSpace(srcType))
+                    order.SetSourceType(srcType);
+            }
+
             // Set status if provided (default is "pending")
             if (data.TryGetProperty("Status", out var statusProp))
             {
@@ -484,6 +495,9 @@ namespace VanAn.Gateway.Services
             }
 
             await dbContext.Orders.AddAsync(order, ct);
+            // Issue #195 (Q2): bản ghi tạo đơn vào OrderStatusHistory (PG mirror).
+            await dbContext.OrderStatusHistories.AddAsync(
+                new OrderStatusHistory(order.TenantId, order.Id, "", order.Status.Value, "sync:shoperp", "order_created"), ct);
             await dbContext.SaveChangesAsync(ct);
 
             _logger.LogInformation("SyncOrderCreatedAsync: synced order {OrderId} → PostgreSQL ({ItemCount} items)",

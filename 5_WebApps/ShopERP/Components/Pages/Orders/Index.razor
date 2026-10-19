@@ -52,7 +52,11 @@
 
     @if (errorMessage != null)
     {
-        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+        <VanAAlert Variant="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+    }
+    @if (infoMessage != null)
+    {
+        <VanAAlert Variant="info" Message="@infoMessage" Dismissible="true" OnDismiss="() => infoMessage = null" />
     }
 
     <VanACard Header="Bộ lọc">
@@ -93,11 +97,39 @@
     }
     else
     {
+        @* Issue #195 (2.2): bulk action bar — chọn nhiều đơn áp dụng 1 hành động *@
+        <div class="bulk-bar" data-testid="bulk-bar">
+            <label class="bulk-bar__selectall">
+                <input type="checkbox" checked="@AllPageSelected" @onchange="ToggleSelectAllOnPage" data-testid="chk-select-all" />
+                Chọn trang này
+            </label>
+            @if (selectedIds.Count > 0)
+            {
+                <span class="bulk-bar__count" data-testid="bulk-count">Đã chọn @selectedIds.Count đơn</span>
+                <select @bind="bulkAction" class="filter-select bulk-bar__action" data-testid="bulk-action-select">
+                    <option value="confirmed">✓ Xác nhận</option>
+                    <option value="completed">✔️ Hoàn tất</option>
+                    <option value="cancelled">✕ Hủy</option>
+                </select>
+                <VanAButton Variant="primary" Size="small" OnClick="ApplyBulkAction" Disabled="bulkApplying" data-testid="btn-bulk-apply">
+                    Áp dụng
+                </VanAButton>
+                <VanAButton Variant="ghost" Size="small" OnClick="ClearSelection" data-testid="btn-bulk-clear">
+                    Bỏ chọn
+                </VanAButton>
+            }
+        </div>
+
         @* Desktop view: DataGrid table (hidden on mobile, shown on md+) *@
         <div class="d-none d-md-block">
-        <VanACard Header="@($"Danh sách đơn hàng ({orders.Count})")">
+        <VanACard Header="@($"Danh sách đơn hàng ({totalCount})")">
             <VanAnDataGrid TItem="OrderListItem" Items="@orders" EmptyMessage="Không có đơn hàng">
                 <Columns>
+                    <VanAnColumn TItem="OrderListItem" Title="" Width="1">
+                        <Template Context="o">
+                            <input type="checkbox" checked="@selectedIds.Contains(o.Id)" @onchange="@(e => ToggleSelect(o.Id, e))" data-testid="chk-order" />
+                        </Template>
+                    </VanAnColumn>
                     <VanAnColumn TItem="OrderListItem" Title="Mã đơn" Width="2">
                         <Template Context="o">
                             <a href="@GetDetailUrl(o.Id)" data-testid="link-order-detail">@o.TrackingCode</a>
@@ -116,9 +148,31 @@
                             @o.OrderDate.ToVietnamTimeString()
                         </Template>
                     </VanAnColumn>
+                    @* Issue #195 (2.3): cột khách hàng — tên + SĐT trong một ô *@
+                    <VanAnColumn TItem="OrderListItem" Title="Khách hàng" Width="3">
+                        <Template Context="o">
+                            @if (!string.IsNullOrWhiteSpace(o.CustomerName) || !string.IsNullOrWhiteSpace(o.CustomerPhone))
+                            {
+                                <div class="customer-cell">
+                                    @if (!string.IsNullOrWhiteSpace(o.CustomerName))
+                                    {
+                                        <span class="customer-name">@o.CustomerName</span>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(o.CustomerPhone))
+                                    {
+                                        <span class="customer-phone"><i class="bi bi-telephone"></i> @o.CustomerPhone</span>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                        </Template>
+                    </VanAnColumn>
                     <VanAnColumn TItem="OrderListItem" Title="Trạng thái" Width="2">
                         <Template Context="o">
-                            <span class="status-badge status-@o.Status">@TranslateStatus(o.Status)</span>
+                            <span class="status-badge status-@o.Status">@TranslateStatus(o.Status, o.SourceType)</span>
                         </Template>
                     </VanAnColumn>
                     <VanAnColumn TItem="OrderListItem" Title="Thanh toán" Width="2">
@@ -146,7 +200,23 @@
                     <VanAnColumn TItem="OrderListItem" Title="Hành động" Width="3">
                         <Template Context="o">
                             <div class="d-flex gap-1 flex-wrap">
-                                @if (o.Status == "pending")
+                                @* Issue #195 (0.2): đơn booking — chỉ Thanh toán / Hoàn tất / Hủy *@
+                                @if (o.SourceType == "booking")
+                                {
+                                    @if (o.Status == "pending")
+                                    {
+                                        <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionOrder(o.Id, "confirmed"))" data-testid="btn-booking-pay-order">
+                                            💰 Thanh toán
+                                        </VanAButton>
+                                    }
+                                    else if (o.Status == "confirmed")
+                                    {
+                                        <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "completed"))" data-testid="btn-complete-order">
+                                            ✔️ Hoàn tất
+                                        </VanAButton>
+                                    }
+                                }
+                                else if (o.Status == "pending")
                                 {
                                     <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionOrder(o.Id, "confirmed"))" data-testid="btn-confirm-order">
                                         ✓ Xác nhận
@@ -213,19 +283,32 @@
 
         @* Mobile view: card list (shown on mobile, hidden on md+) — no horizontal scroll *@
         <div class="d-md-none" data-testid="orders-mobile-list">
-            <div class="orders-mobile-header">Danh sách đơn hàng (@orders.Count)</div>
+            <div class="orders-mobile-header">Danh sách đơn hàng (@totalCount)</div>
             @foreach (var o in orders)
             {
                 <div class="order-mobile-card status-@o.Status">
                     <div class="order-mobile-card__top">
+                        <label class="order-mobile-card__select">
+                            <input type="checkbox" checked="@selectedIds.Contains(o.Id)" @onchange="@(e => ToggleSelect(o.Id, e))" />
+                        </label>
                         <a href="@GetDetailUrl(o.Id)" class="order-mobile-card__code">@o.TrackingCode</a>
-                        <span class="status-badge status-@o.Status">@TranslateStatus(o.Status)</span>
+                        <span class="status-badge status-@o.Status">@TranslateStatus(o.Status, o.SourceType)</span>
                     </div>
                     <div class="order-mobile-card__row">
                         <span class="order-mobile-card__time">@o.OrderDate.ToVietnamTimeString()</span>
                         <span class="payment-badge payment-@o.PaymentStatus.ToLower()">@o.PaymentStatus</span>
                         <span class="order-mobile-card__amount">@o.TotalAmount.ToString("N0") đ</span>
                     </div>
+                    @if (!string.IsNullOrWhiteSpace(o.CustomerName) || !string.IsNullOrWhiteSpace(o.CustomerPhone))
+                    {
+                        <div class="order-mobile-card__customer">
+                            <i class="bi bi-person"></i> @o.CustomerName
+                            @if (!string.IsNullOrWhiteSpace(o.CustomerPhone))
+                            {
+                                <span class="customer-phone"><i class="bi bi-telephone"></i> @o.CustomerPhone</span>
+                            }
+                        </div>
+                    }
                     @if (_isSystemAdmin && !string.IsNullOrWhiteSpace(o.TenantName) && o.TenantName != "—")
                     {
                         <div class="order-mobile-card__tenant"><i class="bi bi-building"></i> @o.TenantName</div>
@@ -237,7 +320,22 @@
                         </div>
                     }
                     <div class="order-mobile-card__actions">
-                        @if (o.Status == "pending")
+                        @if (o.SourceType == "booking")
+                        {
+                            @if (o.Status == "pending")
+                            {
+                                <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionOrder(o.Id, "confirmed"))" data-testid="btn-booking-pay-order-m">
+                                    💰 Thanh toán
+                                </VanAButton>
+                            }
+                            else if (o.Status == "confirmed")
+                            {
+                                <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "completed"))" data-testid="btn-complete-order-m">
+                                    ✔️ Hoàn tất
+                                </VanAButton>
+                            }
+                        }
+                        else if (o.Status == "pending")
                         {
                             <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionOrder(o.Id, "confirmed"))" data-testid="btn-confirm-order-m">
                                 ✓ Xác nhận
@@ -298,6 +396,22 @@
                 </div>
             }
         </div>
+
+        @* Issue #195 (2.4): server-side pagination *@
+        <div class="pager" data-testid="pager">
+            <VanAButton Variant="secondary" Size="small" Disabled="@(page <= 1)" OnClick="PrevPage" data-testid="btn-page-prev">
+                « Trước
+            </VanAButton>
+            <span class="pager__info" data-testid="pager-info">Trang @(page) / @totalPages · @totalCount đơn</span>
+            <VanAButton Variant="secondary" Size="small" Disabled="@(page >= totalPages)" OnClick="NextPage" data-testid="btn-page-next">
+                Sau »
+            </VanAButton>
+            <select value="@pageSize" @onchange="OnPageSizeChanged" class="filter-select pager__size" data-testid="page-size">
+                <option value="10">10 / trang</option>
+                <option value="20">20 / trang</option>
+                <option value="50">50 / trang</option>
+            </select>
+        </div>
     }
 </div>
 
@@ -308,10 +422,20 @@
     private bool initialLoading = true;
     private bool backgroundRefreshing;
     private string? errorMessage;
-    // Bug 1 fix: default "ALL" instead of "EMPTY" — non-SystemAdmin users see all today's orders
-    // immediately on page load. "EMPTY" meant no filter selected → no orders shown until manual selection.
-    private string selectedStatus = "ALL";
+    private string? infoMessage;
+    // Issue #195 (2.1): default "pending" + "today" — vào trang thấy ngay đơn chờ xác nhận hôm nay.
+    private string selectedStatus = "pending";
     private string selectedDateRange = "today";
+    // Issue #195 (2.4): server-side pagination state
+    private int page = 1;
+    private int pageSize = 20;
+    private int totalCount;
+    private int totalPages => Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
+    // Issue #195 (2.2): bulk selection
+    private readonly HashSet<Guid> selectedIds = new();
+    private string bulkAction = "confirmed";
+    private bool bulkApplying;
+    private bool AllPageSelected => orders.Count > 0 && orders.All(o => selectedIds.Contains(o.Id));
     private HubConnection? _hubConnection;
     private System.Threading.Timer? _pollTimer;
 
@@ -369,6 +493,8 @@
         if (_selectedTenantFilter == "EMPTY")
         {
             orders = new List<OrderListItem>();
+            totalCount = 0;
+            selectedIds.Clear();
             StateHasChanged();
             return;
         }
@@ -377,16 +503,21 @@
         {
             TenantProvider.SetTenant(tid);
         }
+        page = 1;
+        selectedIds.Clear();
         await ReloadOrders();
     }
 
     private async Task OnStatusChanged(ChangeEventArgs e)
     {
         selectedStatus = e.Value?.ToString() ?? "EMPTY";
+        page = 1;
+        selectedIds.Clear();
         if (selectedStatus == "EMPTY")
         {
             // Empty state — no data, no query
             orders = new List<OrderListItem>();
+            totalCount = 0;
             StateHasChanged();
             return;
         }
@@ -396,7 +527,107 @@
     private async Task OnDateRangeChanged(ChangeEventArgs e)
     {
         selectedDateRange = e.Value?.ToString() ?? "today";
+        page = 1;
+        selectedIds.Clear();
         await ReloadOrders();
+    }
+
+    private async Task OnPageSizeChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int size) && size > 0)
+        {
+            pageSize = size;
+            page = 1;
+            selectedIds.Clear();
+            await ReloadOrders();
+        }
+    }
+
+    private async Task PrevPage()
+    {
+        if (page <= 1) return;
+        page--;
+        selectedIds.Clear();
+        await ReloadOrders();
+    }
+
+    private async Task NextPage()
+    {
+        if (page >= totalPages) return;
+        page++;
+        selectedIds.Clear();
+        await ReloadOrders();
+    }
+
+    private void ToggleSelect(Guid orderId, ChangeEventArgs e)
+    {
+        bool isChecked = e.Value is bool b && b;
+        if (isChecked) selectedIds.Add(orderId);
+        else selectedIds.Remove(orderId);
+    }
+
+    private void ToggleSelectAllOnPage(ChangeEventArgs e)
+    {
+        bool isChecked = e.Value is bool b && b;
+        if (isChecked)
+        {
+            foreach (var o in orders) selectedIds.Add(o.Id);
+        }
+        else
+        {
+            foreach (var o in orders) selectedIds.Remove(o.Id);
+        }
+    }
+
+    private void ClearSelection() => selectedIds.Clear();
+
+    /// <summary>
+    /// Issue #195 (2.2, approved Q5): bulk action — per-order transaction, KHÔNG all-or-nothing.
+    /// Đơn hợp lệ chuyển trạng thái; đơn invalid (status đã đổi/flow không cho phép) báo lỗi riêng.
+    /// </summary>
+    private async Task ApplyBulkAction()
+    {
+        if (selectedIds.Count == 0 || bulkApplying) return;
+        bulkApplying = true;
+        errorMessage = null;
+        infoMessage = null;
+        int succeeded = 0;
+        var failed = new List<string>();
+        try
+        {
+            foreach (Guid id in selectedIds.ToList())
+            {
+                try
+                {
+                    Order? result = await OrderWorkflowService.TransitionStatusAsync(
+                        id,
+                        new OrderStatusId(bulkAction),
+                        reason: $"Bulk action → {bulkAction}");
+                    if (result != null)
+                    {
+                        succeeded++;
+                        selectedIds.Remove(id);
+                    }
+                    else
+                    {
+                        failed.Add(id.ToString()[..8]);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Bulk action {Action} failed for order {OrderId}", bulkAction, id);
+                    failed.Add(id.ToString()[..8]);
+                }
+            }
+            infoMessage = failed.Count == 0
+                ? $"Đã áp dụng '{TranslateStatus(bulkAction)}' cho {succeeded} đơn."
+                : $"Thành công {succeeded} đơn; thất bại {failed.Count} đơn ({string.Join(", ", failed)}) — chuyển đổi không hợp lệ.";
+            await ReloadOrders();
+        }
+        finally
+        {
+            bulkApplying = false;
+        }
     }
 
     private async Task ReloadOrders() => await ReloadOrders(isBackground: false);
@@ -433,81 +664,48 @@
             if (selectedStatus == "EMPTY" || (_isSystemAdmin && _selectedTenantFilter == "EMPTY"))
             {
                 orders = new List<OrderListItem>();
+                totalCount = 0;
                 return;
             }
 
-            // "ALL" status = no status filter; specific status = filter by it
-            bool filterByStatus = selectedStatus != "ALL";
+            // Issue #195 (2.4): server-side paging — status/date filters đẩy xuống DB query.
+            string? statusFilter = selectedStatus == "ALL" ? null : selectedStatus;
+            (DateTime? from, DateTime? to) = ResolveDateRange();
+
+            List<Order> pageItems;
+            int total;
             // SystemAdmin "ALL tenants" mode — query all orders across tenants
             bool allTenants = _isSystemAdmin && _selectedTenantFilter == "ALL";
 
-            IEnumerable<Order> rawOrders;
-            var filtered = new List<Order>();
-
             if (allTenants)
             {
-                // SystemAdmin: query all orders (no tenant filter)
-                if (filterByStatus)
-                {
-                    var statusId = new OrderStatusId(selectedStatus);
-                    rawOrders = await scopedOrderService.GetAllOrdersByStatusAsync(statusId);
-                }
-                else
-                {
-                    DateTime today = DateTime.UtcNow.Date;
-                    rawOrders = await scopedOrderService.GetAllOrdersByDateRangeAsync(today, today.AddDays(1));
-                }
-
-                filtered = rawOrders.ToList();
-                if (selectedDateRange == "7days" && !filterByStatus)
-                {
-                    DateTime weekAgo = DateTime.UtcNow.Date.AddDays(-7);
-                    DateTime tomorrow = DateTime.UtcNow.Date.AddDays(1);
-                    filtered = (await scopedOrderService.GetAllOrdersByDateRangeAsync(weekAgo, tomorrow)).ToList();
-                }
-                else if (selectedDateRange == "all" && !filterByStatus)
-                {
-                    DateTime longAgo = DateTime.UtcNow.Date.AddDays(-365);
-                    DateTime tomorrow = DateTime.UtcNow.Date.AddDays(1);
-                    filtered = (await scopedOrderService.GetAllOrdersByDateRangeAsync(longAgo, tomorrow)).ToList();
-                }
+                (pageItems, total) = await scopedOrderService.GetAllOrdersPageAsync(
+                    statusFilter, from, to, page, pageSize);
             }
             else
             {
-                // Normal mode — query for specific tenant
                 Guid tenantId = TenantProvider.TenantId;
-                if (filterByStatus)
-                {
-                    var statusId = new OrderStatusId(selectedStatus);
-                    rawOrders = await scopedOrderService.GetOrdersByStatusAsync(statusId, tenantId);
-                }
-                else
-                {
-                    DateTime today = DateTime.UtcNow.Date;
-                    rawOrders = await scopedOrderService.GetOrdersByDateRangeAsync(tenantId, today, today.AddDays(1));
-                }
+                // SystemAdmin chọn 1 tenant cụ thể → query tenant đó (không phụ thuộc TenantProvider).
+                if (_isSystemAdmin && Guid.TryParse(_selectedTenantFilter, out Guid selectedTid))
+                    tenantId = selectedTid;
+                (pageItems, total) = await scopedOrderService.GetOrdersPageAsync(
+                    tenantId, statusFilter, from, to, page, pageSize);
+            }
 
-                filtered = rawOrders.ToList();
-                if (selectedDateRange == "7days" && !filterByStatus)
-                {
-                    DateTime weekAgo = DateTime.UtcNow.Date.AddDays(-7);
-                    DateTime tomorrow = DateTime.UtcNow.Date.AddDays(1);
-                    filtered = (await scopedOrderService.GetOrdersByDateRangeAsync(tenantId, weekAgo, tomorrow)).ToList();
-                }
-                else if (selectedDateRange == "all" && !filterByStatus)
-                {
-                    DateTime longAgo = DateTime.UtcNow.Date.AddDays(-365);
-                    DateTime tomorrow = DateTime.UtcNow.Date.AddDays(1);
-                    filtered = (await scopedOrderService.GetOrdersByDateRangeAsync(tenantId, longAgo, tomorrow)).ToList();
-                }
+            // Clamp page khi filter/data đổi làm totalPages nhỏ lại (VD: poll xóa bớt đơn).
+            if (total > 0 && pageItems.Count == 0 && page > 1)
+            {
+                page = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize));
+                await ReloadOrders(isBackground);
+                return;
             }
 
             // P1: Diff check — only update + StateHasChanged if data actually changed.
-            // Prevents unnecessary re-renders on 30s poll when no new orders arrived.
-            var newOrders = filtered.Select(MapToListItem).OrderByDescending(o => o.OrderDate).ToList();
-            if (!OrdersEqual(orders, newOrders))
+            var newOrders = pageItems.Select(MapToListItem).ToList();
+            if (totalCount != total || !OrdersEqual(orders, newOrders))
             {
                 orders = newOrders;
+                totalCount = total;
                 // Bug 5 fix: Explicit StateHasChanged — InvokeAsync auto-calls it, but adding it here
                 // ensures the gridview rebuilds immediately after data change, even in edge cases
                 // where the render batch is deferred.
@@ -529,6 +727,19 @@
         } // using (scope)
     }
 
+    /// <summary>Issue #195: map date-range select → [from, to) theo OrderDate UTC.</summary>
+    private (DateTime? From, DateTime? To) ResolveDateRange()
+    {
+        DateTime today = DateTime.UtcNow.Date;
+        DateTime tomorrow = today.AddDays(1);
+        return selectedDateRange switch
+        {
+            "7days" => (today.AddDays(-7), tomorrow),
+            "all" => (today.AddDays(-365), tomorrow),
+            _ => (today, tomorrow)
+        };
+    }
+
     // P1: Lightweight diff — compares count + Id + Status + PaymentStatus + CustomerNotes for each order.
     // Avoids full deep equality but catches all UI-relevant changes (new order, status change, payment change, notes change).
     private static bool OrdersEqual(List<OrderListItem> a, List<OrderListItem> b)
@@ -540,6 +751,8 @@
             if (a[i].Status != b[i].Status) return false;
             if (a[i].PaymentStatus != b[i].PaymentStatus) return false;
             if (a[i].CustomerNotes != b[i].CustomerNotes) return false;
+            if (a[i].CustomerName != b[i].CustomerName) return false;
+            if (a[i].CustomerPhone != b[i].CustomerPhone) return false;
         }
         return true;
     }
@@ -665,15 +878,19 @@
         }
     }
 
-    private static string TranslateStatus(string status) => status switch
+    // Issue #195: booking đơn dùng label "Chờ thanh toán"/"Đã thanh toán" (flow 0.2).
+    private static string TranslateStatus(string status, string? sourceType = null) => (status, sourceType) switch
     {
-        "pending" => "Chờ xác nhận",
-        "confirmed" => "Đã xác nhận",
-        "preparing" => "Đang làm",
-        "ready" => "Sẵn sàng",
-        "delivered" => "Đã giao",
-        "completed" => "Hoàn thành",
-        "cancelled" => "Đã hủy",
+        ("pending", "booking") => "Chờ thanh toán",
+        ("confirmed", "booking") => "Đã thanh toán",
+        ("pending", _) => "Chờ xác nhận",
+        ("confirmed", _) => "Đã xác nhận",
+        ("preparing", _) => "Đang làm",
+        ("ready", _) => "Sẵn sàng",
+        ("delivering", _) => "Đang giao",
+        ("delivered", _) => "Đã giao",
+        ("completed", _) => "Hoàn thành",
+        ("cancelled", _) => "Đã hủy",
         _ => status
     };
 
@@ -692,7 +909,11 @@
             TotalAmount = o.TotalAmount,
             TenantName = tenantName,
             // Bug 2 fix: surface CustomerNotes so the new "Ghi chú" column can render it.
-            CustomerNotes = o.CustomerNotes
+            CustomerNotes = o.CustomerNotes,
+            // Issue #195 (2.3): khách hàng từ CustomerInfo snapshot; (0.2): SourceType cho booking actions.
+            CustomerName = o.CustomerInfo?.FullName,
+            CustomerPhone = o.CustomerInfo?.PhoneNumber,
+            SourceType = o.SourceType
         };
     }
 
@@ -716,6 +937,11 @@
         public string TenantName { get; set; } = "";
         // Bug 2 fix: customer notes from checkout (e.g. "ít đá", "giao trước 12h").
         public string? CustomerNotes { get; set; }
+        // Issue #195 (2.3): tên + SĐT khách trong một cột.
+        public string? CustomerName { get; set; }
+        public string? CustomerPhone { get; set; }
+        // Issue #195 (0.2): nguồn đơn — booking hiển thị action "Thanh toán/Hoàn tất".
+        public string? SourceType { get; set; }
     }
 }
 
@@ -794,6 +1020,54 @@
         color: var(--vanan-text, #212529);
     }
 
+    /* Issue #195 (2.3): customer cell — name line + phone line */
+    .customer-cell {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.3;
+    }
+    .customer-cell .customer-name { font-weight: 600; }
+    .customer-cell .customer-phone {
+        font-size: 0.8rem;
+        color: var(--vanan-text-muted, #6c757d);
+    }
+    .customer-phone { white-space: nowrap; }
+
+    /* Issue #195 (2.2): bulk action bar */
+    .bulk-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem 0.75rem;
+        margin-bottom: 0.5rem;
+        background: var(--vanan-surface, #f8f9fa);
+        border: 1px solid var(--vanan-border, #dee2e6);
+        border-radius: 6px;
+        flex-wrap: wrap;
+    }
+    .bulk-bar__selectall {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.85rem;
+        margin: 0;
+        cursor: pointer;
+    }
+    .bulk-bar__count { font-size: 0.85rem; font-weight: 600; }
+    .bulk-bar__action { min-width: 140px; }
+
+    /* Issue #195 (2.4): pagination bar */
+    .pager {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        justify-content: flex-end;
+        padding: 0.5rem 0.25rem;
+        flex-wrap: wrap;
+    }
+    .pager__info { font-size: 0.85rem; color: var(--vanan-text-muted, #6c757d); }
+    .pager__size { min-width: 100px; }
+
     /* === Mobile card view (smartphone responsive — no horizontal scroll) === */
     .orders-mobile-header {
         font-size: 1rem;
@@ -821,13 +1095,16 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        gap: 0.5rem;
         margin-bottom: 0.4rem;
     }
+    .order-mobile-card__select { margin: 0; }
     .order-mobile-card__code {
         font-weight: 700;
         font-size: 1rem;
         color: var(--vanan-primary, #0d6efd);
         text-decoration: none;
+        flex: 1;
     }
     .order-mobile-card__row {
         display: flex;
@@ -843,6 +1120,16 @@
         font-weight: 700;
         color: var(--vanan-text, #212529);
         font-size: 0.95rem;
+    }
+    .order-mobile-card__customer {
+        font-size: 0.85rem;
+        color: var(--vanan-text, #212529);
+        margin-bottom: 0.3rem;
+    }
+    .order-mobile-card__customer .customer-phone {
+        margin-left: 0.5rem;
+        color: var(--vanan-text-muted, #6c757d);
+        font-size: 0.8rem;
     }
     .order-mobile-card__tenant {
         font-size: 0.75rem;

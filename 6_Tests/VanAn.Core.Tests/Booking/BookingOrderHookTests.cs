@@ -245,6 +245,8 @@ namespace VanAn.Core.Tests.BookingScheduling
             public Task MarkPaidAsync(Guid orderId, Guid tenantId, string transactionId, bool enqueuePaymentConfirmedEvent = false, CancellationToken cancellationToken = default) => throw new NotImplementedException();
             public Task GenerateAccountingEntriesAsync(OrderEntity order, TenantId tenantId) => throw new NotImplementedException();
             public Task<OrderEntity?> GetOrderByIdForPublicTrackingAsync(Guid orderId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+            public Task<(List<OrderEntity> Orders, int TotalCount)> GetOrdersPageAsync(Guid tenantId, string? status, DateTime? from, DateTime? to, int page, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+            public Task<(List<OrderEntity> Orders, int TotalCount)> GetAllOrdersPageAsync(string? status, DateTime? from, DateTime? to, int page, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         }
     }
 }

@@ -66,6 +66,7 @@ namespace VanAn.Gateway.Controllers
                 var command = new CreateOrderCommand
                 {
                     CustomerDeviceId = customerDeviceId,
+                    SourceType = "checkout", // Issue #195
                     Items =
                     [
                         new CoreHub.Commands.OrderItemRequest
@@ -372,7 +373,8 @@ namespace VanAn.Gateway.Controllers
                         ShippingFee = request.ShippingFee,
                         SalesmanId = referralSalesmanId,
                         ReferralProductId = referralProductId,
-                        ReferralCode = referralCode
+                        ReferralCode = referralCode,
+                        SourceType = "checkout" // Issue #195
                     };
 
                     try

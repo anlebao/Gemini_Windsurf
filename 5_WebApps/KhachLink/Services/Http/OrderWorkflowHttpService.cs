@@ -19,9 +19,9 @@ namespace VanAn.KhachLink.Services.Http
             _logger = logger;
         }
 
-        public async Task<Order?> TransitionStatusAsync(Guid orderId, OrderStatusId newStatus, string? reason = null)
+        public async Task<Order?> TransitionStatusAsync(Guid orderId, OrderStatusId newStatus, string? reason = null, string? changedBy = null)
         {
-            var request = new { Status = newStatus.Value, Reason = reason };
+            var request = new { Status = newStatus.Value, Reason = reason, ChangedBy = changedBy };
             var response = await _httpClient.PutAsJsonAsync($"api/orderworkflow/{orderId}/status", request);
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
