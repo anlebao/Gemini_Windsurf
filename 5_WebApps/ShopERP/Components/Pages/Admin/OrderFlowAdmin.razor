@@ -313,7 +313,20 @@
     private void AddStep() => _formSteps.Add(new StepForm());
     private void RemoveStep(int idx)
     {
-        if (idx >= 0 && idx < _formSteps.Count) _formSteps.RemoveAt(idx);
+        if (idx < 0 || idx >= _formSteps.Count) return;
+        var removedCode = _formSteps[idx].Code.Trim().ToLowerInvariant();
+        _formSteps.RemoveAt(idx);
+        // Gỡ code đã xóa khỏi AllowedNextCsv của các step còn lại — tránh lỗi
+        // server "allows unknown next status" khi lưu.
+        if (removedCode.Length == 0) return;
+        foreach (var s in _formSteps)
+        {
+            var kept = s.AllowedNextCsv
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(c => !string.Equals(c, removedCode, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            s.AllowedNextCsv = string.Join(", ", kept);
+        }
     }
 
     private async Task SaveProfileAsync()
@@ -329,6 +342,20 @@
         {
             _alertType = "warning";
             _alertMessage = "Mỗi bước cần có mã (code) — không được để trống.";
+            return;
+        }
+        // Client-side mirror của server validation: mọi AllowedNext phải trỏ tới code tồn tại.
+        var codes = _formSteps.Select(s => s.Code.Trim().ToLowerInvariant()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var badRef = _formSteps
+            .SelectMany(s => s.AllowedNextCsv
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(c => !codes.Contains(c))
+                .Select(c => (step: s.Code.Trim(), next: c)))
+            .FirstOrDefault();
+        if (badRef != default)
+        {
+            _alertType = "warning";
+            _alertMessage = $"Bước '{badRef.step}' tham chiếu trạng thái không tồn tại '{badRef.next}' — sửa lại cột \"Cho phép chuyển tới\" hoặc thêm bước đó.";
             return;
         }
 
