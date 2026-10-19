@@ -1,9 +1,9 @@
 # HƯỚNG DẪN SỬ DỤNG COMMUNITY COMMERCE — VẠN AN ECOSYSTEM
 
-> **Phiên bản:** PoC v1.5 + Sprint 7 Commerce Mode Toggle + KhachLink Multi-Profile + Customer Onboarding + GTM Drill Machine — cập nhật 2026-09-09
-> **Áp dụng:** Community Commerce Sprint 0-7 (đã deploy + VPS verified) + KhachLink Profile Transition UX Sprint 1-3 (PR #170) + Customer Onboarding via Google Login (PR #171) + Admin/Owner Override (PR #172) + GTM Drill Machine W1-W2.
+> **Phiên bản:** PoC v1.5 + Sprint 7 Commerce Mode Toggle + KhachLink Multi-Profile + Customer Onboarding + GTM Drill Machine + Booking + Order Flow configurable — cập nhật 2026-10-19
+> **Áp dụng:** Community Commerce Sprint 0-7 (đã deploy + VPS verified) + KhachLink Profile Transition UX Sprint 1-3 (PR #170) + Customer Onboarding via Google Login (PR #171) + Admin/Owner Override (PR #172) + GTM Drill Machine W1-W2 + Appointment Booking (MVP) + Order Flow configurable (#195).
 > **Phạm vi:** Module Shipper/Salesman (Community Commerce) + Commerce Mode Toggle (Marketplace ↔ Reseller) + KhachLink Multi-Profile (FullCommerce ↔ Directory) + GTM Drill Machine — "Mua giúp — Bán dùm".
-> **Nền tảng:** KhachLink PWA (Blazor WebAssembly, `diemthuong2.khachvip.online` — FullCommerce, `commienphi.timlathay.com` — Reseller) + KhachLink Directory (Blazor SSR, `timlathay.com` — Directory profile) + ShopERP Admin (Blazor Server, `khachvip.online`). Multi-VPS: `vanan-gateway` + `vanan-shop-a` + `vanan-khachlink`.
+> **Nền tảng:** KhachLink PWA (Blazor WebAssembly, `diemthuong2.khachvip.online` — FullCommerce, `commienphi.timlathay.com` — Reseller) + KhachLink Directory (Blazor SSR, `timlathay.com` — Directory profile) + ShopERP Admin (Blazor Server, `app2.khachvip.online`). Multi-VPS: `vanan-gateway` + `vanan-shop-a` + `vanan-khachlink` + `vanan-khachlink-20260815-timlathay-com`.
 
 ---
 
@@ -16,7 +16,7 @@
 | 3 | [Salesman — Cộng tác viên bán hàng](./03-salesman.md) | `03-salesman.md` | KhachLink PWA — tab "Sản phẩm gần", "Mã QR", "Doanh số" |
 | 4 | [Shipper — Cộng tác viên giao hàng](./04-shipper.md) | `04-shipper.md` | KhachLink PWA — tab "Đơn hàng gần", "Đang giao", "Ví" |
 | 5 | [Staff — Nhân viên quầy/POS](./05-staff.md) | `05-staff.md` | ShopERP Admin — POS + Order management |
-| 6 | [Bếp / Kitchen](./06-kitchen.md) | `06-kitchen.md` | ShopERP Admin — Kitchen Display + KitchenHub |
+| 6 | [Bếp / Kitchen](./06-kitchen.md) | `06-kitchen.md` | ShopERP Admin — Kitchen Display `/kitchen` + OrderHub |
 | 7 | [Customer — Khách hàng mua hàng](./07-customer.md) | `07-customer.md` | KhachLink PWA — đăng nhập, đặt hàng, tracking, chat, ví, tích điểm |
 
 ---
@@ -86,7 +86,7 @@
 Một Customer có thể trở thành Salesman hoặc Shipper khi đạt điều kiện. **System Admin** là người kích hoạt.
 
 ### 3.1. Khi `CollaboratorSmsVerificationEnabled = OFF` (mặc định — early stage)
-- **Shipper/Salesman:** `IdentityLevel ≥ DeviceVerified` (device fingerprint pass) **HOẶC** `IdentityLevel ≥ Verified` (SMS OTP) + `LoyaltyPoints ≥ 1000`
+- **Shipper/Salesman:** `IdentityLevel ≥ Verified` (2 — đã bao gồm `DeviceVerified`=4) **VÀ** `LoyaltyPoints ≥ ngưỡng per-tenant` (default 1000 — `Community_*MinPoints` trong ShopFeatureSettings)
 - Mục tiêu: friction thấp, tối đa hóa số cộng tác viên
 
 ### 3.2. Khi `CollaboratorSmsVerificationEnabled = ON` (scale đủ)
@@ -152,6 +152,9 @@ Cả 2 nguồn do **SystemAdmin thiết lập per-product** qua `ProductReferral
 | DeliveryFee (9) | Reseller | Phí giao hàng trả shipper |
 | ExternalPayment (10) | Reseller | Customer trả Vạn An qua VietQR/card (non-COD) |
 | CommunityFundSpend (11) | Reseller | SysAdmin rút quỹ tái đầu tư |
+| Deposit (12) | Cả 2 | Collaborator nạp deposit (SMS OTP fees) |
+| SmsOtpFee (13) | Cả 2 | Phí SMS OTP trừ deposit wallet |
+| Remittance (14) | Cả 2 | Shipper nộp tiền COD thu hộ về chủ sở hữu |
 
 ### 6.2. Reseller COD Flow (6 transactions)
 Khi shipper confirm COD trong mode Reseller, Vạn An tạo 6 transactions:

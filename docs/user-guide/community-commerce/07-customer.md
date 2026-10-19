@@ -3,6 +3,8 @@
 > **Đối tượng:** Khách hàng cuối — mua hàng F&B qua KhachLink, theo dõi giao hàng, tích điểm, đổi thưởng.
 > **Đăng nhập:** KhachLink PWA (`diemthuong2.khachvip.online` — FullCommerce, `commienphi.timlathay.com` — Reseller) hoặc KhachLink Directory (`timlathay.com` — Directory profile). Google login + device fingerprint. KHÔNG bắt buộc SMS OTP.
 > **Nền tảng:** FullCommerce/Reseller = Blazor WebAssembly PWA (cài đặt trên mobile home screen, offline-capable, có đầy đủ cart/checkout/tracking/wallet). Directory = Blazor Server SSR (chỉ tìm cửa hàng, KHÔNG có cart/checkout/tracking/wallet).
+>
+> **Cập nhật 2026-10-19:** Thêm 2 kênh mua hàng ngoài online — **POS tại quầy** (`SourceType="pos"`) và **Booking đặt lịch hẹn qua QR** (`SourceType="booking"`). Đồng bộ eligibility CTV.
 
 ---
 
@@ -10,7 +12,7 @@
 
 1. [Tổng quan vai trò](#1-tổng-quan-vai-trò)
 2. [Đăng nhập (UC-01) — Social + Device Fingerprint](#2-đăng-nhập-uc-01--social--device-fingerprint)
-3. [Duyệt sản phẩm + đặt hàng](#3-duyệt-sản-phẩm--đặt-hàng)
+3. [Mua hàng — 3 kênh: Online / POS tại quầy / Booking](#3-mua-hàng--3-kênh-online--pos-tại-quầy--booking)
 4. [Checkout + referral code (Salesman)](#4-checkout--referral-code-salesman)
 5. [Theo dõi giao hàng real-time (UC-06)](#5-theo-dõi-giao-hàng-real-time-uc-06)
 6. [Chat với Shipper (UC-07)](#6-chat-với-shipper-uc-07)
@@ -87,9 +89,21 @@ Customer là khách hàng cuối — mua hàng F&B qua KhachLink PWA. Một cust
 
 ---
 
-## 3. DUYỆT SẢN PHẨM + ĐẶT HÀNG
+## 3. MUA HÀNG — 3 KÊNH: ONLINE / POS TẠI QUẦY / BOOKING
 
-### 3.1. Duyệt sản phẩm
+Customer có **3 kênh** mua hàng/đặt dịch vụ trên nền tảng:
+
+| Kênh | Cách dùng | `Order.SourceType` | Ai tạo đơn |
+|---|---|---|---|
+| **Online** | KhachLink PWA — browse → cart → checkout (mục 3.1-3.4) | `checkout` | Customer tự đặt (Gateway PG) |
+| **POS** | Đến cửa hàng — staff tạo đơn trên `/pos` (mục 3.5) | `pos` | Staff/Owner tại quầy (ShopERP) |
+| **Booking** | Quét QR shop → chọn dịch vụ/giờ → đặt lịch (mục 3.6) | `booking` | Customer tự đặt (public API, không cần đăng nhập) |
+
+> Mỗi kênh có thể chạy **order flow riêng** (cấu hình bởi SystemAdmin tại `/admin/order-flow` — vd booking dùng reduced flow "Thanh toán → Hoàn tất").
+
+### Kênh 1 — Online (KhachLink PWA)
+
+#### 3.1. Duyệt sản phẩm
 
 1. Mở KhachLink → Home page hiển thị Featured Products (GET `/api/catalog/recommended` — pure PG query, no ShopERP forward).
 2. Hoặc duyệt product catalog (forwards via YARP to ShopERP for ShopConfig derivation).
@@ -122,7 +136,45 @@ else
 - Order created trên **Gateway PG** (Vạn An là order creator, Option C).
 - Order snapshot `CommerceMode` tại creation time.
 - Order async-delivered qua NATS (routed by ShopInstanceId) → ShopERP SQLite (replica cho kitchen/POS).
-- Staff/Kitchen nhận order (KitchenHub push).
+- Staff/Kitchen nhận order (`/orderHub` push trên ShopERP).
+
+### Kênh 2 — POS tại quầy (đến cửa hàng mua trực tiếp)
+
+> Dành cho khách đến tận nơi — **không cần app**, không cần đăng nhập.
+
+#### 3.5. Flow POS (customer đứng tại quầy)
+
+1. Bạn đến cửa hàng → gọi món trực tiếp với staff.
+2. Staff mở **POS `/pos`** trên ShopERP (role StaffOrAbove) → chọn món từ catalog của tenant → bấm **"Tạo đơn"**.
+3. Order tạo ngay trong ShopERP với `SourceType="pos"` → outbox sync lên Gateway PG.
+4. Staff chuyển sang trang thanh toán **`/pos/payment/{orderId}`** → bạn trả tiền mặt/QR tại quầy → staff xác nhận thanh toán.
+5. Đơn đi theo order flow của tenant (mặc định `pending → ... → completed`; tenant có thể cấu hình flow rút gọn cho POS).
+
+**Khác biệt với online:**
+- KHÔNG có cart/checkout/referral tracking trên app của bạn — staff nhập hộ.
+- KHÔNG tracking shipper (đơn tại chỗ — thường OrderType dine-in/takeaway).
+- Nếu muốn gắn đơn vào tài khoản (lịch sử/điểm), cung cấp SĐT cho staff khi tạo đơn.
+
+### Kênh 3 — Booking đặt lịch hẹn (qua QR của shop)
+
+> Dành cho tenant có dịch vụ theo lịch hẹn (spa, salon, tư vấn, sân…). **Không cần đăng nhập** — public booking flow.
+
+#### 3.6. Flow booking
+
+1. Quét **QR đặt lịch** của shop (QR channel do Owner tạo tại `/booking/qr-channels` trên ShopERP — có thể in ấn hoặc chia sẻ link).
+2. Browser mở **`/booking/{QrToken}`** trên KhachLink — resolve QR → hiện catalog dịch vụ của shop (tên, giá, thời lượng, add-ons).
+3. Chọn dịch vụ → **`/booking/{QrToken}/time`** — chọn ngày + khung giờ còn trống (chỉ hiện slot available, không cho đặt giờ đã qua; có thể chọn nhân viên nếu shop bật).
+4. **`/booking/{QrToken}/note`** — ghi chú + thông tin liên hệ (tên, SĐT).
+5. **`/booking/{QrToken}/confirm`** — xác nhận đặt lịch. Nếu tenant bật **đặt cọc (deposit)** → thanh toán cọc theo hướng dẫn trên trang.
+6. Theo dõi trạng thái tại **`/booking/status/{Code}`** (mã booking sau khi tạo) — hoặc hủy từ trang này (theo cancel policy của tenant; cọc có thể không hoàn tùy chính sách).
+7. Đến giờ hẹn → shop phục vụ → khi hoàn tất/thanh toán, hệ thống tự tạo **Order `SourceType="booking"`** (hiện trong `/orders` của shop với action "Thanh toán"/"Hoàn tất") → kế toán/loyalty xử lý như đơn thường.
+
+**API nền (public, không auth):** `GET /api/public/booking/qr/{qrToken}` → `.../tenants/{tenantId}/services` → `.../availability` → `POST .../bookings` (Idempotency-Key) → `GET .../bookings/{publicBookingToken}` (status polling + ETag) → `POST .../cancel`.
+
+**Lưu ý:**
+- Booking **không qua cart/checkout** — mỗi lịch hẹn là 1 booking riêng, tạo order khi hoàn tất.
+- Đặt cọc/hủy theo chính sách từng tenant (Owner cấu hình tại `/booking/config`).
+- Guest-friendly: chỉ cần tên + SĐT, không cần tài khoản.
 
 ---
 
@@ -272,8 +324,8 @@ Nếu Reseller mode + PaymentMethod = Online (VietQR/card):
 
 ### 9.1. Điều kiện
 
-- `IdentityLevel ≥ DeviceVerified` (device fingerprint pass) **HOẶC** `IdentityLevel ≥ Verified` (SMS OTP) + `LoyaltyPoints ≥ 1000`
-- **Kích hoạt bởi System Admin** (customer không tự đăng ký).
+- `IdentityLevel ≥ Verified` (2 — đã bao gồm `DeviceVerified`=4) **VÀ** `LoyaltyPoints ≥ ngưỡng per-tenant` (default 1000)
+- **Kích hoạt bởi System Admin hoặc Owner** (customer không tự đăng ký).
 
 ### 9.2. Quy trình
 
@@ -417,6 +469,12 @@ A: Device fingerprint là hash (KHÔNG phải dữ liệu cá nhân rõ ràng). 
 
 **Q: Chat với shipper có AI chatbot không?**
 A: KHÔNG. PoC chỉ human-to-human chat. AI chatbot là sprint riêng sau PoC.
+
+**Q: Tôi mua tại quầy (POS) thì đơn có hiện trong app không?**
+A: Đơn POS do staff tạo trên ShopERP — nếu staff nhập SĐT gắn với tài khoản của bạn thì đơn liên kết được; nếu không thì là đơn guest tại chỗ. Không có tracking shipper (không giao hàng).
+
+**Q: Đặt lịch hẹn (booking) có cần tài khoản không?**
+A: KHÔNG. Quét QR shop → chọn dịch vụ/giờ → nhập tên + SĐT → xong. Theo dõi/hủy bằng mã booking tại `/booking/status/{Code}`.
 
 ---
 

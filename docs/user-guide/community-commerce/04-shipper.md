@@ -1,8 +1,10 @@
 # HƯỚNG DẪN SHIPPER — CỘNG TÁC VIÊN GIAO HÀNG
 
 > **Đối tượng:** Customer được System Admin kích hoạt role Shipper — nhận đơn giao hàng, thu COD, kiếm tiền từ phí giao hàng.
-> **Đăng nhập:** KhachLink PWA (`diemthuong.khachvip.online`) — Google login + device fingerprint. Token lưu localStorage.
+> **Đăng nhập:** KhachLink PWA (`diemthuong2.khachvip.online` — hoặc instance KhachLink khác như `commienphi.*`) — Google login + device fingerprint. Token lưu localStorage.
 > **Nền tảng:** Blazor WebAssembly PWA — GPS chỉ hoạt động khi tab active. **Giữ app mở** khi đang giao.
+>
+> **Cập nhật 2026-10-19:** Đồng bộ route/hub thực tế — OrderDetail = `/community/delivery-tracking/{id}`, SignalR hubs trên Gateway `/hubs/*`, eligibility `≥Verified + points`.
 
 ---
 
@@ -29,8 +31,8 @@ Shipper là cộng tác viên giao hàng — nhận đơn DELIVERY trong bán k�
 
 ### 1.1. Điều kiện trở thành Shipper
 
-- `IdentityLevel ≥ DeviceVerified` (device fingerprint pass) **HOẶC** `IdentityLevel ≥ Verified` (SMS OTP) + `LoyaltyPoints ≥ 1000`
-- **Kích hoạt bởi System Admin**
+- `IdentityLevel ≥ Verified` (2 — đã bao gồm `DeviceVerified`=4) **VÀ** `LoyaltyPoints ≥ ngưỡng per-tenant` (default 1000, SystemAdmin đổi được tại `/settings/shop-features`)
+- **Kích hoạt bởi System Admin hoặc Owner** (Owner Panel `/community/owner-panel` — chỉ tenant của mình)
 - Khi toggle `CollaboratorSmsVerificationEnabled = ON`: bắt buộc SMS OTP + `IsPhoneVerified = true` + deposit wallet ≥ phí OTP
 
 ### 1.2. Một user nhiều role
@@ -63,7 +65,7 @@ Bạn có thể đồng thời là **Customer + Salesman + Shipper**. NavMenu Kh
 
 1. Đạt điều kiện (IdentityLevel + LoyaltyPoints ≥ 1000).
 2. System Admin kích hoạt → nhận push notification.
-3. Login lại → NavMenu hiện thêm tab **"Đơn hàng gần"** + **"Đang giao"** + **"Ví"**.
+3. Login lại → NavMenu hiện thêm tab **"Đơn hàng gần"** (`/community/nearby-orders`) + **"Đang giao"** (`/community/active-deliveries`) + **"Ví"** (`/wallet`).
 
 ### 2.3. SMS OTP verification (chỉ khi toggle ON)
 
@@ -124,7 +126,7 @@ Login KhachLink → tab **"Đơn hàng gần"** (chỉ hiện khi có role Shipp
 
 ### 5.1. Route
 
-`/community/orders/{orderId}` — mở sau khi accept, hoặc từ tab "Đang giao".
+`/community/delivery-tracking/{OrderId:guid}` (page `DeliveryTracking.razor`) — mở sau khi accept, hoặc từ tab "Đang giao".
 
 ### 5.2. UI Elements
 
@@ -210,8 +212,9 @@ Assigned → PickedUp → OutForDelivery → Delivered
 
 ### 7.4. Auth SignalR
 
-- LocationHub auth qua `X-Customer-Token` query string (SignalR support).
-- nginx route cho `/locationHub` negotiate.
+- LocationHub host trên **Gateway (5001)** — endpoint `/hubs/location` (không phải `/locationHub`).
+- Auth qua `X-Customer-Token` query string (SignalR support).
+- nginx route `/hubs/*` → Gateway cho negotiate + WebSocket.
 
 ---
 
@@ -225,7 +228,7 @@ Assigned → PickedUp → OutForDelivery → Delivered
 ### 8.2. Flow
 
 1. Nhập message → `POST /api/community/chat/messages`.
-2. **SignalR ChatHub** push đến customer real-time.
+2. **SignalR ChatHub** (`/hubs/chat` trên Gateway) push đến customer real-time.
 3. Message lưu DB (`Conversation` + `Message` entity) với timestamp, senderId, receiverId.
 4. Chat history load khi mở panel.
 
@@ -302,7 +305,7 @@ Login KhachLink → tab **"Ví"** — hiển thị:
 
 ### 10.3. Rút tiền
 
-Tương tự Salesman — KYC bank account + min 500.000đ + balance đủ. Xem [Salesman Section 7.2](./03-salesman.md#72-rút-tiền-withdrawal).
+Tương tự Salesman — KYC bank account + min 500.000đ (`MinWithdrawalAmount`) + balance đủ + **không có request Pending/Approved đang mở**. Xem [Salesman Section 7.2](./03-salesman.md#72-rút-tiền-withdrawal).
 
 ### 10.4. Reversal pattern
 

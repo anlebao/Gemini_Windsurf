@@ -1,8 +1,10 @@
 # HƯỚNG DẪN STAFF — NHÂN VIÊN QUẦY/POS
 
 > **Đối tượng:** Nhân viên quầy / POS của tenant (cửa hàng F&B) — role `Staff` trong UserRole enum.
-> **Đăng nhập:** Tài khoản Staff tại `https://khachvip.online` (ShopERP Blazor Server, cookie auth, role = Staff).
-> **Phạm vi:** Tenant của mình — xử lý order tại quầy, POS, hỗ trợ settlement.
+> **Đăng nhập:** Tài khoản Staff tại `https://app2.khachvip.online` (ShopERP Blazor Server, cookie auth, role = Staff).
+> **Phạm vi:** Tenant của mình — xử lý order tại quầy, POS, đặt lịch nhanh, hỗ trợ settlement.
+>
+> **Cập nhật 2026-10-19:** Đồng bộ route thực tế (`/orders`, `/pos`, `/pos/payment/{id}`, `/booking/create`, `/kitchen`) + UserRole mới + order flow configurable (#195).
 
 ---
 
@@ -23,11 +25,15 @@
 Staff là nhân viên quầy/POS của tenant — xử lý order từ customer (delivery + dine-in + takeaway), điều phối kitchen, hỗ trợ settlement với shipper/Vạn An.
 
 **UserRole enum (tenant RBAC — KHÔNG phải CommunityRole):**
-- Owner (chủ cửa hàng)
-- StoreKeeper (thủ kho)
-- Guard (bảo vệ)
-- **Staff** (nhân viên quầy/POS)
-- Masterchef (bếp trưởng)
+- Owner=1 (chủ cửa hàng)
+- StoreKeeper=2 (thủ kho)
+- Guard=3 (bảo vệ)
+- **Staff=4** (nhân viên quầy/POS)
+- Masterchef=5 (bếp trưởng)
+- ChiefAccountant=6 (kế toán trưởng — 2026-10-09)
+- DebtAccountant=7 (kế toán công nợ — 2026-10-09)
+
+> Menu "Vận hành" của Staff gồm: **POS** `/pos` · **Đặt lịch nhanh** `/booking/create` · **Bếp** `/kitchen` · **Đơn hàng** `/orders` — tất cả `Policy = "StaffOrAbove"`.
 
 > **Lưu ý:** Shipper/Salesman KHÔNG nằm trong UserRole enum — họ là CommunityRole (cross-tenant, tách biệt). Staff là role tenant-scoped.
 
@@ -41,7 +47,7 @@ Staff là nhân viên quầy/POS của tenant — xử lý order từ customer (
 
 ### 2.1. Truy cập
 
-Đăng nhập Staff → `/admin/orders` (hoặc trang Order Management tương ứng).
+Đăng nhập Staff → **`/orders`** (Orders/Index.razor — default filter `pending` + `today`, có bulk select/action bar, server-side pagination, booking-aware action labels). Chi tiết đơn: `/orders/{id}`.
 
 ### 2.2. Order types
 
@@ -56,19 +62,22 @@ Staff là nhân viên quầy/POS của tenant — xử lý order từ customer (
 1. Customer đặt hàng qua KhachLink → Order created trên Gateway PG (status=`confirmed` hoặc `pending`).
 2. NATS routed → ShopERP SQLite (replica).
 3. Staff thấy order mới trong Order Management (real-time qua OrderHub SignalR).
-4. Staff **confirm** order (nếu status=pending) → status=`confirmed` → kitchen nhận (KitchenHub push).
+4. Staff **confirm** order (nếu status=pending) → status=`confirmed` → kitchen nhận (/orderHub push).
 5. Kitchen chuẩn bị → status=`preparing` → xong → status=`ready`.
 6. Shipper thấy đơn `ready` trong Nearby Orders → accept → status=`delivering`.
 7. Shipper delivered → status=`completed`.
 
 ### 2.4. Tạo order POS (Dine-in/Takeaway)
 
-1. Staff bấm **Tạo đơn** → chọn products từ menu.
-2. Chọn OrderType (DINEIN/TAKEAWAY) + table (nếu dine-in).
-3. Nhập customer info (tên, SĐT — optional cho dine-in).
-4. Apply discount/promo (nếu có).
-5. **Confirm** → Order created → kitchen nhận (KitchenHub push).
-6. Customer thanh toán tại quầy (cash/card/QR) → Staff confirm payment.
+1. Staff mở **`/pos`** → chọn products từ menu (tap items).
+2. Cart hiện items/qty/price/total → nhập customer info (tên, SĐT — optional).
+3. Bấm **"Tạo đơn"** → `IOrderService.CreateOrderFromCommandAsync` (atomic outbox) → Order `SourceType="pos"` tạo trong ShopERP → sync lên Gateway PG.
+4. Redirect **`/pos/payment/{orderId}`** → customer trả tại quầy (cash/card/QR) → Staff confirm payment.
+5. Kitchen nhận qua `/orderHub` push (OrderCreated).
+
+### 2.5. Đặt lịch nhanh (Booking tại quầy)
+
+Staff tạo booking hộ khách tại **`/booking/create`** (POS-style: catalog → ngày/giờ slot → staff → thông tin khách → tạo). Vào hàng đợi `/booking/queue` như booking khách tự đặt.
 
 ---
 
@@ -76,16 +85,14 @@ Staff là nhân viên quầy/POS của tenant — xử lý order từ customer (
 
 ### 3.1. POS flow
 
-1. Staff mở POS page → chọn products (tap vào menu items).
+1. Staff mở **`/pos`** (POS/Create.razor) → chọn products (tap vào menu items).
 2. Cart hiển thị: items, qty, price, total.
-3. Chọn OrderType: DINEIN (chọn table) / TAKEAWAY.
-4. Apply promo code / discount (nếu có).
-5. Customer thanh toán:
+3. Bấm **"Tạo đơn"** → Order `SourceType="pos"` created.
+4. Redirect **`/pos/payment/{orderId}`** (POS/Payment.razor) → customer thanh toán:
    - **Cash:** Staff nhập amount nhận → tính thối.
-   - **Card:** Staff quẹt card / nhập amount.
-   - **QR (VietQR):** Customer quét QR → Staff confirm nhận tiền.
-6. **Confirm order** → Order created + payment confirmed → kitchen nhận.
-7. In bill / KOT (Kitchen Order Ticket) — optional.
+   - **QR:** Customer quét QR → Staff confirm nhận tiền.
+5. Payment confirmed → kitchen nhận (`/orderHub` push).
+6. In bill — trang `/orders/{id}/print` (PrintBill.razor).
 
 ### 3.2. POS vs Delivery
 
@@ -94,7 +101,7 @@ Staff là nhân viên quầy/POS của tenant — xử lý order từ customer (
 | Source | Staff tạo | Customer đặt qua KhachLink |
 | Payment | Tại quầy (cash/card/QR) | COD (shipper thu) hoặc online |
 | Shipper | Không cần | Cần shipper accept + giao |
-| Kitchen | KitchenHub push | KitchenHub push |
+| Kitchen | /orderHub push | /orderHub push |
 
 ---
 
@@ -104,6 +111,8 @@ Staff là nhân viên quầy/POS của tenant — xử lý order từ customer (
 pending → confirmed → preparing → ready → delivering → completed
                                                        ↘ cancelled
 ```
+
+> **Cập nhật (#195):** Flow **configurable per-tenant/per-source** (`OrderFlowProfile`) — booking/POS có thể dùng flow rút gọn. Các action trên trang `/orders` render động theo `AllowedNext` của flow đang áp dụng; mọi transition ghi `OrderStatusHistory`.
 
 | Status | Ai chuyển | Staff action |
 |---|---|---|
@@ -157,9 +166,9 @@ pending → confirmed → preparing → ready → delivering → completed
 
 ### 6.1. Với Kitchen
 
-- Staff tạo/confirm order → **KitchenHub push** real-time → bếp thấy order mới.
+- Staff tạo/confirm order → **`/orderHub` push** real-time (events `OrderCreated`/`OrderStatusChanged`/`PaymentConfirmed` — SignalR, host trên ShopERP) → bếp thấy order mới trên `/kitchen`.
 - Kitchen `ready` → Staff thấy status update → thông báo shipper/customer.
-- Nếu đổi món / hủy → Staff update order → KitchenHub push update.
+- Nếu đổi món / hủy → Staff update order → hub push update.
 
 ### 6.2. Với Shipper
 

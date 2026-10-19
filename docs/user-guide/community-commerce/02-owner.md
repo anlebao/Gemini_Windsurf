@@ -1,8 +1,10 @@
 # HƯỚNG DẪN SHOP OWNER — COMMUNITY COMMERCE
 
 > **Đối tượng:** Chủ cửa hàng / HKD (Hộ kinh doanh cá thể) — tenant trên hệ thống Vạn An.
-> **Đăng nhập:** Tài khoản Owner tại `https://khachvip.online` (ShopERP Blazor Server, cookie auth, role = Owner).
+> **Đăng nhập:** Tài khoản Owner tại `https://app2.khachvip.online` (ShopERP Blazor Server, cookie auth, role = Owner — apex `khachvip.online` cũng proxy về ShopERP).
 > **Phạm vi:** Tenant của mình (per-tenant) — KHÔNG thấy data tenant khác.
+>
+> **Cập nhật 2026-10-19:** Đồng bộ quyền truy cập thực tế — `/admin/featured-products` + `/admin/settlements` là SystemAdmin-only; order lifecycle bắt đầu `pending` + flow configurable (#195); tọa độ shop set qua `/admin/tenants`.
 
 ---
 
@@ -33,6 +35,8 @@ Owner là chủ cửa hàng F&B trên nền tảng Vạn An. Owner quản lý:
 - Orders + Accounting + Tenants trên **Gateway PG** (source of truth)
 - Products trên **per-tenant SQLite** (ShopERP)
 - Orders async-delivered qua NATS (routed by ShopInstanceId) → ShopERP SQLite (replica cho kitchen/POS display)
+
+**Menu Owner thấy trên ShopERP (ngoài phạm vi guide này):** Vận hành (POS/Bếp/Đơn hàng/Đặt lịch nhanh) · Kiểm kê (Báo cáo ca/Công thức/Nguyên liệu/Tồn kho/Cảnh báo/Dự báo) · Đặt lịch hẹn · Sản phẩm · Kế Toán · Hóa Đơn Điện Tử · CRM & Loyalty · Quản trị (người dùng/nhóm quyền) · Tài chính · Cấu hình & thiết lập (`/settings/shop-features`) · Thông báo. Chi tiết: Accounting Guide / Booking Guide / CRM-Loyalty Guide.
 
 **Hai mode thương mại:**
 | Mode | Vai trò Owner |
@@ -86,12 +90,12 @@ Owner quản lý products tại ShopERP Admin → `/products` (trang `ProductMan
 
 > **Quan trọng:** Salesman thấy products qua `GET /api/community/nearby-products` — query **FeaturedProducts trên Gateway PG** (PoC approach), KHÔNG query per-tenant SQLite.
 
-**Owner cần set Featured Products** để salesman thấy product của mình:
-- Truy cập `/admin/featured-products` (Owner thấy tenant của mình, SystemAdmin thấy tất cả).
-- Chọn product → set display name, display price, sort order.
+**Owner cần có Featured Products** để salesman thấy product của mình:
+- ⚠️ **Cập nhật:** Trang `/admin/featured-products` + `FeaturedProductsController` hiện là **SystemAdmin-only** (`Policy = "SystemAdmin"`) — Owner KHÔNG tự set được.
+- Owner đề nghị SystemAdmin tạo Featured Product cho product của mình: display name, display price, sort order.
 - Featured Product có tenant coordinates (từ TenantSettings) → salesman filter theo bán kính.
 
-**Lưu ý:** Product chưa có `ProductReferralConfig` (do SystemAdmin set) → salesman thấy "Chưa thiết lập" (commission/bonus = 0). Owner nên đề nghị SystemAdmin set config cho product hot.
+**Lưu ý:** Product chưa có `ProductReferralConfig` (do SystemAdmin set tại `/admin/product-referral-configs`) → salesman thấy "Chưa thiết lập" (commission/bonus = 0). Owner nên đề nghị SystemAdmin set config cho product hot.
 
 ---
 
@@ -101,15 +105,17 @@ Owner quản lý products tại ShopERP Admin → `/products` (trang `ProductMan
 
 ```
 Customer đặt hàng (KhachLink)
-   → Order created (Gateway PG, status=confirmed)
+   → Order created (Gateway PG, status=pending)
    → NATS routed → ShopERP SQLite (replica cho kitchen/POS)
-   → Owner/Staff thấy order trong Order Management
-   → Owner confirm (nếu cần) → status=confirmed
-   → Kitchen nhận (KitchenHub push) → status=preparing
+   → Owner/Staff thấy order trong Đơn hàng (/orders)
+   → Owner confirm → status=confirmed
+   → Kitchen nhận (/orderHub push) → status=preparing
    → Kitchen xong → status=ready
    → Shipper accept (UC-04) → status=delivering
    → Shipper delivered → status=completed
 ```
+
+> **Cập nhật (#195, 2026-10-19):** Chuỗi trạng thái giờ **configurable** per-tenant/per-source qua `OrderFlowProfile` — tenant có thể dùng flow rút gọn (vd booking). Trang `/orders` có bulk actions + pagination; trang chi tiết đơn hiển thị timeline `OrderStatusHistory` + các action động theo `AllowedNext`. Anchor `pending`/`completed`/`cancelled` bắt buộc.
 
 ### 4.2. Marketplace mode — Owner flow
 
@@ -162,7 +168,7 @@ Customer đặt hàng (KhachLink)
 
 ### 5.3. Xem settlement history
 
-> **Post-PoC:** Trang `/admin/settlements` chưa triển khai. Owner xem settlement tạm thời qua Gateway Admin API hoặc yêu cầu SystemAdmin query `WalletTransaction` type=Settlement/AdvancePayment. Planned cho Sprint 8+.
+> **Cập nhật:** Trang `/admin/settlements` **đã triển khai** nhưng **SystemAdmin-only** (`Policy = "SystemAdmin"`, menu Cộng tác viên → Lịch sử Settlement). Owner xem settlement của tenant mình bằng cách yêu cầu SystemAdmin tra trang đó hoặc query `WalletTransaction` type=Settlement/AdvancePayment/Remittance. Trang wallet/withdrawal cho Owner chưa có — yêu cầu rút tiền qua SystemAdmin (`/admin/withdrawals` — Duyệt rút tiền).
 
 ---
 
@@ -170,7 +176,7 @@ Customer đặt hàng (KhachLink)
 
 Owner điều phối giữa Kitchen (bếp) và Staff (quầy/POS):
 
-- **Kitchen Display:** Bếp thấy order mới (KitchenHub push real-time) → chuẩn bị → bấm "Ready".
+- **Kitchen Display:** Bếp thấy order mới (`/orderHub` push real-time + 5s polling fallback) → chuẩn bị → bấm "Ready".
 - **POS:** Staff nhận tiền tại quầy (dine-in/takeaway) → confirm order.
 - **Owner** oversee cả 2 + xử lý exception (đơn hủy, đổi món, hoàn tiền).
 
@@ -181,7 +187,7 @@ Owner điều phối giữa Kitchen (bếp) và Staff (quầy/POS):
 
 ## 7. TENANT SETTINGS (VỊ TRÍ, THEME, DELIVERY)
 
-> **Post-PoC:** Trang `/admin/tenant-settings` chưa triển khai. Owner cập nhật TenantSettings (Latitude/Longitude, Address, ShippingFee, Theme) tạm thời qua SystemAdmin (admin API) hoặc yêu cầu SystemAdmin set trực tiếp. Planned cho Sprint 8+.
+> **Cập nhật 2026-10-19:** Trang `/admin/tenant-settings` cho Owner vẫn chưa triển khai. Tọa độ/địa chỉ shop được set bởi **SystemAdmin tại `/admin/tenants`** (TenantManagement có sẵn field Latitude/Longitude/Address). Owner tự quản trị được phần feature flags per-tenant tại **`/settings/shop-features`** (menu Cấu hình & thiết lập → Cấu hình tính năng Shop) — điều kiện CTV, loyalty/notification toggles…
 
 ### 7.1. Vị trí shop (QUAN TRỌNG cho Shipper Nearby Orders)
 
@@ -236,10 +242,10 @@ A: KHÔNG. Vạn An ứng tiền cho bạn (AdvancePayment). Bạn chỉ cần g
 A: KHÔNG. Commission salesman do Vạn An trả (từ margin Reseller, hoặc từ commission fund Marketplace). Owner nhận đầy đủ CostPrice (Reseller) hoặc TotalAmount - ShippingFee (Marketplace).
 
 **Q: Product của tôi không hiện trong Salesman Nearby Products?**
-A: Bạn cần set product làm **Featured Product** (`/admin/featured-products`) + đề nghị SystemAdmin set `ProductReferralConfig` (commission + bonus).
+A: Product cần là **Featured Product** + có `ProductReferralConfig` (commission + bonus). Cả hai đều do **SystemAdmin** set (`/admin/featured-products` + `/admin/product-referral-configs`) — Owner đề nghị SystemAdmin cấu hình.
 
 **Q: Shipper không thấy shop location trên map?**
-A: Bạn chưa set Latitude/Longitude trong TenantSettings. Liên hệ SystemAdmin set tọa độ shop (trang `/admin/tenant-settings` chưa triển khai — Post-PoC).
+A: Shop chưa có Latitude/Longitude trong TenantSettings. Liên hệ **SystemAdmin set tọa độ tại `/admin/tenants`** (trang tenant-settings riêng cho Owner chưa triển khai).
 
 **Q: Đơn COD tôi nhận tiền khi nào?**
 A: Marketplace: shipper confirm COD → settlement → bạn xác nhận nhận tiền. Reseller: Vạn An nhận COD → settlement qua Vạn An wallet → bạn rút từ wallet.

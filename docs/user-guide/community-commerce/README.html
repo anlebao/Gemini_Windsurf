@@ -6,170 +6,315 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <title>Hướng dẫn sử dụng Community Commerce — Vạn An Ecosystem</title>
   <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+    <style type="text/css">
+  @page { margin: 1.5cm 2cm; }
+  * { box-sizing: border-box; }
+  body {
+  font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.55;
+  color: #1f2937;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  background: #fff;
+  }
+  h1 {
+  font-size: 22pt;
+  color: #0f766e;
+  border-bottom: 3px solid #0f766e;
+  padding-bottom: 0.4rem;
+  margin-top: 0;
+  }
+  h2 {
+  font-size: 16pt;
+  color: #0f766e;
+  border-left: 4px solid #14b8a6;
+  padding-left: 0.6rem;
+  margin-top: 2rem;
+  page-break-after: avoid;
+  }
+  h3 {
+  font-size: 13pt;
+  color: #334155;
+  margin-top: 1.4rem;
+  page-break-after: avoid;
+  }
+  h4 {
+  font-size: 11.5pt;
+  color: #475569;
+  margin-top: 1rem;
+  page-break-after: avoid;
+  }
+  p { margin: 0.5rem 0; }
+  a { color: #0f766e; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+  background: #f1f5f9;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-size: 9.5pt;
+  color: #be123c;
+  }
+  pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 9.5pt;
+  line-height: 1.4;
+  }
+  pre code { background: transparent; color: inherit; padding: 0; }
+  blockquote {
+  border-left: 4px solid #14b8a6;
+  background: #f0fdfa;
+  padding: 0.6rem 1rem;
+  margin: 1rem 0;
+  color: #134e4a;
+  border-radius: 0 4px 4px 0;
+  }
+  blockquote p { margin: 0.3rem 0; }
+  table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  font-size: 10pt;
+  page-break-inside: avoid;
+  }
+  th {
+  background: #0f766e;
+  color: #fff;
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  font-weight: 600;
+  border: 1px solid #0f766e;
+  }
+  td {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #e2e8f0;
+  vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f8fafc; }
+  tr:hover td { background: #f0fdfa; }
+  hr {
+  border: none;
+  border-top: 1px solid #cbd5e1;
+  margin: 2rem 0;
+  }
+  ul, ol { padding-left: 1.5rem; }
+  li { margin: 0.25rem 0; }
+  strong { color: #0f172a; }
 
-span.smallcaps{font-variant: small-caps;}
-div.columns{display: flex; gap: 1.5em;}
-div.column{flex: auto;}
-@media screen {
-div.columns{gap: min(4vw, 1.5em);}
-div.column{overflow-x: auto;}
-}
-div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  h2 + ul, h2 + ol { page-break-before: avoid; }
 
-ul.task-list[class]{list-style: none;}
-ul.task-list li input[type="checkbox"] {
-font-size: inherit;
-width: 0.8em;
-margin: 0 0.8em 0.2em -1.6em;
-vertical-align: middle;
-}
-.display.math{display: block; text-align: center; margin: 0.5rem auto;}
-</style>
-  <style type="text/css">
-@page { margin: 1.5cm 2cm; }
-* { box-sizing: border-box; }
-body {
-font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-font-size: 11pt;
-line-height: 1.55;
-color: #1f2937;
-max-width: 900px;
-margin: 0 auto;
-padding: 2rem 1rem;
-background: #fff;
-}
-h1 {
-font-size: 22pt;
-color: #0f766e;
-border-bottom: 3px solid #0f766e;
-padding-bottom: 0.4rem;
-margin-top: 0;
-}
-h2 {
-font-size: 16pt;
-color: #0f766e;
-border-left: 4px solid #14b8a6;
-padding-left: 0.6rem;
-margin-top: 2rem;
-page-break-after: avoid;
-}
-h3 {
-font-size: 13pt;
-color: #334155;
-margin-top: 1.4rem;
-page-break-after: avoid;
-}
-h4 {
-font-size: 11.5pt;
-color: #475569;
-margin-top: 1rem;
-page-break-after: avoid;
-}
-p { margin: 0.5rem 0; }
-a { color: #0f766e; text-decoration: none; }
-a:hover { text-decoration: underline; }
-code {
-font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
-background: #f1f5f9;
-padding: 0.1rem 0.35rem;
-border-radius: 3px;
-font-size: 9.5pt;
-color: #be123c;
-}
-pre {
-background: #0f172a;
-color: #e2e8f0;
-padding: 1rem;
-border-radius: 6px;
-overflow-x: auto;
-font-size: 9.5pt;
-line-height: 1.4;
-}
-pre code { background: transparent; color: inherit; padding: 0; }
-blockquote {
-border-left: 4px solid #14b8a6;
-background: #f0fdfa;
-padding: 0.6rem 1rem;
-margin: 1rem 0;
-color: #134e4a;
-border-radius: 0 4px 4px 0;
-}
-blockquote p { margin: 0.3rem 0; }
-table {
-border-collapse: collapse;
-width: 100%;
-margin: 1rem 0;
-font-size: 10pt;
-page-break-inside: avoid;
-}
-th {
-background: #0f766e;
-color: #fff;
-text-align: left;
-padding: 0.55rem 0.7rem;
-font-weight: 600;
-border: 1px solid #0f766e;
-}
-td {
-padding: 0.5rem 0.7rem;
-border: 1px solid #e2e8f0;
-vertical-align: top;
-}
-tr:nth-child(even) td { background: #f8fafc; }
-tr:hover td { background: #f0fdfa; }
-hr {
-border: none;
-border-top: 1px solid #cbd5e1;
-margin: 2rem 0;
-}
-ul, ol { padding-left: 1.5rem; }
-li { margin: 0.25rem 0; }
-strong { color: #0f172a; }
-
-h2 + ul, h2 + ol { page-break-before: avoid; }
-
-@media print {
-body { font-size: 10pt; max-width: none; padding: 0; }
-h2 { page-break-before: auto; }
-table, pre, blockquote { page-break-inside: avoid; }
-a { color: #0f766e; }
-}
-</style>
+  @media print {
+  body { font-size: 10pt; max-width: none; padding: 0; }
+  h2 { page-break-before: auto; }
+  table, pre, blockquote { page-break-inside: avoid; }
+  a { color: #0f766e; }
+  }
+  </style>
 </head>
 <body>
 <header id="title-block-header">
 <h1 class="title">Hướng dẫn sử dụng Community Commerce — Vạn An
 Ecosystem</h1>
 </header>
-<h1 id="hướng-dẫn-sử-dụng-community-commerce-vạn-an-ecosystem">HƯỚNG DẪN
-SỬ DỤNG COMMUNITY COMMERCE — VẠN AN ECOSYSTEM</h1>
+<h1 id="hướng-dẫn-sử-dụng-community-commerce--vạn-an-ecosystem">HƯỚNG
+DẪN SỬ DỤNG COMMUNITY COMMERCE — VẠN AN ECOSYSTEM</h1>
 <blockquote>
 <p><strong>Phiên bản:</strong> PoC v1.5 + Sprint 7 Commerce Mode Toggle
-+ KhachLink Multi-Profile + Customer Onboarding + GTM Drill Machine —
-cập nhật 2026-09-09 <strong>Áp dụng:</strong> Community Commerce Sprint
-0-7 (đã deploy + VPS verified) + KhachLink Profile Transition UX Sprint
-1-3 (PR #170) + Customer Onboarding via Google Login (PR #171) +
-Admin/Owner Override (PR #172) + GTM Drill Machine W1-W2. <strong>Phạm
-vi:</strong> Module Shipper/Salesman (Community Commerce) + Commerce
-Mode Toggle (Marketplace ↔︎ Reseller) + KhachLink Multi-Profile
-(FullCommerce ↔︎ Directory) + GTM Drill Machine — “Mua giúp — Bán dùm”.
-<strong>Nền tảng:</strong> KhachLink PWA (Blazor WebAssembly,
-<code>diemthuong2.khachvip.online</code> — FullCommerce,
++ KhachLink Multi-Profile + Customer Onboarding + GTM Drill Machine +
+Booking + Order Flow configurable — cập nhật 2026-10-19 <strong>Áp
+dụng:</strong> Community Commerce Sprint 0-7 (đã deploy + VPS verified)
++ KhachLink Profile Transition UX Sprint 1-3 (PR #170) + Customer
+Onboarding via Google Login (PR #171) + Admin/Owner Override (PR #172) +
+GTM Drill Machine W1-W2 + Appointment Booking (MVP) + Order Flow
+configurable (#195). <strong>Phạm vi:</strong> Module Shipper/Salesman
+(Community Commerce) + Commerce Mode Toggle (Marketplace ↔︎ Reseller) +
+KhachLink Multi-Profile (FullCommerce ↔︎ Directory) + GTM Drill Machine —
+"Mua giúp — Bán dùm". <strong>Nền tảng:</strong> KhachLink PWA (Blazor
+WebAssembly, <code>diemthuong2.khachvip.online</code> — FullCommerce,
 <code>commienphi.timlathay.com</code> — Reseller) + KhachLink Directory
 (Blazor SSR, <code>timlathay.com</code> — Directory profile) + ShopERP
-Admin (Blazor Server, <code>khachvip.online</code>). Multi-VPS:
+Admin (Blazor Server, <code>app2.khachvip.online</code>). Multi-VPS:
 <code>vanan-gateway</code> + <code>vanan-shop-a</code> +
-<code>vanan-khachlink</code>.</p>
+<code>vanan-khachlink</code> +
+<code>vanan-khachlink-20260815-timlathay-com</code>.</p>
 </blockquote>
 <hr />
 <h2 id="mục-lục">MỤC LỤC</h2>
 <table>
-<colgroup>
-<col style="width: 25%" />
-<col style="width: 25%" />
-<col style="width: 25%" />
-<col style="width: 25%" />
-</colgroup>
 <thead>
 <tr>
 <th>#</th>
@@ -197,13 +342,13 @@ thống</a></td>
 <td><a href="./03-salesman.md">Salesman — Cộng tác viên bán
 hàng</a></td>
 <td><code>03-salesman.md</code></td>
-<td>KhachLink PWA — tab “Sản phẩm gần”, “Mã QR”, “Doanh số”</td>
+<td>KhachLink PWA — tab "Sản phẩm gần", "Mã QR", "Doanh số"</td>
 </tr>
 <tr>
 <td>4</td>
 <td><a href="./04-shipper.md">Shipper — Cộng tác viên giao hàng</a></td>
 <td><code>04-shipper.md</code></td>
-<td>KhachLink PWA — tab “Đơn hàng gần”, “Đang giao”, “Ví”</td>
+<td>KhachLink PWA — tab "Đơn hàng gần", "Đang giao", "Ví"</td>
 </tr>
 <tr>
 <td>5</td>
@@ -215,7 +360,8 @@ hàng</a></td>
 <td>6</td>
 <td><a href="./06-kitchen.md">Bếp / Kitchen</a></td>
 <td><code>06-kitchen.md</code></td>
-<td>ShopERP Admin — Kitchen Display + KitchenHub</td>
+<td>ShopERP Admin — Kitchen Display <code>/kitchen</code> +
+OrderHub</td>
 </tr>
 <tr>
 <td>7</td>
@@ -227,7 +373,7 @@ hàng</a></td>
 </tbody>
 </table>
 <hr />
-<h2 id="tổng-quan-kiến-trúc">1. TỔNG QUAN KIẾN TRÚC</h2>
+<h2 id="1-tổng-quan-kiến-trúc">1. TỔNG QUAN KIẾN TRÚC</h2>
 <pre><code>┌─────────────────────────────────────────────────────────────────────┐
 │  KhachLink PWA (5002) — Blazor WebAssembly                          │
 │  Customer + Salesman + Shipper (cùng 1 app, role quyết định tab)    │
@@ -254,23 +400,20 @@ hàng</a></td>
 │  Business data: Products, Kitchen, POS, Accounting (per-tenant)     │
 │  Admin pages: /admin/* (SystemAdmin thấy tất cả, Owner thấy tenant) │
 └─────────────────────────────────────────────────────────────────────┘</code></pre>
-<p><strong>Auth model:</strong> -
-<strong>Customer/Salesman/Shipper:</strong>
+<p><strong>Auth model:</strong></p>
+<ul>
+<li><strong>Customer/Salesman/Shipper:</strong>
 <code>X-Customer-Token</code> (custom token, không cookie) — 1 user có
-thể đồng thời là Buyer + Salesman + Shipper. -
-<strong>Owner/Staff/Kitchen:</strong> Cookie auth + role claims
-(Owner/StoreKeeper/Guard/Staff/Masterchef) — tenant-scoped. -
-<strong>System Admin:</strong> Cookie auth + role = SystemAdmin —
-cross-tenant.</p>
+thể đồng thời là Buyer + Salesman + Shipper.</li>
+<li><strong>Owner/Staff/Kitchen:</strong> Cookie auth + role claims
+(Owner/StoreKeeper/Guard/Staff/Masterchef) — tenant-scoped.</li>
+<li><strong>System Admin:</strong> Cookie auth + role = SystemAdmin —
+cross-tenant.</li>
+</ul>
 <hr />
-<h2 id="hai-mô-hình-thương-mại-sprint-7-commerce-mode-toggle">2. HAI MÔ
-HÌNH THƯƠNG MẠI (Sprint 7 — Commerce Mode Toggle)</h2>
+<h2 id="2-hai-mô-hình-thương-mại-sprint-7--commerce-mode-toggle">2. HAI
+MÔ HÌNH THƯƠNG MẠI (Sprint 7 — Commerce Mode Toggle)</h2>
 <table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
 <thead>
 <tr>
 <th>Khía cạnh</th>
@@ -324,27 +467,32 @@ HÌNH THƯƠNG MẠI (Sprint 7 — Commerce Mode Toggle)</h2>
 <p><strong>Toggle mechanism:</strong> Global setting (SystemAdmin) +
 override cấp tenant. Mỗi Order snapshot <code>CommerceMode</code> tại
 creation time — toggle chỉ ảnh hưởng đơn hàng mới.</p>
-<p><strong>Quy tắc ưu tiên mode:</strong> 1.
-<code>TenantSettings.CommerceModeOverride</code> ≠ <code>Inherit</code>
-→ dùng override 2. <code>TenantSettings.CommerceModeOverride</code> ==
-<code>Inherit</code> → dùng <code>GlobalCommerceMode</code> 3. Past
-orders giữ mode snapshot — KHÔNG thay đổi khi toggle</p>
+<p><strong>Quy tắc ưu tiên mode:</strong></p>
+<ol type="1">
+<li><code>TenantSettings.CommerceModeOverride</code> ≠
+<code>Inherit</code> → dùng override</li>
+<li><code>TenantSettings.CommerceModeOverride</code> ==
+<code>Inherit</code> → dùng <code>GlobalCommerceMode</code></li>
+<li>Past orders giữ mode snapshot — KHÔNG thay đổi khi toggle</li>
+</ol>
 <hr />
-<h2 id="điều-kiện-kích-hoạt-vai-trò-cộng-tác-viên">3. ĐIỀU KIỆN KÍCH
+<h2 id="3-điều-kiện-kích-hoạt-vai-trò-cộng-tác-viên">3. ĐIỀU KIỆN KÍCH
 HOẠT VAI TRÒ CỘNG TÁC VIÊN</h2>
 <p>Một Customer có thể trở thành Salesman hoặc Shipper khi đạt điều
 kiện. <strong>System Admin</strong> là người kích hoạt.</p>
-<h3 id="khi-collaboratorsmsverificationenabled-off-mặc-định-early-stage">3.1.
+<h3
+id="31-khi-collaboratorsmsverificationenabled--off-mặc-định--early-stage">3.1.
 Khi <code>CollaboratorSmsVerificationEnabled = OFF</code> (mặc định —
 early stage)</h3>
 <ul>
 <li><strong>Shipper/Salesman:</strong>
-<code>IdentityLevel ≥ DeviceVerified</code> (device fingerprint pass)
-<strong>HOẶC</strong> <code>IdentityLevel ≥ Verified</code> (SMS OTP) +
-<code>LoyaltyPoints ≥ 1000</code></li>
+<code>IdentityLevel ≥ Verified</code> (2 — đã bao gồm
+<code>DeviceVerified</code>=4) <strong>VÀ</strong>
+<code>LoyaltyPoints ≥ ngưỡng per-tenant</code> (default 1000 —
+<code>Community_*MinPoints</code> trong ShopFeatureSettings)</li>
 <li>Mục tiêu: friction thấp, tối đa hóa số cộng tác viên</li>
 </ul>
-<h3 id="khi-collaboratorsmsverificationenabled-on-scale-đủ">3.2. Khi
+<h3 id="32-khi-collaboratorsmsverificationenabled--on-scale-đủ">3.2. Khi
 <code>CollaboratorSmsVerificationEnabled = ON</code> (scale đủ)</h3>
 <ul>
 <li><strong>Shipper/Salesman:</strong>
@@ -360,14 +508,9 @@ mới</li>
 <p><strong>Lưu ý:</strong> Customer KHÔNG bị ảnh hưởng bởi toggle —
 customer luôn optional SMS OTP (device fingerprint là primary).</p>
 </blockquote>
-<h3 id="identitylevel-thứ-bậc-định-danh">3.3. IdentityLevel (thứ bậc
+<h3 id="33-identitylevel-thứ-bậc-định-danh">3.3. IdentityLevel (thứ bậc
 định danh)</h3>
 <table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
 <thead>
 <tr>
 <th>Level</th>
@@ -406,15 +549,11 @@ tích điểm.</td>
 </tbody>
 </table>
 <hr />
-<h2 id="anti-fraud-5-lớp-phòng-thủ-self-hosted-zero-external-dependency">4.
+<h2
+id="4-anti-fraud--5-lớp-phòng-thủ-self-hosted-zero-external-dependency">4.
 ANTI-FRAUD — 5 LỚP PHÒNG THỦ (Self-hosted, zero external
 dependency)</h2>
 <table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
 <thead>
 <tr>
 <th>Lớp</th>
@@ -466,8 +605,8 @@ appInstallTime&lt;30s (+40), blacklistedFingerprint (+60).</p>
 RiskScore≥60. Auto-reject if ≥80. KYC bank account required. Min payout
 500K VND. 3-strike ban.</p>
 <hr />
-<h2 id="salesman-earning-model-2-nguồn-thu">5. SALESMAN EARNING MODEL (2
-nguồn thu)</h2>
+<h2 id="5-salesman-earning-model-2-nguồn-thu">5. SALESMAN EARNING MODEL
+(2 nguồn thu)</h2>
 <p>Cả 2 nguồn do <strong>SystemAdmin thiết lập per-product</strong> qua
 <code>ProductReferralConfig</code> (KHÔNG hardcode):</p>
 <ol type="1">
@@ -484,15 +623,11 @@ referralCode trong localStorage khi trigger PWA install event.</li>
 localStorage → gửi khi order creation → server resolve salesmanId +
 productId.</p>
 <hr />
-<h2 id="wallet-dòng-tiền">6. WALLET &amp; DÒNG TIỀN</h2>
-<h3 id="wallettransaction-types-immutable-ledger-reversal-pattern">6.1.
+<h2 id="6-wallet--dòng-tiền">6. WALLET &amp; DÒNG TIỀN</h2>
+<h3
+id="61-wallettransaction-types-immutable-ledger--reversal-pattern">6.1.
 WalletTransaction types (immutable ledger + Reversal pattern)</h3>
 <table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
 <thead>
 <tr>
 <th>Type</th>
@@ -556,16 +691,35 @@ WalletTransaction types (immutable ledger + Reversal pattern)</h3>
 <td>Reseller</td>
 <td>SysAdmin rút quỹ tái đầu tư</td>
 </tr>
+<tr>
+<td>Deposit (12)</td>
+<td>Cả 2</td>
+<td>Collaborator nạp deposit (SMS OTP fees)</td>
+</tr>
+<tr>
+<td>SmsOtpFee (13)</td>
+<td>Cả 2</td>
+<td>Phí SMS OTP trừ deposit wallet</td>
+</tr>
+<tr>
+<td>Remittance (14)</td>
+<td>Cả 2</td>
+<td>Shipper nộp tiền COD thu hộ về chủ sở hữu</td>
+</tr>
 </tbody>
 </table>
-<h3 id="reseller-cod-flow-6-transactions">6.2. Reseller COD Flow (6
+<h3 id="62-reseller-cod-flow-6-transactions">6.2. Reseller COD Flow (6
 transactions)</h3>
 <p>Khi shipper confirm COD trong mode Reseller, Vạn An tạo 6
-transactions: 1. CODCollection (+COD amount vào shipper wallet) 2.
-Settlement (-COD amount, chuyển cho shop) 3. DeliveryFee (+delivery fee
-vào shipper wallet) 4. Commission (+commission vào salesman wallet, nếu
-có) 5. PlatformFee (+platform fee vào platform wallet) 6. CommunityFund
-(+community fund vào community fund wallet)</p>
+transactions:</p>
+<ol type="1">
+<li>CODCollection (+COD amount vào shipper wallet)</li>
+<li>Settlement (-COD amount, chuyển cho shop)</li>
+<li>DeliveryFee (+delivery fee vào shipper wallet)</li>
+<li>Commission (+commission vào salesman wallet, nếu có)</li>
+<li>PlatformFee (+platform fee vào platform wallet)</li>
+<li>CommunityFund (+community fund vào community fund wallet)</li>
+</ol>
 <p><strong>Financial balance invariant:</strong> Tổng tất cả tx amounts
 = COD amount collected.</p>
 <blockquote>
@@ -574,15 +728,15 @@ khách — có thể khác số tiền trên đơn (trả thiếu/thừa, làm t
 nhận không bị chặn; chênh lệch được log để admin đối soát.</p>
 </blockquote>
 <hr />
-<h2 id="câu-hỏi-thường-gặp-faq-rút-gọn">7. CÂU HỎI THƯỜNG GẶP (FAQ RÚT
+<h2 id="7-câu-hỏi-thường-gặp-faq-rút-gọn">7. CÂU HỎI THƯỜNG GẶP (FAQ RÚT
 GỌN)</h2>
 <p><strong>Q: Tôi có thể vừa là Customer vừa là Salesman/Shipper
 không?</strong> A: CÓ. Một user có thể đồng thời là Buyer + Salesman +
 Shipper. Role cộng tác viên do System Admin kích hoạt khi đủ điều kiện
 (xem Section 3).</p>
 <p><strong>Q: GPS tracking có hoạt động khi tắt app không?</strong> A:
-KHÔNG. PWA chỉ track GPS khi tab active. Thông báo “Giữ app mở để cập
-nhật vị trí”. Post-PoC sẽ đánh giá native app cho background GPS.</p>
+KHÔNG. PWA chỉ track GPS khi tab active. Thông báo "Giữ app mở để cập
+nhật vị trí". Post-PoC sẽ đánh giá native app cho background GPS.</p>
 <p><strong>Q: Đổi mode Marketplace ↔︎ Reseller có ảnh hưởng đơn cũ
 không?</strong> A: KHÔNG. Mỗi Order snapshot mode tại creation time.
 Toggle chỉ ảnh hưởng đơn hàng mới.</p>
@@ -593,15 +747,10 @@ Collaborator (Salesman/Shipper/Owner) mới bị thu phí khi toggle ON.</p>
 commission chốt đơn (2-5%) + app-install bonus. Cả 2 do SystemAdmin set
 per-product.</p>
 <hr />
-<h2 id="khachlink-multi-profile-fullcommerce-directory-pr-170">8.
+<h2 id="8-khachlink-multi-profile-fullcommerce--directory--pr-170">8.
 KHACHLINK MULTI-PROFILE (FullCommerce ↔︎ Directory) — PR #170</h2>
 <p>KhachLink chạy 2 profile khác nhau tùy tenant:</p>
 <table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
 <thead>
 <tr>
 <th>Khía cạnh</th>
@@ -643,28 +792,33 @@ KHACHLINK MULTI-PROFILE (FullCommerce ↔︎ Directory) — PR #170</h2>
 </tr>
 </tbody>
 </table>
-<p><strong>Profile Transition UX (Sprint 1-3, PR #170):</strong> -
-<strong>ProfileGuard.razor</strong> — route guard 7 trang commerce
+<p><strong>Profile Transition UX (Sprint 1-3, PR #170):</strong></p>
+<ul>
+<li><strong>ProfileGuard.razor</strong> — route guard 7 trang commerce
 (cart, checkout, tracking, wallet, v.v.) → redirect về Home nếu tenant
-là Directory. - <strong>Profile indicator footer</strong> — hiển thị
-profile hiện tại (FullCommerce/Directory) trên KhachLinkLayout. -
-<strong>What’s New banner</strong> — thông báo 1 chiều khi admin đổi
-profile (FullCommerce→Directory: “tính năng commerce sẽ bị ẩn”;
-Directory→FullCommerce: “tính năng commerce đã mở”). - <strong>Cart
-preservation modal</strong> — khi FullCommerce→Directory + cart có items
-→ modal cảnh báo trước khi chuyển. - <strong>Onboarding tour</strong>
-(driver.js, vendored) — 3-step tour (cart→rewards→stores) khi
-Directory→FullCommerce, 1× per profile. - <strong>Audit trail</strong> —
+là Directory.</li>
+<li><strong>Profile indicator footer</strong> — hiển thị profile hiện
+tại (FullCommerce/Directory) trên KhachLinkLayout.</li>
+<li><strong>What's New banner</strong> — thông báo 1 chiều khi admin đổi
+profile (FullCommerce→Directory: "tính năng commerce sẽ bị ẩn";
+Directory→FullCommerce: "tính năng commerce đã mở").</li>
+<li><strong>Cart preservation modal</strong> — khi
+FullCommerce→Directory + cart có items → modal cảnh báo trước khi
+chuyển.</li>
+<li><strong>Onboarding tour</strong> (driver.js, vendored) — 3-step tour
+(cart→rewards→stores) khi Directory→FullCommerce, 1× per profile.</li>
+<li><strong>Audit trail</strong> —
 <code>KhachLinkInstanceAudit.razor</code>
 (<code>/admin/khachlink-instances/{id}/audit</code>) + AuditTrail.razor
 summary cards. Hybrid persist: Accounting SYNC, Security+KhachLink ASYNC
-(AuditLogQueue + AuditLogBackgroundWriter).</p>
+(AuditLogQueue + AuditLogBackgroundWriter).</li>
+</ul>
 <p><strong>Owner/Admin đổi profile:</strong> qua
 <code>/admin/khachlink-instances</code> (SystemAdmin) — set
 <code>ProfileType</code> enum. Customer thấy thay đổi sau SW update
 (<code>vananTriggerSWUpdate()</code>).</p>
 <hr />
-<h2 id="customer-onboarding-via-google-login-pr-171">9. CUSTOMER
+<h2 id="9-customer-onboarding-via-google-login--pr-171">9. CUSTOMER
 ONBOARDING VIA GOOGLE LOGIN — PR #171</h2>
 <p>Customer đăng nhập Google lần đầu → tự động được gán đúng tenant theo
 domain:</p>
@@ -683,16 +837,10 @@ duplicate customer trên tenant khác).</li>
 <p><strong>RV (2026-09-09):</strong> L1-L2 PASS. L3-L5 manual pending
 (cần Google login thật trên <code>commienphi.timlathay.com</code>).</p>
 <hr />
-<h2 id="adminowner-override-pr-172">10. ADMIN/OWNER OVERRIDE — PR
+<h2 id="10-adminowner-override--pr-172">10. ADMIN/OWNER OVERRIDE — PR
 #172</h2>
 <p>Kích hoạt role cộng tác viên có 2 path + bypass eligibility:</p>
 <table>
-<colgroup>
-<col style="width: 25%" />
-<col style="width: 25%" />
-<col style="width: 25%" />
-<col style="width: 25%" />
-</colgroup>
 <thead>
 <tr>
 <th>Path</th>
@@ -716,32 +864,40 @@ duplicate customer trên tenant khác).</li>
 </tr>
 </tbody>
 </table>
-<p><strong>Tính năng (cả 2 panel):</strong> - Toggle <strong>“Hiển thị
-tất cả khách hàng”</strong> (<code>includeIneligible=true</code>) — xem
-cả customer chưa đủ điều kiện. - <strong>Bypass eligibility</strong> —
-body <code>{&quot;role&quot;:&quot;Shipper&quot;,&quot;bypassEligibility&quot;:true}</code> → kích
-hoạt bỏ qua check IdentityLevel/LoyaltyPoints. - <strong>Confirm
-dialog</strong> trước khi activate. - API:
+<p><strong>Tính năng (cả 2 panel):</strong></p>
+<ul>
+<li>Toggle <strong>"Hiển thị tất cả khách hàng"</strong>
+(<code>includeIneligible=true</code>) — xem cả customer chưa đủ điều
+kiện.</li>
+<li><strong>Bypass eligibility</strong> — body
+<code>{"role":"Shipper","bypassEligibility":true}</code> → kích hoạt bỏ
+qua check IdentityLevel/LoyaltyPoints.</li>
+<li><strong>Confirm dialog</strong> trước khi activate.</li>
+<li>API:
 <code>GET /api/admin/community/eligible?includeIneligible=true</code> +
 <code>POST /api/admin/community/{id}/activate-role</code> (SystemAdmin)
 hoặc <code>GET /api/v1/tenant-community/eligible</code> +
 <code>POST /api/v1/tenant-community/{id}/activate-role</code> (Owner
-tenant-scoped).</p>
+tenant-scoped).</li>
+</ul>
 <hr />
-<h2 id="gtm-drill-machine-w1-w2-lead-generation">11. GTM DRILL MACHINE
-(W1-W2) — Lead Generation</h2>
+<h2 id="11-gtm-drill-machine-w1-w2--lead-generation">11. GTM DRILL
+MACHINE (W1-W2) — Lead Generation</h2>
 <p><strong>W1 — Merchant Audit:</strong> Directory
 <code>/kiem-tra-cua-hang</code> (Blazor SSR) + Gateway
 <code>GET /api/v1/growth/audit?name=&amp;mst=</code> (rate-limit
 10/IP/h) — tenant check trạng thái active/pending privacy.</p>
-<p><strong>W2 — Interactive Demo + Registration:</strong> - KhachLink
-<code>/demo</code> — standalone storefront mock (session-only, không
-persist). - KhachLink <code>/claim</code> (<code>Register.razor</code>)
-— form đăng ký tenant mới + Turnstile + honeypot. -
-<code>POST /api/v1/tenant-registrations</code> (AllowAnonymous,
+<p><strong>W2 — Interactive Demo + Registration:</strong></p>
+<ul>
+<li>KhachLink <code>/demo</code> — standalone storefront mock
+(session-only, không persist).</li>
+<li>KhachLink <code>/claim</code> (<code>Register.razor</code>) — form
+đăng ký tenant mới + Turnstile + honeypot.</li>
+<li><code>POST /api/v1/tenant-registrations</code> (AllowAnonymous,
 rate-limit 5/IP/24h) → tạo <code>TenantRegistration</code> entity (PG
-migration <code>20260908023803</code>). - E2E
-<code>gtm-demo.spec.ts</code> 6/6 PASS trên production.</p>
+migration <code>20260908023803</code>).</li>
+<li>E2E <code>gtm-demo.spec.ts</code> 6/6 PASS trên production.</li>
+</ul>
 <p><strong>W3 NEXT:</strong> Revenue Proof (counters trên tenant
 GrowthDashboard) → W4 Referral → W5 consent + flag
 <code>GrowthMachine:Enabled</code>.</p>

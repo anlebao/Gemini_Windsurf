@@ -1,8 +1,10 @@
 # HƯỚNG DẪN BẾP / KITCHEN — KITCHEN DISPLAY
 
 > **Đối tượng:** Bếp / Kitchen Staff — role `Masterchef` (bếp trưởng) hoặc nhân viên bếp trong tenant.
-> **Đăng nhập:** Tài khoản Masterchef/Kitchen tại `https://khachvip.online` (ShopERP Blazor Server, cookie auth).
-> **Phạm vi:** Tenant của mình — nhận order từ POS + Delivery, chuẩn bị, báo ready.
+> **Đăng nhập:** Tài khoản Masterchef/Kitchen tại `https://app2.khachvip.online` (ShopERP Blazor Server, cookie auth).
+> **Phạm vi:** Tenant của mình — nhận order từ POS + Delivery + Booking, chuẩn bị, báo ready.
+>
+> **Cập nhật 2026-10-19:** Route thực tế `/kitchen`; realtime qua **`/orderHub`** (ShopERP) chứ không phải KitchenHub riêng; order flow configurable (#195).
 
 ---
 
@@ -10,7 +12,7 @@
 
 1. [Tổng quan vai trò](#1-tổng-quan-vai-trò)
 2. [Kitchen Display System (KDS)](#2-kitchen-display-system-kds)
-3. [Nhận order real-time (KitchenHub)](#3-nhận-order-real-time-kitchenhub)
+3. [Nhận order real-time (OrderHub)](#3-nhận-order-real-time-orderhub)
 4. [Order status transitions (Kitchen perspective)](#4-order-status-transitions-kitchen-perspective)
 5. [Báo ready — thông báo shipper/staff](#5-báo-ready--thông-báo-shipperstaff)
 6. [Coordination với Staff + Shipper](#6-coordination-với-staff--shipper)
@@ -20,9 +22,10 @@
 
 ## 1. TỔNG QUAN VAI TRÒ
 
-Bếp/Kitchen nhận order từ 2 nguồn:
-- **POS (Dine-in/Takeaway):** Staff tạo order tại quầy → KitchenHub push.
-- **Delivery (KhachLink):** Customer đặt online → Staff confirm → KitchenHub push.
+Bếp/Kitchen nhận order từ 3 nguồn:
+- **POS (Dine-in/Takeaway):** Staff tạo order tại `/pos` → `/orderHub` push.
+- **Delivery (KhachLink):** Customer đặt online → Staff confirm → `/orderHub` push.
+- **Booking:** Lịch hẹn hoàn tất/thanh toán → tạo Order `SourceType="booking"` → hiện trên kitchen nếu cần chuẩn bị.
 
 Bếp chuẩn bị → báo `ready` → shipper (delivery) hoặc customer (dine-in/takeaway) nhận.
 
@@ -32,7 +35,7 @@ Bếp chuẩn bị → báo `ready` → shipper (delivery) hoặc customer (dine
 
 **Kiến trúc:**
 - Orders trên **Gateway PG** (source of truth) → NATS routed → ShopERP SQLite (replica cho kitchen display).
-- **KitchenHub** (SignalR) push real-time khi order mới / status change.
+- **`/orderHub`** (SignalR host trên ShopERP) push real-time khi order mới / status change; page còn có **5s polling fallback** nếu SignalR fail.
 
 ---
 
@@ -40,7 +43,7 @@ Bếp chuẩn bị → báo `ready` → shipper (delivery) hoặc customer (dine
 
 ### 2.1. Truy cập
 
-Đăng nhập Masterchef → `/admin/kitchen` (hoặc trang Kitchen Display tương ứng).
+Đăng nhập Masterchef → **`/kitchen`** (Kitchen/Display.razor — menu "Bếp").
 
 ### 2.2. Layout
 
@@ -66,25 +69,26 @@ Mỗi order card hiện:
 
 ---
 
-## 3. NHẬN ORDER REAL-TIME (KITCHENHUB)
+## 3. NHẬN ORDER REAL-TIME (ORDERHUB)
 
-### 3.1. KitchenHub (SignalR)
+### 3.1. OrderHub (SignalR)
 
-- Khi Staff tạo/confirm order → **KitchenHub push** real-time → bếp thấy card mới ngay lập tức.
-- Không cần refresh page — SignalR WebSocket persistent.
+- Page `/kitchen` connect **`/orderHub` trên ShopERP** (events `OrderCreated`, `OrderStatusChanged`, `PaymentConfirmed`) → bếp thấy card mới ngay lập tức.
+- Không cần refresh page — SignalR WebSocket persistent + **5s polling fallback** (phòng proxy/WebSocket fail).
 - Auth: cookie auth (ShopERP Blazor Server) — không cần X-Customer-Token.
 
 ### 3.2. Order sources
 
 | Source | Flow |
 |---|---|
-| POS (Dine-in) | Staff tạo + confirm → KitchenHub push |
-| POS (Takeaway) | Staff tạo + confirm → KitchenHub push |
-| Delivery (KhachLink) | Customer đặt → Staff confirm → KitchenHub push |
+| POS (Dine-in) | Staff tạo tại `/pos` → `/orderHub` push |
+| POS (Takeaway) | Staff tạo tại `/pos` → `/orderHub` push |
+| Delivery (KhachLink) | Customer đặt → Staff confirm → `/orderHub` push |
+| Booking | Booking hoàn tất → Order `SourceType="booking"` → `/orderHub` push |
 
 ### 3.3. Update từ kitchen
 
-Khi bếp chuyển status (New → Preparing → Ready) → KitchenHub push update → Staff/Shipper thấy real-time.
+Khi bếp chuyển status (New → Preparing → Ready) → `/orderHub` push update → Staff/Shipper thấy real-time.
 
 ---
 
@@ -94,9 +98,11 @@ Khi bếp chuyển status (New → Preparing → Ready) → KitchenHub push upda
 confirmed → preparing → ready
 ```
 
+> **Cập nhật (#195):** Flow có thể rút gọn/mở rộng theo cấu hình tenant (`OrderFlowProfile` tại `/admin/order-flow`) — kitchen chỉ xử lý các bước chuẩn bị trong flow đang áp dụng.
+
 | Status | Ai chuyển | Kitchen action |
 |---|---|---|
-| confirmed | Staff | Kitchen nhận tự động (KitchenHub push) |
+| confirmed | Staff | Kitchen nhận tự động (/orderHub push) |
 | preparing | Kitchen | Bếp bấm "Bắt đầu làm" → status=preparing |
 | ready | Kitchen | Bếp bấm "Xong" → status=ready → thông báo shipper/staff |
 
@@ -110,7 +116,7 @@ confirmed → preparing → ready
 
 1. Bếp xong món → bấm **"Xong"** → status=`ready`.
 2. Card chuyển sang column "Ready".
-3. **KitchenHub push** → Staff thấy ready → thông báo:
+3. **/orderHub push** → Staff thấy ready → thông báo:
    - Delivery: shipper thấy đơn `ready` trong Nearby Orders → accept.
    - Dine-in: Staff mang ra bàn.
    - Takeaway: Staff gọi customer đến lấy.
@@ -146,7 +152,7 @@ Khi kitchen `ready`:
 
 - Kitchen nhận order từ Staff (POS) hoặc Customer (Delivery, Staff confirm).
 - Kitchen `ready` → Staff thấy real-time → điều phối (mang ra bàn / thông báo shipper).
-- Nếu đổi món / hủy → Staff update order → KitchenHub push update → bếp thấy thay đổi.
+- Nếu đổi món / hủy → Staff update order → /orderHub push update → bếp thấy thay đổi.
 
 ### 6.2. Với Shipper
 
@@ -161,7 +167,7 @@ Khi kitchen `ready`:
 | Hết nguyên liệu | Báo Staff → Staff liên hệ customer đổi món / hủy |
 | Món làm sai | Báo Staff → Staff quyết định (làm lại / hoàn tiền) |
 | Order quá lâu (overdue) | Timer alert đỏ → ưu tiên làm |
-| Customer hủy đơn | Staff cancel → KitchenHub push → bếp bỏ card |
+| Customer hủy đơn | Staff cancel → /orderHub push → bếp bỏ card |
 
 ---
 

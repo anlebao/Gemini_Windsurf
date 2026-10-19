@@ -1,90 +1,73 @@
 # Data Flow
 
 > **Chi tiết luồng dữ liệu trong VanAn Ecosystem**
-> Reference: ADR-001 (SQLite+NATS Offline First), ADR-002 (Multi-tenancy), ADR-003 (Accounting Immutability)
+> Reference: ADR-001 (SQLite+NATS — partially superseded by Option C), ADR-002 (Multi-tenancy), ADR-003 (Accounting Immutability)
+> Option C (2026-07-18): Gateway = Order Creator + Routed Async Delivery — `docs/AI/tasks/archive/gateway_infra/gateway_router_multi_vps_master_plan.md`
 
-## Primary Request Flow (Customer → Database)
-
-```
-Customer Browser
-       │
-       ▼
-KhachLink PWA (5002)
-  - Blazor Server/WebAssembly
-  - HttpClient calls
-       │
-       ▼ HTTPS
-Gateway (5001)
-  - YARP Reverse Proxy
-  - Stateless forwarding
-  - NO DbContext, NO business logic
-       │
-       ▼ HTTP forward
-ShopERP (5003)
-  - Blazor UI (staff/admin)
-  - Controllers (Web API host)
-  - IVanAnDbContext injection
-       │
-       ▼ EF Core 8.0.8
-SQLite Database
-  - Per-tenant or shared
-  - Multi-tenancy via TenantId filter
-```
-
-**Example: Product Query**
-```
-KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
-     ↓                  ↓                  ↓
-  HttpClient   ProductsController   ProductsController
-                (forward)         (query IVanAnDbContext)
-```
-
-## Offline-First Sync Flow (ADR-001)
+## Primary Order Flow (Customer → Kitchen) — Option C
 
 ```
-Station (local SQLite)
+Customer Browser / KhachLink PWA (5002, Blazor WASM)
        │
-       ▼ write
-   Outbox Table
+       ▼ HTTPS — checkout gửi ProductName + VatRate snapshot
+Gateway (5001) — ORDER CREATOR
+  - OrdersController: tạo Order trực tiếp trong PostgreSQL
+  - KHÔNG query Products (snapshot do client cung cấp)
+  - Route theo ShopInstanceId (ShopInstances routing table)
        │
        ▼ NATS publish
-    NATS Bus
+vanan.cloud.order.created.{shopInstanceId}
        │
-       ▼ subscribe
-   PostgreSQL (central)
-       │
-       ▼ broadcast
-   Other Stations
+       ▼ subscribe (mỗi ShopERP chỉ nhận subject của mình)
+ShopERP (5003) — per-tenant SQLite
+  - Order replica → kitchen/POS display
+  - KHÔNG phải source of truth cho orders
 ```
 
-**Outbox Pattern** (skill: `outbox-pattern-implementation`):
-1. Local write → SQLite + Outbox entry (atomic)
-2. Background worker reads Outbox → publishes to NATS
-3. Central subscriber writes to PostgreSQL
-4. Other stations subscribe for replication
+**Catalog browse (khác order flow):**
+```
+KhachLink → Gateway YARP forward → ShopERP → SQLite (Products)
+Exception: GET /api/catalog/recommended → pure PG query (FeaturedProducts)
+```
+
+## Sync Directions (post Option-C)
+
+| Direction | Data | Mechanism |
+|---|---|---|
+| PG → SQLite | New orders (routed by ShopInstanceId) | `vanan.cloud.order.created.{shopInstanceId}` |
+| SQLite → PG | Order status updates (kitchen/POS ops) | NATS status sync (DataSyncSubscriber) |
+| SQLite → PG | Payment confirmed | `vanan.cloud.order.payment.confirmed.{shop}` |
+| PG → stations | Notifications, loyalty changes | `vanan.cloud.notification.created`, `vanan.cloud.loyalty.changed.*` |
+| Both | Tenant profile/type changes | `vanan.cloud.tenant.profile.updated`, `vanan.cloud.tenant.type.changed` |
+| ~~SQLite → PG~~ | Product sync | **DISABLED** (Phase 3 — products live in ShopERP only) |
+
+**Outbox pattern** (skill: `outbox-pattern-implementation`) vẫn áp dụng cho các sync cần durability — local write + outbox entry atomic, worker publish NATS.
 
 ## Multi-Tenancy Enforcement (ADR-002)
 
 ```
-Every entity inherits BaseEntity + IMustHaveTenant
+Tenant-scoped entity: BaseEntity + TenantId (required)
        │
        ▼
-  TenantId (Guid, required)
+VanAnDbContext (PG, Gateway + ShopERP)
+  - Global query filter: e.TenantId == CurrentTenantIdValue
+  - TenantId stored as TEXT via converter (NEVER EF.Property<Guid>)
        │
        ▼
-EF Core Global Query Filter
-  modelBuilder.Entity<T>().HasQueryFilter(e => e.TenantId == currentTenantId)
-       │
-       ▼
-All queries auto-filtered by tenant
+ShopERPDbContext (SQLite, ShopERP)
+  - Chỉ có IsDeleted/outbox filters — KHÔNG có tenant global filter
+  - Services/pages PHẢI filter TenantId tường minh
+    (production bug a21f97f2 — cross-tenant inventory leak)
 ```
 
-**Hard rule:** `TenantId` MUST NOT be removed or made nullable. Bypass = Hard Stop.
+**Exceptions (platform-level, `TenantId = Guid.Empty` sentinel):** `SystemSetting`, `LoyaltyGlobalConfig`, `AllianceWallet`, `KhachLinkInstance`, `ShopInstance`… — query bằng `IgnoreQueryFilters` + predicate tường minh.
+
+**Hard rule:** `TenantId` MUST NOT be removed or made nullable trên tenant-scoped entities. Bypass = Hard Stop.
 
 ## Accounting Entry Flow (ADR-003)
 
 ```
-Business Event (Order completed, Payment confirmed)
+Business Event (Order completed, Payment confirmed, Manual entry)
        │
        ▼
 AccountingService.CreateEntry(...)
@@ -95,62 +78,57 @@ AccountingService.CreateEntry(...)
   - Double-entry balanced (Debit == Credit)
        │
        ▼ append
-AccountingEntry (IMMUTABLE)
-  - Append-only
-  - NO update, NO delete
+AccountingEntry (IMMUTABLE) — PostgreSQL
+  - Append-only, NO update, NO delete
+  - TransactionDate mapped (ngày nghiệp vụ user nhập)
        │
        ▼ correction?
 CreateReversalEntry(originalEntryId, reason)
        │
        ▼ append
-Reversal AccountingEntry
-  - References original
-  - Negates amounts
-  - Original remains unchanged
+Reversal AccountingEntry — references original, negates amounts
 ```
 
 **Hard rule:** `AccountingEntry` MUST be 100% immutable. Corrections via Reversal Entry only. Bypass = Hard Stop.
 
-## Order Workflow
+## Order Workflow — Configurable (issue #195, 2026-10-19)
 
+Built-in default chain (fallback khi không có profile):
 ```
-Pending → Confirmed → Preparing → Ready → Completed
-              ↓
-          Cancelled
+pending → confirmed → preparing → ready → completed
+     └──────────────→ cancelled
+(delivering cũng là status hợp lệ)
 ```
 
-- **Inventory deducted at "Confirmed"** (not earlier)
-- Kitchen status tracked separately via SignalR
-- Payment webhook triggers accounting entry creation (after bank confirm)
+- `OrderFlowProfile` + `OrderFlowStep`: flow configurable theo scope — precedence `tenant+source → tenant → system+source → system → built-in`
+- `Order.SourceType`: nhận diện loại đơn (POS/booking) — booking dùng reduced flow
+- `OrderStatusHistory`: bảng audit/timeline cho mọi transition
+- `OrderStatusId` = string value object (`"pending"`, `"confirmed"`…), không phải fixed enum
+- `OrderWorkflowService` validate transition động theo `AllowedNext`; admin config qua `/admin/order-flow` (Gateway `OrderFlowController` + `AdminOrderFlowController`)
+- Kitchen status realtime qua SignalR `KitchenHub`
 
 ## Real-Time Updates (SignalR)
 
-```
-ShopERP (5003)
-  - Hub endpoints
-       │
-       ▼ SignalR
-KhachLink (5002)
-  - Receive order status updates
-  - Receive kitchen notifications
-  - Receive payment confirmations
-```
+Hubs chủ yếu host trên **Gateway (5001)** + Redis backplane:
 
-## Current Known Issues (from project_state.md)
-
-| Issue | Sprint | Status |
+| Hub | Endpoint | Purpose |
 |---|---|---|
-| TenantId hardcode fallback (no JWT claim → throw) | Sprint A (P0) | Pending |
-| AccountCode not saved on manual entry (UI → API → DB) | Sprint A (P0) | Pending |
-| Accounting entry creation timing (CreateOrder → PaymentWebhook) | Sprint A (P0) | Pending |
-| Vendor/Category/Reference fields not wired to DB | Sprint B (P1) | Pending |
-| Webhook notify Kitchen via SignalR after payment | Sprint B (P1) | Pending |
-| Server-side duplicate detection for accounting entries | Sprint B (P1) | Pending |
+| `OrderHub` | `/orderHub` | Order status (Gateway + ShopERP cũng map) |
+| `KitchenHub` | `/kitchenhub` | Kitchen display updates |
+| `LocationHub` | `/hubs/location` | Location tracking |
+| `ChatHub` | `/hubs/chat` | Customer chat |
+| `MessagingHub` | `/hubs/messaging` | Messaging |
+| `TrackingHub` | `/hubs/tracking` | Delivery tracking |
+| `NotificationsHub` | `/hubs/notifications` | Push notifications (new order, alerts…) |
 
-Reference: `docs/AI/phase-next-order-accounting-improvements.md`
+ShopERP (5003) map `/orderHub` cho staff UI.
+
+## Current State
+
+Known issues/roadmap KHÔNG track ở file này — xem `docs/AI/project_state.md` (single source of truth cho objective hiện tại).
 
 ---
 
 *Document Status: Active*
-*Last Updated: 2026-06-18*
-*Source: PROJECT_CONTEXT.md, project_state.md, ADR-001/002/003*
+*Last Updated: 2026-10-19*
+*Source: Program.cs (Gateway/ShopERP), VanAnDbContext, ShopERPDbContext, DataSyncSubscriber, OrderFlow configs, governance.md (Option C), ADR-001/002/003*

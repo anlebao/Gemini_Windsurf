@@ -4,7 +4,9 @@
 > **Đăng nhập:** Tài khoản SystemAdmin tại `https://app2.khachvip.online` (ShopERP Blazor Server, cookie auth, role = SystemAdmin).
 > **Phạm vi:** Tất cả tenant + community entities (Gateway PG) + global settings.
 
-> **Nguyên tắc:** Mọi tác vụ đều thực hiện qua UI (menu Hệ thống / Cộng tác viên / Thương mại / Infrastructure). KHÔNG cần gọi API trực tiếp (curl/Postman) trừ khi debug.
+> **Nguyên tắc:** Mọi tác vụ đều thực hiện qua UI (menu Hệ thống / Cộng tác viên / Thương mại / Infrastructure / Cấu hình & thiết lập / CRM & Loyalty (Global)). KHÔNG cần gọi API trực tiếp (curl/Postman) trừ khi debug.
+>
+> **Cập nhật 2026-10-19:** Đồng bộ menu thực tế + trang mới (`/admin/order-flow` cấu hình trạng thái đơn hàng, `/admin/claims`, `/admin/crawl-trigger`, `/admin/membership/members`, `/admin/withdrawals`, nhóm Hóa Đơn Điện Tử + Tài chính).
 
 ---
 
@@ -21,26 +23,53 @@
 9. [Collaborator SMS OTP Toggle](#9-collaborator-sms-otp-toggle)
 10. [Quản lý Device Registration](#10-quản-lý-device-registration)
 11. [Hàng đợi Tenant Registrations](#11-hàng-đợi-tenant-registrations)
-12. [FAQ](#12-faq)
+12. [Cấu hình trạng thái đơn hàng (Order Flow)](#12-cấu-hình-trạng-thái-đơn-hàng-order-flow)
+13. [FAQ](#13-faq)
 
 ---
 
 ## 1. DANH SÁCH TRANG QUẢN TRỊ
 
-SystemAdmin đăng nhập → sidebar bên trái hiển thị 5 nhóm menu:
+SystemAdmin đăng nhập → sidebar bên trái hiển thị các nhóm menu (menu render theo role — SystemAdmin thấy các nhóm cross-tenant sau):
+
+### Nhóm "Cấu hình & thiết lập"
+| Trang | URL | Chức năng |
+|---|---|---|
+| Cấu hình tính năng Shop | `/settings/shop-features` | Thiết lập điều kiện Salesman/Shipper + Reseller filter + loyalty/notification toggles (chọn tenant để impersonate) |
+| **Cấu hình trạng thái đơn hàng** | `/admin/order-flow` | Order flow profiles per tenant/system + source type (#195) — xem Section 12 |
 
 ### Nhóm "Hệ thống"
 | Trang | URL | Chức năng |
 |---|---|---|
-| Tenants | `/admin/tenants` | CRUD tenant + Pending/Duplicates tabs (crawl-to-onboard) |
+| Tenants | `/admin/tenants` | CRUD tenant + Pending/Duplicates tabs (crawl-to-onboard) + chuyển đổi loại hình HTX ↔ Công ty/HKD |
+| Thành viên HTX | `/admin/membership/members` | Quản lý thành viên HTX cross-tenant |
+| Hàng đợi Claim | `/admin/claims` | Review yêu cầu claim tenant/cửa hàng |
+| Kích hoạt Crawl | `/admin/crawl-trigger` | Trigger crawler thu thập dữ liệu doanh nghiệp |
+| **Tenant Registrations** | `/admin/tenant-registrations` | Hàng đợi merchant đăng ký → Contact/Onboard/Reject |
 | ShopERP Instances | `/admin/shop-instances` | Quản lý ShopERP instances (multi-VPS routing) |
-| KhachLink Instances | `/admin/khachlink-instances` | Quản lý KhachLink instances |
+| KhachLink Instances | `/admin/khachlink-instances` | Quản lý KhachLink instances + audit (`/{id}/audit`) |
 | Tenant Domains | `/admin/domains` | Domain registrar + DNS A-record |
 | Người dùng | `/admin/users` | CRUD platform users |
 | Nhóm quyền | `/admin/permission-groups` | CRUD permission groups |
-| Audit Trail | `/admin/audit-trail` | Audit log |
-| **Tenant Registrations** | `/admin/tenant-registrations` | Hàng đợi merchant đăng ký → Contact/Onboard/Reject |
+| Nhật Ký Audit | `/admin/audit-trail` | Audit log (IP/UserAgent per compliance W4) |
 | Background Services | `/admin/background-services` | Quản lý background jobs |
+
+### Nhóm "CRM & Loyalty (Global)"
+| Trang | URL | Chức năng |
+|---|---|---|
+| Cross-Tenant Overview | `/admin/customers-global` | Tổng quan khách hàng cross-tenant |
+| Khách hàng (CRM) | `/admin/customers` | CRM customers |
+| Chiến dịch khuyến mãi | `/admin/promo-campaigns` | Promo campaigns |
+| Push Campaigns | `/admin/push-campaigns` | Push notification campaigns |
+| Khuyến mãi (Social) | `/admin/campaigns` | Social campaigns |
+| Quản lý Nhiệm vụ | `/admin/missions` | Missions |
+| Đổi điểm (Catalog) | `/admin/redemption-catalog` | Redemption catalog per tenant |
+| Catalog Global | `/admin/global-redemption-catalog` | Global redemption catalog |
+| Lịch sử đổi điểm | `/admin/redemption-history` | Redemption history |
+| Loyalty Alliance Config | `/admin/loyalty-config` | Loyalty alliance settings |
+| Thống kê điểm thưởng | `/loyalty/dashboard` | Loyalty dashboard |
+
+> Chi tiết nghiệp vụ CRM/Loyalty xem CRM-Loyalty Guide — bảng trên chỉ liệt kê trang.
 
 ### Nhóm "Cộng tác viên"
 | Trang | URL | Chức năng |
@@ -53,6 +82,7 @@ SystemAdmin đăng nhập → sidebar bên trái hiển thị 5 nhóm menu:
 | Xác minh SMS | `/admin/collaborator-verification` | Toggle SMS OTP + phí + min deposit |
 | Quỹ Cộng Đồng | `/admin/community-fund` | Xem balance + spend + history quỹ cộng đồng |
 | Lịch sử Settlement | `/admin/settlements` | Settlement history (Reseller mode) |
+| **Duyệt rút tiền** | `/admin/withdrawals` | Duyệt yêu cầu rút tiền của cộng tác viên |
 
 ### Nhóm "Thương mại"
 | Trang | URL | Chức năng |
@@ -72,7 +102,13 @@ SystemAdmin đăng nhập → sidebar bên trái hiển thị 5 nhóm menu:
 | Cài đặt OCR | `/admin/ocr-settings` | OCR settings |
 | Cấu hình KhachLink | `/admin/khachlink-home-settings` | KhachLink home page config |
 
-> **Lưu ý:** Các trang CRM & Loyalty (customers, campaigns, missions, redemption, loyalty-config) đã có trong CRM-Loyalty Guide — không lặp lại ở đây.
+### Các nhóm/mục khác SystemAdmin cũng thấy
+| Trang | URL | Chức năng |
+|---|---|---|
+| Hóa Đơn Điện Tử (nhóm) | `/einvoice`, `/einvoice/invoices`, `/einvoice/alerts`, `/einvoice/health`, `/einvoice/providers`, `/einvoice/configuration` | Dashboard + quản lý HĐĐT + provider config |
+| Tài chính (nhóm) | `/financial`, `/admin/business-profile` | Thông tin tài chính + hồ sơ doanh nghiệp |
+| Thông báo | `/notifications` | Notification hub — chỉ hiện khi đang impersonate tenant |
+| Hướng dẫn (nhóm) | `guides/*.html` | Link các user guide HTML trong wwwroot |
 
 ---
 
@@ -80,9 +116,9 @@ SystemAdmin đăng nhập → sidebar bên trái hiển thị 5 nhóm menu:
 
 ### 2.1. Điều kiện đủ điều kiện (eligible)
 
-Customer đủ điều kiện khi:
-- **Toggle OFF (mặc định):** `IdentityLevel ≥ DeviceVerified` (4) **HOẶC** `IdentityLevel ≥ Verified` (2) + `LoyaltyPoints ≥ 1000`
-- **Toggle ON:** `IdentityLevel ≥ Verified` (2) **BẮT BUỘC** + `LoyaltyPoints ≥ 1000` + `CommunityRole.IsPhoneVerified = true` + deposit wallet ≥ phí SMS OTP
+Customer đủ điều kiện khi (`CommunityAdminService`):
+- **Toggle OFF (mặc định):** `IdentityLevel ≥ Verified` (2) — đã bao gồm `DeviceVerified` (4) vì 4 > 2 — **VÀ** `LoyaltyPoints ≥ ngưỡng per-tenant` (default 1000)
+- **Toggle ON:** như trên **+** `CommunityRole.IsPhoneVerified = true` + deposit wallet ≥ phí SMS OTP
 
 > **Điều kiện per-tenant:** SystemAdmin cấu hình per-tenant tại `/settings/shop-features` (xem Section 3).
 
@@ -394,7 +430,7 @@ Bấm **Lưu cài đặt** → thay đổi có hiệu lực ngay (SystemSetting,
 - `CommunityRole.IsPhoneVerified` + `PhoneVerifiedAt`
 - `SystemSetting.CollaboratorSmsVerificationEnabled` (toggle)
 
-> **Cập nhật (2026-09-09):** Renumbering dự đoán trong phiên bản trước KHÔNG xảy ra. Enum thực tế (Domain.cs): `PlatformFee=7, CommunityFund=8, DeliveryFee=9, ExternalPayment=10, CommunityFundSpend=11, Deposit=12, SmsOtpFee=13`. Xem README Section 6.1 cho bảng đầy đủ.
+> **Cập nhật (2026-10-19):** Enum thực tế (`1_Shared/Domain/Aggregates` — WalletTransactionType): `CODCollection=1, AdvancePayment=2, Commission=3, Withdrawal=4, Settlement=5, Reversal=6, PlatformFee=7, CommunityFund=8, DeliveryFee=9, ExternalPayment=10, CommunityFundSpend=11, Deposit=12, SmsOtpFee=13, Remittance=14` (shipper nộp tiền COD thu hộ). Xem README Section 6.1 cho bảng đầy đủ.
 
 ---
 
@@ -475,7 +511,7 @@ Trang hiển thị bảng registrations với:
 
 ### 11.4. Quy trình onboard
 
-1. Merchant submit registration (qua Directory form `/claim` hoặc demo form).
+1. Merchant submit registration — form đăng ký `/claim` (KhachLink `Register.razor`, Turnstile + honeypot) hoặc audit form `/kiem-tra-cua-hang` (Directory) → `TenantRegistrationController`.
 2. SystemAdmin vào `/admin/tenant-registrations` → bấm **Contact** để đánh dấu đã liên hệ.
 3. SystemAdmin tạo tenant mới tại `/admin/tenants` (tab Pending → Verify).
 4. Copy Tenant ID mới → quay lại `/admin/tenant-registrations` → bấm **Onboard** → paste Tenant ID → xác nhận.
@@ -483,7 +519,36 @@ Trang hiển thị bảng registrations với:
 
 ---
 
-## 12. FAQ
+## 12. CẤU HÌNH TRẠNG THÁI ĐƠN HÀNG (ORDER FLOW)
+
+> **Issue #195 (2026-10-19).** Order flow không còn hardcode — mỗi tenant (hoặc theo loại đơn `Order.SourceType`, vd booking) có thể có chuỗi trạng thái riêng qua `OrderFlowProfile` + `OrderFlowStep`.
+
+### 12.1. Truy cập
+
+Đăng nhập SystemAdmin → menu **Cấu hình & thiết lập → Cấu hình trạng thái đơn hàng** (`/admin/order-flow`).
+
+### 12.2. Scope & precedence
+
+| Scope | Mô tả |
+|---|---|
+| `tenant + source` | Flow riêng cho 1 tenant + loại đơn (ưu tiên cao nhất) |
+| `tenant` | Flow riêng cho tenant |
+| `system + source` | Flow hệ thống cho loại đơn |
+| `system` | Flow hệ thống mặc định |
+| built-in | Fallback: `pending → confirmed → preparing → ready → completed` (+ `cancelled`, `delivering`) |
+
+- Deactivate profile → fallback về scope thấp hơn.
+- Booking orders thường dùng reduced flow (ít bước hơn POS).
+
+### 12.3. Quy tắc
+
+- Steps phải neo vào anchors `pending`/`completed`/`cancelled` — hệ thống chặn profile thiếu/sai anchors.
+- Xóa 1 step sẽ tự gỡ reference trong `AllowedNext` của step khác.
+- Mọi transition ghi `OrderStatusHistory` (audit timeline trên trang chi tiết đơn).
+
+---
+
+## 13. FAQ
 
 **Q: Tôi có thể kích hoạt cả 2 role Shipper + Salesman cho 1 customer không?**
 A: CÓ. Một user có thể đồng thời là Buyer + Salesman + Shipper. Mỗi role tạo 1 bản ghi `CommunityRole` riêng.

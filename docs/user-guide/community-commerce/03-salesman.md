@@ -1,8 +1,10 @@
 # HƯỚNG DẪN SALESMAN — CỘNG TÁC VIÊN BÁN HÀNG
 
 > **Đối tượng:** Customer được System Admin kích hoạt role Salesman — kiếm tiền từ commission chốt đơn + app-install bonus.
-> **Đăng nhập:** KhachLink PWA (`diemthuong.khachvip.online`) — Google login + device fingerprint. Token lưu localStorage.
+> **Đăng nhập:** KhachLink PWA (`diemthuong2.khachvip.online` — hoặc instance KhachLink khác như `commienphi.*`) — Google login + device fingerprint. Token lưu localStorage.
 > **Nền tảng:** Blazor WebAssembly PWA — chạy trên mobile browser. GPS chỉ hoạt động khi tab active.
+>
+> **Cập nhật 2026-10-19:** Đồng bộ endpoint/route thực tế — QR URL dạng `/scan?ref=`, commissions endpoint `/api/community/salesman/commissions`, eligibility `≥Verified + points`.
 
 ---
 
@@ -34,8 +36,8 @@ Salesman là cộng tác viên bán hàng — giới thiệu product của tenan
 
 ### 1.2. Điều kiện trở thành Salesman
 
-- `IdentityLevel ≥ DeviceVerified` (device fingerprint pass) **HOẶC** `IdentityLevel ≥ Verified` (SMS OTP) + `LoyaltyPoints ≥ 1000`
-- **Kích hoạt bởi System Admin** (Owner không tự kích hoạt)
+- `IdentityLevel ≥ Verified` (2 — đã bao gồm `DeviceVerified`=4) **VÀ** `LoyaltyPoints ≥ ngưỡng per-tenant` (default 1000, SystemAdmin đổi được tại `/settings/shop-features`)
+- **Kích hoạt bởi System Admin hoặc Owner** (Owner Panel `/community/owner-panel` — chỉ tenant của mình)
 - Khi toggle `CollaboratorSmsVerificationEnabled = ON`: bắt buộc SMS OTP + `IsPhoneVerified = true` + deposit wallet ≥ phí OTP
 
 ### 1.3. Một user nhiều role
@@ -61,7 +63,7 @@ Bạn có thể đồng thời là **Customer + Salesman + Shipper**. Mỗi role
 
 1. Đạt điều kiện (IdentityLevel + LoyaltyPoints ≥ 1000).
 2. System Admin kích hoạt → bạn nhận push notification.
-3. Login lại → NavMenu KhachLink hiện thêm tab **"Sản phẩm gần"** + **"Mã QR"** + **"Doanh số"**.
+3. Login lại → NavMenu KhachLink hiện thêm tab **"Sản phẩm gần"** (`/community/nearby-products`) + **"Mã QR"** (`/community/salesman-qr`) + **"Doanh số"** (`/community/sales-dashboard`). Có thêm trang **"Cửa hàng của tôi"** (`/community/salesman-store`) quản lý list product đang giới thiệu.
 
 ### 2.3. SMS OTP verification (chỉ khi toggle ON)
 
@@ -116,15 +118,15 @@ Format: `{salesmanCode}|{productShortCode}`
 
 ### 4.2. Tạo QR
 
-1. Sau khi chọn product (UC-08) → mở **"Mã QR của tôi"** page.
-2. Hiển thị QR code chứa URL: `https://khachlink.app/r/{salesmanCode}|{productShortCode}` (vd `/r/ABC123|TR-001`).
-3. QR generate client-side (qrcode.js library, vendored MIT — không CDN).
-4. Salesman chia sẻ QR cho customer (Zalo, Facebook, in ấn, v.v.).
+1. Sau khi chọn product (UC-08) → mở **"Mã QR của tôi"** (`/community/salesman-qr`).
+2. Page gọi `GET /api/community/salesman/qr?productId={id}&sourceDomain={host}` → server trả `QrUrl` dạng **`{khachlink-host}/scan?ref={salesmanCode}|{productShortCode}`** — base URL theo đúng instance KhachLink salesman đang dùng (multi-instance: diemthuong2, commienphi…).
+3. QR render client-side qua `vananQR.generate` (JS interop, vendored lib — không CDN).
+4. Salesman chia sẻ QR cho customer (Zalo, Facebook, in ấn, v.v.). Có thể add/remove product khỏi list của mình qua `POST /api/community/salesman/products/add|remove`.
 
 ### 4.3. Customer scan QR
 
-1. Customer quét QR → redirect đến KhachLink với composite referral code.
-2. Composite code lưu trong **localStorage** (cả salesmanCode + productShortCode).
+1. Customer quét QR → redirect đến trang `/scan` trên KhachLink → resolve composite referral code.
+2. Composite code lưu trong **localStorage key `vanan_referral_code`** (cả salesmanCode + productShortCode).
 3. Khi customer đặt hàng → composite referral code gửi trong order creation (`referralCode` field).
 4. Server resolve → set `Order.SalesmanId` + `Order.ReferralProductId`.
 
@@ -147,7 +149,7 @@ Login KhachLink → tab **"Doanh số"** (chỉ hiện khi có role Salesman).
 
 ### 5.2. Hiển thị
 
-`GET /api/community/salesman/{salesmanId}/commissions` trả:
+`GET /api/community/salesman/commissions` (salesmanId resolve từ JWT — không cần truyền) trả:
 
 - **List đơn đã chốt:** Order có SalesmanId = salesman's CustomerId — mỗi order hiện product, total, commission, status.
 - **Tổng doanh số:** Tổng giá trị đơn đã chốt.
@@ -213,8 +215,8 @@ Login KhachLink → tab **"Ví"** — hiển thị:
 
 **Flow:**
 1. Bấm **Rút tiền** → modal hiện → nhập số tiền cần rút (tối thiểu 500.000đ) + chọn bank account đã KYC → bấm xác nhận.
-2. `POST /api/community/wallet/withdraw` → tạo `WalletTransaction(Withdrawal)` -amount.
-3. Admin process payout (bank transfer).
+2. `POST /api/community/wallet/withdraw` → tạo `WalletTransaction(Withdrawal)` -amount. **Bị chặn nếu đang có yêu cầu rút Pending/Approved** (chỉ 1 request mở tại 1 thời điểm).
+3. Admin process payout (bank transfer) — duyệt tại `/admin/withdrawals`.
 4. Balance cập nhật.
 
 ### 7.3. Reversal pattern

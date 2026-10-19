@@ -6,214 +6,309 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <title>Hướng dẫn System Admin — Community Commerce</title>
   <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+    <style type="text/css">
+  @page { margin: 1.5cm 2cm; }
+  * { box-sizing: border-box; }
+  body {
+  font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.55;
+  color: #1f2937;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  background: #fff;
+  }
+  h1 {
+  font-size: 22pt;
+  color: #0f766e;
+  border-bottom: 3px solid #0f766e;
+  padding-bottom: 0.4rem;
+  margin-top: 0;
+  }
+  h2 {
+  font-size: 16pt;
+  color: #0f766e;
+  border-left: 4px solid #14b8a6;
+  padding-left: 0.6rem;
+  margin-top: 2rem;
+  page-break-after: avoid;
+  }
+  h3 {
+  font-size: 13pt;
+  color: #334155;
+  margin-top: 1.4rem;
+  page-break-after: avoid;
+  }
+  h4 {
+  font-size: 11.5pt;
+  color: #475569;
+  margin-top: 1rem;
+  page-break-after: avoid;
+  }
+  p { margin: 0.5rem 0; }
+  a { color: #0f766e; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+  background: #f1f5f9;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-size: 9.5pt;
+  color: #be123c;
+  }
+  pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 9.5pt;
+  line-height: 1.4;
+  }
+  pre code { background: transparent; color: inherit; padding: 0; }
+  blockquote {
+  border-left: 4px solid #14b8a6;
+  background: #f0fdfa;
+  padding: 0.6rem 1rem;
+  margin: 1rem 0;
+  color: #134e4a;
+  border-radius: 0 4px 4px 0;
+  }
+  blockquote p { margin: 0.3rem 0; }
+  table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  font-size: 10pt;
+  page-break-inside: avoid;
+  }
+  th {
+  background: #0f766e;
+  color: #fff;
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  font-weight: 600;
+  border: 1px solid #0f766e;
+  }
+  td {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #e2e8f0;
+  vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f8fafc; }
+  tr:hover td { background: #f0fdfa; }
+  hr {
+  border: none;
+  border-top: 1px solid #cbd5e1;
+  margin: 2rem 0;
+  }
+  ul, ol { padding-left: 1.5rem; }
+  li { margin: 0.25rem 0; }
+  strong { color: #0f172a; }
 
-span.smallcaps{font-variant: small-caps;}
-div.columns{display: flex; gap: 1.5em;}
-div.column{flex: auto;}
-@media screen {
-div.columns{gap: min(4vw, 1.5em);}
-div.column{overflow-x: auto;}
-}
-div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  h2 + ul, h2 + ol { page-break-before: avoid; }
 
-ul.task-list[class]{list-style: none;}
-ul.task-list li input[type="checkbox"] {
-font-size: inherit;
-width: 0.8em;
-margin: 0 0.8em 0.2em -1.6em;
-vertical-align: middle;
-}
-.display.math{display: block; text-align: center; margin: 0.5rem auto;}
-
-html { -webkit-text-size-adjust: 100%; }
-pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
-pre > code.sourceCode > span:empty { height: 1.2em; }
-.sourceCode { overflow: visible; }
-code.sourceCode > span { color: inherit; text-decoration: inherit; }
-div.sourceCode { margin: 1em 0; }
-pre.sourceCode { margin: 0; }
-@media screen {
-div.sourceCode { overflow: auto; }
-}
-@media print {
-pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
-}
-pre.numberSource code
-{ counter-reset: source-line 0; }
-pre.numberSource code > span
-{ position: relative; left: -4em; counter-increment: source-line; }
-pre.numberSource code > span > a:first-child::before
-{ content: counter(source-line);
-position: relative; left: -1em; text-align: right; vertical-align: baseline;
-border: none; display: inline-block;
--webkit-touch-callout: none; -webkit-user-select: none;
--khtml-user-select: none; -moz-user-select: none;
--ms-user-select: none; user-select: none;
-padding: 0 4px; width: 4em;
-color: #aaaaaa;
-}
-pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
-div.sourceCode
-{ }
-@media screen {
-pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
-}
-code span.al { color: #ff0000; font-weight: bold; } 
-code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
-code span.at { color: #7d9029; } 
-code span.bn { color: #40a070; } 
-code span.bu { color: #008000; } 
-code span.cf { color: #007020; font-weight: bold; } 
-code span.ch { color: #4070a0; } 
-code span.cn { color: #880000; } 
-code span.co { color: #60a0b0; font-style: italic; } 
-code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
-code span.do { color: #ba2121; font-style: italic; } 
-code span.dt { color: #902000; } 
-code span.dv { color: #40a070; } 
-code span.er { color: #ff0000; font-weight: bold; } 
-code span.ex { } 
-code span.fl { color: #40a070; } 
-code span.fu { color: #06287e; } 
-code span.im { color: #008000; font-weight: bold; } 
-code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
-code span.kw { color: #007020; font-weight: bold; } 
-code span.op { color: #666666; } 
-code span.ot { color: #007020; } 
-code span.pp { color: #bc7a00; } 
-code span.sc { color: #4070a0; } 
-code span.ss { color: #bb6688; } 
-code span.st { color: #4070a0; } 
-code span.va { color: #19177c; } 
-code span.vs { color: #4070a0; } 
-code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
-</style>
-  <style type="text/css">
-@page { margin: 1.5cm 2cm; }
-* { box-sizing: border-box; }
-body {
-font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-font-size: 11pt;
-line-height: 1.55;
-color: #1f2937;
-max-width: 900px;
-margin: 0 auto;
-padding: 2rem 1rem;
-background: #fff;
-}
-h1 {
-font-size: 22pt;
-color: #0f766e;
-border-bottom: 3px solid #0f766e;
-padding-bottom: 0.4rem;
-margin-top: 0;
-}
-h2 {
-font-size: 16pt;
-color: #0f766e;
-border-left: 4px solid #14b8a6;
-padding-left: 0.6rem;
-margin-top: 2rem;
-page-break-after: avoid;
-}
-h3 {
-font-size: 13pt;
-color: #334155;
-margin-top: 1.4rem;
-page-break-after: avoid;
-}
-h4 {
-font-size: 11.5pt;
-color: #475569;
-margin-top: 1rem;
-page-break-after: avoid;
-}
-p { margin: 0.5rem 0; }
-a { color: #0f766e; text-decoration: none; }
-a:hover { text-decoration: underline; }
-code {
-font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
-background: #f1f5f9;
-padding: 0.1rem 0.35rem;
-border-radius: 3px;
-font-size: 9.5pt;
-color: #be123c;
-}
-pre {
-background: #0f172a;
-color: #e2e8f0;
-padding: 1rem;
-border-radius: 6px;
-overflow-x: auto;
-font-size: 9.5pt;
-line-height: 1.4;
-}
-pre code { background: transparent; color: inherit; padding: 0; }
-blockquote {
-border-left: 4px solid #14b8a6;
-background: #f0fdfa;
-padding: 0.6rem 1rem;
-margin: 1rem 0;
-color: #134e4a;
-border-radius: 0 4px 4px 0;
-}
-blockquote p { margin: 0.3rem 0; }
-table {
-border-collapse: collapse;
-width: 100%;
-margin: 1rem 0;
-font-size: 10pt;
-page-break-inside: avoid;
-}
-th {
-background: #0f766e;
-color: #fff;
-text-align: left;
-padding: 0.55rem 0.7rem;
-font-weight: 600;
-border: 1px solid #0f766e;
-}
-td {
-padding: 0.5rem 0.7rem;
-border: 1px solid #e2e8f0;
-vertical-align: top;
-}
-tr:nth-child(even) td { background: #f8fafc; }
-tr:hover td { background: #f0fdfa; }
-hr {
-border: none;
-border-top: 1px solid #cbd5e1;
-margin: 2rem 0;
-}
-ul, ol { padding-left: 1.5rem; }
-li { margin: 0.25rem 0; }
-strong { color: #0f172a; }
-
-h2 + ul, h2 + ol { page-break-before: avoid; }
-
-@media print {
-body { font-size: 10pt; max-width: none; padding: 0; }
-h2 { page-break-before: auto; }
-table, pre, blockquote { page-break-inside: avoid; }
-a { color: #0f766e; }
-}
-</style>
+  @media print {
+  body { font-size: 10pt; max-width: none; padding: 0; }
+  h2 { page-break-before: auto; }
+  table, pre, blockquote { page-break-inside: avoid; }
+  a { color: #0f766e; }
+  }
+  </style>
 </head>
 <body>
 <header id="title-block-header">
 <h1 class="title">Hướng dẫn System Admin — Community Commerce</h1>
 </header>
-<h1 id="hướng-dẫn-system-admin-community-commerce">HƯỚNG DẪN SYSTEM
+<h1 id="hướng-dẫn-system-admin--community-commerce">HƯỚNG DẪN SYSTEM
 ADMIN — COMMUNITY COMMERCE</h1>
 <blockquote>
 <p><strong>Đối tượng:</strong> Nhân viên kỹ thuật / vận hành Vạn An, có
 quyền quản trị toàn hệ thống (cross-tenant). <strong>Đăng nhập:</strong>
-Tài khoản SystemAdmin tại <code>https://khachvip.online</code> (ShopERP
-Blazor Server, cookie auth, role = SystemAdmin). <strong>Phạm
+Tài khoản SystemAdmin tại <code>https://app2.khachvip.online</code>
+(ShopERP Blazor Server, cookie auth, role = SystemAdmin). <strong>Phạm
 vi:</strong> Tất cả tenant + community entities (Gateway PG) + global
 settings.</p>
+</blockquote>
+<blockquote>
+<p><strong>Nguyên tắc:</strong> Mọi tác vụ đều thực hiện qua UI (menu Hệ
+thống / Cộng tác viên / Thương mại / Infrastructure / Cấu hình &amp;
+thiết lập / CRM &amp; Loyalty (Global)). KHÔNG cần gọi API trực tiếp
+(curl/Postman) trừ khi debug.</p>
+<p><strong>Cập nhật 2026-10-19:</strong> Đồng bộ menu thực tế + trang
+mới (<code>/admin/order-flow</code> cấu hình trạng thái đơn hàng,
+<code>/admin/claims</code>, <code>/admin/crawl-trigger</code>,
+<code>/admin/membership/members</code>, <code>/admin/withdrawals</code>,
+nhóm Hóa Đơn Điện Tử + Tài chính).</p>
 </blockquote>
 <hr />
 <h2 id="mục-lục">MỤC LỤC</h2>
@@ -222,30 +317,37 @@ settings.</p>
 trị</a></li>
 <li><a href="#2-kích-hoạt-vai-trò-cộng-tác-viên-shippersalesman">Kích
 hoạt vai trò cộng tác viên (Shipper/Salesman)</a></li>
-<li><a href="#3-thiết-lập-product-referral-config-commission--app-install-bonus">Thiết
+<li><a
+href="#3-thiết-lập-điều-kiện-kích-hoạt-role-salesmanshipper">Thiết lập
+điều kiện kích hoạt role (Salesman/Shipper)</a></li>
+<li><a
+href="#4-thiết-lập-product-referral-config-commission--app-install-bonus">Thiết
 lập Product Referral Config (commission + app-install bonus)</a></li>
-<li><a href="#4-commerce-mode-toggle-marketplace--reseller--sprint-7">Commerce
+<li><a
+href="#5-commerce-mode-toggle-marketplace--reseller--sprint-7">Commerce
 Mode Toggle (Marketplace ↔︎ Reseller) — Sprint 7</a></li>
-<li><a href="#5-quản-lý-community-fund-quỹ-phát-triển-cộng-đồng">Quản lý
+<li><a href="#6-quản-lý-community-fund-quỹ-phát-triển-cộng-đồng">Quản lý
 Community Fund (quỹ phát triển cộng đồng)</a></li>
-<li><a href="#6-quản-lý-product-cost-price-reseller-mode">Quản lý
+<li><a href="#7-quản-lý-product-cost-price-reseller-mode">Quản lý
 Product Cost Price (Reseller mode)</a></li>
-<li><a href="#7-fraud-review--xem-xét-gian-lận">Fraud Review — Xem xét
+<li><a href="#8-fraud-review--xem-xét-gian-lận">Fraud Review — Xem xét
 gian lận</a></li>
-<li><a href="#8-collaborator-sms-otp-toggle">Collaborator SMS OTP
+<li><a href="#9-collaborator-sms-otp-toggle">Collaborator SMS OTP
 Toggle</a></li>
-<li><a href="#9-quản-lý-device-registration">Quản lý Device
+<li><a href="#10-quản-lý-device-registration">Quản lý Device
 Registration</a></li>
-<li><a href="#10-faq">FAQ</a></li>
+<li><a href="#11-hàng-đợi-tenant-registrations">Hàng đợi Tenant
+Registrations</a></li>
+<li><a href="#12-cấu-hình-trạng-thái-đơn-hàng-order-flow">Cấu hình trạng
+thái đơn hàng (Order Flow)</a></li>
+<li><a href="#13-faq">FAQ</a></li>
 </ol>
 <hr />
-<h2 id="danh-sách-trang-quản-trị">1. DANH SÁCH TRANG QUẢN TRỊ</h2>
+<h2 id="1-danh-sách-trang-quản-trị">1. DANH SÁCH TRANG QUẢN TRỊ</h2>
+<p>SystemAdmin đăng nhập → sidebar bên trái hiển thị các nhóm menu (menu
+render theo role — SystemAdmin thấy các nhóm cross-tenant sau):</p>
+<h3 id="nhóm-cấu-hình--thiết-lập">Nhóm "Cấu hình &amp; thiết lập"</h3>
 <table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
 <thead>
 <tr>
 <th>Trang</th>
@@ -255,28 +357,181 @@ Registration</a></li>
 </thead>
 <tbody>
 <tr>
-<td>Commerce Mode Settings</td>
-<td><code>/admin/commerce-mode</code></td>
-<td>Toggle global mode + tenant overrides + platform fee/fund/delivery
-rates</td>
+<td>Cấu hình tính năng Shop</td>
+<td><code>/settings/shop-features</code></td>
+<td>Thiết lập điều kiện Salesman/Shipper + Reseller filter +
+loyalty/notification toggles (chọn tenant để impersonate)</td>
 </tr>
 <tr>
-<td>Community Fund</td>
-<td><code>/admin/community-fund</code></td>
-<td>Xem balance + spend + history quỹ cộng đồng</td>
+<td><strong>Cấu hình trạng thái đơn hàng</strong></td>
+<td><code>/admin/order-flow</code></td>
+<td>Order flow profiles per tenant/system + source type (#195) — xem
+Section 12</td>
+</tr>
+</tbody>
+</table>
+<h3 id="nhóm-hệ-thống">Nhóm "Hệ thống"</h3>
+<table>
+<thead>
+<tr>
+<th>Trang</th>
+<th>URL</th>
+<th>Chức năng</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tenants</td>
+<td><code>/admin/tenants</code></td>
+<td>CRUD tenant + Pending/Duplicates tabs (crawl-to-onboard) + chuyển
+đổi loại hình HTX ↔︎ Công ty/HKD</td>
 </tr>
 <tr>
-<td>Product Cost Prices</td>
-<td><code>/admin/product-cost-prices</code></td>
-<td>CRUD cost price per product (Reseller mode)</td>
+<td>Thành viên HTX</td>
+<td><code>/admin/membership/members</code></td>
+<td>Quản lý thành viên HTX cross-tenant</td>
 </tr>
 <tr>
-<td>Product Referral Configs</td>
-<td><code>/admin/product-referral-configs</code></td>
-<td>CRUD commission rate + app-install bonus per product</td>
+<td>Hàng đợi Claim</td>
+<td><code>/admin/claims</code></td>
+<td>Review yêu cầu claim tenant/cửa hàng</td>
 </tr>
 <tr>
-<td>Fraud Flags</td>
+<td>Kích hoạt Crawl</td>
+<td><code>/admin/crawl-trigger</code></td>
+<td>Trigger crawler thu thập dữ liệu doanh nghiệp</td>
+</tr>
+<tr>
+<td><strong>Tenant Registrations</strong></td>
+<td><code>/admin/tenant-registrations</code></td>
+<td>Hàng đợi merchant đăng ký → Contact/Onboard/Reject</td>
+</tr>
+<tr>
+<td>ShopERP Instances</td>
+<td><code>/admin/shop-instances</code></td>
+<td>Quản lý ShopERP instances (multi-VPS routing)</td>
+</tr>
+<tr>
+<td>KhachLink Instances</td>
+<td><code>/admin/khachlink-instances</code></td>
+<td>Quản lý KhachLink instances + audit (<code>/{id}/audit</code>)</td>
+</tr>
+<tr>
+<td>Tenant Domains</td>
+<td><code>/admin/domains</code></td>
+<td>Domain registrar + DNS A-record</td>
+</tr>
+<tr>
+<td>Người dùng</td>
+<td><code>/admin/users</code></td>
+<td>CRUD platform users</td>
+</tr>
+<tr>
+<td>Nhóm quyền</td>
+<td><code>/admin/permission-groups</code></td>
+<td>CRUD permission groups</td>
+</tr>
+<tr>
+<td>Nhật Ký Audit</td>
+<td><code>/admin/audit-trail</code></td>
+<td>Audit log (IP/UserAgent per compliance W4)</td>
+</tr>
+<tr>
+<td>Background Services</td>
+<td><code>/admin/background-services</code></td>
+<td>Quản lý background jobs</td>
+</tr>
+</tbody>
+</table>
+<h3 id="nhóm-crm--loyalty-global">Nhóm "CRM &amp; Loyalty (Global)"</h3>
+<table>
+<thead>
+<tr>
+<th>Trang</th>
+<th>URL</th>
+<th>Chức năng</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cross-Tenant Overview</td>
+<td><code>/admin/customers-global</code></td>
+<td>Tổng quan khách hàng cross-tenant</td>
+</tr>
+<tr>
+<td>Khách hàng (CRM)</td>
+<td><code>/admin/customers</code></td>
+<td>CRM customers</td>
+</tr>
+<tr>
+<td>Chiến dịch khuyến mãi</td>
+<td><code>/admin/promo-campaigns</code></td>
+<td>Promo campaigns</td>
+</tr>
+<tr>
+<td>Push Campaigns</td>
+<td><code>/admin/push-campaigns</code></td>
+<td>Push notification campaigns</td>
+</tr>
+<tr>
+<td>Khuyến mãi (Social)</td>
+<td><code>/admin/campaigns</code></td>
+<td>Social campaigns</td>
+</tr>
+<tr>
+<td>Quản lý Nhiệm vụ</td>
+<td><code>/admin/missions</code></td>
+<td>Missions</td>
+</tr>
+<tr>
+<td>Đổi điểm (Catalog)</td>
+<td><code>/admin/redemption-catalog</code></td>
+<td>Redemption catalog per tenant</td>
+</tr>
+<tr>
+<td>Catalog Global</td>
+<td><code>/admin/global-redemption-catalog</code></td>
+<td>Global redemption catalog</td>
+</tr>
+<tr>
+<td>Lịch sử đổi điểm</td>
+<td><code>/admin/redemption-history</code></td>
+<td>Redemption history</td>
+</tr>
+<tr>
+<td>Loyalty Alliance Config</td>
+<td><code>/admin/loyalty-config</code></td>
+<td>Loyalty alliance settings</td>
+</tr>
+<tr>
+<td>Thống kê điểm thưởng</td>
+<td><code>/loyalty/dashboard</code></td>
+<td>Loyalty dashboard</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Chi tiết nghiệp vụ CRM/Loyalty xem CRM-Loyalty Guide — bảng trên chỉ
+liệt kê trang.</p>
+</blockquote>
+<h3 id="nhóm-cộng-tác-viên">Nhóm "Cộng tác viên"</h3>
+<table>
+<thead>
+<tr>
+<th>Trang</th>
+<th>URL</th>
+<th>Chức năng</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Quản lý CTV</td>
+<td><code>/admin/community/admin-panel</code></td>
+<td>Kích hoạt role cộng tác viên + toggle "Hiển thị tất cả" + bypass
+eligibility</td>
+</tr>
+<tr>
+<td>Fraud Review</td>
 <td><code>/admin/community/fraud-flags</code></td>
 <td>Review queue gian lận (Pending → Confirm/Dismiss/Review)</td>
 </tr>
@@ -286,92 +541,325 @@ rates</td>
 <td>Thống kê fraud (rate, flags, confirmed, banned)</td>
 </tr>
 <tr>
-<td>Community Eligible</td>
-<td>Gateway API <code>GET /api/admin/community/eligible</code></td>
-<td>List customer đủ điều kiện kích hoạt role</td>
+<td><strong>Device Registrations</strong></td>
+<td><code>/admin/device-registrations</code></td>
+<td>Xem/deactivate/verify device + update risk score + fingerprint
+lookup</td>
 </tr>
 <tr>
-<td>Activate/Deactivate Role</td>
-<td>Gateway API
-<code>POST /api/admin/community/{id}/activate-role</code></td>
-<td>Kích hoạt/hủy role Shipper/Salesman</td>
+<td><strong>Cấu hình tính năng</strong></td>
+<td><code>/settings/shop-features</code></td>
+<td>Thiết lập điều kiện Salesman/Shipper + Reseller filter +
+loyalty/notification toggles</td>
 </tr>
 <tr>
-<td>Device Registrations</td>
-<td>Gateway Admin API</td>
-<td>Xem/deactivate/verify device fingerprint</td>
+<td>Xác minh SMS</td>
+<td><code>/admin/collaborator-verification</code></td>
+<td>Toggle SMS OTP + phí + min deposit</td>
+</tr>
+<tr>
+<td>Quỹ Cộng Đồng</td>
+<td><code>/admin/community-fund</code></td>
+<td>Xem balance + spend + history quỹ cộng đồng</td>
+</tr>
+<tr>
+<td>Lịch sử Settlement</td>
+<td><code>/admin/settlements</code></td>
+<td>Settlement history (Reseller mode)</td>
+</tr>
+<tr>
+<td><strong>Duyệt rút tiền</strong></td>
+<td><code>/admin/withdrawals</code></td>
+<td>Duyệt yêu cầu rút tiền của cộng tác viên</td>
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p><strong>Lưu ý:</strong> Các trang <code>/admin/*</code> khác
-(customers-global, tenants, missions, redemption, campaigns, users,
-audit-trail) đã có trong CRM-Loyalty Guide — không lặp lại ở đây.</p>
-</blockquote>
+<h3 id="nhóm-thương-mại">Nhóm "Thương mại"</h3>
+<table>
+<thead>
+<tr>
+<th>Trang</th>
+<th>URL</th>
+<th>Chức năng</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Commerce Mode</td>
+<td><code>/admin/commerce-mode</code></td>
+<td>Toggle global mode + tenant overrides + <strong>Confirm External
+Payment</strong> (Reseller non-COD)</td>
+</tr>
+<tr>
+<td>Referral Configs</td>
+<td><code>/admin/product-referral-configs</code></td>
+<td>CRUD commission rate + app-install bonus per product</td>
+</tr>
+<tr>
+<td>Giá Vốn SP</td>
+<td><code>/admin/product-cost-prices</code></td>
+<td>CRUD cost price per product (Reseller mode)</td>
+</tr>
+<tr>
+<td>VALCN v2.0 Features</td>
+<td><code>/admin/valcn-features</code></td>
+<td>Feature flags toggle</td>
+</tr>
+<tr>
+<td>Sản phẩm nổi bật</td>
+<td><code>/admin/featured-products</code></td>
+<td>Featured products management</td>
+</tr>
+<tr>
+<td>Reseller Kế toán</td>
+<td><code>/admin/reseller-accounting-reconciliation</code></td>
+<td>Reseller accounting reconciliation</td>
+</tr>
+</tbody>
+</table>
+<h3 id="nhóm-infrastructure">Nhóm "Infrastructure"</h3>
+<table>
+<thead>
+<tr>
+<th>Trang</th>
+<th>URL</th>
+<th>Chức năng</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Network Dashboard</td>
+<td><code>/admin/network-dashboard</code></td>
+<td>Network monitoring</td>
+</tr>
+<tr>
+<td>Lưu trữ ảnh R2</td>
+<td><code>/admin/r2-storage</code></td>
+<td>R2 storage config</td>
+</tr>
+<tr>
+<td>Cài đặt OCR</td>
+<td><code>/admin/ocr-settings</code></td>
+<td>OCR settings</td>
+</tr>
+<tr>
+<td>Cấu hình KhachLink</td>
+<td><code>/admin/khachlink-home-settings</code></td>
+<td>KhachLink home page config</td>
+</tr>
+</tbody>
+</table>
+<h3 id="các-nhómmục-khác-systemadmin-cũng-thấy">Các nhóm/mục khác
+SystemAdmin cũng thấy</h3>
+<table>
+<thead>
+<tr>
+<th>Trang</th>
+<th>URL</th>
+<th>Chức năng</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hóa Đơn Điện Tử (nhóm)</td>
+<td><code>/einvoice</code>, <code>/einvoice/invoices</code>,
+<code>/einvoice/alerts</code>, <code>/einvoice/health</code>,
+<code>/einvoice/providers</code>,
+<code>/einvoice/configuration</code></td>
+<td>Dashboard + quản lý HĐĐT + provider config</td>
+</tr>
+<tr>
+<td>Tài chính (nhóm)</td>
+<td><code>/financial</code>, <code>/admin/business-profile</code></td>
+<td>Thông tin tài chính + hồ sơ doanh nghiệp</td>
+</tr>
+<tr>
+<td>Thông báo</td>
+<td><code>/notifications</code></td>
+<td>Notification hub — chỉ hiện khi đang impersonate tenant</td>
+</tr>
+<tr>
+<td>Hướng dẫn (nhóm)</td>
+<td><code>guides/*.html</code></td>
+<td>Link các user guide HTML trong wwwroot</td>
+</tr>
+</tbody>
+</table>
 <hr />
-<h2 id="kích-hoạt-vai-trò-cộng-tác-viên-shippersalesman">2. KÍCH HOẠT
+<h2 id="2-kích-hoạt-vai-trò-cộng-tác-viên-shippersalesman">2. KÍCH HOẠT
 VAI TRÒ CỘNG TÁC VIÊN (SHIPPER/SALESMAN)</h2>
-<h3 id="điều-kiện-đủ-điều-kiện-eligible">2.1. Điều kiện đủ điều kiện
+<h3 id="21-điều-kiện-đủ-điều-kiện-eligible">2.1. Điều kiện đủ điều kiện
 (eligible)</h3>
-<p>Customer đủ điều kiện khi: - <strong>Toggle OFF (mặc định):</strong>
-<code>IdentityLevel ≥ DeviceVerified</code> (4) <strong>HOẶC</strong>
-<code>IdentityLevel ≥ Verified</code> (2) +
-<code>LoyaltyPoints ≥ 1000</code> - <strong>Toggle ON:</strong>
-<code>IdentityLevel ≥ Verified</code> (2) <strong>BẮT BUỘC</strong> +
-<code>LoyaltyPoints ≥ 1000</code> +
+<p>Customer đủ điều kiện khi (<code>CommunityAdminService</code>):</p>
+<ul>
+<li><strong>Toggle OFF (mặc định):</strong>
+<code>IdentityLevel ≥ Verified</code> (2) — đã bao gồm
+<code>DeviceVerified</code> (4) vì 4 &gt; 2 — <strong>VÀ</strong>
+<code>LoyaltyPoints ≥ ngưỡng per-tenant</code> (default 1000)</li>
+<li><strong>Toggle ON:</strong> như trên <strong>+</strong>
 <code>CommunityRole.IsPhoneVerified = true</code> + deposit wallet ≥ phí
-SMS OTP</p>
-<h3 id="quy-trình-kích-hoạt">2.2. Quy trình kích hoạt</h3>
-<p><strong>Bước 1:</strong> Đăng nhập SystemAdmin → gọi Gateway Admin
-API <code>GET /api/admin/community/eligible</code>. - API trả list
-customer đủ điều kiện (Verified + ≥1000 points, hoặc DeviceVerified +
-≥1000 points nếu toggle OFF).</p>
-<p><strong>Bước 2:</strong> Chọn customer →
-<code>POST /api/admin/community/{customerId}/activate-role</code> với
-body:</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span> <span class="dt">&quot;role&quot;</span><span class="fu">:</span> <span class="st">&quot;Shipper&quot;</span> <span class="fu">}</span></span></code></pre></div>
-<p>hoặc</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode json"><code class="sourceCode json"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span> <span class="dt">&quot;role&quot;</span><span class="fu">:</span> <span class="st">&quot;Salesman&quot;</span> <span class="fu">}</span></span></code></pre></div>
-<p><strong>Bước 3:</strong> Hệ thống tạo bản ghi
-<code>CommunityRole</code> gắn với Customer + gửi push notification cho
-customer.</p>
-<p><strong>Bước 4:</strong> Customer thấy role mới trong Profile page
-sau khi login (tab mới xuất hiện trong NavMenu: “Đơn hàng gần” cho
-Shipper, “Sản phẩm gần” cho Salesman).</p>
-<h3 id="khi-toggle-on-flow-verification-uc-02b">2.3. Khi toggle ON —
+SMS OTP</li>
+</ul>
+<blockquote>
+<p><strong>Điều kiện per-tenant:</strong> SystemAdmin cấu hình
+per-tenant tại <code>/settings/shop-features</code> (xem Section 3).</p>
+</blockquote>
+<h3 id="22-quy-trình-kích-hoạt-qua-ui">2.2. Quy trình kích hoạt qua
+UI</h3>
+<p><strong>Bước 1:</strong> Đăng nhập SystemAdmin → menu <strong>Cộng
+tác viên → Quản lý CTV</strong>
+(<code>/admin/community/admin-panel</code>).</p>
+<p><strong>Bước 2:</strong> Mặc định chỉ hiện customer đủ điều kiện. Bật
+toggle <strong>"Hiển thị tất cả khách hàng"</strong> để xem cả customer
+chưa đủ điều kiện (đăng nhập Google mới).</p>
+<p><strong>Bước 3:</strong> Mỗi customer có 2 nút:</p>
+<ul>
+<li><strong>+ Shipper</strong> — kích hoạt role Shipper</li>
+<li><strong>+ Salesman</strong> — kích hoạt role Salesman</li>
+</ul>
+<p><strong>Bước 4:</strong> Nếu customer đủ điều kiện → role kích hoạt
+ngay. Nếu chưa đủ điều kiện (toggle "Hiển thị tất cả" đang ON) → hiện
+<strong>confirm dialog</strong> "Xác nhận nâng cấp vượt điều kiện" → bấm
+<strong>Xác nhận nâng cấp</strong> để activate với
+<code>bypassEligibility=true</code>.</p>
+<p><strong>Bước 5:</strong> Customer thấy role mới trong Profile page
+sau khi login (tab mới xuất hiện trong NavMenu: "Đơn hàng gần" cho
+Shipper, "Sản phẩm gần" cho Salesman).</p>
+<h3 id="23-khi-toggle-on--flow-verification-uc-02b">2.3. Khi toggle ON —
 flow verification (UC-02b)</h3>
-<p>Nếu customer chưa verify SĐT (<code>IsPhoneVerified = false</code>):
-1. Admin redirect customer sang verification flow. 2. Customer mở
-verification page → nhập/confirm SĐT. 3.
-<code>POST /api/collaborator-verification/init</code> → server gửi SMS
-OTP (trừ phí deposit wallet). 4. Customer nhập OTP →
-<code>POST /api/collaborator-verification/verify</code>. 5. Verify thành
-công → <code>IsPhoneVerified = true</code> +
-<code>PhoneVerifiedAt = now</code>. 6. Admin activate role (Bước 2 ở
-trên).</p>
-<p><strong>Lưu ý:</strong> - Retry limit: max 3 OTP gửi / 24h
-(anti-spam). - Deposit hết → không gửi OTP → thông báo “Nạp thêm
-deposit”. - Phí SMS OTP trừ deposit wallet mỗi lần
-(<code>SmsOtpFeePerVerification</code>).</p>
-<h3 id="hủy-role-deactivate">2.4. Hủy role (deactivate)</h3>
-<p><code>POST /api/admin/community/{customerId}/deactivate-role</code> —
-hủy role cộng tác viên. Customer mất tab tương ứng trong NavMenu.</p>
+<p>Nếu customer chưa verify SĐT
+(<code>IsPhoneVerified = false</code>):</p>
+<ol type="1">
+<li>Admin redirect customer sang verification flow.</li>
+<li>Customer mở verification page → nhập/confirm SĐT.</li>
+<li><code>POST /api/collaborator-verification/init</code> → server gửi
+SMS OTP (trừ phí deposit wallet).</li>
+<li>Customer nhập OTP →
+<code>POST /api/collaborator-verification/verify</code>.</li>
+<li>Verify thành công → <code>IsPhoneVerified = true</code> +
+<code>PhoneVerifiedAt = now</code>.</li>
+<li>Admin activate role (Bước 3 ở trên).</li>
+</ol>
+<p><strong>Lưu ý:</strong></p>
+<ul>
+<li>Retry limit: max 3 OTP gửi / 24h (anti-spam).</li>
+<li>Deposit hết → không gửi OTP → thông báo "Nạp thêm deposit".</li>
+<li>Phí SMS OTP trừ deposit wallet mỗi lần
+(<code>SmsOtpFeePerVerification</code>).</li>
+</ul>
+<h3 id="24-hủy-role-deactivate">2.4. Hủy role (deactivate)</h3>
+<p>Trên cùng trang <code>/admin/community/admin-panel</code>, nút
+<strong>− Shipper</strong> / <strong>− Salesman</strong> để hủy role.
+Customer mất tab tương ứng trong NavMenu.</p>
+<h3 id="25-admin-panel--owner-panel--override-pr-172">2.5. Admin Panel +
+Owner Panel + Override (PR #172)</h3>
+<p>Có 2 path kích hoạt role + tính năng bypass eligibility:</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>URL</th>
+<th>Role</th>
+<th>Phạm vi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Admin Panel</td>
+<td><code>/admin/community/admin-panel</code></td>
+<td>SystemAdmin</td>
+<td>Cross-tenant (tất cả tenant)</td>
+</tr>
+<tr>
+<td>Owner Panel</td>
+<td><code>/community/owner-panel</code></td>
+<td>Owner</td>
+<td>Tenant-scoped (chỉ tenant của mình)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Tính năng (cả 2 panel, PR #172):</strong></p>
+<ul>
+<li>Toggle <strong>"Hiển thị tất cả khách hàng"</strong> — xem cả
+customer chưa đủ điều kiện (IdentityLevel/LoyaltyPoints thấp).</li>
+<li><strong>Bypass eligibility</strong> — kích hoạt bỏ qua check điều
+kiện (dùng cho customer đặc biệt, admin override).</li>
+<li><strong>Confirm dialog</strong> trước khi activate (tránh click
+nhầm).</li>
+</ul>
 <hr />
-<h2 id="thiết-lập-product-referral-config-commission-app-install-bonus">3.
+<h2 id="3-thiết-lập-điều-kiện-kích-hoạt-role-salesmanshipper">3. THIẾT
+LẬP ĐIỀU KIỆN KÍCH HOẠT ROLE (SALESMAN/SHIPPER)</h2>
+<blockquote>
+<p><strong>Per-tenant configuration (R2.1).</strong> Mỗi tenant có thể
+thiết lập điều kiện riêng. Default: 1000 points + IdentityLevel ≥
+Verified.</p>
+</blockquote>
+<h3 id="31-truy-cập">3.1. Truy cập</h3>
+<p>Đăng nhập SystemAdmin → menu <strong>Cộng tác viên → Cấu hình tính
+năng</strong> (<code>/settings/shop-features</code>).</p>
+<blockquote>
+<p><strong>Lưu ý SystemAdmin:</strong> SystemAdmin không thuộc tenant cụ
+thể. Khi vào trang, hiện <strong>dropdown chọn tenant</strong> + toggle
+<strong>"Chỉ hiện tenant Reseller"</strong> để lọc. Chọn tenant → bấm
+<strong>Chọn &amp; Cấu hình</strong> → impersonate tenant đó → trang
+load settings per-tenant.</p>
+</blockquote>
+<h3 id="32-card-cộng-tác-viên--điều-kiện-kích-hoạt-r21">3.2. Card "Cộng
+tác viên — Điều kiện kích hoạt (R2.1)"</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Mô tả</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Điểm tối thiểu — Salesman</td>
+<td><code>Community_SalesmanMinPoints</code></td>
+<td>1000</td>
+</tr>
+<tr>
+<td>Điểm tối thiểu — Shipper</td>
+<td><code>Community_ShipperMinPoints</code></td>
+<td>1000 (có thể khác Salesman)</td>
+</tr>
+<tr>
+<td>Mức xác thực tối thiểu</td>
+<td><code>Community_RequiredIdentityLevel</code></td>
+<td>Verified (2) — áp dụng cho cả Salesman + Shipper</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Mức xác thực:</strong></p>
+<ul>
+<li>Guest (0) — Không yêu cầu</li>
+<li>Social (1) — Đăng nhập MXH</li>
+<li>Verified (2) — Xác thực SMS OTP (mặc định)</li>
+<li>Full (3) — Xác thực đầy đủ</li>
+</ul>
+<h3 id="33-lưu">3.3. Lưu</h3>
+<p>Bấm <strong>Lưu</strong> → settings lưu per-tenant. Thay đổi có hiệu
+lực ngay (không cần restart).</p>
+<hr />
+<h2
+id="4-thiết-lập-product-referral-config-commission--app-install-bonus">4.
 THIẾT LẬP PRODUCT REFERRAL CONFIG (COMMISSION + APP-INSTALL BONUS)</h2>
 <blockquote>
 <p><strong>Quan trọng:</strong> Commission rate + app-install bonus do
 <strong>SystemAdmin thiết lập per-product</strong> (KHÔNG hardcode).
 Salesman chỉ thấy config đã set — không tự thay đổi.</p>
 </blockquote>
-<h3 id="truy-cập">3.1. Truy cập</h3>
-<p>Đăng nhập SystemAdmin →
-<code>/admin/product-referral-configs</code>.</p>
-<h3 id="tạo-config-cho-product">3.2. Tạo config cho product</h3>
-<p><strong>Bước 1:</strong> Bấm “Tạo mới” → chọn product (từ
+<h3 id="41-truy-cập">4.1. Truy cập</h3>
+<p>Đăng nhập SystemAdmin → menu <strong>Thương mại → Referral
+Configs</strong> (<code>/admin/product-referral-configs</code>).</p>
+<h3 id="42-tạo-config-cho-product">4.2. Tạo config cho product</h3>
+<p><strong>Bước 1:</strong> Bấm "Tạo mới" → chọn product (từ
 FeaturedProducts PG hoặc nhập ProductId).</p>
 <p><strong>Bước 2:</strong> Nhập các field: | Field | Mô tả | Giá trị |
-|—|—|—| | <code>CommissionRate</code> | % hoa hồng chốt đơn | 2-5%
+|---|---|---| | <code>CommissionRate</code> | % hoa hồng chốt đơn | 2-5%
 (Marketplace: % orderTotal; Reseller: % margin) | |
 <code>AppInstallBonus</code> | Thưởng cố định khi customer cài app | VND
 (vd 50000) | | <code>ProductShortCode</code> | Mã ngắn gọn cho QR | 6-8
@@ -379,40 +867,32 @@ chars (vd <code>TR-001</code>) | | <code>CommissionBase</code> (Sprint
 7) | Cơ sở tính commission | <code>OnOrderTotal</code> (Marketplace) /
 <code>OnMargin</code> (Reseller) | | <code>IsActive</code> | Trạng thái
 | true/false |</p>
-<p><strong>Bước 3:</strong> Bấm <strong>Lưu</strong> →
-<code>POST /api/admin/products/{productId}/referral-config</code>.</p>
-<h3 id="update-deactivate">3.3. Update / Deactivate</h3>
+<p><strong>Bước 3:</strong> Bấm <strong>Lưu</strong>.</p>
+<h3 id="43-update--deactivate">4.3. Update / Deactivate</h3>
 <ul>
-<li><strong>Update:</strong>
-<code>PUT /api/admin/products/{productId}/referral-config</code>.</li>
-<li><strong>Deactivate (soft delete):</strong>
-<code>DELETE /api/admin/products/{productId}/referral-config</code> —
-set <code>IsActive = false</code>, KHÔNG xóa data.</li>
+<li><strong>Update:</strong> Sửa config → bấm Lưu.</li>
+<li><strong>Deactivate (soft delete):</strong> Set
+<code>IsActive = false</code> — KHÔNG xóa data.</li>
 </ul>
-<h3 id="salesman-thấy-gì">3.4. Salesman thấy gì?</h3>
-<p>Salesman mở “Sản phẩm gần” → mỗi product hiện: name, price, shop
+<h3 id="44-salesman-thấy-gì">4.4. Salesman thấy gì?</h3>
+<p>Salesman mở "Sản phẩm gần" → mỗi product hiện: name, price, shop
 name, distance, <strong>commissionRate</strong>,
 <strong>appInstallBonus</strong> (từ config). Product chưa có config →
-hiển thị “Chưa thiết lập” (salesman vẫn chọn nhưng commission/bonus =
+hiển thị "Chưa thiết lập" (salesman vẫn chọn nhưng commission/bonus =
 0).</p>
 <hr />
-<h2 id="commerce-mode-toggle-marketplace-reseller-sprint-7">4. COMMERCE
-MODE TOGGLE (MARKETPLACE ↔︎ RESELLER) — SPRINT 7</h2>
+<h2 id="5-commerce-mode-toggle-marketplace--reseller--sprint-7">5.
+COMMERCE MODE TOGGLE (MARKETPLACE ↔︎ RESELLER) — SPRINT 7</h2>
 <blockquote>
-<p><strong>Nguyên tắc:</strong> “Mua giúp — Bán dùm”. Vạn An mua hàng từ
+<p><strong>Nguyên tắc:</strong> "Mua giúp — Bán dùm". Vạn An mua hàng từ
 tenant rồi bán lại cho customer. Toggle toàn cục + override cấp tenant.
 Additive — không phá Sprint 0-6.</p>
 </blockquote>
-<h3 id="truy-cập-1">4.1. Truy cập</h3>
-<p>Đăng nhập SystemAdmin → <code>/admin/commerce-mode</code> (ShopERP
-Admin, <code>@attribute [Authorize(Roles=&quot;SystemAdmin&quot;)]</code>).</p>
-<h3 id="global-settings-card">4.2. Global Settings Card</h3>
+<h3 id="51-truy-cập">5.1. Truy cập</h3>
+<p>Đăng nhập SystemAdmin → menu <strong>Thương mại → Commerce
+Mode</strong> (<code>/admin/commerce-mode</code>).</p>
+<h3 id="52-global-settings-card">5.2. Global Settings Card</h3>
 <table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
 <thead>
 <tr>
 <th>Field</th>
@@ -444,18 +924,13 @@ Admin, <code>@attribute [Authorize(Roles=&quot;SystemAdmin&quot;)]</code>).</p>
 </tr>
 </tbody>
 </table>
-<p><strong>Bấm Lưu</strong> →
-<code>POST /api/admin/commerce-mode/global</code>.</p>
+<p><strong>Bấm Lưu</strong> → áp dụng cho đơn hàng mới.</p>
 <blockquote>
-<p><strong>CẢNH BÁO hiển thị trên UI:</strong> “Thay đổi áp dụng cho đơn
-hàng mới. Đơn hàng cũ không bị ảnh hưởng.”</p>
+<p><strong>CẢNH BÁO hiển thị trên UI:</strong> "Thay đổi áp dụng cho đơn
+hàng mới. Đơn hàng cũ không bị ảnh hưởng."</p>
 </blockquote>
-<h3 id="tenant-overrides-table">4.3. Tenant Overrides Table</h3>
+<h3 id="53-tenant-overrides-table">5.3. Tenant Overrides Table</h3>
 <table>
-<colgroup>
-<col style="width: 50%" />
-<col style="width: 50%" />
-</colgroup>
 <thead>
 <tr>
 <th>Column</th>
@@ -478,22 +953,59 @@ hàng mới. Đơn hàng cũ không bị ảnh hưởng.”</p>
 </tr>
 <tr>
 <td>Actions</td>
-<td><strong>Lưu</strong> button per row →
-<code>POST /api/admin/commerce-mode/tenant/{tenantId}</code></td>
+<td><strong>Đặt Override</strong> button per row</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Quy tắc ưu tiên:</strong> 1. Override ≠ <code>Inherit</code>
-→ dùng override 2. Override == <code>Inherit</code> → dùng global
-setting 3. Mỗi Order snapshot mode tại creation — toggle affect future
-orders only</p>
-<h3 id="khi-nào-bật-reseller">4.4. Khi nào bật Reseller?</h3>
+<p><strong>Quy tắc ưu tiên:</strong></p>
+<ol type="1">
+<li>Override ≠ <code>Inherit</code> → dùng override</li>
+<li>Override == <code>Inherit</code> → dùng global setting</li>
+<li>Mỗi Order snapshot mode tại creation — toggle affect future orders
+only</li>
+</ol>
+<h3 id="54-xác-nhận-thanh-toán-ngoài-hệ-thống-reseller-non-cod">5.4. Xác
+nhận thanh toán ngoài hệ thống (Reseller non-COD)</h3>
+<blockquote>
+<p><strong>Sprint 7 Q5.</strong> Khi khách hàng thanh toán Reseller
+order bằng VietQR/thẻ (không phải COD), SystemAdmin xác nhận tại
+đây.</p>
+</blockquote>
+<p>Trên cùng trang <code>/admin/commerce-mode</code>, cuộn xuống card
+<strong>"Xác nhận thanh toán ngoài hệ thống (Reseller
+non-COD)"</strong>:</p>
 <table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
+<thead>
+<tr>
+<th>Field</th>
+<th>Mô tả</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Order ID</td>
+<td>GUID của order cần xác nhận</td>
+</tr>
+<tr>
+<td>Số tiền (VND)</td>
+<td>Số tiền khách đã thanh toán</td>
+</tr>
+<tr>
+<td>Payment Ref</td>
+<td>VietQR txn ID / card ref</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Bấm Xác nhận</strong> → hệ thống tạo 5-split: ExternalPayment
++ Settlement + DeliveryFee + Commission + PlatformFee +
+CommunityFund.</p>
+<blockquote>
+<p><strong>Lưu ý:</strong> Trước đây SystemAdmin phải gọi API
+<code>POST /api/admin/commerce-mode/confirm-external-payment</code> trực
+tiếp. Giờ có UI form trên trang Commerce Mode.</p>
+</blockquote>
+<h3 id="55-khi-nào-bật-reseller">5.5. Khi nào bật Reseller?</h3>
+<table>
 <thead>
 <tr>
 <th>Giai đoạn</th>
@@ -524,13 +1036,9 @@ orders only</p>
 </tr>
 </tbody>
 </table>
-<h3 id="rollout-strategy-an-toàn">4.5. Rollout strategy (an toàn)</h3>
+<h3 id="56-rollout-strategy-an-toàn">5.6. Rollout strategy (an
+toàn)</h3>
 <table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
 <thead>
 <tr>
 <th>Phase</th>
@@ -547,7 +1055,7 @@ orders only</p>
 <tr>
 <td>2. Test Reseller trên 1 tenant</td>
 <td>Override 1 tenant → Reseller</td>
-<td>Isolated — chỉ tenant đó’s new orders</td>
+<td>Isolated — chỉ tenant đó's new orders</td>
 </tr>
 <tr>
 <td>3. Toggle global → Reseller</td>
@@ -561,85 +1069,48 @@ orders only</p>
 </tr>
 </tbody>
 </table>
-<h3 id="api-endpoints">4.6. API endpoints</h3>
-<table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
-<thead>
-<tr>
-<th>Method</th>
-<th>Endpoint</th>
-<th>Mô tả</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>GET</td>
-<td><code>/api/admin/commerce-mode</code></td>
-<td>Lấy global mode + tenant overrides</td>
-</tr>
-<tr>
-<td>POST</td>
-<td><code>/api/admin/commerce-mode/global</code></td>
-<td>Set global mode + rates</td>
-</tr>
-<tr>
-<td>POST</td>
-<td><code>/api/admin/commerce-mode/tenant/{tenantId}</code></td>
-<td>Set tenant override</td>
-</tr>
-<tr>
-<td>GET</td>
-<td><code>/api/community/commerce-mode</code></td>
-<td>Customer-facing: lấy mode resolved cho UI (auth: X-Customer-Token)</td>
-</tr>
-</tbody>
-</table>
 <hr />
-<h2 id="quản-lý-community-fund-quỹ-phát-triển-cộng-đồng">5. QUẢN LÝ
+<h2 id="6-quản-lý-community-fund-quỹ-phát-triển-cộng-đồng">6. QUẢN LÝ
 COMMUNITY FUND (QUỸ PHÁT TRIỂN CỘNG ĐỒNG)</h2>
 <blockquote>
 <p><strong>Chỉ có trong Reseller mode.</strong> % margin (default 5%)
 vào quỹ cộng đồng mỗi đơn COD.</p>
 </blockquote>
-<h3 id="truy-cập-2">5.1. Truy cập</h3>
-<p>Đăng nhập SystemAdmin → <code>/admin/community-fund</code>.</p>
-<h3 id="xem-balance-history">5.2. Xem balance + history</h3>
+<h3 id="61-truy-cập">6.1. Truy cập</h3>
+<p>Đăng nhập SystemAdmin → menu <strong>Cộng tác viên → Quỹ Cộng
+Đồng</strong> (<code>/admin/community-fund</code>).</p>
+<h3 id="62-xem-balance--history">6.2. Xem balance + history</h3>
 <ul>
-<li><strong>Balance card:</strong> Số dư hiện tại quỹ cộng đồng
-(VND). API: <code>GET /api/admin/community-fund/balance</code>.</li>
-<li><strong>Spend button:</strong> Rút tiền tái đầu tư cộng đồng. API:
-<code>POST /api/admin/community-fund/spend</code>.</li>
+<li><strong>Balance card:</strong> Số dư hiện tại quỹ cộng đồng (VND) +
+tổng đã thu + tổng đã chi.</li>
+<li><strong>+ Chi quỹ button:</strong> Rút tiền tái đầu tư cộng
+đồng.</li>
 <li><strong>History table:</strong> List
 <code>CommunityFundSpendRecord</code> — amount, reason, date, approved
-by. API: <code>GET /api/admin/community-fund/history</code>.</li>
+by.</li>
 </ul>
-<h3 id="rút-tiền-spend">5.3. Rút tiền (spend)</h3>
-<p><strong>Bước 1:</strong> Bấm <strong>Rút tiền</strong> → nhập amount
-+ reason (vd “Tài trợ sự kiện cộng đồng Q7”).</p>
-<p><strong>Bước 2:</strong> Confirm →
-<code>POST /api/admin/community-fund/spend</code> (controller
-<code>CommunityFundController</code>).</p>
-<p><strong>Bước 3:</strong> Hệ thống tạo <code>WalletTransaction</code>
-type=<code>CommunityFundSpend</code> (11) — trừ balance quỹ.</p>
+<h3 id="63-rút-tiền-spend">6.3. Rút tiền (spend)</h3>
+<p><strong>Bước 1:</strong> Bấm <strong>+ Chi quỹ</strong> → nhập amount
++ reason (vd "Tài trợ sự kiện cộng đồng Q7").</p>
+<p><strong>Bước 2:</strong> Confirm → hệ thống tạo
+<code>WalletTransaction</code> type=<code>CommunityFundSpend</code> (11)
+— trừ balance quỹ.</p>
 <blockquote>
 <p><strong>Lưu ý:</strong> Quỹ cộng đồng là wallet đặc biệt
 (SystemWalletIds.CommunityFundWallet) — KHÔNG tạo Customer entity cho
 nó.</p>
 </blockquote>
 <hr />
-<h2 id="quản-lý-product-cost-price-reseller-mode">6. QUẢN LÝ PRODUCT
+<h2 id="7-quản-lý-product-cost-price-reseller-mode">7. QUẢN LÝ PRODUCT
 COST PRICE (RESELLER MODE)</h2>
 <blockquote>
 <p><strong>Chỉ có trong Reseller mode.</strong> Cost price = giá Vạn An
 mua từ tenant. Vạn An định giá bán = CostPrice + margin.</p>
 </blockquote>
-<h3 id="truy-cập-3">6.1. Truy cập</h3>
-<p>Đăng nhập SystemAdmin → <code>/admin/product-cost-prices</code>.</p>
-<h3 id="crud">6.2. CRUD</h3>
+<h3 id="71-truy-cập">7.1. Truy cập</h3>
+<p>Đăng nhập SystemAdmin → menu <strong>Thương mại → Giá Vốn SP</strong>
+(<code>/admin/product-cost-prices</code>).</p>
+<h3 id="72-crud">7.2. CRUD</h3>
 <ul>
 <li><strong>Tạo:</strong> Chọn product + nhập cost price (VND) +
 effective date.</li>
@@ -648,14 +1119,8 @@ creation, không affect đơn cũ).</li>
 <li><strong>List:</strong> Bảng product + cost price hiện tại + lịch sử
 thay đổi.</li>
 </ul>
-<p><strong>API:</strong> <code>ProductCostPriceController</code> — CRUD
-qua Gateway Admin API (SystemAdmin JWT). Endpoints:</p>
-<ul>
-<li><code>GET /api/admin/product-cost-prices?tenantId=...&amp;page=1&amp;pageSize=20</code></li>
-<li><code>POST /api/admin/product-cost-prices</code> (upsert by TenantId + ProductId)</li>
-<li><code>DELETE /api/admin/product-cost-prices/{id}</code></li>
-</ul>
-<h3 id="mối-quan-hệ-với-sellprice">6.3. Mối quan hệ với SellPrice</h3>
+<h3 id="73-mối-quan-hệ-với-sellprice">7.3. Mối quan hệ với
+SellPrice</h3>
 <ul>
 <li><code>SellPrice</code> = giá Vạn An bán cho customer (do Vạn An
 định, dựa trên cost price + margin).</li>
@@ -665,15 +1130,16 @@ qua Gateway Admin API (SystemAdmin JWT). Endpoints:</p>
 orderTotal như Marketplace).</li>
 </ul>
 <hr />
-<h2 id="fraud-review-xem-xét-gian-lận">7. FRAUD REVIEW — XEM XÉT GIAN
+<h2 id="8-fraud-review--xem-xét-gian-lận">8. FRAUD REVIEW — XEM XÉT GIAN
 LẬN</h2>
 <blockquote>
 <p><strong>5-layer anti-fraud tự động flag + admin manual
 review.</strong> Target fraud rate &lt;0.5%.</p>
 </blockquote>
-<h3 id="truy-cập-4">7.1. Truy cập</h3>
-<p>Đăng nhập SystemAdmin → <code>/admin/fraud-flags</code>.</p>
-<h3 id="review-queue">7.2. Review queue</h3>
+<h3 id="81-truy-cập">8.1. Truy cập</h3>
+<p>Đăng nhập SystemAdmin → menu <strong>Cộng tác viên → Fraud
+Review</strong> (<code>/admin/community/fraud-flags</code>).</p>
+<h3 id="82-review-queue">8.2. Review queue</h3>
 <ul>
 <li>List <code>FraudFlag(Status=Pending)</code> sort by
 <code>RiskScore</code> desc.</li>
@@ -681,19 +1147,16 @@ review.</strong> Target fraud rate &lt;0.5%.</p>
 (Customer/Order/SalesReferral/AppInstallAttribution/DeviceRegistration),
 risk score, risk factors (JSON), description, created date.</li>
 </ul>
-<h3 id="click-flag-xem-detail">7.3. Click flag → xem detail</h3>
+<h3 id="83-click-flag--xem-detail">8.3. Click flag → xem detail</h3>
 <ul>
 <li>Customer info + order history.</li>
 <li>Related entities: DeviceRegistration (fingerprint, IP, UA,
 platform), SalesReferral, AppInstallAttribution.</li>
-<li>Risk factors breakdown (vd “sameFingerprint:+50,sameIP:+30”).</li>
+<li>Risk factors breakdown (vd "sameFingerprint:+50,sameIP:+30").</li>
 </ul>
-<h3 id="admin-actions-3-lựa-chọn">7.4. Admin actions (3 lựa chọn)</h3>
+<h3 id="84-admin-actions-3-lựa-chọn">8.4. Admin actions (3 lựa
+chọn)</h3>
 <table>
-<colgroup>
-<col style="width: 50%" />
-<col style="width: 50%" />
-</colgroup>
 <thead>
 <tr>
 <th>Action</th>
@@ -714,16 +1177,20 @@ banned nếu 3 strikes (3 confirmed flags → permanent ban).</td>
 </tr>
 <tr>
 <td><strong>MarkReviewed</strong></td>
-<td>Neutral, info only — không penalty không whitelist. API:
-<code>POST /api/admin/community/fraud-flags/{id}/mark-reviewed</code>.</td>
+<td>Neutral, info only — không penalty không whitelist.</td>
 </tr>
 </tbody>
 </table>
-<h3 id="fraud-stats">7.5. Fraud Stats</h3>
-<p><code>/admin/community/fraud-stats</code> — thống kê: - Total flags / Pending /
-Confirmed / Dismissed - Fraud rate (confirmed / total transactions) -
-Banned accounts count - Top risk factors</p>
-<h3 id="auto-behavior-không-cần-admin">7.6. Auto behavior (không cần
+<h3 id="85-fraud-stats">8.5. Fraud Stats</h3>
+<p>Menu <strong>Cộng tác viên → Fraud Stats</strong>
+(<code>/admin/community/fraud-stats</code>) — thống kê:</p>
+<ul>
+<li>Total flags / Pending / Confirmed / Dismissed</li>
+<li>Fraud rate (confirmed / total transactions)</li>
+<li>Banned accounts count</li>
+<li>Top risk factors</li>
+</ul>
+<h3 id="86-auto-behavior-không-cần-admin">8.6. Auto behavior (không cần
 admin)</h3>
 <table>
 <thead>
@@ -751,26 +1218,46 @@ admin)</h3>
 (hourly, auto-approve RiskScore&lt;60 sau 24h) +
 <code>HeldTimeoutJob</code> (hourly, auto-reject Held sau 48h).</p>
 <hr />
-<h2 id="collaborator-sms-otp-toggle">8. COLLABORATOR SMS OTP TOGGLE</h2>
+<h2 id="9-collaborator-sms-otp-toggle">9. COLLABORATOR SMS OTP
+TOGGLE</h2>
 <blockquote>
 <p><strong>Toggle ON/OFF</strong> quyết định Salesman/Shipper/Owner có
 bắt buộc SMS OTP hay không. Customer KHÔNG bị ảnh hưởng.</p>
 </blockquote>
-<h3 id="truy-cập-5">8.1. Truy cập</h3>
-<p>SystemSetting <code>CollaboratorSmsVerificationEnabled</code> — set
-qua Gateway Admin API:</p>
-<ul>
-<li><code>GET /api/admin/collaborator-verification/settings</code> — xem toggle state</li>
-<li><code>POST /api/admin/collaborator-verification/settings</code> — update toggle + fee + min deposit</li>
-</ul>
-<p>Trang admin: <code>/admin/collaborator-verification</code> (ShopERP).</p>
-<h3 id="khi-nào-bật">8.2. Khi nào bật?</h3>
+<h3 id="91-truy-cập">9.1. Truy cập</h3>
+<p>Đăng nhập SystemAdmin → menu <strong>Cộng tác viên → Xác minh
+SMS</strong> (<code>/admin/collaborator-verification</code>).</p>
+<h3 id="92-cài-đặt">9.2. Cài đặt</h3>
 <table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
+<thead>
+<tr>
+<th>Field</th>
+<th>Mô tả</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Trạng thái</td>
+<td>Bật/Tắt SMS OTP verification</td>
+<td>Tắt (OFF)</td>
+</tr>
+<tr>
+<td>Phí SMS mỗi lần xác minh (VND)</td>
+<td>Trừ từ deposit wallet mỗi OTP</td>
+<td>200</td>
+</tr>
+<tr>
+<td>Số dư tối thiểu (VND)</td>
+<td>Cộng tác viên phải nạp tối thiểu số này</td>
+<td>10000</td>
+</tr>
+</tbody>
+</table>
+<p>Bấm <strong>Lưu cài đặt</strong> → thay đổi có hiệu lực ngay
+(SystemSetting, không cần restart).</p>
+<h3 id="93-khi-nào-bật">9.3. Khi nào bật?</h3>
+<table>
 <thead>
 <tr>
 <th>Giai đoạn</th>
@@ -791,72 +1278,205 @@ qua Gateway Admin API:</p>
 </tr>
 </tbody>
 </table>
-<h3 id="domain-changes-khi-toggle-on">8.3. Domain changes khi toggle
+<h3 id="94-domain-changes-khi-toggle-on">9.4. Domain changes khi toggle
 ON</h3>
 <ul>
-<li><code>WalletTransactionType.Deposit=7</code> +
-<code>SmsOtpFee=8</code> (nạp deposit + trừ phí OTP)</li>
+<li><code>WalletTransactionType.Deposit = 12</code> +
+<code>SmsOtpFee = 13</code> (nạp deposit + trừ phí OTP)</li>
 <li><code>CommunityRole.IsPhoneVerified</code> +
 <code>PhoneVerifiedAt</code></li>
 <li><code>SystemSetting.CollaboratorSmsVerificationEnabled</code>
 (toggle)</li>
 </ul>
 <blockquote>
-<p><strong>Coordination note:</strong> Nếu CC-S6-T5 (SMS OTP toggle)
-deploy trước Sprint 7, enum values 7-8 = Deposit/SmsOtpFee, Sprint 7
-renumber PlatformFee/CommunityFund sang 9-13.</p>
+<p><strong>Cập nhật (2026-10-19):</strong> Enum thực tế
+(<code>1_Shared/Domain/Aggregates</code> — WalletTransactionType):
+<code>CODCollection=1, AdvancePayment=2, Commission=3, Withdrawal=4, Settlement=5, Reversal=6, PlatformFee=7, CommunityFund=8, DeliveryFee=9, ExternalPayment=10, CommunityFundSpend=11, Deposit=12, SmsOtpFee=13, Remittance=14</code>
+(shipper nộp tiền COD thu hộ). Xem README Section 6.1 cho bảng đầy
+đủ.</p>
 </blockquote>
 <hr />
-<h2 id="quản-lý-device-registration">9. QUẢN LÝ DEVICE REGISTRATION</h2>
-<h3 id="max-3-devices-per-customer">9.1. Max 3 devices per Customer</h3>
+<h2 id="10-quản-lý-device-registration">10. QUẢN LÝ DEVICE
+REGISTRATION</h2>
+<h3 id="101-truy-cập">10.1. Truy cập</h3>
+<p>Đăng nhập SystemAdmin → menu <strong>Cộng tác viên → Device
+Registrations</strong> (<code>/admin/device-registrations</code>).</p>
+<h3 id="102-max-3-devices-per-customer">10.2. Max 3 devices per
+Customer</h3>
 <ul>
 <li>Device 4+ → tạo với <code>IsActive=false</code> +
 <code>FraudFlag(Status=Pending)</code>.</li>
 <li>Admin review → approve (set <code>IsActive=true</code>) hoặc
 reject.</li>
 </ul>
-<h3 id="admin-actions">9.2. Admin actions</h3>
+<h3 id="103-trang-quản-lý">10.3. Trang quản lý</h3>
+<p>Trang <code>/admin/device-registrations</code> hiển thị bảng device
+registrations cross-tenant với:</p>
+<p><strong>Bộ lọc:</strong></p>
+<ul>
+<li>Lọc theo CustomerId</li>
+<li>Lọc theo Fingerprint Hash</li>
+<li>Lọc theo trạng thái (Active/Inactive)</li>
+</ul>
+<p><strong>Mỗi device hiện:</strong></p>
+<ul>
+<li>Khách hàng (tên + ID)</li>
+<li>Platform (iOS/Android/Web)</li>
+<li>IP Address</li>
+<li>Fingerprint Hash (rút gọn)</li>
+<li>Risk Score (badge màu: low/medium/high)</li>
+<li>Trạng thái Active/Inactive</li>
+<li>Trạng thái Verified/Unverified</li>
+<li>Last Seen timestamp</li>
+</ul>
+<p><strong>Hành động (per device):</strong> | Nút | Hành động | Hệ quả |
+|---|---|---| | <strong>Chi tiết</strong> | Mở modal xem đầy đủ thông
+tin device | Device token, fingerprint, UA, IP, first/last seen, risk
+score | | <strong>Deactivate</strong> | Tắt device |
+<code>IsActive=false</code> — customer logout device đó | |
+<strong>Verify</strong> | Xác minh device | <code>IsVerified=true</code>
+— whitelist, RiskScore giảm | | <strong>Risk</strong> | Mở modal cập
+nhật risk score | Nhập 0-100 → lưu | | <strong>Fingerprint</strong> |
+Tra cứu fingerprint | Mở modal list tất cả device dùng cùng fingerprint
+(self-deal detection) |</p>
+<h3 id="104-query-anti-fraud">10.4. Query anti-fraud</h3>
+<ul>
+<li><strong>Fingerprint lookup</strong> — bấm nút
+<strong>Fingerprint</strong> trên 1 device → modal hiện tất cả device
+khác dùng cùng fingerprint (self-deal detection).</li>
+<li><strong>Filter by CustomerId</strong> — xem tất cả device của 1
+customer.</li>
+<li><strong>Filter by Active status</strong> — xem chỉ device active
+hoặc inactive.</li>
+</ul>
+<hr />
+<h2 id="11-hàng-đợi-tenant-registrations">11. HÀNG ĐỢI TENANT
+REGISTRATIONS</h2>
+<blockquote>
+<p><strong>GTM Drill Machine W2.</strong> Merchant submit registration
+qua Directory/demo form → SystemAdmin review →
+Contact/Onboard/Reject.</p>
+</blockquote>
+<h3 id="111-truy-cập">11.1. Truy cập</h3>
+<p>Đăng nhập SystemAdmin → menu <strong>Hệ thống → Tenant
+Registrations</strong> (<code>/admin/tenant-registrations</code>).</p>
+<h3 id="112-hàng-đợi">11.2. Hàng đợi</h3>
+<p>Trang hiển thị bảng registrations với:</p>
+<ul>
+<li>Shop Name + Industry</li>
+<li>Contact Name + Phone + Email</li>
+<li>Source (demo/audit/direct)</li>
+<li>Turnstile Verified badge</li>
+<li>Status (Submitted/Contacted/Onboarded/Rejected)</li>
+<li>Submitted date</li>
+<li>Rejection reason (nếu bị reject)</li>
+<li>Onboarded Tenant ID (nếu đã onboard)</li>
+</ul>
+<h3 id="113-hành-động">11.3. Hành động</h3>
 <table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
 <thead>
 <tr>
-<th>Action</th>
-<th>API</th>
-<th>Hệ quả</th>
+<th>Nút</th>
+<th>Hành động</th>
+<th>Khi nào</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Deactivate device</td>
-<td><code>DeviceRegistration.Deactivate()</code></td>
-<td><code>IsActive=false</code> — customer logout device đó</td>
+<td><strong>Contact</strong></td>
+<td>Đánh dấu đã liên hệ follow-up</td>
+<td>Status = Submitted</td>
 </tr>
 <tr>
-<td>Verify device</td>
-<td><code>DeviceRegistration.Verify()</code></td>
-<td><code>IsVerified=true</code> — whitelist, RiskScore giảm</td>
+<td><strong>Onboard</strong></td>
+<td>Mở modal nhập Onboarded Tenant ID → link registration với tenant đã
+tạo</td>
+<td>Status = Submitted hoặc Contacted</td>
 </tr>
 <tr>
-<td>Update risk score</td>
-<td><code>DeviceRegistration.UpdateRiskScore(score)</code></td>
-<td>Tăng/giảm device-level risk</td>
+<td><strong>Reject</strong></td>
+<td>Mở modal nhập lý do từ chối</td>
+<td>Status = Submitted hoặc Contacted</td>
 </tr>
 </tbody>
 </table>
-<h3 id="query-anti-fraud">9.3. Query anti-fraud</h3>
+<h3 id="114-quy-trình-onboard">11.4. Quy trình onboard</h3>
+<ol type="1">
+<li>Merchant submit registration — form đăng ký <code>/claim</code>
+(KhachLink <code>Register.razor</code>, Turnstile + honeypot) hoặc audit
+form <code>/kiem-tra-cua-hang</code> (Directory) →
+<code>TenantRegistrationController</code>.</li>
+<li>SystemAdmin vào <code>/admin/tenant-registrations</code> → bấm
+<strong>Contact</strong> để đánh dấu đã liên hệ.</li>
+<li>SystemAdmin tạo tenant mới tại <code>/admin/tenants</code> (tab
+Pending → Verify).</li>
+<li>Copy Tenant ID mới → quay lại
+<code>/admin/tenant-registrations</code> → bấm <strong>Onboard</strong>
+→ paste Tenant ID → xác nhận.</li>
+<li>Registration status → Onboarded + ghi
+<code>OnboardedTenantId</code>.</li>
+</ol>
+<hr />
+<h2 id="12-cấu-hình-trạng-thái-đơn-hàng-order-flow">12. CẤU HÌNH TRẠNG
+THÁI ĐƠN HÀNG (ORDER FLOW)</h2>
+<blockquote>
+<p><strong>Issue #195 (2026-10-19).</strong> Order flow không còn
+hardcode — mỗi tenant (hoặc theo loại đơn <code>Order.SourceType</code>,
+vd booking) có thể có chuỗi trạng thái riêng qua
+<code>OrderFlowProfile</code> + <code>OrderFlowStep</code>.</p>
+</blockquote>
+<h3 id="121-truy-cập">12.1. Truy cập</h3>
+<p>Đăng nhập SystemAdmin → menu <strong>Cấu hình &amp; thiết lập → Cấu
+hình trạng thái đơn hàng</strong> (<code>/admin/order-flow</code>).</p>
+<h3 id="122-scope--precedence">12.2. Scope &amp; precedence</h3>
+<table>
+<thead>
+<tr>
+<th>Scope</th>
+<th>Mô tả</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tenant + source</code></td>
+<td>Flow riêng cho 1 tenant + loại đơn (ưu tiên cao nhất)</td>
+</tr>
+<tr>
+<td><code>tenant</code></td>
+<td>Flow riêng cho tenant</td>
+</tr>
+<tr>
+<td><code>system + source</code></td>
+<td>Flow hệ thống cho loại đơn</td>
+</tr>
+<tr>
+<td><code>system</code></td>
+<td>Flow hệ thống mặc định</td>
+</tr>
+<tr>
+<td>built-in</td>
+<td>Fallback:
+<code>pending → confirmed → preparing → ready → completed</code> (+
+<code>cancelled</code>, <code>delivering</code>)</td>
+</tr>
+</tbody>
+</table>
 <ul>
-<li>Query <code>FingerprintHash</code> → ai khác dùng fingerprint này?
-(self-deal detection)</li>
-<li>Query <code>(CustomerId, IsActive)</code> → active devices per
-customer</li>
-<li>Query <code>DeviceToken</code> → 1 token = 1 device</li>
+<li>Deactivate profile → fallback về scope thấp hơn.</li>
+<li>Booking orders thường dùng reduced flow (ít bước hơn POS).</li>
+</ul>
+<h3 id="123-quy-tắc">12.3. Quy tắc</h3>
+<ul>
+<li>Steps phải neo vào anchors
+<code>pending</code>/<code>completed</code>/<code>cancelled</code> — hệ
+thống chặn profile thiếu/sai anchors.</li>
+<li>Xóa 1 step sẽ tự gỡ reference trong <code>AllowedNext</code> của
+step khác.</li>
+<li>Mọi transition ghi <code>OrderStatusHistory</code> (audit timeline
+trên trang chi tiết đơn).</li>
 </ul>
 <hr />
-<h2 id="faq">10. FAQ</h2>
+<h2 id="13-faq">13. FAQ</h2>
 <p><strong>Q: Tôi có thể kích hoạt cả 2 role Shipper + Salesman cho 1
 customer không?</strong> A: CÓ. Một user có thể đồng thời là Buyer +
 Salesman + Shipper. Mỗi role tạo 1 bản ghi <code>CommunityRole</code>
@@ -877,10 +1497,19 @@ bị permanent ban. Tất cả commission/bonus pending → Rejected.</p>
 KHÔNG update/delete. Dùng Reversal pattern — tạo
 <code>WalletTransaction(Type=Reversal, Amount=-original, RelatedTransactionId=original.Id)</code>.
 Giống AccountingEntry immutable pattern.</p>
+<p><strong>Q: Tôi cần gọi API trực tiếp (curl/Postman) không?</strong>
+A: KHÔNG. Tất cả tác vụ SystemAdmin đều có UI page. Chỉ gọi API khi
+debug hoặc tự động hóa.</p>
+<p><strong>Q: Làm sao biết tenant nào đang ở chế độ Reseller?</strong>
+A: Vào <code>/settings/shop-features</code> → bật toggle "Chỉ hiện
+tenant Reseller" → dropdown chỉ hiện tenant Reseller. Hoặc xem cột
+"Resolved Mode" trên trang <code>/admin/commerce-mode</code>.</p>
 <hr />
 <blockquote>
 <p><strong>Xem thêm:</strong> <a href="./README.md">README index</a> |
-<a href="./02-owner.md">Shop Owner</a> | <a href="./03-salesman.md">Salesman</a> | <a href="./04-shipper.md">Shipper</a></p>
+<a href="./02-owner.md">Shop Owner</a> | <a
+href="./03-salesman.md">Salesman</a> | <a
+href="./04-shipper.md">Shipper</a></p>
 </blockquote>
 </body>
 </html>
