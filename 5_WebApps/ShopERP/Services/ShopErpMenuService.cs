@@ -362,6 +362,25 @@ public sealed class ShopErpMenuService : IShopErpMenuService
             });
         }
 
+        // Cấu hình & thiết lập (2026-10-19 — user directive #195): Owner + SystemAdmin.
+        // Con "Cấu hình trạng thái đơn hàng" chỉ SystemAdmin (trang policy = SystemAdmin).
+        if (isOwner || isSystemAdmin)
+        {
+            var configChildren = new List<NavigationItem>
+            {
+                new() { Title = "Cấu hình tính năng Shop", Icon = "toggles", Url = "/settings/shop-features" },
+            };
+            if (isSystemAdmin)
+            {
+                configChildren.Add(new() { Title = "Cấu hình trạng thái đơn hàng", Icon = "diagram-3", Url = "/admin/order-flow" });
+            }
+            items.Add(new()
+            {
+                Title = "Cấu hình & thiết lập", Icon = "gear-fill",
+                Children = configChildren
+            });
+        }
+
         // Hệ thống: SystemAdmin only
         if (isSystemAdmin)
         {
