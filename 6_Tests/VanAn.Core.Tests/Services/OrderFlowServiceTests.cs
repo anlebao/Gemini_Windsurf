@@ -200,6 +200,20 @@ public class OrderFlowServiceTests : IDisposable
             _tenantA, null, null, "Bad",
             [new("pending", "P", 1, false, ["ghost"]), new("cancelled", "C", 2, true, [])], "test"));
 
+        // #195 hardening: thiếu anchor 'completed' (loyalty/accounting side-effect)
+        await Assert.ThrowsAsync<ArgumentException>(() => _flow.UpsertProfileAsync(
+            _tenantA, null, null, "Bad",
+            [new("pending", "P", 1, false, ["confirmed", "cancelled"]),
+             new("confirmed", "C", 2, false, ["cancelled"]),
+             new("cancelled", "X", 3, true, [])], "test"));
+
+        // #195 hardening: 'cancelled' không terminal (absorbing state bắt buộc)
+        await Assert.ThrowsAsync<ArgumentException>(() => _flow.UpsertProfileAsync(
+            _tenantA, null, null, "Bad",
+            [new("pending", "P", 1, false, ["cancelled", "completed"]),
+             new("cancelled", "X", 2, false, ["completed"]),
+             new("completed", "Done", 3, true, [])], "test"));
+
         // Valid → OK
         OrderFlowProfileDto ok = await _flow.UpsertProfileAsync(
             _tenantA, null, null, "Good", KitchenSteps(), "test");

@@ -296,6 +296,24 @@ namespace VanAn.CoreHub.Services
             if (!steps.Any(s => s.IsTerminal))
                 throw new ArgumentException("Flow requires at least one terminal step (completed/cancelled).", nameof(steps));
 
+            // Issue #195 hardening (user directive 2026-10-19): 'completed'/'cancelled' are
+            // HARDCODED business anchors — OrderWorkflowService.HandleOrderCompletedAsync
+            // (loyalty/customer stats/commission/outbox order.completed) and
+            // HandleOrderCancelledAsync (referral void + refund reversal) trigger ONLY on
+            // these exact codes. A flow missing them silently disables those side-effects
+            // and both are absorbing states in every legacy map → require presence + terminal.
+            foreach (var anchor in new[] { "completed", "cancelled" })
+            {
+                OrderFlowStepInput? anchorStep = steps.FirstOrDefault(
+                    s => NormalizeCode(s.Code) == anchor);
+                if (anchorStep == null)
+                    throw new ArgumentException(
+                        $"Flow must contain the '{anchor}' status — accounting/loyalty/refund side-effects are bound to this exact code.", nameof(steps));
+                if (!anchorStep.IsTerminal)
+                    throw new ArgumentException(
+                        $"Step '{anchor}' must be terminal (IsTerminal=true) — it is an absorbing state; no transition may leave it.", nameof(steps));
+            }
+
             foreach (OrderFlowStepInput s in steps)
             {
                 foreach (string next in s.AllowedNextCodes)

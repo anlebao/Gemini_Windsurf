@@ -358,6 +358,23 @@
             _alertMessage = $"Bước '{badRef.step}' tham chiếu trạng thái không tồn tại '{badRef.next}' — sửa lại cột \"Cho phép chuyển tới\" hoặc thêm bước đó.";
             return;
         }
+        // Mirror server guard: 'completed'/'cancelled' là anchor hardcode cho loyalty/refund.
+        foreach (var anchor in new[] { "completed", "cancelled" })
+        {
+            var anchorStep = _formSteps.FirstOrDefault(s => string.Equals(s.Code.Trim(), anchor, StringComparison.OrdinalIgnoreCase));
+            if (anchorStep == null)
+            {
+                _alertType = "warning";
+                _alertMessage = $"Luồng bắt buộc có bước '{anchor}' — kế toán/điểm thưởng/hoàn tiền gắn với đúng mã này.";
+                return;
+            }
+            if (!anchorStep.IsTerminal)
+            {
+                _alertType = "warning";
+                _alertMessage = $"Bước '{anchor}' phải là trạng thái kết thúc (IsTerminal) — không có bước nào sau nó.";
+                return;
+            }
+        }
 
         _isSaving = true;
         _alertMessage = string.Empty;
