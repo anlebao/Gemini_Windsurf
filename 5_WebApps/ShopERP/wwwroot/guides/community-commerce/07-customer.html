@@ -6,141 +6,290 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <title>Hướng dẫn Customer — Community Commerce</title>
   <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+    <style type="text/css">
+  @page { margin: 1.5cm 2cm; }
+  * { box-sizing: border-box; }
+  body {
+  font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.55;
+  color: #1f2937;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  background: #fff;
+  }
+  h1 {
+  font-size: 22pt;
+  color: #0f766e;
+  border-bottom: 3px solid #0f766e;
+  padding-bottom: 0.4rem;
+  margin-top: 0;
+  }
+  h2 {
+  font-size: 16pt;
+  color: #0f766e;
+  border-left: 4px solid #14b8a6;
+  padding-left: 0.6rem;
+  margin-top: 2rem;
+  page-break-after: avoid;
+  }
+  h3 {
+  font-size: 13pt;
+  color: #334155;
+  margin-top: 1.4rem;
+  page-break-after: avoid;
+  }
+  h4 {
+  font-size: 11.5pt;
+  color: #475569;
+  margin-top: 1rem;
+  page-break-after: avoid;
+  }
+  p { margin: 0.5rem 0; }
+  a { color: #0f766e; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+  background: #f1f5f9;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-size: 9.5pt;
+  color: #be123c;
+  }
+  pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 9.5pt;
+  line-height: 1.4;
+  }
+  pre code { background: transparent; color: inherit; padding: 0; }
+  blockquote {
+  border-left: 4px solid #14b8a6;
+  background: #f0fdfa;
+  padding: 0.6rem 1rem;
+  margin: 1rem 0;
+  color: #134e4a;
+  border-radius: 0 4px 4px 0;
+  }
+  blockquote p { margin: 0.3rem 0; }
+  table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  font-size: 10pt;
+  page-break-inside: avoid;
+  }
+  th {
+  background: #0f766e;
+  color: #fff;
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  font-weight: 600;
+  border: 1px solid #0f766e;
+  }
+  td {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #e2e8f0;
+  vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f8fafc; }
+  tr:hover td { background: #f0fdfa; }
+  hr {
+  border: none;
+  border-top: 1px solid #cbd5e1;
+  margin: 2rem 0;
+  }
+  ul, ol { padding-left: 1.5rem; }
+  li { margin: 0.25rem 0; }
+  strong { color: #0f172a; }
 
-span.smallcaps{font-variant: small-caps;}
-div.columns{display: flex; gap: 1.5em;}
-div.column{flex: auto;}
-@media screen {
-div.columns{gap: min(4vw, 1.5em);}
-div.column{overflow-x: auto;}
-}
-div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  h2 + ul, h2 + ol { page-break-before: avoid; }
 
-ul.task-list[class]{list-style: none;}
-ul.task-list li input[type="checkbox"] {
-font-size: inherit;
-width: 0.8em;
-margin: 0 0.8em 0.2em -1.6em;
-vertical-align: middle;
-}
-.display.math{display: block; text-align: center; margin: 0.5rem auto;}
-</style>
-  <style type="text/css">
-@page { margin: 1.5cm 2cm; }
-* { box-sizing: border-box; }
-body {
-font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-font-size: 11pt;
-line-height: 1.55;
-color: #1f2937;
-max-width: 900px;
-margin: 0 auto;
-padding: 2rem 1rem;
-background: #fff;
-}
-h1 {
-font-size: 22pt;
-color: #0f766e;
-border-bottom: 3px solid #0f766e;
-padding-bottom: 0.4rem;
-margin-top: 0;
-}
-h2 {
-font-size: 16pt;
-color: #0f766e;
-border-left: 4px solid #14b8a6;
-padding-left: 0.6rem;
-margin-top: 2rem;
-page-break-after: avoid;
-}
-h3 {
-font-size: 13pt;
-color: #334155;
-margin-top: 1.4rem;
-page-break-after: avoid;
-}
-h4 {
-font-size: 11.5pt;
-color: #475569;
-margin-top: 1rem;
-page-break-after: avoid;
-}
-p { margin: 0.5rem 0; }
-a { color: #0f766e; text-decoration: none; }
-a:hover { text-decoration: underline; }
-code {
-font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
-background: #f1f5f9;
-padding: 0.1rem 0.35rem;
-border-radius: 3px;
-font-size: 9.5pt;
-color: #be123c;
-}
-pre {
-background: #0f172a;
-color: #e2e8f0;
-padding: 1rem;
-border-radius: 6px;
-overflow-x: auto;
-font-size: 9.5pt;
-line-height: 1.4;
-}
-pre code { background: transparent; color: inherit; padding: 0; }
-blockquote {
-border-left: 4px solid #14b8a6;
-background: #f0fdfa;
-padding: 0.6rem 1rem;
-margin: 1rem 0;
-color: #134e4a;
-border-radius: 0 4px 4px 0;
-}
-blockquote p { margin: 0.3rem 0; }
-table {
-border-collapse: collapse;
-width: 100%;
-margin: 1rem 0;
-font-size: 10pt;
-page-break-inside: avoid;
-}
-th {
-background: #0f766e;
-color: #fff;
-text-align: left;
-padding: 0.55rem 0.7rem;
-font-weight: 600;
-border: 1px solid #0f766e;
-}
-td {
-padding: 0.5rem 0.7rem;
-border: 1px solid #e2e8f0;
-vertical-align: top;
-}
-tr:nth-child(even) td { background: #f8fafc; }
-tr:hover td { background: #f0fdfa; }
-hr {
-border: none;
-border-top: 1px solid #cbd5e1;
-margin: 2rem 0;
-}
-ul, ol { padding-left: 1.5rem; }
-li { margin: 0.25rem 0; }
-strong { color: #0f172a; }
-
-h2 + ul, h2 + ol { page-break-before: avoid; }
-
-@media print {
-body { font-size: 10pt; max-width: none; padding: 0; }
-h2 { page-break-before: auto; }
-table, pre, blockquote { page-break-inside: avoid; }
-a { color: #0f766e; }
-}
-</style>
+  @media print {
+  body { font-size: 10pt; max-width: none; padding: 0; }
+  h2 { page-break-before: auto; }
+  table, pre, blockquote { page-break-inside: avoid; }
+  a { color: #0f766e; }
+  }
+  </style>
 </head>
 <body>
 <header id="title-block-header">
 <h1 class="title">Hướng dẫn Customer — Community Commerce</h1>
 </header>
-<h1 id="hướng-dẫn-customer-khách-hàng-mua-hàng">HƯỚNG DẪN CUSTOMER —
+<h1 id="hướng-dẫn-customer--khách-hàng-mua-hàng">HƯỚNG DẪN CUSTOMER —
 KHÁCH HÀNG MUA HÀNG</h1>
 <blockquote>
 <p><strong>Đối tượng:</strong> Khách hàng cuối — mua hàng F&amp;B qua
@@ -153,6 +302,10 @@ tảng:</strong> FullCommerce/Reseller = Blazor WebAssembly PWA (cài đặt
 trên mobile home screen, offline-capable, có đầy đủ
 cart/checkout/tracking/wallet). Directory = Blazor Server SSR (chỉ tìm
 cửa hàng, KHÔNG có cart/checkout/tracking/wallet).</p>
+<p><strong>Cập nhật 2026-10-19:</strong> Thêm 2 kênh mua hàng ngoài
+online — <strong>POS tại quầy</strong> (<code>SourceType="pos"</code>)
+và <strong>Booking đặt lịch hẹn qua QR</strong>
+(<code>SourceType="booking"</code>). Đồng bộ eligibility CTV.</p>
 </blockquote>
 <hr />
 <h2 id="mục-lục">MỤC LỤC</h2>
@@ -160,8 +313,8 @@ cửa hàng, KHÔNG có cart/checkout/tracking/wallet).</p>
 <li><a href="#1-tổng-quan-vai-trò">Tổng quan vai trò</a></li>
 <li><a href="#2-đăng-nhập-uc-01--social--device-fingerprint">Đăng nhập
 (UC-01) — Social + Device Fingerprint</a></li>
-<li><a href="#3-duyệt-sản-phẩm--đặt-hàng">Duyệt sản phẩm + đặt
-hàng</a></li>
+<li><a href="#3-mua-hàng--3-kênh-online--pos-tại-quầy--booking">Mua hàng
+— 3 kênh: Online / POS tại quầy / Booking</a></li>
 <li><a href="#4-checkout--referral-code-salesman">Checkout + referral
 code (Salesman)</a></li>
 <li><a href="#5-theo-dõi-giao-hàng-real-time-uc-06">Theo dõi giao hàng
@@ -174,9 +327,11 @@ dịch</a></li>
 (Loyalty)</a></li>
 <li><a href="#9-trở-thành-salesmanshipper">Trở thành
 Salesman/Shipper</a></li>
-<li><a href="#10-marketplace-vs-reseller--khác-biệt-cho-customer">Marketplace
+<li><a
+href="#10-marketplace-vs-reseller--khác-biệt-cho-customer">Marketplace
 vs Reseller — khác biệt cho Customer</a></li>
-<li><a href="#11-khachlink-multi-profile--profile-transition-ux-pr-170">KhachLink
+<li><a
+href="#11-khachlink-multi-profile--profile-transition-ux-pr-170">KhachLink
 Multi-Profile + Profile Transition UX (PR #170)</a></li>
 <li><a href="#12-gtm-drill-machine--lead-generation-w1-w2">GTM Drill
 Machine — Lead Generation (W1-W2)</a></li>
@@ -185,20 +340,23 @@ Fingerprint Consent</a></li>
 <li><a href="#14-faq">FAQ</a></li>
 </ol>
 <hr />
-<h2 id="tổng-quan-vai-trò">1. TỔNG QUAN VAI TRÒ</h2>
+<h2 id="1-tổng-quan-vai-trò">1. TỔNG QUAN VAI TRÒ</h2>
 <p>Customer là khách hàng cuối — mua hàng F&amp;B qua KhachLink PWA. Một
 customer có thể đồng thời là <strong>Buyer + Salesman + Shipper</strong>
 (nếu được System Admin kích hoạt).</p>
-<p><strong>KhachLink PWA:</strong> - Blazor WebAssembly — chạy trên
-mobile browser. - PWA installable — cài trên home screen như app native.
-- Offline-capable (cache assets + queue writes). - GPS chỉ hoạt động khi
-tab active.</p>
+<p><strong>KhachLink PWA:</strong></p>
+<ul>
+<li>Blazor WebAssembly — chạy trên mobile browser.</li>
+<li>PWA installable — cài trên home screen như app native.</li>
+<li>Offline-capable (cache assets + queue writes).</li>
+<li>GPS chỉ hoạt động khi tab active.</li>
+</ul>
 <p><strong>Auth:</strong> <code>X-Customer-Token</code> (custom token,
 KHÔNG cookie) — lưu localStorage, tự gửi trong header mọi API call.</p>
 <hr />
-<h2 id="đăng-nhập-uc-01-social-device-fingerprint">2. ĐĂNG NHẬP (UC-01)
-— SOCIAL + DEVICE FINGERPRINT</h2>
-<h3 id="flow-đăng-nhập">2.1. Flow đăng nhập</h3>
+<h2 id="2-đăng-nhập-uc-01--social--device-fingerprint">2. ĐĂNG NHẬP
+(UC-01) — SOCIAL + DEVICE FINGERPRINT</h2>
+<h3 id="21-flow-đăng-nhập">2.1. Flow đăng nhập</h3>
 <ol type="1">
 <li>Mở KhachLink → bấm <strong>Đăng nhập</strong>.</li>
 <li>Chọn phương thức (PoC scope):
@@ -248,25 +406,25 @@ toggle).</li>
 <code>customer_id</code>, <code>login_provider</code>), tự gửi
 <code>X-Customer-Token</code> header mọi API call.</li>
 </ol>
-<h3 id="device-fingerprint-consent-dialog-gdprpdpa">2.2. Device
+<h3 id="22-device-fingerprint-consent-dialog-gdprpdpa">2.2. Device
 Fingerprint Consent Dialog (GDPR/PDPA)</h3>
 <ul>
 <li>Hiển thị TRƯỚC khi collect fingerprint.</li>
-<li>Giải thích: “Chúng tôi thu thập device fingerprint để bảo vệ tài
-khoản của bạn khỏi gian lận.”</li>
+<li>Giải thích: "Chúng tôi thu thập device fingerprint để bảo vệ tài
+khoản của bạn khỏi gian lận."</li>
 <li>User có thể <strong>decline</strong> — lúc đó RiskScore sẽ cao hơn
 (không fingerprint), nhưng vẫn dùng được.</li>
 <li>Fingerprint signals: canvas, WebGL, audio, fonts, timezone, screen,
 plugins, v.v. (15+ signals) → SHA256 hash.</li>
 </ul>
-<h3 id="max-3-active-devices">2.3. Max 3 active devices</h3>
+<h3 id="23-max-3-active-devices">2.3. Max 3 active devices</h3>
 <ul>
 <li>Max 3 active <code>DeviceRegistration</code> per Customer.</li>
 <li>Device thứ 4 → yêu cầu <strong>admin approval</strong> (tạo với
 IsActive=false + FraudFlag).</li>
 <li>Customer có thể logout device (deactivate) trong Profile page.</li>
 </ul>
-<h3 id="guest-mode">2.4. Guest mode</h3>
+<h3 id="24-guest-mode">2.4. Guest mode</h3>
 <ul>
 <li><strong>KHÔNG có API login</strong> — browser navigate thẳng về
 Home, không lưu token.</li>
@@ -287,12 +445,8 @@ Giới hạn: chỉ đơn có <code>CustomerDeviceId</code> khớp; không xem �
 <li>Verify SĐT chỉ khi collaborator activation (UC-02 v1.5) —
 <code>POST /api/collaborator-verification/init</code>.</li>
 </ul>
-<h3 id="identitylevel">2.5. IdentityLevel</h3>
+<h3 id="25-identitylevel">2.5. IdentityLevel</h3>
 <table>
-<colgroup>
-<col style="width: 50%" />
-<col style="width: 50%" />
-</colgroup>
 <thead>
 <tr>
 <th>Level</th>
@@ -323,8 +477,48 @@ Giới hạn: chỉ đơn có <code>CustomerDeviceId</code> khớp; không xem �
 </tbody>
 </table>
 <hr />
-<h2 id="duyệt-sản-phẩm-đặt-hàng">3. DUYỆT SẢN PHẨM + ĐẶT HÀNG</h2>
-<h3 id="duyệt-sản-phẩm">3.1. Duyệt sản phẩm</h3>
+<h2 id="3-mua-hàng--3-kênh-online--pos-tại-quầy--booking">3. MUA HÀNG —
+3 KÊNH: ONLINE / POS TẠI QUẦY / BOOKING</h2>
+<p>Customer có <strong>3 kênh</strong> mua hàng/đặt dịch vụ trên nền
+tảng:</p>
+<table>
+<thead>
+<tr>
+<th>Kênh</th>
+<th>Cách dùng</th>
+<th><code>Order.SourceType</code></th>
+<th>Ai tạo đơn</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Online</strong></td>
+<td>KhachLink PWA — browse → cart → checkout (mục 3.1-3.4)</td>
+<td><code>checkout</code></td>
+<td>Customer tự đặt (Gateway PG)</td>
+</tr>
+<tr>
+<td><strong>POS</strong></td>
+<td>Đến cửa hàng — staff tạo đơn trên <code>/pos</code> (mục 3.5)</td>
+<td><code>pos</code></td>
+<td>Staff/Owner tại quầy (ShopERP)</td>
+</tr>
+<tr>
+<td><strong>Booking</strong></td>
+<td>Quét QR shop → chọn dịch vụ/giờ → đặt lịch (mục 3.6)</td>
+<td><code>booking</code></td>
+<td>Customer tự đặt (public API, không cần đăng nhập)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Mỗi kênh có thể chạy <strong>order flow riêng</strong> (cấu hình bởi
+SystemAdmin tại <code>/admin/order-flow</code> — vd booking dùng reduced
+flow "Thanh toán → Hoàn tất").</p>
+</blockquote>
+<h3 id="kênh-1--online-khachlink-pwa">Kênh 1 — Online (KhachLink
+PWA)</h3>
+<h4 id="31-duyệt-sản-phẩm">3.1. Duyệt sản phẩm</h4>
 <ol type="1">
 <li>Mở KhachLink → Home page hiển thị Featured Products (GET
 <code>/api/catalog/recommended</code> — pure PG query, no ShopERP
@@ -333,7 +527,7 @@ forward).</li>
 ShopConfig derivation).</li>
 <li>Mỗi product hiện: name, price, shop name, image, description.</li>
 </ol>
-<h3 id="reseller-mode-price-display">3.2. Reseller mode — price
+<h3 id="32-reseller-mode--price-display">3.2. Reseller mode — price
 display</h3>
 <pre><code>@if (commerceMode == &quot;Reseller&quot;)
 {
@@ -343,7 +537,7 @@ else
 {
     // Show tenant price (Marketplace — existing)
 }</code></pre>
-<h3 id="thêm-vào-giỏ-đặt-hàng">3.3. Thêm vào giỏ + đặt hàng</h3>
+<h3 id="33-thêm-vào-giỏ--đặt-hàng">3.3. Thêm vào giỏ + đặt hàng</h3>
 <ol type="1">
 <li>Chọn product → thêm vào cart.</li>
 <li>Chọn quantity, modifiers (vd size, topping), notes.</li>
@@ -359,27 +553,109 @@ vị trí giao hàng trên bản đồ</strong> — kéo pin hoặc chạm vào 
 <strong>Online</strong> (VietQR/card — Reseller mode).</li>
 <li>Review order → <strong>Đặt hàng</strong>.</li>
 </ol>
-<h3 id="order-creation">3.4. Order creation</h3>
+<h3 id="34-order-creation">3.4. Order creation</h3>
 <ul>
 <li>Order created trên <strong>Gateway PG</strong> (Vạn An là order
 creator, Option C).</li>
 <li>Order snapshot <code>CommerceMode</code> tại creation time.</li>
 <li>Order async-delivered qua NATS (routed by ShopInstanceId) → ShopERP
 SQLite (replica cho kitchen/POS).</li>
-<li>Staff/Kitchen nhận order (KitchenHub push).</li>
+<li>Staff/Kitchen nhận order (<code>/orderHub</code> push trên
+ShopERP).</li>
+</ul>
+<h3 id="kênh-2--pos-tại-quầy-đến-cửa-hàng-mua-trực-tiếp">Kênh 2 — POS
+tại quầy (đến cửa hàng mua trực tiếp)</h3>
+<blockquote>
+<p>Dành cho khách đến tận nơi — <strong>không cần app</strong>, không
+cần đăng nhập.</p>
+</blockquote>
+<h4 id="35-flow-pos-customer-đứng-tại-quầy">3.5. Flow POS (customer đứng
+tại quầy)</h4>
+<ol type="1">
+<li>Bạn đến cửa hàng → gọi món trực tiếp với staff.</li>
+<li>Staff mở <strong>POS <code>/pos</code></strong> trên ShopERP (role
+StaffOrAbove) → chọn món từ catalog của tenant → bấm <strong>"Tạo
+đơn"</strong>.</li>
+<li>Order tạo ngay trong ShopERP với <code>SourceType="pos"</code> →
+outbox sync lên Gateway PG.</li>
+<li>Staff chuyển sang trang thanh toán
+<strong><code>/pos/payment/{orderId}</code></strong> → bạn trả tiền
+mặt/QR tại quầy → staff xác nhận thanh toán.</li>
+<li>Đơn đi theo order flow của tenant (mặc định
+<code>pending → ... → completed</code>; tenant có thể cấu hình flow rút
+gọn cho POS).</li>
+</ol>
+<p><strong>Khác biệt với online:</strong></p>
+<ul>
+<li>KHÔNG có cart/checkout/referral tracking trên app của bạn — staff
+nhập hộ.</li>
+<li>KHÔNG tracking shipper (đơn tại chỗ — thường OrderType
+dine-in/takeaway).</li>
+<li>Nếu muốn gắn đơn vào tài khoản (lịch sử/điểm), cung cấp SĐT cho
+staff khi tạo đơn.</li>
+</ul>
+<h3 id="kênh-3--booking-đặt-lịch-hẹn-qua-qr-của-shop">Kênh 3 — Booking
+đặt lịch hẹn (qua QR của shop)</h3>
+<blockquote>
+<p>Dành cho tenant có dịch vụ theo lịch hẹn (spa, salon, tư vấn, sân…).
+<strong>Không cần đăng nhập</strong> — public booking flow.</p>
+</blockquote>
+<h4 id="36-flow-booking">3.6. Flow booking</h4>
+<ol type="1">
+<li>Quét <strong>QR đặt lịch</strong> của shop (QR channel do Owner tạo
+tại <code>/booking/qr-channels</code> trên ShopERP — có thể in ấn hoặc
+chia sẻ link).</li>
+<li>Browser mở <strong><code>/booking/{QrToken}</code></strong> trên
+KhachLink — resolve QR → hiện catalog dịch vụ của shop (tên, giá, thời
+lượng, add-ons).</li>
+<li>Chọn dịch vụ → <strong><code>/booking/{QrToken}/time</code></strong>
+— chọn ngày + khung giờ còn trống (chỉ hiện slot available, không cho
+đặt giờ đã qua; có thể chọn nhân viên nếu shop bật).</li>
+<li><strong><code>/booking/{QrToken}/note</code></strong> — ghi chú +
+thông tin liên hệ (tên, SĐT).</li>
+<li><strong><code>/booking/{QrToken}/confirm</code></strong> — xác nhận
+đặt lịch. Nếu tenant bật <strong>đặt cọc (deposit)</strong> → thanh toán
+cọc theo hướng dẫn trên trang.</li>
+<li>Theo dõi trạng thái tại
+<strong><code>/booking/status/{Code}</code></strong> (mã booking sau khi
+tạo) — hoặc hủy từ trang này (theo cancel policy của tenant; cọc có thể
+không hoàn tùy chính sách).</li>
+<li>Đến giờ hẹn → shop phục vụ → khi hoàn tất/thanh toán, hệ thống tự
+tạo <strong>Order <code>SourceType="booking"</code></strong> (hiện trong
+<code>/orders</code> của shop với action "Thanh toán"/"Hoàn tất") → kế
+toán/loyalty xử lý như đơn thường.</li>
+</ol>
+<p><strong>API nền (public, không auth):</strong>
+<code>GET /api/public/booking/qr/{qrToken}</code> →
+<code>.../tenants/{tenantId}/services</code> →
+<code>.../availability</code> → <code>POST .../bookings</code>
+(Idempotency-Key) → <code>GET .../bookings/{publicBookingToken}</code>
+(status polling + ETag) → <code>POST .../cancel</code>.</p>
+<p><strong>Lưu ý:</strong></p>
+<ul>
+<li>Booking <strong>không qua cart/checkout</strong> — mỗi lịch hẹn là 1
+booking riêng, tạo order khi hoàn tất.</li>
+<li>Đặt cọc/hủy theo chính sách từng tenant (Owner cấu hình tại
+<code>/booking/config</code>).</li>
+<li>Guest-friendly: chỉ cần tên + SĐT, không cần tài khoản.</li>
 </ul>
 <hr />
-<h2 id="checkout-referral-code-salesman">4. CHECKOUT + REFERRAL CODE
+<h2 id="4-checkout--referral-code-salesman">4. CHECKOUT + REFERRAL CODE
 (SALESMAN)</h2>
-<h3 id="referral-code-trong-localstorage">4.1. Referral code trong
+<h3 id="41-referral-code-trong-localstorage">4.1. Referral code trong
 localStorage</h3>
-<p>Nếu bạn đã <strong>scan QR của salesman</strong> (UC-09): - Composite
-referral code <code>{salesmanCode}|{productShortCode}</code> lưu trong
-localStorage. - Khi đặt hàng → referral code tự gửi trong order creation
-(<code>referralCode</code> field). - Server resolve → set
-<code>Order.SalesmanId</code> + <code>Order.ReferralProductId</code>. -
-Salesman nhận commission khi Order.Completed.</p>
-<h3 id="scan-qr-salesman">4.2. Scan QR salesman</h3>
+<p>Nếu bạn đã <strong>scan QR của salesman</strong> (UC-09):</p>
+<ul>
+<li>Composite referral code
+<code>{salesmanCode}|{productShortCode}</code> lưu trong
+localStorage.</li>
+<li>Khi đặt hàng → referral code tự gửi trong order creation
+(<code>referralCode</code> field).</li>
+<li>Server resolve → set <code>Order.SalesmanId</code> +
+<code>Order.ReferralProductId</code>.</li>
+<li>Salesman nhận commission khi Order.Completed.</li>
+</ul>
+<h3 id="42-scan-qr-salesman">4.2. Scan QR salesman</h3>
 <ol type="1">
 <li>Salesman chia sẻ QR (Zalo, Facebook, in ấn).</li>
 <li>Bạn quét QR → redirect đến KhachLink với composite referral
@@ -388,22 +664,26 @@ code.</li>
 productShortCode).</li>
 <li>Lần đặt hàng tiếp theo → referral code tự áp dụng.</li>
 </ol>
-<h3 id="app-install-bonus-uc-12">4.3. App-install bonus (UC-12)</h3>
-<p>Nếu bạn có referralCode trong localStorage + chưa cài PWA: 1. Mở
-KhachLink lần đầu (có referralCode). 2. Browser hiện “Cài app”
-(beforeinstallprompt). 3. Bấm <strong>Cài app</strong> → PWA install
-success (appinstalled event). 4. Hệ thống tự
-<code>POST /api/community/app-install/attributed</code> với
-referralCode. 5. Salesman nhận app-install bonus (từ
-ProductReferralConfig.AppInstallBonus).</p>
+<h3 id="43-app-install-bonus-uc-12">4.3. App-install bonus (UC-12)</h3>
+<p>Nếu bạn có referralCode trong localStorage + chưa cài PWA:</p>
+<ol type="1">
+<li>Mở KhachLink lần đầu (có referralCode).</li>
+<li>Browser hiện "Cài app" (beforeinstallprompt).</li>
+<li>Bấm <strong>Cài app</strong> → PWA install success (appinstalled
+event).</li>
+<li>Hệ thống tự <code>POST /api/community/app-install/attributed</code>
+với referralCode.</li>
+<li>Salesman nhận app-install bonus (từ
+ProductReferralConfig.AppInstallBonus).</li>
+</ol>
 <blockquote>
 <p><strong>Lưu ý:</strong> 1 customer chỉ attribute 1 lần (unique
 constraint). Cài lại app không tính bonus lần 2.</p>
 </blockquote>
 <hr />
-<h2 id="theo-dõi-giao-hàng-real-time-uc-06">5. THEO DÕI GIAO HÀNG
+<h2 id="5-theo-dõi-giao-hàng-real-time-uc-06">5. THEO DÕI GIAO HÀNG
 REAL-TIME (UC-06)</h2>
-<h3 id="khi-nào-tracking">5.1. Khi nào tracking?</h3>
+<h3 id="51-khi-nào-tracking">5.1. Khi nào tracking?</h3>
 <p>Sau khi shipper accept đơn (Order status=<code>delivering</code>) →
 customer có thể tracking.</p>
 <blockquote>
@@ -411,7 +691,7 @@ customer có thể tracking.</p>
 thực bằng <code>CustomerDeviceId</code>. Chỉ áp dụng cho đơn DELIVERY
 tạo từ chính thiết bị đó.</p>
 </blockquote>
-<h3 id="tracking-ui">5.2. Tracking UI</h3>
+<h3 id="52-tracking-ui">5.2. Tracking UI</h3>
 <ol type="1">
 <li>Mở Order Detail → tab <strong>Tracking</strong>.</li>
 <li><strong>Leaflet map</strong> hiển thị:
@@ -425,24 +705,28 @@ tạo từ chính thiết bị đó.</p>
 OutForDelivery) → <code>POST /api/community/location/update</code> →
 SignalR hub <code>/hubs/location</code> push → marker di chuyển.</li>
 </ol>
-<h3 id="status-notifications">5.3. Status notifications</h3>
-<p>Customer nhận <strong>SignalR notification</strong> mỗi transition: -
-Shipper accept → “Shipper [tên] đã nhận đơn” - Shipper pickup → “Shipper
-đã lấy hàng, đang đến” - Shipper delivering → “Shipper đang giao hàng” -
-Shipper delivered → “Đã giao thành công” - Shipper failed → “Giao thất
-bại: [reason]”</p>
-<h3 id="pwa-limitation">5.4. PWA limitation</h3>
+<h3 id="53-status-notifications">5.3. Status notifications</h3>
+<p>Customer nhận <strong>SignalR notification</strong> mỗi
+transition:</p>
+<ul>
+<li>Shipper accept → "Shipper [tên] đã nhận đơn"</li>
+<li>Shipper pickup → "Shipper đã lấy hàng, đang đến"</li>
+<li>Shipper delivering → "Shipper đang giao hàng"</li>
+<li>Shipper delivered → "Đã giao thành công"</li>
+<li>Shipper failed → "Giao thất bại: [reason]"</li>
+</ul>
+<h3 id="54-pwa-limitation">5.4. PWA limitation</h3>
 <ul>
 <li>Shipper GPS chỉ hoạt động khi <strong>tab active</strong> (shipper
 giữ app mở).</li>
-<li>Nếu shipper tắt app → marker không update → customer thấy “Shipper
-đang di chuyển” tĩnh.</li>
-<li><strong>Thông báo hiển thị:</strong> “Vị trí cập nhật khi shipper mở
-app.”</li>
+<li>Nếu shipper tắt app → marker không update → customer thấy "Shipper
+đang di chuyển" tĩnh.</li>
+<li><strong>Thông báo hiển thị:</strong> "Vị trí cập nhật khi shipper mở
+app."</li>
 </ul>
 <hr />
-<h2 id="chat-với-shipper-uc-07">6. CHAT VỚI SHIPPER (UC-07)</h2>
-<h3 id="mở-chat">6.1. Mở chat</h3>
+<h2 id="6-chat-với-shipper-uc-07">6. CHAT VỚI SHIPPER (UC-07)</h2>
+<h3 id="61-mở-chat">6.1. Mở chat</h3>
 <ol type="1">
 <li>Mở Order Detail → tab <strong>Chat</strong> (hoặc chat panel).</li>
 <li>Chat chỉ mở khi <code>DeliveryTask</code> tồn tại (shipper đã accept
@@ -453,7 +737,7 @@ app.”</li>
 nhập) — xác thực bằng <code>CustomerDeviceId</code> cho đơn DELIVERY của
 chính thiết bị đó.</p>
 </blockquote>
-<h3 id="flow">6.2. Flow</h3>
+<h3 id="62-flow">6.2. Flow</h3>
 <ol type="1">
 <li>Nhập message → <code>POST /api/community/chat/messages</code>.</li>
 <li><strong>SignalR hub <code>/hubs/chat</code></strong> push đến
@@ -463,7 +747,7 @@ receiverId.</li>
 <li>Chat history load khi mở panel
 (<code>GET /api/community/chat/conversations/{orderId}</code>).</li>
 </ol>
-<h3 id="lưu-ý">6.3. Lưu ý</h3>
+<h3 id="63-lưu-ý">6.3. Lưu ý</h3>
 <ul>
 <li><strong>Human-to-human chat</strong> — KHÔNG có AI chatbot trong
 PoC.</li>
@@ -472,57 +756,63 @@ PoC.</li>
 <code>X-Customer-Token</code> query string.</li>
 </ul>
 <hr />
-<h2 id="ví-wallet-lịch-sử-giao-dịch">7. VÍ (WALLET) + LỊCH SỬ GIAO
+<h2 id="7-ví-wallet--lịch-sử-giao-dịch">7. VÍ (WALLET) + LỊCH SỬ GIAO
 DỊCH</h2>
-<h3 id="xem-ví">7.1. Xem ví</h3>
-<p>Login KhachLink → tab <strong>“Ví”</strong> (nếu có role
+<h3 id="71-xem-ví">7.1. Xem ví</h3>
+<p>Login KhachLink → tab <strong>"Ví"</strong> (nếu có role
 Salesman/Shipper) hoặc Profile → Wallet.</p>
 <ul>
 <li>Balance hiện tại (VND)</li>
-<li>Mode badge: “Mô hình Reseller — Vạn An mua bán” hoặc “Mô hình
-Marketplace — Tenant bán trực tiếp”</li>
+<li>Mode badge: "Mô hình Reseller — Vạn An mua bán" hoặc "Mô hình
+Marketplace — Tenant bán trực tiếp"</li>
 <li>List <code>WalletTransaction</code> (immutable ledger —
 append-only)</li>
 </ul>
-<h3 id="customer-transactions">7.2. Customer transactions</h3>
+<h3 id="72-customer-transactions">7.2. Customer transactions</h3>
 <p>Customer thường KHÔNG có wallet balance (chỉ Salesman/Shipper có).
-Customer thấy: - <strong>Order history:</strong> list đơn đã đặt +
-status - <strong>Payment history:</strong> COD/Online payments</p>
-<h3 id="reseller-mode-externalpayment">7.3. Reseller mode —
+Customer thấy:</p>
+<ul>
+<li><strong>Order history:</strong> list đơn đã đặt + status</li>
+<li><strong>Payment history:</strong> COD/Online payments</li>
+</ul>
+<h3 id="73-reseller-mode--externalpayment">7.3. Reseller mode —
 ExternalPayment</h3>
-<p>Nếu Reseller mode + PaymentMethod = Online (VietQR/card): - Customer
-trả Vạn An qua VietQR/card. -
-<code>WalletTransaction(ExternalPayment)</code> — Vạn An nhận tiền trực
-tiếp. - Sau đó Vạn An phân phối (6 transactions COD flow).</p>
+<p>Nếu Reseller mode + PaymentMethod = Online (VietQR/card):</p>
+<ul>
+<li>Customer trả Vạn An qua VietQR/card.</li>
+<li><code>WalletTransaction(ExternalPayment)</code> — Vạn An nhận tiền
+trực tiếp.</li>
+<li>Sau đó Vạn An phân phối (6 transactions COD flow).</li>
+</ul>
 <hr />
-<h2 id="tích-điểm-đổi-thưởng-loyalty">8. TÍCH ĐIỂM + ĐỔI THƯỞNG
+<h2 id="8-tích-điểm--đổi-thưởng-loyalty">8. TÍCH ĐIỂM + ĐỔI THƯỞNG
 (LOYALTY)</h2>
 <blockquote>
 <p><strong>Chi tiết đầy đủ:</strong> xem
 <code>docs/user-guide/CRM_Loyalty_Guide.md</code> (Section 4 —
 Customer).</p>
 </blockquote>
-<h3 id="tích-điểm">8.1. Tích điểm</h3>
+<h3 id="81-tích-điểm">8.1. Tích điểm</h3>
 <ul>
 <li>Mỗi đơn completed → LoyaltyPoints (formula-based,
 configurable).</li>
 <li>Guest checkout KHÔNG tích điểm (no token, no account).</li>
 <li>Điểm hiển thị trong Profile page.</li>
 </ul>
-<h3 id="đổi-thưởng">8.2. Đổi thưởng</h3>
+<h3 id="82-đổi-thưởng">8.2. Đổi thưởng</h3>
 <ul>
 <li>Mở Catalog Đổi thưởng → chọn quà → bấm <strong>Đổi</strong>.</li>
 <li>Điểm trừ → redemption record (Pending) → admin fulfill voucher.</li>
 <li>Xem lịch sử đổi thưởng trong Profile.</li>
 </ul>
-<h3 id="nhiệm-vụ-missions">8.3. Nhiệm vụ (Missions)</h3>
+<h3 id="83-nhiệm-vụ-missions">8.3. Nhiệm vụ (Missions)</h3>
 <ul>
 <li>PWAInstall, OtpVerify, BirthdayEntry, FacebookShare, TikTokShare,
 Custom missions.</li>
 <li>Hoàn nhiệm vụ → nhận điểm bonus.</li>
 </ul>
-<h3 id="sms-otp-không-bắt-buộc-cho-customer">8.4. SMS OTP — KHÔNG bắt
-buộc cho customer</h3>
+<h3 id="84-sms-otp--không-bắt-buộc-cho-customer">8.4. SMS OTP — KHÔNG
+bắt buộc cho customer</h3>
 <ul>
 <li>Customer KHÔNG cần SMS OTP để tích điểm / đổi điểm (luôn, bất kể
 toggle).</li>
@@ -530,39 +820,39 @@ toggle).</li>
 ON.</li>
 </ul>
 <hr />
-<h2 id="trở-thành-salesmanshipper">9. TRỞ THÀNH SALESMAN/SHIPPER</h2>
-<h3 id="điều-kiện">9.1. Điều kiện</h3>
+<h2 id="9-trở-thành-salesmanshipper">9. TRỞ THÀNH SALESMAN/SHIPPER</h2>
+<h3 id="91-điều-kiện">9.1. Điều kiện</h3>
 <ul>
-<li><code>IdentityLevel ≥ DeviceVerified</code> (device fingerprint
-pass) <strong>HOẶC</strong> <code>IdentityLevel ≥ Verified</code> (SMS
-OTP) + <code>LoyaltyPoints ≥ 1000</code></li>
-<li><strong>Kích hoạt bởi System Admin</strong> (customer không tự đăng
-ký).</li>
+<li><code>IdentityLevel ≥ Verified</code> (2 — đã bao gồm
+<code>DeviceVerified</code>=4) <strong>VÀ</strong>
+<code>LoyaltyPoints ≥ ngưỡng per-tenant</code> (default 1000)</li>
+<li><strong>Kích hoạt bởi System Admin hoặc Owner</strong> (customer
+không tự đăng ký).</li>
 </ul>
-<h3 id="quy-trình">9.2. Quy trình</h3>
+<h3 id="92-quy-trình">9.2. Quy trình</h3>
 <ol type="1">
 <li>Tích đủ 1000 điểm + device fingerprint pass.</li>
 <li>System Admin liên hệ / tự thấy bạn trong eligible list.</li>
 <li>Admin kích hoạt → bạn nhận push notification.</li>
 <li>Login lại → NavMenu hiện thêm tab Salesman/Shipper.</li>
 </ol>
-<h3 id="sms-otp-chỉ-khi-toggle-on">9.3. SMS OTP (chỉ khi toggle ON)</h3>
-<p>Nếu toggle ON + bạn chưa verify SĐT: 1. Nhận notification “Admin mời
-kích hoạt vai trò”. 2. Verify SĐT qua SMS OTP (phí trừ deposit wallet).
-3. Admin activate role.</p>
+<h3 id="93-sms-otp-chỉ-khi-toggle-on">9.3. SMS OTP (chỉ khi toggle
+ON)</h3>
+<p>Nếu toggle ON + bạn chưa verify SĐT:</p>
+<ol type="1">
+<li>Nhận notification "Admin mời kích hoạt vai trò".</li>
+<li>Verify SĐT qua SMS OTP (phí trừ deposit wallet).</li>
+<li>Admin activate role.</li>
+</ol>
 <blockquote>
-<p><strong>Chi tiết Salesman:</strong> xem <a href="./03-salesman.md">03-salesman.md</a>. <strong>Chi tiết
-Shipper:</strong> xem <a href="./04-shipper.md">04-shipper.md</a>.</p>
+<p><strong>Chi tiết Salesman:</strong> xem <a
+href="./03-salesman.html">03-salesman.md</a>. <strong>Chi tiết
+Shipper:</strong> xem <a href="./04-shipper.html">04-shipper.md</a>.</p>
 </blockquote>
 <hr />
-<h2 id="marketplace-vs-reseller-khác-biệt-cho-customer">10. MARKETPLACE
-VS RESELLER — KHÁC BIỆT CHO CUSTOMER</h2>
+<h2 id="10-marketplace-vs-reseller--khác-biệt-cho-customer">10.
+MARKETPLACE VS RESELLER — KHÁC BIỆT CHO CUSTOMER</h2>
 <table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
 <thead>
 <tr>
 <th>Khía cạnh</th>
@@ -574,7 +864,7 @@ VS RESELLER — KHÁC BIỆT CHO CUSTOMER</h2>
 <tr>
 <td><strong>Giá hiển thị</strong></td>
 <td>Tenant price</td>
-<td>SellPrice (Vạn An price) + “Giá đã bao gồm phí nền tảng”</td>
+<td>SellPrice (Vạn An price) + "Giá đã bao gồm phí nền tảng"</td>
 </tr>
 <tr>
 <td><strong>Ai bán</strong></td>
@@ -593,8 +883,8 @@ VS RESELLER — KHÁC BIỆT CHO CUSTOMER</h2>
 </tr>
 <tr>
 <td><strong>Wallet badge</strong></td>
-<td>“Marketplace — Tenant bán trực tiếp”</td>
-<td>“Reseller — Vạn An mua bán”</td>
+<td>"Marketplace — Tenant bán trực tiếp"</td>
+<td>"Reseller — Vạn An mua bán"</td>
 </tr>
 <tr>
 <td><strong>Trải nghiệm đặt hàng</strong></td>
@@ -608,15 +898,10 @@ VS RESELLER — KHÁC BIỆT CHO CUSTOMER</h2>
 nghiệm đặt hàng giống nhau. Mode chỉ affect financial flow backend.</p>
 </blockquote>
 <hr />
-<h2 id="khachlink-multi-profile-profile-transition-ux-pr-170">11.
+<h2 id="11-khachlink-multi-profile--profile-transition-ux-pr-170">11.
 KHACHLINK MULTI-PROFILE + PROFILE TRANSITION UX (PR #170)</h2>
 <p>Trải nghiệm customer khác nhau tùy profile tenant:</p>
 <table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
 <thead>
 <tr>
 <th>Tính năng</th>
@@ -657,15 +942,20 @@ KHACHLINK MULTI-PROFILE + PROFILE TRANSITION UX (PR #170)</h2>
 </tbody>
 </table>
 <p><strong>Khi admin đổi profile (Profile Transition UX Sprint
-1-3):</strong> - <strong>FullCommerce → Directory:</strong> What’s New
-banner thông báo “tính năng commerce sẽ bị ẩn” + cart preservation modal
-(nếu cart có items) → 7 trang commerce bị <code>ProfileGuard</code>
-redirect về Home. - <strong>Directory → FullCommerce:</strong> What’s
-New banner “tính năng commerce đã mở” + onboarding tour 3 bước
-(cart→rewards→stores, driver.js, 1× per profile). - <strong>Profile
-indicator footer</strong> hiển thị profile hiện tại trên mọi trang
-KhachLink. - Service Worker tự update
-(<code>vananTriggerSWUpdate()</code>) để áp dụng thay đổi.</p>
+1-3):</strong></p>
+<ul>
+<li><strong>FullCommerce → Directory:</strong> What's New banner thông
+báo "tính năng commerce sẽ bị ẩn" + cart preservation modal (nếu cart có
+items) → 7 trang commerce bị <code>ProfileGuard</code> redirect về
+Home.</li>
+<li><strong>Directory → FullCommerce:</strong> What's New banner "tính
+năng commerce đã mở" + onboarding tour 3 bước (cart→rewards→stores,
+driver.js, 1× per profile).</li>
+<li><strong>Profile indicator footer</strong> hiển thị profile hiện tại
+trên mọi trang KhachLink.</li>
+<li>Service Worker tự update (<code>vananTriggerSWUpdate()</code>) để áp
+dụng thay đổi.</li>
+</ul>
 <blockquote>
 <p><strong>Lưu ý (ProfileGuard scope):</strong>
 <code>ProfileGuard.razor</code> là route guard trong <strong>KhachLink
@@ -673,7 +963,7 @@ WASM app</strong> — chỉ redirect khi tenant có profile Directory nhưng
 user truy cập trang commerce trong cùng WASM app. <strong>Directory SSR
 app</strong> (<code>timlathay.com</code>) là project riêng, không có
 route commerce (<code>/cart</code>, <code>/checkout</code>,
-<code>/tracking</code>, <code>/wallet</code>…) → ASP.NET Core trả 404
+<code>/tracking</code>, <code>/wallet</code>...) → ASP.NET Core trả 404
 trực tiếp (không cần redirect). Do đó ProfileGuard không áp dụng cho
 Directory SSR — 404 là behavior đúng (Directory cố ý không có commerce
 routes).</p>
@@ -683,21 +973,24 @@ routes).</p>
 <code>docs/user-guide/KhachLink_Multi_Profile_Usage_Guide.md</code>.</p>
 </blockquote>
 <hr />
-<h2 id="gtm-drill-machine-lead-generation-w1-w2">12. GTM DRILL MACHINE —
-LEAD GENERATION (W1-W2)</h2>
+<h2 id="12-gtm-drill-machine--lead-generation-w1-w2">12. GTM DRILL
+MACHINE — LEAD GENERATION (W1-W2)</h2>
 <p><strong>W1 — Kiểm tra cửa hàng (Merchant Audit):</strong> Mở
 <code>/kiem-tra-cua-hang</code> (Directory SSR) → nhập tên + MST → xem
 trạng thái active/pending privacy. Rate-limit 10/IP/h.</p>
-<p><strong>W2 — Demo + Đăng ký tenant:</strong> - <code>/demo</code> —
-storefront mock (session-only, không persist) — trải nghiệm KhachLink
-trước khi đăng ký. - <code>/claim</code> (<code>Register.razor</code>) —
-form đăng ký tenant mới + Turnstile captcha + honeypot. Rate-limit
-5/IP/24h. - Sau submit → <code>TenantRegistration</code> entity tạo trên
-PG → admin review → approve → tenant activated.</p>
+<p><strong>W2 — Demo + Đăng ký tenant:</strong></p>
+<ul>
+<li><code>/demo</code> — storefront mock (session-only, không persist) —
+trải nghiệm KhachLink trước khi đăng ký.</li>
+<li><code>/claim</code> (<code>Register.razor</code>) — form đăng ký
+tenant mới + Turnstile captcha + honeypot. Rate-limit 5/IP/24h.</li>
+<li>Sau submit → <code>TenantRegistration</code> entity tạo trên PG →
+admin review → approve → tenant activated.</li>
+</ul>
 <hr />
-<h2 id="privacy-device-fingerprint-consent">13. PRIVACY — DEVICE
+<h2 id="13-privacy--device-fingerprint-consent">13. PRIVACY — DEVICE
 FINGERPRINT CONSENT</h2>
-<h3 id="device-fingerprint-consent-dialog">13.1. Device Fingerprint
+<h3 id="131-device-fingerprint-consent-dialog">13.1. Device Fingerprint
 Consent Dialog</h3>
 <ul>
 <li>Hiển thị TRƯỚC khi collect fingerprint (GDPR/PDPA compliance).</li>
@@ -705,7 +998,7 @@ Consent Dialog</h3>
 <li>User có thể <strong>decline</strong> — vẫn dùng được nhưng RiskScore
 cao hơn.</li>
 </ul>
-<h3 id="dữ-liệu-thu-thập">13.2. Dữ liệu thu thập</h3>
+<h3 id="132-dữ-liệu-thu-thập">13.2. Dữ liệu thu thập</h3>
 <table>
 <thead>
 <tr>
@@ -756,19 +1049,23 @@ cao hơn.</li>
 <li>Tất cả self-hosted (KHÔNG gửi cho bên thứ 3).</li>
 <li>FingerprintJS MIT, vendored trong KhachLink wwwroot/lib/.</li>
 </ul>
-<h3 id="max-3-devices">13.3. Max 3 devices</h3>
+<h3 id="133-max-3-devices">13.3. Max 3 devices</h3>
 <ul>
 <li>Max 3 active devices per account.</li>
 <li>Device 4+ → admin approval.</li>
 <li>Quản lý devices trong Profile page (deactivate device cũ).</li>
 </ul>
-<h3 id="anti-fraud-riskscore">13.4. Anti-fraud — RiskScore</h3>
+<h3 id="134-anti-fraud--riskscore">13.4. Anti-fraud — RiskScore</h3>
 <p>Hệ thống tự compute RiskScore (0-100) cho mỗi transaction. Customer
-KHÔNG thấy score, nhưng: - Score cao → commission/bonus của salesman bị
-hold/reject (nếu bạn được salesman giới thiệu). - KHÔNG affect customer
-experience — customer vẫn mua hàng bình thường.</p>
+KHÔNG thấy score, nhưng:</p>
+<ul>
+<li>Score cao → commission/bonus của salesman bị hold/reject (nếu bạn
+được salesman giới thiệu).</li>
+<li>KHÔNG affect customer experience — customer vẫn mua hàng bình
+thường.</li>
+</ul>
 <hr />
-<h2 id="faq">14. FAQ</h2>
+<h2 id="14-faq">14. FAQ</h2>
 <p><strong>Q: Tôi có cần verify SĐT (SMS OTP) không?</strong> A: KHÔNG
 bắt buộc. Device fingerprint là primary. SMS OTP chỉ nếu muốn upgrade
 IdentityLevel hoặc trở thành Salesman/Shipper (khi toggle ON).</p>
@@ -807,10 +1104,19 @@ Self-hosted (KHÔNG gửi bên thứ 3). Consent dialog hiển thị trước kh
 collect (GDPR/PDPA). Bạn có thể decline.</p>
 <p><strong>Q: Chat với shipper có AI chatbot không?</strong> A: KHÔNG.
 PoC chỉ human-to-human chat. AI chatbot là sprint riêng sau PoC.</p>
+<p><strong>Q: Tôi mua tại quầy (POS) thì đơn có hiện trong app
+không?</strong> A: Đơn POS do staff tạo trên ShopERP — nếu staff nhập
+SĐT gắn với tài khoản của bạn thì đơn liên kết được; nếu không thì là
+đơn guest tại chỗ. Không có tracking shipper (không giao hàng).</p>
+<p><strong>Q: Đặt lịch hẹn (booking) có cần tài khoản không?</strong> A:
+KHÔNG. Quét QR shop → chọn dịch vụ/giờ → nhập tên + SĐT → xong. Theo
+dõi/hủy bằng mã booking tại <code>/booking/status/{Code}</code>.</p>
 <hr />
 <blockquote>
-<p><strong>Xem thêm:</strong> <a href="./README.md">README index</a> |
-<a href="./03-salesman.md">Salesman</a> | <a href="./04-shipper.md">Shipper</a> | <a href="../CRM_Loyalty_Guide.md">CRM-Loyalty Guide</a></p>
+<p><strong>Xem thêm:</strong> <a href="./README.html">README index</a> |
+<a href="./03-salesman.html">Salesman</a> | <a
+href="./04-shipper.html">Shipper</a> | <a
+href="../CRM_Loyalty_Guide.html">CRM-Loyalty Guide</a></p>
 </blockquote>
 </body>
 </html>
