@@ -526,3 +526,6 @@ rv-*.png
 rv-*.json
 
 .commit-msg.txt
+
+# HTX/federated planning docs — local review only, do not commit until approved
+docs/AI/tasks/federated_htx_scale/

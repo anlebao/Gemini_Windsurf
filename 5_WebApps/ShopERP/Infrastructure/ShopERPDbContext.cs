@@ -155,6 +155,11 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<LoyaltyTenantConfig> LoyaltyTenantConfigs { get; set; }
         public DbSet<AllianceWallet> AllianceWallets { get; set; }
         public DbSet<AllianceTransaction> AllianceTransactions { get; set; }
+        // Loyalty Alliance Phase 5 (P0.2): MAPPED in ShopERP SQLite (unlike the Alliance
+        // siblings above) — RedemptionService writes reconcile cases here via IVanAnDbContext
+        // when an Alliance deduction can't be compensated. Tenant-scoped; surfaced at
+        // /admin/loyalty-reconcile.
+        public DbSet<LoyaltyReconcileCase> LoyaltyReconcileCases { get; set; }
 
         // #100: KhachLink home page section toggles — GLOBAL (PG-only, ignored in ShopERP SQLite)
         public DbSet<KhachLinkHomeSettings> KhachLinkHomeSettings { get; set; }

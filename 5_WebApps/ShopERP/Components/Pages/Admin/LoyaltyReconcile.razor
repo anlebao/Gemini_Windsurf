@@ -1,0 +1,210 @@
+@page "/admin/loyalty-reconcile"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using VanAn.Shared.Domain
+@inject VanAn.CoreHub.Infrastructure.IVanAnDbContext DbContext
+@inject ILogger<LoyaltyReconcile> Logger
+
+@attribute [Authorize(Policy = "OwnerOnly")]
+
+@* Loyalty Alliance Phase 5 (P0.2): manual reconciliation queue — cases created when an
+   Alliance deduction succeeded, the local voucher persist failed, AND the compensating
+   refund also failed. The customer is down points with no voucher + no refund until
+   an admin resolves (e.g., retry refund on the PG wallet via internal API). *@
+
+<div class="loyalty-reconcile-admin-page">
+    <header class="page-header">
+        <h1><i class="bi bi-arrow-repeat"></i> Đối soát điểm liên minh</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" OnClick="LoadCases">Làm mới</VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    <VanACard Title="Ca cần xử lý (điểm đã trừ nhưng chưa hoàn lại)">
+        @if (_loading)
+        {
+            <div class="text-center py-4"><div class="spinner-border"></div></div>
+        }
+        else if (_openCases.Count == 0)
+        {
+            <p class="text-muted text-center py-4">Không có ca nào cần đối soát.</p>
+        }
+        else
+        {
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Voucher</th>
+                        <th>Thiết bị khách</th>
+                        <th>Điểm</th>
+                        <th>Thời điểm lỗi</th>
+                        <th>Nguyên nhân</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in _openCases)
+                    {
+                        <tr>
+                            <td><code>@c.VoucherCode</code></td>
+                            <td><code>@c.CustomerDeviceId.ToString()[..8]</code></td>
+                            <td>@c.Points.ToString("N0")</td>
+                            <td>@c.FailedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td class="small">@c.Reason</td>
+                            <td>
+                                <VanAButton Variant="danger" OnClick="@(() => BeginResolve(c))">Đánh dấu đã xử lý</VanAButton>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </VanACard>
+
+    @if (_resolvingCase is not null)
+    {
+        <VanACard Title="Xác nhận đã xử lý">
+            <p class="small">
+                Ca <code>@_resolvingCase.VoucherCode</code> — @_resolvingCase.Points.ToString("N0") điểm,
+                thiết bị <code>@_resolvingCase.CustomerDeviceId.ToString()[..8]</code>.
+                Chỉ đánh dấu đã xử lý sau khi đã hoàn điểm thủ công trên ví liên minh (Gateway).
+            </p>
+            <div class="row g-2 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label">Người xử lý</label>
+                    <input class="form-control" @bind="_resolvedBy" placeholder="admin username" />
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">Ghi chú xử lý</label>
+                    <input class="form-control" @bind="_resolutionNote" placeholder="VD: đã hoàn điểm thủ công qua internal API" />
+                </div>
+                <div class="col-md-2">
+                    <VanAButton Variant="primary" OnClick="ConfirmResolveAsync" Disabled="@_resolving" CssClass="w-100">
+                        @if (_resolving)
+                        {
+                            <span class="spinner-border spinner-border-sm"></span>
+                        }
+                        else
+                        {
+                            <text><i class="bi bi-check-lg"></i> Xác nhận</text>
+                        }
+                    </VanAButton>
+                </div>
+            </div>
+        </VanACard>
+    }
+
+    <VanACard Title="Đã xử lý gần đây">
+        @if (_resolvedCases.Count == 0)
+        {
+            <p class="text-muted text-center py-4">Chưa có ca nào được xử lý.</p>
+        }
+        else
+        {
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Voucher</th>
+                        <th>Điểm</th>
+                        <th>Xử lý lúc</th>
+                        <th>Người xử lý</th>
+                        <th>Ghi chú</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in _resolvedCases)
+                    {
+                        <tr>
+                            <td><code>@c.VoucherCode</code></td>
+                            <td>@c.Points.ToString("N0")</td>
+                            <td>@c.ResolvedAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@c.ResolvedBy</td>
+                            <td class="small">@c.ResolutionNote</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </VanACard>
+</div>
+
+@code {
+    private bool _loading = true;
+    private string _alertMessage = "";
+    private string _alertType = "info";
+    private List<LoyaltyReconcileCase> _openCases = new();
+    private List<LoyaltyReconcileCase> _resolvedCases = new();
+    private LoyaltyReconcileCase? _resolvingCase;
+    private string _resolvedBy = "";
+    private string _resolutionNote = "";
+    private bool _resolving;
+
+    protected override async Task OnInitializedAsync() => await LoadCases();
+
+    private async Task LoadCases()
+    {
+        _loading = true;
+        try
+        {
+            _openCases = await DbContext.LoyaltyReconcileCases
+                .Where(c => c.Status == LoyaltyReconcileStatus.Open)
+                .OrderBy(c => c.FailedAt)
+                .ToListAsync();
+            _resolvedCases = await DbContext.LoyaltyReconcileCases
+                .Where(c => c.Status == LoyaltyReconcileStatus.Resolved)
+                .OrderByDescending(c => c.ResolvedAt)
+                .Take(50)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi tải danh sách: {ex.Message}";
+            _alertType = "danger";
+            Logger.LogError(ex, "LoyaltyReconcile: failed to load cases");
+        }
+        finally { _loading = false; }
+    }
+
+    private void BeginResolve(LoyaltyReconcileCase c)
+    {
+        _resolvingCase = c;
+        _resolvedBy = "";
+        _resolutionNote = "";
+    }
+
+    private async Task ConfirmResolveAsync()
+    {
+        if (_resolvingCase is null || string.IsNullOrWhiteSpace(_resolvedBy))
+        {
+            _alertMessage = "Vui lòng nhập người xử lý.";
+            _alertType = "danger";
+            return;
+        }
+
+        _resolving = true;
+        try
+        {
+            _resolvingCase.Resolve(_resolvedBy.Trim(), _resolutionNote.Trim());
+            await DbContext.SaveChangesAsync();
+            _alertMessage = $"Đã đánh dấu xử lý ca {_resolvingCase.VoucherCode}.";
+            _alertType = "success";
+            _resolvingCase = null;
+            await LoadCases();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally { _resolving = false; }
+    }
+}

@@ -302,6 +302,7 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                     new() { Title = "Quản lý Nhiệm vụ", Icon = "trophy-fill", Url = "/admin/missions" },
                     new() { Title = "Đổi điểm (Catalog)", Icon = "gift-fill", Url = "/admin/redemption-catalog" },
                     new() { Title = "Lịch sử đổi điểm", Icon = "clock-history", Url = "/admin/redemption-history" },
+                    new() { Title = "Đối soát điểm liên minh", Icon = "arrow-repeat", Url = "/admin/loyalty-reconcile" },
                     new() { Title = "Quản lý cộng tác viên", Icon = "people-fill", Url = "/community/owner-panel" },
                     // Realtime Platform P5 (2026-09-18): hộp thư tin nhắn chủ shop (Shop chat)
                     new() { Title = "Hộp thư tin nhắn", Icon = "chat-dots-fill", Url = "/community/messages" },
@@ -424,6 +425,7 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                     new() { Title = "Catalog Global", Icon = "globe2", Url = "/admin/global-redemption-catalog" },
                     new() { Title = "Lịch sử đổi điểm", Icon = "clock-history", Url = "/admin/redemption-history" },
                     new() { Title = "Loyalty Alliance Config", Icon = "award-fill", Url = "/admin/loyalty-config" },
+                    new() { Title = "Đối soát điểm liên minh", Icon = "arrow-repeat", Url = "/admin/loyalty-reconcile" },
                     new() { Title = "Thống kê điểm thưởng", Icon = "bar-chart-fill", Url = "/loyalty/dashboard" },
                 }
             });

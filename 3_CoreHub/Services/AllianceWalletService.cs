@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using VanAn.CoreHub.Infrastructure;
@@ -42,6 +43,80 @@ public class AllianceWalletService(
     public Task<AllianceWallet?> GetWalletByDeviceIdAsync(Guid customerDeviceId)
         => _dbContext.AllianceWallets.FirstOrDefaultAsync(w => w.CustomerDeviceId == customerDeviceId);
 
+    // ──────────────────────────────────────────────────────────
+    // P0.1 (audit R1): per-wallet write serialization
+    // ──────────────────────────────────────────────────────────
+
+    private bool IsPostgres =>
+        _dbContext.ProviderName.Contains("Npgsql") || _dbContext.ProviderName.Contains("PostgreSQL");
+
+    /// <summary>
+    /// Serializes concurrent writes for one wallet on PostgreSQL using a transaction-scoped
+    /// advisory lock (precedent: WalletService/BookingService — pg_advisory_xact_lock +
+    /// hashtextextended). Every wallet mutation below takes this lock, so two concurrent
+    /// writers for the same device id can no longer observe the same balance and both win.
+    /// Returns the OWNED transaction when the caller had no ambient transaction (caller must
+    /// Commit/Dispose — Dispose rolls back if never committed); returns null when
+    /// participating in the caller's ambient transaction (lock still applies, lock is held
+    /// until the ambient tx ends) or on non-PG providers (SQLite tests serialize at the DB).
+    /// </summary>
+    private async Task<IDbContextTransaction?> AcquireWalletLockAsync(Guid customerDeviceId)
+    {
+        if (!IsPostgres || _dbContext is not DbContext ef)
+        {
+            return null;
+        }
+
+        IDbContextTransaction? ownedTx = ef.Database.CurrentTransaction is null
+            ? await _dbContext.BeginTransactionAsync()
+            : null;
+
+        await ef.Database.ExecuteSqlRawAsync(
+            "WITH l AS (SELECT pg_advisory_xact_lock(hashtextextended({0}, 0))) SELECT 1",
+            $"loyalty_wallet:{customerDeviceId}");
+        return ownedTx;
+    }
+
+    /// <summary>
+    /// Idempotency dedup — returns the cached result when a transaction with this key
+    /// already exists (retry-safe for HTTP proxy + client retries). Backed by the unique
+    /// filtered index IX_AllianceTransactions_IdempotencyKey (P0.1) so concurrent same-key
+    /// inserts can no longer both pass this check — the second caller hits the unique
+    /// constraint OR re-checks under the wallet lock and finds the committed row.
+    /// </summary>
+    private async Task<(bool Success, int NewBalance, string? Error)?> CheckIdempotencyAsync(string? idempotencyKey)
+    {
+        if (idempotencyKey is null)
+        {
+            return null;
+        }
+
+        var existing = await _dbContext.AllianceTransactions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.IdempotencyKey == idempotencyKey);
+        if (existing is null)
+        {
+            return null;
+        }
+
+        _logger.LogInformation("Idempotency hit: key={Key} → cached balance={Balance}", idempotencyKey, existing.BalanceAfter);
+        return (true, existing.BalanceAfter, null);
+    }
+
+    /// <summary>
+    /// FOR UPDATE equivalent (P0.1): after the wallet lock is held, refresh the tracked
+    /// wallet from the DB so the balance reflects the latest committed row — the identity
+    /// map could otherwise hand us stale values loaded before the lock was acquired
+    /// (or left stale by an earlier ExecuteUpdate on the same scoped context).
+    /// </summary>
+    private async Task ReloadWalletUnderLockAsync(AllianceWallet wallet)
+    {
+        if (_dbContext is DbContext ef)
+        {
+            await ef.Entry(wallet).ReloadAsync();
+        }
+    }
+
     /// <inheritdoc/>
     public async Task<AllianceWallet> GetOrCreateWalletAsync(Guid customerDeviceId, string? phoneNumber)
     {
@@ -71,18 +146,27 @@ public class AllianceWalletService(
         }
 
         // Loyalty Consistency Fix Phase 0: idempotency check — retry-safe for HTTP proxy
-        if (idempotencyKey is not null)
+        var cached = await CheckIdempotencyAsync(idempotencyKey);
+        if (cached is not null)
         {
-            var existing = await _dbContext.AllianceTransactions
-                .FirstOrDefaultAsync(t => t.IdempotencyKey == idempotencyKey);
-            if (existing is not null)
-            {
-                _logger.LogInformation("Idempotency hit: key={Key} → cached balance={Balance}", idempotencyKey, existing.BalanceAfter);
-                return (true, existing.BalanceAfter, null);
-            }
+            return cached.Value;
+        }
+
+        // P0.1 (R1): serialize all writes for this wallet — concurrent writers can no
+        // longer observe the same pre-state (TOCTOU). On PG this is an advisory lock;
+        // on SQLite (tests) the single-writer DB provides the same serialization.
+        await using IDbContextTransaction? ownedTx = await AcquireWalletLockAsync(customerDeviceId);
+
+        // Re-check under the lock: a concurrent same-key write may have committed
+        // while this call waited on the advisory lock.
+        cached = await CheckIdempotencyAsync(idempotencyKey);
+        if (cached is not null)
+        {
+            return cached.Value;
         }
 
         AllianceWallet wallet = await GetOrCreateWalletAsync(customerDeviceId, phoneNumber: null);
+        await ReloadWalletUnderLockAsync(wallet);
         int maxWallet = await _modeResolver.GetEffectiveMaxWalletPointsAsync(tenantId);
 
         if (wallet.TotalPointBalance + points > maxWallet)
@@ -120,13 +204,40 @@ public class AllianceWalletService(
             }
         }
 
-        wallet.AddPoints(awardedPoints);
+        // P0.1 (R1): atomic conditional UPDATE — single statement, provider-agnostic.
+        // Under the PG advisory lock this is belt & suspenders; on SQLite (no advisory
+        // lock) it is the ONLY guard against a lost update from a concurrent writer.
+        // Re-checks the wallet cap in the WHERE clause against the CURRENT committed
+        // value, so a stale tracked balance can't push it over the cap.
+        int newBalanceAfterAdd;
+        {
+            int affected = await _dbContext.AllianceWallets
+                .Where(w => w.Id == wallet.Id && w.TotalPointBalance <= maxWallet - awardedPoints)
+                .ExecuteUpdateAsync(s => s.SetProperty(w => w.TotalPointBalance, w => w.TotalPointBalance + awardedPoints));
+            if (affected == 0)
+            {
+                int currentBalance = await _dbContext.AllianceTransactions
+                    .Where(t => t.WalletId == wallet.Id)
+                    .OrderByDescending(t => t.TransactionAt)
+                    .Select(t => t.BalanceAfter)
+                    .FirstOrDefaultAsync();
+                _logger.LogWarning(
+                    "AllianceWallet AddPoints rejected (concurrent state): device={Device} cap-check failed, current={Balance}",
+                    customerDeviceId, currentBalance);
+                return (false, currentBalance, $"Wallet cap exceeded: {currentBalance} + {awardedPoints} > {maxWallet}");
+            }
+            newBalanceAfterAdd = wallet.TotalPointBalance + awardedPoints;
+            // Resync the tracked entity (ExecuteUpdate bypasses change tracking) so
+            // later reads on this scoped context see the post-update balance.
+            wallet.AddPoints(awardedPoints);
+        }
+
         var tx = new AllianceTransaction(
             walletId: wallet.Id,
             transactionTenantId: tenantId,
             type: AllianceTransactionType.EARN,
             points: awardedPoints,
-            balanceAfter: wallet.TotalPointBalance,
+            balanceAfter: newBalanceAfterAdd,
             reason: reason,
             sourceOrderId: sourceOrderId,
             idempotencyKey: idempotencyKey);
@@ -147,11 +258,16 @@ public class AllianceWalletService(
             }
         }
 
-        await PublishLoyaltyChangedAsync(customerDeviceId, tenantId, wallet.TotalPointBalance, tx, customerId);
+        if (ownedTx is not null)
+        {
+            await ownedTx.CommitAsync();
+        }
+
+        await PublishLoyaltyChangedAsync(customerDeviceId, tenantId, newBalanceAfterAdd, tx, customerId);
         _logger.LogInformation(
             "AllianceWallet AddPoints: device={Device} tenant={Tenant} +{Points} → balance={Balance}",
-            customerDeviceId, tenantId, awardedPoints, wallet.TotalPointBalance);
-        return (true, wallet.TotalPointBalance, null);
+            customerDeviceId, tenantId, awardedPoints, newBalanceAfterAdd);
+        return (true, newBalanceAfterAdd, null);
     }
 
     /// <inheritdoc/>
@@ -165,15 +281,20 @@ public class AllianceWalletService(
         }
 
         // Loyalty Consistency Fix Phase 0: idempotency check
-        if (idempotencyKey is not null)
+        var cached = await CheckIdempotencyAsync(idempotencyKey);
+        if (cached is not null)
         {
-            var existing = await _dbContext.AllianceTransactions
-                .FirstOrDefaultAsync(t => t.IdempotencyKey == idempotencyKey);
-            if (existing is not null)
-            {
-                _logger.LogInformation("Idempotency hit: key={Key} → cached balance={Balance}", idempotencyKey, existing.BalanceAfter);
-                return (true, existing.BalanceAfter, null);
-            }
+            return cached.Value;
+        }
+
+        // P0.1 (R1): take the per-wallet lock BEFORE reading balance/history — this is
+        // the TOCTOU fix. Two concurrent deducts no longer observe the same balance.
+        await using IDbContextTransaction? ownedTx = await AcquireWalletLockAsync(customerDeviceId);
+
+        cached = await CheckIdempotencyAsync(idempotencyKey);
+        if (cached is not null)
+        {
+            return cached.Value;
         }
 
         AllianceWallet? wallet = await GetWalletByDeviceIdAsync(customerDeviceId);
@@ -181,6 +302,7 @@ public class AllianceWalletService(
         {
             return (false, 0, "Wallet not found");
         }
+        await ReloadWalletUnderLockAsync(wallet);
 
         if (wallet.TotalPointBalance < points)
         {
@@ -242,32 +364,63 @@ public class AllianceWalletService(
             return (false, wallet.TotalPointBalance, "Insufficient balance");
         }
 
-        wallet.DeductPoints(points);
+        // P0.1 (R1): atomic conditional UPDATE — the actual double-spend guard.
+        // WHERE TotalPointBalance >= points re-validates the CURRENT committed balance
+        // (the tracked entity may be stale). affected == 0 → a concurrent writer won.
+        int newBalance;
+        {
+            int affected = await _dbContext.AllianceWallets
+                .Where(w => w.Id == wallet.Id && w.TotalPointBalance >= points)
+                .ExecuteUpdateAsync(s => s.SetProperty(w => w.TotalPointBalance, w => w.TotalPointBalance - points));
+            if (affected == 0)
+            {
+                _logger.LogWarning(
+                    "AllianceWallet DeductPoints rejected (concurrent state): device={Device} points={Points} — balance guard failed",
+                    customerDeviceId, points);
+                return (false, wallet.TotalPointBalance, "Insufficient balance");
+            }
+            newBalance = wallet.TotalPointBalance - points;
+            wallet.DeductPoints(points); // resync tracked entity (see AddPoints)
+        }
+
         AllianceTransaction? firstTx = null;
+        int sourceIndex = 0;
         foreach (var (sourceTenant, amount) in sources)
         {
+            // P0.1 (R1): IdempotencyKey has a UNIQUE filtered index, but a multi-source
+            // redeem writes one row per source tenant — only the FIRST row carries the
+            // caller's key (it is the dedup carrier). Sibling rows get a derived key so
+            // they stay traceable without tripping the constraint.
             var tx = new AllianceTransaction(
                 walletId: wallet.Id,
                 transactionTenantId: tenantId,
                 type: AllianceTransactionType.REDEEM,
                 points: -amount,
-                balanceAfter: wallet.TotalPointBalance,
+                balanceAfter: newBalance,
                 reason: reason,
                 voucherCode: voucherCode,
                 refundTenantId: tenantId, // Q4: refund returns to tenant where redeem occurred
-                idempotencyKey: idempotencyKey);
+                idempotencyKey: sourceIndex == 0 || idempotencyKey is null
+                    ? idempotencyKey
+                    : $"{idempotencyKey}#src:{sourceIndex}");
             tx.SetSourceTenant(sourceTenant);
             firstTx ??= tx;
+            sourceIndex++;
             _ = _dbContext.AllianceTransactions.Add(tx);
         }
         await _dbContext.SaveChangesAsync();
 
-        await PublishLoyaltyChangedAsync(customerDeviceId, tenantId, wallet.TotalPointBalance, firstTx, customerId);
+        if (ownedTx is not null)
+        {
+            await ownedTx.CommitAsync();
+        }
+
+        await PublishLoyaltyChangedAsync(customerDeviceId, tenantId, newBalance, firstTx, customerId);
         _logger.LogInformation(
             "AllianceWallet DeductPoints: device={Device} tenant={Tenant} -{Points} → balance={Balance} (sources: {Sources})",
-            customerDeviceId, tenantId, points, wallet.TotalPointBalance,
+            customerDeviceId, tenantId, points, newBalance,
             string.Join(", ", sources.Select(s => $"{s.TenantId}:{s.Amount}")));
-        return (true, wallet.TotalPointBalance, null);
+        return (true, newBalance, null);
     }
 
     /// <inheritdoc/>
@@ -291,15 +444,20 @@ public class AllianceWalletService(
         }
 
         // Loyalty Consistency Fix Phase 0: idempotency check
-        if (idempotencyKey is not null)
+        var cached = await CheckIdempotencyAsync(idempotencyKey);
+        if (cached is not null)
         {
-            var existing = await _dbContext.AllianceTransactions
-                .FirstOrDefaultAsync(t => t.IdempotencyKey == idempotencyKey);
-            if (existing is not null)
-            {
-                _logger.LogInformation("Idempotency hit: key={Key} → cached balance={Balance}", idempotencyKey, existing.BalanceAfter);
-                return (true, existing.BalanceAfter, null);
-            }
+            return cached.Value;
+        }
+
+        // P0.1 (R1): same per-wallet serialization as Add/Deduct — refunds mutate the
+        // same balance + append-only chain.
+        await using IDbContextTransaction? ownedTx = await AcquireWalletLockAsync(customerDeviceId);
+
+        cached = await CheckIdempotencyAsync(idempotencyKey);
+        if (cached is not null)
+        {
+            return cached.Value;
         }
 
         AllianceWallet? wallet = await GetWalletByDeviceIdAsync(customerDeviceId);
@@ -307,15 +465,33 @@ public class AllianceWalletService(
         {
             return (false, 0, "Wallet not found");
         }
+        await ReloadWalletUnderLockAsync(wallet);
 
         // Q4: refund returns points to the wallet; attributed to the tenant where redeem occurred.
-        wallet.AddPoints(points);
+        // P0.1 (R1): atomic delta UPDATE — a refund must not overwrite a concurrent
+        // deduction (lost update on the tracked entity under SQLite/no-advisory-lock).
+        int newBalanceAfterRefund;
+        {
+            int affected = await _dbContext.AllianceWallets
+                .Where(w => w.Id == wallet.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(w => w.TotalPointBalance, w => w.TotalPointBalance + points));
+            if (affected == 0)
+            {
+                _logger.LogWarning(
+                    "AllianceWallet Refund rejected: device={Device} wallet row missing",
+                    customerDeviceId);
+                return (false, wallet.TotalPointBalance, "Wallet not found");
+            }
+            newBalanceAfterRefund = wallet.TotalPointBalance + points;
+            wallet.AddPoints(points); // resync tracked entity (see AddPoints)
+        }
+
         var tx = new AllianceTransaction(
             walletId: wallet.Id,
             transactionTenantId: tenantId,
             type: AllianceTransactionType.ADJUST,
             points: points,
-            balanceAfter: wallet.TotalPointBalance,
+            balanceAfter: newBalanceAfterRefund,
             reason: reason,
             voucherCode: voucherCode,
             refundTenantId: tenantId,
@@ -323,11 +499,16 @@ public class AllianceWalletService(
         _ = _dbContext.AllianceTransactions.Add(tx);
         await _dbContext.SaveChangesAsync();
 
-        await PublishLoyaltyChangedAsync(customerDeviceId, tenantId, wallet.TotalPointBalance, tx, customerId);
+        if (ownedTx is not null)
+        {
+            await ownedTx.CommitAsync();
+        }
+
+        await PublishLoyaltyChangedAsync(customerDeviceId, tenantId, newBalanceAfterRefund, tx, customerId);
         _logger.LogInformation(
             "AllianceWallet Refund: device={Device} tenant={Tenant} +{Points} → balance={Balance} (voucher={Voucher})",
-            customerDeviceId, tenantId, points, wallet.TotalPointBalance, voucherCode);
-        return (true, wallet.TotalPointBalance, null);
+            customerDeviceId, tenantId, points, newBalanceAfterRefund, voucherCode);
+        return (true, newBalanceAfterRefund, null);
     }
 
     /// <inheritdoc/>
@@ -367,47 +548,78 @@ public class AllianceWalletService(
         int totalPoints = 0;
         string migrationReason = $"Silo→Alliance migration (by {changedBy})";
 
-        foreach (var input in customerBalances)
+        // P0.1 (R1): the batch bypasses AddPointsAsync, so it must take the same
+        // per-wallet lock — otherwise a migration can race a live redeem and corrupt
+        // the append-only balance chain. Locks accumulate in one owned tx; inputs are
+        // sorted by device id so two concurrent admin ops take locks in the same order
+        // (no deadlock).
+        IDbContextTransaction? ownedTx = null;
+        var pendingPublishes = new List<(Guid DeviceId, int Balance)>();
+        try
         {
-            if (input.PointBalance <= 0)
+            foreach (var input in customerBalances.OrderBy(c => c.CustomerDeviceId))
             {
-                continue; // skip zero-balance customers
+                if (input.PointBalance <= 0)
+                {
+                    continue; // skip zero-balance customers
+                }
+
+                ownedTx ??= await AcquireWalletLockAsync(input.CustomerDeviceId);
+
+                // Idempotency: skip if this device already has an ADJUST migration tx for this tenant
+                bool alreadyMigrated = await _dbContext.AllianceTransactions
+                    .AnyAsync(t => t.TransactionTenantId == tenantId
+                        && t.Type == AllianceTransactionType.ADJUST
+                        && t.Reason == migrationReason
+                        && _dbContext.AllianceWallets.Any(w => w.Id == t.WalletId && w.CustomerDeviceId == input.CustomerDeviceId));
+
+                if (alreadyMigrated)
+                {
+                    _logger.LogDebug("ConsolidateWallets: device {Device} already migrated for tenant {Tenant} — skipping",
+                        input.CustomerDeviceId, tenantId);
+                    continue;
+                }
+
+                AllianceWallet wallet = await GetOrCreateWalletAsync(input.CustomerDeviceId, input.PhoneNumber);
+                await ReloadWalletUnderLockAsync(wallet);
+                wallet.AddPoints(input.PointBalance);
+
+                var tx = new AllianceTransaction(
+                    walletId: wallet.Id,
+                    transactionTenantId: tenantId,
+                    type: AllianceTransactionType.ADJUST,
+                    points: input.PointBalance,
+                    balanceAfter: wallet.TotalPointBalance,
+                    reason: migrationReason);
+                _ = _dbContext.AllianceTransactions.Add(tx);
+
+                pendingPublishes.Add((input.CustomerDeviceId, wallet.TotalPointBalance));
+                processed++;
+                totalPoints += input.PointBalance;
             }
 
-            // Idempotency: skip if this device already has an ADJUST migration tx for this tenant
-            bool alreadyMigrated = await _dbContext.AllianceTransactions
-                .AnyAsync(t => t.TransactionTenantId == tenantId
-                    && t.Type == AllianceTransactionType.ADJUST
-                    && t.Reason == migrationReason
-                    && _dbContext.AllianceWallets.Any(w => w.Id == t.WalletId && w.CustomerDeviceId == input.CustomerDeviceId));
-
-            if (alreadyMigrated)
+            if (processed > 0)
             {
-                _logger.LogDebug("ConsolidateWallets: device {Device} already migrated for tenant {Tenant} — skipping",
-                    input.CustomerDeviceId, tenantId);
-                continue;
+                await _dbContext.SaveChangesAsync();
             }
 
-            AllianceWallet wallet = await GetOrCreateWalletAsync(input.CustomerDeviceId, input.PhoneNumber);
-            wallet.AddPoints(input.PointBalance);
-
-            var tx = new AllianceTransaction(
-                walletId: wallet.Id,
-                transactionTenantId: tenantId,
-                type: AllianceTransactionType.ADJUST,
-                points: input.PointBalance,
-                balanceAfter: wallet.TotalPointBalance,
-                reason: migrationReason);
-            _ = _dbContext.AllianceTransactions.Add(tx);
-
-            await PublishLoyaltyChangedAsync(input.CustomerDeviceId, tenantId, wallet.TotalPointBalance);
-            processed++;
-            totalPoints += input.PointBalance;
+            if (ownedTx is not null)
+            {
+                await ownedTx.CommitAsync();
+            }
+        }
+        finally
+        {
+            if (ownedTx is not null)
+            {
+                await ownedTx.DisposeAsync();
+            }
         }
 
-        if (processed > 0)
+        // Publish only after commit — events must reflect committed state.
+        foreach (var (deviceId, balance) in pendingPublishes)
         {
-            await _dbContext.SaveChangesAsync();
+            await PublishLoyaltyChangedAsync(deviceId, tenantId, balance);
         }
 
         _logger.LogInformation(
@@ -442,12 +654,24 @@ public class AllianceWalletService(
         int processed = 0;
         int totalPoints = 0;
 
-        foreach (Guid walletId in walletIds)
+        // P0.1 (R1): same per-wallet lock as Consolidate — a split must not race a live
+        // redeem on the same wallet. Sorted order = deterministic lock acquisition.
+        IDbContextTransaction? ownedTx = null;
+        try
+        {
+        foreach (Guid walletId in walletIds.OrderBy(id => id))
         {
             var wallet = await _dbContext.AllianceWallets.FirstOrDefaultAsync(w => w.Id == walletId);
             if (wallet is null || !wallet.IsActive || wallet.TotalPointBalance <= 0)
             {
                 continue;
+            }
+
+            ownedTx ??= await AcquireWalletLockAsync(wallet.CustomerDeviceId);
+            await ReloadWalletUnderLockAsync(wallet);
+            if (wallet.TotalPointBalance <= 0)
+            {
+                continue; // balance may have changed between pre-check and lock
             }
 
             // Calculate net EARN per-tenant from transaction log
@@ -507,8 +731,24 @@ public class AllianceWalletService(
         if (processed > 0)
         {
             await _dbContext.SaveChangesAsync();
+        }
 
-            // Publish loyalty changed for each affected wallet
+        if (ownedTx is not null)
+        {
+            await ownedTx.CommitAsync();
+        }
+        }
+        finally
+        {
+            if (ownedTx is not null)
+            {
+                await ownedTx.DisposeAsync();
+            }
+        }
+
+        if (processed > 0)
+        {
+            // Publish loyalty changed for each affected wallet — post-commit.
             foreach (Guid walletId in walletIds)
             {
                 var wallet = await _dbContext.AllianceWallets.FirstOrDefaultAsync(w => w.Id == walletId);

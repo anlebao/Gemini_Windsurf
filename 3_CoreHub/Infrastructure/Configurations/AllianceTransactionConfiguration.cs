@@ -34,10 +34,14 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.TransactionAt).IsRequired();
 
             // Loyalty Consistency Fix Phase 0: IdempotencyKey for retry-safe HTTP proxy.
-            // Non-unique index — most rows have NULL (only ShopERP-proxied calls set it);
-            // uniqueness enforced at application layer (AllianceWalletService checks before insert).
+            // P0.1 (R1): UNIQUE filtered index — DB-level dedup backstop so concurrent
+            // same-key inserts can't both pass the application-layer check. Filter keeps
+            // the common NULL case out of the unique constraint.
             _ = builder.Property(e => e.IdempotencyKey).HasMaxLength(200).IsRequired(false);
-            _ = builder.HasIndex(e => e.IdempotencyKey).HasDatabaseName("IX_AllianceTransactions_IdempotencyKey");
+            _ = builder.HasIndex(e => e.IdempotencyKey)
+                .HasDatabaseName("IX_AllianceTransactions_IdempotencyKey")
+                .IsUnique()
+                .HasFilter("\"IdempotencyKey\" IS NOT NULL");
 
             _ = builder.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");

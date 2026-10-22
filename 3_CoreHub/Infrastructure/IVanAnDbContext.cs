@@ -123,6 +123,7 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<LoyaltyTenantConfig> LoyaltyTenantConfigs { get; } // per-tenant override (tenant-scoped)
         DbSet<AllianceWallet> AllianceWallets { get; } // cross-tenant wallet (TenantId = Empty)
         DbSet<AllianceTransaction> AllianceTransactions { get; } // append-only transaction log (TenantId = Empty)
+        DbSet<LoyaltyReconcileCase> LoyaltyReconcileCases { get; } // P0.2 — unreconciled Alliance deductions (tenant-scoped)
 
         // #100: KhachLink home page section toggles — GLOBAL (not tenant-scoped, single row)
         DbSet<KhachLinkHomeSettings> KhachLinkHomeSettings { get; } // single-row global config (TenantId = Empty)

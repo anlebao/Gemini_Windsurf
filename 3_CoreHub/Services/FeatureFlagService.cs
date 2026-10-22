@@ -27,7 +27,9 @@ public class FeatureFlagService : IFeatureFlagService
         // Loyalty Points Integrity (Batch 2): PG ledger single source of truth — default ON.
         // Emergency OFF switch: SystemAdmin tắt → mọi loyalty WRITE bị skip/reject (rollback nhanh).
         ("LoyaltyLedgerV2", "PG Ledger (Loyalty)", "PG ledger = single source of truth cho award/spend/refund (Batch 2, rollback switch)", "Phase 1", true),
-        ("ValcnV2_RefundReversal", "Refund Reversal (UC-06)", "4-step reversal on order cancel (Phase 4)", "Phase 4", false),
+        // D-Q1 rollout (2026-10): default ON — verified 4-step reversal is the safety net
+        // for completed-order cancel edge cases (custom flows / manual refunds / backfill).
+        ("ValcnV2_RefundReversal", "Refund Reversal (UC-06)", "4-step reversal on order cancel (Phase 4, default ON — emergency OFF via toggle)", "Phase 4", true),
         // Sprint 3 EXPANDED: audit toggles — default ON
         ("Audit_Enabled", "Audit Logging (Master)", "Bật/tắt TOÀN BỘ audit logging (mặc định: BẬT)", "Sprint 3", true),
         ("Audit_Accounting", "Audit — Kế toán", "Bút toán + đóng/mở kỳ + điều chỉnh/hoàn逆转 (ghi đồng bộ)", "Sprint 3", true),

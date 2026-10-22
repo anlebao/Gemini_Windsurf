@@ -169,10 +169,13 @@ namespace VanAn.CoreHub.Services
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Alliance redeem: PG deduction succeeded but local voucher creation failed for customer {CustomerId}. Rolling back local transaction. PG deduction NOT refunded (manual reconcile needed).",
+                        _logger.LogError(ex, "Alliance redeem: PG deduction succeeded but local voucher creation failed for customer {CustomerId}. Rolling back local transaction + compensating the PG deduction.",
                             customerId);
                         await allianceTx.RollbackAsync();
-                        return RedemptionResult.Fail("Lỗi hệ thống khi tạo voucher. Điểm đã trừ — liên hệ hỗ trợ.");
+                        await CompensateAllianceDeductionAsync(
+                            tenantId, voucherCode, deviceGuid, customerId,
+                            catalogItem.PointsRequired, catalogItem.ProductName);
+                        return RedemptionResult.Fail("Lỗi hệ thống khi tạo voucher. Điểm đã được hoàn lại — vui lòng thử lại.");
                     }
                 }
             }
@@ -426,6 +429,90 @@ namespace VanAn.CoreHub.Services
 
             // Silo fallback — Batch 2: tenant-scoped refund (row at (customer, redeeming tenant)).
             return await _loyaltyRewardsService.AddPointsAsync(customerId, tenantId, points, reason);
+        }
+
+        /// <summary>
+        /// Loyalty Alliance Phase 5 (P0.2 — audit R2): compensating refund for the
+        /// failure window where the Alliance wallet deduction succeeded but the local
+        /// voucher persist failed. Idempotent via "compensate:{voucherCode}" — a retry
+        /// (or a concurrent retry of the whole redeem) cannot double-refund.
+        /// When the compensation itself fails (double failure), persists a
+        /// LoyaltyReconcileCase so the orphan deduction is auditable at
+        /// /admin/loyalty-reconcile instead of disappearing into logs.
+        /// </summary>
+        private async Task CompensateAllianceDeductionAsync(
+            Guid tenantId, string voucherCode, Guid deviceGuid, Guid customerId,
+            int points, string productName)
+        {
+            try
+            {
+                var compensated = await _allianceWalletService!.RefundAsync(
+                    deviceGuid, tenantId, points,
+                    $"Compensation: voucher creation failed for Redeem: {productName}",
+                    voucherCode,
+                    idempotencyKey: $"compensate:{voucherCode}",
+                    customerId: customerId);
+
+                if (compensated.Success)
+                {
+                    _logger.LogInformation(
+                        "Alliance redeem compensation: refunded {Points} points to device {Device} (voucher {VoucherCode}, balance={Balance})",
+                        points, deviceGuid, voucherCode, compensated.NewBalance);
+                    return;
+                }
+
+                _logger.LogError(
+                    "Alliance redeem compensation REJECTED for voucher {VoucherCode} (device {Device}): {Error} — persisting reconcile case",
+                    voucherCode, deviceGuid, compensated.Error);
+                await PersistReconcileCaseAsync(
+                    tenantId, voucherCode, deviceGuid, customerId, points,
+                    $"Voucher creation failed + compensation rejected: {compensated.Error}");
+            }
+            catch (Exception refundEx)
+            {
+                _logger.LogError(refundEx,
+                    "Alliance redeem compensation FAILED for voucher {VoucherCode} (device {Device}) — persisting reconcile case",
+                    voucherCode, deviceGuid);
+                await PersistReconcileCaseAsync(
+                    tenantId, voucherCode, deviceGuid, customerId, points,
+                    $"Voucher creation failed + compensation threw: {refundEx.Message}");
+            }
+        }
+
+        /// <summary>
+        /// P0.2: persists the double-failure flag. Best-effort — if THIS also fails
+        /// (DB down), the compensation retry on a subsequent attempt still has the
+        /// idempotency key as the backstop, and the dedup below prevents duplicates.
+        /// </summary>
+        private async Task PersistReconcileCaseAsync(
+            Guid tenantId, string voucherCode, Guid deviceGuid, Guid customerId,
+            int points, string reason)
+        {
+            try
+            {
+                // Dedup: one case per voucher code is enough — a retry of the failed
+                // redeem must not pile up identical flags.
+                bool exists = await _dbContext.LoyaltyReconcileCases
+                    .AnyAsync(c => c.VoucherCode == voucherCode && c.Status == LoyaltyReconcileStatus.Open);
+                if (exists)
+                {
+                    return;
+                }
+
+                _dbContext.LoyaltyReconcileCases.Add(
+                    new LoyaltyReconcileCase(
+                        new TenantId(tenantId), voucherCode, deviceGuid, customerId, points, reason));
+                await _dbContext.SaveChangesAsync();
+                _logger.LogWarning(
+                    "LoyaltyReconcileCase persisted: voucher={VoucherCode} device={Device} points={Points} — manual resolution required",
+                    voucherCode, deviceGuid, points);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to persist LoyaltyReconcileCase for voucher {VoucherCode} — orphan deduction remains unflagged",
+                    voucherCode);
+            }
         }
 
         private static string GenerateVoucherCode()

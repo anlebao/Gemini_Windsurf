@@ -3350,6 +3350,72 @@ namespace VanAn.Shared.Domain
         }
     }
 
+    /// <summary>
+    /// Loyalty Alliance Phase 5 (P0.2): status of a persisted reconcile case — the
+    /// double-failure path where redemption deducted Alliance points, voucher creation
+    /// failed, AND the compensating refund also failed. SystemAdmin resolves manually.
+    /// </summary>
+    public enum LoyaltyReconcileStatus
+    {
+        Open = 0,
+        Resolved = 1
+    }
+
+    /// <summary>
+    /// Loyalty Alliance Phase 5 (P0.2): audit row for unreconciled Alliance deductions.
+    /// Created ONLY when both the voucher persist and the compensating wallet refund
+    /// fail — the customer is then down points with no voucher and no refund, so this
+    /// must surface for manual resolution (admin view /admin/loyalty-reconcile).
+    /// Tenant-scoped by the redeeming tenant so the case appears in that tenant's
+    /// operational context (and PG admin views via IgnoreQueryFilters).
+    /// Stored in PG (Gateway VanAnDbContext).
+    /// </summary>
+    public class LoyaltyReconcileCase : BaseEntity
+    {
+        public string VoucherCode { get; protected set; } = string.Empty;
+        public Guid CustomerDeviceId { get; protected set; }
+        public Guid? CustomerId { get; protected set; }
+        public int Points { get; protected set; }
+        public string Reason { get; protected set; } = string.Empty;
+        public LoyaltyReconcileStatus Status { get; protected set; }
+        public DateTime FailedAt { get; protected set; }
+        public DateTime? ResolvedAt { get; protected set; }
+        public string? ResolvedBy { get; protected set; }
+        public string? ResolutionNote { get; protected set; }
+
+        protected LoyaltyReconcileCase() { }
+
+        public LoyaltyReconcileCase(
+            TenantId tenantId, string voucherCode, Guid customerDeviceId,
+            Guid? customerId, int points, string reason)
+            : base(tenantId)
+        {
+            VoucherCode = voucherCode;
+            CustomerDeviceId = customerDeviceId;
+            CustomerId = customerId;
+            Points = points;
+            Reason = reason;
+            Status = LoyaltyReconcileStatus.Open;
+            FailedAt = DateTime.UtcNow;
+        }
+
+        /// <summary>Manual resolution by SystemAdmin — set-once (Open → Resolved).</summary>
+        public void Resolve(string resolvedBy, string note)
+        {
+            if (Status == LoyaltyReconcileStatus.Resolved)
+            {
+                throw new InvalidOperationException(
+                    $"LoyaltyReconcileCase {Id} is already resolved — resolution is set-once.");
+            }
+
+            Status = LoyaltyReconcileStatus.Resolved;
+            ResolvedAt = DateTime.UtcNow;
+            ResolvedBy = resolvedBy;
+            ResolutionNote = note;
+            UpdateAudit();
+        }
+    }
+
     // Financial Safety Infrastructure - Domain Entities
     public sealed class IdempotentOperation : BaseEntity
     {

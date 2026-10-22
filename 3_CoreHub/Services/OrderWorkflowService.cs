@@ -138,20 +138,16 @@ namespace VanAn.CoreHub.Services
                 {
                     await HandleOrderCompletedAsync(order, transaction);
                 }
-                else if (newStatus.Value == "delivered")
-                {
-                    // #99-2: Award loyalty points on delivery (not just completion).
-                    // Shop owners often mark orders as "delivered" but forget to click "completed",
-                    // leaving customers without their earned points. Award on delivery with a
-                    // double-award guard in ProcessLoyaltyPointsAsync (checks loyalty history
-                    // for existing entry with this OrderId) — safe if order later transitions
-                    // to "completed" which would attempt to award again.
-                    await ProcessLoyaltyPointsAsync(order);
-                }
+                // Decision D-Q1 (2026-10): NO award on "delivered" — points are only
+                // granted at "completed" (terminal in the built-in flow). Awarding at
+                // delivered let customers spend points on orders that could still be
+                // cancelled/refunded, forcing clawback math on the happy path.
+                // Reversal below stays as the safety net for custom flows that allow
+                // completed→cancelled, manual refunds, and legacy backfills.
                 else if (newStatus.Value == "cancelled")
                 {
                     // VALCN v2.0 Phase 4: Refund orchestration on cancel (UC-06 — 4-step reversal).
-                    // Feature-flagged via ValcnV2_RefundReversal (default OFF = existing silent-cancel behavior).
+                    // Feature-flagged via ValcnV2_RefundReversal (default ON since 2026-10 — safety net).
                     // When ON: 2a payment/accrual + 2b accounting reversal + 2c loyalty reversal + 2d referral reversal.
                     await HandleOrderCancelledAsync(order, reason ?? "Order cancelled");
                 }
@@ -193,7 +189,7 @@ namespace VanAn.CoreHub.Services
 
         /// <summary>
         /// VALCN v2.0 Phase 4: Handle order cancellation — feature-flagged 4-step refund reversal (UC-06).
-        /// When ValcnV2_RefundReversal is OFF (default): existing silent-cancel behavior (no reversal).
+        /// When ValcnV2_RefundReversal is OFF (opt-out): existing silent-cancel behavior (no reversal).
         /// When ON: RefundOrchestrationService.OrchestrateReversalAsync (2a + 2b + 2c + 2d).
         /// </summary>
         private async Task HandleOrderCancelledAsync(Order order, string reason)
@@ -231,7 +227,11 @@ namespace VanAn.CoreHub.Services
 
             try
             {
-                if (await _featureFlagService.IsEnabledAsync("ValcnV2_RefundReversal"))
+                // D-Q1 rollout (2026-10): default ON — reversal is the verified safety
+                // net (4-step: payment accrual + accounting reversal + loyalty reversal +
+                // wallet/referral reversal, naturally idempotent). SystemAdmin can still
+                // switch it OFF per deployment via Features:EnableValcnV2_RefundReversal.
+                if (await _featureFlagService.IsEnabledAsync("ValcnV2_RefundReversal", defaultWhenMissing: true))
                 {
                     await _refundOrchestrationService.OrchestrateReversalAsync(order.Id, order.TenantId, $"Order cancelled: {reason}");
                 }
