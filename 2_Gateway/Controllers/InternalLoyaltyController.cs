@@ -86,6 +86,26 @@ public class InternalLoyaltyController(
             : BadRequest(new PointsResponse { Success = false, Error = error });
     }
 
+    /// <summary>
+    /// POST /api/internal/loyalty/points/adjust — P1.3 (Q6): admin manual adjustment.
+    /// Signed points (positive credit / negative debit) → ADJUST ledger row, so earn/redeem
+    /// settlement math is not distorted. Idempotent.
+    /// </summary>
+    [HttpPost("points/adjust")]
+    public async Task<IActionResult> AdjustPoints([FromBody] AdjustPointsRequest req)
+    {
+        if (req is null || req.Points == 0 || string.IsNullOrWhiteSpace(req.Reason))
+            return BadRequest(new { success = false, error = "Invalid request: points must be non-zero and Reason is required (audit)." });
+
+        var (success, balance, error) = await _walletService.AdjustPointsAsync(
+            req.CustomerDeviceId, req.TenantId, req.Points, req.Reason,
+            req.IdempotencyKey, req.CustomerId);
+
+        return success
+            ? Ok(new PointsResponse { Success = true, NewBalance = balance })
+            : BadRequest(new PointsResponse { Success = false, Error = error });
+    }
+
     /// <summary>POST /api/internal/loyalty/points/refund — refunds points to PG wallet (idempotent).</summary>
     [HttpPost("points/refund")]
     public async Task<IActionResult> RefundPoints([FromBody] RefundPointsRequest req)
@@ -294,6 +314,18 @@ public class DeductPointsRequest
     public int Points { get; set; }
     public string Reason { get; set; } = string.Empty;
     public string? VoucherCode { get; set; }
+    public string? IdempotencyKey { get; set; }
+    /// <summary>PG customer PK (BUG-1 fix) — carried into the sync event so ShopERP can bootstrap the mirror stub. Guid.Empty when unknown.</summary>
+    public Guid CustomerId { get; set; }
+}
+
+public class AdjustPointsRequest
+{
+    public Guid CustomerDeviceId { get; set; }
+    public Guid TenantId { get; set; }
+    /// <summary>SIGNED — positive credits, negative debits.</summary>
+    public int Points { get; set; }
+    public string Reason { get; set; } = string.Empty;
     public string? IdempotencyKey { get; set; }
     /// <summary>PG customer PK (BUG-1 fix) — carried into the sync event so ShopERP can bootstrap the mirror stub. Guid.Empty when unknown.</summary>
     public Guid CustomerId { get; set; }

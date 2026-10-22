@@ -14,13 +14,32 @@ namespace VanAn.ShopERP.Services
     /// </summary>
     public sealed class LoyaltyConfigApiClient : GatewayAdminApiClientBase
     {
+        private readonly AuthenticationStateProvider _authStateProvider;
+
         public LoyaltyConfigApiClient(
             IHttpClientFactory httpClientFactory,
             IConfiguration configuration,
             IJwtTokenService jwtTokenService,
             AuthenticationStateProvider authStateProvider,
             ILogger<LoyaltyConfigApiClient> logger)
-            : base(httpClientFactory, configuration, jwtTokenService, authStateProvider, logger) { }
+            : base(httpClientFactory, configuration, jwtTokenService, authStateProvider, logger)
+        {
+            _authStateProvider = authStateProvider;
+        }
+
+        /// <summary>
+        /// P1: these ops are SystemAdmin-only on Gateway AND the base class mints a
+        /// SystemAdmin JWT for any caller — so the role check must live client-side too,
+        /// otherwise an Owner session could invoke them through a crafted call.
+        /// </summary>
+        private async Task RequireSystemAdminAsync()
+        {
+            var auth = await _authStateProvider.GetAuthenticationStateAsync();
+            if (!auth.User.IsInRole("SystemAdmin"))
+            {
+                throw new UnauthorizedAccessException("Chức năng này chỉ dành cho SystemAdmin.");
+            }
+        }
 
         // === Global Config ===
 
@@ -95,6 +114,46 @@ namespace VanAn.ShopERP.Services
             var req = await CreateRequestAsync(HttpMethod.Post, "api/platform/loyalty/migrate", body);
             return await SendAndReadAsync<MigrationResultDto>(HttpClient, req, ct)
                 ?? throw new InvalidOperationException("Gateway returned an empty migration response.");
+        }
+
+        // === P1.2 Cross-tenant settlement report + P1.1 member exit ===
+
+        /// <summary>
+        /// P1.2 (Q4): all-members settlement report — per tenant EarnCredit / RedeemCost /
+        /// AdjustNet / NetSettlement. HTX settles money off-system from these numbers.
+        /// </summary>
+        public async Task<List<SettlementRowDto>> GetSettlementReportAsync(
+            DateTime? from = null, DateTime? to = null, CancellationToken ct = default)
+        {
+            string url = "api/platform/loyalty/settlement-report";
+            var query = new List<string>();
+            if (from.HasValue) query.Add($"from={Uri.EscapeDataString(from.Value.ToUniversalTime().ToString("o"))}");
+            if (to.HasValue) query.Add($"to={Uri.EscapeDataString(to.Value.ToUniversalTime().ToString("o"))}");
+            if (query.Count > 0) url += "?" + string.Join("&", query);
+
+            await RequireSystemAdminAsync();
+            var req = await CreateRequestAsync(HttpMethod.Get, url);
+            return await SendAndReadAsync<List<SettlementRowDto>>(HttpClient, req, ct) ?? new List<SettlementRowDto>();
+        }
+
+        /// <summary>
+        /// P1.1 (Q3): settle-then-burn — burns all points attributed to an exited member.
+        /// Tenant must already be opted out of the alliance. settlementNote required (audit).
+        /// </summary>
+        public async Task<MigrationResultDto> MemberExitAsync(Guid tenantId, string settlementNote, CancellationToken ct = default)
+        {
+            await RequireSystemAdminAsync();
+            var body = new MemberExitRequest { TenantId = tenantId, SettlementNote = settlementNote };
+            var req = await CreateRequestAsync(HttpMethod.Post, "api/platform/loyalty/member-exit", body);
+
+            // BadRequest also returns MigrationResultDto{Error} — read it instead of throwing
+            // so the UI can show the Vietnamese rejection reason (e.g. "still a member").
+            var response = await HttpClient.SendAsync(req, ct);
+            var dto = await response.Content.ReadFromJsonAsync<MigrationResultDto>(GatewayJsonOptions, ct);
+            return dto ?? new MigrationResultDto
+            {
+                Error = $"Gateway returned {(int)response.StatusCode} with an unreadable body."
+            };
         }
     }
 
@@ -188,5 +247,23 @@ namespace VanAn.ShopERP.Services
         public Guid CustomerDeviceId { get; set; }
         public Guid TenantId { get; set; }
         public int Points { get; set; }
+    }
+
+    // === P1.1/P1.2 DTOs mirror Gateway LoyaltyConfigController ===
+
+    public sealed class MemberExitRequest
+    {
+        public Guid TenantId { get; set; }
+        public string SettlementNote { get; set; } = string.Empty;
+    }
+
+    public sealed class SettlementRowDto
+    {
+        public Guid TenantId { get; set; }
+        public string TenantName { get; set; } = string.Empty;
+        public int EarnCredit { get; set; }
+        public int RedeemCost { get; set; }
+        public int AdjustNet { get; set; }
+        public int NetSettlement { get; set; }
     }
 }

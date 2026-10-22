@@ -872,6 +872,301 @@ public class AllianceWalletService(
     }
 
     // ──────────────────────────────────────────────────────────
+    // P1.3 (audit §6 Q6): manual ADJUST by SystemAdmin
+    // ──────────────────────────────────────────────────────────
+
+    /// <inheritdoc/>
+    public async Task<(bool Success, int NewBalance, string? Error)> AdjustPointsAsync(
+        Guid customerDeviceId, Guid tenantId, int points, string reason,
+        string? idempotencyKey = null, Guid customerId = default)
+    {
+        if (points == 0)
+        {
+            return (false, 0, "Points must be non-zero");
+        }
+
+        var cached = await CheckIdempotencyAsync(idempotencyKey);
+        if (cached is not null)
+        {
+            return cached.Value;
+        }
+
+        // P0.1-RV fix: NpgsqlRetryingExecutionStrategy wrapper (see AddPointsAsync).
+        (bool Success, int NewBalance, string? Error) result = (false, 0, "not executed");
+        await _dbContext.ExecuteAtomicAsync(async () =>
+            result = await AdjustPointsCoreAsync(customerDeviceId, tenantId, points, reason, idempotencyKey, customerId));
+        return result;
+    }
+
+    private async Task<(bool Success, int NewBalance, string? Error)> AdjustPointsCoreAsync(
+        Guid customerDeviceId, Guid tenantId, int points, string reason,
+        string? idempotencyKey, Guid customerId)
+    {
+        // P0.1 (R1): same per-wallet serialization as every other mutation.
+        await using IDbContextTransaction? ownedTx = await AcquireWalletLockAsync(customerDeviceId);
+
+        var cached = await CheckIdempotencyAsync(idempotencyKey);
+        if (cached is not null)
+        {
+            return cached.Value;
+        }
+
+        AllianceWallet wallet = await GetOrCreateWalletAsync(customerDeviceId, phoneNumber: null);
+        await ReloadWalletUnderLockAsync(wallet);
+        int maxWallet = await _modeResolver.GetEffectiveMaxWalletPointsAsync(tenantId);
+
+        // Single atomic delta UPDATE — the WHERE clause re-validates the CURRENT committed
+        // balance against cap (positive) or insufficient funds (negative). Admin adjust writes
+        // an ADJUST ledger row so earn/redeem settlement math stays undistorted; tenant budget
+        // counters are bypassed by design (same as Consolidate/Split ADJUST rows).
+        int magnitude = Math.Abs(points);
+        DateTime now = DateTime.UtcNow;
+        int affected = points > 0
+            ? await _dbContext.AllianceWallets
+                .Where(w => w.Id == wallet.Id && w.TotalPointBalance <= maxWallet - magnitude)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(w => w.TotalPointBalance, w => w.TotalPointBalance + magnitude)
+                    .SetProperty(w => w.UpdatedAt, now))
+            : await _dbContext.AllianceWallets
+                .Where(w => w.Id == wallet.Id && w.TotalPointBalance >= magnitude)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(w => w.TotalPointBalance, w => w.TotalPointBalance - magnitude)
+                    .SetProperty(w => w.UpdatedAt, now));
+
+        if (affected == 0)
+        {
+            string err = points > 0
+                ? $"Wallet cap exceeded: {wallet.TotalPointBalance} + {magnitude} > {maxWallet}"
+                : "Insufficient balance";
+            _logger.LogWarning("AllianceWallet Adjust rejected: device={Device} points={Points} — {Err}",
+                customerDeviceId, points, err);
+            return (false, wallet.TotalPointBalance, err);
+        }
+        await ReloadWalletUnderLockAsync(wallet); // authoritative balance + unmark modified
+        int newBalance = wallet.TotalPointBalance;
+
+        var tx = new AllianceTransaction(
+            walletId: wallet.Id,
+            transactionTenantId: tenantId,
+            type: AllianceTransactionType.ADJUST,
+            points: points,
+            balanceAfter: newBalance,
+            reason: reason,
+            idempotencyKey: idempotencyKey);
+        _ = _dbContext.AllianceTransactions.Add(tx);
+        await _dbContext.SaveChangesAsync();
+
+        if (ownedTx is not null)
+        {
+            await ownedTx.CommitAsync();
+        }
+
+        await PublishLoyaltyChangedAsync(customerDeviceId, tenantId, newBalance, tx, customerId);
+        _logger.LogInformation(
+            "AllianceWallet AdjustPoints: device={Device} tenant={Tenant} points={Points} → balance={Balance} (reason={Reason})",
+            customerDeviceId, tenantId, points, newBalance, reason);
+        return (true, newBalance, null);
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // P1.1 (audit §6 Q3): member exit — settle-then-burn
+    // ──────────────────────────────────────────────────────────
+
+    /// <inheritdoc/>
+    public async Task<MigrationResult> ExitMemberSettlementAsync(Guid tenantId, string settlementNote, string changedBy)
+    {
+        if (await _modeResolver.IsAllianceMemberAsync(tenantId))
+        {
+            _logger.LogWarning("ExitMemberSettlement rejected: tenant {TenantId} is still an Alliance member", tenantId);
+            return new MigrationResult { Error = "Tenant vẫn còn là thành viên liên minh — phải opt-out trước khi chốt rời." };
+        }
+
+        // P0.1-RV fix: NpgsqlRetryingExecutionStrategy wrapper (see AddPointsAsync).
+        MigrationResult result = new();
+        await _dbContext.ExecuteAtomicAsync(async () =>
+            result = await ExitMemberSettlementCoreAsync(tenantId, settlementNote, changedBy));
+        return result;
+    }
+
+    private async Task<MigrationResult> ExitMemberSettlementCoreAsync(Guid tenantId, string settlementNote, string changedBy)
+    {
+        // Wallets that ever interacted with this tenant (as transaction OR source tenant).
+        var walletIds = await _dbContext.AllianceTransactions
+            .IgnoreQueryFilters()
+            .Where(t => t.TransactionTenantId == tenantId || t.SourceTenantId == tenantId)
+            .Select(t => t.WalletId)
+            .Distinct()
+            .ToListAsync();
+
+        if (walletIds.Count == 0)
+        {
+            _logger.LogInformation("ExitMemberSettlement: no wallets attributable to tenant {TenantId}", tenantId);
+            return new MigrationResult();
+        }
+
+        string reason = $"member-exit:{tenantId} {settlementNote} (by {changedBy})";
+        IDbContextTransaction? ownedTx = null;
+        var pendingPublishes = new List<(Guid DeviceId, int Balance)>();
+        int processed = 0;
+        int totalBurned = 0;
+
+        try
+        {
+            foreach (Guid walletId in walletIds.OrderBy(id => id))
+            {
+                AllianceWallet? wallet = await _dbContext.AllianceWallets
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(w => w.Id == walletId);
+                if (wallet is null || wallet.TotalPointBalance <= 0)
+                {
+                    continue;
+                }
+
+                // Idempotency per wallet: key "exit:{tenantId}:{walletId}" — re-run safe
+                // even before taking the lock (unique index is the belt).
+                string idemKey = $"exit:{tenantId}:{walletId}";
+                bool alreadyBurned = await _dbContext.AllianceTransactions
+                    .IgnoreQueryFilters()
+                    .AnyAsync(t => t.IdempotencyKey == idemKey);
+                if (alreadyBurned)
+                {
+                    continue;
+                }
+
+                // Lock EVERY wallet key — AcquireWalletLockAsync still executes the
+                // advisory-lock SQL on the ambient tx when it returns null, so the ??=
+                // must apply to the handle only, never skip the call.
+                IDbContextTransaction? acquired = await AcquireWalletLockAsync(wallet.CustomerDeviceId);
+                ownedTx ??= acquired;
+                await ReloadWalletUnderLockAsync(wallet);
+
+                // Settle-then-burn: burn exactly the points still attributed to the exiting
+                // tenant (Σ attributed == balance invariant → burn <= balance always).
+                var (netEarn, _) = await ComputeNetEarnByTenantAsync(walletId);
+                int burn = netEarn.GetValueOrDefault(tenantId);
+                if (burn <= 0)
+                {
+                    continue;
+                }
+
+                // P0.1-RV2: atomic delta + reload — never tracked-entity resync.
+                DateTime now = DateTime.UtcNow;
+                int affected = await _dbContext.AllianceWallets
+                    .Where(w => w.Id == wallet.Id && w.TotalPointBalance >= burn)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(w => w.TotalPointBalance, w => w.TotalPointBalance - burn)
+                        .SetProperty(w => w.LastRedeemAt, now)
+                        .SetProperty(w => w.UpdatedAt, now));
+                if (affected == 0)
+                {
+                    _logger.LogWarning("ExitMemberSettlement: wallet {WalletId} balance guard failed — skipped", walletId);
+                    continue;
+                }
+                await ReloadWalletUnderLockAsync(wallet);
+
+                var tx = new AllianceTransaction(
+                    walletId: wallet.Id,
+                    transactionTenantId: tenantId,
+                    type: AllianceTransactionType.ADJUST,
+                    points: -burn,
+                    balanceAfter: wallet.TotalPointBalance,
+                    reason: reason,
+                    idempotencyKey: idemKey);
+                _ = _dbContext.AllianceTransactions.Add(tx);
+
+                pendingPublishes.Add((wallet.CustomerDeviceId, wallet.TotalPointBalance));
+                processed++;
+                totalBurned += burn;
+            }
+
+            if (processed > 0)
+            {
+                await _dbContext.SaveChangesAsync();
+            }
+
+            if (ownedTx is not null)
+            {
+                await ownedTx.CommitAsync();
+            }
+        }
+        finally
+        {
+            if (ownedTx is not null)
+            {
+                await ownedTx.DisposeAsync();
+            }
+        }
+
+        // Publish only after commit — mirrors must observe committed balances.
+        foreach (var (deviceId, balance) in pendingPublishes)
+        {
+            await PublishLoyaltyChangedAsync(deviceId, tenantId, balance);
+        }
+
+        _logger.LogInformation(
+            "ExitMemberSettlement: tenant {TenantId} — {Processed} wallets burned, {TotalPoints} points total (by {User})",
+            tenantId, processed, totalBurned, changedBy);
+
+        return new MigrationResult
+        {
+            CustomersProcessed = processed,
+            TotalPointsTransferred = totalBurned
+        };
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // P1.2 (audit §6 Q4): cross-tenant settlement report (read-only)
+    // ──────────────────────────────────────────────────────────
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<AllianceSettlementRow>> GetSettlementReportAsync(DateTime? fromUtc, DateTime? toUtc)
+    {
+        IQueryable<AllianceTransaction> query = _dbContext.AllianceTransactions
+            .IgnoreQueryFilters()
+            .AsNoTracking();
+        if (fromUtc.HasValue)
+        {
+            query = query.Where(t => t.TransactionAt >= fromUtc.Value);
+        }
+        if (toUtc.HasValue)
+        {
+            query = query.Where(t => t.TransactionAt < toUtc.Value);
+        }
+
+        var grouped = await query
+            .GroupBy(t => new { t.TransactionTenantId, t.Type })
+            .Select(g => new { g.Key.TransactionTenantId, g.Key.Type, Total = g.Sum(t => t.Points) })
+            .ToListAsync();
+
+        var tenantIds = grouped.Select(g => g.TransactionTenantId).Distinct().ToList();
+        var tenantIdValues = tenantIds.Select(id => new TenantId(id)).ToList();
+        var names = await _dbContext.Tenants
+            .IgnoreQueryFilters()
+            .Where(t => tenantIdValues.Contains(t.Id))
+            .Select(t => new { t.Id, t.Name })
+            .ToListAsync();
+        var nameBy = names.ToDictionary(n => n.Id.Value, n => n.Name);
+
+        return grouped
+            .GroupBy(g => g.TransactionTenantId)
+            .Select(g =>
+            {
+                int earn = g.Where(x => x.Type == AllianceTransactionType.EARN).Sum(x => x.Total);
+                int redeem = g.Where(x => x.Type == AllianceTransactionType.REDEEM).Sum(x => Math.Abs(x.Total));
+                int adjust = g.Where(x => x.Type == AllianceTransactionType.ADJUST).Sum(x => x.Total);
+                return new AllianceSettlementRow(
+                    TenantId: g.Key,
+                    TenantName: nameBy.GetValueOrDefault(g.Key, g.Key.ToString()),
+                    EarnCredit: earn,
+                    RedeemCost: redeem,
+                    AdjustNet: adjust,
+                    NetSettlement: earn - redeem + adjust);
+            })
+            .OrderByDescending(r => Math.Abs(r.NetSettlement))
+            .ToList();
+    }
+
+    // ──────────────────────────────────────────────────────────
     // Batch 5 (T5.1): per-tenant attribution
     // ──────────────────────────────────────────────────────────
 

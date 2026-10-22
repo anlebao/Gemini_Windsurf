@@ -141,6 +141,33 @@ public class AllianceWalletServiceHttpProxy(
     }
 
     /// <inheritdoc/>
+    public async Task<(bool Success, int NewBalance, string? Error)> AdjustPointsAsync(
+        Guid customerDeviceId, Guid tenantId, int points, string reason,
+        string? idempotencyKey = null, Guid customerId = default)
+    {
+        // P1.3 (Q6): admin ADJUST via internal API — signed points, ADJUST ledger type.
+        idempotencyKey ??= AutoGenerateKey("adjust", customerDeviceId);
+        var body = new
+        {
+            customerDeviceId,
+            tenantId,
+            points,
+            reason,
+            idempotencyKey,
+            customerId
+        };
+        return await PostPointsAsync("adjust", body, customerDeviceId);
+    }
+
+    /// <inheritdoc/>
+    public Task<MigrationResult> ExitMemberSettlementAsync(Guid tenantId, string settlementNote, string changedBy)
+        => throw new NotSupportedException("Member exit settlement is a Gateway-only admin op (POST /api/platform/loyalty/member-exit).");
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<AllianceSettlementRow>> GetSettlementReportAsync(DateTime? fromUtc, DateTime? toUtc)
+        => throw new NotSupportedException("Settlement report is a Gateway-only admin op (GET /api/platform/loyalty/settlement-report).");
+
+    /// <inheritdoc/>
     public Task<IReadOnlyList<AllianceTransaction>> GetTransactionsAsync(Guid walletId, int limit = 20)
         => throw new NotSupportedException("Transaction history reads are Gateway-only. Use GET /api/loyalty/wallet (customer-facing).");
 

@@ -8,6 +8,9 @@
 @using VanAn.Shared.Domain
 @inject VanAn.CoreHub.Infrastructure.IVanAnDbContext DbContext
 @inject ILogger<LoyaltyReconcile> Logger
+@inject VanAn.Shared.Services.IAllianceWalletService AllianceWallet
+@inject VanAn.ShopERP.Services.LoyaltyConfigApiClient LoyaltyApi
+@inject AuthenticationStateProvider AuthStateProvider
 
 @attribute [Authorize(Policy = "OwnerOnly")]
 
@@ -103,6 +106,155 @@
         </VanACard>
     }
 
+    @if (_isSystemAdmin)
+    {
+    @* P1.3 (audit §6 Q6): manual ADJUST — SystemAdmin corrects loyalty complaints.
+       Writes an ADJUST ledger row (earn/redeem settlement math undistorted). *@
+    <VanACard Title="Điều chỉnh điểm (ADJUST — khiếu nại khách)">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Thiết bị khách (GUID)</label>
+                <input class="form-control" @bind="_adjustDeviceId" placeholder="xxxxxxxx-..." />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Tenant ghi nhận</label>
+                <select class="form-select" @bind="_adjustTenantId">
+                    @foreach (var t in _tenants)
+                    {
+                        <option value="@t.Id">@t.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Điểm (+/−)</label>
+                <input class="form-control" type="number" @bind="_adjustPoints" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Lý do</label>
+                <select class="form-select" @bind="_adjustReason">
+                    <option value="complaint">Khiếu nại khách</option>
+                    <option value="voucher-fail-manual">Hoàn tay voucher lỗi</option>
+                    <option value="data-fix">Sửa dữ liệu</option>
+                    <option value="other">Khác</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Ghi chú (bắt buộc)</label>
+                <input class="form-control" @bind="_adjustNote" placeholder="VD: ticket #123 — khách bị trừ nhầm" />
+            </div>
+        </div>
+        <div class="mt-2">
+            <VanAButton Variant="primary" OnClick="SubmitAdjustAsync" Disabled="@(_adjusting || !AdjustFormValid)">
+                @if (_adjusting) { <span class="spinner-border spinner-border-sm"></span> } else { <text><i class="bi bi-plus-slash-minus"></i> Áp dụng điều chỉnh</text> }
+            </VanAButton>
+            <span class="text-muted small ms-2">Điểm dương = cộng, âm = trừ. Ghi sổ ADJUST có audit đầy đủ.</span>
+        </div>
+    </VanACard>
+
+    @* P1.2 (audit §6 Q4): cross-tenant settlement report — HTX settles money off-system. *@
+    <VanACard Title="Đối soát liên minh (settle ngoài hệ thống)">
+        <div class="row g-2 align-items-end mb-2">
+            <div class="col-md-3">
+                <label class="form-label">Từ ngày</label>
+                <input class="form-control" type="date" @bind="_reportFrom" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Đến ngày</label>
+                <input class="form-control" type="date" @bind="_reportTo" />
+            </div>
+            <div class="col-md-2">
+                <VanAButton Variant="secondary" OnClick="LoadSettlementAsync" Disabled="@_reportLoading">
+                    @if (_reportLoading) { <span class="spinner-border spinner-border-sm"></span> } else { <text>Tải báo cáo</text> }
+                </VanAButton>
+            </div>
+        </div>
+        @if (_settlementRows is not null)
+        {
+            @if (_settlementRows.Count == 0)
+            {
+                <p class="text-muted">Không có giao dịch liên minh trong khoảng này.</p>
+            }
+            else
+            {
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Member</th>
+                            <th class="text-end">Điểm phát hành (EARN)</th>
+                            <th class="text-end">Điểm đổi tại shop (REDEEM)</th>
+                            <th class="text-end">Điều chỉnh (ADJUST)</th>
+                            <th class="text-end">Chênh lệch chốt số</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in _settlementRows)
+                        {
+                            <tr>
+                                <td>@r.TenantName</td>
+                                <td class="text-end">@r.EarnCredit.ToString("N0")</td>
+                                <td class="text-end">@r.RedeemCost.ToString("N0")</td>
+                                <td class="text-end">@r.AdjustNet.ToString("N0")</td>
+                                <td class="text-end fw-bold @(r.NetSettlement >= 0 ? "text-success" : "text-danger")">
+                                    @r.NetSettlement.ToString("+#,0;-#,0;0")
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr class="fw-bold">
+                            <td>Tổng</td>
+                            <td class="text-end">@_settlementRows.Sum(r => r.EarnCredit).ToString("N0")</td>
+                            <td class="text-end">@_settlementRows.Sum(r => r.RedeemCost).ToString("N0")</td>
+                            <td class="text-end">@_settlementRows.Sum(r => r.AdjustNet).ToString("N0")</td>
+                            <td class="text-end">@_settlementRows.Sum(r => r.NetSettlement).ToString("+#,0;-#,0;0")</td>
+                        </tr>
+                    </tfoot>
+                </table>
+                <p class="small text-muted mb-0">Dương (+) = HTX nợ member · Âm (−) = member nợ HTX. Chuyển khoản/hóa đơn chốt số thực hiện ngoài hệ thống.</p>
+            }
+        }
+    </VanACard>
+
+    @* P1.1 (audit §6 Q3): settle-then-burn — trigger AFTER off-system settlement + opt-out. *@
+    <VanACard Title="Member rời liên minh (settle-then-burn)">
+        <p class="small text-muted">
+            Chỉ chạy SAU KHI: (1) tenant đã opt-out khỏi liên minh (IsAllianceMember = tắt), và
+            (2) đã thanh toán chốt số ngoài hệ thống. Tất cả điểm khách còn gán cho tenant này sẽ bị <strong>burn</strong>
+            (ghi sổ ADJUST âm, idempotent — chạy lại an toàn).
+        </p>
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Tenant rời liên minh</label>
+                <select class="form-select" @bind="_exitTenantId">
+                    @foreach (var t in _tenants)
+                    {
+                        <option value="@t.Id">@t.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Ghi chú chốt số (bắt buộc)</label>
+                <input class="form-control" @bind="_exitNote" placeholder="VD: đã chuyển khoản chốt số 2.500.000đ ngày 22/10" />
+            </div>
+            <div class="col-md-3">
+                @if (!_exitConfirm)
+                {
+                    <VanAButton Variant="error" OnClick="() => _exitConfirm = true" Disabled="@string.IsNullOrWhiteSpace(_exitNote)">
+                        <i class="bi bi-exclamation-triangle"></i> Burn điểm member
+                    </VanAButton>
+                }
+                else
+                {
+                    <VanAButton Variant="error" OnClick="SubmitExitAsync" Disabled="@_exitRunning">
+                        @if (_exitRunning) { <span class="spinner-border spinner-border-sm"></span> } else { <text>XÁC NHẬN BURN</text> }
+                    </VanAButton>
+                    <VanAButton Variant="secondary" OnClick="() => _exitConfirm = false" style="margin-left:.25rem">Hủy</VanAButton>
+                }
+            </div>
+        </div>
+    </VanACard>
+    }
+
     <VanACard Title="Đã xử lý gần đây">
         @if (_resolvedCases.Count == 0)
         {
@@ -138,6 +290,7 @@
 </div>
 
 @code {
+    private bool _isSystemAdmin;
     private bool _loading = true;
     private string _alertMessage = "";
     private string _alertType = "info";
@@ -148,7 +301,139 @@
     private string _resolutionNote = "";
     private bool _resolving;
 
-    protected override async Task OnInitializedAsync() => await LoadCases();
+    // P1.3 — adjust form
+    private List<(Guid Id, string Name)> _tenants = new();
+    private string _adjustDeviceId = "";
+    private Guid _adjustTenantId;
+    private int _adjustPoints;
+    private string _adjustReason = "complaint";
+    private string _adjustNote = "";
+    private bool _adjusting;
+    private bool AdjustFormValid =>
+        Guid.TryParse(_adjustDeviceId, out _)
+        && _adjustTenantId != Guid.Empty
+        && _adjustPoints != 0
+        && !string.IsNullOrWhiteSpace(_adjustNote);
+
+    // P1.2 — settlement report
+    private DateTime _reportFrom = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1).AddMonths(-1);
+    private DateTime _reportTo = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+    private List<VanAn.ShopERP.Services.SettlementRowDto>? _settlementRows;
+    private bool _reportLoading;
+
+    // P1.1 — member exit
+    private Guid _exitTenantId;
+    private string _exitNote = "";
+    private bool _exitConfirm;
+    private bool _exitRunning;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        _isSystemAdmin = auth.User.IsInRole("SystemAdmin");
+
+        await LoadCases();
+        var tenantEntities = await DbContext.Tenants.AsNoTracking().OrderBy(t => t.Name).ToListAsync();
+        _tenants = tenantEntities.Select(t => (t.Id.Value, t.Name)).ToList();
+        if (_tenants.Count > 0)
+        {
+            _adjustTenantId = _tenants[0].Id;
+            _exitTenantId = _tenants[0].Id;
+        }
+    }
+
+    private async Task SubmitAdjustAsync()
+    {
+        if (!AdjustFormValid || !Guid.TryParse(_adjustDeviceId, out Guid deviceId))
+        {
+            return;
+        }
+
+        _adjusting = true;
+        try
+        {
+            // Deterministic key from inputs — retry/double-click of the SAME intent dedupes;
+            // editing any field yields a new key (a genuinely different adjustment).
+            string reason = $"{_adjustReason}:{_adjustNote.Trim()}";
+            string idemKey = $"adjust:{deviceId:N}:{_adjustTenantId:N}:{_adjustPoints}:{StableHash(reason):x8}";
+            var (ok, balance, err) = await AllianceWallet.AdjustPointsAsync(
+                deviceId, _adjustTenantId, _adjustPoints, reason, idempotencyKey: idemKey);
+            if (ok)
+            {
+                _alertMessage = $"Đã điều chỉnh {_adjustPoints:+#,0;-#,0} điểm → số dư mới {balance:N0}.";
+                _alertType = "success";
+                _adjustNote = "";
+            }
+            else
+            {
+                _alertMessage = $"Điều chỉnh thất bại: {err}";
+                _alertType = "danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+            Logger.LogError(ex, "LoyaltyReconcile: adjust failed");
+        }
+        finally { _adjusting = false; }
+    }
+
+    private async Task LoadSettlementAsync()
+    {
+        _reportLoading = true;
+        try
+        {
+            _settlementRows = await LoyaltyApi.GetSettlementReportAsync(_reportFrom, _reportTo.AddDays(1));
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi tải đối soát: {ex.Message}";
+            _alertType = "danger";
+            Logger.LogError(ex, "LoyaltyReconcile: settlement report failed");
+        }
+        finally { _reportLoading = false; }
+    }
+
+    private async Task SubmitExitAsync()
+    {
+        _exitRunning = true;
+        try
+        {
+            var result = await LoyaltyApi.MemberExitAsync(_exitTenantId, _exitNote.Trim());
+            if (result.Success)
+            {
+                _alertMessage = $"Member-exit xong: {result.CustomersProcessed} ví bị burn, tổng {result.TotalPointsTransferred:N0} điểm.";
+                _alertType = "success";
+            }
+            else
+            {
+                _alertMessage = $"Member-exit bị từ chối: {result.Error}";
+                _alertType = "danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+            Logger.LogError(ex, "LoyaltyReconcile: member-exit failed");
+        }
+        finally
+        {
+            _exitRunning = false;
+            _exitConfirm = false;
+        }
+    }
+
+    private static int StableHash(string s)
+    {
+        unchecked
+        {
+            int h = 17;
+            foreach (char c in s) { h = h * 31 + c; }
+            return h;
+        }
+    }
 
     private async Task LoadCases()
     {

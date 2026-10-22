@@ -288,6 +288,57 @@ namespace VanAn.Gateway.Controllers
             });
         }
 
+        /// <summary>
+        /// GET /api/platform/loyalty/settlement-report?from=&to= — P1.2 (audit §6 Q4):
+        /// ALL-members settlement report. Per tenant: EarnCredit (Σ EARN at tenant),
+        /// RedeemCost (Σ |REDEEM| at tenant), AdjustNet, NetSettlement = Earn − Redeem + Adjust.
+        /// HTX uses this to settle money OFF-SYSTEM (bank transfer/invoice between HTX and
+        /// members). Read-only. Optional UTC date range (default: all time).
+        /// </summary>
+        [HttpGet("settlement-report")]
+        public async Task<IActionResult> GetSettlementReport([FromQuery] DateTime? from, [FromQuery] DateTime? to)
+        {
+            var rows = await _allianceWalletService.GetSettlementReportAsync(from?.ToUniversalTime(), to?.ToUniversalTime());
+            _logger.LogInformation("LoyaltyConfig: settlement-report requested — {Count} tenants (from={From}, to={To})",
+                rows.Count, from, to);
+            return Ok(rows.Select(r => new SettlementRowDto
+            {
+                TenantId = r.TenantId,
+                TenantName = r.TenantName,
+                EarnCredit = r.EarnCredit,
+                RedeemCost = r.RedeemCost,
+                AdjustNet = r.AdjustNet,
+                NetSettlement = r.NetSettlement
+            }).ToList());
+        }
+
+        /// <summary>
+        /// POST /api/platform/loyalty/member-exit — P1.1 (audit §6 Q3, settle-then-burn):
+        /// burns every customer's points still attributed to the exiting tenant. Guard: tenant
+        /// must already be opted out of the alliance (IsAllianceMember=false). Idempotent per
+        /// wallet ("exit:{tenantId}:{walletId}"). Trigger AFTER off-system money settlement.
+        /// Body: { tenantId, settlementNote } — settlementNote required (audit).
+        /// </summary>
+        [HttpPost("member-exit")]
+        public async Task<IActionResult> MemberExit([FromBody] MemberExitRequest body)
+        {
+            if (body == null || body.TenantId == Guid.Empty)
+                return BadRequest(new { error = "TenantId không hợp lệ." });
+            if (string.IsNullOrWhiteSpace(body.SettlementNote))
+                return BadRequest(new { error = "SettlementNote bắt buộc (audit — ghi rõ đã thanh toán/chốt số với member)." });
+
+            string changedBy = GetChangedBy();
+            _logger.LogWarning("LoyaltyConfig: member-exit settlement triggered by {User} for tenant {TenantId} — note: {Note}",
+                changedBy, body.TenantId, body.SettlementNote);
+
+            MigrationResult result = await _allianceWalletService.ExitMemberSettlementAsync(
+                body.TenantId, body.SettlementNote.Trim(), changedBy);
+
+            return result.Success
+                ? Ok(MigrationResultDto.From(result))
+                : BadRequest(new MigrationResultDto { Error = result.Error });
+        }
+
         // === Mode Switch Migration (Phase 5A — wires Phase 4 Consolidate/Split) ===
 
         /// <summary>
@@ -505,6 +556,29 @@ namespace VanAn.Gateway.Controllers
         public Guid CustomerDeviceId { get; set; }
         public Guid TenantId { get; set; }
         public int Points { get; set; }
+    }
+
+    // === P1.1/P1.2 DTOs ===
+
+    public class MemberExitRequest
+    {
+        public Guid TenantId { get; set; }
+        /// <summary>Required audit note — e.g. "đã chuyển khoản chốt số 2.500.000đ ngày 22/10".</summary>
+        public string SettlementNote { get; set; } = string.Empty;
+    }
+
+    public class SettlementRowDto
+    {
+        public Guid TenantId { get; set; }
+        public string TenantName { get; set; } = string.Empty;
+        /// <summary>Σ EARN points awarded at this tenant.</summary>
+        public int EarnCredit { get; set; }
+        /// <summary>Σ |REDEEM| points customers spent AT this tenant.</summary>
+        public int RedeemCost { get; set; }
+        /// <summary>Σ signed ADJUST points at this tenant.</summary>
+        public int AdjustNet { get; set; }
+        /// <summary>EarnCredit − RedeemCost + AdjustNet — positive: HTX owes member; negative: member owes HTX.</summary>
+        public int NetSettlement { get; set; }
     }
 
     // === Settlement DTO (Batch 5, T5.2) ===

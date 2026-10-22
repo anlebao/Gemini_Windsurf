@@ -86,6 +86,35 @@ public interface IAllianceWalletService
     /// caller can update ShopERP SQLite LoyaltyRewards.PointBalance.
     /// </summary>
     Task<MigrationResult> SplitWalletsAsync(Guid tenantId, string changedBy);
+
+    /// <summary>
+    /// P1.3 (audit §6 Q6): manual balance adjustment by SystemAdmin — writes ONE
+    /// <see cref="AllianceTransactionType.ADJUST"/> row so earn/redeem settlement math is not
+    /// distorted. <paramref name="points"/> is SIGNED (positive credits, negative debits).
+    /// Negative adjusts require balance ≥ |points|. Positive adjusts respect MaxWalletPoints
+    /// cap but BYPASS tenant budget counters (admin op, same as Consolidate/Split ADJUST rows).
+    /// Idempotent via <paramref name="idempotencyKey"/>.
+    /// </summary>
+    Task<(bool Success, int NewBalance, string? Error)> AdjustPointsAsync(
+        Guid customerDeviceId, Guid tenantId, int points, string reason,
+        string? idempotencyKey = null, Guid customerId = default);
+
+    /// <summary>
+    /// P1.1 (audit §6 Q3, settle-then-burn): when a member tenant leaves the alliance, burn every
+    /// customer's points still attributed to that tenant (per ComputeNetEarnByTenantAsync).
+    /// Guard: the tenant MUST no longer be an alliance member. Idempotent per wallet
+    /// (key "exit:{tenantId}:{walletId}"). Returns MigrationResult (CustomersProcessed = wallets
+    /// burned, TotalPointsTransferred = points burned). Trigger AFTER off-system money settlement.
+    /// </summary>
+    Task<MigrationResult> ExitMemberSettlementAsync(Guid tenantId, string settlementNote, string changedBy);
+
+    /// <summary>
+    /// P1.2 (audit §6 Q4): read-only cross-tenant settlement report — per tenant:
+    /// EarnCredit (Σ EARN at tenant), RedeemCost (Σ |REDEEM| at tenant), AdjustNet (Σ ADJUST at
+    /// tenant), NetSettlement = EarnCredit − RedeemCost + AdjustNet. Optional UTC date range.
+    /// Settlement money moves OFF-SYSTEM between HTX and members — this is a report only.
+    /// </summary>
+    Task<IReadOnlyList<AllianceSettlementRow>> GetSettlementReportAsync(DateTime? fromUtc, DateTime? toUtc);
 }
 
 /// <summary>Input for Silo→Alliance consolidation: customer device + balance from SQLite.</summary>
@@ -109,3 +138,17 @@ public record WalletAllocation(Guid CustomerDeviceId, Guid TenantId, int Points)
 /// Alliance wallet. See IAllianceWalletService.GetTenantBalancesAsync.
 /// </summary>
 public record WalletTenantBalance(Guid TenantId, int NetPoints);
+
+/// <summary>
+/// P1.2 (audit §6 Q4): one row of the cross-tenant settlement report.
+/// NetSettlement = EarnCredit − RedeemCost + AdjustNet; positive means the member issued more
+/// credit than it absorbed in redemptions (HTX owes the member), negative means the member
+/// absorbed more redemptions than it issued (member owes HTX).
+/// </summary>
+public record AllianceSettlementRow(
+    Guid TenantId,
+    string TenantName,
+    int EarnCredit,
+    int RedeemCost,
+    int AdjustNet,
+    int NetSettlement);
