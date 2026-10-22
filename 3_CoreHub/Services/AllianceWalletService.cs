@@ -224,11 +224,20 @@ public class AllianceWalletService(
         // lock) it is the ONLY guard against a lost update from a concurrent writer.
         // Re-checks the wallet cap in the WHERE clause against the CURRENT committed
         // value, so a stale tracked balance can't push it over the cap.
+        // P0.1-RV2 fix: audit fields go through the SAME atomic UPDATE and the wallet is
+        // then RELOADED (authoritative balance) instead of resynced via wallet.AddPoints —
+        // a tracked-entity resync marked TotalPointBalance modified, so SaveChanges emitted
+        // UPDATE … SET TotalPointBalance = <stale tracked> which CLOBBERED increments
+        // committed by parallel writers (prod RV 2026-10-22: 10×+10 → +40 lost updates).
         int newBalanceAfterAdd;
         {
+            DateTime now = DateTime.UtcNow;
             int affected = await _dbContext.AllianceWallets
                 .Where(w => w.Id == wallet.Id && w.TotalPointBalance <= maxWallet - awardedPoints)
-                .ExecuteUpdateAsync(s => s.SetProperty(w => w.TotalPointBalance, w => w.TotalPointBalance + awardedPoints));
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(w => w.TotalPointBalance, w => w.TotalPointBalance + awardedPoints)
+                    .SetProperty(w => w.LastEarnAt, now)
+                    .SetProperty(w => w.UpdatedAt, now));
             if (affected == 0)
             {
                 int currentBalance = await _dbContext.AllianceTransactions
@@ -241,10 +250,8 @@ public class AllianceWalletService(
                     customerDeviceId, currentBalance);
                 return (false, currentBalance, $"Wallet cap exceeded: {currentBalance} + {awardedPoints} > {maxWallet}");
             }
-            newBalanceAfterAdd = wallet.TotalPointBalance + awardedPoints;
-            // Resync the tracked entity (ExecuteUpdate bypasses change tracking) so
-            // later reads on this scoped context see the post-update balance.
-            wallet.AddPoints(awardedPoints);
+            await ReloadWalletUnderLockAsync(wallet); // authoritative balance + unmark modified
+            newBalanceAfterAdd = wallet.TotalPointBalance;
         }
 
         var tx = new AllianceTransaction(
@@ -393,11 +400,17 @@ public class AllianceWalletService(
         // P0.1 (R1): atomic conditional UPDATE — the actual double-spend guard.
         // WHERE TotalPointBalance >= points re-validates the CURRENT committed balance
         // (the tracked entity may be stale). affected == 0 → a concurrent writer won.
+        // P0.1-RV2: audit fields atomic + reload — never resync via wallet.DeductPoints
+        // (tracked-entity mutation → SaveChanges overwrites balance, see AddPoints note).
         int newBalance;
         {
+            DateTime now = DateTime.UtcNow;
             int affected = await _dbContext.AllianceWallets
                 .Where(w => w.Id == wallet.Id && w.TotalPointBalance >= points)
-                .ExecuteUpdateAsync(s => s.SetProperty(w => w.TotalPointBalance, w => w.TotalPointBalance - points));
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(w => w.TotalPointBalance, w => w.TotalPointBalance - points)
+                    .SetProperty(w => w.LastRedeemAt, now)
+                    .SetProperty(w => w.UpdatedAt, now));
             if (affected == 0)
             {
                 _logger.LogWarning(
@@ -405,8 +418,8 @@ public class AllianceWalletService(
                     customerDeviceId, points);
                 return (false, wallet.TotalPointBalance, "Insufficient balance");
             }
-            newBalance = wallet.TotalPointBalance - points;
-            wallet.DeductPoints(points); // resync tracked entity (see AddPoints)
+            await ReloadWalletUnderLockAsync(wallet); // authoritative balance + unmark modified
+            newBalance = wallet.TotalPointBalance;
         }
 
         AllianceTransaction? firstTx = null;
@@ -507,11 +520,16 @@ public class AllianceWalletService(
         // Q4: refund returns points to the wallet; attributed to the tenant where redeem occurred.
         // P0.1 (R1): atomic delta UPDATE — a refund must not overwrite a concurrent
         // deduction (lost update on the tracked entity under SQLite/no-advisory-lock).
+        // P0.1-RV2: audit fields atomic + reload (no tracked resync — see AddPoints note).
         int newBalanceAfterRefund;
         {
+            DateTime now = DateTime.UtcNow;
             int affected = await _dbContext.AllianceWallets
                 .Where(w => w.Id == wallet.Id)
-                .ExecuteUpdateAsync(s => s.SetProperty(w => w.TotalPointBalance, w => w.TotalPointBalance + points));
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(w => w.TotalPointBalance, w => w.TotalPointBalance + points)
+                    .SetProperty(w => w.LastEarnAt, now)
+                    .SetProperty(w => w.UpdatedAt, now));
             if (affected == 0)
             {
                 _logger.LogWarning(
@@ -519,8 +537,8 @@ public class AllianceWalletService(
                     customerDeviceId);
                 return (false, wallet.TotalPointBalance, "Wallet not found");
             }
-            newBalanceAfterRefund = wallet.TotalPointBalance + points;
-            wallet.AddPoints(points); // resync tracked entity (see AddPoints)
+            await ReloadWalletUnderLockAsync(wallet); // authoritative balance + unmark modified
+            newBalanceAfterRefund = wallet.TotalPointBalance;
         }
 
         var tx = new AllianceTransaction(
@@ -629,7 +647,22 @@ public class AllianceWalletService(
 
                 AllianceWallet wallet = await GetOrCreateWalletAsync(input.CustomerDeviceId, input.PhoneNumber);
                 await ReloadWalletUnderLockAsync(wallet);
-                wallet.AddPoints(input.PointBalance);
+
+                // P0.1-RV2: atomic increment + reload (no tracked-entity resync —
+                // a bulk SaveChanges overwrite would clobber parallel writers; see AddPoints note).
+                DateTime now = DateTime.UtcNow;
+                int affected = await _dbContext.AllianceWallets
+                    .Where(w => w.Id == wallet.Id)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(w => w.TotalPointBalance, w => w.TotalPointBalance + input.PointBalance)
+                        .SetProperty(w => w.LastEarnAt, now)
+                        .SetProperty(w => w.UpdatedAt, now));
+                if (affected == 0)
+                {
+                    _logger.LogWarning("ConsolidateWallets: wallet {WalletId} update affected 0 rows — skipped", wallet.Id);
+                    continue;
+                }
+                await ReloadWalletUnderLockAsync(wallet);
 
                 var tx = new AllianceTransaction(
                     walletId: wallet.Id,
@@ -778,9 +811,19 @@ public class AllianceWalletService(
             }
 
             // Deduct total balance to zero + freeze wallet
+            // P0.1-RV2: atomic zero-out + freeze via ExecuteUpdate — NOT wallet.DeductPoints/
+            // Freeze + SaveChanges, which would overwrite the balance column with the
+            // tracked value (see AddPoints note on the SaveChanges-clobber vector).
             int totalAllocated = allocations.Where(a => a.CustomerDeviceId == wallet.CustomerDeviceId).Sum(a => a.Points);
-            wallet.DeductPoints(totalAllocated);
-            wallet.Freeze();
+            DateTime freezeNow = DateTime.UtcNow;
+            _ = await _dbContext.AllianceWallets
+                .Where(w => w.Id == wallet.Id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(w => w.TotalPointBalance, 0)
+                    .SetProperty(w => w.LastRedeemAt, freezeNow)
+                    .SetProperty(w => w.IsActive, false)
+                    .SetProperty(w => w.UpdatedAt, freezeNow));
+            await ReloadWalletUnderLockAsync(wallet);
             processed++;
             totalPoints += totalAllocated;
         }
