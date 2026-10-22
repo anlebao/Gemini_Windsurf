@@ -152,6 +152,21 @@ public class AllianceWalletService(
             return cached.Value;
         }
 
+        // P0.1-RV fix: Gateway PG runs NpgsqlRetryingExecutionStrategy (EnableRetryOnFailure)
+        // which rejects user-initiated transactions outside CreateExecutionStrategy — the
+        // wallet lock's BeginTransactionAsync therefore 500'd EVERY mutating call on PG
+        // (RV 2026-10-22). ExecuteAtomicAsync wraps the unit in the strategy; non-DbContext
+        // mocks and non-retrying providers (SQLite) just run the body directly.
+        (bool Success, int NewBalance, string? Error) result = (false, 0, "not executed");
+        await _dbContext.ExecuteAtomicAsync(async () =>
+            result = await AddPointsCoreAsync(customerDeviceId, tenantId, points, reason, sourceOrderId, idempotencyKey, customerId));
+        return result;
+    }
+
+    private async Task<(bool Success, int NewBalance, string? Error)> AddPointsCoreAsync(
+        Guid customerDeviceId, Guid tenantId, int points, string reason, Guid? sourceOrderId,
+        string? idempotencyKey, Guid customerId)
+    {
         // P0.1 (R1): serialize all writes for this wallet — concurrent writers can no
         // longer observe the same pre-state (TOCTOU). On PG this is an advisory lock;
         // on SQLite (tests) the single-writer DB provides the same serialization.
@@ -159,7 +174,7 @@ public class AllianceWalletService(
 
         // Re-check under the lock: a concurrent same-key write may have committed
         // while this call waited on the advisory lock.
-        cached = await CheckIdempotencyAsync(idempotencyKey);
+        var cached = await CheckIdempotencyAsync(idempotencyKey);
         if (cached is not null)
         {
             return cached.Value;
@@ -287,11 +302,22 @@ public class AllianceWalletService(
             return cached.Value;
         }
 
+        // P0.1-RV fix: same NpgsqlRetryingExecutionStrategy wrapper as AddPointsAsync.
+        (bool Success, int NewBalance, string? Error) result = (false, 0, "not executed");
+        await _dbContext.ExecuteAtomicAsync(async () =>
+            result = await DeductPointsCoreAsync(customerDeviceId, tenantId, points, reason, voucherCode, idempotencyKey, customerId));
+        return result;
+    }
+
+    private async Task<(bool Success, int NewBalance, string? Error)> DeductPointsCoreAsync(
+        Guid customerDeviceId, Guid tenantId, int points, string reason, string? voucherCode,
+        string? idempotencyKey, Guid customerId)
+    {
         // P0.1 (R1): take the per-wallet lock BEFORE reading balance/history — this is
         // the TOCTOU fix. Two concurrent deducts no longer observe the same balance.
         await using IDbContextTransaction? ownedTx = await AcquireWalletLockAsync(customerDeviceId);
 
-        cached = await CheckIdempotencyAsync(idempotencyKey);
+        var cached = await CheckIdempotencyAsync(idempotencyKey);
         if (cached is not null)
         {
             return cached.Value;
@@ -450,11 +476,22 @@ public class AllianceWalletService(
             return cached.Value;
         }
 
+        // P0.1-RV fix: same NpgsqlRetryingExecutionStrategy wrapper as AddPointsAsync.
+        (bool Success, int NewBalance, string? Error) result = (false, 0, "not executed");
+        await _dbContext.ExecuteAtomicAsync(async () =>
+            result = await RefundCoreAsync(customerDeviceId, tenantId, points, reason, voucherCode, idempotencyKey, customerId));
+        return result;
+    }
+
+    private async Task<(bool Success, int NewBalance, string? Error)> RefundCoreAsync(
+        Guid customerDeviceId, Guid tenantId, int points, string reason, string voucherCode,
+        string? idempotencyKey, Guid customerId)
+    {
         // P0.1 (R1): same per-wallet serialization as Add/Deduct — refunds mutate the
         // same balance + append-only chain.
         await using IDbContextTransaction? ownedTx = await AcquireWalletLockAsync(customerDeviceId);
 
-        cached = await CheckIdempotencyAsync(idempotencyKey);
+        var cached = await CheckIdempotencyAsync(idempotencyKey);
         if (cached is not null)
         {
             return cached.Value;
@@ -544,6 +581,16 @@ public class AllianceWalletService(
             return new MigrationResult();
         }
 
+        // P0.1-RV fix: NpgsqlRetryingExecutionStrategy wrapper (see AddPointsAsync).
+        MigrationResult migResult = new();
+        await _dbContext.ExecuteAtomicAsync(async () =>
+            migResult = await ConsolidateWalletsCoreAsync(tenantId, customerBalances, changedBy));
+        return migResult;
+    }
+
+    private async Task<MigrationResult> ConsolidateWalletsCoreAsync(
+        Guid tenantId, IReadOnlyList<CustomerBalanceInput> customerBalances, string changedBy)
+    {
         int processed = 0;
         int totalPoints = 0;
         string migrationReason = $"Silo→Alliance migration (by {changedBy})";
@@ -649,6 +696,16 @@ public class AllianceWalletService(
             return new MigrationResult();
         }
 
+        // P0.1-RV fix: NpgsqlRetryingExecutionStrategy wrapper (see AddPointsAsync).
+        MigrationResult migResult = new();
+        await _dbContext.ExecuteAtomicAsync(async () =>
+            migResult = await SplitWalletsCoreAsync(tenantId, changedBy, walletIds));
+        return migResult;
+    }
+
+    private async Task<MigrationResult> SplitWalletsCoreAsync(
+        Guid tenantId, string changedBy, List<Guid> walletIds)
+    {
         string splitReason = $"Alliance→Silo split (by {changedBy})";
         var allocations = new List<WalletAllocation>();
         int processed = 0;
