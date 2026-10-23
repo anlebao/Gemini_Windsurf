@@ -842,7 +842,9 @@ jobs:
           username: ${{ secrets.VPS_METERING_USER }}
           key: ${{ secrets.VPS_METERING_SSH_PRIVATE_KEY }}
           script: |
-            mkdir -p /opt/vanan-metering
+            set -e
+            sudo mkdir -p /opt/vanan-metering
+            sudo chown "$USER:$USER" /opt/vanan-metering
             ls -la /opt/vanan-metering
             whoami
             sudo docker image prune -af --filter "until=48h" 2>/dev/null || true
