@@ -1,6 +1,6 @@
 # Task P6 — Admin UI Rate Card (SystemAdmin)
 
-> **Status:** ✅ ĐÃ DUYỆT — sẵn sàng implement
+> **Status:** ✅ DONE + DEPLOYED 128f3f01 (CD #40002909880 ALL SUCCESS) — bUnit 3/3 · e2e spec Gate 4 · RV production: admin env seeded shop-a · POST 201/GET/DELETE 204 qua sysadmin key của UI client · route 302→Login auth-gated
 > **Phase:** P6 (GĐ-1) · **Gate:** RV — SystemAdmin tạo/sửa/ngưng rate card qua UI
 > **Căn cứ:** D2 (admin CRUD) · P2 API sẵn · pattern `OrderFlowAdmin.razor` + `GatewayAdminApiClientBase` (đã verify production)
 
