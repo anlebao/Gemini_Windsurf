@@ -273,6 +273,7 @@ jobs:
           METERING_REMOTE_HOST: ${{ secrets.METERING_REMOTE_HOST }}
           METERING_CALLER: ${{ secrets.METERING_CALLER }}
           METERING_ADMIN: ${{ secrets.METERING_ADMIN }}
+          METERING_CALLERS: ${{ secrets.METERING_CALLERS }}
         run: |
           missing=0
           for var_name in VPS_METERING_HOST VPS_METERING_USER VPS_METERING_SSH_PRIVATE_KEY \
