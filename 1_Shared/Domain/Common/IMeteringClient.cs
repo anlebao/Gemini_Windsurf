@@ -27,8 +27,9 @@ public sealed record MeteringUsageEvent(
     string? TaskRef = null,
     string? MetadataJson = null);
 
-/// <summary>Balance-check result — populated in P7 (wallet). Always null in GĐ-1 pre-P7.</summary>
-public sealed record MeteringBalanceCheck(decimal Balance, bool Deny, string AlertLevel);
+/// <summary>Balance-check result (P7 wallet) — from GET /v1/wallets/{tenant}/check.
+/// Deny=true only for Deny-enforcement rate cards when balance &lt; required.</summary>
+public sealed record MeteringBalanceCheck(decimal Balance, decimal Required, bool Deny, string? AlertLevel);
 
 /// <summary>
 /// Thin, fail-safe client into vanan-metering. Implemented per-host (ShopERP/Gateway/Directory),
@@ -44,6 +45,7 @@ public interface IMeteringClient
     /// <summary>Batch submit (≤500) — for burst sources. Partial failure is server-side per-item.</summary>
     Task<bool> RecordUsageBatchAsync(IReadOnlyList<MeteringUsageEvent> events, CancellationToken ct = default);
 
-    /// <summary>P7 stub — wallet balance + deny flag. GĐ-1: returns null, callers must tolerate null.</summary>
+    /// <summary>P7 — wallet balance + deny flag for a service code. Null on failure /
+    /// unconfigured — callers MUST treat null as "allow" (fail-open per G9).</summary>
     Task<MeteringBalanceCheck?> CheckBalanceAsync(Guid tenantId, string serviceCode, CancellationToken ct = default);
 }

@@ -1,0 +1,220 @@
+@page "/wallet/phi-nen-tang"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using VanAn.Shared.Domain.Common
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.ShopERP.Services
+@inject MeteringApiClient Metering
+@inject ITenantProvider TenantProvider
+@inject IThemeProvider ThemeProvider
+@inject ILogger<PhiNenTang> Logger
+@inject IJSRuntime JS
+
+<div class="metering-wallet-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1><i class="bi bi-wallet2"></i> Phí nền tảng — Ví credit</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadAsync" Loading="@_isLoading">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Variant="@_alertType" Message="@_alertMessage" Dismissible="true" OnDismiss="() => _alertMessage = string.Empty" />
+    }
+
+    @if (_isLoading)
+    {
+        <VanACard><ChildContent><div class="loading-state"><VanASpinner Size="large" /><p>Đang tải ví...</p></div></ChildContent></VanACard>
+    }
+    else if (_wallet == null)
+    {
+        <VanACard><ChildContent><p class="text-muted mb-0" data-testid="wallet-unavailable">
+            Chưa kết nối được dịch vụ phí nền tảng. Vui lòng thử lại sau.</p></ChildContent></VanACard>
+    }
+    else
+    {
+        <div class="row g-3 mb-3" data-testid="wallet-summary">
+            <div class="col-md-4">
+                <VanACard Header="Số dư credit">
+                    <ChildContent>
+                        <div class="display-5 fw-bold @(_wallet.AlertLevel == null ? "text-success" : "text-danger")">
+                            @_wallet.Balance.ToString("0.##")
+                        </div>
+                        @if (_wallet.AlertLevel != null)
+                        {
+                            <span class="badge @(_wallet.AlertLevel == "warn50" ? "bg-warning text-dark" : "bg-danger")">
+                                @AlertLabel(_wallet.AlertLevel)
+                            </span>
+                        }
+                    </ChildContent>
+                </VanACard>
+            </div>
+            <div class="col-md-4">
+                <VanACard Header="Hạn mức đã cấp">
+                    <ChildContent>
+                        <div class="display-5 fw-bold">@_wallet.GrantedTotal.ToString("0.##")</div>
+                        <div class="text-muted">Còn lại @((_wallet.RemainingFraction * 100).ToString("0.#"))%</div>
+                    </ChildContent>
+                </VanACard>
+            </div>
+            <div class="col-md-4">
+                <VanACard Header="Nạp credit (VietQR)">
+                    <ChildContent>
+                        <div class="d-flex gap-2 align-items-center">
+                            <input class="vanan-input" type="number" min="0" step="10000"
+                                   placeholder="Số tiền VND" @bind="_topupAmount" data-testid="topup-amount" />
+                            <VanAButton Variant="primary" Size="small" OnClick="CreateTopupAsync"
+                                        Loading="@_topupBusy" data-testid="btn-create-topup">
+                                Tạo mã QR
+                            </VanAButton>
+                        </div>
+                    </ChildContent>
+                </VanACard>
+            </div>
+        </div>
+
+        @if (_activeTopup != null)
+        {
+            <VanACard Header="Quét mã để chuyển khoản" class="mb-3">
+                <ChildContent>
+                    <div class="d-flex gap-4 align-items-start flex-wrap" data-testid="topup-qr-panel">
+                        @if (!string.IsNullOrEmpty(_activeTopup.QrPayload))
+                        {
+                            <img src="@_activeTopup.QrPayload" alt="VietQR" style="width:220px;height:auto;border:1px solid #ddd;border-radius:8px;"
+                                 data-testid="topup-qr-image" />
+                        }
+                        <div>
+                            <p>Nội dung chuyển khoản <strong>bắt buộc</strong>:</p>
+                            <div class="d-flex align-items-center gap-2">
+                                <code class="fs-5" data-testid="topup-reference">@_activeTopup.ReferenceCode</code>
+                                <VanAButton Variant="secondary" Size="small" OnClick="CopyReferenceAsync" data-testid="btn-copy-ref">
+                                    <i class="bi bi-clipboard"></i> Copy
+                                </VanAButton>
+                            </div>
+                            <p class="text-muted mt-2 mb-1">Trạng thái: <strong>@_activeTopup.Status</strong> — hệ thống xác nhận thủ công sau khi nhận tiền.</p>
+                            <p class="text-muted mb-0">Hết hạn: @_activeTopup.ExpiresAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
+                        </div>
+                    </div>
+                </ChildContent>
+            </VanACard>
+        }
+
+        <VanACard Header="Lịch sử ledger (append-only)">
+            <ChildContent>
+                @if (_ledger?.Items.Count > 0)
+                {
+                    <table class="vanan-table" data-testid="ledger-table">
+                        <thead><tr>
+                            <th>Thời gian</th><th>Loại</th><th class="text-end">Credit</th>
+                            <th class="text-end">Số dư sau</th><th>Lý do</th><th>Bởi</th>
+                        </tr></thead>
+                        <tbody>
+                            @foreach (var e in _ledger.Items)
+                            {
+                                <tr>
+                                    <td>@e.CreatedAtUtc.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                                    <td><span class="badge @TypeBadge(e.Type)">@e.Type</span></td>
+                                    <td class="text-end @(e.Credits < 0 ? "text-danger" : "text-success")">@e.Credits.ToString("+0.##;-0.##")</td>
+                                    <td class="text-end">@e.BalanceAfter.ToString("0.##")</td>
+                                    <td>@e.Reason</td>
+                                    <td class="text-muted">@e.CreatedBy</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <div class="d-flex gap-2">
+                        <VanAButton Variant="secondary" Size="small" OnClick="() => LoadLedgerAsync(_page - 1)" Disabled="@(_page <= 1)">‹ Trước</VanAButton>
+                        <span class="align-self-center text-muted">Trang @_page</span>
+                        <VanAButton Variant="secondary" Size="small" OnClick="() => LoadLedgerAsync(_page + 1)" Disabled="@(_ledger.Items.Count < 20)">Sau ›</VanAButton>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted mb-0">Chưa có giao dịch.</p>
+                }
+            </ChildContent>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private MeteringWalletDto? _wallet;
+    private MeteringLedgerPage? _ledger;
+    private MeteringTopupDto? _activeTopup;
+    private bool _isLoading = true;
+    private bool _topupBusy;
+    private int _page = 1;
+    private decimal? _topupAmount;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            if (!TenantProvider.HasTenant) { _wallet = null; return; }
+            _wallet = await Metering.GetWalletAsync(TenantProvider.TenantId);
+            await LoadLedgerAsync(1);
+            var topups = await Metering.GetTopupsAsync(TenantProvider.TenantId);
+            _activeTopup ??= topups.FirstOrDefault(t => t.Status == "pending");
+        }
+        finally { _isLoading = false; }
+    }
+
+    private async Task LoadLedgerAsync(int page)
+    {
+        if (!TenantProvider.HasTenant) return;
+        _page = Math.Max(page, 1);
+        _ledger = await Metering.GetLedgerAsync(TenantProvider.TenantId, _page, 20);
+    }
+
+    private async Task CreateTopupAsync()
+    {
+        if (!TenantProvider.HasTenant) return;
+        _topupBusy = true;
+        try
+        {
+            var dto = await Metering.CreateTopupAsync(TenantProvider.TenantId, _topupAmount);
+            if (dto == null)
+            {
+                _alertType = "danger";
+                _alertMessage = "Không tạo được yêu cầu nạp — kiểm tra kết nối metering.";
+                return;
+            }
+            _activeTopup = dto;
+            _alertType = "success";
+            _alertMessage = $"Đã tạo yêu cầu nạp {dto.ReferenceCode} — quét QR và chuyển khoản đúng nội dung.";
+        }
+        finally { _topupBusy = false; }
+    }
+
+    private async Task CopyReferenceAsync()
+    {
+        if (_activeTopup == null) return;
+        try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", _activeTopup.ReferenceCode); }
+        catch (Exception ex) { Logger.LogWarning(ex, "Clipboard copy failed"); }
+    }
+
+    private static string AlertLabel(string level) => level switch
+    {
+        "warn50" => "Còn dưới 50%",
+        "warn90" => "Còn dưới 10%",
+        _ => "Đã hết credit",
+    };
+
+    private static string TypeBadge(string type) => type switch
+    {
+        "Grant" => "bg-success",
+        "Deduct" => "bg-danger",
+        _ => "bg-secondary",
+    };
+}

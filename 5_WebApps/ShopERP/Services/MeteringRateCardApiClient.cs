@@ -85,6 +85,53 @@ public sealed class MeteringRateCardApiClient
         throw await ApiErrorAsync(resp, ct);
     }
 
+    // ---------- P7: admin top-up ops (/v1/topups*, /v1/topup-config) ----------
+
+    /// <summary>GET /v1/topups?status=&tenantId= — admin list (lazy-expired server-side).</summary>
+    public async Task<List<MeteringTopupDto>> GetTopupsAsync(string? status = null, Guid? tenantId = null, CancellationToken ct = default)
+    {
+        var query = "v1/topups?";
+        if (!string.IsNullOrWhiteSpace(status)) query += $"status={Uri.EscapeDataString(status)}&";
+        if (tenantId.HasValue) query += $"tenantId={tenantId.Value}&";
+        var resp = await SendAsync(HttpMethod.Get, query.TrimEnd('&', '?'), ct);
+        var list = await ReadAsync<MeteringTopupList>(resp, ct);
+        return list?.Items ?? new List<MeteringTopupDto>();
+    }
+
+    /// <summary>POST /v1/topups/{id}/confirm — credits do admin quyết; idempotent replay.</summary>
+    public async Task ConfirmTopupAsync(Guid id, decimal credits, string? note, CancellationToken ct = default)
+    {
+        var resp = await SendAsync(HttpMethod.Post, $"v1/topups/{id}/confirm", ct,
+            JsonContent.Create(new { credits, note }, options: Json));
+        if (!resp.IsSuccessStatusCode) throw await ApiErrorAsync(resp, ct);
+    }
+
+    /// <summary>POST /v1/topups/{id}/reject — reason required by policy.</summary>
+    public async Task RejectTopupAsync(Guid id, string? reason, CancellationToken ct = default)
+    {
+        var resp = await SendAsync(HttpMethod.Post, $"v1/topups/{id}/reject", ct,
+            JsonContent.Create(new { reason }, options: Json));
+        if (!resp.IsSuccessStatusCode) throw await ApiErrorAsync(resp, ct);
+    }
+
+    /// <summary>GET /v1/topup-config — null khi chưa cấu hình (404).</summary>
+    public async Task<MeteringTopupConfigDto?> GetTopupConfigAsync(CancellationToken ct = default)
+    {
+        var resp = await SendAsync(HttpMethod.Get, "v1/topup-config", ct);
+        if (resp.StatusCode == HttpStatusCode.NotFound) return null;
+        return await ReadAsync<MeteringTopupConfigDto>(resp, ct);
+    }
+
+    /// <summary>PUT /v1/topup-config — singleton upsert (audited server-side).</summary>
+    public async Task<MeteringTopupConfigDto> PutTopupConfigAsync(
+        string bankCode, string bankName, string accountNumber, string accountName, CancellationToken ct = default)
+    {
+        var resp = await SendAsync(HttpMethod.Put, "v1/topup-config", ct, JsonContent.Create(
+            new { bankCode, bankName, accountNumber, accountName }, options: Json));
+        return await ReadAsync<MeteringTopupConfigDto>(resp, ct)
+            ?? throw new InvalidOperationException("Metering API returned empty response for topup-config");
+    }
+
     private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string uri, CancellationToken ct, HttpContent? content = null)
     {
         if (!_enabled)

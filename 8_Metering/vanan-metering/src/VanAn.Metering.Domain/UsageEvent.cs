@@ -21,6 +21,12 @@ public sealed class UsageEvent
     public string CallerId { get; private set; } = string.Empty;
     public string IdempotencyKey { get; private set; } = string.Empty;
 
+    /// <summary>P7 D1 — credits deducted at ingest (null when unpriced).</summary>
+    public decimal? CreditsApplied { get; private set; }
+
+    /// <summary>P7 — credits owed but not covered by balance (wallet shortfall).</summary>
+    public decimal? UnpaidCredits { get; private set; }
+
     private UsageEvent() { } // EF Core
 
     public static UsageEvent Create(
@@ -54,4 +60,11 @@ public sealed class UsageEvent
             MetadataJson = metadataJson,
             LateEvent = lateEvent
         };
+
+    /// <summary>P7 — set after the in-transaction wallet deduction settles.</summary>
+    public void ApplyDeduction(decimal applied, decimal unpaid)
+    {
+        CreditsApplied = applied;
+        UnpaidCredits = unpaid > 0 ? unpaid : null;
+    }
 }

@@ -1,0 +1,271 @@
+@page "/admin/metering/topups"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "SystemAdmin")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.ShopERP.Services
+@inject MeteringRateCardApiClient MeteringApi
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IThemeProvider ThemeProvider
+@inject ILogger<MeteringTopups> Logger
+
+<div class="metering-topups-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1><i class="bi bi-qr-code-scan"></i> Phí nền tảng — Top-up</h1>
+        <div class="header-actions">
+            <select class="vanan-select" style="width:160px;" @bind="_statusFilter" @bind:after="LoadAsync" data-testid="topup-status-filter">
+                <option value="pending">Chờ xác nhận</option>
+                <option value="confirmed">Đã xác nhận</option>
+                <option value="rejected">Đã từ chối</option>
+                <option value="expired">Hết hạn</option>
+                <option value="">Tất cả</option>
+            </select>
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadAsync" Loading="@_isLoading">Làm mới</VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Variant="@_alertType" Message="@_alertMessage" Dismissible="true" OnDismiss="() => _alertMessage = string.Empty" />
+    }
+
+    @if (!_isSystemAdmin)
+    {
+        <VanACard><ChildContent><p class="text-muted mb-0">Trang này chỉ dành cho SystemAdmin.</p></ChildContent></VanACard>
+    }
+    else
+    {
+        <div class="row g-3">
+            <div class="col-lg-8">
+                <VanACard Header="Yêu cầu nạp credit">
+                    <ChildContent>
+                        @if (_isLoading)
+                        {
+                            <div class="loading-state"><VanASpinner Size="large" /><p>Đang tải...</p></div>
+                        }
+                        else if (_topups.Count == 0)
+                        {
+                            <p class="text-muted mb-0" data-testid="topups-empty">Không có yêu cầu nào.</p>
+                        }
+                        else
+                        {
+                            <table class="vanan-table" data-testid="topups-table">
+                                <thead><tr>
+                                    <th>Reference</th><th>Tenant</th><th class="text-end">VND</th>
+                                    <th class="text-end">Credit</th><th>Trạng thái</th><th>Tạo lúc</th><th></th>
+                                </tr></thead>
+                                <tbody>
+                                    @foreach (var t in _topups)
+                                    {
+                                        <tr data-testid="topup-row">
+                                            <td><code>@t.ReferenceCode</code></td>
+                                            <td class="text-muted"><small>@t.TenantId.ToString()[..8]…</small></td>
+                                            <td class="text-end">@(t.AmountVnd?.ToString("#,##0") ?? "—")</td>
+                                            <td class="text-end">@(t.CreditsGranted?.ToString("0.##") ?? "—")</td>
+                                            <td><span class="badge @StatusBadge(t.Status)" data-testid="topup-status">@t.Status</span></td>
+                                            <td>@t.CreatedAtUtc.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                                            <td>
+                                                @if (t.Status == "pending")
+                                                {
+                                                    <div class="d-flex gap-1">
+                                                        <VanAButton Variant="primary" Size="small" OnClick="() => AskConfirm(t)" data-testid="btn-confirm-topup">Xác nhận</VanAButton>
+                                                        <VanAButton Variant="error" Size="small" OnClick="() => AskReject(t)" data-testid="btn-reject-topup">Từ chối</VanAButton>
+                                                    </div>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </ChildContent>
+                </VanACard>
+
+                @if (_confirmTarget != null)
+                {
+                    <div class="alert alert-warning mt-2" data-testid="topup-confirm-panel">
+                        <p class="mb-2">Xác nhận <strong>@_confirmTarget.ReferenceCode</strong> — nhập số credit đã nhận:</p>
+                        <div class="d-flex gap-2 align-items-center flex-wrap">
+                            <input class="vanan-input" type="number" min="0" step="1" style="width:160px;"
+                                   placeholder="Credits" @bind="_confirmCredits" data-testid="topup-confirm-credits" />
+                            <input class="vanan-input" style="min-width:240px;"
+                                   placeholder="Ghi chú (số GD ngân hàng...)" @bind="_confirmNote" />
+                            <VanAButton Variant="primary" Size="small" OnClick="DoConfirmAsync" Loading="@_busy" data-testid="btn-do-confirm">Cấp credit</VanAButton>
+                            <VanAButton Variant="secondary" Size="small" OnClick="() => _confirmTarget = null">Hủy</VanAButton>
+                        </div>
+                    </div>
+                }
+
+                @if (_rejectTarget != null)
+                {
+                    <div class="alert alert-danger mt-2" data-testid="topup-reject-panel">
+                        <p class="mb-2">Từ chối <strong>@_rejectTarget.ReferenceCode</strong> — lý do:</p>
+                        <div class="d-flex gap-2 align-items-center flex-wrap">
+                            <input class="vanan-input" style="min-width:320px;"
+                                   placeholder="Lý do từ chối" @bind="_rejectReason" data-testid="topup-reject-reason" />
+                            <VanAButton Variant="error" Size="small" OnClick="DoRejectAsync" Loading="@_busy" data-testid="btn-do-reject">Từ chối</VanAButton>
+                            <VanAButton Variant="secondary" Size="small" OnClick="() => _rejectTarget = null">Hủy</VanAButton>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="col-lg-4">
+                <VanACard Header="Cấu hình VietQR (singleton)">
+                    <ChildContent>
+                        <div class="d-flex flex-column gap-2">
+                            <label>Mã ngân hàng (vietqr id)</label>
+                            <input class="vanan-input" @bind="_cfgBankCode" placeholder="970436" data-testid="cfg-bankcode" />
+                            <label>Tên ngân hàng</label>
+                            <input class="vanan-input" @bind="_cfgBankName" placeholder="Vietcombank" />
+                            <label>Số tài khoản</label>
+                            <input class="vanan-input" @bind="_cfgAccountNumber" placeholder="0123456789" data-testid="cfg-account" />
+                            <label>Tên tài khoản</label>
+                            <input class="vanan-input" @bind="_cfgAccountName" placeholder="CONG TY VAN AN" />
+                            @if (_config?.UpdatedBy != null)
+                            {
+                                <small class="text-muted">Cập nhật bởi @_config.UpdatedBy — @_config.UpdatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</small>
+                            }
+                            <VanAButton Variant="primary" Size="small" OnClick="SaveConfigAsync" Loading="@_busy" data-testid="btn-save-config">Lưu cấu hình</VanAButton>
+                        </div>
+                    </ChildContent>
+                </VanACard>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _isSystemAdmin;
+    private bool _isLoading = true;
+    private bool _busy;
+    private string _statusFilter = "pending";
+    private List<MeteringTopupDto> _topups = new();
+    private MeteringTopupConfigDto? _config;
+
+    private MeteringTopupDto? _confirmTarget;
+    private MeteringTopupDto? _rejectTarget;
+    private decimal _confirmCredits;
+    private string? _confirmNote;
+    private string? _rejectReason;
+
+    private string _cfgBankCode = string.Empty;
+    private string _cfgBankName = string.Empty;
+    private string _cfgAccountNumber = string.Empty;
+    private string _cfgAccountName = string.Empty;
+
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        _isSystemAdmin = auth.User.IsInRole("SystemAdmin");
+        if (!_isSystemAdmin) { _isLoading = false; return; }
+        await LoadAsync();
+        await LoadConfigAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        try { _topups = await MeteringApi.GetTopupsAsync(string.IsNullOrEmpty(_statusFilter) ? null : _statusFilter); }
+        catch (Exception ex) { Warn(ex.Message); }
+        finally { _isLoading = false; }
+    }
+
+    private async Task LoadConfigAsync()
+    {
+        try
+        {
+            _config = await MeteringApi.GetTopupConfigAsync();
+            if (_config != null)
+            {
+                _cfgBankCode = _config.BankCode;
+                _cfgBankName = _config.BankName;
+                _cfgAccountNumber = _config.AccountNumber;
+                _cfgAccountName = _config.AccountName;
+            }
+        }
+        catch (Exception ex) { Warn(ex.Message); }
+    }
+
+    private void AskConfirm(MeteringTopupDto t)
+    {
+        _rejectTarget = null;
+        _confirmTarget = t;
+        _confirmCredits = 0;
+        _confirmNote = null;
+    }
+
+    private void AskReject(MeteringTopupDto t)
+    {
+        _confirmTarget = null;
+        _rejectTarget = t;
+        _rejectReason = null;
+    }
+
+    private async Task DoConfirmAsync()
+    {
+        if (_confirmTarget == null) return;
+        if (_confirmCredits <= 0) { Warn("Credits phải > 0."); return; }
+        _busy = true;
+        try
+        {
+            await MeteringApi.ConfirmTopupAsync(_confirmTarget.Id, _confirmCredits, _confirmNote);
+            Info($"Đã cấp {_confirmCredits:0.##} credit cho {_confirmTarget.ReferenceCode}.");
+            _confirmTarget = null;
+            await LoadAsync();
+        }
+        catch (Exception ex) { Warn(ex.Message); }
+        finally { _busy = false; }
+    }
+
+    private async Task DoRejectAsync()
+    {
+        if (_rejectTarget == null) return;
+        if (string.IsNullOrWhiteSpace(_rejectReason)) { Warn("Nhập lý do từ chối."); return; }
+        _busy = true;
+        try
+        {
+            await MeteringApi.RejectTopupAsync(_rejectTarget.Id, _rejectReason);
+            Info($"Đã từ chối {_rejectTarget.ReferenceCode}.");
+            _rejectTarget = null;
+            await LoadAsync();
+        }
+        catch (Exception ex) { Warn(ex.Message); }
+        finally { _busy = false; }
+    }
+
+    private async Task SaveConfigAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_cfgBankCode) || string.IsNullOrWhiteSpace(_cfgAccountNumber))
+        {
+            Warn("BankCode và AccountNumber bắt buộc.");
+            return;
+        }
+        _busy = true;
+        try
+        {
+            _config = await MeteringApi.PutTopupConfigAsync(
+                _cfgBankCode, _cfgBankName, _cfgAccountNumber, _cfgAccountName);
+            Info("Đã lưu cấu hình VietQR.");
+        }
+        catch (Exception ex) { Warn(ex.Message); }
+        finally { _busy = false; }
+    }
+
+    private void Warn(string m) { _alertType = "danger"; _alertMessage = m; }
+    private void Info(string m) { _alertType = "success"; _alertMessage = m; }
+
+    private static string StatusBadge(string status) => status switch
+    {
+        "confirmed" => "bg-success",
+        "rejected" => "bg-danger",
+        "expired" => "bg-secondary",
+        _ => "bg-warning text-dark",
+    };
+}

@@ -94,3 +94,38 @@ Ví credit quota cho tenant: admin cấp → usage trừ credit theo định m�
 - **D7:** QR = vietqr.io URL (A — pattern `VietQrService`/`BankConfig` đang production)
 - **D5:** alert GĐ-1 = poll qua `check`/`wallet` response — NATS defer P9/P10
 - **D4:** alert theo **% còn lại** của `GrantedTotal` — còn ≤50% warn, ≤10% critical (SRS [G18] đã ghi "còn 50%/10%" — nhất quán)
+
+---
+
+## IMPLEMENTATION STATUS (2026-10-23)
+
+**ĐÃ IMPLEMENT** — metering service + ShopERP UI hoàn chỉnh theo card.
+
+### Metering service (8_Metering/vanan-metering)
+- Domain: CreditWallet, CreditLedgerEntry (append-only), WalletAlert, TopupConfig (singleton), TopupRequest; UsageEvent += CreditsApplied/UnpaidCredits.
+- WalletService: Grant (admin) / DeductInTransaction (conditional UPDATE `CAST ... AS NUMERIC` — SQLite decimal lưu TEXT, so sánh phải CAST) / AdjustAsync (T29 reversal) / Check (deny chỉ khi Enforcement=Deny && balance < required) / EvaluateAlerts (Warn50 ≤50%, Warn90 ≤10%, Depleted =0; 1 alert/level/cycle; cycle reset khi grant) / Ledger paging.
+- UsageService: deduct tại ingest trong CÙNG transaction (relational) — priced event → resolve rate tại occurredAtUtc → deduct min(required, balance) → ApplyDeduction + alerts; unpriced → fact only; replay không deduct 2 lần.
+- TopupService: create (unique ref TOPUP-XXXXXXXX, dedupe (CallerId,IdemKey)) / list (lazy expiry TTL, mặc định 72h — `Metering:TopupTtlHours`) / confirm (Pending→grant+cycle reset, replay idempotent, concurrent confirm chặn bằng unique partial index `CreditLedgerEntries.TopupRequestId`) / reject (reason) / topup-config GET/PUT + audit.
+- VietQrPayloadBuilder: `https://img.vietqr.io/image/{bank}-{acc}-compact.jpg?amount=&addInfo={ref}&accountName=`.
+- Endpoints: wallets/{t} (+check/grants/ledger), topup-config GET/PUT, topups POST/GET/confirm/reject — admin guard Forbidden() (không dùng Results.Forbid — không có auth scheme → 500).
+- EnsureP7Schema: idempotent DDL upgrade cho SQLite prod cũ (EnsureCreated không alter DB có sẵn) — tạo 5 bảng + ALTER UsageEvents 2 cột; no-op trên DB mới.
+
+### ShopERP (5_WebApps/ShopERP)
+- MeteringApiClient: CheckBalanceAsync thật (cache 30s/tenant+code, fail-open null) + GetWallet/GetLedger/CreateTopup/GetTopups (fail-safe).
+- MeteringRateCardApiClient += topup admin ops + config GET/PUT (throw lỗi thật cho UI).
+- Trang /wallet/phi-nen-tang: số dư, hạn mức, % còn lại, ledger paging, tạo QR top-up, ref code + copy.
+- Trang /admin/metering/topups: list pending + filter, confirm (nhập credits), reject (lý do), form config VietQR singleton.
+- MeteringWalletBanner trong MainLayout: poll 60s — warn50 vàng, warn90/depleted đỏ, link nạp.
+- MeteringDenyGate<ServiceCode> wrap 6 trang feature (financial ×3, inventory ×3): deny → block UI + link nạp.
+- NavMenu: "Ví phí nền tảng" (Tài chính) + "Phí nền tảng — Top-up" (SystemAdmin); Sitemap +2 link.
+
+### Verify
+- 75/75 unit tests PASS (T01–T30 matrix; T07+T25 race dùng SQLite shared-cache; T27 verify qua HTTP smoke → 403).
+- Smoke HTTP local: config PUT, grant 201, ingest→deduct+warn50+depleted+deny, replay no-double, topup create idempotent + QR đúng định dạng, confirm grant + replay idempotent, reject→409, ledger append-only.
+- dotnet build VanAn.sln: 0 errors; MeteringP4Tests 9/9, ShopERP bUnit 3/3.
+
+### Deviations
+- Chat deny UX: ShopERP không có chat input (ShopInbox read-only; chat phía KhachLink) → deny gate áp cho 6 feature pages; chat deny server-side để phase sau.
+- GET /v1/topups không scope tenant phía server cho non-admin (GĐ-1 caller = ShopERP; UI truyền tenantId claim) — hardening P8+.
+- Balance REAL/NUMERIC cast trong raw SQL do EF SQLite lưu decimal dạng TEXT — lưu ý khi chuyển PG (P13 sẽ dùng kiểu numeric thật, bỏ CAST).
+

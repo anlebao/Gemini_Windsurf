@@ -359,6 +359,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                 {
                     new() { Title = "Thông tin tài chính", Icon = "graph-up-arrow", Url = "/financial" },
                     new() { Title = "Hồ sơ doanh nghiệp", Icon = "building-fill-gear", Url = "/admin/business-profile" },
+                    // Phí nền tảng P7: ví credit + nạp VietQR (tenant-facing, any role có tenant).
+                    new() { Title = "Ví phí nền tảng", Icon = "wallet2", Url = "/wallet/phi-nen-tang" },
                 }
             });
         }
@@ -376,6 +378,7 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                 configChildren.Add(new() { Title = "Cấu hình trạng thái đơn hàng", Icon = "diagram-3", Url = "/admin/order-flow" });
                 // Phí nền tảng P6: rate card management (SystemAdmin — trang policy = SystemAdmin).
                 configChildren.Add(new() { Title = "Phí nền tảng — Rate Card", Icon = "speedometer2", Url = "/admin/metering/rate-cards" });
+                configChildren.Add(new() { Title = "Phí nền tảng — Top-up", Icon = "qr-code-scan", Url = "/admin/metering/topups" });
             }
             items.Add(new()
             {

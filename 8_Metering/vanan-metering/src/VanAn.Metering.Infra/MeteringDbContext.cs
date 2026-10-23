@@ -13,6 +13,11 @@ public sealed class MeteringDbContext(DbContextOptions<MeteringDbContext> option
     public DbSet<CallerKey> CallerKeys => Set<CallerKey>();
     public DbSet<RateCardVersion> RateCardVersions => Set<RateCardVersion>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<CreditWallet> CreditWallets => Set<CreditWallet>();
+    public DbSet<CreditLedgerEntry> CreditLedgerEntries => Set<CreditLedgerEntry>();
+    public DbSet<WalletAlert> WalletAlerts => Set<WalletAlert>();
+    public DbSet<TopupConfig> TopupConfigs => Set<TopupConfig>();
+    public DbSet<TopupRequest> TopupRequests => Set<TopupRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -28,6 +33,8 @@ public sealed class MeteringDbContext(DbContextOptions<MeteringDbContext> option
             b.Property(e => e.CallerId).HasMaxLength(64);
             b.Property(e => e.IdempotencyKey).HasMaxLength(128);
             b.Property(e => e.Quantity).HasPrecision(18, 4);
+            b.Property(e => e.CreditsApplied).HasPrecision(18, 4);
+            b.Property(e => e.UnpaidCredits).HasPrecision(18, 4);
         });
 
         modelBuilder.Entity<CallerKey>(b =>
@@ -60,6 +67,66 @@ public sealed class MeteringDbContext(DbContextOptions<MeteringDbContext> option
             b.Property(e => e.Actor).HasMaxLength(64);
             b.Property(e => e.Action).HasMaxLength(32);
             b.Property(e => e.EntityType).HasMaxLength(64);
+        });
+
+        // P7 — credit wallet: one wallet per tenant; atomic deduct via conditional UPDATE.
+        modelBuilder.Entity<CreditWallet>(b =>
+        {
+            b.HasKey(e => e.Id);
+            b.HasIndex(e => e.TenantId).IsUnique();
+            b.Property(e => e.BalancePurchased).HasPrecision(18, 4);
+            b.Property(e => e.BalancePool).HasPrecision(18, 4);
+            b.Property(e => e.BalanceEarned).HasPrecision(18, 4);
+            b.Property(e => e.GrantedTotal).HasPrecision(18, 4);
+            b.Property(e => e.CycleKey).HasMaxLength(64);
+        });
+
+        // P7 — append-only ledger; corrections are reversal entries (Type=Adjust).
+        modelBuilder.Entity<CreditLedgerEntry>(b =>
+        {
+            b.HasKey(e => e.Id);
+            b.HasIndex(e => new { e.TenantId, e.CreatedAtUtc });
+            b.HasIndex(e => e.UsageEventId);
+            // One Grant per topup — the DB arbiter against concurrent confirms (T25).
+            b.HasIndex(e => e.TopupRequestId).IsUnique().HasFilter("\"TopupRequestId\" IS NOT NULL");
+            b.Property(e => e.Credits).HasPrecision(18, 4);
+            b.Property(e => e.BalanceAfter).HasPrecision(18, 4);
+            b.Property(e => e.Reason).HasMaxLength(256);
+            b.Property(e => e.CreatedBy).HasMaxLength(64);
+        });
+
+        // P7 D4 — one alert per (tenant, level, alert-cycle); cycle resets on Grant.
+        modelBuilder.Entity<WalletAlert>(b =>
+        {
+            b.HasKey(e => e.Id);
+            b.HasIndex(e => new { e.TenantId, e.Level, e.CycleKey }).IsUnique();
+            b.Property(e => e.CycleKey).HasMaxLength(64);
+            b.Property(e => e.NotifiedChannels).HasMaxLength(64);
+        });
+
+        modelBuilder.Entity<TopupConfig>(b =>
+        {
+            b.HasKey(e => e.Id);
+            b.Property(e => e.BankCode).HasMaxLength(32);
+            b.Property(e => e.BankName).HasMaxLength(128);
+            b.Property(e => e.AccountNumber).HasMaxLength(64);
+            b.Property(e => e.AccountName).HasMaxLength(128);
+            b.Property(e => e.UpdatedBy).HasMaxLength(64);
+        });
+
+        modelBuilder.Entity<TopupRequest>(b =>
+        {
+            b.HasKey(e => e.Id);
+            b.HasIndex(e => e.ReferenceCode).IsUnique();
+            b.HasIndex(e => new { e.CallerId, e.IdempotencyKey }).IsUnique();
+            b.HasIndex(e => new { e.TenantId, e.Status });
+            b.Property(e => e.ReferenceCode).HasMaxLength(32);
+            b.Property(e => e.AmountVnd).HasPrecision(18, 4);
+            b.Property(e => e.CreditsGranted).HasPrecision(18, 4);
+            b.Property(e => e.ConfirmedBy).HasMaxLength(64);
+            b.Property(e => e.Note).HasMaxLength(256);
+            b.Property(e => e.CallerId).HasMaxLength(64);
+            b.Property(e => e.IdempotencyKey).HasMaxLength(128);
         });
     }
 }

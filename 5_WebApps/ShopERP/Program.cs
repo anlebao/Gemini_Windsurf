@@ -664,6 +664,10 @@ namespace VanAn.ShopERP
                 if (!string.IsNullOrEmpty(adminId)) c.DefaultRequestHeaders.TryAddWithoutValidation("X-Caller-Id", adminId);
                 if (!string.IsNullOrEmpty(adminKey)) c.DefaultRequestHeaders.TryAddWithoutValidation("X-Metering-Key", adminKey);
             });
+            // P7: expose the same typed client under its concrete type so pages can use
+            // wallet/ledger/topup methods beyond the IMeteringClient contract.
+            _ = builder.Services.AddTransient(sp =>
+                (Services.MeteringApiClient)sp.GetRequiredService<VanAn.Shared.Domain.Common.IMeteringClient>());
             _ = builder.Services.AddScoped<Services.FeatureUsageRecorder>();
             // Nav menu SSOT (2026-09-19): single menu definition per role used by all layouts
             _ = builder.Services.AddScoped<Services.IShopErpMenuService, Services.ShopErpMenuService>();

@@ -8,6 +8,7 @@
 @using VanAn.UI.Platform.Components.Composite
 @using Microsoft.AspNetCore.Authorization
 @using VanAn.ShopERP.Services
+@using VanAn.ShopERP.Components.Shared
 @using VanAn.CoreHub.Services.FinancialIntelligence.Dtos
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Aggregates.TenantAggregate
@@ -21,6 +22,7 @@
 
 @attribute [Authorize(Policy = "FinancialAccess")]
 
+<MeteringDenyGate ServiceCode="feature.financial">
 <div class="tenant-management-page @ThemeProvider.CurrentTheme">
     <header class="page-header">
         <h1>Dashboard tài chính @(_isSystemAdmin ? $"— {CurrentTenantLabel}" : "")</h1>
@@ -204,6 +206,7 @@
     }
 </div>
 
+</MeteringDenyGate>
 @code {
     private bool _loading = true;
     private bool _calculating;

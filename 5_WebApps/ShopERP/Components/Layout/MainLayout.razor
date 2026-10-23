@@ -27,6 +27,7 @@
 
             <AuthorizeView>
                 <Authorized>
+                    <MeteringWalletBanner />
                     @if (context.User.FindFirst("impersonating")?.Value == "true")
                     {
                         var tenantName = context.User.FindFirst("impersonated_tenant_name")?.Value ?? "unknown";

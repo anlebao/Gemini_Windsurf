@@ -1,0 +1,84 @@
+@* P7 D4 — threshold banner: polls GET /v1/wallets/{tenant} every 60s.
+   warn50 → yellow, warn90/depleted → red. Fail-silent: metering unreachable → no banner. *@
+@using VanAn.Shared.Domain.Common
+@implements IDisposable
+@inject MeteringApiClient Metering
+@inject ITenantProvider TenantProvider
+
+@if (!string.IsNullOrEmpty(_alertLevel))
+{
+    <div class="metering-wallet-banner @(_alertLevel == "warn50" ? "banner-warn" : "banner-danger")"
+         role="alert" data-testid="metering-wallet-banner">
+        <i class="bi @(_alertLevel == "warn50" ? "bi-exclamation-triangle-fill" : "bi-exclamation-octagon-fill") me-2"></i>
+        <span>
+            @if (_alertLevel == "depleted")
+            {
+                <text>Ví phí nền tảng đã <strong>hết credit</strong>@(_balance > 0 ? "" : " — một số tính năng có thể bị chặn").</text>
+            }
+            else
+            {
+                <text>Ví phí nền tảng sắp hết — còn <strong>@_balance.ToString("0.##")</strong> credit.</text>
+            }
+        </span>
+        <a href="/wallet/phi-nen-tang" class="btn btn-sm btn-light ms-2" data-testid="metering-banner-topup">
+            <i class="bi bi-qr-code me-1"></i> Nạp credit
+        </a>
+    </div>
+}
+
+<style>
+    .metering-wallet-banner {
+        display: flex; align-items: center; padding: 8px 16px; font-size: 0.9rem;
+    }
+    .metering-wallet-banner.banner-warn {
+        background: #fff3cd; color: #664d03; border-bottom: 1px solid #ffecb5;
+    }
+    .metering-wallet-banner.banner-danger {
+        background: #f8d7da; color: #842029; border-bottom: 1px solid #f5c2c7;
+    }
+</style>
+
+@code {
+    private string? _alertLevel;
+    private decimal _balance;
+    private PeriodicTimer? _timer;
+    private CancellationTokenSource? _cts;
+
+    protected override void OnInitialized()
+    {
+        if (!TenantProvider.HasTenant) return;
+        _cts = new CancellationTokenSource();
+        _ = PollLoopAsync(_cts.Token);
+    }
+
+    private async Task PollLoopAsync(CancellationToken ct)
+    {
+        await RefreshAsync();
+        _timer = new PeriodicTimer(TimeSpan.FromSeconds(60));
+        try
+        {
+            while (await _timer.WaitForNextTickAsync(ct))
+                await RefreshAsync();
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task RefreshAsync()
+    {
+        try
+        {
+            var w = await Metering.GetWalletAsync(TenantProvider.TenantId);
+            _alertLevel = w?.AlertLevel;
+            _balance = w?.Balance ?? 0;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch { /* fail-silent — banner must never break the layout */ }
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _timer?.Dispose();
+        _cts?.Dispose();
+    }
+}

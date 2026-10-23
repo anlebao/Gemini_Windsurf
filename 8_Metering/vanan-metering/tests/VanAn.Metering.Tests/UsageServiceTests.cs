@@ -22,7 +22,7 @@ public sealed class UsageServiceTests
     {
         var db = new MeteringDbContext(new DbContextOptionsBuilder<MeteringDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
-        return (db, new UsageService(db));
+        return (db, new UsageService(db, new WalletService(db, new RateCardService(db)), new RateCardService(db)));
     }
 
     private static UsageEventRequest Req(
@@ -191,12 +191,12 @@ public sealed class UsageServiceTests
 
         await using var db1 = new MeteringDbContext(opts);
         await db1.Database.EnsureCreatedAsync();
-        var svc1 = new UsageService(db1);
+        var svc1 = new UsageService(db1, new WalletService(db1, new RateCardService(db1)), new RateCardService(db1));
         var first = await svc1.IngestAsync(Caller, "race", Req(), Now);
         first.Replay.Should().BeFalse();
 
         await using var db2 = new MeteringDbContext(opts);
-        var svc2 = new UsageService(db2);
+        var svc2 = new UsageService(db2, new WalletService(db2, new RateCardService(db2)), new RateCardService(db2));
         var second = await svc2.IngestAsync(Caller, "race", Req(qty: 50), Now);
         second.Replay.Should().BeTrue();
         second.EventId.Should().Be(first.EventId);

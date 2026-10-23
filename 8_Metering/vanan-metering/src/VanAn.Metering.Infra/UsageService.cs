@@ -16,9 +16,10 @@ public sealed record UsageIngestResult(Guid? EventId, bool Replay, string? Error
 
 /// <summary>
 /// Task P3 (task_p3_ingest.md) — usage ingest + idempotency + summary/events.
-/// Records facts only; wallet deduction lands in P7 (D10).
+/// P7 D1: deduct-at-ingest — priced events deduct wallet credits in the SAME
+/// transaction (event + ledger + wallet + alert commit together).
 /// </summary>
-public sealed partial class UsageService(MeteringDbContext db)
+public sealed partial class UsageService(MeteringDbContext db, WalletService wallet, RateCardService rateCards)
 {
     private static readonly TimeSpan LateSkew = TimeSpan.FromMinutes(5); // D3 / [G5]
 
@@ -84,7 +85,27 @@ public sealed partial class UsageService(MeteringDbContext db)
         db.UsageEvents.Add(ev);
         try
         {
-            await db.SaveChangesAsync(ct);
+            // P7 D1/D2 — priced event → deduct inside the same commit (relational tx;
+            // in-memory provider treats the tx wrapper as a no-op).
+            var pricedVersion = await rateCards.ResolveAsync(ev.ServiceCode, occurred, ct);
+            if (pricedVersion != null)
+            {
+                // Relational providers get a real tx; InMemory (tests) treats it as no-op.
+                await using var tx = db.Database.IsRelational()
+                    ? await db.Database.BeginTransactionAsync(ct)
+                    : null;
+                var required = ev.Quantity * pricedVersion.CreditRate;
+                var applied = await wallet.DeductInTransactionAsync(
+                    ev.TenantId, ev.Id, required, $"usage:{ev.ServiceCode}", nowUtc, ct);
+                ev.ApplyDeduction(applied, required - applied);
+                await wallet.EvaluateAlertsAsync(ev.TenantId, nowUtc, ct);
+                await db.SaveChangesAsync(ct);
+                if (tx != null) await tx.CommitAsync(ct);
+            }
+            else
+            {
+                await db.SaveChangesAsync(ct);
+            }
         }
         catch (DbUpdateException)
         {

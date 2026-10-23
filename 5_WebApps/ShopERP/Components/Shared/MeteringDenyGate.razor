@@ -1,0 +1,47 @@
+@* P7 (task_p7): deny UX — wrap a feature page/section; when the wallet check for
+   ServiceCode resolves Enforcement=Deny and balance < required, the content is
+   replaced by a clear "Hết hạn mức" block with a top-up link. Fail-open: metering
+   unreachable → content renders normally (G9). *@
+@using VanAn.Shared.Domain.Common
+@inject IMeteringClient Metering
+@inject ITenantProvider TenantProvider
+
+@if (_denied)
+{
+    <div class="alert alert-danger metering-deny" role="alert" data-testid="metering-deny">
+        <h5 class="alert-heading"><i class="bi bi-exclamation-octagon-fill me-2"></i>Hết hạn mức phí nền tảng</h5>
+        <p class="mb-2">
+            Tính năng <strong>@ServiceCode</strong> cần <strong>@_required.ToString("0.##")</strong> credit
+            nhưng ví chỉ còn <strong>@_balance.ToString("0.##")</strong>.
+        </p>
+        <a class="btn btn-sm btn-light" href="/wallet/phi-nen-tang" data-testid="metering-deny-topup">
+            <i class="bi bi-qr-code me-1"></i> Nạp credit để tiếp tục
+        </a>
+    </div>
+}
+else
+{
+    @ChildContent
+}
+
+@code {
+    /// <summary>Rate-card code to check, e.g. "feature.financial".</summary>
+    [Parameter, EditorRequired] public string ServiceCode { get; set; } = string.Empty;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool _denied;
+    private decimal _balance;
+    private decimal _required;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(ServiceCode) || !TenantProvider.HasTenant) return;
+        var check = await Metering.CheckBalanceAsync(TenantProvider.TenantId, ServiceCode);
+        if (check?.Deny == true)
+        {
+            _denied = true;
+            _balance = check.Balance;
+            _required = check.Required;
+        }
+    }
+}

@@ -18,6 +18,7 @@
 
 <PageTitle>Tồn kho - Vạn An</PageTitle>
 
+<MeteringDenyGate ServiceCode="feature.inventory">
 <div class="va-iie-dashboard-page">
     <header class="page-header mb-4">
         <h1><i class="bi bi-box-seam"></i> Tồn kho</h1>
@@ -176,6 +177,7 @@
     }
 </div>
 
+</MeteringDenyGate>
 @code {
     private IReadOnlyList<Ingredient> _ingredients = [];
     private IReadOnlyList<ShiftAlert> _recentAlerts = [];
