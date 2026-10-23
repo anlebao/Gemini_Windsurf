@@ -1,6 +1,6 @@
 # Task P5 — Deploy `vanan-metering` lên VPS RIÊNG + Runtime Verification
 
-> **Status:** 🟡 PHẦN LỚN DONE (2026-10-23, CD #39952898421) — VPS `vanan-metering` provisioned (docker + `/opt/vanan-metering` + deploy user) · compose deploy ✅ · nginx `/admin/metering/api/` → internal `10.148.0.6:5050` ✅ · external :5050 blocked ✅ · RV L1–L2 cơ bản PASS. **Còn:** RV checklist đầy đủ của card (auth caller thật từ app services · latency · alerting) + caller integration thực tế (P4).
+> **Status:** ✅ DONE (2026-10-23/24, CD #39952898421 + RV đầy đủ) — VPS `vanan-metering` provisioned (docker + `/opt/vanan-metering` + deploy user) · compose deploy ✅ · nginx `/admin/metering/api/` → internal `10.148.0.6:5050` ✅ · external :5050 blocked ✅ · RV L1–L2 cơ bản PASS. **RV đầy đủ 2026-10-24:** caller thật end-to-end ×3 (shoperp-a/gateway/directory — key lấy từ container env từng VPS, ingest 201, summary landed `rv.p5.check`×3) · latency WAN warm 28–100ms (shop-a 58–102ms · gateway 76–265ms · khachlink 28–44ms — cùng region, chấp nhận được vì ingest fire-and-forget + client timeout 3s + circuit breaker) · alerting path = warning-logs khi drop (0 warning/24h trên cả 3 host — không event nào mất; Seq sink sẵn cho query; threshold-alerting thật thuộc P7 D5 poll check) · `store.visit`×2 landed qua public-gateway (traffic thật). L4 realtime-verify done qua beacon thật.
 > **Phase:** P5 (GĐ-1) · **Gate:** CD pass + health 200 + RV L1-L2
 > **Căn cứ:** master plan §6.5 RV · cd-multivps.yml matrix `metering` (P1 đã wire) · Pattern #32 (image phải build trước deploy)
 
