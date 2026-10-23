@@ -374,6 +374,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
             if (isSystemAdmin)
             {
                 configChildren.Add(new() { Title = "Cấu hình trạng thái đơn hàng", Icon = "diagram-3", Url = "/admin/order-flow" });
+                // Phí nền tảng P6: rate card management (SystemAdmin — trang policy = SystemAdmin).
+                configChildren.Add(new() { Title = "Phí nền tảng — Rate Card", Icon = "speedometer2", Url = "/admin/metering/rate-cards" });
             }
             items.Add(new()
             {

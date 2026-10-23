@@ -1,0 +1,392 @@
+@page "/admin/metering/rate-cards"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "SystemAdmin")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.ShopERP.Services
+@inject MeteringRateCardApiClient MeteringApi
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IThemeProvider ThemeProvider
+@inject ILogger<MeteringRateCards> Logger
+
+<div class="metering-rate-cards-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1><i class="bi bi-speedometer2"></i> Phí nền tảng — Rate Card</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadAsync" IsLoading="@_isLoading">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Variant="@_alertType" Message="@_alertMessage" Dismissible="true" OnDismiss="() => _alertMessage = string.Empty" />
+    }
+
+    @if (!_isSystemAdmin)
+    {
+        <VanACard>
+            <ChildContent>
+                <p class="text-muted mb-0">Trang này chỉ dành cho SystemAdmin.</p>
+            </ChildContent>
+        </VanACard>
+    }
+    else if (_isLoading)
+    {
+        <VanACard>
+            <ChildContent>
+                <div class="loading-state"><VanASpinner Size="large" /><p>Đang tải rate card...</p></div>
+            </ChildContent>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="Danh sách hạng mục">
+            <ChildContent>
+                <div class="form-check mb-2">
+                    <input type="checkbox" id="rc-history" class="form-check-input" checked="@_showHistory"
+                           @onchange="OnHistoryToggleAsync" data-testid="rc-history-toggle" />
+                    <label class="form-check-label" for="rc-history">Hiện toàn bộ lịch sử phiên bản</label>
+                </div>
+
+                @if (_cards.Count == 0)
+                {
+                    <p class="text-muted" data-testid="rc-empty">Chưa có hạng mục nào — tạo hạng mục đầu tiên ở form bên dưới.</p>
+                }
+                else
+                {
+                    <table class="vanan-table" data-testid="rc-table">
+                        <thead>
+                            <tr>
+                                <th>ServiceCode</th>
+                                <th>Nhãn</th>
+                                <th>Đơn vị</th>
+                                <th>Định mức</th>
+                                <th>Thực thi</th>
+                                <th>Hiệu lực từ (UTC)</th>
+                                @if (_showHistory) { <th>Đến (UTC)</th> <th>Trạng thái</th> <th>Người sửa</th> }
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var c in _cards)
+                            {
+                                <tr data-testid="rc-row">
+                                    <td><code>@c.ServiceCode</code></td>
+                                    <td>@(c.Label ?? "—")</td>
+                                    <td>@c.MeterUnit</td>
+                                    <td>@c.CreditRate</td>
+                                    <td><span class="rc-enforce rc-enforce-@c.Enforcement.ToLowerInvariant()">@c.Enforcement</span></td>
+                                    <td>@c.EffectiveFrom.ToString("yyyy-MM-dd HH:mm")</td>
+                                    @if (_showHistory)
+                                    {
+                                        <td>@(c.EffectiveTo?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                                        <td>@StatusLabel(c)</td>
+                                        <td title="@c.AuditNote">@c.ChangedBy</td>
+                                    }
+                                    <td class="text-end">
+                                        @if (c.IsActive && c.EffectiveTo == null)
+                                        {
+                                            <VanAButton Variant="outline" Size="small" OnClick="() => StartEdit(c)" data-testid="btn-edit-rc">
+                                                Sửa
+                                            </VanAButton>
+                                            <VanAButton Variant="error" Size="small" OnClick="() => AskDeactivate(c)" data-testid="btn-deactivate-rc">
+                                                Ngưng
+                                            </VanAButton>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+
+                @if (_confirmDeactivate != null)
+                {
+                    <div class="alert alert-warning mt-2" data-testid="rc-confirm-deactivate">
+                        <strong>Ngưng hạng mục <code>@_confirmDeactivate.ServiceCode</code>?</strong>
+                        Hạng mục sẽ ngừng tính phí kể từ bây giờ — lịch sử phiên bản giữ nguyên (không xoá).
+                        <div class="mt-2 d-flex gap-2">
+                            <VanAButton Variant="error" Size="small" OnClick="DeactivateConfirmedAsync" IsLoading="@_isSaving" data-testid="btn-confirm-deactivate">
+                                Xác nhận ngưng
+                            </VanAButton>
+                            <VanAButton Variant="outline" Size="small" OnClick="() => _confirmDeactivate = null" data-testid="btn-cancel-deactivate">
+                                Huỷ
+                            </VanAButton>
+                        </div>
+                    </div>
+                }
+            </ChildContent>
+        </VanACard>
+
+        <VanACard Header="@(_editingHead != null ? $"Sửa định mức: {_editingHead.ServiceCode}" : "Thêm hạng mục mới")">
+            <ChildContent>
+                <div class="row">
+                    <div class="col-md-4 form-group">
+                        <label for="rc-code">ServiceCode</label>
+                        @if (_editingHead != null)
+                        {
+                            <input id="rc-code" class="vanan-input" value="@_formServiceCode" disabled data-testid="rc-form-code" />
+                            <small class="text-muted d-block">Append-only — sửa tạo phiên bản mới, version cũ tự đóng.</small>
+                        }
+                        else
+                        {
+                            <input id="rc-code" class="vanan-input" value="@_formServiceCode"
+                                   @onchange="e => _formServiceCode = e.Value?.ToString() ?? string.Empty"
+                                   placeholder="store.visit" data-testid="rc-form-code" />
+                        }
+                    </div>
+                    <div class="col-md-3 form-group">
+                        <label for="rc-unit">Đơn vị đo</label>
+                        <input id="rc-unit" class="vanan-input" value="@_formUnit"
+                               @onchange="e => _formUnit = e.Value?.ToString() ?? string.Empty"
+                               placeholder="visit / message / search" data-testid="rc-form-unit" />
+                    </div>
+                    <div class="col-md-2 form-group">
+                        <label for="rc-rate">Định mức credit</label>
+                        <input id="rc-rate" class="vanan-input" type="number" min="0" step="0.01" value="@_formRate"
+                               @onchange="e => _formRate = e.Value?.ToString() ?? string.Empty" data-testid="rc-form-rate" />
+                    </div>
+                    <div class="col-md-3 form-group">
+                        <label for="rc-enforce">Thực thi</label>
+                        <select id="rc-enforce" class="vanan-select" @bind="_formEnforcement" data-testid="rc-form-enforcement">
+                            <option value="MeterOnly">MeterOnly — chỉ đo</option>
+                            <option value="Deny">Deny — chặn khi hết ví</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 form-group">
+                        <label for="rc-from">Hiệu lực từ (UTC — trống = ngay bây giờ)</label>
+                        <input id="rc-from" class="vanan-input" type="datetime-local" value="@_formEffectiveFrom"
+                               @onchange="e => _formEffectiveFrom = e.Value?.ToString() ?? string.Empty" data-testid="rc-form-from" />
+                    </div>
+                    <div class="col-md-4 form-group">
+                        <label for="rc-label">Nhãn (tuỳ chọn)</label>
+                        <input id="rc-label" class="vanan-input" value="@_formLabel"
+                               @onchange="e => _formLabel = e.Value?.ToString() ?? string.Empty"
+                               placeholder="Lượt xem cửa hàng" data-testid="rc-form-label" />
+                    </div>
+                    <div class="col-md-4 form-group">
+                        <label for="rc-note">Ghi chú audit (tuỳ chọn)</label>
+                        <input id="rc-note" class="vanan-input" value="@_formNote"
+                               @onchange="e => _formNote = e.Value?.ToString() ?? string.Empty"
+                               placeholder="Lý do thay đổi" data-testid="rc-form-note" />
+                    </div>
+                </div>
+            </ChildContent>
+            <Footer>
+                <div class="d-flex gap-2">
+                    <VanAButton Variant="primary" OnClick="SaveAsync" IsLoading="@_isSaving" data-testid="btn-save-rc">
+                        @(_editingHead != null ? "Lưu phiên bản mới" : "Tạo hạng mục")
+                    </VanAButton>
+                    @if (_editingHead != null)
+                    {
+                        <VanAButton Variant="outline" OnClick="ResetForm" data-testid="btn-cancel-rc">
+                            Huỷ chỉnh sửa
+                        </VanAButton>
+                    }
+                </div>
+            </Footer>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private bool _isSystemAdmin;
+    private string _actorEmail = "unknown";
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    private List<MeteringRateCardDto> _cards = new();
+    private bool _showHistory;
+
+    private MeteringRateCardDto? _editingHead;
+    private MeteringRateCardDto? _confirmDeactivate;
+    private string _formServiceCode = string.Empty;
+    private string _formUnit = string.Empty;
+    private string _formRate = "0";
+    private string _formEnforcement = "MeterOnly";
+    private string _formEffectiveFrom = string.Empty;
+    private string _formLabel = string.Empty;
+    private string _formNote = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        _isSystemAdmin = auth.User.IsInRole("SystemAdmin");
+        _actorEmail = auth.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+            ?? auth.User.Identity?.Name
+            ?? "unknown";
+        if (!_isSystemAdmin) { _isLoading = false; return; }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _alertMessage = string.Empty;
+        try
+        {
+            _cards = await MeteringApi.GetRateCardsAsync(_showHistory);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load metering rate cards");
+            _alertType = "error";
+            _alertMessage = $"Không tải được rate card: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task OnHistoryToggleAsync(ChangeEventArgs e)
+    {
+        _showHistory = e.Value is true;
+        await LoadAsync();
+    }
+
+    private static string StatusLabel(MeteringRateCardDto c) =>
+        !c.IsActive ? "Đã ngưng"
+        : c.EffectiveTo != null ? "Đã thay thế"
+        : c.EffectiveFrom > DateTime.UtcNow ? "Lên lịch"
+        : "Đang áp dụng";
+
+    private void StartEdit(MeteringRateCardDto c)
+    {
+        _editingHead = c;
+        _formServiceCode = c.ServiceCode;
+        _formUnit = c.MeterUnit;
+        _formRate = c.CreditRate.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        _formEnforcement = c.Enforcement;
+        _formEffectiveFrom = string.Empty; // PATCH: trống = áp dụng ngay
+        _formLabel = c.Label ?? string.Empty;
+        _formNote = string.Empty;
+        _confirmDeactivate = null;
+    }
+
+    private void ResetForm()
+    {
+        _editingHead = null;
+        _formServiceCode = string.Empty;
+        _formUnit = string.Empty;
+        _formRate = "0";
+        _formEnforcement = "MeterOnly";
+        _formEffectiveFrom = string.Empty;
+        _formLabel = string.Empty;
+        _formNote = string.Empty;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_isSaving) return;
+        if (string.IsNullOrWhiteSpace(_formServiceCode))
+        {
+            _alertType = "warning";
+            _alertMessage = "ServiceCode không được để trống.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_formUnit))
+        {
+            _alertType = "warning";
+            _alertMessage = "Đơn vị đo không được để trống.";
+            return;
+        }
+        if (!decimal.TryParse(_formRate, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture, out var rate) || rate < 0)
+        {
+            _alertType = "warning";
+            _alertMessage = "Định mức phải là số >= 0.";
+            return;
+        }
+        DateTime? effectiveFrom = null;
+        if (!string.IsNullOrWhiteSpace(_formEffectiveFrom)
+            && DateTime.TryParse(_formEffectiveFrom, out var parsed))
+        {
+            effectiveFrom = DateTime.SpecifyKind(parsed, DateTimeKind.Utc);
+        }
+
+        _isSaving = true;
+        _alertMessage = string.Empty;
+        try
+        {
+            var req = new MeteringRateCardUpsertRequest
+            {
+                ServiceCode = _formServiceCode.Trim(),
+                MeterUnit = _formUnit.Trim(),
+                CreditRate = rate,
+                Enforcement = _formEnforcement,
+                EffectiveFrom = effectiveFrom,
+                Label = string.IsNullOrWhiteSpace(_formLabel) ? null : _formLabel.Trim(),
+                AuditNote = string.IsNullOrWhiteSpace(_formNote) ? null : _formNote.Trim()
+            };
+            if (_editingHead != null)
+                await MeteringApi.PatchRateCardAsync(_editingHead.Id, req, _actorEmail);
+            else
+                await MeteringApi.CreateRateCardAsync(req, _actorEmail);
+
+            _alertType = "success";
+            _alertMessage = _editingHead != null
+                ? $"Đã tạo phiên bản mới cho '{req.ServiceCode}'."
+                : $"Đã tạo hạng mục '{req.ServiceCode}'.";
+            ResetForm();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save metering rate card");
+            _alertType = "error";
+            _alertMessage = $"Lưu thất bại: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void AskDeactivate(MeteringRateCardDto c) => _confirmDeactivate = c;
+
+    private async Task DeactivateConfirmedAsync()
+    {
+        if (_confirmDeactivate == null || _isSaving) return;
+        _isSaving = true;
+        try
+        {
+            await MeteringApi.DeactivateRateCardAsync(_confirmDeactivate.Id);
+            _alertType = "success";
+            _alertMessage = $"Đã ngưng hạng mục '{_confirmDeactivate.ServiceCode}'.";
+            _confirmDeactivate = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to deactivate metering rate card {Id}", _confirmDeactivate.Id);
+            _alertType = "error";
+            _alertMessage = $"Ngưng thất bại: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}
+
+<style>
+    .rc-enforce {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .rc-enforce-meteronly { background: #e7f1ff; color: #0d6efd; }
+    .rc-enforce-deny { background: #f8d7da; color: #842029; }
+</style>

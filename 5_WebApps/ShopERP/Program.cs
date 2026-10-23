@@ -653,6 +653,17 @@ namespace VanAn.ShopERP
                 if (!string.IsNullOrEmpty(callerId)) c.DefaultRequestHeaders.TryAddWithoutValidation("X-Caller-Id", callerId);
                 if (!string.IsNullOrEmpty(callerKey)) c.DefaultRequestHeaders.TryAddWithoutValidation("X-Metering-Key", callerKey);
             });
+            // P6: admin client riêng — caller "sysadmin" (CallerKey.IsAdmin) cho /v1/rate-cards CRUD.
+            _ = builder.Services.AddHttpClient<Services.MeteringRateCardApiClient>(c =>
+            {
+                var baseUrl = builder.Configuration["Metering:BaseUrl"];
+                if (!string.IsNullOrWhiteSpace(baseUrl)) c.BaseAddress = new Uri(baseUrl);
+                c.Timeout = TimeSpan.FromSeconds(10);
+                var adminId = builder.Configuration["Metering:AdminCallerId"];
+                var adminKey = builder.Configuration["Metering:AdminKey"];
+                if (!string.IsNullOrEmpty(adminId)) c.DefaultRequestHeaders.TryAddWithoutValidation("X-Caller-Id", adminId);
+                if (!string.IsNullOrEmpty(adminKey)) c.DefaultRequestHeaders.TryAddWithoutValidation("X-Metering-Key", adminKey);
+            });
             _ = builder.Services.AddScoped<Services.FeatureUsageRecorder>();
             // Nav menu SSOT (2026-09-19): single menu definition per role used by all layouts
             _ = builder.Services.AddScoped<Services.IShopErpMenuService, Services.ShopErpMenuService>();

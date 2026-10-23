@@ -742,7 +742,7 @@ jobs:
           username: ${{ secrets.VPS_SHOP_USER }}
           key: ${{ secrets.VPS_SHOP_SSH_PRIVATE_KEY }}
           command_timeout: 60m
-          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_NATS_REMOTE_HOST,DEPLOY_GATEWAY_REMOTE_HOST,DEPLOY_SHOP_INSTANCE_ID,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET,DEPLOY_VAPID_PRIVATE_KEY,DEPLOY_INTERNAL_LOYALTY_API_KEY,DEPLOY_METERING_CALLER
+          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_NATS_REMOTE_HOST,DEPLOY_GATEWAY_REMOTE_HOST,DEPLOY_SHOP_INSTANCE_ID,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET,DEPLOY_VAPID_PRIVATE_KEY,DEPLOY_INTERNAL_LOYALTY_API_KEY,DEPLOY_METERING_CALLER,DEPLOY_METERING_ADMIN
           script: |
             set -e
 
@@ -771,6 +771,11 @@ jobs:
             EXISTING_METERING_SE_KEY=$(grep -E '^METERING_KEY_SHOPERP=' .env.shoperp 2>/dev/null | cut -d= -f2- || echo "")
             PARSED_SE_KEY=$(echo "${DEPLOY_METERING_CALLER:-}" | cut -d: -f2- | tr -d '[:space:]')
             FINAL_METERING_SE_KEY="${PARSED_SE_KEY:-$EXISTING_METERING_SE_KEY}"
+            # P6: metering admin key — key half of METERING_ADMIN ("sysadmin:<key>");
+            # preserved if secret empty. Used by ShopERP /admin/metering/rate-cards UI.
+            EXISTING_METERING_ADM_KEY=$(grep -E '^METERING_KEY_SYSADMIN=' .env.shoperp 2>/dev/null | cut -d= -f2- || echo "")
+            PARSED_ADM_KEY=$(echo "${DEPLOY_METERING_ADMIN:-}" | cut -d: -f2- | tr -d '[:space:]')
+            FINAL_METERING_ADM_KEY="${PARSED_ADM_KEY:-$EXISTING_METERING_ADM_KEY}"
 
             printf '%s\n' \
               "VANAN_DOMAIN=${DEPLOY_VANAN_DOMAIN}" \
@@ -792,6 +797,7 @@ jobs:
               "SHOPERP_TENANT_ID=00000000-0000-0000-0000-000000000001" \
               "SHOPERP_SYSADMIN_PASSWORD=2026@vanan" \
               "METERING_KEY_SHOPERP=${FINAL_METERING_SE_KEY}" \
+              "METERING_KEY_SYSADMIN=${FINAL_METERING_ADM_KEY}" \
               > .env.shoperp
 
             # Login to GHCR
@@ -841,6 +847,7 @@ jobs:
           DEPLOY_VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           DEPLOY_INTERNAL_LOYALTY_API_KEY: ${{ secrets.INTERNAL_LOYALTY_API_KEY }}
           DEPLOY_METERING_CALLER: ${{ secrets.METERING_CALLER }}
+          DEPLOY_METERING_ADMIN: ${{ secrets.METERING_ADMIN }}
 
   # ============================================================
   # Job 5b: Deploy to Metering VPS (vanan-metering — dedicated VPS, task P5)

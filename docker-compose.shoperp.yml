@@ -26,6 +26,9 @@ services:
       - Metering__BaseUrl=https://app2.${VANAN_DOMAIN}/admin/metering/api/
       - Metering__CallerId=shoperp-a
       - Metering__CallerKey=${METERING_KEY_SHOPERP}
+      # Phí nền tảng P6: admin client cho /admin/metering/rate-cards (caller "sysadmin", IsAdmin)
+      - Metering__AdminCallerId=sysadmin
+      - Metering__AdminKey=${METERING_KEY_SYSADMIN}
       # Phase 4: ShopInstance routing — THIS VPS's unique ShopInstance Guid.
       # MUST match the ShopInstance record created in Gateway PG via ShopInstances API.
       # Generate a NEW Guid for each ShopERP VPS — NEVER reuse across VPS.
