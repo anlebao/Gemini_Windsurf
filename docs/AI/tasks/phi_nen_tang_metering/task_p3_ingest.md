@@ -1,6 +1,6 @@
 # Task P3 — Usage Ingest + Idempotency + Summary/Events + Shadow Report
 
-> **Status:** ✅ ĐÃ DUYỆT — sẵn sàng implement
+> **Status:** ✅ IMPLEMENTED — tests 46/46 (T01–T15 + boundary) · HTTP smoke 14/14 (ingest/replay/late/batch `:batch`/summary/events-list). **Deviation:** route `events:batch` — `:` illegal in route template literal & minimal-hosting routing chạy trước user middleware (rewrite không tái match) → map `POST /v1/usage/{verb}` + kiểm tra `verb=="events:batch"`; URL contract đúng như card.
 > **Phase:** P3 (GĐ-1) · **Gate:** tests pass — idempotent replay, summary khớp
 > **Căn cứ:** SRS §6.1 (usage endpoints) · [G5] clock skew · [G6] idempotency · [G17] batch/counter · FR-1/2 · NFR-2/3
 

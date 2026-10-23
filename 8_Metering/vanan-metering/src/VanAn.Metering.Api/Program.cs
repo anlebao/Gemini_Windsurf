@@ -10,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 var dbPath = builder.Configuration.GetValue<string>("Metering:DbPath") ?? "data/metering.db";
 builder.Services.AddDbContext<MeteringDbContext>(o => o.UseSqlite($"Data Source={dbPath}"));
 builder.Services.AddScoped<RateCardService>();
+builder.Services.AddScoped<UsageService>();
 
 var app = builder.Build();
 
@@ -136,6 +137,51 @@ app.MapGet("/v1/rate-cards/resolve", async (string serviceCode, DateTime? atUtc,
     return v == null
         ? Results.Ok(new { resolved = false, serviceCode })
         : Results.Ok(ToDto(v));
+});
+
+// ---- Usage ingest + reporting (P3 — task_p3_ingest) ----
+
+static IResult BadRequest(string code, string message) => Results.Json(
+    new { error = new { code, message, retryable = false } },
+    statusCode: StatusCodes.Status400BadRequest);
+
+app.MapPost("/v1/usage/events", async (UsageEventRequest req, HttpContext ctx, UsageService svc, CancellationToken ct) =>
+{
+    var idemKey = ctx.Request.Headers["Idempotency-Key"].FirstOrDefault();
+    var r = await svc.IngestAsync((string)ctx.Items["CallerId"]!, idemKey, req, DateTime.UtcNow, ct);
+    if (r.ErrorCode != null) return BadRequest(r.ErrorCode, r.ErrorMessage!);
+    return r.Replay
+        ? Results.Ok(new UsageEventResponse(r.EventId!.Value, true))
+        : Results.Created($"/v1/usage/events/{r.EventId}", new UsageEventResponse(r.EventId!.Value));
+});
+
+// Google-style custom verb: URL `/v1/usage/events:batch` is a single segment —
+// route param captures it ('/' splits, ':' doesn't). WebApplication runs routing
+// before user middleware, so a path-rewrite middleware can't work (task_p3 D2).
+app.MapPost("/v1/usage/{verb}", async (string verb, UsageBatchItem[]? items, HttpContext ctx, UsageService svc, CancellationToken ct) =>
+{
+    if (verb != "events:batch") return Results.NotFound();
+    if (items == null || items.Length == 0)
+        return BadRequest("empty_batch", "Batch must contain at least one event.");
+    if (items.Length > UsageService.MaxBatchSize)
+        return BadRequest("batch_too_large", $"Batch size must be <= {UsageService.MaxBatchSize}.");
+    return Results.Ok(await svc.IngestBatchAsync((string)ctx.Items["CallerId"]!, items, DateTime.UtcNow, ct));
+});
+
+app.MapGet("/v1/usage/events", async (Guid tenantId, string? serviceCode, DateTime? from, DateTime? to, int? page, int? pageSize, UsageService svc, CancellationToken ct) =>
+{
+    if (tenantId == Guid.Empty) return BadRequest("invalid_tenantId", "tenantId must not be empty.");
+    var p = page ?? 1;
+    var ps = pageSize ?? UsageService.DefaultPageSize;
+    if (p < 1) return BadRequest("invalid_page", "page must be >= 1.");
+    if (ps < 1) return BadRequest("invalid_pageSize", "pageSize must be >= 1.");
+    return Results.Ok(await svc.ListEventsAsync(tenantId, serviceCode, from, to, p, Math.Min(ps, UsageService.MaxPageSize), ct));
+});
+
+app.MapGet("/v1/usage/summary", async (Guid tenantId, string period, UsageService svc, CancellationToken ct) =>
+{
+    var (r, errCode, errMsg) = await svc.GetSummaryAsync(tenantId, period, ct);
+    return r != null ? Results.Ok(r) : BadRequest(errCode!, errMsg!);
 });
 
 app.Run();
