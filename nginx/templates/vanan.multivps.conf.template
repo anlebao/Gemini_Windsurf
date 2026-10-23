@@ -342,6 +342,21 @@ server {
     location = /503.html { root /usr/share/nginx/html; internal; }
     location = /504.html { root /usr/share/nginx/html; internal; }
 
+    # ── vanan-metering API (P5) — dedicated metering VPS ────────────────
+    # app2.${VANAN_DOMAIN}/admin/metering/api/v1/* → http://<metering>:5050/v1/*
+    # ^~ skips regex location checks below. METERING_REMOTE_HOST defaults to
+    # 127.0.0.1 in the entrypoint when unset (502 for this path only, no outage).
+    location ^~ /admin/metering/api/ {
+        limit_req zone=api burst=60 nodelay;
+        proxy_pass         http://${METERING_REMOTE_HOST}:5050/;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+    }
+
     # ── Blazor Server protection (5 layers) — same as www2 ──────────────
     # See www2 server block for full documentation of each layer.
     # Layer 1: Static assets — no rate limit

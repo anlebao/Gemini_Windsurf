@@ -1,0 +1,31 @@
+# docker-compose.metering.yml — vanan-metering on its OWN VPS (task_p5 D1/D2)
+# Reached only via gateway nginx: app2.${VANAN_DOMAIN}/admin/metering/api/ → :5050
+# Port 5050 stays internal (VPC) — GCP firewall must NOT open it publicly.
+services:
+  metering:
+    image: ${IMAGE_PREFIX}/vanan-metering:${IMAGE_TAG}
+    container_name: vanan-metering
+    restart: unless-stopped
+    ports:
+      - "5050:5050"
+    environment:
+      - Metering__DbPath=/app/data/metering.db
+      - Metering__BootstrapCaller=${METERING_CALLER}
+      - Metering__BootstrapAdmin=${METERING_ADMIN}
+      - ASPNETCORE_URLS=http://+:5050
+    volumes:
+      - metering-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5050/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  metering-data:

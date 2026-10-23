@@ -1,0 +1,57 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{F731F49E-360C-4B97-BB45-D4E6DC85953A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VanAn.Metering.Api", "src\VanAn.Metering.Api\VanAn.Metering.Api.csproj", "{52391A43-45BA-417F-8A97-F4471DCD96D4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VanAn.Metering.Contracts", "src\VanAn.Metering.Contracts\VanAn.Metering.Contracts.csproj", "{3C7F2628-9CCE-4D53-9DF1-D72EA075E627}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VanAn.Metering.Domain", "src\VanAn.Metering.Domain\VanAn.Metering.Domain.csproj", "{1A258DAC-BF20-45BC-87CA-9BF4ED94001C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VanAn.Metering.Infra", "src\VanAn.Metering.Infra\VanAn.Metering.Infra.csproj", "{247DA7C7-91F8-40B8-B254-67296DC57C60}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{E6D453E8-8D0C-4765-99E8-BC7171858510}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VanAn.Metering.Tests", "tests\VanAn.Metering.Tests\VanAn.Metering.Tests.csproj", "{7198E5C0-8EA0-47B6-96E4-660E4860CEF0}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{52391A43-45BA-417F-8A97-F4471DCD96D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{52391A43-45BA-417F-8A97-F4471DCD96D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{52391A43-45BA-417F-8A97-F4471DCD96D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{52391A43-45BA-417F-8A97-F4471DCD96D4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3C7F2628-9CCE-4D53-9DF1-D72EA075E627}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3C7F2628-9CCE-4D53-9DF1-D72EA075E627}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3C7F2628-9CCE-4D53-9DF1-D72EA075E627}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3C7F2628-9CCE-4D53-9DF1-D72EA075E627}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1A258DAC-BF20-45BC-87CA-9BF4ED94001C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1A258DAC-BF20-45BC-87CA-9BF4ED94001C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1A258DAC-BF20-45BC-87CA-9BF4ED94001C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1A258DAC-BF20-45BC-87CA-9BF4ED94001C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{247DA7C7-91F8-40B8-B254-67296DC57C60}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{247DA7C7-91F8-40B8-B254-67296DC57C60}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{247DA7C7-91F8-40B8-B254-67296DC57C60}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{247DA7C7-91F8-40B8-B254-67296DC57C60}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7198E5C0-8EA0-47B6-96E4-660E4860CEF0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7198E5C0-8EA0-47B6-96E4-660E4860CEF0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7198E5C0-8EA0-47B6-96E4-660E4860CEF0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7198E5C0-8EA0-47B6-96E4-660E4860CEF0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{52391A43-45BA-417F-8A97-F4471DCD96D4} = {F731F49E-360C-4B97-BB45-D4E6DC85953A}
+		{3C7F2628-9CCE-4D53-9DF1-D72EA075E627} = {F731F49E-360C-4B97-BB45-D4E6DC85953A}
+		{1A258DAC-BF20-45BC-87CA-9BF4ED94001C} = {F731F49E-360C-4B97-BB45-D4E6DC85953A}
+		{247DA7C7-91F8-40B8-B254-67296DC57C60} = {F731F49E-360C-4B97-BB45-D4E6DC85953A}
+		{7198E5C0-8EA0-47B6-96E4-660E4860CEF0} = {E6D453E8-8D0C-4765-99E8-BC7171858510}
+	EndGlobalSection
+EndGlobal

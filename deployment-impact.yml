@@ -44,6 +44,10 @@ apps:
     image: ghcr.io/anlebao/vanan-crawler
     paths:
       - 7_Tooling/VanAn.Crawler/**
+  metering:
+    image: ghcr.io/anlebao/vanan-metering
+    paths:
+      - 8_Metering/**
 
 # ------------------------------------------------------------
 # Dependency graph — VERIFIED from *.csproj ProjectReference (2026-09-26)

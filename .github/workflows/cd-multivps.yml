@@ -74,7 +74,7 @@ jobs:
           if (-not $result) {
             $result = [PSCustomObject]@{
               deploy_action    = "full"
-              deploy_set       = @("gateway", "khachlink", "shoperp", "directory", "crawler")
+              deploy_set       = @("gateway", "khachlink", "shoperp", "directory", "crawler", "metering")
               nginx_changed    = $false
               verification_set = @("build", "unit", "integration", "startup", "deploy_smoke", "targeted_rv")
             }
@@ -117,6 +117,9 @@ jobs:
           - app: crawler
             file: 7_Tooling/VanAn.Crawler/Dockerfile
             image: vanan-crawler
+          - app: metering
+            file: 8_Metering/vanan-metering/Dockerfile
+            image: vanan-metering
 
     outputs:
       image_tag: ${{ env.IMAGE_TAG }}
@@ -247,6 +250,41 @@ jobs:
           fi
           echo "All 3 SSH keys validated (LF endings, valid format)."
 
+      - name: Verify metering secrets (only when metering is in deploy set)
+        if: ${{ contains(needs.impact-analysis.outputs.deploy_set, 'metering') }}
+        env:
+          VPS_METERING_HOST: ${{ secrets.VPS_METERING_HOST }}
+          VPS_METERING_USER: ${{ secrets.VPS_METERING_USER }}
+          VPS_METERING_SSH_PRIVATE_KEY: ${{ secrets.VPS_METERING_SSH_PRIVATE_KEY }}
+          METERING_REMOTE_HOST: ${{ secrets.METERING_REMOTE_HOST }}
+          METERING_CALLER: ${{ secrets.METERING_CALLER }}
+          METERING_ADMIN: ${{ secrets.METERING_ADMIN }}
+        run: |
+          missing=0
+          for var_name in VPS_METERING_HOST VPS_METERING_USER VPS_METERING_SSH_PRIVATE_KEY \
+                          METERING_REMOTE_HOST METERING_CALLER METERING_ADMIN; do
+            val=$(eval echo "\$${var_name}")
+            if [ -z "$val" ]; then
+              echo "::error::Missing GitHub secret: $var_name"
+              missing=$((missing+1))
+            fi
+          done
+          if [ $missing -gt 0 ]; then
+            echo "::error::$missing metering secrets missing — deploy blocked."
+            exit 1
+          fi
+          echo "Metering secrets OK."
+          # SSH key format check (same rules as other VPS keys)
+          printf '%s\n' "$VPS_METERING_SSH_PRIVATE_KEY" > /tmp/metering_key
+          chmod 600 /tmp/metering_key
+          if grep -q $'\r' /tmp/metering_key; then
+            echo "::error::VPS_METERING_SSH_PRIVATE_KEY has CRLF line endings."
+            exit 1
+          fi
+          ssh-keygen -lf /tmp/metering_key >/dev/null 2>&1 || { echo "::error::VPS_METERING_SSH_PRIVATE_KEY invalid."; exit 1; }
+          rm -f /tmp/metering_key
+          echo "Metering SSH key valid."
+
           # DIAGNOSTIC: Verify Gateway SSH key fingerprint matches local key
           echo "=== Gateway SSH Key Diagnostic ==="
           printf '%s\n' "$VPS_GATEWAY_SSH_PRIVATE_KEY" > /tmp/gw_key
@@ -327,7 +365,7 @@ jobs:
           username: ${{ secrets.VPS_GATEWAY_USER }}
           key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
           command_timeout: 60m
-          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_SEQ_PASSWORD,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_SHOPERP_REMOTE_HOST,DEPLOY_KHACHLINK_REMOTE_HOST,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET,DEPLOY_VAPID_PRIVATE_KEY,DEPLOY_INTERNAL_LOYALTY_API_KEY,DEPLOY_SHOP_INSTANCE_ID,DEPLOY_R2_ACCESS_KEY,DEPLOY_R2_SECRET_KEY,DEPLOY_GODADDY_API_KEY,DEPLOY_VPS_GATEWAY_HOST
+          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_SEQ_PASSWORD,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_SHOPERP_REMOTE_HOST,DEPLOY_KHACHLINK_REMOTE_HOST,DEPLOY_METERING_REMOTE_HOST,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET,DEPLOY_VAPID_PRIVATE_KEY,DEPLOY_INTERNAL_LOYALTY_API_KEY,DEPLOY_SHOP_INSTANCE_ID,DEPLOY_R2_ACCESS_KEY,DEPLOY_R2_SECRET_KEY,DEPLOY_GODADDY_API_KEY,DEPLOY_VPS_GATEWAY_HOST
           script: |
             set -e
 
@@ -362,6 +400,9 @@ jobs:
             # Domain Reseller R1: Preserve existing GoDaddy API key if GitHub secret is empty
             EXISTING_GODADDY_KEY=$(grep -E '^GODADDY_API_KEY=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
             FINAL_GODADDY_KEY="${DEPLOY_GODADDY_API_KEY:-$EXISTING_GODADDY_KEY}"
+            # P5: Preserve metering VPS internal IP if GitHub secret is empty
+            EXISTING_METERING_HOST=$(grep -E '^METERING_REMOTE_HOST=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
+            FINAL_METERING_HOST="${DEPLOY_METERING_REMOTE_HOST:-$EXISTING_METERING_HOST}"
             # 2026-09-21/22: Preserve crawler runtime config set manually on the VPS
             # (doanhnghiep.vn API key + GDT fallback flag) — CD must NOT drop them.
             EXISTING_DN_KEY=$(grep -E '^DOANHNGHIEP_API_KEY=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
@@ -373,6 +414,7 @@ jobs:
               "VANAN_DOMAIN=${DEPLOY_VANAN_DOMAIN}" \
               "SHOPERP_REMOTE_HOST=${DEPLOY_SHOPERP_REMOTE_HOST}" \
               "KHACHLINK_REMOTE_HOST=${DEPLOY_KHACHLINK_REMOTE_HOST}" \
+              "METERING_REMOTE_HOST=${FINAL_METERING_HOST}" \
               "POSTGRES_DB=VanAnCoreHub" \
               "POSTGRES_USER=vanan_admin" \
               "POSTGRES_PASSWORD=${DEPLOY_POSTGRES_PASSWORD}" \
@@ -445,6 +487,8 @@ jobs:
           DEPLOY_VANAN_DOMAIN: ${{ secrets.VANAN_DOMAIN }}
           DEPLOY_SHOPERP_REMOTE_HOST: ${{ secrets.SHOPERP_REMOTE_HOST }}
           DEPLOY_KHACHLINK_REMOTE_HOST: ${{ secrets.KHACHLINK_REMOTE_HOST }}
+          # P5: VPC internal IP of the dedicated metering VPS (nginx proxy target)
+          DEPLOY_METERING_REMOTE_HOST: ${{ secrets.METERING_REMOTE_HOST }}
           DEPLOY_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           DEPLOY_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           DEPLOY_VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
@@ -776,12 +820,106 @@ jobs:
           DEPLOY_INTERNAL_LOYALTY_API_KEY: ${{ secrets.INTERNAL_LOYALTY_API_KEY }}
 
   # ============================================================
+  # Job 5b: Deploy to Metering VPS (vanan-metering — dedicated VPS, task P5)
+  # ============================================================
+  deploy-metering:
+    name: Deploy to Metering VPS
+    runs-on: ubuntu-latest
+    needs: [impact-analysis, build-and-push, pre-deployment-validation]
+    # Independent service — no ordering dependency on gateway/shoperp.
+    if: ${{ !cancelled() && !failure() && contains(needs.impact-analysis.outputs.deploy_set, 'metering') }}
+    timeout-minutes: 60
+    environment: production-metering
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare deploy directory on Metering VPS
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_METERING_HOST }}
+          username: ${{ secrets.VPS_METERING_USER }}
+          key: ${{ secrets.VPS_METERING_SSH_PRIVATE_KEY }}
+          script: |
+            mkdir -p /opt/vanan-metering
+            ls -la /opt/vanan-metering
+            whoami
+            sudo docker image prune -af --filter "until=48h" 2>/dev/null || true
+
+      - name: Copy Metering deploy files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_METERING_HOST }}
+          username: ${{ secrets.VPS_METERING_USER }}
+          key: ${{ secrets.VPS_METERING_SSH_PRIVATE_KEY }}
+          source: "docker-compose.metering.yml"
+          target: "/opt/vanan-metering"
+          overwrite: true
+
+      - name: Bootstrap & Deploy Metering
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_METERING_HOST }}
+          username: ${{ secrets.VPS_METERING_USER }}
+          key: ${{ secrets.VPS_METERING_SSH_PRIVATE_KEY }}
+          command_timeout: 30m
+          envs: DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_METERING_CALLER,DEPLOY_METERING_ADMIN
+          script: |
+            set -e
+
+            # Bootstrap Docker (idempotent — fresh VPS on first deploy)
+            if ! command -v docker > /dev/null 2>&1; then
+              echo "Installing Docker..."
+              curl -fsSL https://get.docker.com | sh
+              sudo usermod -aG docker $USER
+            fi
+            if ! sudo docker compose version > /dev/null 2>&1; then
+              echo "Installing Docker Compose plugin..."
+              sudo apt-get update -qq && sudo apt-get install -y docker-compose-plugin
+            fi
+
+            cd /opt/vanan-metering
+
+            printf '%s\n' \
+              "IMAGE_PREFIX=${DEPLOY_REGISTRY}/${DEPLOY_REPO_OWNER}" \
+              "IMAGE_TAG=${DEPLOY_IMAGE_TAG}" \
+              "METERING_CALLER=${DEPLOY_METERING_CALLER}" \
+              "METERING_ADMIN=${DEPLOY_METERING_ADMIN}" \
+              > .env.metering
+            chmod 600 .env.metering
+
+            # Login to GHCR
+            echo "${DEPLOY_GITHUB_TOKEN}" | sudo docker login ghcr.io -u "${DEPLOY_GITHUB_ACTOR}" --password-stdin
+
+            # Pull & restart (with retry — transient network resets from ghcr.io CDN)
+            for i in 1 2 3 4 5; do
+              timeout 600 sudo docker compose -f docker-compose.metering.yml --env-file .env.metering pull && break
+              echo "⚠️ Pull attempt $i failed, retrying in 15s..."
+              sleep 15
+            done
+            sudo docker compose -f docker-compose.metering.yml --env-file .env.metering up -d --remove-orphans --wait --wait-timeout 240
+
+            # Final state + local health probe
+            sudo docker compose -f docker-compose.metering.yml --env-file .env.metering ps
+            curl -fsS --max-time 15 http://localhost:5050/v1/health || { echo "::error::metering health failed"; exit 1; }
+            echo "Metering VPS deploy complete!"
+        env:
+          DEPLOY_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_GITHUB_ACTOR: ${{ github.actor }}
+          DEPLOY_REGISTRY: ${{ env.REGISTRY }}
+          DEPLOY_REPO_OWNER: ${{ github.repository_owner }}
+          DEPLOY_IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          DEPLOY_METERING_CALLER: ${{ secrets.METERING_CALLER }}
+          DEPLOY_METERING_ADMIN: ${{ secrets.METERING_ADMIN }}
+
+  # ============================================================
   # Job 6: Post-Deploy Smoke Test
   # ============================================================
   smoke-test:
     name: Post-Deploy Smoke Test
     runs-on: ubuntu-latest
-    needs: [impact-analysis, deploy-gateway, deploy-khachlink, deploy-shoperp]
+    needs: [impact-analysis, deploy-gateway, deploy-khachlink, deploy-shoperp, deploy-metering]
     # Runs whenever something was deployed (deploy jobs may be individually skipped).
     if: ${{ !cancelled() && !failure() && needs.impact-analysis.outputs.deploy_action != 'noop' }}
     timeout-minutes: 5
@@ -844,7 +982,15 @@ jobs:
             echo "::error::ShopERP health check failed after 5 retries. Inspect diagnostics above (OOM? config error? Kestrel crash?)."
             exit 1
 
-      - name: Summary
+      - name: Test Metering health
+        if: ${{ contains(needs.impact-analysis.outputs.deploy_set, 'metering') }}
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_METERING_HOST }}
+          username: ${{ secrets.VPS_METERING_USER }}
+          key: ${{ secrets.VPS_METERING_SSH_PRIVATE_KEY }}
+          script: |
+            curl -fsS --max-time 30 http://localhost:5050/v1/health && echo "Metering health OK"
         run: |
           echo "=== Multi-VPS Deploy Summary ==="
           echo "Gateway VPS: ${{ secrets.VPS_GATEWAY_HOST }}"

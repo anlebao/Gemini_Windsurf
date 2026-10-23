@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Standalone metering service domain — NO ProjectReference to 1_Shared / 3_CoreHub.
+         Entities here belong to the metering system (separate ledger/wallet per SRS O1/O2). -->
+  </PropertyGroup>
+
+</Project>

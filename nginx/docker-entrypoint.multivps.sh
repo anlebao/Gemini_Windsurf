@@ -37,8 +37,12 @@ if ! command -v envsubst > /dev/null 2>&1; then
     apk add --no-cache gettext > /dev/null 2>&1
 fi
 
-# Substitute all 3 vars — preserve nginx's own $host, $http_upgrade, etc.
-ENVSUBST_VARS='${VANAN_DOMAIN} ${SHOPERP_REMOTE_HOST} ${KHACHLINK_REMOTE_HOST}'
+# Substitute all 4 vars — preserve nginx's own $host, $http_upgrade, etc.
+# METERING_REMOTE_HOST defaults to 127.0.0.1 when unset: the metering location
+# then 502s in isolation instead of producing an invalid proxy_pass that would
+# crash the whole nginx config (P5 — vanan-metering on dedicated VPS).
+METERING_REMOTE_HOST="${METERING_REMOTE_HOST:-127.0.0.1}"
+ENVSUBST_VARS='${VANAN_DOMAIN} ${SHOPERP_REMOTE_HOST} ${KHACHLINK_REMOTE_HOST} ${METERING_REMOTE_HOST}'
 
 if [ -f "$CERT_PATH" ]; then
     echo "[nginx-entrypoint-multivps] SSL cert found — generating HTTPS multi-VPS config"

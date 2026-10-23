@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>VanAn.Metering.Api</RootNamespace>
+    <AssemblyName>VanAn.Metering.Api</AssemblyName>
+    <!-- Standalone service — NO ProjectReference to 1_Shared / 3_CoreHub (SRS [G1]). -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VanAn.Metering.Contracts\VanAn.Metering.Contracts.csproj" />
+    <ProjectReference Include="..\VanAn.Metering.Domain\VanAn.Metering.Domain.csproj" />
+    <ProjectReference Include="..\VanAn.Metering.Infra\VanAn.Metering.Infra.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
