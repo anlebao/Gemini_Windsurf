@@ -1,6 +1,6 @@
 # Task P2 — Rate Card Versioned CRUD + Audit + Resolver + Unit Tests
 
-> **Status:** ✅ IMPLEMENTED — build 0 warnings/errors · tests 25/25 PASS · HTTP smoke PASS (401/403/CRUD/resolve/delete-idempotent/audit)
+> **Status:** ✅ IMPLEMENTED + DEPLOYED + RV PRODUCTION PASS (`429165e0`, CD #39952898421) — build 0 warnings/errors · tests 25/25 PASS · RV 14/14 qua `app2.khachvip.online/admin/metering/api/` (auth 401/403 · CRUD · resolve · delete idempotent · 3 audit rows trong DB)
 > **Phase:** P2 (GĐ-1) · **Gate:** tests pass
 > **Căn cứ:** SRS §6.1 (`/v1/rate-cards`) · [G7] versioned · [G20] Enforcement · NFR-5 audit · O-3/O-4 đã chốt
 

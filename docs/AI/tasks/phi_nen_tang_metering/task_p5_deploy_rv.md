@@ -1,6 +1,6 @@
 # Task P5 — Deploy `vanan-metering` lên VPS RIÊNG + Runtime Verification
 
-> **Status:** ✅ ĐÃ DUYỆT — VPS riêng (user chốt), sẵn sàng implement
+> **Status:** 🟡 PHẦN LỚN DONE (2026-10-23, CD #39952898421) — VPS `vanan-metering` provisioned (docker + `/opt/vanan-metering` + deploy user) · compose deploy ✅ · nginx `/admin/metering/api/` → internal `10.148.0.6:5050` ✅ · external :5050 blocked ✅ · RV L1–L2 cơ bản PASS. **Còn:** RV checklist đầy đủ của card (auth caller thật từ app services · latency · alerting) + caller integration thực tế (P4).
 > **Phase:** P5 (GĐ-1) · **Gate:** CD pass + health 200 + RV L1-L2
 > **Căn cứ:** master plan §6.5 RV · cd-multivps.yml matrix `metering` (P1 đã wire) · Pattern #32 (image phải build trước deploy)
 
