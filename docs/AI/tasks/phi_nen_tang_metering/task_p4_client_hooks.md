@@ -114,7 +114,7 @@ Store.razor (WASM, sau khi _store load) → JS fetch POST {gateway}/api/public/m
 
 **Out of scope:** check/deny (P7) · NATS mirror (P10) · fraud rules (P16).
 
-## 7. Status — IMPLEMENTED 2026-10-23 (pre-deploy)
+## 7. Status — ✅ DEPLOYED + RV PRODUCTION PASS 2026-10-23 (`1018ab97` + `facc16e7`, CD #39964490553 ALL SUCCESS)
 
 **Build:** `dotnet build VanAn.sln` — 0 errors (warnings = baseline). `VanAn.Metering.sln` — 0 errors/0 warnings.
 **Tests:** `MeteringP4Tests` 9/9 PASS (T01–T09). Regression ChatService+BookingService+RealtimePlatform: 49/49 PASS. actionlint workflow: clean.
@@ -134,3 +134,11 @@ Store.razor (WASM, sau khi _store load) → JS fetch POST {gateway}/api/public/m
 - `docker-compose.{gateway,shoperp,khachlink,directory,metering}.yml` += `Metering__*` envs (callerId/key/BaseUrl/PlatformTenantId + `BootstrapCallers`).
 - `cd-multivps.yml`: `.env.{gateway,khachlink,shoperp,metering}` writes `METERING_KEY_*`/`METERING_CALLERS` — key extract từ secret `METERING_CALLERS` (`gateway:<k1>;directory:<k2>`) + `METERING_CALLER` (shoperp-a). Secrets check += `METERING_CALLERS`.
 - GitHub secret `METERING_CALLERS` — SET.
+
+### RV production (T10 automated subset — PASS)
+
+- `POST api2.khachvip.online/api/public/metering/event`: bot UA `curl/7.88` → 200 `{accepted:false}` không forward · `serviceCode=feature.booking` → 400 · valid visit → 200 accepted:true · replay cùng key → dedupe server-side (1 event) · cùng endpoint qua `diemthuong2.khachvip.online/api/` (beacon path thật) → 200.
+- Metering DB: event `store.visit` caller=`gateway` landed + summary `store.visit qty=1` (unpriced — chưa có rate card, by design); CallerKeys seeded đủ `gateway`+`directory`+`shoperp-a`+`sysadmin`.
+- `js/metering.js` live trên khachlink domain (200, 1803B).
+- CD fix lần này: `METERING_CALLERS` thiếu trong env block của secrets-check step → `facc16e7`.
+- ⏳ T10 phần manual còn lại (flow người dùng thật — open store trong browser, gửi chat, timlathay search+click, tạo booking, mở /financial): hooks đã wire + unit test T03–T06 verify payload/tenant; verify live khi có traffic thật.
