@@ -36,3 +36,6 @@ Follow the Maintenance Rules in Section 0 of project_state.md (no duplicate sect
 
 ## FULL GOVERNANCE
 The complete VanAn governance (Domain rules, workflow modes, UI Platform, hard stops) is in `.devin/rules/governance.md` and is always-on.
+
+## SUBSYSTEM RULES (lazy-load on demand)
+- **Metering "Phí nền tảng":** `.devin/rules/metering.md` — read BEFORE any task touching `8_Metering/`, `MeteringApiClient`, `IMeteringClient`, `/v1/wallets`, `/v1/topups`, rate-cards, deny gate, wallet banner, or VietQR top-up. Contains API contract, append-only semantics, SQLite decimal pitfalls, caller secrets handling.

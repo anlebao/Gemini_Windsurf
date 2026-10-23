@@ -140,6 +140,9 @@ Every entity inheriting `BaseEntity` MUST use a **single identity**: `BaseEntity
 - **Verify push success:** `gh api repos/<owner>/<repo>/branches/main --jq '.commit.sha'` vs `git rev-parse HEAD`
 - **Detailed pattern:** See Known Error Pattern #11 in this file
 
+## SUBSYSTEM RULES
+- **Metering "Phí nền tảng" (vanan-metering):** `.devin/rules/metering.md` — architecture, API contract, wallet/topup semantics, SQLite pitfalls. Mandatory read for any metering-related task.
+
 ## WORKFLOW REFERENCES
 - **New Features:** `.devin/workflows/newfeaturebuild.md` (7-step ANALYZE → IMPLEMENT)
 - **Fix Errors:** `.devin/workflows/Fix_Errors.md` (pattern-based FIX_ONLY)
