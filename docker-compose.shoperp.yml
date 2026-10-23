@@ -22,6 +22,10 @@ services:
       # #130: Public Gateway URL for browser JS fetch (Guard photo upload).
       # Gateway__BaseUrl is VPC internal IP (unreachable from browser) — this is the public URL.
       - Gateway__PublicBaseUrl=https://api2.${VANAN_DOMAIN}
+      # Phí nền tảng P4: metering client (public route via gateway nginx; caller "shoperp-a")
+      - Metering__BaseUrl=https://app2.${VANAN_DOMAIN}/admin/metering/api/
+      - Metering__CallerId=shoperp-a
+      - Metering__CallerKey=${METERING_KEY_SHOPERP}
       # Phase 4: ShopInstance routing — THIS VPS's unique ShopInstance Guid.
       # MUST match the ShopInstance record created in Gateway PG via ShopInstances API.
       # Generate a NEW Guid for each ShopERP VPS — NEVER reuse across VPS.

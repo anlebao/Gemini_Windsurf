@@ -17,6 +17,7 @@
 @inject IThemeProvider ThemeProvider
 @inject NavigationManager Navigation
 @inject ILogger<Dashboard> Logger
+@inject FeatureUsageRecorder FeatureUsage
 
 @attribute [Authorize(Policy = "FinancialAccess")]
 
@@ -237,6 +238,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _ = FeatureUsage.RecordAsync("feature.financial"); // Phí nền tảng P4 — monthly dedupe, fire-and-forget
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         _isSystemAdmin = authState.User.IsInRole("SystemAdmin");
         if (_isSystemAdmin)

@@ -1,11 +1,13 @@
 ﻿@page "/"
 @using VanAn.Directory.Services
+@using VanAn.Shared.Domain.Common
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.UI.Platform.Tokens
 @inject CatalogService CatalogService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 @inject IConfiguration Configuration
+@inject IMeteringClient Metering
 
 <PageTitle>Danh bạ Vạn An — Tìm cửa hàng gần bạn</PageTitle>
 
@@ -206,7 +208,7 @@
                                         }
                                         @if (!string.IsNullOrEmpty(store.Slug))
                                         {
-                                            <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary" OnClick="@(() => NavigateToStore(store.Slug, store.KhachLinkDomain))">
+                                            <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary" OnClick="@(() => NavigateToStore(store.Slug, store.KhachLinkDomain, store.Id))">
                                                 <i class="bi bi-shop me-1"></i> Xem trang cửa hàng
                                             </VanAnButton>
                                         }
@@ -272,6 +274,19 @@
             _products = new();
         }
         _loading = false;
+
+        // Phí nền tảng P4 (hook c): directory.search — platform tenant, kw hashed (privacy),
+        // fire-and-forget (G9). Unique key per action — distinct searches each count.
+        if (Guid.TryParse(Configuration["Metering:PlatformTenantId"], out var platformTenant))
+        {
+            var kwHash = Convert.ToHexString(
+                System.Security.Cryptography.SHA256.HashData(
+                    System.Text.Encoding.UTF8.GetBytes(_searchKeyword ?? "")))[..8];
+            _ = Metering.RecordUsageAsync(new MeteringUsageEvent(
+                platformTenant, "directory.search", 1, "search", DateTime.UtcNow,
+                $"dir-search:{Guid.NewGuid()}",
+                MetadataJson: $"{{\"mode\":\"{_searchMode}\",\"results\":{(_searchMode == "product" ? _products.Count : _stores.Count)},\"kw\":\"{kwHash}\"}}"));
+        }
     }
 
     /// <summary>Toggle search mode: "store" (default, existing) | "product" (new).
@@ -320,8 +335,15 @@
         _pendingAlert = $"{storeName} đang chờ xác minh thông tin từ chủ doanh nghiệp. Vui lòng quay lại sau.";
     }
 
-    private void NavigateToStore(string slug, string? khachLinkDomain)
+    private void NavigateToStore(string slug, string? khachLinkDomain, Guid tenantId)
     {
+        // Phí nền tảng P4 (hook c): directory.redirect — tenant-facing click-through,
+        // fire-and-forget before navigation (G9).
+        _ = Metering.RecordUsageAsync(new MeteringUsageEvent(
+            tenantId, "directory.redirect", 1, "redirect", DateTime.UtcNow,
+            $"dir-redirect:{tenantId}:{Guid.NewGuid()}",
+            MetadataJson: $"{{\"slug\":\"{slug}\"}}"));
+
         if (!string.IsNullOrEmpty(khachLinkDomain))
         {
             // Redirect to tenant's own KhachLink domain

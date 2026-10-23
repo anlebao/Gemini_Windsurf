@@ -641,6 +641,19 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<Services.ShopInboxApiClient>();
             // Notification Hub (2026-10-15): thông báo owner — Owner JWT → /api/v1/notifications/owner/*
             _ = builder.Services.AddScoped<Services.NotificationApiClient>();
+            // Phí nền tảng P4: usage metering client — thin per-host wrapper (task_p4 D2, no shared DLL).
+            // Missing Metering:* config → client self-disables (staging works without metering).
+            _ = builder.Services.AddHttpClient<VanAn.Shared.Domain.Common.IMeteringClient, Services.MeteringApiClient>(c =>
+            {
+                var baseUrl = builder.Configuration["Metering:BaseUrl"];
+                if (!string.IsNullOrWhiteSpace(baseUrl)) c.BaseAddress = new Uri(baseUrl);
+                c.Timeout = TimeSpan.FromSeconds(3);
+                var callerId = builder.Configuration["Metering:CallerId"];
+                var callerKey = builder.Configuration["Metering:CallerKey"];
+                if (!string.IsNullOrEmpty(callerId)) c.DefaultRequestHeaders.TryAddWithoutValidation("X-Caller-Id", callerId);
+                if (!string.IsNullOrEmpty(callerKey)) c.DefaultRequestHeaders.TryAddWithoutValidation("X-Metering-Key", callerKey);
+            });
+            _ = builder.Services.AddScoped<Services.FeatureUsageRecorder>();
             // Nav menu SSOT (2026-09-19): single menu definition per role used by all layouts
             _ = builder.Services.AddScoped<Services.IShopErpMenuService, Services.ShopErpMenuService>();
             _ = builder.Services.AddScoped<Services.CampaignApiClient>();

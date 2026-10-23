@@ -80,6 +80,11 @@ services:
       # Issue #166: Default KhachLink commerce domain for store redirect fallback
       # (tenants without their own KhachLinkInstance redirect here for /store/{slug})
       - KhachLink__DefaultDomain=${DIRECTORY_DEFAULT_KHACHLINK_DOMAIN:-diemthuong2.khachvip.online}
+      # Phí nền tảng P4: metering client (public route via gateway nginx; caller "directory")
+      - Metering__BaseUrl=https://app2.${VANAN_DOMAIN}/admin/metering/api/
+      - Metering__CallerId=directory
+      - Metering__CallerKey=${METERING_KEY_DIRECTORY}
+      - Metering__PlatformTenantId=${METERING_PLATFORM_TENANT}
     networks:
       - vanan-network
     ports:

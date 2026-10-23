@@ -94,6 +94,10 @@ services:
       - ConnectionStrings__Nats=nats://nats:4222
       - Nats__Url=nats://nats:4222
       - NATS__Url=nats://nats:4222
+      # Phí nền tảng P4: metering client (public route via own nginx; caller "gateway")
+      - Metering__BaseUrl=https://app2.${VANAN_DOMAIN}/admin/metering/api/
+      - Metering__CallerId=gateway
+      - Metering__CallerKey=${METERING_KEY_GATEWAY}
       - Authentication__JwtSettings__SecretKey=${JWT_SECRET_KEY}
       - Jwt__Secret=${JWT_SECRET_KEY}
       # Dynamic CORS: static origins from appsettings.Production.json + dynamic from KhachLinkInstance registry.

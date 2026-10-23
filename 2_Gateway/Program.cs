@@ -314,6 +314,32 @@ namespace VanAn.Gateway
 
 
 
+                // Phí nền tảng P4: public store.visit ingest — 60 req/min/IP (task_p4).
+
+                options.AddPolicy("public-metering", context =>
+
+                {
+
+                    string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+                    return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+
+                    {
+
+                        PermitLimit = 60,
+
+                        Window = TimeSpan.FromMinutes(1),
+
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+
+                        QueueLimit = 0
+
+                    });
+
+                });
+
+
+
                 options.AddPolicy("auth", context =>
 
                 {
@@ -843,6 +869,21 @@ namespace VanAn.Gateway
 
                 client.Timeout = TimeSpan.FromSeconds(10);
 
+            });
+
+
+
+            // Phí nền tảng P4: usage metering client — thin per-host wrapper (task_p4 D2).
+            // Missing Metering:* config → client self-disables (staging works without metering).
+            _ = builder.Services.AddHttpClient<IMeteringClient, Services.MeteringApiClient>(client =>
+            {
+                var baseUrl = builder.Configuration["Metering:BaseUrl"];
+                if (!string.IsNullOrWhiteSpace(baseUrl)) client.BaseAddress = new Uri(baseUrl);
+                client.Timeout = TimeSpan.FromSeconds(3);
+                var callerId = builder.Configuration["Metering:CallerId"];
+                var callerKey = builder.Configuration["Metering:CallerKey"];
+                if (!string.IsNullOrEmpty(callerId)) client.DefaultRequestHeaders.TryAddWithoutValidation("X-Caller-Id", callerId);
+                if (!string.IsNullOrEmpty(callerKey)) client.DefaultRequestHeaders.TryAddWithoutValidation("X-Metering-Key", callerKey);
             });
 
 

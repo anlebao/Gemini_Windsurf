@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Common;
 
 namespace VanAn.CoreHub.Services;
 
@@ -18,7 +19,8 @@ namespace VanAn.CoreHub.Services;
 /// </summary>
 public class ChatService(
     IVanAnDbContext dbContext,
-    ILogger<ChatService> logger) : IChatService
+    ILogger<ChatService> logger,
+    IMeteringClient? metering = null) : IChatService
 {
     private readonly IVanAnDbContext _dbContext = dbContext;
     private readonly ILogger<ChatService> _logger = logger;
@@ -121,6 +123,21 @@ public class ChatService(
 
         _logger.LogInformation("SendMessage: Message {MsgId} sent in conversation {ConvId} by {SenderId}",
             message.Id, conversation.Id, senderId);
+
+        // Phí nền tảng P4 (hook b): chat.message + chat.bytes — fire-and-forget (G9),
+        // AFTER successful persist only. Metering outage must not affect chat.
+        if (metering is not null)
+        {
+            var occurred = DateTime.UtcNow;
+            _ = metering.RecordUsageBatchAsync([
+                new MeteringUsageEvent(conversation.TenantId.Value, "chat.message", 1, "message", occurred,
+                    $"msg:{message.Id}", RequestedBy: senderId.ToString(), TaskRef: message.Id.ToString(),
+                    MetadataJson: $"{{\"conversationId\":\"{conversation.Id}\"}}"),
+                new MeteringUsageEvent(conversation.TenantId.Value, "chat.bytes",
+                    System.Text.Encoding.UTF8.GetByteCount(content), "byte", occurred,
+                    $"msg:{message.Id}:bytes", RequestedBy: senderId.ToString(), TaskRef: message.Id.ToString())
+            ], CancellationToken.None);
+        }
 
         return message;
     }

@@ -113,3 +113,24 @@ Store.razor (WASM, sau khi _store load) → JS fetch POST {gateway}/api/public/m
 | `6_Tests/VanAn.Core.Tests` + `ShopERP.Tests` | += tests T03–T06, T09 |
 
 **Out of scope:** check/deny (P7) · NATS mirror (P10) · fraud rules (P16).
+
+## 7. Status — IMPLEMENTED 2026-10-23 (pre-deploy)
+
+**Build:** `dotnet build VanAn.sln` — 0 errors (warnings = baseline). `VanAn.Metering.sln` — 0 errors/0 warnings.
+**Tests:** `MeteringP4Tests` 9/9 PASS (T01–T09). Regression ChatService+BookingService+RealtimePlatform: 49/49 PASS. actionlint workflow: clean.
+
+### Deviations ghi nhận (so với card gốc)
+
+1. **`Metering:BootstrapCallers`** (metering Program.cs) — thêm seed list `"id:key;id2:key2"` cho caller `gateway`+`directory` (card gốc chỉ có BootstrapCaller đơn). Backward-compatible, cần thiết vì audit attribution per-caller.
+2. **Store.razor fire ở `OnInitializedAsync`** — không phải `OnAfterRenderAsync`: KhachLink là standalone WASM (không prerender), OnInitializedAsync chỉ chạy 1 lần/page-load → tương đương "first render only". JS `vananMetering.recordVisit` dùng `sendBeacon`/fetch keepalive như card.
+3. **`dir-search`/`dir-redirect` dùng unique GUID idempotency** — mỗi action đếm 1 lần (không dedupe theo giờ): search/click lần 2 là usage thật, khác `store.visit` cần chống refresh-spam.
+4. **FeatureUsageRecorder lấy `ITenantProvider`** (không "tenant context" mơ hồ) — `feature:{code}:{tenant}:{yyyy-MM}` đúng card; `HasTenant=false` (sysadmin browse) → skip.
+5. **`Metering__BaseUrl` cần trailing `/`** — client tự normalize defensive; envs đã ghi `.../api/`.
+6. **`Metering:PlatformTenantId=f0000000-0000-4000-8000-000000000001`** — tenant grouping cho `directory.search` (không phải tenant thật).
+7. **Tests gom 1 file** `6_Tests/VanAn.Core.Tests/Metering/MeteringP4Tests.cs` (Core.Tests ref đủ Gateway+ShopERP+CoreHub) thay vì rải ShopERP.Tests.
+
+### Deploy wiring đã làm
+
+- `docker-compose.{gateway,shoperp,khachlink,directory,metering}.yml` += `Metering__*` envs (callerId/key/BaseUrl/PlatformTenantId + `BootstrapCallers`).
+- `cd-multivps.yml`: `.env.{gateway,khachlink,shoperp,metering}` writes `METERING_KEY_*`/`METERING_CALLERS` — key extract từ secret `METERING_CALLERS` (`gateway:<k1>;directory:<k2>`) + `METERING_CALLER` (shoperp-a). Secrets check += `METERING_CALLERS`.
+- GitHub secret `METERING_CALLERS` — SET.

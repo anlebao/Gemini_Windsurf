@@ -12,6 +12,11 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
       - Gateway__BaseUrl=http://${GATEWAY_REMOTE_HOST}:80/
+      # Phí nền tảng P4: metering client (public route via gateway nginx; caller "directory")
+      - Metering__BaseUrl=https://app2.${VANAN_DOMAIN}/admin/metering/api/
+      - Metering__CallerId=directory
+      - Metering__CallerKey=${METERING_KEY_DIRECTORY}
+      - Metering__PlatformTenantId=${METERING_PLATFORM_TENANT}
     networks:
       - vanan-network
     ports:

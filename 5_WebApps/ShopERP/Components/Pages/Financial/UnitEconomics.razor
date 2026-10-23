@@ -12,6 +12,7 @@
 @inject IThemeProvider ThemeProvider
 @inject IJSRuntime JSRuntime
 @inject ILogger<UnitEconomics> Logger
+@inject FeatureUsageRecorder FeatureUsage
 
 @attribute [Authorize(Policy = "FinancialAccess")]
 
@@ -122,7 +123,11 @@
     private string _sortColumn = "ProfitContribution";
     private bool _sortDescending = true;
 
-    protected override async Task OnInitializedAsync() => await ReloadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        _ = FeatureUsage.RecordAsync("feature.financial"); // Phí nền tảng P4 — monthly dedupe, fire-and-forget
+        await ReloadAsync();
+    }
 
     private async Task ReloadAsync()
     {

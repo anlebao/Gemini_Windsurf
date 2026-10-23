@@ -14,6 +14,7 @@
 @inject IFoodCostService FoodCostService
 @inject ITenantProvider TenantProvider
 @inject ILogger<InventoryDashboard> Logger
+@inject VanAn.ShopERP.Services.FeatureUsageRecorder FeatureUsage
 
 <PageTitle>Tồn kho - Vạn An</PageTitle>
 
@@ -188,6 +189,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _ = FeatureUsage.RecordAsync("feature.inventory"); // Phí nền tảng P4 — monthly dedupe, fire-and-forget
         await LoadDashboard();
     }
 

@@ -4,6 +4,7 @@ using VanAn.CoreHub.Commands;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Common;
 // Namespace "Booking" xung đột type Booking (lesson P1 — CS0118) → alias cho domain entity.
 using BookingEntity = VanAn.Shared.Domain.Booking;
 using OrderEntity = VanAn.Shared.Domain.Order;
@@ -36,7 +37,8 @@ namespace VanAn.CoreHub.Services.Booking
         IOrderService? orderService = null,
         IBookingFinancialService? financialService = null,
         ICommissionService? commissionService = null,
-        INotificationCenterService? notificationCenter = null) : IBookingService
+        INotificationCenterService? notificationCenter = null,
+        IMeteringClient? metering = null) : IBookingService
     {
         /// <summary>Message conflict customer-friendly (SRS §6.5) — KHÔNG hiển thị mã kỹ thuật.</summary>
         public const string ConflictMessage = "Khung giờ này vừa có người đặt. Vui lòng chọn khung giờ khác.";
@@ -57,6 +59,7 @@ namespace VanAn.CoreHub.Services.Booking
         private readonly IBookingFinancialService? _financialService = financialService;
         private readonly ICommissionService? _commissionService = commissionService;
         private readonly INotificationCenterService? _notificationCenter = notificationCenter;
+        private readonly IMeteringClient? _metering = metering;
 
         // ── Create (Idempotency-Key §21.1 + double-booking AC-C04) ──────────
 
@@ -228,6 +231,16 @@ namespace VanAn.CoreHub.Services.Booking
                 {
                     _logger.LogError(ex, "Booking created: failed to notify owner for booking {BookingId} — skipped (fail-safe)", booking.Id);
                 }
+            }
+
+            // Phí nền tảng P4 (hook d): feature.booking — AFTER commit only (fire-and-forget G9).
+            // Idempotency booking:{bookingId} — at most one event per booking even on retry.
+            if (_metering is not null)
+            {
+                _ = _metering.RecordUsageAsync(new MeteringUsageEvent(
+                    tenantId.Value, "feature.booking", 1, "booking", DateTime.UtcNow,
+                    $"booking:{booking.Id}", TaskRef: booking.Id.ToString(),
+                    MetadataJson: $"{{\"code\":\"{booking.PublicBookingCode}\"}}"), CancellationToken.None);
             }
 
             return booking;

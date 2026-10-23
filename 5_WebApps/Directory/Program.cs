@@ -48,6 +48,19 @@ builder.Services.AddHttpClient<GrowthAuditService>(client =>
     client.BaseAddress = new Uri(builder.Configuration["Gateway:BaseUrl"] ?? "http://localhost:5001/");
 });
 
+// Phí nền tảng P4: usage metering client — thin per-host wrapper (task_p4 D2).
+// Missing Metering:* config → client self-disables (staging works without metering).
+builder.Services.AddHttpClient<VanAn.Shared.Domain.Common.IMeteringClient, MeteringApiClient>(client =>
+{
+    var baseUrl = builder.Configuration["Metering:BaseUrl"];
+    if (!string.IsNullOrWhiteSpace(baseUrl)) client.BaseAddress = new Uri(baseUrl);
+    client.Timeout = TimeSpan.FromSeconds(3);
+    var callerId = builder.Configuration["Metering:CallerId"];
+    var callerKey = builder.Configuration["Metering:CallerKey"];
+    if (!string.IsNullOrEmpty(callerId)) client.DefaultRequestHeaders.TryAddWithoutValidation("X-Caller-Id", callerId);
+    if (!string.IsNullOrEmpty(callerKey)) client.DefaultRequestHeaders.TryAddWithoutValidation("X-Metering-Key", callerKey);
+});
+
 // IMemoryCache — cache instance config + store data 5 phút
 builder.Services.AddMemoryCache();
 

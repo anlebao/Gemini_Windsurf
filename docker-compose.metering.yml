@@ -12,6 +12,7 @@ services:
       - Metering__DbPath=/app/data/metering.db
       - Metering__BootstrapCaller=${METERING_CALLER}
       - Metering__BootstrapAdmin=${METERING_ADMIN}
+      - Metering__BootstrapCallers=${METERING_CALLERS}
       - ASPNETCORE_URLS=http://+:5050
     volumes:
       - metering-data:/app/data

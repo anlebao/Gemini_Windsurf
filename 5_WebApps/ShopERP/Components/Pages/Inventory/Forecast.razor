@@ -14,6 +14,7 @@
 @inject ITenantProvider TenantProvider
 @inject IJSRuntime JSRuntime
 @inject ILogger<Forecast> Logger
+@inject VanAn.ShopERP.Services.FeatureUsageRecorder FeatureUsage
 
 <PageTitle>Dự báo tồn kho - Vạn An</PageTitle>
 
@@ -245,6 +246,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _ = FeatureUsage.RecordAsync("feature.inventory"); // Phí nền tảng P4 — monthly dedupe, fire-and-forget
         await LoadForecast();
     }
 

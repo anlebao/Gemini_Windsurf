@@ -746,6 +746,11 @@ else
                 return;
             }
 
+            // Phí nền tảng P4 (hook a): store.visit — fire once per page load via sendBeacon,
+            // fire-and-forget (G9): metering outage must never affect storefront rendering.
+            try { _ = JSRuntime.InvokeVoidAsync("vananMetering.recordVisit", _store.Id.ToString()); }
+            catch { /* metering must never break the page */ }
+
             // Build ShopConfig from tenant store data
             _shopConfig = await ShopConfigService.GetShopConfigByTenantIdAsync(_store.Id);
 

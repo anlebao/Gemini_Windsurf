@@ -23,6 +23,13 @@ using (var scope = app.Services.CreateScope())
     db.Database.EnsureCreated();
     SeedBootstrapCaller(app.Configuration, db, "Metering:BootstrapCaller", isAdmin: false);
     SeedBootstrapCaller(app.Configuration, db, "Metering:BootstrapAdmin", isAdmin: true);
+    // P4: additional non-admin callers ("gateway","directory") — semicolon list of "id:key".
+    var extraCallers = app.Configuration.GetValue<string>("Metering:BootstrapCallers");
+    if (!string.IsNullOrWhiteSpace(extraCallers))
+    {
+        foreach (var pair in extraCallers.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            SeedBootstrapCallerValue(db, pair, isAdmin: false);
+    }
 }
 
 static void SeedBootstrapCaller(IConfiguration config, MeteringDbContext db, string configKey, bool isAdmin)
@@ -31,10 +38,15 @@ static void SeedBootstrapCaller(IConfiguration config, MeteringDbContext db, str
     // CallerKey management exists (P7+). BootstrapAdmin seeds the rate-card admin (D5-A).
     var bootstrap = config.GetValue<string>(configKey);
     if (string.IsNullOrWhiteSpace(bootstrap)) return;
-    var sep = bootstrap.IndexOf(':', StringComparison.Ordinal);
+    SeedBootstrapCallerValue(db, bootstrap, isAdmin);
+}
+
+static void SeedBootstrapCallerValue(MeteringDbContext db, string pair, bool isAdmin)
+{
+    var sep = pair.IndexOf(':', StringComparison.Ordinal);
     if (sep <= 0) return;
-    var callerId = bootstrap[..sep].Trim();
-    var apiKey = bootstrap[(sep + 1)..].Trim();
+    var callerId = pair[..sep].Trim();
+    var apiKey = pair[(sep + 1)..].Trim();
     if (callerId.Length == 0 || apiKey.Length == 0) return;
     if (db.CallerKeys.Any(k => k.CallerId == callerId)) return;
     db.CallerKeys.Add(CallerKey.Create(callerId, Sha256Hex(apiKey), isAdmin));
