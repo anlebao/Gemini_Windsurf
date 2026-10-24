@@ -23,9 +23,20 @@
 //     'accepted', blocked auto-prompt keeps flag + button fallback, repeat
 //     tap shows guidance toast). Static JS is cache-first → bump v2 → v3
 //     so clients re-fetch the fixed script.
+//
+// v4 (2026-10-24):
+//   - /_blazor* added to the never-intercept list. Blazor Server's SignalR
+//     circuit negotiates WebSockets first but can fall back to
+//     ServerSentEvents (GET /_blazor?id=...) when WS fails on mobile
+//     networks. The catch-all static branch intercepted that GET and ran
+//     cache.put on an infinite event-stream — the pending put can abort
+//     the teed response body when the SW is terminated → SSE dies →
+//     circuit dies → page frozen at its last rendered frame (the
+//     "Đang tải..." spinner). SignalR transport requests are live
+//     infrastructure, never cacheable content — bypass unconditionally.
 // ============================================================================
 
-const CACHE_NAME = 'vanan-directory-v3';
+const CACHE_NAME = 'vanan-directory-v4';
 const SHELL_URLS = ['/'];
 
 self.addEventListener('install', event => {
@@ -63,10 +74,15 @@ self.addEventListener('fetch', event => {
 
   // Never intercept PWA metadata — always fresh from network
   // (dynamic per-instance manifest + icons, SW updates).
+  // Never intercept /_blazor* — SignalR circuit transport (WS upgrade,
+  // SSE fallback GET /_blazor?id=..., negotiate, disconnect). Caching or
+  // cloning these responses can kill the live circuit.
   if (url.pathname === '/manifest.json' ||
       url.pathname === '/directory-sw.js' ||
       url.pathname === '/service-worker-assets.js' ||
-      url.pathname.startsWith('/khachlink-icons/')) {
+      url.pathname.startsWith('/khachlink-icons/') ||
+      url.pathname === '/_blazor' ||
+      url.pathname.startsWith('/_blazor/')) {
     return;
   }
 

@@ -6,6 +6,7 @@
   "scripts": {
     "test": "npm run test:e2e",
     "test:e2e": "npx playwright test e2e-tests/",
+    "test:unit": "node --test unit-tests/",
     "test:all": "npm run test:e2e",
     "test:quality-gate": "node scripts/quality-gate.js",
     "test:quality-gate:full": "node scripts/quality-gate.js --full-audit",
