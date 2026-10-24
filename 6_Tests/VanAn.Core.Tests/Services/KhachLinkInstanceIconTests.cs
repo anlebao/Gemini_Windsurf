@@ -128,13 +128,23 @@ public class KhachLinkInstanceIconTests
     {
         var (controller, service, _) = BuildController();
 
-        // Có override
+        // Có override — phải là PNG HỢP LỆ (2026-10-24: GetIcon validate nghiêm —
+        // PNG hỏng bị loại → fallback default; Chrome 155 từ chối icon không hợp lệ).
+        byte[] validPng = Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==");
         var withIcon = new KhachLinkInstance("Shop A", KhachLinkProfile.FullCommerce, "a.example.com");
-        withIcon.UpdateIcon(new byte[] { 5, 6, 7, 8 }, "image/png");
+        withIcon.UpdateIcon(validPng, "image/png");
         service.Setup(s => s.GetByIdAsync(withIcon.Id, It.IsAny<CancellationToken>())).ReturnsAsync(withIcon);
         var overrideResult = (FileContentResult)await controller.GetIcon(withIcon.Id, CancellationToken.None);
-        Assert.Equal(new byte[] { 5, 6, 7, 8 }, overrideResult.FileContents);
+        Assert.Equal(validPng, overrideResult.FileContents);
         Assert.Equal("image/png", overrideResult.ContentType);
+
+        // Override PNG hỏng → fallback default theo Profile (2026-10-24 guard)
+        var brokenIcon = new KhachLinkInstance("Shop B", KhachLinkProfile.Directory, "c.example.com");
+        brokenIcon.UpdateIcon(new byte[] { 5, 6, 7, 8 }, "image/png");
+        service.Setup(s => s.GetByIdAsync(brokenIcon.Id, It.IsAny<CancellationToken>())).ReturnsAsync(brokenIcon);
+        var fallbackResult = (FileContentResult)await controller.GetIcon(brokenIcon.Id, CancellationToken.None);
+        Assert.Equal(new byte[] { 1, 2, 3 }, fallbackResult.FileContents);
 
         // Không override → default theo Profile (directory.png)
         var noIcon = new KhachLinkInstance("Dir B", KhachLinkProfile.Directory, "b.example.com");
