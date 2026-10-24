@@ -38,9 +38,14 @@
 // v5 (2026-10-25):
 //   - directory-pwa.js install diagnostics + evidence-based blocked toast.
 //     Static JS is cache-first → bump v4 → v5 so clients re-fetch it.
+//
+// v6 (2026-10-24):
+//   - directory-pwa.js: explicit outcome toasts for every install terminal
+//     state — pending, success (appinstalled), dismissed, blocked/error.
+//     Static JS is cache-first → bump v5 → v6 so clients re-fetch it.
 // ============================================================================
 
-const CACHE_NAME = 'vanan-directory-v5';
+const CACHE_NAME = 'vanan-directory-v6';
 const SHELL_URLS = ['/'];
 
 self.addEventListener('install', event => {

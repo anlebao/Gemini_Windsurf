@@ -1,5 +1,15 @@
 ﻿// ============================================================================
-// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v26-install-flag-fix)
+// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v27-explicit-install-feedback)
+//
+// v27-explicit-install-feedback (2026-10-24):
+//   - pwa.js: every terminal state of the install flow now shows an explicit
+//     toast — pending ("Đang cài đặt"), success ("Cài đặt thành công" on the
+//     appinstalled event, all install paths), dismissed, blocked/error, and
+//     already-installed. Previously dismissed/blocked/appinstalled were silent
+//     (Blazor's OS-notification path needs Notification permission — usually
+//     not granted → invisible).
+//   - Static JS is cache-first with NO expiry → bump v26 → v27 so every client
+//     re-fetches the updated pwa.js (same lesson as v20→v26).
 //
 // v26-install-flag-fix (2026-10-24):
 //   - pwa.js install flow hardening: the install_requested flag is now
@@ -139,10 +149,10 @@
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v26-install-flag-fix';
-const STATIC_CACHE = 'vanan-static-v26-install-flag-fix';
-const DYNAMIC_CACHE = 'vanan-dynamic-v26-install-flag-fix';
-const WASM_CACHE = 'vanan-wasm-v26-install-flag-fix';
+const CACHE_NAME = 'vanan-khachlink-v27-explicit-install-feedback';
+const STATIC_CACHE = 'vanan-static-v27-explicit-install-feedback';
+const DYNAMIC_CACHE = 'vanan-dynamic-v27-explicit-install-feedback';
+const WASM_CACHE = 'vanan-wasm-v27-explicit-install-feedback';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [

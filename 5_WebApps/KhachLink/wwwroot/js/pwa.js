@@ -158,6 +158,8 @@ window.vananPWA = {
 
     async showInstallPrompt() {
         if (this.isInstalled) {
+            // Explicit feedback: user tapped install on an already-installed app.
+            this._showInstallStatusToast('installed');
             return false;
         }
 
@@ -171,6 +173,9 @@ window.vananPWA = {
                     this.isInstalled = true;
                     console.log('PWA installation accepted');
                     this._clearInstallRequested();
+                    // In-progress toast now; the definitive "thành công"
+                    // confirmation fires on the 'appinstalled' event below.
+                    this._showInstallStatusToast('pending');
                     // Loyalty-C WS-B: Notify backend to award PWAInstall mission points.
                     this.notifyPwaInstalledBackend();
                     return true;
@@ -181,6 +186,8 @@ window.vananPWA = {
                     // Clear deferredPrompt — Chrome only allows prompt() once per event.
                     // Next page load may fire beforeinstallprompt again (if engagement heuristic met).
                     this.deferredPrompt = null;
+                    // Explicit feedback: user cancelled — never silent.
+                    this._showInstallStatusToast('dismissed');
                     return false;
                 }
             } catch (error) {
@@ -190,6 +197,9 @@ window.vananPWA = {
                 // not be consumed by a prompt that never appeared).
                 try { localStorage.setItem('vanan_install_requested', '1'); } catch (e) {}
                 this.deferredPrompt = null;
+                // Explicit feedback: prompt could not be shown — tell the user
+                // what to do instead of failing silently.
+                this._showInstallStatusToast('blocked');
                 return false;
             }
         }
@@ -282,6 +292,66 @@ window.vananPWA = {
                 setTimeout(function() { if (toast.parentNode) toast.remove(); }, 300);
             }
         }, 30000);
+    },
+
+    // Explicit install-outcome feedback (2026-10-24): every terminal state of
+    // the install flow surfaces a visible result — in-progress, success,
+    // cancelled, blocked/error, or already-installed. Reuses the same toast
+    // element id as showInstallHelpToast so messages replace instead of stack.
+    _showInstallStatusToast(kind) {
+        var existing = document.getElementById('vanan-install-help-toast');
+        if (existing) existing.remove();
+
+        var configs = {
+            pending: {
+                bg: 'rgba(139,69,19,0.97)',
+                html: '<div style="font-weight:600;font-size:15px;">Đang cài đặt app…</div>' +
+                      '<div style="opacity:0.92;margin-top:4px;font-size:13px;">Vui lòng chờ trong giây lát.</div>',
+                ms: 12000
+            },
+            success: {
+                bg: 'rgba(34,139,34,0.97)',
+                html: '<div style="font-weight:600;font-size:15px;">Cài đặt thành công!</div>' +
+                      '<div style="opacity:0.92;margin-top:4px;font-size:13px;">App đã được thêm vào thiết bị — mở từ màn hình chính hoặc danh sách ứng dụng.</div>',
+                ms: 9000
+            },
+            dismissed: {
+                bg: 'rgba(90,90,90,0.95)',
+                html: '<div style="font-weight:600;font-size:15px;">Bạn đã chọn chưa cài đặt</div>' +
+                      '<div style="opacity:0.92;margin-top:4px;font-size:13px;">Có thể cài lại bất cứ lúc nào bằng nút "Cài đặt" trên app.</div>',
+                ms: 8000
+            },
+            blocked: {
+                bg: 'rgba(160,40,40,0.97)',
+                html: '<div style="font-weight:600;font-size:15px;">Không mở được hộp thoại cài đặt</div>' +
+                      '<div style="opacity:0.92;margin-top:4px;font-size:13px;line-height:1.6;">Trình duyệt đã chặn hộp thoại tự động.<br>' +
+                      'Thử bấm lại nút <b>"Cài đặt"</b> trên app, hoặc dùng menu trình duyệt <b>⋮ → "Thêm vào Màn hình chính"</b>.</div>',
+                ms: 15000
+            },
+            installed: {
+                bg: 'rgba(34,139,34,0.95)',
+                html: '<div style="font-weight:600;font-size:15px;">App đã được cài đặt</div>' +
+                      '<div style="opacity:0.92;margin-top:4px;font-size:13px;">Mở app từ màn hình chính hoặc danh sách ứng dụng trên thiết bị.</div>',
+                ms: 7000
+            }
+        };
+        var cfg = configs[kind];
+        if (!cfg) return;
+
+        var toast = document.createElement('div');
+        toast.id = 'vanan-install-help-toast';
+        toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:' + cfg.bg + ';color:white;padding:14px 20px;border-radius:16px;font-size:14px;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,0.3);max-width:92vw;text-align:center;line-height:1.5;';
+        toast.innerHTML = cfg.html +
+            '<button onclick="var t=document.getElementById(\'vanan-install-help-toast\'); if(t) t.remove();" style="margin-top:10px;background:white;color:#333;border:none;padding:7px 18px;border-radius:20px;font-weight:600;cursor:pointer;font-size:13px;">Đã hiểu</button>';
+        document.body.appendChild(toast);
+
+        setTimeout(function() {
+            if (toast && toast.parentNode) {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s';
+                setTimeout(function() { if (toast.parentNode) toast.remove(); }, 300);
+            }
+        }, cfg.ms);
     },
 
     // Detect if running on iOS (no beforeinstallprompt support)
@@ -738,6 +808,9 @@ setTimeout(() => {
 window.addEventListener('appinstalled', () => {
     window.vananPWA.isInstalled = true;
     console.log('[PWA] appinstalled fired (immediate listener)');
+    // Definitive install-success signal — fires for EVERY install path
+    // (native prompt, browser menu, auto-prompt). Replaces the "đang cài" toast.
+    window.vananPWA._showInstallStatusToast('success');
     if (window.vananPWA.dotNetRef) {
         window.vananPWA.dotNetRef.invokeMethodAsync('HandleInstallStateChanged', true);
     }

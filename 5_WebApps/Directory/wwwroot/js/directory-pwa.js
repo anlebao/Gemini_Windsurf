@@ -100,6 +100,11 @@
       // prompt() without a user gesture can throw on some Chrome versions.
       diag('prompt-threw', String(err && err.message || err));
       console.warn('[DirectoryPWA] prompt() threw:', err);
+      showStatusToast(
+        'Không mở được hộp thoại cài đặt',
+        'Trình duyệt đã chặn hộp thoại tự động. Bấm lại nút <b>"Cài đặt ứng dụng"</b>, ' +
+        'hoặc dùng menu trình duyệt <b>⋮ → "Thêm vào Màn hình chính"</b>.',
+        'rgba(160,40,40,0.97)', 15000);
       showInstallButton();
       return;
     }
@@ -110,20 +115,63 @@
           isInstalled = true;
           clearInstallRequested();
           hideInstallButton();
+          // In-progress toast; the definitive "thành công" confirmation fires
+          // on the 'appinstalled' listener below.
+          showStatusToast('Đang cài đặt app…', 'Vui lòng chờ trong giây lát.',
+            'rgba(44,95,45,0.97)', 12000);
         } else if (choice.outcome === 'dismissed') {
           // User actively declined — clear the flag so we stop auto-prompting.
           clearInstallRequested();
+          // Explicit feedback: cancelled — never silent.
+          showStatusToast(
+            'Bạn đã chọn chưa cài đặt',
+            'Có thể cài lại bất cứ lúc nào bằng nút <b>"Cài đặt ứng dụng"</b>.',
+            'rgba(90,90,90,0.95)', 8000);
         } else {
           // 'unknown' — prompt may have been silently blocked (no user
           // gesture). Keep the flag (next visit retries) + keep the button
           // so the user can tap → real gesture → prompt.
+          showStatusToast(
+            'Không mở được hộp thoại cài đặt',
+            'Bấm lại nút <b>"Cài đặt ứng dụng"</b> để hiện hộp thoại cài đặt.',
+            'rgba(160,40,40,0.97)', 12000);
           showInstallButton();
         }
       })
       .catch(function (err) {
         console.warn('[DirectoryPWA] install prompt failed:', err);
+        showStatusToast(
+          'Không mở được hộp thoại cài đặt',
+          'Bấm lại nút <b>"Cài đặt ứng dụng"</b>, hoặc dùng menu trình duyệt <b>⋮ → "Thêm vào Màn hình chính"</b>.',
+          'rgba(160,40,40,0.97)', 12000);
         showInstallButton();
       });
+  }
+
+  // Explicit install-outcome feedback (2026-10-24): every terminal state of
+  // the install flow surfaces a visible result — in-progress, success,
+  // cancelled, or blocked/error. Reuses the same toast element id as the
+  // preparing/blocked toasts so messages replace instead of stack.
+  function showStatusToast(title, body, bg, ms) {
+    var existing = document.getElementById('vanan-dir-install-toast');
+    if (existing) existing.remove();
+    var toast = document.createElement('div');
+    toast.id = 'vanan-dir-install-toast';
+    toast.style.cssText =
+      'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:9999;' +
+      'background:' + bg + ';color:#fff;padding:14px 18px;border-radius:14px;' +
+      'font-size:14px;line-height:1.5;max-width:88vw;text-align:center;' +
+      'box-shadow:0 4px 16px rgba(0,0,0,.3);';
+    toast.innerHTML =
+      '<div style="font-weight:600;margin-bottom:4px;">' + title + '</div>' +
+      '<div style="opacity:.92;">' + body + '</div>' +
+      '<button onclick="var t=document.getElementById(\'vanan-dir-install-toast\'); if(t) t.remove();" ' +
+      'style="margin-top:10px;background:#fff;color:#333;border:none;padding:7px 18px;border-radius:20px;' +
+      'font-weight:600;cursor:pointer;font-size:13px;">Đã hiểu</button>';
+    document.body.appendChild(toast);
+    setTimeout(function () {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, ms);
   }
 
   function hideInstallButton() {
@@ -277,6 +325,12 @@
     diag('appinstalled');
     hideInstallButton();
     console.log('[DirectoryPWA] appinstalled fired');
+    // Definitive install-success signal — fires for EVERY install path
+    // (native prompt, browser menu, auto-prompt).
+    showStatusToast(
+      'Cài đặt thành công!',
+      'App đã được thêm vào thiết bị — mở từ màn hình chính hoặc danh sách ứng dụng.',
+      'rgba(34,139,34,0.97)', 9000);
   });
 
   document.addEventListener('DOMContentLoaded', function () {

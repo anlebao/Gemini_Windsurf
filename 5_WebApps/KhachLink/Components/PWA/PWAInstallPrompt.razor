@@ -320,10 +320,11 @@
         if (success)
         {
             _showInstallPrompt = false;
-            await ShowNotificationAsync("Đã cài đặt thành công!", "Vạn An App đã được cài đặt trên thiết bị của bạn.");
         }
-        // else: JS showInstallHelpToast() already shows actionable toast with reload button.
-        // No double notification from Blazor — old behavior showed a redundant "Không thể cài đặt tự động" alert.
+        // Success: the 'appinstalled' event in pwa.js shows the explicit
+        // "Cài đặt thành công!" toast (covers every install path).
+        // else: JS toasts already show the outcome (cancelled / blocked / iOS
+        // instructions / scheduled) — no double notification from Blazor.
     }
 
     private async Task DismissPrompt()
@@ -355,11 +356,6 @@
             _showInstallPrompt = true;
             StateHasChanged();
         }
-    }
-
-    private async Task ShowNotificationAsync(string title, string message)
-    {
-        await PWAService.ShowNotificationAsync(title, message);
     }
 
     public async ValueTask DisposeAsync()
