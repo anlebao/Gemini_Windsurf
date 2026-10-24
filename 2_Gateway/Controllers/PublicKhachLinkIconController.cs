@@ -130,7 +130,7 @@ public class PublicKhachLinkIconController(
                     ShortName(label),
                     instance.HeaderColor,
                     instance.FooterColor,
-                    $"khachlink-icons/{instance.Id}.png",
+                    $"khachlink-icons/{instance.Id}.png?v=2",
                     instance.Profile,
                     host), "application/manifest+json");
             }
@@ -142,7 +142,7 @@ public class PublicKhachLinkIconController(
             "Vạn An App",
             null,
             null,
-            "khachlink-icons/default.png",
+            "khachlink-icons/default.png?v=2",
             null,
             host), "application/manifest+json");
     }
