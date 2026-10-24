@@ -55,12 +55,11 @@ public class PublicKhachLinkIconController(
     /// Manifest PWA động theo Host header → instance (Label/theme/icon riêng).
     /// Unknown domain → manifest generic (icon default) để PWA vẫn cài được.
     /// Icon src là đường dẫn TƯƠNG ĐỐI (khachlink-icons/...) — nginx proxy cùng origin.
-    /// 2026-10-24 (D1b/D2/D4 — install-identity fix):
+    /// 2026-10-24 (D1b + v28-lite):
     ///   - Label trông như slug (viết thường, gạch nối, không dấu cách — VD "timlathay")
     ///     → fallback "Vạn An App" thay vì lộ slug lên dialog cài đặt của Chrome.
-    ///   - Thêm related_applications (platform=webapp) + launch_handler — page dùng
-    ///     navigator.getInstalledRelatedApps() detect WebAPK đã cài (clear site data
-    ///     KHÔNG gỡ WebAPK; Chrome ngừng fire beforeinstallprompt khi đã cài).
+    ///   - v28-lite: KHÔNG serve related_applications/launch_handler — WebAPK minting
+    ///     (Play services) không tạo app dù Chrome báo INSTALLABLE (thí nghiệm 1 biến).
     /// </summary>
     [HttpGet("manifest")]
     [AllowAnonymous]
@@ -109,21 +108,11 @@ public class PublicKhachLinkIconController(
             _ => "Vạn An — ứng dụng của bạn"
         };
 
-        // related_applications(platform=webapp, url = start_url tuyệt đối) — chỉ add khi
-        // biết host. Nếu thiếu, JSON vẫn hợp lệ (trường bị bỏ qua).
-        string relatedApplications = string.IsNullOrWhiteSpace(host)
-            ? ""
-            : $$"""
-            ,
-            "related_applications": [
-              {
-                "platform": "webapp",
-                "url": "https://{{host}}/"
-              }
-            ]
-            """;
-
         // Icon src relative — nginx proxy /khachlink-icons/* → Gateway icons endpoint.
+        // 2026-10-24 (v28-lite experiment): KHÔNG serve related_applications + launch_handler.
+        // Chrome báo INSTALLABLE (CDP getInstallabilityErrors=[]) nhưng WebAPK minting
+        // (Google Play services — engine riêng) không tạo app trên thiết bị thật. Hai
+        // trường này là khác biệt cấu trúc duy nhất so với PWA cài được (5giay/photopea).
         return $$"""
         {
           "id": "/",
@@ -151,10 +140,7 @@ public class PublicKhachLinkIconController(
               "type": "image/png",
               "purpose": "any maskable"
             }
-          ],
-          "launch_handler": {
-            "client_mode": "navigate-existing"
-          }{{relatedApplications}}
+          ]
         }
         """;
     }
