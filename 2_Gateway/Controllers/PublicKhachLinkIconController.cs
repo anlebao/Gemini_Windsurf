@@ -55,6 +55,12 @@ public class PublicKhachLinkIconController(
     /// Manifest PWA động theo Host header → instance (Label/theme/icon riêng).
     /// Unknown domain → manifest generic (icon default) để PWA vẫn cài được.
     /// Icon src là đường dẫn TƯƠNG ĐỐI (khachlink-icons/...) — nginx proxy cùng origin.
+    /// 2026-10-24 (D1b/D2/D4 — install-identity fix):
+    ///   - Label trông như slug (viết thường, gạch nối, không dấu cách — VD "timlathay")
+    ///     → fallback "Vạn An App" thay vì lộ slug lên dialog cài đặt của Chrome.
+    ///   - Thêm related_applications (platform=webapp) + launch_handler — page dùng
+    ///     navigator.getInstalledRelatedApps() detect WebAPK đã cài (clear site data
+    ///     KHÔNG gỡ WebAPK; Chrome ngừng fire beforeinstallprompt khi đã cài).
     /// </summary>
     [HttpGet("manifest")]
     [AllowAnonymous]
@@ -66,27 +72,30 @@ public class PublicKhachLinkIconController(
             var instance = await _instanceService.GetByDomainAsync(host, ct);
             if (instance is not null)
             {
+                var label = LooksLikeSlug(instance.Label) ? "Vạn An App" : instance.Label;
                 return Content(BuildManifest(
-                    instance.Label,
-                    ShortName(instance.Label),
+                    label,
+                    ShortName(label),
                     instance.HeaderColor,
                     instance.FooterColor,
                     $"khachlink-icons/{instance.Id}.png",
-                    instance.Profile), "application/manifest+json");
+                    instance.Profile,
+                    host), "application/manifest+json");
             }
         }
 
         // Unknown domain → manifest generic.
         return Content(BuildManifest(
-            "Vạn An",
-            "Vạn An",
+            "Vạn An App",
+            "Vạn An App",
             null,
             null,
             "khachlink-icons/default.png",
-            null), "application/manifest+json");
+            null,
+            host), "application/manifest+json");
     }
 
-    private string BuildManifest(string name, string shortName, string? themeColor, string? backgroundColor, string iconSrc, KhachLinkProfile? profile)
+    private string BuildManifest(string name, string shortName, string? themeColor, string? backgroundColor, string iconSrc, KhachLinkProfile? profile, string? host)
     {
         string theme = themeColor ?? "#2563eb";
         string background = backgroundColor ?? "#ffffff";
@@ -99,6 +108,20 @@ public class PublicKhachLinkIconController(
             KhachLinkProfile.FullCommerce => "Mua sắm trực tuyến — nhiều ưu đãi và quà tặng",
             _ => "Vạn An — ứng dụng của bạn"
         };
+
+        // related_applications(platform=webapp, url = start_url tuyệt đối) — chỉ add khi
+        // biết host. Nếu thiếu, JSON vẫn hợp lệ (trường bị bỏ qua).
+        string relatedApplications = string.IsNullOrWhiteSpace(host)
+            ? ""
+            : $$"""
+            ,
+            "related_applications": [
+              {
+                "platform": "webapp",
+                "url": "https://{{host}}/"
+              }
+            ]
+            """;
 
         // Icon src relative — nginx proxy /khachlink-icons/* → Gateway icons endpoint.
         return $$"""
@@ -128,13 +151,33 @@ public class PublicKhachLinkIconController(
               "type": "image/png",
               "purpose": "any maskable"
             }
-          ]
+          ],
+          "launch_handler": {
+            "client_mode": "navigate-existing"
+          }{{relatedApplications}}
         }
         """;
     }
 
+    /// <summary>D1b: Label slug thô (VD "timlathay", "thuc-an-tu-thien") — không phải tên hiển thị.</summary>
+    private static bool LooksLikeSlug(string? label)
+        => string.IsNullOrWhiteSpace(label)
+           || System.Text.RegularExpressions.Regex.IsMatch(label, @"^[a-z0-9]+(-[a-z0-9]+)*$");
+
     private static string ShortName(string label)
-        => label.Length <= 12 ? label : label[..11] + "…";
+    {
+        if (label.Length <= 12) return label;
+        // Cắt tại ranh giới từ trong 12 ký tự — "Giữ Khách - Bán Thêm" → "Giữ Khách".
+        var words = label.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var result = string.Empty;
+        foreach (var word in words)
+        {
+            var candidate = result.Length == 0 ? word : $"{result} {word}";
+            if (candidate.Length > 12) break;
+            result = candidate;
+        }
+        return result.Length > 0 ? result : label[..11] + "…";
+    }
 
     private static string Escape(string value)
     {

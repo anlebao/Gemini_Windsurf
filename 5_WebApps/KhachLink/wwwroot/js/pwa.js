@@ -163,6 +163,13 @@ window.vananPWA = {
             return false;
         }
 
+        // D3 (2026-10-24): in-app browsers (Zalo/Messenger/Facebook WebView) can NEVER
+        // install a PWA — no point scheduling an auto-prompt. Explicit message instead.
+        if (this._isInAppBrowser()) {
+            this._showInstallStatusToast('inapp');
+            return false;
+        }
+
         // Android/Desktop Chrome: use beforeinstallprompt
         if (this.deferredPrompt) {
             try {
@@ -216,8 +223,54 @@ window.vananPWA = {
         // Frictionless flow (2026-10-16): persist an install-requested flag →
         // the native prompt AUTO-FIRES on the next visit. No complex browser
         // steps (no chrome://settings data clearing needed).
-        this.requestInstallOnNextVisit();
+        await this._handlePromptUnavailable();
         return false;
+    },
+
+    // D2 (2026-10-24): before showing the generic "blocked / not ready" guidance,
+    // check whether this app is ALREADY installed (WebAPK). Clearing site data does
+    // NOT uninstall a WebAPK — in that state beforeinstallprompt never fires and the
+    // user would otherwise loop "không cài được" forever. Requires
+    // related_applications(platform=webapp) in the manifest (Gateway serves it).
+    async _isInstalledWebApp() {
+        try {
+            if (!navigator.getInstalledRelatedApps) return false;
+            var apps = await navigator.getInstalledRelatedApps();
+            return !!(apps && apps.length > 0);
+        } catch (e) {
+            return false;
+        }
+    },
+
+    async _handlePromptUnavailable() {
+        if (await this._isInstalledWebApp()) {
+            this._showInstallStatusToast('installed');
+            return;
+        }
+        this.requestInstallOnNextVisit();
+    },
+
+    // D3 (2026-10-24): embedded WebViews (Zalo / Messenger / Facebook / Line...) —
+    // detected via UA tokens. Install is impossible there; the explicit toast
+    // tells the user to open the link in Chrome (with a copy-link button).
+    _isInAppBrowser() {
+        var ua = navigator.userAgent || '';
+        return /Zalo|FBAN|FBAV|FBBV|FB_IAB|FBAN\/Messenger|Messenger|Line\/|Instagram/i.test(ua);
+    },
+
+    // D6 (2026-10-24): diagnostic summary appended to the blocked toast —
+    // screenshotable evidence (same pattern as directory-pwa.js). Technical
+    // state only — no personal data.
+    _diagState() {
+        var chromeMajor = 0;
+        var m = /Chrome\/(\d+)/.exec(navigator.userAgent || '');
+        if (m) chromeMajor = parseInt(m[1], 10);
+        var displayMode = window.matchMedia('(display-mode: standalone)').matches
+            ? 'standalone' : 'browser';
+        var swCtrl = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
+        return 'diag: bip=' + !!this.deferredPrompt + ' · swCtrl=' + swCtrl +
+            ' · display=' + displayMode + ' · chrome=' + (chromeMajor || '?') +
+            ' · installed=' + this.isInstalled;
     },
 
     // Frictionless install (2026-10-16): Chrome only fires beforeinstallprompt
@@ -264,6 +317,7 @@ window.vananPWA = {
                 '(xóa icon màn hình KHÔNG gỡ app). Nếu app đã cài, mở trực tiếp từ danh sách ứng dụng.<br><br>' +
                 'Nếu chưa cài: menu trình duyệt <b>⋮ → "Thêm vào Màn hình chính"</b>.' +
                 '</div>' +
+                '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.25);font-size:11px;opacity:0.8;text-align:left;">' + this._diagState() + '</div>' +
                 '<button onclick="var t=document.getElementById(\'vanan-install-help-toast\'); if(t) t.remove();" style="background:white;color:#8B4513;border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">Đã hiểu</button>';
         } else if (hint) {
             // iOS: show Share → Add to Home Screen instructions
@@ -325,14 +379,26 @@ window.vananPWA = {
                 bg: 'rgba(160,40,40,0.97)',
                 html: '<div style="font-weight:600;font-size:15px;">Không mở được hộp thoại cài đặt</div>' +
                       '<div style="opacity:0.92;margin-top:4px;font-size:13px;line-height:1.6;">Trình duyệt đã chặn hộp thoại tự động.<br>' +
-                      'Thử bấm lại nút <b>"Cài đặt"</b> trên app, hoặc dùng menu trình duyệt <b>⋮ → "Thêm vào Màn hình chính"</b>.</div>',
+                      'Thử bấm lại nút <b>"Cài đặt"</b> trên app, hoặc dùng menu trình duyệt <b>⋮ → "Thêm vào Màn hình chính"</b>.</div>' +
+                      '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.25);font-size:11px;opacity:0.8;text-align:left;">' + this._diagState() + '</div>',
                 ms: 15000
             },
             installed: {
                 bg: 'rgba(34,139,34,0.95)',
                 html: '<div style="font-weight:600;font-size:15px;">App đã được cài đặt</div>' +
-                      '<div style="opacity:0.92;margin-top:4px;font-size:13px;">Mở app từ màn hình chính hoặc danh sách ứng dụng trên thiết bị.</div>',
-                ms: 7000
+                      '<div style="opacity:0.92;margin-top:4px;font-size:13px;line-height:1.6;">Mở app từ màn hình chính hoặc danh sách ứng dụng trên thiết bị.<br>' +
+                      'Muốn cài lại từ đầu: <b>Cài đặt → Ứng dụng</b> → gỡ cài đặt app này trước ' +
+                      '(xóa icon hoặc dữ liệu trình duyệt KHÔNG gỡ được app).</div>',
+                ms: 12000
+            },
+            inapp: {
+                bg: 'rgba(120,60,20,0.97)',
+                html: '<div style="font-weight:600;font-size:15px;">Không thể cài app từ trình duyệt nhúng</div>' +
+                      '<div style="opacity:0.92;margin-top:4px;font-size:13px;line-height:1.6;text-align:left;">Bạn đang mở link bên trong app khác (Zalo/Messenger...).<br>' +
+                      'Hãy mở bằng trình duyệt <b>Chrome</b> rồi bấm cài lại.</div>' +
+                      '<button onclick="try{navigator.clipboard.writeText(window.location.href);this.textContent=\'Đã sao chép link!\';}catch(e){}" ' +
+                      'style="margin-top:10px;background:white;color:#783c14;border:none;padding:7px 14px;border-radius:20px;font-weight:600;cursor:pointer;font-size:13px;">Sao chép link</button>',
+                ms: 20000
             }
         };
         var cfg = configs[kind];

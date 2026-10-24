@@ -43,9 +43,16 @@
 //   - directory-pwa.js: explicit outcome toasts for every install terminal
 //     state — pending, success (appinstalled), dismissed, blocked/error.
 //     Static JS is cache-first → bump v5 → v6 so clients re-fetch it.
+//
+// v7 (2026-10-24):
+//   - directory-pwa.js D2/D3: already-installed WebAPK detection
+//     (getInstalledRelatedApps — manifest now serves related_applications)
+//     + in-app browser guard (Zalo/Messenger "open in Chrome" toast) +
+//     startup installed-check hides the floating button.
+//     Static JS is cache-first → bump v6 → v7 so clients re-fetch it.
 // ============================================================================
 
-const CACHE_NAME = 'vanan-directory-v6';
+const CACHE_NAME = 'vanan-directory-v7';
 const SHELL_URLS = ['/'];
 
 self.addEventListener('install', event => {

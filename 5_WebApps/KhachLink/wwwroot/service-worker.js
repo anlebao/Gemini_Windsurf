@@ -1,5 +1,14 @@
 ﻿// ============================================================================
-// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v27-explicit-install-feedback)
+// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v28-install-identity-fix)
+//
+// v28-install-identity-fix (2026-10-24):
+//   - pwa.js: D2 already-installed WebAPK detection (getInstalledRelatedApps —
+//     manifest now serves related_applications), D3 in-app browser guard
+//     (Zalo/Messenger "open in Chrome" toast), D6 diag line in blocked toast.
+//   - PWAInstallPrompt banner is now iOS-only (D5) — Android uses the header
+//     "Cài app" button as the single install entry point.
+//   - Static JS is cache-first with NO expiry → bump v27 → v28 so every client
+//     re-fetches the updated pwa.js (same lesson as v20→v27).
 //
 // v27-explicit-install-feedback (2026-10-24):
 //   - pwa.js: every terminal state of the install flow now shows an explicit
@@ -149,10 +158,10 @@
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v27-explicit-install-feedback';
-const STATIC_CACHE = 'vanan-static-v27-explicit-install-feedback';
-const DYNAMIC_CACHE = 'vanan-dynamic-v27-explicit-install-feedback';
-const WASM_CACHE = 'vanan-wasm-v27-explicit-install-feedback';
+const CACHE_NAME = 'vanan-khachlink-v28-install-identity-fix';
+const STATIC_CACHE = 'vanan-static-v28-install-identity-fix';
+const DYNAMIC_CACHE = 'vanan-dynamic-v28-install-identity-fix';
+const WASM_CACHE = 'vanan-wasm-v28-install-identity-fix';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [

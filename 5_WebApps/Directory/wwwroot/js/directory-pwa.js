@@ -195,28 +195,67 @@
       if (deferredPrompt) {
         diag('install-tap', { hasPrompt: true });
         tryInstall();
+        return;
+      }
+      // D3 (2026-10-24): embedded WebView (Zalo/Messenger/Facebook...) can NEVER
+      // install a PWA — explicit "open in Chrome" message instead of guidance loop.
+      if (isInAppBrowser()) {
+        diag('install-tap', { inapp: true });
+        showStatusToast(
+          'Không thể cài app từ trình duyệt nhúng',
+          'Bạn đang mở link bên trong app khác (Zalo/Messenger...). Hãy mở bằng trình duyệt <b>Chrome</b> rồi bấm cài lại.',
+          'rgba(120,60,20,0.97)', 20000);
+        return;
+      }
+      // D2 (2026-10-24): WebAPK already installed? (clearing site data does NOT
+      // uninstall a WebAPK — beforeinstallprompt never fires in that state and
+      // the user would otherwise loop the guidance toasts forever.)
+      if (navigator.getInstalledRelatedApps) {
+        navigator.getInstalledRelatedApps().then(function (apps) {
+          if (apps && apps.length > 0) {
+            diag('install-tap', { alreadyInstalled: true });
+            isInstalled = true;
+            hideInstallButton();
+            showStatusToast(
+              'App đã được cài đặt',
+              'Mở app từ màn hình chính hoặc danh sách ứng dụng. Muốn cài lại từ đầu: <b>Cài đặt → Ứng dụng</b> → gỡ app này trước (xóa icon/dữ liệu web không gỡ được app).',
+              'rgba(34,139,34,0.95)', 12000);
+            return;
+          }
+          handleNoPromptTap();
+        }).catch(function () { handleNoPromptTap(); });
       } else {
-        // Chrome not ready yet (engagement heuristic: needs ~30s of use).
-        // Ask for an auto-prompt on the next visit — no user steps needed.
-        var alreadyRequested = false;
-        try {
-          alreadyRequested = localStorage.getItem(INSTALL_REQUESTED_KEY) === '1';
-          localStorage.setItem(INSTALL_REQUESTED_KEY, '1');
-        } catch (err) {}
-        diag('install-tap', { hasPrompt: false, alreadyRequested: alreadyRequested });
-        // Repeat tap with the flag already set = beforeinstallprompt still
-        // has not fired. We cannot know WHY from JS (already installed,
-        // unsupported context, engagement, suppression) — show the detected
-        // state honestly instead of claiming Chrome blocked it.
-        if (alreadyRequested) {
-          showBlockedToast();
-        } else {
-          showPreparingToast();
-        }
-        hideInstallButton();
+        handleNoPromptTap();
       }
     };
     document.body.appendChild(button);
+  }
+
+  // Tap without a ready prompt — existing frictionless flow: persist the
+  // auto-prompt flag + show preparing/blocked guidance + hide the button.
+  function handleNoPromptTap() {
+    var alreadyRequested = false;
+    try {
+      alreadyRequested = localStorage.getItem(INSTALL_REQUESTED_KEY) === '1';
+      localStorage.setItem(INSTALL_REQUESTED_KEY, '1');
+    } catch (err) {}
+    diag('install-tap', { hasPrompt: false, alreadyRequested: alreadyRequested });
+    // Repeat tap with the flag already set = beforeinstallprompt still
+    // has not fired. We cannot know WHY from JS (already installed,
+    // unsupported context, engagement, suppression) — show the detected
+    // state honestly instead of claiming Chrome blocked it.
+    if (alreadyRequested) {
+      showBlockedToast();
+    } else {
+      showPreparingToast();
+    }
+    hideInstallButton();
+  }
+
+  // D3 (2026-10-24): detect embedded WebViews by UA tokens.
+  function isInAppBrowser() {
+    var ua = navigator.userAgent || '';
+    return /Zalo|FBAN|FBAV|FBBV|FB_IAB|Messenger|Line\/|Instagram/i.test(ua);
   }
 
   function showPreparingToast() {
@@ -336,6 +375,16 @@
   document.addEventListener('DOMContentLoaded', function () {
     registerServiceWorker();
     if (isInstalled) return;
+    // D2 (2026-10-24): hide the floating install button entirely when the WebAPK
+    // is already installed — otherwise it nags an installed user on every visit.
+    if (navigator.getInstalledRelatedApps) {
+      navigator.getInstalledRelatedApps().then(function (apps) {
+        if (apps && apps.length > 0) {
+          isInstalled = true;
+          diag('startup-already-installed');
+        }
+      }).catch(function (err) {});
+    }
     if (isIOS) {
       // iOS has no beforeinstallprompt — show the Share → Add to Home Screen hint.
       setTimeout(showIosHint, 4000);
