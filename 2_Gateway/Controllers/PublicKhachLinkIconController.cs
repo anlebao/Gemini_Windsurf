@@ -36,13 +36,66 @@ public class PublicKhachLinkIconController(
         if (instance is null)
             return NotFound();
 
-        if (instance.IconData is { Length: > 0 })
+        // 2026-10-24: IconData upload có thể là PNG hỏng (đã từng xảy ra — Chrome 155
+        // báo "resource isn't a valid image" → no-acceptable-icon → KHÔNG cài được PWA,
+        // mặc dù đọc header vẫn thấy 512x512). Validate nghiêm → fallback icon default.
+        if (instance.IconData is { Length: > 0 } && IsValidPng(instance.IconData))
         {
             return File(instance.IconData, instance.IconContentType ?? DefaultContentType,
                 enableRangeProcessing: false);
         }
 
         return File(DefaultIconBytes(instance.Profile), DefaultContentType);
+    }
+
+    /// <summary>
+    /// Validate PNG đủ nghiêm để khớp decoder icon của Chrome: signature + IHDR
+    /// (depth 8, non-interlaced, color type hợp lệ) + IDAT giải nén đúng kích thước
+    /// kỳ vọng ((width*channels+1)*height). PNG khai RGBA nhưng pixel data RGB-sized
+    /// (bug từ 4d71318a) bị loại — đây chính là root cause "không cài được PWA".
+    /// </summary>
+    private static bool IsValidPng(byte[] data)
+    {
+        if (data is null || data.Length < 33) return false;
+        ReadOnlySpan<byte> signature = stackalloc byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        if (!data.AsSpan(0, 8).SequenceEqual(signature)) return false;
+
+        int width = (data[16] << 24) | (data[17] << 16) | (data[18] << 8) | data[19];
+        int height = (data[20] << 24) | (data[21] << 16) | (data[22] << 8) | data[23];
+        if (width <= 0 || height <= 0 || width > 4096 || height > 4096) return false;
+        if (data[24] != 8 || data[28] != 0) return false; // bit depth 8 + non-interlaced
+        int channels = data[25] switch { 0 => 1, 2 => 3, 3 => 1, 4 => 2, 6 => 4, _ => -1 };
+        if (channels < 0) return false;
+        long expected = ((long)width * channels + 1) * height;
+
+        try
+        {
+            var idat = new List<byte>();
+            int pos = 8;
+            while (pos + 8 <= data.Length)
+            {
+                int len = (data[pos] << 24) | (data[pos + 1] << 16) | (data[pos + 2] << 8) | data[pos + 3];
+                string type = System.Text.Encoding.ASCII.GetString(data, pos + 4, 4);
+                if (type == "IDAT")
+                {
+                    if (pos + 8 + len > data.Length) return false;
+                    idat.AddRange(data.AsSpan(pos + 8, len).ToArray());
+                }
+                pos += 12 + len;
+                if (type == "IEND") break;
+            }
+            if (idat.Count == 0) return false;
+
+            using var input = new MemoryStream(idat.ToArray());
+            using var zlib = new System.IO.Compression.ZLibStream(input, System.IO.Compression.CompressionMode.Decompress);
+            using var output = new MemoryStream();
+            zlib.CopyTo(output);
+            return output.Length == expected;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>Icon generic — fallback khi chưa biết instance (unknown domain).</summary>
