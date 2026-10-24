@@ -176,7 +176,9 @@ public class PublicKhachLinkIconController(
             if (candidate.Length > 12) break;
             result = candidate;
         }
-        return result.Length > 0 ? result : label[..11] + "…";
+        // Trim separator rớt lại ("Giữ Khách -" → "Giữ Khách").
+        var trimmed = result.TrimEnd(' ', '-', '–', '|', ':');
+        return trimmed.Length > 0 ? trimmed : label[..11] + "…";
     }
 
     private static string Escape(string value)
