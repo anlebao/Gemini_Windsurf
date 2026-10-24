@@ -198,7 +198,12 @@ public class AuthorizationEnforcementTests
             // Booking P4.1 (SRS §25): PublicBookingController is the anonymous customer booking
             // surface (KhachLink WASM) — public endpoints are [AllowAnonymous] + rate-limited
             // ("booking-public" policy). TenantBookingController keeps class-level [Authorize].
-            "PublicBookingController"
+            "PublicBookingController",
+            // Metering P-task (task_p4 hook a): PublicMeteringController is the anonymous
+            // usage-ingest surface for client-rendered apps (sendBeacon store.visit) —
+            // [AllowAnonymous] + rate-limited ("public-metering" policy, 60 req/min/IP)
+            // + server-side whitelist validation. Same pattern as PublicBookingController.
+            "PublicMeteringController"
         };
 
         var controllers = GetControllers(GatewayAssembly)

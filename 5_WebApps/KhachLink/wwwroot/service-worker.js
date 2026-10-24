@@ -1,5 +1,18 @@
 ﻿// ============================================================================
-// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v24-pwa-frictionless)
+// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v25-icon-guard)
+
+// v25-icon-guard (2026-10-24):
+//   - Chrome installability failure on Android: "Error while trying to use the
+//     following icon from the Manifest ... (Download error or resource isn't a
+//     valid image)". Server verified OK (200 image/png, decodable 512x512).
+//     Root cause: STATIC_CACHE is cache-first with NO expiry and cached ANY 200
+//     response — the SPA fallback (try_files → index.html) returns 200 text/html
+//     for missing files (incl. khachlink-icons/*.png during deploy gaps).
+//     Poisoned HTML entries were served forever → icon fetch got HTML.
+//   - Fix: never cache text/html for non-document requests (isHtmlResponse
+//     guard on all cache writes) + manifest.json/khachlink-icons bypass the SW
+//     entirely (always fresh — dynamic per-instance metadata) + cache bump
+//     v24 → v25 to purge poisoned entries on every device.
 
 // v24-pwa-frictionless (2026-10-16):
 //   - pwa.js changed: install flow is now frictionless — tapping "Cài app" when
@@ -113,10 +126,10 @@
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v24-pwa-frictionless';
-const STATIC_CACHE = 'vanan-static-v24-pwa-frictionless';
-const DYNAMIC_CACHE = 'vanan-dynamic-v24-pwa-frictionless';
-const WASM_CACHE = 'vanan-wasm-v24-pwa-frictionless';
+const CACHE_NAME = 'vanan-khachlink-v25-icon-guard';
+const STATIC_CACHE = 'vanan-static-v25-icon-guard';
+const DYNAMIC_CACHE = 'vanan-dynamic-v25-icon-guard';
+const WASM_CACHE = 'vanan-wasm-v25-icon-guard';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
@@ -276,6 +289,16 @@ function stampResponse(response) {
   });
 }
 
+// Poisoning guard: the SPA fallback (try_files → index.html) returns 200
+// text/html for ANY missing path — including icons, CSS, JS, wasm. Caching
+// such responses poisons the cache permanently (cache-first, no expiry) and
+// breaks Chrome installability ("resource isn't a valid image") + SRI checks.
+// NEVER cache HTML for non-navigation requests.
+function isHtmlResponse(response) {
+  const ct = response.headers.get('Content-Type') || '';
+  return ct.indexOf('text/html') !== -1;
+}
+
 // Check if a cached response is older than CACHE_EXPIRY_MS. Returns true if
 // expired (or if timestamp missing — defensive, treat unset as expired).
 function isExpired(response) {
@@ -303,12 +326,20 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // PWA metadata: NEVER intercept — always fresh from network. These are
+  // dynamic per-instance (manifest name/icons) and caching them (especially
+  // a poisoned HTML fallback) breaks Chrome installability checks.
+  if (url.pathname === '/manifest.json' ||
+      url.pathname.startsWith('/khachlink-icons/')) {
+    return;
+  }
+
   // --- 1. blazor.boot.json: network-first + cache fallback (detect updates) ---
   if (url.pathname === bootManifestUrl) {
     event.respondWith(
       fetch(request)
         .then(response => {
-          if (response && response.status === 200) {
+          if (response && response.status === 200 && !isHtmlResponse(response)) {
             const responseToCache = response.clone();
             caches.open(WASM_CACHE).then(cache => {
               cache.put(request, responseToCache);
@@ -339,7 +370,7 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(request)
         .then(response => {
-          if (response && response.status === 200) {
+          if (response && response.status === 200 && !isHtmlResponse(response)) {
             const responseToCache = response.clone();
             caches.open(WASM_CACHE).then(cache => {
               cache.put(request, responseToCache);
@@ -368,6 +399,12 @@ self.addEventListener('fetch', event => {
           }
           return fetch(request).then(response => {
             if (!response || response.status !== 200) {
+              return response;
+            }
+            // Never cache HTML for non-document requests (SPA fallback poison).
+            // Document requests (navigations, precached '/' + '/index.html')
+            // legitimately return HTML — those still cache.
+            if (isHtmlResponse(response) && request.destination !== 'document') {
               return response;
             }
             const responseToCache = response.clone();

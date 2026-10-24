@@ -1,5 +1,5 @@
 // ============================================================================
-// VanAn Directory (Blazor SSR) — minimal PWA service worker (v1, 2026-10-16)
+// VanAn Directory (Blazor SSR) — minimal PWA service worker (v2, 2026-10-24)
 //
 // Purpose: satisfy Chrome installability (registered SW with a fetch handler)
 // and provide a basic offline shell for the Directory app.
@@ -8,9 +8,18 @@
 // network-first — offline fallback returns the last cached page shell.
 // The PWA manifest (/manifest.json) + icons are served by the KhachLink nginx
 // proxy (dynamic per instance) — never intercepted here.
+//
+// v2 (2026-10-24):
+//   - Icon-poisoning guard (same bug as KhachLink SW v25): the static
+//     cache-first branch cached ANY 200 response — an HTML fallback/error
+//     page for khachlink-icons/*.png would be served forever as a "PNG" →
+//     Chrome: "resource isn't a valid image" → install blocked.
+//   - Fix: /khachlink-icons/ added to the never-intercept list (was only
+//     documented, not actually skipped) + never cache text/html in the
+//     static branch + cache bump v1 → v2 to purge stale entries.
 // ============================================================================
 
-const CACHE_NAME = 'vanan-directory-v1';
+const CACHE_NAME = 'vanan-directory-v2';
 const SHELL_URLS = ['/'];
 
 self.addEventListener('install', event => {
@@ -47,10 +56,11 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin) return;
 
   // Never intercept PWA metadata — always fresh from network
-  // (dynamic per-instance manifest, SW updates).
+  // (dynamic per-instance manifest + icons, SW updates).
   if (url.pathname === '/manifest.json' ||
       url.pathname === '/directory-sw.js' ||
-      url.pathname === '/service-worker-assets.js') {
+      url.pathname === '/service-worker-assets.js' ||
+      url.pathname.startsWith('/khachlink-icons/')) {
     return;
   }
 
@@ -73,11 +83,15 @@ self.addEventListener('fetch', event => {
   }
 
   // Static assets: cache-first, network fallback (cache on success).
+  // Never cache text/html here — non-navigation requests that get an HTML
+  // response (error page, fallback) would poison the cache permanently.
   event.respondWith(
     caches.match(request).then(cached => {
       if (cached) return cached;
       return fetch(request).then(response => {
-        if (response && response.status === 200 && response.type === 'basic') {
+        const ct = response ? (response.headers.get('Content-Type') || '') : '';
+        if (response && response.status === 200 && response.type === 'basic' &&
+            ct.indexOf('text/html') === -1) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
         }
