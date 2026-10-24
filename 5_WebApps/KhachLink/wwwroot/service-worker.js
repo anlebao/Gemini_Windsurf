@@ -1,5 +1,18 @@
 ﻿// ============================================================================
-// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v25-icon-guard)
+// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v26-install-flag-fix)
+//
+// v26-install-flag-fix (2026-10-24):
+//   - pwa.js install flow hardening: the install_requested flag is now
+//     consumed ONLY inside showInstallPrompt (on accepted/dismissed) — a
+//     silently-blocked auto-prompt (no user gesture) restores the flag and
+//     the Blazor install button stays as a gesture fallback. Repeat taps with
+//     no beforeinstallprompt show a "already installed / suppressed" guidance
+//     toast instead of looping "App đang chuẩn bị cài đặt" forever.
+//   - Static JS is cache-first with NO expiry → bump v25 → v26 so every client
+//     re-fetches the fixed pwa.js (same lesson as v20/v21/v23/v24/v25).
+// ============================================================================
+//
+// v25-icon-guard (2026-10-24):
 
 // v25-icon-guard (2026-10-24):
 //   - Chrome installability failure on Android: "Error while trying to use the
@@ -126,10 +139,10 @@
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v25-icon-guard';
-const STATIC_CACHE = 'vanan-static-v25-icon-guard';
-const DYNAMIC_CACHE = 'vanan-dynamic-v25-icon-guard';
-const WASM_CACHE = 'vanan-wasm-v25-icon-guard';
+const CACHE_NAME = 'vanan-khachlink-v26-install-flag-fix';
+const STATIC_CACHE = 'vanan-static-v26-install-flag-fix';
+const DYNAMIC_CACHE = 'vanan-dynamic-v26-install-flag-fix';
+const WASM_CACHE = 'vanan-wasm-v26-install-flag-fix';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [

@@ -170,11 +170,14 @@ window.vananPWA = {
                 if (outcome === 'accepted') {
                     this.isInstalled = true;
                     console.log('PWA installation accepted');
+                    this._clearInstallRequested();
                     // Loyalty-C WS-B: Notify backend to award PWAInstall mission points.
                     this.notifyPwaInstalledBackend();
                     return true;
                 } else {
                     console.log('PWA installation dismissed');
+                    // User actively declined — clear the retry flag (don't nag).
+                    this._clearInstallRequested();
                     // Clear deferredPrompt — Chrome only allows prompt() once per event.
                     // Next page load may fire beforeinstallprompt again (if engagement heuristic met).
                     this.deferredPrompt = null;
@@ -182,7 +185,10 @@ window.vananPWA = {
                 }
             } catch (error) {
                 console.error('Failed to show install prompt:', error);
-                // Clear stale deferredPrompt — prompt() may have already been called
+                // prompt() can be blocked without a user gesture — RESTORE the
+                // flag so the next visit retries automatically (the flag must
+                // not be consumed by a prompt that never appeared).
+                try { localStorage.setItem('vanan_install_requested', '1'); } catch (e) {}
                 this.deferredPrompt = null;
                 return false;
             }
@@ -209,17 +215,26 @@ window.vananPWA = {
     // If the user taps install before that, persist a flag — on the NEXT visit the
     // native prompt auto-fires, so the user never has to clear site data or use
     // the browser menu.
+    _clearInstallRequested() {
+        try { localStorage.removeItem('vanan_install_requested'); } catch (e) {}
+    },
+
     requestInstallOnNextVisit() {
+        var alreadyRequested = false;
         try {
+            alreadyRequested = localStorage.getItem('vanan_install_requested') === '1';
             localStorage.setItem('vanan_install_requested', '1');
         } catch (e) { /* storage unavailable — fall back to toast only */ }
-        this.showInstallHelpToast('Android', null);
+        // Repeat request with the flag already set = Chrome is NOT firing
+        // beforeinstallprompt at all (app already installed, or prompt
+        // suppressed). Show real guidance instead of looping the same toast.
+        this.showInstallHelpToast('Android', null, alreadyRequested);
         return false;
     },
 
     // Show non-blocking toast with install help.
     // When hint is null, shows clear-site-data instructions (Chrome suppressed prompt).
-    showInstallHelpToast(platform, hint) {
+    showInstallHelpToast(platform, hint, isBlocked) {
         // Remove any existing toast
         var existing = document.getElementById('vanan-install-help-toast');
         if (existing) existing.remove();
@@ -228,7 +243,19 @@ window.vananPWA = {
         toast.id = 'vanan-install-help-toast';
         toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(139,69,19,0.95);color:white;padding:16px 20px;border-radius:16px;font-size:14px;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,0.3);max-width:92vw;text-align:center;line-height:1.5;';
 
-        if (hint) {
+        if (isBlocked) {
+            // Repeated install request but beforeinstallprompt never fires —
+            // the app is probably already installed (home-icon removal does
+            // NOT uninstall the WebAPK) or Chrome suppressed the prompt.
+            toast.innerHTML =
+                '<div style="font-weight:600;margin-bottom:8px;font-size:15px;">Chrome chưa cho phép cài tự động</div>' +
+                '<div style="opacity:0.9;margin-bottom:10px;font-size:13px;line-height:1.6;text-align:left;">' +
+                'Có thể app <b>đã được cài đặt trước đó</b> — kiểm tra trong <b>Cài đặt → Ứng dụng</b> trên điện thoại ' +
+                '(xóa icon màn hình KHÔNG gỡ app). Nếu app đã cài, mở trực tiếp từ danh sách ứng dụng.<br><br>' +
+                'Nếu chưa cài: menu trình duyệt <b>⋮ → "Thêm vào Màn hình chính"</b>.' +
+                '</div>' +
+                '<button onclick="var t=document.getElementById(\'vanan-install-help-toast\'); if(t) t.remove();" style="background:white;color:#8B4513;border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">Đã hiểu</button>';
+        } else if (hint) {
             // iOS: show Share → Add to Home Screen instructions
             toast.innerHTML = '<div style="font-weight:600;margin-bottom:8px;">Cài đặt Vạn An App</div>' +
                 '<div style="opacity:0.9;margin-bottom:12px;">' + hint + '</div>' +
@@ -671,13 +698,20 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // Frictionless install (2026-10-16): if the user tapped "Cài app" on a previous
     // visit before Chrome was ready (engagement heuristic), auto-fire the native
     // prompt now — no data clearing / browser menu steps required.
+    // 2026-10-24: the flag is consumed INSIDE showInstallPrompt (only on
+    // 'accepted'/'dismissed' outcomes) — a silently-blocked auto-prompt (no
+    // user gesture) restores the flag instead of stranding the flow. The
+    // Blazor install button is also surfaced as a gesture-based fallback.
     var installRequested = false;
     try { installRequested = localStorage.getItem('vanan_install_requested') === '1'; } catch (err) {}
     if (installRequested) {
-        try { localStorage.removeItem('vanan_install_requested'); } catch (err) {}
         setTimeout(() => {
             window.vananPWA.showInstallPrompt();
         }, 1500);
+        if (window.vananPWA.dotNetRef) {
+            window.vananPWA.dotNetRef.invokeMethodAsync('HandleBeforeInstallPromptFired')
+                .catch(() => { /* Blazor not ready yet */ });
+        }
         return;
     }
 

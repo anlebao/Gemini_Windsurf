@@ -17,9 +17,15 @@
 //   - Fix: /khachlink-icons/ added to the never-intercept list (was only
 //     documented, not actually skipped) + never cache text/html in the
 //     static branch + cache bump v1 → v2 to purge stale entries.
+//
+// v3 (2026-10-24):
+//   - directory-pwa.js install flow hardening (flag consumed only on
+//     'accepted', blocked auto-prompt keeps flag + button fallback, repeat
+//     tap shows guidance toast). Static JS is cache-first → bump v2 → v3
+//     so clients re-fetch the fixed script.
 // ============================================================================
 
-const CACHE_NAME = 'vanan-directory-v2';
+const CACHE_NAME = 'vanan-directory-v3';
 const SHELL_URLS = ['/'];
 
 self.addEventListener('install', event => {

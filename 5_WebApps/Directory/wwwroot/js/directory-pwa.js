@@ -34,20 +34,41 @@
     });
   }
 
+  function clearInstallRequested() {
+    try { localStorage.removeItem(INSTALL_REQUESTED_KEY); } catch (err) {}
+  }
+
   function tryInstall() {
     if (!deferredPrompt || isInstalled) return;
     var prompt = deferredPrompt;
     deferredPrompt = null;
-    prompt.prompt();
-    prompt.userChoice
+    try {
+      prompt.prompt();
+    } catch (err) {
+      // prompt() without a user gesture can throw on some Chrome versions.
+      console.warn('[DirectoryPWA] prompt() threw:', err);
+      showInstallButton();
+      return;
+    }
+    (prompt.userChoice || Promise.resolve({ outcome: 'unknown' }))
       .then(function (choice) {
         if (choice.outcome === 'accepted') {
           isInstalled = true;
+          clearInstallRequested();
           hideInstallButton();
+        } else if (choice.outcome === 'dismissed') {
+          // User actively declined — clear the flag so we stop auto-prompting.
+          clearInstallRequested();
+        } else {
+          // 'unknown' — prompt may have been silently blocked (no user
+          // gesture). Keep the flag (next visit retries) + keep the button
+          // so the user can tap → real gesture → prompt.
+          showInstallButton();
         }
       })
       .catch(function (err) {
         console.warn('[DirectoryPWA] install prompt failed:', err);
+        showInstallButton();
       });
   }
 
@@ -74,8 +95,19 @@
       } else {
         // Chrome not ready yet (engagement heuristic: needs ~30s of use).
         // Ask for an auto-prompt on the next visit — no user steps needed.
-        try { localStorage.setItem(INSTALL_REQUESTED_KEY, '1'); } catch (err) {}
-        showPreparingToast();
+        var alreadyRequested = false;
+        try {
+          alreadyRequested = localStorage.getItem(INSTALL_REQUESTED_KEY) === '1';
+          localStorage.setItem(INSTALL_REQUESTED_KEY, '1');
+        } catch (err) {}
+        // Repeat tap with the flag already set = Chrome is NOT firing
+        // beforeinstallprompt at all (app already installed, or prompt
+        // suppressed). Show real guidance instead of looping the same toast.
+        if (alreadyRequested) {
+          showBlockedToast();
+        } else {
+          showPreparingToast();
+        }
         hideInstallButton();
       }
     };
@@ -103,6 +135,29 @@
     }, 15000);
   }
 
+  function showBlockedToast() {
+    var toast = document.createElement('div');
+    toast.id = 'vanan-dir-install-toast';
+    toast.style.cssText =
+      'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:9999;' +
+      'background:rgba(120,60,20,0.97);color:#fff;padding:14px 18px;border-radius:14px;' +
+      'font-size:14px;line-height:1.5;max-width:88vw;text-align:center;' +
+      'box-shadow:0 4px 16px rgba(0,0,0,.3);';
+    toast.innerHTML =
+      '<div style="font-weight:600;margin-bottom:4px;">Chrome chưa cho phép cài tự động</div>' +
+      '<div style="opacity:.92;text-align:left;">Có thể app <b>đã được cài đặt trước đó</b> ' +
+      '(kiểm tra trong Cài đặt → Ứng dụng trên điện thoại — xóa icon màn hình không gỡ app), ' +
+      'hoặc Chrome đang chặn hộp thoại cài đặt.<br><br>' +
+      'Thử: menu trình duyệt <b>⋮ → "Thêm vào Màn hình chính"</b>.</div>' +
+      '<button onclick="var t=document.getElementById(\'vanan-dir-install-toast\'); if(t) t.remove();" ' +
+      'style="margin-top:10px;background:#fff;color:#783c14;border:none;padding:7px 18px;border-radius:20px;' +
+      'font-weight:600;cursor:pointer;font-size:13px;">Đã hiểu</button>';
+    document.body.appendChild(toast);
+    setTimeout(function () {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 20000);
+  }
+
   function showIosHint() {
     if (hintShown || isInstalled) return;
     hintShown = true;
@@ -128,11 +183,19 @@
     deferredPrompt = e;
     console.log('[DirectoryPWA] beforeinstallprompt FIRED — app is installable');
 
-    if (!isInstalled && localStorage.getItem(INSTALL_REQUESTED_KEY) === '1') {
+    var installRequested = false;
+    try { installRequested = localStorage.getItem(INSTALL_REQUESTED_KEY) === '1'; } catch (err) {}
+
+    if (!isInstalled && installRequested) {
       // User tapped install on a previous visit but Chrome wasn't ready.
-      // Auto-fire the native prompt now (frictionless flow).
-      try { localStorage.removeItem(INSTALL_REQUESTED_KEY); } catch (err) {}
-      setTimeout(tryInstall, 800);
+      // Auto-fire the native prompt now — the flag is cleared ONLY when the
+      // prompt resolves 'accepted' (inside tryInstall), so a silently-blocked
+      // auto-prompt doesn't strand the flow. The floating button stays as a
+      // gesture-based fallback.
+      setTimeout(function () {
+        tryInstall();
+        if (!isInstalled) showInstallButton();
+      }, 800);
     } else if (!isInstalled) {
       showInstallButton();
     }
