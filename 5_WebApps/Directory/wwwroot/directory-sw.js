@@ -34,9 +34,13 @@
 //     circuit dies → page frozen at its last rendered frame (the
 //     "Đang tải..." spinner). SignalR transport requests are live
 //     infrastructure, never cacheable content — bypass unconditionally.
+//
+// v5 (2026-10-25):
+//   - directory-pwa.js install diagnostics + evidence-based blocked toast.
+//     Static JS is cache-first → bump v4 → v5 so clients re-fetch it.
 // ============================================================================
 
-const CACHE_NAME = 'vanan-directory-v4';
+const CACHE_NAME = 'vanan-directory-v5';
 const SHELL_URLS = ['/'];
 
 self.addEventListener('install', event => {

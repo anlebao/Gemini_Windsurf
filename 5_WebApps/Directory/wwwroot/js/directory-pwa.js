@@ -20,6 +20,7 @@
   if (!('serviceWorker' in navigator)) return;
 
   var INSTALL_REQUESTED_KEY = 'vanan_dir_install_requested';
+  var DIAG_KEY = 'vanan_dir_pwa_diag';
   var deferredPrompt = null;
   var isInstalled =
     window.matchMedia('(display-mode: standalone)').matches ||
@@ -27,11 +28,62 @@
   var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   var button = null;
   var hintShown = false;
+  var bipSeen = false;
+
+  // --- Diagnostics (2026-10-25) ---------------------------------------------
+  // Records the install lifecycle to a localStorage ring buffer + console.
+  // Technical state only — no personal data, no user input. Read back with
+  // window.vananPwaDiag() in DevTools, or the summary embedded in the
+  // blocked toast (screenshotable).
+  var diagEvents = [];
+  function diag(eventName, data) {
+    var entry = { t: Date.now(), e: eventName };
+    if (data !== undefined) entry.d = data;
+    diagEvents.push(entry);
+    console.log('[DirectoryPWA:diag]', eventName, data === undefined ? '' : data);
+    try {
+      var arr = JSON.parse(localStorage.getItem(DIAG_KEY) || '[]');
+      arr.push(entry);
+      if (arr.length > 60) arr = arr.slice(-60);
+      localStorage.setItem(DIAG_KEY, JSON.stringify(arr));
+    } catch (err) {}
+  }
+  function diagState() {
+    var chromeMajor = 0;
+    var m = /Chrome\/(\d+)/.exec(navigator.userAgent || '');
+    if (m) chromeMajor = parseInt(m[1], 10);
+    return {
+      bip: bipSeen,                                     // beforeinstallprompt seen this page load
+      deferred: !!deferredPrompt,
+      swCtrl: !!(navigator.serviceWorker && navigator.serviceWorker.controller),
+      displayMode: window.matchMedia('(display-mode: standalone)').matches
+        ? 'standalone'
+        : (window.matchMedia('(display-mode: minimal-ui)').matches ? 'minimal-ui' : 'browser'),
+      chromeMajor: chromeMajor,
+      installed: isInstalled
+    };
+  }
+  window.vananPwaDiag = function () {
+    var stored = [];
+    try { stored = JSON.parse(localStorage.getItem(DIAG_KEY) || '[]'); } catch (err) {}
+    return { state: diagState(), events: stored };
+  };
+  // --------------------------------------------------------------------------
+
+  diag('init', diagState());
 
   function registerServiceWorker() {
-    navigator.serviceWorker.register('/directory-sw.js').catch(function (err) {
-      console.warn('[DirectoryPWA] SW registration failed:', err);
-    });
+    navigator.serviceWorker.register('/directory-sw.js')
+      .then(function (reg) {
+        diag('sw-registered', {
+          scope: reg.scope,
+          state: reg.active ? 'active' : (reg.installing ? 'installing' : (reg.waiting ? 'waiting' : 'none'))
+        });
+      })
+      .catch(function (err) {
+        diag('sw-register-failed', String(err && err.message || err));
+        console.warn('[DirectoryPWA] SW registration failed:', err);
+      });
   }
 
   function clearInstallRequested() {
@@ -46,12 +98,14 @@
       prompt.prompt();
     } catch (err) {
       // prompt() without a user gesture can throw on some Chrome versions.
+      diag('prompt-threw', String(err && err.message || err));
       console.warn('[DirectoryPWA] prompt() threw:', err);
       showInstallButton();
       return;
     }
     (prompt.userChoice || Promise.resolve({ outcome: 'unknown' }))
       .then(function (choice) {
+        diag('prompt-outcome', choice && choice.outcome);
         if (choice.outcome === 'accepted') {
           isInstalled = true;
           clearInstallRequested();
@@ -91,6 +145,7 @@
       '<i class="bi bi-download" style="font-size:16px;"></i> Cài đặt ứng dụng';
     button.onclick = function () {
       if (deferredPrompt) {
+        diag('install-tap', { hasPrompt: true });
         tryInstall();
       } else {
         // Chrome not ready yet (engagement heuristic: needs ~30s of use).
@@ -100,9 +155,11 @@
           alreadyRequested = localStorage.getItem(INSTALL_REQUESTED_KEY) === '1';
           localStorage.setItem(INSTALL_REQUESTED_KEY, '1');
         } catch (err) {}
-        // Repeat tap with the flag already set = Chrome is NOT firing
-        // beforeinstallprompt at all (app already installed, or prompt
-        // suppressed). Show real guidance instead of looping the same toast.
+        diag('install-tap', { hasPrompt: false, alreadyRequested: alreadyRequested });
+        // Repeat tap with the flag already set = beforeinstallprompt still
+        // has not fired. We cannot know WHY from JS (already installed,
+        // unsupported context, engagement, suppression) — show the detected
+        // state honestly instead of claiming Chrome blocked it.
         if (alreadyRequested) {
           showBlockedToast();
         } else {
@@ -136,6 +193,11 @@
   }
 
   function showBlockedToast() {
+    var s = diagState();
+    diag('blocked-toast', s);
+    // We detected: no beforeinstallprompt event this session. JS cannot tell
+    // WHY — do NOT claim Chrome "blocked" it. Show what we know + the
+    // state summary so a screenshot captures the real diagnostic data.
     var toast = document.createElement('div');
     toast.id = 'vanan-dir-install-toast';
     toast.style.cssText =
@@ -144,18 +206,25 @@
       'font-size:14px;line-height:1.5;max-width:88vw;text-align:center;' +
       'box-shadow:0 4px 16px rgba(0,0,0,.3);';
     toast.innerHTML =
-      '<div style="font-weight:600;margin-bottom:4px;">Chrome chưa cho phép cài tự động</div>' +
-      '<div style="opacity:.92;text-align:left;">Có thể app <b>đã được cài đặt trước đó</b> ' +
-      '(kiểm tra trong Cài đặt → Ứng dụng trên điện thoại — xóa icon màn hình không gỡ app), ' +
-      'hoặc Chrome đang chặn hộp thoại cài đặt.<br><br>' +
-      'Thử: menu trình duyệt <b>⋮ → "Thêm vào Màn hình chính"</b>.</div>' +
+      '<div style="font-weight:600;margin-bottom:4px;">Trình duyệt chưa hiện ô cài đặt</div>' +
+      '<div style="opacity:.92;text-align:left;">' +
+      'Trình duyệt chưa báo trang này là cài được (sự kiện cài đặt chưa kích hoạt). ' +
+      'Nguyên nhân thường gặp:<br>' +
+      '• Đang mở qua link từ app khác (Zalo/Messenger...) — hãy <b>mở trực tiếp bằng app Chrome</b><br>' +
+      '• App <b>đã cài trước đó</b> — kiểm tra Cài đặt → Ứng dụng<br>' +
+      '• Chrome chưa xác nhận trang cài được — mở lại trang và chờ ~30 giây<br><br>' +
+      'Thử: menu trình duyệt <b>⋮ → "Thêm vào Màn hình chính"</b></div>' +
+      '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.25);' +
+      'font-size:11px;opacity:.8;text-align:left;">' +
+      'diag: bip=' + s.bip + ' · swCtrl=' + s.swCtrl + ' · display=' + s.displayMode +
+      ' · chrome=' + (s.chromeMajor || '?') + ' · installed=' + s.installed + '</div>' +
       '<button onclick="var t=document.getElementById(\'vanan-dir-install-toast\'); if(t) t.remove();" ' +
       'style="margin-top:10px;background:#fff;color:#783c14;border:none;padding:7px 18px;border-radius:20px;' +
       'font-weight:600;cursor:pointer;font-size:13px;">Đã hiểu</button>';
     document.body.appendChild(toast);
     setTimeout(function () {
       if (toast.parentNode) toast.parentNode.removeChild(toast);
-    }, 20000);
+    }, 30000);
   }
 
   function showIosHint() {
@@ -181,6 +250,8 @@
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();
     deferredPrompt = e;
+    bipSeen = true;
+    diag('bip', { platforms: e.platforms || [] });
     console.log('[DirectoryPWA] beforeinstallprompt FIRED — app is installable');
 
     var installRequested = false;
@@ -203,6 +274,7 @@
 
   window.addEventListener('appinstalled', function () {
     isInstalled = true;
+    diag('appinstalled');
     hideInstallButton();
     console.log('[DirectoryPWA] appinstalled fired');
   });
