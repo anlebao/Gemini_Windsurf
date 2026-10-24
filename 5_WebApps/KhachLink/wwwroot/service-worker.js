@@ -1,5 +1,14 @@
 ﻿// ============================================================================
-// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v28-install-identity-fix)
+// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v29-gesture-install)
+//
+// v29-gesture-install (2026-10-24):
+//   - pwa.js: drop the no-gesture auto-prompt (Chrome rejects prompt()
+//     without transient user activation — it failed on real devices and
+//     spammed a red "Không mở được hộp thoại" toast on every entry).
+//     Now: gesture-based — surface the button + a green "App sẵn sàng để
+//     cài đặt" hint; the user's tap opens the native dialog.
+//   - Static JS is cache-first with NO expiry → bump v28 → v29 so every
+//     client re-fetches the updated pwa.js (same lesson as v20→v28).
 //
 // v28-install-identity-fix (2026-10-24):
 //   - pwa.js: D2 already-installed WebAPK detection (getInstalledRelatedApps —
@@ -158,10 +167,10 @@
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v28-install-identity-fix';
-const STATIC_CACHE = 'vanan-static-v28-install-identity-fix';
-const DYNAMIC_CACHE = 'vanan-dynamic-v28-install-identity-fix';
-const WASM_CACHE = 'vanan-wasm-v28-install-identity-fix';
+const CACHE_NAME = 'vanan-khachlink-v29-gesture-install';
+const STATIC_CACHE = 'vanan-static-v29-gesture-install';
+const DYNAMIC_CACHE = 'vanan-dynamic-v29-gesture-install';
+const WASM_CACHE = 'vanan-wasm-v29-gesture-install';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [

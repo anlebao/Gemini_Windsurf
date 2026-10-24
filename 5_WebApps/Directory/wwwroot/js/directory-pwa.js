@@ -101,9 +101,9 @@
       diag('prompt-threw', String(err && err.message || err));
       console.warn('[DirectoryPWA] prompt() threw:', err);
       showStatusToast(
-        'Không mở được hộp thoại cài đặt',
-        'Trình duyệt đã chặn hộp thoại tự động. Bấm lại nút <b>"Cài đặt ứng dụng"</b>, ' +
-        'hoặc dùng menu trình duyệt <b>⋮ → "Thêm vào Màn hình chính"</b>.',
+        'Chrome chưa mở được hộp thoại cài đặt',
+        'Chrome yêu cầu thao tác bấm để mở hộp thoại. Bấm lại nút <b>"Cài đặt ứng dụng"</b>, ' +
+        'hoặc dùng menu trình duyệt <b>⋮ → "Cài đặt ứng dụng"</b>.',
         'rgba(160,40,40,0.97)', 15000);
       showInstallButton();
       return;
@@ -132,7 +132,7 @@
           // gesture). Keep the flag (next visit retries) + keep the button
           // so the user can tap → real gesture → prompt.
           showStatusToast(
-            'Không mở được hộp thoại cài đặt',
+            'Chrome chưa mở được hộp thoại cài đặt',
             'Bấm lại nút <b>"Cài đặt ứng dụng"</b> để hiện hộp thoại cài đặt.',
             'rgba(160,40,40,0.97)', 12000);
           showInstallButton();
@@ -141,8 +141,8 @@
       .catch(function (err) {
         console.warn('[DirectoryPWA] install prompt failed:', err);
         showStatusToast(
-          'Không mở được hộp thoại cài đặt',
-          'Bấm lại nút <b>"Cài đặt ứng dụng"</b>, hoặc dùng menu trình duyệt <b>⋮ → "Thêm vào Màn hình chính"</b>.',
+          'Chrome chưa mở được hộp thoại cài đặt',
+          'Bấm lại nút <b>"Cài đặt ứng dụng"</b>, hoặc dùng menu trình duyệt <b>⋮ → "Cài đặt ứng dụng"</b>.',
           'rgba(160,40,40,0.97)', 12000);
         showInstallButton();
       });
@@ -345,15 +345,15 @@
     try { installRequested = localStorage.getItem(INSTALL_REQUESTED_KEY) === '1'; } catch (err) {}
 
     if (!isInstalled && installRequested) {
-      // User tapped install on a previous visit but Chrome wasn't ready.
-      // Auto-fire the native prompt now — the flag is cleared ONLY when the
-      // prompt resolves 'accepted' (inside tryInstall), so a silently-blocked
-      // auto-prompt doesn't strand the flow. The floating button stays as a
-      // gesture-based fallback.
-      setTimeout(function () {
-        tryInstall();
-        if (!isInstalled) showInstallButton();
-      }, 800);
+      // v8 (2026-10-24): Chrome rejects prompt() without a user gesture —
+      // auto-firing here fails on real devices and spams an error toast on
+      // every entry. Gesture-based: show the button (tap = gesture) + a
+      // gentle ready hint instead.
+      showInstallButton();
+      showStatusToast(
+        'App sẵn sàng để cài đặt',
+        'Chrome đã cho phép cài — bấm nút <b>"Cài đặt ứng dụng"</b> để mở hộp thoại cài đặt.',
+        'rgba(44,95,45,0.97)', 12000);
     } else if (!isInstalled) {
       showInstallButton();
     }

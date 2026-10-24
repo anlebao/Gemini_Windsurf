@@ -377,11 +377,17 @@ window.vananPWA = {
             },
             blocked: {
                 bg: 'rgba(160,40,40,0.97)',
-                html: '<div style="font-weight:600;font-size:15px;">Không mở được hộp thoại cài đặt</div>' +
-                      '<div style="opacity:0.92;margin-top:4px;font-size:13px;line-height:1.6;">Trình duyệt đã chặn hộp thoại tự động.<br>' +
-                      'Thử bấm lại nút <b>"Cài đặt"</b> trên app, hoặc dùng menu trình duyệt <b>⋮ → "Thêm vào Màn hình chính"</b>.</div>' +
+                html: '<div style="font-weight:600;font-size:15px;">Chrome chưa mở được hộp thoại cài đặt</div>' +
+                      '<div style="opacity:0.92;margin-top:4px;font-size:13px;line-height:1.6;">Chrome yêu cầu thao tác bấm để mở hộp thoại.<br>' +
+                      'Bấm lại nút <b>"Cài đặt"</b> trên app, hoặc dùng menu trình duyệt <b>⋮ → "Cài đặt ứng dụng"</b>.</div>' +
                       '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.25);font-size:11px;opacity:0.8;text-align:left;">' + this._diagState() + '</div>',
                 ms: 15000
+            },
+            ready: {
+                bg: 'rgba(44,95,45,0.97)',
+                html: '<div style="font-weight:600;font-size:15px;">App sẵn sàng để cài đặt</div>' +
+                      '<div style="opacity:0.92;margin-top:4px;font-size:13px;">Chrome đã cho phép cài — bấm nút <b>"Cài đặt"</b> trên app để mở hộp thoại cài đặt.</div>',
+                ms: 12000
             },
             installed: {
                 bg: 'rgba(34,139,34,0.95)',
@@ -838,16 +844,19 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // 'accepted'/'dismissed' outcomes) — a silently-blocked auto-prompt (no
     // user gesture) restores the flag instead of stranding the flow. The
     // Blazor install button is also surfaced as a gesture-based fallback.
+    // 2026-10-24 (v29): Chrome REJECTS prompt() without a user gesture
+    // (NotAllowedError) → auto-prompt failed on real devices and showed a
+    // scary red toast on every entry. Gesture-based: surface the button +
+    // a gentle "ready" hint; the user's tap IS the gesture that opens the
+    // native dialog.
     var installRequested = false;
     try { installRequested = localStorage.getItem('vanan_install_requested') === '1'; } catch (err) {}
     if (installRequested) {
-        setTimeout(() => {
-            window.vananPWA.showInstallPrompt();
-        }, 1500);
         if (window.vananPWA.dotNetRef) {
             window.vananPWA.dotNetRef.invokeMethodAsync('HandleBeforeInstallPromptFired')
                 .catch(() => { /* Blazor not ready yet */ });
         }
+        window.vananPWA._showInstallStatusToast('ready');
         return;
     }
 

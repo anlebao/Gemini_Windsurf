@@ -50,9 +50,16 @@
 //     + in-app browser guard (Zalo/Messenger "open in Chrome" toast) +
 //     startup installed-check hides the floating button.
 //     Static JS is cache-first → bump v6 → v7 so clients re-fetch it.
+//
+// v8 (2026-10-24):
+//   - directory-pwa.js: drop the no-gesture auto-prompt (Chrome rejects
+//     prompt() without transient activation) → gesture-based: show the
+//     floating button + green "App sẵn sàng để cài đặt" hint; error toasts
+//     reworded to "bấm lại nút / menu ⋮ → Cài đặt ứng dụng".
+//     Static JS is cache-first → bump v7 → v8 so clients re-fetch it.
 // ============================================================================
 
-const CACHE_NAME = 'vanan-directory-v7';
+const CACHE_NAME = 'vanan-directory-v8';
 const SHELL_URLS = ['/'];
 
 self.addEventListener('install', event => {
