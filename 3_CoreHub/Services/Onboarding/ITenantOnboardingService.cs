@@ -1,3 +1,5 @@
+using VanAn.Shared.Domain;
+
 namespace VanAn.CoreHub.Services.Onboarding
 {
     /// <summary>
@@ -34,13 +36,21 @@ namespace VanAn.CoreHub.Services.Onboarding
         /// Auto-generates pending slug: pending-{taxCode}-{random4} with retry on collision.
         /// Checks for duplicate MST via IDuplicateDetectionService (correction H5: first canonical).
         /// Saves CrawlSource audit row for provenance.
+        ///
+        /// OCR Onboarding S2 (2026-10-25, D5 approved): optional businessType/hkdGroup —
+        /// Case B (shop không GPKD) tạo Pending tenant loại HKD. Default Company/null = crawl cũ.
+        /// SourceUrl validation được bỏ qua khi SourceSite bắt đầu bằng "OCR-" (không có URL crawl).
         /// </summary>
         /// <param name="listing">Crawled business listing data.</param>
+        /// <param name="businessType">Tenant loại hình (default Company — backward compat).</param>
+        /// <param name="hkdGroup">Nhóm HKD theo TT152 (bắt buộc khi businessType = HouseholdBusiness).</param>
         /// <param name="ct">Cancellation token.</param>
         /// <returns>The new Pending tenant ID.</returns>
         Task<Guid> OnboardUnverifiedAsync(
             CrawlListingDto listing,
-            CancellationToken ct = default);
+            CancellationToken ct = default,
+            BusinessType businessType = BusinessType.Company,
+            HKDGroup? hkdGroup = null);
 
         /// <summary>
         /// Crawl-to-Onboard (2026-08-25): Verifies a Pending tenant → Active.

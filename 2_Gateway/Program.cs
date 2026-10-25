@@ -1138,6 +1138,8 @@ namespace VanAn.Gateway
             // Wave 4: Register Tenant Onboarding Service + industry seed strategies
 
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.ITenantOnboardingService, VanAn.CoreHub.Services.Onboarding.TenantOnboardingService>();
+            // OCR Onboarding S2 (2026-10-25): scan GPKD/biển hiệu/menu → Pending → Verify
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.ITenantOcrOnboardingService, VanAn.CoreHub.Services.Onboarding.TenantOcrOnboardingService>();
 
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.FnbSeedStrategy>();
 

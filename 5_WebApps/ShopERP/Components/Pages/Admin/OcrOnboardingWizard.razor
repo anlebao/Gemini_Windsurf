@@ -1,0 +1,665 @@
+@using VanAn.CoreHub.Services.Onboarding
+@using VanAn.Shared.Domain
+@using VanAn.Shared.DTOs
+@using VanAn.UI.Platform.Components
+@inject OcrOnboardingApiClient OcrOnboardingApi
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject IHttpClientFactory HttpFactory
+@inject ILogger<OcrOnboardingWizard> Logger
+
+<div class="ocr-wizard">
+    <!-- Stepper -->
+    <div class="ocr-wizard-steps">
+        <span class="@StepClass(0)">1. Loại hình</span>
+        <span class="ocr-step-sep">→</span>
+        <span class="@StepClass(1)">2. Giấy tờ</span>
+        <span class="ocr-step-sep">→</span>
+        <span class="@StepClass(2)">3. Biển hiệu + Menu</span>
+        <span class="ocr-step-sep">→</span>
+        <span class="@StepClass(3)">4. Vị trí + Xác nhận</span>
+        <span class="ocr-step-sep">→</span>
+        <span class="@StepClass(4)">5. Kết quả</span>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Variant="@_alertVariant" Message="@_alertMessage" OnClose="CloseAlert" />
+    }
+
+    @switch (_step)
+    {
+        case 0:
+            <div class="ocr-case-cards">
+                <button type="button" class="ocr-case-card @(_case == OcrOnboardingCase.CompanyWithLicense ? "selected" : "")"
+                        @onclick="() => SelectCase(OcrOnboardingCase.CompanyWithLicense)">
+                    <div class="ocr-case-title">🏢 Công ty / Hộ kinh doanh</div>
+                    <div class="ocr-case-desc">CÓ giấy phép kinh doanh (GPKD) — scan GPKD + biển hiệu + menu để điền thông tin tự động</div>
+                </button>
+                <button type="button" class="ocr-case-card @(_case == OcrOnboardingCase.SmallShopNoLicense ? "selected" : "")"
+                        @onclick="() => SelectCase(OcrOnboardingCase.SmallShopNoLicense)">
+                    <div class="ocr-case-title">🏪 Shop nhỏ</div>
+                    <div class="ocr-case-desc">KHÔNG có GPKD — chỉ scan biển hiệu + menu, chọn nhóm thuế HKD thủ công</div>
+                </button>
+            </div>
+            <div class="ocr-wizard-actions">
+                <VanAButton Variant="primary" OnClick="NextFromCase" Disabled="_case is null">Tiếp theo</VanAButton>
+            </div>
+            break;
+
+        case 1:
+            @if (_case == OcrOnboardingCase.CompanyWithLicense)
+            {
+                <div class="ocr-section">
+                    <h4>📷 Ảnh giấy phép kinh doanh (GPKD)</h4>
+                    <input type="file" accept="image/*" capture="environment" class="ocr-file-input"
+                           onchange="vananOnboardingWizard.processFile(this.files[0], 'extractGpdk')" />
+                    <div class="ocr-hint">Chụp thẳng góc, đủ sáng, tránh bóng đổ. Dấu đỏ đè chữ có thể làm sai chữ — kiểm tra kỹ.</div>
+
+                    @if (_isOcrBusy) { <div class="ocr-busy">⏳ Đang đọc ảnh GPKD…</div> }
+
+                    <div class="ocr-form">
+                        <label>Mã số thuế <span class="ocr-req">*</span>
+                            <input class="vanan-input" @bind="_gpdkMst" placeholder="10 hoặc 13 chữ số" />
+                            @ConfidenceBadge("MST", _gpdkMstConf)
+                        </label>
+                        <label>Tên doanh nghiệp <span class="ocr-req">*</span>
+                            <input class="vanan-input" @bind="_gpdkName" />
+                            @ConfidenceBadge("Tên", _gpdkNameConf)
+                        </label>
+                        <label>Địa chỉ
+                            <input class="vanan-input" @bind="_gpdkAddress" />
+                            @ConfidenceBadge("Địa chỉ", _gpdkAddressConf)
+                        </label>
+                        <label>Loại hình pháp lý
+                            <select class="vanan-select" @bind="_gpdkLegalForm">
+                                <option value="">— Chọn —</option>
+                                <option value="HKD">Hộ kinh doanh</option>
+                                <option value="TNHH">Công ty TNHH</option>
+                                <option value="Cổ phần">Công ty cổ phần</option>
+                                <option value="DNTN">Doanh nghiệp tư nhân</option>
+                                <option value="HTX">Hợp tác xã</option>
+                            </select>
+                        </label>
+                        <label>Người đại diện / Chủ hộ
+                            <input class="vanan-input" @bind="_gpdkOwner" />
+                        </label>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="ocr-section">
+                    <h4>🏪 Thông tin shop (không GPKD)</h4>
+                    <div class="ocr-form">
+                        <label>Tên shop <span class="ocr-req">*</span> <span class="ocr-hint">(sẽ prefill từ biển hiệu ở bước 3)</span>
+                            <input class="vanan-input" @bind="_tenantName" placeholder="VD: Cà Phê ABC" />
+                        </label>
+                        <label>Địa chỉ <span class="ocr-req">*</span>
+                            <input class="vanan-input" @bind="_address" placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành" />
+                        </label>
+                        <label>Nhóm thuế HKD (quyết định sổ sách kế toán TT152) <span class="ocr-req">*</span>
+                            <select class="vanan-select" @bind="_hkdGroup">
+                                <option value="">— Chọn nhóm —</option>
+                                <option value="1">Group 1 — Không chịu thuế GTGT, không nộp thuế TNCN (S1a)</option>
+                                <option value="2">Group 2 — Nộp thuế GTGT và TNCN (S2a–S2e)</option>
+                                <option value="3">Group 3 — Hộ kinh doanh chịu thuế khác (S3a)</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+            }
+            <div class="ocr-wizard-actions">
+                <VanAButton Variant="secondary" OnClick="BackToCaseSelect">← Quay lại</VanAButton>
+                <VanAButton Variant="primary" OnClick="NextFromDocs">Tiếp theo</VanAButton>
+            </div>
+            break;
+
+        case 2:
+            <div class="ocr-section">
+                <h4>📷 Biển hiệu cửa hàng</h4>
+                <input type="file" accept="image/*" capture="environment" class="ocr-file-input"
+                       onchange="vananOnboardingWizard.processFile(this.files[0], 'extractSignName')" />
+                @if (_isOcrBusy) { <div class="ocr-busy">⏳ Đang đọc biển hiệu…</div> }
+                <label>Tên hiệu
+                    <input class="vanan-input" @bind="_signName" placeholder="Tên trên biển hiệu" />
+                    @ConfidenceBadge("Biển hiệu", _signNameConf)
+                </label>
+                @if (_case == OcrOnboardingCase.CompanyWithLicense)
+                {
+                    <div class="ocr-hint">Tên hiệu sẽ cross-check với tên GPKD ở bước xác nhận.</div>
+                }
+            </div>
+
+            <div class="ocr-section">
+                <h4>📷 Menu / Danh mục sản phẩm (1..n ảnh)</h4>
+                <input type="file" accept="image/*" capture="environment" multiple class="ocr-file-input"
+                       onchange="vananOnboardingWizard.processMenuFiles(this.files)" />
+                @if (_isMenuBusy) { <div class="ocr-busy">⏳ Đang đọc menu…</div> }
+
+                @if (_productRows.Count > 0)
+                {
+                    <table class="ocr-product-table">
+                        <thead><tr><th>#</th><th>Tên sản phẩm</th><th>Giá (₫)</th><th></th></tr></thead>
+                        <tbody>
+                            @for (var i = 0; i < _productRows.Count; i++)
+                            {
+                                var row = _productRows[i];
+                                <tr>
+                                    <td>@(i + 1)</td>
+                                    <td><input class="vanan-input" @bind="row.Name" /></td>
+                                    <td><input class="vanan-input ocr-price" type="number" min="0" step="1000" @bind="row.Price" /></td>
+                                    <td><button type="button" class="ocr-remove-btn" @onclick="() => RemoveProductRow(i)">✕</button></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <VanAButton Variant="secondary" Size="small" OnClick="AddProductRow">+ Thêm dòng</VanAButton>
+                }
+            </div>
+
+            <div class="ocr-wizard-actions">
+                <VanAButton Variant="secondary" OnClick="BackToDocs">← Quay lại</VanAButton>
+                <VanAButton Variant="primary" OnClick="NextFromSignMenu">Tiếp theo</VanAButton>
+            </div>
+            break;
+
+        case 3:
+            <div class="ocr-section">
+                <h4>📍 Vị trí cửa hàng (GPS hiện tại của bạn)</h4>
+                @if (_lat is null)
+                {
+                    <VanAButton Variant="primary" OnClick="GetLocationAsync" Loading="_isGpsBusy">
+                        📡 Lấy vị trí hiện tại
+                    </VanAButton>
+                }
+                else
+                {
+                    <div class="ocr-gps-info">
+                        <strong>@_lat.Value.ToString("F6"), @_lng.Value.ToString("F6")</strong>
+                        @if (_accuracy > 0) { <span> · chính xác ±@Math.Round(_accuracy)m</span> }
+                    </div>
+                    <div id="ocrMap" class="ocr-map"></div>
+                    <div class="ocr-form">
+                        <label>Vĩ độ <input class="vanan-input" type="number" step="0.000001" @bind="_lat" /></label>
+                        <label>Kinh độ <input class="vanan-input" type="number" step="0.000001" @bind="_lng" /></label>
+                    </div>
+                    <VanAButton Variant="secondary" Size="small" OnClick="GetLocationAsync" Loading="_isGpsBusy">📡 Lấy lại</VanAButton>
+                }
+            </div>
+
+            <div class="ocr-section">
+                <h4>✅ Xác nhận thông tin</h4>
+                <div class="ocr-form">
+                    <label>Tên tenant <span class="ocr-req">*</span> <input class="vanan-input" @bind="_tenantName" /></label>
+                    <label>Địa chỉ <span class="ocr-req">*</span> <input class="vanan-input" @bind="_address" /></label>
+                    @if (_case == OcrOnboardingCase.CompanyWithLicense)
+                    {
+                        <label>Loại hình
+                            <select class="vanan-select" @bind="_businessTypeStr">
+                                <option value="Company">Doanh nghiệp</option>
+                                <option value="HouseholdBusiness">Hộ kinh doanh</option>
+                            </select>
+                        </label>
+                    }
+                    <label>SĐT chủ hộ (liên hệ) <input class="vanan-input" @bind="_contactPhone" placeholder="VD: 0901234567" /></label>
+                    <label>Email <input class="vanan-input" @bind="_contactEmail" placeholder="(tùy chọn)" /></label>
+                </div>
+            </div>
+
+            <div class="ocr-wizard-actions">
+                <VanAButton Variant="secondary" OnClick="BackToSignMenu">← Quay lại</VanAButton>
+                <VanAButton Variant="success" OnClick="SubmitAsync" Loading="_isSubmitting">
+                    🚀 Tạo tenant + kích hoạt
+                </VanAButton>
+            </div>
+            break;
+
+        case 4:
+            @if (_result is not null)
+            {
+                <div class="ocr-result">
+                    <h4>✅ Tenant đã tạo và kích hoạt</h4>
+                    <p>Slug: <strong>@_result.Slug</strong></p>
+                    @if (_result.ExistingDuplicateTenantId is not null)
+                    {
+                        <VanAAlert Variant="warning" Message="Gợi ý: có thể trùng với tenant đã tồn tại — kiểm tra trước khi bàn giao." />
+                    }
+                    <div class="ocr-credential-box">
+                        <div><strong>Tài khoản chủ shop (chỉ hiện 1 lần):</strong></div>
+                        <div>Username: <code>@_result.OwnerUsername</code>
+                            <button type="button" class="ocr-copy-btn" @onclick="() => CopyAsync(_result.OwnerUsername)">📋</button>
+                        </div>
+                        <div>Password: <code>@_result.OwnerPassword</code>
+                            <button type="button" class="ocr-copy-btn" @onclick="() => CopyAsync(_result.OwnerPassword)">📋</button>
+                        </div>
+                        <div class="ocr-hint">Bàn giao credentials cho chủ shop — không hiển thị lại được.</div>
+                    </div>
+
+                    <VanAButton Variant="primary" OnClick="ImportProductsAsync" Loading="_isImporting">
+                        📦 Import @(_productRows.Count) sản phẩm từ menu
+                    </VanAButton>
+                    @if (!string.IsNullOrEmpty(_importStatus))
+                    {
+                        <div class="ocr-import-status">@_importStatus</div>
+                    }
+                    @if (_importResult is not null)
+                    {
+                        <div class="ocr-import-status">
+                            ✅ Imported: @_importResult.Imported · Bỏ qua: @_importResult.Skipped
+                            @if (_importResult.Errors.Count > 0)
+                            {
+                                <ul>@foreach (var e in _importResult.Errors) { <li>Dòng @e.LineNo (@e.Name): @e.Error</li> }</ul>
+                            }
+                        </div>
+                    }
+                    <div style="margin-top: 1rem;">
+                        <VanAButton Variant="secondary" OnClick="GoToTenants">
+                            Về danh sách tenant
+                        </VanAButton>
+                        <VanAButton Variant="secondary" OnClick="ResetWizard">+ Tạo tenant khác</VanAButton>
+                    </div>
+                </div>
+            }
+            break;
+    }
+</div>
+
+@code {
+    // ── State ──────────────────────────────────────────────────────────
+    private int _step = 0;
+    private OcrOnboardingCase? _case;
+    private string _alertMessage = string.Empty;
+    private string _alertVariant = "info"; // info | success | warning | error
+
+    // GPKD (Case A)
+    private string _gpdkMst = string.Empty;
+    private string _gpdkName = string.Empty;
+    private string _gpdkAddress = string.Empty;
+    private string _gpdkLegalForm = string.Empty;
+    private string _gpdkOwner = string.Empty;
+    private double _gpdkMstConf, _gpdkNameConf, _gpdkAddressConf, _gpdkLegalFormConf;
+    private string _signName = string.Empty;
+    private double _signNameConf;
+
+    // Chung
+    private string _tenantName = string.Empty;
+    private string _address = string.Empty;
+    private string _businessTypeStr = "Company";
+    private string? _hkdGroup; // "1"|"2"|"3"
+    private string _contactPhone = string.Empty;
+    private string _contactEmail = string.Empty;
+    private List<ProductRow> _productRows = [];
+    private double? _lat, _lng;
+    private double _accuracy;
+
+    // Busy flags
+    private bool _isOcrBusy, _isMenuBusy, _isGpsBusy, _isSubmitting, _isImporting;
+    private bool _jsRegistered;
+
+    private OcrOnboardingResult? _result;
+    private ProductImportResult? _importResult;
+    private string _importStatus = string.Empty;
+
+    private sealed class ProductRow
+    {
+        public string Name { get; set; } = string.Empty;
+        public decimal? Price { get; set; }
+    }
+
+    private sealed record GpdkOcrResult(
+        string? Mst, string? Name, string? Address, string? LegalForm, string? Owner,
+        Dictionary<string, double>? Confidence, List<string>? Warnings);
+
+    private sealed record SignOcrResult(string? Value, double Confidence);
+
+    private sealed record MenuOcrResult(List<MenuProductLine>? ProductLines, List<string>? Warnings);
+
+    private sealed record MenuProductLine(string? Name, decimal? Price, int LineNo, double Confidence);
+
+    // ── Stepper helpers ────────────────────────────────────────────────
+    private string StepClass(int step) => step == _step ? "ocr-step active" : step < _step ? "ocr-step done" : "ocr-step";
+
+    private void SelectCase(OcrOnboardingCase c)
+    {
+        _case = c;
+        if (c == OcrOnboardingCase.SmallShopNoLicense)
+        {
+            _businessTypeStr = "HouseholdBusiness";
+        }
+    }
+
+    private void CloseAlert() => _alertMessage = string.Empty;
+
+    private void BackToCaseSelect() => _step = 0;
+
+    private void BackToDocs() => _step = 1;
+
+    private void BackToSignMenu() => _step = 2;
+
+    private void GoToTenants() => NavigationManager.NavigateTo("/admin/tenants");
+
+    private void NextFromCase()
+    {
+        if (_case is null) { ShowAlert("Chọn loại hình trước.", "warning"); return; }
+        _step = 1;
+    }
+
+    private void NextFromDocs()
+    {
+        if (_case == OcrOnboardingCase.CompanyWithLicense)
+        {
+            if (string.IsNullOrWhiteSpace(_gpdkMst))
+            {
+                ShowAlert("Mã số thuế bắt buộc — OCR không đọc được thì nhập tay.", "warning");
+                return;
+            }
+            _tenantName = string.IsNullOrWhiteSpace(_tenantName) ? _gpdkName : _tenantName;
+            _address = string.IsNullOrWhiteSpace(_address) ? _gpdkAddress : _address;
+            if (_gpdkLegalForm == "HKD") _businessTypeStr = "HouseholdBusiness";
+            else if (!string.IsNullOrWhiteSpace(_gpdkLegalForm)) _businessTypeStr = "Company";
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(_tenantName) || string.IsNullOrWhiteSpace(_address) || string.IsNullOrWhiteSpace(_hkdGroup))
+            {
+                ShowAlert("Tên shop, địa chỉ và nhóm thuế HKD là bắt buộc.", "warning");
+                return;
+            }
+        }
+        _step = 2;
+    }
+
+    private void NextFromSignMenu()
+    {
+        if (!string.IsNullOrWhiteSpace(_signName) && _case == OcrOnboardingCase.SmallShopNoLicense)
+        {
+            _tenantName = string.IsNullOrWhiteSpace(_tenantName) ? _signName : _tenantName;
+        }
+        if (string.IsNullOrWhiteSpace(_tenantName))
+        {
+            ShowAlert("Tên tenant chưa có — nhập tay hoặc scan biển hiệu.", "warning");
+            return;
+        }
+        _step = 3;
+    }
+
+    // ── OCR callbacks (JS → Blazor) ────────────────────────────────────
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_jsRegistered)
+        {
+            _jsRegistered = true;
+            await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.register", DotNetObjectReference.Create(this));
+        }
+        if (_step == 3 && _lat is not null && _lng is not null)
+        {
+            await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.initMap", "ocrMap", _lat.Value, _lng.Value, _accuracy);
+        }
+    }
+
+    [JSInvokable]
+    public Task OnOcrResult(string method, string json)
+    {
+        try
+        {
+            var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            switch (method)
+            {
+                case "extractGpdk":
+                {
+                    _isOcrBusy = false;
+                    var r = System.Text.Json.JsonSerializer.Deserialize<GpdkOcrResult>(json, options);
+                    if (r is null) break;
+                    _gpdkMst = r.Mst ?? _gpdkMst;
+                    _gpdkName = r.Name ?? _gpdkName;
+                    _gpdkAddress = r.Address ?? _gpdkAddress;
+                    _gpdkLegalForm = r.LegalForm ?? _gpdkLegalForm;
+                    _gpdkOwner = r.Owner ?? _gpdkOwner;
+                    _gpdkMstConf = r.Confidence?.GetValueOrDefault("mst") ?? 0;
+                    _gpdkNameConf = r.Confidence?.GetValueOrDefault("name") ?? 0;
+                    _gpdkAddressConf = r.Confidence?.GetValueOrDefault("address") ?? 0;
+                    _gpdkLegalFormConf = r.Confidence?.GetValueOrDefault("legalForm") ?? 0;
+                    if (r.Warnings is { Count: > 0 }) ShowAlert(string.Join(" · ", r.Warnings), "warning");
+                    else ShowAlert("Đã đọc GPKD — kiểm tra lại các trường trước khi tiếp tục.", "success");
+                    break;
+                }
+                case "extractSignName":
+                {
+                    _isOcrBusy = false;
+                    var r = System.Text.Json.JsonSerializer.Deserialize<SignOcrResult>(json, options);
+                    if (r?.Value is not null)
+                    {
+                        _signName = r.Value;
+                        _signNameConf = r.Confidence;
+                    }
+                    break;
+                }
+                case "extractMenu":
+                {
+                    _isMenuBusy = false;
+                    var r = System.Text.Json.JsonSerializer.Deserialize<MenuOcrResult>(json, options);
+                    if (r?.ProductLines is not null)
+                    {
+                        _productRows = r.ProductLines
+                            .Where(p => !string.IsNullOrWhiteSpace(p.Name))
+                            .Select(p => new ProductRow { Name = p.Name!, Price = p.Price })
+                            .ToList();
+                        ShowAlert($"Đã đọc {_productRows.Count} sản phẩm từ menu — rà soát giá và tên.", "success");
+                    }
+                    if (r?.Warnings is { Count: > 0 })
+                        ShowAlert(string.Join(" · ", r.Warnings), "warning");
+                    break;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "OCR result parse fail ({Method})", method);
+            ShowAlert($"Lỗi xử lý kết quả OCR: {ex.Message}", "error");
+        }
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task OnOcrError(string method, string message)
+    {
+        _isOcrBusy = false;
+        _isMenuBusy = false;
+        ShowAlert($"OCR thất bại ({method}): {message} — nhập tay.", "error");
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    // ── GPS + map ──────────────────────────────────────────────────────
+    private async Task GetLocationAsync()
+    {
+        _isGpsBusy = true;
+        ShowAlert(string.Empty, "info");
+        try
+        {
+            var pos = await JSRuntime.InvokeAsync<GeoPoint>("vananOnboardingWizard.getCurrentPosition");
+            _lat = pos.lat;
+            _lng = pos.lng;
+            _accuracy = pos.accuracy;
+        }
+        catch (Exception ex)
+        {
+            ShowAlert(ex.Message, "error");
+        }
+        finally
+        {
+            _isGpsBusy = false;
+        }
+    }
+
+    private sealed record GeoPoint(double lat, double lng, double accuracy);
+
+    // ── Product rows ───────────────────────────────────────────────────
+    private void AddProductRow() => _productRows.Add(new ProductRow());
+
+    private void RemoveProductRow(int index)
+    {
+        if (index >= 0 && index < _productRows.Count) _productRows.RemoveAt(index);
+    }
+
+    // ── Submit ─────────────────────────────────────────────────────────
+    private async Task SubmitAsync()
+    {
+        if (_lat is null || _lng is null)
+        {
+            ShowAlert("Chưa có vị trí — bấm 'Lấy vị trí hiện tại' (hoặc nhập tay).", "warning");
+            return;
+        }
+        if (_case == OcrOnboardingCase.CompanyWithLicense && !IsValidMst(_gpdkMst))
+        {
+            ShowAlert("Mã số thuế phải 10 hoặc 13 chữ số.", "warning");
+            return;
+        }
+        if (_case == OcrOnboardingCase.SmallShopNoLicense && string.IsNullOrWhiteSpace(_hkdGroup))
+        {
+            ShowAlert("Chọn nhóm thuế HKD.", "warning");
+            return;
+        }
+
+        _isSubmitting = true;
+        ShowAlert(string.Empty, "info");
+        try
+        {
+            var request = new OcrOnboardingRequest(
+                Case: _case!.Value,
+                Name: _tenantName.Trim(),
+                Address: _address.Trim(),
+                BusinessType: _businessTypeStr == "HouseholdBusiness" ? BusinessType.HouseholdBusiness : BusinessType.Company,
+                HkdGroup: _case == OcrOnboardingCase.SmallShopNoLicense
+                    ? (HKDGroup)int.Parse(_hkdGroup!)
+                    : (_gpdkLegalForm == "HKD" ? HKDGroup.Group2 : (HKDGroup?)null),
+                ProductLines: _productRows
+                    .Where(r => !string.IsNullOrWhiteSpace(r.Name))
+                    .Select(r => new OcrProductLineDto(r.Name.Trim(), r.Price, 0))
+                    .ToList(),
+                Latitude: _lat,
+                Longitude: _lng,
+                GpdkInfo: _case == OcrOnboardingCase.CompanyWithLicense
+                    ? new OcrGpdkInfo(_gpdkMst, _gpdkName, _gpdkAddress, _gpdkLegalForm, _gpdkOwner)
+                    : null,
+                SignName: string.IsNullOrWhiteSpace(_signName) ? null : _signName,
+                ShopInstanceId: null,
+                ContactPhone: string.IsNullOrWhiteSpace(_contactPhone) ? null : _contactPhone.Trim(),
+                ContactEmail: string.IsNullOrWhiteSpace(_contactEmail) ? null : _contactEmail.Trim());
+
+            _result = await OcrOnboardingApi.ExecuteAsync(request);
+            _importResult = null;
+            _importStatus = string.Empty;
+            _step = 4;
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Không tạo được tenant: {ex.Message}", "error");
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private async Task ImportProductsAsync()
+    {
+        if (_result is null) return;
+        _isImporting = true;
+        _importStatus = string.Empty;
+        try
+        {
+            var token = await OcrOnboardingApi.MintSystemAdminTokenAsync();
+            var client = HttpFactory.CreateClient();
+            client.BaseAddress = new Uri(NavigationManager.BaseUri);
+
+            var payload = new
+            {
+                tenantId = _result.TenantId,
+                lines = _productRows
+                    .Where(r => !string.IsNullOrWhiteSpace(r.Name))
+                    .Select(r => new { name = r.Name.Trim(), price = r.Price, lineNo = 0 })
+                    .ToList(),
+                defaultCategory = "Menu"
+            };
+            using var message = new HttpRequestMessage(HttpMethod.Post, "api/products/import")
+            {
+                Content = System.Net.Http.Json.JsonContent.Create(payload, options: new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+                })
+            };
+            message.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await client.SendAsync(message);
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                _importStatus = "⏳ Tenant chưa được đồng bộ sang ShopERP — chờ vài giây rồi bấm lại.";
+            }
+            else if (response.IsSuccessStatusCode)
+            {
+                _importResult = await response.Content.ReadFromJsonAsync<ProductImportResult>();
+                _importStatus = string.Empty;
+            }
+            else
+            {
+                _importStatus = $"❌ Import thất bại ({(int)response.StatusCode}) — {await response.Content.ReadAsStringAsync()}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _importStatus = $"❌ Import thất bại: {ex.Message}";
+        }
+        finally
+        {
+            _isImporting = false;
+        }
+    }
+
+    private async Task CopyAsync(string text)
+    {
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", text);
+    }
+
+    private void ResetWizard()
+    {
+        _step = 0;
+        _case = null;
+        _result = null;
+        _importResult = null;
+        _importStatus = string.Empty;
+        _tenantName = _address = _contactPhone = _contactEmail = string.Empty;
+        _gpdkMst = _gpdkName = _gpdkAddress = _gpdkLegalForm = _gpdkOwner = string.Empty;
+        _signName = string.Empty;
+        _productRows = [];
+        _lat = _lng = null;
+        _accuracy = 0;
+        _hkdGroup = null;
+        _alertMessage = string.Empty;
+    }
+
+    private static bool IsValidMst(string mst)
+    {
+        var digits = mst.Replace("-", "").Trim();
+        return (digits.Length == 10 || digits.Length == 13) && digits.All(char.IsDigit);
+    }
+
+    private void ShowAlert(string message, string variant)
+    {
+        _alertMessage = message;
+        _alertVariant = variant;
+    }
+
+    private RenderFragment ConfidenceBadge(string label, double confidence)
+        => builder =>
+        {
+            if (confidence <= 0) return;
+            var css = confidence >= 70 ? "ocr-conf-high" : "ocr-conf-low";
+            builder.OpenElement(0, "span");
+            builder.AddAttribute(1, "class", $"ocr-conf {css}");
+            builder.AddContent(2, $"{label}: {confidence:F0}%");
+            builder.CloseElement();
+        };
+}

@@ -625,6 +625,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.ITenantConversionService, CoreHub.Services.TenantConversionService>();
             // Wave 5: Gateway tenant onboarding API client (SystemAdmin JWT + HttpClient)
             _ = builder.Services.AddScoped<Services.TenantOnboardingApiClient>();
+            // OCR Onboarding S2/S4 (2026-10-25): Gateway OCR-onboarding client (SystemAdmin JWT)
+            _ = builder.Services.AddScoped<Services.OcrOnboardingApiClient>();
             // Phase 6: Gateway admin API clients for ShopInstances + FeaturedProducts management
             _ = builder.Services.AddScoped<Services.ShopInstanceApiClient>();
             // KhachLink Multi-Profile R1 Sprint 4: admin API client for KhachLinkInstance CRUD

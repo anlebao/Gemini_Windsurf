@@ -53,7 +53,17 @@
         <button class="@TabClass("duplicates")" @onclick="@(() => SwitchTab("duplicates"))">
             Trùng lặp (@(_duplicates.Count))
         </button>
+        <!-- OCR Onboarding S4 (2026-10-25): wizard scan GPKD/biển hiệu/menu → tạo tenant -->
+        <button class="@TabClass("ocr")" @onclick="@(() => SwitchTab("ocr"))">📷 Onboarding OCR</button>
     </div>
+
+    <!-- OCR Onboarding S4 (2026-10-25): wizard scan → tạo tenant -->
+    @if (_activeTab == "ocr")
+    {
+        <div class="tenant-tab-panel">
+            <OcrOnboardingWizard />
+        </div>
+    }
 
     <!-- Impersonation status -->
     @if (_isImpersonating)

@@ -134,11 +134,15 @@ namespace VanAn.CoreHub.Services.Onboarding
         /// </summary>
         public async Task<Guid> OnboardUnverifiedAsync(
             CrawlListingDto listing,
-            CancellationToken ct = default)
+            CancellationToken ct = default,
+            BusinessType businessType = BusinessType.Company,
+            HKDGroup? hkdGroup = null)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(listing.Name);
             ArgumentException.ThrowIfNullOrWhiteSpace(listing.SourceSite);
-            ArgumentException.ThrowIfNullOrWhiteSpace(listing.SourceUrl);
+            // OCR Onboarding S2: listing từ OCR không có SourceUrl (provenance = ảnh chụp).
+            if (!listing.SourceSite.StartsWith("OCR-", StringComparison.Ordinal))
+                ArgumentException.ThrowIfNullOrWhiteSpace(listing.SourceUrl);
 
             // Generate tenant ID (UUIDv7 via Guid.NewGuid — matches existing pattern)
             var tenantId = new TenantId(Guid.NewGuid());
@@ -156,7 +160,7 @@ namespace VanAn.CoreHub.Services.Onboarding
             // Auto-generate pending slug: pending-{taxCode ?? random}-{random4hex}
             // Retry on collision (rare — unique index on Settings.Slug)
             string pendingSlug = GeneratePendingSlug(listing.TaxCode);
-            var tenant = Tenant.CreateUnverified(tenantId, listing.Name, settings, pendingSlug);
+            var tenant = Tenant.CreateUnverified(tenantId, listing.Name, settings, pendingSlug, businessType, hkdGroup);
 
             // Save CrawlSource audit row for provenance
             var crawlSource = CrawlSource.Create(
@@ -231,7 +235,24 @@ namespace VanAn.CoreHub.Services.Onboarding
             // Issue #180 fix: BOTH the auto slug (from tenant name) and the user-provided slug
             // go through Slugify so Vietnamese diacritics are stripped — Tenant.UpdateSlug
             // only accepts [a-z0-9-] and used to throw ArgumentException → 400 (UnifiedErrorHandler).
-            string publishedSlug = Slugify(string.IsNullOrWhiteSpace(req.Slug) ? tenant.Name : req.Slug);
+            // OCR Onboarding (2026-10-25): slug collision-safe — 2 tenant cùng tên (Case B
+            // không MST, hoặc crawl trùng tên khác MST) → slug trùng → UNIQUE constraint.
+            // Auto slug: thêm hậu tố -2/-3/... (tối đa 20) rồi random. User slug (req.Slug):
+            // trùng → throw rõ ràng (không tự ý đổi slug user chọn).
+            bool isAutoSlug = string.IsNullOrWhiteSpace(req.Slug);
+            string baseSlug = Slugify(isAutoSlug ? tenant.Name : req.Slug);
+            string publishedSlug = baseSlug;
+            if (isAutoSlug)
+            {
+                for (int i = 2; i <= 20 && await SlugExistsAsync(dbContext, publishedSlug, tenantIdVo, ct); i++)
+                    publishedSlug = $"{baseSlug}-{i}";
+                if (await SlugExistsAsync(dbContext, publishedSlug, tenantIdVo, ct))
+                    publishedSlug = $"{baseSlug}-{Guid.NewGuid().ToString("N")[..4]}";
+            }
+            else if (await SlugExistsAsync(dbContext, publishedSlug, tenantIdVo, ct))
+            {
+                throw new InvalidOperationException($"Slug '{publishedSlug}' đã tồn tại — chọn slug khác.");
+            }
             tenant.UpdateSlug(publishedSlug);
 
             // 4. Assign to ShopInstance if provided (Multi-VPS routing)
@@ -283,6 +304,16 @@ namespace VanAn.CoreHub.Services.Onboarding
         }
 
         // ── Private helpers ──────────────────────────────────────────────────
+
+        /// <summary>Kiểm tra slug đã tồn tại trên tenant khác (IgnoreQueryFilters — toàn hệ thống).</summary>
+        private static Task<bool> SlugExistsAsync(
+            IVanAnDbContext dbContext,
+            string slug,
+            TenantId excludeTenantId,
+            CancellationToken ct)
+            => dbContext.Tenants
+                .IgnoreQueryFilters()
+                .AnyAsync(t => t.Settings.Slug == slug && t.Id != excludeTenantId, ct);
 
         private static string GeneratePendingSlug(string? taxCode)
         {

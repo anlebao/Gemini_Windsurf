@@ -20,11 +20,12 @@ namespace VanAn.CoreHub.Services.Onboarding
         string? CrawledPhone,           // SĐT from trangvangvietnam (M3: internal use, NOT displayed on Pending profile)
         string? ContactName,            // Legal rep name (from doanhnghiep.vn legal_rep_name)
         string? IndustryCode,           // Industry code (from doanhnghiep.vn industry_main_code)
-        string SourceSite,              // Source site name (e.g., "doanhnghiep.vn")
-        string SourceUrl,               // Full URL of crawled listing
+        string SourceSite,              // Source site name (e.g., "doanhnghiep.vn") — "OCR-GPKD"/"OCR-SIGN" cho onboarding OCR
+        string SourceUrl,               // Full URL of crawled listing (rỗng được phép khi SourceSite bắt đầu "OCR-")
         DateTime CrawledAt,             // Crawl timestamp
         double? Lat = null,             // Latitude (if available from source)
-        double? Lng = null);            // Longitude (if available from source)
+        double? Lng = null,             // Longitude (if available from source)
+        List<string>? PhotoUrls = null);// OCR Onboarding S2 (2026-10-25): ảnh giấy tờ (Cloudinary URLs) cho provenance — chỉ OCR set, crawl để null
 
     /// <summary>
     /// Crawl-to-Onboard (2026-08-25): Request to verify a Pending tenant → Active.

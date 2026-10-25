@@ -155,6 +155,65 @@ public class TenantPendingTests
         act.Should().Throw<ArgumentException>();
     }
 
+    // ── OCR Onboarding S0 (2026-10-25, D5 approved) — CreateUnverified with HKD ──
+
+    [Fact(DisplayName = "CreateUnverified_WithHkdGroup_CreatesPendingHkdTenant (OCR Case B)")]
+    public void CreateUnverified_WithHkdGroup_CreatesPendingHkdTenant()
+    {
+        var tenant = Tenant.CreateUnverified(
+            TestTenantId, "Shop Cà Phê ABC", TestSettings(), ValidPendingSlug,
+            BusinessType.HouseholdBusiness, HKDGroup.Group2);
+
+        tenant.Status.Should().Be(TenantStatus.Pending);
+        tenant.BusinessType.Should().Be(BusinessType.HouseholdBusiness);
+        tenant.HKDGroup.Should().Be(HKDGroup.Group2);
+        tenant.Type.Should().Be(TenantType.HKD);
+        tenant.IsPending().Should().BeTrue();
+    }
+
+    [Fact(DisplayName = "CreateUnverified_Default_RemainsCompany (backward compat)")]
+    public void CreateUnverified_Default_RemainsCompany()
+    {
+        var tenant = Tenant.CreateUnverified(TestTenantId, "Cafe ABC", TestSettings(), ValidPendingSlug);
+
+        tenant.BusinessType.Should().Be(BusinessType.Company);
+        tenant.HKDGroup.Should().BeNull();
+        tenant.Type.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "CreateUnverified_HkdWithoutGroup_Throws")]
+    public void CreateUnverified_HkdWithoutGroup_Throws()
+    {
+        var act = () => Tenant.CreateUnverified(
+            TestTenantId, "Shop Cà Phê ABC", TestSettings(), ValidPendingSlug,
+            BusinessType.HouseholdBusiness, null);
+        act.Should().Throw<ArgumentException>().WithMessage("*HKDGroup*");
+    }
+
+    [Fact(DisplayName = "CreateUnverified_CompanyWithGroup_Throws")]
+    public void CreateUnverified_CompanyWithGroup_Throws()
+    {
+        var act = () => Tenant.CreateUnverified(
+            TestTenantId, "Cafe ABC", TestSettings(), ValidPendingSlug,
+            BusinessType.Company, HKDGroup.Group1);
+        act.Should().Throw<ArgumentException>().WithMessage("*HKDGroup*");
+    }
+
+    [Fact(DisplayName = "CreateUnverified_Hkd_Verify_TransitionsToActive (OCR Case B)")]
+    public void CreateUnverified_Hkd_Verify_TransitionsToActive()
+    {
+        var tenant = Tenant.CreateUnverified(
+            TestTenantId, "Shop Cà Phê ABC", TestSettings(), ValidPendingSlug,
+            BusinessType.HouseholdBusiness, HKDGroup.Group3);
+
+        tenant.Verify();
+
+        tenant.Status.Should().Be(TenantStatus.Active);
+        tenant.BusinessType.Should().Be(BusinessType.HouseholdBusiness);
+        tenant.HKDGroup.Should().Be(HKDGroup.Group3);
+        tenant.Type.Should().Be(TenantType.HKD);
+    }
+
     // ── UpdateSlug guard (correction C4 — guard UNCHANGED) ─────────────────
 
     [Fact(DisplayName = "UpdateSlug_OnActiveTenant_Succeeds")]

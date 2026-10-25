@@ -152,10 +152,26 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         /// only allows Inactive guard; Pending bypasses via this factory parameter).
         /// Slug validation inlined here (same regex as UpdateSlug) to enforce domain invariants.
         /// </summary>
-        public static Tenant CreateUnverified(TenantId id, string name, TenantSettings? settings, string pendingSlug)
+        public static Tenant CreateUnverified(
+            TenantId id,
+            string name,
+            TenantSettings? settings,
+            string pendingSlug,
+            BusinessType businessType = BusinessType.Company,
+            HKDGroup? hkdGroup = null)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(name);
             ArgumentException.ThrowIfNullOrWhiteSpace(pendingSlug);
+
+            // OCR Onboarding S0 (2026-10-25, D5 approved): Case B — shop nhỏ KHÔNG GPKD cần
+            // Pending tenant loại HKD (HKDGroup quyết định sổ sách TT152 + Type=HKD cho
+            // feature-flag routing — đúng semantics CreateHouseholdBusiness).
+            // Optional params backward-compat 100%: default Company/null = hành vi crawl cũ.
+            // Consistency: HKD bắt buộc có HKDGroup; Company không được có HKDGroup.
+            if (businessType == BusinessType.HouseholdBusiness && hkdGroup is null)
+                throw new ArgumentException("HKDGroup is required when BusinessType is HouseholdBusiness.", nameof(hkdGroup));
+            if (businessType == BusinessType.Company && hkdGroup is not null)
+                throw new ArgumentException("HKDGroup must be null when BusinessType is Company.", nameof(hkdGroup));
 
             // Inline slug validation (same rules as UpdateSlug — DRY would be nice but
             // UpdateSlug has Status guard we want to bypass for Pending tenants)
@@ -170,9 +186,11 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
             {
                 Id = id,
                 Name = name,
-                BusinessType = BusinessType.Company,  // crawled businesses are Companies
+                BusinessType = businessType,  // crawl: Company · OCR Case B: HouseholdBusiness
+                HKDGroup = hkdGroup,          // null with Company · Group1/2/3 with HKD (TT152)
                 Status = TenantStatus.Pending,  // H1: Pending=5
-                Settings = baseSettings.WithSlug(pendingSlug)
+                Settings = baseSettings.WithSlug(pendingSlug),
+                Type = businessType == BusinessType.HouseholdBusiness ? TenantType.HKD : null  // C1: classify HKD (như CreateHouseholdBusiness)
             };
             tenant.SetTenantId(id);
             tenant.AddDomainEvent(new TenantPendingEvent(id.Value, name, baseSettings.TaxCode, null, DateTime.UtcNow));
