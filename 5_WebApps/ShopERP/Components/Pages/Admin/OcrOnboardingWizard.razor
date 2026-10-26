@@ -292,6 +292,7 @@
     private List<ProductRow> _productRows = [];
     private double? _lat, _lng;
     private double _accuracy;
+    private double? _lastMapLat, _lastMapLng;   // RV fix: guard init map chỉ khi coords đổi
 
     // Busy flags
     private bool _isOcrBusy, _isMenuBusy, _isGpsBusy, _isSubmitting, _isImporting;
@@ -392,8 +393,13 @@
             _jsRegistered = true;
             await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.register", DotNetObjectReference.Create(this));
         }
-        if (_step == 3 && _lat is not null && _lng is not null)
+        // RV fix 2026-10-26: chỉ init map khi coords THAY ĐỔI — trước đây gọi mỗi render
+        // → L.map lần 2 ném "Map container is already initialized" → circuit chết.
+        if (_step == 3 && _lat is not null && _lng is not null
+            && (_lat != _lastMapLat || _lng != _lastMapLng))
         {
+            _lastMapLat = _lat;
+            _lastMapLng = _lng;
             await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.initMap", "ocrMap", _lat.Value, _lng.Value, _accuracy);
         }
     }
@@ -636,6 +642,7 @@
         _productRows = [];
         _lat = _lng = null;
         _accuracy = 0;
+        _lastMapLat = _lastMapLng = null;
         _hkdGroup = null;
         _alertMessage = string.Empty;
     }

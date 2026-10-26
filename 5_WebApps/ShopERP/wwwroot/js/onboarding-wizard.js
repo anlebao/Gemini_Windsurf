@@ -58,22 +58,28 @@ window.vananOnboardingWizard = (function () {
         });
     }
 
-    /** Init/refresh Leaflet map với marker + vòng tròn accuracy. Trả map instance. */
+    let _map = null;
+
+    /** Init/refresh Leaflet map với marker + vòng tròn accuracy. Trả map instance.
+     *  RV fix 2026-10-26: L.map(el) lần 2 trên cùng element ném "Map container is
+     *  already initialized" (Leaflet giữ _leaflet_id — innerHTML='' không xóa được).
+     *  → map.remove() trước khi tạo lại. */
     function initMap(elementId, lat, lng, accuracy) {
         const el = document.getElementById(elementId);
         if (!el || typeof L === 'undefined') return null;
+        if (_map) { _map.remove(); _map = null; }
         el.innerHTML = '';
-        const map = L.map(elementId, { zoomControl: true }).setView([lat, lng], 17);
+        _map = L.map(elementId, { zoomControl: true }).setView([lat, lng], 17);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
-        L.marker([lat, lng]).addTo(map);
+        }).addTo(_map);
+        L.marker([lat, lng]).addTo(_map);
         if (accuracy > 0) {
-            L.circle([lat, lng], { radius: accuracy, color: '#2563eb', fillOpacity: 0.15 }).addTo(map);
+            L.circle([lat, lng], { radius: accuracy, color: '#2563eb', fillOpacity: 0.15 }).addTo(_map);
         }
         // Invalidate size sau khi hiện tab (map trong tab ẩn bị sai kích thước)
-        setTimeout(() => map.invalidateSize(), 100);
-        return map;
+        setTimeout(() => _map?.invalidateSize(), 100);
+        return _map;
     }
 
     return { register, processFile, processMenuFiles, getCurrentPosition, initMap };
