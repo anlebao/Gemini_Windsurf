@@ -1292,16 +1292,22 @@
             _impersonatedTenantId = tid;
             _impersonatedTenantName = $"Tenant {tid.ToString("N")[..8]}";
         }
-        // OCR Onboarding (2026-10-26 user directive): nav menu root item + sitemap
-        // trỏ thẳng /admin/tenants?tab=ocr → mở tab wizard OCR ngay.
+        await LoadTenants();
+        await LoadShopInstances();
+    }
+
+    // OCR Onboarding (2026-10-26 user directive): nav root item + sitemap trỏ
+    // /admin/tenants?tab=ocr → mở tab wizard OCR. OnParametersSet (không phải
+    // OnInitializedAsync) vì click nav item = SPA navigation — OnInitializedAsync
+    // KHÔNG re-run, chỉ OnParametersSet chạy lại (RV 2026-10-26 bắt được bug này).
+    protected override void OnParametersSet()
+    {
         var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
         if (Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query).TryGetValue("tab", out var tabValue)
             && tabValue == "ocr")
         {
             _activeTab = "ocr";
         }
-        await LoadTenants();
-        await LoadShopInstances();
     }
 
     private async Task LoadTenants()

@@ -122,7 +122,8 @@ test.describe('VanAn Ecosystem - OCR Tenant Onboarding Wizard (S4/S5)', () => {
   // ─── BỔ SUNG (2026-10-26 user directive) ────────────────────────────────
 
   test('Nav root item "Onboarding OCR" → mở thẳng wizard (tab=ocr)', async ({ page }) => {
-    await page.goto(`${shopErpBase}/dashboard`);
+    // AdminLayout (trang /admin/*) render ShopErpMenuService — /dashboard dùng menu hardcoded
+    await page.goto(`${shopErpBase}/admin/tenants`);
     await page.waitForLoadState('networkidle');
 
     const navItem = page.locator('a, button', { hasText: 'Onboarding OCR' }).first();

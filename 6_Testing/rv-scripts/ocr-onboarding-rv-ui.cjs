@@ -87,12 +87,14 @@ const LAUNCH_ARGS = [
   try {
     const { context, page, logs } = await newWizardPage();
 
-    // Nav menu: root item "Onboarding OCR" (2026-10-26 user directive)
-    await page.goto(`${APP2}/dashboard`, { waitUntil: 'networkidle', timeout: 60000 });
+    // Nav menu: root item "Onboarding OCR" (2026-10-26 user directive).
+    // AdminLayout (trang /admin/*) render ShopErpMenuService — /dashboard dùng
+    // menu hardcoded GetDashboardMenu() nên KHÔNG có item này (đúng thiết kế).
+    await page.goto(`${APP2}/admin/tenants`, { waitUntil: 'networkidle', timeout: 60000 });
     await page.waitForTimeout(2500);
     const navOcr = page.locator('a, button', { hasText: 'Onboarding OCR' }).first();
     const navVisible = await navOcr.isVisible().catch(() => false);
-    check('L3 nav root item "Onboarding OCR" visible (SystemAdmin)', navVisible);
+    check('L3 nav root item "Onboarding OCR" visible (AdminLayout)', navVisible);
     if (navVisible) {
       await navOcr.click();
       await page.waitForTimeout(2500);
@@ -132,14 +134,18 @@ const LAUNCH_ARGS = [
     }).catch(() => false);
     check('L3 camera modal: video hiển thị + đang chạy (fake device)', videoVisible && videoPlaying);
     await page.screenshot({ path: join(__dirname, 'ocr-onboarding-camera.png'), fullPage: true });
-    // Chụp + OCR — fake frame → OCR chạy (text có thể rác) — yêu cầu: KHÔNG circuit chết
+    // Chụp + OCR — fake frame → OCR chạy (text có thể rác) — yêu cầu: KHÔNG circuit chết.
+    // Sau OCR thành công wizard TỰ ĐÓNG camera (OnOcrResult → CloseCameraAsync) —
+    // chấp nhận modal đóng (auto) HOẶC còn mở (rồi đóng thủ công).
     await page.getByRole('button', { name: 'Chụp + Nhận diện' }).click();
     await page.waitForTimeout(6000); // Tesseract WASM load + recognize
-    const camAlive = await page.locator('.ocr-camera-overlay').isVisible().catch(() => false)
-      || await page.locator('.ocr-wizard').isVisible().catch(() => false);
-    check('L3 capture+OCR không làm chết circuit', camAlive);
-    await page.getByRole('button', { name: '✕ Đóng' }).click();
-    await page.waitForTimeout(800);
+    const camStillOpen = await page.locator('.ocr-camera-overlay').isVisible().catch(() => false);
+    check('L3 capture+OCR không làm chết circuit (modal auto-close hoặc vẫn mở)',
+      (await page.locator('.ocr-wizard').isVisible().catch(() => false)));
+    if (camStillOpen) {
+      await page.getByRole('button', { name: '✕ Đóng' }).click();
+      await page.waitForTimeout(800);
+    }
     check('L3 đóng camera OK', !(await page.locator('.ocr-camera-overlay').isVisible().catch(() => true)));
     check('L3 desktop không có console error/pageerror', logs.length === 0, logs.slice(0, 3).join(' | '));
 
@@ -152,8 +158,8 @@ const LAUNCH_ARGS = [
   try {
     const { context, page, logs } = await newWizardPage({ width: 375, height: 667 });
 
-    // Nav menu mobile: root item visible
-    await page.goto(`${APP2}/dashboard`, { waitUntil: 'networkidle', timeout: 60000 });
+    // Nav menu mobile: root item visible (AdminLayout — /dashboard dùng menu hardcoded)
+    await page.goto(`${APP2}/admin/tenants`, { waitUntil: 'networkidle', timeout: 60000 });
     await page.waitForTimeout(2500);
     const navOcrM = page.locator('a, button', { hasText: 'Onboarding OCR' }).first();
     check('L4 mobile: nav root item visible', await navOcrM.isVisible().catch(() => false));
