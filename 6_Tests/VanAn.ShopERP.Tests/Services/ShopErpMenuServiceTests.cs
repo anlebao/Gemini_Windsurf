@@ -59,6 +59,23 @@ public class ShopErpMenuServiceTests
     }
 
     [Fact]
+    public async Task BuildAsync_SystemAdmin_HasRootOnboardingOcrItem()
+    {
+        // Arrange
+        var service = CreateService();
+        var user = PrincipalWithRoles("SystemAdmin");
+
+        // Act
+        var items = await service.BuildAsync(user);
+
+        // Assert — 2026-10-26 user directive: root-level item trỏ thẳng wizard OCR
+        var ocr = items.SingleOrDefault(i => i.Title == "Onboarding OCR");
+        ocr.Should().NotBeNull();
+        ocr!.Url.Should().Be("/admin/tenants?tab=ocr");
+        ocr.Children.Should().BeNullOrEmpty();
+    }
+
+    [Fact]
     public async Task BuildAsync_Owner_DoesNotSeeHướngDẫn()
     {
         // Arrange

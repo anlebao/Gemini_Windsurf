@@ -118,4 +118,38 @@ test.describe('VanAn Ecosystem - OCR Tenant Onboarding Wizard (S4/S5)', () => {
     await expect(page.locator('.vanan-alert', { hasText: 'Mã số thuế bắt buộc' })).toBeVisible({ timeout: 10000 });
     await expect(page.locator('.ocr-section h4', { hasText: 'Biển hiệu cửa hàng' })).not.toBeVisible();
   });
+
+  // ─── BỔ SUNG (2026-10-26 user directive) ────────────────────────────────
+
+  test('Nav root item "Onboarding OCR" → mở thẳng wizard (tab=ocr)', async ({ page }) => {
+    await page.goto(`${shopErpBase}/dashboard`);
+    await page.waitForLoadState('networkidle');
+
+    const navItem = page.locator('a, button', { hasText: 'Onboarding OCR' }).first();
+    await expect(navItem).toBeVisible({ timeout: 15000 });
+    await navItem.click();
+    await page.waitForLoadState('networkidle');
+
+    await expect(page).toHaveURL(/tab=ocr/);
+    await expect(page.locator('.ocr-case-card', { hasText: 'Shop nhỏ' })).toBeVisible({ timeout: 15000 });
+  });
+
+  test('Sitemap có link Onboarding OCR', async ({ page }) => {
+    await page.goto(`${shopErpBase}/sitemap`);
+    await page.waitForLoadState('networkidle');
+
+    const link = page.locator('[data-testid="link-admin-onboarding-ocr"]');
+    await expect(link).toBeVisible({ timeout: 15000 });
+    await expect(link).toHaveAttribute('href', '/admin/tenants?tab=ocr');
+  });
+
+  test('Camera scan mode: nút "Chụp trực tiếp" hiển thị ở cả 3 loại ảnh', async ({ page }) => {
+    await page.goto(`${shopErpBase}/admin/tenants?tab=ocr`);
+    await page.waitForLoadState('networkidle');
+    await page.locator('.ocr-case-card', { hasText: 'Công ty / Hộ kinh doanh' }).click();
+    await page.getByRole('button', { name: 'Tiếp theo' }).click();
+
+    // Bước GPKD có nút chụp trực tiếp
+    await expect(page.locator('.ocr-capture-row button', { hasText: 'Chụp trực tiếp' })).toBeVisible({ timeout: 10000 });
+  });
 });

@@ -82,5 +82,84 @@ window.vananOnboardingWizard = (function () {
         return _map;
     }
 
-    return { register, processFile, processMenuFiles, getCurrentPosition, initMap };
+    // ── Camera scan mode (2026-10-26 user directive) ──────────────────────
+    let _stream = null;
+    let _menuShots = [];
+
+    /** Mở camera sau (facingMode environment) — bám vào video element. */
+    async function openCamera(videoId) {
+        closeCamera();
+        const video = document.getElementById(videoId);
+        if (!video) throw new Error('Không tìm thấy video element');
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error('Trình duyệt không hỗ trợ camera');
+        _stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment' },
+            audio: false
+        });
+        video.srcObject = _stream;
+        await video.play().catch(() => {});
+        return true;
+    }
+
+    function closeCamera() {
+        if (_stream) { _stream.getTracks().forEach((t) => t.stop()); _stream = null; }
+        const video = document.getElementById('ocrCameraVideo');
+        if (video) video.srcObject = null;
+        _menuShots = [];
+    }
+
+    /** Chụp 1 frame từ video → File (để OCR nhận qua bridge processFile). */
+    function capturePhoto(videoId) {
+        const video = document.getElementById(videoId);
+        if (!video || !video.videoWidth) return Promise.resolve(null);
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        return new Promise((resolve) => {
+            canvas.toBlob((blob) => {
+                if (!blob) { resolve(null); return; }
+                resolve(new File([blob], 'capture.jpg', { type: 'image/jpeg' }));
+            }, 'image/jpeg', 0.92);
+        });
+    }
+
+    /** Chụp 1 ảnh đơn (GPKD/biển hiệu) → OCR ngay. mode: 'gpdk' | 'sign'. */
+    async function captureAndOcr(mode) {
+        try {
+            const file = await capturePhoto('ocrCameraVideo');
+            if (!file) { await _dotNetRef.invokeMethodAsync('OnOcrError', mode, 'Chụp thất bại — thử lại.'); return; }
+            const method = mode === 'gpdk' ? 'extractGpdk' : 'extractSignName';
+            await processFile(file, method);
+        } catch (e) {
+            console.error('[OnboardingWizard] captureAndOcr fail:', e);
+            await _dotNetRef.invokeMethodAsync('OnOcrError', mode, e.message);
+        }
+    }
+
+    /** Chụp 1 shot menu — tích lũy (chưa OCR — chờ "Xong" để gộp dedupe header). */
+    async function captureMenuShot() {
+        try {
+            const file = await capturePhoto('ocrCameraVideo');
+            if (!file) { await _dotNetRef.invokeMethodAsync('OnOcrError', 'extractMenu', 'Chụp thất bại — thử lại.'); return; }
+            _menuShots.push(file);
+            await _dotNetRef.invokeMethodAsync('OnMenuShotCount', _menuShots.length);
+        } catch (e) {
+            console.error('[OnboardingWizard] captureMenuShot fail:', e);
+            await _dotNetRef.invokeMethodAsync('OnOcrError', 'extractMenu', e.message);
+        }
+    }
+
+    /** Kết thúc chụp menu → OCR TOÀN BỘ shots (dedupe header/footer chéo ảnh). */
+    async function finishMenuCapture() {
+        if (!_menuShots.length) {
+            await _dotNetRef.invokeMethodAsync('OnOcrError', 'extractMenu', 'Chưa có ảnh nào — chụp ít nhất 1 shot.');
+            return;
+        }
+        const shots = _menuShots;
+        _menuShots = [];
+        await processMenuFiles(shots);
+    }
+
+    return { register, processFile, processMenuFiles, getCurrentPosition, initMap, openCamera, closeCamera, captureAndOcr, captureMenuShot, finishMenuCapture };
 })();

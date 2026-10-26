@@ -52,8 +52,11 @@
             {
                 <div class="ocr-section">
                     <h4>📷 Ảnh giấy phép kinh doanh (GPKD)</h4>
-                    <input type="file" accept="image/*" capture="environment" class="ocr-file-input"
-                           onchange="vananOnboardingWizard.processFile(this.files[0], 'extractGpdk')" />
+                    <div class="ocr-capture-row">
+                        <input type="file" accept="image/*" capture="environment" class="ocr-file-input"
+                               onchange="vananOnboardingWizard.processFile(this.files[0], 'extractGpdk')" />
+                        <VanAButton Variant="secondary" Size="small" OnClick="OpenCameraGpdk">📷 Chụp trực tiếp</VanAButton>
+                    </div>
                     <div class="ocr-hint">Chụp thẳng góc, đủ sáng, tránh bóng đổ. Dấu đỏ đè chữ có thể làm sai chữ — kiểm tra kỹ.</div>
 
                     @if (_isOcrBusy) { <div class="ocr-busy">⏳ Đang đọc ảnh GPKD…</div> }
@@ -118,8 +121,11 @@
         case 2:
             <div class="ocr-section">
                 <h4>📷 Biển hiệu cửa hàng</h4>
-                <input type="file" accept="image/*" capture="environment" class="ocr-file-input"
-                       onchange="vananOnboardingWizard.processFile(this.files[0], 'extractSignName')" />
+                <div class="ocr-capture-row">
+                    <input type="file" accept="image/*" capture="environment" class="ocr-file-input"
+                           onchange="vananOnboardingWizard.processFile(this.files[0], 'extractSignName')" />
+                    <VanAButton Variant="secondary" Size="small" OnClick="OpenCameraSign">📷 Chụp trực tiếp</VanAButton>
+                </div>
                 @if (_isOcrBusy) { <div class="ocr-busy">⏳ Đang đọc biển hiệu…</div> }
                 <label>Tên hiệu
                     <input class="vanan-input" @bind="_signName" placeholder="Tên trên biển hiệu" />
@@ -133,8 +139,11 @@
 
             <div class="ocr-section">
                 <h4>📷 Menu / Danh mục sản phẩm (1..n ảnh)</h4>
-                <input type="file" accept="image/*" capture="environment" multiple class="ocr-file-input"
-                       onchange="vananOnboardingWizard.processMenuFiles(this.files)" />
+                <div class="ocr-capture-row">
+                    <input type="file" accept="image/*" capture="environment" multiple class="ocr-file-input"
+                           onchange="vananOnboardingWizard.processMenuFiles(this.files)" />
+                    <VanAButton Variant="secondary" Size="small" OnClick="OpenCameraMenu">📷 Chụp trực tiếp</VanAButton>
+                </div>
                 @if (_isMenuBusy) { <div class="ocr-busy">⏳ Đang đọc menu…</div> }
 
                 @if (_productRows.Count > 0)
@@ -263,6 +272,36 @@
             }
             break;
     }
+
+    <!-- Camera scan modal (2026-10-26 user directive — chụp trực tiếp) -->
+    @if (_showCameraModal)
+    {
+        <div class="ocr-camera-overlay">
+            <div class="ocr-camera-modal">
+                <div class="ocr-camera-header">
+                    <strong>@CameraTitle</strong>
+                    @if (_cameraMode == "menu")
+                    {
+                        <span class="ocr-camera-count">Đã chụp: @_menuShotCount</span>
+                    }
+                    <button type="button" class="ocr-camera-close" @onclick="CloseCameraAsync">✕</button>
+                </div>
+                <video id="ocrCameraVideo" class="ocr-camera-video" autoplay playsinline muted></video>
+                <div class="ocr-camera-actions">
+                    @if (_cameraMode == "menu")
+                    {
+                        <VanAButton Variant="primary" OnClick="CaptureMenuShotAsync">📸 Chụp</VanAButton>
+                        <VanAButton Variant="success" OnClick="FinishMenuCaptureAsync">✅ Xong + Nhận diện (@_menuShotCount ảnh)</VanAButton>
+                    }
+                    else
+                    {
+                        <VanAButton Variant="primary" OnClick="CaptureAndOcrAsync">📸 Chụp + Nhận diện</VanAButton>
+                    }
+                    <VanAButton Variant="danger" OnClick="CloseCameraAsync">✕ Đóng</VanAButton>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
@@ -297,6 +336,10 @@
     // Busy flags
     private bool _isOcrBusy, _isMenuBusy, _isGpsBusy, _isSubmitting, _isImporting;
     private bool _jsRegistered;
+    private bool _showCameraModal;
+    private string _cameraMode = string.Empty;   // "gpdk" | "sign" | "menu"
+    private int _menuShotCount;
+    private bool _cameraPendingOpen;
 
     private OcrOnboardingResult? _result;
     private ProductImportResult? _importResult;
@@ -385,6 +428,65 @@
         _step = 3;
     }
 
+    // ── Camera scan mode (2026-10-26 user directive) ─────────────────────
+    private string CameraTitle => _cameraMode switch
+    {
+        "gpdk" => "📷 Chụp Giấy phép kinh doanh",
+        "sign" => "📷 Chụp Biển hiệu",
+        "menu" => "📷 Chụp Menu",
+        _ => "📷 Chụp ảnh"
+    };
+
+    private void OpenCameraGpdk() => OpenCameraModal("gpdk");
+
+    private void OpenCameraSign() => OpenCameraModal("sign");
+
+    private void OpenCameraMenu() => OpenCameraModal("menu");
+
+    private void OpenCameraModal(string mode)
+    {
+        _cameraMode = mode;
+        _menuShotCount = 0;
+        _showCameraModal = true;
+        _cameraPendingOpen = true;   // mở camera sau render (video element cần tồn tại)
+    }
+
+    private async Task CloseCameraAsync()
+    {
+        _showCameraModal = false;
+        _cameraPendingOpen = false;
+        _isOcrBusy = false;
+        _isMenuBusy = false;
+        await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.closeCamera");
+    }
+
+    private async Task CaptureAndOcrAsync()
+    {
+        _isOcrBusy = true;
+        StateHasChanged();
+        await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.captureAndOcr", _cameraMode);
+    }
+
+    private async Task CaptureMenuShotAsync()
+    {
+        await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.captureMenuShot");
+    }
+
+    private async Task FinishMenuCaptureAsync()
+    {
+        _isMenuBusy = true;
+        StateHasChanged();
+        await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.finishMenuCapture");
+    }
+
+    [JSInvokable]
+    public Task OnMenuShotCount(int count)
+    {
+        _menuShotCount = count;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
     // ── OCR callbacks (JS → Blazor) ────────────────────────────────────
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -402,6 +504,20 @@
             _lastMapLng = _lng;
             await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.initMap", "ocrMap", _lat.Value, _lng.Value, _accuracy);
         }
+        // Camera modal: mở camera sau khi video element đã render
+        if (_cameraPendingOpen)
+        {
+            _cameraPendingOpen = false;
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.openCamera", "ocrCameraVideo");
+            }
+            catch (Exception ex)
+            {
+                ShowAlert($"Không mở được camera: {ex.Message}", "error");
+                _showCameraModal = false;
+            }
+        }
     }
 
     [JSInvokable]
@@ -415,6 +531,7 @@
                 case "extractGpdk":
                 {
                     _isOcrBusy = false;
+                    _ = CloseCameraAsync();   // chụp xong → đóng camera
                     var r = System.Text.Json.JsonSerializer.Deserialize<GpdkOcrResult>(json, options);
                     if (r is null) break;
                     _gpdkMst = r.Mst ?? _gpdkMst;
@@ -433,6 +550,7 @@
                 case "extractSignName":
                 {
                     _isOcrBusy = false;
+                    _ = CloseCameraAsync();   // chụp xong → đóng camera
                     var r = System.Text.Json.JsonSerializer.Deserialize<SignOcrResult>(json, options);
                     if (r?.Value is not null)
                     {
@@ -643,6 +761,11 @@
         _lat = _lng = null;
         _accuracy = 0;
         _lastMapLat = _lastMapLng = null;
+        _showCameraModal = false;
+        _cameraMode = string.Empty;
+        _menuShotCount = 0;
+        _cameraPendingOpen = false;
+        _ = JSRuntime.InvokeVoidAsync("vananOnboardingWizard.closeCamera");
         _hkdGroup = null;
         _alertMessage = string.Empty;
     }

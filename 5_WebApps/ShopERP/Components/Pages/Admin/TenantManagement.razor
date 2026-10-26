@@ -1292,6 +1292,14 @@
             _impersonatedTenantId = tid;
             _impersonatedTenantName = $"Tenant {tid.ToString("N")[..8]}";
         }
+        // OCR Onboarding (2026-10-26 user directive): nav menu root item + sitemap
+        // trỏ thẳng /admin/tenants?tab=ocr → mở tab wizard OCR ngay.
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        if (Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query).TryGetValue("tab", out var tabValue)
+            && tabValue == "ocr")
+        {
+            _activeTab = "ocr";
+        }
         await LoadTenants();
         await LoadShopInstances();
     }

@@ -412,6 +412,17 @@ public sealed class ShopErpMenuService : IShopErpMenuService
             });
         }
 
+        // OCR Onboarding (2026-10-26 user directive): root-level item — sysadmin thao tác
+        // chính trên mobile, cần truy cập TRỰC TIẾP wizard (không lọt trong nhóm Hệ thống).
+        if (isSystemAdmin)
+        {
+            items.Add(new()
+            {
+                Title = "Onboarding OCR", Icon = "camera",
+                Url = "/admin/tenants?tab=ocr"
+            });
+        }
+
         // CRM & Loyalty (Cross-tenant): SystemAdmin only
         if (isSystemAdmin)
         {

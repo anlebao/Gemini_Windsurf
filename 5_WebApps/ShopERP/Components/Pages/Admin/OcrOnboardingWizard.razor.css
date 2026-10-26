@@ -107,6 +107,83 @@
     max-width: 100%;
 }
 
+/* 2 mode nhập liệu: upload + chụp trực tiếp (2026-10-26 user directive) */
+.ocr-capture-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.ocr-capture-row .ocr-file-input {
+    flex: 1;
+    min-width: 200px;
+}
+
+/* Camera scan modal */
+.ocr-camera-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 1rem;
+}
+
+.ocr-camera-modal {
+    background: #0f172a;
+    border-radius: 14px;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    width: min(480px, 100%);
+    max-height: 92vh;
+}
+
+.ocr-camera-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #fff;
+    font-size: 0.95rem;
+    gap: 0.5rem;
+}
+
+.ocr-camera-count {
+    background: #2563eb;
+    color: #fff;
+    border-radius: 999px;
+    padding: 0.15rem 0.6rem;
+    font-size: 0.8rem;
+}
+
+.ocr-camera-close {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.2rem 0.5rem;
+}
+
+.ocr-camera-video {
+    width: 100%;
+    aspect-ratio: 3/4;
+    object-fit: cover;
+    border-radius: 10px;
+    background: #000;
+}
+
+.ocr-camera-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
 .ocr-hint {
     font-size: 0.8rem;
     color: #64748b;
@@ -228,4 +305,100 @@
 .ocr-import-status {
     font-size: 0.9rem;
     color: #334155;
+}
+
+/* ── Responsive mobile-first (2026-10-26 user directive — thao tác chính trên điện thoại) ── */
+@media (max-width: 640px) {
+    .ocr-wizard {
+        padding: 0.5rem 0;
+    }
+
+    .ocr-wizard-steps {
+        font-size: 0.72rem;
+        gap: 0.2rem;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 0.25rem;
+    }
+
+    .ocr-step {
+        padding: 0.2rem 0.45rem;
+        white-space: nowrap;
+    }
+
+    .ocr-case-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .ocr-case-card {
+        padding: 1rem;
+    }
+
+    .ocr-form {
+        grid-template-columns: 1fr;
+    }
+
+    .ocr-section {
+        padding: 0.75rem;
+    }
+
+    .ocr-capture-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .ocr-capture-row .ocr-file-input {
+        min-width: 100%;
+        font-size: 0.95rem;
+    }
+
+    .ocr-wizard-actions {
+        flex-direction: column-reverse;
+    }
+
+    .ocr-wizard-actions .vanan-button {
+        width: 100%;
+        min-height: 44px;   /* touch target */
+    }
+
+    .ocr-map {
+        height: 200px;
+    }
+
+    .ocr-product-table {
+        font-size: 0.8rem;
+    }
+
+    .ocr-price {
+        width: 100px;
+    }
+
+    /* Camera modal fullscreen trên mobile */
+    .ocr-camera-overlay {
+        padding: 0;
+        align-items: stretch;
+    }
+
+    .ocr-camera-modal {
+        width: 100%;
+        max-height: 100vh;
+        border-radius: 0;
+        justify-content: space-between;
+    }
+
+    .ocr-camera-video {
+        aspect-ratio: auto;
+        flex: 1;
+        min-height: 0;
+    }
+
+    .ocr-camera-actions .vanan-button {
+        flex: 1;
+        min-height: 48px;
+    }
+
+    .ocr-credential-box {
+        font-size: 0.8rem;
+        word-break: break-all;
+    }
 }
