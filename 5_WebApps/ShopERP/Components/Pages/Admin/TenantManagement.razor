@@ -1297,9 +1297,27 @@
     }
 
     // OCR Onboarding (2026-10-26 user directive): nav root item + sitemap trỏ
-    // /admin/tenants?tab=ocr → mở tab wizard OCR. OnParametersSet (không phải
-    // OnInitializedAsync) vì click nav item = SPA navigation — OnInitializedAsync
-    // KHÔNG re-run, chỉ OnParametersSet chạy lại (RV 2026-10-26 bắt được bug này).
+    // /admin/tenants?tab=ocr → mở tab wizard OCR.
+    // RV 2026-10-26 (vòng 3): OnParametersSet KHÔNG fire khi SPA nav cùng route
+    // chỉ khác query string (Blazor .NET 8 bỏ qua re-render khi RouteData không đổi)
+    // → phải dùng NavigationManager.LocationChanged (fire MỌI navigation).
+    // Giữ OnParametersSet cho full page load (initial nav có thể xảy ra trước khi subscribe).
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        var uri = NavigationManager.ToAbsoluteUri(e.Location);
+        if (Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query).TryGetValue("tab", out var tabValue)
+            && tabValue == "ocr")
+        {
+            _activeTab = "ocr";
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
     protected override void OnParametersSet()
     {
         var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
