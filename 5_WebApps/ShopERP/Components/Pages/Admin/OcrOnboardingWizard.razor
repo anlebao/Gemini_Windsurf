@@ -1,13 +1,20 @@
+@page "/admin/onboarding-ocr"
+@rendermode InteractiveServer
+@layout AdminLayout
 @using VanAn.CoreHub.Services.Onboarding
 @using VanAn.Shared.Domain
 @using VanAn.Shared.DTOs
 @using VanAn.UI.Platform.Components
+@using Microsoft.AspNetCore.Authorization
 @inject OcrOnboardingApiClient OcrOnboardingApi
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject IHttpClientFactory HttpFactory
 @inject ILogger<OcrOnboardingWizard> Logger
 
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<!-- 2026-10-26 user directive: tách khỏi /admin/tenants → PAGE RIÊNG /admin/onboarding-ocr -->
 <div class="ocr-wizard">
     <!-- Stepper -->
     <div class="ocr-wizard-steps">

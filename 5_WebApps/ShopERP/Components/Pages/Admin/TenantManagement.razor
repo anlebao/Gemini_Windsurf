@@ -53,17 +53,7 @@
         <button class="@TabClass("duplicates")" @onclick="@(() => SwitchTab("duplicates"))">
             Trùng lặp (@(_duplicates.Count))
         </button>
-        <!-- OCR Onboarding S4 (2026-10-25): wizard scan GPKD/biển hiệu/menu → tạo tenant -->
-        <button class="@TabClass("ocr")" @onclick="@(() => SwitchTab("ocr"))">📷 Onboarding OCR</button>
     </div>
-
-    <!-- OCR Onboarding S4 (2026-10-25): wizard scan → tạo tenant -->
-    @if (_activeTab == "ocr")
-    {
-        <div class="tenant-tab-panel">
-            <OcrOnboardingWizard />
-        </div>
-    }
 
     <!-- Impersonation status -->
     @if (_isImpersonating)
@@ -1294,38 +1284,6 @@
         }
         await LoadTenants();
         await LoadShopInstances();
-    }
-
-    // OCR Onboarding (2026-10-26 user directive): nav root item + sitemap trỏ
-    // /admin/tenants?tab=ocr → mở tab wizard OCR.
-    // RV 2026-10-26 (vòng 3): OnParametersSet KHÔNG fire khi SPA nav cùng route
-    // chỉ khác query string (Blazor .NET 8 bỏ qua re-render khi RouteData không đổi)
-    // → phải dùng NavigationManager.LocationChanged (fire MỌI navigation).
-    // Giữ OnParametersSet cho full page load (initial nav có thể xảy ra trước khi subscribe).
-    protected override void OnInitialized()
-    {
-        NavigationManager.LocationChanged += OnLocationChanged;
-    }
-
-    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
-    {
-        var uri = NavigationManager.ToAbsoluteUri(e.Location);
-        if (Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query).TryGetValue("tab", out var tabValue)
-            && tabValue == "ocr")
-        {
-            _activeTab = "ocr";
-            InvokeAsync(StateHasChanged);
-        }
-    }
-
-    protected override void OnParametersSet()
-    {
-        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
-        if (Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query).TryGetValue("tab", out var tabValue)
-            && tabValue == "ocr")
-        {
-            _activeTab = "ocr";
-        }
     }
 
     private async Task LoadTenants()

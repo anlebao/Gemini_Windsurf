@@ -52,7 +52,7 @@ Sysadmin đứng tại cửa hàng, **chọn case rồi chụp ảnh tương ứ
 ## 2. Solution — Luồng tổng
 
 ```
-┌─ ShopERP (app2) — Wizard /admin/onboarding (SystemAdmin) ────────────────────┐
+┌─ ShopERP (app2) — Wizard /admin/onboarding-ocr (SystemAdmin) — PAGE RIÊNG (user 2026-10-26, tách khỏi /admin/tenants) ────────────────────┐
 │                                                                             │
 │  BƯỚC 0: CHỌN CASE                                                          │
 │  ● Case A: Công ty / HKD có GPKD   ● Case B: Shop nhỏ KHÔNG có GPKD        │
@@ -143,9 +143,9 @@ Sysadmin đứng tại cửa hàng, **chọn case rồi chụp ảnh tương ứ
 - Gọi **sau khi** NATS sync tenant (poll/retry tối đa ~10s — `TenantSyncSubscriber` upsert); nếu chưa sync → trả 409 + UI retry
 - Không tạo Recipe/Ingredient (MVP) — chỉ Product; owner bổ sung sau qua QuickSetup/ProductManagement
 
-### 3.4 UI — Wizard `/admin/onboarding` (ShopERP)
+### 3.4 UI — Wizard `/admin/onboarding-ocr` (ShopERP) — **PAGE RIÊNG** (user 2026-10-26: tách khỏi /admin/tenants)
 
-- Trang mới `Components/Pages/Admin/OcrOnboarding.razor` + `.razor.cs` — **UI Platform components** (Gate 4)
+- Page `Components/Pages/Admin/OcrOnboardingWizard.razor` — `@page "/admin/onboarding-ocr"` + AdminLayout + SystemAdmin — **UI Platform components** (Gate 4)
 - **Bước 0 — Chọn case** (card radio, ảnh minh họa):
   - **Case A — Công ty / HKD có GPKD**: cần ảnh GPKD + biển hiệu + menu; bắt buộc có MST trước khi submit
   - **Case B — Shop nhỏ không GPKD**: cần ảnh biển hiệu + menu; form thêm bộ chọn `HKDGroup` (Group 1/2/3 kèm mô tả thuế TT152) — ảnh hưởng sổ sách kế toán, hiện rõ warning
@@ -175,7 +175,7 @@ Sysadmin đứng tại cửa hàng, **chọn case rồi chụp ảnh tương ứ
 ## 4. Scope
 
 ### In scope (Phase 1)
-- Wizard ShopERP `/admin/onboarding` — **Bước 0 chọn case** (A: có GPKD / B: không GPKD) + 3 bước
+- Wizard ShopERP `/admin/onboarding-ocr` — **Bước 0 chọn case** (A: có GPKD / B: không GPKD) + 3 bước
 - OCR client-side tiếng Việt: Tesseract.js + `vie.traineddata` + `onboarding-ocr.js` (GPKD field extraction **Case A** + biển hiệu + menu lines)
 - Gateway `OcrOnboardingController` + `TenantOcrOnboardingService` (Pending → Verify, credentials 1 lần, provenance, dedup MST **Case A** / gợi ý tên+địa chỉ **Case B**)
 - **Domain: `CreateUnverified` mở rộng optional BusinessType/HKDGroup** (D5 — chỉ khi được duyệt)
@@ -234,7 +234,7 @@ PR 1: feature/ocr-onboarding
 | Layer | Test | Expected |
 |---|---|---|
 | L1 | Markers production: `TenantOcrOnboardingService` + `OcrOnboardingController` trong CoreHub.dll/Gateway.dll | Present |
-| L2 | Health 200 · route `/admin/onboarding` 302→Login · `POST /api/v1/ocr-onboarding` 401 khi no-auth | PASS |
+| L2 | Health 200 · route `/admin/onboarding-ocr` 302→Login · `POST /api/v1/ocr-onboarding` 401 khi no-auth | PASS |
 | L3 | Playwright production (sysadmin): wizard → mock OCR input → tạo tenant Pending→Active → product import → GPS prefill | 5/5 |
 | L4 | Manual browser: chụp ảnh thật trên mobile, kiểm tra độ chính xác OCR tiếng Việt, chỉnh tay, credentials handover | User |
 

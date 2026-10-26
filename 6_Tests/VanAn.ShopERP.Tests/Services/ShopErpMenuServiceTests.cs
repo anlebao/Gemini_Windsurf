@@ -68,10 +68,10 @@ public class ShopErpMenuServiceTests
         // Act
         var items = await service.BuildAsync(user);
 
-        // Assert — 2026-10-26 user directive: root-level item trỏ thẳng wizard OCR
+        // Assert — 2026-10-26 user directive: root-level item trỏ thẳng page riêng OCR
         var ocr = items.SingleOrDefault(i => i.Title == "Onboarding OCR");
         ocr.Should().NotBeNull();
-        ocr!.Url.Should().Be("/admin/tenants?tab=ocr");
+        ocr!.Url.Should().Be("/admin/onboarding-ocr");
         ocr.Children.Should().BeNullOrEmpty();
     }
 

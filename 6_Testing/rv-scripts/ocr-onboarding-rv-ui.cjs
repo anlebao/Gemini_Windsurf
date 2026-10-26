@@ -99,9 +99,9 @@ const LAUNCH_ARGS = [
       await navOcr.click();
       await page.waitForTimeout(2500);
       const url = page.url();
-      const wizardActive = url.includes('tab=ocr') &&
+      const wizardActive = url.includes('/admin/onboarding-ocr') &&
         (await page.locator('.ocr-case-card', { hasText: 'Shop nhỏ' }).isVisible().catch(() => false));
-      check('L3 nav item → /admin/tenants?tab=ocr + wizard step 0', wizardActive, url);
+      check('L3 nav item → page riêng /admin/onboarding-ocr + wizard step 0', wizardActive, url);
       await page.screenshot({ path: join(__dirname, 'ocr-onboarding-nav.png'), fullPage: true });
     }
 
@@ -114,13 +114,13 @@ const LAUNCH_ARGS = [
     if (sitemapOk) {
       await sitemapLink.click();
       await page.waitForTimeout(2500);
-      check('L3 sitemap link → wizard mở (tab=ocr active)',
-        page.url().includes('tab=ocr') &&
+      check('L3 sitemap link → page riêng mở (wizard active)',
+        page.url().includes('/admin/onboarding-ocr') &&
         (await page.locator('.ocr-wizard').isVisible().catch(() => false)));
     }
 
     // Camera mode (fake camera): GPKD modal → video → capture → không crash circuit
-    await page.goto(`${APP2}/admin/tenants?tab=ocr`, { waitUntil: 'networkidle', timeout: 60000 });
+    await page.goto(`${APP2}/admin/onboarding-ocr`, { waitUntil: 'networkidle', timeout: 60000 });
     await page.waitForTimeout(2000);
     await page.locator('.ocr-case-card', { hasText: 'Công ty / Hộ kinh doanh' }).click();
     await page.getByRole('button', { name: 'Tiếp theo' }).click();

@@ -121,7 +121,7 @@ test.describe('VanAn Ecosystem - OCR Tenant Onboarding Wizard (S4/S5)', () => {
 
   // ─── BỔ SUNG (2026-10-26 user directive) ────────────────────────────────
 
-  test('Nav root item "Onboarding OCR" → mở thẳng wizard (tab=ocr)', async ({ page }) => {
+  test('Nav root item "Onboarding OCR" → mở thẳng page riêng', async ({ page }) => {
     // AdminLayout (trang /admin/*) render ShopErpMenuService — /dashboard dùng menu hardcoded
     await page.goto(`${shopErpBase}/admin/tenants`);
     await page.waitForLoadState('networkidle');
@@ -131,7 +131,7 @@ test.describe('VanAn Ecosystem - OCR Tenant Onboarding Wizard (S4/S5)', () => {
     await navItem.click();
     await page.waitForLoadState('networkidle');
 
-    await expect(page).toHaveURL(/tab=ocr/);
+    await expect(page).toHaveURL(/\/admin\/onboarding-ocr/);
     await expect(page.locator('.ocr-case-card', { hasText: 'Shop nhỏ' })).toBeVisible({ timeout: 15000 });
   });
 
@@ -141,11 +141,11 @@ test.describe('VanAn Ecosystem - OCR Tenant Onboarding Wizard (S4/S5)', () => {
 
     const link = page.locator('[data-testid="link-admin-onboarding-ocr"]');
     await expect(link).toBeVisible({ timeout: 15000 });
-    await expect(link).toHaveAttribute('href', '/admin/tenants?tab=ocr');
+    await expect(link).toHaveAttribute('href', '/admin/onboarding-ocr');
   });
 
   test('Camera scan mode: nút "Chụp trực tiếp" hiển thị ở cả 3 loại ảnh', async ({ page }) => {
-    await page.goto(`${shopErpBase}/admin/tenants?tab=ocr`);
+    await page.goto(`${shopErpBase}/admin/onboarding-ocr`);
     await page.waitForLoadState('networkidle');
     await page.locator('.ocr-case-card', { hasText: 'Công ty / Hộ kinh doanh' }).click();
     await page.getByRole('button', { name: 'Tiếp theo' }).click();
