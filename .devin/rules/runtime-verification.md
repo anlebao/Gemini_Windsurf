@@ -164,6 +164,9 @@ Final check by user in real browser. Only if Layers 1-4 pass.
 | `gcloud compute ssh … 'bash -s' < script.sh` garbage ("command not found") | plink.exe on Windows mangles stdin piping | `gcloud compute scp` the script then `ssh --command "bash /tmp/x.sh"`. See governance Pattern #14 |
 | Mirror/read-path shows a value that can never decrease (upward drift) after a write-path cutover | Legacy "protective" merge (MAX-merge) left in place after a new authority took over writes | Mirror must OVERWRITE with the authoritative value; rewrite the tests that codified the old contract. See governance Pattern #17 |
 | Event consumer applies state out of order (newer event applied, then stale event clobbers) | Outbox double-delivery (direct NATS + worker) interleaves events | Full-precision timestamps + consumer ordering guard (apply only if event ≥ newest applied). See governance Pattern #15 |
+| Leaflet "Map container is already initialized" → circuit chết (JSException trong OnAfterRenderAsync) | `initMap` gọi mỗi render trên cùng element — Leaflet giữ `_leaflet_id`, `innerHTML=''` không xóa được | `map.remove()` trước khi tạo lại + guard coords thay đổi (`_lastMapLat/Lng`) — governance Pattern #35 (`b6775af6`) |
+| SPA nav cùng route chỉ khác query: URL đổi nhưng page KHÔNG re-render (wizard không mở) | Blazor .NET 8 không gọi OnParametersSet khi RouteData không đổi (query không thuộc route) | `NavigationManager.LocationChanged` thay OnParametersSet cho query parsing — governance Pattern #36 (`3f1d3a07`) |
+| No-auth check trả 200 thay vì 401 (tưởng endpoint public) | `fetch()` follow redirect mặc định — auth challenge 302 → login page 200 | `redirect: 'manual'` — chấp nhận 302 hoặc 401 — governance Pattern #38 |
 
 ## RV SCRIPT TEMPLATE
 Save as `rv-<issue>.js` in repo root (gitignore or delete after RV complete):
