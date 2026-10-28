@@ -214,6 +214,22 @@ public class OrderFlowServiceTests : IDisposable
              new("cancelled", "X", 2, false, ["completed"]),
              new("completed", "Done", 3, true, [])], "test"));
 
+        // #195 follow-up (2026-10-28 — incident Cafe Tân Quy): step KHÔNG terminal có
+        // AllowedNextCodes rỗng → đơn kẹt vĩnh viễn → reject.
+        await Assert.ThrowsAsync<ArgumentException>(() => _flow.UpsertProfileAsync(
+            _tenantA, null, null, "Bad",
+            [new("pending", "P", 1, false, []),
+             new("completed", "Done", 2, true, []),
+             new("cancelled", "Hủy", 3, true, [])], "test"));
+
+        // Terminal steps vẫn OK với AllowedNextCodes rỗng (absorbing state).
+        OrderFlowProfileDto terminalOk = await _flow.UpsertProfileAsync(
+            _tenantA, null, null, "TerminalOk",
+            [new("pending", "P", 1, false, ["completed", "cancelled"]),
+             new("completed", "Done", 2, true, []),
+             new("cancelled", "Hủy", 3, true, [])], "test");
+        Assert.Equal(3, terminalOk.Steps.Count);
+
         // Valid → OK
         OrderFlowProfileDto ok = await _flow.UpsertProfileAsync(
             _tenantA, null, null, "Good", KitchenSteps(), "test");

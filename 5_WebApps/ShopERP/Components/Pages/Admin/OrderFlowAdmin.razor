@@ -36,6 +36,61 @@
         </ChildContent>
     </VanACard>
 
+    @* Issue #195 follow-up (2026-10-28): hướng dẫn thiết lập luồng + trạng thái hợp lệ *@
+    <VanACard>
+        <ChildContent>
+            <details class="order-flow-help" data-testid="order-flow-help" open>
+                <summary class="order-flow-help__summary">
+                    <i class="bi bi-question-circle"></i> Hướng dẫn thiết lập luồng xử lý & trạng thái hợp lệ
+                </summary>
+                <div class="order-flow-help__body">
+                    <h6>1. Thứ tự áp dụng luồng</h6>
+                    <p>
+                        Với mỗi đơn, hệ thống chọn luồng theo ưu tiên:
+                        <strong>Nhóm sản phẩm</strong> (nếu có) → <strong>Tenant</strong> (theo nguồn đơn, rồi mọi nguồn)
+                        → <strong>Hệ thống</strong> (theo nguồn đơn, rồi mọi nguồn) → <strong>Luồng mặc định</strong>.
+                        "Nguồn đơn" gồm: <code>pos</code> (tại quầy), <code>checkout</code> (online), <code>booking</code> (đặt lịch).
+                    </p>
+                    <h6>2. Trạng thái bắt buộc phải có</h6>
+                    <ul>
+                        <li><code>pending</code> — bước đầu tiên (entry) của mọi luồng.</li>
+                        <li>
+                            <code>completed</code> và <code>cancelled</code> — bắt buộc, phải đánh dấu
+                            <strong>"Kết thúc?"</strong>. Kế toán, điểm thưởng, hoa hồng, hoàn tiền gắn cứng vào 2 mã này
+                            — luồng thiếu chúng sẽ bị từ chối khi lưu.
+                        </li>
+                    </ul>
+                    <h6>3. Quy tắc chuyển tiếp</h6>
+                    <ul>
+                        <li>
+                            Mỗi bước <strong>không</strong> phải trạng thái kết thúc <strong>bắt buộc có ≥1</strong> trạng thái
+                            trong cột "Chuyển được sang" — nếu để trống, đơn sẽ <strong>kẹt vĩnh viễn</strong> ở bước đó
+                            (không xử lý đi tiếp được). Hệ thống từ chối lưu luồng vi phạm.
+                        </li>
+                        <li>"Chuyển được sang" phải trỏ tới mã bước có trong luồng (cách nhau bởi dấu phẩy).</li>
+                        <li>Trạng thái kết thúc (Kết thúc? = ☑) không có bước sau.</li>
+                    </ul>
+                    <h6>4. Mã trạng thái hợp lệ (luồng mặc định)</h6>
+                    <p>
+                        <code>pending</code> Chờ xác nhận · <code>confirmed</code> Đã xác nhận · <code>preparing</code> Đang chuẩn bị ·
+                        <code>ready</code> Sẵn sàng · <code>delivering</code> Đang giao · <code>delivered</code> Đã giao ·
+                        <code>completed</code> Hoàn thành · <code>cancelled</code> Đã hủy
+                    </p>
+                    <h6>5. Đơn đặt lịch (booking)</h6>
+                    <p>
+                        Chỉ cần 2 hành động: <strong>Thanh toán</strong> (chuyển sang <code>confirmed</code>) và
+                        <strong>Hoàn thành</strong> (<code>completed</code>) — chọn nguồn đơn <code>booking</code>.
+                    </p>
+                    <h6>6. Lưu ý</h6>
+                    <p>
+                        Nút xử lý trên trang danh sách & chi tiết đơn chỉ hiện các trạng thái chuyển tiếp hợp lệ theo luồng đã cấu hình.
+                        Luồng thiết lập sai (bước không kết thúc không có chuyển tiếp) sẽ bị từ chối khi lưu.
+                    </p>
+                </div>
+            </details>
+        </ChildContent>
+    </VanACard>
+
     @if (_isLoading)
     {
         <VanACard>
@@ -375,6 +430,16 @@
                 return;
             }
         }
+        // Issue #195 follow-up (2026-10-28): mirror server guard — bước KHÔNG kết thúc phải
+        // có ≥1 "chuyển được sang", nếu không đơn sẽ kẹt (sự cố production Cafe Tân Quy).
+        var stuckStep = _formSteps.FirstOrDefault(s => !s.IsTerminal
+            && string.IsNullOrWhiteSpace(s.AllowedNextCsv));
+        if (stuckStep != null)
+        {
+            _alertType = "warning";
+            _alertMessage = $"Bước '{stuckStep.Code}' không phải trạng thái kết thúc nhưng chưa có trạng thái chuyển tiếp nào — đơn sẽ bị kẹt ở bước này. Điền cột \"Chuyển được sang\" (VD: completed, cancelled).";
+            return;
+        }
 
         _isSaving = true;
         _alertMessage = string.Empty;
@@ -445,6 +510,27 @@
 }
 
 <style>
+    .order-flow-help__summary {
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--vanan-primary, #0d6efd);
+    }
+    .order-flow-help__body {
+        margin-top: 0.75rem;
+        font-size: 0.875rem;
+        line-height: 1.6;
+    }
+    .order-flow-help__body h6 {
+        margin-top: 0.75rem;
+        margin-bottom: 0.25rem;
+        font-weight: 600;
+    }
+    .order-flow-help__body code {
+        background: #f1f3f5;
+        padding: 0.1rem 0.3rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
     .flow-scope-badge {
         display: inline-block;
         padding: 0.2rem 0.5rem;

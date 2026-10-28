@@ -6,8 +6,11 @@
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.Shared.Domain
 @using VanAn.CoreHub.Services
+@using VanAn.CoreHub.Infrastructure
 @using VanAn.ShopERP.Services
+@using Microsoft.EntityFrameworkCore
 @inject IOrderWorkflowService OrderWorkflowService
+@inject IVanAnDbContext DbContext
 @inject ILogger<PrintBill> Logger
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
@@ -27,9 +30,9 @@
     else
     {
         <div class="bill-receipt" id="bill-receipt">
-            @* Header — Store info *@
+            @* Header — Store info (issue #195 follow-up: ưu tiên tên tenant, fallback VẠN AN) *@
             <div class="bill-header">
-                <h1 class="bill-store-name">VẠN AN</h1>
+                <h1 class="bill-store-name">@tenantName</h1>
                 <p class="bill-store-subtitle">Hệ sinh thái F&B</p>
                 <div class="bill-divider">━━━━━━━━━━━━━━━━━━</div>
             </div>
@@ -118,7 +121,7 @@
             <div class="bill-footer">
                 <div class="bill-divider">━━━━━━━━━━━━━━━━━━</div>
                 <p class="bill-thank-you">Cảm ơn quý khách!</p>
-                <p class="bill-thank-sub">Hẹn gặp lại — Vạn An</p>
+                <p class="bill-thank-sub">Hẹn gặp lại — @tenantName</p>
                 <p class="bill-print-info">In lúc: @DateTime.UtcNow.ToVietnamTimeString()</p>
             </div>
         </div>
@@ -139,6 +142,9 @@
 
     private Order? order;
     private bool loading = true;
+    // Issue #195 follow-up (2026-10-28): tên tenant hiển thị trên bill — ưu tiên tên
+    // thật từ SQLite mirror Tenants, fallback "VẠN AN" (đơn legacy/tenant thiếu mirror).
+    private string tenantName = "VẠN AN";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -154,6 +160,16 @@
         try
         {
             order = await OrderWorkflowService.GetOrderAsync(OrderId);
+            if (order != null)
+            {
+                var tenant = await DbContext.Tenants
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(t => t.Id == new TenantId(order.TenantId.Value));
+                if (tenant != null && !string.IsNullOrWhiteSpace(tenant.Name))
+                {
+                    tenantName = tenant.Name;
+                }
+            }
         }
         catch (Exception ex)
         {

@@ -21,6 +21,7 @@
 @inject IThemeProvider ThemeProvider
 @inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 @inject TenantApiClient TenantApi
+@inject IOrderFlowService FlowResolver
 @inject Microsoft.Extensions.DependencyInjection.IServiceScopeFactory ScopeFactory
 @inject IJSRuntime JSRuntime
 
@@ -107,11 +108,21 @@
             {
                 <span class="bulk-bar__count" data-testid="bulk-count">Đã chọn @selectedIds.Count đơn</span>
                 <select @bind="bulkAction" class="filter-select bulk-bar__action" data-testid="bulk-action-select">
-                    <option value="confirmed">✓ Xác nhận</option>
-                    <option value="completed">✔️ Hoàn tất</option>
-                    <option value="cancelled">✕ Hủy</option>
+                    @* Issue #195 follow-up: option chỉ hiện khi ≥1 đơn đang chọn cho phép transition đó *@
+                    @if (BulkAllowedActions().Contains("confirmed"))
+                    {
+                        <option value="confirmed">✓ Xác nhận</option>
+                    }
+                    @if (BulkAllowedActions().Contains("completed"))
+                    {
+                        <option value="completed">✔️ Hoàn tất</option>
+                    }
+                    @if (BulkAllowedActions().Contains("cancelled"))
+                    {
+                        <option value="cancelled">✕ Hủy</option>
+                    }
                 </select>
-                <VanAButton Variant="primary" Size="small" OnClick="ApplyBulkAction" Disabled="bulkApplying" data-testid="btn-bulk-apply">
+                <VanAButton Variant="primary" Size="small" OnClick="ApplyBulkAction" Disabled="bulkApplying || BulkAllowedActions().Count == 0" data-testid="btn-bulk-apply">
                     Áp dụng
                 </VanAButton>
                 <VanAButton Variant="ghost" Size="small" OnClick="ClearSelection" data-testid="btn-bulk-clear">
@@ -200,68 +211,19 @@
                     <VanAnColumn TItem="OrderListItem" Title="Hành động" Width="3">
                         <Template Context="o">
                             <div class="d-flex gap-1 flex-wrap">
-                                @* Issue #195 (0.2): đơn booking — chỉ Thanh toán / Hoàn tất / Hủy *@
-                                @if (o.SourceType == "booking")
+                                @* Issue #195 follow-up (2026-10-28): nút action theo resolved flow — chỉ render
+                                   transition hợp lệ cho (tenant, source, status hiện tại), đồng bộ Detail.razor. *@
+                                @foreach (var action in AllowedActionsFor(o))
                                 {
-                                    @if (o.Status == "pending")
-                                    {
-                                        <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionOrder(o.Id, "confirmed"))" data-testid="btn-booking-pay-order">
-                                            💰 Thanh toán
-                                        </VanAButton>
-                                    }
-                                    else if (o.Status == "confirmed")
-                                    {
-                                        <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "completed"))" data-testid="btn-complete-order">
-                                            ✔️ Hoàn tất
-                                        </VanAButton>
-                                    }
-                                }
-                                else if (o.Status == "pending")
-                                {
-                                    <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionOrder(o.Id, "confirmed"))" data-testid="btn-confirm-order">
-                                        ✓ Xác nhận
-                                    </VanAButton>
-                                }
-                                else if (o.Status == "confirmed")
-                                {
-                                    <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionOrder(o.Id, "preparing"))" data-testid="btn-preparing-order">
-                                        ⏳ Làm
-                                    </VanAButton>
-                                    <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "completed"))" data-testid="btn-complete-order">
-                                        ✔️ Hoàn tất
-                                    </VanAButton>
-                                }
-                                else if (o.Status == "preparing")
-                                {
-                                    <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "ready"))" data-testid="btn-ready-order">
-                                        ✅ Sẵn sàng
-                                    </VanAButton>
-                                }
-                                else if (o.Status == "ready")
-                                {
-                                    <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionOrder(o.Id, "delivered"))" data-testid="btn-deliver-order">
-                                        📦 Giao
-                                    </VanAButton>
-                                    <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "completed"))" data-testid="btn-complete-order">
-                                        ✔️ Hoàn tất
-                                    </VanAButton>
-                                }
-                                else if (o.Status == "delivered")
-                                {
-                                    <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "completed"))" data-testid="btn-complete-order">
-                                        ✔️ Hoàn tất
+                                    var meta = ActionMetaFor(action, o.SourceType);
+                                    <VanAButton Variant="@meta.Variant" Size="small" OnClick="@(() => TransitionOrder(o.Id, meta.Code))" data-testid="@meta.TestId">
+                                        @meta.Icon @meta.Label
                                     </VanAButton>
                                 }
                                 @if (o.PaymentStatus == "Pending" && o.Status != "cancelled")
                                 {
                                     <VanAButton Variant="primary" Size="small" OnClick="@(() => ConfirmPaymentInline(o.Id))" data-testid="btn-confirm-payment-inline">
                                         💰 Đã thanh toán
-                                    </VanAButton>
-                                }
-                                @if (o.Status is "pending" or "confirmed" or "preparing" or "ready")
-                                {
-                                    <VanAButton Variant="error" Size="small" OnClick="@(() => TransitionOrder(o.Id, "cancelled"))" data-testid="btn-cancel-order">
-                                        ✕ Hủy
                                     </VanAButton>
                                 }
                                 <VanAButton Variant="secondary" Size="small" OnClick="@(() => GoToDetail(o.Id))">
@@ -320,67 +282,18 @@
                         </div>
                     }
                     <div class="order-mobile-card__actions">
-                        @if (o.SourceType == "booking")
+                        @* Issue #195 follow-up (2026-10-28): nút action theo resolved flow (đồng bộ Detail) *@
+                        @foreach (var action in AllowedActionsFor(o))
                         {
-                            @if (o.Status == "pending")
-                            {
-                                <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionOrder(o.Id, "confirmed"))" data-testid="btn-booking-pay-order-m">
-                                    💰 Thanh toán
-                                </VanAButton>
-                            }
-                            else if (o.Status == "confirmed")
-                            {
-                                <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "completed"))" data-testid="btn-complete-order-m">
-                                    ✔️ Hoàn tất
-                                </VanAButton>
-                            }
-                        }
-                        else if (o.Status == "pending")
-                        {
-                            <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionOrder(o.Id, "confirmed"))" data-testid="btn-confirm-order-m">
-                                ✓ Xác nhận
-                            </VanAButton>
-                        }
-                        else if (o.Status == "confirmed")
-                        {
-                            <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionOrder(o.Id, "preparing"))" data-testid="btn-preparing-order-m">
-                                ⏳ Làm
-                            </VanAButton>
-                            <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "completed"))" data-testid="btn-complete-order-m">
-                                ✔️ Hoàn tất
-                            </VanAButton>
-                        }
-                        else if (o.Status == "preparing")
-                        {
-                            <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "ready"))" data-testid="btn-ready-order-m">
-                                ✅ Sẵn sàng
-                            </VanAButton>
-                        }
-                        else if (o.Status == "ready")
-                        {
-                            <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionOrder(o.Id, "delivered"))" data-testid="btn-deliver-order-m">
-                                📦 Giao
-                            </VanAButton>
-                            <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "completed"))" data-testid="btn-complete-order-m">
-                                ✔️ Hoàn tất
-                            </VanAButton>
-                        }
-                        else if (o.Status == "delivered")
-                        {
-                            <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "completed"))" data-testid="btn-complete-order-m">
-                                ✔️ Hoàn tất
+                            var meta = ActionMetaFor(action, o.SourceType);
+                            <VanAButton Variant="@meta.Variant" Size="small" OnClick="@(() => TransitionOrder(o.Id, meta.Code))" data-testid="@meta.TestIdM">
+                                @meta.Icon @meta.Label
                             </VanAButton>
                         }
                         @if (o.PaymentStatus == "Pending" && o.Status != "cancelled")
                         {
                             <VanAButton Variant="primary" Size="small" OnClick="@(() => ConfirmPaymentInline(o.Id))" data-testid="btn-confirm-payment-inline-m">
                                 💰 Đã TT
-                            </VanAButton>
-                        }
-                        @if (o.Status is "pending" or "confirmed" or "preparing" or "ready")
-                        {
-                            <VanAButton Variant="error" Size="small" OnClick="@(() => TransitionOrder(o.Id, "cancelled"))" data-testid="btn-cancel-order-m">
-                                ✕ Hủy
                             </VanAButton>
                         }
                         <VanAButton Variant="secondary" Size="small" OnClick="@(() => GoToDetail(o.Id))">
@@ -588,6 +501,8 @@
     private async Task ApplyBulkAction()
     {
         if (selectedIds.Count == 0 || bulkApplying) return;
+        // Issue #195 follow-up: không có transition nào hợp lệ cho các đơn đang chọn → không làm gì.
+        if (string.IsNullOrWhiteSpace(bulkAction) || !BulkAllowedActions().Contains(bulkAction)) return;
         bulkApplying = true;
         errorMessage = null;
         infoMessage = null;
@@ -711,6 +626,9 @@
                 // where the render batch is deferred.
                 StateHasChanged();
             }
+
+            // Issue #195 follow-up: resolve flow cho các (tenant, source) trên page — nút action theo flow.
+            await ResolveFlowsForPageAsync();
         }
         catch (Exception ex)
         {
@@ -755,6 +673,83 @@
             if (a[i].CustomerPhone != b[i].CustomerPhone) return false;
         }
         return true;
+    }
+
+    // ==================== ISSUE #195 FOLLOW-UP: FLOW-AWARE ACTIONS ====================
+    // Nút action (list + mobile) và bulk options chỉ render transition hợp lệ theo resolved
+    // flow cho (tenantId, sourceType, status hiện tại) — đồng bộ Detail.razor. ShopERP resolve
+    // qua IOrderFlowService (OrderFlowApiClient → Gateway PG, cache 60s); fail-open → builtin.
+    private Dictionary<(Guid TenantId, string? Source), OrderFlowResolution> _flowCache = new();
+
+    private async Task ResolveFlowsForPageAsync()
+    {
+        var keys = orders
+            .Where(o => o.TenantId != Guid.Empty)
+            .Select(o => (TenantId: o.TenantId, Source: string.IsNullOrWhiteSpace(o.SourceType) ? null : o.SourceType))
+            .Distinct()
+            .Where(k => !_flowCache.ContainsKey(k))
+            .ToList();
+        if (keys.Count == 0) return;
+        // Parallel: sysadmin xem ALL tenants có thể có nhiều (tenant, source) khác nhau trên 1 trang.
+        await Task.WhenAll(keys.Select(ResolveFlowForKeyAsync));
+    }
+
+    private async Task ResolveFlowForKeyAsync((Guid TenantId, string? Source) key)
+    {
+        try
+        {
+            _flowCache[key] = await FlowResolver.ResolveFlowAsync(key.TenantId, key.Source);
+        }
+        catch (Exception ex)
+        {
+            // Fail-open: không resolve được → builtin (các transition mặc định vẫn hiện).
+            Logger.LogWarning(ex, "OrderFlow resolve failed for tenant {TenantId} source {Source} — builtin fallback",
+                key.TenantId, key.Source);
+            _flowCache[key] = OrderFlowService.BuildBuiltin(key.Source);
+        }
+    }
+
+    /// <summary>Danh sách code transition hợp lệ từ trạng thái hiện tại của đơn (theo resolved flow).</summary>
+    private IReadOnlyList<string> AllowedActionsFor(OrderListItem o)
+    {
+        if (o.TenantId == Guid.Empty) return [];
+        var key = (o.TenantId, string.IsNullOrWhiteSpace(o.SourceType) ? null : o.SourceType);
+        return _flowCache.TryGetValue(key, out OrderFlowResolution? flow) && flow != null
+            ? flow.NextOf(o.Status)
+            : [];
+    }
+
+    /// <summary>Code transition mà ≥1 đơn đang chọn cho phép (bulk action options).</summary>
+    private IReadOnlyList<string> BulkAllowedActions()
+    {
+        var allowed = new HashSet<string>();
+        foreach (var o in orders.Where(o => selectedIds.Contains(o.Id)))
+        {
+            foreach (string code in AllowedActionsFor(o))
+                allowed.Add(code);
+        }
+        return allowed.Where(a => a is "confirmed" or "completed" or "cancelled").ToList();
+    }
+
+    /// <summary>
+    /// Meta cho nút action theo code — giữ label/icon/testid cũ (E2E không đổi); booking
+    /// "confirmed" = "Thanh toán". Code lạ → fallback hiển thị code.
+    /// </summary>
+    private static (string Code, string Label, string Icon, string Variant, string TestId, string TestIdM) ActionMetaFor(string code, string? sourceType)
+    {
+        bool booking = sourceType == "booking";
+        return code switch
+        {
+            "confirmed" when booking => (code, "Thanh toán", "💰", "primary", "btn-booking-pay-order", "btn-booking-pay-order-m"),
+            "confirmed" => (code, "Xác nhận", "✓", "primary", "btn-confirm-order", "btn-confirm-order-m"),
+            "preparing" => (code, "Làm", "⏳", "primary", "btn-preparing-order", "btn-preparing-order-m"),
+            "ready" => (code, "Sẵn sàng", "✅", "success", "btn-ready-order", "btn-ready-order-m"),
+            "delivering" => (code, "Giao", "🚚", "primary", "btn-delivering-order", "btn-delivering-order-m"),
+            "delivered" => (code, "Giao", "📦", "primary", "btn-deliver-order", "btn-deliver-order-m"),
+            "completed" => (code, "Hoàn tất", "✔️", "success", "btn-complete-order", "btn-complete-order-m"),
+            "cancelled" => (code, "Hủy", "✕", "error", "btn-cancel-order", "btn-cancel-order-m"),
+            _ => (code, code, "→", "primary", $"btn-flow-{code}", $"btn-flow-{code}-m")
+        };
     }
 
     private string GetDetailUrl(Guid id) => $"/orders/{id}";
@@ -908,6 +903,8 @@
             PaymentStatus = o.PaymentStatus ?? "Pending",
             TotalAmount = o.TotalAmount,
             TenantName = tenantName,
+            // Issue #195 follow-up: tenantId cho resolve flow-aware actions (sysadmin cross-tenant).
+            TenantId = o.TenantId.Value,
             // Bug 2 fix: surface CustomerNotes so the new "Ghi chú" column can render it.
             CustomerNotes = o.CustomerNotes,
             // Issue #195 (2.3): khách hàng từ CustomerInfo snapshot; (0.2): SourceType cho booking actions.
@@ -935,6 +932,8 @@
         public string PaymentStatus { get; set; } = "";
         public decimal TotalAmount { get; set; }
         public string TenantName { get; set; } = "";
+        // Issue #195 follow-up: tenantId cho resolve flow-aware actions.
+        public Guid TenantId { get; set; }
         // Bug 2 fix: customer notes from checkout (e.g. "ít đá", "giao trước 12h").
         public string? CustomerNotes { get; set; }
         // Issue #195 (2.3): tên + SĐT khách trong một cột.

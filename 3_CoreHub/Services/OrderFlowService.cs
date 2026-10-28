@@ -314,6 +314,17 @@ namespace VanAn.CoreHub.Services
                         $"Step '{anchor}' must be terminal (IsTerminal=true) — it is an absorbing state; no transition may leave it.", nameof(steps));
             }
 
+            // Issue #195 follow-up (2026-10-28 — production incident Cafe Tân Quy): mọi step
+            // KHÔNG terminal phải có ≥1 allowed next. Profile "Nhanh - gon - 1 bước" có
+            // pending.AllowedNextCodes=[] → không transition nào thực hiện được → đơn kẹt vĩnh
+            // viễn ở trạng thái đó (đơn POS Tân Quy không xử lý đi tiếp được).
+            foreach (OrderFlowStepInput s in steps)
+            {
+                if (!s.IsTerminal && (s.AllowedNextCodes == null || s.AllowedNextCodes.Count == 0))
+                    throw new ArgumentException(
+                        $"Step '{s.Code}' must have at least one allowed next status — otherwise orders get stuck at this status.", nameof(steps));
+            }
+
             foreach (OrderFlowStepInput s in steps)
             {
                 foreach (string next in s.AllowedNextCodes)
