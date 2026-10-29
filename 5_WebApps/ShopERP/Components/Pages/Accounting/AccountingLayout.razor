@@ -31,7 +31,11 @@ else
             <UserHeader />
         </Header>
         <ChildContent>
-            @Body
+            @* Issue #197 (item 2): feature.accounting deny gate — bao toàn bộ module kế toán
+               (AccountingLayout là layout dùng chung mọi trang /accounting/*). Fail-open G9. *@
+            <MeteringDenyGate ServiceCode="feature.accounting">
+                @Body
+            </MeteringDenyGate>
         </ChildContent>
     </VanALayout>
 }
@@ -40,6 +44,7 @@ else
     [Inject] private ITenantProvider TenantProvider { get; set; } = null!;
     [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = null!;
     [Inject] private IShopErpMenuService MenuService { get; set; } = null!;
+    [Inject] private FeatureUsageRecorder FeatureUsage { get; set; } = null!;
 
     private List<VanAn.UI.Platform.Models.NavigationItem> AccountingMenuItems = new();
     private bool _initialized;
@@ -67,6 +72,9 @@ else
         // including the HKD/Enterprise conditional report link (Sổ HKD vs Báo Cáo Tài Chính).
         var user = (await AuthStateProvider.GetAuthenticationStateAsync()).User;
         AccountingMenuItems = await MenuService.BuildAsync(user);
+
+        // Issue #197: feature.accounting usage (module-active-month, idempotent per tenant/month).
+        _ = FeatureUsage.RecordAsync("feature.accounting");
 
         _initialized = true;
     }

@@ -19,7 +19,11 @@ public sealed record UsageIngestResult(Guid? EventId, bool Replay, string? Error
 /// P7 D1: deduct-at-ingest — priced events deduct wallet credits in the SAME
 /// transaction (event + ledger + wallet + alert commit together).
 /// </summary>
-public sealed partial class UsageService(MeteringDbContext db, WalletService wallet, RateCardService rateCards)
+public sealed partial class UsageService(
+    MeteringDbContext db,
+    WalletService wallet,
+    RateCardService rateCards,
+    EnforcementConfigService? enforcement = null)
 {
     private static readonly TimeSpan LateSkew = TimeSpan.FromMinutes(5); // D3 / [G5]
 
@@ -64,9 +68,12 @@ public sealed partial class UsageService(MeteringDbContext db, WalletService wal
     /// D1/D3 — dedupe by (CallerId, IdempotencyKey), flag LateEvent when skew > ±5min,
     /// insert append-only. Concurrent same-key insert → unique index throws → replay
     /// the winner's row (never 500, card §4 race).
+    /// Issue #197: tenantType/tenantStatus are optional caller claims (headers) used to
+    /// resolve the rate scoped to the tenant's group at occurredAtUtc — null → Global.
     /// </summary>
     public async Task<UsageIngestResult> IngestAsync(
-        string callerId, string? idemKey, UsageEventRequest req, DateTime nowUtc, CancellationToken ct = default)
+        string callerId, string? idemKey, UsageEventRequest req, DateTime nowUtc,
+        string? tenantType = null, string? tenantStatus = null, CancellationToken ct = default)
     {
         var invalid = ValidateKey(idemKey) ?? Validate(req);
         if (invalid != null) return invalid;
@@ -87,9 +94,18 @@ public sealed partial class UsageService(MeteringDbContext db, WalletService wal
         {
             // P7 D1/D2 — priced event → deduct inside the same commit (relational tx;
             // in-memory provider treats the tx wrapper as a no-op).
-            var pricedVersion = await rateCards.ResolveAsync(ev.ServiceCode, occurred, ct);
+            var pricedVersion = await rateCards.ResolveForTenantAsync(
+                ev.ServiceCode, ev.TenantId, tenantType, tenantStatus, occurred, ct);
             if (pricedVersion != null)
             {
+                // Issue #197 — master switch OFF → usage fact vẫn ghi, KHÔNG deduct.
+                var masterEnabled = enforcement == null || await enforcement.IsEnabledAsync(ct);
+                if (!masterEnabled)
+                {
+                    await db.SaveChangesAsync(ct);
+                    return UsageIngestResult.Created(ev.Id);
+                }
+
                 // Relational providers get a real tx; InMemory (tests) treats it as no-op.
                 await using var tx = db.Database.IsRelational()
                     ? await db.Database.BeginTransactionAsync(ct)
@@ -124,7 +140,8 @@ public sealed partial class UsageService(MeteringDbContext db, WalletService wal
     /// ingest; each item gets accepted/replayed/rejected independently.
     /// </summary>
     public async Task<UsageBatchResponse> IngestBatchAsync(
-        string callerId, IReadOnlyList<UsageBatchItem> items, DateTime nowUtc, CancellationToken ct = default)
+        string callerId, IReadOnlyList<UsageBatchItem> items, DateTime nowUtc,
+        string? tenantType = null, string? tenantStatus = null, CancellationToken ct = default)
     {
         var results = new List<UsageBatchItemResult>(items.Count);
         var seen = new Dictionary<string, Guid>(StringComparer.Ordinal); // card §4 batch-c
@@ -148,7 +165,7 @@ public sealed partial class UsageService(MeteringDbContext db, WalletService wal
                 continue;
             }
 
-            var r = await IngestAsync(callerId, item.IdempotencyKey, item.ToRequest(), nowUtc, ct);
+            var r = await IngestAsync(callerId, item.IdempotencyKey, item.ToRequest(), nowUtc, tenantType, tenantStatus, ct);
             if (r.ErrorCode != null)
             {
                 rejected++;
@@ -177,9 +194,10 @@ public sealed partial class UsageService(MeteringDbContext db, WalletService wal
     /// event = quantity × rate resolved AT that event's occurredAtUtc (never the
     /// current rate — [G7]). Any unpriced event → Credits=null, Priced=false,
     /// UnpricedEvents reports how many missed (D4).
+    /// Issue #197: tenantType/tenantStatus scope the resolution per tenant group.
     /// </summary>
     public async Task<(UsageSummaryResponse? Response, string? ErrorCode, string? ErrorMessage)>
-        GetSummaryAsync(Guid tenantId, string period, CancellationToken ct = default)
+        GetSummaryAsync(Guid tenantId, string period, string? tenantType = null, string? tenantStatus = null, CancellationToken ct = default)
     {
         if (tenantId == Guid.Empty)
             return (null, "invalid_tenantId", "tenantId must not be empty.");
@@ -210,7 +228,7 @@ public sealed partial class UsageService(MeteringDbContext db, WalletService wal
                 var unpriced = 0;
                 foreach (var e in g)
                 {
-                    var rate = PickAt(vs, e.OccurredAtUtc)?.CreditRate;
+                    var rate = PickScopedAt(vs, tenantId, tenantType, tenantStatus, e.OccurredAtUtc)?.CreditRate;
                     if (rate == null) unpriced++;
                     else credits += e.Quantity * rate.Value;
                 }
@@ -248,11 +266,35 @@ public sealed partial class UsageService(MeteringDbContext db, WalletService wal
         return new UsageEventListResponse(items, page, pageSize);
     }
 
-    // Same predicate as RateCardService.ResolveAsync, evaluated in memory for
-    // per-event pricing inside a summary (avoids N+1 queries).
-    private static RateCardVersion? PickAt(IReadOnlyList<RateCardVersion> versions, DateTime atUtc)
-        => versions
+    // Same predicate as RateCardService.ResolveForTenantAsync, evaluated in memory for
+    // per-event pricing inside a summary (avoids N+1 queries). Precedence per issue #197:
+    // Tenant > TenantType > TenantStatus > Global; latest EffectiveFrom within a scope.
+    private static RateCardVersion? PickScopedAt(
+        IReadOnlyList<RateCardVersion> versions, Guid tenantId, string? tenantType, string? tenantStatus, DateTime atUtc)
+    {
+        var effective = versions
             .Where(v => v.EffectiveFrom <= atUtc && (v.EffectiveTo == null || v.EffectiveTo > atUtc))
-            .OrderByDescending(v => v.EffectiveFrom)
-            .FirstOrDefault();
+            .ToList();
+        if (effective.Count == 0) return null;
+        foreach (var scope in new[] { RateCardScope.Tenant, RateCardScope.TenantType, RateCardScope.TenantStatus, RateCardScope.Global })
+        {
+            var match = effective
+                .Where(v => v.Scope == scope && ScopeMatches(v, tenantId, tenantType, tenantStatus))
+                .OrderByDescending(v => v.EffectiveFrom)
+                .FirstOrDefault();
+            if (match != null) return match;
+        }
+        return null;
+    }
+
+    private static bool ScopeMatches(RateCardVersion v, Guid tenantId, string? tenantType, string? tenantStatus)
+        => v.Scope switch
+        {
+            RateCardScope.Tenant => v.ScopeValue != null && Guid.TryParse(v.ScopeValue, out var id) && id == tenantId,
+            RateCardScope.TenantType => !string.IsNullOrWhiteSpace(tenantType)
+                && string.Equals(v.ScopeValue, tenantType.Trim(), StringComparison.OrdinalIgnoreCase),
+            RateCardScope.TenantStatus => !string.IsNullOrWhiteSpace(tenantStatus)
+                && string.Equals(v.ScopeValue, tenantStatus.Trim(), StringComparison.OrdinalIgnoreCase),
+            _ => true
+        };
 }

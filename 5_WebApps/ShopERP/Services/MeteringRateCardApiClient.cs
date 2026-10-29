@@ -44,7 +44,7 @@ public sealed class MeteringRateCardApiClient
         return await ReadAsync<List<MeteringRateCardDto>>(resp, ct) ?? new List<MeteringRateCardDto>();
     }
 
-    /// <summary>POST /v1/rate-cards — tạo chain mới cho serviceCode (409 nếu đã active).</summary>
+    /// <summary>POST /v1/rate-cards — tạo chain mới cho serviceCode+scope (409 nếu đã active).</summary>
     public async Task<MeteringRateCardDto> CreateRateCardAsync(MeteringRateCardUpsertRequest req, string actorEmail, CancellationToken ct = default)
     {
         var resp = await SendAsync(HttpMethod.Post, "v1/rate-cards", ct, JsonContent.Create(new
@@ -55,7 +55,9 @@ public sealed class MeteringRateCardApiClient
             enforcement = req.Enforcement,
             effectiveFrom = req.EffectiveFrom,
             label = req.Label,
-            auditNote = AuditWithActor(actorEmail, req.AuditNote)
+            auditNote = AuditWithActor(actorEmail, req.AuditNote),
+            scope = req.Scope,
+            scopeValue = req.ScopeValue
         }, options: Json));
         return await ReadAsync<MeteringRateCardDto>(resp, ct)
             ?? throw new InvalidOperationException("Metering API returned empty response for create rate-card");
@@ -132,6 +134,25 @@ public sealed class MeteringRateCardApiClient
             ?? throw new InvalidOperationException("Metering API returned empty response for topup-config");
     }
 
+    // ---------- Issue #197: master switch toàn hệ thống ----------
+
+    /// <summary>GET /v1/config/enforcement — default enabled=true khi chưa từng đổi.</summary>
+    public async Task<MeteringEnforcementConfigDto> GetEnforcementAsync(CancellationToken ct = default)
+    {
+        var resp = await SendAsync(HttpMethod.Get, "v1/config/enforcement", ct);
+        return await ReadAsync<MeteringEnforcementConfigDto>(resp, ct)
+            ?? throw new InvalidOperationException("Metering API returned empty response for enforcement config");
+    }
+
+    /// <summary>PUT /v1/config/enforcement — bật/tắt metering toàn hệ thống (audited).</summary>
+    public async Task<MeteringEnforcementConfigDto> PutEnforcementAsync(bool enabled, CancellationToken ct = default)
+    {
+        var resp = await SendAsync(HttpMethod.Put, "v1/config/enforcement", ct,
+            JsonContent.Create(new { enabled }, options: Json));
+        return await ReadAsync<MeteringEnforcementConfigDto>(resp, ct)
+            ?? throw new InvalidOperationException("Metering API returned empty response for enforcement config");
+    }
+
     private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string uri, CancellationToken ct, HttpContent? content = null)
     {
         if (!_enabled)
@@ -192,6 +213,9 @@ public sealed class MeteringRateCardDto
     public string ChangedBy { get; set; } = string.Empty;
     public DateTime ChangedAtUtc { get; set; }
     public string? AuditNote { get; set; }
+    /// <summary>Issue #197: "Global" | "TenantType" | "TenantStatus" | "Tenant".</summary>
+    public string Scope { get; set; } = "Global";
+    public string? ScopeValue { get; set; }
 }
 
 /// <summary>Form input — cùng shape cho create (POST) và patch (PATCH creates new version).</summary>
@@ -204,4 +228,15 @@ public sealed class MeteringRateCardUpsertRequest
     public DateTime? EffectiveFrom { get; set; }
     public string? Label { get; set; }
     public string? AuditNote { get; set; }
+    /// <summary>Issue #197: "Global" | "TenantType" | "TenantStatus" | "Tenant" (default Global).</summary>
+    public string Scope { get; set; } = "Global";
+    public string? ScopeValue { get; set; }
+}
+
+/// <summary>Issue #197 — master switch DTO (GET/PUT /v1/config/enforcement).</summary>
+public sealed class MeteringEnforcementConfigDto
+{
+    public bool Enabled { get; set; }
+    public string UpdatedBy { get; set; } = string.Empty;
+    public DateTime UpdatedAtUtc { get; set; }
 }

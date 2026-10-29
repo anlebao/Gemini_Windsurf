@@ -886,6 +886,9 @@ namespace VanAn.Gateway
                 if (!string.IsNullOrEmpty(callerKey)) client.DefaultRequestHeaders.TryAddWithoutValidation("X-Metering-Key", callerKey);
             });
 
+            // Issue #197 (D1=A): tenant group claims cho metering guard/ingest (PG source of truth).
+            _ = builder.Services.AddScoped<VanAn.Shared.Domain.Common.IMeteringTenantAttributeResolver, Services.MeteringTenantAttributeResolver>();
+
 
 
             // Crawl-to-Onboard (Phase 5): Named HttpClient to forward crawl triggers to crawler worker

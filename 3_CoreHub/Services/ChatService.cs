@@ -136,7 +136,7 @@ public class ChatService(
                 new MeteringUsageEvent(conversation.TenantId.Value, "chat.bytes",
                     System.Text.Encoding.UTF8.GetByteCount(content), "byte", occurred,
                     $"msg:{message.Id}:bytes", RequestedBy: senderId.ToString(), TaskRef: message.Id.ToString())
-            ], CancellationToken.None);
+            ], ct: CancellationToken.None);
         }
 
         return message;

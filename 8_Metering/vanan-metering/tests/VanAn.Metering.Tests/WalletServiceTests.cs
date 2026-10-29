@@ -218,6 +218,50 @@ public sealed class WalletServiceTests
         c.Deny.Should().BeTrue();
     }
 
+    // ---------- Issue #197 — scope-aware check/deny (M4) ----------
+
+    [Fact] // M4 — check với tenant attributes resolve rate scoped (TenantType) đúng tầng
+    public async Task Check_WithTenantAttributes_ResolvesScopedRate()
+    {
+        var (db, wallet, _, _, _) = NewSut();
+        SeedRateCard(db, "feature.x", 1m, MeteringEnforcement.Deny); // global
+        db.RateCardVersions.Add(RateCardVersion.Create(
+            "feature.x", "event", 30m, MeteringEnforcement.Deny, Now.AddDays(-1), "seed",
+            scope: RateCardScope.TenantType, scopeValue: RateCardScopes.Htx));
+        await db.SaveChangesAsync();
+        await wallet.GrantAsync(Tenant, 10m, "initial", Admin, Now);
+
+        // HTX tenant → 30/unit → balance 10 < 30 → deny
+        var htx = await wallet.CheckAsync(Tenant, "feature.x", null, Now, "HTX", "verified");
+        htx.Deny.Should().BeTrue();
+        htx.Required.Should().Be(30m);
+
+        // Không attributes → global 1/unit → 10 >= 1 → không deny
+        var plain = await wallet.CheckAsync(Tenant, "feature.x", null, Now);
+        plain.Deny.Should().BeFalse();
+        plain.Required.Should().Be(1m);
+    }
+
+    [Fact] // M4b — ingest với tenantType deduct theo rate scoped tại occurredAtUtc
+    public async Task Ingest_WithTenantType_DeductsScopedRate()
+    {
+        var (db, wallet, usage, _, _) = NewSut();
+        SeedRateCard(db, "feature.x", 1m, MeteringEnforcement.MeterOnly); // global
+        db.RateCardVersions.Add(RateCardVersion.Create(
+            "feature.x", "event", 10m, MeteringEnforcement.MeterOnly, Now.AddDays(-1), "seed",
+            scope: RateCardScope.TenantType, scopeValue: RateCardScopes.Htx));
+        await db.SaveChangesAsync();
+        await wallet.GrantAsync(Tenant, 100m, "initial", Admin, Now);
+
+        await usage.IngestAsync(Caller, "e1", Req(Tenant, "feature.x"), Now, "HTX", "verified");
+        db.UsageEvents.Single().CreditsApplied.Should().Be(10m);
+        (await wallet.GetWalletAsync(Tenant)).Balance.Should().Be(90m);
+
+        // Không attributes → global 1
+        await usage.IngestAsync(Caller, "e2", Req(Tenant, "feature.x"), Now);
+        (await wallet.GetWalletAsync(Tenant)).Balance.Should().Be(89m);
+    }
+
     // ---------- D4: alerts ----------
 
     [Fact] // T13 — Warn50 fires at ≤50% remaining

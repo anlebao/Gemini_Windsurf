@@ -53,6 +53,12 @@ public sealed record TopupConfigPutRequest(
     string AccountNumber,
     string AccountName);
 
+// ---- Issue #197: master switch toàn hệ thống ----
+
+public sealed record EnforcementConfigDto(bool Enabled, string UpdatedBy, DateTime UpdatedAtUtc);
+
+public sealed record EnforcementConfigPutRequest(bool Enabled);
+
 // ---- Top-up requests ----
 
 /// <summary>POST /v1/topups — tenant-side; caller key + Idempotency-Key dedupe.</summary>

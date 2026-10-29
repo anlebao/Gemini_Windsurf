@@ -8,10 +8,16 @@ namespace VanAn.ShopERP.Services;
 /// Idempotency format: feature:{code}:{tenantId}:{yyyy-MM} — at most 1 event per tenant/module/month
 /// no matter how often the page is opened.
 /// Fire-and-forget (G9): swallows its own errors; metering outages must not affect pages.
+/// Issue #197: sends tenant group claims (X-Tenant-Type/Status) so scoped rate cards resolve.
 /// </summary>
-public sealed class FeatureUsageRecorder(IMeteringClient metering, ITenantProvider tenantProvider, ILogger<FeatureUsageRecorder> logger)
+public sealed class FeatureUsageRecorder(
+    IMeteringClient metering,
+    ITenantProvider tenantProvider,
+    IMeteringTenantAttributeResolver attributes,
+    ILogger<FeatureUsageRecorder> logger)
 {
-    /// <param name="code">"feature.financial" | "feature.inventory" | "feature.booking".</param>
+    /// <param name="code">"feature.financial" | "feature.inventory" | "feature.booking"
+    /// | "feature.accounting" | "feature.loyalty" | "feature.ocr" | "feature.voice-note".</param>
     public Task RecordAsync(string code, CancellationToken ct = default)
     {
         try
@@ -19,13 +25,26 @@ public sealed class FeatureUsageRecorder(IMeteringClient metering, ITenantProvid
             if (!tenantProvider.HasTenant) return Task.CompletedTask;
             var tenantId = tenantProvider.TenantId;
             var key = $"feature:{code}:{tenantId}:{DateTime.UtcNow:yyyy-MM}";
-            _ = metering.RecordUsageAsync(new MeteringUsageEvent(
-                tenantId, code, 1, "module-month", DateTime.UtcNow, key), ct);
+            _ = RecordWithAttributesAsync(tenantId, code, key, ct);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Feature usage record failed ({Code}) — skipped (fail-safe)", code);
         }
         return Task.CompletedTask;
+    }
+
+    private async Task RecordWithAttributesAsync(Guid tenantId, string code, string key, CancellationToken ct)
+    {
+        try
+        {
+            var attrs = await attributes.ResolveAsync(tenantId, ct);
+            _ = metering.RecordUsageAsync(new MeteringUsageEvent(
+                tenantId, code, 1, "module-month", DateTime.UtcNow, key), attrs, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Feature usage record failed ({Code}) — skipped (fail-safe)", code);
+        }
     }
 }

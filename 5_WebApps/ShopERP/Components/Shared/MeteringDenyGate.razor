@@ -4,6 +4,7 @@
    unreachable → content renders normally (G9). *@
 @using VanAn.Shared.Domain.Common
 @inject IMeteringClient Metering
+@inject IMeteringTenantAttributeResolver AttributeResolver
 @inject ITenantProvider TenantProvider
 
 @if (_denied)
@@ -36,7 +37,8 @@ else
     protected override async Task OnInitializedAsync()
     {
         if (string.IsNullOrWhiteSpace(ServiceCode) || !TenantProvider.HasTenant) return;
-        var check = await Metering.CheckBalanceAsync(TenantProvider.TenantId, ServiceCode);
+        var attrs = await AttributeResolver.ResolveAsync(TenantProvider.TenantId);
+        var check = await Metering.CheckBalanceAsync(TenantProvider.TenantId, ServiceCode, attrs);
         if (check?.Deny == true)
         {
             _denied = true;

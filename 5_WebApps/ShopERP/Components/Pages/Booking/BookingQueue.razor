@@ -23,6 +23,10 @@
         </div>
     </header>
 
+    @* Issue #197 (item 2): deny gate UX — server-side guard trong BookingService đã chặn
+       tạo booking thật; gate này hiển thị thông báo + link nạp sớm (fail-open G9). *@
+    <MeteringDenyGate ServiceCode="feature.booking">
+
     @* Status filter chips (AC-T01) *@
     <div class="d-flex flex-wrap gap-2 mb-3">
         @foreach (var filter in _statusFilters)
@@ -131,6 +135,7 @@
             }
         </div>
     }
+    </MeteringDenyGate>
 </div>
 
 @* Modal phân công nhân viên (AC-T03 — SRS §13: capability + available trước) *@

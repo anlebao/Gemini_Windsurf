@@ -11,7 +11,10 @@ namespace VanAn.Metering.Infra;
 /// used by unit tests falls back to tracked-entity updates.
 /// Alerts (D4): % còn lại trên GrantedTotal — ≤50% Warn50, ≤10% Warn90, 0 Depleted.
 /// </summary>
-public sealed class WalletService(MeteringDbContext db, RateCardService rateCards)
+public sealed class WalletService(
+    MeteringDbContext db,
+    RateCardService rateCards,
+    EnforcementConfigService? enforcement = null)
 {
     // D4 — configurable thresholds (remaining fraction), defaults 50% / 10%.
     private const decimal Warn50Fraction = 0.5m;
@@ -41,18 +44,23 @@ public sealed class WalletService(MeteringDbContext db, RateCardService rateCard
     /// D3 — check/deny. required = rate × estimate (default 1 unit); deny only when
     /// the resolved head version is Enforcement=Deny AND balance &lt; required.
     /// Unpriced / MeterOnly → deny=false always (D11).
+    /// Issue #197: tenantType/tenantStatus are optional caller claims (X-Tenant-Type /
+    /// X-Tenant-Status headers) that scope the rate resolution — null → Global-only.
+    /// Master switch OFF → deny=false luôn (vẫn trả balance/required để UI hiển thị).
     /// </summary>
     public async Task<WalletCheckResponse> CheckAsync(
-        Guid tenantId, string serviceCode, decimal? estimate, DateTime nowUtc, CancellationToken ct = default)
+        Guid tenantId, string serviceCode, decimal? estimate, DateTime nowUtc,
+        string? tenantType = null, string? tenantStatus = null, CancellationToken ct = default)
     {
-        var version = await rateCards.ResolveAsync(serviceCode, nowUtc, ct);
-        var enforcement = version?.Enforcement.ToString();
+        var version = await rateCards.ResolveForTenantAsync(serviceCode, tenantId, tenantType, tenantStatus, nowUtc, ct);
+        var masterEnabled = enforcement == null || await enforcement.IsEnabledAsync(ct);
+        var enforcementStr = version?.Enforcement.ToString();
         var required = (version?.CreditRate ?? 0) * Math.Max(estimate ?? 1m, 0m);
         var w = await db.CreditWallets.AsNoTracking().FirstOrDefaultAsync(x => x.TenantId == tenantId, ct);
         var balance = w?.Balance ?? 0;
-        var deny = version?.Enforcement == MeteringEnforcement.Deny && balance < required;
+        var deny = masterEnabled && version?.Enforcement == MeteringEnforcement.Deny && balance < required;
         return new WalletCheckResponse(
-            tenantId, serviceCode, enforcement, balance, required, deny,
+            tenantId, serviceCode, enforcementStr, balance, required, deny,
             AlertLevelOf(balance, w?.GrantedTotal ?? 0));
     }
 

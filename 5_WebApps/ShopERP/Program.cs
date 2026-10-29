@@ -623,6 +623,8 @@ namespace VanAn.ShopERP
             // W8: VAS feature flag + tenant conversion services
             _ = builder.Services.AddScoped<CoreHub.Services.IVasFeatureFlagService, CoreHub.Services.VasFeatureFlagService>();
             _ = builder.Services.AddScoped<CoreHub.Services.ITenantConversionService, CoreHub.Services.TenantConversionService>();
+            // Issue #197 (D1=A): tenant group claims cho metering check/ingest (SQLite mirror).
+            _ = builder.Services.AddScoped<VanAn.Shared.Domain.Common.IMeteringTenantAttributeResolver, Services.MeteringTenantAttributeResolver>();
             // Wave 5: Gateway tenant onboarding API client (SystemAdmin JWT + HttpClient)
             _ = builder.Services.AddScoped<Services.TenantOnboardingApiClient>();
             // OCR Onboarding S2/S4 (2026-10-25): Gateway OCR-onboarding client (SystemAdmin JWT)

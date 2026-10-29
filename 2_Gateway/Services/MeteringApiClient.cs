@@ -42,13 +42,14 @@ public sealed class MeteringApiClient : IMeteringClient
             logger.LogWarning("Metering client disabled — Metering:BaseUrl/CallerId/CallerKey not configured.");
     }
 
-    public async Task<bool> RecordUsageAsync(MeteringUsageEvent evt, CancellationToken ct = default)
+    public async Task<bool> RecordUsageAsync(MeteringUsageEvent evt, MeteringTenantAttributes? attributes = null, CancellationToken ct = default)
     {
         if (!Enabled()) return false;
         try
         {
             using var req = new HttpRequestMessage(HttpMethod.Post, "v1/usage/events");
             req.Headers.TryAddWithoutValidation("Idempotency-Key", evt.IdempotencyKey);
+            AddTenantAttributes(req, attributes);
             req.Content = JsonContent.Create(ToBody(evt), options: Json);
             using var resp = await _http.SendAsync(req, ct);
             if (resp.IsSuccessStatusCode) { _consecutiveFailures = 0; return true; }
@@ -60,12 +61,13 @@ public sealed class MeteringApiClient : IMeteringClient
         }
     }
 
-    public async Task<bool> RecordUsageBatchAsync(IReadOnlyList<MeteringUsageEvent> events, CancellationToken ct = default)
+    public async Task<bool> RecordUsageBatchAsync(IReadOnlyList<MeteringUsageEvent> events, MeteringTenantAttributes? attributes = null, CancellationToken ct = default)
     {
         if (!Enabled() || events.Count == 0) return false;
         try
         {
             using var req = new HttpRequestMessage(HttpMethod.Post, "v1/usage/events:batch");
+            AddTenantAttributes(req, attributes);
             req.Content = JsonContent.Create(events.Select(e => new
             {
                 idempotencyKey = e.IdempotencyKey,
@@ -90,7 +92,7 @@ public sealed class MeteringApiClient : IMeteringClient
     }
 
     /// <summary>P7 stub — wallet check endpoint does not exist in GĐ-1.</summary>
-    public Task<MeteringBalanceCheck?> CheckBalanceAsync(Guid tenantId, string serviceCode, CancellationToken ct = default)
+    public Task<MeteringBalanceCheck?> CheckBalanceAsync(Guid tenantId, string serviceCode, MeteringTenantAttributes? attributes = null, CancellationToken ct = default)
         => Task.FromResult<MeteringBalanceCheck?>(null);
 
     private bool Enabled()
@@ -110,6 +112,16 @@ public sealed class MeteringApiClient : IMeteringClient
             _circuitOpenUntilUtc = DateTime.UtcNow + CircuitOpenDuration;
         _logger.LogWarning("Metering event dropped ({ServiceCode}): {Reason}", serviceCode, reason);
         return false;
+    }
+
+    // Issue #197 — tenant group claims (D1=A): optional headers scoping rate resolution.
+    private static void AddTenantAttributes(HttpRequestMessage req, MeteringTenantAttributes? attributes)
+    {
+        if (attributes == null) return;
+        if (!string.IsNullOrWhiteSpace(attributes.TenantType))
+            req.Headers.TryAddWithoutValidation("X-Tenant-Type", attributes.TenantType);
+        if (!string.IsNullOrWhiteSpace(attributes.TenantStatus))
+            req.Headers.TryAddWithoutValidation("X-Tenant-Status", attributes.TenantStatus);
     }
 
     private static object ToBody(MeteringUsageEvent e) => new

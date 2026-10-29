@@ -8,6 +8,7 @@
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.ShopERP.Services
 @inject MeteringRateCardApiClient MeteringApi
+@inject CoreHub.Services.ITenantManagementService TenantService
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IThemeProvider ThemeProvider
 @inject ILogger<MeteringRateCards> Logger
@@ -16,6 +17,22 @@
     <header class="page-header">
         <h1><i class="bi bi-speedometer2"></i> Phí nền tảng — Rate Card</h1>
         <div class="header-actions">
+            <div class="metering-master-switch @( _enforcement?.Enabled == false ? "switch-off" : "switch-on" )"
+                 data-testid="metering-master-switch">
+                <span class="switch-label">
+                    <i class="bi @(_enforcement?.Enabled == false ? "bi-toggle-off" : "bi-toggle-on")"></i>
+                    Phí nền tảng: <strong>@(_enforcement?.Enabled == false ? "ĐANG TẮT" : "Đang bật")</strong>
+                </span>
+                <div class="form-check form-switch mb-0">
+                    <input type="checkbox" class="form-check-input" id="metering-master-toggle"
+                           checked="@(_enforcement?.Enabled ?? true)" disabled="@_isSaving"
+                           @onchange="OnMasterToggleAsync" data-testid="metering-master-toggle" />
+                </div>
+            </div>
+            @if (_enforcement?.Enabled == false)
+            {
+                <VanAAlert Variant="warning" Message="Metering đang tắt: không chặn tính năng, không trừ credit — usage vẫn được ghi." Dismissible="false" />
+            }
             <VanAButton Variant="secondary" Size="small" OnClick="LoadAsync" IsLoading="@_isLoading">
                 Làm mới
             </VanAButton>
@@ -67,6 +84,7 @@
                                 <th>Đơn vị</th>
                                 <th>Định mức</th>
                                 <th>Thực thi</th>
+                                <th>Phạm vi</th>
                                 <th>Hiệu lực từ (UTC)</th>
                                 @if (_showHistory) { <th>Đến (UTC)</th> <th>Trạng thái</th> <th>Người sửa</th> }
                                 <th></th>
@@ -81,6 +99,7 @@
                                     <td>@c.MeterUnit</td>
                                     <td>@c.CreditRate</td>
                                     <td><span class="rc-enforce rc-enforce-@c.Enforcement.ToLowerInvariant()">@c.Enforcement</span></td>
+                                    <td><span class="rc-scope-badge">@ScopeLabel(c)</span></td>
                                     <td>@c.EffectiveFrom.ToString("yyyy-MM-dd HH:mm")</td>
                                     @if (_showHistory)
                                     {
@@ -160,6 +179,59 @@
                     </div>
                 </div>
                 <div class="row">
+                    <div class="col-md-3 form-group">
+                        <label for="rc-scope">Phạm vi</label>
+                        <select id="rc-scope" class="vanan-select" @bind="_formScope" @bind:after="OnScopeChangedAsync"
+                                disabled="@(_editingHead != null)" data-testid="rc-form-scope">
+                            <option value="Global">Global — mọi tenant</option>
+                            <option value="TenantType">Theo loại hình tenant</option>
+                            <option value="TenantStatus">Theo trạng thái verify</option>
+                            <option value="Tenant">Override 1 tenant (ưu tiên cao nhất)</option>
+                        </select>
+                        @if (_editingHead != null)
+                        {
+                            <small class="text-muted d-block">Phạm vi cố định theo chain (append-only).</small>
+                        }
+                    </div>
+                    <div class="col-md-4 form-group">
+                        @if (_formScope == "TenantType")
+                        {
+                            <label for="rc-scope-value">Loại hình</label>
+                            <select id="rc-scope-value" class="vanan-select" @bind="_formScopeValue" data-testid="rc-form-scope-value">
+                                <option value="HKD">HKD — Hộ kinh doanh</option>
+                                <option value="Enterprise_SuperSmall">DN siêu nhỏ (TT 58)</option>
+                                <option value="Enterprise_SME">DN vừa và nhỏ (TT 133)</option>
+                                <option value="Enterprise_Large">DN lớn (TT 99)</option>
+                                <option value="HTX">HTX — Hợp tác xã (TT 71)</option>
+                            </select>
+                        }
+                        else if (_formScope == "TenantStatus")
+                        {
+                            <label for="rc-scope-value">Trạng thái verify</label>
+                            <select id="rc-scope-value" class="vanan-select" @bind="_formScopeValue" data-testid="rc-form-scope-value">
+                                <option value="verified">Đã verify (Active)</option>
+                                <option value="unverified">Chưa verify (Pending)</option>
+                            </select>
+                        }
+                        else if (_formScope == "Tenant")
+                        {
+                            <label for="rc-scope-value">Tenant (override thắng mọi nhóm)</label>
+                            <select id="rc-scope-value" class="vanan-select" @bind="_formScopeValue" data-testid="rc-form-scope-value">
+                                <option value="">— Chọn tenant —</option>
+                                @foreach (var t in _tenantOptions)
+                                {
+                                    <option value="@t.Key">@t.Value</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <label>Phạm vi</label>
+                            <input class="vanan-input" value="Áp dụng cho mọi tenant" disabled />
+                        }
+                    </div>
+                </div>
+                <div class="row">
                     <div class="col-md-4 form-group">
                         <label for="rc-from">Hiệu lực từ (UTC — trống = ngay bây giờ)</label>
                         <input id="rc-from" class="vanan-input" type="datetime-local" value="@_formEffectiveFrom"
@@ -207,15 +279,23 @@
     private List<MeteringRateCardDto> _cards = new();
     private bool _showHistory;
 
+    // Issue #197 — master switch toàn hệ thống.
+    private MeteringEnforcementConfigDto? _enforcement;
+
     private MeteringRateCardDto? _editingHead;
     private MeteringRateCardDto? _confirmDeactivate;
     private string _formServiceCode = string.Empty;
     private string _formUnit = string.Empty;
     private string _formRate = "0";
     private string _formEnforcement = "MeterOnly";
+    private string _formScope = "Global";
+    private string _formScopeValue = string.Empty;
     private string _formEffectiveFrom = string.Empty;
     private string _formLabel = string.Empty;
     private string _formNote = string.Empty;
+
+    // Issue #197 — tenant picker cho scope=Tenant (override).
+    private Dictionary<Guid, string> _tenantOptions = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -225,8 +305,81 @@
             ?? auth.User.Identity?.Name
             ?? "unknown";
         if (!_isSystemAdmin) { _isLoading = false; return; }
+        await LoadTenantOptionsAsync();
+        await LoadEnforcementAsync();
         await LoadAsync();
     }
+
+    private async Task LoadEnforcementAsync()
+    {
+        try
+        {
+            _enforcement = await MeteringApi.GetEnforcementAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load metering enforcement config");
+        }
+    }
+
+    private async Task OnMasterToggleAsync(ChangeEventArgs e)
+    {
+        if (_isSaving || _enforcement == null) return;
+        var enabled = e.Value is true;
+        _isSaving = true;
+        _alertMessage = string.Empty;
+        try
+        {
+            _enforcement = await MeteringApi.PutEnforcementAsync(enabled);
+            _alertType = "success";
+            _alertMessage = enabled
+                ? "Đã BẬT phí nền tảng — deny + trừ credit hoạt động bình thường."
+                : "Đã TẮT phí nền tảng — không chặn tính năng, không trừ credit (usage vẫn ghi).";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to toggle metering enforcement");
+            _alertType = "error";
+            _alertMessage = $"Đổi trạng thái thất bại: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task LoadTenantOptionsAsync()
+    {
+        try
+        {
+            var tenants = await TenantService.ListTenantsAsync();
+            _tenantOptions = tenants
+                .Where(t => t.Status == VanAn.Shared.Domain.Aggregates.TenantAggregate.TenantStatus.Active)
+                .OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ToDictionary(t => t.Id.Value, t => $"{t.Name} ({t.Id.Value.ToString()[..8]}…)");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load tenant options for rate-card scope picker");
+        }
+    }
+
+    private Task OnScopeChangedAsync()
+    {
+        _formScopeValue = string.Empty;
+        return Task.CompletedTask;
+    }
+
+    private string ScopeLabel(MeteringRateCardDto c) => c.Scope switch
+    {
+        "TenantType" => $"Loại hình: {c.ScopeValue}",
+        "TenantStatus" => c.ScopeValue == "verified" ? "Đã verify" : "Chưa verify",
+        "Tenant" when !string.IsNullOrWhiteSpace(c.ScopeValue)
+            && Guid.TryParse(c.ScopeValue, out var tid)
+            && _tenantOptions.TryGetValue(tid, out var name) => $"Tenant: {name}",
+        "Tenant" => $"Tenant: {c.ScopeValue?[..Math.Min(8, c.ScopeValue!.Length)]}…",
+        _ => "Global"
+    };
 
     private async Task LoadAsync()
     {
@@ -267,6 +420,8 @@
         _formUnit = c.MeterUnit;
         _formRate = c.CreditRate.ToString(System.Globalization.CultureInfo.InvariantCulture);
         _formEnforcement = c.Enforcement;
+        _formScope = c.Scope;
+        _formScopeValue = c.ScopeValue ?? string.Empty;
         _formEffectiveFrom = string.Empty; // PATCH: trống = áp dụng ngay
         _formLabel = c.Label ?? string.Empty;
         _formNote = string.Empty;
@@ -280,6 +435,8 @@
         _formUnit = string.Empty;
         _formRate = "0";
         _formEnforcement = "MeterOnly";
+        _formScope = "Global";
+        _formScopeValue = string.Empty;
         _formEffectiveFrom = string.Empty;
         _formLabel = string.Empty;
         _formNote = string.Empty;
@@ -314,6 +471,10 @@
             effectiveFrom = DateTime.SpecifyKind(parsed, DateTimeKind.Utc);
         }
 
+        // Issue #197 — scope: chỉ create mới gửi (PATCH giữ scope của chain).
+        var scopeValue = _formScope == "Global" ? null
+            : string.IsNullOrWhiteSpace(_formScopeValue) ? null : _formScopeValue.Trim();
+
         _isSaving = true;
         _alertMessage = string.Empty;
         try
@@ -326,7 +487,9 @@
                 Enforcement = _formEnforcement,
                 EffectiveFrom = effectiveFrom,
                 Label = string.IsNullOrWhiteSpace(_formLabel) ? null : _formLabel.Trim(),
-                AuditNote = string.IsNullOrWhiteSpace(_formNote) ? null : _formNote.Trim()
+                AuditNote = string.IsNullOrWhiteSpace(_formNote) ? null : _formNote.Trim(),
+                Scope = _formScope,
+                ScopeValue = scopeValue
             };
             if (_editingHead != null)
                 await MeteringApi.PatchRateCardAsync(_editingHead.Id, req, _actorEmail);
@@ -389,4 +552,25 @@
     }
     .rc-enforce-meteronly { background: #e7f1ff; color: #0d6efd; }
     .rc-enforce-deny { background: #f8d7da; color: #842029; }
+    .rc-scope-badge {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        background: #f0f0f0;
+        color: #495057;
+        white-space: nowrap;
+    }
+    .metering-master-switch {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+    }
+    .metering-master-switch.switch-on { background: #e8f5e9; color: #1b5e20; }
+    .metering-master-switch.switch-off { background: #fdecea; color: #b71c1c; }
+    .metering-master-switch .switch-label { white-space: nowrap; }
 </style>

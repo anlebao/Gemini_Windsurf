@@ -287,4 +287,111 @@ public sealed class RateCardServiceTests
         logs[1].Actor.Should().Be(Actor);
         logs[2].Actor.Should().Be("other-admin");
     }
+
+    // ---- Issue #197 — scope-aware resolve + create (M1–M6) ----
+
+    private static readonly Guid OverrideTenant = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+
+    [Fact] // M1 — precedence: Tenant > TenantType > TenantStatus > Global; no attributes → Global
+    public async Task ResolveForTenant_Precedence_TenantOverrideWins()
+    {
+        var (db, svc) = NewSut();
+        SeedScoped(db, "feature.x", 1, RateCardScope.Global, null);
+        SeedScoped(db, "feature.x", 2, RateCardScope.TenantType, RateCardScopes.Hkd);
+        SeedScoped(db, "feature.x", 3, RateCardScope.TenantStatus, RateCardScopes.Unverified);
+        SeedScoped(db, "feature.x", 9, RateCardScope.Tenant, OverrideTenant.ToString());
+
+        // Tenant override thắng tất cả
+        (await svc.ResolveForTenantAsync("feature.x", OverrideTenant, "HKD", "unverified", Now))!.CreditRate.Should().Be(9);
+        // TenantType (HKD) thắng TenantStatus + Global
+        (await svc.ResolveForTenantAsync("feature.x", Guid.NewGuid(), "HKD", "unverified", Now))!.CreditRate.Should().Be(2);
+        // TenantStatus (unverified) thắng Global khi type không khớp
+        (await svc.ResolveForTenantAsync("feature.x", Guid.NewGuid(), "Enterprise_SME", "unverified", Now))!.CreditRate.Should().Be(3);
+        // Global fallback khi type + status đều không khớp
+        (await svc.ResolveForTenantAsync("feature.x", Guid.NewGuid(), "Enterprise_SME", "verified", Now))!.CreditRate.Should().Be(1);
+        // M3 backward compat — không attributes → Global-only
+        (await svc.ResolveAsync("feature.x", Now))!.CreditRate.Should().Be(1);
+    }
+
+    [Fact] // M1b — case-insensitive attribute matching + tenant override không match tenant khác
+    public async Task ResolveForTenant_AttributeCaseInsensitive_TenantScopedToId()
+    {
+        var (db, svc) = NewSut();
+        SeedScoped(db, "feature.x", 2, RateCardScope.TenantType, RateCardScopes.Hkd);
+        SeedScoped(db, "feature.x", 9, RateCardScope.Tenant, OverrideTenant.ToString());
+
+        (await svc.ResolveForTenantAsync("feature.x", Guid.NewGuid(), "hkd", "verified", Now))!.CreditRate.Should().Be(2);
+        // tenant khác → override Tenant không áp dụng (chỉ đúng id) → type HKD vẫn thắng
+        (await svc.ResolveForTenantAsync("feature.x", Guid.NewGuid(), "HKD", "verified", Now))!.CreditRate.Should().Be(2);
+        // override chỉ match đúng tenantId (kể cả khi type/status khác)
+        (await svc.ResolveForTenantAsync("feature.x", OverrideTenant, "Enterprise_SME", "verified", Now))!.CreditRate.Should().Be(9);
+    }
+
+    [Fact] // M2 — nhiều chain cùng ServiceCode khác scope OK; cùng scope → conflict
+    public async Task Create_SameCode_DifferentScopes_Allowed()
+    {
+        var (db, svc) = NewSut();
+        var g = await svc.CreateAsync(new RateCardCreateRequest("feature.x", "u", 1, null, Scope: "Global"), Actor, Now);
+        g.Ok.Should().BeTrue();
+        var t = await svc.CreateAsync(new RateCardCreateRequest("feature.x", "u", 2, null, Scope: "TenantType", ScopeValue: "HKD"), Actor, Now);
+        t.Ok.Should().BeTrue();
+        var s = await svc.CreateAsync(new RateCardCreateRequest("feature.x", "u", 3, null, Scope: "TenantStatus", ScopeValue: "unverified"), Actor, Now);
+        s.Ok.Should().BeTrue();
+        var o = await svc.CreateAsync(new RateCardCreateRequest("feature.x", "u", 9, null, Scope: "Tenant", ScopeValue: OverrideTenant.ToString()), Actor, Now);
+        o.Ok.Should().BeTrue();
+
+        var dup = await svc.CreateAsync(new RateCardCreateRequest("feature.x", "u", 4, null, Scope: "TenantType", ScopeValue: "HKD"), Actor, Now);
+        dup.Ok.Should().BeFalse();
+        dup.ErrorCode.Should().Be("serviceCode_active_exists");
+
+        // PATCH head của chain TenantType không ảnh hưởng chain Global
+        var patched = await svc.PatchAsync(t.Version!.Id, new RateCardPatchRequest(CreditRate: 20, EffectiveFrom: Now.AddMinutes(1)), Actor, Now.AddMinutes(1));
+        patched.Ok.Should().BeTrue();
+        (await svc.ResolveForTenantAsync("feature.x", Guid.NewGuid(), "HKD", "verified", Now.AddMinutes(2)))!.CreditRate.Should().Be(20);
+        (await svc.ResolveAsync("feature.x", Now.AddMinutes(2)))!.CreditRate.Should().Be(1);
+    }
+
+    [Fact] // M3b — create không scope → Global
+    public async Task Create_NoScope_DefaultsToGlobal()
+    {
+        var (db, svc) = NewSut();
+        var r = await svc.CreateAsync(Req(), Actor, Now);
+        r.Ok.Should().BeTrue();
+        r.Version!.Scope.Should().Be(RateCardScope.Global);
+        r.Version.ScopeValue.Should().BeNull();
+    }
+
+    [Theory] // M5 — validation scope/value
+    [InlineData("TenantType", "", "invalid_scopeValue")]
+    [InlineData("TenantType", "HKDX", "invalid_scopeValue")]
+    [InlineData("TenantType", "  hkd  ", null)]   // trimmed valid
+    [InlineData("TenantStatus", "active", "invalid_scopeValue")]
+    [InlineData("TenantStatus", "Verified", null)] // case-insensitive
+    [InlineData("Tenant", "not-a-guid", "invalid_scopeValue")]
+    [InlineData("Tenant", "00000000-0000-0000-0000-000000000000", "invalid_scopeValue")]
+    [InlineData("Global", "anything", "invalid_scopeValue")]
+    [InlineData("Unknown", null, "invalid_scope")]
+    public async Task Create_ScopeValidation(string scope, string? value, string? expectedError)
+    {
+        var (_, svc) = NewSut();
+        var r = await svc.CreateAsync(new RateCardCreateRequest("feature.x", "u", 1, null, Scope: scope, ScopeValue: value), Actor, Now);
+        if (expectedError == null)
+        {
+            r.Ok.Should().BeTrue();
+            r.Version!.ScopeValue.Should().NotBeNullOrWhiteSpace();
+        }
+        else
+        {
+            r.ErrorCode.Should().Be(expectedError);
+        }
+    }
+
+    private static void SeedScoped(MeteringDbContext db, string code, decimal rate,
+        RateCardScope scope, string? scopeValue)
+    {
+        db.RateCardVersions.Add(RateCardVersion.Create(
+            code, "u", rate, MeteringEnforcement.MeterOnly, Now.AddDays(-1), Actor,
+            scope: scope, scopeValue: scopeValue));
+        db.SaveChanges();
+    }
 }

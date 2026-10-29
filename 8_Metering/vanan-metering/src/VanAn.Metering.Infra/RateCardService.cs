@@ -17,17 +17,51 @@ public sealed class RateCardService(MeteringDbContext db)
     private static readonly JsonSerializerOptions AuditJson = new() { WriteIndented = false };
 
     /// <summary>
-    /// Resolve the rate effective at <paramref name="atUtc"/>:
+    /// Resolve the rate effective at <paramref name="atUtc"/> for the GLOBAL scope only
+    /// (backward-compat: callers that do not send tenant attributes).
     /// EffectiveFrom &lt;= at &lt; EffectiveTo, latest EffectiveFrom wins, IsActive only.
     /// Miss → null (unpriced) — callers decide how to treat it, never throw.
     /// </summary>
     public Task<RateCardVersion?> ResolveAsync(string serviceCode, DateTime atUtc, CancellationToken ct = default)
-        => db.RateCardVersions.AsNoTracking()
+        => ResolveForTenantAsync(serviceCode, null, null, null, atUtc, ct);
+
+    /// <summary>
+    /// Issue #197 — resolve the rate effective at <paramref name="atUtc"/> for a tenant
+    /// context (attributes are optional caller claims — absent → Global-only, i.e. the
+    /// exact GĐ-1 behaviour). Precedence: Tenant override &gt; TenantType &gt; TenantStatus
+    /// &gt; Global; within one scope the latest EffectiveFrom wins. Miss → null.
+    /// </summary>
+    public async Task<RateCardVersion?> ResolveForTenantAsync(
+        string serviceCode, Guid? tenantId, string? tenantType, string? tenantStatus,
+        DateTime atUtc, CancellationToken ct = default)
+    {
+        var versions = await db.RateCardVersions.AsNoTracking()
             .Where(v => v.ServiceCode == serviceCode && v.IsActive
                         && v.EffectiveFrom <= atUtc
                         && (v.EffectiveTo == null || v.EffectiveTo > atUtc))
             .OrderByDescending(v => v.EffectiveFrom)
-            .FirstOrDefaultAsync(ct);
+            .ToListAsync(ct);
+        if (versions.Count == 0) return null;
+
+        // Precedence list — most specific first.
+        foreach (var scope in new[] { RateCardScope.Tenant, RateCardScope.TenantType, RateCardScope.TenantStatus, RateCardScope.Global })
+        {
+            var match = versions.FirstOrDefault(v => v.Scope == scope && MatchesScope(v, tenantId, tenantType, tenantStatus));
+            if (match != null) return match;
+        }
+        return null;
+    }
+
+    private static bool MatchesScope(RateCardVersion v, Guid? tenantId, string? tenantType, string? tenantStatus)
+        => v.Scope switch
+        {
+            RateCardScope.Tenant => v.ScopeValue != null && Guid.TryParse(v.ScopeValue, out var id) && id == tenantId,
+            RateCardScope.TenantType => !string.IsNullOrWhiteSpace(tenantType)
+                && string.Equals(v.ScopeValue, tenantType.Trim(), StringComparison.OrdinalIgnoreCase),
+            RateCardScope.TenantStatus => !string.IsNullOrWhiteSpace(tenantStatus)
+                && string.Equals(v.ScopeValue, tenantStatus.Trim(), StringComparison.OrdinalIgnoreCase),
+            _ => true
+        };
 
     /// <summary>Default: chain heads (IsActive &amp;&amp; EffectiveTo == null) — the patchable version
     /// per service code (may be future-scheduled). includeInactive → full version history.</summary>
@@ -49,19 +83,33 @@ public sealed class RateCardService(MeteringDbContext db)
             return RateCardOpResult.Fail("invalid_creditRate", "creditRate must be >= 0.");
         if (!TryParseEnforcement(req.Enforcement, out var enforcement))
             return RateCardOpResult.Fail("invalid_enforcement", "enforcement must be MeterOnly or Deny.");
+        // Issue #197 — scope validation: Global (default) | TenantType | TenantStatus | Tenant.
+        if (!RateCardScopes.TryParseScope(req.Scope, out var scope))
+            return RateCardOpResult.Fail("invalid_scope", "scope must be Global, TenantType, TenantStatus or Tenant.");
+        if (!RateCardScopes.IsValidScopeValue(scope, req.ScopeValue))
+            return RateCardOpResult.Fail("invalid_scopeValue",
+                scope == RateCardScope.TenantType
+                    ? $"scopeValue must be one of: {string.Join(", ", RateCardScopes.TenantTypeValues)}."
+                    : scope == RateCardScope.TenantStatus
+                        ? $"scopeValue must be \"verified\" or \"unverified\"."
+                        : scope == RateCardScope.Tenant
+                            ? "scopeValue must be a non-empty tenantId (Guid)."
+                            : "scopeValue must be empty for Global scope.");
         var from = req.EffectiveFrom ?? nowUtc;
         if (req.EffectiveTo.HasValue && from >= req.EffectiveTo.Value)
             return RateCardOpResult.Fail("invalid_effective_range", "effectiveFrom must be < effectiveTo.");
 
         var serviceCode = req.ServiceCode.Trim();
-        var hasActive = await db.RateCardVersions.AnyAsync(v => v.ServiceCode == serviceCode && v.IsActive, ct);
+        var scopeValue = RateCardScopes.Normalize(scope, req.ScopeValue);
+        var hasActive = await db.RateCardVersions.AnyAsync(
+            v => v.ServiceCode == serviceCode && v.IsActive && v.Scope == scope && v.ScopeValue == scopeValue, ct);
         if (hasActive)
             return RateCardOpResult.Fail("serviceCode_active_exists",
-                "An active rate-card chain already exists for this serviceCode — use PATCH.");
+                $"An active rate-card chain already exists for this serviceCode+scope — use PATCH.");
 
         var version = RateCardVersion.Create(
             serviceCode, req.MeterUnit.Trim(), req.CreditRate, enforcement,
-            from, actor, req.Label, req.EffectiveTo, req.AuditNote);
+            from, actor, req.Label, req.EffectiveTo, req.AuditNote, scope, scopeValue);
         db.RateCardVersions.Add(version);
         db.AuditLogs.Add(AuditLog.Create(actor, "create", nameof(RateCardVersion), version.Id,
             null, JsonSerializer.Serialize(version, AuditJson), nowUtc));
@@ -102,7 +150,9 @@ public sealed class RateCardService(MeteringDbContext db)
             req.MeterUnit ?? head.MeterUnit,
             req.CreditRate ?? head.CreditRate,
             enforcement,
-            at, actor, req.Label ?? head.Label, null, req.AuditNote);
+            at, actor, req.Label ?? head.Label, null, req.AuditNote,
+            // Issue #197 — the chain keeps its scope across versions.
+            head.Scope, head.ScopeValue);
         head.SupersedeAt(at);
         db.RateCardVersions.Add(next);
         db.AuditLogs.Add(AuditLog.Create(actor, "patch", nameof(RateCardVersion), next.Id,

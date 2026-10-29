@@ -23,6 +23,9 @@
         </div>
     </header>
 
+    @* Issue #197 (item 2): feature.loyalty deny gate — module loyalty (fail-open G9).
+       SystemAdmin xem toàn hệ thống (không tenant) → gate bỏ qua (HasTenant=false). *@
+    <MeteringDenyGate ServiceCode="feature.loyalty">
     @if (_isSystemAdmin)
     {
         <VanAAlert Type="info" Message="Đang xem thống kê toàn hệ thống — tổng hợp tất cả tenant." Dismissible="false" CssClass="mb-3" />
@@ -100,6 +103,7 @@
             </div>
         </VanACard>
     }
+    </MeteringDenyGate>
 </div>
 
 @code {
@@ -107,9 +111,12 @@
     private bool _loading = true;
     private bool _isSystemAdmin;
     private string? _errorMessage;
+    [Inject] private FeatureUsageRecorder FeatureUsage { get; set; } = null!;
 
     protected override async Task OnInitializedAsync()
     {
+        // Issue #197: feature.loyalty usage (module-active-month, idempotent per tenant/month).
+        _ = FeatureUsage.RecordAsync("feature.loyalty");
         await LoadStats();
     }
 

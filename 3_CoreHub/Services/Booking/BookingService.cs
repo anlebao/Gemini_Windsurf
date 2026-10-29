@@ -38,7 +38,8 @@ namespace VanAn.CoreHub.Services.Booking
         IBookingFinancialService? financialService = null,
         ICommissionService? commissionService = null,
         INotificationCenterService? notificationCenter = null,
-        IMeteringClient? metering = null) : IBookingService
+        IMeteringClient? metering = null,
+        IMeteringTenantAttributeResolver? attributeResolver = null) : IBookingService
     {
         /// <summary>Message conflict customer-friendly (SRS §6.5) — KHÔNG hiển thị mã kỹ thuật.</summary>
         public const string ConflictMessage = "Khung giờ này vừa có người đặt. Vui lòng chọn khung giờ khác.";
@@ -60,6 +61,7 @@ namespace VanAn.CoreHub.Services.Booking
         private readonly ICommissionService? _commissionService = commissionService;
         private readonly INotificationCenterService? _notificationCenter = notificationCenter;
         private readonly IMeteringClient? _metering = metering;
+        private readonly IMeteringTenantAttributeResolver? _attributeResolver = attributeResolver;
 
         // ── Create (Idempotency-Key §21.1 + double-booking AC-C04) ──────────
 
@@ -80,6 +82,15 @@ namespace VanAn.CoreHub.Services.Booking
             {
                 _logger.LogInformation("Booking idempotent create hit: key={Key} booking={BookingId}", idempotencyKey, existingByKey.Id);
                 return existingByKey;
+            }
+
+            // Issue #197 (item 2): server-side deny guard — feature.booking Deny card +
+            // ví không đủ → chặn tạo booking MỚI (sau idempotency check: retry trả booking
+            // gốc kể cả khi ví cạn; phủ KhachLink public + staff; fail-open G9).
+            if (_metering is not null)
+            {
+                await MeteringDenyGuard.CheckOrThrowAsync(
+                    _metering, _attributeResolver, tenantId.Value, "feature.booking", ct);
             }
 
             // Validate offering (tenant-scoped, active) — snapshot fields.
@@ -240,7 +251,7 @@ namespace VanAn.CoreHub.Services.Booking
                 _ = _metering.RecordUsageAsync(new MeteringUsageEvent(
                     tenantId.Value, "feature.booking", 1, "booking", DateTime.UtcNow,
                     $"booking:{booking.Id}", TaskRef: booking.Id.ToString(),
-                    MetadataJson: $"{{\"code\":\"{booking.PublicBookingCode}\"}}"), CancellationToken.None);
+                    MetadataJson: $"{{\"code\":\"{booking.PublicBookingCode}\"}}"), ct: CancellationToken.None);
             }
 
             return booking;

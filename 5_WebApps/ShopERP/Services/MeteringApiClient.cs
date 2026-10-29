@@ -46,13 +46,14 @@ public sealed class MeteringApiClient : IMeteringClient
             logger.LogWarning("Metering client disabled — Metering:BaseUrl/CallerId/CallerKey not configured.");
     }
 
-    public async Task<bool> RecordUsageAsync(MeteringUsageEvent evt, CancellationToken ct = default)
+    public async Task<bool> RecordUsageAsync(MeteringUsageEvent evt, MeteringTenantAttributes? attributes = null, CancellationToken ct = default)
     {
         if (!Enabled()) return false;
         try
         {
             using var req = new HttpRequestMessage(HttpMethod.Post, "v1/usage/events");
             req.Headers.TryAddWithoutValidation("Idempotency-Key", evt.IdempotencyKey);
+            AddTenantAttributes(req, attributes);
             req.Content = JsonContent.Create(ToBody(evt), options: Json);
             using var resp = await _http.SendAsync(req, ct);
             if (resp.IsSuccessStatusCode) { _consecutiveFailures = 0; return true; }
@@ -64,12 +65,13 @@ public sealed class MeteringApiClient : IMeteringClient
         }
     }
 
-    public async Task<bool> RecordUsageBatchAsync(IReadOnlyList<MeteringUsageEvent> events, CancellationToken ct = default)
+    public async Task<bool> RecordUsageBatchAsync(IReadOnlyList<MeteringUsageEvent> events, MeteringTenantAttributes? attributes = null, CancellationToken ct = default)
     {
         if (!Enabled() || events.Count == 0) return false;
         try
         {
             using var req = new HttpRequestMessage(HttpMethod.Post, "v1/usage/events:batch");
+            AddTenantAttributes(req, attributes);
             req.Content = JsonContent.Create(events.Select(e => new
             {
                 idempotencyKey = e.IdempotencyKey,
@@ -97,7 +99,7 @@ public sealed class MeteringApiClient : IMeteringClient
     /// P7 D3 — GET /v1/wallets/{t}/check. Cached 30s per (tenant, code) per card G20.
     /// Fail-open: null on transport error — business code treats null as "allow".
     /// </summary>
-    public async Task<MeteringBalanceCheck?> CheckBalanceAsync(Guid tenantId, string serviceCode, CancellationToken ct = default)
+    public async Task<MeteringBalanceCheck?> CheckBalanceAsync(Guid tenantId, string serviceCode, MeteringTenantAttributes? attributes = null, CancellationToken ct = default)
     {
         if (!Enabled()) return null;
         var key = (tenantId, serviceCode);
@@ -108,8 +110,10 @@ public sealed class MeteringApiClient : IMeteringClient
         }
         try
         {
-            using var resp = await _http.GetAsync(
-                $"v1/wallets/{tenantId}/check?serviceCode={Uri.EscapeDataString(serviceCode)}", ct);
+            using var req = new HttpRequestMessage(HttpMethod.Get,
+                $"v1/wallets/{tenantId}/check?serviceCode={Uri.EscapeDataString(serviceCode)}");
+            AddTenantAttributes(req, attributes);
+            using var resp = await _http.SendAsync(req, ct);
             if (!resp.IsSuccessStatusCode) { Fail($"HTTP {(int)resp.StatusCode}", $"check:{serviceCode}"); return null; }
             var dto = await resp.Content.ReadFromJsonAsync<WalletCheckWire>(Json, ct);
             _consecutiveFailures = 0;
@@ -212,6 +216,17 @@ public sealed class MeteringApiClient : IMeteringClient
         if (_consecutiveFailures >= CircuitFailureThreshold && DateTime.UtcNow < _circuitOpenUntilUtc)
             return false;
         return true;
+    }
+
+    // Issue #197 — tenant group claims (D1=A): optional headers that scope rate-card
+    // resolution on the metering side. Null attributes → no headers (Global chain).
+    private static void AddTenantAttributes(HttpRequestMessage req, MeteringTenantAttributes? attributes)
+    {
+        if (attributes == null) return;
+        if (!string.IsNullOrWhiteSpace(attributes.TenantType))
+            req.Headers.TryAddWithoutValidation("X-Tenant-Type", attributes.TenantType);
+        if (!string.IsNullOrWhiteSpace(attributes.TenantStatus))
+            req.Headers.TryAddWithoutValidation("X-Tenant-Status", attributes.TenantStatus);
     }
 
     private bool Fail(string reason, string serviceCode)

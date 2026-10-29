@@ -143,7 +143,7 @@ public class RealtimeMessagingService(
                 new MeteringUsageEvent(conversation.TenantId.Value, "chat.bytes",
                     System.Text.Encoding.UTF8.GetByteCount(content), "byte", occurred,
                     $"msg:{message.Id}:bytes", RequestedBy: senderId.ToString(), TaskRef: message.Id.ToString())
-            ], CancellationToken.None);
+            ], ct: CancellationToken.None);
         }
 
         // Notification Hub (2026-10-15): tin chat mới từ KHÁCH → thông báo owner

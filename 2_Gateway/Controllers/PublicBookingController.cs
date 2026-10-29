@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services.Booking;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Common;
 // Namespace "Booking" xung đột type Booking (lesson P1 — CS0118) → alias cho domain entity.
 using BookingEntity = VanAn.Shared.Domain.Booking;
 // Services-layer exceptions (Exceptions.cs) — KHÁC VanAn.Shared.Domain.NotFoundException/ValidationException
@@ -261,6 +262,16 @@ public class PublicBookingController(
         catch (NotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+        // Issue #197 (item 2): ví phí nền tảng hết → 402 + hướng nạp.
+        catch (MeteringDeniedException ex)
+        {
+            return StatusCode(StatusCodes.Status402PaymentRequired, new
+            {
+                message = ex.Message,
+                serviceCode = ex.ServiceCode,
+                topupUrl = "/wallet/phi-nen-tang"
+            });
         }
     }
 

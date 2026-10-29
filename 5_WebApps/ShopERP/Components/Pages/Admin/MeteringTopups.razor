@@ -8,6 +8,7 @@
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.ShopERP.Services
 @inject MeteringRateCardApiClient MeteringApi
+@inject CoreHub.Services.ITenantManagementService TenantService
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IThemeProvider ThemeProvider
 @inject ILogger<MeteringTopups> Logger
@@ -62,7 +63,9 @@
                                     {
                                         <tr data-testid="topup-row">
                                             <td><code>@t.ReferenceCode</code></td>
-                                            <td class="text-muted"><small>@t.TenantId.ToString()[..8]…</small></td>
+                                            <td title="@t.TenantId">
+                                                <span data-testid="topup-tenant-name">@TenantName(t.TenantId)</span>
+                                            </td>
                                             <td class="text-end">@(t.AmountVnd?.ToString("#,##0") ?? "—")</td>
                                             <td class="text-end">@(t.CreditsGranted?.ToString("0.##") ?? "—")</td>
                                             <td><span class="badge @StatusBadge(t.Status)" data-testid="topup-status">@t.Status</span></td>
@@ -160,14 +163,36 @@
     private string _alertMessage = string.Empty;
     private string _alertType = "info";
 
+    // Issue #197 (item 1): tên tenant từ ITenantManagementService (SystemAdmin — PG source of truth).
+    private Dictionary<Guid, string> _tenantNames = new();
+
     protected override async Task OnInitializedAsync()
     {
         var auth = await AuthStateProvider.GetAuthenticationStateAsync();
         _isSystemAdmin = auth.User.IsInRole("SystemAdmin");
         if (!_isSystemAdmin) { _isLoading = false; return; }
+        await LoadTenantNamesAsync();
         await LoadAsync();
         await LoadConfigAsync();
     }
+
+    private async Task LoadTenantNamesAsync()
+    {
+        try
+        {
+            var tenants = await TenantService.ListTenantsAsync();
+            _tenantNames = tenants.ToDictionary(t => t.Id.Value, t => t.Name);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load tenant names for topup list");
+        }
+    }
+
+    private string TenantName(Guid tenantId)
+        => _tenantNames.TryGetValue(tenantId, out var name)
+            ? name
+            : tenantId.ToString()[..8] + "…";
 
     private async Task LoadAsync()
     {

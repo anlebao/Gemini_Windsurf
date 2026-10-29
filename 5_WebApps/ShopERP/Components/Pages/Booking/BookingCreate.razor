@@ -19,6 +19,9 @@
         <h1><i class="bi bi-calendar-plus"></i> Đặt lịch nhanh</h1>
     </header>
 
+    @* Issue #197 (item 2): deny gate UX — server-side guard trong BookingService đã chặn
+       tạo booking thật; gate này hiển thị thông báo + link nạp sớm (fail-open G9). *@
+    <MeteringDenyGate ServiceCode="feature.booking">
     @if (_loading)
     {
         <VanASpinner Text="Đang tải..." />
@@ -218,6 +221,7 @@
             </div>
         </div>
     }
+    </MeteringDenyGate>
 </div>
 
 <style>

@@ -6,6 +6,7 @@ using VanAn.CoreHub.Hubs;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Services;
 using VanAn.CoreHub.Commands;
+using VanAn.Shared.Domain.Common;
 
 namespace VanAn.Gateway.Controllers
 {
@@ -17,6 +18,8 @@ namespace VanAn.Gateway.Controllers
         IVietQrService vietQrService,
         IHubContext<OrderHub> orderHub,
         IOrderWorkflowService orderWorkflowService,
+        IMeteringClient metering,
+        IMeteringTenantAttributeResolver attributeResolver,
         ILogger<OrdersController> logger) : ControllerBase
     {
         private readonly IOrderService _orderService = orderService;
@@ -24,6 +27,8 @@ namespace VanAn.Gateway.Controllers
         private readonly IHubContext<OrderHub> _orderHub = orderHub;
         // Section 5 fix (2026-07-23): Unified status transitions via OrderWorkflowService.
         private readonly IOrderWorkflowService _orderWorkflowService = orderWorkflowService;
+        private readonly IMeteringClient _metering = metering;
+        private readonly IMeteringTenantAttributeResolver _attributeResolver = attributeResolver;
         private readonly ILogger<OrdersController> _logger = logger;
 
         [HttpPost]
@@ -154,6 +159,10 @@ namespace VanAn.Gateway.Controllers
                     return Unauthorized(new { error = "Tenant ID required in JWT claim" });
                 }
 
+                // Issue #197 (item 2): ghi chú giọng nói = feature.voice-note (server-side deny).
+                await MeteringDenyGuard.CheckOrThrowAsync(
+                    _metering, _attributeResolver, tenantId, "feature.voice-note", HttpContext.RequestAborted);
+
                 bool updated = await _orderService.UpdateOrderVoiceNoteAsync(id, request.Note, tenantId);
                 if (!updated)
                 {
@@ -161,6 +170,15 @@ namespace VanAn.Gateway.Controllers
                 }
 
                 return NoContent();
+            }
+            catch (MeteringDeniedException ex)
+            {
+                return StatusCode(StatusCodes.Status402PaymentRequired, new
+                {
+                    message = ex.Message,
+                    serviceCode = ex.ServiceCode,
+                    topupUrl = "/wallet/phi-nen-tang"
+                });
             }
             catch (Exception ex)
             {

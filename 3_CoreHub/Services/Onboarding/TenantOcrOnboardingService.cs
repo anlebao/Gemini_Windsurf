@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Common;
 
 namespace VanAn.CoreHub.Services.Onboarding;
 
@@ -22,7 +23,8 @@ namespace VanAn.CoreHub.Services.Onboarding;
 public class TenantOcrOnboardingService(
     ITenantOnboardingService onboardingService,
     IVanAnDbContext dbContext,
-    ILogger<TenantOcrOnboardingService> logger) : ITenantOcrOnboardingService
+    ILogger<TenantOcrOnboardingService> logger,
+    IMeteringClient? metering = null) : ITenantOcrOnboardingService
 {
     public async Task<OcrOnboardingResult> ExecuteAsync(
         OcrOnboardingRequest request,
@@ -133,6 +135,25 @@ public class TenantOcrOnboardingService(
         logger.LogInformation(
             "OCR Onboarding hoàn tất: tenant {TenantId} Active — slug {Slug} — owner {Username} ({Case})",
             tenantId, verifyResult.PublishedSlug, username, request.Case);
+
+        // Phí nền tảng (issue #197): feature.ocr — per-action ingest SAU persist (fire-and-forget G9).
+        // KHÔNG deny guard: tenant mới chưa có ví (balance=0) → deny sẽ chặn mọi onboarding.
+        // Admin nên đặt Enforcement=MeterOnly; quyết định billing nằm ở rate-card.
+        if (metering is not null)
+        {
+            try
+            {
+                _ = metering.RecordUsageAsync(new MeteringUsageEvent(
+                    tenantId, "feature.ocr", 1, "onboarding", DateTime.UtcNow,
+                    $"ocr:{tenantId}", RequestedBy: approvedByUserId.ToString(),
+                    TaskRef: tenantId.ToString(),
+                    MetadataJson: $"{{\"case\":\"{request.Case}\"}}"), ct: CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "OCR onboarding metering ingest failed for {TenantId} — skipped (fail-safe)", tenantId);
+            }
+        }
 
         return new OcrOnboardingResult(
             TenantId: tenantId,

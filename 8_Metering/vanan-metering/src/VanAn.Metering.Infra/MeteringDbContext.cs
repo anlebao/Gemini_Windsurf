@@ -18,6 +18,7 @@ public sealed class MeteringDbContext(DbContextOptions<MeteringDbContext> option
     public DbSet<WalletAlert> WalletAlerts => Set<WalletAlert>();
     public DbSet<TopupConfig> TopupConfigs => Set<TopupConfig>();
     public DbSet<TopupRequest> TopupRequests => Set<TopupRequest>();
+    public DbSet<EnforcementConfig> EnforcementConfigs => Set<EnforcementConfig>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,8 +49,9 @@ public sealed class MeteringDbContext(DbContextOptions<MeteringDbContext> option
         modelBuilder.Entity<RateCardVersion>(b =>
         {
             b.HasKey(e => e.Id);
-            // One version per (serviceCode, effectiveFrom) — append-only chain.
-            b.HasIndex(e => new { e.ServiceCode, e.EffectiveFrom }).IsUnique();
+            // One version per (serviceCode, scope, effectiveFrom) — append-only chain;
+            // issue #197: the same serviceCode may carry one chain per scope.
+            b.HasIndex(e => new { e.ServiceCode, e.Scope, e.EffectiveFrom }).IsUnique();
             b.HasIndex(e => new { e.ServiceCode, e.IsActive });
             b.Property(e => e.ServiceCode).HasMaxLength(64);
             b.Property(e => e.MeterUnit).HasMaxLength(32);
@@ -57,6 +59,7 @@ public sealed class MeteringDbContext(DbContextOptions<MeteringDbContext> option
             b.Property(e => e.Label).HasMaxLength(256);
             b.Property(e => e.ChangedBy).HasMaxLength(64);
             b.Property(e => e.AuditNote).HasMaxLength(512);
+            b.Property(e => e.ScopeValue).HasMaxLength(64);
         });
 
         // Append-only by convention — no endpoint mutates or deletes audit rows.
@@ -127,6 +130,13 @@ public sealed class MeteringDbContext(DbContextOptions<MeteringDbContext> option
             b.Property(e => e.Note).HasMaxLength(256);
             b.Property(e => e.CallerId).HasMaxLength(64);
             b.Property(e => e.IdempotencyKey).HasMaxLength(128);
+        });
+
+        // Issue #197 — master switch (singleton).
+        modelBuilder.Entity<EnforcementConfig>(b =>
+        {
+            b.HasKey(e => e.Id);
+            b.Property(e => e.UpdatedBy).HasMaxLength(64);
         });
     }
 }

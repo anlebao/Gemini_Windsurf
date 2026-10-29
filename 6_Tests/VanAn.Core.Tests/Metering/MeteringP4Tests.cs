@@ -34,22 +34,49 @@ public class MeteringP4Tests
         public List<MeteringUsageEvent> Events { get; } = new();
         public int Calls { get; private set; }
 
-        public Task<bool> RecordUsageAsync(MeteringUsageEvent evt, CancellationToken ct = default)
+        public Task<bool> RecordUsageAsync(MeteringUsageEvent evt, MeteringTenantAttributes? attributes = null, CancellationToken ct = default)
         {
             Calls++;
             lock (Events) Events.Add(evt);
             return Task.FromResult(true);
         }
 
-        public Task<bool> RecordUsageBatchAsync(IReadOnlyList<MeteringUsageEvent> events, CancellationToken ct = default)
+        public Task<bool> RecordUsageBatchAsync(IReadOnlyList<MeteringUsageEvent> events, MeteringTenantAttributes? attributes = null, CancellationToken ct = default)
         {
             Calls++;
             lock (Events) Events.AddRange(events);
             return Task.FromResult(true);
         }
 
-        public Task<MeteringBalanceCheck?> CheckBalanceAsync(Guid tenantId, string serviceCode, CancellationToken ct = default)
+        public Task<MeteringBalanceCheck?> CheckBalanceAsync(Guid tenantId, string serviceCode, MeteringTenantAttributes? attributes = null, CancellationToken ct = default)
             => Task.FromResult<MeteringBalanceCheck?>(null);
+    }
+
+    /// <summary>Issue #197 — stub với check response cấu hình (deny=true / null fail-open).</summary>
+    private sealed class StubDenyMeteringClient(MeteringBalanceCheck? check) : IMeteringClient
+    {
+        public List<MeteringUsageEvent> Events { get; } = new();
+
+        public Task<bool> RecordUsageAsync(MeteringUsageEvent evt, MeteringTenantAttributes? attributes = null, CancellationToken ct = default)
+        {
+            Events.Add(evt);
+            return Task.FromResult(true);
+        }
+
+        public Task<bool> RecordUsageBatchAsync(IReadOnlyList<MeteringUsageEvent> events, MeteringTenantAttributes? attributes = null, CancellationToken ct = default)
+        {
+            Events.AddRange(events);
+            return Task.FromResult(true);
+        }
+
+        public Task<MeteringBalanceCheck?> CheckBalanceAsync(Guid tenantId, string serviceCode, MeteringTenantAttributes? attributes = null, CancellationToken ct = default)
+            => Task.FromResult(check);
+    }
+
+    private sealed class NullAttributeResolver : IMeteringTenantAttributeResolver
+    {
+        public Task<MeteringTenantAttributes?> ResolveAsync(Guid tenantId, CancellationToken ct = default)
+            => Task.FromResult<MeteringTenantAttributes?>(null);
     }
 
     private sealed class FakeTenantProvider(Guid tenantId) : ITenantProvider
@@ -125,7 +152,7 @@ public class MeteringP4Tests
         var tenantId = Guid.NewGuid();
         var capture = new CapturingMeteringClient();
         var recorder = new VanAn.ShopERP.Services.FeatureUsageRecorder(
-            capture, new FakeTenantProvider(tenantId), NullLogger<VanAn.ShopERP.Services.FeatureUsageRecorder>.Instance);
+            capture, new FakeTenantProvider(tenantId), new NullAttributeResolver(), NullLogger<VanAn.ShopERP.Services.FeatureUsageRecorder>.Instance);
 
         await recorder.RecordAsync("feature.financial");
         // Fire-and-forget — the capture happens synchronously inside the recording call.
@@ -239,6 +266,69 @@ public class MeteringP4Tests
         evt.Quantity.Should().Be(1);
         evt.Unit.Should().Be("booking");
         evt.IdempotencyKey.Should().Be($"booking:{booking.Id}");
+    }
+
+    // ── Issue #197 (item 2): server-side deny guard (C1) ────────────────
+
+    [Fact]
+    public async Task C1_BookingService_DenyGuard_ThrowsWhenDenied()
+    {
+        using var scope = VanAnDbContextTestFactory.Create();
+        scope.TenantProvider!.SetTenant(BookingTestData.TenantId.Value);
+        var ctx = scope.Context;
+        var metering = new StubDenyMeteringClient(new MeteringBalanceCheck(0m, 30m, true, "depleted"));
+        var svc = new BookingService(ctx,
+            new AvailabilityService(ctx, NullLogger<AvailabilityService>.Instance),
+            NullLogger<BookingService>.Instance,
+            metering: metering);
+        await BookingTestData.EnsureConfigAsync(ctx, BookingTestData.TenantId, enabled: true);
+        var (_, offeringId) = await BookingTestData.SeedStaffOfferingAsync(ctx, BookingTestData.TenantId);
+
+        var act = async () => await svc.CreateBookingAsync(BookingTestData.TenantId,
+            new CreateBookingCommand(offeringId, BookingTestData.At(14, 0), null, null, "dev", null, []),
+            "metering-denied-1");
+        await act.Should().ThrowAsync<MeteringDeniedException>()
+            .Where(e => e.ServiceCode == "feature.booking");
+    }
+
+    [Fact]
+    public async Task C1b_BookingService_DenyGuard_FailOpenWhenMeteringUnavailable()
+    {
+        using var scope = VanAnDbContextTestFactory.Create();
+        scope.TenantProvider!.SetTenant(BookingTestData.TenantId.Value);
+        var ctx = scope.Context;
+        var metering = new StubDenyMeteringClient(null); // transport error → null = allow (G9)
+        var svc = new BookingService(ctx,
+            new AvailabilityService(ctx, NullLogger<AvailabilityService>.Instance),
+            NullLogger<BookingService>.Instance,
+            metering: metering);
+        await BookingTestData.EnsureConfigAsync(ctx, BookingTestData.TenantId, enabled: true);
+        var (_, offeringId) = await BookingTestData.SeedStaffOfferingAsync(ctx, BookingTestData.TenantId);
+
+        var booking = await svc.CreateBookingAsync(BookingTestData.TenantId,
+            new CreateBookingCommand(offeringId, BookingTestData.At(14, 0), null, null, "dev", null, []),
+            "metering-failopen-1");
+        booking.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task C1c_BookingService_DenyGuard_PassesWhenSufficientBalance()
+    {
+        using var scope = VanAnDbContextTestFactory.Create();
+        scope.TenantProvider!.SetTenant(BookingTestData.TenantId.Value);
+        var ctx = scope.Context;
+        var metering = new StubDenyMeteringClient(new MeteringBalanceCheck(100m, 30m, false, null));
+        var svc = new BookingService(ctx,
+            new AvailabilityService(ctx, NullLogger<AvailabilityService>.Instance),
+            NullLogger<BookingService>.Instance,
+            metering: metering);
+        await BookingTestData.EnsureConfigAsync(ctx, BookingTestData.TenantId, enabled: true);
+        var (_, offeringId) = await BookingTestData.SeedStaffOfferingAsync(ctx, BookingTestData.TenantId);
+
+        var booking = await svc.CreateBookingAsync(BookingTestData.TenantId,
+            new CreateBookingCommand(offeringId, BookingTestData.At(14, 0), null, null, "dev", null, []),
+            "metering-ok-1");
+        booking.Should().NotBeNull();
     }
 
     // ── T07: bot UA → 200 accepted:false, no forward ────────────────────

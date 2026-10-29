@@ -11,6 +11,7 @@ var dbPath = builder.Configuration.GetValue<string>("Metering:DbPath") ?? "data/
 builder.Services.AddDbContext<MeteringDbContext>(o => o.UseSqlite($"Data Source={dbPath}"));
 builder.Services.AddScoped<RateCardService>();
 builder.Services.AddScoped<WalletService>();
+builder.Services.AddScoped<EnforcementConfigService>();
 builder.Services.AddScoped(s => new TopupService(
     s.GetRequiredService<MeteringDbContext>(),
     s.GetRequiredService<WalletService>(),
@@ -66,10 +67,13 @@ app.MapGet("/v1/wallets/{tenantId:guid}", async (
     Results.Ok(await wallet.GetWalletAsync(tenantId, ct)));
 
 app.MapGet("/v1/wallets/{tenantId:guid}/check", async (
-    Guid tenantId, string serviceCode, decimal? estimate,
+    Guid tenantId, string serviceCode, decimal? estimate, HttpContext http,
     WalletService wallet, CancellationToken ct) =>
-    Results.Ok(await wallet.CheckAsync(
-        tenantId, serviceCode ?? string.Empty, estimate, DateTime.UtcNow, ct)));
+{
+    var (type, status) = TenantAttributes(http);
+    return Results.Ok(await wallet.CheckAsync(
+        tenantId, serviceCode ?? string.Empty, estimate, DateTime.UtcNow, type, status, ct));
+});
 
 app.MapPost("/v1/wallets/{tenantId:guid}/grants", async (
     Guid tenantId, WalletGrantRequest req, HttpContext http,
@@ -94,6 +98,19 @@ app.MapGet("/v1/topup-config", async (HttpContext http, TopupService topups, Can
     if (!IsAdmin(http)) return Forbidden();
     var cfg = await topups.GetConfigAsync(ct);
     return cfg == null ? Results.NotFound(new { error = "topup_config_not_set" }) : Results.Ok(cfg);
+});
+
+// Issue #197 — master switch "phí nền tảng" toàn hệ thống (SystemAdmin).
+app.MapGet("/v1/config/enforcement", async (EnforcementConfigService svc, CancellationToken ct) =>
+    Results.Ok(await svc.GetAsync(ct)));
+
+app.MapPut("/v1/config/enforcement", async (
+    EnforcementConfigPutRequest? req, HttpContext http,
+    EnforcementConfigService svc, CancellationToken ct) =>
+{
+    if (!IsAdmin(http)) return Forbidden();
+    var actor = (string?)http.Items["CallerId"] ?? "unknown";
+    return Results.Ok(await svc.SetAsync(req?.Enabled ?? true, actor, DateTime.UtcNow, ct));
 });
 
 app.MapPut("/v1/topup-config", async (
@@ -189,6 +206,13 @@ static void EnsureP7Schema(MeteringDbContext db)
             using var reader = cmd.ExecuteReader();
             while (reader.Read()) tables.Add(reader.GetString(0));
         }
+        var indexes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='index'";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read()) indexes.Add(reader.GetString(0));
+        }
 
 #pragma warning disable CA2100 // DDL below is static literals only — never user input
         void Exec(string sql)
@@ -276,6 +300,20 @@ static void EnsureP7Schema(MeteringDbContext db)
             Exec("""CREATE INDEX "IX_TopupRequests_TenantId_Status" ON "TopupRequests" ("TenantId", "Status")""");
         }
 
+        // Issue #197 — master switch singleton (created standalone for DBs that
+        // already ran P7; fresh DBs get it via EnsureCreated).
+        if (!tables.Contains("EnforcementConfigs"))
+        {
+            Exec("""
+                CREATE TABLE "EnforcementConfigs" (
+                    "Id" TEXT NOT NULL CONSTRAINT "PK_EnforcementConfigs" PRIMARY KEY,
+                    "Enabled" INTEGER NOT NULL,
+                    "UpdatedBy" TEXT NOT NULL,
+                    "UpdatedAtUtc" TEXT NOT NULL
+                )
+                """);
+        }
+
         if (tables.Contains("UsageEvents"))
         {
             var cols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -289,6 +327,33 @@ static void EnsureP7Schema(MeteringDbContext db)
                 Exec("""ALTER TABLE "UsageEvents" ADD COLUMN "CreditsApplied" TEXT NULL""");
             if (!cols.Contains("UnpaidCredits"))
                 Exec("""ALTER TABLE "UsageEvents" ADD COLUMN "UnpaidCredits" TEXT NULL""");
+        }
+
+        // Issue #197 — rate-card scope (append-only additive; existing rows = Global).
+        if (tables.Contains("RateCardVersions"))
+        {
+            var cols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "PRAGMA table_info('RateCardVersions')";
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read()) cols.Add(reader.GetString(1));
+            }
+            if (!cols.Contains("Scope"))
+                Exec("""ALTER TABLE "RateCardVersions" ADD COLUMN "Scope" INTEGER NOT NULL DEFAULT 0""");
+            if (!cols.Contains("ScopeValue"))
+                Exec("""ALTER TABLE "RateCardVersions" ADD COLUMN "ScopeValue" TEXT NULL""");
+            // Unique index now covers (ServiceCode, Scope, EffectiveFrom) — the old
+            // index would reject two chains on different scopes sharing EffectiveFrom.
+            if (indexes.Contains("IX_RateCardVersions_ServiceCode_EffectiveFrom"))
+            {
+                Exec("DROP INDEX \"IX_RateCardVersions_ServiceCode_EffectiveFrom\"");
+                Exec("""CREATE UNIQUE INDEX "IX_RateCardVersions_ServiceCode_Scope_EffectiveFrom" ON "RateCardVersions" ("ServiceCode", "Scope", "EffectiveFrom")""");
+            }
+            else if (!indexes.Contains("IX_RateCardVersions_ServiceCode_Scope_EffectiveFrom"))
+            {
+                Exec("""CREATE UNIQUE INDEX "IX_RateCardVersions_ServiceCode_Scope_EffectiveFrom" ON "RateCardVersions" ("ServiceCode", "Scope", "EffectiveFrom")""");
+            }
         }
     }
     finally
@@ -353,7 +418,14 @@ static IResult MapError(RateCardOpResult r) => Results.Json(
 
 static RateCardDto ToDto(RateCardVersion v) => new(
     v.Id, v.ServiceCode, v.MeterUnit, v.CreditRate, v.Enforcement.ToString(),
-    v.EffectiveFrom, v.EffectiveTo, v.IsActive, v.Label, v.ChangedBy, v.ChangedAtUtc, v.AuditNote);
+    v.EffectiveFrom, v.EffectiveTo, v.IsActive, v.Label, v.ChangedBy, v.ChangedAtUtc, v.AuditNote,
+    v.Scope.ToString(), v.ScopeValue);
+
+// Issue #197 — caller-supplied tenant attributes (D1=A): optional headers that scope
+// rate resolution (Tenant > TenantType > TenantStatus > Global). Absent → Global-only.
+static (string? type, string? status) TenantAttributes(HttpContext ctx) => (
+    ctx.Request.Headers["X-Tenant-Type"].FirstOrDefault(),
+    ctx.Request.Headers["X-Tenant-Status"].FirstOrDefault());
 
 app.MapGet("/v1/rate-cards", async (bool includeInactive, RateCardService svc, CancellationToken ct) =>
     Results.Ok((await svc.ListAsync(includeInactive, ct)).Select(ToDto)));
@@ -381,12 +453,13 @@ app.MapDelete("/v1/rate-cards/{id:guid}", async (Guid id, HttpContext ctx, RateC
     return r.Ok ? Results.NoContent() : MapError(r);
 });
 
-app.MapGet("/v1/rate-cards/resolve", async (string serviceCode, DateTime? atUtc, RateCardService svc, CancellationToken ct) =>
+app.MapGet("/v1/rate-cards/resolve", async (string serviceCode, DateTime? atUtc, Guid? tenantId, HttpContext ctx, RateCardService svc, CancellationToken ct) =>
 {
     if (string.IsNullOrWhiteSpace(serviceCode))
         return Results.Json(new { error = new { code = "invalid_serviceCode", message = "serviceCode is required.", retryable = false } },
             statusCode: StatusCodes.Status400BadRequest);
-    var v = await svc.ResolveAsync(serviceCode, atUtc ?? DateTime.UtcNow, ct);
+    var (type, status) = TenantAttributes(ctx);
+    var v = await svc.ResolveForTenantAsync(serviceCode.Trim(), tenantId, type, status, atUtc ?? DateTime.UtcNow, ct);
     return v == null
         ? Results.Ok(new { resolved = false, serviceCode })
         : Results.Ok(ToDto(v));
@@ -401,7 +474,8 @@ static IResult BadRequest(string code, string message) => Results.Json(
 app.MapPost("/v1/usage/events", async (UsageEventRequest req, HttpContext ctx, UsageService svc, CancellationToken ct) =>
 {
     var idemKey = ctx.Request.Headers["Idempotency-Key"].FirstOrDefault();
-    var r = await svc.IngestAsync((string)ctx.Items["CallerId"]!, idemKey, req, DateTime.UtcNow, ct);
+    var (type, status) = TenantAttributes(ctx);
+    var r = await svc.IngestAsync((string)ctx.Items["CallerId"]!, idemKey, req, DateTime.UtcNow, type, status, ct);
     if (r.ErrorCode != null) return BadRequest(r.ErrorCode, r.ErrorMessage!);
     return r.Replay
         ? Results.Ok(new UsageEventResponse(r.EventId!.Value, true))
@@ -418,7 +492,8 @@ app.MapPost("/v1/usage/{verb}", async (string verb, UsageBatchItem[]? items, Htt
         return BadRequest("empty_batch", "Batch must contain at least one event.");
     if (items.Length > UsageService.MaxBatchSize)
         return BadRequest("batch_too_large", $"Batch size must be <= {UsageService.MaxBatchSize}.");
-    return Results.Ok(await svc.IngestBatchAsync((string)ctx.Items["CallerId"]!, items, DateTime.UtcNow, ct));
+    var (type, status) = TenantAttributes(ctx);
+    return Results.Ok(await svc.IngestBatchAsync((string)ctx.Items["CallerId"]!, items, DateTime.UtcNow, type, status, ct));
 });
 
 app.MapGet("/v1/usage/events", async (Guid tenantId, string? serviceCode, DateTime? from, DateTime? to, int? page, int? pageSize, UsageService svc, CancellationToken ct) =>
@@ -431,9 +506,10 @@ app.MapGet("/v1/usage/events", async (Guid tenantId, string? serviceCode, DateTi
     return Results.Ok(await svc.ListEventsAsync(tenantId, serviceCode, from, to, p, Math.Min(ps, UsageService.MaxPageSize), ct));
 });
 
-app.MapGet("/v1/usage/summary", async (Guid tenantId, string period, UsageService svc, CancellationToken ct) =>
+app.MapGet("/v1/usage/summary", async (Guid tenantId, string period, HttpContext ctx, UsageService svc, CancellationToken ct) =>
 {
-    var (r, errCode, errMsg) = await svc.GetSummaryAsync(tenantId, period, ct);
+    var (type, status) = TenantAttributes(ctx);
+    var (r, errCode, errMsg) = await svc.GetSummaryAsync(tenantId, period, type, status, ct);
     return r != null ? Results.Ok(r) : BadRequest(errCode!, errMsg!);
 });
 
