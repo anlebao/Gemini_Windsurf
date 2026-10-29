@@ -4,7 +4,7 @@
 > Source SRS: `docs/requirements/van_an_tra_soat_so_lieu_ke_toan_srs_v1.md` (v1.1)
 > Master plan: `docs/AI/plans/tra-soat-ke-toan-master-plan.md` (ACTIVE — **APPROVED 2026-10-29**)
 > Branch: `main`
-> Status: **IN PROGRESS (2026-10-29 — user duyệt chiến lược 1 phiên liên tục P0→P4 → P5 push+CD+RV — Session bắt đầu: P0 AccountClassifier)**
+> Status: **✅ DONE (2026-10-29 — 1 phiên liên tục P0→P5 hoàn tất: P0 `b4525c40` · P1 `20cdf541` 11/11 · P2 `55fdcd38` 13 tests · P3 `c0f41f01` 8 tests · P4 `4aec9930` bUnit+E2E · P5 `fd00e374` deploy+RV — sweep-first 17/0, API khớp 100%, E2E pass. L5 manual: user.)**
 
 ---
 
