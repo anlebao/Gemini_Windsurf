@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>SRS — Admin Mobile PWA (ShopERP ops)</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">SRS — Admin Mobile PWA (ShopERP ops)</h1>
+</header>
+<h1 id="srs-admin-mobile-pwa-shoperp-ops-on-phonetablet-v1.0">SRS —
+ADMIN MOBILE PWA (SHOPERP OPS ON PHONE/TABLET) v1.0</h1>
+<blockquote>
+<p><strong>Ngày:</strong> 2026-10-30 · <strong>Trạng thái:</strong>
+DRAFT v1.0 — chờ user chốt các <strong>[G#]</strong> <strong>Nền
+tảng:</strong> ShopERP Blazor Server hiện có + pattern PWA đã chứng minh
+ở <strong>KhachLink</strong> (<code>manifest.json</code> standalone +
+<code>service-worker.js</code> + <code>pwa.js</code> với SRI-deadlock
+fix). <strong>Mục tiêu MVP:</strong> người vận hành (POS quầy / bếp /
+guard / owner mobile) <strong>cài app icon lên màn hình điện
+thoại/tablet</strong>, mở đúng trang theo role, chạy ổn định như app
+native — dùng lại toàn bộ trang ShopERP <strong>đã
+responsive</strong>.</p>
+</blockquote>
+<hr />
+<h2 id="bối-cảnh-mục-tiêu">1. BỐI CẢNH &amp; MỤC TIÊU</h2>
+<p><strong>Vấn đề hiện tại:</strong> 1. Luồng vận hành (POS thu ngân,
+bếp nhận đơn, guard quét QR, đặt lịch nhanh) <strong>bản chất là việc
+mobile</strong> — nhưng ShopERP chỉ là responsive web, phải mở browser +
+gõ URL → lỗi thao tác, không giống app. 2. KhachLink đã là PWA hoàn
+chỉnh (installable + SW + offline assets) — ShopERP <strong>chưa
+có</strong> manifest/SW → không cài được, mở chậm mỗi lần (wasm + css
+tải lại). 3. Nhân viên quầy cần “bấm icon là vào màn hình làm việc” theo
+role (bếp → <code>/kitchen</code>, guard → <code>/guard/scan</code>, thu
+ngân → <code>/pos</code>).</p>
+<p><strong>Mục tiêu SRS:</strong> biến các trang ShopERP <strong>đã
+responsive</strong> thành <strong>Admin Mobile PWA</strong> installable
+— 1 manifest + 1 service worker + entry-point-theo-role, không đổi
+backend logic.</p>
+<p><strong>Giới hạn kỹ thuật phải chấp nhận (gốc — ảnh hưởng toàn thiết
+kế):</strong> ShopERP là <strong>Blazor Server</strong> — UI chạy bằng
+SignalR circuit tới server. <strong>PWA chỉ tăng tốc khởi động +
+installable + deep-link; KHÔNG offline functional</strong> — mất mạng
+chỉ hiện được trang “mất kết nối” (khác KhachLink Blazor WASM có thể
+offline shell). SRS KHÔNG yêu cầu chạy offline nghiệp vụ [G1].</p>
+<hr />
+<h2 id="hiện-trạng-khảo-sát-2026-10-30">2. HIỆN TRẠNG (khảo sát
+2026-10-30)</h2>
+<h3 id="tài-sản-pwa-có-sẵn-tái-dùng">2.1 Tài sản PWA có sẵn (tái
+dùng)</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Tài sản</th>
+<th>Vị trí</th>
+<th>Tái dùng</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PWA manifest mẫu</td>
+<td><code>5_WebApps/KhachLink/wwwroot/manifest.json</code> — standalone,
+portrait, <code>lang: vi</code>, icons 72→512</td>
+<td>Clone + đổi tên/màu/start_url</td>
+</tr>
+<tr>
+<td>Service worker</td>
+<td><code>KhachLink/wwwroot/service-worker.js</code></td>
+<td>Port sang ShopERP wwwroot (scope <code>/</code>)</td>
+</tr>
+<tr>
+<td>PWA bootstrap</td>
+<td><code>KhachLink/wwwroot/js/pwa.js</code> — SW register + update
+toast + <strong>SRI deadlock fix</strong> (auto-reload khi stale
+wasm)</td>
+<td><strong>Bắt buộc tái dùng</strong> — fix đã proven production
+2026-08-05</td>
+</tr>
+<tr>
+<td>Icons</td>
+<td><code>KhachLink/wwwroot/icons/</code></td>
+<td>Bộ icon mới (có thể dùng tạm ShopERP favicon upscale)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="trang-đã-responsive-scope-mvp-đã-verify-có-media-viewport">2.2
+Trang đã responsive (scope MVP — đã verify có <code>@media</code> /
+viewport)</h3>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Trang</th>
+<th>Route</th>
+<th>Vai trò mobile</th>
+<th>CSS responsive</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>POS thu ngân</td>
+<td><code>/pos</code></td>
+<td><strong>Core</strong> — bán hàng trên tablet/phone</td>
+<td><code>POS/Create</code> có <span class="citation"
+data-cites="media">@media</span></td>
+</tr>
+<tr>
+<td>Bếp realtime</td>
+<td><code>/kitchen</code></td>
+<td><strong>Core</strong> — Masterchef home mặc định</td>
+<td>có (layout đơn giản)</td>
+</tr>
+<tr>
+<td>Quét QR</td>
+<td><code>/guard/scan</code></td>
+<td><strong>Core</strong> — camera phone</td>
+<td><code>Guard/Scan</code> có <span class="citation"
+data-cites="media">@media</span></td>
+</tr>
+<tr>
+<td>Đơn hàng</td>
+<td><code>/orders</code> + <code>Detail</code> +
+<code>PrintBill</code></td>
+<td>Xem/xác nhận đơn</td>
+<td><code>Orders/Index</code> có <span class="citation"
+data-cites="media">@media</span></td>
+</tr>
+<tr>
+<td>Đặt lịch nhanh</td>
+<td><code>/booking/create</code></td>
+<td>Lễ tân phone</td>
+<td><code>BookingCreate</code> có <span class="citation"
+data-cites="media">@media</span></td>
+</tr>
+<tr>
+<td>Kho nhanh</td>
+<td><code>/inventory/dashboard</code>,
+<code>/inventory/alerts</code></td>
+<td>Kiểm tồn tại quầy</td>
+<td>có</td>
+</tr>
+<tr>
+<td>Sitemap</td>
+<td><code>/sitemap</code></td>
+<td>Hub điều hướng mobile</td>
+<td><code>Sitemap.razor.css</code> có <span class="citation"
+data-cites="media">@media</span></td>
+</tr>
+</tbody>
+</table>
+<h3
+id="trang-responsive-nhưng-không-vào-mvp-mobile-app-desktop-nghiệp-vụ-vẫn-mở-được-qua-browser">2.3
+Trang responsive nhưng <strong>KHÔNG vào MVP mobile app</strong>
+(desktop nghiệp vụ — vẫn mở được qua browser)</h3>
+<p>Accounting (AccountingIndex, TransactionHistory, HKDBookDetail,
+PeriodClosing) · AuditTrail · TenantManagement ·
+OcrOnboarding/OcrSettings · EInvoice dashboard/invoices — có
+<code>@media</code> xem được nhưng thao tác nghiệp vụ nặng → <strong>ra
+ngoài scope cài icon</strong> [G2].</p>
+<h3 id="trang-chưa-responsive-70-admindesktop">2.4 Trang CHƯA responsive
+(~70 admin/desktop)</h3>
+<p>Reconcile, metering, community, cấu hình, CRM grids… — <strong>out of
+scope</strong> hoàn toàn (xem §3.2).</p>
+<hr />
+<h2 id="phạm-vi">3. PHẠM VI</h2>
+<h3 id="trong-phạm-vi-mvp">3.1 Trong phạm vi (MVP)</h3>
+<ol type="1">
+<li><strong>PWA shell cho ShopERP</strong>: <code>manifest.json</code> +
+<code>service-worker.js</code> + <code>pwa.js</code> (port từ KhachLink)
++ icons → cài icon “ShopERP” lên home screen.</li>
+<li><strong>Role-based start_url/deep-link</strong>: sau login, PWA mở
+đúng trang theo role (bếp→<code>/kitchen</code>,
+guard→<code>/guard/scan</code>, staff→<code>/pos</code>,
+owner→<code>/sitemap</code>) [G3].</li>
+<li><strong>7 trang ops trong §2.2</strong> chạy tốt trong standalone
+window (fullscreen, no browser chrome).</li>
+<li><strong>Offline fallback page</strong>: mất mạng → trang
+<code>offline.html</code> “Mất kết nối — chạm để thử lại” (KHÔNG offline
+data).</li>
+<li><strong>Update flow</strong>: SW update → toast “Có bản mới — Tải
+lại” (dùng y hệt SRI-deadlock fix của KhachLink).</li>
+<li>Tablet portrait+landscape cho POS/kitchen (đơn bếp cần
+landscape).</li>
+</ol>
+<h3 id="ngoài-phạm-vi-ghi-nợ">3.2 Ngoài phạm vi (ghi nợ)</h3>
+<ul>
+<li><strong>70 trang admin desktop</strong>
+(reconcile/metering/community/CRM) — desktop-only, mở browser như cũ
+[G4].</li>
+<li><strong>Offline nghiệp vụ</strong> (tạo đơn khi mất mạng → đồng bộ
+sau) — cần WASM/local queue, refactor lớn → nợ.</li>
+<li><strong>Push notification</strong> (order.created → bếp) — cần Web
+Push + VAPID + subscription store → nợ phase 2 (đã có
+<code>VAPID_KEY_GENERATION_GUIDE.md</code> tham khảo).</li>
+<li><strong>iOS PWA quirk</strong>: iOS Safari PWA không có push + giới
+hạn cache — ghi nhận, không cam kết parity Android.</li>
+<li>Cài icon cho <strong>KhachLink</strong> — đã có sẵn, không
+đụng.</li>
+</ul>
+<hr />
+<h2 id="thuật-ngữ">4. THUẬT NGỮ</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Thuật ngữ</th>
+<th>Nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PWA</td>
+<td>Progressive Web App — installable qua manifest + SW</td>
+</tr>
+<tr>
+<td>Standalone</td>
+<td><code>display: standalone</code> — cửa sổ riêng không thanh địa
+chỉ</td>
+</tr>
+<tr>
+<td>Shell</td>
+<td>HTML/CSS/JS/Blazor bootstrap cache sẵn trong SW</td>
+</tr>
+<tr>
+<td>Circuit</td>
+<td>Kết nối SignalR Blazor Server — <strong>bắt buộc
+online</strong></td>
+</tr>
+<tr>
+<td>SRI deadlock</td>
+<td>Stale SW cache → wasm hash mismatch → boot fail (đã fix ở KhachLink
+pwa.js)</td>
+</tr>
+<tr>
+<td>Ops page</td>
+<td>Trang vận hành tại điểm bán (POS/bếp/guard/đơn/đặt lịch/kho)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="yêu-cầu-chức-năng-fr">5. YÊU CẦU CHỨC NĂNG (FR)</h2>
+<h3 id="fr-1-installable-manifest">FR-1 — Installable manifest</h3>
+<ul>
+<li><code>GET /manifest.json</code> trả:
+<code>name: "Vạn An ShopERP"</code>, <code>short_name: "ShopERP"</code>,
+<code>display: standalone</code>, <code>orientation: any</code> (POS
+landscape được), <code>theme_color</code>/<code>background_color</code>
+theo brand ShopERP, <code>icons</code> 72→512 (maskable + any),
+<code>start_url: /</code>, <code>scope: /</code>,
+<code>lang: vi</code>.</li>
+<li><code>App.razor</code> <code>&lt;head&gt;</code> thêm
+<code>&lt;link rel="manifest"&gt;</code> + <code>apple-touch-icon</code>
++ <code>theme-color</code> meta.</li>
+<li><strong>AC:</strong> Chrome Android “Cài ứng dụng” hiện · iOS “Add
+to Home Screen” được · icon + tên đúng.</li>
+</ul>
+<h3
+id="fr-2-service-worker-cache-first-shell-network-first-circuit">FR-2 —
+Service worker (cache-first shell, network-first circuit)</h3>
+<ul>
+<li><code>service-worker.js</code> scope <code>/</code>: pre-cache
+<code>_framework/*</code>, <code>app.css</code>, bootstrap, icon,
+<code>offline.html</code>; versioned cache
+<code>shoperp-pwa-v{N}</code>.</li>
+<li>Chiến lược: <strong>network-first cho mọi request
+HTML/SignalR</strong> (luôn mới nhất, fallback <code>offline.html</code>
+khi fail); <strong>cache-first cho static framework/css/js</strong> (tải
+lại cực nhanh).</li>
+<li>SW KHÔNG cache API POST/PUT — chỉ GET static [G5].</li>
+<li><strong>AC:</strong> Lần mở thứ 2 &lt; ~2s tới màn login trên 4G ·
+mất mạng hiện <code>offline.html</code> không trắng trang.</li>
+</ul>
+<h3 id="fr-3-role-landing-sau-khi-cài-deep-link">FR-3 — Role landing sau
+khi cài (deep-link)</h3>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>PWA mở thẳng tới</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Masterchef</td>
+<td><code>/kitchen</code></td>
+</tr>
+<tr>
+<td>Guard</td>
+<td><code>/guard/scan</code></td>
+</tr>
+<tr>
+<td>Staff / StoreKeeper</td>
+<td><code>/pos</code></td>
+</tr>
+<tr>
+<td>Owner / ChiefAccountant / SystemAdmin</td>
+<td><code>/sitemap</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Cơ chế: <code>start_url: /</code> → server redirect theo role claim
+sau auth (giữ nguyên flow login hiện có — không đổi auth) [G3].</li>
+<li><strong>AC:</strong> Cài app → login role X → vào đúng trang role X,
+không qua bước chọn.</li>
+</ul>
+<h3 id="fr-4-ops-pages-trong-standalone">FR-4 — Ops pages trong
+standalone</h3>
+<ul>
+<li>7 trang §2.2 phải: render đúng trong standalone (no browser chrome),
+giữ được circuit khi chuyển trang (Blazor internal nav — không reload),
+không mất session khi app vào background &lt;5 phút (SignalR
+reconnect).</li>
+<li>POS: giữ được giỏ hàng đang tạo khi app bị đẩy background (state
+trong circuit; circuit rớt → reload giữ nguyên trang, không mất hàng
+trong đơn đã lưu) [G6].</li>
+<li>Guard scan: camera hoạt động trong PWA context (HTTPS đã có →
+getUserMedia OK).</li>
+</ul>
+<h3 id="fr-5-update-versioning">FR-5 — Update &amp; versioning</h3>
+<ul>
+<li>Deploy mới → SW detect update → toast “Có bản mới” + nút “Tải lại”
+(UX giống KhachLink); nếu SRI deadlock → auto-reload (không kẹt
+trắng).</li>
+<li>Version bump <code>shoperp-pwa-v{N}</code> mỗi release → cũ cache tự
+dọn.</li>
+</ul>
+<h3 id="fr-6-phân-quyền">FR-6 — Phân quyền</h3>
+<ul>
+<li>PWA dùng y hệt cookie auth hiện có — <strong>không</strong> đường
+nào cho user chưa login (redirect <code>/login</code> trong
+standalone).</li>
+<li>Role guard trang y hệt Blazor <code>[Authorize]</code> hiện có — PWA
+không mở thêm quyền nào.</li>
+</ul>
+<hr />
+<h2 id="yêu-cầu-phi-chức-năng-nfr">6. YÊU CẦU PHI CHỨC NĂNG (NFR)</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>NFR</th>
+<th>Yêu cầu</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NFR-1 Hiệu năng</td>
+<td>Cold start PWA ≤ 3s trên 4G tới trang login · mở lần 2 ≤ 1.5s (cache
+shell)</td>
+</tr>
+<tr>
+<td>NFR-2 Kết nối</td>
+<td>SignalR reconnect ≤ 5s khi mạng chập chờn · banner “Đang kết nối
+lại” (Blazor default UI)</td>
+</tr>
+<tr>
+<td>NFR-3 Kích thước</td>
+<td>Pre-cache ≤ ~15MB (framework+css — giới hạn iOS)</td>
+</tr>
+<tr>
+<td>NFR-4 Tương thích</td>
+<td>Android Chrome/Edge ≥ v120 · iOS Safari ≥ 16.4 (ghi nhận không push)
+· tablet portrait+landscape</td>
+</tr>
+<tr>
+<td>NFR-5 Bảo mật</td>
+<td>Không cache dữ liệu auth/order vào SW · HTTPS bắt buộc (đã có)</td>
+</tr>
+<tr>
+<td>NFR-6 Không regression</td>
+<td>Desktop ShopERP giữ nguyên — PWA chỉ <strong>thêm</strong>
+manifest/SW/meta, không sửa layout desktop</td>
+</tr>
+<tr>
+<td>NFR-7 Read-only với build</td>
+<td>Không migration, không Domain, không project mới — chỉ
+<code>wwwroot/</code> + <code>App.razor</code> + (nếu cần) redirect
+landing</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="case-test">7. CASE TEST</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Case</th>
+<th>Kỳ vọng</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T1</td>
+<td>Chrome Android → app2 → menu “Cài ứng dụng”</td>
+<td>Icon “ShopERP” + splash đúng</td>
+</tr>
+<tr>
+<td>T2</td>
+<td>Cài → mở → login Masterchef</td>
+<td>Vào thẳng <code>/kitchen</code>, không browser chrome</td>
+</tr>
+<tr>
+<td>T3</td>
+<td>Staff login → POS tạo đơn 2 món → thanh toán</td>
+<td>Luồng đầy đủ trong standalone</td>
+</tr>
+<tr>
+<td>T4</td>
+<td>Guard login → <code>/guard/scan</code> → quét QR</td>
+<td>Camera mở trong PWA</td>
+</tr>
+<tr>
+<td>T5</td>
+<td>Đang POS → tắt WiFi</td>
+<td><code>offline.html</code> hiện (không trắng)</td>
+</tr>
+<tr>
+<td>T6</td>
+<td>Bật WiFi lại</td>
+<td>Circuit reconnect, đơn đã lưu còn nguyên</td>
+</tr>
+<tr>
+<td>T7</td>
+<td>Deploy build mới → mở app</td>
+<td>Toast “Có bản mới” → tải lại → không SRI trắng</td>
+</tr>
+<tr>
+<td>T8</td>
+<td>iOS Safari → Add to Home Screen → mở</td>
+<td>Icon + standalone chạy được (ghi nhận: không push)</td>
+</tr>
+<tr>
+<td>T9</td>
+<td>Owner login → <code>/sitemap</code> → đi tới Orders → chi tiết</td>
+<td>Nav không reload, responsive đúng</td>
+</tr>
+<tr>
+<td>T10</td>
+<td>Desktop Chrome vẫn truy cập <code>/pos</code> qua browser</td>
+<td>Giữ nguyên — không ảnh hưởng</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="ràng-buộc-kỹ-thuật-kiến-trúc">8. RÀNG BUỘC KỸ THUẬT &amp; KIẾN
+TRÚC</h2>
+<ul>
+<li><strong>Blazor Server = online-only</strong> — SW chỉ cache shell,
+circuit mất = <code>offline.html</code>. Không hứa offline data
+[G1].</li>
+<li><strong>Không sửa Domain/entity/migration</strong> — chỉ
+<code>5_WebApps/ShopERP/wwwroot/</code> + <code>App.razor</code> + (tùy
+chọn) redirect role.</li>
+<li><strong>Tái dùng pwa.js của KhachLink nguyên trạng</strong> — port
+file, chỉ đổi cache name + scope; giữ SRI deadlock fix.</li>
+<li><strong>Icon</strong>: tái dùng tạm brand assets có sẵn (favicon.png
+upscale) hoặc bộ icon mới — chốt nguồn icon ở [G7].</li>
+<li><strong>Gateway không đổi</strong> — PWA thuần phía ShopERP
+host.</li>
+<li><strong>UI Platform</strong>: mọi chỉnh sửa nhỏ trên ops pages dùng
+VanA* components, không HTML tùy ý.</li>
+</ul>
+<hr />
+<h2 id="kế-hoạch-triển-khai-phase">9. KẾ HOẠCH TRIỂN KHAI (phase)</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Nội dung</th>
+<th>Output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P0</td>
+<td>manifest + icons + meta vào <code>App.razor</code> +
+<code>manifest.json</code></td>
+<td>Cài được icon (chưa cache gì)</td>
+</tr>
+<tr>
+<td>P1</td>
+<td>port <code>pwa.js</code> + <code>service-worker.js</code> +
+<code>offline.html</code></td>
+<td>Cache shell + offline fallback + update toast</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>role landing redirect + 7 trang verify standalone</td>
+<td>T2/T3/T4 pass</td>
+</tr>
+<tr>
+<td>P3</td>
+<td>bUnit/layout test + E2E <code>shoperp-admin-pwa.spec.ts</code> (Gate
+4) + RV production</td>
+<td>Tests pass</td>
+</tr>
+<tr>
+<td>P4</td>
+<td>push → CD → RV (install thật trên Android/iOS)</td>
+<td>Deployed</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="tiêu-chí-chấp-nhận-acceptance">10. TIÊU CHÍ CHẤP NHẬN
+(ACCEPTANCE)</h2>
+<ol type="1">
+<li><code>chrome://inspect</code>/<code>about:blank</code> Android cài
+app được từ <code>app2</code> production.</li>
+<li>Masterchef login → <code>/kitchen</code> standalone, đơn mới vào
+realtime.</li>
+<li>Mất mạng → <code>offline.html</code>, có mạng → reconnect không mất
+phiên.</li>
+<li>Update app → toast + reload, không trắng trang.</li>
+<li>Tất cả T1–T10 pass · desktop không regression · Lighthouse PWA
+installable ✓.</li>
+</ol>
+<hr />
+<h2 id="câu-hỏi-mở-cần-chốt-trước-khi-code">11. CÂU HỎI MỞ — cần chốt
+trước khi code</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Câu hỏi</th>
+<th>Đề xuất mặc định</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>G1</td>
+<td>Chấp nhận <strong>không offline nghiệp vụ</strong> (chỉ shell)?</td>
+<td>Có — Blazor Server bắt buộc online</td>
+</tr>
+<tr>
+<td>G2</td>
+<td>Accounting/admin trang có <code>@media</code> sẵn — cho vào app hay
+để browser?</td>
+<td>Để browser — app chỉ 7 trang ops</td>
+</tr>
+<tr>
+<td>G3</td>
+<td>Role landing: hardcode map hay đọc từ profile?</td>
+<td>Hardcode map đơn giản (role→url)</td>
+</tr>
+<tr>
+<td>G4</td>
+<td>70 trang admin desktop — cần roadmap responsive sau không?</td>
+<td>Ghi nợ, không scope MVP</td>
+</tr>
+<tr>
+<td>G5</td>
+<td>SW cache có GET API nào không (catalog/orders list)?</td>
+<td>Không — chỉ static shell</td>
+</tr>
+<tr>
+<td>G6</td>
+<td>POS mất kết nối giữa chừng — giữ state thế nào?</td>
+<td>Circuit rớt → reload trang; đơn đã save vẫn nguyên (ghi nhận không
+giữ draft chưa lưu)</td>
+</tr>
+<tr>
+<td>G7</td>
+<td>Icon PWA: upscale favicon hiện có hay thiết kế bộ mới?</td>
+<td>Upscale tạm, thiết kế sau</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><em>Tài liệu liên quan:
+<code>docs/user-guide/System_Features_UseCase_View.md</code> (bản đồ
+tính năng) ·
+<code>5_WebApps/KhachLink/wwwroot/{manifest.json,service-worker.js,js/pwa.js}</code>
+(pattern tái dùng) · <code>docs/AI/VAPID_KEY_GENERATION_GUIDE.md</code>
+(phase 2 push) ·
+<code>docs/guides/laptop-selfhost-deploy-guide.md</code>.</em></p>
+</body>
+</html>
