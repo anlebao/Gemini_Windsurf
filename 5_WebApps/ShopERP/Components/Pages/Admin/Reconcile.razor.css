@@ -1,0 +1,16 @@
+/* Tra soát số liệu P4 — scoped styles */
+.reconcile-page { padding: 1rem; }
+.reconcile-page .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.reconcile-page .page-header h1 { font-size: 1.5rem; margin: 0; }
+.reconcile-page .loading-state { display: flex; flex-direction: column; align-items: center; padding: 2rem; }
+.reconcile-page .loading-state p { margin-top: .75rem; color: var(--text-muted, #6c757d); }
+
+.rc-badge { display: inline-block; padding: .15rem .55rem; border-radius: .5rem; font-size: .8rem; font-weight: 600; }
+.rc-badge-pass { background: #d1e7dd; color: #0f5132; }
+.rc-badge-info { background: #cff4fc; color: #055160; }
+.rc-badge-warning { background: #fff3cd; color: #664d03; }
+.rc-badge-error { background: #f8d7da; color: #842029; }
+
+.rc-details { margin: .5rem 0 0; padding: .5rem; background: #f8f9fa; border-radius: .35rem; font-size: .78rem; white-space: pre-wrap; max-width: 100%; overflow-x: auto; }
+.rc-suggestions { margin: 0; padding-left: 1.2rem; }
+.rc-suggestions li { margin-bottom: .35rem; }

@@ -379,6 +379,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                 // Phí nền tảng P6: rate card management (SystemAdmin — trang policy = SystemAdmin).
                 configChildren.Add(new() { Title = "Phí nền tảng — Rate Card", Icon = "speedometer2", Url = "/admin/metering/rate-cards" });
                 configChildren.Add(new() { Title = "Phí nền tảng — Top-up", Icon = "qr-code-scan", Url = "/admin/metering/topups" });
+                // Tra soát số liệu kế toán P4 (SRS v1.1 — G9 SystemAdmin).
+                configChildren.Add(new() { Title = "Tra soát số liệu kế toán", Icon = "clipboard2-check", Url = "/admin/reconcile" });
             }
             items.Add(new()
             {

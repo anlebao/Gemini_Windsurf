@@ -1,0 +1,177 @@
+@page "/admin/reconcile"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "SystemAdmin")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.CoreHub.Services.Reconcile
+@using VanAn.ShopERP.Services
+@inject ReconcileAdminApiClient ReconcileApi
+@inject TenantApiClient TenantApi
+@inject ILogger<Reconcile> Logger
+
+<div class="reconcile-page">
+    <header class="page-header">
+        <h1><i class="bi bi-clipboard2-check"></i> Tra soát số liệu kế toán</h1>
+        <div class="header-actions">
+            @if (_result is not null)
+            {
+                <VanAButton Variant="secondary" Size="small" OnClick="RunAsync" IsLoading="@_isRunning" data-testid="btn-rerun-reconcile">
+                    Chạy lại
+                </VanAButton>
+            }
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Variant="@_alertType" Message="@_alertMessage" Dismissible="true" OnDismiss="() => _alertMessage = string.Empty" />
+    }
+
+    @* Form chọn tenant + kỳ *@
+    <VanACard>
+        <ChildContent>
+            <div class="row">
+                <div class="col-md-5 form-group">
+                    <label for="rc-tenant">Tenant</label>
+                    <select id="rc-tenant" class="vanan-select" @bind="_tenantId" data-testid="rc-tenant">
+                        <option value="">— chọn tenant —</option>
+                        @foreach (var t in _tenants)
+                        {
+                            <option value="@t.Id">@t.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3 form-group">
+                    <VanAInput Id="rc-period" Label="Kỳ (YYYY-MM)" Value="@_period" ValueChanged="v => _period = v" />
+                </div>
+                <div class="col-md-4 form-group d-flex align-items-end">
+                    <VanAButton Variant="primary" OnClick="RunAsync" IsLoading="@_isRunning" data-testid="btn-run-reconcile">
+                        Tra soát
+                    </VanAButton>
+                </div>
+            </div>
+        </ChildContent>
+    </VanACard>
+
+    @if (_isRunning)
+    {
+        <VanACard>
+            <ChildContent>
+                <div class="loading-state"><VanASpinner Size="large" /><p>Đang chạy tra soát R1-R12...</p></div>
+            </ChildContent>
+        </VanACard>
+    }
+    else if (_result is not null)
+    {
+        @* Summary 4 thẻ *@
+        <div class="row mb-3" data-testid="rc-summary">
+            <div class="col-md-3"><VanAMetricsCard Title="Tổng check" Value="@_result.Summary.Total.ToString()" Icon="list-check" Color="primary" /></div>
+            <div class="col-md-3"><VanAMetricsCard Title="Pass" Value="@_result.Summary.Pass.ToString()" Icon="check-circle" Color="success" /></div>
+            <div class="col-md-3"><VanAMetricsCard Title="Warning" Value="@_result.Summary.Warning.ToString()" Icon="exclamation-triangle" Color="warning" /></div>
+            <div class="col-md-3"><VanAMetricsCard Title="Error" Value="@_result.Summary.Error.ToString()" Icon="x-octagon" Color="error" /></div>
+        </div>
+        <p class="text-muted" data-testid="rc-meta">
+            Kỳ @_result.Period · @_result.TenantName · chạy lúc @_result.RanAt.ToString("yyyy-MM-dd HH:mm:ss") UTC
+        </p>
+
+        @* Checks table *@
+        <VanACard Header="Kết quả kiểm tra (R1-R12)">
+            <ChildContent>
+                <table class="vanan-table" data-testid="rc-checks-table">
+                    <thead>
+                        <tr><th>Mã</th><th>Check</th><th>Mức</th><th>Số liệu</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in _result.Checks)
+                        {
+                            <tr data-testid="rc-check-row">
+                                <td><code>@c.Code</code></td>
+                                <td>@c.Name</td>
+                                <td><span class="rc-badge rc-badge-@c.Level.ToString().ToLowerInvariant()" data-testid="rc-level-@c.Level.ToString().ToLowerInvariant()">@c.Level</span></td>
+                                <td>@c.Summary</td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(c.Details))
+                                    {
+                                        <details><summary>Chi tiết</summary><pre class="rc-details">@c.Details</pre></details>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </ChildContent>
+        </VanACard>
+
+        @if (_result.Suggestions.Count > 0)
+        {
+            <VanACard Header="Gợi ý khắc phục">
+                <ChildContent>
+                    <ul class="rc-suggestions" data-testid="rc-suggestions">
+                        @foreach (var s in _result.Suggestions)
+                        {
+                            <li>@s</li>
+                        }
+                    </ul>
+                </ChildContent>
+            </VanACard>
+        }
+    }
+</div>
+
+@code {
+    private string _tenantId = string.Empty;
+    private string _period = $"{DateTime.UtcNow:yyyy-MM}";
+    private List<TenantApiDto> _tenants = new();
+    private ReconcileResult? _result;
+    private bool _isRunning;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _tenants = await TenantApi.ListAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load tenants for reconcile page");
+        }
+    }
+
+    private async Task RunAsync()
+    {
+        if (_isRunning) return;
+        if (string.IsNullOrWhiteSpace(_tenantId) || !Guid.TryParse(_tenantId, out Guid tid))
+        {
+            _alertType = "warning";
+            _alertMessage = "Chọn tenant trước khi tra soát.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_period) || !System.Text.RegularExpressions.Regex.IsMatch(_period.Trim(), @"^\d{4}-\d{2}$"))
+        {
+            _alertType = "warning";
+            _alertMessage = "Nhập kỳ dạng YYYY-MM (vd: 2026-10).";
+            return;
+        }
+
+        _isRunning = true;
+        _alertMessage = string.Empty;
+        try
+        {
+            _result = await ReconcileApi.RunAsync(tid, _period.Trim());
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Reconcile run failed");
+            _alertType = "error";
+            _alertMessage = $"Chạy tra soát thất bại: {ex.Message}";
+        }
+        finally
+        {
+            _isRunning = false;
+        }
+    }
+}

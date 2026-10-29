@@ -229,6 +229,7 @@ namespace VanAn.ShopERP
             // — OrderWorkflowService inject optional IOrderFlowService cho dynamic transitions.
             _ = builder.Services.AddScoped<Shared.Services.IOrderFlowService, VanAn.ShopERP.Services.OrderFlowApiClient>();
             _ = builder.Services.AddScoped<Services.OrderFlowAdminApiClient>(); // #195 P3a: SystemAdmin CRUD client
+            _ = builder.Services.AddScoped<Services.ReconcileAdminApiClient>(); // TRA SOÁT P4: SystemAdmin reconcile client
             _ = builder.Services.AddScoped<CoreHub.Services.IAccountingService, CoreHub.Services.AccountingEntryService>();
             // THU CHI & CÔNG NỢ MVP (P2, 2026-10-07): phiếu 131/331 + báo cáo + tuổi nợ FIFO (in-process, PG)
             _ = builder.Services.AddScoped<CoreHub.Services.CongNo.ICongNoService, CoreHub.Services.CongNo.CongNoService>();
