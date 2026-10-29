@@ -84,6 +84,29 @@ if [ "${1:-}" = "--after-payment" ]; then
   # G5: PG order PaymentStatus=Paid + Status=confirmed
   G5=$(GW "SELECT \\\"Status\\\"||'|'||\\\"PaymentStatus\\\" FROM \\\"Orders\\\" WHERE \\\"Id\\\" = '$ORDER';")
   chk "G5 PG Order confirmed|Paid ($G5)" "$( [ "$G5" = "confirmed|Paid" ] && echo 0 || echo 1 )" "row='$G5'"
+
+  # ── Issue #195 double-revenue journal regression (fix 21505b38) ──
+  # G6: KHÔNG còn journal trực tiếp ref 'Order' (double-revenue path đã bỏ — bridge single source)
+  G6=$(GW "SELECT COUNT(*) FROM \\\"JournalEntries\\\" WHERE \\\"ReferenceType\\\" = 'Order' AND \\\"ReferenceId\\\" = '$ORDER';")
+  chk "G6 KHÔNG journal ref 'Order' (double path removed) — count=$G6" "$( [ "$G6" = "0" ] && echo 0 || echo 1 )" "journals=$G6"
+
+  # G7: journal = ĐÚNG 1 bộ/order (2: revenue Nợ 111/Có 511 + COGS Nợ 632/Có 111) — bridge tạo từ entries
+  G7=$(GW "SELECT COUNT(*) FROM \\\"JournalEntries\\\" WHERE \\\"ReferenceId\\\" IN (SELECT \\\"Id\\\" FROM \\\"AccountingEntries\\\" WHERE \\\"Reference\\\" = '$ORDER');")
+  chk "G7 Journal ĐÚNG 1 bộ/order — count=$G7 (expect 2: revenue + COGS)" "$( [ "$G7" = "2" ] && echo 0 || echo 1 )" "journals=$G7"
+fi
+
+# ── DEPOSIT (chạy với --deposit sau sweep có deposit scenario) ──
+# Verify DepositPaidAmount snapshot (issue #195 follow-up 21505b38): order từ booking có cọc đã thu.
+if [ "${1:-}" = "--deposit" ]; then
+  DEPOSIT_ORDER=$(python3 -c "import json;print(json.load(open('$REPORT_WIN'))['depositOrderId'] or '')")
+  DEPOSIT_AMOUNT=$(python3 -c "import json;print(json.load(open('$REPORT_WIN'))['depositAmount'] or 0)")
+  echo "\n── Deposit checks (DepositPaidAmount snapshot) ──"
+  if [ -n "$DEPOSIT_ORDER" ]; then
+    D1=$(GW "SELECT \\\"DepositPaidAmount\\\" FROM \\\"Orders\\\" WHERE \\\"Id\\\" = '$DEPOSIT_ORDER';")
+    chk "D1 PG Order.DepositPaidAmount == $DEPOSIT_AMOUNT (actual=$D1)" "$( [ "$D1" = "$DEPOSIT_AMOUNT" ] && echo 0 || echo 1 )" "amount='$D1'"
+  else
+    chk "D1 (skip — no deposit order in report)" 1 "depositOrderId empty"
+  fi
 fi
 
 echo "\nDB-CHECK SUMMARY: $PASS PASS · $FAIL FAIL"

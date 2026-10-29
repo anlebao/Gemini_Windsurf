@@ -150,9 +150,93 @@ if (orderId) {
   check('D1 (skip — no orderId)', false, 'no order');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// E. DEPOSIT SCENARIO (issue #195 follow-up 21505b38): cọc đã thu → order
+// DepositPaidAmount snapshot → UI Detail "Đã thu cọc / Còn lại = Total − cọc".
+// Config: GET → PUT Fixed 10.000 (nếu khác) → booking → deposit/received →
+// complete → order; restore config sau (FAIL-SAFE: try/finally).
+// ═══════════════════════════════════════════════════════════════════════════
+console.log('\n── E. Deposit scenario (DepositPaidAmount snapshot) ──');
+let depositOrderId = null, depositBookingId = null, depositAmount = 0;
+if (TOK && slot) {
+  const orig = await api(GW, 'GET', '/api/tenant/booking/config', { token: TOK });
+  const origCfg = orig.data;
+  let configChanged = false;
+  try {
+    const needsChange = !(origCfg?.depositPolicy === 'Fixed' && origCfg?.depositFixedAmount === 10000);
+    if (needsChange) {
+      const put = await api(GW, 'PUT', '/api/tenant/booking/config', {
+        token: TOK,
+        body: {
+          IsEnabled: origCfg?.isEnabled ?? true,
+          DepositPolicy: 'Fixed',
+          DepositFixedAmount: 10000,
+          DepositPercentage: origCfg?.depositPercentage ?? null,
+          CancelReschedulePolicy: origCfg?.cancelReschedulePolicy ?? 'Free',
+          EinvoiceMode: origCfg?.einvoiceMode ?? 'None',
+        },
+      });
+      check('E1 PUT config Fixed 10.000 (deposit policy)',
+        put.status === 200 && put.data?.depositPolicy === 'Fixed' && put.data?.depositFixedAmount === 10000, f(put.data));
+      configChanged = put.status === 200;
+    } else {
+      check('E1 Config đã Fixed 10.000 (không cần đổi)', true, 'depositPolicy=Fixed depositFixedAmount=10000');
+    }
+
+    const idemDep = `rv195b-dep-${Date.now()}`;
+    const create = await api(GW, 'POST', '/api/tenant/booking/bookings', {
+      token: TOK,
+      body: { OfferingId: OFFERING, StartAt: slot, StaffId: STAFF, CustomerName: 'RV Deposit', CustomerPhone: '0900000001', CustomerNote: 'RV deposit snapshot sweep' },
+      headers: { 'Idempotency-Key': idemDep },
+    });
+    depositBookingId = create.data?.bookingId;
+    check('E2 Create booking (deposit policy) → 201 + DepositPending', 
+      create.status === 201 && !!depositBookingId, f(create.data));
+
+    if (depositBookingId) {
+      const rec = await api(GW, 'POST', `/api/tenant/booking/bookings/${depositBookingId}/deposit/received`, {
+        token: TOK, body: { Amount: 10000 },
+      });
+      check('E3 Deposit received 10.000 → Paid', rec.status === 200, f(rec.data));
+
+      const T = (path, body) => api(GW, 'POST', `/api/tenant/booking/bookings/${depositBookingId}${path}`, { token: TOK, body });
+      const ci = await T('/check-in');
+      const st = await T('/start');
+      const co = await T('/complete', { actualTotal: 300000 });
+      depositOrderId = co.data?.orderId;
+      depositAmount = 10000;
+      check('E4 Complete → Completed + OrderId (hook DepositPaidAmount)', 
+        co.status === 200 && co.data?.status === 'Completed' && !!depositOrderId, f(co.data));
+    } else {
+      check('E3-E4 (skip — no deposit booking)', false, 'no depositBookingId');
+    }
+  } finally {
+    // FAIL-SAFE: restore config gốc (chỉ khi đã đổi)
+    if (configChanged && origCfg) {
+      const restore = await api(GW, 'PUT', '/api/tenant/booking/config', {
+        token: TOK,
+        body: {
+          IsEnabled: origCfg.isEnabled ?? true,
+          DepositPolicy: origCfg.depositPolicy ?? 'None',
+          DepositFixedAmount: origCfg.depositFixedAmount ?? null,
+          DepositPercentage: origCfg.depositPercentage ?? null,
+          CancelReschedulePolicy: origCfg.cancelReschedulePolicy ?? 'Free',
+          EinvoiceMode: origCfg.einvoiceMode ?? 'None',
+        },
+      });
+      check('E5 Config restored', restore.status === 200, f(restore.data));
+    } else {
+      check('E5 Config restore (không cần — không đổi)', true, 'no change');
+    }
+  }
+} else {
+  check('E1-E5 (skip — no token/slot)', false, `token=${!!TOK} slot=${slot}`);
+}
+
 // ── Report ────────────────────────────────────────────────────────────────
 writeFileSync(REPORT_PATH, JSON.stringify({
   runAt: new Date().toISOString(), tenantId: TENANT, bookingId, orderId, code,
+  depositBookingId, depositOrderId, depositAmount,
   results, errors,
 }, null, 2));
 console.log(`\nReport: ${REPORT_PATH}`);
