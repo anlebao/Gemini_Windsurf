@@ -4,7 +4,7 @@
 > Source SRS: `docs/requirements/van_an_admin_mobile_pwa_srs_v1.md` (v1.0 — APPROVED)
 > Master plan: `docs/AI/plans/admin-mobile-pwa-master-plan.md` (ACTIVE — APPROVED 2026-10-30)
 > Branch: `main`
-> Status: **IN PROGRESS — chưa bắt đầu code (chờ khởi động phiên P0)**
+> Status: **✅ DONE (2026-10-30 — P0→P4 1 phiên: P0 manifest+icons · P1 SW+offline+pwa.js · P2 role landing · P3 E2E spec · P4 push  + CD SUCCESS + RV L1 files 200 + E2E 3/3 PASS production. L5 manual: user cài app trên điện thoại.)**
 
 ---
 
