@@ -873,6 +873,18 @@ namespace VanAn.Gateway
 
 
 
+            // TRA SOÁT SỐ LIỆU P2 (G8): R11 cross-store mirror — Gateway → ShopERP internal API
+            // (X-Internal-Api-Key, timeout <3s, fail-open: lỗi → null → R11 skip Info).
+            _ = builder.Services.AddHttpClient<VanAn.CoreHub.Services.Reconcile.IMirrorOrderProvider, VanAn.CoreHub.Services.Reconcile.MirrorOrderHttpProvider>(client =>
+            {
+                client.BaseAddress = new Uri(builder.Configuration["ShopERP:BaseUrl"] ?? "http://shoperp:80/");
+                client.Timeout = TimeSpan.FromSeconds(3);
+                string? apiKey = builder.Configuration["InternalLoyalty:ApiKey"];
+                if (!string.IsNullOrEmpty(apiKey)) client.DefaultRequestHeaders.TryAddWithoutValidation("X-Internal-Api-Key", apiKey);
+            });
+
+
+
             // Phí nền tảng P4: usage metering client — thin per-host wrapper (task_p4 D2).
             // Missing Metering:* config → client self-disables (staging works without metering).
             _ = builder.Services.AddHttpClient<IMeteringClient, Services.MeteringApiClient>(client =>
