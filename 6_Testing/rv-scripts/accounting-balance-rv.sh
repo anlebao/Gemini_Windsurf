@@ -50,8 +50,14 @@ info() { echo "  [INFO] $*"; }
 
 # ── SSH helper (pattern dbcheck.sh — \\\\\" cho quoted column, single-quote concat) ──
 GW() { # GW <sql>  → 1 giá trị (psql -t -A). Call sites PHẢI dùng \\\\\"Column\\\\\".
-  gcloud compute ssh "$GATEWAY_HOST" --zone "$ZONE" --project "$PROJECT" \
-    --command 'docker exec vanan-postgres-1 psql -U vanan_admin -d VanAnCoreHub -t -A -c "'"$1"'"' 2>/dev/null
+  local out="" i
+  for i in 1 2 3; do
+    out=$(gcloud compute ssh "$GATEWAY_HOST" --zone "$ZONE" --project "$PROJECT" \
+      --command 'docker exec vanan-postgres-1 psql -U vanan_admin -d VanAnCoreHub -t -A -c "'"$1"'"' 2>/dev/null)
+    [ -n "$out" ] && break
+    sleep 2   # transient SSH reset → retry (mọi query đều COALESCE/count → rỗng = lỗi kết nối)
+  done
+  echo "$out"
 }
 
 # ── 0. Xác định period + tenant ─────────────────────────────────────────────
