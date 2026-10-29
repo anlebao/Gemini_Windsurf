@@ -13,8 +13,8 @@ REPORT="$SCRIPT_DIR/booking-payment-rv-report.json"
 # Git Bash path (/c/...) → Windows path (C:/...) cho python Windows
 REPORT_WIN=$(echo "$REPORT" | sed 's|^/\([a-zA-Z]\)/|\1:/|')
 
-BOOKING=$(python3 -c "import json;print(json.load(open('$REPORT_WIN'))['bookingId'] or '')")
-ORDER=$(python3 -c "import json;print(json.load(open('$REPORT_WIN'))['orderId'] or '')")
+BOOKING=$(python3 -c "import json;print(json.load(open('$REPORT_WIN', encoding='utf-8'))['bookingId'] or '')")
+ORDER=$(python3 -c "import json;print(json.load(open('$REPORT_WIN', encoding='utf-8'))['orderId'] or '')")
 echo "bookingId=$BOOKING orderId=$ORDER"
 [ -n "$BOOKING" ] && [ -n "$ORDER" ] || { echo "Sweep chưa tạo được booking/order — skip DB check"; exit 1; }
 
@@ -34,8 +34,8 @@ CNT_BK=$(GW "SELECT COUNT(*) FROM \\\"AccountingEntries\\\" WHERE \\\"Reference\
 chk "G2 Không có revenue Booking:{id} (skip guard) — count=$CNT_BK" "$( [ "$CNT_BK" = "0" ] && echo 0 || echo 1 )" "entries=$CNT_BK"
 
 # G3: PG order — SourceType=booking · Status=pending · PaymentStatus=Pending (CHỈ pre-payment)
-# G3/S1/S2 là assert trạng thái TRƯỚC "Thanh toán" — bỏ qua khi chạy --after-payment (đơn đã Paid).
-if [ "${1:-}" != "--after-payment" ]; then
+# G3/S1/S2 là assert trạng thái TRƯỚC "Thanh toán" — bỏ qua khi chạy post-payment (--after-payment/--deposit — đơn đã Paid).
+if [ "${1:-}" != "--after-payment" ] && [ "${1:-}" != "--deposit" ]; then
   ROW=$(GW "SELECT \\\"SourceType\\\"||'|'||\\\"Status\\\"||'|'||\\\"PaymentStatus\\\" FROM \\\"Orders\\\" WHERE \\\"Id\\\" = '$ORDER';")
   chk "G3 PG Order booking|pending|Pending ($ROW)" "$( [ "$ROW" = "booking|pending|Pending" ] && echo 0 || echo 1 )" "row='$ROW'"
 fi
@@ -53,7 +53,7 @@ db.close()
 \"" 2>/dev/null; }
 
 # S1: order mirror có mặt + SourceType=booking + pending + Pending (CHỈ pre-payment)
-if [ "${1:-}" != "--after-payment" ]; then
+if [ "${1:-}" != "--after-payment" ] && [ "${1:-}" != "--deposit" ]; then
   S1=$(SQ "SELECT SourceType||'|'||Status||'|'||PaymentStatus FROM Orders WHERE Id='${ORDER^^}'")
   chk "S1 SQLite Order booking|pending|Pending ($S1)" "$( [ "$S1" = "booking|pending|Pending" ] && echo 0 || echo 1 )" "row='$S1'"
 
@@ -99,12 +99,13 @@ fi
 # Verify DepositPaidAmount snapshot + journal offset 3387 (issue #195 follow-up 21505b38 + offset):
 # order từ booking có cọc đã thu → DepositPaidAmount=10000 · journal 3 bộ (revenue + offset + COGS).
 if [ "${1:-}" = "--deposit" ]; then
-  DEPOSIT_ORDER=$(python3 -c "import json;print(json.load(open('$REPORT_WIN'))['depositOrderId'] or '')")
-  DEPOSIT_AMOUNT=$(python3 -c "import json;print(json.load(open('$REPORT_WIN'))['depositAmount'] or 0)")
+  DEPOSIT_ORDER=$(python3 -c "import json;print(json.load(open('$REPORT_WIN', encoding='utf-8'))['depositOrderId'] or '')")
+  DEPOSIT_AMOUNT=$(python3 -c "import json;print(json.load(open('$REPORT_WIN', encoding='utf-8'))['depositAmount'] or 0)")
   echo "\n── Deposit checks (DepositPaidAmount snapshot + offset journal) ──"
   if [ -n "$DEPOSIT_ORDER" ]; then
     D1=$(GW "SELECT \\\"DepositPaidAmount\\\" FROM \\\"Orders\\\" WHERE \\\"Id\\\" = '$DEPOSIT_ORDER';")
-    chk "D1 PG Order.DepositPaidAmount == $DEPOSIT_AMOUNT (actual=$D1)" "$( [ "$D1" = "$DEPOSIT_AMOUNT" ] && echo 0 || echo 1 )" "amount='$D1'"
+    D1_NUM=$(echo "$D1" | cut -d. -f1)   # numeric formatting "10000.00" → "10000"
+    chk "D1 PG Order.DepositPaidAmount == $DEPOSIT_AMOUNT (actual=$D1)" "$( [ "$D1_NUM" = "$DEPOSIT_AMOUNT" ] && echo 0 || echo 1 )" "amount='$D1'"
 
     # D2: offset entry tồn tại (EntryType DepositOffset — Nợ 3387/Có 511) với reference order-DEPOSIT-OFFSET
     D2=$(GW "SELECT COUNT(*) FROM \\\"AccountingEntries\\\" WHERE \\\"Reference\\\" = '$DEPOSIT_ORDER-DEPOSIT-OFFSET';")

@@ -47,7 +47,7 @@ test.describe('Issue #195 booking-payment RV (production)', () => {
     await expect(page.getByTestId('btn-confirm-payment')).toHaveCount(0);
   });
 
-  test('3. Deposit order — Detail hiển thị "Đã thu cọc" + "Còn lại = Total − cọc"', async ({ page }) => {
+  test('3. Deposit order — "Đã thu cọc / Còn lại" hiển thị + "Thanh toán" (offset 3387)', async ({ page }) => {
     test.skip(!DEPOSIT_ORDER_ID, 'no deposit order in report (sweep deposit scenario skipped)');
     await page.goto(`/orders/${DEPOSIT_ORDER_ID}`);
     await page.waitForLoadState('networkidle');
@@ -55,10 +55,18 @@ test.describe('Issue #195 booking-payment RV (production)', () => {
     // Booking order: SourceType=booking + DepositPaidAmount>0 → 2 dòng cọc
     await expect(page.getByText('Đã thu cọc')).toBeVisible({ timeout: 30000 });
     await expect(page.getByText('Còn lại cần thu')).toBeVisible();
-    // Số còn lại = 300.000 − cọc (culture-tolerant: "290.000" hoặc "290,000")
-    const remaining = 300000 - DEPOSIT_AMOUNT;
+    // TotalAmount = 300.000 (offering) + VAT 10% 30.000 = 330.000 → Còn lại = 330.000 − cọc
+    const TOTAL_AMOUNT = 330000; // Massage 60 phút 300.000 + VAT 10%
+    const remaining = TOTAL_AMOUNT - DEPOSIT_AMOUNT;
+    // Số còn lại (culture-tolerant: "320.000" hoặc "320,000")
     await expect(page.getByText(new RegExp(`${remaining.toLocaleString('en-US')}|${remaining.toLocaleString('vi-VN')}`))).toBeVisible();
     // "Đã thu cọc" hiển thị đúng số cọc (culture-tolerant)
     await expect(page.getByText(new RegExp(`${DEPOSIT_AMOUNT.toLocaleString('en-US')}|${DEPOSIT_AMOUNT.toLocaleString('vi-VN')}`))).toBeVisible();
+
+    // Thanh toán cuối → Paid + confirmed (deposit offset entry được tạo — dbcheck --deposit verify)
+    await expect(page.getByTestId('btn-confirm-detail')).toBeVisible({ timeout: 15000 });
+    await page.getByTestId('btn-confirm-detail').click();
+    await expect(page.getByTestId('timeline-step-confirmed')).toHaveClass(/current/, { timeout: 20000 });
+    await expect(page.getByTestId('btn-confirm-payment')).toHaveCount(0);
   });
 });
