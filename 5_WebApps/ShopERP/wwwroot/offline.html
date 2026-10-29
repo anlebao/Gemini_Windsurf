@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShopERP — Mất kết nối</title>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee;
+           display: flex; align-items: center; justify-content: center; min-height: 100vh; text-align: center; }
+    .box { padding: 2rem; max-width: 22rem; }
+    h1 { font-size: 1.4rem; margin: 0 0 .75rem; }
+    p { color: #aab; margin: 0 0 1.5rem; }
+    button { background: #2c5f2d; color: #fff; border: 0; border-radius: .5rem;
+             padding: .8rem 2rem; font-size: 1rem; cursor: pointer; }
+    .note { font-size: .8rem; color: #778; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>Mất kết nối mạng</h1>
+    <p>ShopERP cần kết nối internet để hoạt động. Kiểm tra WiFi/4G rồi thử lại.</p>
+    <button onclick="location.reload()">Thử lại</button>
+    <p class="note">Trang sẽ tự tải lại khi có mạng.</p>
+  </div>
+  <script>
+    window.addEventListener('online', function () { location.reload(); });
+    setInterval(function () { if (navigator.onLine) location.reload(); }, 5000);
+  </script>
+</body>
+</html>

@@ -39,6 +39,13 @@
     <script src="_framework/blazor.web.js"></script>
     <!-- Phase 2 Scaling: Circuit keepalive ping 10s — giữ circuit sống qua proxy idle timeout -->
     <script src="js/circuit-keepalive.js"></script>
+    <!-- Admin Mobile PWA: SW registration + update toast (SRI-deadlock fix — port KhachLink pwa.js) -->
+    <script src="js/pwa.js"></script>
+    <script>
+        if (window.vananPWA && typeof window.vananPWA.registerServiceWorker === 'function') {
+            window.vananPWA.registerServiceWorker();
+        }
+    </script>
     <script>
         // Reads current DOM values for the given element ids. Used as a robust
         // fallback for collecting form data at submit time, independent of binding timing.

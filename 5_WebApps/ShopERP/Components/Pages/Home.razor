@@ -1,4 +1,5 @@
 ﻿@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @inject NavigationManager NavigationManager
 
@@ -9,8 +10,21 @@
 </div>
 
 @code {
-    protected override void OnInitialized()
+    // Admin Mobile PWA (SRS van_an_admin_mobile_pwa_srs_v1 — G3 hardcode map):
+    // start_url "/" → landing đúng trang làm việc theo role.
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    protected override async Task OnInitializedAsync()
     {
-        NavigationManager.NavigateTo("/sitemap", replace: true);
+        var target = "/sitemap";
+        if (AuthState is not null)
+        {
+            var user = (await AuthState).User;
+            if (user.IsInRole("Masterchef")) target = "/kitchen";
+            else if (user.IsInRole("Guard")) target = "/guard/scan";
+            else if (user.IsInRole("Staff") || user.IsInRole("StoreKeeper")) target = "/pos";
+        }
+        NavigationManager.NavigateTo(target, replace: true);
     }
 }
