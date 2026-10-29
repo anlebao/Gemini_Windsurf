@@ -11,6 +11,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"]</title>
+    <link rel="manifest" href="~/manifest.json" />
+    <meta name="theme-color" content="#2c5f2d" />
+    <link rel="apple-touch-icon" href="~/icons/icon-192x192.png" />
     <link rel="stylesheet" href="~/bootstrap/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <style>
@@ -127,6 +130,21 @@
             border-radius: 4px;
             font-size: 0.75rem;
         }
+        .pwa-install-btn {
+            height: 48px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            background: #fff;
+            color: #667eea;
+            border: 2px solid #667eea;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .pwa-install-btn:hover {
+            background: #f0f3ff;
+            color: #5a6fd8;
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 <body>
@@ -189,6 +207,12 @@
             }
         </form>
 
+        <button type="button" id="pwa-install-btn"
+                aria-label="Cài đặt ứng dụng ShopERP"
+                class="btn pwa-install-btn w-100 mt-3">
+            <i class="bi bi-phone me-2"></i>Cài ứng dụng lên điện thoại
+        </button>
+
         <div class="demo-hint">
             <i class="bi bi-info-circle me-1"></i>
             <strong>Tài khoản demo:</strong><br />
@@ -196,5 +220,19 @@
             Masterchef: <code>bep@vanan.vn</code> / Guard: <code>baove@vanan.vn</code>
         </div>
     </div>
+    <script src="~/js/pwa.js"></script>
+    <script>
+        // Admin Mobile PWA: đăng ký SW trên trang Login để Chrome đủ điều kiện
+        // beforeinstallprompt ngay tại đây; nút bấm → vananPWA.showInstallPrompt()
+        // xử lý mọi case (deferred prompt / iOS instructions / đã cài / in-app browser).
+        if (window.vananPWA && typeof window.vananPWA.registerServiceWorker === 'function') {
+            window.vananPWA.registerServiceWorker();
+        }
+        document.getElementById('pwa-install-btn').addEventListener('click', function () {
+            if (window.vananPWA && typeof window.vananPWA.showInstallPrompt === 'function') {
+                window.vananPWA.showInstallPrompt();
+            }
+        });
+    </script>
 </body>
 </html>
