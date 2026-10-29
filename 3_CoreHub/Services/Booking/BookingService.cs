@@ -689,6 +689,11 @@ namespace VanAn.CoreHub.Services.Booking
                                 CustomerNotes = booking.CustomerNote,
                                 TrackingCode = booking.PublicBookingCode,   // idempotency recovery key
                                 SourceType = "booking",                     // Issue #195: booking→order flow (Thanh toán + Hoàn thành)
+                                // Issue #195 follow-up (2026-10-29): cọc đã thu → order biết số còn lại khi "Thanh toán"
+                                DepositPaidAmount = booking.DepositRequired && booking.DepositAmount is > 0
+                                    && booking.PaymentStatus == PaymentStatus.Paid
+                                    ? booking.DepositAmount.Value
+                                    : 0m,
                                 Items = items.Select(i => new OrderItemRequest
                                 {
                                     ProductId = i.OfferingId ?? i.AddOnId ?? Guid.NewGuid(),

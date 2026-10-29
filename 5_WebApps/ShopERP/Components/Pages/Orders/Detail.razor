@@ -77,6 +77,12 @@
                 <div class="info-group">
                     <div class="info-group__title">Thanh toán</div>
                     <div class="info-row"><span class="info-label">Tổng tiền</span><span class="amount">@order.TotalAmount.ToString("N0") đ</span></div>
+                    @* Issue #195 follow-up (2026-10-29): booking có cọc — hiển thị số còn lại cần thu *@
+                    @if (order.SourceType == "booking" && order.DepositPaidAmount > 0)
+                    {
+                        <div class="info-row"><span class="info-label">Đã thu cọc</span><span>@order.DepositPaidAmount.ToString("N0") đ</span></div>
+                        <div class="info-row"><span class="info-label">Còn lại cần thu</span><span class="amount">@((order.TotalAmount - order.DepositPaidAmount).ToString("N0")) đ</span></div>
+                    }
                     <div class="info-row"><span class="info-label">Phương thức</span><span>@(order.PaymentMethod ?? "—")</span></div>
                     <div class="info-row"><span class="info-label">Trạng thái</span><span class="payment-badge">@order.PaymentStatus</span></div>
                 </div>
@@ -473,6 +479,7 @@
             CustomerPhone = domainOrder.CustomerInfo?.PhoneNumber,
             CustomerNotes = domainOrder.CustomerNotes,
             SourceType = domainOrder.SourceType,
+            DepositPaidAmount = domainOrder.DepositPaidAmount,
             OrderType = domainOrder.OrderType,
             Items = domainOrder.Items?.Select(i => new OrderItemDto
             {
@@ -581,6 +588,7 @@
         public string? CustomerPhone { get; set; }
         public string? CustomerNotes { get; set; }
         public string? SourceType { get; set; }
+        public decimal DepositPaidAmount { get; set; }
         public string? OrderType { get; set; }
     }
 

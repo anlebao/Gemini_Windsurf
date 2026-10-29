@@ -341,6 +341,78 @@ namespace VanAn.Core.Tests.Services
             _ = result.TotalVatAmount.Should().Be(2.5m);
         }
 
+        // ============================================================================
+        // Issue #195 follow-up (2026-10-29): cọc booking đã thu — DepositPaidAmount snapshot.
+        // Khi "Thanh toán" cuối, số còn lại = Total − DepositPaidAmount (UI hiển thị).
+        // ============================================================================
+
+        [Fact]
+        public async Task CreateOrderFromCommandAsync_ShouldSetDepositPaidAmount_FromCommand()
+        {
+            // Arrange: booking cọc 10.000 đã thu → command.DepositPaidAmount = 10.000.
+            Guid productId = Guid.NewGuid();
+            Product product = new(_testTenantId, "Massage 60m", 300_000m, "Booking", 0m);
+            typeof(Product).GetProperty("Id")!.SetValue(product, productId);
+            typeof(Product).GetProperty("ProductId")!.SetValue(product, new ProductId(productId));
+
+            _ = _mockProductRepository
+                .Setup(x => x.GetByIdAsync(new ProductId(productId), _testTenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(product);
+
+            CreateOrderCommand command = new()
+            {
+                CustomerDeviceId = Guid.NewGuid(),
+                DepositPaidAmount = 10_000m, // cọc booking đã thu
+                Items = [new() { ProductId = productId, Quantity = 1, UnitPrice = 300_000m }]
+            };
+
+            _ = _mockOrderRepository
+                .Setup(x => x.AddAsyncNoSave(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Order o, CancellationToken _) => o);
+            _mockOrderRepository
+                .Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new Mock<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction>().Object);
+
+            // Act
+            Order result = await _orderService.CreateOrderFromCommandAsync(command, _testTenantId.Value);
+
+            // Assert — snapshot cọc vào Order (UI "Còn lại = Total − DepositPaidAmount")
+            _ = result.DepositPaidAmount.Should().Be(10_000m);
+        }
+
+        [Fact]
+        public async Task CreateOrderFromCommandAsync_DefaultDepositPaidAmount_IsZero()
+        {
+            // Arrange: additive — command không có cọc (đơn thường / booking không cọc).
+            Guid productId = Guid.NewGuid();
+            Product product = new(_testTenantId, "Cà phê đen", 25.0m, "Đồ uống", 0m);
+            typeof(Product).GetProperty("Id")!.SetValue(product, productId);
+            typeof(Product).GetProperty("ProductId")!.SetValue(product, new ProductId(productId));
+
+            _ = _mockProductRepository
+                .Setup(x => x.GetByIdAsync(new ProductId(productId), _testTenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(product);
+
+            CreateOrderCommand command = new()
+            {
+                CustomerDeviceId = Guid.NewGuid(),
+                Items = [new() { ProductId = productId, Quantity = 1, UnitPrice = 25.0m }]
+            };
+
+            _ = _mockOrderRepository
+                .Setup(x => x.AddAsyncNoSave(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Order o, CancellationToken _) => o);
+            _mockOrderRepository
+                .Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new Mock<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction>().Object);
+
+            // Act
+            Order result = await _orderService.CreateOrderFromCommandAsync(command, _testTenantId.Value);
+
+            // Assert — backward compatible 100%
+            _ = result.DepositPaidAmount.Should().Be(0m);
+        }
+
         [Theory]
         [InlineData("pending", "preparing", true)]   // Pending -> Processing(=preparing)
         [InlineData("pending", "cancelled", true)]
@@ -770,44 +842,52 @@ namespace VanAn.Core.Tests.Services
         }
 
         [Fact]
-        public async Task ConfirmPaymentAsync_ShouldSplitVatInJournalEntry_3Lines_SC17()
+        public async Task ConfirmPaymentAsync_ShouldNotCreateDirectJournal_DoubleRevenueFix_SC17()
         {
-            // Arrange (SC17): W0-T3 — VAT > 0 → JournalEntry has 3 lines (debit cash, credit 511, credit 3331).
+            // Issue #195 (2026-10-29): double revenue bug — OrderService TRƯỚC đây tạo JournalEntry
+            // TRỰC TIẾP (CreateRevenueEntryAsync + AddToBookAsync) NỮA, trong khi AccountingEntryService
+            // (ManualEntryJournalBridge, P2 #4) đã tạo journal cho mọi entry → mỗi order paid sinh
+            // 2 journal revenue → sổ HKD nhân đôi (booking 100.000 → sổ ghi 200.000).
+            // Fix: OrderService CHỈ tạo AccountingEntry — bridge là single source cho JournalEntry.
+            // Assert: AddToBookAsync KHÔNG được gọi (0 journal trực tiếp) + entry 511/3331/COGS đủ 1 lần.
             Guid orderId = Guid.NewGuid();
             OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, Guid.NewGuid(), quantity: 1, unitPrice: 100m);
-            // item: SubTotal=100, VatAmount=10 (10% default) → netRevenue=100, VAT=10, cashDebit=110.
+            // item: SubTotal=100, VatAmount=10 (10% default) → netRevenue=100, VAT=10.
             Order orderWithItems = Order.Create(orderId, _testTenantId, null, [item]);
             Order orderLight = TestEntityBuilder.CreateOrder(_testTenantId, 110m);
             SetupConfirmPaymentMocks(orderLight, orderWithItems, orderId);
 
-            JournalEntry? capturedRevenueJe = null;
-            _ = _mockHkdBookRepository
-                .Setup(x => x.AddToBookAsync(It.IsAny<JournalEntry>(), AccountingBookType.S2b_HKD, It.IsAny<CancellationToken>()))
-                .Callback((JournalEntry je, AccountingBookType _, CancellationToken _) => capturedRevenueJe = je)
-                .Returns(Task.CompletedTask);
-
             // Act
             await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-SC17");
 
-            // Assert: JE has 3 lines — debit cash(111) 110, credit 511 100, credit 3331 10.
-            _ = capturedRevenueJe.Should().NotBeNull();
-            _ = capturedRevenueJe!.Lines.Should().HaveCount(3, "VAT > 0 → 3 lines (cash, revenue, VAT liability)");
-            _ = capturedRevenueJe.Lines.ElementAt(0).AccountNumber.Should().Be("111");
-            _ = capturedRevenueJe.Lines.ElementAt(0).DebitAmount.Should().Be(110m);
-            _ = capturedRevenueJe.Lines.ElementAt(1).AccountNumber.Should().Be("511");
-            _ = capturedRevenueJe.Lines.ElementAt(1).CreditAmount.Should().Be(100m);
-            _ = capturedRevenueJe.Lines.ElementAt(2).AccountNumber.Should().Be("3331");
-            _ = capturedRevenueJe.Lines.ElementAt(2).CreditAmount.Should().Be(10m);
+            // Assert: KHÔNG journal trực tiếp từ OrderService (single source = bridge)
+            _mockHkdBookRepository.Verify(
+                x => x.AddToBookAsync(It.IsAny<JournalEntry>(), It.IsAny<AccountingBookType>(), It.IsAny<CancellationToken>()),
+                Times.Never,
+                "OrderService must NOT create JournalEntry directly — bridge (AccountingEntryService) is the single journal source (double-revenue fix)");
+
+            // Assert: AccountingEntries vẫn được tạo đúng 1 lần mỗi loại (511 + 3331 khi VAT>0 + COGS)
+            _mockAccountingService.Verify(
+                x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()),
+                Times.Exactly(2),
+                "VAT > 0 → 2 revenue entries (511 net + 3331 VAT) — bridge tạo journal cho từng entry");
+            _mockAccountingService.Verify(
+                x => x.CreateExpenseEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()),
+                Times.Once,
+                "COGS expense entry được tạo (bridge tạo journal COGS)");
         }
 
         [Theory]
-        [InlineData("CASH", "111")]
-        [InlineData("VIETQR", "112")]
-        [InlineData("CREDIT_CARD", "112")]
-        [InlineData(null, "111")] // null → safe fallback to cash
-        public async Task ConfirmPaymentAsync_ShouldMapPaymentMethodToCashAccount_SC18(string? paymentMethod, string expectedAccount)
+        [InlineData("CASH")]
+        [InlineData("VIETQR")]
+        [InlineData("CREDIT_CARD")]
+        [InlineData(null)]
+        public async Task ConfirmPaymentAsync_ShouldNotCreateDirectJournal_ForAnyPaymentMethod_SC18(string? paymentMethod)
         {
-            // Arrange (SC18): W0-T2 — PaymentMethod → cash account (111 cash, 112 bank).
+            // Issue #195: PaymentMethod → cash account (111/112) TRƯỚC đây nằm trong journal trực tiếp
+            // của OrderService — đường đó đã bị bỏ (double revenue fix). Journal giờ do bridge tạo
+            // (Nợ 111/Có TK — ManualEntryJournalBridge, P2 #4 user chốt). Assert: mọi payment method
+            // đều KHÔNG tạo journal trực tiếp từ OrderService (chống double journal).
             Guid orderId = Guid.NewGuid();
             OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, Guid.NewGuid(), quantity: 1, unitPrice: 100m);
             Order orderWithItems = Order.Create(orderId, _testTenantId, null, [item]);
@@ -818,25 +898,22 @@ namespace VanAn.Core.Tests.Services
                 SetOrderPaymentMethod(orderLight, paymentMethod);
             SetupConfirmPaymentMocks(orderLight, orderWithItems, orderId);
 
-            JournalEntry? capturedRevenueJe = null;
-            _ = _mockHkdBookRepository
-                .Setup(x => x.AddToBookAsync(It.IsAny<JournalEntry>(), AccountingBookType.S2b_HKD, It.IsAny<CancellationToken>()))
-                .Callback((JournalEntry je, AccountingBookType _, CancellationToken _) => capturedRevenueJe = je)
-                .Returns(Task.CompletedTask);
-
             // Act
             await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-SC18");
 
-            // Assert: first JE line (cash) uses expected account.
-            _ = capturedRevenueJe.Should().NotBeNull();
-            _ = capturedRevenueJe!.Lines.First().AccountNumber.Should().Be(expectedAccount,
-                $"PaymentMethod '{paymentMethod ?? "null"}' must map to cash account '{expectedAccount}'");
+            // Assert — single journal source (bridge), không journal trực tiếp
+            _mockHkdBookRepository.Verify(
+                x => x.AddToBookAsync(It.IsAny<JournalEntry>(), It.IsAny<AccountingBookType>(), It.IsAny<CancellationToken>()),
+                Times.Never,
+                $"PaymentMethod '{paymentMethod ?? "null"}' must NOT trigger direct JournalEntry creation in OrderService (bridge is single source)");
         }
 
         [Fact]
-        public async Task ConfirmPaymentAsync_CogsPathA_EqualsPathB_SC19()
+        public async Task ConfirmPaymentAsync_CogsEntry_CreatedViaAccountingService_SC19()
         {
-            // Arrange (SC19): W0-T4 — COGS Path A (AccountingEntry amount) == Path B (JournalEntry line amount).
+            // Issue #195: Path B (JournalEntry trực tiếp) đã bỏ — COGS journal do bridge tạo từ
+            // AccountingEntry (CreateExpenseEntryAsync). Assert: entry COGS = CostPrice × qty,
+            // không có journal trực tiếp (chống double).
             Guid orderId = Guid.NewGuid();
             Product product = TestEntityBuilder.CreateProduct(_testTenantId, "Test", price: 100m, costPrice: 60m);
             OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, product.Id, quantity: 2, unitPrice: 100m);
@@ -845,32 +922,21 @@ namespace VanAn.Core.Tests.Services
             Order orderLight = TestEntityBuilder.CreateOrder(_testTenantId, 220m);
             SetupConfirmPaymentMocks(orderLight, orderWithItems, orderId);
 
-            decimal capturedPathACogs = 0m;
+            decimal capturedCogs = 0m;
             _ = _mockAccountingService
                 .Setup(x => x.CreateExpenseEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()))
-                .Callback((TenantId _, AccountingPeriod _, decimal amount, string _, string? _, string? _, string? _, string? _, IndustrySector? _, DateTime? _) => capturedPathACogs = amount)
+                .Callback((TenantId _, AccountingPeriod _, decimal amount, string _, string? _, string? _, string? _, string? _, IndustrySector? _, DateTime? _) => capturedCogs = amount)
                 .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Expense });
-
-            JournalEntry? capturedCogsJe = null;
-            _ = _mockHkdBookRepository
-                .Setup(x => x.AddToBookAsync(It.IsAny<JournalEntry>(), AccountingBookType.S2c_HKD, It.IsAny<CancellationToken>()))
-                .Callback((JournalEntry je, AccountingBookType bt, CancellationToken _) =>
-                {
-                    // Capture the COGS journal entry (has 632 debit line). Revenue JE also goes to S2c,
-                    // so filter by presence of 632 line.
-                    if (je.Lines.Any(l => l.AccountNumber == "632"))
-                        capturedCogsJe = je;
-                })
-                .Returns(Task.CompletedTask);
 
             // Act
             await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-SC19");
 
-            // Assert: Path A (AccountingEntry) == Path B (JournalEntry 632 debit line).
-            _ = capturedPathACogs.Should().Be(120m, "Path A COGS = 2 × CostPrice(60) = 120");
-            _ = capturedCogsJe.Should().NotBeNull("Path B COGS JournalEntry must be generated");
-            decimal pathBCogs = capturedCogsJe!.Lines.First(l => l.AccountNumber == "632").DebitAmount;
-            _ = pathBCogs.Should().Be(capturedPathACogs, "Path B (JournalEntry) COGS must equal Path A (AccountingEntry) COGS");
+            // Assert: COGS entry = 2 × CostPrice(60) = 120 (single source — bridge tạo journal từ entry này)
+            _ = capturedCogs.Should().Be(120m, "COGS = 2 × CostPrice(60) = 120");
+            _mockHkdBookRepository.Verify(
+                x => x.AddToBookAsync(It.IsAny<JournalEntry>(), It.IsAny<AccountingBookType>(), It.IsAny<CancellationToken>()),
+                Times.Never,
+                "OrderService không tạo JournalEntry COGS trực tiếp — bridge là single source");
         }
 
         [Fact]
@@ -979,16 +1045,17 @@ namespace VanAn.Core.Tests.Services
         }
 
         // ============================================================================
-        // SC_W1: Payment Webhook 500 Root Cause Fix — Option A (Caller Deduplication)
-        // Bug: GenerateAccountingEntriesAsync adds the SAME revenueJournalEntry to TWO book
-        // types (S2b + S2c) — second AddToBookAsync call hits EF Core tracking conflict.
-        // Fix: Only call AddToBookAsync ONCE per JournalEntry instance. Book membership for
-        // multiple book types is a future mapping-table concern (current AddToBookAsync does
-        // not differentiate by bookType — see comment line 142-143 in HKDBookRepository).
+        // Issue #195 (2026-10-29) — DOUBLE REVENUE journal regression guard.
+        // Bug production: booking 100.000 (cọc 10.000) → sổ HKD ghi 200.000.
+        // Root cause: GenerateAccountingEntriesAsync tạo journal 2 ĐƯỜNG — (1) journal TRỰC TIẾP
+        // (CreateRevenueEntryAsync + AddToBookAsync + CreateCOGSEntryAsync, ref "Order"), (2) journal
+        // của bridge (AccountingEntryService → ManualEntryJournalBridge, ref "ManualEntry") —
+        // mỗi order paid sinh 2 journal revenue → sổ HKD nhân đôi.
+        // Fix: bỏ journal trực tiếp — bridge là single source cho JournalEntry.
         // ============================================================================
 
         [Fact]
-        public async Task ConfirmPaymentAsync_ShouldCallAddToBookOncePerJournalEntry_NotTwice_W1()
+        public async Task ConfirmPaymentAsync_ShouldNotCallAddToBook_DoubleRevenueFix_W1()
         {
             // Arrange: order with 1 item — VAT=0 to keep the call structure minimal.
             // item: qty=1, unitPrice=100 → SubTotal=100, VatAmount=0, netRevenue=100, COGS=70 (70% fallback).
@@ -1001,27 +1068,27 @@ namespace VanAn.Core.Tests.Services
             // Act
             await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-W1");
 
-            // Assert: AddToBookAsync called ONCE for revenue + ONCE for COGS = 2 calls total.
-            // BEFORE fix: 2 for revenue (S2b + S2c) + 1 for COGS (S2c) = 3 calls — second revenue call throws.
-            // AFTER fix (Option A): 1 for revenue + 1 for COGS = 2 calls.
+            // Assert: AddToBookAsync NEVER — mọi journal đều do bridge tạo (1 bộ/order, không double).
+            // BEFORE fix: 2 lần (revenue + COGS) cộng với bridge → 2 journal revenue + 2 COGS.
+            // AFTER fix: 0 lần — OrderService không còn tạo journal trực tiếp.
             _mockHkdBookRepository.Verify(
                 x => x.AddToBookAsync(It.IsAny<JournalEntry>(), It.IsAny<AccountingBookType>(), It.IsAny<CancellationToken>()),
-                Times.Exactly(2),
-                "AddToBookAsync must be called exactly 2 times (1 revenue + 1 COGS), NOT 3 times (which would duplicate the revenue entity and trigger EF Core tracking conflict)");
+                Times.Never,
+                "AddToBookAsync must NEVER be called by OrderService — bridge (AccountingEntryService) is the single journal source (double-revenue fix)");
         }
 
         [Fact]
-        public async Task ConfirmPaymentAsync_RevenueEntryAddedOnce_NotTwiceForTwoBookTypes_W2()
+        public async Task ConfirmPaymentAsync_NoJournalEntry_AddedToAnyBook_W2()
         {
-            // Arrange: order with VAT > 0 to ensure revenue path is exercised.
-            // item: qty=1, unitPrice=100 → SubTotal=100, VatAmount=10 (10% default), netRevenue=100.
+            // Issue #195: W2 giữ mục đích chống trùng lặp journal — sau fix, OrderService không tạo
+            // journal cho bất kỳ book type nào (S2b/S2c/S2d) — bridge xử lý hoàn toàn.
             Guid orderId = Guid.NewGuid();
             OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, Guid.NewGuid(), quantity: 1, unitPrice: 100m);
             Order orderWithItems = Order.Create(orderId, _testTenantId, null, [item]);
             Order orderLight = TestEntityBuilder.CreateOrder(_testTenantId, 110m);
             SetupConfirmPaymentMocks(orderLight, orderWithItems, orderId);
 
-            // Capture each JournalEntry instance passed to AddToBookAsync
+            // Capture each JournalEntry instance passed to AddToBookAsync (expect none)
             List<JournalEntry> capturedEntries = [];
             _ = _mockHkdBookRepository
                 .Setup(x => x.AddToBookAsync(It.IsAny<JournalEntry>(), It.IsAny<AccountingBookType>(), It.IsAny<CancellationToken>()))
@@ -1031,12 +1098,10 @@ namespace VanAn.Core.Tests.Services
             // Act
             await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-W2");
 
-            // Assert: NO JournalEntry instance should appear twice in the captured list.
-            // Before fix: revenue JE appears twice (S2b + S2c) — duplicate instance reference.
-            // After fix: each JE appears exactly once.
-            int distinctInstanceCount = capturedEntries.Distinct().Count();
-            distinctInstanceCount.Should().Be(capturedEntries.Count,
-                "each JournalEntry instance must be passed to AddToBookAsync exactly once — duplicates trigger EF Core tracking conflict (Payment Webhook 500 root cause)");
+            // Assert: KHÔNG journal trực tiếp nào được tạo — bridge là single source (0 double).
+            // Before fix: 2 JournalEntry (revenue + COGS) được thêm thẳng — cộng với bridge = double.
+            _ = capturedEntries.Should().BeEmpty(
+                "OrderService phải tạo 0 JournalEntry trực tiếp — journal do bridge tạo từ AccountingEntry (double-revenue fix)");
         }
     }
 }

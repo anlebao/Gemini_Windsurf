@@ -62,6 +62,10 @@ namespace VanAn.CoreHub.Commands
         /// <summary>Issue #195: nguồn tạo đơn — "pos" | "checkout" | "booking". Null = legacy/unknown.
         /// Set bởi caller: POS page → "pos", checkout controllers → "checkout", BookingService → "booking".</summary>
         public string? SourceType { get; set; }
+
+        /// <summary>Issue #195 follow-up (2026-10-29): cọc booking đã thu (snapshot). Đơn booking:
+        /// khi "Thanh toán" cuối, số còn lại = Total − DepositPaidAmount. Additive — mặc định 0.</summary>
+        public decimal DepositPaidAmount { get; set; }
     }
 
     public class OrderItemRequest

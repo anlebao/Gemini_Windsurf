@@ -411,6 +411,10 @@ namespace VanAn.ShopERP.Services
                         order.SetSourceType(srcType);
                 }
 
+                // Issue #195 follow-up: cọc booking đã thu — sync số còn lại khi "Thanh toán".
+                if (root.TryGetProperty("DepositPaidAmount", out var depProp) && depProp.TryGetDecimal(out decimal depAmt))
+                    order.SetDepositPaidAmount(depAmt);
+
                 // Set status if provided (default is "pending")
                 if (root.TryGetProperty("Status", out var statusProp))
                 {

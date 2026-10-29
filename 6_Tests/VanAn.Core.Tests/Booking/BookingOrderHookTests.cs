@@ -114,6 +114,70 @@ namespace VanAn.Core.Tests.BookingScheduling
             Assert.Null(orderSvc.LastRoutingKey);
         }
 
+        // ── Issue #195 follow-up (2026-10-29): cọc booking đã thu → DepositPaidAmount trên order ──
+
+        [Fact]
+        public async Task Complete_WithPaidDeposit_PassesDepositPaidAmountToOrderCommand()
+        {
+            using var scope = VanAnDbContextTestFactory.Create();
+            scope.TenantProvider!.SetTenant(BookingTestData.TenantId.Value);
+            var ctx = scope.Context;
+            var orderSvc = new FakeOrderService(ctx);
+            var svc = BuildBookingService(ctx, orderSvc);
+            var booking = await BookThroughToServiceAsync(ctx, svc);
+
+            // Cọc 10.000 đã thu (SRS §16): DepositRequired + RecordDepositPaid → PaymentStatus=Paid.
+            booking.SetDepositRequirement(true, MoneyNatureType.PrepaymentForService, 10_000m);
+            booking.RecordDepositPaid();
+            await ctx.SaveChangesAsync();
+
+            var completed = await svc.CompleteAsync(BookingTestData.TenantId, booking.Id, 300_000m);
+
+            Assert.NotNull(completed.OrderId);
+            Assert.NotNull(orderSvc.LastCommand);
+            // Order hook phải truyền DepositPaidAmount = 10.000 → OrderService snapshot → UI "Còn lại 290.000".
+            Assert.Equal(10_000m, orderSvc.LastCommand!.DepositPaidAmount);
+        }
+
+        [Fact]
+        public async Task Complete_WithoutDeposit_DepositPaidAmountZero()
+        {
+            using var scope = VanAnDbContextTestFactory.Create();
+            scope.TenantProvider!.SetTenant(BookingTestData.TenantId.Value);
+            var ctx = scope.Context;
+            var orderSvc = new FakeOrderService(ctx);
+            var svc = BuildBookingService(ctx, orderSvc);
+            var booking = await BookThroughToServiceAsync(ctx, svc);
+
+            // Không cọc → DepositPaidAmount = 0 (backward compatible — đơn thường/booking không cọc).
+            var completed = await svc.CompleteAsync(BookingTestData.TenantId, booking.Id, 300_000m);
+
+            Assert.NotNull(completed.OrderId);
+            Assert.NotNull(orderSvc.LastCommand);
+            Assert.Equal(0m, orderSvc.LastCommand!.DepositPaidAmount);
+        }
+
+        [Fact]
+        public async Task Complete_DepositRequired_NotPaid_DepositPaidAmountZero()
+        {
+            using var scope = VanAnDbContextTestFactory.Create();
+            scope.TenantProvider!.SetTenant(BookingTestData.TenantId.Value);
+            var ctx = scope.Context;
+            var orderSvc = new FakeOrderService(ctx);
+            var svc = BuildBookingService(ctx, orderSvc);
+            var booking = await BookThroughToServiceAsync(ctx, svc);
+
+            // Cọc bắt buộc nhưng CHƯA thu (PaymentStatus=DepositPending) → không trừ (chưa thu thì không có gì để trừ).
+            booking.SetDepositRequirement(true, MoneyNatureType.PrepaymentForService, 10_000m);
+            await ctx.SaveChangesAsync();
+
+            var completed = await svc.CompleteAsync(BookingTestData.TenantId, booking.Id, 300_000m);
+
+            Assert.NotNull(completed.OrderId);
+            Assert.NotNull(orderSvc.LastCommand);
+            Assert.Equal(0m, orderSvc.LastCommand!.DepositPaidAmount);
+        }
+
         [Fact]
         public async Task Complete_Twice_NoDoubleCreate()
         {
@@ -177,12 +241,15 @@ namespace VanAn.Core.Tests.BookingScheduling
             public bool ThrowOnCreate { get; init; }
             /// <summary>Fix 1 — routing key truyền vào CreateOrderFromCommandAsync (null nếu tenant chưa gán ShopInstance).</summary>
             public string? LastRoutingKey { get; private set; }
+            /// <summary>Issue #195 follow-up — command cuối (capture DepositPaidAmount từ booking hook).</summary>
+            public CreateOrderCommand? LastCommand { get; private set; }
 
             public Task<OrderEntity> CreateOrderFromCommandAsync(CreateOrderCommand command, Guid tenantId, string? routingKey = null)
             {
                 if (ThrowOnCreate)
                     throw new InvalidOperationException("simulated order service failure");
                 LastRoutingKey = routingKey;
+                LastCommand = command;
                 OrderEntity order = CreateOrderForBooking(ctx, command, new TenantId(tenantId));
                 CreatedOrders++;
                 return Task.FromResult(order);

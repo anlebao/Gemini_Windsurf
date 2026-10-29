@@ -2540,6 +2540,21 @@ namespace VanAn.Shared.Domain
             SourceType = normalized;
             UpdateAudit();
         }
+
+        /// <summary>
+        /// Issue #195 follow-up (2026-10-29, user directive): cọc booking đã thu (snapshot tại order
+        /// tạo) — khi "Thanh toán" cuối, số tiền còn lại = Total − DepositPaidAmount; UI hiển thị đúng.
+        /// Additive, mặc định 0 (đơn thường/booking không cọc) — backward compatible 100%.
+        /// </summary>
+        public decimal DepositPaidAmount { get; protected set; }
+
+        public void SetDepositPaidAmount(decimal amount)
+        {
+            if (amount < 0)
+                throw new ArgumentException("DepositPaidAmount cannot be negative.", nameof(amount));
+            DepositPaidAmount = amount;
+            UpdateAudit();
+        }
     }
 
     // ====================== ORDER FLOW CONFIG + STATUS HISTORY (Issue #195, 2026-10-19) ======================

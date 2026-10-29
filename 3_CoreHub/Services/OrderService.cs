@@ -357,24 +357,21 @@ namespace VanAn.CoreHub.Services
                         industrySector: sector);
                 }
 
-                // 2. Generate HKD books for revenue (JournalEntry path — 3 lines if VAT, 2 if not)
-                JournalEntry revenueJournalEntry = await CreateRevenueEntryAsync(order, tenantId, period);
-                // W-FIX (Payment Webhook 500 root cause): AddToBookAsync persists the JournalEntry
-                // to the DB. Calling it twice with the SAME entity instance (once for S2b, once for
-                // S2c) triggers SQLite UNIQUE constraint violation on JournalNo — the second insert
-                // is rejected because the row already exists. Current AddToBookAsync does not
-                // differentiate by bookType (see HKDBookRepository comment) — it simply persists
-                // the entry. Book membership for multiple book types (S2b + S2c) will be tracked
-                // via a mapping table in a future implementation. For now, call ONCE per entry.
-                await _hkdBookRepository.AddToBookAsync(revenueJournalEntry, AccountingBookType.S2b_HKD); // Revenue book (also covers S2c_HKD — detailed book)
+                // 2. HKD book: journal được tạo bởi ManualEntryJournalBridge (P2 #4) — AccountingEntryService
+                // gọi CreateJournalEntrySafeAsync cho MỌI entry (CreateRevenueEntryAsync/CreateExpenseEntryAsync
+                // ở trên). TRƯỚC đây path này còn tạo JournalEntry TRỰC TIẾP (CreateRevenueEntryAsync +
+                // AddToBookAsync + CreateCOGSEntryAsync) → MỖI order paid sinh 2 journal revenue + 2 COGS
+                // → sổ HKD nhân đôi doanh thu (bug production 2026-10-29: booking 100.000 → sổ 200.000).
+                // Fix: bỏ journal trực tiếp — bridge là single source cho JournalEntry.
+                // (Không gọi _hkdBookRepository.AddToBookAsync ở đây nữa — tránh double.)
 
-                // 3. COGS entry — W0-T4 (C1): shared CalculateCogsAmount syncs Path A and Path B.
+                // 3. COGS entry — W0-T4 (C1): chỉ tạo AccountingEntry (bridge tạo journal).
                 decimal cogsAmount = CalculateCogsAmount(order);
                 if (cogsAmount > 0)
                 {
                     // W0-T5 (B3): Fix AccountCode 621→632 (Giá vốn hàng bán).
                     // TT 71 (2026-10-02): HTX dùng 611 (ngoài)/612 (nội) — 632 không tồn tại trong TT 71.
-                    Shared.DTOs.AccountingEntryDto cogsEntry = await _accountingService.CreateExpenseEntryAsync(
+                    _ = await _accountingService.CreateExpenseEntryAsync(
                         tenantId,
                         period,
                         cogsAmount,
@@ -382,15 +379,6 @@ namespace VanAn.CoreHub.Services
                         accountCode: cogsAccount,
                         reference: orderRef,
                         industrySector: sector);
-
-                    // Create COGS journal entry for HKD books
-                    JournalEntry? cogsJournalEntry = await CreateCOGSEntryAsync(order, tenantId, period);
-                    if (cogsJournalEntry != null)
-                    {
-                        // Use appropriate HKD book types based on business type
-                        await _hkdBookRepository.AddToBookAsync(cogsJournalEntry, AccountingBookType.S2c_HKD); // Detailed book
-                        // W0-T10 (M9): Removed AddToBookAsync(S2d_HKD) — COGS does not belong in materials book.
-                    }
                 }
 
                 _logger.LogInformation("Generated accounting entries for order {OrderId} (IndustrySector: {Sector})", order.Id, sector?.ToString() ?? "NULL");
@@ -634,75 +622,6 @@ namespace VanAn.CoreHub.Services
                 });
             }
             return order.TotalPrice * 0.7m; // Ultimate fallback when Items not loaded
-        }
-
-        /// <summary>
-        /// Create revenue accounting entry
-        /// Phase 2.2: Order to Accounting Integration
-        /// </summary>
-        private static async Task<JournalEntry> CreateRevenueEntryAsync(Order order, TenantId tenantId, AccountingPeriod period)
-        {
-            string description = $"Doanh thu bán hàng #{order.Id}";
-
-            // W0-T6 (H4): Use OrderDate (not UtcNow) — entry date = order date.
-            JournalEntry journalEntry = new(
-                tenantId,
-                order.OrderDate,
-                description,
-                "Order",
-                order.Id
-            );
-
-            // W0-T2 (C2+H1): Map PaymentMethod → cash account (111 cash, 112 bank).
-            string cashAccount = PaymentMethodConstants.MapCashAccount(order.PaymentMethod);
-
-            // W0-T3 (C3): Split VAT — debit cash (gross ex-shipping), credit 511 (net revenue), credit 3331 (VAT).
-            // W0-T8 (H2): Net revenue — credit 511 = SubTotal - DiscountAmount (discount reduces revenue).
-            // NOTE: Shipping deferred (W0-T9) — debit cash excludes ShippingFee to keep entry balanced.
-            //   When shipping accounting is added (future wave), debit will include ShippingFee + matching credit.
-            decimal netRevenue = order.SubTotal - order.DiscountAmount;
-            decimal cashDebit = netRevenue + order.TotalVatAmount; // excludes ShippingFee (deferred)
-
-            journalEntry.AddLine(cashAccount, cashDebit, 0, "Tiền thu từ bán hàng"); // Cash/Bank
-            journalEntry.AddLine("511", 0, netRevenue, "Doanh thu bán hàng (net)"); // Net revenue
-            if (order.TotalVatAmount > 0)
-            {
-                journalEntry.AddLine("3331", 0, order.TotalVatAmount, "Thuế GTGT đầu ra"); // VAT liability
-            }
-
-            return await Task.FromResult(journalEntry);
-        }
-
-        /// <summary>
-        /// Create COGS accounting entry
-        /// Phase 2.2: Order to Accounting Integration
-        /// </summary>
-        private static async Task<JournalEntry?> CreateCOGSEntryAsync(Order order, TenantId tenantId, AccountingPeriod period)
-        {
-            // W0-T4 (C1): Use shared CalculateCogsAmount — syncs Path A (AccountingEntry) and Path B (JournalEntry).
-            decimal cogsAmount = CalculateCogsAmount(order);
-
-            if (cogsAmount <= 0)
-            {
-                return null;
-            }
-
-            string description = $"Giá vốn hàng bán #{order.Id}";
-
-            // W0-T6 (H4): Use OrderDate (not UtcNow).
-            JournalEntry journalEntry = new(
-                tenantId,
-                order.OrderDate,
-                description,
-                "Order",
-                order.Id
-            );
-
-            // Add COGS lines (debit COGS, credit inventory)
-            journalEntry.AddLine("632", cogsAmount, 0, "Giá vốn hàng bán"); // COGS
-            journalEntry.AddLine("156", 0, cogsAmount, "Giảm hàng tồn kho"); // Inventory
-
-            return await Task.FromResult(journalEntry);
         }
 
         /// <summary>
@@ -1069,6 +988,10 @@ namespace VanAn.CoreHub.Services
                 // Issue #195: nguồn tạo đơn (pos/checkout/booking) — resolve OrderFlowProfile theo nguồn.
                 order.SetSourceType(command.SourceType);
 
+                // Issue #195 follow-up: cọc booking đã thu — thanh toán cuối trừ đi (UI hiển thị số còn lại).
+                if (command.DepositPaidAmount > 0)
+                    order.SetDepositPaidAmount(command.DepositPaidAmount);
+
                 // Bucket A feature (approved 2026-07-07): attach guest customer info if provided.
                 // CustomerInfo value object is persisted via OwnsOne (columns already exist).
                 if (!string.IsNullOrWhiteSpace(command.CustomerName)
@@ -1185,6 +1108,8 @@ namespace VanAn.CoreHub.Services
                         OrderType = createdOrder.OrderType ?? "DineIn",
                         // Issue #195: sync SourceType → SQLite mirror + PG sync payload.
                         SourceType = createdOrder.SourceType,
+                        // Issue #195 follow-up: cọc booking đã thu — sync để UI hiển thị số còn lại.
+                        DepositPaidAmount = createdOrder.DepositPaidAmount,
                         // CC-S2 fix (Issue #2): include delivery fields in Outbox event so ShopERP
                         // subscriber can call SetOrderType with full delivery info (address, lat/lng
                         // for shipper distance calculation). Previously missing → DELIVERY orders
