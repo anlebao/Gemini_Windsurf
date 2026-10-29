@@ -47,13 +47,14 @@ Feature **Tra soát số liệu kế toán** — công cụ kiểm soát nội b
 
 | Phase | Nội dung | Layer | Task card | Trạng thái |
 |---|---|---|---|---|
-| **1** | **Service core `IAccountingReconcileService`** — R1-R10 + R12 (PG-only) + R11 qua abstraction `IMirrorOrderProvider` (null → skip Info) + port C1-C10 logic + models (`ReconcileResult/ReconcileCheck/ReconcileLevel`) + tests T1-T10 (trừ T7/T11 API/UI) | 3_CoreHub | `task_tra_soat_ke_toan_phase1_service.md` | ⏳ |
+| **0** | **Chuẩn hoá phân loại tài khoản cho R4 (G7 — user directive 2026-10-29)** — `AccountClassifier` (helper thuần): regex hợp lệ `^[1-9]\d{0,2}$` + phân nhóm prefix (1-2 asset · 3 liab · 4 equity · 5/7/9 revenue/temp · 6/8 expense) · **xử lý 9xx/911 kết chuyển** (hiện production chỉ prefix 1-6 — an toàn; khi xuất hiện → R4 Warning + suggestion mở rộng NET gộp 9xx — read-only, không tự sửa) · **xử lý malformed/rỗng AccountNumber** (Warning + liệt kê) · tests T9/T13 | 3_CoreHub | `task_tra_soat_ke_toan_phase0_account_classifier.md` | ⏳ |
+| **1** | **Service core `IAccountingReconcileService`** — R1-R10 + R12 (PG-only) + R11 qua abstraction `IMirrorOrderProvider` (null → skip Info) + port C1-C10 logic + dùng `AccountClassifier` (P0) cho R3/R4/R7/R10 + models (`ReconcileResult/ReconcileCheck/ReconcileLevel`) + tests T1-T10 (trừ T7/T11 API/UI) | 3_CoreHub | `task_tra_soat_ke_toan_phase1_service.md` | ⏳ |
 | **2** | **ShopERP mirror API (G8)** — `MirrorOrdersController` `GET /api/shoperp/accounting/mirror-orders?period=` (đọc SQLite mirror: orders + tenants theo kỳ) + `IMirrorOrderProvider` HTTP implementation ở Gateway + tests | 5_WebApps/ShopERP + 2_Gateway | `task_tra_soat_ke_toan_phase2_mirror.md` | ⏳ |
 | **3** | **Gateway API** — `AccountingReconcileController` `GET /api/admin/accounting/reconcile?tenantId=&period=` ([Authorize SystemAdmin] · validate period/tenant · audit log) + DI wiring + tests | 2_Gateway | `task_tra_soat_ke_toan_phase3_api.md` | ⏳ |
 | **4** | **UI** — `/admin/reconcile` (AdminLayout, UI Platform 100%): tenant+kỳ picker · nút Tra soát · 4 thẻ tổng (Error/Warning/Info/Pass) · bảng check (level badge + expand + suggestion) · NavMenu "Tra soát số liệu" + Sitemap · bUnit + E2E spec `accounting-reconcile.spec.ts` | 5_WebApps/ShopERP | `task_tra_soat_ke_toan_phase4_ui.md` | ⏳ |
 | **5** | **Deploy + RV production** — push → CD Multi-VPS (KHÔNG migration) · L1 markers · L2 health/routes · L3 API reconcile (SystemAdmin, tenant thật: Cafe Tân Quy + Test HKD, đối chiếu kết quả với `accounting-balance-rv.sh` cùng tenant+kỳ — sweep-first) · L4 UI E2E production · L5 manual | production | `task_tra_soat_ke_toan_phase5_rv.md` | ⏳ |
 
-**Dependency:** P1 → P2 (R11) → P3 → P4 → P5. P2 có thể chạy song song sau khi P1 chốt contract `IMirrorOrderProvider` + DTO mirror-orders.
+**Dependency:** P0 → P1 → P2 (R11) → P3 → P4 → P5. P2 có thể chạy song song sau khi P1 chốt contract `IMirrorOrderProvider` + DTO mirror-orders. P0 là tiền đề của P1 (R3/R4/R7/R10 dùng `AccountClassifier`).
 
 ---
 
@@ -70,6 +71,16 @@ ReconcileResult {
 ReconcileCheck { Code ("R1".."R12"), Name, Level (error|warning|info|pass),
                  Summary (string — số liệu chính), Details (string — bảng/trace) }
 ```
+
+### 5.1a Phase 0 — `AccountClassifier` (chuẩn hoá phân loại tài khoản — user directive 2026-10-29)
+
+- **Regex hợp lệ:** `^[1-9]\d{0,2}$` (1-3 chữ số, không bắt đầu 0) — đúng danh mục tài khoản VN (1xx-9xx). Khớp regex nhưng ngoài prefix 1-8 → nhóm riêng.
+- **Phân nhóm:** `1-2` Asset · `3` Liability · `4` Equity · `5/7` Revenue · `6/8` Expense · `9` Temporary (kết chuyển — hiện không dùng).
+- **Xử lý:**
+  - Account hợp lệ + thuộc 1-8 → tính bình thường vào R3/R4/R7/R10.
+  - Account **9xx** (911 kết chuyển — hiện KHÔNG có trong production, chỉ prefix 1-6): R4 → **Warning + liệt kê** + suggestion "mở rộng NET gộp 9xx khi hệ thống làm closing entries" — read-only, không tự sửa (SRS G7/§4.1).
+  - Account **malformed/rỗng** (null, "", "ABC", "01", "1111"): R4 → **Warning + liệt kê** (cùng sub-check) — suggestion "kiểm tra dữ liệu AccountNumber".
+- **Dùng chung:** R3 (5/7, 6/8), R4 (1-2/3/4/5-9), R7 (5/7), R10 (511/512/612/632/3331/3387 — theo danh sách cố định).
 
 ### 5.2 Service — luồng chạy (R1-R12, fail-safe từng check)
 
@@ -110,10 +121,11 @@ ReconcileCheck { Code ("R1".."R12"), Name, Level (error|warning|info|pass),
 | T6 | Tenant HKD không journal kỳ → R7 Warning | P1 |
 | T7 | Cross-tenant isolation (user A không thấy tenant B) | P1/P3 |
 | T8 | HTX nội bộ (512/612) → R3/R4 pass | P1 |
-| T9 | Account ngoài prefix 1-8 (seed 911) → R4 Warning (sub-check) | P1 |
+| T9 | Account **9xx (911 kết chuyển)** seed → R4 **Warning** + liệt kê (không Error) | **P0**/P1 |
 | T10 | Fail-safe: 1 check exception → check error, còn lại chạy | P1 |
 | T11 | API: period sai 400 · tenant 404 · non-admin 403 | P3 |
 | T12 | UI render 4 thẻ + bảng + suggestion · E2E production | P4/P5 |
+| T13 | Account **malformed/rỗng** ("", "ABC", "01", "1111") seed → R4 **Warning** + liệt kê | **P0**/P1 |
 
 ---
 

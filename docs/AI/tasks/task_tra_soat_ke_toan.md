@@ -21,13 +21,25 @@
 - **Execution Mode:** IMPLEMENT (sau khi user approve master plan + task card)
 - **Skills (max 3):** `domain-integrity-validation` (read-only — KHÔNG đụng Domain/AccountingEntry) + `pattern-based-fixing` (port C1-C10 — tránh lệch logic) + `test-system-upgrade` (test matrix T1-T12)
 - **Session strategy (session-per-phase — precedent THU CHI & CÔNG NỢ):**
-  - Session 1 (P1): Service core + tests → guard/build/Core.Tests PASS → commit
-  - Session 2 (P2): ShopERP mirror API + Gateway provider → guard/tests PASS → commit
-  - Session 3 (P3): Gateway reconcile API → guard/tests PASS → commit
-  - Session 4 (P4): UI page + bUnit + E2E spec → guard/ShopERP.Tests PASS → commit
-  - Session 5 (P5): PUSH → CD → RV production (sweep-first, đối chiếu script) → L5 manual
+  - Session 1 (P0): AccountClassifier (chuẩn hoá phân loại tài khoản R4) + tests → guard/build/Core.Tests PASS → commit
+  - Session 2 (P1): Service core + tests → guard/build/Core.Tests PASS → commit
+  - Session 3 (P2): ShopERP mirror API + Gateway provider → guard/tests PASS → commit
+  - Session 4 (P3): Gateway reconcile API → guard/tests PASS → commit
+  - Session 5 (P4): UI page + bUnit + E2E spec → guard/ShopERP.Tests PASS → commit
+  - Session 6 (P5): PUSH → CD → RV production (sweep-first, đối chiếu script) → L5 manual
 
-## 3. SCOPE (5 phases per master plan §4)
+## 3. SCOPE (6 phases per master plan §4)
+
+### Phase 0 — AccountClassifier (chuẩn hoá phân loại tài khoản — user directive 2026-10-29) ⏳
+
+> **P0 PREP (user directive):** xử lý "Tài khoản ngoài prefix 1-8 — quan trọng nhất là **911 (Xác định kết quả kinh doanh)** khi hệ thống làm bút toán kết chuyển cuối kỳ (Nợ 511/Có 911 · Nợ 911/Có 632): lúc đó 511/632 bị zero, lợi nhuận nằm ở 911 → công thức R4 (chỉ 5/7−6/8) sẽ lệch" + "Tài khoản **malformed/rỗng** trong AccountNumber — cùng sub-check bắt được".
+> **Verify production (2026-10-29 — đã làm):** journal chỉ có prefix 1-6 (1:213 lines · 2:3 · 3:25 · 4:2 · 5:113 · 6:96) — **KHÔNG có 9xx/911, KHÔNG có account lạ** → hiện tại an toàn; Phase 0 chuẩn bị xử lý cho tương lai (read-only).
+> **Open items P0:** (1) regex chuẩn `^[1-9]\d{0,2}$` — chốt cùng SRS G7; (2) khi 911 xuất hiện: Warning + suggestion "mở rộng NET gộp 9xx" (không tự sửa) — xác nhận mức xử lý; (3) malformed/rỗng liệt kê tối đa bao nhiêu (limit 20 — tránh flood).
+
+- [ ] **P0.1 `AccountClassifier` (helper thuần — `3_CoreHub/Services/Reconcile/`)** — `IsValid(code)` (regex `^[1-9]\d{0,2}$`) · `Classify(code)` → `AccountGroup {Asset, Liability, Equity, Revenue, Expense, Temporary(9xx), Unknown(malformed/rỗng)}` · `Describe(code)` cho suggestion.
+- [ ] **P0.2 Xử lý 9xx/911** — hiện không có trong production (verify) · khi xuất hiện: R4 → **Warning + liệt kê** + suggestion "mở rộng NET gộp 9xx khi hệ thống làm closing entries" (SRS G7/§4.1 — read-only, không tự sửa).
+- [ ] **P0.3 Xử lý malformed/rỗng** — null/"": `Unknown` · "ABC"/"01"/"1111": `Unknown` → R4 → **Warning + liệt kê** (limit 20) + suggestion "kiểm tra dữ liệu AccountNumber".
+- [ ] **P0.4 Tests (T9/T13)** — seed 911 kết chuyển → R4 **Warning** (không Error) + liệt kê 911 · seed ""/"ABC"/"01"/"1111" → Warning + liệt kê · hợp lệ 1xx-9xx → không Warning · HTX 512/612 classify đúng (Revenue/Expense).
 
 ### Phase 1 — Service core + tests (`task_tra_soat_ke_toan_phase1_service.md`) ⏳
 
@@ -41,7 +53,7 @@
 - [ ] **P1.2 Service implementation (R1-R10 + R12 + R11-skip)** — port C1-C10 từ script (tolerance 0.01):
   - R1 journal cân bằng per journal (count lệch) · R2 trial balance kỳ (ΣNợ vs ΣCó)
   - R3 revenue/expense: journal credit 5/7 == entries Revenue(5/7) + offset(5/7) · journal debit 6/8 == entries Expense(6/8) — VAT 3331 trừ riêng (Info hiển thị)
-  - R4 balance identity toàn lịch sử + sub-check account ngoài `^[1-8]` → Warning + liệt kê
+  - R4 balance identity toàn lịch sử + sub-check qua **`AccountClassifier` (P0)**: account ngoài `^[1-8]` / malformed / rỗng → Warning + liệt kê (911 kết chuyển → suggestion mở rộng NET gộp 9xx)
   - R5 sổ cái key accounts (opening/movement/closing — replicate GetLedgerAsync) → Info bảng
   - R6 nhật ký chung count + ΣNợ/ΣCó · R7 sổ HKD (chỉ Type=1) revenue khớp R3
   - R8a journal ref 'Order' sau 2026-10-29 = 0 · R8b mỗi order paid ∈ {2,3} journals
