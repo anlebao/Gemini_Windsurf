@@ -207,7 +207,7 @@
 | T8 | Tenant HTX nội bộ (512/612) | R3/R4 pass với prefix 5/6 |
 | T9 | Account **9xx (911 kết chuyển)** seed — hệ thống làm closing entries | R4 **Warning** (không Error) + liệt kê + suggestion mở rộng NET gộp 9xx [G7] |
 | T10 | Fail-safe: 1 check query lỗi (mock exception) | Check đó error, các check khác chạy tiếp |
-| T13 | Account **malformed/rỗng** seed ("", "ABC", "01", "1111") | R4 **Warning** + liệt kê (cùng sub-check G7) |
+| T13 | Account **malformed/rỗng** seed ("", "ABC", "01", "11111") | R4 **Warning** + liệt kê (cùng sub-check G7) |
 
 ---
 

@@ -79,7 +79,7 @@ ReconcileCheck { Code ("R1".."R12"), Name, Level (error|warning|info|pass),
 - **Xử lý:**
   - Account hợp lệ + thuộc 1-8 → tính bình thường vào R3/R4/R7/R10.
   - Account **9xx** (911 kết chuyển — hiện KHÔNG có trong production, chỉ prefix 1-6): R4 → **Warning + liệt kê** + suggestion "mở rộng NET gộp 9xx khi hệ thống làm closing entries" — read-only, không tự sửa (SRS G7/§4.1).
-  - Account **malformed/rỗng** (null, "", "ABC", "01", "1111"): R4 → **Warning + liệt kê** (cùng sub-check) — suggestion "kiểm tra dữ liệu AccountNumber".
+  - Account **malformed/rỗng** (null, "", "ABC", "01", "11111"): R4 → **Warning + liệt kê** (cùng sub-check) — suggestion "kiểm tra dữ liệu AccountNumber".
 - **Dùng chung:** R3 (5/7, 6/8), R4 (1-2/3/4/5-9), R7 (5/7), R10 (511/512/612/632/3331/3387 — theo danh sách cố định).
 
 ### 5.2 Service — luồng chạy (R1-R12, fail-safe từng check)
@@ -125,7 +125,7 @@ ReconcileCheck { Code ("R1".."R12"), Name, Level (error|warning|info|pass),
 | T10 | Fail-safe: 1 check exception → check error, còn lại chạy | P1 |
 | T11 | API: period sai 400 · tenant 404 · non-admin 403 | P3 |
 | T12 | UI render 4 thẻ + bảng + suggestion · E2E production | P4/P5 |
-| T13 | Account **malformed/rỗng** ("", "ABC", "01", "1111") seed → R4 **Warning** + liệt kê | **P0**/P1 |
+| T13 | Account **malformed/rỗng** ("", "ABC", "01", "11111") seed → R4 **Warning** + liệt kê | **P0**/P1 |
 
 ---
 

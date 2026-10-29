@@ -2,9 +2,9 @@
 
 > Created: 2026-10-29 (SRS v1.1 approved — user duyệt "Duyệt SRS, go next" + chốt D1-D4/G7-G12)
 > Source SRS: `docs/requirements/van_an_tra_soat_so_lieu_ke_toan_srs_v1.md` (v1.1)
-> Master plan: `docs/AI/plans/tra-soat-ke-toan-master-plan.md` (ACTIVE — chờ approve)
+> Master plan: `docs/AI/plans/tra-soat-ke-toan-master-plan.md` (ACTIVE — **APPROVED 2026-10-29**)
 > Branch: `main`
-> Status: **PLAN — chờ user approve (master plan + task card)**
+> Status: **IN PROGRESS (2026-10-29 — user duyệt chiến lược 1 phiên liên tục P0→P4 → P5 push+CD+RV — Session bắt đầu: P0 AccountClassifier)**
 
 ---
 
@@ -39,8 +39,8 @@
 
 - [ ] **P0.1 `AccountClassifier` (helper thuần — `3_CoreHub/Services/Reconcile/`)** — `IsValid(code)` (regex `^[1-9]\d{0,2}$`) · `Classify(code)` → `AccountGroup {Asset, Liability, Equity, Revenue, Expense, Temporary(9xx), Unknown(malformed/rỗng)}` · `Describe(code)` cho suggestion.
 - [ ] **P0.2 Xử lý 9xx/911** — hiện không có trong production (verify) · khi xuất hiện: R4 → **Warning + liệt kê** + suggestion "mở rộng NET gộp 9xx khi hệ thống làm closing entries" (SRS G7/§4.1 — read-only, không tự sửa).
-- [ ] **P0.3 Xử lý malformed/rỗng** — null/"": `Unknown` · "ABC"/"01"/"1111": `Unknown` → R4 → **Warning + liệt kê** (limit 20) + suggestion "kiểm tra dữ liệu AccountNumber".
-- [ ] **P0.4 Tests (T9/T13)** — seed 911 kết chuyển → R4 **Warning** (không Error) + liệt kê 911 · seed ""/"ABC"/"01"/"1111" → Warning + liệt kê · hợp lệ 1xx-9xx → không Warning · HTX 512/612 classify đúng (Revenue/Expense).
+- [ ] **P0.3 Xử lý malformed/rỗng** — null/"": `Unknown` · "ABC"/"01"/"11111": `Unknown` → R4 → **Warning + liệt kê** (limit 20) + suggestion "kiểm tra dữ liệu AccountNumber".
+- [ ] **P0.4 Tests (T9/T13)** — seed 911 kết chuyển → R4 **Warning** (không Error) + liệt kê 911 · seed ""/"ABC"/"01"/"11111" → Warning + liệt kê · hợp lệ 1xx-9xx → không Warning · HTX 512/612 classify đúng (Revenue/Expense).
 
 ### Phase 1 — Service core + tests (`task_tra_soat_ke_toan_phase1_service.md`) ⏳
 
