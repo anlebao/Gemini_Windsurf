@@ -205,14 +205,15 @@
 | T6 | Tenant HKD không journal kỳ | R7 Warning (không phải Error) |
 | T7 | Cross-tenant: user A không xem được kết quả tenant B | 403/không lộ (R11 isolation) |
 | T8 | Tenant HTX nội bộ (512/612) | R3/R4 pass với prefix 5/6 |
-| T9 | Contra 214 (khấu hao) trong balance identity | R4 Warning (không Error) hoặc xử lý đúng [G7] |
+| T9 | Account **9xx (911 kết chuyển)** seed — hệ thống làm closing entries | R4 **Warning** (không Error) + liệt kê + suggestion mở rộng NET gộp 9xx [G7] |
 | T10 | Fail-safe: 1 check query lỗi (mock exception) | Check đó error, các check khác chạy tiếp |
+| T13 | Account **malformed/rỗng** seed ("", "ABC", "01", "1111") | R4 **Warning** + liệt kê (cùng sub-check G7) |
 
 ---
 
 ## 9. RÀNG BUỘC KỸ THUẬT & KIẾN TRÚC
 
-- **Layers:** Service `IAccountingReconcileService` + `AccountingReconcileService` trong `3_CoreHub/Services/Reconcile/` (đọc `IAccountingDbContext` + `ITenantProvider`); Gateway controller `AccountingReconcileController` (`2_Gateway/Controllers/`); ShopERP UI page + `ReconcileApiClient` (pattern `GatewayAdminApiClientBase`/tenant API client hiện có).
+- **Layers:** `AccountClassifier` (P0 — phân loại tài khoản: regex `^[1-9]\d{0,2}$` + nhóm prefix 1-2/3/4/5,7/6,8/9) + Service `IAccountingReconcileService` + `AccountingReconcileService` trong `3_CoreHub/Services/Reconcile/` (đọc `IAccountingDbContext` + `ITenantProvider`, dùng `AccountClassifier` cho R3/R4/R7/R10); Gateway controller `AccountingReconcileController` (`2_Gateway/Controllers/`); ShopERP mirror API (`MirrorOrdersController` — R11/G8) + UI page + `ReconcileAdminApiClient` (pattern `GatewayAdminApiClientBase`).
 - **KHÔNG** migration mới, KHÔNG entity mới, KHÔNG đụng Domain (`AccountingEntry` immutable — đọc thuần).
 - Tận dụng logic đã validate từ `accounting-balance-rv.sh` (C1-C10) — port sang C# service, giữ nguyên tolerance 0.01.
 - Query: 1-2 truy vấn gộp/check (SQL qua EF LINQ — tránh raw SQL cross-provider); dùng `IgnoreQueryFilters` KHÔNG cần (query theo tenant id tường minh).
@@ -235,7 +236,7 @@
 
 - **Nguồn nội bộ:** `6_Testing/rv-scripts/accounting-balance-rv.sh` (logic đã validate production) · `3_CoreHub/Services/HKDBookService.cs` · `GeneralLedgerService.cs` · `IncomeStatementService.cs` · `BalanceSheetService.cs` · `TrialBalanceService.cs` · `ManualEntryJournalBridge.cs` · governance.md (Known Error Patterns #1-#8) · checklist kiểm soát PM kế toán ERP.
 - **Nguồn ngoài:** TT 152/2025/TT-BTC (HKD) · TT 133/2016 (DN nhỏ/vừa) · TT 99/2025 (DN lớn) · TT 71/2024 (HTX) · nguyên tắc kép (A = Nợ + Vốn, trial balance) · Thông tư 103/2016/TT-BTC (điều kiện PM kế toán: bút toán cân đối, sổ khớp, không sửa/xóa dữ liệu ghi sổ).
-- **Triển khai dự kiến:** master plan + task card → P1 Service + tests → P2 API + controller → P3 UI page + E2E → P4 deploy + RV production (sweep-first, đối chiếu kết quả với script).
+- **Triển khai dự kiến:** master plan + task card → **P0 AccountClassifier** (9xx/911 kết chuyển + malformed/rỗng — G7) → P1 Service core (R1-R12) → P2 ShopERP mirror API (G8) → P3 Gateway admin API (G9) → P4 UI `/admin/reconcile` → P5 deploy + RV production (sweep-first, đối chiếu kết quả với script).
 
 ---
 

@@ -20,13 +20,14 @@
 - **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT — 7 step)
 - **Execution Mode:** IMPLEMENT (sau khi user approve master plan + task card)
 - **Skills (max 3):** `domain-integrity-validation` (read-only — KHÔNG đụng Domain/AccountingEntry) + `pattern-based-fixing` (port C1-C10 — tránh lệch logic) + `test-system-upgrade` (test matrix T1-T12)
-- **Session strategy (session-per-phase — precedent THU CHI & CÔNG NỢ):**
-  - Session 1 (P0): AccountClassifier (chuẩn hoá phân loại tài khoản R4) + tests → guard/build/Core.Tests PASS → commit
-  - Session 2 (P1): Service core + tests → guard/build/Core.Tests PASS → commit
-  - Session 3 (P2): ShopERP mirror API + Gateway provider → guard/tests PASS → commit
-  - Session 4 (P3): Gateway reconcile API → guard/tests PASS → commit
-  - Session 5 (P4): UI page + bUnit + E2E spec → guard/ShopERP.Tests PASS → commit
-  - Session 6 (P5): PUSH → CD → RV production (sweep-first, đối chiếu script) → L5 manual
+- **Session strategy — CHIẾN LƯỢC TỐI ƯU (user 2026-10-29 — nhanh, đủ):** **1 phiên liên tục P0→P4** (checkpoint build+tests+commit SAU MỖI phase — giữ phase isolation, không trộn layer) → cuối phiên **P5 push + CD + RV** (sweep-first). Lý do an toàn: feature **read-only, KHÔNG migration/entity/Domain mới** → rủi ro thấp, không cần session-per-phase. **Checkpoint bắt buộc sau P1** (service core — nền tảng mọi check): nếu build/tests đỏ → dừng fix trước khi sang P2.
+  - Checkpoint 1 (P0): AccountClassifier + tests → guard/build/Core.Tests PASS → commit
+  - Checkpoint 2 (P1): Service core + tests → guard/build/Core.Tests PASS → commit
+  - Checkpoint 3 (P2): ShopERP mirror API + Gateway provider → guard/tests PASS → commit
+  - Checkpoint 4 (P3): Gateway reconcile API → guard/tests PASS → commit
+  - Checkpoint 5 (P4): UI page + bUnit + E2E spec → guard/ShopERP.Tests PASS → commit
+  - Cuối phiên (P5): PUSH → CD → RV production (đối chiếu `accounting-balance-rv.sh` cùng tenant+kỳ) → L5 manual
+  - *Alternative (nếu phiên quá dài): tách 4 phiên — S1: P0+P1 · S2: P2+P3 · S3: P4 · S4: P5.*
 
 ## 3. SCOPE (6 phases per master plan §4)
 
@@ -43,7 +44,7 @@
 
 ### Phase 1 — Service core + tests (`task_tra_soat_ke_toan_phase1_service.md`) ⏳
 
-> **Session P1 PREP (session MỚI):** Đọc: `docs/AI/project_state.md` (§2 — issue #195 + RV accounting) + SRS v1.1 (§5 FR, §6 NFR, §8 T1-T12) + master plan §5.1-5.2 + `6_Testing/rv-scripts/accounting-balance-rv.sh` (logic C1-C10 — nguồn port) + `3_CoreHub/Services/GeneralLedger/GeneralLedgerService.cs` + `TrialBalanceService.cs` + `HKDBookService.cs` + `3_CoreHub/Program.cs` (DI).
+> **Session P1 PREP (cùng phiên — sau P0 checkpoint):** Đọc: `docs/AI/project_state.md` (§2 — issue #195 + RV accounting) + SRS v1.1 (§5 FR, §6 NFR, §8 T1-T13) + master plan §5.1-5.2 + `6_Testing/rv-scripts/accounting-balance-rv.sh` (logic C1-C10 — nguồn port) + `3_CoreHub/Services/GeneralLedger/GeneralLedgerService.cs` + `TrialBalanceService.cs` + `HKDBookService.cs` + `3_CoreHub/Program.cs` (DI) + **`AccountClassifier` (P0 — dùng cho R3/R4/R7/R10)**.
 > **PHÁT HIỆN KIẾN TRÚC (2026-10-29 — đã verify):** (1) Service đặt `3_CoreHub/Services/Reconcile/` (namespace `VanAn.CoreHub.Services.Reconcile`), đọc `IAccountingDbContext` (PG — source of truth) — KHÔNG đụng Domain/entities; DTOs thuần. (2) R11 qua abstraction `IMirrorOrderProvider` (interface trong CoreHub; HTTP impl ở P2/P3) — null/không config → R11 skip với `info` "không chạy được" (fail-open). (3) Dual-identity: journal lines join theo `JournalEntries."Id"` (KHÔNG cột `JournalEntryId`) — EF navigation tự xử lý đúng; raw query phải đúng cột. (4) Semantic: VAT 3331 EntryType=1 nhưng KHÔNG journal; offset cọc EntryType=5 AccountCode 5/7 → R3 phải cộng; R4 gộp toàn lịch sử (OpeningBalance) + sub-check account ngoài `^[1-8]`.
 > **Open items P1 (quyết định tại P1):** (1) cột filter period cho R11 mirror (CreatedAt vs UpdatedAt) — chốt cùng P2; (2) `IgnoreQueryFilters` có cần (IsDeleted) — rà soát khi viết query; (3) log audit mức nào (chỉ summary hay chi tiết check) — G12 không lưu history, audit log vẫn ghi summary.
 > **Tái dùng:** `IAccountingDbContext` · `ITenantProvider` · `IAuditTrailService` · `VanAnDbContextTestFactory` (test — global filter lesson → `IgnoreQueryFilters` đúng chỗ) · FluentAssertions/xUnit pattern.
@@ -61,7 +62,7 @@
   - R11 qua `IMirrorOrderProvider` (null → skip Info) · R12 TransactionDate hợp lệ (Warning)
   - Fail-safe: từng check try/catch riêng → error + log (NFR-4) · READ-ONLY (không AddAsync/SaveChanges)
 - [ ] **P1.3 DI** — `3_CoreHub/Program.cs` (Scoped service; MirrorOrderProvider optional).
-- [ ] **P1.4 Tests (Core.Tests — T1-T10 trừ T7/T11/T12 API/UI)** — seed journal lệch (T1) · Order-ref post-fix (T2) · thiếu entries COGS (T3) · deposit offset đủ (T4) · TransactionDate 01-01-0001 (T5) · HKD không journal (T6) · HTX 512/612 (T8) · seed account 911 → R4 Warning (T9) · mock check exception → fail-safe (T10) · **read-only guard: service không gọi write trên DbContext** (NFR-1 [G10]) · isolation tenant.
+- [ ] **P1.4 Tests (Core.Tests — T1-T8, T10; T9/T13 đã cover ở P0)** — seed journal lệch (T1) · Order-ref post-fix (T2) · thiếu entries COGS (T3) · deposit offset đủ (T4) · TransactionDate 01-01-0001 (T5) · HKD không journal (T6) · HTX 512/612 (T8) · mock check exception → fail-safe (T10) · **read-only guard: service không gọi write trên DbContext** (NFR-1 [G10]) · isolation tenant.
 
 ### Phase 2 — ShopERP mirror API (G8) ⏳
 
