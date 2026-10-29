@@ -156,6 +156,15 @@ namespace VanAn.CoreHub.Services.Journal
                 return (accountCode, CashAccount); // Chi phí: Nợ 6xx / Có 111
             }
 
+            // Issue #195 follow-up (2026-10-29, user approve — deposit offset 3387 làm luôn):
+            // cọc booking đã thu (BookingAccountingService.RecordDepositPaidAsync, TK 3387 —
+            // bản chất riêng KHÔNG doanh thu) → tại thanh toán cuối, cọc chuyển thành doanh thu:
+            // Nợ 3387 / Có {accountCode = TK doanh thu 511/512}. Bridge map (3387, accountCode).
+            if (entry.EntryType == AccountingEntryType.DepositOffset)
+            {
+                return ("3387", accountCode); // Đối trừ cọc: Nợ 3387 / Có 5xx/7xx
+            }
+
             return null;
         }
     }

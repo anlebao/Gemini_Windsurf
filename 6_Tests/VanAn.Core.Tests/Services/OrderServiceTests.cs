@@ -1045,6 +1045,74 @@ namespace VanAn.Core.Tests.Services
         }
 
         // ============================================================================
+        // Issue #195 follow-up (2026-10-29, user approve — deposit offset 3387 làm luôn):
+        // order booking có cọc đã thu (DepositPaidAmount>0) → thanh toán cuối:
+        //   revenue cash = netRevenue − cọc (Nợ 111/Có 511 — tiền thực nhận)
+        //   offset       = cọc (Nợ 3387/Có 511 — cọc chuyển thành doanh thu, liability cleared)
+        // Tổng doanh thu vẫn = netRevenue; VAT full — không đổi.
+        // ============================================================================
+
+        [Fact]
+        public async Task ConfirmPaymentAsync_DepositOrder_RevenueReducedAndOffsetEntryCreated()
+        {
+            // Arrange: booking 100.000, cọc 10.000 đã thu → DepositPaidAmount=10.000.
+            Guid orderId = Guid.NewGuid();
+            OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, Guid.NewGuid(), quantity: 1, unitPrice: 100_000m);
+            Order orderWithItems = Order.Create(orderId, _testTenantId, null, [item]);
+            orderWithItems.SetDepositPaidAmount(10_000m); // cọc đã thu (snapshot)
+            Order orderLight = TestEntityBuilder.CreateOrder(_testTenantId, 110_000m);
+            SetupConfirmPaymentMocks(orderLight, orderWithItems, orderId);
+
+            // Setup CreateDepositOffsetEntryAsync (Moq mặc định trả null → NRE nếu không setup)
+            _ = _mockAccountingService
+                .Setup(x => x.CreateDepositOffsetEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()))
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.DepositOffset, Amount = 10_000m });
+
+            List<decimal> capturedRevenueAmounts = [];
+            _ = _mockAccountingService
+                .Setup(x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()))
+                .Callback((TenantId _, AccountingPeriod _, decimal amount, string _, string? _, string? _, IndustrySector? _, DateTime? _) => capturedRevenueAmounts.Add(amount))
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Revenue });
+
+            // Act
+            await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-DEP");
+
+            // Assert: revenue cash = 100.000 − 10.000 = 90.000 (511) + VAT 10.000 (3331) — không còn full 100.000
+            _ = capturedRevenueAmounts.Should().Contain(90_000m, "Revenue cash (511) = netRevenue(100.000) − DepositPaidAmount(10.000) = 90.000");
+            _ = capturedRevenueAmounts.Should().NotContain(100_000m, "Không ghi full 100.000 khi có cọc — cọc 10.000 đã thu trước");
+
+            // Assert: offset entry 10.000 (Nợ 3387/Có 511 — cọc chuyển thành doanh thu)
+            _mockAccountingService.Verify(
+                x => x.CreateDepositOffsetEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), 10_000m, It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()),
+                Times.Once,
+                "Deposit offset entry = DepositPaidAmount (10.000) — Nợ 3387/Có 511");
+        }
+
+        [Fact]
+        public async Task ConfirmPaymentAsync_NonDepositOrder_NoOffsetEntry()
+        {
+            // Arrange: đơn thường (không cọc) → KHÔNG tạo offset entry (backward compat 100%).
+            Guid orderId = Guid.NewGuid();
+            OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, Guid.NewGuid(), quantity: 1, unitPrice: 100m);
+            Order orderWithItems = Order.Create(orderId, _testTenantId, null, [item]);
+            Order orderLight = TestEntityBuilder.CreateOrder(_testTenantId, 110m);
+            SetupConfirmPaymentMocks(orderLight, orderWithItems, orderId);
+
+            _ = _mockAccountingService
+                .Setup(x => x.CreateDepositOffsetEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()))
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.DepositOffset });
+
+            // Act
+            await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-NDEP");
+
+            // Assert: KHÔNG offset entry cho đơn không cọc
+            _mockAccountingService.Verify(
+                x => x.CreateDepositOffsetEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()),
+                Times.Never,
+                "Đơn không có cọc → không tạo deposit offset entry");
+        }
+
+        // ============================================================================
         // Issue #195 (2026-10-29) — DOUBLE REVENUE journal regression guard.
         // Bug production: booking 100.000 (cọc 10.000) → sổ HKD ghi 200.000.
         // Root cause: GenerateAccountingEntriesAsync tạo journal 2 ĐƯỜNG — (1) journal TRỰC TIẾP

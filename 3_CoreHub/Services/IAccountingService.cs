@@ -49,6 +49,14 @@ namespace VanAn.CoreHub.Services
             IndustrySector? industrySector = null, DateTime? transactionDate = null);
 
         /// <summary>
+        /// Issue #195 follow-up (2026-10-29, user approve — deposit offset 3387): đối trừ cọc booking
+        /// đã thu tại thanh toán cuối — Nợ 3387 / Có {accountCode = TK doanh thu 511/512}. accountCode
+        /// là TK doanh thu (credit side); TK 3387 ngầm định bởi EntryType.DepositOffset (bridge map).
+        /// </summary>
+        Task<AccountingEntryDto> CreateDepositOffsetEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description,
+            string? accountCode = null, string? reference = null, IndustrySector? industrySector = null, DateTime? transactionDate = null);
+
+        /// <summary>
         /// Get entries by tenant
         /// </summary>
         Task<IEnumerable<AccountingEntryDto>> GetEntriesByTenantAsync(TenantId tenantId);

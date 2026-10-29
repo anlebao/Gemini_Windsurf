@@ -331,15 +331,38 @@ namespace VanAn.CoreHub.Services
                 }
 
                 decimal netRevenue = order.SubTotal - order.DiscountAmount;
+                // Issue #195 follow-up (2026-10-29, user approve — deposit offset 3387 làm luôn):
+                // cọc booking đã thu (DepositPaidAmount) → thanh toán cuối thu phần còn lại:
+                //   revenue cash = netRevenue − cọc (Nợ 111/Có 511 — tiền thực nhận)
+                //   offset       = cọc (Nợ 3387/Có 511 — cọc chuyển thành doanh thu, liability cleared)
+                // Tổng doanh thu vẫn = netRevenue (cash + cọc); VAT tính trên full giá — không đổi.
+                decimal depositOffset = order.DepositPaidAmount > 0 ? Math.Min(order.DepositPaidAmount, netRevenue) : 0m;
+                decimal cashRevenue = netRevenue - depositOffset;
+
                 // W0-T7 (H5): Pass order reference for traceability.
-                _ = await _accountingService.CreateRevenueEntryAsync(
-                    tenantId,
-                    period,
-                    netRevenue,
-                    $"Doanh thu bán hàng (net) #{order.Id}",
-                    accountCode: revenueAccount,
-                    reference: orderRef,
-                    industrySector: sector);
+                if (cashRevenue > 0)
+                {
+                    _ = await _accountingService.CreateRevenueEntryAsync(
+                        tenantId,
+                        period,
+                        cashRevenue,
+                        $"Doanh thu bán hàng (net) #{order.Id}",
+                        accountCode: revenueAccount,
+                        reference: orderRef,
+                        industrySector: sector);
+                }
+
+                if (depositOffset > 0)
+                {
+                    _ = await _accountingService.CreateDepositOffsetEntryAsync(
+                        tenantId,
+                        period,
+                        depositOffset,
+                        $"Đối trừ cọc đã thu #{order.Id}",
+                        accountCode: revenueAccount,   // TK doanh thu 511/512 — 3387 do bridge ngầm định (Nợ 3387/Có 511)
+                        reference: $"{orderRef}-DEPOSIT-OFFSET",
+                        industrySector: sector);
+                }
 
                 if (order.TotalVatAmount > 0)
                 {

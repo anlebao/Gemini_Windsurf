@@ -96,16 +96,29 @@ if [ "${1:-}" = "--after-payment" ]; then
 fi
 
 # ── DEPOSIT (chạy với --deposit sau sweep có deposit scenario) ──
-# Verify DepositPaidAmount snapshot (issue #195 follow-up 21505b38): order từ booking có cọc đã thu.
+# Verify DepositPaidAmount snapshot + journal offset 3387 (issue #195 follow-up 21505b38 + offset):
+# order từ booking có cọc đã thu → DepositPaidAmount=10000 · journal 3 bộ (revenue + offset + COGS).
 if [ "${1:-}" = "--deposit" ]; then
   DEPOSIT_ORDER=$(python3 -c "import json;print(json.load(open('$REPORT_WIN'))['depositOrderId'] or '')")
   DEPOSIT_AMOUNT=$(python3 -c "import json;print(json.load(open('$REPORT_WIN'))['depositAmount'] or 0)")
-  echo "\n── Deposit checks (DepositPaidAmount snapshot) ──"
+  echo "\n── Deposit checks (DepositPaidAmount snapshot + offset journal) ──"
   if [ -n "$DEPOSIT_ORDER" ]; then
     D1=$(GW "SELECT \\\"DepositPaidAmount\\\" FROM \\\"Orders\\\" WHERE \\\"Id\\\" = '$DEPOSIT_ORDER';")
     chk "D1 PG Order.DepositPaidAmount == $DEPOSIT_AMOUNT (actual=$D1)" "$( [ "$D1" = "$DEPOSIT_AMOUNT" ] && echo 0 || echo 1 )" "amount='$D1'"
+
+    # D2: offset entry tồn tại (EntryType DepositOffset — Nợ 3387/Có 511) với reference order-DEPOSIT-OFFSET
+    D2=$(GW "SELECT COUNT(*) FROM \\\"AccountingEntries\\\" WHERE \\\"Reference\\\" = '$DEPOSIT_ORDER-DEPOSIT-OFFSET';")
+    chk "D2 Offset entry 3387→511 tồn tại — count=$D2 (expect 1)" "$( [ "$D2" = "1" ] && echo 0 || echo 1 )" "entries=$D2"
+
+    # D3: journal đúng 1 bộ deposit = 3 (revenue Nợ 111/Có 511 + offset Nợ 3387/Có 511 + COGS Nợ 632/Có 111)
+    D3=$(GW "SELECT COUNT(*) FROM \\\"JournalEntries\\\" WHERE \\\"ReferenceId\\\" IN (SELECT \\\"Id\\\" FROM \\\"AccountingEntries\\\" WHERE \\\"Reference\\\" = '$DEPOSIT_ORDER' OR \\\"Reference\\\" = '$DEPOSIT_ORDER-DEPOSIT-OFFSET');")
+    chk "D3 Journal deposit order = 3 bộ (revenue+offset+COGS) — count=$D3" "$( [ "$D3" = "3" ] && echo 0 || echo 1 )" "journals=$D3"
+
+    # D4: KHÔNG journal ref 'Order' cho deposit order (double path removed)
+    D4=$(GW "SELECT COUNT(*) FROM \\\"JournalEntries\\\" WHERE \\\"ReferenceType\\\" = 'Order' AND \\\"ReferenceId\\\" = '$DEPOSIT_ORDER';")
+    chk "D4 KHÔNG journal ref 'Order' (double path removed) — count=$D4" "$( [ "$D4" = "0" ] && echo 0 || echo 1 )" "journals=$D4"
   else
-    chk "D1 (skip — no deposit order in report)" 1 "depositOrderId empty"
+    chk "D1-D4 (skip — no deposit order in report)" 1 "depositOrderId empty"
   fi
 fi
 

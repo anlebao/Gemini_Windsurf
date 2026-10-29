@@ -251,6 +251,62 @@ namespace VanAn.CoreHub.Services
             }
         }
 
+        public async Task<AccountingEntryDto> CreateDepositOffsetEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description,
+            string? accountCode = null, string? reference = null, IndustrySector? industrySector = null, DateTime? transactionDate = null)
+        {
+            try
+            {
+                // Issue #195 follow-up (2026-10-29, user approve — deposit offset 3387 làm luôn):
+                // cọc booking đã thu chuyển thành doanh thu tại thanh toán cuối — Nợ 3387 / Có
+                // {accountCode 511/512}. accountCode = TK doanh thu (credit); 3387 do bridge ngầm định.
+                // C-2: Period closing guard — block entries into a closed period
+                PeriodClosingStatus periodStatus = await _periodClosingService.GetPeriodStatusAsync(period, tenantId);
+                if (periodStatus == PeriodClosingStatus.Closed)
+                    throw new InvalidOperationException($"Kỳ kế toán {period.Year}/{period.Month:D2} đã đóng sổ. Không thể thêm bút toán mới.");
+
+                // C-1: Server-side duplicate detection — full (type, amount, accountCode, reference) match
+                await CheckDuplicateEntryAsync(tenantId, amount, accountCode, AccountingEntryType.DepositOffset, reference);
+
+                CoreAccountingEntry entry = CoreAccountingEntry.CreateDepositOffset(tenantId, period, new Money(amount), description,
+                    accountCode: accountCode, reference: reference, industrySector: industrySector, transactionDate: transactionDate);
+                await _repository.AddAsync(entry);
+
+                // NHẬP LIỆU & SỔ SÁCH P2 (#4): phiếu tay → JournalEntry (Sổ HKD B01-B09/BCTC) — fail-safe
+                await CreateJournalEntrySafeAsync(entry);
+
+                // Audit log: DepositOffset entry creation
+                var newValues = System.Text.Json.JsonSerializer.Serialize(new { Amount = amount, Description = description, Period = period.ToString(), Type = "DepositOffset", AccountCode = accountCode, IndustrySector = industrySector?.ToString() });
+                await _auditTrailService.LogCreateAsync(
+                    AuditableEntityType.AccountingEntry,
+                    entry.Id,
+                    newValues,
+                    correlationId: entry.Id.ToString());
+
+                return new AccountingEntryDto
+                {
+                    Id = entry.Id,
+                    TenantId = entry.TenantId.Value,
+                    Amount = entry.Amount,
+                    Description = entry.Description,
+                    AccountCode = entry.AccountCode,
+                    Reference = entry.Reference,
+                    EntryType = entry.EntryType,
+                    CreatedAt = entry.CreatedAt,
+                    AccountingBookType = entry.AccountingBookType,
+                    PeriodYear = entry.PeriodYear,
+                    PeriodMonth = entry.PeriodMonth,
+                    ReversalEntryId = entry.ReversalEntryId,
+                    TransactionDate = entry.TransactionDate,
+                    IndustrySector = entry.IndustrySector
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating deposit offset entry for tenant {TenantId}", tenantId.Value);
+                throw;
+            }
+        }
+
         // C-1: Duplicate detection helper — throws if a matching entry exists within DuplicateWindowMinutes
         // Fix (2026-09-17): order-driven entries (reference set) are distinct documents — a second
         // order with the same amount/accountCode must NOT be blocked. Only block when the SAME

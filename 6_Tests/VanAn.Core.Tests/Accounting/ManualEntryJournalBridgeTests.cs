@@ -75,6 +75,53 @@ namespace VanAn.Core.Tests.Accounting
         }
 
         [Fact]
+        public async Task CreateFor_DepositOffset_CreatesJournalEntry_Debit3387_Credit511()
+        {
+            // Issue #195 follow-up (2026-10-29, user approve — deposit offset 3387 làm luôn):
+            // cọc booking đã thu → tại thanh toán cuối, cọc chuyển thành doanh thu: Nợ 3387 / Có 511.
+            TenantId tenant = new(Guid.NewGuid());
+            CoreAccountingEntry entry = CoreAccountingEntry.CreateDepositOffset(
+                tenant, new AccountingPeriod(2026, 10), new Money(10_000m), "Đối trừ cọc đã thu",
+                accountCode: "511", reference: "order-x-DEPOSIT-OFFSET", transactionDate: new DateTime(2026, 10, 20));
+
+            // Act
+            bool created = await _bridge.CreateForAccountingEntryAsync(entry);
+
+            // Assert — Nợ 3387 / Có 511, cân bằng, reference đúng
+            created.Should().BeTrue();
+            _hkdRepo.Verify(r => r.AddToBookAsync(
+                It.Is<JournalEntry>(je =>
+                    je.EntryDate == new DateTime(2026, 10, 20) &&
+                    je.ReferenceType == ManualEntryJournalBridge.ManualEntryReferenceType &&
+                    je.ReferenceId == entry.Id &&
+                    je.Lines.Count == 2 &&
+                    je.Lines.First().AccountNumber == "3387" && je.Lines.First().DebitAmount == 10_000m && je.Lines.First().CreditAmount == 0m &&
+                    je.Lines.ElementAt(1).AccountNumber == "511" && je.Lines.ElementAt(1).CreditAmount == 10_000m && je.Lines.ElementAt(1).DebitAmount == 0m),
+                AccountingBookType.S2b_HKD, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateFor_DepositOffset_Htx512_CreatesJournalEntry_Debit3387_Credit512()
+        {
+            // HTX (TT 71): offset credit theo TK doanh thu nội bộ 512 (bridge đọc accountCode của entry).
+            TenantId tenant = new(Guid.NewGuid());
+            CoreAccountingEntry entry = CoreAccountingEntry.CreateDepositOffset(
+                tenant, new AccountingPeriod(2026, 10), new Money(10_000m), "Đối trừ cọc đã thu",
+                accountCode: "512", reference: "order-y-DEPOSIT-OFFSET", transactionDate: new DateTime(2026, 10, 21));
+
+            // Act
+            bool created = await _bridge.CreateForAccountingEntryAsync(entry);
+
+            // Assert — Nợ 3387 / Có 512
+            created.Should().BeTrue();
+            _hkdRepo.Verify(r => r.AddToBookAsync(
+                It.Is<JournalEntry>(je =>
+                    je.Lines.First().AccountNumber == "3387" && je.Lines.First().DebitAmount == 10_000m &&
+                    je.Lines.ElementAt(1).AccountNumber == "512" && je.Lines.ElementAt(1).CreditAmount == 10_000m),
+                AccountingBookType.S2b_HKD, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
         public async Task CreateFor_CongNo131_DoesNotCreateJournalEntry_G6()
         {
             // Arrange — phiếu công nợ (131, EntryType Adjustment) — [G6] bán chịu không ghi doanh thu
@@ -298,6 +345,34 @@ namespace VanAn.Core.Tests.Accounting
             var result = await service.CreateRevenueEntryAsync(tenant, period, 1_000_000m, "Thu", accountCode: "511", transactionDate: new DateTime(2026, 10, 5));
             result.Id.Should().NotBe(Guid.Empty);
             repo.Verify(r => r.AddAsync(It.IsAny<CoreAccountingEntry>(), It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateDepositOffsetEntryAsync_WithBridge_CreatesJournalEntry()
+        {
+            // Issue #195 follow-up: AccountingEntryService.CreateDepositOffsetEntryAsync → entry
+            // DepositOffset (accountCode = TK doanh thu) + bridge tạo journal Nợ 3387/Có 511.
+            TenantId tenant = new(Guid.NewGuid());
+            AccountingPeriod period = new(2026, 10);
+            var bridge = new Mock<IManualEntryJournalBridge>();
+            var repo = new Mock<IAccountingEntryRepository>();
+            var audit = new Mock<IAuditTrailService>();
+            var closing = new Mock<IPeriodClosingService>();
+            closing.Setup(p => p.GetPeriodStatusAsync(It.IsAny<AccountingPeriod>(), It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(PeriodClosingStatus.Open);
+            repo.Setup(r => r.AddAsync(It.IsAny<CoreAccountingEntry>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+            repo.Setup(r => r.GetByTenantAndDateRangeAsync(It.IsAny<TenantId>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync([]);
+
+            var service = new AccountingEntryService(repo.Object, audit.Object, closing.Object, NullLogger<AccountingEntryService>.Instance, bridge.Object);
+
+            // Act
+            _ = await service.CreateDepositOffsetEntryAsync(tenant, period, 10_000m, "Đối trừ cọc", accountCode: "511", reference: "order-DEPOSIT-OFFSET", transactionDate: new DateTime(2026, 10, 20));
+
+            // Assert — entry DepositOffset (accountCode 511) + bridge gọi đúng 1 lần
+            bridge.Verify(b => b.CreateForAccountingEntryAsync(
+                It.Is<CoreAccountingEntry>(e => e.EntryType == AccountingEntryType.DepositOffset && e.AccountCode == "511" && e.Amount == 10_000m),
+                It.IsAny<CancellationToken>()), Times.Once);
         }
 
         [Fact]

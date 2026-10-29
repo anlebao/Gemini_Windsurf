@@ -15,7 +15,8 @@ namespace VanAn.Shared.Domain
         Revenue = 1,        // Doanh thu
         Expense = 2,        // Chi phí
         TaxPayment = 3,     // Thuế
-        Adjustment = 4      // Điều chỉnh
+        Adjustment = 4,     // Điều chỉnh
+        DepositOffset = 5   // Issue #195 follow-up (2026-10-29, user approve): đối trừ cọc 3387 → doanh thu
     }
 
     // Financial Safety Infrastructure
@@ -407,6 +408,27 @@ namespace VanAn.Shared.Domain
                 AccountingBookType.CashBankBook, period.Year, period.Month, description,
                 reversalEntryId: null, accountCode: accountCode, vendor: vendor, reference: reference,
                 transactionDate: transactionDate);
+        }
+
+        // Issue #195 follow-up (2026-10-29, user approve — deposit offset 3387 làm luôn):
+        // Khi order booking có cọc đã thu (DepositPaidAmount) được thanh toán cuối — cọc chuyển
+        // thành doanh thu: Nợ 3387 / Có {accountCode (511/512)}. accountCode = TK DOANH THU (credit
+        // side); TK 3387 (debit) do EntryType.DepositOffset ngầm định — ManualEntryJournalBridge
+        // map (3387, accountCode). Additive factory — AccountingEntry vẫn 100% immutable.
+        public static AccountingEntry CreateDepositOffset(
+            TenantId tenantId,
+            AccountingPeriod period,
+            Money amount,
+            string description,
+            string? accountCode = null,
+            string? reference = null,
+            IndustrySector? industrySector = null,
+            DateTime? transactionDate = null)
+        {
+            return new(tenantId, amount.Value, AccountingEntryType.DepositOffset, VatRate.Zero,
+                AccountingBookType.RevenueBook, period.Year, period.Month, description,
+                reversalEntryId: null, accountCode: accountCode, reference: reference,
+                industrySector: industrySector, transactionDate: transactionDate);
         }
 
         public static AccountingEntry CreateReversal(AccountingEntry original, string reason)
