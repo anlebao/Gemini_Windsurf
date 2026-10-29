@@ -100,6 +100,13 @@ public class ComponentTestBase : TestContext
         // Default returns null (no alert); tests needing alerts override before render.
         Services.AddSingleton<IBalanceAlertService>(_ => new Mock<IBalanceAlertService>().Object);
 
+        // Issue #197 (2026-10-29): metering client + attribute resolver — mock by default.
+        // MeteringDenyGate/FeatureUsageRecorder (AccountingLayout/Loyalty/Booking pages) inject
+        // chúng; default CheckBalanceAsync trả null → fail-open (content render bình thường).
+        Services.AddSingleton<IMeteringClient>(_ => new Mock<IMeteringClient>().Object);
+        Services.AddSingleton<IMeteringTenantAttributeResolver>(_ => new Mock<IMeteringTenantAttributeResolver>().Object);
+        Services.AddSingleton<FeatureUsageRecorder>();
+
         // Bunit automatically discovers components from referenced assemblies
         // UI.Platform is already referenced in the project, so components should be discoverable
     }

@@ -46,10 +46,14 @@ public class MeteringRateCardsTests : ComponentTestBase
 
     private const string TwoCardsJson = """
         [
-          {"id":"11111111-1111-1111-1111-111111111111","serviceCode":"store.visit","meterUnit":"visit","creditRate":1.0,"enforcement":"MeterOnly","effectiveFrom":"2026-10-23T00:00:00Z","effectiveTo":null,"isActive":true,"label":"Lượt xem cửa hàng","changedBy":"sysadmin","changedAtUtc":"2026-10-23T00:00:00Z","auditNote":null},
-          {"id":"22222222-2222-2222-2222-222222222222","serviceCode":"chat.message","meterUnit":"message","creditRate":2.5,"enforcement":"Deny","effectiveFrom":"2026-10-23T00:00:00Z","effectiveTo":null,"isActive":true,"label":null,"changedBy":"sysadmin","changedAtUtc":"2026-10-23T00:00:00Z","auditNote":null}
+          {"id":"11111111-1111-1111-1111-111111111111","serviceCode":"store.visit","meterUnit":"visit","creditRate":1.0,"enforcement":"MeterOnly","effectiveFrom":"2026-10-23T00:00:00Z","effectiveTo":null,"isActive":true,"label":"Lượt xem cửa hàng","changedBy":"sysadmin","changedAtUtc":"2026-10-23T00:00:00Z","auditNote":null,"scope":"Global","scopeValue":null},
+          {"id":"22222222-2222-2222-2222-222222222222","serviceCode":"chat.message","meterUnit":"message","creditRate":2.5,"enforcement":"Deny","effectiveFrom":"2026-10-23T00:00:00Z","effectiveTo":null,"isActive":true,"label":null,"changedBy":"sysadmin","changedAtUtc":"2026-10-23T00:00:00Z","auditNote":null,"scope":"TenantType","scopeValue":"HKD"}
         ]
         """;
+
+    // Issue #197 — GET /v1/config/enforcement response (page tải switch khi mở).
+    private const string EnforcementOnJson =
+        """{"enabled":true,"updatedBy":"sysadmin","updatedAtUtc":"2026-10-23T00:00:00Z"}""";
 
     private StubHandler RegisterClient(params string[] roles)
     {
@@ -75,6 +79,7 @@ public class MeteringRateCardsTests : ComponentTestBase
     public void T01_RendersRateCardTable_WithHeadVersions()
     {
         var handler = RegisterClient("SystemAdmin");
+        handler.Enqueue(HttpStatusCode.OK, EnforcementOnJson); // switch (issue #197)
         handler.Enqueue(HttpStatusCode.OK, TwoCardsJson);
 
         var cut = RenderComponent<MeteringRateCards>();
@@ -83,8 +88,10 @@ public class MeteringRateCardsTests : ComponentTestBase
         rows.Should().HaveCount(2);
         cut.Markup.Should().Contain("store.visit").And.Contain("chat.message");
         cut.Markup.Should().Contain("MeterOnly").And.Contain("Deny");
+        // Issue #197 — scope badge hiển thị
+        cut.Markup.Should().Contain("Global").And.Contain("Loại hình: HKD");
         cut.FindAll("[data-testid='btn-edit-rc']").Should().HaveCount(2);
-        handler.RequestCount.Should().Be(1); // chỉ GET list
+        handler.RequestCount.Should().Be(2); // GET list + GET enforcement switch
     }
 
     [Fact]
@@ -103,6 +110,7 @@ public class MeteringRateCardsTests : ComponentTestBase
     public void T03_SaveWithEmptyServiceCode_ShowsValidation_NoPostCall()
     {
         var handler = RegisterClient("SystemAdmin");
+        handler.Enqueue(HttpStatusCode.OK, EnforcementOnJson); // switch (issue #197)
         handler.Enqueue(HttpStatusCode.OK, "[]"); // GET list rỗng
 
         var cut = RenderComponent<MeteringRateCards>();
@@ -111,7 +119,7 @@ public class MeteringRateCardsTests : ComponentTestBase
         cut.Find("[data-testid='btn-save-rc']").Click();
 
         cut.Markup.Should().Contain("ServiceCode không được để trống");
-        handler.RequestCount.Should().Be(1); // vẫn chỉ GET — validation client-side chặn POST
+        handler.RequestCount.Should().Be(2); // GET list + GET enforcement — validation client-side chặn POST
         handler.LastMethod.Should().Be(HttpMethod.Get);
     }
 }
