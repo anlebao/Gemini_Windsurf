@@ -1,6 +1,6 @@
 # SRS — ADMIN MOBILE PWA (SHOPERP OPS ON PHONE/TABLET) v1.0
 
-> **Ngày:** 2026-10-30 · **Trạng thái:** DRAFT v1.0 — chờ user chốt các **[G#]**
+> **Ngày:** 2026-10-30 · **Trạng thái:** ✅ APPROVED v1.0 — user chốt **G1–G7** theo đề xuất mặc định (2026-10-30): không offline nghiệp vụ (chỉ shell) ✓ · app chỉ 7 trang ops ✓ · role landing hardcode ✓ · 70 admin pages ghi nợ ✓ · SW không cache API ✓ · POS mất mạng reload ✓ · icon upscale favicon ✓
 > **Nền tảng:** ShopERP Blazor Server hiện có + pattern PWA đã chứng minh ở **KhachLink** (`manifest.json` standalone + `service-worker.js` + `pwa.js` với SRI-deadlock fix).
 > **Mục tiêu MVP:** người vận hành (POS quầy / bếp / guard / owner mobile) **cài app icon lên màn hình điện thoại/tablet**, mở đúng trang theo role, chạy ổn định như app native — dùng lại toàn bộ trang ShopERP **đã responsive**.
 
