@@ -883,6 +883,9 @@ namespace VanAn.Gateway
                 if (!string.IsNullOrEmpty(apiKey)) client.DefaultRequestHeaders.TryAddWithoutValidation("X-Internal-Api-Key", apiKey);
             });
 
+            // TRA SOÁT SỐ LIỆU P3: reconcile service R1-R12 (read-only, SystemAdmin controller).
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Reconcile.IAccountingReconcileService, VanAn.CoreHub.Services.Reconcile.AccountingReconcileService>();
+
 
 
             // Phí nền tảng P4: usage metering client — thin per-host wrapper (task_p4 D2).
