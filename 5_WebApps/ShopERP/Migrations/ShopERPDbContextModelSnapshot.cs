@@ -3011,6 +3011,9 @@ namespace VanAn.ShopERP.Migrations
                     b.Property<double?>("DeliveryLng")
                         .HasColumnType("REAL");
 
+                    b.Property<decimal>("DepositPaidAmount")
+                        .HasColumnType("TEXT");
+
                     b.Property<decimal>("DiscountAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");

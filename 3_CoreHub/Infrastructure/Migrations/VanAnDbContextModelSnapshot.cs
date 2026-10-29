@@ -5040,6 +5040,9 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                     b.Property<double?>("DeliveryLng")
                         .HasColumnType("double precision");
 
+                    b.Property<decimal>("DepositPaidAmount")
+                        .HasColumnType("numeric");
+
                     b.Property<decimal>("DiscountAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
