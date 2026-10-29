@@ -1,6 +1,6 @@
 # SRS — TRA SOÁT SỐ LIỆU KẾ TOÁN (ACCOUNTING RECONCILIATION) v1.0
 
-> **Ngày:** 2026-10-29 · **Trạng thái:** DRAFT v1.0 — user chốt 4 điểm (2026-10-29): **Cả service + API + UI** ✓ · **Manual on-demand** ✓ · **Read-only + gợi ý fix (KHÔNG tự sửa data)** ✓ · **Tất cả loại hình (HKD TT152 / DN TT133-TT99 / HTX TT71)** ✓
+> **Ngày:** 2026-10-29 · **Trạng thái:** DRAFT v1.1 — user chốt (2026-10-29): **Cả service + API + UI** ✓ · **Manual on-demand** ✓ · **Read-only + gợi ý fix (KHÔNG tự sửa data)** ✓ · **Tất cả loại hình (HKD TT152 / DN TT133-TT99 / HTX TT71)** ✓ · **G7** contra 214/229 không ảnh hưởng R4 (đã chứng minh + verify production) — thêm Warning account ngoài prefix 1-8 ✓ · **G8** R11 giữ — CÓ API đọc SQLite mirror (ShopERP) ✓ · **G9** chỉ SystemAdmin được chạy tra soát ✓ · **G12** không lưu lịch sử tra soát ✓
 > **Nền tảng:** Module kế toán hiện tại (PG source of truth) — đọc thuần, KHÔNG migration, KHÔNG đụng Domain/AccountingEntry
 > **Nguyên tắc:** "những điều chưa rõ → giả định kịch bản ĐƠN GIẢN NHẤT" (mọi giả định đánh dấu **[G#]**)
 > **Cơ sở thực nghiệm:** `6_Testing/rv-scripts/accounting-balance-rv.sh` (C1-C10, chạy production 2026-10-29 — bắt được 3 lớp defect thật: double-revenue 114 journal, thiếu migration DepositPaidAmount, TransactionDate -infinity)
@@ -92,6 +92,23 @@
 | Kỳ (period) | `YYYY-MM`, lọc theo `EntryDate` (journal) / `TransactionDate` (entry) |
 | Offset cọc | EntryType=5 `DepositOffset` — Nợ 3387/Có 511 tại thanh toán cuối |
 
+### 4.1 GIẢI THÍCH G7 — contra account 214/229 trong R4 (user yêu cầu giải thích thêm)
+
+**Contra account (tài khoản điều chỉnh giảm) là gì:**
+- **214 — Hao mòn tài sản cố định**: số dư **CÓ** bình thường (normal credit) nhưng là tài khoản **TÀI SẢN** (điều chỉnh giảm nguyên giá 211/213/217). Bảng CĐKT trình bày: "Nguyên giá 211 − Hao mòn 214 = Giá trị còn lại".
+- **229 — Dự phòng tổn thất tài sản** (2291 giảm giá CKKD, 2292 tổn thất đầu tư, 2293 phải thu khó đòi, 2294 giảm giá HTK): cũng normal **credit**, contra-asset.
+- (Cùng họ: **521 — Các khoản giảm trừ doanh thu** — normal debit, contra-revenue.)
+
+**Tại sao 214/229 KHÔNG phá vỡ công thức R4** `Tài sản(1xx+2xx) == Nợ(3xx) + Vốn(4xx) + Lãi(5/7−6/8)`:
+- Vì mỗi journal cân bằng (R1), tổng đại số `Σ_all(debit − credit) = 0` trên MỌI tài khoản. Phân hoạch theo prefix → đẳng thức R4 là **hệ quả toán học của R1** — đúng với MỌI quy ước dấu, kể cả normal-credit của 214/229.
+- Ví dụ bút toán khấu hao `Nợ 642 100 / Có 214 100`: R4 giảm Tài sản 100 (214 credit) VÀ giảm Lãi 100 (642 debit) → hai vế cùng giảm → vẫn cân bằng. Không cần special-case 214/229.
+
+**Vấn đề THẬT của R4 là gì** (không phải contra):
+1. **Tài khoản ngoài prefix 1-8** — quan trọng nhất là **911 (Xác định kết quả kinh doanh)** khi hệ thống làm bút toán **kết chuyển cuối kỳ** (Nợ 511/Có 911 · Nợ 911/Có 632): lúc đó 511/632 bị zero, lợi nhuận nằm ở 911 → công thức hiện tại (chỉ 5/7−6/8) sẽ lệch. **Verify production 2026-10-29: hệ thống CHƯA có journal 9xx/911** (chỉ prefix 1-6) → hiện tại an toàn; SRS thêm **sub-check Warning: account ngoài `^[1-8]` → liệt kê** để bắt sớm nếu tương lai có kết chuyển.
+2. Tài khoản malformed/rỗng trong `AccountNumber` — cùng sub-check bắt được.
+
+**Quyết định G7 (đã chốt):** R4 giữ nguyên công thức (1-8) + sub-check "account ngoài prefix 1-8 → Warning + liệt kê". Contra 214/229 không cần xử lý đặc biệt (ghi chú trong code).
+
 ---
 
 ## 5. YÊU CẦU CHỨC NĂNG (FR)
@@ -110,14 +127,14 @@
 | R1 | **Journal cân bằng** | Mỗi journal kỳ: `Σdebit == Σcredit` (tolerance 0.01) | Error nếu >0 journal lệch |
 | R2 | **Trial balance kỳ** | `Σdebit == Σcredit` toàn kỳ | Error nếu lệch |
 | R3 | **Revenue/Expense đồng bộ journals ↔ entries** | `Σ credit 5xx/7xx (journal) == Σ entries Revenue(5/7) + Σ offset(5/7)`; `Σ debit 6xx/8xx (journal) == Σ entries Expense(6/8)` (VAT 3331 trừ riêng — semantic D5) | Error nếu lệch > 0.01 |
-| R4 | **Balance identity** | `Tài sản(1xx+2xx) == Nợ(3xx) + Vốn(4xx) + Lãi(5/7 − 6/8)` (toàn lịch sử — gồm OpeningBalance) | Error nếu lệch; Warning nếu chỉ lệch do contra 214/229 [G7] |
+| R4 | **Balance identity** | `Tài sản(1xx+2xx) == Nợ(3xx) + Vốn(4xx) + Lãi(5/7 − 6/8)` (toàn lịch sử — gồm OpeningBalance). **G7 (đã chốt):** contra 214/229 KHÔNG cần xử lý đặc biệt (xem giải thích §4.1) — công thức giữ nguyên; **thêm sub-check**: account code ngoài prefix `^[1-8]` → **Warning + liệt kê** (tương lai nếu có kết chuyển 911 → mở rộng NET gộp 9xx) | Error nếu lệch; Warning nếu có account ngoài 1-8 |
 | R5 | **Sổ cái** | Per account (111, 112, 131, 156, 331, 3387, 421, 511, 632, 3331): `closing == opening + movement` (replicate GetLedgerAsync) + hiển thị bảng | Info (số liệu để đối chiếu UI) |
 | R6 | **Nhật ký chung** | count + ΣNợ + ΣCó kỳ (đúng query JournalReport) | Error nếu ΣNợ ≠ ΣCó |
 | R7 | **Sổ HKD** (chỉ tenant Type=1) | Books S1a/S2b/S3a = toàn bộ journal kỳ; revenue 5xx/7xx khớp R3 | Error nếu không khớp; Warning nếu tenant HKD không có journal kỳ |
 | R8 | **Single-source bridge** | (a) `journal ref 'Order'` tạo sau 2026-10-29 = 0 (double-revenue regression); (b) mỗi order paid kỳ có đúng **2-3 journal** (revenue+COGS [+offset]) | Error (a)/(b) vi phạm |
 | R9 | **Deposit 3387 residual** | `Σ credit − Σ debit` TK 3387 (toàn lịch sử) | Info nếu ≠ 0 (cọc chưa thanh toán cuối / thiếu receipt journal — semantic D6) |
 | R10 | **Order → entries coverage** | Mỗi order paid kỳ có đủ entries: 511 (hoặc 512 HTX nội) + 3331 (nếu VAT>0) + 632 (nếu COGS>0) + offset (nếu DepositPaidAmount>0) | Error nếu thiếu entries |
-| R11 | **Cross-store PG ↔ SQLite mirror** | Order paid kỳ: có trong SQLite mirror (SourceType/Status/PaymentStatus khớp) | Warning nếu lệch (NATS sync chưa kịp / lỗi) [G8] |
+| R11 | **Cross-store PG ↔ SQLite mirror** — **G8 (đã chốt): GIỮ + CÓ API đọc mirror** | Service gọi ShopERP API `GET /api/shoperp/accounting/mirror-orders?period=` (đọc SQLite mirror: orders + tenants) → so PG: SourceType/Status/PaymentStatus/DepositPaidAmount khớp | Warning nếu lệch (NATS sync chưa kịp / lỗi) [G8] |
 | R12 | **Ngày nghiệp vụ** | Entries có `TransactionDate` hợp lệ (không -infinity / 01-01-0001); journal `EntryDate` trong kỳ khớp entries kỳ | Warning nếu có row xấu (defect D3) |
 
 ### FR-2 — Kết quả & mức độ
@@ -128,23 +145,22 @@
 
 ### FR-3 — API
 
-- FR-3.1 `GET /api/tenant/accounting/reconcile?period=YYYY-MM` — tenant từ claim (`tenant_id`), role: Owner / ChiefAccountant / Accountant (theo role hiện có — cần xác nhận danh sách chính xác khi implement [G9]).
-- FR-3.2 `GET /api/admin/accounting/reconcile?tenantId={guid}&period=YYYY-MM` — SystemAdmin, bất kỳ tenant.
-- FR-3.3 Response: `{ period, tenantId, ranAt, summary: {error, warning, info, pass}, checks: [...], suggestions: [...] }` — JSON.
-- FR-3.4 Lỗi đầu vào: period sai format → 400; tenant không tồn tại → 404.
+- FR-3.1 `GET /api/admin/accounting/reconcile?tenantId={guid}&period=YYYY-MM` — **chỉ SystemAdmin** (G9 đã chốt — tra soát là công cụ kiểm soát nội bộ, không phải nghiệp vụ hàng ngày của kế toán).
+- FR-3.2 Response: `{ period, tenantId, ranAt, summary: {error, warning, info, pass}, checks: [...], suggestions: [...] }` — JSON.
+- FR-3.3 Lỗi đầu vào: period sai format → 400; tenant không tồn tại → 404; không phải SystemAdmin → 403.
 
 ### FR-4 — UI `/accounting/reconcile`
 
-- FR-4.1 Trong `AccountingLayout` (phủ policy kế toán hiện có), NavMenu mục "Tra soát số liệu".
-- FR-4.2 Form: tenant (chỉ SystemAdmin thấy selector — Owner/accountant cố định tenant hiện tại) + kỳ (mặc định kỳ hiện tại) + nút "Tra soát".
+- FR-4.1 Trong `AdminLayout` (không phải AccountingLayout — **chỉ SystemAdmin** theo G9), NavMenu "Tra soát số liệu" (admin).
+- FR-4.2 Form: tenant (SystemAdmin chọn bất kỳ) + kỳ (mặc định kỳ hiện tại) + nút "Tra soát".
 - FR-4.3 Kết quả: 4 thẻ tổng (Error/Warning/Info/Pass) + bảng từng check (level badge + summary + expand chi tiết + suggestion) + nút "Chạy lại".
 - FR-4.4 UI Platform 100% (VanACard/VanAAlert/VanAnDataGrid/VanAMetricsCard…) — Gate 4: UI thay đổi → viết E2E spec tại `6_Testing/e2e-tests/`.
 
 ### FR-5 — Phân quyền & đa tenant
 
-- FR-5.1 Chỉ truy cập trong tenant hiện tại (Owner/accountant) — `TenantId` từ claims/tenant provider, KHÔNG cross-tenant.
+- FR-5.1 **Chỉ SystemAdmin** (G9) — cả UI lẫn API; tra soát mọi tenant.
 - FR-5.2 SystemAdmin: mọi tenant (admin API) — đúng pattern Gateway admin API hiện có.
-- FR-5.3 Audit: log mỗi lần tra soát (tenant, kỳ, user, thời gian, summary) — tái dùng `IAuditTrailService`.
+- FR-5.3 Audit: log mỗi lần tra soát (tenant, kỳ, user, thời gian, summary) — tái dùng `IAuditTrailService`. Không lưu lịch sử kết quả (G12 — chỉ audit log, không bảng mới).
 
 ---
 
@@ -223,9 +239,9 @@
 
 ---
 
-## 12. CÂU HỎI MỞ (cần chốt trước implement)
+## 12. CÂU HỎI MỞ — ĐÃ CHỐT (2026-10-29)
 
-1. **Danh sách role** được phép chạy tra soát (Owner/ChiefAccountant/Accountant/SystemAdmin — khớp role nào hiện có)? [G9]
-2. Xử lý **contra account 214/229** trong R4: cảnh báo (Warning) hay loại trừ đúng chuẩn ngay từ đầu? [G7]
-3. R11 cross-store: có cần **thêm API đọc SQLite mirror** (ShopERP) hay bỏ R11 khỏi MVP (chỉ PG)? [G8]
-4. Kết quả có cần **lưu lịch sử tra soát** (bảng mới) để so sánh giữa các lần chạy? (hiện đã chốt manual on-demand — không lưu) [G12]
+1. ~~Danh sách role được phép chạy tra soát?~~ → **G9: chỉ SystemAdmin** (UI + API).
+2. ~~Xử lý contra account 214/229 trong R4?~~ → **G7: không cần special-case** (đã chứng minh đại số + verify production không có 9xx) — thêm sub-check Warning account ngoài prefix 1-8.
+3. ~~R11 cross-store cần API đọc SQLite mirror?~~ → **G8: GIỮ R11 + CÓ API** ShopERP `GET /api/shoperp/accounting/mirror-orders?period=` (đọc SQLite mirror).
+4. ~~Có lưu lịch sử tra soát?~~ → **G12: KHÔNG lưu** (chỉ audit log, không bảng mới — kết quả runtime).
