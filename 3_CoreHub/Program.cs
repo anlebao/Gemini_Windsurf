@@ -113,6 +113,8 @@ namespace VanAn.CoreHub
                     _ = services.AddScoped<IBackfillJournalEntriesService, BackfillJournalEntriesService>();
                     // NHẬP LIỆU & SỔ SÁCH P3 (#2, 2026-10-07): khai báo số dư đầu kỳ
                     _ = services.AddScoped<IOpeningBalanceService, OpeningBalanceService>();
+                    // TRA SOÁT SỐ LIỆU KẾ TOÁN (P1, 2026-10-29): read-only reconcile R1-R12 (MirrorOrderProvider optional — P2)
+                    _ = services.AddScoped<VanAn.CoreHub.Services.Reconcile.IAccountingReconcileService, VanAn.CoreHub.Services.Reconcile.AccountingReconcileService>();
                     // NHẬP LIỆU & SỔ SÁCH P4 (#1, 2026-10-08): import Excel xlsx+csv (dry-run 0 lỗi mới lưu)
                     _ = services.AddScoped<VanAn.CoreHub.Services.Import.IImportService, VanAn.CoreHub.Services.Import.ImportService>();
                     _ = services.AddScoped<IOrderService, OrderService>();
