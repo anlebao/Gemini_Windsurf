@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Hướng dẫn Tra soát số liệu kế toán — Vạn An Ecosystem</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Hướng dẫn Tra soát số liệu kế toán — Vạn An
+Ecosystem</h1>
+</header>
+<h1 id="hướng-dẫn-sử-dụng-tra-soát-số-liệu-kế-toán">Hướng dẫn sử dụng —
+Tra soát số liệu kế toán</h1>
+<blockquote>
+<p><strong>Đối tượng:</strong> SystemAdmin (quản trị hệ thống)
+<strong>Đường dẫn:</strong>
+<code>https://app2.khachvip.online/admin/reconcile</code> <strong>Phiên
+bản:</strong> v1.0 — deploy 2026-10-29 (SRS
+<code>van_an_tra_soat_so_lieu_ke_toan_srs_v1.md</code>)</p>
+</blockquote>
+<hr />
+<h2 id="tính-năng-là-gì">1. Tính năng là gì?</h2>
+<p><strong>Tra soát số liệu kế toán</strong> chạy <strong>12 kiểm tra tự
+động (R1–R12)</strong> trên dữ liệu kế toán của một tenant trong một kỳ
+(tháng), nhằm phát hiện sớm:</p>
+<ul>
+<li>Bút toán nhật ký <strong>mất cân đối</strong> Nợ/Có.</li>
+<li>Doanh thu/chi phí <strong>lệch</strong> giữa journal và số liệu trên
+màn hình.</li>
+<li>Tài sản ≠ Nợ phải trả + Vốn + Lãi (sai phương trình kế toán).</li>
+<li>Đơn hàng đã thu tiền nhưng <strong>thiếu/trùng</strong> bộ bút
+toán.</li>
+<li>Số liệu trên ShopERP (mirror SQLite) <strong>lệch</strong> với nguồn
+gốc PostgreSQL.</li>
+<li>Ngày nghiệp vụ (TransactionDate) bị hỏng (<code>01-01-0001</code>,
+<code>-infinity</code>).</li>
+</ul>
+<p><strong>Nguyên tắc quan trọng:</strong></p>
+<ul>
+<li>✅ <strong>Chỉ đọc (read-only)</strong> — không sửa, không tạo bút
+toán nào.</li>
+<li>✅ <strong>Chỉ gợi ý</strong> — mỗi vấn đề kèm gợi ý khắc phục; việc
+sửa do kế toán/admin thực hiện thủ công.</li>
+<li>✅ <strong>Chỉ SystemAdmin</strong> — Owner/kế toán tenant không
+thấy trang này.</li>
+<li>✅ <strong>Không lưu lịch sử</strong> — mỗi lần chạy tính lại từ
+đầu; mọi lần chạy được ghi audit log (tenant, kỳ, người chạy, tóm
+tắt).</li>
+</ul>
+<hr />
+<h2 id="truy-cập-trang">2. Truy cập trang</h2>
+<p>Có 3 cách vào:</p>
+<ol type="1">
+<li><strong>NavMenu:</strong> đăng nhập SystemAdmin → menu trái →
+<strong>Cấu hình &amp; thiết lập</strong> → <strong>Tra soát số liệu kế
+toán</strong>.</li>
+<li><strong>Sitemap:</strong> <code>/sitemap</code> → nhóm admin → card
+<strong>🧮 Tra soát số liệu</strong>.</li>
+<li><strong>Trực tiếp:</strong> gõ URL
+<code>https://app2.khachvip.online/admin/reconcile</code>.</li>
+</ol>
+<blockquote>
+<p>Nếu đăng nhập bằng tài khoản không phải SystemAdmin → trang trả về
+<strong>403 Access Denied</strong>.</p>
+</blockquote>
+<hr />
+<h2 id="cách-chạy-tra-soát">3. Cách chạy tra soát</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Bước</th>
+<th>Thao tác</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Dropdown <strong>Tenant</strong> → chọn tenant cần kiểm tra (ví dụ:
+Cafe Tân Quy, Test HKD).</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Ô <strong>Kỳ (YYYY-MM)</strong> → nhập tháng, ví dụ
+<code>2026-10</code>.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Bấm nút <strong>Tra soát</strong>.</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Chờ 1–3 giây — hệ thống chạy tuần tự 13 mục kiểm tra.</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Đọc kết quả (mục 4). Muốn chạy lại → bấm <strong>Chạy
+lại</strong>.</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Mỗi check chạy độc lập — một check lỗi không làm hỏng các check còn
+lại.</p>
+</blockquote>
+<hr />
+<h2 id="đọc-kết-quả">4. Đọc kết quả</h2>
+<h3 id="bốn-thẻ-tóm-tắt">4.1 Bốn thẻ tóm tắt</h3>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Thẻ</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Tổng check</strong></td>
+<td>Tổng số mục đã chạy (13: R1–R12 + các check thông tin).</td>
+</tr>
+<tr>
+<td><strong>Pass</strong></td>
+<td>Xanh lá — số check hoàn toàn đúng.</td>
+</tr>
+<tr>
+<td><strong>Warning</strong></td>
+<td>Vàng — có dấu hiệu bất thường cần xem xét (ví dụ: tài khoản 9xx/911,
+account malformed).</td>
+</tr>
+<tr>
+<td><strong>Error</strong></td>
+<td>Đỏ — sai dữ liệu rõ ràng cần xử lý.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="bảng-chi-tiết-từng-check">4.2 Bảng chi tiết từng check</h3>
+<p>Mỗi dòng: <strong>Mã</strong> · <strong>Tên check</strong> ·
+<strong>Mức</strong> (badge màu) · <strong>Số liệu</strong> ·
+<strong>Chi tiết</strong> (bấm mở rộng để xem danh sách
+ID/journal/account cụ thể).</p>
+<p>Các mức:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Badge</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>🟩 <strong>Pass</strong></td>
+<td>Đúng — không cần làm gì.</td>
+</tr>
+<tr>
+<td>🟦 <strong>Info</strong></td>
+<td>Thông tin tham khảo (ví dụ: tồn cọc 3387, check không áp dụng cho
+loại tenant).</td>
+</tr>
+<tr>
+<td>🟨 <strong>Warning</strong></td>
+<td>Nghi vấn — cần người xem xét quyết định (không phải lỗi chắc
+chắn).</td>
+</tr>
+<tr>
+<td>🟥 <strong>Error</strong></td>
+<td>Sai chắc chắn — cần hành động khắc phục.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="danh-sách-gợi-ý">4.3 Danh sách gợi ý</h3>
+<p>Cuối trang (nếu có vấn đề) hiện khối <strong>Gợi ý khắc phục</strong>
+— mỗi gợi ý mô tả nguyên nhân + hướng xử lý thủ công. Hệ thống
+<strong>không tự sửa</strong> dữ liệu.</p>
+<hr />
+<h2 id="ý-nghĩa-13-mục-kiểm-tra">5. Ý nghĩa 13 mục kiểm tra</h2>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Mã</th>
+<th>Check</th>
+<th>Phát hiện</th>
+<th>Mức khi bất thường</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>R1</strong></td>
+<td>Journal cân bằng</td>
+<td>Bút toán có ΣNợ ≠ ΣCó</td>
+<td>Error</td>
+</tr>
+<tr>
+<td><strong>R2</strong></td>
+<td>Trial balance kỳ</td>
+<td>Tổng Nợ ≠ tổng Có toàn kỳ</td>
+<td>Error</td>
+</tr>
+<tr>
+<td><strong>R3</strong></td>
+<td>Doanh thu/Chi phí</td>
+<td>Journal 5xx-8xx lệch số liệu dashboard (đã gồm VAT 3331 + offset
+cọc)</td>
+<td>Error</td>
+</tr>
+<tr>
+<td><strong>R4</strong></td>
+<td>Phương trình kế toán</td>
+<td>Tài sản ≠ Nợ + Vốn + Lãi · account ngoài prefix 1-8 (9xx/911,
+malformed, rỗng)</td>
+<td>Error / Warning (9xx, malformed)</td>
+</tr>
+<tr>
+<td><strong>R5</strong></td>
+<td>Sổ cái</td>
+<td>Dư đầu → phát sinh → dư cuối các TK trọng yếu (tham khảo)</td>
+<td>Info</td>
+</tr>
+<tr>
+<td><strong>R6</strong></td>
+<td>Nhật ký chung</td>
+<td>Đếm + tổng bút toán kỳ (đối chiếu R2)</td>
+<td>Pass/Error</td>
+</tr>
+<tr>
+<td><strong>R7</strong></td>
+<td>Sổ HKD</td>
+<td>Tenant HKD: books S1a/S2b/S3a khớp doanh thu journal</td>
+<td>Error (Info nếu tenant không HKD)</td>
+</tr>
+<tr>
+<td><strong>R8a</strong></td>
+<td>Cầu nối nguồn đơn</td>
+<td>Journal ref <code>Order</code> còn tồn tại sau ngày chuyển đổi
+2026-10-29</td>
+<td>Error</td>
+</tr>
+<tr>
+<td><strong>R8b</strong></td>
+<td>Bộ bút toán đơn</td>
+<td>Mỗi đơn paid có đúng 1 bộ journal (2–3 bút toán)</td>
+<td>Error</td>
+</tr>
+<tr>
+<td><strong>R9</strong></td>
+<td>Cọc 3387</td>
+<td>Cọc đã thu chưa đối trừ (residual ≠ 0)</td>
+<td>Info</td>
+</tr>
+<tr>
+<td><strong>R10</strong></td>
+<td>AccountingEntry đơn</td>
+<td>Đơn paid thiếu bút toán AccountingEntry</td>
+<td>Error</td>
+</tr>
+<tr>
+<td><strong>R11</strong></td>
+<td>Mirror ShopERP</td>
+<td>Đơn trên SQLite mirror lệch PG (sai tổng tiền/trạng thái)</td>
+<td>Warning (Info nếu không gọi được mirror)</td>
+</tr>
+<tr>
+<td><strong>R12</strong></td>
+<td>Ngày nghiệp vụ</td>
+<td><code>TransactionDate</code> hỏng: <code>01-01-0001</code> /
+<code>-infinity</code> (quét toàn lịch sử, không chỉ kỳ chọn)</td>
+<td>Warning</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Ví dụ kết quả thực tế (production 2026-10):</strong></p>
+<ul>
+<li>Cafe Tân Quy: <code>10 Pass · 3 Info · 0 Warning · 0 Error</code> —
+dữ liệu sạch.</li>
+<li>Test HKD: <code>11 Pass · 2 Info · 0 Warning · 0 Error</code> — Info
+R9 báo còn tồn cọc 3387 = −20,000đ.</li>
+</ul>
+<hr />
+<h2 id="lỗi-thường-gặp-cách-xử-lý">6. Lỗi thường gặp &amp; cách xử
+lý</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Triệu chứng</th>
+<th>Nguyên nhân</th>
+<th>Xử lý</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Trang 403</td>
+<td>Tài khoản không phải SystemAdmin</td>
+<td>Đăng nhập sysadmin</td>
+</tr>
+<tr>
+<td>Alert “Chọn tenant trước”</td>
+<td>Chưa chọn tenant</td>
+<td>Chọn tenant trong dropdown</td>
+</tr>
+<tr>
+<td>Alert “Nhập kỳ dạng YYYY-MM”</td>
+<td>Kỳ sai định dạng</td>
+<td>Nhập vd <code>2026-10</code> (không <code>10-2026</code>)</td>
+</tr>
+<tr>
+<td>API 400 “tenantId là bắt buộc”</td>
+<td>Thiếu <code>tenantId</code> trên URL API</td>
+<td>Truyền <code>?tenantId={guid}</code></td>
+</tr>
+<tr>
+<td>API 404 “Tenant không tồn tại”</td>
+<td>GUID sai / tenant đã xóa</td>
+<td>Kiểm tra lại tenant ID</td>
+</tr>
+<tr>
+<td>R11 báo Info “không chạy được”</td>
+<td>ShopERP mirror không liên lạc được / chưa cấu hình API key</td>
+<td>Kiểm tra ShopERP VPS + <code>InternalLoyalty:ApiKey</code> 2 phía
+khớp nhau; các check khác vẫn chạy bình thường</td>
+</tr>
+<tr>
+<td>R12 Warning</td>
+<td>Entries có <code>TransactionDate</code> hỏng từ trước</td>
+<td>Chạy backfill ngày theo gợi ý trong phần Chi tiết</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="faq">7. FAQ</h2>
+<p><strong>Hỏi:</strong> Tra soát có sửa dữ liệu không?
+<strong>Đáp:</strong> Không — hoàn toàn read-only. Chỉ đọc và gợi ý.</p>
+<p><strong>Hỏi:</strong> Có lưu lịch sử các lần chạy không?
+<strong>Đáp:</strong> Không lưu report; chỉ ghi audit log (ai, tenant
+nào, kỳ nào, tóm tắt) trong Audit Trail.</p>
+<p><strong>Hỏi:</strong> Chạy bao lâu? <strong>Đáp:</strong> 1–3
+giây/tenant·kỳ (production đo ~1.6s cho 12+ journal, ~0.25s cho 34
+journal).</p>
+<p><strong>Hỏi:</strong> Kỳ nào cũng chạy được? <strong>Đáp:</strong> Có
+— chọn bất kỳ <code>YYYY-MM</code> nào; R12 luôn quét toàn lịch sử ngày
+hỏng.</p>
+<p><strong>Hỏi:</strong> R11 khác các check thế nào?
+<strong>Đáp:</strong> R11 gọi HTTP nội bộ Gateway → ShopERP (SQLite
+mirror) so sánh đơn — là check duy nhất xuyên 2 store; lỗi mạng chỉ hạ
+xuống Info, không fail cả bộ.</p>
+<p><strong>Hỏi:</strong> Kế toán tenant xem được không?
+<strong>Đáp:</strong> Không — chỉ SystemAdmin (chính sách G9). Kết quả
+cần chia sẻ → chụp màn hình hoặc xuất từ audit log.</p>
+<hr />
+<p><em>Tài liệu tham chiếu: SRS
+<code>docs/requirements/van_an_tra_soat_so_lieu_ke_toan_srs_v1.md</code>
+· task card <code>docs/AI/tasks/task_tra_soat_ke_toan.md</code> · script
+đối chiếu
+<code>6_Testing/rv-scripts/accounting-balance-rv.sh</code>.</em></p>
+</body>
+</html>
