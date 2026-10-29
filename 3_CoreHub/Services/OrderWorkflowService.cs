@@ -39,7 +39,13 @@ namespace VanAn.CoreHub.Services
         // Issue #195 (2026-10-19): configurable order flow — resolve transitions từ
         // OrderFlowProfile (PG qua OrderFlowService / HTTP qua ShopERP client).
         // Null trong test scopes → fallback hardcode maps bên dưới (backward compatible).
-        VanAn.Shared.Services.IOrderFlowService? orderFlowService = null) : IOrderWorkflowService
+        VanAn.Shared.Services.IOrderFlowService? orderFlowService = null,
+        // Issue #195 follow-up (2026-10-29, user approve A): booking "Thanh toán" = PAYMENT THẬT —
+        // transition pending→confirmed trên đơn booking phải đồng bộ PaymentStatus=Paid + ghi
+        // doanh thu (cash-basis) qua OrderService.ConfirmPaymentAsync, KHÔNG được là status ảo
+        // (rủi ro double/missing accounting entries khi staff bấm thêm "Đã thanh toán").
+        // Null trong test scopes → skip payment (backward compatible — transition thuần).
+        IOrderService? orderService = null) : IOrderWorkflowService
     {
         private readonly IOrderRepository _orderRepository = orderRepository;
         private readonly ILogger<OrderWorkflowService> _logger = logger;
@@ -72,6 +78,8 @@ namespace VanAn.CoreHub.Services
         private readonly ILoyaltyPointLedgerService? _loyaltyPointLedgerService = loyaltyPointLedgerService;
         // Issue #195: configurable order flow resolver (null → legacy hardcode maps).
         private readonly VanAn.Shared.Services.IOrderFlowService? _orderFlowService = orderFlowService;
+        // Issue #195 follow-up: payment confirm cho booking "Thanh toán" (null → skip, backward compatible).
+        private readonly IOrderService? _orderService = orderService;
         // _shopFeatureSettingsService already declared at line 34 (Wave 1-T6) — reused for Loyalty-C WS-A per-tenant formula override.
 
         // W-1-T7: CamelCase JSON options — matches SimpleAccountingEventHandler deserialization policy
@@ -116,6 +124,31 @@ namespace VanAn.CoreHub.Services
                     _logger.LogWarning("Invalid status transition for order {OrderId}: {CurrentStatus} -> {NewStatus}",
                         orderId, order.Status.Value, newStatus.Value);
                     return null;
+                }
+
+                // Issue #195 follow-up (2026-10-29, user approve A — ngoại lệ booking "Thanh toán"):
+                // transition pending→confirmed trên đơn booking CÓ NGHĨA là thu tiền (cash-basis).
+                // Đồng bộ PaymentStatus=Paid + ghi doanh thu qua ConfirmPaymentAsync TRƯỚC khi chuyển
+                // status — nếu payment fail → chặn transition (không để "Đã thanh toán" mà chưa thu).
+                if (_orderService != null
+                    && order.SourceType == "booking"
+                    && newStatus.Value == "confirmed"
+                    && order.PaymentStatus != "Paid")
+                {
+                    try
+                    {
+                        await _orderService.ConfirmPaymentAsync(
+                            order.Id, order.TenantId.Value, $"BOOKING_{order.Id:N}");
+                        _logger.LogInformation("Booking order {OrderId} paid on 'Thanh toán' (pending→confirmed) — PaymentStatus=Paid + accounting entries",
+                            order.Id);
+                    }
+                    catch (Exception payEx)
+                    {
+                        _logger.LogError(payEx,
+                            "Booking payment confirm failed for order {OrderId} — blocking transition to confirmed (no paid-without-payment state)",
+                            order.Id);
+                        return null;
+                    }
                 }
 
                 OrderStatusId oldStatus = order.Status;

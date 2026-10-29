@@ -634,6 +634,87 @@ namespace VanAn.CoreHub.Services.Booking
         /// </summary>
         private async Task EnsureOrderAndFactsAsync(TenantId tenantId, BookingEntity booking, CancellationToken ct)
         {
+            // Issue #195 follow-up (2026-10-29, user approve A): ORDER HOOK TRƯỚC financial facts.
+            // Đảm bảo booking.OrderId được gắn TRƯỚC khi RecordServiceCompletedAsync chạy → booking
+            // path thấy order đã tồn tại → skip doanh thu (doanh thu ghi tại order payment — single
+            // source, chống double). Nếu hook fail → OrderId null → booking vẫn ghi (fail-safe,
+            // không mất số liệu). Retry an toàn: RecordServiceCompletedAsync idempotent theo reference.
+
+            // D2 — Order hook (Q1 = COMPLETED).
+            if (_orderService is null)
+            {
+                _logger.LogDebug("IOrderService not wired — skip Booking→Order hook (tests/legacy).");
+            }
+            else if (booking.OrderId is null)
+            {
+                try
+                {
+                    // Recovery: order đã tạo nhưng AttachOrder chưa kịp lưu (crash) → tìm theo TrackingCode.
+                    Guid? existingOrderId = await _context.Orders.IgnoreQueryFilters()
+                        .Where(o => o.TrackingCode == booking.PublicBookingCode)
+                        .Select(o => (Guid?)o.Id)
+                        .FirstOrDefaultAsync(ct);
+                    if (existingOrderId is not null)
+                    {
+                        booking.AttachOrder(existingOrderId.Value);
+                        _ = await _context.SaveChangesAsync(ct);
+                        _logger.LogInformation("Booking→Order recovery (attach existing): booking={BookingId} order={OrderId}", booking.Id, existingOrderId.Value);
+                    }
+                    else
+                    {
+                        List<BookingItem> items = await _context.BookingItems.IgnoreQueryFilters()
+                            .Where(i => i.BookingId == booking.Id)
+                            .OrderBy(i => i.ItemType)
+                            .ToListAsync(ct);
+                        if (items.Count == 0)
+                        {
+                            _logger.LogWarning("Booking→Order skipped — booking {BookingId} không có items.", booking.Id);
+                        }
+                        else
+                        {
+                            // Fix 1 (2026-10-14, user approve — verify bug "booking hoàn tất không tạo order"):
+                            // Routing key = Tenant.ShopInstanceId (pattern PublicOrdersController) — KHÔNG được null.
+                            // Trước đây routingKey=null → Outbox event ra subject "vanan.cloud.order.created" (không có
+                            // suffix .{shopInstanceId}) → ShopERP OrderSyncSubscriber (chỉ subscribe subject có suffix —
+                            // Phase 4 chống cross-VPS leak) không nhận → order chỉ tồn tại ở Gateway PG, không bao giờ
+                            // sync sang ShopERP SQLite → Owner không thấy đơn → doanh thu không vào luồng kế toán hiện có.
+                            string? routingKey = await ResolveShopInstanceRoutingKeyAsync(tenantId, ct);
+
+                            var command = new CreateOrderCommand
+                            {
+                                CustomerId = booking.CustomerId,
+                                CustomerDeviceId = booking.CustomerDeviceId is not null && Guid.TryParse(booking.CustomerDeviceId, out Guid deviceGuid)
+                                    ? deviceGuid
+                                    : Guid.Empty,
+                                CustomerNotes = booking.CustomerNote,
+                                TrackingCode = booking.PublicBookingCode,   // idempotency recovery key
+                                SourceType = "booking",                     // Issue #195: booking→order flow (Thanh toán + Hoàn thành)
+                                Items = items.Select(i => new OrderItemRequest
+                                {
+                                    ProductId = i.OfferingId ?? i.AddOnId ?? Guid.NewGuid(),
+                                    Quantity = i.Quantity,
+                                    UnitPrice = i.UnitPrice,
+                                    TenantId = tenantId.Value,
+                                    ProductName = i.Name,
+                                    VatRate = 0.10m
+                                }).ToList()
+                            };
+
+                            OrderEntity order = await _orderService.CreateOrderFromCommandAsync(command, tenantId.Value, routingKey);
+                            booking.AttachOrder(order.Id);
+                            _ = await _context.SaveChangesAsync(ct);
+                            _logger.LogInformation("Booking→Order created: booking={BookingId} order={OrderId} total={Total} routingKey={RoutingKey}",
+                                booking.Id, order.Id, order.TotalAmount, routingKey ?? "(none)");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Fail-safe: không fail transition COMPLETED — retry ở lần CompleteAsync kế tiếp (idempotent).
+                    _logger.LogError(ex, "Booking→Order hook failed (retry on next complete): booking={BookingId}", booking.Id);
+                }
+            }
+
             // Financial facts (§16.6) — fail-safe, không block order hook.
             if (_financialService is not null)
             {
@@ -659,80 +740,6 @@ namespace VanAn.CoreHub.Services.Booking
                 {
                     _logger.LogError(ex, "FinalizeCommissionForBookingAsync failed (non-blocking): booking={BookingId}", booking.Id);
                 }
-            }
-
-            // D2 — Order hook (Q1 = COMPLETED).
-            if (_orderService is null)
-            {
-                _logger.LogDebug("IOrderService not wired — skip Booking→Order hook (tests/legacy).");
-                return;
-            }
-            if (booking.OrderId is not null)
-                return;   // idempotent R7
-
-            try
-            {
-                // Recovery: order đã tạo nhưng AttachOrder chưa kịp lưu (crash) → tìm theo TrackingCode.
-                Guid? existingOrderId = await _context.Orders.IgnoreQueryFilters()
-                    .Where(o => o.TrackingCode == booking.PublicBookingCode)
-                    .Select(o => (Guid?)o.Id)
-                    .FirstOrDefaultAsync(ct);
-                if (existingOrderId is not null)
-                {
-                    booking.AttachOrder(existingOrderId.Value);
-                    _ = await _context.SaveChangesAsync(ct);
-                    _logger.LogInformation("Booking→Order recovery (attach existing): booking={BookingId} order={OrderId}", booking.Id, existingOrderId.Value);
-                    return;
-                }
-
-                List<BookingItem> items = await _context.BookingItems.IgnoreQueryFilters()
-                    .Where(i => i.BookingId == booking.Id)
-                    .OrderBy(i => i.ItemType)
-                    .ToListAsync(ct);
-                if (items.Count == 0)
-                {
-                    _logger.LogWarning("Booking→Order skipped — booking {BookingId} không có items.", booking.Id);
-                    return;
-                }
-
-                // Fix 1 (2026-10-14, user approve — verify bug "booking hoàn tất không tạo order"):
-                // Routing key = Tenant.ShopInstanceId (pattern PublicOrdersController) — KHÔNG được null.
-                // Trước đây routingKey=null → Outbox event ra subject "vanan.cloud.order.created" (không có
-                // suffix .{shopInstanceId}) → ShopERP OrderSyncSubscriber (chỉ subscribe subject có suffix —
-                // Phase 4 chống cross-VPS leak) không nhận → order chỉ tồn tại ở Gateway PG, không bao giờ
-                // sync sang ShopERP SQLite → Owner không thấy đơn → doanh thu không vào luồng kế toán hiện có.
-                string? routingKey = await ResolveShopInstanceRoutingKeyAsync(tenantId, ct);
-
-                var command = new CreateOrderCommand
-                {
-                    CustomerId = booking.CustomerId,
-                    CustomerDeviceId = booking.CustomerDeviceId is not null && Guid.TryParse(booking.CustomerDeviceId, out Guid deviceGuid)
-                        ? deviceGuid
-                        : Guid.Empty,
-                    CustomerNotes = booking.CustomerNote,
-                    TrackingCode = booking.PublicBookingCode,   // idempotency recovery key
-                    SourceType = "booking",                     // Issue #195: booking→order flow (Thanh toán + Hoàn thành)
-                    Items = items.Select(i => new OrderItemRequest
-                    {
-                        ProductId = i.OfferingId ?? i.AddOnId ?? Guid.NewGuid(),
-                        Quantity = i.Quantity,
-                        UnitPrice = i.UnitPrice,
-                        TenantId = tenantId.Value,
-                        ProductName = i.Name,
-                        VatRate = 0.10m
-                    }).ToList()
-                };
-
-                OrderEntity order = await _orderService.CreateOrderFromCommandAsync(command, tenantId.Value, routingKey);
-                booking.AttachOrder(order.Id);
-                _ = await _context.SaveChangesAsync(ct);
-                _logger.LogInformation("Booking→Order created: booking={BookingId} order={OrderId} total={Total} routingKey={RoutingKey}",
-                    booking.Id, order.Id, order.TotalAmount, routingKey ?? "(none)");
-            }
-            catch (Exception ex)
-            {
-                // Fail-safe: không fail transition COMPLETED — retry ở lần CompleteAsync kế tiếp (idempotent).
-                _logger.LogError(ex, "Booking→Order hook failed (retry on next complete): booking={BookingId}", booking.Id);
             }
         }
 

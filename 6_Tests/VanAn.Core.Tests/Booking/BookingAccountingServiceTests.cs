@@ -100,6 +100,53 @@ public class BookingAccountingServiceTests
             It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()), Times.Never);
     }
 
+    // ── Issue #195 follow-up (2026-10-29, user approve A): booking có Order gắn kèm (D2) →
+    //    doanh thu chuyển hẳn sang ORDER (ghi tại order payment — single source). ──
+
+    [Fact]
+    public async Task ServiceCompleted_BookingHasLinkedOrder_SkipsRevenue()
+    {
+        using var scope = VanAnDbContextTestFactory.Create();
+        scope.TenantProvider!.SetTenant(Tenant.Value);
+        var ctx = scope.Context;
+        var booking = new Booking(Tenant, "RV-BK-1", Guid.NewGuid(), "Offering", 60, 300_000m,
+            DateTime.UtcNow.AddHours(1), DateTime.UtcNow.AddHours(2), 300_000m);
+        booking.AttachOrder(Guid.NewGuid());
+        ctx.Bookings.Add(booking);
+        await ctx.SaveChangesAsync();
+
+        var svc = BuildService(ctx);
+        RevenueAlreadyExists(false);   // chưa có revenue booking — nhưng có order → vẫn skip
+
+        await svc.RecordServiceCompletedAsync(Tenant, booking.Id, 300_000m, DateTime.UtcNow);
+
+        _accounting.Verify(a => a.CreateRevenueEntryAsync(
+            It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
+            It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task FinalPayment_BookingHasLinkedOrder_SkipsRevenue()
+    {
+        using var scope = VanAnDbContextTestFactory.Create();
+        scope.TenantProvider!.SetTenant(Tenant.Value);
+        var ctx = scope.Context;
+        var booking = new Booking(Tenant, "RV-BK-2", Guid.NewGuid(), "Offering", 60, 300_000m,
+            DateTime.UtcNow.AddHours(1), DateTime.UtcNow.AddHours(2), 300_000m);
+        booking.AttachOrder(Guid.NewGuid());
+        ctx.Bookings.Add(booking);
+        await ctx.SaveChangesAsync();
+
+        var svc = BuildService(ctx);
+        RevenueAlreadyExists(false);
+
+        await svc.RecordFinalPaymentAsync(Tenant, booking.Id, TxId, 200_000m, DateTime.UtcNow);
+
+        _accounting.Verify(a => a.CreateRevenueEntryAsync(
+            It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
+            It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()), Times.Never);
+    }
+
     // ── DepositPaid → TK 3387 (bản chất riêng, KHÔNG doanh thu) ──────────────
 
     [Fact]

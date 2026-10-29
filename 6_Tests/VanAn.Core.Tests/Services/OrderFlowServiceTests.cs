@@ -295,6 +295,7 @@ public class OrderFlowWorkflowTests : IDisposable
     private readonly ServiceProvider _sp;
     private readonly VanAnDbContext _db;
     private readonly IOrderWorkflowService _workflow;
+    private readonly Mock<IOrderService> _orderServiceMock;
     private readonly Guid _tenantId = Guid.NewGuid();
 
     public OrderFlowWorkflowTests()
@@ -336,6 +337,23 @@ public class OrderFlowWorkflowTests : IDisposable
             sp.GetRequiredService<IVanAnDbContext>(),
             sp.GetRequiredService<IMemoryCache>(),
             NullLogger<OrderFlowService>.Instance));
+        // Issue #195 follow-up (2026-10-29, user approve A): mock IOrderService — booking
+        // "Thanh toán" (pending→confirmed) phải kích hoạt ConfirmPaymentAsync (payment thật)
+        // TRƯỚC khi chuyển status. Callback mô phỏng MarkPaidAsync (cập nhật PaymentStatus).
+        var orderServiceMock = new Mock<IOrderService>();
+        orderServiceMock
+            .Setup(s => s.ConfirmPaymentAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(async (Guid orderId, Guid tenantId, string txId, CancellationToken ct) =>
+            {
+                Order? o = await _db.Orders.FirstOrDefaultAsync(x => x.Id == orderId, ct);
+                if (o != null && o.PaymentStatus != "Paid")
+                {
+                    o.ConfirmPayment(txId, o.PaymentMethod ?? "Cash");
+                    await _db.SaveChangesAsync(ct);
+                }
+            });
+        services.AddSingleton(orderServiceMock.Object);
+        _orderServiceMock = orderServiceMock;
         services.AddScoped<IOrderWorkflowService, OrderWorkflowService>();
 
         _sp = services.BuildServiceProvider();
@@ -411,6 +429,8 @@ public class OrderFlowWorkflowTests : IDisposable
         Order? paid = await _workflow.TransitionStatusAsync(order.Id, new OrderStatusId("confirmed"));
         Assert.NotNull(paid);
         Assert.Equal("confirmed", paid.Status.Value);
+        // Issue #195 follow-up: "Thanh toán" = payment THẬT — PaymentStatus phải Paid
+        Assert.Equal("Paid", paid.PaymentStatus);
 
         Order? done = await _workflow.TransitionStatusAsync(order.Id, new OrderStatusId("completed"));
         Assert.NotNull(done);
@@ -425,6 +445,27 @@ public class OrderFlowWorkflowTests : IDisposable
         Assert.Equal("confirmed", history[0].ToStatus);
         Assert.Equal("confirmed", history[1].FromStatus);
         Assert.Equal("completed", history[1].ToStatus);
+    }
+
+    // ── W5: booking "Thanh toán" kích hoạt ConfirmPaymentAsync — đơn thường thì KHÔNG ──
+    [Fact(DisplayName = "OF-W5: Booking confirmed triggers ConfirmPaymentAsync (payment) — normal order does not")]
+    public async Task Transition_BookingConfirmed_PaysFirst_NormalDoesNot()
+    {
+        _orderServiceMock.Invocations.Clear();
+
+        // Booking order → pending→confirmed phải gọi ConfirmPaymentAsync (payment thật)
+        Order bookingOrder = await SeedPendingOrderAsync("booking");
+        Order? paid = await _workflow.TransitionStatusAsync(bookingOrder.Id, new OrderStatusId("confirmed"));
+        Assert.NotNull(paid);
+        _orderServiceMock.Verify(s => s.ConfirmPaymentAsync(
+            bookingOrder.Id, _tenantId, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+
+        // Normal order → confirmed KHÔNG gọi payment (chỉ là xác nhận của staff)
+        Order normalOrder = await SeedPendingOrderAsync();
+        Order? confirmed = await _workflow.TransitionStatusAsync(normalOrder.Id, new OrderStatusId("confirmed"));
+        Assert.NotNull(confirmed);
+        _orderServiceMock.Verify(s => s.ConfirmPaymentAsync(
+            normalOrder.Id, _tenantId, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ── W4: normal order pending→preparing allowed (kitchen builtin) ───────

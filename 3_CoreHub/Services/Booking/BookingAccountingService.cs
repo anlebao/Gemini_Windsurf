@@ -7,6 +7,8 @@ using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.MembershipAggregate;
 using VanAn.Shared.Domain.Audit;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
+// Namespace "Booking" xung đột type Booking (lesson P1 — CS0118) → alias cho domain entity.
+using BookingEntity = VanAn.Shared.Domain.Booking;
 
 namespace VanAn.CoreHub.Services.Booking;
 
@@ -80,6 +82,14 @@ public sealed class BookingAccountingService(
     public async Task RecordFinalPaymentAsync(
         TenantId tenantId, Guid bookingId, Guid txId, decimal amount, DateTime paidAt, CancellationToken ct = default)
     {
+        // Issue #195 follow-up (2026-10-29, user approve A): booking đã có Order gắn kèm →
+        // doanh thu chuyển hẳn sang ORDER (ghi tại order payment — single source, 2 store không
+        // sync chéo: PG booking vs SQLite order). Skip ở booking path để chống double count.
+        if (await HasLinkedOrderAsync(tenantId, bookingId, ct))
+        {
+            _logger.LogInformation("Booking {BookingId} có Order gắn kèm — doanh thu ghi tại order payment (skip booking final payment)", bookingId);
+            return;
+        }
         // Cash-basis: PaymentCaptured trước ServiceCompleted → ghi nhận doanh thu NGAY tại thời điểm thu.
         // Nếu booking đã có revenue (ServiceCompleted trước) → skip — KHÔNG double count.
         if (await _entryRepository.ExistsByReferenceAsync(tenantId, BookingRef(bookingId), ct))
@@ -94,6 +104,13 @@ public sealed class BookingAccountingService(
     public async Task RecordServiceCompletedAsync(
         TenantId tenantId, Guid bookingId, decimal total, DateTime? completedAt, CancellationToken ct = default)
     {
+        // Issue #195 follow-up (2026-10-29, user approve A): booking có Order → doanh thu ghi tại
+        // order payment (single source). Order hook đã chạy TRƯỚC trong EnsureOrderAndFactsAsync.
+        if (await HasLinkedOrderAsync(tenantId, bookingId, ct))
+        {
+            _logger.LogInformation("Booking {BookingId} có Order gắn kèm — doanh thu ghi tại order payment (skip booking service completed)", bookingId);
+            return;
+        }
         // Anchor SRS: hoàn tất lịch → doanh thu về đúng luồng kế toán hiện có.
         // Nếu PaymentCaptured đã ghi nhận trước → skip (idempotent).
         if (await _entryRepository.ExistsByReferenceAsync(tenantId, BookingRef(bookingId), ct))
@@ -104,6 +121,28 @@ public sealed class BookingAccountingService(
         DateTime txDate = completedAt ?? DateTime.UtcNow;
         await CreateRevenueEntriesAsync(tenantId, bookingId, total, txDate, "Doanh thu dịch vụ đặt lịch", ct);
         _logger.LogInformation("Booking service completed accounted: booking={BookingId} total={Total}", bookingId, total);
+    }
+
+    /// <summary>
+    /// Issue #195 follow-up (2026-10-29, user approve A): booking có Order gắn kèm (D2) →
+    /// doanh thu thuộc trách nhiệm ORDER (ghi tại order payment). Fail-open: không đọc được
+    /// booking → vẫn ghi doanh thu (không mất số liệu — double guard tầng order đã idempotent).
+    /// </summary>
+    private async Task<bool> HasLinkedOrderAsync(TenantId tenantId, Guid bookingId, CancellationToken ct)
+    {
+        try
+        {
+            BookingEntity? booking = await _context.Bookings
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(b => b.Id == bookingId && b.TenantId == new TenantId(tenantId.Value), ct);
+            return booking?.OrderId is not null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "HasLinkedOrderAsync failed (fail-open → ghi doanh thu booking): booking={BookingId}", bookingId);
+            return false;
+        }
     }
 
     // ── Revenue (511/512 + 3331) — mirror OrderService.GenerateAccountingEntriesAsync ──
