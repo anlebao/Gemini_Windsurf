@@ -1,39 +1,23 @@
 import { test, expect } from '@playwright/test';
-import { loadEnvConfig, isTierEnabled } from '../utils/env-config';
-import { TestReporter } from '../utils/test-reporter';
 
 /**
- * Issue #197 — Metering nâng cấp E2E (Gate 4: UI changes).
+ * Issue #197 — Metering nâng cấp E2E (Gate 4 + RV production L3).
  * Covers:
  *  - Rate-card scope UI: tạo card theo loại hình tenant (TenantType=HKD) → badge "Loại hình: HKD"
  *  - Master switch: toggle bật/tắt metering toàn hệ thống (restore trạng thái gốc trong finally)
  *  - /admin/metering/topups hiện TÊN tenant (không còn GUID prefix)
  *
+ * Dùng storageState login thật (rv-metering-admin.json — SystemAdmin) vì
+ * DevLoginController chỉ compile trong DEBUG, không tồn tại ở production.
  * Note: rate-card scope create dùng serviceCode timestamp (chain active không tạo lại được).
- * Master switch test tự restore trạng thái gốc — không để production ở trạng thái sai.
  */
 
-const config = loadEnvConfig();
-const reporter = new TestReporter('Metering Issue #197 E2E');
-
-test.describe.configure({ mode: isTierEnabled('e2e') ? 'parallel' : 'skip' });
-
 test.describe('Issue #197 — Metering nâng cấp', () => {
-  test.beforeAll(async () => {
-    if (!isTierEnabled('e2e')) {
-      reporter.setArchitectDecision('Bypassed by Architect - E2E tests disabled');
-      test.skip();
-    }
-    reporter.log('Starting Metering Issue #197 E2E...');
-  });
+  test.use({ storageState: 'auth/rv-metering-admin.json' });
 
-  test('Rate-card scope theo loại hình tenant (TenantType=HKD)', async ({ page, request }) => {
-    const login = await request.post(`${config.SHOPERP_URL}/dev/login/systemadmin`);
-    expect(login.ok()).toBeTruthy();
-
-    await page.goto(`${config.SHOPERP_URL}/admin/metering/rate-cards`);
-    await page.waitForLoadState('networkidle');
-    await expect(page.getByTestId('btn-save-rc')).toBeVisible({ timeout: 20000 });
+  test('Rate-card scope theo loại hình tenant (TenantType=HKD)', async ({ page }) => {
+    await page.goto('/admin/metering/rate-cards', { waitUntil: 'networkidle' });
+    await expect(page.getByTestId('btn-save-rc')).toBeVisible({ timeout: 30000 });
     await expect(page.getByTestId('rc-form-scope')).toBeVisible();
 
     const code = `e2e.issue197.${Date.now()}`;
@@ -46,21 +30,16 @@ test.describe('Issue #197 — Metering nâng cấp', () => {
     await page.getByTestId('btn-save-rc').click();
 
     const row = page.locator('[data-testid="rc-row"]', { hasText: code });
-    await expect(row).toBeVisible({ timeout: 15000 });
+    await expect(row).toBeVisible({ timeout: 20000 });
     await expect(row).toContainText('Loại hình: HKD');
   });
 
-  test('Master switch bật/tắt metering toàn hệ thống (restore gốc)', async ({ page, request }) => {
-    const login = await request.post(`${config.SHOPERP_URL}/dev/login/systemadmin`);
-    expect(login.ok()).toBeTruthy();
-
-    await page.goto(`${config.SHOPERP_URL}/admin/metering/rate-cards`);
-    await page.waitForLoadState('networkidle');
-    await expect(page.getByTestId('metering-master-toggle')).toBeVisible({ timeout: 20000 });
+  test('Master switch bật/tắt metering toàn hệ thống (restore gốc)', async ({ page }) => {
+    await page.goto('/admin/metering/rate-cards', { waitUntil: 'networkidle' });
+    await expect(page.getByTestId('metering-master-toggle')).toBeVisible({ timeout: 30000 });
 
     const wasChecked = await page.getByTestId('metering-master-toggle').isChecked();
     try {
-      // Flip trạng thái → verify label đổi → flip lại
       await page.getByTestId('metering-master-toggle').click();
       await expect(page.getByTestId('metering-master-switch')).toContainText(
         wasChecked ? 'ĐANG TẮT' : 'Đang bật', { timeout: 10000 });
@@ -78,20 +57,14 @@ test.describe('Issue #197 — Metering nâng cấp', () => {
     }
   });
 
-  test('Topup list hiện tên tenant (không phải GUID prefix)', async ({ page, request }) => {
-    const login = await request.post(`${config.SHOPERP_URL}/dev/login/systemadmin`);
-    expect(login.ok()).toBeTruthy();
+  test('Topup list hiện tên tenant (không phải GUID prefix)', async ({ page }) => {
+    await page.goto('/admin/metering/topups', { waitUntil: 'networkidle' });
 
-    await page.goto(`${config.SHOPERP_URL}/admin/metering/topups`);
-    await page.waitForLoadState('networkidle');
-
-    // Cột tên tenant có data-testid — hiển thị hoặc trạng thái rỗng đều hợp lệ
-    await expect(page.getByTestId('topups-table').or(page.getByTestId('topups-empty'))).toBeVisible({ timeout: 20000 });
+    await expect(page.getByTestId('topups-table').or(page.getByTestId('topups-empty'))).toBeVisible({ timeout: 30000 });
     const names = page.locator('[data-testid="topup-tenant-name"]');
     if ((await names.count()) > 0) {
       const text = (await names.first().textContent()) ?? '';
       expect(text.trim().length).toBeGreaterThan(0);
-      // Không được là GUID prefix dạng "xxxxxxxx…"
       expect(text.trim().endsWith('…')).toBeFalsy();
     }
   });
