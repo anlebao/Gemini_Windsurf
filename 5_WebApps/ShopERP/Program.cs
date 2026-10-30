@@ -334,6 +334,7 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.Cache.IBookResultCache, CoreHub.Services.Cache.BookResultCache>();
             _ = builder.Services.AddScoped<CoreHub.Services.Template.TemplateFactory>();
             _ = builder.Services.AddScoped<CoreHub.Services.Template.IHKDBookGenerationService, CoreHub.Services.Template.HKDBookGenerationService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IDnsnBookService, CoreHub.Services.DnsnBookService>();
 
             // Wave 8: HKD Book export service (DOCX via OpenXML + XLSX via EPPlus)
             _ = builder.Services.AddScoped<Services.IHKDBookExportService, Services.HKDBookExportService>();

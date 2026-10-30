@@ -62,6 +62,11 @@
         // Note: stored raw (not hashed) — gray area legal risk, user-approved with mitigation.
         public string? CrawledPhone { get; private set; }
 
+        // TT 58/2026/TT-BTC (P2 — DNSN): phương pháp nộp thuế của DN siêu nhỏ.
+        // Quyết định danh mục sổ kế toán bắt buộc (Điều 5-8). Null = mặc định VatPercent_TndnPercent.
+        // Chỉ đổi từ đầu kỳ kế toán năm (Điều 4.3).
+        public DnsnTaxMethod? DnsnTaxMethod { get; private set; }
+
         // EF Core requires parameterless constructor
         private TenantSettings() { }
 
@@ -82,7 +87,8 @@
             string? navColor = null,
             string? headerColor = null,
             string? footerColor = null,
-            string? crawledPhone = null)
+            string? crawledPhone = null,
+            DnsnTaxMethod? dnsnTaxMethod = null)
         {
             ContactEmail = contactEmail;
             ContactPhone = contactPhone;
@@ -101,54 +107,55 @@
             HeaderColor = headerColor;
             FooterColor = footerColor;
             CrawledPhone = crawledPhone;
+            DnsnTaxMethod = dnsnTaxMethod;
         }
 
         public TenantSettings WithContactEmail(string email)
-            => new(email, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
+            => new(email, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod);
 
         public TenantSettings WithContactPhone(string phone)
-            => new(ContactEmail, phone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
+            => new(ContactEmail, phone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod);
 
         public TenantSettings WithAddress(string address)
-            => new(ContactEmail, ContactPhone, address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
+            => new(ContactEmail, ContactPhone, address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod);
 
         public TenantSettings WithTaxCode(string taxCode)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, taxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, taxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod);
 
         public TenantSettings WithCoordinates(double latitude, double longitude)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, latitude, longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, latitude, longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod);
 
         public TenantSettings WithSlug(string? slug)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod);
 
         public TenantSettings WithSocialLinks(string? fb, string? tiktok)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, fb, tiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, fb, tiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod);
 
         public TenantSettings WithBrandStory(string? story)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, story, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, story, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod);
 
         public TenantSettings WithTheme(ThemeType theme)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod);
 
         /// <summary>
         /// Sprint 7 — Set commerce mode override for this tenant.
         /// Inherit = use global setting. Marketplace/Reseller = ép mode cho tenant này.
         /// </summary>
         public TenantSettings WithCommerceModeOverride(CommerceMode mode)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, mode, NavColor, HeaderColor, FooterColor, CrawledPhone);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, mode, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod);
 
         /// <summary>
         /// #93 — Set KhachLink style customization (nav/header/footer colors).
         /// Null = use default hardcoded colors.
         /// </summary>
         public TenantSettings WithStyleColors(string? navColor, string? headerColor, string? footerColor)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, navColor, headerColor, footerColor, CrawledPhone);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, navColor, headerColor, footerColor, CrawledPhone, DnsnTaxMethod);
 
         /// <summary>
         /// #93 — Set logo URL for KhachLink header.
         /// </summary>
         public TenantSettings WithLogoUrl(string? logoUrl)
-            => new(ContactEmail, ContactPhone, Address, logoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone);
+            => new(ContactEmail, ContactPhone, Address, logoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod);
 
         /// <summary>
         /// Crawl-to-Onboard Pipeline (2026-08-25, M3 resolved): Set raw crawled phone number.
@@ -158,7 +165,14 @@
         /// (data minimization per Luật 91/2025).
         /// </summary>
         public TenantSettings WithCrawledPhone(string? crawledPhone)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, crawledPhone);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, crawledPhone, DnsnTaxMethod);
+
+        /// <summary>
+        /// TT 58/2026 (P2 — DNSN): set phương pháp nộp thuế DN siêu nhỏ (Điều 5-8).
+        /// Null = mặc định VatPercent_TndnPercent. Chỉ đổi từ đầu kỳ kế toán năm (Điều 4.3).
+        /// </summary>
+        public TenantSettings WithDnsnTaxMethod(DnsnTaxMethod? method)
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, method);
 
         public static TenantSettings Empty() => new(null, null, null);
     }

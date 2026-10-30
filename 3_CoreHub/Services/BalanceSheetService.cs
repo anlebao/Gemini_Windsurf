@@ -72,6 +72,12 @@ public class BalanceSheetService : IBalanceSheetService
             return await GenerateTt133Async(tenantId, period, standard, openingByAccount, movementByAccount, ct).ConfigureAwait(false);
         }
 
+        // TT 58/2026 (DN siêu nhỏ) — B01-DNSN: 14 mã (Điều 10.2a). KHÔNG có B03/B09.
+        if (standard == AccountingStandard.TT58_2026)
+        {
+            return await GenerateTt58Async(tenantId, period, standard, openingByAccount, movementByAccount, ct).ConfigureAwait(false);
+        }
+
         // TT 71/2024 (HTX) — B01-HTX: template riêng (Tiền 110... Tổng tài sản 200 / Nợ 300 / VCSH 400 / Tổng nguồn 500).
         if (standard == AccountingStandard.TT71_2024)
         {
@@ -437,6 +443,99 @@ public class BalanceSheetService : IBalanceSheetService
         decimal finalTotalLiabEquityOpening = lineAmounts["500"].Opening;
 
         // W2 invariant.
+        const decimal tolerance = 0.01m;
+        if (Math.Abs(finalTotalAssetsEnding - finalTotalLiabEquityEnding) > tolerance)
+        {
+            throw new InvalidOperationException(
+                $"Balance Sheet invariant violated: TotalAssetsEnding ({finalTotalAssetsEnding}) != TotalLiabilitiesAndEquityEnding ({finalTotalLiabEquityEnding}) " +
+                $"for tenant {tenantId.Value}, period {period}. Check JournalEntry double-entry integrity.");
+        }
+
+        return new BalanceSheet(
+            tenantId, period, DateTime.UtcNow,
+            Assets: assetLines,
+            Liabilities: liabilityLines,
+            Equity: equityLines,
+            TotalAssetsEnding: finalTotalAssetsEnding,
+            TotalAssetsOpening: finalTotalAssetsOpening,
+            TotalLiabilitiesAndEquityEnding: finalTotalLiabEquityEnding,
+            TotalLiabilitiesAndEquityOpening: finalTotalLiabEquityOpening);
+    }
+
+    /// <summary>
+    /// TT 58/2026 (DN siêu nhỏ) — B01-DNSN template-based generation theo Điều 10.2a.
+    /// Totals: 140=141+142 · 200=110+120+130+140+150 · 300=310+320
+    ///         400=410+420+430 · 500=300+400
+    /// NetIncome plug vào Mã 420 (LNST chưa phân phối) → invariant: 200 == 500.
+    /// </summary>
+    private async Task<BalanceSheet> GenerateTt58Async(
+        TenantId tenantId, AccountingPeriod period, AccountingStandard standard,
+        Dictionary<string, decimal> openingByAccount, Dictionary<string, decimal> movementByAccount,
+        CancellationToken ct)
+    {
+        var template = Tt58Templates.BalanceSheetTt58;
+        var lineAmounts = await ComputeBalanceSheetDirectLinesAsync(
+            template, openingByAccount, movementByAccount, AccountingStandard.TT58_2026, ct).ConfigureAwait(false);
+
+        void Set(string code, decimal ending, decimal opening) => lineAmounts[code] = (ending, opening);
+        decimal SumEnding(params string[] codes) => codes.Sum(c => lineAmounts[c].Ending);
+        decimal SumOpening(params string[] codes) => codes.Sum(c => lineAmounts[c].Opening);
+
+        Set("140", SumEnding("141", "142"), SumOpening("141", "142"));
+        Set("200", SumEnding("110", "120", "130", "140", "150"),
+                   SumOpening("110", "120", "130", "140", "150"));
+        Set("300", SumEnding("310", "320"), SumOpening("310", "320"));
+        Set("400", SumEnding("410", "420", "430"), SumOpening("410", "420", "430"));
+        Set("500", SumEnding("300", "400"), SumOpening("300", "400"));
+
+        // NetIncome plug (residual) vào Mã 420 → invariant: 200 == 500.
+        var (totalAssetsEnding, totalAssetsOpening) = lineAmounts["200"];
+        var (totalLiabEnding, totalLiabOpening) = lineAmounts["300"];
+        var (totalEquityEnding, totalEquityOpening) = lineAmounts["400"];
+        var (ln420Ending, ln420Opening) = lineAmounts["420"];
+
+        decimal equityBeforePlugEnding = totalEquityEnding - ln420Ending;
+        decimal equityBeforePlugOpening = totalEquityOpening - ln420Opening;
+
+        decimal netIncomeEnding = totalAssetsEnding - totalLiabEnding - equityBeforePlugEnding;
+        decimal netIncomeOpening = totalAssetsOpening - totalLiabOpening - equityBeforePlugOpening;
+
+        if (Math.Abs(netIncomeEnding) > 0.005m || Math.Abs(netIncomeOpening) > 0.005m)
+        {
+            Set("420", ln420Ending + netIncomeEnding, ln420Opening + netIncomeOpening);
+            Set("400", totalEquityEnding + netIncomeEnding, totalEquityOpening + netIncomeOpening);
+            Set("500", totalLiabEnding + totalEquityEnding + netIncomeEnding,
+                       totalLiabOpening + totalEquityOpening + netIncomeOpening);
+        }
+
+        var assetLines = new List<FinancialStatementLine>();
+        var liabilityLines = new List<FinancialStatementLine>();
+        var equityLines = new List<FinancialStatementLine>();
+
+        foreach (var templateLine in template.Lines)
+        {
+            var (ending, opening) = lineAmounts[templateLine.ReportItemCode];
+            var fsLine = new FinancialStatementLine(
+                templateLine.ReportItemCode,
+                templateLine.ReportItemName,
+                ending, opening,
+                templateLine.Level,
+                templateLine.IsNormalNegative && ending < 0);
+
+            int code = int.TryParse(templateLine.ReportItemCode, out int c) ? c : 0;
+            if (code is >= 110 and <= 200)
+                assetLines.Add(fsLine);
+            else if (code is >= 300 and <= 320)
+                liabilityLines.Add(fsLine);
+            else if (code is >= 400 and <= 500)
+                equityLines.Add(fsLine);
+        }
+
+        decimal finalTotalAssetsEnding = lineAmounts["200"].Ending;
+        decimal finalTotalAssetsOpening = lineAmounts["200"].Opening;
+        decimal finalTotalLiabEquityEnding = lineAmounts["500"].Ending;
+        decimal finalTotalLiabEquityOpening = lineAmounts["500"].Opening;
+
         const decimal tolerance = 0.01m;
         if (Math.Abs(finalTotalAssetsEnding - finalTotalLiabEquityEnding) > tolerance)
         {

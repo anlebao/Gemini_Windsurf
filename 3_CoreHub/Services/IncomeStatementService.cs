@@ -71,6 +71,12 @@ public class IncomeStatementService : IIncomeStatementService
             return await GenerateTt133Async(tenantId, period, endingByAccount, openingByAccount, ct).ConfigureAwait(false);
         }
 
+        // TT 58/2026 (DN siêu nhỏ) — B02-DNSN: 5 mã (Điều 10.2b). 03=01-02 · 20=03-10.
+        if (standard == AccountingStandard.TT58_2026)
+        {
+            return await GenerateTt58Async(tenantId, period, endingByAccount, openingByAccount, ct).ConfigureAwait(false);
+        }
+
         // TT 71/2024 (HTX) — B02-HTX: template riêng, tách giao dịch nội bộ/ngoài (511 vs 512, 611 vs 612).
         if (standard == AccountingStandard.TT71_2024)
         {
@@ -350,6 +356,54 @@ public class IncomeStatementService : IIncomeStatementService
             Lines: lines,
             TotalCogsEnding: m11e, TotalCogsOpening: m11o,
             TotalOpExEnding: m24e, TotalOpExOpening: m24o);
+    }
+
+    /// <summary>
+    /// TT 58/2026 (DN siêu nhỏ) — B02-DNSN template-based generation theo Điều 10.2b.
+    /// Formulas: 03 = 01 - 02 · 20 = 03 - 10.
+    /// Mã 01 gộp DT + thu nhập thuần (511+515+711) · Mã 02 gộp mọi chi phí (632+635+642+811).
+    /// </summary>
+    private async Task<IncomeStatement> GenerateTt58Async(
+        TenantId tenantId, AccountingPeriod period,
+        Dictionary<string, decimal> endingByAccount, Dictionary<string, decimal> openingByAccount,
+        CancellationToken ct)
+    {
+        var template = Tt58Templates.IncomeStatementTt58;
+
+        // Step 1: Direct lines — same convention as TT 99 (negate Expense accounts → positive cost).
+        var amounts = await ComputeIncomeDirectLinesAsync(
+            template, endingByAccount, openingByAccount, AccountingStandard.TT58_2026, presentByNormalSide: false, ct).ConfigureAwait(false);
+
+        // Step 2: B02-DNSN formulas (VERIFIED from Điều 10.2b TT 58).
+        decimal m01e = amounts["01"].Ending, m01o = amounts["01"].Opening;
+        decimal m02e = amounts["02"].Ending, m02o = amounts["02"].Opening;
+        decimal m10e = amounts["10"].Ending, m10o = amounts["10"].Opening;
+
+        decimal m03e = m01e - m02e, m03o = m01o - m02o;
+        decimal m20e = m03e - m10e, m20o = m03o - m10o;
+
+        amounts["03"] = (m03e, m03o);
+        amounts["20"] = (m20e, m20o);
+
+        var lines = new List<FinancialStatementLine>();
+        foreach (var line in template.Lines)
+        {
+            var (ending, opening) = amounts[line.ReportItemCode];
+            lines.Add(new FinancialStatementLine(
+                line.ReportItemCode, line.ReportItemName,
+                ending, opening, line.Level,
+                line.IsNormalNegative && ending < 0));
+        }
+
+        return new IncomeStatement(
+            tenantId, period, DateTime.UtcNow,
+            TotalRevenueEnding: m01e,
+            TotalRevenueOpening: m01o,
+            NetProfitEnding: m20e,
+            NetProfitOpening: m20o,
+            Lines: lines,
+            TotalCogsEnding: m02e, TotalCogsOpening: m02o,
+            TotalOpExEnding: m02e, TotalOpExOpening: m02o);
     }
 
     /// <summary>

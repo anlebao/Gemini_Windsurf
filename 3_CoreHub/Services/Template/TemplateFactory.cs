@@ -105,6 +105,56 @@ namespace VanAn.CoreHub.Services.Template
                 _ => throw new ArgumentException($"Unknown template code: {templateCode}")
             };
         }
+
+        // ═══ TT 58/2026/TT-BTC — DNSN (P2) ═══
+
+        /// <summary>Tạo template sổ DNSN theo mã (S1_DNSN..S4a_DNSN).</summary>
+        public HKDBookTemplate CreateDnsnTemplate(string templateCode)
+        {
+            return templateCode switch
+            {
+                "S1_DNSN" => new DnsnS1TemplateImpl(_formulaEngine, _dataProvider,
+                    _loggerFactory.CreateLogger<DnsnS1TemplateImpl>()),
+                "S2a_DNSN" => new DnsnS2aTemplateImpl(_formulaEngine, _dataProvider,
+                    _loggerFactory.CreateLogger<DnsnS2aTemplateImpl>()),
+                "S2b_DNSN" => new DnsnS2bTemplateImpl(_formulaEngine, _dataProvider,
+                    _loggerFactory.CreateLogger<DnsnS2bTemplateImpl>()),
+                "S2c_DNSN" => new DnsnS2cTemplateImpl(_formulaEngine, _dataProvider,
+                    _loggerFactory.CreateLogger<DnsnS2cTemplateImpl>()),
+                "S2d_DNSN" => new DnsnS2dTemplateImpl(_formulaEngine, _dataProvider,
+                    _loggerFactory.CreateLogger<DnsnS2dTemplateImpl>()),
+                "S3a_DNSN" => new DnsnS3aTemplateImpl(_formulaEngine, _dataProvider,
+                    _loggerFactory.CreateLogger<DnsnS3aTemplateImpl>()),
+                "S3b_DNSN" => new DnsnS3bTemplateImpl(_formulaEngine, _dataProvider,
+                    _loggerFactory.CreateLogger<DnsnS3bTemplateImpl>()),
+                "S4a_DNSN" => new DnsnS4aTemplateImpl(_formulaEngine, _dataProvider,
+                    _loggerFactory.CreateLogger<DnsnS4aTemplateImpl>()),
+                _ => throw new ArgumentException($"Unknown DNSN template code: {templateCode}")
+            };
+        }
+
+        /// <summary>
+        /// Danh mục sổ bắt buộc theo DnsnTaxMethod (TT 58/2026 Điều 5-8).
+        /// includeOptional=true thêm S4a-DNSN công nợ (Điều 9 — D2 đã chốt CÓ).
+        /// </summary>
+        public static List<string> GetDnsnBookCodes(DnsnTaxMethod method, bool includeOptional = true)
+        {
+            var codes = method switch
+            {
+                DnsnTaxMethod.VatPercent_TndnPercent => new List<string> { "S1_DNSN" },
+                DnsnTaxMethod.VatPercent_TndnIncome => new List<string> { "S2a_DNSN", "S2b_DNSN", "S2c_DNSN", "S2d_DNSN" },
+                DnsnTaxMethod.VatDeduct_TndnPercent => new List<string> { "S3a_DNSN", "S3b_DNSN" },
+                DnsnTaxMethod.VatDeduct_TndnIncome => new List<string> { "S2b_DNSN", "S2c_DNSN", "S2d_DNSN", "S3b_DNSN" },
+                _ => new List<string> { "S1_DNSN" }
+            };
+            if (includeOptional)
+                codes.Add("S4a_DNSN");
+            return codes;
+        }
+
+        /// <summary>Danh sách template instance theo DnsnTaxMethod.</summary>
+        public List<HKDBookTemplate> GetDnsnTemplates(DnsnTaxMethod method, bool includeOptional = true)
+            => GetDnsnBookCodes(method, includeOptional).Select(CreateDnsnTemplate).ToList();
     }
 
     /// <summary>

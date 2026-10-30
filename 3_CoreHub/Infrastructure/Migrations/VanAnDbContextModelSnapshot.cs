@@ -7723,6 +7723,9 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                                 .HasColumnType("character varying(50)")
                                 .HasColumnName("Settings_CrawledPhone");
 
+                            b1.Property<int?>("DnsnTaxMethod")
+                                .HasColumnType("integer");
+
                             b1.Property<string>("FooterColor")
                                 .HasMaxLength(20)
                                 .HasColumnType("character varying(20)")

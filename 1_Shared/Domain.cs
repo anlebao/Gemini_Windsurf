@@ -72,7 +72,34 @@ namespace VanAn.Shared.Domain
         S2c_HKD = 8,        // Sổ chi tiết doanh thu, chi phí
         S2d_HKD = 9,        // Sổ chi tiết vật liệu, dụng cụ, sản phẩm, hàng hóa
         S2e_HKD = 10,       // Sổ chi tiết tiền
-        S3a_HKD = 11        // Sổ theo dõi hoạt động thuộc diện chịu các loại thuế khác
+        S3a_HKD = 11,       // Sổ theo dõi hoạt động thuộc diện chịu các loại thuế khác
+
+        // DNSN BOOKS - Doanh nghiệp siêu nhỏ per Thông tư 58/2026/TT-BTC (hiệu lực 01/07/2026)
+        // Danh mục sổ phụ thuộc DnsnTaxMethod (Điều 5-8). S4a tùy chọn (Điều 9); S4b/S4c/S4d defer.
+        S1_DNSN = 12,       // Sổ doanh thu (GTGT % + TNDN % — Điều 5)
+        S2a_DNSN = 13,      // Sổ doanh thu (GTGT % + TNDN thu nhập — Điều 6)
+        S2b_DNSN = 14,      // Sổ chi tiết doanh thu, chi phí (Điều 6 + Điều 8)
+        S2c_DNSN = 15,      // Sổ chi tiết vật liệu, dụng cụ, sản phẩm, hàng hóa (Điều 6 + Điều 8)
+        S2d_DNSN = 16,      // Sổ chi tiết tiền (Điều 6 + Điều 8)
+        S3a_DNSN = 17,      // Sổ doanh thu (GTGT khấu trừ + TNDN % — Điều 7)
+        S3b_DNSN = 18,      // Sổ theo dõi nghĩa vụ thuế GTGT (Điều 7 + Điều 8)
+        S4a_DNSN = 19       // Sổ chi tiết thanh toán (công nợ — tùy chọn Điều 9)
+    }
+
+    /// <summary>
+    /// Phương pháp nộp thuế của Doanh nghiệp siêu nhỏ theo TT 58/2026/TT-BTC Điều 4-8.
+    /// Quyết định danh mục sổ kế toán bắt buộc. Đổi chế độ chỉ từ đầu kỳ kế toán năm (Điều 4.3).
+    /// </summary>
+    public enum DnsnTaxMethod
+    {
+        /// <summary>Điều 5: GTGT % trên doanh thu + TNDN % trên doanh thu → chỉ S1-DNSN.</summary>
+        VatPercent_TndnPercent = 1,
+        /// <summary>Điều 6: GTGT % trên doanh thu + TNDN trên thu nhập → S2a+S2b+S2c+S2d-DNSN.</summary>
+        VatPercent_TndnIncome = 2,
+        /// <summary>Điều 7: GTGT khấu trừ + TNDN % trên doanh thu → S3a+S3b-DNSN.</summary>
+        VatDeduct_TndnPercent = 3,
+        /// <summary>Điều 8: GTGT khấu trừ + TNDN trên thu nhập → S2b+S2c+S2d+S3b-DNSN.</summary>
+        VatDeduct_TndnIncome = 4
     }
 
     public enum VatRate

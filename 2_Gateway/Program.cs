@@ -1423,6 +1423,7 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Template.TemplateFactory>();
 
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Template.IHKDBookGenerationService, VanAn.CoreHub.Services.Template.HKDBookGenerationService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IDnsnBookService, VanAn.CoreHub.Services.DnsnBookService>();
 
 
 

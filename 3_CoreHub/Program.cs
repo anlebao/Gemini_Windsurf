@@ -159,6 +159,7 @@ namespace VanAn.CoreHub
                     _ = services.AddScoped<IBookResultCache, BookResultCache>();
                     _ = services.AddScoped<VanAn.CoreHub.Services.Template.TemplateFactory>();
                     _ = services.AddScoped<VanAn.CoreHub.Services.Template.IHKDBookGenerationService, VanAn.CoreHub.Services.Template.HKDBookGenerationService>();
+                    _ = services.AddScoped<VanAn.CoreHub.Services.IDnsnBookService, VanAn.CoreHub.Services.DnsnBookService>();
 
                     // Order hub
                     _ = services.AddScoped<OrderHub>();
