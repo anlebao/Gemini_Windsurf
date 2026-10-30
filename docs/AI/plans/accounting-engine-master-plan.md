@@ -59,18 +59,16 @@ R1 index có `PostingPurpose` (reversal-aware) · R2 PostingStatus+retry thay ha
 
 ---
 
-## 3. PHASES + TASK CARDS
+## 3. PHASES + TASK CARDS (theo WAVE PLAN đã duyệt — §5.1)
 
-| Phase | Nội dung | Task card | Dep |
-|---|---|---|---|
-| **A** | Posting Foundation: structured source key (M1) · PostingStatus + retry worker (M2) · JE balance enforce · unique index reversal-aware (M3) · DN receivable JE (feature-flag) · chuẩn hóa reversal (`JournalService` thiếu IsReversal) | `task_pa_posting_foundation.md` | — |
-| **B** | COA + Account Map: `TenantAccountCharts` + `ParentCode`/`EffectiveFrom` (M4) · `AccountMappingRules` + resolver + seed per regime (M5) · bridge/OrderService chuyển sang resolver · VAT 3331 → JE | `task_pb_coa_account_map.md` | A |
-| **C** | Voucher & Allocation: `VoucherSequences` + `VoucherNumber` (M6) · `AllocatedToEntryId`/`PaymentMethod`/`CashAccountCode` (M7) · `OrderPayments` multi-payment (M8) · unapplied/trả thừa · trả nợ 331→JE · `Attachments` | `task_pc_voucher_allocation.md` | A,B |
-| **D** | Cash/Bank: `BankAccounts` + `InternalTransfers` (M9) · sổ quỹ/TGNH (FR-RPT-003/004) · cash-balance warn (FR-PAY-006) | `task_pd_cash_bank.md` | C |
-| **E** | Purchase & Inventory: purchase doc chain · inventory GL link (PG↔SQLite outbox) · reconcile coverage mở rộng | `task_pe_purchase_inventory.md` | B,C — có thể tách |
-| **F** | Closing & Reconcile+: closing entries 911 (5xx/6xx→911→421) · checklist (reuse Reconcile R-checks) · `ReconciliationItems` workflow (M10) · sao kê NH (FR-RECNC-001) | `task_pf_closing_reconcile.md` | C,D |
-
-Mỗi phase = task card riêng (duyệt → implement → guard+build+test → FAST PUSH → CD → RV → next).
+| Wave | Phase(s) | Nội dung | Task card | Status |
+|---|---|---|---|---|
+| **W1** | A | Posting Foundation: structured key (M1) · PostingStatus + retry (M2 — `EntryPostingStatusEntity` + `JournalPostingRetryWorker`) · JE `EnsureBalanced` · unique index reversal-aware (M3) · DN/HTX accrual JE (flag `AccrualReceivableJE`) · chuẩn hóa reversal | `task_pa_posting_foundation.md` | ✅ DEPLOYED `b01bb878` (2026-10-30) — còn pilot flag tenant DN |
+| **W2** | B + C1 | COA + Account Map: `TenantAccountCharts` + `ParentCode`/`EffectiveFrom` (M4) · `AccountMappingRules` + resolver + seed=hardcode parity (M5) · VAT 3331→JE · **+** C1: `VoucherSequences`/`VoucherNumber` (M6) · `AllocatedToEntryId`/`PaymentMethod`/`CashAccountCode` (M7) · `Attachments` (M10) | `task_pb_coa_account_map.md` + `task_pc_voucher_allocation.md` §C1 | ⏳ NEXT |
+| **W3** | D | Cash/Bank: `BankAccounts` + `InternalTransfers` (M9) · sổ quỹ/TGNH · cash-balance warn | `task_pd_cash_bank.md` | ⏳ |
+| **W4** | C2 | `OrderPayments` multi-payment (M8) · unapplied/trả thừa · refactor `GenerateForPaymentAsync` | `task_pc_voucher_allocation.md` §C2 | ⏳ |
+| **W5** | F | Closing 911 + checklist + `ReconciliationItems` (M10) · sao kê NH | `task_pf_closing_reconcile.md` | ⏳ |
+| **W6** | E | PurchaseReceipts + inventory↔GL R13 (cross-DB) — cuối cùng, defer được (Q8) | `task_pe_purchase_inventory.md` | ⏳ |
 
 ---
 
@@ -145,12 +143,38 @@ Mỗi phase = task card riêng (duyệt → implement → guard+build+test → F
 
 ## 5. CHIẾN LƯỢC THỰC THI
 
+### 5.1. WAVE PLAN ĐÃ DUYỆT (PO chốt 2026-10-30 — đây là thứ tự thực thi bắt buộc)
+
+**Nguyên tắc:** phase-sequential theo dependency + rủi ro — KHÔNG làm per-regime (85% là shared infra; regime-priority đặt ở feature flag, không đặt ở build order). Mỗi wave = 1 deploy (FAST PUSH → CD ~12min → RV L1-L3).
+
+| Wave | Lý do vị trí |
+|---|---|
+| **W1 = A riêng** | Risk cao nhất (migration + index + worker) → deploy một mình cho RV sạch |
+| **W2 = B + C1** | B là nền cho C/D/E/F. C1 nhẹ (bảng/field mới, không đụng hot path) → gom chung tiết kiệm 1 CD cycle |
+| **W3 = D** | Độc lập với C2; cần trước F (BankAccounts cho sao kê) |
+| **W4 = C2** | `OrderPayments` refactor nặng nhất (đụng hot path payment) → để khi nền đã ổn |
+| **W5 = F** | Cần map (B) cho closing rules + BankAccounts (D) cho sao kê |
+| **W6 = E** | Cross-DB phức tạp nhất — cuối cùng hoặc defer hẳn theo Q8 |
+
+- Có thể nén thêm: nếu W1 RV sạch nhanh → W2 có thể gộp F-closing+checklist (chỉ cần B). Không gộp W1 với gì.
+- 5-6 deploys tổng (vs ~12+ nếu per-regime).
+
+### 5.2. Nguyên tắc kỹ thuật
+
 1. **Additive-first 100%** — cột nullable/bảng mới; không drop/rename; không backfill JE lịch sử.
-2. **Feature flags** (`VasFeatureFlagService` precedent): `AccrualReceivableJE` (A) · `AccountMappingEnabled` (B) · pilot tenant → all.
+2. **Feature flags** (`VasFeatureFlagService` + `IShopFeatureSettingsService` per-tenant): `AccrualReceivableJE` (A) · `AccountMappingEnabled` (B) · pilot tenant → all.
 3. **Zero behavior change tại B** — seed map = hardcode hiện tại; switch resolver phải cho output identical (test T-parity: cùng input → cùng cặp TK).
 4. **Domain changes** (mỗi phase có) → Gate 5 approval trước khi IMPLEMENT phase đó.
-5. **Mỗi phase = 1-2 commit** + guard-check + build + Core.Tests → FAST PUSH → CD → RV L1-L3.
+5. **Mỗi wave = 1-2 commit** + guard-check + build + Core.Tests → FAST PUSH → CD → RV L1-L3.
 6. **Không hard-txn entry↔JE** (R2) · unique index chỉ sau backfill + pre-scan (R1) · single source of truth (R4) · UX baseline giữ nguyên — mọi UX change qua proposal PO.
+
+### 5.3. Lessons từ W1 deploy (ghi nhận cho các wave sau)
+
+- **`ReferenceId` alone KHÔNG đủ** — Order JEs chia sẻ `ReferenceId=order.Id` cho revenue+cogs (2 purposes cùng ref). Backfill JE purpose phải **derive từ `JournalEntryLine`** (6xx→cogs, 3387→deposit-offset, else→revenue), KHÔNG gán 'original' trần.
+- **Pre-scan DO-block trong migration = đúng thiết kế** — đã bắt đúng collision trước khi index fail (production recovery ~25min thay vì corruption).
+- **Seed EntryPostingStatuses phải join cả Order-ref** (prefix match — entry.Reference có thể mang suffix `-DEPOSIT-OFFSET`), không chỉ `ReferenceId=entry.Id`.
+- **Bridge cần `HasOrderJournalEntryAsync` guard** — entry order-linked đã có JE refType='Order' → skip, chặn retry worker double-post.
+- Apply tay migration khi cần: sửa SQL → `psql -f` → `INSERT "__EFMigrationsHistory"` → restart container; sau đó commit migration đã sửa để repo là source of truth (EF skip vì đã applied).
 
 ## 6. RỦI RO & ROLLBACK
 
