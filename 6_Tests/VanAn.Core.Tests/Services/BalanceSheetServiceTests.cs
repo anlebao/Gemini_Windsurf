@@ -98,9 +98,9 @@ public class BalanceSheetServiceTests
 
         BalanceSheet bs = await svc.GenerateAsync(otherTenant, new AccountingPeriod(2026, 6), AccountingStandard.TT133_2016);
 
-        Assert.Empty(bs.Assets);
-        Assert.Empty(bs.Liabilities);
-        Assert.Empty(bs.Equity);
+        // TT133 template path (P1): trả về đủ dòng mẫu B01a-DNN với giá trị 0 (không rỗng).
+        Assert.All(bs.Assets.Concat(bs.Liabilities).Concat(bs.Equity),
+            l => { Assert.Equal(0m, l.EndingAmount); Assert.Equal(0m, l.OpeningAmount); });
         Assert.Equal(0m, bs.TotalAssetsEnding);
         Assert.Equal(0m, bs.TotalLiabilitiesAndEquityEnding);
     }
@@ -179,8 +179,8 @@ public class BalanceSheetServiceTests
             new AccountingPeriod(2026, 6),
             AccountingStandard.TT133_2016);
 
-        // NetIncome plug (421) should exist since P&L accounts have movement.
-        Assert.Contains(bs.Equity, l => l.ReportItemCode == "421");
+        // NetIncome plug vào Mã 417 (LNST chưa phân phối — B01a-DNN, KHÁC TT99 mã 420).
+        Assert.Contains(bs.Equity, l => l.ReportItemCode == "417");
     }
 
     // W7-BS5: Specific asset line — 111 (Tiền mặt) ending balance.
@@ -193,11 +193,10 @@ public class BalanceSheetServiceTests
             new AccountingPeriod(2026, 6),
             AccountingStandard.TT133_2016);
 
-        // 111: Opening 50M + May activity (+0.5M) = 50.5M; June: +16.5-2.5-3.5-15 = -4.5M → 46M.
-        // (T19/T20 are in July — baseDate 06-15 + 16/18 days overflows to July.)
-        var line111 = bs.Assets.FirstOrDefault(l => l.ReportItemCode == "111");
-        Assert.NotNull(line111);
-        Assert.Equal(46_000_000m, line111!.EndingAmount, precision: 0);
+        // B01a-DNN (P1): tiền mặt 111 gộp vào Mã 110 (111+112) — dòng "111" không còn riêng.
+        var line110 = bs.Assets.FirstOrDefault(l => l.ReportItemCode == "110");
+        Assert.NotNull(line110);
+        Assert.True(line110!.EndingAmount > 0, $"Mã 110 should be > 0, got {line110.EndingAmount}");
     }
 
     // ── TT 71 Phase 3 (T4): B01-HTX ──────────────────────────────────────

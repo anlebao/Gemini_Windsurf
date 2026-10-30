@@ -98,7 +98,8 @@ public class CashFlowStatementServiceTests
         Assert.Equal(0m, cf.OpeningCash);
         Assert.Equal(0m, cf.ClosingCash);
         Assert.Equal(0m, cf.NetChange);
-        Assert.Empty(cf.OperatingActivities);
+        // TT133 template path (P1): OperatingActivities chứa subtotal mã 20 với giá trị 0.
+        Assert.All(cf.OperatingActivities, l => Assert.Equal(0m, l.EndingAmount));
     }
 
     // W4-CF6: Investing activity — TK 211 (TSCĐ) cash outflow classified as Investing.
@@ -113,7 +114,8 @@ public class CashFlowStatementServiceTests
 
         // Note: seed may or may not have a 211 cash purchase in June. Verify classification logic by checking
         // that any Investing line (if present) is for a 21x account.
-        foreach (var line in cf.InvestingActivities)
+        // TT133 template path (P1): bỏ qua subtotal mã 30 "Lưu chuyển tiền thuần từ HĐ đầu tư".
+        foreach (var line in cf.InvestingActivities.Where(l => l.ReportItemCode != "30"))
         {
             Assert.StartsWith("21", line.ReportItemCode);
         }

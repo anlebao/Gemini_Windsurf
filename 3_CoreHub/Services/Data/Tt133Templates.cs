@@ -28,7 +28,7 @@ public static class Tt133Templates
         new List<Tt99TemplateLine>
         {
             // TÀI SẢN
-            new("110", "I. Tiền và các khoản tương đương tiền", 1, new[]{"111","112"}, true, false),
+            new("110", "I. Tiền và các khoản tương đương tiền", 1, new[]{"111","112"}, false, false),
             new("120", "II. Đầu tư tài chính", 1, Array.Empty<string>(), true, false),
             new("121", "1. Chứng khoán kinh doanh", 2, new[]{"121"}, false, false),
             new("122", "2. Đầu tư nắm giữ đến ngày đáo hạn", 2, new[]{"128"}, false, false),

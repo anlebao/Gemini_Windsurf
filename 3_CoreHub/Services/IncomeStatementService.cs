@@ -189,13 +189,19 @@ public class IncomeStatementService : IIncomeStatementService
                 {
                     if (acct.StartsWith(code, StringComparison.Ordinal) || acct == code)
                     {
+                        // Determine sign convention from AccountChart.
+                        // Skip accounts not in the standard's chart (giống flat path —
+                        // tránh TK ngoài chuẩn như 6421/6422 lọt vào mapping theo prefix).
+                        AccountChartEntry? chart = await _accountChart.GetAccountAsync(acct, standard, ct).ConfigureAwait(false);
+                        if (chart is null)
+                        {
+                            continue;
+                        }
+
                         decimal end = endingByAccount.GetValueOrDefault(acct);
                         decimal op = openingByAccount.GetValueOrDefault(acct);
 
-                        // Determine sign convention from AccountChart.
-                        AccountChartEntry? chart = await _accountChart.GetAccountAsync(acct, standard, ct).ConfigureAwait(false);
-                        if (chart is not null &&
-                            (presentByNormalSide ? !chart.IsNormalCredit : chart.Type is DomainAccountType.Expense))
+                        if (presentByNormalSide ? !chart.IsNormalCredit : chart.Type is DomainAccountType.Expense)
                         {
                             // Debit-normal accounts: signed (Credit - Debit) is negative → negate to present positive.
                             end = -end;

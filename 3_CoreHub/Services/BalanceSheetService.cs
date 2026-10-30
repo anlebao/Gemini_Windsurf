@@ -231,13 +231,20 @@ public class BalanceSheetService : IBalanceSheetService
                 {
                     if (acct.StartsWith(code, StringComparison.Ordinal) || acct == code)
                     {
+                        // Skip accounts not in the standard's chart (giống flat path —
+                        // tránh TK ngoài chuẩn như 6421/6422 lọt vào mapping theo prefix).
+                        AccountChartEntry? chart = await _accountChart.GetAccountAsync(acct, standard, ct).ConfigureAwait(false);
+                        if (chart is null)
+                        {
+                            continue;
+                        }
+
                         decimal op = openingByAccount.GetValueOrDefault(acct);
                         decimal mv = movementByAccount.GetValueOrDefault(acct);
                         decimal end = op + mv;
 
                         // Check if this account is a contra account (credit-normal) for sign adjustment.
-                        AccountChartEntry? chart = await _accountChart.GetAccountAsync(acct, standard, ct).ConfigureAwait(false);
-                        if (chart is not null && chart.IsNormalCredit)
+                        if (chart.IsNormalCredit)
                         {
                             op = -op;
                             end = -end;

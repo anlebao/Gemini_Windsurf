@@ -92,7 +92,8 @@ public class IncomeStatementServiceTests
 
         IncomeStatement is_ = await svc.GenerateAsync(otherTenant, new AccountingPeriod(2026, 5), AccountingStandard.TT133_2016);
 
-        Assert.Empty(is_.Lines);
+        // TT133 template path (P1): trả về đủ dòng mẫu B02-DNN với giá trị 0 (không rỗng).
+        Assert.All(is_.Lines, l => Assert.Equal(0m, l.EndingAmount));
         Assert.Equal(0m, is_.TotalRevenueEnding);
         Assert.Equal(0m, is_.NetProfitEnding);
     }
@@ -163,8 +164,8 @@ public class IncomeStatementServiceTests
             new AccountingPeriod(2026, 6),
             AccountingStandard.TT133_2016);
 
-        // Only 632 is in the chart (6421/6422 are sub-accounts not in chart → skipped).
-        decimal cogs = is_.Lines.Where(l => l.ReportItemCode.StartsWith("632")).Sum(l => -l.EndingAmount);
+        // B02-DNN (P1): giá vốn 632 gộp vào Mã 11 (trình bày dương — đã negate trong service).
+        decimal cogs = is_.Lines.First(l => l.ReportItemCode == "11").EndingAmount;
         decimal expectedNetProfit = is_.TotalRevenueEnding - cogs;
 
         Assert.Equal(expectedNetProfit, is_.NetProfitEnding, precision: 2);
@@ -180,7 +181,8 @@ public class IncomeStatementServiceTests
             new AccountingPeriod(2026, 6),
             AccountingStandard.TT133_2016);
 
-        int expenseCount = is_.Lines.Count(l => l.ReportItemCode.StartsWith("632") || l.ReportItemCode.StartsWith("642"));
+        // B02-DNN (P1): chi phí nằm ở Mã 11 (giá vốn) / Mã 24 (CP QLKD) — không còn mã TK 632/642.
+        int expenseCount = is_.Lines.Count(l => l.ReportItemCode is "11" or "24");
         Assert.True(expenseCount >= 1, $"Expected >= 1 expense line, got {expenseCount}");
     }
 
