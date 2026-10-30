@@ -1,7 +1,8 @@
 # TASK CARD A — POSTING FOUNDATION (structured key · PostingStatus+retry · JE balance · unique index · DN accrual JE)
 
-> Status: 🔵 PUSHED `15eadcfd` (2026-10-30) — CD đang chạy → RV L1-L3 → pilot flag tenant DN
-> Verify: sln build 0 errors · guard ALL PASSED (windsurf+arch+Roslyn+fast gate) · Core.Tests **2492/2492 PASS** (20 skip) · bridge tests 27/27
+> Status: ✅ DEPLOYED `b01bb878` (2026-10-30) — CD Multi-VPS #41092658903 SUCCESS · app2 health 200 → pilot flag tenant DN còn lại
+> Verify: sln build 0 errors · guard ALL PASSED · Core.Tests **2492/2492 PASS** · bridge tests 27/27
+> ⚠️ INCIDENT + LESSON: lần deploy đầu (`15eadcfd`) fail — pre-scan đúng việc bắt Order JEs chia sẻ ReferenceId cho revenue+cogs (không phải dup). Đã apply tay migration đã sửa (derive purpose từ JournalEntryLine) + restart container → recovered ~25min. Bài học: **ReferenceId alone KHÔNG đủ — Order JE có nhiều purpose cùng ref** (chính là G-C1); seed status phải join Order-ref (prefix, có suffix '-DEPOSIT-OFFSET'); bridge cần HasOrderJournalEntryAsync guard chống retry-worker double-post. Commit `b01bb878` đưa fix vào repo.
 > Điều chỉnh thiết kế khi implement: `PostingStatus` TÁCH thành `EntryPostingStatusEntity` (PK=EntryId, 1 row/entry) — giữ AccountingEntry 100% immutable (hard-stop, không thêm mutable column). Retry worker chỉ đăng ký CoreHub host (single PG writer — không cần 3 hosts) + thêm forward `IAccountingDbContext→VanAnDbContext` tại host đó. EnsureBalanced gọi ở `HKDBookRepository.AddAsync/AddToBookAsync` — skip purpose null/`opening-balance`. Flag `AccrualReceivableJE` qua `IShopFeatureSettingsService` (per-tenant toggle có sẵn); accrual chỉ SME/Large/HTX — HKD+SuperSmall skip sớm.
 > Master plan: `docs/AI/plans/accounting-engine-master-plan.md` (§4.A) · Audit: `docs/AI/plans/accounting-engine-srs-v12-phase0-audit.md`
 > Gap đóng: **G-C1 · G-C2 · G-C3 · G-C4** (4 CRITICAL) + chuẩn hóa `JournalService` reversal
