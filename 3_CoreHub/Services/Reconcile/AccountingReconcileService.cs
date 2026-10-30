@@ -99,7 +99,7 @@ public sealed class AccountingReconcileService(
         });
 
         // ── R3. Revenue/Expense đồng bộ ──────────────────────────────────────
-        await RunSafeAsync("R3", "Doanh thu/Chi phí đồng bộ (journals ↔ entries)", checks, suggestions, () =>
+        await RunSafeAsync("R3", "Doanh thu/Chi phí đồng bộ (journals ↔ entries)", checks, suggestions, async () =>
         {
             var periodLines = periodJournals.SelectMany(j => j.Lines).ToList();
             decimal revJ = periodLines.Where(l => AccountClassifier.Classify(l.AccountNumber) == AccountGroup.Revenue).Sum(l => l.CreditAmount);
@@ -111,10 +111,85 @@ public sealed class AccountingReconcileService(
             decimal dRev = Math.Abs(revJ - (revE + offE));
             decimal dExp = Math.Abs(expJ - expE);
             bool ok = dRev <= Tolerance && dExp <= Tolerance;
-            checks.Add(new("R3", "Doanh thu/Chi phí đồng bộ", ok ? ReconcileLevel.Pass : ReconcileLevel.Error,
-                $"Revenue journal={revJ:N0} = entries {revE:N0} + offset {offE:N0} (VAT 3331={vatE:N0}) · Expense journal={expJ:N0} = entries {expE:N0} · diff rev={dRev:N2} exp={dExp:N2}", ""));
+
+            string detail = "";
             if (!ok)
-                suggestions.Add("R3: Lệch giữa journal và AccountingEntries — kiểm tra entry thiếu journal (bridge) hoặc double journal (xóa journal ref 'Order' trùng — backup trước).");
+            {
+                // Drill-down per-document: chỉ ra journal/entry nào gây lệch (map journal.ReferenceId → AccountingEntries.Id).
+                var entryIdsInPeriod = periodEntries.Select(e => e.Id).ToHashSet();
+                var danglingRefIds = periodJournals
+                    .Where(j => j.ReferenceId != null && !entryIdsInPeriod.Contains(j.ReferenceId.Value))
+                    .Select(j => j.ReferenceId!.Value).Distinct().ToList();
+                var extraEntries = danglingRefIds.Count == 0 ? new List<AccountingEntry>()
+                    : await accountingDb.AccountingEntries.IgnoreQueryFilters()
+                        .Where(e => e.TenantId == tenantId && danglingRefIds.Contains(e.Id)).ToListAsync(ct);
+                var entryById = periodEntries.Concat(extraEntries).ToDictionary(e => e.Id);
+
+                var jOrphans = new List<string>();
+                var jAmountDiffs = new List<string>();
+                foreach (var j in periodJournals)
+                {
+                    decimal r = j.Lines.Where(l => AccountClassifier.Classify(l.AccountNumber) == AccountGroup.Revenue).Sum(l => l.CreditAmount);
+                    decimal x = j.Lines.Where(l => AccountClassifier.Classify(l.AccountNumber) == AccountGroup.Expense).Sum(l => l.DebitAmount);
+                    if (r == 0 && x == 0) continue;
+                    if (j.ReferenceId != null && entryById.TryGetValue(j.ReferenceId.Value, out var e))
+                    {
+                        decimal side = AccountClassifier.Classify(e.AccountCode) == AccountGroup.Revenue ? r : x;
+                        if (Math.Abs(side - e.Amount) > Tolerance)
+                            jAmountDiffs.Add($"{j.EntryDate:yyyy-MM-dd} journal {j.Id}: {side:N0} ≠ entry {e.AccountCode} {e.Amount:N0} (ref={e.Reference})");
+                    }
+                    else
+                    {
+                        string kind = j.ReferenceType switch
+                        {
+                            "Order" => "journal trực tiếp ref 'Order' (legacy)",
+                            "ManualReversal" => "bút toán đảo",
+                            "ManualEntry" => "entry đã bị xóa/tham chiếu sai",
+                            "OpeningBalance" => "số dư đầu kỳ",
+                            _ => "phiếu nhập tay không qua AccountingEntry",
+                        };
+                        jOrphans.Add($"{j.EntryDate:yyyy-MM-dd} journal {j.Id}: rev {r:N0}/exp {x:N0} — {kind}");
+                    }
+                }
+
+                var revExpEntries = periodEntries.Where(e =>
+                        (e.EntryType is AccountingEntryType.Revenue or AccountingEntryType.DepositOffset
+                            && AccountClassifier.Classify(e.AccountCode) == AccountGroup.Revenue)
+                        || (e.EntryType == AccountingEntryType.Expense && AccountClassifier.Classify(e.AccountCode) == AccountGroup.Expense))
+                    .ToList();
+                var refEntryIds = revExpEntries.Select(e => e.Id).ToList();
+                var jRefs = await accountingDb.JournalEntries.IgnoreQueryFilters()
+                    .Where(j => j.TenantId == tenantId && j.ReferenceId != null && refEntryIds.Contains(j.ReferenceId.Value))
+                    .Select(j => new { j.Id, j.ReferenceId, j.EntryDate }).ToListAsync(ct);
+                var inPeriodJIds = periodJournals.Select(j => j.Id).ToHashSet();
+                var eMissing = new List<string>();
+                var eOutPeriod = new List<string>();
+                foreach (var e in revExpEntries)
+                {
+                    var js = jRefs.Where(j => j.ReferenceId == e.Id).ToList();
+                    if (js.Count == 0)
+                        eMissing.Add($"{e.TransactionDate:yyyy-MM-dd} entry {e.Id}: {e.AccountCode} {e.Amount:N0} (ref={e.Reference}) — không có journal nào");
+                    else if (!js.Any(j => inPeriodJIds.Contains(j.Id)))
+                        eOutPeriod.Add($"{e.TransactionDate:yyyy-MM-dd} entry {e.Id}: {e.AccountCode} {e.Amount:N0} (ref={e.Reference}) — journal ngoài kỳ (lệch EntryDate vs TransactionDate)");
+                }
+
+                var parts = new List<string>();
+                if (jOrphans.Count > 0) parts.Add($"● Journal KHÔNG có entry tương ứng ({jOrphans.Count}):\n  " + string.Join("\n  ", jOrphans.Take(15)));
+                if (jAmountDiffs.Count > 0) parts.Add($"● Journal ≠ entry số tiền ({jAmountDiffs.Count}):\n  " + string.Join("\n  ", jAmountDiffs.Take(10)));
+                if (eMissing.Count > 0) parts.Add($"● Entry THIẾU journal ({eMissing.Count}):\n  " + string.Join("\n  ", eMissing.Take(15)));
+                if (eOutPeriod.Count > 0) parts.Add($"● Entry có journal NGOÀI kỳ ({eOutPeriod.Count}):\n  " + string.Join("\n  ", eOutPeriod.Take(10)));
+                detail = string.Join("\n", parts);
+
+                string tip = jOrphans.Count >= eMissing.Count && jOrphans.Count > 0
+                    ? "journal không qua AccountingEntry (phiếu tay/legacy/reversal) — tạo AccountingEntry bù cho journal, hoặc xóa journal thừa (backup trước)"
+                    : eMissing.Count > 0
+                        ? "entry thiếu journal — chạy bridge tạo journal cho các entry trong danh sách"
+                        : "lệch số tiền journal↔entry hoặc journal ngoài kỳ — đối chiếu từng dòng trong chi tiết";
+                suggestions.Add($"R3: Lệch {Math.Max(dRev, dExp):N0} — nguồn chính: {tip}. Mở chi tiết R3 xem journal/entry cụ thể.");
+            }
+
+            checks.Add(new("R3", "Doanh thu/Chi phí đồng bộ", ok ? ReconcileLevel.Pass : ReconcileLevel.Error,
+                $"Revenue journal={revJ:N0} = entries {revE:N0} + offset {offE:N0} (VAT 3331={vatE:N0}) · Expense journal={expJ:N0} = entries {expE:N0} · diff rev={dRev:N2} exp={dExp:N2}", detail));
         });
 
         // ── R4. Balance identity (toàn lịch sử) + sub-check G7 ───────────────
