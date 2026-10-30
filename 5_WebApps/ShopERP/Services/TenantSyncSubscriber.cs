@@ -315,6 +315,9 @@ namespace VanAn.ShopERP.Services
                 var standard = doc.RootElement.TryGetProperty("AccountingStandard", out var stdEl) && stdEl.ValueKind == JsonValueKind.Number
                     ? (AccountingStandard?)(AccountingStandard)stdEl.GetInt32()
                     : null;
+                var dnsnTax = doc.RootElement.TryGetProperty("DnsnTaxMethod", out var dnsnEl) && dnsnEl.ValueKind == JsonValueKind.Number
+                    ? (DnsnTaxMethod?)(DnsnTaxMethod)dnsnEl.GetInt32()
+                    : null;
 
                 using var scope = _serviceProvider.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
@@ -340,6 +343,13 @@ namespace VanAn.ShopERP.Services
                 {
                     // Revert HTX → Công ty/HKD
                     existing.RevertTenantType(type.Value, standard);
+                }
+                else if (standard != existing.AccountingStandard || dnsnTax != existing.Settings?.DnsnTaxMethod)
+                {
+                    // Regime-lock (2026-10-30): bầu chọn chuẩn (HKD→TT58 Điều 2.2, siêu nhỏ→TT133)
+                    // + DnsnTaxMethod — Type giữ nguyên, chỉ cập nhật override trên mirror.
+                    existing.ElectAccountingStandard(standard);
+                    existing.SetDnsnTaxMethod(dnsnTax);
                 }
                 else
                 {

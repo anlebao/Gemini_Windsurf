@@ -253,6 +253,7 @@ namespace VanAn.CoreHub.Services
                         TenantId = tenantId.Value,
                         Type = tenant.Type.HasValue ? (int)tenant.Type.Value : (int?)null,
                         AccountingStandard = tenant.AccountingStandard.HasValue ? (int)tenant.AccountingStandard.Value : (int?)null,
+                        DnsnTaxMethod = tenant.Settings?.DnsnTaxMethod.HasValue == true ? (int)tenant.Settings.DnsnTaxMethod.Value : (int?)null,
                         UpdatedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ")
                     };
                     byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(payload);
