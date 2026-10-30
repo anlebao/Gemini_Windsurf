@@ -1017,7 +1017,7 @@
             <label class="form-label">Chuẩn kế toán (mặc định theo loại hình)</label>
             <select class="vanan-select" @bind="_stdSelected">
                 <option value="">— Mặc định (@StdDefaultLabel(_stdTarget.Type)) —</option>
-                @foreach (var s in AccountingStandardRules.AllowedStandards(_stdTarget.Type, null))
+                @foreach (var s in AccountingStandardRules.ElectableStandards(_stdTarget.Type))
                 {
                     <option value="@((int)s)">@AccountingStandardResolver.DropdownLabel(s)</option>
                 }

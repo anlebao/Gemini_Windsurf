@@ -75,6 +75,19 @@ namespace VanAn.ShopERP.Tests.Components.Accounting
         }
 
         [Fact]
+        public void Electable_HKD_TT58_SuperSmall_TT133_Locked_Empty()
+        {
+            Assert.Equal(new[] { AccountingStandard.TT58_2026 },
+                AccountingStandardRules.ElectableStandards(TenantType.HKD));
+            Assert.Equal(new[] { AccountingStandard.TT133_2016 },
+                AccountingStandardRules.ElectableStandards(TenantType.Enterprise_SuperSmall));
+            Assert.Empty(AccountingStandardRules.ElectableStandards(TenantType.Enterprise_SME));
+            Assert.Empty(AccountingStandardRules.ElectableStandards(TenantType.Enterprise_Large));
+            Assert.Empty(AccountingStandardRules.ElectableStandards(TenantType.HTX));
+            Assert.Equal(3, AccountingStandardRules.ElectableStandards(null).Count);
+        }
+
+        [Fact]
         public void IsVoluntary_TrueWhenNotDefault()
         {
             Assert.True(AccountingStandardRules.IsVoluntary(TenantType.Enterprise_SuperSmall, AccountingStandard.TT133_2016));

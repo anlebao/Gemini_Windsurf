@@ -55,6 +55,19 @@ namespace VanAn.Shared.Domain
             return allowed.Contains(def) ? def : allowed[0];
         }
 
+        /// <summary>
+        /// Chuẩn có thể BẦU CHỌN (override) cho loại hình — dùng cho admin modal
+        /// "Chế độ kế toán". Khác AllowedStandards: HKD chưa elected vẫn thấy TT 58.
+        /// Rỗng = loại hình khóa cứng, chỉ dùng mặc định.
+        /// </summary>
+        public static IReadOnlyList<AccountingStandard> ElectableStandards(TenantType? tenantType) => tenantType switch
+        {
+            TenantType.HKD => new[] { AccountingStandard.TT58_2026 },                 // Điều 2.2 TT 58/2026
+            TenantType.Enterprise_SuperSmall => new[] { AccountingStandard.TT133_2016 }, // tự nguyện lên TT 133
+            null => new[] { AccountingStandard.TT99_2025, AccountingStandard.TT58_2026, AccountingStandard.TT71_2024 },
+            _ => Array.Empty<AccountingStandard>()
+        };
+
         /// <summary>Chuẩn đang dùng khác default của loại hình → badge "áp dụng tự nguyện".</summary>
         public static bool IsVoluntary(TenantType? tenantType, AccountingStandard standard)
             => standard != DefaultStandard(tenantType);
