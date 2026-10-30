@@ -35,11 +35,17 @@ public class AccountChartEntity
     /// </summary>
     public bool IsNormalCredit { get; private set; }
 
+    // SRS v1.2 W2/B (M4 — approved 2026-10-31): hỗ trợ hierarchy/effective trên global chart.
+    // ParentCode: TK cha của TK chi tiết (nullable). EffectiveFrom: ngày hiệu lực (nullable).
+    public string? ParentCode { get; private set; }
+    public DateTime? EffectiveFrom { get; private set; }
+
     public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
 
     private AccountChartEntity() { }
 
-    public AccountChartEntity(string accountCode, string accountName, AccountType type, AccountingStandard standard, bool isNormalCredit)
+    public AccountChartEntity(string accountCode, string accountName, AccountType type, AccountingStandard standard, bool isNormalCredit,
+        string? parentCode = null, DateTime? effectiveFrom = null)
     {
         if (string.IsNullOrWhiteSpace(accountCode))
             throw new ArgumentException("AccountCode is required.", nameof(accountCode));
@@ -51,6 +57,8 @@ public class AccountChartEntity
         Type = type;
         Standard = standard;
         IsNormalCredit = isNormalCredit;
+        ParentCode = parentCode;
+        EffectiveFrom = effectiveFrom;
         CreatedAt = DateTime.UtcNow;
     }
 

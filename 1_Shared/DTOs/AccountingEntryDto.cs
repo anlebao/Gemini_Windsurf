@@ -30,6 +30,11 @@ namespace VanAn.Shared.DTOs
         // VALCN v2.0 Phase 1 — CorrelationId for traceability (Order.Id). Null = legacy.
         public Guid? CorrelationId { get; set; }
 
+        // SRS v1.2 W2/C1 — số chứng từ tuần tự + hình thức thanh toán + link khoản nợ (nullable).
+        public string? VoucherNumber { get; set; }
+        public string? PaymentMethod { get; set; }
+        public Guid? AllocatedToEntryId { get; set; }
+
         /// <summary>
         /// Alias for TransactionDate — used in form submission
         /// </summary>

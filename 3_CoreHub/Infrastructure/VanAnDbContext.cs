@@ -116,6 +116,13 @@ namespace VanAn.CoreHub.Infrastructure
         // W3: VAS Account Chart reference data (global — NOT tenant-scoped, NOT IMustHaveTenant)
         public DbSet<Entities.AccountChartEntity> AccountCharts { get; set; }
 
+        // SRS v1.2 W2: COA per-tenant override + data-driven account mapping + voucher
+        // numbering + chứng từ đính kèm (accounting — PG only, TenantId filter tường minh).
+        public DbSet<Entities.TenantAccountChartEntity> TenantAccountCharts { get; set; }
+        public DbSet<Entities.AccountMappingRuleEntity> AccountMappingRules { get; set; }
+        public DbSet<Entities.VoucherSequenceEntity> VoucherSequences { get; set; }
+        public DbSet<Entities.AttachmentEntity> Attachments { get; set; }
+
         // W5: Period closing status persistence (tenant-scoped, IMustHaveTenant via BaseEntity).
         // Replaces the previous in-memory static Dictionary in PeriodClosingService.
         public DbSet<Entities.PeriodClosingStatusEntity> PeriodClosingStatuses { get; set; }

@@ -17,7 +17,8 @@ namespace VanAn.CoreHub.Services
         IAuditTrailService auditTrailService,
         IPeriodClosingService periodClosingService,
         ILogger<AccountingEntryService> logger,
-        IManualEntryJournalBridge? journalBridge = null) : IAccountingService
+        IManualEntryJournalBridge? journalBridge = null,
+        IVoucherNumberService? voucherNumberService = null) : IAccountingService
     {
         private readonly IAccountingEntryRepository _repository = repository;
         private readonly IAuditTrailService _auditTrailService = auditTrailService;
@@ -26,6 +27,9 @@ namespace VanAn.CoreHub.Services
         // NHẬP LIỆU & SỔ SÁCH P2 (#4): phiếu tay → JournalEntry (Sổ HKD/BCTC). Optional —
         // không có bridge (test/legacy) → phiếu vẫn hoạt động như cũ (không tạo JE).
         private readonly IManualEntryJournalBridge? _journalBridge = journalBridge;
+        // SRS v1.2 W2/C1 (M6): số chứng từ tuần tự PT/PC cho phiếu tay (reference == null).
+        // Optional — thiếu service → phiếu vẫn lưu, VoucherNumber null.
+        private readonly IVoucherNumberService? _voucherNumberService = voucherNumberService;
 
         // C-1: Duplicate detection window (configurable constant)
         private const int DuplicateWindowMinutes = 5;
@@ -89,13 +93,20 @@ namespace VanAn.CoreHub.Services
 
                 // VALCN v2.0 Phase 1: pass CorrelationId from DTO to factory
                 // SRS Phase A: phiếu tay DTO path → manual-receipt/manual-expense.
+                // SRS W2/C1: phiếu tay DTO → số chứng từ PT/PC.
+                string? voucherNumber = await NextVoucherSafeAsync(
+                    tenantId,
+                    entry.EntryType == AccountingEntryType.Revenue ? VoucherNumberService.TypeReceipt : VoucherNumberService.TypePayment,
+                    entry.TransactionDate.Year);
                 CoreAccountingEntry coreEntry = entry.EntryType == AccountingEntryType.Revenue
                     ? CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(entry.Amount), entry.Description,
                         correlationId: entry.CorrelationId,
-                        postingPurpose: AccountingPostingPurposes.ManualReceipt)
+                        postingPurpose: AccountingPostingPurposes.ManualReceipt,
+                        voucherNumber: voucherNumber)
                     : CoreAccountingEntry.CreateExpense(tenantId, period, new Money(entry.Amount), entry.Description,
                         correlationId: entry.CorrelationId,
-                        postingPurpose: AccountingPostingPurposes.ManualExpense);
+                        postingPurpose: AccountingPostingPurposes.ManualExpense,
+                        voucherNumber: voucherNumber);
 
                 await _repository.AddAsync(coreEntry);
 
@@ -135,7 +146,10 @@ namespace VanAn.CoreHub.Services
                         PeriodYear = entry.PeriodYear,
                         PeriodMonth = entry.PeriodMonth,
                         ReversalEntryId = entry.ReversalEntryId,
-                        TransactionDate = entry.TransactionDate
+                        TransactionDate = entry.TransactionDate,
+                        VoucherNumber = entry.VoucherNumber,
+                        PaymentMethod = entry.PaymentMethod,
+                        AllocatedToEntryId = entry.AllocatedToEntryId
                     };
             }
             catch (Exception ex)
@@ -146,7 +160,8 @@ namespace VanAn.CoreHub.Services
         }
 
         public async Task<AccountingEntryDto> CreateRevenueEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description,
-            string? accountCode = null, string? reference = null, IndustrySector? industrySector = null, DateTime? transactionDate = null)
+            string? accountCode = null, string? reference = null, IndustrySector? industrySector = null, DateTime? transactionDate = null,
+            string? paymentMethod = null, string? cashAccountCode = null)
         {
             try
             {
@@ -158,13 +173,20 @@ namespace VanAn.CoreHub.Services
                 // C-1: Server-side duplicate detection — block identical entry within DuplicateWindowMinutes
                 await CheckDuplicateEntryAsync(tenantId, amount, accountCode, AccountingEntryType.Revenue, reference);
 
+                // SRS W2/C1 (M6): phiếu tay (reference == null) → số chứng từ PT-YYYY-NNNNN.
+                // Order-driven (reference != null) → null (order là chứng từ gốc).
+                string? voucherNumber = reference == null
+                    ? await NextVoucherSafeAsync(tenantId, VoucherNumberService.TypeReceipt, (transactionDate ?? DateTime.UtcNow).Year)
+                    : null;
+
                 // SRS Phase A: purpose/source derive — 3331 → vat, còn lại → revenue;
                 // có reference → nguồn nghiệp vụ (Order...), không → phiếu tay.
                 CoreAccountingEntry entry = CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(amount), description,
                     accountCode: accountCode, reference: reference, industrySector: industrySector, transactionDate: transactionDate,
                     postingPurpose: accountCode == "3331" ? AccountingPostingPurposes.Vat : AccountingPostingPurposes.Revenue,
                     sourceEventType: reference != null ? "Order" : "ManualEntry",
-                    sourceEventId: reference);
+                    sourceEventId: reference,
+                    voucherNumber: voucherNumber, paymentMethod: paymentMethod, cashAccountCode: cashAccountCode);
                 await _repository.AddAsync(entry);
 
                 // NHẬP LIỆU & SỔ SÁCH P2 (#4): phiếu tay → JournalEntry (Sổ HKD B01-B09/BCTC) — fail-safe
@@ -193,7 +215,9 @@ namespace VanAn.CoreHub.Services
                     PeriodMonth = entry.PeriodMonth,
                     ReversalEntryId = entry.ReversalEntryId,
                     TransactionDate = entry.TransactionDate,
-                    IndustrySector = entry.IndustrySector
+                    IndustrySector = entry.IndustrySector,
+                    VoucherNumber = entry.VoucherNumber,
+                    PaymentMethod = entry.PaymentMethod
                 };
             }
             catch (Exception ex)
@@ -205,7 +229,8 @@ namespace VanAn.CoreHub.Services
 
         public async Task<AccountingEntryDto> CreateExpenseEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description,
             string? accountCode = null, string? vendor = null, string? category = null, string? reference = null,
-            IndustrySector? industrySector = null, DateTime? transactionDate = null)
+            IndustrySector? industrySector = null, DateTime? transactionDate = null,
+            string? paymentMethod = null, string? cashAccountCode = null)
         {
             try
             {
@@ -217,13 +242,19 @@ namespace VanAn.CoreHub.Services
                 // C-1: Server-side duplicate detection — block identical entry within DuplicateWindowMinutes
                 await CheckDuplicateEntryAsync(tenantId, amount, accountCode, AccountingEntryType.Expense, reference);
 
+                // SRS W2/C1 (M6): phiếu tay (reference == null) → số chứng từ PC-YYYY-NNNNN.
+                string? voucherNumber = reference == null
+                    ? await NextVoucherSafeAsync(tenantId, VoucherNumberService.TypePayment, (transactionDate ?? DateTime.UtcNow).Year)
+                    : null;
+
                 // SRS Phase A: 632/611/612 + reference → cogs; còn lại → manual-expense.
                 bool isCogs = reference != null && accountCode is "632" or "611" or "612";
                 CoreAccountingEntry entry = CoreAccountingEntry.CreateExpense(tenantId, period, new Money(amount), description,
                     accountCode: accountCode, vendor: vendor, category: category, reference: reference, industrySector: industrySector, transactionDate: transactionDate,
                     postingPurpose: isCogs ? AccountingPostingPurposes.Cogs : AccountingPostingPurposes.ManualExpense,
                     sourceEventType: reference != null ? "Order" : "ManualEntry",
-                    sourceEventId: reference);
+                    sourceEventId: reference,
+                    voucherNumber: voucherNumber, paymentMethod: paymentMethod, cashAccountCode: cashAccountCode);
                 await _repository.AddAsync(entry);
 
                 // NHẬP LIỆU & SỔ SÁCH P2 (#4): phiếu tay → JournalEntry (Sổ HKD B01-B09/BCTC) — fail-safe
@@ -254,7 +285,10 @@ namespace VanAn.CoreHub.Services
                     PeriodMonth = entry.PeriodMonth,
                     ReversalEntryId = entry.ReversalEntryId,
                     TransactionDate = entry.TransactionDate,
-                    IndustrySector = entry.IndustrySector
+                    IndustrySector = entry.IndustrySector,
+                    VoucherNumber = entry.VoucherNumber,
+                    PaymentMethod = entry.PaymentMethod,
+                    AllocatedToEntryId = entry.AllocatedToEntryId
                 };
             }
             catch (Exception ex)
@@ -312,13 +346,34 @@ namespace VanAn.CoreHub.Services
                     PeriodMonth = entry.PeriodMonth,
                     ReversalEntryId = entry.ReversalEntryId,
                     TransactionDate = entry.TransactionDate,
-                    IndustrySector = entry.IndustrySector
+                    IndustrySector = entry.IndustrySector,
+                    VoucherNumber = entry.VoucherNumber,
+                    PaymentMethod = entry.PaymentMethod,
+                    AllocatedToEntryId = entry.AllocatedToEntryId
                 };
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating deposit offset entry for tenant {TenantId}", tenantId.Value);
                 throw;
+            }
+        }
+
+        /// <summary>SRS W2/C1 (M6): cấp số chứng từ — fail-safe (thiếu service/lỗi → null, phiếu vẫn lưu).</summary>
+        private async Task<string?> NextVoucherSafeAsync(TenantId tenantId, string voucherType, int year)
+        {
+            if (_voucherNumberService == null)
+            {
+                return null;
+            }
+            try
+            {
+                return await _voucherNumberService.NextNumberAsync(tenantId, voucherType, year);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Voucher numbering failed ({VoucherType}/{Year}, tenant {TenantId}) — phiếu lưu không số", voucherType, year, tenantId.Value);
+                return null;
             }
         }
 
@@ -371,7 +426,9 @@ namespace VanAn.CoreHub.Services
                     PeriodYear = e.PeriodYear,
                     PeriodMonth = e.PeriodMonth,
                     ReversalEntryId = e.ReversalEntryId,
-                    TransactionDate = e.TransactionDate
+                    TransactionDate = e.TransactionDate,
+                    VoucherNumber = e.VoucherNumber,
+                    PaymentMethod = e.PaymentMethod
                 });
             }
             catch (Exception ex)
@@ -398,7 +455,9 @@ namespace VanAn.CoreHub.Services
                     PeriodYear = e.PeriodYear,
                     PeriodMonth = e.PeriodMonth,
                     ReversalEntryId = e.ReversalEntryId,
-                    TransactionDate = e.TransactionDate
+                    TransactionDate = e.TransactionDate,
+                    VoucherNumber = e.VoucherNumber,
+                    PaymentMethod = e.PaymentMethod
                 });
             }
             catch (Exception ex)
@@ -427,7 +486,9 @@ namespace VanAn.CoreHub.Services
                     PeriodYear = e.PeriodYear,
                     PeriodMonth = e.PeriodMonth,
                     ReversalEntryId = e.ReversalEntryId,
-                    TransactionDate = e.TransactionDate
+                    TransactionDate = e.TransactionDate,
+                    VoucherNumber = e.VoucherNumber,
+                    PaymentMethod = e.PaymentMethod
                 });
             }
             catch (Exception ex)
@@ -511,7 +572,9 @@ namespace VanAn.CoreHub.Services
                     PeriodYear = e.PeriodYear,
                     PeriodMonth = e.PeriodMonth,
                     ReversalEntryId = e.ReversalEntryId,
-                    TransactionDate = e.TransactionDate
+                    TransactionDate = e.TransactionDate,
+                    VoucherNumber = e.VoucherNumber,
+                    PaymentMethod = e.PaymentMethod
                 });
             }
             catch (Exception ex)

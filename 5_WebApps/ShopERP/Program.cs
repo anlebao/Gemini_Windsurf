@@ -236,6 +236,10 @@ namespace VanAn.ShopERP
             // NHẬP LIỆU & SỔ SÁCH P2 (#4, 2026-10-07): phiếu tay → JournalEntry (Sổ HKD/BCTC) + backfill
             _ = builder.Services.AddScoped<CoreHub.Services.Journal.IManualEntryJournalBridge, CoreHub.Services.Journal.ManualEntryJournalBridge>();
             _ = builder.Services.AddScoped<CoreHub.Services.Journal.IBackfillJournalEntriesService, CoreHub.Services.Journal.BackfillJournalEntriesService>();
+            // SRS v1.2 W2 (2026-10-31): account map resolver + voucher numbering + attachments
+            _ = builder.Services.AddScoped<CoreHub.Services.Journal.IAccountMapResolver, CoreHub.Services.Journal.AccountMapResolver>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IVoucherNumberService, CoreHub.Services.VoucherNumberService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IAttachmentService, CoreHub.Services.AttachmentService>();
             // NHẬP LIỆU & SỔ SÁCH P3 (#2, 2026-10-07): khai báo số dư đầu kỳ
             _ = builder.Services.AddScoped<CoreHub.Services.CongNo.IOpeningBalanceService, CoreHub.Services.CongNo.OpeningBalanceService>();
             // NHẬP LIỆU & SỔ SÁCH P4 (#1, 2026-10-08): import Excel xlsx+csv (dry-run 0 lỗi mới lưu)
@@ -1096,6 +1100,11 @@ namespace VanAn.ShopERP
                 await CoreHub.Infrastructure.Seed.AccountChartSeeder.CleanupAsync(accountingContext);
                 int accountChartCount = await CoreHub.Infrastructure.Seed.AccountChartSeeder.SeedAsync(accountingContext);
                 Console.WriteLine($"W3: AccountChart reference data seeded — {accountChartCount} accounts across 2 standards (TT 133 + TT 99)");
+
+                // SRS v1.2 W2/B: seed AccountMappingRules regime-scope = parity hardcode.
+                // Idempotent (KHÔNG cleanup — rule là admin-editable).
+                int accountMapCount = await CoreHub.Infrastructure.Seed.AccountMapSeeder.SeedAsync(accountingContext);
+                Console.WriteLine($"W2: AccountMappingRules seeded — {accountMapCount} regime rules");
 
                 // Seed tenants into PostgreSQL (shared with Gateway via VanAnDbContext).
                 // Gateway's HKDBookGenerationService queries Tenants table in PostgreSQL — without these rows,

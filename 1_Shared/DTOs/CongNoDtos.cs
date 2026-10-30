@@ -40,6 +40,10 @@ namespace VanAn.Shared.DTOs
         public decimal DaThuTra { get; set; }
         public decimal CuoiKy { get; set; }
         public CongNoAgingDto Aging { get; set; } = new();
+
+        /// <summary>SRS v1.2 W2/C1 (§18.7, ACC12-006): số dư âm = đối tượng trả trước
+        /// (khách ứng tiền / trả trước NCC) — KHÔNG phải nợ âm; UI hiển thị nhãn "Trả trước".</summary>
+        public bool IsTraTruoc => CuoiKy < 0;
     }
 
     /// <summary>Phân loại tuổi nợ [G12] — nhóm <30 · 30-60 · 60-90 · &gt;90 ngày (FIFO động).</summary>
@@ -77,6 +81,9 @@ namespace VanAn.Shared.DTOs
         public decimal Giam { get; set; }
         public decimal SoDu { get; set; }
         public bool IsReversal { get; set; }
+
+        /// <summary>SRS v1.2 W2/C1: số chứng từ (null với entries cũ trước W2).</summary>
+        public string? VoucherNumber { get; set; }
     }
 
     /// <summary>
@@ -103,5 +110,19 @@ namespace VanAn.Shared.DTOs
         public string Description { get; set; } = string.Empty;
         public decimal SoTien { get; set; }
         public decimal SoDuConLai { get; set; }
+
+        /// <summary>SRS v1.2 W2/C1: số chứng từ + link rõ ràng (true khi user chọn khoản cụ thể).</summary>
+        public string? VoucherNumber { get; set; }
+        public bool IsExplicitAllocation { get; set; }
+    }
+
+    /// <summary>SRS v1.2 W2/C1: khoản nợ còn dư của đối tượng — cho UI picker áp khoản.</summary>
+    public class KhoanNoOpenItemDto
+    {
+        public Guid EntryId { get; set; }
+        public DateTime TransactionDate { get; set; }
+        public string Description { get; set; } = string.Empty;
+        public decimal SoTien { get; set; }
+        public decimal ConLai { get; set; }
     }
 }

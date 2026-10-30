@@ -46,6 +46,10 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.PostingPurpose)
                 .HasMaxLength(50);
 
+            // SRS v1.2 W2/B — version của AccountMappingRule đã dùng (FR-RULE-007 nền).
+            _ = builder.Property(e => e.MappingVersion)
+                .HasMaxLength(30);
+
             // OwnsMany: JournalEntryLine is a Value Object owned by JournalEntry
             _ = builder.OwnsMany(e => e.Lines, lineBuilder =>
             {

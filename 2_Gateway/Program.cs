@@ -1309,6 +1309,10 @@ namespace VanAn.Gateway
             // NHẬP LIỆU & SỔ SÁCH P2 (#4, 2026-10-07): phiếu tay → JournalEntry (Sổ HKD/BCTC) + backfill
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Journal.IManualEntryJournalBridge, VanAn.CoreHub.Services.Journal.ManualEntryJournalBridge>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Journal.IBackfillJournalEntriesService, VanAn.CoreHub.Services.Journal.BackfillJournalEntriesService>();
+            // SRS v1.2 W2 (2026-10-31): account map resolver + voucher numbering + attachments
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Journal.IAccountMapResolver, VanAn.CoreHub.Services.Journal.AccountMapResolver>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IVoucherNumberService, VanAn.CoreHub.Services.VoucherNumberService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IAttachmentService, VanAn.CoreHub.Services.AttachmentService>();
 
             _ = builder.Services.AddScoped<IHKDBookService, HKDBookService>();
 

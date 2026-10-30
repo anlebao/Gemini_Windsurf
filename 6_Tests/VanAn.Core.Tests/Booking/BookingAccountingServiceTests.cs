@@ -35,7 +35,7 @@ public class BookingAccountingServiceTests
     {
         _accounting.Setup(a => a.CreateRevenueEntryAsync(
                 It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
-                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()))
+                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), null, null))
             .ReturnsAsync((TenantId _, AccountingPeriod _, decimal amount, string desc,
                 string? accountCode, string? reference, IndustrySector? sector, DateTime? txDate) =>
                 new AccountingEntryDto
@@ -79,10 +79,10 @@ public class BookingAccountingServiceTests
 
         _accounting.Verify(a => a.CreateRevenueEntryAsync(
             Tenant, new AccountingPeriod(2026, 10), 300_000m, It.IsAny<string>(),
-            "511", $"Booking:{BookingId}", It.IsAny<IndustrySector?>(), new DateTime(2026, 10, 12, 10, 0, 0, DateTimeKind.Utc)), Times.Once);
+            "511", $"Booking:{BookingId}", It.IsAny<IndustrySector?>(), new DateTime(2026, 10, 12, 10, 0, 0, DateTimeKind.Utc), null, null), Times.Once);
         _accounting.Verify(a => a.CreateRevenueEntryAsync(
             Tenant, new AccountingPeriod(2026, 10), 30_000m, It.IsAny<string>(),
-            "3331", $"Booking:{BookingId}", It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()), Times.Once);
+            "3331", $"Booking:{BookingId}", It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()), Times.Once);
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public class BookingAccountingServiceTests
 
         _accounting.Verify(a => a.CreateRevenueEntryAsync(
             It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
-            It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()), Times.Never);
+            It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), null, null), Times.Never);
     }
 
     // ── Issue #195 follow-up (2026-10-29, user approve A): booking có Order gắn kèm (D2) →
@@ -122,7 +122,7 @@ public class BookingAccountingServiceTests
 
         _accounting.Verify(a => a.CreateRevenueEntryAsync(
             It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
-            It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()), Times.Never);
+            It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), null, null), Times.Never);
     }
 
     [Fact]
@@ -144,7 +144,7 @@ public class BookingAccountingServiceTests
 
         _accounting.Verify(a => a.CreateRevenueEntryAsync(
             It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
-            It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()), Times.Never);
+            It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), null, null), Times.Never);
     }
 
     // ── DepositPaid → TK 3387 (bản chất riêng, KHÔNG doanh thu) ──────────────
@@ -170,7 +170,7 @@ public class BookingAccountingServiceTests
         // Bản chất riêng: KHÔNG tạo doanh thu.
         _accounting.Verify(a => a.CreateRevenueEntryAsync(
             It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
-            It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()), Times.Never);
+            It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), null, null), Times.Never);
     }
 
     [Fact]
@@ -201,7 +201,7 @@ public class BookingAccountingServiceTests
 
         _accounting.Verify(a => a.CreateRevenueEntryAsync(
             Tenant, new AccountingPeriod(2026, 10), 200_000m, It.IsAny<string>(),
-            "511", $"Booking:{BookingId}", It.IsAny<IndustrySector?>(), new DateTime(2026, 10, 12, 11, 0, 0, DateTimeKind.Utc)), Times.Once);
+            "511", $"Booking:{BookingId}", It.IsAny<IndustrySector?>(), new DateTime(2026, 10, 12, 11, 0, 0, DateTimeKind.Utc), null, null), Times.Once);
     }
 
     [Fact]
@@ -216,7 +216,7 @@ public class BookingAccountingServiceTests
 
         _accounting.Verify(a => a.CreateRevenueEntryAsync(
             It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
-            It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()), Times.Never);
+            It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), null, null), Times.Never);
     }
 
     // ── HTX (TT 71): tenant bán HTX + buyer là member → 512 (nội bộ) ─────────
@@ -255,6 +255,6 @@ public class BookingAccountingServiceTests
 
         _accounting.Verify(a => a.CreateRevenueEntryAsync(
             Tenant, It.IsAny<AccountingPeriod>(), 300_000m, It.IsAny<string>(),
-            "512", $"Booking:{BookingId}", It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()), Times.Once);
+            "512", $"Booking:{BookingId}", It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()), Times.Once);
     }
 }

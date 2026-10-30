@@ -40,6 +40,12 @@ public class AccountChartConfiguration : IEntityTypeConfiguration<AccountChartEn
         builder.Property(e => e.IsNormalCredit)
             .IsRequired();
 
+        // SRS v1.2 W2/B (M4): hierarchy + effective trên global chart (nullable, additive).
+        builder.Property(e => e.ParentCode)
+            .HasMaxLength(20);
+
+        builder.Property(e => e.EffectiveFrom);
+
         builder.Property(e => e.CreatedAt)
             .IsRequired()
             .HasDefaultValueSql("CURRENT_TIMESTAMP");

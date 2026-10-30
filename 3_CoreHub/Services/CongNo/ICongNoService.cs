@@ -12,7 +12,8 @@ namespace VanAn.CoreHub.Services.CongNo
     /// </summary>
     public interface ICongNoService
     {
-        /// <summary>Ghi nhận phải thu (131): bán chịu (+) hoặc thu tiền khách trả nợ (−) [G4][G5][G9].</summary>
+        /// <summary>Ghi nhận phải thu (131): bán chịu (+) hoặc thu tiền khách trả nợ (−) [G4][G5][G9].
+        /// W2/C1: allocatedToEntryId = link tới khoản nợ gốc khi user chọn khoản cụ thể (null → FIFO).</summary>
         Task<AccountingEntryDto> CreateReceivableAsync(
             TenantId tenantId,
             decimal amount,
@@ -22,6 +23,8 @@ namespace VanAn.CoreHub.Services.CongNo
             bool isPayment,
             string? mst = null,
             string? reference = null,
+            Guid? allocatedToEntryId = null,
+            string? paymentMethod = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>Ghi nhận phải trả (331): mua chịu (+) hoặc trả tiền người bán (−) [G4][G5][G9].</summary>
@@ -34,6 +37,8 @@ namespace VanAn.CoreHub.Services.CongNo
             bool isPayment,
             string? mst = null,
             string? reference = null,
+            Guid? allocatedToEntryId = null,
+            string? paymentMethod = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>Báo cáo công nợ tổng hợp theo tháng (FR-7): 2 khối 131/331 + tuổi nợ FIFO [G7][G12].</summary>
@@ -51,5 +56,12 @@ namespace VanAn.CoreHub.Services.CongNo
         /// <summary>Truy ngược lịch sử thanh toán 1 khoản nợ (FR-8.1 [G12]): các lần thu/trả + số dư còn lại sau mỗi lần.
         /// Trả null nếu khoản không tồn tại / đã bị đảo bút toán / không phải khoản ghi nợ.</summary>
         Task<KhoanNoPaymentsDto?> GetKhoanNoPaymentsAsync(TenantId tenantId, Guid khoanNoEntryId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// SRS v1.2 W2/C1: danh sách khoản nợ CÒN DƯ của 1 đối tượng (FIFO remaining &gt; 0) —
+        /// cho UI picker "áp vào khoản" khi thu/trả nợ (AllocatedToEntryId).
+        /// </summary>
+        Task<List<KhoanNoOpenItemDto>> GetOpenKhoanNoAsync(
+            TenantId tenantId, string accountCode, string doiTuong, CancellationToken cancellationToken = default);
     }
 }

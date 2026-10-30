@@ -111,10 +111,10 @@ namespace VanAn.Core.Tests.Accounting
             result.CongNoEntryCount.Should().Be(2);
             _congNo.Verify(c => c.CreateReceivableAsync(tenant, 5_000_000m, "Khách A",
                 It.Is<string>(d => d.StartsWith("Số dư đầu kỳ")), new DateTime(2026, 9, 30), false,
-                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
+                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
             _congNo.Verify(c => c.CreatePayableAsync(tenant, 2_000_000m, "Nhà cung cấp Y",
                 It.IsAny<string?>(), new DateTime(2026, 9, 30), false,
-                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
+                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
         }
 
         [Fact]

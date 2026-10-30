@@ -45,7 +45,9 @@ public enum AuditableEntityType
     KhachLinkInstance = 12,  // P1.2 — KhachLink profile change audit
     SecurityEvent = 13,     // P3.3 — security incident (failed login, rate limit, suspicious activity)
     WalletTransaction = 14,  // Settlement Batch-4 (TC-10 S7) — wallet ledger movement audit
-    ElectronicInvoice = 15   // W3 (P0.3) — hóa đơn điện tử điều chỉnh/thay thế (Điều 10 TT 91/2026)
+    ElectronicInvoice = 15,   // W3 (P0.3) — hóa đơn điện tử điều chỉnh/thay thế (Điều 10 TT 91/2026)
+    TenantAccountChart = 16,  // SRS v1.2 W2 (FR-COA-006) — COA per-tenant thêm/sửa/deactivate
+    AccountMappingRule = 17   // SRS v1.2 W2 (FR-RULE-007 nền) — rule map sự kiện→TK
 }
 
 /// <summary>

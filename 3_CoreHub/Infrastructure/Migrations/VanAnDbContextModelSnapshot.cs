@@ -312,8 +312,15 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+                    b.Property<DateTime?>("EffectiveFrom")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<bool>("IsNormalCredit")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("ParentCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<int>("Standard")
                         .HasColumnType("integer");
@@ -329,6 +336,108 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("AccountCharts", (string)null);
+                });
+
+            modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.AccountMappingRuleEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AmountKind")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("CreditAccount")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("DebitAccount")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime?>("EffectiveFrom")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("EventCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Regime")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Regime", "EventCode");
+
+                    b.HasIndex("TenantId", "EventCode");
+
+                    b.ToTable("AccountMappingRules", (string)null);
+                });
+
+            modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.AttachmentEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("FileName")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("FileUrl")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("MimeType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UploadedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "EntityType", "EntityId");
+
+                    b.ToTable("Attachments", (string)null);
                 });
 
             modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.EntryPostingStatusEntity", b =>
@@ -646,6 +755,93 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                     b.ToTable("ShopFeatureSettings", (string)null);
                 });
 
+            modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.TenantAccountChartEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AccountCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("AccountName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateTime?>("EffectiveFrom")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool?>("IsNormalCredit")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ParentCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "AccountCode")
+                        .IsUnique();
+
+                    b.ToTable("TenantAccountCharts", (string)null);
+                });
+
+            modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.VoucherSequenceEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("LastNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("VoucherType")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "VoucherType", "Year")
+                        .IsUnique();
+
+                    b.ToTable("VoucherSequences", (string)null);
+                });
+
             modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Messaging.ProcessedWebhookKey", b =>
                 {
                     b.Property<Guid>("Id")
@@ -752,9 +948,16 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                     b.Property<Guid?>("AccountingEntryId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("AllocatedToEntryId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("Amount")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("CashAccountCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<string>("Category")
                         .HasMaxLength(100)
@@ -784,6 +987,10 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("PaymentMethod")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<int>("PeriodMonth")
                         .HasColumnType("integer");
@@ -829,6 +1036,10 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("VoucherNumber")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AccountingEntryId");
@@ -836,6 +1047,10 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                     b.HasIndex("ReversalEntryId");
 
                     b.HasIndex("TenantId", "AccountingBookType");
+
+                    b.HasIndex("TenantId", "VoucherNumber")
+                        .IsUnique()
+                        .HasFilter("\"VoucherNumber\" IS NOT NULL");
 
                     b.HasIndex("TenantId", "PeriodYear", "PeriodMonth");
 
@@ -4426,6 +4641,10 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<string>("MappingVersion")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
 
                     b.Property<string>("PostingPurpose")
                         .HasMaxLength(50)

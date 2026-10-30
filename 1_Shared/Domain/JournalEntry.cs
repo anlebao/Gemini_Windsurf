@@ -23,6 +23,11 @@ namespace VanAn.Shared.Domain
         // purpose riêng). Xem AccountingPostingPurposes (Domain.cs).
         public string? PostingPurpose { get; }
 
+        // SRS v1.2 W2/B (approved 2026-10-31 — Gate 5, additive nullable, FR-RULE-007 nền):
+        // version của AccountMappingRule đã dùng để tạo JE này ("builtin" khi fallback
+        // hardcode). Rule đổi không hồi tố JE cũ.
+        public string? MappingVersion { get; }
+
         private readonly List<JournalEntryLine> _lines = [];
         public IReadOnlyCollection<JournalEntryLine> Lines => _lines.AsReadOnly();
 
@@ -54,7 +59,8 @@ namespace VanAn.Shared.Domain
             Guid? referenceId = null,
             bool isReversal = false,
             JournalEntryId? reversedJournalId = null,
-            string? postingPurpose = null)
+            string? postingPurpose = null,
+            string? mappingVersion = null)
             : base(tenantId)
         {
             TenantId = tenantId;
@@ -67,6 +73,7 @@ namespace VanAn.Shared.Domain
             IsReversal = isReversal;
             ReversedJournalId = reversedJournalId;
             PostingPurpose = postingPurpose;
+            MappingVersion = mappingVersion;
             JournalNo = GenerateJournalNo();
         }
 

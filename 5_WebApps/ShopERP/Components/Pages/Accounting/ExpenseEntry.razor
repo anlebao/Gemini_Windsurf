@@ -37,7 +37,7 @@
 
     @if (showSuccess)
     {
-        <VanAAlert data-testid="expense-success-alert" Variant="success" Message="Đã lưu chi phí thành công!" Dismissible="true" />
+        <VanAAlert data-testid="expense-success-alert" Variant="success" Message="@(_savedDto?.VoucherNumber != null ? $"Đã lưu thành công — Số phiếu: {_savedDto.VoucherNumber}" : "Đã lưu chi phí thành công!")" Dismissible="true" />
     }
 
     @if (showError)
@@ -97,7 +97,49 @@
                     <input id="doiTuong" type="text" class="form-control" @bind="doiTuong" placeholder="Tên người bán / công ty" data-testid="doi-tuong-input" />
                     <small class="form-text text-muted">Cùng chuỗi tên = cùng đối tượng [G2] — bắt buộc với phiếu công nợ</small>
                 </div>
+
+                @* SRS v1.2 W2/C1 (M7): trả nợ → chọn khoản cụ thể (AllocatedToEntryId) hoặc FIFO tự động *@
+                @if (_voucherType == VoucherTypePayment)
+                {
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <VanAButton Variant="secondary" Size="small" Disabled="@_isLoadingKhoan" OnClick="LoadOpenKhoanAsync">
+                                @(_isLoadingKhoan ? "Đang tải..." : "Tải danh sách khoản nợ")
+                            </VanAButton>
+                            @if (_khoanLoadError != null)
+                            {
+                                <span class="text-danger small">@_khoanLoadError</span>
+                            }
+                        </div>
+                        @if (_openKhoan.Count > 0)
+                        {
+                            <label for="khoanSelect" class="form-label">Áp vào khoản nợ (tùy chọn — mặc định FIFO tự động)</label>
+                            <select id="khoanSelect" class="form-select" @bind="_selectedKhoanId" data-testid="khoan-select">
+                                <option value="">— Tự động (FIFO: trừ khoản cũ nhất) —</option>
+                                @foreach (var k in _openKhoan)
+                                {
+                                    <option value="@k.EntryId">@k.TransactionDate.ToString("dd/MM/yyyy") — @k.Description — còn @k.ConLai.ToString("N0") ₫</option>
+                                }
+                            </select>
+                        }
+                        else if (_khoanLoaded)
+                        {
+                            <small class="form-text text-muted">Đối tượng này không có khoản nợ còn dư — phiếu sẽ ghi trả trước.</small>
+                        }
+                    </div>
+                }
             }
+
+            @* SRS v1.2 W2/C1 (M7): hình thức thanh toán trên phiếu tay (nullable, default tiền mặt) *@
+            <div class="mb-3">
+                <label for="paymentMethod" class="form-label">Hình Thức Thanh Toán</label>
+                <select id="paymentMethod" class="form-select" @bind="_paymentMethod" data-testid="payment-method-select">
+                    <option value="cash">Tiền mặt</option>
+                    <option value="bank">Chuyển khoản</option>
+                    <option value="qr">QR / Ví điện tử</option>
+                    <option value="other">Khác</option>
+                </select>
+            </div>
 
             <DynamicFormFields 
                 FieldDefinitions="@expenseFields"
@@ -437,7 +479,49 @@
     private string doiTuong = string.Empty;
     private string mstInput = string.Empty;
 
+    // SRS v1.2 W2/C1: hình thức thanh toán + khoản nợ picker (trả nợ 331)
+    private string _paymentMethod = "cash";
+    private List<VanAn.Shared.DTOs.KhoanNoOpenItemDto> _openKhoan = new();
+    private string _selectedKhoanId = string.Empty;
+    private bool _isLoadingKhoan;
+    private bool _khoanLoaded;
+    private string? _khoanLoadError;
+    // DTO vừa lưu — lấy VoucherNumber cho success message + SoPhieu 02-TT.
+    private VanAn.Shared.DTOs.AccountingEntryDto? _savedDto;
+
     private bool IsCongNoType => _voucherType is VoucherTypePayable or VoucherTypePayment;
+
+    /// <summary>SRS W2/C1 (M7): tải khoản nợ còn dư của đối tượng cho picker áp khoản.</summary>
+    private async Task LoadOpenKhoanAsync()
+    {
+        _khoanLoadError = null;
+        _openKhoan = new();
+        _khoanLoaded = false;
+        var dt = doiTuong.Trim();
+        if (string.IsNullOrWhiteSpace(dt) || !TenantProvider.HasTenant)
+        {
+            _khoanLoadError = "Nhập đối tượng trước khi tải khoản nợ.";
+            return;
+        }
+
+        _isLoadingKhoan = true;
+        StateHasChanged();
+        try
+        {
+            _openKhoan = await CongNoService.GetOpenKhoanNoAsync(new TenantId(TenantProvider.TenantId), "331", dt);
+            _khoanLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Load open khoan no failed for {DoiTuong}", dt);
+            _khoanLoadError = "Không tải được danh sách khoản nợ.";
+        }
+        finally
+        {
+            _isLoadingKhoan = false;
+            StateHasChanged();
+        }
+    }
 
     private List<PlatformComposite.FieldOption> GetVoucherTypeOptions()
     {
@@ -807,7 +891,10 @@
                 description = $"{description} (MST {mst})";
             }
 
-            await CongNoService.CreatePayableAsync(
+            // SRS W2/C1: khoản picker → AllocatedToEntryId (null = FIFO tự động) + paymentMethod.
+            Guid? allocatedTo = _voucherType == VoucherTypePayment
+                && Guid.TryParse(_selectedKhoanId, out Guid khoanId) ? khoanId : null;
+            _savedDto = await CongNoService.CreatePayableAsync(
                 tenantId,
                 amount,
                 doiTuong,
@@ -815,7 +902,9 @@
                 date,
                 isPayment: _voucherType == VoucherTypePayment,
                 mst: string.IsNullOrWhiteSpace(mst) ? null : mst,
-                reference: string.IsNullOrWhiteSpace(reference) ? null : reference);
+                reference: string.IsNullOrWhiteSpace(reference) ? null : reference,
+                allocatedToEntryId: allocatedTo,
+                paymentMethod: _paymentMethod);
         }
         else
         {
@@ -823,7 +912,7 @@
 
             // Create accounting entry using IAccountingService — pass user-entered date as transactionDate
             // so TransactionHistory shows the correct date (not DateTime.UtcNow at creation time).
-            await AccountingService.CreateExpenseEntryAsync(
+            _savedDto = await AccountingService.CreateExpenseEntryAsync(
                 tenantId,
                 period,
                 amount,
@@ -832,7 +921,8 @@
                 vendor: vendor,
                 category: category,
                 reference: reference,
-                transactionDate: date);
+                transactionDate: date,
+                paymentMethod: _paymentMethod);
 
             Logger.LogInformation("AccountingService.CreateExpenseEntryAsync completed successfully");
 
@@ -844,9 +934,10 @@
         if (!IsCongNoType && _tenantType == TenantType.HTX)
         {
             _lastVoucher = new VoucherData(
-                SoPhieu: string.IsNullOrWhiteSpace(reference)
-                    ? $"PC-{date:yyyyMMdd}-{_recentEntries.Count}"
-                    : reference,
+                SoPhieu: _savedDto?.VoucherNumber
+                    ?? (string.IsNullOrWhiteSpace(reference)
+                        ? $"PC-{date:yyyyMMdd}-{_recentEntries.Count}"
+                        : reference),
                 Ngay: date.ToString("dd/MM/yyyy"),
                 No: accountCode,
                 Co: "111",
@@ -870,6 +961,9 @@
         _voucherType = VoucherTypeExpense;
         doiTuong = string.Empty;
         mstInput = string.Empty;
+        _openKhoan = new();
+        _selectedKhoanId = string.Empty;
+        _khoanLoaded = false;
         InitializeFields();
     }
     catch (Exception ex)

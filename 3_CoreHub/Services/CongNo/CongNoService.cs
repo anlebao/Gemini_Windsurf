@@ -29,7 +29,8 @@ namespace VanAn.CoreHub.Services.CongNo
         IAccountingEntryRepository repository,
         IPeriodClosingService periodClosingService,
         IAuditTrailService auditTrailService,
-        ILogger<CongNoService> logger) : ICongNoService
+        ILogger<CongNoService> logger,
+        IVoucherNumberService? voucherNumberService = null) : ICongNoService
     {
         private const string ReceivableCode = "131";
         private const string PayableCode = "331";
@@ -40,20 +41,24 @@ namespace VanAn.CoreHub.Services.CongNo
         private readonly IPeriodClosingService _periodClosingService = periodClosingService;
         private readonly IAuditTrailService _auditTrailService = auditTrailService;
         private readonly ILogger<CongNoService> _logger = logger;
+        // SRS v1.2 W2/C1 (M6): số chứng từ PT-CN/PC-CN cho phiếu công nợ — optional.
+        private readonly IVoucherNumberService? _voucherNumberService = voucherNumberService;
 
         // ===================== CREATE PHIẾU CÔNG NỢ =====================
 
         public Task<AccountingEntryDto> CreateReceivableAsync(
             TenantId tenantId, decimal amount, string doiTuong, string? description,
             DateTime transactionDate, bool isPayment, string? mst = null, string? reference = null,
+            Guid? allocatedToEntryId = null, string? paymentMethod = null,
             CancellationToken cancellationToken = default)
-            => CreateCongNoEntryAsync(tenantId, ReceivableCode, amount, doiTuong, description, transactionDate, isPayment, mst, reference, cancellationToken);
+            => CreateCongNoEntryAsync(tenantId, ReceivableCode, amount, doiTuong, description, transactionDate, isPayment, mst, reference, allocatedToEntryId, paymentMethod, cancellationToken);
 
         public Task<AccountingEntryDto> CreatePayableAsync(
             TenantId tenantId, decimal amount, string doiTuong, string? description,
             DateTime transactionDate, bool isPayment, string? mst = null, string? reference = null,
+            Guid? allocatedToEntryId = null, string? paymentMethod = null,
             CancellationToken cancellationToken = default)
-            => CreateCongNoEntryAsync(tenantId, PayableCode, amount, doiTuong, description, transactionDate, isPayment, mst, reference, cancellationToken);
+            => CreateCongNoEntryAsync(tenantId, PayableCode, amount, doiTuong, description, transactionDate, isPayment, mst, reference, allocatedToEntryId, paymentMethod, cancellationToken);
 
         private async Task<AccountingEntryDto> CreateCongNoEntryAsync(
             TenantId tenantId,
@@ -65,6 +70,8 @@ namespace VanAn.CoreHub.Services.CongNo
             bool isPayment,
             string? mst,
             string? reference,
+            Guid? allocatedToEntryId,
+            string? paymentMethod,
             CancellationToken cancellationToken)
         {
             if (amount <= 0)
@@ -88,6 +95,17 @@ namespace VanAn.CoreHub.Services.CongNo
             // Dấu: dương = tăng công nợ (ghi nhận nợ), âm = giảm công nợ (thu/trả nợ) [G9].
             decimal signed = isPayment ? -Math.Abs(amount) : Math.Abs(amount);
 
+            // SRS W2/C1 (M7 — R4 link-field): user chọn khoản cụ thể → validate link hợp lệ
+            // (cùng tenant, cùng TK, cùng đối tượng, là khoản ghi nợ dương — không phải payment).
+            if (allocatedToEntryId.HasValue)
+            {
+                await ValidateAllocatedKhoanAsync(tenantId, accountCode, doiTuong, allocatedToEntryId.Value, cancellationToken);
+            }
+
+            // SRS W2/C1 (M6): số chứng từ PT-CN (131) / PC-CN (331) — fail-safe (phiếu vẫn lưu nếu lỗi).
+            string voucherType = accountCode == ReceivableCode ? VoucherNumberService.TypeReceiptCongNo : VoucherNumberService.TypePaymentCongNo;
+            string? voucherNumber = await NextVoucherSafeAsync(tenantId, voucherType, transactionDate.Year);
+
             // SRS Phase A: purpose cho accrual JE (G-C4) + idempotency discriminator.
             string purpose = (accountCode, isPayment) switch
             {
@@ -100,7 +118,9 @@ namespace VanAn.CoreHub.Services.CongNo
             CoreAccountingEntry entry = CoreAccountingEntry.CreateDebt(
                 tenantId, period, new Money(signed), desc,
                 accountCode: accountCode, vendor: doiTuong, reference: reference, transactionDate: transactionDate,
-                postingPurpose: purpose, sourceEventType: "CongNo", sourceEventId: reference);
+                postingPurpose: purpose, sourceEventType: "CongNo", sourceEventId: reference,
+                voucherNumber: voucherNumber, allocatedToEntryId: allocatedToEntryId,
+                paymentMethod: paymentMethod);
 
             await _repository.AddAsync(entry, cancellationToken);
 
@@ -124,6 +144,42 @@ namespace VanAn.CoreHub.Services.CongNo
                 entry.Id, tenantId.Value, accountCode, doiTuong, signed);
 
             return ToDto(entry);
+        }
+
+        /// <summary>SRS W2/C1 (M7): validate khoản được link — tồn tại, cùng tenant, cùng TK, cùng đối tượng, amount dương.</summary>
+        private async Task ValidateAllocatedKhoanAsync(TenantId tenantId, string accountCode, string doiTuong, Guid khoanEntryId, CancellationToken cancellationToken)
+        {
+            CoreAccountingEntry? khoan = await _repository.GetByIdAsync(khoanEntryId);
+            if (khoan == null || khoan.TenantId != tenantId)
+            {
+                throw new ArgumentException("Khoản nợ được chọn không tồn tại.", nameof(khoanEntryId));
+            }
+            if (khoan.AccountCode != accountCode || !string.Equals(khoan.Vendor, doiTuong, StringComparison.Ordinal))
+            {
+                throw new ArgumentException("Khoản nợ được chọn không khớp tài khoản/đối tượng của phiếu.", nameof(khoanEntryId));
+            }
+            if (khoan.Amount <= 0)
+            {
+                throw new ArgumentException("Khoản nợ được chọn không phải khoản ghi nhận nợ (amount dương).", nameof(khoanEntryId));
+            }
+        }
+
+        /// <summary>SRS W2/C1 (M6): cấp số chứng từ — fail-safe (thiếu service/lỗi → null, phiếu vẫn lưu).</summary>
+        private async Task<string?> NextVoucherSafeAsync(TenantId tenantId, string voucherType, int year)
+        {
+            if (_voucherNumberService == null)
+            {
+                return null;
+            }
+            try
+            {
+                return await _voucherNumberService.NextNumberAsync(tenantId, voucherType, year, cancellationToken: CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Voucher numbering failed ({VoucherType}/{Year}, tenant {TenantId}) — phiếu lưu không số", voucherType, year, tenantId.Value);
+                return null;
+            }
         }
 
         private static string BuildDefaultDescription(string accountCode, string doiTuong, bool isPayment, string? mst)
@@ -274,7 +330,8 @@ namespace VanAn.CoreHub.Services.CongNo
                     Tang = entry.Amount > 0 ? entry.Amount : 0m,
                     Giam = entry.Amount < 0 ? -entry.Amount : 0m,
                     SoDu = running,
-                    IsReversal = entry.IsReversal
+                    IsReversal = entry.IsReversal,
+                    VoucherNumber = entry.VoucherNumber
                 });
             }
 
@@ -299,6 +356,8 @@ namespace VanAn.CoreHub.Services.CongNo
                 .ToList();
 
             // FIFO động: thanh toán trừ vào khoản phát sinh cũ nhất còn dư [G12].
+            // SRS W2/C1 (M7): payment có AllocatedToEntryId → áp vào khoản được chọn TRƯỚC
+            // (tới hết dư khoản đó), phần dư mới chạy FIFO như cũ.
             var khoanItems = new List<KhoanNoFifoItem>();
             foreach (DebtStreamEntry entry in groupEntries)
             {
@@ -309,6 +368,19 @@ namespace VanAn.CoreHub.Services.CongNo
                 }
 
                 decimal toAllocate = -entry.Amount;
+
+                if (entry.AllocatedToEntryId.HasValue)
+                {
+                    KhoanNoFifoItem? linked = khoanItems.FirstOrDefault(i => i.EntryId == entry.AllocatedToEntryId.Value);
+                    if (linked != null && linked.Remaining > 0)
+                    {
+                        decimal explicitTake = Math.Min(linked.Remaining, toAllocate);
+                        linked.Payments.Add((entry, explicitTake));
+                        linked.Remaining -= explicitTake;
+                        toAllocate -= explicitTake;
+                    }
+                }
+
                 foreach (KhoanNoFifoItem item in khoanItems)
                 {
                     if (toAllocate <= 0)
@@ -348,11 +420,74 @@ namespace VanAn.CoreHub.Services.CongNo
                     TransactionDate = payment.TransactionDate,
                     Description = payment.Description,
                     SoTien = take,
-                    SoDuConLai = remaining
+                    SoDuConLai = remaining,
+                    VoucherNumber = payment.VoucherNumber,
+                    IsExplicitAllocation = payment.AllocatedToEntryId == khoanNoEntryId
                 });
             }
 
             return dto;
+        }
+
+        // ===================== KHOẢN NỢ CÒN DƯ (W2/C1 — UI picker) =====================
+
+        /// <inheritdoc />
+        public async Task<List<KhoanNoOpenItemDto>> GetOpenKhoanNoAsync(
+            TenantId tenantId, string accountCode, string doiTuong, CancellationToken cancellationToken = default)
+        {
+            if (accountCode != ReceivableCode && accountCode != PayableCode)
+                throw new ArgumentException("AccountCode phải là 131 hoặc 331.", nameof(accountCode));
+            if (string.IsNullOrWhiteSpace(doiTuong))
+                return [];
+
+            List<DebtStreamEntry> stream = await BuildDebtStreamAsync(tenantId, [accountCode], cancellationToken);
+
+            // FIFO remaining per khoản — cùng engine với GetKhoanNoPaymentsAsync.
+            var khoanItems = new List<KhoanNoFifoItem>();
+            foreach (DebtStreamEntry entry in stream
+                .Where(e => string.Equals(e.Vendor, doiTuong, StringComparison.Ordinal))
+                .OrderBy(e => e.TransactionDate).ThenBy(e => e.CreatedAt))
+            {
+                if (entry.Amount > 0)
+                {
+                    khoanItems.Add(new KhoanNoFifoItem(entry, entry.Amount));
+                    continue;
+                }
+
+                decimal toAllocate = -entry.Amount;
+                if (entry.AllocatedToEntryId.HasValue)
+                {
+                    KhoanNoFifoItem? linked = khoanItems.FirstOrDefault(i => i.EntryId == entry.AllocatedToEntryId.Value);
+                    if (linked != null && linked.Remaining > 0)
+                    {
+                        decimal explicitTake = Math.Min(linked.Remaining, toAllocate);
+                        linked.Remaining -= explicitTake;
+                        toAllocate -= explicitTake;
+                    }
+                }
+                foreach (KhoanNoFifoItem item in khoanItems)
+                {
+                    if (toAllocate <= 0)
+                        break;
+                    decimal take = Math.Min(item.Remaining, toAllocate);
+                    item.Remaining -= take;
+                    toAllocate -= take;
+                }
+            }
+
+            // Truy ngược SoTien/Description của khoản gốc từ stream.
+            Dictionary<Guid, DebtStreamEntry> byId = stream.ToDictionary(e => e.EntryId);
+            return khoanItems
+                .Where(i => i.Remaining > 0 && byId.ContainsKey(i.EntryId))
+                .Select(i => new KhoanNoOpenItemDto
+                {
+                    EntryId = i.EntryId,
+                    TransactionDate = i.TransactionDate,
+                    Description = byId[i.EntryId].Description,
+                    SoTien = i.Amount,
+                    ConLai = i.Remaining
+                })
+                .ToList();
         }
 
         // ===================== FIFO ENGINE (dùng chung) =====================
@@ -445,7 +580,9 @@ namespace VanAn.CoreHub.Services.CongNo
                     TransactionDate = root.TransactionDate,
                     CreatedAt = root.CreatedAt,
                     Amount = net,
-                    Description = root.Description
+                    Description = root.Description,
+                    AllocatedToEntryId = root.AllocatedToEntryId,
+                    VoucherNumber = root.VoucherNumber
                 });
             }
 
@@ -493,7 +630,8 @@ namespace VanAn.CoreHub.Services.CongNo
                     CreatedAt = entry.CreatedAt,
                     Amount = entry.Amount,
                     Description = entry.Description,
-                    IsReversal = entry.ReversalEntryId.HasValue
+                    IsReversal = entry.ReversalEntryId.HasValue,
+                    VoucherNumber = entry.VoucherNumber ?? display.VoucherNumber
                 });
             }
 
@@ -517,7 +655,10 @@ namespace VanAn.CoreHub.Services.CongNo
                 PeriodYear = entry.PeriodYear,
                 PeriodMonth = entry.PeriodMonth,
                 ReversalEntryId = entry.ReversalEntryId,
-                TransactionDate = entry.TransactionDate
+                TransactionDate = entry.TransactionDate,
+                VoucherNumber = entry.VoucherNumber,
+                PaymentMethod = entry.PaymentMethod,
+                AllocatedToEntryId = entry.AllocatedToEntryId
             };
         }
 
@@ -532,6 +673,8 @@ namespace VanAn.CoreHub.Services.CongNo
             public DateTime CreatedAt { get; init; }
             public decimal Amount { get; init; }
             public string Description { get; init; } = string.Empty;
+            public Guid? AllocatedToEntryId { get; init; }
+            public string? VoucherNumber { get; init; }
         }
 
         private sealed class LedgerViewEntry
@@ -544,6 +687,7 @@ namespace VanAn.CoreHub.Services.CongNo
             public decimal Amount { get; init; }
             public string Description { get; init; } = string.Empty;
             public bool IsReversal { get; init; }
+            public string? VoucherNumber { get; init; }
         }
 
         private sealed class KhoanNoFifoItem(DebtStreamEntry entry, decimal remaining)

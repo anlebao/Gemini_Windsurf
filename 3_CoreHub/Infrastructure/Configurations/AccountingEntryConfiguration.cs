@@ -85,10 +85,21 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.SourceEventId).HasMaxLength(100);
             _ = builder.Property(e => e.PostingPurpose).HasMaxLength(50);
 
+            // SRS v1.2 W2/C1 — voucher numbering + allocation link + payment info (nullable).
+            _ = builder.Property(e => e.VoucherNumber).HasMaxLength(30);
+            _ = builder.Property(e => e.AllocatedToEntryId);
+            _ = builder.Property(e => e.PaymentMethod).HasMaxLength(20);
+            _ = builder.Property(e => e.CashAccountCode).HasMaxLength(20);
+
             // Indexes for performance with 4 HKD Books
             _ = builder.HasIndex(e => new { e.TenantId, e.AccountingBookType });
             _ = builder.HasIndex(e => new { e.TenantId, e.PeriodYear, e.PeriodMonth });
             _ = builder.HasIndex(e => e.ReversalEntryId);
+
+            // SRS v1.2 W2/C1 (FR-VCH-004): số chứng từ duy nhất per tenant khi có.
+            _ = builder.HasIndex(e => new { e.TenantId, e.VoucherNumber })
+                .IsUnique()
+                .HasFilter("\"VoucherNumber\" IS NOT NULL");
 
             // Multi-tenancy query filter - will be set dynamically by VanAnDbContext
             // builder.HasQueryFilter(e => e.TenantId == Guid.Empty);

@@ -377,6 +377,18 @@ namespace VanAn.Shared.Domain
         public string? SourceEventId { get; }
         public string? PostingPurpose { get; }
 
+        // SRS v1.2 W2/C1 (approved 2026-10-31 — Gate 5, additive nullable):
+        // VoucherNumber: số chứng từ tuần tự (PT/PC/PT-CN/PC-CN-YYYY-NNNNN) — null cho
+        // order-driven entries (order là chứng từ gốc) và entries cũ trước W2.
+        // AllocatedToEntryId: payment entry link tới khoản nợ gốc khi user chọn khoản
+        // cụ thể (null → FIFO động như hiện tại).
+        // PaymentMethod: cash/bank/qr/other trên phiếu tay (nullable).
+        // CashAccountCode: TK tiền khi ghi sổ (default "111"; Phase D mở 112x).
+        public string? VoucherNumber { get; }
+        public Guid? AllocatedToEntryId { get; }
+        public string? PaymentMethod { get; }
+        public string? CashAccountCode { get; }
+
         public AccountingPeriod Period => new(PeriodYear, PeriodMonth);
 
         // Navigation (read-only)
@@ -406,7 +418,11 @@ namespace VanAn.Shared.Domain
             DateTime? transactionDate = null,
             string? postingPurpose = null,
             string? sourceEventType = null,
-            string? sourceEventId = null)
+            string? sourceEventId = null,
+            string? voucherNumber = null,
+            Guid? allocatedToEntryId = null,
+            string? paymentMethod = null,
+            string? cashAccountCode = null)
         {
             TenantId = tenantId;
             Amount = amount;
@@ -427,32 +443,40 @@ namespace VanAn.Shared.Domain
             PostingPurpose = postingPurpose;
             SourceEventType = sourceEventType;
             SourceEventId = sourceEventId;
+            VoucherNumber = voucherNumber;
+            AllocatedToEntryId = allocatedToEntryId;
+            PaymentMethod = paymentMethod;
+            CashAccountCode = cashAccountCode;
         }
 
         // ====================== FACTORY METHODS ======================
         public static AccountingEntry CreateRevenue(TenantId tenantId, AccountingPeriod period, Money amount, string description,
             string? accountCode = null, string? reference = null, IndustrySector? industrySector = null,
             Guid? correlationId = null, DateTime? transactionDate = null,
-            string? postingPurpose = null, string? sourceEventType = null, string? sourceEventId = null)
+            string? postingPurpose = null, string? sourceEventType = null, string? sourceEventId = null,
+            string? voucherNumber = null, string? paymentMethod = null, string? cashAccountCode = null)
         {
             return new(tenantId, amount.Value, AccountingEntryType.Revenue, VatRate.Zero,
                 AccountingBookType.RevenueBook, period.Year, period.Month, description,
                 reversalEntryId: null, accountCode: accountCode, reference: reference, industrySector: industrySector,
                 correlationId: correlationId, transactionDate: transactionDate,
-                postingPurpose: postingPurpose, sourceEventType: sourceEventType, sourceEventId: sourceEventId);
+                postingPurpose: postingPurpose, sourceEventType: sourceEventType, sourceEventId: sourceEventId,
+                voucherNumber: voucherNumber, paymentMethod: paymentMethod, cashAccountCode: cashAccountCode);
         }
 
         public static AccountingEntry CreateExpense(TenantId tenantId, AccountingPeriod period, Money amount, string description,
             string? accountCode = null, string? vendor = null, string? category = null, string? reference = null,
             IndustrySector? industrySector = null,
             Guid? correlationId = null, DateTime? transactionDate = null,
-            string? postingPurpose = null, string? sourceEventType = null, string? sourceEventId = null)
+            string? postingPurpose = null, string? sourceEventType = null, string? sourceEventId = null,
+            string? voucherNumber = null, string? paymentMethod = null, string? cashAccountCode = null)
         {
             return new(tenantId, amount.Value, AccountingEntryType.Expense, VatRate.Zero,
                 AccountingBookType.ExpenseBook, period.Year, period.Month, description,
                 reversalEntryId: null, accountCode: accountCode, vendor: vendor, category: category, reference: reference,
                 industrySector: industrySector, correlationId: correlationId, transactionDate: transactionDate,
-                postingPurpose: postingPurpose, sourceEventType: sourceEventType, sourceEventId: sourceEventId);
+                postingPurpose: postingPurpose, sourceEventType: sourceEventType, sourceEventId: sourceEventId,
+                voucherNumber: voucherNumber, paymentMethod: paymentMethod, cashAccountCode: cashAccountCode);
         }
 
         // THU CHI & CÔNG NỢ MVP (approved 2026-10-06 — P1, additive factory — P1 decision #1):
@@ -473,13 +497,19 @@ namespace VanAn.Shared.Domain
             DateTime? transactionDate = null,
             string? postingPurpose = null,
             string? sourceEventType = null,
-            string? sourceEventId = null)
+            string? sourceEventId = null,
+            string? voucherNumber = null,
+            Guid? allocatedToEntryId = null,
+            string? paymentMethod = null,
+            string? cashAccountCode = null)
         {
             return new(tenantId, amount.Value, AccountingEntryType.Adjustment, VatRate.Zero,
                 AccountingBookType.CashBankBook, period.Year, period.Month, description,
                 reversalEntryId: null, accountCode: accountCode, vendor: vendor, reference: reference,
                 transactionDate: transactionDate,
-                postingPurpose: postingPurpose, sourceEventType: sourceEventType, sourceEventId: sourceEventId);
+                postingPurpose: postingPurpose, sourceEventType: sourceEventType, sourceEventId: sourceEventId,
+                voucherNumber: voucherNumber, allocatedToEntryId: allocatedToEntryId,
+                paymentMethod: paymentMethod, cashAccountCode: cashAccountCode);
         }
 
         // Issue #195 follow-up (2026-10-29, user approve — deposit offset 3387 làm luôn):
@@ -527,7 +557,10 @@ namespace VanAn.Shared.Domain
                 correlationId: original.CorrelationId,  // VALCN v2.0: preserve for traceability (fix M3)
                 postingPurpose: AccountingPostingPurposes.Reversal,
                 sourceEventType: original.SourceEventType,
-                sourceEventId: original.SourceEventId);
+                sourceEventId: original.SourceEventId,
+                allocatedToEntryId: original.AllocatedToEntryId,
+                paymentMethod: original.PaymentMethod,
+                cashAccountCode: original.CashAccountCode);
         }
 
         public static AccountingEntry CreateReversalWithId(AccountingEntry original, string reason, Guid originalEntryId)

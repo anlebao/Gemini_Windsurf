@@ -111,6 +111,10 @@ namespace VanAn.CoreHub
                     // NHẬP LIỆU & SỔ SÁCH P2 (#4, 2026-10-07): phiếu tay → JournalEntry (Sổ HKD/BCTC) + backfill
                     _ = services.AddScoped<IManualEntryJournalBridge, ManualEntryJournalBridge>();
                     _ = services.AddScoped<IBackfillJournalEntriesService, BackfillJournalEntriesService>();
+                    // SRS v1.2 W2 (2026-10-31): account map resolver + voucher numbering + attachments
+                    _ = services.AddScoped<VanAn.CoreHub.Services.Journal.IAccountMapResolver, VanAn.CoreHub.Services.Journal.AccountMapResolver>();
+                    _ = services.AddScoped<IVoucherNumberService, VoucherNumberService>();
+                    _ = services.AddScoped<IAttachmentService, AttachmentService>();
                     // SRS v1.2 Phase A (G-C4): bridge accrual cần TenantType + per-tenant flag (retry worker chạy ở host này)
                     _ = services.AddScoped<IVasFeatureFlagService, VasFeatureFlagService>();
                     _ = services.AddScoped<VanAn.Shared.Services.IShopFeatureSettingsService, ShopFeatureSettingsService>();

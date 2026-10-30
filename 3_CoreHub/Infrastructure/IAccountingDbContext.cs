@@ -19,6 +19,10 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<VanAn.CoreHub.Infrastructure.Entities.AccountChartEntity> AccountCharts { get; }
         DbSet<VanAn.CoreHub.Infrastructure.Entities.PeriodClosingStatusEntity> PeriodClosingStatuses { get; }
         DbSet<VanAn.CoreHub.Infrastructure.Entities.EntryPostingStatusEntity> EntryPostingStatuses { get; }
+        DbSet<VanAn.CoreHub.Infrastructure.Entities.TenantAccountChartEntity> TenantAccountCharts { get; }
+        DbSet<VanAn.CoreHub.Infrastructure.Entities.AccountMappingRuleEntity> AccountMappingRules { get; }
+        DbSet<VanAn.CoreHub.Infrastructure.Entities.VoucherSequenceEntity> VoucherSequences { get; }
+        DbSet<VanAn.CoreHub.Infrastructure.Entities.AttachmentEntity> Attachments { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);

@@ -25,6 +25,12 @@ namespace VanAn.CoreHub.Services.Journal
     ///   trả nợ Nợ331/Có111 · payable-create → Skipped("needs-counter-account") [G-C4].
     ///   HKD + DNSN (Enterprise_SuperSmall) giữ cash-basis — không JE cho Adjustment.
     /// - JE.PostingPurpose = entry.PostingPurpose ?? "original" (unique-index discriminator).
+    ///
+    /// SRS v1.2 W2/B (G-H1, M5): flag "AccountMappingEnabled" (per-tenant) → ResolveAccounts
+    /// qua IAccountMapResolver (event code từ PostingPurpose) thay hardcode. Missing rule →
+    /// Skipped("no-rule"). JE.MappingVersion = version rule đã dùng (FR-RULE-007).
+    /// Flag OFF → code path cũ (dự phòng — T-parity bắt buộc giữ output giống nhau).
+    /// Bonus vs Phase A: order-vat (3331) giờ có JE Nợ 111/Có 3331 (GL completeness).
     /// </summary>
     public interface IManualEntryJournalBridge
     {
@@ -39,7 +45,8 @@ namespace VanAn.CoreHub.Services.Journal
         IHKDBookRepository hkdBookRepository,
         ILogger<ManualEntryJournalBridge> logger,
         IVasFeatureFlagService? vasFeatureFlagService = null,
-        IShopFeatureSettingsService? featureSettings = null) : IManualEntryJournalBridge
+        IShopFeatureSettingsService? featureSettings = null,
+        IAccountMapResolver? accountMapResolver = null) : IManualEntryJournalBridge
     {
         public const string ManualEntryReferenceType = "ManualEntry";
         public const string ManualReversalReferenceType = "ManualReversal";
@@ -48,11 +55,13 @@ namespace VanAn.CoreHub.Services.Journal
         public const string OpeningBalanceReversalReferenceType = "OpeningBalanceReversal";
         public const string CashAccount = "111";
         public const string AccrualReceivableFlag = "AccrualReceivableJE";
+        public const string AccountMappingFlag = "AccountMappingEnabled";
 
         private readonly IHKDBookRepository _hkdBookRepository = hkdBookRepository;
         private readonly ILogger<ManualEntryJournalBridge> _logger = logger;
         private readonly IVasFeatureFlagService? _vasFeatureFlagService = vasFeatureFlagService;
         private readonly IShopFeatureSettingsService? _featureSettings = featureSettings;
+        private readonly IAccountMapResolver? _accountMapResolver = accountMapResolver;
 
         /// <inheritdoc />
         public async Task<bool> CreateForAccountingEntryAsync(CoreAccountingEntry entry, CancellationToken cancellationToken = default)
@@ -65,11 +74,11 @@ namespace VanAn.CoreHub.Services.Journal
                     return false; // phiếu đảo — JE reversal được tạo riêng (CreateReversalForAsync)
                 }
 
-                (string Debit, string Credit)? accounts = await ResolveAccountsAsync(entry, cancellationToken);
-                if (accounts == null)
+                AccountResolution accounts = await ResolveAccountsAsync(entry, cancellationToken);
+                if (accounts.Debit == null || accounts.Credit == null)
                 {
-                    await SetStatusAsync(entry, EntryPostingStatuses.Skipped, "not-journalable", cancellationToken);
-                    return false; // không phải phiếu thu/chi (công nợ chưa accrual / Adjustment...) — [G6]
+                    await SetStatusAsync(entry, EntryPostingStatuses.Skipped, accounts.SkipReason ?? "not-journalable", cancellationToken);
+                    return false; // không phải phiếu thu/chi (công nợ chưa accrual / Adjustment / no-rule...) — [G6]
                 }
 
                 if (await _hkdBookRepository.ExistsByReferenceAsync(entry.TenantId, ManualEntryReferenceType, entry.Id, cancellationToken)
@@ -86,10 +95,11 @@ namespace VanAn.CoreHub.Services.Journal
                     entry.Description,
                     ManualEntryReferenceType,
                     entry.Id,
-                    postingPurpose: entry.PostingPurpose ?? AccountingPostingPurposes.Original);
+                    postingPurpose: entry.PostingPurpose ?? AccountingPostingPurposes.Original,
+                    mappingVersion: accounts.MappingVersion);
 
-                journalEntry.AddLine(accounts.Value.Debit, amount, 0, entry.Description);
-                journalEntry.AddLine(accounts.Value.Credit, 0, amount, entry.Description);
+                journalEntry.AddLine(accounts.Debit, amount, 0, entry.Description);
+                journalEntry.AddLine(accounts.Credit, 0, amount, entry.Description);
 
                 await _hkdBookRepository.AddToBookAsync(journalEntry, AccountingBookType.S2b_HKD, cancellationToken);
                 await SetStatusAsync(entry, EntryPostingStatuses.Posted, null, cancellationToken);
@@ -162,28 +172,49 @@ namespace VanAn.CoreHub.Services.Journal
             }
         }
 
+        /// <summary>Kết quả resolve — SkipReason phân biệt "not-journalable" (thiết kế) vs "no-rule" (mapping thiếu rule).</summary>
+        private sealed record AccountResolution(string? Debit, string? Credit, string? MappingVersion, string? SkipReason);
+
         /// <summary>
         /// Xác định cặp Nợ/Có cho phiếu tay. Trả null = không journalable.
         /// SRS Phase A (G-C4): Adjustment công nợ → JE accrual CHỈ khi tenant DN/HTX
         /// (KHÔNG HKD/DNSN — chế độ sổ) VÀ flag AccrualReceivableJE bật.
         /// payable-create → null (counter-account hàng mua không suy luận an toàn — §18.4.1.5).
+        /// SRS W2/B: flag AccountMappingEnabled → event code + IAccountMapResolver
+        /// (T-parity với hardcode; thiếu rule → SkipReason "no-rule").
         /// </summary>
-        private async Task<(string Debit, string Credit)?> ResolveAccountsAsync(CoreAccountingEntry entry, CancellationToken cancellationToken)
+        private async Task<AccountResolution> ResolveAccountsAsync(CoreAccountingEntry entry, CancellationToken cancellationToken)
         {
             string? accountCode = entry.AccountCode;
             if (string.IsNullOrWhiteSpace(accountCode))
             {
-                return null;
+                return new AccountResolution(null, null, null, null);
+            }
+
+            // W2/B: data-driven mapping khi flag per-tenant bật (pilot → all).
+            if (_accountMapResolver != null && _featureSettings != null
+                && await _featureSettings.IsEnabledAsync(entry.TenantId.Value, AccountMappingFlag, cancellationToken))
+            {
+                string? eventCode = await DeriveEventCodeAsync(entry, accountCode, cancellationToken);
+                if (eventCode == null)
+                {
+                    return new AccountResolution(null, null, null, null);
+                }
+                AccountMapResult? map = await _accountMapResolver.ResolveAsync(
+                    eventCode, entry.TenantId, accountCode, entry.CashAccountCode ?? CashAccount, cancellationToken);
+                return map == null
+                    ? new AccountResolution(null, null, null, "no-rule")
+                    : new AccountResolution(map.Debit, map.Credit, map.MappingVersion, null);
             }
 
             if (entry.EntryType == AccountingEntryType.Revenue && (accountCode.StartsWith("5") || accountCode.StartsWith("7")))
             {
-                return (CashAccount, accountCode); // Thu doanh thu: Nợ 111 / Có 5xx/7xx
+                return new AccountResolution(CashAccount, accountCode, null, null); // Thu doanh thu: Nợ 111 / Có 5xx/7xx
             }
 
             if (entry.EntryType == AccountingEntryType.Expense && accountCode.StartsWith("6"))
             {
-                return (accountCode, CashAccount); // Chi phí: Nợ 6xx / Có 111
+                return new AccountResolution(accountCode, CashAccount, null, null); // Chi phí: Nợ 6xx / Có 111
             }
 
             // Issue #195 follow-up (2026-10-29, user approve — deposit offset 3387 làm luôn):
@@ -192,7 +223,7 @@ namespace VanAn.CoreHub.Services.Journal
             // Nợ 3387 / Có {accountCode = TK doanh thu 511/512}. Bridge map (3387, accountCode).
             if (entry.EntryType == AccountingEntryType.DepositOffset)
             {
-                return ("3387", accountCode); // Đối trừ cọc: Nợ 3387 / Có 5xx/7xx
+                return new AccountResolution("3387", accountCode, null, null); // Đối trừ cọc: Nợ 3387 / Có 5xx/7xx
             }
 
             // SRS Phase A (G-C4): DN/HTX accrual — công nợ cũng tạo JE khi flag bật.
@@ -204,14 +235,67 @@ namespace VanAn.CoreHub.Services.Journal
             {
                 return entry.PostingPurpose switch
                 {
-                    AccountingPostingPurposes.Receivable => (accountCode, "511"),        // bán chịu: Nợ 131 / Có 511
-                    AccountingPostingPurposes.ReceivablePayment => (CashAccount, accountCode), // thu nợ: Nợ 111 / Có 131
-                    AccountingPostingPurposes.PayablePayment => (accountCode, CashAccount),    // trả nợ: Nợ 331 / Có 111
-                    _ => null
+                    AccountingPostingPurposes.Receivable => new AccountResolution(accountCode, "511", null, null),        // bán chịu: Nợ 131 / Có 511
+                    AccountingPostingPurposes.ReceivablePayment => new AccountResolution(CashAccount, accountCode, null, null), // thu nợ: Nợ 111 / Có 131
+                    AccountingPostingPurposes.PayablePayment => new AccountResolution(accountCode, CashAccount, null, null),    // trả nợ: Nợ 331 / Có 111
+                    _ => new AccountResolution(null, null, null, null)
                 };
             }
 
-            return null; // payable-create + non-debt Adjustment + HKD/DNSN: không JE
+            return new AccountResolution(null, null, null, null); // payable-create + non-debt Adjustment + HKD/DNSN: không JE
+        }
+
+        /// <summary>
+        /// W2/B: PostingPurpose → event code cho resolver. Accrual events giữ gate
+        /// AccrualReceivableJE + loại hình DN/HTX (IsAccrualEnabledAsync). Purpose null
+        /// (entries legacy/test) → fallback theo hình dạng entry (parity ResolveAccounts cũ).
+        /// </summary>
+        private async Task<string?> DeriveEventCodeAsync(CoreAccountingEntry entry, string accountCode, CancellationToken cancellationToken)
+        {
+            switch (entry.PostingPurpose)
+            {
+                case AccountingPostingPurposes.Vat:
+                    return AccountMapEventCodes.OrderVat;
+                case AccountingPostingPurposes.Cogs:
+                    return AccountMapEventCodes.OrderCogs;
+                case AccountingPostingPurposes.DepositOffset:
+                    return AccountMapEventCodes.DepositOffset;
+                case AccountingPostingPurposes.ManualExpense:
+                    return AccountMapEventCodes.ManualExpense;
+                case AccountingPostingPurposes.Receivable:
+                case AccountingPostingPurposes.ReceivablePayment:
+                case AccountingPostingPurposes.Payable:
+                case AccountingPostingPurposes.PayablePayment:
+                    if (!await IsAccrualEnabledAsync(entry.TenantId, cancellationToken))
+                    {
+                        return null;
+                    }
+                    return entry.PostingPurpose switch
+                    {
+                        AccountingPostingPurposes.Receivable => AccountMapEventCodes.Receivable,
+                        AccountingPostingPurposes.ReceivablePayment => AccountMapEventCodes.ReceivablePayment,
+                        AccountingPostingPurposes.Payable => AccountMapEventCodes.Payable,
+                        _ => AccountMapEventCodes.PayablePayment
+                    };
+            }
+
+            // Revenue purpose hoặc purpose null — shape fallback (parity ResolveAccounts cũ):
+            // order-linked (SourceEventType "Order") → order-revenue; phiếu tay → manual-receipt.
+            if (entry.EntryType == AccountingEntryType.Revenue && (accountCode.StartsWith("5") || accountCode.StartsWith("7")))
+            {
+                return entry.SourceEventType == "Order"
+                    ? AccountMapEventCodes.OrderRevenue
+                    : AccountMapEventCodes.ManualReceipt;
+            }
+            if (entry.EntryType == AccountingEntryType.Expense && accountCode.StartsWith("6"))
+            {
+                return AccountMapEventCodes.ManualExpense;
+            }
+            if (entry.EntryType == AccountingEntryType.DepositOffset)
+            {
+                return AccountMapEventCodes.DepositOffset;
+            }
+            return null;
         }
 
         /// <summary>

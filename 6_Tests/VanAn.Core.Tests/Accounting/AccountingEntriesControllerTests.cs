@@ -91,7 +91,7 @@ namespace VanAn.Core.Tests.Accounting
 
             _ = _mockAccountingService.Setup(s => s.CreateRevenueEntryAsync(
                 It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
-                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()))
+                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync(expectedDto);
 
             // Set up tenant claim
@@ -108,7 +108,7 @@ namespace VanAn.Core.Tests.Accounting
 
             _mockAccountingService.Verify(s => s.CreateRevenueEntryAsync(
                 It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
-                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()), Times.Once);
+                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()), Times.Once);
         }
 
         [Fact]
@@ -136,7 +136,7 @@ namespace VanAn.Core.Tests.Accounting
 
             _mockAccountingService.Verify(s => s.CreateRevenueEntryAsync(
                 It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
-                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()), Times.Never);
+                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         }
 
         [Fact]
@@ -176,7 +176,7 @@ namespace VanAn.Core.Tests.Accounting
 
             _ = _mockAccountingService.Setup(s => s.CreateExpenseEntryAsync(
                 It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
-                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()))
+                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync(expectedDto);
 
             // Set up tenant claim
@@ -191,7 +191,7 @@ namespace VanAn.Core.Tests.Accounting
 
             _mockAccountingService.Verify(s => s.CreateExpenseEntryAsync(
                 It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
-                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()), Times.Once);
+                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()), Times.Once);
         }
 
         [Fact]
