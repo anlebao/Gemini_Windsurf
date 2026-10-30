@@ -5026,6 +5026,9 @@ namespace VanAn.ShopERP.Migrations
                                 .HasColumnType("TEXT")
                                 .HasColumnName("Settings_CrawledPhone");
 
+                            b1.Property<int?>("DnsnTaxMethod")
+                                .HasColumnType("INTEGER");
+
                             b1.Property<string>("FooterColor")
                                 .HasMaxLength(20)
                                 .HasColumnType("TEXT")
