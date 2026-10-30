@@ -8,6 +8,7 @@
 @using VanAn.UI.Platform.Models
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
+@using VanAn.CoreHub.Services.Reconcile
 @using System.Globalization
 @using CoreAccountingService = VanAn.CoreHub.Services
 @inject CoreAccountingService.IAccountingService AccountingService
@@ -161,8 +162,12 @@
 
             var entries = await AccountingService.GetEntriesByTenantAndPeriodAsync(tenantId, period);
 
-            Metrics.MonthlyRevenue = entries.Where(e => e.EntryType == AccountingEntryType.Revenue).Sum(e => e.Amount);
-            Metrics.MonthlyExpense = entries.Where(e => e.EntryType == AccountingEntryType.Expense).Sum(e => e.Amount);
+            // Doanh thu = entries class 5xx/7xx (Revenue + DepositOffset như R3) — KHÔNG gồm VAT 3331
+            // (EntryType.Revenue nhưng class Liability — bug cũ cộng VAT vào doanh thu: 106,608,000+328,000).
+            Metrics.MonthlyRevenue = entries.Where(e => e.EntryType is AccountingEntryType.Revenue or AccountingEntryType.DepositOffset
+                && AccountClassifier.Classify(e.AccountCode) == AccountGroup.Revenue).Sum(e => e.Amount);
+            Metrics.MonthlyExpense = entries.Where(e => e.EntryType == AccountingEntryType.Expense
+                && AccountClassifier.Classify(e.AccountCode) == AccountGroup.Expense).Sum(e => e.Amount);
             Metrics.NetProfit = Metrics.MonthlyRevenue - Metrics.MonthlyExpense;
             Metrics.EntryCount = entries.Count();
 
@@ -173,8 +178,10 @@
             );
 
             var previousEntries = await AccountingService.GetEntriesByTenantAndPeriodAsync(tenantId, previousPeriod);
-            var previousRevenue = previousEntries.Where(e => e.EntryType == AccountingEntryType.Revenue).Sum(e => e.Amount);
-            var previousExpense = previousEntries.Where(e => e.EntryType == AccountingEntryType.Expense).Sum(e => e.Amount);
+            var previousRevenue = previousEntries.Where(e => e.EntryType is AccountingEntryType.Revenue or AccountingEntryType.DepositOffset
+                && AccountClassifier.Classify(e.AccountCode) == AccountGroup.Revenue).Sum(e => e.Amount);
+            var previousExpense = previousEntries.Where(e => e.EntryType == AccountingEntryType.Expense
+                && AccountClassifier.Classify(e.AccountCode) == AccountGroup.Expense).Sum(e => e.Amount);
             var previousProfit = previousRevenue - previousExpense;
 
             Metrics.RevenueTrend = CalculateTrend(previousRevenue, Metrics.MonthlyRevenue);

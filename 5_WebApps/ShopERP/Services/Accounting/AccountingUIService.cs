@@ -1,4 +1,5 @@
 using VanAn.CoreHub.Services;
+using VanAn.CoreHub.Services.Reconcile;
 using VanAn.Shared.Domain;
 using VanAn.Shared.DTOs;
 
@@ -62,10 +63,16 @@ namespace VanAn.ShopERP.Services.Accounting
             IEnumerable<AccountingEntryDto> currentEntries = await _accountingService.GetEntriesByTenantAndPeriodAsync(tenant, currentPeriod);
             IEnumerable<AccountingEntryDto> prevEntries = await _accountingService.GetEntriesByTenantAndPeriodAsync(tenant, previousPeriod);
 
-            decimal currentRevenue = currentEntries.Where(e => e.EntryType == AccountingEntryType.Revenue).Sum(e => e.Amount);
-            decimal currentExpense = currentEntries.Where(e => e.EntryType == AccountingEntryType.Expense).Sum(e => e.Amount);
-            decimal prevRevenueTotal = prevEntries.Where(e => e.EntryType == AccountingEntryType.Revenue).Sum(e => e.Amount);
-            decimal prevExpenseTotal = prevEntries.Where(e => e.EntryType == AccountingEntryType.Expense).Sum(e => e.Amount);
+            // Class filter — VAT 3331 (EntryType.Revenue nhưng Liability) KHÔNG tính vào doanh thu
+            // (semantic khớp R3: rev = Revenue+DepositOffset trên 5xx/7xx).
+            decimal currentRevenue = currentEntries.Where(e => e.EntryType is AccountingEntryType.Revenue or AccountingEntryType.DepositOffset
+                && AccountClassifier.Classify(e.AccountCode) == AccountGroup.Revenue).Sum(e => e.Amount);
+            decimal currentExpense = currentEntries.Where(e => e.EntryType == AccountingEntryType.Expense
+                && AccountClassifier.Classify(e.AccountCode) == AccountGroup.Expense).Sum(e => e.Amount);
+            decimal prevRevenueTotal = prevEntries.Where(e => e.EntryType is AccountingEntryType.Revenue or AccountingEntryType.DepositOffset
+                && AccountClassifier.Classify(e.AccountCode) == AccountGroup.Revenue).Sum(e => e.Amount);
+            decimal prevExpenseTotal = prevEntries.Where(e => e.EntryType == AccountingEntryType.Expense
+                && AccountClassifier.Classify(e.AccountCode) == AccountGroup.Expense).Sum(e => e.Amount);
 
             return new PeriodComparison
             {
