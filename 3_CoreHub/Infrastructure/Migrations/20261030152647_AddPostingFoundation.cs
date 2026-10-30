@@ -58,12 +58,22 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
 
             // ===== SRS v1.2 Phase A — backfill TRƯỚC unique index (R1) =====
 
-            // 1. JournalEntries.PostingPurpose: reversal refs → 'reversal', opening → 'opening-balance', còn lại → 'original'
+            // 1. JournalEntries.PostingPurpose: reversal refs → 'reversal', opening → 'opening-balance';
+            //    Order JEs derive từ lines (1 order = 1 JE revenue + 1 JE cogs cùng ReferenceId —
+            //    production evidence 2026-10-30: 14 refs × 2 JEs, mixed 5xx+6xx = 0).
             migrationBuilder.Sql("""
                 UPDATE "JournalEntries" SET "PostingPurpose" = 'reversal'
                 WHERE "PostingPurpose" IS NULL AND "ReferenceType" IN ('ManualReversal','OpeningBalanceReversal');
                 UPDATE "JournalEntries" SET "PostingPurpose" = 'opening-balance'
                 WHERE "PostingPurpose" IS NULL AND "ReferenceType" = 'OpeningBalance';
+                UPDATE "JournalEntries" j SET "PostingPurpose" = 'cogs'
+                WHERE j."PostingPurpose" IS NULL AND j."ReferenceType" = 'Order'
+                  AND EXISTS (SELECT 1 FROM "JournalEntryLine" l WHERE l."JournalEntryId" = j."Id" AND l."AccountNumber" ~ '^6');
+                UPDATE "JournalEntries" j SET "PostingPurpose" = 'deposit-offset'
+                WHERE j."PostingPurpose" IS NULL AND j."ReferenceType" = 'Order'
+                  AND EXISTS (SELECT 1 FROM "JournalEntryLine" l WHERE l."JournalEntryId" = j."Id" AND l."AccountNumber" = '3387');
+                UPDATE "JournalEntries" j SET "PostingPurpose" = 'revenue'
+                WHERE j."PostingPurpose" IS NULL AND j."ReferenceType" = 'Order';
                 UPDATE "JournalEntries" SET "PostingPurpose" = 'original'
                 WHERE "PostingPurpose" IS NULL;
                 """);
@@ -85,13 +95,19 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                 UPDATE "AccountingEntries" SET "PostingPurpose" = 'other' WHERE "PostingPurpose" IS NULL;
                 """);
 
-            // 3. Seed EntryPostingStatuses: Posted nếu đã có JE (ReferenceId=entry.Id), Skipped cho Adjustment/reversal, Pending còn lại
+            // 3. Seed EntryPostingStatuses: Posted nếu đã có JE — qua ManualEntry-style (ReferenceId=entry.Id)
+            //    HOẶC Order JE (ReferenceId=order guid prefix-matching entry.Reference — order ref có
+            //    thể mang suffix '-DEPOSIT-OFFSET'...). Skipped cho Adjustment/reversal, Pending còn lại.
             migrationBuilder.Sql("""
                 INSERT INTO "EntryPostingStatuses" ("EntryId","TenantId","Status","Reason","Attempts","CreatedAt","UpdatedAt")
                 SELECT e."Id", e."TenantId"::uuid,
                     CASE
                         WHEN EXISTS (SELECT 1 FROM "JournalEntries" j WHERE j."ReferenceId" = e."Id"
                                      AND j."ReferenceType" IN ('ManualEntry','ManualReversal','OpeningBalance','OpeningBalanceReversal'))
+                            THEN 1
+                        WHEN e."Reference" IS NOT NULL AND EXISTS (
+                            SELECT 1 FROM "JournalEntries" j WHERE j."ReferenceType" = 'Order'
+                            AND e."Reference" LIKE (j."ReferenceId"::text || '%'))
                             THEN 1
                         WHEN e."EntryType" = 4 OR e."ReversalEntryId" IS NOT NULL THEN 2
                         ELSE 0

@@ -72,10 +72,11 @@ namespace VanAn.CoreHub.Services.Journal
                     return false; // không phải phiếu thu/chi (công nợ chưa accrual / Adjustment...) — [G6]
                 }
 
-                if (await _hkdBookRepository.ExistsByReferenceAsync(entry.TenantId, ManualEntryReferenceType, entry.Id, cancellationToken))
+                if (await _hkdBookRepository.ExistsByReferenceAsync(entry.TenantId, ManualEntryReferenceType, entry.Id, cancellationToken)
+                    || await HasOrderJournalEntryAsync(entry, cancellationToken))
                 {
                     await SetStatusAsync(entry, EntryPostingStatuses.Posted, null, cancellationToken);
-                    return false; // idempotent — JE đã tồn tại (retry an toàn)
+                    return false; // idempotent — JE đã tồn tại (retry an toàn; order JEs có refType 'Order')
                 }
 
                 decimal amount = Math.Abs(entry.Amount);
@@ -211,6 +212,21 @@ namespace VanAn.CoreHub.Services.Journal
             }
 
             return null; // payable-create + non-debt Adjustment + HKD/DNSN: không JE
+        }
+
+        /// <summary>
+        /// Entry order-linked (Reference = order guid, có thể kèm suffix '-DEPOSIT-OFFSET')
+        /// đã có JE qua luồng Order (refType 'Order', ReferenceId=order.Id) → không tạo JE thứ hai.
+        /// Bảo vệ retry worker khỏi double-post khi entry có Reference mà JE đã tồn tại.
+        /// </summary>
+        private async Task<bool> HasOrderJournalEntryAsync(CoreAccountingEntry entry, CancellationToken cancellationToken)
+        {
+            string refText = entry.Reference is { Length: >= 36 } ? entry.Reference[..36] : (entry.Reference ?? string.Empty);
+            if (refText.Length == 0 || !Guid.TryParse(refText, out Guid orderGuid))
+            {
+                return false;
+            }
+            return await _hkdBookRepository.ExistsByReferenceAsync(entry.TenantId, "Order", orderGuid, cancellationToken);
         }
 
         /// <summary>G-C4: accrual chỉ cho DN (SME TT133 / Large TT99) + HTX (TT71) + flag per-tenant.</summary>
