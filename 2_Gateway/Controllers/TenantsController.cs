@@ -228,6 +228,41 @@ namespace VanAn.Gateway.Controllers
             }
         }
 
+        /// <summary>
+        /// Regime-lock (2026-10-30): Set accounting standard override + DnsnTaxMethod (TT 58/2026).
+        /// standard=null → bỏ override (về mặc định của Type). Validation qua AccountingStandardRules.
+        /// </summary>
+        [HttpPut("{tenantId:guid}/accounting-standard")]
+        public async Task<ActionResult> SetAccountingStandard(Guid tenantId, [FromBody] SetAccountingStandardApiRequest request, CancellationToken ct)
+        {
+            try
+            {
+                await _tenantService.SetAccountingStandardAsync(
+                    new TenantId(tenantId),
+                    request.Standard,
+                    request.DnsnTaxMethod,
+                    ct);
+                return Ok(new { success = true });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error setting accounting standard for tenant {TenantId}", tenantId);
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
         // ── Lifecycle (2026-10-09): suspend/reactivate/deactivate qua Gateway PG (source of truth).
         // Trước đây ShopERP gọi ITenantManagementService in-process → IVanAnDbContext = SQLite mirror
         // (chỉ 5 tenant cũ) → lifecycle không tác động tenant thật. Endpoint này chạy service với
@@ -308,6 +343,8 @@ namespace VanAn.Gateway.Controllers
             Name = t.Name,
             BusinessType = t.BusinessType,
             Type = t.Type,
+            AccountingStandard = t.AccountingStandard,
+            DnsnTaxMethod = t.Settings?.DnsnTaxMethod,
             Status = t.Status,
             ShopInstanceId = t.ShopInstanceId,
             ContactEmail = t.Settings?.ContactEmail,
@@ -336,6 +373,10 @@ namespace VanAn.Gateway.Controllers
         public BusinessType BusinessType { get; init; }
         /// <summary>HTX / Enterprise subtype classification (Type=null for plain Company tenants).</summary>
         public TenantType? Type { get; init; }
+        /// <summary>Regime-lock (2026-10-30): chuẩn kế toán bầu chọn (override). Null = mặc định của Type.</summary>
+        public AccountingStandard? AccountingStandard { get; init; }
+        /// <summary>TT 58/2026: phương pháp nộp thuế DNSN (Điều 4-8). Null = mặc định.</summary>
+        public DnsnTaxMethod? DnsnTaxMethod { get; init; }
         public TenantStatus Status { get; init; }
         public Guid? ShopInstanceId { get; init; }
         public string? ContactEmail { get; init; }
@@ -408,6 +449,15 @@ namespace VanAn.Gateway.Controllers
         public HKDGroup? HkdGroup { get; init; }
         /// <summary>Admin reason for the change (audit trail).</summary>
         public string Reason { get; init; } = "";
+    }
+
+    /// <summary>Regime-lock (2026-10-30): Request body for PUT /api/v1/tenants/{id}/accounting-standard.</summary>
+    public record SetAccountingStandardApiRequest
+    {
+        /// <summary>Chuẩn kế toán bầu chọn (override). Null = bỏ override, về mặc định của Type.</summary>
+        public AccountingStandard? Standard { get; init; }
+        /// <summary>Phương pháp nộp thuế DNSN (TT 58/2026 Điều 4-8). Null = giữ nguyên.</summary>
+        public DnsnTaxMethod? DnsnTaxMethod { get; init; }
     }
 
     /// <summary>#110 fix: Request body for POST /api/v1/tenants (create tenant in Gateway PG).</summary>

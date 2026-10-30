@@ -434,6 +434,34 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         }
 
         /// <summary>
+        /// Regime-lock (2026-10-30): Bầu chọn chuẩn kế toán tự nguyện (override) — ví dụ HKD chọn
+        /// áp dụng TT 58/2026 theo Điều 2.2, hoặc DN siêu nhỏ chọn TT 133. Null = bỏ override,
+        /// về chuẩn mặc định của loại hình. Validation "chuẩn có hợp lệ cho Type" nằm ở service
+        /// layer (AccountingStandardRules) — Domain chỉ lưu trạng thái.
+        /// </summary>
+        public void ElectAccountingStandard(AccountingStandard? standard)
+        {
+            if (Status == TenantStatus.Inactive)
+                throw new InvalidOperationException("Cannot update accounting standard of an inactive tenant.");
+
+            AccountingStandard = standard;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Regime-lock (2026-10-30): Phương pháp nộp thuế DNSN theo TT 58/2026 (Điều 4-8) —
+        /// quyết định danh mục sổ kế toán bắt buộc của DN siêu nhỏ / HKD bầu chọn TT 58.
+        /// </summary>
+        public void SetDnsnTaxMethod(DnsnTaxMethod? method)
+        {
+            if (Status == TenantStatus.Inactive)
+                throw new InvalidOperationException("Cannot update tax method of an inactive tenant.");
+
+            Settings = Settings.WithDnsnTaxMethod(method);
+            UpdateAudit();
+        }
+
+        /// <summary>
         /// Wave 5: Set default industry sector for HKD Group 2 reporting (TT 152 S2a/S2b).
         /// Only meaningful for HouseholdBusiness tenants. Used as fallback when Order.IndustrySector is NULL.
         /// </summary>

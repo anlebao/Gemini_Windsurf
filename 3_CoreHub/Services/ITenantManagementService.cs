@@ -42,6 +42,13 @@ namespace VanAn.CoreHub.Services
         /// Guard: throws InvalidOperationException if tenant has ANY AccountingEntry.
         /// </summary>
         Task ChangeBusinessTypeAsync(TenantId tenantId, BusinessType newType, HKDGroup? hkdGroup, string reason, CancellationToken ct = default);
+
+        /// <summary>
+        /// Regime-lock (2026-10-30): Bầu chọn chuẩn kế toán tự nguyện + phương pháp thuế DNSN.
+        /// standard=null → bỏ override (về mặc định của Type). Validation qua AccountingStandardRules.
+        /// Publish NATS vanan.cloud.tenant.type.changed → SQLite mirror đồng bộ.
+        /// </summary>
+        Task SetAccountingStandardAsync(TenantId tenantId, AccountingStandard? standard, DnsnTaxMethod? dnsnTaxMethod, CancellationToken ct = default);
     }
 
     public record CreateTenantRequest(

@@ -12,6 +12,7 @@
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Aggregates.TenantAggregate
 @using VanAn.ShopERP.Services
+@using VanAn.ShopERP.Services.Accounting
 @using System.Threading.Tasks
 @using System.Text
 @inject TenantOnboardingApiClient OnboardingApiClient
@@ -233,6 +234,12 @@
                                 {
                                     <VanAButton Variant="warning" Size="small" title="Chuyển về Công ty/HKD (bỏ chế độ HTX)" OnClick="() => OpenRevertHtxModal(t)">
                                         <i class="bi bi-arrow-counterclockwise"></i>
+                                    </VanAButton>
+                                }
+                                @if (t.Status == TenantStatus.Active)
+                                {
+                                    <VanAButton Variant="secondary" Size="small" title="Chế độ kế toán (bầu chọn chuẩn)" OnClick="() => OpenStdModal(t)">
+                                        <i class="bi bi-journal-bookmark"></i>
                                     </VanAButton>
                                 }
                             </td>
@@ -995,6 +1002,50 @@
     }
 </VanAnModal>
 
+@* Regime-lock (2026-10-30): modal bầu chọn chuẩn kế toán — standard override + DnsnTaxMethod (TT 58). *@
+<VanAnModal IsOpen="@_showStdModal" Title="Chế độ kế toán" Closable="true" OnClose="CloseStdModal">
+    @if (_stdTarget != null)
+    {
+        <div class="mb-3">
+            <strong>@_stdTarget.Name</strong> — loại hình: <em>@StdTypeLabel(_stdTarget.Type)</em>
+            @if (_stdTarget.AccountingStandard is { } cur)
+            {
+                <div><small>Đang bầu chọn: @AccountingStandardResolver.DropdownLabel(cur)</small></div>
+            }
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Chuẩn kế toán (mặc định theo loại hình)</label>
+            <select class="vanan-select" @bind="_stdSelected">
+                <option value="">— Mặc định (@StdDefaultLabel(_stdTarget.Type)) —</option>
+                @foreach (var s in AccountingStandardRules.AllowedStandards(_stdTarget.Type, null))
+                {
+                    <option value="@((int)s)">@AccountingStandardResolver.DropdownLabel(s)</option>
+                }
+            </select>
+            <small class="form-text">Bầu chọn hợp pháp: HKD → TT 58 (Điều 2.2 TT 58/2026) · DN siêu nhỏ → TT 133 · còn lại khóa theo loại hình.</small>
+        </div>
+        @if (_stdSelected == ((int)AccountingStandard.TT58_2026).ToString())
+        {
+            <div class="mb-3">
+                <label class="form-label">Phương pháp nộp thuế DNSN (TT 58/2026 Điều 4-8)</label>
+                <select class="vanan-select" @bind="_stdTaxMethod">
+                    <option value="@((int)DnsnTaxMethod.VatPercent_TndnPercent)">Điều 5: GTGT % + TNDN %</option>
+                    <option value="@((int)DnsnTaxMethod.VatPercent_TndnIncome)">Điều 6: GTGT % + TNDN thu nhập</option>
+                    <option value="@((int)DnsnTaxMethod.VatDeduct_TndnPercent)">Điều 7: GTGT khấu trừ + TNDN %</option>
+                    <option value="@((int)DnsnTaxMethod.VatDeduct_TndnIncome)">Điều 8: GTGT khấu trừ + TNDN thu nhập</option>
+                </select>
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(_stdAlertMessage))
+        {
+            <VanAAlert Type="@_stdAlertType" Message="@_stdAlertMessage" CssClass="mb-3" />
+        }
+        <VanAButton Variant="primary" OnClick="ConfirmStd" IsLoading="@_stdSaving">
+            <i class="bi bi-check2 me-1"></i> Lưu
+        </VanAButton>
+    }
+</VanAnModal>
+
 @code {
 #pragma warning disable CS0618 // Tenant obsolete — using new TenantAggregate.Tenant explicitly below
     // Tenants loaded from Gateway API (PostgreSQL) — NOT local SQLite
@@ -1051,6 +1102,75 @@
     {
         _showRevertHtxModal = false;
         _revertHtxTarget = null;
+    }
+
+    // ── Regime-lock (2026-10-30): chế độ kế toán — bầu chọn chuẩn + DnsnTaxMethod ──
+    private bool _showStdModal;
+    private TenantApiDto? _stdTarget;
+    private string _stdSelected = string.Empty; // "" = mặc định (bỏ override), else int của AccountingStandard
+    private string _stdTaxMethod = ((int)DnsnTaxMethod.VatPercent_TndnPercent).ToString();
+    private bool _stdSaving;
+    private string _stdAlertMessage = string.Empty;
+    private string _stdAlertType = "info";
+
+    private void OpenStdModal(TenantApiDto t)
+    {
+        _stdTarget = t;
+        _stdSelected = t.AccountingStandard.HasValue ? ((int)t.AccountingStandard.Value).ToString() : string.Empty;
+        _stdTaxMethod = ((int)(t.DnsnTaxMethod ?? DnsnTaxMethod.VatPercent_TndnPercent)).ToString();
+        _stdAlertMessage = string.Empty;
+        _showStdModal = true;
+    }
+
+    private void CloseStdModal()
+    {
+        _showStdModal = false;
+        _stdTarget = null;
+    }
+
+    private static string StdTypeLabel(TenantType? type) => type switch
+    {
+        TenantType.HKD => "Hộ kinh doanh (TT 152)",
+        TenantType.Enterprise_SuperSmall => "DN siêu nhỏ (TT 58)",
+        TenantType.Enterprise_SME => "DN vừa & nhỏ (TT 133)",
+        TenantType.Enterprise_Large => "DN lớn (TT 99)",
+        TenantType.HTX => "Hợp tác xã (TT 71)",
+        _ => "Chưa phân loại"
+    };
+
+    private static string StdDefaultLabel(TenantType? type)
+        => type == TenantType.HKD
+            ? "TT 152 — sổ HKD"
+            : AccountingStandardResolver.DropdownLabel(AccountingStandardRules.DefaultStandard(type));
+
+    private async Task ConfirmStd()
+    {
+        if (_stdTarget is null) return;
+        _stdSaving = true;
+        _stdAlertMessage = string.Empty;
+        try
+        {
+            AccountingStandard? standard = string.IsNullOrEmpty(_stdSelected)
+                ? null
+                : (AccountingStandard)int.Parse(_stdSelected);
+            DnsnTaxMethod? taxMethod = standard == AccountingStandard.TT58_2026
+                ? (DnsnTaxMethod)int.Parse(_stdTaxMethod)
+                : null;
+
+            await TenantApi.SetAccountingStandardAsync(_stdTarget.Id, standard, taxMethod);
+            _stdAlertType = "success";
+            _stdAlertMessage = "Đã lưu chế độ kế toán.";
+            await LoadTenants();
+        }
+        catch (Exception ex)
+        {
+            _stdAlertType = "danger";
+            _stdAlertMessage = ex.Message;
+        }
+        finally
+        {
+            _stdSaving = false;
+        }
     }
 
     private async Task ConfirmRevertHtx()

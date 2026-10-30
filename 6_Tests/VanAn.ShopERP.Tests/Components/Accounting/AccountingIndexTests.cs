@@ -83,14 +83,14 @@ public class AccountingIndexTests : ComponentTestBase
         expenseButton!.Markup.Should().Contain("Nhập Chi Phí");
     }
 
-    // Issue #192 (2026-10-15): nút báo cáo theo loại hình tenant — HTX/DN → BCTC, HKD → Sổ HKD.
+    // Regime-lock (2026-10-30): nút báo cáo theo chuẩn hiệu lực — selection resolve qua
+    // GetTenantTypeAsync (real service trong ComponentTestBase).
     [Fact]
     public void AccountingIndex_HtxTenant_ShowsFinancialReportsButton_NotHkdBooks()
     {
-        // HTX/DN: CanAccessVasReportsAsync = true (đọc PG — source of truth)
         var mockFlag = new Mock<IVasFeatureFlagService>();
-        mockFlag.Setup(f => f.CanAccessVasReportsAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(true);
+        mockFlag.Setup(f => f.GetTenantTypeAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(TenantType.HTX);
         Services.AddSingleton(mockFlag.Object);
 
         var cut = RenderComponent<ShopERP.Components.Pages.Accounting.AccountingIndex>();
@@ -103,7 +103,11 @@ public class AccountingIndexTests : ComponentTestBase
     [Fact]
     public void AccountingIndex_HkdTenant_ShowsHkdBooksButton()
     {
-        // Base ComponentTestBase đã mock IVasFeatureFlagService → false (HKD) — fallback Sổ HKD
+        var mockFlag = new Mock<IVasFeatureFlagService>();
+        mockFlag.Setup(f => f.GetTenantTypeAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(TenantType.HKD);
+        Services.AddSingleton(mockFlag.Object);
+
         var cut = RenderComponent<ShopERP.Components.Pages.Accounting.AccountingIndex>();
 
         var buttons = cut.FindComponents<VanAn.UI.Platform.Components.VanAButton>();

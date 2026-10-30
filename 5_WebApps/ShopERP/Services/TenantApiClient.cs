@@ -71,6 +71,19 @@ namespace VanAn.ShopERP.Services
             resp.EnsureSuccessStatusCode();
         }
 
+        /// <summary>Regime-lock (2026-10-30): set accounting standard override + DnsnTaxMethod (TT 58/2026).</summary>
+        public async Task SetAccountingStandardAsync(Guid tenantId, AccountingStandard? standard, DnsnTaxMethod? dnsnTaxMethod, CancellationToken ct = default)
+        {
+            var req = await CreateRequestAsync(HttpMethod.Put, $"api/v1/tenants/{tenantId}/accounting-standard",
+                new { Standard = standard, DnsnTaxMethod = dnsnTaxMethod });
+            var resp = await HttpClient.SendAsync(req, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var body = await resp.Content.ReadAsStringAsync(ct);
+                throw new InvalidOperationException($"Set accounting standard failed ({(int)resp.StatusCode}): {body}");
+            }
+        }
+
         // ── Lifecycle (2026-10-09): qua Gateway PG (source of truth) — KHÔNG gọi service in-process
         // (IVanAnDbContext = SQLite mirror chỉ 5 tenant cũ — lifecycle không tác động tenant thật).
 
@@ -105,6 +118,10 @@ namespace VanAn.ShopERP.Services
         public BusinessType BusinessType { get; init; }
         /// <summary>HTX / Enterprise subtype classification (Type=null for plain Company tenants).</summary>
         public TenantType? Type { get; init; }
+        /// <summary>Regime-lock (2026-10-30): chuẩn kế toán bầu chọn (override). Null = mặc định của Type.</summary>
+        public AccountingStandard? AccountingStandard { get; init; }
+        /// <summary>TT 58/2026: phương pháp nộp thuế DNSN (Điều 4-8). Null = mặc định.</summary>
+        public DnsnTaxMethod? DnsnTaxMethod { get; init; }
         public TenantStatus Status { get; init; }
         public Guid? ShopInstanceId { get; init; }
         public string? ContactEmail { get; init; }

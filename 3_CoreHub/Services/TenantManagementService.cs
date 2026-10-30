@@ -24,7 +24,8 @@ namespace VanAn.CoreHub.Services
         INotificationService notificationService,
         IShopInstanceService shopInstanceService,
         IOutboxRepository? outboxRepository,
-        ILogger<TenantManagementService> logger) : ITenantManagementService
+        ILogger<TenantManagementService> logger,
+        INatsEventPublisher? natsEventPublisher = null) : ITenantManagementService
     {
         public async Task<Tenant> CreateTenantAsync(CreateTenantRequest request, CancellationToken ct = default)
         {
@@ -219,6 +220,49 @@ namespace VanAn.CoreHub.Services
             await dbContext.SaveChangesAsync(ct);
             logger.LogInformation("Tenant {TenantId} BusinessType changed to {NewType} (reason: {Reason})",
                 tenantId.Value, newType, reason);
+        }
+
+        /// <inheritdoc />
+        public async Task SetAccountingStandardAsync(TenantId tenantId, AccountingStandard? standard, DnsnTaxMethod? dnsnTaxMethod, CancellationToken ct = default)
+        {
+            var tenant = await GetTenantByIdAsync(tenantId, ct)
+                ?? throw new KeyNotFoundException($"Tenant {tenantId.Value} not found.");
+
+            // Regime-lock: override phải thuộc allowed set của Type (AccountingStandardRules — SSOT).
+            if (standard is { } s && !AccountingStandardRules.AllowedStandards(tenant.Type, s).Contains(s))
+            {
+                throw new InvalidOperationException(
+                    $"Chuẩn {s} không được phép cho loại hình tenant ({tenant.Type?.ToString() ?? "chưa phân loại"}).");
+            }
+
+            tenant.ElectAccountingStandard(standard);
+            tenant.SetDnsnTaxMethod(dnsnTaxMethod);
+            await dbContext.SaveChangesAsync(ct);
+            logger.LogInformation(
+                "Tenant {TenantId} accounting standard set to {Standard} (DnsnTaxMethod={Method})",
+                tenantId.Value, standard?.ToString() ?? "(default)", dnsnTaxMethod?.ToString() ?? "null");
+
+            // NATS vanan.cloud.tenant.type.changed → TenantSyncSubscriber cập nhật SQLite mirror
+            // (Type + AccountingStandard) — UI kế toán đọc mirror cho regime-lock.
+            if (natsEventPublisher is not null)
+            {
+                try
+                {
+                    var payload = new
+                    {
+                        TenantId = tenantId.Value,
+                        Type = tenant.Type.HasValue ? (int)tenant.Type.Value : (int?)null,
+                        AccountingStandard = tenant.AccountingStandard.HasValue ? (int)tenant.AccountingStandard.Value : (int?)null,
+                        UpdatedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ")
+                    };
+                    byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(payload);
+                    await natsEventPublisher.PublishAsync("vanan.cloud.tenant.type.changed", bytes);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to publish tenant type.changed for {TenantId} — SQLite mirror may be stale", tenantId.Value);
+                }
+            }
         }
 
         // ── Private event handlers ─────────────────────────────────────────────

@@ -37,10 +37,8 @@ public class AccountingStandardUiTests : ComponentTestBase
         // Act
         var cut = RenderComponent<ShopERP.Components.Pages.Accounting.TrialBalance>();
 
-        // Assert — option TT 71 hiển thị + auto-map select value (option TT71 được chọn)
+        // Assert — regime-lock: HTX chỉ có 1 chuẩn → nhãn tĩnh "TT 71/2024 (HTX)" (không còn select)
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("TT 71/2024 (HTX)"));
-        var tt71Option = cut.Find($"option[value=\"{AccountingStandard.TT71_2024}\"]");
-        tt71Option.HasAttribute("selected").Should().BeTrue("tenant HTX phải auto-map sang TT 71");
 
         // Report được generate với standard TT 71 (không phải TT 133 default)
         tbMock.Verify(s => s.GenerateAsync(
@@ -79,7 +77,7 @@ public class AccountingStandardUiTests : ComponentTestBase
         cut.Markup.Should().Contain("B 02-HTX");
         cut.Markup.Should().Contain("B 09-HTX");
         cut.Markup.Should().NotContain("B 03-DN");
-        cut.Markup.Should().Contain("TT 71/2024/TT-BTC");
+        cut.Markup.Should().Contain("Thông tư 71/2024/TT-BTC");
     }
 
     // T7: FinancialReports hub — tenant DN: giữ B01/B02/B03/B09-DN (không regress)
@@ -90,8 +88,8 @@ public class AccountingStandardUiTests : ComponentTestBase
 
         var cut = RenderComponent<ShopERP.Components.Pages.Accounting.FinancialReports>();
 
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("B 01-DN"));
-        cut.Markup.Should().Contain("B 03-DN");
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("B 01a-DNN"));
+        cut.Markup.Should().Contain("B 03-DNN");
         cut.Markup.Should().NotContain("B 01-HTX");
     }
 }

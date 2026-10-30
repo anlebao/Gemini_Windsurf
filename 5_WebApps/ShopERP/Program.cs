@@ -625,6 +625,8 @@ namespace VanAn.ShopERP
             // W8: VAS feature flag + tenant conversion services
             _ = builder.Services.AddScoped<CoreHub.Services.IVasFeatureFlagService, CoreHub.Services.VasFeatureFlagService>();
             _ = builder.Services.AddScoped<CoreHub.Services.ITenantConversionService, CoreHub.Services.TenantConversionService>();
+            // Regime-lock (2026-10-30): resolve chuẩn kế toán hiệu lực (Type + override → AccountingStandardRules)
+            _ = builder.Services.AddScoped<Services.Accounting.IAccountingStandardSelectionService, Services.Accounting.AccountingStandardSelectionService>();
             // Issue #197 (D1=A): tenant group claims cho metering check/ingest (SQLite mirror).
             _ = builder.Services.AddScoped<VanAn.Shared.Domain.Common.IMeteringTenantAttributeResolver, Services.MeteringTenantAttributeResolver>();
             // Wave 5: Gateway tenant onboarding API client (SystemAdmin JWT + HttpClient)

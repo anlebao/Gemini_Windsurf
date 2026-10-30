@@ -12,7 +12,7 @@
 @using System.Globalization
 @using CoreAccountingService = VanAn.CoreHub.Services
 @inject CoreAccountingService.IAccountingService AccountingService
-@inject VanAn.CoreHub.Services.IVasFeatureFlagService FeatureFlagService
+@inject VanAn.ShopERP.Services.Accounting.IAccountingStandardSelectionService StandardSelection
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
 @inject ILogger<AccountingIndex> Logger
@@ -91,7 +91,7 @@
                     OnClick="() => NavigateToBalance()">
                     💰 Số Dư Tài Khoản
                 </VanAButton>
-                @if (_canAccessVasReports)
+                @if (_showBctc)
                 {
                     <VanAButton
                         Variant="secondary"
@@ -99,7 +99,7 @@
                         📊 Báo Cáo Tài Chính
                     </VanAButton>
                 }
-                else
+                @if (_showHkdBooks)
                 {
                     <VanAButton
                         Variant="secondary"
@@ -107,11 +107,14 @@
                         📚 Sổ HKD (TT 152)
                     </VanAButton>
                 }
-                <VanAButton
-                    Variant="secondary"
-                    OnClick="() => NavigateToDnsnBooks()">
-                    📒 Sổ DNSN (TT 58)
-                </VanAButton>
+                @if (_showDnsnBooks)
+                {
+                    <VanAButton
+                        Variant="secondary"
+                        OnClick="() => NavigateToDnsnBooks()">
+                        📒 Sổ DNSN (TT 58)
+                    </VanAButton>
+                }
             </div>
         </VanACard>
     </section>
@@ -124,9 +127,11 @@
     private bool showStatusModal = false;
     private Guid selectedOrderId;
     private string currentStatus = string.Empty;
-    // Issue #192 (2026-10-15): báo cáo theo loại hình tenant — HTX/Enterprise → BCTC, HKD → Sổ HKD.
-    // Đọc qua IVasFeatureFlagService (ưu tiên PG — source of truth, pattern P6b/OrderService).
-    private bool _canAccessVasReports;
+    // Regime-lock (2026-10-30): nút báo cáo theo chuẩn hiệu lực (Type + override → AccountingStandardRules).
+    // BCTC khi có chuẩn hiệu lực · Sổ HKD khi HKD chưa bầu chọn TT 58 · Sổ DNSN khi effective=TT58.
+    private bool _showBctc;
+    private bool _showHkdBooks;
+    private bool _showDnsnBooks;
 
     // Computed properties for display
     private string MonthlyRevenueDisplay => Metrics.MonthlyRevenue.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) + " ₫";
@@ -141,11 +146,14 @@
             {
                 try
                 {
-                    _canAccessVasReports = await FeatureFlagService.CanAccessVasReportsAsync(new TenantId(TenantProvider.TenantId));
+                    var sel = await StandardSelection.GetAsync(new TenantId(TenantProvider.TenantId));
+                    _showBctc = sel.HasBctc;
+                    _showHkdBooks = sel.TenantType == TenantType.HKD && sel.Effective != AccountingStandard.TT58_2026;
+                    _showDnsnBooks = sel.Effective == AccountingStandard.TT58_2026;
                 }
                 catch
                 {
-                    _canAccessVasReports = false; // fallback HKD — common case
+                    _showHkdBooks = true; // fallback HKD — common case
                 }
                 await LoadMetrics();
             }

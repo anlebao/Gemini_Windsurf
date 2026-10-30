@@ -11,15 +11,24 @@
 @using VanAn.ShopERP.Services.Accounting
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
-@inject VanAn.CoreHub.Services.IVasFeatureFlagService FeatureFlagService
 @inject VanAn.CoreHub.Services.IDnsnBookService DnsnBookService
-@inject VanAn.CoreHub.Services.ITenantManagementService TenantService
+@inject IAccountingStandardSelectionService StandardSelection
 
 <div class="report-hub-page @ThemeProvider.CurrentTheme">
     <header class="page-header">
         <h1>Báo Cáo Tài Chính</h1>
     </header>
 
+    @if (_noBctc)
+    {
+        <VanACard Header="Không áp dụng">
+            <VanAAlert Type="info" Dismissible="false"
+                Message="Hộ kinh doanh áp dụng sổ sách theo TT 152/2025/TT-BTC — hoặc tự nguyện áp dụng TT 58/2026 (Điều 2.2). Báo cáo tài chính doanh nghiệp không áp dụng cho HKD." />
+            <a href="/accounting/hkd-books" class="report-link-card">📚 Mở Sổ HKD (TT 152)</a>
+        </VanACard>
+    }
+    else
+    {
     <VanACard Header="@($"Bộ Báo Cáo Tài Chính năm ({AccountingFormLabels.CircularName(standard)})")">
         <div class="report-links-grid">
             <a href="/accounting/balance-sheet" class="report-link-card">
@@ -64,10 +73,12 @@
             </a>
         </div>
     </VanACard>
+    }
 </div>
 
 @code {
     private AccountingStandard standard = AccountingStandard.TT133_2016;
+    private bool _noBctc;
     private bool isDnsn;
     private string taxMethodLabel = "";
     private List<VanAn.CoreHub.Services.DnsnBookInfo> dnsnBooks = [];
@@ -86,14 +97,16 @@
         try
         {
             var tenantId = new TenantId(TenantProvider.TenantId);
-            var tenantType = await FeatureFlagService.GetTenantTypeAsync(tenantId);
-            standard = AccountingStandardResolver.Resolve(tenantType);
-
-            // Tenant.AccountingStandard override (HKD chọn áp dụng TT58 — Điều 2.2 TT 58/2026).
-            var tenant = await TenantService.GetTenantByIdAsync(tenantId);
-            if (tenant?.AccountingStandard is { } explicitStandard)
+            // Regime-lock (2026-10-30): effective = Type + Tenant.AccountingStandard override qua Rules.
+            var sel = await StandardSelection.GetAsync(tenantId);
+            if (sel.Effective is { } eff)
             {
-                standard = explicitStandard;
+                standard = eff;
+            }
+            else
+            {
+                _noBctc = true; // HKD chưa bầu chọn TT 58 — BCTC không áp dụng
+                return;
             }
 
             if (standard == AccountingStandard.TT58_2026)

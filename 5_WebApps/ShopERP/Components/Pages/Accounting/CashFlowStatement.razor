@@ -14,6 +14,7 @@
 @inject VanAn.CoreHub.Services.ICashFlowStatementService CashFlowService
 @inject VanAn.ShopERP.Services.IFinancialReportExportService ExportService
 @inject VanAn.CoreHub.Services.IVasFeatureFlagService FeatureFlagService
+@inject IAccountingStandardSelectionService StandardSelection
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
 @inject IJSRuntime JSRuntime
@@ -34,6 +35,16 @@
         <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
     }
 
+    @if (_allowedStandards is { Count: 0 })
+    {
+        <VanACard Header="Không áp dụng">
+            <VanAAlert Type="info" Dismissible="false"
+                Message="Hộ kinh doanh áp dụng sổ sách theo TT 152/2025/TT-BTC — hoặc tự nguyện áp dụng TT 58/2026 (Điều 2.2). Báo cáo tài chính doanh nghiệp không áp dụng cho HKD." />
+            <a href="/accounting/hkd-books">📚 Mở Sổ HKD (TT 152)</a>
+        </VanACard>
+    }
+    else
+    {
     <VanACard Header="Kỳ báo cáo">
         <div class="period-picker-row">
             <label>Năm: <input type="number" min="2000" max="2100" @bind="selectedYear" /></label>
@@ -46,10 +57,23 @@
                 </select>
             </label>
             <label>Chuẩn kế toán:
-                <select @bind="selectedStandard">
-                    <option value="@AccountingStandard.TT133_2016">TT 133/2016 (DN vừa)</option>
-                    <option value="@AccountingStandard.TT99_2025">TT 99/2025 (DN lớn)</option>
-                </select>
+                @if (_cfOptions.Count > 1)
+                {
+                    <select @bind="selectedStandard">
+                        @foreach (var s in _cfOptions)
+                        {
+                            <option value="@s">@AccountingStandardResolver.DropdownLabel(s)</option>
+                        }
+                    </select>
+                }
+                else if (_cfOptions.Count == 1)
+                {
+                    <span>@AccountingStandardResolver.DropdownLabel(_cfOptions[0])</span>
+                }
+                @if (_isVoluntary)
+                {
+                    <small>(tự nguyện)</small>
+                }
             </label>
             <label>Phương pháp:
                 <select @bind="selectedMethod">
@@ -62,6 +86,7 @@
             <VanAButton Variant="success" Size="small" OnClick="ExportXlsx" Disabled="@exporting">📊 Xuất XLSX</VanAButton>
         </div>
     </VanACard>
+    }
 
     @if (selectedStandard == AccountingStandard.TT58_2026)
     {
@@ -194,6 +219,13 @@
     private AccountingStandard selectedStandard = AccountingStandard.TT133_2016;
     private CashFlowMethod selectedMethod = CashFlowMethod.Direct;
     private TenantType? currentTenantType;
+    // Regime-lock (2026-10-30): allowed=null → chưa load; Count=0 → BCTC không áp dụng (HKD).
+    private IReadOnlyList<AccountingStandard>? _allowedStandards;
+    private static readonly AccountingStandard[] _cfStandards =
+        [AccountingStandard.TT133_2016, AccountingStandard.TT99_2025, AccountingStandard.TT58_2026];
+    private bool _isVoluntary;
+    private List<AccountingStandard> _cfOptions =>
+        (_allowedStandards ?? _cfStandards).Intersect(_cfStandards).ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -203,13 +235,17 @@
             {
                 var tenantId = new TenantId(TenantProvider.TenantId);
                 currentTenantType = await FeatureFlagService.GetTenantTypeAsync(tenantId);
-                selectedStandard = AccountingStandardResolver.Resolve(currentTenantType);
+                var sel = await StandardSelection.GetAsync(tenantId);
+                _allowedStandards = sel.Allowed;
+                if (sel.Effective is { } eff) selectedStandard = eff;
+                _isVoluntary = sel.IsVoluntary;
             }
-            catch { /* fallback TT133 */ }
+            catch { /* fallback TT133 + đủ option */ }
         }
 
         // TT 71 (HTX) KHÔNG yêu cầu B03 — chặn sinh báo cáo, hiển thị thông báo.
-        if (currentTenantType == TenantType.HTX)
+        // Regime-lock: HKD (allowed rỗng) → guard card, không sinh báo cáo.
+        if (currentTenantType == TenantType.HTX || _allowedStandards is { Count: 0 })
         {
             loading = false;
             return;

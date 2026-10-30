@@ -56,6 +56,18 @@ public class ComponentTestBase : TestContext
         // (AccountingLayout renders UserHeader which [Inject]s ITenantManagementService).
         Services.AddSingleton<ITenantManagementService>(sp => new Mock<ITenantManagementService>().Object);
 
+        // Regime-lock (2026-10-30): IAccountingStandardSelectionService — real service backed by
+        // DI-registered mocks (factory resolve at render time → test re-registered FeatureFlag
+        // GetTenantTypeAsync vẫn được tôn trọng). Default: GetTenantTypeAsync unconfigured →
+        // null → allowed đủ 4 options + effective TT133 (giữ hành vi cũ cho report pages).
+        Services.AddSingleton<VanAn.ShopERP.Services.Accounting.IAccountingStandardSelectionService>(
+            sp => new VanAn.ShopERP.Services.Accounting.AccountingStandardSelectionService(
+                sp.GetRequiredService<IVasFeatureFlagService>(),
+                sp.GetRequiredService<ITenantManagementService>()));
+
+        // FinancialReports hub (W3): IDnsnBookService — mock by default.
+        Services.AddSingleton<IDnsnBookService>(_ => new Mock<IDnsnBookService>().Object);
+
         // Register VanAnDbContext (PG) mock — required by UserHeader/NavMenu/Sitemap
         // (2026-10-09 fix: tenant name đọc TRỰC TIẾP từ PG — source of truth, không qua SQLite mirror).
         // Mock instance: constructor chỉ lưu options; query Tenants sẽ trả null → component catch (fallback giữ chuỗi gốc).
