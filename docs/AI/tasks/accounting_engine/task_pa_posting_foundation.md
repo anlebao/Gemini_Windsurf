@@ -1,6 +1,7 @@
 # TASK CARD A — POSTING FOUNDATION (structured key · PostingStatus+retry · JE balance · unique index · DN accrual JE)
 
-> Status: 🔵 CODE DONE (2026-10-30) — chờ verification chain (sln build + guard + full sweep) → push → RV
+> Status: 🔵 PUSHED `15eadcfd` (2026-10-30) — CD đang chạy → RV L1-L3 → pilot flag tenant DN
+> Verify: sln build 0 errors · guard ALL PASSED (windsurf+arch+Roslyn+fast gate) · Core.Tests **2492/2492 PASS** (20 skip) · bridge tests 27/27
 > Điều chỉnh thiết kế khi implement: `PostingStatus` TÁCH thành `EntryPostingStatusEntity` (PK=EntryId, 1 row/entry) — giữ AccountingEntry 100% immutable (hard-stop, không thêm mutable column). Retry worker chỉ đăng ký CoreHub host (single PG writer — không cần 3 hosts) + thêm forward `IAccountingDbContext→VanAnDbContext` tại host đó. EnsureBalanced gọi ở `HKDBookRepository.AddAsync/AddToBookAsync` — skip purpose null/`opening-balance`. Flag `AccrualReceivableJE` qua `IShopFeatureSettingsService` (per-tenant toggle có sẵn); accrual chỉ SME/Large/HTX — HKD+SuperSmall skip sớm.
 > Master plan: `docs/AI/plans/accounting-engine-master-plan.md` (§4.A) · Audit: `docs/AI/plans/accounting-engine-srs-v12-phase0-audit.md`
 > Gap đóng: **G-C1 · G-C2 · G-C3 · G-C4** (4 CRITICAL) + chuẩn hóa `JournalService` reversal
