@@ -1,6 +1,6 @@
 # TASK CARD P2 — TT 58/2026 CHẾ ĐỘ DNSN (SỔ S1→S4d + BCTC B01/B02-DNSN + RESOLVER FIX)
 
-> Status: 📋 PLANNED — chờ user chốt D1-D5 (master plan §4)
+> Status: ✅ DONE — deployed `102ce865` (W1-W4) + regime-lock `615d85ac` — RV production L1-L3 PASS, 34/34 sweep (2026-10-30)
 > Master plan: `docs/AI/plans/tt133-tt58-accounting-compliance-master-plan.md`
 > Spec đối chiếu (BẮT BUỘC — trích từ `58_2026_TT-BTC_707080.docx` gốc): `docs/AI/tasks/tt133_tt58_compliance/spec/tt58-2026-full-text.txt`
 > Gap đóng: **#2** — TT 58/2026 chỉ có enum, chưa có chế độ; resolver map sai

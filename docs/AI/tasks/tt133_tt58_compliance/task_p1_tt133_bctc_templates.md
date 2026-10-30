@@ -1,6 +1,6 @@
 # TASK CARD P1 — TT 133/2016 BCTC MẪU CHUẨN (B01a-DNN · B02-DNN · B03-DNN · B09-DNN · F01-DNN)
 
-> Status: 📋 PLANNED — chờ user chốt D1-D5 (master plan §4)
+> Status: ✅ DONE — deployed `102ce865` (W1-W4) + regime-lock `615d85ac` — RV production L1-L3 PASS, 34/34 sweep (2026-10-30)
 > Master plan: `docs/AI/plans/tt133-tt58-accounting-compliance-master-plan.md`
 > Spec đối chiếu (BẮT BUỘC đọc trước khi code): `docs/AI/tasks/tt133_tt58_compliance/spec/tt133-pl2-bctc-forms.txt`
 > Gap đóng: **#1** — TT133 BCTC đang render flat account list (SAI mẫu)

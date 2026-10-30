@@ -339,7 +339,26 @@ Server A (Edge):              Server B (Central):
 ## 10. Maintenance Log
 
 > Full historical maintenance log (pre-2026-09-17): see `docs/AI/project_state_archive.md`.
-> **Last Updated:** 2026-10-30 (lần 2) · **Branch:** `main` @ `102ce865` (TT133/TT58 COMPLIANCE — W1-W4 DONE, deployed + RV L1-L3 PASS · L4/L5 user manual pending)
+> **Last Updated:** 2026-10-30 (lần 5) · **Branch:** `main` @ `615d85ac` (REGIME-LOCK CONFIRMED DONE — deployed + RV 34/34 PASS + task cards closed · L4/L5 user manual tùy chọn)
+
+## Regime-Lock — chuẩn kế toán theo Tenant.Type (`615d85ac`, 2026-10-30 — DEPLOYED + RV PASS)
+
+Theo yêu cầu user: mỗi loại hình chỉ thấy sổ/báo cáo đúng chế độ — default khóa + bầu chọn hợp pháp (HKD→TT58 Điều 2.2 · siêu nhỏ→TT133 — Q1-Q4 user chốt).
+- **SSOT:** `1_Shared/Domain/AccountingStandardRules.cs` (Default/Allowed/Effective/Electable/IsVoluntary) · resolver delegate · `Tenant.ElectAccountingStandard` + `SetDnsnTaxMethod` (Gate 5 approved).
+- **ShopERP:** `IAccountingStandardSelectionService` — 5 trang BCTC + AccountingIndex + FinancialReports hub: dropdown chỉ chuẩn được phép (1 → nhãn tĩnh), HKD chưa bầu chọn → guard "không áp dụng", badge "tự nguyện", Sổ DNSN chỉ khi effective=TT58.
+- **Write-path:** `PUT /api/v1/tenants/{id}/accounting-standard` (Gateway) → `SetAccountingStandardAsync` (validate allowed) → NATS `tenant.type.changed` → SQLite mirror. Modal "Chế độ kế toán" trên `/admin/tenants`.
+- **RV (Playwright production, impersonate — `6_Testing/rv-regime-lock.cjs`): 34/34 PASS** — HKD guard+Sổ HKD · elect TT58 qua modal → effective TT58 + badge tự nguyện + Sổ DNSN + BCTC + hub DNSN · SME chỉ TT133 nhãn tĩnh · HTX chỉ TT71 không B03 · revert → guard trở lại · 0 console errors.
+- **3 bug thật RV bắt được:** (1) migration `Settings_DnsnTaxMethod` chỉ có trên PG — mirror SQLite thiếu cột → mọi query Tenants mirror throw (`98914068`); (2) modal dùng AllowedStandards(HKD,null)=rỗng → thêm `ElectableStandards` (`f4203044`); (3) `TenantSyncSubscriber` skip event non-HTX → override không xuống mirror (`615d85ac`).
+- **Verify local:** build 0 errors · ShopERP.Tests 262/262 (+9 rules tests) · Core.Tests filtered 17/17 · guard PASSED.
+- **4 task cards `tt133_tt58_compliance/` đã đóng ✅ (user xác nhận 2026-10-30).**
+
+### Bài học (Regime-Lock session)
+
+1. **Migration phải có ở MỌI DbContext dùng entity đó.** `Tenant` (SSOT) được map bởi cả `VanAnDbContext` (PG) LẪN `ShopERPDbContext` (SQLite mirror) — W2 chỉ tạo migration cho PG → mirror thiếu cột → mọi `SELECT Tenants` trên mirror throw `no such column`. Checklist: thêm property vào shared entity → `dotnet ef migrations add` cho CẢ HAI context.
+2. **Silent catch{} che bug.** Page `catch { /* fallback */ }` nuốt exception → UI fallback (4 options) trông "đúng" → bug nguội từ W2 chỉ lộ khi code mới gọi sâu hơn. RV phải check log production, không chỉ UI.
+3. **Subscriber chỉ handle case gốc → event mới bị nuốt.** `type.changed` thiết kế cho HTX transition; case "Type giữ nguyên + Standard đổi" rơi vào else→skip. Khi tái dùng subject NATS cho use-case mới, phải audit subscriber handler.
+4. **Allowed ≠ Electable.** Tập "được phép xem" (allowed theo trạng thái) khác tập "được phép bầu chọn" — HKD chưa elected → allowed rỗng nhưng vẫn cần option TT58 trong modal. Tách 2 hàm riêng trong Rules.
+5. **RV sweep bắt được 3 bug thật mà build/test không thấy** — đúng tinh thần "build/CI pass ≠ runtime works".
 
 * **2026-10-30 (lần 2) — TT133/TT58 COMPLIANCE W4 — PUSH `102ce865` + CD #41043602933 SUCCESS + RV L1-L3 PASS.** Guard-check ALL PASSED · build 0 errors · Core.Tests full sweep 2481/2481 (20 skip) · FAST PUSH → CD Multi-VPS ALL SUCCESS (6 images + gateway/khachlink/shoperp deploy + smoke). **RV L1:** shoperp image `102ce865` · DLL markers CoreHub `Tt133Templates`/`Tt58Templates`/`DnsnTemplates`/`DnsnBookService` + ShopERP `DnsnBooks`/`AccountingFormLabels` (grep -a, `strings` không có trong image) · migration `20261030084613` + cột `Settings_DnsnTaxMethod` applied PG VanAnCoreHub. **L2:** routes `/accounting/dnsn-books` + `/accounting/financial-reports` → 302 (bogus → 404). **L3 (Playwright, impersonate):** HTX tenant (`a5b6c7d8`, Type=5) → hub TT71 đúng (B 01/02/09-HTX) · SME tenant (`7c021960` Cafe Tân Quy, Type=3) → hub TT133 (B 01a/02/03/09-DNN + F 01-DNN) · balance sheet = mẫu B01a-DNN đầy đủ (mã 110→500 + sub-items · cân 58.500=58.500 · mã 110 không skip · LN plug 417) · dropdown TT 58 option · dnsn-books render · 0 console errors. **Bài học:** form code label dạng "B 01a-DNN" (có space — đúng mẫu chuẩn, check regex phải khớp); tenant name "(DN vừa TT 133)" ≠ regime thật (Type=5 HTX) — RV phải chọn tenant theo Type; gcloud ssh chỉ chạy qua powershell `& '<path>'` (bash quoting spaces vỡ). **Còn:** L4/L5 user manual → đóng 4 task cards `docs/AI/tasks/tt133_tt58_compliance/` · HKD minor + P0.4/P1.4/P1.5.
 

@@ -1,6 +1,6 @@
 # TASK CARD P3 — UI REGIME-AWARE + XUẤT ĐÚNG MẪU + CHECKLIST PHÁP LÝ
 
-> Status: 📋 PLANNED — dep P1+P2
+> Status: ✅ DONE — deployed `102ce865` (W1-W4) + regime-lock `615d85ac` — RV production L1-L3 PASS, 34/34 sweep (2026-10-30)
 > Master plan: `docs/AI/plans/tt133-tt58-accounting-compliance-master-plan.md`
 
 ---
