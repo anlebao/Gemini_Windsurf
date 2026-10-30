@@ -53,8 +53,8 @@
             </label>
             <label>Phương pháp:
                 <select @bind="selectedMethod">
-                    <option value="@CashFlowMethod.Direct">Trực tiếp (B 03-DN)</option>
-                    <option value="@CashFlowMethod.Indirect">Gián tiếp (B 03-DN)</option>
+                    <option value="@CashFlowMethod.Direct">Trực tiếp (@AccountingFormLabels.FormCode(selectedStandard, "CF"))</option>
+                    <option value="@CashFlowMethod.Indirect">Gián tiếp (@AccountingFormLabels.FormCode(selectedStandard, "CF"))</option>
                 </select>
             </label>
             <VanAButton Variant="primary" Size="small" OnClick="GenerateReport">Áp dụng</VanAButton>
@@ -63,7 +63,11 @@
         </div>
     </VanACard>
 
-    @if (currentTenantType == TenantType.HTX)
+    @if (selectedStandard == AccountingStandard.TT58_2026)
+    {
+        <VanAAlert Type="info" Message="TT 58/2026 (Chế độ kế toán DN siêu nhỏ) KHÔNG yêu cầu Báo cáo lưu chuyển tiền tệ. BCTC DNSN chỉ gồm B01-DNSN và B02-DNSN." />
+    }
+    else if (currentTenantType == TenantType.HTX)
     {
         <VanAAlert Type="info" Message="TT 71/2024 (Chế độ kế toán HTX) KHÔNG yêu cầu Báo cáo lưu chuyển tiền tệ (B03). Xem Báo cáo tình hình tài chính (B01-HTX) và Kết quả hoạt động (B02-HTX)." />
     }
@@ -259,7 +263,7 @@
                 ("HOẠT ĐỘNG ĐẦU TƯ", report.InvestingActivities.ToList()),
                 ("HOẠT ĐỘNG TÀI CHÍNH", report.FinancingActivities.ToList())
             };
-            return await ExportService.ExportStatementToDocxAsync("Báo Cáo Lưu Chuyển Tiền Tệ", $"Tháng {selectedMonth:D2}/{selectedYear}", sections);
+            return await ExportService.ExportStatementToDocxAsync(AccountingFormLabels.ExportTitle(selectedStandard, "CF", "Báo Cáo Lưu Chuyển Tiền Tệ"), $"Tháng {selectedMonth:D2}/{selectedYear}", sections);
         }, $"CashFlowStatement_{selectedYear}_{selectedMonth:D2}.docx");
     }
 
@@ -274,7 +278,7 @@
                 ("HOẠT ĐỘNG ĐẦU TƯ", report.InvestingActivities.ToList()),
                 ("HOẠT ĐỘNG TÀI CHÍNH", report.FinancingActivities.ToList())
             };
-            return await ExportService.ExportStatementToXlsxAsync("Báo Cáo Lưu Chuyển Tiền Tệ", $"Tháng {selectedMonth:D2}/{selectedYear}", sections);
+            return await ExportService.ExportStatementToXlsxAsync(AccountingFormLabels.ExportTitle(selectedStandard, "CF", "Báo Cáo Lưu Chuyển Tiền Tệ"), $"Tháng {selectedMonth:D2}/{selectedYear}", sections);
         }, $"CashFlowStatement_{selectedYear}_{selectedMonth:D2}.xlsx");
     }
 

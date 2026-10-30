@@ -50,6 +50,7 @@
                     <option value="@AccountingStandard.TT133_2016">TT 133/2016 (DN vừa)</option>
                     <option value="@AccountingStandard.TT99_2025">TT 99/2025 (DN lớn)</option>
                     <option value="@AccountingStandard.TT71_2024">TT 71/2024 (HTX)</option>
+                    <option value="@AccountingStandard.TT58_2026">TT 58/2026 (DN siêu nhỏ)</option>
                 </select>
             </label>
             <VanAButton Variant="primary" Size="small" OnClick="GenerateReport">Áp dụng</VanAButton>
@@ -176,7 +177,7 @@
             {
                 ("KẾT QUẢ HOẠT ĐỘNG KINH DOANH", report.Lines.ToList())
             };
-            return await ExportService.ExportStatementToDocxAsync("Báo Cáo Kết Quả Hoạt Động Kinh Doanh", $"Tháng {selectedMonth:D2}/{selectedYear}", sections);
+            return await ExportService.ExportStatementToDocxAsync(AccountingFormLabels.ExportTitle(selectedStandard, "IS", "Báo Cáo Kết Quả Hoạt Động Kinh Doanh"), $"Tháng {selectedMonth:D2}/{selectedYear}", sections);
         }, $"IncomeStatement_{selectedYear}_{selectedMonth:D2}.docx");
     }
 
@@ -189,7 +190,7 @@
             {
                 ("KẾT QUẢ HOẠT ĐỘNG KINH DOANH", report.Lines.ToList())
             };
-            return await ExportService.ExportStatementToXlsxAsync("Báo Cáo Kết Quả Hoạt Động Kinh Doanh", $"Tháng {selectedMonth:D2}/{selectedYear}", sections);
+            return await ExportService.ExportStatementToXlsxAsync(AccountingFormLabels.ExportTitle(selectedStandard, "IS", "Báo Cáo Kết Quả Hoạt Động Kinh Doanh"), $"Tháng {selectedMonth:D2}/{selectedYear}", sections);
         }, $"IncomeStatement_{selectedYear}_{selectedMonth:D2}.xlsx");
     }
 

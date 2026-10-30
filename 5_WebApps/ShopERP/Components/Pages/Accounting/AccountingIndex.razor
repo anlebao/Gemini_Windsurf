@@ -107,6 +107,11 @@
                         📚 Sổ HKD (TT 152)
                     </VanAButton>
                 }
+                <VanAButton
+                    Variant="secondary"
+                    OnClick="() => NavigateToDnsnBooks()">
+                    📒 Sổ DNSN (TT 58)
+                </VanAButton>
             </div>
         </VanACard>
     </section>
@@ -242,6 +247,11 @@
     private void NavigateToFinancialReports()
     {
         NavigationManager.NavigateTo("/accounting/financial-reports");
+    }
+
+    private void NavigateToDnsnBooks()
+    {
+        NavigationManager.NavigateTo("/accounting/dnsn-books");
     }
 }
 

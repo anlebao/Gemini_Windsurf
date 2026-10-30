@@ -1,0 +1,163 @@
+@page "/accounting/dnsn-books"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "AccountingFullAccess")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.UI.Platform.Models
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.ShopERP.Services.Accounting
+@inject VanAn.CoreHub.Services.IDnsnBookService DnsnBookService
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject ILogger<DnsnBooks> Logger
+
+<div class="dnsn-books-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Sổ Kế Toán DN Siêu Nhỏ (TT 58/2026/TT-BTC)</h1>
+    </header>
+
+    @if (errorMessage != null)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+    }
+
+    <VanACard Header="Kỳ sổ">
+        <div class="period-picker-row">
+            <label>Năm: <input type="number" min="2000" max="2100" @bind="selectedYear" /></label>
+            <label>Tháng:
+                <select @bind="selectedMonth">
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        <option value="@m">@m</option>
+                    }
+                </select>
+            </label>
+            <VanAButton Variant="primary" Size="small" OnClick="GenerateBooks">📖 Tạo sổ</VanAButton>
+        </div>
+    </VanACard>
+
+    @if (taxMethod != null)
+    {
+        <VanACard Header="Phương pháp nộp thuế áp dụng">
+            <p>@taxMethodLabel — danh mục sổ bắt buộc theo TT 58/2026/TT-BTC Điều 5-8.</p>
+        </VanACard>
+    }
+
+    @if (loading)
+    {
+        <VanACard Header="Đang tạo sổ">
+            <p>Đang tạo sổ kế toán DNSN cho kỳ @selectedMonth/@selectedYear...</p>
+        </VanACard>
+    }
+    else
+    {
+        foreach (var bookInfo in bookList)
+        {
+            var book = generatedBooks.FirstOrDefault(b => b.BookTypeCode == bookInfo.TemplateCode);
+            <VanACard Header="@bookInfo.DisplayName">
+                @if (book == null)
+                {
+                    <p>Chưa tạo — nhấn "Tạo sổ".</p>
+                }
+                else
+                {
+                    @if (book.NumericValues.Count > 0)
+                    {
+                        <VanAnDataGrid TItem="KeyValuePair<string, decimal>" Items="@book.NumericValues.ToList()" EmptyMessage="Không có số liệu">
+                            <Columns>
+                                <VanAnColumn TItem="KeyValuePair<string, decimal>" Title="Chỉ tiêu" Width="5">
+                                    <Template Context="kv">@kv.Key</Template>
+                                </VanAnColumn>
+                                <VanAnColumn TItem="KeyValuePair<string, decimal>" Title="Số tiền (VNĐ)" Width="3">
+                                    <Template Context="kv">@kv.Value.ToString("N0")</Template>
+                                </VanAnColumn>
+                            </Columns>
+                        </VanAnDataGrid>
+                    }
+                    @if (book.Entries.Count > 0)
+                    {
+                        <VanAnDataGrid TItem="JournalEntry" Items="@book.Entries.Take(100).ToList()" EmptyMessage="Không có chứng từ">
+                            <Columns>
+                                <VanAnColumn TItem="JournalEntry" Title="Ngày" Width="2">
+                                    <Template Context="e">@e.EntryDate.ToString("dd/MM/yyyy")</Template>
+                                </VanAnColumn>
+                                <VanAnColumn TItem="JournalEntry" Title="Diễn giải" Width="6">
+                                    <Template Context="e">@e.Description</Template>
+                                </VanAnColumn>
+                            </Columns>
+                        </VanAnDataGrid>
+                    }
+                }
+            </VanACard>
+        }
+    }
+</div>
+
+@code {
+    private bool loading;
+    private string? errorMessage;
+    private int selectedYear = DateTime.UtcNow.Year;
+    private int selectedMonth = DateTime.UtcNow.Month;
+    private DnsnTaxMethod? taxMethod;
+    private string taxMethodLabel = "";
+    private List<VanAn.CoreHub.Services.DnsnBookInfo> bookList = [];
+    private List<GenericHKDBook> generatedBooks = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!TenantProvider.HasTenant)
+        {
+            return;
+        }
+
+        try
+        {
+            var tenantId = new TenantId(TenantProvider.TenantId);
+            taxMethod = await DnsnBookService.ResolveTaxMethodAsync(tenantId);
+            taxMethodLabel = taxMethod switch
+            {
+                DnsnTaxMethod.VatPercent_TndnPercent => "Điều 5 — GTGT % trên doanh thu + TNDN % trên doanh thu",
+                DnsnTaxMethod.VatPercent_TndnIncome => "Điều 6 — GTGT % trên doanh thu + TNDN trên thu nhập",
+                DnsnTaxMethod.VatDeduct_TndnPercent => "Điều 7 — GTGT khấu trừ + TNDN % trên doanh thu",
+                DnsnTaxMethod.VatDeduct_TndnIncome => "Điều 8 — GTGT khấu trừ + TNDN trên thu nhập",
+                _ => ""
+            };
+            bookList = await DnsnBookService.GetDnsnBookListAsync(tenantId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading DNSN book list");
+            errorMessage = "Không thể tải danh mục sổ DNSN.";
+        }
+    }
+
+    private async Task GenerateBooks()
+    {
+        if (!TenantProvider.HasTenant)
+        {
+            return;
+        }
+
+        loading = true;
+        errorMessage = null;
+        try
+        {
+            var tenantId = new TenantId(TenantProvider.TenantId);
+            var period = new AccountingPeriod(selectedYear, selectedMonth);
+            generatedBooks = await DnsnBookService.GenerateAllBooksAsync(tenantId, period);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error generating DNSN books");
+            errorMessage = "Không thể tạo sổ kế toán DNSN. Vui lòng thử lại.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

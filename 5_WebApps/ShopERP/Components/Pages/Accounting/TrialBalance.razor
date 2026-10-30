@@ -21,7 +21,7 @@
 
 <div class="report-page @ThemeProvider.CurrentTheme">
     <header class="page-header">
-        <h1>Bảng Cân Đối Số Phát Sinh</h1>
+        <h1>Bảng Cân Đối Số Phát Sinh @(string.IsNullOrEmpty(tbFormCode) ? "" : $"({tbFormCode})")</h1>
         <div class="header-actions">
             <VanAButton Variant="secondary" Size="small" OnClick="GenerateReport">
                 🔄 Tạo báo cáo
@@ -50,6 +50,7 @@
                     <option value="@AccountingStandard.TT133_2016">TT 133/2016 (DN vừa)</option>
                     <option value="@AccountingStandard.TT99_2025">TT 99/2025 (DN lớn)</option>
                     <option value="@AccountingStandard.TT71_2024">TT 71/2024 (HTX)</option>
+                    <option value="@AccountingStandard.TT58_2026">TT 58/2026 (DN siêu nhỏ)</option>
                 </select>
             </label>
             <VanAButton Variant="primary" Size="small" OnClick="GenerateReport">Áp dụng</VanAButton>
@@ -115,6 +116,7 @@
     private bool loading = true;
     private bool exporting;
     private string? errorMessage;
+    private string tbFormCode => AccountingFormLabels.FormCode(selectedStandard, "TB");
 
     private int selectedYear = DateTime.UtcNow.Year;
     private int selectedMonth = DateTime.UtcNow.Month;
@@ -179,7 +181,7 @@
         await DownloadFile(async () =>
         {
             return await ExportService.ExportTrialBalanceToDocxAsync(
-                "Bảng Cân Đối Số Phát Sinh",
+                AccountingFormLabels.ExportTitle(selectedStandard, "TB", "Bảng Cân Đối Số Phát Sinh"),
                 $"Tháng {selectedMonth:D2}/{selectedYear}",
                 report.Accounts.ToList(),
                 report.TotalDebit,
@@ -194,7 +196,7 @@
         await DownloadFile(async () =>
         {
             return await ExportService.ExportTrialBalanceToXlsxAsync(
-                "Bảng Cân Đối Số Phát Sinh",
+                AccountingFormLabels.ExportTitle(selectedStandard, "TB", "Bảng Cân Đối Số Phát Sinh"),
                 $"Tháng {selectedMonth:D2}/{selectedYear}",
                 report.Accounts.ToList(),
                 report.TotalDebit,

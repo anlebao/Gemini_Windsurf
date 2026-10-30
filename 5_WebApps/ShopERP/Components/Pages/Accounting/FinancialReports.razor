@@ -12,54 +12,105 @@
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
 @inject VanAn.CoreHub.Services.IVasFeatureFlagService FeatureFlagService
+@inject VanAn.CoreHub.Services.IDnsnBookService DnsnBookService
+@inject VanAn.CoreHub.Services.ITenantManagementService TenantService
 
 <div class="report-hub-page @ThemeProvider.CurrentTheme">
     <header class="page-header">
         <h1>Báo Cáo Tài Chính</h1>
     </header>
 
-    <VanACard Header="@(isHtx ? "Bộ Báo Cáo Tài Chính năm (TT 71/2024/TT-BTC)" : "Bộ Báo Cáo Tài Chính năm (TT 99/2025/TT-BTC)")">
+    <VanACard Header="@($"Bộ Báo Cáo Tài Chính năm ({AccountingFormLabels.CircularName(standard)})")">
         <div class="report-links-grid">
             <a href="/accounting/balance-sheet" class="report-link-card">
-                📊 Báo Cáo Tình Hình Tài Chính (@(isHtx ? "B 01-HTX" : "B 01-DN"))
+                📊 Báo Cáo Tình Hình Tài Chính (@AccountingFormLabels.FormCode(standard, "BS"))
             </a>
             <a href="/accounting/income-statement" class="report-link-card">
-                📈 Báo Cáo Kết Quả Hoạt Động @(isHtx ? "(B 02-HTX)" : "Kinh Doanh (B 02-DN)")
+                📈 Báo Cáo Kết Quả Hoạt Động Kinh Doanh (@AccountingFormLabels.FormCode(standard, "IS"))
             </a>
-            @if (!isHtx)
+            @if (hasCashFlow)
             {
                 <a href="/accounting/cash-flow-statement" class="report-link-card">
-                    💰 Báo Cáo Lưu Chuyển Tiền Tệ (B 03-DN)
+                    💰 Báo Cáo Lưu Chuyển Tiền Tệ (@AccountingFormLabels.FormCode(standard, "CF"))
                 </a>
             }
-            <a href="/accounting/financial-statement-notes" class="report-link-card">
-                📝 Thuyết Minh Báo Cáo Tài Chính (@(isHtx ? "B 09-HTX" : "B 09-DN"))
-            </a>
+            @if (hasNotes)
+            {
+                <a href="/accounting/financial-statement-notes" class="report-link-card">
+                    📝 Thuyết Minh Báo Cáo Tài Chính (@AccountingFormLabels.FormCode(standard, "NT"))
+                </a>
+            }
         </div>
     </VanACard>
+
+    @if (isDnsn && dnsnBooks.Count > 0)
+    {
+        <VanACard Header="@($"Sổ kế toán DN siêu nhỏ (TT 58/2026/TT-BTC — {taxMethodLabel})")">
+            <div class="report-links-grid">
+                @foreach (var book in dnsnBooks)
+                {
+                    <a href="/accounting/dnsn-books" class="report-link-card">
+                        📒 @book.DisplayName
+                    </a>
+                }
+            </div>
+        </VanACard>
+    }
 
     <VanACard Header="Báo cáo hỗ trợ (không thuộc bộ BCTC năm)">
         <div class="report-links-grid">
             <a href="/accounting/trial-balance" class="report-link-card">
-                ⚖️ Bảng Cân Đối Số Phát Sinh
+                ⚖️ Bảng Cân Đối Số Phát Sinh @(string.IsNullOrEmpty(trialBalanceForm) ? "" : $"({trialBalanceForm})")
             </a>
         </div>
     </VanACard>
 </div>
 
 @code {
-    private bool isHtx;
+    private AccountingStandard standard = AccountingStandard.TT133_2016;
+    private bool isDnsn;
+    private string taxMethodLabel = "";
+    private List<VanAn.CoreHub.Services.DnsnBookInfo> dnsnBooks = [];
+
+    private bool hasCashFlow => standard is AccountingStandard.TT99_2025 or AccountingStandard.TT133_2016;
+    private bool hasNotes => standard is not AccountingStandard.TT58_2026;
+    private string trialBalanceForm => AccountingFormLabels.FormCode(standard, "TB");
 
     protected override async Task OnInitializedAsync()
     {
-        if (TenantProvider.HasTenant)
+        if (!TenantProvider.HasTenant)
         {
-            try
-            {
-                var tenantType = await FeatureFlagService.GetTenantTypeAsync(new TenantId(TenantProvider.TenantId));
-                isHtx = AccountingAccountProvider.IsHtx(tenantType);
-            }
-            catch { /* fallback DN */ }
+            return;
         }
+
+        try
+        {
+            var tenantId = new TenantId(TenantProvider.TenantId);
+            var tenantType = await FeatureFlagService.GetTenantTypeAsync(tenantId);
+            standard = AccountingStandardResolver.Resolve(tenantType);
+
+            // Tenant.AccountingStandard override (HKD chọn áp dụng TT58 — Điều 2.2 TT 58/2026).
+            var tenant = await TenantService.GetTenantByIdAsync(tenantId);
+            if (tenant?.AccountingStandard is { } explicitStandard)
+            {
+                standard = explicitStandard;
+            }
+
+            if (standard == AccountingStandard.TT58_2026)
+            {
+                isDnsn = true;
+                dnsnBooks = await DnsnBookService.GetDnsnBookListAsync(tenantId);
+                var method = await DnsnBookService.ResolveTaxMethodAsync(tenantId);
+                taxMethodLabel = method switch
+                {
+                    DnsnTaxMethod.VatPercent_TndnPercent => "Điều 5: GTGT % + TNDN %",
+                    DnsnTaxMethod.VatPercent_TndnIncome => "Điều 6: GTGT % + TNDN thu nhập",
+                    DnsnTaxMethod.VatDeduct_TndnPercent => "Điều 7: GTGT khấu trừ + TNDN %",
+                    DnsnTaxMethod.VatDeduct_TndnIncome => "Điều 8: GTGT khấu trừ + TNDN thu nhập",
+                    _ => ""
+                };
+            }
+        }
+        catch { /* fallback TT133 */ }
     }
 }

@@ -20,7 +20,7 @@
 
 <div class="report-page @ThemeProvider.CurrentTheme">
     <header class="page-header">
-        <h1>Bản Thuyết Minh BCTC (@(selectedStandard == AccountingStandard.TT71_2024 ? "B 09-HTX" : "B 09-DN"))</h1>
+        <h1>Bản Thuyết Minh BCTC (@AccountingFormLabels.FormCode(selectedStandard, "NT"))</h1>
         <div class="header-actions">
             <VanAButton Variant="secondary" Size="small" OnClick="GenerateReport">🔄 Tạo thuyết minh</VanAButton>
         </div>
@@ -55,7 +55,11 @@
         </div>
     </VanACard>
 
-    @if (loading)
+    @if (selectedStandard == AccountingStandard.TT58_2026)
+    {
+        <VanAAlert Type="info" Message="TT 58/2026 (Chế độ kế toán DN siêu nhỏ) KHÔNG yêu cầu Bản thuyết minh BCTC (B09). BCTC DNSN chỉ gồm B01-DNSN và B02-DNSN." />
+    }
+    else if (loading)
     {
         <VanACard Header="Đang tạo thuyết minh">
             <p>Đang tạo Bản Thuyết Minh BCTC cho kỳ @selectedMonth/@selectedYear...</p>
@@ -142,7 +146,7 @@
         if (report == null) return;
         await DownloadFile(async () =>
         {
-            return await ExportService.ExportNotesToDocxAsync("Bản Thuyết Minh BCTC (B 09-DN)", $"Tháng {selectedMonth:D2}/{selectedYear}", report.Sections.ToList());
+            return await ExportService.ExportNotesToDocxAsync(AccountingFormLabels.ExportTitle(selectedStandard, "NT", "Bản Thuyết Minh BCTC"), $"Tháng {selectedMonth:D2}/{selectedYear}", report.Sections.ToList());
         }, $"FinancialStatementNotes_{selectedYear}_{selectedMonth:D2}.docx");
     }
 
@@ -151,7 +155,7 @@
         if (report == null) return;
         await DownloadFile(async () =>
         {
-            return await ExportService.ExportNotesToXlsxAsync("Bản Thuyết Minh BCTC (B 09-DN)", $"Tháng {selectedMonth:D2}/{selectedYear}", report.Sections.ToList());
+            return await ExportService.ExportNotesToXlsxAsync(AccountingFormLabels.ExportTitle(selectedStandard, "NT", "Bản Thuyết Minh BCTC"), $"Tháng {selectedMonth:D2}/{selectedYear}", report.Sections.ToList());
         }, $"FinancialStatementNotes_{selectedYear}_{selectedMonth:D2}.xlsx");
     }
 
