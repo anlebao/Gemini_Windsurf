@@ -102,8 +102,12 @@ public sealed class AccountingReconcileService(
         await RunSafeAsync("R3", "Doanh thu/Chi phí đồng bộ (journals ↔ entries)", checks, suggestions, async () =>
         {
             var periodLines = periodJournals.SelectMany(j => j.Lines).ToList();
-            decimal revJ = periodLines.Where(l => AccountClassifier.Classify(l.AccountNumber) == AccountGroup.Revenue).Sum(l => l.CreditAmount);
-            decimal expJ = periodLines.Where(l => AccountClassifier.Classify(l.AccountNumber) == AccountGroup.Expense).Sum(l => l.DebitAmount);
+            // Doanh thu/chi phí theo phát sinh THUẦN (Có−Nợ cho 5xx/7xx; Nợ−Có cho 6xx/8xx) —
+            // bút toán đảo ManualReversal/contra phải triệt tiêu, đúng bản chất kế toán.
+            // Bug thật (Vạn An Cafe 2026-10): phiếu thu test + reversal 778,480 → revJ gross
+            // chỉ cộng credit → dư ảo +778,480 dù số liệu đúng.
+            decimal revJ = periodLines.Where(l => AccountClassifier.Classify(l.AccountNumber) == AccountGroup.Revenue).Sum(l => l.CreditAmount - l.DebitAmount);
+            decimal expJ = periodLines.Where(l => AccountClassifier.Classify(l.AccountNumber) == AccountGroup.Expense).Sum(l => l.DebitAmount - l.CreditAmount);
             decimal revE = periodEntries.Where(e => e.EntryType == AccountingEntryType.Revenue && AccountClassifier.Classify(e.AccountCode) == AccountGroup.Revenue).Sum(e => e.Amount);
             decimal offE = periodEntries.Where(e => e.EntryType == AccountingEntryType.DepositOffset && AccountClassifier.Classify(e.AccountCode) == AccountGroup.Revenue).Sum(e => e.Amount);
             decimal vatE = periodEntries.Where(e => e.EntryType == AccountingEntryType.Revenue && e.AccountCode == "3331").Sum(e => e.Amount);
@@ -129,8 +133,8 @@ public sealed class AccountingReconcileService(
                 var jAmountDiffs = new List<string>();
                 foreach (var j in periodJournals)
                 {
-                    decimal r = j.Lines.Where(l => AccountClassifier.Classify(l.AccountNumber) == AccountGroup.Revenue).Sum(l => l.CreditAmount);
-                    decimal x = j.Lines.Where(l => AccountClassifier.Classify(l.AccountNumber) == AccountGroup.Expense).Sum(l => l.DebitAmount);
+                    decimal r = j.Lines.Where(l => AccountClassifier.Classify(l.AccountNumber) == AccountGroup.Revenue).Sum(l => l.CreditAmount - l.DebitAmount);
+                    decimal x = j.Lines.Where(l => AccountClassifier.Classify(l.AccountNumber) == AccountGroup.Expense).Sum(l => l.DebitAmount - l.CreditAmount);
                     if (r == 0 && x == 0) continue;
                     if (j.ReferenceId != null && entryById.TryGetValue(j.ReferenceId.Value, out var e))
                     {
@@ -259,9 +263,9 @@ public sealed class AccountingReconcileService(
                 return;
             }
             decimal revJ = periodJournals.SelectMany(j => j.Lines)
-                .Where(l => AccountClassifier.Classify(l.AccountNumber) == AccountGroup.Revenue).Sum(l => l.CreditAmount);
+                .Where(l => AccountClassifier.Classify(l.AccountNumber) == AccountGroup.Revenue).Sum(l => l.CreditAmount - l.DebitAmount);
             checks.Add(new("R7", "Sổ HKD", ReconcileLevel.Pass,
-                $"S1a/S2b/S3a = {periodJournals.Count} journal · revenue 5xx/7xx credit = {revJ:N0} (khớp R3)", ""));
+                $"S1a/S2b/S3a = {periodJournals.Count} journal · revenue 5xx/7xx net = {revJ:N0} (khớp R3)", ""));
         });
 
         // ── R8. Single-source bridge ─────────────────────────────────────────
