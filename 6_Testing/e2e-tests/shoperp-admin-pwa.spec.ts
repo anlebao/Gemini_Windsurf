@@ -55,4 +55,33 @@ test.describe('Admin Mobile PWA — ShopERP', () => {
     await page.waitForLoadState('networkidle');
     expect(page.url()).toContain('/kitchen');
   });
+
+  test('mobile nav: tap group keeps drawer open, tap leaf navigates', async ({ page }) => {
+    // Regression: tap <summary> group trên mobile từng đóng luôn drawer
+    // (nav-scrollable onclick bắn toggler cho MỌI click, kể cả group header).
+    // Fix: chỉ auto-close khi click trúng <a> leaf link.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/sitemap');
+    await page.waitForLoadState('networkidle');
+
+    const toggler = page.locator('input.navbar-toggler');
+    // Mở drawer trên mobile (hamburger = checkbox)
+    await toggler.check({ force: true });
+    await expect(page.locator('.nav-scrollable')).toBeVisible();
+
+    // Bấm group header → drawer PHẢI còn mở (toggler vẫn checked)
+    const summary = page.locator('.vanan-navigation__summary').first();
+    await summary.click();
+    await page.waitForTimeout(300);
+    await expect(toggler).toBeChecked();
+    await expect(page.locator('.nav-scrollable')).toBeVisible();
+
+    // Bấm leaf link trong group vừa bung → navigate + drawer đóng
+    const leaf = summary.locator('..').locator('.vanan-navigation__submenu a').first();
+    if (await leaf.count() > 0 && await leaf.isVisible()) {
+      await leaf.click();
+      await page.waitForTimeout(500);
+      await expect(toggler).not.toBeChecked();
+    }
+  });
 });
