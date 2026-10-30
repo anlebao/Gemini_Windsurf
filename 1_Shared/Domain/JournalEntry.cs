@@ -19,6 +19,10 @@ namespace VanAn.Shared.Domain
         public bool IsReversal { get; }
         public JournalEntryId? ReversedJournalId { get; }
 
+        // SRS v1.2 §18.3 — discriminator cho idempotency unique index (reversal cần
+        // purpose riêng). Xem AccountingPostingPurposes (Domain.cs).
+        public string? PostingPurpose { get; }
+
         private readonly List<JournalEntryLine> _lines = [];
         public IReadOnlyCollection<JournalEntryLine> Lines => _lines.AsReadOnly();
 
@@ -49,7 +53,8 @@ namespace VanAn.Shared.Domain
             string? referenceType = null,
             Guid? referenceId = null,
             bool isReversal = false,
-            JournalEntryId? reversedJournalId = null)
+            JournalEntryId? reversedJournalId = null,
+            string? postingPurpose = null)
             : base(tenantId)
         {
             TenantId = tenantId;
@@ -61,6 +66,7 @@ namespace VanAn.Shared.Domain
             ReferenceId = referenceId;
             IsReversal = isReversal;
             ReversedJournalId = reversedJournalId;
+            PostingPurpose = postingPurpose;
             JournalNo = GenerateJournalNo();
         }
 
@@ -125,6 +131,22 @@ namespace VanAn.Shared.Domain
             // For now, delegate to synchronous method
             // In future, this could include async validation, database checks, etc.
             return Task.FromResult(CreateReversal(reason));
+        }
+
+        /// <summary>
+        /// SRS v1.2 NFR-001/§12.1 — enforce ΣNợ == ΣCó trước khi ghi sổ.
+        /// Gọi tại posting boundary (repository). Skip cho opening-balance purpose
+        /// (single-line seeds by design) hoặc purpose null (legacy paths).
+        /// </summary>
+        public void EnsureBalanced(decimal tolerance = 0.01m)
+        {
+            decimal totalDebit = _lines.Sum(l => l.DebitAmount);
+            decimal totalCredit = _lines.Sum(l => l.CreditAmount);
+            if (Math.Abs(totalDebit - totalCredit) > tolerance)
+            {
+                throw new ValidationException(
+                    $"JournalEntry {JournalNo} mất cân đối: Nợ {totalDebit:N2} != Có {totalCredit:N2} (chênh {Math.Abs(totalDebit - totalCredit):N2})");
+            }
         }
 
         private static string GenerateJournalNo()

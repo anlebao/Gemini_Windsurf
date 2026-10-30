@@ -4,6 +4,8 @@ using VanAn.Shared.Domain;
 using VanAn.CoreHub.Repositories;
 using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Services.Journal;
+using VanAn.CoreHub.Infrastructure.Entities;
+using VanAn.Shared.Services;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
 using Xunit;
 using FluentAssertions;
@@ -395,6 +397,132 @@ namespace VanAn.Core.Tests.Accounting
             bridge.Verify(b => b.CreateReversalForAsync(
                 It.Is<CoreAccountingEntry>(e => e.Id == original.Id),
                 It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        // ===== SRS v1.2 Phase A: accrual JE (G-C4) + PostingPurpose + EntryPostingStatus =====
+
+        private static ManualEntryJournalBridge BridgeWithRegime(Mock<IHKDBookRepository> repo, TenantType type, bool flagOn)
+        {
+            var vas = new Mock<IVasFeatureFlagService>();
+            vas.Setup(v => v.GetTenantTypeAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>())).ReturnsAsync(type);
+            var settings = new Mock<IShopFeatureSettingsService>();
+            settings.Setup(s => s.IsEnabledAsync(It.IsAny<Guid>(), ManualEntryJournalBridge.AccrualReceivableFlag, It.IsAny<CancellationToken>())).ReturnsAsync(flagOn);
+            return new ManualEntryJournalBridge(repo.Object, NullLogger<ManualEntryJournalBridge>.Instance, vas.Object, settings.Object);
+        }
+
+        private static CoreAccountingEntry Debt(TenantId tenant, string accountCode, decimal amount, string purpose)
+            => CoreAccountingEntry.CreateDebt(tenant, new AccountingPeriod(2026, 10), new Money(amount), "Công nợ test",
+                accountCode: accountCode, vendor: "ĐT", transactionDate: new DateTime(2026, 10, 5), postingPurpose: purpose);
+
+        [Theory]
+        [InlineData("receivable", "131", "511")]       // bán chịu: Nợ 131 / Có 511
+        [InlineData("receivable-payment", "111", "131")] // thu nợ: Nợ 111 / Có 131
+        [InlineData("payable-payment", "331", "111")]    // trả nợ: Nợ 331 / Có 111
+        public async Task CreateFor_AccrualDnTenantFlagOn_CreatesJournalEntry(string purpose, string debit, string credit)
+        {
+            // G-C4: DN (Enterprise_SME) + flag AccrualReceivableJE → công nợ tạo JE accrual.
+            TenantId tenant = new(Guid.NewGuid());
+            var repo = new Mock<IHKDBookRepository>();
+            ManualEntryJournalBridge bridge = BridgeWithRegime(repo, TenantType.Enterprise_SME, flagOn: true);
+            CoreAccountingEntry entry = Debt(tenant, purpose == "payable-payment" ? "331" : "131", 2_000_000m, purpose);
+
+            bool created = await bridge.CreateForAccountingEntryAsync(entry);
+
+            created.Should().BeTrue();
+            repo.Verify(r => r.AddToBookAsync(
+                It.Is<JournalEntry>(je =>
+                    je.PostingPurpose == purpose &&
+                    je.Lines.First().AccountNumber == debit && je.Lines.First().DebitAmount == 2_000_000m &&
+                    je.Lines.ElementAt(1).AccountNumber == credit && je.Lines.ElementAt(1).CreditAmount == 2_000_000m),
+                AccountingBookType.S2b_HKD, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Theory]
+        [InlineData(TenantType.Enterprise_SME, false)]   // DN nhưng flag OFF
+        [InlineData(TenantType.HKD, true)]               // HKD — cash-basis, không accrual
+        [InlineData(TenantType.Enterprise_SuperSmall, true)] // DNSN — chế độ sổ, không accrual
+        public async Task CreateFor_AccrualNotApplicable_DoesNotCreateJournalEntry(TenantType type, bool flagOn)
+        {
+            TenantId tenant = new(Guid.NewGuid());
+            var repo = new Mock<IHKDBookRepository>();
+            ManualEntryJournalBridge bridge = BridgeWithRegime(repo, type, flagOn);
+            CoreAccountingEntry entry = Debt(tenant, "131", 2_000_000m, AccountingPostingPurposes.Receivable);
+
+            bool created = await bridge.CreateForAccountingEntryAsync(entry);
+
+            created.Should().BeFalse();
+            repo.Verify(r => r.AddToBookAsync(It.IsAny<JournalEntry>(), It.IsAny<AccountingBookType>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task CreateFor_PayableCreate_DoesNotCreateJournalEntry_NeedsCounterAccount()
+        {
+            // payable-create (331+): counter-account hàng mua không suy luận an toàn → Skipped (§18.4.1.5)
+            TenantId tenant = new(Guid.NewGuid());
+            var repo = new Mock<IHKDBookRepository>();
+            ManualEntryJournalBridge bridge = BridgeWithRegime(repo, TenantType.Enterprise_SME, flagOn: true);
+            CoreAccountingEntry entry = Debt(tenant, "331", 2_000_000m, AccountingPostingPurposes.Payable);
+
+            bool created = await bridge.CreateForAccountingEntryAsync(entry);
+
+            created.Should().BeFalse();
+            repo.Verify(r => r.AddToBookAsync(It.IsAny<JournalEntry>(), It.IsAny<AccountingBookType>(), It.IsAny<CancellationToken>()), Times.Never);
+            repo.Verify(r => r.UpsertPostingStatusAsync(entry.Id, tenant, EntryPostingStatuses.Skipped, "not-journalable", false, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateFor_Success_WritesPostedStatus_AndJePurpose()
+        {
+            TenantId tenant = new(Guid.NewGuid());
+            CoreAccountingEntry entry = Revenue(tenant, 1_000_000m, "511", new DateTime(2026, 10, 5));
+
+            bool created = await _bridge.CreateForAccountingEntryAsync(entry);
+
+            created.Should().BeTrue();
+            _hkdRepo.Verify(r => r.AddToBookAsync(
+                It.Is<JournalEntry>(je => je.PostingPurpose == AccountingPostingPurposes.Original),
+                AccountingBookType.S2b_HKD, It.IsAny<CancellationToken>()), Times.Once);
+            _hkdRepo.Verify(r => r.UpsertPostingStatusAsync(entry.Id, tenant, EntryPostingStatuses.Posted, null, false, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateFor_RepositoryThrows_WritesFailedStatus()
+        {
+            TenantId tenant = new(Guid.NewGuid());
+            CoreAccountingEntry entry = Revenue(tenant, 1_000_000m, "511", new DateTime(2026, 10, 5));
+            _ = _hkdRepo.Setup(r => r.AddToBookAsync(It.IsAny<JournalEntry>(), It.IsAny<AccountingBookType>(), It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new InvalidOperationException("DB error"));
+
+            bool created = await _bridge.CreateForAccountingEntryAsync(entry);
+
+            created.Should().BeFalse();
+            _hkdRepo.Verify(r => r.UpsertPostingStatusAsync(entry.Id, tenant, EntryPostingStatuses.Failed, It.IsAny<string>(), true, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        // ===== G-C2: JournalEntry.EnsureBalanced =====
+
+        [Fact]
+        public void EnsureBalanced_UnbalancedJournalEntry_Throws()
+        {
+            TenantId tenant = new(Guid.NewGuid());
+            JournalEntry je = new(tenant, DateTime.UtcNow, "Lệch", "ManualEntry", Guid.NewGuid());
+            je.AddLine("111", 1_000_000m, 0m);
+            je.AddLine("511", 0m, 900_000m);
+
+            Action act = () => je.EnsureBalanced();
+
+            act.Should().Throw<VanAn.Shared.Domain.ValidationException>();
+        }
+
+        [Fact]
+        public void EnsureBalanced_BalancedJournalEntry_Passes()
+        {
+            TenantId tenant = new(Guid.NewGuid());
+            JournalEntry je = new(tenant, DateTime.UtcNow, "Cân", "ManualEntry", Guid.NewGuid());
+            je.AddLine("111", 1_000_000m, 0m);
+            je.AddLine("511", 0m, 1_000_000m);
+
+            je.Invoking(j => j.EnsureBalanced()).Should().NotThrow();
         }
     }
 }

@@ -80,6 +80,11 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.CorrelationId)
                 .HasColumnType("uuid");
 
+            // SRS v1.2 Phase A — structured source-event identity (nullable).
+            _ = builder.Property(e => e.SourceEventType).HasMaxLength(50);
+            _ = builder.Property(e => e.SourceEventId).HasMaxLength(100);
+            _ = builder.Property(e => e.PostingPurpose).HasMaxLength(50);
+
             // Indexes for performance with 4 HKD Books
             _ = builder.HasIndex(e => new { e.TenantId, e.AccountingBookType });
             _ = builder.HasIndex(e => new { e.TenantId, e.PeriodYear, e.PeriodMonth });

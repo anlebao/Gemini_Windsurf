@@ -34,7 +34,10 @@ namespace VanAn.CoreHub.Services.Journal
                 reversalDate,
                 reversalDescription,
                 originalEntry.ReferenceType,
-                originalEntry.ReferenceId
+                originalEntry.ReferenceId,
+                isReversal: true,
+                reversedJournalId: originalEntry.JournalEntryId,
+                postingPurpose: AccountingPostingPurposes.Reversal
             );
 
             // Add reversal lines (opposite of original)

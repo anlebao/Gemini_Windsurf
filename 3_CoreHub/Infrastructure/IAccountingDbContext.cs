@@ -18,6 +18,7 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<PendingInvoiceQueue> PendingInvoiceQueues { get; }
         DbSet<VanAn.CoreHub.Infrastructure.Entities.AccountChartEntity> AccountCharts { get; }
         DbSet<VanAn.CoreHub.Infrastructure.Entities.PeriodClosingStatusEntity> PeriodClosingStatuses { get; }
+        DbSet<VanAn.CoreHub.Infrastructure.Entities.EntryPostingStatusEntity> EntryPostingStatuses { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);

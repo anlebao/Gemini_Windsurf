@@ -107,6 +107,12 @@ namespace VanAn.CoreHub.Repositories
             string referenceType,
             Guid referenceId,
             CancellationToken cancellationToken = default);
+
+        /// <summary>SRS Phase A (R2): upsert trạng thái posting của entry (EntryPostingStatuses).</summary>
+        Task UpsertPostingStatusAsync(Guid entryId, TenantId tenantId, int status, string? reason, bool incrementAttempts, CancellationToken cancellationToken = default);
+
+        /// <summary>SRS Phase A: entries cần retry (Failed/Pending, Attempts &lt; max, updated lâu hơn minAgeSec).</summary>
+        Task<List<Infrastructure.Entities.EntryPostingStatusEntity>> GetRetryableStatusesAsync(int maxAttempts, int minAgeSeconds, int take, CancellationToken cancellationToken = default);
     }
 
     /// <summary>

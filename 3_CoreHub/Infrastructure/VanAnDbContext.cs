@@ -98,6 +98,7 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<OutboxMessage> OutboxMessages { get; set; }
         public DbSet<JournalTemplate> JournalTemplates { get; set; }
         public DbSet<JournalEntry> JournalEntries { get; set; }
+        public DbSet<Infrastructure.Entities.EntryPostingStatusEntity> EntryPostingStatuses { get; set; }
 
         // E-Invoice (Sprint 3 — persisted state for atomic transaction with Outbox)
         public DbSet<ElectronicInvoice> ElectronicInvoices { get; set; }

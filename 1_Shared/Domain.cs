@@ -87,6 +87,29 @@ namespace VanAn.Shared.Domain
     }
 
     /// <summary>
+    /// Accounting Engine Phase A (SRS v1.2 §18.3): PostingPurpose vocabulary — định danh
+    /// mục đích ghi sổ của entry/JE (discriminator cho idempotency key + sổ chi tiết).
+    /// </summary>
+    public static class AccountingPostingPurposes
+    {
+        public const string Revenue = "revenue";
+        public const string Vat = "vat";
+        public const string Cogs = "cogs";
+        public const string DepositOffset = "deposit-offset";
+        public const string Receivable = "receivable";
+        public const string ReceivablePayment = "receivable-payment";
+        public const string Payable = "payable";
+        public const string PayablePayment = "payable-payment";
+        public const string ManualReceipt = "manual-receipt";
+        public const string ManualExpense = "manual-expense";
+        public const string OpeningBalance = "opening-balance";
+        public const string Reversal = "reversal";
+        public const string Closing = "closing";
+        public const string Other = "other";
+        public const string Original = "original"; // JE-level default
+    }
+
+    /// <summary>
     /// Phương pháp nộp thuế của Doanh nghiệp siêu nhỏ theo TT 58/2026/TT-BTC Điều 4-8.
     /// Quyết định danh mục sổ kế toán bắt buộc. Đổi chế độ chỉ từ đầu kỳ kế toán năm (Điều 4.3).
     /// </summary>
@@ -346,6 +369,14 @@ namespace VanAn.Shared.Domain
         // Null = legacy entry (pre-Phase 1). Preserved by CreateReversal (fix M3).
         public Guid? CorrelationId { get; }
 
+        // SRS v1.2 §18.3 — structured source-event identity (additive, nullable).
+        // SourceEventType: loại nguồn ("Order","ManualEntry","CongNo","OpeningBalance"...).
+        // SourceEventId: id ổn định của sự kiện nguồn (orderRef/entryId...).
+        // PostingPurpose: mục đích ghi sổ — xem AccountingPostingPurposes.
+        public string? SourceEventType { get; }
+        public string? SourceEventId { get; }
+        public string? PostingPurpose { get; }
+
         public AccountingPeriod Period => new(PeriodYear, PeriodMonth);
 
         // Navigation (read-only)
@@ -372,7 +403,10 @@ namespace VanAn.Shared.Domain
             string? reference = null,
             IndustrySector? industrySector = null,
             Guid? correlationId = null,
-            DateTime? transactionDate = null)
+            DateTime? transactionDate = null,
+            string? postingPurpose = null,
+            string? sourceEventType = null,
+            string? sourceEventId = null)
         {
             TenantId = tenantId;
             Amount = amount;
@@ -390,28 +424,35 @@ namespace VanAn.Shared.Domain
             Reference = reference;
             IndustrySector = industrySector;
             CorrelationId = correlationId;
+            PostingPurpose = postingPurpose;
+            SourceEventType = sourceEventType;
+            SourceEventId = sourceEventId;
         }
 
         // ====================== FACTORY METHODS ======================
         public static AccountingEntry CreateRevenue(TenantId tenantId, AccountingPeriod period, Money amount, string description,
             string? accountCode = null, string? reference = null, IndustrySector? industrySector = null,
-            Guid? correlationId = null, DateTime? transactionDate = null)
+            Guid? correlationId = null, DateTime? transactionDate = null,
+            string? postingPurpose = null, string? sourceEventType = null, string? sourceEventId = null)
         {
             return new(tenantId, amount.Value, AccountingEntryType.Revenue, VatRate.Zero,
                 AccountingBookType.RevenueBook, period.Year, period.Month, description,
                 reversalEntryId: null, accountCode: accountCode, reference: reference, industrySector: industrySector,
-                correlationId: correlationId, transactionDate: transactionDate);
+                correlationId: correlationId, transactionDate: transactionDate,
+                postingPurpose: postingPurpose, sourceEventType: sourceEventType, sourceEventId: sourceEventId);
         }
 
         public static AccountingEntry CreateExpense(TenantId tenantId, AccountingPeriod period, Money amount, string description,
             string? accountCode = null, string? vendor = null, string? category = null, string? reference = null,
             IndustrySector? industrySector = null,
-            Guid? correlationId = null, DateTime? transactionDate = null)
+            Guid? correlationId = null, DateTime? transactionDate = null,
+            string? postingPurpose = null, string? sourceEventType = null, string? sourceEventId = null)
         {
             return new(tenantId, amount.Value, AccountingEntryType.Expense, VatRate.Zero,
                 AccountingBookType.ExpenseBook, period.Year, period.Month, description,
                 reversalEntryId: null, accountCode: accountCode, vendor: vendor, category: category, reference: reference,
-                industrySector: industrySector, correlationId: correlationId, transactionDate: transactionDate);
+                industrySector: industrySector, correlationId: correlationId, transactionDate: transactionDate,
+                postingPurpose: postingPurpose, sourceEventType: sourceEventType, sourceEventId: sourceEventId);
         }
 
         // THU CHI & CÔNG NỢ MVP (approved 2026-10-06 — P1, additive factory — P1 decision #1):
@@ -429,12 +470,16 @@ namespace VanAn.Shared.Domain
             string accountCode,
             string? vendor = null,
             string? reference = null,
-            DateTime? transactionDate = null)
+            DateTime? transactionDate = null,
+            string? postingPurpose = null,
+            string? sourceEventType = null,
+            string? sourceEventId = null)
         {
             return new(tenantId, amount.Value, AccountingEntryType.Adjustment, VatRate.Zero,
                 AccountingBookType.CashBankBook, period.Year, period.Month, description,
                 reversalEntryId: null, accountCode: accountCode, vendor: vendor, reference: reference,
-                transactionDate: transactionDate);
+                transactionDate: transactionDate,
+                postingPurpose: postingPurpose, sourceEventType: sourceEventType, sourceEventId: sourceEventId);
         }
 
         // Issue #195 follow-up (2026-10-29, user approve — deposit offset 3387 làm luôn):
@@ -450,12 +495,16 @@ namespace VanAn.Shared.Domain
             string? accountCode = null,
             string? reference = null,
             IndustrySector? industrySector = null,
-            DateTime? transactionDate = null)
+            DateTime? transactionDate = null,
+            string? postingPurpose = null,
+            string? sourceEventType = null,
+            string? sourceEventId = null)
         {
             return new(tenantId, amount.Value, AccountingEntryType.DepositOffset, VatRate.Zero,
                 AccountingBookType.RevenueBook, period.Year, period.Month, description,
                 reversalEntryId: null, accountCode: accountCode, reference: reference,
-                industrySector: industrySector, transactionDate: transactionDate);
+                industrySector: industrySector, transactionDate: transactionDate,
+                postingPurpose: postingPurpose, sourceEventType: sourceEventType, sourceEventId: sourceEventId);
         }
 
         public static AccountingEntry CreateReversal(AccountingEntry original, string reason)
@@ -475,7 +524,10 @@ namespace VanAn.Shared.Domain
                 original.Id,
                 accountCode: original.AccountCode,
                 industrySector: original.IndustrySector,
-                correlationId: original.CorrelationId);  // VALCN v2.0: preserve for traceability (fix M3)
+                correlationId: original.CorrelationId,  // VALCN v2.0: preserve for traceability (fix M3)
+                postingPurpose: AccountingPostingPurposes.Reversal,
+                sourceEventType: original.SourceEventType,
+                sourceEventId: original.SourceEventId);
         }
 
         public static AccountingEntry CreateReversalWithId(AccountingEntry original, string reason, Guid originalEntryId)

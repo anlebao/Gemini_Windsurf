@@ -88,9 +88,19 @@ namespace VanAn.CoreHub.Services.CongNo
             // Dấu: dương = tăng công nợ (ghi nhận nợ), âm = giảm công nợ (thu/trả nợ) [G9].
             decimal signed = isPayment ? -Math.Abs(amount) : Math.Abs(amount);
 
+            // SRS Phase A: purpose cho accrual JE (G-C4) + idempotency discriminator.
+            string purpose = (accountCode, isPayment) switch
+            {
+                (ReceivableCode, false) => AccountingPostingPurposes.Receivable,
+                (ReceivableCode, true) => AccountingPostingPurposes.ReceivablePayment,
+                (PayableCode, false) => AccountingPostingPurposes.Payable,
+                (PayableCode, true) => AccountingPostingPurposes.PayablePayment,
+                _ => AccountingPostingPurposes.Other
+            };
             CoreAccountingEntry entry = CoreAccountingEntry.CreateDebt(
                 tenantId, period, new Money(signed), desc,
-                accountCode: accountCode, vendor: doiTuong, reference: reference, transactionDate: transactionDate);
+                accountCode: accountCode, vendor: doiTuong, reference: reference, transactionDate: transactionDate,
+                postingPurpose: purpose, sourceEventType: "CongNo", sourceEventId: reference);
 
             await _repository.AddAsync(entry, cancellationToken);
 

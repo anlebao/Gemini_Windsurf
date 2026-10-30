@@ -150,6 +150,11 @@ namespace VanAn.CoreHub.Repositories
 
                 if (!alreadyTracked)
                 {
+                    // SRS Phase A (G-C2): enforce balance (skip opening-balance/legacy).
+                    if (entry.PostingPurpose is not null and not AccountingPostingPurposes.OpeningBalance)
+                    {
+                        entry.EnsureBalanced();
+                    }
                     // For now, just add the journal entry to the database
                     // In a full implementation, we would create separate entries for each book type
                     _ = await _context.JournalEntries.AddAsync(entry, cancellationToken);
@@ -246,10 +251,43 @@ namespace VanAn.CoreHub.Repositories
                 .FirstOrDefaultAsync(e => e.TenantId == tenantId && e.ReferenceType == referenceType && e.ReferenceId == referenceId, cancellationToken);
         }
 
+        // SRS Phase A (R2): upsert posting status — bridge ghi kết quả sau mỗi attempt.
+        public async Task UpsertPostingStatusAsync(Guid entryId, TenantId tenantId, int status, string? reason, bool incrementAttempts, CancellationToken cancellationToken = default)
+        {
+            Infrastructure.Entities.EntryPostingStatusEntity? row = await _context.EntryPostingStatuses
+                .FirstOrDefaultAsync(s => s.EntryId == entryId, cancellationToken);
+            if (row == null)
+            {
+                _ = await _context.EntryPostingStatuses.AddAsync(
+                    new Infrastructure.Entities.EntryPostingStatusEntity(entryId, tenantId.Value, status, reason), cancellationToken);
+            }
+            else
+            {
+                row.Update(status, reason, incrementAttempts);
+            }
+            _ = await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        public async Task<List<Infrastructure.Entities.EntryPostingStatusEntity>> GetRetryableStatusesAsync(int maxAttempts, int minAgeSeconds, int take, CancellationToken cancellationToken = default)
+        {
+            DateTime cutoff = DateTime.UtcNow.AddSeconds(-minAgeSeconds);
+            return await _context.EntryPostingStatuses
+                .Where(s => (s.Status == Infrastructure.Entities.EntryPostingStatuses.Failed || s.Status == Infrastructure.Entities.EntryPostingStatuses.Pending)
+                            && s.Attempts < maxAttempts && s.UpdatedAt < cutoff)
+                .OrderBy(s => s.UpdatedAt)
+                .Take(take)
+                .ToListAsync(cancellationToken);
+        }
+
         public async Task AddAsync(JournalEntry entry)
         {
             try
             {
+                // SRS Phase A (G-C2): enforce balance — skip opening-balance (single-line seed by design) + legacy null purpose.
+                if (entry.PostingPurpose is not null and not AccountingPostingPurposes.OpeningBalance)
+                {
+                    entry.EnsureBalanced();
+                }
                 _ = await _context.JournalEntries.AddAsync(entry);
                 _ = await _context.SaveChangesAsync();
 

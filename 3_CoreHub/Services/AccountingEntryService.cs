@@ -88,11 +88,14 @@ namespace VanAn.CoreHub.Services
                 TenantId tenantId = new(entry.TenantId);
 
                 // VALCN v2.0 Phase 1: pass CorrelationId from DTO to factory
+                // SRS Phase A: phiếu tay DTO path → manual-receipt/manual-expense.
                 CoreAccountingEntry coreEntry = entry.EntryType == AccountingEntryType.Revenue
                     ? CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(entry.Amount), entry.Description,
-                        correlationId: entry.CorrelationId)
+                        correlationId: entry.CorrelationId,
+                        postingPurpose: AccountingPostingPurposes.ManualReceipt)
                     : CoreAccountingEntry.CreateExpense(tenantId, period, new Money(entry.Amount), entry.Description,
-                        correlationId: entry.CorrelationId);
+                        correlationId: entry.CorrelationId,
+                        postingPurpose: AccountingPostingPurposes.ManualExpense);
 
                 await _repository.AddAsync(coreEntry);
 
@@ -155,8 +158,13 @@ namespace VanAn.CoreHub.Services
                 // C-1: Server-side duplicate detection — block identical entry within DuplicateWindowMinutes
                 await CheckDuplicateEntryAsync(tenantId, amount, accountCode, AccountingEntryType.Revenue, reference);
 
+                // SRS Phase A: purpose/source derive — 3331 → vat, còn lại → revenue;
+                // có reference → nguồn nghiệp vụ (Order...), không → phiếu tay.
                 CoreAccountingEntry entry = CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(amount), description,
-                    accountCode: accountCode, reference: reference, industrySector: industrySector, transactionDate: transactionDate);
+                    accountCode: accountCode, reference: reference, industrySector: industrySector, transactionDate: transactionDate,
+                    postingPurpose: accountCode == "3331" ? AccountingPostingPurposes.Vat : AccountingPostingPurposes.Revenue,
+                    sourceEventType: reference != null ? "Order" : "ManualEntry",
+                    sourceEventId: reference);
                 await _repository.AddAsync(entry);
 
                 // NHẬP LIỆU & SỔ SÁCH P2 (#4): phiếu tay → JournalEntry (Sổ HKD B01-B09/BCTC) — fail-safe
@@ -209,8 +217,13 @@ namespace VanAn.CoreHub.Services
                 // C-1: Server-side duplicate detection — block identical entry within DuplicateWindowMinutes
                 await CheckDuplicateEntryAsync(tenantId, amount, accountCode, AccountingEntryType.Expense, reference);
 
+                // SRS Phase A: 632/611/612 + reference → cogs; còn lại → manual-expense.
+                bool isCogs = reference != null && accountCode is "632" or "611" or "612";
                 CoreAccountingEntry entry = CoreAccountingEntry.CreateExpense(tenantId, period, new Money(amount), description,
-                    accountCode: accountCode, vendor: vendor, category: category, reference: reference, industrySector: industrySector, transactionDate: transactionDate);
+                    accountCode: accountCode, vendor: vendor, category: category, reference: reference, industrySector: industrySector, transactionDate: transactionDate,
+                    postingPurpose: isCogs ? AccountingPostingPurposes.Cogs : AccountingPostingPurposes.ManualExpense,
+                    sourceEventType: reference != null ? "Order" : "ManualEntry",
+                    sourceEventId: reference);
                 await _repository.AddAsync(entry);
 
                 // NHẬP LIỆU & SỔ SÁCH P2 (#4): phiếu tay → JournalEntry (Sổ HKD B01-B09/BCTC) — fail-safe
@@ -268,7 +281,9 @@ namespace VanAn.CoreHub.Services
                 await CheckDuplicateEntryAsync(tenantId, amount, accountCode, AccountingEntryType.DepositOffset, reference);
 
                 CoreAccountingEntry entry = CoreAccountingEntry.CreateDepositOffset(tenantId, period, new Money(amount), description,
-                    accountCode: accountCode, reference: reference, industrySector: industrySector, transactionDate: transactionDate);
+                    accountCode: accountCode, reference: reference, industrySector: industrySector, transactionDate: transactionDate,
+                    postingPurpose: AccountingPostingPurposes.DepositOffset,
+                    sourceEventType: "Order", sourceEventId: reference);
                 await _repository.AddAsync(entry);
 
                 // NHẬP LIỆU & SỔ SÁCH P2 (#4): phiếu tay → JournalEntry (Sổ HKD B01-B09/BCTC) — fail-safe

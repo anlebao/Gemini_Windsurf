@@ -80,13 +80,15 @@ namespace VanAn.CoreHub.Services.CongNo
                 string description = $"{OpeningBalanceDescriptionPrefix} {request.Month:D2}/{request.Year}";
                 CoreAccountingEntry openingEntry = CoreAccountingEntry.CreateDebt(
                     tenantId, openingPeriod, new Money(totalDebit), description,
-                    accountCode: string.Empty, vendor: null, transactionDate: openingDate);
+                    accountCode: string.Empty, vendor: null, transactionDate: openingDate,
+                    postingPurpose: AccountingPostingPurposes.OpeningBalance);
                 await _accountingEntryRepository.AddAsync(openingEntry, cancellationToken);
                 openingEntryId = openingEntry.Id;
 
                 JournalEntry journalEntry = new(
                     tenantId, openingDate, description,
-                    ManualEntryJournalBridge.OpeningBalanceReferenceType, openingEntry.Id);
+                    ManualEntryJournalBridge.OpeningBalanceReferenceType, openingEntry.Id,
+                    postingPurpose: AccountingPostingPurposes.OpeningBalance);
                 foreach (OpeningBalanceLineDto line in accountLines)
                 {
                     if (line.Debit > 0)

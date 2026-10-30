@@ -331,6 +331,39 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                     b.ToTable("AccountCharts", (string)null);
                 });
 
+            modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.EntryPostingStatusEntity", b =>
+                {
+                    b.Property<Guid>("EntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("EntryId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("Status", "UpdatedAt");
+
+                    b.ToTable("EntryPostingStatuses");
+                });
+
             modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.PeriodClosingStatusEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -758,12 +791,24 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                     b.Property<int>("PeriodYear")
                         .HasColumnType("integer");
 
+                    b.Property<string>("PostingPurpose")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<string>("Reference")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
                     b.Property<Guid?>("ReversalEntryId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("SourceEventId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("SourceEventType")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
@@ -4382,6 +4427,10 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<string>("PostingPurpose")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<Guid?>("ReferenceId")
                         .HasColumnType("uuid");
 
@@ -4412,6 +4461,9 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                     b.HasIndex("TenantId");
 
                     b.HasIndex("TenantId", "EntryDate");
+
+                    b.HasIndex("TenantId", "ReferenceType", "ReferenceId", "PostingPurpose")
+                        .IsUnique();
 
                     b.ToTable("JournalEntries");
                 });

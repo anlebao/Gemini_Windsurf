@@ -111,6 +111,11 @@ namespace VanAn.CoreHub
                     // NHẬP LIỆU & SỔ SÁCH P2 (#4, 2026-10-07): phiếu tay → JournalEntry (Sổ HKD/BCTC) + backfill
                     _ = services.AddScoped<IManualEntryJournalBridge, ManualEntryJournalBridge>();
                     _ = services.AddScoped<IBackfillJournalEntriesService, BackfillJournalEntriesService>();
+                    // SRS v1.2 Phase A (G-C4): bridge accrual cần TenantType + per-tenant flag (retry worker chạy ở host này)
+                    _ = services.AddScoped<IVasFeatureFlagService, VasFeatureFlagService>();
+                    _ = services.AddScoped<VanAn.Shared.Services.IShopFeatureSettingsService, ShopFeatureSettingsService>();
+                    // SRS v1.2 Phase A (R2): retry worker cho Failed/Pending posting (single host — bảng PG chia sẻ)
+                    _ = services.AddHostedService<JournalPostingRetryWorker>();
                     // NHẬP LIỆU & SỔ SÁCH P3 (#2, 2026-10-07): khai báo số dư đầu kỳ
                     _ = services.AddScoped<IOpeningBalanceService, OpeningBalanceService>();
                     // TRA SOÁT SỐ LIỆU KẾ TOÁN (P1, 2026-10-29): read-only reconcile R1-R12 (MirrorOrderProvider optional — P2)
@@ -328,6 +333,8 @@ namespace VanAn.CoreHub
                     // _ = services.AddScoped<IGuestMergeService, GuestMergeService>();
                     // _ = services.AddScoped<ICheckoutCompletionService, CheckoutCompletionService>();
                     _ = services.AddScoped<IVanAnDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
+                    // SRS Phase A: forward IAccountingDbContext (cần cho JournalPostingRetryWorker + accounting repos ở host này)
+                    _ = services.AddScoped<VanAn.CoreHub.Infrastructure.IAccountingDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
                     // _ = services.AddHttpClient<IMstLookupService, MstLookupService>("VietQR", client =>
                     // {
                     //     client.BaseAddress = new Uri("https://api.vietqr.io/v2/");

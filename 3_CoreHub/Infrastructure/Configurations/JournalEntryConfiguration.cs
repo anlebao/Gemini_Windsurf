@@ -42,6 +42,10 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.ReversedJournalId)
                 .HasConversion<JournalEntryIdConverter>();
 
+            // SRS v1.2 Phase A — discriminator cho unique index (reversal-aware).
+            _ = builder.Property(e => e.PostingPurpose)
+                .HasMaxLength(50);
+
             // OwnsMany: JournalEntryLine is a Value Object owned by JournalEntry
             _ = builder.OwnsMany(e => e.Lines, lineBuilder =>
             {
@@ -60,6 +64,11 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.HasIndex(e => e.TenantId);
             // VAS W1: Index for period-filtered queries (EntryDate range scans)
             _ = builder.HasIndex(e => new { e.TenantId, e.EntryDate });
+
+            // SRS v1.2 Phase A (M3 — R1): idempotency tại persistence layer.
+            // PostingPurpose phân biệt original/reversal → index không chặn reversal.
+            _ = builder.HasIndex(e => new { e.TenantId, e.ReferenceType, e.ReferenceId, e.PostingPurpose })
+                .IsUnique();
         }
     }
 }
