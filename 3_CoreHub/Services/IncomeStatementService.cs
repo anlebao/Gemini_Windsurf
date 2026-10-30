@@ -65,6 +65,12 @@ public class IncomeStatementService : IIncomeStatementService
             return await GenerateWithTemplateAsync(tenantId, period, standard, endingByAccount, openingByAccount, ct).ConfigureAwait(false);
         }
 
+        // TT 133/2016 (DN vừa & nhỏ) — B02-DNN: template riêng (mã 24 gộp CP QLKD, mã 51 gộp CP thuế TNDN).
+        if (standard == AccountingStandard.TT133_2016)
+        {
+            return await GenerateTt133Async(tenantId, period, endingByAccount, openingByAccount, ct).ConfigureAwait(false);
+        }
+
         // TT 71/2024 (HTX) — B02-HTX: template riêng, tách giao dịch nội bộ/ngoài (511 vs 512, 611 vs 612).
         if (standard == AccountingStandard.TT71_2024)
         {
@@ -280,6 +286,70 @@ public class IncomeStatementService : IIncomeStatementService
             Lines: lines,
             TotalCogsEnding: m11e, TotalCogsOpening: m11o,
             TotalOpExEnding: m12e, TotalOpExOpening: m12o);
+    }
+
+    /// <summary>
+    /// TT 133/2016 (DN vừa & nhỏ) — B02-DNN template-based generation theo Phụ lục 2 TT 133.
+    /// Formulas: 10=01-02 · 20=10-11 · 30=20+21-22-24 · 40=31-32 · 50=30+40 · 60=50-51.
+    /// KHÁC TT 99: mã 24 "Chi phí quản lý kinh doanh" gộp (không tách 641/642 — TT133 chỉ có 642);
+    ///             mã 51 "Chi phí thuế TNDN" gộp (không tách 821/822); không có mã 21 BĐSĐT.
+    /// </summary>
+    private async Task<IncomeStatement> GenerateTt133Async(
+        TenantId tenantId, AccountingPeriod period,
+        Dictionary<string, decimal> endingByAccount, Dictionary<string, decimal> openingByAccount,
+        CancellationToken ct)
+    {
+        var template = Tt133Templates.IncomeStatementTt133;
+
+        // Step 1: Direct lines — same convention as TT 99 (negate Expense accounts → positive cost).
+        var amounts = await ComputeIncomeDirectLinesAsync(
+            template, endingByAccount, openingByAccount, AccountingStandard.TT133_2016, presentByNormalSide: false, ct).ConfigureAwait(false);
+
+        // Step 2: B02-DNN formulas (VERIFIED from Phụ lục 2 TT 133).
+        decimal m01e = amounts["01"].Ending, m01o = amounts["01"].Opening;
+        decimal m02e = amounts["02"].Ending, m02o = amounts["02"].Opening;
+        decimal m11e = amounts["11"].Ending, m11o = amounts["11"].Opening;
+        decimal m21e = amounts["21"].Ending, m21o = amounts["21"].Opening;
+        decimal m22e = amounts["22"].Ending, m22o = amounts["22"].Opening;
+        decimal m24e = amounts["24"].Ending, m24o = amounts["24"].Opening;
+        decimal m31e = amounts["31"].Ending, m31o = amounts["31"].Opening;
+        decimal m32e = amounts["32"].Ending, m32o = amounts["32"].Opening;
+        decimal m51e = amounts["51"].Ending, m51o = amounts["51"].Opening;
+
+        decimal m10e = m01e - m02e, m10o = m01o - m02o;
+        decimal m20e = m10e - m11e, m20o = m10o - m11o;
+        decimal m30e = m20e + m21e - m22e - m24e, m30o = m20o + m21o - m22o - m24o;
+        decimal m40e = m31e - m32e, m40o = m31o - m32o;
+        decimal m50e = m30e + m40e, m50o = m30o + m40o;
+        decimal m60e = m50e - m51e, m60o = m50o - m51o;
+
+        amounts["10"] = (m10e, m10o);
+        amounts["20"] = (m20e, m20o);
+        amounts["30"] = (m30e, m30o);
+        amounts["40"] = (m40e, m40o);
+        amounts["50"] = (m50e, m50o);
+        amounts["60"] = (m60e, m60o);
+
+        // Step 3: Build FinancialStatementLine list.
+        var lines = new List<FinancialStatementLine>();
+        foreach (var line in template.Lines)
+        {
+            var (ending, opening) = amounts[line.ReportItemCode];
+            lines.Add(new FinancialStatementLine(
+                line.ReportItemCode, line.ReportItemName,
+                ending, opening, line.Level,
+                line.IsNormalNegative && ending < 0));
+        }
+
+        return new IncomeStatement(
+            tenantId, period, DateTime.UtcNow,
+            TotalRevenueEnding: m01e,
+            TotalRevenueOpening: m01o,
+            NetProfitEnding: m60e,
+            NetProfitOpening: m60o,
+            Lines: lines,
+            TotalCogsEnding: m11e, TotalCogsOpening: m11o,
+            TotalOpExEnding: m24e, TotalOpExOpening: m24o);
     }
 
     /// <summary>

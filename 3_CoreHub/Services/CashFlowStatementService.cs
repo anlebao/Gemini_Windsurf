@@ -125,8 +125,9 @@ public class CashFlowStatementService : ICashFlowStatementService
             }
         }
 
-        // TT 99 Phase 4: Add subtotal lines with Mã số for template structure.
-        if (standard == AccountingStandard.TT99_2025)
+        // TT 99 Phase 4 + TT 133 B03-DNN: Add subtotal lines with Mã số for template structure.
+        // (Mã 20/30/40 identical in B03-DN and B03-DNN.)
+        if (standard == AccountingStandard.TT99_2025 || standard == AccountingStandard.TT133_2016)
         {
             operating.Add(new FinancialStatementLine("20", "Lưu chuyển tiền thuần từ HĐKD", operatingTotal, 0, 1, operatingTotal < 0));
             investing.Add(new FinancialStatementLine("30", "Lưu chuyển tiền thuần từ HĐ đầu tư", investingTotal, 0, 1, investingTotal < 0));

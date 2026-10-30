@@ -38,6 +38,12 @@ public class FinancialStatementNotesService : IFinancialStatementNotesService
             return await GenerateTt71NotesAsync(tenantId, period, ct).ConfigureAwait(false);
         }
 
+        // TT 133/2016 (DN vừa & nhỏ) — B09-DNN: cấu trúc riêng theo Phụ lục 2 TT 133.
+        if (standard == AccountingStandard.TT133_2016)
+        {
+            return await GenerateTt133NotesAsync(tenantId, period, ct).ConfigureAwait(false);
+        }
+
         var tenant = await _tenantService.GetTenantByIdAsync(tenantId, ct);
         var settings = tenant?.Settings;
 
@@ -183,5 +189,97 @@ public class FinancialStatementNotesService : IFinancialStatementNotesService
 
         return new FinancialStatementNotes(tenantId, period, DateTime.UtcNow, AccountingStandard.TT71_2024,
             new[] { phanI, phanII, phanIII, phanIV, phanV, phanVI });
+    }
+
+    /// <summary>
+    /// TT 133/2016/TT-BTC — B09-DNN (Bản thuyết minh BCTC DN nhỏ và vừa) theo Phụ lục 2:
+    ///   I. Đặc điểm hoạt động (6 mục) · II. Kỳ kế toán, đơn vị tiền tệ · III. Chuẩn mực và chế độ kế toán
+    ///   IV. Các chính sách kế toán áp dụng · V. Thông tin bổ sung cho B01a-DNN (16 mục — text template)
+    ///   VI. Thông tin bổ sung cho B02-DNN (9 mục) · X. Sửa đổi, bổ sung (nếu có)
+    /// </summary>
+    private async Task<FinancialStatementNotes> GenerateTt133NotesAsync(
+        TenantId tenantId, AccountingPeriod period, CancellationToken ct)
+    {
+        var tenant = await _tenantService.GetTenantByIdAsync(tenantId, ct);
+        var settings = tenant?.Settings;
+
+        var phanI = new NoteSection("I", "Đặc điểm hoạt động của doanh nghiệp", 1, "", new[]
+        {
+            new NoteSection("I.1", "Hình thức sở hữu vốn", 2, settings?.LegalForm ?? "Chưa thiết lập", null),
+            new NoteSection("I.2", "Lĩnh vực kinh doanh", 2, settings?.BusinessField ?? "Chưa thiết lập", null),
+            new NoteSection("I.3", "Ngành nghề kinh doanh", 2, tenant?.DefaultIndustrySector?.ToString() ?? "Chưa thiết lập", null),
+            new NoteSection("I.4", "Chu kỳ sản xuất, kinh doanh thông thường", 2, "01/01 - 31/12", null),
+            new NoteSection("I.5", "Đặc điểm hoạt động của doanh nghiệp trong năm tài chính có ảnh hưởng đến BCTC", 2, "Bình thường", null),
+            new NoteSection("I.6", "Tuyên bố về khả năng so sánh thông tin trên BCTC", 2, "Có so sánh được", null),
+        });
+
+        var phanII = new NoteSection("II", "Kỳ kế toán, đơn vị tiền tệ sử dụng trong kế toán", 1, "", new[]
+        {
+            new NoteSection("II.1", "Kỳ kế toán năm", 2, $"01/01/{period.Year} - 31/12/{period.Year}", null),
+            new NoteSection("II.2", "Đơn vị tiền tệ sử dụng trong kế toán", 2, "VNĐ", null),
+        });
+
+        var phanIII = new NoteSection("III", "Chuẩn mực và Chế độ kế toán áp dụng", 1, "", new[]
+        {
+            new NoteSection("III.1", "Chế độ kế toán áp dụng", 2, "Thông tư 133/2016/TT-BTC", null),
+            new NoteSection("III.2", "Tuyên bố về việc tuân thủ Chuẩn mực kế toán VN và Chế độ kế toán", 2, "Tuân thủ đầy đủ Chuẩn mực kế toán Việt Nam và Chế độ kế toán", null),
+        });
+
+        var phanIV = new NoteSection("IV", "Các chính sách kế toán áp dụng", 1, "", new[]
+        {
+            new NoteSection("IV.1", "Nguyên tắc ghi nhận các khoản tiền và tương đương tiền", 2, "Theo TT 133/2016/TT-BTC", null),
+            new NoteSection("IV.2", "Nguyên tắc kế toán các khoản đầu tư tài chính", 2, "Theo TT 133/2016/TT-BTC", null),
+            new NoteSection("IV.3", "Nguyên tắc kế toán nợ phải thu", 2, "Theo TT 133/2016/TT-BTC", null),
+            new NoteSection("IV.4", "Nguyên tắc kế toán hàng tồn kho", 2, "FIFO", null),
+            new NoteSection("IV.5", "Nguyên tắc kế toán và khấu hao TSCĐ (bao gồm BĐS đầu tư)", 2, "Đường thẳng", null),
+            new NoteSection("IV.6", "Nguyên tắc kế toán phải trả người bán và các khoản phải trả khác", 2, "Theo TT 133/2016/TT-BTC", null),
+            new NoteSection("IV.7", "Nguyên tắc ghi nhận vốn chủ sở hữu", 2, settings?.CharterCapital.HasValue == true
+                ? $"Vốn điều lệ: {settings.CharterCapital.Value:N0} VNĐ"
+                : "Theo TT 133/2016/TT-BTC", null),
+            new NoteSection("IV.8", "Nguyên tắc và phương pháp ghi nhận doanh thu, thu nhập khác", 2, "Theo TT 133/2016/TT-BTC", null),
+            new NoteSection("IV.9", "Nguyên tắc kế toán chi phí", 2, "Theo TT 133/2016/TT-BTC", null),
+            new NoteSection("IV.10", "Nguyên tắc và phương pháp ghi nhận chi phí thuế TNDN hiện hành", 2, "Theo TT 133/2016/TT-BTC", null),
+            new NoteSection("IV.11", "Các nguyên tắc và phương pháp kế toán khác", 2, "Không có", null),
+        });
+
+        // Phần V: 16 mục bổ sung cho B01a-DNN — text template (chi tiết theo dõi riêng).
+        var phanV = new NoteSection("V", "Thông tin bổ sung cho các khoản mục trình bày trong Báo cáo tình hình tài chính", 1, "", new[]
+        {
+            new NoteSection("V.1", "Tiền và tương đương tiền", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("V.2", "Các khoản đầu tư tài chính", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("V.3", "Các khoản phải thu", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("V.4", "Hàng tồn kho", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("V.5", "Tăng, giảm tài sản cố định", 2, "Chi tiết từng loại theo yêu cầu quản lý", null),
+            new NoteSection("V.6", "Tăng, giảm bất động sản đầu tư", 2, "Chi tiết theo yêu cầu quản lý", null),
+            new NoteSection("V.7", "Xây dựng cơ bản dở dang", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("V.8", "Tài sản khác", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("V.9", "Các khoản phải trả", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("V.10", "Thuế và các khoản phải nộp nhà nước", 2, "Chi tiết theo từng loại thuế", null),
+            new NoteSection("V.11", "Vay và nợ thuê tài chính", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("V.12", "Dự phòng phải trả", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("V.13", "Vốn chủ sở hữu", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("V.14", "Các khoản mục ngoài Báo cáo tình hình tài chính", 2, "Không có", null),
+            new NoteSection("V.15", "Thuyết minh về các bên liên quan", 2, "Không có", null),
+            new NoteSection("V.16", "Các thông tin khác do doanh nghiệp tự giải trình, thuyết minh", 2, "Không có", null),
+        });
+
+        // Phần VI: bổ sung cho B02-DNN — text template.
+        var phanVI = new NoteSection("VI", "Thông tin bổ sung cho các khoản mục trình bày trong Báo cáo kết quả hoạt động kinh doanh", 1, "", new[]
+        {
+            new NoteSection("VI.1", "Tổng doanh thu bán hàng và cung cấp dịch vụ", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("VI.2", "Các khoản giảm trừ doanh thu", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("VI.3", "Giá vốn hàng bán", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("VI.4", "Doanh thu hoạt động tài chính", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("VI.5", "Chi phí tài chính", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("VI.6", "Chi phí quản lý kinh doanh", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("VI.7", "Thu nhập khác", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("VI.8", "Chi phí khác", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+            new NoteSection("VI.9", "Chi phí thuế thu nhập doanh nghiệp hiện hành", 2, "Chi tiết theo dõi riêng theo yêu cầu quản lý", null),
+        });
+
+        var phanX = new NoteSection("X", "Những nội dung sửa đổi, bổ sung biểu mẫu, tên và nội dung các chỉ tiêu của BCTC so với biểu mẫu BCTC được Bộ Tài chính quy định (nếu có)", 1, "Không có sửa đổi, bổ sung", null);
+
+        return new FinancialStatementNotes(tenantId, period, DateTime.UtcNow, AccountingStandard.TT133_2016,
+            new[] { phanI, phanII, phanIII, phanIV, phanV, phanVI, phanX });
     }
 }
