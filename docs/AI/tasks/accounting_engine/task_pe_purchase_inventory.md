@@ -1,6 +1,7 @@
 # TASK CARD E — PURCHASE DOCS · INVENTORY GL LINK · RECONCILE MỞ RỘNG
 
-> Status: ✅ DONE — DEPLOYED `602fb348` (CD #41207458973 SUCCESS) + RV L1-L3 PASS (2026-10-31) · L4/L5 user manual còn lại
+> Status: ✅ DONE — DEPLOYED `602fb348` + RV L1-L3 PASS (2026-10-31) · L4/L5 user manual còn lại
+> W6 tiếp GĐ1+GĐ2: ✅ IMPLEMENTED local (commit sau — Draft/Approved/Posted + StockMovement + NXT + UI) — tests 21/21 PASS · chưa push/deploy
 > Master plan: `docs/AI/plans/accounting-engine-master-plan.md` (§4.E) · Gap đóng: **G-H5 · FR-PUR-001/002/005/007 · FR-SUB-003 · FR-RECNC-004 · AT-007/008**
 > ⚠️ Phần phức tạp nhất: accounting PG ↔ stock SQLite (cross-DB) — mirror/outbox pattern (precedent `MirrorOrderHttpProvider`, outbox skill `nats-sqlite-deployment-validation`).
 

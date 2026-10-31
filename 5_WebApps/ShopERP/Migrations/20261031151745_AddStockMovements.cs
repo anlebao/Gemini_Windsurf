@@ -19,14 +19,14 @@ namespace VanAn.ShopERP.Migrations
 
             migrationBuilder.AddColumn<string>(
                 name: "MappingVersion",
-                table: "JournalEntry",
+                table: "JournalEntries",
                 type: "TEXT",
                 maxLength: 30,
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "PostingPurpose",
-                table: "JournalEntry",
+                table: "JournalEntries",
                 type: "TEXT",
                 maxLength: 50,
                 nullable: true);
@@ -58,7 +58,7 @@ namespace VanAn.ShopERP.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_JournalEntry_TenantId_ReferenceType_ReferenceId_PostingPurpose",
-                table: "JournalEntry",
+                table: "JournalEntries",
                 columns: new[] { "TenantId", "ReferenceType", "ReferenceId", "PostingPurpose" },
                 unique: true);
 
@@ -81,15 +81,15 @@ namespace VanAn.ShopERP.Migrations
 
             migrationBuilder.DropIndex(
                 name: "IX_JournalEntry_TenantId_ReferenceType_ReferenceId_PostingPurpose",
-                table: "JournalEntry");
+                table: "JournalEntries");
 
             migrationBuilder.DropColumn(
                 name: "MappingVersion",
-                table: "JournalEntry");
+                table: "JournalEntries");
 
             migrationBuilder.DropColumn(
                 name: "PostingPurpose",
-                table: "JournalEntry");
+                table: "JournalEntries");
 
             migrationBuilder.CreateTable(
                 name: "AccountCharts",
