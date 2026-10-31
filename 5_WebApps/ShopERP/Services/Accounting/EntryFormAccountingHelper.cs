@@ -107,11 +107,11 @@ public static class EntryFormAccountingHelper
             catch { /* fallback 111 */ }
         }
 
-        AccountMapResult? map = resolver == null ? null
+        AccountMapResult? map = resolver == null || string.IsNullOrWhiteSpace(accountHint) ? null
             : await resolver.ResolveAsync(eventCode, tenantId, accountHint, cash, ct);
         if (map == null)
         {
-            return new([], "none", "Không có rule — bút toán sẽ bị bỏ qua (Skipped).");
+            return new([], "none", "Chọn tài khoản để xem bút toán (hoặc chưa có rule — bút toán sẽ bị bỏ qua).");
         }
 
         decimal net = amount - vatAmount;
