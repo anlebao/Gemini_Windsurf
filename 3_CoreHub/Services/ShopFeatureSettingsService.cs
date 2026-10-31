@@ -144,7 +144,7 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
     public async Task<bool> IsEnabledAsync(Guid tenantId, string toggleName, CancellationToken ct = default)
     {
         ShopFeatureSettingsDto settings = await GetSettingsAsync(tenantId, ct);
-        return toggleName switch
+        bool? known = toggleName switch
         {
             nameof(ShopFeatureSettingsDto.QR_TableNumber_Enabled) => settings.QR_TableNumber_Enabled,
             nameof(ShopFeatureSettingsDto.Kitchen_Workflow_Enabled) => settings.Kitchen_Workflow_Enabled,
@@ -170,8 +170,25 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
             nameof(ShopFeatureSettingsDto.Notify_RedemptionCancelled) => settings.Notify_RedemptionCancelled,
             nameof(ShopFeatureSettingsDto.Notify_VoucherExpiringSoon) => settings.Notify_VoucherExpiringSoon,
             nameof(ShopFeatureSettingsDto.Charity_Donation_Enabled) => settings.Charity_Donation_Enabled,
-            _ => false
+            _ => (bool?)null
         };
+        if (known.HasValue)
+        {
+            return known.Value;
+        }
+
+        // Ops-managed per-tenant flags (W2 accounting engine: AccrualReceivableJE,
+        // AccountMappingEnabled — không lộ trong settings DTO/UI). Đọc từ SystemSetting
+        // key "ShopFeature:{tenantId}:{toggleName}", Value "true" = ON; thiếu row = OFF.
+        // Precedent: BackgroundServiceToggleService (runtime toggle, no restart/migration).
+        string settingKey = $"ShopFeature:{tenantId}:{toggleName}";
+        string? value = await _context.SystemSettings
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(s => s.Key == settingKey)
+            .Select(s => s.Value)
+            .FirstOrDefaultAsync(ct);
+        return value == "true";
     }
 
     private async Task<ShopFeatureSettingsEntity?> GetEntityAsync(Guid tenantId, CancellationToken ct)
