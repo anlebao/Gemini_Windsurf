@@ -226,6 +226,15 @@ namespace VanAn.CoreHub.Services.Journal
                 return new AccountResolution("3387", accountCode, null, null); // Đối trừ cọc: Nợ 3387 / Có 5xx/7xx
             }
 
+            // Issue #198: VAT đầu vào phiếu tay (Adjustment + purpose Vat + TK 133) →
+            // Nợ 133 / Có {cash theo entry}. Parity builtin khi flag AccountMappingEnabled OFF.
+            if (entry.EntryType == AccountingEntryType.Adjustment
+                && entry.PostingPurpose == AccountingPostingPurposes.Vat
+                && accountCode == "133")
+            {
+                return new AccountResolution(accountCode, entry.CashAccountCode ?? CashAccount, null, null);
+            }
+
             // SRS Phase A (G-C4): DN/HTX accrual — công nợ cũng tạo JE khi flag bật.
             if (entry.EntryType == AccountingEntryType.Adjustment
                 && entry.PostingPurpose is AccountingPostingPurposes.Receivable

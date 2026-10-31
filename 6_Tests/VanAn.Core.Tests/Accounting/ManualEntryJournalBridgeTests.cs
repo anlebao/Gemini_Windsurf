@@ -186,6 +186,47 @@ namespace VanAn.Core.Tests.Accounting
             created.Should().BeFalse();
         }
 
+        [Fact]
+        public async Task CreateFor_InputVat133_CreatesJournalEntry_Debit133_CreditCash()
+        {
+            // Issue #198: entry VAT đầu vào phiếu tay (Adjustment + purpose Vat + TK 133)
+            // → JE Nợ 133 / Có {cash} (builtin path — flag OFF cũng ghi).
+            TenantId tenant = new(Guid.NewGuid());
+            CoreAccountingEntry entry = CoreAccountingEntry.CreateDebt(
+                tenant, new AccountingPeriod(2026, 10), new Money(100_000m), "VAT đầu vào — chi phí",
+                accountCode: "133", vendor: "NCC", transactionDate: new DateTime(2026, 10, 22),
+                postingPurpose: AccountingPostingPurposes.Vat, sourceEventType: "ManualEntry");
+
+            bool created = await _bridge.CreateForAccountingEntryAsync(entry);
+
+            created.Should().BeTrue();
+            _hkdRepo.Verify(r => r.AddToBookAsync(
+                It.Is<JournalEntry>(je =>
+                    je.Lines.First().AccountNumber == "133" && je.Lines.First().DebitAmount == 100_000m &&
+                    je.Lines.ElementAt(1).AccountNumber == "111" && je.Lines.ElementAt(1).CreditAmount == 100_000m),
+                AccountingBookType.S2b_HKD, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateFor_InputVat133_WithBankCashAccount_Credits112()
+        {
+            // Issue #198: entry 133 mang CashAccountCode (trả qua bank) → Có 112x không phải 111.
+            TenantId tenant = new(Guid.NewGuid());
+            CoreAccountingEntry entry = CoreAccountingEntry.CreateDebt(
+                tenant, new AccountingPeriod(2026, 10), new Money(50_000m), "VAT đầu vào — chuyển khoản",
+                accountCode: "133", transactionDate: new DateTime(2026, 10, 22),
+                postingPurpose: AccountingPostingPurposes.Vat, sourceEventType: "ManualEntry",
+                cashAccountCode: "1121");
+
+            bool created = await _bridge.CreateForAccountingEntryAsync(entry);
+
+            created.Should().BeTrue();
+            _hkdRepo.Verify(r => r.AddToBookAsync(
+                It.Is<JournalEntry>(je =>
+                    je.Lines.ElementAt(1).AccountNumber == "1121" && je.Lines.ElementAt(1).CreditAmount == 50_000m),
+                AccountingBookType.S2b_HKD, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
         // ===== Reversal đồng bộ =====
 
         [Fact]

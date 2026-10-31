@@ -389,6 +389,47 @@ namespace VanAn.Core.Tests.Accounting
             dto.ConLai.Should().Be(1_000_000m);
         }
 
+        // ===================== ISSUE #198 — bridge wire + cash account =====================
+
+        [Fact]
+        public async Task Issue198_CreatePayablePayment_CallsJournalBridge_AndSetsCashAccount()
+        {
+            // Issue #198: phiếu công nợ giờ gửi qua bridge (trước đây dead path) +
+            // payment phiếu mang CashAccountCode theo paymentMethod (bank → 112x thay vì luôn 111).
+            var bridge = new Mock<VanAn.CoreHub.Services.Journal.IManualEntryJournalBridge>();
+            var banks = new Mock<IBankAccountService>();
+            _ = banks.Setup(b => b.ResolveCashAccountCodeAsync(_tenantA, "bank", It.IsAny<CancellationToken>()))
+                .ReturnsAsync("1121");
+            var svc = new CongNoService(_repo.Object, _periodClosing.Object,
+                Mock.Of<IAuditTrailService>(), NullLogger<CongNoService>.Instance,
+                journalBridge: bridge.Object, bankAccountService: banks.Object);
+
+            _ = await svc.CreatePayableAsync(_tenantA, 1_000_000m, "NCC", null,
+                new DateTime(2026, 10, 5), isPayment: true, paymentMethod: "bank");
+
+            bridge.Verify(b => b.CreateForAccountingEntryAsync(
+                It.Is<CoreAccountingEntry>(e => e.CashAccountCode == "1121" && e.PostingPurpose == AccountingPostingPurposes.PayablePayment),
+                It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task Issue198_CreatePayableNonPayment_CallsBridge_ButNoCashAccount()
+        {
+            // Issue #198: phiếu ghi nhận phải trả (non-payment) cũng qua bridge → resolver
+            // trả null cho `payable` (no-rule → Skipped) — guard chống double-post PurchaseReceipt.
+            var bridge = new Mock<VanAn.CoreHub.Services.Journal.IManualEntryJournalBridge>();
+            var svc = new CongNoService(_repo.Object, _periodClosing.Object,
+                Mock.Of<IAuditTrailService>(), NullLogger<CongNoService>.Instance,
+                journalBridge: bridge.Object);
+
+            _ = await svc.CreatePayableAsync(_tenantA, 2_000_000m, "NCC", null,
+                new DateTime(2026, 10, 5), isPayment: false);
+
+            bridge.Verify(b => b.CreateForAccountingEntryAsync(
+                It.Is<CoreAccountingEntry>(e => e.CashAccountCode == null && e.PostingPurpose == AccountingPostingPurposes.Payable),
+                It.IsAny<CancellationToken>()), Times.Once);
+        }
+
         // ===================== HELPERS =====================
 
         private async Task<CoreAccountingEntry> CreateDebtEntryOnlyAsync(TenantId tenant, string accountCode, decimal amount, DateTime date)
