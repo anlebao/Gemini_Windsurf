@@ -124,6 +124,7 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<Entities.AttachmentEntity> Attachments { get; set; }
         public DbSet<Entities.BankAccountEntity> BankAccounts { get; set; }
         public DbSet<Entities.InternalTransferEntity> InternalTransfers { get; set; }
+        public DbSet<Entities.OrderPaymentEntity> OrderPayments { get; set; }
 
         // W5: Period closing status persistence (tenant-scoped, IMustHaveTenant via BaseEntity).
         // Replaces the previous in-memory static Dictionary in PeriodClosingService.

@@ -311,6 +311,8 @@ namespace VanAn.Core.Tests.BookingScheduling
             public Task ConfirmPaymentAsync(Guid orderId, Guid tenantId, string transactionId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
             public Task MarkPaidAsync(Guid orderId, Guid tenantId, string transactionId, bool enqueuePaymentConfirmedEvent = false, CancellationToken cancellationToken = default) => throw new NotImplementedException();
             public Task GenerateAccountingEntriesAsync(OrderEntity order, TenantId tenantId) => throw new NotImplementedException();
+            public Task<VanAn.CoreHub.Infrastructure.Entities.OrderPaymentEntity?> RecordOrderPaymentAsync(OrderEntity order, decimal amount, string? method, string sourceEventId, string? reference = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+            public Task GenerateForPaymentAsync(OrderEntity order, VanAn.CoreHub.Infrastructure.Entities.OrderPaymentEntity payment, TenantId tenantId) => throw new NotImplementedException();
             public Task<OrderEntity?> GetOrderByIdForPublicTrackingAsync(Guid orderId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
             public Task<(List<OrderEntity> Orders, int TotalCount)> GetOrdersPageAsync(Guid tenantId, string? status, DateTime? from, DateTime? to, int page, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
             public Task<(List<OrderEntity> Orders, int TotalCount)> GetAllOrdersPageAsync(string? status, DateTime? from, DateTime? to, int page, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();

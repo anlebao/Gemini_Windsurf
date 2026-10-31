@@ -81,6 +81,17 @@ namespace VanAn.CoreHub.Services
         // Creates Revenue + COGS entries for an already-Paid order. Idempotent via JournalEntry.Reference check.
         Task GenerateAccountingEntriesAsync(Order order, TenantId tenantId);
 
+        // SRS v1.2 W4/C2 (M8): payment events — mỗi lần thu tiền = 1 OrderPayment (idempotent
+        // theo SourceEventId, ACC12-004). amount = tiền mặt thực thu lần này (KHÔNG gồm cọc).
+        Task<VanAn.CoreHub.Infrastructure.Entities.OrderPaymentEntity?> RecordOrderPaymentAsync(
+            Order order, decimal amount, string? method, string sourceEventId,
+            string? reference = null, CancellationToken cancellationToken = default);
+
+        // SRS v1.2 W4/C2 (M8): tạo accounting entries CHO 1 payment cụ thể — idempotency theo
+        // payment (reference "{orderId}-PMT-{paymentId}"), allocation VAT trước → net−cọc →
+        // COGS 1 lần khi đủ fulfillment → phần dư → 3387 trả thừa. Single-payment = parity cũ.
+        Task GenerateForPaymentAsync(Order order, VanAn.CoreHub.Infrastructure.Entities.OrderPaymentEntity payment, TenantId tenantId);
+
         /// <summary>
         /// W6/Bucket D: Fetch order by Id for public customer-facing tracking (no tenant filter).
         /// OrderId is globally unique (Guid) — safe to fetch without tenant context.

@@ -37,7 +37,8 @@ namespace VanAn.CoreHub.Services
         ICommerceModeService? commerceModeService = null,
         IFeatureFlagService? featureFlagService = null,
         VanAnDbContext? pgDbContext = null,
-        INotificationCenterService? notificationCenter = null) : IOrderService
+        INotificationCenterService? notificationCenter = null,
+        VanAn.CoreHub.Infrastructure.IAccountingDbContext? accountingDbContext = null) : IOrderService
     {
         // EXISTING DEPENDENCIES (keep)
         private readonly IOrderRepository _orderRepository = orderRepository;
@@ -80,6 +81,10 @@ namespace VanAn.CoreHub.Services
         // Issue #194: Notification Hub — ghi TenantNotification "Đơn hàng mới" vào PG khi tạo đơn.
         // Fail-safe bên trong service (không bao giờ throw / không làm hỏng tạo đơn).
         private readonly INotificationCenterService? _notificationCenter = notificationCenter;
+
+        // SRS v1.2 W4/C2 (M8): OrderPayments — PG accounting context (null ở ShopERP scope nếu
+        // chưa đăng ký → payment recording skip, entries vẫn tạo qua legacy path).
+        private readonly VanAn.CoreHub.Infrastructure.IAccountingDbContext? _accountingDbContext = accountingDbContext;
 
         /// <summary>
         /// Get today's order count for a specific tenant
@@ -316,100 +321,205 @@ namespace VanAn.CoreHub.Services
                     return;
                 }
 
-                // W0-T3 (C3): Split VAT — net revenue on 511 + VAT liability on 3331 (if VAT > 0).
-                // W0-T8 (H2): Net revenue approach (HKD path) — credit 511 = SubTotal - DiscountAmount.
-                //   (Discount reduces revenue directly; VAS Gross+521 path deferred to W8 feature-flag.)
-                // TT 71/2024 (2026-10-02): định khoản theo standard tenant bán —
-                // HTX: doanh thu 512 (nội bộ) / 511 (bên ngoài); tenant khác giữ 511.
+                // W4/C2 (M8): ghi nhận payment chính (tiền thu lần này = Total − cọc đã thu trước)
+                // rồi tạo entries per-payment. Reuse payment đã ghi (vd. ConfirmPaymentAsync path
+                // đã record theo transactionId nhưng entries fail) — tránh payment trùng + priorCash
+                // lệch khi retry. SourceEventId = "order-{id}" — idempotent.
+                decimal netRevenue0 = order.SubTotal - order.DiscountAmount;
+                decimal dep0 = order.DepositPaidAmount > 0 ? Math.Min(order.DepositPaidAmount, netRevenue0) : 0m;
+                var payment = _accountingDbContext != null
+                    ? await _accountingDbContext.OrderPayments
+                        .Where(p => p.TenantId == tenantId && p.OrderId == order.Id)
+                        .OrderBy(p => p.PaidAt)
+                        .FirstOrDefaultAsync()
+                    : null;
+                payment ??= await RecordOrderPaymentAsync(order, order.TotalAmount - dep0,
+                    order.PaymentMethod, $"order-{order.Id}");
+                await GenerateForPaymentAsync(order, payment!, tenantId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating accounting entries for order {OrderId}", order.Id);
+                throw;
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<VanAn.CoreHub.Infrastructure.Entities.OrderPaymentEntity?> RecordOrderPaymentAsync(
+            Order order, decimal amount, string? method, string sourceEventId,
+            string? reference = null, CancellationToken cancellationToken = default)
+        {
+            if (amount < 0) throw new ArgumentOutOfRangeException(nameof(amount), "Amount cannot be negative");
+            if (string.IsNullOrWhiteSpace(sourceEventId)) throw new ArgumentException("SourceEventId is required", nameof(sourceEventId));
+
+            // Idempotent theo SourceEventId — trả payment cũ nếu đã ghi (ACC12-004).
+            if (_accountingDbContext != null)
+            {
+                var existing = await _accountingDbContext.OrderPayments.IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(p => p.TenantId == order.TenantId && p.SourceEventId == sourceEventId, cancellationToken);
+                if (existing != null)
+                {
+                    return existing;
+                }
+            }
+
+            var payment = new VanAn.CoreHub.Infrastructure.Entities.OrderPaymentEntity(
+                order.TenantId, order.Id, amount, method, sourceEventId, reference: reference);
+
+            if (_accountingDbContext == null)
+            {
+                // ShopERP scope chưa đăng ký IAccountingDbContext → transient entity
+                // (GenerateForPaymentAsync vẫn hoạt động — dedupe qua entry reference).
+                return payment;
+            }
+
+            _accountingDbContext.OrderPayments.Add(payment);
+            await _accountingDbContext.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("OrderPayment recorded: order {OrderId} amount {Amount} method {Method} ({SourceEventId})",
+                order.Id, amount, method, sourceEventId);
+            return payment;
+        }
+
+        /// <inheritdoc />
+        /// <remarks>
+        /// Allocation (quyết định IMPLEMENT — task card §2.4): VAT phân bổ TRƯỚC trên mỗi payment;
+        /// phần còn lại là net revenue (trừ cọc ở payment đầu — cọc là tiền đã thu, offset 3387→511);
+        /// COGS ghi 1 LẦN duy nhất khi payment đạt fulfillment (Σpayments ≥ Total − cọc);
+        /// phần dư sau khi đủ → entry 3387 "Thu thừa/trả trước" (KHÔNG doanh thu — ACC12-006).
+        /// Single-payment (Amount = Total − cọc) → output hệt legacy: net−dep + VAT đủ + offset + COGS.
+        /// </remarks>
+        public async Task GenerateForPaymentAsync(Order order, VanAn.CoreHub.Infrastructure.Entities.OrderPaymentEntity payment, TenantId tenantId)
+        {
+            AccountingPeriod period = AccountingPeriod.Create(order.OrderDate.Year, order.OrderDate.Month);
+            string orderRef = order.Id.ToString();
+            string paymentRef = $"{orderRef}-PMT-{payment.Id:N}";
+
+            try
+            {
+                // Idempotency theo PAYMENT (ACC12-004): prefix-match bắt cả suffix DEPOSIT-OFFSET/ADVANCE.
+                if (await _accountingEntryRepository.ExistsByReferenceAsync(tenantId, paymentRef))
+                {
+                    _logger.LogInformation(
+                        "GenerateForPaymentAsync: entries already exist for payment {PaymentId} (reference {Reference}) — skipping",
+                        payment.Id, paymentRef);
+                    return;
+                }
+
+                // Reseller giữ nguyên path cũ (single-shot 3 booksets).
+                if (order.CommerceMode == CommerceMode.Reseller)
+                {
+                    await GenerateAccountingEntriesAsync(order, tenantId);
+                    return;
+                }
+
+                IndustrySector? sector = order.IndustrySector;
+                if (sector == null && _dbContext != null)
+                {
+                    sector = await _dbContext.Tenants
+                        .Where(t => t.Id == tenantId)
+                        .Select(t => t.DefaultIndustrySector)
+                        .FirstOrDefaultAsync();
+                }
+
                 string revenueAccount = "511";
                 string cogsAccount = "632";
                 if (await IsHtxSellingTenantAsync(tenantId))
                 {
                     bool internalTx = order.IsInternalToHtx == true;
                     revenueAccount = internalTx ? "512" : "511";
-                    cogsAccount = internalTx ? "612" : "611"; // 632 KHÔNG tồn tại trong TT 71
+                    cogsAccount = internalTx ? "612" : "611";
                 }
 
                 decimal netRevenue = order.SubTotal - order.DiscountAmount;
-                // Issue #195 follow-up (2026-10-29, user approve — deposit offset 3387 làm luôn):
-                // cọc booking đã thu (DepositPaidAmount) → thanh toán cuối thu phần còn lại:
-                //   revenue cash = netRevenue − cọc (Nợ 111/Có 511 — tiền thực nhận)
-                //   offset       = cọc (Nợ 3387/Có 511 — cọc chuyển thành doanh thu, liability cleared)
-                // Tổng doanh thu vẫn = netRevenue (cash + cọc); VAT tính trên full giá — không đổi.
+                decimal totalVat = order.TotalVatAmount;
+                // Issue #195: cọc = tiền đã thu trước — payment đầu ghi offset Nợ 3387/Có 511,
+                // phần NET còn thu bằng tiền = netRevenue − cọc.
                 decimal depositOffset = order.DepositPaidAmount > 0 ? Math.Min(order.DepositPaidAmount, netRevenue) : 0m;
-                decimal cashRevenue = netRevenue - depositOffset;
+                decimal cashOwed = netRevenue - depositOffset + totalVat;
 
-                // W0-T7 (H5): Pass order reference for traceability.
-                if (cashRevenue > 0)
+                // C2: priorCash = Σ payments KHÁC của order (persisted; transient-scope → 0).
+                // Client-side Sum — SQLite không hỗ trợ Sum(decimal) server-side.
+                decimal priorCash = _accountingDbContext != null
+                    ? (await _accountingDbContext.OrderPayments
+                        .Where(p => p.TenantId == tenantId && p.OrderId == order.Id && p.Id != payment.Id)
+                        .Select(p => p.Amount)
+                        .ToListAsync())
+                        .Sum()
+                    : 0m;
+
+                // VAT trước → net sau → excess = trả thừa.
+                decimal amt = payment.Amount;
+                decimal vatThis = Math.Min(amt, Math.Max(0m, totalVat - Math.Min(priorCash, totalVat)));
+                decimal netThis = Math.Min(amt - vatThis, Math.Max(0m, netRevenue - depositOffset - Math.Max(0m, priorCash - totalVat)));
+                decimal excess = amt - vatThis - netThis;
+                bool isFirstPayment = priorCash <= 0m;
+                bool fulfillment = priorCash + amt >= cashOwed;
+
+                if (netThis > 0)
                 {
                     _ = await _accountingService.CreateRevenueEntryAsync(
-                        tenantId,
-                        period,
-                        cashRevenue,
+                        tenantId, period, netThis,
                         $"Doanh thu bán hàng (net) #{order.Id}",
                         accountCode: revenueAccount,
-                        reference: orderRef,
+                        reference: paymentRef,
                         industrySector: sector,
-                        paymentMethod: order.PaymentMethod); // W3/D: → CashAccountCode (cash→111, bank→112x)
+                        paymentMethod: payment.Method);
                 }
 
-                if (depositOffset > 0)
+                if (isFirstPayment && depositOffset > 0)
                 {
                     _ = await _accountingService.CreateDepositOffsetEntryAsync(
-                        tenantId,
-                        period,
-                        depositOffset,
+                        tenantId, period, depositOffset,
                         $"Đối trừ cọc đã thu #{order.Id}",
-                        accountCode: revenueAccount,   // TK doanh thu 511/512 — 3387 do bridge ngầm định (Nợ 3387/Có 511)
-                        reference: $"{orderRef}-DEPOSIT-OFFSET",
+                        accountCode: revenueAccount,
+                        reference: $"{paymentRef}-DEPOSIT-OFFSET",
                         industrySector: sector);
                 }
 
-                if (order.TotalVatAmount > 0)
+                if (vatThis > 0)
                 {
-                    // VAT output liability (thuế GTGT đầu ra) — account 3331.
-                    // NOTE: EntryType=Revenue (semantically imperfect — no Liability factory exists in Domain).
-                    // VAS Wave 4 reports query by AccountCode (3331), so aggregation is correct.
-                    // Semantic EntryType refinement deferred to a future wave (would require Domain mod + approval).
                     _ = await _accountingService.CreateRevenueEntryAsync(
-                        tenantId,
-                        period,
-                        order.TotalVatAmount,
+                        tenantId, period, vatThis,
                         $"Thuế GTGT đầu ra #{order.Id}",
                         accountCode: "3331",
-                        reference: orderRef,
+                        reference: paymentRef,
                         industrySector: sector);
                 }
 
-                // 2. HKD book: journal được tạo bởi ManualEntryJournalBridge (P2 #4) — AccountingEntryService
-                // gọi CreateJournalEntrySafeAsync cho MỌI entry (CreateRevenueEntryAsync/CreateExpenseEntryAsync
-                // ở trên). TRƯỚC đây path này còn tạo JournalEntry TRỰC TIẾP (CreateRevenueEntryAsync +
-                // AddToBookAsync + CreateCOGSEntryAsync) → MỖI order paid sinh 2 journal revenue + 2 COGS
-                // → sổ HKD nhân đôi doanh thu (bug production 2026-10-29: booking 100.000 → sổ 200.000).
-                // Fix: bỏ journal trực tiếp — bridge là single source cho JournalEntry.
-                // (Không gọi _hkdBookRepository.AddToBookAsync ở đây nữa — tránh double.)
-
-                // 3. COGS entry — W0-T4 (C1): chỉ tạo AccountingEntry (bridge tạo journal).
-                decimal cogsAmount = CalculateCogsAmount(order);
-                if (cogsAmount > 0)
+                if (excess > 0)
                 {
-                    // W0-T5 (B3): Fix AccountCode 621→632 (Giá vốn hàng bán).
-                    // TT 71 (2026-10-02): HTX dùng 611 (ngoài)/612 (nội) — 632 không tồn tại trong TT 71.
-                    _ = await _accountingService.CreateExpenseEntryAsync(
-                        tenantId,
-                        period,
-                        cogsAmount,
-                        $"Giá vốn hàng bán #{order.Id}",
-                        accountCode: cogsAccount,
-                        reference: orderRef,
-                        industrySector: sector);
+                    // ACC12-006: trả thừa → trả trước (3387), KHÔNG doanh thu.
+                    _ = await _accountingService.CreateRevenueEntryAsync(
+                        tenantId, period, excess,
+                        $"Thu thừa / trả trước #{order.Id}",
+                        accountCode: "3387",
+                        reference: $"{paymentRef}-ADVANCE",
+                        industrySector: sector,
+                        paymentMethod: payment.Method);
                 }
 
-                _logger.LogInformation("Generated accounting entries for order {OrderId} (IndustrySector: {Sector})", order.Id, sector?.ToString() ?? "NULL");
+                // COGS 1 lần duy nhất khi order đủ fulfillment (ref cố định theo order → dedupe).
+                if (fulfillment && !await _accountingEntryRepository.ExistsByReferenceAsync(tenantId, $"{orderRef}-COGS"))
+                {
+                    decimal cogsAmount = CalculateCogsAmount(order);
+                    if (cogsAmount > 0)
+                    {
+                        _ = await _accountingService.CreateExpenseEntryAsync(
+                            tenantId, period, cogsAmount,
+                            $"Giá vốn hàng bán #{order.Id}",
+                            accountCode: cogsAccount,
+                            reference: $"{orderRef}-COGS",
+                            industrySector: sector);
+                    }
+                }
+
+                _logger.LogInformation(
+                    "Generated entries for payment {PaymentId} of order {OrderId}: net {Net} vat {Vat} excess {Excess} (sector {Sector})",
+                    payment.Id, order.Id, netThis, vatThis, excess, sector?.ToString() ?? "NULL");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error generating accounting entries for order {OrderId}", order.Id);
+                _logger.LogError(ex, "Error generating entries for payment {PaymentId} of order {OrderId}", payment.Id, order.Id);
                 throw;
             }
         }
@@ -1549,7 +1659,15 @@ namespace VanAn.CoreHub.Services
                 // secondary — if they fail, the payment confirmation should still succeed.
                 try
                 {
-                    await GenerateAccountingEntriesAsync(accountingOrder, tenantIdObj);
+                    // W4/C2 (M8): ghi nhận payment event theo transactionId (idempotent) → entries per-payment.
+                    // Fallback legacy nếu chưa có accounting context (transient payment vẫn post được).
+                    decimal depC2 = accountingOrder.DepositPaidAmount > 0
+                        ? Math.Min(accountingOrder.DepositPaidAmount, accountingOrder.SubTotal - accountingOrder.DiscountAmount)
+                        : 0m;
+                    var paymentC2 = await RecordOrderPaymentAsync(accountingOrder,
+                        accountingOrder.TotalAmount - depC2, accountingOrder.PaymentMethod,
+                        transactionId, cancellationToken: cancellationToken);
+                    await GenerateForPaymentAsync(accountingOrder, paymentC2!, tenantIdObj);
                 }
                 catch (Exception ex) when (ex is not KeyNotFoundException)
                 {

@@ -21,6 +21,23 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
         }
     }
 
+    /// <summary>SRS v1.2 W4/C2: OrderPayment — payment event per order; SourceEventId unique (ACC12-004).</summary>
+    public class OrderPaymentConfiguration : IEntityTypeConfiguration<OrderPaymentEntity>, IEntityConfiguration
+    {
+        public void Configure(EntityTypeBuilder<OrderPaymentEntity> builder)
+        {
+            builder.HasKey(e => e.Id);
+            builder.Property(e => e.Amount).HasPrecision(18, 2);
+            builder.Property(e => e.Method).HasMaxLength(30);
+            builder.Property(e => e.SourceEventId).HasMaxLength(120).IsRequired();
+            builder.Property(e => e.Reference).HasMaxLength(120);
+            builder.Property(e => e.TenantId)
+                .HasConversion(id => id.Value, value => new TenantId(value));
+            builder.HasIndex(e => new { e.TenantId, e.SourceEventId }).IsUnique();
+            builder.HasIndex(e => new { e.TenantId, e.OrderId });
+        }
+    }
+
     /// <summary>SRS v1.2 W3/D: InternalTransfer — phiếu chuyển tiền nội bộ + status machine.</summary>
     public class InternalTransferConfiguration : IEntityTypeConfiguration<InternalTransferEntity>, IEntityConfiguration
     {
