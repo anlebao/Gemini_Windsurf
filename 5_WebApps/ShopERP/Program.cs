@@ -246,6 +246,9 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.Journal.IAccountMapRuleService, CoreHub.Services.Journal.AccountMapRuleService>();
             _ = builder.Services.AddScoped<CoreHub.Services.Reconcile.IReconciliationItemService, CoreHub.Services.Reconcile.ReconciliationItemService>();
             _ = builder.Services.AddScoped<CoreHub.Services.Reconcile.IBankStatementService, CoreHub.Services.Reconcile.BankStatementService>();
+            // SRS v1.2 W5/F (FR-CLS-003): checklist tra soát trước khi đóng kỳ trên UI tenant —
+            // PeriodClosingService optional dep; thiếu DI → checklist bỏ qua âm thầm.
+            _ = builder.Services.AddScoped<CoreHub.Services.Reconcile.IAccountingReconcileService, CoreHub.Services.Reconcile.AccountingReconcileService>();
             // NHẬP LIỆU & SỔ SÁCH P3 (#2, 2026-10-07): khai báo số dư đầu kỳ
             _ = builder.Services.AddScoped<CoreHub.Services.CongNo.IOpeningBalanceService, CoreHub.Services.CongNo.OpeningBalanceService>();
             // NHẬP LIỆU & SỔ SÁCH P4 (#1, 2026-10-08): import Excel xlsx+csv (dry-run 0 lỗi mới lưu)
