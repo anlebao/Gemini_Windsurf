@@ -15,6 +15,7 @@
 @inject IOrderService OrderService
 @inject IAuditTrailService AuditTrail
 @inject IBalanceAlertService BalanceAlertService
+@inject IBankAccountService? BankAccountService
 @inject CoreHub.Services.Payment.IPaymentComplianceService PaymentCompliance
 @inject ITenantProvider TenantProvider
 @inject ILogger<Payment> Logger
@@ -199,6 +200,34 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadOrder();
+        await PrefillBankAccountAsync();
+    }
+
+    /// <summary>
+    /// W3/D + C2: tự điền TK nhận thanh toán từ BankAccounts (112x) của tenant —
+    /// TK ngân hàng ACTIVE đầu tiên; không có → để trống, owner nhập tay như cũ.
+    /// </summary>
+    private async Task PrefillBankAccountAsync()
+    {
+        if (BankAccountService == null || !TenantProvider.HasTenant) return;
+        try
+        {
+            var accounts = await BankAccountService.ListAsync(new TenantId(TenantProvider.TenantId));
+            var bank = accounts.FirstOrDefault(a => a.IsActive && a.AccountCode.StartsWith("112") &&
+                !string.IsNullOrWhiteSpace(a.BankName) && !string.IsNullOrWhiteSpace(a.AccountNumber));
+            if (bank == null) return;
+            _bankName = bank.BankName!;
+            _bankAccountNo = bank.AccountNumber!;
+            _accountName = bank.DisplayName;
+            if (string.IsNullOrWhiteSpace(_transferNote))
+            {
+                _transferNote = $"DONHANG {OrderId.ToString("N")[..8].ToUpperInvariant()}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "PrefillBankAccountAsync: could not load tenant bank accounts — manual input required");
+        }
     }
 
     private async Task LoadOrder()
