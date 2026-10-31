@@ -1,6 +1,6 @@
 # TASK CARD F — CLOSING ENTRIES 911 · CHECKLIST ĐÓNG SỔ · RECONCILIATION WORKFLOW · SAO KÊ NH
 
-> Status: ⏳ PENDING — chờ Phase C+D
+> Status: 🔵 IN PROGRESS — backend deployed `ea13045a` (CD SUCCESS) + UI done (2026-10-31) — còn RV production
 > Master plan: `docs/AI/plans/accounting-engine-master-plan.md` (§4.F) · Gap đóng: **G-H6 · G-M3 · FR-CLS-003/005 · FR-RECNC-001/005 · KT07-10 · AT-013 · ACC12-017**
 > ⚠️ JE closing là bút toán thật ghi vào GL — quy tắc kết chuyển theo từng regime phải được kế toán trưởng duyệt (§16/§18.14 — Q mở: DNSN/HKD không cần kết chuyển 911?).
 
@@ -48,12 +48,14 @@
 
 ## 4. ACCEPTANCE CRITERIA
 
-- [ ] Đóng kỳ DN → 3 JE kết chuyển đúng TK/cân; HTX 512/611/612/658; HKD/DNSN skip — KT07-09
-- [ ] Re-run closing → không JE trùng; mở kỳ → closing-reversal — AT-013/ACC12-016-tương tự
-- [ ] Kỳ có JE lệch/Failed → chặn đóng + lý do; warnings → đóng được + audit — FR-CLS-003
-- [ ] Chênh lệch → item Open → assign → Resolved + audit trail — FR-RECNC-005
-- [ ] Import sao kê → matched/unmatched đúng; unmatched không tự ghi sổ — FR-RECNC-001
-- [ ] guard + build + sweep PASS
+- [x] Đóng kỳ DN → 3 JE kết chuyển đúng TK/cân; HTX 512/611/612/658; HKD/DNSN skip — KT07-09 (backend `ea13045a` + tests 5/5 · RV production pending)
+- [x] Re-run closing → không JE trùng; mở kỳ → closing-reversal — AT-013/ACC12-016-tương tự (idempotent purpose+period · reopen → CreateReversal)
+- [x] Kỳ có JE lệch/Failed → chặn đóng + lý do; warnings → đóng được + audit — FR-CLS-003 (ValidatePeriodAsync → reconcile checklist; UI hiển thị errors/warnings sẵn có)
+- [x] Chênh lệch → item Open → assign → Resolved + audit trail — FR-RECNC-005 (entity+service `ea13045a` · UI `/admin/reconcile` items section 2026-10-31)
+- [x] Import sao kê → matched/unmatched đúng; unmatched không tự ghi sổ — FR-RECNC-001 (BankStatementService `ea13045a` · UI BankBook 2026-10-31)
+- [x] Nút "Tạo bút toán kết chuyển" trên PeriodClosing.razor (period Open → GenerateClosingEntriesAsync + feedback)
+- [x] guard + build + sweep PASS (guard-check ALL PASSED 2026-10-31 · ShopERP.Tests 28/28 targeted)
+- [ ] RV production: migration `AddClosingReconcileW5` applied + đóng/gen-closing thật trên tenant DN → verify 3 JEs
 
 ## 5. TEST CASES
 

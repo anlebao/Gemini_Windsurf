@@ -3,12 +3,17 @@
 @layout AdminLayout
 @attribute [Authorize(Policy = "SystemAdmin")]
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.CoreHub.Services.Reconcile
+@using VanAn.CoreHub.Infrastructure.Entities
+@using VanAn.Shared.Domain
 @using VanAn.ShopERP.Services
 @inject ReconcileAdminApiClient ReconcileApi
 @inject TenantApiClient TenantApi
+@inject IReconciliationItemService ReconItemService
+@inject AuthenticationStateProvider AuthStateProvider
 @inject ILogger<Reconcile> Logger
 
 <div class="reconcile-page">
@@ -118,6 +123,115 @@
             </VanACard>
         }
     }
+
+    @* W5/F (FR-RECNC-005): ReconciliationItems — chênh lệch phát sinh từ tra soát
+       cần workflow xử lý (assign → resolve/dismiss; check pass lần sau → auto-resolve). *@
+    @if (Guid.TryParse(_tenantId, out _))
+    {
+        <VanACard Header="Chênh lệch cần xử lý (Reconciliation Items)">
+            <ChildContent>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <label class="mb-0">Trạng thái:</label>
+                    <select class="vanan-select" style="max-width: 200px" @bind="_itemStatusFilter"
+                            data-testid="rc-items-status-filter">
+                        <option value="">Tất cả</option>
+                        <option value="Open">Open</option>
+                        <option value="Investigating">Investigating</option>
+                        <option value="Resolved">Resolved</option>
+                        <option value="Dismissed">Dismissed</option>
+                    </select>
+                    <VanAButton Variant="secondary" Size="small" OnClick="LoadItemsAsync"
+                                IsLoading="@_itemsLoading" data-testid="rc-items-refresh">
+                        Làm mới
+                    </VanAButton>
+                </div>
+                @if (_itemsLoading)
+                {
+                    <p class="text-muted">Đang tải...</p>
+                }
+                else if (_items.Count == 0)
+                {
+                    <p class="text-muted" data-testid="rc-items-empty">Không có chênh lệch nào.</p>
+                }
+                else
+                {
+                    <table class="vanan-table" data-testid="rc-items-table">
+                        <thead>
+                            <tr>
+                                <th>Check</th><th>Kỳ</th><th>Mức</th><th>Nội dung</th>
+                                <th>Trạng thái</th><th>Phụ trách</th><th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in _items)
+                            {
+                                <tr data-testid="rc-item-row">
+                                    <td><code>@item.CheckCode</code></td>
+                                    <td>@($"{item.PeriodYear}-{item.PeriodMonth:D2}")</td>
+                                    <td><span class="rc-badge rc-badge-@item.Severity">@item.Severity</span></td>
+                                    <td>
+                                        @item.Description
+                                        @if (!string.IsNullOrEmpty(item.ResolutionNote))
+                                        {
+                                            <div class="text-muted small">Ghi chú: @item.ResolutionNote</div>
+                                        }
+                                    </td>
+                                    <td><span class="badge text-bg-@(item.Status is "Resolved" ? "success" : item.Status is "Dismissed" ? "secondary" : item.Status is "Investigating" ? "info" : "warning")">@item.Status</span></td>
+                                    <td>@(item.AssignedTo ?? "—")@(item.ResolvedBy is not null ? $" · {item.ResolvedBy}" : "")</td>
+                                    <td>
+                                        @if (item.Status is "Open" or "Investigating")
+                                        {
+                                            <div class="d-flex gap-1">
+                                                <input class="form-control form-control-sm" style="width: 130px"
+                                                       placeholder="Người xử lý"
+                                                       @bind="_assignNames[item.Id]"
+                                                       data-testid="rc-item-assign-input" />
+                                                <VanAButton Variant="secondary" Size="small"
+                                                            OnClick="() => AssignItemAsync(item.Id)"
+                                                            data-testid="rc-item-assign">
+                                                    Giao
+                                                </VanAButton>
+                                                <VanAButton Variant="primary" Size="small"
+                                                            OnClick="() => OpenResolveModal(item)"
+                                                            data-testid="rc-item-resolve">
+                                                    Xong
+                                                </VanAButton>
+                                                <VanAButton Variant="secondary" Size="small"
+                                                            OnClick="() => OpenDismissModal(item)"
+                                                            data-testid="rc-item-dismiss">
+                                                    Bỏ qua
+                                                </VanAButton>
+                                            </div>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </ChildContent>
+        </VanACard>
+    }
+
+    @* Modal ghi chú resolve/dismiss *@
+    <VanAModal Title="@(_itemModalMode == "resolve" ? "Đánh dấu đã xử lý" : "Bỏ qua chênh lệch")"
+               IsVisible="@_showItemModal" Size="small"
+               OnClose="CloseItemModal">
+        <Body>
+            <div class="form-group">
+                <label>Ghi chú xử lý</label>
+                <input type="text" class="form-control" @bind="_itemNote"
+                       placeholder="Mô tả cách xử lý / lý do bỏ qua..." data-testid="rc-item-note" />
+            </div>
+        </Body>
+        <Footer>
+            <VanAButton Variant="secondary" OnClick="CloseItemModal">Huỷ</VanAButton>
+            <VanAButton Variant="primary" IsLoading="@_itemActionBusy" OnClick="ConfirmItemActionAsync"
+                        data-testid="rc-item-confirm">
+                Xác nhận
+            </VanAButton>
+        </Footer>
+    </VanAModal>
 </div>
 
 @code {
@@ -128,6 +242,17 @@
     private bool _isRunning;
     private string _alertMessage = string.Empty;
     private string _alertType = "info";
+
+    // W5/F (FR-RECNC-005): ReconciliationItems workflow state.
+    private List<ReconciliationItemEntity> _items = new();
+    private Dictionary<Guid, string> _assignNames = new();
+    private string _itemStatusFilter = string.Empty;
+    private bool _itemsLoading;
+    private bool _showItemModal;
+    private bool _itemActionBusy;
+    private string _itemModalMode = "resolve"; // "resolve" | "dismiss"
+    private ReconciliationItemEntity? _modalItem;
+    private string _itemNote = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -162,6 +287,8 @@
         try
         {
             _result = await ReconcileApi.RunAsync(tid, _period.Trim());
+            // W5/F: run emit ReconciliationItems phía server — reload danh sách.
+            await LoadItemsAsync();
         }
         catch (Exception ex)
         {
@@ -172,6 +299,109 @@
         finally
         {
             _isRunning = false;
+        }
+    }
+
+    // ── W5/F (FR-RECNC-005): ReconciliationItems workflow ────────────────────
+
+    private async Task LoadItemsAsync()
+    {
+        if (!Guid.TryParse(_tenantId, out Guid tid)) return;
+        _itemsLoading = true;
+        try
+        {
+            _items = (await ReconItemService.ListAsync(new TenantId(tid),
+                string.IsNullOrWhiteSpace(_itemStatusFilter) ? null : _itemStatusFilter)).ToList();
+            foreach (var item in _items)
+            {
+                _assignNames[item.Id] = item.AssignedTo ?? string.Empty;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Load reconciliation items failed");
+            _alertType = "error";
+            _alertMessage = $"Không tải được danh sách chênh lệch: {ex.Message}";
+        }
+        finally
+        {
+            _itemsLoading = false;
+        }
+    }
+
+    private async Task AssignItemAsync(Guid itemId)
+    {
+        string assignTo = _assignNames.TryGetValue(itemId, out string? name) ? name.Trim() : string.Empty;
+        if (string.IsNullOrEmpty(assignTo))
+        {
+            _alertType = "warning";
+            _alertMessage = "Nhập người phụ trách trước khi giao.";
+            return;
+        }
+        try
+        {
+            await ReconItemService.AssignAsync(itemId, assignTo);
+            _alertType = "info";
+            _alertMessage = $"Đã giao chênh lệch cho {assignTo}.";
+            await LoadItemsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Assign reconciliation item {ItemId} failed", itemId);
+            _alertType = "error";
+            _alertMessage = $"Giao việc thất bại: {ex.Message}";
+        }
+    }
+
+    private void OpenResolveModal(ReconciliationItemEntity item) => OpenItemModal(item, "resolve");
+    private void OpenDismissModal(ReconciliationItemEntity item) => OpenItemModal(item, "dismiss");
+
+    private void OpenItemModal(ReconciliationItemEntity item, string mode)
+    {
+        _modalItem = item;
+        _itemModalMode = mode;
+        _itemNote = string.Empty;
+        _showItemModal = true;
+    }
+
+    private void CloseItemModal()
+    {
+        _showItemModal = false;
+        _modalItem = null;
+        _itemNote = string.Empty;
+    }
+
+    private async Task ConfirmItemActionAsync()
+    {
+        if (_modalItem is null) return;
+        _itemActionBusy = true;
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            string resolvedBy = authState.User.Identity?.Name ?? "systemadmin";
+            string? note = string.IsNullOrWhiteSpace(_itemNote) ? null : _itemNote.Trim();
+            if (_itemModalMode == "resolve")
+            {
+                await ReconItemService.ResolveAsync(_modalItem.Id, resolvedBy, note);
+            }
+            else
+            {
+                await ReconItemService.DismissAsync(_modalItem.Id, resolvedBy, note);
+            }
+            _alertType = "info";
+            _alertMessage = _itemModalMode == "resolve" ? "Đã đánh dấu chênh lệch đã xử lý." : "Đã bỏ qua chênh lệch.";
+            CloseItemModal();
+            await LoadItemsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Reconciliation item action failed");
+            _alertType = "error";
+            _alertMessage = $"Xử lý thất bại: {ex.Message}";
+        }
+        finally
+        {
+            _itemActionBusy = false;
         }
     }
 }

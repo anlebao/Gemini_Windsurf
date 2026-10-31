@@ -6,7 +6,10 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using VanAn.CoreHub.Infrastructure.Entities;
 using VanAn.CoreHub.Services;
+using VanAn.CoreHub.Services.Reconcile;
+using VanAn.Shared.Domain;
 using VanAn.ShopERP.Components.Pages.Admin;
 using VanAn.ShopERP.Services;
 using Xunit;
@@ -53,7 +56,7 @@ public class ReconcilePageTests : ComponentTestBase
          "suggestions":["R12: Entries có TransactionDate xấu — chạy backfill"]}
         """;
 
-    private StubHandler RegisterClients(string? jwtToken = "t")
+    private StubHandler RegisterClients(string? jwtToken = "t", IReconciliationItemService? itemService = null)
     {
         var handler = new StubHandler();
         var http = new HttpClient(handler) { BaseAddress = new Uri("http://localhost") };
@@ -70,6 +73,10 @@ public class ReconcilePageTests : ComponentTestBase
             NullLogger<ReconcileAdminApiClient>.Instance));
         Services.AddSingleton(new TenantApiClient(factory.Object, config, jwt.Object, auth,
             NullLogger<TenantApiClient>.Instance));
+        if (itemService != null)
+        {
+            Services.AddSingleton(itemService);
+        }
         return handler;
     }
 
@@ -108,5 +115,65 @@ public class ReconcilePageTests : ComponentTestBase
         }, TimeSpan.FromSeconds(5));
         cut.Markup.Should().Contain("R12: Entries có TransactionDate xấu");
         handler.LastUri.Should().Contain("api/admin/accounting/reconcile?tenantId=00000000-0000-0000-0000-0000000000ab&period=2026-10");
+    }
+
+    // ── W5/F (FR-RECNC-005): ReconciliationItems workflow section ─────────────
+
+    [Fact]
+    public void T03_Run_LoadsReconciliationItems_WithActions()
+    {
+        var tenantGuid = Guid.Parse("00000000-0000-0000-0000-0000000000ab");
+        var item = new ReconciliationItemEntity(new TenantId(tenantGuid), "R12", 2026, 10,
+            "warning", "R12 Ngày nghiệp vụ: 2/267 entries ngày xấu");
+        var items = new Mock<IReconciliationItemService>();
+        items.Setup(s => s.ListAsync(It.IsAny<TenantId>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { item });
+
+        var handler = RegisterClients(itemService: items.Object);
+        handler.Enqueue(HttpStatusCode.OK, TenantsJson); // ListAllAsync
+        var cut = RenderComponent<Reconcile>();
+
+        cut.Find("[data-testid='rc-tenant']").Change("00000000-0000-0000-0000-0000000000ab");
+        cut.Find("#rc-period").Input("2026-10");
+        handler.Enqueue(HttpStatusCode.OK, ResultJson);
+
+        cut.Find("[data-testid='btn-run-reconcile']").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.FindAll("[data-testid='rc-item-row']").Should().HaveCount(1);
+            cut.Markup.Should().Contain("R12 Ngày nghiệp vụ");
+            // Item Open → có actions assign + resolve + dismiss
+            cut.Find("[data-testid='rc-item-assign-input']").Should().NotBeNull();
+            cut.Find("[data-testid='rc-item-resolve']").Should().NotBeNull();
+            cut.Find("[data-testid='rc-item-dismiss']").Should().NotBeNull();
+        }, TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public void T04_ResolvedItem_HidesActions()
+    {
+        var tenantGuid = Guid.Parse("00000000-0000-0000-0000-0000000000ab");
+        var item = new ReconciliationItemEntity(new TenantId(tenantGuid), "R1", 2026, 10,
+            "error", "R1 JE balance: 1 JE lệch");
+        item.Resolve("admin", "đã sửa bút toán");
+        var items = new Mock<IReconciliationItemService>();
+        items.Setup(s => s.ListAsync(It.IsAny<TenantId>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { item });
+
+        var handler = RegisterClients(itemService: items.Object);
+        handler.Enqueue(HttpStatusCode.OK, TenantsJson);
+        var cut = RenderComponent<Reconcile>();
+
+        cut.Find("[data-testid='rc-tenant']").Change("00000000-0000-0000-0000-0000000000ab");
+        handler.Enqueue(HttpStatusCode.OK, ResultJson);
+        cut.Find("[data-testid='btn-run-reconcile']").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Resolved");
+            cut.Markup.Should().Contain("đã sửa bút toán");
+            cut.FindAll("[data-testid='rc-item-resolve']").Should().BeEmpty();
+        }, TimeSpan.FromSeconds(5));
     }
 }

@@ -118,8 +118,21 @@ public class ComponentTestBase : TestContext
         mockBankAccounts.Setup(b => b.ResolveCashAccountCodeAsync(
                 It.IsAny<TenantId>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("111");
+        mockBankAccounts.Setup(b => b.ListAsync(
+                It.IsAny<TenantId>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<VanAn.CoreHub.Infrastructure.Entities.BankAccountEntity>());
         Services.AddSingleton(mockBankAccounts.Object);
         Services.AddSingleton<IAuditTrailService>(_ => new Mock<IAuditTrailService>().Object);
+
+        // SRS v1.2 W5/F (2026-10-31): IReconciliationItemService + IBankStatementService —
+        // mock by default (Reconcile.razor items section + BankBook.razor sao kê inject).
+        var mockReconItems = new Mock<VanAn.CoreHub.Services.Reconcile.IReconciliationItemService>();
+        mockReconItems.Setup(s => s.ListAsync(
+                It.IsAny<TenantId>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<VanAn.CoreHub.Infrastructure.Entities.ReconciliationItemEntity>());
+        Services.AddSingleton(mockReconItems.Object);
+        Services.AddSingleton<VanAn.CoreHub.Services.Reconcile.IBankStatementService>(
+            _ => new Mock<VanAn.CoreHub.Services.Reconcile.IBankStatementService>().Object);
 
         // Issue #197 (2026-10-29): metering client + attribute resolver — mock by default.
         // MeteringDenyGate/FeatureUsageRecorder (AccountingLayout/Loyalty/Booking pages) inject

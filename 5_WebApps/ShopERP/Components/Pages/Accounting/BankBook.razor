@@ -12,9 +12,11 @@
 @using VanAn.Shared.Domain.Common
 @using VanAn.CoreHub.Services
 @using VanAn.CoreHub.Services.GeneralLedger
+@using VanAn.CoreHub.Services.Reconcile
 @using VanAn.CoreHub.Infrastructure.Entities
 @inject IGeneralLedgerService GeneralLedgerService
 @inject IBankAccountService BankAccountService
+@inject IBankStatementService BankStatementService
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
 @inject IJSRuntime JSRuntime
@@ -134,6 +136,71 @@
         </VanAnDataGrid>
     </VanACard>
 
+    @* W5/F (FR-RECNC-001): đối chiếu sao kê ngân hàng — import CSV + match report
+       vs journal lines trên TK 112x. KHÔNG auto-post entry (unmatched xử lý thủ công). *@
+    @if (bankAccounts.Count > 0)
+    {
+        <VanACard Header="Đối chiếu sao kê ngân hàng">
+            <p class="small text-muted">
+                Import file sao kê CSV định dạng <code>Ngày,Số tiền,Số tham chiếu,Diễn giải</code>
+                (ngày dd/MM/yyyy hoặc yyyy-MM-dd; tiền vào dương, tiền ra âm) rồi bấm
+                <strong>Đối chiếu</strong> để khớp với sổ TK <strong>@selectedAccountCode</strong>.
+            </p>
+            <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                <InputFile OnChange="OnStatementFileSelected" accept=".csv,text/csv"
+                           data-testid="bankstmt-file-input" />
+                @if (_stmtFileName != null)
+                {
+                    <VanAButton Variant="primary" Size="small" OnClick="ImportStatementAsync"
+                                Disabled="@_stmtBusy" data-testid="bankstmt-import">
+                        @(_stmtBusy ? "Đang import..." : "Import sao kê")
+                    </VanAButton>
+                }
+                <VanAButton Variant="secondary" Size="small" OnClick="ReconcileStatementAsync"
+                            Disabled="@_stmtBusy" data-testid="bankstmt-reconcile">
+                    @(_stmtBusy ? "Đang đối chiếu..." : "Đối chiếu")
+                </VanAButton>
+            </div>
+            @if (_stmtMessage != null)
+            {
+                <VanAAlert Type="@(_stmtError ? "error" : "success")" Message="@_stmtMessage"
+                           Dismissible="true" OnDismiss="() => _stmtMessage = null" />
+            }
+            @if (_stmtReport != null)
+            {
+                <div class="d-flex align-items-center gap-3 mb-2" data-testid="bankstmt-report">
+                    <span class="badge text-bg-success">Đã khớp @_stmtReport.MatchedCount/@_stmtReport.TotalStatementLines dòng</span>
+                    <span class="badge @(_stmtReport.UnmatchedStatementLines.Count > 0 ? "text-bg-warning" : "text-bg-secondary")">
+                        @_stmtReport.UnmatchedStatementLines.Count dòng sao kê chưa khớp
+                    </span>
+                    <span class="badge @(_stmtReport.UnmatchedJournalLineIds.Count > 0 ? "text-bg-warning" : "text-bg-secondary")">
+                        @_stmtReport.UnmatchedJournalLineIds.Count dòng sổ chưa khớp
+                    </span>
+                </div>
+                @if (_stmtReport.UnmatchedStatementLines.Count > 0)
+                {
+                    <p class="small text-muted mb-1">Dòng sao kê chưa khớp — kiểm tra và tạo phiếu thủ công nếu cần:</p>
+                    <table class="table table-sm table-striped" data-testid="bankstmt-unmatched-table">
+                        <thead class="table-light">
+                            <tr><th>Ngày</th><th class="text-end">Số tiền</th><th>Tham chiếu</th><th>Diễn giải</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var line in _stmtReport.UnmatchedStatementLines)
+                            {
+                                <tr data-testid="bankstmt-unmatched-row">
+                                    <td>@line.TxnDate.ToString("dd/MM/yyyy")</td>
+                                    <td class="text-end">@line.Amount.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</td>
+                                    <td>@(line.Reference ?? "—")</td>
+                                    <td>@(line.Description ?? "—")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            }
+        </VanACard>
+    }
+
     @if (loading)
     {
         <VanACard Header="Đang tải">
@@ -210,6 +277,15 @@
     private string _newBank = "";
     private string _newNumber = "";
     private string? _accountError;
+
+    // W5/F (FR-RECNC-001): sao kê ngân hàng
+    private const long MaxStatementSize = 2 * 1024 * 1024; // 2MB
+    private string? _stmtFileName;
+    private string? _stmtCsv;
+    private bool _stmtBusy;
+    private bool _stmtError;
+    private string? _stmtMessage;
+    private BankReconcileReport? _stmtReport;
 
     protected override async Task OnInitializedAsync()
     {
@@ -312,6 +388,100 @@
         finally
         {
             loading = false;
+        }
+    }
+
+    // ── W5/F (FR-RECNC-001): sao kê ngân hàng — import CSV + đối chiếu ────────
+
+    private BankAccountEntity? SelectedBankAccount =>
+        bankAccounts.FirstOrDefault(b => b.AccountCode == selectedAccountCode);
+
+    private async Task OnStatementFileSelected(InputFileChangeEventArgs e)
+    {
+        _stmtMessage = null;
+        _stmtError = false;
+        if (e.File == null)
+        {
+            return;
+        }
+        if (!e.File.Name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+        {
+            _stmtError = true;
+            _stmtMessage = "Chỉ nhận file .csv.";
+            _stmtFileName = null;
+            _stmtCsv = null;
+            return;
+        }
+        try
+        {
+            await using Stream stream = e.File.OpenReadStream(MaxStatementSize);
+            using var reader = new StreamReader(stream);
+            _stmtCsv = await reader.ReadToEndAsync();
+            _stmtFileName = e.File.Name;
+            _stmtMessage = $"Đã đọc file {e.File.Name} — bấm Import sao kê để ghi {_stmtCsv.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length} dòng.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Statement file read failed");
+            _stmtError = true;
+            _stmtMessage = $"Lỗi đọc file: {ex.Message}";
+            _stmtFileName = null;
+            _stmtCsv = null;
+        }
+    }
+
+    private async Task ImportStatementAsync()
+    {
+        if (!TenantProvider.HasTenant || SelectedBankAccount is not { } account || _stmtCsv is null)
+        {
+            return;
+        }
+        _stmtBusy = true;
+        _stmtMessage = null;
+        _stmtError = false;
+        try
+        {
+            int imported = await BankStatementService.ImportCsvAsync(
+                new TenantId(TenantProvider.TenantId), account.Id, _stmtCsv);
+            _stmtMessage = $"Đã import {imported} dòng sao kê cho TK {account.AccountCode}.";
+            _stmtFileName = null;
+            _stmtCsv = null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Statement import failed");
+            _stmtError = true;
+            _stmtMessage = $"Lỗi import sao kê: {ex.Message}";
+        }
+        finally
+        {
+            _stmtBusy = false;
+        }
+    }
+
+    private async Task ReconcileStatementAsync()
+    {
+        if (!TenantProvider.HasTenant || SelectedBankAccount is not { } account)
+        {
+            return;
+        }
+        _stmtBusy = true;
+        _stmtMessage = null;
+        _stmtError = false;
+        try
+        {
+            _stmtReport = await BankStatementService.ReconcileAsync(
+                new TenantId(TenantProvider.TenantId), account.Id);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Statement reconcile failed");
+            _stmtError = true;
+            _stmtMessage = $"Lỗi đối chiếu: {ex.Message}";
+        }
+        finally
+        {
+            _stmtBusy = false;
         }
     }
 

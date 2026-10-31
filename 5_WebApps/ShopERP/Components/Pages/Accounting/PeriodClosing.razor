@@ -141,10 +141,25 @@
     {
         <VanACard Title="Trạng Thái Kỳ Hiện Tại">
             <p>Kỳ <strong>@selectedYear-@selectedMonth.ToString("D2")</strong>: <strong>@currentStatus</strong></p>
-            @* W4 (P1.2): ẩn thao tác mở lại kỳ với role không đủ quyền — service vẫn enforce lại. *@
-            @if (currentStatus == PeriodClosingStatus.Closed && canReopen)
+            <div class="d-flex gap-2 flex-wrap">
+                @* W5/F (KT07-09): nút kết chuyển thủ công — chỉ DN (TT133/99) + HTX (TT71);
+                   HKD/DNSN tự skip phía service; idempotent (đã có closing JE → trả 0). *@
+                @if (currentStatus == PeriodClosingStatus.Open)
+                {
+                    <VanAButton Variant="secondary" Size="small" IsLoading="@isGeneratingClosing"
+                                OnClick="GenerateClosingEntries" data-testid="btn-gen-closing">
+                        Tạo Bút Toán Kết Chuyển (911)
+                    </VanAButton>
+                }
+                @* W4 (P1.2): ẩn thao tác mở lại kỳ với role không đủ quyền — service vẫn enforce lại. *@
+                @if (currentStatus == PeriodClosingStatus.Closed && canReopen)
+                {
+                    <VanAButton Variant="danger" OnClick="ShowReopenDialog">⚠ Mở Lại Kỳ Này</VanAButton>
+                }
+            </div>
+            @if (closingGenMessage != null)
             {
-                <VanAButton Variant="danger" OnClick="ShowReopenDialog">⚠ Mở Lại Kỳ Này</VanAButton>
+                <p class="text-muted mt-2 mb-0" data-testid="closing-gen-message">@closingGenMessage</p>
             }
         </VanACard>
     }
@@ -203,6 +218,8 @@
     private string reopenConfirmText = string.Empty;
     private ReopenPreview? reopenPreview;
     private bool canReopen;
+    private bool isGeneratingClosing;
+    private string? closingGenMessage;
     private string errorMessage = string.Empty;
     private string successMessage = string.Empty;
 
@@ -320,6 +337,37 @@
             Logger.LogError(ex, "Reopen period failed");
         }
         finally { isLoading = false; }
+    }
+
+    /// <summary>W5/F (KT07-09): tạo bút toán kết chuyển 911 thủ công — cùng service gọi trong
+    /// ClosePeriodAsync. Idempotent: đã có closing JE trong kỳ → trả 0; HKD/DNSN skip → trả 0.</summary>
+    private async Task GenerateClosingEntries()
+    {
+        isGeneratingClosing = true;
+        closingGenMessage = null;
+        ClearMessages();
+        try
+        {
+            if (!TenantProvider.HasTenant)
+            {
+                errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userId = Guid.TryParse(authState.User.FindFirst("sub")?.Value, out var uid) ? uid : Guid.NewGuid();
+            var period = new AccountingPeriod(selectedYear, selectedMonth);
+            int created = await PeriodClosingService.GenerateClosingEntriesAsync(
+                period, new TenantId(TenantProvider.TenantId), userId);
+            closingGenMessage = created > 0
+                ? $"Đã tạo {created} bút toán kết chuyển cho kỳ {selectedYear}-{selectedMonth:D2}."
+                : $"Không có bút toán kết chuyển nào được tạo (đã tồn tại, không có phát sinh, hoặc chế độ không yêu cầu).";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Không thể tạo bút toán kết chuyển: {ex.Message}";
+            Logger.LogError(ex, "GenerateClosingEntries failed for {Year}-{Month}", selectedYear, selectedMonth);
+        }
+        finally { isGeneratingClosing = false; }
     }
 
     private async Task ShowReopenDialog()

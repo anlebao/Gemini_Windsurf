@@ -346,4 +346,29 @@ public class PeriodClosingTests : ComponentTestBase
         cut.Markup.Should().Contain("Đóng Sổ Kỳ Khác");
         cut.Markup.Should().Contain("Về Trang Kế Toán");
     }
+
+    // ── W5/F (KT07-09): nút tạo bút toán kết chuyển thủ công ──────────────────
+
+    [Fact(DisplayName = "W5-PC-20: 'Tạo Bút Toán Kết Chuyển' button renders when period Open")]
+    public void Page_Renders_ClosingEntriesButton_WhenOpen()
+    {
+        var mock = SetupService(status: PeriodClosingStatus.Open);
+        var cut = RenderClosing(mock);
+        cut.Render();
+
+        cut.WaitForAssertion(() =>
+            cut.Markup.Should().Contain("Tạo Bút Toán Kết Chuyển"), TimeSpan.FromSeconds(5));
+    }
+
+    [Fact(DisplayName = "W5-PC-21: 'Tạo Bút Toán Kết Chuyển' button hidden when period Closed")]
+    public void Page_Hides_ClosingEntriesButton_WhenClosed()
+    {
+        SetTestRoles("Owner");
+        var mock = SetupService(status: PeriodClosingStatus.Closed);
+        var cut = RenderClosing(mock);
+        cut.Render();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Mở Lại Kỳ Này"), TimeSpan.FromSeconds(5));
+        cut.Markup.Should().NotContain("Tạo Bút Toán Kết Chuyển");
+    }
 }
