@@ -37,7 +37,8 @@ public class BookingAccountingServiceTests
                 It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
                 It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), null, null))
             .ReturnsAsync((TenantId _, AccountingPeriod _, decimal amount, string desc,
-                string? accountCode, string? reference, IndustrySector? sector, DateTime? txDate) =>
+                string? accountCode, string? reference, IndustrySector? sector, DateTime? txDate,
+                string? _, string? _) =>
                 new AccountingEntryDto
                 {
                     Id = Guid.NewGuid(),
