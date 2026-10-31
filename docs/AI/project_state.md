@@ -346,7 +346,7 @@ Server A (Edge):              Server B (Central):
 ## 10. Maintenance Log
 
 > Full historical maintenance log (pre-2026-09-17): see `docs/AI/project_state_archive.md`.
-> **Last Updated:** 2026-10-31 (lần 10) · **Branch:** `main` @ `5d19966b` (W2 flags WIDENED all tenants · W3 deployed · W4/C2 deployed + RV PASS · **W5/F DONE — backend+UI deployed + RV L1-L4 PASS** · còn W6/E)
+> **Last Updated:** 2026-10-31 (lần 11) · **Branch:** `main` @ `602fb348` (W2 flags WIDENED all tenants · W3 deployed · W4/C2 deployed + RV PASS · W5/F deployed + RV PASS · **W6/E PUSHED — chờ CD + RV** — wave cuối SRS v1.2)
 
 ## Regime-Lock — chuẩn kế toán theo Tenant.Type (`615d85ac`, 2026-10-30 — DEPLOYED + RV PASS)
 

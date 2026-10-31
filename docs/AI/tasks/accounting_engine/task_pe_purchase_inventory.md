@@ -1,6 +1,6 @@
 # TASK CARD E — PURCHASE DOCS · INVENTORY GL LINK · RECONCILE MỞ RỘNG
 
-> Status: ⏳ PENDING — chờ Phase B+C · **CÓ THỂ TÁCH TRIỂN KHAI RIÊNG (Q8)**
+> Status: 🟡 IMPLEMENTED + PUSHED `602fb348` (2026-10-31) — chờ CD + RV L1-L3 · **CÓ THỂ TÁCH TRIỂN KHAI RIÊNG (Q8)**
 > Master plan: `docs/AI/plans/accounting-engine-master-plan.md` (§4.E) · Gap đóng: **G-H5 · FR-PUR-001/002/005/007 · FR-SUB-003 · FR-RECNC-004 · AT-007/008**
 > ⚠️ Phần phức tạp nhất: accounting PG ↔ stock SQLite (cross-DB) — mirror/outbox pattern (precedent `MirrorOrderHttpProvider`, outbox skill `nats-sqlite-deployment-validation`).
 
@@ -44,12 +44,21 @@ Chuỗi chứng từ mua tối thiểu (nhập mua → phải trả → trả h�
 
 ## 4. ACCEPTANCE CRITERIA
 
-- [ ] Nhập chịu → Nợ{map}/Có331 đúng regime; trả ngay → Có 111/112 — AT-007
-- [ ] Trả hàng → đảo link gốc, kho/công nợ điều chỉnh — AT-008
-- [ ] Sync lặp receipt → không JE/entry trùng — FR-PUR-007
-- [ ] R13: chênh lệch kho↔GL được liệt kê + suggestion; provider down → Skipped không fail
-- [ ] Payable từ receipt → CongNo ledger đúng đối tượng
-- [ ] guard + build + sweep PASS
+- [x] Nhập chịu → Nợ{map}/Có331 đúng regime; trả ngay → Có 111/112 — AT-007
+- [x] Trả hàng → đảo link gốc, kho/công nợ điều chỉnh — AT-008
+- [x] Sync lặp receipt → không JE/entry trùng — FR-PUR-007
+- [x] R13: chênh lệch kho↔GL được liệt kê + suggestion; provider down → Skipped không fail
+- [x] Payable từ receipt → CongNo ledger đúng đối tượng
+- [x] guard + build + sweep PASS (guard ALL PASSED · build 0 err · Core.Tests 2572 · tests +9)
+
+## 6. IMPLEMENT LOG (2026-10-31 — W6/E, commit `602fb348`)
+
+- `PurchaseReceiptEntity`+`PurchaseReceiptLineEntity` (infra entity, pattern InternalTransfer) + migration `20261031125754_AddPurchaseInventoryW6` (PG only — filtered unique (TenantId,SourceEventId)).
+- `PurchaseReceiptService`: credit → JE `purchase` Nợ{debit}/Có331 (+Nợ133 VAT) + `CongNoService.CreatePayableAsync` (PayableEntryId link) · immediate → JE `purchase-cash` Có{cash} · ReturnAsync → JE đảo `purchase-return` (ReversedJournalId) + `ReversalService` đảo phiếu nợ (net→0). SourceEventId lặp → trả phiếu cũ.
+- Account map: event `purchase`→({src},331) + `purchase-cash`→({src},{cash}) seeded mọi regime + builtin — counter-account {src} do phiếu mang theo (156 DN / 611 HTX / 6xx HKD — chốt: không cần tenant config rule).
+- R13 `Tồn kho ↔ GL 15x` trong AccountingReconcileService (fail-open; GL15x=0+stock>0→Info; diff>0.01→Warning) + `IInventoryValuationProvider`/`InventoryValuationHttpProvider` (Gateway typed client, X-Internal-Api-Key) + ShopERP `api/shoperp/inventory/valuation` ([InternalApiKey], ΣCurrentStock×PricePerUnit — không có movement table → snapshot only).
+- ShopERP `api/shop/accounting/purchase-receipts` (CRUD + return — backend-first, chưa UI).
+- Tests: `PurchaseReceiptServiceTests` 4 + `R13InventoryReconcileTests` 5 = 9/9 PASS.
 
 ## 5. TEST CASES
 
