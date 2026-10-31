@@ -59,8 +59,79 @@
         </div>
         @if (bankAccounts.Count == 0 && !loading)
         {
-            <p class="text-muted mt-2 mb-0">Chưa có tài khoản ngân hàng — thêm TK 112x trong quản lý tài khoản tiền để xem sổ TGNH.</p>
+            <p class="text-muted mt-2 mb-0">Chưa có tài khoản ngân hàng — thêm TK 112x bên dưới để xem sổ TGNH.</p>
         }
+    </VanACard>
+
+    @* Quản lý TK tiền: danh sách + thêm TK 112x (quỹ 111 seed sẵn, không cho vô hiệu). *@
+    <VanACard Header="Tài khoản tiền của đơn vị">
+        <div class="mb-3">
+            <VanAButton Variant="secondary" Size="small" OnClick="() => _showAddForm = !_showAddForm" data-testid="bankbook-toggle-add">
+                @(_showAddForm ? "− Ẩn form" : "＋ Thêm tài khoản ngân hàng")
+            </VanAButton>
+        </div>
+
+        @if (_showAddForm)
+        {
+            <div class="row g-2 mb-3" data-testid="bankbook-add-form">
+                <div class="col-md-2">
+                    <label class="form-label small">Mã TK <span class="text-danger">*</span></label>
+                    <input class="form-control" @bind="_newCode" placeholder="1121" data-testid="bankbook-add-code" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Tên hiển thị <span class="text-danger">*</span></label>
+                    <input class="form-control" @bind="_newName" placeholder="TK Vietcombank chính" data-testid="bankbook-add-name" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Ngân hàng</label>
+                    <input class="form-control" @bind="_newBank" placeholder="Vietcombank" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Số TK</label>
+                    <input class="form-control" @bind="_newNumber" placeholder="0011xxxxxx" />
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <VanAButton Variant="primary" Size="small" OnClick="CreateAccountAsync"
+                                Disabled="@_savingAccount" data-testid="bankbook-add-submit">
+                        @(_savingAccount ? "Đang lưu..." : "Lưu")
+                    </VanAButton>
+                </div>
+            </div>
+            @if (_accountError != null)
+            {
+                <VanAAlert Type="error" Message="@_accountError" Dismissible="true" OnDismiss="() => _accountError = null" />
+            }
+        }
+
+        <VanAnDataGrid TItem="BankAccountEntity" Items="@allAccounts" EmptyMessage="Chưa có tài khoản tiền">
+            <Columns>
+                <VanAnColumn TItem="BankAccountEntity" Title="Mã TK" Width="2">
+                    <Template Context="a"><span><strong>@a.AccountCode</strong></span></Template>
+                </VanAnColumn>
+                <VanAnColumn TItem="BankAccountEntity" Title="Tên hiển thị" Width="4">
+                    <Template Context="a"><span>@a.DisplayName</span></Template>
+                </VanAnColumn>
+                <VanAnColumn TItem="BankAccountEntity" Title="Ngân hàng" Width="3">
+                    <Template Context="a"><span>@(a.BankName ?? "—")</span></Template>
+                </VanAnColumn>
+                <VanAnColumn TItem="BankAccountEntity" Title="Số TK" Width="2">
+                    <Template Context="a"><span>@(a.AccountNumber ?? "—")</span></Template>
+                </VanAnColumn>
+                <VanAnColumn TItem="BankAccountEntity" Title="Trạng thái" Width="2">
+                    <Template Context="a">
+                        <span class="badge @(a.IsActive ? "text-bg-success" : "text-bg-secondary")">@(a.IsActive ? "Đang dùng" : "Vô hiệu")</span>
+                    </Template>
+                </VanAnColumn>
+                <VanAnColumn TItem="BankAccountEntity" Title="" Width="2">
+                    <Template Context="a">
+                        @if (a.IsActive && a.AccountCode != "111")
+                        {
+                            <VanAButton Variant="secondary" Size="small" OnClick="() => DeactivateAccountAsync(a.Id)">Vô hiệu</VanAButton>
+                        }
+                    </Template>
+                </VanAnColumn>
+            </Columns>
+        </VanAnDataGrid>
     </VanACard>
 
     @if (loading)
@@ -123,12 +194,22 @@
 
 @code {
     private List<BankAccountEntity> bankAccounts = new();
+    private List<BankAccountEntity> allAccounts = new();
     private SubLedgerReportDto? report;
     private bool loading = true;
     private string? errorMessage;
     private int selectedYear = DateTime.UtcNow.Year;
     private int selectedMonth = DateTime.UtcNow.Month;
     private string selectedAccountCode = "";
+
+    // Quản lý TK tiền
+    private bool _showAddForm;
+    private bool _savingAccount;
+    private string _newCode = "";
+    private string _newName = "";
+    private string _newBank = "";
+    private string _newNumber = "";
+    private string? _accountError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -150,14 +231,59 @@
         {
             if (!TenantProvider.HasTenant) return;
             TenantId tenantId = new(TenantProvider.TenantId);
-            bankAccounts = (await BankAccountService.ListAsync(tenantId))
-                .Where(b => b.AccountCode.StartsWith("112"))
+            allAccounts = (await BankAccountService.ListAsync(tenantId, includeInactive: true)).ToList();
+            bankAccounts = allAccounts
+                .Where(b => b.IsActive && b.AccountCode.StartsWith("112"))
                 .ToList();
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error loading bank accounts");
             errorMessage = $"Lỗi tải danh sách TK ngân hàng: {ex.Message}";
+        }
+    }
+
+    private async Task CreateAccountAsync()
+    {
+        _accountError = null;
+        if (!TenantProvider.HasTenant) return;
+        _savingAccount = true;
+        try
+        {
+            await BankAccountService.CreateAsync(new TenantId(TenantProvider.TenantId),
+                _newCode, _newName,
+                string.IsNullOrWhiteSpace(_newBank) ? null : _newBank,
+                string.IsNullOrWhiteSpace(_newNumber) ? null : _newNumber);
+            _newCode = _newName = _newBank = _newNumber = "";
+            _showAddForm = false;
+            await LoadBankAccounts();
+            if (string.IsNullOrEmpty(selectedAccountCode) && bankAccounts.Count > 0)
+            {
+                selectedAccountCode = bankAccounts[0].AccountCode;
+                await LoadReport();
+            }
+        }
+        catch (Exception ex)
+        {
+            _accountError = ex.Message;
+        }
+        finally
+        {
+            _savingAccount = false;
+        }
+    }
+
+    private async Task DeactivateAccountAsync(Guid id)
+    {
+        _accountError = null;
+        try
+        {
+            await BankAccountService.DeactivateAsync(id);
+            await LoadBankAccounts();
+        }
+        catch (Exception ex)
+        {
+            _accountError = ex.Message;
         }
     }
 
