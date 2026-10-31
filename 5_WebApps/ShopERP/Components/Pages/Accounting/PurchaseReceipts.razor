@@ -1,0 +1,408 @@
+@page "/accounting/purchase-receipts"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "AccountingAccess")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.CoreHub.Infrastructure.Entities
+@using VanAn.CoreHub.Services.Purchase
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@inject IPurchaseReceiptService PurchaseService
+@inject ITenantProvider TenantProvider
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@inject ILogger<PurchaseReceipts> Logger
+
+<PageTitle>Phiếu Nhập Mua - Vạn An</PageTitle>
+
+<div class="purchase-receipts-page">
+    <header class="page-header mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="mb-0"><i class="bi bi-basket"></i> Phiếu Nhập Mua</h1>
+        <VanAButton Variant="primary" Size="small" OnClick="GoCreate" data-testid="receipt-create">
+            <i class="bi bi-plus-circle"></i> Lập phiếu nhập
+        </VanAButton>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <VanAAlert Variant="@(_messageIsError ? "error" : "success")" Message="@_message" Dismissible="true" OnDismiss="() => _message = null" data-testid="receipts-alert" />
+    }
+
+    <VanACard class="mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label small">Từ ngày</label>
+                <input type="date" class="form-control form-control-sm" @bind="_filterFrom" data-testid="filter-from" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Đến ngày</label>
+                <input type="date" class="form-control form-control-sm" @bind="_filterTo" data-testid="filter-to" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Trạng thái</label>
+                <select class="form-select form-select-sm" @bind="_filterStatus" data-testid="filter-status">
+                    <option value="">Tất cả</option>
+                    <option value="Draft">Nháp</option>
+                    <option value="Approved">Đã duyệt</option>
+                    <option value="Posted">Đã ghi sổ</option>
+                    <option value="Returned">Đã trả hàng</option>
+                    <option value="Cancelled">Đã hủy</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">NCC / số phiếu</label>
+                <input type="text" class="form-control form-control-sm" @bind="_filterQ" placeholder="Tìm..." data-testid="filter-q" />
+            </div>
+            <div class="col-md-2">
+                <VanAButton Variant="secondary" Size="small" OnClick="LoadAsync" data-testid="filter-apply">Lọc</VanAButton>
+            </div>
+        </div>
+    </VanACard>
+
+    <VanACard>
+        @if (_loading)
+        {
+            <VanASpinner Text="Đang tải..." />
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle" data-testid="receipts-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Số phiếu</th>
+                            <th>Ngày</th>
+                            <th>Nhà cung cấp</th>
+                            <th class="text-end">Tổng tiền</th>
+                            <th>Thanh toán</th>
+                            <th>Trạng thái</th>
+                            <th class="text-center">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (_receipts.Count == 0)
+                        {
+                            <tr><td colspan="7" class="text-center text-muted py-3">Chưa có phiếu nhập mua nào.</td></tr>
+                        }
+                        @foreach (var r in _receipts)
+                        {
+                            <tr data-testid="receipt-row-@r.Id">
+                                <td><strong>@r.VoucherNumber</strong></td>
+                                <td>@r.ReceiptDate.ToString("dd/MM/yyyy")</td>
+                                <td>
+                                    @r.SupplierName
+                                    @if (!string.IsNullOrEmpty(r.SupplierRef))
+                                    {
+                                        <div class="small text-muted">MST: @r.SupplierRef</div>
+                                    }
+                                </td>
+                                <td class="text-end">@r.TotalAmount.ToString("N0")đ</td>
+                                <td>@(r.PayMethod == PurchasePayMethod.Credit ? "Mua chịu" : $"Trả ngay ({r.CashAccountCode})")</td>
+                                <td>
+                                    @StatusBadge(r)
+                                    @if (r.Status == PurchaseReceiptStatus.Posted && r.PayMethod == PurchasePayMethod.Credit
+                                        && r.DueDate.HasValue && r.DueDate.Value.Date < DateTime.Today)
+                                    {
+                                        <span class="badge bg-danger ms-1" data-testid="overdue-badge">Quá hạn @((DateTime.Today - r.DueDate.Value.Date).Days)d</span>
+                                    }
+                                    @if (r.Status == PurchaseReceiptStatus.Posted && r.StockAppliedAt == null && r.Lines.Any(l => l.IngredientId.HasValue))
+                                    {
+                                        <span class="badge bg-warning text-dark ms-1" data-testid="stock-pending-badge">Chưa ghi kho</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <VanAButton Variant="info" Size="small" OnClick="() => OpenDetailAsync(r)" data-testid="@($"detail-{r.Id}")">
+                                        Chi tiết
+                                    </VanAButton>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </VanACard>
+</div>
+
+@* ═══ Modal chi tiết phiếu ═══ *@
+<VanAnModal IsOpen="@_showDetail" Title="@($"Phiếu nhập mua {_detail?.VoucherNumber}")" OnClose="CloseDetail" Closable="true">
+    @if (_detail != null)
+    {
+        <div class="mb-2 d-flex align-items-center gap-2 flex-wrap">
+            @StatusBadge(_detail)
+            <span class="small text-muted">Ngày @_detail.ReceiptDate.ToString("dd/MM/yyyy")</span>
+            @if (_detail.ApprovedAt.HasValue)
+            {
+                <span class="small text-muted">· Duyệt bởi @(_detail.ApprovedBy ?? "?") @_detail.ApprovedAt.Value.ToLocalTime().ToString("dd/MM HH:mm")</span>
+            }
+        </div>
+        <table class="table table-sm table-borderless small mb-2">
+            <tbody>
+                <tr><td class="text-muted" style="width:130px">Nhà cung cấp</td><td><strong>@_detail.SupplierName</strong>@(string.IsNullOrEmpty(_detail.SupplierRef) ? "" : $" — MST {_detail.SupplierRef}")</td></tr>
+                <tr><td class="text-muted">Thanh toán</td><td>@(_detail.PayMethod == PurchasePayMethod.Credit ? "Mua chịu (Có 331)" : $"Trả ngay (Có {_detail.CashAccountCode})")</td></tr>
+                @if (_detail.DueDate.HasValue)
+                {
+                    <tr><td class="text-muted">Hạn thanh toán</td><td>@_detail.DueDate.Value.ToString("dd/MM/yyyy")</td></tr>
+                }
+                <tr><td class="text-muted">TK ghi Nợ</td><td>@_detail.DebitAccountCode</td></tr>
+                @if (!string.IsNullOrEmpty(_detail.Reference))
+                {
+                    <tr><td class="text-muted">Chứng từ NCC</td><td>@_detail.Reference</td></tr>
+                }
+                @if (!string.IsNullOrEmpty(_detail.CancelReason))
+                {
+                    <tr><td class="text-muted">Lý do hủy</td><td>@_detail.CancelReason</td></tr>
+                }
+                @if (!string.IsNullOrEmpty(_detail.ReturnReason))
+                {
+                    <tr><td class="text-muted">Lý do trả</td><td>@_detail.ReturnReason</td></tr>
+                }
+            </tbody>
+        </table>
+
+        <h6 class="mt-2">Dòng hàng</h6>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle" data-testid="detail-lines">
+                <thead class="table-light"><tr><th>Hàng</th><th class="text-end">SL</th><th class="text-end">Đơn giá</th><th class="text-end">Thành tiền</th><th>Kho</th></tr></thead>
+                <tbody>
+                    @foreach (var l in _detail.Lines)
+                    {
+                        <tr>
+                            <td>@l.ItemName</td>
+                            <td class="text-end">@l.Quantity.ToString("N0")</td>
+                            <td class="text-end">@l.UnitPrice.ToString("N0")</td>
+                            <td class="text-end">@l.LineTotal.ToString("N0")</td>
+                            <td>@(l.IngredientId.HasValue ? "✓" : "—")</td>
+                        </tr>
+                    }
+                    <tr class="table-light">
+                        <td colspan="3" class="text-end">Tiền hàng / VAT @_detail.VatAmount.ToString("N0")</td>
+                        <td class="text-end fw-bold">@_detail.TotalAmount.ToString("N0")đ</td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        @if (_journals.Count > 0)
+        {
+            <h6 class="mt-2">Bút toán đã ghi</h6>
+            @foreach (var j in _journals)
+            {
+                <div class="table-responsive mb-2">
+                    <table class="table table-sm table-bordered align-middle mb-0" data-testid="detail-journal">
+                        <thead class="table-light">
+                            <tr><th colspan="4" class="small">@j.EntryDate.ToString("dd/MM/yyyy") — @j.Description @(j.IsReversal ? "(đảo)" : "")</th></tr>
+                            <tr><th>TK</th><th>Diễn giải</th><th class="text-end">Nợ</th><th class="text-end">Có</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var jl in j.Lines)
+                            {
+                                <tr>
+                                    <td><strong>@jl.AccountNumber</strong></td>
+                                    <td class="small">@jl.Description</td>
+                                    <td class="text-end">@(jl.DebitAmount > 0 ? jl.DebitAmount.ToString("N0") : "")</td>
+                                    <td class="text-end">@(jl.CreditAmount > 0 ? jl.CreditAmount.ToString("N0") : "")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+
+        @* Actions theo trạng thái *@
+        <div class="d-flex gap-2 flex-wrap mt-3">
+            @if (_detail.Status == PurchaseReceiptStatus.Draft)
+            {
+                <VanAButton Variant="secondary" Size="small" OnClick="GoEdit" data-testid="action-edit">Sửa</VanAButton>
+                @if (_canApprove)
+                {
+                    <VanAButton Variant="primary" Size="small" OnClick="ApproveAsync" Disabled="@_busy" data-testid="action-approve">Duyệt</VanAButton>
+                    <VanAButton Variant="success" Size="small" OnClick="ApproveAndPostAsync" Disabled="@_busy" data-testid="action-approve-post">Duyệt &amp; Ghi sổ</VanAButton>
+                    <VanAButton Variant="outline" Size="small" OnClick="() => OpenReason(ActionKind.Cancel)" Disabled="@_busy" data-testid="action-cancel">Hủy phiếu</VanAButton>
+                }
+            }
+            else if (_detail.Status == PurchaseReceiptStatus.Approved)
+            {
+                @if (_canApprove)
+                {
+                    <VanAButton Variant="success" Size="small" OnClick="PostAsync" Disabled="@_busy" data-testid="action-post">Ghi sổ</VanAButton>
+                    <VanAButton Variant="outline" Size="small" OnClick="() => OpenReason(ActionKind.Cancel)" Disabled="@_busy" data-testid="action-cancel">Hủy phiếu</VanAButton>
+                }
+            }
+            else if (_detail.Status == PurchaseReceiptStatus.Posted)
+            {
+                @if (_detail.StockAppliedAt == null && _detail.Lines.Any(l => l.IngredientId.HasValue) && _canApprove)
+                {
+                    <VanAButton Variant="warning" Size="small" OnClick="ApplyStockAsync" Disabled="@_busy" data-testid="action-apply-stock">Ghi kho</VanAButton>
+                }
+                @if (_canApprove)
+                {
+                    <VanAButton Variant="error" Size="small" OnClick="() => OpenReason(ActionKind.Return)" Disabled="@_busy" data-testid="action-return">Trả hàng</VanAButton>
+                }
+            }
+        </div>
+    }
+</VanAnModal>
+
+@* ═══ Modal nhập lý do (hủy / trả hàng) ═══ *@
+<VanAnModal IsOpen="@_showReason" Title="@(_reasonKind == ActionKind.Cancel ? "Hủy phiếu" : "Trả hàng")" OnClose="() => _showReason = false" Closable="true">
+    <div class="mb-3">
+        <label class="form-label">Lý do <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" @bind="_reason" placeholder="VD: sai sót nhập liệu / hàng kém chất lượng..." data-testid="reason-input" />
+    </div>
+    <div class="d-flex gap-2">
+        <VanAButton Variant="@(_reasonKind == ActionKind.Cancel ? "outline" : "error")" Size="small"
+                    OnClick="ConfirmReasonAsync" Disabled="@(_busy || string.IsNullOrWhiteSpace(_reason))" data-testid="reason-confirm">
+            Xác nhận
+        </VanAButton>
+    </div>
+</VanAnModal>
+
+@code {
+    private enum ActionKind { Cancel, Return }
+
+    private sealed record JournalLineVm(string AccountNumber, decimal DebitAmount, decimal CreditAmount, string? Description);
+    private sealed record JournalVm(DateTime EntryDate, string Description, bool IsReversal, List<JournalLineVm> Lines);
+
+    private List<PurchaseReceiptEntity> _receipts = [];
+    private PurchaseReceiptEntity? _detail;
+    private List<JournalVm> _journals = [];
+    private bool _loading = true;
+    private bool _busy;
+    private bool _canApprove;
+    private string? _message;
+    private bool _messageIsError;
+
+    private DateTime? _filterFrom;
+    private DateTime? _filterTo;
+    private string _filterStatus = string.Empty;
+    private string _filterQ = string.Empty;
+
+    private bool _showDetail;
+    private bool _showReason;
+    private ActionKind _reasonKind;
+    private string _reason = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _canApprove = authState.User.IsInRole("Owner") || authState.User.IsInRole("ChiefAccountant") || authState.User.IsInRole("SystemAdmin");
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (!TenantProvider.HasTenant)
+        {
+            _message = "Không xác định được tenant."; _messageIsError = true; _loading = false; return;
+        }
+        _loading = true;
+        try
+        {
+            PurchaseReceiptStatus? status = Enum.TryParse<PurchaseReceiptStatus>(_filterStatus, out var s) ? s : null;
+            _receipts = await PurchaseService.ListAsync(new TenantId(TenantProvider.TenantId),
+                _filterFrom, _filterTo?.AddDays(1), status, string.IsNullOrWhiteSpace(_filterQ) ? null : _filterQ.Trim());
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "PurchaseReceipts load failed");
+            _message = "Không tải được danh sách phiếu."; _messageIsError = true;
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task OpenDetailAsync(PurchaseReceiptEntity r)
+    {
+        _detail = r;
+        _journals = [];
+        _showDetail = true;
+        try
+        {
+            var journals = await PurchaseService.ListJournalsAsync(r.Id);
+            _journals = journals.Select(j => new JournalVm(j.EntryDate, j.Description, j.IsReversal,
+                j.Lines.Select(l => new JournalLineVm(l.AccountNumber, l.DebitAmount, l.CreditAmount, l.Description)).ToList())).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Load journals for receipt {Id} failed", r.Id);
+        }
+    }
+
+    private void CloseDetail() { _showDetail = false; _detail = null; }
+
+    private async Task RunActionAsync(Func<Task<PurchaseReceiptEntity>> action, string success)
+    {
+        _busy = true;
+        try
+        {
+            _detail = await action();
+            _message = success; _messageIsError = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "PurchaseReceipt action failed");
+            _message = ex.Message; _messageIsError = true;
+        }
+        finally { _busy = false; }
+    }
+
+    private Task ApproveAsync() => RunActionAsync(
+        () => PurchaseService.ApproveAsync(_detail!.Id, TenantProvider.CurrentUser), "Đã duyệt phiếu.");
+
+    private Task PostAsync() => RunActionAsync(
+        () => PurchaseService.PostAsync(_detail!.Id), "Đã ghi sổ — bút toán + công nợ + kho đã ghi.");
+
+    private async Task ApproveAndPostAsync()
+    {
+        _busy = true;
+        try
+        {
+            await PurchaseService.ApproveAsync(_detail!.Id, TenantProvider.CurrentUser);
+            _detail = await PurchaseService.PostAsync(_detail.Id);
+            _message = "Đã duyệt và ghi sổ phiếu."; _messageIsError = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Approve+post failed");
+            _message = ex.Message; _messageIsError = true;
+        }
+        finally { _busy = false; }
+    }
+
+    private Task ApplyStockAsync() => RunActionAsync(
+        () => PurchaseService.ApplyStockAsync(_detail!.Id), "Đã ghi kho cho phiếu.");
+
+    private void OpenReason(ActionKind kind) { _reasonKind = kind; _reason = string.Empty; _showReason = true; }
+
+    private async Task ConfirmReasonAsync()
+    {
+        _showReason = false;
+        if (_reasonKind == ActionKind.Cancel)
+            await RunActionAsync(() => PurchaseService.CancelAsync(_detail!.Id, _reason), "Đã hủy phiếu.");
+        else
+            await RunActionAsync(() => PurchaseService.ReturnAsync(_detail!.Id, _reason), "Đã trả hàng — bút toán đảo + kho đã xuất.");
+    }
+
+    private void GoCreate() => NavigationManager.NavigateTo("/accounting/purchase-receipts/new");
+    private void GoEdit() => NavigationManager.NavigateTo($"/accounting/purchase-receipts/edit/{_detail!.Id}");
+
+    private static RenderFragment StatusBadge(PurchaseReceiptEntity r) => __builder =>
+    {
+        var (css, label) = r.Status switch
+        {
+            PurchaseReceiptStatus.Draft => ("bg-secondary", "Nháp"),
+            PurchaseReceiptStatus.Approved => ("bg-info text-dark", "Đã duyệt"),
+            PurchaseReceiptStatus.Posted => ("bg-success", "Đã ghi sổ"),
+            PurchaseReceiptStatus.Returned => ("bg-warning text-dark", "Đã trả hàng"),
+            PurchaseReceiptStatus.Cancelled => ("bg-dark", "Đã hủy"),
+            _ => ("bg-secondary", r.Status.ToString())
+        };
+        __builder.AddMarkupContent(0, $"<span class=\"badge {css}\" data-testid=\"status-badge-{r.Id}\">{label}</span>");
+    };
+}

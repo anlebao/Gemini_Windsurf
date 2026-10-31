@@ -835,6 +835,17 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("CashAccountCode")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
@@ -866,6 +877,9 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                     b.Property<Guid?>("PayableEntryId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("PostedAt")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<DateTime>("ReceiptDate")
                         .HasColumnType("timestamp without time zone");
 
@@ -883,6 +897,9 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
+
+                    b.Property<DateTime?>("StockAppliedAt")
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("SupplierName")
                         .IsRequired()
@@ -940,6 +957,9 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
+
+                    b.Property<Guid?>("IngredientId")
+                        .HasColumnType("uuid");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");

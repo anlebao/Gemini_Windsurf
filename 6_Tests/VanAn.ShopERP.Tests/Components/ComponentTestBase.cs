@@ -134,6 +134,13 @@ public class ComponentTestBase : TestContext
         Services.AddSingleton<VanAn.CoreHub.Services.Reconcile.IBankStatementService>(
             _ => new Mock<VanAn.CoreHub.Services.Reconcile.IBankStatementService>().Object);
 
+        // SRS v1.2 W6 tiếp (2026-10-31): IPurchaseReceiptService + IStockMovementService —
+        // mock by default (trang phiếu nhập mua / NXT / Ingredients inject).
+        Services.AddSingleton<VanAn.CoreHub.Services.Purchase.IPurchaseReceiptService>(
+            _ => new Mock<VanAn.CoreHub.Services.Purchase.IPurchaseReceiptService>().Object);
+        Services.AddSingleton<VanAn.CoreHub.Services.Stock.IStockMovementService>(
+            _ => new Mock<VanAn.CoreHub.Services.Stock.IStockMovementService>().Object);
+
         // Issue #197 (2026-10-29): metering client + attribute resolver — mock by default.
         // MeteringDenyGate/FeatureUsageRecorder (AccountingLayout/Loyalty/Booking pages) inject
         // chúng; default CheckBalanceAsync trả null → fail-open (content render bình thường).

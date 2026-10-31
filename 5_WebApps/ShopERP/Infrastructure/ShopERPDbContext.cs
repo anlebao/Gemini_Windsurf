@@ -53,6 +53,11 @@ namespace VanAn.ShopERP.Infrastructure
         // VA-IIE Phase 3-4 (2026-10-05): per-tenant config forecast + bot alert — ShopERP SQLite.
         public DbSet<VaIIeTenantConfig> VaIIeTenantConfigs { get; set; }
 
+        // SRS v1.2 W6 tiếp (GĐ2, 2026-10-31): StockMovements — nguồn audit tồn kho.
+        // SQLITE-ONLY: config inline trong OnModelCreating (KHÔNG qua shared IEntityConfiguration
+        // — VanAnDbContext PG cũng scan assembly đó và sẽ tạo bảng thừa ở PG).
+        public DbSet<VanAn.CoreHub.Infrastructure.Entities.StockMovementEntity> StockMovements { get; set; }
+
         // Additional tables required by IVanAnDbContext (for Offline Mode)
         // NOTE: Accounting DbSets (AccountingEntries, JournalEntries, AuditLogs,
         // PendingInvoiceQueues, AccountCharts, PeriodClosingStatuses) removed —
@@ -347,6 +352,25 @@ namespace VanAn.ShopERP.Infrastructure
             _ = modelBuilder.Ignore<OrderFlowProfile>();
             _ = modelBuilder.Ignore<OrderFlowStep>();
 
+            // SRS v1.2 W2-W6 + W6 tiếp (2026-10-31): accounting entities PG-ONLY
+            // (IAccountingDbContext — ADR-001). Được kéo vào model qua
+            // ApplyConfigurationsFromAssembly (CoreHub configs) nhưng KHÔNG có bảng SQLite
+            // và không bao giờ query từ ShopERP → Ignore để snapshot/migration sạch.
+            _ = modelBuilder.Ignore<VanAn.CoreHub.Infrastructure.Entities.AccountChartEntity>();
+            _ = modelBuilder.Ignore<VanAn.CoreHub.Infrastructure.Entities.TenantAccountChartEntity>();
+            _ = modelBuilder.Ignore<VanAn.CoreHub.Infrastructure.Entities.AccountMappingRuleEntity>();
+            _ = modelBuilder.Ignore<VanAn.CoreHub.Infrastructure.Entities.AttachmentEntity>();
+            _ = modelBuilder.Ignore<VanAn.CoreHub.Infrastructure.Entities.BankAccountEntity>();
+            _ = modelBuilder.Ignore<VanAn.CoreHub.Infrastructure.Entities.BankStatementLineEntity>();
+            _ = modelBuilder.Ignore<VanAn.CoreHub.Infrastructure.Entities.EntryPostingStatusEntity>();
+            _ = modelBuilder.Ignore<VanAn.CoreHub.Infrastructure.Entities.InternalTransferEntity>();
+            _ = modelBuilder.Ignore<VanAn.CoreHub.Infrastructure.Entities.OrderPaymentEntity>();
+            _ = modelBuilder.Ignore<VanAn.CoreHub.Infrastructure.Entities.PeriodClosingStatusEntity>();
+            _ = modelBuilder.Ignore<VanAn.CoreHub.Infrastructure.Entities.PurchaseReceiptEntity>();
+            _ = modelBuilder.Ignore<VanAn.CoreHub.Infrastructure.Entities.PurchaseReceiptLineEntity>();
+            _ = modelBuilder.Ignore<VanAn.CoreHub.Infrastructure.Entities.ReconciliationItemEntity>();
+            _ = modelBuilder.Ignore<VanAn.CoreHub.Infrastructure.Entities.VoucherSequenceEntity>();
+
             // === VALUE OBJECT CONFIGURATIONS ===
             // Order: Configured via OrderConfiguration from CoreHub assembly (applied above via ApplyConfigurationsFromAssembly)
             // Inline config removed to avoid duplicate OwnsOne conflict with OrderConfiguration
@@ -392,6 +416,21 @@ namespace VanAn.ShopERP.Infrastructure
                     _ = ruleBuilder.Property(r => r.Message).HasMaxLength(500);
                 });
                 _ = entity.Ignore(e => e.BusinessRules);
+            });
+
+            // SRS v1.2 W6 tiếp (GĐ2): StockMovement — SQLITE-ONLY (inline, không shared config).
+            _ = modelBuilder.Entity<VanAn.CoreHub.Infrastructure.Entities.StockMovementEntity>(entity =>
+            {
+                _ = entity.HasKey(e => e.Id);
+                _ = entity.Property(e => e.MovementType).HasConversion<int>();
+                _ = entity.Property(e => e.Quantity).HasPrecision(18, 3);
+                _ = entity.Property(e => e.UnitCost).HasPrecision(18, 2);
+                _ = entity.Property(e => e.Note).HasMaxLength(500);
+                _ = entity.Property(e => e.CreatedBy).HasMaxLength(120); // BaseEntity.CreatedBy
+                _ = entity.Ignore(e => e.IsIn);            // computed — không cột DB
+                _ = entity.Ignore(e => e.SignedQuantity);  // computed — không cột DB
+                _ = entity.HasIndex(e => new { e.TenantId, e.IngredientId, e.MovementDate });
+                _ = entity.HasIndex(e => new { e.TenantId, e.PurchaseReceiptId });
             });
 
             // Apply global query filters for multi-tenancy

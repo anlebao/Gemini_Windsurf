@@ -11,6 +11,7 @@
 @using VanAn.Shared.Domain.Audit
 @using VanAn.Shared.Domain.Common
 @inject VanAn.CoreHub.Infrastructure.IVanAnDbContext DbContext
+@inject VanAn.CoreHub.Services.Stock.IStockMovementService StockMovementService
 @inject ITenantProvider TenantProvider
 @inject IAuditTrailService AuditTrailService
 @inject ILogger<Ingredients> Logger
@@ -374,8 +375,14 @@
                 return;
             }
             string oldValues = System.Text.Json.JsonSerializer.Serialize(new { ingredient.CurrentStock });
-            ingredient.CurrentStock = newStock;
-            await DbContext.SaveChangesAsync();
+            // SRS v1.2 W6 tiếp (GĐ2): ghi StockMovement ManualIn/Out — nguồn audit tồn kho
+            // (service tự cập nhật CurrentStock + guard âm lần nữa).
+            var movement = await StockMovementService.RecordManualAsync(
+                tenantId, ingredient.Id, _adjustIsIn, _adjustQty, null,
+                string.IsNullOrWhiteSpace(_adjustNote) ? null : _adjustNote.Trim(),
+                TenantProvider.CurrentUser);
+            newStock = ingredient.CurrentStock = (await DbContext.Ingredients
+                .FirstAsync(i => i.Id == ingredient.Id)).CurrentStock;
             _ = await AuditTrailService.LogUpdateAsync(
                 AuditableEntityType.Inventory, ingredient.Id, oldValues,
                 System.Text.Json.JsonSerializer.Serialize(new

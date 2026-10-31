@@ -1,0 +1,408 @@
+@page "/accounting/purchase-receipts/new"
+@page "/accounting/purchase-receipts/edit/{Id:guid}"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "AccountingAccess")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using VanAn.UI.Platform.Components
+@using VanAn.CoreHub.Infrastructure
+@using VanAn.CoreHub.Infrastructure.Entities
+@using VanAn.CoreHub.Services.Purchase
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@inject IPurchaseReceiptService PurchaseService
+@inject IVanAnDbContext DbContext
+@inject ITenantProvider TenantProvider
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@inject ILogger<PurchaseReceiptCreate> Logger
+
+<PageTitle>@(_isEdit ? "Sửa phiếu nhập" : "Lập phiếu nhập mua") - Vạn An</PageTitle>
+
+<div class="purchase-create-page">
+    <header class="page-header mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="mb-0"><i class="bi bi-basket"></i> @(_isEdit ? $"Sửa phiếu {_voucherNumber}" : "Lập Phiếu Nhập Mua")</h1>
+        <VanAButton Variant="secondary" Size="small" OnClick="GoBack">← Quay lại</VanAButton>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <VanAAlert Variant="error" Message="@_error" Dismissible="true" OnDismiss="() => _error = null" data-testid="form-error" />
+    }
+    @if (_editBlocked)
+    {
+        <VanAAlert Variant="warning" Message="Phiếu đã duyệt/ghi sổ — không thể sửa. Muốn điều chỉnh hãy trả hàng hoặc lập phiếu mới." Dismissible="false" />
+    }
+
+    <VanACard Header="Thông tin chung">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Nhà cung cấp <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" @bind="_supplierName" placeholder="Tên NCC" data-testid="supplier-name" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">MST / mã NCC</label>
+                <input type="text" class="form-control" @bind="_supplierRef" placeholder="Mã số thuế" data-testid="supplier-ref" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Ngày chứng từ</label>
+                <input type="date" class="form-control" @bind="_receiptDate" data-testid="receipt-date" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Chứng từ NCC (HĐ/PXK)</label>
+                <input type="text" class="form-control" @bind="_reference" data-testid="reference" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Hình thức thanh toán</label>
+                <select class="form-select" @bind="_payMethod" @bind:after="RefreshPreviewAsync" data-testid="pay-method">
+                    <option value="Credit">Mua chịu (Có 331)</option>
+                    <option value="Immediate">Trả ngay</option>
+                </select>
+            </div>
+            @if (_payMethod == "Immediate")
+            {
+                <div class="col-md-3">
+                    <label class="form-label">TK tiền <span class="text-danger">*</span></label>
+                    <select class="form-select" @bind="_cashAccountCode" @bind:after="RefreshPreviewAsync" data-testid="cash-account">
+                        @foreach (var o in _cashOptions)
+                        {
+                            <option value="@o.Code" selected="@(o.Code == _cashAccountCode)">@o.Code — @o.Name</option>
+                        }
+                    </select>
+                </div>
+            }
+            else
+            {
+                <div class="col-md-3">
+                    <label class="form-label">Hạn thanh toán</label>
+                    <input type="date" class="form-control" @bind="_dueDate" data-testid="due-date" />
+                </div>
+            }
+            <div class="col-md-3">
+                <label class="form-label">TK ghi Nợ <span class="text-danger">*</span></label>
+                <select class="form-select" @bind="_debitAccountCode" @bind:after="RefreshPreviewAsync" data-testid="debit-account">
+                    @foreach (var o in _debitOptions)
+                    {
+                        <option value="@o.Code" selected="@(o.Code == _debitAccountCode)">@o.Code — @o.Name</option>
+                        }
+                </select>
+                <small class="form-text text-muted">156 hàng hóa · 611 mua hàng HTX · 6xx chi phí HKD</small>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">VAT đầu vào (đ)</label>
+                <input type="number" class="form-control" @bind="_vatAmount" @bind:after="RefreshPreviewAsync" min="0" step="1000" data-testid="vat-amount" />
+            </div>
+        </div>
+    </VanACard>
+
+    <VanACard Header="Dòng hàng" class="mt-3">
+        <div class="table-responsive">
+            <table class="table table-sm align-middle" data-testid="lines-table">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:55%">Hàng hóa / nguyên liệu</th>
+                        <th class="text-end" style="width:12%">SL</th>
+                        <th class="text-end" style="width:15%">Đơn giá</th>
+                        <th class="text-end" style="width:14%">Thành tiền</th>
+                        <th style="width:4%"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var i = 0; i < _lines.Count; i++)
+                    {
+                        var idx = i;
+                        var l = _lines[idx];
+                        <tr data-testid="line-row-@idx">
+                            <td>
+                                <div class="d-flex gap-1">
+                                    <select class="form-select form-select-sm" style="max-width:220px"
+                                            value="@(l.IngredientId?.ToString() ?? "")"
+                                            @onchange="e => OnIngredientChanged(idx, e.Value?.ToString())"
+                                            data-testid="line-ingredient-@idx">
+                                        <option value="">— Tự do —</option>
+                                        @foreach (var ing in _ingredients)
+                                        {
+                                            <option value="@ing.Id">@ing.Name (@ing.Unit)</option>
+                                        }
+                                    </select>
+                                    @if (l.IngredientId == null)
+                                    {
+                                        <input type="text" class="form-control form-control-sm" placeholder="Tên hàng"
+                                               @bind="l.ItemName" data-testid="line-name-@idx" />
+                                    }
+                                </div>
+                            </td>
+                            <td><input type="number" class="form-control form-control-sm text-end" min="0" step="0.01"
+                                       @bind="l.Quantity" @bind:after="RefreshPreviewAsync" data-testid="line-qty-@idx" /></td>
+                            <td><input type="number" class="form-control form-control-sm text-end" min="0" step="100"
+                                       @bind="l.UnitPrice" @bind:after="RefreshPreviewAsync" data-testid="line-price-@idx" /></td>
+                            <td class="text-end">@((l.Quantity * l.UnitPrice).ToString("N0"))</td>
+                            <td>
+                                @if (_lines.Count > 1)
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveLine(idx)" data-testid="line-remove-@idx">×</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <VanAButton Variant="outline" Size="small" OnClick="AddLine" data-testid="line-add">+ Thêm dòng</VanAButton>
+        <div class="mt-2 text-end fw-bold" data-testid="totals">
+            Tiền hàng: @NetAmount.ToString("N0")đ · VAT: @_vatAmount.ToString("N0")đ ·
+            <span class="text-primary">Tổng: @TotalAmount.ToString("N0")đ</span>
+        </div>
+    </VanACard>
+
+    <VanACard Header="Bút toán sẽ ghi (kiểm tra trước khi lưu)" class="mt-3">
+        @if (_preview == null)
+        {
+            <div class="text-muted small">Đang tính bút toán...</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered align-middle mb-0" data-testid="preview-table">
+                    <thead class="table-light"><tr><th>TK</th><th>Diễn giải</th><th class="text-end">Nợ</th><th class="text-end">Có</th></tr></thead>
+                    <tbody>
+                        @foreach (var l in _preview.Lines)
+                        {
+                            <tr>
+                                <td><strong>@l.AccountCode</strong></td>
+                                <td class="small">@l.Description</td>
+                                <td class="text-end">@(l.DebitAmount > 0 ? l.DebitAmount.ToString("N0") : "")</td>
+                                <td class="text-end">@(l.CreditAmount > 0 ? l.CreditAmount.ToString("N0") : "")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <small class="form-text text-muted">Account-map: @_preview.MappingVersion</small>
+        }
+    </VanACard>
+
+    <div class="d-flex gap-2 mt-3">
+        <VanAButton Variant="secondary" OnClick="SaveDraftAsync" Disabled="@(_busy || _editBlocked)" data-testid="save-draft">
+            @(_busy ? "Đang lưu..." : _isEdit ? "Cập nhật nháp" : "Lưu nháp")
+        </VanAButton>
+        @if (_canApprove && !_editBlocked)
+        {
+            <VanAButton Variant="success" OnClick="ApproveAndPostAsync" Disabled="@_busy" data-testid="approve-post">
+                @(_busy ? "Đang xử lý..." : "Duyệt & Ghi sổ")
+            </VanAButton>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    private sealed class LineVm
+    {
+        public Guid? IngredientId { get; set; }
+        public string ItemName { get; set; } = string.Empty;
+        public decimal Quantity { get; set; } = 1m;
+        public decimal UnitPrice { get; set; }
+    }
+
+    private bool _isEdit => Id.HasValue;
+    private bool _editBlocked;
+    private string _voucherNumber = string.Empty;
+    private string _supplierName = string.Empty;
+    private string? _supplierRef;
+    private DateTime _receiptDate = DateTime.Today;
+    private DateTime? _dueDate;
+    private string _payMethod = "Credit";
+    private string _cashAccountCode = "111";
+    private string _debitAccountCode = "156";
+    private decimal _vatAmount;
+    private string? _reference;
+    private List<LineVm> _lines = [new LineVm()];
+
+    private List<Ingredient> _ingredients = [];
+    private IReadOnlyList<AccountOption> _debitOptions = [new AccountOption("156", "Hàng hóa")];
+    private IReadOnlyList<AccountOption> _cashOptions = [new AccountOption("111", "Tiền mặt")];
+    private PurchaseJournalPreview? _preview;
+
+    private bool _busy;
+    private bool _canApprove;
+    private string? _error;
+
+    private decimal NetAmount => _lines.Sum(l => l.Quantity * l.UnitPrice);
+    private decimal TotalAmount => NetAmount + _vatAmount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _canApprove = authState.User.IsInRole("Owner") || authState.User.IsInRole("ChiefAccountant") || authState.User.IsInRole("SystemAdmin");
+
+        if (!TenantProvider.HasTenant)
+        {
+            _error = "Không xác định được tenant.";
+            return;
+        }
+        var tenantId = new TenantId(TenantProvider.TenantId);
+        try
+        {
+            _ingredients = await DbContext.Ingredients
+                .Where(i => i.TenantId == tenantId).OrderBy(i => i.Name).ToListAsync();
+            _debitOptions = await PurchaseService.GetDebitAccountOptionsAsync(tenantId);
+            _cashOptions = await PurchaseService.GetCashAccountOptionsAsync(tenantId);
+            if (_debitOptions.Count > 0 && _debitOptions.All(o => o.Code != _debitAccountCode))
+            {
+                _debitAccountCode = _debitOptions[0].Code;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "PurchaseReceiptCreate: load options failed");
+        }
+
+        if (_isEdit)
+        {
+            await LoadExistingAsync();
+        }
+        await RefreshPreviewAsync();
+    }
+
+    private async Task LoadExistingAsync()
+    {
+        var receipt = await PurchaseService.GetByIdAsync(Id!.Value);
+        if (receipt == null)
+        {
+            _error = "Không tìm thấy phiếu.";
+            return;
+        }
+        if (receipt.Status != PurchaseReceiptStatus.Draft)
+        {
+            _editBlocked = true;
+        }
+        _voucherNumber = receipt.VoucherNumber;
+        _supplierName = receipt.SupplierName;
+        _supplierRef = receipt.SupplierRef;
+        _receiptDate = receipt.ReceiptDate;
+        _dueDate = receipt.DueDate;
+        _payMethod = receipt.PayMethod.ToString();
+        _cashAccountCode = receipt.CashAccountCode ?? "111";
+        _debitAccountCode = receipt.DebitAccountCode;
+        _vatAmount = receipt.VatAmount;
+        _reference = receipt.Reference;
+        _lines = receipt.Lines.Select(l => new LineVm
+        {
+            IngredientId = l.IngredientId, ItemName = l.ItemName,
+            Quantity = l.Quantity, UnitPrice = l.UnitPrice
+        }).ToList();
+    }
+
+    private void OnIngredientChanged(int idx, string? value)
+    {
+        var l = _lines[idx];
+        if (Guid.TryParse(value, out var gid))
+        {
+            l.IngredientId = gid;
+            var ing = _ingredients.FirstOrDefault(i => i.Id == gid);
+            l.ItemName = ing?.Name ?? l.ItemName;
+        }
+        else
+        {
+            l.IngredientId = null;
+        }
+    }
+
+    private void AddLine() => _lines.Add(new LineVm());
+    private void RemoveLine(int idx) => _lines.RemoveAt(idx);
+
+    private async Task RefreshPreviewAsync()
+    {
+        if (!TenantProvider.HasTenant) return;
+        try
+        {
+            var pm = _payMethod == "Immediate" ? PurchasePayMethod.Immediate : PurchasePayMethod.Credit;
+            _preview = await PurchaseService.PreviewJournalAsync(new TenantId(TenantProvider.TenantId),
+                pm, pm == PurchasePayMethod.Immediate ? _cashAccountCode : null,
+                _debitAccountCode, NetAmount, _vatAmount);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Preview failed");
+            _preview = null;
+        }
+    }
+
+    private List<PurchaseReceiptLineInput> BuildLines()
+        => _lines.Select(l => new PurchaseReceiptLineInput(
+            l.IngredientId.HasValue ? (_ingredients.FirstOrDefault(i => i.Id == l.IngredientId)?.Name ?? l.ItemName) : l.ItemName,
+            l.Quantity, l.UnitPrice, l.IngredientId)).ToList();
+
+    private bool ValidateForm()
+    {
+        if (string.IsNullOrWhiteSpace(_supplierName)) { _error = "Nhà cung cấp là bắt buộc."; return false; }
+        var pm = _payMethod == "Immediate" ? PurchasePayMethod.Immediate : PurchasePayMethod.Credit;
+        if (pm == PurchasePayMethod.Immediate && string.IsNullOrWhiteSpace(_cashAccountCode)) { _error = "Chọn tài khoản tiền khi trả ngay."; return false; }
+        if (_lines.Count == 0 || _lines.Any(l => l.Quantity <= 0)) { _error = "Mỗi dòng phải có số lượng > 0."; return false; }
+        if (_lines.Any(l => string.IsNullOrWhiteSpace(l.ItemName) && l.IngredientId == null)) { _error = "Dòng hàng tự do phải có tên."; return false; }
+        return true;
+    }
+
+    private async Task SaveDraftAsync()
+    {
+        if (!ValidateForm()) return;
+        _busy = true; _error = null;
+        try
+        {
+            var pm = _payMethod == "Immediate" ? PurchasePayMethod.Immediate : PurchasePayMethod.Credit;
+            if (_isEdit)
+            {
+                await PurchaseService.UpdateAsync(Id!.Value, _supplierName, _supplierRef, _receiptDate,
+                    BuildLines(), pm, _cashAccountCode, _debitAccountCode, _vatAmount, _reference, _dueDate);
+            }
+            else
+            {
+                await PurchaseService.CreateAsync(new TenantId(TenantProvider.TenantId), _supplierName, _supplierRef,
+                    _receiptDate, BuildLines(), pm, _cashAccountCode, _debitAccountCode, _vatAmount, _reference, dueDate: _dueDate);
+            }
+            NavigationManager.NavigateTo("/accounting/purchase-receipts");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Save draft failed");
+            _error = ex.Message;
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task ApproveAndPostAsync()
+    {
+        if (!ValidateForm()) return;
+        _busy = true; _error = null;
+        try
+        {
+            var pm = _payMethod == "Immediate" ? PurchasePayMethod.Immediate : PurchasePayMethod.Credit;
+            PurchaseReceiptEntity receipt;
+            if (_isEdit)
+            {
+                receipt = await PurchaseService.UpdateAsync(Id!.Value, _supplierName, _supplierRef, _receiptDate,
+                    BuildLines(), pm, _cashAccountCode, _debitAccountCode, _vatAmount, _reference, _dueDate);
+            }
+            else
+            {
+                receipt = await PurchaseService.CreateAsync(new TenantId(TenantProvider.TenantId), _supplierName, _supplierRef,
+                    _receiptDate, BuildLines(), pm, _cashAccountCode, _debitAccountCode, _vatAmount, _reference, dueDate: _dueDate);
+            }
+            await PurchaseService.ApproveAsync(receipt.Id, TenantProvider.CurrentUser);
+            await PurchaseService.PostAsync(receipt.Id);
+            NavigationManager.NavigateTo("/accounting/purchase-receipts");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Approve+post failed");
+            _error = ex.Message;
+        }
+        finally { _busy = false; }
+    }
+
+    private void GoBack() => NavigationManager.NavigateTo("/accounting/purchase-receipts");
+}

@@ -111,6 +111,8 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             builder.Property(e => e.Reference).HasMaxLength(120);
             builder.Property(e => e.SourceEventId).HasMaxLength(120);
             builder.Property(e => e.ReturnReason).HasMaxLength(500);
+            builder.Property(e => e.ApprovedBy).HasMaxLength(120);
+            builder.Property(e => e.CancelReason).HasMaxLength(500);
             builder.Property(e => e.PayMethod).HasConversion<int>();
             builder.Property(e => e.Status).HasConversion<int>();
             builder.Property(e => e.TenantId)

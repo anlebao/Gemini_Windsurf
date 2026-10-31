@@ -1,0 +1,195 @@
+@page "/inventory/stock-report"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "InventoryAccess")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.CoreHub.Infrastructure.Entities
+@using VanAn.CoreHub.Services.Stock
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@inject IStockMovementService StockService
+@inject ITenantProvider TenantProvider
+@inject ILogger<StockReport> Logger
+
+<PageTitle>Nhập - Xuất - Tồn - Vạn An</PageTitle>
+
+<MeteringDenyGate ServiceCode="feature.inventory">
+<div class="stock-report-page">
+    <header class="page-header mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="mb-0"><i class="bi bi-arrow-left-right"></i> Báo cáo Nhập — Xuất — Tồn</h1>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <VanAAlert Variant="error" Message="@_error" Dismissible="true" OnDismiss="() => _error = null" data-testid="stock-report-error" />
+    }
+
+    <VanACard class="mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small">Từ ngày</label>
+                <input type="date" class="form-control form-control-sm" @bind="_from" data-testid="report-from" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">Đến ngày</label>
+                <input type="date" class="form-control form-control-sm" @bind="_to" data-testid="report-to" />
+            </div>
+            <div class="col-md-2">
+                <VanAButton Variant="primary" Size="small" OnClick="LoadAsync" data-testid="report-run">Xem báo cáo</VanAButton>
+            </div>
+        </div>
+    </VanACard>
+
+    <VanACard>
+        @if (_loading)
+        {
+            <VanASpinner Text="Đang tải..." />
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle" data-testid="stock-report-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nguyên liệu</th>
+                            <th>ĐVT</th>
+                            <th class="text-end">Tồn đầu</th>
+                            <th class="text-end">Nhập</th>
+                            <th class="text-end">Xuất</th>
+                            <th class="text-end">Tồn cuối</th>
+                            <th class="text-end">Giá trị cuối</th>
+                            <th class="text-center">Chi tiết</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (_rows.Count == 0)
+                        {
+                            <tr><td colspan="8" class="text-center text-muted py-3">Không có dữ liệu tồn kho.</td></tr>
+                        }
+                        @foreach (var row in _rows)
+                        {
+                            <tr data-testid="report-row-@row.IngredientId">
+                                <td>@row.Name</td>
+                                <td>@row.Unit</td>
+                                <td class="text-end">@row.OpeningQty.ToString("N2")</td>
+                                <td class="text-end text-success">@row.InQty.ToString("N2")</td>
+                                <td class="text-end text-danger">@row.OutQty.ToString("N2")</td>
+                                <td class="text-end fw-bold">@row.ClosingQty.ToString("N2")</td>
+                                <td class="text-end">@row.ClosingValue.ToString("N0")đ</td>
+                                <td class="text-center">
+                                    <VanAButton Variant="info" Size="small" OnClick="() => ShowMovementsAsync(row)" data-testid="@($"movements-{row.IngredientId}")">
+                                        Xem
+                                    </VanAButton>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                    @if (_rows.Count > 0)
+                    {
+                        <tfoot class="table-light fw-bold">
+                            <tr>
+                                <td colspan="6" class="text-end">Tổng giá trị tồn cuối</td>
+                                <td class="text-end" data-testid="report-total">@_rows.Sum(r => r.ClosingValue).ToString("N0")đ</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    }
+                </table>
+            </div>
+            <small class="form-text text-muted">
+                Tồn cuối = Tồn đầu + Nhập − Xuất. Nguồn: StockMovement (audit) — tồn cuối khớp snapshot kho
+                khi kỳ báo cáo kết thúc ở hiện tại.
+            </small>
+        }
+    </VanACard>
+</div>
+</MeteringDenyGate>
+
+@* ═══ Modal movements của 1 nguyên liệu ═══ *@
+<VanAnModal IsOpen="@_showMovements" Title="@($"Biến động kho — {_movementName}")" OnClose="() => _showMovements = false" Closable="true">
+    <div class="table-responsive" style="max-height:400px; overflow-y:auto;">
+        <table class="table table-sm align-middle" data-testid="movements-table">
+            <thead class="table-light">
+                <tr><th>Ngày</th><th>Loại</th><th class="text-end">SL</th><th class="text-end">Đơn giá</th><th>Ghi chú</th></tr>
+            </thead>
+            <tbody>
+                @if (_movements.Count == 0)
+                {
+                    <tr><td colspan="5" class="text-center text-muted py-2">Không có movement trong kỳ.</td></tr>
+                }
+                @foreach (var m in _movements)
+                {
+                    <tr>
+                        <td>@m.MovementDate.ToString("dd/MM/yyyy")</td>
+                        <td>@TypeLabel(m.MovementType)</td>
+                        <td class="text-end @(m.IsIn ? "text-success" : "text-danger")">@m.SignedQuantity.ToString("N2")</td>
+                        <td class="text-end">@(m.UnitCost?.ToString("N0") ?? "—")</td>
+                        <td class="small">@m.Note</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</VanAnModal>
+
+@code {
+    private DateTime _from = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateTime _to = DateTime.Today;
+    private List<StockReportRow> _rows = [];
+    private bool _loading = true;
+    private string? _error;
+
+    private bool _showMovements;
+    private string _movementName = string.Empty;
+    private List<StockMovementEntity> _movements = [];
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (!TenantProvider.HasTenant)
+        {
+            _error = "Không xác định được tenant."; _loading = false; return;
+        }
+        _loading = true; _error = null;
+        try
+        {
+            _rows = await StockService.GetStockReportAsync(new TenantId(TenantProvider.TenantId),
+                _from.Date, _to.Date.AddDays(1));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "StockReport load failed");
+            _error = "Không tải được báo cáo.";
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task ShowMovementsAsync(StockReportRow row)
+    {
+        _movementName = row.Name;
+        _movements = [];
+        _showMovements = true;
+        try
+        {
+            _movements = await StockService.ListMovementsAsync(new TenantId(TenantProvider.TenantId),
+                row.IngredientId, _from.Date, _to.Date.AddDays(1));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "ListMovements failed for {Id}", row.IngredientId);
+        }
+    }
+
+    private static string TypeLabel(StockMovementType t) => t switch
+    {
+        StockMovementType.PurchaseIn => "Nhập mua",
+        StockMovementType.PurchaseReturn => "Trả NCC",
+        StockMovementType.ManualIn => "Nhập tay",
+        StockMovementType.ManualOut => "Xuất tay",
+        StockMovementType.AdjustmentIn => "ĐC tăng",
+        StockMovementType.AdjustmentOut => "ĐC giảm",
+        _ => t.ToString()
+    };
+}

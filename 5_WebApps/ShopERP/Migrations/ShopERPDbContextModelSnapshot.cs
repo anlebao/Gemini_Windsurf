@@ -155,106 +155,6 @@ namespace VanAn.ShopERP.Migrations
                     b.ToTable("BookingIdempotencyRecord");
                 });
 
-            modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.AccountChartEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AccountCode")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AccountName")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<bool>("IsNormalCredit")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("Standard")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Standard");
-
-                    b.HasIndex("Standard", "AccountCode")
-                        .IsUnique();
-
-                    b.ToTable("AccountCharts", (string)null);
-                });
-
-            modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.PeriodClosingStatusEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("ClosedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ClosedBy")
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasDefaultValue(false);
-
-                    b.Property<int>("PeriodMonth")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("PeriodYear")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("ReopenReason")
-                        .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("TenantId", "PeriodYear", "PeriodMonth")
-                        .IsUnique();
-
-                    b.ToTable("PeriodClosingStatuses", (string)null);
-                });
-
             modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.PlatformUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -475,6 +375,67 @@ namespace VanAn.ShopERP.Migrations
                         .IsUnique();
 
                     b.ToTable("ShopFeatureSettings", (string)null);
+                });
+
+            modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.StockMovementEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("IngredientId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("MovementDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("MovementType")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("PurchaseReceiptId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("PurchaseReceiptLineId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("UnitCost")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "PurchaseReceiptId");
+
+                    b.HasIndex("TenantId", "IngredientId", "MovementDate");
+
+                    b.ToTable("StockMovements");
                 });
 
             modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Messaging.ProcessedWebhookKey", b =>
@@ -2545,6 +2506,14 @@ namespace VanAn.ShopERP.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("MappingVersion")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PostingPurpose")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid?>("ReferenceId")
                         .HasColumnType("TEXT");
 
@@ -2575,6 +2544,9 @@ namespace VanAn.ShopERP.Migrations
                     b.HasIndex("TenantId");
 
                     b.HasIndex("TenantId", "EntryDate");
+
+                    b.HasIndex("TenantId", "ReferenceType", "ReferenceId", "PostingPurpose")
+                        .IsUnique();
 
                     b.ToTable("JournalEntry");
                 });

@@ -32,6 +32,9 @@ public class IngredientsPageTests : ComponentTestBase
         Services.AddSingleton(context);
         Services.AddSingleton<VanAn.CoreHub.Infrastructure.IVanAnDbContext>(sp => sp.GetRequiredService<ShopERPDbContext>());
         Services.AddSingleton(new Mock<IAuditTrailService>().Object);
+        // W6 tiếp (GĐ2): Ingredients.razor ghi StockMovement qua service THẬT (cùng ctx).
+        Services.AddSingleton<VanAn.CoreHub.Services.Stock.IStockMovementService>(
+            new VanAn.ShopERP.Services.StockMovementService(context, Microsoft.Extensions.Logging.Abstractions.NullLogger<VanAn.ShopERP.Services.StockMovementService>.Instance));
         return (context, null);
     }
 

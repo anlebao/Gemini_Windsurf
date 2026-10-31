@@ -110,6 +110,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                     new() { Title = "Công thức pha chế", Icon = "cup-hot", Url = "/inventory/recipes" },
                     // Issue #188 bug 3 (2026-10-08): CRUD + nhập/xuất nguyên liệu thủ công (không phụ thuộc seed F&B)
                     new() { Title = "Nguyên liệu", Icon = "box2", Url = "/inventory/ingredients" },
+                    // SRS v1.2 W6 tiếp (GĐ2, 2026-10-31): báo cáo NXT từ StockMovement
+                    new() { Title = "Nhập Xuất Tồn", Icon = "arrow-left-right", Url = "/inventory/stock-report" },
                     new() { Title = "Tồn kho", Icon = "box-seam", Url = "/inventory/dashboard" },
                     new() { Title = "Cảnh báo", Icon = "bell", Url = "/inventory/alerts" },
                     new() { Title = "Dự báo", Icon = "graph-up-arrow", Url = "/inventory/forecast" },
@@ -169,6 +171,9 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                 accountingChildren.Add(new() { Title = "Lịch Sử Giao Dịch", Icon = "clock-history", Url = "/accounting/history" });
             }
             // NHẬP LIỆU & SỔ SÁCH P3 (2026-10-07): khai báo số dư đầu kỳ (dữ liệu cũ từ Excel)
+            // SRS v1.2 W6 tiếp (GĐ1, 2026-10-31): phiếu nhập mua — lập/duyệt/ghi sổ/trả hàng
+            // (kế toán công nợ cũng được xem + lập draft — duyệt/post gate AccountingFullAccess).
+            accountingChildren.Add(new() { Title = "Phiếu Nhập Mua", Icon = "basket", Url = "/accounting/purchase-receipts" });
             accountingChildren.Add(new() { Title = "Số Dư Đầu Kỳ", Icon = "flag-fill", Url = "/accounting/opening-balance" });
             if (fullAccounting)
             {
