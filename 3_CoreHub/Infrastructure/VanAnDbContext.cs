@@ -128,6 +128,10 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<Entities.ReconciliationItemEntity> ReconciliationItems { get; set; }
         public DbSet<Entities.BankStatementLineEntity> BankStatementLines { get; set; }
 
+        // SRS v1.2 W6/E: phiếu nhập mua + dòng hàng (accounting — PG only, TenantId filter tường minh).
+        public DbSet<Entities.PurchaseReceiptEntity> PurchaseReceipts { get; set; }
+        public DbSet<Entities.PurchaseReceiptLineEntity> PurchaseReceiptLines { get; set; }
+
         // W5: Period closing status persistence (tenant-scoped, IMustHaveTenant via BaseEntity).
         // Replaces the previous in-memory static Dictionary in PeriodClosingService.
         public DbSet<Entities.PeriodClosingStatusEntity> PeriodClosingStatuses { get; set; }

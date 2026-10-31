@@ -173,6 +173,10 @@ namespace VanAn.CoreHub.Services.Journal
                     return regime is AccountingRegimes.TT133 or AccountingRegimes.TT99 or AccountingRegimes.TT71
                         ? ("{src}", "{cash}")
                         : null;
+                // W6/E: nhập mua — {src}=TK ghi Nợ do receipt chỉ định (156 DN / 611 HTX / 6xx HKD);
+                // credit → Có 331 (mọi regime — nợ NCC phát sinh thực tế), cash → Có {cash} 111/112x.
+                case AccountMapEventCodes.Purchase: return ("{src}", "331");
+                case AccountMapEventCodes.PurchaseCash: return ("{src}", "{cash}");
                 default:
                     return null; // payable + unknown → no-rule
             }
@@ -192,6 +196,8 @@ namespace VanAn.CoreHub.Services.Journal
         public const string ReceivablePayment = "receivable-payment";
         public const string Payable = "payable";
         public const string PayablePayment = "payable-payment";
+        public const string Purchase = "purchase";          // W6/E: nhập mua chịu — Nợ {src} / Có 331
+        public const string PurchaseCash = "purchase-cash"; // W6/E: nhập mua trả ngay — Nợ {src} / Có {cash}
         public const string Transfer = "transfer";      // Phase D
         public const string TransferOut = "transfer-out";   // W3/D: Nợ {đích|113} / Có {nguồn}
         public const string TransferIn = "transfer-in";     // W3/D: Nợ {đích} / Có 113

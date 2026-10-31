@@ -93,4 +93,53 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             builder.HasIndex(e => new { e.TenantId, e.Status });
         }
     }
+
+    /// <summary>SRS v1.2 W6/E: PurchaseReceipt — chứng từ nhập mua; idempotency SourceEventId (FR-PUR-007).</summary>
+    public class PurchaseReceiptConfiguration : IEntityTypeConfiguration<PurchaseReceiptEntity>, IEntityConfiguration
+    {
+        public void Configure(EntityTypeBuilder<PurchaseReceiptEntity> builder)
+        {
+            builder.HasKey(e => e.Id);
+            builder.Property(e => e.VoucherNumber).HasMaxLength(30).IsRequired();
+            builder.Property(e => e.SupplierName).HasMaxLength(300).IsRequired();
+            builder.Property(e => e.SupplierRef).HasMaxLength(50);
+            builder.Property(e => e.NetAmount).HasPrecision(18, 2);
+            builder.Property(e => e.VatAmount).HasPrecision(18, 2);
+            builder.Property(e => e.TotalAmount).HasPrecision(18, 2);
+            builder.Property(e => e.CashAccountCode).HasMaxLength(20);
+            builder.Property(e => e.DebitAccountCode).HasMaxLength(20).IsRequired();
+            builder.Property(e => e.Reference).HasMaxLength(120);
+            builder.Property(e => e.SourceEventId).HasMaxLength(120);
+            builder.Property(e => e.ReturnReason).HasMaxLength(500);
+            builder.Property(e => e.PayMethod).HasConversion<int>();
+            builder.Property(e => e.Status).HasConversion<int>();
+            builder.Property(e => e.TenantId)
+                .HasConversion(id => id.Value, value => new TenantId(value));
+            builder.HasIndex(e => new { e.TenantId, e.VoucherNumber }).IsUnique();
+            builder.HasIndex(e => new { e.TenantId, e.ReceiptDate });
+            builder.HasIndex(e => new { e.TenantId, e.SourceEventId })
+                .IsUnique()
+                .HasFilter("\"SourceEventId\" IS NOT NULL");
+            builder.HasMany(e => e.Lines)
+                .WithOne(l => l.Receipt)
+                .HasForeignKey(l => l.PurchaseReceiptId)
+                .OnDelete(DeleteBehavior.Cascade);
+        }
+    }
+
+    /// <summary>SRS v1.2 W6/E: PurchaseReceiptLine — dòng hàng của phiếu nhập mua.</summary>
+    public class PurchaseReceiptLineConfiguration : IEntityTypeConfiguration<PurchaseReceiptLineEntity>, IEntityConfiguration
+    {
+        public void Configure(EntityTypeBuilder<PurchaseReceiptLineEntity> builder)
+        {
+            builder.HasKey(e => e.Id);
+            builder.Property(e => e.ItemName).HasMaxLength(300).IsRequired();
+            builder.Property(e => e.Quantity).HasPrecision(18, 3);
+            builder.Property(e => e.UnitPrice).HasPrecision(18, 2);
+            builder.Ignore(e => e.LineTotal); // computed — không cột DB
+            builder.Property(e => e.TenantId)
+                .HasConversion(id => id.Value, value => new TenantId(value));
+            builder.HasIndex(e => e.PurchaseReceiptId);
+        }
+    }
 }

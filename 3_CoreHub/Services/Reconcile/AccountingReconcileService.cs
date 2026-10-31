@@ -22,7 +22,8 @@ public sealed class AccountingReconcileService(
     IAuditTrailService auditTrailService,
     ILogger<AccountingReconcileService> logger,
     IMirrorOrderProvider? mirrorProvider = null,
-    IReconciliationItemService? itemService = null) : IAccountingReconcileService
+    IReconciliationItemService? itemService = null,
+    IInventoryValuationProvider? inventoryProvider = null) : IAccountingReconcileService
 {
     private const decimal Tolerance = 0.01m;
     private static readonly DateTime BridgeSingleSourceSince = new(2026, 10, 29); // R8a — ngày bỏ journal trực tiếp
@@ -364,6 +365,45 @@ public sealed class AccountingReconcileService(
                 $"{bad.Count}/{total} entries ngày nghiệp vụ không hợp lệ (01-01-0001/-infinity)",
                 string.Join("; ", bad.Take(20).Select(id => id.ToString()))));
             if (bad.Count > 0) suggestions.Add("R12: Entries có TransactionDate xấu — chạy backfill ngày nghiệp vụ (đã làm 1 lần 2026-10-08, còn sót data cũ).");
+        });
+
+        // ── R13. Kho ↔ GL 15x (SRS v1.2 W6/E — FR-RECNC-004) ─────────────────
+        await RunSafeAsync("R13", "Tồn kho ↔ GL 15x", checks, suggestions, async () =>
+        {
+            if (inventoryProvider is null)
+            {
+                checks.Add(new("R13", "Tồn kho ↔ GL 15x", ReconcileLevel.Info, "InventoryValuationProvider chưa cấu hình — bỏ qua", ""));
+                return;
+            }
+            InventoryValuationDto? valuation = await inventoryProvider.GetValuationAsync(tenantId.Value, periodStr, ct);
+            if (valuation is null)
+            {
+                checks.Add(new("R13", "Tồn kho ↔ GL 15x", ReconcileLevel.Info, "Không đọc được tồn kho SQLite (HTTP lỗi) — bỏ qua", ""));
+                return;
+            }
+
+            // GL 15x = Σ(Nợ−Có) toàn lịch sử trên journal lines TK bắt đầu "15"
+            // (152/153/155/156/157/158 — hàng tồn kho). Snapshot tồn kho là hiện tại
+            // → so với GL lũy kế (không theo kỳ, giống R4/R9).
+            decimal gl15x = allLines.Where(l => l.AccountNumber.StartsWith("15")).Sum(l => l.DebitAmount - l.CreditAmount);
+            decimal diff = valuation.TotalValue - gl15x;
+            if (gl15x == 0 && valuation.TotalValue == 0)
+            {
+                checks.Add(new("R13", "Tồn kho ↔ GL 15x", ReconcileLevel.Pass, "Không có tồn kho và không có phát sinh 15x", ""));
+                return;
+            }
+            if (gl15x == 0)
+            {
+                // Tenant chưa ghi nhận tồn kho qua TK 15x — hợp lệ nếu mua xuất thẳng 6xx/611.
+                checks.Add(new("R13", "Tồn kho ↔ GL 15x", ReconcileLevel.Info,
+                    $"Kho={valuation.TotalValue:N0} ({valuation.ItemCount} mặt hàng) nhưng GL 15x=0 — chưa dùng phiếu nhập mua/TK 15x (hợp lệ nếu hạch toán chi phí trực tiếp 6xx/611)", ""));
+                return;
+            }
+            bool ok = Math.Abs(diff) <= Tolerance;
+            checks.Add(new("R13", "Tồn kho ↔ GL 15x", ok ? ReconcileLevel.Pass : ReconcileLevel.Warning,
+                $"Kho={valuation.TotalValue:N0} ({valuation.ItemCount} mặt hàng) · GL 15x={gl15x:N0} · diff={diff:N2}", ""));
+            if (!ok)
+                suggestions.Add($"R13: Kho lệch GL 15x {diff:N0} — nhập kho tay trên UI không tạo bút toán; tạo phiếu nhập mua / bút toán điều chỉnh Nợ 15x.");
         });
 
         // ── Audit (G12 — không lưu lịch sử, chỉ audit log) ───────────────────

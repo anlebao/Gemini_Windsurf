@@ -829,6 +829,153 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                     b.ToTable("PlatformUsers", (string)null);
                 });
 
+            modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.PurchaseReceiptEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CashAccountCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DebitAccountCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("NetAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int>("PayMethod")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("PayableEntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ReceiptDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("ReturnReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("SourceEventId")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SupplierName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("SupplierRef")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("VatAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("VoucherNumber")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "ReceiptDate");
+
+                    b.HasIndex("TenantId", "SourceEventId")
+                        .IsUnique()
+                        .HasFilter("\"SourceEventId\" IS NOT NULL");
+
+                    b.HasIndex("TenantId", "VoucherNumber")
+                        .IsUnique();
+
+                    b.ToTable("PurchaseReceipts");
+                });
+
+            modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.PurchaseReceiptLineEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid>("PurchaseReceiptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PurchaseReceiptId");
+
+                    b.ToTable("PurchaseReceiptLines");
+                });
+
             modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.ReconciliationItemEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -8061,6 +8208,17 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                         .HasForeignKey("CustomerOnboardingId");
                 });
 
+            modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.PurchaseReceiptLineEntity", b =>
+                {
+                    b.HasOne("VanAn.CoreHub.Infrastructure.Entities.PurchaseReceiptEntity", "Receipt")
+                        .WithMany("Lines")
+                        .HasForeignKey("PurchaseReceiptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Receipt");
+                });
+
             modelBuilder.Entity("VanAn.Shared.Domain.AccountingEntry", b =>
                 {
                     b.HasOne("VanAn.Shared.Domain.AccountingEntry", null)
@@ -8740,6 +8898,11 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
             modelBuilder.Entity("VanAn.CoreHub.Domain.CustomerOnboarding", b =>
                 {
                     b.Navigation("Activities");
+                });
+
+            modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.PurchaseReceiptEntity", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("VanAn.Shared.Domain.AccountingEntry", b =>

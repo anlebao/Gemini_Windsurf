@@ -117,6 +117,7 @@ namespace VanAn.CoreHub
                     _ = services.AddScoped<IAttachmentService, AttachmentService>();
                     _ = services.AddScoped<IInternalTransferService, InternalTransferService>();
                     _ = services.AddScoped<IBankAccountService, BankAccountService>();
+                    _ = services.AddScoped<VanAn.CoreHub.Services.Purchase.IPurchaseReceiptService, VanAn.CoreHub.Services.Purchase.PurchaseReceiptService>();
                     _ = services.AddScoped<VanAn.CoreHub.Services.Journal.IAccountMapRuleService, VanAn.CoreHub.Services.Journal.AccountMapRuleService>();
                     _ = services.AddScoped<VanAn.CoreHub.Services.Reconcile.IReconciliationItemService, VanAn.CoreHub.Services.Reconcile.ReconciliationItemService>();
                     _ = services.AddScoped<VanAn.CoreHub.Services.Reconcile.IBankStatementService, VanAn.CoreHub.Services.Reconcile.BankStatementService>();

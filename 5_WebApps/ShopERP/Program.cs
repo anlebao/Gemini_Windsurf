@@ -241,6 +241,7 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.IVoucherNumberService, CoreHub.Services.VoucherNumberService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IAttachmentService, CoreHub.Services.AttachmentService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IInternalTransferService, CoreHub.Services.InternalTransferService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Purchase.IPurchaseReceiptService, CoreHub.Services.Purchase.PurchaseReceiptService>();
             // SRS v1.2 W3/D (M9): TK tiền per tenant (111 + 112x) + resolve paymentMethod→account
             _ = builder.Services.AddScoped<CoreHub.Services.IBankAccountService, CoreHub.Services.BankAccountService>();
             _ = builder.Services.AddScoped<CoreHub.Services.Journal.IAccountMapRuleService, CoreHub.Services.Journal.AccountMapRuleService>();

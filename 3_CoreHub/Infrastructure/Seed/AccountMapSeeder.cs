@@ -41,6 +41,10 @@ public static class AccountMapSeeder
             wanted.Add((regime, AccountMapEventCodes.TransferOut, "{src}", "{cash}"));
             wanted.Add((regime, AccountMapEventCodes.TransferIn, "{src}", "{cash}"));
             wanted.Add((regime, AccountMapEventCodes.TransferFee, "{src}", "{cash}"));
+            // W6/E (2026-10-31): nhập mua — {src}=TK ghi Nợ trên phiếu (156/611/6xx),
+            // purchase Có 331 (mọi regime — nợ NCC là phát sinh thật), purchase-cash Có {cash}.
+            wanted.Add((regime, AccountMapEventCodes.Purchase, "{src}", "331"));
+            wanted.Add((regime, AccountMapEventCodes.PurchaseCash, "{src}", "{cash}"));
         }
 
         foreach (string regime in AccrualRegimes)

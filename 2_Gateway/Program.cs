@@ -883,6 +883,16 @@ namespace VanAn.Gateway
                 if (!string.IsNullOrEmpty(apiKey)) client.DefaultRequestHeaders.TryAddWithoutValidation("X-Internal-Api-Key", apiKey);
             });
 
+            // SRS v1.2 W6/E: R13 inventory-vs-GL — Gateway → ShopERP internal valuation API
+            // (cùng cấu hình mirror: X-Internal-Api-Key, timeout <3s, fail-open → R13 skip Info).
+            _ = builder.Services.AddHttpClient<VanAn.CoreHub.Services.Reconcile.IInventoryValuationProvider, VanAn.CoreHub.Services.Reconcile.InventoryValuationHttpProvider>(client =>
+            {
+                client.BaseAddress = new Uri(builder.Configuration["ShopERP:BaseUrl"] ?? "http://shoperp:80/");
+                client.Timeout = TimeSpan.FromSeconds(3);
+                string? apiKey = builder.Configuration["InternalLoyalty:ApiKey"];
+                if (!string.IsNullOrEmpty(apiKey)) client.DefaultRequestHeaders.TryAddWithoutValidation("X-Internal-Api-Key", apiKey);
+            });
+
             // TRA SOÁT SỐ LIỆU P3: reconcile service R1-R12 (read-only, SystemAdmin controller).
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Reconcile.IAccountingReconcileService, VanAn.CoreHub.Services.Reconcile.AccountingReconcileService>();
 
@@ -1316,6 +1326,7 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IAttachmentService, VanAn.CoreHub.Services.AttachmentService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IInternalTransferService, VanAn.CoreHub.Services.InternalTransferService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IBankAccountService, VanAn.CoreHub.Services.BankAccountService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Purchase.IPurchaseReceiptService, VanAn.CoreHub.Services.Purchase.PurchaseReceiptService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Journal.IAccountMapRuleService, VanAn.CoreHub.Services.Journal.AccountMapRuleService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Reconcile.IReconciliationItemService, VanAn.CoreHub.Services.Reconcile.ReconciliationItemService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Reconcile.IBankStatementService, VanAn.CoreHub.Services.Reconcile.BankStatementService>();

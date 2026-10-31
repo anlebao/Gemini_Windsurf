@@ -51,3 +51,23 @@ public interface IMirrorOrderProvider
 {
     Task<IReadOnlyList<MirrorOrderDto>?> GetMirrorOrdersAsync(string period, CancellationToken ct = default);
 }
+
+/// <summary>
+/// Giá trị tồn kho per tenant từ ShopERP SQLite (R13 inventory-vs-GL — SRS v1.2 W6/E).
+/// Valuation snapshot = Σ(Ingredient.CurrentStock × PricePerUnit) — point-in-time,
+/// KHÔNG theo kỳ (không có stock-movement table — period chỉ mang tính audit/log).
+/// </summary>
+public sealed record InventoryValuationDto(
+    Guid TenantId,
+    int ItemCount,
+    decimal TotalValue);
+
+/// <summary>
+/// Cung cấp giá trị tồn kho (SQLite) cho R13. Gateway implement bằng HTTP gọi ShopERP
+/// `GET /api/shoperp/inventory/valuation?tenantId=` (W6/E). Fail-open: lỗi/không cấu
+/// hình → trả null → R13 skip với Info (không chặn các check khác).
+/// </summary>
+public interface IInventoryValuationProvider
+{
+    Task<InventoryValuationDto?> GetValuationAsync(Guid tenantId, string period, CancellationToken ct = default);
+}

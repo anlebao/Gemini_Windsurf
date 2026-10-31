@@ -30,6 +30,7 @@ namespace VanAn.CoreHub.Services
         public const string TypeReceiptCongNo = "PT-CN";
         public const string TypePaymentCongNo = "PC-CN";
         public const string TypeTransfer = "CT"; // Phase D
+        public const string TypePurchaseReceipt = "NM"; // W6/E — phiếu nhập mua
 
         private const int MaxAttempts = 3;
 

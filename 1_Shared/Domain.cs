@@ -102,6 +102,9 @@ namespace VanAn.Shared.Domain
         public const string PayablePayment = "payable-payment";
         public const string ManualReceipt = "manual-receipt";
         public const string ManualExpense = "manual-expense";
+        public const string Purchase = "purchase";
+        public const string PurchaseCash = "purchase-cash";
+        public const string PurchaseReturn = "purchase-return";
         public const string OpeningBalance = "opening-balance";
         public const string Reversal = "reversal";
         public const string Closing = "closing";
