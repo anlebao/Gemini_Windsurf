@@ -148,6 +148,11 @@
 
 ## 4. Next Actions
 
+**▶ ACCOUNTING ENGINE — W6/E (wave cuối, session mới):**
+- [ ] Đọc task card `docs/AI/tasks/accounting_engine/task_pe_purchase_inventory.md` (Status PENDING — có thể tách triển khai riêng Q8) + master plan `accounting-engine-master-plan.md` §4.E
+- [ ] Scope: purchase docs (FR-PUR-001/002/005/007) · inventory GL link PG↔SQLite cross-DB (precedent `MirrorOrderHttpProvider`) · reconcile mở rộng FR-RECNC-004 · sub-ledger FR-SUB-003
+- [ ] W1-W5 (A, B+C1, D, C2, F) đều DONE + deployed + RV PASS — wave plan hoàn tất sau W6
+
 **▶ TT133/TT58 COMPLIANCE — W4 CÒN LẠI (session mới — commits `b82467d5` `1b707697` `8e813e39` `1385937c` chưa push):**
 - [ ] Rerun full Core.Tests xác nhận 0 fail (97/97 targeted đã pass; lần trước 2470+11fail đã fix xong)
 - [ ] FAST PUSH `git push --no-verify` → poll CD Multi-VPS (`gh run list`)
