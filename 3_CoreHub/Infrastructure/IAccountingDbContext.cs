@@ -26,6 +26,8 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<VanAn.CoreHub.Infrastructure.Entities.BankAccountEntity> BankAccounts { get; }
         DbSet<VanAn.CoreHub.Infrastructure.Entities.InternalTransferEntity> InternalTransfers { get; }
         DbSet<VanAn.CoreHub.Infrastructure.Entities.OrderPaymentEntity> OrderPayments { get; }
+        DbSet<VanAn.CoreHub.Infrastructure.Entities.ReconciliationItemEntity> ReconciliationItems { get; }
+        DbSet<VanAn.CoreHub.Infrastructure.Entities.BankStatementLineEntity> BankStatementLines { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);

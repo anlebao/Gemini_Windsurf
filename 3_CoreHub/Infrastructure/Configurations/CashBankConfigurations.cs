@@ -38,6 +38,40 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
         }
     }
 
+    /// <summary>SRS v1.2 W5/F: ReconciliationItem — workflow xử lý chênh lệch; dedup (Tenant,Check,Period).</summary>
+    public class ReconciliationItemConfiguration : IEntityTypeConfiguration<ReconciliationItemEntity>, IEntityConfiguration
+    {
+        public void Configure(EntityTypeBuilder<ReconciliationItemEntity> builder)
+        {
+            builder.HasKey(e => e.Id);
+            builder.Property(e => e.CheckCode).HasMaxLength(8).IsRequired();
+            builder.Property(e => e.Severity).HasMaxLength(16).IsRequired();
+            builder.Property(e => e.Description).HasMaxLength(2000).IsRequired();
+            builder.Property(e => e.Status).HasMaxLength(20).IsRequired();
+            builder.Property(e => e.AssignedTo).HasMaxLength(120);
+            builder.Property(e => e.ResolutionNote).HasMaxLength(1000);
+            builder.Property(e => e.ResolvedBy).HasMaxLength(120);
+            builder.Property(e => e.TenantId)
+                .HasConversion(id => id.Value, value => new TenantId(value));
+            builder.HasIndex(e => new { e.TenantId, e.CheckCode, e.PeriodYear, e.PeriodMonth }).IsUnique();
+        }
+    }
+
+    /// <summary>SRS v1.2 W5/F: BankStatementLine — dòng sao kê import; index theo (Tenant,BankAccount,TxnDate).</summary>
+    public class BankStatementLineConfiguration : IEntityTypeConfiguration<BankStatementLineEntity>, IEntityConfiguration
+    {
+        public void Configure(EntityTypeBuilder<BankStatementLineEntity> builder)
+        {
+            builder.HasKey(e => e.Id);
+            builder.Property(e => e.Amount).HasPrecision(18, 2);
+            builder.Property(e => e.Reference).HasMaxLength(120);
+            builder.Property(e => e.Description).HasMaxLength(500);
+            builder.Property(e => e.TenantId)
+                .HasConversion(id => id.Value, value => new TenantId(value));
+            builder.HasIndex(e => new { e.TenantId, e.BankAccountId, e.TxnDate });
+        }
+    }
+
     /// <summary>SRS v1.2 W3/D: InternalTransfer — phiếu chuyển tiền nội bộ + status machine.</summary>
     public class InternalTransferConfiguration : IEntityTypeConfiguration<InternalTransferEntity>, IEntityConfiguration
     {

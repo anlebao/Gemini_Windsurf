@@ -21,7 +21,8 @@ public sealed class AccountingReconcileService(
     IVanAnDbContext db,
     IAuditTrailService auditTrailService,
     ILogger<AccountingReconcileService> logger,
-    IMirrorOrderProvider? mirrorProvider = null) : IAccountingReconcileService
+    IMirrorOrderProvider? mirrorProvider = null,
+    IReconciliationItemService? itemService = null) : IAccountingReconcileService
 {
     private const decimal Tolerance = 0.01m;
     private static readonly DateTime BridgeSingleSourceSince = new(2026, 10, 29); // R8a — ngày bỏ journal trực tiếp
@@ -375,7 +376,24 @@ public sealed class AccountingReconcileService(
         }
         catch (Exception ex) { logger.LogWarning(ex, "Reconcile audit log failed (non-blocking): tenant={Tenant}", tenantId.Value); }
 
-        return new ReconcileResult(periodStr, tenantId.Value, tenantName, ranAt, Summarize(checks), checks, suggestions);
+        var result = new ReconcileResult(periodStr, tenantId.Value, tenantName, ranAt, Summarize(checks), checks, suggestions);
+
+        // W5/F (FR-RECNC-005): emit ReconciliationItems cho check Warning/Error
+        // (dedup per check+period) + auto-resolve check đã pass — fail-safe không
+        // chặn kết quả tra soát (read-path vẫn pure, emit là side effect tách).
+        if (itemService != null)
+        {
+            try
+            {
+                await itemService.EmitFromReconcileAsync(result, ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Reconcile emit items failed — result vẫn trả về");
+            }
+        }
+
+        return result;
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

@@ -20,13 +20,20 @@ namespace VanAn.CoreHub.Services
         IReversalService reversalService,
         IAuditTrailService auditTrailService,
         IAccountingDbContext dbContext,
-        ILogger<PeriodClosingService> logger) : IPeriodClosingService
+        ILogger<PeriodClosingService> logger,
+        IHKDBookRepository? hkdBookRepository = null,
+        IVasFeatureFlagService? vasFeatureFlagService = null,
+        Reconcile.IAccountingReconcileService? reconcileService = null) : IPeriodClosingService
     {
         private readonly IAccountingEntryRepository _entryRepository = entryRepository;
         private readonly IReversalService _reversalService = reversalService;
         private readonly IAuditTrailService _auditTrailService = auditTrailService;
         private readonly IAccountingDbContext _dbContext = dbContext;
         private readonly ILogger<PeriodClosingService> _logger = logger;
+        // SRS v1.2 W5/F: optional deps — closing JEs (hkdBook), regime (flags), checklist (reconcile).
+        private readonly IHKDBookRepository? _hkdBookRepository = hkdBookRepository;
+        private readonly IVasFeatureFlagService? _vasFeatureFlagService = vasFeatureFlagService;
+        private readonly Reconcile.IAccountingReconcileService? _reconcileService = reconcileService;
 
         public async Task<PeriodClosingCheckResult> ValidatePeriodAsync(
             AccountingPeriod period,
@@ -57,8 +64,179 @@ namespace VanAn.CoreHub.Services
                 warnings.Add($"Revenue/Expense ratio check: Revenue={totalRevenue:N0}, Expense={totalExpense:N0}");
             }
 
-            _logger.LogInformation("Period {Period} validation passed. Entries: {Count}", period, entries.Count);
-            return new PeriodClosingCheckResult(true, errors, warnings);
+            // W5/F (FR-CLS-003): checklist tra soát trước khóa — Error checks chặn đóng,
+            // Warning pass kèm cảnh báo (precedent "cảnh báo không chặn cứng").
+            // Fail-safe: reconcile lỗi → warning, KHÔNG chặn đóng kỳ.
+            if (_reconcileService != null)
+            {
+                try
+                {
+                    var reconcile = await _reconcileService.RunAsync(tenantId, period, cancellationToken);
+                    foreach (var check in reconcile.Checks)
+                    {
+                        if (check.Level == Reconcile.ReconcileLevel.Error)
+                        {
+                            errors.Add($"{check.Code} {check.Name}: {check.Summary}");
+                        }
+                        else if (check.Level == Reconcile.ReconcileLevel.Warning)
+                        {
+                            warnings.Add($"{check.Code} {check.Name}: {check.Summary}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "ValidatePeriod: reconcile checklist failed — warning only");
+                    warnings.Add($"Tra soát checklist không chạy được: {ex.Message}");
+                }
+            }
+
+            _logger.LogInformation("Period {Period} validation: {Errors} errors, {Warnings} warnings",
+                period, errors.Count, warnings.Count);
+            return new PeriodClosingCheckResult(errors.Count == 0, errors, warnings);
+        }
+
+        /// <inheritdoc />
+        /// <remarks>
+        /// W5/F (KT07-09): kết chuyển cuối kỳ cho regime accrual (TT133/TT99/TT71) —
+        /// Nợ 5xx|711|515/Có 911 · Nợ 911/Có 6xx|635|811 · Nợ 911/Có 421 (lãi) hoặc Nợ 421/Có 911 (lỗ).
+        /// HKD (TT152) + DNSN (TT58) skip — sổ không kết chuyển (§18.14, card §2.1).
+        /// Idempotent: JE purpose "closing" + period — re-run skip nếu đã có closing JE.
+        /// Quyết định IMPLEMENT: hardcode per-prefix (không qua closing-* account-map — batch
+        /// per-account, resolver là per-event hint; đủ nắp theo regime account sets).
+        /// </remarks>
+        public async Task<int> GenerateClosingEntriesAsync(
+            AccountingPeriod period,
+            TenantId tenantId,
+            Guid userId,
+            CancellationToken cancellationToken = default)
+        {
+            // Regime gate: chỉ DN vừa/lớn (TT133/TT99) + HTX (TT71) kết chuyển.
+            TenantType? type = _vasFeatureFlagService != null
+                ? await _vasFeatureFlagService.GetTenantTypeAsync(tenantId, cancellationToken)
+                : null;
+            if (type is not (TenantType.Enterprise_SME or TenantType.Enterprise_Large or TenantType.HTX))
+            {
+                _logger.LogInformation(
+                    "GenerateClosingEntries: tenant {TenantId} type {Type} — skip (chế độ không kết chuyển 911)",
+                    tenantId.Value, type?.ToString() ?? "null");
+                return 0;
+            }
+            if (_hkdBookRepository == null)
+            {
+                _logger.LogWarning("GenerateClosingEntries: IHKDBookRepository not available — skip");
+                return 0;
+            }
+
+            DateTime periodStart = new(period.Year, period.Month, 1);
+            DateTime periodEnd = periodStart.AddMonths(1);
+
+            // Idempotent: đã có closing JE (purpose=closing, không reversal) trong kỳ → skip.
+            bool already = await _dbContext.JournalEntries
+                .AsNoTracking()
+                .AnyAsync(j => j.TenantId == tenantId
+                    && j.EntryDate >= periodStart && j.EntryDate < periodEnd
+                    && j.PostingPurpose == AccountingPostingPurposes.Closing
+                    && !j.IsReversal, cancellationToken);
+            if (already)
+            {
+                _logger.LogInformation("GenerateClosingEntries: closing JEs already exist for {TenantId} {Period} — skip (idempotent)",
+                    tenantId.Value, period);
+                return 0;
+            }
+
+            // Σ phát sinh per-account trong kỳ (không tính reversal) — client-side group
+            // (SQLite không hỗ trợ Sum(decimal) server-side).
+            var lines = await _dbContext.JournalEntries
+                .Where(j => j.TenantId == tenantId && j.EntryDate >= periodStart && j.EntryDate < periodEnd && !j.IsReversal)
+                .SelectMany(j => j.Lines)
+                .Select(l => new { l.AccountNumber, l.DebitAmount, l.CreditAmount })
+                .ToListAsync(cancellationToken);
+            var balances = lines
+                .GroupBy(l => l.AccountNumber)
+                .Select(g => (Account: g.Key, Net: g.Sum(l => l.DebitAmount - l.CreditAmount)))
+                .ToList();
+
+            // Revenue accounts: 5xx (511/512/515) + 711 — số dư CÓ (net âm → đảo Nợ để kết chuyển).
+            var revAccounts = balances
+                .Where(b => (b.Account.StartsWith('5') || b.Account.StartsWith("711")) && b.Net < 0)
+                .ToList();
+            // Expense accounts: 6xx (632/641/642/635/611/612/658) + 811 — số dư NỢ.
+            var expAccounts = balances
+                .Where(b => (b.Account.StartsWith('6') || b.Account.StartsWith("811")) && b.Net > 0)
+                .ToList();
+
+            if (revAccounts.Count == 0 && expAccounts.Count == 0)
+            {
+                _logger.LogInformation("GenerateClosingEntries: no P&L activity for {TenantId} {Period} — nothing to close", tenantId.Value, period);
+                return 0;
+            }
+
+            DateTime closeDate = periodEnd.AddDays(-1);
+            int created = 0;
+
+            // 1) closing-revenue: Nợ 5xx/711 / Có 911 — một JE nhiều dòng.
+            if (revAccounts.Count > 0)
+            {
+                JournalEntry je = new(tenantId, closeDate,
+                    $"Kết chuyển doanh thu kỳ {period.Year}-{period.Month:D2}",
+                    "PeriodClosing", null, postingPurpose: AccountingPostingPurposes.Closing);
+                decimal total = 0;
+                foreach (var a in revAccounts)
+                {
+                    decimal amount = -a.Net; // net âm (dư Có) → Nợ để về 0
+                    je.AddLine(a.Account, amount, 0, $"Kết chuyển doanh thu {a.Account}");
+                    total += amount;
+                }
+                je.AddLine("911", 0, total, "Kết chuyển doanh thu → 911");
+                await _hkdBookRepository.AddToBookAsync(je, AccountingBookType.S2b_HKD, cancellationToken);
+                created++;
+            }
+
+            // 2) closing-expense: Nợ 911 / Có 6xx/811.
+            if (expAccounts.Count > 0)
+            {
+                JournalEntry je = new(tenantId, closeDate,
+                    $"Kết chuyển chi phí kỳ {period.Year}-{period.Month:D2}",
+                    "PeriodClosing", null, postingPurpose: AccountingPostingPurposes.Closing);
+                decimal total = 0;
+                foreach (var a in expAccounts)
+                {
+                    je.AddLine("911", a.Net, 0, "Kết chuyển chi phí → 911");
+                    je.AddLine(a.Account, 0, a.Net, $"Kết chuyển chi phí {a.Account}");
+                    total += a.Net;
+                }
+                await _hkdBookRepository.AddToBookAsync(je, AccountingBookType.S2b_HKD, cancellationToken);
+                created++;
+            }
+
+            // 3) closing-result: lãi → Nợ 911/Có 421; lỗ → Nợ 421/Có 911.
+            decimal revTotal = revAccounts.Sum(a => -a.Net);
+            decimal expTotal = expAccounts.Sum(a => a.Net);
+            decimal result = revTotal - expTotal;
+            if (result != 0)
+            {
+                JournalEntry je = new(tenantId, closeDate,
+                    $"Kết chuyển kết quả kỳ {period.Year}-{period.Month:D2} ({(result > 0 ? "lãi" : "lỗ")} {Math.Abs(result):N0})",
+                    "PeriodClosing", null, postingPurpose: AccountingPostingPurposes.Closing);
+                if (result > 0)
+                {
+                    je.AddLine("911", result, 0, "Lãi → 421");
+                    je.AddLine("421", 0, result, "Lãi → 421");
+                }
+                else
+                {
+                    je.AddLine("421", -result, 0, "Lỗ → 421");
+                    je.AddLine("911", 0, -result, "Lỗ → 421");
+                }
+                await _hkdBookRepository.AddToBookAsync(je, AccountingBookType.S2b_HKD, cancellationToken);
+                created++;
+            }
+
+            _logger.LogInformation(
+                "GenerateClosingEntries: {Count} closing JEs for {TenantId} {Period} (type {Type}) — revenue {Rev:N0} / expense {Exp:N0} / result {Result:N0}",
+                created, tenantId.Value, period, type, revTotal, expTotal, result);
+            return created;
         }
 
         public async Task<ClosingEntry> ClosePeriodAsync(
@@ -89,6 +267,10 @@ namespace VanAn.CoreHub.Services
             {
                 throw new InvalidOperationException($"Cannot close period: {pendingCount} pending transactions exist.");
             }
+
+            // W5/F (KT07-09): bút toán kết chuyển 911 TRƯỚC MarkClosed — regime-gated
+            // (TT133/TT99/TT71; HKD/TT152 + DNSN/TT58 tự skip). Idempotent per period.
+            await GenerateClosingEntriesAsync(period, tenantId, userId, cancellationToken);
 
             // W5: Persist closed status to DB (survives app restart)
             statusEntity.MarkClosed(userId.ToString());
@@ -168,6 +350,29 @@ namespace VanAn.CoreHub.Services
                     tenantId,
                     $"Period reopening: {reason}",
                     cancellationToken);
+            }
+
+            // W5/F (FR-CLS-006): đảo closing JEs của kỳ — audit đầy đủ qua reversal
+            // (IsReversal + ReversedJournalId link, purpose "reversal").
+            if (_hkdBookRepository != null)
+            {
+                DateTime reopenStart = new(period.Year, period.Month, 1);
+                DateTime reopenEnd = reopenStart.AddMonths(1);
+                var closingJes = await _dbContext.JournalEntries
+                    .Where(j => j.TenantId == tenantId
+                        && j.EntryDate >= reopenStart && j.EntryDate < reopenEnd
+                        && j.PostingPurpose == AccountingPostingPurposes.Closing
+                        && !j.IsReversal)
+                    .ToListAsync(cancellationToken);
+                foreach (var closingJe in closingJes)
+                {
+                    JournalEntry reversal = closingJe.CreateReversal($"Mở lại kỳ {period.Year}-{period.Month:D2}: {reason}");
+                    await _hkdBookRepository.AddToBookAsync(reversal, AccountingBookType.S2b_HKD, cancellationToken);
+                }
+                if (closingJes.Count > 0)
+                {
+                    _logger.LogInformation("Reopened period {Period}: {Count} closing JEs reversed", period, closingJes.Count);
+                }
             }
 
             // W5: Complete reopen transition (Reopening → Open)

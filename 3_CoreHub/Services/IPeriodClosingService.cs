@@ -40,6 +40,15 @@ namespace VanAn.CoreHub.Services
             IReadOnlyList<string> approverRoles,
             CancellationToken cancellationToken = default);
 
+        // SRS v1.2 W5/F: bút toán kết chuyển 911 (regime-gated TT133/TT99/TT71 —
+        // HKD/TT152 + DNSN/TT58 skip). Idempotent per period; gọi tự động trong
+        // ClosePeriodAsync, hoặc thủ công qua nút "Tạo bút toán kết chuyển".
+        Task<int> GenerateClosingEntriesAsync(
+            AccountingPeriod period,
+            TenantId tenantId,
+            Guid userId,
+            CancellationToken cancellationToken = default);
+
         Task<PeriodClosingStatus> GetPeriodStatusAsync(
             AccountingPeriod period,
             TenantId tenantId,

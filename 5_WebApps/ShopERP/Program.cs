@@ -244,6 +244,8 @@ namespace VanAn.ShopERP
             // SRS v1.2 W3/D (M9): TK tiền per tenant (111 + 112x) + resolve paymentMethod→account
             _ = builder.Services.AddScoped<CoreHub.Services.IBankAccountService, CoreHub.Services.BankAccountService>();
             _ = builder.Services.AddScoped<CoreHub.Services.Journal.IAccountMapRuleService, CoreHub.Services.Journal.AccountMapRuleService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Reconcile.IReconciliationItemService, CoreHub.Services.Reconcile.ReconciliationItemService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Reconcile.IBankStatementService, CoreHub.Services.Reconcile.BankStatementService>();
             // NHẬP LIỆU & SỔ SÁCH P3 (#2, 2026-10-07): khai báo số dư đầu kỳ
             _ = builder.Services.AddScoped<CoreHub.Services.CongNo.IOpeningBalanceService, CoreHub.Services.CongNo.OpeningBalanceService>();
             // NHẬP LIỆU & SỔ SÁCH P4 (#1, 2026-10-08): import Excel xlsx+csv (dry-run 0 lỗi mới lưu)
