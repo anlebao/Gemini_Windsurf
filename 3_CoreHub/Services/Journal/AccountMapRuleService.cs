@@ -53,6 +53,7 @@ namespace VanAn.CoreHub.Services.Journal
             AccountMapEventCodes.ReceivablePayment,
             AccountMapEventCodes.Payable,
             AccountMapEventCodes.PayablePayment,
+            AccountMapEventCodes.ManualVatIn,
             AccountMapEventCodes.TransferOut,
             AccountMapEventCodes.TransferIn,
             AccountMapEventCodes.TransferFee,

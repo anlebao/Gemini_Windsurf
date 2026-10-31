@@ -54,6 +54,9 @@ public static class AccountMapSeeder
             wanted.Add((regime, AccountMapEventCodes.Receivable, "{src}", receivableCredit));
             wanted.Add((regime, AccountMapEventCodes.ReceivablePayment, "{cash}", "{src}"));
             wanted.Add((regime, AccountMapEventCodes.PayablePayment, "{src}", "{cash}"));
+            // Issue #198: VAT đầu vào phiếu tay — Nợ {src}=133 / Có {cash}. Chỉ DN/HTX
+            // (HKD/DNSN không khấu trừ VAT — form ẩn ô VAT, không cần rule).
+            wanted.Add((regime, AccountMapEventCodes.ManualVatIn, "{src}", "{cash}"));
         }
 
         List<string> eventCodes = wanted.Select(w => w.Event).Distinct().ToList();

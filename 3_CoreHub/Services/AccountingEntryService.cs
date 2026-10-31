@@ -368,6 +368,68 @@ namespace VanAn.CoreHub.Services
             }
         }
 
+        /// <summary>
+        /// Issue #198: VAT đầu vào phiếu tay — entry TK 133 (Adjustment/CashBankBook →
+        /// không lọt vào expense totals, khớp semantics CreateDebt). JE qua bridge event
+        /// manual-vat-in: Nợ 133 / Có {cash theo paymentMethod}. Chỉ DN/HTX (form ẩn ô VAT
+        /// với HKD/DNSN — server không chặn, rule cũng chỉ seed accrual regimes).
+        /// </summary>
+        public async Task<AccountingEntryDto> CreateInputVatEntryAsync(TenantId tenantId, decimal vatAmount, string description,
+            string? vendor = null, string? reference = null, DateTime? transactionDate = null,
+            string? paymentMethod = null, Guid? sourceExpenseEntryId = null, CancellationToken ct = default)
+        {
+            try
+            {
+                if (vatAmount <= 0)
+                    throw new ArgumentException("Số tiền VAT phải lớn hơn 0.", nameof(vatAmount));
+
+                DateTime txDate = transactionDate ?? DateTime.UtcNow;
+                AccountingPeriod period = new(txDate.Year, txDate.Month);
+                PeriodClosingStatus periodStatus = await _periodClosingService.GetPeriodStatusAsync(period, tenantId);
+                if (periodStatus == PeriodClosingStatus.Closed)
+                    throw new InvalidOperationException($"Kỳ kế toán {period.Year}/{period.Month:D2} đã đóng sổ. Không thể thêm bút toán mới.");
+
+                CoreAccountingEntry entry = CoreAccountingEntry.CreateDebt(
+                    tenantId, period, new Money(vatAmount), description,
+                    accountCode: "133", vendor: vendor, reference: reference, transactionDate: txDate,
+                    postingPurpose: AccountingPostingPurposes.Vat,
+                    sourceEventType: "ManualEntry", sourceEventId: sourceExpenseEntryId?.ToString(),
+                    paymentMethod: paymentMethod,
+                    cashAccountCode: await ResolveCashAccountSafeAsync(tenantId, paymentMethod));
+                await _repository.AddAsync(entry);
+                await CreateJournalEntrySafeAsync(entry);
+
+                var newValues = System.Text.Json.JsonSerializer.Serialize(new { Amount = vatAmount, Description = description, Type = "InputVat", AccountCode = "133", Vendor = vendor, SourceExpenseEntryId = sourceExpenseEntryId });
+                await _auditTrailService.LogCreateAsync(
+                    AuditableEntityType.AccountingEntry, entry.Id, newValues, correlationId: entry.Id.ToString());
+
+                return new AccountingEntryDto
+                {
+                    Id = entry.Id,
+                    TenantId = entry.TenantId.Value,
+                    Amount = entry.Amount,
+                    Description = entry.Description,
+                    AccountCode = entry.AccountCode,
+                    Vendor = entry.Vendor,
+                    Reference = entry.Reference,
+                    EntryType = entry.EntryType,
+                    CreatedAt = entry.CreatedAt,
+                    AccountingBookType = entry.AccountingBookType,
+                    PeriodYear = entry.PeriodYear,
+                    PeriodMonth = entry.PeriodMonth,
+                    ReversalEntryId = entry.ReversalEntryId,
+                    TransactionDate = entry.TransactionDate,
+                    PaymentMethod = entry.PaymentMethod,
+                    CashAccountCode = entry.CashAccountCode
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating input VAT entry for tenant {TenantId}", tenantId.Value);
+                throw;
+            }
+        }
+
         /// <summary>SRS W3/D (M9): paymentMethod → CashAccountCode — fail-safe (thiếu service/lỗi → null → bridge mặc định 111).</summary>
         private async Task<string?> ResolveCashAccountSafeAsync(TenantId tenantId, string? paymentMethod)
         {

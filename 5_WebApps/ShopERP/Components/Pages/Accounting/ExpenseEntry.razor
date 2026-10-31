@@ -18,6 +18,9 @@
 @inject VanAn.CoreHub.Services.CongNo.ICongNoService CongNoService
 @inject VanAn.CoreHub.Services.IBalanceAlertService BalanceAlertService
 @inject CoreAccountingService.IBankAccountService BankAccountService
+@inject VanAn.CoreHub.Services.IAccountChartService AccountChartService
+@inject VanAn.CoreHub.Services.Journal.IAccountMapResolver AccountMapResolver
+@inject VanAn.Shared.Services.IShopFeatureSettingsService FeatureSettings
 @inject CoreAccountingService.IAuditTrailService AuditTrail
 @inject VanAn.CoreHub.Services.IVasFeatureFlagService FeatureFlagService
 @inject IThemeProvider ThemeProvider
@@ -115,6 +118,19 @@
                 <small class="form-text text-muted">Chi phí (ghi chi phí) · Ghi nhận phải trả (mua chịu — TK 331) · Trả tiền người bán (giảm phải trả)</small>
             </div>
 
+            @* Issue #198: mua chịu hàng hóa → Phiếu Nhập Mua (duyệt + ghi sổ + kho).
+               Option này chỉ cho phải trả PHI-HÀNG (tiền thuê, dịch vụ chịu — theo dõi công nợ). *@
+            @if (_voucherType == VoucherTypePayable)
+            {
+                <div class="mb-3">
+                    <VanAAlert Variant="info" Dismissible="false"
+                        Message="Nếu là mua hàng hóa chịu → dùng Phiếu Nhập Mua (có duyệt, ghi sổ kho + bút toán đúng). Phiếu này chỉ ghi công nợ phải trả khác (không tạo bút toán)." />
+                    <a href="/accounting/purchase-receipts/new" class="btn btn-sm btn-outline-primary" data-testid="link-purchase-receipt">
+                        → Tạo Phiếu Nhập Mua
+                    </a>
+                </div>
+            }
+
             @* FR-5: ô Đối tượng BẮT BUỘC với phiếu công nợ (mua chịu / trả nợ) *@
             @if (IsCongNoType)
             {
@@ -159,7 +175,7 @@
             @* SRS v1.2 W2/C1 (M7): hình thức thanh toán trên phiếu tay (nullable, default tiền mặt) *@
             <div class="mb-3">
                 <label for="paymentMethod" class="form-label">Hình Thức Thanh Toán</label>
-                <select id="paymentMethod" class="form-select" @bind="_paymentMethod" data-testid="payment-method-select">
+                <select id="paymentMethod" class="form-select" @bind="_paymentMethod" @bind:after="RefreshPreviewAsync" data-testid="payment-method-select">
                     <option value="cash">Tiền mặt</option>
                     <option value="bank">Chuyển khoản</option>
                     <option value="qr">QR / Ví điện tử</option>
@@ -167,10 +183,43 @@
                 </select>
             </div>
 
-            <DynamicFormFields 
+            @* Issue #198: VAT đầu vào ("trong đó VAT" — chỉ DN/HTX khấu trừ; HKD/DNSN ẩn) *@
+            @if (_showVatField)
+            {
+                <div class="mb-3">
+                    <label for="vatAmount" class="form-label">Trong đó VAT đầu vào (VNĐ)</label>
+                    <input id="vatAmount" type="number" min="0" step="1000" class="form-control"
+                           @bind="_vatAmount" @bind:after="RefreshPreviewAsync" data-testid="vat-amount-input" />
+                    <small class="form-text text-muted">Phần thuế GTGT nằm trong số tiền trên → tách bút toán Nợ 133.</small>
+                </div>
+            }
+
+            <DynamicFormFields
                 FieldDefinitions="@expenseFields"
                 OnFieldChanged="HandleFieldChanged"
                 @ref="formFieldsRef" />
+
+            @* Issue #198: preview định khoản qua account-map (read-only — cùng resolver của bridge) *@
+            @if (_preview != null && (_preview.Lines.Count > 0 || _preview.Note != null))
+            {
+                <div class="mb-3 p-2 border rounded bg-light" data-testid="journal-preview">
+                    <div class="small fw-bold mb-1">Bút toán sẽ ghi:</div>
+                    @if (_preview.Note != null)
+                    {
+                        <div class="small text-muted">@_preview.Note</div>
+                    }
+                    else
+                    {
+                        @foreach (var l in _preview.Lines)
+                        {
+                            <div class="small">
+                                @(l.Debit > 0 ? "Nợ" : "Có") @l.AccountCode — @((l.Debit > 0 ? l.Debit : l.Credit).ToString("N0")) ₫
+                            </div>
+                        }
+                        <div class="small text-muted mt-1">Rule: @_preview.Source · sửa tại <a href="/accounting/mapping-rules">Quy tắc định khoản</a></div>
+                    }
+                </div>
+            }
 
             @* [G11]: ô MST + Tra cứu — native (trang host quản lý) *@
             <div class="mb-3">
@@ -266,10 +315,48 @@
     private VoucherData? _lastVoucher;
     private bool _showPrintModal;
 
+    // Issue #198: TK từ effective tenant chart + preview + VAT đầu vào + category→TK.
+    private List<PlatformComposite.FieldOption> _coaAccounts = new();
+    private JournalPreviewResult? _preview;
+    private decimal _vatAmount;
+    private bool _accountTouched;
+
+    // VAT đầu vào chỉ cho DN/HTX (khấu trừ); HKD/DNSN ẩn — chỉ phiếu chi phí thường.
+    private bool _showVatField => !IsCongNoType
+        && _tenantType is TenantType.Enterprise_SME or TenantType.Enterprise_Large or TenantType.HTX;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadTenantTypeAsync();
+        await LoadCoaOptionsAsync();
         InitializeFields();
+        await RefreshPreviewAsync();
+    }
+
+    private async Task LoadCoaOptionsAsync()
+    {
+        if (!TenantProvider.HasTenant) return;
+        _coaAccounts = await EntryFormAccountingHelper.LoadAccountOptionsAsync(
+            AccountChartService, new TenantId(TenantProvider.TenantId), _tenantType,
+            ["6"], AccountingAccountProvider.GetExpenseAccounts(_tenantType));
+    }
+
+    private async Task RefreshPreviewAsync()
+    {
+        _preview = null;
+        if (!TenantProvider.HasTenant) return;
+        var accountCode = formData.Values.GetValueOrDefault("account") ?? string.Empty;
+        var amountStr = (formData.Values.GetValueOrDefault("amount") ?? "").Replace(".", "").Replace(",", "").Trim();
+        _ = decimal.TryParse(amountStr, out var amt);
+        string eventCode = _voucherType switch
+        {
+            VoucherTypePayable => VanAn.CoreHub.Services.Journal.AccountMapEventCodes.Payable,
+            VoucherTypePayment => VanAn.CoreHub.Services.Journal.AccountMapEventCodes.PayablePayment,
+            _ => VanAn.CoreHub.Services.Journal.AccountMapEventCodes.ManualExpense
+        };
+        _preview = await EntryFormAccountingHelper.PreviewAsync(
+            eventCode, new TenantId(TenantProvider.TenantId), accountCode, _paymentMethod,
+            amt, _showVatField ? _vatAmount : 0m, _tenantType, AccountMapResolver, BankAccountService, FeatureSettings);
     }
 
     private async Task LoadTenantTypeAsync()
@@ -297,6 +384,30 @@
         {
             formFieldsRef.ClearFieldErrors();
         }
+
+        // Issue #198: user đụng account → không gợi ý nữa; đổi category → gợi ý TK
+        // (chỉ khi account chưa bị user sửa); account/amount đổi → refresh preview.
+        if (field.Id == "account")
+        {
+            _accountTouched = true;
+            _ = RefreshPreviewAsync();
+        }
+        else if (field.Id == "amount")
+        {
+            _ = RefreshPreviewAsync();
+        }
+        else if (field.Id == "category" && !_accountTouched)
+        {
+            var accountField = expenseFields.FirstOrDefault(f => f.Id == "account");
+            string suggested = EntryFormAccountingHelper.SuggestExpenseAccount(
+                formData.Values.GetValueOrDefault("category"), _tenantType);
+            if (accountField != null && accountField.Options.Any(o => o.Value == suggested))
+            {
+                accountField.Value = suggested;
+                formData.Values["account"] = suggested;
+            }
+            _ = RefreshPreviewAsync();
+        }
     }
 
     /// <summary>
@@ -306,6 +417,9 @@
     private void HandleVoucherTypeChanged()
     {
         RebuildFields();
+        _vatAmount = 0m;
+        _accountTouched = false;
+        _ = RefreshPreviewAsync();
     }
 
     private void ValidateForm()
@@ -682,10 +796,10 @@
         return msg;
     }
 
-    // TT 71 Phase 4a: options theo chuẩn tenant (HTX → 642/658; DN/HKD giữ nguyên)
+    // Issue #198: options từ effective tenant chart (COA-driven); fallback static provider.
     private List<PlatformComposite.FieldOption> GetExpenseAccounts()
     {
-        return AccountingAccountProvider.GetExpenseAccounts(_tenantType);
+        return _coaAccounts.Count > 0 ? _coaAccounts : AccountingAccountProvider.GetExpenseAccounts(_tenantType);
     }
 
     private List<PlatformComposite.FieldOption> GetExpenseCategories()
@@ -886,6 +1000,16 @@
         }
         Logger.LogInformation("Duplicate check passed");
 
+        // Issue #198: VAT đầu vào "trong đó VAT" — phải nhỏ hơn số tiền tổng.
+        decimal vatAmount = _showVatField && _vatAmount > 0 ? _vatAmount : 0m;
+        if (_showVatField && _vatAmount > 0 && _vatAmount >= amount)
+        {
+            showError = true;
+            errorMessage = "VAT đầu vào phải nhỏ hơn số tiền tổng.";
+            StateHasChanged();
+            return;
+        }
+
         // W4 (P1.3) + W3/D (FR-PAY-006): cảnh báo âm quỹ theo TK tiền thực (111/112x).
         // Phiếu chi + trả nợ người bán đều ghi Có TK tiền; "ghi nhận phải trả" (mua chịu) không chi tiền.
         // Vượt số dư → modal bắt buộc lý do (không chặn); _balanceWarnConfirmed = user đã xác nhận ở lượt này.
@@ -948,12 +1072,12 @@
         {
             Logger.LogInformation("Calling AccountingService.CreateExpenseEntryAsync with Period={Period}, Amount={Amount}", period, amount);
 
-            // Create accounting entry using IAccountingService — pass user-entered date as transactionDate
-            // so TransactionHistory shows the correct date (not DateTime.UtcNow at creation time).
+            // Issue #198: tách net = tổng − VAT → entry chi phí chỉ phần net;
+            // VAT đầu vào → entry 133 riêng (JE Nợ 133 / Có {cash} qua manual-vat-in).
             _savedDto = await AccountingService.CreateExpenseEntryAsync(
                 tenantId,
                 period,
-                amount,
+                amount - vatAmount,
                 description,
                 accountCode: accountCode,
                 vendor: vendor,
@@ -962,9 +1086,21 @@
                 transactionDate: date,
                 paymentMethod: _paymentMethod);
 
+            if (vatAmount > 0 && _savedDto != null)
+            {
+                _ = await AccountingService.CreateInputVatEntryAsync(
+                    tenantId, vatAmount,
+                    $"VAT đầu vào — {description}",
+                    vendor: vendor,
+                    reference: reference,
+                    transactionDate: date,
+                    paymentMethod: _paymentMethod,
+                    sourceExpenseEntryId: _savedDto.Id);
+            }
+
             Logger.LogInformation("AccountingService.CreateExpenseEntryAsync completed successfully");
 
-            // Track for duplicate detection
+            // Track for duplicate detection (theo tổng gross — khớp duplicate-check server).
             _recentEntries.Add(new RecentEntry(amount, date, accountCode, now));
         }
 
@@ -1029,6 +1165,8 @@
         _openKhoan = new();
         _selectedKhoanId = string.Empty;
         _khoanLoaded = false;
+        _vatAmount = 0m;
+        _accountTouched = false;
         InitializeFields();
     }
     catch (Exception ex)
@@ -1063,10 +1201,12 @@
         _balanceWarnConfirmed = false;
     }
 
-    private static bool IsValidExpenseAccountCode(string code)
+    private bool IsValidExpenseAccountCode(string code)
     {
-        if (code.Length != 3) return false;
-        return code.StartsWith("6");
+        // Issue #198: chấp nhận TK trong tenant chart (gồm TK chi tiết tenant tự thêm);
+        // fallback regex khi chart chưa load.
+        if (_coaAccounts.Count > 0) return _coaAccounts.Any(o => o.Value == code);
+        return code.Length >= 3 && code.StartsWith("6");
     }
 
     private void GoBack()

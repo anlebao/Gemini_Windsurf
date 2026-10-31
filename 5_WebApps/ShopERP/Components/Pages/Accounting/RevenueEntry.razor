@@ -15,6 +15,10 @@
 @inject CoreAccountingService.IAccountingService AccountingService
 @inject VanAn.CoreHub.Services.CongNo.ICongNoService CongNoService
 @inject VanAn.CoreHub.Services.IVasFeatureFlagService FeatureFlagService
+@inject VanAn.CoreHub.Services.IAccountChartService AccountChartService
+@inject VanAn.CoreHub.Services.Journal.IAccountMapResolver AccountMapResolver
+@inject VanAn.CoreHub.Services.IBankAccountService BankAccountService
+@inject VanAn.Shared.Services.IShopFeatureSettingsService FeatureSettings
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
 @inject ILogger<RevenueEntry> Logger
@@ -123,7 +127,7 @@
             @* SRS v1.2 W2/C1 (M7): hình thức thanh toán trên phiếu tay (nullable, default tiền mặt) *@
             <div class="mb-3">
                 <label for="paymentMethod" class="form-label">Hình Thức Thanh Toán</label>
-                <select id="paymentMethod" class="form-select" @bind="_paymentMethod" data-testid="payment-method-select">
+                <select id="paymentMethod" class="form-select" @bind="_paymentMethod" @bind:after="RefreshPreviewAsync" data-testid="payment-method-select">
                     <option value="cash">Tiền mặt</option>
                     <option value="bank">Chuyển khoản</option>
                     <option value="qr">QR / Ví điện tử</option>
@@ -131,10 +135,32 @@
                 </select>
             </div>
 
-            <DynamicFormFields 
-                FieldDefinitions="@revenueFields" 
+            <DynamicFormFields
+                FieldDefinitions="@revenueFields"
                 OnFieldChanged="HandleFieldChanged"
                 @ref="formFieldsRef" />
+
+            @* Issue #198: preview định khoản qua account-map (read-only — cùng resolver của bridge) *@
+            @if (_preview != null && (_preview.Lines.Count > 0 || _preview.Note != null))
+            {
+                <div class="mb-3 p-2 border rounded bg-light" data-testid="journal-preview">
+                    <div class="small fw-bold mb-1">Bút toán sẽ ghi:</div>
+                    @if (_preview.Note != null)
+                    {
+                        <div class="small text-muted">@_preview.Note</div>
+                    }
+                    else
+                    {
+                        @foreach (var l in _preview.Lines)
+                        {
+                            <div class="small">
+                                @(l.Debit > 0 ? "Nợ" : "Có") @l.AccountCode — @((l.Debit > 0 ? l.Debit : l.Credit).ToString("N0")) ₫
+                            </div>
+                        }
+                        <div class="small text-muted mt-1">Rule: @_preview.Source · sửa tại <a href="/accounting/mapping-rules">Quy tắc định khoản</a></div>
+                    }
+                </div>
+            }
 
             @* [G11]: ô MST + Tra cứu — native (trang host quản lý) *@
             <div class="mb-3">
@@ -224,10 +250,42 @@
     // SRS v1.2 W2/C1: DTO vừa lưu — lấy VoucherNumber cho success message + SoPhieu 01-TT.
     private VanAn.Shared.DTOs.AccountingEntryDto? _savedDto;
 
+    // Issue #198: TK từ effective tenant chart (global + tenant override/custom) + preview.
+    private List<PlatformComposite.FieldOption> _coaAccounts = new();
+    private JournalPreviewResult? _preview;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadTenantTypeAsync();
+        await LoadCoaOptionsAsync();
         InitializeFields();
+        await RefreshPreviewAsync();
+    }
+
+    private async Task LoadCoaOptionsAsync()
+    {
+        if (!TenantProvider.HasTenant) return;
+        _coaAccounts = await EntryFormAccountingHelper.LoadAccountOptionsAsync(
+            AccountChartService, new TenantId(TenantProvider.TenantId), _tenantType,
+            ["5", "7"], AccountingAccountProvider.GetRevenueAccounts(_tenantType));
+    }
+
+    private async Task RefreshPreviewAsync()
+    {
+        _preview = null;
+        if (!TenantProvider.HasTenant) return;
+        var accountCode = formData.Values.GetValueOrDefault("account") ?? string.Empty;
+        var amountStr = (formData.Values.GetValueOrDefault("amount") ?? "").Replace(".", "").Replace(",", "").Trim();
+        _ = decimal.TryParse(amountStr, out var amt);
+        string eventCode = _voucherType switch
+        {
+            VoucherTypeReceivable => VanAn.CoreHub.Services.Journal.AccountMapEventCodes.Receivable,
+            VoucherTypePayment => VanAn.CoreHub.Services.Journal.AccountMapEventCodes.ReceivablePayment,
+            _ => VanAn.CoreHub.Services.Journal.AccountMapEventCodes.ManualReceipt
+        };
+        _preview = await EntryFormAccountingHelper.PreviewAsync(
+            eventCode, new TenantId(TenantProvider.TenantId), accountCode, _paymentMethod,
+            amt, 0m, _tenantType, AccountMapResolver, BankAccountService, FeatureSettings);
     }
 
     private async Task LoadTenantTypeAsync()
@@ -255,6 +313,11 @@
         {
             formFieldsRef.ClearFieldErrors();
         }
+
+        if (field.Id is "account" or "amount")
+        {
+            _ = RefreshPreviewAsync();
+        }
     }
 
     /// <summary>
@@ -264,6 +327,7 @@
     private void HandleVoucherTypeChanged()
     {
         RebuildFields();
+        _ = RefreshPreviewAsync();
     }
 
     private void ValidateForm()
@@ -585,10 +649,10 @@
         return msg;
     }
 
-    // TT 71 Phase 4a: options theo chuẩn tenant (HTX → 511/512/558; DN/HKD giữ nguyên)
+    // Issue #198: options từ effective tenant chart (COA-driven); fallback static provider.
     private List<PlatformComposite.FieldOption> GetRevenueAccounts()
     {
-        return AccountingAccountProvider.GetRevenueAccounts(_tenantType);
+        return _coaAccounts.Count > 0 ? _coaAccounts : AccountingAccountProvider.GetRevenueAccounts(_tenantType);
     }
 
     private record RecentEntry(decimal Amount, DateTime Date, string AccountCode, DateTime SubmittedAt);
@@ -787,10 +851,12 @@
     }
     }
 
-    private static bool IsValidRevenueAccountCode(string code)
+    private bool IsValidRevenueAccountCode(string code)
     {
-        if (code.Length != 3) return false;
-        return code.StartsWith("5") || code.StartsWith("7");
+        // Issue #198: chấp nhận TK trong tenant chart (gồm TK chi tiết 4+ số tenant tự thêm);
+        // fallback regex khi chart chưa load.
+        if (_coaAccounts.Count > 0) return _coaAccounts.Any(o => o.Value == code);
+        return code.Length >= 3 && (code.StartsWith("5") || code.StartsWith("7"));
     }
 
     private void GoBack()

@@ -59,6 +59,15 @@ namespace VanAn.CoreHub.Services
             string? accountCode = null, string? reference = null, IndustrySector? industrySector = null, DateTime? transactionDate = null);
 
         /// <summary>
+        /// Issue #198: entry VAT đầu vào phiếu tay (TK 133 — Adjustment/CashBankBook →
+        /// không lọt expense totals; JE qua bridge event manual-vat-in: Nợ 133 / Có {cash}).
+        /// Gọi kèm phiếu chi có VAT ("trong đó VAT"); sourceEventId link entry chi phí gốc.
+        /// </summary>
+        Task<AccountingEntryDto> CreateInputVatEntryAsync(TenantId tenantId, decimal vatAmount, string description,
+            string? vendor = null, string? reference = null, DateTime? transactionDate = null,
+            string? paymentMethod = null, Guid? sourceExpenseEntryId = null, CancellationToken ct = default);
+
+        /// <summary>
         /// Get entries by tenant
         /// </summary>
         Task<IEnumerable<AccountingEntryDto>> GetEntriesByTenantAsync(TenantId tenantId);

@@ -255,7 +255,9 @@ namespace VanAn.CoreHub.Services.Journal
             switch (entry.PostingPurpose)
             {
                 case AccountingPostingPurposes.Vat:
-                    return AccountMapEventCodes.OrderVat;
+                    // Issue #198: VAT đầu vào phiếu tay (133 — CreateInputVatEntryAsync) →
+                    // manual-vat-in (Nợ 133 / Có {cash}); còn lại = VAT đầu ra order (3331).
+                    return accountCode == "133" ? AccountMapEventCodes.ManualVatIn : AccountMapEventCodes.OrderVat;
                 case AccountingPostingPurposes.Cogs:
                     return AccountMapEventCodes.OrderCogs;
                 case AccountingPostingPurposes.DepositOffset:

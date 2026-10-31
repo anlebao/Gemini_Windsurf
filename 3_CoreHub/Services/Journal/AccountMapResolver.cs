@@ -177,6 +177,8 @@ namespace VanAn.CoreHub.Services.Journal
                 // credit → Có 331 (mọi regime — nợ NCC phát sinh thực tế), cash → Có {cash} 111/112x.
                 case AccountMapEventCodes.Purchase: return ("{src}", "331");
                 case AccountMapEventCodes.PurchaseCash: return ("{src}", "{cash}");
+                // Issue #198: VAT đầu vào phiếu tay — {src}=133, {cash}=TK tiền theo paymentMethod.
+                case AccountMapEventCodes.ManualVatIn: return ("{src}", "{cash}");
                 default:
                     return null; // payable + unknown → no-rule
             }
@@ -198,6 +200,7 @@ namespace VanAn.CoreHub.Services.Journal
         public const string PayablePayment = "payable-payment";
         public const string Purchase = "purchase";          // W6/E: nhập mua chịu — Nợ {src} / Có 331
         public const string PurchaseCash = "purchase-cash"; // W6/E: nhập mua trả ngay — Nợ {src} / Có {cash}
+        public const string ManualVatIn = "manual-vat-in";  // #198: VAT đầu vào phiếu tay — Nợ {src}=133 / Có {cash}
         public const string Transfer = "transfer";      // Phase D
         public const string TransferOut = "transfer-out";   // W3/D: Nợ {đích|113} / Có {nguồn}
         public const string TransferIn = "transfer-in";     // W3/D: Nợ {đích} / Có 113

@@ -35,7 +35,7 @@ public class AccountMapRuleServiceTests
 
         var rows = await svc.GetEffectiveRulesAsync(Tenant);
 
-        Assert.Equal(13, rows.Count);
+        Assert.Equal(14, rows.Count); // 13 events cũ + manual-vat-in (issue #198)
         var receipt = rows.Single(r => r.EventCode == "manual-receipt");
         Assert.Equal("regime", receipt.Source);
         Assert.Equal("{cash}", receipt.DebitAccount);

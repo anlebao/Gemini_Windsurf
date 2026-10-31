@@ -4,6 +4,7 @@ using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Audit;
 using VanAn.Shared.DTOs;
 using VanAn.CoreHub.Repositories;
+using VanAn.CoreHub.Services.Journal;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
 
 namespace VanAn.CoreHub.Services.CongNo
@@ -30,7 +31,9 @@ namespace VanAn.CoreHub.Services.CongNo
         IPeriodClosingService periodClosingService,
         IAuditTrailService auditTrailService,
         ILogger<CongNoService> logger,
-        IVoucherNumberService? voucherNumberService = null) : ICongNoService
+        IVoucherNumberService? voucherNumberService = null,
+        IManualEntryJournalBridge? journalBridge = null,
+        IBankAccountService? bankAccountService = null) : ICongNoService
     {
         private const string ReceivableCode = "131";
         private const string PayableCode = "331";
@@ -43,6 +46,13 @@ namespace VanAn.CoreHub.Services.CongNo
         private readonly ILogger<CongNoService> _logger = logger;
         // SRS v1.2 W2/C1 (M6): số chứng từ PT-CN/PC-CN cho phiếu công nợ — optional.
         private readonly IVoucherNumberService? _voucherNumberService = voucherNumberService;
+        // Issue #198: wire bridge cho phiếu công nợ — accrual JE (receivable/payable-payment)
+        // khi tenant DN/HTX + flag AccrualReceivableJE; payable-create → Skipped("no-rule")
+        // theo thiết kế (mua chịu hàng hóa dùng PurchaseReceipt — JE qua event `purchase`).
+        private readonly IManualEntryJournalBridge? _journalBridge = journalBridge;
+        // Issue #198: payment entries cần CashAccountCode đúng (111/112x theo paymentMethod)
+        // — trước đây {cash} luôn default "111" → JE trả/thu nợ sai TK tiền khi chuyển khoản.
+        private readonly IBankAccountService? _bankAccountService = bankAccountService;
 
         // ===================== CREATE PHIẾU CÔNG NỢ =====================
 
@@ -115,14 +125,23 @@ namespace VanAn.CoreHub.Services.CongNo
                 (PayableCode, true) => AccountingPostingPurposes.PayablePayment,
                 _ => AccountingPostingPurposes.Other
             };
+            // Issue #198: payment phiếu (isPayment) cần TK tiền đúng theo hình thức
+            // (bank/qr → 112x) — bridge dùng nó làm {cash} trong rule receivable/payable-payment.
+            string? cashAccountCode = isPayment
+                ? await ResolveCashAccountSafeAsync(tenantId, paymentMethod, cancellationToken)
+                : null;
             CoreAccountingEntry entry = CoreAccountingEntry.CreateDebt(
                 tenantId, period, new Money(signed), desc,
                 accountCode: accountCode, vendor: doiTuong, reference: reference, transactionDate: transactionDate,
                 postingPurpose: purpose, sourceEventType: "CongNo", sourceEventId: reference,
                 voucherNumber: voucherNumber, allocatedToEntryId: allocatedToEntryId,
-                paymentMethod: paymentMethod);
+                paymentMethod: paymentMethod, cashAccountCode: cashAccountCode);
 
             await _repository.AddAsync(entry, cancellationToken);
+
+            // Issue #198: gửi entry qua journal bridge (fail-safe — phiếu vẫn lưu).
+            // Accrual JEs chỉ ghi khi tenant DN/HTX + flag AccrualReceivableJE.
+            await CreateJournalEntrySafeAsync(entry, cancellationToken);
 
             var newValues = JsonSerializer.Serialize(new
             {
@@ -178,6 +197,42 @@ namespace VanAn.CoreHub.Services.CongNo
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Voucher numbering failed ({VoucherType}/{Year}, tenant {TenantId}) — phiếu lưu không số", voucherType, year, tenantId.Value);
+                return null;
+            }
+        }
+
+        /// <summary>Issue #198: gửi phiếu công nợ qua journal bridge — fail-safe kép
+        /// (bridge đã fail-safe nội bộ; try/catch ngoài phòng lỗi lạ → phiếu vẫn lưu).</summary>
+        private async Task CreateJournalEntrySafeAsync(CoreAccountingEntry entry, CancellationToken cancellationToken)
+        {
+            if (_journalBridge == null)
+            {
+                return;
+            }
+            try
+            {
+                _ = await _journalBridge.CreateForAccountingEntryAsync(entry, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Journal bridge create failed for cong-no entry {EntryId} — phiếu đã lưu (fail-safe)", entry.Id);
+            }
+        }
+
+        /// <summary>Issue #198: resolve TK tiền theo paymentMethod cho payment phiếu — fail-safe (null → {cash} default "111" ở resolver).</summary>
+        private async Task<string?> ResolveCashAccountSafeAsync(TenantId tenantId, string? paymentMethod, CancellationToken cancellationToken)
+        {
+            if (_bankAccountService == null)
+            {
+                return null;
+            }
+            try
+            {
+                return await _bankAccountService.ResolveCashAccountCodeAsync(tenantId, paymentMethod, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Cash account resolve failed (method {Method}, tenant {TenantId}) — fallback 111", paymentMethod, tenantId.Value);
                 return null;
             }
         }
