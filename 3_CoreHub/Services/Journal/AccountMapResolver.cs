@@ -154,6 +154,11 @@ namespace VanAn.CoreHub.Services.Journal
                 case AccountMapEventCodes.OrderRevenue: return ("111", "{src}");
                 case AccountMapEventCodes.OrderVat: return ("111", "3331");
                 case AccountMapEventCodes.OrderCogs: return ("{src}", "{cash}");
+                // W3/D: hints truyền sẵn — {src}=TK đích (hoặc 113 khi InTransit), {cash}=TK nguồn;
+                // transfer-in: {src}=TK đích, {cash}=113; transfer-fee: {src}=TK phí (642), {cash}=nguồn.
+                case AccountMapEventCodes.TransferOut: return ("{src}", "{cash}");
+                case AccountMapEventCodes.TransferIn: return ("{src}", "{cash}");
+                case AccountMapEventCodes.TransferFee: return ("{src}", "{cash}");
                 case AccountMapEventCodes.Receivable:
                     return regime is AccountingRegimes.TT133 or AccountingRegimes.TT99
                         ? ("{src}", "511")
@@ -188,6 +193,9 @@ namespace VanAn.CoreHub.Services.Journal
         public const string Payable = "payable";
         public const string PayablePayment = "payable-payment";
         public const string Transfer = "transfer";      // Phase D
+        public const string TransferOut = "transfer-out";   // W3/D: Nợ {đích|113} / Có {nguồn}
+        public const string TransferIn = "transfer-in";     // W3/D: Nợ {đích} / Có 113
+        public const string TransferFee = "transfer-fee";   // W3/D: Nợ {642} / Có {nguồn} (phí riêng)
         public const string ClosingPrefix = "closing-"; // Phase F
     }
 

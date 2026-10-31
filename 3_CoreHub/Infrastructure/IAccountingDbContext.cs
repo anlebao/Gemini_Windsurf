@@ -23,6 +23,8 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<VanAn.CoreHub.Infrastructure.Entities.AccountMappingRuleEntity> AccountMappingRules { get; }
         DbSet<VanAn.CoreHub.Infrastructure.Entities.VoucherSequenceEntity> VoucherSequences { get; }
         DbSet<VanAn.CoreHub.Infrastructure.Entities.AttachmentEntity> Attachments { get; }
+        DbSet<VanAn.CoreHub.Infrastructure.Entities.BankAccountEntity> BankAccounts { get; }
+        DbSet<VanAn.CoreHub.Infrastructure.Entities.InternalTransferEntity> InternalTransfers { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);

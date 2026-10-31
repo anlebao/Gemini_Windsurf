@@ -36,6 +36,11 @@ public static class AccountMapSeeder
             wanted.Add((regime, AccountMapEventCodes.OrderRevenue, "111", "{src}"));
             wanted.Add((regime, AccountMapEventCodes.OrderVat, "111", "3331"));
             wanted.Add((regime, AccountMapEventCodes.OrderCogs, "{src}", "{cash}"));
+            // W3/D (2026-10-31): chuyển tiền nội bộ — hints do InternalTransferService truyền
+            // ({src}=đích/113/642 theo event, {cash}=nguồn). Parity builtin resolver.
+            wanted.Add((regime, AccountMapEventCodes.TransferOut, "{src}", "{cash}"));
+            wanted.Add((regime, AccountMapEventCodes.TransferIn, "{src}", "{cash}"));
+            wanted.Add((regime, AccountMapEventCodes.TransferFee, "{src}", "{cash}"));
         }
 
         foreach (string regime in AccrualRegimes)

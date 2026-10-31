@@ -240,6 +240,7 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.Journal.IAccountMapResolver, CoreHub.Services.Journal.AccountMapResolver>();
             _ = builder.Services.AddScoped<CoreHub.Services.IVoucherNumberService, CoreHub.Services.VoucherNumberService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IAttachmentService, CoreHub.Services.AttachmentService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IInternalTransferService, CoreHub.Services.InternalTransferService>();
             // NHẬP LIỆU & SỔ SÁCH P3 (#2, 2026-10-07): khai báo số dư đầu kỳ
             _ = builder.Services.AddScoped<CoreHub.Services.CongNo.IOpeningBalanceService, CoreHub.Services.CongNo.OpeningBalanceService>();
             // NHẬP LIỆU & SỔ SÁCH P4 (#1, 2026-10-08): import Excel xlsx+csv (dry-run 0 lỗi mới lưu)
