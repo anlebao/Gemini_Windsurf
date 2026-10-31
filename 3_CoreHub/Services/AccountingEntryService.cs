@@ -18,7 +18,8 @@ namespace VanAn.CoreHub.Services
         IPeriodClosingService periodClosingService,
         ILogger<AccountingEntryService> logger,
         IManualEntryJournalBridge? journalBridge = null,
-        IVoucherNumberService? voucherNumberService = null) : IAccountingService
+        IVoucherNumberService? voucherNumberService = null,
+        IBankAccountService? bankAccountService = null) : IAccountingService
     {
         private readonly IAccountingEntryRepository _repository = repository;
         private readonly IAuditTrailService _auditTrailService = auditTrailService;
@@ -30,6 +31,9 @@ namespace VanAn.CoreHub.Services
         // SRS v1.2 W2/C1 (M6): số chứng từ tuần tự PT/PC cho phiếu tay (reference == null).
         // Optional — thiếu service → phiếu vẫn lưu, VoucherNumber null.
         private readonly IVoucherNumberService? _voucherNumberService = voucherNumberService;
+        // SRS v1.2 W3/D (M9): paymentMethod → CashAccountCode (cash→111, bank→112x) khi caller
+        // không truyền sẵn. Optional — thiếu service → null → bridge mặc định 111 (parity).
+        private readonly IBankAccountService? _bankAccountService = bankAccountService;
 
         // C-1: Duplicate detection window (configurable constant)
         private const int DuplicateWindowMinutes = 5;
@@ -149,7 +153,8 @@ namespace VanAn.CoreHub.Services
                         TransactionDate = entry.TransactionDate,
                         VoucherNumber = entry.VoucherNumber,
                         PaymentMethod = entry.PaymentMethod,
-                        AllocatedToEntryId = entry.AllocatedToEntryId
+                        AllocatedToEntryId = entry.AllocatedToEntryId,
+                        CashAccountCode = entry.CashAccountCode
                     };
             }
             catch (Exception ex)
@@ -186,7 +191,8 @@ namespace VanAn.CoreHub.Services
                     postingPurpose: accountCode == "3331" ? AccountingPostingPurposes.Vat : AccountingPostingPurposes.Revenue,
                     sourceEventType: reference != null ? "Order" : "ManualEntry",
                     sourceEventId: reference,
-                    voucherNumber: voucherNumber, paymentMethod: paymentMethod, cashAccountCode: cashAccountCode);
+                    voucherNumber: voucherNumber, paymentMethod: paymentMethod,
+                    cashAccountCode: cashAccountCode ?? await ResolveCashAccountSafeAsync(tenantId, paymentMethod));
                 await _repository.AddAsync(entry);
 
                 // NHẬP LIỆU & SỔ SÁCH P2 (#4): phiếu tay → JournalEntry (Sổ HKD B01-B09/BCTC) — fail-safe
@@ -217,7 +223,8 @@ namespace VanAn.CoreHub.Services
                     TransactionDate = entry.TransactionDate,
                     IndustrySector = entry.IndustrySector,
                     VoucherNumber = entry.VoucherNumber,
-                    PaymentMethod = entry.PaymentMethod
+                    PaymentMethod = entry.PaymentMethod,
+                    CashAccountCode = entry.CashAccountCode
                 };
             }
             catch (Exception ex)
@@ -254,7 +261,8 @@ namespace VanAn.CoreHub.Services
                     postingPurpose: isCogs ? AccountingPostingPurposes.Cogs : AccountingPostingPurposes.ManualExpense,
                     sourceEventType: reference != null ? "Order" : "ManualEntry",
                     sourceEventId: reference,
-                    voucherNumber: voucherNumber, paymentMethod: paymentMethod, cashAccountCode: cashAccountCode);
+                    voucherNumber: voucherNumber, paymentMethod: paymentMethod,
+                    cashAccountCode: cashAccountCode ?? await ResolveCashAccountSafeAsync(tenantId, paymentMethod));
                 await _repository.AddAsync(entry);
 
                 // NHẬP LIỆU & SỔ SÁCH P2 (#4): phiếu tay → JournalEntry (Sổ HKD B01-B09/BCTC) — fail-safe
@@ -288,7 +296,8 @@ namespace VanAn.CoreHub.Services
                     IndustrySector = entry.IndustrySector,
                     VoucherNumber = entry.VoucherNumber,
                     PaymentMethod = entry.PaymentMethod,
-                    AllocatedToEntryId = entry.AllocatedToEntryId
+                    AllocatedToEntryId = entry.AllocatedToEntryId,
+                    CashAccountCode = entry.CashAccountCode
                 };
             }
             catch (Exception ex)
@@ -356,6 +365,24 @@ namespace VanAn.CoreHub.Services
             {
                 _logger.LogError(ex, "Error creating deposit offset entry for tenant {TenantId}", tenantId.Value);
                 throw;
+            }
+        }
+
+        /// <summary>SRS W3/D (M9): paymentMethod → CashAccountCode — fail-safe (thiếu service/lỗi → null → bridge mặc định 111).</summary>
+        private async Task<string?> ResolveCashAccountSafeAsync(TenantId tenantId, string? paymentMethod)
+        {
+            if (_bankAccountService == null)
+            {
+                return null;
+            }
+            try
+            {
+                return await _bankAccountService.ResolveCashAccountCodeAsync(tenantId, paymentMethod);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Cash account resolve failed (method {Method}, tenant {TenantId}) — fallback 111", paymentMethod, tenantId.Value);
+                return null;
             }
         }
 

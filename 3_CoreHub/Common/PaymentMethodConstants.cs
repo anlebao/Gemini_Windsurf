@@ -18,11 +18,12 @@ namespace VanAn.CoreHub.Common
         /// <summary>
         /// Map PaymentMethod → cash account code (111 cash, 112 bank).
         /// Unknown/null falls back to 111 (cash) — safe default for HKD retail.
+        /// W3/D (2026-10-31): normalize case — phiếu tay UI gửi lowercase ("cash"/"bank"/"qr").
         /// </summary>
-        public static string MapCashAccount(string? paymentMethod) => paymentMethod switch
+        public static string MapCashAccount(string? paymentMethod) => paymentMethod?.Trim().ToUpperInvariant() switch
         {
             Cash or Cod => "111",
-            VietQR or CreditCard or External => "112",
+            VietQR or CreditCard or External or "BANK" or "TRANSFER" or "QR" or "EWALLET" or "MOMO" or "ZALOPAY" => "112",
             _ => "111" // safe fallback
         };
     }

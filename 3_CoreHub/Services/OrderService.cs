@@ -349,7 +349,8 @@ namespace VanAn.CoreHub.Services
                         $"Doanh thu bán hàng (net) #{order.Id}",
                         accountCode: revenueAccount,
                         reference: orderRef,
-                        industrySector: sector);
+                        industrySector: sector,
+                        paymentMethod: order.PaymentMethod); // W3/D: → CashAccountCode (cash→111, bank→112x)
                 }
 
                 if (depositOffset > 0)

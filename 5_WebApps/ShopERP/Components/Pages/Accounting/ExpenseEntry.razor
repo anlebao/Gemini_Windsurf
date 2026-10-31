@@ -9,6 +9,7 @@
 @using VanAn.UI.Platform.Models
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
+@using VanAn.Shared.Domain.Audit
 @using CoreAccountingService = VanAn.CoreHub.Services
 @using Microsoft.JSInterop
 @using VanAn.ShopERP.Services.Accounting
@@ -16,6 +17,8 @@
 @inject CoreAccountingService.IAccountingService AccountingService
 @inject VanAn.CoreHub.Services.CongNo.ICongNoService CongNoService
 @inject VanAn.CoreHub.Services.IBalanceAlertService BalanceAlertService
+@inject CoreAccountingService.IBankAccountService BankAccountService
+@inject CoreAccountingService.IAuditTrailService AuditTrail
 @inject VanAn.CoreHub.Services.IVasFeatureFlagService FeatureFlagService
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
@@ -70,6 +73,29 @@
                                 NguoiNhan="@_lastVoucher.NguoiNhan" DiaChi="@_lastVoucher.DiaChi"
                                 LyDo="@_lastVoucher.LyDo" SoTien="@_lastVoucher.SoTien"
                                 KemTheo="@_lastVoucher.KemTheo" ChungTuGoc="@_lastVoucher.ChungTuGoc" />
+        }
+    </VanAnModal>
+
+    @* SRS v1.2 W3/D (FR-PAY-006): chi vượt số dư quỹ/TGNH → cảnh báo + bắt buộc lý do (không chặn). *@
+    <VanAnModal IsOpen="@_showBalanceWarnModal" Title="⚠️ Cảnh báo vượt số dư quỹ" Closable="false">
+        @if (_pendingBalanceAlert != null)
+        {
+            <VanAAlert Type="warning" Message="@_pendingBalanceAlert.Message" Dismissible="false" />
+            <div class="mt-2">
+                <label class="form-label small">Lý do chi vượt số dư (bắt buộc — lưu audit):</label>
+                <input class="form-control" @bind="_balanceWarnReason" data-testid="expense-balance-warn-reason"
+                       placeholder="VD: đã nhận chuyển khoản bù sau / ứng trước cho NCC..." />
+            </div>
+            <div class="mt-3 d-flex gap-2">
+                <VanAButton Variant="primary" OnClick="ConfirmBalanceWarnAsync"
+                            disabled="@(string.IsNullOrWhiteSpace(_balanceWarnReason))"
+                            data-testid="expense-balance-warn-confirm">
+                    Xác nhận vẫn lưu phiếu
+                </VanAButton>
+                <VanAButton Variant="secondary" OnClick="CancelBalanceWarn" data-testid="expense-balance-warn-cancel">
+                    Hủy (kiểm tra lại)
+                </VanAButton>
+            </div>
         }
     </VanAnModal>
 
@@ -225,6 +251,11 @@
     private string errorMessage = string.Empty;
     private bool _isSubmitting = false;
     private string balanceWarning = string.Empty;  // W4 (P1.3): cảnh báo âm quỹ 111
+    // SRS v1.2 W3/D (FR-PAY-006): vượt số dư quỹ/TGNH → modal cảnh báo + lý do bắt buộc (không chặn).
+    private bool _showBalanceWarnModal;
+    private VanAn.CoreHub.Services.BalanceAlertResult? _pendingBalanceAlert;
+    private string _balanceWarnReason = string.Empty;
+    private bool _balanceWarnConfirmed;
     private PlatformComposite.FormData formData = new();
     private DynamicFormFields? formFieldsRef;
     private TenantType? _tenantType;
@@ -855,18 +886,25 @@
         }
         Logger.LogInformation("Duplicate check passed");
 
-        // W4 (P1.3): cảnh báo âm quỹ TK 111 — non-blocking (vẫn lưu phiếu).
-        // Phiếu chi + trả nợ người bán đều ghi Có 111; "ghi nhận phải trả" (mua chịu) không chi tiền.
+        // W4 (P1.3) + W3/D (FR-PAY-006): cảnh báo âm quỹ theo TK tiền thực (111/112x).
+        // Phiếu chi + trả nợ người bán đều ghi Có TK tiền; "ghi nhận phải trả" (mua chịu) không chi tiền.
+        // Vượt số dư → modal bắt buộc lý do (không chặn); _balanceWarnConfirmed = user đã xác nhận ở lượt này.
         balanceWarning = string.Empty;
-        if (_voucherType is VoucherTypeExpense or VoucherTypePayment)
+        if (_voucherType is VoucherTypeExpense or VoucherTypePayment && !_balanceWarnConfirmed)
         {
             try
             {
+                var warnTenantId = new TenantId(TenantProvider.TenantId);
+                string cashAccount = await BankAccountService.ResolveCashAccountCodeAsync(warnTenantId, _paymentMethod);
                 var cashAlert = await BalanceAlertService.CheckCashBalanceAsync(
-                    new TenantId(TenantProvider.TenantId), amount);
+                    warnTenantId, amount, cashAccount);
                 if (cashAlert != null)
                 {
-                    balanceWarning = cashAlert.Message;
+                    _pendingBalanceAlert = cashAlert;
+                    _balanceWarnReason = string.Empty;
+                    _showBalanceWarnModal = true;
+                    StateHasChanged();
+                    return; // hold — user xác nhận lý do → ConfirmBalanceWarnAsync re-submit
                 }
             }
             catch (Exception alertEx)
@@ -930,6 +968,33 @@
             _recentEntries.Add(new RecentEntry(amount, date, accountCode, now));
         }
 
+        // FR-PAY-006: user đã xác nhận chi vượt số dư → ghi audit lý do + hiện banner thông tin.
+        if (_balanceWarnConfirmed && _savedDto != null)
+        {
+            balanceWarning = _pendingBalanceAlert?.Message ?? string.Empty;
+            try
+            {
+                await AuditTrail.LogCreateAsync(
+                    AuditableEntityType.AccountingEntry,
+                    _savedDto.Id,
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        Override = "CashBalanceExceeded",
+                        Reason = _balanceWarnReason,
+                        CashAccount = _pendingBalanceAlert?.SubjectLabel,
+                        CurrentBalance = _pendingBalanceAlert?.CurrentBalance,
+                        Amount = amount
+                    }),
+                    correlationId: _savedDto.Id.ToString());
+            }
+            catch (Exception auditEx)
+            {
+                Logger.LogWarning(auditEx, "Audit log failed for balance-override on entry {EntryId}", _savedDto.Id);
+            }
+        }
+        _balanceWarnConfirmed = false;
+        _pendingBalanceAlert = null;
+
         // TT 71 Phase 4b: capture dữ liệu phiếu chi 02-TT (chỉ tenant HTX) trước khi reset form
         if (!IsCongNoType && _tenantType == TenantType.HTX)
         {
@@ -979,6 +1044,23 @@
         _isSubmitting = false;
         StateHasChanged();
     }
+    }
+
+    /// <summary>FR-PAY-006: xác nhận vẫn lưu phiếu dù vượt số dư — lý do bắt buộc (gửi audit sau khi lưu).</summary>
+    private async Task ConfirmBalanceWarnAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_balanceWarnReason)) return;
+        _showBalanceWarnModal = false;
+        _balanceWarnConfirmed = true;
+        await HandleSubmit();
+    }
+
+    private void CancelBalanceWarn()
+    {
+        _showBalanceWarnModal = false;
+        _pendingBalanceAlert = null;
+        _balanceWarnReason = string.Empty;
+        _balanceWarnConfirmed = false;
     }
 
     private static bool IsValidExpenseAccountCode(string code)

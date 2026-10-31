@@ -34,12 +34,14 @@ namespace VanAn.CoreHub.Services
     public interface IBalanceAlertService
     {
         /// <summary>
-        /// Âm quỹ tiền mặt TK 111: số dư cuối kỳ hiện tại trừ <paramref name="projectedOutflow"/>
-        /// &lt; 0 → trả alert; đủ quỹ → null.
+        /// Âm quỹ tiền (mặc định TK 111; W3/D FR-PAY-006: truyền <paramref name="cashAccountCode"/>
+        /// để kiểm tra đúng quỹ/TGNH theo hình thức thanh toán — vd 112x khi chi chuyển khoản):
+        /// số dư cuối kỳ hiện tại trừ <paramref name="projectedOutflow"/> &lt; 0 → trả alert; đủ quỹ → null.
         /// </summary>
         Task<BalanceAlertResult?> CheckCashBalanceAsync(
             TenantId tenantId,
             decimal projectedOutflow,
+            string? cashAccountCode = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>

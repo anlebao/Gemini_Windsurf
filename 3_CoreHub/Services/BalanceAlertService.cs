@@ -23,6 +23,7 @@ namespace VanAn.CoreHub.Services
         public async Task<BalanceAlertResult?> CheckCashBalanceAsync(
             TenantId tenantId,
             decimal projectedOutflow,
+            string? cashAccountCode = null,
             CancellationToken cancellationToken = default)
         {
             if (projectedOutflow <= 0 || !await IsEnabledAsync(cancellationToken))
@@ -30,12 +31,18 @@ namespace VanAn.CoreHub.Services
                 return null;
             }
 
+            // W3/D (FR-PAY-006): TK tiền theo hình thức thanh toán (111 quỹ / 112x ngân hàng).
+            string accountCode = string.IsNullOrWhiteSpace(cashAccountCode) ? CashAccountCode : cashAccountCode;
+            string subjectLabel = accountCode == CashAccountCode
+                ? "TK 111 — Tiền mặt"
+                : $"TK {accountCode} — Tiền gửi ngân hàng";
+
             DateTime now = DateTime.UtcNow;
             IReadOnlyList<AccountBalanceDto> balances = await generalLedger.GetBalancesAsync(
                 tenantId, now.Year, now.Month, cancellationToken);
 
             decimal current = balances
-                .Where(b => b.AccountCode == CashAccountCode)
+                .Where(b => b.AccountCode == accountCode)
                 .Sum(b => b.ClosingBalance);
 
             decimal projected = current - projectedOutflow;
@@ -45,17 +52,17 @@ namespace VanAn.CoreHub.Services
             }
 
             logger.LogWarning(
-                "BALANCE ALERT: TK 111 âm quỹ — tenant {TenantId}, hiện tại {Current:N0}, chi {Outflow:N0}, dư kiến {Projected:N0}",
-                tenantId.Value, current, projectedOutflow, projected);
+                "BALANCE ALERT: TK {Account} âm quỹ — tenant {TenantId}, hiện tại {Current:N0}, chi {Outflow:N0}, dư kiến {Projected:N0}",
+                accountCode, tenantId.Value, current, projectedOutflow, projected);
 
             return new BalanceAlertResult(
                 BalanceAlertType.CashNegative,
-                "TK 111 — Tiền mặt",
+                subjectLabel,
                 current,
                 projectedOutflow,
                 projected,
                 IsNegative: true,
-                $"⚠ Âm quỹ tiền mặt: TK 111 hiện có {current:N0}đ, khoản chi {projectedOutflow:N0}đ sẽ làm quỹ âm {projected:N0}đ. Kiểm tra lại trước khi lưu.");
+                $"⚠ Âm quỹ: {subjectLabel} hiện có {current:N0}đ, khoản chi {projectedOutflow:N0}đ sẽ làm số dư âm {projected:N0}đ. Kiểm tra lại trước khi lưu.");
         }
 
         public async Task<BalanceAlertResult?> CheckInventoryBalanceAsync(

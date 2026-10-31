@@ -1,0 +1,193 @@
+@page "/accounting/bank-book"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "AccountingFullAccess")]
+@using System.Globalization
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.UI.Platform.Models
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.CoreHub.Services
+@using VanAn.CoreHub.Services.GeneralLedger
+@using VanAn.CoreHub.Infrastructure.Entities
+@inject IGeneralLedgerService GeneralLedgerService
+@inject IBankAccountService BankAccountService
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject IJSRuntime JSRuntime
+@inject ILogger<BankBook> Logger
+
+@* SRS v1.2 W3/D (FR-RPT-004): Sổ tiền gửi ngân hàng — per BankAccount (112x), running balance. *@
+<div class="report-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Sổ Tiền Gửi Ngân Hàng (TK 112x)</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="PrintReport" Disabled="@(report == null)">
+                🖨️ In báo cáo
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (errorMessage != null)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+    }
+
+    <VanACard Header="Kỳ báo cáo & tài khoản ngân hàng">
+        <div class="period-picker-row">
+            <label>Năm: <input type="number" min="2000" max="2100" @bind="selectedYear" /></label>
+            <label>Tháng:
+                <select @bind="selectedMonth">
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        <option value="@m">@m</option>
+                    }
+                </select>
+            </label>
+            <label>Tài khoản:
+                <select @bind="selectedAccountCode">
+                    @foreach (var acc in bankAccounts)
+                    {
+                        <option value="@acc.AccountCode">@acc.AccountCode — @acc.DisplayName@(acc.BankName is null ? "" : $" ({acc.BankName})")</option>
+                    }
+                </select>
+            </label>
+            <VanAButton Variant="primary" Size="small" OnClick="LoadReport" Disabled="@(bankAccounts.Count == 0)">Áp dụng</VanAButton>
+        </div>
+        @if (bankAccounts.Count == 0 && !loading)
+        {
+            <p class="text-muted mt-2 mb-0">Chưa có tài khoản ngân hàng — thêm TK 112x trong quản lý tài khoản tiền để xem sổ TGNH.</p>
+        }
+    </VanACard>
+
+    @if (loading)
+    {
+        <VanACard Header="Đang tải">
+            <p>Đang tải Sổ TGNH...</p>
+        </VanACard>
+    }
+    else if (report != null)
+    {
+        <VanACard Header="@($"Sổ tiền gửi ngân hàng {report.AccountCode} {report.AccountName ?? ""} — tháng {selectedMonth:D2}/{selectedYear}")">
+            <div class="totals-row">
+                <strong>Dư đầu kỳ:</strong> <span>@report.OpeningBalance.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                <strong>Tổng thu:</strong> <span>@report.PeriodDebitTotal.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                <strong>Tổng chi:</strong> <span>@report.PeriodCreditTotal.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                <strong>Dư cuối kỳ:</strong> <span>@report.ClosingBalance.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+            </div>
+            <VanAnDataGrid TItem="SubLedgerRowDto" Items="@report.Rows" EmptyMessage="Không có phát sinh trong kỳ">
+                <Columns>
+                    <VanAnColumn TItem="SubLedgerRowDto" Title="Ngày" Width="2">
+                        <Template Context="r">
+                            <span>@r.EntryDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="SubLedgerRowDto" Title="Số CT" Width="2">
+                        <Template Context="r">
+                            <span>@r.JournalNo</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="SubLedgerRowDto" Title="Diễn giải" Width="4">
+                        <Template Context="r">
+                            <span>@r.Description</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="SubLedgerRowDto" Title="TK ĐƯ" Width="1">
+                        <Template Context="r">
+                            <span>@r.CounterpartAccount</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="SubLedgerRowDto" Title="Thu" Width="2">
+                        <Template Context="r">
+                            <span>@(r.Debit > 0 ? r.Debit.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) : "")</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="SubLedgerRowDto" Title="Chi" Width="2">
+                        <Template Context="r">
+                            <span>@(r.Credit > 0 ? r.Credit.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) : "")</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="SubLedgerRowDto" Title="Dư" Width="2">
+                        <Template Context="r">
+                            <span>@r.RunningBalance.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
+                        </Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private List<BankAccountEntity> bankAccounts = new();
+    private SubLedgerReportDto? report;
+    private bool loading = true;
+    private string? errorMessage;
+    private int selectedYear = DateTime.UtcNow.Year;
+    private int selectedMonth = DateTime.UtcNow.Month;
+    private string selectedAccountCode = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBankAccounts();
+        if (bankAccounts.Count > 0)
+        {
+            selectedAccountCode = bankAccounts[0].AccountCode;
+            await LoadReport();
+        }
+        else
+        {
+            loading = false;
+        }
+    }
+
+    private async Task LoadBankAccounts()
+    {
+        try
+        {
+            if (!TenantProvider.HasTenant) return;
+            TenantId tenantId = new(TenantProvider.TenantId);
+            bankAccounts = (await BankAccountService.ListAsync(tenantId))
+                .Where(b => b.AccountCode.StartsWith("112"))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading bank accounts");
+            errorMessage = $"Lỗi tải danh sách TK ngân hàng: {ex.Message}";
+        }
+    }
+
+    private async Task LoadReport()
+    {
+        if (string.IsNullOrWhiteSpace(selectedAccountCode)) return;
+        loading = true;
+        errorMessage = null;
+        report = null;
+        try
+        {
+            if (!TenantProvider.HasTenant)
+            {
+                errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
+            TenantId tenantId = new(TenantProvider.TenantId);
+            report = await GeneralLedgerService.GetSubLedgerAsync(
+                tenantId, selectedYear, selectedMonth, selectedAccountCode);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading bank book for {Year}-{Month} TK {Account}", selectedYear, selectedMonth, selectedAccountCode);
+            errorMessage = $"Lỗi tải Sổ TGNH: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task PrintReport() => await JSRuntime.InvokeVoidAsync("vananPrintBill");
+}

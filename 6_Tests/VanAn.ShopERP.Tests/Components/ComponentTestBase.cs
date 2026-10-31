@@ -112,6 +112,15 @@ public class ComponentTestBase : TestContext
         // Default returns null (no alert); tests needing alerts override before render.
         Services.AddSingleton<IBalanceAlertService>(_ => new Mock<IBalanceAlertService>().Object);
 
+        // SRS v1.2 W3/D (2026-10-31): IBankAccountService + IAuditTrailService — mock by default
+        // (ExpenseEntry injects for cash-account resolve + FR-PAY-006 override audit).
+        var mockBankAccounts = new Mock<IBankAccountService>();
+        mockBankAccounts.Setup(b => b.ResolveCashAccountCodeAsync(
+                It.IsAny<TenantId>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("111");
+        Services.AddSingleton(mockBankAccounts.Object);
+        Services.AddSingleton<IAuditTrailService>(_ => new Mock<IAuditTrailService>().Object);
+
         // Issue #197 (2026-10-29): metering client + attribute resolver — mock by default.
         // MeteringDenyGate/FeatureUsageRecorder (AccountingLayout/Loyalty/Booking pages) inject
         // chúng; default CheckBalanceAsync trả null → fail-open (content render bình thường).

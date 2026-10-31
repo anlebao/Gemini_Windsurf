@@ -59,6 +59,27 @@ public class BalanceAlertServiceTests
         Assert.Null(result);
     }
 
+    // ---- W3/D (FR-PAY-006): cashAccountCode — cảnh báo đúng TK tiền (111/112x) ----
+
+    [Fact]
+    public async Task Cash_BankAccount_Uses112xBalance_Not111()
+    {
+        // Quỹ 111 dư 5tr nhưng TGNH 1121 chỉ có 1tr — chi chuyển khoản 2tr → alert TK 1121.
+        var sut = CreateService([Balance("111", 5_000_000m), Balance("1121", 1_000_000m)]);
+        var result = await sut.CheckCashBalanceAsync(new TenantId(Guid.NewGuid()), 2_000_000m, "1121");
+        Assert.NotNull(result);
+        Assert.Contains("1121", result!.SubjectLabel);
+        Assert.Equal(-1_000_000m, result.ProjectedBalance);
+    }
+
+    [Fact]
+    public async Task Cash_NullAccountCode_Defaults111()
+    {
+        var sut = CreateService([Balance("111", 5_000_000m), Balance("1121", 0m)]);
+        var result = await sut.CheckCashBalanceAsync(new TenantId(Guid.NewGuid()), 2_000_000m, null);
+        Assert.Null(result); // 111 đủ quỹ — không alert dù 1121 âm
+    }
+
     [Fact]
     public async Task Cash_PaymentExceedsBalance_Alert()
     {

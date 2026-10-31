@@ -515,5 +515,81 @@ namespace VanAn.Core.Tests.Accounting
             Assert.NotNull(result);
             _mockRepository.Verify(r => r.AddAsync(It.IsAny<CoreAccountingEntry>(), It.IsAny<CancellationToken>()), Times.Once);
         }
+
+        // ---- SRS v1.2 W3/D (M9): paymentMethod → CashAccountCode resolve ----
+
+        [Fact]
+        public async Task CreateExpenseEntryAsync_W3_BankMethod_ResolvesCashAccount()
+        {
+            // Arrange — IBankAccountService trả "1121" (TK ngân hàng active của tenant)
+            var mockBankAccounts = new Mock<IBankAccountService>();
+            mockBankAccounts
+                .Setup(b => b.ResolveCashAccountCodeAsync(It.IsAny<TenantId>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync("1121");
+            var service = new AccountingEntryService(_mockRepository.Object, _mockAuditTrail.Object,
+                _mockPeriodClosing.Object, _mockLogger.Object, bankAccountService: mockBankAccounts.Object);
+
+            CoreAccountingEntry? captured = null;
+            _mockRepository
+                .Setup(r => r.AddAsync(It.IsAny<CoreAccountingEntry>(), It.IsAny<CancellationToken>()))
+                .Callback<CoreAccountingEntry, CancellationToken>((e, _) => captured = e)
+                .Returns(Task.CompletedTask);
+
+            // Act — phiếu chi chuyển khoản, không truyền cashAccountCode
+            Shared.DTOs.AccountingEntryDto result = await service.CreateExpenseEntryAsync(
+                new TenantId(Guid.NewGuid()), new AccountingPeriod(2024, 1), 500m, "Chi chuyển khoản",
+                paymentMethod: "bank");
+
+            // Assert — CashAccountCode = TK 112x resolve từ service (không phải default 111)
+            Assert.Equal("1121", captured?.CashAccountCode);
+            Assert.Equal("1121", result.CashAccountCode);
+            mockBankAccounts.Verify(b => b.ResolveCashAccountCodeAsync(
+                It.IsAny<TenantId>(), "bank", It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateExpenseEntryAsync_W3_ExplicitCashAccount_NotOverridden()
+        {
+            // Arrange — caller truyền sẵn cashAccountCode → KHÔNG gọi resolve
+            var mockBankAccounts = new Mock<IBankAccountService>();
+            var service = new AccountingEntryService(_mockRepository.Object, _mockAuditTrail.Object,
+                _mockPeriodClosing.Object, _mockLogger.Object, bankAccountService: mockBankAccounts.Object);
+
+            CoreAccountingEntry? captured = null;
+            _mockRepository
+                .Setup(r => r.AddAsync(It.IsAny<CoreAccountingEntry>(), It.IsAny<CancellationToken>()))
+                .Callback<CoreAccountingEntry, CancellationToken>((e, _) => captured = e)
+                .Returns(Task.CompletedTask);
+
+            // Act
+            await service.CreateExpenseEntryAsync(
+                new TenantId(Guid.NewGuid()), new AccountingPeriod(2024, 1), 500m, "Chi rõ TK",
+                paymentMethod: "bank", cashAccountCode: "1129");
+
+            // Assert
+            Assert.Equal("1129", captured?.CashAccountCode);
+            mockBankAccounts.Verify(b => b.ResolveCashAccountCodeAsync(
+                It.IsAny<TenantId>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task CreateExpenseEntryAsync_W3_NoBankService_NullCashAccount()
+        {
+            // Arrange — service mặc định (không inject IBankAccountService) → CashAccountCode null
+            // (bridge mặc định 111 — parity behavior cũ, không crash).
+            CoreAccountingEntry? captured = null;
+            _mockRepository
+                .Setup(r => r.AddAsync(It.IsAny<CoreAccountingEntry>(), It.IsAny<CancellationToken>()))
+                .Callback<CoreAccountingEntry, CancellationToken>((e, _) => captured = e)
+                .Returns(Task.CompletedTask);
+
+            // Act
+            await _service.CreateExpenseEntryAsync(
+                new TenantId(Guid.NewGuid()), new AccountingPeriod(2024, 1), 500m, "Chi mặc định",
+                paymentMethod: "bank");
+
+            // Assert
+            Assert.Null(captured?.CashAccountCode);
+        }
     }
 }

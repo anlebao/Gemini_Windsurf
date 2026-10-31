@@ -35,6 +35,9 @@ namespace VanAn.Shared.DTOs
         public string? PaymentMethod { get; set; }
         public Guid? AllocatedToEntryId { get; set; }
 
+        // SRS v1.2 W3/D — TK tiền thực ghi sổ (111/112x). Null → mặc định 111.
+        public string? CashAccountCode { get; set; }
+
         /// <summary>
         /// Alias for TransactionDate — used in form submission
         /// </summary>
