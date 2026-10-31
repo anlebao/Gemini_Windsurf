@@ -1,6 +1,6 @@
 # TASK CARD F — CLOSING ENTRIES 911 · CHECKLIST ĐÓNG SỔ · RECONCILIATION WORKFLOW · SAO KÊ NH
 
-> Status: 🔵 IN PROGRESS — backend deployed `ea13045a` (CD SUCCESS) + UI done (2026-10-31) — còn RV production
+> Status: ✅ DONE (backend `ea13045a` + UI `f27a6ab7` + DI fix `5d19966b` — CD SUCCESS + RV L1-L4 PASS 2026-10-31) — còn L5 user manual
 > Master plan: `docs/AI/plans/accounting-engine-master-plan.md` (§4.F) · Gap đóng: **G-H6 · G-M3 · FR-CLS-003/005 · FR-RECNC-001/005 · KT07-10 · AT-013 · ACC12-017**
 > ⚠️ JE closing là bút toán thật ghi vào GL — quy tắc kết chuyển theo từng regime phải được kế toán trưởng duyệt (§16/§18.14 — Q mở: DNSN/HKD không cần kết chuyển 911?).
 
