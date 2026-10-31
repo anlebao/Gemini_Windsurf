@@ -1311,6 +1311,7 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Journal.IBackfillJournalEntriesService, VanAn.CoreHub.Services.Journal.BackfillJournalEntriesService>();
             // SRS v1.2 W2 (2026-10-31): account map resolver + voucher numbering + attachments
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Journal.IAccountMapResolver, VanAn.CoreHub.Services.Journal.AccountMapResolver>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IVasFeatureFlagService, VanAn.CoreHub.Services.VasFeatureFlagService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IVoucherNumberService, VanAn.CoreHub.Services.VoucherNumberService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IAttachmentService, VanAn.CoreHub.Services.AttachmentService>();
 
