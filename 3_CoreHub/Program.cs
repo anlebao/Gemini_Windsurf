@@ -117,6 +117,7 @@ namespace VanAn.CoreHub
                     _ = services.AddScoped<IAttachmentService, AttachmentService>();
                     _ = services.AddScoped<IInternalTransferService, InternalTransferService>();
                     _ = services.AddScoped<IBankAccountService, BankAccountService>();
+                    _ = services.AddScoped<VanAn.CoreHub.Services.Journal.IAccountMapRuleService, VanAn.CoreHub.Services.Journal.AccountMapRuleService>();
                     // SRS v1.2 Phase A (G-C4): bridge accrual cần TenantType + per-tenant flag (retry worker chạy ở host này)
                     _ = services.AddScoped<IVasFeatureFlagService, VasFeatureFlagService>();
                     _ = services.AddScoped<VanAn.Shared.Services.IShopFeatureSettingsService, ShopFeatureSettingsService>();

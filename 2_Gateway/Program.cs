@@ -1316,6 +1316,7 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IAttachmentService, VanAn.CoreHub.Services.AttachmentService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IInternalTransferService, VanAn.CoreHub.Services.InternalTransferService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IBankAccountService, VanAn.CoreHub.Services.BankAccountService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Journal.IAccountMapRuleService, VanAn.CoreHub.Services.Journal.AccountMapRuleService>();
 
             _ = builder.Services.AddScoped<IHKDBookService, HKDBookService>();
 

@@ -1,0 +1,215 @@
+@page "/accounting/mapping-rules"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "AccountingFullAccess")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.UI.Platform.Models
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.CoreHub.Services.Journal
+@inject IAccountMapRuleService AccountMapRuleService
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject ILogger<MappingRules> Logger
+
+@* SRS v1.2 W2/B follow-up: quản trị account-map per tenant — xem rule effective
+   (tenant→regime→builtin) + override theo event. Resolver cache 60s → thay đổi
+   có hiệu lực sau tối đa 60s. JE mới ghi MappingVersion=v{Version}. *@
+<div class="report-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Ánh xạ tài khoản (Account Mapping)</h1>
+    </header>
+
+    <VanAAlert Type="info" Dismissible="false"
+               Message="Rule áp dụng theo thứ tự: OVERRIDE của đơn vị → rule chế độ (regime) → mặc định hệ thống (builtin). Thay đổi có hiệu lực sau tối đa 60 giây (cache). JE mới sẽ ghi MappingVersion=v{N} theo rule đang dùng. {src}=TK nghiệp vụ, {cash}=TK tiền." />
+
+    @if (errorMessage != null)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+    }
+
+    @* Form override per event *@
+    <VanACard Header="Override rule cho đơn vị">
+        <div class="row g-2 align-items-end" data-testid="maprule-form">
+            <div class="col-md-3">
+                <label class="form-label small">Sự kiện <span class="text-danger">*</span></label>
+                <select class="form-select" @bind="_editEvent" data-testid="maprule-event">
+                    @foreach (var ev in EventLabels)
+                    {
+                        <option value="@ev.Key">@ev.Key — @ev.Value</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">TK Nợ <span class="text-danger">*</span></label>
+                <input class="form-control" @bind="_editDebit" placeholder="111 / {cash} / {src}" data-testid="maprule-debit" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">TK Có <span class="text-danger">*</span></label>
+                <input class="form-control" @bind="_editCredit" placeholder="511 / {src} / {cash}" data-testid="maprule-credit" />
+            </div>
+            <div class="col-md-3">
+                <VanAButton Variant="primary" OnClick="SaveRuleAsync"
+                            Disabled="@(_saving || string.IsNullOrWhiteSpace(_editDebit) || string.IsNullOrWhiteSpace(_editCredit))"
+                            data-testid="maprule-save">
+                    @(_saving ? "Đang lưu..." : "Lưu override")
+                </VanAButton>
+            </div>
+        </div>
+    </VanACard>
+
+    @* Effective rules grid *@
+    <VanACard Header="Rule đang áp dụng (theo chế độ của đơn vị)">
+        @if (loading)
+        {
+            <p class="text-muted">Đang tải...</p>
+        }
+        else
+        {
+            <VanAnDataGrid TItem="AccountMapRuleRow" Items="@rows" EmptyMessage="Không có rule">
+                <Columns>
+                    <VanAnColumn TItem="AccountMapRuleRow" Title="Sự kiện" Width="3">
+                        <Template Context="r"><span><strong>@r.EventCode</strong>@(EventLabels.TryGetValue(r.EventCode, out var lbl) ? $" — {lbl}" : "")</span></Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="AccountMapRuleRow" Title="TK Nợ" Width="2">
+                        <Template Context="r"><span><code>@(r.DebitAccount ?? "—")</code></span></Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="AccountMapRuleRow" Title="TK Có" Width="2">
+                        <Template Context="r"><span><code>@(r.CreditAccount ?? "—")</code></span></Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="AccountMapRuleRow" Title="Nguồn" Width="2">
+                        <Template Context="r">
+                            <span class="badge @SourceBadge(r.Source)">@SourceLabel(r.Source)</span>
+                            @if (r.Version > 0) { <span class="small text-muted">v@r.Version</span> }
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="AccountMapRuleRow" Title="Thao tác" Width="3">
+                        <Template Context="r">
+                            <VanAButton Variant="secondary" Size="small"
+                                        OnClick="() => EditRow(r)" data-testid="@($"maprule-edit-{r.EventCode}")">
+                                Sửa
+                            </VanAButton>
+                            @if (r.TenantRuleId != null && r.TenantRuleActive)
+                            {
+                                <VanAButton Variant="secondary" Size="small"
+                                            OnClick="() => RemoveOverrideAsync(r)" data-testid="@($"maprule-remove-{r.EventCode}")">
+                                    Xóa override
+                                </VanAButton>
+                            }
+                        </Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+        }
+    </VanACard>
+</div>
+
+@code {
+    private static readonly Dictionary<string, string> EventLabels = new()
+    {
+        ["manual-receipt"] = "Phiếu thu tay",
+        ["manual-expense"] = "Phiếu chi tay",
+        ["order-revenue"] = "Doanh thu đơn hàng",
+        ["order-vat"] = "Thuế GTGT đơn hàng",
+        ["order-cogs"] = "Giá vốn đơn hàng",
+        ["deposit-offset"] = "Đối trừ tiền cọc",
+        ["receivable"] = "Ghi nhận phải thu",
+        ["receivable-payment"] = "Thu hồi phải thu",
+        ["payable"] = "Ghi nhận phải trả",
+        ["payable-payment"] = "Chi trả phải trả",
+        ["transfer-out"] = "Chuyển tiền đi",
+        ["transfer-in"] = "Nhận chuyển tiền",
+        ["transfer-fee"] = "Phí chuyển tiền",
+    };
+
+    private List<AccountMapRuleRow> rows = [];
+    private bool loading = true;
+    private bool _saving;
+    private string? errorMessage;
+    private string _editEvent = "manual-receipt";
+    private string _editDebit = string.Empty;
+    private string _editCredit = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadRules();
+
+    private async Task LoadRules()
+    {
+        loading = true;
+        try
+        {
+            if (!TenantProvider.HasTenant) { rows = []; return; }
+            rows = (await AccountMapRuleService.GetEffectiveRulesAsync(new TenantId(TenantProvider.TenantId))).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading account map rules");
+            errorMessage = $"Lỗi tải rule: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void EditRow(AccountMapRuleRow r)
+    {
+        _editEvent = r.EventCode;
+        _editDebit = r.DebitAccount ?? string.Empty;
+        _editCredit = r.CreditAccount ?? string.Empty;
+    }
+
+    private async Task SaveRuleAsync()
+    {
+        if (!TenantProvider.HasTenant) return;
+        _saving = true;
+        errorMessage = null;
+        try
+        {
+            await AccountMapRuleService.UpsertTenantRuleAsync(new TenantId(TenantProvider.TenantId),
+                _editEvent, _editDebit.Trim(), _editCredit.Trim());
+            _editDebit = _editCredit = string.Empty;
+            await LoadRules();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task RemoveOverrideAsync(AccountMapRuleRow r)
+    {
+        if (!TenantProvider.HasTenant) return;
+        try
+        {
+            await AccountMapRuleService.DeactivateTenantRuleAsync(new TenantId(TenantProvider.TenantId), r.EventCode);
+            await LoadRules();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private static string SourceLabel(string source) => source switch
+    {
+        "tenant" => "Đơn vị",
+        "regime" => "Chế độ",
+        "builtin" => "Hệ thống",
+        _ => "Chưa có"
+    };
+
+    private static string SourceBadge(string source) => source switch
+    {
+        "tenant" => "text-bg-primary",
+        "regime" => "text-bg-success",
+        "builtin" => "text-bg-secondary",
+        _ => "text-bg-warning"
+    };
+}

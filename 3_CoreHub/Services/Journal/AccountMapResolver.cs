@@ -144,7 +144,7 @@ namespace VanAn.CoreHub.Services.Journal
         /// Accrual events (131/331) chỉ tồn tại cho regime DN/HTX (TT133/TT99/TT71) —
         /// HKD/DNSN cash-basis không JE công nợ. payable: KHÔNG có builtin (needs-account-map).
         /// </summary>
-        private static (string Debit, string Credit)? GetBuiltin(string eventCode, string? regime)
+        internal static (string Debit, string Credit)? GetBuiltin(string eventCode, string? regime)
         {
             switch (eventCode)
             {
