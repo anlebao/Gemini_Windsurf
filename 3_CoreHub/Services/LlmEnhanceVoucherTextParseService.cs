@@ -20,7 +20,9 @@ public sealed class SmartEntryLlmOptions
     /// <summary>Google AI Studio API key (KHÔNG commit, không echo). Rỗng = LLM tắt hoàn toàn.</summary>
     public string ApiKey { get; set; } = string.Empty;
 
-    public string Model { get; set; } = "gemini-3.8-flash";
+    /// <summary>Model mặc định gemini-3.5-flash-lite (free tier, ~1s, không thinking — đủ cho trích xuất 1 câu).
+    /// 3.8-flash từng mất 26s + 503 trên VPS (RV 2026-11-01) → không dùng làm mặc định.</summary>
+    public string Model { get; set; } = "gemini-3.5-flash-lite";
 
     public string Endpoint { get; set; } = "https://generativelanguage.googleapis.com/v1beta";
 
@@ -113,8 +115,6 @@ public sealed class LlmEnhanceVoucherTextParseService(
             {
                 temperature = 0.1,
                 responseMimeType = "application/json",
-                // gemini-3.8-flash: thinking mặc định medium rất chậm — hạ low (đủ cho trích xuất ngắn)
-                thinkingConfig = new { thinkingLevel = "low" },
             },
         };
 
