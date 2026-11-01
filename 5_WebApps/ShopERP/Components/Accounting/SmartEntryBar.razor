@@ -1,0 +1,190 @@
+@namespace VanAn.ShopERP.Components.Accounting
+@using VanAn.CoreHub.Services
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.UI.Platform.Components
+@using Microsoft.JSInterop
+@inject IVoucherTextParseService Parser
+@inject ITenantProvider TenantProvider
+@inject IJSRuntime JS
+@inject ILogger<SmartEntryBar> Logger
+
+@* Task PG — Smart Entry AI: ô nhập câu mô tả → parser rule-based → card kết quả
+   → parent apply vào form (OnParsed). Không auto-save; thiếu field → highlight, không đoán. *@
+
+<div class="smart-entry-bar mb-3 p-3 border rounded" data-testid="smart-entry-bar">
+    <label class="form-label fw-bold mb-1">✨ Nhập nhanh bằng mô tả</label>
+    <div class="small text-muted mb-2">
+        VD: @Placeholder — hệ thống trích xuất số tiền/ngày/đối tượng/loại phiếu, bạn kiểm tra rồi Lưu.
+    </div>
+    <div class="d-flex gap-2 align-items-start">
+        <textarea class="form-control" rows="2" @bind="_text" @bind:event="oninput"
+                  placeholder="Gõ hoặc nói nghiệp vụ... (VD: rút tiền gửi ngân hàng một trăm triệu nhập vào quỹ tiền mặt)"
+                  data-testid="smart-entry-input"></textarea>
+    </div>
+    <div class="mt-2 d-flex gap-2 align-items-center flex-wrap">
+        <VanAButton Variant="primary" Size="small" Disabled="@(_busy || string.IsNullOrWhiteSpace(_text))" OnClick="ParseAsync" data-testid="smart-entry-parse">
+            @(_busy ? "Đang phân tích..." : "Phân tích")
+        </VanAButton>
+        @if (_micSupported)
+        {
+            <VanAButton Variant="secondary" Size="small" Disabled="@(_busy || _listening)" OnClick="StartMicAsync" data-testid="smart-entry-mic">
+                @(_listening ? "🔴 Đang nghe..." : "🎤 Nói")
+            </VanAButton>
+        }
+        @if (_error != null)
+        {
+            <span class="text-danger small" data-testid="smart-entry-error">@_error</span>
+        }
+    </div>
+
+    @if (_result != null)
+    {
+        <div class="mt-3 p-2 border rounded bg-light" data-testid="smart-entry-result">
+            <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                <span class="fw-bold small">Trích xuất:</span>
+                <span class="badge @ConfidenceBadge(_result.Confidence)" data-testid="smart-entry-confidence">@_result.Confidence</span>
+                <span class="badge text-bg-secondary" data-testid="smart-entry-intent">@IntentLabel(_result.Intent)</span>
+            </div>
+            <div class="small">
+                @if (_result.Amount.HasValue) { <div>Số tiền: <b>@_result.Amount.Value.ToString("N0") ₫</b></div> }
+                <div>Ngày: @_result.Date.ToString("dd/MM/yyyy")</div>
+                @if (_result.PaymentMethod != null) { <div>PTTT: @_result.PaymentMethod</div> }
+                @if (_result.FromAccountCode != null || _result.ToAccountCode != null)
+                {
+                    <div>Chuyển: <b>@_result.FromAccountCode → @_result.ToAccountCode</b></div>
+                }
+                @if (_result.FeeAmount.HasValue) { <div>Phí: @_result.FeeAmount.Value.ToString("N0") ₫</div> }
+                @if (_result.DoiTuong != null) { <div>Đối tượng: @_result.DoiTuong</div> }
+                @if (_result.Category != null) { <div>Nhóm chi: @_result.Category</div> }
+            </div>
+            @if (_result.MissingFields.Count > 0)
+            {
+                <div class="small text-warning-emphasis mt-1" data-testid="smart-entry-missing">
+                    ⚠ Thiếu: @string.Join(", ", _result.MissingFields) — bổ sung trên form sau khi áp.
+                </div>
+            }
+            @foreach (var w in _result.Warnings)
+            {
+                <div class="small text-warning-emphasis mt-1">⚠ @w</div>
+            }
+            <div class="mt-2">
+                <VanAButton Variant="success" Size="small" OnClick="ApplyAsync" data-testid="smart-entry-apply">
+                    Áp vào form ↓
+                </VanAButton>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>Gợi ý ví dụ theo trang (revenue/expense/transfer).</summary>
+    [Parameter] public string? Placeholder { get; set; }
+
+    /// <summary>Parent nhận ParsedVoucher → map vào fields của trang (route intent khác → hiển thị link).</summary>
+    [Parameter] public EventCallback<ParsedVoucher> OnParsed { get; set; }
+
+    private string _text = string.Empty;
+    private ParsedVoucher? _result;
+    private bool _busy;
+    private bool _micSupported;
+    private bool _listening;
+    private string? _error;
+    private DotNetObjectReference<SmartEntryBar>? _selfRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try { _micSupported = await JS.InvokeAsync<bool>("vananSpeech.supported"); }
+            catch { _micSupported = false; }
+            StateHasChanged();
+        }
+    }
+
+    private async Task ParseAsync()
+    {
+        _error = null; _result = null;
+        if (!TenantProvider.HasTenant) { _error = "Không xác định được tenant."; return; }
+        _busy = true;
+        try
+        {
+            _result = await Parser.ParseAsync(new TenantId(TenantProvider.TenantId), _text);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Smart entry parse failed");
+            _error = "Không phân tích được câu — nhập tay như bình thường.";
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task ApplyAsync()
+    {
+        if (_result != null && OnParsed.HasDelegate)
+        {
+            await OnParsed.InvokeAsync(_result);
+        }
+    }
+
+    private async Task StartMicAsync()
+    {
+        _error = null;
+        _selfRef ??= DotNetObjectReference.Create(this);
+        _listening = true;
+        try
+        {
+            await JS.InvokeVoidAsync("vananSpeech.listen", _selfRef);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Speech start failed");
+            _listening = false;
+            _error = "Mic không khả dụng — gõ tay nhé.";
+        }
+    }
+
+    [JSInvokable]
+    public void OnSpeechResult(string transcript)
+    {
+        _text = string.IsNullOrWhiteSpace(_text) ? transcript : _text.TrimEnd() + " " + transcript;
+        _listening = false;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnSpeechError(string error)
+    {
+        _listening = false;
+        _error = $"Mic lỗi ({error}) — gõ tay nhé.";
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnSpeechEnd() { _listening = false; StateHasChanged(); }
+
+    private static string ConfidenceBadge(string c) => c switch
+    {
+        "High" => "text-bg-success",
+        "Medium" => "text-bg-warning",
+        _ => "text-bg-danger"
+    };
+
+    private static string IntentLabel(VoucherIntent i) => i switch
+    {
+        VoucherIntent.Revenue => "Thu doanh thu",
+        VoucherIntent.Receivable => "Ghi nhận phải thu (bán chịu)",
+        VoucherIntent.ReceivablePayment => "Thu tiền khách trả nợ",
+        VoucherIntent.Advance => "Khách ứng trước/cọc (trả trước)",
+        VoucherIntent.Capital => "Góp vốn chủ sở hữu",
+        VoucherIntent.Expense => "Chi phí",
+        VoucherIntent.Payable => "Ghi nhận phải trả (mua chịu)",
+        VoucherIntent.PayablePayment => "Trả tiền người bán",
+        VoucherIntent.TransferOut => "Chuyển tiền: NH → quỹ",
+        VoucherIntent.TransferIn => "Chuyển tiền: quỹ → NH",
+        VoucherIntent.Purchase => "Nhập mua hàng hóa",
+        _ => "Chưa xác định"
+    };
+
+    public void Dispose() => _selfRef?.Dispose();
+}

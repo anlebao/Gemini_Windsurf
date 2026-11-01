@@ -241,6 +241,7 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.IVoucherNumberService, CoreHub.Services.VoucherNumberService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IAttachmentService, CoreHub.Services.AttachmentService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IInternalTransferService, CoreHub.Services.InternalTransferService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IVoucherTextParseService, CoreHub.Services.VoucherTextParseService>();
             _ = builder.Services.AddScoped<CoreHub.Services.Purchase.IPurchaseReceiptService, CoreHub.Services.Purchase.PurchaseReceiptService>();
             // SRS v1.2 W6 tiếp (GĐ2, 2026-10-31): StockMovement — chỉ ShopERP host (SQLite).
             // PurchaseReceiptService nhận optional dep → tự inject khi có đăng ký.

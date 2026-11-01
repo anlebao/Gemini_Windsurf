@@ -1,6 +1,6 @@
 # TASK CARD B — COA PER-TENANT + ACCOUNT MAP (B1 — data-driven TK mapping, zero behavior change)
 
-> Status: ⏳ PENDING — chờ Phase A
+> Status: ✅ DONE — W2 DEPLOYED `8b2d01de`+`6b2c77d1`+retest `92bc88d7` (CD #41159524504, migration `20261030231239_AddAccountingEngineW2`) · pilot `AccountMappingEnabled`/`AccrualReceivableJE` validated (MappingVersion=v1 trên Cafe Tân Quy) → flags widened all 141 tenants · UI `/accounting/mapping-rules` `3397af75` + issue #198 follow-ups `7a13ef99`/`cd82dc02` (manual-vat-in seed + bridge wire-up + EntryFormAccountingHelper) — **B2 full rule engine DEFER theo R5** · L4/L5 user manual còn lại
 > Master plan: `docs/AI/plans/accounting-engine-master-plan.md` (§4.B) · Gap đóng: **G-H1 (B1) · G-H2** + fix GL missing VAT JE
 > ⚠️ Domain changes (`TenantAccountChart` entity + `AccountChartEntity` fields) → **Gate 5 approval**
 > **B2 (full rule engine conditions/formula/preview): DEFER — chỉ làm khi tenant thật cần (R5)**

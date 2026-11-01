@@ -1,0 +1,289 @@
+@page "/accounting/transfers"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "AccountingAccess")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.CoreHub.Services
+@using VanAn.CoreHub.Infrastructure.Entities
+@using VanAn.ShopERP.Components.Accounting
+@using Microsoft.JSInterop
+@inject IInternalTransferService TransferService
+@inject IBankAccountService BankAccountService
+@inject VanAn.CoreHub.Services.IVoucherTextParseService Parser
+@inject VanAn.Shared.Services.IShopFeatureSettingsService FeatureSettings
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject ILogger<TransferEntry> Logger
+@inject NavigationManager NavigationManager
+
+@* Task PG + W3/D: phiếu chuyển tiền nội bộ 111↔112x — JE qua InternalTransferService
+   (KHÔNG phải doanh thu/chi phí). Mode AI: parse câu mô tả → prefill. *@
+
+<div class="transfer-entry-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Chuyển Tiền Nội Bộ</h1>
+        <VanAButton Variant="secondary" Size="small" OnClick="GoBack">← Quay Lại</VanAButton>
+    </header>
+
+    @if (showSuccess)
+    {
+        <VanAAlert Variant="success" Message="@successMessage" Dismissible="true" />
+    }
+    @if (showError)
+    {
+        <VanAAlert Variant="error" Message="@errorMessage" Dismissible="true" />
+    }
+
+    @if (_smartEnabled)
+    {
+        <div class="mb-3">
+            <div class="btn-group" role="group" data-testid="entry-mode-toggle">
+                <button type="button" class="btn btn-sm @(_aiMode ? "btn-outline-primary" : "btn-primary")" @onclick="() => _aiMode = false">Nhập thủ công</button>
+                <button type="button" class="btn btn-sm @(_aiMode ? "btn-primary" : "btn-outline-primary")" @onclick="() => _aiMode = true">✨ Nhập bằng mô tả</button>
+            </div>
+        </div>
+        @if (_aiMode)
+        {
+            <SmartEntryBar Placeholder="rút tiền gửi ngân hàng một trăm triệu nhập vào quỹ tiền mặt"
+                           OnParsed="ApplyParse" />
+        }
+    }
+
+    <VanACard Header="Phiếu Chuyển Tiền">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Từ Tài Khoản <span class="text-danger">*</span></label>
+                <select class="form-select" @bind="_fromAccount" data-testid="transfer-from">
+                    <option value="">— Chọn TK nguồn —</option>
+                    @foreach (var a in _accounts)
+                    {
+                        <option value="@a.AccountCode">@a.AccountCode — @a.DisplayName</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Đến Tài Khoản <span class="text-danger">*</span></label>
+                <select class="form-select" @bind="_toAccount" data-testid="transfer-to">
+                    <option value="">— Chọn TK đích —</option>
+                    @foreach (var a in _accounts)
+                    {
+                        <option value="@a.AccountCode">@a.AccountCode — @a.DisplayName</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Số Tiền (VNĐ) <span class="text-danger">*</span></label>
+                <input type="number" min="0" step="1000" class="form-control" @bind="_amount" data-testid="transfer-amount" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Phí Chuyển (VNĐ)</label>
+                <input type="number" min="0" step="1000" class="form-control" @bind="_fee" data-testid="transfer-fee" />
+                <small class="form-text text-muted">Phí ghi bút toán riêng Nợ 642 — không gộp số tiền chuyển.</small>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Ngày</label>
+                <input type="date" class="form-control" @bind="_date" data-testid="transfer-date" />
+            </div>
+            <div class="col-12">
+                <label class="form-label">Diễn Giải</label>
+                <input type="text" class="form-control" @bind="_description" placeholder="VD: Rút tiền gửi NH về quỹ tiền mặt" data-testid="transfer-desc" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Tham Chiếu Ngân Hàng</label>
+                <input type="text" class="form-control" @bind="_bankRef" placeholder="Số UNC / mã giao dịch (nếu có)" data-testid="transfer-ref" />
+            </div>
+            <div class="col-md-6 d-flex align-items-end">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" @bind="_inTransit" id="inTransitChk" data-testid="transfer-intransit" />
+                    <label class="form-check-label" for="inTransitChk">Tiền đang chuyển (qua TK 113 — xác nhận nhận sau)</label>
+                </div>
+            </div>
+        </div>
+        <div class="mt-3">
+            <VanAButton Variant="primary" OnClick="HandleSubmitAsync" Disabled="@_saving" data-testid="transfer-save">
+                @(_saving ? "Đang lưu..." : "Lưu Phiếu Chuyển")
+            </VanAButton>
+        </div>
+    </VanACard>
+
+    <VanACard Header="Phiếu Chuyển Gần Đây">
+        @if (_recent.Count == 0)
+        {
+            <div class="text-muted small">Chưa có phiếu chuyển nào.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>Số phiếu</th><th>Ngày</th><th>Từ → Đến</th><th class="text-end">Số tiền</th><th>Trạng thái</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var t in _recent)
+                        {
+                            <tr>
+                                <td>@t.VoucherNumber</td>
+                                <td>@t.TransferDate.ToString("dd/MM/yyyy")</td>
+                                <td>@t.FromAccountCode → @t.ToAccountCode</td>
+                                <td class="text-end">@t.Amount.ToString("N0") ₫@(t.FeeAmount > 0 ? $" (+phí {t.FeeAmount.Value.ToString("N0")})" : "")</td>
+                                <td><span class="badge @StatusBadge(t.Status)">@StatusLabel(t.Status)</span></td>
+                                <td class="text-end">
+                                    @if (t.Status == InternalTransferStatus.InTransit)
+                                    {
+                                        <VanAButton Variant="success" Size="small" OnClick="() => ReceiveAsync(t.Id)">Nhận</VanAButton>
+                                        <VanAButton Variant="secondary" Size="small" OnClick="() => CancelAsync(t.Id)">Hủy</VanAButton>
+                                    }
+                                    else if (t.Status == InternalTransferStatus.Received && t.ReversedById == null)
+                                    {
+                                        <VanAButton Variant="secondary" Size="small" OnClick="() => ReverseAsync(t.Id)">Đảo</VanAButton>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </VanACard>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? desc { get; set; }
+
+    private List<BankAccountEntity> _accounts = new();
+    private List<InternalTransferEntity> _recent = new();
+    private string _fromAccount = string.Empty;
+    private string _toAccount = string.Empty;
+    private decimal? _amount;
+    private decimal? _fee;
+    private DateTime _date = DateTime.Today;
+    private string _description = string.Empty;
+    private string _bankRef = string.Empty;
+    private bool _inTransit;
+    private bool _saving;
+    private bool showSuccess;
+    private bool showError;
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+    private bool _smartEnabled;
+    private bool _aiMode;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!TenantProvider.HasTenant) return;
+        var tenantId = new TenantId(TenantProvider.TenantId);
+        try
+        {
+            _smartEnabled = await FeatureSettings.IsEnabledAsync(TenantProvider.TenantId, "SmartEntryEnabled");
+            _accounts = (await BankAccountService.ListAsync(tenantId)).ToList();
+            await LoadRecentAsync();
+
+            // Deep-link từ SmartEntryBar trang khác: ?desc=<câu mô tả> → parse + prefill + mở AI mode.
+            if (!string.IsNullOrWhiteSpace(desc) && _smartEnabled)
+            {
+                _aiMode = true;
+                var parsed = await Parser.ParseAsync(tenantId, desc);
+                ApplyParse(parsed);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "TransferEntry init failed");
+        }
+    }
+
+    private void ApplyParse(ParsedVoucher p)
+    {
+        if (p.Intent is not (VoucherIntent.TransferOut or VoucherIntent.TransferIn))
+        {
+            showError = true;
+            errorMessage = "Câu mô tả không phải nghiệp vụ chuyển tiền nội bộ — kiểm tra lại trên Phiếu thu/chi.";
+            return;
+        }
+        showError = false;
+        if (p.FromAccountCode != null) _fromAccount = ResolveAccountOption(p.FromAccountCode);
+        if (p.ToAccountCode != null) _toAccount = ResolveAccountOption(p.ToAccountCode);
+        if (p.Amount.HasValue) _amount = p.Amount;
+        if (p.FeeAmount.HasValue) _fee = p.FeeAmount;
+        _date = p.Date;
+        _description = p.Description;
+    }
+
+    /// <summary>Parser trả "112" generic → map về TK 112x active đầu tiên nếu chưa khớp option.</summary>
+    private string ResolveAccountOption(string code)
+        => _accounts.Any(a => a.AccountCode == code) ? code
+            : code == "112" ? (_accounts.FirstOrDefault(a => a.AccountCode.StartsWith("112"))?.AccountCode ?? code)
+            : code;
+
+    private async Task LoadRecentAsync()
+    {
+        if (!TenantProvider.HasTenant) return;
+        _recent = await TransferService.ListAsync(new TenantId(TenantProvider.TenantId));
+        _recent = _recent.OrderByDescending(t => t.TransferDate).Take(15).ToList();
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        showSuccess = false; showError = false;
+        if (!TenantProvider.HasTenant) { showError = true; errorMessage = "Không xác định được tenant."; return; }
+        if (string.IsNullOrEmpty(_fromAccount) || string.IsNullOrEmpty(_toAccount))
+        { showError = true; errorMessage = "Chọn đủ TK nguồn và TK đích."; return; }
+        if (_fromAccount == _toAccount)
+        { showError = true; errorMessage = "TK nguồn và đích phải khác nhau."; return; }
+        if (_amount is not > 0)
+        { showError = true; errorMessage = "Số tiền phải lớn hơn 0."; return; }
+
+        _saving = true;
+        try
+        {
+            var t = await TransferService.CreateAsync(new TenantId(TenantProvider.TenantId),
+                _fromAccount, _toAccount, _amount.Value,
+                _fee > 0 ? _fee : null, null, _inTransit,
+                string.IsNullOrWhiteSpace(_description) ? null : _description.Trim(),
+                string.IsNullOrWhiteSpace(_bankRef) ? null : _bankRef.Trim(), _date);
+            showSuccess = true;
+            successMessage = $"Đã lưu phiếu chuyển {t.VoucherNumber} — Nợ {(t.Status == InternalTransferStatus.InTransit ? "113" : t.ToAccountCode)}/Có {t.FromAccountCode}.";
+            _amount = null; _fee = null; _description = string.Empty; _bankRef = string.Empty; _inTransit = false;
+            await LoadRecentAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Transfer create failed");
+            showError = true;
+            errorMessage = $"Lỗi khi lưu: {ex.Message}";
+        }
+        finally { _saving = false; }
+    }
+
+    private async Task ReceiveAsync(Guid id) => await RunActionAsync(() => TransferService.ReceiveAsync(id), "Đã xác nhận nhận tiền.");
+    private async Task CancelAsync(Guid id) => await RunActionAsync(() => TransferService.CancelInTransitAsync(id), "Đã hủy phiếu đang chuyển.");
+    private async Task ReverseAsync(Guid id) => await RunActionAsync(() => TransferService.ReverseAsync(id), "Đã tạo phiếu đảo.");
+
+    private async Task RunActionAsync(Func<Task<InternalTransferEntity>> action, string ok)
+    {
+        showSuccess = false; showError = false;
+        try { await action(); showSuccess = true; successMessage = ok; await LoadRecentAsync(); }
+        catch (Exception ex) { showError = true; errorMessage = ex.Message; }
+    }
+
+    private static string StatusLabel(InternalTransferStatus s) => s switch
+    {
+        InternalTransferStatus.Draft => "Nháp",
+        InternalTransferStatus.InTransit => "Đang chuyển",
+        InternalTransferStatus.Received => "Đã nhận",
+        InternalTransferStatus.Discrepancy => "Chênh lệch",
+        InternalTransferStatus.Cancelled => "Đã hủy",
+        _ => s.ToString()
+    };
+
+    private static string StatusBadge(InternalTransferStatus s) => s switch
+    {
+        InternalTransferStatus.Received => "text-bg-success",
+        InternalTransferStatus.InTransit => "text-bg-warning",
+        InternalTransferStatus.Discrepancy => "text-bg-danger",
+        _ => "text-bg-secondary"
+    };
+
+    private void GoBack() => NavigationManager.NavigateTo("/accounting");
+}

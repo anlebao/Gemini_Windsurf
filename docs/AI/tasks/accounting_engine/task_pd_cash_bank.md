@@ -1,6 +1,6 @@
 # TASK CARD D — BANK ACCOUNTS · INTERNAL TRANSFER · SỔ QUỸ/TGNH · CASH-BALANCE WARN
 
-> Status: ⏳ PENDING — chờ Phase C
+> Status: ✅ DONE — DEPLOYED `c9d0fb5c` (core, CD #41167067819) + `c4118ec7` (full, CD #41172627324) + RV PASS · migration `20261031035843_AddCashBankW3` (transfer rules seeded 5 regimes) · BankAccount CRUD `d0b62e29` + POS transfer auto-fill `924fcfea` · `CashBook`/`BankBook` pages + `BankAccountsController` + `IBalanceAlertService` (chi vượt quỹ → cảnh báo+lý do, không chặn) — L4/L5 user manual còn lại
 > Master plan: `docs/AI/plans/accounting-engine-master-plan.md` (§4.D) · Gap đóng: **G-M1 · G-M2 · FR-TRF-001→005 · FR-RPT-003/004 · FR-PAY-006 · FR-SUB-001 · AT-011**
 > ⚠️ Domain/persistence entities mới (BankAccount, InternalTransfer) → Gate 5 nếu đặt trong Domain; ưu tiên Infrastructure entities nếu data-only.
 

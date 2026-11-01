@@ -25,6 +25,7 @@
 @inject NavigationManager NavigationManager
 @inject Microsoft.JSInterop.IJSRuntime JSRuntime
 @inject IBusinessInfoApiClient BusinessInfo
+@inject CoreAccountingService.IVoucherTextParseService TextParser
 
 <div class="revenue-entry-page @ThemeProvider.CurrentTheme">
     <header class="page-header">
@@ -68,6 +69,29 @@
                                 KemTheo="@_lastVoucher.KemTheo" ChungTuGoc="@_lastVoucher.ChungTuGoc" />
         }
     </VanAnModal>
+
+    @* Task PG — 2 mode: Manual giữ nguyên; AI = câu mô tả → parse → prefill → user sửa → Lưu.
+       Toggle chỉ hiện khi flag SmartEntryEnabled; intent khác trang (transfer/chi) → link route. *@
+    @if (_smartEnabled)
+    {
+        <div class="mb-3">
+            <div class="btn-group" role="group" data-testid="entry-mode-toggle">
+                <button type="button" class="btn btn-sm @(_aiMode ? "btn-outline-primary" : "btn-primary")" @onclick="() => _aiMode = false">Nhập thủ công</button>
+                <button type="button" class="btn btn-sm @(_aiMode ? "btn-primary" : "btn-outline-primary")" @onclick="() => _aiMode = true">✨ Nhập bằng mô tả</button>
+            </div>
+        </div>
+        @if (_aiMode)
+        {
+            <SmartEntryBar Placeholder="khách anh Hùng trả nợ 5 triệu bằng chuyển khoản"
+                           OnParsed="ApplyParse" />
+        }
+        @if (_smartRouteUrl != null)
+        {
+            <VanAAlert Variant="info" Dismissible="true"
+                Message="Câu mô tả thuộc nghiệp vụ khác — mở đúng chức năng:" />
+            <a href="@_smartRouteUrl" class="btn btn-sm btn-outline-primary mb-3" data-testid="smart-route-link">→ @_smartRouteLabel</a>
+        }
+    }
 
     <VanACard Header="Thông Tin Doanh Thu">
         <EditForm Model="@formData" OnValidSubmit="HandleSubmit">
@@ -235,6 +259,12 @@
 </div>
 
 @code {
+    [SupplyParameterFromQuery] public string? desc { get; set; }
+    // Task PG: Smart Entry AI — flag + mode + route hint.
+    private bool _smartEnabled;
+    private bool _aiMode;
+    private string? _smartRouteUrl;
+    private string? _smartRouteLabel;
     private List<VanAn.UI.Platform.Components.Composite.FormField> revenueFields = new();
     private bool showSuccess = false;
     private bool showError = false;
@@ -260,7 +290,54 @@
         await LoadTenantTypeAsync();
         await LoadCoaOptionsAsync();
         InitializeFields();
+        if (TenantProvider.HasTenant)
+        {
+            _smartEnabled = await FeatureSettings.IsEnabledAsync(TenantProvider.TenantId, "SmartEntryEnabled");
+            if (_smartEnabled && !string.IsNullOrWhiteSpace(desc))
+            {
+                _aiMode = true;
+                var parsed = await TextParser.ParseAsync(new TenantId(TenantProvider.TenantId), desc);
+                ApplyParse(parsed);
+            }
+        }
         await RefreshPreviewAsync();
+    }
+
+    /// <summary>Task PG: áp kết quả parse vào form — intent khác trang → route link; thiếu field → để trống, không đoán.</summary>
+    private void ApplyParse(CoreAccountingService.ParsedVoucher p)
+    {
+        _smartRouteUrl = null;
+        switch (p.Intent)
+        {
+            case CoreAccountingService.VoucherIntent.TransferOut or CoreAccountingService.VoucherIntent.TransferIn:
+                _smartRouteUrl = "/accounting/transfers?desc=" + Uri.EscapeDataString(p.Description);
+                _smartRouteLabel = "Phiếu Chuyển Tiền Nội Bộ"; return;
+            case CoreAccountingService.VoucherIntent.Purchase:
+                _smartRouteUrl = "/accounting/purchase-receipts/new";
+                _smartRouteLabel = "Phiếu Nhập Mua"; return;
+            case CoreAccountingService.VoucherIntent.Expense or CoreAccountingService.VoucherIntent.Payable or CoreAccountingService.VoucherIntent.PayablePayment:
+                _smartRouteUrl = "/accounting/expenses?desc=" + Uri.EscapeDataString(p.Description);
+                _smartRouteLabel = "Phiếu Chi"; return;
+        }
+        _voucherType = p.Intent switch
+        {
+            CoreAccountingService.VoucherIntent.Receivable => VoucherTypeReceivable,
+            CoreAccountingService.VoucherIntent.ReceivablePayment or CoreAccountingService.VoucherIntent.Advance => VoucherTypePayment,
+            CoreAccountingService.VoucherIntent.Capital => VoucherTypeCapital,
+            _ => VoucherTypeRevenue
+        };
+        if (!string.IsNullOrWhiteSpace(p.DoiTuong)) doiTuong = p.DoiTuong;
+        if (!string.IsNullOrWhiteSpace(p.PaymentMethod)) _paymentMethod = p.PaymentMethod;
+        RebuildFields();
+        if (p.Amount.HasValue) formData.Values["amount"] = p.Amount.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        formData.Values["date"] = p.Date.ToString("yyyy-MM-dd");
+        formData.Values["description"] = p.Description;
+        foreach (var f in revenueFields)
+        {
+            if (formData.Values.TryGetValue(f.Id, out var v)) f.Value = v;
+        }
+        if (IsCongNoType && !string.IsNullOrWhiteSpace(doiTuong)) _ = LoadOpenKhoanAsync();
+        _ = RefreshPreviewAsync();
     }
 
     private async Task LoadCoaOptionsAsync()

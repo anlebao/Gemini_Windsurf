@@ -1,6 +1,6 @@
 # TASK CARD C — VOUCHER NUMBERING · ALLOCATION LINK-FIELD · ORDERPAYMENTS · UNAPPLIED · ATTACHMENTS
 
-> Status: ⏳ PENDING — chờ Phase B
+> Status: ✅ DONE — C1 trong W2 `8b2d01de` (migration `20261030231239_AddAccountingEngineW2`: `VoucherSequences`+`VoucherNumberService` PT/PC[-CN] · `AccountingEntry`+VoucherNumber/AllocatedToEntryId/PaymentMethod/CashAccountCode · `Attachment` entity+service) · C2 `2ee03b5b` OrderPayments DEPLOYED (CD #41176080214 · RV: 88 synthetic rows · per-payment entries + excess→3387 advance — ACC12-004/006) — **Residual:** attachment upload endpoint defer (field+API nội bộ only) · FR-REC-008 đối tượng CHUA-PHAN-LOAI chưa implement · L4/L5 user manual còn lại
 > Master plan: `docs/AI/plans/accounting-engine-master-plan.md` (§4.C) · Gap đóng: **G-H3 · G-H4 · G-C1 phần 2 (R3) · FR-REC-004/005 · FR-VCH-003/004/007 · AT-005/006 · ACC12-003/006/007**
 > ⚠️ Domain changes (AccountingEntry fields + OrderPayments entity) → **Gate 5 approval**
 > Có thể tách **C1** (voucher+allocation+attachments) và **C2** (OrderPayments — refactor lớn).
