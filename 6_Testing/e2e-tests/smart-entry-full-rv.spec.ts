@@ -6,7 +6,11 @@ import { test, expect, Page } from '@playwright/test';
 // READ-ONLY: parse + apply + prefill, KHÔNG submit phiếu lên production.
 // Auth: platform login + impersonate Cafe Tân Quy (flag SmartEntryEnabled ON).
 
-const PILOT_TENANT = '7c021960-6d6c-4de4-88a1-cf8373184f49';
+// Auth: platform login + impersonate Vạn An Trading (SmartEntryEnabled ON, KHÔNG bật
+// SmartEntryLlmEnabled) — matrix này là regression RULE-BASED deterministic; tenant LLM
+// pilot (Cafe Tân Quy) sẽ bị tầng LLM lấp các case Unknown/Low làm sai kỳ vọng.
+
+const PILOT_TENANT = 'a5b6c7d8-1234-5678-9abc-def012345678';
 
 async function loginAndImpersonate(page: Page, tenantId: string) {
   await page.goto('/login');

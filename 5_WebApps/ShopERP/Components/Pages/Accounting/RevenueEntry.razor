@@ -304,7 +304,7 @@
     }
 
     /// <summary>Task PG: áp kết quả parse vào form — intent khác trang → route link; thiếu field → để trống, không đoán.</summary>
-    private void ApplyParse(CoreAccountingService.ParsedVoucher p)
+    private async Task ApplyParse(CoreAccountingService.ParsedVoucher p)
     {
         _smartRouteUrl = null;
         switch (p.Intent)
@@ -337,10 +337,11 @@
             if (formData.Values.TryGetValue(f.Id, out var v)) f.Value = v;
         }
         // Task G2 fix ("Áp vào form"): Blazor drop DOM sync qua component boundary DynamicFormFields
-        // → push thẳng DOM qua JS (amount format vi-VN qua vananSetElementValue).
-        _ = JSRuntime.InvokeVoidAsync("vananSetElementValue", "amount", formData.Values.GetValueOrDefault("amount") ?? "");
-        _ = JSRuntime.InvokeVoidAsync("vananSetElementValue", "date", formData.Values.GetValueOrDefault("date") ?? "");
-        _ = JSRuntime.InvokeVoidAsync("vananSetElementValue", "description", formData.Values.GetValueOrDefault("description") ?? "");
+        // → push thẳng DOM qua JS (amount format vi-VN). AWAIT để đảm bảo interop được gửi
+        // (fire-and-forget từng bị rớt không đều).
+        await JSRuntime.InvokeVoidAsync("vananSetElementValue", "amount", formData.Values.GetValueOrDefault("amount") ?? "");
+        await JSRuntime.InvokeVoidAsync("vananSetElementValue", "date", formData.Values.GetValueOrDefault("date") ?? "");
+        await JSRuntime.InvokeVoidAsync("vananSetElementValue", "description", formData.Values.GetValueOrDefault("description") ?? "");
         if (IsCongNoType && !string.IsNullOrWhiteSpace(doiTuong)) _ = LoadOpenKhoanAsync();
         _ = RefreshPreviewAsync();
     }

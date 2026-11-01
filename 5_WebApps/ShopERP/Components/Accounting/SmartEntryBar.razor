@@ -12,7 +12,7 @@
 @* Task PG — Smart Entry AI: ô nhập câu mô tả → parser rule-based → card kết quả
    → parent apply vào form (OnParsed). Không auto-save; thiếu field → highlight, không đoán. *@
 
-<div class="smart-entry-bar mb-3 p-3 border rounded" data-testid="smart-entry-bar">
+<div class="smart-entry-bar mb-3 p-3 border rounded" id="smart-entry-bar" data-testid="smart-entry-bar">
     <label class="form-label fw-bold mb-1">✨ Nhập nhanh bằng mô tả</label>
     <div class="small text-muted mb-2">
         VD: @Placeholder — hệ thống trích xuất số tiền/ngày/đối tượng/loại phiếu, bạn kiểm tra rồi Lưu.
@@ -23,15 +23,16 @@
                   data-testid="smart-entry-input"></textarea>
     </div>
     <div class="mt-2 d-flex gap-2 align-items-center flex-wrap">
-        <VanAButton Variant="primary" Size="small" Disabled="@(_busy || string.IsNullOrWhiteSpace(_text))" OnClick="() => ParseAsync()" data-testid="smart-entry-parse">
+        @* G2 fix: các nút disabled tới khi circuit interactive (chống Blazor rớt click đầu) *@
+        <VanAButton Variant="primary" Size="small" Disabled="@(_busy || !_interactive || string.IsNullOrWhiteSpace(_text))" OnClick="() => ParseAsync()" data-testid="smart-entry-parse">
             @(_busy ? "Đang phân tích..." : (_result != null ? "Phân tích lại" : "Phân tích"))
         </VanAButton>
-        <VanAButton Variant="info" Size="small" Disabled="@(_busy || string.IsNullOrWhiteSpace(_text))" OnClick="() => ParseAsync(forceLlm: true)" data-testid="smart-entry-ai">
+        <VanAButton Variant="info" Size="small" Disabled="@(_busy || !_interactive || string.IsNullOrWhiteSpace(_text))" OnClick="() => ParseAsync(forceLlm: true)" data-testid="smart-entry-ai">
             ✨ AI phân tích
         </VanAButton>
         @if (_micSupported)
         {
-            <VanAButton Variant="secondary" Size="small" Disabled="@(_busy || _listening)" OnClick="HandleMicClickAsync" data-testid="smart-entry-mic">
+            <VanAButton Variant="secondary" Size="small" Disabled="@(_busy || !_interactive || _listening)" OnClick="HandleMicClickAsync" data-testid="smart-entry-mic">
                 @(_listening ? "🔴 Đang nghe..." : (_result != null ? "🔁 Nói lại" : "🎤 Nói"))
             </VanAButton>
         }
@@ -90,6 +91,7 @@
     private string _text = string.Empty;
     private ParsedVoucher? _result;
     private bool _busy;
+    private bool _interactive;
     private bool _micSupported;
     private bool _listening;
     private string? _error;
@@ -101,6 +103,9 @@
         {
             try { _micSupported = await JS.InvokeAsync<bool>("vananSpeech.supported"); }
             catch { _micSupported = false; }
+            try { await JS.InvokeVoidAsync("vananMarkInteractive", "smart-entry-bar"); }
+            catch { }
+            _interactive = true;
             StateHasChanged();
         }
     }
