@@ -81,6 +81,12 @@
                     OnClick="() => NavigateToHistory()">
                     📜 Lịch Sử Giao Dịch
                 </VanAButton>
+                @* Task card 2026-11-01 (P2): Phiếu hạch toán CTGS (bút toán tay multi-line) *@
+                <VanAButton
+                    Variant="secondary"
+                    OnClick="() => NavigateToJournalVoucher()">
+                    🧾 Phiếu Hạch Toán
+                </VanAButton>
                 <VanAButton
                     Variant="secondary"
                     OnClick="() => NavigateToCongNo()">
@@ -235,6 +241,11 @@
     private void NavigateToHistory()
     {
         NavigationManager.NavigateTo("/accounting/history");
+    }
+
+    private void NavigateToJournalVoucher()
+    {
+        NavigationManager.NavigateTo("/accounting/journal-voucher");
     }
 
     private void NavigateToCongNo()

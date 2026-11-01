@@ -47,8 +47,9 @@
         <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" />
     }
 
-    @* TT 71 Phase 4b: in Phiếu thu 01-TT (chỉ tenant HTX) sau khi lưu thành công *@
-    @if (_tenantType == TenantType.HTX && _lastVoucher != null)
+    @* In Phiếu thu 01-TT sau khi lưu thành công — mọi tenant (task 2026-11-01 gỡ gate HTX;
+       mẫu 01/02-TT là mẫu chung, "Tt71" chỉ là tên file lịch sử). *@
+    @if (_lastVoucher != null)
     {
         <div class="mt-3">
             <VanAButton Variant="success" Size="small" OnClick="OpenPrintModal">
@@ -842,23 +843,30 @@
             _recentEntries.Add(new RecentEntry(amount, date, accountCode, now));
         }
 
-        // TT 71 Phase 4b: capture dữ liệu phiếu thu 01-TT (chỉ tenant HTX) trước khi reset form
-        if (!IsCongNoType && _tenantType == TenantType.HTX)
+        // In phiếu thu 01-TT cho mọi phiếu có dòng tiền (task 2026-11-01 — gỡ gate HTX +
+        // mở rộng "thu tiền khách trả nợ" Nợ {cash}/Có 131). "Ghi nhận phải thu"
+        // (bán chịu — non-cash) KHÔNG in.
+        if (_voucherType != VoucherTypeReceivable)
         {
+            bool isReceivablePayment = _voucherType == VoucherTypePayment;
             _lastVoucher = new VoucherData(
                 SoPhieu: _savedDto?.VoucherNumber
                     ?? (string.IsNullOrWhiteSpace(reference)
                         ? $"PT-{date:yyyyMMdd}-{_recentEntries.Count}"
                         : reference),
                 Ngay: date.ToString("dd/MM/yyyy"),
-                No: "111",
-                Co: accountCode,
-                NguoiNop: lookupResult?.BusinessName ?? string.Empty,
+                No: _savedDto?.CashAccountCode ?? "111",
+                Co: isReceivablePayment ? "131" : accountCode,
+                NguoiNop: isReceivablePayment ? doiTuong : (lookupResult?.BusinessName ?? string.Empty),
                 DiaChi: string.Empty,
                 LyDo: formData.Values["description"],
                 SoTien: amount,
                 KemTheo: string.Empty,
                 ChungTuGoc: reference);
+        }
+        else
+        {
+            _lastVoucher = null; // phiếu non-cash — ẩn nút in (xóa voucher cũ của lần lưu trước)
         }
 
         showSuccess = true;

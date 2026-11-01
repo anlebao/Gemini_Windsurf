@@ -248,6 +248,8 @@ namespace VanAn.ShopERP
             // SRS v1.2 W3/D (M9): TK tiền per tenant (111 + 112x) + resolve paymentMethod→account
             _ = builder.Services.AddScoped<CoreHub.Services.IBankAccountService, CoreHub.Services.BankAccountService>();
             _ = builder.Services.AddScoped<CoreHub.Services.Journal.IAccountMapRuleService, CoreHub.Services.Journal.AccountMapRuleService>();
+            // Task card 2026-11-01 (P2): Phiếu hạch toán CTGS — bút toán tay multi-line → JournalEntry trực tiếp
+            _ = builder.Services.AddScoped<CoreHub.Services.Journal.IManualJournalVoucherService, CoreHub.Services.Journal.ManualJournalVoucherService>();
             _ = builder.Services.AddScoped<CoreHub.Services.Reconcile.IReconciliationItemService, CoreHub.Services.Reconcile.ReconciliationItemService>();
             _ = builder.Services.AddScoped<CoreHub.Services.Reconcile.IBankStatementService, CoreHub.Services.Reconcile.BankStatementService>();
             // SRS v1.2 W5/F (FR-CLS-003): checklist tra soát trước khi đóng kỳ trên UI tenant —

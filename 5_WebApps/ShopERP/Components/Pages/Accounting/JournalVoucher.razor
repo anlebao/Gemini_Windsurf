@@ -1,0 +1,275 @@
+@page "/accounting/journal-voucher"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "AccountingFullAccess")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Models
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.CoreHub.Services.Journal
+@using VanAn.ShopERP.Services.Accounting
+@using VanAn.ShopERP.Components.Accounting
+@using CoreAccountingService = VanAn.CoreHub.Services
+@using PlatformComposite = VanAn.UI.Platform.Components.Composite
+@inject IManualJournalVoucherService JournalVoucherService
+@inject CoreAccountingService.IAccountChartService AccountChartService
+@inject CoreAccountingService.IVasFeatureFlagService FeatureFlagService
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject ILogger<JournalVoucher> Logger
+@inject NavigationManager NavigationManager
+
+<div class="journal-voucher-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Phiếu Hạch Toán (CTGS)</h1>
+        <VanAButton
+            Variant="secondary"
+            Size="small"
+            OnClick="GoBack">
+            ← Quay Lại
+        </VanAButton>
+    </header>
+
+    @if (_printedVoucher != null)
+    {
+        <VanAAlert Type="success" Dismissible="true" data-testid="jv-success-alert"
+                   Message="@(_printedVoucher.SoPhieu != null ? $"Đã ghi sổ phiếu hạch toán — Số phiếu: {_printedVoucher.SoPhieu}" : "Đã ghi sổ phiếu hạch toán (không số — voucher sequence lỗi).")" />
+        <div class="mt-2 mb-3 d-flex gap-2 align-items-center">
+            <VanAButton Variant="success" Size="small" OnClick="OpenPrintModal" data-testid="jv-print-btn">
+                🖨️ In phiếu (CTGS)
+            </VanAButton>
+            <a href="/accounting/journal" class="small">→ Xem lại trong Sổ Nhật ký chung</a>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Type="error" Message="@_errorMessage" Dismissible="true" data-testid="jv-error-alert" />
+    }
+
+    <VanAnModal IsOpen="@_showPrintModal" Title="Chứng từ ghi sổ (CTGS)" Closable="true" OnClose="ClosePrintModal">
+        @if (_printedVoucher != null)
+        {
+            <JournalVoucherPrint SoPhieu="@(_printedVoucher.SoPhieu ?? "—")" Ngay="@_printedVoucher.Ngay"
+                                 DienGiai="@_printedVoucher.DienGiai" Lines="@_printedVoucher.Lines" />
+        }
+    </VanAnModal>
+
+    <VanACard Header="Thông Tin Phiếu Hạch Toán">
+        <div class="mb-3">
+            <label for="jvDate" class="form-label">Ngày <span class="text-danger">*</span></label>
+            <input id="jvDate" type="date" class="form-control" @bind="_entryDate" @bind:format="yyyy-MM-dd" data-testid="jv-date" />
+        </div>
+        <div class="mb-3">
+            <label for="jvDesc" class="form-label">Diễn Giải <span class="text-danger">*</span></label>
+            <input id="jvDesc" type="text" class="form-control" @bind="_description"
+                   placeholder="VD: Phân bổ chi phí trả trước T11/2026" data-testid="jv-description" />
+            <small class="form-text text-muted">Bút toán tay nhiều dòng — dùng khi nghiệp vụ không qua được form Thu/Chi (kết chuyển, phân bổ, điều chỉnh...). Phiếu vào Sổ Nhật ký chung + Sổ Cái, không hiện trong Lịch sử giao dịch.</small>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-sm align-middle" data-testid="jv-lines">
+                <thead>
+                    <tr>
+                        <th style="min-width: 220px;">Tài Khoản</th>
+                        <th style="width: 140px;">Nợ (VNĐ)</th>
+                        <th style="width: 140px;">Có (VNĐ)</th>
+                        <th>Diễn giải dòng</th>
+                        <th style="width: 44px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int i = 0; i < _lines.Count; i++)
+                    {
+                        var line = _lines[i];
+                        var idx = i;
+                        <tr data-testid="jv-line">
+                            <td>
+                                @if (_coaOptions.Count > 0)
+                                {
+                                    <select class="form-select form-select-sm" @bind="line.AccountNumber" data-testid="jv-account">
+                                        <option value="">— Chọn TK —</option>
+                                        @foreach (var opt in _coaOptions)
+                                        {
+                                            <option value="@opt.Value">@opt.Label</option>
+                                        }
+                                    </select>
+                                }
+                                else
+                                {
+                                    <input type="text" class="form-control form-control-sm" @bind="line.AccountNumber"
+                                           placeholder="VD: 642" data-testid="jv-account" />
+                                }
+                            </td>
+                            <td><input type="number" class="form-control form-control-sm" min="0" step="1000" @bind="line.Debit" data-testid="jv-debit" /></td>
+                            <td><input type="number" class="form-control form-control-sm" min="0" step="1000" @bind="line.Credit" data-testid="jv-credit" /></td>
+                            <td><input type="text" class="form-control form-control-sm" @bind="line.Description" placeholder="(để trống = diễn giải phiếu)" /></td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        @onclick="() => RemoveLine(idx)" disabled="@(_lines.Count <= 2)"
+                                        data-testid="jv-remove-line" title="Xóa dòng">✕</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold">
+                        <td>
+                            <VanAButton Variant="secondary" Size="small" OnClick="AddLine" data-testid="jv-add-line">
+                                + Thêm dòng
+                            </VanAButton>
+                        </td>
+                        <td class="text-end" data-testid="jv-total-debit">@TotalDebit.ToString("N0")</td>
+                        <td class="text-end" data-testid="jv-total-credit">@TotalCredit.ToString("N0")</td>
+                        <td colspan="2">
+                            <span class="badge @(IsBalanced ? "text-bg-success" : "text-bg-danger")" data-testid="jv-balance-badge">
+                                @(IsBalanced ? "✓ Cân đối" : $"Lệch {(TotalDebit - TotalCredit):N0}")
+                            </span>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="mt-3">
+            <VanAButton Variant="primary" OnClick="HandleSaveAsync"
+                        Disabled="@(!CanSave)" data-testid="jv-save">
+                @(_saving ? "Đang lưu..." : "Lưu Phiếu Hạch Toán")
+            </VanAButton>
+        </div>
+    </VanACard>
+</div>
+
+@code {
+    private sealed class VoucherLineModel
+    {
+        public string AccountNumber { get; set; } = string.Empty;
+        public decimal? Debit { get; set; }
+        public decimal? Credit { get; set; }
+        public string? Description { get; set; }
+    }
+
+    private sealed record PrintedVoucher(string? SoPhieu, string Ngay, string DienGiai, List<JournalVoucherLine> Lines);
+
+    private DateTime _entryDate = DateTime.Today;
+    private string _description = string.Empty;
+    private List<VoucherLineModel> _lines = [new(), new()];
+    private List<PlatformComposite.FieldOption> _coaOptions = new();
+    private TenantType? _tenantType;
+    private bool _saving;
+    private string? _errorMessage;
+    private PrintedVoucher? _printedVoucher;
+    private bool _showPrintModal;
+
+    private decimal TotalDebit => _lines.Sum(l => l.Debit ?? 0m);
+    private decimal TotalCredit => _lines.Sum(l => l.Credit ?? 0m);
+    private bool IsBalanced => TotalDebit > 0 && TotalDebit == TotalCredit;
+    private bool CanSave => IsBalanced && _lines.Count >= 2 && !_saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTenantTypeAsync();
+        await LoadCoaOptionsAsync();
+    }
+
+    private async Task LoadTenantTypeAsync()
+    {
+        if (!TenantProvider.HasTenant) return;
+        try
+        {
+            _tenantType = await FeatureFlagService.GetTenantTypeAsync(new TenantId(TenantProvider.TenantId));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Không lấy được TenantType — dùng COA TT133 mặc định");
+        }
+    }
+
+    /// <summary>Full tenant chart sorted (global + override/custom) — fallback rỗng → input tay.</summary>
+    private async Task LoadCoaOptionsAsync()
+    {
+        if (!TenantProvider.HasTenant) return;
+        try
+        {
+            var accounts = await AccountChartService.GetTenantAccountsAsync(
+                new TenantId(TenantProvider.TenantId), EntryFormAccountingHelper.StandardOf(_tenantType));
+            _coaOptions = accounts
+                .OrderBy(a => a.AccountCode)
+                .Select(a => new PlatformComposite.FieldOption
+                {
+                    Value = a.AccountCode,
+                    Label = $"{a.AccountCode} - {a.AccountName}"
+                })
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Không tải được COA tenant — fallback nhập tay TK");
+            _coaOptions = new();
+        }
+    }
+
+    private void AddLine() => _lines.Add(new VoucherLineModel());
+
+    private void RemoveLine(int index)
+    {
+        if (_lines.Count > 2 && index >= 0 && index < _lines.Count)
+        {
+            _lines.RemoveAt(index);
+        }
+    }
+
+    private async Task HandleSaveAsync()
+    {
+        _errorMessage = null;
+        if (!TenantProvider.HasTenant)
+        {
+            _errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_description))
+        {
+            _errorMessage = "Diễn giải phiếu hạch toán là bắt buộc.";
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            List<JournalVoucherLine> lines = _lines
+                .Select(l => new JournalVoucherLine(
+                    l.AccountNumber?.Trim() ?? string.Empty,
+                    l.Debit ?? 0m,
+                    l.Credit ?? 0m,
+                    string.IsNullOrWhiteSpace(l.Description) ? null : l.Description.Trim()))
+                .ToList();
+
+            JournalVoucherResult result = await JournalVoucherService.CreateAsync(
+                new TenantId(TenantProvider.TenantId), _entryDate, _description.Trim(), lines);
+
+            // Capture dữ liệu in trước khi reset form cho phiếu kế tiếp.
+            _printedVoucher = new PrintedVoucher(
+                result.VoucherNumber, _entryDate.ToString("dd/MM/yyyy"), _description.Trim(), lines);
+            _lines = [new(), new()];
+            _description = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Lưu phiếu hạch toán thất bại (tenant {TenantId})", TenantProvider.TenantId);
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void OpenPrintModal() => _showPrintModal = true;
+    private void ClosePrintModal() => _showPrintModal = false;
+
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo("/accounting");
+    }
+}

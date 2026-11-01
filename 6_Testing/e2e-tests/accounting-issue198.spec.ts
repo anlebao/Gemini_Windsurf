@@ -106,3 +106,43 @@ test.describe('RV #198 — Mapping rules page', () => {
     await expect(page.getByText('manual-receipt', { exact: true })).toBeVisible({ timeout: 30000 });
   });
 });
+
+// Task card 2026-11-01: P1 in phiếu mọi tenant (gỡ gate HTX) + P2 phiếu hạch toán CTGS.
+// READ-ONLY — chỉ render + mở modal in từ entry có sẵn; KHÔNG submit phiếu production.
+test.describe('RV 2026-11-01 — Phiếu hạch toán CTGS', () => {
+  test('/accounting/journal-voucher renders grid + save disabled when unbalanced', async ({ page }) => {
+    await loginAndImpersonate(page, DN_TENANT);
+    await page.goto('/accounting/journal-voucher');
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.getByTestId('jv-lines')).toBeVisible({ timeout: 30000 });
+    await expect(page.getByTestId('jv-line')).toHaveCount(2);
+    await expect(page.getByTestId('jv-save')).toBeDisabled();
+    await expect(page.getByTestId('jv-balance-badge')).toContainText('Lệch');
+  });
+});
+
+test.describe('RV 2026-11-01 — In phiếu từ lịch sử (non-HTX regression)', () => {
+  test('revenue entry detail modal shows In phiếu (01-TT) on DN tenant', async ({ page }) => {
+    await loginAndImpersonate(page, DN_TENANT);
+    await page.goto('/accounting/history');
+    await page.waitForLoadState('networkidle');
+
+    // Mở rộng khoảng ngày (default = tháng hiện tại có thể trống) + lọc Revenue.
+    await page.locator('#filter-button').click();
+    await page.getByTestId('filter-from-date').fill('2026-01-01');
+    await page.locator('.filter-panel select.form-select').selectOption('Revenue');
+    await page.getByRole('button', { name: 'Áp Dụng' }).click();
+    await page.waitForLoadState('networkidle');
+
+    // Mở detail của entry Revenue đầu tiên → nút In phiếu phải hiện (trước chỉ HTX có).
+    const detailButtons = page.getByRole('button', { name: 'Chi Tiết' });
+    await expect(detailButtons.first(), 'expected at least one Revenue entry in history').toBeVisible({ timeout: 30000 });
+    await detailButtons.first().click();
+    await page.getByTestId('print-voucher-btn').click();
+
+    // Modal phiếu thu render mẫu 01-TT.
+    await expect(page.getByText('PHIẾU THU', { exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Mẫu số 01 - TT', { exact: true })).toBeVisible();
+  });
+});

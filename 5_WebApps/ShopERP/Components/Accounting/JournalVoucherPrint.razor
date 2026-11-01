@@ -1,0 +1,155 @@
+@* Task card 2026-11-01 (P2): mẫu in Chứng từ ghi sổ (CTGS) cho phiếu hạch toán tay —
+   Đơn vị + Số + Ngày + bảng TK/Diễn giải/Nợ/Có + Cộng + chữ ký. In qua vananPrintBill
+   với CSS print chỉ hiển thị vùng phiếu (pattern giống Tt71ReceiptVoucher/Tt71PaymentVoucher). *@
+@using System.Globalization
+@using VanAn.CoreHub.Services.Journal
+@using VanAn.UI.Platform.Components
+@inject IJSRuntime JSRuntime
+
+<div class="voucher-print-area">
+    <div class="voucher-head">
+        <div class="voucher-unit">Đơn vị: <strong>@DonVi</strong></div>
+        <div class="voucher-form-no">
+            <strong>Mẫu chứng từ ghi sổ</strong><br />
+            <span class="voucher-form-ref">Số: @SoPhieu</span>
+        </div>
+    </div>
+
+    <div class="voucher-title">CHỨNG TỪ GHI SỔ</div>
+    <div class="voucher-date">Ngày @Ngay</div>
+
+    <div class="voucher-body">
+        <table class="jv-table">
+            <thead>
+                <tr>
+                    <th class="jv-stt">STT</th>
+                    <th>Diễn giải</th>
+                    <th class="jv-tk">Số hiệu TK</th>
+                    <th class="jv-num">Nợ</th>
+                    <th class="jv-num">Có</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{ int stt = 0; }
+                @foreach (var line in Lines)
+                {
+                    stt++;
+                    <tr>
+                        <td class="jv-stt">@stt</td>
+                        <td>@(string.IsNullOrWhiteSpace(line.Description) ? DienGiai : line.Description)</td>
+                        <td class="jv-tk">@line.AccountNumber</td>
+                        <td class="jv-num">@(line.Debit > 0 ? FormatAmount(line.Debit) : string.Empty)</td>
+                        <td class="jv-num">@(line.Credit > 0 ? FormatAmount(line.Credit) : string.Empty)</td>
+                    </tr>
+                }
+                <tr class="jv-total">
+                    <td colspan="3">CỘNG</td>
+                    <td class="jv-num">@FormatAmount(Lines.Sum(l => l.Debit))</td>
+                    <td class="jv-num">@FormatAmount(Lines.Sum(l => l.Credit))</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="voucher-signatures">
+        <div class="voucher-sig">
+            <div class="voucher-sig-title">NGƯỜI LẬP</div>
+            <div class="voucher-sig-sub">(Ký, họ tên)</div>
+        </div>
+        <div class="voucher-sig">
+            <div class="voucher-sig-title">KẾ TOÁN TRƯỞNG</div>
+            <div class="voucher-sig-sub">(Ký, họ tên)</div>
+        </div>
+        <div class="voucher-sig">
+            <div class="voucher-sig-title">GIÁM ĐỐC</div>
+            <div class="voucher-sig-sub">(Ký, họ tên, đóng dấu)</div>
+        </div>
+    </div>
+
+    <div class="voucher-actions no-print">
+        <VanAButton Variant="primary" Size="small" OnClick="PrintAsync">🖨️ In phiếu</VanAButton>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string DonVi { get; set; } = string.Empty;
+    [Parameter] public string SoPhieu { get; set; } = string.Empty;
+    [Parameter] public string Ngay { get; set; } = string.Empty;
+    [Parameter] public string DienGiai { get; set; } = string.Empty;
+    [Parameter] public IReadOnlyList<JournalVoucherLine> Lines { get; set; } = [];
+
+    private static string FormatAmount(decimal amount)
+    {
+        return amount.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"));
+    }
+
+    private async Task PrintAsync()
+    {
+        await JSRuntime.InvokeVoidAsync("vananPrintBill");
+    }
+}
+
+<style>
+    .voucher-print-area {
+        font-family: "Times New Roman", serif;
+        background: white;
+        color: black;
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 1.5rem;
+        font-size: 0.95rem;
+        line-height: 1.6;
+    }
+    .voucher-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 0.75rem;
+    }
+    .voucher-form-no { text-align: right; }
+    .voucher-form-ref { font-size: 0.75rem; }
+    .voucher-title {
+        text-align: center;
+        font-size: 1.3rem;
+        font-weight: 700;
+        letter-spacing: 2px;
+        margin: 0.5rem 0 0.25rem;
+    }
+    .voucher-date { text-align: center; margin-bottom: 1rem; }
+    .voucher-body {
+        border: 1px solid #333;
+        padding: 0.5rem;
+        min-height: 200px;
+    }
+    .jv-table { width: 100%; border-collapse: collapse; }
+    .jv-table th, .jv-table td { border: 1px solid #333; padding: 0.3rem 0.5rem; }
+    .jv-table th { text-align: center; font-weight: 700; }
+    .jv-stt { text-align: center; width: 44px; }
+    .jv-tk { text-align: center; width: 90px; }
+    .jv-num { text-align: right; width: 120px; }
+    .jv-total td { font-weight: 700; }
+    .voucher-signatures {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.5rem;
+        margin: 1.5rem 0;
+        text-align: center;
+    }
+    .voucher-sig-title { font-weight: 700; margin-top: 2.5rem; }
+    .voucher-sig-sub { font-size: 0.75rem; }
+    .voucher-actions { text-align: center; margin-top: 1rem; }
+
+    /* Print — chỉ hiển thị vùng phiếu */
+    @@media print {
+        body * { visibility: hidden; }
+        .voucher-print-area, .voucher-print-area * { visibility: visible; }
+        .voucher-print-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            max-width: 100%;
+            padding: 0.5rem;
+        }
+        .no-print { display: none !important; }
+    }
+</style>

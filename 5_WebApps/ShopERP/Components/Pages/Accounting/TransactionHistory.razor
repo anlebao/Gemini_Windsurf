@@ -13,6 +13,7 @@
 @using CoreAccountingService = VanAn.CoreHub.Services
 @using Microsoft.JSInterop
 @using VanAn.ShopERP.Services
+@using VanAn.ShopERP.Components.Accounting
 @inject CoreAccountingService.IAccountingService AccountingService
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
@@ -155,10 +156,40 @@
                             <span>@selectedTransaction.Reference</span>
                         </div>
                     }
+                    @* Task card 2026-11-01 (P1c): in lại phiếu thu/chi từ lịch sử —
+                       rebuild voucher từ DTO (không có Địa chỉ/Kèm theo → để trống). *@
+                    @if (PrintableKind(selectedTransaction) != VoucherPrintKind.None)
+                    {
+                        <div class="detail-row mt-3">
+                            <VanAButton Variant="success" Size="small" OnClick="OpenVoucherPrint" data-testid="print-voucher-btn">
+                                🖨️ In phiếu @(PrintableKind(selectedTransaction) == VoucherPrintKind.Receipt01TT ? "(01-TT)" : "(02-TT)")
+                            </VanAButton>
+                        </div>
+                    }
                 </div>
             </Body>
         </VanAModal>
     }
+
+    @* Print modal — mẫu 01-TT (phiếu thu) / 02-TT (phiếu chi) *@
+    <VanAnModal IsOpen="@_showVoucherModal" Title="@_voucherModalTitle" Closable="true" OnClose="CloseVoucherModal">
+        @if (_voucher != null && _printKind == VoucherPrintKind.Receipt01TT)
+        {
+            <Tt71ReceiptVoucher SoPhieu="@_voucher.SoPhieu" Ngay="@_voucher.Ngay"
+                                No="@_voucher.No" Co="@_voucher.Co"
+                                NguoiNop="@_voucher.Nguoi" DiaChi=""
+                                LyDo="@_voucher.LyDo" SoTien="@_voucher.SoTien"
+                                KemTheo="" ChungTuGoc="@_voucher.ChungTuGoc" />
+        }
+        else if (_voucher != null && _printKind == VoucherPrintKind.Payment02TT)
+        {
+            <Tt71PaymentVoucher SoPhieu="@_voucher.SoPhieu" Ngay="@_voucher.Ngay"
+                                No="@_voucher.No" Co="@_voucher.Co"
+                                NguoiNhan="@_voucher.Nguoi" DiaChi=""
+                                LyDo="@_voucher.LyDo" SoTien="@_voucher.SoTien"
+                                KemTheo="" ChungTuGoc="@_voucher.ChungTuGoc" />
+        }
+    </VanAnModal>
 </div>
 
 @code {
@@ -173,6 +204,15 @@
     private decimal? amountMax;
     private bool showDetailModal = false;
     private AccountingEntryDto? selectedTransaction;
+
+    // Task card 2026-11-01 (P1c): in lại phiếu thu 01-TT / chi 02-TT từ detail modal.
+    private enum VoucherPrintKind { None, Receipt01TT, Payment02TT }
+    private record VoucherData(string SoPhieu, string Ngay, string No, string Co,
+        string Nguoi, string LyDo, decimal SoTien, string ChungTuGoc);
+    private VoucherData? _voucher;
+    private VoucherPrintKind _printKind = VoucherPrintKind.None;
+    private bool _showVoucherModal;
+    private string _voucherModalTitle = string.Empty;
 
     private string fromDateStr => fromDate?.ToString("yyyy-MM-dd") ?? "";
     private string toDateStr => toDate?.ToString("yyyy-MM-dd") ?? "";
@@ -342,6 +382,60 @@
     {
         showDetailModal = false;
         selectedTransaction = null;
+    }
+
+    /// <summary>
+    /// Task card 2026-11-01 (P1c): entry nào in được phiếu tiền —
+    /// Revenue → 01-TT · Expense → 02-TT · Adjustment âm 131 → 01-TT (thu nợ) ·
+    /// Adjustment âm 331 → 02-TT (trả nợ). KHÔNG in: bút toán đảo (ReversalEntryId),
+    /// ghi nhận nợ non-cash (Adjustment dương), DepositOffset, VAT-133.
+    /// </summary>
+    private static VoucherPrintKind PrintableKind(AccountingEntryDto? t)
+    {
+        if (t is null || t.ReversalEntryId.HasValue)
+        {
+            return VoucherPrintKind.None;
+        }
+        return t switch
+        {
+            { EntryType: AccountingEntryType.Revenue } => VoucherPrintKind.Receipt01TT,
+            { EntryType: AccountingEntryType.Expense } => VoucherPrintKind.Payment02TT,
+            { EntryType: AccountingEntryType.Adjustment, Amount: < 0, AccountCode: "131" } => VoucherPrintKind.Receipt01TT,
+            { EntryType: AccountingEntryType.Adjustment, Amount: < 0, AccountCode: "331" } => VoucherPrintKind.Payment02TT,
+            _ => VoucherPrintKind.None
+        };
+    }
+
+    private void OpenVoucherPrint()
+    {
+        if (selectedTransaction == null)
+        {
+            return;
+        }
+        _printKind = PrintableKind(selectedTransaction);
+        if (_printKind == VoucherPrintKind.None)
+        {
+            return;
+        }
+
+        AccountingEntryDto t = selectedTransaction;
+        bool isReceipt = _printKind == VoucherPrintKind.Receipt01TT;
+        _voucher = new VoucherData(
+            SoPhieu: t.VoucherNumber ?? t.Reference ?? string.Empty,
+            Ngay: t.TransactionDate.ToVietnamTime().ToString("dd/MM/yyyy"),
+            No: isReceipt ? (t.CashAccountCode ?? "111") : t.AccountCode,
+            Co: isReceipt ? t.AccountCode : (t.CashAccountCode ?? "111"),
+            Nguoi: t.Vendor ?? string.Empty,
+            LyDo: t.Description,
+            SoTien: Math.Abs(t.Amount),
+            ChungTuGoc: t.Reference ?? string.Empty);
+        _voucherModalTitle = isReceipt ? "Phiếu Thu (Mẫu số 01 - TT)" : "Phiếu Chi (Mẫu số 02 - TT)";
+        _showVoucherModal = true;
+    }
+
+    private void CloseVoucherModal()
+    {
+        _showVoucherModal = false;
     }
 
     private async Task ExportToExcel()

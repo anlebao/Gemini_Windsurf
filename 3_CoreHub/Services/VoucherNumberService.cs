@@ -31,6 +31,7 @@ namespace VanAn.CoreHub.Services
         public const string TypePaymentCongNo = "PC-CN";
         public const string TypeTransfer = "CT"; // Phase D
         public const string TypePurchaseReceipt = "NM"; // W6/E — phiếu nhập mua
+        public const string TypeJournalVoucher = "CTGS"; // Task card 2026-11-01 (P2) — chứng từ ghi sổ
 
         private const int MaxAttempts = 3;
 

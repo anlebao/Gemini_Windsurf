@@ -149,6 +149,9 @@ public class ComponentTestBase : TestContext
             _ => new Mock<VanAn.CoreHub.Services.Journal.IAccountMapResolver>().Object);
         Services.AddSingleton<VanAn.CoreHub.Services.IAccountChartService>(
             _ => new Mock<VanAn.CoreHub.Services.IAccountChartService>().Object);
+        // Task card 2026-11-01 (P2): IManualJournalVoucherService — mock by default (JournalVoucher page inject).
+        Services.AddSingleton<VanAn.CoreHub.Services.Journal.IManualJournalVoucherService>(
+            _ => new Mock<VanAn.CoreHub.Services.Journal.IManualJournalVoucherService>().Object);
         Services.AddSingleton<VanAn.CoreHub.Services.IBalanceAlertService>(
             _ => new Mock<VanAn.CoreHub.Services.IBalanceAlertService>().Object);
 

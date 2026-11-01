@@ -1,6 +1,6 @@
 # TASK CARD — IN PHIẾU ĐẦY ĐỦ + PHIẾU HẠCH TOÁN (CTGS)
 
-> Status: **PENDING REVIEW** · Ngày: 2026-11-01 · Master plan: `docs/AI/plans/in-phieu-va-phieu-hach-toan-master-plan.md`
+> Status: **IMPLEMENTING (P1+P2 code DONE — tests pass, chờ push/CD/RV)** · Ngày: 2026-11-01 · Master plan: `docs/AI/plans/in-phieu-va-phieu-hach-toan-master-plan.md`
 > Mode: IMPLEMENT sau khi user duyệt · Chiến lược: 1 phiên liên tục P1 → P2 → push → sweep-first RV
 
 ## Quyết định đã chốt
@@ -82,21 +82,21 @@
 
 ## Scope — P1 (in phiếu)
 
-- [ ] `RevenueEntry.razor`: gỡ `_tenantType == HTX` gate (nút in ~L51 + capture ~L846) → in 01-TT mọi tenant; mở rộng `receivable-payment` → Nợ `CashAccountCode??"111"` / Có `131` / NguoiNop=`doiTuong`
-- [ ] `ExpenseEntry.razor`: tương tự (gate ~L62 + capture ~L1135); `payable-payment` → Nợ `331` / Có `CashAccountCode??"111"` / NguoiNhan=`doiTuong`
-- [ ] `TransactionHistory.razor`: nút "🖨️ In phiếu" trong detail modal cho entry in được (Revenue→01-TT · Expense→02-TT · Adjustment amount<0 & 131→01-TT · 331→02-TT); rebuild voucher từ DTO; NguoiNop/Nhan=`Vendor`; DiaChi/KemTheo trống
+- [x] `RevenueEntry.razor`: gỡ `_tenantType == HTX` gate (nút in ~L51 + capture ~L846) → in 01-TT mọi tenant; mở rộng `receivable-payment` → Nợ `CashAccountCode??"111"` / Có `131` / NguoiNop=`doiTuong`
+- [x] `ExpenseEntry.razor`: tương tự (gate ~L62 + capture ~L1135); `payable-payment` → Nợ `331` / Có `CashAccountCode??"111"` / NguoiNhan=`doiTuong`
+- [x] `TransactionHistory.razor`: nút "🖨️ In phiếu" trong detail modal cho entry in được (Revenue→01-TT · Expense→02-TT · Adjustment amount<0 & 131→01-TT · 331→02-TT); rebuild voucher từ DTO; NguoiNop/Nhan=`Vendor`; DiaChi/KemTheo trống; KHÔNG in bút toán đảo (ReversalEntryId)
 
 ## Scope — P2 (phiếu hạch toán CTGS)
 
-- [ ] `VoucherNumberService.cs`: `public const string TypeJournalVoucher = "CTGS";`
-- [ ] `3_CoreHub/Services/Journal/ManualJournalVoucherService.cs` (MỚI):
+- [x] `VoucherNumberService.cs`: `public const string TypeJournalVoucher = "CTGS";`
+- [x] `3_CoreHub/Services/Journal/ManualJournalVoucherService.cs` (MỚI):
   - `JournalVoucherLine(AccountNumber, Debit, Credit, Description?)` + `JournalVoucherResult(JournalEntryId, VoucherId, VoucherNumber?, LineCount)`
   - Validate: description bắt buộc · ≥2 dòng · TK `^[1-9]\d{0,3}$` · Nợ xor Có (>0 một phía, không cả 2, không cả 2=0) · ΣNợ=ΣCó
   - Period guard (GetPeriodStatusAsync → Closed throw) · voucher CTGS fail-safe · JE `ReferenceType="JournalVoucher"`, `ReferenceId=Guid.NewGuid()`, `PostingPurpose=Other` · `AddToBookAsync(S2b_HKD)` · audit `AuditableEntityType.AccountingEntry` (fail-safe ngoài)
-- [ ] `5_WebApps/ShopERP/Program.cs`: `AddScoped<IManualJournalVoucherService, ManualJournalVoucherService>` (sau IAccountMapRuleService)
-- [ ] `Components/Pages/Accounting/JournalVoucher.razor` (MỚI): `@page "/accounting/journal-voucher"` · date + diễn giải + grid dòng động (TK từ `IAccountChartService.GetTenantAccountsAsync` full chart sorted · Nợ · Có · diễn giải dòng · xóa) · "+ Thêm dòng" · tổng + badge cân/lệch · Lưu disabled khi lệch/<2 dòng/_saving · sau lưu hiện số phiếu + "🖨️ In phiếu (CTGS)" + link "xem Nhật ký chung"
-- [ ] `Components/Accounting/JournalVoucherPrint.razor` (MỚI): mẫu CTGS (Đơn vị + Số + Ngày + bảng TK/Nợ/Có/diễn giải + Tổng + chữ ký) · `vananPrintBill` · CSS print pattern giống Tt71 vouchers
-- [ ] `AccountingIndex.razor`: nút "🧾 Phiếu hạch toán" trong Quick Actions + `NavigateToJournalVoucher`
+- [x] `5_WebApps/ShopERP/Program.cs`: `AddScoped<IManualJournalVoucherService, ManualJournalVoucherService>` (sau IAccountMapRuleService)
+- [x] `Components/Pages/Accounting/JournalVoucher.razor` (MỚI): `@page "/accounting/journal-voucher"` (policy AccountingFullAccess — D3) · date + diễn giải + grid dòng động (TK từ `IAccountChartService.GetTenantAccountsAsync` full chart sorted · Nợ · Có · diễn giải dòng · xóa) · "+ Thêm dòng" · tổng + badge cân/lệch · Lưu disabled khi lệch/<2 dòng/_saving · sau lưu hiện số phiếu + "🖨️ In phiếu (CTGS)" + link "xem Nhật ký chung"
+- [x] `Components/Accounting/JournalVoucherPrint.razor` (MỚI): mẫu CTGS (Đơn vị + Số + Ngày + bảng TK/Nợ/Có/diễn giải + Tổng + chữ ký) · `vananPrintBill` · CSS print pattern giống Tt71 vouchers
+- [x] `AccountingIndex.razor`: nút "🧾 Phiếu hạch toán" trong Quick Actions + `NavigateToJournalVoucher`
 
 ## Out of scope (defer)
 
@@ -104,13 +104,13 @@
 
 ## Tests
 
-- [ ] `ManualJournalVoucherServiceTests.cs`: balanced→AddToBook (JournalVoucher/Other/CTGS) · unbalanced throw · <2 dòng throw · TK invalid throw · Nợ+Có>0 throw · period closed throw · voucher fail → vẫn ghi sổ
-- [ ] `JournalVoucherPageTests.cs` (bUnit): render · add/remove dòng · badge lệch→cân · Lưu disabled khi lệch
-- [ ] Extend `accounting-issue198.spec.ts`: route `/accounting/journal-voucher` render + nút In 01-TT trên tenant non-HTX (regression P1)
+- [x] `ManualJournalVoucherServiceTests.cs`: balanced→AddToBook (JournalVoucher/Other/CTGS) · unbalanced throw · <2 dòng throw · TK invalid throw · Nợ+Có>0 throw · period closed throw · voucher fail → vẫn ghi sổ — **11/11 PASS**
+- [x] `JournalVoucherPageTests.cs` (bUnit): render · add/remove dòng · badge lệch→cân · Lưu disabled khi lệch — **5/5 PASS** (lưu ý: `FindAll()[i]` indexer lỗi AngleSharp — dùng First()/Last() + re-query sau mỗi Change)
+- [x] Extend `accounting-issue198.spec.ts`: route `/accounting/journal-voucher` render + nút In 01-TT trên tenant non-HTX (regression P1)
 
 ## Validation & Deploy
 
-- [ ] `dotnet build` 0 errors · `guard-check.ps1` ALL PASSED · targeted tests (service + bUnit)
+- [x] `dotnet build` 0 errors · `guard-check.ps1` ALL PASSED (`guard-report-20261101-115321.txt`) · targeted tests (service + bUnit) · ShopERP.Tests full **279/279**
 - [ ] FAST PUSH → poll CD (`gh run list`, không `gh run watch`)
 - [ ] RV sweep-first: L1 image+markers (`JournalVoucher` DLL) → L2 routes 302 → L3 PG `ReferenceType='JournalVoucher'` → L4 spec production → L5 user
 
