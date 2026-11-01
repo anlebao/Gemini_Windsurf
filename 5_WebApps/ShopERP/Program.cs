@@ -241,7 +241,18 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.IVoucherNumberService, CoreHub.Services.VoucherNumberService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IAttachmentService, CoreHub.Services.AttachmentService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IInternalTransferService, CoreHub.Services.InternalTransferService>();
-            _ = builder.Services.AddScoped<CoreHub.Services.IVoucherTextParseService, CoreHub.Services.VoucherTextParseService>();
+            // Task G2 (2026-11-01): LLM hybrid — decorator IVoucherTextParseService. Rule-based chạy trước;
+            // chỉ gọi Gemini API khi Unknown/Low/thiếu field (flag SmartEntryLlmEnabled + SmartEntryLlm__ApiKey).
+            _ = builder.Services.AddScoped<CoreHub.Services.VoucherTextParseService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IVoucherTextParseService>(sp =>
+                new CoreHub.Services.LlmEnhanceVoucherTextParseService(
+                    sp.GetRequiredService<CoreHub.Services.VoucherTextParseService>(),
+                    sp.GetRequiredService<IHttpClientFactory>(),
+                    sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<CoreHub.Services.SmartEntryLlmOptions>>(),
+                    sp.GetRequiredService<VanAn.Shared.Services.IShopFeatureSettingsService>(),
+                    sp.GetRequiredService<ILogger<CoreHub.Services.LlmEnhanceVoucherTextParseService>>()));
+            _ = builder.Services.Configure<CoreHub.Services.SmartEntryLlmOptions>(
+                builder.Configuration.GetSection(CoreHub.Services.SmartEntryLlmOptions.Section));
             _ = builder.Services.AddScoped<CoreHub.Services.Purchase.IPurchaseReceiptService, CoreHub.Services.Purchase.PurchaseReceiptService>();
             // SRS v1.2 W6 tiếp (GĐ2, 2026-10-31): StockMovement — chỉ ShopERP host (SQLite).
             // PurchaseReceiptService nhận optional dep → tự inject khi có đăng ký.

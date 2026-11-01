@@ -237,11 +237,8 @@ test.describe('RV Full Guide Matrix — Smart Entry AI (production, read-only)',
     await parseText(page, 'trả nợ 5 triệu cho anh Hùng');
     await expectCard(page, { intent: 'Trả tiền người bán', confidence: 'High', contains: ['Đối tượng: Hùng'], warnings: ['chưa rõ khách hàng hay nhà cung cấp'] });
 
-    // F24 (parser quirk xác nhận): "thanh toán nợ ... cho X" làm mất đối tượng — còn "trả nợ ... X" thì OK
+    // F24 (fix v1.1 — task G2): "thanh toán nợ ... cho X" GIỜ trích đúng đối tượng
     await parseText(page, 'thanh toán nợ 5tr ck cho nhà cung cấp Nam');
-    await expectCard(page, { intent: 'Trả tiền người bán', confidence: 'Medium', contains: ['Số tiền: 5,000,000', 'PTTT: bank'], missing: ['đối tượng'] });
-
-    await parseText(page, 'trả nợ nhà cung cấp Nam 5tr ck');
     await expectCard(page, { intent: 'Trả tiền người bán', confidence: 'High', contains: ['Số tiền: 5,000,000', 'Đối tượng: nhà cung cấp Nam', 'PTTT: bank'] });
   });
 
@@ -308,12 +305,9 @@ test.describe('RV Full Guide Matrix — Smart Entry AI (production, read-only)',
     await parseText(page, 'hôm qua có khoản thu');
     await expectCard(page, { intent: 'Chưa xác định', confidence: 'Low', missing: ['amount', 'intent'], date: relDate(-1) });
 
-    // F23: "ông Ba" = số 3 → amount sai + tên cắt cụt (trap) — rồi cách nói đúng
+    // F23 (fix v1.1 — task G2): "ông Ba" = từ-số — GIỜ amount đúng + tên đầy đủ
     await parseText(page, 'khách ông Ba trả nợ 2tr5');
-    await expectCard(page, { intent: 'Thu tiền khách trả nợ', confidence: 'High', contains: ['Số tiền: 3', 'Đối tượng: ông'], warnings: ['kiểm tra lại đơn vị'] });
-
-    await parseText(page, 'thu nợ 2tr5 khách anh Minh trả góp');
-    await expectCard(page, { intent: 'Thu tiền khách trả nợ', confidence: 'High', contains: ['Số tiền: 2,500,000', 'Đối tượng: anh Minh'] });
+    await expectCard(page, { intent: 'Thu tiền khách trả nợ', confidence: 'High', contains: ['Số tiền: 2,500,000', 'Đối tượng: ông Ba'] });
   });
 
   test('§10.2 F6/F8/F22 — khách trả tiền & chuyển tiền thiếu hướng', async ({ page }) => {

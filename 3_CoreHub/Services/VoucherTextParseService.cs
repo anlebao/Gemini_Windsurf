@@ -71,9 +71,10 @@ public sealed class VoucherTextParseService(
     {
         "trả", "nợ", "thanh", "toán", "bằng", "vào", "về", "ra", "ngày", "hôm", "số",
         "tiền", "mặt", "chuyển", "khoản", "đồng", "vnđ", "vnd", "đ", "là", "cho", "của",
-        "một", "hai", "ba", "bốn", "tư", "năm", "lăm", "nhăm", "sáu", "bảy", "bẩy",
-        "tám", "chín", "mười", "mươi", "trăm", "nghìn", "ngàn", "triệu", "tr", "củ",
-        "tỷ", "tỉ", "k", "lẻ", "lẽ", "linh", "rưỡi", "không", "mốt", "chục"
+        // Task G2: bỏ từ số đơn (ba/tư/năm...) khỏi stop — tên người "ông Ba"/"chú Tư" phải giữ nguyên.
+        // Chữ số dạng digit vẫn dừng qua char.IsDigit; đơn vị (triệu/nghìn/k/tr...) vẫn là stop.
+        "mười", "mươi", "trăm", "nghìn", "ngàn", "triệu", "tr", "củ",
+        "tỷ", "tỉ", "k", "lẻ", "lẽ", "linh", "rưỡi", "chục"
     };
 
     private static readonly (string[] Keys, string Category)[] ExpenseCategories =
@@ -104,6 +105,12 @@ public sealed class VoucherTextParseService(
 
         // 2) Số tiền — amount đầu tiên; số sau "phí" → FeeAmount.
         var amounts = ExtractAmounts(work);
+        // Task G2: "ông Ba trả nợ 2tr5" — "ba" (=3) bị quét nhầm thành amount đầu. Từ số đơn lẻ
+        // (ba/tư/năm...) gần như luôn là tên, không phải số tiền → ưu tiên amount có đơn vị.
+        if (amounts.Count > 1 && amounts[0].Bare && IsSingleWordNumber(amounts[0].Raw))
+        {
+            amounts = amounts.Skip(1).ToList();
+        }
         decimal? amount = amounts.Count > 0 ? amounts[0].Value : null;
         decimal? fee = null;
         for (int k = 1; k < amounts.Count; k++)
@@ -285,6 +292,8 @@ public sealed class VoucherTextParseService(
         foreach (var m in ObjectMarkers.OrderByDescending(x => x.Length))
         {
             int idx = norm.IndexOf(m + " ", StringComparison.Ordinal);
+            // Task G2: word-boundary — "anh " match substring bên trong "thANH toán" làm mất đối tượng.
+            if (idx > 0 && char.IsLetter(norm[idx - 1])) continue;
             if (idx >= 0 && (best < 0 || idx < best)) { best = idx + m.Length + 1; bestMarker = m; }
         }
         // "công ty"/"nhà cung cấp" đứng đầu câu
@@ -413,6 +422,12 @@ public sealed class VoucherTextParseService(
         }
         return (total + group, hasVal ? i - start : 0, bare);
     }
+
+    /// <summary>True nếu raw là MỘT từ số đơn lẻ kiểu chữ ("ba", "tư") — không phải digit, không kèm đơn vị.</summary>
+    private static bool IsSingleWordNumber(string raw)
+        => !string.IsNullOrWhiteSpace(raw)
+           && raw.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length == 1
+           && NumWords.ContainsKey(raw.Trim(',', '.', ';', ':', ')'));
 
     private static bool ContainsAny(string norm, IEnumerable<string> markers)
         => markers.Any(m => norm.Contains(m, StringComparison.Ordinal));

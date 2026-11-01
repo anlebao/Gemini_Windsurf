@@ -1,0 +1,189 @@
+using System.Net;
+using System.Text;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Moq;
+using VanAn.CoreHub.Services;
+using VanAn.Shared.Domain;
+using VanAn.Shared.Services;
+using Xunit;
+
+namespace VanAn.Core.Tests.Accounting;
+
+/// <summary>Task G2 — LLM hybrid decorator: trigger hẹp, schema validate, merge, fallback an toàn.</summary>
+public class LlmEnhanceVoucherTextParseServiceTests
+{
+    private static readonly TenantId Tenant = new(Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"));
+
+    private sealed class StubHandler : HttpMessageHandler
+    {
+        public int Calls;
+        public Func<HttpRequestMessage, HttpResponseMessage> Responder = _ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("{}", Encoding.UTF8, "application/json"),
+        };
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Calls++;
+            return Task.FromResult(Responder(request));
+        }
+    }
+
+    private static string GeminiJson(string inner) =>
+        $"{{\"candidates\":[{{\"content\":{{\"parts\":[{{\"text\":{System.Text.Json.JsonSerializer.Serialize(inner)}}}]}}}}]}}";
+
+    private static (LlmEnhanceVoucherTextParseService Svc, StubHandler Handler) Build(
+        bool flagEnabled = true, string apiKey = "test-key", string? payload = null,
+        HttpStatusCode status = HttpStatusCode.OK)
+    {
+        var handler = new StubHandler
+        {
+            Responder = _ => new HttpResponseMessage(status)
+            {
+                Content = new StringContent(payload ?? "{}", Encoding.UTF8, "application/json"),
+            },
+        };
+        var httpFactory = new Mock<IHttpClientFactory>();
+        httpFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(new HttpClient(handler));
+        var feature = new Mock<IShopFeatureSettingsService>();
+        feature.Setup(f => f.IsEnabledAsync(It.IsAny<Guid>(), "SmartEntryLlmEnabled", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(flagEnabled);
+        var opts = Options.Create(new SmartEntryLlmOptions { ApiKey = apiKey });
+        var svc = new LlmEnhanceVoucherTextParseService(
+            new VoucherTextParseService(bankAccounts: null), httpFactory.Object, opts, feature.Object,
+            NullLogger<LlmEnhanceVoucherTextParseService>.Instance);
+        return (svc, handler);
+    }
+
+    private static Task<ParsedVoucher> Parse(string text, bool flagEnabled = true, string apiKey = "test-key",
+        string? payload = null, HttpStatusCode status = HttpStatusCode.OK)
+    {
+        var (svc, _) = Build(flagEnabled, apiKey, payload, status);
+        return svc.ParseAsync(Tenant, text);
+    }
+
+    [Fact]
+    public async Task FlagOff_NoApiCall_ReturnsRuleBased()
+    {
+        var (svc, handler) = Build(flagEnabled: false);
+        var r = await svc.ParseAsync(Tenant, "khách trả tiền 5 triệu");
+        Assert.Equal(VoucherIntent.ReceivablePayment, r.Intent);
+        Assert.Contains("đối tượng", r.MissingFields); // chưa được lấp
+        Assert.Equal(0, handler.Calls);
+    }
+
+    [Fact]
+    public async Task ApiKeyEmpty_NoApiCall()
+    {
+        var (svc, handler) = Build(apiKey: "");
+        await svc.ParseAsync(Tenant, "khách trả tiền 5 triệu");
+        Assert.Equal(0, handler.Calls);
+    }
+
+    [Fact]
+    public async Task HighConfidence_NoApiCall()
+    {
+        var (svc, handler) = Build();
+        var r = await svc.ParseAsync(Tenant, "thu tiền bán hàng 2 triệu tiền mặt");
+        Assert.Equal(VoucherIntent.Revenue, r.Intent);
+        Assert.Equal("High", r.Confidence);
+        Assert.Equal(0, handler.Calls);
+    }
+
+    [Fact]
+    public async Task MissingDoiTuong_MergedFromLlm()
+    {
+        var payload = GeminiJson("{\"intent\":\"ReceivablePayment\",\"amount\":5000000,\"doiTuong\":\"anh Hùng\",\"date\":null,\"category\":null}");
+        var (svc, handler) = Build(payload: payload);
+        var r = await svc.ParseAsync(Tenant, "khách trả tiền 5 triệu");
+        Assert.Equal("anh Hùng", r.DoiTuong);
+        Assert.Equal(5_000_000m, r.Amount);
+        Assert.Equal("High", r.Confidence);
+        Assert.Contains(r.Warnings, w => w.Contains("Đề xuất từ AI"));
+        Assert.Equal(1, handler.Calls);
+    }
+
+    [Fact]
+    public async Task UnknownIntent_LlmFillsIntent()
+    {
+        // "mua hàng 30 triệu" → base Unknown (thiếu intent) → LLM điền Purchase.
+        var payload = GeminiJson("{\"intent\":\"Purchase\",\"amount\":30000000,\"doiTuong\":null,\"date\":null,\"category\":null}");
+        var (svc, handler) = Build(payload: payload);
+        var r = await svc.ParseAsync(Tenant, "mua hàng 30 triệu");
+        Assert.Equal(VoucherIntent.Purchase, r.Intent);
+        Assert.Equal(30_000_000m, r.Amount); // amount rule-based giữ nguyên
+        Assert.Equal(1, handler.Calls);
+    }
+
+    [Fact]
+    public async Task RuleBasedHigh_NotOverriddenByLlm()
+    {
+        // Rule-based đã High (doanh thu + amount đủ) → không gọi LLM, giữ nguyên.
+        var payload = GeminiJson("{\"intent\":\"Expense\",\"amount\":999999,\"doiTuong\":null,\"date\":null}");
+        var (svc, handler) = Build(payload: payload);
+        var r = await svc.ParseAsync(Tenant, "thu doanh thu 15 triệu hôm qua chuyển khoản");
+        Assert.Equal(VoucherIntent.Revenue, r.Intent);
+        Assert.Equal(15_000_000m, r.Amount);
+        Assert.Equal(0, handler.Calls);
+    }
+
+    [Fact]
+    public async Task BadJson_FallsBackToRuleBased_WithWarning()
+    {
+        var r = await Parse("khách trả tiền 5 triệu", payload: "not-json{{{");
+        Assert.Equal(VoucherIntent.ReceivablePayment, r.Intent);
+        Assert.Contains("đối tượng", r.MissingFields);
+        Assert.Contains(r.Warnings, w => w.Contains("LLM tạm lỗi"));
+    }
+
+    [Fact]
+    public async Task ApiError_FallsBackToRuleBased_WithWarning()
+    {
+        var r = await Parse("khách trả tiền 5 triệu", payload: "{}", status: HttpStatusCode.InternalServerError);
+        Assert.Equal(VoucherIntent.ReceivablePayment, r.Intent);
+        Assert.Contains(r.Warnings, w => w.Contains("LLM tạm lỗi"));
+    }
+
+    [Fact]
+    public async Task InvalidValues_Rejected()
+    {
+        // amount âm + category lạ + intent không tồn tại → không merge field nào.
+        var payload = GeminiJson("{\"intent\":\"BOGUS\",\"amount\":-5,\"category\":\"xyz\",\"date\":null,\"doiTuong\":null}");
+        var r = await Parse("khách trả tiền 5 triệu", payload: payload);
+        Assert.Equal(VoucherIntent.ReceivablePayment, r.Intent); // intent giữ rule-based
+        Assert.Contains("đối tượng", r.MissingFields);           // doiTuong LLM null → vẫn thiếu
+    }
+
+    [Fact]
+    public async Task FutureDate_Rejected()
+    {
+        // Base Unknown ("chuyển tiền 2 triệu" thiếu intent) → LLM đề xuất ngày tương lai → bị chặn.
+        var future = DateTime.Today.AddDays(5).ToString("yyyy-MM-dd");
+        var payload = GeminiJson($"{{\"intent\":\"Expense\",\"amount\":2000000,\"date\":\"{future}\",\"doiTuong\":null}}");
+        var r = await Parse("chuyển tiền 2 triệu", payload: payload);
+        Assert.Equal(DateTime.Today, r.Date);
+    }
+
+    [Fact]
+    public async Task RecentPastDate_Accepted()
+    {
+        var past = DateTime.Today.AddDays(-2).ToString("yyyy-MM-dd");
+        var payload = GeminiJson($"{{\"intent\":\"Expense\",\"amount\":2000000,\"date\":\"{past}\",\"doiTuong\":null}}");
+        var r = await Parse("chuyển tiền 2 triệu", payload: payload);
+        Assert.Equal(DateTime.Today.AddDays(-2), r.Date);
+    }
+
+    [Fact]
+    public async Task TransferDirection_Validated()
+    {
+        // LLM trả hướng sai (In với 112→111) → không merge account.
+        var payload = GeminiJson("{\"intent\":\"TransferIn\",\"amount\":50000000,\"fromAccountCode\":\"112\",\"toAccountCode\":\"111\",\"date\":null,\"doiTuong\":null}");
+        var (svc, handler) = Build(payload: payload);
+        var r = await svc.ParseAsync(Tenant, "chuyển tiền 2 triệu");
+        Assert.Equal(VoucherIntent.TransferIn, r.Intent);
+        Assert.Null(r.FromAccountCode); // hướng LLM sai (112→111 là Out) → không merge
+        Assert.Null(r.ToAccountCode);
+        Assert.Equal(1, handler.Calls);
+    }
+}

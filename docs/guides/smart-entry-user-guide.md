@@ -187,8 +187,8 @@ Không nhắc nhóm nào → vẫn là phiếu Chi phí, bạn tự chọn TK.
 | `trả tiền điện tháng 10 là 2tr5` | Số tiền = **10 đồng** (!!) + cảnh báo "kiểm tra đơn vị" | "tháng 10" — số 10 trần bị đọc thành tiền TRƯỚC "2tr5" | `chi 2tr5 tiền điện tháng 10` — đặt **số tiền lên trước**, bỏ "là" |
 | `thu khoảng 5 triệu` | "khoảng" bị bỏ qua — vẫn 5.000.000, OK | (vẫn đúng, nhưng nên bỏ "khoảng" cho rõ) |
 | `thu 5 củ lẻ 2` | Parser hiểu **5.000.002** (lẻ 2 đồng), không phải 5.002.000 | "lẻ X" sau đơn vị lớn = X đồng, không phải X nghìn | `thu 5 triệu lẻ 2 nghìn` (5.002.000) |
-| `khách ông Ba trả nợ 2tr5` / `chi phí tư vấn 5 triệu` / `mua vật tư 12 triệu` | Số tiền **sai**: bắt "Ba"=3, "Tư"=4 làm tiền TRƯỚC số thật ("tư vấn"/"vật tư" cũng dính "tư") | Tên/ngữ cảnh trùng từ số (ba=3, tư=4) — parser quét số từ đầu câu | **Viết số tiền LÊN ĐẦU**: `thu nợ 2tr5 khách anh Minh trả góp` · `nhận tiền 7 triệu dịch vụ tư vấn` · `mua chịu 12 triệu vật tư của nhà cung cấp ABC` |
-| `khách ông Ba trả nợ 5 triệu` | Đối tượng chỉ bắt **"ông"** (thiếu "Ba") | "Ba" là từ số (3) nằm trong danh sách dừng → tên bị cắt | Tránh tên trùng từ số (Ba/Tư/Năm/Sáu/Bảy...): `khách anh Minh trả nợ 5 triệu` |
+| `khách ông Ba trả nợ 2tr5` / `chi phí tư vấn 5 triệu` / `mua vật tư 12 triệu` | ✅ **Đã fix (v1.1)**: từ-số đơn (Ba=3, Tư=4) không còn bị đọc thành tiền — `ông Ba trả nợ 2tr5` → 2.500.000 + "ông Ba" | Trước đây tên trùng từ số làm amount sai | Vẫn nên viết số tiền kèm đơn vị rõ ràng cho chắc chắn |
+| `thanh toán nợ 5tr ck cho nhà cung cấp Nam` | ✅ **Đã fix (v1.1)**: đối tượng trích được đầy đủ "nhà cung cấp Nam" | Trước đây "thanh toán" làm mất đối tượng | Dùng "trả nợ"/"thanh toán" đều được |
 
 ### 10.2. Sai / mơ hồ loại nghiệp vụ (rủi ro cao nhất)
 
@@ -208,7 +208,7 @@ Không nhắc nhóm nào → vẫn là phiếu Chi phí, bạn tự chọn TK.
 | Bạn nói | Kết quả | Vì sao | Nói lại đúng |
 |---|---|---|---|
 | `trả nợ 5 triệu cho anh Hùng` | Đối tượng chỉ bắt được **"Hùng"** (thiếu "anh") + loại phiếu hiểu là **Trả tiền người bán** (sai hướng công nợ!) | Không có chữ "khách" → mặc định nghiêng về người bán; marker "anh" đứng sâu sau số tiền chỉ lấy được phần đuôi tên | `khách anh Hùng trả nợ 5 triệu` — luôn bắt đầu bằng **bên + tên** |
-| `thanh toán nợ 5tr ck cho nhà cung cấp Nam` | ⚠ Thiếu: **đối tượng** (dù có tên NCC!) | Lỗi parser đã xác nhận: cấu trúc `thanh toán ... cho X` làm mất đối tượng; `trả nợ ... X` thì OK | Dùng **"trả nợ"**: `trả nợ nhà cung cấp Nam 5tr ck` → đối tượng "nhà cung cấp Nam" |
+| `thanh toán nợ 5tr ck cho nhà cung cấp Nam` | ✅ Đã fix (v1.1) — xem §10.2 | — | — |
 | `khách trả nợ 5 triệu` | ⚠ Thiếu: **đối tượng** | "khách" không có tên đi kèm | `khách anh Hùng trả nợ 5 triệu` |
 | `khách đặt cọc trước 3 triệu` | Đối tượng bắt nhầm thành **"đặt cọc trước"** | "đặt/cọc/trước" không nằm trong danh sách dừng → bị gom vào tên | `đặt cọc của khách anh Nam 3 triệu` — để tên đứng sau "khách" và trước số tiền |
 
@@ -267,4 +267,17 @@ A: v1 chỉ tối ưu tiếng Việt kế toán phổ thông. Từ lạ/viết t
 
 ---
 
-*Tham chiếu kỹ thuật: `3_CoreHub/Services/VoucherTextParseService.cs` (11 intent, bảng số tiền/đơn vị/ngày/đối tượng) · task card `docs/AI/tasks/accounting_engine/task_pg_smart_entry_ai.md` · E2E `6_Testing/e2e-tests/smart-entry-flow.spec.ts`.*
+## 13. Tầng AI nâng cao (LLM fallback — task G2, v1.1)
+
+Ngoài parser quy tắc (chạy mọi lúc, nhanh, offline, 100% riêng tư), hệ thống có **tầng AI tăng cường** gọi Gemini API (Google) — nhưng **chỉ kích hoạt khi cần**:
+
+- **Khi nào chạy:** chỉ khi parser báo *Chưa xác định* / độ tin cậy thấp / thiếu field (câu lạ, dài, tiếng lóng của shop, "tuần trước"...). Câu parser đã chắc chắn → **không** gọi AI.
+- **Kích hoạt:** flag per-tenant `SmartEntryLlmEnabled` + API key do quản trị cấu hình. Tắt mặc định → không có gì đổi.
+- **An toàn:** kết quả AI qua kiểm tra schema (loại phiếu hợp lệ, số tiền > 0, ngày không tương lai, hướng chuyển tiền đúng...) — field vô lý bị loại; kết quả parser chắc chắn **không bị đè**. Card hiện thêm cảnh báo **"Đề xuất từ AI — kiểm tra lại trước khi lưu"**. Vẫn **không auto-save**.
+- **Quyền riêng tư:** câu mô tả được gửi ra ngoài **chỉ khi flag ON cho tenant đó**. Không bật = dữ liệu không rời máy chủ.
+
+> Mô hình mặc định: Gemini 3.8 Flash (free tier). Hướng nâng cấp local (Gemma 4 trên VPS riêng) đã để dành — đổi 1 dòng cấu hình khi có yêu cầu.
+
+---
+
+*Tham chiếu kỹ thuật: `3_CoreHub/Services/VoucherTextParseService.cs` (11 intent, bảng số tiền/đơn vị/ngày/đối tượng) · `3_CoreHub/Services/LlmEnhanceVoucherTextParseService.cs` (LLM hybrid) · task card `docs/AI/tasks/accounting_engine/task_pg_smart_entry_ai.md` + `task_pg2_llm_hybrid.md` · E2E `6_Testing/e2e-tests/smart-entry-flow.spec.ts` + `smart-entry-full-rv.spec.ts`.*
