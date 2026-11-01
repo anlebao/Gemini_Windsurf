@@ -48,6 +48,8 @@ namespace VanAn.CoreHub.Services.Journal
             AccountMapEventCodes.OrderRevenue,
             AccountMapEventCodes.OrderVat,
             AccountMapEventCodes.OrderCogs,
+            AccountMapEventCodes.Purchase,
+            AccountMapEventCodes.PurchaseCash,
             AccountMapEventCodes.DepositOffset,
             AccountMapEventCodes.Receivable,
             AccountMapEventCodes.ReceivablePayment,

@@ -512,6 +512,36 @@ namespace VanAn.Core.Tests.Accounting
         }
 
         [Fact]
+        public async Task CreateFor_PayableCreate_TenantRuleConfigured_CreatesJournalEntry()
+        {
+            // Issue #198 S3: payable giữ no-rule global (counter-account không suy luận +
+            // guard double-post vs `purchase` JE) — nhưng khi tenant CẤU HÌNH rule payable
+            // (counter-account qua /accounting/mapping-rules) thì JE post đúng cặp TK đã chọn.
+            TenantId tenant = new(Guid.NewGuid());
+            var repo = new Mock<IHKDBookRepository>();
+            var vas = new Mock<IVasFeatureFlagService>();
+            vas.Setup(v => v.GetTenantTypeAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>())).ReturnsAsync(TenantType.Enterprise_SME);
+            var settings = new Mock<IShopFeatureSettingsService>();
+            settings.Setup(s => s.IsEnabledAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+            var resolver = new Mock<IAccountMapResolver>();
+            resolver.Setup(r => r.ResolveAsync(AccountMapEventCodes.Payable, tenant, "331", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new AccountMapResult("642", "331", "v1")); // tenant config: Nợ 642 / Có 331
+            var bridge = new ManualEntryJournalBridge(repo.Object, NullLogger<ManualEntryJournalBridge>.Instance, vas.Object, settings.Object, resolver.Object);
+            CoreAccountingEntry entry = Debt(tenant, "331", 2_000_000m, AccountingPostingPurposes.Payable);
+
+            bool created = await bridge.CreateForAccountingEntryAsync(entry);
+
+            created.Should().BeTrue();
+            repo.Verify(r => r.AddToBookAsync(
+                It.Is<JournalEntry>(je =>
+                    je.PostingPurpose == AccountingPostingPurposes.Payable &&
+                    je.MappingVersion == "v1" &&
+                    je.Lines.First().AccountNumber == "642" && je.Lines.First().DebitAmount == 2_000_000m &&
+                    je.Lines.ElementAt(1).AccountNumber == "331" && je.Lines.ElementAt(1).CreditAmount == 2_000_000m),
+                AccountingBookType.S2b_HKD, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
         public async Task CreateFor_Success_WritesPostedStatus_AndJePurpose()
         {
             TenantId tenant = new(Guid.NewGuid());

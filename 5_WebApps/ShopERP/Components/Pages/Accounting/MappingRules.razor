@@ -1,4 +1,5 @@
 @page "/accounting/mapping-rules"
+@page "/accounting/account-map"
 @rendermode InteractiveServer
 @layout AccountingLayout
 @attribute [Authorize(Policy = "AccountingFullAccess")]
@@ -115,6 +116,9 @@
         ["order-revenue"] = "Doanh thu đơn hàng",
         ["order-vat"] = "Thuế GTGT đơn hàng",
         ["order-cogs"] = "Giá vốn đơn hàng",
+        ["purchase"] = "Nhập mua chịu",
+        ["purchase-cash"] = "Nhập mua trả ngay",
+        ["manual-vat-in"] = "VAT đầu vào phiếu tay",
         ["deposit-offset"] = "Đối trừ tiền cọc",
         ["receivable"] = "Ghi nhận phải thu",
         ["receivable-payment"] = "Thu hồi phải thu",

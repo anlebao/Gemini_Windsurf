@@ -35,13 +35,16 @@ public class AccountMapRuleServiceTests
 
         var rows = await svc.GetEffectiveRulesAsync(Tenant);
 
-        Assert.Equal(14, rows.Count); // 13 events cũ + manual-vat-in (issue #198)
+        Assert.Equal(16, rows.Count); // 13 events cũ + manual-vat-in (#198) + purchase/purchase-cash (W6)
         var receipt = rows.Single(r => r.EventCode == "manual-receipt");
         Assert.Equal("regime", receipt.Source);
         Assert.Equal("{cash}", receipt.DebitAccount);
         // event không có rule → builtin (manual-expense có builtin)
         Assert.Equal("builtin", rows.Single(r => r.EventCode == "manual-expense").Source);
-        // payable không builtin → none
+        // purchase/purchase-cash có builtin → hiện trong grid để tenant có thể override
+        Assert.Equal("builtin", rows.Single(r => r.EventCode == "purchase").Source);
+        Assert.Equal("builtin", rows.Single(r => r.EventCode == "purchase-cash").Source);
+        // payable không builtin → none (kích hoạt khi tenant cấu hình counter-account)
         Assert.Equal("none", rows.Single(r => r.EventCode == "payable").Source);
     }
 

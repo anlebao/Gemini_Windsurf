@@ -86,11 +86,22 @@ test.describe('RV #198 — Revenue form', () => {
 });
 
 test.describe('RV #198 — Mapping rules page', () => {
-  test('manual-vat-in appears in effective rules (DN tenant)', async ({ page }) => {
+  test('manual-vat-in + purchase events appear in effective rules (DN tenant)', async ({ page }) => {
     await loginAndImpersonate(page, DN_TENANT);
     await page.goto('/accounting/mapping-rules');
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('text=manual-vat-in')).toBeVisible({ timeout: 30000 });
+    // S2: purchase/purchase-cash (W6 events) cũng phải liệt kê để tenant override được
+    await expect(page.locator('text=purchase-cash').first()).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('text=payable').first()).toBeVisible({ timeout: 15000 });
+  });
+
+  test('account-map alias route renders same page', async ({ page }) => {
+    await loginAndImpersonate(page, DN_TENANT);
+    await page.goto('/accounting/account-map');
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.locator('text=manual-receipt').first()).toBeVisible({ timeout: 30000 });
   });
 });
