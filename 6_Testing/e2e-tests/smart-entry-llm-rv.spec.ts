@@ -78,21 +78,24 @@ test.describe('RV Task G2 — Smart Entry LLM thật (production, read-only)', (
     await expectLlmMerged(page, ['Số tiền: 30,000,000']);
   });
 
-  test('Missing amount+intent "hôm qua có khoản thu" → LLM điền cả hai', async ({ page }) => {
+  test('Không bịa dữ kiện: "hôm qua có khoản thu" → LLM điền intent, KHÔNG tự đặt amount', async ({ page }) => {
     await loginAndImpersonate(page, PILOT_TENANT);
     await openAiMode(page, '/accounting/revenue');
 
     await parseText(page, 'hôm qua có khoản thu');
+    // Intent được điền (Thu doanh thu) + warning AI — đúng contract "không đoán"
     await expectLlmMerged(page, []);
-    // amount phải được điền bởi LLM (card hiện "Số tiền: ...")
-    await expect(page.getByTestId('smart-entry-result')).toContainText('Số tiền:');
+    // amount KHÔNG được bịa (câu không có số tiền) → vẫn "⚠ Thiếu: amount"
+    await expect(page.getByTestId('smart-entry-missing')).toContainText('amount');
   });
 
-  test('Unknown intent "chuyển tiền 2 triệu" → LLM xác định hướng', async ({ page }) => {
+  test('Không bịa hướng: "chuyển tiền 2 triệu" thiếu hướng → giữ Chưa xác định + warning AI', async ({ page }) => {
     await loginAndImpersonate(page, PILOT_TENANT);
     await openAiMode(page, '/accounting/transfers');
 
     await parseText(page, 'chuyển tiền 2 triệu');
-    await expectLlmMerged(page, ['Số tiền: 2,000,000']);
+    // LLM đã được gọi + merge attempt (warning AI) nhưng không bịa hướng 111/112
+    await expect(page.getByTestId('smart-entry-result')).toContainText('Đề xuất từ AI');
+    await expect(page.getByTestId('smart-entry-intent')).toHaveText('Chưa xác định');
   });
 });

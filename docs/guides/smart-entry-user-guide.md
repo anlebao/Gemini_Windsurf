@@ -272,11 +272,11 @@ A: v1 chỉ tối ưu tiếng Việt kế toán phổ thông. Từ lạ/viết t
 Ngoài parser quy tắc (chạy mọi lúc, nhanh, offline, 100% riêng tư), hệ thống có **tầng AI tăng cường** gọi Gemini API (Google) — nhưng **chỉ kích hoạt khi cần**:
 
 - **Khi nào chạy:** chỉ khi parser báo *Chưa xác định* / độ tin cậy thấp / thiếu field (câu lạ, dài, tiếng lóng của shop, "tuần trước"...). Câu parser đã chắc chắn → **không** gọi AI.
-- **Kích hoạt:** flag per-tenant `SmartEntryLlmEnabled` + API key do quản trị cấu hình. Tắt mặc định → không có gì đổi.
+- **Kích hoạt:** flag per-tenant `SmartEntryLlmEnabled` + API key do quản trị cấu hình. Tắt mặc định → không có gì đổi. Model mặc định: **Gemini 3.5 Flash-Lite** (free tier, ~1s).
 - **An toàn:** kết quả AI qua kiểm tra schema (loại phiếu hợp lệ, số tiền > 0, ngày không tương lai, hướng chuyển tiền đúng...) — field vô lý bị loại; kết quả parser chắc chắn **không bị đè**. Card hiện thêm cảnh báo **"Đề xuất từ AI — kiểm tra lại trước khi lưu"**. Vẫn **không auto-save**.
 - **Quyền riêng tư:** câu mô tả được gửi ra ngoài **chỉ khi flag ON cho tenant đó**. Không bật = dữ liệu không rời máy chủ.
 
-> Mô hình mặc định: Gemini 3.8 Flash (free tier). Hướng nâng cấp local (Gemma 4 trên VPS riêng) đã để dành — đổi 1 dòng cấu hình khi có yêu cầu.
+> Mô hình mặc định: Gemini 3.5 Flash-Lite (free tier). Hướng nâng cấp local (Gemma 4 trên VPS riêng) đã để dành — đổi 1 dòng cấu hình khi có yêu cầu. Đã RV production: LLM điền đúng intent cho câu lạ ("mua hàng 30 triệu") nhưng **KHÔNG bịa dữ kiện** — câu không có số tiền/hướng thì để trống, đúng nguyên tắc an toàn.
 
 ---
 
