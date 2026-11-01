@@ -74,6 +74,9 @@ services:
       # Empty = endpoint disabled (404). Set via DEV_TOKEN_SECRET env var on VPS for RV scripts.
       # Rotate periodically. NEVER commit a real secret here.
       - DevToken__Secret=${DEV_TOKEN_SECRET:-}
+      # Task G2: Smart Entry LLM hybrid — Google AI Studio API key (empty = LLM layer OFF).
+      # Set via SMART_ENTRY_LLM_API_KEY in .env.shoperp on the VPS. NEVER commit a real key.
+      - SmartEntryLlm__ApiKey=${SMART_ENTRY_LLM_API_KEY:-}
     volumes:
       - shoperp_data:/app/keys
     ports:
