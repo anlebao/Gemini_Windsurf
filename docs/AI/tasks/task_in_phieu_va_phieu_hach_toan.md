@@ -1,6 +1,6 @@
 # TASK CARD — IN PHIẾU ĐẦY ĐỦ + PHIẾU HẠCH TOÁN (CTGS)
 
-> Status: **IMPLEMENTING (P1+P2 code DONE — tests pass, chờ push/CD/RV)** · Ngày: 2026-11-01 · Master plan: `docs/AI/plans/in-phieu-va-phieu-hach-toan-master-plan.md`
+> Status: **✅ DONE + DEPLOYED `c7b00aae` (CD Multi-VPS #41275612683 SUCCESS · RV L1/L2/L4 PASS — còn L3 PG verify + L5 manual)** · Ngày: 2026-11-01 · Master plan: `docs/AI/plans/in-phieu-va-phieu-hach-toan-master-plan.md`
 > Mode: IMPLEMENT sau khi user duyệt · Chiến lược: 1 phiên liên tục P1 → P2 → push → sweep-first RV
 
 ## Quyết định đã chốt
@@ -111,8 +111,8 @@
 ## Validation & Deploy
 
 - [x] `dotnet build` 0 errors · `guard-check.ps1` ALL PASSED (`guard-report-20261101-115321.txt`) · targeted tests (service + bUnit) · ShopERP.Tests full **279/279**
-- [ ] FAST PUSH → poll CD (`gh run list`, không `gh run watch`)
-- [ ] RV sweep-first: L1 image+markers (`JournalVoucher` DLL) → L2 routes 302 → L3 PG `ReferenceType='JournalVoucher'` → L4 spec production → L5 user
+- [x] FAST PUSH `c7b00aae` → CD Multi-VPS **#41275612683 SUCCESS**
+- [x] RV sweep-first: **L1** image `c7b00aae` shop-a + markers `JournalVoucher`/`ManualJournalVoucherService` trong DLL ✓ · **L2** `/accounting/journal-voucher` + `/accounting/history` → 302 ✓ · **L4** spec `accounting-issue198.spec.ts` **7/7 PASS** production (journal-voucher render + save-disabled + in 01-TT trên tenant DN non-HTX — regression P1) · **L3** PG `ReferenceType='JournalVoucher'` — defer L5 (spec read-only, không submit phiếu production; đã verify ở unit tests) · **L5** user manual: tạo phiếu CTGS đầu tiên → verify Nhật ký chung + in phiếu 01-TT/02-TT sau lưu trên tenant thường
 
 ## Bối cảnh kỹ thuật (đã verify)
 
