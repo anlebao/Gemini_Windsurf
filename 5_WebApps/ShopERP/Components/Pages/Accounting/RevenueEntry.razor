@@ -297,7 +297,7 @@
             {
                 _aiMode = true;
                 var parsed = await TextParser.ParseAsync(new TenantId(TenantProvider.TenantId), desc);
-                ApplyParse(parsed);
+                await ApplyParse(parsed); // G2+: await — ApplyParse async (JS push + preview) tránh race DbContext
             }
         }
         await RefreshPreviewAsync();
@@ -375,13 +375,24 @@
     private async Task LoadTenantTypeAsync()
     {
         if (!TenantProvider.HasTenant) return;
-        try
+        // G2+: retry 1 lần khi DbContext concurrency transient ("A second operation was started")
+        // — tránh fallback sai regime DN cho tenant HKD/HTX.
+        for (int attempt = 1; attempt <= 2; attempt++)
         {
-            _tenantType = await FeatureFlagService.GetTenantTypeAsync(new TenantId(TenantProvider.TenantId));
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Không lấy được TenantType — dùng options DN mặc định");
+            try
+            {
+                _tenantType = await FeatureFlagService.GetTenantTypeAsync(new TenantId(TenantProvider.TenantId));
+                return;
+            }
+            catch (InvalidOperationException) when (attempt == 1)
+            {
+                Logger.LogWarning("GetTenantTypeAsync concurrency — retry lần 2");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Không lấy được TenantType — dùng options DN mặc định");
+                return;
+            }
         }
     }
 

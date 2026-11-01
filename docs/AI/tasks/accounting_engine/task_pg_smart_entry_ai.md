@@ -120,6 +120,36 @@ Thiếu amount/đối tượng bắt buộc/intent mơ hồ → để trống fi
 - T7 TransferEntry: create → JE (to,from) · InTransit → Receive → JE (đích,113)
 - T8 Flag OFF → SmartEntryBar không render
 
+## G2+ (2026-11-01) — FIX DBCONTEXT CONCURRENCY TRÊN REVENUE/EXPENSE ENTRY
+
+> Status: ✅ **IMPLEMENTED (2026-11-01)** — `await ApplyParse(parsed)` deep-link (Revenue+Expense) · `LoadTenantTypeAsync` retry 1 lần trên InvalidOperationException (tránh fallback regime DN sai) · build 0 errors — chờ deploy + RV log sạch.
+
+### Symptom (production log, RV probe)
+```
+[14:51:34 ERR] A second operation was started on this context instance before a previous
+operation completed (InvalidOperationException — DbContext dùng song song từ nhiều luồng)
+   at VasFeatureFlagService.GetTenantTypeAsync(...) line 66
+   at RevenueEntry.LoadTenantTypeAsync() line 379
+[14:51:34 WRN] Không lấy được TenantType — dùng options DN mặc định
+```
+Hậu quả: tenant HKD/HTX đôi khi load trang với options **DN mặc định** (sai regime) → báo cáo/định khoản có thể lệch. Xác suất thấp nhưng nguy hiểm cho kế toán.
+
+### Root cause (đã xác minh bằng đọc code)
+1. **Fire-and-forget `ApplyParse(parsed)` trong nhánh deep-link `?desc=`** — `OnInitializedAsync` (RevenueEntry L298-300, ExpenseEntry L370-372) gọi `ApplyParse(parsed)` KHÔNG await. Từ G2+ (2026-11-01) ApplyParse là `async Task` + `await JSRuntime.InvokeVoidAsync(...)` + `_ = RefreshPreviewAsync()` → chạy **song song** với `await RefreshPreviewAsync()` cuối `OnInitializedAsync` → **2 EF query đồng thời trên cùng scoped DbContext** → InvalidOperationException.
+2. **`LoadTenantTypeAsync` fallback ngay** khi gặp bất kỳ exception (kể cả transient concurrency) — không retry → tenant bị gán sai regime mặc định.
+3. Nguồn race thứ hai có thể là EF từ layout/circuit khác — không xác định được từ log; fix theo hướng phòng thủ: loại fire-and-forget EF + retry.
+
+### Solution (đã chốt)
+1. **`await ApplyParse(parsed)`** trong OnInitializedAsync deep-link (cả RevenueEntry + ExpenseEntry) — tuần tự hoá init, hết race với RefreshPreviewAsync.
+2. **`LoadTenantTypeAsync` retry 1 lần** khi gặp `InvalidOperationException` (concurrency transient) trước khi fallback DN — nếu retry thành công thì giữ regime đúng.
+3. Giữ nguyên mọi await tuần tự khác (đã đúng).
+
+### Acceptance
+- [ ] Deep-link `?desc=` không còn log "A second operation was started"
+- [ ] Không còn "Không lấy được TenantType — dùng options DN mặc định" khi load nhanh (retry cứu)
+- [ ] RV production: tenant HKD (vd Cafe Tân Quy) load /accounting/revenue → regime đúng; deep-link parse + prefill vẫn OK
+- [ ] guard + build + tests PASS
+
 ## 8. DECISIONS (chờ PO chốt)
 
 | # | Câu hỏi | Đề xuất |
