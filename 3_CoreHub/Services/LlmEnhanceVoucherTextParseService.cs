@@ -24,7 +24,8 @@ public sealed class SmartEntryLlmOptions
 
     public string Endpoint { get; set; } = "https://generativelanguage.googleapis.com/v1beta";
 
-    public int TimeoutSeconds { get; set; } = 8;
+    /// <summary>Flash thinking model tạo JSON có thể mất 15-40s — mặc định 30s (8s từng gây timeout RV).</summary>
+    public int TimeoutSeconds { get; set; } = 30;
 }
 
 /// <summary>
@@ -108,7 +109,13 @@ public sealed class LlmEnhanceVoucherTextParseService(
         var payload = new
         {
             contents = new[] { new { parts = new[] { new { text = BuildPrompt(text) } } } },
-            generationConfig = new { temperature = 0.1, responseMimeType = "application/json" },
+            generationConfig = new
+            {
+                temperature = 0.1,
+                responseMimeType = "application/json",
+                // gemini-3.8-flash: thinking mặc định medium rất chậm — hạ low (đủ cho trích xuất ngắn)
+                thinkingConfig = new { thinkingLevel = "low" },
+            },
         };
 
         using var client = httpClientFactory.CreateClient("smart-entry-llm");
