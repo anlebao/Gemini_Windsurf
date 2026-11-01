@@ -22,10 +22,11 @@ Nếu câu của bạn thuộc nghiệp vụ khác trang đang mở (ví dụ đ
 1. Mở trang Nhập Doanh Thu / Nhập Chi Phí / Chuyển Tiền.
 2. Đầu trang bấm **"✨ Nhập bằng mô tả"** (mặc định là "Nhập thủ công" — form cũ không đổi gì).
 3. Gõ câu mô tả vào ô, hoặc bấm **🎤 Nói** (nếu trình duyệt hỗ trợ mic — Chrome/Edge). Không có mic vẫn gõ tay bình thường.
-4. Bấm **"Phân tích"** → đọc thẻ kết quả:
+4. Bấm **"Phân tích"** (đã có kết quả rồi thì label thành **"Phân tích lại"** — re-parse sau khi sửa câu) → đọc thẻ kết quả:
    - Badge **High** (xanh) = đủ dữ kiện · **Medium** (vàng) = thiếu 1-2 mục · **Low** (đỏ) = mơ hồ.
    - Dòng **"⚠ Thiếu: ..."** = những field hệ thống cố ý để trống, bạn phải tự điền — **hệ thống không đoán bừa**.
-5. Bấm **"Áp vào form ↓"** → kiểm tra form (đặc biệt phần "Thiếu") → sửa nếu cần → **Lưu**.
+5. Muốn hỏi thêm AI kể cả khi parser đã chắc: bấm **"✨ AI phân tích"** — buộc gọi LLM, kết quả có cảnh báo "Đề xuất từ AI".
+6. Bấm **"Áp vào form ↓"** → kiểm tra form (đặc biệt phần "Thiếu") → sửa nếu cần → **Lưu**. Mic: bấm 🎤 để nói; đã có kết quả rồi muốn nói lại từ đầu → bấm **"🔁 Nói lại"** (xoá câu cũ + nghe lại).
 
 ## 3. Công thức câu chuẩn (nên theo)
 
