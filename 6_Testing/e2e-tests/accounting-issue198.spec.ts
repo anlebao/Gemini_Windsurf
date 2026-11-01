@@ -91,10 +91,11 @@ test.describe('RV #198 — Mapping rules page', () => {
     await page.goto('/accounting/mapping-rules');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.locator('text=manual-vat-in')).toBeVisible({ timeout: 30000 });
+    // Grid render event code trong <strong>; dropdown option là "code — label" → exact chỉ khớp grid.
+    await expect(page.getByText('manual-vat-in', { exact: true })).toBeVisible({ timeout: 30000 });
     // S2: purchase/purchase-cash (W6 events) cũng phải liệt kê để tenant override được
-    await expect(page.locator('text=purchase-cash').first()).toBeVisible({ timeout: 15000 });
-    await expect(page.locator('text=payable').first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('purchase-cash', { exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('payable', { exact: true })).toBeVisible({ timeout: 15000 });
   });
 
   test('account-map alias route renders same page', async ({ page }) => {
@@ -102,6 +103,6 @@ test.describe('RV #198 — Mapping rules page', () => {
     await page.goto('/accounting/account-map');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.locator('text=manual-receipt').first()).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText('manual-receipt', { exact: true })).toBeVisible({ timeout: 30000 });
   });
 });
