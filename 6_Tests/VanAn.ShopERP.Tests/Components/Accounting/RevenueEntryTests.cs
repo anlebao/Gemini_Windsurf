@@ -87,18 +87,35 @@ public class RevenueEntryTests : ComponentTestBase
         cut.Markup.Should().NotContain("558 - Thu nhập khác");
     }
 
-    // THU CHI & CÔNG NỢ MVP (P2.1, SRS §5.1 FR-1): phiếu thu 3 loại
+    // THU CHI & CÔNG NỢ MVP (P2.1, SRS §5.1 FR-1): phiếu thu 4 loại (Issue #198 thêm góp vốn)
     [Fact]
-    public void RevenueEntry_ShouldRenderVoucherTypeSelect_WithThreeOptions()
+    public void RevenueEntry_ShouldRenderVoucherTypeSelect_WithFourOptions()
     {
         // Act
         var cut = RenderComponent<ShopERP.Components.Pages.Accounting.RevenueEntry>();
 
-        // Assert — dropdown "Loại Phiếu Thu" + 3 lựa chọn
+        // Assert — dropdown "Loại Phiếu Thu" + 4 lựa chọn
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Loại Phiếu Thu"));
         cut.Markup.Should().Contain("Thu doanh thu");
         cut.Markup.Should().Contain("Ghi nhận phải thu");
         cut.Markup.Should().Contain("Thu tiền khách trả nợ");
+        cut.Markup.Should().Contain("Góp vốn chủ sở hữu");
+    }
+
+    // Issue #198 (S1-Option A): loại "Góp vốn chủ sở hữu" → TK Có 411, không hiện Đối tượng,
+    // không còn options doanh thu — bút toán đúng nghiệp vụ vốn chủ (không phải doanh thu).
+    [Fact]
+    public void RevenueEntry_CapitalType_ShowsAccount411_NoDoiTuong()
+    {
+        // Act
+        var cut = RenderComponent<ShopERP.Components.Pages.Accounting.RevenueEntry>();
+
+        // Chọn "Góp vốn chủ sở hữu" → TK Có 411/4111, không hiện Đối tượng
+        cut.Find("#voucherType").Change("capital-contribution");
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("411 - Vốn chủ sở hữu"));
+        cut.Markup.Should().Contain("4111 - Vốn góp của chủ sở hữu");
+        cut.Markup.Should().NotContain("Đối Tượng (khách hàng)");
+        cut.Markup.Should().NotContain("711 - Chênh lệch tỷ giá hối đoái");
     }
 
     [Fact]

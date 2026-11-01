@@ -80,7 +80,7 @@
                         <option value="@opt.Value" selected="@(opt.Value == _voucherType)">@opt.Label</option>
                     }
                 </select>
-                <small class="form-text text-muted">Thu doanh thu (ghi doanh thu) · Ghi nhận phải thu (bán chịu — TK 131) · Thu tiền khách trả nợ (giảm phải thu)</small>
+                <small class="form-text text-muted">Thu doanh thu (ghi doanh thu) · Ghi nhận phải thu (bán chịu — TK 131) · Thu tiền khách trả nợ (giảm phải thu) · Góp vốn chủ sở hữu (ghi Có 411 — KHÔNG phải doanh thu)</small>
             </div>
 
             @* FR-2: ô Đối tượng BẮT BUỘC với phiếu công nợ (bán chịu / thu nợ) *@
@@ -408,26 +408,33 @@
                 Type = PlatformComposite.FieldType.Currency,
                 Placeholder = "0.00",
                 Required = true,
-                HelpText = isCongNo ? "Số tiền ghi nhận công nợ / thu nợ" : "Nhập số tiền doanh thu"
+                HelpText = isCongNo ? "Số tiền ghi nhận công nợ / thu nợ"
+                    : IsCapitalType ? "Số tiền chủ sở hữu góp vốn (tiền mặt/CK)"
+                    : "Nhập số tiền doanh thu"
             },
             new PlatformComposite.FormField
             {
                 Id = "account",
                 Label = "Tài Khoản",
                 Type = PlatformComposite.FieldType.Select,
-                Value = isCongNo ? "131" : "511",
-                Options = isCongNo ? GetCongNoReceivableAccounts() : GetRevenueAccounts(),
+                Value = isCongNo ? "131" : IsCapitalType ? "411" : "511",
+                Options = isCongNo ? GetCongNoReceivableAccounts()
+                    : IsCapitalType ? GetCapitalAccounts()
+                    : GetRevenueAccounts(),
                 Required = true,
                 HelpText = isCongNo
                     ? "TK 131 - Phải thu khách hàng (phiếu công nợ — bán chịu không ghi doanh thu [G6])"
-                    : AccountingAccountProvider.GetAccountHelpText(_tenantType)
+                    : IsCapitalType
+                        ? "TK 411 - Vốn chủ sở hữu (góp vốn — vốn chủ, không tính doanh thu)"
+                        : AccountingAccountProvider.GetAccountHelpText(_tenantType)
             },
             new PlatformComposite.FormField
             {
                 Id = "description",
                 Label = "Diễn Giải",
                 Type = PlatformComposite.FieldType.TextArea,
-                Placeholder = isCongNo ? "VD: Bán chịu — {đối tượng} (MST ...)" : "Nhập diễn giải giao dịch",
+                Placeholder = isCongNo ? "VD: Bán chịu — {đối tượng} (MST ...)"
+                    : IsCapitalType ? "VD: Chủ sở hữu góp vốn bổ sung bằng tiền mặt" : "Nhập diễn giải giao dịch",
                 Required = true,
                 HelpText = "Mô tả chi tiết — để trống sẽ tự gợi ý theo loại phiếu"
             },
@@ -473,11 +480,11 @@
                 }
             }
         }
-        // Whitelist: chuyển loại công nợ → account = 131; về doanh thu → mặc định 511
+        // Whitelist: công nợ → 131; góp vốn → 411; doanh thu → mặc định 511
         var accountField = revenueFields.FirstOrDefault(f => f.Id == "account");
         if (accountField != null)
         {
-            var forced = IsCongNoType ? "131" : "511";
+            var forced = IsCongNoType ? "131" : IsCapitalType ? "411" : "511";
             accountField.Value = forced;
             formData.Values["account"] = forced;
         }
@@ -488,6 +495,9 @@
     private const string VoucherTypeRevenue = "revenue";            // Thu doanh thu (hiện tại)
     private const string VoucherTypeReceivable = "receivable";      // Ghi nhận phải thu (bán chịu)
     private const string VoucherTypePayment = "receivable-payment"; // Thu tiền khách trả nợ
+    // Issue #198 (S1-Option A, user approved 2026-11-01): góp vốn chủ sở hữu → Có 411
+    // (vốn chủ, không phải doanh thu). JE tự động qua ManualReceipt {cash}/{src}.
+    private const string VoucherTypeCapital = "capital-contribution";
 
     private string _voucherType = VoucherTypeRevenue;
 
@@ -504,6 +514,8 @@
     private string? _khoanLoadError;
 
     private bool IsCongNoType => _voucherType is VoucherTypeReceivable or VoucherTypePayment;
+
+    private bool IsCapitalType => _voucherType == VoucherTypeCapital;
 
     /// <summary>SRS W2/C1 (M7): tải khoản nợ còn dư của đối tượng cho picker áp khoản.</summary>
     private async Task LoadOpenKhoanAsync()
@@ -543,7 +555,8 @@
         [
             new() { Value = VoucherTypeRevenue, Label = "Thu doanh thu" },
             new() { Value = VoucherTypeReceivable, Label = "Ghi nhận phải thu" },
-            new() { Value = VoucherTypePayment, Label = "Thu tiền khách trả nợ" }
+            new() { Value = VoucherTypePayment, Label = "Thu tiền khách trả nợ" },
+            new() { Value = VoucherTypeCapital, Label = "Góp vốn chủ sở hữu" }
         ];
     }
 
@@ -552,6 +565,16 @@
         return
         [
             new() { Value = "131", Label = "131 - Phải thu khách hàng" }
+        ];
+    }
+
+    /// <summary>Issue #198: TK góp vốn — 411 (HKD/DN: vốn chủ sở hữu) + 4111 chi tiết (HTX/DN).</summary>
+    private static List<PlatformComposite.FieldOption> GetCapitalAccounts()
+    {
+        return
+        [
+            new() { Value = "411", Label = "411 - Vốn chủ sở hữu" },
+            new() { Value = "4111", Label = "4111 - Vốn góp của chủ sở hữu" }
         ];
     }
 
@@ -725,6 +748,15 @@
             {
                 showError = true;
                 errorMessage = "Phiếu công nợ phải thu chỉ dùng TK 131 (Phải thu khách hàng).";
+                return;
+            }
+        }
+        else if (IsCapitalType)
+        {
+            if (!accountCode.StartsWith("411"))
+            {
+                showError = true;
+                errorMessage = "Phiếu góp vốn chủ sở hữu chỉ dùng TK 411 (Vốn chủ sở hữu).";
                 return;
             }
         }

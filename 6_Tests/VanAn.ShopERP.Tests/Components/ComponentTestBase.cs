@@ -141,6 +141,17 @@ public class ComponentTestBase : TestContext
         Services.AddSingleton<VanAn.CoreHub.Services.Stock.IStockMovementService>(
             _ => new Mock<VanAn.CoreHub.Services.Stock.IStockMovementService>().Object);
 
+        // Issue #198 (2026-11-01): services mới inject trong Revenue/ExpenseEntry
+        // (JE preview + chart options + balance alert) — mock default.
+        Services.AddSingleton<VanAn.Shared.Services.IShopFeatureSettingsService>(
+            _ => new Mock<VanAn.Shared.Services.IShopFeatureSettingsService>().Object);
+        Services.AddSingleton<VanAn.CoreHub.Services.Journal.IAccountMapResolver>(
+            _ => new Mock<VanAn.CoreHub.Services.Journal.IAccountMapResolver>().Object);
+        Services.AddSingleton<VanAn.CoreHub.Services.IAccountChartService>(
+            _ => new Mock<VanAn.CoreHub.Services.IAccountChartService>().Object);
+        Services.AddSingleton<VanAn.CoreHub.Services.IBalanceAlertService>(
+            _ => new Mock<VanAn.CoreHub.Services.IBalanceAlertService>().Object);
+
         // Issue #197 (2026-10-29): metering client + attribute resolver — mock by default.
         // MeteringDenyGate/FeatureUsageRecorder (AccountingLayout/Loyalty/Booking pages) inject
         // chúng; default CheckBalanceAsync trả null → fail-open (content render bình thường).
