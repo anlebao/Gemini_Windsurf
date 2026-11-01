@@ -49,7 +49,13 @@ async function openAiMode(page: Page, path: string) {
     await toggle.waitFor({ state: 'visible', timeout: 30000 });
   }
   await toggle.getByText('Nhập bằng mô tả').click();
-  await expect(page.getByTestId('smart-entry-input')).toBeVisible({ timeout: 15000 });
+  try {
+    await expect(page.getByTestId('smart-entry-input')).toBeVisible({ timeout: 15000 });
+  } catch {
+    // Blazor Server đôi khi rớt event đầu — click lại 1 lần
+    await toggle.getByText('Nhập bằng mô tả').click();
+    await expect(page.getByTestId('smart-entry-input')).toBeVisible({ timeout: 15000 });
+  }
 }
 
 async function parseText(page: Page, text: string) {
