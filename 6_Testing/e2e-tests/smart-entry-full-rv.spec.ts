@@ -105,6 +105,11 @@ test.describe('RV Full Guide Matrix — Smart Entry AI (production, read-only)',
     await expectCard(page, { intent: 'Thu doanh thu', confidence: 'High', contains: ['Số tiền: 2,000,000', 'PTTT: cash'] });
     await applyToForm(page);
     await expect(page.getByTestId('voucher-type-select')).toHaveValue('revenue');
+    // Task G2 fix: amount/date/description phải HIỂN THỊ trong DOM sau apply (trước đây trống do
+    // Blazor drop DOM sync qua component boundary) — amount format vi-VN "2.000.000"
+    await expect(page.locator('#amount')).toHaveValue('2.000.000');
+    await expect(page.locator('#date')).not.toHaveValue('');
+    await expect(page.locator('#description')).not.toHaveValue('');
 
     await parseText(page, 'thu doanh thu 15 triệu hôm qua chuyển khoản');
     await expectCard(page, { intent: 'Thu doanh thu', confidence: 'High', contains: ['Số tiền: 15,000,000', 'PTTT: bank'], date: relDate(-1) });

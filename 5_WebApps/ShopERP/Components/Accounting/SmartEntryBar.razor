@@ -23,13 +23,16 @@
                   data-testid="smart-entry-input"></textarea>
     </div>
     <div class="mt-2 d-flex gap-2 align-items-center flex-wrap">
-        <VanAButton Variant="primary" Size="small" Disabled="@(_busy || string.IsNullOrWhiteSpace(_text))" OnClick="ParseAsync" data-testid="smart-entry-parse">
-            @(_busy ? "Đang phân tích..." : "Phân tích")
+        <VanAButton Variant="primary" Size="small" Disabled="@(_busy || string.IsNullOrWhiteSpace(_text))" OnClick="() => ParseAsync()" data-testid="smart-entry-parse">
+            @(_busy ? "Đang phân tích..." : (_result != null ? "Phân tích lại" : "Phân tích"))
+        </VanAButton>
+        <VanAButton Variant="info" Size="small" Disabled="@(_busy || string.IsNullOrWhiteSpace(_text))" OnClick="() => ParseAsync(forceLlm: true)" data-testid="smart-entry-ai">
+            ✨ AI phân tích
         </VanAButton>
         @if (_micSupported)
         {
-            <VanAButton Variant="secondary" Size="small" Disabled="@(_busy || _listening)" OnClick="StartMicAsync" data-testid="smart-entry-mic">
-                @(_listening ? "🔴 Đang nghe..." : "🎤 Nói")
+            <VanAButton Variant="secondary" Size="small" Disabled="@(_busy || _listening)" OnClick="HandleMicClickAsync" data-testid="smart-entry-mic">
+                @(_listening ? "🔴 Đang nghe..." : (_result != null ? "🔁 Nói lại" : "🎤 Nói"))
             </VanAButton>
         }
         @if (_error != null)
@@ -102,14 +105,14 @@
         }
     }
 
-    private async Task ParseAsync()
+    private async Task ParseAsync(bool forceLlm = false)
     {
         _error = null; _result = null;
         if (!TenantProvider.HasTenant) { _error = "Không xác định được tenant."; return; }
         _busy = true;
         try
         {
-            _result = await Parser.ParseAsync(new TenantId(TenantProvider.TenantId), _text);
+            _result = await Parser.ParseAsync(new TenantId(TenantProvider.TenantId), _text, forceLlm: forceLlm);
         }
         catch (Exception ex)
         {
@@ -117,6 +120,21 @@
             _error = "Không phân tích được câu — nhập tay như bình thường.";
         }
         finally { _busy = false; }
+    }
+
+    /// <summary>Mic button: có kết quả rồi → "Nói lại" (xoá + nghe từ đầu); chưa → "Nói" (nghe tiếp).</summary>
+    private async Task HandleMicClickAsync()
+    {
+        if (_result != null) await SpeakAgainAsync();
+        else await StartMicAsync();
+    }
+
+    /// <summary>"Nói lại": xoá text + kết quả cũ rồi nghe lại từ đầu.</summary>
+    private async Task SpeakAgainAsync()
+    {
+        _text = string.Empty;
+        _result = null;
+        await StartMicAsync();
     }
 
     private async Task ApplyAsync()

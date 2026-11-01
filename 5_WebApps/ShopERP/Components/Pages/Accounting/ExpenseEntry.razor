@@ -413,6 +413,11 @@
         {
             if (formData.Values.TryGetValue(f.Id, out var v)) f.Value = v;
         }
+        // Task G2 fix ("Áp vào form"): Blazor drop DOM sync qua component boundary DynamicFormFields
+        // → push thẳng DOM qua JS (amount format vi-VN qua vananSetElementValue).
+        _ = JSRuntime.InvokeVoidAsync("vananSetElementValue", "amount", formData.Values.GetValueOrDefault("amount") ?? "");
+        _ = JSRuntime.InvokeVoidAsync("vananSetElementValue", "date", formData.Values.GetValueOrDefault("date") ?? "");
+        _ = JSRuntime.InvokeVoidAsync("vananSetElementValue", "description", formData.Values.GetValueOrDefault("description") ?? "");
         if (IsCongNoType && !string.IsNullOrWhiteSpace(doiTuong)) _ = LoadOpenKhoanAsync();
         _ = RefreshPreviewAsync();
     }

@@ -92,6 +92,28 @@ public class LlmEnhanceVoucherTextParseServiceTests
     }
 
     [Fact]
+    public async Task ForceLlm_EvenWhenHigh_CallsApi()
+    {
+        // Nút "AI phân tích": câu rule-based đã High vẫn gọi LLM khi forceLlm=true.
+        var payload = GeminiJson("{\"intent\":\"Revenue\",\"amount\":2000000,\"doiTuong\":null,\"date\":null,\"category\":null}");
+        var (svc, handler) = Build(payload: payload);
+        var r = await svc.ParseAsync(Tenant, "thu tiền bán hàng 2 triệu tiền mặt", forceLlm: true);
+        Assert.Equal(VoucherIntent.Revenue, r.Intent);
+        Assert.Equal(2_000_000m, r.Amount); // rule-based giữ nguyên
+        Assert.Equal(1, handler.Calls);
+        Assert.Contains(r.Warnings, w => w.Contains("Đề xuất từ AI"));
+    }
+
+    [Fact]
+    public async Task ForceLlm_FlagOff_NoApiCall()
+    {
+        var (svc, handler) = Build(flagEnabled: false);
+        var r = await svc.ParseAsync(Tenant, "thu tiền bán hàng 2 triệu tiền mặt", forceLlm: true);
+        Assert.Equal(0, handler.Calls);
+        Assert.DoesNotContain(r.Warnings, w => w.Contains("Đề xuất từ AI"));
+    }
+
+    [Fact]
     public async Task MissingDoiTuong_MergedFromLlm()
     {
         var payload = GeminiJson("{\"intent\":\"ReceivablePayment\",\"amount\":5000000,\"doiTuong\":\"anh Hùng\",\"date\":null,\"category\":null}");

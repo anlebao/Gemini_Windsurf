@@ -72,12 +72,13 @@ public sealed class LlmEnhanceVoucherTextParseService(
     private static readonly HashSet<string> Categories = ["rent", "utilities", "labor", "materials", "marketing", "maintenance"];
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
 
-    public async Task<ParsedVoucher> ParseAsync(TenantId tenantId, string text, CancellationToken ct = default)
+    public async Task<ParsedVoucher> ParseAsync(TenantId tenantId, string text, CancellationToken ct = default, bool forceLlm = false)
     {
         var baseResult = await ruleBased.ParseAsync(tenantId, text, ct);
 
-        // Trigger hẹp: chỉ đuôi dài mà rule-based không chắc chắn.
-        bool needsLlm = baseResult.Intent == VoucherIntent.Unknown
+        // Trigger hẹp: chỉ đuôi dài mà rule-based không chắc chắn — trừ khi user bấm "AI phân tích" (force).
+        bool needsLlm = forceLlm
+            || baseResult.Intent == VoucherIntent.Unknown
             || string.Equals(baseResult.Confidence, "Low", StringComparison.Ordinal)
             || baseResult.MissingFields.Count > 0;
         if (!needsLlm) return baseResult;
@@ -87,7 +88,7 @@ public sealed class LlmEnhanceVoucherTextParseService(
         try
         {
             var llm = await CallGeminiAsync(text, ct);
-            return llm == null ? baseResult : Merge(baseResult, llm);
+            return llm == null ? baseResult : Merge(baseResult, llm, forceLlm);
         }
         catch (Exception ex)
         {
@@ -160,7 +161,7 @@ public sealed class LlmEnhanceVoucherTextParseService(
 
     // ---------- merge (rule-based High thắng) ----------
 
-    private ParsedVoucher Merge(ParsedVoucher b, LlmResponse llm)
+    private ParsedVoucher Merge(ParsedVoucher b, LlmResponse llm, bool forceLlm = false)
     {
         var warnings = b.Warnings.ToList();
         var missing = b.MissingFields.ToList();
@@ -226,7 +227,8 @@ public sealed class LlmEnhanceVoucherTextParseService(
             }
         }
 
-        if (merged) warnings.Add("Đề xuất từ AI — kiểm tra lại trước khi lưu.");
+        // forceLlm: user bấm "AI phân tích" — cảnh báo luôn hiển thị kể cả khi rule-based High và không merge gì.
+        if (merged || forceLlm) warnings.Add("Đề xuất từ AI — kiểm tra lại trước khi lưu.");
 
         // Rebuild missing + confidence theo dữ liệu sau merge.
         missing.Remove("intent");

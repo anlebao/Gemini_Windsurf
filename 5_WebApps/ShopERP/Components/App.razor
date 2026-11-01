@@ -95,6 +95,17 @@
                 el.setSelectionRange(formatted.length, formatted.length);
             });
         };
+        // Task G2 (fix "Áp vào form"): ghi giá trị từ server vào DOM cho field DynamicFormFields —
+        // Blazor drop DOM sync qua component boundary (bug class đã ghi trong DynamicFormFields).
+        // Format currency vi-VN nếu field đã attach formatter (amount hiển thị "2.000.000").
+        window.vananSetElementValue = function (id, value) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.value = (value == null ? '' : String(value));
+            if (el.dataset.vananCurrencyAttached) {
+                window.vananFormatCurrencyInput(id);
+            }
+        };
         // Wave 8: Download a base64-encoded file (DOCX/XLSX export from HKD book page).
         window.vanAn = window.vanAn || {};
         window.vanAn.downloadFile = function (base64, mimeType, fileName) {

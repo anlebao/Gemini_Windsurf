@@ -98,4 +98,20 @@ test.describe('RV Task G2 — Smart Entry LLM thật (production, read-only)', (
     await expect(page.getByTestId('smart-entry-result')).toContainText('Đề xuất từ AI');
     await expect(page.getByTestId('smart-entry-intent')).toHaveText('Chưa xác định');
   });
+
+  test('Nút "AI phân tích": force LLM trên câu rule-based High → warning AI', async ({ page }) => {
+    await loginAndImpersonate(page, PILOT_TENANT);
+    await openAiMode(page, '/accounting/expenses');
+
+    // Phân tích thường: High, không warning AI
+    await parseText(page, 'chi tiền thuê mặt bằng 15 triệu hôm qua');
+    await expect(page.getByTestId('smart-entry-result')).not.toContainText('Đề xuất từ AI');
+    await expect(page.getByTestId('smart-entry-intent')).toHaveText('Chi phí');
+
+    // Bấm "AI phân tích" → buộc gọi LLM → warning AI xuất hiện
+    await page.getByTestId('smart-entry-ai').click();
+    await expect(page.getByTestId('smart-entry-result')).toBeVisible({ timeout: 30000 });
+    await expect(page.getByTestId('smart-entry-result')).toContainText('Đề xuất từ AI');
+    await expect(page.getByTestId('smart-entry-intent')).toHaveText('Chi phí');
+  });
 });

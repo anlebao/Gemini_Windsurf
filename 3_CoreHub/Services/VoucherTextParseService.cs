@@ -40,7 +40,8 @@ public sealed record ParsedVoucher(
 
 public interface IVoucherTextParseService
 {
-    Task<ParsedVoucher> ParseAsync(TenantId tenantId, string text, CancellationToken ct = default);
+    /// <param name="forceLlm">Task G2: buộc gọi LLM kể cả khi rule-based đã High (nút "AI phân tích").</param>
+    Task<ParsedVoucher> ParseAsync(TenantId tenantId, string text, CancellationToken ct = default, bool forceLlm = false);
 }
 
 /// <summary>
@@ -87,8 +88,9 @@ public sealed class VoucherTextParseService(
         (["sửa", "bảo trì", "bảo dưỡng", "xăng", "vận chuyển", "ship"], "maintenance"),
     ];
 
-    public async Task<ParsedVoucher> ParseAsync(TenantId tenantId, string text, CancellationToken ct = default)
+    public async Task<ParsedVoucher> ParseAsync(TenantId tenantId, string text, CancellationToken ct = default, bool forceLlm = false)
     {
+        // forceLlm chỉ có ý nghĩa với tầng LLM (LlmEnhanceVoucherTextParseService) — rule-based bỏ qua.
         var missing = new List<string>();
         var warnings = new List<string>();
         string original = (text ?? string.Empty).Trim();
