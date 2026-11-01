@@ -144,10 +144,10 @@ Không nhắc nhóm nào → vẫn là phiếu Chi phí, bạn tự chọn TK.
 | T4 | `bán chịu cho khách chị Lan 8 triệu` | Ghi nhận phải thu | 8.000.000 | chị Lan | TM | Hôm nay | High |
 | T5 | `khách anh Hùng trả nợ 5 triệu bằng chuyển khoản` | Thu tiền khách trả nợ | 5.000.000 | anh Hùng | CK | Hôm nay | High |
 | T6 | `khách công ty TNHH ABC thanh toán nợ 1 tỷ 2 ngày 28/10 ck` | Thu tiền khách trả nợ | 1.200.000.000 | công ty TNHH ABC | CK | 28/10 | High |
-| T7 | `thu nợ khách ông Ba trả góp 2tr5` | Thu tiền khách trả nợ | 2.500.000 | ông Ba | TM | Hôm nay | High |
+| T7 | `thu nợ 2tr5 khách anh Minh trả góp` | Thu tiền khách trả nợ | 2.500.000 | anh Minh | TM | Hôm nay | High |
 | T8 | `đặt cọc của khách anh Nam 3 triệu` | Thu tiền khách trả nợ | 3.000.000 | anh Nam | TM | Hôm nay | High + cảnh báo "trả trước" |
 | T9 | `chủ góp vốn thêm 200 triệu bằng tiền mặt` | Góp vốn chủ sở hữu | 200.000.000 | — | TM | Hôm nay | High |
-| T10 | `nhận tiền dịch vụ tư vấn 7 triệu ngày 30/10 chuyển khoản` | Thu doanh thu | 7.000.000 | — | CK | 30/10 | High |
+| T10 | `nhận tiền 7 triệu dịch vụ tư vấn ngày 30/10 chuyển khoản` | Thu doanh thu | 7.000.000 | — | CK | 30/10 | High |
 
 ### 9.2. Phiếu Chi (Nhập Chi Phí)
 
@@ -159,9 +159,9 @@ Không nhắc nhóm nào → vẫn là phiếu Chi phí, bạn tự chọn TK.
 | C4 | `chi mua nguyên vật liệu 12 củ` | Chi phí | materials | 12.000.000 | — | Hôm nay | High |
 | C5 | `chi quảng cáo facebook 3 triệu hôm kia` | Chi phí | marketing | 3.000.000 | — | Hôm kia | High |
 | C6 | `thanh toán tiền xăng xe 500k` | Chi phí | maintenance | 500.000 | — | Hôm nay | High |
-| C7 | `mua chịu vật tư của nhà cung cấp ABC 12 triệu` | Ghi nhận phải trả | — | 12.000.000 | nhà cung cấp ABC | Hôm nay | High |
+| C7 | `mua chịu 12 triệu vật tư của nhà cung cấp ABC` | Ghi nhận phải trả | — | 12.000.000 | nhà cung cấp ABC | Hôm nay | High |
 | C8 | `trả nợ nhà cung cấp ABC 20 triệu` | Trả tiền người bán | — | 20.000.000 | nhà cung cấp ABC | Hôm nay | High |
-| C9 | `thanh toán nợ cho người bán cô Tư 5tr ck` | Trả tiền người bán | — | 5.000.000 | người bán cô Tư | Hôm nay | High |
+| C9 | `trả nợ nhà cung cấp Nam 5tr ck` | Trả tiền người bán | — | 5.000.000 | nhà cung cấp Nam | Hôm nay | High |
 | C10 | `nộp thuế môn bài 2 triệu ngày 30/01` | Chi phí | — | 2.000.000 | — | 30/01 | High |
 | C11 | `tạm ứng lương cho nhân viên Nam 5 triệu tiền mặt` | Chi phí | labor | 5.000.000 | — | Hôm nay | High |
 | C12 | `hoàn tiền khách 1 triệu 5` | Chi phí | — | 1.500.000 | — | Hôm nay | High |
@@ -187,6 +187,8 @@ Không nhắc nhóm nào → vẫn là phiếu Chi phí, bạn tự chọn TK.
 | `trả tiền điện tháng 10 là 2tr5` | Số tiền = **10 đồng** (!!) + cảnh báo "kiểm tra đơn vị" | "tháng 10" — số 10 trần bị đọc thành tiền TRƯỚC "2tr5" | `chi 2tr5 tiền điện tháng 10` — đặt **số tiền lên trước**, bỏ "là" |
 | `thu khoảng 5 triệu` | "khoảng" bị bỏ qua — vẫn 5.000.000, OK | (vẫn đúng, nhưng nên bỏ "khoảng" cho rõ) |
 | `thu 5 củ lẻ 2` | Parser hiểu **5.000.002** (lẻ 2 đồng), không phải 5.002.000 | "lẻ X" sau đơn vị lớn = X đồng, không phải X nghìn | `thu 5 triệu lẻ 2 nghìn` (5.002.000) |
+| `khách ông Ba trả nợ 2tr5` / `chi phí tư vấn 5 triệu` / `mua vật tư 12 triệu` | Số tiền **sai**: bắt "Ba"=3, "Tư"=4 làm tiền TRƯỚC số thật ("tư vấn"/"vật tư" cũng dính "tư") | Tên/ngữ cảnh trùng từ số (ba=3, tư=4) — parser quét số từ đầu câu | **Viết số tiền LÊN ĐẦU**: `thu nợ 2tr5 khách anh Minh trả góp` · `nhận tiền 7 triệu dịch vụ tư vấn` · `mua chịu 12 triệu vật tư của nhà cung cấp ABC` |
+| `khách ông Ba trả nợ 5 triệu` | Đối tượng chỉ bắt **"ông"** (thiếu "Ba") | "Ba" là từ số (3) nằm trong danh sách dừng → tên bị cắt | Tránh tên trùng từ số (Ba/Tư/Năm/Sáu/Bảy...): `khách anh Minh trả nợ 5 triệu` |
 
 ### 10.2. Sai / mơ hồ loại nghiệp vụ (rủi ro cao nhất)
 
@@ -196,7 +198,7 @@ Không nhắc nhóm nào → vẫn là phiếu Chi phí, bạn tự chọn TK.
 | `trả nợ 5 triệu` | Trả tiền người bán + cảnh báo "chưa rõ khách hay NCC" | Không nói bên nào | `trả nợ nhà cung cấp ABC 5 triệu` (chi) · `khách trả nợ 5 triệu` (thu) |
 | `khách trả tiền 5 triệu` | **Thu tiền khách trả nợ** (không phải doanh thu!) | "khách + trả tiền" được ưu tiên hiểu là trả nợ | Muốn doanh thu: `thu tiền khách mua hàng 5 triệu` |
 | `rút tiền ngân hàng 100 triệu` | ⚠ **Chưa xác định** (thiếu intent) | Thiếu từ khóa **quỹ/tiền mặt/két** → hệ thống không nhận ra là chuyển kho nội bộ | `rút tiền ngân hàng 100 triệu về quỹ tiền mặt` → hệ thống tự chuyển sang Phiếu Chuyển Tiền |
-| `chuyển tiền 2 triệu` | Cảnh báo "hướng chưa rõ" + ⚠ thiếu tài khoản | Không nói từ đâu → đến đâu | `chuyển từ quỹ sang ngân hàng 2 triệu` |
+| `chuyển tiền 2 triệu` | ⚠ **Chưa xác định** (thiếu intent) | Phải nói hướng đi: `chuyển từ quỹ sang ngân hàng` / `rút ... về quỹ` / `chuyển tiền nội bộ` | `chuyển từ quỹ sang ngân hàng 2 triệu` |
 | `mua hàng 30 triệu` | ⚠ **Chưa xác định** — "mua hàng" một mình không đủ | Phải nói **"mua hàng hóa"**, **"nhập hàng"** hoặc **"nhập kho"** | `mua hàng hóa nhập kho 30 triệu` → nút Phiếu Nhập Mua · muốn phiếu chi thường: `chi mua vật tư 30 triệu` |
 | `công ty ABC trả 5 triệu hợp đồng tháng 10` | ⚠ **Chưa xác định** — "trả" trần không đủ | "trả" phải kèm `nợ`/`tiền`/`nhà cung cấp` — và "tháng 10" còn gây nhiễu số tiền | `khách công ty ABC trả nợ hợp đồng 5 triệu` (thu) · `trả nợ nhà cung cấp ABC 5 triệu` (chi) |
 | `thu tiền hàng và trả nợ NCC 10 triệu` (2 việc 1 câu) | Chỉ hiểu 1 nghiệp vụ (ưu tiên trả NCC), amount lấy số đầu | Parser 1 câu = 1 nghiệp vụ | Tách 2 câu, làm 2 phiếu riêng |
@@ -206,6 +208,7 @@ Không nhắc nhóm nào → vẫn là phiếu Chi phí, bạn tự chọn TK.
 | Bạn nói | Kết quả | Vì sao | Nói lại đúng |
 |---|---|---|---|
 | `trả nợ 5 triệu cho anh Hùng` | Đối tượng chỉ bắt được **"Hùng"** (thiếu "anh") + loại phiếu hiểu là **Trả tiền người bán** (sai hướng công nợ!) | Không có chữ "khách" → mặc định nghiêng về người bán; marker "anh" đứng sâu sau số tiền chỉ lấy được phần đuôi tên | `khách anh Hùng trả nợ 5 triệu` — luôn bắt đầu bằng **bên + tên** |
+| `thanh toán nợ 5tr ck cho nhà cung cấp Nam` | ⚠ Thiếu: **đối tượng** (dù có tên NCC!) | Lỗi parser đã xác nhận: cấu trúc `thanh toán ... cho X` làm mất đối tượng; `trả nợ ... X` thì OK | Dùng **"trả nợ"**: `trả nợ nhà cung cấp Nam 5tr ck` → đối tượng "nhà cung cấp Nam" |
 | `khách trả nợ 5 triệu` | ⚠ Thiếu: **đối tượng** | "khách" không có tên đi kèm | `khách anh Hùng trả nợ 5 triệu` |
 | `khách đặt cọc trước 3 triệu` | Đối tượng bắt nhầm thành **"đặt cọc trước"** | "đặt/cọc/trước" không nằm trong danh sách dừng → bị gom vào tên | `đặt cọc của khách anh Nam 3 triệu` — để tên đứng sau "khách" và trước số tiền |
 
@@ -221,7 +224,7 @@ Không nhắc nhóm nào → vẫn là phiếu Chi phí, bạn tự chọn TK.
 
 | Bạn nói | Hiện | Bạn làm gì |
 |---|---|---|
-| `hôm qua có khoản thu` | ⚠ Thiếu: **amount** + confidence Low | Gõ số tiền vào form sau khi Áp |
+| `hôm qua có khoản thu` | ⚠ Thiếu: **amount + intent** + Low | Không rõ nghiệp vụ lẫn số tiền | Gõ đủ câu: `thu tiền bán hàng 5 triệu hôm qua` |
 | `blabla không liên quan` | ⚠ Thiếu: **intent** + Low | Nhập tay như bình thường (chuyển lại Nhập thủ công) |
 | `anh Hùng` (chỉ tên) | ⚠ Thiếu intent + amount | Viết đủ câu nghiệp vụ |
 
