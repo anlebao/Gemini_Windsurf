@@ -165,9 +165,14 @@ public sealed class ShopErpMenuService : IShopErpMenuService
             var accountingChildren = new List<NavigationItem>
             {
                 new() { Title = "Kế Toán", Icon = "journal-text", Url = "/accounting" },
+                // 2026-11-01: link nhập liệu trực tiếp (trước chỉ qua Quick Action trên dashboard).
+                // AccountingAccess — cả Kế toán công nợ (phiếu thu/chi chứa loại công nợ).
+                new() { Title = "Nhập Doanh Thu", Icon = "plus-circle", Url = "/accounting/revenue" },
+                new() { Title = "Nhập Chi Phí", Icon = "dash-circle", Url = "/accounting/expenses" },
             };
             if (fullAccounting)
             {
+                accountingChildren.Add(new() { Title = "Phiếu Hạch Toán (CTGS)", Icon = "receipt", Url = "/accounting/journal-voucher" });
                 accountingChildren.Add(new() { Title = "Lịch Sử Giao Dịch", Icon = "clock-history", Url = "/accounting/history" });
             }
             // NHẬP LIỆU & SỔ SÁCH P3 (2026-10-07): khai báo số dư đầu kỳ (dữ liệu cũ từ Excel)
@@ -186,6 +191,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
             if (fullAccounting)
             {
                 accountingChildren.Add(new() { Title = "Đóng Kỳ Kế Toán", Icon = "lock-fill", Url = "/accounting/period-closing" });
+                // Quy tắc định khoản — đang được link từ preview trên form thu/chi, bổ sung menu.
+                accountingChildren.Add(new() { Title = "Quy Tắc Định Khoản", Icon = "diagram-2", Url = "/accounting/mapping-rules" });
             }
 
             // 2026-10-17 (user directive): nhóm menu con trong "Kế Toán" —
@@ -202,6 +209,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                         new() { Title = "Sổ Nhật Ký Chung", Icon = "journal-text", Url = "/accounting/journal" },
                         new() { Title = "Sổ Cái", Icon = "book", Url = "/accounting/ledger" },
                         new() { Title = "Sổ Chi Tiết", Icon = "book-half", Url = "/accounting/sub-ledger" },
+                        new() { Title = "Sổ Tiền Mặt", Icon = "cash", Url = "/accounting/cash-book" },
+                        new() { Title = "Sổ Ngân Hàng", Icon = "bank", Url = "/accounting/bank-book" },
                     }
                 });
             }
