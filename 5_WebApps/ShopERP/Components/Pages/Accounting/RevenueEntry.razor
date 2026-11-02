@@ -349,8 +349,13 @@
         }
         // Task G2/G3 fix ("Áp vào form"): Blazor drop DOM sync qua component boundary DynamicFormFields
         // → push thẳng DOM qua JS. G3: gộp 1 interop SAU render cuối (preview) — deterministic,
-        // rút ngắn cửa sổ circuit busy (Blazor có thể rớt click kế tiếp khi đang xử lý interop).
-        if (IsCongNoType && !string.IsNullOrWhiteSpace(doiTuong)) _ = LoadOpenKhoanAsync();
+        // rút ngắn cửa sổ circuit busy. LoadOpenKhoanAsync AWAIT (không fire-and-forget) — tránh
+        // DbContext concurrency với RefreshPreviewAsync làm circuit chết → click sau đó vô hiệu.
+        try
+        {
+            if (IsCongNoType && !string.IsNullOrWhiteSpace(doiTuong)) await LoadOpenKhoanAsync();
+        }
+        catch (Exception ex) { Logger.LogWarning(ex, "LoadOpenKhoanAsync failed trong ApplyParse"); }
         await RefreshPreviewAsync();
         await SafeSetFormValues(new Dictionary<string, string>
         {
