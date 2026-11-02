@@ -248,7 +248,7 @@ Không nhắc nhóm nào → vẫn là phiếu Chi phí, bạn tự chọn TK.
 ## 12. Mẹo nói chuẩn & FAQ
 
 - **Nói ngắn gọn, đủ ý:** nghiệp vụ + số tiền + (đối tượng nếu nợ) + (ngày nếu không hôm nay) + (PTTT nếu không tiền mặt). Câu dài nhiều ý → chỉ nghiệp vụ đầu được nhận.
-- **1 câu = 1 phiếu.** "Vừa thu vừa chi" → làm 2 lần.
+- **1 câu có thể ra NHIỀU phiếu (từ v1.2/G4):** câu chứa 2-3 nghiệp vụ (ngăn cách bởi dấu phẩy, "và", "sau đó", "rồi", "còn lại") → hệ thống hiển thị **danh sách phiếu** (badge thứ tự + loại phiếu + số tiền) → bạn bấm **"Áp vào form ↓"** từng phiếu để kiểm + Lưu từng phiếu. VD: "thu 5 triệu và chi 3 triệu tiền điện" → Phiếu thu 5tr + Phiếu chi 3tr. Mọi phiếu vẫn qua guard + Lưu tay. **Lưu ý:** AI phân loại có thể chưa chuẩn (VD "mang 50 triệu gửi ngân hàng" đôi khi bị hiểu là doanh thu thay vì chuyển tiền) — kiểm loại phiếu trên từng phiếu trước khi Lưu.
 - **Diễn giải = câu gốc** — nói đủ nghĩa để sổ sách tự đọc được ("trả nợ nhà cung cấp ABC 20 triệu" tốt hơn "trả 20 triệu").
 - **Mic:** bấm 🎤 → nói rõ ràng, tốc độ vừa. Kết quả gộp vào ô text — đọc lại trước khi Phân tích. Trình duyệt không hỗ trợ → nút mic tự ẩn.
 - **Nói sai → sửa text rồi Phân tích lại**, hoặc Áp rồi sửa tay trên form (form vẫn là form cũ 100%).

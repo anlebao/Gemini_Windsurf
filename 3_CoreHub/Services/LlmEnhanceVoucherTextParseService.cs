@@ -276,6 +276,8 @@ public sealed class LlmEnhanceVoucherTextParseService(
         "\"doiTuong\": \"tên hoặc null\", \"category\": \"rent|utilities|labor|materials|marketing|maintenance|null\", " +
         "\"feeAmount\": <số nguyên hoặc null>, \"description\": \"mô tả nghiệp vụ này\"}]}.\n" +
         "Lưu ý: chuyển tiền nội bộ là 1 phiếu riêng (TransferIn 111→112 / TransferOut 112→111); " +
+        "\"mang X gửi ngân hàng\"/\"gửi X vào tài khoản\"/\"nộp X vào ngân hàng\" = TransferIn (quỹ→NH), KHÔNG phải doanh thu; " +
+        "\"rút X về quỹ\" = TransferOut; " +
         "\"thanh lý tài sản cố định\" = thu tiền (Revenue hoặc nếu có bán chịu thì Receivable) — ghi giảm TSCĐ là bút toán CTGS, không tách ở đây; " +
         "\"còn lại\"/\"phần còn lại\" không phải phiếu riêng nếu chỉ là mô tả cách nhận tiền. Tối đa 3 phiếu.\n" +
         $"Câu mô tả: \"{text}\"";
