@@ -127,6 +127,11 @@
                 }
             }
         };
+        // G4f: session multi qua FULL PAGE RELOAD (menu/href = circuit mới → scoped mất).
+        // sessionStorage sống qua reload cùng tab → page đích đọc lại câu gốc và re-parse.
+        window.vananSaveSmartText = function (t) { try { sessionStorage.setItem('vanan.smartEntryText', t || ''); } catch (e) { } };
+        window.vananLoadSmartText = function () { try { return sessionStorage.getItem('vanan.smartEntryText') || ''; } catch (e) { return ''; } };
+        window.vananClearSmartText = function () { try { sessionStorage.removeItem('vanan.smartEntryText'); } catch (e) { } };
         // Wave 8: Download a base64-encoded file (DOCX/XLSX export from HKD book page).
         window.vanAn = window.vanAn || {};
         window.vanAn.downloadFile = function (base64, mimeType, fileName) {

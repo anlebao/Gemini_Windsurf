@@ -168,8 +168,8 @@
         {
             // G4: luôn qua ParseMultipleAsync — AI phân tích (force) cũng ra multi như Phân tích
             var list = await Parser.ParseMultipleAsync(new TenantId(TenantProvider.TenantId), _text, forceLlm: forceLlm);
-            if (list.Count > 1) { _multi = list.ToList(); Session.Set(_multi, _text); }
-            else { _result = list.Count == 1 ? list[0] : null; Session.Clear(); }
+            if (list.Count > 1) { _multi = list.ToList(); Session.Set(_multi, _text); await JS.InvokeVoidAsync("vananSaveSmartText", _text); }
+            else { _result = list.Count == 1 ? list[0] : null; Session.Clear(); await JS.InvokeVoidAsync("vananClearSmartText"); }
         }
         catch (Exception ex)
         {
@@ -224,7 +224,7 @@
         }
         _lastAppliedIndex = -1;
         _result = null;
-        if (!HasPendingMulti) Session.Clear(); // hết phiếu chờ → sẵn sàng câu mới
+        if (!HasPendingMulti) { Session.Clear(); _ = JS.InvokeVoidAsync("vananClearSmartText"); } // hết phiếu chờ → sẵn sàng câu mới
     }
 
     public bool HasPendingMulti
@@ -251,6 +251,7 @@
         _savedIndices.Clear();
         _lastAppliedIndex = -1;
         Session.Set(_multi, text);
+        _ = JS.InvokeVoidAsync("vananSaveSmartText", text);
         StateHasChanged();
     }
 
@@ -269,6 +270,8 @@
         _multi = new();
         _savedIndices.Clear();
         _lastAppliedIndex = -1;
+        Session.Clear();
+        await JS.InvokeVoidAsync("vananClearSmartText");
         await StartMicAsync();
     }
 

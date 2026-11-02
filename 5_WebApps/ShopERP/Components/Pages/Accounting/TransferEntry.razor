@@ -19,6 +19,7 @@
 @inject ILogger<TransferEntry> Logger
 @inject NavigationManager NavigationManager
 @inject VanAn.ShopERP.Components.Accounting.SmartEntrySessionState SmartSession
+@inject Microsoft.JSInterop.IJSRuntime JSRuntime
 
 @* Task PG + W3/D: phiếu chuyển tiền nội bộ 111↔112x — JE qua InternalTransferService
    (KHÔNG phải doanh thu/chi phí). Mode AI: parse câu mô tả → prefill. *@
@@ -206,10 +207,23 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && _pendingMulti != null && _smartEntryBar != null)
+        if (_pendingMulti != null && _smartEntryBar != null)
         {
             _smartEntryBar.ShowMulti(_pendingMulti, _pendingMultiText ?? string.Empty);
             _pendingMulti = null;
+        }
+        else if (firstRender && string.IsNullOrWhiteSpace(desc) && SmartSession.Multi is null
+                 && _smartEnabled && TenantProvider.HasTenant)
+        {
+            // G4f: full page reload (menu/href = circuit mới) → khôi phục từ sessionStorage
+            var saved = await JSRuntime.InvokeAsync<string>("vananLoadSmartText");
+            if (!string.IsNullOrWhiteSpace(saved))
+            {
+                _aiMode = true;
+                var list = await Parser.ParseMultipleAsync(new TenantId(TenantProvider.TenantId), saved);
+                if (list.Count > 1) { _pendingMulti = list.ToList(); _pendingMultiText = saved; StateHasChanged(); }
+                else { await JSRuntime.InvokeVoidAsync("vananClearSmartText"); }
+            }
         }
         await base.OnAfterRenderAsync(firstRender);
     }
