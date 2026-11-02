@@ -162,7 +162,7 @@ public sealed class LlmEnhanceVoucherTextParseService(
 
     // ---------- G4: multi-voucher ----------
 
-    private static readonly string[] MultiMarkers = [",", "và", "sau đó", "rồi", "còn lại", "đồng thời", ";"];
+    private static readonly string[] MultiMarkers = [",", "và", "sau đó", "rồi", "còn lại", "đồng thời", ";", " mang ", " đem ", "mang ", "đem "];
 
     /// <summary>G4: 1 câu → 1-N phiếu. Chỉ gọi LLM multi khi câu có marker nhiều nghiệp vụ
     /// + flag ON + key; ngược lại trả [ParseAsync] (hành vi cũ). Max 3 phiếu, validate từng phiếu.</summary>
