@@ -19,7 +19,9 @@ public enum VoucherIntent
     PayablePayment,     // trả tiền người bán
     TransferOut,        // ngân hàng → quỹ (rút NH về quỹ — CK01)
     TransferIn,         // quỹ → ngân hàng (nộp quỹ vào NH — CK02)
-    Purchase            // nhập hàng/mua hàng hóa → hint PurchaseReceipt
+    Purchase,           // nhập hàng/mua hàng hóa → hint PurchaseReceipt
+    AdvanceOut,         // Task PH/G1: tạm ứng tiền cho nhân viên/đối tượng (141)
+    AdvanceSettle       // Task PH/G1: hoàn ứng / thanh toán tạm ứng (giảm 141)
 }
 
 /// <summary>Kết quả trích xuất từ câu mô tả tự nhiên — prefill form, KHÔNG auto-save.</summary>
@@ -253,6 +255,13 @@ public sealed class VoucherTextParseService(
             warnings.Add("Khách ứng trước/cọc → ghi nhận trả trước (không phải doanh thu).");
             return VoucherIntent.Advance;
         }
+
+        // Tạm ứng / hoàn ứng (Task PH/G1) — trước Expense ("tạm ứng lương" vẫn là Expense+labor).
+        if (norm.Contains("hoàn ứng") || norm.Contains("thanh toán tạm ứng") || norm.Contains("quyết toán tạm ứng"))
+            return VoucherIntent.AdvanceSettle;
+        if (norm.Contains("tạm ứng") && !norm.Contains("lương")
+            && (norm.Contains(" cho ") || ObjectMarkers.Any(m => norm.Contains(m + " "))))
+            return VoucherIntent.AdvanceOut;
 
         // Chi — keyword trước thu để "chi trả" không rơi vào thu.
         if (norm.Contains("chi ") || norm.StartsWith("chi") || norm.Contains("trả tiền")
