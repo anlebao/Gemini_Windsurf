@@ -113,7 +113,8 @@
             if (el) el.setAttribute('data-blazor-interactive', 'true');
         };
         // Task G3: gộp nhiều field vào 1 interop call (rút ngắn cửa sổ circuit busy của Blazor Server)
-        // — set từng field + format currency nếu đã attach formatter.
+        // — set từng field + format currency. Nhận diện currency bằng inputmode="numeric" HOẶC
+        // dataset flag (flag bị Blazor re-render xoá flicker — không tin cậy được).
         window.vananSetFormValues = function (fields) {
             if (!fields) return;
             for (var id in fields) {
@@ -121,7 +122,7 @@
                 var el = document.getElementById(id);
                 if (!el) continue;
                 el.value = (fields[id] == null ? '' : String(fields[id]));
-                if (el.dataset.vananCurrencyAttached) {
+                if (el.dataset.vananCurrencyAttached || el.getAttribute('inputmode') === 'numeric') {
                     window.vananFormatCurrencyInput(id);
                 }
             }
