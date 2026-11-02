@@ -1,0 +1,154 @@
+@page "/vouchers/{Code}"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "AccountingAccess")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.CoreHub.Services.Vouchers
+@using VanAn.CoreHub.Services
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.UI.Platform.Components
+@inject VoucherTypeRegistry VoucherRegistry
+@inject ITenantProvider TenantProvider
+@inject VanAn.CoreHub.Services.IVoucherTextParseService TextParser
+@inject VanAn.CoreHub.Services.Journal.IManualJournalVoucherService JournalVoucherService
+@inject ILogger<VoucherEntry> Logger
+@inject NavigationManager NavigationManager
+
+@* Task PH/G1 — Voucher Framework: page GENERIC duy nhất render form theo schema registry.
+   Submit → strategy (JE) → ManualJournalVoucherService (posting chuẩn hoá có sẵn). *@
+
+<div class="voucher-entry-page">
+    <header class="page-header">
+        <h1>@(_def?.Name ?? "Phiếu")</h1>
+        <VanAButton Variant="secondary" Size="small" OnClick="GoBack">← Quay Lại</VanAButton>
+    </header>
+
+    @if (_def == null)
+{
+    <VanAAlert Variant="error" Message="Loại phiếu không tồn tại trong registry." Dismissible="false" />
+}
+else
+{
+    @if (showSuccess)
+    {
+        <VanAAlert Variant="success" Message="@successMessage" Dismissible="true" data-testid="voucher-success-alert" />
+    }
+    @if (showError)
+    {
+        <VanAAlert Variant="error" Message="@errorMessage" Dismissible="true" />
+    }
+
+    <VanACard Header="@_def.Name">
+        <EditForm Model="_model" OnValidSubmit="HandleSubmit">
+            @foreach (var f in _def.Fields)
+            {
+                <div class="mb-3">
+                    <label class="form-label">@f.Label @if (f.Required) { <span class="text-danger">*</span> }</label>
+                    @if (f.Type == VoucherFieldType.Amount)
+                    {
+                        <input type="number" class="form-control" data-testid="vf-@f.Id" @bind="_amount" />
+                    }
+                    else if (f.Type == VoucherFieldType.Date)
+                    {
+                        <input type="date" class="form-control" data-testid="vf-@f.Id" @bind="_date" />
+                    }
+                    else
+                    {
+                        <input type="text" class="form-control" data-testid="vf-@f.Id" @bind="_party" placeholder="@(f.Type == VoucherFieldType.Party ? "Tên người nhận / đối tượng" : "")" />
+                    }
+                </div>
+            }
+            <div class="mb-3">
+                <label class="form-label">Diễn giải</label>
+                <textarea class="form-control" rows="2" @bind="_description" data-testid="vf-description"></textarea>
+            </div>
+            <VanAButton Variant="primary" Type="submit" Disabled="@_saving" data-testid="voucher-save">@(_saving ? "Đang lưu..." : "Lưu phiếu")</VanAButton>
+        </EditForm>
+    </VanACard>
+}
+</div>
+
+@code {
+    [Parameter] public string? Code { get; set; }
+    [SupplyParameterFromQuery] public string? desc { get; set; }
+
+    private VoucherTypeDefinition? _def;
+    private decimal? _amount;
+    private DateTime _date = DateTime.Today;
+    private string _party = string.Empty;
+    private string _description = string.Empty;
+    private VoucherIntent _intent = VoucherIntent.AdvanceOut;
+    private readonly object _model = new();
+    private bool _saving;
+    private bool showSuccess;
+    private bool showError;
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _def = VoucherRegistry.ResolveByCode(Code ?? string.Empty);
+        if (_def == null) return;
+
+        if (!string.IsNullOrWhiteSpace(desc) && TenantProvider.HasTenant)
+        {
+            try
+            {
+                var p = await TextParser.ParseAsync(new TenantId(TenantProvider.TenantId), desc);
+                _intent = p.Intent;
+                if (p.Amount.HasValue) _amount = p.Amount;
+                _date = p.Date;
+                if (!string.IsNullOrWhiteSpace(p.DoiTuong)) _party = p.DoiTuong;
+                if (!string.IsNullOrWhiteSpace(p.Description)) _description = p.Description;
+            }
+            catch (Exception ex) { Logger.LogWarning(ex, "VoucherEntry desc parse failed"); }
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        showSuccess = false; showError = false;
+        if (!TenantProvider.HasTenant) return;
+        if (_amount is not > 0) { showError = true; errorMessage = "Số tiền phải lớn hơn 0."; return; }
+
+        var strategy = VoucherRegistry.ResolveStrategy(_def!.Code);
+        if (strategy == null) { showError = true; errorMessage = "Không tìm thấy strategy cho phiếu này."; return; }
+
+        _saving = true;
+        try
+        {
+            var sub = new VoucherSubmission(new TenantId(TenantProvider.TenantId), _intent, _amount, _date,
+                string.IsNullOrWhiteSpace(_party) ? null : _party.Trim(), CashAccount: "111", AllocatedToEntryId: null,
+                string.IsNullOrWhiteSpace(_description) ? null : _description.Trim(), PaymentMethod: "cash");
+            var posting = await strategy.PostAsync(sub, CancellationToken.None);
+            if (posting.Entry == null)
+            {
+                showError = true;
+                errorMessage = string.Join("; ", posting.Errors);
+                return;
+            }
+
+            var lines = posting.Entry.Lines
+                .Select(l => new VanAn.CoreHub.Services.Journal.JournalVoucherLine(l.AccountNumber, l.DebitAmount, l.CreditAmount))
+                .ToList();
+            var result = await JournalVoucherService.CreateAsync(
+                new TenantId(TenantProvider.TenantId), _date,
+                string.IsNullOrWhiteSpace(_description) ? $"{_def.Name} — {_party}" : _description,
+                lines, CancellationToken.None);
+
+            successMessage = $"Đã lưu {_def.Name} — Số phiếu: {result.VoucherNumber} (Nợ {posting.Entry.Lines.First(l => l.DebitAmount > 0).AccountNumber}/Có {posting.Entry.Lines.First(l => l.CreditAmount > 0).AccountNumber}).";
+            showSuccess = true;
+            _amount = null; _party = string.Empty; _description = string.Empty; _date = DateTime.Today;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VoucherEntry submit failed");
+            showError = true;
+            errorMessage = $"Lỗi khi lưu: {ex.Message}";
+        }
+        finally { _saving = false; }
+    }
+
+    private void GoBack() => NavigationManager.NavigateTo("/accounting");
+}

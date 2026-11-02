@@ -246,6 +246,21 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.VoucherTextParseService>();
             // G4: session multi-voucher qua các trang (SmartEntryBar → Revenue/Expense)
             _ = builder.Services.AddScoped<VanAn.ShopERP.Components.Accounting.SmartEntrySessionState>();
+            // Task PH/G1: Voucher Framework registry — thêm phiếu = Register 1 dòng
+            _ = builder.Services.AddScoped<CoreHub.Services.Vouchers.VoucherTypeRegistry>(sp =>
+            {
+                var r = new CoreHub.Services.Vouchers.VoucherTypeRegistry();
+                r.Register(
+                    new CoreHub.Services.Vouchers.VoucherTypeDefinition("advance", "Phiếu Tạm Ứng",
+                        "/vouchers/advance", "02-TT",
+                        [new CoreHub.Services.Vouchers.VoucherField("amount", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Số Tiền", true, "amount"),
+                         new CoreHub.Services.Vouchers.VoucherField("date", CoreHub.Services.Vouchers.VoucherFieldType.Date, "Ngày", true, "date"),
+                         new CoreHub.Services.Vouchers.VoucherField("party", CoreHub.Services.Vouchers.VoucherFieldType.Party, "Người Nhận / Đối tượng", true, "doiTuong")],
+                        "advance"),
+                    new CoreHub.Services.Vouchers.AdvancePostingStrategy(),
+                    CoreHub.Services.VoucherIntent.AdvanceOut, CoreHub.Services.VoucherIntent.AdvanceSettle);
+                return r;
+            });
             _ = builder.Services.AddScoped<CoreHub.Services.IVoucherTextParseService>(sp =>
                 new CoreHub.Services.LlmEnhanceVoucherTextParseService(
                     sp.GetRequiredService<CoreHub.Services.VoucherTextParseService>(),

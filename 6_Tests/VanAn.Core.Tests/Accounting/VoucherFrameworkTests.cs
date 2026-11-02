@@ -20,7 +20,7 @@ public class VoucherFrameworkTests
             [new VoucherField("amount", VoucherFieldType.Amount, "Số Tiền", true, "amount"),
              new VoucherField("date", VoucherFieldType.Date, "Ngày", true, "date"),
              new VoucherField("party", VoucherFieldType.Party, "Người Nhận", true, "doiTuong")],
-            "advance"));
+            "advance"), new AdvancePostingStrategy());
 
         var def = registry.ResolveByCode("advance");
         Assert.NotNull(def);
@@ -39,7 +39,7 @@ public class VoucherFrameworkTests
     public void Registry_ResolveByIntent_MapsSmartEntry()
     {
         var registry = new VoucherTypeRegistry();
-        registry.Register(new VoucherTypeDefinition("advance", "Phiếu Tạm Ứng", "/vouchers/advance", "02-TT", [], "advance"), VoucherIntent.AdvanceOut, VoucherIntent.AdvanceSettle);
+        registry.Register(new VoucherTypeDefinition("advance", "Phiếu Tạm Ứng", "/vouchers/advance", "02-TT", [], "advance"), new AdvancePostingStrategy(), VoucherIntent.AdvanceOut, VoucherIntent.AdvanceSettle);
         Assert.Equal("advance", registry.ResolveByIntent(VoucherIntent.AdvanceOut)?.Code);
         Assert.Equal("advance", registry.ResolveByIntent(VoucherIntent.AdvanceSettle)?.Code);
     }

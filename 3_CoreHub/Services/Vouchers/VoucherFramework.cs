@@ -39,10 +39,12 @@ public sealed class VoucherTypeRegistry
 {
     private readonly Dictionary<string, VoucherTypeDefinition> _byCode = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<VoucherIntent, string> _byIntent = new();
+    private readonly Dictionary<string, IVoucherPostingStrategy> _strategies = new(StringComparer.OrdinalIgnoreCase);
 
-    public void Register(VoucherTypeDefinition def, params VoucherIntent[] intents)
+    public void Register(VoucherTypeDefinition def, IVoucherPostingStrategy strategy, params VoucherIntent[] intents)
     {
         _byCode[def.Code] = def;
+        _strategies[def.Code] = strategy;
         foreach (var i in intents) _byIntent[i] = def.Code;
     }
 
@@ -51,6 +53,9 @@ public sealed class VoucherTypeRegistry
 
     public VoucherTypeDefinition? ResolveByIntent(VoucherIntent intent)
         => _byIntent.TryGetValue(intent, out var c) ? _byCode.GetValueOrDefault(c) : null;
+
+    public IVoucherPostingStrategy? ResolveStrategy(string code)
+        => _strategies.TryGetValue(code, out var s) ? s : null;
 }
 
 /// <summary>L3 — Phiếu Tạm Ứng / Hoàn Ứng: Nợ 141/Có {cash} · Nợ {cash}/Có 141.</summary>
