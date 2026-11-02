@@ -49,24 +49,32 @@
             @for (int i = 0; i < _multi.Count; i++)
             {
                 var v = _multi[i];
+                var done = _savedIndices.Contains(i);
                 <div class="border rounded p-2 mb-2 bg-light" data-testid="smart-entry-multi-item">
                     <div class="d-flex align-items-center gap-2 flex-wrap">
                         <span class="badge text-bg-secondary">Phiếu @(i + 1)</span>
+                        @if (done)
+                        {
+                            <span class="badge text-bg-success" data-testid="smart-entry-multi-done">✓ Đã lưu</span>
+                        }
                         <span class="badge @ConfidenceBadge(v.Confidence)">@IntentLabel(v.Intent)</span>
                         @if (v.Amount.HasValue) { <b>@v.Amount.Value.ToString("N0") ₫</b> }
                         <span class="small text-muted">@v.Date.ToString("dd/MM/yyyy")</span>
                     </div>
                     @if (v.DoiTuong != null) { <div class="small">Đối tượng: @v.DoiTuong</div> }
-                    @if (v.MissingFields.Count > 0)
+                    @if (!done && v.MissingFields.Count > 0)
                     {
                         <div class="small text-warning-emphasis">⚠ Thiếu: @string.Join(", ", v.MissingFields)</div>
                     }
-                    @foreach (var w in v.Warnings)
+                    @if (!done)
                     {
-                        <div class="small text-warning-emphasis">⚠ @w</div>
+                        @foreach (var w in v.Warnings)
+                        {
+                            <div class="small text-warning-emphasis">⚠ @w</div>
+                        }
                     }
-                    <VanAButton Variant="success" Size="small" OnClick="() => ApplyMultiAsync(v)" data-testid="smart-entry-multi-apply">
-                        Áp vào form ↓
+                    <VanAButton Variant="success" Size="small" Disabled="@done" OnClick="() => ApplyMultiAsync(v)" data-testid="smart-entry-multi-apply">
+                        @(done ? "Đã xử lý" : "Áp vào form ↓")
                     </VanAButton>
                 </div>
             }
@@ -122,6 +130,7 @@
     private string _text = string.Empty;
     private ParsedVoucher? _result;
     private List<ParsedVoucher> _multi = new();
+    private readonly HashSet<int> _savedIndices = new();
     private int _lastAppliedIndex = -1;
     private bool _busy;
     private bool _interactive;
@@ -145,21 +154,15 @@
 
     private async Task ParseAsync(bool forceLlm = false)
     {
-        _error = null; _result = null; _multi = new();
+        _error = null; _result = null; _multi = new(); _savedIndices.Clear();
         if (!TenantProvider.HasTenant) { _error = "Không xác định được tenant."; return; }
         _busy = true;
         try
         {
-            if (forceLlm)
-            {
-                _result = await Parser.ParseAsync(new TenantId(TenantProvider.TenantId), _text, forceLlm: true);
-            }
-            else
-            {
-                var list = await Parser.ParseMultipleAsync(new TenantId(TenantProvider.TenantId), _text);
-                if (list.Count > 1) { _multi = list.ToList(); }
-                else { _result = list.Count == 1 ? list[0] : null; }
-            }
+            // G4: luôn qua ParseMultipleAsync — AI phân tích (force) cũng ra multi như Phân tích
+            var list = await Parser.ParseMultipleAsync(new TenantId(TenantProvider.TenantId), _text, forceLlm: forceLlm);
+            if (list.Count > 1) { _multi = list.ToList(); }
+            else { _result = list.Count == 1 ? list[0] : null; }
         }
         catch (Exception ex)
         {
@@ -178,19 +181,29 @@
         }
     }
 
-    /// <summary>G4 fix: parent gọi sau khi LƯU thành công 1 phiếu — xoá phiếu vừa áp khỏi list
-    /// (giữ các phiếu còn lại hiển thị, không bị @key reset). List rỗng → parent reset bar.</summary>
+    /// <summary>G4 fix: parent gọi sau khi LƯU thành công 1 phiếu — GIỮ nguyên block trích xuất,
+    /// đánh dấu phiếu vừa áp là "✓ Đã lưu" (nút áp bị khoá). Block reset khi user parse câu mới.</summary>
     public void NotifySaved()
     {
         if (_lastAppliedIndex >= 0 && _lastAppliedIndex < _multi.Count)
         {
-            _multi.RemoveAt(_lastAppliedIndex);
+            _savedIndices.Add(_lastAppliedIndex);
         }
         _lastAppliedIndex = -1;
         _result = null;
     }
 
-    public bool HasPendingMulti => _multi.Count > 0;
+    public bool HasPendingMulti
+    {
+        get
+        {
+            for (int i = 0; i < _multi.Count; i++)
+            {
+                if (!_savedIndices.Contains(i)) return true;
+            }
+            return false;
+        }
+    }
 
     /// <summary>Câu gốc đang trong ô nhập (dùng cho route link cross-page — giữ nguyên multi).</summary>
     public string CurrentText => _text;
@@ -201,6 +214,7 @@
         _text = text;
         _result = null;
         _multi = list;
+        _savedIndices.Clear();
         _lastAppliedIndex = -1;
         StateHasChanged();
     }
@@ -218,6 +232,7 @@
         _text = string.Empty;
         _result = null;
         _multi = new();
+        _savedIndices.Clear();
         _lastAppliedIndex = -1;
         await StartMicAsync();
     }

@@ -190,9 +190,9 @@ public sealed class LlmEnhanceVoucherTextParseService(
 
     /// <summary>G4: 1 câu → 1-N phiếu. Chỉ gọi LLM multi khi câu có marker nhiều nghiệp vụ
     /// + flag ON + key; ngược lại trả [ParseAsync] (hành vi cũ). Max 3 phiếu, validate từng phiếu.</summary>
-    public async Task<IReadOnlyList<ParsedVoucher>> ParseMultipleAsync(TenantId tenantId, string text, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ParsedVoucher>> ParseMultipleAsync(TenantId tenantId, string text, CancellationToken ct = default, bool forceLlm = false)
     {
-        var single = await ParseAsync(tenantId, text, ct);
+        var single = await ParseAsync(tenantId, text, ct, forceLlm);
         if (string.IsNullOrWhiteSpace(options.Value.ApiKey)
             || !await featureSettings.IsEnabledAsync(tenantId.Value, LlmEnabledFlag, ct)
             || !LooksMulti(text))
