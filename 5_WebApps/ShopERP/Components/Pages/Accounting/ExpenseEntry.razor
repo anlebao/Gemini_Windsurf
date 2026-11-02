@@ -70,6 +70,15 @@
         </div>
     }
 
+    <VanAnModal IsOpen="@_showSuccessModal" Title="✅ Đã lưu thành công" Closable="true" OnClose="CloseSuccessModal">
+        <div class="text-center py-3" data-testid="success-modal">
+            <div class="display-4 text-success mb-2">✓</div>
+            <p class="mb-1 fw-bold">@(_savedDto?.VoucherNumber != null ? $"Số phiếu: {_savedDto.VoucherNumber}" : "Đã lưu phiếu thành công!")</p>
+            <p class="text-muted small mb-3">Form đã được làm sạch — sẵn sàng nhập phiếu tiếp theo.</p>
+            <VanAButton Variant="primary" OnClick="CloseSuccessModal" data-testid="success-modal-continue">Nhập tiếp</VanAButton>
+        </div>
+    </VanAnModal>
+
     <VanAnModal IsOpen="@_showPrintModal" Title="Phiếu Chi (Mẫu số 02 - TT)" Closable="true" OnClose="ClosePrintModal">
         @if (_lastVoucher != null)
         {
@@ -116,7 +125,7 @@
         </div>
         @if (_aiMode)
         {
-            <SmartEntryBar Placeholder="chi tiền thuê mặt bằng 15 triệu hôm qua"
+            <SmartEntryBar @key="_smartEntryVersion" Placeholder="chi tiền thuê mặt bằng 15 triệu hôm qua"
                            OnParsed="ApplyParse" />
         }
         @if (_smartRouteUrl != null)
@@ -321,6 +330,8 @@
 @code {
     private List<VanAn.UI.Platform.Components.Composite.FormField> expenseFields = new();
     private bool showSuccess = false;
+    private bool _showSuccessModal;
+    private int _smartEntryVersion;
     private bool showError = false;
     private string errorMessage = string.Empty;
     private bool _isSubmitting = false;
@@ -415,11 +426,21 @@
         }
         // Task G2 fix ("Áp vào form"): Blazor drop DOM sync qua component boundary DynamicFormFields
         // → push thẳng DOM qua JS (amount format vi-VN). AWAIT để đảm bảo interop được gửi.
-        await JSRuntime.InvokeVoidAsync("vananSetElementValue", "amount", formData.Values.GetValueOrDefault("amount") ?? "");
-        await JSRuntime.InvokeVoidAsync("vananSetElementValue", "date", formData.Values.GetValueOrDefault("date") ?? "");
-        await JSRuntime.InvokeVoidAsync("vananSetElementValue", "description", formData.Values.GetValueOrDefault("description") ?? "");
+        await SafeSetElement("amount", formData.Values.GetValueOrDefault("amount") ?? "");
+        await SafeSetElement("date", formData.Values.GetValueOrDefault("date") ?? "");
+        await SafeSetElement("description", formData.Values.GetValueOrDefault("description") ?? "");
         if (IsCongNoType && !string.IsNullOrWhiteSpace(doiTuong)) _ = LoadOpenKhoanAsync();
-        _ = RefreshPreviewAsync();
+        await RefreshPreviewAsync();
+        // G3: push lần 2 SAU render cuối — deterministic (render Blazor không còn đè thứ tự DOM).
+        await SafeSetElement("amount", formData.Values.GetValueOrDefault("amount") ?? "");
+        await SafeSetElement("date", formData.Values.GetValueOrDefault("date") ?? "");
+        await SafeSetElement("description", formData.Values.GetValueOrDefault("description") ?? "");
+    }
+
+    private async Task SafeSetElement(string id, string value)
+    {
+        try { await JSRuntime.InvokeVoidAsync("vananSetElementValue", id, value); }
+        catch (Exception ex) { Logger.LogWarning(ex, "vananSetElementValue failed for {Id}", id); }
     }
 
     private async Task LoadCoaOptionsAsync()
@@ -474,6 +495,7 @@
 
     private void OpenPrintModal() => _showPrintModal = true;
     private void ClosePrintModal() => _showPrintModal = false;
+    private void CloseSuccessModal() => _showSuccessModal = false;
 
     private void HandleFieldChanged(PlatformComposite.FormField field)
     {
@@ -1260,6 +1282,8 @@
         showSuccess = true;
         showError = false;
         errorMessage = string.Empty;
+        _showSuccessModal = true;   // G3: modal thành công trực quan
+        _smartEntryVersion++;       // G3: reset SmartEntryBar (xoá text/kết quả cũ)
         Logger.LogInformation("Setting success state: showSuccess={showSuccess}, showError={showError}", showSuccess, showError);
         StateHasChanged();
         Logger.LogInformation("StateHasChanged called");

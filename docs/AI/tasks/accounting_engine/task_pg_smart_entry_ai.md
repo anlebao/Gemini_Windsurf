@@ -150,6 +150,25 @@ Hậu quả: tenant HKD/HTX đôi khi load trang với options **DN mặc địn
 - [ ] RV production: tenant HKD (vd Cafe Tân Quy) load /accounting/revenue → regime đúng; deep-link parse + prefill vẫn OK
 - [ ] guard + build + tests PASS
 
+## G3 (2026-11-02) — FIX AMOUNT RACE SAU APPLY + SUCCESS MODAL + FORM CLEAR
+
+> Status: ✅ Root cause ghi trước → implement trong session.
+
+### 1. "Áp vào form" amount vẫn trống (cả 2 form) — flaky ~50%, đã reproduce production
+**Root cause:** JS push `vananSetElementValue(amount)` chạy lần 1 TRƯỚC khi `RefreshPreviewAsync` render lần cuối. Render cuối (Blazor diff) có thể ghi `value="2000000"` (raw model) hoặc đổi thứ tự DOM → đè/trả về rỗng. Probe lifecycle: manual push SAU render luôn dính (2.000.000), push trong apply lúc dính lúc không. date/description không bị vì không qua bước format currency (ít đổi thứ tự hơn).
+**Solution:** ApplyParse `await RefreshPreviewAsync()` rồi **push lần 2** (sau render cuối) — deterministic, không phụ thuộc thứ tự. Mỗi push bọc try/catch (không fatal nếu hàm JS thiếu — circuit cũ).
+
+### 2.1 Thông báo thành công trực quan — modal dialog
+**Spec:** sau lưu thành công → mở `VanAnModal` "✅ Đã lưu thành công — Số phiếu: {VoucherNumber}" + nút **"Nhập tiếp"** (đóng modal). Giữ VanAAlert success hiện có.
+
+### 2.2 Clear màn hình sẵn sàng nhập tiếp
+**Spec:** form đã reset (formData mới + fields default — code hiện có). Bổ sung: `@key="_smartEntryVersion"` trên SmartEntryBar → tăng key sau lưu → bar reset (xoá text/kết quả cũ, tránh "Áp vào form" lại kết quả cũ). Giữ AI mode ON.
+
+### Acceptance
+- [ ] Apply amount dính 100% (chạy lại test 1 full-matrix ≥3 lần liên tiếp)
+- [ ] Lưu xong → modal success hiện + form sạch + bar reset
+- [ ] guard + build + tests PASS · RV production
+
 ## 8. DECISIONS (chờ PO chốt)
 
 | # | Câu hỏi | Đề xuất |
