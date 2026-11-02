@@ -65,6 +65,30 @@ public sealed class LlmEnhanceVoucherTextParseService(
         ["transferin"] = VoucherIntent.TransferIn,
         ["transfer-in"] = VoucherIntent.TransferIn,
         ["purchase"] = VoucherIntent.Purchase,
+        // G4: alias tiếng Việt — LLM thật hay trả nhãn tiếng Việt thay vì enum
+        ["doanh thu"] = VoucherIntent.Revenue,
+        ["thu tiền"] = VoucherIntent.Revenue,
+        ["thu"] = VoucherIntent.Revenue,
+        ["bán hàng"] = VoucherIntent.Revenue,
+        ["bán chịu"] = VoucherIntent.Receivable,
+        ["thu nợ"] = VoucherIntent.ReceivablePayment,
+        ["khách trả nợ"] = VoucherIntent.ReceivablePayment,
+        ["đặt cọc"] = VoucherIntent.Advance,
+        ["ứng trước"] = VoucherIntent.Advance,
+        ["góp vốn"] = VoucherIntent.Capital,
+        ["chi phí"] = VoucherIntent.Expense,
+        ["chi"] = VoucherIntent.Expense,
+        ["trả tiền"] = VoucherIntent.Expense,
+        ["mua chịu"] = VoucherIntent.Payable,
+        ["trả nợ nhà cung cấp"] = VoucherIntent.PayablePayment,
+        ["trả người bán"] = VoucherIntent.PayablePayment,
+        ["chuyển tiền quỹ sang ngân hàng"] = VoucherIntent.TransferIn,
+        ["gửi ngân hàng"] = VoucherIntent.TransferIn,
+        ["nộp vào ngân hàng"] = VoucherIntent.TransferIn,
+        ["chuyển tiền ngân hàng về quỹ"] = VoucherIntent.TransferOut,
+        ["rút về quỹ"] = VoucherIntent.TransferOut,
+        ["nhập hàng"] = VoucherIntent.Purchase,
+        ["mua hàng hóa"] = VoucherIntent.Purchase,
         [""] = VoucherIntent.Unknown,
         ["null"] = VoucherIntent.Unknown,
     };
@@ -179,13 +203,23 @@ public sealed class LlmEnhanceVoucherTextParseService(
         try
         {
             var llm = await CallGeminiMultiAsync(text, ct);
-            if (llm is null or { Count: 0 }) return [single];
+            if (llm is null or { Count: 0 })
+            {
+                logger.LogWarning("SmartEntry LLM multi trả rỗng — fallback single. Text: {Text}", Truncate(text, 120));
+                return [single];
+            }
             var vouchers = llm
                 .Where(ValidateMultiVoucher)
                 .Select(v => SingleToVoucher(single, v))
                 .Take(3)
                 .ToList();
-            return vouchers.Count == 0 ? [single] : vouchers;
+            if (vouchers.Count == 0)
+            {
+                logger.LogWarning("SmartEntry LLM multi: {Count} phiếu nhưng 0 hợp lệ — fallback single. Intents: {Intents}",
+                    llm.Count, string.Join(",", llm.Select(v => v.Intent ?? "?")));
+                return [single];
+            }
+            return vouchers;
         }
         catch (Exception ex)
         {
@@ -194,19 +228,38 @@ public sealed class LlmEnhanceVoucherTextParseService(
         }
     }
 
+    private static string Truncate(string s, int max)
+        => s.Length <= max ? s : s[..max] + "...";
+
     private static bool LooksMulti(string text)
         => MultiMarkers.Any(m => text.Contains(m, StringComparison.OrdinalIgnoreCase))
            && Regex.Matches(text.ToLowerInvariant(), @"\d[\d.,]*\s*(nghìn|ngàn|triệu|tỷ|tỉ|củ|tr|k)?", RegexOptions.None).Count >= 2;
 
     private static bool ValidateMultiVoucher(MultiVoucherDto v)
-        => IntentMap.TryGetValue(v.Intent ?? string.Empty, out _)
+        => ResolveIntent(v.Intent) != VoucherIntent.Unknown
            && v.Amount is > 0m and <= MaxAmount
            && (v.Date == null || (TryParseLlmDate(v.Date, out var d) && (d - DateTime.Today).TotalDays <= 0));
 
+    /// <summary>G4: resolve intent — exact key trước, rồi Contains theo alias (LLM thật hay trả
+    /// nhãn tiếng Việt "thu bán hàng"/"chi phí điện"). Alias ngắn (<4 ký tự) bỏ qua trong Contains
+    /// để tránh "thu" khớp nhầm "thuế", "chi" khớp nhầm "chiết khấu".</summary>
+    private static VoucherIntent ResolveIntent(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return VoucherIntent.Unknown;
+        var key = raw.Trim();
+        if (IntentMap.TryGetValue(key, out var exact)) return exact;
+        foreach (var (alias, intent) in IntentMap.OrderByDescending(kv => kv.Key.Length))
+        {
+            if (alias.Length < 4) continue;
+            if (key.Contains(alias, StringComparison.OrdinalIgnoreCase)) return intent;
+        }
+        return VoucherIntent.Unknown;
+    }
+
     private ParsedVoucher SingleToVoucher(ParsedVoucher baseResult, MultiVoucherDto v)
     {
-        IntentMap.TryGetValue(v.Intent ?? string.Empty, out var intent);
-        intent = intent == VoucherIntent.Unknown ? baseResult.Intent : intent;
+        var intent = ResolveIntent(v.Intent);
+        if (intent == VoucherIntent.Unknown) intent = baseResult.Intent;
         var missing = new List<string>();
         if (v.Amount == null) missing.Add("amount");
         if (intent == VoucherIntent.Unknown) missing.Add("intent");

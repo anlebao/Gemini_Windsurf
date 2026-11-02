@@ -301,4 +301,19 @@ public class LlmEnhanceVoucherTextParseServiceTests
         var list = await svc.ParseMultipleAsync(Tenant, "thu 5 triệu và chi 3 triệu tiền điện");
         Assert.Single(list);
     }
+
+    [Fact]
+    public async Task Multi_VietnameseIntents_Resolved()
+    {
+        // LLM thật hay trả intent tiếng Việt — alias phải resolve đúng
+        var payload = GeminiMultiJson("{\"vouchers\":[" +
+            "{\"intent\":\"thu bán hàng\",\"amount\":5000000,\"date\":null,\"paymentMethod\":\"cash\",\"doiTuong\":null,\"category\":null,\"fromAccountCode\":null,\"toAccountCode\":null,\"feeAmount\":null,\"description\":\"thu bán hàng 5 triệu\"}," +
+            "{\"intent\":\"chi phí tiền điện\",\"amount\":3000000,\"date\":null,\"paymentMethod\":\"cash\",\"doiTuong\":null,\"category\":\"utilities\",\"fromAccountCode\":null,\"toAccountCode\":null,\"feeAmount\":null,\"description\":\"chi 3 triệu tiền điện\"}]}");
+        var (svc, handler) = Build(payload: payload);
+        var list = await svc.ParseMultipleAsync(Tenant, "thu bán hàng 5 triệu, chi 3 triệu thanh toán tiền điện");
+        Assert.Equal(2, list.Count);
+        Assert.Equal(VoucherIntent.Revenue, list[0].Intent);
+        Assert.Equal(VoucherIntent.Expense, list[1].Intent);
+        Assert.Equal("utilities", list[1].Category);
+    }
 }
