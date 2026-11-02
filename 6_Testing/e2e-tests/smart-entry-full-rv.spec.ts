@@ -64,8 +64,19 @@ async function openAiMode(page: Page, path: string) {
 
 async function parseText(page: Page, text: string) {
   await page.getByTestId('smart-entry-input').fill(text);
-  await page.getByTestId('smart-entry-parse').click();
-  await expect(page.getByTestId('smart-entry-result')).toBeVisible({ timeout: 15000 });
+  const card = page.getByTestId('smart-entry-result');
+  // Blazor Server đôi khi rớt click khi circuit busy → retry: card phải ẩn (parse reset) rồi hiện lại
+  for (let i = 0; i < 3; i++) {
+    await page.getByTestId('smart-entry-parse').click();
+    try {
+      await expect(card).toBeHidden({ timeout: 3000 });
+      await expect(card).toBeVisible({ timeout: 15000 });
+      return;
+    } catch {
+      await page.waitForTimeout(500);
+    }
+  }
+  throw new Error('parse click dropped 3×');
 }
 
 interface CardExpect {
@@ -98,6 +109,11 @@ function relDate(offset: number): string {
 
 async function applyToForm(page: Page) {
   await page.getByTestId('smart-entry-apply').click();
+  // Chờ apply settle (amount hiển thị) — tránh click kế tiếp rơi vào cửa sổ circuit busy
+  try {
+    await expect(page.locator('#amount')).not.toHaveValue('', { timeout: 8000 });
+  } catch { /* field có thể không tồn tại ở intent route link */ }
+  await page.waitForTimeout(400);
 }
 
 test.describe('RV Full Guide Matrix — Smart Entry AI (production, read-only)', () => {

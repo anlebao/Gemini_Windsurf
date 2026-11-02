@@ -112,6 +112,20 @@
             var el = document.getElementById(id);
             if (el) el.setAttribute('data-blazor-interactive', 'true');
         };
+        // Task G3: gộp nhiều field vào 1 interop call (rút ngắn cửa sổ circuit busy của Blazor Server)
+        // — set từng field + format currency nếu đã attach formatter.
+        window.vananSetFormValues = function (fields) {
+            if (!fields) return;
+            for (var id in fields) {
+                if (!Object.prototype.hasOwnProperty.call(fields, id)) continue;
+                var el = document.getElementById(id);
+                if (!el) continue;
+                el.value = (fields[id] == null ? '' : String(fields[id]));
+                if (el.dataset.vananCurrencyAttached) {
+                    window.vananFormatCurrencyInput(id);
+                }
+            }
+        };
         // Wave 8: Download a base64-encoded file (DOCX/XLSX export from HKD book page).
         window.vanAn = window.vanAn || {};
         window.vanAn.downloadFile = function (base64, mimeType, fileName) {

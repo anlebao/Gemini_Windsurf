@@ -347,25 +347,23 @@
         {
             if (formData.Values.TryGetValue(f.Id, out var v)) f.Value = v;
         }
-        // Task G2 fix ("Áp vào form"): Blazor drop DOM sync qua component boundary DynamicFormFields
-        // → push thẳng DOM qua JS (amount format vi-VN). AWAIT để đảm bảo interop được gửi
-        // (fire-and-forget từng bị rớt không đều).
-        await SafeSetElement("amount", formData.Values.GetValueOrDefault("amount") ?? "");
-        await SafeSetElement("date", formData.Values.GetValueOrDefault("date") ?? "");
-        await SafeSetElement("description", formData.Values.GetValueOrDefault("description") ?? "");
+        // Task G2/G3 fix ("Áp vào form"): Blazor drop DOM sync qua component boundary DynamicFormFields
+        // → push thẳng DOM qua JS. G3: gộp 1 interop SAU render cuối (preview) — deterministic,
+        // rút ngắn cửa sổ circuit busy (Blazor có thể rớt click kế tiếp khi đang xử lý interop).
         if (IsCongNoType && !string.IsNullOrWhiteSpace(doiTuong)) _ = LoadOpenKhoanAsync();
         await RefreshPreviewAsync();
-        // G3: push lần 2 SAU render cuối — deterministic (render Blazor không còn đè thứ tự DOM;
-        // probe: manual push sau render luôn dính, push trước render flaky ~50%).
-        await SafeSetElement("amount", formData.Values.GetValueOrDefault("amount") ?? "");
-        await SafeSetElement("date", formData.Values.GetValueOrDefault("date") ?? "");
-        await SafeSetElement("description", formData.Values.GetValueOrDefault("description") ?? "");
+        await SafeSetFormValues(new Dictionary<string, string>
+        {
+            ["amount"] = formData.Values.GetValueOrDefault("amount") ?? "",
+            ["date"] = formData.Values.GetValueOrDefault("date") ?? "",
+            ["description"] = formData.Values.GetValueOrDefault("description") ?? "",
+        });
     }
 
-    private async Task SafeSetElement(string id, string value)
+    private async Task SafeSetFormValues(Dictionary<string, string> fields)
     {
-        try { await JSRuntime.InvokeVoidAsync("vananSetElementValue", id, value); }
-        catch (Exception ex) { Logger.LogWarning(ex, "vananSetElementValue failed for {Id}", id); }
+        try { await JSRuntime.InvokeVoidAsync("vananSetFormValues", fields); }
+        catch (Exception ex) { Logger.LogWarning(ex, "vananSetFormValues failed"); }
     }
 
     private async Task LoadCoaOptionsAsync()
