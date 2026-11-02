@@ -17,7 +17,8 @@ public sealed record VoucherTypeDefinition(
 public sealed record VoucherSubmission(
     TenantId TenantId, VoucherIntent Intent, decimal? Amount, DateTime Date,
     string? Party, string? CashAccount, Guid? AllocatedToEntryId,
-    string? Description = null, string? PaymentMethod = null);
+    string? Description = null, string? PaymentMethod = null, string? Mode = null,
+    decimal? OriginalCost = null, decimal? AccumulatedDepreciation = null, decimal? LiquidationPrice = null);
 
 public sealed record VoucherLine(string AccountNumber, decimal DebitAmount, decimal CreditAmount);
 
@@ -72,6 +73,35 @@ public sealed class AdvancePostingStrategy : IVoucherPostingStrategy
         var lines = s.Intent == VoucherIntent.AdvanceSettle
             ? new[] { new VoucherLine("111", amt, 0), new VoucherLine("141", 0, amt) }
             : new[] { new VoucherLine("141", amt, 0), new VoucherLine(cash, 0, amt) };
+        return Task.FromResult(VoucherPostingResult.Ok(new VoucherEntryResult(cash, lines)));
+    }
+}
+
+/// <summary>L3 — Phiếu Xuất Kho: SX Nợ 154/Có 152 · bán Nợ 632/Có 152 (bình quân gia quyền).</summary>
+public sealed class StockIssuePostingStrategy : IVoucherPostingStrategy
+{
+    public Task<VoucherPostingResult> PostAsync(VoucherSubmission s, CancellationToken ct)
+    {
+        var amt = s.Amount ?? 0m;
+        var debit = s.Mode == "sale" ? "632" : "154";
+        var lines = new[] { new VoucherLine(debit, amt, 0), new VoucherLine("152", 0, amt) };
+        return Task.FromResult(VoucherPostingResult.Ok(new VoucherEntryResult(null, lines)));
+    }
+}
+
+/// <summary>L3 — Thanh Lý TSCĐ: Nợ 214 + Nợ 811(lỗ)/Có 711(lãi) + Nợ {cash} / Có 211.</summary>
+public sealed class AssetDisposalPostingStrategy : IVoucherPostingStrategy
+{
+    public Task<VoucherPostingResult> PostAsync(VoucherSubmission s, CancellationToken ct)
+    {
+        var cost = s.OriginalCost ?? 0m;
+        var dep = s.AccumulatedDepreciation ?? 0m;
+        var price = s.LiquidationPrice ?? s.Amount ?? 0m;
+        var cash = s.CashAccount ?? "111";
+        var diff = cost - dep - price; // >0 lỗ, <0 lãi
+        var lines = new List<VoucherLine> { new("214", dep, 0), new(cash, price, 0), new("211", 0, cost) };
+        if (diff > 0) lines.Add(new VoucherLine("811", diff, 0));
+        else if (diff < 0) lines.Add(new VoucherLine("711", 0, -diff));
         return Task.FromResult(VoucherPostingResult.Ok(new VoucherEntryResult(cash, lines)));
     }
 }

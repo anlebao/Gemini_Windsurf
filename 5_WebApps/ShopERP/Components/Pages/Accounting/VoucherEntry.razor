@@ -47,7 +47,14 @@ else
                     <label class="form-label">@f.Label @if (f.Required) { <span class="text-danger">*</span> }</label>
                     @if (f.Type == VoucherFieldType.Amount)
                     {
-                        <input type="number" class="form-control" data-testid="vf-@f.Id" @bind="_amount" />
+                        <input type="number" class="form-control" data-testid="vf-@f.Id" @bind="_numbers[f.Id]" />
+                    }
+                    else if (f.Type == VoucherFieldType.Select)
+                    {
+                        <select class="form-select" data-testid="vf-@f.Id" @bind="_mode">
+                            <option value="production">Xuất cho sản xuất (154)</option>
+                            <option value="sale">Xuất bán (632)</option>
+                        </select>
                     }
                     else if (f.Type == VoucherFieldType.Date)
                     {
@@ -74,7 +81,8 @@ else
     [SupplyParameterFromQuery] public string? desc { get; set; }
 
     private VoucherTypeDefinition? _def;
-    private decimal? _amount;
+    private readonly Dictionary<string, decimal?> _numbers = new();
+    private string _mode = "production";
     private DateTime _date = DateTime.Today;
     private string _party = string.Empty;
     private string _description = string.Empty;
@@ -97,7 +105,7 @@ else
             {
                 var p = await TextParser.ParseAsync(new TenantId(TenantProvider.TenantId), desc);
                 _intent = p.Intent;
-                if (p.Amount.HasValue) _amount = p.Amount;
+                if (p.Amount.HasValue) _numbers["amount"] = p.Amount;
                 _date = p.Date;
                 if (!string.IsNullOrWhiteSpace(p.DoiTuong)) _party = p.DoiTuong;
                 if (!string.IsNullOrWhiteSpace(p.Description)) _description = p.Description;
@@ -110,7 +118,11 @@ else
     {
         showSuccess = false; showError = false;
         if (!TenantProvider.HasTenant) return;
-        if (_amount is not > 0) { showError = true; errorMessage = "Số tiền phải lớn hơn 0."; return; }
+        if (_numbers.GetValueOrDefault("amount") is not > 0m) { showError = true; errorMessage = "Số tiền phải lớn hơn 0."; return; }
+        if (_def!.Code == "asset-disposal"
+            && (_numbers.GetValueOrDefault("originalCost") is not > 0m
+                || _numbers.GetValueOrDefault("liquidationPrice") is not > 0m))
+        { showError = true; errorMessage = "Nhập đủ nguyên giá và giá thanh lý."; return; }
 
         var strategy = VoucherRegistry.ResolveStrategy(_def!.Code);
         if (strategy == null) { showError = true; errorMessage = "Không tìm thấy strategy cho phiếu này."; return; }
@@ -118,9 +130,15 @@ else
         _saving = true;
         try
         {
-            var sub = new VoucherSubmission(new TenantId(TenantProvider.TenantId), _intent, _amount, _date,
-                string.IsNullOrWhiteSpace(_party) ? null : _party.Trim(), CashAccount: "111", AllocatedToEntryId: null,
-                string.IsNullOrWhiteSpace(_description) ? null : _description.Trim(), PaymentMethod: "cash");
+            var sub = new VoucherSubmission(new TenantId(TenantProvider.TenantId), _intent,
+                _numbers.GetValueOrDefault("amount"), _date,
+                string.IsNullOrWhiteSpace(_party) ? null : _party.Trim(),
+                CashAccount: "111", AllocatedToEntryId: null,
+                string.IsNullOrWhiteSpace(_description) ? null : _description.Trim(), PaymentMethod: "cash",
+                Mode: _mode,
+                OriginalCost: _numbers.GetValueOrDefault("originalCost"),
+                AccumulatedDepreciation: _numbers.GetValueOrDefault("accumulatedDepreciation"),
+                LiquidationPrice: _numbers.GetValueOrDefault("liquidationPrice"));
             var posting = await strategy.PostAsync(sub, CancellationToken.None);
             if (posting.Entry == null)
             {
@@ -139,7 +157,7 @@ else
 
             successMessage = $"Đã lưu {_def.Name} — Số phiếu: {result.VoucherNumber} (Nợ {posting.Entry.Lines.First(l => l.DebitAmount > 0).AccountNumber}/Có {posting.Entry.Lines.First(l => l.CreditAmount > 0).AccountNumber}).";
             showSuccess = true;
-            _amount = null; _party = string.Empty; _description = string.Empty; _date = DateTime.Today;
+            _numbers.Clear(); _mode = "production"; _party = string.Empty; _description = string.Empty; _date = DateTime.Today;
         }
         catch (Exception ex)
         {

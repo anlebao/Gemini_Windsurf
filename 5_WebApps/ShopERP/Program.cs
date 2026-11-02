@@ -259,6 +259,27 @@ namespace VanAn.ShopERP
                         "advance"),
                     new CoreHub.Services.Vouchers.AdvancePostingStrategy(),
                     CoreHub.Services.VoucherIntent.AdvanceOut, CoreHub.Services.VoucherIntent.AdvanceSettle);
+                r.Register(
+                    new CoreHub.Services.Vouchers.VoucherTypeDefinition("stock-issue", "Phiếu Xuất Kho",
+                        "/vouchers/stock-issue", "02-VT",
+                        [new CoreHub.Services.Vouchers.VoucherField("amount", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Giá trị xuất kho", true, "amount"),
+                         new CoreHub.Services.Vouchers.VoucherField("date", CoreHub.Services.Vouchers.VoucherFieldType.Date, "Ngày", true, "date"),
+                         new CoreHub.Services.Vouchers.VoucherField("mode", CoreHub.Services.Vouchers.VoucherFieldType.Select, "Mục đích", true)],
+                        "stock-issue"),
+                    new CoreHub.Services.Vouchers.StockIssuePostingStrategy(),
+                    CoreHub.Services.VoucherIntent.StockOut);
+                r.Register(
+                    new CoreHub.Services.Vouchers.VoucherTypeDefinition("asset-disposal", "Thanh Lý TSCĐ",
+                        "/vouchers/asset-disposal", "01-TSCĐ",
+                        [new CoreHub.Services.Vouchers.VoucherField("assetName", CoreHub.Services.Vouchers.VoucherFieldType.Text, "Tên TSCĐ", true),
+                         new CoreHub.Services.Vouchers.VoucherField("originalCost", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Nguyên giá 211", true),
+                         new CoreHub.Services.Vouchers.VoucherField("accumulatedDepreciation", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Hao mòn 214", true),
+                         new CoreHub.Services.Vouchers.VoucherField("liquidationPrice", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Giá thanh lý", true),
+                         new CoreHub.Services.Vouchers.VoucherField("date", CoreHub.Services.Vouchers.VoucherFieldType.Date, "Ngày", true, "date"),
+                         new CoreHub.Services.Vouchers.VoucherField("party", CoreHub.Services.Vouchers.VoucherFieldType.Party, "Người mua (nếu có)", false, "doiTuong")],
+                        "asset-disposal"),
+                    new CoreHub.Services.Vouchers.AssetDisposalPostingStrategy(),
+                    CoreHub.Services.VoucherIntent.AssetDisposal);
                 return r;
             });
             _ = builder.Services.AddScoped<CoreHub.Services.IVoucherTextParseService>(sp =>

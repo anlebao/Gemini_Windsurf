@@ -21,7 +21,9 @@ public enum VoucherIntent
     TransferIn,         // quỹ → ngân hàng (nộp quỹ vào NH — CK02)
     Purchase,           // nhập hàng/mua hàng hóa → hint PurchaseReceipt
     AdvanceOut,         // Task PH/G1: tạm ứng tiền cho nhân viên/đối tượng (141)
-    AdvanceSettle       // Task PH/G1: hoàn ứng / thanh toán tạm ứng (giảm 141)
+    AdvanceSettle,       // Task PH/G1: hoàn ứng / thanh toán tạm ứng (giảm 141)
+    StockOut,           // Task PH/G2: xuất kho (SX 154 hoặc bán 632 — Mode)
+    AssetDisposal       // Task PH/G2: thanh lý TSCĐ (211/214/711/811)
 }
 
 /// <summary>Kết quả trích xuất từ câu mô tả tự nhiên — prefill form, KHÔNG auto-save.</summary>
@@ -262,6 +264,12 @@ public sealed class VoucherTextParseService(
         if (norm.Contains("tạm ứng") && !norm.Contains("lương")
             && (norm.Contains(" cho ") || ObjectMarkers.Any(m => norm.Contains(m + " "))))
             return VoucherIntent.AdvanceOut;
+
+        // Task PH/G2 — xuất kho / thanh lý TSCĐ (trước Revenue — "thanh lý" từng rơi vào thu).
+        if (norm.Contains("xuất kho") || norm.Contains("xuất vật tư"))
+            return VoucherIntent.StockOut;
+        if (norm.Contains("thanh lý tài sản cố định") || norm.Contains("thanh lý tscđ") || norm.Contains("nhượng bán tài sản cố định"))
+            return VoucherIntent.AssetDisposal;
 
         // Chi — keyword trước thu để "chi trả" không rơi vào thu.
         if (norm.Contains("chi ") || norm.StartsWith("chi") || norm.Contains("trả tiền")

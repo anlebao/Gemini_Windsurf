@@ -438,6 +438,12 @@
             case CoreAccountingService.VoucherIntent.AdvanceOut or CoreAccountingService.VoucherIntent.AdvanceSettle:
                 _smartRouteUrl = "/vouchers/advance?desc=" + Uri.EscapeDataString(_smartEntryBar?.CurrentText ?? p.Description);
                 _smartRouteLabel = "Phiếu Tạm Ứng"; return;
+            case CoreAccountingService.VoucherIntent.StockOut:
+                _smartRouteUrl = "/vouchers/stock-issue?desc=" + Uri.EscapeDataString(_smartEntryBar?.CurrentText ?? p.Description);
+                _smartRouteLabel = "Phiếu Xuất Kho"; return;
+            case CoreAccountingService.VoucherIntent.AssetDisposal:
+                _smartRouteUrl = "/vouchers/asset-disposal?desc=" + Uri.EscapeDataString(_smartEntryBar?.CurrentText ?? p.Description);
+                _smartRouteLabel = "Thanh Lý TSCĐ"; return;
             case CoreAccountingService.VoucherIntent.Revenue or CoreAccountingService.VoucherIntent.Receivable or CoreAccountingService.VoucherIntent.ReceivablePayment
                 or CoreAccountingService.VoucherIntent.Advance or CoreAccountingService.VoucherIntent.Capital:
                 _smartRouteUrl = "/accounting/revenue?desc=" + Uri.EscapeDataString(_smartEntryBar?.CurrentText ?? p.Description);
