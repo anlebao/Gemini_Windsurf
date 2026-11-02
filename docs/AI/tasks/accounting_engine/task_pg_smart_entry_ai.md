@@ -169,6 +169,32 @@ Hậu quả: tenant HKD/HTX đôi khi load trang với options **DN mặc địn
 - [ ] Lưu xong → modal success hiện + form sạch + bar reset
 - [ ] guard + build + tests PASS · RV production
 
+## G4 (2026-11-02) — MULTI-VOUCHER: 1 CÂU → 2-3 PHIẾU (LLM-driven, hướng A)
+
+> Status: ✅ Thiết kế ghi trước (PO chốt hướng A) → implement.
+
+### Yêu cầu
+Phân tích câu chứa 2-3 nghiệp vụ → 2-3 phiếu chứng từ. VD: "thanh lý TSCĐ được 100 triệu, mang 50 triệu gửi ngân hàng còn lại nhập quỹ tiền mặt" → (1) Phiếu thu 100M · (2) Phiếu chuyển tiền 50M quỹ→NH · (3) Phiếu CTGS ghi giảm TSCĐ (211/214/711/811 — bút toán tay có sẵn).
+
+### Khảo sát base (đã xác minh)
+Parser/`ParsedVoucher`/routing = **1 câu → 1 phiếu** — KHÔNG đáp ứng. Nhưng khối xây dựng sẵn có: multi-amount extraction, 4 loại phiếu + CTGS, LLM structured output + schema validation, guard lưu (dup-check/balance-warn/preview). → **khả thi, mở rộng kiến trúc vừa phải**.
+
+### Thiết kế (A — LLM-driven)
+1. **`IVoucherTextParseService.ParseMultipleAsync`** (mới): trả `IReadOnlyList<ParsedVoucher>`.
+   - Rule-based impl: `[ParseAsync]` (1 phiếu — giữ hành vi cũ khi flag OFF).
+   - LLM impl: nếu câu có **marker nhiều nghiệp vụ** (`,` `và` `sau đó` `rồi` `còn lại` + ≥2 cụm tiền) + flag `SmartEntryLlmEnabled` + key → LLM schema `{"vouchers":[{intent,amount,date,paymentMethod,doiTuong,category,fromAccountCode,toAccountCode,feeAmount,description},...]}` → validate từng phiếu (intent enum · amount>0 ≤1e12 · ngày ±3 · hướng transfer) → **tối đa 3 phiếu**; sai/thiếu → fallback `[ParseAsync]`.
+   - **KHÔNG ép Σ amount = tổng** (VD chứng minh thu 100 + chuyển 50 = 150 ≠ 100 — chuyển tiền là di chuyển nội bộ, đếm trùng). User review thấy đủ thông tin.
+2. **SmartEntryBar**: gọi `ParseMultipleAsync`; >1 phiếu → list card (intent + amount + date + "⚠ Thiếu" per phiếu) + nút **"Áp vào form"** per phiếu → `OnParsed.InvokeAsync(voucher)` — parent `ApplyParse` tái sử dụng (fill form hoặc route link) → **user Lưu từng phiếu, mọi guard giữ nguyên, KHÔNG auto-save**.
+3. Không entity/migration mới.
+
+### Acceptance
+- [ ] "thanh lý TSCĐ được 100 triệu, mang 50 triệu gửi ngân hàng còn lại nhập quỹ" → 2-3 phiếu hiển thị (thu 100M + chuyển 50M [+ CTGS hint]) — user áp từng phiếu
+- [ ] "thu 5 triệu và chi 3 triệu tiền điện" → 2 phiếu (thu + chi)
+- [ ] Câu 1 nghiệp vụ → 1 phiếu như cũ (regression)
+- [ ] LLM trả >3 phiếu / intent sai / amount ≤0 → fallback 1 phiếu, không crash
+- [ ] Flag OFF → hành vi cũ (1 phiếu)
+- [ ] tests (mock LLM multi) + guard + build PASS · RV production
+
 ## 8. DECISIONS (chờ PO chốt)
 
 | # | Câu hỏi | Đề xuất |

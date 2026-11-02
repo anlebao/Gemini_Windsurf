@@ -42,6 +42,10 @@ public interface IVoucherTextParseService
 {
     /// <param name="forceLlm">Task G2: buộc gọi LLM kể cả khi rule-based đã High (nút "AI phân tích").</param>
     Task<ParsedVoucher> ParseAsync(TenantId tenantId, string text, CancellationToken ct = default, bool forceLlm = false);
+
+    /// <summary>Task G4: 1 câu → 1-N phiếu. Rule-based trả [1 phiếu] (giữ hành vi cũ);
+    /// LLM impl tách 2-3 nghiệp vụ khi câu có marker nhiều nghiệp vụ (max 3, có validation).</summary>
+    Task<IReadOnlyList<ParsedVoucher>> ParseMultipleAsync(TenantId tenantId, string text, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -426,6 +430,10 @@ public sealed class VoucherTextParseService(
     }
 
     /// <summary>True nếu raw là MỘT từ số đơn lẻ kiểu chữ ("ba", "tư") — không phải digit, không kèm đơn vị.</summary>
+    /// <summary>G4: rule-based không tách nhiều nghiệp vụ — trả 1 phiếu (hành vi cũ).</summary>
+    public async Task<IReadOnlyList<ParsedVoucher>> ParseMultipleAsync(TenantId tenantId, string text, CancellationToken ct = default)
+        => [await ParseAsync(tenantId, text, ct)];
+
     private static bool IsSingleWordNumber(string raw)
         => !string.IsNullOrWhiteSpace(raw)
            && raw.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length == 1

@@ -25,7 +25,7 @@
     <div class="mt-2 d-flex gap-2 align-items-center flex-wrap">
         @* G2 fix: các nút disabled tới khi circuit interactive (chống Blazor rớt click đầu) *@
         <VanAButton Variant="primary" Size="small" Disabled="@(_busy || !_interactive || string.IsNullOrWhiteSpace(_text))" OnClick="() => ParseAsync()" data-testid="smart-entry-parse">
-            @(_busy ? "Đang phân tích..." : (_result != null ? "Phân tích lại" : "Phân tích"))
+            @(_busy ? "Đang phân tích..." : (_result != null || _multi.Count > 0 ? "Phân tích lại" : "Phân tích"))
         </VanAButton>
         <VanAButton Variant="info" Size="small" Disabled="@(_busy || !_interactive || string.IsNullOrWhiteSpace(_text))" OnClick="() => ParseAsync(forceLlm: true)" data-testid="smart-entry-ai">
             ✨ AI phân tích
@@ -33,7 +33,7 @@
         @if (_micSupported)
         {
             <VanAButton Variant="secondary" Size="small" Disabled="@(_busy || !_interactive || _listening)" OnClick="HandleMicClickAsync" data-testid="smart-entry-mic">
-                @(_listening ? "🔴 Đang nghe..." : (_result != null ? "🔁 Nói lại" : "🎤 Nói"))
+                @(_listening ? "🔴 Đang nghe..." : (_result != null || _multi.Count > 0 ? "🔁 Nói lại" : "🎤 Nói"))
             </VanAButton>
         }
         @if (_error != null)
@@ -41,6 +41,37 @@
             <span class="text-danger small" data-testid="smart-entry-error">@_error</span>
         }
     </div>
+
+    @if (_multi.Count > 1)
+    {
+        <div class="mt-3" data-testid="smart-entry-multi">
+            <div class="fw-bold small mb-1">Phát hiện @_multi.Count nghiệp vụ — tách thành @_multi.Count phiếu:</div>
+            @for (int i = 0; i < _multi.Count; i++)
+            {
+                var v = _multi[i];
+                <div class="border rounded p-2 mb-2 bg-light" data-testid="smart-entry-multi-item">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span class="badge text-bg-secondary">Phiếu @(i + 1)</span>
+                        <span class="badge @ConfidenceBadge(v.Confidence)">@IntentLabel(v.Intent)</span>
+                        @if (v.Amount.HasValue) { <b>@v.Amount.Value.ToString("N0") ₫</b> }
+                        <span class="small text-muted">@v.Date.ToString("dd/MM/yyyy")</span>
+                    </div>
+                    @if (v.DoiTuong != null) { <div class="small">Đối tượng: @v.DoiTuong</div> }
+                    @if (v.MissingFields.Count > 0)
+                    {
+                        <div class="small text-warning-emphasis">⚠ Thiếu: @string.Join(", ", v.MissingFields)</div>
+                    }
+                    @foreach (var w in v.Warnings)
+                    {
+                        <div class="small text-warning-emphasis">⚠ @w</div>
+                    }
+                    <VanAButton Variant="success" Size="small" OnClick="() => ApplyMultiAsync(v)" data-testid="smart-entry-multi-apply">
+                        Áp vào form ↓
+                    </VanAButton>
+                </div>
+            }
+        </div>
+    }
 
     @if (_result != null)
     {
@@ -90,6 +121,7 @@
 
     private string _text = string.Empty;
     private ParsedVoucher? _result;
+    private IReadOnlyList<ParsedVoucher> _multi = Array.Empty<ParsedVoucher>();
     private bool _busy;
     private bool _interactive;
     private bool _micSupported;
@@ -112,12 +144,21 @@
 
     private async Task ParseAsync(bool forceLlm = false)
     {
-        _error = null; _result = null;
+        _error = null; _result = null; _multi = Array.Empty<ParsedVoucher>();
         if (!TenantProvider.HasTenant) { _error = "Không xác định được tenant."; return; }
         _busy = true;
         try
         {
-            _result = await Parser.ParseAsync(new TenantId(TenantProvider.TenantId), _text, forceLlm: forceLlm);
+            if (forceLlm)
+            {
+                _result = await Parser.ParseAsync(new TenantId(TenantProvider.TenantId), _text, forceLlm: true);
+            }
+            else
+            {
+                var list = await Parser.ParseMultipleAsync(new TenantId(TenantProvider.TenantId), _text);
+                if (list.Count > 1) { _multi = list; }
+                else { _result = list.Count == 1 ? list[0] : null; }
+            }
         }
         catch (Exception ex)
         {
@@ -127,10 +168,18 @@
         finally { _busy = false; }
     }
 
+    private async Task ApplyMultiAsync(ParsedVoucher v)
+    {
+        if (v != null && OnParsed.HasDelegate)
+        {
+            await OnParsed.InvokeAsync(v);
+        }
+    }
+
     /// <summary>Mic button: có kết quả rồi → "Nói lại" (xoá + nghe từ đầu); chưa → "Nói" (nghe tiếp).</summary>
     private async Task HandleMicClickAsync()
     {
-        if (_result != null) await SpeakAgainAsync();
+        if (_result != null || _multi.Count > 0) await SpeakAgainAsync();
         else await StartMicAsync();
     }
 
@@ -139,6 +188,7 @@
     {
         _text = string.Empty;
         _result = null;
+        _multi = Array.Empty<ParsedVoucher>();
         await StartMicAsync();
     }
 

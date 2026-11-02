@@ -208,4 +208,97 @@ public class LlmEnhanceVoucherTextParseServiceTests
         Assert.Null(r.ToAccountCode);
         Assert.Equal(1, handler.Calls);
     }
+
+    // ---- Task G4: multi-voucher (1 câu → 2-3 phiếu) ----
+
+    private static string GeminiMultiJson(string inner) =>
+        $"{{\"candidates\":[{{\"content\":{{\"parts\":[{{\"text\":{System.Text.Json.JsonSerializer.Serialize(inner)}}}]}}}}]}}";
+
+    [Fact]
+    public async Task Multi_TwoVouchers_FromLlm()
+    {
+        var payload = GeminiMultiJson("{\"vouchers\":[" +
+            "{\"intent\":\"Revenue\",\"amount\":5000000,\"date\":null,\"paymentMethod\":\"cash\",\"doiTuong\":null,\"category\":null,\"fromAccountCode\":null,\"toAccountCode\":null,\"feeAmount\":null,\"description\":\"thu tiền bán hàng 5 triệu\"}," +
+            "{\"intent\":\"Expense\",\"amount\":3000000,\"date\":null,\"paymentMethod\":\"cash\",\"doiTuong\":null,\"category\":\"utilities\",\"fromAccountCode\":null,\"toAccountCode\":null,\"feeAmount\":null,\"description\":\"chi 3 triệu tiền điện\"}]}");
+        var (svc, handler) = Build(payload: payload);
+        var list = await svc.ParseMultipleAsync(Tenant, "thu 5 triệu và chi 3 triệu tiền điện");
+        Assert.Equal(2, list.Count);
+        Assert.Equal(VoucherIntent.Revenue, list[0].Intent);
+        Assert.Equal(5_000_000m, list[0].Amount);
+        Assert.Equal(VoucherIntent.Expense, list[1].Intent);
+        Assert.Equal("utilities", list[1].Category);
+        Assert.Contains(list[0].Warnings, w => w.Contains("Đề xuất từ AI"));
+        Assert.Equal(1, handler.Calls);
+    }
+
+    [Fact]
+    public async Task Multi_TscdExample_SplitsRevenueAndTransfer()
+    {
+        // "thanh lý TSCĐ được 100 triệu, mang 50 triệu gửi ngân hàng còn lại nhập quỹ"
+        var payload = GeminiMultiJson("{\"vouchers\":[" +
+            "{\"intent\":\"Revenue\",\"amount\":100000000,\"date\":null,\"paymentMethod\":null,\"doiTuong\":null,\"category\":null,\"fromAccountCode\":null,\"toAccountCode\":null,\"feeAmount\":null,\"description\":\"thanh lý tài sản cố định\"}," +
+            "{\"intent\":\"TransferIn\",\"amount\":50000000,\"date\":null,\"paymentMethod\":null,\"doiTuong\":null,\"category\":null,\"fromAccountCode\":\"111\",\"toAccountCode\":\"112\",\"feeAmount\":null,\"description\":\"gửi 50 triệu vào ngân hàng\"}]}");
+        var (svc, handler) = Build(payload: payload);
+        var list = await svc.ParseMultipleAsync(Tenant, "thanh lý tài sản cố định được 100 triệu, mang 50 triệu gửi ngân hàng còn lại nhập quỹ tiền mặt");
+        Assert.Equal(2, list.Count);
+        Assert.Equal(VoucherIntent.Revenue, list[0].Intent);
+        Assert.Equal(100_000_000m, list[0].Amount);
+        Assert.Equal(VoucherIntent.TransferIn, list[1].Intent);
+        Assert.Equal(50_000_000m, list[1].Amount);
+        Assert.Equal("111", list[1].FromAccountCode);
+        Assert.Equal("112", list[1].ToAccountCode);
+    }
+
+    [Fact]
+    public async Task Multi_InvalidVouchers_FilteredToValid()
+    {
+        // intent sai + amount âm → lọc bỏ; còn 1 hợp lệ
+        var payload = GeminiMultiJson("{\"vouchers\":[" +
+            "{\"intent\":\"BOGUS\",\"amount\":-5,\"date\":null,\"paymentMethod\":null,\"doiTuong\":null,\"category\":null,\"fromAccountCode\":null,\"toAccountCode\":null,\"feeAmount\":null,\"description\":\"x\"}," +
+            "{\"intent\":\"Expense\",\"amount\":3000000,\"date\":null,\"paymentMethod\":null,\"doiTuong\":null,\"category\":null,\"fromAccountCode\":null,\"toAccountCode\":null,\"feeAmount\":null,\"description\":\"chi 3 triệu\"}]}");
+        var (svc, handler) = Build(payload: payload);
+        var list = await svc.ParseMultipleAsync(Tenant, "chi phí 3 triệu và thu 5 triệu");
+        Assert.Single(list);
+        Assert.Equal(VoucherIntent.Expense, list[0].Intent);
+        Assert.Equal(3_000_000m, list[0].Amount);
+    }
+
+    [Fact]
+    public async Task Multi_MoreThan3_CappedAt3()
+    {
+        var payload = GeminiMultiJson("{\"vouchers\":[" +
+            "{\"intent\":\"Expense\",\"amount\":1000000,\"date\":null,\"paymentMethod\":null,\"doiTuong\":null,\"category\":null,\"fromAccountCode\":null,\"toAccountCode\":null,\"feeAmount\":null,\"description\":\"1\"}," +
+            "{\"intent\":\"Expense\",\"amount\":2000000,\"date\":null,\"paymentMethod\":null,\"doiTuong\":null,\"category\":null,\"fromAccountCode\":null,\"toAccountCode\":null,\"feeAmount\":null,\"description\":\"2\"}," +
+            "{\"intent\":\"Expense\",\"amount\":3000000,\"date\":null,\"paymentMethod\":null,\"doiTuong\":null,\"category\":null,\"fromAccountCode\":null,\"toAccountCode\":null,\"feeAmount\":null,\"description\":\"3\"}," +
+            "{\"intent\":\"Revenue\",\"amount\":4000000,\"date\":null,\"paymentMethod\":null,\"doiTuong\":null,\"category\":null,\"fromAccountCode\":null,\"toAccountCode\":null,\"feeAmount\":null,\"description\":\"4\"}]}");
+        var (svc, handler) = Build(payload: payload);
+        var list = await svc.ParseMultipleAsync(Tenant, "thu 4 triệu và chi 1 triệu, chi 2 triệu, chi 3 triệu");
+        Assert.Equal(3, list.Count);
+    }
+
+    [Fact]
+    public async Task Multi_FlagOff_ReturnsSingle()
+    {
+        var (svc, handler) = Build(flagEnabled: false);
+        var list = await svc.ParseMultipleAsync(Tenant, "thu 5 triệu và chi 3 triệu tiền điện");
+        Assert.Single(list);
+        Assert.Equal(0, handler.Calls);
+    }
+
+    [Fact]
+    public async Task Multi_NotMultiLooking_ReturnsSingle()
+    {
+        var (svc, handler) = Build();
+        var list = await svc.ParseMultipleAsync(Tenant, "thu tiền bán hàng 2 triệu tiền mặt");
+        Assert.Single(list);
+        Assert.Equal(0, handler.Calls); // không có marker nhiều nghiệp vụ → không gọi LLM
+    }
+
+    [Fact]
+    public async Task Multi_BadJson_FallsBackSingle()
+    {
+        var (svc, handler) = Build(payload: "not-json{{{");
+        var list = await svc.ParseMultipleAsync(Tenant, "thu 5 triệu và chi 3 triệu tiền điện");
+        Assert.Single(list);
+    }
 }

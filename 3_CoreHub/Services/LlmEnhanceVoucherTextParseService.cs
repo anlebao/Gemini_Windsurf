@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using VanAn.Shared.Domain;
@@ -158,6 +159,145 @@ public sealed class LlmEnhanceVoucherTextParseService(
         "\"rút tiền ngân hàng về quỹ\" = TransferOut (112→111); \"nộp tiền mặt vào ngân hàng\" = TransferIn (111→112); " +
         "góp vốn = Capital; đặt cọc = Advance; \"mua hàng hóa/nhập kho\" = Purchase; doanh thu bán hàng = Revenue.\n" +
         $"Câu mô tả: \"{text}\"";
+
+    // ---------- G4: multi-voucher ----------
+
+    private static readonly string[] MultiMarkers = [",", "và", "sau đó", "rồi", "còn lại", "đồng thời", ";"];
+
+    /// <summary>G4: 1 câu → 1-N phiếu. Chỉ gọi LLM multi khi câu có marker nhiều nghiệp vụ
+    /// + flag ON + key; ngược lại trả [ParseAsync] (hành vi cũ). Max 3 phiếu, validate từng phiếu.</summary>
+    public async Task<IReadOnlyList<ParsedVoucher>> ParseMultipleAsync(TenantId tenantId, string text, CancellationToken ct = default)
+    {
+        var single = await ParseAsync(tenantId, text, ct);
+        if (string.IsNullOrWhiteSpace(options.Value.ApiKey)
+            || !await featureSettings.IsEnabledAsync(tenantId.Value, LlmEnabledFlag, ct)
+            || !LooksMulti(text))
+        {
+            return [single];
+        }
+
+        try
+        {
+            var llm = await CallGeminiMultiAsync(text, ct);
+            if (llm is null or { Count: 0 }) return [single];
+            var vouchers = llm
+                .Where(ValidateMultiVoucher)
+                .Select(v => SingleToVoucher(single, v))
+                .Take(3)
+                .ToList();
+            return vouchers.Count == 0 ? [single] : vouchers;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "SmartEntry LLM multi failed — fallback single");
+            return [single];
+        }
+    }
+
+    private static bool LooksMulti(string text)
+        => MultiMarkers.Any(m => text.Contains(m, StringComparison.OrdinalIgnoreCase))
+           && Regex.Matches(text.ToLowerInvariant(), @"\d[\d.,]*\s*(nghìn|ngàn|triệu|tỷ|tỉ|củ|tr|k)?", RegexOptions.None).Count >= 2;
+
+    private static bool ValidateMultiVoucher(MultiVoucherDto v)
+        => IntentMap.TryGetValue(v.Intent ?? string.Empty, out _)
+           && v.Amount is > 0m and <= MaxAmount
+           && (v.Date == null || (TryParseLlmDate(v.Date, out var d) && (d - DateTime.Today).TotalDays <= 0));
+
+    private ParsedVoucher SingleToVoucher(ParsedVoucher baseResult, MultiVoucherDto v)
+    {
+        IntentMap.TryGetValue(v.Intent ?? string.Empty, out var intent);
+        intent = intent == VoucherIntent.Unknown ? baseResult.Intent : intent;
+        var missing = new List<string>();
+        if (v.Amount == null) missing.Add("amount");
+        if (intent == VoucherIntent.Unknown) missing.Add("intent");
+        if (intent is VoucherIntent.Receivable or VoucherIntent.ReceivablePayment or VoucherIntent.Advance
+                or VoucherIntent.Payable or VoucherIntent.PayablePayment && string.IsNullOrWhiteSpace(v.DoiTuong))
+            missing.Add("đối tượng");
+        var date = v.Date != null && TryParseLlmDate(v.Date, out var d) && (d - DateTime.Today).TotalDays <= 0
+            ? d : baseResult.Date;
+        string confidence = missing.Count == 0 ? "High" : v.Amount != null ? "Medium" : "Low";
+        var warnings = new List<string> { "Đề xuất từ AI — kiểm tra lại trước khi lưu." };
+        return new ParsedVoucher(intent, v.Amount, date, NormalizePayment(v.PaymentMethod), NormalizeAccount(v.FromAccountCode),
+            NormalizeAccount(v.ToAccountCode), string.IsNullOrWhiteSpace(v.DoiTuong) ? null : v.DoiTuong.Trim(),
+            v.Category != null && Categories.Contains(v.Category) ? v.Category : null,
+            v.FeeAmount is > 0m ? v.FeeAmount : null, v.Description ?? baseResult.Description, confidence, missing, warnings);
+    }
+
+    private static string? NormalizePayment(string? pm)
+        => pm != null && PaymentMethods.Contains(pm) ? pm : null;
+
+    private async Task<List<MultiVoucherDto>?> CallGeminiMultiAsync(string text, CancellationToken ct)
+    {
+        var opt = options.Value;
+        string url = $"{opt.Endpoint.TrimEnd('/')}/models/{opt.Model}:generateContent?key={opt.ApiKey}";
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(opt.TimeoutSeconds, 3, 30)));
+        var payload = new
+        {
+            contents = new[] { new { parts = new[] { new { text = BuildMultiPrompt(text) } } } },
+            generationConfig = new { temperature = 0.1, responseMimeType = "application/json" },
+        };
+        using var client = httpClientFactory.CreateClient("smart-entry-llm");
+        using var resp = await client.PostAsJsonAsync(url, payload, timeout.Token);
+        resp.EnsureSuccessStatusCode();
+        await using var stream = await resp.Content.ReadAsStreamAsync(timeout.Token);
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: timeout.Token);
+        string? textPart = null;
+        if (doc.RootElement.TryGetProperty("candidates", out var cands) && cands.GetArrayLength() > 0
+            && cands[0].TryGetProperty("content", out var content)
+            && content.TryGetProperty("parts", out var parts) && parts.GetArrayLength() > 0
+            && parts[0].TryGetProperty("text", out var t))
+        {
+            textPart = t.GetString();
+        }
+        if (string.IsNullOrWhiteSpace(textPart)) return null;
+        string json = textPart.Trim();
+        if (json.StartsWith("```", StringComparison.Ordinal))
+        {
+            int nl = json.IndexOf('\n');
+            json = nl >= 0 ? json[(nl + 1)..] : json[3..];
+        }
+        json = json.Trim().TrimEnd('`').Trim();
+        if (json.Length == 0) return null;
+        try
+        {
+            var wrapper = JsonSerializer.Deserialize<MultiWrapper>(json, JsonOpts);
+            return wrapper?.Vouchers ?? null;
+        }
+        catch (JsonException) { return null; }
+    }
+
+    private static string BuildMultiPrompt(string text) =>
+        "Bạn là trợ lý nhập liệu kế toán tiếng Việt. Câu sau có thể chứa NHIỀU nghiệp vụ kế toán. " +
+        "Hãy tách thành các nghiệp vụ RIÊNG BIỆT, mỗi nghiệp vụ 1 phiếu chứng từ. Trả JSON ĐÚNG schema, KHÔNG bịa dữ kiện.\n" +
+        "Schema: {\"vouchers\": [{\"intent\": \"Revenue|Receivable|ReceivablePayment|Advance|Capital|Expense|Payable|PayablePayment|TransferOut|TransferIn|Purchase|null\", " +
+        "\"amount\": <số nguyên đồng hoặc null>, \"date\": \"yyyy-MM-dd hoặc null\", " +
+        "\"paymentMethod\": \"cash|bank|qr|null\", \"fromAccountCode\": \"111|112|null\", \"toAccountCode\": \"111|112|null\", " +
+        "\"doiTuong\": \"tên hoặc null\", \"category\": \"rent|utilities|labor|materials|marketing|maintenance|null\", " +
+        "\"feeAmount\": <số nguyên hoặc null>, \"description\": \"mô tả nghiệp vụ này\"}]}.\n" +
+        "Lưu ý: chuyển tiền nội bộ là 1 phiếu riêng (TransferIn 111→112 / TransferOut 112→111); " +
+        "\"thanh lý tài sản cố định\" = thu tiền (Revenue hoặc nếu có bán chịu thì Receivable) — ghi giảm TSCĐ là bút toán CTGS, không tách ở đây; " +
+        "\"còn lại\"/\"phần còn lại\" không phải phiếu riêng nếu chỉ là mô tả cách nhận tiền. Tối đa 3 phiếu.\n" +
+        $"Câu mô tả: \"{text}\"";
+
+    private sealed class MultiWrapper
+    {
+        public List<MultiVoucherDto>? Vouchers { get; set; }
+    }
+
+    private sealed class MultiVoucherDto
+    {
+        public string? Intent { get; set; }
+        public decimal? Amount { get; set; }
+        public string? Date { get; set; }
+        public string? PaymentMethod { get; set; }
+        public string? FromAccountCode { get; set; }
+        public string? ToAccountCode { get; set; }
+        public string? DoiTuong { get; set; }
+        public string? Category { get; set; }
+        public decimal? FeeAmount { get; set; }
+        public string? Description { get; set; }
+    }
 
     // ---------- merge (rule-based High thắng) ----------
 
