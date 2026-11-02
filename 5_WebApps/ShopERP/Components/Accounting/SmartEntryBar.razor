@@ -44,7 +44,7 @@
 
     @if (_result != null)
     {
-        <div class="mt-3 p-2 border rounded bg-light" data-testid="smart-entry-result">
+        <div class="mt-3 p-2 border rounded bg-light" data-testid="smart-entry-result" data-desc="@_result.Description">
             <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
                 <span class="fw-bold small">Trích xuất:</span>
                 <span class="badge @ConfidenceBadge(_result.Confidence)" data-testid="smart-entry-confidence">@_result.Confidence</span>

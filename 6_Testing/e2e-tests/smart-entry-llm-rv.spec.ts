@@ -56,15 +56,14 @@ async function openAiMode(page: Page, path: string) {
 async function parseText(page: Page, text: string) {
   await page.getByTestId('smart-entry-input').fill(text);
   const card = page.getByTestId('smart-entry-result');
-  // Blazor Server đôi khi rớt click khi circuit busy → retry: card phải ẩn (parse reset) rồi hiện lại
+  // data-desc = câu gốc: chờ attribute khớp text mới = parse thành công; lệch = click rớt → retry.
   for (let i = 0; i < 3; i++) {
     await page.getByTestId('smart-entry-parse').click();
     try {
-      await expect(card).toBeHidden({ timeout: 3000 });
-      await expect(card).toBeVisible({ timeout: 30000 });
+      await expect(card).toHaveAttribute('data-desc', text, { timeout: 30000 });
       return;
     } catch {
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(400);
     }
   }
   throw new Error('parse click dropped 3×');
