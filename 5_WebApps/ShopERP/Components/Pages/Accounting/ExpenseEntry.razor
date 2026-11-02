@@ -125,7 +125,7 @@
         </div>
         @if (_aiMode)
         {
-            <SmartEntryBar @key="_smartEntryVersion" Placeholder="chi tiền thuê mặt bằng 15 triệu hôm qua"
+            <SmartEntryBar @ref="_smartEntryBar" @key="_smartEntryVersion" Placeholder="chi tiền thuê mặt bằng 15 triệu hôm qua"
                            OnParsed="ApplyParse" />
         }
         @if (_smartRouteUrl != null)
@@ -332,6 +332,7 @@
     private bool showSuccess = false;
     private bool _showSuccessModal;
     private int _smartEntryVersion;
+    private VanAn.ShopERP.Components.Accounting.SmartEntryBar? _smartEntryBar;
     private bool showError = false;
     private string errorMessage = string.Empty;
     private bool _isSubmitting = false;
@@ -1288,7 +1289,9 @@
         showError = false;
         errorMessage = string.Empty;
         _showSuccessModal = true;   // G3: modal thành công trực quan
-        _smartEntryVersion++;       // G3: reset SmartEntryBar (xoá text/kết quả cũ)
+        // G4 fix: giữ list phiếu còn lại (multi) — chỉ reset bar khi hết phiếu chờ
+        _smartEntryBar?.NotifySaved();
+        if (_smartEntryBar?.HasPendingMulti != true) _smartEntryVersion++;
         Logger.LogInformation("Setting success state: showSuccess={showSuccess}, showError={showError}", showSuccess, showError);
         StateHasChanged();
         Logger.LogInformation("StateHasChanged called");

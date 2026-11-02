@@ -121,7 +121,8 @@
 
     private string _text = string.Empty;
     private ParsedVoucher? _result;
-    private IReadOnlyList<ParsedVoucher> _multi = Array.Empty<ParsedVoucher>();
+    private List<ParsedVoucher> _multi = new();
+    private int _lastAppliedIndex = -1;
     private bool _busy;
     private bool _interactive;
     private bool _micSupported;
@@ -144,7 +145,7 @@
 
     private async Task ParseAsync(bool forceLlm = false)
     {
-        _error = null; _result = null; _multi = Array.Empty<ParsedVoucher>();
+        _error = null; _result = null; _multi = new();
         if (!TenantProvider.HasTenant) { _error = "Không xác định được tenant."; return; }
         _busy = true;
         try
@@ -156,7 +157,7 @@
             else
             {
                 var list = await Parser.ParseMultipleAsync(new TenantId(TenantProvider.TenantId), _text);
-                if (list.Count > 1) { _multi = list; }
+                if (list.Count > 1) { _multi = list.ToList(); }
                 else { _result = list.Count == 1 ? list[0] : null; }
             }
         }
@@ -172,9 +173,24 @@
     {
         if (v != null && OnParsed.HasDelegate)
         {
+            _lastAppliedIndex = _multi.IndexOf(v);
             await OnParsed.InvokeAsync(v);
         }
     }
+
+    /// <summary>G4 fix: parent gọi sau khi LƯU thành công 1 phiếu — xoá phiếu vừa áp khỏi list
+    /// (giữ các phiếu còn lại hiển thị, không bị @key reset). List rỗng → parent reset bar.</summary>
+    public void NotifySaved()
+    {
+        if (_lastAppliedIndex >= 0 && _lastAppliedIndex < _multi.Count)
+        {
+            _multi.RemoveAt(_lastAppliedIndex);
+        }
+        _lastAppliedIndex = -1;
+        _result = null;
+    }
+
+    public bool HasPendingMulti => _multi.Count > 0;
 
     /// <summary>Mic button: có kết quả rồi → "Nói lại" (xoá + nghe từ đầu); chưa → "Nói" (nghe tiếp).</summary>
     private async Task HandleMicClickAsync()
@@ -188,7 +204,8 @@
     {
         _text = string.Empty;
         _result = null;
-        _multi = Array.Empty<ParsedVoucher>();
+        _multi = new();
+        _lastAppliedIndex = -1;
         await StartMicAsync();
     }
 
