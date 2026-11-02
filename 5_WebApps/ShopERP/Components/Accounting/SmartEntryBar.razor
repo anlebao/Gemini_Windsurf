@@ -192,6 +192,19 @@
 
     public bool HasPendingMulti => _multi.Count > 0;
 
+    /// <summary>Câu gốc đang trong ô nhập (dùng cho route link cross-page — giữ nguyên multi).</summary>
+    public string CurrentText => _text;
+
+    /// <summary>Deep-link: hiển thị sẵn list multi từ câu gốc (page khác, ví dụ expenses ← revenue).</summary>
+    public void ShowMulti(List<ParsedVoucher> list, string text)
+    {
+        _text = text;
+        _result = null;
+        _multi = list;
+        _lastAppliedIndex = -1;
+        StateHasChanged();
+    }
+
     /// <summary>Mic button: có kết quả rồi → "Nói lại" (xoá + nghe từ đầu); chưa → "Nói" (nghe tiếp).</summary>
     private async Task HandleMicClickAsync()
     {

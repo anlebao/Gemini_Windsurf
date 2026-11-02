@@ -32,6 +32,31 @@
 @inject CoreAccountingService.IVoucherTextParseService TextParser
 
 <div class="expense-entry-page @ThemeProvider.CurrentTheme">
+    @* Task PG — 2 mode: Manual giữ nguyên; AI = câu mô tả → parse → prefill → user sửa → Lưu.
+       Toggle chỉ hiện khi flag SmartEntryEnabled; intent khác trang (transfer/thu) → link route.
+       G4: block ĐẶT TRÊN tiêu đề "Nhập Chi Phí" — trích xuất độc lập với phiếu, giữ nguyên
+       khi đổi loại phiếu / chuyển trang (cross-page qua deep-link mang câu gốc). *@
+    @if (_smartEnabled)
+    {
+        <div class="mb-3">
+            <div class="btn-group" role="group" data-testid="entry-mode-toggle">
+                <button type="button" class="btn btn-sm @(_aiMode ? "btn-outline-primary" : "btn-primary")" @onclick="() => _aiMode = false">Nhập thủ công</button>
+                <button type="button" class="btn btn-sm @(_aiMode ? "btn-primary" : "btn-outline-primary")" @onclick="() => _aiMode = true">✨ Nhập bằng mô tả</button>
+            </div>
+        </div>
+        @if (_aiMode)
+        {
+            <SmartEntryBar @ref="_smartEntryBar" @key="_smartEntryVersion" Placeholder="chi tiền thuê mặt bằng 15 triệu hôm qua"
+                           OnParsed="ApplyParse" />
+        }
+        @if (_smartRouteUrl != null)
+        {
+            <VanAAlert Variant="info" Dismissible="true"
+                Message="Câu mô tả thuộc nghiệp vụ khác — mở đúng chức năng:" />
+            <a href="@_smartRouteUrl" class="btn btn-sm btn-outline-primary mb-3" data-testid="smart-route-link">→ @_smartRouteLabel</a>
+        }
+    }
+
     <header class="page-header">
         <h1>Nhập Chi Phí</h1>
         <VanAButton 
@@ -112,29 +137,6 @@
             </div>
         }
     </VanAnModal>
-
-    @* Task PG — 2 mode: Manual giữ nguyên; AI = câu mô tả → parse → prefill → user sửa → Lưu.
-       Toggle chỉ hiện khi flag SmartEntryEnabled; intent khác trang (thu/chuyển) → link route. *@
-    @if (_smartEnabled)
-    {
-        <div class="mb-3">
-            <div class="btn-group" role="group" data-testid="entry-mode-toggle">
-                <button type="button" class="btn btn-sm @(_aiMode ? "btn-outline-primary" : "btn-primary")" @onclick="() => _aiMode = false">Nhập thủ công</button>
-                <button type="button" class="btn btn-sm @(_aiMode ? "btn-primary" : "btn-outline-primary")" @onclick="() => _aiMode = true">✨ Nhập bằng mô tả</button>
-            </div>
-        </div>
-        @if (_aiMode)
-        {
-            <SmartEntryBar @ref="_smartEntryBar" @key="_smartEntryVersion" Placeholder="chi tiền thuê mặt bằng 15 triệu hôm qua"
-                           OnParsed="ApplyParse" />
-        }
-        @if (_smartRouteUrl != null)
-        {
-            <VanAAlert Variant="info" Dismissible="true"
-                Message="Câu mô tả thuộc nghiệp vụ khác — mở đúng chức năng:" />
-            <a href="@_smartRouteUrl" class="btn btn-sm btn-outline-primary mb-3" data-testid="smart-route-link">→ @_smartRouteLabel</a>
-        }
-    }
 
     <VanACard Header="Thông Tin Chi Phí">
         @* HARDENING KIẾN TRÚC: Đưa Form về trang Host quản lý *@
@@ -379,8 +381,10 @@
             if (_smartEnabled && !string.IsNullOrWhiteSpace(desc))
             {
                 _aiMode = true;
-                var parsed = await TextParser.ParseAsync(new TenantId(TenantProvider.TenantId), desc);
-                await ApplyParse(parsed); // G2+: await — ApplyParse async (JS push + preview) tránh race DbContext
+                // G4: deep-link mang câu gốc → ParseMultipleAsync để giữ list multi trên page đích
+                var list = await TextParser.ParseMultipleAsync(new TenantId(TenantProvider.TenantId), desc);
+                if (list.Count > 1) { _smartEntryBar?.ShowMulti(list.ToList(), desc); }
+                else if (list.Count == 1) { await ApplyParse(list[0]); }
             }
         }
         await RefreshPreviewAsync();
@@ -393,14 +397,14 @@
         switch (p.Intent)
         {
             case CoreAccountingService.VoucherIntent.TransferOut or CoreAccountingService.VoucherIntent.TransferIn:
-                _smartRouteUrl = "/accounting/transfers?desc=" + Uri.EscapeDataString(p.Description);
+                _smartRouteUrl = "/accounting/transfers?desc=" + Uri.EscapeDataString(_smartEntryBar?.CurrentText ?? p.Description);
                 _smartRouteLabel = "Phiếu Chuyển Tiền Nội Bộ"; return;
             case CoreAccountingService.VoucherIntent.Purchase:
                 _smartRouteUrl = "/accounting/purchase-receipts/new";
                 _smartRouteLabel = "Phiếu Nhập Mua"; return;
             case CoreAccountingService.VoucherIntent.Revenue or CoreAccountingService.VoucherIntent.Receivable or CoreAccountingService.VoucherIntent.ReceivablePayment
                 or CoreAccountingService.VoucherIntent.Advance or CoreAccountingService.VoucherIntent.Capital:
-                _smartRouteUrl = "/accounting/revenue?desc=" + Uri.EscapeDataString(p.Description);
+                _smartRouteUrl = "/accounting/revenue?desc=" + Uri.EscapeDataString(_smartEntryBar?.CurrentText ?? p.Description);
                 _smartRouteLabel = "Phiếu Thu"; return;
         }
         _voucherType = p.Intent switch
