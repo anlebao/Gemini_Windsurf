@@ -121,6 +121,22 @@
                         📒 Sổ DNSN (TT 58)
                     </VanAButton>
                 }
+        </div>
+        </VanACard>
+    </section>
+
+    <!-- Chứng Từ / Phiếu — theo nghiệp vụ (Voucher Platform) -->
+    <section class="voucher-section">
+        <VanACard Header="Chứng Từ / Phiếu — theo nghiệp vụ">
+            <div class="d-flex flex-wrap gap-2">
+                <VanAButton Variant="secondary" OnClick="NavigateToRevenue">Phiếu Thu</VanAButton>
+                <VanAButton Variant="secondary" OnClick="NavigateToExpenses">Phiếu Chi</VanAButton>
+                <VanAButton Variant="secondary" OnClick="NavigateToTransfers">Chuyển Tiền Nội Bộ</VanAButton>
+                <VanAButton Variant="secondary" OnClick="NavigateToAdvances">Tạm Ứng / Hoàn Ứng</VanAButton>
+                <VanAButton Variant="secondary" OnClick="NavigateToStockIssue">Phiếu Xuất Kho</VanAButton>
+                <VanAButton Variant="secondary" OnClick="NavigateToAssetDisposal">Thanh Lý TSCĐ</VanAButton>
+                <VanAButton Variant="secondary" OnClick="NavigateToPurchase">Phiếu Nhập Mua</VanAButton>
+                <VanAButton Variant="secondary" OnClick="NavigateToJournalVoucher">Phiếu Hạch Toán CTGS</VanAButton>
             </div>
         </VanACard>
     </section>
@@ -242,6 +258,14 @@
     {
         NavigationManager.NavigateTo("/accounting/history");
     }
+
+    private void NavigateToRevenue() => NavigationManager.NavigateTo("/accounting/revenue");
+    private void NavigateToExpenses() => NavigationManager.NavigateTo("/accounting/expenses");
+    private void NavigateToTransfers() => NavigationManager.NavigateTo("/accounting/transfers");
+    private void NavigateToPurchase() => NavigationManager.NavigateTo("/accounting/purchase-receipts/new");
+    private void NavigateToAdvances() => NavigationManager.NavigateTo("/vouchers/advance");
+    private void NavigateToStockIssue() => NavigationManager.NavigateTo("/vouchers/stock-issue");
+    private void NavigateToAssetDisposal() => NavigationManager.NavigateTo("/vouchers/asset-disposal");
 
     private void NavigateToJournalVoucher()
     {

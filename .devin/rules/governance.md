@@ -143,6 +143,15 @@ Every entity inheriting `BaseEntity` MUST use a **single identity**: `BaseEntity
 ## SUBSYSTEM RULES
 - **Metering "Phí nền tảng" (vanan-metering):** `.devin/rules/metering.md` — architecture, API contract, wallet/topup semantics, SQLite pitfalls. Mandatory read for any metering-related task.
 
+## VOUCHER PLATFORM (Task PH — BẮT BUỘC cho mọi phiếu chứng từ mới)
+
+- Mọi **phiếu chứng từ mới** (thu/chi/chuyển tiền/tạm ứng/xuất kho/thanh lý TSCĐ/nhập mua/CTGS và tương lai) PHẢI đăng ký qua **`VoucherTypeRegistry`** (`AddVoucherType` = 1 `VoucherTypeDefinition` + 1 `IVoucherPostingStrategy`) — **CẤM** tạo page form riêng copy-paste.
+- Smart Entry intent → phiếu qua `ResolveByIntent` (không hardcode route trong ApplyParse).
+- Strategy = class C# nhỏ test được (TDD: viết test trước); KHÔNG đẩy business logic vào config.
+- Đồng bộ bắt buộc khi thêm phiếu: ① registry DI (`Program.cs`) ② parser intent + keyword (nếu có input tự nhiên) ③ NavMenu/Sitemap nhóm "Chứng Từ" ④ test strategy ⑤ RV production.
+- Không đổi Domain/DB khi thêm phiếu form thuần; entity mới (vd FixedAsset) cần Gate 5.
+- Tham chiếu: SRS `docs/specs/SRS_ShopERP_VoucherFramework_v1.0.md` · master plan `docs/AI/plans/voucher-framework-master-plan.md` · task `docs/AI/tasks/accounting_engine/task_ph_voucher_framework.md`.
+
 ## WORKFLOW REFERENCES
 - **New Features:** `.devin/workflows/newfeaturebuild.md` (7-step ANALYZE → IMPLEMENT)
 - **Fix Errors:** `.devin/workflows/Fix_Errors.md` (pattern-based FIX_ONLY)
