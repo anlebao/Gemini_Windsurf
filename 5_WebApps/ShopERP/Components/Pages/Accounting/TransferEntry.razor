@@ -18,6 +18,7 @@
 @inject ITenantProvider TenantProvider
 @inject ILogger<TransferEntry> Logger
 @inject NavigationManager NavigationManager
+@inject VanAn.ShopERP.Components.Accounting.SmartEntrySessionState SmartSession
 
 @* Task PG + W3/D: phiếu chuyển tiền nội bộ 111↔112x — JE qua InternalTransferService
    (KHÔNG phải doanh thu/chi phí). Mode AI: parse câu mô tả → prefill. *@
@@ -47,7 +48,7 @@
         </div>
         @if (_aiMode)
         {
-            <SmartEntryBar Placeholder="rút tiền gửi ngân hàng một trăm triệu nhập vào quỹ tiền mặt"
+            <SmartEntryBar @ref="_smartEntryBar" Placeholder="rút tiền gửi ngân hàng một trăm triệu nhập vào quỹ tiền mặt"
                            OnParsed="ApplyParse" />
         }
     }
@@ -168,6 +169,9 @@
     private string errorMessage = string.Empty;
     private bool _smartEnabled;
     private bool _aiMode;
+    private VanAn.ShopERP.Components.Accounting.SmartEntryBar? _smartEntryBar;
+    private List<VanAn.CoreHub.Services.ParsedVoucher>? _pendingMulti;
+    private string? _pendingMultiText;
 
     protected override async Task OnInitializedAsync()
     {
@@ -186,11 +190,28 @@
                 var parsed = await Parser.ParseAsync(tenantId, desc);
                 ApplyParse(parsed);
             }
+            // G4: khôi phục multi từ session khi chuyển form (navigation) — list phiếu giữ nguyên
+            else if (string.IsNullOrWhiteSpace(desc) && _smartEnabled && SmartSession.Multi is { Count: > 1 })
+            {
+                _pendingMulti = SmartSession.Multi;
+                _pendingMultiText = SmartSession.Text;
+                _aiMode = true;
+            }
         }
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "TransferEntry init failed");
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _pendingMulti != null && _smartEntryBar != null)
+        {
+            _smartEntryBar.ShowMulti(_pendingMulti, _pendingMultiText ?? string.Empty);
+            _pendingMulti = null;
+        }
+        await base.OnAfterRenderAsync(firstRender);
     }
 
     private void ApplyParse(ParsedVoucher p)

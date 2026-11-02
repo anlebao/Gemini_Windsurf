@@ -26,6 +26,7 @@
 @inject Microsoft.JSInterop.IJSRuntime JSRuntime
 @inject IBusinessInfoApiClient BusinessInfo
 @inject CoreAccountingService.IVoucherTextParseService TextParser
+@inject VanAn.ShopERP.Components.Accounting.SmartEntrySessionState SmartSession
 
 <div class="revenue-entry-page @ThemeProvider.CurrentTheme">
     @* Task PG — 2 mode: Manual giữ nguyên; AI = câu mô tả → parse → prefill → user sửa → Lưu.
@@ -281,6 +282,8 @@
     private bool _showSuccessModal;
     private int _smartEntryVersion;
     private VanAn.ShopERP.Components.Accounting.SmartEntryBar? _smartEntryBar;
+    private List<CoreAccountingService.ParsedVoucher>? _pendingMulti;
+    private string? _pendingMultiText;
     private bool showError = false;
     private string errorMessage = string.Empty;
     private PlatformComposite.FormData formData = new();
@@ -317,6 +320,23 @@
             }
         }
         await RefreshPreviewAsync();
+        // G4: khôi phục multi từ session khi chuyển form (navigation, không qua route link)
+        if (string.IsNullOrWhiteSpace(desc) && SmartSession.Multi is { Count: > 1 })
+        {
+            _pendingMulti = SmartSession.Multi;
+            _pendingMultiText = SmartSession.Text;
+            _aiMode = true;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _pendingMulti != null && _smartEntryBar != null)
+        {
+            _smartEntryBar.ShowMulti(_pendingMulti, _pendingMultiText ?? string.Empty);
+            _pendingMulti = null;
+        }
+        await base.OnAfterRenderAsync(firstRender);
     }
 
     /// <summary>Task PG: áp kết quả parse vào form — intent khác trang → route link; thiếu field → để trống, không đoán.</summary>

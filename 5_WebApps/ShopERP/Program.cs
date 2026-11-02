@@ -244,6 +244,8 @@ namespace VanAn.ShopERP
             // Task G2 (2026-11-01): LLM hybrid — decorator IVoucherTextParseService. Rule-based chạy trước;
             // chỉ gọi Gemini API khi Unknown/Low/thiếu field (flag SmartEntryLlmEnabled + SmartEntryLlm__ApiKey).
             _ = builder.Services.AddScoped<CoreHub.Services.VoucherTextParseService>();
+            // G4: session multi-voucher qua các trang (SmartEntryBar → Revenue/Expense)
+            _ = builder.Services.AddScoped<VanAn.ShopERP.Components.Accounting.SmartEntrySessionState>();
             _ = builder.Services.AddScoped<CoreHub.Services.IVoucherTextParseService>(sp =>
                 new CoreHub.Services.LlmEnhanceVoucherTextParseService(
                     sp.GetRequiredService<CoreHub.Services.VoucherTextParseService>(),

@@ -8,6 +8,7 @@
 @inject ITenantProvider TenantProvider
 @inject IJSRuntime JS
 @inject ILogger<SmartEntryBar> Logger
+@inject SmartEntrySessionState Session
 
 @* Task PG — Smart Entry AI: ô nhập câu mô tả → parser rule-based → card kết quả
    → parent apply vào form (OnParsed). Không auto-save; thiếu field → highlight, không đoán. *@
@@ -35,6 +36,12 @@
             <VanAButton Variant="secondary" Size="small" Disabled="@(_busy || !_interactive || _listening)" OnClick="HandleMicClickAsync" data-testid="smart-entry-mic">
                 @(_listening ? "🔴 Đang nghe..." : (_result != null || _multi.Count > 0 ? "🔁 Nói lại" : "🎤 Nói"))
             </VanAButton>
+        }
+        @if (_appliedFeedback != null)
+        {
+            <div class="alert alert-success py-1 px-2 small mt-2 mb-1" role="alert" data-testid="smart-entry-applied-feedback">
+                @_appliedFeedback
+            </div>
         }
         @if (_error != null)
         {
@@ -161,8 +168,8 @@
         {
             // G4: luôn qua ParseMultipleAsync — AI phân tích (force) cũng ra multi như Phân tích
             var list = await Parser.ParseMultipleAsync(new TenantId(TenantProvider.TenantId), _text, forceLlm: forceLlm);
-            if (list.Count > 1) { _multi = list.ToList(); }
-            else { _result = list.Count == 1 ? list[0] : null; }
+            if (list.Count > 1) { _multi = list.ToList(); Session.Set(_multi, _text); }
+            else { _result = list.Count == 1 ? list[0] : null; Session.Clear(); }
         }
         catch (Exception ex)
         {
@@ -178,7 +185,33 @@
         {
             _lastAppliedIndex = _multi.IndexOf(v);
             await OnParsed.InvokeAsync(v);
+            ShowAppliedFeedback();
         }
+    }
+
+    private async Task ApplyAsync()
+    {
+        if (_result != null && OnParsed.HasDelegate)
+        {
+            await OnParsed.InvokeAsync(_result);
+            ShowAppliedFeedback();
+        }
+    }
+
+    private string? _appliedFeedback;
+    private int _feedbackGen;
+
+    /// <summary>Hiệu ứng sau khi bấm "Áp vào form": thông báo rõ đã điền + tự ẩn sau 5s.</summary>
+    private void ShowAppliedFeedback()
+    {
+        _appliedFeedback = "✅ Đã tự động điền thông tin vào form — vui lòng kiểm tra và xác nhận trước khi Lưu.";
+        int gen = ++_feedbackGen;
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(5000);
+            if (gen == _feedbackGen) { _appliedFeedback = null; StateHasChanged(); }
+        });
+        StateHasChanged();
     }
 
     /// <summary>G4 fix: parent gọi sau khi LƯU thành công 1 phiếu — GIỮ nguyên block trích xuất,
@@ -191,6 +224,7 @@
         }
         _lastAppliedIndex = -1;
         _result = null;
+        if (!HasPendingMulti) Session.Clear(); // hết phiếu chờ → sẵn sàng câu mới
     }
 
     public bool HasPendingMulti
@@ -216,6 +250,7 @@
         _multi = list;
         _savedIndices.Clear();
         _lastAppliedIndex = -1;
+        Session.Set(_multi, text);
         StateHasChanged();
     }
 
@@ -235,14 +270,6 @@
         _savedIndices.Clear();
         _lastAppliedIndex = -1;
         await StartMicAsync();
-    }
-
-    private async Task ApplyAsync()
-    {
-        if (_result != null && OnParsed.HasDelegate)
-        {
-            await OnParsed.InvokeAsync(_result);
-        }
     }
 
     private async Task StartMicAsync()
