@@ -1,6 +1,6 @@
 # TASK CARD PH2 — ENTRY FORM VOUCHER COVERAGE & SMART-APPLY FIX
 
-> Status: 📋 PLAN — user chốt Q1-Q3 (2026-11-03) · Master plan `docs/AI/plans/entry-form-voucher-coverage-fix-master-plan.md` · chờ duyệt trước IMPLEMENT
+> Status: ✅ **DONE + DEPLOYED `e7536810`+`e0dca5f7`+`1cc3d014` (2026-11-03)** — CD Multi-VPS SUCCESS ×3 · guard ALL PASSED · sln build 0 errors · Core.Tests **2678/2678** + ShopERP.Tests **283/283** (fix 21 pre-existing bUnit) · **RV L1-L4 PASS**: L1 CoreHub markers LoanPostingStrategy/LoanRepayment ✓ · L2 routes 302 (loan-in/loan-repayment/5 generic) ✓ · L3 Playwright prod **7/7** (`ph2-voucher-coverage-rv.spec.ts` — menu 3 nơi · tạo phiếu vay preview Nợ 111/Có 341 → lưu → success · trả nợ vay · HostPage guard · smart vay → route · Unknown chặn · đặt cọc alert) ✓ · L4 PG JE `J20261103-8AC8AD59` + `J20261103-042B9CE2` Nợ 111/Có 341 ✓ · **2 fix RV:** prerender KeyNotFound `e0dca5f7` + sau-save circuit chết `1cc3d014` (latent bug PH G1 — sweep cũ chỉ render read-only). **Còn:** L5 user manual (§7 dưới — 5 bước).
 > Root cause verified: dropdown hardcode + `ApplyParse` catch-all `_ =>` (Unknown → Thu/Chi = định khoản sai) + Advance ép "thu nợ" + thiếu phiếu Vay/Trả nợ vay
 > **Hoàn thành 100% = UI đầy đủ + menu link 3 nơi + RV test chạy được trên VPS như người dùng — KHÔNG chỉ API/service**
 
