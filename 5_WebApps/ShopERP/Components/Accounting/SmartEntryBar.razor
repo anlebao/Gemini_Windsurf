@@ -233,7 +233,12 @@
         _lastAppliedIndex = -1;
         _result = null;
         if (!HasPendingMulti) { Session.Clear(); await JS.InvokeVoidAsync("vananClearSmartText"); } // hết phiếu chờ → sẵn sàng câu mới
-        else { await JS.InvokeVoidAsync("vananSaveSmartText", _text, SmartEntrySessionCodec.Serialize(_multi), _savedIndices.ToList()); }
+        else
+        {
+            // PH3 RV#4: cập nhật cả session scoped (SPA nav — circuit giữ) LẪN sessionStorage (full reload)
+            Session.Set(_multi, _text, _savedIndices.ToList());
+            await JS.InvokeVoidAsync("vananSaveSmartText", _text, SmartEntrySessionCodec.Serialize(_multi), _savedIndices.ToList());
+        }
     }
 
     public bool HasPendingMulti

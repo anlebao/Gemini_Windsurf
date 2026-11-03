@@ -219,4 +219,24 @@ public class ExpenseEntryTests : ComponentTestBase
         cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid='smart-entry-result']")));
         cut.WaitForAssertion(() => Assert.Equal("Chi phí", cut.Find("[data-testid='smart-entry-intent']").TextContent.Trim()));
     }
+
+    [Fact]
+    public void ExpenseEntry_SpaNav_SessionMulti_RestoresWithSavedIndices()
+    {
+        // PH3 RV#4 regression: SPA navigation (circuit giữ) — restore từ SmartSessionState
+        // (OnInitializedAsync) PHẢI truyền ProcessedIndices → badge "✓ Đã lưu" giữ qua trang.
+        EnableSmartEntry();
+        var session = Services.GetRequiredService<SmartEntrySessionState>();
+        var multi = new List<ParsedVoucher>
+        {
+            new(VoucherIntent.Revenue, 2_000_000m, new DateTime(2026, 11, 3), "cash", null, null, null, null, null, "thu tiền bán hàng 2 triệu", "High", Array.Empty<string>(), Array.Empty<string>()),
+            new(VoucherIntent.Expense, 1_000_000m, new DateTime(2026, 11, 3), "cash", null, null, null, "utilities", null, "chi tiền điện 1 triệu", "High", Array.Empty<string>(), Array.Empty<string>()),
+        };
+        session.Set(multi, "thu tiền bán hàng 2 triệu và chi tiền điện 1 triệu", new List<int> { 0 });
+
+        var cut = RenderComponent<ShopERP.Components.Pages.Accounting.ExpenseEntry>();
+
+        cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll("[data-testid='smart-entry-multi-item']").Count));
+        Assert.Single(cut.FindAll("[data-testid='smart-entry-multi-done']"));
+    }
 }

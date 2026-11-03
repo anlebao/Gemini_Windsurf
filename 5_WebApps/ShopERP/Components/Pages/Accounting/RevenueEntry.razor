@@ -338,10 +338,12 @@
         }
         await RefreshPreviewAsync();
         // G4: khôi phục multi từ session khi chuyển form (navigation, không qua route link)
+        // PH3 RV#4: truyền ProcessedIndices — badge "✓ Đã lưu" giữ qua SPA nav (circuit giữ).
         if (string.IsNullOrWhiteSpace(desc) && SmartSession.Multi is { Count: > 1 })
         {
             _pendingMulti = SmartSession.Multi;
             _pendingMultiText = SmartSession.Text;
+            _pendingSavedIndices = SmartSession.ProcessedIndices;
             _aiMode = true;
         }
     }
