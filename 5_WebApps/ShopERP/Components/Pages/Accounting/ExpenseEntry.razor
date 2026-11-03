@@ -397,7 +397,15 @@
                 _aiMode = true;
                 // G4: deep-link mang câu gốc → ParseMultipleAsync để giữ list multi trên page đích
                 var list = await TextParser.ParseMultipleAsync(new TenantId(TenantProvider.TenantId), desc);
-                if (list.Count > 1) { await _smartEntryBar!.ShowMultiAsync(list.ToList(), desc); }
+                if (list.Count > 1)
+                {
+                    // FIX RV 2026-11-03 (500 production): _smartEntryBar NULL ở OnInitializedAsync
+                    // (bar render sau first render khi _aiMode=true) — dùng pending → OnAfterRenderAsync
+                    // ShowMultiAsync. Trước PH3 dùng `?.` (no-op im lặng); `!` PH3 gây NRE.
+                    _pendingMulti = list.ToList();
+                    _pendingMultiText = desc;
+                    _pendingSavedIndices = new List<int>();
+                }
                 else if (list.Count == 1) { await ApplyParse(list[0]); }
             }
         }
