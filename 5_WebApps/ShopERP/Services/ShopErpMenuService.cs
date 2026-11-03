@@ -169,6 +169,11 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                 // AccountingAccess — cả Kế toán công nợ (phiếu thu/chi chứa loại công nợ).
                 new() { Title = "Nhập Doanh Thu", Icon = "plus-circle", Url = "/accounting/revenue" },
                 new() { Title = "Nhập Chi Phí", Icon = "dash-circle", Url = "/accounting/expenses" },
+                // Task PH (Voucher Platform): phiếu chứng từ qua registry (advance/stock-issue/asset-disposal)
+                new() { Title = "Chuyển Tiền Nội Bộ", Icon = "arrow-left-right", Url = "/accounting/transfers" },
+                new() { Title = "Tạm Ứng / Hoàn Ứng", Icon = "cash-coin", Url = "/vouchers/advance" },
+                new() { Title = "Phiếu Xuất Kho", Icon = "box-seam", Url = "/vouchers/stock-issue" },
+                new() { Title = "Thanh Lý TSCĐ", Icon = "building-gear", Url = "/vouchers/asset-disposal" },
             };
             if (fullAccounting)
             {
