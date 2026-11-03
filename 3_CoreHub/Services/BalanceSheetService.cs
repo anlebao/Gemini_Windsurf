@@ -129,13 +129,11 @@ public class BalanceSheetService : IBalanceSheetService
         var (totalLiabEnding, totalLiabOpening) = lineAmounts.GetValueOrDefault("300");
         var (totalEquityEnding, totalEquityOpening) = lineAmounts.GetValueOrDefault("400");
 
-        // Calculate equity before plug (subtract existing 420 amount).
+        // Residual = A − L − E (toàn bộ equity đã hạch toán, gồm 421/420) = P&L chưa kết chuyển.
+        // KHÔNG trừ ln420 trước (equityBeforePlug) — plug += sẽ cộng đúp 421 → 440 = 280 + ln420.
         var (ln420Ending, ln420Opening) = lineAmounts.GetValueOrDefault("420");
-        decimal equityBeforePlugEnding = totalEquityEnding - ln420Ending;
-        decimal equityBeforePlugOpening = totalEquityOpening - ln420Opening;
-
-        decimal netIncomeEnding = totalAssetsEnding - totalLiabEnding - equityBeforePlugEnding;
-        decimal netIncomeOpening = totalAssetsOpening - totalLiabOpening - equityBeforePlugOpening;
+        decimal netIncomeEnding = totalAssetsEnding - totalLiabEnding - totalEquityEnding;
+        decimal netIncomeOpening = totalAssetsOpening - totalLiabOpening - totalEquityOpening;
         LogPlugDelta(netIncomeEnding, netIncomeOpening, "420", tenantId, period);
 
         if (Math.Abs(netIncomeEnding) > 0.005m || Math.Abs(netIncomeOpening) > 0.005m)
@@ -340,17 +338,14 @@ public class BalanceSheetService : IBalanceSheetService
                    SumOpening("410", "420", "430", "440"));
         Set("500", SumEnding("300", "400"), SumOpening("300", "400"));
 
-        // Step 3: NetIncome plug (residual): Mã 420 = 200 - 300 - equity-before-plug (giống B01-DN).
+        // Step 3: NetIncome plug (residual): Mã 420 += 200 - 300 - 400 (giống B01-DN).
         var (totalAssetsEnding, totalAssetsOpening) = lineAmounts["200"];
         var (totalLiabEnding, totalLiabOpening) = lineAmounts["300"];
         var (totalEquityEnding, totalEquityOpening) = lineAmounts["400"];
         var (ln420Ending, ln420Opening) = lineAmounts["420"];
 
-        decimal equityBeforePlugEnding = totalEquityEnding - ln420Ending;
-        decimal equityBeforePlugOpening = totalEquityOpening - ln420Opening;
-
-        decimal netIncomeEnding = totalAssetsEnding - totalLiabEnding - equityBeforePlugEnding;
-        decimal netIncomeOpening = totalAssetsOpening - totalLiabOpening - equityBeforePlugOpening;
+        decimal netIncomeEnding = totalAssetsEnding - totalLiabEnding - totalEquityEnding;
+        decimal netIncomeOpening = totalAssetsOpening - totalLiabOpening - totalEquityOpening;
         LogPlugDelta(netIncomeEnding, netIncomeOpening, "420", tenantId, period);
 
         if (Math.Abs(netIncomeEnding) > 0.005m || Math.Abs(netIncomeOpening) > 0.005m)
@@ -456,11 +451,8 @@ public class BalanceSheetService : IBalanceSheetService
         var (totalEquityEnding, totalEquityOpening) = lineAmounts["400"];
         var (ln417Ending, ln417Opening) = lineAmounts["417"];
 
-        decimal equityBeforePlugEnding = totalEquityEnding - ln417Ending;
-        decimal equityBeforePlugOpening = totalEquityOpening - ln417Opening;
-
-        decimal netIncomeEnding = totalAssetsEnding - totalLiabEnding - equityBeforePlugEnding;
-        decimal netIncomeOpening = totalAssetsOpening - totalLiabOpening - equityBeforePlugOpening;
+        decimal netIncomeEnding = totalAssetsEnding - totalLiabEnding - totalEquityEnding;
+        decimal netIncomeOpening = totalAssetsOpening - totalLiabOpening - totalEquityOpening;
         LogPlugDelta(netIncomeEnding, netIncomeOpening, "417", tenantId, period);
 
         if (Math.Abs(netIncomeEnding) > 0.005m || Math.Abs(netIncomeOpening) > 0.005m)
@@ -552,11 +544,8 @@ public class BalanceSheetService : IBalanceSheetService
         var (totalEquityEnding, totalEquityOpening) = lineAmounts["400"];
         var (ln420Ending, ln420Opening) = lineAmounts["420"];
 
-        decimal equityBeforePlugEnding = totalEquityEnding - ln420Ending;
-        decimal equityBeforePlugOpening = totalEquityOpening - ln420Opening;
-
-        decimal netIncomeEnding = totalAssetsEnding - totalLiabEnding - equityBeforePlugEnding;
-        decimal netIncomeOpening = totalAssetsOpening - totalLiabOpening - equityBeforePlugOpening;
+        decimal netIncomeEnding = totalAssetsEnding - totalLiabEnding - totalEquityEnding;
+        decimal netIncomeOpening = totalAssetsOpening - totalLiabOpening - totalEquityOpening;
         LogPlugDelta(netIncomeEnding, netIncomeOpening, "420", tenantId, period);
 
         if (Math.Abs(netIncomeEnding) > 0.005m || Math.Abs(netIncomeOpening) > 0.005m)

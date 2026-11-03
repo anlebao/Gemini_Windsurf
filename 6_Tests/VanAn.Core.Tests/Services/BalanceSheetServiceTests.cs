@@ -246,6 +246,42 @@ public class BalanceSheetServiceTests
         Assert.Equal(bs.TotalAssetsEnding, bs.TotalLiabilitiesAndEquityEnding, precision: 2);
     }
 
+    // RV production (2026-11-03, Cafe Tân Quy — kỳ đã kết chuyển): 421 ≠ 0 → plug KHÔNG được
+    // cộng đúp ln417 (equityBeforePlug = E − ln417 rồi 417 += → 500 = 200 + ln417, invariant throw).
+    // Đúng: plug = A − L − E toàn bộ → 500 == 200 luôn.
+    [Fact]
+    public async Task RV_BS_ClosedBooks_Account421NotDoubleCounted()
+    {
+        TestContextScope scope = VanAnDbContextTestFactory.Create();
+        var tenantGuid = Guid.NewGuid();
+        scope.TenantProvider?.SetTenant(tenantGuid);
+        VanAnDbContext db = scope.Context;
+        _ = await AccountChartSeeder.SeedAsync(db, NullLogger.Instance);
+        var chartSvc = new AccountChartService(db, NullLogger<AccountChartService>.Instance);
+        var svc = new BalanceSheetService(db, chartSvc, NullLogger<BalanceSheetService>.Instance);
+        var tenantId = new TenantId(tenantGuid);
+        var je = new JournalEntry(tenantId, new DateTime(2026, 11, 30), "Sổ đã kết chuyển", "Test", null);
+        je.AddLine("111", 280_057_500m, 0, "Tiền mặt");
+        je.AddLine("1121", 0, 220_000_000m, "NH âm");
+        je.AddLine("131", 5_000_000m, 0, "Phải thu");
+        je.AddLine("214", 0, 6_300_000m, "Hao mòn");
+        je.AddLine("3331", 0, 25_000m, "Thuế");
+        je.AddLine("338", 3_000_000m, 0, "Phải trả khác (dư Nợ)");
+        je.AddLine("341", 1_300_000m, 0, "Vay (dư Nợ)");
+        je.AddLine("421", 0, 63_033_500m, "LN chưa phân phối");
+        je.AddLine("511", 1_000m, 0, "DT residual chưa kết chuyển");
+        db.JournalEntries.Add(je);
+        await db.SaveChangesAsync();
+
+        BalanceSheet bs = await svc.GenerateAsync(tenantId, new AccountingPeriod(2026, 11), AccountingStandard.TT133_2016);
+
+        Assert.Equal(58_757_500m, bs.TotalAssetsEnding);
+        Assert.Equal(58_757_500m, bs.TotalLiabilitiesAndEquityEnding); // invariant — không throw
+        // 417 = 421 (63,033,500) + plug residual (−1,000 — phần 511 chưa kết chuyển)
+        decimal m417 = bs.Equity.First(l => l.ReportItemCode == "417").EndingAmount;
+        Assert.Equal(63_032_500m, m417);
+    }
+
     // ── TT 71 Phase 3 (T4): B01-HTX ──────────────────────────────────────
 
     private async Task<(VanAnDbContext db, BalanceSheetService svc)> SetupTt71Async()
