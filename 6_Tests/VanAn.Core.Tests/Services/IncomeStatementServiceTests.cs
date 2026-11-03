@@ -140,10 +140,11 @@ public class IncomeStatementServiceTests
         Assert.Equal(0m, is_.TotalRevenueOpening, precision: 0);
     }
 
-    // W7-IS3: NetProfitEnding = 13.5M for 2026-06 (Revenue 45M - COGS 31.5M = 13.5M).
-    // Note: 6421/6422 not in account chart → skipped by IS service → OpEx = 0.
+    // W7-IS3: NetProfitEnding = -8M for 2026-06 (Revenue 45M − COGS 31.5M − OpEx 21.5M = −8M).
+    // RV fix 2026-11-03 (BUG-1a): 6421/6422 giờ map vào mã 24 (đã seed vào TT133 chart) — trước
+    // bị drop âm thầm → OpEx = 0, lợi nhuận phóng đại (cùng pattern BUG-2 của 611).
     [Fact]
-    public async Task W7_IS3_NetProfitEnding_Equals13_5M()
+    public async Task W7_IS3_NetProfitEnding_EqualsNegative8M()
     {
         var (_, svc) = await SetupAsync();
         IncomeStatement is_ = await svc.GenerateAsync(
@@ -151,12 +152,12 @@ public class IncomeStatementServiceTests
             new AccountingPeriod(2026, 6),
             AccountingStandard.TT133_2016);
 
-        Assert.Equal(13_500_000m, is_.NetProfitEnding, precision: 0);
+        Assert.Equal(-8_000_000m, is_.NetProfitEnding, precision: 0);
     }
 
-    // W7-IS4: NetProfit formula — NetProfit == TotalRevenue - COGS (6421/6422 not in chart, OpEx = 0).
+    // W7-IS4: NetProfit formula — NetProfit == Revenue − COGS − OpEx (mã 11 + mã 24).
     [Fact]
-    public async Task W7_IS4_NetProfitMatchesFormula_RevenueMinusCOGS()
+    public async Task W7_IS4_NetProfitMatchesFormula_RevenueMinusCOGSMinusOpEx()
     {
         var (_, svc) = await SetupAsync();
         IncomeStatement is_ = await svc.GenerateAsync(
@@ -164,10 +165,12 @@ public class IncomeStatementServiceTests
             new AccountingPeriod(2026, 6),
             AccountingStandard.TT133_2016);
 
-        // B02-DNN (P1): giá vốn 632 gộp vào Mã 11 (trình bày dương — đã negate trong service).
+        // B02-DNN (P1): giá vốn 632+611 gộp vào Mã 11 · CP QLKD 642x gộp vào Mã 24 (dương — đã negate).
         decimal cogs = is_.Lines.First(l => l.ReportItemCode == "11").EndingAmount;
-        decimal expectedNetProfit = is_.TotalRevenueEnding - cogs;
+        decimal opex = is_.Lines.First(l => l.ReportItemCode == "24").EndingAmount;
+        decimal expectedNetProfit = is_.TotalRevenueEnding - cogs - opex;
 
+        Assert.Equal(21_500_000m, opex, precision: 0); // 6421/6422 June: 2.5+3.5+5+9+1.5 = 21.5M
         Assert.Equal(expectedNetProfit, is_.NetProfitEnding, precision: 2);
     }
 
@@ -184,6 +187,45 @@ public class IncomeStatementServiceTests
         // B02-DNN (P1): chi phí nằm ở Mã 11 (giá vốn) / Mã 24 (CP QLKD) — không còn mã TK 632/642.
         int expenseCount = is_.Lines.Count(l => l.ReportItemCode is "11" or "24");
         Assert.True(expenseCount >= 1, $"Expected >= 1 expense line, got {expenseCount}");
+    }
+
+    // ── RV findings fix (2026-11-03): BUG-2 + BUG-1a ─────────────────────
+
+    // BUG-2: phát sinh TK 611 "Mua hàng" phải map vào mã 11 (giá vốn) — trước không có
+    // trong AccountCodes của line nào → rơi khỏi B02, lợi nhuận phóng đại 7,5tr (Cafe Tân Quy).
+    [Fact]
+    public async Task RV_IS_Account611_MapsIntoCogsLine11()
+    {
+        var (db, svc) = await SetupAsync();
+        var je = new JournalEntry(VasSampleDataSeeder.VasEnterpriseTenantId,
+            new DateTime(2026, 6, 20), "Mua hàng KKĐK", "Purchase", null);
+        je.AddLine("611", 7_501_000m, 0, "Mua hàng");
+        je.AddLine("156", 0, 7_501_000m, "Nhập kho");
+        db.JournalEntries.Add(je);
+        await db.SaveChangesAsync();
+
+        IncomeStatement is_ = await svc.GenerateAsync(
+            VasSampleDataSeeder.VasEnterpriseTenantId,
+            new AccountingPeriod(2026, 6),
+            AccountingStandard.TT133_2016);
+
+        decimal m11 = is_.Lines.First(l => l.ReportItemCode == "11").EndingAmount;
+        Assert.Equal(31_500_000m + 7_501_000m, m11, precision: 0); // 632 31.5M + 611 7.501M
+    }
+
+    // BUG-1a (income): TK chi tiết không có trong chart cũ (6421/6422 giờ đã seed —
+    // regression guard: chúng phải được cộng vào mã 24, không drop).
+    [Fact]
+    public async Task RV_IS_SubAccounts6421_6422_IncludedInOpexLine24()
+    {
+        var (_, svc) = await SetupAsync();
+        IncomeStatement is_ = await svc.GenerateAsync(
+            VasSampleDataSeeder.VasEnterpriseTenantId,
+            new AccountingPeriod(2026, 6),
+            AccountingStandard.TT133_2016);
+
+        decimal m24 = is_.Lines.First(l => l.ReportItemCode == "24").EndingAmount;
+        Assert.Equal(21_500_000m, m24, precision: 0); // 2.5+3.5+5+9+1.5 = 21.5M
     }
 
     // ── TT 71 Phase 3 (T3): B02-HTX ──────────────────────────────────────

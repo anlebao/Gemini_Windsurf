@@ -183,6 +183,16 @@ public static class AccountChartSeeder
 
         // Level-2 accounts for mapper (FIX-6)
         yield return ("1331", "Thuế GTGT đầu vào", AccountType.Asset, false); // FIX-6: level-2 for mapper
+
+        // Level-2 standard sub-accounts (RV fix 2026-11-03 — BUG-1a/audit):
+        // TK chi tiết chuẩn TT133 đang được dùng trong production nhưng chưa seed →
+        // trước bị B01/B02 drop âm thầm (1121 −220tr Cafe Tân Quy; 6421/6422/5113 mất khỏi B02).
+        yield return ("1121", "Tiền gửi không kỳ hạn — Tiền Việt Nam", AccountType.Asset, false);
+        yield return ("1122", "Tiền gửi không kỳ hạn — Ngoại tệ", AccountType.Asset, false);
+        yield return ("5113", "Doanh thu cung cấp dịch vụ", AccountType.Revenue, true);
+        yield return ("6421", "Chi phí bán hàng", AccountType.Expense, false);
+        yield return ("6422", "Chi phí quản lý doanh nghiệp", AccountType.Expense, false);
+        yield return ("2147", "Hao mòn BĐS đầu tư", AccountType.Asset, true); // contra-asset (giống 214)
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

@@ -24,9 +24,10 @@ public static class Tt71Templates
             new("110", "1. Tiền", 1, new[]{"111","112"}, false, false),
             new("120", "2. Đầu tư tài chính", 1, new[]{"121"}, false, false),
             // Mã 130 theo spec gồm số dư Nợ chi tiết của 131/132/136/138/141/334/338 + Nợ chi tiết 331.
-            // Hệ thống không tách số dư theo bên chi tiết → dùng nhóm phải thu chính (131/132/136/138/141/338);
-            // 331/334 (phải trả, normal credit) nằm ở Nợ phải trả — tránh double-count.
-            new("130", "3. Các khoản phải thu", 1, new[]{"131","132","136","138","141","338"}, false, false),
+            // Hệ thống không tách số dư theo bên chi tiết → dùng nhóm phải thu chính (131/132/136/138/141);
+            // 331/334/338 (phải trả, normal credit) chỉ nằm ở Nợ phải trả — tránh double-count
+            // (RV 2026-11-03: 338 trước map CẢ 130 lẫn 360 → cộng 2 lần vào 200 và 300).
+            new("130", "3. Các khoản phải thu", 1, new[]{"131","132","136","138","141"}, false, false),
             new("137", "Trong đó: Phải thu từ hoạt động cho vay nội bộ", 2, new[]{"132"}, false, false),
             new("140", "4. Hàng tồn kho", 1, new[]{"151","152","154","156","157"}, false, false),
             new("150", "5. Tài sản cố định", 1, Array.Empty<string>(), true, false),
@@ -48,7 +49,8 @@ public static class Tt71Templates
             new("330", "3. Thuế và các khoản phải nộp Nhà nước", 1, new[]{"333"}, false, true),
             new("340", "4. Phải trả người lao động", 1, new[]{"334"}, false, true),
             new("350", "5. Phải trả nợ vay", 1, new[]{"341"}, false, true),
-            new("360", "6. Phải trả khác", 1, new[]{"138","335","336","338","353"}, false, true),
+            // 138 (phải thu, normal debit) chỉ nằm ở Mã 130 — tránh double-count (RV 2026-11-03).
+            new("360", "6. Phải trả khác", 1, new[]{"335","336","338","353"}, false, true),
             new("370", "7. Phải trả của hoạt động tín dụng nội bộ", 1, new[]{"332"}, false, true),
             new("380", "8. Khoản trợ cấp, hỗ trợ của Nhà nước phải hoàn lại", 1, new[]{"342"}, false, true),
             new("400", "II. Vốn chủ sở hữu (400 = 410 + 420 + 430 + 440)", 0, Array.Empty<string>(), true, false),

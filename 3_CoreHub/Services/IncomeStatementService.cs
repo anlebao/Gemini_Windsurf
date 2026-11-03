@@ -98,7 +98,7 @@ public class IncomeStatementService : IIncomeStatementService
 
         // Step 1: Calculate direct lines (non-calculated) from account codes.
         // TT 99 convention: negate only Expense accounts (debit-normal) — backward compatible.
-        var amounts = await ComputeIncomeDirectLinesAsync(template, endingByAccount, openingByAccount, standard, presentByNormalSide: false, ct).ConfigureAwait(false);
+        var amounts = await ComputeIncomeDirectLinesAsync(template, tenantId, endingByAccount, openingByAccount, standard, presentByNormalSide: false, ct).ConfigureAwait(false);
 
         // Step 2: Calculate formula lines.
         // B 02-DN formulas (VERIFIED from Phụ lục IV TT 99):
@@ -166,53 +166,91 @@ public class IncomeStatementService : IIncomeStatementService
     ///     Expense (611/612/642/658/659) AND contra-revenue 521 (giảm trừ doanh thu, debit-normal) đều
     ///     được trình bày dương theo bên bình thường; 511/512/558 (normal credit) giữ nguyên.
     /// </summary>
+    /// <summary>
+    /// Account → line: LONGEST-PREFIX-WINS (VD 5117→"5117" không phải "511"; 6327→"6327"
+    ///   không phải "632" — chống double-count; hòa → line đầu tiên trong template).
+    /// TK không có trong chart (global + tenant): KHÔNG drop — cộng theo template + LogWarning,
+    ///   dấu suy ra theo nhóm TK ('5'/'7' → credit-normal; còn lại → debit-normal/Expense).
+    ///   (Trước: drop âm thầm → mất phát sinh 6421/6422/5113/611 khỏi B02.)
+    /// TK có phát sinh nhưng không map vào chỉ tiêu nào → LogWarning (net profit sẽ lệch).
+    /// </summary>
     private async Task<Dictionary<string, (decimal Ending, decimal Opening)>> ComputeIncomeDirectLinesAsync(
         Tt99ReportTemplate template,
+        TenantId tenantId,
         Dictionary<string, decimal> endingByAccount, Dictionary<string, decimal> openingByAccount,
         AccountingStandard standard, bool presentByNormalSide, CancellationToken ct)
     {
         var allAccounts = endingByAccount.Keys.Concat(openingByAccount.Keys).Distinct().ToHashSet(StringComparer.Ordinal);
         var amounts = new Dictionary<string, (decimal Ending, decimal Opening)>(StringComparer.Ordinal);
+        var directLines = template.Lines.Where(l => !l.IsCalculated && l.AccountCodes.Length > 0).ToList();
+        var missingChart = new List<string>();
+        var unmatched = new List<string>();
 
         foreach (var line in template.Lines)
         {
             if (line.IsCalculated || line.AccountCodes.Length == 0)
             {
                 amounts[line.ReportItemCode] = (0, 0);
-                continue;
             }
+        }
 
-            decimal ending = 0, opening = 0;
-            foreach (string code in line.AccountCodes)
+        foreach (string acct in allAccounts)
+        {
+            Tt99TemplateLine? best = null;
+            int bestLen = -1;
+            foreach (var line in directLines)
             {
-                foreach (string acct in allAccounts)
+                foreach (string code in line.AccountCodes)
                 {
-                    if (acct.StartsWith(code, StringComparison.Ordinal) || acct == code)
+                    if (code.Length > bestLen && acct.StartsWith(code, StringComparison.Ordinal))
                     {
-                        // Determine sign convention from AccountChart.
-                        // Skip accounts not in the standard's chart (giống flat path —
-                        // tránh TK ngoài chuẩn như 6421/6422 lọt vào mapping theo prefix).
-                        AccountChartEntry? chart = await _accountChart.GetAccountAsync(acct, standard, ct).ConfigureAwait(false);
-                        if (chart is null)
-                        {
-                            continue;
-                        }
-
-                        decimal end = endingByAccount.GetValueOrDefault(acct);
-                        decimal op = openingByAccount.GetValueOrDefault(acct);
-
-                        if (presentByNormalSide ? !chart.IsNormalCredit : chart.Type is DomainAccountType.Expense)
-                        {
-                            // Debit-normal accounts: signed (Credit - Debit) is negative → negate to present positive.
-                            end = -end;
-                            op = -op;
-                        }
-                        ending += end;
-                        opening += op;
+                        best = line;
+                        bestLen = code.Length;
                     }
                 }
             }
-            amounts[line.ReportItemCode] = (ending, opening);
+
+            if (best is null)
+            {
+                unmatched.Add(acct);
+                continue;
+            }
+
+            AccountChartEntry? chart = await _accountChart.GetTenantAccountAsync(tenantId, acct, standard, ct).ConfigureAwait(false);
+            if (chart is null)
+            {
+                missingChart.Add(acct);
+            }
+
+            decimal end = endingByAccount.GetValueOrDefault(acct);
+            decimal op = openingByAccount.GetValueOrDefault(acct);
+
+            // Debit-normal accounts: signed (Credit - Debit) is negative → negate to present positive.
+            // Chart miss → infer: '5'/'7' = credit-normal; '6'/'8'/khác = debit-normal (Expense).
+            bool negate = chart is not null
+                ? (presentByNormalSide ? !chart.IsNormalCredit : chart.Type is DomainAccountType.Expense)
+                : (presentByNormalSide ? acct[0] is not ('5' or '7') : acct[0] is '6' or '8');
+            if (negate)
+            {
+                end = -end;
+                op = -op;
+            }
+
+            var (e, o) = amounts[best.ReportItemCode];
+            amounts[best.ReportItemCode] = (e + end, o + op);
+        }
+
+        if (missingChart.Count > 0)
+        {
+            _logger.LogWarning(
+                "B02 {Form}: {Count} TK không có trong chart {Standard} — vẫn cộng theo template prefix (không drop): [{Accounts}]",
+                template.ReportForm, missingChart.Count, standard, string.Join(',', missingChart.OrderBy(a => a, StringComparer.Ordinal)));
+        }
+        if (unmatched.Count > 0)
+        {
+            _logger.LogWarning(
+                "B02 {Form}: {Count} TK có phát sinh nhưng KHÔNG map vào chỉ tiêu nào (standard {Standard}) — net profit lệch: [{Accounts}]",
+                template.ReportForm, unmatched.Count, standard, string.Join(',', unmatched.OrderBy(a => a, StringComparer.Ordinal)));
         }
 
         return amounts;
@@ -236,7 +274,7 @@ public class IncomeStatementService : IIncomeStatementService
 
         // Step 1: Direct lines — trình bày theo bên bình thường (negate khi !IsNormalCredit).
         var amounts = await ComputeIncomeDirectLinesAsync(
-            template, endingByAccount, openingByAccount, AccountingStandard.TT71_2024, presentByNormalSide: true, ct).ConfigureAwait(false);
+            template, tenantId, endingByAccount, openingByAccount, AccountingStandard.TT71_2024, presentByNormalSide: true, ct).ConfigureAwait(false);
 
         // Step 2: B02-HTX formulas (VERIFIED from Phụ lục IV TT 71 — Mục II).
         decimal m01ae = amounts["01a"].Ending, m01ao = amounts["01a"].Opening;
@@ -315,7 +353,7 @@ public class IncomeStatementService : IIncomeStatementService
 
         // Step 1: Direct lines — same convention as TT 99 (negate Expense accounts → positive cost).
         var amounts = await ComputeIncomeDirectLinesAsync(
-            template, endingByAccount, openingByAccount, AccountingStandard.TT133_2016, presentByNormalSide: false, ct).ConfigureAwait(false);
+            template, tenantId, endingByAccount, openingByAccount, AccountingStandard.TT133_2016, presentByNormalSide: false, ct).ConfigureAwait(false);
 
         // Step 2: B02-DNN formulas (VERIFIED from Phụ lục 2 TT 133).
         decimal m01e = amounts["01"].Ending, m01o = amounts["01"].Opening;
@@ -378,7 +416,7 @@ public class IncomeStatementService : IIncomeStatementService
 
         // Step 1: Direct lines — same convention as TT 99 (negate Expense accounts → positive cost).
         var amounts = await ComputeIncomeDirectLinesAsync(
-            template, endingByAccount, openingByAccount, AccountingStandard.TT58_2026, presentByNormalSide: false, ct).ConfigureAwait(false);
+            template, tenantId, endingByAccount, openingByAccount, AccountingStandard.TT58_2026, presentByNormalSide: false, ct).ConfigureAwait(false);
 
         // Step 2: B02-DNSN formulas (VERIFIED from Điều 10.2b TT 58).
         decimal m01e = amounts["01"].Ending, m01o = amounts["01"].Opening;

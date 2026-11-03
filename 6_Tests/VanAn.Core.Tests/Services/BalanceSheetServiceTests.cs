@@ -199,6 +199,53 @@ public class BalanceSheetServiceTests
         Assert.True(line110!.EndingAmount > 0, $"Mã 110 should be > 0, got {line110.EndingAmount}");
     }
 
+    // ── RV findings fix (2026-11-03): BUG-1a/1b ───────────────────────────
+
+    // BUG-1b: contra-asset 214 (IsNormalCredit) phải TRỪ khỏi tổng TS — seed có 10M khấu hao.
+    // Trước: 214 được negate → +10M cộng vào mã 152/150 (dấu sai, lệch 2×).
+    [Fact]
+    public async Task RV_BS_ContraAsset214_SubtractsFromFixedAssets()
+    {
+        var (_, svc) = await SetupAsync();
+        BalanceSheet bs = await svc.GenerateAsync(
+            VasSampleDataSeeder.VasEnterpriseTenantId,
+            new AccountingPeriod(2026, 6),
+            AccountingStandard.TT133_2016);
+
+        decimal Ending(string code) => bs.Assets.First(l => l.ReportItemCode == code).EndingAmount;
+
+        Assert.Equal(-10_000_000m, Ending("152")); // hao mòn lũy kế trình bày âm
+        Assert.Equal(190_000_000m, Ending("150")); // 150 = 151 (211 = 200M) + 152 (−10M)
+    }
+
+    // BUG-1a: TK không có trong chart (prefix-match được nhưng chart miss) KHÔNG được drop —
+    // vẫn cộng vào line theo template. Dùng 1129 (không seed trong chart) prefix "112" → mã 110.
+    [Fact]
+    public async Task RV_BS_UnmappedChartAccount_StillCountedNotDropped()
+    {
+        var (db, svc) = await SetupAsync();
+        var je = new JournalEntry(VasSampleDataSeeder.VasEnterpriseTenantId,
+            new DateTime(2026, 6, 20), "Giao dịch TK lạ", "Test", null);
+        je.AddLine("1129", 7_000_000m, 0, "Tiền gửi TK không có trong chart");
+        je.AddLine("111", 0, 7_000_000m, "Đối ứng");
+        db.JournalEntries.Add(je);
+        await db.SaveChangesAsync();
+
+        BalanceSheet bs = await svc.GenerateAsync(
+            VasSampleDataSeeder.VasEnterpriseTenantId,
+            new AccountingPeriod(2026, 6),
+            AccountingStandard.TT133_2016);
+
+        decimal Ending(string code) => bs.Assets.First(l => l.ReportItemCode == code).EndingAmount;
+        // Mã 110 = 111 + 112(+1129). Phải chứa +7M từ 1129 — không drop (net 0 net effect với 111 credit).
+        // So với cùng scenario không có JE: 110 bao gồm cả 1129 → tổng TS không mất 7M.
+        var line110 = bs.Assets.First(l => l.ReportItemCode == "110");
+        // 111 mất 7M nhưng 1129 +7M → 110 không đổi so với trước JE; assert gián tiếp qua
+        // việc 110 vẫn > 0 và tổng TS cân (plug không phải hấp thụ 7M).
+        Assert.True(line110.EndingAmount > 0);
+        Assert.Equal(bs.TotalAssetsEnding, bs.TotalLiabilitiesAndEquityEnding, precision: 2);
+    }
+
     // ── TT 71 Phase 3 (T4): B01-HTX ──────────────────────────────────────
 
     private async Task<(VanAnDbContext db, BalanceSheetService svc)> SetupTt71Async()

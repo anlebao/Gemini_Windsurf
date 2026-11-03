@@ -89,7 +89,9 @@ public static class Tt133Templates
             new("01", "1. Doanh thu bán hàng và cung cấp dịch vụ", 1, new[]{"511"}, false, false),
             new("02", "2. Các khoản giảm trừ doanh thu", 1, Array.Empty<string>(), false, false),
             new("10", "3. Doanh thu thuần về bán hàng và CC DV (10 = 01 - 02)", 1, Array.Empty<string>(), true, false),
-            new("11", "4. Giá vốn hàng bán", 1, new[]{"632"}, false, false),
+            // BUG-2 (RV 2026-11-03): 611 "Mua hàng" (KKĐK — trước kết chuyển 632) có trong chart
+            // TT133 nhưng không map → phát sinh rơi khỏi B02, lợi nhuận phóng đại 7,5tr (Cafe Tân Quy).
+            new("11", "4. Giá vốn hàng bán", 1, new[]{"632","611"}, false, false),
             new("20", "5. Lợi nhuận gộp về bán hàng và CC DV (20 = 10 - 11)", 1, Array.Empty<string>(), true, false),
             new("21", "6. Doanh thu hoạt động tài chính", 1, new[]{"515"}, false, false),
             new("22", "7. Chi phí tài chính", 1, new[]{"635"}, false, false),

@@ -98,9 +98,9 @@ public class BalanceSheetService : IBalanceSheetService
         var template = Tt99Templates.BalanceSheetTt99;
 
         // Step 1: Calculate amounts for each template line (direct lines only).
-        // Sign convention dùng chung: contra/credit-normal (IsNormalCredit) → negate.
+        // Sign convention: theo phía line (TS giữ raw, NV negate) — xem ComputeBalanceSheetDirectLinesAsync.
         var lineAmounts = await ComputeBalanceSheetDirectLinesAsync(
-            template, openingByAccount, movementByAccount, standard, ct).ConfigureAwait(false);
+            template, tenantId, openingByAccount, movementByAccount, standard, ct).ConfigureAwait(false);
 
         // Step 2: Calculate calculated lines (section/group headers) by summing their children.
         // Children = all non-calculated lines with Level > current line's Level, until next line with same or lower Level.
@@ -136,6 +136,7 @@ public class BalanceSheetService : IBalanceSheetService
 
         decimal netIncomeEnding = totalAssetsEnding - totalLiabEnding - equityBeforePlugEnding;
         decimal netIncomeOpening = totalAssetsOpening - totalLiabOpening - equityBeforePlugOpening;
+        LogPlugDelta(netIncomeEnding, netIncomeOpening, "420", tenantId, period);
 
         if (Math.Abs(netIncomeEnding) > 0.005m || Math.Abs(netIncomeOpening) > 0.005m)
         {
@@ -204,60 +205,111 @@ public class BalanceSheetService : IBalanceSheetService
 
     /// <summary>
     /// Computes direct (non-calculated) template lines from aggregated account balances.
-    /// Sign convention: normal-credit accounts (liability/equity/contra-asset) → negate to present positive.
-    /// Dùng chung cho B01-DN (TT 99) và B01-HTX (TT 71).
+    /// Sign convention (RV fix 2026-11-03 — BUG-1): theo PHÍA của line, không theo TK.
+    ///   - Line TÀI SẢN (mã 1xx/2xx): giữ raw signed (Nợ−Có) — contra-asset (214/229, dư Có)
+    ///     tự động ÂM → trừ đúng tổng tài sản (trước: IsNormalCredit negate → cộng sai).
+    ///   - Line NGUỒN VỐN (mã 3xx/4xx): negate — dư Có trình bày dương.
+    /// Account → line: LONGEST-PREFIX-WINS (VD 2147→"2147" không phải "214"; 5117→"5117"
+    ///   không phải "511" — chống double-count; hòa → line đầu tiên trong template).
+    /// TK không có trong chart (global + tenant): KHÔNG drop — cộng theo template + LogWarning
+    ///   (trước: drop âm thầm → mất 1121 −220tr; chart check chỉ còn vai trò cảnh báo).
+    /// TK có số dư nhưng không map vào chỉ tiêu nào → LogWarning (NetIncome plug sẽ hấp thụ).
+    /// Dùng chung cho B01-DN (TT 99), B01a-DNN (TT 133), B01-DNSN (TT 58), B01-HTX (TT 71).
     /// </summary>
     private async Task<Dictionary<string, (decimal Ending, decimal Opening)>> ComputeBalanceSheetDirectLinesAsync(
         Tt99ReportTemplate template,
+        TenantId tenantId,
         Dictionary<string, decimal> openingByAccount, Dictionary<string, decimal> movementByAccount,
         AccountingStandard standard, CancellationToken ct)
     {
         var allAccounts = openingByAccount.Keys.Concat(movementByAccount.Keys).Distinct().ToHashSet(StringComparer.Ordinal);
         var lineAmounts = new Dictionary<string, (decimal Ending, decimal Opening)>(StringComparer.Ordinal);
+        var directLines = template.Lines.Where(l => !l.IsCalculated && l.AccountCodes.Length > 0).ToList();
+        var missingChart = new List<string>();
+        var unmatched = new List<string>();
+        decimal unmatchedSigned = 0m;
 
         foreach (var templateLine in template.Lines)
         {
             if (templateLine.IsCalculated || templateLine.AccountCodes.Length == 0)
             {
                 lineAmounts[templateLine.ReportItemCode] = (0, 0);
-                continue;
             }
+        }
 
-            decimal ending = 0, opening = 0;
-            foreach (string code in templateLine.AccountCodes)
+        foreach (string acct in allAccounts)
+        {
+            Tt99TemplateLine? best = null;
+            int bestLen = -1;
+            foreach (var line in directLines)
             {
-                // Match by prefix: "111" matches "111", "1111", "1112" etc.
-                foreach (string acct in allAccounts)
+                foreach (string code in line.AccountCodes)
                 {
-                    if (acct.StartsWith(code, StringComparison.Ordinal) || acct == code)
+                    if (code.Length > bestLen && acct.StartsWith(code, StringComparison.Ordinal))
                     {
-                        // Skip accounts not in the standard's chart (giống flat path —
-                        // tránh TK ngoài chuẩn như 6421/6422 lọt vào mapping theo prefix).
-                        AccountChartEntry? chart = await _accountChart.GetAccountAsync(acct, standard, ct).ConfigureAwait(false);
-                        if (chart is null)
-                        {
-                            continue;
-                        }
-
-                        decimal op = openingByAccount.GetValueOrDefault(acct);
-                        decimal mv = movementByAccount.GetValueOrDefault(acct);
-                        decimal end = op + mv;
-
-                        // Check if this account is a contra account (credit-normal) for sign adjustment.
-                        if (chart.IsNormalCredit)
-                        {
-                            op = -op;
-                            end = -end;
-                        }
-                        ending += end;
-                        opening += op;
+                        best = line;
+                        bestLen = code.Length;
                     }
                 }
             }
-            lineAmounts[templateLine.ReportItemCode] = (ending, opening);
+
+            decimal op = openingByAccount.GetValueOrDefault(acct);
+            decimal end = op + movementByAccount.GetValueOrDefault(acct);
+
+            if (best is null)
+            {
+                unmatched.Add(acct);
+                unmatchedSigned += end;
+                continue;
+            }
+
+            AccountChartEntry? chart = await _accountChart.GetTenantAccountAsync(tenantId, acct, standard, ct).ConfigureAwait(false);
+            if (chart is null)
+            {
+                missingChart.Add(acct);
+            }
+
+            // Line NGUỒN VỐN (mã 3xx/4xx) → trình bày dương cho số dư Có; TÀI SẢN giữ raw.
+            if (best.ReportItemCode[0] is '3' or '4')
+            {
+                op = -op;
+                end = -end;
+            }
+
+            var (e, o) = lineAmounts[best.ReportItemCode];
+            lineAmounts[best.ReportItemCode] = (e + end, o + op);
+        }
+
+        if (missingChart.Count > 0)
+        {
+            _logger.LogWarning(
+                "B01 {Form}: {Count} TK không có trong chart {Standard} — vẫn cộng theo template prefix (không drop): [{Accounts}]",
+                template.ReportForm, missingChart.Count, standard, string.Join(',', missingChart.OrderBy(a => a, StringComparer.Ordinal)));
+        }
+        if (unmatched.Count > 0)
+        {
+            _logger.LogWarning(
+                "B01 {Form}: {Count} TK có số dư nhưng KHÔNG map vào chỉ tiêu nào (standard {Standard}, signed={Signed}) — NetIncome plug sẽ hấp thụ: [{Accounts}]",
+                template.ReportForm, unmatched.Count, standard, unmatchedSigned, string.Join(',', unmatched.OrderBy(a => a, StringComparer.Ordinal)));
         }
 
         return lineAmounts;
+    }
+
+    /// <summary>
+    /// BUG-1c plug guard (RV 2026-11-03): log rõ NetIncome residual TRƯỚC khi plug vào LN chưa
+    /// phân phối — plug ép cân A=L+E nên imbalance thật (TK drop/không map) từng bị che âm thầm.
+    /// Delta = lợi nhuận lũy kế hợp lệ khi data chuẩn; nếu có TK unmatched thì warning kèm ở
+    /// ComputeBalanceSheetDirectLinesAsync đã chỉ rõ account + số tiền bị plug hấp thụ.
+    /// </summary>
+    private void LogPlugDelta(decimal netIncomeEnding, decimal netIncomeOpening, string plugCode, TenantId tenantId, AccountingPeriod period)
+    {
+        if (Math.Abs(netIncomeEnding) > 0.005m || Math.Abs(netIncomeOpening) > 0.005m)
+        {
+            _logger.LogInformation(
+                "B01 plug: NetIncome residual {Ending} (opening {Opening}) → Mã {Code} cho tenant {TenantId}, period {Period}",
+                netIncomeEnding, netIncomeOpening, plugCode, tenantId.Value, period);
+        }
     }
 
     /// <summary>
@@ -274,7 +326,7 @@ public class BalanceSheetService : IBalanceSheetService
     {
         var template = Tt71Templates.BalanceSheetTt71;
         var lineAmounts = await ComputeBalanceSheetDirectLinesAsync(
-            template, openingByAccount, movementByAccount, AccountingStandard.TT71_2024, ct).ConfigureAwait(false);
+            template, tenantId, openingByAccount, movementByAccount, AccountingStandard.TT71_2024, ct).ConfigureAwait(false);
 
         void Set(string code, decimal ending, decimal opening) => lineAmounts[code] = (ending, opening);
         decimal SumEnding(params string[] codes) => codes.Sum(c => lineAmounts[c].Ending);
@@ -302,6 +354,7 @@ public class BalanceSheetService : IBalanceSheetService
 
         decimal netIncomeEnding = totalAssetsEnding - totalLiabEnding - equityBeforePlugEnding;
         decimal netIncomeOpening = totalAssetsOpening - totalLiabOpening - equityBeforePlugOpening;
+        LogPlugDelta(netIncomeEnding, netIncomeOpening, "420", tenantId, period);
 
         if (Math.Abs(netIncomeEnding) > 0.005m || Math.Abs(netIncomeOpening) > 0.005m)
         {
@@ -379,7 +432,7 @@ public class BalanceSheetService : IBalanceSheetService
     {
         var template = Tt133Templates.BalanceSheetTt133;
         var lineAmounts = await ComputeBalanceSheetDirectLinesAsync(
-            template, openingByAccount, movementByAccount, AccountingStandard.TT133_2016, ct).ConfigureAwait(false);
+            template, tenantId, openingByAccount, movementByAccount, AccountingStandard.TT133_2016, ct).ConfigureAwait(false);
 
         void Set(string code, decimal ending, decimal opening) => lineAmounts[code] = (ending, opening);
         decimal SumEnding(params string[] codes) => codes.Sum(c => lineAmounts[c].Ending);
@@ -411,6 +464,7 @@ public class BalanceSheetService : IBalanceSheetService
 
         decimal netIncomeEnding = totalAssetsEnding - totalLiabEnding - equityBeforePlugEnding;
         decimal netIncomeOpening = totalAssetsOpening - totalLiabOpening - equityBeforePlugOpening;
+        LogPlugDelta(netIncomeEnding, netIncomeOpening, "417", tenantId, period);
 
         if (Math.Abs(netIncomeEnding) > 0.005m || Math.Abs(netIncomeOpening) > 0.005m)
         {
@@ -482,7 +536,7 @@ public class BalanceSheetService : IBalanceSheetService
     {
         var template = Tt58Templates.BalanceSheetTt58;
         var lineAmounts = await ComputeBalanceSheetDirectLinesAsync(
-            template, openingByAccount, movementByAccount, AccountingStandard.TT58_2026, ct).ConfigureAwait(false);
+            template, tenantId, openingByAccount, movementByAccount, AccountingStandard.TT58_2026, ct).ConfigureAwait(false);
 
         void Set(string code, decimal ending, decimal opening) => lineAmounts[code] = (ending, opening);
         decimal SumEnding(params string[] codes) => codes.Sum(c => lineAmounts[c].Ending);
@@ -506,6 +560,7 @@ public class BalanceSheetService : IBalanceSheetService
 
         decimal netIncomeEnding = totalAssetsEnding - totalLiabEnding - equityBeforePlugEnding;
         decimal netIncomeOpening = totalAssetsOpening - totalLiabOpening - equityBeforePlugOpening;
+        LogPlugDelta(netIncomeEnding, netIncomeOpening, "420", tenantId, period);
 
         if (Math.Abs(netIncomeEnding) > 0.005m || Math.Abs(netIncomeOpening) > 0.005m)
         {

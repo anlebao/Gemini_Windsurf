@@ -36,11 +36,11 @@ public class AccountChartSeederTests
         int tt58 = await db.AccountCharts.CountAsync(e => e.Standard == AccountingStandard.TT58_2026);
         int tt71 = await db.AccountCharts.CountAsync(e => e.Standard == AccountingStandard.TT71_2024);
 
-        Assert.Equal(51, tt133); // 49 level-1 + 2 level-2 (3331, 1331)
+        Assert.Equal(57, tt133); // 49 level-1 + 2 level-2 (3331, 1331) + 6 level-2 chuẩn (1121/1122/5113/6421/6422/2147 — RV 2026-11-03)
         Assert.Equal(75, tt99);  // 71 level-1 + 2 level-2 (3331, 1331) + 2 BĐSĐT (5117, 6327)
         Assert.Equal(0, tt58);   // FIX-5: TT 58 has no chart of accounts
         Assert.Equal(89, tt71);  // TT 71/2024 HTX: 43 level-1 + 46 level-2/3
-        Assert.Equal(215, total);
+        Assert.Equal(221, total);
     }
 
     // TT71-SE5 (2026-10-01): TT 71 chart — type mapping + đặc thù HTX
