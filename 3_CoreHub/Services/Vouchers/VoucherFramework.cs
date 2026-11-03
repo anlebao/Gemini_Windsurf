@@ -141,3 +141,32 @@ public sealed class LoanPostingStrategy : IVoucherPostingStrategy
         return Task.FromResult(VoucherPostingResult.Ok(new VoucherEntryResult(cash, lines)));
     }
 }
+
+/// <summary>PH3 — Khấu hao TSCĐ: Nợ {TK chi phí user chọn}/Có 214 (hao mòn lũy kế).
+/// TK chi phí truyền qua LoanAccountCode (field generic của VoucherSubmission — form Account select).</summary>
+public sealed class DepreciationPostingStrategy : IVoucherPostingStrategy
+{
+    public Task<VoucherPostingResult> PostAsync(VoucherSubmission s, CancellationToken ct)
+    {
+        var amt = s.Amount ?? 0m;
+        if (amt <= 0) return Task.FromResult(VoucherPostingResult.Fail("Số tiền phải lớn hơn 0."));
+        var expense = string.IsNullOrWhiteSpace(s.LoanAccountCode) ? "642" : s.LoanAccountCode.Trim();
+        var lines = new[] { new VoucherLine(expense, amt, 0), new VoucherLine("214", 0, amt) };
+        return Task.FromResult(VoucherPostingResult.Ok(new VoucherEntryResult(null, lines)));
+    }
+}
+
+/// <summary>PH3 — Ký quỹ/Ký cược: receive Nợ {cash}/Có 338 · return Nợ 338/Có {cash} (Mode).</summary>
+public sealed class DepositPostingStrategy : IVoucherPostingStrategy
+{
+    public Task<VoucherPostingResult> PostAsync(VoucherSubmission s, CancellationToken ct)
+    {
+        var amt = s.Amount ?? 0m;
+        if (amt <= 0) return Task.FromResult(VoucherPostingResult.Fail("Số tiền phải lớn hơn 0."));
+        var cash = s.CashAccount ?? "111";
+        var lines = s.Mode == "return"
+            ? new[] { new VoucherLine("338", amt, 0), new VoucherLine(cash, 0, amt) }
+            : new[] { new VoucherLine(cash, amt, 0), new VoucherLine("338", 0, amt) };
+        return Task.FromResult(VoucherPostingResult.Ok(new VoucherEntryResult(cash, lines)));
+    }
+}

@@ -15,6 +15,7 @@
 @inject IManualJournalVoucherService JournalVoucherService
 @inject CoreAccountingService.IAccountChartService AccountChartService
 @inject CoreAccountingService.IVasFeatureFlagService FeatureFlagService
+@inject CoreAccountingService.IVoucherTextParseService TextParser
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
 @inject ILogger<JournalVoucher> Logger
@@ -161,6 +162,8 @@
     private string? _errorMessage;
     private PrintedVoucher? _printedVoucher;
     private bool _showPrintModal;
+    // PH3: deep-link từ Smart Entry (intent JournalAdjustment) — prefill Diễn Giải + Ngày.
+    [SupplyParameterFromQuery] public string? desc { get; set; }
 
     private decimal TotalDebit => _lines.Sum(l => l.Debit ?? 0m);
     private decimal TotalCredit => _lines.Sum(l => l.Credit ?? 0m);
@@ -171,6 +174,21 @@
     {
         await LoadTenantTypeAsync();
         await LoadCoaOptionsAsync();
+        // PH3: deep-link Smart Entry (kết chuyển/phân bổ/điều chỉnh) → prefill Diễn Giải + Ngày.
+        // KHÔNG auto tạo dòng CTGS — TK điều chỉnh do kế toán quyết định (không đoán).
+        if (!string.IsNullOrWhiteSpace(desc) && TenantProvider.HasTenant)
+        {
+            try
+            {
+                var p = await TextParser.ParseAsync(new TenantId(TenantProvider.TenantId), desc);
+                if (!string.IsNullOrWhiteSpace(p.Description)) _description = p.Description;
+                _entryDate = p.Date;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "JournalVoucher desc parse failed");
+            }
+        }
     }
 
     private async Task LoadTenantTypeAsync()

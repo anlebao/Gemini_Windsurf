@@ -180,4 +180,62 @@ public class VoucherFrameworkTests
         Assert.Null(result.Entry);
         Assert.Contains(result.Errors, e => e.Contains("tài khoản vay", StringComparison.OrdinalIgnoreCase));
     }
+
+    // ---------- PH3: Depreciation / Deposit strategies + registry ----------
+
+    [Fact]
+    public async Task Depreciation_JournalsDebitExpenseCredit214()
+    {
+        var strategy = new DepreciationPostingStrategy();
+        var result = await strategy.PostAsync(new VoucherSubmission(
+            Tenant, VoucherIntent.Depreciation, Amount: 10_000_000m, Date: new DateTime(2026, 11, 3),
+            Party: null, CashAccount: "111", AllocatedToEntryId: null,
+            LoanAccountCode: "642"), CancellationToken.None);
+
+        Assert.NotNull(result.Entry);
+        Assert.Contains(result.Entry.Lines, l => l.AccountNumber == "642" && l.DebitAmount == 10_000_000m);
+        Assert.Contains(result.Entry.Lines, l => l.AccountNumber == "214" && l.CreditAmount == 10_000_000m);
+    }
+
+    [Fact]
+    public async Task Deposit_Receive_JournalsDebitCashCredit338()
+    {
+        var strategy = new DepositPostingStrategy();
+        var result = await strategy.PostAsync(new VoucherSubmission(
+            Tenant, VoucherIntent.Deposit, Amount: 5_000_000m, Date: new DateTime(2026, 11, 3),
+            Party: null, CashAccount: "111", AllocatedToEntryId: null,
+            Mode: "receive"), CancellationToken.None);
+
+        Assert.NotNull(result.Entry);
+        Assert.Contains(result.Entry.Lines, l => l.AccountNumber == "111" && l.DebitAmount == 5_000_000m);
+        Assert.Contains(result.Entry.Lines, l => l.AccountNumber == "338" && l.CreditAmount == 5_000_000m);
+    }
+
+    [Fact]
+    public async Task Deposit_Return_JournalsDebit338CreditCash()
+    {
+        var strategy = new DepositPostingStrategy();
+        var result = await strategy.PostAsync(new VoucherSubmission(
+            Tenant, VoucherIntent.Deposit, Amount: 2_000_000m, Date: new DateTime(2026, 11, 3),
+            Party: null, CashAccount: "112", AllocatedToEntryId: null,
+            Mode: "return"), CancellationToken.None);
+
+        Assert.NotNull(result.Entry);
+        Assert.Contains(result.Entry.Lines, l => l.AccountNumber == "338" && l.DebitAmount == 2_000_000m);
+        Assert.Contains(result.Entry.Lines, l => l.AccountNumber == "112" && l.CreditAmount == 2_000_000m);
+    }
+
+    [Fact]
+    public void Registry_ResolveByIntent_Ph3Intents_Maps()
+    {
+        var registry = new VoucherTypeRegistry();
+        registry.Register(new VoucherTypeDefinition("journal-adjustment", "Phiếu Hạch Toán (CTGS)", "/accounting/journal-voucher", null, [], "", "/accounting/journal-voucher"), null, VoucherIntent.JournalAdjustment);
+        registry.Register(new VoucherTypeDefinition("depreciation", "Phiếu Khấu Hao TSCĐ", "/vouchers/depreciation", null, [], "depreciation"), new DepreciationPostingStrategy(), VoucherIntent.Depreciation);
+        registry.Register(new VoucherTypeDefinition("deposit", "Phiếu Ký Quỹ / Ký Cược", "/vouchers/deposit", null, [], "deposit"), new DepositPostingStrategy(), VoucherIntent.Deposit);
+
+        Assert.Equal("journal-adjustment", registry.ResolveByIntent(VoucherIntent.JournalAdjustment)?.Code);
+        Assert.Equal("/accounting/journal-voucher", registry.ResolveByIntent(VoucherIntent.JournalAdjustment)?.Route);
+        Assert.Equal("depreciation", registry.ResolveByIntent(VoucherIntent.Depreciation)?.Code);
+        Assert.Equal("deposit", registry.ResolveByIntent(VoucherIntent.Deposit)?.Code);
+    }
 }

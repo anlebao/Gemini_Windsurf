@@ -286,4 +286,64 @@ public class VoucherTextParseServiceTests
         Assert.Equal(VoucherIntent.Loan, r.Intent);
         Assert.DoesNotContain("đối tượng", r.MissingFields);
     }
+
+    // ---- PH3: tax/interest category + CTGS + khấu hao + ký quỹ ----
+
+    [Fact]
+    public async Task Intent_NoThue_IsExpense_WithTaxCategory()
+    {
+        var r = await Parse("nộp thuế 5 triệu");
+        Assert.Equal(VoucherIntent.Expense, r.Intent);
+        Assert.Equal("tax", r.Category);
+        Assert.Equal(5_000_000m, r.Amount);
+    }
+
+    [Fact]
+    public async Task Intent_TraLaiVay_IsExpense_WithInterestCategory()
+    {
+        var r = await Parse("trả lãi vay 5 triệu");
+        Assert.Equal(VoucherIntent.Expense, r.Intent);
+        Assert.Equal("interest", r.Category);
+        Assert.Equal(5_000_000m, r.Amount);
+    }
+
+    [Fact]
+    public async Task Intent_KetChuyenLaiLo_IsJournalAdjustment()
+    {
+        var r = await Parse("kết chuyển lãi lỗ cuối tháng");
+        Assert.Equal(VoucherIntent.JournalAdjustment, r.Intent);
+    }
+
+    [Fact]
+    public async Task Intent_PhanBoChiPhiTraTruoc_IsJournalAdjustment_NotExpense()
+    {
+        // Trước PH3: "chi " trong "chi phí" → rơi vào Expense.
+        var r = await Parse("phân bổ chi phí trả trước 10 triệu");
+        Assert.Equal(VoucherIntent.JournalAdjustment, r.Intent);
+        Assert.Equal(10_000_000m, r.Amount);
+    }
+
+    [Fact]
+    public async Task Intent_KhauHao_IsDepreciation()
+    {
+        var r = await Parse("trích khấu hao TSCĐ 10 triệu");
+        Assert.Equal(VoucherIntent.Depreciation, r.Intent);
+        Assert.Equal(10_000_000m, r.Amount);
+    }
+
+    [Fact]
+    public async Task Intent_NhanKyQuy_IsDeposit()
+    {
+        var r = await Parse("nhận ký quỹ 5 triệu");
+        Assert.Equal(VoucherIntent.Deposit, r.Intent);
+        Assert.Equal(5_000_000m, r.Amount);
+    }
+
+    [Fact]
+    public async Task Intent_HoanTraKyCuoc_IsDeposit()
+    {
+        var r = await Parse("hoàn trả ký cược 2 triệu");
+        Assert.Equal(VoucherIntent.Deposit, r.Intent);
+        Assert.Equal(2_000_000m, r.Amount);
+    }
 }

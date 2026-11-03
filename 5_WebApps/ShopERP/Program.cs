@@ -337,6 +337,29 @@ namespace VanAn.ShopERP
                          new CoreHub.Services.Vouchers.VoucherField("party", CoreHub.Services.Vouchers.VoucherFieldType.Party, "Ngân hàng nhận trả", false, "doiTuong")],
                         "loan"),
                     new CoreHub.Services.Vouchers.LoanPostingStrategy(), CoreHub.Services.VoucherIntent.LoanRepayment);
+                // ---- PH3: CTGS (hosted — trang JournalVoucher) + Khấu hao + Ký quỹ (generic + strategy) ----
+                r.Register(
+                    new CoreHub.Services.Vouchers.VoucherTypeDefinition("journal-adjustment", "Phiếu Hạch Toán (CTGS)", "/accounting/journal-voucher", null,
+                        [new CoreHub.Services.Vouchers.VoucherField("amount", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Số Tiền", false, "amount"),
+                         new CoreHub.Services.Vouchers.VoucherField("date", CoreHub.Services.Vouchers.VoucherFieldType.Date, "Ngày", true, "date")],
+                        "", "/accounting/journal-voucher"),
+                    null, CoreHub.Services.VoucherIntent.JournalAdjustment);
+                r.Register(
+                    new CoreHub.Services.Vouchers.VoucherTypeDefinition("depreciation", "Phiếu Khấu Hao TSCĐ", "/vouchers/depreciation", null,
+                        [new CoreHub.Services.Vouchers.VoucherField("amount", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Giá trị khấu hao", true, "amount"),
+                         new CoreHub.Services.Vouchers.VoucherField("date", CoreHub.Services.Vouchers.VoucherFieldType.Date, "Ngày", true, "date"),
+                         new CoreHub.Services.Vouchers.VoucherField("account", CoreHub.Services.Vouchers.VoucherFieldType.Account, "TK Chi Phí (627/641/642)", true),
+                         new CoreHub.Services.Vouchers.VoucherField("party", CoreHub.Services.Vouchers.VoucherFieldType.Party, "Tên TSCĐ (nếu có)", false, "doiTuong")],
+                        "depreciation"),
+                    new CoreHub.Services.Vouchers.DepreciationPostingStrategy(), CoreHub.Services.VoucherIntent.Depreciation);
+                r.Register(
+                    new CoreHub.Services.Vouchers.VoucherTypeDefinition("deposit", "Phiếu Ký Quỹ / Ký Cược", "/vouchers/deposit", null,
+                        [new CoreHub.Services.Vouchers.VoucherField("amount", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Số Tiền", true, "amount"),
+                         new CoreHub.Services.Vouchers.VoucherField("date", CoreHub.Services.Vouchers.VoucherFieldType.Date, "Ngày", true, "date"),
+                         new CoreHub.Services.Vouchers.VoucherField("mode", CoreHub.Services.Vouchers.VoucherFieldType.Select, "Loại", true, null, ["receive", "return"]),
+                         new CoreHub.Services.Vouchers.VoucherField("party", CoreHub.Services.Vouchers.VoucherFieldType.Party, "Đối tượng", false, "doiTuong")],
+                        "deposit"),
+                    new CoreHub.Services.Vouchers.DepositPostingStrategy(), CoreHub.Services.VoucherIntent.Deposit);
                 // ---- Generic (G1/G2 cũ): advance / stock-issue / asset-disposal ----
                 r.Register(
                     new CoreHub.Services.Vouchers.VoucherTypeDefinition("advance", "Phiếu Tạm Ứng",

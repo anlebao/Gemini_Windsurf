@@ -74,8 +74,18 @@ Ví dụ chuẩn đầy đủ:
 | Nguyên vật liệu (materials) | `nguyên liệu`, `nguyên vật liệu`, `vật tư`, `nvl` |
 | Marketing | `quảng cáo`, `marketing`, `ads`, `khuyến mãi` |
 | Sửa chữa/vận chuyển (maintenance) | `sửa`, `bảo trì`, `bảo dưỡng`, `xăng`, `vận chuyển`, `ship` |
+| **Thuế (tax) — PH3** | `thuế`, `thuế gtgt`, `thuế tncn`, `thuế môn bài`, `thuế tndn` → **TK 333** |
+| **Lãi vay (interest) — PH3** | `lãi vay`, `lãi ngân hàng`, `lãi tiền vay` → **TK 635** |
 
 Không nhắc nhóm nào → vẫn là phiếu Chi phí, bạn tự chọn TK.
+
+### 4.3b. Nghiệp vụ mới PH3 (kết chuyển · khấu hao · ký quỹ)
+
+| Bạn muốn | Nói chứa | Ví dụ | Kết quả |
+|---|---|---|---|
+| Phiếu Hạch Toán CTGS | `kết chuyển`, `phân bổ`, `điều chỉnh`, `trích trước` | "kết chuyển lãi lỗ cuối tháng" | Nút mở **Phiếu Hạch Toán (CTGS)** — Diễn Giải + Ngày điền sẵn (dòng TK tự nhập) |
+| Khấu hao TSCĐ | `khấu hao` | "trích khấu hao TSCĐ 10 triệu" | **Phiếu Khấu Hao** — Nợ TK chi phí / Có 214 |
+| Ký quỹ / Ký cược | `ký quỹ`, `ký cược` | "nhận ký quỹ 5 triệu" · "hoàn trả ký cược 2 triệu" | **Phiếu Ký Quỹ** — Nhận (Nợ 111/Có 338) / Hoàn trả (Nợ 338/Có 111) |
 
 ### 4.4. Chuyển tiền nội bộ (`/accounting/transfers`)
 

@@ -7,6 +7,7 @@ using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Services.CongNo;
 using VanAn.Shared.Domain;
 using VanAn.ShopERP.Services;
+using VanAn.ShopERP.Components.Accounting;
 using FluentAssertions;
 
 namespace VanAn.ShopERP.Tests.Components.Accounting;
@@ -168,5 +169,54 @@ public class ExpenseEntryTests : ComponentTestBase
 
         cut.Markup.Should().Contain("expense-balance-warning");
         cut.Markup.Should().Contain("Âm quỹ tiền mặt");
+    }
+
+    // ---------- PH3: session recovery (full reload — deterministic, không mất session) ----------
+
+    private void EnableSmartEntry()
+    {
+        var settings = new Mock<VanAn.Shared.Services.IShopFeatureSettingsService>();
+        settings.Setup(s => s.IsEnabledAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(true);
+        Services.AddSingleton(settings.Object);
+    }
+
+    [Fact]
+    public void ExpenseEntry_Recovery_MultiJson_RestoresMultiWithSavedIndices()
+    {
+        // PH3: khôi phục từ multi JSON — không re-parse LLM, không mất session.
+        EnableSmartEntry();
+        var multi = new List<ParsedVoucher>
+        {
+            new(VoucherIntent.Revenue, 2_000_000m, new DateTime(2026, 11, 3), "cash", null, null, null, null, null, "thu tiền bán hàng 2 triệu", "High", Array.Empty<string>(), Array.Empty<string>()),
+            new(VoucherIntent.Expense, 1_000_000m, new DateTime(2026, 11, 3), "cash", null, null, null, "utilities", null, "chi tiền điện 1 triệu", "High", Array.Empty<string>(), Array.Empty<string>()),
+        };
+        JSInterop.Setup<string>("vananLoadSmartMulti").SetResult(SmartEntrySessionCodec.Serialize(multi));
+        JSInterop.Setup<string>("vananLoadSmartText").SetResult("thu tiền bán hàng 2 triệu và chi tiền điện 1 triệu");
+        JSInterop.Setup<List<int>>("vananLoadSmartProcessed").SetResult(new List<int> { 0 });
+
+        var cut = RenderComponent<ShopERP.Components.Pages.Accounting.ExpenseEntry>();
+
+        // Bar hiện + 2 phiếu + phiếu thu (index 0 — đã lưu ở trang trước) đánh dấu "✓ Đã lưu"
+        cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll("[data-testid='smart-entry-multi-item']").Count));
+        Assert.Single(cut.FindAll("[data-testid='smart-entry-multi-done']"));
+        // Nút Áp của phiếu đã lưu bị khoá (disabled — chống áp lại) → đúng 1 nút áp được
+        var applyButtons = cut.FindAll("[data-testid='smart-entry-multi-apply']");
+        Assert.Equal(2, applyButtons.Count);
+        Assert.Equal(1, applyButtons.Count(b => !b.HasAttribute("disabled")));
+    }
+
+    [Fact]
+    public void ExpenseEntry_Recovery_TextOnly_ShowsSingleResult_NoWipe()
+    {
+        // PH3: fallback text-only (dữ liệu cũ) — single được HIỂN THỊ (không vứt bỏ), không wipe.
+        EnableSmartEntry();
+        JSInterop.Setup<string>("vananLoadSmartMulti").SetResult("");
+        JSInterop.Setup<string>("vananLoadSmartText").SetResult("chi tiền điện 1 triệu");
+
+        var cut = RenderComponent<ShopERP.Components.Pages.Accounting.ExpenseEntry>();
+
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid='smart-entry-result']")));
+        cut.WaitForAssertion(() => Assert.Equal("Chi phí", cut.Find("[data-testid='smart-entry-intent']").TextContent.Trim()));
     }
 }

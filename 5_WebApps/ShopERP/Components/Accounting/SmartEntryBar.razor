@@ -168,7 +168,13 @@
         {
             // G4: luôn qua ParseMultipleAsync — AI phân tích (force) cũng ra multi như Phân tích
             var list = await Parser.ParseMultipleAsync(new TenantId(TenantProvider.TenantId), _text, forceLlm: forceLlm);
-            if (list.Count > 1) { _multi = list.ToList(); Session.Set(_multi, _text); await JS.InvokeVoidAsync("vananSaveSmartText", _text); }
+            if (list.Count > 1)
+            {
+                _multi = list.ToList();
+                Session.Set(_multi, _text);
+                // PH3: lưu kèm multi JSON + processed indices — khôi phục deterministic sau full reload
+                await JS.InvokeVoidAsync("vananSaveSmartText", _text, SmartEntrySessionCodec.Serialize(_multi), _savedIndices.ToList());
+            }
             else { _result = list.Count == 1 ? list[0] : null; Session.Clear(); await JS.InvokeVoidAsync("vananClearSmartText"); }
         }
         catch (Exception ex)
@@ -215,7 +221,8 @@
     }
 
     /// <summary>G4 fix: parent gọi sau khi LƯU thành công 1 phiếu — GIỮ nguyên block trích xuất,
-    /// đánh dấu phiếu vừa áp là "✓ Đã lưu" (nút áp bị khoá). Block reset khi user parse câu mới.</summary>
+    /// đánh dấu phiếu vừa áp là "✓ Đã lưu" (nút áp bị khoá). Block reset khi user parse câu mới.
+    /// PH3: persist processed indices lên sessionStorage — trang khác khôi phục đúng trạng thái.</summary>
     public void NotifySaved()
     {
         if (_lastAppliedIndex >= 0 && _lastAppliedIndex < _multi.Count)
@@ -225,6 +232,7 @@
         _lastAppliedIndex = -1;
         _result = null;
         if (!HasPendingMulti) { Session.Clear(); _ = JS.InvokeVoidAsync("vananClearSmartText"); } // hết phiếu chờ → sẵn sàng câu mới
+        else { _ = JS.InvokeVoidAsync("vananSaveSmartText", _text, SmartEntrySessionCodec.Serialize(_multi), _savedIndices.ToList()); }
     }
 
     public bool HasPendingMulti
@@ -242,16 +250,35 @@
     /// <summary>Câu gốc đang trong ô nhập (dùng cho route link cross-page — giữ nguyên multi).</summary>
     public string CurrentText => _text;
 
-    /// <summary>Deep-link: hiển thị sẵn list multi từ câu gốc (page khác, ví dụ expenses ← revenue).</summary>
-    public void ShowMulti(List<ParsedVoucher> list, string text)
+    /// <summary>Deep-link: hiển thị sẵn list multi từ câu gốc (page khác, ví dụ expenses ← revenue).
+    /// PH3: savedIndices — giữ đánh dấu "✓ Đã lưu" cho phiếu đã xử lý ở trang trước.</summary>
+    public void ShowMulti(List<ParsedVoucher> list, string text, List<int>? savedIndices = null)
     {
         _text = text;
         _result = null;
         _multi = list;
         _savedIndices.Clear();
+        if (savedIndices != null)
+        {
+            foreach (var i in savedIndices)
+            {
+                if (i >= 0 && i < list.Count) _savedIndices.Add(i);
+            }
+        }
         _lastAppliedIndex = -1;
-        Session.Set(_multi, text);
-        _ = JS.InvokeVoidAsync("vananSaveSmartText", text);
+        Session.Set(_multi, text, _savedIndices.ToList());
+        _ = JS.InvokeVoidAsync("vananSaveSmartText", text, SmartEntrySessionCodec.Serialize(list), _savedIndices.ToList());
+        StateHasChanged();
+    }
+
+    /// <summary>PH3: hiển thị kết quả SINGLE sau recovery (trước đây bị vứt bỏ + wipe sessionStorage).</summary>
+    public void ShowResult(ParsedVoucher p)
+    {
+        _text = p.Description;
+        _result = p;
+        _multi = new();
+        _savedIndices.Clear();
+        _lastAppliedIndex = -1;
         StateHasChanged();
     }
 
@@ -337,6 +364,9 @@
         VoucherIntent.AssetDisposal => "Thanh lý TSCĐ",
         VoucherIntent.Loan => "Vay nhận tiền",
         VoucherIntent.LoanRepayment => "Trả nợ vay",
+        VoucherIntent.JournalAdjustment => "Phiếu hạch toán (CTGS)",
+        VoucherIntent.Depreciation => "Khấu hao TSCĐ",
+        VoucherIntent.Deposit => "Ký quỹ / Ký cược",
         _ => "Chưa xác định"
     };
 

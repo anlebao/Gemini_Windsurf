@@ -25,7 +25,10 @@ public enum VoucherIntent
     StockOut,           // Task PH/G2: xuất kho (SX 154 hoặc bán 632 — Mode)
     AssetDisposal,      // Task PH/G2: thanh lý TSCĐ (211/214/711/811)
     Loan,               // Task PH2: vay nhận tiền (Có 311/341)
-    LoanRepayment       // Task PH2: trả nợ vay (Nợ 311/341)
+    LoanRepayment,      // Task PH2: trả nợ vay (Nợ 311/341)
+    JournalAdjustment,  // Task PH3: phiếu hạch toán CTGS (kết chuyển/phân bổ/điều chỉnh)
+    Depreciation,       // Task PH3: trích khấu hao TSCĐ (Nợ TK chi phí/Có 214)
+    Deposit             // Task PH3: ký quỹ/ký cược (Nợ {cash}/Có 338 · Nợ 338/Có {cash})
 }
 
 /// <summary>Kết quả trích xuất từ câu mô tả tự nhiên — prefill form, KHÔNG auto-save.</summary>
@@ -96,6 +99,9 @@ public sealed class VoucherTextParseService(
         (["nguyên liệu", "nguyên vật liệu", "vật tư", "nvl"], "materials"),
         (["quảng cáo", "marketing", "ads", "khuyến mãi"], "marketing"),
         (["sửa", "bảo trì", "bảo dưỡng", "xăng", "vận chuyển", "ship"], "maintenance"),
+        // Task PH3 (khẩn — fix định khoản gợi ý sai hiện hữu): thuế → 333 · lãi vay → 635
+        (["thuế", "thuế gtgt", "thuế tncn", "thuế môn bài", "thuế tndn"], "tax"),
+        (["lãi vay", "lãi ngân hàng", "lãi tiền vay"], "interest"),
     ];
 
     public async Task<ParsedVoucher> ParseAsync(TenantId tenantId, string text, CancellationToken ct = default, bool forceLlm = false)
@@ -280,6 +286,15 @@ public sealed class VoucherTextParseService(
             return VoucherIntent.StockOut;
         if (norm.Contains("thanh lý tài sản cố định") || norm.Contains("thanh lý tscđ") || norm.Contains("nhượng bán tài sản cố định"))
             return VoucherIntent.AssetDisposal;
+
+        // Task PH3 — CTGS TRƯỚC Expense ("phân bổ chi phí trả trước" không được rơi vào chi).
+        if (norm.Contains("kết chuyển") || norm.Contains("phân bổ") || norm.Contains("điều chỉnh")
+            || norm.Contains("trích trước") || norm.Contains("chuyển sổ"))
+            return VoucherIntent.JournalAdjustment;
+        // Task PH3 — khấu hao TSCĐ (Nợ TK chi phí/Có 214).
+        if (norm.Contains("khấu hao")) return VoucherIntent.Depreciation;
+        // Task PH3 — ký quỹ/ký cược (Nợ {cash}/Có 338 · Nợ 338/Có {cash} — Mode receive/return).
+        if (norm.Contains("ký quỹ") || norm.Contains("ký cược")) return VoucherIntent.Deposit;
 
         // Chi — keyword trước thu để "chi trả" không rơi vào thu.
         if (norm.Contains("chi ") || norm.StartsWith("chi") || norm.Contains("trả tiền")

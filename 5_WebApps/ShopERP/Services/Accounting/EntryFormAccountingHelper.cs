@@ -61,7 +61,9 @@ public static class EntryFormAccountingHelper
         }
     }
 
-    /// <summary>Category → TK gợi ý (chỉ auto-fill khi user chưa đụng account). HTX → 642/658.</summary>
+    /// <summary>Category → TK gợi ý (chỉ auto-fill khi user chưa đụng account). HTX → 642/658.
+    /// PH3 (khẩn — fix định khoản gợi ý sai): tax → 333 (thuế phải nộp) · interest → 635 (chi phí tài chính)
+    /// — mọi loại hình (333/635 có trong chart HKD TT152 / DN TT133-TT99 / HTX TT71).</summary>
     public static string SuggestExpenseAccount(string? category, TenantType? tenantType)
     {
         bool htx = tenantType == TenantType.HTX;
@@ -73,6 +75,8 @@ public static class EntryFormAccountingHelper
             "rent" => htx ? "642" : "627",
             "marketing" => htx ? "642" : "641",
             "maintenance" => htx ? "642" : "627",
+            "tax" => "333",
+            "interest" => "635",
             _ => htx ? "658" : "642"
         };
     }

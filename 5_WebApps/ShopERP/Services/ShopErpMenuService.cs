@@ -177,6 +177,9 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                 // PH2 (2026-11-03): phiếu vay — coverage nghiệp vụ vay/trả nợ vay (311/341)
                 new() { Title = "Phiếu Vay Nhận Tiền", Icon = "bank", Url = "/vouchers/loan-in" },
                 new() { Title = "Phiếu Trả Nợ Vay", Icon = "bank", Url = "/vouchers/loan-repayment" },
+                // PH3 (2026-11-03): khấu hao TSCĐ + ký quỹ/ký cược (generic registry)
+                new() { Title = "Phiếu Khấu Hao", Icon = "hourglass-split", Url = "/vouchers/depreciation" },
+                new() { Title = "Phiếu Ký Quỹ / Ký Cược", Icon = "shield-lock", Url = "/vouchers/deposit" },
             };
             if (fullAccounting)
             {

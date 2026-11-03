@@ -109,7 +109,7 @@
                             <select class="form-select" data-testid="vf-@f.Id" @bind="_mode">
                                 @foreach (var opt in (f.Options ?? Array.Empty<string>()))
                                 {
-                                    <option value="@opt">@(opt == "production" ? "Xuất cho sản xuất (154)" : opt == "sale" ? "Xuất bán (632)" : opt)</option>
+                                    <option value="@opt">@(opt switch { "production" => "Xuất cho sản xuất (154)", "sale" => "Xuất bán (632)", "receive" => "Nhận ký quỹ / ký cược (Nợ 111/Có 338)", "return" => "Hoàn trả ký quỹ / ký cược (Nợ 338/Có 111)", _ => opt })</option>
                                 }
                             </select>
                         }
@@ -216,6 +216,13 @@
                     _date = p.Date;
                     if (!string.IsNullOrWhiteSpace(p.DoiTuong)) _party = p.DoiTuong;
                     if (!string.IsNullOrWhiteSpace(p.Description)) _description = p.Description;
+                    // PH3: deposit — nhận diện hướng từ câu ("hoàn trả/trả lại ký cược" → return).
+                    if (_def.Code == "deposit")
+                    {
+                        _mode = p.Description.Contains("hoàn trả") || p.Description.Contains("trả lại")
+                            || p.Description.Contains("hoàn")
+                            ? "return" : "receive";
+                    }
                 }
                 catch (Exception ex) { Logger.LogWarning(ex, "VoucherEntry desc parse failed"); }
             }

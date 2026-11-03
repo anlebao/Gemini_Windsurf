@@ -296,6 +296,8 @@
     private VanAn.ShopERP.Components.Accounting.SmartEntryBar? _smartEntryBar;
     private List<CoreAccountingService.ParsedVoucher>? _pendingMulti;
     private string? _pendingMultiText;
+    private List<int>? _pendingSavedIndices;
+    private CoreAccountingService.ParsedVoucher? _pendingSingleResult;
     private bool showError = false;
     private string errorMessage = string.Empty;
     // PH2: Unknown chặn cứng + Advance cảnh báo trả trước.
@@ -348,20 +350,42 @@
     {
         if (_pendingMulti != null && _smartEntryBar != null)
         {
-            _smartEntryBar.ShowMulti(_pendingMulti, _pendingMultiText ?? string.Empty);
+            _smartEntryBar.ShowMulti(_pendingMulti, _pendingMultiText ?? string.Empty, _pendingSavedIndices);
             _pendingMulti = null;
+            _pendingSavedIndices = null;
+        }
+        else if (_pendingSingleResult != null && _smartEntryBar != null)
+        {
+            _smartEntryBar.ShowResult(_pendingSingleResult);
+            _pendingSingleResult = null;
         }
         else if (firstRender && string.IsNullOrWhiteSpace(desc) && SmartSession.Multi is null
                  && _smartEnabled && TenantProvider.HasTenant)
         {
-            // G4f: full page reload (menu/href = circuit mới) → khôi phục từ sessionStorage
+            // PH3: ưu tiên multi JSON — khôi phục DETERMINISTIC (không re-parse LLM, không mất session)
+            var multiJson = await JSRuntime.InvokeAsync<string>("vananLoadSmartMulti");
+            if (!string.IsNullOrWhiteSpace(multiJson))
+            {
+                var multi = SmartEntrySessionCodec.Deserialize(multiJson);
+                var processed = await JSRuntime.InvokeAsync<List<int>>("vananLoadSmartProcessed") ?? new List<int>();
+                if (multi is { Count: > 1 })
+                {
+                    _pendingMulti = multi;
+                    _pendingSavedIndices = processed;
+                    _pendingMultiText = await JSRuntime.InvokeAsync<string>("vananLoadSmartText") ?? string.Empty;
+                    _aiMode = true;
+                    StateHasChanged();
+                    return;
+                }
+            }
+            // Fallback cũ (dữ liệu text-only trước PH3): re-parse — PH3 KHÔNG wipe, single vẫn hiển thị.
             var saved = await JSRuntime.InvokeAsync<string>("vananLoadSmartText");
             if (!string.IsNullOrWhiteSpace(saved))
             {
                 _aiMode = true;
                 var list = await TextParser.ParseMultipleAsync(new TenantId(TenantProvider.TenantId), saved);
                 if (list.Count > 1) { _pendingMulti = list.ToList(); _pendingMultiText = saved; StateHasChanged(); }
-                else { await JSRuntime.InvokeVoidAsync("vananClearSmartText"); }
+                else if (list.Count == 1) { _pendingSingleResult = list[0]; StateHasChanged(); }
             }
         }
         await base.OnAfterRenderAsync(firstRender);

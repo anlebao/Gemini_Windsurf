@@ -137,6 +137,8 @@
                 <VanAButton Variant="secondary" OnClick="NavigateToAssetDisposal">🏭 Thanh Lý TSCĐ</VanAButton>
                 <VanAButton Variant="secondary" OnClick="NavigateToLoanIn">🏦 Phiếu Vay Nhận Tiền</VanAButton>
                 <VanAButton Variant="secondary" OnClick="NavigateToLoanRepayment">🏦 Phiếu Trả Nợ Vay</VanAButton>
+                <VanAButton Variant="secondary" OnClick="NavigateToDepreciation">⏳ Phiếu Khấu Hao</VanAButton>
+                <VanAButton Variant="secondary" OnClick="NavigateToDeposit">🔐 Phiếu Ký Quỹ / Ký Cược</VanAButton>
                 <VanAButton Variant="secondary" OnClick="NavigateToPurchase">🛒 Phiếu Nhập Mua</VanAButton>
                 <VanAButton Variant="secondary" OnClick="NavigateToJournalVoucher">📝 Phiếu Hạch Toán CTGS</VanAButton>
             </div>
@@ -271,6 +273,9 @@
     // PH2 (2026-11-03): phiếu vay — quick actions Chứng Từ / Phiếu
     private void NavigateToLoanIn() => NavigationManager.NavigateTo("/vouchers/loan-in");
     private void NavigateToLoanRepayment() => NavigationManager.NavigateTo("/vouchers/loan-repayment");
+    // PH3 (2026-11-03): khấu hao + ký quỹ
+    private void NavigateToDepreciation() => NavigationManager.NavigateTo("/vouchers/depreciation");
+    private void NavigateToDeposit() => NavigationManager.NavigateTo("/vouchers/deposit");
 
     private void NavigateToJournalVoucher()
     {
