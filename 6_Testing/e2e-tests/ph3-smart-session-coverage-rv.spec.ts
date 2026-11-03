@@ -75,10 +75,15 @@ test.describe('RV PH3 — smart session + voucher coverage như người dùng',
     await page.getByRole('button', { name: 'Lưu Doanh Thu' }).click();
     // Lưu xong → nút thu trong multi thành "Đã xử lý"
     await expect(page.getByTestId('smart-entry-multi-done').first()).toBeVisible({ timeout: 30000 });
+    // Đóng modal "Đã lưu thành công" (nếu mở — chặn click NavMenu)
+    const closeBtn = page.getByTestId('success-modal-continue');
+    if (await closeBtn.isVisible().catch(() => false)) await closeBtn.click();
+    await page.waitForTimeout(500);
 
     // Đi qua NavMenu Nhập Chi Phí (SSR <a> → full reload — circuit mới)
     await page.getByRole('link', { name: 'Nhập Chi Phí' }).first().click();
     await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1500); // settle circuit (Blazor Server — event đầu dễ bị rớt)
 
     // PH3: khôi phục deterministic từ multi JSON — 2 phiếu + phiếu thu đã lưu
     await expect(page.getByTestId('smart-entry-multi')).toBeVisible({ timeout: 30000 });
@@ -137,11 +142,13 @@ test.describe('RV PH3 — smart session + voucher coverage như người dùng',
     await setup(page);
     await safeGoto(page, '/vouchers/depreciation');
     await expect(page.getByTestId('voucher-save')).toBeVisible({ timeout: 30000 });
+    await page.waitForTimeout(1500); // settle circuit (Blazor Server)
     await page.getByTestId('vf-amount').fill('1000000');
+    await expect(page.getByTestId('vf-amount')).toHaveValue('1000000');
     await page.getByTestId('vf-account').selectOption({ index: 0 });
     await page.getByTestId('vf-party').fill('RV PH3 TSCĐ');
     await page.getByTestId('vf-description').fill('RV PH3 — khấu hao test');
-    await expect(page.getByTestId('voucher-preview')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('voucher-preview')).toBeVisible({ timeout: 30000 });
     await expect(page.getByTestId('voucher-preview')).toContainText('Có 214');
     await page.getByTestId('voucher-save').click();
     await expect(page.getByTestId('voucher-success-alert')).toBeVisible({ timeout: 30000 });
@@ -151,11 +158,13 @@ test.describe('RV PH3 — smart session + voucher coverage như người dùng',
     await setup(page);
     await safeGoto(page, '/vouchers/deposit');
     await expect(page.getByTestId('voucher-save')).toBeVisible({ timeout: 30000 });
+    await page.waitForTimeout(1500); // settle circuit — event đầu dễ bị rớt (Blazor Server)
     await page.getByTestId('vf-amount').fill('500000');
+    await expect(page.getByTestId('vf-amount')).toHaveValue('500000'); // chắc chắn event đã vào model
     await page.getByTestId('vf-mode').selectOption('return');
     await page.getByTestId('vf-party').fill('RV PH3 Đối tác');
     await page.getByTestId('vf-description').fill('RV PH3 — hoàn trả ký cược test');
-    await expect(page.getByTestId('voucher-preview')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('voucher-preview')).toBeVisible({ timeout: 30000 });
     await expect(page.getByTestId('voucher-preview')).toContainText('Nợ 338');
     await expect(page.getByTestId('voucher-preview')).toContainText('Có 111');
     await page.getByTestId('voucher-save').click();
