@@ -157,7 +157,12 @@ test.describe('RV PH3 — smart session + voucher coverage như người dùng',
     await page.waitForTimeout(1500); // settle circuit (Blazor Server)
     await page.getByTestId('vf-amount').fill('1000000');
     await expect(page.getByTestId('vf-amount')).toHaveValue('1000000');
-    await page.getByTestId('vf-account').selectOption({ index: 0 });
+    // PH3 RV#4: account options = TK chi phí 6xx (fix — trước đây hiện 311/341 vay)
+    const accOpts = await page.getByTestId('vf-account').locator('option').evaluateAll(
+      o => o.map(x => (x as HTMLOptionElement).value));
+    expect(accOpts.some(v => v.startsWith('6'))).toBeTruthy();
+    expect(accOpts.some(v => v === '311' || v === '341')).toBeFalsy();
+    await page.getByTestId('vf-account').selectOption(accOpts.includes('642') ? '642' : accOpts[0]);
     await page.getByTestId('vf-party').fill('RV PH3 TSCĐ');
     await page.getByTestId('vf-description').fill('RV PH3 — khấu hao test');
     await expect(page.getByTestId('voucher-preview')).toBeVisible({ timeout: 30000 });

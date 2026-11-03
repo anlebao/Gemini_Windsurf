@@ -194,16 +194,25 @@
 
         if (TenantProvider.HasTenant)
         {
-            _accountOptions = await EntryFormAccountingHelper.LoadAccountOptionsAsync(
-                AccountChartService, new TenantId(TenantProvider.TenantId), null,
-                ["31", "34"],
-                [
+            // PH3 RV#4 fix: account options theo LOẠI phiếu — khấu hao = TK chi phí 6xx
+            // (trước đây hardcode ["31","34"] từ PH2 loan → khấu hao hiện TK vay 311/341 → JE sai).
+            string[] accountPrefixes = _def.Code == "depreciation" ? ["6"] : ["31", "34"];
+            List<PlatformComposite.FieldOption> accountFallback = _def.Code == "depreciation"
+                ? [
+                    new() { Value = "642", Label = "642 - Chi phí quản lý kinh doanh" },
+                    new() { Value = "627", Label = "627 - Chi phí sản xuất chung" },
+                    new() { Value = "641", Label = "641 - Chi phí bán hàng" }
+                ]
+                : [
                     new() { Value = "311", Label = "311 - Vay ngắn hạn" },
                     new() { Value = "341", Label = "341 - Vay dài hạn" }
-                ]);
+                ];
+            _accountOptions = await EntryFormAccountingHelper.LoadAccountOptionsAsync(
+                AccountChartService, new TenantId(TenantProvider.TenantId), null,
+                accountPrefixes, accountFallback);
             if (_def.Fields.Any(f => f.Type == VoucherFieldType.Account))
             {
-                _accounts["account"] = _accountOptions.Count > 0 ? _accountOptions[0].Value : "341";
+                _accounts["account"] = _accountOptions.Count > 0 ? _accountOptions[0].Value : (_def.Code == "depreciation" ? "642" : "341");
             }
 
             if (!string.IsNullOrWhiteSpace(desc))
@@ -250,7 +259,7 @@
         foreach (var f in _def.Fields)
         {
             if (f.Type == VoucherFieldType.Amount) _numbers[f.Id] = null;
-            else if (f.Type == VoucherFieldType.Account) _accounts[f.Id] = "341";
+            else if (f.Type == VoucherFieldType.Account) _accounts[f.Id] = _def.Code == "depreciation" ? "642" : "341";
         }
     }
 
