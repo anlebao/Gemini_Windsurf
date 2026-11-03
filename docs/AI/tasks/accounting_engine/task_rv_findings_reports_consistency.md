@@ -84,6 +84,8 @@
 
 **Bug phát hiện khi re-validate (fdd7441a):** refactor chỉ init `amounts` cho calculated lines → direct lines throw `KeyNotFoundException` khi có account map vào (14 test IS fail). Fix: init mọi template line = (0,0). Kèm 2 seeder count còn sót (51→57 / 215→221).
 
+**BUG-5 — B01 plug double-count (5f4880c6 — RV re-sweep phát hiện, case production Cafe Tân Quy):** khi 421/420 đã có số dư (kỳ đã kết chuyển), plug `netIncome = A − L − (E − ln417)` rồi `417 += netIncome` cộng đúp ln417 → `500 = 200 + ln417` → invariant throw 422 (trước: 421 bị drop khỏi chart nên ln417=0, bug ẩn). Fix: residual = `A − L − E` toàn bộ ×4 template path (khớp flat path). Regression test `RV_BS_ClosedBooks_Account421NotDoubleCounted`.
+
 **Còn lại:** push + CD + re-sweep `accounting-consistency-rv.sh` production (target 0 FAIL — lưu ý E1/E2 giờ skip HKD) + DATA cleanup (duyệt riêng).
 
 ## Kế hoạch fix (chờ duyệt)
