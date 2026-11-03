@@ -190,11 +190,7 @@
 
         // FIX (RV 2026-11-03): khởi tạo key trước render — @bind="_numbers[f.Id]" trên dictionary
         // rỗng ném KeyNotFoundException ở prerender (500 cho mọi phiếu generic không có ?desc=).
-        foreach (var f in _def.Fields)
-        {
-            if (f.Type == VoucherFieldType.Amount) _numbers[f.Id] = null;
-            else if (f.Type == VoucherFieldType.Account) _accounts[f.Id] = "341";
-        }
+        InitFieldDictionaries();
 
         if (TenantProvider.HasTenant)
         {
@@ -238,6 +234,18 @@
         AccumulatedDepreciation: _numbers.GetValueOrDefault("accumulatedDepreciation"),
         LiquidationPrice: _numbers.GetValueOrDefault("liquidationPrice"),
         LoanAccountCode: _accounts.GetValueOrDefault("account"));
+
+    /// <summary>FIX (RV 2026-11-03): @bind dictionary indexer ném KeyNotFoundException nếu key thiếu
+    /// (prerender + sau _numbers.Clear() khi save → circuit chết). Gọi ở init VÀ sau reset.</summary>
+    private void InitFieldDictionaries()
+    {
+        if (_def == null) return;
+        foreach (var f in _def.Fields)
+        {
+            if (f.Type == VoucherFieldType.Amount) _numbers[f.Id] = null;
+            else if (f.Type == VoucherFieldType.Account) _accounts[f.Id] = "341";
+        }
+    }
 
     /// <summary>PH2: preview JE qua chính strategy — parity 100% với bút toán sẽ ghi.</summary>
     private async Task RefreshPreviewAsync()
@@ -298,6 +306,7 @@
 
             _numbers.Clear(); _mode = "production"; _party = string.Empty; _description = string.Empty; _date = DateTime.Today;
             _preview = null;
+            InitFieldDictionaries(); // FIX RV: sau Clear() phải re-init key — render kế ném KeyNotFound → circuit chết
         }
         catch (Exception ex)
         {

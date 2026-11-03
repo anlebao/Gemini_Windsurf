@@ -43,4 +43,18 @@ public class VoucherEntryTests : ComponentTestBase
         Assert.Single(cut.FindAll("[data-testid='hosted-route-link']"));
         Assert.Empty(cut.FindAll("[data-testid='voucher-save']"));
     }
+
+    [Fact]
+    public void LoanIn_Save_ThenRerender_NoKeyNotFound()
+    {
+        // Regression RV 2026-11-03: _numbers.Clear() sau save → render kế tiếp ném
+        // KeyNotFoundException 'amount' → circuit chết production (nút treo "Đang lưu...").
+        // Mock JournalVoucherService trả null → NRE trong successMessage bị catch (showError) —
+        // điểm khác biệt là KHÔNG được ném KeyNotFound khi re-render.
+        var cut = RenderVoucher("loan-in");
+        cut.Find("[data-testid='vf-amount']").Change("500000");
+        cut.Find("[data-testid='voucher-save']").Click(); // nếu re-render vỡ → bUnit throw tại đây
+        // Reach here = re-render sau save OK (không KeyNotFound).
+        Assert.True(true);
+    }
 }
