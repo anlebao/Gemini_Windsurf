@@ -332,7 +332,7 @@
                 _aiMode = true;
                 // G4: deep-link mang câu gốc → ParseMultipleAsync để giữ list multi trên page đích
                 var list = await TextParser.ParseMultipleAsync(new TenantId(TenantProvider.TenantId), desc);
-                if (list.Count > 1) { _smartEntryBar?.ShowMulti(list.ToList(), desc); }
+                if (list.Count > 1) { await _smartEntryBar!.ShowMultiAsync(list.ToList(), desc); }
                 else if (list.Count == 1) { await ApplyParse(list[0]); }
             }
         }
@@ -350,7 +350,7 @@
     {
         if (_pendingMulti != null && _smartEntryBar != null)
         {
-            _smartEntryBar.ShowMulti(_pendingMulti, _pendingMultiText ?? string.Empty, _pendingSavedIndices);
+            await _smartEntryBar.ShowMultiAsync(_pendingMulti, _pendingMultiText ?? string.Empty, _pendingSavedIndices);
             _pendingMulti = null;
             _pendingSavedIndices = null;
         }
@@ -1076,7 +1076,7 @@
         errorMessage = string.Empty;
         _showSuccessModal = true;   // G3: modal thành công trực quan
         // G4 fix: giữ list phiếu còn lại (multi) — chỉ reset bar khi hết phiếu chờ
-        _smartEntryBar?.NotifySaved();
+        if (_smartEntryBar != null) await _smartEntryBar.NotifySavedAsync();
         if (_smartEntryBar?.HasPendingMulti != true) _smartEntryVersion++;
 
         // Reset form

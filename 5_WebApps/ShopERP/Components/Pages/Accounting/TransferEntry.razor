@@ -209,7 +209,7 @@
     {
         if (_pendingMulti != null && _smartEntryBar != null)
         {
-            _smartEntryBar.ShowMulti(_pendingMulti, _pendingMultiText ?? string.Empty);
+            await _smartEntryBar.ShowMultiAsync(_pendingMulti, _pendingMultiText ?? string.Empty);
             _pendingMulti = null;
         }
         else if (firstRender && string.IsNullOrWhiteSpace(desc) && SmartSession.Multi is null

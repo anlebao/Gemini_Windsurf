@@ -222,8 +222,9 @@
 
     /// <summary>G4 fix: parent gọi sau khi LƯU thành công 1 phiếu — GIỮ nguyên block trích xuất,
     /// đánh dấu phiếu vừa áp là "✓ Đã lưu" (nút áp bị khoá). Block reset khi user parse câu mới.
-    /// PH3: persist processed indices lên sessionStorage — trang khác khôi phục đúng trạng thái.</summary>
-    public void NotifySaved()
+    /// PH3: persist processed indices lên sessionStorage — AWAIT (fire-and-forget bị mất khi
+    /// navigate full-reload → trang sau không khôi phục được badge "✓ Đã lưu").</summary>
+    public async Task NotifySavedAsync()
     {
         if (_lastAppliedIndex >= 0 && _lastAppliedIndex < _multi.Count)
         {
@@ -231,8 +232,8 @@
         }
         _lastAppliedIndex = -1;
         _result = null;
-        if (!HasPendingMulti) { Session.Clear(); _ = JS.InvokeVoidAsync("vananClearSmartText"); } // hết phiếu chờ → sẵn sàng câu mới
-        else { _ = JS.InvokeVoidAsync("vananSaveSmartText", _text, SmartEntrySessionCodec.Serialize(_multi), _savedIndices.ToList()); }
+        if (!HasPendingMulti) { Session.Clear(); await JS.InvokeVoidAsync("vananClearSmartText"); } // hết phiếu chờ → sẵn sàng câu mới
+        else { await JS.InvokeVoidAsync("vananSaveSmartText", _text, SmartEntrySessionCodec.Serialize(_multi), _savedIndices.ToList()); }
     }
 
     public bool HasPendingMulti
@@ -251,8 +252,9 @@
     public string CurrentText => _text;
 
     /// <summary>Deep-link: hiển thị sẵn list multi từ câu gốc (page khác, ví dụ expenses ← revenue).
-    /// PH3: savedIndices — giữ đánh dấu "✓ Đã lưu" cho phiếu đã xử lý ở trang trước.</summary>
-    public void ShowMulti(List<ParsedVoucher> list, string text, List<int>? savedIndices = null)
+    /// PH3: savedIndices — giữ đánh dấu "✓ Đã lưu" cho phiếu đã xử lý ở trang trước.
+    /// AWAIT JS write (fire-and-forget bị mất khi navigate full-reload).</summary>
+    public async Task ShowMultiAsync(List<ParsedVoucher> list, string text, List<int>? savedIndices = null)
     {
         _text = text;
         _result = null;
@@ -267,7 +269,7 @@
         }
         _lastAppliedIndex = -1;
         Session.Set(_multi, text, _savedIndices.ToList());
-        _ = JS.InvokeVoidAsync("vananSaveSmartText", text, SmartEntrySessionCodec.Serialize(list), _savedIndices.ToList());
+        await JS.InvokeVoidAsync("vananSaveSmartText", text, SmartEntrySessionCodec.Serialize(list), _savedIndices.ToList());
         StateHasChanged();
     }
 
