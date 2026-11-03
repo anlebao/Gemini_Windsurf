@@ -1,6 +1,6 @@
 # TASK CARD — RV FINDINGS: BÁO CÁO TÀI CHÍNH / SỔ SÁCH / DASHBOARD CONSISTENCY
 
-> Status: ✅ **IMPLEMENTED (2026-11-03)** — fix xong + tests pass, CHỜ push/deploy + re-sweep production.
+> Status: ✅ **IMPLEMENTED + PUSHED `fdd7441a` (2026-11-03)** — commits `9c443206` (fix chính) + `fc673b7d` (RV harness/guide/state) + `fdd7441a` (fix KeyNotFound init direct lines + stale expectations). Core.Tests **2693/2693** · sln build 0 errors · guard ALL PASSED · CD đang chạy → re-sweep production.
 > Nguồn: RV sweep `6_Testing/rv-scripts/accounting-consistency-rv.sh` — production PG, kỳ 2026-11, chạy 2026-11-03.
 > Report: `6_Testing/rv-scripts/accounting-consistency-report.txt` (36 PASS · 6 FAIL).
 > Sweep script re-run được (read-only): `bash accounting-consistency-rv.sh [--period YYYY-MM] [--max-tenants N]`
@@ -80,7 +80,9 @@
 | DATA | ⏸ Chưa đụng — cần duyệt riêng (1121 âm −220tr, An Tâm Type NULL). | — |
 | Chart lookup | `GetAccountAsync` → `GetTenantAccountAsync` (resolve cả tenant custom accounts đúng type/sign). | cả 2 service |
 
-**Tests:** +5 mới (RV_BS contra-214/1129-unmapped · RV_IS 611→mã11/642x→mã24 · seeder count 51→57) · cập nhật W7_IS3 (−8M — trước OpEx bị drop) · W7_IS4 (trừ cả OpEx) · **91/91 targeted + 509/509 accounting suites PASS** · build 0 errors.
+**Tests:** +5 mới (RV_BS contra-214/1129-unmapped · RV_IS 611→mã11/642x→mã24 · seeder count 51→57) · cập nhật W7_IS3 (−6.5M — OpEx T6 đúng 20M, T20 rơi sang T7) · W4_IS2 (−9.5M — T5 lỗ thật khi 642x được tính) · **Core.Tests full 2693/2693 PASS** · build 0 errors.
+
+**Bug phát hiện khi re-validate (fdd7441a):** refactor chỉ init `amounts` cho calculated lines → direct lines throw `KeyNotFoundException` khi có account map vào (14 test IS fail). Fix: init mọi template line = (0,0). Kèm 2 seeder count còn sót (51→57 / 215→221).
 
 **Còn lại:** push + CD + re-sweep `accounting-consistency-rv.sh` production (target 0 FAIL — lưu ý E1/E2 giờ skip HKD) + DATA cleanup (duyệt riêng).
 
