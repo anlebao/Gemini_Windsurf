@@ -195,7 +195,11 @@ public class ComponentTestBase : TestContext
         Services.AddSingleton<VanAn.ShopERP.Components.Accounting.SmartEntrySessionState>();
         // Task PG (2026-11-01): IVoucherTextParseService — thật (rule-based thuần, không dep)
         // cho SmartEntryBar (text parse) — fix pre-existing bUnit fail TextParser.
-        Services.AddSingleton<IVoucherTextParseService>(_ => new VoucherTextParseService());
+        Services.AddSingleton(new VoucherTextParseService());
+        Services.AddSingleton<IVoucherTextParseService>(sp => sp.GetRequiredService<VoucherTextParseService>());
+        // Task G5 (2026-11-03): Smart Entry Vấn Đáp — dialog service rule-based (không LLM, không bankAccounts).
+        Services.AddSingleton<ISmartEntryDialogService>(sp => new SmartEntryDialogService(
+            sp.GetRequiredService<IVoucherTextParseService>(), sp.GetRequiredService<VoucherTextParseService>(), null, null));
 
         // Bunit automatically discovers components from referenced assemblies
         // UI.Platform is already referenced in the project, so components should be discoverable

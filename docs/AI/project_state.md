@@ -162,13 +162,14 @@
 
 ## 4. Next Actions
 
-**▶ RV FINDINGS FIX — PUSH + RE-SWEEP (session mới, ưu tiên cao):**
-- [ ] Commit changes (5 service/template/seeder + 3 test files + `accounting-consistency-rv.sh` + task card — untracked)
-- [ ] `guard-check.ps1` + `dotnet build VanAn.sln` + Core.Tests → FAST PUSH `git push --no-verify origin main`
-- [ ] Poll CD Multi-VPS (`gh run list`) → verify deploy
-- [ ] Re-run `bash 6_Testing/rv-scripts/accounting-consistency-rv.sh` production — target **0 FAIL** (E1/E2 giờ skip HKD by-design)
+**▶ SMART ENTRY VẤN ĐÁP G5 — P1 IMPLEMENTED (2026-11-03 — chưa push):**
+- [x] P1 rule-based dialog: `SmartEntryDialogService` + `ExtractSlots` + SmartEntryBar thread/chips/mic-answer + codec persist + DI · tests 21/21 + regression 90/90 + ShopERP 300/300 · guard ALL PASSED
+- [ ] Next: user duyệt → push + CD + E2E spec + RV production · P2 (chips đối tượng công nợ) · P3 (LLM interpret câu trả lời)
+- [ ] Task card: `docs/AI/tasks/accounting_engine/task_pg5_smart_entry_dialog.md`
+
+**▶ RV FINDINGS FIX — ✅ DONE `5f4880c6` (CD ×2 SUCCESS, re-sweep 39 PASS · 0 FAIL · 0 WARN — 2026-11-03):**
 - [ ] DATA cleanup (duyệt riêng): TK 1121 âm −220tr Cafe Tân Quy · An Tâm `Tenants.Type = NULL`
-- [ ] Task card: `docs/AI/tasks/accounting_engine/task_rv_findings_reports_consistency.md` (chi tiết fix + validate sau deploy)
+- [x] Commit + push + CD + re-sweep — xong hết (task card `task_rv_findings_reports_consistency.md` DONE)
 
 **▶ ACCOUNTING ENGINE — W6/E (wave cuối, session mới):**
 - [ ] Đọc task card `docs/AI/tasks/accounting_engine/task_pe_purchase_inventory.md` (Status PENDING — có thể tách triển khai riêng Q8) + master plan `accounting-engine-master-plan.md` §4.E
@@ -368,7 +369,7 @@ Server A (Edge):              Server B (Central):
 ## 10. Maintenance Log
 
 > Full historical maintenance log (pre-2026-09-17): see `docs/AI/project_state_archive.md`.
-> **Last Updated:** 2026-11-03 (lần 2) · **Branch:** `main` @ `3902afec` (RV findings fix IMPLEMENTED + tests PASS — CHƯA COMMIT, chờ session mới push + re-sweep)
+> **Last Updated:** 2026-11-03 (lần 3) · **Branch:** `main` @ `5f4880c6` (RV findings fix DONE + re-sweep 0 FAIL · task card G5 Smart Entry Vấn Đáp draft chờ duyệt)
 
 ## Regime-Lock — chuẩn kế toán theo Tenant.Type (`615d85ac`, 2026-10-30 — DEPLOYED + RV PASS)
 

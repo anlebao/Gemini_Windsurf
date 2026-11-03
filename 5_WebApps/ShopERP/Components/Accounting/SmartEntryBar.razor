@@ -4,7 +4,9 @@
 @using VanAn.Shared.Domain.Common
 @using VanAn.UI.Platform.Components
 @using Microsoft.JSInterop
+@using Microsoft.AspNetCore.Components.Web
 @inject IVoucherTextParseService Parser
+@inject ISmartEntryDialogService Dialog
 @inject ITenantProvider TenantProvider
 @inject IJSRuntime JS
 @inject ILogger<SmartEntryBar> Logger
@@ -48,6 +50,52 @@
             <span class="text-danger small" data-testid="smart-entry-error">@_error</span>
         }
     </div>
+
+    @* G5 vấn đáp: câu hỏi làm rõ + chips + ô trả lời — hiện khi parse còn điểm mù. *@
+    @if (_dialog?.Pending != null)
+    {
+        <div class="mt-3 p-2 border rounded" style="background:#f4f9ff;" data-testid="smart-entry-dialog">
+            @if (_dialog.Transcript.Count > 2)
+            {
+                <details class="small mb-2">
+                    <summary class="text-muted">Hội thoại (@(_dialog.Transcript.Count / 2) lượt)</summary>
+                    @foreach (var line in _dialog.Transcript.Skip(1))
+                    {
+                        <div class="text-muted">@line</div>
+                    }
+                </details>
+            }
+            <div class="fw-bold small mb-1" data-testid="smart-entry-question">
+                💬 @_dialog.Pending.QuestionText
+            </div>
+            @if (_dialog.Pending.QuickReplies.Count > 0)
+            {
+                <div class="d-flex gap-1 flex-wrap mb-2" data-testid="smart-entry-chips">
+                    @foreach (var r in _dialog.Pending.QuickReplies)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-testid="smart-entry-chip"
+                                disabled="@(_busy || !_interactive)" @onclick="() => SendAnswerAsync(r.Value)">@r.Label</button>
+                    }
+                </div>
+            }
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                <input class="form-control form-control-sm" style="max-width:320px" placeholder="Trả lời..."
+                       @bind="_answer" @bind:event="oninput" @onkeydown="OnAnswerKeyDown"
+                       data-testid="smart-entry-answer" disabled="@(_busy || !_interactive)" />
+                <VanAButton Variant="primary" Size="small" Disabled="@(_busy || !_interactive || string.IsNullOrWhiteSpace(_answer))"
+                            OnClick="() => SendAnswerAsync()" data-testid="smart-entry-answer-send">Trả lời</VanAButton>
+                @if (_micSupported)
+                {
+                    <VanAButton Variant="secondary" Size="small" Disabled="@(_busy || !_interactive || _listening)"
+                                OnClick="() => StartMicAsync(true)" data-testid="smart-entry-answer-mic">🎤</VanAButton>
+                }
+            </div>
+            <div class="mt-1">
+                <button type="button" class="btn btn-link btn-sm p-0 me-3" @onclick="SkipQuestionAsync" data-testid="smart-entry-skip">Bỏ qua câu này</button>
+                <button type="button" class="btn btn-link btn-sm p-0 text-danger" @onclick="AbandonDialogAsync" data-testid="smart-entry-abandon">Bỏ qua — tự nhập form</button>
+            </div>
+        </div>
+    }
 
     @if (_multi.Count > 1)
     {
@@ -145,6 +193,10 @@
     private bool _listening;
     private string? _error;
     private DotNetObjectReference<SmartEntryBar>? _selfRef;
+    // G5 vấn đáp
+    private SmartEntryDialogSession? _dialog;
+    private string _answer = string.Empty;
+    private bool _micForAnswer;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -162,20 +214,16 @@
     private async Task ParseAsync(bool forceLlm = false)
     {
         _error = null; _result = null; _multi = new(); _savedIndices.Clear();
+        _dialog = null; _answer = string.Empty;
         if (!TenantProvider.HasTenant) { _error = "Không xác định được tenant."; return; }
         _busy = true;
         try
         {
-            // G4: luôn qua ParseMultipleAsync — AI phân tích (force) cũng ra multi như Phân tích
-            var list = await Parser.ParseMultipleAsync(new TenantId(TenantProvider.TenantId), _text, forceLlm: forceLlm);
-            if (list.Count > 1)
-            {
-                _multi = list.ToList();
-                Session.Set(_multi, _text);
-                // PH3: lưu kèm multi JSON + processed indices — khôi phục deterministic sau full reload
-                await JS.InvokeVoidAsync("vananSaveSmartText", _text, SmartEntrySessionCodec.Serialize(_multi), _savedIndices.ToList());
-            }
-            else { _result = list.Count == 1 ? list[0] : null; Session.Clear(); await JS.InvokeVoidAsync("vananClearSmartText"); }
+            // G5: parse qua dialog service — phiếu thiếu field → session Asking (hỏi làm rõ),
+            // đủ field → Ready ngay (hành vi y hệt parse cũ). G4 multi + force LLM giữ nguyên.
+            _dialog = await Dialog.StartAsync(new TenantId(TenantProvider.TenantId), _text, forceLlm: forceLlm);
+            SyncVouchersFromDialog();
+            await PersistAsync();
         }
         catch (Exception ex)
         {
@@ -183,6 +231,93 @@
             _error = "Không phân tích được câu — nhập tay như bình thường.";
         }
         finally { _busy = false; }
+    }
+
+    /// <summary>G5: đồng bộ voucher list của dialog session → _multi/_result để card hiển thị
+    /// các field vừa được điền sau mỗi câu trả lời.</summary>
+    private void SyncVouchersFromDialog()
+    {
+        if (_dialog == null) return;
+        if (_dialog.Vouchers.Count > 1) { _multi = _dialog.Vouchers.ToList(); _result = null; }
+        else { _result = _dialog.Vouchers.Count == 1 ? _dialog.Vouchers[0] : null; _multi = new(); }
+    }
+
+    /// <summary>G5/PH3: persist trạng thái — đang Asking thì lưu kèm dialog snapshot (khôi phục
+    /// deterministic sau navigation/full reload). AWAIT mọi JS write (bài học PH3).</summary>
+    private async Task PersistAsync()
+    {
+        string? dialogJson = _dialog is { State: DialogState.Asking, Pending: not null }
+            ? SmartEntrySessionCodec.SerializeDialog(_dialog.ToSnapshot()) : null;
+        if (_multi.Count > 1 || _dialog != null)
+        {
+            string? multiJson = _multi.Count > 1 ? SmartEntrySessionCodec.Serialize(_multi)
+                : _dialog != null && _dialog.Vouchers.Count == 1 ? SmartEntrySessionCodec.Serialize(_dialog.Vouchers) : null;
+            Session.Set((_dialog?.Vouchers ?? _multi).ToList(), _text, _savedIndices.ToList());
+            await JS.InvokeVoidAsync("vananSaveSmartText", _text, multiJson, _savedIndices.ToList(), dialogJson);
+        }
+        else
+        {
+            Session.Clear();
+            await JS.InvokeVoidAsync("vananClearSmartText");
+        }
+    }
+
+    /// <summary>G5: gửi đáp án (chip Value hoặc free text) → merge → câu hỏi tiếp hoặc Ready.</summary>
+    private async Task SendAnswerAsync(string? chipValue = null)
+    {
+        if (_dialog?.Pending == null) return;
+        var answer = chipValue ?? _answer.Trim();
+        if (string.IsNullOrWhiteSpace(answer)) return;
+        _busy = true; _error = null;
+        try
+        {
+            _dialog = await Dialog.AnswerAsync(_dialog.Id, answer);
+            _answer = string.Empty;
+            SyncVouchersFromDialog();
+            await PersistAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Dialog answer failed");
+            _error = "Xử lý câu trả lời lỗi — thử lại hoặc bấm Bỏ qua.";
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task SkipQuestionAsync()
+    {
+        if (_dialog == null) return;
+        _dialog = Dialog.Skip(_dialog.Id) ?? _dialog;
+        await PersistAsync();
+    }
+
+    /// <summary>"Bỏ qua — tự nhập form": kết thúc dialog, giữ voucher đã prefill phần có.</summary>
+    private async Task AbandonDialogAsync()
+    {
+        if (_dialog == null) return;
+        _dialog = Dialog.Abandon(_dialog.Id) ?? _dialog;
+        await PersistAsync();
+    }
+
+    private async Task OnAnswerKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SendAnswerAsync();
+    }
+
+    /// <summary>G5: khôi phục dialog đang Asking từ sessionStorage (sau navigation/full reload).</summary>
+    private async Task TryRestoreDialogAsync()
+    {
+        try
+        {
+            var dj = await JS.InvokeAsync<string>("vananLoadSmartDialog");
+            var snap = SmartEntrySessionCodec.DeserializeDialog(dj);
+            if (snap is { State: DialogState.Asking, Pending: not null })
+            {
+                _dialog = Dialog.Restore(snap);
+                SyncVouchersFromDialog();
+            }
+        }
+        catch (Exception ex) { Logger.LogWarning(ex, "G5 dialog restore failed"); }
     }
 
     private async Task ApplyMultiAsync(ParsedVoucher v)
@@ -232,12 +367,11 @@
         }
         _lastAppliedIndex = -1;
         _result = null;
-        if (!HasPendingMulti) { Session.Clear(); await JS.InvokeVoidAsync("vananClearSmartText"); } // hết phiếu chờ → sẵn sàng câu mới
+        if (!HasPendingMulti) { Session.Clear(); _dialog = null; await JS.InvokeVoidAsync("vananClearSmartText"); } // hết phiếu chờ → sẵn sàng câu mới
         else
         {
-            // PH3 RV#4: cập nhật cả session scoped (SPA nav — circuit giữ) LẪN sessionStorage (full reload)
-            Session.Set(_multi, _text, _savedIndices.ToList());
-            await JS.InvokeVoidAsync("vananSaveSmartText", _text, SmartEntrySessionCodec.Serialize(_multi), _savedIndices.ToList());
+            // PH3 RV#4 + G5: cập nhật session scoped LẪN sessionStorage (kèm dialog snapshot nếu còn hỏi)
+            await PersistAsync();
         }
     }
 
@@ -275,17 +409,20 @@
         _lastAppliedIndex = -1;
         Session.Set(_multi, text, _savedIndices.ToList());
         await JS.InvokeVoidAsync("vananSaveSmartText", text, SmartEntrySessionCodec.Serialize(list), _savedIndices.ToList());
+        await TryRestoreDialogAsync();
         StateHasChanged();
     }
 
-    /// <summary>PH3: hiển thị kết quả SINGLE sau recovery (trước đây bị vứt bỏ + wipe sessionStorage).</summary>
-    public void ShowResult(ParsedVoucher p)
+    /// <summary>PH3: hiển thị kết quả SINGLE sau recovery (trước đây bị vứt bỏ + wipe sessionStorage).
+    /// G5: async — khôi phục dialog đang Asking nếu có snapshot.</summary>
+    public async Task ShowResultAsync(ParsedVoucher p)
     {
         _text = p.Description;
         _result = p;
         _multi = new();
         _savedIndices.Clear();
         _lastAppliedIndex = -1;
+        await TryRestoreDialogAsync();
         StateHasChanged();
     }
 
@@ -304,14 +441,17 @@
         _multi = new();
         _savedIndices.Clear();
         _lastAppliedIndex = -1;
+        _dialog = null; _answer = string.Empty;
         Session.Clear();
         await JS.InvokeVoidAsync("vananClearSmartText");
         await StartMicAsync();
     }
 
-    private async Task StartMicAsync()
+    /// <summary>G5: forAnswer=true → transcript đổ vào ô trả lời dialog thay vì ô câu gốc.</summary>
+    private async Task StartMicAsync(bool forAnswer = false)
     {
         _error = null;
+        _micForAnswer = forAnswer;
         _selfRef ??= DotNetObjectReference.Create(this);
         _listening = true;
         try
@@ -329,7 +469,14 @@
     [JSInvokable]
     public void OnSpeechResult(string transcript)
     {
-        _text = string.IsNullOrWhiteSpace(_text) ? transcript : _text.TrimEnd() + " " + transcript;
+        if (_micForAnswer)
+        {
+            _answer = string.IsNullOrWhiteSpace(_answer) ? transcript : _answer.TrimEnd() + " " + transcript;
+        }
+        else
+        {
+            _text = string.IsNullOrWhiteSpace(_text) ? transcript : _text.TrimEnd() + " " + transcript;
+        }
         _listening = false;
         StateHasChanged();
     }

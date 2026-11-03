@@ -402,6 +402,14 @@ namespace VanAn.ShopERP
                     sp.GetRequiredService<ILogger<CoreHub.Services.LlmEnhanceVoucherTextParseService>>()));
             _ = builder.Services.Configure<CoreHub.Services.SmartEntryLlmOptions>(
                 builder.Configuration.GetSection(CoreHub.Services.SmartEntryLlmOptions.Section));
+            // Task G5 (2026-11-03): Smart Entry Vấn Đáp — hỏi-theo-slot rule-based, KHÔNG LLM.
+            // Decorator IVoucherTextParseService vẫn dùng cho parse ban đầu (giữ LLM hybrid G2).
+            _ = builder.Services.AddScoped<CoreHub.Services.ISmartEntryDialogService>(sp =>
+                new CoreHub.Services.SmartEntryDialogService(
+                    sp.GetRequiredService<CoreHub.Services.IVoucherTextParseService>(),
+                    sp.GetRequiredService<CoreHub.Services.VoucherTextParseService>(),
+                    sp.GetService<CoreHub.Services.IBankAccountService>(),
+                    sp.GetService<ILogger<CoreHub.Services.SmartEntryDialogService>>()));
             _ = builder.Services.AddScoped<CoreHub.Services.Purchase.IPurchaseReceiptService, CoreHub.Services.Purchase.PurchaseReceiptService>();
             // SRS v1.2 W6 tiếp (GĐ2, 2026-10-31): StockMovement — chỉ ShopERP host (SQLite).
             // PurchaseReceiptService nhận optional dep → tự inject khi có đăng ký.

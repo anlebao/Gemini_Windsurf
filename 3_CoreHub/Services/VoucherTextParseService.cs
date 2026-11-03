@@ -57,6 +57,20 @@ public interface IVoucherTextParseService
     Task<IReadOnlyList<ParsedVoucher>> ParseMultipleAsync(TenantId tenantId, string text, CancellationToken ct = default, bool forceLlm = false);
 }
 
+/// <summary>Task G5 (vấn đáp): trích xuất fragment từ CÂU TRẢ LỜI ngắn — mỗi field nullable,
+/// chỉ set khi câu có marker rõ (không default như ParseAsync). AmountCandidates = mọi cụm số
+/// tiền phát hiện được (cho chips khi câu/đáp án có ≥2 số). TransferDirection: "out"=NH→quỹ,
+/// "in"=quỹ→NH.</summary>
+public sealed record SlotExtraction(
+    decimal? Amount,
+    IReadOnlyList<decimal> AmountCandidates,
+    DateTime? Date,
+    string? PaymentMethod,
+    string? DoiTuong,
+    string? Category,
+    VoucherIntent IntentHint,
+    string? TransferDirection);
+
 /// <summary>
 /// Task PG (Smart Entry AI): parser tiếng Việt rule-based deterministic — trích xuất
 /// intent + số tiền + ngày + PTTT + đối tượng từ câu mô tả; route về đúng form.
@@ -475,6 +489,71 @@ public sealed class VoucherTextParseService(
     /// <summary>G4: rule-based không tách nhiều nghiệp vụ — trả 1 phiếu (hành vi cũ).</summary>
     public async Task<IReadOnlyList<ParsedVoucher>> ParseMultipleAsync(TenantId tenantId, string text, CancellationToken ct = default, bool forceLlm = false)
         => [await ParseAsync(tenantId, text, ct, forceLlm)];
+
+    /// <summary>Task G5 (vấn đáp): trích xuất slot từ câu trả lời NGẮN của user — KHÔNG default
+    /// (date chỉ set khi có marker ngày, PTTT chỉ khi có marker, đối tượng chỉ khi có marker
+    /// hoặc câu trả lời là cụm danh từ đứng sau marker). Dùng để merge đáp án vào ParsedVoucher;
+    /// fragment vô nghĩa trả toàn null → caller hỏi lại / bỏ qua slot.</summary>
+    public SlotExtraction ExtractSlots(string text)
+    {
+        string original = (text ?? string.Empty).Trim();
+        string norm = Normalize(original);
+        if (norm.Length == 0)
+        {
+            return new SlotExtraction(null, [], null, null, null, null, VoucherIntent.Unknown, null);
+        }
+
+        // Ngày: luôn trích để LOẠI khỏi vùng quét amount (số ngày không thành candidate),
+        // nhưng chỉ EXPOSE khi câu có marker ngày rõ ràng.
+        DateTime dateVal = ExtractDate(norm, out string consumed);
+        bool hasDateMarker = Regex.IsMatch(norm, @"ngày\s+\d{1,2}[/-]\d{1,2}")
+            || norm.Contains("hôm qua") || norm.Contains("hôm kia") || norm.Contains("hôm kía")
+            || norm.Contains("tối qua");
+
+        var amounts = ExtractAmounts(consumed);
+        if (amounts.Count > 1 && amounts[0].Bare && IsSingleWordNumber(amounts[0].Raw))
+        {
+            amounts = amounts.Skip(1).ToList();
+        }
+        var candidates = amounts.Select(a => a.Value).Where(v => v > 0).Distinct().ToList();
+        decimal? amount = candidates.Count > 0 ? candidates[0] : null;
+
+        string? paymentMethod = HasPaymentMarker(norm) ? ExtractPaymentMethod(norm) : null;
+        string? doiTuong = ExtractDoiTuong(original, norm);
+        string? category = ExtractCategory(norm);
+        var intentHint = ClassifyIntent(norm, out _, out _, new List<string>());
+        string? direction = ExtractTransferDirection(norm);
+
+        return new SlotExtraction(amount, candidates, hasDateMarker ? dateVal : null,
+            paymentMethod, doiTuong, category, intentHint, direction);
+    }
+
+    private static bool HasPaymentMarker(string norm)
+        => norm.Contains("qr") || norm.Contains("momo") || norm.Contains("zalopay") || norm.Contains("ví ")
+           || norm.Contains("chuyển khoản") || norm.Contains("ngân hàng") || norm.Contains("tài khoản")
+           || norm.Contains("ck ") || norm.EndsWith(" ck") || ContainsAny(norm, CashMarkers);
+
+    /// <summary>G5: hướng chuyển tiền từ fragment trả lời ("ngân hàng về quỹ", "quỹ sang NH").
+    /// "out" = NH→quỹ (TransferOut) · "in" = quỹ→NH (TransferIn) · null = mơ hồ.</summary>
+    private static string? ExtractTransferDirection(string norm)
+    {
+        bool toCash = Regex.IsMatch(norm, @"(về|nhập|vào|bỏ vào|cho vào)\s+(quỹ|tiền mặt|két)");
+        bool toBank = Regex.IsMatch(norm, @"(vào|nộp|gửi|sang)\s+(ngân hàng|tài khoản|tgnh)");
+        if (toCash && !toBank) return "out";
+        if (toBank && !toCash) return "in";
+        bool hasCash = ContainsAny(norm, CashMarkers);
+        bool hasBank = ContainsAny(norm, BankMarkers);
+        if (hasCash && hasBank)
+        {
+            // Cả hai bên đều nhắc nhưng không có động từ hướng rõ — marker đứng trước = nguồn.
+            int cashIdx = norm.IndexOf("quỹ", StringComparison.Ordinal);
+            int bankIdx = norm.IndexOf("ngân hàng", StringComparison.Ordinal);
+            if (bankIdx < 0) bankIdx = norm.IndexOf("tài khoản", StringComparison.Ordinal);
+            if (cashIdx >= 0 && bankIdx >= 0) return cashIdx < bankIdx ? "in" : "out";
+        }
+        if ((norm.Contains("rút") || norm.Contains("lấy tiền")) && hasBank && !toBank) return "out";
+        return null;
+    }
 
     private static bool IsSingleWordNumber(string raw)
         => !string.IsNullOrWhiteSpace(raw)

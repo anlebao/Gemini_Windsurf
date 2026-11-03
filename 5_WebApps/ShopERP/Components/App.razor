@@ -130,15 +130,19 @@
         // G4f: session multi qua FULL PAGE RELOAD (menu/href = circuit mới → scoped mất).
         // sessionStorage sống qua reload cùng tab → page đích đọc lại câu gốc và re-parse.
         // PH3: lưu kèm multi JSON + processed indices — khôi phục DETERMINISTIC (không re-parse LLM).
-        window.vananSaveSmartText = function (t, multiJson, processed) {
+        window.vananSaveSmartText = function (t, multiJson, processed, dialogJson) {
             try {
                 sessionStorage.setItem('vanan.smartEntryText', t || '');
                 if (multiJson) { sessionStorage.setItem('vanan.smartEntryMulti', multiJson); }
                 else { sessionStorage.removeItem('vanan.smartEntryMulti'); }
                 if (processed && Array.isArray(processed)) { sessionStorage.setItem('vanan.smartEntryProcessed', JSON.stringify(processed)); }
                 else { sessionStorage.removeItem('vanan.smartEntryProcessed'); }
+                // G5: dialog vấn đáp snapshot (chỉ khi đang hỏi) — khôi phục sau reload.
+                if (dialogJson) { sessionStorage.setItem('vanan.smartEntryDialog', dialogJson); }
+                else { sessionStorage.removeItem('vanan.smartEntryDialog'); }
             } catch (e) { }
         };
+        window.vananLoadSmartDialog = function () { try { return sessionStorage.getItem('vanan.smartEntryDialog') || ''; } catch (e) { return ''; } };
         window.vananLoadSmartText = function () { try { return sessionStorage.getItem('vanan.smartEntryText') || ''; } catch (e) { return ''; } };
         window.vananLoadSmartMulti = function () { try { return sessionStorage.getItem('vanan.smartEntryMulti') || ''; } catch (e) { return ''; } };
         window.vananLoadSmartProcessed = function () {
@@ -154,6 +158,7 @@
                 sessionStorage.removeItem('vanan.smartEntryText');
                 sessionStorage.removeItem('vanan.smartEntryMulti');
                 sessionStorage.removeItem('vanan.smartEntryProcessed');
+                sessionStorage.removeItem('vanan.smartEntryDialog');
             } catch (e) { }
         };
         // Wave 8: Download a base64-encoded file (DOCX/XLSX export from HKD book page).

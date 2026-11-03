@@ -431,7 +431,7 @@
         }
         else if (_pendingSingleResult != null && _smartEntryBar != null)
         {
-            _smartEntryBar.ShowResult(_pendingSingleResult);
+            await _smartEntryBar.ShowResultAsync(_pendingSingleResult);
             _pendingSingleResult = null;
         }
         else if (firstRender && string.IsNullOrWhiteSpace(desc) && SmartSession.Multi is null

@@ -99,4 +99,111 @@ public static class SmartEntrySessionCodec
             return null;
         }
     }
+
+    // ---------- Task G5: dialog snapshot ----------
+
+    private sealed class QuestionDto
+    {
+        public int VoucherIndex { get; set; }
+        public string Slot { get; set; } = string.Empty;
+        public string QuestionText { get; set; } = string.Empty;
+        public List<QuickReplyDto> QuickReplies { get; set; } = new();
+        public bool Required { get; set; }
+    }
+
+    private sealed class QuickReplyDto
+    {
+        public string Label { get; set; } = string.Empty;
+        public string Value { get; set; } = string.Empty;
+    }
+
+    private sealed class DialogSnapshotDto
+    {
+        public Guid TenantId { get; set; }
+        public string OriginalText { get; set; } = string.Empty;
+        public List<ParsedVoucherDto> Vouchers { get; set; } = new();
+        public int AskedCount { get; set; }
+        public List<string> AskedSlotKeys { get; set; } = new();
+        public List<string> SkippedSlotKeys { get; set; } = new();
+        public QuestionDto? Pending { get; set; }
+        public DialogState State { get; set; }
+        public List<string> Transcript { get; set; } = new();
+    }
+
+    /// <summary>G5: serialize dialog session đang Asking — khôi phục deterministic sau reload.</summary>
+    public static string SerializeDialog(SmartEntryDialogSnapshot snap)
+    {
+        try
+        {
+            var dto = new DialogSnapshotDto
+            {
+                TenantId = snap.TenantId,
+                OriginalText = snap.OriginalText,
+                Vouchers = snap.Vouchers.Select(ToDto).ToList(),
+                AskedCount = snap.AskedCount,
+                AskedSlotKeys = snap.AskedSlotKeys,
+                SkippedSlotKeys = snap.SkippedSlotKeys,
+                Pending = snap.Pending == null ? null : new QuestionDto
+                {
+                    VoucherIndex = snap.Pending.VoucherIndex,
+                    Slot = snap.Pending.Slot,
+                    QuestionText = snap.Pending.QuestionText,
+                    QuickReplies = snap.Pending.QuickReplies
+                        .Select(r => new QuickReplyDto { Label = r.Label, Value = r.Value }).ToList(),
+                    Required = snap.Pending.Required,
+                },
+                State = snap.State,
+                Transcript = snap.Transcript,
+            };
+            return System.Text.Json.JsonSerializer.Serialize(dto);
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    public static SmartEntryDialogSnapshot? DeserializeDialog(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            var d = System.Text.Json.JsonSerializer.Deserialize<DialogSnapshotDto>(json);
+            if (d == null) return null;
+            return new SmartEntryDialogSnapshot(
+                d.TenantId, d.OriginalText, d.Vouchers.Select(FromDto).ToList(), d.AskedCount,
+                d.AskedSlotKeys, d.SkippedSlotKeys,
+                d.Pending == null ? null : new ClarifyingQuestion(
+                    d.Pending.VoucherIndex, d.Pending.Slot, d.Pending.QuestionText,
+                    d.Pending.QuickReplies.Select(r => new QuickReply(r.Label, r.Value)).ToList(),
+                    d.Pending.Required),
+                d.State, d.Transcript);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static ParsedVoucherDto ToDto(ParsedVoucher v) => new()
+    {
+        Intent = v.Intent,
+        Amount = v.Amount,
+        Date = v.Date,
+        PaymentMethod = v.PaymentMethod,
+        FromAccountCode = v.FromAccountCode,
+        ToAccountCode = v.ToAccountCode,
+        DoiTuong = v.DoiTuong,
+        Category = v.Category,
+        FeeAmount = v.FeeAmount,
+        Description = v.Description,
+        Confidence = v.Confidence,
+        MissingFields = v.MissingFields.ToList(),
+        Warnings = v.Warnings.ToList(),
+    };
+
+    private static ParsedVoucher FromDto(ParsedVoucherDto d) => new(
+        d.Intent, d.Amount, d.Date, d.PaymentMethod, d.FromAccountCode, d.ToAccountCode,
+        d.DoiTuong, d.Category, d.FeeAmount, d.Description, d.Confidence,
+        d.MissingFields, d.Warnings);
 }

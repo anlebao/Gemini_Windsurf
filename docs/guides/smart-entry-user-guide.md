@@ -296,3 +296,22 @@ Ngoài parser quy tắc (chạy mọi lúc, nhanh, offline, 100% riêng tư), h�
 ---
 
 *Tham chiếu kỹ thuật: `3_CoreHub/Services/VoucherTextParseService.cs` (11 intent, bảng số tiền/đơn vị/ngày/đối tượng) · `3_CoreHub/Services/LlmEnhanceVoucherTextParseService.cs` (LLM hybrid) · task card `docs/AI/tasks/accounting_engine/task_pg_smart_entry_ai.md` + `task_pg2_llm_hybrid.md` · E2E `6_Testing/e2e-tests/smart-entry-flow.spec.ts` + `smart-entry-full-rv.spec.ts`.*
+
+---
+
+## 14. Chế độ Vấn Đáp — hỏi đáp làm rõ điểm mù (task G5, v1.2)
+
+Khi câu mô tả còn thiếu thông tin bắt buộc, hệ thống **hỏi lại bạn** thay vì chỉ báo "⚠ Thiếu":
+
+- **Câu hỏi theo slot:** thiếu số tiền → "Số tiền bao nhiêu?" · thiếu đối tượng → "Khách/người bán nào?" · chuyển tiền chưa rõ hướng → chips "Quỹ → Ngân hàng / Ngân hàng → Quỹ" · không nhận diện được loại phiếu → chips loại phiếu (Thu/Chi/Chuyển quỹ/Công nợ/Vay/CTGS).
+- **Trả lời 3 cách:** bấm chip gợi ý (1 chạm) · gõ câu trả lời ngắn · nói (nút 🎤 trong khung hỏi).
+- **Trả lời gộp nhiều thông tin một lúc:** hỏi số tiền mà trả "5 triệu anh Hùng chuyển khoản" → hệ thống điền luôn số tiền + đối tượng + PTTT.
+- **Nhiều phiếu:** hỏi tuần tự từng phiếu, badge "Phiếu 2/3".
+- **Không bị lặp hỏi:** mỗi điểm hỏi tối đa 2 lần, tối đa 6 câu/phiên — vượt quá quay về card "⚠ Thiếu" như cũ. Luôn có "**Bỏ qua câu này**" và "**Bỏ qua — tự nhập form**".
+- **Vẫn không auto-save** — hỏi đáp chỉ hoàn thiện phiếu, bạn vẫn bấm "Áp vào form" → kiểm tra → Lưu.
+- **Session giữ nguyên** khi chuyển trang/tải lại (đang hỏi dở quay lại vẫn tiếp tục).
+- Phần mềm **không hỏi** khi đã đủ thông tin — ngày mặc định hôm nay, PTTT suy theo câu, không làm phiền.
+
+> P1 chạy hoàn toàn offline (parser quy tắc). Đáp án lạ không đọc được sẽ hỏi lại 1 lần kèm gợi ý định dạng, rồi cho phép bỏ qua — hệ thống không đoán thay bạn.
+
+*Tham chiếu kỹ thuật: `3_CoreHub/Services/SmartEntryDialogService.cs` (slot matrix + merge + chống loop) · `ExtractSlots` trong `VoucherTextParseService.cs` (fragment API) · task card `docs/AI/tasks/accounting_engine/task_pg5_smart_entry_dialog.md`.*
