@@ -1,6 +1,6 @@
 # TASK CARD — RV FINDINGS: BÁO CÁO TÀI CHÍNH / SỔ SÁCH / DASHBOARD CONSISTENCY
 
-> Status: ✅ **IMPLEMENTED + PUSHED `fdd7441a` (2026-11-03)** — commits `9c443206` (fix chính) + `fc673b7d` (RV harness/guide/state) + `fdd7441a` (fix KeyNotFound init direct lines + stale expectations). Core.Tests **2693/2693** · sln build 0 errors · guard ALL PASSED · CD đang chạy → re-sweep production.
+> Status: ✅ **DONE — DEPLOYED `5f4880c6` + CD SUCCESS ×2 + RE-SWEEP 39 PASS · 0 FAIL · 0 WARN (2026-11-03).** Commits `9c443206` (fix chính) + `fc673b7d` (RV harness/guide/state) + `fdd7441a` (KeyNotFound init + stale expectations) + `5f4880c6` (BUG-5 plug double-count). Core.Tests **2693/2693** · sln build 0 errors · guard ALL PASSED · CD #41639255279 + #41644479351 ALL SUCCESS. **Còn lại:** DATA cleanup duyệt riêng (1121 âm −220tr Cafe Tân Quy · An Tâm `Tenants.Type = NULL`).
 > Nguồn: RV sweep `6_Testing/rv-scripts/accounting-consistency-rv.sh` — production PG, kỳ 2026-11, chạy 2026-11-03.
 > Report: `6_Testing/rv-scripts/accounting-consistency-report.txt` (36 PASS · 6 FAIL).
 > Sweep script re-run được (read-only): `bash accounting-consistency-rv.sh [--period YYYY-MM] [--max-tenants N]`
