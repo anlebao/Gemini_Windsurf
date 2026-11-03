@@ -175,6 +175,17 @@ public class ComponentTestBase : TestContext
             r.Register(new VoucherTypeDefinition("expense", "Chi phí", "/accounting/expenses", null, [], "", "/accounting/expenses"), null, VoucherIntent.Expense);
             r.Register(new VoucherTypeDefinition("payable", "Ghi nhận phải trả", "/accounting/expenses", null, [], "", "/accounting/expenses"), null, VoucherIntent.Payable);
             r.Register(new VoucherTypeDefinition("payable-payment", "Trả tiền người bán", "/accounting/expenses", null, [], "", "/accounting/expenses"), null, VoucherIntent.PayablePayment);
+            r.Register(new VoucherTypeDefinition("loan-in", "Phiếu Vay Nhận Tiền", "/vouchers/loan-in", "01-TT",
+                [new VoucherField("amount", VoucherFieldType.Amount, "Số Tiền", true, "amount"),
+                 new VoucherField("date", VoucherFieldType.Date, "Ngày", true, "date"),
+                 new VoucherField("account", VoucherFieldType.Account, "Tài Khoản Vay (311/341)", true),
+                 new VoucherField("party", VoucherFieldType.Party, "Ngân hàng / tổ chức cho vay", false, "doiTuong")],
+                "loan"), new LoanPostingStrategy(), VoucherIntent.Loan);
+            r.Register(new VoucherTypeDefinition("loan-repayment", "Phiếu Trả Nợ Vay", "/vouchers/loan-repayment", "02-TT",
+                [new VoucherField("amount", VoucherFieldType.Amount, "Số Tiền", true, "amount"),
+                 new VoucherField("date", VoucherFieldType.Date, "Ngày", true, "date"),
+                 new VoucherField("account", VoucherFieldType.Account, "Tài Khoản Vay (311/341)", true)],
+                "loan"), new LoanPostingStrategy(), VoucherIntent.LoanRepayment);
             return r;
         });
 

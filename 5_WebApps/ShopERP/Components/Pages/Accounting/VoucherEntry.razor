@@ -188,6 +188,14 @@
             _ => VoucherIntent.AdvanceOut
         };
 
+        // FIX (RV 2026-11-03): khởi tạo key trước render — @bind="_numbers[f.Id]" trên dictionary
+        // rỗng ném KeyNotFoundException ở prerender (500 cho mọi phiếu generic không có ?desc=).
+        foreach (var f in _def.Fields)
+        {
+            if (f.Type == VoucherFieldType.Amount) _numbers[f.Id] = null;
+            else if (f.Type == VoucherFieldType.Account) _accounts[f.Id] = "341";
+        }
+
         if (TenantProvider.HasTenant)
         {
             _accountOptions = await EntryFormAccountingHelper.LoadAccountOptionsAsync(
