@@ -175,9 +175,14 @@ foreach (var node in cases)
                     default:
                     {
                         var actual = GetV(parsed, key);
-                        bool eq = actual is decimal dec
-                            ? dec == val!.GetValue<decimal>()
-                            : string.Equals(actual?.ToString(), val is null ? null : val.GetValue<string>(), StringComparison.Ordinal);
+                        bool eq;
+                        if (actual is decimal dec)
+                            eq = val is JsonValue jvd && jvd.TryGetValue<decimal>(out var wd) && dec == wd;
+                        else if (val is null)
+                            eq = actual is null;
+                        else if (val is JsonValue jvs && jvs.TryGetValue<string>(out var ws))
+                            eq = string.Equals(actual?.ToString(), ws, StringComparison.Ordinal);
+                        else { mismatches.Add($"{key}: unsupported expect type {val}"); break; }
                         if (!eq) mismatches.Add($"{key}: expect {val}, got {actual ?? "null"}");
                         break;
                     }

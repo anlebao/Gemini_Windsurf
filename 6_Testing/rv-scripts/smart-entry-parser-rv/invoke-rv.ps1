@@ -65,7 +65,9 @@ Copy-Item (Join-Path $dir "cases.json") $stage
 $sh = (Get-Content (Join-Path $dir "run-on-vps.sh") -Raw) -replace "`r`n", "`n"
 [System.IO.File]::WriteAllText((Join-Path $stage "run-on-vps.sh"), $sh)
 
-gcloud compute scp --recurse "$stage" "${Vps}:/tmp/rv-se-src" --zone $Zone --project $GcpProject
+gcloud compute ssh $Vps --zone $Zone --project $GcpProject --command "mkdir -p /tmp/rv-se-src && rm -f /tmp/rv-se-src/*"
+if ($LASTEXITCODE -ne 0) { throw "ssh mkdir failed" }
+gcloud compute scp "$stage\*" "${Vps}:/tmp/rv-se-src/" --zone $Zone --project $GcpProject
 if ($LASTEXITCODE -ne 0) { throw "scp failed" }
 
 Write-Host "== run on VPS =="

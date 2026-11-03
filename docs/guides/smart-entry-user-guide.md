@@ -201,6 +201,10 @@ Không nhắc nhóm nào → vẫn là phiếu Chi phí, bạn tự chọn TK.
 | `khách ông Ba trả nợ 2tr5` / `chi phí tư vấn 5 triệu` / `mua vật tư 12 triệu` | ✅ **Đã fix (v1.1)**: từ-số đơn (Ba=3, Tư=4) không còn bị đọc thành tiền — `ông Ba trả nợ 2tr5` → 2.500.000 + "ông Ba" | Trước đây tên trùng từ số làm amount sai | Vẫn nên viết số tiền kèm đơn vị rõ ràng cho chắc chắn |
 | `thanh toán nợ 5tr ck cho nhà cung cấp Nam` | ✅ **Đã fix (v1.1)**: đối tượng trích được đầy đủ "nhà cung cấp Nam" | Trước đây "thanh toán" làm mất đối tượng | Dùng "trả nợ"/"thanh toán" đều được |
 
+> **⚠ Đã ghi nhận qua RV production (2026-11-03 — `6_Testing/rv-scripts/smart-entry-parser-rv/`, chưa fix):**
+> 1. **`vật tư <N> triệu` → amount sai (+4 triệu):** `mua vật tư 12 triệu` → 16.000.000 · `chi mua vật tư 30 triệu` → 34.000.000. Từ "tư" (=4) đứng ngay trước chữ số bị chain vào số tiền (fix v1.1 chỉ xử lý từ-số đơn lẻ tách biệt). **Tránh nói "vật tư" sát trước số tiền** — nói `chi mua nguyên vật liệu 30 triệu` hoặc `mua chịu vật tư của NCC X 12 triệu` (đặt "vật tư" sau động từ/tên đối tượng).
+> 2. **Đối tượng chứa "chuyển" bị cắt:** `mua chịu của bên vận chuyển 5 triệu` → đối tượng chỉ còn "vận" ("chuyển" là stop-word). **Kiểm tra lại ô đối tượng** khi tên chứa: chuyển/tiền/mặt/nợ/trả/thanh toán/vào/về/ngày/hôm/số/đồng...
+
 ### 10.2. Sai / mơ hồ loại nghiệp vụ (rủi ro cao nhất)
 
 | Bạn nói | Hệ thống hiểu | Vì sao sai | Nói lại đúng |
