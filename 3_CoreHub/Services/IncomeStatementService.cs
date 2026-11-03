@@ -188,10 +188,7 @@ public class IncomeStatementService : IIncomeStatementService
 
         foreach (var line in template.Lines)
         {
-            if (line.IsCalculated || line.AccountCodes.Length == 0)
-            {
-                amounts[line.ReportItemCode] = (0, 0);
-            }
+            amounts[line.ReportItemCode] = (0, 0);
         }
 
         foreach (string acct in allAccounts)

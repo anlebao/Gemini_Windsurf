@@ -50,8 +50,9 @@ public class IncomeStatementServiceTests
             new AccountingPeriod(2026, 5),
             AccountingStandard.TT133_2016);
 
-        // NetProfit should be positive (May: 30M revenue - 21M COGS - 2M selling expense ≈ 7M).
-        Assert.True(is_.NetProfitEnding > 0, $"NetProfit should be positive for May (revenue > COGS + OpEx), got {is_.NetProfitEnding}");
+        // May: revenue 29.5M (511 net 30M + 5113 0.5M − chiết khấu 1M) − COGS 21M − OpEx 18M
+        // (6421: 2+8, 6422: 3+5) = −9.5M. Trước fix BUG-1a: 6421/6422 bị drop → lợi nhuận ảo dương.
+        Assert.Equal(-9_500_000m, is_.NetProfitEnding, precision: 0);
     }
 
     // W4-IS3: 2-column — Opening column = same month prior year (2025-05, no data → 0).
@@ -140,9 +141,10 @@ public class IncomeStatementServiceTests
         Assert.Equal(0m, is_.TotalRevenueOpening, precision: 0);
     }
 
-    // W7-IS3: NetProfitEnding = -8M for 2026-06 (Revenue 45M − COGS 31.5M − OpEx 21.5M = −8M).
+    // W7-IS3: NetProfitEnding = −6.5M for 2026-06 (Revenue 45M − COGS 31.5M − OpEx 20M = −6.5M).
     // RV fix 2026-11-03 (BUG-1a): 6421/6422 giờ map vào mã 24 (đã seed vào TT133 chart) — trước
     // bị drop âm thầm → OpEx = 0, lợi nhuận phóng đại (cùng pattern BUG-2 của 611).
+    // OpEx T6 = 2.5+3.5+5+9 = 20M (T20 1.5M rơi sang 2026-07 — seed baseDate 2026-06-15 +18d).
     [Fact]
     public async Task W7_IS3_NetProfitEnding_EqualsNegative8M()
     {
@@ -152,7 +154,7 @@ public class IncomeStatementServiceTests
             new AccountingPeriod(2026, 6),
             AccountingStandard.TT133_2016);
 
-        Assert.Equal(-8_000_000m, is_.NetProfitEnding, precision: 0);
+        Assert.Equal(-6_500_000m, is_.NetProfitEnding, precision: 0);
     }
 
     // W7-IS4: NetProfit formula — NetProfit == Revenue − COGS − OpEx (mã 11 + mã 24).
@@ -170,7 +172,7 @@ public class IncomeStatementServiceTests
         decimal opex = is_.Lines.First(l => l.ReportItemCode == "24").EndingAmount;
         decimal expectedNetProfit = is_.TotalRevenueEnding - cogs - opex;
 
-        Assert.Equal(21_500_000m, opex, precision: 0); // 6421/6422 June: 2.5+3.5+5+9+1.5 = 21.5M
+        Assert.Equal(20_000_000m, opex, precision: 0); // 6421/6422 June: 2.5+3.5+5+9 = 20M (T20 1.5M sang T7)
         Assert.Equal(expectedNetProfit, is_.NetProfitEnding, precision: 2);
     }
 
@@ -225,7 +227,7 @@ public class IncomeStatementServiceTests
             AccountingStandard.TT133_2016);
 
         decimal m24 = is_.Lines.First(l => l.ReportItemCode == "24").EndingAmount;
-        Assert.Equal(21_500_000m, m24, precision: 0); // 2.5+3.5+5+9+1.5 = 21.5M
+        Assert.Equal(20_000_000m, m24, precision: 0); // 2.5+3.5+5+9 = 20M (T20 1.5M sang T7)
     }
 
     // ── TT 71 Phase 3 (T3): B02-HTX ──────────────────────────────────────

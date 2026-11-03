@@ -231,10 +231,7 @@ public class BalanceSheetService : IBalanceSheetService
 
         foreach (var templateLine in template.Lines)
         {
-            if (templateLine.IsCalculated || templateLine.AccountCodes.Length == 0)
-            {
-                lineAmounts[templateLine.ReportItemCode] = (0, 0);
-            }
+            lineAmounts[templateLine.ReportItemCode] = (0, 0);
         }
 
         foreach (string acct in allAccounts)

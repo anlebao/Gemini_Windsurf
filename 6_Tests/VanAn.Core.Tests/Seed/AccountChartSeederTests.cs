@@ -86,7 +86,7 @@ public class AccountChartSeederTests
         }
 
         // TT 133/99 không bị đụng (không regress)
-        Assert.Equal(51, await db.AccountCharts.CountAsync(e => e.Standard == AccountingStandard.TT133_2016));
+        Assert.Equal(57, await db.AccountCharts.CountAsync(e => e.Standard == AccountingStandard.TT133_2016));
         Assert.Equal(75, await db.AccountCharts.CountAsync(e => e.Standard == AccountingStandard.TT99_2025));
     }
 
@@ -102,7 +102,7 @@ public class AccountChartSeederTests
         int second = await AccountChartSeeder.SeedAsync(db, NullLogger.Instance);
 
         Assert.Equal(first, second);
-        Assert.Equal(215, second);
+        Assert.Equal(221, second);
     }
 
     // W3-SE3: TT 133 seeded first (R3 priority — verified by checking first inserted row)
