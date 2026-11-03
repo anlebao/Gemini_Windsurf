@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using VanAn.CoreHub.Services;
+using VanAn.CoreHub.Services.Vouchers;
 using VanAn.CoreHub.Services.CongNo;
 using Bunit;
 using VanAn.UI.Platform.Core.Interfaces;
@@ -161,6 +162,29 @@ public class ComponentTestBase : TestContext
         Services.AddSingleton<IMeteringClient>(_ => new Mock<IMeteringClient>().Object);
         Services.AddSingleton<IMeteringTenantAttributeResolver>(_ => new Mock<IMeteringTenantAttributeResolver>().Object);
         Services.AddSingleton<FeatureUsageRecorder>();
+
+        // Task PH2 (2026-11-03): VoucherTypeRegistry — Revenue/ExpenseEntry inject (dropdown
+        // registry-driven). Mirror Program.cs: hosted types labels/thứ tự giữ hành vi form cũ.
+        Services.AddSingleton<VoucherTypeRegistry>(_ =>
+        {
+            var r = new VoucherTypeRegistry();
+            r.Register(new VoucherTypeDefinition("revenue", "Thu doanh thu", "/accounting/revenue", null, [], "", "/accounting/revenue"), null, VoucherIntent.Revenue);
+            r.Register(new VoucherTypeDefinition("receivable", "Ghi nhận phải thu", "/accounting/revenue", null, [], "", "/accounting/revenue"), null, VoucherIntent.Receivable);
+            r.Register(new VoucherTypeDefinition("receivable-payment", "Thu tiền khách trả nợ", "/accounting/revenue", null, [], "", "/accounting/revenue"), null, VoucherIntent.ReceivablePayment, VoucherIntent.Advance);
+            r.Register(new VoucherTypeDefinition("capital", "Góp vốn chủ sở hữu", "/accounting/revenue", null, [], "", "/accounting/revenue"), null, VoucherIntent.Capital);
+            r.Register(new VoucherTypeDefinition("expense", "Chi phí", "/accounting/expenses", null, [], "", "/accounting/expenses"), null, VoucherIntent.Expense);
+            r.Register(new VoucherTypeDefinition("payable", "Ghi nhận phải trả", "/accounting/expenses", null, [], "", "/accounting/expenses"), null, VoucherIntent.Payable);
+            r.Register(new VoucherTypeDefinition("payable-payment", "Trả tiền người bán", "/accounting/expenses", null, [], "", "/accounting/expenses"), null, VoucherIntent.PayablePayment);
+            return r;
+        });
+
+        // Task PG/PG2 (2026-11-01): SmartEntrySessionState — Revenue/ExpenseEntry inject (G4
+        // multi-voucher session cross-page). Fix pre-existing bUnit fail (21 tests — SmartSession
+        // chưa được đăng ký từ session PG).
+        Services.AddSingleton<VanAn.ShopERP.Components.Accounting.SmartEntrySessionState>();
+        // Task PG (2026-11-01): IVoucherTextParseService — thật (rule-based thuần, không dep)
+        // cho SmartEntryBar (text parse) — fix pre-existing bUnit fail TextParser.
+        Services.AddSingleton<IVoucherTextParseService>(_ => new VoucherTextParseService());
 
         // Bunit automatically discovers components from referenced assemblies
         // UI.Platform is already referenced in the project, so components should be discoverable

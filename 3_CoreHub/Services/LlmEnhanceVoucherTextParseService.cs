@@ -89,6 +89,14 @@ public sealed class LlmEnhanceVoucherTextParseService(
         ["rút về quỹ"] = VoucherIntent.TransferOut,
         ["nhập hàng"] = VoucherIntent.Purchase,
         ["mua hàng hóa"] = VoucherIntent.Purchase,
+        // PH2: vay / trả nợ vay
+        ["vay"] = VoucherIntent.Loan,
+        ["vay nhận tiền"] = VoucherIntent.Loan,
+        ["vay vốn"] = VoucherIntent.Loan,
+        ["nhận vay"] = VoucherIntent.Loan,
+        ["trả nợ vay"] = VoucherIntent.LoanRepayment,
+        ["trả tiền vay"] = VoucherIntent.LoanRepayment,
+        ["hoàn trả vay"] = VoucherIntent.LoanRepayment,
         [""] = VoucherIntent.Unknown,
         ["null"] = VoucherIntent.Unknown,
     };
@@ -174,7 +182,7 @@ public sealed class LlmEnhanceVoucherTextParseService(
 
     private static string BuildPrompt(string text) =>
         "Bạn là trợ lý nhập liệu kế toán tiếng Việt. Từ câu mô tả nghiệp vụ sau, trả về JSON ĐÚNG schema, KHÔNG thêm chú thích, KHÔNG bịa dữ kiện.\n" +
-        "Schema: {\"intent\": \"Revenue|Receivable|ReceivablePayment|Advance|Capital|Expense|Payable|PayablePayment|TransferOut|TransferIn|Purchase|null\", " +
+        "Schema: {\"intent\": \"Revenue|Receivable|ReceivablePayment|Advance|Capital|Expense|Payable|PayablePayment|TransferOut|TransferIn|Purchase|Loan|LoanRepayment|null\", " +
         "\"amount\": <số nguyên đồng hoặc null nếu không chắc>, \"date\": \"yyyy-MM-dd hoặc null\", " +
         "\"paymentMethod\": \"cash|bank|qr|null\", \"fromAccountCode\": \"111|112|null\", \"toAccountCode\": \"111|112|null\", " +
         "\"doiTuong\": \"tên khách/công ty hoặc null\", \"category\": \"rent|utilities|labor|materials|marketing|maintenance|null\", " +
@@ -323,7 +331,7 @@ public sealed class LlmEnhanceVoucherTextParseService(
     private static string BuildMultiPrompt(string text) =>
         "Bạn là trợ lý nhập liệu kế toán tiếng Việt. Câu sau có thể chứa NHIỀU nghiệp vụ kế toán. " +
         "Hãy tách thành các nghiệp vụ RIÊNG BIỆT, mỗi nghiệp vụ 1 phiếu chứng từ. Trả JSON ĐÚNG schema, KHÔNG bịa dữ kiện.\n" +
-        "Schema: {\"vouchers\": [{\"intent\": \"Revenue|Receivable|ReceivablePayment|Advance|Capital|Expense|Payable|PayablePayment|TransferOut|TransferIn|Purchase|null\", " +
+        "Schema: {\"vouchers\": [{\"intent\": \"Revenue|Receivable|ReceivablePayment|Advance|Capital|Expense|Payable|PayablePayment|TransferOut|TransferIn|Purchase|Loan|LoanRepayment|null\", " +
         "\"amount\": <số nguyên đồng hoặc null>, \"date\": \"yyyy-MM-dd hoặc null\", " +
         "\"paymentMethod\": \"cash|bank|qr|null\", \"fromAccountCode\": \"111|112|null\", \"toAccountCode\": \"111|112|null\", " +
         "\"doiTuong\": \"tên hoặc null\", \"category\": \"rent|utilities|labor|materials|marketing|maintenance|null\", " +

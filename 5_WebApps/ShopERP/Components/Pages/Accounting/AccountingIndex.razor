@@ -135,6 +135,8 @@
                 <VanAButton Variant="secondary" OnClick="NavigateToAdvances">💸 Tạm Ứng / Hoàn Ứng</VanAButton>
                 <VanAButton Variant="secondary" OnClick="NavigateToStockIssue">📦 Phiếu Xuất Kho</VanAButton>
                 <VanAButton Variant="secondary" OnClick="NavigateToAssetDisposal">🏭 Thanh Lý TSCĐ</VanAButton>
+                <VanAButton Variant="secondary" OnClick="NavigateToLoanIn">🏦 Phiếu Vay Nhận Tiền</VanAButton>
+                <VanAButton Variant="secondary" OnClick="NavigateToLoanRepayment">🏦 Phiếu Trả Nợ Vay</VanAButton>
                 <VanAButton Variant="secondary" OnClick="NavigateToPurchase">🛒 Phiếu Nhập Mua</VanAButton>
                 <VanAButton Variant="secondary" OnClick="NavigateToJournalVoucher">📝 Phiếu Hạch Toán CTGS</VanAButton>
             </div>
@@ -266,6 +268,9 @@
     private void NavigateToAdvances() => NavigationManager.NavigateTo("/vouchers/advance");
     private void NavigateToStockIssue() => NavigationManager.NavigateTo("/vouchers/stock-issue");
     private void NavigateToAssetDisposal() => NavigationManager.NavigateTo("/vouchers/asset-disposal");
+    // PH2 (2026-11-03): phiếu vay — quick actions Chứng Từ / Phiếu
+    private void NavigateToLoanIn() => NavigationManager.NavigateTo("/vouchers/loan-in");
+    private void NavigateToLoanRepayment() => NavigationManager.NavigateTo("/vouchers/loan-repayment");
 
     private void NavigateToJournalVoucher()
     {

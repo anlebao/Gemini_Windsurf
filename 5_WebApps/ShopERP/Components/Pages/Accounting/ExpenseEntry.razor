@@ -31,6 +31,7 @@
 @inject IBusinessInfoApiClient BusinessInfo
 @inject CoreAccountingService.IVoucherTextParseService TextParser
 @inject VanAn.ShopERP.Components.Accounting.SmartEntrySessionState SmartSession
+@inject VanAn.CoreHub.Services.Vouchers.VoucherTypeRegistry VoucherRegistry
 
 <div class="expense-entry-page @ThemeProvider.CurrentTheme">
     @* Task PG — 2 mode: Manual giữ nguyên; AI = câu mô tả → parse → prefill → user sửa → Lưu.
@@ -55,6 +56,12 @@
             <VanAAlert Variant="info" Dismissible="true"
                 Message="Câu mô tả thuộc nghiệp vụ khác — mở đúng chức năng:" />
             <a href="@_smartRouteUrl" class="btn btn-sm btn-outline-primary mb-3" data-testid="smart-route-link">→ @_smartRouteLabel</a>
+        }
+        @* PH2: Unknown intent — chặn cứng (không đoán bừa) *@
+        @if (_applyError != null)
+        {
+            <VanAAlert Variant="error" Dismissible="true" OnDismiss="() => _applyError = null"
+                Message="@_applyError" data-testid="smart-apply-error" />
         }
     }
 
@@ -368,6 +375,8 @@
     private string? _smartRouteUrl;
     private string? _smartRouteLabel;
     private bool _accountTouched;
+    // PH2: Unknown chặn cứng (không điền form).
+    private string? _applyError;
 
     // VAT đầu vào chỉ cho DN/HTX (khấu trừ); HKD/DNSN ẩn — chỉ phiếu chi phí thường.
     private bool _showVatField => !IsCongNoType
@@ -423,38 +432,27 @@
         await base.OnAfterRenderAsync(firstRender);
     }
 
-    /// <summary>Task PG: áp kết quả parse vào form — intent khác trang → route link; thiếu field → để trống, không đoán.</summary>
+    /// <summary>Task PG + PH2: áp kết quả parse vào form qua REGISTRY (ResolveByIntent — bỏ switch hardcode).
+    /// Unknown → chặn cứng (không đoán bừa) · intent khác trang → route link · cùng trang → prefill.</summary>
     private async Task ApplyParse(CoreAccountingService.ParsedVoucher p)
     {
         _smartRouteUrl = null;
-        switch (p.Intent)
+        _applyError = null;
+        var def = VoucherRegistry.ResolveByIntent(p.Intent);
+        if (def == null)
         {
-            case CoreAccountingService.VoucherIntent.TransferOut or CoreAccountingService.VoucherIntent.TransferIn:
-                _smartRouteUrl = "/accounting/transfers?desc=" + Uri.EscapeDataString(_smartEntryBar?.CurrentText ?? p.Description);
-                _smartRouteLabel = "Phiếu Chuyển Tiền Nội Bộ"; return;
-            case CoreAccountingService.VoucherIntent.Purchase:
-                _smartRouteUrl = "/accounting/purchase-receipts/new";
-                _smartRouteLabel = "Phiếu Nhập Mua"; return;
-            case CoreAccountingService.VoucherIntent.AdvanceOut or CoreAccountingService.VoucherIntent.AdvanceSettle:
-                _smartRouteUrl = "/vouchers/advance?desc=" + Uri.EscapeDataString(_smartEntryBar?.CurrentText ?? p.Description);
-                _smartRouteLabel = "Phiếu Tạm Ứng"; return;
-            case CoreAccountingService.VoucherIntent.StockOut:
-                _smartRouteUrl = "/vouchers/stock-issue?desc=" + Uri.EscapeDataString(_smartEntryBar?.CurrentText ?? p.Description);
-                _smartRouteLabel = "Phiếu Xuất Kho"; return;
-            case CoreAccountingService.VoucherIntent.AssetDisposal:
-                _smartRouteUrl = "/vouchers/asset-disposal?desc=" + Uri.EscapeDataString(_smartEntryBar?.CurrentText ?? p.Description);
-                _smartRouteLabel = "Thanh Lý TSCĐ"; return;
-            case CoreAccountingService.VoucherIntent.Revenue or CoreAccountingService.VoucherIntent.Receivable or CoreAccountingService.VoucherIntent.ReceivablePayment
-                or CoreAccountingService.VoucherIntent.Advance or CoreAccountingService.VoucherIntent.Capital:
-                _smartRouteUrl = "/accounting/revenue?desc=" + Uri.EscapeDataString(_smartEntryBar?.CurrentText ?? p.Description);
-                _smartRouteLabel = "Phiếu Thu"; return;
+            // Q2: Unknown — không nhận diện được loại phiếu → KHÔNG điền form (tránh định khoản sai).
+            _applyError = "Không nhận diện được loại phiếu cho câu này — nhập thủ công hoặc bổ sung từ khóa.";
+            StateHasChanged();
+            return;
         }
-        _voucherType = p.Intent switch
+        if (!def.Route.StartsWith("/accounting/expenses", StringComparison.OrdinalIgnoreCase))
         {
-            CoreAccountingService.VoucherIntent.Payable => VoucherTypePayable,
-            CoreAccountingService.VoucherIntent.PayablePayment => VoucherTypePayment,
-            _ => VoucherTypeExpense
-        };
+            _smartRouteUrl = def.Route + "?desc=" + Uri.EscapeDataString(_smartEntryBar?.CurrentText ?? p.Description);
+            _smartRouteLabel = def.Name;
+            return;
+        }
+        _voucherType = def.Code;
         if (!string.IsNullOrWhiteSpace(p.DoiTuong)) doiTuong = p.DoiTuong;
         if (!string.IsNullOrWhiteSpace(p.PaymentMethod)) _paymentMethod = p.PaymentMethod;
         RebuildFields();
@@ -590,6 +588,7 @@
     /// </summary>
     private void HandleVoucherTypeChanged()
     {
+        _applyError = null;
         RebuildFields();
         _vatAmount = 0m;
         _accountTouched = false;
@@ -842,14 +841,12 @@
         }
     }
 
+    /// <summary>PH2: dropdown loại phiếu sinh từ VoucherTypeRegistry (hết hardcode) — thứ tự = thứ tự Register.</summary>
     private List<PlatformComposite.FieldOption> GetVoucherTypeOptions()
     {
-        return
-        [
-            new() { Value = VoucherTypeExpense, Label = "Chi phí" },
-            new() { Value = VoucherTypePayable, Label = "Ghi nhận phải trả" },
-            new() { Value = VoucherTypePayment, Label = "Trả tiền người bán" }
-        ];
+        var defs = VoucherRegistry.GetOptionsForHost("/accounting/expenses");
+        if (defs.Count == 0) return []; // registry luôn có hosted types — fallback rỗng an toàn
+        return defs.Select(d => new PlatformComposite.FieldOption { Value = d.Code, Label = d.Name }).ToList();
     }
 
     private static List<PlatformComposite.FieldOption> GetCongNoPayableAccounts()

@@ -8,15 +8,21 @@
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
 @using VanAn.UI.Platform.Components
+@using VanAn.ShopERP.Components.Accounting
+@using VanAn.ShopERP.Services.Accounting
+@using PlatformComposite = VanAn.UI.Platform.Components.Composite
 @inject VoucherTypeRegistry VoucherRegistry
 @inject ITenantProvider TenantProvider
 @inject VanAn.CoreHub.Services.IVoucherTextParseService TextParser
 @inject VanAn.CoreHub.Services.Journal.IManualJournalVoucherService JournalVoucherService
+@inject VanAn.CoreHub.Services.IAccountChartService AccountChartService
 @inject ILogger<VoucherEntry> Logger
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 
 @* Task PH/G1 — Voucher Framework: page GENERIC duy nhất render form theo schema registry.
-   Submit → strategy (JE) → ManualJournalVoucherService (posting chuẩn hoá có sẵn). *@
+   Submit → strategy (JE) → ManualJournalVoucherService (posting chuẩn hoá có sẵn).
+   Task PH2 — HostPage guard (hosted types) + Account select COA + JE preview + in 01-TT/02-TT. *@
 
 <div class="voucher-entry-page">
     <header class="page-header">
@@ -25,55 +31,121 @@
     </header>
 
     @if (_def == null)
-{
-    <VanAAlert Variant="error" Message="Loại phiếu không tồn tại trong registry." Dismissible="false" />
-}
-else
-{
-    @if (showSuccess)
     {
-        <VanAAlert Variant="success" Message="@successMessage" Dismissible="true" data-testid="voucher-success-alert" />
+        <VanAAlert Variant="error" Message="Loại phiếu không tồn tại trong registry." Dismissible="false" />
     }
-    @if (showError)
+    else if (_def.HostPage != null)
     {
-        <VanAAlert Variant="error" Message="@errorMessage" Dismissible="true" />
+        @* PH2: hosted type (trang host quản lý posting) — không render form generic *@
+        <VanAAlert Variant="info" Dismissible="false"
+            Message="Loại phiếu này nhập tại trang riêng — mở đúng chức năng:" />
+        <a href="@_def.HostPage" class="btn btn-sm btn-outline-primary" data-testid="hosted-route-link">→ @_def.Name</a>
     }
+    else
+    {
+        @if (showSuccess)
+        {
+            <VanAAlert Variant="success" Message="@successMessage" Dismissible="true" data-testid="voucher-success-alert" />
+        }
+        @if (showError)
+        {
+            <VanAAlert Variant="error" Message="@errorMessage" Dismissible="true" />
+        }
 
-    <VanACard Header="@_def.Name">
-        <EditForm Model="_model" OnValidSubmit="HandleSubmit">
-            @foreach (var f in _def.Fields)
-            {
-                <div class="mb-3">
-                    <label class="form-label">@f.Label @if (f.Required) { <span class="text-danger">*</span> }</label>
-                    @if (f.Type == VoucherFieldType.Amount)
-                    {
-                        <input type="number" class="form-control" data-testid="vf-@f.Id" @bind="_numbers[f.Id]" />
-                    }
-                    else if (f.Type == VoucherFieldType.Select)
-                    {
-                        <select class="form-select" data-testid="vf-@f.Id" @bind="_mode">
-                            <option value="production">Xuất cho sản xuất (154)</option>
-                            <option value="sale">Xuất bán (632)</option>
-                        </select>
-                    }
-                    else if (f.Type == VoucherFieldType.Date)
-                    {
-                        <input type="date" class="form-control" data-testid="vf-@f.Id" @bind="_date" />
-                    }
-                    else
-                    {
-                        <input type="text" class="form-control" data-testid="vf-@f.Id" @bind="_party" placeholder="@(f.Type == VoucherFieldType.Party ? "Tên người nhận / đối tượng" : "")" />
-                    }
-                </div>
-            }
-            <div class="mb-3">
-                <label class="form-label">Diễn giải</label>
-                <textarea class="form-control" rows="2" @bind="_description" data-testid="vf-description"></textarea>
+        @if (_lastPrint != null)
+        {
+            <div class="mt-3">
+                <VanAButton Variant="success" Size="small" OnClick="OpenPrintModal">
+                    🖨️ In phiếu (@(_def.PrintTemplate == "02-TT" ? "02-TT" : "01-TT"))
+                </VanAButton>
             </div>
-            <VanAButton Variant="primary" Type="submit" Disabled="@_saving" data-testid="voucher-save">@(_saving ? "Đang lưu..." : "Lưu phiếu")</VanAButton>
-        </EditForm>
-    </VanACard>
-}
+        }
+
+        <VanAnModal IsOpen="@_showPrintModal" Title="@(_def.PrintTemplate == "02-TT" ? "Phiếu Chi (Mẫu số 02 - TT)" : "Phiếu Thu (Mẫu số 01 - TT)")" Closable="true" OnClose="ClosePrintModal">
+            @if (_lastPrint != null)
+            {
+                @if (_def.PrintTemplate == "02-TT")
+                {
+                    <Tt71PaymentVoucher SoPhieu="@_lastPrint.SoPhieu" Ngay="@_lastPrint.Ngay"
+                                        No="@_lastPrint.No" Co="@_lastPrint.Co"
+                                        NguoiNhan="@_lastPrint.NguoiNop" DiaChi="@_lastPrint.DiaChi"
+                                        LyDo="@_lastPrint.LyDo" SoTien="@_lastPrint.SoTien"
+                                        KemTheo="@_lastPrint.KemTheo" ChungTuGoc="@_lastPrint.ChungTuGoc" />
+                }
+                else
+                {
+                    <Tt71ReceiptVoucher SoPhieu="@_lastPrint.SoPhieu" Ngay="@_lastPrint.Ngay"
+                                        No="@_lastPrint.No" Co="@_lastPrint.Co"
+                                        NguoiNop="@_lastPrint.NguoiNop" DiaChi="@_lastPrint.DiaChi"
+                                        LyDo="@_lastPrint.LyDo" SoTien="@_lastPrint.SoTien"
+                                        KemTheo="@_lastPrint.KemTheo" ChungTuGoc="@_lastPrint.ChungTuGoc" />
+                }
+            }
+        </VanAnModal>
+
+        <VanACard Header="@_def.Name">
+            <EditForm Model="_model" OnValidSubmit="HandleSubmit">
+                @foreach (var f in _def.Fields)
+                {
+                    <div class="mb-3">
+                        <label class="form-label">@f.Label @if (f.Required) { <span class="text-danger">*</span> }</label>
+                        @if (f.Type == VoucherFieldType.Amount)
+                        {
+                            <input type="number" class="form-control" data-testid="vf-@f.Id" @bind="_numbers[f.Id]" @bind:after="RefreshPreviewAsync" />
+                        }
+                        else if (f.Type == VoucherFieldType.Account)
+                        {
+                            @* PH2: select COA tenant (311/341 + chi tiết) — bắt buộc cho phiếu vay *@
+                            <select class="form-select" data-testid="vf-@f.Id" @bind="_accounts[f.Id]" @bind:after="RefreshPreviewAsync">
+                                @foreach (var opt in _accountOptions)
+                                {
+                                    <option value="@opt.Value">@opt.Label</option>
+                                }
+                            </select>
+                        }
+                        else if (f.Type == VoucherFieldType.Select)
+                        {
+                            @* PH2: options configurable từ registry (stock-issue: production/sale) *@
+                            <select class="form-select" data-testid="vf-@f.Id" @bind="_mode">
+                                @foreach (var opt in (f.Options ?? Array.Empty<string>()))
+                                {
+                                    <option value="@opt">@(opt == "production" ? "Xuất cho sản xuất (154)" : opt == "sale" ? "Xuất bán (632)" : opt)</option>
+                                }
+                            </select>
+                        }
+                        else if (f.Type == VoucherFieldType.Date)
+                        {
+                            <input type="date" class="form-control" data-testid="vf-@f.Id" @bind="_date" @bind:after="RefreshPreviewAsync" />
+                        }
+                        else
+                        {
+                            <input type="text" class="form-control" data-testid="vf-@f.Id" @bind="_party" @bind:after="RefreshPreviewAsync" placeholder="@(f.Type == VoucherFieldType.Party ? "Tên người nhận / đối tượng" : "")" />
+                        }
+                    </div>
+                }
+                <div class="mb-3">
+                    <label class="form-label">Diễn giải</label>
+                    <textarea class="form-control" rows="2" @bind="_description" data-testid="vf-description"></textarea>
+                </div>
+
+                @* PH2: JE preview (cùng strategy — user thấy bút toán trước Lưu) *@
+                @if (_preview != null && _preview.Lines.Count > 0)
+                {
+                    <div class="mb-3 p-2 border rounded bg-light" data-testid="voucher-preview">
+                        <div class="small fw-bold mb-1">Bút toán sẽ ghi:</div>
+                        @foreach (var l in _preview.Lines)
+                        {
+                            <div class="small">
+                                @(l.DebitAmount > 0 ? "Nợ" : "Có") @l.AccountNumber — @((l.DebitAmount > 0 ? l.DebitAmount : l.CreditAmount).ToString("N0")) ₫
+                            </div>
+                        }
+                    </div>
+                }
+
+                <VanAButton Variant="primary" Type="submit" Disabled="@_saving" data-testid="voucher-save">@(_saving ? "Đang lưu..." : "Lưu phiếu")</VanAButton>
+            </EditForm>
+        </VanACard>
+    }
 </div>
 
 @code {
@@ -82,6 +154,7 @@ else
 
     private VoucherTypeDefinition? _def;
     private readonly Dictionary<string, decimal?> _numbers = new();
+    private readonly Dictionary<string, string> _accounts = new();
     private string _mode = "production";
     private DateTime _date = DateTime.Today;
     private string _party = string.Empty;
@@ -93,24 +166,86 @@ else
     private bool showError;
     private string successMessage = string.Empty;
     private string errorMessage = string.Empty;
+    private List<PlatformComposite.FieldOption> _accountOptions = new();
+    private VoucherEntryResult? _preview;
+
+    // PH2: in phiếu 01-TT/02-TT sau khi lưu (loan-in/loan-repayment; advance có sẵn template 02-TT).
+    private record VoucherPrintData(string SoPhieu, string Ngay, string No, string Co, string NguoiNop,
+        string DiaChi, string LyDo, decimal SoTien, string KemTheo, string ChungTuGoc);
+    private VoucherPrintData? _lastPrint;
+    private bool _showPrintModal;
 
     protected override async Task OnInitializedAsync()
     {
         _def = VoucherRegistry.ResolveByCode(Code ?? string.Empty);
-        if (_def == null) return;
+        if (_def == null || _def.HostPage != null) return;
 
-        if (!string.IsNullOrWhiteSpace(desc) && TenantProvider.HasTenant)
+        // PH2: intent mặc định theo page (loan-repayment phải là LoanRepayment — không desc vẫn đúng hướng).
+        _intent = _def.Code switch
         {
-            try
+            "loan-in" => VoucherIntent.Loan,
+            "loan-repayment" => VoucherIntent.LoanRepayment,
+            _ => VoucherIntent.AdvanceOut
+        };
+
+        if (TenantProvider.HasTenant)
+        {
+            _accountOptions = await EntryFormAccountingHelper.LoadAccountOptionsAsync(
+                AccountChartService, new TenantId(TenantProvider.TenantId), null,
+                ["31", "34"],
+                [
+                    new() { Value = "311", Label = "311 - Vay ngắn hạn" },
+                    new() { Value = "341", Label = "341 - Vay dài hạn" }
+                ]);
+            if (_def.Fields.Any(f => f.Type == VoucherFieldType.Account))
             {
-                var p = await TextParser.ParseAsync(new TenantId(TenantProvider.TenantId), desc);
-                _intent = p.Intent;
-                if (p.Amount.HasValue) _numbers["amount"] = p.Amount;
-                _date = p.Date;
-                if (!string.IsNullOrWhiteSpace(p.DoiTuong)) _party = p.DoiTuong;
-                if (!string.IsNullOrWhiteSpace(p.Description)) _description = p.Description;
+                _accounts["account"] = _accountOptions.Count > 0 ? _accountOptions[0].Value : "341";
             }
-            catch (Exception ex) { Logger.LogWarning(ex, "VoucherEntry desc parse failed"); }
+
+            if (!string.IsNullOrWhiteSpace(desc))
+            {
+                try
+                {
+                    var p = await TextParser.ParseAsync(new TenantId(TenantProvider.TenantId), desc);
+                    _intent = p.Intent;
+                    if (p.Amount.HasValue) _numbers["amount"] = p.Amount;
+                    _date = p.Date;
+                    if (!string.IsNullOrWhiteSpace(p.DoiTuong)) _party = p.DoiTuong;
+                    if (!string.IsNullOrWhiteSpace(p.Description)) _description = p.Description;
+                }
+                catch (Exception ex) { Logger.LogWarning(ex, "VoucherEntry desc parse failed"); }
+            }
+        }
+        await RefreshPreviewAsync();
+    }
+
+    private VoucherSubmission BuildSubmission() => new(
+        new TenantId(TenantProvider.TenantId), _intent,
+        _numbers.GetValueOrDefault("amount"), _date,
+        string.IsNullOrWhiteSpace(_party) ? null : _party.Trim(),
+        CashAccount: "111", AllocatedToEntryId: null,
+        string.IsNullOrWhiteSpace(_description) ? null : _description.Trim(),
+        PaymentMethod: "cash", Mode: _mode,
+        OriginalCost: _numbers.GetValueOrDefault("originalCost"),
+        AccumulatedDepreciation: _numbers.GetValueOrDefault("accumulatedDepreciation"),
+        LiquidationPrice: _numbers.GetValueOrDefault("liquidationPrice"),
+        LoanAccountCode: _accounts.GetValueOrDefault("account"));
+
+    /// <summary>PH2: preview JE qua chính strategy — parity 100% với bút toán sẽ ghi.</summary>
+    private async Task RefreshPreviewAsync()
+    {
+        _preview = null;
+        if (_def == null || _def.HostPage != null || !TenantProvider.HasTenant) return;
+        var strategy = VoucherRegistry.ResolveStrategy(_def.Code);
+        if (strategy == null) return;
+        try
+        {
+            var posting = await strategy.PostAsync(BuildSubmission(), CancellationToken.None);
+            _preview = posting.Entry;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "VoucherEntry preview failed");
         }
     }
 
@@ -130,15 +265,7 @@ else
         _saving = true;
         try
         {
-            var sub = new VoucherSubmission(new TenantId(TenantProvider.TenantId), _intent,
-                _numbers.GetValueOrDefault("amount"), _date,
-                string.IsNullOrWhiteSpace(_party) ? null : _party.Trim(),
-                CashAccount: "111", AllocatedToEntryId: null,
-                string.IsNullOrWhiteSpace(_description) ? null : _description.Trim(), PaymentMethod: "cash",
-                Mode: _mode,
-                OriginalCost: _numbers.GetValueOrDefault("originalCost"),
-                AccumulatedDepreciation: _numbers.GetValueOrDefault("accumulatedDepreciation"),
-                LiquidationPrice: _numbers.GetValueOrDefault("liquidationPrice"));
+            var sub = BuildSubmission();
             var posting = await strategy.PostAsync(sub, CancellationToken.None);
             if (posting.Entry == null)
             {
@@ -157,7 +284,12 @@ else
 
             successMessage = $"Đã lưu {_def.Name} — Số phiếu: {result.VoucherNumber} (Nợ {posting.Entry.Lines.First(l => l.DebitAmount > 0).AccountNumber}/Có {posting.Entry.Lines.First(l => l.CreditAmount > 0).AccountNumber}).";
             showSuccess = true;
+
+            // PH2: dữ liệu in phiếu 01-TT/02-TT (loan-in/loan-repayment/advance).
+            _lastPrint = _def.PrintTemplate is "01-TT" or "02-TT" ? BuildPrintData(result.VoucherNumber, sub) : null;
+
             _numbers.Clear(); _mode = "production"; _party = string.Empty; _description = string.Empty; _date = DateTime.Today;
+            _preview = null;
         }
         catch (Exception ex)
         {
@@ -167,6 +299,34 @@ else
         }
         finally { _saving = false; }
     }
+
+    private VoucherPrintData? BuildPrintData(string voucherNumber, VoucherSubmission sub)
+    {
+        if (sub.Amount is not > 0m) return null;
+        string no = string.Empty, co = string.Empty;
+        var lines = _preview?.Lines ?? Array.Empty<VoucherLine>();
+        if (lines.Count == 0)
+        {
+            // Preview bị null (vd reset sau lưu) — lấy lại từ strategy để in đúng.
+            var strategy = VoucherRegistry.ResolveStrategy(_def!.Code);
+            if (strategy == null) return null;
+            var posting = strategy.PostAsync(sub, CancellationToken.None).GetAwaiter().GetResult();
+            if (posting.Entry == null) return null;
+            lines = posting.Entry.Lines;
+        }
+        var dr = lines.FirstOrDefault(l => l.DebitAmount > 0);
+        var cr = lines.FirstOrDefault(l => l.CreditAmount > 0);
+        no = dr?.AccountNumber ?? "111";
+        co = cr?.AccountNumber ?? string.Empty;
+        string lyDo = string.IsNullOrWhiteSpace(_description) ? $"{_def?.Name} — {_party}" : _description;
+        return new VoucherPrintData(
+            SoPhieu: voucherNumber, Ngay: _date.ToString("dd/MM/yyyy"), No: no, Co: co,
+            NguoiNop: _party, DiaChi: string.Empty, LyDo: lyDo, SoTien: sub.Amount.Value,
+            KemTheo: string.Empty, ChungTuGoc: null);
+    }
+
+    private void OpenPrintModal() => _showPrintModal = true;
+    private void ClosePrintModal() => _showPrintModal = false;
 
     private void GoBack() => NavigationManager.NavigateTo("/accounting");
 }

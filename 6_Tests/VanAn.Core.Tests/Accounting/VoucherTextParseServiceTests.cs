@@ -225,4 +225,65 @@ public class VoucherTextParseServiceTests
         Assert.Equal(VoucherIntent.PayablePayment, r.Intent);
         Assert.Equal("người bán Nam", r.DoiTuong);
     }
+
+    // ---- PH2: Loan / LoanRepayment ----
+
+    [Fact]
+    public async Task Intent_VayNganHangNhapQuy_IsLoan_NotTransfer()
+    {
+        // Trước PH2: "vay ngân hàng 100 triệu nhập quỹ" (có cash + bank) bị transfer nuốt.
+        var r = await Parse("vay ngân hàng 100 triệu nhập quỹ tiền mặt");
+        Assert.Equal(VoucherIntent.Loan, r.Intent);
+        Assert.Equal(100_000_000m, r.Amount);
+    }
+
+    [Fact]
+    public async Task Intent_VayVon_IsLoan()
+    {
+        var r = await Parse("vay vốn kinh doanh 50 triệu");
+        Assert.Equal(VoucherIntent.Loan, r.Intent);
+        Assert.Equal(50_000_000m, r.Amount);
+        Assert.Equal("High", r.Confidence);
+    }
+
+    [Fact]
+    public async Task Intent_TraNoVay_IsLoanRepayment_NotPayablePayment()
+    {
+        // Trước PH2: "trả nợ vay" rơi vào công nợ PayablePayment (Nợ 331 — sai hướng).
+        var r = await Parse("trả nợ vay 20 triệu");
+        Assert.Equal(VoucherIntent.LoanRepayment, r.Intent);
+        Assert.Equal(20_000_000m, r.Amount);
+    }
+
+    [Fact]
+    public async Task Intent_TraTienVay_IsLoanRepayment()
+    {
+        var r = await Parse("trả tiền vay ngân hàng 15 triệu");
+        Assert.Equal(VoucherIntent.LoanRepayment, r.Intent);
+    }
+
+    [Fact]
+    public async Task Intent_TraLaiVay_IsExpense_NotLoan()
+    {
+        // Lãi vay = chi phí (635), không phải trả gốc.
+        var r = await Parse("trả lãi vay 5 triệu");
+        Assert.Equal(VoucherIntent.Expense, r.Intent);
+        Assert.Equal(5_000_000m, r.Amount);
+    }
+
+    [Fact]
+    public async Task Intent_ChoVay_IsUnknown_NotLoan()
+    {
+        // "cho vay" = xuất tiền cho vay (128/138) — chưa có phiếu → Unknown (chặn an toàn).
+        var r = await Parse("cho công ty X vay 100 triệu");
+        Assert.Equal(VoucherIntent.Unknown, r.Intent);
+    }
+
+    [Fact]
+    public async Task Intent_Loan_NoDoiTuongRequired()
+    {
+        var r = await Parse("vay 30 triệu");
+        Assert.Equal(VoucherIntent.Loan, r.Intent);
+        Assert.DoesNotContain("đối tượng", r.MissingFields);
+    }
 }

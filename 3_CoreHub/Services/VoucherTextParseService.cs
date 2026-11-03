@@ -23,7 +23,9 @@ public enum VoucherIntent
     AdvanceOut,         // Task PH/G1: tạm ứng tiền cho nhân viên/đối tượng (141)
     AdvanceSettle,       // Task PH/G1: hoàn ứng / thanh toán tạm ứng (giảm 141)
     StockOut,           // Task PH/G2: xuất kho (SX 154 hoặc bán 632 — Mode)
-    AssetDisposal       // Task PH/G2: thanh lý TSCĐ (211/214/711/811)
+    AssetDisposal,      // Task PH/G2: thanh lý TSCĐ (211/214/711/811)
+    Loan,               // Task PH2: vay nhận tiền (Có 311/341)
+    LoanRepayment       // Task PH2: trả nợ vay (Nợ 311/341)
 }
 
 /// <summary>Kết quả trích xuất từ câu mô tả tự nhiên — prefill form, KHÔNG auto-save.</summary>
@@ -198,6 +200,14 @@ public sealed class VoucherTextParseService(
         string norm, out string? fromAcc, out string? toAcc, List<string> warnings)
     {
         fromAcc = null; toAcc = null;
+
+        // PH2 — vay/trả nợ vay TRƯỚC transfer & công nợ (fix: "vay ngân hàng ... nhập quỹ" bị thành
+        // TransferOut; "trả nợ vay" bị thành PayablePayment). "lãi vay" = chi phí (635), không phải vay.
+        if (norm.Contains("lãi vay") || norm.Contains("trả lãi vay")) return VoucherIntent.Expense;
+        if (norm.Contains("trả nợ vay") || norm.Contains("trả tiền vay") || norm.Contains("hoàn trả vay")
+            || (norm.Contains("trả nợ") && norm.Contains("vay"))) return VoucherIntent.LoanRepayment;
+        if (norm.Contains("vay") && !Regex.IsMatch(norm, @"\bcho\b.+\bvay\b")) return VoucherIntent.Loan;
+
         bool hasCash = ContainsAny(norm, CashMarkers);
         bool hasBank = ContainsAny(norm, BankMarkers);
         bool isTransfer = (hasCash && hasBank)

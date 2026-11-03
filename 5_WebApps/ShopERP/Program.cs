@@ -22,6 +22,7 @@ using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Hubs;
 using VanAn.CoreHub.Services;
+using VanAn.CoreHub.Services.Vouchers;
 using VanAn.CoreHub.Services.Providers.EInvoice;
 using VanAn.ShopERP.Infrastructure;
 using VanAn.ShopERP.Services;
@@ -247,9 +248,96 @@ namespace VanAn.ShopERP
             // G4: session multi-voucher qua các trang (SmartEntryBar → Revenue/Expense)
             _ = builder.Services.AddScoped<VanAn.ShopERP.Components.Accounting.SmartEntrySessionState>();
             // Task PH/G1: Voucher Framework registry — thêm phiếu = Register 1 dòng
+            // Task PH2: registry = single source of truth (intent→phiếu + dropdown 2 form).
+            // Hosted types (HostPage != null): trang host quản lý posting — strategy null.
             _ = builder.Services.AddScoped<CoreHub.Services.Vouchers.VoucherTypeRegistry>(sp =>
             {
                 var r = new CoreHub.Services.Vouchers.VoucherTypeRegistry();
+                // ---- Hosted: Nhập Doanh Thu (thứ tự = thứ tự dropdown cũ — giữ hành vi form) ----
+                r.Register(
+                    new CoreHub.Services.Vouchers.VoucherTypeDefinition("revenue", "Thu doanh thu", "/accounting/revenue", null,
+                        [new CoreHub.Services.Vouchers.VoucherField("amount", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Số Tiền", true, "amount"),
+                         new CoreHub.Services.Vouchers.VoucherField("date", CoreHub.Services.Vouchers.VoucherFieldType.Date, "Ngày", true, "date")],
+                        "", "/accounting/revenue"),
+                    null, CoreHub.Services.VoucherIntent.Revenue);
+                r.Register(
+                    new CoreHub.Services.Vouchers.VoucherTypeDefinition("receivable", "Ghi nhận phải thu", "/accounting/revenue", null,
+                        [new CoreHub.Services.Vouchers.VoucherField("amount", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Số Tiền", true, "amount"),
+                         new CoreHub.Services.Vouchers.VoucherField("party", CoreHub.Services.Vouchers.VoucherFieldType.Party, "Đối tượng (khách hàng)", true, "doiTuong"),
+                         new CoreHub.Services.Vouchers.VoucherField("date", CoreHub.Services.Vouchers.VoucherFieldType.Date, "Ngày", true, "date")],
+                        "", "/accounting/revenue"),
+                    null, CoreHub.Services.VoucherIntent.Receivable);
+                r.Register(
+                    new CoreHub.Services.Vouchers.VoucherTypeDefinition("receivable-payment", "Thu tiền khách trả nợ", "/accounting/revenue", null,
+                        [new CoreHub.Services.Vouchers.VoucherField("amount", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Số Tiền", true, "amount"),
+                         new CoreHub.Services.Vouchers.VoucherField("party", CoreHub.Services.Vouchers.VoucherFieldType.Party, "Đối tượng (khách hàng)", true, "doiTuong"),
+                         new CoreHub.Services.Vouchers.VoucherField("date", CoreHub.Services.Vouchers.VoucherFieldType.Date, "Ngày", true, "date")],
+                        "", "/accounting/revenue"),
+                    null, CoreHub.Services.VoucherIntent.ReceivablePayment, CoreHub.Services.VoucherIntent.Advance); // Q3: Advance giữ mapping thu nợ + FIFO
+                r.Register(
+                    new CoreHub.Services.Vouchers.VoucherTypeDefinition("capital", "Góp vốn chủ sở hữu", "/accounting/revenue", null,
+                        [new CoreHub.Services.Vouchers.VoucherField("amount", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Số Tiền", true, "amount"),
+                         new CoreHub.Services.Vouchers.VoucherField("date", CoreHub.Services.Vouchers.VoucherFieldType.Date, "Ngày", true, "date")],
+                        "", "/accounting/revenue"),
+                    null, CoreHub.Services.VoucherIntent.Capital);
+                // ---- Hosted: Nhập Chi Phí ----
+                r.Register(
+                    new CoreHub.Services.Vouchers.VoucherTypeDefinition("expense", "Chi phí", "/accounting/expenses", null,
+                        [new CoreHub.Services.Vouchers.VoucherField("amount", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Số Tiền", true, "amount"),
+                         new CoreHub.Services.Vouchers.VoucherField("date", CoreHub.Services.Vouchers.VoucherFieldType.Date, "Ngày", true, "date")],
+                        "", "/accounting/expenses"),
+                    null, CoreHub.Services.VoucherIntent.Expense);
+                r.Register(
+                    new CoreHub.Services.Vouchers.VoucherTypeDefinition("payable", "Ghi nhận phải trả", "/accounting/expenses", null,
+                        [new CoreHub.Services.Vouchers.VoucherField("amount", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Số Tiền", true, "amount"),
+                         new CoreHub.Services.Vouchers.VoucherField("party", CoreHub.Services.Vouchers.VoucherFieldType.Party, "Đối tượng (nhà cung cấp)", true, "doiTuong"),
+                         new CoreHub.Services.Vouchers.VoucherField("date", CoreHub.Services.Vouchers.VoucherFieldType.Date, "Ngày", true, "date")],
+                        "", "/accounting/expenses"),
+                    null, CoreHub.Services.VoucherIntent.Payable);
+                r.Register(
+                    new CoreHub.Services.Vouchers.VoucherTypeDefinition("payable-payment", "Trả tiền người bán", "/accounting/expenses", null,
+                        [new CoreHub.Services.Vouchers.VoucherField("amount", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Số Tiền", true, "amount"),
+                         new CoreHub.Services.Vouchers.VoucherField("party", CoreHub.Services.Vouchers.VoucherFieldType.Party, "Đối tượng (nhà cung cấp)", true, "doiTuong"),
+                         new CoreHub.Services.Vouchers.VoucherField("date", CoreHub.Services.Vouchers.VoucherFieldType.Date, "Ngày", true, "date")],
+                        "", "/accounting/expenses"),
+                    null, CoreHub.Services.VoucherIntent.PayablePayment);
+                // ---- Hosted: Chuyển tiền nội bộ + route-only: Nhập mua ----
+                r.Register(
+                    new CoreHub.Services.Vouchers.VoucherTypeDefinition("transfer-out", "Chuyển tiền: NH → quỹ", "/accounting/transfers", null,
+                        [new CoreHub.Services.Vouchers.VoucherField("amount", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Số Tiền", true, "amount"),
+                         new CoreHub.Services.Vouchers.VoucherField("date", CoreHub.Services.Vouchers.VoucherFieldType.Date, "Ngày", true, "date")],
+                        "", "/accounting/transfers"),
+                    null, CoreHub.Services.VoucherIntent.TransferOut);
+                r.Register(
+                    new CoreHub.Services.Vouchers.VoucherTypeDefinition("transfer-in", "Chuyển tiền: quỹ → NH", "/accounting/transfers", null,
+                        [new CoreHub.Services.Vouchers.VoucherField("amount", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Số Tiền", true, "amount"),
+                         new CoreHub.Services.Vouchers.VoucherField("date", CoreHub.Services.Vouchers.VoucherFieldType.Date, "Ngày", true, "date")],
+                        "", "/accounting/transfers"),
+                    null, CoreHub.Services.VoucherIntent.TransferIn);
+                r.Register(
+                    new CoreHub.Services.Vouchers.VoucherTypeDefinition("purchase", "Phiếu Nhập Mua", "/accounting/purchase-receipts/new", null,
+                        [new CoreHub.Services.Vouchers.VoucherField("amount", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Số Tiền", true, "amount"),
+                         new CoreHub.Services.Vouchers.VoucherField("date", CoreHub.Services.Vouchers.VoucherFieldType.Date, "Ngày", true, "date")],
+                        "", "/accounting/purchase-receipts/new"),
+                    null, CoreHub.Services.VoucherIntent.Purchase);
+                // ---- PH2: phiếu vay (generic page + strategy) ----
+                r.Register(
+                    new CoreHub.Services.Vouchers.VoucherTypeDefinition("loan-in", "Phiếu Vay Nhận Tiền", "/vouchers/loan-in", "01-TT",
+                        [new CoreHub.Services.Vouchers.VoucherField("amount", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Số Tiền", true, "amount"),
+                         new CoreHub.Services.Vouchers.VoucherField("date", CoreHub.Services.Vouchers.VoucherFieldType.Date, "Ngày", true, "date"),
+                         new CoreHub.Services.Vouchers.VoucherField("account", CoreHub.Services.Vouchers.VoucherFieldType.Account, "Tài Khoản Vay (311/341)", true),
+                         new CoreHub.Services.Vouchers.VoucherField("party", CoreHub.Services.Vouchers.VoucherFieldType.Party, "Ngân hàng / tổ chức cho vay", false, "doiTuong")],
+                        "loan"),
+                    new CoreHub.Services.Vouchers.LoanPostingStrategy(), CoreHub.Services.VoucherIntent.Loan);
+                r.Register(
+                    new CoreHub.Services.Vouchers.VoucherTypeDefinition("loan-repayment", "Phiếu Trả Nợ Vay", "/vouchers/loan-repayment", "02-TT",
+                        [new CoreHub.Services.Vouchers.VoucherField("amount", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Số Tiền", true, "amount"),
+                         new CoreHub.Services.Vouchers.VoucherField("date", CoreHub.Services.Vouchers.VoucherFieldType.Date, "Ngày", true, "date"),
+                         new CoreHub.Services.Vouchers.VoucherField("account", CoreHub.Services.Vouchers.VoucherFieldType.Account, "Tài Khoản Vay (311/341)", true),
+                         new CoreHub.Services.Vouchers.VoucherField("party", CoreHub.Services.Vouchers.VoucherFieldType.Party, "Ngân hàng nhận trả", false, "doiTuong")],
+                        "loan"),
+                    new CoreHub.Services.Vouchers.LoanPostingStrategy(), CoreHub.Services.VoucherIntent.LoanRepayment);
+                // ---- Generic (G1/G2 cũ): advance / stock-issue / asset-disposal ----
                 r.Register(
                     new CoreHub.Services.Vouchers.VoucherTypeDefinition("advance", "Phiếu Tạm Ứng",
                         "/vouchers/advance", "02-TT",
@@ -264,7 +352,7 @@ namespace VanAn.ShopERP
                         "/vouchers/stock-issue", "02-VT",
                         [new CoreHub.Services.Vouchers.VoucherField("amount", CoreHub.Services.Vouchers.VoucherFieldType.Amount, "Giá trị xuất kho", true, "amount"),
                          new CoreHub.Services.Vouchers.VoucherField("date", CoreHub.Services.Vouchers.VoucherFieldType.Date, "Ngày", true, "date"),
-                         new CoreHub.Services.Vouchers.VoucherField("mode", CoreHub.Services.Vouchers.VoucherFieldType.Select, "Mục đích", true)],
+                         new CoreHub.Services.Vouchers.VoucherField("mode", CoreHub.Services.Vouchers.VoucherFieldType.Select, "Mục đích", true, null, ["production", "sale"])],
                         "stock-issue"),
                     new CoreHub.Services.Vouchers.StockIssuePostingStrategy(),
                     CoreHub.Services.VoucherIntent.StockOut);
