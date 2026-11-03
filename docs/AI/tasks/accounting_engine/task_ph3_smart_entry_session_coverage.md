@@ -1,6 +1,6 @@
 # TASK CARD PH3 — SMART ENTRY SESSION FIX + VOUCHER COVERAGE
 
-> Status: 📋 PLAN — user chốt 4 mục (2026-11-03) · Master plan `docs/AI/plans/smart-entry-session-and-coverage-fix-master-plan.md` · chờ duyệt trước IMPLEMENT
+> Status: ✅ **DONE + DEPLOYED `552ec611`→`08ca1af5` (5 commits, 2026-11-03)** — CD Multi-VPS SUCCESS ×5 · guard ALL PASSED · sln build 0 errors · Core.Tests **2689/2689** + ShopERP.Tests **300/300** (gồm regression session bUnit) · **RV L1-L4 PASS**: L1 markers (DepreciationPostingStrategy/DepositPostingStrategy/JournalAdjustment) ✓ · L2 routes 302 (depreciation/deposit/journal-voucher) ✓ · L3 Playwright prod **6/6** (`ph3-smart-session-coverage-rv.spec.ts` — session multi parse→lưu thu→NavMenu Chi→multi còn + badge "✓ Đã lưu" · nộp thuế preview Nợ 333/Có 111 · kết chuyển→CTGS desc prefill · khấu hao Nợ 642/Có 214 · ký quỹ Nợ 338/Có 111) ✓ · L4 PG JE: khấu hao Nợ 642/Có 214 · ký quỹ Nợ 338/Có 111 ✓ · **5 fix RV:** `ab1d316c` (NotifySaved/ShowMulti fire-and-forget JS mất khi navigate) · `6bcd6357` (SPA-nav restore mất ProcessedIndices — root cause thật) · `08ca1af5` (depreciation account options sai — hiện TK vay 311/341, JE Nợ 341 sai → fix 6xx) · spec resilient ×2. **Còn:** L5 user manual (§7 dưới — 5 bước).
 > Root cause session verified (REVIEW 2026-11-03): G4f recovery full-reload re-parse LLM-dependent → collapse 1 phiếu → `vananClearSmartText()` wipe sessionStorage → multi mất + không hiển thị + bar ẩn (thiếu StateHasChanged)
 > **100% = UI đầy đủ + menu 3 nơi + RV prod spec chạy được trên VPS như người dùng**
 
