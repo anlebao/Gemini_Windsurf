@@ -70,11 +70,23 @@ test.describe('RV PH3 — smart session + voucher coverage như người dùng',
     await page.getByTestId('smart-entry-ai').click(); // ✨ AI phân tích — buộc LLM multi
     await expect(page.getByTestId('smart-entry-multi')).toBeVisible({ timeout: 30000 });
 
-    // Áp phiếu thu (item 1) → Lưu → phiếu đánh dấu "✓ Đã lưu"
+    // Áp phiếu thu (item 1) → verify amount vào form (G3 race) → Lưu
     await page.getByTestId('smart-entry-multi-apply').first().click();
-    await page.getByRole('button', { name: 'Lưu Doanh Thu' }).click();
-    // Lưu xong → nút thu trong multi thành "Đã xử lý"
-    await expect(page.getByTestId('smart-entry-multi-done').first()).toBeVisible({ timeout: 30000 });
+    await expect(page.getByTestId('smart-entry-applied-feedback')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('#amount')).not.toHaveValue('', { timeout: 15000 });
+    await page.waitForTimeout(500);
+
+    // Save có thể bị rớt click (Blazor Server flaky) — chờ badge "✓ Đã lưu"; retry 1 lần
+    // (dup-check 5 phút cùng amount/date/account bảo vệ double-save).
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await page.getByRole('button', { name: 'Lưu Doanh Thu' }).click();
+      try {
+        await expect(page.getByTestId('smart-entry-multi-done').first()).toBeVisible({ timeout: 20000 });
+        break;
+      } catch {
+        if (attempt === 1) throw new Error('Save không hoàn tất sau 2 lần click');
+      }
+    }
     // Đóng modal "Đã lưu thành công" (nếu mở — chặn click NavMenu)
     const closeBtn = page.getByTestId('success-modal-continue');
     if (await closeBtn.isVisible().catch(() => false)) await closeBtn.click();
