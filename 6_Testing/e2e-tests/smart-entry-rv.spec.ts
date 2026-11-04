@@ -81,4 +81,30 @@ test.describe('RV Task PG — Smart Entry AI (production)', () => {
     await page.waitForLoadState('networkidle');
     await expect(page.getByTestId('transfer-amount')).toHaveValue('200000000', { timeout: 30000 });
   });
+
+  // G5 vấn đáp — câu thiếu dữ kiện → hệ thống hỏi làm rõ → trả lời gộp đa-slot → Ready.
+  test('G5 dialog: "khách trả nợ" → hỏi amount → trả lời gộp → Ready', async ({ page }) => {
+    await loginAndImpersonate(page, PILOT_TENANT);
+    await page.goto('/accounting/revenue');
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.getByTestId('entry-mode-toggle')).toBeVisible({ timeout: 30000 });
+    await page.getByTestId('entry-mode-toggle').getByText('Nhập bằng mô tả').click();
+    await page.getByTestId('smart-entry-input').fill('khách trả nợ');
+    await page.getByTestId('smart-entry-parse').click();
+
+    // Câu hỏi đầu tiên: amount (đối tượng cũng thiếu nhưng amount hỏi trước)
+    await expect(page.getByTestId('smart-entry-dialog')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('smart-entry-question')).toContainText(/tiền|Số tiền/i);
+
+    // Trả lời gộp nhiều slot: amount + đối tượng + PTTT trong 1 câu
+    await page.getByTestId('smart-entry-answer').fill('5 triệu anh Hùng chuyển khoản');
+    await page.getByTestId('smart-entry-answer-send').click();
+
+    // Hết câu hỏi → dialog ẩn, card kết quả đầy đủ → apply được (read-only, không submit)
+    await expect(page.getByTestId('smart-entry-question')).toBeHidden({ timeout: 15000 });
+    await expect(page.getByTestId('smart-entry-result')).toContainText(/5[.,]000[.,]000/);
+    await expect(page.getByTestId('smart-entry-result')).toContainText('Hùng');
+    await expect(page.getByTestId('smart-entry-apply')).toBeVisible();
+  });
 });
