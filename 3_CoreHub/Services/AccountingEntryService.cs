@@ -138,24 +138,7 @@ namespace VanAn.CoreHub.Services
                 CoreAccountingEntry? entry = await _repository.GetByIdAsync(entryId);
                 return entry == null
                     ? null
-                    : new AccountingEntryDto
-                    {
-                        Id = entry.Id,
-                        TenantId = entry.TenantId.Value,
-                        Amount = entry.Amount,
-                        Description = entry.Description,
-                        EntryType = entry.EntryType,
-                        CreatedAt = entry.CreatedAt,
-                        AccountingBookType = entry.AccountingBookType,
-                        PeriodYear = entry.PeriodYear,
-                        PeriodMonth = entry.PeriodMonth,
-                        ReversalEntryId = entry.ReversalEntryId,
-                        TransactionDate = entry.TransactionDate,
-                        VoucherNumber = entry.VoucherNumber,
-                        PaymentMethod = entry.PaymentMethod,
-                        AllocatedToEntryId = entry.AllocatedToEntryId,
-                        CashAccountCode = entry.CashAccountCode
-                    };
+                    : AccountingEntryDto.FromEntity(entry);
             }
             catch (Exception ex)
             {
@@ -206,26 +189,7 @@ namespace VanAn.CoreHub.Services
                     newValues,
                     correlationId: entry.Id.ToString());
 
-                return new AccountingEntryDto
-                {
-                    Id = entry.Id,
-                    TenantId = entry.TenantId.Value,
-                    Amount = entry.Amount,
-                    Description = entry.Description,
-                    AccountCode = entry.AccountCode,
-                    Reference = entry.Reference,
-                    EntryType = entry.EntryType,
-                    CreatedAt = entry.CreatedAt,
-                    AccountingBookType = entry.AccountingBookType,
-                    PeriodYear = entry.PeriodYear,
-                    PeriodMonth = entry.PeriodMonth,
-                    ReversalEntryId = entry.ReversalEntryId,
-                    TransactionDate = entry.TransactionDate,
-                    IndustrySector = entry.IndustrySector,
-                    VoucherNumber = entry.VoucherNumber,
-                    PaymentMethod = entry.PaymentMethod,
-                    CashAccountCode = entry.CashAccountCode
-                };
+                return AccountingEntryDto.FromEntity(entry);
             }
             catch (Exception ex)
             {
@@ -276,29 +240,7 @@ namespace VanAn.CoreHub.Services
                     newValues,
                     correlationId: entry.Id.ToString());
 
-                return new AccountingEntryDto
-                {
-                    Id = entry.Id,
-                    TenantId = entry.TenantId.Value,
-                    Amount = entry.Amount,
-                    Description = entry.Description,
-                    AccountCode = entry.AccountCode,
-                    Vendor = entry.Vendor,
-                    Category = entry.Category,
-                    Reference = entry.Reference,
-                    EntryType = entry.EntryType,
-                    CreatedAt = entry.CreatedAt,
-                    AccountingBookType = entry.AccountingBookType,
-                    PeriodYear = entry.PeriodYear,
-                    PeriodMonth = entry.PeriodMonth,
-                    ReversalEntryId = entry.ReversalEntryId,
-                    TransactionDate = entry.TransactionDate,
-                    IndustrySector = entry.IndustrySector,
-                    VoucherNumber = entry.VoucherNumber,
-                    PaymentMethod = entry.PaymentMethod,
-                    AllocatedToEntryId = entry.AllocatedToEntryId,
-                    CashAccountCode = entry.CashAccountCode
-                };
+                return AccountingEntryDto.FromEntity(entry);
             }
             catch (Exception ex)
             {
@@ -340,26 +282,7 @@ namespace VanAn.CoreHub.Services
                     newValues,
                     correlationId: entry.Id.ToString());
 
-                return new AccountingEntryDto
-                {
-                    Id = entry.Id,
-                    TenantId = entry.TenantId.Value,
-                    Amount = entry.Amount,
-                    Description = entry.Description,
-                    AccountCode = entry.AccountCode,
-                    Reference = entry.Reference,
-                    EntryType = entry.EntryType,
-                    CreatedAt = entry.CreatedAt,
-                    AccountingBookType = entry.AccountingBookType,
-                    PeriodYear = entry.PeriodYear,
-                    PeriodMonth = entry.PeriodMonth,
-                    ReversalEntryId = entry.ReversalEntryId,
-                    TransactionDate = entry.TransactionDate,
-                    IndustrySector = entry.IndustrySector,
-                    VoucherNumber = entry.VoucherNumber,
-                    PaymentMethod = entry.PaymentMethod,
-                    AllocatedToEntryId = entry.AllocatedToEntryId
-                };
+                return AccountingEntryDto.FromEntity(entry);
             }
             catch (Exception ex)
             {
@@ -403,25 +326,7 @@ namespace VanAn.CoreHub.Services
                 await _auditTrailService.LogCreateAsync(
                     AuditableEntityType.AccountingEntry, entry.Id, newValues, correlationId: entry.Id.ToString());
 
-                return new AccountingEntryDto
-                {
-                    Id = entry.Id,
-                    TenantId = entry.TenantId.Value,
-                    Amount = entry.Amount,
-                    Description = entry.Description,
-                    AccountCode = entry.AccountCode,
-                    Vendor = entry.Vendor,
-                    Reference = entry.Reference,
-                    EntryType = entry.EntryType,
-                    CreatedAt = entry.CreatedAt,
-                    AccountingBookType = entry.AccountingBookType,
-                    PeriodYear = entry.PeriodYear,
-                    PeriodMonth = entry.PeriodMonth,
-                    ReversalEntryId = entry.ReversalEntryId,
-                    TransactionDate = entry.TransactionDate,
-                    PaymentMethod = entry.PaymentMethod,
-                    CashAccountCode = entry.CashAccountCode
-                };
+                return AccountingEntryDto.FromEntity(entry);
             }
             catch (Exception ex)
             {
@@ -503,23 +408,7 @@ namespace VanAn.CoreHub.Services
             try
             {
                 IEnumerable<CoreAccountingEntry> entries = await _repository.GetByTenantAsync(tenantId, CancellationToken.None);
-                return entries.Select(e => new AccountingEntryDto
-                {
-                    Id = e.Id,
-                    TenantId = e.TenantId.Value,
-                    Amount = e.Amount,
-                    Description = e.Description,
-                    EntryType = e.EntryType,
-                    AccountCode = e.AccountCode,
-                    CreatedAt = e.CreatedAt,
-                    AccountingBookType = e.AccountingBookType,
-                    PeriodYear = e.PeriodYear,
-                    PeriodMonth = e.PeriodMonth,
-                    ReversalEntryId = e.ReversalEntryId,
-                    TransactionDate = e.TransactionDate,
-                    VoucherNumber = e.VoucherNumber,
-                    PaymentMethod = e.PaymentMethod
-                });
+                return entries.Select(e => AccountingEntryDto.FromEntity(e));
             }
             catch (Exception ex)
             {
@@ -533,23 +422,7 @@ namespace VanAn.CoreHub.Services
             try
             {
                 IEnumerable<CoreAccountingEntry> entries = await _repository.GetByTenantAndBookTypeAsync(tenantId, bookType, CancellationToken.None);
-                return entries.Select(e => new AccountingEntryDto
-                {
-                    Id = e.Id,
-                    TenantId = e.TenantId.Value,
-                    Amount = e.Amount,
-                    Description = e.Description,
-                    EntryType = e.EntryType,
-                    AccountCode = e.AccountCode,
-                    CreatedAt = e.CreatedAt,
-                    AccountingBookType = e.AccountingBookType,
-                    PeriodYear = e.PeriodYear,
-                    PeriodMonth = e.PeriodMonth,
-                    ReversalEntryId = e.ReversalEntryId,
-                    TransactionDate = e.TransactionDate,
-                    VoucherNumber = e.VoucherNumber,
-                    PaymentMethod = e.PaymentMethod
-                });
+                return entries.Select(e => AccountingEntryDto.FromEntity(e));
             }
             catch (Exception ex)
             {
@@ -565,23 +438,7 @@ namespace VanAn.CoreHub.Services
                 // P1 (#3 — ngày nghiệp vụ): entries theo TransactionDate trong kỳ (trước đây CreatedAt —
                 // phiếu nhập ngày cũ hiện sai kỳ ở Số dư tài khoản/dashboard).
                 IEnumerable<CoreAccountingEntry> entries = await _repository.GetByTenantAndTransactionDatePeriodAsync(tenantId, period, CancellationToken.None);
-                return entries.Select(e => new AccountingEntryDto
-                {
-                    Id = e.Id,
-                    TenantId = e.TenantId.Value,
-                    Amount = e.Amount,
-                    Description = e.Description,
-                    EntryType = e.EntryType,
-                    AccountCode = e.AccountCode,
-                    CreatedAt = e.CreatedAt,
-                    AccountingBookType = e.AccountingBookType,
-                    PeriodYear = e.PeriodYear,
-                    PeriodMonth = e.PeriodMonth,
-                    ReversalEntryId = e.ReversalEntryId,
-                    TransactionDate = e.TransactionDate,
-                    VoucherNumber = e.VoucherNumber,
-                    PaymentMethod = e.PaymentMethod
-                });
+                return entries.Select(e => AccountingEntryDto.FromEntity(e));
             }
             catch (Exception ex)
             {
@@ -617,20 +474,7 @@ namespace VanAn.CoreHub.Services
                     reversalEntry.Id, originalEntryId);
 
                 // Convert to DTO for return
-                return new AccountingEntryDto
-                {
-                    Id = reversalEntry.Id,
-                    TenantId = reversalEntry.TenantId.Value,
-                    Amount = reversalEntry.Amount,
-                    Description = reversalEntry.Description,
-                    EntryType = reversalEntry.EntryType,
-                    CreatedAt = reversalEntry.CreatedAt,
-                    AccountingBookType = reversalEntry.AccountingBookType,
-                    PeriodYear = reversalEntry.PeriodYear,
-                    PeriodMonth = reversalEntry.PeriodMonth,
-                    ReversalEntryId = reversalEntry.ReversalEntryId,
-                    TransactionDate = reversalEntry.TransactionDate
-                };
+                return AccountingEntryDto.FromEntity(reversalEntry);
             }
             catch (Exception ex)
             {
@@ -652,23 +496,7 @@ namespace VanAn.CoreHub.Services
                     endDate,
                     CancellationToken.None);
 
-                return entries.Select(e => new AccountingEntryDto
-                {
-                    Id = e.Id,
-                    TenantId = e.TenantId.Value,
-                    Amount = e.Amount,
-                    Description = e.Description,
-                    EntryType = e.EntryType,
-                    AccountCode = e.AccountCode,
-                    CreatedAt = e.CreatedAt,
-                    AccountingBookType = e.AccountingBookType,
-                    PeriodYear = e.PeriodYear,
-                    PeriodMonth = e.PeriodMonth,
-                    ReversalEntryId = e.ReversalEntryId,
-                    TransactionDate = e.TransactionDate,
-                    VoucherNumber = e.VoucherNumber,
-                    PaymentMethod = e.PaymentMethod
-                });
+                return entries.Select(e => AccountingEntryDto.FromEntity(e));
             }
             catch (Exception ex)
             {

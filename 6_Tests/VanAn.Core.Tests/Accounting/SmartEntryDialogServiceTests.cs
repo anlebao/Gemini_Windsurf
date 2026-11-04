@@ -193,9 +193,9 @@ public class SmartEntryDialogServiceTests
     {
         var svc = Svc();
         var s = await svc.StartAsync(Tenant, "chi phí linh tinh");
-        s = svc.Skip(s.Id);
+        s = await svc.SkipAsync(s.Id);
         Assert.NotNull(s);
-        if (s!.State == DialogState.Asking) s = svc.Skip(s.Id); // skip nốt category nếu được hỏi
+        if (s!.State == DialogState.Asking) s = await svc.SkipAsync(s.Id); // skip nốt category nếu được hỏi
         Assert.Equal(DialogState.Ready, s!.State);
     }
 
@@ -323,5 +323,66 @@ public class SmartEntryDialogServiceTests
         Assert.Null(ex.PaymentMethod);
         Assert.Null(ex.DoiTuong);
         Assert.Equal(VoucherIntent.Unknown, ex.IntentHint);
+    }
+
+    // ---------- P2: smart suggestions ----------
+
+    private sealed class StubCongNo(List<(string Account, string Name, decimal CuoiKy)> rows)
+        : VanAn.CoreHub.Services.CongNo.ICongNoService
+    {
+        public Task<VanAn.Shared.DTOs.CongNoReportDto> GetCongNoReportAsync(
+            TenantId tenantId, int year, int month, CancellationToken ct = default)
+            => Task.FromResult(new VanAn.Shared.DTOs.CongNoReportDto
+            {
+                Groups = rows.GroupBy(r => r.Account).Select(g => new VanAn.Shared.DTOs.CongNoGroupDto
+                {
+                    AccountCode = g.Key,
+                    Rows = g.Select(r => new VanAn.Shared.DTOs.CongNoRowDto
+                    { DoiTuong = r.Name, CuoiKy = r.CuoiKy }).ToList()
+                }).ToList()
+            });
+
+        public Task<VanAn.Shared.DTOs.AccountingEntryDto> CreateReceivableAsync(TenantId t, decimal a, string d, string? desc, DateTime dt, bool ip, string? m = null, string? r = null, Guid? al = null, string? pm = null, CancellationToken c = default) => throw new NotImplementedException();
+        public Task<VanAn.Shared.DTOs.AccountingEntryDto> CreatePayableAsync(TenantId t, decimal a, string d, string? desc, DateTime dt, bool ip, string? m = null, string? r = null, Guid? al = null, string? pm = null, CancellationToken c = default) => throw new NotImplementedException();
+        public Task<VanAn.Shared.DTOs.DoiTuongLedgerDto> GetDoiTuongLedgerAsync(TenantId t, string a, string d, int y, int m, CancellationToken c = default) => throw new NotImplementedException();
+        public Task<VanAn.Shared.DTOs.KhoanNoPaymentsDto?> GetKhoanNoPaymentsAsync(TenantId t, Guid id, CancellationToken c = default) => throw new NotImplementedException();
+        public Task<List<VanAn.Shared.DTOs.KhoanNoOpenItemDto>> GetOpenKhoanNoAsync(TenantId t, string a, string d, CancellationToken c = default) => throw new NotImplementedException();
+    }
+
+    [Fact]
+    public async Task P2_DoiTuong_Chips_FromOpenDebt()
+    {
+        var rule = new VoucherTextParseService();
+        var congNo = new StubCongNo([("131", "Anh Hùng", 8_000_000m), ("131", "Chị Lan", 3_000_000m)]);
+        var svc = new SmartEntryDialogService(rule, rule, congNo: congNo);
+        var s = await svc.StartAsync(Tenant, "khách trả nợ 5 triệu");
+        Assert.Equal("doiTuong", s.Pending?.Slot);
+        Assert.Equal(2, s.Pending!.QuickReplies.Count);
+        Assert.Equal("Anh Hùng", s.Pending.QuickReplies[0].Value); // dư lớn nhất trước
+
+        s = await svc.AnswerAsync(s.Id, "Chị Lan");  // chip value điền thẳng
+        Assert.Equal("Chị Lan", s.Vouchers[0].DoiTuong);
+        Assert.Equal(DialogState.Ready, s.State);
+    }
+
+    [Fact]
+    public async Task P2_DoiTuong_Payable_UsesAccount331()
+    {
+        var rule = new VoucherTextParseService();
+        var congNo = new StubCongNo([("331", "NCC Minh", 12_000_000m)]);
+        var svc = new SmartEntryDialogService(rule, rule, congNo: congNo);
+        var s = await svc.StartAsync(Tenant, "trả tiền người bán 2 triệu");
+        Assert.Equal("doiTuong", s.Pending?.Slot);
+        Assert.Single(s.Pending!.QuickReplies);
+        Assert.Equal("NCC Minh", s.Pending.QuickReplies[0].Value);
+    }
+
+    [Fact]
+    public async Task P2_CongNo_Failsafe_NoService()
+    {
+        // Không có ICongNoService → câu hỏi đối tượng vẫn hiện, không chips.
+        var s = await Svc().StartAsync(Tenant, "khách trả nợ 5 triệu");
+        Assert.Equal("doiTuong", s.Pending?.Slot);
+        Assert.Empty(s.Pending!.QuickReplies);
     }
 }

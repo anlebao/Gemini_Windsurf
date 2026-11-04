@@ -75,7 +75,7 @@ namespace VanAn.Core.Tests.Accounting
                 request.Description);
 
             AccountingEntryDto expectedDto = new()
-            {
+            { AccountCode = "",
                 Id = expectedEntry.Id,
                 TenantId = expectedEntry.TenantId,
                 Amount = expectedEntry.Amount,
@@ -160,7 +160,7 @@ namespace VanAn.Core.Tests.Accounting
                 request.Description);
 
             AccountingEntryDto expectedDto = new()
-            {
+            { AccountCode = "",
                 Id = expectedEntry.Id,
                 TenantId = expectedEntry.TenantId,
                 Amount = expectedEntry.Amount,
@@ -201,7 +201,7 @@ namespace VanAn.Core.Tests.Accounting
             Guid entryId = Guid.NewGuid();
             Guid tenantId = Guid.NewGuid();
             AccountingEntryDto expectedDto = new()
-            {
+            { AccountCode = "",
                 Id = entryId,
                 TenantId = tenantId,
                 Amount = new Money(1000m, "VND"),

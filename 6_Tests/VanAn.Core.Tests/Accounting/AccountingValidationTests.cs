@@ -14,7 +14,7 @@ namespace VanAn.Core.Tests.Accounting
             // Arrange
             Guid tenantId = Guid.NewGuid();
             AccountingEntryDto existingEntry = new()
-            {
+            { AccountCode = "",
                 Amount = 1000000,
                 CreatedAt = DateTime.Now.AddMinutes(-2),
                 Description = "Doanh thu bán hàng"
@@ -33,7 +33,7 @@ namespace VanAn.Core.Tests.Accounting
             // Arrange
             Guid tenantId = Guid.NewGuid();
             AccountingEntryDto existingEntry = new()
-            {
+            { AccountCode = "",
                 Amount = 1000000,
                 CreatedAt = DateTime.Now.AddMinutes(-6),
                 Description = "Doanh thu bán hàng"

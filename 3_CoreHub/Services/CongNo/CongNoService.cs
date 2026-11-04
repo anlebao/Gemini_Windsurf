@@ -695,26 +695,7 @@ namespace VanAn.CoreHub.Services.CongNo
 
         private static AccountingEntryDto ToDto(CoreAccountingEntry entry)
         {
-            return new AccountingEntryDto
-            {
-                Id = entry.Id,
-                TenantId = entry.TenantId.Value,
-                Amount = entry.Amount,
-                Description = entry.Description,
-                AccountCode = entry.AccountCode ?? string.Empty,
-                Vendor = entry.Vendor,
-                Reference = entry.Reference,
-                EntryType = entry.EntryType,
-                CreatedAt = entry.CreatedAt,
-                AccountingBookType = entry.AccountingBookType,
-                PeriodYear = entry.PeriodYear,
-                PeriodMonth = entry.PeriodMonth,
-                ReversalEntryId = entry.ReversalEntryId,
-                TransactionDate = entry.TransactionDate,
-                VoucherNumber = entry.VoucherNumber,
-                PaymentMethod = entry.PaymentMethod,
-                AllocatedToEntryId = entry.AllocatedToEntryId
-            };
+            return AccountingEntryDto.FromEntity(entry);
         }
 
         // ===================== INTERNAL MODELS =====================

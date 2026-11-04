@@ -33,7 +33,7 @@ public class AccountingUIServiceTests
             .Setup(s => s.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
                 It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(),
                 It.IsAny<string?>(), It.IsAny<string?>()))
-            .ReturnsAsync(new AccountingEntryDto { Id = Guid.NewGuid() });
+            .ReturnsAsync(new AccountingEntryDto { AccountCode = "", Id = Guid.NewGuid() });
 
         // Act
         await _uiService.SubmitRevenueFormAsync(tenantId, formData);

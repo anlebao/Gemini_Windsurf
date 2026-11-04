@@ -169,14 +169,14 @@ public class OrderServiceHtxAccountingTests
                 It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()))
             .Callback<TenantId, AccountingPeriod, decimal, string, string?, string?, IndustrySector?, DateTime?, string?, string?>(
                 (_, _, _, _, ac, _, _, _, _, _) => cap.Revenue = ac)
-            .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto());
+            .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { AccountCode = "" });
         _accounting.Setup(a => a.CreateExpenseEntryAsync(
                 It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(),
                 It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
                 It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()))
             .Callback<TenantId, AccountingPeriod, decimal, string, string?, string?, string?, string?, IndustrySector?, DateTime?, string?, string?>(
                 (_, _, _, _, ac, _, _, _, _, _, _, _) => cap.Cogs = ac)
-            .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto());
+            .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { AccountCode = "" });
     }
 
     [Fact]

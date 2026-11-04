@@ -29,20 +29,20 @@ public class OrderPaymentsC2Tests
                 It.IsAny<string?>(), It.IsAny<string?>()))
             .Callback<TenantId, AccountingPeriod, decimal, string, string?, string?, IndustrySector?, DateTime?, string?, string?>(
                 (_, _, amount, _, account, reference, _, _, method, cashAccount) => _revenueCalls.Add((reference!, account, amount, method)))
-            .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto());
+            .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { AccountCode = "" });
         _acct.Setup(a => a.CreateExpenseEntryAsync(
                 It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
                 It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
                 It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string?>(), It.IsAny<string?>()))
             .Callback<TenantId, AccountingPeriod, decimal, string, string?, string?, string?, string?, IndustrySector?, DateTime?, string?, string?>(
                 (_, _, amount, _, account, _, _, reference, _, _, _, _) => _expenseCalls.Add((reference!, account, amount)))
-            .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto());
+            .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { AccountCode = "" });
         _acct.Setup(a => a.CreateDepositOffsetEntryAsync(
                 It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
                 It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()))
             .Callback<TenantId, AccountingPeriod, decimal, string, string?, string?, IndustrySector?, DateTime?>(
                 (_, _, amount, _, account, reference, _, _) => _revenueCalls.Add((reference!, account, amount, null)))
-            .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto());
+            .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { AccountCode = "" });
         return new OrderService(_orderRepo.Object, _acct.Object, _hkd.Object, _entryRepo.Object,
             NullLogger<OrderService>.Instance, accountingDbContext: db);
     }

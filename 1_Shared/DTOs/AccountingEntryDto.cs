@@ -12,7 +12,9 @@ namespace VanAn.Shared.DTOs
         public Guid TenantId { get; set; }
         public decimal Amount { get; set; }
         public string Description { get; set; } = string.Empty;
-        public string AccountCode { get; set; } = string.Empty;
+        // required (2026-11-03): field này từng bị bỏ sót ở 4 list-mapping → dashboard revenue=0.
+        // required buộc MỌI initializer phải set (kể cả chuỗi rỗng) — quên map = compile error.
+        public required string AccountCode { get; set; }
         public AccountingEntryType EntryType { get; set; }
         public DateTime CreatedAt { get; set; }
         public AccountingBookType AccountingBookType { get; set; }
@@ -46,5 +48,35 @@ namespace VanAn.Shared.DTOs
             get => TransactionDate;
             set => TransactionDate = value;
         }
+
+        /// <summary>
+        /// SINGLE mapper entity→DTO (2026-11-03): 10+ site từng copy-paste initializer — field mới
+        /// quên map ở site này gây sai lệch giữa các mặt hiển thị (dashboard revenue=0 do AccountCode
+        /// bị drop ở list-mapping). Mọi entity→DTO BẮT BUỘC qua đây: thêm field = sửa 1 chỗ.
+        /// </summary>
+        public static AccountingEntryDto FromEntity(AccountingEntry e) => new()
+        {
+            Id = e.Id,
+            TenantId = e.TenantId.Value,
+            Amount = e.Amount,
+            Description = e.Description,
+            AccountCode = e.AccountCode ?? string.Empty,
+            EntryType = e.EntryType,
+            CreatedAt = e.CreatedAt,
+            AccountingBookType = e.AccountingBookType,
+            PeriodYear = e.PeriodYear,
+            PeriodMonth = e.PeriodMonth,
+            ReversalEntryId = e.ReversalEntryId,
+            TransactionDate = e.TransactionDate,
+            Vendor = e.Vendor,
+            Category = e.Category,
+            Reference = e.Reference,
+            IndustrySector = e.IndustrySector,
+            CorrelationId = e.CorrelationId,
+            VoucherNumber = e.VoucherNumber,
+            PaymentMethod = e.PaymentMethod,
+            AllocatedToEntryId = e.AllocatedToEntryId,
+            CashAccountCode = e.CashAccountCode,
+        };
     }
 }

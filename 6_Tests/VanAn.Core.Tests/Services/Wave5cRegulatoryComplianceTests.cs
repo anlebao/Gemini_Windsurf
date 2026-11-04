@@ -181,7 +181,7 @@ namespace VanAn.Core.Tests.Services
             var mockAccountingService = new Mock<IAccountingService>();
             var entries = new List<AccountingEntryDto>
             {
-                new() { EntryType = AccountingEntryType.Revenue, Amount = 950_000_000m }
+                new() { AccountCode = "", EntryType = AccountingEntryType.Revenue, Amount = 950_000_000m }
             };
             mockAccountingService
                 .Setup(s => s.GetEntriesByTenantAndPeriodAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>()))
@@ -207,7 +207,7 @@ namespace VanAn.Core.Tests.Services
             var mockAccountingService = new Mock<IAccountingService>();
             var entries = new List<AccountingEntryDto>
             {
-                new() { EntryType = AccountingEntryType.Revenue, Amount = 800_000_000m }
+                new() { AccountCode = "", EntryType = AccountingEntryType.Revenue, Amount = 800_000_000m }
             };
             mockAccountingService
                 .Setup(s => s.GetEntriesByTenantAndPeriodAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>()))

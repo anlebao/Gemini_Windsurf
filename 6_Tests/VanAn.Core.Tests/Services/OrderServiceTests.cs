@@ -585,7 +585,7 @@ namespace VanAn.Core.Tests.Services
                 .Returns(Task.CompletedTask);
 
             var revenueDto = new VanAn.Shared.DTOs.AccountingEntryDto
-            {
+            { AccountCode = "",
                 Id = Guid.NewGuid(),
                 TenantId = _testTenantId.Value,
                 EntryType = AccountingEntryType.Revenue,
@@ -593,7 +593,7 @@ namespace VanAn.Core.Tests.Services
                 Description = "Doanh thu"
             };
             var cogsDto = new VanAn.Shared.DTOs.AccountingEntryDto
-            {
+            { AccountCode = "",
                 Id = Guid.NewGuid(),
                 TenantId = _testTenantId.Value,
                 EntryType = AccountingEntryType.Expense,
@@ -700,11 +700,11 @@ namespace VanAn.Core.Tests.Services
             decimal capturedCogsAmount = 0m;
             _ = _mockAccountingService
                 .Setup(x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()))
-                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Revenue, Amount = 220m });
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { AccountCode = "", Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Revenue, Amount = 220m });
             _ = _mockAccountingService
                 .Setup(x => x.CreateExpenseEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Callback((TenantId _, AccountingPeriod _, decimal amount, string _, string? _, string? _, string? _, string? _, IndustrySector? _, DateTime? _, string? _, string? _) => capturedCogsAmount = amount)
-                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Expense });
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { AccountCode = "", Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Expense });
             _ = _mockHkdBookRepository
                 .Setup(x => x.AddToBookAsync(It.IsAny<JournalEntry>(), It.IsAny<AccountingBookType>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
@@ -751,11 +751,11 @@ namespace VanAn.Core.Tests.Services
             decimal capturedCogsAmount = 0m;
             _ = _mockAccountingService
                 .Setup(x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()))
-                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Revenue });
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { AccountCode = "", Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Revenue });
             _ = _mockAccountingService
                 .Setup(x => x.CreateExpenseEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Callback((TenantId _, AccountingPeriod _, decimal amount, string _, string? _, string? _, string? _, string? _, IndustrySector? _, DateTime? _, string? _, string? _) => capturedCogsAmount = amount)
-                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Expense });
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { AccountCode = "", Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Expense });
             _ = _mockHkdBookRepository
                 .Setup(x => x.AddToBookAsync(It.IsAny<JournalEntry>(), It.IsAny<AccountingBookType>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
@@ -832,10 +832,10 @@ namespace VanAn.Core.Tests.Services
                 .Returns(Task.CompletedTask);
             _ = _mockAccountingService
                 .Setup(x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()))
-                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Revenue });
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { AccountCode = "", Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Revenue });
             _ = _mockAccountingService
                 .Setup(x => x.CreateExpenseEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()))
-                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Expense });
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { AccountCode = "", Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Expense });
             _ = _mockHkdBookRepository
                 .Setup(x => x.AddToBookAsync(It.IsAny<JournalEntry>(), It.IsAny<AccountingBookType>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
@@ -926,7 +926,7 @@ namespace VanAn.Core.Tests.Services
             _ = _mockAccountingService
                 .Setup(x => x.CreateExpenseEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Callback((TenantId _, AccountingPeriod _, decimal amount, string _, string? _, string? _, string? _, string? _, IndustrySector? _, DateTime? _, string? _, string? _) => capturedCogs = amount)
-                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Expense });
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { AccountCode = "", Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Expense });
 
             // Act
             await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-SC19");
@@ -955,7 +955,7 @@ namespace VanAn.Core.Tests.Services
             _ = _mockAccountingService
                 .Setup(x => x.CreateExpenseEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Callback((TenantId _, AccountingPeriod _, decimal _, string _, string? accountCode, string? _, string? _, string? _, IndustrySector? _, DateTime? _, string? _, string? _) => capturedAccountCode = accountCode)
-                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Expense });
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { AccountCode = "", Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Expense });
 
             // Act
             await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-SC20");
@@ -981,7 +981,7 @@ namespace VanAn.Core.Tests.Services
             _ = _mockAccountingService
                 .Setup(x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Callback((TenantId _, AccountingPeriod period, decimal _, string _, string? _, string? _, IndustrySector? _, DateTime? _, string? _, string? _) => capturedPeriod = period)
-                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Revenue });
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { AccountCode = "", Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Revenue });
 
             // Act
             await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-SC21");
@@ -1009,7 +1009,7 @@ namespace VanAn.Core.Tests.Services
             _ = _mockAccountingService
                 .Setup(x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Callback((TenantId _, AccountingPeriod _, decimal amount, string _, string? _, string? _, IndustrySector? _, DateTime? _, string? _, string? _) => capturedRevenueAmounts.Add(amount))
-                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Revenue });
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { AccountCode = "", Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Revenue });
 
             // Act
             await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-SC22");
@@ -1066,13 +1066,13 @@ namespace VanAn.Core.Tests.Services
             // Setup CreateDepositOffsetEntryAsync (Moq mặc định trả null → NRE nếu không setup)
             _ = _mockAccountingService
                 .Setup(x => x.CreateDepositOffsetEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()))
-                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.DepositOffset, Amount = 10_000m });
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { AccountCode = "", Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.DepositOffset, Amount = 10_000m });
 
             List<decimal> capturedRevenueAmounts = [];
             _ = _mockAccountingService
                 .Setup(x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Callback((TenantId _, AccountingPeriod _, decimal amount, string _, string? _, string? _, IndustrySector? _, DateTime? _, string? _, string? _) => capturedRevenueAmounts.Add(amount))
-                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Revenue });
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { AccountCode = "", Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Revenue });
 
             // Act
             await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-DEP");
@@ -1100,7 +1100,7 @@ namespace VanAn.Core.Tests.Services
 
             _ = _mockAccountingService
                 .Setup(x => x.CreateDepositOffsetEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>(), It.IsAny<DateTime?>()))
-                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.DepositOffset });
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { AccountCode = "", Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.DepositOffset });
 
             // Act
             await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-NDEP");
