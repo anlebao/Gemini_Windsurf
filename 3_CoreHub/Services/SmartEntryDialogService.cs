@@ -1,5 +1,7 @@
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
+using VanAn.CoreHub.Repositories;
+using VanAn.CoreHub.Services.CongNo;
 using VanAn.Shared.Domain;
 
 namespace VanAn.CoreHub.Services;
@@ -45,6 +47,10 @@ public sealed class SmartEntryDialogSession
     public HashSet<string> SkippedSlots { get; } = new();
     /// <summary>Dòng transcript "U: ..."/"B: ..." — hiển thị thread hội thoại.</summary>
     public List<string> Transcript { get; } = new();
+    /// <summary>P2: cache chips đối tượng theo TK nhóm ("131"/"331") — fetch 1 lần/session.</summary>
+    public Dictionary<string, List<QuickReply>> SuggestedDoiTuong { get; } = new();
+    /// <summary>P2: chips category đã xếp theo lịch sử tenant — tính 1 lần/session.</summary>
+    public List<QuickReply>? CategoryChips { get; set; }
 
     public SmartEntryDialogSnapshot ToSnapshot() => new(
         TenantId.Value, OriginalText, Vouchers.ToList(), AskedCount,
@@ -63,7 +69,7 @@ public interface ISmartEntryDialogService
     Task<SmartEntryDialogSession> AnswerAsync(Guid sessionId, string answer, CancellationToken ct = default);
 
     /// <summary>"Bỏ qua câu này" — đánh dấu slot skipped, sang câu hỏi tiếp.</summary>
-    SmartEntryDialogSession? Skip(Guid sessionId);
+    Task<SmartEntryDialogSession?> SkipAsync(Guid sessionId, CancellationToken ct = default);
 
     /// <summary>"Bỏ qua — tự nhập form" — kết thúc dialog, giữ voucher prefill phần có.</summary>
     SmartEntryDialogSession? Abandon(Guid sessionId);
@@ -85,7 +91,9 @@ public sealed class SmartEntryDialogService(
     IVoucherTextParseService parser,
     VoucherTextParseService ruleParser,
     IBankAccountService? bankAccounts = null,
-    ILogger<SmartEntryDialogService>? logger = null) : ISmartEntryDialogService
+    ILogger<SmartEntryDialogService>? logger = null,
+    ICongNoService? congNo = null,
+    IAccountingEntryRepository? entryRepo = null) : ISmartEntryDialogService
 {
     internal const int MaxQuestions = 6;
     internal const int MaxPerSlot = 2;
@@ -140,7 +148,7 @@ public sealed class SmartEntryDialogService(
         };
         session.Transcript.Add("U: " + session.OriginalText);
         _sessions[session.Id] = session;
-        Advance(session);
+        await AdvanceAsync(session, ct);
         return session;
     }
 
@@ -182,17 +190,17 @@ public sealed class SmartEntryDialogService(
 
         s.Vouchers[q.VoucherIndex] = Revalidate(s.Vouchers[q.VoucherIndex]);
         s.Pending = null;
-        Advance(s);
+        await AdvanceAsync(s, ct);
         return s;
     }
 
-    public SmartEntryDialogSession? Skip(Guid sessionId)
+    public async Task<SmartEntryDialogSession?> SkipAsync(Guid sessionId, CancellationToken ct = default)
     {
         var s = Get(sessionId);
         if (s?.Pending == null) return s;
         s.SkippedSlots.Add(SlotKey(s.Pending.VoucherIndex, s.Pending.Slot));
         s.Pending = null;
-        Advance(s);
+        await AdvanceAsync(s, ct);
         return s;
     }
 
@@ -227,13 +235,13 @@ public sealed class SmartEntryDialogService(
 
     // ---------- question generation ----------
 
-    private void Advance(SmartEntryDialogSession s)
+    private async Task AdvanceAsync(SmartEntryDialogSession s, CancellationToken ct)
     {
         if (s.State == DialogState.Abandoned) return;
         if (s.AskedCount >= MaxQuestions) { s.State = DialogState.Ready; s.Pending = null; return; }
         for (int i = 0; i < s.Vouchers.Count; i++)
         {
-            var q = BuildQuestion(s, i, s.Vouchers[i]);
+            var q = await BuildQuestionAsync(s, i, s.Vouchers[i], ct);
             if (q != null)
             {
                 s.Pending = q;
@@ -247,7 +255,7 @@ public sealed class SmartEntryDialogService(
         s.Pending = null;
     }
 
-    private ClarifyingQuestion? BuildQuestion(SmartEntryDialogSession s, int idx, ParsedVoucher v)
+    private async Task<ClarifyingQuestion?> BuildQuestionAsync(SmartEntryDialogSession s, int idx, ParsedVoucher v, CancellationToken ct)
     {
         string prefix = s.Vouchers.Count > 1 ? $"Phiếu {idx + 1}/{s.Vouchers.Count} — " : string.Empty;
         foreach (var slot in MissingSlots(v))
@@ -276,17 +284,78 @@ public sealed class SmartEntryDialogService(
                     [], Required: true),
                 "doiTuong" => new ClarifyingQuestion(idx, slot,
                     prefix + (retry ? "Chưa đọc được tên — gõ tên đối tượng (VD: anh Hùng / công ty ABC):" : "Đối tượng (khách/người bán) là ai?"),
-                    [], Required: true),
+                    await GetDoiTuongChipsAsync(s, v, ct), Required: true),
                 "category" => new ClarifyingQuestion(idx, slot,
                     prefix + "Khoản chi này thuộc nhóm nào? (giúp gợi ý tài khoản)",
-                    [new("Thuê/mặt bằng", "rent"), new("Điện nước", "utilities"), new("Lương", "labor"),
-                     new("Vật tư", "materials"), new("Marketing", "marketing"), new("Sửa chữa/vận chuyển", "maintenance"),
-                     new("Thuế", "tax"), new("Lãi vay", "interest")],
+                    await GetCategoryChipsAsync(s, ct),
                     Required: false),
                 _ => null,
             };
         }
         return null;
+    }
+
+    /// <summary>P2: chips đối tượng đang có số dư công nợ — 131 cho phải thu, 331 cho phải trả.
+    /// Label kèm số dư để user nhận diện nhanh; Value = tên điền thẳng vào DoiTuong.
+    /// Fail-safe: lỗi/không có service → [] (câu hỏi vẫn hiện, user gõ tay).</summary>
+    private async Task<List<QuickReply>> GetDoiTuongChipsAsync(SmartEntryDialogSession s, ParsedVoucher v, CancellationToken ct)
+    {
+        if (congNo == null) return [];
+        string account = v.Intent is VoucherIntent.Payable or VoucherIntent.PayablePayment ? "331" : "131";
+        if (s.SuggestedDoiTuong.TryGetValue(account, out var cached)) return cached;
+        var chips = new List<QuickReply>();
+        try
+        {
+            var today = DateTime.Today;
+            var report = await congNo.GetCongNoReportAsync(s.TenantId, today.Year, today.Month, ct);
+            var rows = report.Groups.FirstOrDefault(g => g.AccountCode == account)?.Rows ?? [];
+            chips = rows.Where(r => r.CuoiKy > 0)
+                        .OrderByDescending(r => r.CuoiKy)
+                        .Take(5)
+                        .Select(r => new QuickReply($"{r.DoiTuong} — {r.CuoiKy:N0}đ", r.DoiTuong))
+                        .ToList();
+        }
+        catch (Exception ex) { logger?.LogWarning(ex, "G5 đối tượng suggestion failed"); }
+        s.SuggestedDoiTuong[account] = chips;
+        return chips;
+    }
+
+    /// <summary>P2: chips category xếp theo tần suất sử dụng 120 ngày gần nhất của tenant
+    /// (đếm expense entries → ExtractCategory trên description). Nhóm không dùng xếp cuối
+    /// theo thứ tự gốc. Fail-safe → thứ tự mặc định.</summary>
+    private static readonly (string Label, string Value)[] BaseCategoryChips =
+    [
+        ("Thuê/mặt bằng", "rent"), ("Điện nước", "utilities"), ("Lương", "labor"),
+        ("Vật tư", "materials"), ("Marketing", "marketing"), ("Sửa chữa/vận chuyển", "maintenance"),
+        ("Thuế", "tax"), ("Lãi vay", "interest")
+    ];
+
+    private async Task<List<QuickReply>> GetCategoryChipsAsync(SmartEntryDialogSession s, CancellationToken ct)
+    {
+        if (s.CategoryChips != null) return s.CategoryChips;
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        if (entryRepo != null)
+        {
+            try
+            {
+                var from = DateTime.Today.AddDays(-120);
+                var entries = await entryRepo.GetByTenantAndTransactionDateRangeAsync(
+                    s.TenantId, from, DateTime.Today.AddDays(1), ct);
+                foreach (var e in entries.Where(e => e.EntryType == AccountingEntryType.Expense).Take(300))
+                {
+                    var cat = ruleParser.ExtractSlots(e.Description ?? string.Empty).Category;
+                    if (cat != null) counts[cat] = counts.GetValueOrDefault(cat) + 1;
+                }
+            }
+            catch (Exception ex) { logger?.LogWarning(ex, "G5 category history failed"); }
+        }
+        s.CategoryChips = BaseCategoryChips
+            .Select((c, i) => (c, i))
+            .OrderByDescending(x => counts.GetValueOrDefault(x.c.Value))
+            .ThenBy(x => x.i)
+            .Select(x => new QuickReply(x.c.Label, x.c.Value))
+            .ToList();
+        return s.CategoryChips;
     }
 
     // ---------- answer merge ----------

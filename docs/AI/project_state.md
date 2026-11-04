@@ -162,9 +162,10 @@
 
 ## 4. Next Actions
 
-**▶ SMART ENTRY VẤN ĐÁP G5 — P1 IMPLEMENTED (2026-11-03 — chưa push):**
+**▶ SMART ENTRY VẤN ĐÁP G5 — P1 `84b4b070` + P2 IMPLEMENTED (2026-11-03 — P2 chưa commit/push):**
 - [x] P1 rule-based dialog: `SmartEntryDialogService` + `ExtractSlots` + SmartEntryBar thread/chips/mic-answer + codec persist + DI · tests 21/21 + regression 90/90 + ShopERP 300/300 · guard ALL PASSED
-- [ ] Next: user duyệt → push + CD + E2E spec + RV production · P2 (chips đối tượng công nợ) · P3 (LLM interpret câu trả lời)
+- [x] P2 smart suggestions: chips đối tượng từ công nợ (131/331, top 5 theo dư) + category theo lịch sử 120 ngày · tests 24/24
+- [ ] Next: user duyệt → push + CD + E2E spec + RV production · P3 (LLM interpret câu trả lời)
 - [ ] Task card: `docs/AI/tasks/accounting_engine/task_pg5_smart_entry_dialog.md`
 
 **▶ RV FINDINGS FIX — ✅ DONE `5f4880c6` (CD ×2 SUCCESS, re-sweep 39 PASS · 0 FAIL · 0 WARN — 2026-11-03):**
