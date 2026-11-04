@@ -385,4 +385,73 @@ public class SmartEntryDialogServiceTests
         Assert.Equal("doiTuong", s.Pending?.Slot);
         Assert.Empty(s.Pending!.QuickReplies);
     }
+
+    // ---------- P3: LLM interpret ----------
+
+    private sealed class StubFeatures(bool enabled) : VanAn.Shared.Services.IShopFeatureSettingsService
+    {
+        public Task<VanAn.Shared.Services.ShopFeatureSettingsDto> GetSettingsAsync(Guid t, CancellationToken c = default) => throw new NotImplementedException();
+        public Task<VanAn.Shared.Services.ShopFeatureSettingsDto> UpdateSettingsAsync(Guid t, VanAn.Shared.Services.ShopFeatureSettingsDto s, CancellationToken c = default) => throw new NotImplementedException();
+        public Task<bool> IsEnabledAsync(Guid tenantId, string toggleName, CancellationToken ct = default) => Task.FromResult(enabled);
+    }
+
+    private sealed class StubFactory(string responseJson, Action<int>? onCall = null) : IHttpClientFactory
+    {
+        private int _calls;
+        public HttpClient CreateClient(string name)
+        {
+            _calls++; onCall?.Invoke(_calls);
+            return new HttpClient(new StubHandler(responseJson));
+        }
+        public int Calls => _calls;
+    }
+
+    private sealed class StubHandler(string json) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage r, CancellationToken c)
+            => Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            { Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json") });
+    }
+
+    private static SmartEntryDialogService SvcLlm(bool flagOn, string llmJson, out StubFactory factory)
+    {
+        var rule = new VoucherTextParseService();
+        factory = new StubFactory(
+            $"{{\"candidates\":[{{\"content\":{{\"parts\":[{{\"text\":{System.Text.Json.JsonSerializer.Serialize(llmJson)}}}]}}}}]}}");
+        return new SmartEntryDialogService(rule, rule, httpClientFactory: factory,
+            llmOptions: Microsoft.Extensions.Options.Options.Create(new SmartEntryLlmOptions { ApiKey = "test-key" }),
+            featureSettings: new StubFeatures(flagOn));
+    }
+
+    [Fact]
+    public async Task P3_Llm_FillsSlot_WhenRuleFails()
+    {
+        var svc = SvcLlm(true, "{\"amount\":5000000}", out var factory);
+        var s = await svc.StartAsync(Tenant, "chi phí linh tinh");
+        Assert.Equal("amount", s.Pending?.Slot);
+        s = await svc.AnswerAsync(s.Id, "cái đó lúc nãy ông chủ nói rồi á"); // rule không đọc được
+        Assert.True(factory.Calls >= 1);
+        Assert.Equal(5_000_000m, s.Vouchers[0].Amount);
+        Assert.Contains(s.Vouchers[0].Warnings, w => w.Contains("AI"));
+    }
+
+    [Fact]
+    public async Task P3_Llm_FlagOff_NeverCalled()
+    {
+        var svc = SvcLlm(false, "{\"amount\":5000000}", out var factory);
+        var s = await svc.StartAsync(Tenant, "chi phí linh tinh");
+        s = await svc.AnswerAsync(s.Id, "không rõ");
+        Assert.Equal(0, factory.Calls);
+        Assert.Null(s.Vouchers[0].Amount);
+    }
+
+    [Fact]
+    public async Task P3_Llm_BadJson_Ignored()
+    {
+        var svc = SvcLlm(true, "không phải json", out _);
+        var s = await svc.StartAsync(Tenant, "chi phí linh tinh");
+        s = await svc.AnswerAsync(s.Id, "không rõ");
+        Assert.Null(s.Vouchers[0].Amount);          // LLM rác → bỏ, retry path như thường
+        Assert.Equal(DialogState.Asking, s.State);
+    }
 }

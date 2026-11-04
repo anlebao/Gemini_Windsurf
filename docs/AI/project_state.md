@@ -165,7 +165,8 @@
 **▶ SMART ENTRY VẤN ĐÁP G5 — ✅ P1 `84b4b070` + P2 `adb9aa06` DEPLOYED + RV L1-L3 PASS (2026-11-03, CD #41764968750 SUCCESS):**
 - [x] P1 rule-based dialog: `SmartEntryDialogService` + `ExtractSlots` + SmartEntryBar thread/chips/mic-answer + codec persist + DI · tests 21/21 + regression 90/90 + ShopERP 300/300 · guard ALL PASSED
 - [x] P2 smart suggestions: chips đối tượng từ công nợ (131/331, top 5 theo dư) + category theo lịch sử 120 ngày · tests 24/24
-- [ ] Next: user duyệt → push + CD + E2E spec + RV production · P3 (LLM interpret câu trả lời)
+- [x] P3 LLM interpret câu trả lời (flag `SmartEntryLlmEnabled` + key, fail-safe, badge AI) — implemented, tests 27/27, chưa push
+- [ ] Next: user duyệt → push + CD + RV (cần flag LLM ON cho tenant để thấy P3 hoạt động) · L4/L5 manual
 - [ ] Task card: `docs/AI/tasks/accounting_engine/task_pg5_smart_entry_dialog.md`
 
 **▶ RV FINDINGS FIX — ✅ DONE `5f4880c6` (CD ×2 SUCCESS, re-sweep 39 PASS · 0 FAIL · 0 WARN — 2026-11-03):**

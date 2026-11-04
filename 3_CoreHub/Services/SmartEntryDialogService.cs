@@ -1,8 +1,12 @@
+using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using VanAn.CoreHub.Repositories;
 using VanAn.CoreHub.Services.CongNo;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Services;
 
 namespace VanAn.CoreHub.Services;
 
@@ -93,7 +97,12 @@ public sealed class SmartEntryDialogService(
     IBankAccountService? bankAccounts = null,
     ILogger<SmartEntryDialogService>? logger = null,
     ICongNoService? congNo = null,
-    IAccountingEntryRepository? entryRepo = null) : ISmartEntryDialogService
+    IAccountingEntryRepository? entryRepo = null,
+    // G5 P3: LLM interpret câu trả lời lạ — flag SmartEntryLlmEnabled + SmartEntryLlm__ApiKey
+    // (pattern G2). Thiếu 1 trong 3 dep → P3 tắt hoàn toàn, vẫn thuần rule-based.
+    IHttpClientFactory? httpClientFactory = null,
+    IOptions<SmartEntryLlmOptions>? llmOptions = null,
+    IShopFeatureSettingsService? featureSettings = null) : ISmartEntryDialogService
 {
     internal const int MaxQuestions = 6;
     internal const int MaxPerSlot = 2;
@@ -178,6 +187,24 @@ public sealed class SmartEntryDialogService(
             filled = await FillPendingSlotAsync(s, q, answer, ex, ct);
             // Opportunistic: đáp án gộp nhiều slot ("5 triệu anh Hùng ck") → điền các chỗ còn trống.
             s.Vouchers[q.VoucherIndex] = MergeOpportunistic(s.Vouchers[q.VoucherIndex], ex);
+            // P3: slot đang hỏi vẫn trống → LLM interpret đáp án (flag + key, fail-safe → hỏi lại).
+            if (!filled)
+            {
+                var llmEx = await TryLlmInterpretAsync(s, q, answer, ct);
+                if (llmEx != null)
+                {
+                    filled = await FillPendingSlotAsync(s, q, answer, llmEx, ct);
+                    s.Vouchers[q.VoucherIndex] = MergeOpportunistic(s.Vouchers[q.VoucherIndex], llmEx);
+                    if (filled)
+                    {
+                        s.Vouchers[q.VoucherIndex] = s.Vouchers[q.VoucherIndex] with
+                        {
+                            Warnings = s.Vouchers[q.VoucherIndex].Warnings
+                                .Append("Đề xuất từ AI — kiểm tra lại trước khi lưu.").ToList()
+                        };
+                    }
+                }
+            }
         }
 
         if (!filled)
@@ -356,6 +383,105 @@ public sealed class SmartEntryDialogService(
             .Select(x => new QuickReply(x.c.Label, x.c.Value))
             .ToList();
         return s.CategoryChips;
+    }
+
+    // ---------- P3: LLM answer interpretation ----------
+
+    private const string LlmEnabledFlag = "SmartEntryLlmEnabled";
+    private const decimal LlmMaxAmount = 1_000_000_000_000m;
+    private static readonly HashSet<string> LlmCategories =
+        ["rent", "utilities", "labor", "materials", "marketing", "maintenance", "tax", "interest"];
+    private static readonly HashSet<string> LlmPayments = ["cash", "bank", "qr", "other"];
+
+    /// <summary>P3: đáp án free-text rule-based không đọc được → Gemini interpret
+    /// {question, answer} → JSON field → schema validation → SlotExtraction.
+    /// Gate: ApiKey + flag SmartEntryLlmEnabled + đủ dep. Mọi lỗi → null (hỏi lại rule-based).</summary>
+    private async Task<SlotExtraction?> TryLlmInterpretAsync(SmartEntryDialogSession s, ClarifyingQuestion q, string answer, CancellationToken ct)
+    {
+        if (httpClientFactory == null || featureSettings == null
+            || string.IsNullOrWhiteSpace(llmOptions?.Value.ApiKey)) return null;
+        try
+        {
+            if (!await featureSettings.IsEnabledAsync(s.TenantId.Value, LlmEnabledFlag, ct)) return null;
+        }
+        catch { return null; }
+
+        try
+        {
+            var dto = await CallGeminiAnswerAsync(q, answer, ct);
+            if (dto == null) return null;
+            decimal? amount = dto.Amount is > 0m and <= LlmMaxAmount ? dto.Amount : null;
+            VoucherIntent hint = VoucherIntent.Unknown;
+            if (!string.IsNullOrWhiteSpace(dto.Intent))
+            {
+                if (!Enum.TryParse(dto.Intent, ignoreCase: true, out hint)) hint = VoucherIntent.Unknown;
+            }
+            var doiTuong = string.IsNullOrWhiteSpace(dto.DoiTuong) ? null
+                : dto.DoiTuong.Trim().Length <= 60 ? dto.DoiTuong.Trim() : null;
+            return new SlotExtraction(
+                amount, amount != null ? [amount.Value] : [],
+                null, // date — LLM không đoán ngày trong đáp án
+                dto.PaymentMethod != null && LlmPayments.Contains(dto.PaymentMethod) ? dto.PaymentMethod : null,
+                doiTuong,
+                dto.Category != null && LlmCategories.Contains(dto.Category) ? dto.Category : null,
+                hint,
+                dto.TransferDirection is "in" or "out" ? dto.TransferDirection : null);
+        }
+        catch (Exception ex)
+        {
+            logger?.LogWarning(ex, "G5 LLM interpret failed — fallback hỏi lại");
+            return null;
+        }
+    }
+
+    private async Task<AnswerLlmDto?> CallGeminiAnswerAsync(ClarifyingQuestion q, string answer, CancellationToken ct)
+    {
+        var opt = llmOptions!.Value;
+        string url = $"{opt.Endpoint.TrimEnd('/')}/models/{opt.Model}:generateContent?key={opt.ApiKey}";
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(opt.TimeoutSeconds, 3, 30)));
+        var payload = new
+        {
+            contents = new[] { new { parts = new[] { new { text = BuildAnswerPrompt(q, answer) } } } },
+            generationConfig = new { temperature = 0.1, responseMimeType = "application/json" },
+        };
+        using var client = httpClientFactory!.CreateClient("smart-entry-llm");
+        using var resp = await client.PostAsJsonAsync(url, payload, timeout.Token);
+        resp.EnsureSuccessStatusCode();
+        using var doc = await JsonDocument.ParseAsync(
+            await resp.Content.ReadAsStreamAsync(timeout.Token), cancellationToken: timeout.Token);
+        if (!doc.RootElement.TryGetProperty("candidates", out var cands) || cands.GetArrayLength() == 0) return null;
+        var textPart = cands[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString();
+        if (string.IsNullOrWhiteSpace(textPart)) return null;
+        string json = textPart.Trim();
+        if (json.StartsWith("```", StringComparison.Ordinal))
+        {
+            int nl = json.IndexOf('\n');
+            json = nl >= 0 ? json[(nl + 1)..] : json[3..];
+        }
+        json = json.Trim().TrimEnd('`').Trim();
+        try { return JsonSerializer.Deserialize<AnswerLlmDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }); }
+        catch (JsonException) { return null; }
+    }
+
+    private static string BuildAnswerPrompt(ClarifyingQuestion q, string answer) =>
+        "Bạn là trợ lý nhập liệu kế toán tiếng Việt. Hệ thống vừa hỏi kế toán viên: \"" + q.QuestionText +
+        "\" (slot: " + q.Slot + "). Họ trả lời: \"" + answer + "\". " +
+        "Trích ĐÚNG thông tin trong câu trả lời thành JSON, KHÔNG bịa, không chắc → null:\n" +
+        "{\"amount\": số đồng|null, \"doiTuong\": \"tên đối tượng|null\", " +
+        "\"category\": \"rent|utilities|labor|materials|marketing|maintenance|tax|interest|null\", " +
+        "\"paymentMethod\": \"cash|bank|qr|null\", \"transferDirection\": \"in|out|null\" " +
+        "(in=quỹ→ngân hàng, out=ngân hàng→quỹ), \"intent\": \"Revenue|Expense|TransferIn|TransferOut|" +
+        "ReceivablePayment|PayablePayment|Receivable|Payable|Capital|Loan|LoanRepayment|JournalAdjustment|null\"}.";
+
+    private sealed class AnswerLlmDto
+    {
+        public decimal? Amount { get; set; }
+        public string? DoiTuong { get; set; }
+        public string? Category { get; set; }
+        public string? PaymentMethod { get; set; }
+        public string? TransferDirection { get; set; }
+        public string? Intent { get; set; }
     }
 
     // ---------- answer merge ----------

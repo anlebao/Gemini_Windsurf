@@ -412,7 +412,11 @@ namespace VanAn.ShopERP
                     sp.GetService<ILogger<CoreHub.Services.SmartEntryDialogService>>(),
                     // G5 P2: chips đối tượng từ công nợ + category theo lịch sử tenant
                     sp.GetService<CoreHub.Services.CongNo.ICongNoService>(),
-                    sp.GetService<CoreHub.Repositories.IAccountingEntryRepository>()));
+                    sp.GetService<CoreHub.Repositories.IAccountingEntryRepository>(),
+                    // G5 P3: LLM interpret câu trả lời (flag SmartEntryLlmEnabled + key)
+                    sp.GetService<IHttpClientFactory>(),
+                    sp.GetService<Microsoft.Extensions.Options.IOptions<CoreHub.Services.SmartEntryLlmOptions>>(),
+                    sp.GetService<VanAn.Shared.Services.IShopFeatureSettingsService>()));
             _ = builder.Services.AddScoped<CoreHub.Services.Purchase.IPurchaseReceiptService, CoreHub.Services.Purchase.PurchaseReceiptService>();
             // SRS v1.2 W6 tiếp (GĐ2, 2026-10-31): StockMovement — chỉ ShopERP host (SQLite).
             // PurchaseReceiptService nhận optional dep → tự inject khi có đăng ký.
