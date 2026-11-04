@@ -198,23 +198,40 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
             throw new ArgumentException("toggleName cannot be empty", nameof(toggleName));
 
         string settingKey = $"ShopFeature:{tenantId}:{toggleName}";
-        VanAn.Shared.Domain.Aggregates.SystemSettingAggregate.SystemSetting? entity =
-            await _context.SystemSettings
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(s => s.Key == settingKey, ct);
-
         string value = enabled ? "true" : "false";
-        if (entity == null)
+
+        // UPDATE theo Key — KHÔNG qua entity/Id: các flag rows được insert bằng SQL trước đây
+        // có Id/TenantId GUID lowercase trong khi EF bind Guid UPPERCASE → UPDATE-by-Id
+        // match 0 rows → DbUpdateConcurrencyException (fail trên tenant An Tâm 2026-11-03).
+        int updated = await _context.SystemSettings
+            .IgnoreQueryFilters()
+            .Where(s => s.Key == settingKey)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(e => e.Value, value)
+                .SetProperty(e => e.UpdatedAt, _ => (DateTime?)DateTime.UtcNow), ct);
+
+        if (updated == 0)
         {
-            entity = new VanAn.Shared.Domain.Aggregates.SystemSettingAggregate.SystemSetting(
-                new TenantId(tenantId), settingKey, value);
-            _context.SystemSettings.Add(entity);
+            try
+            {
+                // Convention Sprint 7: ops flag là global setting → TenantId = Guid.Empty sentinel.
+                _context.SystemSettings.Add(
+                    new VanAn.Shared.Domain.Aggregates.SystemSettingAggregate.SystemSetting(
+                        new TenantId(Guid.Empty), settingKey, value));
+                await _context.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException)
+            {
+                // Race insert song song → retry update theo Key.
+                foreach (var e in ((Microsoft.EntityFrameworkCore.DbContext)_context).ChangeTracker
+                    .Entries<VanAn.Shared.Domain.Aggregates.SystemSettingAggregate.SystemSetting>())
+                    e.State = EntityState.Detached;
+                await _context.SystemSettings
+                    .IgnoreQueryFilters()
+                    .Where(s => s.Key == settingKey)
+                    .ExecuteUpdateAsync(s => s.SetProperty(e => e.Value, value), ct);
+            }
         }
-        else
-        {
-            entity.Update(value);
-        }
-        await _context.SaveChangesAsync(ct);
         _logger.LogInformation("Set feature toggle {Key} = {Value}", settingKey, value);
     }
 
