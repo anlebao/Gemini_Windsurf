@@ -491,6 +491,32 @@
                     </div>
                 </VanACard>
 
+                @* G5/G2: ops-managed Smart Entry flags — SystemSetting "ShopFeature:{tenant}:{flag}" (không nằm trong DTO) *@
+                <VanACard Header="🧾 Kế toán — Smart Entry (nhập liệu bằng mô tả)" CssClass="mt-4" data-testid="smart-entry-card">
+                    <div class="features-form">
+                        <div class="feature-row" data-testid="toggle-smart-entry">
+                            <div class="feature-info">
+                                <strong>Smart Entry — nhập nghiệp vụ bằng văn bản</strong>
+                                <p class="text-muted small">Trang thu/chi/chuyển tiền hiện thanh "Nhập bằng mô tả": gõ câu tiếng Việt → parser điền form, hỏi đáp làm rõ điểm thiếu. Khi tắt, chỉ nhập tay như cũ.</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="smart-entry" @bind="_smartEntryEnabled" />
+                            </div>
+                        </div>
+                        <div class="feature-row" data-testid="toggle-smart-entry-llm">
+                            <div class="feature-info">
+                                <strong>Smart Entry — tăng cường AI (Gemini)</strong>
+                                <p class="text-muted small">Câu lạ / nhiều nghiệp vụ trong 1 câu / đáp án parser không đọc được → Gemini AI hỗ trợ (kết quả luôn được kiểm tra, không tự lưu). Yêu cầu: Smart Entry BẬT + quản trị đã cấu hình API key. Mặc định TẮT — dữ liệu câu mô tả không rời máy chủ khi tắt.</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="smart-entry-llm" @bind="_smartEntryLlmEnabled" />
+                            </div>
+                        </div>
+                    </div>
+                </VanACard>
+
                 <div class="feature-row mt-4 pt-3 border-top" data-testid="setting-polling-interval">
                     <div class="feature-info">
                         <strong>Thời gian làm mới theo dõi đơn hàng (giây)</strong>
@@ -527,6 +553,9 @@
     private string _globalCommerceMode = "Marketplace";
     private bool _resellerFilterOnly = false;
     private LoyaltyTenantCapsDto? _budgetCaps;
+    // G5/G2: ops-managed flags (SystemSetting rows, không nằm trong DTO)
+    private bool _smartEntryEnabled;
+    private bool _smartEntryLlmEnabled;
 
     protected override async Task OnInitializedAsync()
     {
@@ -571,6 +600,10 @@
             Guid tenantId = TenantProvider.TenantId;
             settings = await SettingsService.GetSettingsAsync(tenantId);
 
+            // G5/G2: ops-managed flags — SystemSetting "ShopFeature:{tenant}:{flag}"
+            _smartEntryEnabled = await SettingsService.IsEnabledAsync(tenantId, "SmartEntryEnabled");
+            _smartEntryLlmEnabled = await SettingsService.IsEnabledAsync(tenantId, "SmartEntryLlmEnabled");
+
             // #185-4: read-only budget caps snapshot (set by SystemAdmin in /admin/loyalty-config)
             try
             {
@@ -601,6 +634,9 @@
         {
             Guid tenantId = TenantProvider.TenantId;
             settings = await SettingsService.UpdateSettingsAsync(tenantId, settings);
+            // G5/G2: ghi ops-managed flags (SystemSetting rows — giống flag bật bằng SQL trước đây)
+            await SettingsService.SetToggleAsync(tenantId, "SmartEntryEnabled", _smartEntryEnabled);
+            await SettingsService.SetToggleAsync(tenantId, "SmartEntryLlmEnabled", _smartEntryLlmEnabled);
             successMessage = "✅ Đã lưu cấu hình thành công.";
             // Auto-dismiss success after 5s
             _ = DismissSuccessAfterDelayAsync();

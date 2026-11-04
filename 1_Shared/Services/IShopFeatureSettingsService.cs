@@ -126,4 +126,13 @@ public interface IShopFeatureSettingsService
 
     /// <summary>Check if a specific toggle is enabled for a tenant. Returns default if not configured.</summary>
     Task<bool> IsEnabledAsync(Guid tenantId, string toggleName, CancellationToken ct = default);
+
+    /// <summary>
+    /// Write an ops-managed feature flag — SystemSetting row "ShopFeature:{tenantId}:{toggleName}"
+    /// (Value "true"/"false"). Dùng cho flags KHÔNG nằm trong DTO (SmartEntryEnabled,
+    /// SmartEntryLlmEnabled, AccountMappingEnabled...). Toggles thuộc DTO vẫn lưu qua
+    /// <see cref="UpdateSettingsAsync"/>. Default no-op cho stubs/HTTP client không có store.
+    /// </summary>
+    Task SetToggleAsync(Guid tenantId, string toggleName, bool enabled, CancellationToken ct = default)
+        => Task.CompletedTask;
 }

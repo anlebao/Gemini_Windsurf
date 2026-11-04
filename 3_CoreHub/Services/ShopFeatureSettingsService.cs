@@ -191,6 +191,33 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
         return value == "true";
     }
 
+    /// <inheritdoc />
+    public async Task SetToggleAsync(Guid tenantId, string toggleName, bool enabled, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(toggleName))
+            throw new ArgumentException("toggleName cannot be empty", nameof(toggleName));
+
+        string settingKey = $"ShopFeature:{tenantId}:{toggleName}";
+        VanAn.Shared.Domain.Aggregates.SystemSettingAggregate.SystemSetting? entity =
+            await _context.SystemSettings
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(s => s.Key == settingKey, ct);
+
+        string value = enabled ? "true" : "false";
+        if (entity == null)
+        {
+            entity = new VanAn.Shared.Domain.Aggregates.SystemSettingAggregate.SystemSetting(
+                new TenantId(tenantId), settingKey, value);
+            _context.SystemSettings.Add(entity);
+        }
+        else
+        {
+            entity.Update(value);
+        }
+        await _context.SaveChangesAsync(ct);
+        _logger.LogInformation("Set feature toggle {Key} = {Value}", settingKey, value);
+    }
+
     private async Task<ShopFeatureSettingsEntity?> GetEntityAsync(Guid tenantId, CancellationToken ct)
     {
         // Use IgnoreQueryFilters to find by raw TenantId (since the entity is tenant-scoped)

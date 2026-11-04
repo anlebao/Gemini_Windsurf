@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Tests.TestInfrastructure;
@@ -62,5 +63,36 @@ public class ShopFeatureSettingsServiceTests
 
         // Accounting_Sync_Enabled default = true (DTO default khi chưa có entity row).
         Assert.True(await svc.IsEnabledAsync(Guid.NewGuid(), nameof(ShopFeatureSettingsDto.Accounting_Sync_Enabled)));
+    }
+
+    [Fact]
+    public async Task SetToggleAsync_CreatesRow_IsEnabledReadsBack()
+    {
+        using var scope = VanAnDbContextTestFactory.Create();
+        Guid tenantId = Guid.NewGuid();
+        var svc = BuildService(scope);
+
+        await svc.SetToggleAsync(tenantId, "SmartEntryEnabled", true);
+        Assert.True(await svc.IsEnabledAsync(tenantId, "SmartEntryEnabled"));
+        Assert.False(await svc.IsEnabledAsync(tenantId, "SmartEntryLlmEnabled"));
+        Assert.False(await svc.IsEnabledAsync(Guid.NewGuid(), "SmartEntryEnabled")); // scoped per tenant
+    }
+
+    [Fact]
+    public async Task SetToggleAsync_ToggleOff_UpdatesExistingRow()
+    {
+        using var scope = VanAnDbContextTestFactory.Create();
+        Guid tenantId = Guid.NewGuid();
+        var svc = BuildService(scope);
+
+        await svc.SetToggleAsync(tenantId, "SmartEntryLlmEnabled", true);
+        Assert.True(await svc.IsEnabledAsync(tenantId, "SmartEntryLlmEnabled"));
+
+        await svc.SetToggleAsync(tenantId, "SmartEntryLlmEnabled", false);
+        Assert.False(await svc.IsEnabledAsync(tenantId, "SmartEntryLlmEnabled"));
+
+        // Vẫn chỉ 1 row — upsert, không duplicate
+        Assert.Equal(1, scope.Context.SystemSettings.IgnoreQueryFilters()
+            .Count(s => s.Key == $"ShopFeature:{tenantId}:SmartEntryLlmEnabled"));
     }
 }
