@@ -512,7 +512,10 @@
             if (IsCongNoType && !string.IsNullOrWhiteSpace(doiTuong)) await LoadOpenKhoanAsync();
         }
         catch (Exception ex) { Logger.LogWarning(ex, "LoadOpenKhoanAsync failed trong ApplyParse"); }
-        await RefreshPreviewAsync();
+        // Preview là nice-to-have — lỗi (vd DbContext concurrency) KHÔNG được chặn
+        // SafeSetFormValues phía dưới: fill form là chức năng chính của Apply.
+        try { await RefreshPreviewAsync(); }
+        catch (Exception ex) { Logger.LogWarning(ex, "RefreshPreviewAsync failed trong ApplyParse — vẫn fill form"); }
         await SafeSetFormValues(new Dictionary<string, string>
         {
             ["amount"] = formData.Values.GetValueOrDefault("amount") ?? "",
