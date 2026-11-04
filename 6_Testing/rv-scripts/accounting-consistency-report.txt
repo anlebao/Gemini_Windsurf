@@ -1,6 +1,6 @@
 ════════════════════════════════════════════════════════════════════
 RV ACCOUNTING CONSISTENCY — period 2026-11 · gateway vanan-gateway
-run: 2026-11-03T13:38:27Z
+run: 2026-11-04T03:50:25Z
 ════════════════════════════════════════════════════════════════════
   [INFO] tenant  (DN) : An Tâm — e2d91cdf-d3c4-4399-b96e-e772a7a41630
   [INFO] tenant 3 (DN) : Cafe Tân Quy — 7c021960-6d6c-4de4-88a1-cf8373184f49
@@ -37,22 +37,14 @@ run: 2026-11-03T13:38:27Z
 
 ── Tenant: Cafe Tân Quy (7c021960-6d6c-4de4-88a1-cf8373184f49) — Type '3' ──
   [INFO] [Cafe Tân Quy] kỳ đã kết chuyển (3 closing JEs) — P&L accounts đã zeroed, IS/B02 = 0 là đúng
-  [PASS] B1a[Cafe Tân Quy] TB.totalDebit(416301000.0) == ΣNợ kỳ SQL(416301000.00) — diff=0
-  [PASS] B1b[Cafe Tân Quy] TB.totalCredit(416301000.0) == ΣCó kỳ SQL(416301000.00) — diff=0
-  [PASS] B1c[Cafe Tân Quy] TB.isBalanced = True (expect true) — isBalanced=True
-  [PASS] B2[Cafe Tân Quy] Sổ cái 111: TB.balance(280057500.0) == SQL dư lũy kế(280057500.00) — diff=0
-  [PASS] B2[Cafe Tân Quy] Sổ cái 131: TB.balance(5000000.0) == SQL dư lũy kế(5000000.00) — diff=0
-  [PASS] B2[Cafe Tân Quy] Sổ cái 421: TB.balance(-63033500.0) == SQL dư lũy kế(-63033500.00) — diff=0
-  [PASS] B2[Cafe Tân Quy] Sổ cái 511: TB.balance(1000.0) == SQL dư lũy kế(1000.00) — diff=0
-  [PASS] B2[Cafe Tân Quy] Sổ cái 632: TB.balance(0.0) == SQL dư lũy kế(0.00) — diff=0
-  [PASS] B3a[Cafe Tân Quy] B02 NetProfit(0.0) == SQL P&L net(0) — diff=0 revAPI=0.0 revSQL=0.00
-  [INFO] [Cafe Tân Quy] B02 detail: revenue=0.0 cogs=0.0 opex=0.0 → net=0.0
-  [PASS] B4a[Cafe Tân Quy] B01 invariant: assets(58757500.0) == L+E(58757500.0) — diff=0
-  [PASS] B4b[Cafe Tân Quy] B01 assets(58757500.0) == SQL tài sản lũy kế(58757500.00) — diff=0
-  [PASS] B5a[Cafe Tân Quy] B03 NetChange(46999000.0) == SQL cash movement(46999000.00) — diff=0
-  [PASS] B5b[Cafe Tân Quy] B03 ClosingCash(60057500.0) == SQL dư tiền lũy kế(60057500) — diff=0 (open=13058500.0 vs 13058500.00)
-  [PASS] D2a[Cafe Tân Quy] profit-summary revenue(0) == B02 revenue(0.0) — diff=0
+  [FAIL] B0[Cafe Tân Quy] impersonate → JWT — no token
+  [WARN] [Cafe Tân Quy] profit-summary không trả revenue — <!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device
   [INFO] [Cafe Tân Quy] Dashboard AccountingIndex: revenue=53500000.00 expense=7501000.00 netProfit=45999000 (entries — so với journal rev=0.00 net=0)
+  [WARN] [Cafe Tân Quy] D1a dashboard-drop REVENUE-type: 1 entries Σ=20000000.00 (accounts: 411) — AccountingIndex không tính
   [PASS] E1[Cafe Tân Quy] |entries 131|(5000000.00) ≈ |journal 131 net|(5000000.00) — diff=0
   [PASS] E2[Cafe Tân Quy] |entries 331|(0) ≈ |journal 331 net|(0) — diff=0
 
@@ -60,8 +52,9 @@ run: 2026-11-03T13:38:27Z
   [PASS] B0[Vạn An Cafe (HKD Group 1)] VAS API chặn non-enterprise (expect 403, got 403) — status=403 type='1'
   [PASS] D2b[Vạn An Cafe (HKD Group 1)] profit-summary revenue(0) == SQL P&L rev(0) — diff=0
   [INFO] [Vạn An Cafe (HKD Group 1)] Dashboard AccountingIndex: revenue=0 expense=0 netProfit=0 (entries — so với journal rev=0 net=0)
+  [WARN] [Vạn An Cafe (HKD Group 1)] D1a dashboard-drop REVENUE-type: 1 entries Σ=10000000.00 (accounts: 411) — AccountingIndex không tính
   [INFO] [Vạn An Cafe (HKD Group 1)] E1/E2 skip — công nợ không tạo JE (cash-basis HKD/DNSN hoặc AccrualReceivableJE OFF): entries 131=27134567.00 / journal=0 · entries 331=-1000000.00 / journal=0
 
 ════════════════════════════════════════════════════════════════════
-RV CONSISTENCY SUMMARY: 39 PASS · 0 FAIL · 0 WARN — report: /c/VibeCoding/Gemini_Windsurf/6_Testing/rv-scripts/accounting-consistency-report.txt
+RV CONSISTENCY SUMMARY: 25 PASS · 1 FAIL · 3 WARN — report: /c/VibeCoding/Gemini_Windsurf/6_Testing/rv-scripts/accounting-consistency-report.txt
 ════════════════════════════════════════════════════════════════════

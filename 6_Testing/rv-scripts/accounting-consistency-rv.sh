@@ -302,6 +302,22 @@ for a in json.load(sys.stdin):
   DI_NP=$(awk "BEGIN{print $DI_RV-$DI_EX}")
   info "[$TAG] Dashboard AccountingIndex: revenue=$DI_RV expense=$DI_EX netProfit=$DI_NP (entries — so với journal rev=$PL_NET net=$NET_PROFIT)"
 
+  # ── D1a/D1b (2026-11-03): entries bị dashboard classifier DROP âm thầm — Revenue/DepositOffset
+  # có AccountCode không ^[57] (trừ 3331 VAT = liability-by-design), Expense không ^[68],
+  # hoặc AccountCode NULL → AccountingIndex hiện thiếu dù DB có. THỐNG KÊ (warn) — không fix/fail.
+  DI_DROP_RV=$(GW "SELECT COUNT(*)||'|'||COALESCE(SUM(\\\"Amount\\\"),0)||'|'||COALESCE(string_agg(DISTINCT \\\"AccountCode\\\",','),'-') FROM \\\"AccountingEntries\\\" WHERE \\\"TenantId\\\"='$T'::uuid AND \\\"EntryType\\\" IN (1,5) AND (\\\"AccountCode\\\" IS NULL OR (\\\"AccountCode\\\" !~ '^[57]' AND \\\"AccountCode\\\" <> '3331')) AND \\\"TransactionDate\\\" >= '$START'::date AND \\\"TransactionDate\\\" < '$NEXT_MONTH'::date;")
+  DI_DROP_EX=$(GW "SELECT COUNT(*)||'|'||COALESCE(SUM(\\\"Amount\\\"),0)||'|'||COALESCE(string_agg(DISTINCT \\\"AccountCode\\\",','),'-') FROM \\\"AccountingEntries\\\" WHERE \\\"TenantId\\\"='$T'::uuid AND \\\"EntryType\\\"=2 AND (\\\"AccountCode\\\" IS NULL OR \\\"AccountCode\\\" !~ '^[68]') AND \\\"TransactionDate\\\" >= '$START'::date AND \\\"TransactionDate\\\" < '$NEXT_MONTH'::date;")
+  IFS='|' read -r DRVC DRVS DRVA <<< "$DI_DROP_RV"
+  IFS='|' read -r DEXC DEXS DEXA <<< "$DI_DROP_EX"
+  if [ "${DRVC:-0}" != "0" ]; then warn "[$TAG] D1a dashboard-drop REVENUE-type: $DRVC entries Σ=$DRVS (accounts: $DRVA) — AccountingIndex không tính"; fi
+  if [ "${DEXC:-0}" != "0" ]; then warn "[$TAG] D1b dashboard-drop EXPENSE-type: $DEXC entries Σ=$DEXS (accounts: $DEXA) — AccountingIndex không tính"; fi
+  # ── D1c: dashboard rev vs journal rev — chỉ khi journal >0 (kỳ chưa kết chuyển):
+  # chênh lệch = 2 mặt hiển thị lệch nhau (bán chịu journal-only, data gap...). THỐNG KÊ.
+  if awk "BEGIN{exit !($PL_NET>0)}" && ! awk "BEGIN{exit !($DI_RV==$PL_NET)}"; then
+    D1C_D=$(awk "BEGIN{print $DI_RV-$PL_NET}")
+    warn "[$TAG] D1c dashboard rev($DI_RV) ≠ journal rev($PL_NET) — diff=$D1C_D (xem by-design: công nợ bán chịu chỉ có JE)"
+  fi
+
   # ── E. Công nợ: entries 131/331 vs journal 131/331 (cumulative) ──
   # GAP-4 by-design (2026-11-03): HKD (type 1) + DNSN (type 2) = cash-basis — bridge KHÔNG
   # tạo JE cho công nợ (ManualEntryJournalBridge G-C4) → entries-only là đúng → skip.
