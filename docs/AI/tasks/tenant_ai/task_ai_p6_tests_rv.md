@@ -1,6 +1,6 @@
 # Task AI-P6 — Threat Suite T1–T13 + Eval + RV Scripts → CP3
 
-> **Status:** ✅ APPROVED 2026-11-06
+> **Status:** ✅ CODE DONE 2026-11-06 — local xanh **153/153** (ThreatSuite 35 mới · eval 41 cases) · chờ CP3 deploy + full RV
 > **Gate:** P1-G5 — SRS v1.1 §10/§14 · **→ checkpoint CP3 (full deploy + full RV)**
 > **Phụ thuộc:** P4, P5 (toàn bộ luồng đã ghép)
 
@@ -48,4 +48,12 @@
 
 ## Acceptance
 
-- [ ] T1–T13 local xanh · eval Grounded ≥95%/Unsupported ≤2% · CP3 full RV pass · evidence ghi card
+- [x] T1–T13 local xanh — `tests/VanAn.TenantAi.Tests/ThreatSuite/` (T1×4 · T2×10 · T3×10 · T4×3 · T5×3 · T7×1 · T10×3 = 35 mới, `[Trait("Threat","Tx")]` + coverage map README) + coverage sẵn có: T6/T12 (`AuthTests`) · T8 (`QuotaGate`/`MeteringGate`/`KillSwitch`) · T9/T11/T13 (ChatApi/Ingest/ChatUnit)
+- [x] eval Grounded ≥95%/Unsupported ≤2% — `EvalHarnessTests` pass, evalset top-up 33→41 cases (ExternalKnowledge 1→3 · PolicyViolation 2→4 · BrandStory 2→3 · RecipeQuery 2→3 · OrderHelp 2→3 · MenuQuery 4→5)
+- [ ] CP3 full RV pass — artifacts sẵn sàng: `6_Testing/rv-scripts/tenant-ai-rv/` (run-on-vps.sh 8 bước + invoke-rv.ps1 + README) · `6_Testing/e2e-tests/ai-chat-widget.spec.ts` · drift check = `/v1/knowledge/status` (source_version + synced_at) trong rv-script step 3
+
+## Evidence (2026-11-06)
+
+- `dotnet test VanAn.TenantAi.Tests` = **153/153 PASS** (118 trước + 35 ThreatSuite), 0 fail.
+- RV script ký HMAC ctx bằng openssl trên VPS (secrets từ `/opt/vanan-ai/.env.tenantai`, không in log).
+- Production-only: T1 vector path + T8 deny thật — cover trong run-on-vps.sh (ingest scope → `-TenantId`; ví=0 → `-ZeroWalletTenant`).
