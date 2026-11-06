@@ -1053,6 +1053,12 @@ jobs:
 
             cd /opt/vanan-ai
 
+            # scp-action preserves the repo source path — flatten nested layout.
+            if [ -f 9_TenantAI/vanan-ai/docker-compose.tenantai.yml ]; then
+              mv -f 9_TenantAI/vanan-ai/docker-compose.tenantai.yml docker-compose.tenantai.yml
+              rm -rf 9_TenantAI
+            fi
+
             printf '%s\n' \
               "IMAGE_PREFIX=${DEPLOY_REGISTRY}/${DEPLOY_REPO_OWNER}" \
               "IMAGE_TAG=${DEPLOY_IMAGE_TAG}" \

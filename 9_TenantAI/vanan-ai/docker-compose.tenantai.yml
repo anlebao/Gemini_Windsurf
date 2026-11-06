@@ -20,12 +20,15 @@ services:
       Metering__BaseUrl: ${METERING_BASE_URL:-}
       Metering__CallerId: ${METERING_CALLER_ID:-vanan-ai}
       Metering__CallerKey: ${METERING_CALLER_KEY:-}
+    ports:
+      - "5060:5060"
     depends_on:
       tenantai-pg:
         condition: service_healthy
     networks:
       - vanan-ai-net
-    # KHÔNG publish port ra host public — chỉ internal network / nginx proxy.
+    # Port 5060 publish trên host — internal-only vì GCP firewall không mở 5060
+    # ra ngoài (tag tenantai không có rule). Callers: gateway/shoperp qua VPC IP.
 
   tenantai-pg:
     image: pgvector/pgvector:pg16
