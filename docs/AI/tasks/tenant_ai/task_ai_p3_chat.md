@@ -1,6 +1,6 @@
 # Task AI-P3 — Chat Pipeline (Intent → Policy → Retrieve → LLM → Validate)
 
-> **Status:** ✅ APPROVED 2026-11-06
+> **Status:** ✅ IMPLEMENTED (code) `8dae1fce` — 2026-11-06 · tests 99/99 · eval gate pass · chờ CP2 deploy + API RV
 > **Gate:** P1-G3 — SRS v1.1 [G2][G3][G4][G5][G6][G12][G15] · FR-2..FR-4, FR-11 · **→ checkpoint CP2 (deploy + API-level RV)**
 > **Phụ thuộc:** P1, P2
 
