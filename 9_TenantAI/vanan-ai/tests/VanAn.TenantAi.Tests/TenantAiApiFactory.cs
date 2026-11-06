@@ -22,6 +22,11 @@ public sealed class TenantAiApiFactory : WebApplicationFactory<Program>
 
     private string _dbName = "tenantai-test-" + Guid.NewGuid();
     private bool _seeded;
+    private Action<IServiceCollection>? _configure;
+
+    /// <summary>xUnit fixtures allow one public ctor — service overrides via factory helper instead.</summary>
+    public static TenantAiApiFactory WithServices(Action<IServiceCollection> configure)
+        => new() { _configure = configure };
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -32,6 +37,7 @@ public sealed class TenantAiApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<DbContextOptions<TenantAiDbContext>>();
             services.RemoveAll<TenantAiDbContext>();
             services.AddDbContext<TenantAiDbContext>(o => o.UseInMemoryDatabase(_dbName));
+            _configure?.Invoke(services);
         });
     }
 

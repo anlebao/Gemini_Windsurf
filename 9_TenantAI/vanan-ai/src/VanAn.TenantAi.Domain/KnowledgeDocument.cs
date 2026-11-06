@@ -42,6 +42,10 @@ public sealed class KnowledgeDocument
     public DateTime? ApprovedAtUtc { get; private set; }
     public string? RejectionReason { get; private set; }
     public DocumentStatus Status { get; private set; }
+
+    /// <summary>T3 — ingest sanitizer stripped instruction-like lines from Content.</summary>
+    public bool Sanitized { get; private set; }
+
     public string? SourceRef { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
     public DateTime UpdatedAtUtc { get; private set; }
@@ -54,7 +58,8 @@ public sealed class KnowledgeDocument
         string title,
         string content,
         DocumentClassification classification,
-        string? sourceRef = null)
+        string? sourceRef = null,
+        bool sanitized = false)
         => new()
         {
             Id = Guid.NewGuid(),
@@ -65,6 +70,7 @@ public sealed class KnowledgeDocument
             Classification = classification,
             ApprovalStatus = ApprovalStatus.PendingReview,
             Status = DocumentStatus.Active,
+            Sanitized = sanitized,
             SourceRef = sourceRef,
             CreatedAtUtc = DateTime.UtcNow,
             UpdatedAtUtc = DateTime.UtcNow

@@ -871,6 +871,19 @@ namespace VanAn.ShopERP
             // wallet/ledger/topup methods beyond the IMeteringClient contract.
             _ = builder.Services.AddTransient(sp =>
                 (Services.MeteringApiClient)sp.GetRequiredService<VanAn.Shared.Domain.Common.IMeteringClient>());
+            // task_ai_p2: vanan-ai knowledge sync client — self-disable khi thiếu TenantAi:* config.
+            _ = builder.Services.AddHttpClient<Services.ITenantAiClient, Services.TenantAiApiClient>(c =>
+            {
+                var baseUrl = builder.Configuration["TenantAi:BaseUrl"];
+                if (!string.IsNullOrWhiteSpace(baseUrl)) c.BaseAddress = new Uri(baseUrl);
+                c.Timeout = TimeSpan.FromSeconds(30);
+                var callerId = builder.Configuration["TenantAi:CallerId"];
+                var callerKey = builder.Configuration["TenantAi:CallerKey"];
+                if (!string.IsNullOrEmpty(callerId)) c.DefaultRequestHeaders.TryAddWithoutValidation("X-Caller-Id", callerId);
+                if (!string.IsNullOrEmpty(callerKey)) c.DefaultRequestHeaders.TryAddWithoutValidation("X-Ai-Key", callerKey);
+            });
+            _ = builder.Services.AddScoped<Services.ITenantAiKnowledgeSync, Services.TenantAiKnowledgeSyncService>();
+            _ = builder.Services.AddHostedService<Services.TenantAiKnowledgeReconcileService>();
             _ = builder.Services.AddScoped<Services.FeatureUsageRecorder>();
             // Nav menu SSOT (2026-09-19): single menu definition per role used by all layouts
             _ = builder.Services.AddScoped<Services.IShopErpMenuService, Services.ShopErpMenuService>();

@@ -94,12 +94,13 @@ public sealed class AuthTests(TenantAiApiFactory factory) : IClassFixture<Tenant
     }
 
     [Fact]
-    public async Task ShopCaller_TenantInScope_PassesAuth_501()
+    public async Task ShopCaller_TenantInScope_PassesAuth_400()
     {
+        // P2: route implemented — auth passes, endpoint rejects missing Idempotency-Key.
         var ctx = SignCtx(TenantAiApiFactory.TenantA, "shoperp-a");
         var res = await Send(HttpMethod.Post, "/v1/knowledge/products:batch",
             "shoperp-a", TenantAiApiFactory.ShopKey, ctx);
-        res.StatusCode.Should().Be(HttpStatusCode.NotImplemented); // stub — auth đã qua
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     // Signed ctx validation failures → 401.

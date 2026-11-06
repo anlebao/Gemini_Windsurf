@@ -379,6 +379,10 @@ namespace VanAn.TenantAi.Infra.Migrations
                         .HasColumnType("vector(768)")
                         .HasColumnName("embedding");
 
+                    b.Property<bool>("Sanitized")
+                        .HasColumnType("boolean")
+                        .HasColumnName("sanitized");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");
@@ -447,6 +451,10 @@ namespace VanAn.TenantAi.Infra.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)")
                         .HasColumnName("rejection_reason");
+
+                    b.Property<bool>("Sanitized")
+                        .HasColumnType("boolean")
+                        .HasColumnName("sanitized");
 
                     b.Property<string>("SourceRef")
                         .HasMaxLength(256)

@@ -15,6 +15,9 @@ public sealed class KnowledgeChunk
     public float[]? Embedding { get; private set; }
     public int TokenCount { get; private set; }
 
+    /// <summary>T3 — source doc contained instruction-like lines stripped by IngestSanitizer.</summary>
+    public bool Sanitized { get; private set; }
+
     private KnowledgeChunk() { } // EF Core
 
     public static KnowledgeChunk Create(
@@ -23,7 +26,8 @@ public sealed class KnowledgeChunk
         int chunkIndex,
         string content,
         float[]? embedding = null,
-        int tokenCount = 0)
+        int tokenCount = 0,
+        bool sanitized = false)
         => new()
         {
             Id = Guid.NewGuid(),
@@ -32,7 +36,8 @@ public sealed class KnowledgeChunk
             ChunkIndex = chunkIndex,
             Content = content,
             Embedding = embedding,
-            TokenCount = tokenCount
+            TokenCount = tokenCount,
+            Sanitized = sanitized
         };
 
     public void SetEmbedding(float[] embedding, int tokenCount)

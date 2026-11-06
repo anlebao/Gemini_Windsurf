@@ -12,6 +12,16 @@ builder.Services.AddDbContext<TenantAiDbContext>(opt =>
         npg => npg.UseVector())
        .UseSnakeCaseNamingConvention());
 
+// task_ai_p2 — ingest pipeline services.
+builder.Services.AddSingleton<VanAn.TenantAi.Ai.ChunkingService>();
+builder.Services.AddHttpClient<VanAn.TenantAi.Ai.IEmbeddingProvider, VanAn.TenantAi.Ai.GeminiEmbeddingService>(c =>
+{
+    var endpoint = builder.Configuration["TenantAiLlm:Endpoint"] ?? "https://generativelanguage.googleapis.com/v1beta";
+    c.BaseAddress = new Uri(endpoint.TrimEnd('/') + "/");
+    c.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("TenantAiLlm:TimeoutSeconds", 30));
+});
+builder.Services.AddScoped<VanAn.TenantAi.Api.Services.KnowledgeIngestService>();
+
 var app = builder.Build();
 
 // ---- Bootstrap: pgvector extension + schema + seed callers (idempotent) ----
@@ -94,8 +104,96 @@ app.MapGet("/v1/config/widget", NotImplemented)
     .RequireScope(ScopeNames.PublicChat)
     .RequireTenantContext();
 
-app.MapPost("/v1/knowledge/products:batch", NotImplemented)
+// ---- task_ai_p2: knowledge ingest (caller shoperp-*; tenant từ signed ctx) ----
+static Guid TenantOf(HttpContext ctx) => (Guid)ctx.Items["TenantId"]!;
+static string CallerOf(HttpContext ctx) => (string)ctx.Items["CallerId"]!;
+static IResult Error(int status, string code, string message) => Results.Json(
+    new { error = new { code, message, retryable = false } }, statusCode: status);
+
+app.MapPost("/v1/knowledge/products:batch", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.KnowledgeIngestService svc,
+        VanAn.TenantAi.Contracts.ProductsBatchRequest body, CancellationToken ct) =>
+    {
+        var idem = ctx.Request.Headers["Idempotency-Key"].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(idem))
+            return Error(StatusCodes.Status400BadRequest, "missing_idempotency_key", "Idempotency-Key header is required.");
+        var result = await svc.UpsertProductsAsync(TenantOf(ctx), body, idem, ct);
+        var r = result.Value!;
+        return Results.Ok(new VanAn.TenantAi.Contracts.ProductsBatchResponse(r.Upserted, r.Removed, idem, r.Replayed));
+    })
     .RequireScope(ScopeNames.Ingest)
+    .RequireTenantContext();
+
+app.MapDelete("/v1/knowledge/products/{id:guid}", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.KnowledgeIngestService svc, Guid id, CancellationToken ct) =>
+        await svc.DeleteProductAsync(TenantOf(ctx), id, ct)
+            ? Results.NoContent()
+            : Error(StatusCodes.Status404NotFound, "not_found", "Product knowledge not found."))
+    .RequireScope(ScopeNames.Ingest)
+    .RequireTenantContext();
+
+app.MapPost("/v1/knowledge/documents", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.KnowledgeIngestService svc,
+        VanAn.TenantAi.Contracts.DocumentIngestRequest body, CancellationToken ct) =>
+    {
+        var created = await svc.AddDocumentAsync(TenantOf(ctx), body, ct);
+        if (created.Value == null)
+            return Error(StatusCodes.Status400BadRequest, created.ErrorCode ?? "invalid_document", "Document rejected at ingest.");
+        return Results.Ok(new VanAn.TenantAi.Contracts.DocumentIngestResponse(
+            created.Value.Id, "pending_review", created.Value.Sanitized));
+    })
+    .RequireScope(ScopeNames.Ingest)
+    .RequireTenantContext();
+
+app.MapDelete("/v1/knowledge/documents/{id:guid}", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.KnowledgeIngestService svc, Guid id, CancellationToken ct) =>
+        await svc.DeleteDocumentAsync(TenantOf(ctx), id, ct)
+            ? Results.NoContent()
+            : Error(StatusCodes.Status404NotFound, "not_found", "Document not found."))
+    .RequireScope(ScopeNames.Ingest)
+    .RequireTenantContext();
+
+app.MapGet("/v1/knowledge/status", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.KnowledgeIngestService svc, CancellationToken ct) =>
+        Results.Ok(await svc.GetStatusAsync(TenantOf(ctx), ct)))
+    .RequireScope(ScopeNames.Ingest)
+    .RequireTenantContext();
+
+// ---- Approval gate [G14] — P1 operator tooling chính ----
+app.MapGet("/v1/admin/knowledge/pending", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.KnowledgeIngestService svc, CancellationToken ct) =>
+        Results.Ok(await svc.GetPendingAsync(TenantOf(ctx), ct)))
+    .RequireScope(ScopeNames.Admin)
+    .RequireTenantContext();
+
+app.MapPost("/v1/admin/knowledge/{id:guid}/approve", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.KnowledgeIngestService svc, Guid id, CancellationToken ct) =>
+    {
+        var result = await svc.ApproveDocumentAsync(TenantOf(ctx), id, CallerOf(ctx), ct);
+        return result.Value == null
+            ? result.ErrorCode == "not_found"
+                ? Error(StatusCodes.Status404NotFound, "not_found", "Document not found.")
+                : Error(StatusCodes.Status409Conflict, result.ErrorCode ?? "conflict", "Document is not pending review.")
+            : Results.Ok(result.Value);
+    })
+    .RequireScope(ScopeNames.Admin)
+    .RequireTenantContext();
+
+app.MapPost("/v1/admin/knowledge/{id:guid}/reject", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.KnowledgeIngestService svc, Guid id,
+        VanAn.TenantAi.Contracts.RejectDocumentRequest body, CancellationToken ct) =>
+    {
+        var result = await svc.RejectDocumentAsync(TenantOf(ctx), id, CallerOf(ctx), body.Reason, ct);
+        return result.Value == null
+            ? result.ErrorCode switch
+            {
+                "not_found" => Error(StatusCodes.Status404NotFound, "not_found", "Document not found."),
+                "reason_required" => Error(StatusCodes.Status400BadRequest, "reason_required", "Reject reason is required."),
+                _ => Error(StatusCodes.Status409Conflict, result.ErrorCode ?? "conflict", "Document is not pending review.")
+            }
+            : Results.Ok(result.Value);
+    })
+    .RequireScope(ScopeNames.Admin)
     .RequireTenantContext();
 
 app.MapGet("/v1/admin/tenants/{tenantId:guid}/profile", NotImplemented)

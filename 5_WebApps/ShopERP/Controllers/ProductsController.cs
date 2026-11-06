@@ -25,7 +25,8 @@ namespace VanAn.ShopERP.Controllers
         IQrCodeService qrCodeService,
         IProductService productService,
         ITenantProvider tenantProvider,
-        IShopFeatureSettingsService? shopFeatureSettingsService = null) : ControllerBase
+        IShopFeatureSettingsService? shopFeatureSettingsService = null,
+        Services.ITenantAiKnowledgeSync? tenantAiSync = null) : ControllerBase
     {
         private readonly IVanAnDbContext _dbContext = dbContext;
         private readonly ILogger<ProductsController> _logger = logger;
@@ -35,6 +36,8 @@ namespace VanAn.ShopERP.Controllers
         private readonly ITenantProvider _tenantProvider = tenantProvider;
         // W3-T8: Shop feature settings — for QR_TableNumber_Enabled toggle
         private readonly IShopFeatureSettingsService? _shopFeatureSettingsService = shopFeatureSettingsService;
+        // task_ai_p2: vanan-ai knowledge push — self no-ops when flag/config off
+        private readonly Services.ITenantAiKnowledgeSync? _tenantAiSync = tenantAiSync;
 
         /// <summary>
         /// Get active products for a shop's public catalog (KhachLink).
@@ -370,6 +373,8 @@ namespace VanAn.ShopERP.Controllers
             try
             {
                 ProductDetailDto created = await _productService.CreateProductAsync(request, _tenantProvider.TenantId, ct);
+                if (_tenantAiSync != null)
+                    await _tenantAiSync.NotifyProductChangedAsync(_tenantProvider.TenantId, created.ProductId, ct);
                 return CreatedAtAction(nameof(GetProduct), new { id = created.ProductId }, created);
             }
             catch (ArgumentException ex)
@@ -403,6 +408,8 @@ namespace VanAn.ShopERP.Controllers
             try
             {
                 bool ok = await _productService.UpdateProductAsync(id, request, _tenantProvider.TenantId, ct);
+                if (ok && _tenantAiSync != null)
+                    await _tenantAiSync.NotifyProductChangedAsync(_tenantProvider.TenantId, id, ct);
                 return ok ? Ok() : NotFound();
             }
             catch (ArgumentException ex)
@@ -429,6 +436,8 @@ namespace VanAn.ShopERP.Controllers
             }
 
             bool ok = await _productService.DeleteProductAsync(id, _tenantProvider.TenantId, ct);
+            if (ok && _tenantAiSync != null)
+                await _tenantAiSync.NotifyProductDeletedAsync(_tenantProvider.TenantId, id, ct);
             return ok ? NoContent() : NotFound();
         }
 
@@ -445,6 +454,8 @@ namespace VanAn.ShopERP.Controllers
             }
 
             bool ok = await _productService.ActivateProductAsync(id, _tenantProvider.TenantId, ct);
+            if (ok && _tenantAiSync != null)
+                await _tenantAiSync.NotifyProductChangedAsync(_tenantProvider.TenantId, id, ct);
             return ok ? Ok() : NotFound();
         }
 
@@ -461,6 +472,8 @@ namespace VanAn.ShopERP.Controllers
             }
 
             bool ok = await _productService.DeactivateProductAsync(id, _tenantProvider.TenantId, ct);
+            if (ok && _tenantAiSync != null)
+                await _tenantAiSync.NotifyProductChangedAsync(_tenantProvider.TenantId, id, ct);
             return ok ? Ok() : NotFound();
         }
 
