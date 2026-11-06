@@ -49,7 +49,7 @@ Structured data (product_knowledge) > approved Public docs > external (P3). Vect
 - ✅ Auth matrix: no-auth 401 · bad-key 401 · no-ctx 401 · forged-sig rejected · scope escalation 403
 - ✅ Ingest pilot-shaped data → approve → status: product upsert 200 · doc pending→approved + chunked · status counters đúng
 - ✅ Chat ≥4 câu real qua caller `gateway` + ctx ký tay: price query → "Pho chay RV — giá 80,000đ — 320 kcal" · brand story → doc content · nutrition → facts sorted · out-of-scope → refused `out_of_scope` — **degraded=true đúng thiết kế** (chưa có LLM key → structured fallback, không LLM call)
-- ⏳ LLM key thật (`TenantAiLlm__ApiKey` secret) — **cần user cung cấp Gemini key** → set secret → redeploy → verify latency P95 ≤8s + T1/T5/T11/T13 trên env thật (vector path PG thật — InMemory tests đã cover fallback path)
+- ✅ LLM key thật (`TENANTAI_LLM_APIKEY` secret — reuse `SMART_ENTRY_LLM_API_KEY` từ `.env.shoperp`) — set 2026-11-06 · **non-degraded verify PASS**: `degraded:false` · answer grounded "Phở chay RV có giá 80,000đ" + product card · latency 1.2–2.7s (≪ P95 8s) · còn T1/T5/T11/T13 trên env thật (vector path PG — fallback path đã cover trong tests)
 - ⚠️ CD run đầu `42221486001`: deploy-tenantai fail (scp nested path) → fix `d8ccfe8c`; deploy-metering fail SSH refused (metering VPS — infra issue riêng, không liên quan)
 
 ## Acceptance
