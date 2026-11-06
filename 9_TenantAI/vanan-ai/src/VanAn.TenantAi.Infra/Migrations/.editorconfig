@@ -1,0 +1,3 @@
+# EF-generated code — analyzer noise on constant array args is unavoidable on regenerate.
+[*.cs]
+dotnet_diagnostic.CA1861.severity = none

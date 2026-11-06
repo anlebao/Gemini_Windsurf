@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>VanAn.TenantAi.Api</RootNamespace>
+    <AssemblyName>VanAn.TenantAi.Api</AssemblyName>
+    <!-- Standalone service — NO ProjectReference to 1_Shared / 3_CoreHub (SRS [D1]). -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VanAn.TenantAi.Ai\VanAn.TenantAi.Ai.csproj" />
+    <ProjectReference Include="..\VanAn.TenantAi.Contracts\VanAn.TenantAi.Contracts.csproj" />
+    <ProjectReference Include="..\VanAn.TenantAi.Domain\VanAn.TenantAi.Domain.csproj" />
+    <ProjectReference Include="..\VanAn.TenantAi.Infra\VanAn.TenantAi.Infra.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- dotnet ef startup requirement (migrations live in Infra). -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

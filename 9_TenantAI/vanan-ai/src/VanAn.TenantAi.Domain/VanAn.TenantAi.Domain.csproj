@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>VanAn.TenantAi.Domain</RootNamespace>
+    <AssemblyName>VanAn.TenantAi.Domain</AssemblyName>
+    <!-- Pure domain — no EF Core, no DbContext (boundary metering §1). -->
+  </PropertyGroup>
+
+</Project>

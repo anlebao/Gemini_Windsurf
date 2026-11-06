@@ -74,7 +74,7 @@ jobs:
           if (-not $result) {
             $result = [PSCustomObject]@{
               deploy_action    = "full"
-              deploy_set       = @("gateway", "khachlink", "shoperp", "directory", "crawler", "metering")
+              deploy_set       = @("gateway", "khachlink", "shoperp", "directory", "crawler", "metering", "tenantai")
               nginx_changed    = $false
               verification_set = @("build", "unit", "integration", "startup", "deploy_smoke", "targeted_rv")
             }
@@ -120,6 +120,9 @@ jobs:
           - app: metering
             file: 8_Metering/vanan-metering/Dockerfile
             image: vanan-metering
+          - app: tenantai
+            file: 9_TenantAI/vanan-ai/Dockerfile
+            image: vanan-ai
 
     outputs:
       image_tag: ${{ env.IMAGE_TAG }}

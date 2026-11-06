@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>VanAn.TenantAi.Ai</RootNamespace>
+    <AssemblyName>VanAn.TenantAi.Ai</AssemblyName>
+    <!-- AI pipeline home: IntentRouter / PolicyEngine / UsagePermission /
+         Retriever / ILlmChatClient / IEmbeddingProvider / Validator (P3). -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VanAn.TenantAi.Contracts\VanAn.TenantAi.Contracts.csproj" />
+    <ProjectReference Include="..\VanAn.TenantAi.Domain\VanAn.TenantAi.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

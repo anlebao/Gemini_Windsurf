@@ -25,6 +25,9 @@
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="8.0.7" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.8" />
     <PackageVersion Include="Npgsql" Version="8.0.8" />
+    <PackageVersion Include="EFCore.NamingConventions" Version="8.0.3" />
+    <PackageVersion Include="Pgvector" Version="0.3.0" />
+    <PackageVersion Include="Pgvector.EntityFrameworkCore" Version="0.2.0" />
 
     <!-- Microsoft.Extensions - REMOVED (moved to Directory.Packages.props to avoid duplication) -->
 
@@ -51,6 +54,7 @@
     <!-- Code Analysis -->
     <PackageVersion Include="Microsoft.CodeAnalysis" Version="4.8.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.8.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
 

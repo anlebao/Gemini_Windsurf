@@ -48,6 +48,10 @@ apps:
     image: ghcr.io/anlebao/vanan-metering
     paths:
       - 8_Metering/**
+  tenantai:
+    image: ghcr.io/anlebao/vanan-ai
+    paths:
+      - 9_TenantAI/**
 
 # ------------------------------------------------------------
 # Dependency graph — VERIFIED from *.csproj ProjectReference (2026-09-26)

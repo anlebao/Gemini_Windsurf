@@ -1,0 +1,53 @@
+# docker-compose.tenantai.yml — vanan-ai service + own PG/pgvector (SRS v1.1 [D2][D6]).
+# Deploy trên VPS riêng `vanan-ai`; expose ra ngoài CHỈ qua nginx gateway path /ai/api/.
+# Secrets qua env vars — KHÔNG commit giá trị thật (dev-token-secret rules).
+
+services:
+  vanan-ai:
+    image: ghcr.io/anlebao/vanan-ai:latest
+    container_name: vanan-ai-1
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_URLS: http://+:5060
+      ConnectionStrings__TenantAi: Host=tenantai-pg;Port=5432;Database=vanan_ai;Username=vanan_ai;Password=${TENANTAI_PG_PASSWORD}
+      TenantAi__Enabled: "true"
+      TenantAi__BootstrapCaller: ${TENANTAI_BOOTSTRAP_CALLER:-}
+      TenantAi__BootstrapIngest: ${TENANTAI_BOOTSTRAP_INGEST:-}
+      TenantAi__CtxSigningSecret: ${TENANTAI_CTX_SIGNING_SECRET}
+      TenantAiLlm__ApiKey: ${TENANTAI_LLM_APIKEY:-}
+      TenantAiLlm__ChatModel: ${TENANTAI_LLM_CHAT_MODEL:-gemini-3.5-flash-lite}
+      TenantAiLlm__EmbeddingModel: ${TENANTAI_LLM_EMBED_MODEL:-text-embedding-004}
+      Metering__BaseUrl: ${METERING_BASE_URL:-}
+      Metering__CallerId: ${METERING_CALLER_ID:-vanan-ai}
+      Metering__CallerKey: ${METERING_CALLER_KEY:-}
+    depends_on:
+      tenantai-pg:
+        condition: service_healthy
+    networks:
+      - vanan-ai-net
+    # KHÔNG publish port ra host public — chỉ internal network / nginx proxy.
+
+  tenantai-pg:
+    image: pgvector/pgvector:pg16
+    container_name: vanan-ai-pg-1
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vanan_ai
+      POSTGRES_USER: vanan_ai
+      POSTGRES_PASSWORD: ${TENANTAI_PG_PASSWORD}
+    volumes:
+      - vanan_ai_pgdata:/var/lib/postgresql/data
+    networks:
+      - vanan-ai-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vanan_ai -d vanan_ai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  vanan_ai_pgdata:
+
+networks:
+  vanan-ai-net:
+    driver: bridge
