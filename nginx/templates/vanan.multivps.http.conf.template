@@ -131,12 +131,16 @@ server {
     listen 80;
     server_name api2.${VANAN_DOMAIN};
 
+    # 2026-11-06: variable proxy_pass → runtime DNS re-resolution (resolver in
+    # nginx.conf). Prevents stale gateway IP 502 after container recreate.
+    set $gateway_upstream http://gateway:80;
+
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
     }
 
     location / {
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
         proxy_set_header   Connection "upgrade";
@@ -148,7 +152,7 @@ server {
     }
 
     location ~ ^/(orderHub|kitchenhub) {
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
         proxy_set_header   Connection "upgrade";

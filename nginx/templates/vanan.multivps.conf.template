@@ -28,6 +28,11 @@ server {
     listen 80 default_server;
     server_name _;
 
+    # 2026-11-06: variable proxy_pass → runtime DNS resolution via resolver
+    # 127.0.0.11 (nginx.conf). Prevents stale gateway IP after container
+    # recreate (root cause of the all-API 502 incident).
+    set $gateway_upstream http://gateway:80;
+
     # Let's Encrypt ACME challenge (must work before SSL cert exists)
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -36,7 +41,7 @@ server {
     # API requests → proxy directly to Gateway container (no HTTPS redirect)
     location /api/ {
         client_max_body_size 10m;  # #130: allow photo upload
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Host api2.${VANAN_DOMAIN};
         proxy_set_header   X-Real-IP $remote_addr;
@@ -47,7 +52,7 @@ server {
 
     # SignalR hubs → proxy to Gateway with WebSocket upgrade
     location ~ ^/(orderHub|kitchenhub|hubs/) {
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
         proxy_set_header   Connection "upgrade";
@@ -58,7 +63,7 @@ server {
 
     # Health check endpoint → proxy to Gateway
     location = /health {
-        proxy_pass         http://gateway:80/health;
+        proxy_pass         $gateway_upstream;
         proxy_set_header   Host api2.${VANAN_DOMAIN};
     }
 
@@ -209,6 +214,8 @@ server {
     listen 443 ssl http2;
     server_name diemthuong2.${VANAN_DOMAIN};
 
+    set $gateway_upstream http://gateway:80;
+
     ssl_certificate     /etc/letsencrypt/live/www2.${VANAN_DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/www2.${VANAN_DOMAIN}/privkey.pem;
     ssl_protocols       TLSv1.2 TLSv1.3;
@@ -268,7 +275,7 @@ server {
         client_max_body_size 10m;  # #130: allow photo upload
         limit_req zone=api burst=200 nodelay;
         limit_conn perip_conn 20;
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -280,7 +287,7 @@ server {
     # SignalR hubs → proxy to Gateway (chat, orderHub, kitchenhub).
     # Without this, /hubs/chat falls into `location /` → KhachLink static container → 405.
     location ~ ^/hubs/ {
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
         proxy_set_header   Connection "upgrade";
@@ -445,6 +452,8 @@ server {
     listen 443 ssl http2;
     server_name api2.${VANAN_DOMAIN};
 
+    set $gateway_upstream http://gateway:80;
+
     ssl_certificate     /etc/letsencrypt/live/www2.${VANAN_DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/www2.${VANAN_DOMAIN}/privkey.pem;
     ssl_protocols       TLSv1.2 TLSv1.3;
@@ -465,7 +474,7 @@ server {
     location /api/platform/login {
         limit_req zone=auth burst=5 nodelay;
         limit_conn perip_conn 3;
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -477,7 +486,7 @@ server {
     location /api/auth/ {
         limit_req zone=auth burst=5 nodelay;
         limit_conn perip_conn 3;
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -490,7 +499,7 @@ server {
     limit_req zone=api burst=200 nodelay;
 
     location / {
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
         proxy_set_header   Connection "upgrade";
@@ -503,7 +512,7 @@ server {
 
     # SignalR hubs — includes /hubs/chat (chat) with long timeout for WebSocket idle
     location ~ ^/(orderHub|kitchenhub|hubs/) {
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
         proxy_set_header   Connection "upgrade";
@@ -539,6 +548,8 @@ server {
 server {
     listen 443 ssl http2;
     server_name ~^(?!api2\.|app2\.|www2\.|diemthuong2\.).+\.${VANAN_DOMAIN}$;
+
+    set $gateway_upstream http://gateway:80;
 
     # Reuse the same wildcard cert (SAN includes all subdomains via --expand)
     ssl_certificate     /etc/letsencrypt/live/www2.${VANAN_DOMAIN}/fullchain.pem;
@@ -600,7 +611,7 @@ server {
         client_max_body_size 10m;  # #130: allow photo upload
         limit_req zone=api burst=200 nodelay;
         limit_conn perip_conn 20;
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -612,7 +623,7 @@ server {
     # SignalR hubs → proxy to Gateway (chat, orderHub, kitchenhub).
     # Without this, /hubs/chat falls into `location /` → KhachLink static container → 404.
     location ~ ^/hubs/ {
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
         proxy_set_header   Connection "upgrade";
@@ -673,6 +684,8 @@ server {
     listen 443 ssl http2;
     server_name timlathay.com;
 
+    set $gateway_upstream http://gateway:80;
+
     ssl_certificate     /etc/letsencrypt/live/timlathay.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/timlathay.com/privkey.pem;
     ssl_protocols       TLSv1.2 TLSv1.3;
@@ -732,7 +745,7 @@ server {
         add_header X-Cache-Status $upstream_cache_status;
         limit_req zone=dir_api burst=200 nodelay;
         limit_conn perip_conn 20;
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -748,7 +761,7 @@ server {
         add_header X-Cache-Status $upstream_cache_status;
         limit_req zone=dir_api burst=200 nodelay;
         limit_conn perip_conn 20;
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -764,7 +777,7 @@ server {
         add_header X-Cache-Status $upstream_cache_status;
         limit_req zone=dir_api burst=200 nodelay;
         limit_conn perip_conn 20;
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -778,7 +791,7 @@ server {
         client_max_body_size 10m;  # #130: allow photo upload
         limit_req zone=dir_api burst=200 nodelay;
         limit_conn perip_conn 20;
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -846,6 +859,8 @@ server {
     listen 443 ssl http2;
     server_name *.timlathay.com;
 
+    set $gateway_upstream http://gateway:80;
+
     # Reuse the timlathay.com cert (SAN expanded to include subdomains via --expand)
     ssl_certificate     /etc/letsencrypt/live/timlathay.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/timlathay.com/privkey.pem;
@@ -904,7 +919,7 @@ server {
         add_header X-Cache-Status $upstream_cache_status;
         limit_req zone=dir_api burst=200 nodelay;
         limit_conn perip_conn 20;
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -920,7 +935,7 @@ server {
         add_header X-Cache-Status $upstream_cache_status;
         limit_req zone=dir_api burst=200 nodelay;
         limit_conn perip_conn 20;
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -936,7 +951,7 @@ server {
         add_header X-Cache-Status $upstream_cache_status;
         limit_req zone=dir_api burst=200 nodelay;
         limit_conn perip_conn 20;
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -950,7 +965,7 @@ server {
         client_max_body_size 10m;  # #130: allow photo upload
         limit_req zone=dir_api burst=200 nodelay;
         limit_conn perip_conn 20;
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -962,7 +977,7 @@ server {
     # SignalR hubs → proxy to Gateway (WebSocket upgrade + 3600s timeout)
     # Without this, /hubs/chat falls into location / → KhachLink static → 405.
     location ~ ^/hubs/ {
-        proxy_pass         http://gateway:80;
+        proxy_pass         $gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
         proxy_set_header   Connection "upgrade";
