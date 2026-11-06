@@ -1,0 +1,89 @@
+{
+  "_comment": "Thực đơn tham khảo cho tenant An Tâm (quán chay) — tổng hợp từ buddhachay.vn + món chay phổ biến VN. Dùng để NHẬP sản phẩm vào ShopERP (product knowledge AI lấy qua sync, KHÔNG push trực tiếp). Giá tham khảo — owner chỉnh theo thực tế.",
+  "categories": [
+    {
+      "name": "Khai vị",
+      "items": [
+        { "name": "Gỏi cuốn chay", "price": 45000, "ingredients": "bánh tráng, bún, rau sống, đậu hủ chiên, nấm, sốt tương đậu phộng" },
+        { "name": "Chả giò chay", "price": 55000, "ingredients": "bánh tráng, khoai môn, cà rốt, nấm mèo, miến" },
+        { "name": "Gỏi mít non", "price": 92000, "ingredients": "mít non luộc, sốt chua ngọt, rau răm, đậu phộng" },
+        { "name": "Gỏi ngó sen", "price": 92000, "ingredients": "ngó sen, sốt chua ngọt, rau răm, đậu hủ, đậu phộng" },
+        { "name": "Gỏi củ hủ dừa", "price": 92000, "ingredients": "củ hủ dừa, sốt chua ngọt, rau răm, đậu phộng" },
+        { "name": "Đậu hũ chiên sả ớt", "price": 65000, "ingredients": "đậu hủ, sả, ớt, nước tương" },
+        { "name": "Cơm cháy sốt nấm", "price": 97000, "ingredients": "cơm cháy, sốt nấm tổng hợp" }
+      ]
+    },
+    {
+      "name": "Món chính — Cơm",
+      "items": [
+        { "name": "Cơm phần chay", "price": 55000, "ingredients": "cơm trắng, 3 món mặn chay, canh, rau" },
+        { "name": "Cơm chiên thơm", "price": 82000, "ingredients": "cơm, quả thơm, hem chay, củ quả hạt lựu" },
+        { "name": "Cơm chiên kiểu Thái", "price": 82000, "ingredients": "cơm, hem chay, bột ớt, sốt tương ớt-cà, rau thơm" },
+        { "name": "Cơm chiên sốt cà ri", "price": 82000, "ingredients": "cơm, nấm mèo, hem chay, sốt cà ri" },
+        { "name": "Cơm chiên lá cẩm", "price": 97000, "ingredients": "cơm Ấn Độ, củ quả, chả, cốt dừa trái, lá cẩm" }
+      ]
+    },
+    {
+      "name": "Món chính — Bún/Mì/Hủ tiếu",
+      "items": [
+        { "name": "Phở chay", "price": 65000, "ingredients": "bánh phở, nước dùng nấm-rau củ, nấm đông cô, đậu hủ, rau thơm" },
+        { "name": "Bún riêu chay", "price": 55000, "ingredients": "bún, cà chua, đậu hủ, nấm, rau sống, mắm chay" },
+        { "name": "Bún Huế chay", "price": 60000, "ingredients": "bún, sả, ớt, đậu hủ, chả chay, rau sống" },
+        { "name": "Mì Quảng chay", "price": 60000, "ingredients": "mì Quảng, đậu phộng, đậu hủ, nấm, rau sống, bánh đa" },
+        { "name": "Hủ tiếu xào thập cẩm", "price": 92000, "ingredients": "hủ tiếu, cải thảo, bông cải, đậu hủ, cần tàu" },
+        { "name": "Mì xào mềm", "price": 92000, "ingredients": "mì tươi, giá, cải thìa, cải thảo, bông cải, đậu hủ" },
+        { "name": "Mì xào giòn", "price": 92000, "ingredients": "mì chiên giòn, sốt rau cải, bông cải, đậu hủ, rau cần" },
+        { "name": "Pad Thái chay", "price": 97000, "ingredients": "hủ tiếu, sốt chua ngọt, đậu que, giá, đậu hủ, đậu phộng" },
+        { "name": "Cà ri nấu thập cẩm (kèm bún/bánh mì)", "price": 97000, "ingredients": "củ quả, cốt dừa, sả, lá chanh" },
+        { "name": "Mỳ ý sốt kiểu Buddha", "price": 92000, "ingredients": "mỳ ý, sốt cà chua tươi" }
+      ]
+    },
+    {
+      "name": "Món rau & món kho",
+      "items": [
+        { "name": "Rau muống xào tỏi", "price": 55000, "ingredients": "rau muống, tỏi" },
+        { "name": "Cải thìa xào nấm", "price": 60000, "ingredients": "cải thìa, nấm đông cô, dầu hào chay" },
+        { "name": "Rau củ xào thập cẩm", "price": 65000, "ingredients": "bông cải, cà rốt, đậu que, nấm, bắp non" },
+        { "name": "Đậu hũ sốt cà chua", "price": 55000, "ingredients": "đậu hủ, cà chua, hành, ngò" },
+        { "name": "Đậu hũ kho tiêu", "price": 60000, "ingredients": "đậu hủ, tiêu, nước dừa, nước màu" },
+        { "name": "Nấm kho tiêu", "price": 70000, "ingredients": "nấm rơm, tiêu, nước dừa" },
+        { "name": "Khổ qua kho nấm", "price": 65000, "ingredients": "khổ qua, nấm" },
+        { "name": "Sườn non chay xào chua ngọt", "price": 75000, "ingredients": "sườn non chay, sốt chua ngọt, ớt chuông, thơm" }
+      ]
+    },
+    {
+      "name": "Canh",
+      "items": [
+        { "name": "Canh chua chay", "price": 77000, "ingredients": "cà chua, dứa, đậu bắp, giá, ngò gai, me" },
+        { "name": "Canh rong biển đậu hủ non", "price": 77000, "ingredients": "rong biển Nhật, đậu hủ non, nấm" },
+        { "name": "Canh củ sen đậu đỏ", "price": 77000, "ingredients": "đậu đỏ, củ sen, hạt sen, đậu hủ non, nấm" },
+        { "name": "Canh khổ qua", "price": 77000, "ingredients": "khổ qua, nấm, đậu non" },
+        { "name": "Canh xà lách xoong", "price": 77000, "ingredients": "xà lách xoong, nấm, đậu non, cà rốt" },
+        { "name": "Canh ngũ sắc", "price": 77000, "ingredients": "củ sen, đậu đỏ, nấm, bông cải, đậu non" }
+      ]
+    },
+    {
+      "name": "Lẩu (2-4 người)",
+      "items": [
+        { "name": "Lẩu nấm", "price": 285000, "ingredients": "nước lẩu hầm mướp củ cải, combo nấm-rau, bún tươi" },
+        { "name": "Lẩu Thái chua cay", "price": 285000, "ingredients": "nước lẩu chua cay, combo nhân lẩu, rau, bún tươi" },
+        { "name": "Lẩu chao", "price": 285000, "ingredients": "nước lẩu vị chao, cốt dừa, khoai môn, nhân lẩu, rau, bún" },
+        { "name": "Lẩu kim chi", "price": 285000, "ingredients": "nước lẩu chua cay kim chi, nhân lẩu, rau, bún tươi" },
+        { "name": "Lẩu tiêu xanh", "price": 285000, "ingredients": "nước hầm tiêu xanh, nhân lẩu, rau, bún tươi" },
+        { "name": "Lẩu tiềm thuốc bắc", "price": 335000, "ingredients": "nước hầm thuốc bắc, nhãn nhục, kỷ tử, táo đỏ, hoài sơn, mì tươi" }
+      ]
+    },
+    {
+      "name": "Tráng miệng & thức uống",
+      "items": [
+        { "name": "Chè đậu xanh", "price": 25000, "ingredients": "đậu xanh, cốt dừa" },
+        { "name": "Chè khúc bạch", "price": 35000, "ingredients": "khúc bạch, hạnh nhân, vải, nhãn" },
+        { "name": "Tàu hũ nước đường", "price": 20000, "ingredients": "tàu hũ, nước đường gừng" },
+        { "name": "Nước ép rau má", "price": 35000, "ingredients": "rau má" },
+        { "name": "Nước ép cam", "price": 40000, "ingredients": "cam tươi" },
+        { "name": "Trà đá/Trà nóng", "price": 10000, "ingredients": "trà" },
+        { "name": "Sinh tố bơ", "price": 45000, "ingredients": "bơ, sữa hạt" }
+      ]
+    }
+  ]
+}
