@@ -23,14 +23,23 @@ public sealed class TenantAiApiFactory : WebApplicationFactory<Program>
     private string _dbName = "tenantai-test-" + Guid.NewGuid();
     private bool _seeded;
     private Action<IServiceCollection>? _configure;
+    private Dictionary<string, string?>? _settings;
 
     /// <summary>xUnit fixtures allow one public ctor — service overrides via factory helper instead.</summary>
     public static TenantAiApiFactory WithServices(Action<IServiceCollection> configure)
         => new() { _configure = configure };
 
+    /// <summary>Same + app settings overrides (e.g. TenantAi:Enabled=false for kill-switch tests).</summary>
+    public static TenantAiApiFactory With(
+        Action<IServiceCollection>? configure = null, Dictionary<string, string?>? settings = null)
+        => new() { _configure = configure, _settings = settings };
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("TenantAi:CtxSigningSecret", SigningSecret);
+        if (_settings != null)
+            foreach (var (k, v) in _settings)
+                builder.UseSetting(k, v);
 
         builder.ConfigureServices(services =>
         {

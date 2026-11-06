@@ -1,0 +1,258 @@
+@* Task AI-P4 / SRS v1.1 §6.1 — storefront AI chat widget (floating bubble + panel).
+   HTTP REST via IAiChatClient (no SignalR — AI answers are request/response).
+   Renders NOTHING unless GET widget-config returns aiEnabled=true (feature flag
+   off / service down → hidden; NFR-3: AI down ≠ storefront down).
+   Product cards "Thêm vào giỏ" → OnAddToCart callback (host wires its own cart —
+   AI never creates orders; Option C snapshot: name + price from the card). *@
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Tokens
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@inject IJSRuntime JSRuntime
+@inject IAiChatClient AiClient
+
+@if (_config?.AiEnabled == true)
+{
+    <div class="vanan-ai-widget">
+        @if (_open)
+        {
+            <VanAnCard Shadow="true" CssClass="vanan-ai-panel p-0 overflow-hidden">
+                <div class="d-flex justify-content-between align-items-center p-3 border-bottom vanan-ai-header">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-robot"></i>
+                        <h6 class="mb-0">@(_aiName)</h6>
+                    </div>
+                    <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                                 OnClick="ToggleOpen" aria-label="Đóng trợ lý AI">
+                        <i class="bi bi-chevron-down"></i>
+                    </VanAnButton>
+                </div>
+
+                <div id="@ScrollContainerId" class="vanan-ai-messages">
+                    @if (_loadingHistory)
+                    {
+                        <div class="text-center py-3">
+                            <div class="spinner-border spinner-border-sm text-primary"></div>
+                        </div>
+                    }
+                    else
+                    {
+                        @if (!string.IsNullOrWhiteSpace(_config.Greeting) && _messages.Count == 0)
+                        {
+                            <div class="vanan-ai-msg vanan-ai-msg-assistant">
+                                <div class="vanan-ai-bubble">@_config.Greeting</div>
+                            </div>
+                        }
+                        @foreach (var msg in _messages)
+                        {
+                            var isUser = msg.Role == "user";
+                            <div class="vanan-ai-msg @(isUser ? "vanan-ai-msg-user" : "vanan-ai-msg-assistant")">
+                                <div class="vanan-ai-bubble">@msg.Content</div>
+                                @if (!isUser && msg.Products.Count > 0)
+                                {
+                                    <div class="vanan-ai-products">
+                                        @foreach (var p in msg.Products)
+                                        {
+                                            <div class="vanan-ai-product-card">
+                                                @if (!string.IsNullOrWhiteSpace(p.ImageUrl))
+                                                {
+                                                    <img src="@p.ImageUrl" alt="@p.Name" class="vanan-ai-product-img" />
+                                                }
+                                                <div class="vanan-ai-product-info">
+                                                    <div class="vanan-ai-product-name">@p.Name</div>
+                                                    <div class="vanan-ai-product-price">@p.Price.ToString("N0", CultureVi)₫</div>
+                                                </div>
+                                                <VanAnButton Variant="ButtonVariant.Primary" Size="ButtonSize.Small"
+                                                             OnClick="() => AddToCartAsync(msg, p)"
+                                                             aria-label="@($"Thêm {p.Name} vào giỏ")">
+                                                    <i class="bi bi-cart-plus"></i> Thêm vào giỏ
+                                                </VanAnButton>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                        @if (_sending)
+                        {
+                            <div class="vanan-ai-msg vanan-ai-msg-assistant">
+                                <div class="vanan-ai-bubble vanan-ai-typing">
+                                    <span class="vanan-ai-dot"></span><span class="vanan-ai-dot"></span><span class="vanan-ai-dot"></span>
+                                </div>
+                            </div>
+                        }
+                        @if (_config.Suggestions?.Count > 0 && _messages.Count == 0 && !_sending)
+                        {
+                            <div class="vanan-ai-suggestions">
+                                @foreach (var s in _config.Suggestions)
+                                {
+                                    <button type="button" class="vanan-ai-chip" @onclick="() => SuggestAsync(s)">@s</button>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+
+                <div class="p-2 border-top">
+                    @if (_addedNotice is not null)
+                    {
+                        <div class="small text-success mb-1"><i class="bi bi-check-circle"></i> @_addedNotice</div>
+                    }
+                    <div class="d-flex gap-2 align-items-center">
+                        <VanAInput AdditionalClasses="vanan-ai-input" Placeholder="Hỏi trợ lý về quán..."
+                                   @bind-Value="_input" OnKeyPress="OnKeyPress" maxlength="2000" Disabled="_sending" />
+                        <VanAnButton Variant="ButtonVariant.Primary" OnClick="SendAsync" Disabled="_sending"
+                                     CssClass="vanan-ai-send" aria-label="Gửi tin nhắn">
+                            <i class="bi bi-send"></i>
+                        </VanAnButton>
+                    </div>
+                </div>
+            </VanAnCard>
+        }
+        else
+        {
+            <button type="button" class="vanan-ai-bubble-btn" @onclick="ToggleOpen" aria-label="Mở trợ lý AI">
+                <i class="bi bi-robot"></i>
+            </button>
+        }
+    </div>
+}
+
+@code {
+    private static readonly System.Globalization.CultureInfo CultureVi = new("vi-VN");
+
+    /// <summary>Tenant whose storefront the widget is mounted on (server re-validates — T6).</summary>
+    [Parameter] public Guid TenantId { get; set; }
+    /// <summary>Optional BCP-47 locale forwarded to the AI service.</summary>
+    [Parameter] public string? Locale { get; set; }
+    /// <summary>Product card "Thêm vào giỏ" — host maps the snapshot to its own cart service.</summary>
+    [Parameter] public EventCallback<AiProductCardItem> OnAddToCart { get; set; }
+    [Parameter] public string ScrollContainerId { get; set; } = "vanan-ai-scroll";
+    /// <summary>localStorage key for the anonymous chat session (vanan_ai_session per task card).</summary>
+    [Parameter] public string SessionStorageKey { get; set; } = "vanan_ai_session";
+
+    private AiWidgetConfig? _config;
+    private string _aiName = "Trợ lý AI";
+    private string? _sessionId;
+    private string _input = string.Empty;
+    private string? _addedNotice;
+    private bool _open;
+    private bool _sending;
+    private bool _loadingHistory;
+    private bool _historyLoaded;
+    private readonly List<AiSessionMessage> _messages = new();
+    /// <summary>Client-side dedupe — retried messageIds never append twice (server dedupes too [G8]).</summary>
+    private readonly HashSet<string> _seenMessageIds = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _config = await AiClient.GetWidgetConfigAsync(TenantId);
+        if (_config?.AiEnabled == true && !string.IsNullOrWhiteSpace(_config.AiName))
+            _aiName = _config.AiName;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _config?.AiEnabled == true)
+            _sessionId = await GetOrCreateSessionIdAsync();
+    }
+
+    private async Task ToggleOpen()
+    {
+        _open = !_open;
+        if (_open && !_historyLoaded && _sessionId is not null)
+        {
+            _loadingHistory = true;
+            var history = await AiClient.GetSessionMessagesAsync(TenantId, _sessionId);
+            _loadingHistory = false;
+            if (history is not null)
+            {
+                _messages.AddRange(history);
+                foreach (var m in history) _seenMessageIds.Add(m.CreatedAtUtc.ToString("o"));
+            }
+            _historyLoaded = true;
+        }
+    }
+
+    /// <summary>localStorage-backed anonymous session (same pattern as customer_device_id).</summary>
+    private async Task<string> GetOrCreateSessionIdAsync()
+    {
+        try
+        {
+            var existing = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", SessionStorageKey);
+            if (!string.IsNullOrWhiteSpace(existing)) return existing;
+            var created = Guid.NewGuid().ToString("N");
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", SessionStorageKey, created);
+            return created;
+        }
+        catch (InvalidOperationException)
+        {
+            // JS not available yet (prerender) — fall back to a volatile session id.
+            return _sessionId ?? Guid.NewGuid().ToString("N");
+        }
+    }
+
+    private async Task SuggestAsync(string text)
+    {
+        _input = text;
+        await SendAsync();
+    }
+
+    private async Task SendAsync()
+    {
+        var text = _input.Trim();
+        if (text.Length == 0 || _sending || _sessionId is null) return;
+
+        var messageId = Guid.NewGuid().ToString("N");
+        _input = string.Empty;
+        _addedNotice = null;
+        _sending = true;
+        _messages.Add(new AiSessionMessage("user", text, [], DateTime.UtcNow));
+        await ScrollToBottomAsync();
+
+        AiChatResult? result = null;
+        try
+        {
+            result = await AiClient.SendChatAsync(TenantId, _sessionId, messageId, text, Locale);
+        }
+        catch { /* handled below — fallback message */ }
+        _sending = false;
+
+        if (result is null)
+        {
+            _messages.Add(new AiSessionMessage("assistant",
+                "Trợ lý AI tạm nghỉ, bạn thử lại sau nhé.", [], DateTime.UtcNow));
+        }
+        else if (_seenMessageIds.Add(messageId))
+        {
+            _messages.Add(new AiSessionMessage("assistant", result.Answer, result.Products, DateTime.UtcNow));
+        }
+        await ScrollToBottomAsync();
+    }
+
+    private async Task AddToCartAsync(AiSessionMessage msg, AiProductCardItem product)
+    {
+        if (OnAddToCart.HasDelegate)
+        {
+            await OnAddToCart.InvokeAsync(product);
+            _addedNotice = $"Đã thêm \"{product.Name}\" vào giỏ.";
+        }
+    }
+
+    private async Task OnKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_input))
+            await SendAsync();
+    }
+
+    private async Task ScrollToBottomAsync()
+    {
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("vananRealtime.scrollToBottom", ScrollContainerId);
+        }
+        catch { /* JS interop not available during prerender */ }
+    }
+}

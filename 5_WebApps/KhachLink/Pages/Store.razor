@@ -295,17 +295,13 @@ else
         }
 
         <!-- ════════════════════════════════════════════════════════════════
-             AI CHATBOX placeholder (Phase 4-5 — deferred)
+             AI CHAT WIDGET (Task AI-P4, SRS v1.1 §6.1) — floating bubble + panel.
+             Section flag gates mount; the widget itself hides when
+             widget-config returns aiEnabled=false (service down / metering deny).
         ════════════════════════════════════════════════════════════════ -->
         @if (_features.AIChat_Enabled)
         {
-            <section class="store-section">
-                <div class="ai-chat-placeholder">
-                    <i class="bi bi-robot"></i>
-                    <h3>AI Chatbox sắp ra mắt</h3>
-                    <p>Tính năng này đang được phát triển — sẽ có trong sprint tới.</p>
-                </div>
-            </section>
+            <AiChatWidget TenantId="_store.Id" OnAddToCart="AddAiProductToCartAsync" />
         }
 
         <!-- ════════════════════════════════════════════════════════════════
@@ -885,6 +881,28 @@ else
         // Shared toast (vananShowCartToast delegates to vananShowToast — same as Home.razor + ProductSearchResults.razor)
         try { await JSRuntime.InvokeVoidAsync("vananShowCartToast", $"Đã thêm {product.Name} vào giỏ hàng!"); }
         catch { /* ignore JS errors during prerender */ }
+    }
+
+    /// <summary>
+    /// Task AI-P4 (Option C): AI product card → cart. Prefer the real ProductDto already loaded
+    /// for this store (correct VatRate/price/type); fallback = card snapshot (name+price from
+    /// vanan-ai, FR-5 — only available, non-stale products reach the card).
+    /// </summary>
+    private async Task AddAiProductToCartAsync(VanAn.UI.Platform.Components.Ai.AiProductCardItem card)
+    {
+        var product = _products.FirstOrDefault(p => p.ProductId == card.ProductId)
+            ?? new ProductDto
+            {
+                ProductId = card.ProductId,
+                TenantId = _store!.Id,
+                TenantName = _store!.Name,
+                Name = card.Name,
+                Price = card.Price,
+                ImageUrl = card.ImageUrl,
+                VatRate = 0.10m, // standard F&B rate — same default as RecommendedProductDto
+                IsActive = true
+            };
+        await AddToCart(product);
     }
 
     private void AddToCartSync(ProductDto product) => _ = AddToCart(product);

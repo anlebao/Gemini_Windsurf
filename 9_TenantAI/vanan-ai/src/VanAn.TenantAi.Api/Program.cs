@@ -35,6 +35,33 @@ builder.Services.AddSingleton<VanAn.TenantAi.Ai.AnswerValidator>();
 builder.Services.AddScoped<VanAn.TenantAi.Api.Services.KnowledgeRetriever>();
 builder.Services.AddScoped<VanAn.TenantAi.Api.Services.ChatOrchestrator>();
 
+// task_ai_p5 — metering quota gate [G7] + post-response usage ingest (PO-2).
+// Named client → singleton MeteringClient so the 5-fail/60s circuit persists.
+builder.Services.AddHttpClient("metering", c =>
+{
+    var baseUrl = builder.Configuration["Metering:BaseUrl"];
+    if (!string.IsNullOrWhiteSpace(baseUrl))
+        c.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+    c.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("Metering:TimeoutSeconds", 3));
+    var callerId = builder.Configuration["Metering:CallerId"];
+    var callerKey = builder.Configuration["Metering:CallerKey"];
+    if (!string.IsNullOrWhiteSpace(callerId))
+        c.DefaultRequestHeaders.TryAddWithoutValidation("X-Caller-Id", callerId);
+    if (!string.IsNullOrWhiteSpace(callerKey))
+        c.DefaultRequestHeaders.TryAddWithoutValidation("X-Metering-Key", callerKey);
+});
+builder.Services.AddSingleton<VanAn.TenantAi.Infra.IMeteringService>(sp =>
+    new VanAn.TenantAi.Infra.MeteringClient(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("metering"),
+        sp.GetRequiredService<IConfiguration>(),
+        sp.GetRequiredService<ILogger<VanAn.TenantAi.Infra.MeteringClient>>()));
+builder.Services.AddSingleton<VanAn.TenantAi.Api.Services.QuotaGate>();
+builder.Services.AddSingleton<VanAn.TenantAi.Api.Services.MeteringIngestQueue>();
+builder.Services.AddSingleton<VanAn.TenantAi.Api.Services.IMeteringIngestQueue>(
+    sp => sp.GetRequiredService<VanAn.TenantAi.Api.Services.MeteringIngestQueue>());
+builder.Services.AddHostedService(
+    sp => sp.GetRequiredService<VanAn.TenantAi.Api.Services.MeteringIngestQueue>());
+
 var app = builder.Build();
 
 // ---- Bootstrap: pgvector extension + schema + seed callers (idempotent) ----
@@ -161,9 +188,99 @@ app.MapPost("/v1/admin/tenants/{tenantId:guid}/preview-chat", async (
     .RequireScope(ScopeNames.Admin)
     .RequireTenantContext();
 
-app.MapGet("/v1/config/widget", NotImplemented)
+// task_ai_p4 — session history for storefront widget resume (SRS §6.1).
+// ctx tenant must own the session — query is tenant-filtered, cross-tenant → empty.
+app.MapGet("/v1/chat/sessions/{sid}/messages", async (
+        HttpContext ctx, TenantAiDbContext db, IConfiguration config, string sid, CancellationToken ct) =>
+    {
+        var tenantId = TenantOf(ctx);
+        var msgs = await db.ConversationMessages.AsNoTracking()
+            .Where(m => m.TenantId == tenantId && m.SessionId == sid
+                && m.ExpiresAtUtc > DateTime.UtcNow)
+            .OrderBy(m => m.CreatedAtUtc)
+            .Take(100)
+            .ToListAsync(ct);
+
+        // Resolve product cards for assistant turns — FR-5: only available,
+        // non-stale products may be suggested to cart (same rule as live chat).
+        var staleBefore = DateTime.UtcNow.AddHours(-config.GetValue("Knowledge:StaleHours", 24));
+        var refs = msgs.Where(m => m.ProductRefsJson != null)
+            .SelectMany(m => TryGuidList(m.ProductRefsJson)).Distinct().ToList();
+        var products = refs.Count == 0
+            ? new Dictionary<Guid, VanAn.TenantAi.Domain.ProductKnowledge>()
+            : await db.ProductKnowledge.AsNoTracking()
+                .Where(p => refs.Contains(p.ProductId))
+                .ToDictionaryAsync(p => p.ProductId, ct);
+
+        var result = msgs.Select(m => new VanAn.TenantAi.Contracts.SessionMessageDto(
+            m.Role == VanAn.TenantAi.Domain.MessageRole.User ? "user" : "assistant",
+            m.Content,
+            TryGuidList(m.ProductRefsJson)
+                .Where(r => products.TryGetValue(r, out var p) && p.Available && p.SyncedAtUtc >= staleBefore)
+                .Select(r => new VanAn.TenantAi.Contracts.ChatProductDto(
+                    r, products[r].Name, products[r].Price, null))
+                .ToList(),
+            m.CreatedAtUtc)).ToList();
+
+        return Results.Ok(new VanAn.TenantAi.Contracts.SessionMessagesResponse(sid, result));
+    })
     .RequireScope(ScopeNames.PublicChat)
     .RequireTenantContext();
+
+static List<Guid> TryGuidList(string? json)
+{
+    if (string.IsNullOrWhiteSpace(json)) return [];
+    try { return JsonSerializer.Deserialize<List<Guid>>(json) ?? []; }
+    catch (JsonException) { return []; }
+}
+
+// task_ai_p5 — widget config: aiEnabled=false khi kill-switch off HOẶC quota deny
+// (cached hoặc fresh — widget ẩn, không phải lỗi). Greeting/suggestions đọc từ
+// persona_json nếu có ("greeting": string, "suggestions": string[]).
+app.MapGet("/v1/config/widget", async (
+        HttpContext ctx, TenantAiDbContext db, IConfiguration config,
+        VanAn.TenantAi.Api.Services.QuotaGate quota, CancellationToken ct) =>
+    {
+        var tenantId = TenantOf(ctx);
+        var globalOn = config.GetValue("TenantAi:Enabled", true);
+        var outcome = globalOn
+            ? await quota.EvaluateAsync(tenantId, ct)
+            : VanAn.TenantAi.Api.Services.QuotaOutcome.Refuse;
+
+        var aiConfig = await db.TenantAiConfigs.AsNoTracking()
+            .Where(c => c.TenantId == tenantId && c.Status == TenantAiConfigStatus.Published)
+            .OrderByDescending(c => c.Version)
+            .FirstOrDefaultAsync(ct);
+
+        var (greeting, suggestions) = WidgetPersona(aiConfig?.PersonaJson);
+        return Results.Ok(new VanAn.TenantAi.Contracts.WidgetConfigResponse(
+            globalOn && outcome != VanAn.TenantAi.Api.Services.QuotaOutcome.Refuse,
+            aiConfig?.AiName ?? "trợ lý quán",
+            greeting ?? "Xin chào! Mình có thể giúp bạn chọn món hoặc trả lời về quán.",
+            suggestions));
+    })
+    .RequireScope(ScopeNames.PublicChat)
+    .RequireTenantContext();
+
+static (string? Greeting, IReadOnlyList<string>? Suggestions) WidgetPersona(string? personaJson)
+{
+    if (string.IsNullOrWhiteSpace(personaJson)) return (null, null);
+    try
+    {
+        using var doc = JsonDocument.Parse(personaJson);
+        var root = doc.RootElement;
+        string? greeting = root.TryGetProperty("greeting", out var g) && g.ValueKind == JsonValueKind.String
+            ? g.GetString() : null;
+        List<string>? suggestions = null;
+        if (root.TryGetProperty("suggestions", out var s) && s.ValueKind == JsonValueKind.Array)
+            suggestions = s.EnumerateArray()
+                .Where(e => e.ValueKind == JsonValueKind.String)
+                .Select(e => e.GetString()!)
+                .Where(v => !string.IsNullOrWhiteSpace(v)).ToList();
+        return (greeting, suggestions is { Count: > 0 } ? suggestions : null);
+    }
+    catch (JsonException) { return (null, null); }
+}
 
 // ---- task_ai_p2: knowledge ingest (caller shoperp-*; tenant từ signed ctx) ----
 static Guid TenantOf(HttpContext ctx) => (Guid)ctx.Items["TenantId"]!;

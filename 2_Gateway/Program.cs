@@ -340,6 +340,22 @@ namespace VanAn.Gateway
 
 
 
+                // Task AI-P4 (SRS v1.1 §6.1): tenant-ai public chat surface — 60 req/min/IP.
+                // Session-level cap (20 msg/session/giờ, PO-3) is enforced inside the controller.
+                options.AddPolicy("tenant-ai-public", context =>
+                {
+                    string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 60,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0
+                    });
+                });
+
+
+
                 options.AddPolicy("auth", context =>
 
                 {
@@ -913,6 +929,25 @@ namespace VanAn.Gateway
 
             // Issue #197 (D1=A): tenant group claims cho metering guard/ingest (PG source of truth).
             _ = builder.Services.AddScoped<VanAn.Shared.Domain.Common.IMeteringTenantAttributeResolver, Services.MeteringTenantAttributeResolver>();
+
+
+
+            // Task AI-P4: vanan-ai storefront forwarder — typed client into the internal
+            // vanan-ai service (SRS §6.4: timeout 35s > LLM 30s; X-Caller-Id + X-Ai-Key
+            // default headers; signed ctx added per-request by the forwarder).
+            // Missing TenantAi:BaseUrl/CtxSigningSecret → forwarder self-disables (503 graceful).
+            _ = builder.Services.AddHttpClient<Services.TenantAiForwarder>(client =>
+            {
+                var baseUrl = builder.Configuration["TenantAi:BaseUrl"];
+                if (!string.IsNullOrWhiteSpace(baseUrl)) client.BaseAddress = new Uri(baseUrl);
+                client.Timeout = TimeSpan.FromSeconds(35);
+                client.DefaultRequestHeaders.TryAddWithoutValidation(
+                    "X-Caller-Id", builder.Configuration["TenantAi:CallerId"] ?? "gateway");
+                var callerKey = builder.Configuration["TenantAi:GatewayCallerKey"]
+                    ?? builder.Configuration["TenantAi:CallerKey"];
+                if (!string.IsNullOrEmpty(callerKey))
+                    client.DefaultRequestHeaders.TryAddWithoutValidation("X-Ai-Key", callerKey);
+            });
 
 
 

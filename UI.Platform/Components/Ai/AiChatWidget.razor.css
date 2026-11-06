@@ -1,0 +1,177 @@
+/* Task AI-P4 — storefront AI chat widget (floating bubble + panel). */
+
+.vanan-ai-widget {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 1050;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.vanan-ai-bubble-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: none;
+    background: var(--bs-primary, #0d6efd);
+    color: #fff;
+    font-size: 1.5rem;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.vanan-ai-panel {
+    width: min(360px, calc(100vw - 32px));
+    max-height: min(520px, calc(100vh - 96px));
+    display: flex;
+    flex-direction: column;
+}
+
+.vanan-ai-panel .card-body {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.vanan-ai-header i {
+    font-size: 1.1rem;
+}
+
+.vanan-ai-messages {
+    flex: 1;
+    min-height: 220px;
+    max-height: 360px;
+    overflow-y: auto;
+    padding: 12px;
+    background: var(--bs-light, #f8f9fa);
+}
+
+.vanan-ai-msg {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 8px;
+}
+
+.vanan-ai-msg-user {
+    align-items: flex-end;
+}
+
+.vanan-ai-msg-assistant {
+    align-items: flex-start;
+}
+
+.vanan-ai-bubble {
+    max-width: 85%;
+    padding: 8px 12px;
+    border-radius: 14px;
+    font-size: 0.9rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.vanan-ai-msg-user .vanan-ai-bubble {
+    background: var(--bs-primary, #0d6efd);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+}
+
+.vanan-ai-msg-assistant .vanan-ai-bubble {
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-bottom-left-radius: 4px;
+}
+
+.vanan-ai-typing .vanan-ai-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin: 0 2px;
+    border-radius: 50%;
+    background: #6c757d;
+    animation: vanan-ai-blink 1.2s infinite;
+}
+
+.vanan-ai-typing .vanan-ai-dot:nth-child(2) { animation-delay: 0.2s; }
+.vanan-ai-typing .vanan-ai-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes vanan-ai-blink {
+    0%, 80%, 100% { opacity: 0.3; }
+    40% { opacity: 1; }
+}
+
+.vanan-ai-products {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+    max-width: 85%;
+    width: 100%;
+}
+
+.vanan-ai-product-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+    padding: 8px;
+}
+
+.vanan-ai-product-img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.vanan-ai-product-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.vanan-ai-product-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.vanan-ai-product-price {
+    font-size: 0.8rem;
+    color: var(--bs-primary, #0d6efd);
+    font-weight: 600;
+}
+
+.vanan-ai-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.vanan-ai-chip {
+    border: 1px solid var(--bs-primary, #0d6efd);
+    background: #fff;
+    color: var(--bs-primary, #0d6efd);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.vanan-ai-input {
+    flex: 1;
+}
+
+.vanan-ai-send {
+    flex-shrink: 0;
+}

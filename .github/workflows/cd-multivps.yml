@@ -314,17 +314,26 @@ jobs:
           TENANTAI_CTX_SIGNING_SECRET: ${{ secrets.TENANTAI_CTX_SIGNING_SECRET }}
           TENANTAI_BOOTSTRAP_CALLER: ${{ secrets.TENANTAI_BOOTSTRAP_CALLER }}
           TENANTAI_BOOTSTRAP_INGEST: ${{ secrets.TENANTAI_BOOTSTRAP_INGEST }}
+          METERING_REMOTE_HOST: ${{ secrets.METERING_REMOTE_HOST }}
+          METERING_CALLERS: ${{ secrets.METERING_CALLERS }}
         run: |
           missing=0
           for var_name in VPS_TENANTAI_HOST VPS_TENANTAI_USER VPS_TENANTAI_SSH_PRIVATE_KEY \
                           TENANTAI_REMOTE_HOST TENANTAI_PG_PASSWORD TENANTAI_CTX_SIGNING_SECRET \
-                          TENANTAI_BOOTSTRAP_CALLER TENANTAI_BOOTSTRAP_INGEST; do
+                          TENANTAI_BOOTSTRAP_CALLER TENANTAI_BOOTSTRAP_INGEST \
+                          METERING_REMOTE_HOST METERING_CALLERS; do
             val=$(eval echo "\$${var_name}")
             if [ -z "$val" ]; then
               echo "::error::Missing GitHub secret: $var_name"
               missing=$((missing+1))
             fi
           done
+          # task_ai_p5: vanan-ai must be a registered metering caller (Metering__CallerId/CallerKey
+          # come from the same METERING_CALLERS list — one secret seeds both sides).
+          if ! echo "${METERING_CALLERS:-}" | tr ';' '\n' | grep -q '^vanan-ai:'; then
+            echo "::error::METERING_CALLERS has no 'vanan-ai:<key>' entry — metering quota gate would self-disable."
+            missing=$((missing+1))
+          fi
           if [ $missing -gt 0 ]; then
             echo "::error::$missing tenantai secrets missing — deploy blocked."
             exit 1
@@ -1036,7 +1045,7 @@ jobs:
           username: ${{ secrets.VPS_TENANTAI_USER }}
           key: ${{ secrets.VPS_TENANTAI_SSH_PRIVATE_KEY }}
           command_timeout: 30m
-          envs: DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_PG_PASS,DEPLOY_CTX_SECRET,DEPLOY_CALLER,DEPLOY_INGEST,DEPLOY_LLM_KEY
+          envs: DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_PG_PASS,DEPLOY_CTX_SECRET,DEPLOY_CALLER,DEPLOY_INGEST,DEPLOY_LLM_KEY,DEPLOY_METERING_REMOTE_HOST,DEPLOY_METERING_CALLERS
           script: |
             set -e
 
@@ -1059,6 +1068,14 @@ jobs:
               rm -rf 9_TenantAI
             fi
 
+            # task_ai_p5 — metering wiring: caller key for 'vanan-ai' parsed from the shared
+            # METERING_CALLERS list (same secret seeds the caller on the metering side);
+            # BaseUrl = vanan-metering internal VPC IP (METERING_REMOTE_HOST).
+            PARSED_AI_KEY=$(echo "${DEPLOY_METERING_CALLERS:-}" | tr ';' '\n' | sed -n 's/^vanan-ai://p' | tr -d '[:space:]')
+            if [ -z "$PARSED_AI_KEY" ]; then
+              echo "::error::METERING_CALLERS missing 'vanan-ai:<key>' — refusing unmetered AI deploy."
+              exit 1
+            fi
             printf '%s\n' \
               "IMAGE_PREFIX=${DEPLOY_REGISTRY}/${DEPLOY_REPO_OWNER}" \
               "IMAGE_TAG=${DEPLOY_IMAGE_TAG}" \
@@ -1067,6 +1084,9 @@ jobs:
               "TENANTAI_BOOTSTRAP_CALLER=${DEPLOY_CALLER}" \
               "TENANTAI_BOOTSTRAP_INGEST=${DEPLOY_INGEST}" \
               "TENANTAI_LLM_APIKEY=${DEPLOY_LLM_KEY:-}" \
+              "METERING_BASE_URL=http://${DEPLOY_METERING_REMOTE_HOST}:5050/" \
+              "METERING_CALLER_ID=vanan-ai" \
+              "METERING_CALLER_KEY=${PARSED_AI_KEY}" \
               > .env.tenantai
             chmod 600 .env.tenantai
 
@@ -1096,6 +1116,8 @@ jobs:
           DEPLOY_CALLER: ${{ secrets.TENANTAI_BOOTSTRAP_CALLER }}
           DEPLOY_INGEST: ${{ secrets.TENANTAI_BOOTSTRAP_INGEST }}
           DEPLOY_LLM_KEY: ${{ secrets.TENANTAI_LLM_APIKEY }}
+          DEPLOY_METERING_REMOTE_HOST: ${{ secrets.METERING_REMOTE_HOST }}
+          DEPLOY_METERING_CALLERS: ${{ secrets.METERING_CALLERS }}
 
   # ============================================================
   # Job 6: Post-Deploy Smoke Test

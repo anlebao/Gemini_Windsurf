@@ -36,7 +36,9 @@ public sealed class ChatOrchestrator(
     AnswerValidator validator,
     ILlmChatClient llm,
     IConfiguration config,
-    ILogger<ChatOrchestrator> logger)
+    ILogger<ChatOrchestrator> logger,
+    QuotaGate quota,
+    IMeteringIngestQueue ingest)
 {
     private int WindowSize => config.GetValue("TenantAiChat:HistoryWindow", 10);
     private int RetentionDays => config.GetValue("TenantAiChat:RetentionDays", 90);
@@ -63,17 +65,27 @@ public sealed class ChatOrchestrator(
         List<Guid> productRefs = [];
         List<string> sourceIds = [];
 
-        // FR-9 kill switch — AI off = polite unavailable, never a hard error.
+        // FR-9 kill switch — AI off = refused nhẹ nhàng, never a hard error (P5).
         if (!config.GetValue("TenantAi:Enabled", true))
             return await FinishAsync(ChatTemplates.DegradedUnavailable, intent, [], [], 0,
-                refused: false, refuseReason: null, staleData: false, degraded: true, dropped: 0);
+                refused: true, refuseReason: "ai_disabled", staleData: false, degraded: false, dropped: 0);
 
         // [G8] messageId dedupe — replay returns the stored assistant turn.
+        // (Replay skips the quota gate + ingest: the original turn already metered,
+        // and re-serving a stored answer must not be blocked by a current outage.)
         var prior = await db.ConversationMessages.AsNoTracking()
             .FirstOrDefaultAsync(m => m.TenantId == tenantId && m.SessionId == sessionId
                 && m.MessageId == messageId + ":reply", ct);
         if (prior != null)
             return await ReplayedResultAsync(tenantId, prior, ct);
+
+        // [G7] PO-1 metering quota gate — deviation có chủ đích khỏi fail-open
+        // generic: check fail + cache hết hạn → Degrade structured-only (0 LLM).
+        var quotaOutcome = await quota.EvaluateAsync(tenantId, ct);
+        var quotaDegraded = quotaOutcome == QuotaOutcome.Degrade;
+        if (quotaOutcome == QuotaOutcome.Refuse)
+            return await FinishAsync(ChatTemplates.QuotaRefused, intent, [], [], 0,
+                refused: true, refuseReason: "quota_denied", staleData: false, degraded: false, dropped: 0);
 
         var session = await GetOrCreateSessionAsync(tenantId, sessionId, channel, ct);
         var aiConfig = await ResolveConfigAsync(tenantId, useDraftConfig, ct);
@@ -94,7 +106,10 @@ public sealed class ChatOrchestrator(
                 refused, refuseReason, staleData, degraded, dropped, promptTokens, completionTokens);
         }
 
-        intent = await intentRouter.RouteAsync(text, ct);
+        // Quota-degraded → rules only, never the LLM classify fallback (T8: 0 LLM calls).
+        intent = quotaDegraded
+            ? intentRouter.MatchRules(text) ?? ChatIntents.OutOfScope
+            : await intentRouter.RouteAsync(text, ct);
 
         // PolicyEngine — tenant routes override system defaults [FR-3].
         var tenantRoutes = await db.IntentRoutes.AsNoTracking()
@@ -154,7 +169,7 @@ public sealed class ChatOrchestrator(
             .ToListAsync(ct);
 
         LlmAnswer? parsed = null;
-        if (llm.Enabled)
+        if (llm.Enabled && !quotaDegraded)
         {
             var prompt = promptBuilder.Build(aiName, aiConfig?.PersonaJson, aiConfig?.BusinessProfileJson,
                 facts, history, text);
@@ -203,11 +218,32 @@ public sealed class ChatOrchestrator(
             await PersistTurnAsync(tenantId, sessionId, messageId, text, finalAnswer,
                 finalIntent, refs, sources, conf, refused, refuseReason, degraded,
                 promptTokens, completionTokens, ct);
+            EnqueueUsage(tenantId, messageId, meterOnly: refused || degraded);
             logger.LogInformation(
                 "chat tenant={Tenant} intent={Intent} sources={Src} refused={Ref} degraded={Deg} dropped={Drop} ms={Ms}",
                 tenantId, finalIntent ?? "-", flags, refused, degraded, dropped, sw.ElapsedMilliseconds);
             return new ChatResult(finalAnswer, products, sources, conf, refused, refuseReason,
                 staleData, degraded, finalIntent, dropped);
+        }
+    }
+
+    /// <summary>
+    /// task_ai_p5 — usage ingest sau response, fire-and-forget qua retry queue.
+    /// PO-2: chỉ câu trả lời LLM thật tính `ai.chat.message` (Deny-enforced);
+    /// refused/degraded/zero-LLM → `ai.chat.degraded` MeterOnly (đo được, không charge).
+    /// </summary>
+    private void EnqueueUsage(Guid tenantId, string messageId, bool meterOnly)
+    {
+        try
+        {
+            ingest.Enqueue(new MeteringUsageRecord(tenantId,
+                meterOnly ? MeteringServiceCodes.ChatDegraded : MeteringServiceCodes.ChatMessage,
+                Quantity: 1m, Unit: "message", OccurredAtUtc: DateTime.UtcNow,
+                IdempotencyKey: $"chat:{tenantId}:{messageId}", TaskRef: messageId));
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "metering ingest enqueue failed tenant={Tenant}", tenantId);
         }
     }
 

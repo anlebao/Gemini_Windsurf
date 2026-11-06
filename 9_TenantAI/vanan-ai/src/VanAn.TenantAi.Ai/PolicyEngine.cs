@@ -103,6 +103,10 @@ public static class ChatTemplates
     public const string DegradedUnavailable =
         "Xin lỗi, trợ lý đang tạm bận một chút — bạn thử lại sau giúp mình nhé.";
 
+    /// <summary>[G7] metering deny — "tính năng AI tạm ngưng", KHÔNG lộ số dư ví.</summary>
+    public const string QuotaRefused =
+        "Xin lỗi, trợ lý AI đang tạm ngưng phục vụ — bạn thử lại sau giúp mình nhé.";
+
     public const string StaleSuffix =
         "(thông tin có thể chưa cập nhật — bạn kiểm tra lại với quán giúp mình nhé)";
 

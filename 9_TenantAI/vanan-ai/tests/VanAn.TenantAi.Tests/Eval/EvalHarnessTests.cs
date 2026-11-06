@@ -83,8 +83,11 @@ public sealed class EvalHarnessTests(ITestOutputHelper output)
         var router = new IntentRouter(llm, NullLogger<IntentRouter>.Instance);
         var retriever = new KnowledgeRetriever(db, new FakeEmbeddingProvider(), config,
             NullLogger<KnowledgeRetriever>.Instance);
+        var quota = new QuotaGate(new FakeMeteringService { IsConfigured = false }, config,
+            NullLogger<QuotaGate>.Instance);
         var orch = new ChatOrchestrator(db, router, retriever, new PromptBuilder(),
-            new AnswerValidator(config), llm, config, NullLogger<ChatOrchestrator>.Instance);
+            new AnswerValidator(config), llm, config, NullLogger<ChatOrchestrator>.Instance,
+            quota, new RecordingIngestQueue());
 
         var products = await db.ProductKnowledge.AsNoTracking()
             .Where(p => p.TenantId == Tenant).ToListAsync();

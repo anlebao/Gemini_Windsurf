@@ -360,6 +360,50 @@ public sealed class ChatApiTests : IDisposable
         res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
+    // ---------- task_ai_p4: session history (SRS §6.1) ----------
+
+    [Fact]
+    public async Task SessionMessages_ReturnsUserAndAssistantTurns()
+    {
+        var pid = await SeedProductAsync(TenantA, "Phở chay", 80_000m);
+        await Chat(await _client.SendAsync(
+            ChatReq("Giá phở chay bao nhiêu?", sessionId: "hist-1", messageId: "hist-m1")));
+
+        var r = new HttpRequestMessage(HttpMethod.Get, "/v1/chat/sessions/hist-1/messages");
+        r.Headers.Add("X-Caller-Id", "gateway");
+        r.Headers.Add("X-Ai-Key", TenantAiApiFactory.GatewayKey);
+        var (ctx, sig) = SignCtx(TenantA, "gateway");
+        r.Headers.Add("X-Tenant-Ctx", ctx);
+        r.Headers.Add("X-Tenant-Ctx-Sig", sig);
+
+        var res = await _client.SendAsync(r);
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = (await res.Content.ReadFromJsonAsync<SessionMessagesResponse>())!;
+        body.Messages.Should().HaveCount(2);
+        body.Messages[0].Role.Should().Be("user");
+        body.Messages[1].Role.Should().Be("assistant");
+        body.Messages[1].Products.Should().ContainSingle().Which.ProductId.Should().Be(pid);
+    }
+
+    [Fact]
+    public async Task SessionMessages_CrossTenant_ReturnsEmpty_T1()
+    {
+        await Chat(await _client.SendAsync(ChatReq("Xin chào", sessionId: "hist-x", messageId: "hx-1")));
+
+        // tenant B asks for a session owned by tenant A → tenant-filtered → empty.
+        var r = new HttpRequestMessage(HttpMethod.Get, "/v1/chat/sessions/hist-x/messages");
+        r.Headers.Add("X-Caller-Id", "gateway");
+        r.Headers.Add("X-Ai-Key", TenantAiApiFactory.GatewayKey);
+        var (ctx, sig) = SignCtx(TenantB, "gateway");
+        r.Headers.Add("X-Tenant-Ctx", ctx);
+        r.Headers.Add("X-Tenant-Ctx-Sig", sig);
+
+        var res = await _client.SendAsync(r);
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = (await res.Content.ReadFromJsonAsync<SessionMessagesResponse>())!;
+        body.Messages.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task Chat_InvalidBody_400()
     {

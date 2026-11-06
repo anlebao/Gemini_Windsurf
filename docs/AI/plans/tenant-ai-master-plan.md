@@ -1,6 +1,6 @@
 # MASTER PLAN: VẠN AN TENANT AI (`vanan-ai`) — Tenant Intelligence Platform
 
-> **Ngày:** 2026-11-06 · **Trạng thái:** ✅ APPROVED — **P0..P3 DONE + CP1+CP2 DEPLOYED & RV PASS** (`10.148.0.7:5060` internal · degraded chờ LLM key) · P4 storefront next
+> **Ngày:** 2026-11-06 · **Trạng thái:** ✅ APPROVED — **P0..P4 DONE + CP1+CP2 DEPLOYED & RV PASS** (`10.148.0.7:5060` internal · degraded chờ LLM key) · P6 tests_rv next
 > **SRS:** `docs/requirements/van_an_tenant_ai_srs_v1.md` (v1.1 Consolidated Baseline — §0 changelog 12 verdict)
 > **Precedent:** `docs/AI/plans/phi-nen-tang-metering-master-plan.md` (service độc lập cùng pattern)
 > **Chiến lược thực thi:** phase nhỏ · card → duyệt → implement tuần tự · **chỉ push + RV ở checkpoint có giá trị cao** · local build+test là gate chính giữa các checkpoint
@@ -63,8 +63,8 @@ Build `vanan-ai` — service độc lập đầu tiên của Vạn An Tenant Int
 | `task_ai_p1_schema` | G2 | Domain entities + EF config + migrations + pgvector | local | P0 | ✅ DONE `983d35be` (23/23, 5 PG Testcontainers) |
 | `task_ai_p2_ingest` | G2 | Ingest API + approval gate + ShopERP sync client + operator script + GeminiEmbeddingService + chunk pipeline | local | P1 | ✅ DONE `a1b31795` |
 | `task_ai_p3_chat` | G3 | IntentRouter + PolicyEngine + UsagePermission + Retriever + ILlmChatClient/GeminiChatClient + AnswerValidator + eval harness | **→ CP2** | P1, P2 | ✅ DONE code `8dae1fce` (99/99, eval gate pass) · ⏳ CP2 deploy chờ VPS |
-| `task_ai_p4_storefront` | G4 | Gateway PublicTenantAiController + ctx signing + AiChatWidget UI.Platform + KhachLink tích hợp + product cards→cart | local (main sln validate) | P3 | ⬜ NEXT |
-| `task_ai_p5_metering` | G5 | MeteringApiClient trong vanan-ai + check/degrade/ingest + `TenantAiEnabled` flag + widget enable | local | P3 | ⬜ |
+| `task_ai_p4_storefront` | G4 | Gateway PublicTenantAiController + ctx signing + AiChatWidget UI.Platform + KhachLink tích hợp + product cards→cart | local (main sln validate) | P3 | ✅ DONE code (uncommitted — đợi user duyệt/push) |
+| `task_ai_p5_metering` | G5 | MeteringApiClient trong vanan-ai + check/degrade/ingest + `TenantAiEnabled` flag + widget enable | local | P3 | ✅ DONE code 2026-11-06 (uncommitted — đợi CP3) |
 | `task_ai_p6_tests_rv` | G5 | T1–T13 suite + NFR-10 eval set + RV scripts production | **→ CP3** | P4, P5 | ⬜ |
 | `task_ai_p7_pilot` | G5 | Model verify API + knowledge readiness pilot + flag on + RV production + sign-off | **→ CP4** | P6 | ⬜ |
 
@@ -158,4 +158,5 @@ Mỗi card: đọc SRS section liên quan → implement → build + test → ghi
 - [x] P0 + P0b + P1 + P2 + P3 — **DONE code 2026-11-06** (commits `983d35be`/`a1b31795`/`8dae1fce` · tests 99/99 · guard PASSED)
 - [x] Provision VPS `vanan-ai` + secrets — **DONE 2026-11-06** (e2-small asia-southeast1-b · int `10.148.0.7` · ext `34.21.228.114` · `deploy-tenantai` CD job · 8 GH secrets) — **CP1+CP2 DEPLOYED + RV PASS** (`d8ccfe8c`)
 - [ ] `TENANTAI_LLM_APIKEY` (Gemini) — user cung cấp → non-degraded verify + latency P95 ≤8s
-- [ ] P4 storefront — card kế tiếp, chờ user duyệt
+- [x] P4 storefront — **DONE code 2026-11-06** (build 0 err · tests mới 18/18 + 26/26 · ShopERP.Tests 306/306 · chưa push — chờ CP3)
+- [x] P5 metering + flag — **DONE code 2026-11-06** (tests 118/118 vanan-ai · ShopERP.Tests 306/306 · guard ALL PASSED · chưa push — chờ CP3). Ops trước CP3: `vanan-ai:<key>` vào `METERING_CALLERS` + rate cards `ai.chat.message`(Deny)/`ai.chat.degraded`/`ai.embedding.batch`(MeterOnly)

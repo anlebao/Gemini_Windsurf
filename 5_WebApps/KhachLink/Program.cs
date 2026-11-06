@@ -65,6 +65,10 @@ namespace VanAn.KhachLink
             _ = builder.Services.AddScoped<Services.BookingFlowState>();
             _ = builder.Services.AddScoped<Services.Http.BookingPublicHttpService>();
 
+            // Task AI-P4 (SRS v1.1 §6.1): storefront AI chat client → Gateway /api/public/tenant-ai/*.
+            _ = builder.Services.AddScoped<VanAn.UI.Platform.Components.Ai.IAiChatClient,
+                Services.Http.TenantAiPublicHttpService>();
+
             // Register PWA Services
             _ = builder.Services.AddScoped<Services.PWA.PWAService>();
 

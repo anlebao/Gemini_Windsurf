@@ -270,12 +270,24 @@
 
                         <div class="feature-row" data-testid="toggle-aichat">
                             <div class="feature-info">
-                                <strong>AI Chatbox (sắp ra mắt)</strong>
-                                <p class="text-muted small">Widget chat gợi ý câu trả lời bằng AI cho khách hàng. Owner review trước khi gửi. Khi owner offline, AI tự động trả lời. <em>Hiện đang phát triển — bật sẽ không có tác dụng ngay.</em></p>
+                                <strong>AI Chatbox — trợ lý AI cho khách</strong>
+                                <p class="text-muted small">Widget chat trên trang cửa hàng: trả lời câu hỏi từ dữ liệu quán (menu, câu chuyện, FAQ) và gợi ý món → thêm vào giỏ. Yêu cầu bật "Đồng bộ dữ liệu AI" bên dưới để AI có tri thức.</p>
                             </div>
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" role="switch"
-                                       id="aichat" @bind="settings.AIChat_Enabled" disabled />
+                                       id="aichat" @bind="settings.AIChat_Enabled" />
+                            </div>
+                        </div>
+
+                        @* task_ai_p5: ops flag TenantAiEnabled — gate knowledge sync sang vanan-ai (SystemSetting row, không nằm trong DTO) *@
+                        <div class="feature-row" data-testid="toggle-tenant-ai">
+                            <div class="feature-info">
+                                <strong>Đồng bộ dữ liệu AI (Tenant AI)</strong>
+                                <p class="text-muted small">Đẩy menu/sản phẩm sang dịch vụ trợ lý AI để chatbot có tri thức quán. Khi tắt, dữ liệu cửa hàng không đồng bộ sang AI.</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="tenant-ai" @bind="_tenantAiEnabled" />
                             </div>
                         </div>
                     </div>
@@ -556,6 +568,8 @@
     // G5/G2: ops-managed flags (SystemSetting rows, không nằm trong DTO)
     private bool _smartEntryEnabled;
     private bool _smartEntryLlmEnabled;
+    // task_ai_p5: TenantAiEnabled — ops flag gate knowledge sync sang vanan-ai
+    private bool _tenantAiEnabled;
 
     protected override async Task OnInitializedAsync()
     {
@@ -603,6 +617,7 @@
             // G5/G2: ops-managed flags — SystemSetting "ShopFeature:{tenant}:{flag}"
             _smartEntryEnabled = await SettingsService.IsEnabledAsync(tenantId, "SmartEntryEnabled");
             _smartEntryLlmEnabled = await SettingsService.IsEnabledAsync(tenantId, "SmartEntryLlmEnabled");
+            _tenantAiEnabled = await SettingsService.IsEnabledAsync(tenantId, "TenantAiEnabled");
 
             // #185-4: read-only budget caps snapshot (set by SystemAdmin in /admin/loyalty-config)
             try
@@ -637,6 +652,7 @@
             // G5/G2: ghi ops-managed flags (SystemSetting rows — giống flag bật bằng SQL trước đây)
             await SettingsService.SetToggleAsync(tenantId, "SmartEntryEnabled", _smartEntryEnabled);
             await SettingsService.SetToggleAsync(tenantId, "SmartEntryLlmEnabled", _smartEntryLlmEnabled);
+            await SettingsService.SetToggleAsync(tenantId, "TenantAiEnabled", _tenantAiEnabled);
             successMessage = "✅ Đã lưu cấu hình thành công.";
             // Auto-dismiss success after 5s
             _ = DismissSuccessAfterDelayAsync();

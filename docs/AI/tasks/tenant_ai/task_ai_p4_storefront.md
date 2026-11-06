@@ -43,3 +43,17 @@
 ## Acceptance
 
 - [ ] Main sln build + guard pass · widget tests xanh · spec sẵn sàng cho CP3
+
+## Delivered — 2026-11-06
+
+- `2_Gateway/Controllers/PublicTenantAiController.cs` — `POST /api/public/tenant-ai/chat` + `GET /widget-config` + `GET /sessions/{sid}/messages` · anonymous + `[EnableRateLimiting("tenant-ai-public")]` (60/min/IP) · session cap 20/giờ qua IMemoryCache (`TenantAi:SessionCap`) · **resolve tenant server-side (T6):** KhachLinkInstance bound to Request.Host + OwnerTenantId thắng — client tenantId bị bỏ qua; còn lại validate tenant exists+Active, không bao giờ ký ctx raw.
+- `2_Gateway/Services/TenantAiContextSigner.cs` — per-host copy của `VanAn.TenantAi.Contracts` signer (HMAC-SHA256, requestId=messageId, TTL 2ph).
+- `2_Gateway/Services/TenantAiForwarder.cs` — typed HttpClient (timeout 35s; `X-Caller-Id`/`X-Ai-Key` default headers trong DI; missing `TenantAi:BaseUrl`/`CtxSigningSecret` → self-disable; transport fail → null → controller 503 graceful `{aiEnabled:false}`). Config: `TenantAi:BaseUrl|CallerId|GatewayCallerKey|CtxSigningSecret|SessionCap`.
+- `UI.Platform/Components/Ai/AiChatWidget.razor` (+.razor.css) + `IAiChatClient.cs` — bubble + VanAnCard panel, VanAInput/VanAnButton only · sessionId `localStorage vanan_ai_session` · optimistic UI + messageId dedupe · product card "Thêm vào giỏ" → `OnAddToCart` callback (host owns cart — widget không reference KhachLink).
+- `5_WebApps/KhachLink`: `TenantAiPublicHttpService : IAiChatClient` (fail-safe null) + DI + `Store.razor` mount thay placeholder (gate `_features.AIChat_Enabled`) · add-to-cart: prefer `_products` ProductDto thật (đúng VatRate) else card snapshot (VatRate 0.10 default như RecommendedProductDto).
+- **Deviation (additive):** implement luôn upstream `GET /v1/chat/sessions/{sid}/messages` trong vanan-ai (SRS §6.1 đã spec nhưng còn thiếu) + contracts `SessionMessageDto`/`SessionMessagesResponse` — cần cho session resume hoạt động thật. `/v1/config/widget` vẫn 501 stub (đúng scope — lands P5 "widget enable"); gateway map 501/4xx → 200 `{aiEnabled:false}`, 5xx khác → 503.
+- Arch-test: `PublicTenantAiController` thêm vào `AuthorizationEnforcementTests` exemption (pattern PublicBookingController).
+- Tests: `PublicTenantAiControllerTests` 11 + `AiChatWidgetTests` 7 (bUnit) trong Core.Tests — T6 override · validated tenantId · cap 21st→429 · graceful paths · sign vector · widget render/hidden/card→cart/fallback · vanan-ai `ChatApiTests` +2 session-history (26/26).
+- E2E: `6_Testing/e2e-tests/ai-chat-widget.spec.ts` — self-gating `AI_CHAT_TEST_STORE_URL` (+`AI_CHAT_TEST_QUESTION`), chạy CP3.
+- Validation: `dotnet build VanAn.sln` 0 err · VanAn.TenantAi.sln 0 err · new tests 18/18 + 26/26 · ShopERP.Tests 306/306 · Core.Tests 2740/2761 (1 fail cũ, đang rerun trx xác định — không liên quan TenantAi) · guard-check: untracked/SQL/encoding/windsurf-guard/architecture + Roslyn PASSED (fast-gate đang chạy).
+- **Không push** — CP3 deploy sau P5+P6 (push policy §3).

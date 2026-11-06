@@ -203,7 +203,12 @@ public class AuthorizationEnforcementTests
             // usage-ingest surface for client-rendered apps (sendBeacon store.visit) —
             // [AllowAnonymous] + rate-limited ("public-metering" policy, 60 req/min/IP)
             // + server-side whitelist validation. Same pattern as PublicBookingController.
-            "PublicMeteringController"
+            "PublicMeteringController",
+            // Task AI-P4 (SRS v1.1 §6.1): PublicTenantAiController is the anonymous storefront
+            // AI chat surface — [AllowAnonymous] + rate-limited ("tenant-ai-public" policy,
+            // 60 req/min/IP + 20 msg/session/giờ cap) + server-side tenant resolution (T6).
+            // Same pattern as PublicBookingController.
+            "PublicTenantAiController"
         };
 
         var controllers = GetControllers(GatewayAssembly)
