@@ -33,7 +33,28 @@ public sealed class TenantAiKnowledgeReconcileService(
         var tenantIds = (await db.Products.Select(p => p.TenantId).Distinct().ToListAsync(ct))
             .Select(t => t.Value);
         var sync = scope.ServiceProvider.GetRequiredService<ITenantAiKnowledgeSync>();
+        var client = scope.ServiceProvider.GetRequiredService<ITenantAiClient>();
         foreach (var tenantId in tenantIds)
+        {
+            // [G16] drift check — count local vs remote before re-push (self-heal keeps running).
+            try
+            {
+                var status = await client.GetKnowledgeStatusAsync(tenantId, ct);
+                if (status != null)
+                {
+                    // Same predicate as SyncNowAsync → GetAllForManagementAsync
+                    // (!IsDeleted && !IsPosOnly) so the drift count is comparable.
+                    var local = await db.Products.CountAsync(
+                        p => p.TenantId == new VanAn.Shared.Domain.TenantId(tenantId)
+                            && !p.IsDeleted && !p.IsPosOnly, ct);
+                    if (status.Products != local)
+                        logger.LogWarning(
+                            "TenantAi drift {Tenant}: local={Local} remote={Remote} — re-syncing",
+                            tenantId, local, status.Products);
+                }
+            }
+            catch (Exception ex) { logger.LogWarning(ex, "TenantAi drift check failed (non-blocking) {Tenant}", tenantId); }
             await sync.SyncNowAsync(tenantId, ct);
+        }
     }
 }
