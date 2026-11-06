@@ -1,4 +1,4 @@
-# Task AI-P6b — Admin API đủ SRS §6.3 + Hygiene Jobs (unblock P7)
+﻿# Task AI-P6b — Admin API đủ SRS §6.3 + Hygiene Jobs (unblock P7)
 
 > **Status:** ✅ APPROVED 2026-11-07 — implementing
 > **Gate:** P1-G5 — SRS v1.1 §6.3 · FR-1 · FR-8 · [G9][G10][G11][G16] · NFR-7
@@ -74,6 +74,31 @@ Tất cả endpoint: `.RequireScope(ScopeNames.Admin).RequireTenantContext()` + 
 - [ ] Deviation ghi vào card: rollback-as-new-version · usage chưa proxy metering (P2) · externalAllow reject non-empty (P3)
 - [ ] Push theo CP3 policy (đụng ShopERP → guard-check + build VanAn.sln + ShopERP.Tests trước push)
 
-## Delivered
+## Delivered — 2026-11-07
 
-_(điền sau implement — pattern các card trước)_
+**Trong `vanan-ai`:**
+
+- `src/VanAn.TenantAi.Contracts/AdminDtos.cs` — 12 records: `PutProfileRequest/ProfileVersionDto/ProfileResponse/PutProfileResponse` · `PublishResponse/RollbackRequest` · `PolicyResponse/PutPolicyRequest` · `ConversationSummaryDto/ConversationListResponse/ConversationMessageDto/ConversationDetailResponse` · `UsageDayDto/UsageResponse` · `PurgeResponse`.
+- `src/VanAn.TenantAi.Api/Services/TenantAdminService.cs` — profile lifecycle append-only [G11] (PUT→Draft mới, publish→archive cũ, rollback=new version copy) · policy gắn configVersion hiện hành (Draft ưu tiên, `externalAllow` non-empty→`external_p3`) · conversations paged+drill · usage aggregate tokens per-day · purge 10 bảng.
+- `src/VanAn.TenantAi.Api/Services/RetentionCleanupService.cs` — BackgroundService daily (`Retention:CleanupIntervalHours` default 24, delay 5ph): batch-delete 2000 messages hết `expires_at` → orphan sessions (không còn live message) · `CleanupPassAsync` public cho tests · lỗi swallow+warn (không hạ service).
+- `Program.cs` — DI `TenantAdminService` scoped + `RetentionCleanupService` hosted · 9 endpoints mới scope `admin` + `RequireTenantContext` + route-tenant==ctx-tenant (403): `PUT/GET profile`, `POST publish`, `POST rollback`, `GET/PUT policy`, `GET conversations` (+`?sessionId=` drill), `GET usage`, `DELETE /v1/admin/tenants/{t}` (header `X-Confirm-Purge:<tenantId>`) · xóa stub `NotImplemented` · helper `WrongTenant/Forbidden/MapError`.
+- `AiPolicy.Update()` — upsert in-place (unique TenantId+ConfigVersion).
+
+**Main sln (additive):**
+
+- `5_WebApps/ShopERP/Controllers/TenantAiController.cs` — `POST /api/tenant-ai/sync` `[Authorize]` + `ITenantProvider` resolve: no-tenant→400 · flag off/sync null→`{disabled:true}` · else `SyncNowAsync`→`{synced:N}`.
+- `ShopFeatures.razor` — nút "Đồng bộ AI ngay" (`btn-tenant-ai-sync`, VanAButton secondary) inject `ITenantAiKnowledgeSync` trực tiếp (Blazor Server — không qua HTTP), disable khi flag off, kết quả inline.
+- `TenantAiKnowledgeReconcileService` — [G16] drift check trước re-push: `GetKnowledgeStatusAsync` → so `Products` vs local count (`!IsDeleted && !IsPosOnly` — khớp `GetAllForManagementAsync`) → `LogWarning "TenantAi drift"` khi lệch · fail-open, re-push vẫn chạy.
+
+**Ops tooling:** `tenant-ai-ops.ps1` +8 functions: `Get/Put-AiProfile` · `Publish-AiConfig` · `Rollback-AiConfig -Version` · `Get/Put-AiPolicy` · `Get-AiConversations [-SessionId]` · `Get-AiUsage -Days` · `Remove-AiTenant -Confirm` (gửi `X-Confirm-Purge`) · `Invoke-AiApi` +`-ExtraHeaders`.
+
+**Tests — 166/166 vanan-ai PASS · 309/309 ShopERP PASS · guard-check ALL PASSED:**
+
+- `AdminApiTests` 13 tests: profile append-only v1→v2 · validate aiName/JSON 400 · publish archive+409-no-draft · rollback→v3 copy "Tên Cũ" + 404 · policy default/upsert/external_p3-400/no-config-409 · conversations paged+drill+404+**cross-tenant 403** · usage tokens/refused/degraded · cleanup expired+orphan · purge no-confirm-400+confirm-wipe-A-giữ-B · **widget-config trả persona published** (regression).
+- `TenantAiControllerTests` 3 tests (ShopERP.Tests): flag-on→sync N · flag-off→disabled+zero call · no-tenant→400.
+
+**Deviation ghi nhận:** rollback = version mới copy nội dung (không resurrect row — giữ append-only) · usage aggregate từ `conversation_messages` nội bộ, chưa proxy metering summary (P2) · `externalAllow` reject non-empty (P3 chưa build) · policy gắn configVersion mới nhất — publish version mới thì policy cần PUT lại (one policy per version; copy-forward đánh giá P2) · nút sync gọi service trực tiếp (Blazor Server), endpoint API vẫn có cho ops script/non-Blazor callers.
+
+**Chưa push** — chờ user review + approve.
+
+**Push note 2026-11-07:** vanan-ai image deployed qua `f50d81c6` (CD #42299568933 SUCCESS). ShopERP image FAIL build ở `c44de003`/`5ae3f686` — CS0246 `ITenantProvider` thiếu `using VanAn.Shared.Domain.Common;` trong TenantAiController.cs → fix + nút sync + ops functions đi kèm commit sau (build 0 err · ShopERP.Tests 309/309 · guard ALL PASSED `guard-report-20261107-055325`).

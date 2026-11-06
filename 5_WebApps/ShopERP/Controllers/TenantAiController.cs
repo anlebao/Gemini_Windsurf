@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using VanAn.Shared.Domain.Common;
 using VanAn.Shared.Services;
 using VanAn.ShopERP.Services;
 

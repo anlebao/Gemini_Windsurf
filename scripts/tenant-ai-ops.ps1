@@ -38,7 +38,7 @@ function Get-SignedCtx {
     return @{ Ctx = $ctx; Sig = $sig }
 }
 
-function Invoke-AiApi([string]$Method, [string]$Path, $Body = $null, [string]$IdemKey = $null) {
+function Invoke-AiApi([string]$Method, [string]$Path, $Body = $null, [string]$IdemKey = $null, [hashtable]$ExtraHeaders = $null) {
     $s = Get-SignedCtx
     $headers = @{
         'X-Caller-Id'       = $script:cfg.CallerId
@@ -47,6 +47,7 @@ function Invoke-AiApi([string]$Method, [string]$Path, $Body = $null, [string]$Id
         'X-Tenant-Ctx-Sig'  = $s.Sig
     }
     if ($IdemKey) { $headers['Idempotency-Key'] = $IdemKey }
+    if ($ExtraHeaders) { foreach ($k in $ExtraHeaders.Keys) { $headers[$k] = $ExtraHeaders[$k] } }
     $uri = "$($script:cfg.BaseUrl)$Path"
     $params = @{ Method = $Method; Uri = $uri; Headers = $headers; ContentType = 'application/json' }
     if ($null -ne $Body) { $params.Body = ($Body | ConvertTo-Json -Depth 10 -Compress) }
@@ -71,4 +72,50 @@ function Send-AiProduct([string]$ProductId, [string]$Name, [decimal]$Price, [boo
 
 function Remove-AiProduct([string]$ProductId) { Invoke-AiApi DELETE "/v1/knowledge/products/$ProductId" }
 
-Write-Host "tenant-ai-ops loaded — Set-TenantAiEnv first, then Get-AiPending / Get-AiStatus / Approve-AiDoc / Reject-AiDoc / Send-AiDocument / Send-AiProduct / Remove-AiProduct"
+# ---------- task_ai_p6b: admin API (SRS §6.3) ----------
+
+function Get-AiProfile { Invoke-AiApi GET "/v1/admin/tenants/$($script:cfg.TenantId)/profile" }
+
+function Put-AiProfile([string]$AiName, [hashtable]$Persona = @{}, [hashtable]$BusinessProfile = @{}) {
+    Invoke-AiApi PUT "/v1/admin/tenants/$($script:cfg.TenantId)/profile" @{
+        aiName             = $AiName
+        personaJson        = ($Persona | ConvertTo-Json -Depth 5 -Compress)
+        businessProfileJson = ($BusinessProfile | ConvertTo-Json -Depth 5 -Compress)
+    }
+}
+
+function Publish-AiConfig { Invoke-AiApi POST "/v1/admin/tenants/$($script:cfg.TenantId)/publish" }
+
+function Rollback-AiConfig([int]$Version) {
+    Invoke-AiApi POST "/v1/admin/tenants/$($script:cfg.TenantId)/rollback" @{ version = $Version }
+}
+
+function Get-AiPolicy { Invoke-AiApi GET "/v1/admin/tenants/$($script:cfg.TenantId)/policy" }
+
+function Put-AiPolicy([hashtable]$IntentScopes = @{}, [string[]]$RefusedTopics = @()) {
+    Invoke-AiApi PUT "/v1/admin/tenants/$($script:cfg.TenantId)/policy" @{
+        intentScopesJson   = ($IntentScopes | ConvertTo-Json -Compress)
+        externalAllowJson  = '[]'   # P3 chưa build — v1 chỉ chấp nhận mảng rỗng
+        refusedTopicsJson  = ($RefusedTopics | ConvertTo-Json -Compress)
+    }
+}
+
+function Get-AiConversations([string]$SessionId = $null, [int]$Page = 1, [int]$Size = 20) {
+    $base = "/v1/admin/tenants/$($script:cfg.TenantId)/conversations"
+    if ($SessionId) { Invoke-AiApi GET "$base`?sessionId=$SessionId" }
+    else { Invoke-AiApi GET "$base`?page=$Page&size=$Size" }
+}
+
+function Get-AiUsage([int]$Days = 30) {
+    Invoke-AiApi GET "/v1/admin/tenants/$($script:cfg.TenantId)/usage`?days=$Days"
+}
+
+# [NFR-7] tenant purge — requires -Confirm; wipes ALL tenant data in vanan-ai.
+function Remove-AiTenant([switch]$Confirm) {
+    if (-not $Confirm) { Write-Error "Remove-AiTenant needs -Confirm — this deletes ALL tenant data."; return }
+    Invoke-AiApi DELETE "/v1/admin/tenants/$($script:cfg.TenantId)" -ExtraHeaders @{
+        'X-Confirm-Purge' = $script:cfg.TenantId
+    }
+}
+
+Write-Host "tenant-ai-ops loaded — Set-TenantAiEnv first, then: Get-AiPending / Get-AiStatus / Approve-AiDoc / Reject-AiDoc / Send-AiDocument / Send-AiProduct / Remove-AiProduct / Get-AiProfile / Put-AiProfile / Publish-AiConfig / Rollback-AiConfig / Get-AiPolicy / Put-AiPolicy / Get-AiConversations / Get-AiUsage / Remove-AiTenant"

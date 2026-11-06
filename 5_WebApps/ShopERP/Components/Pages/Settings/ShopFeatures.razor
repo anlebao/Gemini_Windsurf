@@ -15,6 +15,7 @@
 @inject TenantApiClient TenantApi
 @inject CommerceModeApiClient CommerceModeApi
 @inject ILoyaltyBudgetService LoyaltyBudget
+@inject ITenantAiKnowledgeSync? TenantAiSync
 
 <PageTitle>Cấu hình tính năng Shop</PageTitle>
 
@@ -289,6 +290,18 @@
                                 <input class="form-check-input" type="checkbox" role="switch"
                                        id="tenant-ai" @bind="_tenantAiEnabled" />
                             </div>
+                        </div>
+                        @* task_ai_p6b: manual "Đồng bộ AI" — không chờ nightly reconcile [G9] *@
+                        <div class="mt-2">
+                            <VanAButton Variant="secondary" Size="small" OnClick="SyncTenantAiNowAsync"
+                                        Loading="@_tenantAiSyncing" Disabled="@(!_tenantAiEnabled || _tenantAiSyncing)"
+                                        data-testid="btn-tenant-ai-sync">
+                                <i class="bi bi-arrow-repeat me-1"></i> Đồng bộ AI ngay
+                            </VanAButton>
+                            @if (_tenantAiSyncResult != null)
+                            {
+                                <span class="ms-2 text-muted small" data-testid="tenant-ai-sync-result">@_tenantAiSyncResult</span>
+                            }
                         </div>
                     </div>
                 </VanACard>
@@ -570,6 +583,9 @@
     private bool _smartEntryLlmEnabled;
     // task_ai_p5: TenantAiEnabled — ops flag gate knowledge sync sang vanan-ai
     private bool _tenantAiEnabled;
+    // task_ai_p6b: manual sync trigger [G9]
+    private bool _tenantAiSyncing;
+    private string? _tenantAiSyncResult;
 
     protected override async Task OnInitializedAsync()
     {
@@ -653,6 +669,7 @@
             await SettingsService.SetToggleAsync(tenantId, "SmartEntryEnabled", _smartEntryEnabled);
             await SettingsService.SetToggleAsync(tenantId, "SmartEntryLlmEnabled", _smartEntryLlmEnabled);
             await SettingsService.SetToggleAsync(tenantId, "TenantAiEnabled", _tenantAiEnabled);
+            _tenantAiSyncResult = null;
             successMessage = "✅ Đã lưu cấu hình thành công.";
             // Auto-dismiss success after 5s
             _ = DismissSuccessAfterDelayAsync();
@@ -673,6 +690,29 @@
         await Task.Delay(5000);
         successMessage = null;
         await InvokeAsync(StateHasChanged);
+    }
+
+    // task_ai_p6b [G9]: manual "Đồng bộ AI ngay" — push full catalog sang vanan-ai
+    // mà không chờ nightly reconcile. Service self-noops khi flag/config off.
+    private async Task SyncTenantAiNowAsync()
+    {
+        if (TenantAiSync == null) { _tenantAiSyncResult = "Dịch vụ AI chưa cấu hình."; return; }
+        _tenantAiSyncing = true;
+        _tenantAiSyncResult = null;
+        try
+        {
+            var n = await TenantAiSync.SyncNowAsync(TenantProvider.TenantId);
+            _tenantAiSyncResult = $"Đã đồng bộ {n} món sang AI.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "TenantAi manual sync failed");
+            _tenantAiSyncResult = "Đồng bộ thất bại — vui lòng thử lại.";
+        }
+        finally
+        {
+            _tenantAiSyncing = false;
+        }
     }
 
     /// <summary>
