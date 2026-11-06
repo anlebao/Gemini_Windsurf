@@ -13,7 +13,7 @@ namespace VanAn.TenantAi.Infra;
 public sealed class TenantAiDbContext(DbContextOptions<TenantAiDbContext> options) : DbContext(options)
 {
     /// <summary>
-    /// Embedding dims fixed at 768 (text-embedding-004 default — SRS [D2]/[D3]).
+    /// Embedding dims fixed at 768 (gemini-embedding-001 + outputDimensionality=768 — P7 model verify: text-embedding-004 không tồn tại).
     /// Changing dims = new migration + re-embed, per task_ai_p1_schema.
     /// </summary>
     public const int EmbeddingDimensions = 768;

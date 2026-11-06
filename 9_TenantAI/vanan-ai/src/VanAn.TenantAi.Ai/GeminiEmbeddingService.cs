@@ -24,7 +24,7 @@ public sealed class GeminiEmbeddingService : IEmbeddingProvider
     {
         _http = http;
         _logger = logger;
-        _model = config["TenantAiLlm:EmbeddingModel"] ?? "text-embedding-004";
+        _model = config["TenantAiLlm:EmbeddingModel"] ?? "gemini-embedding-001";
         _apiKey = config["TenantAiLlm:ApiKey"];
         Dimensions = config.GetValue("TenantAiLlm:EmbeddingDimensions", 768);
     }
@@ -49,6 +49,7 @@ public sealed class GeminiEmbeddingService : IEmbeddingProvider
                 req.Content = JsonContent.Create(new
                 {
                     model = $"models/{_model}",
+                    outputDimensionality = Dimensions,
                     content = new { parts = new[] { new { text } } }
                 }, options: Json);
                 using var resp = await _http.SendAsync(req, ct);

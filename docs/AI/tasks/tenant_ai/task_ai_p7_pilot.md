@@ -12,6 +12,7 @@
 
 - Call trực tiếp Gemini API từ VPS `vanan-ai`: `generateContent` với `gemini-3.5-flash-lite` + `embedContent` với `text-embedding-004` → confirm model IDs tồn tại + latency + dims trả về khớp config `EmbeddingDimensions`.
 - Fail → đổi `TenantAiLlm:Model` sang model đã production-verified trong `SmartEntryLlmOptions` (codebase đang dùng) → re-verify. Ghi quyết định vào card.
+- **✅ DONE 2026-11-07 — kết quả:** chat `gemini-3.5-flash-lite` **200 / 550ms** ✓. Embedding `text-embedding-004` **404** (model không tồn tại với key/API version này — ListModels chỉ có `gemini-embedding-001/2`). **Quyết định:** `gemini-embedding-001` + `outputDimensionality=768` — verify **200 / 444ms / 768 dims** ✓ (giữ `vector(768)`, không migration). Code: `GeminiEmbeddingService` gửi `outputDimensionality=Dimensions` + default đổi `gemini-embedding-001` (appsettings + compose default). Deviation so với SRS [D3] (ghi `text-embedding-004`) — cần sync SRS [D3] note.
 
 ## Bước 2 — Chọn pilot tenant (PO-6)
 

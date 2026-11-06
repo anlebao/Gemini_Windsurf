@@ -16,7 +16,7 @@ services:
       TenantAi__CtxSigningSecret: ${TENANTAI_CTX_SIGNING_SECRET}
       TenantAiLlm__ApiKey: ${TENANTAI_LLM_APIKEY:-}
       TenantAiLlm__ChatModel: ${TENANTAI_LLM_CHAT_MODEL:-gemini-3.5-flash-lite}
-      TenantAiLlm__EmbeddingModel: ${TENANTAI_LLM_EMBED_MODEL:-text-embedding-004}
+      TenantAiLlm__EmbeddingModel: ${TENANTAI_LLM_EMBED_MODEL:-gemini-embedding-001}
       Metering__BaseUrl: ${METERING_BASE_URL:-}
       Metering__CallerId: ${METERING_CALLER_ID:-vanan-ai}
       Metering__CallerKey: ${METERING_CALLER_KEY:-}
