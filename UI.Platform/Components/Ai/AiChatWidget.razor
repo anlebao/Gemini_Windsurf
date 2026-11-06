@@ -154,7 +154,10 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && _config?.AiEnabled == true)
+        // firstRender may fire BEFORE OnInitializedAsync completes (WASM renders the
+        // initial frame while the config fetch is still in-flight) — create the
+        // session on the first render where aiEnabled is known, not just firstRender.
+        if (_sessionId is null && _config?.AiEnabled == true)
             _sessionId = await GetOrCreateSessionIdAsync();
     }
 

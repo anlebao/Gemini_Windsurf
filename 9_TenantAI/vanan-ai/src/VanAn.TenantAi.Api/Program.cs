@@ -62,6 +62,10 @@ builder.Services.AddSingleton<VanAn.TenantAi.Api.Services.IMeteringIngestQueue>(
 builder.Services.AddHostedService(
     sp => sp.GetRequiredService<VanAn.TenantAi.Api.Services.MeteringIngestQueue>());
 
+// task_ai_p6b — admin API (SRS §6.3) + [G10] retention cleanup.
+builder.Services.AddScoped<VanAn.TenantAi.Api.Services.TenantAdminService>();
+builder.Services.AddHostedService<VanAn.TenantAi.Api.Services.RetentionCleanupService>();
+
 var app = builder.Build();
 
 // ---- Bootstrap: pgvector extension + schema + seed callers (idempotent) ----
@@ -142,11 +146,6 @@ app.MapGet("/v1/auth/tenant-check", (HttpContext ctx) => Results.Ok(new
 }))
 .RequireScope(ScopeNames.PublicChat)
 .RequireTenantContext();
-
-// Route stubs — auth shape đúng ngay từ P0b (T6/T12 test targets); business lands P2/P3.
-static IResult NotImplemented() => Results.Json(
-    new { error = new { code = "not_implemented", message = "Endpoint lands in a later task card.", retryable = false } },
-    statusCode: StatusCodes.Status501NotImplemented);
 
 // ---- task_ai_p3: grounded chat pipeline (SRS §5) ----
 static IResult BadChatRequest() => Results.Json(
@@ -374,7 +373,122 @@ app.MapPost("/v1/admin/knowledge/{id:guid}/reject", async (
     .RequireScope(ScopeNames.Admin)
     .RequireTenantContext();
 
-app.MapGet("/v1/admin/tenants/{tenantId:guid}/profile", NotImplemented)
+// ---- task_ai_p6b: admin API (SRS §6.3) — route tenant must equal ctx tenant ----
+static bool WrongTenant(HttpContext ctx, Guid tenantId) => tenantId != TenantOf(ctx);
+
+static IResult Forbidden() => Results.Json(
+    new { error = new { code = "forbidden", message = "tenant context mismatch.", retryable = false } },
+    statusCode: StatusCodes.Status403Forbidden);
+
+static IResult MapError(string? code) => code switch
+{
+    "invalid_ai_name" or "invalid_json" or "external_p3" or "confirm_required"
+        => Error(StatusCodes.Status400BadRequest, code!, code switch
+        {
+            "invalid_ai_name" => "aiName is required (max 128 chars).",
+            "invalid_json" => "JSON field failed to parse.",
+            "external_p3" => "externalAllow is a P3 feature — only empty [] accepted in v1.",
+            _ => "X-Confirm-Purge header must equal the tenant id."
+        }),
+    "no_draft" => Error(StatusCodes.Status409Conflict, code!, "No draft config to publish."),
+    "no_config" => Error(StatusCodes.Status409Conflict, code!, "Create a profile draft first."),
+    "version_not_found" => Error(StatusCodes.Status404NotFound, code!, "Config version not found."),
+    _ => Error(StatusCodes.Status409Conflict, code ?? "conflict", "Request conflicts with current state.")
+};
+
+app.MapPut("/v1/admin/tenants/{tenantId:guid}/profile", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.TenantAdminService svc, Guid tenantId,
+        VanAn.TenantAi.Contracts.PutProfileRequest body, CancellationToken ct) =>
+    {
+        if (WrongTenant(ctx, tenantId)) return Forbidden();
+        var result = await svc.PutProfileAsync(tenantId, body, ct);
+        return result.Value == null ? MapError(result.ErrorCode) : Results.Ok(result.Value);
+    })
+    .RequireScope(ScopeNames.Admin)
+    .RequireTenantContext();
+
+app.MapGet("/v1/admin/tenants/{tenantId:guid}/profile", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.TenantAdminService svc, Guid tenantId,
+        CancellationToken ct) =>
+        WrongTenant(ctx, tenantId) ? Forbidden() : Results.Ok(await svc.GetProfileAsync(tenantId, ct)))
+    .RequireScope(ScopeNames.Admin)
+    .RequireTenantContext();
+
+app.MapPost("/v1/admin/tenants/{tenantId:guid}/publish", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.TenantAdminService svc, Guid tenantId,
+        CancellationToken ct) =>
+    {
+        if (WrongTenant(ctx, tenantId)) return Forbidden();
+        var result = await svc.PublishAsync(tenantId, CallerOf(ctx), ct);
+        return result.Value == null ? MapError(result.ErrorCode) : Results.Ok(result.Value);
+    })
+    .RequireScope(ScopeNames.Admin)
+    .RequireTenantContext();
+
+app.MapPost("/v1/admin/tenants/{tenantId:guid}/rollback", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.TenantAdminService svc, Guid tenantId,
+        VanAn.TenantAi.Contracts.RollbackRequest body, CancellationToken ct) =>
+    {
+        if (WrongTenant(ctx, tenantId)) return Forbidden();
+        var result = await svc.RollbackAsync(tenantId, body.Version, CallerOf(ctx), ct);
+        return result.Value == null ? MapError(result.ErrorCode) : Results.Ok(result.Value);
+    })
+    .RequireScope(ScopeNames.Admin)
+    .RequireTenantContext();
+
+app.MapGet("/v1/admin/tenants/{tenantId:guid}/policy", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.TenantAdminService svc, Guid tenantId,
+        CancellationToken ct) =>
+        WrongTenant(ctx, tenantId) ? Forbidden() : Results.Ok(await svc.GetPolicyAsync(tenantId, ct)))
+    .RequireScope(ScopeNames.Admin)
+    .RequireTenantContext();
+
+app.MapPut("/v1/admin/tenants/{tenantId:guid}/policy", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.TenantAdminService svc, Guid tenantId,
+        VanAn.TenantAi.Contracts.PutPolicyRequest body, CancellationToken ct) =>
+    {
+        if (WrongTenant(ctx, tenantId)) return Forbidden();
+        var result = await svc.PutPolicyAsync(tenantId, body, ct);
+        return result.Value == null ? MapError(result.ErrorCode) : Results.Ok(result.Value);
+    })
+    .RequireScope(ScopeNames.Admin)
+    .RequireTenantContext();
+
+app.MapGet("/v1/admin/tenants/{tenantId:guid}/conversations", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.TenantAdminService svc, Guid tenantId,
+        int? page, int? size, string? sessionId, CancellationToken ct) =>
+    {
+        if (WrongTenant(ctx, tenantId)) return Forbidden();
+        if (!string.IsNullOrWhiteSpace(sessionId))
+        {
+            var detail = await svc.GetConversationMessagesAsync(tenantId, sessionId, ct);
+            return detail == null
+                ? Error(StatusCodes.Status404NotFound, "not_found", "Session not found.")
+                : Results.Ok(detail);
+        }
+        return Results.Ok(await svc.GetConversationsAsync(tenantId, page ?? 1, size ?? 20, ct));
+    })
+    .RequireScope(ScopeNames.Admin)
+    .RequireTenantContext();
+
+app.MapGet("/v1/admin/tenants/{tenantId:guid}/usage", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.TenantAdminService svc, Guid tenantId,
+        int? days, CancellationToken ct) =>
+        WrongTenant(ctx, tenantId) ? Forbidden() : Results.Ok(await svc.GetUsageAsync(tenantId, days ?? 30, ct)))
+    .RequireScope(ScopeNames.Admin)
+    .RequireTenantContext();
+
+// [NFR-7] tenant purge — X-Confirm-Purge: <tenantId> required to prevent accidents.
+app.MapDelete("/v1/admin/tenants/{tenantId:guid}", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.TenantAdminService svc, Guid tenantId,
+        CancellationToken ct) =>
+    {
+        if (WrongTenant(ctx, tenantId)) return Forbidden();
+        var confirm = ctx.Request.Headers["X-Confirm-Purge"].FirstOrDefault();
+        if (confirm != tenantId.ToString())
+            return MapError("confirm_required");
+        return Results.Ok(await svc.PurgeTenantAsync(tenantId, ct));
+    })
     .RequireScope(ScopeNames.Admin)
     .RequireTenantContext();
 

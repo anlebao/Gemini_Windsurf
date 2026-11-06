@@ -1,6 +1,6 @@
 # MASTER PLAN: VẠN AN TENANT AI (`vanan-ai`) — Tenant Intelligence Platform
 
-> **Ngày:** 2026-11-06 · **Trạng thái:** ✅ APPROVED — **P0..P4 DONE + CP1+CP2 DEPLOYED & RV PASS** (`10.148.0.7:5060` internal · degraded chờ LLM key) · P6 tests_rv next
+> **Ngày:** 2026-11-06 · **Trạng thái:** ✅ APPROVED — **P0..P6 CODE DONE + DEPLOYED** (CD `7717879f` success · LLM key set + non-degraded RV pass `33daac76`) · ⏳ **chờ CP3 RV + P6b (admin API — unblock P7) + P7 pilot An Tâm**
 > **SRS:** `docs/requirements/van_an_tenant_ai_srs_v1.md` (v1.1 Consolidated Baseline — §0 changelog 12 verdict)
 > **Precedent:** `docs/AI/plans/phi-nen-tang-metering-master-plan.md` (service độc lập cùng pattern)
 > **Chiến lược thực thi:** phase nhỏ · card → duyệt → implement tuần tự · **chỉ push + RV ở checkpoint có giá trị cao** · local build+test là gate chính giữa các checkpoint
@@ -63,9 +63,10 @@ Build `vanan-ai` — service độc lập đầu tiên của Vạn An Tenant Int
 | `task_ai_p1_schema` | G2 | Domain entities + EF config + migrations + pgvector | local | P0 | ✅ DONE `983d35be` (23/23, 5 PG Testcontainers) |
 | `task_ai_p2_ingest` | G2 | Ingest API + approval gate + ShopERP sync client + operator script + GeminiEmbeddingService + chunk pipeline | local | P1 | ✅ DONE `a1b31795` |
 | `task_ai_p3_chat` | G3 | IntentRouter + PolicyEngine + UsagePermission + Retriever + ILlmChatClient/GeminiChatClient + AnswerValidator + eval harness | **→ CP2** | P1, P2 | ✅ DONE code `8dae1fce` (99/99, eval gate pass) · ⏳ CP2 deploy chờ VPS |
-| `task_ai_p4_storefront` | G4 | Gateway PublicTenantAiController + ctx signing + AiChatWidget UI.Platform + KhachLink tích hợp + product cards→cart | local (main sln validate) | P3 | ✅ DONE code (uncommitted — đợi user duyệt/push) |
-| `task_ai_p5_metering` | G5 | MeteringApiClient trong vanan-ai + check/degrade/ingest + `TenantAiEnabled` flag + widget enable | local | P3 | ✅ DONE code 2026-11-06 (uncommitted — đợi CP3) |
-| `task_ai_p6_tests_rv` | G5 | T1–T13 suite + NFR-10 eval set + RV scripts production | **→ CP3** | P4, P5 | ⬜ |
+| `task_ai_p4_storefront` | G4 | Gateway PublicTenantAiController + ctx signing + AiChatWidget UI.Platform + KhachLink tích hợp + product cards→cart | local (main sln validate) | P3 | ✅ DONE `b0ac52b2` (deployed · ⏳ e2e spec chờ CP3) |
+| `task_ai_p5_metering` | G5 | MeteringApiClient trong vanan-ai + check/degrade/ingest + `TenantAiEnabled` flag + widget enable | local | P3 | ✅ DONE `b0ac52b2` (deployed · rate cards + caller đã tạo production) |
+| `task_ai_p6_tests_rv` | G5 | T1–T13 suite + NFR-10 eval set + RV scripts production | **→ CP3** | P4, P5 | ✅ CODE DONE `7717879f` (153/153, eval 41) · ⏳ CP3 RV chưa chạy |
+| `task_ai_p6b_admin_api_hygiene` | G5 | Admin API đủ §6.3 (profile/policy/publish/rollback/conversations/usage) + retention cleanup + tenant purge + manual sync + drift check — **unblock P7** | local (main sln validate) | P3 | 🟡 DRAFT 2026-11-07 (audit `tenant-ai-srs-compliance-audit.md`) |
 | `task_ai_p7_pilot` | G5 | Model verify API + knowledge readiness pilot + flag on + RV production + sign-off | **→ CP4** | P6 | ⬜ |
 
 **Gate rule:** không viết card tiếp theo song song — implement tuần tự, card xong = tests xanh + note deviation vào card.

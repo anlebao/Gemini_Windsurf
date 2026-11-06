@@ -30,4 +30,12 @@ public sealed class AiPolicy
             ExternalAllowJson = externalAllowJson,
             RefusedTopicsJson = refusedTopicsJson
         };
+
+    /// <summary>task_ai_p6b — upsert in place (unique per TenantId+ConfigVersion).</summary>
+    public void Update(string intentScopesJson, string externalAllowJson, string refusedTopicsJson)
+    {
+        IntentScopesJson = intentScopesJson;
+        ExternalAllowJson = externalAllowJson;
+        RefusedTopicsJson = refusedTopicsJson;
+    }
 }

@@ -56,8 +56,14 @@ test.describe('VanAn Ecosystem — AI Chat Widget (task_ai_p4)', () => {
     await page.locator('.vanan-ai-panel input').fill(QUESTION);
     await page.locator('button.vanan-ai-send').click();
 
-    // Answer phải hiện (user msg + assistant msg); degraded/fallback vẫn là answer hợp lệ.
-    await expect(page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble').last())
+    // User msg phải render trước (greeting ẩn khi _messages.Count > 0 — tránh race
+    // với greeting/typing indicator cùng selector .vanan-ai-msg-assistant .vanan-ai-bubble).
+    await expect(page.locator('.vanan-ai-msg-user .vanan-ai-bubble').last())
+      .toBeVisible({ timeout: 10000 });
+
+    // Answer phải hiện — loại trừ typing indicator (:not(.vanan-ai-typing));
+    // degraded/fallback vẫn là answer hợp lệ.
+    await expect(page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble:not(.vanan-ai-typing)').last())
       .toBeVisible({ timeout: 45000 }); // LLM có thể mất ~30s
 
     // Product card (nếu câu hỏi grounded trên menu — card xuất hiện khi có products[]).
@@ -88,7 +94,9 @@ test.describe('VanAn Ecosystem — AI Chat Widget (task_ai_p4)', () => {
 
     await page.locator('.vanan-ai-panel input').fill('Xin chào');
     await page.locator('button.vanan-ai-send').click();
-    await expect(page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble').last())
+    await expect(page.locator('.vanan-ai-msg-user .vanan-ai-bubble').last())
+      .toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble:not(.vanan-ai-typing)').last())
       .toBeVisible({ timeout: 45000 });
 
     // Reload → sessionId từ localStorage → history phải restore (GET sessions/{sid}/messages).
