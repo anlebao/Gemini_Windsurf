@@ -26,6 +26,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="Eval\evalset.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\VanAn.TenantAi.Api\VanAn.TenantAi.Api.csproj" />
     <ProjectReference Include="..\..\src\VanAn.TenantAi.Contracts\VanAn.TenantAi.Contracts.csproj" />
     <ProjectReference Include="..\..\src\VanAn.TenantAi.Domain\VanAn.TenantAi.Domain.csproj" />

@@ -29,19 +29,19 @@ Structured data (product_knowledge) > approved Public docs > external (P3). Vect
 
 ## Tests bắt buộc (gate evidence — fake `ILlmChatClient` deterministic)
 
-- [ ] Intent matrix: ≥15 câu vi-VN thật → đúng intent; câu lạ → OutOfScope, **0 LLM call** cho PolicyViolation
-- [ ] "món nào ít calories?" → SQL trả món có calories, sorted; không có data → "chưa có dữ liệu xác nhận"
-- [ ] Brand story → chunks doc approved; pending/rejected doc → không vào context (T11)
-- [ ] Validator: LLM trả ref giả → strip · trả giá sai structured → strip/đính chính · JSON rác → retry → fallback
-- [ ] UsagePermission: inject context item vi phạm matrix → drop + log count (G15)
-- [ ] T13: doc story "giá 50k" vs price=80k → answer 80k
-- [ ] T1: 2 tenant seed → query A trả 0 data B (SQL + vector)
-- [ ] Degrade: fake LLM throw → structured-only answer, `degraded=true`, không crash
-- [ ] Conversation persist + window N=10 · preview-chat dùng draft config
+- [x] Intent matrix: ≥15 câu vi-VN thật → đúng intent; câu lạ → OutOfScope, **0 LLM call** cho PolicyViolation — `ChatUnitTests.IntentMatrix_*` (23 cases)
+- [x] "món nào ít calories?" → SQL trả món có calories, sorted; không có data → "chưa có dữ liệu xác nhận" — `ChatApiTests.Chat_NutritionQuery_*` / `Chat_PriceQuery_NoMatchingProduct_*`
+- [x] Brand story → chunks doc approved; pending/rejected doc → không vào context (T11) — `Chat_BrandStory_*` ×3
+- [x] Validator: LLM trả ref giả → strip · trả giá sai structured → strip/đính chính · JSON rác → retry → fallback — `ChatUnitTests.Validator_*` + `Chat_LlmGarbageJson_*`
+- [x] UsagePermission: inject context item vi phạm matrix → drop + log count (G15) — `UsageFilter_*` ×3 + `Chat_G15_TenantDenyRule_*`
+- [x] T13: doc story "giá 50k" vs price=80k → answer 80k — `Chat_T13_*` + `Validator_T13_*`
+- [x] T1: 2 tenant seed → query A trả 0 data B (SQL + vector) — `Chat_T1_*`
+- [x] Degrade: fake LLM throw → structured-only answer, `degraded=true`, không crash — `Chat_LlmDown_*`
+- [x] Conversation persist + window N=10 · preview-chat dùng draft config — `Chat_PersistsTurn_*` / `Chat_ConversationWindow_*` / `PreviewChat_*`
 
 ## Eval harness (NFR-10 — nền tảng cho P6)
 
-`tests/…/Eval/` — eval set JSON per intent (≥30 câu), chạy pipeline với fake+stub, đếm: Grounded Answer Rate, Unsupported Claim Rate, đúng-refuse rate. Gate: **Grounded ≥95% · Unsupported ≤2%**.
+`tests/…/Eval/` — eval set JSON per intent (≥30 câu), chạy pipeline với fake+stub, đếm: Grounded Answer Rate, Unsupported Claim Rate, đúng-refuse rate. Gate: **Grounded ≥95% · Unsupported ≤2%**. ✅ `Eval/evalset.json` (33 câu) + `EvalHarnessTests` — metrics đo trên orchestrator thật (InMemory store).
 
 ## CP2 — Deploy + API RV (sau card này)
 
@@ -54,3 +54,5 @@ Structured data (product_knowledge) > approved Public docs > external (P3). Vect
 ## Acceptance
 
 - [ ] Toàn bộ tests xanh · eval harness đạt ngưỡng · CP2 API RV pass · "Delivered" ghi vào card
+
+> **CODE DONE 2026-11-06** — 99/99 tests (23 → 99). Components: `Ai/` IntentRouter (rule→LLM classify→OutOfScope) · PolicyEngine + `DefaultPolicySeed` (FR-3 matrix seeded runtime) · UsagePermissionFilter [G15] · `ILlmChatClient`/`GeminiChatClient` (generateContent, 1 retry) · PromptBuilder · AnswerValidator (strip refs, đính chính số, stale→volatile strip) · `Api/` KnowledgeRetriever (SQL structured + pgvector `<=>` / fallback doc-type+keyword) · ChatOrchestrator (9 bước, session+dedupe+window N=10+90d expiry) · `POST /v1/chat` + `preview-chat`. **Còn:** CP2 deploy + API RV (chờ VPS `vanan-ai` + secrets như CP1).

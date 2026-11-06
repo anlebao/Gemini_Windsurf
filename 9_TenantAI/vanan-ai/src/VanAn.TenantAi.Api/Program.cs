@@ -22,6 +22,19 @@ builder.Services.AddHttpClient<VanAn.TenantAi.Ai.IEmbeddingProvider, VanAn.Tenan
 });
 builder.Services.AddScoped<VanAn.TenantAi.Api.Services.KnowledgeIngestService>();
 
+// task_ai_p3 — chat pipeline services (SRS §5).
+builder.Services.AddHttpClient<VanAn.TenantAi.Ai.ILlmChatClient, VanAn.TenantAi.Ai.GeminiChatClient>(c =>
+{
+    var endpoint = builder.Configuration["TenantAiLlm:Endpoint"] ?? "https://generativelanguage.googleapis.com/v1beta";
+    c.BaseAddress = new Uri(endpoint.TrimEnd('/') + "/");
+    c.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("TenantAiLlm:TimeoutSeconds", 30));
+});
+builder.Services.AddScoped<VanAn.TenantAi.Ai.IntentRouter>();
+builder.Services.AddSingleton<VanAn.TenantAi.Ai.PromptBuilder>();
+builder.Services.AddSingleton<VanAn.TenantAi.Ai.AnswerValidator>();
+builder.Services.AddScoped<VanAn.TenantAi.Api.Services.KnowledgeRetriever>();
+builder.Services.AddScoped<VanAn.TenantAi.Api.Services.ChatOrchestrator>();
+
 var app = builder.Build();
 
 // ---- Bootstrap: pgvector extension + schema + seed callers (idempotent) ----
@@ -43,6 +56,18 @@ var app = builder.Build();
     var ingestScope = ParseGuidScope(app.Configuration["TenantAi:BootstrapIngestScope"]);
     SeedCaller(db, app.Configuration["TenantAi:BootstrapIngest"],
         scopesJson: "[\"ingest\",\"admin\"]", tenantScopeJson: ingestScope);
+
+    // task_ai_p3 — policy-as-data system defaults (FR-3 matrix + [G15] matrix).
+    // Runtime seed (not migration) so defaults can evolve without schema churn.
+    foreach (var route in VanAn.TenantAi.Ai.DefaultPolicySeed.IntentRoutes())
+        if (!db.IntentRoutes.Any(r => r.TenantId == null && r.Intent == route.Intent))
+            db.IntentRoutes.Add(route);
+    var sysPerms = db.KnowledgeUsagePermissions.Where(p => p.TenantId == null)
+        .Select(p => new { p.Intent, p.Classification, p.Channel }).ToList();
+    foreach (var perm in VanAn.TenantAi.Ai.DefaultPolicySeed.UsagePermissions())
+        if (!sysPerms.Any(p => p.Intent == perm.Intent && p.Classification == perm.Classification && p.Channel == perm.Channel))
+            db.KnowledgeUsagePermissions.Add(perm);
+    db.SaveChanges();
 }
 
 static string? ParseGuidScope(string? csv)
@@ -96,8 +121,44 @@ static IResult NotImplemented() => Results.Json(
     new { error = new { code = "not_implemented", message = "Endpoint lands in a later task card.", retryable = false } },
     statusCode: StatusCodes.Status501NotImplemented);
 
-app.MapPost("/v1/chat", NotImplemented)
+// ---- task_ai_p3: grounded chat pipeline (SRS §5) ----
+static IResult BadChatRequest() => Results.Json(
+    new { error = new { code = "invalid_request", message = "sessionId, messageId and text are required.", retryable = false } },
+    statusCode: StatusCodes.Status400BadRequest);
+
+static bool ValidChatBody(VanAn.TenantAi.Contracts.ChatRequest b)
+    => !string.IsNullOrWhiteSpace(b.SessionId) && b.SessionId.Length <= 64
+        && !string.IsNullOrWhiteSpace(b.MessageId) && b.MessageId.Length <= 56
+        && !string.IsNullOrWhiteSpace(b.Text) && b.Text.Length <= 2000;
+
+static VanAn.TenantAi.Contracts.ChatResponse ToResponse(VanAn.TenantAi.Api.Services.ChatResult r)
+    => new(r.Answer, r.Products, r.SourceIds, r.Confidence, r.Refused, r.RefuseReason, r.StaleData, r.Degraded);
+
+app.MapPost("/v1/chat", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.ChatOrchestrator orch,
+        VanAn.TenantAi.Contracts.ChatRequest body, CancellationToken ct) =>
+    {
+        if (!ValidChatBody(body)) return BadChatRequest();
+        var result = await orch.ChatAsync(TenantOf(ctx), body.SessionId.Trim(), body.MessageId.Trim(),
+            body.Text, channel: "public", useDraftConfig: false, ct);
+        return Results.Ok(ToResponse(result));
+    })
     .RequireScope(ScopeNames.PublicChat)
+    .RequireTenantContext();
+
+app.MapPost("/v1/admin/tenants/{tenantId:guid}/preview-chat", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.ChatOrchestrator orch, Guid tenantId,
+        VanAn.TenantAi.Contracts.ChatRequest body, CancellationToken ct) =>
+    {
+        if (tenantId != TenantOf(ctx))
+            return Results.Json(new { error = new { code = "forbidden", message = "tenant context mismatch.", retryable = false } },
+                statusCode: StatusCodes.Status403Forbidden);
+        if (!ValidChatBody(body)) return BadChatRequest();
+        var result = await orch.ChatAsync(tenantId, body.SessionId.Trim(), body.MessageId.Trim(),
+            body.Text, channel: "preview", useDraftConfig: true, ct);
+        return Results.Ok(ToResponse(result));
+    })
+    .RequireScope(ScopeNames.Admin)
     .RequireTenantContext();
 
 app.MapGet("/v1/config/widget", NotImplemented)

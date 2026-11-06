@@ -145,13 +145,14 @@ public sealed class AuthTests(TenantAiApiFactory factory) : IClassFixture<Tenant
         res.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    // Valid full chain → reaches endpoint (501 stub), TenantId claim set.
+    // Valid full chain → reaches endpoint (P3: real pipeline — empty body → 400,
+    // not 401/403). TenantId claim set.
     [Fact]
-    public async Task ValidCtx_Chat_501()
+    public async Task ValidCtx_Chat_ReachesEndpoint()
     {
         var ctx = SignCtx(TenantAiApiFactory.TenantA, "gateway");
         (await Send(HttpMethod.Post, "/v1/chat", "gateway", TenantAiApiFactory.GatewayKey, ctx))
-            .StatusCode.Should().Be(HttpStatusCode.NotImplemented);
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]
