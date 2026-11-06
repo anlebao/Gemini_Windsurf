@@ -98,6 +98,12 @@ services:
       - Metering__BaseUrl=https://app2.${VANAN_DOMAIN}/admin/metering/api/
       - Metering__CallerId=gateway
       - Metering__CallerKey=${METERING_KEY_GATEWAY}
+      # task_ai_p4: vanan-ai forwarder — public-chat caller + HMAC ctx signing.
+      # Missing TENANTAI_* → forwarder self-disables (widget-config 200 aiEnabled:false).
+      - TenantAi__BaseUrl=${TENANTAI_BASE_URL:-}
+      - TenantAi__CallerId=${TENANTAI_CALLER_ID:-gateway}
+      - TenantAi__GatewayCallerKey=${TENANTAI_CALLER_KEY:-}
+      - TenantAi__CtxSigningSecret=${TENANTAI_CTX_SIGNING_SECRET:-}
       - Authentication__JwtSettings__SecretKey=${JWT_SECRET_KEY}
       - Jwt__Secret=${JWT_SECRET_KEY}
       # Dynamic CORS: static origins from appsettings.Production.json + dynamic from KhachLinkInstance registry.

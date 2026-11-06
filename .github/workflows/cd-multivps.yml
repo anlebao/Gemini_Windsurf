@@ -415,7 +415,7 @@ jobs:
           username: ${{ secrets.VPS_GATEWAY_USER }}
           key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
           command_timeout: 60m
-          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_SEQ_PASSWORD,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_SHOPERP_REMOTE_HOST,DEPLOY_KHACHLINK_REMOTE_HOST,DEPLOY_METERING_REMOTE_HOST,DEPLOY_METERING_CALLERS,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET,DEPLOY_VAPID_PRIVATE_KEY,DEPLOY_INTERNAL_LOYALTY_API_KEY,DEPLOY_SHOP_INSTANCE_ID,DEPLOY_R2_ACCESS_KEY,DEPLOY_R2_SECRET_KEY,DEPLOY_GODADDY_API_KEY,DEPLOY_VPS_GATEWAY_HOST
+          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_SEQ_PASSWORD,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_SHOPERP_REMOTE_HOST,DEPLOY_KHACHLINK_REMOTE_HOST,DEPLOY_METERING_REMOTE_HOST,DEPLOY_METERING_CALLERS,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET,DEPLOY_VAPID_PRIVATE_KEY,DEPLOY_INTERNAL_LOYALTY_API_KEY,DEPLOY_SHOP_INSTANCE_ID,DEPLOY_R2_ACCESS_KEY,DEPLOY_R2_SECRET_KEY,DEPLOY_GODADDY_API_KEY,DEPLOY_VPS_GATEWAY_HOST,DEPLOY_TENANTAI_REMOTE_HOST,DEPLOY_TENANTAI_CTX_SIGNING_SECRET,DEPLOY_TENANTAI_BOOTSTRAP_CALLER
           script: |
             set -e
 
@@ -464,6 +464,19 @@ jobs:
             FINAL_DN_KEY="${EXISTING_DN_KEY:-}"
             EXISTING_GDT_FLAG=$(grep -E '^CRAWLER_GDT_LOOKUP_ENABLED=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
             FINAL_GDT_FLAG="${EXISTING_GDT_FLAG:-false}"
+            # task_ai_p4: vanan-ai forwarder wiring — TENANTAI_BOOTSTRAP_CALLER ("id:key")
+            # splits to caller id + key; all preserved from existing .env if secret empty.
+            EXISTING_TAI_BASE=$(grep -E '^TENANTAI_BASE_URL=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
+            DEPLOY_TAI_BASE=""; [ -n "${DEPLOY_TENANTAI_REMOTE_HOST:-}" ] && DEPLOY_TAI_BASE="http://${DEPLOY_TENANTAI_REMOTE_HOST}:5060/"
+            FINAL_TAI_BASE="${DEPLOY_TAI_BASE:-$EXISTING_TAI_BASE}"
+            EXISTING_TAI_ID=$(grep -E '^TENANTAI_CALLER_ID=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
+            PARSED_TAI_ID=$(echo "${DEPLOY_TENANTAI_BOOTSTRAP_CALLER:-}" | cut -d: -f1 | tr -d '[:space:]')
+            FINAL_TAI_ID="${PARSED_TAI_ID:-${EXISTING_TAI_ID:-gateway}}"
+            EXISTING_TAI_KEY=$(grep -E '^TENANTAI_CALLER_KEY=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
+            PARSED_TAI_KEY=$(echo "${DEPLOY_TENANTAI_BOOTSTRAP_CALLER:-}" | cut -d: -f2- | tr -d '[:space:]')
+            FINAL_TAI_KEY="${PARSED_TAI_KEY:-$EXISTING_TAI_KEY}"
+            EXISTING_TAI_SIGN=$(grep -E '^TENANTAI_CTX_SIGNING_SECRET=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
+            FINAL_TAI_SIGN="${DEPLOY_TENANTAI_CTX_SIGNING_SECRET:-$EXISTING_TAI_SIGN}"
 
             printf '%s\n' \
               "VANAN_DOMAIN=${DEPLOY_VANAN_DOMAIN}" \
@@ -495,6 +508,10 @@ jobs:
               "DOANHNGHIEP_API_KEY=${FINAL_DN_KEY}" \
               "CRAWLER_GDT_LOOKUP_ENABLED=${FINAL_GDT_FLAG}" \
               "METERING_KEY_GATEWAY=${FINAL_METERING_GW_KEY}" \
+              "TENANTAI_BASE_URL=${FINAL_TAI_BASE}" \
+              "TENANTAI_CALLER_ID=${FINAL_TAI_ID}" \
+              "TENANTAI_CALLER_KEY=${FINAL_TAI_KEY}" \
+              "TENANTAI_CTX_SIGNING_SECRET=${FINAL_TAI_SIGN}" \
               > .env.gateway
 
             # Login to GHCR
@@ -557,6 +574,10 @@ jobs:
           DEPLOY_GODADDY_API_KEY: ${{ secrets.GODADDY_API_KEY }}
           # VPS Gateway host IP — used for auto A record when linking tenant domains
           DEPLOY_VPS_GATEWAY_HOST: ${{ secrets.VPS_GATEWAY_HOST }}
+          # task_ai_p4: vanan-ai forwarder (VPC internal IP + public-chat caller + HMAC secret)
+          DEPLOY_TENANTAI_REMOTE_HOST: ${{ secrets.TENANTAI_REMOTE_HOST }}
+          DEPLOY_TENANTAI_CTX_SIGNING_SECRET: ${{ secrets.TENANTAI_CTX_SIGNING_SECRET }}
+          DEPLOY_TENANTAI_BOOTSTRAP_CALLER: ${{ secrets.TENANTAI_BOOTSTRAP_CALLER }}
 
       # Conditional nginx recreate — ONLY when root ./nginx/** changed (impact analysis).
       # Bind-mount changes are NOT detected by `docker compose up -d`; the entrypoint
@@ -791,7 +812,7 @@ jobs:
           username: ${{ secrets.VPS_SHOP_USER }}
           key: ${{ secrets.VPS_SHOP_SSH_PRIVATE_KEY }}
           command_timeout: 60m
-          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_NATS_REMOTE_HOST,DEPLOY_GATEWAY_REMOTE_HOST,DEPLOY_SHOP_INSTANCE_ID,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET,DEPLOY_VAPID_PRIVATE_KEY,DEPLOY_INTERNAL_LOYALTY_API_KEY,DEPLOY_METERING_CALLER,DEPLOY_METERING_ADMIN,DEPLOY_SMART_ENTRY_LLM_API_KEY
+          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_NATS_REMOTE_HOST,DEPLOY_GATEWAY_REMOTE_HOST,DEPLOY_SHOP_INSTANCE_ID,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET,DEPLOY_VAPID_PRIVATE_KEY,DEPLOY_INTERNAL_LOYALTY_API_KEY,DEPLOY_METERING_CALLER,DEPLOY_METERING_ADMIN,DEPLOY_SMART_ENTRY_LLM_API_KEY,DEPLOY_TENANTAI_REMOTE_HOST,DEPLOY_TENANTAI_CTX_SIGNING_SECRET,DEPLOY_TENANTAI_BOOTSTRAP_INGEST
           script: |
             set -e
 
@@ -829,6 +850,19 @@ jobs:
             # once in .env.shoperp (NEVER commit); GitHub secret DEPLOY_SMART_ENTRY_LLM_API_KEY optional.
             EXISTING_LLM_KEY=$(grep -E '^SMART_ENTRY_LLM_API_KEY=' .env.shoperp 2>/dev/null | cut -d= -f2- || echo "")
             FINAL_LLM_KEY="${DEPLOY_SMART_ENTRY_LLM_API_KEY:-$EXISTING_LLM_KEY}"
+            # task_ai_p5: vanan-ai knowledge sync — TENANTAI_BOOTSTRAP_INGEST ("id:key")
+            # splits to caller id + key; all preserved from existing .env if secret empty.
+            EXISTING_TAI_BASE=$(grep -E '^TENANTAI_BASE_URL=' .env.shoperp 2>/dev/null | cut -d= -f2- || echo "")
+            DEPLOY_TAI_BASE=""; [ -n "${DEPLOY_TENANTAI_REMOTE_HOST:-}" ] && DEPLOY_TAI_BASE="http://${DEPLOY_TENANTAI_REMOTE_HOST}:5060/"
+            FINAL_TAI_BASE="${DEPLOY_TAI_BASE:-$EXISTING_TAI_BASE}"
+            EXISTING_TAI_ID=$(grep -E '^TENANTAI_CALLER_ID=' .env.shoperp 2>/dev/null | cut -d= -f2- || echo "")
+            PARSED_TAI_ID=$(echo "${DEPLOY_TENANTAI_BOOTSTRAP_INGEST:-}" | cut -d: -f1 | tr -d '[:space:]')
+            FINAL_TAI_ID="${PARSED_TAI_ID:-${EXISTING_TAI_ID:-shoperp-a}}"
+            EXISTING_TAI_KEY=$(grep -E '^TENANTAI_CALLER_KEY=' .env.shoperp 2>/dev/null | cut -d= -f2- || echo "")
+            PARSED_TAI_KEY=$(echo "${DEPLOY_TENANTAI_BOOTSTRAP_INGEST:-}" | cut -d: -f2- | tr -d '[:space:]')
+            FINAL_TAI_KEY="${PARSED_TAI_KEY:-$EXISTING_TAI_KEY}"
+            EXISTING_TAI_SIGN=$(grep -E '^TENANTAI_CTX_SIGNING_SECRET=' .env.shoperp 2>/dev/null | cut -d= -f2- || echo "")
+            FINAL_TAI_SIGN="${DEPLOY_TENANTAI_CTX_SIGNING_SECRET:-$EXISTING_TAI_SIGN}"
 
             printf '%s\n' \
               "VANAN_DOMAIN=${DEPLOY_VANAN_DOMAIN}" \
@@ -852,6 +886,10 @@ jobs:
               "METERING_KEY_SHOPERP=${FINAL_METERING_SE_KEY}" \
               "METERING_KEY_SYSADMIN=${FINAL_METERING_ADM_KEY}" \
               "SMART_ENTRY_LLM_API_KEY=${FINAL_LLM_KEY}" \
+              "TENANTAI_BASE_URL=${FINAL_TAI_BASE}" \
+              "TENANTAI_CALLER_ID=${FINAL_TAI_ID}" \
+              "TENANTAI_CALLER_KEY=${FINAL_TAI_KEY}" \
+              "TENANTAI_CTX_SIGNING_SECRET=${FINAL_TAI_SIGN}" \
               > .env.shoperp
 
             # Login to GHCR
@@ -902,6 +940,10 @@ jobs:
           DEPLOY_INTERNAL_LOYALTY_API_KEY: ${{ secrets.INTERNAL_LOYALTY_API_KEY }}
           DEPLOY_METERING_CALLER: ${{ secrets.METERING_CALLER }}
           DEPLOY_METERING_ADMIN: ${{ secrets.METERING_ADMIN }}
+          # task_ai_p5: vanan-ai knowledge sync (VPC internal IP + ingest caller + HMAC secret)
+          DEPLOY_TENANTAI_REMOTE_HOST: ${{ secrets.TENANTAI_REMOTE_HOST }}
+          DEPLOY_TENANTAI_CTX_SIGNING_SECRET: ${{ secrets.TENANTAI_CTX_SIGNING_SECRET }}
+          DEPLOY_TENANTAI_BOOTSTRAP_INGEST: ${{ secrets.TENANTAI_BOOTSTRAP_INGEST }}
 
   # ============================================================
   # Job 5b: Deploy to Metering VPS (vanan-metering — dedicated VPS, task P5)

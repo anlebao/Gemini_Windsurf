@@ -29,6 +29,12 @@ services:
       # Phí nền tảng P6: admin client cho /admin/metering/rate-cards (caller "sysadmin", IsAdmin)
       - Metering__AdminCallerId=sysadmin
       - Metering__AdminKey=${METERING_KEY_SYSADMIN}
+      # task_ai_p5: vanan-ai knowledge sync — ingest caller "shoperp-a" + HMAC ctx signing.
+      # Missing TENANTAI_* → TenantAiApiClient self-disables (sync no-op, fail-open).
+      - TenantAi__BaseUrl=${TENANTAI_BASE_URL:-}
+      - TenantAi__CallerId=${TENANTAI_CALLER_ID:-shoperp-a}
+      - TenantAi__CallerKey=${TENANTAI_CALLER_KEY:-}
+      - TenantAi__CtxSigningSecret=${TENANTAI_CTX_SIGNING_SECRET:-}
       # Phase 4: ShopInstance routing — THIS VPS's unique ShopInstance Guid.
       # MUST match the ShopInstance record created in Gateway PG via ShopInstances API.
       # Generate a NEW Guid for each ShopERP VPS — NEVER reuse across VPS.
