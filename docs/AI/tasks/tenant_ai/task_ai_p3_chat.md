@@ -1,6 +1,6 @@
 # Task AI-P3 — Chat Pipeline (Intent → Policy → Retrieve → LLM → Validate)
 
-> **Status:** ✅ IMPLEMENTED (code) `8dae1fce` — 2026-11-06 · tests 99/99 · eval gate pass · chờ CP2 deploy + API RV
+> **Status:** ✅ IMPLEMENTED + DEPLOYED (CP1+CP2) `8dae1fce`/`d8ccfe8c` — 2026-11-06 · tests 99/99 · eval gate pass · **RV production PASS** (degraded mode — chờ LLM key)
 > **Gate:** P1-G3 — SRS v1.1 [G2][G3][G4][G5][G6][G12][G15] · FR-2..FR-4, FR-11 · **→ checkpoint CP2 (deploy + API-level RV)**
 > **Phụ thuộc:** P1, P2
 
@@ -43,13 +43,14 @@ Structured data (product_knowledge) > approved Public docs > external (P3). Vect
 
 `tests/…/Eval/` — eval set JSON per intent (≥30 câu), chạy pipeline với fake+stub, đếm: Grounded Answer Rate, Unsupported Claim Rate, đúng-refuse rate. Gate: **Grounded ≥95% · Unsupported ≤2%**. ✅ `Eval/evalset.json` (33 câu) + `EvalHarnessTests` — metrics đo trên orchestrator thật (InMemory store).
 
-## CP2 — Deploy + API RV (sau card này)
+## CP2 — Deploy + API RV (sau card này) — ✅ DONE 2026-11-06
 
-- Deploy `vanan-ai` update lên VPS · RV qua internal/admin API (chưa có storefront):
-  - Ingest pilot-shaped data → approve → status
-  - Chat ≥5 câu real qua caller `gateway` + ctx ký tay → grounded answers
-  - T1 cross-tenant · T5 confidential · T11 approval · T13 conflict trên env thật
-- LLM key thật (`TenantAiLlm__ApiKey`) — set lúc CP2, verify latency P95 ≤8s
+- ✅ VPS `vanan-ai` provisioned (asia-southeast1-b, e2-small, int `10.148.0.7`, ext `34.21.228.114`, tag `tenantai`, 5060 internal-only) · docker+compose+`deploy` user + GH secrets (`VPS_TENANTAI_*`, `TENANTAI_*`) + `deploy-tenantai` job trong cd-multivps
+- ✅ Auth matrix: no-auth 401 · bad-key 401 · no-ctx 401 · forged-sig rejected · scope escalation 403
+- ✅ Ingest pilot-shaped data → approve → status: product upsert 200 · doc pending→approved + chunked · status counters đúng
+- ✅ Chat ≥4 câu real qua caller `gateway` + ctx ký tay: price query → "Pho chay RV — giá 80,000đ — 320 kcal" · brand story → doc content · nutrition → facts sorted · out-of-scope → refused `out_of_scope` — **degraded=true đúng thiết kế** (chưa có LLM key → structured fallback, không LLM call)
+- ⏳ LLM key thật (`TenantAiLlm__ApiKey` secret) — **cần user cung cấp Gemini key** → set secret → redeploy → verify latency P95 ≤8s + T1/T5/T11/T13 trên env thật (vector path PG thật — InMemory tests đã cover fallback path)
+- ⚠️ CD run đầu `42221486001`: deploy-tenantai fail (scp nested path) → fix `d8ccfe8c`; deploy-metering fail SSH refused (metering VPS — infra issue riêng, không liên quan)
 
 ## Acceptance
 

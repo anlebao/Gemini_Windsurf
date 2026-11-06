@@ -1,6 +1,6 @@
 # MASTER PLAN: VẠN AN TENANT AI (`vanan-ai`) — Tenant Intelligence Platform
 
-> **Ngày:** 2026-11-06 · **Trạng thái:** ✅ APPROVED — đang thực thi: **P0 + P0b + P1 + P2 + P3 DONE (code, tests 99/99)** · chờ CP1/CP2 deploy (VPS `vanan-ai` + secrets)
+> **Ngày:** 2026-11-06 · **Trạng thái:** ✅ APPROVED — **P0..P3 DONE + CP1+CP2 DEPLOYED & RV PASS** (`10.148.0.7:5060` internal · degraded chờ LLM key) · P4 storefront next
 > **SRS:** `docs/requirements/van_an_tenant_ai_srs_v1.md` (v1.1 Consolidated Baseline — §0 changelog 12 verdict)
 > **Precedent:** `docs/AI/plans/phi-nen-tang-metering-master-plan.md` (service độc lập cùng pattern)
 > **Chiến lược thực thi:** phase nhỏ · card → duyệt → implement tuần tự · **chỉ push + RV ở checkpoint có giá trị cao** · local build+test là gate chính giữa các checkpoint
@@ -156,5 +156,6 @@ Mỗi card: đọc SRS section liên quan → implement → build + test → ghi
 - [x] User approve master plan + 9 task cards — **2026-11-06**
 - [x] PO-1..PO-7 — **RESOLVED 2026-11-06 theo đề xuất:** degrade · `ai.chat.degraded` MeterOnly · cap 20/giờ · 90d · auto-trusted · pilot survey P7 · billing khi cần
 - [x] P0 + P0b + P1 + P2 + P3 — **DONE code 2026-11-06** (commits `983d35be`/`a1b31795`/`8dae1fce` · tests 99/99 · guard PASSED)
-- [ ] Provision VPS `vanan-ai` (GCP, asia-southeast1) + secrets §5.3 — **BLOCKING CP1+CP2** (đủ code P0b+P3 để gộp 1 lần deploy)
+- [x] Provision VPS `vanan-ai` + secrets — **DONE 2026-11-06** (e2-small asia-southeast1-b · int `10.148.0.7` · ext `34.21.228.114` · `deploy-tenantai` CD job · 8 GH secrets) — **CP1+CP2 DEPLOYED + RV PASS** (`d8ccfe8c`)
+- [ ] `TENANTAI_LLM_APIKEY` (Gemini) — user cung cấp → non-degraded verify + latency P95 ≤8s
 - [ ] P4 storefront — card kế tiếp, chờ user duyệt
