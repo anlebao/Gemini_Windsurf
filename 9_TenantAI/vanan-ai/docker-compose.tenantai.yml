@@ -4,7 +4,7 @@
 
 services:
   vanan-ai:
-    image: ghcr.io/anlebao/vanan-ai:latest
+    image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-ai:${IMAGE_TAG:-latest}
     container_name: vanan-ai-1
     restart: unless-stopped
     environment:
