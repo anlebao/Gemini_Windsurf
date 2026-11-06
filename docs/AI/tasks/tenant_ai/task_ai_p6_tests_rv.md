@@ -50,10 +50,14 @@
 
 - [x] T1–T13 local xanh — `tests/VanAn.TenantAi.Tests/ThreatSuite/` (T1×4 · T2×10 · T3×10 · T4×3 · T5×3 · T7×1 · T10×3 = 35 mới, `[Trait("Threat","Tx")]` + coverage map README) + coverage sẵn có: T6/T12 (`AuthTests`) · T8 (`QuotaGate`/`MeteringGate`/`KillSwitch`) · T9/T11/T13 (ChatApi/Ingest/ChatUnit)
 - [x] eval Grounded ≥95%/Unsupported ≤2% — `EvalHarnessTests` pass, evalset top-up 33→41 cases (ExternalKnowledge 1→3 · PolicyViolation 2→4 · BrandStory 2→3 · RecipeQuery 2→3 · OrderHelp 2→3 · MenuQuery 4→5)
-- [ ] CP3 full RV pass — artifacts sẵn sàng: `6_Testing/rv-scripts/tenant-ai-rv/` (run-on-vps.sh 8 bước + invoke-rv.ps1 + README) · `6_Testing/e2e-tests/ai-chat-widget.spec.ts` · drift check = `/v1/knowledge/status` (source_version + synced_at) trong rv-script step 3
+- [x] CP3 full RV pass 2026-11-06/07 — `invoke-rv.ps1 -TenantId e2d91cdf` **PASS=44 FAIL=0 SKIP=1** (chỉ T8 skip — master switch OFF = GĐ-1, arming = quyết định P7) · e2e `ai-chat-widget.spec.ts` **3/3 PASS** (An Tâm, `AI_CHAT_TEST_STORE_URL` + `playwright-rv-tenantai.config.ts`) · metering ledger: `ai.chat.message`/`ai.chat.degraded`/`store.visit` events recorded (UsageEvents table, balance 1000cr pilot grant)
 
 ## Evidence (2026-11-06)
 
 - `dotnet test VanAn.TenantAi.Tests` = **153/153 PASS** (118 trước + 35 ThreatSuite), 0 fail.
 - RV script ký HMAC ctx bằng openssl trên VPS (secrets từ `/opt/vanan-ai/.env.tenantai`, không in log).
 - Production-only: T1 vector path + T8 deny thật — cover trong run-on-vps.sh (ingest scope → `-TenantId`; ví=0 → `-ZeroWalletTenant`).
+- **CP3 RV findings fixed + deployed (`ca5f1f01`→`c44de003`):** (1) CD gap — `TenantAi__*` chưa wire vào gateway/shoperp env (forwarder self-disabled → `aiEnabled:false` cho mọi tenant); (2) **BUG-6 widget dead-send** — `OnAfterRenderAsync(firstRender)` chạy trước khi `OnInitializedAsync` trả config (WASM render frame đầu trong lúc await) → `_sessionId` null vĩnh viễn → SendAsync no-op cho mọi user; fix = tạo session lazy ở render đầu biết `aiEnabled`; (3) spec race — greeting/typing trùng selector answer-wait (POST bị abort khi reload) + cart-button aria-label chứa tên món.
+- Ops CP3: `AIChat_Enabled=true` An Tâm (PG + SQLite mirror) · 22 products spa thật ingest qua `products:batch` (fullSync) · wallet grant 1000cr · tenant B `99999999…99` = ví=0.
+- Deviation: `/ai/api/` nginx location KHÔNG cần — public surface thật là `/api/public/tenant-ai/*` qua gateway forwarder (D6 superseded by P4 design).
+- T8 production deny: DEFER P7 — arm master switch deny hàng loạt tenant ví=0 (Deny cards: chat.*, feature.*, store.* — blast radius quá lớn, GĐ-1 giữ OFF).
