@@ -75,7 +75,7 @@ test.describe('VanAn Ecosystem — AI Chat Widget (task_ai_p4)', () => {
 
     // Click "Thêm vào giỏ" trên card đầu tiên → cart phải nhận món (Option C snapshot).
     const productName = await cards.first().locator('.vanan-ai-product-name').innerText();
-    await cards.first().getByRole('button', { name: /Thêm vào giỏ/ }).click();
+    await cards.first().getByRole('button', { name: /Thêm.*vào giỏ/ }).click();
 
     // Toast xác nhận hoặc cart badge cập nhật — khớp bất kỳ dấu hiệu nào của add-to-cart.
     await expect(
