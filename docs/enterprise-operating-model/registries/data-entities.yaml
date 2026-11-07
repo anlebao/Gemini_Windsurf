@@ -137,3 +137,15 @@ entries:
   evidence:
   - 1_Shared/Domain/Aggregates/CommunityFundAggregate/CommunityFundSpendRecord.cs@69496de4
   - 3_CoreHub/Infrastructure/Migrations/20260726105331_CommunitySprint0.cs@69496de4
+- id: DATA-014
+  name: Vehicle parking sessions + guard scan logs
+  store: PG_GATEWAY
+  systemOfRecord: true
+  classification: tenant ops (VehicleSession lifecycle) + verify audit (GuardScanLog);
+    plate/customer photos in R2
+  ownerRef: ORG-005
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain.cs@4f3c7ea3
+  - 3_CoreHub/Infrastructure/Migrations/20260814042520_AddGuardQrVerifyTables.cs@4f3c7ea3

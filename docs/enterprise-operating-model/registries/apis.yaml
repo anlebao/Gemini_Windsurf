@@ -191,3 +191,14 @@ entries:
   confidence: VERIFIED
   evidence:
   - 2_Gateway/Controllers/CommunityController.cs@69496de4
+- id: API-120
+  name: Guard QR parking ops
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: /api/guard/{presign-upload,upload-photo,issue,verify,checkout/{id},flag/{id},void/{id},sessions/today,sessions/{id}}
+    (JWT Guard role); POST /api/guard/{claim,my-sessions} (X-Customer-Token); gated by
+    Guard:QrVerifyEnabled
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/GuardController.cs@4f3c7ea3

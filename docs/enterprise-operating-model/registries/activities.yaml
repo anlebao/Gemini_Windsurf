@@ -1326,3 +1326,145 @@ entries:
   evidence:
   - 3_CoreHub/Services/SalesmanService.cs@69496de4
   - 3_CoreHub/Services/ReferralCommissionCalculator.cs@69496de4
+- id: ACTV-622
+  name: Issue QR parking session (guard)
+  processRef: PROC-184
+  executionType: MANUAL
+  humanActorRef: ACTR-017
+  trigger: vehicle arrives at lot
+  input: plate number (optional) + plate photo + customer photo (optional) + phone
+  output: VehicleSession(Issued) + QR payload + 6-digit ShortCode + printed 58mm ticket
+  exceptionHandling: missing plate photo -> reject; feature flag off -> 403
+  auditLog: true
+  moduleRef: SYS-002
+  apiRefs:
+  - API-120
+  dataRefs:
+  - DATA-014
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/GuardService.cs@4f3c7ea3
+  - 5_WebApps/ShopERP/Components/Pages/Guard/PrintTicket.razor@4f3c7ea3
+- id: ACTV-623
+  name: Photo upload to R2 (presign / server-side)
+  processRef: PROC-184
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: guard captures plate/customer photo
+  input: contentType / base64 image
+  output: R2 photo keys (+ presigned PUT URL, or server-side upload no-CORS path)
+  exceptionHandling: upload fail -> no session issued
+  auditLog: false
+  moduleRef: SYS-002
+  apiRefs:
+  - API-120
+  dataRefs:
+  - DATA-014
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/IGuardService.cs@4f3c7ea3
+  - 2_Gateway/Controllers/GuardController.cs@4f3c7ea3
+- id: ACTV-624
+  name: Customer claim session via KhachLink (QR or short code)
+  processRef: PROC-184
+  executionType: MANUAL
+  humanActorRef: ACTR-001
+  trigger: customer scans paper-ticket QR / enters 6-digit code in KhachLink
+  input: QR payload ({"t","tn"} or PrintTicket {sc,sid}) or ShortCode + X-Customer-Token
+  output: VehicleSession Issued->Claimed (CustomerId bound)
+  exceptionHandling: tenant unresolved from payload/sid/shortcode -> 400; already claimed/non-Issued
+    -> 409
+  auditLog: true
+  moduleRef: SYS-002
+  apiRefs:
+  - API-120
+  dataRefs:
+  - DATA-014
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/GuardController.cs@4f3c7ea3
+  - 3_CoreHub/Services/GuardService.cs@4f3c7ea3
+- id: ACTV-625
+  name: Guard verify scan -> GuardScanLog
+  processRef: PROC-184
+  executionType: MANUAL
+  humanActorRef: ACTR-017
+  trigger: customer presents QR at exit (screen or paper)
+  input: scanned QR payload
+  output: VerifyResult (session + photos) + GuardScanLog row (Match/Mismatch/ManualOverride/Flagged)
+  exceptionHandling: unknown payload -> 404; invalid state -> 409
+  auditLog: true
+  moduleRef: SYS-002
+  apiRefs:
+  - API-120
+  dataRefs:
+  - DATA-014
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/GuardController.cs@4f3c7ea3
+  - 1_Shared/Domain.cs@4f3c7ea3
+- id: ACTV-626
+  name: Checkout session (guard confirms match)
+  processRef: PROC-184
+  executionType: MANUAL
+  humanActorRef: ACTR-017
+  trigger: guard confirms QR/photo match
+  input: sessionId
+  output: VehicleSession -> CheckedOut (+CheckedOutBy/At)
+  exceptionHandling: Voided/CheckedOut -> reject
+  auditLog: true
+  moduleRef: SYS-002
+  apiRefs:
+  - API-120
+  dataRefs:
+  - DATA-014
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/GuardService.cs@4f3c7ea3
+  - 1_Shared/Domain.cs@4f3c7ea3
+- id: ACTV-627
+  name: Flag suspicious / void session
+  processRef: PROC-184
+  executionType: MANUAL
+  humanActorRef: ACTR-017
+  trigger: photo/plate mismatch or cancelled/expired session
+  input: sessionId + flag reason (required for Flag)
+  output: VehicleSession -> Flagged(reason) | Voided
+  exceptionHandling: flag/void from CheckedOut -> reject
+  auditLog: true
+  moduleRef: SYS-002
+  apiRefs:
+  - API-120
+  dataRefs:
+  - DATA-014
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/GuardService.cs@4f3c7ea3
+  - 1_Shared/Domain.cs@4f3c7ea3
+- id: ACTV-628
+  name: Sessions board + KhachLink wallet status sync
+  processRef: PROC-184
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: guard opens today board / KhachLink polls my-sessions
+  input: tenantId (+status filter) / customerId + sessionIds
+  output: TodaySessionsResult (counts + page) / SessionDetailResult (presigned photo URLs)
+    / SessionStatusResult list (cross-tenant)
+  exceptionHandling: page>100 -> clamp
+  auditLog: false
+  moduleRef: SYS-002
+  apiRefs:
+  - API-120
+  dataRefs:
+  - DATA-014
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/IGuardService.cs@4f3c7ea3
+  - 5_WebApps/KhachLink/Services/Http/GuardQrApiClient.cs@4f3c7ea3

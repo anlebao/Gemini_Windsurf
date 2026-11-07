@@ -51,7 +51,19 @@
 | ACTV-620 | Role activate/deactivate | SYS-002/003 | `CommunityAdminService.ActivateRole{ForTenant}Async` | POST …/activate-role\|deactivate-role | `CommunityRole` (DATA-013) | role state | VERIFIED |
 | ACTV-621 | Referral & commission | SYS-003 | `SalesmanService` + `ReferralCommissionCalculator` | /api/community/salesman/*, /resolve-referral | `SalesReferral` (DATA-013) | commission | INFERRED (call chain partial) |
 
+## Guard parking — giữ xe QR (D1 addendum)
+
+| ACTV | Activity | Module | Handler/Service | API/Event | DB | Output | Status |
+|---|---|---|---|---|---|---|---|
+| ACTV-622 | Issue session | SYS-002/003 | `GuardService.IssueAsync` | POST /api/guard/issue | `VehicleSession` (DATA-014) | QR + short code + ticket | VERIFIED |
+| ACTV-623 | Photo upload | SYS-002 | `GuardService.PresignUploadAsync`/`UploadPhotoAsync` | POST /api/guard/{presign-upload,upload-photo} | R2 keys (DATA-014) | photo keys | VERIFIED |
+| ACTV-624 | Claim session | SYS-002/003 | `GuardController.Claim` → `GuardService.ClaimAsync` | POST /api/guard/claim | DATA-014 | Claimed | VERIFIED |
+| ACTV-625 | Verify scan | SYS-002/003 | `GuardService.VerifyAsync` | POST /api/guard/verify | DATA-014 + `GuardScanLog` | verify result + log | VERIFIED |
+| ACTV-626 | Checkout | SYS-002/003 | `GuardService.CheckoutAsync` | POST /api/guard/checkout/{id} | DATA-014 | CheckedOut | VERIFIED |
+| ACTV-627 | Flag/Void | SYS-002/003 | `GuardService.FlagAsync`/`VoidAsync` | POST /api/guard/{flag,void}/{id} | DATA-014 | Flagged/Voided | VERIFIED |
+| ACTV-628 | Board + sync | SYS-002 | `GuardService.GetTodaySessionsAsync`/`GetSessionStatusesAsync` | GET …/sessions/today · POST …/my-sessions | DATA-014 | DTOs | VERIFIED |
+
 ## Coverage
 
-- Verified chain links: 16/27 activities fully code-verified; 9 partially (endpoint/handler names inferred); 2 manual (no software — legitimately UNVERIFIED). VALCN D1 (added 2026-11-08): +12 activities — 11 VERIFIED, 1 INFERRED (ACTV-621).
+- Verified chain links: 16/27 activities fully code-verified; 9 partially (endpoint/handler names inferred); 2 manual (no software — legitimately UNVERIFIED). VALCN D1 (added 2026-11-08): +12 activities — 11 VERIFIED, 1 INFERRED (ACTV-621). Guard parking D1 addendum: +7 activities — all VERIFIED (ACTV-622..628).
 - UNKNOWN open: exact `/api/membership-*` routes, OCR pipeline internals, POS notify mechanism, reverse `vanan.shoperp.*` subject names, `PublishDeliveryStatusUpdateAsync` channel (SignalR vs NATS), SMS-OTP deposit wallet flow — enumerate at X0 drift run or targeted P3-followup.

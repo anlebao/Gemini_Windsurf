@@ -457,3 +457,13 @@ entries:
   evidence:
   - 3_CoreHub/Services/FinancialIntelligence/BreakEvenAnalysisService.cs@64789992
   - 3_CoreHub/Services/FinancialIntelligence/BusinessProfileService.cs@64789992
+- id: PROC-184
+  name: Vehicle parking guard (giu xe QR)
+  level: 3
+  parentRef: PROC-020
+  variability: CONFIGURABLE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/GuardService.cs@4f3c7ea3
+  - 2_Gateway/Controllers/GuardController.cs@4f3c7ea3

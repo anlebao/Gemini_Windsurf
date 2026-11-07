@@ -16,7 +16,7 @@
 - `00-overview/` — ecosystem-overview (context diagram) · system-context (repo inventory) · glossary · diagram-conventions · existing-docs-index
 - `01-actors/` — actor-registry · organization-registry · responsibility-matrix (RACI)
 - `02-business-capabilities/` — capability-map (22 CAP)
-- `03-processes/` — process-catalog (L0–L3) · swimlane-diagrams/f4, f1, valcn · process-details/f4, f1, valcn
+- `03-processes/` — process-catalog (L0–L3) · swimlane-diagrams/f4, f1, valcn, guard-parking · process-details/f4, f1, valcn
 - `04-software-architecture/` — software-inventory · component-map · integration-map
 - `05-data-architecture/` — data-flow-catalog · data-ownership · data-entity-map
 - `06-governance/` — authorization-map · approval-matrix · audit-controls

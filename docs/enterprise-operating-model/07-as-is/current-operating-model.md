@@ -15,14 +15,15 @@
 | Inventory | PROC-161..163 | ACTV-601..603 | VERIFIED services; L3 coverage-level (depth = GAP-016) |
 | Accounting+ | PROC-171/172 | ACTV-604/605 | VERIFIED (resolver + period close; beyond F3 vouchers) |
 | VALCN | PROC-181..183 | ACTV-606..608 + 610..621 | VERIFIED — D1 deep-dive detail (`swimlane-diagrams/valcn.md` + `process-details/valcn-details.md`; CAP-023 = GOAL, HTX = vehicle) |
+| Guard parking (giữ xe) | PROC-184 | ACTV-622..628 | VERIFIED — D1 addendum (`swimlane-diagrams/guard-parking.md`; flag `Guard:QrVerifyEnabled`) |
 | Fin Intelligence | PROC-191 | ACTV-609 | VERIFIED (BreakEven + BusinessProfile; advisory-only) |
 
-## Execution-type distribution (all slices: 75 activities)
+## Execution-type distribution (all slices: 82 activities)
 
 | Type | Count | % |
 |---|---|---|
-| MANUAL | 29 | 39% |
-| AUTOMATED | 46 | 61% |
+| MANUAL | 34 | 41% |
+| AUTOMATED | 48 | 59% |
 | HYBRID | 0 | 0% |
 
 Honest reading: most "human-in-the-loop" cases decompose cleanly into MANUAL decision activities sitting between AUTOMATED steps (approval gates), exactly as the decompose-first rule intends. HYBRID remains empty — correct, not missing.

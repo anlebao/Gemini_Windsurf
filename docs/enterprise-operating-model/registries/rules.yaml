@@ -311,3 +311,41 @@ entries:
   confidence: VERIFIED
   evidence:
   - 3_CoreHub/Services/OrderService.cs@69496de4
+- id: RULE-026
+  name: Photo + QR token are primary verifiers
+  description: plate number optional metadata (Phase-1); customer photo optional (#130);
+    plate photo required at issue
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-622
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain.cs@4f3c7ea3
+- id: RULE-027
+  name: Claim idempotency (INV-G05/G06)
+  description: claim only from Issued status; already-claimed session throws — one customer
+    per session
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-624
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain.cs@4f3c7ea3
+- id: RULE-028
+  name: VehicleSession state machine
+  description: Checkout allowed from Issued|Claimed; Flag from Issued|Claimed (reason required);
+    Void never from CheckedOut
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-625
+  - ACTV-626
+  - ACTV-627
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain.cs@4f3c7ea3

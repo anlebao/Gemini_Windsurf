@@ -130,3 +130,29 @@ entries:
   ctrlRefs: []
   evidence:
   - 3_CoreHub/Services/DeliveryWorkflowService.cs@69496de4
+- id: RISK-012
+  name: Short-code claim guessable / cross-tenant collision
+  category: SECURITY
+  severity: MEDIUM
+  description: 6-digit ShortCode unique per tenant per day only; claim resolves tenant via
+    first match cross-tenant — brute-force + misrouting exposure
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-021
+  - CTRL-022
+  evidence:
+  - 2_Gateway/Controllers/GuardController.cs@4f3c7ea3
+  - 3_CoreHub/Services/IGuardService.cs@4f3c7ea3
+- id: RISK-013
+  name: ManualOverride scan bypass
+  category: FRAUD
+  severity: LOW
+  description: guard can record ManualOverride on mismatch — physical-checkout bypass only
+    mitigated by scan-log audit
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-022
+  evidence:
+  - 1_Shared/Domain.cs@4f3c7ea3

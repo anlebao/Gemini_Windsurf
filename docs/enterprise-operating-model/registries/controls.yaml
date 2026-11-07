@@ -217,3 +217,31 @@ entries:
   - ACTV-613
   evidence:
   - 3_CoreHub/Services/CommunityOrderService.cs@69496de4
+- id: CTRL-021
+  name: QR token hash-only storage
+  type: PREVENTIVE
+  description: VehicleSession.QrTokenHash + GuardScanLog.ScannedQrTokenHash — raw QR token
+    never persisted
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-012
+  activityRefs:
+  - ACTV-622
+  - ACTV-625
+  evidence:
+  - 1_Shared/Domain.cs@4f3c7ea3
+- id: CTRL-022
+  name: GuardScanLog verify audit trail
+  type: DETECTIVE
+  description: every verify attempt logged (result, scanner, timestamp, notes) incl. mismatch
+    + manual override
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-012
+  - RISK-013
+  activityRefs:
+  - ACTV-625
+  evidence:
+  - 1_Shared/Domain.cs@4f3c7ea3

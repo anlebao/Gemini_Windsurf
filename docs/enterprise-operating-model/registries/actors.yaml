@@ -328,3 +328,20 @@ entries:
   confidence: VERIFIED
   evidence:
   - 3_CoreHub/VanAn.CoreHub.csproj@64789992
+- id: ACTR-017
+  name: Parking guard (bao ve giu xe)
+  type: HUMAN
+  orgRef: ORG-005
+  status: ACTIVE
+  confidence: VERIFIED
+  responsibilities:
+  - issue QR parking session (photo + printed ticket)
+  - scan/verify checkout QR
+  - flag suspicious sessions
+  authorizedActions:
+  - UserRole.Guard (check-in/out)
+  componentRefs:
+  - SYS-004
+  evidence:
+  - 1_Shared/Domain/Aggregates/UserAggregate/UserRole.cs@4f3c7ea3
+  - 5_WebApps/ShopERP/Components/Pages/Guard/Scan.razor@4f3c7ea3
