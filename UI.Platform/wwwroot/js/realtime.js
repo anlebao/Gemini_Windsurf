@@ -77,10 +77,13 @@ let _markers = {};
 // is accessible there. Fix: try OSM first, and on tile errors switch to the next
 // provider (CARTO / Esri — both reachable). Switching is per-map + burst-locked so a
 // host-level refusal (10 errors at once) only advances one provider.
+// 2026-11-07: CARTO Voyager moved to #1 — prettier style AND more reliable on
+// VN networks; OSM standard demoted to last resort. (User feedback: map
+// "không ổn định, không đẹp" — OSM-first was the main cause of both.)
 const TILE_PROVIDERS = [
-    { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors', subdomains: 'abc', maxZoom: 19 },
     { url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors &copy; CARTO', subdomains: 'abcd', maxZoom: 19 },
-    { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', attribution: 'Tiles &copy; Esri', maxZoom: 18 }
+    { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', attribution: 'Tiles &copy; Esri', maxZoom: 18 },
+    { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors', subdomains: 'abc', maxZoom: 19 }
 ];
 
 function addTileLayer(map, index) {

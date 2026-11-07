@@ -1,8 +1,11 @@
-﻿@* Realtime Platform P5 (F9): static shop map + distance — VanAnMap thay Google iframe
-   (không realtime — quyết định 2026-09-17). F11: bỏ <style> inline, dùng UI Platform. *@
+﻿@* Realtime Platform P5 (F9): static shop map + distance. Map upgrade 2026-11-07:
+   Google Maps Embed API iframe (embed/v1/place) — prettier + more reliable on VN
+   networks than Leaflet raster tiles. Key in appsettings.json GoogleMaps:EmbedKey
+   (public, referrer-restricted); empty → free output=embed fallback. *@
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.UI.Platform.Components.Realtime
 @inject IJSRuntime JSRuntime
+@inject IConfiguration Config
 
 <VanAnCard CssClass="location-section" Shadow="true">
     <h3 class="text-center mb-4">Tìm chúng tôi</h3>
@@ -10,13 +13,11 @@
     @if (ShopConfig?.Latitude != null && ShopConfig?.Longitude != null)
     {
         <VanAnCard CssClass="map-container-card" Shadow="true">
-            <VanAnMap MapElementId="store-location-map"
-                      Height="400px"
-                      CenterLat="ShopConfig.Latitude.Value"
-                      CenterLng="ShopConfig.Longitude.Value"
-                      Zoom="15"
-                      ShopLat="ShopConfig.Latitude"
-                      ShopLng="ShopConfig.Longitude" />
+            <iframe class="store-map-iframe" src="@MapUrl"
+                    width="100%" height="400" style="border:0;border-radius:12px;"
+                    allowfullscreen loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    title="@($"Bản đồ {ShopConfig.ShopName}")"></iframe>
         </VanAnCard>
 
         <div class="text-center mt-3">
@@ -63,6 +64,22 @@
 
     private double? _distanceKm;
     private string? _distanceError;
+
+    /// <summary>Google Maps Embed URL — embed/v1/place khi có key, output=embed
+    /// (free, không cần key) khi chưa cấu hình. Lat/lng invariant để tránh dấu
+    /// phẩy decimal theo locale.</summary>
+    private string MapUrl
+    {
+        get
+        {
+            var q = FormattableString.Invariant(
+                $"{ShopConfig!.Latitude!.Value},{ShopConfig.Longitude!.Value}");
+            var key = Config["GoogleMaps:EmbedKey"];
+            return !string.IsNullOrWhiteSpace(key)
+                ? $"https://www.google.com/maps/embed/v1/place?key={key}&q={q}&zoom=15&language=vi&region=VN"
+                : $"https://maps.google.com/maps?q={q}&z=15&hl=vi&output=embed";
+        }
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

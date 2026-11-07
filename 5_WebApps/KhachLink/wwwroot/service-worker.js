@@ -1,5 +1,12 @@
 ﻿// ============================================================================
-// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v30-voice-input)
+// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v31-map-upgrade)
+//
+// v31-map-upgrade (2026-11-07):
+//   - realtime.js: CARTO Voyager tiles now FIRST in provider chain (prettier +
+//     more reliable on VN networks than OSM standard).
+//   - appsettings.json: NEVER intercept — deploy-time config (GoogleMaps
+//     EmbedKey) must rotate without a SW bump.
+//   - Static JS is cache-first with NO expiry → bump v30 → v31.
 //
 // v30-voice-input (2026-11-07):
 //   - SF-W3: vananVoiceInput (voice-input.js) + realtime.js scrollToTop.
@@ -172,10 +179,10 @@
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v30-voice-input';
-const STATIC_CACHE = 'vanan-static-v30-voice-input';
-const DYNAMIC_CACHE = 'vanan-dynamic-v30-voice-input';
-const WASM_CACHE = 'vanan-wasm-v30-voice-input';
+const CACHE_NAME = 'vanan-khachlink-v31-map-upgrade';
+const STATIC_CACHE = 'vanan-static-v31-map-upgrade';
+const DYNAMIC_CACHE = 'vanan-dynamic-v31-map-upgrade';
+const WASM_CACHE = 'vanan-wasm-v31-map-upgrade';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
@@ -375,7 +382,10 @@ self.addEventListener('fetch', event => {
   // PWA metadata: NEVER intercept — always fresh from network. These are
   // dynamic per-instance (manifest name/icons) and caching them (especially
   // a poisoned HTML fallback) breaks Chrome installability checks.
+  // appsettings.json (v31): deploy-time config (GoogleMaps:EmbedKey etc.) —
+  // must rotate without a SW bump.
   if (url.pathname === '/manifest.json' ||
+      url.pathname === '/appsettings.json' ||
       url.pathname.startsWith('/khachlink-icons/')) {
     return;
   }
