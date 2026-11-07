@@ -1468,3 +1468,227 @@ entries:
   evidence:
   - 3_CoreHub/Services/IGuardService.cs@4f3c7ea3
   - 5_WebApps/KhachLink/Services/Http/GuardQrApiClient.cs@4f3c7ea3
+- id: ACTV-629
+  name: Resolve effective accounting standard (regime-lock)
+  processRef: PROC-172
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: report page load / tenant type change
+  input: Tenant.Type + Tenant.AccountingStandard override
+  output: effective standard (TT133 default / TT71 HTX hard-lock / TT99 large / TT58 super-small+option / HKD->null until TT58 elected)
+  exceptionHandling: Type=null (legacy) -> all 4 allowed (no lock)
+  auditLog: false
+  moduleRef: SYS-004
+  dataRefs:
+  - DATA-001
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain/AccountingStandardRules.cs@58d3d3d6
+  - 5_WebApps/ShopERP/Services/Accounting/AccountingStandardResolver.cs@58d3d3d6
+- id: ACTV-630
+  name: Set tenant accounting standard override (validated)
+  processRef: PROC-172
+  executionType: MANUAL
+  humanActorRef: ACTR-002
+  trigger: owner/admin changes "Che do ke toan"
+  input: tenantId + standard
+  output: Tenant.AccountingStandard updated (HKD elect TT58 path)
+  approvalRequired: true
+  exceptionHandling: standard outside AllowedStandards -> reject (write-path)
+  auditLog: true
+  moduleRef: SYS-003
+  dataRefs:
+  - DATA-001
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/TenantManagementService.cs@58d3d3d6
+  - 1_Shared/Domain/AccountingStandardRules.cs@58d3d3d6
+- id: ACTV-631
+  name: Generate HKD books (S1a/S2a-e/S3a)
+  processRef: PROC-173
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: owner opens HKD books / API request
+  input: tenantId + period + templateCode (+industrySector)
+  output: GenericHKDBook per TT152 template (HKDBookGenerationService formulas)
+  exceptionHandling: unknown template -> validation errors; sector hint for S2a/S2b
+  auditLog: false
+  moduleRef: SYS-002
+  apiRefs:
+  - API-121
+  dataRefs:
+  - DATA-009
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/HKDBookService.cs@58d3d3d6
+  - 3_CoreHub/Services/Template/HKDBookGenerationService.cs@58d3d3d6
+- id: ACTV-632
+  name: Generate trial balance
+  processRef: PROC-171
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: report request
+  input: tenantId + period + standard
+  output: TrialBalance (opening <periodStart + movement in-period -> balance; IsBalanced flag)
+  exceptionHandling: unbalanced -> IsBalanced=false surfaced
+  auditLog: false
+  moduleRef: SYS-003
+  dataRefs:
+  - DATA-015
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/TrialBalanceService.cs@58d3d3d6
+- id: ACTV-633
+  name: Journal + ledger reports (Nhat ky chung, So Cai, balances)
+  processRef: PROC-171
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: owner opens journal/ledger report (TT133/TT99/TT71)
+  input: tenantId + year/month (+accountCode for ledger)
+  output: JournalEntryDto list / LedgerReportDto (opening + period movement + closing) / AccountBalanceDto
+  exceptionHandling: non-BCTC regime -> empty (HKD uses TT152 books)
+  auditLog: false
+  moduleRef: SYS-003
+  dataRefs:
+  - DATA-015
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/GeneralLedger/GeneralLedgerService.cs@58d3d3d6
+- id: ACTV-634
+  name: Financial statements B01/B02/B03 + B09 notes
+  processRef: PROC-171
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: owner opens BCTC pages
+  input: tenantId + period + standard
+  output: BalanceSheet / IncomeStatement / CashFlowStatement / B09 notes (TT99 Phu luc IV; B09-HTX variant TT71)
+  exceptionHandling: regime mismatch -> per-service handling
+  auditLog: false
+  moduleRef: SYS-003
+  dataRefs:
+  - DATA-015
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/BalanceSheetService.cs@58d3d3d6
+  - 3_CoreHub/Services/IncomeStatementService.cs@58d3d3d6
+  - 3_CoreHub/Services/CashFlowStatementService.cs@58d3d3d6
+  - 3_CoreHub/Services/FinancialStatementNotesService.cs@58d3d3d6
+- id: ACTV-635
+  name: Validate period pre-close (checklist + reconcile feed)
+  processRef: PROC-171
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: close attempt / preview
+  input: period + tenantId
+  output: PeriodClosingCheckResult (errors block / warnings pass)
+  exceptionHandling: no entries -> error; reconcile crash -> warning only (fail-safe)
+  auditLog: false
+  moduleRef: SYS-003
+  dataRefs:
+  - DATA-009
+  - DATA-015
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/PeriodClosingService.cs@58d3d3d6
+- id: ACTV-636
+  name: Generate closing entries (ket chuyen 911)
+  processRef: PROC-171
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: close period / manual button
+  input: period + tenantId + userId
+  output: closing JEs (No 5xx|711|515/Co 911; No 911/Co 6xx|635|811; 911<->421) — accrual regimes only, idempotent
+  exceptionHandling: HKD/TT152 + DNSN/TT58 -> skip 0; existing closing JE -> skip
+  auditLog: true
+  moduleRef: SYS-003
+  dataRefs:
+  - DATA-015
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/PeriodClosingService.cs@58d3d3d6
+- id: ACTV-637
+  name: Close period (MarkClosed + audit)
+  processRef: PROC-171
+  executionType: MANUAL
+  humanActorRef: ACTR-006
+  trigger: owner/ChiefAccountant closes period in ShopERP
+  input: period + tenantId + userId
+  output: PeriodClosingStatusEntity.Closed (persisted) + ClosingEntry + audit log
+  approvalRequired: true
+  exceptionHandling: already closed -> 409; validation errors -> block; pending (Amount=0) entries -> block
+  auditLog: true
+  moduleRef: SYS-003
+  dataRefs:
+  - DATA-015
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/PeriodClosingService.cs@58d3d3d6
+  - 5_WebApps/ShopERP/Components/Pages/Accounting/PeriodClosing.razor@58d3d3d6
+- id: ACTV-638
+  name: Reopen period (approver roles + closing-JE reversal)
+  processRef: PROC-171
+  executionType: MANUAL
+  humanActorRef: ACTR-006
+  trigger: post-close correction needed
+  input: period + tenantId + reason (required) + approver roles
+  output: closing JEs reversed + status Open + audit LogPeriodReopen
+  approvalRequired: true
+  exceptionHandling: role not in [Owner,ChiefAccountant,SystemAdmin] -> reject; not Closed -> reject
+  auditLog: true
+  moduleRef: SYS-003
+  dataRefs:
+  - DATA-015
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/PeriodClosingService.cs@58d3d3d6
+- id: ACTV-639
+  name: Run reconcile R1-R13 (tra soat, SystemAdmin)
+  processRef: PROC-174
+  executionType: MANUAL
+  humanActorRef: ACTR-015
+  trigger: admin opens reconcile / pre-close checklist calls it
+  input: tenantId + period (YYYY-MM)
+  output: ReconcileResult (R1 journal balance, R2 TB, R3 rev/exp sync, R4 balance identity, R5 so cai, R6 nhat ky, R7 HKD books, R8 single-source bridge, R9 deposit 3387, R10 order->entries, R11 cross-store, R12 TransactionDate, R13 inventory<->GL) + audit log
+  exceptionHandling: read-only (NFR-1); per-check RunSafe fail-open; audit logged
+  auditLog: true
+  moduleRef: SYS-002
+  apiRefs:
+  - API-122
+  dataRefs:
+  - DATA-009
+  - DATA-015
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Reconcile/AccountingReconcileService.cs@58d3d3d6
+  - 2_Gateway/Controllers/AccountingReconcileController.cs@58d3d3d6
+- id: ACTV-640
+  name: Cross-store mirror + inventory valuation providers (R11/R13)
+  processRef: PROC-174
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: reconcile R11/R13 checks
+  input: period / tenantId
+  output: MirrorOrderDto (SQLite mirror orders) / InventoryValuationDto (stock x price snapshot)
+  exceptionHandling: provider unconfigured/HTTP fail -> check skipped with Info (fail-open)
+  auditLog: false
+  moduleRef: SYS-002
+  apiRefs:
+  - API-109
+  dataRefs:
+  - DATA-005
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Reconcile/ReconcileModels.cs@58d3d3d6
+  - 3_CoreHub/Services/Reconcile/AccountingReconcileService.cs@58d3d3d6

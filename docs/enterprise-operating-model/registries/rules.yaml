@@ -349,3 +349,55 @@ entries:
   confidence: VERIFIED
   evidence:
   - 1_Shared/Domain.cs@4f3c7ea3
+- id: RULE-029
+  name: Regime-lock allowed standards by TenantType
+  description: default-lock per tenant type (HTX->TT71 hard, Large->TT99, SME->TT133,
+    SuperSmall->TT58 default + TT133 option); HKD allowed=[] until TT58 elected; legacy
+    Type=null keeps all 4 (no lock)
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-629
+  - ACTV-630
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain/AccountingStandardRules.cs@58d3d3d6
+- id: RULE-030
+  name: Closing entries accrual-only + idempotent
+  description: ket chuyen 911 generated only for TT133/TT99/TT71; HKD (TT152) + DNSN (TT58)
+    skip — so khong ket chuyen; JE purpose 'closing' + period dedupes re-runs
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-636
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/PeriodClosingService.cs@58d3d3d6
+- id: RULE-031
+  name: Reopen gated — approver roles + reason + reversal
+  description: reopen allowed only for Owner/ChiefAccountant/SystemAdmin with mandatory
+    reason; closing JEs reversed (append-only preserved); status Reopening->Open
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-638
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/PeriodClosingService.cs@58d3d3d6
+- id: RULE-032
+  name: Reconcile read-only + fail-open
+  description: tra soat never writes (NFR-1); each check isolated via RunSafe; R11/R13
+    providers fail-open (skip with Info) when unconfigured or HTTP error
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-639
+  - ACTV-640
+  componentRef: SYS-002
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Reconcile/IAccountingReconcileService.cs@58d3d3d6
+  - 3_CoreHub/Services/Reconcile/AccountingReconcileService.cs@58d3d3d6

@@ -467,3 +467,23 @@ entries:
   evidence:
   - 3_CoreHub/Services/GuardService.cs@4f3c7ea3
   - 2_Gateway/Controllers/GuardController.cs@4f3c7ea3
+- id: PROC-173
+  name: HKD book generation (TT152 so sach)
+  level: 3
+  parentRef: PROC-032
+  variability: CONFIGURABLE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/HKDBookService.cs@58d3d3d6
+  - 3_CoreHub/Services/Template/HKDBookGenerationService.cs@58d3d3d6
+- id: PROC-174
+  name: Accounting reconcile — tra soat R1-R13
+  level: 3
+  parentRef: PROC-032
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Reconcile/AccountingReconcileService.cs@58d3d3d6
+  - 2_Gateway/Controllers/AccountingReconcileController.cs@58d3d3d6

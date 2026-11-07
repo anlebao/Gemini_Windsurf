@@ -245,3 +245,45 @@ entries:
   - ACTV-625
   evidence:
   - 1_Shared/Domain.cs@4f3c7ea3
+- id: CTRL-023
+  name: Write-path regime validation
+  type: PREVENTIVE
+  description: SetAccountingStandardAsync rejects standard outside AllowedStandards for
+    tenant type
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-014
+  activityRefs:
+  - ACTV-630
+  evidence:
+  - 3_CoreHub/Services/TenantManagementService.cs@58d3d3d6
+- id: CTRL-024
+  name: Period-close validation gate
+  type: PREVENTIVE
+  description: close blocked when entries missing / pending Amount=0 / reconcile Error checks
+    — warnings pass with note
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs: []
+  activityRefs:
+  - ACTV-635
+  - ACTV-637
+  evidence:
+  - 3_CoreHub/Services/PeriodClosingService.cs@58d3d3d6
+- id: CTRL-025
+  name: Audit trail — close/reopen/reconcile
+  type: DETECTIVE
+  description: AuditTrailService logs LogPeriodClose / LogPeriodReopen (reason) / reconcile
+    run summary (tenant, period, user)
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-015
+  - RISK-016
+  activityRefs:
+  - ACTV-637
+  - ACTV-638
+  - ACTV-639
+  evidence:
+  - 3_CoreHub/Services/AuditTrailService.cs@58d3d3d6

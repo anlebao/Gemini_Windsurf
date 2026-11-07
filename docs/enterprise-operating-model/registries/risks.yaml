@@ -156,3 +156,41 @@ entries:
   - CTRL-022
   evidence:
   - 1_Shared/Domain.cs@4f3c7ea3
+- id: RISK-014
+  name: Legacy unclassified tenants bypass regime lock
+  category: COMPLIANCE
+  severity: MEDIUM
+  description: Tenant.Type=null keeps all 4 standards allowed (backward-compat) — BCTC can
+    be generated under wrong regime until tenant classified
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-023
+  evidence:
+  - 1_Shared/Domain/AccountingStandardRules.cs@58d3d3d6
+- id: RISK-015
+  name: Reopen misuse — closing JE reversal on closed books
+  category: COMPLIANCE
+  severity: LOW
+  description: reopen reverses closing entries and reopens books; gated to 3 approver roles
+    + reason + audit — residual is governance, not technical
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-024
+  - CTRL-025
+  evidence:
+  - 3_CoreHub/Services/PeriodClosingService.cs@58d3d3d6
+- id: RISK-016
+  name: Reconcile cross-store/inventory checks silently skipped
+  category: OPERATIONAL
+  severity: MEDIUM
+  description: R11 (PG<->SQLite mirror) and R13 (inventory<->GL) fail-open on provider/HTTP
+    issues — drift can pass unnoticed; pre-close checklist treats reconcile crash as warning
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-025
+  evidence:
+  - 3_CoreHub/Services/Reconcile/ReconcileModels.cs@58d3d3d6
+  - 3_CoreHub/Services/PeriodClosingService.cs@58d3d3d6

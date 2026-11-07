@@ -149,3 +149,14 @@ entries:
   evidence:
   - 1_Shared/Domain.cs@4f3c7ea3
   - 3_CoreHub/Infrastructure/Migrations/20260814042520_AddGuardQrVerifyTables.cs@4f3c7ea3
+- id: DATA-015
+  name: JournalEntry + period closing status
+  store: PG_GATEWAY
+  systemOfRecord: true
+  classification: double-entry journal (BCTC regimes) + close/reopen state (PeriodClosingStatusEntity)
+  ownerRef: ORG-005
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Infrastructure/Entities/PeriodClosingStatusEntity.cs@58d3d3d6
+  - 3_CoreHub/Services/TrialBalanceService.cs@58d3d3d6

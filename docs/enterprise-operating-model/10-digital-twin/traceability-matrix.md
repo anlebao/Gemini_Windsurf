@@ -63,7 +63,24 @@
 | ACTV-627 | Flag/Void | SYS-002/003 | `GuardService.FlagAsync`/`VoidAsync` | POST /api/guard/{flag,void}/{id} | DATA-014 | Flagged/Voided | VERIFIED |
 | ACTV-628 | Board + sync | SYS-002 | `GuardService.GetTodaySessionsAsync`/`GetSessionStatusesAsync` | GET …/sessions/today · POST …/my-sessions | DATA-014 | DTOs | VERIFIED |
 
+## Accounting depth (D3)
+
+| ACTV | Activity | Module | Handler/Service | API/Event | DB | Output | Status |
+|---|---|---|---|---|---|---|---|
+| ACTV-629 | Resolve standard | SYS-004 | `AccountingStandardRules`/`Resolver` | — | `Tenant` (DATA-001) | effective std | VERIFIED |
+| ACTV-630 | Set standard override | SYS-003 | `TenantManagementService.SetAccountingStandardAsync` | — | DATA-001 | override | VERIFIED |
+| ACTV-631 | HKD books | SYS-002/003 | `HKDBookService` + `HKDBookGenerationService` | GET /api/hkd-books* | DATA-009 | S1a-S3a books | VERIFIED |
+| ACTV-632 | Trial balance | SYS-003 | `TrialBalanceService.GenerateAsync` | — | DATA-015 | TB | VERIFIED |
+| ACTV-633 | Journal + ledger | SYS-003 | `GeneralLedgerService` | — | DATA-015 | reports | VERIFIED |
+| ACTV-634 | BCTC B01/02/03 + B09 | SYS-003 | `BalanceSheet/IncomeStatement/CashFlowStatement/FinancialStatementNotes` services | — | DATA-015 | statements | VERIFIED |
+| ACTV-635 | Validate pre-close | SYS-003 | `PeriodClosingService.ValidatePeriodAsync` | — | DATA-009/015 | check result | VERIFIED |
+| ACTV-636 | Closing JEs 911 | SYS-003 | `PeriodClosingService.GenerateClosingEntriesAsync` | — | DATA-015 | closing JEs | VERIFIED |
+| ACTV-637 | Close period | SYS-003/004 | `PeriodClosingService.ClosePeriodAsync` (PeriodClosing.razor) | — | DATA-015 | Closed + audit | VERIFIED |
+| ACTV-638 | Reopen period | SYS-003/004 | `PeriodClosingService.ReopenPeriodAsync` | — | DATA-015 | Open + audit | VERIFIED |
+| ACTV-639 | Reconcile R1-R13 | SYS-002/003 | `AccountingReconcileService.RunAsync` | GET /api/admin/accounting/reconcile | DATA-009/015 | ReconcileResult | VERIFIED |
+| ACTV-640 | Mirror/valuation providers | SYS-002 | `IMirrorOrderProvider`/`IInventoryValuationProvider` (HTTP→ShopERP) | `/api/shoperp/accounting/mirror-orders` · `/api/shoperp/inventory/valuation` | DATA-005 | DTOs | VERIFIED |
+
 ## Coverage
 
-- Verified chain links: 16/27 activities fully code-verified; 9 partially (endpoint/handler names inferred); 2 manual (no software — legitimately UNVERIFIED). VALCN D1 (added 2026-11-08): +12 activities — 11 VERIFIED, 1 INFERRED (ACTV-621). Guard parking D1 addendum: +7 activities — all VERIFIED (ACTV-622..628).
+- Verified chain links: 16/27 activities fully code-verified; 9 partially (endpoint/handler names inferred); 2 manual (no software — legitimately UNVERIFIED). VALCN D1 (added 2026-11-08): +12 activities — 11 VERIFIED, 1 INFERRED (ACTV-621). Guard parking D1 addendum: +7 activities — all VERIFIED (ACTV-622..628). Accounting depth D3: +12 activities — all VERIFIED (ACTV-629..640).
 - UNKNOWN open: exact `/api/membership-*` routes, OCR pipeline internals, POS notify mechanism, reverse `vanan.shoperp.*` subject names, `PublishDeliveryStatusUpdateAsync` channel (SignalR vs NATS), SMS-OTP deposit wallet flow — enumerate at X0 drift run or targeted P3-followup.

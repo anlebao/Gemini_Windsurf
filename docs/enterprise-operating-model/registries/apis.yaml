@@ -202,3 +202,21 @@ entries:
   confidence: VERIFIED
   evidence:
   - 2_Gateway/Controllers/GuardController.cs@4f3c7ea3
+- id: API-121
+  name: HKD books API
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: GET /api/hkd-books; GET /api/hkd-books/{templateCode} (RequireTenantAccess)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/HKDBooksController.cs@58d3d3d6
+- id: API-122
+  name: Accounting reconcile admin (tra soat)
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: GET /api/admin/accounting/reconcile?tenantId&period=YYYY-MM (SystemAdmin)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/AccountingReconcileController.cs@58d3d3d6
