@@ -1,6 +1,6 @@
 # Task AI-P10 — Admin UI `/admin/tenant-ai/*` (SRS P2 — tenant self-service)
 
-> **Status:** ✅ CODE DONE 2026-11-07 — validate local xong; chờ push/CD/RV
+> **Status:** ✅ DONE 2026-11-07 — DEPLOYED `23b061a2` · CD Multi-VPS #42348348820 + #42351336029 + #42352725876 ALL SUCCESS · RV sweep 45 checks + e2e production **6/6 PASS**
 > **Gate:** SRS v1.1 §3.1-P2 · FR-8 · §6.3 · NFR-10 · **main sln — additive, flag-gated `TenantAiEnabled`**
 > **Phụ thuộc:** P6b admin API (DONE — 9 endpoints) · P9 (inbox review pattern) · P7 sign-off (không block code)
 > **Gap nguồn:** `docs/AI/plans/tenant-ai-srs-compliance-audit.md` §4.1 — gap lớn nhất để đạt "SRS 100% + end-user tự dùng"
@@ -92,6 +92,15 @@ DTOs mirror `VanAn.TenantAi.Contracts/AdminDtos.cs` + `KnowledgeDtos` (per-host 
 
 **Tests:** AdminApiTests +2 (`Documents_List_FilterByStatus_IncludesContent`, `Profile_IncludesRecentVersions`) → **15/15** · `TenantAiAdminClientTests` **14/14** (paths/payloads/fail-safe/zero-HTTP) · `TenantAiHubTests` bUnit **2/2** (flag-off empty state + zero HTTP · flag-on load 1 lần).
 
-**Validate:** vanan-ai sln build 0 err · VanAn.sln build 0 err · ShopERP.Tests **330/330** · **guard-check ALL PASSED** (`guard-report-20261107-133834.txt`).
+**Validate:** vanan-ai sln build 0 err · VanAn.sln build 0 err · ShopERP.Tests **330/330** (+3 regression bUnit → **333**) · **guard-check ALL PASSED** (`guard-report-20261107-133834.txt`).
 
-**Còn:** push → CD (deploy vanan-ai + shoperp) → RV L1-L3 (routes 302, hub render, upload→approve, publish→widget greeting) → chạy e2e `tenant-ai-admin.spec.ts` trên production.
+**✅ DEPLOY + RV DONE (2026-11-07):**
+- `72700a96` → CD #42348348820 (vanan-ai + shoperp deployed, smoke PASS).
+- **RV sweep-first** (`rv-tenantai-admin-sweep.cjs` + spec trên An Tâm `e2d91cdf`): 45 checks → **39 PASS · 6 FAIL** → phân loại: 4 FAIL probe-timing (Blazor circuit warmup, timeout ngắn) + **2 BUG THẬT**:
+  - **BUG-1 (critical):** `TenantAiKnowledge` pending tab crash 500 khi có ≥1 pending doc — `@bind="_rejectReasons[d.Id]"` đọc dictionary indexer chưa seed → `KeyNotFoundException` trong BuildRenderTree (prerender + interactive). Che toàn bộ approval-gate flow. Fix `2fa5cf67`: seed `_rejectReasons.TryAdd(d.Id,"")` khi load pending + regression bUnit `TenantAiKnowledgeTests`.
+  - **BUG-2 (cosmetic):** rollback dropdown label render literal `v@v.Version` — Razor parse `v@v.` như email. Fix `23b061a2`: `v@(v.Version)` + regression bUnit `TenantAiProfileTests`.
+  - **Spec fixes (test-only):** blur textarea trước click nút disabled-until-valid (`@bind`=onchange → Playwright deadlock) · click `tab-pending` sau upload (page không auto-switch) · profile test giờ **self-restore**: rollback về bản published gốc → không đổi config production.
+- `2fa5cf67` → CD #42351336029 · `23b061a2` → CD #42352725876 — ShopERP deployed, smoke PASS.
+- **RV final production:** L1 image `23b061a2` cả 2 VPS + markers (Contracts `RecentVersions`, ShopERP `tenant-ai-hub`, vanan-ai health 200) · L2 6 routes 200 · L3 e2e `tenant-ai-admin.spec.ts` **6/6 PASS** (nav · sitemap · hub render · cards+links · upload→pending→approve→delete · draft→preview→publish→rollback restore).
+- **Production cleanup:** orphan doc "E2E FAQ" đã xóa · published profile restore về "Shi" (v10) — `rv-tenantai-admin-cleanup.cjs` tái dùng được.
+- **RV tooling:** `playwright-rv-tenantai-admin.config.ts` + `rv-tenantai-admin-auth.cjs` (storageState impersonate An Tâm) + `rv-tenantai-admin-sweep.cjs` (45-check sweep) + `rv-tenantai-admin-cleanup.cjs`.

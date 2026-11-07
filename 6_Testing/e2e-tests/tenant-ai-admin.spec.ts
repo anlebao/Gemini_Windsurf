@@ -91,6 +91,10 @@ test.describe('Tenant AI admin — flag-gated (TenantAiEnabled + vanan-ai)', () 
     await page.waitForLoadState('networkidle');
     await expect(page.getByTestId('card-profile-form')).toBeVisible({ timeout: 15000 });
 
+    // nhớ bản published gốc để rollback về sau (spec không được đổi config production).
+    const origPub = (await page.getByTestId('published-summary').textContent()) || '';
+    const origVer = origPub.match(/v(\d+)/)?.[1] ?? null;
+
     const greeting = `Chào E2E ${Date.now() % 100000}`;
     await page.getByTestId('input-ai-name').fill('Bé E2E');
     await page.getByTestId('input-greeting').fill(greeting);
@@ -105,5 +109,14 @@ test.describe('Tenant AI admin — flag-gated (TenantAiEnabled + vanan-ai)', () 
     await page.getByTestId('btn-publish').click();
     await page.getByTestId('btn-confirm-publish').click();
     await expect(page.getByTestId('published-summary')).toContainText('Bé E2E', { timeout: 15000 });
+
+    // rollback về bản published gốc — xác nhận rollback hoạt động + giữ config thật.
+    if (origVer) {
+      await page.getByTestId('select-rollback-version').selectOption(origVer);
+      await page.getByTestId('btn-rollback').click();
+      await page.getByTestId('btn-confirm-rollback').click();
+      await expect(page.getByTestId('published-summary'))
+        .not.toContainText('Bé E2E', { timeout: 15000 });
+    }
   });
 });
