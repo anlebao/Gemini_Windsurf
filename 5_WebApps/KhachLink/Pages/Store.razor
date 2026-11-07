@@ -136,7 +136,8 @@ else
            cards, không cần mở bubble. Chỉ render khi AI bật; fail → ẩn kết quả. *@
         @if (_features.AIChat_Enabled)
         {
-            <StoreSearchBar TenantId="_store.Id" OnAskAi="AskAi" OnAddToCart="AddAiProductToCartAsync" />
+            <StoreSearchBar TenantId="_store.Id" OnAskAi="AskAi" OnAddToCart="AddAiProductToCartAsync"
+                            VoiceEnabled="_features.Voice_Note_Enabled" />
         }
 
         @* BS-3 (2026-10-14): entry point đặt lịch — khách bấm link hoặc quét QR (tenant profile page) *@
@@ -342,6 +343,7 @@ else
         {
             <AiChatWidget TenantId="_store.Id"
                           OnAddToCart="AddAiProductToCartAsync"
+                          VoiceEnabled="_features.Voice_Note_Enabled"
                           HumanChatAvailable="@ChatIdentity.HasValue"
                           OnDraftRequest="OnAiEscalateDraft"
                           @bind-PendingQuestion="_pendingQuestion"

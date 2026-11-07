@@ -451,6 +451,100 @@ public class AiChatWidgetTests : TestContext
         cut.WaitForAssertion(() => calls.Should().Be(1));
     }
 
+    // === SF-W3 — voice input (nói thay vì gõ) ===
+
+    private IRenderedComponent<AiChatWidget> RenderVoice(
+        FakeAiChatClient client, bool voiceEnabled, bool speechSupported)
+    {
+        Services.AddSingleton<IAiChatClient>(client);
+        if (speechSupported)
+            JSInterop.Setup<bool>("vananVoiceInput.isSupported").SetResult(true);
+        return RenderComponent<AiChatWidget>(p => p
+            .Add(w => w.TenantId, TenantId)
+            .Add(w => w.VoiceEnabled, voiceEnabled)
+            .Add(w => w.OnAddToCart, _ => { }));
+    }
+
+    [Fact]
+    public void VoiceMic_Hidden_WhenVoiceDisabled()
+    {
+        var cut = RenderVoice(new FakeAiChatClient(), voiceEnabled: false, speechSupported: true);
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
+        cut.WaitForAssertion(() => cut.Find(".vanan-ai-panel"));
+
+        cut.FindAll(".vanan-ai-mic").Should().BeEmpty("tenant flag off → mic hidden");
+    }
+
+    [Fact]
+    public void VoiceMic_Hidden_WhenBrowserUnsupported()
+    {
+        // Loose JSInterop → isSupported returns default(false) — mic stays hidden.
+        var cut = RenderVoice(new FakeAiChatClient(), voiceEnabled: true, speechSupported: false);
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
+        cut.WaitForAssertion(() => cut.Find(".vanan-ai-panel"));
+
+        cut.FindAll(".vanan-ai-mic").Should().BeEmpty();
+    }
+
+    [Fact]
+    public void VoiceMic_Renders_WhenEnabledAndSupported()
+    {
+        var cut = RenderVoice(new FakeAiChatClient(), voiceEnabled: true, speechSupported: true);
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
+
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-mic").Should().NotBeNull());
+    }
+
+    [Fact]
+    public async Task VoiceFinal_Transcript_AutoSends()
+    {
+        var client = new FakeAiChatClient
+        {
+            ChatResult = new AiChatResult("Dạ có ạ.", [], [], 0.9, false, null, false, false)
+        };
+        var cut = RenderVoice(client, voiceEnabled: true, speechSupported: true);
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
+        cut.WaitForAssertion(() => cut.Find(".vanan-ai-panel"));
+
+        await cut.InvokeAsync(() => cut.Instance.OnVoiceFinal("phở chay bao nhiêu"));
+
+        cut.WaitForAssertion(() => client.SendCalls.Should().Be(1));
+        client.LastText.Should().Be("phở chay bao nhiêu");
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Dạ có ạ."));
+    }
+
+    [Fact]
+    public async Task VoiceInterim_FillsInput_WithoutSending()
+    {
+        var client = new FakeAiChatClient();
+        var cut = RenderVoice(client, voiceEnabled: true, speechSupported: true);
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
+        cut.WaitForAssertion(() => cut.Find(".vanan-ai-panel"));
+
+        await cut.InvokeAsync(() => cut.Instance.OnVoiceInterim("phở"));
+
+        cut.Find(".vanan-ai-panel input").GetAttribute("value").Should().Be("phở");
+        client.SendCalls.Should().Be(0, "interim text must not send");
+    }
+
+    [Fact]
+    public async Task Dispose_StopsActiveVoiceSession()
+    {
+        JSInterop.Setup<bool>("vananVoiceInput.start", _ => true).SetResult(true);
+        JSInterop.SetupVoid("vananVoiceInput.stop", _ => true).SetVoidResult();
+        var cut = RenderVoice(new FakeAiChatClient(), voiceEnabled: true, speechSupported: true);
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-mic"));
+
+        cut.Find("button.vanan-ai-mic").Click();
+        cut.WaitForAssertion(() =>
+            cut.Find("button.vanan-ai-mic").ClassList.Should().Contain("listening"));
+
+        await cut.Instance.DisposeAsync();
+
+        JSInterop.VerifyInvoke("vananVoiceInput.stop");
+    }
+
     private sealed class FakeRealtimeChatClient : IRealtimeChatClient
     {
         public Task<RealtimeChatHistoryResult> GetHistoryAsync(string subjectType, Guid subjectId,

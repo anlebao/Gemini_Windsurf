@@ -43,13 +43,15 @@ public class StoreSearchBarTests : TestContext
     private IRenderedComponent<StoreSearchBar> Render(
         FakeSearchClient client,
         Action<string>? onAskAi = null,
-        Action<AiProductCardItem>? onAddToCart = null)
+        Action<AiProductCardItem>? onAddToCart = null,
+        bool voiceEnabled = false)
     {
         Services.AddSingleton<IAiChatClient>(client);
         return RenderComponent<StoreSearchBar>(p => p
             .Add(c => c.TenantId, TenantId)
             .Add(c => c.OnAskAi, onAskAi ?? (_ => { }))
-            .Add(c => c.OnAddToCart, onAddToCart ?? (_ => { })));
+            .Add(c => c.OnAddToCart, onAddToCart ?? (_ => { }))
+            .Add(c => c.VoiceEnabled, voiceEnabled));
     }
 
     private static void DoSearch(IRenderedComponent<StoreSearchBar> cut, string query)
@@ -162,5 +164,63 @@ public class StoreSearchBarTests : TestContext
 
         cut.WaitForAssertion(() =>
             cut.Find(".store-search-empty").TextContent.Should().Contain("Chưa tìm thấy"));
+    }
+
+    // ── SF-W3: voice input ────────────────────────────────────────────────
+
+    [Fact]
+    public void Mic_Hidden_WhenVoiceDisabled()
+    {
+        var cut = Render(new FakeSearchClient(), voiceEnabled: false);
+
+        cut.FindAll(".store-search-mic").Should().BeEmpty(
+            "tenant flag off → mic hidden regardless of browser support");
+    }
+
+    [Fact]
+    public void Mic_Hidden_WhenVoiceEnabled_ButBrowserUnsupported()
+    {
+        // Strict JSInterop (default) — no isSupported setup → InvokeAsync throws →
+        // component catches → mic stays hidden (graceful degradation).
+        var cut = Render(new FakeSearchClient(), voiceEnabled: true);
+
+        cut.FindAll(".store-search-mic").Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Mic_Renders_WhenVoiceEnabledAndSupported()
+    {
+        JSInterop.Setup<bool>("vananVoiceInput.isSupported").SetResult(true);
+        var cut = Render(new FakeSearchClient(), voiceEnabled: true);
+
+        cut.WaitForAssertion(() =>
+            cut.Find(".store-search-mic").Should().NotBeNull());
+    }
+
+    [Fact]
+    public async Task VoiceInterim_FillsInput_WithoutSubmitting()
+    {
+        var client = new FakeSearchClient();
+        var cut = Render(client, voiceEnabled: true);
+
+        await cut.InvokeAsync(() => cut.Instance.OnVoiceInterim("phở"));
+
+        cut.Find("input.store-search-input").GetAttribute("value").Should().Be("phở");
+        client.SearchCalls.Should().Be(0, "interim text must not submit");
+    }
+
+    [Fact]
+    public async Task VoiceFinal_AutoSubmitsSearch()
+    {
+        var client = new FakeSearchClient
+        {
+            Result = new AiChatResult("Có ạ.", [], [], 0.9, false, null, false, false)
+        };
+        var cut = Render(client, voiceEnabled: true);
+
+        await cut.InvokeAsync(() => cut.Instance.OnVoiceFinal("phở chay"));
+
+        client.SearchCalls.Should().Be(1);
+        client.LastQuery.Should().Be("phở chay");
     }
 }

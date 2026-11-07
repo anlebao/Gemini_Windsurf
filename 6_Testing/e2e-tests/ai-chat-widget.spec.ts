@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { loadEnvConfig, isTierEnabled } from '../utils/env-config';
 import { TestReporter } from '../utils/test-reporter';
 
@@ -20,6 +20,39 @@ const STORE_URL = process.env.AI_CHAT_TEST_STORE_URL ?? '';
 const QUESTION = process.env.AI_CHAT_TEST_QUESTION ?? 'Quán có món gì?';
 // Task AI-P8: câu hỏi out-of-scope để kích refuse → chip handoff (có thể override qua env).
 const REFUSE_QUESTION = process.env.AI_CHAT_TEST_REFUSE_QUESTION ?? 'Dự báo thời tiết ngày mai thế nào?';
+// SF-W3: transcript giả mà fake SpeechRecognition trả về (headless Chrome không có
+// SpeechRecognition thật — spec stub API trước khi trang load).
+const VOICE_TRANSCRIPT = process.env.AI_CHAT_TEST_VOICE_QUERY ?? QUESTION;
+
+// SF-W3: stub window.SpeechRecognition — headless Chromium không hỗ trợ API thật.
+// Fake: start() → 1 final result sau 30ms → onend sau 60ms (vananVoiceInput
+// nhận OnVoiceFinal → auto-submit; không cần chờ silence timer 2.5s).
+async function stubSpeechRecognition(page: Page, transcript: string): Promise<void> {
+  await page.addInitScript((text) => {
+    class FakeRecognition {
+      continuous = false;
+      interimResults = false;
+      maxAlternatives = 1;
+      lang = '';
+      onresult: ((e: unknown) => void) | null = null;
+      onerror: ((e: unknown) => void) | null = null;
+      onend: (() => void) | null = null;
+      start(): void {
+        setTimeout(() => {
+          this.onresult?.({
+            resultIndex: 0,
+            results: [{ isFinal: true, 0: { transcript: text }, length: 1 }],
+          });
+          setTimeout(() => this.onend?.(), 30);
+        }, 30);
+      }
+      stop(): void { this.onend?.(); }
+      abort(): void { /* noop */ }
+    }
+    (window as unknown as { SpeechRecognition: unknown }).SpeechRecognition = FakeRecognition;
+    (window as unknown as { webkitSpeechRecognition: unknown }).webkitSpeechRecognition = FakeRecognition;
+  }, transcript);
+}
 
 test.describe.configure({ mode: isTierEnabled('e2e') ? 'parallel' : 'skip' });
 
@@ -243,5 +276,52 @@ test.describe('VanAn Ecosystem — AI Chat Widget (task_ai_p4)', () => {
 
     // Anchor links chỉ cho section đang bật.
     await expect(nav.locator('.store-nav-link').first()).toBeVisible();
+  });
+
+  // ── Task SF-W3 (Gate 4): voice input — nói thay vì gõ ──────────────────
+  // Mic chỉ render khi Voice_Note_Enabled (tenant flag) + browser hỗ trợ.
+  // Spec stub SpeechRecognition → visibility = flag-gated thuần; flag off → skip.
+
+  test('W3 — voice mic trên search bar → transcript auto-search', async ({ page }) => {
+    await stubSpeechRecognition(page, VOICE_TRANSCRIPT);
+    await page.goto(STORE_URL);
+    await page.waitForLoadState('networkidle');
+
+    const mic = page.locator('.store-search-mic');
+    if (await mic.count() === 0) {
+      reporter.log('Voice mic ẩn — Voice_Note_Enabled off trên tenant này (self-gating skip)');
+      test.skip();
+    }
+    await mic.click();
+
+    // Interim/final fill input → OnVoiceFinal auto-submit → answer trên trang.
+    await expect(page.locator('.store-search-input'))
+      .toHaveValue(VOICE_TRANSCRIPT, { timeout: 15000 });
+    await expect(page.locator('.store-search-answer'))
+      .toBeVisible({ timeout: 45000 });
+  });
+
+  test('W3 — voice mic trong AI widget → transcript auto-send', async ({ page }) => {
+    await stubSpeechRecognition(page, VOICE_TRANSCRIPT);
+    await page.goto(STORE_URL);
+    await page.waitForLoadState('networkidle');
+
+    const bubble = page.locator('button.vanan-ai-bubble-btn');
+    await expect(bubble).toBeVisible({ timeout: 20000 });
+    await bubble.click();
+    await expect(page.locator('.vanan-ai-panel')).toBeVisible({ timeout: 10000 });
+
+    const mic = page.locator('button.vanan-ai-mic');
+    if (await mic.count() === 0) {
+      reporter.log('Voice mic ẩn — Voice_Note_Enabled off trên tenant này (self-gating skip)');
+      test.skip();
+    }
+    await mic.click();
+
+    // Transcript → user message tự gửi → assistant answer (hoặc fallback) hiện.
+    await expect(page.locator('.vanan-ai-msg-user .vanan-ai-bubble').last())
+      .toContainText(VOICE_TRANSCRIPT, { timeout: 15000 });
+    await expect(page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble:not(.vanan-ai-typing)').last())
+      .toBeVisible({ timeout: 45000 });
   });
 });

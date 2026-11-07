@@ -11,6 +11,7 @@
 @using Microsoft.JSInterop
 @inject IJSRuntime JSRuntime
 @inject IAiChatClient AiClient
+@implements IAsyncDisposable
 
 @if (ShowWidget)
 {
@@ -145,9 +146,24 @@
                     {
                         <div class="small text-success mb-1"><i class="bi bi-check-circle"></i> @_addedNotice</div>
                     }
+                    @if (_voiceError is not null)
+                    {
+                        <div class="small text-danger mb-1"><i class="bi bi-mic-mute"></i> @_voiceError</div>
+                    }
                     <div class="d-flex gap-2 align-items-center">
-                        <VanAInput AdditionalClasses="vanan-ai-input" Placeholder="Hỏi trợ lý về quán..."
+                        <VanAInput AdditionalClasses="vanan-ai-input"
+                                   Placeholder="@(_listening ? "Đang nghe..." : "Hỏi trợ lý về quán...")"
                                    @bind-Value="_input" OnKeyPress="OnKeyPress" maxlength="2000" Disabled="_sending" />
+                        @* SF-W3: voice input — nói thay vì gõ (flag-gated + browser-gated). *@
+                        @if (VoiceEnabled && _speechSupported)
+                        {
+                            <VanAnButton Variant="ButtonVariant.Outline" OnClick="ToggleVoiceAsync"
+                                         Disabled="_sending"
+                                         CssClass="@("vanan-ai-mic" + (_listening ? " listening" : ""))"
+                                         aria-label="@(_listening ? "Dừng nói" : "Nói thay vì gõ")">
+                                <i class="bi @(_listening ? "bi-mic-fill" : "bi-mic")"></i>
+                            </VanAnButton>
+                        }
                         <VanAnButton Variant="ButtonVariant.Primary" OnClick="SendAsync" Disabled="_sending"
                                      CssClass="vanan-ai-send" aria-label="Gửi tin nhắn">
                             <i class="bi bi-send"></i>
@@ -202,6 +218,10 @@
     [Parameter] public bool OpenHumanPanel { get; set; }
     [Parameter] public EventCallback<bool> OpenHumanPanelChanged { get; set; }
 
+    /// <summary>SF-W3: tenant voice toggle (Voice_Note_Enabled) — host resolves it from
+    /// feature settings; false → mic hidden regardless of browser support.</summary>
+    [Parameter] public bool VoiceEnabled { get; set; }
+
     private enum WidgetMode { Ai, Human }
     private const int MaxDraftChars = 500;
 
@@ -217,6 +237,12 @@
     private bool _configResolved;
     private WidgetMode _mode = WidgetMode.Ai;
     private string? _consumedQuestion;
+
+    private bool _speechSupported;
+    private bool _supportChecked;
+    private bool _listening;
+    private string? _voiceError;
+    private DotNetObjectReference<AiChatWidget>? _voiceRef;
 
     /// <summary>Human handoff needs both the host opt-in and a mounted fragment.</summary>
     private bool HumanHandoffAvailable => HumanChatAvailable && HumanContent is not null;
@@ -250,6 +276,22 @@
         // session on the first render where aiEnabled is known, not just firstRender.
         if (_sessionId is null && _config?.AiEnabled == true)
             _sessionId = await GetOrCreateSessionIdAsync();
+
+        // SF-W3: the flag arrives with the host's feature-settings load — probe
+        // speech support the first time VoiceEnabled is seen (not only firstRender).
+        if (VoiceEnabled && !_supportChecked)
+        {
+            _supportChecked = true;
+            try
+            {
+                _speechSupported = await JSRuntime.InvokeAsync<bool>("vananVoiceInput.isSupported");
+            }
+            catch
+            {
+                _speechSupported = false; // script not loaded / prerender — mic stays hidden
+            }
+            if (_speechSupported) StateHasChanged();
+        }
 
         // SF-W1: host asks to open straight into human mode (nav/card CTA) — consume once.
         if (OpenHumanPanel)
@@ -285,6 +327,7 @@
     private async Task ToggleOpen()
     {
         _open = !_open;
+        if (!_open) await StopVoiceAsync();
         if (_open) await NotifyHumanOpenedAsync();
         if (_open && !_historyLoaded && _sessionId is not null)
         {
@@ -362,6 +405,7 @@
     private async Task SwitchToHuman()
     {
         _mode = WidgetMode.Human;
+        await StopVoiceAsync();
         await NotifyHumanOpenedAsync();
     }
 
@@ -391,6 +435,80 @@
     {
         if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_input))
             await SendAsync();
+    }
+
+    // ── SF-W3: voice input (nói thay vì gõ) ─────────────────────────────────
+
+    private async Task ToggleVoiceAsync()
+    {
+        _voiceError = null;
+        try
+        {
+            if (_listening)
+            {
+                _listening = false; // JS onend → OnVoiceEnd re-confirms
+                await JSRuntime.InvokeVoidAsync("vananVoiceInput.stop");
+            }
+            else
+            {
+                _voiceRef ??= DotNetObjectReference.Create(this);
+                var started = await JSRuntime.InvokeAsync<bool>("vananVoiceInput.start", _voiceRef);
+                _listening = started;
+            }
+        }
+        catch
+        {
+            _listening = false;
+        }
+    }
+
+    private async Task StopVoiceAsync()
+    {
+        if (!_listening) return;
+        _listening = false;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("vananVoiceInput.stop");
+        }
+        catch { /* JS gone / unsupported — nothing to stop */ }
+    }
+
+    /// <summary>SF-W3: live transcript while speaking — fills the input in real time.</summary>
+    [JSInvokable]
+    public void OnVoiceInterim(string text)
+    {
+        _input = text;
+        StateHasChanged();
+    }
+
+    /// <summary>SF-W3: silence/manual stop → final transcript → auto-send to the AI.</summary>
+    [JSInvokable]
+    public async Task OnVoiceFinal(string text)
+    {
+        _input = text;
+        _listening = false;
+        await SendAsync();
+    }
+
+    [JSInvokable]
+    public void OnVoiceError(string message)
+    {
+        _listening = false;
+        _voiceError = message;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnVoiceEnd()
+    {
+        _listening = false;
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await StopVoiceAsync();
+        _voiceRef?.Dispose();
     }
 
     private async Task ScrollToBottomAsync()

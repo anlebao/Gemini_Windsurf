@@ -176,6 +176,26 @@
     flex-shrink: 0;
 }
 
+/* ── SF-W3: voice mic (nói thay vì gõ) ── */
+.vanan-ai-mic {
+    flex-shrink: 0;
+}
+
+.vanan-ai-mic.listening {
+    color: #dc2626;
+    border-color: #dc2626;
+    animation: vanan-ai-mic-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes vanan-ai-mic-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.35); }
+    50% { box-shadow: 0 0 0 7px rgba(220, 38, 38, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .vanan-ai-mic.listening { animation: none; }
+}
+
 /* ── Task AI-P8: human-mode surface (RealtimeChatPanel hosted in the bubble) ── */
 .ai-widget-human {
     height: 420px;

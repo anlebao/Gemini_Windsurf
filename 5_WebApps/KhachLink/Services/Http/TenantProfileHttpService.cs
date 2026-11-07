@@ -79,4 +79,7 @@ public class TenantFeatureSettingsDto
     public bool GoogleMap_Section_Enabled { get; set; } = true;
     public bool SocialHub_Section_Enabled { get; set; } = true;
     public bool AIChat_Enabled { get; set; }
+    /// <summary>SF-W3: voice mic on the AI search bar + chat widget. Default OFF
+    /// (owner opts in via Shop Features — same flag as POS/order voice notes).</summary>
+    public bool Voice_Note_Enabled { get; set; }
 }

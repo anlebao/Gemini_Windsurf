@@ -4,7 +4,10 @@
    lỗi/degraded → ẩn phần kết quả, không bao giờ làm vỡ trang. *@
 @using VanAn.Shared.Helpers
 @using VanAn.UI.Platform.Components.Ai
+@using Microsoft.JSInterop
 @inject IAiChatClient AiClient
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
 <div class="store-search">
     <div class="store-search-box">
@@ -14,8 +17,18 @@
                @onkeydown="OnKeyDownAsync"
                maxlength="500"
                disabled="@_searching"
-               placeholder="Hỏi gì về quán? (VD: đồ chay, giá massage...)"
+               placeholder="@(_listening ? "Đang nghe..." : "Hỏi gì về quán? (VD: đồ chay, giá massage...)")"
                aria-label="Tìm kiếm bằng câu hỏi" />
+        @* SF-W3: voice input — nói thay vì gõ. Chỉ hiện khi tenant bật
+           Voice_Note_Enabled + trình duyệt hỗ trợ SpeechRecognition. *@
+        @if (VoiceEnabled && _speechSupported)
+        {
+            <button type="button" class="store-search-mic @(_listening ? "listening" : null)"
+                    @onclick="ToggleVoiceAsync" disabled="@_searching"
+                    aria-label="@(_listening ? "Dừng nói" : "Tìm bằng giọng nói")">
+                <i class="bi @(_listening ? "bi-mic-fill" : "bi-mic")"></i>
+            </button>
+        }
         <button type="button" class="store-search-btn" @onclick="SearchAsync"
                 disabled="@(_searching || string.IsNullOrWhiteSpace(_query))">
             @if (_searching)
@@ -67,6 +80,10 @@
             </button>
         </div>
     }
+    @if (_voiceError is not null)
+    {
+        <p class="store-search-voice-error">@_voiceError</p>
+    }
 </div>
 
 @code {
@@ -76,11 +93,20 @@
     [Parameter] public EventCallback<string> OnAskAi { get; set; }
     /// <summary>Product card "Thêm giỏ" — host maps the snapshot to its cart service.</summary>
     [Parameter] public EventCallback<AiProductCardItem> OnAddToCart { get; set; }
+    /// <summary>SF-W3: tenant voice toggle (Voice_Note_Enabled) — host resolves it from
+    /// feature settings; false → mic hidden regardless of browser support.</summary>
+    [Parameter] public bool VoiceEnabled { get; set; }
 
     private string? _query;
     private string? _lastQuery;
     private bool _searching;
     private AiChatResult? _result;
+
+    private bool _speechSupported;
+    private bool _supportChecked;
+    private bool _listening;
+    private string? _voiceError;
+    private DotNetObjectReference<StoreSearchBar>? _voiceRef;
 
     private async Task SearchAsync()
     {
@@ -106,4 +132,88 @@
 
     private Task AskAiAsync()
         => _lastQuery is not null ? OnAskAi.InvokeAsync(_lastQuery) : Task.CompletedTask;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Flag arrives async with the page's feature-settings load — probe support
+        // the first time VoiceEnabled is seen, not only on firstRender.
+        if (VoiceEnabled && !_supportChecked)
+        {
+            _supportChecked = true;
+            try
+            {
+                _speechSupported = await JS.InvokeAsync<bool>("vananVoiceInput.isSupported");
+            }
+            catch
+            {
+                _speechSupported = false; // script not loaded / prerender — mic stays hidden
+            }
+            if (_speechSupported) StateHasChanged();
+        }
+    }
+
+    private async Task ToggleVoiceAsync()
+    {
+        _voiceError = null;
+        try
+        {
+            if (_listening)
+            {
+                _listening = false; // JS onend → OnVoiceEnd re-confirms
+                await JS.InvokeVoidAsync("vananVoiceInput.stop");
+            }
+            else
+            {
+                _voiceRef ??= DotNetObjectReference.Create(this);
+                var started = await JS.InvokeAsync<bool>("vananVoiceInput.start", _voiceRef);
+                _listening = started;
+            }
+        }
+        catch
+        {
+            _listening = false;
+        }
+    }
+
+    /// <summary>SF-W3: live transcript while speaking — fills the input in real time.</summary>
+    [JSInvokable]
+    public void OnVoiceInterim(string text)
+    {
+        _query = text;
+        StateHasChanged();
+    }
+
+    /// <summary>SF-W3: silence/manual stop → final transcript → auto-submit the search.</summary>
+    [JSInvokable]
+    public async Task OnVoiceFinal(string text)
+    {
+        _query = text;
+        _listening = false;
+        await SearchAsync();
+    }
+
+    [JSInvokable]
+    public void OnVoiceError(string message)
+    {
+        _listening = false;
+        _voiceError = message;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnVoiceEnd()
+    {
+        _listening = false;
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_listening) await JS.InvokeVoidAsync("vananVoiceInput.stop");
+        }
+        catch { /* JS gone during teardown */ }
+        _voiceRef?.Dispose();
+    }
 }
