@@ -188,6 +188,46 @@ test.describe('VanAn Ecosystem — AI Chat Widget (task_ai_p4)', () => {
       .toBeVisible({ timeout: 45000 });
   });
 
+  // ── Task SF-W2 (Gate 4): semantic search bar + quick-view ──────────────
+
+  test('W2 — search bar → answer + product card (không mở bubble)', async ({ page }) => {
+    await page.goto(STORE_URL);
+    await page.waitForLoadState('networkidle');
+
+    const input = page.locator('.store-search-input');
+    await expect(input).toBeVisible({ timeout: 20000 });
+    await input.fill(QUESTION);
+    await page.locator('.store-search-btn').click();
+
+    // Answer trả thẳng trên trang — không cần mở chat bubble.
+    await expect(page.locator('.store-search-answer')).toBeVisible({ timeout: 45000 });
+
+    // Product cards xuất hiện khi câu trả lời grounded trên menu.
+    const cards = page.locator('.store-search-product');
+    if (await cards.count() === 0) {
+      reporter.log('Search answer không có product card (no-data path) — kiểm tra tenant knowledge');
+      test.skip();
+    }
+    await expect(cards.first()).toBeVisible();
+    await expect(page.locator('.store-search-ask')).toBeVisible();
+  });
+
+  test('W2 — click product card → quick-view modal → thêm vào giỏ', async ({ page }) => {
+    await page.goto(STORE_URL);
+    await page.waitForLoadState('networkidle');
+
+    const card = page.locator('.vibe-qv').first();
+    if (await card.count() === 0) {
+      reporter.log('Không có product card (VibeShowcase off?) — skip');
+      test.skip();
+    }
+    await card.click();
+    await expect(page.locator('.modal.show .qv-media')).toBeVisible({ timeout: 10000 });
+
+    await page.locator('.qv-actions .btn-cta').click();
+    await expect(page.locator('.vanan-toast, .cart-badge').first()).toBeVisible({ timeout: 10000 });
+  });
+
   test('W1 — sticky navbar hiện + stick khi scroll qua hero', async ({ page }) => {
     await page.goto(STORE_URL);
     await page.waitForLoadState('networkidle');

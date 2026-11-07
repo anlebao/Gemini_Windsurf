@@ -52,6 +52,9 @@ public class AiChatWidgetTests : TestContext
             LastText = text;
             return Task.FromResult(ChatResult);
         }
+
+        public Task<AiChatResult?> SearchAiAsync(Guid tenantId, string query, CancellationToken ct = default)
+            => Task.FromResult<AiChatResult?>(null);
     }
 
     private IRenderedComponent<AiChatWidget> Render(FakeAiChatClient client, Action<AiProductCardItem>? onAddToCart = null)

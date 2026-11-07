@@ -1,0 +1,109 @@
+@* SF-W2 (2026-11-07): semantic search bar (A2) — khách gõ câu hỏi tự nhiên, nhận
+   answer ngắn + product cards ngay trên trang, không cần mở chat bubble.
+   Gọi Gateway /api/public/tenant-ai/search qua IAiChatClient. Fail-open theo NFR-3:
+   lỗi/degraded → ẩn phần kết quả, không bao giờ làm vỡ trang. *@
+@using VanAn.Shared.Helpers
+@using VanAn.UI.Platform.Components.Ai
+@inject IAiChatClient AiClient
+
+<div class="store-search">
+    <div class="store-search-box">
+        <i class="bi bi-search store-search-icon" aria-hidden="true"></i>
+        <input class="store-search-input"
+               @bind="_query" @bind:event="oninput"
+               @onkeydown="OnKeyDownAsync"
+               maxlength="500"
+               disabled="@_searching"
+               placeholder="Hỏi gì về quán? (VD: đồ chay, giá massage...)"
+               aria-label="Tìm kiếm bằng câu hỏi" />
+        <button type="button" class="store-search-btn" @onclick="SearchAsync"
+                disabled="@(_searching || string.IsNullOrWhiteSpace(_query))">
+            @if (_searching)
+            {
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            }
+            else
+            {
+                <span>Tìm</span>
+            }
+        </button>
+    </div>
+
+    @if (_result is not null)
+    {
+        <div class="store-search-result">
+            @if (!string.IsNullOrWhiteSpace(_result.Answer))
+            {
+                <p class="store-search-answer">@_result.Answer</p>
+            }
+            @if (_result.Products.Count > 0)
+            {
+                <div class="store-search-products">
+                    @foreach (var p in _result.Products)
+                    {
+                        <div class="store-search-product" @key="p.ProductId">
+                            @if (!string.IsNullOrWhiteSpace(p.ImageUrl))
+                            {
+                                <img src="@p.ImageUrl" alt="@p.Name" loading="lazy" />
+                            }
+                            <div class="store-search-product-info">
+                                <div class="store-search-product-name">@p.Name</div>
+                                <div class="store-search-product-price">@CurrencyHelper.FormatVND(p.Price)</div>
+                            </div>
+                            <button type="button" class="store-search-add"
+                                    @onclick="() => OnAddToCart.InvokeAsync(p)">
+                                <i class="bi bi-cart-plus"></i> Thêm giỏ
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+            @if (string.IsNullOrWhiteSpace(_result.Answer) && _result.Products.Count == 0)
+            {
+                <p class="store-search-empty">Chưa tìm thấy món phù hợp — thử hỏi AI bên dưới nhé.</p>
+            }
+            <button type="button" class="store-ai-chip store-search-ask" @onclick="AskAiAsync">
+                🤖 Hỏi AI thêm về "@_lastQuery"
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>Tenant whose storefront this is (server re-validates — T6).</summary>
+    [Parameter] public Guid TenantId { get; set; }
+    /// <summary>"Hỏi AI thêm" → host feeds the same question into the chat widget.</summary>
+    [Parameter] public EventCallback<string> OnAskAi { get; set; }
+    /// <summary>Product card "Thêm giỏ" — host maps the snapshot to its cart service.</summary>
+    [Parameter] public EventCallback<AiProductCardItem> OnAddToCart { get; set; }
+
+    private string? _query;
+    private string? _lastQuery;
+    private bool _searching;
+    private AiChatResult? _result;
+
+    private async Task SearchAsync()
+    {
+        var q = _query?.Trim();
+        if (string.IsNullOrEmpty(q) || _searching) return;
+
+        _searching = true;
+        try
+        {
+            _result = await AiClient.SearchAiAsync(TenantId, q);
+            _lastQuery = q;
+        }
+        finally
+        {
+            _searching = false;
+        }
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SearchAsync();
+    }
+
+    private Task AskAiAsync()
+        => _lastQuery is not null ? OnAskAi.InvokeAsync(_lastQuery) : Task.CompletedTask;
+}

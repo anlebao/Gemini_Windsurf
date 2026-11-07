@@ -323,6 +323,149 @@ public class PublicTenantAiControllerTests
             .Which.Content.Should().Contain("\"sessionId\":\"sess-1\"");
     }
 
+    // ── SF-W2: semantic search (A2) ──────────────────────────────────────
+
+    [Fact]
+    public async Task Search_EmptyQuery_Returns400_NoForward()
+    {
+        var (ctx, conn) = NewDb();
+        await using var _ = ctx; await using var __ = conn;
+        await SeedTenantAsync(ctx, TenantA);
+
+        var handler = new StubHandler((_, _) => Task.FromResult(OkJson(ChatOkJson)));
+        var ctrl = NewController(ctx, NewForwarder(handler), host: "marketplace.test");
+
+        var result = await ctrl.Search("   ", TenantA);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        handler.Requests.Should().Be(0, "invalid query must never reach vanan-ai");
+    }
+
+    [Fact]
+    public async Task Search_UnknownTenant_NotFound_NoForward()
+    {
+        var (ctx, conn) = NewDb();
+        await using var _ = ctx; await using var __ = conn;
+
+        var handler = new StubHandler((_, _) => Task.FromResult(OkJson(ChatOkJson)));
+        var ctrl = NewController(ctx, NewForwarder(handler), host: "marketplace.test");
+
+        var result = await ctrl.Search("phở chay", Guid.NewGuid());
+
+        result.Should().BeOfType<NotFoundObjectResult>();
+        handler.Requests.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Search_InstanceBoundHost_ForwardsChatSyntheticSession()
+    {
+        var (ctx, conn) = NewDb();
+        await using var _ = ctx; await using var __ = conn;
+        await SeedTenantAsync(ctx, TenantA);
+        await SeedTenantAsync(ctx, TenantB);
+        await SeedBoundInstanceAsync(ctx, HostA, TenantA);
+
+        string? forwardedBody = null;
+        var handler = new StubHandler(async (req, _) =>
+        {
+            req.RequestUri!.AbsolutePath.Should().Be("/v1/chat");
+            forwardedBody = await req.Content!.ReadAsStringAsync();
+            return OkJson(ChatOkJson);
+        });
+        var ctrl = NewController(ctx, NewForwarder(handler), host: HostA);
+
+        // Client spoofs tenant B — host-bound tenant A must win (T6), and the
+        // forward must use the deterministic "search:{tenant}:{hash}" session.
+        var result = await ctrl.Search("phở chay", TenantB);
+
+        result.Should().BeOfType<ContentResult>();
+        DecodeCtx(handler.LastRequest!).GetProperty("tenantId").GetGuid().Should().Be(TenantA);
+        forwardedBody.Should().Contain($"\"sessionId\":\"search:{TenantA:N}:");
+    }
+
+    [Fact]
+    public async Task Search_SameQuery_IdempotentSession_DedupesUpstream()
+    {
+        var (ctx, conn) = NewDb();
+        await using var _ = ctx; await using var __ = conn;
+        await SeedTenantAsync(ctx, TenantA);
+
+        var bodies = new List<JsonElement>();
+        var handler = new StubHandler(async (req, _) =>
+        {
+            bodies.Add(JsonSerializer.Deserialize<JsonElement>(
+                await req.Content!.ReadAsStringAsync()));
+            return OkJson(ChatOkJson);
+        });
+        var ctrl = NewController(ctx, NewForwarder(handler), host: "marketplace.test");
+
+        await ctrl.Search("phở chay", TenantA);
+        await ctrl.Search("  Phở   Chay ", TenantA); // same normalized query
+
+        bodies.Should().HaveCount(2);
+        bodies[1].GetProperty("sessionId").GetString()
+            .Should().Be(bodies[0].GetProperty("sessionId").GetString(),
+                "identical normalized queries share the synthetic session");
+        bodies[1].GetProperty("messageId").GetString()
+            .Should().Be(bodies[0].GetProperty("messageId").GetString(),
+                "identical normalized queries share the upstream idempotency key");
+    }
+
+    [Fact]
+    public async Task Search_FeatureFlagOff_Returns503_NoForward()
+    {
+        var (ctx, conn) = NewDb();
+        await using var _ = ctx; await using var __ = conn;
+        await SeedTenantAsync(ctx, TenantA);
+
+        var handler = new StubHandler((_, _) => Task.FromResult(OkJson(ChatOkJson)));
+        var ctrl = NewController(ctx, NewForwarder(handler), aiEnabled: false, host: "marketplace.test");
+
+        var result = await ctrl.Search("phở chay", TenantA);
+
+        result.Should().BeOfType<ObjectResult>()
+            .Which.StatusCode.Should().Be(StatusCodes.Status503ServiceUnavailable);
+        handler.Requests.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Search_Upstream5xx_Returns503Graceful()
+    {
+        var (ctx, conn) = NewDb();
+        await using var _ = ctx; await using var __ = conn;
+        await SeedTenantAsync(ctx, TenantA);
+
+        var handler = new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError)));
+        var ctrl = NewController(ctx, NewForwarder(handler), host: "marketplace.test");
+
+        var result = await ctrl.Search("phở chay", TenantA);
+
+        result.Should().BeOfType<ObjectResult>()
+            .Which.StatusCode.Should().Be(StatusCodes.Status503ServiceUnavailable);
+    }
+
+    [Fact]
+    public async Task Search_21stSameQuery_Returns429_DifferentQueryOk()
+    {
+        var (ctx, conn) = NewDb();
+        await using var _ = ctx; await using var __ = conn;
+        await SeedTenantAsync(ctx, TenantA);
+
+        var handler = new StubHandler((_, _) => Task.FromResult(OkJson(ChatOkJson)));
+        var ctrl = NewController(ctx, NewForwarder(handler), host: "marketplace.test");
+
+        for (var i = 0; i < 20; i++)
+            (await ctrl.Search("phở chay", TenantA)).Should().BeOfType<ContentResult>();
+
+        var blocked = await ctrl.Search("phở chay", TenantA);
+        blocked.Should().BeOfType<ObjectResult>()
+            .Which.StatusCode.Should().Be(StatusCodes.Status429TooManyRequests);
+        handler.Requests.Should().Be(20, "the capped search must not be forwarded");
+
+        // A different query maps to a different synthetic session — unaffected.
+        (await ctrl.Search("trà sữa", TenantA)).Should().BeOfType<ContentResult>();
+    }
+
     // ── Signing (test vector cố định — T6/D7) ────────────────────────────
 
     [Fact]

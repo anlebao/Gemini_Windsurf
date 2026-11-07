@@ -18,6 +18,13 @@ public interface IAiChatClient
     /// <summary>Session history for resume — newest last, may be empty.</summary>
     Task<IReadOnlyList<AiSessionMessage>?> GetSessionMessagesAsync(Guid tenantId,
         string sessionId, CancellationToken ct = default);
+
+    /// <summary>
+    /// SF-W2 (A2): storefront semantic search — one-shot grounded answer without an
+    /// open chat session. Same fail-safe contract: null on any transport/upstream
+    /// error → host hides the result block (NFR-3).
+    /// </summary>
+    Task<AiChatResult?> SearchAiAsync(Guid tenantId, string query, CancellationToken ct = default);
 }
 
 public sealed record AiWidgetConfig(
