@@ -1,6 +1,6 @@
 # Task SF-W2 — Storefront Smart UX Đợt 2: Semantic search bar + Gallery quick-view + Micro-motion
 
-> **Status:** 🟡 DRAFT 2026-11-07 — chờ user review
+> **Status:** 🟡 DRAFT 2026-11-07 — chờ user review · **worktree sẵn `C:\VibeCoding\Gemini_Windsurf-w2` branch `feature/sf-w2`** — implement tại đó, merge về main khi xong (tránh đụng P10 đang WIP trên checkout chính)
 > **Gate:** storefront UX polish — master plan `docs/AI/plans/storefront-smart-modern-master-plan.md` · **main sln + 1 public read endpoint mới**
 > **Phụ thuộc:** SF-W1 DONE (`f6877634` + fix `b5e2223b`) · P6b admin API · `KnowledgeRetriever` sẵn có
 > **Scope:** `UI.Platform` + `5_WebApps/KhachLink` + `2_Gateway` (1 endpoint) — KHÔNG đụng vanan-ai
