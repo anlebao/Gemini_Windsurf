@@ -161,6 +161,10 @@
         {
             <button type="button" class="vanan-ai-bubble-btn" @onclick="ToggleOpen" aria-label="Mở trợ lý AI">
                 <i class="bi bi-robot"></i>
+                @if (HumanUnreadCount > 0)
+                {
+                    <span class="vanan-ai-unread">@(HumanUnreadCount > 9 ? "9+" : HumanUnreadCount.ToString())</span>
+                }
             </button>
         }
     </div>
@@ -186,6 +190,15 @@
     /// <summary>Task AI-P8: fired on refuse-escalation; payload = the refused user question (≤500 chars).</summary>
     [Parameter] public EventCallback<string?> OnDraftRequest { get; set; }
 
+    /// <summary>SF-W1: host-set question — widget opens and auto-sends it once (AI mode).</summary>
+    [Parameter] public string? PendingQuestion { get; set; }
+    /// <summary>SF-W1: two-way pair for <see cref="PendingQuestion"/> — cleared after send.</summary>
+    [Parameter] public EventCallback<string?> PendingQuestionChanged { get; set; }
+    /// <summary>SF-W1: unread human messages badge on the bubble (0/hidden).</summary>
+    [Parameter] public int HumanUnreadCount { get; set; }
+    /// <summary>SF-W1: fired when the human surface is opened (host marks messages seen).</summary>
+    [Parameter] public EventCallback OnHumanOpened { get; set; }
+
     private enum WidgetMode { Ai, Human }
     private const int MaxDraftChars = 500;
 
@@ -200,6 +213,7 @@
     private bool _historyLoaded;
     private bool _configResolved;
     private WidgetMode _mode = WidgetMode.Ai;
+    private string? _consumedQuestion;
 
     /// <summary>Human handoff needs both the host opt-in and a mounted fragment.</summary>
     private bool HumanHandoffAvailable => HumanChatAvailable && HumanContent is not null;
@@ -233,11 +247,31 @@
         // session on the first render where aiEnabled is known, not just firstRender.
         if (_sessionId is null && _config?.AiEnabled == true)
             _sessionId = await GetOrCreateSessionIdAsync();
+
+        // SF-W1: quick-chip question — open + auto-send exactly once per value.
+        if (_sessionId is not null && _mode == WidgetMode.Ai
+            && !string.IsNullOrWhiteSpace(PendingQuestion) && PendingQuestion != _consumedQuestion)
+        {
+            _consumedQuestion = PendingQuestion;
+            _open = true;
+            _input = PendingQuestion;
+            if (PendingQuestionChanged.HasDelegate)
+                await PendingQuestionChanged.InvokeAsync(null);
+            await SendAsync();
+        }
+    }
+
+    /// <summary>SF-W1: tell the host the human surface is showing — mark-seen hook.</summary>
+    private async Task NotifyHumanOpenedAsync()
+    {
+        if (_mode == WidgetMode.Human && _open && OnHumanOpened.HasDelegate)
+            await OnHumanOpened.InvokeAsync();
     }
 
     private async Task ToggleOpen()
     {
         _open = !_open;
+        if (_open) await NotifyHumanOpenedAsync();
         if (_open && !_historyLoaded && _sessionId is not null)
         {
             _loadingHistory = true;
@@ -311,7 +345,11 @@
     }
 
     /// <summary>Task AI-P8: switch to the host's human chat surface (lazy mount).</summary>
-    private void SwitchToHuman() => _mode = WidgetMode.Human;
+    private async Task SwitchToHuman()
+    {
+        _mode = WidgetMode.Human;
+        await NotifyHumanOpenedAsync();
+    }
 
     /// <summary>Task AI-P8: back to AI — the AI message list is kept intact.</summary>
     private void SwitchToAi() => _mode = WidgetMode.Ai;
@@ -323,6 +361,7 @@
             await OnDraftRequest.InvokeAsync(
                 draft is { Length: > MaxDraftChars } ? draft[..MaxDraftChars] : draft);
         _mode = WidgetMode.Human;
+        await NotifyHumanOpenedAsync();
     }
 
     private async Task AddToCartAsync(AiSessionMessage msg, AiProductCardItem product)

@@ -1,0 +1,93 @@
+/* SF-W1: sticky glass navbar — sticks when scrolled past the hero. */
+
+.store-nav {
+    position: sticky;
+    top: 0;
+    z-index: 1040; /* below .vanan-ai-widget (1050) */
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+
+.store-nav-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0.6rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.store-nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #1f2937;
+    min-width: 0;
+}
+
+.store-nav-logo {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.store-nav-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.store-nav-links {
+    display: flex;
+    gap: 0.25rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex: 1;
+    min-width: 0;
+}
+.store-nav-links::-webkit-scrollbar { display: none; }
+
+.store-nav-link {
+    white-space: nowrap;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-decoration: none;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    transition: all 0.2s ease;
+}
+
+.store-nav-link:hover {
+    color: var(--store-accent-color, #ff5e62);
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.store-nav-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: var(--store-accent-gradient, linear-gradient(135deg, #ff9966, #ff5e62));
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    text-decoration: none;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+@media (max-width: 576px) {
+    .store-nav-inner { padding: 0.5rem 0.75rem; gap: 0.5rem; }
+    .store-nav-name { max-width: 110px; }
+    .store-nav-cta-text { display: none; }
+}

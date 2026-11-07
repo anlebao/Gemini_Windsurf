@@ -224,3 +224,25 @@
 .vanan-ai-back-btn {
     white-space: nowrap;
 }
+
+/* SF-W1: unread badge on the bubble */
+.vanan-ai-unread {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    background: var(--bs-danger, #dc3545);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 20px;
+    text-align: center;
+    padding: 0 5px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.vanan-ai-bubble-btn {
+    position: relative;
+}

@@ -1,0 +1,36 @@
+@* SF-W1 (2026-11-07): sticky glass navbar for the storefront — rendered right after
+   the hero section and sticks with pure CSS (position: sticky; top: 0), no JS.
+   Shows only the links for sections the tenant actually enabled. *@
+<nav class="store-nav" aria-label="Điều hướng cửa hàng">
+    <div class="store-nav-inner">
+        <div class="store-nav-brand">
+            @if (!string.IsNullOrWhiteSpace(LogoUrl))
+            {
+                <img src="@LogoUrl" alt="" class="store-nav-logo" />
+            }
+            else
+            {
+                <i class="bi bi-shop"></i>
+            }
+            <span class="store-nav-name">@ShopName</span>
+        </div>
+        <div class="store-nav-links">
+            @foreach (var link in Links)
+            {
+                <a href="#@link.Id" class="store-nav-link">@link.Label</a>
+            }
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Phone))
+        {
+            <a href="tel:@Phone" class="store-nav-cta"><i class="bi bi-telephone-fill"></i><span class="store-nav-cta-text">Gọi</span></a>
+        }
+    </div>
+</nav>
+
+@code {
+    [Parameter] public string? LogoUrl { get; set; }
+    [Parameter] public string ShopName { get; set; } = string.Empty;
+    [Parameter] public string? Phone { get; set; }
+    /// <summary>(sectionId, label) anchors — host builds from enabled features only.</summary>
+    [Parameter] public IReadOnlyList<(string Id, string Label)> Links { get; set; } = [];
+}

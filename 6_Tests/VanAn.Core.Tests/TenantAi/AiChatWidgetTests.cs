@@ -360,6 +360,94 @@ public class AiChatWidgetTests : TestContext
         });
     }
 
+    // === SF-W1 — PendingQuestion / unread badge / OnHumanOpened ===
+
+    private IRenderedComponent<AiChatWidget> RenderW1(
+        FakeAiChatClient client,
+        string? pendingQuestion = null,
+        Action<string?>? onPendingChanged = null,
+        int unread = 0,
+        Action? onHumanOpened = null)
+    {
+        Services.AddSingleton<IAiChatClient>(client);
+        return RenderComponent<AiChatWidget>(p => p
+            .Add(w => w.TenantId, TenantId)
+            .Add(w => w.PendingQuestion, pendingQuestion)
+            .Add(w => w.PendingQuestionChanged, onPendingChanged ?? (_ => { }))
+            .Add(w => w.HumanUnreadCount, unread)
+            .Add(w => w.OnHumanOpened, onHumanOpened ?? (() => { })));
+    }
+
+    [Fact]
+    public void PendingQuestion_OpensPanel_AutoSends_Once()
+    {
+        var client = new FakeAiChatClient
+        {
+            ChatResult = new AiChatResult("Còn slot 3h chiều.", [], [], 0.9, false, null, false, false)
+        };
+        string? bound = "UNSET";
+        var cut = RenderW1(client, "Còn lịch trống chiều nay?", v => bound = v);
+
+        cut.WaitForAssertion(() =>
+        {
+            client.SendCalls.Should().Be(1);
+            client.LastText.Should().Be("Còn lịch trống chiều nay?");
+            bound.Should().BeNull(); // PendingQuestionChanged fired → host clears
+            cut.Markup.Should().Contain("vanan-ai-panel");
+            cut.Markup.Should().Contain("Còn lịch trống chiều nay?");
+        });
+    }
+
+    [Fact]
+    public void PendingQuestion_AiDisabled_NeverSends()
+    {
+        var client = new FakeAiChatClient { Config = new AiWidgetConfig(false, null, null, null) };
+        var cut = RenderW1(client, "test question");
+        // Give the component a beat — must NOT send (no session in human-only mode).
+        cut.WaitForAssertion(() => cut.Markup.Should().BeEmpty());
+        client.SendCalls.Should().Be(0);
+    }
+
+    [Fact]
+    public void UnreadBadge_Renders_WhenPositive()
+    {
+        var cut = RenderW1(new FakeAiChatClient(), unread: 3);
+        cut.WaitForAssertion(() =>
+            cut.Find(".vanan-ai-unread").TextContent.Trim().Should().Be("3"));
+    }
+
+    [Fact]
+    public void UnreadBadge_Hidden_WhenZero()
+    {
+        var cut = RenderW1(new FakeAiChatClient(), unread: 0);
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Should().NotBeNull());
+        cut.FindAll(".vanan-ai-unread").Should().BeEmpty();
+    }
+
+    [Fact]
+    public void UnreadBadge_Capped9Plus()
+    {
+        var cut = RenderW1(new FakeAiChatClient(), unread: 12);
+        cut.WaitForAssertion(() =>
+            cut.Find(".vanan-ai-unread").TextContent.Trim().Should().Be("9+"));
+    }
+
+    [Fact]
+    public void OnHumanOpened_Fired_WhenSwitchingToHuman()
+    {
+        var calls = 0;
+        Services.AddSingleton<IAiChatClient>(new FakeAiChatClient());
+        var cut = RenderComponent<AiChatWidget>(p => p
+            .Add(w => w.TenantId, TenantId)
+            .Add(w => w.HumanChatAvailable, true)
+            .Add(w => w.OnHumanOpened, () => calls++)
+            .Add(w => w.HumanContent, builder => builder.AddContent(0, "HUMAN")));
+
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-human-btn").Click());
+        cut.WaitForAssertion(() => calls.Should().Be(1));
+    }
+
     private sealed class FakeRealtimeChatClient : IRealtimeChatClient
     {
         public Task<RealtimeChatHistoryResult> GetHistoryAsync(string subjectType, Guid subjectId,

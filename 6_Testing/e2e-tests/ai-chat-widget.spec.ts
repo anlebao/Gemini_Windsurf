@@ -165,4 +165,43 @@ test.describe('VanAn Ecosystem — AI Chat Widget (task_ai_p4)', () => {
     await expect(page.locator('.ai-widget-human .chat-panel input'))
       .toHaveValue(REFUSE_QUESTION, { timeout: 10000 });
   });
+
+  // ── Task SF-W1 (Gate 4): AI quick-chips + sticky nav ───────────────────
+
+  test('W1 — quick-chip bấm → widget mở + auto-send câu hỏi', async ({ page }) => {
+    await page.goto(STORE_URL);
+    await page.waitForLoadState('networkidle');
+
+    const chip = page.locator('.store-ai-chip').first();
+    await expect(chip).toBeVisible({ timeout: 20000 });
+    const chipText = await chip.innerText();
+
+    await chip.click();
+
+    // Widget mở + câu hỏi xuất hiện như user message (auto-send, không cần gõ).
+    await expect(page.locator('.vanan-ai-panel')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.vanan-ai-msg-user .vanan-ai-bubble').last())
+      .toBeVisible({ timeout: 10000 });
+    const userMsg = await page.locator('.vanan-ai-msg-user .vanan-ai-bubble').last().innerText();
+    expect(chipText).toContain(userMsg.slice(0, 6)); // chip label ≈ question text
+    await expect(page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble:not(.vanan-ai-typing)').last())
+      .toBeVisible({ timeout: 45000 });
+  });
+
+  test('W1 — sticky navbar hiện + stick khi scroll qua hero', async ({ page }) => {
+    await page.goto(STORE_URL);
+    await page.waitForLoadState('networkidle');
+
+    const nav = page.locator('.store-nav');
+    await expect(nav).toBeVisible({ timeout: 20000 });
+
+    // Scroll qua hero → nav dính top.
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2));
+    await page.waitForTimeout(500);
+    const top = await nav.evaluate(el => el.getBoundingClientRect().top);
+    expect(top).toBeLessThanOrEqual(1);
+
+    // Anchor links chỉ cho section đang bật.
+    await expect(nav.locator('.store-nav-link').first()).toBeVisible();
+  });
 });

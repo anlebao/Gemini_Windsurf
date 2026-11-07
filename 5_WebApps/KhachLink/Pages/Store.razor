@@ -5,6 +5,7 @@
 @using VanAn.KhachLink.Services.Http
 @using VanAn.Shared.Domain
 @using VanAn.UI.Platform.Components.Realtime
+@using VanAn.UI.Platform.Core.Interfaces
 @page "/store/{Slug}"
 @page "/store/by-id/{TenantId}"
 @implements IDisposable
@@ -19,6 +20,8 @@
 @inject ILogger<Store> Logger
 @inject IJSRuntime JSRuntime
 @inject VanAn.KhachLink.Services.CartService CartService
+@* SF-W1: unread badge — same client the chat panel uses, polled lightly. *@
+@inject IRealtimeChatClient RealtimeChat
 
 <PageTitle>@(_store?.Name ?? "Cửa hàng") — KhachLink</PageTitle>
 
@@ -124,6 +127,9 @@ else
         </div>
     </section>
 
+    @* SF-W1: sticky glass navbar — sticks when scrolled past the hero (pure CSS). *@
+    <StoreNav ShopName="@_store.Name" LogoUrl="@_store.LogoUrl" Phone="@_store.Phone" Links="NavLinks" />
+
     <div class="store-body">
 
         @* BS-3 (2026-10-14): entry point đặt lịch — khách bấm link hoặc quét QR (tenant profile page) *@
@@ -137,6 +143,12 @@ else
                     </h2>
                     <div class="section-divider"></div>
                 </div>
+                @if (_features.AIChat_Enabled)
+                {
+                    <div class="store-ai-chips">
+                        <button type="button" class="store-ai-chip" @onclick='() => AskAi("Còn lịch trống chiều nay không?")'>📅 Còn lịch trống chiều nay?</button>
+                    </div>
+                }
                 <div class="booking-entry-card">
                     <div class="booking-entry-info">
                         <p>Đặt lịch hẹn trước tại <strong>@_store.Name</strong> — chọn dịch vụ và khung giờ phù hợp, không phải chờ đợi.</p>
@@ -170,9 +182,10 @@ else
                 </div>
                 @if (_campaignLoading)
                 {
-                    <div class="section-loading">
-                        <div class="spinner-border text-primary"></div>
-                        <p>Đang tải khuyến mãi...</p>
+                    <div class="campaign-grid">
+                        <div class="skeleton skeleton-card"></div>
+                        <div class="skeleton skeleton-card"></div>
+                        <div class="skeleton skeleton-card"></div>
                     </div>
                 }
                 else if (_campaigns.Count > 0)
@@ -231,7 +244,25 @@ else
                     </h2>
                     <div class="section-divider"></div>
                 </div>
-                <VibeShowcase Config="@_shopConfig" Products="@_products" AddToCart="@AddToCartSync" />
+                @if (_features.AIChat_Enabled)
+                {
+                    <div class="store-ai-chips">
+                        <button type="button" class="store-ai-chip" @onclick='() => AskAi("Quán có món gì bán chạy nhất?")'>💡 Món bán chạy?</button>
+                        <button type="button" class="store-ai-chip" @onclick='() => AskAi("Gợi ý combo cho 2 người?")'>🍽 Gợi ý combo 2 người</button>
+                    </div>
+                }
+                @if (_productsLoading)
+                {
+                    <div class="campaign-grid">
+                        <div class="skeleton skeleton-card"></div>
+                        <div class="skeleton skeleton-card"></div>
+                        <div class="skeleton skeleton-card"></div>
+                    </div>
+                }
+                else
+                {
+                    <VibeShowcase Config="@_shopConfig" Products="@_products" AddToCart="@AddToCartSync" />
+                }
             </section>
         }
         }
@@ -306,7 +337,10 @@ else
             <AiChatWidget TenantId="_store.Id"
                           OnAddToCart="AddAiProductToCartAsync"
                           HumanChatAvailable="@ChatIdentity.HasValue"
-                          OnDraftRequest="OnAiEscalateDraft">
+                          OnDraftRequest="OnAiEscalateDraft"
+                          @bind-PendingQuestion="_pendingQuestion"
+                          HumanUnreadCount="_aiUnreadCount"
+                          OnHumanOpened="OnHumanChatOpened">
                 <HumanContent>
                     <RealtimeChatPanel SubjectType="Shop"
                                        SubjectId="_store.Id"
@@ -568,6 +602,45 @@ else
         text-align: center; padding: 3rem;
         color: #6b7280;
     }
+
+    /* ── SF-W1: AI quick-chips ───────────────────────────────────────── */
+    .store-ai-chips {
+        display: flex; flex-wrap: wrap; justify-content: center;
+        gap: 0.6rem; margin: -1.5rem 0 2rem;
+    }
+    .store-ai-chip {
+        border: 1.5px solid var(--store-accent-color, #ff5e62);
+        background: #fff;
+        color: var(--store-accent-color, #ff5e62);
+        border-radius: 999px;
+        padding: 0.45rem 1.1rem;
+        font-size: 0.88rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .store-ai-chip:hover {
+        background: var(--store-accent-gradient, linear-gradient(135deg, #ff9966, #ff5e62));
+        color: #fff;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+    }
+
+    /* ── SF-W1: skeleton shimmer ─────────────────────────────────────── */
+    .skeleton {
+        border-radius: 20px;
+        background: linear-gradient(90deg, #e9ecef 25%, #f8f9fa 50%, #e9ecef 75%);
+        background-size: 200% 100%;
+        animation: skeleton-shimmer 1.4s ease infinite;
+    }
+    @@keyframes skeleton-shimmer {
+        from { background-position: 200% 0; }
+        to { background-position: -200% 0; }
+    }
+    .skeleton-card { height: 320px; }
+    @@media (prefers-reduced-motion: reduce) {
+        .skeleton { animation: none; }
+    }
     .section-empty {
         text-align: center; padding: 2rem;
         color: #9ca3af;
@@ -701,6 +774,64 @@ else
     private string? _humanDraft;
     private void OnAiEscalateDraft(string? draft) => _humanDraft = draft;
 
+    // ── SF-W1: quick-chips + unread badge + skeleton ─────────────────────────
+    /// <summary>Question bound two-way to AiChatWidget — consumed + cleared by the widget.</summary>
+    private string? _pendingQuestion;
+    private void AskAi(string question) => _pendingQuestion = question;
+
+    private int _aiUnreadCount;
+    private System.Threading.Timer? _unreadTimer;
+    private bool _productsLoading = true;
+
+    /// <summary>SF-W1: nav anchors — only sections that are actually enabled.</summary>
+    private IReadOnlyList<(string Id, string Label)> NavLinks
+    {
+        get
+        {
+            var links = new List<(string, string)>();
+            if (_bookingEntry is { Enabled: true, BookingLink: not null }) links.Add(("booking", "Đặt lịch"));
+            if (_features.Campaign_Section_Enabled) links.Add(("campaigns", "Khuyến mãi"));
+            if (_features.VibeShowcase_Section_Enabled) links.Add(("products", "Sản phẩm"));
+            if (_features.GoogleMap_Section_Enabled) links.Add(("location", "Bản đồ"));
+            if (ChatIdentity.HasValue) links.Add(("shop-chat", "Chat"));
+            if (_features.SocialHub_Section_Enabled) links.Add(("social", "Kết nối"));
+            return links;
+        }
+    }
+
+    /// <summary>SF-W1: poll human conversation — count staff messages newer than last-seen.</summary>
+    private async Task RefreshUnreadAsync()
+    {
+        if (_store is null || !ChatIdentity.HasValue) return;
+        try
+        {
+            var seenStr = await JSRuntime.InvokeAsync<string?>(
+                "localStorage.getItem", $"ai_human_last_seen_{_store.Id}");
+            var lastSeen = DateTime.TryParse(seenStr, out var t) ? t.ToUniversalTime() : DateTime.MinValue;
+            var result = await RealtimeChat.GetHistoryAsync(
+                "Shop", _store.Id, _customerToken, _customerDeviceId, 20);
+            if (result.Success)
+            {
+                _aiUnreadCount = result.Messages.Count(
+                    m => m.SenderId != ChatIdentity.Value && m.SentAt.ToUniversalTime() > lastSeen);
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch { /* badge is best-effort — never break the page */ }
+    }
+
+    /// <summary>SF-W1: widget opened the human surface → everything is now seen.</summary>
+    private async Task OnHumanChatOpened()
+    {
+        _aiUnreadCount = 0;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem",
+                $"ai_human_last_seen_{_store!.Id}", DateTime.UtcNow.ToString("o"));
+        }
+        catch { }
+    }
+
     private string GetThemeClass() => _shopConfig?.ActiveTheme switch
     {
         ThemeType.Modern => "modern",
@@ -778,6 +909,15 @@ else
             var campaignsTask = LoadCampaignsAsync(_store.Id);
             await Task.WhenAll(productsTask, campaignsTask);
 
+            // SF-W1: unread badge — first paint now, then light 45s polling.
+            if (ChatIdentity.HasValue)
+            {
+                _ = RefreshUnreadAsync();
+                _unreadTimer = new System.Threading.Timer(
+                    async _ => await RefreshUnreadAsync(), null,
+                    TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(45));
+            }
+
             // BS-3 (2026-10-14): entry point đặt lịch — best-effort, lỗi → ẩn card (không fail trang).
             try
             {
@@ -845,6 +985,7 @@ else
         try
         {
             _products = await ProductService.GetProductsAsync(tenantId);
+            _productsLoading = false;
 
             // Free/Charity fix (2026-09-17): the ShopERP product API has no ProductType field, so a
             // 0-price Free/Charity product would arrive here as Paid → IsFree=false on the cart item
@@ -874,6 +1015,7 @@ else
         {
             Logger.LogWarning(ex, "Failed to load products for tenant {TenantId}", tenantId);
             _products = new();
+            _productsLoading = false;
         }
     }
 
@@ -938,5 +1080,6 @@ else
     public void Dispose()
     {
         // Cart subscription moved to KhachLinkLayout (global floating cart).
+        _unreadTimer?.Dispose();
     }
 }
