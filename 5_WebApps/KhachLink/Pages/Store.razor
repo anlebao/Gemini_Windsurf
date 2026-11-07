@@ -132,11 +132,18 @@ else
 
     <div class="store-body">
 
+        @* SF-W2 (A2): semantic search bar — câu hỏi tự nhiên → answer ngắn + product
+           cards, không cần mở bubble. Chỉ render khi AI bật; fail → ẩn kết quả. *@
+        @if (_features.AIChat_Enabled)
+        {
+            <StoreSearchBar TenantId="_store.Id" OnAskAi="AskAi" OnAddToCart="AddAiProductToCartAsync" />
+        }
+
         @* BS-3 (2026-10-14): entry point đặt lịch — khách bấm link hoặc quét QR (tenant profile page) *@
         @if (_bookingEntry is { Enabled: true, BookingLink: not null })
         {
             <section class="store-section" id="booking">
-                <div class="section-header">
+                <div class="section-header reveal-on-scroll">
                     <h2 class="section-title">
                         <span class="section-icon"><i class="bi bi-calendar2-check-fill"></i></span>
                         Đặt Lịch Hẹn
@@ -173,7 +180,7 @@ else
         @if (_features.Campaign_Section_Enabled)
         {
             <section class="store-section" id="campaigns">
-                <div class="section-header">
+                <div class="section-header reveal-on-scroll">
                     <h2 class="section-title">
                         <span class="section-icon"><i class="bi bi-megaphone-fill"></i></span>
                         Khuyến Mãi Nổi Bật
@@ -193,7 +200,7 @@ else
                     <div class="campaign-grid">
                         @foreach (var campaign in _campaigns.Take(6))
                         {
-                            <article class="campaign-card" onclick="@(() => OpenCampaign(campaign.TrackingCode))">
+                            <article class="campaign-card reveal-on-scroll" onclick="@(() => OpenCampaign(campaign.TrackingCode))">
                                 <div class="campaign-media">
                                     @if (!string.IsNullOrEmpty(campaign.ImageUrl))
                                     {
@@ -237,7 +244,7 @@ else
         @if (_features.VibeShowcase_Section_Enabled)
         {
             <section class="store-section" id="products">
-                <div class="section-header">
+                <div class="section-header reveal-on-scroll">
                     <h2 class="section-title">
                         <span class="section-icon"><i class="bi bi-grid-fill"></i></span>
                         Bộ Sưu Tập Sản Phẩm
@@ -261,7 +268,8 @@ else
                 }
                 else
                 {
-                    <VibeShowcase Config="@_shopConfig" Products="@_products" AddToCart="@AddToCartSync" />
+                    <VibeShowcase Config="@_shopConfig" Products="@_products" AddToCart="@AddToCartSync"
+                                  OnProductClick="OpenQuickView" />
                 }
             </section>
         }
@@ -273,7 +281,7 @@ else
         @if (_features.GoogleMap_Section_Enabled)
         {
             <section class="store-section" id="location">
-                <div class="section-header">
+                <div class="section-header reveal-on-scroll">
                     <h2 class="section-title">
                         <span class="section-icon"><i class="bi bi-geo-alt-fill"></i></span>
                         Vị Trí Cửa Hàng
@@ -312,7 +320,7 @@ else
         @if (_features.SocialHub_Section_Enabled)
         {
             <section class="store-section" id="social">
-                <div class="section-header">
+                <div class="section-header reveal-on-scroll">
                     <h2 class="section-title">
                         <span class="section-icon"><i class="bi bi-share-fill"></i></span>
                         Kết Nối Mạng Xã Hội
@@ -352,6 +360,14 @@ else
                 </HumanContent>
             </AiChatWidget>
         }
+
+        @* SF-W2 (B3): product quick-view modal — VibeShowcase card click mở modal
+           (ảnh lớn + mô tả + giá + Thêm giỏ + Hỏi AI). *@
+        <ProductQuickView Product="_quickViewProduct"
+                          AiEnabled="_features.AIChat_Enabled"
+                          OnClose="CloseQuickView"
+                          OnAddToCart="QuickViewAddToCartAsync"
+                          OnAskAi="QuickViewAskAi" />
 
         <!-- ════════════════════════════════════════════════════════════════
              FOOTER
@@ -748,6 +764,24 @@ else
     .booking-entry-qr img { display: block; border-radius: 8px; }
     .booking-entry-qr small { color: #157347; font-weight: 600; }
 
+    /* ── SF-W2 (B5): scroll-reveal micro-motion (armed by vananReveal JS) ───── */
+    .reveal-on-scroll.reveal-armed {
+        opacity: 0;
+        transform: translateY(18px);
+        transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    .reveal-on-scroll.revealed {
+        opacity: 1;
+        transform: none;
+    }
+    @@media (prefers-reduced-motion: reduce) {
+        .reveal-on-scroll.reveal-armed {
+            opacity: 1;
+            transform: none;
+            transition: none;
+        }
+    }
+
     /* ── RESPONSIVE ──────────────────────────────────────────────────── */
     @@media (max-width: 768px) {
         .store-hero { min-height: 60vh; padding: 3rem 1rem; }
@@ -798,6 +832,37 @@ else
     private void OpenHumanChat() => _openHumanPanel = true;
     private System.Threading.Timer? _unreadTimer;
     private bool _productsLoading = true;
+
+    // ── SF-W2: quick-view modal + scroll-reveal ─────────────────────────────────
+    private ProductDto? _quickViewProduct;
+    private bool _revealScanned;
+
+    private void OpenQuickView(ProductDto product) => _quickViewProduct = product;
+    private void CloseQuickView() => _quickViewProduct = null;
+
+    private async Task QuickViewAddToCartAsync(ProductDto product)
+    {
+        _quickViewProduct = null;
+        await AddToCart(product);
+    }
+
+    private void QuickViewAskAi(ProductDto product)
+    {
+        _quickViewProduct = null;
+        AskAi($"Món {product.Name} có gì nổi bật?");
+    }
+
+    /// <summary>SF-W2 (B5): arm scroll-reveal once the loaded page painted —
+    /// progressive enhancement, JS failure just leaves elements visible.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_revealScanned && !_loading && _store is not null)
+        {
+            _revealScanned = true;
+            try { await JSRuntime.InvokeVoidAsync("vananReveal.scan"); }
+            catch { }
+        }
+    }
 
     /// <summary>SF-W1: nav anchors — only sections that are actually enabled.</summary>
     private IReadOnlyList<(string Id, string Label)> NavLinks

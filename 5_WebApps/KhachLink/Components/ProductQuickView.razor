@@ -1,0 +1,59 @@
+@* SF-W2 (2026-11-07): product quick-view modal (B3) — click a product card on the
+   VibeShowcase gallery → xem ảnh lớn + mô tả + giá + "Thêm giỏ" + "Hỏi AI về món này".
+   Dùng VanAnModal (UI Platform) — backdrop click/ESC đóng theo chuẩn modal. *@
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Helpers
+@using VanAn.KhachLink.Models
+@using VanAn.UI.Platform.Components.Composite
+
+<VanAnModal IsOpen="@(Product is not null)"
+            Title="@Product?.Name"
+            OnClose="OnClose"
+            Closable="true">
+    @if (Product is not null)
+    {
+        <div class="qv-media">
+            @if (!string.IsNullOrWhiteSpace(Product.ImageUrl))
+            {
+                <img src="@Product.ImageUrl" alt="@Product.Name" />
+            }
+            else
+            {
+                <div class="qv-media-fallback"><i class="bi bi-image"></i></div>
+            }
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Product.Description))
+        {
+            <p class="qv-desc">@Product.Description</p>
+        }
+        <div class="qv-price">@CurrencyHelper.FormatVND(Product.Price)</div>
+        <div class="qv-actions">
+            <button type="button" class="btn-cta" @onclick="AddToCartAsync">
+                <i class="bi bi-cart-plus"></i> Thêm vào giỏ
+            </button>
+            @if (AiEnabled)
+            {
+                <button type="button" class="store-ai-chip" @onclick="AskAiAsync">
+                    🤖 Hỏi AI về món này
+                </button>
+            }
+        </div>
+    }
+</VanAnModal>
+
+@code {
+    /// <summary>Product to show — null renders nothing (modal closed).</summary>
+    [Parameter] public ProductDto? Product { get; set; }
+    /// <summary>AI chat feature gate — hides the "Hỏi AI" chip when off.</summary>
+    [Parameter] public bool AiEnabled { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<ProductDto> OnAddToCart { get; set; }
+    /// <summary>"Hỏi AI về món này" → host feeds a question into the chat widget.</summary>
+    [Parameter] public EventCallback<ProductDto> OnAskAi { get; set; }
+
+    private Task AddToCartAsync()
+        => Product is null ? Task.CompletedTask : OnAddToCart.InvokeAsync(Product);
+
+    private Task AskAiAsync()
+        => Product is null ? Task.CompletedTask : OnAskAi.InvokeAsync(Product);
+}

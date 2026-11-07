@@ -1,0 +1,175 @@
+/* SF-W2 (A2): semantic search bar — glassy pill input, centered result block. */
+.store-search {
+    max-width: 720px;
+    margin: 0 auto 3rem;
+}
+
+.store-search-box {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #fff;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 999px;
+    padding: 0.35rem 0.35rem 0.35rem 1.1rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.store-search-box:focus-within {
+    border-color: var(--store-accent-color, #ff5e62);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10);
+}
+
+.store-search-icon {
+    color: #9ca3af;
+    font-size: 1.05rem;
+    flex: 0 0 auto;
+}
+
+.store-search-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: none;
+    outline: none;
+    font-size: 1rem;
+    background: transparent;
+    color: #1f2937;
+}
+
+.store-search-input::placeholder {
+    color: #9ca3af;
+}
+
+.store-search-btn {
+    flex: 0 0 auto;
+    border: none;
+    border-radius: 999px;
+    padding: 0.55rem 1.4rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #fff;
+    background: var(--store-accent-gradient, linear-gradient(135deg, #ff9966, #ff5e62));
+    cursor: pointer;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 68px;
+    min-height: 38px;
+}
+
+.store-search-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.store-search-btn:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+/* ── Result block ─────────────────────────────────────────────────── */
+.store-search-result {
+    margin-top: 1.25rem;
+    background: #fff;
+    border: 1px solid #f3f4f6;
+    border-radius: 18px;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+    animation: store-search-fade 0.3s ease;
+}
+
+@keyframes store-search-fade {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+}
+
+.store-search-answer {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #1f2937;
+    white-space: pre-line;
+}
+
+.store-search-empty {
+    margin: 0;
+    color: #9ca3af;
+    font-style: italic;
+}
+
+.store-search-products {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-top: 1rem;
+}
+
+.store-search-product {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    background: #f9fafb;
+    border: 1px solid #f3f4f6;
+    border-radius: 14px;
+    padding: 0.6rem 0.9rem;
+}
+
+.store-search-product img {
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    object-fit: cover;
+    flex: 0 0 auto;
+}
+
+.store-search-product-info {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.store-search-product-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #1f2937;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.store-search-product-price {
+    color: var(--store-accent-color, #ff5e62);
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.store-search-add {
+    flex: 0 0 auto;
+    border: none;
+    border-radius: 999px;
+    padding: 0.45rem 0.95rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fff;
+    background: var(--store-accent-gradient, linear-gradient(135deg, #ff9966, #ff5e62));
+    cursor: pointer;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    white-space: nowrap;
+}
+
+.store-search-add:hover {
+    transform: translateY(-1px);
+}
+
+.store-search-ask {
+    margin-top: 1rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .store-search-result { animation: none; }
+}
+
+@media (max-width: 576px) {
+    .store-search { margin-bottom: 2rem; }
+    .store-search-product { flex-wrap: wrap; }
+}

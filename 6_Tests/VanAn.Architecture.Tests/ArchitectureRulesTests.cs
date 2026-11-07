@@ -12,7 +12,7 @@ public class ArchitectureRulesTests
         var dir = new DirectoryInfo(currentDir);
         
         // Navigate up to find repo root (contains .git directory)
-        while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, ".git")))
+        while (dir != null && !(Directory.Exists(Path.Combine(dir.FullName, ".git")) || File.Exists(Path.Combine(dir.FullName, ".git"))))
         {
             dir = dir.Parent;
         }

@@ -828,6 +828,49 @@ window.applyThemeClass = (themeClass) => {
 };
 
 // ============================================================================
+// SF-W2 (B5): scroll-reveal micro-motion — IntersectionObserver adds `revealed`
+// to `.reveal-on-scroll` elements when they enter the viewport. Vanilla IO, no
+// lib. FOUC-safe: elements are only hidden after JS marks them `reveal-armed`
+// (no JS / no IO / reduced-motion → everything stays visible).
+// ============================================================================
+window.vananReveal = {
+    _observer: null,
+    _reduced() {
+        return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    },
+    _ensureObserver() {
+        if (this._observer || !('IntersectionObserver' in window)) return;
+        const self = this;
+        this._observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('revealed');
+                    self._observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+    },
+    // Arm + observe every .reveal-on-scroll element currently in the DOM.
+    // Safe to call again after Blazor re-renders — armed/revealed elements skip.
+    scan(root) {
+        const scope = root || document;
+        const els = scope.querySelectorAll('.reveal-on-scroll:not(.revealed):not(.reveal-armed)');
+        if (!els.length) return;
+        // Reduced motion or no IO support → reveal immediately, never hide.
+        if (this._reduced() || !('IntersectionObserver' in window)) {
+            els.forEach(function (el) { el.classList.add('revealed'); });
+            return;
+        }
+        this._ensureObserver();
+        const observer = this._observer;
+        els.forEach(function (el) {
+            el.classList.add('reveal-armed');
+            observer.observe(el);
+        });
+    }
+};
+
+// ============================================================================
 // IMMEDIATE EVENT LISTENERS — registered on script load, NOT waiting for Blazor.
 // Race condition fix: Chrome fires `beforeinstallprompt` right after evaluating
 // manifest.json (during page load), but Blazor WASM takes 3-5s to boot before

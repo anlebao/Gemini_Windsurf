@@ -1,6 +1,6 @@
 # Task SF-W2 — Storefront Smart UX Đợt 2: Semantic search bar + Gallery quick-view + Micro-motion
 
-> **Status:** 🟡 DRAFT 2026-11-07 — chờ user review · **worktree sẵn `C:\VibeCoding\Gemini_Windsurf-w2` branch `feature/sf-w2`** — implement tại đó, merge về main khi xong (tránh đụng P10 đang WIP trên checkout chính)
+> **Status:** ✅ IMPLEMENTED 2026-11-07 (worktree `Gemini_Windsurf-w2`, branch `feature/sf-w2`) — chờ CD + RV `6_Testing/rv-sf-w2.cjs` · **worktree sẵn `C:\VibeCoding\Gemini_Windsurf-w2` branch `feature/sf-w2`** — implement tại đó, merge về main khi xong (tránh đụng P10 đang WIP trên checkout chính)
 > **Gate:** storefront UX polish — master plan `docs/AI/plans/storefront-smart-modern-master-plan.md` · **main sln + 1 public read endpoint mới**
 > **Phụ thuộc:** SF-W1 DONE (`f6877634` + fix `b5e2223b`) · P6b admin API · `KnowledgeRetriever` sẵn có
 > **Scope:** `UI.Platform` + `5_WebApps/KhachLink` + `2_Gateway` (1 endpoint) — KHÔNG đụng vanan-ai
@@ -59,4 +59,12 @@
 
 ## Delivered
 
-_(điền sau implement)_
+**Implement 2026-11-07 — build 0 err · Core.Tests 25 tests mới (search bar 7 · quick-view 5 · vibe click 3 · client 3 · controller search 7) · PublicTenantAiControllerTests 18/18.**
+
+- **A2 search:** `GET /api/public/tenant-ai/search` trên `PublicTenantAiController` — anonymous + class rate-limit `tenant-ai-public`, resolve tenant T6 (host-bound), flag `AIChat_Enabled`, forward `/v1/chat` với synthetic session deterministic `search:{tenant}:{sha24}` + messageId `search-{sha24}` (normalized: trim + collapse whitespace + lower → re-search idempotent, không double-meter). `IAiChatClient.SearchAiAsync` + `TenantAiPublicHttpService` impl (fail→null). `StoreSearchBar.razor` (KhachLink Components): pill input + Enter/search button + answer + product cards (reuse add-to-cart flow `AddAiProductToCartAsync`) + chip "Hỏi AI thêm" → `AskAi(query)`; fail/degraded → ẩn result (NFR-3). Mount đầu `.store-body`, gate `AIChat_Enabled`.
+- **B3 quick-view:** `VibeShowcase` + `[Parameter] OnProductClick` (invoke trên col click, buttons bọc `@onclick:stopPropagation` span) — 5 theme branches. `ProductQuickView.razor` (VanAnModal — UI Platform): ảnh lớn + mô tả + giá + "Thêm vào giỏ" + "Hỏi AI về món này" → `AskAi($"Món {name} có gì nổi bật?")`, gate `AiEnabled`.
+- **B5 micro-motion:** `.reveal-on-scroll` trên 5 `.section-header` + `.campaign-card` + col wrappers VibeShowcase; `vananReveal` IntersectionObserver trong `pwa.js` (fade-up 0.3s, threshold 0.12) — FOUC-safe `reveal-armed` pattern (no-JS/reduced-motion → luôn hiện), `Store.razor` gọi `scan()` 1 lần ở `OnAfterRenderAsync` sau load.
+- **Tests:** `PublicTenantAiControllerTests` +7 (400/404/T6 forward+dSynthetic session/dedupe hash/flag-off 503/upstream 503/429 cap) · `StoreSearchBarTests` bUnit ×7 · `ProductQuickViewTests` ×5 · `VibeShowcaseTests` ×3 · `TenantAiPublicHttpServiceTests` ×3 · `FakeAiChatClient` +member.
+- **E2E (Gate 4):** `ai-chat-widget.spec.ts` +2 cases W2 (search → answer + product card · click card → modal → add cart) · RV script `6_Testing/rv-sf-w2.cjs` (A2 search flow → widget handoff · B3 modal + cart + close · B5 armed→revealed sau scroll).
+
+**Deviation:** `SearchAiAsync` đặt trên `IAiChatClient`/`TenantAiPublicHttpService` (card ghi `CommunityHttpService`) — cùng base path `/api/public/tenant-ai/*`, reuse `AiChatResult` + fail-safe pattern; CommunityHttpService là surface `/api/community/*` authenticated (X-Customer-Token), không hợp endpoint anonymous. Badges chay/cay/bán chạy → W3 (knowledge chưa expose per-product — theo card).

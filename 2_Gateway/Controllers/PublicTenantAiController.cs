@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -124,6 +126,62 @@ public class PublicTenantAiController(
         return result.StatusCode == StatusCodes.Status501NotImplemented || result.StatusCode < 500
             ? Ok(new { aiEnabled = false })
             : AiUnavailable();
+    }
+
+    /// <summary>
+    /// SF-W2 (A2): storefront semantic search — anonymous + rate-limited (class policy).
+    /// Implemented over /v1/chat with a deterministic synthetic session per (tenant, query):
+    /// grounded/refused identically to widget chat and identical re-searches stay idempotent
+    /// (upstream dedupes on message_id). Fail-open like the widget: any upstream failure →
+    /// 503 {aiEnabled:false}; the storefront hides the result block (NFR-3).
+    /// </summary>
+    [HttpGet("search")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Search(
+        [FromQuery] string? query, [FromQuery] Guid? tenantId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(query) || query.Trim().Length > 500)
+            return BadRequest(new { aiEnabled = false, message = "Câu tìm kiếm không hợp lệ." });
+
+        var tenant = await ResolveStoreTenantAsync(tenantId, ct);
+        if (tenant is null)
+            return NotFound(new { aiEnabled = false, message = "Cửa hàng không tồn tại." });
+
+        if (!_forwarder.IsEnabled || !await IsAiChatEnabledAsync(tenant.Value, ct))
+            return AiUnavailable();
+
+        // Deterministic session/message ids: the same (tenant, query) re-search hits the
+        // same cap bucket and the same upstream idempotency key — no double metering.
+        var hash = SearchHash(query);
+        var sessionId = $"search:{tenant.Value:N}:{hash}";
+        if (!TryAcquireSessionSlot(tenant.Value, sessionId))
+            return StatusCode(StatusCodes.Status429TooManyRequests,
+                new { aiEnabled = false, message = "Bạn đã tìm kiếm quá nhiều lần. Vui lòng thử lại sau." });
+
+        var result = await _forwarder.ChatAsync(
+            tenant.Value, sessionId, $"search-{hash}", query.Trim(), locale: null, ct);
+
+        if (result is null)
+            return AiUnavailable();
+
+        if (result.StatusCode is >= 200 and < 300 && result.Body is not null)
+            return Content(result.Body, "application/json");
+
+        _logger.LogWarning("TenantAi search upstream {Status} tenant={Tenant}", result.StatusCode, tenant);
+        return result.StatusCode is >= 400 and < 500
+            ? StatusCode(result.StatusCode, new { aiEnabled = false, message = "Câu tìm kiếm không hợp lệ." })
+            : AiUnavailable();
+    }
+
+    /// <summary>Deterministic 24-hex hash of the normalized query (trimmed, whitespace-collapsed,
+    /// lowercased) — stable synthetic session/message ids for identical searches.</summary>
+    private static string SearchHash(string query)
+    {
+        var normalized = string.Join(' ',
+            query.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+            .ToLowerInvariant();
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)))
+            .ToLowerInvariant()[..24];
     }
 
     /// <summary>Session resume history — ctx tenant must own the session (enforced upstream too).</summary>

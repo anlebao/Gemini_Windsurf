@@ -74,6 +74,27 @@ public class TenantAiPublicHttpService : IAiChatClient
         }
     }
 
+    /// <summary>
+    /// SF-W2 (A2): storefront semantic search — GET /api/public/tenant-ai/search.
+    /// The gateway forwards to /v1/chat under a synthetic session, so the payload is
+    /// the same AiChatResult shape (answer + products + refused).
+    /// </summary>
+    public async Task<AiChatResult?> SearchAiAsync(Guid tenantId, string query, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _httpClient.GetAsync(
+                $"api/public/tenant-ai/search?query={Uri.EscapeDataString(query)}&tenantId={tenantId}", ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<AiChatResult>(cancellationToken: ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "TenantAi search failed for {TenantId}", tenantId);
+            return null;
+        }
+    }
+
     private sealed record PublicAiChatRequestDto(
         Guid? TenantId, string SessionId, string MessageId, string Text, string? Locale);
 
