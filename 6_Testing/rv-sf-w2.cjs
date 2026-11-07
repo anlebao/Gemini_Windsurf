@@ -123,10 +123,20 @@ const warn = (name, extra) => console.log(`WARN ${name} — ${extra}`);
       [...document.querySelectorAll('.reveal-on-scroll')]
         .filter(el => !el.classList.contains('revealed')).length);
     check('B5 all elements revealed after scroll', hidden === 0, `${hidden} still hidden`);
-    const brokenLayout = await page.evaluate(() =>
-      [...document.querySelectorAll('.reveal-on-scroll.revealed')]
-        .filter(el => getComputedStyle(el).opacity !== '1').length);
-    check('B5 no stuck-opacity layout break', brokenLayout === 0);
+    // Elements revealed during the scroll loop animate 0→1 over 0.3s; headless IO
+    // dispatch can lag → poll until every revealed element settles at opacity 1.
+    const settle = await page.evaluate(async () => {
+      const els = [...document.querySelectorAll('.reveal-on-scroll.revealed')];
+      const deadline = Date.now() + 5000;
+      while (Date.now() < deadline) {
+        const pending = els.filter(el => getComputedStyle(el).opacity !== '1').length;
+        if (pending === 0) return { pending: 0 };
+        await new Promise(r => setTimeout(r, 150));
+      }
+      return { pending: els.filter(el => getComputedStyle(el).opacity !== '1').length };
+    });
+    check('B5 no stuck-opacity layout break', settle.pending === 0,
+      settle.pending ? `${settle.pending} still transitioning/stuck` : '');
   }
 
   const fails = results.filter(r => !r.ok).length;

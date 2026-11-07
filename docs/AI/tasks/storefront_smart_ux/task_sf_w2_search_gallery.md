@@ -68,3 +68,9 @@
 - **E2E (Gate 4):** `ai-chat-widget.spec.ts` +2 cases W2 (search → answer + product card · click card → modal → add cart) · RV script `6_Testing/rv-sf-w2.cjs` (A2 search flow → widget handoff · B3 modal + cart + close · B5 armed→revealed sau scroll).
 
 **Deviation:** `SearchAiAsync` đặt trên `IAiChatClient`/`TenantAiPublicHttpService` (card ghi `CommunityHttpService`) — cùng base path `/api/public/tenant-ai/*`, reuse `AiChatResult` + fail-safe pattern; CommunityHttpService là surface `/api/community/*` authenticated (X-Customer-Token), không hợp endpoint anonymous. Badges chay/cay/bán chạy → W3 (knowledge chưa expose per-product — theo card).
+
+**Deploy + RV production 2026-11-07 (`4d49af95` impl + `375dd3fc` arch-test fix + reveal fix — CD Multi-VPS #42357439004 + #42358243888 ALL SUCCESS):**
+- **RV `rv-sf-w2.cjs`: 17 PASS · 0 FAIL** trên An Tâm production — L2 200 · A2 search bar → answer "Shi — trợ lý Shi Beauty Spa" + 10 product cards + add-to-cart + "Hỏi AI thêm" mở widget auto-send đúng câu · B3 click card → VanAnModal quick-view (media+price+chip AI) → thêm giỏ toast + modal đóng + close button · B5 69 `.reveal-on-scroll` armed → 0 hidden sau scroll sweep · layout không vỡ.
+- **Fix sau RV-1 (`pwa.js`):** bottom-anchored edge — phần tử ghim sát đáy trang (vd header "Kết Nối Mạng Xã Hội") không bao giờ qua ngưỡng `rootMargin -8%` + `threshold 0.12` ở max-scroll → `scan()` reveal eagerly khi `docTop - maxScrollTop` không vượt được shrunken root line. Script-side: `#vanan-toast` (id không phải class) + settle-poll cho transition lag trong headless.
+- Fix kèm: arch tests `GetRepoRoot` chấp nhận `.git` file (worktree gitfile) — 27 file-scan tests trước fail trong worktree.
+- Còn: L4/L5 user manual · `PAGEERROR` transient nếu tái xuất hiện thì log theo dõi.
