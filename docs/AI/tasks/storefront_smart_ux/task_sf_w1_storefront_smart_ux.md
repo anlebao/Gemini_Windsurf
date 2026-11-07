@@ -1,6 +1,6 @@
 # Task SF-W1 — Storefront Smart UX Đợt 1: AI quick-chips + Sticky nav + Skeleton + Unread badge
 
-> **Status:** 🟡 DRAFT 2026-11-07 — chờ user review
+> **Status:** ✅ APPROVED + IMPLEMENTED `f6877634` (pushed) — CD + RV `6_Testing/rv-sf-w1.cjs` kế tiếp
 > **Gate:** storefront UX polish — master plan `docs/AI/plans/storefront-smart-modern-master-plan.md` · **main sln changes — additive, zero backend**
 > **Phụ thuộc:** P8 unified widget (DONE `06a8b993`) · `IRealtimeChatClient` đã DI trong KhachLink (RealtimeChatPanel dùng)
 > **Scope:** `UI.Platform` (AiChatWidget params) + `5_WebApps/KhachLink` (Store.razor + StoreNav) — KHÔNG đụng Gateway/vanan-ai/ShopERP
@@ -93,4 +93,10 @@
 
 ## Delivered
 
-_(điền sau implement)_
+**Implement 2026-11-07 — `f6877634` + `f7dbefe7` (rv script) pushed · build 0 err · Core.Tests 25/25 (6 mới: PendingQuestion auto-send once/aiDisabled no-send/bind clear · badge 3/0/9+ · OnHumanOpened fired) · pre-commit guard PASSED.**
+
+- `AiChatWidget`: `PendingQuestion`+`PendingQuestionChanged` (consume trong `OnAfterRenderAsync` sau khi `_sessionId` sẵn — `_consumedQuestion` chống resend) · `HumanUnreadCount` badge (cap 9+) · `OnHumanOpened` fire từ ToggleOpen/SwitchToHuman/EscalateAsync.
+- `StoreNav.razor`+css (KhachLink): sticky `top:0` glass blur, links theo enabled sections, CTA tel — pure CSS no JS.
+- `Store.razor`: 3 quick-chips (products×2, booking) · `@bind-PendingQuestion` · unread poll 45s qua `IRealtimeChatClient.GetHistoryAsync` vs localStorage `ai_human_last_seen_{store}` · skeleton shimmer campaigns+products (`_productsLoading`) · `prefers-reduced-motion`.
+- E2E spec +2 cases (Gate 4): chip→auto-send→answer · nav stick sau scroll.
+- `rv-sf-w1.cjs` — full DoD sweep (nav/skeleton/lazy/chip→answer/badge loop guest→owner reply→badge→clear/P8 regression).
