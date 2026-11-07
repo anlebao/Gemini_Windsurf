@@ -1,6 +1,6 @@
 # Task AI-P7 — Pilot Rollout: Model Verify + Knowledge Readiness + Go-live
 
-> **Status:** ✅ APPROVED 2026-11-06
+> **Status:** 🟡 IN PROGRESS — B1+B2+B3 DONE (2026-11-07) · B4 API checks DONE · chờ observation 48–72h → sign-off
 > **Gate:** P1-G5 — SRS v1.1 [D3][D4] · §14 · **→ checkpoint CP4 (production RV + sign-off)**
 > **Phụ thuộc:** **P6b DONE** (admin API §6.3 + hygiene — BLOCKER: bước 3 cần `PUT profile` + `publish`, bước 4 dùng `Get-AiConversations`/`Get-AiUsage`) · P6 (CP3 PASS 44/0/1skip — An Tâm `e2d91cdf` đã có `AIChat_Enabled` + 22 products ingest + ví 1000cr) · PO-6 (tenant — thực chất đã chọn An Tâm ở CP3) · PO-7 nếu phát sinh billing
 
@@ -56,3 +56,22 @@
 - [ ] Pilot sign-off từ user sau ≥48h quan sát · metrics report đính kèm card · lessons-learned ghi vào card + cân nhắc cập nhật rules/knowledge-base
 
 > **Scope note (SRS 100%):** Card này đóng **SRS P1**. SRS tổng 100% cần thêm: `task_ai_p8_admin_ui` (P2 `/admin/tenant-ai/*` + NavMenu/Sitemap + E2E — phụ thuộc P6b admin API) · P3 External Knowledge Gateway · P4 Ecosystem AI + O4 Directory SSR widget. Roadmap sau pilot sign-off — KHÔNG gom vào P7 (audit `tenant-ai-srs-compliance-audit.md` §4, §6).
+
+## Handoff → P8 (session mới)
+
+**Còn lại của P7 (finish khi P8 hoặc parallel):**
+1. Observation 48–72h từ 2026-11-07: `Get-AiConversations`/`Get-AiUsage` · refuse rate · unsupported claims · token cost → sign-off.
+2. Flag-off regression (tắt `AIChat_Enabled` → widget ẩn → bật lại) · rate-limit spot-check (>60/min → 429 · cap 20/session/giờ) · kill-switch env.
+3. Metering: deny path (ví thấp → refuse → restore) + **quyết định arm `ai.chat.message`** (blast radius `feature.*`/`store.*`) + quyết `ai.embedding.batch` ingest.
+4. Verify `RetentionCleanupService` log ≥1 pass (G10) · drift/status khớp sau nightly reconcile (G16 — reconcile push ShopERP 65 items, kiểm tra không mất data).
+5. **Detox 4F miss:** "Detox 4F giá bao nhiêu?" vẫn "chưa có dữ liệu" dù token `detox` khớp `Detox 4F (Cơ bản)` — investigate name-matching/intent (có thể `4F` hay `(Cơ bản)` làm hỏng token split; xem log intent+sources).
+6. Add-to-cart → checkout Option C re-verify production.
+7. Session-end: update `project_state.md` §2 vanan-ai (xong).
+
+**P8 scope gợi ý (SRS P2):** Admin UI `/admin/tenant-ai/*` (Identity·Profile·Story·FAQ CRUD·Upload·Permission·Preview·Publish/Rollback·Conversations·Usage·Sync status) + NavMenu/Sitemap + E2E spec (Gate 4) + eval-gate trước publish (NFR-10) + policy copy-forward khi publish version mới + usage proxy metering summary. Product alias/description-token matching cho price questions ("lấy nhân mụn" → Shi Acnes) — gap name-mention hiện tại.
+
+**Lưu ý vận hành:**
+- An Tâm = **Shi Beauty Spa** (HKD). Facts nguồn: shibeautyspa.vn. Backup DB ShopERP trước import: `vanan_shoperp.db.bak-p7` trên shop-a.
+- Scripts RV/ops trên VPS `/tmp/shi/` (products.json, import_shi.py, p7_onboard.py, p7_docs2.py, p7_eval.py) — ephemeral, xem lại từ git history/session nếu mất; nên port `Invoke-AiEval` + docs seed vào `scripts/` repo khi P8.
+- Ops signing: pattern `run-on-vps.sh` — secrets `sudo cat /opt/vanan-ai/.env.tenantai`, ctx HMAC-SHA256 base64url.
+- Refuse template còn flavor F&B ("menu, món ăn hay quán") — cân nhắc parameterize theo persona/industry ở P8.

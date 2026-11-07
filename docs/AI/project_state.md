@@ -168,6 +168,8 @@
 - [x] P4 storefront + P5 metering/flag done — tests 118/118 vanan-ai · ShopERP.Tests 306/306 · guard ALL PASSED
 - [x] P6 tests+rv done 2026-11-06 — ThreatSuite 35 tests mới (T1-T13 coverage map) · evalset 41 cases · `6_Testing/rv-scripts/tenant-ai-rv/` · tests 153/153
 - [x] **CP3 DONE 2026-11-06/07** (`f50d81c6`→`c44de003`, CD #42299568933 ALL SUCCESS): RV L3 `invoke-rv.ps1` PASS=44 FAIL=0 (T8 skip — master OFF GĐ-1, arming=P7) · e2e 3/3 PASS · metering ledger events recorded · fixes deployed: CD TenantAi env wiring gateway/shoperp · BUG-6 widget dead-send (WASM first-render race) · spec races · p6b admin API committed
+- [x] **P7 B1–B3 + B4-API DONE 2026-11-07** (`fc33a9cb` embed fix · `8b655fee` IntentRouter spa keywords · `cb3c762c` card): model verify OK (text-embedding-004 404 → **gemini-embedding-001+768**) · An Tâm chốt pilot (spa, deviation D4) · **ShopERP menu thật: 22 placeholder → 65 dịch vụ Shi** (soft-delete + insert, `.bak-p7`) → fullSync upserted 65 · 5 docs approved · profile **"Shi" published v1** · widget-config aiEnabled+greeting ✓ · eval **~95%** (19/22 strict) · latency p95 0.61s · session/cross-tenant ✓ · 0 hallucination
+- [ ] Next: **P7 observation 48–72h (từ 11-07) → sign-off → P8** — handoff chi tiết trong `task_ai_p7_pilot.md` §Handoff→P8 (deny arm decision · flag-regression/rate-limit/kill-switch · Detox 4F miss investigate · add-to-cart re-verify · cleanup/drift log · P8 = admin UI `/admin/tenant-ai/*` + product alias + refuse template per-industry)
 - [ ] Next: **P7 pilot** — task_ai_p7_pilot. **CP3 NOTES cho P7:**
   1. **An Tâm là tenant SPA** (massage/facial/triệt lông — 22 products đã ingest), KHÔNG phải quán chay như giả định — `scripts/seed-an-tam-ai-docs.ps1` + `docs/AI/seeds/tenant-ai/an-tam-menu-reference.json` (nội dung chay/buddhachay.vn) PHẢI viết lại theo business thật trước khi seed. Flag `AIChat_Enabled` đã ON sẵn (PG + SQLite).
   2. **T8 deny defer → P7 decision**: metering master switch OFF = GĐ-1. Arming sẽ deny hàng loạt tenant ví=0 (Deny cards: chat.*, feature.*, store.* — blast radius lớn). Cần user quyết định arm hay giữ OFF cho pilot.
@@ -388,7 +390,7 @@ Server A (Edge):              Server B (Central):
 ## 10. Maintenance Log
 
 > Full historical maintenance log (pre-2026-09-17): see `docs/AI/project_state_archive.md`.
-> **Last Updated:** 2026-11-06 · **Branch:** `main` @ `977980c1` (Tenant AI **P6 tests+rv code DONE** chưa commit — ThreatSuite 35 tests · evalset 41 · rv-scripts; chờ CP3 full deploy)
+> **Last Updated:** 2026-11-07 · **Branch:** `main` @ `cb3c762c` (Tenant AI **P6 tests+rv code DONE** chưa commit — ThreatSuite 35 tests · evalset 41 · rv-scripts; chờ CP3 full deploy)
 
 ## Regime-Lock — chuẩn kế toán theo Tenant.Type (`615d85ac`, 2026-10-30 — DEPLOYED + RV PASS)
 
