@@ -61,14 +61,27 @@ test.describe('Tenant AI admin — flag-gated (TenantAiEnabled + vanan-ai)', () 
     await page.getByTestId('select-doc-type').selectOption('faq');
     await page.getByTestId('input-doc-title').fill(title);
     await page.getByTestId('input-doc-content').fill('E2E: quán mở cửa 9h-21h mỗi ngày.');
+    // @bind = onchange: blur textarea để commit giá trị → nút upload enable (Playwright
+    // không tự blur trước click → deadlock trên nút disabled-until-valid).
+    await page.getByTestId('input-doc-content').press('Tab');
     await page.getByTestId('btn-upload-doc').click();
 
-    // doc lands in pending queue (approval gate [G14])
-    await expect(page.getByTestId('tab-pending')).toBeVisible({ timeout: 15000 });
+    // doc lands in pending queue (approval gate [G14]) — upload xong page vẫn ở
+    // tab "docs", phải switch sang "Chờ duyệt" mới thấy pending-doc.
+    await page.getByTestId('tab-pending').click();
     const pendingCard = page.getByTestId('pending-doc').filter({ hasText: title });
     await expect(pendingCard).toBeVisible({ timeout: 15000 });
     await pendingCard.getByTestId('btn-approve-doc').click();
     await expect(pendingCard).toHaveCount(0, { timeout: 15000 });
+
+    // cleanup: xóa doc test đã duyệt để không để dữ liệu E2E trên production.
+    await page.getByTestId('tab-docs').click();
+    await page.getByTestId('select-status-filter').selectOption('approved');
+    const docItem = page.getByTestId('doc-item').filter({ hasText: title });
+    await expect(docItem).toBeVisible({ timeout: 15000 });
+    await docItem.getByTestId('btn-delete-doc').click();
+    await docItem.getByTestId('btn-confirm-delete').click();
+    await expect(docItem).toHaveCount(0, { timeout: 15000 });
   });
 
   test('profile: lưu draft → preview → publish', async ({ page }) => {

@@ -314,6 +314,9 @@
             _pending.Clear();
             _pendingCount = pending?.Total ?? 0;
             if (pending != null) _pending.AddRange(pending.Items);
+            // @bind="_rejectReasons[d.Id]" đọc indexer khi render → seed key trước,
+            // nếu không mỗi pending doc ném KeyNotFoundException (crash render/500).
+            foreach (var d in _pending) _rejectReasons.TryAdd(d.Id, string.Empty);
             if (pending == null) SetAlert("Không kết nối được dịch vụ AI — thử Làm mới.", "warning");
             if (_tab == "docs") await LoadDocsPageAsync(reset: true);
         }
