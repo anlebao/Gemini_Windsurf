@@ -26,7 +26,7 @@ namespace VanAn.Architecture.Tests
         private static string GetRepoRoot()
         {
             DirectoryInfo dir = new(Directory.GetCurrentDirectory());
-            while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, ".git")))
+            while (dir != null && !(Directory.Exists(Path.Combine(dir.FullName, ".git")) || File.Exists(Path.Combine(dir.FullName, ".git"))))
             {
                 dir = dir.Parent;
             }
