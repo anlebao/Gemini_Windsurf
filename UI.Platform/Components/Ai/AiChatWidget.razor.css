@@ -175,3 +175,52 @@
 .vanan-ai-send {
     flex-shrink: 0;
 }
+
+/* ── Task AI-P8: human-mode surface (RealtimeChatPanel hosted in the bubble) ── */
+.ai-widget-human {
+    height: 420px;
+    max-height: calc(100vh - 140px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--bs-light, #f8f9fa);
+}
+
+.ai-widget-human ::deep .chat-panel,
+.ai-widget-human ::deep .chat-panel > .card,
+.ai-widget-human ::deep .chat-panel > .card > .card-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.ai-widget-human ::deep .chat-panel > .card {
+    box-shadow: none;
+    border: none;
+    border-radius: 0;
+}
+
+.ai-widget-human ::deep .chat-panel > .card > .card-body {
+    padding: 0;
+}
+
+/* Message list fills remaining height instead of the inline 400px cap. */
+.ai-widget-human ::deep .chat-panel .card-body > .bg-light {
+    flex: 1;
+    min-height: 0;
+    max-height: none !important;
+}
+
+.vanan-ai-escalate {
+    margin-top: 6px;
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.vanan-ai-human-btn,
+.vanan-ai-back-btn {
+    white-space: nowrap;
+}

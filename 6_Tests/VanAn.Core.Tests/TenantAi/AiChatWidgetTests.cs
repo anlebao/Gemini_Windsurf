@@ -1,10 +1,13 @@
 using Bunit;
 using Bunit.JSInterop;
 using FluentAssertions;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using VanAn.UI.Platform.Adapters;
 using VanAn.UI.Platform.Components.Ai;
+using VanAn.UI.Platform.Components.Realtime;
 using VanAn.UI.Platform.Core.Interfaces;
+using VanAn.UI.Platform.Realtime;
 using Xunit;
 
 namespace VanAn.Core.Tests.TenantAi;
@@ -162,5 +165,218 @@ public class AiChatWidgetTests : TestContext
 
         cut.WaitForAssertion(() =>
             cut.Markup.Should().Contain("Trợ lý AI tạm nghỉ"));
+    }
+
+    // === Task AI-P8 — unified widget: AI-first + human handoff ===
+
+    private IRenderedComponent<AiChatWidget> RenderUnified(
+        FakeAiChatClient client,
+        Action<string?>? onDraft = null,
+        bool humanAvailable = true,
+        RenderFragment? humanContent = null)
+    {
+        Services.AddSingleton<IAiChatClient>(client);
+        return RenderComponent<AiChatWidget>(p => p
+            .Add(w => w.TenantId, TenantId)
+            .Add(w => w.HumanChatAvailable, humanAvailable)
+            .Add(w => w.OnDraftRequest, onDraft ?? (_ => { }))
+            .Add(w => w.HumanContent, humanContent ?? (builder => builder.AddContent(0, "HUMAN-PANEL"))));
+    }
+
+    [Fact]
+    public void Handoff_ButtonShown_SwitchesToHumanMode()
+    {
+        var cut = RenderUnified(new FakeAiChatClient());
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
+        cut.WaitForAssertion(() => cut.Find(".vanan-ai-panel"));
+
+        cut.Find("button.vanan-ai-human-btn").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Chủ quán");
+            cut.Markup.Should().Contain("HUMAN-PANEL");
+            cut.Markup.Should().NotContain("vanan-ai-human-btn");
+            cut.Find("button.vanan-ai-back-btn").Should().NotBeNull();
+        });
+    }
+
+    [Fact]
+    public void Handoff_BackToAi_KeepsAiHistory()
+    {
+        var client = new FakeAiChatClient
+        {
+            ChatResult = new AiChatResult("Câu trả lời AI.", [], [], 0.9, false, null, false, false)
+        };
+        var cut = RenderUnified(client);
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
+        cut.WaitForAssertion(() => cut.Find(".vanan-ai-panel"));
+        cut.Find(".vanan-ai-panel input").Input("Có phở chay không?");
+        cut.Find("button.vanan-ai-send").Click();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Câu trả lời AI."));
+
+        cut.Find("button.vanan-ai-human-btn").Click();
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-back-btn"));
+        cut.Find("button.vanan-ai-back-btn").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Câu trả lời AI.");
+            cut.Markup.Should().Contain("Có phở chay không?");
+        });
+    }
+
+    [Fact]
+    public void Handoff_RefusedMessage_ChipEscalatesWithUserText()
+    {
+        var client = new FakeAiChatClient
+        {
+            ChatResult = new AiChatResult("Xin lỗi, mình không biết.", [], [], 0.1, true, "out_of_scope", false, false)
+        };
+        string? draft = "UNSET";
+        var cut = RenderUnified(client, d => draft = d);
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
+        cut.WaitForAssertion(() => cut.Find(".vanan-ai-panel"));
+
+        cut.Find(".vanan-ai-panel input").Input("Quán có nhận order 200 phần không?");
+        cut.Find("button.vanan-ai-send").Click();
+
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-escalate"));
+        cut.Find("button.vanan-ai-escalate").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("HUMAN-PANEL");
+            cut.Markup.Should().Contain("Chủ quán");
+        });
+        draft.Should().Be("Quán có nhận order 200 phần không?");
+    }
+
+    [Fact]
+    public void Handoff_RefusedChip_DraftTruncatedTo500()
+    {
+        var client = new FakeAiChatClient
+        {
+            ChatResult = new AiChatResult("Từ chối.", [], [], 0.1, true, "out_of_scope", false, false)
+        };
+        string? draft = null;
+        var cut = RenderUnified(client, d => draft = d);
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
+        cut.WaitForAssertion(() => cut.Find(".vanan-ai-panel"));
+
+        var longText = new string('x', 800);
+        cut.Find(".vanan-ai-panel input").Input(longText);
+        cut.Find("button.vanan-ai-send").Click();
+
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-escalate").Click());
+        cut.WaitForAssertion(() => draft.Should().HaveLength(500));
+    }
+
+    [Fact]
+    public void Handoff_Disabled_NoButtonsNoChips()
+    {
+        var client = new FakeAiChatClient
+        {
+            ChatResult = new AiChatResult("Từ chối.", [], [], 0.1, true, "out_of_scope", false, false)
+        };
+        var cut = RenderUnified(client, humanAvailable: false);
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
+        cut.WaitForAssertion(() => cut.Find(".vanan-ai-panel"));
+
+        cut.Find(".vanan-ai-panel input").Input("test refuse");
+        cut.Find("button.vanan-ai-send").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Từ chối.");
+            cut.Markup.Should().NotContain("vanan-ai-human-btn");
+            cut.Markup.Should().NotContain("vanan-ai-escalate");
+            cut.Markup.Should().NotContain("HUMAN-PANEL");
+        });
+    }
+
+    [Fact]
+    public void Handoff_AiDisabled_OpensStraightToHumanMode()
+    {
+        var client = new FakeAiChatClient { Config = new AiWidgetConfig(false, null, null, null) };
+        var cut = RenderUnified(client);
+
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Chủ quán");
+            cut.Markup.Should().Contain("HUMAN-PANEL");
+            cut.Markup.Should().NotContain("vanan-ai-back-btn"); // no AI to go back to
+        });
+    }
+
+    [Fact]
+    public void Handoff_AiDown_NullConfig_StillShowsHumanBubble()
+    {
+        var client = new FakeAiChatClient { Config = null }; // service down
+        var cut = RenderUnified(client);
+
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("HUMAN-PANEL"));
+    }
+
+    [Fact]
+    public void Handoff_EscalateToRealtimePanel_PrefillsDraft()
+    {
+        // Store-level flow: refuse CTA → OnDraftRequest → host passes draft to
+        // RealtimeChatPanel.InitialDraft → input prefilled for the customer.
+        Services.AddSingleton<IRealtimeChatClient>(new FakeRealtimeChatClient());
+        Services.AddSingleton<IRealtimeEndpointProvider>(new StubEndpoints());
+        var subjectId = Guid.NewGuid();
+        string? draft = null;
+
+        RenderFragment humanContent = builder =>
+        {
+            builder.OpenComponent<RealtimeChatPanel>(0);
+            builder.AddAttribute(1, "SubjectType", "Shop");
+            builder.AddAttribute(2, "SubjectId", subjectId);
+            builder.AddAttribute(3, "InitialDraft", draft);
+            builder.CloseComponent();
+        };
+
+        var client = new FakeAiChatClient
+        {
+            ChatResult = new AiChatResult("Mình không trả lời được câu này.", [], [], 0.1, true, "out_of_scope", false, false)
+        };
+        var cut = RenderUnified(client, d => draft = d, humanContent: humanContent);
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
+        cut.WaitForAssertion(() => cut.Find(".vanan-ai-panel"));
+
+        cut.Find(".vanan-ai-panel input").Input("Có giao hàng tận nơi không?");
+        cut.Find("button.vanan-ai-send").Click();
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-escalate").Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("chat-panel");
+            draft.Should().Be("Có giao hàng tận nơi không?");
+            cut.Find(".chat-panel input").GetAttribute("value")
+                .Should().Be("Có giao hàng tận nơi không?");
+        });
+    }
+
+    private sealed class FakeRealtimeChatClient : IRealtimeChatClient
+    {
+        public Task<RealtimeChatHistoryResult> GetHistoryAsync(string subjectType, Guid subjectId,
+            string? customerToken, Guid? customerDeviceId, int take = 100, string? staffToken = null,
+            CancellationToken ct = default)
+            => Task.FromResult(new RealtimeChatHistoryResult { Success = true });
+
+        public Task<RealtimeSendResult> SendMessageAsync(string subjectType, Guid subjectId, string content,
+            string? customerToken, Guid? customerDeviceId, string? staffToken = null,
+            CancellationToken ct = default)
+            => Task.FromResult(new RealtimeSendResult { Success = true });
+    }
+
+    private sealed class StubEndpoints : IRealtimeEndpointProvider
+    {
+        public string GetGatewayBaseUrl() => "http://localhost";
+        public string GetMessagingHubUrl() => "http://localhost/hubs/messaging";
+        public string GetTrackingHubUrl() => "http://localhost/hubs/tracking";
     }
 }

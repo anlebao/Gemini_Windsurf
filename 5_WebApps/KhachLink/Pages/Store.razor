@@ -295,13 +295,29 @@ else
         }
 
         <!-- ════════════════════════════════════════════════════════════════
-             AI CHAT WIDGET (Task AI-P4, SRS v1.1 §6.1) — floating bubble + panel.
-             Section flag gates mount; the widget itself hides when
-             widget-config returns aiEnabled=false (service down / metering deny).
+             AI CHAT WIDGET (Task AI-P4 → unified P8, SRS v1.1 §6.1) — 1 bubble, 2 modes.
+             Default AI mode; "Chat với chủ quán" / refuse-CTA switches to the inline
+             RealtimeChatPanel (human channel). Section flag gates mount; the widget
+             itself hides when widget-config returns aiEnabled=false AND no human
+             identity exists (service down / metering deny → human mode bubble).
         ════════════════════════════════════════════════════════════════ -->
         @if (_features.AIChat_Enabled)
         {
-            <AiChatWidget TenantId="_store.Id" OnAddToCart="AddAiProductToCartAsync" />
+            <AiChatWidget TenantId="_store.Id"
+                          OnAddToCart="AddAiProductToCartAsync"
+                          HumanChatAvailable="@ChatIdentity.HasValue"
+                          OnDraftRequest="OnAiEscalateDraft">
+                <HumanContent>
+                    <RealtimeChatPanel SubjectType="Shop"
+                                       SubjectId="_store.Id"
+                                       CurrentUserId="ChatIdentity!.Value"
+                                       CustomerToken="@_customerToken"
+                                       CustomerDeviceId="_customerDeviceId"
+                                       ScrollContainerId="ai-widget-human-scroll"
+                                       HeaderTitle="Chủ quán"
+                                       InitialDraft="@_humanDraft" />
+                </HumanContent>
+            </AiChatWidget>
         }
 
         <!-- ════════════════════════════════════════════════════════════════
@@ -680,6 +696,10 @@ else
 
     /// <summary>Chat identity for the RealtimeChatPanel (customer id wins over guest device id).</summary>
     private Guid? ChatIdentity => _customerId ?? _customerDeviceId;
+
+    /// <summary>Task AI-P8: refused AI question → prefills the human chat input (set before HumanContent mounts).</summary>
+    private string? _humanDraft;
+    private void OnAiEscalateDraft(string? draft) => _humanDraft = draft;
 
     private string GetThemeClass() => _shopConfig?.ActiveTheme switch
     {

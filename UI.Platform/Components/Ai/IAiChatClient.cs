@@ -39,8 +39,14 @@ public sealed record AiChatResult(
     bool StaleData,
     bool Degraded);
 
+/// <summary>
+/// Refused = assistant could not/would not answer (policy refuse, rate-limit, or local
+/// transport fallback) — Task AI-P8 shows the "Hỏi chủ quán trực tiếp" handoff chip on it.
+/// Server history payloads without `refused` deserialize to false (backward compatible).
+/// </summary>
 public sealed record AiSessionMessage(
     string Role,
     string Content,
     IReadOnlyList<AiProductCardItem> Products,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    bool Refused = false);

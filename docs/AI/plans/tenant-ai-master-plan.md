@@ -67,7 +67,9 @@ Build `vanan-ai` — service độc lập đầu tiên của Vạn An Tenant Int
 | `task_ai_p5_metering` | G5 | MeteringApiClient trong vanan-ai + check/degrade/ingest + `TenantAiEnabled` flag + widget enable | local | P3 | ✅ DONE `b0ac52b2` (deployed · rate cards + caller đã tạo production) |
 | `task_ai_p6_tests_rv` | G5 | T1–T13 suite + NFR-10 eval set + RV scripts production | **→ CP3** | P4, P5 | ✅ CODE DONE `7717879f` (153/153, eval 41) · ⏳ CP3 RV chưa chạy |
 | `task_ai_p6b_admin_api_hygiene` | G5 | Admin API đủ §6.3 (profile/policy/publish/rollback/conversations/usage) + retention cleanup + tenant purge + manual sync + drift check — **unblock P7** | local (main sln validate) | P3 | 🟡 DRAFT 2026-11-07 (audit `tenant-ai-srs-compliance-audit.md`) |
-| `task_ai_p7_pilot` | G5 | Model verify API + knowledge readiness pilot + flag on + RV production + sign-off | **→ CP4** | P6 | ⬜ |
+| `task_ai_p7_pilot` | G5 | Model verify API + knowledge readiness pilot + flag on + RV production + sign-off | **→ CP4** | P6 | 🟡 IN PROGRESS — B1–B4-API DONE · chờ observation 48–72h |
+| `task_ai_p8_unified_chat_widget` | post-P1 | Unified widget 1 bubble: AI mode + "Chat với chủ quán" → RealtimeChatPanel inline + auto-escalate khi refuse | local (main sln) | P4 | ✅ APPROVED 2026-11-07 |
+| `task_ai_p9_inbox_ai_review` | post-P1 | ShopInbox tab "AI trả lời khách" read-only qua admin API P6b | local (main sln) | P6b | ✅ APPROVED 2026-11-07 |
 
 **Gate rule:** không viết card tiếp theo song song — implement tuần tự, card xong = tests xanh + note deviation vào card.
 

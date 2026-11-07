@@ -12,7 +12,7 @@
 @inject IJSRuntime JSRuntime
 @inject IAiChatClient AiClient
 
-@if (_config?.AiEnabled == true)
+@if (ShowWidget)
 {
     <div class="vanan-ai-widget">
         @if (_open)
@@ -20,15 +20,51 @@
             <VanAnCard Shadow="true" CssClass="vanan-ai-panel p-0 overflow-hidden">
                 <div class="d-flex justify-content-between align-items-center p-3 border-bottom vanan-ai-header">
                     <div class="d-flex align-items-center gap-2">
-                        <i class="bi bi-robot"></i>
-                        <h6 class="mb-0">@(_aiName)</h6>
+                        @if (_mode == WidgetMode.Human)
+                        {
+                            <i class="bi bi-person-fill"></i>
+                            <h6 class="mb-0">Chủ quán</h6>
+                        }
+                        else
+                        {
+                            <i class="bi bi-robot"></i>
+                            <h6 class="mb-0">@(_aiName)</h6>
+                        }
                     </div>
-                    <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
-                                 OnClick="ToggleOpen" aria-label="Đóng trợ lý AI">
-                        <i class="bi bi-chevron-down"></i>
-                    </VanAnButton>
+                    <div class="d-flex align-items-center gap-2">
+                        @if (_mode == WidgetMode.Ai && HumanHandoffAvailable)
+                        {
+                            <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                                         OnClick="SwitchToHuman" CssClass="vanan-ai-human-btn"
+                                         aria-label="Chat với chủ quán">
+                                <i class="bi bi-chat-dots"></i> Chat với chủ quán
+                            </VanAnButton>
+                        }
+                        else if (_mode == WidgetMode.Human && _config?.AiEnabled == true)
+                        {
+                            <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                                         OnClick="SwitchToAi" CssClass="vanan-ai-back-btn"
+                                         aria-label="Quay lại trợ lý AI">
+                                <i class="bi bi-arrow-left"></i> Trợ lý AI
+                            </VanAnButton>
+                        }
+                        <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                                     OnClick="ToggleOpen" aria-label="Đóng trợ lý AI">
+                            <i class="bi bi-chevron-down"></i>
+                        </VanAnButton>
+                    </div>
                 </div>
 
+                @if (_mode == WidgetMode.Human)
+                {
+                    @* Task AI-P8: human handoff — host-provided panel (lazy mount: SignalR
+                       connects only when the customer switches to human mode). *@
+                    <div class="ai-widget-human">
+                        @HumanContent
+                    </div>
+                }
+                else
+                {
                 <div id="@ScrollContainerId" class="vanan-ai-messages">
                     @if (_loadingHistory)
                     {
@@ -38,17 +74,27 @@
                     }
                     else
                     {
-                        @if (!string.IsNullOrWhiteSpace(_config.Greeting) && _messages.Count == 0)
+                        @if (!string.IsNullOrWhiteSpace(_config?.Greeting) && _messages.Count == 0)
                         {
                             <div class="vanan-ai-msg vanan-ai-msg-assistant">
                                 <div class="vanan-ai-bubble">@_config.Greeting</div>
                             </div>
                         }
+                        string? lastUserText = null;
                         @foreach (var msg in _messages)
                         {
                             var isUser = msg.Role == "user";
+                            if (isUser) lastUserText = msg.Content;
+                            var turnDraft = lastUserText;
                             <div class="vanan-ai-msg @(isUser ? "vanan-ai-msg-user" : "vanan-ai-msg-assistant")">
                                 <div class="vanan-ai-bubble">@msg.Content</div>
+                                @if (!isUser && msg.Refused && HumanHandoffAvailable)
+                                {
+                                    <button type="button" class="vanan-ai-chip vanan-ai-escalate"
+                                            @onclick="() => EscalateAsync(turnDraft)">
+                                        <i class="bi bi-person"></i> Hỏi chủ quán trực tiếp
+                                    </button>
+                                }
                                 @if (!isUser && msg.Products.Count > 0)
                                 {
                                     <div class="vanan-ai-products">
@@ -82,7 +128,7 @@
                                 </div>
                             </div>
                         }
-                        @if (_config.Suggestions?.Count > 0 && _messages.Count == 0 && !_sending)
+                        @if (_config?.Suggestions?.Count > 0 && _messages.Count == 0 && !_sending)
                         {
                             <div class="vanan-ai-suggestions">
                                 @foreach (var s in _config.Suggestions)
@@ -108,6 +154,7 @@
                         </VanAnButton>
                     </div>
                 </div>
+                }
             </VanAnCard>
         }
         else
@@ -132,6 +179,16 @@
     /// <summary>localStorage key for the anonymous chat session (vanan_ai_session per task card).</summary>
     [Parameter] public string SessionStorageKey { get; set; } = "vanan_ai_session";
 
+    /// <summary>Task AI-P8: host-provided human chat surface (mounted lazily in Human mode).</summary>
+    [Parameter] public RenderFragment? HumanContent { get; set; }
+    /// <summary>Task AI-P8: false → pure AI bubble (backward compatible with existing mounts).</summary>
+    [Parameter] public bool HumanChatAvailable { get; set; }
+    /// <summary>Task AI-P8: fired on refuse-escalation; payload = the refused user question (≤500 chars).</summary>
+    [Parameter] public EventCallback<string?> OnDraftRequest { get; set; }
+
+    private enum WidgetMode { Ai, Human }
+    private const int MaxDraftChars = 500;
+
     private AiWidgetConfig? _config;
     private string _aiName = "Trợ lý AI";
     private string? _sessionId;
@@ -141,6 +198,19 @@
     private bool _sending;
     private bool _loadingHistory;
     private bool _historyLoaded;
+    private bool _configResolved;
+    private WidgetMode _mode = WidgetMode.Ai;
+
+    /// <summary>Human handoff needs both the host opt-in and a mounted fragment.</summary>
+    private bool HumanHandoffAvailable => HumanChatAvailable && HumanContent is not null;
+
+    /// <summary>
+    /// Task AI-P8: visible when AI is enabled OR when only the human channel remains
+    /// (aiEnabled=false / service down + handoff available → bubble opens straight to Human).
+    /// Before config resolves the widget renders nothing (same as P4 behavior).
+    /// </summary>
+    private bool ShowWidget =>
+        _configResolved && (_config?.AiEnabled == true || HumanHandoffAvailable);
     private readonly List<AiSessionMessage> _messages = new();
     /// <summary>Client-side dedupe — retried messageIds never append twice (server dedupes too [G8]).</summary>
     private readonly HashSet<string> _seenMessageIds = new();
@@ -150,6 +220,10 @@
         _config = await AiClient.GetWidgetConfigAsync(TenantId);
         if (_config?.AiEnabled == true && !string.IsNullOrWhiteSpace(_config.AiName))
             _aiName = _config.AiName;
+        // Task AI-P8: aiEnabled=false + human handoff → the bubble lands in Human mode.
+        if (_config?.AiEnabled != true && HumanHandoffAvailable)
+            _mode = WidgetMode.Human;
+        _configResolved = true;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -224,14 +298,31 @@
 
         if (result is null)
         {
+            // Transport failure is a dead-end like a refusal — offer the human channel (P8).
             _messages.Add(new AiSessionMessage("assistant",
-                "Trợ lý AI tạm nghỉ, bạn thử lại sau nhé.", [], DateTime.UtcNow));
+                "Trợ lý AI tạm nghỉ, bạn thử lại sau nhé.", [], DateTime.UtcNow, Refused: true));
         }
         else if (_seenMessageIds.Add(messageId))
         {
-            _messages.Add(new AiSessionMessage("assistant", result.Answer, result.Products, DateTime.UtcNow));
+            _messages.Add(new AiSessionMessage("assistant", result.Answer, result.Products,
+                DateTime.UtcNow, result.Refused));
         }
         await ScrollToBottomAsync();
+    }
+
+    /// <summary>Task AI-P8: switch to the host's human chat surface (lazy mount).</summary>
+    private void SwitchToHuman() => _mode = WidgetMode.Human;
+
+    /// <summary>Task AI-P8: back to AI — the AI message list is kept intact.</summary>
+    private void SwitchToAi() => _mode = WidgetMode.Ai;
+
+    /// <summary>Task AI-P8: refuse CTA — hand the refused question to the host for prefill.</summary>
+    private async Task EscalateAsync(string? draft)
+    {
+        if (OnDraftRequest.HasDelegate)
+            await OnDraftRequest.InvokeAsync(
+                draft is { Length: > MaxDraftChars } ? draft[..MaxDraftChars] : draft);
+        _mode = WidgetMode.Human;
     }
 
     private async Task AddToCartAsync(AiSessionMessage msg, AiProductCardItem product)

@@ -22,6 +22,21 @@ public sealed record TenantAiStatus(
     int ChunksPendingEmbedding, int Products, string? LastProductSourceVersion,
     DateTime? LastProductSyncedAtUtc, bool ProductsStale, int StaleHours);
 
+/// <summary>Task AI-P9 — admin conversation review DTOs (mirror vanan-ai Contracts/AdminDtos, scope=admin).</summary>
+public sealed record TenantAiConversationSummary(
+    string SessionId, string Channel, DateTime LastActiveAtUtc,
+    int MessageCount, int RefusedCount, int DegradedCount);
+
+public sealed record TenantAiConversationList(
+    int Page, int Size, int Total, IReadOnlyList<TenantAiConversationSummary> Items);
+
+public sealed record TenantAiConversationMessage(
+    string Role, string Content, string? Intent, double? Confidence,
+    bool Refused, bool Degraded, DateTime CreatedAtUtc);
+
+public sealed record TenantAiConversationDetail(
+    string SessionId, IReadOnlyList<TenantAiConversationMessage> Messages);
+
 /// <summary>Thin fail-safe client into the independent vanan-ai service (pattern MeteringApiClient).</summary>
 public interface ITenantAiClient
 {
@@ -32,6 +47,10 @@ public interface ITenantAiClient
     Task<bool> RejectDocumentAsync(Guid tenantId, Guid docId, string reason, CancellationToken ct = default);
     Task<List<TenantAiDocSummary>> GetPendingDocumentsAsync(Guid tenantId, CancellationToken ct = default);
     Task<TenantAiStatus?> GetKnowledgeStatusAsync(Guid tenantId, CancellationToken ct = default);
+    /// <summary>Task AI-P9 — paged AI conversation sessions (newest last-active first). Null on failure.</summary>
+    Task<TenantAiConversationList?> GetAiConversationsAsync(Guid tenantId, int page, int size, CancellationToken ct = default);
+    /// <summary>Task AI-P9 — full message drill for one session (read-only). Null on failure/404.</summary>
+    Task<TenantAiConversationDetail?> GetAiConversationMessagesAsync(Guid tenantId, string sessionId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -95,6 +114,14 @@ public sealed class TenantAiApiClient : ITenantAiClient
 
     public Task<TenantAiStatus?> GetKnowledgeStatusAsync(Guid tenantId, CancellationToken ct = default)
         => Send<TenantAiStatus>(tenantId, HttpMethod.Get, "v1/knowledge/status", null, AdminTimeout, ct);
+
+    public Task<TenantAiConversationList?> GetAiConversationsAsync(Guid tenantId, int page, int size, CancellationToken ct = default)
+        => Send<TenantAiConversationList>(tenantId, HttpMethod.Get,
+            $"v1/admin/tenants/{tenantId}/conversations?page={page}&size={size}", null, AdminTimeout, ct);
+
+    public Task<TenantAiConversationDetail?> GetAiConversationMessagesAsync(Guid tenantId, string sessionId, CancellationToken ct = default)
+        => Send<TenantAiConversationDetail>(tenantId, HttpMethod.Get,
+            $"v1/admin/tenants/{tenantId}/conversations?sessionId={Uri.EscapeDataString(sessionId)}", null, AdminTimeout, ct);
 
     // ---------- plumbing ----------
 

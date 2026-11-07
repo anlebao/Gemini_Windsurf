@@ -20,7 +20,7 @@
 <div class="chat-panel">
     <VanAnCard Shadow="true" CssClass="p-0 overflow-hidden">
         <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
-            <h6 class="mb-0"><i class="bi bi-chat-dots text-primary"></i> Chat với khách hàng</h6>
+            <h6 class="mb-0"><i class="bi bi-chat-dots text-primary"></i> @(HeaderTitle ?? "Chat với khách hàng")</h6>
             <div class="d-flex align-items-center gap-2">
                 @* P6 manual-test: nút làm mới nội dung chat thủ công.
                    Dùng param Disabled (PascalCase) — lowercase `disabled` qua unmatched
@@ -137,6 +137,14 @@
     /// </summary>
     [Parameter] public string? StaffToken { get; set; }
     [Parameter] public string ScrollContainerId { get; set; } = "chat-scroll-container";
+    /// <summary>
+    /// Task AI-P8: optional draft prefill (AI→human escalation). Applied exactly once on
+    /// first render — never overwrites what the user is already typing on re-render.
+    /// Null/empty → behavior unchanged.
+    /// </summary>
+    [Parameter] public string? InitialDraft { get; set; }
+    /// <summary>Task AI-P8: header title override (default "Chat với khách hàng" unchanged).</summary>
+    [Parameter] public string? HeaderTitle { get; set; }
 
     private List<RealtimeChatMessage> _messages = new();
     private string _messageInput = string.Empty;
@@ -149,6 +157,8 @@
     private HubConnection? _hubConnection;
     // D6: guests (and any client whose SignalR failed) fall back to polling the history endpoint.
     private System.Threading.CancellationTokenSource? _pollCts;
+    // Task AI-P8: InitialDraft is a one-shot prefill — re-renders must not clobber typing.
+    private bool _draftApplied;
 
     private string GroupName => $"msg_{SubjectType}_{SubjectId}";
 
@@ -158,6 +168,15 @@
     private bool IsStaff => !string.IsNullOrEmpty(StaffToken);
 
     private bool HasAnyIdentity => IsStaff || !string.IsNullOrEmpty(CustomerToken) || HasGuestIdentity;
+
+    protected override void OnParametersSet()
+    {
+        if (!_draftApplied && !string.IsNullOrWhiteSpace(InitialDraft))
+        {
+            _messageInput = InitialDraft;
+            _draftApplied = true;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {

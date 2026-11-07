@@ -18,6 +18,8 @@ const reporter = new TestReporter('AI Chat Widget E2E');
 
 const STORE_URL = process.env.AI_CHAT_TEST_STORE_URL ?? '';
 const QUESTION = process.env.AI_CHAT_TEST_QUESTION ?? 'Quán có món gì?';
+// Task AI-P8: câu hỏi out-of-scope để kích refuse → chip handoff (có thể override qua env).
+const REFUSE_QUESTION = process.env.AI_CHAT_TEST_REFUSE_QUESTION ?? 'Dự báo thời tiết ngày mai thế nào?';
 
 test.describe.configure({ mode: isTierEnabled('e2e') ? 'parallel' : 'skip' });
 
@@ -104,5 +106,62 @@ test.describe('VanAn Ecosystem — AI Chat Widget (task_ai_p4)', () => {
     await page.waitForLoadState('networkidle');
     await page.locator('button.vanan-ai-bubble-btn').click();
     await expect(page.locator('.vanan-ai-msg-user .vanan-ai-bubble')).toContainText('Xin chào', { timeout: 15000 });
+  });
+
+  // ── Task AI-P8 (Gate 4): unified widget handoff cases ───────────────────
+
+  test('P8 — nút "Chat với chủ quán" chuyển sang human mode + back', async ({ page }) => {
+    await page.goto(STORE_URL);
+    await page.waitForLoadState('networkidle');
+
+    const bubble = page.locator('button.vanan-ai-bubble-btn');
+    await expect(bubble).toBeVisible({ timeout: 20000 });
+    await bubble.click();
+    await expect(page.locator('.vanan-ai-panel')).toBeVisible({ timeout: 10000 });
+
+    // Nút handoff chỉ render khi HumanChatAvailable + HumanContent (ChatIdentity luôn có trên Store).
+    const humanBtn = page.locator('button.vanan-ai-human-btn');
+    if (await humanBtn.count() === 0) {
+      reporter.log('Human handoff không khả dụng (no chat identity) — skip');
+      test.skip();
+    }
+    await humanBtn.click();
+
+    // Human mode: header "Chủ quán" + RealtimeChatPanel mount inline (lazy SignalR).
+    await expect(page.locator('.vanan-ai-panel h6')).toContainText('Chủ quán', { timeout: 10000 });
+    await expect(page.locator('.ai-widget-human .chat-panel')).toBeVisible({ timeout: 10000 });
+
+    // Back → AI mode, AI surface khôi phục.
+    await page.locator('button.vanan-ai-back-btn').click();
+    await expect(page.locator('.vanan-ai-panel input')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('P8 — refuse → chip "Hỏi chủ quán trực tiếp" → human mode + draft prefill', async ({ page }) => {
+    await page.goto(STORE_URL);
+    await page.waitForLoadState('networkidle');
+
+    const bubble = page.locator('button.vanan-ai-bubble-btn');
+    await expect(bubble).toBeVisible({ timeout: 20000 });
+    await bubble.click();
+
+    await page.locator('.vanan-ai-panel input').fill(REFUSE_QUESTION);
+    await page.locator('button.vanan-ai-send').click();
+    await expect(page.locator('.vanan-ai-msg-user .vanan-ai-bubble').last())
+      .toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble:not(.vanan-ai-typing)').last())
+      .toBeVisible({ timeout: 45000 });
+
+    // Chip chỉ xuất hiện khi answer bị refused — nếu AI trả lời được thì skip (không phải lỗi).
+    const chip = page.locator('button.vanan-ai-escalate');
+    if (await chip.count() === 0) {
+      reporter.log(`AI không refuse câu "${REFUSE_QUESTION}" — đổi AI_CHAT_TEST_REFUSE_QUESTION`);
+      test.skip();
+    }
+    await chip.click();
+
+    // Human mode + draft prefill câu hỏi bị refuse vào input của RealtimeChatPanel.
+    await expect(page.locator('.ai-widget-human .chat-panel')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.ai-widget-human .chat-panel input'))
+      .toHaveValue(REFUSE_QUESTION, { timeout: 10000 });
   });
 });
