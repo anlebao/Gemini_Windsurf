@@ -70,3 +70,11 @@
 ## Evidence format (§9.1)
 
 `path@commit-sha` (preferred) · `path#L<n>` (decays, note it) · `none:<reason>`. Entries record capture-commit; unverifiable → `STALE`.
+
+## Strategic frame (owner directive 2026-11-07)
+
+| Term | Meaning |
+|---|---|
+| **Cộng đồng kinh tế địa phương (VALCN)** | THE GOAL — local economic community: community commerce, community fund, shared local economy (CAP-023) |
+| **HTX (Hợp tác xã)** | THE VEHICLE — legal wrapper/cooperative structure to organize the community economy (CAP-015); NOT the goal itself |
+| **HTX in a Box** | replication kit: standard processes + tenant config to onboard an HTX as the vehicle |
