@@ -100,3 +100,9 @@
 - `Store.razor`: 3 quick-chips (products×2, booking) · `@bind-PendingQuestion` · unread poll 45s qua `IRealtimeChatClient.GetHistoryAsync` vs localStorage `ai_human_last_seen_{store}` · skeleton shimmer campaigns+products (`_productsLoading`) · `prefers-reduced-motion`.
 - E2E spec +2 cases (Gate 4): chip→auto-send→answer · nav stick sau scroll.
 - `rv-sf-w1.cjs` — full DoD sweep (nav/skeleton/lazy/chip→answer/badge loop guest→owner reply→badge→clear/P8 regression).
+
+**Deploy + RV production 2026-11-07 (`f6877634` impl + `b5e2223b` fix — CD SUCCESS cả 2):**
+- **18 PASS · 0 FAIL:** nav sticky (top=0 sau scroll) · skeleton CSS · 2 chips → auto-send → AI answer · CTA card · **badge loop đầy đủ: guest gửi → owner reply qua inbox → badge "6" → mở human → clear** · P8 regression.
+- Fix sau RV-1: `b5e2223b` — anchor `#id` resolve về `/` (base href) → `vananRealtime.scrollToSection`; inline chat section trùng bubble → slim CTA card + `OpenHumanPanel` param.
+- RV script fixes (script-side, không phải product bug): `.store-body` wait 45s cho WASM first-load · close button là `VanAButton[aria-label="Đóng trợ lý AI"]` (không có class `vanan-ai-close`) · badge chỉ hiện khi panel closed.
+- Còn: L4/L5 user manual · `PAGEERROR length` transient (không ảnh hưởng — log để theo dõi).

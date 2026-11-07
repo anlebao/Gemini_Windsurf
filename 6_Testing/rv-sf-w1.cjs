@@ -31,9 +31,10 @@ const warn = (name, extra) => console.log(`WARN ${name} — ${extra}`);
   const resp = await page.goto(STORE, { waitUntil: 'networkidle', timeout: 60000 });
   check('L2 storefront 200', resp?.status() === 200, `status=${resp?.status()}`);
 
-  // B1 sticky nav
+  // B1 sticky nav (WASM first-load can take >20s — wait for store body first)
+  await page.locator('.store-body').waitFor({ timeout: 45000 }).catch(() => {});
   const nav = page.locator('.store-nav');
-  await nav.waitFor({ timeout: 20000 }).catch(() => {});
+  await nav.waitFor({ timeout: 30000 }).catch(() => {});
   check('B1 sticky nav rendered', (await nav.count()) > 0);
   if (await nav.count()) {
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2));
@@ -77,14 +78,25 @@ const warn = (name, extra) => console.log(`WARN ${name} — ${extra}`);
       (await page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble:not(.vanan-ai-typing)').count()) > 0);
   }
 
+  // B1-fix: slim CTA card replaces the old inline panel — opens bubble human mode.
+  const ctaCard = page.locator('.chat-cta-card');
+  await ctaCard.scrollIntoViewIfNeeded().catch(() => {});
+  const ctaVisible = await ctaCard.count();
+  check('FIX slim chat CTA card rendered', ctaVisible > 0);
+
   // B6 unread badge — full loop: guest sends → owner replies → badge → open → cleared
   let badgeTested = false;
   try {
-    // Guest opens human mode + sends a message (creates/finds the Shop conversation).
-    await page.locator('button.vanan-ai-bubble-btn').click();
-    const humanBtn = page.locator('button.vanan-ai-human-btn');
-    await humanBtn.waitFor({ timeout: 10000 });
-    await humanBtn.click();
+    // Guest opens human mode via the CTA card (OpenHumanPanel) + sends a message.
+    if (ctaVisible) {
+      await ctaCard.locator('.btn-cta').click();
+    } else {
+      // fallback: open bubble → human mode button
+      await page.locator('button.vanan-ai-bubble-btn').click();
+      const humanBtn = page.locator('button.vanan-ai-human-btn');
+      await humanBtn.waitFor({ timeout: 10000 });
+      await humanBtn.click();
+    }
     await page.locator('.ai-widget-human .chat-panel input').waitFor({ timeout: 10000 });
     await page.locator('.ai-widget-human .chat-panel input').fill('RV W1 guest msg');
     await page.locator('.ai-widget-human .chat-panel button.chat-send-btn').click();
@@ -121,8 +133,8 @@ const warn = (name, extra) => console.log(`WARN ${name} — ${extra}`);
         const keys = Object.keys(localStorage).filter(k => k.startsWith('ai_human_last_seen'));
         keys.forEach(k => localStorage.setItem(k, new Date(0).toISOString()));
       });
-      // Close widget then wait for badge (poll every ≤45s).
-      await page.locator('button.vanan-ai-bubble-btn').click().catch(() => {});
+      // Close the open panel (bubble-btn only exists when closed) then wait badge ≤72s.
+      await page.locator('button[aria-label="Đóng trợ lý AI"]').click().catch(() => {});
       let badge = null;
       for (let i = 0; i < 12; i++) {
         await page.waitForTimeout(6000);
@@ -133,11 +145,19 @@ const warn = (name, extra) => console.log(`WARN ${name} — ${extra}`);
       badgeTested = badge !== null;
 
       if (badgeTested) {
-        // Open human mode → OnHumanOpened → badge clears.
-        await page.locator('button.vanan-ai-bubble-btn').click();
-        const hb = page.locator('button.vanan-ai-human-btn');
-        if (await hb.count()) await hb.click();
-        await page.waitForTimeout(1500);
+        // Open human mode (CTA card preferred) → OnHumanOpened → badge clears.
+        const cta2 = page.locator('.chat-cta-card .btn-cta');
+        if (await cta2.count()) {
+          await cta2.scrollIntoViewIfNeeded().catch(() => {});
+          await cta2.click();
+        } else {
+          await page.locator('button.vanan-ai-bubble-btn').click();
+          const hb = page.locator('button.vanan-ai-human-btn');
+          if (await hb.count()) await hb.click();
+        }
+        await page.waitForTimeout(2000);
+        await page.locator('button[aria-label="Đóng trợ lý AI"]').click().catch(() => {});
+        await page.waitForTimeout(500);
         check('B6 badge cleared after open', (await page.locator('.vanan-ai-unread').count()) === 0);
       }
     }
