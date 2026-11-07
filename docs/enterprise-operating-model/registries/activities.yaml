@@ -926,3 +926,148 @@ entries:
   confidence: INFERRED
   evidence:
   - 2_Gateway/Controllers/LoyaltyBudgetController.cs@64789992
+- id: ACTV-601
+  name: Post inventory inbound to stock
+  processRef: PROC-161
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: purchase receipt / supplier delivery
+  input: receipt lines
+  output: stock movement + cost
+  exceptionHandling: validation -> reject receipt
+  auditLog: true
+  moduleRef: SYS-004
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/InventoryService.cs@64789992
+- id: ACTV-602
+  name: Physical count & variance post
+  processRef: PROC-162
+  executionType: MANUAL
+  humanActorRef: ACTR-003
+  trigger: count session
+  input: counted quantities
+  output: variance voucher (via F3)
+  exceptionHandling: variance -> investigate then post
+  auditLog: true
+  moduleRef: SYS-004
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Infrastructure/Configurations/InventoryCountConfiguration.cs@64789992
+- id: ACTV-603
+  name: Inventory valuation snapshot
+  processRef: PROC-163
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: report period
+  input: stock + cost
+  output: valuation figures
+  exceptionHandling: —
+  auditLog: true
+  moduleRef: SYS-004
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Controllers/InventoryValuationController.cs@64789992
+- id: ACTV-604
+  name: Resolve accounting regime
+  processRef: PROC-172
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: tenant context
+  input: TenantType
+  output: TT99/TT133/TT71/DNSN mode
+  exceptionHandling: HTX->TT71; Enterprise_Large->TT99; default TT133; DNSN flag
+  auditLog: true
+  moduleRef: SYS-003
+  ruleRefs:
+  - RULE-005
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/AccountingStandardResolver.cs@64789992
+- id: ACTV-605
+  name: Close period & issue statements
+  processRef: PROC-171
+  executionType: MANUAL
+  humanActorRef: ACTR-006
+  trigger: period end
+  input: journal + books
+  output: B01/B02/B03/B09 by regime
+  approvalRequired: true
+  exceptionHandling: reversal for post-close corrections
+  auditLog: true
+  moduleRef: SYS-004
+  dataRefs:
+  - DATA-009
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Components/Pages/Accounting/PeriodClosing.razor@64789992
+- id: ACTV-606
+  name: Community order routing (VALCN)
+  processRef: PROC-181
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: community-mode checkout
+  input: order + community context
+  output: community order + fund contribution
+  exceptionHandling: mode off -> normal order path
+  auditLog: true
+  moduleRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommunityOrderService.cs@64789992
+  - 3_CoreHub/Services/CommerceModeService.cs@64789992
+- id: ACTV-607
+  name: Community fund accrual & spend
+  processRef: PROC-182
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: community order completion / spend request
+  input: order share / spend record
+  output: fund balance + CommunityFundSpendRecord
+  exceptionHandling: overspend -> block
+  auditLog: true
+  moduleRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommunityFundService.cs@64789992
+  - 1_Shared/Domain/Aggregates/CommunityFundAggregate/CommunityFundSpendRecord.cs@64789992
+- id: ACTV-608
+  name: Community admin ops (member/fund/rules)
+  processRef: PROC-183
+  executionType: MANUAL
+  humanActorRef: ACTR-014
+  trigger: community management task
+  input: admin action
+  output: config/membership changes
+  approvalRequired: true
+  exceptionHandling: —
+  auditLog: true
+  moduleRef: SYS-002
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommunityAdminService.cs@64789992
+  - 2_Gateway/Controllers/CommunityAdminController.cs@64789992
+- id: ACTV-609
+  name: Break-even & profile analysis (advisory)
+  processRef: PROC-191
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: owner requests analysis
+  input: financials + business profile
+  output: break-even/advisory figures (NOT transactions)
+  exceptionHandling: insufficient data -> partial
+  auditLog: true
+  moduleRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/FinancialIntelligence/BreakEvenAnalysisService.cs@64789992
+  - 3_CoreHub/Services/FinancialIntelligence/BusinessProfileService.cs@64789992

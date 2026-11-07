@@ -12,13 +12,17 @@
 | F3 | PROC-131/132 | ACTV-307..312 | VERIFIED (VoucherFramework + immutability) |
 | F5 | PROC-141..144 | ACTV-401..410 | VERIFIED (Program.cs endpoints + AI SRS boundary) |
 | F6 | PROC-151/152 | ACTV-501..505 | VERIFIED (loyalty sync/redemption controllers) |
+| Inventory | PROC-161..163 | ACTV-601..603 | VERIFIED services; L3 coverage-level (depth = GAP-016) |
+| Accounting+ | PROC-171/172 | ACTV-604/605 | VERIFIED (resolver + period close; beyond F3 vouchers) |
+| VALCN | PROC-181..183 | ACTV-606..608 | VERIFIED (CommunityFund/Order/Admin services; CAP-023 = GOAL, HTX = vehicle) |
+| Fin Intelligence | PROC-191 | ACTV-609 | VERIFIED (BreakEven + BusinessProfile; advisory-only) |
 
-## Execution-type distribution (all slices: 54 activities)
+## Execution-type distribution (all slices: 63 activities)
 
 | Type | Count | % |
 |---|---|---|
-| MANUAL | 18 | 33% |
-| AUTOMATED | 36 | 67% |
+| MANUAL | 22 | 35% |
+| AUTOMATED | 41 | 65% |
 | HYBRID | 0 | 0% |
 
 Honest reading: most "human-in-the-loop" cases decompose cleanly into MANUAL decision activities sitting between AUTOMATED steps (approval gates), exactly as the decompose-first rule intends. HYBRID remains empty — correct, not missing.

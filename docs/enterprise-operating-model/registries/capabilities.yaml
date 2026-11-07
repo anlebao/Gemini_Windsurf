@@ -262,3 +262,22 @@ entries:
   - SYS-003
   evidence:
   - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-023
+  name: VALCN — Cộng đồng kinh tế địa phương (mục tiêu)
+  domain: COMMERCE
+  orgRef: ORG-002
+  implStatus: IMPLEMENTED_PARTIAL
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommunityFundService.cs@64789992
+  - 3_CoreHub/Services/CommunityOrderService.cs@64789992
+- id: CAP-024
+  name: Finance Intelligence
+  domain: FINTECH
+  orgRef: ORG-001
+  implStatus: IMPLEMENTED_PARTIAL
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/FinancialIntelligence/BreakEvenAnalysisService.cs@64789992

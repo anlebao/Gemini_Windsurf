@@ -373,3 +373,87 @@ entries:
   confidence: VERIFIED
   evidence:
   - 2_Gateway/Controllers/GlobalRedemptionCatalogController.cs@64789992
+- id: PROC-161
+  name: Inventory inbound (receipt/purchase)
+  level: 3
+  parentRef: PROC-020
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/InventoryService.cs@64789992
+- id: PROC-162
+  name: Inventory count & adjustment
+  level: 3
+  parentRef: PROC-020
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Infrastructure/Configurations/InventoryCountConfiguration.cs@64789992
+- id: PROC-163
+  name: Inventory valuation
+  level: 3
+  parentRef: PROC-020
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Controllers/InventoryValuationController.cs@64789992
+- id: PROC-171
+  name: Period close & financial statements
+  level: 3
+  parentRef: PROC-031
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Components/Pages/Accounting/PeriodClosing.razor@64789992
+- id: PROC-172
+  name: Regime resolution (TT99/TT133/TT71/DNSN)
+  level: 3
+  parentRef: PROC-031
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/AccountingStandardResolver.cs@64789992
+- id: PROC-181
+  name: Community commerce mode (VALCN)
+  level: 3
+  parentRef: PROC-020
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommerceModeService.cs@64789992
+  - 3_CoreHub/Services/CommunityOrderService.cs@64789992
+- id: PROC-182
+  name: Community fund collection & spend
+  level: 3
+  parentRef: PROC-020
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommunityFundService.cs@64789992
+  - 1_Shared/Domain/Aggregates/CommunityFundAggregate/CommunityFundSpendRecord.cs@64789992
+- id: PROC-183
+  name: Community administration
+  level: 3
+  parentRef: PROC-020
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommunityAdminService.cs@64789992
+- id: PROC-191
+  name: Break-even & business profile analysis
+  level: 3
+  parentRef: PROC-030
+  variability: CONFIGURABLE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/FinancialIntelligence/BreakEvenAnalysisService.cs@64789992
+  - 3_CoreHub/Services/FinancialIntelligence/BusinessProfileService.cs@64789992

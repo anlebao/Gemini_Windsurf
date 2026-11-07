@@ -208,3 +208,17 @@ entries:
   decision: INVESTIGATE later
   decidedBy: owner
   decidedAt: '2026-11-07'
+- id: GAP-016
+  title: 'Module depth missing: Inventory/Accounting/VALCN/FI modeled at L3 only'
+  gapClass: UNKNOWN
+  asIs: coverage-level processes registered; activity detail thin (9 activities for
+    4 modules)
+  toBe: expansion cards per module when prioritized — drift backlog has candidates
+  priority: HIGH
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - none:self-assessment
+  decision: ACKNOWLEDGED by owner 2026-11-07
+  decidedBy: owner
+  decidedAt: '2026-11-07'
