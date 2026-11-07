@@ -128,7 +128,8 @@ test.describe('VanAn Ecosystem — AI Chat Widget (task_ai_p4)', () => {
     await humanBtn.click();
 
     // Human mode: header "Chủ quán" + RealtimeChatPanel mount inline (lazy SignalR).
-    await expect(page.locator('.vanan-ai-panel h6')).toContainText('Chủ quán', { timeout: 10000 });
+    // .vanan-ai-header = widget's own header (inner chat-panel header excluded from strict match).
+    await expect(page.locator('.vanan-ai-header h6')).toContainText('Chủ quán', { timeout: 10000 });
     await expect(page.locator('.ai-widget-human .chat-panel')).toBeVisible({ timeout: 10000 });
 
     // Back → AI mode, AI surface khôi phục.

@@ -72,3 +72,9 @@ UI Platform components only (VanACard/VanAButton/badges — hard stop). CSS `.ra
 - Header "Làm mới" giờ reload theo tab đang mở (`RefreshAsync`).
 - Tests mới `TenantAiConversationClientTests` (5): map fields + `page&size` query + X-Tenant-Ctx header · detail map + `sessionId` query · 500 → null · 404 → null · disabled config → null + zero HTTP.
 - bUnit component test: bỏ qua — `ShopInboxApiClient` là concrete class (không interface) nên không mock được trong bUnit; coverage ở client-level + RV thủ công (đúng fallback của card).
+
+**Deploy + RV production 2026-11-07 (`06a8b993` — CD #42337045249 ALL SUCCESS):**
+- L1: ShopERP.dll chứa `GetAiConversationsAsync`/`TenantAiConversationDetail` · image `06a8b993`.
+- L2: `/community/messages` 302→Login · health 200.
+- L3 production script `6_Testing/rv-p9-inbox-ai.cjs` (impersonate Owner An Tâm) **8/8 PASS:** tab hiện khi `TenantAiEnabled=true` (verified trong SQLite SystemSettings) · **20 sessions** pilot load được · badges refused/degraded · drill session → messages + footer "chỉ xem".
+- Còn: L4/L5 user manual + flag-regression (tắt flag → tab ẩn — ops đã có quy trình SetToggle).

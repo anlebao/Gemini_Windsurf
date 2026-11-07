@@ -107,3 +107,9 @@ Gộp 2 điểm chat trên storefront thành **1 floating bubble duy nhất**: k
 - Quyết định implement: fallback transport-error "Trợ lý AI tạm nghỉ" cũng đánh `Refused=true` (dead-end → mở đường tới chủ quán, đúng intent auto-escalate).
 - Tests mới: 8 trong `AiChatWidgetTests` (button switch/back/history giữ/refuse chip + draft/truncate 500/human off regression/aiEnabled=false human mode/AI down null-config/composite RealtimeChatPanel prefill) + 4 trong `RealtimeChatPanelDraftTests` (prefill 1 lần/no-overwrite/null/HeaderTitle).
 - E2E `ai-chat-widget.spec.ts` +2 case (Gate 4): handoff button/back flow · refuse→chip→human+draft prefill (`AI_CHAT_TEST_REFUSE_QUESTION` env, self-skip nếu AI không refuse).
+
+**Deploy + RV production 2026-11-07 (`06a8b993` — CD #42337045249 ALL SUCCESS, deploy ShopERP+KhachLink):**
+- L1: images `06a8b993` cả 2 VPS · `_content/VanAn.UI.Platform.bundle.scp.css` chứa `ai-widget-human`.
+- L2: storefront An Tâm 200 · `/community/messages` 302→Login.
+- L3 Playwright production **2/2 PASS** (spec chạy thật): nút "Chat với chủ quán" → human mode + RealtimeChatPanel inline + back AI · refuse ("Dự báo thời tiết...") → chip → human mode + input prefill đúng câu hỏi. Fix spec: strict-mode locator `.vanan-ai-header h6` (2 h6 — outer + inner panel đều "Chủ quán" = HeaderTitle hoạt động).
+- Còn: L4/L5 user manual trên điện thoại (bubble mobile, SignalR reconnect).
