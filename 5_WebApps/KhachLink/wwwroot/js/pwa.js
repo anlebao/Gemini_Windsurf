@@ -863,7 +863,20 @@ window.vananReveal = {
         }
         this._ensureObserver();
         const observer = this._observer;
+        const vh = window.innerHeight;
+        const doc = document.documentElement;
+        const maxScrollTop = Math.max(0, Math.max(doc.scrollHeight, document.body.scrollHeight) - vh);
         els.forEach(function (el) {
+            // Bottom-anchored edge case (RV 2026-11-07): an element pinned so close
+            // to the document bottom that it can never rise above the shrunken
+            // root line (rootMargin -8% + threshold 0.12 of itself) would stay
+            // invisible forever → reveal it eagerly instead.
+            const docTop = el.getBoundingClientRect().top + window.scrollY;
+            const topAtMaxScroll = docTop - maxScrollTop;
+            if (topAtMaxScroll + 0.12 * el.offsetHeight >= vh * 0.92) {
+                el.classList.add('revealed');
+                return;
+            }
             el.classList.add('reveal-armed');
             observer.observe(el);
         });

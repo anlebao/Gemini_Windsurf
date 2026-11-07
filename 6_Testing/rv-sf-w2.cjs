@@ -85,9 +85,10 @@ const warn = (name, extra) => console.log(`WARN ${name} — ${extra}`);
       check('B3 "Hỏi AI" chip (AIChat on)', aiChip > 0);
 
       // Add to cart → toast/badge appears + modal closes.
+      // (toast element is #vanan-toast by id — success variant auto-dismisses after 2s)
       await page.locator('.qv-actions .btn-cta').click();
-      await page.waitForTimeout(1200);
-      const toast = await page.locator('.vanan-toast, .cart-badge').count();
+      await page.waitForTimeout(800);
+      const toast = await page.locator('#vanan-toast, .cart-badge').count();
       check('B3 add-to-cart feedback', toast > 0);
       check('B3 modal closed after add', (await page.locator('.modal.show').count()) === 0);
 
@@ -117,7 +118,7 @@ const warn = (name, extra) => console.log(`WARN ${name} — ${extra}`);
         await new Promise(r => setTimeout(r, 120));
       }
     });
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(900); // outlast the last IO dispatch + 0.3s transition
     const hidden = await page.evaluate(() =>
       [...document.querySelectorAll('.reveal-on-scroll')]
         .filter(el => !el.classList.contains('revealed')).length);

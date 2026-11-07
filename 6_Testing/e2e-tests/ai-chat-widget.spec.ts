@@ -225,7 +225,7 @@ test.describe('VanAn Ecosystem — AI Chat Widget (task_ai_p4)', () => {
     await expect(page.locator('.modal.show .qv-media')).toBeVisible({ timeout: 10000 });
 
     await page.locator('.qv-actions .btn-cta').click();
-    await expect(page.locator('.vanan-toast, .cart-badge').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#vanan-toast, .cart-badge').first()).toBeVisible({ timeout: 10000 });
   });
 
   test('W1 — sticky navbar hiện + stick khi scroll qua hero', async ({ page }) => {
