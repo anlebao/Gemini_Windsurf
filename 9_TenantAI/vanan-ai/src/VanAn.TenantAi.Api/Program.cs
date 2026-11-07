@@ -336,6 +336,14 @@ app.MapGet("/v1/knowledge/status", async (
     .RequireScope(ScopeNames.Ingest)
     .RequireTenantContext();
 
+// task_ai_p10 — paged docs list (filter ?status=pending_review|approved|rejected) for admin UI.
+app.MapGet("/v1/admin/knowledge/documents", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.KnowledgeIngestService svc,
+        string? status, int? page, int? size, CancellationToken ct) =>
+        Results.Ok(await svc.GetDocumentsAsync(TenantOf(ctx), status, page ?? 1, size ?? 20, ct)))
+    .RequireScope(ScopeNames.Admin)
+    .RequireTenantContext();
+
 // ---- Approval gate [G14] — P1 operator tooling chính ----
 app.MapGet("/v1/admin/knowledge/pending", async (
         HttpContext ctx, VanAn.TenantAi.Api.Services.KnowledgeIngestService svc, CancellationToken ct) =>

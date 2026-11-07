@@ -192,6 +192,34 @@ public sealed class KnowledgeIngestService(
             .ToListAsync(ct);
 
     /// <summary>
+    /// task_ai_p10 — paged docs list for the admin UI (filter by approval status snake_case:
+    /// pending_review|approved|rejected; invalid status → empty page, fail-closed).
+    /// Includes Content — the approval gate review needs the text.
+    /// </summary>
+    public async Task<DocumentListResponse> GetDocumentsAsync(
+        Guid tenantId, string? status, int page, int size, CancellationToken ct)
+    {
+        page = Math.Max(1, page);
+        size = Math.Clamp(size, 1, 100);
+        var query = db.KnowledgeDocuments.AsNoTracking()
+            .Where(d => d.TenantId == tenantId && d.Status == DocumentStatus.Active);
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (!Enum.TryParse<ApprovalStatus>(status.Replace("_", ""), true, out var approval))
+                return new DocumentListResponse(page, size, 0, []);
+            query = query.Where(d => d.ApprovalStatus == approval);
+        }
+        var total = await query.CountAsync(ct);
+        var rows = await query.OrderByDescending(d => d.CreatedAtUtc)
+            .Skip((page - 1) * size).Take(size)
+            .ToListAsync(ct);
+        var items = rows.Select(d => new DocumentListItemDto(
+            d.Id, d.Type, d.Title, ToSnake(d.Classification), ToSnake(d.ApprovalStatus),
+            d.ApprovedBy, d.ApprovedAtUtc, d.RejectionReason, d.CreatedAtUtc, d.Sanitized, d.Content)).ToList();
+        return new DocumentListResponse(page, size, total, items);
+    }
+
+    /// <summary>
     /// Gate-test retrieval query (T11/T5): what the public channel may see —
     /// tenant + approved + Public + active docs only. The P3 retriever applies
     /// the same predicate before vector search.

@@ -43,6 +43,26 @@ public sealed record DocumentSummaryDto(
 
 public sealed record DocumentIngestResponse(Guid Id, string ApprovalStatus, bool Sanitized);
 
+/// <summary>task_ai_p10 — admin docs list item: summary + content (approval review needs the text).</summary>
+public sealed record DocumentListItemDto(
+    Guid Id,
+    string Type,
+    string Title,
+    string Classification,
+    string ApprovalStatus,
+    string? ApprovedBy,
+    DateTime? ApprovedAtUtc,
+    string? RejectionReason,
+    DateTime CreatedAtUtc,
+    bool Sanitized,
+    string Content);
+
+public sealed record DocumentListResponse(
+    int Page,
+    int Size,
+    int Total,
+    IReadOnlyList<DocumentListItemDto> Items);
+
 public sealed record RejectDocumentRequest(string Reason);
 
 public sealed record KnowledgeStatusResponse(

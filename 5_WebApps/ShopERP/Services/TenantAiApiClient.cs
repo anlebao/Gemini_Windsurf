@@ -37,6 +37,43 @@ public sealed record TenantAiConversationMessage(
 public sealed record TenantAiConversationDetail(
     string SessionId, IReadOnlyList<TenantAiConversationMessage> Messages);
 
+/// <summary>Task AI-P10 — admin profile/policy/usage/preview/docs DTOs (mirror vanan-ai Contracts).</summary>
+public sealed record TenantAiProfileVersion(
+    int Version, string Status, string AiName, string PersonaJson, string BusinessProfileJson,
+    DateTime? PublishedAtUtc, string? PublishedBy);
+
+public sealed record TenantAiProfileResponse(
+    TenantAiProfileVersion? Draft, TenantAiProfileVersion? Published,
+    IReadOnlyList<TenantAiProfileVersion> RecentVersions);
+
+public sealed record TenantAiPutProfileResult(int Version, string Status);
+
+public sealed record TenantAiPublishResult(
+    int Version, string Status, DateTime PublishedAtUtc, string PublishedBy);
+
+public sealed record TenantAiPolicyResponse(
+    int? ConfigVersion, string IntentScopesJson, string ExternalAllowJson, string RefusedTopicsJson);
+
+public sealed record TenantAiChatProduct(Guid ProductId, string Name, decimal Price, string? ImageUrl);
+
+public sealed record TenantAiChatResult(
+    string Answer, IReadOnlyList<TenantAiChatProduct> Products, IReadOnlyList<string> SourceIds,
+    double Confidence, bool Refused, string? RefuseReason, bool StaleData, bool Degraded);
+
+public sealed record TenantAiDocItem(
+    Guid Id, string Type, string Title, string Classification, string ApprovalStatus,
+    string? ApprovedBy, DateTime? ApprovedAtUtc, string? RejectionReason,
+    DateTime CreatedAtUtc, bool Sanitized, string Content);
+
+public sealed record TenantAiDocList(
+    int Page, int Size, int Total, IReadOnlyList<TenantAiDocItem> Items);
+
+public sealed record TenantAiUsageDay(
+    string Date, int Messages, int Refused, int Degraded, long PromptTokens, long CompletionTokens);
+
+public sealed record TenantAiUsageResponse(
+    int Days, IReadOnlyList<TenantAiUsageDay> PerDay, TenantAiUsageDay Total);
+
 /// <summary>Thin fail-safe client into the independent vanan-ai service (pattern MeteringApiClient).</summary>
 public interface ITenantAiClient
 {
@@ -51,6 +88,24 @@ public interface ITenantAiClient
     Task<TenantAiConversationList?> GetAiConversationsAsync(Guid tenantId, int page, int size, CancellationToken ct = default);
     /// <summary>Task AI-P9 — full message drill for one session (read-only). Null on failure/404.</summary>
     Task<TenantAiConversationDetail?> GetAiConversationMessagesAsync(Guid tenantId, string sessionId, CancellationToken ct = default);
+    /// <summary>Task AI-P10 — draft + published + recent version history. Null on failure.</summary>
+    Task<TenantAiProfileResponse?> GetProfileAsync(Guid tenantId, CancellationToken ct = default);
+    /// <summary>PUT profile — append-only: creates a new Draft version. Null on failure.</summary>
+    Task<TenantAiPutProfileResult?> PutProfileAsync(Guid tenantId, string aiName, string? personaJson, string? businessProfileJson, CancellationToken ct = default);
+    /// <summary>Publish current Draft → published; previous published archived. Null on failure/409.</summary>
+    Task<TenantAiPublishResult?> PublishConfigAsync(Guid tenantId, CancellationToken ct = default);
+    /// <summary>Rollback = copy target version into a new draft + publish (append-only). Null on failure/404.</summary>
+    Task<TenantAiPublishResult?> RollbackConfigAsync(Guid tenantId, int version, CancellationToken ct = default);
+    /// <summary>Policy bound to the current config version (draft preferred). Null on failure.</summary>
+    Task<TenantAiPolicyResponse?> GetPolicyAsync(Guid tenantId, CancellationToken ct = default);
+    Task<TenantAiPolicyResponse?> PutPolicyAsync(Guid tenantId, string? intentScopesJson, string? externalAllowJson, string? refusedTopicsJson, CancellationToken ct = default);
+    /// <summary>Draft-config preview chat (30s LLM timeout) — never persists/meters. Null on failure.</summary>
+    Task<TenantAiChatResult?> PreviewChatAsync(Guid tenantId, string sessionId, string messageId, string text, CancellationToken ct = default);
+    /// <summary>Paged knowledge documents; status = pending_review|approved|rejected (null = all active).</summary>
+    Task<TenantAiDocList?> GetDocumentsAsync(Guid tenantId, string? status, int page, int size, CancellationToken ct = default);
+    Task<bool> DeleteDocumentAsync(Guid tenantId, Guid docId, CancellationToken ct = default);
+    /// <summary>Per-day usage aggregate (messages/refused/degraded/tokens). Null on failure.</summary>
+    Task<TenantAiUsageResponse?> GetUsageAsync(Guid tenantId, int days, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -122,6 +177,47 @@ public sealed class TenantAiApiClient : ITenantAiClient
     public Task<TenantAiConversationDetail?> GetAiConversationMessagesAsync(Guid tenantId, string sessionId, CancellationToken ct = default)
         => Send<TenantAiConversationDetail>(tenantId, HttpMethod.Get,
             $"v1/admin/tenants/{tenantId}/conversations?sessionId={Uri.EscapeDataString(sessionId)}", null, AdminTimeout, ct);
+
+    // ---------- task_ai_p10: admin API (SRS §6.3) ----------
+
+    public Task<TenantAiProfileResponse?> GetProfileAsync(Guid tenantId, CancellationToken ct = default)
+        => Send<TenantAiProfileResponse>(tenantId, HttpMethod.Get, $"v1/admin/tenants/{tenantId}/profile", null, AdminTimeout, ct);
+
+    public Task<TenantAiPutProfileResult?> PutProfileAsync(Guid tenantId, string aiName,
+        string? personaJson, string? businessProfileJson, CancellationToken ct = default)
+        => Send<TenantAiPutProfileResult>(tenantId, HttpMethod.Put, $"v1/admin/tenants/{tenantId}/profile",
+            new { aiName, personaJson, businessProfileJson }, AdminTimeout, ct);
+
+    public Task<TenantAiPublishResult?> PublishConfigAsync(Guid tenantId, CancellationToken ct = default)
+        => Send<TenantAiPublishResult>(tenantId, HttpMethod.Post, $"v1/admin/tenants/{tenantId}/publish", null, AdminTimeout, ct);
+
+    public Task<TenantAiPublishResult?> RollbackConfigAsync(Guid tenantId, int version, CancellationToken ct = default)
+        => Send<TenantAiPublishResult>(tenantId, HttpMethod.Post, $"v1/admin/tenants/{tenantId}/rollback",
+            new { version }, AdminTimeout, ct);
+
+    public Task<TenantAiPolicyResponse?> GetPolicyAsync(Guid tenantId, CancellationToken ct = default)
+        => Send<TenantAiPolicyResponse>(tenantId, HttpMethod.Get, $"v1/admin/tenants/{tenantId}/policy", null, AdminTimeout, ct);
+
+    public Task<TenantAiPolicyResponse?> PutPolicyAsync(Guid tenantId, string? intentScopesJson,
+        string? externalAllowJson, string? refusedTopicsJson, CancellationToken ct = default)
+        => Send<TenantAiPolicyResponse>(tenantId, HttpMethod.Put, $"v1/admin/tenants/{tenantId}/policy",
+            new { intentScopesJson, externalAllowJson, refusedTopicsJson }, AdminTimeout, ct);
+
+    public Task<TenantAiChatResult?> PreviewChatAsync(Guid tenantId, string sessionId,
+        string messageId, string text, CancellationToken ct = default)
+        => Send<TenantAiChatResult>(tenantId, HttpMethod.Post, $"v1/admin/tenants/{tenantId}/preview-chat",
+            new { sessionId, messageId, text }, TimeSpan.FromSeconds(30), ct);
+
+    public Task<TenantAiDocList?> GetDocumentsAsync(Guid tenantId, string? status, int page, int size, CancellationToken ct = default)
+        => Send<TenantAiDocList>(tenantId, HttpMethod.Get,
+            $"v1/admin/knowledge/documents?page={page}&size={size}{(string.IsNullOrWhiteSpace(status) ? "" : $"&status={Uri.EscapeDataString(status)}")}",
+            null, AdminTimeout, ct);
+
+    public Task<bool> DeleteDocumentAsync(Guid tenantId, Guid docId, CancellationToken ct = default)
+        => SendVoid(tenantId, HttpMethod.Delete, $"v1/knowledge/documents/{docId}", null, AdminTimeout, ct);
+
+    public Task<TenantAiUsageResponse?> GetUsageAsync(Guid tenantId, int days, CancellationToken ct = default)
+        => Send<TenantAiUsageResponse>(tenantId, HttpMethod.Get, $"v1/admin/tenants/{tenantId}/usage?days={days}", null, AdminTimeout, ct);
 
     // ---------- plumbing ----------
 

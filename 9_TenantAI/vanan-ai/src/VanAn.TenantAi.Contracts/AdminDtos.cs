@@ -17,7 +17,9 @@ public sealed record ProfileVersionDto(
 
 public sealed record ProfileResponse(
     ProfileVersionDto? Draft,
-    ProfileVersionDto? Published);
+    ProfileVersionDto? Published,
+    /// <summary>task_ai_p10 — rollback dropdown needs version history (all statuses, newest first, ≤20).</summary>
+    IReadOnlyList<ProfileVersionDto> RecentVersions);
 
 public sealed record PutProfileResponse(int Version, string Status);
 

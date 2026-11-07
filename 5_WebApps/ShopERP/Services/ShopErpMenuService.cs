@@ -397,6 +397,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
             var configChildren = new List<NavigationItem>
             {
                 new() { Title = "Cấu hình tính năng Shop", Icon = "toggles", Url = "/settings/shop-features" },
+                // Task AI-P10: tenant tự quản trợ lý AI (SRS P2) — flag-gated bên trong trang.
+                new() { Title = "Trợ lý AI (Tenant AI)", Icon = "robot", Url = "/admin/tenant-ai" },
             };
             if (isSystemAdmin)
             {

@@ -332,6 +332,75 @@ public sealed class AdminApiTests : IDisposable
         remaining.B.Should().Be(1); // tenant B untouched
     }
 
+    // ---------- task_ai_p10: docs list + profile version history ----------
+
+    private async Task<Guid> SeedDocAsync(string title, string content)
+    {
+        var res = await _client.SendAsync(Req(HttpMethod.Post, "/v1/knowledge/documents",
+            new DocumentIngestRequest("faq", title, content, "public")));
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var created = await res.Content.ReadFromJsonAsync<DocumentIngestResponse>();
+        return created!.Id;
+    }
+
+    [Fact]
+    public async Task Documents_List_FilterByStatus_IncludesContent()
+    {
+        var keep = await SeedDocAsync("FAQ giờ mở cửa", "Quán mở 9h-21h hằng ngày.");
+        var other = await SeedDocAsync("FAQ wifi", "Wifi miễn phí cho khách.");
+
+        var pending = await (await _client.SendAsync(
+            Req(HttpMethod.Get, "/v1/admin/knowledge/documents?status=pending_review")))
+            .Content.ReadFromJsonAsync<DocumentListResponse>();
+        pending!.Total.Should().Be(2);
+        pending.Items.Should().HaveCount(2);
+        pending.Items.Select(i => i.Content).Should().Contain("Quán mở 9h-21h hằng ngày.");
+
+        // approve one → filter "approved" sees only it; "rejected" empty
+        (await _client.SendAsync(Req(HttpMethod.Post, $"/v1/admin/knowledge/{keep}/approve")))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var approved = await (await _client.SendAsync(
+            Req(HttpMethod.Get, "/v1/admin/knowledge/documents?status=approved")))
+            .Content.ReadFromJsonAsync<DocumentListResponse>();
+        approved!.Total.Should().Be(1);
+        approved.Items[0].Title.Should().Be("FAQ giờ mở cửa");
+        approved.Items[0].ApprovalStatus.Should().Be("approved");
+
+        var rejected = await (await _client.SendAsync(
+            Req(HttpMethod.Get, "/v1/admin/knowledge/documents?status=rejected")))
+            .Content.ReadFromJsonAsync<DocumentListResponse>();
+        rejected!.Total.Should().Be(0);
+
+        // invalid status → fail-closed empty page
+        var bogus = await (await _client.SendAsync(
+            Req(HttpMethod.Get, "/v1/admin/knowledge/documents?status=nonsense")))
+            .Content.ReadFromJsonAsync<DocumentListResponse>();
+        bogus!.Total.Should().Be(0);
+
+        // no filter → all active docs
+        var all = await (await _client.SendAsync(
+            Req(HttpMethod.Get, "/v1/admin/knowledge/documents")))
+            .Content.ReadFromJsonAsync<DocumentListResponse>();
+        all!.Total.Should().Be(2);
+        _ = other;
+    }
+
+    [Fact]
+    public async Task Profile_IncludesRecentVersions_ForRollbackPicker()
+    {
+        await PutProfileAsync("v1");
+        await _client.SendAsync(Req(HttpMethod.Post, AdminPath(suffix: "/publish")));
+        await PutProfileAsync("v2");
+
+        var profile = await (await _client.SendAsync(
+            Req(HttpMethod.Get, AdminPath(suffix: "/profile"))))
+            .Content.ReadFromJsonAsync<ProfileResponse>();
+        profile!.RecentVersions.Select(v => v.Version).Should().Equal(2, 1);
+        profile.RecentVersions[0].Status.Should().Be("draft");
+        profile.RecentVersions[1].Status.Should().Be("published");
+    }
+
     // ---------- regression: widget-config reads published persona ----------
 
     [Fact]

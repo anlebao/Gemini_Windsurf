@@ -39,14 +39,16 @@ public sealed class TenantAdminService(TenantAiDbContext db)
 
     public async Task<ProfileResponse> GetProfileAsync(Guid tenantId, CancellationToken ct)
     {
+        // task_ai_p10 — include recent version history (all statuses) for the rollback picker.
         var configs = await db.TenantAiConfigs.AsNoTracking()
-            .Where(c => c.TenantId == tenantId
-                && (c.Status == TenantAiConfigStatus.Draft || c.Status == TenantAiConfigStatus.Published))
+            .Where(c => c.TenantId == tenantId)
             .OrderByDescending(c => c.Version)
+            .Take(20)
             .ToListAsync(ct);
         var draft = configs.FirstOrDefault(c => c.Status == TenantAiConfigStatus.Draft);
         var published = configs.FirstOrDefault(c => c.Status == TenantAiConfigStatus.Published);
-        return new ProfileResponse(ToDto(draft), ToDto(published));
+        return new ProfileResponse(ToDto(draft), ToDto(published),
+            configs.Select(c => ToDto(c)!).ToList());
     }
 
     public async Task<ServiceResult<PublishResponse>> PublishAsync(
