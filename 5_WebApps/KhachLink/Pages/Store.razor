@@ -289,22 +289,20 @@ else
              Subject = Shop/{tenantId}; identity = customer id or guest device id (F8: the
              device id is created on this page too, not only at Checkout).
         ════════════════════════════════════════════════════════════════ -->
+        @* SF-W1 fix (user report): full chat section duplicated the unified bubble.
+           Slim CTA card instead — keeps the #shop-chat anchor; opens the bubble
+           in human mode via OpenHumanPanel. *@
         @if (ChatIdentity.HasValue)
         {
             <section class="store-section" id="shop-chat">
-                <div class="section-header">
-                    <h2 class="section-title">
-                        <span class="section-icon"><i class="bi bi-chat-dots-fill"></i></span>
-                        Trò Chuyện Với Cửa Hàng
-                    </h2>
-                    <div class="section-divider"></div>
+                <div class="chat-cta-card">
+                    <i class="bi bi-chat-dots-fill"></i>
+                    <div class="chat-cta-text">
+                        <strong>Trò chuyện với cửa hàng</strong>
+                        <span>Nhắn trực tiếp cho chủ quán — mở khung chat góc màn hình.</span>
+                    </div>
+                    <button type="button" class="btn-cta" @onclick="OpenHumanChat">Mở khung chat</button>
                 </div>
-                <RealtimeChatPanel SubjectType="Shop"
-                                   SubjectId="_store.Id"
-                                   CurrentUserId="ChatIdentity.Value"
-                                   CustomerToken="@_customerToken"
-                                   CustomerDeviceId="_customerDeviceId"
-                                   ScrollContainerId="shop-chat-scroll" />
             </section>
         }
 
@@ -340,7 +338,8 @@ else
                           OnDraftRequest="OnAiEscalateDraft"
                           @bind-PendingQuestion="_pendingQuestion"
                           HumanUnreadCount="_aiUnreadCount"
-                          OnHumanOpened="OnHumanChatOpened">
+                          OnHumanOpened="OnHumanChatOpened"
+                          @bind-OpenHumanPanel="_openHumanPanel">
                 <HumanContent>
                     <RealtimeChatPanel SubjectType="Shop"
                                        SubjectId="_store.Id"
@@ -626,6 +625,20 @@ else
         box-shadow: 0 6px 16px rgba(0,0,0,0.12);
     }
 
+    /* ── SF-W1 fix: slim chat CTA card (replaces full inline panel) ──── */
+    .chat-cta-card {
+        display: flex; align-items: center; gap: 1.25rem;
+        background: var(--store-accent-gradient, linear-gradient(135deg, #ff9966, #ff5e62));
+        color: #fff; border-radius: 16px; padding: 1.5rem 1.75rem;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12); flex-wrap: wrap;
+    }
+    .chat-cta-card > i { font-size: 2.2rem; }
+    .chat-cta-text { flex: 1 1 220px; display: flex; flex-direction: column; gap: 0.25rem; }
+    .chat-cta-text strong { font-size: 1.1rem; }
+    .chat-cta-text span { font-size: 0.9rem; opacity: 0.95; }
+    .chat-cta-card .btn-cta { background: #fff; color: #157347; }
+    @@media (max-width: 576px) { .chat-cta-card { flex-direction: column; text-align: center; } }
+
     /* ── SF-W1: skeleton shimmer ─────────────────────────────────────── */
     .skeleton {
         border-radius: 20px;
@@ -780,6 +793,9 @@ else
     private void AskAi(string question) => _pendingQuestion = question;
 
     private int _aiUnreadCount;
+    /// <summary>SF-W1: slim chat card CTA → open bubble straight in human mode.</summary>
+    private bool _openHumanPanel;
+    private void OpenHumanChat() => _openHumanPanel = true;
     private System.Threading.Timer? _unreadTimer;
     private bool _productsLoading = true;
 

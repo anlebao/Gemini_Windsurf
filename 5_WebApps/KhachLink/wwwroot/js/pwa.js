@@ -809,6 +809,10 @@ window.vananPWA = {
     },
 
     // CC-S3 (Sprint 3): Scroll a container to bottom (for chat auto-scroll)
+    scrollToSection(elementId) {
+        const el = document.getElementById(elementId);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
     scrollToBottom(elementId) {
         const el = document.getElementById(elementId);
         if (el) el.scrollTop = el.scrollHeight;

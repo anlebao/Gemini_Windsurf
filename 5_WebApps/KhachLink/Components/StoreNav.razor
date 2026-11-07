@@ -17,7 +17,7 @@
         <div class="store-nav-links">
             @foreach (var link in Links)
             {
-                <a href="#@link.Id" class="store-nav-link">@link.Label</a>
+                <button type="button" class="store-nav-link" @onclick="() => ScrollToSectionAsync(link.Id)">@link.Label</button>
             }
         </div>
         @if (!string.IsNullOrWhiteSpace(Phone))
@@ -27,10 +27,23 @@
     </div>
 </nav>
 
+@using Microsoft.JSInterop
+@inject IJSRuntime JSRuntime
+
 @code {
     [Parameter] public string? LogoUrl { get; set; }
     [Parameter] public string ShopName { get; set; } = string.Empty;
     [Parameter] public string? Phone { get; set; }
     /// <summary>(sectionId, label) anchors — host builds from enabled features only.</summary>
     [Parameter] public IReadOnlyList<(string Id, string Label)> Links { get; set; } = [];
+
+    /// <summary>
+    /// FIX (user report 2026-11-07): href="#id" resolves against &lt;base href="/"&gt; →
+    /// navigates to /#id and leaves the store page. Scroll via JS instead.
+    /// </summary>
+    private async Task ScrollToSectionAsync(string sectionId)
+    {
+        try { await JSRuntime.InvokeVoidAsync("vananRealtime.scrollToSection", sectionId); }
+        catch { /* JS unavailable during prerender */ }
+    }
 }

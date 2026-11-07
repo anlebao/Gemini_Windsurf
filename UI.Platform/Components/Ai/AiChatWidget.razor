@@ -198,6 +198,9 @@
     [Parameter] public int HumanUnreadCount { get; set; }
     /// <summary>SF-W1: fired when the human surface is opened (host marks messages seen).</summary>
     [Parameter] public EventCallback OnHumanOpened { get; set; }
+    /// <summary>SF-W1: one-shot host request — open the bubble straight into human mode.</summary>
+    [Parameter] public bool OpenHumanPanel { get; set; }
+    [Parameter] public EventCallback<bool> OpenHumanPanelChanged { get; set; }
 
     private enum WidgetMode { Ai, Human }
     private const int MaxDraftChars = 500;
@@ -247,6 +250,17 @@
         // session on the first render where aiEnabled is known, not just firstRender.
         if (_sessionId is null && _config?.AiEnabled == true)
             _sessionId = await GetOrCreateSessionIdAsync();
+
+        // SF-W1: host asks to open straight into human mode (nav/card CTA) — consume once.
+        if (OpenHumanPanel)
+        {
+            _open = true;
+            if (HumanHandoffAvailable) _mode = WidgetMode.Human;
+            if (OpenHumanPanelChanged.HasDelegate)
+                await OpenHumanPanelChanged.InvokeAsync(false);
+            await NotifyHumanOpenedAsync();
+            return;
+        }
 
         // SF-W1: quick-chip question — open + auto-send exactly once per value.
         if (_sessionId is not null && _mode == WidgetMode.Ai
