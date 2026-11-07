@@ -160,3 +160,15 @@ entries:
   evidence:
   - 3_CoreHub/Infrastructure/Entities/PeriodClosingStatusEntity.cs@58d3d3d6
   - 3_CoreHub/Services/TrialBalanceService.cs@58d3d3d6
+- id: DATA-016
+  name: Inventory entities (Ingredient/StockMovement/InventoryCount/ShiftAlert)
+  store: SQLITE_TENANT
+  systemOfRecord: true
+  classification: per-tenant business stock; StockMovement = audit SoT, CurrentStock
+    = snapshot; PurchaseReceipt link cross-DB (PG) no FK
+  ownerRef: ORG-005
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Infrastructure/Entities/StockMovementEntity.cs@f447a1a8
+  - 1_Shared/Domain.cs@f447a1a8

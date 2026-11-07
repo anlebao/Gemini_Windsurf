@@ -287,3 +287,44 @@ entries:
   - ACTV-639
   evidence:
   - 3_CoreHub/Services/AuditTrailService.cs@58d3d3d6
+- id: CTRL-026
+  name: Stock movement idempotency
+  type: PREVENTIVE
+  description: movement keyed (receiptId, lineId, type) + StockAppliedAt flag — retry
+    Post/Return/ApplyStock never double-applies stock
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-017
+  activityRefs:
+  - ACTV-641
+  - ACTV-642
+  evidence:
+  - 3_CoreHub/Services/Stock/IStockMovementService.cs@f447a1a8
+- id: CTRL-027
+  name: Shift-close alert engine (10 variance rules)
+  type: DETECTIVE
+  description: AlertEngine emits ShiftAlert (ING_VARIANCE_HIGH, STOCK_LOW, ...) on shift
+    close — in-app + optional Telegram/Zalo
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-019
+  activityRefs:
+  - ACTV-644
+  - ACTV-645
+  evidence:
+  - 3_CoreHub/Services/InventoryIntelligence/AlertEngine.cs@f447a1a8
+- id: CTRL-028
+  name: Inventory-GL reconcile feed (R13)
+  type: DETECTIVE
+  description: valuation snapshot Sigma(stock x price) exposed internally for accounting
+    reconcile R13
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-018
+  activityRefs:
+  - ACTV-648
+  evidence:
+  - 5_WebApps/ShopERP/Controllers/InventoryValuationController.cs@f447a1a8

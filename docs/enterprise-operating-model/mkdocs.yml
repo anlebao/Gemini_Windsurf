@@ -39,10 +39,12 @@ nav:
     - VALCN Community: 03-processes/swimlane-diagrams/valcn.md
     - Guard Parking: 03-processes/swimlane-diagrams/guard-parking.md
     - Accounting Depth: 03-processes/swimlane-diagrams/accounting-depth.md
+    - Inventory: 03-processes/swimlane-diagrams/inventory.md
     - Details F4: 03-processes/process-details/f4-details.md
     - Details F1: 03-processes/process-details/f1-details.md
     - Details VALCN: 03-processes/process-details/valcn-details.md
     - Details Accounting: 03-processes/process-details/accounting-depth-details.md
+    - Details Inventory: 03-processes/process-details/inventory-details.md
   - Architecture:
     - Inventory: 04-software-architecture/software-inventory.md
     - Components: 04-software-architecture/component-map.md

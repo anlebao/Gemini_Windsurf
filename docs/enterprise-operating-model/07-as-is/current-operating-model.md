@@ -12,18 +12,18 @@
 | F3 | PROC-131/132 | ACTV-307..312 | VERIFIED (VoucherFramework + immutability) |
 | F5 | PROC-141..144 | ACTV-401..410 | VERIFIED (Program.cs endpoints + AI SRS boundary) |
 | F6 | PROC-151/152 | ACTV-501..505 | VERIFIED (loyalty sync/redemption controllers) |
-| Inventory | PROC-161..163 | ACTV-601..603 | VERIFIED services; L3 coverage-level (depth = GAP-016) |
+| Inventory | PROC-161..165 | ACTV-601..603 + 641..650 | VERIFIED — D2 deep-dive (`swimlane-diagrams/inventory.md` + `process-details/inventory-details.md`) |
 | Accounting+ | PROC-171..174 | ACTV-604/605 + 629..640 | VERIFIED — D3 deep-dive (`swimlane-diagrams/accounting-depth.md` + `process-details/accounting-depth-details.md`) |
 | VALCN | PROC-181..183 | ACTV-606..608 + 610..621 | VERIFIED — D1 deep-dive detail (`swimlane-diagrams/valcn.md` + `process-details/valcn-details.md`; CAP-023 = GOAL, HTX = vehicle) |
 | Guard parking (giữ xe) | PROC-184 | ACTV-622..628 | VERIFIED — D1 addendum (`swimlane-diagrams/guard-parking.md`; flag `Guard:QrVerifyEnabled`) |
 | Fin Intelligence | PROC-191 | ACTV-609 | VERIFIED (BreakEven + BusinessProfile; advisory-only) |
 
-## Execution-type distribution (all slices: 94 activities)
+## Execution-type distribution (all slices: 104 activities)
 
 | Type | Count | % |
 |---|---|---|
-| MANUAL | 38 | 40% |
-| AUTOMATED | 56 | 60% |
+| MANUAL | 41 | 39% |
+| AUTOMATED | 63 | 61% |
 | HYBRID | 0 | 0% |
 
 Honest reading: most "human-in-the-loop" cases decompose cleanly into MANUAL decision activities sitting between AUTOMATED steps (approval gates), exactly as the decompose-first rule intends. HYBRID remains empty — correct, not missing.

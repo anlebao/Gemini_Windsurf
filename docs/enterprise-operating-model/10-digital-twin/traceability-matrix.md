@@ -80,7 +80,22 @@
 | ACTV-639 | Reconcile R1-R13 | SYS-002/003 | `AccountingReconcileService.RunAsync` | GET /api/admin/accounting/reconcile | DATA-009/015 | ReconcileResult | VERIFIED |
 | ACTV-640 | Mirror/valuation providers | SYS-002 | `IMirrorOrderProvider`/`IInventoryValuationProvider` (HTTP→ShopERP) | `/api/shoperp/accounting/mirror-orders` · `/api/shoperp/inventory/valuation` | DATA-005 | DTOs | VERIFIED |
 
+## Inventory (D2)
+
+| ACTV | Activity | Module | Handler/Service | API/Event | DB | Output | Status |
+|---|---|---|---|---|---|---|---|
+| ACTV-641 | Receipt→stock apply | SYS-004/003 | `PurchaseReceiptService` → `IStockMovementService.ApplyReceiptStockAsync` | receipt post | DATA-016 + PurchaseReceipt (PG) | PurchaseIn movs | VERIFIED |
+| ACTV-642 | Return→stock reversal | SYS-004 | `ApplyReturnStockAsync` | return post | DATA-016 | PurchaseReturn movs | VERIFIED |
+| ACTV-643 | Manual in/out | SYS-004 | `StockMovementService.RecordManualAsync` | /inventory/ingredients | DATA-016 | Manual movs | VERIFIED |
+| ACTV-644 | Shift count | SYS-004 | `InventoryCount` (Draft/Submitted lock) | shift pages | DATA-016 | count rows | VERIFIED |
+| ACTV-645 | Shift-close alerts | SYS-004 | `AlertEngine` (10 rules) | in-app + Telegram/Zalo | `ShiftAlert` (DATA-016) | alerts | VERIFIED |
+| ACTV-646 | Order deduction check | SYS-003 | `InventoryService` (recipe→ingredient) | — | DATA-016 | deduction map | VERIFIED |
+| ACTV-647 | NXT report | SYS-004 | `StockMovementService.GetStockReportAsync` | /inventory/stock-report | DATA-016 | report rows | VERIFIED |
+| ACTV-648 | Valuation snapshot | SYS-004 | `InventoryValuationController` | GET /api/shoperp/inventory/valuation | DATA-016 | valuation DTO | VERIFIED |
+| ACTV-649 | Forecast/variance | SYS-004 | `ForecastService`/`VarianceAnalysisService`/`TheoreticalConsumptionService` | /inventory/forecast | DATA-016 | analysis | VERIFIED |
+| ACTV-650 | Ingredient/recipe mgmt | SYS-004 | `Ingredients.razor` + `RecipeService` | /inventory/* | DATA-016 | CRUD | VERIFIED |
+
 ## Coverage
 
-- Verified chain links: 16/27 activities fully code-verified; 9 partially (endpoint/handler names inferred); 2 manual (no software — legitimately UNVERIFIED). VALCN D1 (added 2026-11-08): +12 activities — 11 VERIFIED, 1 INFERRED (ACTV-621). Guard parking D1 addendum: +7 activities — all VERIFIED (ACTV-622..628). Accounting depth D3: +12 activities — all VERIFIED (ACTV-629..640).
+- Verified chain links: 16/27 activities fully code-verified; 9 partially (endpoint/handler names inferred); 2 manual (no software — legitimately UNVERIFIED). VALCN D1 (added 2026-11-08): +12 activities — 11 VERIFIED, 1 INFERRED (ACTV-621). Guard parking D1 addendum: +7 activities — all VERIFIED (ACTV-622..628). Accounting depth D3: +12 activities — all VERIFIED (ACTV-629..640). Inventory D2: +10 activities — all VERIFIED (ACTV-641..650).
 - UNKNOWN open: exact `/api/membership-*` routes, OCR pipeline internals, POS notify mechanism, reverse `vanan.shoperp.*` subject names, `PublishDeliveryStatusUpdateAsync` channel (SignalR vs NATS), SMS-OTP deposit wallet flow — enumerate at X0 drift run or targeted P3-followup.

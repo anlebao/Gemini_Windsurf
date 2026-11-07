@@ -220,3 +220,15 @@ entries:
   confidence: VERIFIED
   evidence:
   - 2_Gateway/Controllers/AccountingReconcileController.cs@58d3d3d6
+- id: API-124
+  name: Inventory ops + valuation (ShopERP)
+  type: INTERNAL
+  providerRef: SYS-004
+  routeOrSubject: GET /api/shoperp/inventory/valuation?tenantId (internal, feeds R13);
+    purchase-receipt pages /accounting/purchase-receipts*; inventory pages /inventory/*
+    (Blazor Server)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Controllers/InventoryValuationController.cs@f447a1a8
+  - 5_WebApps/ShopERP/Controllers/PurchaseReceiptsController.cs@f447a1a8

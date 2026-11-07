@@ -401,3 +401,58 @@ entries:
   evidence:
   - 3_CoreHub/Services/Reconcile/IAccountingReconcileService.cs@58d3d3d6
   - 3_CoreHub/Services/Reconcile/AccountingReconcileService.cs@58d3d3d6
+- id: RULE-033
+  name: Stock audit-first + ShopERP-host-only writes
+  description: StockMovement is audit SoT — Ingredient.CurrentStock is snapshot/cache;
+    movement writes only at ShopERP host (optional dep, CoreHub/Gateway skip silently);
+    idempotent per (PurchaseReceiptId, PurchaseReceiptLineId, MovementType)
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-641
+  - ACTV-642
+  - ACTV-643
+  componentRef: SYS-004
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Infrastructure/Entities/StockMovementEntity.cs@f447a1a8
+  - 3_CoreHub/Services/Stock/IStockMovementService.cs@f447a1a8
+- id: RULE-034
+  name: Inventory count edit lock (NFR-7)
+  description: InventoryCount.Update/AddRestock allowed only while shift Draft/Submitted —
+    blocked after Closed
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-644
+  componentRef: SYS-004
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain.cs@f447a1a8
+- id: RULE-035
+  name: Stock semantics — baseline + signed movement
+  description: report opening = CurrentStock - Sigma(movements) (pre-table stock safe);
+    manual-out over stock rejected; purchase-return may drive negative stock (consumed
+    before return)
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-643
+  - ACTV-647
+  componentRef: SYS-004
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/StockMovementService.cs@f447a1a8
+- id: RULE-036
+  name: Cross-DB voucher-stock link without FK
+  description: PurchaseReceipt lives on PG, StockMovement on tenant SQLite — linked by
+    Ids only, no physical FK; stock applied once via StockAppliedAt flag
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-641
+  - ACTV-642
+  componentRef: SYS-004
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Purchase/PurchaseReceiptService.cs@f447a1a8

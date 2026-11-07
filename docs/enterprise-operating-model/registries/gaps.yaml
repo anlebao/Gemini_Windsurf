@@ -209,20 +209,22 @@ entries:
   decidedBy: owner
   decidedAt: '2026-11-07'
 - id: GAP-016
-  title: 'Module depth missing: Inventory/FI modeled at L3 only (VALCN closed D1, Accounting
-    closed D3)'
+  title: 'Module depth missing: FI modeled at L3 only (VALCN D1, Accounting D3, Inventory
+    D2 closed)'
   gapClass: UNKNOWN
-  asIs: coverage-level processes registered; activity detail thin for 2 remaining modules
-    (VALCN ACTV-610..621+guard 622..628 D1; Accounting ACTV-629..640 + PROC-173/174 D3
-    2026-11-08)
+  asIs: coverage-level processes registered; activity detail thin for 1 remaining module
+    (VALCN ACTV-610..628 D1; Accounting ACTV-629..640 D3; Inventory ACTV-641..650 +
+    PROC-164/165 D2 2026-11-08)
   toBe: expansion cards per module when prioritized — drift backlog has candidates
-    (D2 Inventory, D4 FI)
+    (D4 FI remaining)
   priority: HIGH
   status: ACTIVE
   confidence: VERIFIED
   evidence:
   - docs/enterprise-operating-model/03-processes/swimlane-diagrams/valcn.md@69496de4
   - docs/enterprise-operating-model/03-processes/swimlane-diagrams/accounting-depth.md@58d3d3d6
-  decision: ACKNOWLEDGED by owner 2026-11-07; VALCN closed D1 + Accounting closed D3 2026-11-08
+  - docs/enterprise-operating-model/03-processes/swimlane-diagrams/inventory.md@f447a1a8
+  decision: ACKNOWLEDGED by owner 2026-11-07; VALCN D1 + Accounting D3 + Inventory D2
+    closed 2026-11-08
   decidedBy: owner
   decidedAt: '2026-11-07'

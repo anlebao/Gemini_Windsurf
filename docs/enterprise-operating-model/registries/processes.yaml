@@ -487,3 +487,21 @@ entries:
   evidence:
   - 3_CoreHub/Services/Reconcile/AccountingReconcileService.cs@58d3d3d6
   - 2_Gateway/Controllers/AccountingReconcileController.cs@58d3d3d6
+- id: PROC-164
+  name: Stock consumption on order (recipe deduction)
+  level: 3
+  parentRef: PROC-020
+  variability: CONFIGURABLE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/InventoryService.cs@f447a1a8
+- id: PROC-165
+  name: Inventory intelligence (variance/forecast/alerts)
+  level: 3
+  parentRef: PROC-020
+  variability: CONFIGURABLE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/InventoryIntelligence@f447a1a8

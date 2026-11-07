@@ -1692,3 +1692,201 @@ entries:
   evidence:
   - 3_CoreHub/Services/Reconcile/ReconcileModels.cs@58d3d3d6
   - 3_CoreHub/Services/Reconcile/AccountingReconcileService.cs@58d3d3d6
+- id: ACTV-641
+  name: Purchase receipt post -> stock apply (voucher link)
+  processRef: PROC-161
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: purchase receipt posted (PG voucher)
+  input: receipt lines with IngredientId
+  output: PurchaseIn movements + Ingredient.CurrentStock += qty + PricePerUnit = latest cost + StockAppliedAt
+  exceptionHandling: ShopERP host only (optional dep — CoreHub/Gateway skip silently); StockAppliedAt set -> skip (idempotent by receiptId+lineId+type)
+  auditLog: true
+  moduleRef: SYS-004
+  apiRefs:
+  - API-124
+  dataRefs:
+  - DATA-016
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Purchase/PurchaseReceiptService.cs@f447a1a8
+  - 3_CoreHub/Services/Stock/IStockMovementService.cs@f447a1a8
+- id: ACTV-642
+  name: Purchase return -> stock reversal
+  processRef: PROC-161
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: purchase receipt returned
+  input: receipt lines (linked PurchaseIn lines)
+  output: PurchaseReturn movements + CurrentStock -= qty (negative allowed — consumed before return)
+  exceptionHandling: idempotent per (lineId, PurchaseReturn)
+  auditLog: true
+  moduleRef: SYS-004
+  apiRefs:
+  - API-124
+  dataRefs:
+  - DATA-016
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Purchase/PurchaseReceiptService.cs@f447a1a8
+  - 5_WebApps/ShopERP/Services/StockMovementService.cs@f447a1a8
+- id: ACTV-643
+  name: Manual stock in/out (ingredient page)
+  processRef: PROC-162
+  executionType: MANUAL
+  humanActorRef: ACTR-003
+  trigger: storekeeper adjusts stock on /inventory/ingredients
+  input: ingredientId + direction + quantity (+unitCost for in) + note
+  output: ManualIn/ManualOut movement + CurrentStock updated
+  exceptionHandling: out > stock -> InvalidOperationException
+  auditLog: true
+  moduleRef: SYS-004
+  apiRefs:
+  - API-124
+  dataRefs:
+  - DATA-016
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/StockMovementService.cs@f447a1a8
+  - 5_WebApps/ShopERP/Components/Pages/Inventory/Ingredients.razor@f447a1a8
+- id: ACTV-644
+  name: Shift inventory count (kiem ke ca)
+  processRef: PROC-162
+  executionType: MANUAL
+  humanActorRef: ACTR-003
+  trigger: shift count task (open/mid/close)
+  input: shiftId + ingredientId + quantity + unit (+midShiftStockIn restock)
+  output: InventoryCount row (per shift per ingredient)
+  exceptionHandling: update allowed only while shift Draft/Submitted — blocked after Closed (NFR-7)
+  auditLog: true
+  moduleRef: SYS-004
+  apiRefs:
+  - API-124
+  dataRefs:
+  - DATA-016
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain.cs@f447a1a8
+  - 3_CoreHub/Infrastructure/Configurations/InventoryCountConfiguration.cs@f447a1a8
+- id: ACTV-645
+  name: Shift close -> variance alerts (10 rules)
+  processRef: PROC-162
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: shift closed
+  input: counts + theoretical consumption + stock levels
+  output: ShiftAlert rows (ING_VARIANCE_HIGH, STOCK_LOW, ...) in-app; optional Telegram/Zalo notify
+  exceptionHandling: rule evaluation per-code; unresolved alerts tracked (ResolvedBy/At)
+  auditLog: true
+  moduleRef: SYS-004
+  apiRefs:
+  - API-124
+  dataRefs:
+  - DATA-016
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/InventoryIntelligence/AlertEngine.cs@f447a1a8
+  - 1_Shared/Domain.cs@f447a1a8
+- id: ACTV-646
+  name: Order ingredient deduction check (recipe -> ingredient)
+  processRef: PROC-164
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: order fulfillment check
+  input: order items + recipes (RecipeLines)
+  output: deduction map; CanFulfill=false when any ingredient short; UpdateInventory applies deductions
+  exceptionHandling: ingredient missing -> cannot fulfill (warn-log)
+  auditLog: false
+  moduleRef: SYS-003
+  dataRefs:
+  - DATA-016
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/InventoryService.cs@f447a1a8
+  - 1_Shared/IInventoryService.cs@f447a1a8
+- id: ACTV-647
+  name: Stock report Nhap-Xuat-Ton + movement drill-down
+  processRef: PROC-163
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: owner opens StockReport / drill card
+  input: tenantId + period [from,to) (+ingredient filter)
+  output: StockReportRow (opening/in/out/closing/value) + movement list
+  exceptionHandling: baseline = CurrentStock - Sigma(movements) — correct even for pre-table stock
+  auditLog: false
+  moduleRef: SYS-004
+  apiRefs:
+  - API-124
+  dataRefs:
+  - DATA-016
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/StockMovementService.cs@f447a1a8
+  - 3_CoreHub/Services/Stock/IStockMovementService.cs@f447a1a8
+- id: ACTV-648
+  name: Inventory valuation snapshot (feeds reconcile R13)
+  processRef: PROC-163
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: reconcile R13 / valuation request
+  input: tenantId
+  output: InventoryValuationDto = Sigma(CurrentStock x PricePerUnit) — point-in-time, not period-scoped
+  exceptionHandling: no stock movement table dependency (snapshot only)
+  auditLog: false
+  moduleRef: SYS-004
+  apiRefs:
+  - API-124
+  dataRefs:
+  - DATA-016
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Controllers/InventoryValuationController.cs@f447a1a8
+  - 3_CoreHub/Services/Reconcile/InventoryValuationHttpProvider.cs@f447a1a8
+- id: ACTV-649
+  name: Forecast + variance analysis (theoretical vs actual)
+  processRef: PROC-165
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: forecast/alert pages / shift analysis
+  input: order history + recipes + counts
+  output: forecast rows / variance analysis / food-cost / profitability figures
+  exceptionHandling: insufficient history -> partial output
+  auditLog: false
+  moduleRef: SYS-004
+  apiRefs:
+  - API-124
+  dataRefs:
+  - DATA-016
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/InventoryIntelligence/ForecastService.cs@f447a1a8
+  - 3_CoreHub/Services/InventoryIntelligence/VarianceAnalysisService.cs@f447a1a8
+- id: ACTV-650
+  name: Ingredient & recipe management
+  processRef: PROC-161
+  executionType: MANUAL
+  humanActorRef: ACTR-003
+  trigger: storekeeper maintains catalog
+  input: ingredient fields / recipe lines
+  output: Ingredient CRUD + Recipe/RecipeLine (guard on delete)
+  exceptionHandling: delete blocked when referenced by active recipe (RecipeLine guard)
+  auditLog: true
+  moduleRef: SYS-004
+  apiRefs:
+  - API-124
+  dataRefs:
+  - DATA-016
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Components/Pages/Inventory/Ingredients.razor@f447a1a8
+  - 3_CoreHub/Services/InventoryIntelligence/RecipeService.cs@f447a1a8

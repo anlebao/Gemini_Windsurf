@@ -194,3 +194,40 @@ entries:
   evidence:
   - 3_CoreHub/Services/Reconcile/ReconcileModels.cs@58d3d3d6
   - 3_CoreHub/Services/PeriodClosingService.cs@58d3d3d6
+- id: RISK-017
+  name: Voucher posted but stock not applied (cross-DB)
+  category: OPERATIONAL
+  severity: MEDIUM
+  description: PurchaseReceipt posts on PG while stock lives on tenant SQLite via optional
+    dep — host without IStockMovementService (CoreHub/Gateway) silently skips stock;
+    partial application possible
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-026
+  evidence:
+  - 3_CoreHub/Services/Purchase/PurchaseReceiptService.cs@f447a1a8
+- id: RISK-018
+  name: Negative stock on return path skews valuation
+  category: OPERATIONAL
+  severity: LOW
+  description: purchase return allowed to drive stock negative (consumed before return) —
+    point-in-time valuation can dip below zero
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-028
+  evidence:
+  - 3_CoreHub/Services/Stock/IStockMovementService.cs@f447a1a8
+- id: RISK-019
+  name: Variance alerts in-app only (unseen)
+  category: OPERATIONAL
+  severity: LOW
+  description: ShiftAlert default in-app; Telegram/Zalo notifiers optional — alerts may
+    go unseen by owner
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-027
+  evidence:
+  - 3_CoreHub/Services/InventoryIntelligence/TelegramAlertNotifier.cs@f447a1a8
