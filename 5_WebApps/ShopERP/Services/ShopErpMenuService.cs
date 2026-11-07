@@ -408,6 +408,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                 configChildren.Add(new() { Title = "Phí nền tảng — Top-up", Icon = "qr-code-scan", Url = "/admin/metering/topups" });
                 // Tra soát số liệu kế toán P4 (SRS v1.1 — G9 SystemAdmin).
                 configChildren.Add(new() { Title = "Tra soát số liệu kế toán", Icon = "clipboard2-check", Url = "/admin/reconcile" });
+                // Digital Twin portal (EOM-X5): nginx /twin/ static site — SystemAdmin only.
+                configChildren.Add(new() { Title = "Operating Model (Digital Twin)", Icon = "diagram-2", Url = "/twin/" });
             }
             items.Add(new()
             {

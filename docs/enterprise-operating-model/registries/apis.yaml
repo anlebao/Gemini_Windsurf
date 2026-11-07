@@ -1,0 +1,139 @@
+# API & Integration Registry — prefix API-xxx
+# APIs, NATS subjects, external integrations.
+# Schema: schema/apis.schema.json · validate: scripts/validate-twin.py
+registry: apis
+idPrefix: API
+schemaVersion: 1
+entries:
+- id: API-101
+  name: Membership applications API
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: /api/membership-applications
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 2_Gateway/Controllers/MembershipApplicationsController.cs@64789992
+- id: API-102
+  name: Catalog recommended/search
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: GET /api/catalog/recommended; GET /api/catalog/search
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/CatalogController.cs@64789992
+- id: API-103
+  name: Public order create/checkout
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: POST /api/public/orders; POST /api/public/orders/checkout
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/PublicOrdersController.cs@64789992
+- id: API-104
+  name: NATS order.created
+  type: EVENT
+  providerRef: SYS-015
+  routeOrSubject: vanan.cloud.order.created.{shopInstanceId}
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/OrderSyncSubscriber.cs@64789992
+- id: API-105
+  name: NATS tenant + status events
+  type: EVENT
+  providerRef: SYS-015
+  routeOrSubject: vanan.cloud.tenant.verified; vanan.cloud.order.status.changed.{si};
+    vanan.shoperp.*
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/TenantSyncSubscriber.cs@64789992
+- id: API-106
+  name: Public order tracking
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: GET /api/public/orders/{id}
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/PublicOrdersController.cs@64789992
+- id: API-107
+  name: NATS loyalty.changed
+  type: EVENT
+  providerRef: SYS-015
+  routeOrSubject: vanan.cloud.loyalty.changed.{deviceId}
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/AllianceWalletService.cs@64789992
+- id: API-108
+  name: NATS payment.confirmed
+  type: EVENT
+  providerRef: SYS-015
+  routeOrSubject: vanan.cloud.order.payment.confirmed.{si}
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 3_CoreHub/Services/WalletService.cs@64789992
+- id: API-109
+  name: Internal cross-VPS API (X-Internal-Api-Key)
+  type: INTERNAL
+  providerRef: SYS-004
+  routeOrSubject: X-Internal-Api-Key header on internal endpoints (reconcile/mirror)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Filters/InternalApiKeyAttribute.cs@64789992
+- id: API-110
+  name: Metering API
+  type: REST
+  providerRef: SYS-007
+  routeOrSubject: /v1/wallets /v1/topups /v1/check /v1/ingest (X-Caller-Id + X-Metering-Key
+    + Idempotency-Key)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain/Common/IMeteringClient.cs@64789992
+  - 8_Metering/vanan-metering@64789992
+- id: API-111
+  name: TenantAI public API
+  type: REST
+  providerRef: SYS-008
+  routeOrSubject: /v1/chat /v1/config/widget + signed X-Tenant-Ctx (HMAC)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Services/TenantAiContextSigner.cs@64789992
+  - 9_TenantAI/vanan-ai@64789992
+- id: API-112
+  name: JWT auth (Gateway+ShopERP)
+  type: INTERNAL
+  providerRef: SYS-002
+  routeOrSubject: JwtBearer secondary scheme; tokens issued by ShopERP
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Program.cs@64789992
+  - 5_WebApps/ShopERP/Program.cs@64789992
+- id: API-113
+  name: YARP forward routes
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: ReverseProxy routes → ShopERP (product browse etc.)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/appsettings.json@64789992
+- id: API-114
+  name: TenantAI knowledge & admin API
+  type: REST
+  providerRef: SYS-008
+  routeOrSubject: /v1/knowledge/products:batch, /v1/knowledge/documents, /v1/admin/knowledge/*
+    (approve/pending), /v1/chat/sessions/{sid}/messages
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 9_TenantAI/vanan-ai/src/VanAn.TenantAi.Api/Program.cs@64789992

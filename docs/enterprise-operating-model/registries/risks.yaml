@@ -1,0 +1,72 @@
+# Risk Registry — prefix RISK-xxx
+# Risks — every RISK should link CTRL or flag 'no control'.
+# Schema: schema/risks.schema.json · validate: scripts/validate-twin.py
+registry: risks
+idPrefix: RISK
+schemaVersion: 1
+entries:
+- id: RISK-001
+  name: Tenant routing miss (no ShopInstance)
+  category: OPERATIONAL
+  severity: HIGH
+  description: order created in PG but never delivered — needs monitoring/alerting
+  status: ACTIVE
+  confidence: INFERRED
+  ctrlRefs:
+  - CTRL-009
+  evidence:
+  - 5_WebApps/ShopERP/Services/OrderSyncSubscriber.cs@64789992
+- id: RISK-002
+  name: Cross-tenant AI knowledge leak
+  category: TENANT_ISOLATION
+  severity: CRITICAL
+  description: signed ctx spoof or scope misconfig exposes tenant knowledge
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-005
+  - CTRL-004
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: RISK-003
+  name: Metering fail-open on caller
+  category: OPERATIONAL
+  severity: MEDIUM
+  description: caller clients fail-open; deny only enforced service-side
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-003
+  evidence:
+  - 8_Metering/vanan-metering@64789992
+- id: RISK-004
+  name: SQLite/PG drift on sync failure
+  category: OPERATIONAL
+  severity: MEDIUM
+  description: replica lag/failure → POS shows stale orders
+  status: ACTIVE
+  confidence: INFERRED
+  ctrlRefs: []
+  evidence:
+  - 3_CoreHub/Services/NatsSyncWorker.cs@64789992
+- id: RISK-005
+  name: KYC PII retention exposure
+  category: COMPLIANCE
+  severity: HIGH
+  description: identity documents retained w/o evidenced policy
+  status: ACTIVE
+  confidence: INFERRED
+  ctrlRefs:
+  - CTRL-010
+  evidence:
+  - none:unverified
+- id: RISK-006
+  name: Doc conflation causes wrong-endpoint integration
+  category: OPERATIONAL
+  severity: LOW
+  description: consumers may call products/recommended expecting PG data
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs: []
+  evidence:
+  - 2_Gateway/Controllers/CatalogController.cs@64789992

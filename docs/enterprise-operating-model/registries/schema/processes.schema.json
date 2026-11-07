@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Process Registry",
+  "idPrefix": "PROC",
+  "required": [
+    "id",
+    "name",
+    "level",
+    "variability",
+    "status",
+    "confidence",
+    "evidence"
+  ],
+  "enums": {
+    "level": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "variability": [
+      "CORE",
+      "CONFIGURABLE",
+      "VARIANT"
+    ],
+    "status": [
+      "ACTIVE",
+      "PROPOSED",
+      "RETIRED",
+      "APPROVED"
+    ],
+    "confidence": [
+      "VERIFIED",
+      "INFERRED",
+      "ASSUMED"
+    ]
+  },
+  "idPattern": "^PROC-\\d{3,}$",
+  "references": {
+    "parentRef": "PROC",
+    "ownerRef": "ACTR"
+  },
+  "evidencePattern": "^(.+@([0-9a-fA-F]{7,40}|HEAD)|.+#L\\d+(-\\d+)?|none:.+)$"
+}

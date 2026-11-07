@@ -1,0 +1,70 @@
+site_name: Van An Enterprise Operating Model
+docs_dir: enterprise-operating-model
+site_description: Digital Twin documentation layer — captured at 64789992
+theme:
+  name: material
+  features: [navigation.sections, navigation.top, search.highlight, content.action.view]
+plugins:
+  - search
+markdown_extensions:
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - tables
+  - admonition
+  - toc: {permalink: true}
+nav:
+  - Home: README.md
+  - Overview:
+    - Ecosystem: 00-overview/ecosystem-overview.md
+    - System context: 00-overview/system-context.md
+    - Glossary: 00-overview/glossary.md
+    - Conventions: 00-overview/diagram-conventions.md
+    - Existing docs index: 00-overview/existing-docs-index.md
+  - Actors:
+    - Actors: 01-actors/actor-registry.md
+    - Organizations: 01-actors/organization-registry.md
+    - RACI: 01-actors/responsibility-matrix.md
+  - Capabilities: 02-business-capabilities/capability-map.md
+  - Processes:
+    - Catalog: 03-processes/process-catalog.md
+    - F4 Onboarding: 03-processes/swimlane-diagrams/f4-merchant-onboarding.md
+    - F1 Orders: 03-processes/swimlane-diagrams/f1-order-lifecycle.md
+    - F2 Metering: 03-processes/swimlane-diagrams/f2-metering.md
+    - F3 Vouchers: 03-processes/swimlane-diagrams/f3-voucher-posting.md
+    - F5 Tenant AI: 03-processes/swimlane-diagrams/f5-tenant-ai.md
+    - F6 Loyalty: 03-processes/swimlane-diagrams/f6-loyalty.md
+    - Details F4: 03-processes/process-details/f4-details.md
+    - Details F1: 03-processes/process-details/f1-details.md
+  - Architecture:
+    - Inventory: 04-software-architecture/software-inventory.md
+    - Components: 04-software-architecture/component-map.md
+    - Integrations: 04-software-architecture/integration-map.md
+  - Data:
+    - Flows: 05-data-architecture/data-flow-catalog.md
+    - Ownership: 05-data-architecture/data-ownership.md
+    - Entities: 05-data-architecture/data-entity-map.md
+  - Governance:
+    - Authorization: 06-governance/authorization-map.md
+    - Approvals: 06-governance/approval-matrix.md
+    - Audit: 06-governance/audit-controls.md
+  - States:
+    - AS-IS: 07-as-is/current-operating-model.md
+    - TO-BE: 08-to-be/target-operating-model.md
+  - Gap analysis:
+    - Gaps: 09-gap-analysis/automation-gap-register.md
+    - Risks: 09-gap-analysis/risk-register.md
+    - Roadmap: 09-gap-analysis/improvement-roadmap.md
+  - Twin:
+    - Schema: 10-digital-twin/digital-twin-schema.md
+    - Traceability: 10-digital-twin/traceability-matrix.md
+    - Index: 10-digital-twin/model-index.md
+    - Maintenance: 10-digital-twin/maintenance-rules.md
+  - Validation:
+    - Evidence: 11-validation/evidence-register.md
+    - Questions: 11-validation/unresolved-questions.md
+    - Drift report: 11-validation/drift-report.md
+    - Validation report: 11-validation/validation-report.md
+site_dir: twin-portal-site

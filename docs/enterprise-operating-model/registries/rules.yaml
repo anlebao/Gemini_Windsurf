@@ -1,0 +1,234 @@
+# Business Rule Registry — prefix RULE-xxx
+# Business rules and their enforcement point.
+# Schema: schema/rules.schema.json · validate: scripts/validate-twin.py
+registry: rules
+idPrefix: RULE
+schemaVersion: 1
+entries:
+- id: RULE-001
+  name: Order snapshot rule
+  description: Gateway does NOT query Products — client supplies ProductName+VatRate
+    snapshot at checkout (Option C)
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-203
+  componentRef: SYS-002
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/PublicOrdersController.cs@64789992
+- id: RULE-002
+  name: Routed delivery by ShopInstanceId
+  description: order.created delivered only to subject vanan.cloud.order.created.{shopInstanceId};
+    wildcard subscription removed
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-204
+  - ACTV-205
+  componentRef: SYS-015
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/OrderSyncSubscriber.cs@64789992
+- id: RULE-003
+  name: ShopInstance capacity check
+  description: AssignShopInstance throws if tenant count >= MaxTenants or instance
+    inactive
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-108
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/TenantManagementService.cs@64789992
+- id: RULE-004
+  name: Accounting regime by TenantType
+  description: HTX→TT71, Enterprise_Large→TT99, default→TT133 via AccountingStandardResolver
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-113
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub@64789992
+- id: RULE-005
+  name: Application status machine
+  description: Draft→Submitted→NeedInfo→Approved|Rejected; Rejected terminal
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-102
+  - ACTV-104
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain/Aggregates/MembershipAggregate/MembershipTypes.cs@64789992
+- id: RULE-006
+  name: KYC escalation levels
+  description: L1 OTP → L2 personal info → L3 KYC → L4 manual; higher level gates
+    stronger privileges
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-105
+  - ACTV-106
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain/Aggregates/MembershipAggregate/MembershipTypes.cs@64789992
+- id: RULE-007
+  name: Deny only at Enforcement=Deny + insufficient balance
+  description: deny=true chi khi rate head Enforcement=Deny VA balance<required
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-301
+  - ACTV-302
+  componentRef: SYS-007
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/.devin/rules/metering.md@64789992
+- id: RULE-008
+  name: Topup confirm = grant + cycle reset, idempotent
+  description: confirm -> grant + alert reset; unique partial index chan double-confirm;
+    lazy expiry TTL 72h
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-304
+  componentRef: SYS-007
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/.devin/rules/metering.md@64789992
+- id: RULE-009
+  name: Deduct at ingest same tx applied=min(req,bal)
+  description: deduct cung transaction; du -> UnpaidCredits; unpriced -> no deduct;
+    resolve o occurredAtUtc
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-305
+  componentRef: SYS-007
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/.devin/rules/metering.md@64789992
+- id: RULE-010
+  name: Voucher type via registry (AddVoucherType)
+  description: phieu moi PHAI dang ky VoucherTypeDefinition + strategy; intent ->
+    ResolveByIntent; cam page copy-paste
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-309
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Vouchers/VoucherFramework.cs@64789992
+- id: RULE-011
+  name: Strategy-per-type posting
+  description: '7+ strategies: Advance, StockIssue, AssetDisposal, Loan, Depreciation,
+    Deposit, ManualJournal'
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-310
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Vouchers/VoucherFramework.cs@64789992
+- id: RULE-012
+  name: AccountingEntry immutability
+  description: append-only; sua sai = reversal; khong UPDATE/DELETE
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-312
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain.cs@64789992
+- id: RULE-013
+  name: Signed tenant context mandatory
+  description: HMAC X-Tenant-Ctx; caller scopes; allowlist; spoof -> 401
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-402
+  componentRef: SYS-002
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Services/TenantAiContextSigner.cs@64789992
+- id: RULE-014
+  name: AI degrade policy (stricter than fail-open)
+  description: metering deny/fail -> degrade structured-only, no LLM call; ai.chat.degraded
+    MeterOnly
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-403
+  componentRef: SYS-008
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: RULE-015
+  name: Knowledge usage permission filter
+  description: post-retrieval context filter (intent x classification x channel) before
+    prompt
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-404
+  componentRef: SYS-008
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: RULE-016
+  name: Structured data wins over vector
+  description: SQL-first retriever; on conflict structured data is authoritative;
+    stale -> strip volatile claims
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-405
+  componentRef: SYS-008
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: RULE-017
+  name: AI advisory-only boundary
+  description: AI suggests into existing flows; NEVER creates orders/entries/records;
+    public retrieval only 'approved' knowledge
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-407
+  - ACTV-409
+  componentRef: SYS-008
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: RULE-018
+  name: Knowledge approval gate
+  description: pending_review -> approved; public chat retrieves approved only; Confidential
+    -> extraction path
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-409
+  componentRef: SYS-008
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: RULE-019
+  name: Loyalty sync via routed+wildcard events
+  description: loyalty.changed.{deviceId} routed events + wildcard sub; config.changed
+    broadcast; outbox fallback
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-501
+  - ACTV-502
+  componentRef: SYS-009
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/LoyaltySyncSubscriber.cs@64789992

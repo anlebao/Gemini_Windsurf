@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "KPI Registry",
+  "idPrefix": "KPI",
+  "required": [
+    "id",
+    "name",
+    "description",
+    "status",
+    "confidence",
+    "evidence"
+  ],
+  "enums": {
+    "status": [
+      "ACTIVE",
+      "PROPOSED",
+      "RETIRED",
+      "APPROVED"
+    ],
+    "confidence": [
+      "VERIFIED",
+      "INFERRED",
+      "ASSUMED"
+    ]
+  },
+  "idPattern": "^KPI-\\d{3,}$",
+  "references": {
+    "activityRefs": "ACTV"
+  },
+  "evidencePattern": "^(.+@([0-9a-fA-F]{7,40}|HEAD)|.+#L\\d+(-\\d+)?|none:.+)$"
+}

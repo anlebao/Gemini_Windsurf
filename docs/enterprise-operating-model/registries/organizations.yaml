@@ -1,0 +1,98 @@
+# Organization Registry — prefix ORG-xxx
+# Legal entities, cooperatives, business organizations (SRS 4.4 — never dual-register as ACTR).
+# Schema: schema/organizations.schema.json · validate: scripts/validate-twin.py
+registry: organizations
+idPrefix: ORG
+schemaVersion: 1
+entries:
+- id: ORG-001
+  name: Van An Technology
+  type: TECH_PROVIDER
+  status: ACTIVE
+  confidence: VERIFIED
+  description: Technology & IP owner — builds/operates platform software
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: ORG-002
+  name: Van An Ecommerce
+  type: PLATFORM_OPERATOR
+  status: ACTIVE
+  confidence: INFERRED
+  description: Ecosystem business operator — merchant onboarding, ops, billing
+  evidence:
+  - docs/requirements/Van_An_SRS_Final.md@64789992
+- id: ORG-003
+  name: HTX (cooperative collective)
+  type: COOPERATIVE
+  status: ACTIVE
+  confidence: VERIFIED
+  description: HTX tenants — TenantType.HTX=5, HtxProfile marker, TT71 accounting
+    regime
+  evidence:
+  - 1_Shared/Domain.cs@64789992
+  - 3_CoreHub/Services/Membership/HtxProfileService.cs@64789992
+- id: ORG-004
+  name: HTX Hat Nhan (local ecosystem rep)
+  type: COOPERATIVE
+  status: ACTIVE
+  confidence: INFERRED
+  parentOrgRef: ORG-003
+  description: Local HTX nucleus — supports merchants, verifies membership locally
+  evidence:
+  - docs/requirements/SRS — Vạn An Membership Infrastruct.md@64789992
+- id: ORG-005
+  name: Merchants (tenant shops collective)
+  type: LEGAL
+  status: ACTIVE
+  confidence: VERIFIED
+  description: Per-tenant shop orgs — TenantType HKD/Enterprise_*; own ShopERP SQLite
+  evidence:
+  - 1_Shared/Domain.cs@64789992
+- id: ORG-006
+  name: Suppliers & service providers
+  type: EXTERNAL
+  status: ACTIVE
+  confidence: INFERRED
+  description: Supply goods/services to merchants
+  evidence:
+  - none:business-model-docs
+- id: ORG-007
+  name: Government & regulators
+  type: EXTERNAL
+  status: ACTIVE
+  confidence: VERIFIED
+  description: Tax authority (e-invoice), HTX regulators
+  evidence:
+  - 3_CoreHub/Services/Providers/EInvoice@64789992
+- id: ORG-008
+  name: Payment providers (VietQR/bank)
+  type: EXTERNAL
+  status: ACTIVE
+  confidence: INFERRED
+  description: Top-up & payment rails for metering wallet + checkout
+  evidence:
+  - docs/requirements/Proposal_Phi_Nen_Tang_Policy_v1.3.md@64789992
+- id: ORG-009
+  name: LLM provider (Google Gemini)
+  type: EXTERNAL
+  status: ACTIVE
+  confidence: VERIFIED
+  description: Gemini chat+embedding for SmartEntry & vanan-ai
+  evidence:
+  - 3_CoreHub/Services/LlmEnhanceVoucherTextParseService.cs@64789992
+- id: ORG-010
+  name: Media/CDN providers (Cloudinary, S3)
+  type: EXTERNAL
+  status: ACTIVE
+  confidence: VERIFIED
+  description: Image/media storage
+  evidence:
+  - 3_CoreHub/VanAn.CoreHub.csproj@64789992
+- id: ORG-011
+  name: Investors & financial partners
+  type: EXTERNAL
+  status: ACTIVE
+  confidence: ASSUMED
+  description: Capital partners — governance visibility only
+  evidence:
+  - none:needs-owner-confirmation

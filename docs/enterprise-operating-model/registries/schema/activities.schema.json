@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Activity Registry",
+  "idPrefix": "ACTV",
+  "required": [
+    "id",
+    "name",
+    "processRef",
+    "executionType",
+    "status",
+    "confidence",
+    "evidence"
+  ],
+  "enums": {
+    "executionType": [
+      "MANUAL",
+      "AUTOMATED",
+      "HYBRID"
+    ],
+    "status": [
+      "ACTIVE",
+      "PROPOSED",
+      "RETIRED",
+      "APPROVED"
+    ],
+    "confidence": [
+      "VERIFIED",
+      "INFERRED",
+      "ASSUMED"
+    ]
+  },
+  "idPattern": "^ACTV-\\d{3,}$",
+  "references": {
+    "processRef": "PROC",
+    "humanActorRef": "ACTR",
+    "softwareActorRef": "ACTR",
+    "ruleRefs": "RULE",
+    "moduleRef": "SYS",
+    "apiRefs": "API",
+    "dataRefs": "DATA",
+    "kpiRefs": "KPI"
+  },
+  "evidencePattern": "^(.+@([0-9a-fA-F]{7,40}|HEAD)|.+#L\\d+(-\\d+)?|none:.+)$"
+}

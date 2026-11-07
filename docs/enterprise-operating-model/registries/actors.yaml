@@ -1,0 +1,330 @@
+# Actor Registry — prefix ACTR-xxx
+# Non-organization actors (SRS 4.2). ORGANIZATION-type actors live in organizations.yaml only (SRS 4.4).
+# Schema: schema/actors.schema.json · validate: scripts/validate-twin.py
+registry: actors
+idPrefix: ACTR
+schemaVersion: 1
+entries:
+- id: ACTR-001
+  name: Customer
+  type: HUMAN
+  status: ACTIVE
+  confidence: VERIFIED
+  responsibilities:
+  - browse catalog
+  - place order
+  - chat with shop AI
+  - redeem loyalty
+  componentRefs:
+  - SYS-005
+  evidence:
+  - 5_WebApps/KhachLink@64789992
+- id: ACTR-002
+  name: Shop Owner (Owner role)
+  type: HUMAN
+  orgRef: ORG-005
+  status: ACTIVE
+  confidence: VERIFIED
+  responsibilities:
+  - confirm orders
+  - manage shop
+  - approve financial docs
+  authorizedActions:
+  - UserRole.Owner full access
+  componentRefs:
+  - SYS-004
+  evidence:
+  - 1_Shared/Domain/Aggregates/UserAggregate/UserRole.cs@64789992
+- id: ACTR-003
+  name: StoreKeeper (thu kho)
+  type: HUMAN
+  orgRef: ORG-005
+  status: ACTIVE
+  confidence: VERIFIED
+  responsibilities:
+  - inventory management
+  componentRefs:
+  - SYS-004
+  evidence:
+  - 1_Shared/Domain/Aggregates/UserAggregate/UserRole.cs@64789992
+- id: ACTR-004
+  name: Staff (phuc vu)
+  type: HUMAN
+  orgRef: ORG-005
+  status: ACTIVE
+  confidence: VERIFIED
+  responsibilities:
+  - order management
+  componentRefs:
+  - SYS-004
+  evidence:
+  - 1_Shared/Domain/Aggregates/UserAggregate/UserRole.cs@64789992
+- id: ACTR-005
+  name: Masterchef (bep truong)
+  type: HUMAN
+  orgRef: ORG-005
+  status: ACTIVE
+  confidence: VERIFIED
+  responsibilities:
+  - kitchen operations
+  componentRefs:
+  - SYS-004
+  evidence:
+  - 1_Shared/Domain/Aggregates/UserAggregate/UserRole.cs@64789992
+- id: ACTR-006
+  name: ChiefAccountant
+  type: HUMAN
+  orgRef: ORG-005
+  status: ACTIVE
+  confidence: VERIFIED
+  responsibilities:
+  - kiem ke, ke toan, tai chinh day du
+  componentRefs:
+  - SYS-004
+  evidence:
+  - 1_Shared/Domain/Aggregates/UserAggregate/UserRole.cs@64789992
+- id: ACTR-007
+  name: DebtAccountant (ke toan cong no)
+  type: HUMAN
+  orgRef: ORG-005
+  status: ACTIVE
+  confidence: VERIFIED
+  responsibilities:
+  - ke toan only — no history/import/close-period/HKD books
+  componentRefs:
+  - SYS-004
+  evidence:
+  - 1_Shared/Domain/Aggregates/UserAggregate/UserRole.cs@64789992
+- id: ACTR-008
+  name: Guard (bao ve)
+  type: HUMAN
+  orgRef: ORG-005
+  status: ACTIVE
+  confidence: VERIFIED
+  responsibilities:
+  - check-in/out
+  componentRefs:
+  - SYS-004
+  evidence:
+  - 1_Shared/Domain/Aggregates/UserAggregate/UserRole.cs@64789992
+- id: ACTR-009
+  name: CTV / Collaborator
+  type: HUMAN
+  status: ACTIVE
+  confidence: VERIFIED
+  responsibilities:
+  - sales collaboration
+  - referral
+  componentRefs:
+  - SYS-005
+  evidence:
+  - 2_Gateway/Controllers/CollaboratorVerificationController.cs@64789992
+- id: ACTR-010
+  name: Salesperson
+  type: HUMAN
+  orgRef: ORG-002
+  status: ACTIVE
+  confidence: INFERRED
+  responsibilities:
+  - merchant acquisition
+  - field onboarding
+  evidence:
+  - docs/requirements/shipper_saleman_role.md@64789992
+- id: ACTR-011
+  name: Delivery / Shipper
+  type: HUMAN
+  status: ACTIVE
+  confidence: INFERRED
+  responsibilities:
+  - order delivery
+  evidence:
+  - docs/requirements/shipper_saleman_role.md@64789992
+- id: ACTR-012
+  name: Hat Nhan representative
+  type: HUMAN
+  orgRef: ORG-004
+  status: ACTIVE
+  confidence: INFERRED
+  responsibilities:
+  - local merchant support
+  - membership verification L4
+  evidence:
+  - docs/requirements/SRS — Vạn An Membership Infrastruct.md@64789992
+- id: ACTR-013
+  name: HTX Official Member
+  type: HUMAN
+  orgRef: ORG-003
+  status: ACTIVE
+  confidence: VERIFIED
+  responsibilities:
+  - HTX governance participation
+  evidence:
+  - 1_Shared/Domain/Aggregates/MembershipAggregate/MembershipTypes.cs@64789992
+- id: ACTR-014
+  name: Van An Ecommerce operator
+  type: HUMAN
+  orgRef: ORG-002
+  status: ACTIVE
+  confidence: INFERRED
+  responsibilities:
+  - tenant approval
+  - platform admin
+  - billing ops
+  componentRefs:
+  - SYS-002
+  evidence:
+  - 2_Gateway/Controllers/CommunityAdminController.cs@64789992
+- id: ACTR-015
+  name: Van An Technology operator
+  type: HUMAN
+  orgRef: ORG-001
+  status: ACTIVE
+  confidence: VERIFIED
+  responsibilities:
+  - system admin
+  - knowledge approval (AI)
+  - platform ops
+  componentRefs:
+  - SYS-002
+  - SYS-008
+  evidence:
+  - 2_Gateway/Controllers/AccountingReconcileController.cs@64789992
+- id: ACTR-016
+  name: Government / tax officer
+  type: HUMAN
+  orgRef: ORG-007
+  status: ACTIVE
+  confidence: INFERRED
+  responsibilities:
+  - regulatory oversight
+  evidence:
+  - 3_CoreHub/Services/Providers/EInvoice@64789992
+- id: ACTR-020
+  name: Gateway
+  type: SOFTWARE
+  orgRef: ORG-001
+  status: ACTIVE
+  confidence: VERIFIED
+  responsibilities:
+  - order creator (Option C)
+  - YARP routing
+  - PG source of truth
+  componentRefs:
+  - SYS-002
+  evidence:
+  - 2_Gateway/Program.cs@64789992
+- id: ACTR-021
+  name: ShopERP
+  type: SOFTWARE
+  orgRef: ORG-005
+  status: ACTIVE
+  confidence: VERIFIED
+  responsibilities:
+  - POS/kitchen display
+  - per-tenant ops
+  - accounting engine
+  componentRefs:
+  - SYS-004
+  evidence:
+  - 5_WebApps/ShopERP@64789992
+- id: ACTR-022
+  name: Sync workers & subscribers
+  type: SOFTWARE
+  orgRef: ORG-001
+  status: ACTIVE
+  confidence: VERIFIED
+  responsibilities:
+  - NATS order/tenant/loyalty sync PG<->SQLite
+  componentRefs:
+  - SYS-009
+  evidence:
+  - 5_WebApps/ShopERP/Services/OrderSyncSubscriber.cs@64789992
+- id: ACTR-023
+  name: vanan-metering
+  type: SOFTWARE
+  orgRef: ORG-001
+  status: ACTIVE
+  confidence: VERIFIED
+  responsibilities:
+  - quota/deny gate
+  - wallet/usage
+  componentRefs:
+  - SYS-007
+  evidence:
+  - 8_Metering/vanan-metering@64789992
+- id: ACTR-024
+  name: Crawler
+  type: SOFTWARE
+  orgRef: ORG-001
+  status: ACTIVE
+  confidence: VERIFIED
+  responsibilities:
+  - data crawling (scope TBD Q5)
+  componentRefs:
+  - SYS-010
+  evidence:
+  - 7_Tooling/VanAn.Crawler@64789992
+- id: ACTR-030
+  name: vanan-ai tenant assistant
+  type: AI_AGENT
+  orgRef: ORG-001
+  status: ACTIVE
+  confidence: VERIFIED
+  responsibilities:
+  - tenant-scoped advisory chat
+  - product suggestion (no order creation)
+  componentRefs:
+  - SYS-008
+  evidence:
+  - 9_TenantAI/vanan-ai@64789992
+- id: ACTR-031
+  name: SmartEntry LLM parser
+  type: AI_AGENT
+  orgRef: ORG-001
+  status: ACTIVE
+  confidence: VERIFIED
+  responsibilities:
+  - voucher text parse enhancement (fail-closed)
+  componentRefs:
+  - SYS-003
+  evidence:
+  - 3_CoreHub/Services/LlmEnhanceVoucherTextParseService.cs@64789992
+- id: ACTR-040
+  name: Gemini API
+  type: EXTERNAL
+  orgRef: ORG-009
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/LlmEnhanceVoucherTextParseService.cs@64789992
+- id: ACTR-041
+  name: Payment provider
+  type: EXTERNAL
+  orgRef: ORG-008
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - docs/requirements/Proposal_Phi_Nen_Tang_Policy_v1.3.md@64789992
+- id: ACTR-042
+  name: E-invoice provider
+  type: EXTERNAL
+  orgRef: ORG-007
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Providers/EInvoice@64789992
+- id: ACTR-043
+  name: Zalo
+  type: EXTERNAL
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - docs/requirements/Zalo_AuthenticationPhoneNumber.md@64789992
+- id: ACTR-044
+  name: Cloudinary / S3
+  type: EXTERNAL
+  orgRef: ORG-010
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/VanAn.CoreHub.csproj@64789992

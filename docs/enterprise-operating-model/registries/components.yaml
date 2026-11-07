@@ -1,0 +1,175 @@
+# Software Component Registry — prefix SYS-xxx
+# Software components per SRS 7.2 (12 fields).
+# Schema: schema/components.schema.json · validate: scripts/validate-twin.py
+registry: components
+idPrefix: SYS
+schemaVersion: 1
+entries:
+- id: SYS-001
+  name: VanAn.sln core
+  purpose: Shared domain + business libraries
+  deploymentBoundary: IN_PROCESS
+  implStatus: IMPLEMENTED
+  status: ACTIVE
+  confidence: VERIFIED
+  repoPath: VanAn.sln
+  technology: .NET 8
+  evidence:
+  - VanAn.sln@64789992
+- id: SYS-002
+  name: Gateway
+  purpose: YARP + order creator + PG API host
+  deploymentBoundary: HOSTED
+  implStatus: IMPLEMENTED
+  status: ACTIVE
+  confidence: VERIFIED
+  repoPath: 2_Gateway
+  technology: ASP.NET Core + YARP + Npgsql
+  evidence:
+  - 2_Gateway/Program.cs@64789992
+- id: SYS-003
+  name: CoreHub
+  purpose: Business services lib + generic host (workers)
+  deploymentBoundary: HOSTED
+  implStatus: IMPLEMENTED
+  status: ACTIVE
+  confidence: VERIFIED
+  repoPath: 3_CoreHub
+  technology: .NET 8 (OutputType=Exe — drift D1)
+  evidence:
+  - 3_CoreHub/Program.cs@64789992
+- id: SYS-004
+  name: ShopERP
+  purpose: 'Per-tenant web app: POS/kitchen/accounting'
+  deploymentBoundary: HOSTED
+  implStatus: IMPLEMENTED
+  status: ACTIVE
+  confidence: VERIFIED
+  repoPath: 5_WebApps/ShopERP
+  technology: ASP.NET Core + Blazor + SQLite
+  evidence:
+  - 5_WebApps/ShopERP@64789992
+- id: SYS-005
+  name: KhachLink
+  purpose: Customer PWA (catalog/order/chat)
+  deploymentBoundary: HOSTED
+  implStatus: IMPLEMENTED
+  status: ACTIVE
+  confidence: VERIFIED
+  repoPath: 5_WebApps/KhachLink
+  technology: Blazor WASM PWA
+  evidence:
+  - 5_WebApps/KhachLink@64789992
+- id: SYS-006
+  name: Directory
+  purpose: SSR storefront directory
+  deploymentBoundary: HOSTED
+  implStatus: IMPLEMENTED
+  status: ACTIVE
+  confidence: VERIFIED
+  repoPath: 5_WebApps/Directory
+  technology: ASP.NET Core SSR
+  evidence:
+  - 5_WebApps/Directory/VanAn.Directory.csproj@64789992
+- id: SYS-007
+  name: vanan-metering
+  purpose: Platform fee wallet/quota/deny
+  deploymentBoundary: STANDALONE_VPS
+  implStatus: IMPLEMENTED
+  status: ACTIVE
+  confidence: VERIFIED
+  repoPath: 8_Metering/vanan-metering
+  technology: ASP.NET Core + own DB
+  evidence:
+  - 8_Metering/vanan-metering@64789992
+- id: SYS-008
+  name: vanan-ai
+  purpose: Tenant AI assistant (RAG+policy)
+  deploymentBoundary: STANDALONE_VPS
+  implStatus: IMPLEMENTED
+  status: ACTIVE
+  confidence: VERIFIED
+  repoPath: 9_TenantAI/vanan-ai
+  technology: ASP.NET Core + PG/pgvector + Gemini
+  evidence:
+  - 9_TenantAI/vanan-ai@64789992
+- id: SYS-009
+  name: Sync layer (workers/subscribers)
+  purpose: NATS PG<->SQLite sync
+  deploymentBoundary: IN_PROCESS
+  implStatus: IMPLEMENTED
+  status: ACTIVE
+  confidence: VERIFIED
+  technology: NATS
+  evidence:
+  - 5_WebApps/ShopERP/Services/OrderSyncSubscriber.cs@64789992
+- id: SYS-010
+  name: Crawler
+  purpose: Data crawling tooling
+  deploymentBoundary: IN_PROCESS
+  implStatus: PARTIAL
+  status: ACTIVE
+  confidence: INFERRED
+  repoPath: 7_Tooling/VanAn.Crawler
+  evidence:
+  - 7_Tooling/VanAn.Crawler@64789992
+- id: SYS-011
+  name: UI Platform
+  purpose: Shared Blazor component library
+  deploymentBoundary: IN_PROCESS
+  implStatus: IMPLEMENTED
+  status: ACTIVE
+  confidence: VERIFIED
+  repoPath: UI.Platform
+  evidence:
+  - UI.Platform@64789992
+- id: SYS-012
+  name: VanAn.Accounting
+  purpose: Accounting library (boundary TBD)
+  deploymentBoundary: IN_PROCESS
+  implStatus: IMPLEMENTED
+  status: ACTIVE
+  confidence: INFERRED
+  repoPath: VanAn.Accounting
+  evidence:
+  - VanAn.Accounting@64789992
+- id: SYS-013
+  name: PostgreSQL (Gateway)
+  purpose: 'SoT: Orders/Accounting/Tenants/ShopInstances/Users/FeaturedProducts'
+  deploymentBoundary: HOSTED
+  implStatus: IMPLEMENTED
+  status: ACTIVE
+  confidence: VERIFIED
+  technology: PostgreSQL
+  evidence:
+  - 3_CoreHub/Infrastructure/VanAnDbContext.cs@64789992
+- id: SYS-014
+  name: SQLite (per-tenant)
+  purpose: Products + POS/order replica
+  deploymentBoundary: HOSTED
+  implStatus: IMPLEMENTED
+  status: ACTIVE
+  confidence: VERIFIED
+  technology: SQLite
+  evidence:
+  - 5_WebApps/ShopERP/Infrastructure/ShopERPDbContext.cs@64789992
+- id: SYS-015
+  name: NATS
+  purpose: Message broker — routed subjects vanan.cloud.*/vanan.shoperp.*
+  deploymentBoundary: EXTERNAL
+  implStatus: IMPLEMENTED
+  status: ACTIVE
+  confidence: VERIFIED
+  technology: NATS
+  evidence:
+  - 5_WebApps/ShopERP/Services/OrderSyncSubscriber.cs@64789992
+- id: SYS-016
+  name: Mobile apps
+  purpose: 4_MobileApps (unsurveyed)
+  deploymentBoundary: HOSTED
+  implStatus: PARTIAL
+  status: ACTIVE
+  confidence: INFERRED
+  repoPath: 4_MobileApps
+  evidence:
+  - 4_MobileApps@64789992

@@ -1,0 +1,375 @@
+# Process Registry — prefix PROC-xxx
+# L0-L4 hierarchy (SRS 6.1). VARIANT requires parentRef to CORE parent (SRS 6.6).
+# Schema: schema/processes.schema.json · validate: scripts/validate-twin.py
+registry: processes
+idPrefix: PROC
+schemaVersion: 1
+entries:
+- id: PROC-001
+  name: Van An Ecosystem
+  level: 0
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - VanAn.sln@64789992
+- id: PROC-010
+  name: Membership & Onboarding
+  level: 1
+  parentRef: PROC-001
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Membership@64789992
+- id: PROC-011
+  name: Merchant onboarding & tenant provisioning
+  level: 2
+  parentRef: PROC-010
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/TenantManagementService.cs@64789992
+- id: PROC-012
+  name: HTX formation & member verification
+  level: 2
+  parentRef: PROC-010
+  variability: CONFIGURABLE
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 3_CoreHub/Services/Membership/HtxProfileService.cs@64789992
+- id: PROC-013
+  name: Identity verification (KYC L1-L4)
+  level: 2
+  parentRef: PROC-010
+  variability: CONFIGURABLE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain/Aggregates/MembershipAggregate/MembershipTypes.cs@64789992
+- id: PROC-020
+  name: Commerce & Orders
+  level: 1
+  parentRef: PROC-001
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/PublicOrdersController.cs@64789992
+- id: PROC-021
+  name: Order lifecycle (Option C)
+  level: 2
+  parentRef: PROC-020
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/OrderSyncSubscriber.cs@64789992
+- id: PROC-022
+  name: Catalog browse & discovery
+  level: 2
+  parentRef: PROC-020
+  variability: CONFIGURABLE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/CatalogController.cs@64789992
+- id: PROC-023
+  name: Booking & appointments
+  level: 2
+  parentRef: PROC-020
+  variability: CORE
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 2_Gateway/Controllers/PublicBookingController.cs@64789992
+- id: PROC-024
+  name: Delivery & fulfillment
+  level: 2
+  parentRef: PROC-020
+  variability: CONFIGURABLE
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - none:needs-verification
+- id: PROC-030
+  name: Finance & Accounting
+  level: 1
+  parentRef: PROC-001
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Journal@64789992
+- id: PROC-031
+  name: Voucher posting (registry+strategy)
+  level: 2
+  parentRef: PROC-030
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub@64789992
+- id: PROC-032
+  name: Period closing & reporting
+  level: 2
+  parentRef: PROC-030
+  variability: CONFIGURABLE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/PeriodClosingService.cs@64789992
+- id: PROC-033
+  name: 'Metering: quota/wallet/top-up'
+  level: 2
+  parentRef: PROC-030
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 8_Metering/vanan-metering@64789992
+- id: PROC-040
+  name: Customer Engagement
+  level: 1
+  parentRef: PROC-001
+  variability: CORE
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - none:narrative-domain
+- id: PROC-041
+  name: Loyalty accrual & redemption
+  level: 2
+  parentRef: PROC-040
+  variability: CONFIGURABLE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/AllianceWalletService.cs@64789992
+- id: PROC-042
+  name: Notifications
+  level: 2
+  parentRef: PROC-040
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/NotificationCenterService.cs@64789992
+- id: PROC-050
+  name: AI & Intelligence
+  level: 1
+  parentRef: PROC-001
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 9_TenantAI/vanan-ai@64789992
+- id: PROC-051
+  name: AI advisory chat (tenant-scoped)
+  level: 2
+  parentRef: PROC-050
+  variability: CONFIGURABLE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 9_TenantAI/vanan-ai@64789992
+- id: PROC-052
+  name: AI knowledge lifecycle (ingest-approve-retrieve)
+  level: 2
+  parentRef: PROC-050
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: PROC-060
+  name: Platform Operations & Governance
+  level: 1
+  parentRef: PROC-001
+  variability: CORE
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - none:narrative-domain
+- id: PROC-061
+  name: Tenant & order data sync
+  level: 2
+  parentRef: PROC-060
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/NatsSyncWorker.cs@64789992
+- id: PROC-062
+  name: AuthN/AuthZ & tenant isolation
+  level: 2
+  parentRef: PROC-060
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - none:auth-code-paths-tbd
+- id: PROC-101
+  name: Merchant application & approval
+  level: 3
+  parentRef: PROC-011
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain/Aggregates/MembershipAggregate/MembershipTypes.cs@64789992
+- id: PROC-102
+  name: Tenant provisioning & ShopInstance assignment
+  level: 3
+  parentRef: PROC-011
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/TenantManagementService.cs@64789992
+- id: PROC-103
+  name: HTX profile activation (MarkAsHtx)
+  level: 3
+  parentRef: PROC-012
+  variability: CONFIGURABLE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Membership/HtxProfileService.cs@64789992
+- id: PROC-104
+  name: KYC escalation L1->L4
+  level: 3
+  parentRef: PROC-013
+  variability: CONFIGURABLE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain/Aggregates/MembershipAggregate/MembershipTypes.cs@64789992
+- id: PROC-111
+  name: Order creation & checkout (Option C)
+  level: 3
+  parentRef: PROC-021
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/PublicOrdersController.cs@64789992
+- id: PROC-112
+  name: Order routing & ShopERP delivery
+  level: 3
+  parentRef: PROC-021
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/OrderSyncSubscriber.cs@64789992
+- id: PROC-113
+  name: Order status lifecycle & sync-back
+  level: 3
+  parentRef: PROC-021
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/OrderSyncSubscriber.cs@64789992
+- id: PROC-121
+  name: Metering check & deny gate
+  level: 3
+  parentRef: PROC-033
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 8_Metering/vanan-metering@64789992
+- id: PROC-122
+  name: Wallet top-up lifecycle
+  level: 3
+  parentRef: PROC-033
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 8_Metering/vanan-metering@64789992
+- id: PROC-123
+  name: Usage ingest & deduct
+  level: 3
+  parentRef: PROC-033
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 8_Metering/vanan-metering@64789992
+- id: PROC-131
+  name: Voucher capture & intent resolution
+  level: 3
+  parentRef: PROC-031
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Vouchers/VoucherFramework.cs@64789992
+- id: PROC-132
+  name: Voucher posting via strategy
+  level: 3
+  parentRef: PROC-031
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Vouchers/VoucherFramework.cs@64789992
+- id: PROC-141
+  name: AI chat request path (widget->gateway->service)
+  level: 3
+  parentRef: PROC-051
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 9_TenantAI/vanan-ai/src/VanAn.TenantAi.Api/Program.cs@64789992
+- id: PROC-142
+  name: Tenant ctx signing & forwarding
+  level: 3
+  parentRef: PROC-051
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Services/TenantAiContextSigner.cs@64789992
+- id: PROC-143
+  name: Knowledge ingest & approval
+  level: 3
+  parentRef: PROC-052
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 9_TenantAI/vanan-ai/src/VanAn.TenantAi.Api/Program.cs@64789992
+- id: PROC-144
+  name: AI degrade / metering path
+  level: 3
+  parentRef: PROC-051
+  variability: CORE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: PROC-151
+  name: Loyalty accrual on order events
+  level: 3
+  parentRef: PROC-041
+  variability: CONFIGURABLE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/AllianceWalletService.cs@64789992
+- id: PROC-152
+  name: Loyalty redemption & catalog
+  level: 3
+  parentRef: PROC-041
+  variability: CONFIGURABLE
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/GlobalRedemptionCatalogController.cs@64789992

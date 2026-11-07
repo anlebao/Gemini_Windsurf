@@ -1,0 +1,264 @@
+# Business Capability Registry — prefix CAP-xxx
+# Capability groups per SRS 2.2 (21 groups) + discovered.
+# Schema: schema/capabilities.schema.json · validate: scripts/validate-twin.py
+registry: capabilities
+idPrefix: CAP
+schemaVersion: 1
+entries:
+- id: CAP-001
+  name: Merchant onboarding & mgmt
+  status: ACTIVE
+  confidence: VERIFIED
+  actorRefs:
+  - ACTR-002
+  - ACTR-010
+  - ACTR-014
+  componentRefs:
+  - SYS-002
+  - SYS-004
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-002
+  name: HTX establishment/governance/membership
+  status: ACTIVE
+  confidence: VERIFIED
+  actorRefs:
+  - ACTR-012
+  - ACTR-013
+  componentRefs:
+  - SYS-002
+  - SYS-003
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-003
+  name: ShopERP business operations
+  status: ACTIVE
+  confidence: VERIFIED
+  actorRefs:
+  - ACTR-002
+  - ACTR-003
+  - ACTR-004
+  - ACTR-005
+  componentRefs:
+  - SYS-004
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-004
+  name: Accounting & tax
+  status: ACTIVE
+  confidence: VERIFIED
+  actorRefs:
+  - ACTR-006
+  - ACTR-007
+  componentRefs:
+  - SYS-003
+  - SYS-012
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-005
+  name: Customer mgmt & CRM
+  status: ACTIVE
+  confidence: INFERRED
+  actorRefs:
+  - ACTR-001
+  - ACTR-002
+  componentRefs:
+  - SYS-005
+  - SYS-004
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-006
+  name: KhachLink customer apps
+  status: ACTIVE
+  confidence: VERIFIED
+  actorRefs:
+  - ACTR-001
+  componentRefs:
+  - SYS-005
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-007
+  name: Local discovery & commerce
+  status: ACTIVE
+  confidence: VERIFIED
+  actorRefs:
+  - ACTR-001
+  componentRefs:
+  - SYS-005
+  - SYS-006
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-008
+  name: Order mgmt & transactions
+  status: ACTIVE
+  confidence: VERIFIED
+  actorRefs:
+  - ACTR-001
+  - ACTR-002
+  - ACTR-020
+  - ACTR-021
+  componentRefs:
+  - SYS-002
+  - SYS-004
+  - SYS-015
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-009
+  name: Booking & appointments
+  status: ACTIVE
+  confidence: VERIFIED
+  actorRefs:
+  - ACTR-001
+  - ACTR-002
+  componentRefs:
+  - SYS-002
+  - SYS-004
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-010
+  name: Sales & delivery collaboration
+  status: ACTIVE
+  confidence: INFERRED
+  actorRefs:
+  - ACTR-009
+  - ACTR-010
+  - ACTR-011
+  componentRefs:
+  - SYS-005
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-011
+  name: Loyalty points & promotions
+  status: ACTIVE
+  confidence: VERIFIED
+  actorRefs:
+  - ACTR-001
+  - ACTR-022
+  componentRefs:
+  - SYS-003
+  - SYS-015
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-012
+  name: Van An service credits
+  status: ACTIVE
+  confidence: INFERRED
+  actorRefs:
+  - ACTR-002
+  componentRefs:
+  - SYS-002
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-013
+  name: Supplier & procurement
+  status: ACTIVE
+  confidence: INFERRED
+  actorRefs:
+  - ACTR-002
+  componentRefs:
+  - SYS-004
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-014
+  name: Marketplace & service marketplace
+  status: ACTIVE
+  confidence: ASSUMED
+  actorRefs:
+  - ACTR-001
+  componentRefs:
+  - SYS-005
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-015
+  name: Notifications & communication
+  status: ACTIVE
+  confidence: VERIFIED
+  actorRefs:
+  - ACTR-022
+  componentRefs:
+  - SYS-003
+  - SYS-015
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-016
+  name: Reporting & analytics
+  status: ACTIVE
+  confidence: VERIFIED
+  actorRefs:
+  - ACTR-006
+  - ACTR-014
+  componentRefs:
+  - SYS-003
+  - SYS-004
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-017
+  name: SaaS subscription & service billing (metering)
+  status: ACTIVE
+  confidence: VERIFIED
+  actorRefs:
+  - ACTR-023
+  - ACTR-014
+  componentRefs:
+  - SYS-007
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-018
+  name: Identity, permissions & security
+  status: ACTIVE
+  confidence: VERIFIED
+  actorRefs:
+  - ACTR-002
+  - ACTR-015
+  componentRefs:
+  - SYS-002
+  - SYS-003
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-019
+  name: Data sync & infrastructure
+  status: ACTIVE
+  confidence: VERIFIED
+  actorRefs:
+  - ACTR-022
+  componentRefs:
+  - SYS-009
+  - SYS-015
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-020
+  name: HTX financial & operational mgmt
+  status: ACTIVE
+  confidence: INFERRED
+  actorRefs:
+  - ACTR-013
+  - ACTR-012
+  componentRefs:
+  - SYS-004
+  - SYS-003
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-021
+  name: AI assistance & tenant intelligence
+  status: ACTIVE
+  confidence: VERIFIED
+  actorRefs:
+  - ACTR-030
+  - ACTR-031
+  componentRefs:
+  - SYS-008
+  - SYS-003
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992
+- id: CAP-022
+  name: Membership & identity verification (KYC levels)
+  status: ACTIVE
+  confidence: VERIFIED
+  actorRefs:
+  - ACTR-012
+  - ACTR-014
+  componentRefs:
+  - SYS-002
+  - SYS-003
+  evidence:
+  - docs/requirements/srs__Digital Twin__Modeling_EnterpriseOperating.md@64789992

@@ -1,0 +1,928 @@
+# Activity Registry — prefix ACTV-xxx
+# Atomic activities, 18-field metadata per SRS 5.2. Decompose-first: HYBRID only when inseparable (SRS 5.1).
+# Schema: schema/activities.schema.json · validate: scripts/validate-twin.py
+registry: activities
+idPrefix: ACTV
+schemaVersion: 1
+entries:
+- id: ACTV-101
+  name: Sales field visit / merchant contact
+  processRef: PROC-101
+  executionType: MANUAL
+  humanActorRef: ACTR-010
+  trigger: sales pipeline
+  input: merchant lead
+  output: merchant consent + basic info
+  exceptionHandling: merchant declines → lead archived
+  auditLog: false
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - docs/requirements/shipper_saleman_role.md@64789992
+- id: ACTV-102
+  name: Shop owner submits application
+  processRef: PROC-101
+  executionType: MANUAL
+  humanActorRef: ACTR-002
+  trigger: decision to join
+  input: business info + documents
+  output: application Draft→Submitted
+  exceptionHandling: incomplete → stays Draft
+  auditLog: true
+  moduleRef: SYS-002
+  apiRefs:
+  - API-101
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain/Aggregates/MembershipAggregate/MembershipTypes.cs@64789992
+- id: ACTV-103
+  name: OCR-assisted document extraction (optional)
+  processRef: PROC-101
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: document upload
+  input: scanned docs
+  output: extracted fields
+  exceptionHandling: OCR fail → manual entry
+  auditLog: true
+  moduleRef: SYS-002
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 2_Gateway/Controllers/OcrOnboardingController.cs@64789992
+- id: ACTV-104
+  name: Application review — approve/NeedInfo/Reject
+  processRef: PROC-101
+  executionType: MANUAL
+  humanActorRef: ACTR-014
+  trigger: Submitted application
+  input: application + KYC status
+  output: Approved | NeedInfo | Rejected
+  approvalRequired: true
+  exceptionHandling: NeedInfo → back to owner for docs
+  auditLog: true
+  moduleRef: SYS-002
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain/Aggregates/MembershipAggregate/MembershipTypes.cs@64789992
+  - 2_Gateway/Controllers/MembershipAdminController.cs@64789992
+- id: ACTV-105
+  name: KYC L1 — OTP verification
+  processRef: PROC-104
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: application submit
+  input: phone number
+  output: OTP verified flag
+  exceptionHandling: OTP fail → retry/abandon
+  auditLog: true
+  moduleRef: SYS-002
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain/Aggregates/MembershipAggregate/MembershipTypes.cs@64789992
+- id: ACTV-106
+  name: KYC L4 — manual verification
+  processRef: PROC-104
+  executionType: MANUAL
+  humanActorRef: ACTR-012
+  trigger: L1-L3 insufficient
+  input: documents + field visit
+  output: verified flag
+  approvalRequired: true
+  exceptionHandling: reject → application rejected
+  auditLog: true
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 1_Shared/Domain/Aggregates/MembershipAggregate/MembershipTypes.cs@64789992
+  - docs/requirements/SRS — Vạn An Membership Infrastruct.md@64789992
+- id: ACTV-107
+  name: Create tenant record (PG)
+  processRef: PROC-102
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: application Approved
+  input: approved application
+  output: Tenant entity
+  exceptionHandling: validation fail → stays pending
+  auditLog: true
+  moduleRef: SYS-003
+  dataRefs:
+  - DATA-001
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/TenantManagementService.cs@64789992
+- id: ACTV-108
+  name: Assign ShopInstance (capacity check)
+  processRef: PROC-102
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: tenant created
+  input: tenant + ShopInstanceId
+  output: tenant.ShopInstanceId set
+  exceptionHandling: instance full/inactive → InvalidOperationException (multi-VPS
+    rebalance)
+  auditLog: true
+  moduleRef: SYS-003
+  dataRefs:
+  - DATA-002
+  ruleRefs:
+  - RULE-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/TenantManagementService.cs@64789992
+- id: ACTV-109
+  name: Publish tenant.verified event
+  processRef: PROC-102
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-022
+  trigger: tenant verified
+  input: tenant event
+  output: NATS vanan.cloud.tenant.verified
+  exceptionHandling: NATS down → outbox retry
+  auditLog: true
+  moduleRef: SYS-009
+  apiRefs:
+  - API-105
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/TenantSyncSubscriber.cs@64789992
+  - 1_Shared/Domain/Aggregates/TenantAggregate/TenantEvents.cs@64789992
+- id: ACTV-110
+  name: ShopERP mirrors tenant row (SQLite)
+  processRef: PROC-102
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: tenant.verified event
+  input: tenant payload
+  output: SQLite Tenant row (Pending→Active)
+  exceptionHandling: idempotent upsert
+  auditLog: true
+  moduleRef: SYS-004
+  dataRefs:
+  - DATA-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/TenantSyncSubscriber.cs@64789992
+- id: ACTV-111
+  name: Bind KhachLink instance / domain
+  processRef: PROC-102
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: provisioning step
+  input: tenant slug/domain
+  output: KhachLinkInstance binding
+  exceptionHandling: domain conflict → admin review
+  auditLog: true
+  moduleRef: SYS-002
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 2_Gateway/Controllers/KhachLinkInstanceController.cs@64789992
+  - 2_Gateway/Controllers/DomainRegistrarController.cs@64789992
+- id: ACTV-112
+  name: Configure tenant feature settings
+  processRef: PROC-102
+  executionType: MANUAL
+  humanActorRef: ACTR-002
+  trigger: tenant active
+  input: feature selections
+  output: TenantFeatureSettings
+  exceptionHandling: invalid → defaults
+  auditLog: true
+  moduleRef: SYS-004
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/ShopFeatureSettingsService.cs@64789992
+- id: ACTV-113
+  name: MarkAsHtx + publish tenant.type.changed
+  processRef: PROC-103
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: HTX eligibility confirmed
+  input: tenant + HtxProfile
+  output: TenantType=HTX + NATS event
+  exceptionHandling: non-fatal publish; idempotent MarkAsHtx
+  auditLog: true
+  moduleRef: SYS-003
+  ruleRefs:
+  - RULE-004
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Membership/HtxProfileService.cs@64789992
+- id: ACTV-114
+  name: HTX membership registration (member types)
+  processRef: PROC-103
+  executionType: MANUAL
+  humanActorRef: ACTR-013
+  trigger: member joins HTX
+  input: member info + capital status
+  output: membership record (Official/LinkedCapital/LinkedNonCapital)
+  approvalRequired: true
+  exceptionHandling: duplicate → merge review
+  auditLog: true
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 1_Shared/Domain/Aggregates/MembershipAggregate/MembershipTypes.cs@64789992
+- id: ACTV-115
+  name: Tenant suspend / reactivate / deactivate
+  processRef: PROC-102
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: operator action
+  input: tenant + reason
+  output: tenant status change
+  exceptionHandling: suspend blocks ops
+  auditLog: true
+  moduleRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/TenantManagementService.cs@64789992
+- id: ACTV-201
+  name: Customer browses catalog / adds to cart
+  processRef: PROC-111
+  executionType: MANUAL
+  humanActorRef: ACTR-001
+  trigger: visit storefront
+  input: product catalog
+  output: cart items
+  exceptionHandling: —
+  auditLog: false
+  moduleRef: SYS-005
+  apiRefs:
+  - API-102
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/CatalogController.cs@64789992
+- id: ACTV-202
+  name: Customer submits checkout
+  processRef: PROC-111
+  executionType: MANUAL
+  humanActorRef: ACTR-001
+  trigger: checkout action
+  input: cart + info
+  output: checkout request (incl. ProductName+VatRate snapshot)
+  exceptionHandling: validation errors shown
+  auditLog: false
+  moduleRef: SYS-005
+  apiRefs:
+  - API-103
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/PublicOrdersController.cs@64789992
+- id: ACTV-203
+  name: Validate + create order in PG
+  processRef: PROC-111
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: checkout request
+  input: CheckoutOrderRequest
+  output: Order (PG SoT)
+  exceptionHandling: invalid tenant/request → 4xx; no Products query (client snapshot)
+  auditLog: true
+  moduleRef: SYS-002
+  apiRefs:
+  - API-103
+  dataRefs:
+  - DATA-004
+  ruleRefs:
+  - RULE-001
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/PublicOrdersController.cs@64789992
+- id: ACTV-204
+  name: Resolve ShopInstanceId + publish order.created
+  processRef: PROC-112
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: order created
+  input: order + routingKey
+  output: NATS vanan.cloud.order.created.{shopInstanceId}
+  exceptionHandling: missing ShopInstance → routing fail (error path)
+  auditLog: true
+  moduleRef: SYS-002
+  apiRefs:
+  - API-104
+  dataRefs:
+  - DATA-002
+  ruleRefs:
+  - RULE-002
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/PublicOrdersController.cs@64789992
+  - 5_WebApps/ShopERP/Services/OrderSyncSubscriber.cs@64789992
+- id: ACTV-205
+  name: ShopERP receives + persists order replica
+  processRef: PROC-112
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: order.created event
+  input: order payload
+  output: SQLite order replica
+  exceptionHandling: duplicate → idempotent; schema mismatch → error log
+  auditLog: true
+  moduleRef: SYS-004
+  dataRefs:
+  - DATA-005
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/OrderSyncSubscriber.cs@64789992
+- id: ACTV-206
+  name: Notify POS / kitchen display
+  processRef: PROC-112
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: replica saved
+  input: order
+  output: POS/kitchen notification
+  exceptionHandling: offline → shows on next poll
+  auditLog: false
+  moduleRef: SYS-004
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - none:signalr-mechanism-inferred
+- id: ACTV-207
+  name: Staff/owner confirms order
+  processRef: PROC-113
+  executionType: MANUAL
+  humanActorRef: ACTR-004
+  trigger: new order shown
+  input: order
+  output: status → Confirmed
+  approvalRequired: false
+  exceptionHandling: reject → cancelled path
+  auditLog: true
+  moduleRef: SYS-004
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - none:ui-confirmation-flow-inferred
+- id: ACTV-208
+  name: Kitchen prepares order
+  processRef: PROC-113
+  executionType: MANUAL
+  humanActorRef: ACTR-005
+  trigger: confirmed order
+  input: order items
+  output: status → Preparing/Ready
+  exceptionHandling: item unavailable → partial/cancel
+  auditLog: true
+  moduleRef: SYS-004
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 1_Shared/Domain/KitchenStatus.cs@64789992
+- id: ACTV-209
+  name: Publish order.status.changed + sync back to PG
+  processRef: PROC-113
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-022
+  trigger: status transition
+  input: status
+  output: vanan.cloud.order.status.changed.{si} + PG update via vanan.shoperp.*
+  exceptionHandling: sync lag → eventual consistency
+  auditLog: true
+  moduleRef: SYS-009
+  apiRefs:
+  - API-105
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/OrderSyncSubscriber.cs@64789992
+- id: ACTV-210
+  name: Customer tracks order status
+  processRef: PROC-113
+  executionType: MANUAL
+  humanActorRef: ACTR-001
+  trigger: wants status
+  input: order id
+  output: status view
+  exceptionHandling: not found → error page
+  auditLog: false
+  moduleRef: SYS-005
+  apiRefs:
+  - API-106
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/PublicOrdersController.cs@64789992
+- id: ACTV-211
+  name: Loyalty accrual on completion
+  processRef: PROC-113
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-022
+  trigger: order completed
+  input: order total
+  output: loyalty.changed.{deviceId} event
+  exceptionHandling: —
+  auditLog: true
+  moduleRef: SYS-003
+  apiRefs:
+  - API-107
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/AllianceWalletService.cs@64789992
+- id: ACTV-212
+  name: Order payment confirmed event
+  processRef: PROC-113
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: payment confirmed
+  input: payment
+  output: vanan.cloud.order.payment.confirmed.{si}
+  exceptionHandling: —
+  auditLog: true
+  moduleRef: SYS-003
+  apiRefs:
+  - API-108
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 3_CoreHub/Services/WalletService.cs@64789992
+- id: ACTV-301
+  name: Caller checks quota before metered op
+  processRef: PROC-121
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: metered operation requested
+  input: tenantId+serviceCode+estimate
+  output: allow/deny (+warn level)
+  exceptionHandling: check fail -> caller policy (fail-open; AI degrades)
+  auditLog: true
+  moduleRef: SYS-007
+  apiRefs:
+  - API-110
+  dataRefs:
+  - DATA-010
+  ruleRefs:
+  - RULE-007
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 8_Metering/vanan-metering@64789992
+- id: ACTV-302
+  name: Deny gate blocks operation
+  processRef: PROC-121
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-023
+  trigger: check returns deny=true
+  input: Enforcement=Deny && balance<required
+  output: operation blocked + wallet banner
+  exceptionHandling: —
+  auditLog: true
+  moduleRef: SYS-007
+  ruleRefs:
+  - RULE-007
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/.devin/rules/metering.md@64789992
+- id: ACTV-303
+  name: Tenant initiates top-up
+  processRef: PROC-122
+  executionType: MANUAL
+  humanActorRef: ACTR-002
+  trigger: low balance/depleted
+  input: top-up request
+  output: TOPUP-XXXXXXXX pending
+  exceptionHandling: lazy expiry after TTL 72h
+  auditLog: true
+  moduleRef: SYS-007
+  apiRefs:
+  - API-110
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/.devin/rules/metering.md@64789992
+- id: ACTV-304
+  name: Admin confirms top-up - grant + cycle reset
+  processRef: PROC-122
+  executionType: MANUAL
+  humanActorRef: ACTR-014
+  trigger: payment verified
+  input: topup request
+  output: CreditLedger grant + alerts reset
+  approvalRequired: true
+  exceptionHandling: idempotent replay; unique partial index blocks double-confirm
+  auditLog: true
+  moduleRef: SYS-007
+  ruleRefs:
+  - RULE-008
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/.devin/rules/metering.md@64789992
+- id: ACTV-305
+  name: Usage ingest + deduct in one tx
+  processRef: PROC-123
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-023
+  trigger: metered op completed
+  input: UsageEvent + Idempotency-Key
+  output: applied=min(required,balance); excess->UnpaidCredits
+  exceptionHandling: replay -> returns existing event (no double deduct)
+  auditLog: true
+  moduleRef: SYS-007
+  apiRefs:
+  - API-110
+  dataRefs:
+  - DATA-010
+  ruleRefs:
+  - RULE-009
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/.devin/rules/metering.md@64789992
+- id: ACTV-306
+  name: Balance alerts fire (50/10/0)
+  processRef: PROC-123
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-023
+  trigger: balance threshold crossing
+  input: GrantedTotal %
+  output: Warn50/Warn90/Depleted alert (per CycleKey)
+  exceptionHandling: cycle reset refires
+  auditLog: true
+  moduleRef: SYS-007
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/.devin/rules/metering.md@64789992
+- id: ACTV-307
+  name: Accountant enters voucher (form or Smart Entry)
+  processRef: PROC-131
+  executionType: MANUAL
+  humanActorRef: ACTR-006
+  trigger: business document
+  input: voucher data / natural text
+  output: draft voucher
+  exceptionHandling: validation errors
+  auditLog: true
+  moduleRef: SYS-004
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Vouchers/VoucherFramework.cs@64789992
+- id: ACTV-308
+  name: Smart Entry LLM parse enhancement
+  processRef: PROC-131
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-031
+  trigger: Smart Entry input
+  input: natural text
+  output: structured fields (schema-validated merge)
+  exceptionHandling: LLM fail -> fail-closed deterministic parse only
+  auditLog: true
+  moduleRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/LlmEnhanceVoucherTextParseService.cs@64789992
+- id: ACTV-309
+  name: Resolve intent -> voucher type
+  processRef: PROC-131
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: submission
+  input: VoucherIntent
+  output: VoucherTypeDefinition
+  exceptionHandling: unresolved intent -> form/manual journal
+  auditLog: true
+  moduleRef: SYS-003
+  ruleRefs:
+  - RULE-010
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Vouchers/VoucherFramework.cs@64789992
+- id: ACTV-310
+  name: Posting strategy creates journal entries
+  processRef: PROC-132
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: resolved type
+  input: VoucherSubmission
+  output: journal entries (AccountingEntry immutable)
+  exceptionHandling: strategy validation fail -> no posting
+  auditLog: true
+  moduleRef: SYS-003
+  dataRefs:
+  - DATA-009
+  ruleRefs:
+  - RULE-011
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Vouchers/VoucherFramework.cs@64789992
+- id: ACTV-311
+  name: Voucher number generation (sequence)
+  processRef: PROC-132
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: posting
+  input: voucher type
+  output: sequential voucher number
+  exceptionHandling: sequence gaps -> manual review
+  auditLog: true
+  moduleRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/VoucherNumberService.cs@64789992
+- id: ACTV-312
+  name: Correction via reversal entry
+  processRef: PROC-132
+  executionType: MANUAL
+  humanActorRef: ACTR-006
+  trigger: error found post-commit
+  input: original entry
+  output: reversal entry (append-only)
+  approvalRequired: true
+  exceptionHandling: never edit original - immutability hard rule
+  auditLog: true
+  moduleRef: SYS-004
+  dataRefs:
+  - DATA-009
+  ruleRefs:
+  - RULE-012
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain.cs@64789992
+- id: ACTV-401
+  name: Customer asks via widget
+  processRef: PROC-141
+  executionType: MANUAL
+  humanActorRef: ACTR-001
+  trigger: question in AiChatWidget
+  input: natural text
+  output: chat request
+  auditLog: false
+  moduleRef: SYS-005
+  apiRefs:
+  - API-111
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - UI.Platform/Components/Ai/AiChatWidget.razor@64789992
+- id: ACTV-402
+  name: Gateway resolves tenant + signs ctx
+  processRef: PROC-142
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: widget call
+  input: session/host
+  output: HMAC X-Tenant-Ctx + scoped call
+  exceptionHandling: bad ctx -> 401
+  auditLog: true
+  moduleRef: SYS-002
+  apiRefs:
+  - API-111
+  ruleRefs:
+  - RULE-013
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Services/TenantAiContextSigner.cs@64789992
+- id: ACTV-403
+  name: Metering check for ai.chat
+  processRef: PROC-144
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-023
+  trigger: chat request
+  input: serviceCode ai.chat.message
+  output: allow or degrade
+  exceptionHandling: deny/fail -> degrade structured-only (NOT fail-open)
+  auditLog: true
+  moduleRef: SYS-008
+  apiRefs:
+  - API-110
+  ruleRefs:
+  - RULE-014
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: ACTV-404
+  name: Intent + policy + permission filter
+  processRef: PROC-141
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-030
+  trigger: authorized request
+  input: message + ctx
+  output: intent + allowed knowledge scope
+  exceptionHandling: out-of-scope -> refuse/fallback
+  auditLog: true
+  moduleRef: SYS-008
+  ruleRefs:
+  - RULE-015
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: ACTV-405
+  name: Structured + RAG retrieval
+  processRef: PROC-141
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-030
+  trigger: intent resolved
+  input: tenant data + approved knowledge
+  output: grounded context
+  exceptionHandling: structured beats vector on conflict (RULE-016); stale -> strip
+    volatile claims
+  auditLog: true
+  moduleRef: SYS-008
+  dataRefs:
+  - DATA-011
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: ACTV-406
+  name: LLM draft + answer validation
+  processRef: PROC-141
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-030
+  trigger: context ready
+  input: prompt + context
+  output: grounded answer or refuse
+  exceptionHandling: ungrounded -> refuse/safe fallback
+  auditLog: true
+  moduleRef: SYS-008
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: ACTV-407
+  name: Product suggestion -> cart (NOT order)
+  processRef: PROC-141
+  executionType: MANUAL
+  humanActorRef: ACTR-001
+  trigger: answer with products
+  input: suggested products
+  output: cart add -> normal checkout (F1)
+  exceptionHandling: AI never creates order (RULE-017)
+  auditLog: true
+  moduleRef: SYS-005
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: ACTV-408
+  name: Knowledge ingest (products:batch / documents)
+  processRef: PROC-143
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-030
+  trigger: tenant sync/upload
+  input: products batch or docs
+  output: pending_review knowledge
+  exceptionHandling: idempotent ingest
+  auditLog: true
+  moduleRef: SYS-008
+  apiRefs:
+  - API-114
+  dataRefs:
+  - DATA-011
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 9_TenantAI/vanan-ai/src/VanAn.TenantAi.Api/Program.cs@64789992
+- id: ACTV-409
+  name: Operator approves knowledge
+  processRef: PROC-143
+  executionType: MANUAL
+  humanActorRef: ACTR-015
+  trigger: pending_review item
+  input: knowledge doc
+  output: approved (publicly retrievable)
+  approvalRequired: true
+  exceptionHandling: reject -> stays unpublished
+  auditLog: true
+  moduleRef: SYS-008
+  apiRefs:
+  - API-114
+  ruleRefs:
+  - RULE-018
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 9_TenantAI/vanan-ai/src/VanAn.TenantAi.Api/Program.cs@64789992
+- id: ACTV-410
+  name: Session persistence & resume
+  processRef: PROC-141
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-030
+  trigger: chat exchange
+  input: sessionId
+  output: messages persisted (90d retention)
+  exceptionHandling: session cap 20 msg/h
+  auditLog: true
+  moduleRef: SYS-008
+  dataRefs:
+  - DATA-011
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 9_TenantAI/vanan-ai/src/VanAn.TenantAi.Api/Program.cs@64789992
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: ACTV-501
+  name: Accrue points on order completion
+  processRef: PROC-151
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-022
+  trigger: order completed/payment confirmed
+  input: order total + rules
+  output: loyalty.changed.{deviceId} event
+  exceptionHandling: outbox fallback if NATS fails
+  auditLog: true
+  moduleRef: SYS-003
+  apiRefs:
+  - API-107
+  ruleRefs:
+  - RULE-019
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/LoyaltyBalanceSyncPublisher.cs@64789992
+- id: ACTV-502
+  name: ShopERP mirrors loyalty balance
+  processRef: PROC-151
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-021
+  trigger: loyalty.changed event
+  input: balance payload
+  output: SQLite mirror (offline-first display)
+  exceptionHandling: wildcard sub loyalty.changed.>
+  auditLog: true
+  moduleRef: SYS-004
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/LoyaltySyncSubscriber.cs@64789992
+- id: ACTV-503
+  name: Operator configures loyalty rules
+  processRef: PROC-152
+  executionType: MANUAL
+  humanActorRef: ACTR-014
+  trigger: policy change
+  input: rule config
+  output: loyalty.config.changed event
+  approvalRequired: true
+  exceptionHandling: —
+  auditLog: true
+  moduleRef: SYS-002
+  apiRefs:
+  - API-107
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/LoyaltyConfigController.cs@64789992
+- id: ACTV-504
+  name: Customer redeems via catalog
+  processRef: PROC-152
+  executionType: MANUAL
+  humanActorRef: ACTR-001
+  trigger: enough balance
+  input: redemption choice
+  output: redemption record
+  exceptionHandling: insufficient -> blocked
+  auditLog: true
+  moduleRef: SYS-002
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/GlobalRedemptionCatalogController.cs@64789992
+  - 2_Gateway/Controllers/RedemptionController.cs@64789992
+- id: ACTV-505
+  name: Budget control on loyalty spend
+  processRef: PROC-152
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: redemption/accrual
+  input: budget limits
+  output: allow/deny per budget
+  exceptionHandling: over-budget -> hold
+  auditLog: true
+  moduleRef: SYS-002
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 2_Gateway/Controllers/LoyaltyBudgetController.cs@64789992

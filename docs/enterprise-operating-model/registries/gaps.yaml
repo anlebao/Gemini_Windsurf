@@ -1,0 +1,210 @@
+# Gap & Improvement Registry — prefix GAP-xxx
+# Automation gaps per SRS 9.3 (10 classes + AI_BOUNDARY).
+# Schema: schema/gaps.schema.json · validate: scripts/validate-twin.py
+registry: gaps
+idPrefix: GAP
+schemaVersion: 1
+entries:
+- id: GAP-001
+  title: Sales field acquisition has no software support
+  gapClass: MANUAL_AUTOMATABLE
+  activityRef: ACTV-101
+  asIs: salesperson tracks leads manually
+  toBe: lead/CRM tracking in platform
+  priority: MEDIUM
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - docs/requirements/shipper_saleman_role.md@64789992
+  decision: DEFER — after core items
+  decidedBy: owner
+  decidedAt: '2026-11-07'
+- id: GAP-002
+  title: KYC L4 manual verification load
+  gapClass: MANUAL_AUTOMATABLE
+  activityRef: ACTV-106
+  asIs: Hạt Nhân verifies manually
+  toBe: keep human decision; add document checklist tooling (partial automation)
+  priority: MEDIUM
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 1_Shared/Domain/Aggregates/MembershipAggregate/MembershipTypes.cs@64789992
+  decision: APPROVE partial (checklist tooling only)
+  decidedBy: owner
+  decidedAt: '2026-11-07'
+- id: GAP-003
+  title: HTX member registration manual
+  gapClass: MANUAL_AUTOMATABLE
+  activityRef: ACTV-114
+  asIs: member records handled manually
+  toBe: member portal + auto classification by type
+  priority: HIGH
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 1_Shared/Domain/Aggregates/MembershipAggregate/MembershipTypes.cs@64789992
+  decision: 'APPROVE — #1 strategic (member portal)'
+  decidedBy: owner
+  decidedAt: '2026-11-07'
+- id: GAP-004
+  title: Order routing-miss monitoring absent
+  gapClass: MISSING_AUDIT_APPROVAL
+  activityRef: ACTV-204
+  asIs: no alert when ShopInstance route missing
+  toBe: dead-letter monitor + alert + replay tool
+  priority: HIGH
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 5_WebApps/ShopERP/Services/OrderSyncSubscriber.cs@64789992
+  decision: APPROVE via CTRL-009
+  decidedBy: owner
+  decidedAt: '2026-11-07'
+- id: GAP-005
+  title: Marketplace capability unimplemented
+  gapClass: MISSING_FEATURE
+  asIs: CAP-014 ASSUMED — no code evidence
+  toBe: owner decide scope
+  priority: LOW
+  status: ACTIVE
+  confidence: ASSUMED
+  evidence:
+  - none:no-code-found
+  decision: PARK — product strategy decision
+  decidedBy: owner
+  decidedAt: '2026-11-07'
+- id: GAP-006
+  title: Procurement thin implementation
+  gapClass: MISSING_FEATURE
+  asIs: CAP-013 inferred only
+  toBe: owner decide scope
+  priority: LOW
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - none:partial-only
+  decision: PARK
+  decidedBy: owner
+  decidedAt: '2026-11-07'
+- id: GAP-007
+  title: MeteringApiClient duplicated ×4
+  gapClass: DUPLICATE_FUNCTIONALITY
+  asIs: copies in Gateway/Directory/ShopERP/vanan-ai
+  toBe: shared client package or accept per-service copy (documented decision)
+  priority: MEDIUM
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Services/MeteringApiClient.cs@64789992
+  - 9_TenantAI/vanan-ai/src/VanAn.TenantAi.Infra/MeteringClient.cs@64789992
+  decision: APPROVE document-only (accept duplication, record decision)
+  decidedBy: owner
+  decidedAt: '2026-11-07'
+- id: GAP-008
+  title: Order cancel/reversal capture unclear
+  gapClass: UNKNOWN
+  activityRef: ACTV-207
+  asIs: rejection path exists but reason/audit capture unverified
+  toBe: verify + document
+  priority: MEDIUM
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - none:unverified
+  decision: APPROVE as investigation
+  decidedBy: owner
+  decidedAt: '2026-11-07'
+- id: GAP-009
+  title: Two 'recommended' endpoints conflation risk
+  gapClass: INCONSISTENT_RULE
+  asIs: /api/catalog/recommended (PG) vs /api/products/recommended (forwarded)
+  toBe: document distinction or rename one
+  priority: LOW
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/CatalogController.cs@64789992
+  - 2_Gateway/Controllers/ProductsController.cs@64789992
+  decision: APPROVE document-only
+  decidedBy: owner
+  decidedAt: '2026-11-07'
+- id: GAP-010
+  title: vanan.shoperp.* reverse subjects undocumented
+  gapClass: UNKNOWN
+  asIs: prefix verified, subject list not enumerated
+  toBe: enumerate in integration map (X0/P3-followup)
+  priority: MEDIUM
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 3_CoreHub/Services/NatsSyncWorker.cs@64789992
+  decision: APPROVE as investigation
+  decidedBy: owner
+  decidedAt: '2026-11-07'
+- id: GAP-011
+  title: AI degrade path observability
+  gapClass: AI_BOUNDARY
+  asIs: degrade/refuse policy exists; production observability of degraded answers
+    unverified
+  toBe: degraded-rate metric + alert (metering MeterOnly signal usable)
+  priority: MEDIUM
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+  decision: APPROVE
+  decidedBy: owner
+  decidedAt: '2026-11-07'
+- id: GAP-012
+  title: KYC document retention/deletion unevidenced
+  gapClass: SECURITY_PERMISSION
+  asIs: no retention policy found for KYC docs
+  toBe: define retention + access audit
+  priority: HIGH
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - none:unverified
+  decision: APPROVE via CTRL-010
+  decidedBy: owner
+  decidedAt: '2026-11-07'
+- id: GAP-013
+  title: Metering DB still SQLite GĐ-1 (PG migration P13)
+  gapClass: DATA_INCONSISTENCY
+  asIs: decimal-as-TEXT pitfalls require CAST everywhere
+  toBe: P13 migration to PG numeric
+  priority: MEDIUM
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/.devin/rules/metering.md@64789992
+  decision: KNOWN - P13 planned
+  decidedBy: owner
+  decidedAt: '2026-11-07'
+- id: GAP-014
+  title: Caller fail-open vs AI stricter degrade inconsistency
+  gapClass: INCONSISTENT_RULE
+  asIs: default callers fail-open; vanan-ai degrades structured-only
+  toBe: document per-caller policy matrix
+  priority: LOW
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/.devin/rules/metering.md@64789992
+  decision: DOCUMENT - by design per AI SRS
+  decidedBy: owner
+  decidedAt: '2026-11-07'
+- id: GAP-015
+  title: Loyalty budget controller behavior unverified at activity level
+  gapClass: UNKNOWN
+  asIs: LoyaltyBudgetController exists; deny semantics not verified
+  toBe: verify at X-card followup
+  priority: LOW
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 2_Gateway/Controllers/LoyaltyBudgetController.cs@64789992
+  decision: INVESTIGATE later
+  decidedBy: owner
+  decidedAt: '2026-11-07'

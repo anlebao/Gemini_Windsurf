@@ -1,0 +1,127 @@
+# Data Entity Registry — prefix DATA-xxx
+# Data entities + system-of-record flag (SRS 8.1-8.3).
+# Schema: schema/data-entities.schema.json · validate: scripts/validate-twin.py
+registry: data-entities
+idPrefix: DATA
+schemaVersion: 1
+entries:
+- id: DATA-001
+  name: Tenant
+  store: PG_GATEWAY
+  systemOfRecord: true
+  classification: tenant/identity
+  ownerRef: ORG-001
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Infrastructure/VanAnDbContext.cs@64789992
+- id: DATA-002
+  name: ShopInstance
+  store: PG_GATEWAY
+  systemOfRecord: true
+  classification: infra/routing
+  ownerRef: ORG-001
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain/ShopInstance.cs@64789992
+- id: DATA-003
+  name: Tenant mirror
+  store: SQLITE_TENANT
+  systemOfRecord: false
+  classification: tenant mirror
+  ownerRef: ORG-005
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/TenantSyncSubscriber.cs@64789992
+- id: DATA-004
+  name: Order
+  store: PG_GATEWAY
+  systemOfRecord: true
+  classification: transactions
+  ownerRef: ORG-001
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/PublicOrdersController.cs@64789992
+- id: DATA-005
+  name: Order replica
+  store: SQLITE_TENANT
+  systemOfRecord: false
+  classification: POS/kitchen display
+  ownerRef: ORG-005
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/OrderSyncSubscriber.cs@64789992
+- id: DATA-006
+  name: Products
+  store: SQLITE_TENANT
+  systemOfRecord: true
+  classification: catalog
+  ownerRef: ORG-005
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Infrastructure/ShopERPDbContext.cs@64789992
+- id: DATA-007
+  name: Membership application
+  store: PG_GATEWAY
+  systemOfRecord: true
+  classification: onboarding
+  ownerRef: ORG-001
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain/Aggregates/MembershipAggregate/MembershipTypes.cs@64789992
+- id: DATA-008
+  name: HtxProfile
+  store: PG_GATEWAY
+  systemOfRecord: true
+  classification: HTX marker
+  ownerRef: ORG-001
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Membership/HtxProfileService.cs@64789992
+- id: DATA-009
+  name: AccountingEntry (immutable)
+  store: PG_GATEWAY
+  systemOfRecord: true
+  classification: accounting — append-only, reversal-only
+  ownerRef: ORG-005
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain.cs@64789992
+- id: DATA-010
+  name: Wallet + usage + top-ups
+  store: PG_METERING
+  systemOfRecord: true
+  classification: financial records
+  ownerRef: ORG-001
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 8_Metering/vanan-metering@64789992
+- id: DATA-011
+  name: Tenant AI knowledge + embeddings + sessions
+  store: PG_TENANTAI
+  systemOfRecord: true
+  classification: AI knowledge (approved-only public)
+  ownerRef: ORG-005
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 9_TenantAI/vanan-ai@64789992
+- id: DATA-012
+  name: Membership application + HtxProfile
+  store: PG_GATEWAY
+  systemOfRecord: true
+  classification: onboarding/HTX
+  ownerRef: ORG-001
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 1_Shared/Domain/Aggregates/MembershipAggregate/MembershipTypes.cs@64789992

@@ -1,0 +1,153 @@
+# Control Registry — prefix CTRL-xxx
+# Control mechanisms (SRS 10).
+# Schema: schema/controls.schema.json · validate: scripts/validate-twin.py
+registry: controls
+idPrefix: CTRL
+schemaVersion: 1
+entries:
+- id: CTRL-001
+  name: AccountingEntry immutability
+  type: PREVENTIVE
+  description: append-only; corrections via reversal entries only
+  status: ACTIVE
+  confidence: VERIFIED
+  activityRefs:
+  - ACTV-203
+  evidence:
+  - 1_Shared/Domain.cs@64789992
+- id: CTRL-002
+  name: Tenant isolation (TenantId)
+  type: PREVENTIVE
+  description: every entity carries TenantId; filter by direct property comparison
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain.cs@64789992
+- id: CTRL-003
+  name: Metering deny gate
+  type: PREVENTIVE
+  description: quota exhaustion blocks metered operations; AI uses stricter degrade
+    policy
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 8_Metering/vanan-metering@64789992
+- id: CTRL-004
+  name: AI knowledge approval gate
+  type: PREVENTIVE
+  description: pending_review → approved; only approved retrievable publicly
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: CTRL-005
+  name: Signed tenant context (AI)
+  type: PREVENTIVE
+  description: HMAC-signed X-Tenant-Ctx; caller scopes; allowlist
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Services/TenantAiContextSigner.cs@64789992
+- id: CTRL-006
+  name: Internal API key (cross-VPS)
+  type: PREVENTIVE
+  description: X-Internal-Api-Key on internal endpoints
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Filters/InternalApiKeyAttribute.cs@64789992
+- id: CTRL-007
+  name: DevToken gate
+  type: PREVENTIVE
+  description: DevToken__Secret unset by default; dev-token endpoint 404
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - none:rules-doc
+- id: CTRL-008
+  name: DevToken/dev endpoints
+  type: DETECTIVE
+  description: RV-window secrets inline-only, removed+verified after
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - none:rules-doc
+- id: CTRL-009
+  name: Order routing dead-letter monitor (PROPOSED)
+  type: DETECTIVE
+  description: alert on orders with no ShopInstance delivery + replay
+  status: APPROVED
+  confidence: INFERRED
+  riskRefs:
+  - RISK-001
+  evidence:
+  - none:proposal
+  approvedBy: owner
+  approvedAt: '2026-11-07'
+- id: CTRL-010
+  name: KYC retention policy (PROPOSED)
+  type: PREVENTIVE
+  description: retention window + access audit for identity docs
+  status: APPROVED
+  confidence: INFERRED
+  riskRefs:
+  - RISK-005
+  evidence:
+  - none:proposal
+  approvedBy: owner
+  approvedAt: '2026-11-07'
+- id: CTRL-011
+  name: Idempotency dedup (metering ingest)
+  type: PREVENTIVE
+  description: unique (CallerId,Key) -> replay tra event cu, khong double-deduct
+  status: ACTIVE
+  confidence: VERIFIED
+  activityRefs:
+  - ACTV-305
+  evidence:
+  - docs/.devin/rules/metering.md@64789992
+- id: CTRL-012
+  name: Metering append-only ledger
+  type: PREVENTIVE
+  description: CreditLedgerEntry/AuditLog/UsageEvent/RateCardVersion append-only
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-003
+  evidence:
+  - docs/.devin/rules/metering.md@64789992
+- id: CTRL-013
+  name: Reversal-only correction
+  type: CORRECTIVE
+  description: accounting corrections = reversal entries, original untouched
+  status: ACTIVE
+  confidence: VERIFIED
+  activityRefs:
+  - ACTV-312
+  evidence:
+  - 1_Shared/Domain.cs@64789992
+- id: CTRL-014
+  name: AI usage permission post-filter
+  type: PREVENTIVE
+  description: context filter intent x classification x channel before LLM prompt
+    (defense-in-depth)
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-002
+  activityRefs:
+  - ACTV-404
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: CTRL-015
+  name: Staleness stripping
+  type: CORRECTIVE
+  description: stale knowledge -> strip volatile claims (price/stock), keep stable
+    facts + flag
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs: []
+  activityRefs:
+  - ACTV-405
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
