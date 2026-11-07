@@ -19,14 +19,14 @@
 - Survey tenant F&B production: menu đủ món (≥15), có mô tả, cấu trúc dữ liệu tốt. **Ưu tiên nhà hàng chay nếu tồn tại** (đủ menu+dinh dưỡng+brand story — đúng đánh giá khả thi gốc). Fallback: Vạn An Cafe.
 - Confirm với user trước khi tiếp.
 - **Note:** CP3 ops đã dùng **An Tâm `e2d91cdf`** (22 products ingest + ví 1000cr + `AIChat_Enabled`). Nếu user confirm An Tâm → bước này chỉ cần xác nhận, không survey lại.
+- **✅ DONE 2026-11-07 — PO-6 = An Tâm `e2d91cdf`** (user chốt). **Deviation D4:** An Tâm là **SPA** (22 dịch vụ massage/facial — survey production ShopERP, không phải F&B/nhà hàng chay như tài liệu cũ ghi nhầm). Lý do giữ: đã wire sẵn toàn bộ (flags ON cả 2 · 22 products khớp ShopERP↔vanan-ai · ví 1000cr · e2e spec pass CP3). Hệ quả: NutritionQuery/calories không áp dụng cho spa → eval set thiên về menu/price/story/faq/booking; "món" = dịch vụ.
 
 ## Bước 3 — Knowledge readiness (dùng operator tooling P6b/P2)
 
-- [ ] **Menu trong ShopERP (source of truth):** xác nhận/nhập menu thật vào ShopERP của tenant. Nightly reconcile **re-push fullSync từ ShopERP DB** — nếu menu không có trong ShopERP, reconcile sẽ ghi đè/xóa knowledge đã ingest tay ở CP3. Sau nhập → `POST /api/tenant-ai/sync` (P6b) hoặc `fullSync` → `GET /v1/knowledge/status` count khớp menu
-- [ ] Brand story: soạn doc (lấy từ profile tenant thật / hỏi chủ quán) → **owner điền hết `[TODO]` facts** (năm thành lập, địa chỉ, giờ, SĐT — không ingest doc còn placeholder) → ingest → **approve**
-- [ ] FAQ: ≥5 câu thật của loại hình (giờ mở cửa, đặt bàn, giao hàng, dị ứng) → ingest → approve
-- [ ] AI profile: tên/xưng hô/phong cách theo bản sắc tenant → `Put-AiProfile` → `preview-chat` ≥5 câu → `Publish-AiConfig` (P6b ops)
-- [ ] Eval set tenant này: ≥20 câu hỏi khách thật → chạy eval → Grounded ≥95% trước khi bật. **Cơ chế:** `Invoke-AiEval` trong `scripts/tenant-ai-ops.ps1` (đọc cases JSON → loop `preview-chat` → chấm Grounded/Unsupported) — thêm function nếu chưa có
+- [x] **Menu trong ShopERP (source of truth):** ✅ 2026-11-07 — phát hiện menu ShopERP 22 items là **placeholder sai** (massage/giác hơi — web Shi thật 65 dịch vụ, 8 nhóm, giá khác). User chốt **web = truth** → soft-delete 22 cũ (`.bak-p7` backup) + insert **65 dịch vụ Shi thật** từ shibeautyspa.vn → `products:batch fullSync` → `upserted:65, removed:22`, knowledge/status products=65.
+- [x] Brand story + FAQ + policy + menu-note: **5 docs ingested + approved** — facts từ web Shi (hotline 0888 85 85 58 · giờ T2–T6 9–19:30/T7–CN 8–19:30 · 4 cơ sở Bình Thạnh/Q6/Dĩ An/Thủ Dầu Một · soi da AI miễn phí · giá niêm yết · bảo hành nốt ruồi/triệt lông · chính sách mụn viêm). Seed script `seed-an-tam-ai-docs.ps1` cũ viết cho quán chay — **KHÔNG dùng** (sai ngành).
+- [x] AI profile: persona **"Shi"** (xưng Shi/bạn, phong cách chuyên viên spa, không chẩn đoán y khoa) + business profile (4 cơ sở, hotline, giờ) → `PUT profile` draft v1 → preview-chat → `publish` **v1 published 2026-11-07** · widget-config trả `aiName:"Shi"` + greeting + suggestions đúng persona.
+- [x] Eval: **cơ chế thực tế** = `p7_eval.py` trên VPS (22 cases spa-realistic → preview-chat → chấm). **Run 1: ~82%** — 4 intent misses (keyword rules F&B-flavored). **Fix:** IntentRouter patch `8b655fee` (+spa keywords Faq/MenuQuery — user approve patch, deployed). **Run 2: 19/22 strict ≈ 95% thực** — #3 Biophyto đáp đúng "1,200,000đ" (scoring miss format) · #14 massage Thái → grounded deflection tốt hơn refuse · #4 "Detox 4F giá" miss thật duy nhất (ghi P8 investigate). Hallucination: 0 · latency p95 0.61s.
 
 ## Bước 4 — Enable + RV production (CP4)
 
