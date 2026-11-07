@@ -64,7 +64,12 @@ public sealed class IntentRouter(ILlmChatClient llm, ILogger<IntentRouter> logge
         [
             "gio mo", "may gio", "mo cua", "dong cua", "dia chi", "o dau",
             "giao hang", "ship", "doi tra", "chinh sach", "wifi", "dau xe",
-            "giu xe", "khuyen mai", "giam gia", "voucher", "ban giao"
+            "giu xe", "khuyen mai", "giam gia", "voucher", "ban giao",
+            // P7 spa pilot: ops/policy vocabulary (không từ liên quan giá —
+            // Faq đứng trước PriceQuery, "bao gia"/"gia" sẽ nuốt price questions).
+            "soi da", "bao hanh", "dat lich", "dat hen", "lien he", "hotline",
+            "so dien thoai", "sdt", "co so", "chi nhanh", "nhan vien",
+            "chuyen vien", "ky thuat vien", "cuoi tuan", "chu nhat", "ngay le"
         ]),
         (ChatIntents.PriceQuery,
         [
@@ -74,7 +79,14 @@ public sealed class IntentRouter(ILlmChatClient llm, ILogger<IntentRouter> logge
         [
             "menu", "thuc don", "mon gi", "co mon", "mon an", "do uong",
             "mon nao", "goi y mon", "xem mon", "nen an gi", "nen uong gi",
-            "mon chay", "mon man", "trang mieng", "dessert"
+            "mon chay", "mon man", "trang mieng", "dessert",
+            // P7 spa pilot: service/treatment vocabulary (menu = catalog,
+            // không riêng đồ ăn). "mun "/"tham " kèm space tránh false-match.
+            "dich vu", "triet long", "nhan mun", "lay nhan", "tri mun",
+            "not ruoi", "mun thit", "phuc hoi", "corticoid", "detox",
+            "peel", "cham soc da", "facial", "massage", "dien di",
+            "cap am", "sang da", "kiem nhon", "lieu trinh", "goi buoi",
+            "lam dep", "cham soc", "dich vu nao", "lam gi"
         ]),
         (ChatIntents.ChitChat,
         [
