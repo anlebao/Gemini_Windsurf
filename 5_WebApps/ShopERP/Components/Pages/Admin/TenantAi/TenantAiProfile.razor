@@ -145,7 +145,7 @@
                                 <option value="0">— Chọn phiên bản rollback —</option>
                                 @foreach (var v in _profile.RecentVersions.Where(v => v.Status != "draft"))
                                 {
-                                    <option value="@v.Version">v@v.Version (@v.Status) — @v.AiName</option>
+                                    <option value="@v.Version">v@(v.Version) (@v.Status) — @v.AiName</option>
                                 }
                             </select>
                             <VanAButton Variant="warning" Size="small" OnClick="() => _confirmRollback = true"
