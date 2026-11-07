@@ -1,0 +1,274 @@
+@page "/admin/tenant-ai/policy"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StaffOrAbove")]
+@using Microsoft.AspNetCore.Authorization
+@using System.Text.Json
+@using VanAn.UI.Platform.Components
+@using VanAn.Shared.Domain.Common
+@using VanAn.Shared.Services
+@using VanAn.ShopERP.Services
+@inject ITenantAiClient AiClient
+@inject IShopFeatureSettingsService FeatureSettings
+@inject ITenantProvider TenantProvider
+@inject ILogger<TenantAiPolicy> Logger
+
+@* Task AI-P10 — chính sách AI per-tenant (SRS §3.1-P2): refused topics +
+   intent scopes ({"Intent": false} = tắt intent). externalAllow = read-only (P3). *@
+<PageTitle>Chính sách trợ lý AI</PageTitle>
+
+<div class="tenant-ai-policy" data-testid="tenant-ai-policy">
+    <header class="page-header">
+        <h1>
+            <a href="/admin/tenant-ai" class="text-decoration-none text-muted me-2"><i class="bi bi-arrow-left"></i></a>
+            Chính sách trợ lý AI
+        </h1>
+    </header>
+
+    @if (_flagChecked && !_flagOn)
+    {
+        <VanAAlert Variant="info" Message="Tenant AI chưa bật — bật tại Cấu hình tính năng Shop." />
+        <a href="/settings/shop-features" class="btn btn-outline-primary btn-sm">Mở cấu hình tính năng</a>
+    }
+    else if (_flagOn)
+    {
+        @if (!string.IsNullOrEmpty(_alert))
+        {
+            <VanAAlert Variant="@_alertVariant" Message="@_alert" Dismissible="true" OnDismiss="() => _alert = null" />
+        }
+
+        @if (_loading)
+        {
+            <VanACard><div class="loading-state"><VanASpinner /><p>Đang tải chính sách...</p></div></VanACard>
+        }
+        else if (_noConfig)
+        {
+            <VanACard>
+                <div class="empty-state">
+                    <i class="bi bi-shield-exclamation" style="font-size: 2.5rem; color: #6c757d;"></i>
+                    <p class="mt-2">
+                        Chính sách gắn với phiên bản cấu hình — quán chưa có hồ sơ trợ lý.
+                        Tạo Draft trước tại <a href="/admin/tenant-ai/profile">Hồ sơ &amp; Persona</a>.
+                    </p>
+                </div>
+            </VanACard>
+        }
+        else if (_policy != null)
+        {
+            <div class="row g-3">
+                <div class="col-lg-6">
+                    <VanACard Header="Chủ đề AI từ chối trả lời" data-testid="card-refused-topics">
+                        <p class="text-muted small">
+                            Tin nhắn khách chứa các từ khóa này → AI từ chối lịch sự (không gọi mô hình).
+                            VD: <code>giá sỉ</code>, <code>bệnh lý</code>, <code>chính trị</code>.
+                        </p>
+                        <div class="d-flex flex-wrap gap-2 mb-2" data-testid="refused-topic-chips">
+                            @foreach (var topic in _refusedTopics)
+                            {
+                                <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle p-2">
+                                    @topic
+                                    <button type="button" class="btn-close btn-close-sm ms-1" style="font-size:.6rem;"
+                                            aria-label="Xóa" @onclick="() => _refusedTopics.Remove(topic)"></button>
+                                </span>
+                            }
+                            @if (_refusedTopics.Count == 0)
+                            {
+                                <span class="text-muted small">Chưa có chủ đề nào bị chặn.</span>
+                            }
+                        </div>
+                        <div class="input-group" style="max-width: 420px;">
+                            <input class="form-control" @bind="_newTopic" @bind:event="oninput"
+                                   @onkeydown="OnTopicKeyDown" placeholder="Thêm chủ đề bị chặn..."
+                                   data-testid="input-new-topic" />
+                            <VanAButton Variant="secondary" OnClick="AddTopic"
+                                        Disabled="@(string.IsNullOrWhiteSpace(_newTopic))"
+                                        data-testid="btn-add-topic">
+                                Thêm
+                            </VanAButton>
+                        </div>
+                    </VanACard>
+                </div>
+                <div class="col-lg-6">
+                    <VanACard Header="Phạm vi câu hỏi (intent)" data-testid="card-intent-scopes">
+                        <p class="text-muted small">
+                            Tắt intent → AI từ chối loại câu hỏi đó. Mặc định tất cả đang BẬT.
+                        </p>
+                        @foreach (var intent in IntentLabels)
+                        {
+                            <div class="form-check form-switch" data-testid="intent-toggle-@intent.Key">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="intent-@intent.Key"
+                                       checked="@(!_disabledIntents.Contains(intent.Key))"
+                                       @onchange="(e) => ToggleIntent(intent.Key, e.Value is true)" />
+                                <label class="form-check-label" for="intent-@intent.Key">
+                                    <strong>@intent.Key</strong> <span class="text-muted small">— @intent.Label</span>
+                                </label>
+                            </div>
+                        }
+                    </VanACard>
+
+                    <VanACard Header="Nguồn kiến thức ngoài" CssClass="mt-3" data-testid="card-external-allow">
+                        <p class="small mb-0">
+                            <code>[]</code> — Tra cứu kiến thức bên ngoài (Wikipedia…) là tính năng <strong>P3</strong>,
+                            chưa mở. Chỉ xem.
+                        </p>
+                    </VanACard>
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <VanAButton Variant="primary" OnClick="SaveAsync" Loading="@_saving" Disabled="@_saving"
+                            data-testid="btn-save-policy">
+                    <i class="bi bi-save me-1"></i> Lưu chính sách
+                </VanAButton>
+                @if (_policy.ConfigVersion.HasValue)
+                {
+                    <small class="text-muted ms-2">Áp dụng cho cấu hình v@_policy.ConfigVersion (Draft ưu tiên).</small>
+                }
+            </div>
+        }
+        else
+        {
+            <VanAAlert Variant="warning" Message="Không tải được chính sách — dịch vụ AI có thể đang tạm nghỉ." />
+        }
+    }
+</div>
+
+@code {
+    private static readonly (string Key, string Label)[] IntentLabels =
+    [
+        ("MenuQuery", "hỏi thực đơn / dịch vụ"),
+        ("NutritionQuery", "dinh dưỡng, calo"),
+        ("PriceQuery", "hỏi giá"),
+        ("AvailabilityQuery", "còn món / lịch trống"),
+        ("RecipeQuery", "cách chế biến / quy trình"),
+        ("BrandStory", "câu chuyện thương hiệu"),
+        ("Faq", "câu hỏi thường gặp"),
+        ("ExternalKnowledge", "kiến thức ngoài (P3)"),
+        ("OrderHelp", "hỗ trợ đặt hàng / đặt lịch"),
+        ("ChitChat", "trò chuyện xã giao"),
+        ("OutOfScope", "câu ngoài phạm vi"),
+        ("PolicyViolation", "vi phạm chính sách"),
+    ];
+
+    private bool _flagChecked;
+    private bool _flagOn;
+    private bool _loading = true;
+    private bool _saving;
+    private bool _noConfig;
+    private string? _alert;
+    private string _alertVariant = "info";
+
+    private TenantAiPolicyResponse? _policy;
+    private readonly List<string> _refusedTopics = new();
+    private readonly HashSet<string> _disabledIntents = new(StringComparer.Ordinal);
+    private string _newTopic = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _flagOn = TenantProvider.HasTenant
+                && await FeatureSettings.IsEnabledAsync(TenantProvider.TenantId, TenantAiKnowledgeSyncService.FlagName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "TenantAiPolicy: flag check failed — treating as disabled");
+            _flagOn = false;
+        }
+        _flagChecked = true;
+        if (_flagOn) await LoadAsync();
+        else _loading = false;
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _policy = await AiClient.GetPolicyAsync(TenantProvider.TenantId);
+            _noConfig = _policy is { ConfigVersion: null };
+            _refusedTopics.Clear();
+            _disabledIntents.Clear();
+            if (_policy != null)
+            {
+                foreach (var t in ParseStringArray(_policy.RefusedTopicsJson))
+                    _refusedTopics.Add(t);
+                foreach (var kv in ParseScopes(_policy.IntentScopesJson))
+                    if (!kv.Value) _disabledIntents.Add(kv.Key);
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static List<string> ParseStringArray(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(json)
+                ?.Where(s => !string.IsNullOrWhiteSpace(s)).ToList() ?? [];
+        }
+        catch (JsonException) { return []; }
+    }
+
+    private static Dictionary<string, bool> ParseScopes(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return new(StringComparer.Ordinal);
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, bool>>(json) ?? new(StringComparer.Ordinal);
+        }
+        catch (JsonException) { return new(StringComparer.Ordinal); }
+    }
+
+    private void ToggleIntent(string intent, bool enabled)
+    {
+        if (enabled) _disabledIntents.Remove(intent);
+        else _disabledIntents.Add(intent);
+    }
+
+    private void AddTopic()
+    {
+        var t = _newTopic.Trim();
+        if (t.Length == 0) return;
+        if (!_refusedTopics.Contains(t, StringComparer.OrdinalIgnoreCase))
+            _refusedTopics.Add(t);
+        _newTopic = string.Empty;
+    }
+
+    private void OnTopicKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") AddTopic();
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        try
+        {
+            // Server semantics: {"Intent": false} disables; absent key = enabled.
+            var scopes = _disabledIntents.Count == 0
+                ? "{}"
+                : JsonSerializer.Serialize(_disabledIntents.ToDictionary(k => k, _ => false));
+            var topics = JsonSerializer.Serialize(_refusedTopics);
+            var result = await AiClient.PutPolicyAsync(TenantProvider.TenantId, scopes, "[]", topics);
+            if (result == null)
+            {
+                _alert = "Lưu chính sách thất bại — cần có cấu hình Draft/published hoặc dịch vụ AI tạm nghỉ.";
+                _alertVariant = "error";
+                return;
+            }
+            _policy = result;
+            _alert = $"Đã lưu chính sách (áp dụng cấu hình v{result.ConfigVersion}).";
+            _alertVariant = "success";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

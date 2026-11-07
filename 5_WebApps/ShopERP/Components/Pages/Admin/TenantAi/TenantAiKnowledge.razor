@@ -1,0 +1,451 @@
+@page "/admin/tenant-ai/knowledge"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StaffOrAbove")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.Shared.Domain.Common
+@using VanAn.Shared.Services
+@using VanAn.ShopERP.Services
+@inject ITenantAiClient AiClient
+@inject IShopFeatureSettingsService FeatureSettings
+@inject ITenantProvider TenantProvider
+@inject ILogger<TenantAiKnowledge> Logger
+
+@* Task AI-P10 — tri thức AI (SRS §3.1-P2 [G14] approval gate): upload doc →
+   pending_review → duyệt/từ chối; public chỉ đọc docs "approved". *@
+<PageTitle>Tri thức trợ lý AI</PageTitle>
+
+<div class="tenant-ai-knowledge" data-testid="tenant-ai-knowledge">
+    <header class="page-header">
+        <h1>
+            <a href="/admin/tenant-ai" class="text-decoration-none text-muted me-2"><i class="bi bi-arrow-left"></i></a>
+            Tri thức trợ lý AI
+        </h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="ReloadAsync" Loading="@_loading">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (_flagChecked && !_flagOn)
+    {
+        <VanAAlert Variant="info" Message="Tenant AI chưa bật — bật tại Cấu hình tính năng Shop." />
+        <a href="/settings/shop-features" class="btn btn-outline-primary btn-sm">Mở cấu hình tính năng</a>
+    }
+    else if (_flagOn)
+    {
+        @if (!string.IsNullOrEmpty(_alert))
+        {
+            <VanAAlert Variant="@_alertVariant" Message="@_alert" Dismissible="true" OnDismiss="() => _alert = null" />
+        }
+
+        <ul class="nav nav-tabs mb-3">
+            <li class="nav-item">
+                <button type="button" class="nav-link @(_tab == "pending" ? "active" : "")"
+                        @onclick='() => SwitchTab("pending")' data-testid="tab-pending">
+                    <i class="bi bi-hourglass-split"></i> Chờ duyệt
+                    @if (_pendingCount > 0)
+                    {
+                        <span class="badge bg-warning text-dark ms-1">@_pendingCount</span>
+                    }
+                </button>
+            </li>
+            <li class="nav-item">
+                <button type="button" class="nav-link @(_tab == "docs" ? "active" : "")"
+                        @onclick='() => SwitchTab("docs")' data-testid="tab-docs">
+                    <i class="bi bi-journal-text"></i> Tài liệu
+                </button>
+            </li>
+        </ul>
+
+        @if (_tab == "pending")
+        {
+            <VanACard Header="Tài liệu chờ duyệt" data-testid="card-pending">
+                <p class="text-muted small">
+                    AI chỉ dùng tài liệu đã duyệt để trả lời khách. Đọc kỹ nội dung trước khi duyệt.
+                </p>
+                @if (_loading)
+                {
+                    <div class="loading-state"><VanASpinner /><p>Đang tải...</p></div>
+                }
+                else if (_pending.Count == 0)
+                {
+                    <div class="empty-state">
+                        <i class="bi bi-check2-circle" style="font-size: 2.5rem; color: #198754;"></i>
+                        <p class="mt-2">Không có tài liệu nào chờ duyệt.</p>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var d in _pending)
+                    {
+                        <div class="border rounded p-3 mb-3" data-testid="pending-doc">
+                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                                <div>
+                                    <strong>@d.Title</strong>
+                                    <span class="badge bg-secondary ms-2">@d.Type</span>
+                                    <span class="badge bg-light text-dark ms-1">@d.Classification</span>
+                                    <div class="small text-muted mt-1">@d.CreatedAtUtc.ToLocalTime().ToString("HH:mm dd/MM/yyyy")</div>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <VanAButton Variant="success" Size="small" OnClick="() => ApproveAsync(d)"
+                                                Disabled="@_busy" data-testid="btn-approve-doc">
+                                        <i class="bi bi-check-lg me-1"></i> Duyệt
+                                    </VanAButton>
+                                </div>
+                            </div>
+                            <pre class="bg-light border rounded p-2 mt-2 mb-0 small doc-content">@d.Content</pre>
+                            @if (d.Sanitized)
+                            {
+                                <small class="text-warning d-block mt-1">
+                                    <i class="bi bi-exclamation-triangle"></i> Hệ thống đã lọc một số dòng giống câu lệnh — xem kỹ trước khi duyệt.
+                                </small>
+                            }
+                            <div class="input-group mt-2" style="max-width: 520px;">
+                                <input class="form-control form-control-sm" placeholder="Lý do từ chối (bắt buộc)"
+                                       @bind="_rejectReasons[d.Id]" data-testid="input-reject-reason" />
+                                <VanAButton Variant="error" Size="small" OnClick="() => RejectAsync(d)"
+                                            Disabled="@_busy" data-testid="btn-reject-doc">
+                                    <i class="bi bi-x-lg me-1"></i> Từ chối
+                                </VanAButton>
+                            </div>
+                        </div>
+                    }
+                }
+            </VanACard>
+        }
+        else
+        {
+            <VanACard Header="Upload tài liệu" data-testid="card-upload">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label" for="doc-type">Loại</label>
+                        <select id="doc-type" class="form-select" @bind="_uploadType" data-testid="select-doc-type">
+                            <option value="faq">FAQ — hỏi đáp</option>
+                            <option value="story">Câu chuyện quán</option>
+                            <option value="policy">Chính sách (đổi trả, giờ giấc…)</option>
+                            <option value="menu-note">Ghi chú menu/dịch vụ</option>
+                            <option value="recipe">Công thức/quy trình</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="doc-title">Tiêu đề <span class="text-danger">*</span></label>
+                        <input id="doc-title" class="form-control" maxlength="200" @bind="_uploadTitle"
+                               placeholder="VD: Giờ mở cửa & chính sách đổi lịch" data-testid="input-doc-title" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" for="doc-class">Phân loại</label>
+                        <select id="doc-class" class="form-select" @bind="_uploadClassification" data-testid="select-doc-class">
+                            <option value="public">Public — AI dùng cho khách</option>
+                            <option value="internal">Internal — chỉ lưu trữ nội bộ</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="doc-content">Nội dung <span class="text-danger">*</span></label>
+                        <textarea id="doc-content" class="form-control" rows="5" @bind="_uploadContent"
+                                  placeholder="Nội dung AI sẽ học — viết rõ ràng, mỗi ý 1 dòng."
+                                  data-testid="input-doc-content"></textarea>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <VanAButton Variant="primary" OnClick="UploadAsync" Loading="@_busy"
+                                Disabled="@(_busy || string.IsNullOrWhiteSpace(_uploadTitle) || string.IsNullOrWhiteSpace(_uploadContent))"
+                                data-testid="btn-upload-doc">
+                        <i class="bi bi-upload me-1"></i> Gửi vào hàng chờ duyệt
+                    </VanAButton>
+                    <small class="text-muted ms-2">Tài liệu mới vào tab "Chờ duyệt" — AI chỉ dùng sau khi duyệt.</small>
+                </div>
+            </VanACard>
+
+            <VanACard Header="Danh sách tài liệu" CssClass="mt-3" data-testid="card-docs">
+                <div class="d-flex gap-2 align-items-center mb-3 flex-wrap">
+                    <select class="form-select" style="max-width: 220px;" @bind="_filterStatus"
+                            @bind:after="ReloadDocsAsync" data-testid="select-status-filter">
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="pending_review">Chờ duyệt</option>
+                        <option value="approved">Đã duyệt</option>
+                        <option value="rejected">Đã từ chối</option>
+                    </select>
+                    <span class="text-muted small">@_totalDocs tài liệu</span>
+                </div>
+
+                @if (_loading)
+                {
+                    <div class="loading-state"><VanASpinner /><p>Đang tải...</p></div>
+                }
+                else if (_docs.Count == 0)
+                {
+                    <div class="empty-state">
+                        <i class="bi bi-journal-x" style="font-size: 2.5rem; color: #6c757d;"></i>
+                        <p class="mt-2">Chưa có tài liệu nào.</p>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var d in _docs)
+                    {
+                        <div class="border rounded p-3 mb-2" data-testid="doc-item">
+                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                                <div>
+                                    <strong>@d.Title</strong>
+                                    <span class="badge bg-secondary ms-2">@d.Type</span>
+                                    <span class="badge bg-light text-dark ms-1">@d.Classification</span>
+                                    @switch (d.ApprovalStatus)
+                                    {
+                                        case "pending_review":
+                                            <span class="badge bg-warning text-dark ms-1">chờ duyệt</span>
+                                            break;
+                                        case "approved":
+                                            <span class="badge bg-success ms-1">đã duyệt</span>
+                                            break;
+                                        case "rejected":
+                                            <span class="badge bg-danger ms-1">từ chối</span>
+                                            break;
+                                    }
+                                    <div class="small text-muted mt-1">
+                                        @d.CreatedAtUtc.ToLocalTime().ToString("HH:mm dd/MM/yyyy")
+                                        @if (!string.IsNullOrEmpty(d.ApprovedBy))
+                                        {
+                                            @: · duyệt bởi @d.ApprovedBy
+                                        }
+                                        @if (!string.IsNullOrEmpty(d.RejectionReason))
+                                        {
+                                            @: · lý do: @d.RejectionReason
+                                        }
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                                            @onclick="() => ToggleExpand(d.Id)" data-testid="btn-expand-doc">
+                                        @(_expanded.Contains(d.Id) ? "Ẩn nội dung" : "Xem nội dung")
+                                    </button>
+                                    @if (_confirmDeleteId == d.Id)
+                                    {
+                                        <VanAButton Variant="error" Size="small" OnClick="() => DeleteAsync(d)"
+                                                    Disabled="@_busy" data-testid="btn-confirm-delete">
+                                            Xác nhận xóa?
+                                        </VanAButton>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                                @onclick="() => _confirmDeleteId = d.Id" data-testid="btn-delete-doc">
+                                            <i class="bi bi-trash"></i> Xóa
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                            @if (_expanded.Contains(d.Id))
+                            {
+                                <pre class="bg-light border rounded p-2 mt-2 mb-0 small doc-content">@d.Content</pre>
+                            }
+                        </div>
+                    }
+                    @if (_docs.Count < _totalDocs)
+                    {
+                        <div class="text-center mt-2">
+                            <VanAButton Variant="secondary" Size="small" OnClick="LoadMoreDocsAsync" Disabled="@_loading">
+                                @(_loading ? "Đang tải..." : $"Xem thêm ({_totalDocs - _docs.Count})")
+                            </VanAButton>
+                        </div>
+                    }
+                }
+            </VanACard>
+        }
+    }
+</div>
+
+@code {
+    private bool _flagChecked;
+    private bool _flagOn;
+    private bool _loading;
+    private bool _busy;
+    private string _tab = "pending";
+    private string? _alert;
+    private string _alertVariant = "info";
+
+    private readonly List<TenantAiDocItem> _pending = new();
+    private int _pendingCount;
+    private readonly Dictionary<Guid, string> _rejectReasons = new();
+
+    private readonly List<TenantAiDocItem> _docs = new();
+    private readonly HashSet<Guid> _expanded = new();
+    private Guid? _confirmDeleteId;
+    private string _filterStatus = string.Empty;
+    private int _totalDocs;
+    private int _page = 1;
+    private const int PageSize = 20;
+
+    private string _uploadType = "faq";
+    private string _uploadTitle = string.Empty;
+    private string _uploadContent = string.Empty;
+    private string _uploadClassification = "public";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _flagOn = TenantProvider.HasTenant
+                && await FeatureSettings.IsEnabledAsync(TenantProvider.TenantId, TenantAiKnowledgeSyncService.FlagName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "TenantAiKnowledge: flag check failed — treating as disabled");
+            _flagOn = false;
+        }
+        _flagChecked = true;
+        if (_flagOn) await ReloadAsync();
+    }
+
+    private async Task SwitchTab(string tab)
+    {
+        _tab = tab;
+        if (tab == "docs" && _docs.Count == 0) await ReloadDocsAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        _loading = true;
+        try
+        {
+            var pending = await AiClient.GetDocumentsAsync(TenantProvider.TenantId, "pending_review", 1, 100);
+            _pending.Clear();
+            _pendingCount = pending?.Total ?? 0;
+            if (pending != null) _pending.AddRange(pending.Items);
+            if (pending == null) SetAlert("Không kết nối được dịch vụ AI — thử Làm mới.", "warning");
+            if (_tab == "docs") await LoadDocsPageAsync(reset: true);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ReloadDocsAsync() => await LoadDocsPageAsync(reset: true);
+
+    private async Task LoadDocsPageAsync(bool reset)
+    {
+        if (reset)
+        {
+            _page = 1;
+            _docs.Clear();
+            _expanded.Clear();
+            _confirmDeleteId = null;
+        }
+        _loading = true;
+        try
+        {
+            var list = await AiClient.GetDocumentsAsync(TenantProvider.TenantId,
+                string.IsNullOrEmpty(_filterStatus) ? null : _filterStatus, _page, PageSize);
+            if (list != null)
+            {
+                _totalDocs = list.Total;
+                _docs.AddRange(list.Items);
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task LoadMoreDocsAsync()
+    {
+        _page++;
+        await LoadDocsPageAsync(reset: false);
+    }
+
+    private void ToggleExpand(Guid id)
+    {
+        if (!_expanded.Remove(id)) _expanded.Add(id);
+    }
+
+    private async Task UploadAsync()
+    {
+        _busy = true;
+        try
+        {
+            var ok = await AiClient.IngestDocumentAsync(TenantProvider.TenantId,
+                _uploadType, _uploadTitle.Trim(), _uploadContent.Trim(), _uploadClassification);
+            if (!ok)
+            {
+                SetAlert("Gửi tài liệu thất bại — kiểm tra loại/nội dung hoặc dịch vụ AI đang tạm nghỉ.", "error");
+                return;
+            }
+            SetAlert($"Đã gửi \"{_uploadTitle.Trim()}\" vào hàng chờ duyệt.", "success");
+            _uploadTitle = string.Empty;
+            _uploadContent = string.Empty;
+            await ReloadAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ApproveAsync(TenantAiDocItem doc)
+    {
+        _busy = true;
+        try
+        {
+            var ok = await AiClient.ApproveDocumentAsync(TenantProvider.TenantId, doc.Id);
+            SetAlert(ok
+                ? $"Đã duyệt \"{doc.Title}\" — AI có thể dùng nội dung này trả lời khách."
+                : "Duyệt thất bại — tài liệu có thể đã được xử lý hoặc dịch vụ AI tạm nghỉ.",
+                ok ? "success" : "error");
+            await ReloadAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RejectAsync(TenantAiDocItem doc)
+    {
+        var reason = _rejectReasons.TryGetValue(doc.Id, out var r) ? r.Trim() : string.Empty;
+        if (reason.Length == 0)
+        {
+            SetAlert("Nhập lý do từ chối trước khi bấm Từ chối.", "warning");
+            return;
+        }
+        _busy = true;
+        try
+        {
+            var ok = await AiClient.RejectDocumentAsync(TenantProvider.TenantId, doc.Id, reason);
+            SetAlert(ok ? $"Đã từ chối \"{doc.Title}\"." : "Từ chối thất bại — thử lại sau.",
+                ok ? "success" : "error");
+            if (ok) _rejectReasons.Remove(doc.Id);
+            await ReloadAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task DeleteAsync(TenantAiDocItem doc)
+    {
+        _confirmDeleteId = null;
+        _busy = true;
+        try
+        {
+            var ok = await AiClient.DeleteDocumentAsync(TenantProvider.TenantId, doc.Id);
+            SetAlert(ok ? $"Đã xóa \"{doc.Title}\"." : "Xóa thất bại — thử lại sau.",
+                ok ? "success" : "error");
+            await ReloadDocsAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void SetAlert(string message, string variant)
+    {
+        _alert = message;
+        _alertVariant = variant;
+    }
+}

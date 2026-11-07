@@ -1,0 +1,207 @@
+@using VanAn.UI.Platform.Components
+@using VanAn.Shared.Domain.Common
+@using VanAn.ShopERP.Services
+@inject ITenantAiClient AiClient
+@inject ITenantProvider TenantProvider
+@inject ILogger<AiConversationReviewPanel> Logger
+
+@* Task AI-P10 — extracted from ShopInbox (P9): read-only AI conversation review
+   (session list + message drill) reused by ShopInbox "AI trả lời khách" tab and
+   the /admin/tenant-ai/conversations page. Caller renders only when TenantAiEnabled
+   flag is ON — component loads sessions on mount (lazy). *@
+<div class="row g-3">
+    <!-- AI session list (read-only review — SRS §6.3) -->
+    <div class="col-md-4">
+        <VanACard CssClass="conversation-list-card">
+            @if (_aiLoading && _aiSessions.Count == 0)
+            {
+                <div class="loading-state">
+                    <VanASpinner Size="large" />
+                    <p>Đang tải hội thoại AI...</p>
+                </div>
+            }
+            else if (_aiError != null)
+            {
+                <div class="empty-state">
+                    <p class="text-danger">@_aiError</p>
+                    <VanAButton Variant="primary" Size="small" OnClick="() => LoadAiConversationsAsync(true)">Thử lại</VanAButton>
+                </div>
+            }
+            else if (_aiSessions.Count == 0)
+            {
+                <div class="empty-state">
+                    <i class="bi bi-robot" style="font-size: 2.5rem; color: #6c757d;"></i>
+                    <p class="mt-2">Chưa có hội thoại AI nào.</p>
+                </div>
+            }
+            else
+            {
+                <div class="list-group list-group-flush">
+                    @foreach (var s in _aiSessions)
+                    {
+                        <button type="button"
+                                class="list-group-item list-group-item-action @(s.SessionId == _aiSelectedSessionId ? "active" : "")"
+                                @onclick="() => SelectAiSessionAsync(s.SessionId)">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <strong>@(s.SessionId.Length > 10 ? s.SessionId[..10] + "…" : s.SessionId)</strong>
+                                <small>@s.LastActiveAtUtc.ToLocalTime().ToString("HH:mm dd/MM")</small>
+                            </div>
+                            <div class="d-flex align-items-center gap-1 mt-1 flex-wrap">
+                                <span class="badge bg-secondary">@s.Channel</span>
+                                <span class="badge bg-light text-dark">@s.MessageCount tin</span>
+                                @if (s.RefusedCount > 0)
+                                {
+                                    <span class="badge bg-danger">từ chối: @s.RefusedCount</span>
+                                }
+                                @if (s.DegradedCount > 0)
+                                {
+                                    <span class="badge bg-warning text-dark">degraded: @s.DegradedCount</span>
+                                }
+                            </div>
+                        </button>
+                    }
+                </div>
+                @if (_aiSessions.Count < _aiTotal)
+                {
+                    <div class="text-center p-2">
+                        <VanAButton Variant="secondary" Size="small" OnClick="LoadMoreAiAsync" Disabled="_aiLoading">
+                            @(_aiLoading ? "Đang tải..." : $"Xem thêm ({_aiTotal - _aiSessions.Count})")
+                        </VanAButton>
+                    </div>
+                }
+            }
+        </VanACard>
+    </div>
+
+    <!-- AI conversation detail (read-only) -->
+    <div class="col-md-8">
+        <VanACard>
+            @if (_aiDetailLoading)
+            {
+                <div class="loading-state">
+                    <VanASpinner Size="large" />
+                    <p>Đang tải hội thoại...</p>
+                </div>
+            }
+            else if (_aiDetail != null)
+            {
+                <div class="ai-conv-messages">
+                    @foreach (var m in _aiDetail.Messages)
+                    {
+                        var isUser = m.Role == "user";
+                        <div class="d-flex @(isUser ? "justify-content-end" : "justify-content-start") mb-2">
+                            <div style="max-width: 75%;">
+                                <div class="px-3 py-2 rounded @(isUser ? "bg-primary text-white" : "bg-white border")">
+                                    @m.Content
+                                </div>
+                                <div class="small text-muted mt-1 @(isUser ? "text-end" : "text-start")">
+                                    @m.CreatedAtUtc.ToLocalTime().ToString("HH:mm dd/MM")
+                                    @if (!isUser)
+                                    {
+                                        @if (!string.IsNullOrEmpty(m.Intent))
+                                        {
+                                            <span class="badge bg-info text-dark ms-1">@m.Intent</span>
+                                        }
+                                        @if (m.Confidence.HasValue)
+                                        {
+                                            <span class="badge bg-light text-dark ms-1">@((m.Confidence.Value * 100).ToString("0"))%</span>
+                                        }
+                                        @if (m.Refused)
+                                        {
+                                            <span class="badge bg-danger ms-1">từ chối</span>
+                                        }
+                                        @if (m.Degraded)
+                                        {
+                                            <span class="badge bg-warning text-dark ms-1">degraded</span>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="text-muted small border-top pt-2 mt-2">
+                    <i class="bi bi-robot"></i> AI trả lời khách — chỉ xem, trả lời khách qua tab "Tin nhắn khách".
+                </div>
+            }
+            else if (_aiSelectedSessionId != null)
+            {
+                <div class="empty-state">
+                    <p class="text-danger">Không tải được hội thoại — dịch vụ AI có thể đang tạm nghỉ.</p>
+                    <VanAButton Variant="primary" Size="small" OnClick="() => SelectAiSessionAsync(_aiSelectedSessionId!)">Thử lại</VanAButton>
+                </div>
+            }
+            else
+            {
+                <div class="empty-state">
+                    <i class="bi bi-robot" style="font-size: 2.5rem; color: #6c757d;"></i>
+                    <p class="mt-2">Chọn một hội thoại AI để xem nội dung.</p>
+                </div>
+            }
+        </VanACard>
+    </div>
+</div>
+
+@code {
+    private bool _aiLoading;
+    private string? _aiError;
+    private readonly List<TenantAiConversationSummary> _aiSessions = new();
+    private int _aiTotal;
+    private int _aiPage = 1;
+    private const int AiPageSize = 20;
+    private string? _aiSelectedSessionId;
+    private bool _aiDetailLoading;
+    private TenantAiConversationDetail? _aiDetail;
+
+    protected override async Task OnInitializedAsync()
+        => await LoadAiConversationsAsync(reset: true);
+
+    /// <summary>Reload the session list (used by the host header refresh button).</summary>
+    public Task RefreshAsync() => LoadAiConversationsAsync(reset: true);
+
+    private async Task LoadAiConversationsAsync(bool reset)
+    {
+        if (reset)
+        {
+            _aiPage = 1;
+            _aiSessions.Clear();
+            _aiTotal = 0;
+            _aiSelectedSessionId = null;
+            _aiDetail = null;
+        }
+        _aiLoading = true;
+        _aiError = null;
+        try
+        {
+            var list = await AiClient.GetAiConversationsAsync(TenantProvider.TenantId, _aiPage, AiPageSize);
+            if (list is null)
+            {
+                _aiError = "Không tải được hội thoại AI — dịch vụ AI có thể đang tạm nghỉ.";
+            }
+            else
+            {
+                _aiTotal = list.Total;
+                _aiSessions.AddRange(list.Items);
+            }
+        }
+        finally
+        {
+            _aiLoading = false;
+        }
+    }
+
+    private async Task LoadMoreAiAsync()
+    {
+        _aiPage++;
+        await LoadAiConversationsAsync(reset: false);
+    }
+
+    private async Task SelectAiSessionAsync(string sessionId)
+    {
+        _aiSelectedSessionId = sessionId;
+        _aiDetailLoading = true;
+        _aiDetail = null;
+        _aiDetail = await AiClient.GetAiConversationMessagesAsync(TenantProvider.TenantId, sessionId);
+        _aiDetailLoading = false;
+    }
+}

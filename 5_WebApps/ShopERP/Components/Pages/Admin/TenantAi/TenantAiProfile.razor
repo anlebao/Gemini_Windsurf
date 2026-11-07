@@ -1,0 +1,449 @@
+@page "/admin/tenant-ai/profile"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StaffOrAbove")]
+@using Microsoft.AspNetCore.Authorization
+@using System.Text.Json
+@using VanAn.UI.Platform.Components
+@using VanAn.Shared.Domain.Common
+@using VanAn.Shared.Services
+@using VanAn.ShopERP.Services
+@inject ITenantAiClient AiClient
+@inject IShopFeatureSettingsService FeatureSettings
+@inject ITenantProvider TenantProvider
+@inject ILogger<TenantAiProfile> Logger
+
+@* Task AI-P10 — hồ sơ & persona trợ lý AI (SRS §3.1-P2 + FR-1 lifecycle
+   Draft → Preview → Publish; Rollback = version mới copy nội dung cũ). *@
+<PageTitle>Hồ sơ trợ lý AI</PageTitle>
+
+<div class="tenant-ai-profile" data-testid="tenant-ai-profile">
+    <header class="page-header">
+        <h1>
+            <a href="/admin/tenant-ai" class="text-decoration-none text-muted me-2"><i class="bi bi-arrow-left"></i></a>
+            Hồ sơ &amp; Persona trợ lý AI
+        </h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadAsync" Loading="@_loading">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (_flagChecked && !_flagOn)
+    {
+        <VanAAlert Variant="info" Message="Tenant AI chưa bật — bật tại Cấu hình tính năng Shop." />
+        <a href="/settings/shop-features" class="btn btn-outline-primary btn-sm">Mở cấu hình tính năng</a>
+    }
+    else if (_flagOn)
+    {
+        @if (!string.IsNullOrEmpty(_alert))
+        {
+            <VanAAlert Variant="@_alertVariant" Message="@_alert" Dismissible="true" OnDismiss="() => _alert = null" />
+        }
+
+        <div class="row g-3">
+            <div class="col-lg-7">
+                <VanACard Header="Hồ sơ trợ lý (Draft)" data-testid="card-profile-form">
+                    @if (_profile?.Published != null)
+                    {
+                        <div class="alert alert-light border small mb-3" data-testid="published-summary">
+                            Đang phát hành: <strong>v@_profile.Published.Version — @_profile.Published.AiName</strong>
+                            @if (_profile.Published.PublishedAtUtc.HasValue)
+                            {
+                                <span class="text-muted">
+                                    (@_profile.Published.PublishedAtUtc.Value.ToLocalTime().ToString("HH:mm dd/MM/yyyy")
+                                    · @_profile.Published.PublishedBy)
+                                </span>
+                            }
+                        </div>
+                    }
+                    @if (_profile?.Draft != null)
+                    {
+                        <div class="alert alert-info py-2 small mb-3" data-testid="draft-summary">
+                            Draft <strong>v@_profile.Draft.Version</strong> đang chờ — Publish để áp dụng cho khách.
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label" for="ai-name">Tên trợ lý <span class="text-danger">*</span></label>
+                        <input id="ai-name" class="form-control" maxlength="128" @bind="_aiName"
+                               placeholder="VD: Bé An Tâm" data-testid="input-ai-name" />
+                    </div>
+
+                    <h6 class="mt-3 mb-2">Persona (cách AI xưng hô &amp; nói chuyện)</h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="ai-pronoun">Xưng hô</label>
+                            <input id="ai-pronoun" class="form-control" @bind="_pronoun"
+                                   placeholder="VD: em — khách là anh/chị" data-testid="input-pronoun" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="ai-style">Phong cách</label>
+                            <input id="ai-style" class="form-control" @bind="_style"
+                                   placeholder="VD: nhân viên spa, lịch sự, không chẩn đoán y khoa" data-testid="input-style" />
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label" for="ai-greeting">Lời chào mở đầu (hiển thị trên widget)</label>
+                        <input id="ai-greeting" class="form-control" @bind="_greeting"
+                               placeholder="VD: Chào bạn đến An Tâm!" data-testid="input-greeting" />
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label" for="ai-suggestions">Gợi ý câu hỏi (mỗi dòng 1 gợi ý)</label>
+                        <textarea id="ai-suggestions" class="form-control" rows="3" @bind="_suggestionsText"
+                                  placeholder="Menu hôm nay&#10;Đặt lịch massage" data-testid="input-suggestions"></textarea>
+                    </div>
+
+                    <h6 class="mt-4 mb-2">Hồ sơ quán (AI dùng để trả lời)</h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="ai-about">Giới thiệu</label>
+                            <textarea id="ai-about" class="form-control" rows="2" @bind="_bizAbout"
+                                      placeholder="VD: Spa chăm sóc da gia đình từ 2015" data-testid="input-biz-about"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="ai-hours">Giờ mở cửa</label>
+                            <textarea id="ai-hours" class="form-control" rows="2" @bind="_bizHours"
+                                      placeholder="VD: T2–T6 9h–19h30 · T7–CN 8h–19h30" data-testid="input-biz-hours"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="ai-address">Địa chỉ / cơ sở</label>
+                            <textarea id="ai-address" class="form-control" rows="2" @bind="_bizAddress"
+                                      placeholder="VD: 4 cơ sở — Bình Thạnh, Q6, Dĩ An, Thủ Dầu Một" data-testid="input-biz-address"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="ai-phone">Hotline / liên hệ</label>
+                            <input id="ai-phone" class="form-control" @bind="_bizPhone"
+                                   placeholder="VD: 0888 85 85 58" data-testid="input-biz-phone" />
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-3 flex-wrap">
+                        <VanAButton Variant="primary" OnClick="SaveDraftAsync" Loading="@_saving"
+                                    Disabled="@(_saving || string.IsNullOrWhiteSpace(_aiName))"
+                                    data-testid="btn-save-draft">
+                            <i class="bi bi-save me-1"></i> Lưu nháp (Draft)
+                        </VanAButton>
+                    </div>
+                    <small class="text-muted d-block mt-2">
+                        Mỗi lần lưu tạo 1 bản Draft mới (lịch sử giữ nguyên). Chỉ bản Publish mới áp dụng cho khách.
+                    </small>
+                </VanACard>
+
+                <VanACard Header="Phát hành &amp; khôi phục" CssClass="mt-3" data-testid="card-publish">
+                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                        <VanAButton Variant="success" OnClick="() => _confirmPublish = true"
+                                    Disabled="@(_profile?.Draft == null || _saving || _publishing)"
+                                    data-testid="btn-publish">
+                            <i class="bi bi-rocket-takeoff me-1"></i> Publish Draft
+                        </VanAButton>
+                        @if (_profile?.RecentVersions?.Count > 1)
+                        {
+                            <select class="form-select" style="max-width: 320px;" @bind="_rollbackVersion"
+                                    data-testid="select-rollback-version">
+                                <option value="0">— Chọn phiên bản rollback —</option>
+                                @foreach (var v in _profile.RecentVersions.Where(v => v.Status != "draft"))
+                                {
+                                    <option value="@v.Version">v@v.Version (@v.Status) — @v.AiName</option>
+                                }
+                            </select>
+                            <VanAButton Variant="warning" Size="small" OnClick="() => _confirmRollback = true"
+                                        Disabled="@(_rollbackVersion <= 0 || _saving || _publishing)"
+                                        data-testid="btn-rollback">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i> Rollback
+                            </VanAButton>
+                        }
+                    </div>
+                    <small class="text-muted d-block mt-2">
+                        Rollback tạo bản mới copy nội dung phiên bản cũ rồi publish — lịch sử không bị ghi đè.
+                    </small>
+                </VanACard>
+            </div>
+
+            <div class="col-lg-5">
+                <VanACard Header="Thử trò chuyện (Draft preview)" data-testid="card-preview">
+                    <div class="alert alert-warning py-2 small" data-testid="preview-note">
+                        <i class="bi bi-eye"></i> <strong>Draft preview — không ảnh hưởng khách thật.</strong>
+                        Câu trả lời dùng cấu hình Draft mới nhất + tri thức đã duyệt.
+                    </div>
+                    <div class="preview-thread mb-2" data-testid="preview-thread">
+                        @foreach (var turn in _previewTurns)
+                        {
+                            <div class="mb-2">
+                                <div class="px-3 py-2 rounded bg-primary text-white ms-auto" style="max-width: 85%; width: fit-content;">
+                                    @turn.Question
+                                </div>
+                                <div class="px-3 py-2 rounded bg-white border mt-1" style="max-width: 85%;">
+                                    @turn.Answer
+                                    <div class="small text-muted mt-1">
+                                        @if (turn.Refused)
+                                        {
+                                            <span class="badge bg-danger">từ chối</span>
+                                        }
+                                        @if (turn.Degraded)
+                                        {
+                                            <span class="badge bg-warning text-dark">degraded</span>
+                                        }
+                                        <span>độ tin cậy @((turn.Confidence * 100).ToString("0"))%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        @if (_previewTurns.Count == 0 && !_previewLoading)
+                        {
+                            <p class="text-muted small mb-0">Nhập câu hỏi thử — ví dụ: "Quán mở cửa mấy giờ?"</p>
+                        }
+                        @if (_previewLoading)
+                        {
+                            <div class="loading-state"><VanASpinner /><p class="small">AI đang trả lời...</p></div>
+                        }
+                    </div>
+                    <div class="input-group">
+                        <input class="form-control" @bind="_previewInput" @bind:event="oninput"
+                               @onkeydown="OnPreviewKeyDown" placeholder="Hỏi thử trợ lý..."
+                               data-testid="input-preview" />
+                        <VanAButton Variant="primary" OnClick="SendPreviewAsync"
+                                    Disabled="@(_previewLoading || string.IsNullOrWhiteSpace(_previewInput))"
+                                    data-testid="btn-preview-send">
+                            Gửi
+                        </VanAButton>
+                    </div>
+                </VanACard>
+            </div>
+        </div>
+
+        @if (_confirmPublish)
+        {
+            <div class="modal d-block" style="background: rgba(0,0,0,.4);" data-testid="confirm-publish">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header"><h5 class="modal-title">Publish Draft v@(_profile?.Draft?.Version)</h5></div>
+                        <div class="modal-body">
+                            <p>Khách trên trang cửa hàng sẽ thấy trợ lý dùng cấu hình mới ngay lập tức.</p>
+                            <p class="small text-muted mb-0">
+                                <i class="bi bi-shield-exclamation"></i> Khuyến nghị: đã kiểm tra chất lượng bằng
+                                bộ eval (NFR-10) trước khi publish — dùng nút <strong>Thử trò chuyện</strong>
+                                để rà soát câu trả lời nếu chưa chạy eval.
+                            </p>
+                        </div>
+                        <div class="modal-footer">
+                            <VanAButton Variant="secondary" OnClick="() => _confirmPublish = false">Hủy</VanAButton>
+                            <VanAButton Variant="success" OnClick="PublishAsync" Loading="@_publishing" data-testid="btn-confirm-publish">
+                                Xác nhận Publish
+                            </VanAButton>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (_confirmRollback)
+        {
+            <div class="modal d-block" style="background: rgba(0,0,0,.4);" data-testid="confirm-rollback">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header"><h5 class="modal-title">Rollback về v@_rollbackVersion</h5></div>
+                        <div class="modal-body">
+                            Hệ thống tạo bản mới copy nội dung v@_rollbackVersion rồi publish.
+                            Cấu hình hiện tại được lưu trong lịch sử (có thể rollback lại).
+                        </div>
+                        <div class="modal-footer">
+                            <VanAButton Variant="secondary" OnClick="() => _confirmRollback = false">Hủy</VanAButton>
+                            <VanAButton Variant="warning" OnClick="RollbackAsync" Loading="@_publishing" data-testid="btn-confirm-rollback">
+                                Xác nhận Rollback
+                            </VanAButton>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private bool _flagChecked;
+    private bool _flagOn;
+    private bool _loading;
+    private bool _saving;
+    private bool _publishing;
+    private string? _alert;
+    private string _alertVariant = "info";
+    private TenantAiProfileResponse? _profile;
+
+    private string _aiName = string.Empty;
+    private string _pronoun = string.Empty;
+    private string _style = string.Empty;
+    private string _greeting = string.Empty;
+    private string _suggestionsText = string.Empty;
+    private string _bizAbout = string.Empty;
+    private string _bizAddress = string.Empty;
+    private string _bizPhone = string.Empty;
+    private string _bizHours = string.Empty;
+    private Dictionary<string, JsonElement> _personaExtra = new(StringComparer.Ordinal);
+    private Dictionary<string, JsonElement> _businessExtra = new(StringComparer.Ordinal);
+
+    private string _previewInput = string.Empty;
+    private bool _previewLoading;
+    private readonly List<PreviewTurn> _previewTurns = new();
+    private readonly string _previewSessionId = $"preview-{Guid.NewGuid():N}"[..32];
+
+    private bool _confirmPublish;
+    private bool _confirmRollback;
+    private int _rollbackVersion;
+
+    private sealed record PreviewTurn(string Question, string Answer, double Confidence, bool Refused, bool Degraded);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _flagOn = TenantProvider.HasTenant
+                && await FeatureSettings.IsEnabledAsync(TenantProvider.TenantId, TenantAiKnowledgeSyncService.FlagName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "TenantAiProfile: flag check failed — treating as disabled");
+            _flagOn = false;
+        }
+        _flagChecked = true;
+        if (_flagOn) await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _profile = await AiClient.GetProfileAsync(TenantProvider.TenantId);
+            if (_profile == null)
+            {
+                _alert = "Không kết nối được dịch vụ AI — thử Làm mới.";
+                _alertVariant = "warning";
+            }
+            Prefill(_profile?.Draft ?? _profile?.Published);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void Prefill(TenantAiProfileVersion? version)
+    {
+        _aiName = version?.AiName ?? string.Empty;
+        var persona = TenantAiProfileJson.ParseObject(version?.PersonaJson);
+        _pronoun = TenantAiProfileJson.GetString(persona, "pronoun", "xung_ho") ?? string.Empty;
+        _style = TenantAiProfileJson.GetString(persona, "style", "phong_cach") ?? string.Empty;
+        _greeting = TenantAiProfileJson.GetString(persona, "greeting") ?? string.Empty;
+        _suggestionsText = TenantAiProfileJson.GetSuggestionsText(persona);
+        persona.Remove("pronoun"); persona.Remove("xung_ho");
+        persona.Remove("style"); persona.Remove("phong_cach");
+        persona.Remove("greeting"); persona.Remove("suggestions");
+        _personaExtra = persona;
+
+        var business = TenantAiProfileJson.ParseObject(version?.BusinessProfileJson);
+        _bizAbout = TenantAiProfileJson.GetString(business, "about", "gioi_thieu") ?? string.Empty;
+        _bizAddress = TenantAiProfileJson.GetString(business, "address", "dia_chi") ?? string.Empty;
+        _bizPhone = TenantAiProfileJson.GetString(business, "phone", "hotline", "dien_thoai") ?? string.Empty;
+        _bizHours = TenantAiProfileJson.GetString(business, "opening_hours", "gio_mo_cua") ?? string.Empty;
+        business.Remove("about"); business.Remove("gioi_thieu");
+        business.Remove("address"); business.Remove("dia_chi");
+        business.Remove("phone"); business.Remove("hotline"); business.Remove("dien_thoai");
+        business.Remove("opening_hours"); business.Remove("gio_mo_cua");
+        _businessExtra = business;
+    }
+
+    private async Task SaveDraftAsync()
+    {
+        _saving = true;
+        try
+        {
+            var personaJson = TenantAiProfileJson.SerializePersona(_personaExtra,
+                _pronoun, _style, _greeting, TenantAiProfileJson.ParseSuggestions(_suggestionsText));
+            var businessJson = TenantAiProfileJson.SerializeBusiness(_businessExtra,
+                _bizAbout, _bizAddress, _bizPhone, _bizHours);
+            var result = await AiClient.PutProfileAsync(TenantProvider.TenantId,
+                _aiName.Trim(), personaJson, businessJson);
+            if (result == null)
+            {
+                _alert = "Lưu nháp thất bại — dịch vụ AI có thể đang tạm nghỉ.";
+                _alertVariant = "error";
+                return;
+            }
+            _alert = $"Đã lưu Draft v{result.Version}. Thử trò chuyện bên phải rồi Publish khi hài lòng.";
+            _alertVariant = "success";
+            _profile = await AiClient.GetProfileAsync(TenantProvider.TenantId);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task PublishAsync()
+    {
+        _confirmPublish = false;
+        _publishing = true;
+        try
+        {
+            var result = await AiClient.PublishConfigAsync(TenantProvider.TenantId);
+            _alert = result == null
+                ? "Publish thất bại — cần có Draft hoặc dịch vụ AI đang tạm nghỉ."
+                : $"Đã publish v{result.Version} — khách đã thấy cấu hình mới.";
+            _alertVariant = result == null ? "error" : "success";
+            _profile = await AiClient.GetProfileAsync(TenantProvider.TenantId);
+            if (_profile != null) Prefill(_profile.Draft ?? _profile.Published);
+        }
+        finally
+        {
+            _publishing = false;
+        }
+    }
+
+    private async Task RollbackAsync()
+    {
+        _confirmRollback = false;
+        _publishing = true;
+        try
+        {
+            var result = await AiClient.RollbackConfigAsync(TenantProvider.TenantId, _rollbackVersion);
+            _alert = result == null
+                ? $"Rollback v{_rollbackVersion} thất bại — phiên bản không tồn tại hoặc dịch vụ AI tạm nghỉ."
+                : $"Đã rollback về nội dung cũ — publish v{result.Version}.";
+            _alertVariant = result == null ? "error" : "success";
+            _rollbackVersion = 0;
+            _profile = await AiClient.GetProfileAsync(TenantProvider.TenantId);
+            if (_profile != null) Prefill(_profile.Draft ?? _profile.Published);
+        }
+        finally
+        {
+            _publishing = false;
+        }
+    }
+
+    private async Task SendPreviewAsync()
+    {
+        var text = _previewInput.Trim();
+        if (text.Length == 0) return;
+        _previewInput = string.Empty;
+        _previewLoading = true;
+        try
+        {
+            var result = await AiClient.PreviewChatAsync(TenantProvider.TenantId,
+                _previewSessionId, Guid.NewGuid().ToString("N"), text);
+            _previewTurns.Add(result == null
+                ? new PreviewTurn(text, "— không kết nối được dịch vụ AI —", 0, false, true)
+                : new PreviewTurn(text, result.Answer, result.Confidence, result.Refused, result.Degraded));
+        }
+        finally
+        {
+            _previewLoading = false;
+        }
+    }
+
+    private async Task OnPreviewKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SendPreviewAsync();
+    }
+}

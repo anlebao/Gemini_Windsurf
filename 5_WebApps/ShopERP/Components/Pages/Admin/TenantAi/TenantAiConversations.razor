@@ -1,0 +1,66 @@
+@page "/admin/tenant-ai/conversations"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StaffOrAbove")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.Shared.Domain.Common
+@using VanAn.Shared.Services
+@using VanAn.ShopERP.Services
+@using VanAn.ShopERP.Components.Shared
+@inject IShopFeatureSettingsService FeatureSettings
+@inject ITenantProvider TenantProvider
+@inject ILogger<TenantAiConversations> Logger
+
+@* Task AI-P10 — xem lại hội thoại AI (SRS §3.1-P2 [G10] restricted review).
+   Reuse AiConversationReviewPanel (shared với ShopInbox P9 — tránh trùng). *@
+<PageTitle>Hội thoại trợ lý AI</PageTitle>
+
+<div class="tenant-ai-conversations" data-testid="tenant-ai-conversations">
+    <header class="page-header">
+        <h1>
+            <a href="/admin/tenant-ai" class="text-decoration-none text-muted me-2"><i class="bi bi-arrow-left"></i></a>
+            Hội thoại trợ lý AI
+        </h1>
+        <div class="header-actions">
+            <a href="/community/messages" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-chat-dots me-1"></i> Hộp thư khách
+            </a>
+        </div>
+    </header>
+
+    @if (_flagChecked && !_flagOn)
+    {
+        <VanAAlert Variant="info" Message="Tenant AI chưa bật — bật tại Cấu hình tính năng Shop." />
+        <a href="/settings/shop-features" class="btn btn-outline-primary btn-sm">Mở cấu hình tính năng</a>
+    }
+    else if (_flagOn)
+    {
+        <p class="text-muted small mb-3">
+            <i class="bi bi-shield-lock"></i> Chỉ xem — hội thoại lưu 90 ngày (retention [G10]),
+            không export, không dùng để huấn luyện. Trả lời khách trực tiếp qua
+            <a href="/community/messages">Hộp thư tin nhắn</a>.
+        </p>
+        <AiConversationReviewPanel />
+    }
+</div>
+
+@code {
+    private bool _flagChecked;
+    private bool _flagOn;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _flagOn = TenantProvider.HasTenant
+                && await FeatureSettings.IsEnabledAsync(TenantProvider.TenantId, TenantAiKnowledgeSyncService.FlagName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "TenantAiConversations: flag check failed — treating as disabled");
+            _flagOn = false;
+        }
+        _flagChecked = true;
+    }
+}

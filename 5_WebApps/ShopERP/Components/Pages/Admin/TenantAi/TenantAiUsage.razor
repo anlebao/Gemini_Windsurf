@@ -1,0 +1,164 @@
+@page "/admin/tenant-ai/usage"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StaffOrAbove")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.Shared.Domain.Common
+@using VanAn.Shared.Services
+@using VanAn.ShopERP.Services
+@inject ITenantAiClient AiClient
+@inject IShopFeatureSettingsService FeatureSettings
+@inject ITenantProvider TenantProvider
+@inject ILogger<TenantAiUsage> Logger
+
+@* Task AI-P10 — usage aggregate theo ngày (SRS §6.3 NFR-8 cost observability). *@
+<PageTitle>Sử dụng trợ lý AI</PageTitle>
+
+<div class="tenant-ai-usage" data-testid="tenant-ai-usage">
+    <header class="page-header">
+        <h1>
+            <a href="/admin/tenant-ai" class="text-decoration-none text-muted me-2"><i class="bi bi-arrow-left"></i></a>
+            Sử dụng trợ lý AI
+        </h1>
+        <div class="header-actions">
+            <select class="form-select form-select-sm" style="width: auto;" @bind="_days"
+                    @bind:after="LoadAsync" data-testid="select-days">
+                <option value="7">7 ngày</option>
+                <option value="30">30 ngày</option>
+                <option value="90">90 ngày</option>
+            </select>
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadAsync" Loading="@_loading">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (_flagChecked && !_flagOn)
+    {
+        <VanAAlert Variant="info" Message="Tenant AI chưa bật — bật tại Cấu hình tính năng Shop." />
+        <a href="/settings/shop-features" class="btn btn-outline-primary btn-sm">Mở cấu hình tính năng</a>
+    }
+    else if (_flagOn)
+    {
+        @if (_loading && _usage == null)
+        {
+            <VanACard><div class="loading-state"><VanASpinner /><p>Đang tải số liệu...</p></div></VanACard>
+        }
+        else if (_usage == null)
+        {
+            <VanAAlert Variant="warning" Message="Không tải được số liệu — dịch vụ AI có thể đang tạm nghỉ." />
+        }
+        else
+        {
+            <VanACard Header="Tin nhắn &amp; token theo ngày" data-testid="card-usage">
+                @if (_usage.PerDay.Count == 0)
+                {
+                    <div class="empty-state">
+                        <i class="bi bi-graph-up" style="font-size: 2.5rem; color: #6c757d;"></i>
+                        <p class="mt-2">Chưa có tin nhắn AI nào trong @_days ngày qua.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle" data-testid="usage-grid">
+                            <thead>
+                                <tr>
+                                    <th>Ngày</th>
+                                    <th class="text-end">Tin nhắn AI</th>
+                                    <th class="text-end">Từ chối</th>
+                                    <th class="text-end">Degraded</th>
+                                    <th class="text-end">Prompt tokens</th>
+                                    <th class="text-end">Completion tokens</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var d in _usage.PerDay)
+                                {
+                                    <tr>
+                                        <td>@d.Date</td>
+                                        <td class="text-end">@d.Messages.ToString("N0")</td>
+                                        <td class="text-end">
+                                            @if (d.Refused > 0)
+                                            {
+                                                <span class="badge bg-danger">@d.Refused</span>
+                                            }
+                                            else
+                                            {
+                                                @d.Refused
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            @if (d.Degraded > 0)
+                                            {
+                                                <span class="badge bg-warning text-dark">@d.Degraded</span>
+                                            }
+                                            else
+                                            {
+                                                @d.Degraded
+                                            }
+                                        </td>
+                                        <td class="text-end">@d.PromptTokens.ToString("N0")</td>
+                                        <td class="text-end">@d.CompletionTokens.ToString("N0")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr class="fw-bold table-light">
+                                    <td>Tổng @_days ngày</td>
+                                    <td class="text-end">@_usage.Total.Messages.ToString("N0")</td>
+                                    <td class="text-end">@_usage.Total.Refused.ToString("N0")</td>
+                                    <td class="text-end">@_usage.Total.Degraded.ToString("N0")</td>
+                                    <td class="text-end">@_usage.Total.PromptTokens.ToString("N0")</td>
+                                    <td class="text-end">@_usage.Total.CompletionTokens.ToString("N0")</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <small class="text-muted">
+                        Token dùng để ước tính chi phí LLM; phí nền tảng tính theo tin nhắn xem tại
+                        <a href="/wallet/phi-nen-tang">Ví phí nền tảng</a>.
+                    </small>
+                }
+            </VanACard>
+        }
+    }
+</div>
+
+@code {
+    private bool _flagChecked;
+    private bool _flagOn;
+    private bool _loading;
+    private int _days = 30;
+    private TenantAiUsageResponse? _usage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _flagOn = TenantProvider.HasTenant
+                && await FeatureSettings.IsEnabledAsync(TenantProvider.TenantId, TenantAiKnowledgeSyncService.FlagName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "TenantAiUsage: flag check failed — treating as disabled");
+            _flagOn = false;
+        }
+        _flagChecked = true;
+        if (_flagOn) await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _usage = await AiClient.GetUsageAsync(TenantProvider.TenantId, _days);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

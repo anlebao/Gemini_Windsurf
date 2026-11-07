@@ -1,0 +1,228 @@
+@page "/admin/tenant-ai"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "StaffOrAbove")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.Shared.Domain.Common
+@using VanAn.Shared.Services
+@using VanAn.ShopERP.Services
+@inject ITenantAiClient AiClient
+@inject IShopFeatureSettingsService FeatureSettings
+@inject ITenantProvider TenantProvider
+@inject ILogger<TenantAiHub> Logger
+
+@* Task AI-P10 — hub trợ lý AI tenant (SRS §3.1-P2). Flag-gated TenantAiEnabled;
+   flag OFF → empty state + zero HTTP (pattern ShopInbox P9). *@
+<PageTitle>Trợ lý AI (Tenant AI)</PageTitle>
+
+<div class="tenant-ai-hub" data-testid="tenant-ai-hub">
+    <header class="page-header">
+        <h1><i class="bi bi-robot"></i> Trợ lý AI của quán</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadAsync" Loading="@_loading">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (_flagChecked && !_flagOn)
+    {
+        <VanACard>
+            <div class="empty-state" data-testid="tenant-ai-disabled">
+                <i class="bi bi-robot" style="font-size: 2.5rem; color: #6c757d;"></i>
+                <p class="mt-2">
+                    Trợ lý AI chưa được bật cho quán này. Mở
+                    <a href="/settings/shop-features">Cấu hình tính năng Shop</a>
+                    và bật <strong>Đồng bộ dữ liệu AI (Tenant AI)</strong> + <strong>AI Chatbox</strong>
+                    để khách được trợ lý trả lời trên trang cửa hàng.
+                </p>
+            </div>
+        </VanACard>
+    }
+    else if (_loading && _status == null)
+    {
+        <VanACard>
+            <div class="loading-state"><VanASpinner Size="large" /><p>Đang tải trạng thái trợ lý AI...</p></div>
+        </VanACard>
+    }
+    else if (_flagOn)
+    {
+        @if (_serviceDown)
+        {
+            <VanAAlert Variant="warning" Message="Không kết nối được dịch vụ AI — số liệu có thể trống. Thử Làm mới sau ít phút." data-testid="alert-service-down" />
+        }
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                <VanACard Header="Đồng bộ sản phẩm" data-testid="card-ai-products">
+                    @if (_status != null)
+                    {
+                        <div class="display-6 fw-bold">@_status.Products</div>
+                        <div class="small text-muted">
+                            @_status.ChunksEmbedded/@_status.Chunks chunks đã embed
+                            @if (_status.LastProductSyncedAtUtc.HasValue)
+                            {
+                                <br />@:Sync lần cuối: @_status.LastProductSyncedAtUtc.Value.ToLocalTime().ToString("HH:mm dd/MM")
+                            }
+                        </div>
+                        @if (_status.ProductsStale)
+                        {
+                            <span class="badge bg-warning text-dark" data-testid="badge-stale">Dữ liệu cũ (> @_status.StaleHours h)</span>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-muted">—</div>
+                    }
+                </VanACard>
+            </div>
+            <div class="col-md-3">
+                <VanACard Header="Tài liệu tri thức" data-testid="card-ai-docs">
+                    @if (_status != null)
+                    {
+                        <div class="display-6 fw-bold">
+                            @_status.ApprovedDocs
+                            @if (_status.PendingDocs > 0)
+                            {
+                                <span class="badge bg-warning text-dark fs-6 align-middle" data-testid="badge-pending-docs">@_status.PendingDocs chờ duyệt</span>
+                            }
+                        </div>
+                        <div class="small text-muted">đã duyệt · @_status.RejectedDocs từ chối</div>
+                    }
+                    else
+                    {
+                        <div class="text-muted">—</div>
+                    }
+                </VanACard>
+            </div>
+            <div class="col-md-3">
+                <VanACard Header="Hồ sơ trợ lý" data-testid="card-ai-profile">
+                    @if (_profile?.Published != null)
+                    {
+                        <div class="fw-bold">@_profile.Published.AiName</div>
+                        <div class="small text-muted">v@_profile.Published.Version đang phát hành</div>
+                    }
+                    else
+                    {
+                        <div class="text-muted">Chưa phát hành</div>
+                    }
+                    @if (_profile?.Draft != null)
+                    {
+                        <span class="badge bg-info text-dark" data-testid="badge-draft">Draft v@_profile.Draft.Version chờ publish</span>
+                    }
+                </VanACard>
+            </div>
+            <div class="col-md-3">
+                <VanACard Header="Sử dụng 30 ngày" data-testid="card-ai-usage">
+                    @if (_usage != null)
+                    {
+                        <div class="display-6 fw-bold">@_usage.Total.Messages</div>
+                        <div class="small text-muted">
+                            tin nhắn · @(_usage.Total.PromptTokens + _usage.Total.CompletionTokens) tokens
+                            @if (_usage.Total.Refused > 0)
+                            {
+                                <br />@:từ chối @_usage.Total.Refused
+                            }
+                            @if (_usage.Total.Degraded > 0)
+                            {
+                                @: · degraded @_usage.Total.Degraded
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-muted">—</div>
+                    }
+                </VanACard>
+            </div>
+        </div>
+
+        <VanACard Header="Quản trị trợ lý AI" data-testid="card-ai-links">
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <a href="/admin/tenant-ai/profile" class="btn btn-outline-primary w-100 text-start" data-testid="link-ai-profile">
+                        <i class="bi bi-person-badge me-1"></i> Hồ sơ &amp; Persona
+                        <div class="small text-muted">Tên, xưng hô, lời chào, preview &amp; publish</div>
+                    </a>
+                </div>
+                <div class="col-md-4">
+                    <a href="/admin/tenant-ai/knowledge" class="btn btn-outline-primary w-100 text-start" data-testid="link-ai-knowledge">
+                        <i class="bi bi-journal-text me-1"></i> Tri thức
+                        <div class="small text-muted">Upload tài liệu, duyệt nội dung AI được dùng</div>
+                    </a>
+                </div>
+                <div class="col-md-4">
+                    <a href="/admin/tenant-ai/policy" class="btn btn-outline-primary w-100 text-start" data-testid="link-ai-policy">
+                        <i class="bi bi-shield-check me-1"></i> Chính sách
+                        <div class="small text-muted">Chủ đề từ chối, phạm vi câu hỏi</div>
+                    </a>
+                </div>
+                <div class="col-md-4">
+                    <a href="/admin/tenant-ai/conversations" class="btn btn-outline-primary w-100 text-start" data-testid="link-ai-conversations">
+                        <i class="bi bi-chat-left-text me-1"></i> Hội thoại AI
+                        <div class="small text-muted">Xem lại AI đã trả lời khách (chỉ xem)</div>
+                    </a>
+                </div>
+                <div class="col-md-4">
+                    <a href="/admin/tenant-ai/usage" class="btn btn-outline-primary w-100 text-start" data-testid="link-ai-usage">
+                        <i class="bi bi-graph-up me-1"></i> Sử dụng
+                        <div class="small text-muted">Tin nhắn &amp; token theo ngày</div>
+                    </a>
+                </div>
+                <div class="col-md-4">
+                    <a href="/settings/shop-features" class="btn btn-outline-secondary w-100 text-start" data-testid="link-ai-features">
+                        <i class="bi bi-toggles me-1"></i> Cấu hình tính năng
+                        <div class="small text-muted">Bật/tắt AI chatbox &amp; đồng bộ dữ liệu</div>
+                    </a>
+                </div>
+            </div>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private bool _flagChecked;
+    private bool _flagOn;
+    private bool _loading;
+    private bool _serviceDown;
+    private TenantAiStatus? _status;
+    private TenantAiProfileResponse? _profile;
+    private TenantAiUsageResponse? _usage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _flagOn = TenantProvider.HasTenant
+                && await FeatureSettings.IsEnabledAsync(TenantProvider.TenantId, TenantAiKnowledgeSyncService.FlagName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "TenantAiHub: flag check failed — treating as disabled");
+            _flagOn = false;
+        }
+        _flagChecked = true;
+        if (_flagOn) await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            var tenantId = TenantProvider.TenantId;
+            var status = await AiClient.GetKnowledgeStatusAsync(tenantId);
+            var profile = await AiClient.GetProfileAsync(tenantId);
+            var usage = await AiClient.GetUsageAsync(tenantId, 30);
+            _status = status;
+            _profile = profile;
+            _usage = usage;
+            _serviceDown = status == null && profile == null && usage == null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}
