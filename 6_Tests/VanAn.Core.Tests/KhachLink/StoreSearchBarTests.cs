@@ -223,4 +223,35 @@ public class StoreSearchBarTests : TestContext
         client.SearchCalls.Should().Be(1);
         client.LastQuery.Should().Be("phở chay");
     }
+
+    // ── SF-W3 fix: input clears on success, keeps text on failure ────────
+
+    [Fact]
+    public void Search_ClearsInput_OnSuccess()
+    {
+        var client = new FakeSearchClient
+        {
+            Result = new AiChatResult("Có ạ.", [], [], 0.9, false, null, false, false)
+        };
+        var cut = Render(client);
+
+        DoSearch(cut, "phở chay");
+
+        cut.WaitForAssertion(() => client.SearchCalls.Should().Be(1));
+        cut.Find("input.store-search-input").GetAttribute("value").Should().BeEmpty(
+            "input clears so the next question can be asked right away");
+    }
+
+    [Fact]
+    public void Search_KeepsInput_OnFailure()
+    {
+        var client = new FakeSearchClient { Result = null }; // transport error → null
+        var cut = Render(client);
+
+        DoSearch(cut, "phở chay");
+
+        cut.WaitForAssertion(() => client.SearchCalls.Should().Be(1));
+        cut.Find("input.store-search-input").GetAttribute("value").Should().Be("phở chay",
+            "fail-open keeps the query so the customer can retry");
+    }
 }

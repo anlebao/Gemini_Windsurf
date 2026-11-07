@@ -40,6 +40,13 @@ window.vananRealtime = {
     scrollToBottom(elementId) {
         const el = document.getElementById(elementId);
         if (el) el.scrollTop = el.scrollHeight;
+    },
+
+    // SF-W3: scroll a container to top (newest-first chat surfaces — AI widget
+    // renders newest message at top, so "scroll to latest" = scrollTop 0).
+    scrollToTop(elementId) {
+        const el = document.getElementById(elementId);
+        if (el) el.scrollTop = 0;
     }
 };
 

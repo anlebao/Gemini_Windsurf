@@ -69,8 +69,8 @@ const warn = (name, extra) => console.log(`WARN ${name} — ${extra}`);
     await chip.click();
     await page.locator('.vanan-ai-panel').waitFor({ timeout: 10000 }).catch(() => {});
     check('A1 chip → widget opened', (await page.locator('.vanan-ai-panel').count()) > 0);
-    await page.locator('.vanan-ai-msg-user .vanan-ai-bubble').last().waitFor({ timeout: 10000 }).catch(() => {});
-    const userMsg = await page.locator('.vanan-ai-msg-user .vanan-ai-bubble').last().innerText().catch(() => '');
+    await page.locator('.vanan-ai-msg-user .vanan-ai-bubble').first().waitFor({ timeout: 10000 }).catch(() => {});
+    const userMsg = await page.locator('.vanan-ai-msg-user .vanan-ai-bubble').first().innerText().catch(() => '');
     check('A1 chip → question auto-sent', userMsg.length > 3, `"${userMsg.slice(0, 40)}"`);
     await page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble:not(.vanan-ai-typing)').last()
       .waitFor({ timeout: 45000 }).catch(() => {});

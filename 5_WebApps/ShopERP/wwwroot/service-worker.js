@@ -5,7 +5,9 @@
 //   - /api/* + POST/PUT/DELETE → KHÔNG bao giờ cache (G5)
 //   - manifest.json + icons → bypass SW (bài học icon-poisoning v25)
 
-const CACHE_NAME = 'shoperp-pwa-v1';
+// v2 (2026-11-07): bump — UI.Platform realtime.js (+scrollToTop) + voice-input.js
+// are cache-first static; purge so clients re-fetch (SF-W3).
+const CACHE_NAME = 'shoperp-pwa-v2';
 const STATIC_ASSETS = [
   '/offline.html',
   '/app.css',

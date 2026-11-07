@@ -93,12 +93,12 @@ test.describe('VanAn Ecosystem — AI Chat Widget (task_ai_p4)', () => {
 
     // User msg phải render trước (greeting ẩn khi _messages.Count > 0 — tránh race
     // với greeting/typing indicator cùng selector .vanan-ai-msg-assistant .vanan-ai-bubble).
-    await expect(page.locator('.vanan-ai-msg-user .vanan-ai-bubble').last())
+    await expect(page.locator('.vanan-ai-msg-user .vanan-ai-bubble').first())
       .toBeVisible({ timeout: 10000 });
 
     // Answer phải hiện — loại trừ typing indicator (:not(.vanan-ai-typing));
     // degraded/fallback vẫn là answer hợp lệ.
-    await expect(page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble:not(.vanan-ai-typing)').last())
+    await expect(page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble:not(.vanan-ai-typing)').first())
       .toBeVisible({ timeout: 45000 }); // LLM có thể mất ~30s
 
     // Product card (nếu câu hỏi grounded trên menu — card xuất hiện khi có products[]).
@@ -129,9 +129,9 @@ test.describe('VanAn Ecosystem — AI Chat Widget (task_ai_p4)', () => {
 
     await page.locator('.vanan-ai-panel input').fill('Xin chào');
     await page.locator('button.vanan-ai-send').click();
-    await expect(page.locator('.vanan-ai-msg-user .vanan-ai-bubble').last())
+    await expect(page.locator('.vanan-ai-msg-user .vanan-ai-bubble').first())
       .toBeVisible({ timeout: 10000 });
-    await expect(page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble:not(.vanan-ai-typing)').last())
+    await expect(page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble:not(.vanan-ai-typing)').first())
       .toBeVisible({ timeout: 45000 });
 
     // Reload → sessionId từ localStorage → history phải restore (GET sessions/{sid}/messages).
@@ -180,9 +180,9 @@ test.describe('VanAn Ecosystem — AI Chat Widget (task_ai_p4)', () => {
 
     await page.locator('.vanan-ai-panel input').fill(REFUSE_QUESTION);
     await page.locator('button.vanan-ai-send').click();
-    await expect(page.locator('.vanan-ai-msg-user .vanan-ai-bubble').last())
+    await expect(page.locator('.vanan-ai-msg-user .vanan-ai-bubble').first())
       .toBeVisible({ timeout: 10000 });
-    await expect(page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble:not(.vanan-ai-typing)').last())
+    await expect(page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble:not(.vanan-ai-typing)').first())
       .toBeVisible({ timeout: 45000 });
 
     // Chip chỉ xuất hiện khi answer bị refused — nếu AI trả lời được thì skip (không phải lỗi).
@@ -213,11 +213,11 @@ test.describe('VanAn Ecosystem — AI Chat Widget (task_ai_p4)', () => {
 
     // Widget mở + câu hỏi xuất hiện như user message (auto-send, không cần gõ).
     await expect(page.locator('.vanan-ai-panel')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('.vanan-ai-msg-user .vanan-ai-bubble').last())
+    await expect(page.locator('.vanan-ai-msg-user .vanan-ai-bubble').first())
       .toBeVisible({ timeout: 10000 });
-    const userMsg = await page.locator('.vanan-ai-msg-user .vanan-ai-bubble').last().innerText();
+    const userMsg = await page.locator('.vanan-ai-msg-user .vanan-ai-bubble').first().innerText();
     expect(chipText).toContain(userMsg.slice(0, 6)); // chip label ≈ question text
-    await expect(page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble:not(.vanan-ai-typing)').last())
+    await expect(page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble:not(.vanan-ai-typing)').first())
       .toBeVisible({ timeout: 45000 });
   });
 
@@ -319,9 +319,9 @@ test.describe('VanAn Ecosystem — AI Chat Widget (task_ai_p4)', () => {
     await mic.click();
 
     // Transcript → user message tự gửi → assistant answer (hoặc fallback) hiện.
-    await expect(page.locator('.vanan-ai-msg-user .vanan-ai-bubble').last())
+    await expect(page.locator('.vanan-ai-msg-user .vanan-ai-bubble').first())
       .toContainText(VOICE_TRANSCRIPT, { timeout: 15000 });
-    await expect(page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble:not(.vanan-ai-typing)').last())
+    await expect(page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble:not(.vanan-ai-typing)').first())
       .toBeVisible({ timeout: 45000 });
   });
 });

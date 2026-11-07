@@ -1,5 +1,10 @@
 ﻿// ============================================================================
-// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v29-gesture-install)
+// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v30-voice-input)
+//
+// v30-voice-input (2026-11-07):
+//   - SF-W3: vananVoiceInput (voice-input.js) + realtime.js scrollToTop.
+//     Static JS is cache-first with NO expiry → bump v29 → v30 so every client
+//     re-fetches the updated scripts (same lesson as v20→v29).
 //
 // v29-gesture-install (2026-10-24):
 //   - pwa.js: drop the no-gesture auto-prompt (Chrome rejects prompt()
@@ -167,10 +172,10 @@
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v29-gesture-install';
-const STATIC_CACHE = 'vanan-static-v29-gesture-install';
-const DYNAMIC_CACHE = 'vanan-dynamic-v29-gesture-install';
-const WASM_CACHE = 'vanan-wasm-v29-gesture-install';
+const CACHE_NAME = 'vanan-khachlink-v30-voice-input';
+const STATIC_CACHE = 'vanan-static-v30-voice-input';
+const DYNAMIC_CACHE = 'vanan-dynamic-v30-voice-input';
+const WASM_CACHE = 'vanan-wasm-v30-voice-input';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [

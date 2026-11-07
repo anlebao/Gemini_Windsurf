@@ -10,6 +10,11 @@
 //   OnVoiceError(msg)    — localized Vietnamese error message
 //   OnVoiceEnd()         — recognition ended (reset listening state)
 //
+// Transcript is REBUILT from event.results[0..n] on every result — never
+// incrementally folded. Folding (accumulated += interim-tail before stop())
+// double-counts the tail when the browser flushes it as a final result on
+// recognition.stop() → "câu hỏi câu hỏi" (SF-W3 fix 2026-11-07).
+//
 // Loaded via <script src="/_content/VanAn.UI.Platform/js/voice-input.js"> —
 // plain script (not module) so any host (WASM/Server/SSR) can include it.
 
@@ -19,8 +24,7 @@ window.vananVoiceInput = (function () {
     let recognition = null;
     let dotNetRef = null;
     let silenceTimer = null;
-    let accumulated = '';   // final segments only
-    let latestDisplay = ''; // accumulated + current interim
+    let latestDisplay = ''; // complete transcript — final segments + current interim
     let active = false;
     let finalSent = false;
 
@@ -43,7 +47,7 @@ window.vananVoiceInput = (function () {
     function finalize() {
         if (finalSent) return;
         finalSent = true;
-        const text = (accumulated || latestDisplay).trim();
+        const text = latestDisplay.trim();
         if (text && dotNetRef) {
             dotNetRef.invokeMethodAsync('OnVoiceFinal', text);
         }
@@ -73,7 +77,6 @@ window.vananVoiceInput = (function () {
         if (!SR) return false;
 
         dotNetRef = ref || null;
-        accumulated = '';
         latestDisplay = '';
         finalSent = false;
 
@@ -84,32 +87,31 @@ window.vananVoiceInput = (function () {
         recognition.maxAlternatives = 1;
 
         recognition.onresult = function (event) {
+            // Rebuild the whole transcript every event — results[] carries all
+            // segments since session start; a result flips interim→final in
+            // place. Immune to resultIndex quirks and stop()-flush duplicates.
+            const finals = [];
             let interim = '';
-            for (let i = event.resultIndex; i < event.results.length; i++) {
+            for (let i = 0; i < event.results.length; i++) {
                 const result = event.results[i];
                 if (result.isFinal) {
-                    accumulated += result[0].transcript;
+                    finals.push(result[0].transcript);
                 } else {
                     interim += result[0].transcript;
                 }
             }
-            latestDisplay = (accumulated + ' ' + interim).trim();
+            latestDisplay = (finals.join(' ') + ' ' + interim).replace(/\s+/g, ' ').trim();
             if (dotNetRef && latestDisplay) {
                 dotNetRef.invokeMethodAsync('OnVoiceInterim', latestDisplay);
             }
 
-            // Silence → submit what we have (incl. trailing interim) then end.
+            // Silence → end the session; onend delivers OnVoiceFinal.
             clearSilence();
-            silenceTimer = setTimeout(function () {
-                accumulated = latestDisplay;
-                finalize();
-                stop();
-            }, SILENCE_DELAY_MS);
+            silenceTimer = setTimeout(stop, SILENCE_DELAY_MS);
         };
 
         recognition.onerror = function (event) {
             // Don't auto-submit partial text on failure — surface the error instead.
-            accumulated = '';
             latestDisplay = '';
             let message = 'Lỗi nhận dạng giọng nói.';
             switch (event.error) {
@@ -128,7 +130,7 @@ window.vananVoiceInput = (function () {
         recognition.onend = function () {
             active = false;
             clearSilence();
-            finalize(); // flush anything still pending (manual stop / browser end)
+            finalize(); // flush whatever transcript we have (manual stop / browser end)
             if (dotNetRef) {
                 dotNetRef.invokeMethodAsync('OnVoiceEnd');
             }
@@ -148,10 +150,10 @@ window.vananVoiceInput = (function () {
 
     function stop() {
         if (recognition && active) {
-            // Manual stop submits pending speech — fold interim tail into final.
-            accumulated = latestDisplay;
             try {
-                recognition.stop(); // onend → finalize + OnVoiceEnd
+                // Browser flushes pending interim segments as finals before
+                // onend — latestDisplay rebuilds correctly, no manual folding.
+                recognition.stop();
             } catch (e) {
                 console.error('vananVoiceInput.stop error:', e);
             }

@@ -528,6 +528,34 @@ public class AiChatWidgetTests : TestContext
     }
 
     [Fact]
+    public void Messages_Render_NewestFirst()
+    {
+        var client = new FakeAiChatClient
+        {
+            ChatResult = new AiChatResult("Dạ.", [], [], 0.9, false, null, false, false)
+        };
+        var cut = Render(client);
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
+        cut.WaitForAssertion(() => cut.Find(".vanan-ai-panel"));
+
+        cut.Find(".vanan-ai-panel input").Input("câu một");
+        cut.Find("button.vanan-ai-send").Click();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("câu một"));
+
+        cut.Find(".vanan-ai-panel input").Input("câu hai");
+        cut.Find("button.vanan-ai-send").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            var markup = cut.Markup;
+            markup.Should().Contain("câu hai");
+            markup.IndexOf("câu hai", StringComparison.Ordinal)
+                .Should().BeLessThan(markup.IndexOf("câu một", StringComparison.Ordinal),
+                    "newest-first: tin mới nhất render trên cùng");
+        });
+    }
+
+    [Fact]
     public async Task Dispose_StopsActiveVoiceSession()
     {
         JSInterop.Setup<bool>("vananVoiceInput.start", _ => true).SetResult(true);

@@ -59,9 +59,9 @@ const warn = (name, extra) => console.log(`WARN ${name} — ${extra}`);
       await askBtn.click();
       await page.locator('.vanan-ai-panel').waitFor({ timeout: 10000 }).catch(() => {});
       check('A2 "Hỏi AI thêm" → widget opened', (await page.locator('.vanan-ai-panel').count()) > 0);
-      await page.locator('.vanan-ai-msg-user .vanan-ai-bubble').last()
+      await page.locator('.vanan-ai-msg-user .vanan-ai-bubble').first()
         .waitFor({ timeout: 10000 }).catch(() => {});
-      const userMsg = await page.locator('.vanan-ai-msg-user .vanan-ai-bubble').last()
+      const userMsg = await page.locator('.vanan-ai-msg-user .vanan-ai-bubble').first()
         .innerText().catch(() => '');
       check('A2 question forwarded to widget', userMsg.includes(QUESTION.slice(0, 6)),
         `"${userMsg.slice(0, 40)}"`);

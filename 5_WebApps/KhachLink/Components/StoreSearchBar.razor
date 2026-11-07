@@ -118,6 +118,9 @@
         {
             _result = await AiClient.SearchAiAsync(TenantId, q);
             _lastQuery = q;
+            // SF-W3: clear the box on success so it's ready for the next question
+            // (keep the text on failure — fail-open hides the result, user can retry).
+            if (_result is not null) _query = string.Empty;
         }
         finally
         {
