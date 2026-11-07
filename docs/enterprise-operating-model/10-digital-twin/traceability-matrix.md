@@ -34,7 +34,24 @@
 | ACTV-111 | Bind domain/instance | SYS-002 | `KhachLinkInstanceController`/`DomainRegistrarController` | endpoints (I) | — | binding | INFERRED |
 | ACTV-113 | MarkAsHtx | SYS-003 | `HtxProfileService` | `tenant.type.changed` | DATA-012 | HTX marker | VERIFIED |
 
+## VALCN — Community commerce (D1)
+
+| ACTV | Activity | Module | Handler/Service | API/Event | DB | Output | Status |
+|---|---|---|---|---|---|---|---|
+| ACTV-610 | Resolve mode + snapshot | SYS-003 | `CommerceModeService.ResolveModeForTenantAsync` | — | `SystemSetting`/`Tenant` (DATA-013) | Order snapshot | VERIFIED |
+| ACTV-611 | Configure mode/rates | SYS-002 | `CommerceModeController` | POST /api/admin/commerce-mode/* | DATA-013 | settings | VERIFIED |
+| ACTV-612 | Nearby orders | SYS-002 | `CommunityOrderService.GetNearbyOrdersAsync` | GET /api/community/nearby-orders | DATA-004/013 | DTO list | VERIFIED |
+| ACTV-613 | Accept delivery | SYS-002/003 | `CommunityOrderService.AcceptOrderAsync` | POST /api/community/orders/{id}/accept | `DeliveryTask`+`Order` (DATA-013/004) | task + delivering | VERIFIED |
+| ACTV-614 | Delivery transitions | SYS-002/003 | `DeliveryWorkflowService.TransitionStatusAsync` → `OrderWorkflowService` | POST …/pickup\|delivering\|delivered\|failed | DATA-013 | status + JE | VERIFIED |
+| ACTV-615 | GPS ping + push | SYS-002 | `DeliveryWorkflowService.RecordLocationAsync` + `LocationHub` | POST /api/community/location/update | `DeliveryTracking` (DATA-013) | SignalR push | VERIFIED |
+| ACTV-616 | Payment split + fund accrual | SYS-003 | `WalletService` (COD/external legs) + `OrderService.GenerateResellerAccountingEntriesAsync` | POST …/wallet/confirm-cod · confirm-external-payment | `WalletTransaction` (DATA-010) + `AccountingEntry` (DATA-009) | wallet legs + 3 booksets | VERIFIED |
+| ACTV-617 | Fund spend + audit | SYS-002/003 | `CommunityFundService.SpendAsync` | POST /api/admin/community-fund/spend | DATA-010 + `CommunityFundSpendRecord` (DATA-013) | spend tx + audit | VERIFIED |
+| ACTV-618 | COD remittance | SYS-002/003 | `WalletService` (Remittance+Settlement pair) | POST /api/community/wallet/remit | DATA-010 | settlement | VERIFIED |
+| ACTV-619 | Eligibility eval | SYS-002/003 | `CommunityAdminService.GetEligibleCustomers{ForTenant}Async` | GET …/community/eligible · …/tenant-community/eligible | DATA-013 | DTO page | VERIFIED |
+| ACTV-620 | Role activate/deactivate | SYS-002/003 | `CommunityAdminService.ActivateRole{ForTenant}Async` | POST …/activate-role\|deactivate-role | `CommunityRole` (DATA-013) | role state | VERIFIED |
+| ACTV-621 | Referral & commission | SYS-003 | `SalesmanService` + `ReferralCommissionCalculator` | /api/community/salesman/*, /resolve-referral | `SalesReferral` (DATA-013) | commission | INFERRED (call chain partial) |
+
 ## Coverage
 
-- Verified chain links: 16/27 activities fully code-verified; 9 partially (endpoint/handler names inferred); 2 manual (no software — legitimately UNVERIFIED).
-- UNKNOWN open: exact `/api/membership-*` routes, OCR pipeline internals, POS notify mechanism, reverse `vanan.shoperp.*` subject names — enumerate at X0 drift run or targeted P3-followup.
+- Verified chain links: 16/27 activities fully code-verified; 9 partially (endpoint/handler names inferred); 2 manual (no software — legitimately UNVERIFIED). VALCN D1 (added 2026-11-08): +12 activities — 11 VERIFIED, 1 INFERRED (ACTV-621).
+- UNKNOWN open: exact `/api/membership-*` routes, OCR pipeline internals, POS notify mechanism, reverse `vanan.shoperp.*` subject names, `PublishDeliveryStatusUpdateAsync` channel (SignalR vs NATS), SMS-OTP deposit wallet flow — enumerate at X0 drift run or targeted P3-followup.

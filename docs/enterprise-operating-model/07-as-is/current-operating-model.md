@@ -14,15 +14,15 @@
 | F6 | PROC-151/152 | ACTV-501..505 | VERIFIED (loyalty sync/redemption controllers) |
 | Inventory | PROC-161..163 | ACTV-601..603 | VERIFIED services; L3 coverage-level (depth = GAP-016) |
 | Accounting+ | PROC-171/172 | ACTV-604/605 | VERIFIED (resolver + period close; beyond F3 vouchers) |
-| VALCN | PROC-181..183 | ACTV-606..608 | VERIFIED (CommunityFund/Order/Admin services; CAP-023 = GOAL, HTX = vehicle) |
+| VALCN | PROC-181..183 | ACTV-606..608 + 610..621 | VERIFIED — D1 deep-dive detail (`swimlane-diagrams/valcn.md` + `process-details/valcn-details.md`; CAP-023 = GOAL, HTX = vehicle) |
 | Fin Intelligence | PROC-191 | ACTV-609 | VERIFIED (BreakEven + BusinessProfile; advisory-only) |
 
-## Execution-type distribution (all slices: 63 activities)
+## Execution-type distribution (all slices: 75 activities)
 
 | Type | Count | % |
 |---|---|---|
-| MANUAL | 22 | 35% |
-| AUTOMATED | 41 | 65% |
+| MANUAL | 29 | 39% |
+| AUTOMATED | 46 | 61% |
 | HYBRID | 0 | 0% |
 
 Honest reading: most "human-in-the-loop" cases decompose cleanly into MANUAL decision activities sitting between AUTOMATED steps (approval gates), exactly as the decompose-first rule intends. HYBRID remains empty — correct, not missing.
@@ -34,6 +34,7 @@ Honest reading: most "human-in-the-loop" cases decompose cleanly into MANUAL dec
 3. **No activity lacks evidence entirely** — but 3 manual activities have no software link (ACTV-101, 106, 114) → automation-gap candidates.
 4. **Drift items logged:** CoreHub OutputType, Domain folder layout (evidence-register §C).
 5. **Two different "recommended" endpoints exist** (`/api/catalog/recommended` pure-PG vs `/api/products/recommended` forwarded) — doc conflation risk noted.
+6. **VALCN (D1) detail-verified:** community layer is cross-tenant by design (`IgnoreQueryFilters` everywhere — RISK-007); community fund is system-wide with single-approver spend (RISK-008) and immutable audit (CTRL-017); DeliveryTask orphan path has no compensating action (RISK-011, no control).
 
 ## X4 — F7+ capability coverage status
 
@@ -42,7 +43,7 @@ Honest reading: most "human-in-the-loop" cases decompose cleanly into MANUAL dec
 | Booking (CAP-009) | EVIDENCED-partial | PublicBooking/TenantBooking controllers verified; deep model deferred |
 | Notifications (CAP-015) | EVIDENCED | NotificationCenterService + NotificationHubNotifier verified |
 | Loyalty (CAP-011) | EVIDENCED | LoyaltySyncSubscriber + AllianceWallet verified; X2 detail pending |
-| Community/Growth/Campaigns/Missions | EVIDENCED-partial | controllers exist (Community, Growth, Campaigns, Missions); not modeled |
+| Community/Growth/Campaigns/Missions | EVIDENCED-partial | Community (VALCN) modeled D1 detail; Growth/Campaigns/Missions controllers exist, not modeled |
 | Kitchen/HKDBooks/Inventory | EVIDENCED-partial | controllers exist; accounting detail in F3/X-cards |
 | CRM (CAP-005) | INFERRED | partial — GAP-001 noted |
 | Marketplace (CAP-014) | ASSUMED | no code evidence — GAP-005 |

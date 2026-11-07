@@ -232,3 +232,82 @@ entries:
   confidence: VERIFIED
   evidence:
   - 5_WebApps/ShopERP/Services/LoyaltySyncSubscriber.cs@64789992
+- id: RULE-020
+  name: Commerce mode snapshot at order creation
+  description: CommerceMode + PlatformFeeRate/CommunityFundRate/DeliveryFee snapshot on Order
+    at creation — mode toggle affects future orders only
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-610
+  - ACTV-611
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommerceModeService.cs@69496de4
+  - 1_Shared/Domain/Aggregates/OrderAggregate/CommerceMode.cs@69496de4
+- id: RULE-021
+  name: Rate invariant — platformFeeRate + communityFundRate <= 1
+  description: SetGlobalMode rejects rates outside 0-1 or summing over 100% margin; global
+    mode cannot be Inherit
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-611
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommerceModeService.cs@69496de4
+- id: RULE-022
+  name: Single active DeliveryTask per order
+  description: accept allowed only for confirmed/ready orders with no active DeliveryTask
+    (pre-check + unique constraint — concurrency-safe)
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-613
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommunityOrderService.cs@69496de4
+- id: RULE-023
+  name: Per-tenant collaborator eligibility thresholds
+  description: eligibility = IdentityLevel >= threshold AND LoyaltyPoints >= per-tenant
+    MinPoints via ShopFeatureSettings (default 1000 pts + Verified); Owner manages tenant-scoped,
+    SystemAdmin cross-tenant
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-619
+  - ACTV-620
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommunityAdminService.cs@69496de4
+- id: RULE-024
+  name: Community fund system-wide + overspend blocked
+  description: fund balance lives on CommunityFundWallet (TenantId Guid.Empty); SpendAsync
+    rejects amount > balance; every spend writes immutable CommunityFundSpendRecord
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-616
+  - ACTV-617
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommunityFundService.cs@69496de4
+  - 1_Shared/Domain/Aggregates/CommunityFundAggregate/CommunityFundSpendRecord.cs@69496de4
+- id: RULE-025
+  name: Reseller 3-bookset accounting (idempotent)
+  description: Reseller order generates Supplier + Reseller + Platform booksets (VAT on
+    costPrice/sellPrice; platform revenue = PlatformFee + CommunityFund); skipped when reference
+    suffix exists
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-616
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/OrderService.cs@69496de4

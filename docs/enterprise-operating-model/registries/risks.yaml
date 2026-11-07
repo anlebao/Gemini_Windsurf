@@ -70,3 +70,63 @@ entries:
   ctrlRefs: []
   evidence:
   - 2_Gateway/Controllers/CatalogController.cs@64789992
+- id: RISK-007
+  name: Deliberate cross-tenant community queries
+  category: TENANT_ISOLATION
+  severity: HIGH
+  description: CommunityOrder/Admin/CommerceMode services run IgnoreQueryFilters over Orders/DeliveryTasks/Customers/Tenants
+    by design — predicate bugs would leak data platform-wide
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-016
+  evidence:
+  - 3_CoreHub/Services/CommunityOrderService.cs@69496de4
+  - 3_CoreHub/Services/CommunityAdminService.cs@69496de4
+- id: RISK-008
+  name: Community fund spend — single approver (no maker-checker)
+  category: FRAUD
+  severity: MEDIUM
+  description: one SystemAdmin (approvedBy) authorizes disbursement; only mitigation is
+    immutable audit record
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-017
+  evidence:
+  - 3_CoreHub/Services/CommunityFundService.cs@69496de4
+- id: RISK-009
+  name: Ephemeral Data Protection key ring breaks PII decrypt
+  category: OPERATIONAL
+  severity: MEDIUM
+  description: ciphertext written by previous container instance undecryptable after restart
+    — already caused admin 500s (2026-09-21 fix avoids projection, root cause unfixed)
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-018
+  evidence:
+  - 3_CoreHub/Services/CommunityAdminService.cs@69496de4
+- id: RISK-010
+  name: Reseller accounting drift on snapshot-rate changes
+  category: COMPLIANCE
+  severity: MEDIUM
+  description: 3 booksets derive from order-creation snapshot rates; mid-flight rate edits
+    or fix attempts need reversal discipline (AccountingEntry immutable)
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-019
+  evidence:
+  - 3_CoreHub/Services/OrderService.cs@69496de4
+- id: RISK-011
+  name: Orphaned DeliveryTask on order-completion delegate failure
+  category: OPERATIONAL
+  severity: LOW
+  description: DeliveryTask marked Delivered even when OrderWorkflowService returns null
+    — warn-log only, no compensating action
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs: []
+  evidence:
+  - 3_CoreHub/Services/DeliveryWorkflowService.cs@69496de4

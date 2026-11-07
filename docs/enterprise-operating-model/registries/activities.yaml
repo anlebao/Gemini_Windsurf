@@ -1071,3 +1071,258 @@ entries:
   evidence:
   - 3_CoreHub/Services/FinancialIntelligence/BreakEvenAnalysisService.cs@64789992
   - 3_CoreHub/Services/FinancialIntelligence/BusinessProfileService.cs@64789992
+- id: ACTV-610
+  name: Resolve commerce mode + snapshot rates at order creation
+  processRef: PROC-181
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: order checkout
+  input: tenantId + SystemSetting global mode + TenantSettings.CommerceModeOverride
+  output: Order.CommerceMode + PlatformFeeRate/CommunityFundRate/DeliveryFee snapshot
+  exceptionHandling: tenant missing or Inherit -> global mode; invalid SystemSetting -> defaults
+    (Marketplace/0.30/0.05/15000)
+  auditLog: false
+  moduleRef: SYS-003
+  apiRefs:
+  - API-117
+  dataRefs:
+  - DATA-013
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommerceModeService.cs@69496de4
+  - 3_CoreHub/Services/OrderService.cs@69496de4
+- id: ACTV-611
+  name: Configure commerce mode (global rates + tenant override)
+  processRef: PROC-181
+  executionType: MANUAL
+  humanActorRef: ACTR-014
+  trigger: SystemAdmin ops decision
+  input: mode + platformFeeRate + communityFundRate + deliveryFee / tenantId + override
+  output: SystemSetting upserts / TenantSettings.CommerceModeOverride
+  approvalRequired: true
+  exceptionHandling: rates outside 0-1 or fee+fund > 1 -> reject; global Inherit -> reject
+  auditLog: true
+  moduleRef: SYS-002
+  apiRefs:
+  - API-117
+  dataRefs:
+  - DATA-013
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/CommerceModeController.cs@69496de4
+  - 3_CoreHub/Services/CommerceModeService.cs@69496de4
+- id: ACTV-612
+  name: Shipper nearby order discovery (Haversine, cross-tenant)
+  processRef: PROC-181
+  executionType: MANUAL
+  humanActorRef: ACTR-011
+  trigger: shipper opens delivery tab
+  input: shipper lat/lng + radiusKm (<=0 = unlimited)
+  output: NearbyOrderDto page sorted by distance (to delivery point, fallback shop coords)
+  exceptionHandling: no reference coords -> order skipped; non-accept status or already-assigned
+    -> excluded
+  auditLog: false
+  moduleRef: SYS-002
+  apiRefs:
+  - API-115
+  dataRefs:
+  - DATA-004
+  - DATA-013
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommunityOrderService.cs@69496de4
+- id: ACTV-613
+  name: Accept delivery order -> DeliveryTask + order delivering
+  processRef: PROC-181
+  executionType: MANUAL
+  humanActorRef: ACTR-011
+  trigger: shipper taps accept
+  input: orderId + shipperId (X-Customer-Token)
+  output: DeliveryTask(Assigned) + Order.AssignShipper + status->delivering + OrderStatusHistory(shipper_accept)
+    + conversation ShipperId backfill
+  exceptionHandling: wrong status or existing active task -> 409 Conflict
+  auditLog: true
+  moduleRef: SYS-002
+  apiRefs:
+  - API-115
+  dataRefs:
+  - DATA-004
+  - DATA-013
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommunityOrderService.cs@69496de4
+  - 2_Gateway/Controllers/CommunityController.cs@69496de4
+- id: ACTV-614
+  name: Delivery lifecycle transitions (PickedUp->OutForDelivery->Delivered/Failed)
+  processRef: PROC-181
+  executionType: MANUAL
+  humanActorRef: ACTR-011
+  trigger: shipper progresses delivery
+  input: orderId + target status (+failureReason for Failed)
+  output: DeliveryTask status; Delivered delegates to OrderWorkflowService -> completed
+    + loyalty + accounting + outbox NATS
+  exceptionHandling: no active task -> 404; invalid domain transition -> 409; OrderWorkflowService
+    null -> warn-log only (task stays Delivered)
+  auditLog: true
+  moduleRef: SYS-002
+  apiRefs:
+  - API-115
+  dataRefs:
+  - DATA-013
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/DeliveryWorkflowService.cs@69496de4
+- id: ACTV-615
+  name: GPS ping + realtime tracking push
+  processRef: PROC-181
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: shipper app POST location/update
+  input: deliveryTaskId + lat/lng
+  output: DeliveryTracking row + LocationHub push to order group; customer tracking history
+  exceptionHandling: unknown task -> null (no record)
+  auditLog: false
+  moduleRef: SYS-002
+  apiRefs:
+  - API-115
+  dataRefs:
+  - DATA-013
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/DeliveryWorkflowService.cs@69496de4
+  - 2_Gateway/Controllers/CommunityController.cs@69496de4
+- id: ACTV-616
+  name: Reseller payment split -> wallet legs + CommunityFund accrual
+  processRef: PROC-182
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: COD confirm / external payment confirm
+  input: order snapshot rates + amounts
+  output: atomic WalletTransaction legs (Settlement+DeliveryFee+PlatformFee+CommunityFund)
+    + Reseller 3-bookset accounting entries (idempotent)
+  exceptionHandling: amount != SellPrice+DeliveryFee -> reject; Reseller-only on external
+    path; existing reseller entries -> skip
+  auditLog: true
+  moduleRef: SYS-003
+  apiRefs:
+  - API-119
+  dataRefs:
+  - DATA-010
+  - DATA-013
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/WalletService.cs@69496de4
+  - 3_CoreHub/Services/OrderService.cs@69496de4
+- id: ACTV-617
+  name: Community fund spend + immutable audit record
+  processRef: PROC-182
+  executionType: MANUAL
+  humanActorRef: ACTR-014
+  trigger: SystemAdmin disbursement decision (community reinvestment)
+  input: amount + reason (<=500 chars) + recipient (<=200) + approvedBy
+  output: CommunityFundSpend wallet tx (atomic) + immutable CommunityFundSpendRecord
+  approvalRequired: true
+  exceptionHandling: amount > balance -> block; empty/over-limit fields -> ArgumentException
+  auditLog: true
+  moduleRef: SYS-002
+  apiRefs:
+  - API-116
+  dataRefs:
+  - DATA-010
+  - DATA-013
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommunityFundService.cs@69496de4
+  - 1_Shared/Domain/Aggregates/CommunityFundAggregate/CommunityFundSpendRecord.cs@69496de4
+- id: ACTV-618
+  name: Shipper COD remittance settlement
+  processRef: PROC-182
+  executionType: MANUAL
+  humanActorRef: ACTR-011
+  trigger: shipper hands over collected COD
+  input: orderId + shipperId
+  output: atomic pair Remittance(-cod, shipper) + Settlement(+cod, shop wallet | PlatformWallet
+    for Reseller); max 1 Remittance/order
+  exceptionHandling: duplicate remittance -> block; amount resolved server-side
+  auditLog: true
+  moduleRef: SYS-002
+  apiRefs:
+  - API-119
+  dataRefs:
+  - DATA-010
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/WalletService.cs@69496de4
+  - 2_Gateway/Controllers/CommunityController.cs@69496de4
+- id: ACTV-619
+  name: Collaborator eligibility evaluation (per-tenant thresholds)
+  processRef: PROC-183
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: admin/owner opens eligible list
+  input: customers + per-tenant ShopFeatureSettings thresholds (min of Salesman/Shipper
+    for list)
+  output: EligibleCustomerDto page (PII not projected) + existing roles
+  exceptionHandling: thresholds missing -> defaults (1000 pts + Verified); includeIneligible
+    -> all active
+  auditLog: false
+  moduleRef: SYS-002
+  apiRefs:
+  - API-118
+  dataRefs:
+  - DATA-013
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommunityAdminService.cs@69496de4
+- id: ACTV-620
+  name: Activate/deactivate community role (Shipper/Salesman)
+  processRef: PROC-183
+  executionType: MANUAL
+  humanActorRef: ACTR-014
+  trigger: SystemAdmin (cross-tenant) or Owner (tenant-scoped) role decision
+  input: customerId + role (+ bypassEligibility flag on system path)
+  output: CommunityRole activated/deactivated
+  approvalRequired: true
+  exceptionHandling: eligibility fail -> reject unless bypass; tenant path enforces tenant
+    match
+  auditLog: true
+  moduleRef: SYS-002
+  apiRefs:
+  - API-118
+  dataRefs:
+  - DATA-013
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommunityAdminService.cs@69496de4
+  - 2_Gateway/Controllers/TenantCommunityAdminController.cs@69496de4
+- id: ACTV-621
+  name: Salesman referral attribution & commission
+  processRef: PROC-181
+  executionType: AUTOMATED
+  softwareActorRef: ACTR-020
+  trigger: order placed via composite referral QR / order delivered
+  input: referral code + order (+ CommissionBase OnOrderTotal|OnMargin config)
+  output: SalesReferral + commission (base = referred subtotal; Reseller+OnMargin uses margin proxy)
+  exceptionHandling: invalid/expired code -> no attribution; high risk score -> Rejected/Held (FraudReview)
+  auditLog: true
+  moduleRef: SYS-003
+  apiRefs:
+  - API-119
+  dataRefs:
+  - DATA-013
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 3_CoreHub/Services/SalesmanService.cs@69496de4
+  - 3_CoreHub/Services/ReferralCommissionCalculator.cs@69496de4

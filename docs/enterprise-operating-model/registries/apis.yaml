@@ -137,3 +137,57 @@ entries:
   confidence: VERIFIED
   evidence:
   - 9_TenantAI/vanan-ai/src/VanAn.TenantAi.Api/Program.cs@64789992
+- id: API-115
+  name: Community delivery ops
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: GET /api/community/nearby-orders; POST /api/community/orders/{id}/accept|pickup|delivering|delivered|failed;
+    POST /api/community/location/update; GET /api/community/orders/{id}/tracking (X-Customer-Token)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/CommunityController.cs@69496de4
+- id: API-116
+  name: Community fund admin
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: GET /api/admin/community-fund/balance|history; POST /api/admin/community-fund/spend
+    (SystemAdmin)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/CommunityFundController.cs@69496de4
+- id: API-117
+  name: Commerce mode admin
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: GET /api/admin/commerce-mode; POST /api/admin/commerce-mode/global;
+    POST /api/admin/commerce-mode/tenant/{id}; GET /api/admin/commerce-mode/resolve/{id}
+    (SystemAdmin)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/CommerceModeController.cs@69496de4
+- id: API-118
+  name: Community role admin (system + tenant scope)
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: /api/admin/community/{eligible,activate-role,deactivate-role,pii-repair}
+    (SystemAdmin); /api/v1/tenant-community/{eligible,collaborators,activate-role,deactivate-role,roles}
+    (RequireOwnerRole)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/CommunityAdminController.cs@69496de4
+  - 2_Gateway/Controllers/TenantCommunityAdminController.cs@69496de4
+- id: API-119
+  name: Salesman referral + community wallet ops
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: /api/community/salesman/{qr,commissions,products,products/add,products/remove};
+    /api/community/wallet/{confirm-cod,confirm-advance,remit,pending-remittances,withdraw,withdrawals};
+    /api/community/{resolve-referral,referral/{code},app-install/attributed}
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/CommunityController.cs@69496de4

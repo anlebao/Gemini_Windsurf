@@ -151,3 +151,69 @@ entries:
   - ACTV-405
   evidence:
   - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: CTRL-016
+  name: Community endpoint authorization gates
+  type: PREVENTIVE
+  description: X-Customer-Token validation + CheckShipperRole on delivery ops; SystemAdmin
+    policy on admin controllers; RequireOwnerRole on tenant-community
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-007
+  activityRefs:
+  - ACTV-612
+  - ACTV-613
+  - ACTV-614
+  - ACTV-620
+  evidence:
+  - 2_Gateway/Controllers/CommunityController.cs@69496de4
+  - 2_Gateway/Controllers/TenantCommunityAdminController.cs@69496de4
+- id: CTRL-017
+  name: CommunityFundSpendRecord immutable audit
+  type: DETECTIVE
+  description: every fund disbursement writes an immutable spend record (amount/reason/recipient/approvedBy/walletTx)
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-008
+  activityRefs:
+  - ACTV-617
+  evidence:
+  - 1_Shared/Domain/Aggregates/CommunityFundAggregate/CommunityFundSpendRecord.cs@69496de4
+- id: CTRL-018
+  name: PII non-projection in eligible-customer lists
+  type: PREVENTIVE
+  description: encrypted PhoneNumber/Email never projected (masked "***") — avoids decrypt
+    failures + limits PII exposure to admin list
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-009
+  activityRefs:
+  - ACTV-619
+  evidence:
+  - 3_CoreHub/Services/CommunityAdminService.cs@69496de4
+- id: CTRL-019
+  name: Reseller accounting idempotency
+  type: PREVENTIVE
+  description: reference-suffix pre-check prevents duplicate 3-bookset generation on re-entry
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-010
+  activityRefs:
+  - ACTV-616
+  evidence:
+  - 3_CoreHub/Services/OrderService.cs@69496de4
+- id: CTRL-020
+  name: Delivery accept concurrency guard
+  type: PREVENTIVE
+  description: active-status pre-check + DeliveryTask unique constraint — only one shipper
+    can hold an order
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs: []
+  activityRefs:
+  - ACTV-613
+  evidence:
+  - 3_CoreHub/Services/CommunityOrderService.cs@69496de4
