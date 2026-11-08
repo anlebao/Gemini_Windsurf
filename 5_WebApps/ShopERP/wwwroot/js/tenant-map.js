@@ -59,10 +59,16 @@
 
             map = L.map(elementId, { scrollWheelZoom: true }).setView([lat, lng], 13);
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors',
-                maxZoom: 19
-            }).addTo(map);
+            // 2026-11-08: dùng tile chain chung (CARTO Voyager → Esri → OSM + fallback) từ
+            // realtime.js thay vì OSM đơn — OSM bị chặn trên một số mạng VN → map xám.
+            if (window.vananMap?.attachTiles) {
+                window.vananMap.attachTiles(map);
+            } else {
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                    subdomains: 'abcd', maxZoom: 19
+                }).addTo(map);
+            }
 
             marker = L.marker([lat, lng], { draggable: true }).addTo(map);
 

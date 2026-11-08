@@ -13,12 +13,50 @@ window.directoryMap = (function () {
         shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
     });
 
+    // 2026-11-08: tile chain giống UI.Platform realtime.js (CARTO Voyager → Esri → OSM)
+    // — OSM đơn bị chặn trên một số mạng VN → map xám. Copy self-contained vì
+    // Directory không load realtime.js.
+    const TILE_PROVIDERS = [
+        { url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors &copy; CARTO', subdomains: 'abcd', maxZoom: 19 },
+        { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', attribution: 'Tiles &copy; Esri', maxZoom: 18 },
+        { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors', subdomains: 'abc', maxZoom: 19 }
+    ];
+
+    function addTileLayer(m, index) {
+        const p = TILE_PROVIDERS[index];
+        const layer = L.tileLayer(p.url, {
+            attribution: p.attribution,
+            subdomains: p.subdomains,
+            maxZoom: p.maxZoom
+        });
+        layer.on('tileerror', () => {
+            if (m._tileSwitchLock || m._tileProviderIndex >= TILE_PROVIDERS.length - 1) return;
+            m._tileSwitchLock = true;
+            m._tileProviderIndex++;
+            m.removeLayer(layer);
+            addTileLayer(m, m._tileProviderIndex);
+            setTimeout(() => { m._tileSwitchLock = false; }, 1500);
+        });
+        layer.on('load', () => { m._tilesLoaded = true; });
+        layer.addTo(m);
+        m._tileLayer = layer;
+    }
+
     function init(elementId) {
         if (map) { map.remove(); map = null; }
         map = L.map(elementId).setView([10.7626, 106.6603], 12); // HCM default
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap'
-        }).addTo(map);
+        map._tileProviderIndex = 0;
+        map._tileSwitchLock = false;
+        map._tilesLoaded = false;
+        addTileLayer(map, 0);
+        // Watchdog: tile request treo không bắn tileerror → ép switch sau 8s.
+        setTimeout(() => {
+            if (!map._tilesLoaded && map._tileProviderIndex < TILE_PROVIDERS.length - 1) {
+                map._tileProviderIndex++;
+                map.removeLayer(map._tileLayer);
+                addTileLayer(map, map._tileProviderIndex);
+            }
+        }, 8000);
     }
 
     function render(elementId, stores, userLat, userLng) {

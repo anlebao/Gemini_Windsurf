@@ -57,9 +57,14 @@
 //     floating button + green "App sẵn sàng để cài đặt" hint; error toasts
 //     reworded to "bấm lại nút / menu ⋮ → Cài đặt ứng dụng".
 //     Static JS is cache-first → bump v7 → v8 so clients re-fetch it.
+//
+// v9 (2026-11-08):
+//   - directory-map.js: tile chain upgrade (CARTO Voyager → Esri → OSM +
+//     tileerror fallback + watchdog) matching realtime.js.
+//     Static JS is cache-first → bump v8 → v9 so clients re-fetch it.
 // ============================================================================
 
-const CACHE_NAME = 'vanan-directory-v8';
+const CACHE_NAME = 'vanan-directory-v9';
 const SHELL_URLS = ['/'];
 
 self.addEventListener('install', event => {

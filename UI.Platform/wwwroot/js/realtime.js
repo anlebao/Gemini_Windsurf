@@ -144,10 +144,7 @@ window.vananMap = {
             attributionControl: true
         }).setView([centerLat, centerLng], zoom || 14);
 
-        map._vananTileProviderIndex = 0;
-        map._vananTileSwitchLock = false;
-        map._vananTilesLoaded = false;
-        addTileLayer(map, 0);
+        window.vananMap.attachTiles(map);
 
         _maps[elementId] = map;
         _markers[elementId] = {};
@@ -157,6 +154,17 @@ window.vananMap = {
         // once the DOM settles so the map paints immediately instead of staying invisible.
         setTimeout(function () { map.invalidateSize(); }, 0);
         setTimeout(function () { map.invalidateSize(); }, 300);
+    },
+
+    // Attach the shared tile-provider chain (CARTO Voyager → Esri → OSM + tileerror
+    // fallback + hang watchdog) to a Leaflet map created OUTSIDE vananMap.initMap
+    // (e.g. onboarding-wizard.js, tenant-map.js). Keeps one source of truth for
+    // providers so every map in the ecosystem gets the same reliability fix.
+    attachTiles: function (map) {
+        map._vananTileProviderIndex = 0;
+        map._vananTileSwitchLock = false;
+        map._vananTilesLoaded = false;
+        addTileLayer(map, 0);
 
         // Issue #185: a HANGING tile request never fires `tileerror`, so the fallback chain
         // never advances and the map stays a gray frame. If no tile has loaded within 8s,

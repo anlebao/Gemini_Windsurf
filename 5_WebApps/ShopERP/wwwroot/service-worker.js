@@ -7,7 +7,9 @@
 
 // v3 (2026-11-07): bump — realtime.js CARTO Voyager tiles first (map upgrade);
 // purge so clients re-fetch.
-const CACHE_NAME = 'shoperp-pwa-v3';
+// v4 (2026-11-08): bump — tenant-map.js + onboarding-wizard.js switched to the
+// shared tile chain via vananMap.attachTiles (realtime.js); purge cached JS.
+const CACHE_NAME = 'shoperp-pwa-v4';
 const STATIC_ASSETS = [
   '/offline.html',
   '/app.css',

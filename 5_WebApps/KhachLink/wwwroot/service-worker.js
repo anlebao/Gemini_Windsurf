@@ -1,5 +1,11 @@
 ﻿// ============================================================================
-// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v31-map-upgrade)
+// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v32-map-chain)
+//
+// v32-map-chain (2026-11-08):
+//   - realtime.js: tile chain extracted to window.vananMap.attachTiles(map) so
+//     maps created outside initMap reuse the same Voyager→Esri→OSM fallback.
+//   - js/leaflet.js (legacy): tiles switched to shared chain / Voyager fallback.
+//   - Static JS is cache-first with NO expiry → bump v31 → v32.
 //
 // v31-map-upgrade (2026-11-07):
 //   - realtime.js: CARTO Voyager tiles now FIRST in provider chain (prettier +
@@ -179,10 +185,10 @@
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v31-map-upgrade';
-const STATIC_CACHE = 'vanan-static-v31-map-upgrade';
-const DYNAMIC_CACHE = 'vanan-dynamic-v31-map-upgrade';
-const WASM_CACHE = 'vanan-wasm-v31-map-upgrade';
+const CACHE_NAME = 'vanan-khachlink-v32-map-chain';
+const STATIC_CACHE = 'vanan-static-v32-map-chain';
+const DYNAMIC_CACHE = 'vanan-dynamic-v32-map-chain';
+const WASM_CACHE = 'vanan-wasm-v32-map-chain';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
