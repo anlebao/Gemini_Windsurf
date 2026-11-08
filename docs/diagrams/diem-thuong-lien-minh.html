@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8"><title>Điểm thưởng liên minh — Loyalty Alliance</title>
+<style>body{font-family:system-ui,sans-serif;max-width:1150px;margin:2rem auto;padding:0 1rem;color:#1a202c;line-height:1.55}h1{font-size:1.5rem}h2{margin-top:2.2rem;border-bottom:1px solid #ddd;padding-bottom:.3rem}h3{margin-top:1.4rem}blockquote{color:#555;font-size:.9rem;border-left:3px solid #cbd5e0;padding-left:.8rem;margin-left:0}.mermaid{background:#fafafa;border:1px solid #e2e8f0;border-radius:8px;padding:1rem;overflow-x:auto}code{background:#edf2f7;padding:0 .3em;border-radius:3px}ul{padding-left:1.4rem}</style>
+<script src="../enterprise-operating-model/javascripts/mermaid.min.js"></script>
+<script>document.addEventListener("DOMContentLoaded",()=>{if(typeof mermaid!=="undefined")mermaid.initialize({startOnLoad:true,securityLevel:"loose",flowchart:{htmlLabels:true}});});</script>
+</head><body><h1>Điểm thưởng liên minh — Loyalty Alliance</h1>
+<blockquote>Chi tiết luồng accrual/sync/redemption/budget. Verified @476cd73f (2026-11-08).</blockquote>
+<blockquote>SoT: PG (AllianceWallet + LoyaltyRewards + ledger). SQLite = mirror cho display.</blockquote>
+<h2>1. Tổng quan — 2 chế độ Silo vs Alliance</h2>
+<div class="mermaid">
+flowchart TB
+    classDef auto fill:#c6f6d5,stroke:#2f855a
+    classDef human fill:#cfe3ff,stroke:#2b6cb0
+    classDef ext fill:#e2e8f0,stroke:#718096
+
+    CFG["LoyaltyModeResolver<br/>Silo=0 / Alliance=1<br/>per tenant"]:::auto
+    CFG -->|Silo| S1["Điểm riêng từng shop<br/>(không cộng dồn liên minh)"]:::auto
+    CFG -->|Alliance| S2["AllianceWallet chung<br/>điểm tích xuyên tenant"]:::auto
+    GC["LoyaltyGlobalConfig<br/>+ LoyaltyTenantConfig"]:::auto -.-> CFG
+    S2 --> AW[("AllianceWallet (PG)<br/>số dư điểm SoT")]
+    S1 --> LR[("LoyaltyRewards (PG)<br/>per-tenant rewards")]
+</div>
+<h2>2. Accrual — đơn hàng sinh điểm</h2>
+<div class="mermaid">
+flowchart LR
+    classDef auto fill:#c6f6d5,stroke:#2f855a
+    classDef error fill:#fed7d7,stroke:#c53030
+    classDef ext fill:#e2e8f0,stroke:#718096
+
+    DONE["Order -> completed<br/>(POS / shipper delivered /<br/>booking)"]:::auto
+    DONE --> CALC["LoyaltyPointsCalculator<br/>points theo rule tenant"]:::auto
+    CALC --> BUD{"LoyaltyBudgetService<br/>(flag ValcnV2_LoyaltyBudget)"}:::auto
+    BUD -->|cap hit| CAP["adjusted points<br/>PerOrderRateCap/<br/>Monthly/DailyBudget/<br/>PerCustomerDailyLimit"]:::auto
+    BUD -->|hết ngân sách| ZERO["0 điểm — bỏ reward"]:::error
+    CAP & BUD -->|pass| ADD["AllianceWallet.AddPoints<br/>+ LoyaltyIssuanceRecord<br/>+ ledger append"]:::auto
+    ADD --> REC["RecordIssuanceAsync<br/>(counter atomic++)"]:::auto
+    ADD --> PUB["LoyaltyBalanceSyncPublisher<br/>+ outbox fallback"]:::auto
+</div>
+<h2>3. Sync PG -&gt; SQLite (display mirror)</h2>
+<div class="mermaid">
+sequenceDiagram
+    participant P as AllianceWallet (PG)
+    participant PB as LoyaltyBalanceSyncPublisher
+    participant N as NATS
+    participant O as Outbox (fallback)
+    participant S as LoyaltySyncSubscriber (ShopERP)
+    participant L as Mirror (SQLite)
+    P->>PB: AddPoints/Redeem xong
+    PB->>N: vanan.cloud.loyalty.changed.{deviceId}
+    PB->>O: enqueue (retry path)
+    O->>N: replay on restart
+    N->>S: routed by deviceId
+    S->>L: upsert mirror balance
+    Note over S: wildcard 'loyalty.changed.>'<br/>cho offline display
+    GC2["LoyaltyConfigController"]->>N: vanan.cloud.loyalty.config.changed
+    N->>S: re-resolve mode/rules
+</div>
+<h2>4. Redemption + budget reset + jobs</h2>
+<div class="mermaid">
+flowchart TB
+    classDef human fill:#cfe3ff,stroke:#2b6cb0
+    classDef auto fill:#c6f6d5,stroke:#2f855a
+    classDef error fill:#fed7d7,stroke:#c53030
+    classDef ext fill:#e2e8f0,stroke:#718096
+
+    CUST["Khách mở catalog<br/>(KhachLink)"]:::human --> CAT["GlobalRedemptionCatalog<br/>items + cost points"]:::auto
+    CAT --> RED["Redeem -> RedemptionRecord<br/>trừ điểm wallet"]:::auto
+    RED -->|đủ điểm| OK["voucher/quà -><br/>dùng tại shop liên minh"]:::auto
+    RED -->|thiếu| E1["reject"]:::error
+    D1["LoyaltyBudgetDailyResetJob<br/>00:00 UTC"]:::ext --> RST1["PointsIssuedToday=0<br/>all tenants"]:::auto
+    M1["LoyaltyBudgetMonthlyResetJob<br/>ngày 1 hàng tháng"]:::ext --> RST2["PointsIssuedThisMonth=0"]:::auto
+    FRAUD["FraudReview: RiskScore>=80<br/>Rejected · 60-79 Held 48h"]:::error -.->|commission/attribution giữ| RED
+</div>
+<h2>Ghi chú giao tiếp chính</h2>
+<ul>
+<li><strong>Trigger accrual:</strong> order <code>completed</code> (từ POS hoặc shipper <code>DeliveryTask</code> → <code>OrderWorkflowService</code>) — points tính theo rule tenant, KHÔNG ghi trực tiếp khi order tạo.</li>
+<li><strong>Budget (VALCN v2 P3, flag OFF mặc định):</strong> <code>LoyaltyBudgetService</code> check 4 caps trước <code>AddPoints</code> → adjusted (có thể thấp hơn hoặc 0); <code>RecordIssuanceAsync</code> atomic counter; reversal path (Phase 4) decrement. <code>RecordIssuance</code> fail chỉ warn — counter có thể lệch nhẹ (by design).</li>
+<li><strong>Sync:</strong> publish <code>loyalty.changed.{deviceId}</code> routed + <strong>outbox fallback</strong> khi publish fail; ShopERP mirror subscribe wildcard <code>loyalty.changed.&gt;</code>; config đổi → <code>loyalty.config.changed</code> broadcast.</li>
+<li><strong>Idempotency:</strong> <code>LoyaltyIssuanceRecord</code> chống double-issue (orderId tracking); outbox replay không cộng trùng.</li>
+<li><strong>Reconcile:</strong> <code>LoyaltyReconcileCase</code> entity tồn tại cho tra soát điểm (drift backlog).</li>
+<li><strong>Commission link:</strong> salesman commission/attribution qua <code>FraudReview</code> — Rejected (score≥80) / Held (60-79, 48h) trước khi chi.</li>
+</ul>
+</body></html>
