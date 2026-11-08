@@ -25,6 +25,7 @@
 @inject IHttpClientFactory HttpClientFactory
 
 @inject IJSRuntime JSRuntime
+@inject IConfiguration Config
 
 @implements IDisposable
 
@@ -1098,9 +1099,18 @@
 
         {
 
-            // 1. Map trước — luôn render (kể cả khi GPS chưa trả lời)
-
-            await JSRuntime.InvokeVoidAsync("vananMap.pinLocation", "checkout-pin-map", "delivery-lat", "delivery-lng", lat, lng, 15);
+            // 1. Map trước — luôn render (kể cả khi GPS chưa trả lời).
+            // 2026-11-08: Google Maps JS API khi GoogleMaps:JsApiKey được set
+            // (deploy-time) — real Google look + drag pin; empty → Leaflet Voyager.
+            var gmapsKey = Config["GoogleMaps:JsApiKey"];
+            if (!string.IsNullOrWhiteSpace(gmapsKey))
+            {
+                await JSRuntime.InvokeVoidAsync("vananMap.gmapsPinLocation", "checkout-pin-map", "delivery-lat", "delivery-lng", lat, lng, 15, gmapsKey);
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("vananMap.pinLocation", "checkout-pin-map", "delivery-lat", "delivery-lng", lat, lng, 15);
+            }
 
             _pinMapInitialized = true;
 

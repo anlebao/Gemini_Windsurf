@@ -70,6 +70,37 @@ if (window.L && L.Icon && L.Icon.Default) {
 
 let _maps = {};
 let _markers = {};
+let _gmaps = {};
+let _gmarkers = {};
+let _gmapsLoaderPromise = null;
+
+// Google Maps JS API (2026-11-08 — checkout pin map upgrade): interactive map
+// with the real Google look + draggable pin. Requires a Google Cloud key with
+// "Maps JavaScript API" enabled (deploy-time GoogleMaps:JsApiKey). Lazy-loaded
+// once; auth/script failures let the caller fall back to the Leaflet chain.
+function loadGoogleMaps(apiKey) {
+    if (window.google && window.google.maps && window.google.maps.Map) {
+        return Promise.resolve();
+    }
+    if (_gmapsLoaderPromise) return _gmapsLoaderPromise;
+    _gmapsLoaderPromise = new Promise(function (resolve, reject) {
+        // gm_authFailure: bad key / referrer restriction / billing off → fallback.
+        window.gm_authFailure = function () {
+            _gmapsLoaderPromise = null;
+            reject(new Error('Google Maps auth failure'));
+        };
+        const s = document.createElement('script');
+        s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(apiKey) + '&language=vi&region=VN';
+        s.async = true;
+        s.onload = resolve;
+        s.onerror = function () {
+            _gmapsLoaderPromise = null;
+            reject(new Error('Google Maps script load failed'));
+        };
+        document.head.appendChild(s);
+    });
+    return _gmapsLoaderPromise;
+}
 
 // P6 RV (2026-09-18): tile.openstreetmap.org is UNREACHABLE from some networks
 // (ERR_CONNECTION_REFUSED — e.g. Vietnam) → a perfectly initialised map renders as a
@@ -248,17 +279,87 @@ window.vananMap = {
 
     // 2026-09-21: move the delivery pin created by pinLocation (e.g. when GPS arrives
     // after the map already rendered) without re-initialising the map. No-op if the
-    // map/pin doesn't exist yet.
+    // map/pin doesn't exist yet. Polymorphic: works for both Leaflet and Google pins.
     setPinLocation: function (elementId, latInputId, lngInputId, lat, lng) {
+        const latInput = document.getElementById(latInputId);
+        const lngInput = document.getElementById(lngInputId);
+
+        // Google Maps pin (gmapsPinLocation) — same outward contract.
+        const gmap = _gmaps[elementId];
+        const gmarker = gmap && _gmarkers[elementId];
+        if (gmap && gmarker) {
+            const ll = { lat: Number(lat), lng: Number(lng) };
+            gmarker.setPosition(ll);
+            gmap.panTo(ll);
+            if (latInput) latInput.value = Number(lat).toFixed(6);
+            if (lngInput) lngInput.value = Number(lng).toFixed(6);
+            return;
+        }
+
         const map = _maps[elementId];
         const marker = map && _markers[elementId] && _markers[elementId]['pin'];
         if (!map || !marker) return;
         marker.setLatLng([lat, lng]);
         map.panTo([lat, lng], { animate: true });
-        const latInput = document.getElementById(latInputId);
-        const lngInput = document.getElementById(lngInputId);
         if (latInput) latInput.value = Number(lat).toFixed(6);
         if (lngInput) lngInput.value = Number(lng).toFixed(6);
+    },
+
+    // Google Maps JS API version of pinLocation (2026-11-08): identical contract —
+    // draggable pin + click-to-pin, writes lat/lng to hidden inputs — but renders
+    // real Google Maps when GoogleMaps:JsApiKey is configured. Any load/auth
+    // failure falls back to the Leaflet chain (never leaves a broken map).
+    gmapsPinLocation: async function (elementId, latInputId, lngInputId, initialLat, initialLng, zoom, apiKey) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        try {
+            await loadGoogleMaps(apiKey);
+        } catch (e) {
+            console.warn('[vananMap] Google Maps unavailable — falling back to Leaflet:', e);
+            window.vananMap.pinLocation(elementId, latInputId, lngInputId, initialLat, initialLng, zoom);
+            return;
+        }
+
+        // Clean up previous instances on this element (Leaflet or Google).
+        if (_maps[elementId]) {
+            _maps[elementId].remove();
+            delete _maps[elementId];
+            delete _markers[elementId];
+        }
+        if (_gmaps[elementId]) {
+            el.innerHTML = '';
+            delete _gmaps[elementId];
+            delete _gmarkers[elementId];
+        }
+
+        const start = { lat: Number(initialLat), lng: Number(initialLng) };
+        const map = new google.maps.Map(el, {
+            center: start,
+            zoom: zoom || 15,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: false,
+            clickableIcons: false,
+            gestureHandling: 'greedy'
+        });
+        const marker = new google.maps.Marker({ position: start, map: map, draggable: true });
+        _gmaps[elementId] = map;
+        _gmarkers[elementId] = marker;
+
+        const latInput = document.getElementById(latInputId);
+        const lngInput = document.getElementById(lngInputId);
+        const sync = function (ll) {
+            const la = typeof ll.lat === 'function' ? ll.lat() : ll.lat;
+            const ln = typeof ll.lng === 'function' ? ll.lng() : ll.lng;
+            if (latInput) latInput.value = Number(la).toFixed(6);
+            if (lngInput) lngInput.value = Number(ln).toFixed(6);
+        };
+        sync(marker.getPosition());
+        marker.addListener('dragend', function () { sync(marker.getPosition()); });
+        map.addListener('click', function (e) {
+            marker.setPosition(e.latLng);
+            sync(e.latLng);
+        });
     },
 
     drawRoute: function (elementId, fromLat, fromLng, toLat, toLng) {
@@ -283,6 +384,12 @@ window.vananMap = {
             _maps[elementId].remove();
             delete _maps[elementId];
             delete _markers[elementId];
+        }
+        if (_gmaps[elementId]) {
+            const el = document.getElementById(elementId);
+            if (el) el.innerHTML = '';
+            delete _gmaps[elementId];
+            delete _gmarkers[elementId];
         }
     }
 };
