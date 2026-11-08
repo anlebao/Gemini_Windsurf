@@ -58,6 +58,13 @@
             {
                 @* Error takes precedence over empty state — don't show "Chưa có tin nhắn" when LoadHistoryAsync failed *@
             }
+            else if (_accessDenied)
+            {
+                <div class="text-center text-muted py-3">
+                    <i class="bi bi-chat-slash" style="font-size: 2rem;"></i>
+                    <div class="small mt-2">Chat không khả dụng cho đơn hàng này.</div>
+                </div>
+            }
             else if (_messages.Count == 0)
             {
                 <div class="text-center text-muted py-3">
@@ -119,19 +126,19 @@
                            @bind-Value="_messageInput"
                            OnKeyPress="OnKeyPress"
                            maxlength="2000"
-                           Disabled="_tokenExpired" />
+                           Disabled="(_tokenExpired || _accessDenied)" />
                 @* SF-W3 (2026-11-08): voice input — nói thay vì gõ. Chỉ hiện khi host bật
                    VoiceEnabled + trình duyệt hỗ trợ SpeechRecognition (vananVoiceInput). *@
                 @if (VoiceEnabled && _speechSupported)
                 {
                     <VanAnButton Variant="ButtonVariant.Outline" OnClick="ToggleVoiceAsync"
-                                 Disabled="_tokenExpired"
+                                 Disabled="(_tokenExpired || _accessDenied)"
                                  CssClass="@("chat-mic-btn" + (_listening ? " listening" : ""))"
                                  aria-label="@(_listening ? "Dừng nói" : "Nói thay vì gõ")">
                         <i class="bi @(_listening ? "bi-mic-fill" : "bi-mic")"></i>
                     </VanAnButton>
                 }
-                <VanAnButton Variant="ButtonVariant.Primary" OnClick="SendMessage" Disabled="_tokenExpired"
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="SendMessage" Disabled="(_tokenExpired || _accessDenied)"
                              CssClass="chat-send-btn">
                     <i class="bi bi-send"></i> Gửi
                 </VanAnButton>
@@ -173,6 +180,7 @@
     private bool _connecting = false;
     private bool _isConnected = false;
     private bool _tokenExpired = false;
+    private bool _accessDenied = false;
     private string? _error;
     private string? _signalrWarning;
     private HubConnection? _hubConnection;
@@ -264,6 +272,15 @@
             // 404 = subject has no conversation yet — friendly empty state, not an error
             else if (result.ErrorCode == 404)
                 _error = null;
+            // 403 = caller is not a party of this conversation (order belongs to another
+            // customer/device). Access won't appear mid-mount → friendly empty state and
+            // STOP polling (was: banner + 403 spam every 4s — reported 2026-11-08).
+            else if (result.ErrorCode == 403)
+            {
+                _error = null;
+                _accessDenied = true;
+                _pollCts?.Cancel();
+            }
             else
                 _error = result.ErrorMessage;
         }
@@ -341,9 +358,19 @@
         var result = await ChatClient.SendMessageAsync(SubjectType, SubjectId, content, CustomerToken, CustomerDeviceId, StaffToken);
         if (!result.Success)
         {
-            _error = result.ErrorMessage;
-            // Restore message input on failure
-            _messageInput = content;
+            if (result.ErrorCode == 403)
+            {
+                // Same as history path — permanent denial, not a transient failure.
+                _error = null;
+                _accessDenied = true;
+                _pollCts?.Cancel();
+            }
+            else
+            {
+                _error = result.ErrorMessage;
+                // Restore message input on failure
+                _messageInput = content;
+            }
         }
         else if (!_isConnected)
         {
