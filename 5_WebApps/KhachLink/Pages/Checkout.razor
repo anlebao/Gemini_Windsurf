@@ -1100,8 +1100,9 @@
         {
 
             // 1. Map trước — luôn render (kể cả khi GPS chưa trả lời).
-            // 2026-11-08: Google Maps JS API khi GoogleMaps:JsApiKey được set
-            // (deploy-time) — real Google look + drag pin; empty → Leaflet Voyager.
+            // 2026-11-08: ưu tiên Google Maps JS API khi GoogleMaps:JsApiKey set;
+            // mặc định MapLibre + OpenFreeMap (vector ~Google look, free không key);
+            // cả hai fallback Leaflet Voyager nội bộ khi load fail.
             var gmapsKey = Config["GoogleMaps:JsApiKey"];
             if (!string.IsNullOrWhiteSpace(gmapsKey))
             {
@@ -1109,7 +1110,7 @@
             }
             else
             {
-                await JSRuntime.InvokeVoidAsync("vananMap.pinLocation", "checkout-pin-map", "delivery-lat", "delivery-lng", lat, lng, 15);
+                await JSRuntime.InvokeVoidAsync("vananMap.maplibrePinLocation", "checkout-pin-map", "delivery-lat", "delivery-lng", lat, lng, 15);
             }
 
             _pinMapInitialized = true;

@@ -73,6 +73,33 @@ let _markers = {};
 let _gmaps = {};
 let _gmarkers = {};
 let _gmapsLoaderPromise = null;
+let _mlmaps = {};
+let _mlmarkers = {};
+let _maplibreLoaderPromise = null;
+
+// MapLibre GL JS + OpenFreeMap (2026-11-08 — user-chosen free Google-look):
+// vector tiles, no API key, no billing. Style 'liberty' = closest free style
+// to Google Maps. Lazy-loaded from CDN once; failures → Leaflet fallback.
+function loadMapLibre() {
+    if (window.maplibregl) return Promise.resolve();
+    if (_maplibreLoaderPromise) return _maplibreLoaderPromise;
+    _maplibreLoaderPromise = new Promise(function (resolve, reject) {
+        const css = document.createElement('link');
+        css.rel = 'stylesheet';
+        css.href = 'https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css';
+        document.head.appendChild(css);
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js';
+        s.async = true;
+        s.onload = resolve;
+        s.onerror = function () {
+            _maplibreLoaderPromise = null;
+            reject(new Error('MapLibre script load failed'));
+        };
+        document.head.appendChild(s);
+    });
+    return _maplibreLoaderPromise;
+}
 
 // Google Maps JS API (2026-11-08 — checkout pin map upgrade): interactive map
 // with the real Google look + draggable pin. Requires a Google Cloud key with
@@ -296,6 +323,17 @@ window.vananMap = {
             return;
         }
 
+        // MapLibre pin (maplibrePinLocation) — same contract, [lng,lat] order.
+        const mlmap = _mlmaps[elementId];
+        const mlmarker = mlmap && _mlmarkers[elementId];
+        if (mlmap && mlmarker) {
+            mlmarker.setLngLat([Number(lng), Number(lat)]);
+            mlmap.easeTo({ center: [Number(lng), Number(lat)] });
+            if (latInput) latInput.value = Number(lat).toFixed(6);
+            if (lngInput) lngInput.value = Number(lng).toFixed(6);
+            return;
+        }
+
         const map = _maps[elementId];
         const marker = map && _markers[elementId] && _markers[elementId]['pin'];
         if (!map || !marker) return;
@@ -362,6 +400,76 @@ window.vananMap = {
         });
     },
 
+    // MapLibre GL + OpenFreeMap version of pinLocation (2026-11-08): vector map
+    // with a near-Google look (style 'liberty') — free, no API key, no billing.
+    // Same contract: draggable pin + click-to-pin, writes lat/lng to hidden
+    // inputs. Load/style failures → Leaflet chain fallback (never broken map).
+    maplibrePinLocation: async function (elementId, latInputId, lngInputId, initialLat, initialLng, zoom) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        try {
+            await loadMapLibre();
+        } catch (e) {
+            console.warn('[vananMap] MapLibre unavailable — falling back to Leaflet:', e);
+            window.vananMap.pinLocation(elementId, latInputId, lngInputId, initialLat, initialLng, zoom);
+            return;
+        }
+
+        // Clean up previous instances on this element (Leaflet / Google / MapLibre).
+        if (_maps[elementId]) {
+            _maps[elementId].remove();
+            delete _maps[elementId];
+            delete _markers[elementId];
+        }
+        if (_gmaps[elementId] || _mlmaps[elementId]) {
+            if (_mlmaps[elementId]) _mlmaps[elementId].remove();
+            el.innerHTML = '';
+            delete _gmaps[elementId];
+            delete _gmarkers[elementId];
+            delete _mlmaps[elementId];
+            delete _mlmarkers[elementId];
+        }
+
+        const startLng = Number(initialLng), startLat = Number(initialLat);
+        let map;
+        try {
+            map = new maplibregl.Map({
+                container: el,
+                style: 'https://tiles.openfreemap.org/styles/liberty',
+                center: [startLng, startLat],
+                zoom: zoom || 15,
+                attributionControl: { compact: true }
+            });
+        } catch (e) {
+            console.warn('[vananMap] MapLibre init failed — falling back to Leaflet:', e);
+            window.vananMap.pinLocation(elementId, latInputId, lngInputId, initialLat, initialLng, zoom);
+            return;
+        }
+
+        const marker = new maplibregl.Marker({ draggable: true, color: '#ea4335' })
+            .setLngLat([startLng, startLat])
+            .addTo(map);
+        _mlmaps[elementId] = map;
+        _mlmarkers[elementId] = marker;
+
+        const latInput = document.getElementById(latInputId);
+        const lngInput = document.getElementById(lngInputId);
+        const sync = function (ll) {
+            if (latInput) latInput.value = Number(ll.lat).toFixed(6);
+            if (lngInput) lngInput.value = Number(ll.lng).toFixed(6);
+        };
+        sync(marker.getLngLat());
+        marker.on('dragend', function () { sync(marker.getLngLat()); });
+        map.on('click', function (e) {
+            marker.setLngLat(e.lngLat);
+            sync(e.lngLat);
+        });
+        map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
+        // Container may render while still animating/hidden — re-measure like initMap.
+        setTimeout(function () { map.resize(); }, 0);
+        setTimeout(function () { map.resize(); }, 300);
+    },
+
     drawRoute: function (elementId, fromLat, fromLng, toLat, toLng) {
         const map = _maps[elementId];
         if (!map) return;
@@ -385,11 +493,14 @@ window.vananMap = {
             delete _maps[elementId];
             delete _markers[elementId];
         }
-        if (_gmaps[elementId]) {
+        if (_gmaps[elementId] || _mlmaps[elementId]) {
             const el = document.getElementById(elementId);
+            if (_mlmaps[elementId]) _mlmaps[elementId].remove();
             if (el) el.innerHTML = '';
             delete _gmaps[elementId];
             delete _gmarkers[elementId];
+            delete _mlmaps[elementId];
+            delete _mlmarkers[elementId];
         }
     }
 };
