@@ -16,6 +16,7 @@
 @inject IRealtimeChatClient ChatClient
 @inject IRealtimeEndpointProvider Endpoints
 @inject NavigationManager Navigation
+@implements IAsyncDisposable
 
 <div class="chat-panel">
     <VanAnCard Shadow="true" CssClass="p-0 overflow-hidden">
@@ -104,14 +105,32 @@
             }
             @* P6 manual-test: mobile — nút Gửi xuống dòng riêng (không tràn màn hình);
                desktop (≥576px) — input + nút cùng hàng. Xem RealtimeChatPanel.razor.css. *@
+            @if (_voiceError is not null)
+            {
+                <div class="alert alert-danger py-2 small mb-2">
+                    <i class="bi bi-mic-mute"></i> @_voiceError
+                </div>
+            }
             <div class="chat-input-row">
                 @* F11: UI Platform VanAInput instead of a raw input.form-control.
                    Enter-to-send qua param OnKeyPress (unmatched @onkeypress KHÔNG bind — render literal). *@
-                <VanAInput AdditionalClasses="vanan-input-field" Placeholder="Nhập tin nhắn..."
+                <VanAInput AdditionalClasses="vanan-input-field"
+                           Placeholder="@(_listening ? "Đang nghe..." : "Nhập tin nhắn...")"
                            @bind-Value="_messageInput"
                            OnKeyPress="OnKeyPress"
                            maxlength="2000"
                            Disabled="_tokenExpired" />
+                @* SF-W3 (2026-11-08): voice input — nói thay vì gõ. Chỉ hiện khi host bật
+                   VoiceEnabled + trình duyệt hỗ trợ SpeechRecognition (vananVoiceInput). *@
+                @if (VoiceEnabled && _speechSupported)
+                {
+                    <VanAnButton Variant="ButtonVariant.Outline" OnClick="ToggleVoiceAsync"
+                                 Disabled="_tokenExpired"
+                                 CssClass="@("chat-mic-btn" + (_listening ? " listening" : ""))"
+                                 aria-label="@(_listening ? "Dừng nói" : "Nói thay vì gõ")">
+                        <i class="bi @(_listening ? "bi-mic-fill" : "bi-mic")"></i>
+                    </VanAnButton>
+                }
                 <VanAnButton Variant="ButtonVariant.Primary" OnClick="SendMessage" Disabled="_tokenExpired"
                              CssClass="chat-send-btn">
                     <i class="bi bi-send"></i> Gửi
@@ -145,6 +164,8 @@
     [Parameter] public string? InitialDraft { get; set; }
     /// <summary>Task AI-P8: header title override (default "Chat với khách hàng" unchanged).</summary>
     [Parameter] public string? HeaderTitle { get; set; }
+    /// <summary>SF-W3 (2026-11-08): voice toggle (host resolves Voice_Note_Enabled); false → mic hidden.</summary>
+    [Parameter] public bool VoiceEnabled { get; set; }
 
     private List<RealtimeChatMessage> _messages = new();
     private string _messageInput = string.Empty;
@@ -159,6 +180,12 @@
     private System.Threading.CancellationTokenSource? _pollCts;
     // Task AI-P8: InitialDraft is a one-shot prefill — re-renders must not clobber typing.
     private bool _draftApplied;
+    // SF-W3: voice input state (vananVoiceInput JS singleton — one active mic page-wide).
+    private bool _speechSupported;
+    private bool _supportChecked;
+    private bool _listening;
+    private string? _voiceError;
+    private DotNetObjectReference<RealtimeChatPanel>? _voiceRef;
 
     private string GroupName => $"msg_{SubjectType}_{SubjectId}";
 
@@ -347,6 +374,79 @@
         }
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // SF-W3: the flag can arrive after first render (host flag fetch) — probe
+        // speech support the first time VoiceEnabled is seen, not only firstRender.
+        if (VoiceEnabled && !_supportChecked)
+        {
+            _supportChecked = true;
+            try
+            {
+                _speechSupported = await JSRuntime.InvokeAsync<bool>("vananVoiceInput.isSupported");
+            }
+            catch
+            {
+                _speechSupported = false; // script not loaded / prerender — mic stays hidden
+            }
+            if (_speechSupported) StateHasChanged();
+        }
+    }
+
+    private async Task ToggleVoiceAsync()
+    {
+        _voiceError = null;
+        try
+        {
+            if (_listening)
+            {
+                _listening = false; // JS onend → OnVoiceEnd re-confirms
+                await JSRuntime.InvokeVoidAsync("vananVoiceInput.stop");
+            }
+            else
+            {
+                _voiceRef ??= DotNetObjectReference.Create(this);
+                _listening = await JSRuntime.InvokeAsync<bool>("vananVoiceInput.start", _voiceRef);
+            }
+        }
+        catch
+        {
+            _listening = false;
+        }
+    }
+
+    /// <summary>SF-W3: live transcript while speaking — fills the input in real time.</summary>
+    [JSInvokable]
+    public void OnVoiceInterim(string text)
+    {
+        _messageInput = text;
+        StateHasChanged();
+    }
+
+    /// <summary>SF-W3: silence/manual stop → final transcript → auto-send the message.</summary>
+    [JSInvokable]
+    public async Task OnVoiceFinal(string text)
+    {
+        _messageInput = text;
+        _listening = false;
+        await SendMessage();
+    }
+
+    [JSInvokable]
+    public void OnVoiceError(string message)
+    {
+        _listening = false;
+        _voiceError = message;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnVoiceEnd()
+    {
+        _listening = false;
+        StateHasChanged();
+    }
+
     private async Task ScrollToBottomAsync()
     {
         try
@@ -358,6 +458,13 @@
 
     public async ValueTask DisposeAsync()
     {
+        try
+        {
+            if (_listening) await JSRuntime.InvokeVoidAsync("vananVoiceInput.stop");
+        }
+        catch { /* JS gone during teardown */ }
+        _voiceRef?.Dispose();
+
         _pollCts?.Cancel();
         _pollCts?.Dispose();
         _pollCts = null;

@@ -8,6 +8,8 @@
 @inject CartService CartService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@inject ShopFeatureSettingsHttpService FeatureSettings
+@implements IAsyncDisposable
 
 <PageTitle>Tìm sản phẩm</PageTitle>
 
@@ -26,12 +28,33 @@
                 <input type="text" class="form-control border-start-0 border-end-0"
                        @bind="_keyword"
                        @onkeyup="OnSearchKeyUp"
-                       placeholder="Nhập tên sản phẩm, dịch vụ..."
+                       placeholder="@(_listening ? "Đang nghe..." : "Nhập tên sản phẩm, dịch vụ...")"
                        aria-label="Tìm sản phẩm" />
+                @* SF-W3 (2026-11-08): voice input — nói thay vì gõ (vananVoiceInput, flag + browser gated). *@
+                @if (_voiceEnabled && _speechSupported)
+                {
+                    <button type="button" class="btn btn-outline-primary @(_listening ? "text-danger" : "")"
+                            @onclick="ToggleVoiceAsync" disabled="@_loading"
+                            title="@(_listening ? "Dừng nói" : "Nói để tìm kiếm")"
+                            aria-label="Tìm kiếm bằng giọng nói">
+                        <i class="bi @(_listening ? "bi-mic-fill" : "bi-mic")"></i>
+                    </button>
+                }
                 <button type="button" class="btn btn-primary" @onclick="Search">
                     <i class="bi bi-arrow-right"></i>
                 </button>
             </div>
+            @if (_listening)
+            {
+                <div class="text-danger small mt-2">
+                    <span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>
+                    Đang nghe... nói tên sản phẩm hoặc dịch vụ
+                </div>
+            }
+            @if (_voiceError is not null)
+            {
+                <div class="text-danger small mt-2">@_voiceError</div>
+            }
             <div class="mt-2 d-flex gap-2">
                 <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small" OnClick="GoToStoreSearch">
                     <i class="bi bi-shop me-1"></i> Tìm theo tên cửa hàng
@@ -122,6 +145,13 @@
     private string _errorMessage = "";
     private List<RecommendedCatalogItem> _products = new();
 
+    // SF-W3 (2026-11-08): voice input state (vananVoiceInput — script đã load qua index.html).
+    private bool _voiceEnabled;
+    private bool _speechSupported;
+    private bool _listening;
+    private string? _voiceError;
+    private DotNetObjectReference<ProductSearchResults>? _voiceRef;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -133,7 +163,89 @@
                 _keyword = q;
                 await Search();
             }
+
+            // SF-W3: voice mic — global Voice_Note_Enabled flag + browser support
+            // (same pattern as Home/StoreFinder voice search).
+            try
+            {
+                _voiceEnabled = await FeatureSettings.IsEnabledAsync(
+                    new Guid("00000000-0000-0000-0000-000000000001"),
+                    nameof(ShopFeatureSettingsDto.Voice_Note_Enabled));
+                if (_voiceEnabled)
+                {
+                    _speechSupported = await JSRuntime.InvokeAsync<bool>("vananVoiceInput.isSupported");
+                    StateHasChanged();
+                }
+            }
+            catch
+            {
+                _voiceEnabled = false; // non-critical — mic hidden
+            }
         }
+    }
+
+    private async Task ToggleVoiceAsync()
+    {
+        _voiceError = null;
+        try
+        {
+            if (_listening)
+            {
+                _listening = false; // JS onend → OnVoiceEnd re-confirms
+                await JSRuntime.InvokeVoidAsync("vananVoiceInput.stop");
+            }
+            else
+            {
+                _voiceRef ??= DotNetObjectReference.Create(this);
+                _listening = await JSRuntime.InvokeAsync<bool>("vananVoiceInput.start", _voiceRef);
+            }
+        }
+        catch
+        {
+            _listening = false;
+        }
+    }
+
+    /// <summary>SF-W3: live transcript while speaking — fills the input in real time.</summary>
+    [JSInvokable]
+    public void OnVoiceInterim(string text)
+    {
+        _keyword = text;
+        StateHasChanged();
+    }
+
+    /// <summary>SF-W3: silence/manual stop → final transcript → auto-submit the search.</summary>
+    [JSInvokable]
+    public async Task OnVoiceFinal(string text)
+    {
+        _keyword = text;
+        _listening = false;
+        await Search();
+    }
+
+    [JSInvokable]
+    public void OnVoiceError(string message)
+    {
+        _listening = false;
+        _voiceError = message;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnVoiceEnd()
+    {
+        _listening = false;
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_listening) await JSRuntime.InvokeVoidAsync("vananVoiceInput.stop");
+        }
+        catch { /* JS gone during teardown */ }
+        _voiceRef?.Dispose();
     }
 
     private async Task Search()

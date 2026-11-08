@@ -126,6 +126,7 @@
                                        SubjectId="_selectedTenantId"
                                        CurrentUserId="_staffUserId"
                                        StaffToken="@_staffToken"
+                                       VoiceEnabled="_voiceEnabled"
                                        ScrollContainerId="inbox-chat-scroll" />
                 }
                 else
@@ -172,6 +173,9 @@
     private bool _aiTabVisible;
     private AiConversationReviewPanel? _aiPanel;
 
+    /// <summary>SF-W3 (2026-11-08): mic trong chat panel — flag Voice_Note_Enabled của tenant.</summary>
+    private bool _voiceEnabled;
+
     protected override async Task OnInitializedAsync()
     {
         _staffUserId = await ApiClient.GetCurrentUserIdAsync();
@@ -184,6 +188,16 @@
         {
             Logger.LogWarning(ex, "ShopInbox: TenantAi flag check failed — AI tab hidden");
             _aiTabVisible = false;
+        }
+        try
+        {
+            _voiceEnabled = TenantProvider.HasTenant
+                && await FeatureSettings.IsEnabledAsync(TenantProvider.TenantId, nameof(ShopFeatureSettingsDto.Voice_Note_Enabled));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "ShopInbox: Voice_Note flag check failed — mic hidden");
+            _voiceEnabled = false;
         }
         await LoadData();
     }

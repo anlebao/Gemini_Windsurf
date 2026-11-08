@@ -5,12 +5,16 @@
    NOTE: string params MUST be bound with @ — Razor treats a bare identifier as a literal
    string when the parameter accepts a string (P6 bug found by E2E). *@
 @using VanAn.UI.Platform.Components.Realtime
+@using VanAn.KhachLink.Services.Http
+@using VanAn.Shared.Services
+@inject ShopFeatureSettingsHttpService FeatureSettings
 
 <RealtimeChatPanel SubjectType="Order"
                    SubjectId="OrderId"
                    CurrentUserId="CurrentUserId"
                    CustomerToken="@CustomerToken"
                    CustomerDeviceId="CustomerDeviceId"
+                   VoiceEnabled="_voiceEnabled"
                    ScrollContainerId="@ScrollContainerId" />
 
 @code {
@@ -20,4 +24,22 @@
     /// <summary>D6 (2026-09-17): guest identity (localStorage "customer_device_id").</summary>
     [Parameter] public Guid? CustomerDeviceId { get; set; }
     [Parameter] public string ScrollContainerId { get; set; } = "chat-scroll-container";
+
+    /// <summary>SF-W3 (2026-11-08): voice mic — global Voice_Note_Enabled flag, same
+    /// pattern as Home/StoreFinder voice search (platform-level toggle).</summary>
+    private bool _voiceEnabled;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _voiceEnabled = await FeatureSettings.IsEnabledAsync(
+                new Guid("00000000-0000-0000-0000-000000000001"),
+                nameof(ShopFeatureSettingsDto.Voice_Note_Enabled));
+        }
+        catch
+        {
+            _voiceEnabled = false; // flag fetch failed — mic hidden, chat unaffected
+        }
+    }
 }

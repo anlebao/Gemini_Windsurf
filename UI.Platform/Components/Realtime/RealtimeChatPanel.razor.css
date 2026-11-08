@@ -17,6 +17,22 @@
     width: 100%;
 }
 
+/* SF-W3 (2026-11-08): voice mic button — pulse while listening. */
+.chat-input-row ::deep .chat-mic-btn.listening {
+    border-color: #dc3545;
+    color: #dc3545;
+    animation: chat-mic-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes chat-mic-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.35); }
+    50% { box-shadow: 0 0 0 6px rgba(220, 53, 69, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chat-input-row ::deep .chat-mic-btn.listening { animation: none; }
+}
+
 @media (min-width: 576px) {
     .chat-input-row {
         flex-direction: row;
