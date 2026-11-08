@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8"><title>Van An — So do van hanh he thong</title>
+<style>body{font-family:system-ui,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;color:#1a202c}h1{font-size:1.5rem}h2{margin-top:2.2rem;border-bottom:1px solid #ddd;padding-bottom:.3rem}blockquote{color:#666;font-size:.9rem}.mermaid{background:#fafafa;border:1px solid #e2e8f0;border-radius:8px;padding:1rem;overflow-x:auto}</style>
+<script src="../enterprise-operating-model/javascripts/mermaid.min.js"></script>
+<script>document.addEventListener("DOMContentLoaded",()=>{if(typeof mermaid!=="undefined")mermaid.initialize({startOnLoad:true,securityLevel:"loose",flowchart:{htmlLabels:true}});});</script>
+</head><body><h1>Van An — So do van hanh he thong</h1>
+<blockquote>Nguon: <code>van-hanh-he-thong.md</code> (verified @476cd73f, 2026-11-08). Mermaid render offline — khong can server.</blockquote>
+<h2>1. Bối cảnh hệ sinh thái</h2>
+<div class="mermaid">
+flowchart LR
+    classDef human fill:#cfe3ff,stroke:#2b6cb0
+    classDef sys fill:#c6f6d5,stroke:#2f855a
+    classDef ext fill:#e2e8f0,stroke:#718096
+    KH["Khách hàng&lt;br/&gt;(KhachLink PWA)"]:::human
+    OWN["Chủ shop&lt;br/&gt;Owner/Staff/Kho"]:::human
+    SHP["Shipper /&lt;br/&gt;Salesman CTV"]:::human
+    GRD["Bảo vệ giữ xe"]:::human
+    ADM["Vạn An ops&lt;br/&gt;SystemAdmin"]:::human
+    GW["Gateway :5001&lt;br/&gt;+ PostgreSQL&lt;br/&gt;(source of truth)"]:::sys
+    SE["ShopERP :5003&lt;br/&gt;Blazor + SQLite&lt;br/&gt;per-tenant"]:::sys
+    MT["vanan-metering :5050&lt;br/&gt;(internal)"]:::sys
+    AI["vanan-ai :5060&lt;br/&gt;+ pgvector"]:::sys
+    NQ(("NATS bus")):::sys
+    EXT["VietQR · e-invoice ·&lt;br/&gt;Zalo/Telegram · R2"]:::ext
+    KH --&gt;|HTTPS| GW
+    SHP --&gt;|X-Customer-Token| GW
+    OWN --&gt;|JWT| SE
+    GRD --&gt;|JWT Guard| GW
+    ADM --&gt;|JWT SystemAdmin| GW
+    GW &lt;--&gt; NQ &lt;--&gt; SE
+    SE --&gt;|X-Caller-Id+key| MT
+    GW --&gt;|signed ctx| AI
+    GW &amp; SE --&gt; EXT
+</div>
+<h2>2. Xương sống đơn hàng (Option C — PG là SoT)</h2>
+<div class="mermaid">
+sequenceDiagram
+    participant K as Khách (KhachLink)
+    participant G as Gateway (Order creator)
+    participant P as PostgreSQL
+    participant N as NATS
+    participant S as ShopERP (SQLite replica)
+    participant POS as Bếp/POS
+    K-&gt;&gt;G: POST /api/public/orders/checkout&lt;br/&gt;(ProductName+VatRate snapshot)
+    G-&gt;&gt;P: OrderService.CreateOrder (resolve mode,&lt;br/&gt;snapshot rates, routingKey)
+    G-&gt;&gt;N: vanan.cloud.order.created.{shopInstanceId}
+    N-&gt;&gt;S: routed delivery (wildcard đã gỡ)
+    S-&gt;&gt;S: OrderSyncSubscriber -&gt; replica + hiển thị
+    POS-&gt;&gt;S: xác nhận/bếp/hoàn tất
+    S-&gt;&gt;N: vanan.shoperp.order.status.changed
+    N-&gt;&gt;G: DataSyncSubscriber -&gt; cập nhật PG
+    G--&gt;&gt;K: GET /api/public/orders/{id} tracking
+</div>
+<h2>3. Giao hàng cộng đồng — VALCN shipper</h2>
+<div class="mermaid">
+flowchart TB
+    classDef human fill:#cfe3ff,stroke:#2b6cb0
+    classDef auto fill:#c6f6d5,stroke:#2f855a
+    classDef error fill:#fed7d7,stroke:#c53030
+    A["Shipper mở tab giao hàng"]:::human --&gt; B["GET nearby-orders&lt;br/&gt;Haversine tới điểm giao&lt;br/&gt;(cross-tenant)"]:::auto
+    B --&gt; C["Chọn đơn -&gt; accept&lt;br/&gt;(1 active DeliveryTask/đơn)"]:::human
+    C --&gt; D["DeliveryTask Assigned&lt;br/&gt;order -&gt; delivering&lt;br/&gt;+ OrderStatusHistory"]:::auto
+    D --&gt; E["pickup -&gt; delivering -&gt; delivered"]:::human
+    E --&gt;|delivered| F["OrderWorkflowService&lt;br/&gt;-&gt; completed + loyalty&lt;br/&gt;+ accounting + NATS"]:::auto
+    E --&gt;|failed| G["Failed(reason)"]:::error
+    C -.-&gt;|đã có task / sai status| H["409"]:::error
+    F --&gt; I["Shipper nộp COD:&lt;br/&gt;Remittance -&gt; shop/PlatformWallet"]:::auto
+    I --&gt; J["Reseller: split Settlement+&lt;br/&gt;DeliveryFee+PlatformFee+&lt;br/&gt;CommunityFund (snapshot)"]:::auto
+</div>
+<h2>4. Giữ xe — QR Parking</h2>
+<div class="mermaid">
+flowchart LR
+    classDef human fill:#cfe3ff,stroke:#2b6cb0
+    classDef auto fill:#c6f6d5,stroke:#2f855a
+    classDef error fill:#fed7d7,stroke:#c53030
+    IN["Xe vào: guard chụp&lt;br/&gt;biển số (+ảnh khách)"]:::human --&gt; R2["Ảnh -&gt; R2&lt;br/&gt;(presign/server-side)"]:::auto
+    R2 --&gt; ISS["Issue: VehicleSession(Issued)&lt;br/&gt;QR + mã 6 số + vé 58mm"]:::auto
+    ISS --&gt; CLM["Khách claim:&lt;br/&gt;QR {t,tn} | {sc,sid} | short code&lt;br/&gt;(X-Customer-Token)"]:::human
+    CLM --&gt; VS["Claimed&lt;br/&gt;(idempotent)"]:::auto
+    VS --&gt; OUT["Xe ra: guard scan&lt;br/&gt;-&gt; GuardScanLog&lt;br/&gt;Match/Mismatch/Override"]:::human
+    OUT --&gt;|khớp| CO["CheckedOut"]:::auto
+    OUT --&gt;|lệch/nghi| FG["Flagged(reason)"]:::error
+    ISS --&gt; HUY["Void (hủy/hết hạn)"]:::auto
+    CLM -.-&gt;|claimed rồi| X["409"]:::error
+</div>
+<h2>5. Kế toán — 2 sổ song song theo regime</h2>
+<div class="mermaid">
+flowchart TB
+    classDef auto fill:#c6f6d5,stroke:#2f855a
+    classDef human fill:#cfe3ff,stroke:#2b6cb0
+    classDef error fill:#fed7d7,stroke:#c53030
+    EVT["Nghiệp vụ: đơn/phiếu thu-chi/&lt;br/&gt;nhập mua/tạm ứng/TS"]:::auto
+    EVT --&gt; AE["AccountingEntry&lt;br/&gt;single-entry, IMMUTABLE&lt;br/&gt;(sổ HKD TT152)"]:::auto
+    EVT --&gt; JE["JournalEntry&lt;br/&gt;double-entry&lt;br/&gt;(BCTC TT133/99/71)"]:::auto
+    JE --&gt; REP["Báo cáo: Nhật ký/Sổ Cái/&lt;br/&gt;TrialBalance/B01-B03+B09"]:::auto
+    AE --&gt; HKD["Sổ HKD S1a-S3a&lt;br/&gt;(template engine)"]:::auto
+    REP --&gt; CLS["Khóa kỳ: validate&lt;br/&gt;(reconcile Error-&gt;chặn)&lt;br/&gt;+ kết chuyển 911 (accrual)&lt;br/&gt;+ MarkClosed + audit"]:::auto
+    CLS --&gt;|sai sót| RO["Reopen: 3 roles + reason&lt;br/&gt;-&gt; reversal closing JEs"]:::human
+    AE --&gt;|sai sót| RV["Reversal entry&lt;br/&gt;(không sửa gốc)"]:::auto
+    RGN["Regime-lock theo TenantType:&lt;br/&gt;HTX-&gt;TT71 · lớn-&gt;TT99 · vừa-&gt;TT133&lt;br/&gt;siêu nhỏ-&gt;TT58(+133) · HKD-&gt;TT152"]:::human
+    RGN -.-&gt; AE &amp; JE
+    REC["Tra soát R1-R13 (SystemAdmin)&lt;br/&gt;read-only, fail-open"]:::human --&gt; CLS
+</div>
+<h2>6. Tồn kho — voucher PG ↔ stock SQLite</h2>
+<div class="mermaid">
+flowchart LR
+    classDef auto fill:#c6f6d5,stroke:#2f855a
+    classDef human fill:#cfe3ff,stroke:#2b6cb0
+    classDef error fill:#fed7d7,stroke:#c53030
+    PR["Phiếu nhập mua (PG)&lt;br/&gt;post"]:::auto --&gt; SM["StockMovement&lt;br/&gt;PurchaseIn (SQLite)&lt;br/&gt;idempotent (rcpt,line,type)"]:::auto
+    SM --&gt; CUR["Ingredient.CurrentStock&lt;br/&gt;(snapshot)"]:::auto
+    MAN["Nhập/xuất tay"]:::human --&gt;|out &gt; tồn| E1["chặn"]:::error
+    MAN --&gt; SM
+    CNT["Kiểm kê theo ca&lt;br/&gt;(Draft/Submitted mới sửa)"]:::human --&gt; AL["Đóng ca -&gt; AlertEngine&lt;br/&gt;10 rules -&gt; ShiftAlert"]:::auto
+    ORD["Đơn -&gt; recipe -&gt;&lt;br/&gt;định lượng NVL"]:::auto --&gt;|thiếu| E2["cannot fulfill"]:::error
+    CUR --&gt; VAL["Σ(stock x price)&lt;br/&gt;-&gt; reconcile R13"]:::auto
+</div>
+<h2>7. Phí nền tảng — metering deny gate</h2>
+<div class="mermaid">
+sequenceDiagram
+    participant C as Caller (ShopERP/Gateway)
+    participant M as vanan-metering :5050
+    participant A as Admin (Vạn An)
+    C-&gt;&gt;M: GET /v1/check (X-Caller-Id + key)
+    alt quota còn
+        M--&gt;&gt;C: allow (+ % còn lại)
+    else còn &lt;=50% warn / &lt;=10% critical
+        M--&gt;&gt;C: allow + alert flag (poll)
+    else hết quota
+        M--&gt;&gt;C: DENY
+    end
+    A-&gt;&gt;M: POST /v1/topups (VietQR thủ công)
+    M-&gt;&gt;M: wallet append-only + rate-card head
+</div>
+<h2>8. Triển khai — multi-VPS</h2>
+<div class="mermaid">
+flowchart TB
+    classDef sys fill:#c6f6d5,stroke:#2f855a
+    subgraph GCP["GCP vanan-prod"]
+        GW2["vanan-gateway&lt;br/&gt;asia-southeast1-a&lt;br/&gt;(nginx+Gateway+PG+NATS)"]:::sys
+        SA["vanan-shop-a&lt;br/&gt;asia-southeast1-b&lt;br/&gt;(ShopERP)"]:::sys
+        MT2["vanan-metering&lt;br/&gt;asia-southeast1-b&lt;br/&gt;internal-only :5050"]:::sys
+        KL["vanan-khachlink&lt;br/&gt;asia-southeast1-c&lt;br/&gt;(nginx static PWA)"]:::sys
+        KL2["vanan-khachlink-timlathay&lt;br/&gt;asia-southeast1-c"]:::sys
+    end
+    KL &amp; KL2 --&gt;|HTTPS| GW2
+    GW2 --&gt;|NATS routed| SA
+    SA --&gt;|internal IP| MT2
+    USERS["Khách / Owner / Shipper / Admin"] --&gt;|domain| KL &amp; KL2
+</div>
+</body></html>
