@@ -200,14 +200,20 @@ public class RealtimeHttpAdapter(
         return request;
     }
 
-    /// <summary>Identity precedence (P5): staff Bearer JWT → customer token → guest device id.</summary>
+    /// <summary>Identity precedence (P5): staff Bearer JWT → customer token → guest device id.
+    /// 2026-11-08 (edge case): customer token + device id now travel TOGETHER when both are
+    /// present — the Gateway keeps DeviceId on the resolved identity so a guest order placed
+    /// on this device stays accessible after login (was else-if → device evidence dropped).</summary>
     private static void AddIdentityHeader(HttpRequestMessage request, string? customerToken, Guid? customerDeviceId, string? staffToken = null)
     {
         if (!string.IsNullOrEmpty(staffToken))
+        {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
-        else if (!string.IsNullOrEmpty(customerToken))
+            return;
+        }
+        if (!string.IsNullOrEmpty(customerToken))
             request.Headers.Add("X-Customer-Token", customerToken);
-        else if (customerDeviceId.HasValue && customerDeviceId.Value != Guid.Empty)
+        if (customerDeviceId.HasValue && customerDeviceId.Value != Guid.Empty)
             request.Headers.Add("X-Customer-Device-Id", customerDeviceId.Value.ToString());
     }
 

@@ -53,7 +53,7 @@ public class LocationHub(
 
         var identity = RequireIdentity();
 
-        if (!await RealtimeAuthorizerLookup.CanAccessAsync(_services, RealtimeSubjectType.Order, orderGuid, identity.UserId, Context.ConnectionAborted))
+        if (!await RealtimeAuthorizerLookup.CanAccessAsync(_services, RealtimeSubjectType.Order, orderGuid, identity, Context.ConnectionAborted))
             throw new HubException("Access denied: not shipper or customer of this order");
 
         await Groups.AddToGroupAsync(Context.ConnectionId, $"order_{orderId}");

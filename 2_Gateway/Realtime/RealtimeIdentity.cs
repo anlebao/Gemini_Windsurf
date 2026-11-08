@@ -30,7 +30,11 @@ public enum RealtimeIdentityKind
 /// authorizer needs this to answer "is this staff member the shop?". Customer/guest identities
 /// have no tenant (null).
 /// </summary>
-public sealed record RealtimeIdentity(Guid UserId, RealtimeIdentityKind Kind, Guid? TenantId = null)
+/// <param name="DeviceId">2026-11-08: the guest device guid the caller also carries (when
+/// any). A logged-in customer's <see cref="UserId"/> is their CustomerId, but they may have
+/// placed orders/chats as a guest on this device — the authorizer checks it as a fallback
+/// so the same browser keeps access after login.</param>
+public sealed record RealtimeIdentity(Guid UserId, RealtimeIdentityKind Kind, Guid? TenantId = null, Guid? DeviceId = null)
 {
     public bool IsGuest => Kind == RealtimeIdentityKind.Device;
 

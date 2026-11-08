@@ -460,7 +460,7 @@ public class RealtimeController(
         => await _identityResolver.ResolveAsync(HttpContext, ct);
 
     private Task<bool> CanAccessAsync(RealtimeSubjectType type, Guid id, RealtimeIdentity identity, CancellationToken ct)
-        => RealtimeAuthorizerLookup.CanAccessAsync(_services, type, id, identity.UserId, identity.TenantId, ct);
+        => RealtimeAuthorizerLookup.CanAccessAsync(_services, type, id, identity, ct);
 
     private ObjectResult Forbidden(RealtimeSubjectType type, Guid subjectId)
     {

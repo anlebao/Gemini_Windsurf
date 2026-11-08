@@ -303,7 +303,13 @@
             if (IsStaff)
                 hubUrl = $"{Endpoints.GetMessagingHubUrl()}?access_token={Uri.EscapeDataString(StaffToken!)}";
             else if (!string.IsNullOrEmpty(CustomerToken))
+            {
+                // 2026-11-08 (edge case): send device id alongside the token so the Gateway
+                // can match guest orders placed on this device before login.
                 hubUrl = $"{Endpoints.GetMessagingHubUrl()}?customerToken={Uri.EscapeDataString(CustomerToken)}";
+                if (HasGuestIdentity)
+                    hubUrl += $"&customerDeviceId={CustomerDeviceId}";
+            }
             else
                 hubUrl = $"{Endpoints.GetMessagingHubUrl()}?customerDeviceId={CustomerDeviceId}";
 

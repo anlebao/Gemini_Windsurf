@@ -52,7 +52,7 @@ public class MessagingHub(
         var (type, id) = RealtimeSubjectParser.Parse(subjectType, subjectId);
         var identity = RequireIdentity();
 
-        if (!await RealtimeAuthorizerLookup.CanAccessAsync(_services, type, id, identity.UserId, identity.TenantId, Context.ConnectionAborted))
+        if (!await RealtimeAuthorizerLookup.CanAccessAsync(_services, type, id, identity, Context.ConnectionAborted))
             throw new HubException($"Access denied: not a participant of {type}/{id}");
 
         // P6: the shop conversation is a shared thread — staff join the shared group (inbox),

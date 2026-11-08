@@ -39,4 +39,24 @@ public static class RealtimeAuthorizerLookup
 
         return await authorizer.CanAccessAsync(subjectType, subjectId, userId, tenantId, ct);
     }
+
+    /// <summary>
+    /// 2026-11-08 (edge case): identity-aware overload — checks <see cref="RealtimeIdentity.UserId"/>
+    /// first, then falls back to <see cref="RealtimeIdentity.DeviceId"/> when the caller also
+    /// carries a device guid. Fixes: logged-in customer denied on the SAME device where they
+    /// placed a guest order (token won resolution → device evidence was dropped → 403).
+    /// </summary>
+    public static async Task<bool> CanAccessAsync(
+        IServiceProvider services,
+        RealtimeSubjectType subjectType,
+        Guid subjectId,
+        RealtimeIdentity identity,
+        CancellationToken ct = default)
+    {
+        if (await CanAccessAsync(services, subjectType, subjectId, identity.UserId, identity.TenantId, ct))
+            return true;
+        if (identity.DeviceId is { } deviceId && deviceId != identity.UserId)
+            return await CanAccessAsync(services, subjectType, subjectId, deviceId, tenantId: null, ct);
+        return false;
+    }
 }
