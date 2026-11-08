@@ -9,7 +9,9 @@
 // purge so clients re-fetch.
 // v4 (2026-11-08): bump — tenant-map.js + onboarding-wizard.js switched to the
 // shared tile chain via vananMap.attachTiles (realtime.js); purge cached JS.
-const CACHE_NAME = 'shoperp-pwa-v4';
+// v5 (2026-11-08): bump — JS/CSS static assets → stale-while-revalidate
+// (cùng fix "old JS after deploy" như KhachLink v33).
+const CACHE_NAME = 'shoperp-pwa-v5';
 const STATIC_ASSETS = [
   '/offline.html',
   '/app.css',
@@ -55,7 +57,31 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets → cache-first, chỉ cache response hợp lệ (không phải HTML —
+  // Static JS/CSS (non-fingerprinted: /js/, /css/, /_content/ scripts|styles,
+  // app.css) → stale-while-revalidate. 2026-11-08: cùng root cause "old JS after
+  // deploy" như KhachLink — cache-first giữ realtime.js/tenant-map.js cũ trên
+  // thiết bị đã cài app. SWR tự heal mỗi load.
+  const isScriptOrStyle = req.destination === 'script' || req.destination === 'style';
+  if ((isScriptOrStyle && (url.pathname.startsWith('/css/') || url.pathname.startsWith('/js/')
+      || url.pathname.startsWith('/_content/')))
+    || url.pathname === '/app.css') {
+    event.respondWith(
+      caches.match(req).then((cached) => {
+        const fetchPromise = fetch(req).then((resp) => {
+          if (resp.ok && (resp.headers.get('content-type') || '').indexOf('text/html') === -1) {
+            const clone = resp.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+          }
+          return resp;
+        }).catch(() => cached || Response.error());
+        return cached || fetchPromise;
+      })
+    );
+    return;
+  }
+
+  // Static assets khác (fingerprinted _framework, bootstrap, images, offline
+  // shell) → cache-first, chỉ cache response hợp lệ (không phải HTML —
   // bài học v25: SPA fallback trả text/html cho file thiếu → poison cache).
   if (url.pathname.startsWith('/css/') || url.pathname.startsWith('/js/')
     || url.pathname.startsWith('/_framework/') || url.pathname.startsWith('/bootstrap/')

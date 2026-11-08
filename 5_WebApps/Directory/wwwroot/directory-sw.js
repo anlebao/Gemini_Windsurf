@@ -62,9 +62,13 @@
 //   - directory-map.js: tile chain upgrade (CARTO Voyager → Esri → OSM +
 //     tileerror fallback + watchdog) matching realtime.js.
 //     Static JS is cache-first → bump v8 → v9 so clients re-fetch it.
+//
+// v10 (2026-11-08):
+//   - JS/CSS → stale-while-revalidate (cùng fix "old JS after deploy" như
+//     KhachLink v33 — cache-first giữ script cũ trên thiết bị đã cài app).
 // ============================================================================
 
-const CACHE_NAME = 'vanan-directory-v9';
+const CACHE_NAME = 'vanan-directory-v10';
 const SHELL_URLS = ['/'];
 
 self.addEventListener('install', event => {
@@ -132,7 +136,28 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Static assets: cache-first, network fallback (cache on success).
+  // JS/CSS: stale-while-revalidate (2026-11-08 — cùng fix "old JS after deploy"
+  // như KhachLink v33: cache-first giữ script cũ trên thiết bị đã cài app).
+  // Serve cache ngay + refresh ngầm → deploy sau tự cập nhật, vẫn offline được.
+  if (request.destination === 'script' || request.destination === 'style') {
+    event.respondWith(
+      caches.match(request).then(cached => {
+        const fetchPromise = fetch(request).then(response => {
+          const ct = response ? (response.headers.get('Content-Type') || '') : '';
+          if (response && response.status === 200 && response.type === 'basic' &&
+              ct.indexOf('text/html') === -1) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
+          }
+          return response;
+        }).catch(() => cached || Response.error());
+        return cached || fetchPromise;
+      })
+    );
+    return;
+  }
+
+  // Static assets khác: cache-first, network fallback (cache on success).
   // Never cache text/html here — non-navigation requests that get an HTML
   // response (error page, fallback) would poison the cache permanently.
   event.respondWith(

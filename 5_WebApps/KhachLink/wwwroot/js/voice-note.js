@@ -31,39 +31,42 @@ window.initializeSpeechRecognition = function (dotNetReference, targetId) {
     recognition.maxAlternatives = 1;
 
     recognition.onresult = function (event) {
-        let interimText = '';
-        let finalText = '';
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-            const result = event.results[i];
-            if (result.isFinal) {
-                finalText += result[0].transcript;
-            } else {
-                interimText += result[0].transcript;
-            }
-        }
-
         if (isHomeSearchMode) {
-            // #142-comment-fix: build cumulative final + current interim
-            if (finalText) {
-                finalTranscript += finalText;
+            // 2026-11-08 dedup fix ("nội dung lặp gấp đôi/gấp 3"): REBUILD the
+            // transcript from event.results[0..n] instead of folding finalText
+            // into finalTranscript — Chrome continuous mode re-emits the same
+            // segment as a duplicate final on endpointing/stop()-flush, and the
+            // old fold counted it twice. Also collapse adjacent identical
+            // segments (normalized) — a different segment in between is kept.
+            const finals = [];
+            let interimText = '';
+            let prev = '';
+            for (let i = 0; i < event.results.length; i++) {
+                const result = event.results[i];
+                const t = result[0].transcript || '';
+                const norm = t.replace(/\s+/g, ' ').trim().toLowerCase();
+                if (!norm) continue;
+                if (result.isFinal) {
+                    if (norm !== prev) { finals.push(t); prev = norm; }
+                } else if (norm !== prev) {
+                    interimText += t + ' ';
+                    prev = norm;
+                }
             }
-            const displayText = (finalTranscript + interimText).trim();
+            finalTranscript = finals.join(' ');
+            const displayText = (finalTranscript + ' ' + interimText).replace(/\s+/g, ' ').trim();
 
             // Fill home search textbox via Blazor (real-time as user speaks)
             if (voiceDotNetRef && displayText) {
                 voiceDotNetRef.invokeMethodAsync('UpdateVoiceTranscript', displayText);
             }
 
-            // #142-comment-fix: reset silence timer — auto-submit after 2.5s of no new results
+            // Silence → end the session; onend submits the transcript ONCE.
+            // (Old code submitted from the timer but left recognition running
+            // → later speech re-submitted and rebuilt text included old segments.)
             if (silenceTimer) clearTimeout(silenceTimer);
             silenceTimer = setTimeout(function () {
-                const submitText = (finalTranscript || displayText).trim();
-                if (submitText && voiceDotNetRef) {
-                    console.log('[voice] Auto-submitting after silence:', submitText);
-                    voiceDotNetRef.invokeMethodAsync('SetTranscriptionText', submitText);
-                    finalTranscript = '';
-                }
+                try { recognition.stop(); } catch (e) { /* already stopped */ }
             }, SILENCE_DELAY_MS);
         } else {
             // Original voice-note mode — single final result

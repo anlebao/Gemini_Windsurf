@@ -1,5 +1,12 @@
 ﻿// ============================================================================
-// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v32-map-chain)
+// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v33-js-swr)
+//
+// v33-js-swr (2026-11-08):
+//   - Static JS/CSS: cache-first → stale-while-revalidate. Fixes recurring
+//     "old JS after deploy" on installed PWAs (user report: checkout pin map
+//     on Android still OSM-ugly because stale realtime.js was served from
+//     STATIC_CACHE). SWR self-heals every load — no more SW bump needed to
+//     propagate JS changes. Images/nav/precache keep cache-first.
 //
 // v32-map-chain (2026-11-08):
 //   - realtime.js: tile chain extracted to window.vananMap.attachTiles(map) so
@@ -185,10 +192,10 @@
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v32-map-chain';
-const STATIC_CACHE = 'vanan-static-v32-map-chain';
-const DYNAMIC_CACHE = 'vanan-dynamic-v32-map-chain';
-const WASM_CACHE = 'vanan-wasm-v32-map-chain';
+const CACHE_NAME = 'vanan-khachlink-v33-js-swr';
+const STATIC_CACHE = 'vanan-static-v33-js-swr';
+const DYNAMIC_CACHE = 'vanan-dynamic-v33-js-swr';
+const WASM_CACHE = 'vanan-wasm-v33-js-swr';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
@@ -448,10 +455,34 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // --- 3. Static assets (CSS/JS/images): cache-first ---
+  // --- 3a. JS/CSS: stale-while-revalidate ---
+  // 2026-11-08 (checkout map "vẫn code cũ" on Android): cache-first NO expiry
+  // kept stale realtime.js on installed PWAs — SW bump heals only after the new
+  // SW activates, so the first post-deploy session still runs OLD JS (recurring
+  // bug — v29/v30/v31/v32 bumps all trace to this). SWR serves cache instantly
+  // AND refreshes in background → JS self-heals within one load after deploy.
   if (request.destination === 'style' ||
-      request.destination === 'image' ||
-      (request.destination === 'script' && !wasmCachePattern.test(url.pathname)) ||
+      (request.destination === 'script' && !wasmCachePattern.test(url.pathname))) {
+    event.respondWith(
+      caches.match(request).then(cached => {
+        const fetchPromise = fetch(request).then(response => {
+          if (response && response.status === 200 && !isHtmlResponse(response)) {
+            const responseToCache = response.clone();
+            caches.open(STATIC_CACHE).then(cache => {
+              cache.put(request, responseToCache);
+            });
+          }
+          return response;
+        }).catch(() => cached || Response.error());
+        // Cached copy wins instantly; network refreshes it in background.
+        return cached || fetchPromise;
+      })
+    );
+    return;
+  }
+
+  // --- 3b. Images + precached shell entries: cache-first ---
+  if (request.destination === 'image' ||
       staticUrlsToCache.some(staticUrl => url.pathname === staticUrl)) {
     event.respondWith(
       caches.match(request)

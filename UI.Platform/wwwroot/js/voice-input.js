@@ -90,14 +90,26 @@ window.vananVoiceInput = (function () {
             // Rebuild the whole transcript every event — results[] carries all
             // segments since session start; a result flips interim→final in
             // place. Immune to resultIndex quirks and stop()-flush duplicates.
+            //
+            // 2026-11-08 dedup round 2 ("nội dung lặp gấp đôi/gấp 3"): Chrome
+            // continuous mode can emit the SAME segment as a duplicate final
+            // entry on endpointing, and the pending interim may re-appear as
+            // an extra final on stop()-flush → adjacent identical segments.
+            // Collapse consecutive repeats (normalized); a different segment
+            // between two identical ones is still kept.
             const finals = [];
             let interim = '';
+            let prev = '';
             for (let i = 0; i < event.results.length; i++) {
                 const result = event.results[i];
+                const t = result[0].transcript || '';
+                const norm = t.replace(/\s+/g, ' ').trim().toLowerCase();
+                if (!norm) continue;
                 if (result.isFinal) {
-                    finals.push(result[0].transcript);
-                } else {
-                    interim += result[0].transcript;
+                    if (norm !== prev) { finals.push(t); prev = norm; }
+                } else if (norm !== prev) {
+                    interim += t + ' ';
+                    prev = norm;
                 }
             }
             latestDisplay = (finals.join(' ') + ' ' + interim).replace(/\s+/g, ' ').trim();

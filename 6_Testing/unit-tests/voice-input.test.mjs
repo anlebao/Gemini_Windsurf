@@ -74,6 +74,39 @@ test('multi-segment — finals + interim rebuild, no segment counted twice', () 
     assert.equal(lastInterim, 'phở chay');
 });
 
+test('duplicate-final dedup — Chrome endpointing re-emit collapses to once', () => {
+    const { calls, ref } = makeRef();
+    vi.start(ref);
+    const sr = FakeSR.instance;
+
+    // Chrome quirk (2026-11-08 report "lặp gấp đôi/gấp 3"): continuous mode can
+    // emit the same segment as duplicate final entries on endpointing.
+    sr.emit([
+        { isFinal: true, 0: { transcript: 'tìm quán chay' } },
+        { isFinal: true, 0: { transcript: 'tìm quán chay' } },
+        { isFinal: true, 0: { transcript: 'tìm quán chay' } },
+    ]);
+    vi.stop();
+
+    assert.deepEqual(finalsOf(calls), ['tìm quán chay']);
+});
+
+test('duplicate-final dedup — repeated text with a different segment between is kept', () => {
+    const { calls, ref } = makeRef();
+    vi.start(ref);
+    const sr = FakeSR.instance;
+
+    sr.emit([
+        { isFinal: true, 0: { transcript: 'cà phê' } },
+        { isFinal: true, 0: { transcript: 'bánh mì' } },
+        { isFinal: true, 0: { transcript: 'cà phê' } },
+    ]);
+    vi.stop();
+
+    // Non-adjacent repeats are legit speech — only ADJACENT dups collapse.
+    assert.deepEqual(finalsOf(calls), ['cà phê bánh mì cà phê']);
+});
+
 test('silence timer — auto-submits then ends once', async () => {
     const { calls, ref } = makeRef();
     vi.start(ref);
