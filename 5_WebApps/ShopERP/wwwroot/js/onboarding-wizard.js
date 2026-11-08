@@ -59,17 +59,55 @@ window.vananOnboardingWizard = (function () {
     }
 
     let _map = null;
+    let _mapEngine = null;
 
-    /** Init/refresh Leaflet map với marker + vòng tròn accuracy. Trả map instance.
+    /** GeoJSON polygon xấp xỉ vòng tròn accuracy cho MapLibre (không có L.circle). */
+    function _accuracyGeoJson(lat, lng, radiusMeters) {
+        const pts = 64, ring = [];
+        const dLat = radiusMeters / 111320;
+        const dLng = radiusMeters / (111320 * Math.cos(lat * Math.PI / 180));
+        for (let i = 0; i <= pts; i++) {
+            const a = (i / pts) * Math.PI * 2;
+            ring.push([lng + dLng * Math.cos(a), lat + dLat * Math.sin(a)]);
+        }
+        return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [ring] } };
+    }
+
+    /** Init/refresh map với marker + vòng tròn accuracy. Trả map instance.
+     *  2026-11-08: MapLibre + OpenFreeMap (vector ~Google look, free) trước,
+     *  fallback Leaflet Voyager chain khi lib/style fail.
      *  RV fix 2026-10-26: L.map(el) lần 2 trên cùng element ném "Map container is
      *  already initialized" (Leaflet giữ _leaflet_id — innerHTML='' không xóa được).
      *  → map.remove() trước khi tạo lại. */
-    function initMap(elementId, lat, lng, accuracy) {
+    async function initMap(elementId, lat, lng, accuracy) {
         const el = document.getElementById(elementId);
-        if (!el || typeof L === 'undefined') return null;
-        if (_map) { _map.remove(); _map = null; }
+        if (!el) return null;
+        if (_map) { _map.remove(); _map = null; _mapEngine = null; }
         el.innerHTML = '';
+
+        // MapLibre + OpenFreeMap (vector, ~Google look) — engine chính.
+        if (window.vananMap?.createMapLibre) {
+            const mlMap = await window.vananMap.createMapLibre(elementId, lat, lng, 17);
+            if (mlMap) {
+                _map = mlMap;
+                _mapEngine = 'maplibre';
+                new maplibregl.Marker({ color: '#ea4335' }).setLngLat([lng, lat]).addTo(mlMap);
+                if (accuracy > 0) {
+                    // addSource/addLayer cần style đã load → chờ 'load'.
+                    mlMap.once('load', () => {
+                        mlMap.addSource('ocr-acc', { type: 'geojson', data: _accuracyGeoJson(lat, lng, accuracy) });
+                        mlMap.addLayer({ id: 'ocr-acc-fill', type: 'fill', source: 'ocr-acc', paint: { 'fill-color': '#2563eb', 'fill-opacity': 0.15 } });
+                        mlMap.addLayer({ id: 'ocr-acc-line', type: 'line', source: 'ocr-acc', paint: { 'line-color': '#2563eb', 'line-width': 1.5 } });
+                    });
+                }
+                return _map;
+            }
+        }
+
+        // Fallback Leaflet (Voyager-first chain).
+        if (typeof L === 'undefined') return null;
         _map = L.map(elementId, { zoomControl: true }).setView([lat, lng], 17);
+        _mapEngine = 'leaflet';
         // 2026-11-08: dùng tile chain chung (CARTO Voyager → Esri → OSM + fallback) từ
         // realtime.js thay vì OSM đơn — OSM bị chặn trên một số mạng VN → map xám.
         if (window.vananMap?.attachTiles) {

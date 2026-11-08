@@ -5,6 +5,7 @@
     let marker = null;
     let dotNetRef = null;
     let leafletLoaded = false;
+    let engine = null; // 'maplibre' | 'leaflet'
 
     function loadCss(href) {
         if (document.querySelector(`link[href="${href}"]`)) return Promise.resolve();
@@ -45,7 +46,6 @@
 
     window.vananTenantMap = {
         async init(elementId, lat, lng, dotNetReference) {
-            await ensureLeaflet();
             dotNetRef = dotNetReference;
 
             // Destroy any existing map instance to avoid "Map container already initialized"
@@ -57,7 +57,30 @@
                 return;
             }
 
+            // 2026-11-08: MapLibre + OpenFreeMap (vector ~Google look, free) trước,
+            // fallback Leaflet Voyager chain khi lib/style fail.
+            if (window.vananMap?.createMapLibre) {
+                const mlMap = await window.vananMap.createMapLibre(elementId, lat, lng, 13);
+                if (mlMap) {
+                    map = mlMap;
+                    engine = 'maplibre';
+                    marker = new maplibregl.Marker({ draggable: true, color: '#ea4335' })
+                        .setLngLat([lng, lat]).addTo(mlMap);
+                    marker.on('dragend', () => {
+                        const pos = marker.getLngLat();
+                        notifyDotNet(pos.lat, pos.lng);
+                    });
+                    mlMap.on('click', (e) => {
+                        marker.setLngLat(e.lngLat);
+                        notifyDotNet(e.lngLat.lat, e.lngLat.lng);
+                    });
+                    return;
+                }
+            }
+
+            await ensureLeaflet();
             map = L.map(elementId, { scrollWheelZoom: true }).setView([lat, lng], 13);
+            engine = 'leaflet';
 
             // 2026-11-08: dùng tile chain chung (CARTO Voyager → Esri → OSM + fallback) từ
             // realtime.js thay vì OSM đơn — OSM bị chặn trên một số mạng VN → map xám.
@@ -89,17 +112,27 @@
 
         setMarker(lat, lng) {
             if (!map || !marker) return;
-            marker.setLatLng([lat, lng]);
-            map.panTo([lat, lng]);
+            if (engine === 'maplibre') {
+                marker.setLngLat([lng, lat]);
+                map.easeTo({ center: [lng, lat] });
+            } else {
+                marker.setLatLng([lat, lng]);
+                map.panTo([lat, lng]);
+            }
         },
 
         clear() {
             if (!map || !marker) return;
-            // Move marker off-screen (Leaflet can't fully hide a marker without removing it)
+            // Move marker off-screen (can't fully hide a marker without removing it)
             // We keep the marker but reset to default HCM center so user can re-pick.
             const defaultLat = 10.7769, defaultLng = 106.7009;
-            marker.setLatLng([defaultLat, defaultLng]);
-            map.setView([defaultLat, defaultLng], 13);
+            if (engine === 'maplibre') {
+                marker.setLngLat([defaultLng, defaultLat]);
+                map.easeTo({ center: [defaultLng, defaultLat], zoom: 13 });
+            } else {
+                marker.setLatLng([defaultLat, defaultLng]);
+                map.setView([defaultLat, defaultLng], 13);
+            }
         },
 
         async getCurrentLocation() {

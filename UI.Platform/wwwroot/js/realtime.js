@@ -185,33 +185,39 @@ function forceSwitchTileProvider(map) {
     setTimeout(() => { map._vananTileSwitchLock = false; }, 1500);
 }
 
+// Sync Leaflet init — fallback engine for initMap and the pin flows that need
+// a synchronous Leaflet map (pinLocation reads _maps right after init).
+function initLeafletMap(elementId, centerLat, centerLng, zoom) {
+    const el = document.getElementById(elementId);
+    if (!el) return null;
+    if (_maps[elementId]) {
+        _maps[elementId].remove();
+        delete _maps[elementId];
+        delete _markers[elementId];
+    }
+    const map = L.map(elementId, {
+        zoomControl: true,
+        attributionControl: true
+    }).setView([centerLat, centerLng], zoom || 14);
+    window.vananMap.attachTiles(map);
+    _maps[elementId] = map;
+    _markers[elementId] = {};
+    // Issue #185: blank / 0-height map when initialised in an animating/hidden
+    // container — re-measure once the DOM settles.
+    setTimeout(function () { map.invalidateSize(); }, 0);
+    setTimeout(function () { map.invalidateSize(); }, 300);
+    return map;
+}
+
 window.vananMap = {
-    initMap: function (elementId, centerLat, centerLng, zoom) {
-        const el = document.getElementById(elementId);
-        if (!el) return;
-
-        // Clean up existing map if any
-        if (_maps[elementId]) {
-            _maps[elementId].remove();
-            delete _maps[elementId];
-            delete _markers[elementId];
-        }
-
-        const map = L.map(elementId, {
-            zoomControl: true,
-            attributionControl: true
-        }).setView([centerLat, centerLng], zoom || 14);
-
-        window.vananMap.attachTiles(map);
-
-        _maps[elementId] = map;
-        _markers[elementId] = {};
-
-        // Issue #185: Leaflet renders a blank / 0-height map when initialised inside a
-        // container that is still animating or not yet laid out (common on mobile). Re-measure
-        // once the DOM settles so the map paints immediately instead of staying invisible.
-        setTimeout(function () { map.invalidateSize(); }, 0);
-        setTimeout(function () { map.invalidateSize(); }, 300);
+    // 2026-11-08: MapLibre + OpenFreeMap is now the default engine (vector,
+    // ~Google look, free); Leaflet chain remains the fallback. Async — Blazor
+    // InvokeVoidAsync awaits the returned promise, so marker calls that follow
+    // always see a ready map.
+    initMap: async function (elementId, centerLat, centerLng, zoom) {
+        const mlMap = await window.vananMap.createMapLibre(elementId, centerLat, centerLng, zoom || 14);
+        if (mlMap) return;
+        initLeafletMap(elementId, centerLat, centerLng, zoom);
     },
 
     // Attach the shared tile-provider chain (CARTO Voyager → Esri → OSM + tileerror
@@ -235,6 +241,17 @@ window.vananMap = {
     },
 
     addMarker: function (elementId, key, lat, lng, label, color) {
+        // MapLibre engine — colored pin + click popup (parity with Leaflet divIcon).
+        const mlmap = _mlmaps[elementId];
+        if (mlmap) {
+            const marker = new maplibregl.Marker({ color: color || '#3388ff' })
+                .setLngLat([lng, lat])
+                .addTo(mlmap);
+            if (label) marker.setPopup(new maplibregl.Popup({ offset: 25 }).setText(label));
+            _mlmarkers[elementId][key] = marker;
+            return;
+        }
+
         const map = _maps[elementId];
         if (!map) return;
 
@@ -253,6 +270,14 @@ window.vananMap = {
     },
 
     updateMarker: function (elementId, key, lat, lng) {
+        const mlmap = _mlmaps[elementId];
+        const mlm = mlmap && _mlmarkers[elementId] && _mlmarkers[elementId][key];
+        if (mlmap && mlm) {
+            mlm.setLngLat([lng, lat]);
+            mlmap.easeTo({ center: [lng, lat] });
+            return;
+        }
+
         const map = _maps[elementId];
         const marker = _markers[elementId] && _markers[elementId][key];
         if (!map || !marker) return;
@@ -266,6 +291,18 @@ window.vananMap = {
     // (previously markers were only added once, on the component's first render).
     // No panning here — avoids fighting the user while they drag the map.
     upsertMarker: function (elementId, key, lat, lng, label, color) {
+        const mlmap = _mlmaps[elementId];
+        if (mlmap) {
+            const existing = _mlmarkers[elementId] && _mlmarkers[elementId][key];
+            if (existing) {
+                const cur = existing.getLngLat();
+                if (cur.lat !== lat || cur.lng !== lng) existing.setLngLat([lng, lat]);
+                return;
+            }
+            window.vananMap.addMarker(elementId, key, lat, lng, label, color);
+            return;
+        }
+
         const map = _maps[elementId];
         if (!map) return;
 
@@ -281,7 +318,9 @@ window.vananMap = {
     // Checkout delivery pin (2026-09-20): draggable marker + click-to-pin. Writes the pinned
     // lat/lng into hidden inputs (latInputId/lngInputId) so Blazor reads them at submit.
     pinLocation: function (elementId, latInputId, lngInputId, initialLat, initialLng, zoom) {
-        window.vananMap.initMap(elementId, initialLat, initialLng, zoom || 15);
+        // Explicit Leaflet pin path — used as fallback by gmapsPinLocation /
+        // maplibrePinLocation. Must stay sync (reads _maps right after init).
+        initLeafletMap(elementId, initialLat, initialLng, zoom || 15);
         const map = _maps[elementId];
         if (!map) return;
 
@@ -325,7 +364,7 @@ window.vananMap = {
 
         // MapLibre pin (maplibrePinLocation) — same contract, [lng,lat] order.
         const mlmap = _mlmaps[elementId];
-        const mlmarker = mlmap && _mlmarkers[elementId];
+        const mlmarker = mlmap && _mlmarkers[elementId] && _mlmarkers[elementId]['pin'];
         if (mlmap && mlmarker) {
             mlmarker.setLngLat([Number(lng), Number(lat)]);
             mlmap.easeTo({ center: [Number(lng), Number(lat)] });
@@ -358,16 +397,19 @@ window.vananMap = {
             return;
         }
 
-        // Clean up previous instances on this element (Leaflet or Google).
+        // Clean up previous instances on this element (Leaflet / Google / MapLibre).
         if (_maps[elementId]) {
             _maps[elementId].remove();
             delete _maps[elementId];
             delete _markers[elementId];
         }
-        if (_gmaps[elementId]) {
+        if (_gmaps[elementId] || _mlmaps[elementId]) {
+            if (_mlmaps[elementId]) _mlmaps[elementId].remove();
             el.innerHTML = '';
             delete _gmaps[elementId];
             delete _gmarkers[elementId];
+            delete _mlmaps[elementId];
+            delete _mlmarkers[elementId];
         }
 
         const start = { lat: Number(initialLat), lng: Number(initialLng) };
@@ -400,20 +442,21 @@ window.vananMap = {
         });
     },
 
-    // MapLibre GL + OpenFreeMap version of pinLocation (2026-11-08): vector map
-    // with a near-Google look (style 'liberty') — free, no API key, no billing.
-    // Same contract: draggable pin + click-to-pin, writes lat/lng to hidden
-    // inputs. Load/style failures → Leaflet chain fallback (never broken map).
-    maplibrePinLocation: async function (elementId, latInputId, lngInputId, initialLat, initialLng, zoom) {
-        const el = document.getElementById(elementId);
-        if (!el) return;
+    // MapLibre GL + OpenFreeMap map factory (2026-11-08): vector map with a
+    // near-Google look (style 'liberty') — free, no API key, no billing.
+    // Returns the maplibregl.Map instance (registered in _mlmaps) or null on
+    // any load/init failure — callers decide their own fallback (usually the
+    // Leaflet attachTiles chain). Other pin-location JS (tenant-map.js,
+    // onboarding-wizard.js) uses this so every pretty map shares one loader.
+    createMapLibre: async function (elementId, centerLat, centerLng, zoom) {
         try {
             await loadMapLibre();
         } catch (e) {
-            console.warn('[vananMap] MapLibre unavailable — falling back to Leaflet:', e);
-            window.vananMap.pinLocation(elementId, latInputId, lngInputId, initialLat, initialLng, zoom);
-            return;
+            console.warn('[vananMap] MapLibre unavailable:', e);
+            return null;
         }
+        const el = document.getElementById(elementId);
+        if (!el) return null;
 
         // Clean up previous instances on this element (Leaflet / Google / MapLibre).
         if (_maps[elementId]) {
@@ -430,33 +473,49 @@ window.vananMap = {
             delete _mlmarkers[elementId];
         }
 
-        const startLng = Number(initialLng), startLat = Number(initialLat);
-        let map;
         try {
-            map = new maplibregl.Map({
+            const map = new maplibregl.Map({
                 container: el,
                 style: 'https://tiles.openfreemap.org/styles/liberty',
-                center: [startLng, startLat],
+                center: [Number(centerLng), Number(centerLat)],
                 zoom: zoom || 15,
                 attributionControl: { compact: true }
             });
+            _mlmaps[elementId] = map;
+            _mlmarkers[elementId] = {};
+            // Container may render while still animating/hidden — re-measure.
+            setTimeout(function () { map.resize(); }, 0);
+            setTimeout(function () { map.resize(); }, 300);
+            return map;
         } catch (e) {
-            console.warn('[vananMap] MapLibre init failed — falling back to Leaflet:', e);
+            console.warn('[vananMap] MapLibre init failed:', e);
+            return null;
+        }
+    },
+
+    // MapLibre GL + OpenFreeMap version of pinLocation: same contract —
+    // draggable pin + click-to-pin, writes lat/lng to hidden inputs (+ optional
+    // onPin(lat,lng) callback for callers that notify .NET instead of inputs).
+    // Load/style failures → Leaflet chain fallback (never broken map).
+    maplibrePinLocation: async function (elementId, latInputId, lngInputId, initialLat, initialLng, zoom, onPin) {
+        const map = await window.vananMap.createMapLibre(elementId, initialLat, initialLng, zoom);
+        if (!map) {
             window.vananMap.pinLocation(elementId, latInputId, lngInputId, initialLat, initialLng, zoom);
             return;
         }
 
+        const startLng = Number(initialLng), startLat = Number(initialLat);
         const marker = new maplibregl.Marker({ draggable: true, color: '#ea4335' })
             .setLngLat([startLng, startLat])
             .addTo(map);
-        _mlmaps[elementId] = map;
-        _mlmarkers[elementId] = marker;
+        _mlmarkers[elementId]['pin'] = marker;
 
-        const latInput = document.getElementById(latInputId);
-        const lngInput = document.getElementById(lngInputId);
+        const latInput = latInputId ? document.getElementById(latInputId) : null;
+        const lngInput = lngInputId ? document.getElementById(lngInputId) : null;
         const sync = function (ll) {
             if (latInput) latInput.value = Number(ll.lat).toFixed(6);
             if (lngInput) lngInput.value = Number(ll.lng).toFixed(6);
+            if (onPin) onPin(Number(ll.lat), Number(ll.lng));
         };
         sync(marker.getLngLat());
         marker.on('dragend', function () { sync(marker.getLngLat()); });
@@ -465,12 +524,34 @@ window.vananMap = {
             sync(e.lngLat);
         });
         map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
-        // Container may render while still animating/hidden — re-measure like initMap.
-        setTimeout(function () { map.resize(); }, 0);
-        setTimeout(function () { map.resize(); }, 300);
     },
 
     drawRoute: function (elementId, fromLat, fromLng, toLat, toLng) {
+        // MapLibre engine — GeoJSON line layer + fitBounds (parity with polyline).
+        const mlmap = _mlmaps[elementId];
+        if (mlmap) {
+            const line = { type: 'Feature', geometry: { type: 'LineString', coordinates: [[fromLng, fromLat], [toLng, toLat]] } };
+            const draw = function () {
+                const src = mlmap.getSource('vanan-route');
+                if (src) {
+                    src.setData(line);
+                } else {
+                    mlmap.addSource('vanan-route', { type: 'geojson', data: line });
+                    mlmap.addLayer({
+                        id: 'vanan-route-line', type: 'line', source: 'vanan-route',
+                        paint: { 'line-color': '#3388ff', 'line-width': 3, 'line-opacity': 0.7, 'line-dasharray': [2, 2] }
+                    });
+                }
+            };
+            // addSource needs the style loaded — defer if still fetching.
+            if (mlmap.isStyleLoaded()) draw(); else mlmap.once('load', draw);
+            mlmap.fitBounds(
+                [[Math.min(fromLng, toLng), Math.min(fromLat, toLat)],
+                 [Math.max(fromLng, toLng), Math.max(fromLat, toLat)]],
+                { padding: 50 });
+            return;
+        }
+
         const map = _maps[elementId];
         if (!map) return;
 
@@ -480,6 +561,15 @@ window.vananMap = {
     },
 
     fitBounds: function (elementId, points) {
+        const mlmap = _mlmaps[elementId];
+        if (mlmap) {
+            if (!points || points.length === 0) return;
+            const b = new maplibregl.LngLatBounds();
+            points.forEach(p => b.extend([p.lng, p.lat]));
+            mlmap.fitBounds(b, { padding: 50 });
+            return;
+        }
+
         const map = _maps[elementId];
         if (!map || !points || points.length === 0) return;
 
