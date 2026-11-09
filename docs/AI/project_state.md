@@ -173,7 +173,7 @@
 
 **▶ SELF-SERVE ONBOARDING — ✅ P0 DONE + ✅ P1 DONE `55643131` (2026-11-09 — KhachLink `/onboard` wizard 6 bước + OCR JS port + Tesseract assets + photo→R2 `folder=onboarding` + HKDGroup helper + draft autosave + deep-link params + flags gate + `/onboard/status` + `/claim` banner — guard ALL PASSED · build 0 err) → NEXT P2:**
 - [x] **P0** `task_p0_signup_api_core.md` — DONE `6ac8e809`+`34e68c89` (API + flags + tests 36/36)
-- [x] **P1** `task_p1_khachlink_wizard.md` — DONE `55643131` (`/onboard` + `/onboard/status` + `MerchantSignupHttpService` + `HkdGroupHelper` + OCR/Wizard JS port + lib/ocr assets; P6 OCR-assist hook tolerant-404; OTP hardcode off chờ P4)
+- [x] **P1** `task_p1_khachlink_wizard.md` — DONE `55643131` + **PUSHED + CD #42603796980 SUCCESS + RV L1/L2 PASS (2026-11-09)**: `/onboard`+`/onboard/status` 200 @diemthuong2 · OCR/wizard JS + Tesseract assets live · flags GET 200 all-true · submit validation 400 · **submit no-turnstile → 200 (Turnstile prod KHÔNG enforce — sitekey rỗng → Gateway skip; tạo Pending thật "RV Test Shop" `914e2d33-ed26-4ce6-bc01-7409ac127451` — cần sysadmin reject ở /admin/tenants)** · status Pending/NotFound đúng · verify-signup no-auth → 302 (cookie redirect, auth enforced) · image `3b3e8b1e` cả gateway+khachlink · (`/onboard` wizard + `/onboard/status` + `MerchantSignupHttpService` + `HkdGroupHelper` + OCR/Wizard JS port + lib/ocr assets; P6 OCR-assist hook tolerant-404; OTP hardcode off chờ P4)
 - [ ] **P2** `task_p2_shoperp_review_ux.md` — pending review UX + toggles card + QR generator + Directory CTA
 - [ ] **P4** OTP (blocked: ESMS keys; `RequireOtp=false` default)
 - [ ] **P5** E2E + RV production (toggle matrix + QR scan thật)
