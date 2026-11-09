@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Services.Onboarding;
 using VanAn.CoreHub.Tests.TestInfrastructure;
@@ -39,14 +40,14 @@ public class OnboardUnverifiedTests
         SourceUrl: "https://trangvangvietnam.com/listing/123",
         CrawledAt: DateTime.UtcNow);
 
-    private TenantOnboardingService CreateSut(IVanAnDbContext dbContext)
+    private TenantOnboardingService CreateSut(IVanAnDbContext dbContext, IOutboxRepository? outbox = null)
         => new(
             Mock.Of<ITenantManagementService>(),
             _userServiceMock.Object,
             _permissionGroupServiceMock.Object,
             _roleAssignmentServiceMock.Object,
             dbContext,
-            null,  // IOutboxRepository — null for tests
+            outbox,
             NullLogger<TenantOnboardingService>.Instance);
 
     // ── OnboardUnverifiedAsync ─────────────────────────────────────────────
@@ -264,6 +265,31 @@ public class OnboardUnverifiedTests
         var act = () => sut.VerifyAsync(Guid.NewGuid(), req);
 
         await act.Should().ThrowAsync<KeyNotFoundException>();
+    }
+
+    [Fact(DisplayName = "VerifyAsync_EnqueuesTenantVerified_AndUserUpserted_OutboxEvents")]
+    public async Task VerifyAsync_EnqueuesOutboxEvents()
+    {
+        using var scope = VanAnDbContextTestFactory.Create();
+        var outboxMock = new Mock<IOutboxRepository>();
+        outboxMock.Setup(o => o.EnqueueAsync(It.IsAny<OutboxEvent>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        var sut = CreateSut(scope.Context, outboxMock.Object);
+        var tenantId = await sut.OnboardUnverifiedAsync(DefaultListing());
+
+        SetupUserMocks(tenantId);
+
+        var req = new VerifyTenantRequest("owner@abc.vn", "Password123!", "Owner User");
+        await sut.VerifyAsync(tenantId, req);
+
+        outboxMock.Verify(o => o.EnqueueAsync(
+            It.Is<OutboxEvent>(e => e.EventType == "TenantVerified"),
+            It.IsAny<CancellationToken>()), Times.Once);
+        outboxMock.Verify(o => o.EnqueueAsync(
+            It.Is<OutboxEvent>(e => e.EventType == "UserUpserted"
+                && e.EventData.Contains("\"Username\":\"owner@abc.vn\"")
+                && !e.EventData.Contains("Password123!")),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     private void SetupUserMocks(Guid tenantId)

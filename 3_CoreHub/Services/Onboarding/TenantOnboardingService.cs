@@ -6,6 +6,7 @@ using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
+using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
 using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 
 namespace VanAn.CoreHub.Services.Onboarding
@@ -104,6 +105,14 @@ namespace VanAn.CoreHub.Services.Onboarding
                 logger.LogInformation(
                     "Owner {UserId} assigned to 'Quản lý' group {GroupId}",
                     ownerUser.Id, createdGroups[0]);
+            }
+
+            // Owner user sync PG → SQLite (login ShopERP đọc SQLite Users)
+            if (await PublishUserUpsertedEventAsync(ownerUser, ct))
+            {
+                // EnqueueAsync chỉ AddAsync — phải SaveChanges để OutboxMessage persist
+                // (không có save sau đó → event mất, NATS không bao giờ publish)
+                await dbContext.SaveChangesAsync(ct);
             }
 
             logger.LogInformation(
@@ -292,6 +301,15 @@ namespace VanAn.CoreHub.Services.Onboarding
             //    (data integrity: same Guid tenantId in both PG + SQLite → avoids accounting split)
             await PublishTenantVerifiedEventAsync(tenant, req.ApprovedByUserId, ct);
 
+            // 10. Owner user sync PG → SQLite (ShopERP login đọc SQLite Users — RV P5 2026-11-09:
+            //     thiếu event này → owner mới verify không login được "Email hoặc password không đúng")
+            await PublishUserUpsertedEventAsync(ownerUser, ct);
+
+            // 11. Persist outbox messages — EnqueueAsync chỉ AddAsync (Unit of Work pattern).
+            //     TRƯỚC ĐÂY TenantVerifiedEvent enqueue SAU SaveChanges cuối → mất → tenant
+            //     không sync sang SQLite (latent bug — RV P5 phát hiện 2026-11-09).
+            await dbContext.SaveChangesAsync(ct);
+
             logger.LogInformation(
                 "Tenant {TenantId} verified: Pending → Active. Owner user {OwnerUserId}. Slug: {Slug}. Groups: {GroupCount}.",
                 tenantId, ownerUser.Id, publishedSlug, createdGroups.Count);
@@ -412,6 +430,44 @@ namespace VanAn.CoreHub.Services.Onboarding
             logger.LogInformation(
                 "Enqueued TenantVerifiedEvent to Outbox for tenant {TenantId} (EventId={EventId})",
                 tenant.Id.Value, evt.EventId);
+        }
+
+        /// <summary>
+        /// Publish UserUpsertedEvent to Outbox → NATS "vanan.cloud.user.upserted" →
+        /// ShopERP UserSyncSubscriber upserts DemoUser + UserTenant vào SQLite mirror.
+        /// Payload chứa PasswordHash (bcrypt — KHÔNG plaintext) để mirror login được
+        /// ngay sau verify. Global subject (không routing key) — giống tenant sync.
+        /// </summary>
+        private async Task<bool> PublishUserUpsertedEventAsync(DemoUser ownerUser, CancellationToken ct)
+        {
+            if (outboxRepository is null)
+            {
+                logger.LogWarning("OutboxRepository not available — UserUpsertedEvent not published for user {UserId}", ownerUser.Id);
+                return false;
+            }
+
+            var payload = new
+            {
+                UserId = ownerUser.Id,
+                TenantId = ownerUser.TenantId.Value,
+                Username = ownerUser.Username,
+                PasswordHash = ownerUser.PasswordHash,
+                DisplayName = ownerUser.DisplayName,
+                Role = (int)ownerUser.Role,
+                IsActive = ownerUser.IsActive
+            };
+            var outboxEvent = new OutboxEvent(
+                ownerUser.TenantId,
+                new ElectronicInvoiceId(Guid.Empty),
+                "UserUpserted",
+                JsonSerializer.Serialize(payload),
+                correlationId: ownerUser.TenantId.Value);
+
+            await outboxRepository.EnqueueAsync(outboxEvent, ct);
+            logger.LogInformation(
+                "Enqueued UserUpsertedEvent to Outbox for user {UserId} ({Username})",
+                ownerUser.Id, ownerUser.Username);
+            return true;
         }
     }
 }

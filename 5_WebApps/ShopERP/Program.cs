@@ -746,6 +746,11 @@ namespace VanAn.ShopERP
             // Pending tenant events NOT synced (no business activity).
             _ = builder.Services.AddHostedService<VanAn.ShopERP.Services.TenantSyncSubscriber>();
 
+            // Self-Serve Onboarding RV fix (2026-11-09): Subscribe vanan.cloud.user.upserted
+            // → upsert DemoUser + UserTenant vào SQLite — owner verify-signup login được
+            // (login đọc SQLite Users; user tạo ở PG cần sync giống tenant).
+            _ = builder.Services.AddHostedService<VanAn.ShopERP.Services.UserSyncSubscriber>();
+
             // Wave 7: Conditional distributed cache — Redis if configured, otherwise memory fallback
             string? redisConnection = builder.Configuration.GetConnectionString("Redis");
             if (!string.IsNullOrWhiteSpace(redisConnection))
