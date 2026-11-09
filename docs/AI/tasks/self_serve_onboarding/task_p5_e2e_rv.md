@@ -86,3 +86,18 @@ gh run list --limit 5 --json status,conclusion,displayTitle
 - **Ảnh R2 test**: upload ảnh test → dọn sau RV (xóa objects hoặc chấp nhận orphan — R2 lifecycle rule là ghi nợ).
 - **Owner login tenant resolution**: phụ thuộc PF1 P0 — nếu login cần slug subdomain, spec phải dùng đúng URL.
 - **NATS sync timing**: verify-signup → tenant Active PG ngay nhưng SQLite mirror chậm vài giây → owner login/import có thể 409 thoáng qua → spec retry.
+
+## 6. KẾT QUẢ (2026-11-09 — DONE `3c4d7384`)
+
+- **E2E production `merchant-onboarding.spec.ts` + `playwright-rv-onboarding.config.ts`: 6/6 PASS**
+  1. L2 flags public (all true) + admin guards auth-enforced.
+  2. Case B/Rong submit qua API → `/onboard/status` Pending.
+  3. Sysadmin `/admin/tenants` Pending tab → Hồ sơ modal → verify-signup → status Active.
+  4. Owner login `app2/Login` username+password merchant → redirect khỏi /login.
+  5. Case Rong submit → reject-pending (lý do) → status Rejected.
+  6. Regression: `/onboard` 3 case cards + `/admin/onboarding-ocr` + flags card.
+- **Bug production tìm được + fixed trong session:** owner user tạo bởi verify-signup nằm PG, ShopERP `/Login` đọc SQLite → "Email hoặc password không đúng". Fix: `UserUpserted` outbox event trong `TenantOnboardingService` (bcrypt hash only, không plaintext) → NATS `vanan.cloud.user.upserted` → `UserSyncSubscriber` (ShopERP hosted service) upsert `DemoUser`+`UserTenant` idempotent giữ cross-DB userId. Kèm latent bug: `TenantVerifiedEvent` enqueue sau `SaveChanges` cuối → mất → thêm SaveChanges persist cả 2 events.
+- **Tests:** onboarding Core.Tests 67/67 (gồm test mới `VerifyAsync_EnqueuesOutboxEvents` — assert cả TenantVerified+UserUpserted, payload không chứa plaintext password) · ShopERP build 0 errors · guard-check PASSED sau commit.
+- **CD:** push `3c4d7384` → CI + Accounting Tests + CD Multi-VPS ALL SUCCESS → image `3c4d7384` deployed gateway + shoperp.
+- **Cleanup:** 6 tenant "RV Onboard*" — 2 `reject-pending` (204) + 4 `deactivate` (200) qua admin API.
+- **Deviations (đã ghi trong spec header):** Turnstile prod sitekey rỗng → submit qua `context.request` (không qua UI submit); rate-limit merchant-signup 5/24h/IP; L4 manual mobile + L5 một phần (spot-check `/claim` `/login` `/onboard` 200, flags 200) còn lại cho user xác nhận tay.

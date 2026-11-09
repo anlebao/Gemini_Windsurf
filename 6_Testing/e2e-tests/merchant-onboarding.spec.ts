@@ -237,7 +237,7 @@ test('reject path: submit Case Rong → sysadmin Từ chối → status Rejected
   // Flag "Chưa đăng ký kinh doanh" phải hiện trong modal
   await expect(page.getByText(/Chưa đăng ký kinh doanh/).first()).toBeVisible();
 
-  await page.getByRole('button', { name: 'Từ chối', exact: true }).click();
+  await page.getByRole('button', { name: /Từ chối/ }).first().click();
   await expect(page.getByText('Từ chối tenant').first()).toBeVisible({ timeout: 15000 });
   await page.locator('textarea').last().fill('RV test reject — dữ liệu test tự động');
   await page.getByRole('button', { name: /Xác nhận từ chối/ }).click();
