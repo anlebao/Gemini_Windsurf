@@ -1,0 +1,433 @@
+/* Self-serve onboarding wizard (P1 — 2026-11-09) — port từ OcrOnboardingWizard.razor.css
+   (ShopERP Track A). Class ocr-* giữ nguyên; input đổi sang Bootstrap form-control/form-select. */
+
+.onboard-wizard {
+    padding: 1rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.ocr-wizard-steps {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.ocr-step {
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #475569;
+    white-space: nowrap;
+}
+
+.ocr-step.active {
+    background: #2563eb;
+    color: #fff;
+    font-weight: 600;
+}
+
+.ocr-step.done {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.ocr-step-sep {
+    color: #94a3b8;
+}
+
+.ocr-case-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+}
+
+.ocr-case-card {
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.25rem;
+    text-align: left;
+    background: #fff;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.ocr-case-card:hover {
+    border-color: #93c5fd;
+}
+
+.ocr-case-card.selected {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.ocr-case-title {
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-bottom: 0.35rem;
+    color: #0f172a;
+}
+
+.ocr-case-desc {
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.ocr-wizard-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+}
+
+.ocr-section {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    background: #fff;
+}
+
+.ocr-section h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: #0f172a;
+}
+
+.ocr-file-input {
+    display: block;
+    padding: 0.5rem;
+    border: 1px dashed #94a3b8;
+    border-radius: 8px;
+    background: #f8fafc;
+    max-width: 100%;
+}
+
+.ocr-capture-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.ocr-capture-row .ocr-file-input {
+    flex: 1;
+    min-width: 200px;
+}
+
+.ocr-camera-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 1rem;
+}
+
+.ocr-camera-modal {
+    background: #0f172a;
+    border-radius: 14px;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    width: min(480px, 100%);
+    max-height: 92vh;
+}
+
+.ocr-camera-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #fff;
+    font-size: 0.95rem;
+    gap: 0.5rem;
+}
+
+.ocr-camera-count {
+    background: #2563eb;
+    color: #fff;
+    border-radius: 999px;
+    padding: 0.15rem 0.6rem;
+    font-size: 0.8rem;
+}
+
+.ocr-camera-close {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.2rem 0.5rem;
+}
+
+.ocr-camera-video {
+    width: 100%;
+    aspect-ratio: 3/4;
+    object-fit: cover;
+    border-radius: 10px;
+    background: #000;
+}
+
+.ocr-camera-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.ocr-hint {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.ocr-busy {
+    color: #2563eb;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.ocr-req {
+    color: #dc2626;
+}
+
+.ocr-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0.75rem;
+}
+
+.ocr-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+.ocr-conf {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    width: fit-content;
+}
+
+.ocr-conf-high {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.ocr-conf-low {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.ocr-product-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.ocr-product-table th,
+.ocr-product-table td {
+    border: 1px solid #e2e8f0;
+    padding: 0.4rem;
+    text-align: left;
+}
+
+.ocr-price {
+    width: 140px;
+}
+
+.ocr-remove-btn {
+    background: none;
+    border: none;
+    color: #dc2626;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0.2rem 0.5rem;
+}
+
+.ocr-gps-info {
+    font-size: 0.95rem;
+    color: #0f172a;
+}
+
+.ocr-map {
+    height: 260px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    width: 100%;
+}
+
+.ocr-review-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.ocr-review-table td {
+    border-bottom: 1px solid #f1f5f9;
+    padding: 0.45rem 0.25rem;
+    vertical-align: top;
+}
+
+.ocr-review-table td:first-child {
+    color: #64748b;
+    width: 40%;
+}
+
+.ocr-photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 0.5rem;
+}
+
+.ocr-photo-thumb {
+    margin: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f8fafc;
+}
+
+.ocr-photo-thumb img {
+    width: 100%;
+    height: 80px;
+    object-fit: cover;
+    display: block;
+}
+
+.ocr-photo-thumb figcaption {
+    font-size: 0.7rem;
+    text-align: center;
+    padding: 0.2rem;
+    color: #475569;
+}
+
+.ocr-cloud-ocr {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.25rem;
+}
+
+.hkd-helper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.hkd-suggestion {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    color: #1e40af;
+}
+
+.hkd-manual summary {
+    cursor: pointer;
+}
+
+/* ── Responsive mobile-first ── */
+@media (max-width: 640px) {
+    .onboard-wizard {
+        padding: 0.5rem 0;
+    }
+
+    .ocr-wizard-steps {
+        font-size: 0.72rem;
+        gap: 0.2rem;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 0.25rem;
+    }
+
+    .ocr-step {
+        padding: 0.2rem 0.45rem;
+        white-space: nowrap;
+    }
+
+    .ocr-case-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .ocr-case-card {
+        padding: 1rem;
+    }
+
+    .ocr-form {
+        grid-template-columns: 1fr;
+    }
+
+    .ocr-section {
+        padding: 0.75rem;
+    }
+
+    .ocr-capture-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .ocr-capture-row .ocr-file-input {
+        min-width: 100%;
+        font-size: 0.95rem;
+    }
+
+    .ocr-wizard-actions {
+        flex-direction: column-reverse;
+    }
+
+    .ocr-wizard-actions .btn {
+        width: 100%;
+        min-height: 44px;   /* touch target */
+    }
+
+    .ocr-map {
+        height: 200px;
+    }
+
+    .ocr-product-table {
+        font-size: 0.8rem;
+    }
+
+    .ocr-price {
+        width: 100px;
+    }
+
+    .ocr-camera-overlay {
+        padding: 0;
+        align-items: stretch;
+    }
+
+    .ocr-camera-modal {
+        width: 100%;
+        max-height: 100vh;
+        border-radius: 0;
+        justify-content: space-between;
+    }
+
+    .ocr-camera-video {
+        aspect-ratio: auto;
+        flex: 1;
+        min-height: 0;
+    }
+
+    .ocr-camera-actions .btn {
+        flex: 1;
+        min-height: 48px;
+    }
+}

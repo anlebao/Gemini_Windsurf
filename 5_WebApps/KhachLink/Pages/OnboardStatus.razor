@@ -1,0 +1,163 @@
+@page "/onboard/status"
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
+@inject MerchantSignupHttpService SignupService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject IConfiguration Configuration
+@inject ILogger<OnboardStatus> Logger
+
+<PageTitle>Trạng thái đăng ký — Vạn An</PageTitle>
+
+<KhachLinkLayout>
+<div class="container py-4" style="max-width:560px;">
+    <h4 class="mb-3"><i class="bi bi-search text-primary"></i> Tra trạng thái đăng ký cửa hàng</h4>
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAnAlert Variant="AlertVariant.Error" Message="@_errorMessage" />
+    }
+
+    <VanAnCard Shadow="true" CssClass="p-4">
+        <div class="mb-3">
+            <label class="form-label">Mã đăng ký <span class="text-danger">*</span></label>
+            <input class="form-control" @bind="_signupIdText" placeholder="Mã GUID từ màn hình kết quả đăng ký" />
+            <div class="form-text">Mã đăng ký hiển thị ngay sau khi gửi hồ sơ thành công.</div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Số điện thoại đã đăng ký <span class="text-danger">*</span></label>
+            <input class="form-control" @bind="_phone" placeholder="09xx xxx xxx" />
+        </div>
+        <div class="d-grid gap-2">
+            <VanAnButton Variant="ButtonVariant.Primary" OnClick="LookupAsync" Loading="@_isLoading" Disabled="@_isLoading">
+                <i class="bi bi-search me-1"></i> Tra cứu
+            </VanAnButton>
+            <VanAnButton Variant="ButtonVariant.Secondary" OnClick="@(() => Navigation.NavigateTo("/onboard"))">
+                <i class="bi bi-shop me-1"></i> Đăng ký cửa hàng
+            </VanAnButton>
+        </div>
+    </VanAnCard>
+
+    @if (_status is not null)
+    {
+        <VanAnCard Shadow="true" CssClass="p-4 mt-3">
+            @switch (_status.Status)
+            {
+                case "Pending":
+                    <div class="text-center">
+                        <i class="bi bi-hourglass-split text-warning" style="font-size:2.5rem;"></i>
+                        <h5 class="mt-2">Đang chờ đội ngũ duyệt</h5>
+                        <p class="text-muted">@(_status.Message ?? "Đội ngũ Vạn An sẽ xác minh trong 1-2 ngày làm việc.")</p>
+                    </div>
+                    break;
+                case "Active":
+                    <div class="text-center">
+                        <i class="bi bi-check-circle text-success" style="font-size:2.5rem;"></i>
+                        <h5 class="mt-2">Đăng ký đã được duyệt!</h5>
+                        <p class="text-muted">@(_status.Message ?? "Bạn có thể đăng nhập quản lý cửa hàng.")</p>
+                        @if (!string.IsNullOrEmpty(_status.Slug))
+                        {
+                            <p class="small text-muted">Cửa hàng: <code>@_status.Slug</code></p>
+                        }
+                        <p class="small text-muted">
+                            Đăng nhập quản lý tại cổng chủ cửa hàng
+                            <code>@OwnerPortalHost</code> bằng tên đăng nhập + mật khẩu bạn đã đặt khi đăng ký.
+                        </p>
+                        <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">
+                            <i class="bi bi-box-arrow-in-right me-1"></i> Đi tới trang đăng nhập
+                        </VanAnButton>
+                    </div>
+                    break;
+                case "Rejected":
+                    <div class="text-center">
+                        <i class="bi bi-x-circle text-danger" style="font-size:2.5rem;"></i>
+                        <h5 class="mt-2">Đăng ký không được chấp nhận</h5>
+                        <p class="text-muted">@(_status.Message ?? "Vui lòng liên hệ hỗ trợ để biết thêm chi tiết.")</p>
+                    </div>
+                    break;
+                default:
+                    <div class="text-center">
+                        <i class="bi bi-question-circle text-muted" style="font-size:2.5rem;"></i>
+                        <h5 class="mt-2">@_status.Status</h5>
+                        @if (!string.IsNullOrEmpty(_status.Message))
+                        {
+                            <p class="text-muted">@_status.Message</p>
+                        }
+                    </div>
+                    break;
+            }
+        </VanAnCard>
+    }
+</div>
+</KhachLinkLayout>
+
+@code {
+    private string _signupIdText = string.Empty;
+    private string _phone = string.Empty;
+    private bool _isLoading;
+    private string? _errorMessage;
+    private SignupStatusInfo? _status;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        // Prefill: ?signupId=&phone= từ trang kết quả + localStorage last-signup-id
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var fromQuery = query["signupId"];
+        if (Guid.TryParse(fromQuery, out var id)) _signupIdText = id.ToString();
+        var phoneQuery = query["phone"];
+        if (!string.IsNullOrWhiteSpace(phoneQuery)) _phone = phoneQuery;
+        if (string.IsNullOrEmpty(_signupIdText))
+        {
+            try
+            {
+                var saved = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "last-signup-id");
+                if (Guid.TryParse(saved, out var savedId)) _signupIdText = savedId.ToString();
+            }
+            catch { }
+        }
+        StateHasChanged();
+    }
+
+    private async Task LookupAsync()
+    {
+        _errorMessage = null;
+        _status = null;
+        if (!Guid.TryParse(_signupIdText.Trim(), out var signupId))
+        {
+            _errorMessage = "Mã đăng ký không hợp lệ — kiểm tra lại mã GUID.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_phone))
+        {
+            _errorMessage = "Vui lòng nhập số điện thoại đã đăng ký.";
+            return;
+        }
+
+        _isLoading = true;
+        try
+        {
+            // Rate-limit client-side: disable 5s sau mỗi lần tra (pattern task card)
+            var result = await SignupService.GetStatusAsync(signupId, _phone.Trim());
+            if (result is null)
+                _errorMessage = "Không tra được trạng thái — vui lòng thử lại sau.";
+            else
+                _status = result;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private string OwnerPortalHost
+        => Configuration["Onboarding:OwnerPortalUrl"] ?? "https://app2.khachvip.online";
+
+    private void GoToLogin()
+    {
+        // PF1: owner login = ShopERP host (app2.khachvip.online/login) — username+password
+        // merchant tự đặt; slug chỉ dùng cho storefront, không phải login URL.
+        Navigation.NavigateTo($"{OwnerPortalHost.TrimEnd('/')}/login", forceLoad: true);
+    }
+}

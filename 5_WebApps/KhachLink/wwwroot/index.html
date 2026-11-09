@@ -51,6 +51,10 @@
     <script src="/lib/driver.js/driver.min.js"></script>
     <script src="/js/onboarding-tour.js"></script>
     <script src="/js/vanan-interop.js"></script>
+    <!-- Self-serve onboarding (/onboard): OCR + wizard interop. OCR worker lazy-loads
+         Tesseract assets từ /js/lib/ocr chỉ khi user chụp ảnh đầu tiên. -->
+    <script src="/js/onboarding-ocr.js" defer></script>
+    <script src="/js/onboarding-wizard.js" defer></script>
     <!-- Turnstile site key (PUBLIC value). Empty = dev mode (widget not rendered, Gateway skips verify).
          Set this at deploy time when Turnstile:SiteKey is configured on the Gateway. -->
     <script>window.vananTurnstileSiteKey = '';</script>

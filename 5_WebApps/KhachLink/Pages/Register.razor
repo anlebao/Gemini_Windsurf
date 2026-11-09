@@ -32,6 +32,15 @@
                 lên nền tảng Vạn An. Đội ngũ chúng tôi sẽ liên hệ trong 1-2 ngày làm việc.
             </p>
 
+            @* Self-serve onboarding (P1): đăng ký nhanh bằng quét giấy tờ/biển hiệu *@
+            <div class="alert alert-info d-flex align-items-center mb-4" role="alert">
+                <i class="bi bi-magic me-2"></i>
+                <div>
+                    <strong>Đăng ký nhanh hơn?</strong> Chụp giấy phép kinh doanh hoặc biển hiệu để hệ thống điền thông tin tự động.
+                    <a href="/onboard" class="alert-link ms-1">Đăng ký bằng giấy tờ →</a>
+                </div>
+            </div>
+
             @if (!string.IsNullOrEmpty(_errorMessage))
             {
                 <VanAnAlert Variant="AlertVariant.Error" Message="@_errorMessage" CssClass="mb-3" />

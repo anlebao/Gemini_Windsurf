@@ -1,0 +1,1335 @@
+@page "/onboard"
+@implements IAsyncDisposable
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
+@using VanAn.Shared.Domain
+@using Microsoft.JSInterop
+@inject MerchantSignupHttpService SignupService
+@inject ImageUploadService ImageUpload
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject ILogger<Onboard> Logger
+
+<PageTitle>Đăng ký cửa hàng — Vạn An</PageTitle>
+
+<KhachLinkLayout>
+<div class="onboard-wizard">
+    @if (_closed)
+    {
+        <VanAnCard Shadow="true" CssClass="text-center p-5">
+            <i class="bi bi-shop-window text-muted" style="font-size:3rem;"></i>
+            <h4 class="mt-3">Đăng ký tự phục vụ tạm đóng</h4>
+            <p class="text-muted">Kênh đăng ký trực tuyến đang tạm ngưng. Vui lòng liên hệ đội ngũ Vạn An để được hỗ trợ.</p>
+            <VanAnButton Variant="ButtonVariant.Primary" OnClick="@(() => Navigation.NavigateTo("/"))">
+                <i class="bi bi-house me-1"></i> Về trang chủ
+            </VanAnButton>
+        </VanAnCard>
+    }
+    else
+    {
+        <!-- Stepper -->
+        <div class="ocr-wizard-steps">
+            <span class="@StepClass(0)">1. Loại hình</span>
+            <span class="ocr-step-sep">→</span>
+            <span class="@StepClass(1)">2. Giấy tờ</span>
+            <span class="ocr-step-sep">→</span>
+            <span class="@StepClass(2)">3. Biển hiệu + Menu</span>
+            <span class="ocr-step-sep">→</span>
+            <span class="@StepClass(3)">4. Vị trí</span>
+            <span class="ocr-step-sep">→</span>
+            <span class="@StepClass(4)">5. Tài khoản</span>
+            <span class="ocr-step-sep">→</span>
+            <span class="@StepClass(5)">6. Xác nhận</span>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_alertMessage))
+        {
+            <VanAnAlert Variant="@AlertVariant" Message="@_alertMessage" Dismissible="true" />
+        }
+
+        @switch (_step)
+        {
+            case 0:
+                <div class="ocr-case-cards">
+                    <button type="button" class="ocr-case-card @(_case == MerchantSignupCase.CompanyWithLicense ? "selected" : "")"
+                            @onclick="() => SelectCase(MerchantSignupCase.CompanyWithLicense)">
+                        <div class="ocr-case-title">📄 Tôi có giấy phép kinh doanh</div>
+                        <div class="ocr-case-desc">Chụp giấy phép kinh doanh để hệ thống điền thông tin tự động — nhanh và chính xác nhất.</div>
+                    </button>
+                    <button type="button" class="ocr-case-card @(_case == MerchantSignupCase.SmallShopNoLicense ? "selected" : "")"
+                            @onclick="() => SelectCase(MerchantSignupCase.SmallShopNoLicense)">
+                        <div class="ocr-case-title">🏪 Tôi có cửa hàng, chưa có giấy phép</div>
+                        <div class="ocr-case-desc">Chụp biển hiệu + menu — điền tên, địa chỉ và chọn nhóm thuế (đội ngũ sẽ xác nhận khi duyệt).</div>
+                    </button>
+                    <button type="button" class="ocr-case-card @(_case == MerchantSignupCase.StreetVendorUnregistered ? "selected" : "")"
+                            @onclick="() => SelectCase(MerchantSignupCase.StreetVendorUnregistered)">
+                        <div class="ocr-case-title">🛒 Tôi bán hàng rong / chưa đăng ký kinh doanh</div>
+                        <div class="ocr-case-desc">Chỉ cần tên + menu. Hệ thống ghi nhận là hộ kinh doanh nhóm miễn thuế — đội ngũ sẽ hướng dẫn đăng ký sau.</div>
+                    </button>
+                </div>
+                <div class="ocr-wizard-actions">
+                    <VanAnButton Variant="ButtonVariant.Primary" OnClick="NextFromCase" Disabled="@(_case is null)" Loading="@_isUploadingPhotos">Tiếp theo</VanAnButton>
+                </div>
+                break;
+
+            case 1:
+                @if (_case == MerchantSignupCase.CompanyWithLicense)
+                {
+                    <div class="ocr-section">
+                        <h4>📷 Ảnh giấy phép kinh doanh</h4>
+                        <div class="ocr-capture-row">
+                            <input type="file" accept="image/*" capture="environment" class="ocr-file-input form-control"
+                                   onchange="vananOnboardingWizard.processFile(this.files[0], 'extractGpdk')" />
+                            <VanAnButton Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" OnClick="OpenCameraGpdk">📷 Chụp trực tiếp</VanAnButton>
+                        </div>
+                        <div class="ocr-hint">Chụp thẳng góc, đủ sáng, tránh bóng đổ. Ảnh sẽ được lưu để đội ngũ xác minh.</div>
+
+                        @if (_isOcrBusy) { <div class="ocr-busy">⏳ Đang đọc ảnh giấy phép…</div> }
+                        @if (_isUploadingPhotos) { <div class="ocr-busy">⏳ Đang tải ảnh lên…</div> }
+
+                        <div class="ocr-form">
+                            <label>Mã số thuế <span class="ocr-req">*</span>
+                                <input class="form-control" @bind="_gpdkMst" placeholder="10 hoặc 13 chữ số" />
+                                @ConfidenceBadge("MST", _gpdkMstConf)
+                            </label>
+                            <label>Tên doanh nghiệp / hộ kinh doanh <span class="ocr-req">*</span>
+                                <input class="form-control" @bind="_tenantName" />
+                                @ConfidenceBadge("Tên", _gpdkNameConf)
+                            </label>
+                            <label>Địa chỉ
+                                <input class="form-control" @bind="_address" />
+                                @ConfidenceBadge("Địa chỉ", _gpdkAddressConf)
+                            </label>
+                            <label>Loại hình
+                                <select class="form-select" @bind="_gpdkLegalForm">
+                                    <option value="">— Chọn —</option>
+                                    <option value="HKD">Hộ kinh doanh</option>
+                                    <option value="TNHH">Công ty TNHH</option>
+                                    <option value="Cổ phần">Công ty cổ phần</option>
+                                    <option value="DNTN">Doanh nghiệp tư nhân</option>
+                                    <option value="HTX">Hợp tác xã</option>
+                                </select>
+                            </label>
+                            <label>Người đại diện / chủ hộ
+                                <input class="form-control" @bind="_gpdkOwner" />
+                            </label>
+                        </div>
+                        @if (_gpdkLegalForm == "HKD")
+                        {
+                            <HkdGroupHelper @bind-HkdGroup="_hkdGroup" />
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="ocr-section">
+                        <h4>🏪 Thông tin cửa hàng</h4>
+                        <div class="ocr-form">
+                            <label>Tên cửa hàng / tên hiệu <span class="ocr-req">*</span> <span class="ocr-hint">(sẽ tự điền từ biển hiệu ở bước 3)</span>
+                                <input class="form-control" @bind="_tenantName" placeholder="VD: Cà Phê ABC" />
+                            </label>
+                            <label>Địa chỉ @if (_case != MerchantSignupCase.StreetVendorUnregistered) { <span class="ocr-req">*</span> }
+                                <input class="form-control" @bind="_address" placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành" />
+                                @if (_case == MerchantSignupCase.StreetVendorUnregistered)
+                                {
+                                    <span class="ocr-hint">Không bắt buộc nếu bạn bán rong.</span>
+                                }
+                            </label>
+                        </div>
+                        @if (_case == MerchantSignupCase.SmallShopNoLicense)
+                        {
+                            <HkdGroupHelper @bind-HkdGroup="_hkdGroup" Required="true" />
+                        }
+                        else if (_case == MerchantSignupCase.StreetVendorUnregistered)
+                        {
+                            <div class="ocr-hint">ℹ️ Hộ kinh doanh nhóm nhỏ nhất (không phải nộp thuế GTGT/TNCN) — đội ngũ sẽ xác nhận và hướng dẫn đăng ký khi duyệt.</div>
+                        }
+                    </div>
+                }
+                <div class="ocr-wizard-actions">
+                    <VanAnButton Variant="ButtonVariant.Secondary" OnClick="BackToCaseSelect">← Quay lại</VanAnButton>
+                    <VanAnButton Variant="ButtonVariant.Primary" OnClick="NextFromDocs">Tiếp theo</VanAnButton>
+                </div>
+                break;
+
+            case 2:
+                <div class="ocr-section">
+                    <h4>📷 Biển hiệu cửa hàng</h4>
+                    <div class="ocr-capture-row">
+                        <input type="file" accept="image/*" capture="environment" class="ocr-file-input form-control"
+                               onchange="vananOnboardingWizard.processFile(this.files[0], 'extractSignName')" />
+                        <VanAnButton Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" OnClick="OpenCameraSign">📷 Chụp trực tiếp</VanAnButton>
+                    </div>
+                    @if (_isOcrBusy) { <div class="ocr-busy">⏳ Đang đọc biển hiệu…</div> }
+                    <label>Tên trên biển hiệu
+                        <input class="form-control" @bind="_signName" placeholder="Tên cửa hàng của bạn" />
+                        @ConfidenceBadge("Biển hiệu", _signNameConf)
+                        @if (_showCloudOcrBtn && _case != MerchantSignupCase.CompanyWithLicense)
+                        {
+                            <div class="ocr-cloud-ocr">
+                                <VanAnButton Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" OnClick="CloudOcrAsync" Loading="@_isCloudOcrBusy">
+                                    ✨ Nhận diện nâng cao (đám mây)
+                                </VanAnButton>
+                                <span class="ocr-hint">Ảnh sẽ gửi tới dịch vụ nhận diện — chỉ dùng khi bạn đồng ý.</span>
+                            </div>
+                        }
+                    </label>
+                </div>
+
+                <div class="ocr-section">
+                    <h4>📷 Menu / danh sách sản phẩm (1..n ảnh)</h4>
+                    <div class="ocr-capture-row">
+                        <input type="file" accept="image/*" capture="environment" multiple class="ocr-file-input form-control"
+                               onchange="vananOnboardingWizard.processMenuFiles(this.files)" />
+                        <VanAnButton Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" OnClick="OpenCameraMenu">📷 Chụp trực tiếp</VanAnButton>
+                    </div>
+                    @if (_isMenuBusy) { <div class="ocr-busy">⏳ Đang đọc menu…</div> }
+                    @if (_isUploadingPhotos) { <div class="ocr-busy">⏳ Đang tải ảnh lên… (@_photos.Count đã tải)</div> }
+
+                    @if (_productRows.Count > 0)
+                    {
+                        <table class="ocr-product-table">
+                            <thead><tr><th>#</th><th>Tên sản phẩm</th><th>Giá (₫)</th><th></th></tr></thead>
+                            <tbody>
+                                @for (var i = 0; i < _productRows.Count; i++)
+                                {
+                                    var row = _productRows[i];
+                                    <tr>
+                                        <td>@(i + 1)</td>
+                                        <td><input class="form-control" @bind="row.Name" /></td>
+                                        <td><input class="form-control ocr-price" type="number" min="0" step="1000" @bind="row.Price" /></td>
+                                        <td><button type="button" class="ocr-remove-btn" @onclick="() => RemoveProductRow(i)">✕</button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        <VanAnButton Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" OnClick="AddProductRow">+ Thêm dòng</VanAnButton>
+                    }
+                    else
+                    {
+                        <div class="ocr-hint">Chưa có sản phẩm — bạn có thể bỏ qua và tự thêm sau khi cửa hàng được duyệt.</div>
+                    }
+                </div>
+
+                <div class="ocr-wizard-actions">
+                    <VanAnButton Variant="ButtonVariant.Secondary" OnClick="BackToDocs">← Quay lại</VanAnButton>
+                    <VanAnButton Variant="ButtonVariant.Primary" OnClick="NextFromSignMenu">Tiếp theo</VanAnButton>
+                </div>
+                break;
+
+            case 3:
+                <div class="ocr-section">
+                    <h4>📍 Vị trí cửa hàng</h4>
+                    <VanAnButton Variant="ButtonVariant.Primary" OnClick="GetLocationAsync" Loading="@_isGpsBusy" Disabled="@_isGpsBusy">
+                        📡 Lấy vị trí hiện tại
+                    </VanAnButton>
+                    @if (_lat is not null && _lng is not null)
+                    {
+                        <div class="ocr-gps-info">
+                            <strong>@_lat.Value.ToString("F6"), @_lng.Value.ToString("F6")</strong>
+                            @if (_accuracy > 0) { <span> · chính xác ±@Math.Round(_accuracy)m</span> }
+                        </div>
+                        <div id="onboardMap" class="ocr-map"></div>
+                    }
+                    <div class="ocr-form">
+                        <label>Vĩ độ (lat) <span class="ocr-hint">— nhập tay nếu không dùng GPS được</span>
+                            <input class="form-control" type="number" step="0.000001" min="-90" max="90" @bind="_lat" @bind:event="oninput" />
+                        </label>
+                        <label>Kinh độ (lng)
+                            <input class="form-control" type="number" step="0.000001" min="-180" max="180" @bind="_lng" @bind:event="oninput" />
+                        </label>
+                    </div>
+                    @if (_lat is null || _lng is null)
+                    {
+                        <div class="ocr-hint">Bạn vẫn có thể tiếp tục — đội ngũ sẽ xác nhận vị trí khi duyệt. (Bán rong có thể bỏ trống.)</div>
+                    }
+                </div>
+                <div class="ocr-wizard-actions">
+                    <VanAnButton Variant="ButtonVariant.Secondary" OnClick="BackToSignMenu">← Quay lại</VanAnButton>
+                    <VanAnButton Variant="ButtonVariant.Primary" OnClick="NextFromLocation">Tiếp theo</VanAnButton>
+                </div>
+                break;
+
+            case 4:
+                <div class="ocr-section">
+                    <h4>👤 Tài khoản đăng nhập</h4>
+                    <p class="ocr-hint">Đây là tài khoản bạn sẽ dùng để quản lý cửa hàng sau khi được duyệt. <strong>Hãy ghi nhớ mật khẩu — hệ thống không hiển thị lại.</strong></p>
+                    <div class="ocr-form">
+                        <label>Họ và tên người liên hệ <span class="ocr-req">*</span>
+                            <input class="form-control" @bind="_contactName" placeholder="Nguyễn Văn A" />
+                        </label>
+                        <label>Số điện thoại <span class="ocr-req">*</span>
+                            <input class="form-control" @bind="_contactPhone" placeholder="09xx xxx xxx" />
+                        </label>
+                        <label>Email <span class="ocr-hint">(tùy chọn)</span>
+                            <input class="form-control" type="email" @bind="_contactEmail" placeholder="email@example.com" />
+                        </label>
+                    </div>
+                </div>
+                <div class="ocr-section">
+                    <h4>🔑 Tên đăng nhập + mật khẩu</h4>
+                    <div class="ocr-form">
+                        <label>Tên đăng nhập <span class="ocr-req">*</span>
+                            <input class="form-control" @bind="_ownerUsername" @bind:event="oninput" placeholder="ten_cua_hang" />
+                            <span class="ocr-hint">Chữ thường, số, dấu chấm/gạch dưới/gạch ngang (3-30 ký tự). @UsernameStatusText</span>
+                        </label>
+                        <label>Mật khẩu <span class="ocr-req">*</span> <span class="ocr-hint">tối thiểu 8 ký tự</span>
+                            <input class="form-control" type="password" @bind="_ownerPassword" @bind:event="oninput" autocomplete="new-password" />
+                        </label>
+                        <label>Nhập lại mật khẩu <span class="ocr-req">*</span>
+                            <input class="form-control" type="password" @bind="_ownerPasswordConfirm" @bind:event="oninput" autocomplete="new-password" />
+                            @if (!string.IsNullOrEmpty(_ownerPasswordConfirm) && _ownerPassword != _ownerPasswordConfirm)
+                            {
+                                <span class="ocr-hint text-danger">Mật khẩu nhập lại không khớp.</span>
+                            }
+                        </label>
+                    </div>
+                </div>
+                <div class="ocr-wizard-actions">
+                    <VanAnButton Variant="ButtonVariant.Secondary" OnClick="BackToLocation">← Quay lại</VanAnButton>
+                    <VanAnButton Variant="ButtonVariant.Primary" OnClick="NextFromAccount">Tiếp theo</VanAnButton>
+                </div>
+                break;
+
+            case 5:
+                <div class="ocr-section">
+                    <h4>✅ Xem lại thông tin đăng ký</h4>
+                    <table class="ocr-review-table">
+                        <tbody>
+                            <tr><td>Loại hình</td><td>@CaseLabel</td></tr>
+                            <tr><td>Tên cửa hàng</td><td><strong>@_tenantName</strong></td></tr>
+                            @if (_case == MerchantSignupCase.CompanyWithLicense)
+                            {
+                                <tr><td>Mã số thuế</td><td>@_gpdkMst</td></tr>
+                                <tr><td>Loại hình pháp lý</td><td>@_gpdkLegalForm</td></tr>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(_address))
+                            {
+                                <tr><td>Địa chỉ</td><td>@_address</td></tr>
+                            }
+                            @if (_hkdGroupDisplay is not null)
+                            {
+                                <tr><td>Nhóm thuế (gợi ý — đội ngũ xác nhận khi duyệt)</td><td>@_hkdGroupDisplay</td></tr>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(_signName))
+                            {
+                                <tr><td>Tên hiệu</td><td>@_signName</td></tr>
+                            }
+                            @if (_lat is not null && _lng is not null)
+                            {
+                                <tr><td>Vị trí</td><td>@_lat.Value.ToString("F6"), @_lng.Value.ToString("F6")</td></tr>
+                            }
+                            <tr><td>Số sản phẩm từ menu</td><td>@_productRows.Count(r => !string.IsNullOrWhiteSpace(r.Name))</td></tr>
+                            <tr><td>Ảnh giấy tờ/menu đã tải</td><td>@_photos.Count</td></tr>
+                            <tr><td>Người liên hệ</td><td>@_contactName — @_contactPhone</td></tr>
+                            <tr><td>Tên đăng nhập</td><td><code>@_ownerUsername</code></td></tr>
+                        </tbody>
+                    </table>
+
+                    @if (_photos.Count > 0)
+                    {
+                        <div class="ocr-photo-grid">
+                            @foreach (var p in _photos)
+                            {
+                                <figure class="ocr-photo-thumb">
+                                    <img src="@p.Url" alt="@p.Kind" loading="lazy" />
+                                    <figcaption>@PhotoKindLabel(p.Kind)</figcaption>
+                                </figure>
+                            }
+                        </div>
+                    }
+
+                    @* Honeypot — hidden từ người dùng, bot tự điền → server silent reject *@
+                    <div style="display:none;" aria-hidden="true">
+                        <label>Đừng điền mục này</label>
+                        <input class="form-control" @bind="_honeypot" tabindex="-1" autocomplete="off" />
+                    </div>
+
+                    <div id="turnstile-container"></div>
+                </div>
+                <div class="ocr-wizard-actions">
+                    <VanAnButton Variant="ButtonVariant.Secondary" OnClick="BackToAccount">← Quay lại</VanAnButton>
+                    <VanAnButton Variant="ButtonVariant.Success" OnClick="SubmitAsync" Loading="@_isSubmitting" Disabled="@_isSubmitting">
+                        🚀 Gửi đăng ký
+                    </VanAnButton>
+                </div>
+                break;
+
+            case 6:
+                <VanAnCard Shadow="true" CssClass="text-center p-5">
+                    <i class="bi bi-check-circle text-success" style="font-size:3rem;"></i>
+                    <h4 class="mt-3">Đã ghi nhận hồ sơ đăng ký!</h4>
+                    <p class="text-muted">@_submitMessage</p>
+                    @if (_signupId is not null)
+                    {
+                        <p class="small text-muted">Mã đăng ký: <code>@_signupId</code></p>
+                        <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToStatus">
+                            <i class="bi bi-search me-1"></i> Kiểm tra trạng thái đăng ký
+                        </VanAnButton>
+                    }
+                    <div class="mt-3">
+                        <VanAnButton Variant="ButtonVariant.Secondary" OnClick="ResetWizard">+ Đăng ký cửa hàng khác</VanAnButton>
+                    </div>
+                </VanAnCard>
+                break;
+        }
+    }
+</div>
+
+<!-- Draft restore prompt -->
+@if (_draft is not null && _step == 0)
+{
+    <div class="ocr-camera-overlay">
+        <div class="ocr-camera-modal" style="width:min(420px,100%);">
+            <div class="ocr-camera-header"><strong>Tiếp tục hồ sơ đang nhập?</strong></div>
+            <p style="color:#cbd5e1;font-size:0.9rem;">Chúng tôi tìm thấy bản nháp đăng ký trên thiết bị này.</p>
+            <div class="ocr-camera-actions">
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="RestoreDraftAsync">Tiếp tục</VanAnButton>
+                <VanAnButton Variant="ButtonVariant.Error" OnClick="DiscardDraftAsync">Bắt đầu mới</VanAnButton>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Camera scan modal -->
+@if (_showCameraModal)
+{
+    <div class="ocr-camera-overlay">
+        <div class="ocr-camera-modal">
+            <div class="ocr-camera-header">
+                <strong>@CameraTitle</strong>
+                @if (_cameraMode == "menu")
+                {
+                    <span class="ocr-camera-count">Đã chụp: @_menuShotCount</span>
+                }
+                <button type="button" class="ocr-camera-close" @onclick="CloseCameraAsync">✕</button>
+            </div>
+            <video id="ocrCameraVideo" class="ocr-camera-video" autoplay playsinline muted></video>
+            <div class="ocr-camera-actions">
+                @if (_cameraMode == "menu")
+                {
+                    <VanAnButton Variant="ButtonVariant.Primary" OnClick="CaptureMenuShotAsync">📸 Chụp</VanAnButton>
+                    <VanAnButton Variant="ButtonVariant.Success" OnClick="FinishMenuCaptureAsync">✅ Xong + Nhận diện (@_menuShotCount ảnh)</VanAnButton>
+                }
+                else
+                {
+                    <VanAnButton Variant="ButtonVariant.Primary" OnClick="CaptureAndOcrAsync">📸 Chụp + Nhận diện</VanAnButton>
+                }
+                <VanAnButton Variant="ButtonVariant.Error" OnClick="CloseCameraAsync">✕ Đóng</VanAnButton>
+            </div>
+        </div>
+    </div>
+}
+</KhachLinkLayout>
+
+@code {
+    private const string DraftKey = "onboard-draft";
+    private const string FlagsKey = "onboard-flags";
+    private const string LastSignupKey = "last-signup-id";
+    private const string CloudOcrConsentKey = "consentCloudOcr";
+
+    // ── State ──────────────────────────────────────────────────────────
+    private int _step;
+    private MerchantSignupCase? _case;
+    private bool _closed;
+    private OnboardingFlagsInfo _flags = new(true, true, true, true);
+    private string _alertMessage = string.Empty;
+    private string _alertVariant = "info";
+
+    // Case A GPKD
+    private string _gpdkMst = string.Empty;
+    private string _gpdkLegalForm = string.Empty;
+    private string _gpdkOwner = string.Empty;
+    private double _gpdkMstConf, _gpdkNameConf, _gpdkAddressConf, _gpdkLegalFormConf;
+
+    // Chung
+    private string _tenantName = string.Empty;
+    private string _address = string.Empty;
+    private string? _hkdGroup; // "1"|"2"|"3"
+    private string? _signName;
+    private double _signNameConf;
+    private readonly List<ProductRow> _productRows = [];
+    private readonly List<OnboardPhoto> _photos = [];
+    private double? _lat, _lng;
+    private double _accuracy;
+    private double? _lastMapLat, _lastMapLng;
+
+    // Account
+    private string _contactName = string.Empty;
+    private string _contactPhone = string.Empty;
+    private string _contactEmail = string.Empty;
+    private string _ownerUsername = string.Empty;
+    private string _ownerPassword = string.Empty;
+    private string _ownerPasswordConfirm = string.Empty;
+    private string _honeypot = string.Empty;
+    private string? _src;
+
+    // Busy / misc
+    private bool _isOcrBusy, _isMenuBusy, _isGpsBusy, _isSubmitting, _isCloudOcrBusy;
+    private bool _isUploadingPhotos;
+    private bool _jsRegistered;
+    private bool _showCameraModal;
+    private string _cameraMode = string.Empty;
+    private int _menuShotCount;
+    private bool _cameraPendingOpen;
+    private bool _turnstileRendered;
+    private Guid? _signupId;
+    private string _submitMessage = string.Empty;
+    private OnboardDraft? _draft;
+    private bool _showCloudOcrBtn;
+    private readonly Dictionary<string, string> _photoUrlByKind = new(StringComparer.OrdinalIgnoreCase);
+    private CancellationTokenSource? _saveDebounce;
+
+    private sealed class ProductRow
+    {
+        public string Name { get; set; } = string.Empty;
+        public decimal? Price { get; set; }
+    }
+
+    private sealed class OnboardPhoto
+    {
+        public required string Kind { get; init; }   // gpdk | sign | menu | doc
+        public required string Url { get; init; }
+        public string? FileName { get; init; }
+    }
+
+    private sealed record GpdkOcrResult(
+        string? Mst, string? Name, string? Address, string? LegalForm, string? Owner,
+        Dictionary<string, double>? Confidence, List<string>? Warnings);
+
+    private sealed record SignOcrResult(string? Value, double Confidence);
+
+    private sealed record MenuOcrResult(List<MenuProductLine>? ProductLines, List<string>? Warnings);
+
+    private sealed record MenuProductLine(string? Name, decimal? Price, int LineNo, double Confidence);
+
+    private sealed record GeoPoint(double lat, double lng, double accuracy);
+
+    // ── Init: flags + deep-link + draft ─────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        // Flags: sessionStorage cache (per-session) → fallback fetch (fail-open = mở)
+        try
+        {
+            var cached = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", FlagsKey);
+            if (!string.IsNullOrEmpty(cached))
+            {
+                _flags = System.Text.Json.JsonSerializer.Deserialize<OnboardingFlagsInfo>(cached)
+                    ?? new OnboardingFlagsInfo(true, true, true, true);
+            }
+            else
+            {
+                var fetched = await SignupService.GetOnboardingFlagsAsync();
+                if (fetched is not null)
+                {
+                    _flags = fetched;
+                    await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", FlagsKey,
+                        System.Text.Json.JsonSerializer.Serialize(fetched));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Onboarding flags load failed — default open");
+        }
+
+        if (!_flags.SelfServeEnabled)
+        {
+            _closed = true;
+            return;
+        }
+
+        // Deep-link params (FR-19) — chỉ khi deeplinkPrefill bật
+        if (_flags.DeeplinkPrefill)
+            ApplyDeepLink();
+
+        // Draft autosave restore prompt
+        try
+        {
+            var draftJson = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", DraftKey);
+            if (!string.IsNullOrEmpty(draftJson))
+                _draft = System.Text.Json.JsonSerializer.Deserialize<OnboardDraft>(draftJson);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Draft load failed");
+        }
+    }
+
+    private void ApplyDeepLink()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+
+        var src = (query["src"] ?? "").Trim().ToLowerInvariant();
+        _src = src is "directory" or "audit" or "qr" or "zalo" or "other" or "direct" ? src : "other";
+
+        // case: a|company → Case A · b|shop → Case B · rong|c → Case Rong
+        var caseParam = (query["case"] ?? "").Trim().ToLowerInvariant();
+        _case = caseParam switch
+        {
+            "a" or "company" or "gpdk" => MerchantSignupCase.CompanyWithLicense,
+            "rong" or "c" or "vendor" => MerchantSignupCase.StreetVendorUnregistered,
+            "b" or "shop" or "small" => MerchantSignupCase.SmallShopNoLicense,
+            _ => null
+        };
+
+        var name = (query["name"] ?? "").Trim();
+        if (name.Length > 200) name = name[..200];
+        if (!string.IsNullOrEmpty(name)) _tenantName = name;
+
+        var address = (query["address"] ?? "").Trim();
+        if (address.Length > 200) address = address[..200];
+        if (!string.IsNullOrEmpty(address)) _address = address;
+
+        if (double.TryParse(query["lat"], System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var lat)
+            && lat is >= -90 and <= 90)
+            _lat = lat;
+        if (double.TryParse(query["lng"], System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var lng)
+            && lng is >= -180 and <= 180)
+            _lng = lng;
+    }
+
+    // ── Stepper ────────────────────────────────────────────────────────
+    private string StepClass(int step) => step == _step ? "ocr-step active" : step < _step ? "ocr-step done" : "ocr-step";
+    private AlertVariant AlertVariant => _alertVariant switch
+    {
+        "success" => AlertVariant.Success,
+        "warning" => AlertVariant.Warning,
+        "error" => AlertVariant.Error,
+        _ => AlertVariant.Info
+    };
+
+    private string CaseLabel => _case switch
+    {
+        MerchantSignupCase.CompanyWithLicense => "Có giấy phép kinh doanh",
+        MerchantSignupCase.SmallShopNoLicense => "Cửa hàng chưa có giấy phép",
+        MerchantSignupCase.StreetVendorUnregistered => "Bán hàng rong / chưa đăng ký",
+        _ => "—"
+    };
+
+    private string? _hkdGroupDisplay => _hkdGroup switch
+    {
+        "1" => "Nhóm 1 — nhỏ, không phải nộp thuế GTGT/TNCN",
+        "2" => "Nhóm 2 — nộp thuế GTGT + TNCN",
+        "3" => "Nhóm 3 — hộ kinh doanh chịu thuế khác",
+        _ => null
+    };
+
+    private string UsernameStatusText
+    {
+        get
+        {
+            var u = _ownerUsername.Trim().ToLowerInvariant();
+            if (u.Length == 0) return "";
+            return System.Text.RegularExpressions.Regex.IsMatch(u, "^[a-z0-9._-]{3,30}$")
+                ? "✓ hợp lệ" : "⚠ chỉ chữ thường, số, . _ - (3-30 ký tự)";
+        }
+    }
+
+    private void ShowAlert(string message, string variant = "info")
+    {
+        _alertMessage = message;
+        _alertVariant = variant;
+    }
+
+    private void SelectCase(MerchantSignupCase c)
+    {
+        _case = c;
+        _hkdGroup = null;
+        SaveDraft();
+    }
+
+    private void NextFromCase()
+    {
+        if (_case is null) { ShowAlert("Chọn loại hình trước.", "warning"); return; }
+        _step = 1;
+        SaveDraft();
+    }
+
+    private void BackToCaseSelect() { _step = 0; SaveDraft(); }
+    private void BackToDocs() { _step = 1; SaveDraft(); }
+    private void BackToSignMenu() { _step = 2; SaveDraft(); }
+    private void BackToLocation() { _step = 3; SaveDraft(); }
+    private void BackToAccount() { _step = 4; _turnstileRendered = false; SaveDraft(); }
+
+    private void NextFromDocs()
+    {
+        if (_case == MerchantSignupCase.CompanyWithLicense)
+        {
+            if (string.IsNullOrWhiteSpace(_gpdkMst))
+            {
+                ShowAlert("Mã số thuế bắt buộc — OCR không đọc được thì nhập tay.", "warning");
+                return;
+            }
+            if (!IsValidMst(_gpdkMst))
+            {
+                ShowAlert("Mã số thuế phải 10 hoặc 13 chữ số.", "warning");
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(_tenantName))
+            {
+                ShowAlert("Tên doanh nghiệp/hộ kinh doanh bắt buộc.", "warning");
+                return;
+            }
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(_tenantName))
+            {
+                ShowAlert("Tên cửa hàng bắt buộc — chụp biển hiệu ở bước sau hoặc nhập tay.", "warning");
+                return;
+            }
+            if (_case == MerchantSignupCase.SmallShopNoLicense && string.IsNullOrWhiteSpace(_hkdGroup))
+            {
+                ShowAlert("Vui lòng chọn nhóm thuế (gợi ý bên dưới) — đội ngũ sẽ xác nhận khi duyệt.", "warning");
+                return;
+            }
+            if (_case != MerchantSignupCase.StreetVendorUnregistered && string.IsNullOrWhiteSpace(_address))
+            {
+                ShowAlert("Vui lòng nhập địa chỉ cửa hàng.", "warning");
+                return;
+            }
+        }
+        _step = 2;
+        SaveDraft();
+    }
+
+    private void NextFromSignMenu()
+    {
+        if (!string.IsNullOrWhiteSpace(_signName) && _case != MerchantSignupCase.CompanyWithLicense
+            && string.IsNullOrWhiteSpace(_tenantName))
+        {
+            _tenantName = _signName;
+        }
+        if (string.IsNullOrWhiteSpace(_tenantName))
+        {
+            ShowAlert("Tên cửa hàng chưa có — nhập tay hoặc chụp biển hiệu.", "warning");
+            return;
+        }
+        _step = 3;
+        SaveDraft();
+    }
+
+    private void NextFromLocation()
+    {
+        _step = 4;
+        SaveDraft();
+    }
+
+    private void NextFromAccount()
+    {
+        if (string.IsNullOrWhiteSpace(_contactName)) { ShowAlert("Vui lòng nhập họ và tên người liên hệ.", "warning"); return; }
+        var phone = new string((_contactPhone ?? "").Where(char.IsDigit).ToArray());
+        if (phone.Length < 9) { ShowAlert("Số điện thoại không hợp lệ.", "warning"); return; }
+        var u = _ownerUsername.Trim().ToLowerInvariant();
+        if (!System.Text.RegularExpressions.Regex.IsMatch(u, "^[a-z0-9._-]{3,30}$"))
+        {
+            ShowAlert("Tên đăng nhập chỉ gồm chữ thường, số, dấu chấm/gạch dưới/gạch ngang (3-30 ký tự).", "warning");
+            return;
+        }
+        if (string.IsNullOrEmpty(_ownerPassword) || _ownerPassword.Length < 8)
+        {
+            ShowAlert("Mật khẩu tối thiểu 8 ký tự.", "warning");
+            return;
+        }
+        if (_ownerPassword != _ownerPasswordConfirm)
+        {
+            ShowAlert("Mật khẩu nhập lại không khớp.", "warning");
+            return;
+        }
+        _step = 5;
+        SaveDraft();
+    }
+
+    // ── OCR + camera callbacks ─────────────────────────────────────────
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_jsRegistered && !_closed)
+        {
+            _jsRegistered = true;
+            await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.register", DotNetObjectReference.Create(this));
+        }
+        // Map chỉ init khi step=3 + coords đổi (RV fix pattern — tránh L.map re-init crash)
+        if (_step == 3 && _lat is not null && _lng is not null
+            && (_lat != _lastMapLat || _lng != _lastMapLng))
+        {
+            _lastMapLat = _lat;
+            _lastMapLng = _lng;
+            await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.initMap", "onboardMap", _lat.Value, _lng.Value, _accuracy);
+        }
+        if (_cameraPendingOpen)
+        {
+            _cameraPendingOpen = false;
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.openCamera", "ocrCameraVideo");
+            }
+            catch (Exception ex)
+            {
+                ShowAlert($"Không mở được camera: {ex.Message}", "error");
+                _showCameraModal = false;
+            }
+        }
+        // Turnstile render khi vào step review
+        if (_step == 5 && !_turnstileRendered)
+        {
+            _turnstileRendered = true;
+            await RenderTurnstileAsync();
+        }
+    }
+
+    private string CameraTitle => _cameraMode switch
+    {
+        "gpdk" => "📷 Chụp giấy phép kinh doanh",
+        "sign" => "📷 Chụp biển hiệu",
+        "menu" => "📷 Chụp menu",
+        _ => "📷 Chụp ảnh"
+    };
+
+    private void OpenCameraGpdk() => OpenCameraModal("gpdk");
+    private void OpenCameraSign() => OpenCameraModal("sign");
+    private void OpenCameraMenu() => OpenCameraModal("menu");
+
+    private void OpenCameraModal(string mode)
+    {
+        _cameraMode = mode;
+        _menuShotCount = 0;
+        _showCameraModal = true;
+        _cameraPendingOpen = true;
+    }
+
+    private async Task CloseCameraAsync()
+    {
+        _showCameraModal = false;
+        _cameraPendingOpen = false;
+        _isOcrBusy = false;
+        _isMenuBusy = false;
+        await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.closeCamera");
+    }
+
+    private async Task CaptureAndOcrAsync()
+    {
+        _isOcrBusy = true;
+        StateHasChanged();
+        await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.captureAndOcr", _cameraMode);
+    }
+
+    private async Task CaptureMenuShotAsync()
+        => await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.captureMenuShot");
+
+    private async Task FinishMenuCaptureAsync()
+    {
+        _isMenuBusy = true;
+        StateHasChanged();
+        await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.finishMenuCapture");
+    }
+
+    [JSInvokable]
+    public Task OnMenuShotCount(int count)
+    {
+        _menuShotCount = count;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>JS gửi bytes ảnh (file input hoặc camera) → upload R2 folder "onboarding".</summary>
+    [JSInvokable]
+    public async Task OnPhotoFile(string kind, byte[] bytes, string fileName, string contentType)
+    {
+        if (bytes is null || bytes.Length == 0) return;
+        _isUploadingPhotos = true;
+        try
+        {
+            var outcome = await ImageUpload.UploadImageBytesAsync(
+                bytes, string.IsNullOrWhiteSpace(fileName) ? "photo.jpg" : fileName,
+                "onboarding", contentType);
+            if (outcome.Success && !string.IsNullOrEmpty(outcome.Url))
+            {
+                // Dedupe theo URL (ảnh chụp lại cùng nội dung vẫn có URL khác — giữ cả 2, sysadmin xem được)
+                if (!_photos.Any(p => p.Url == outcome.Url))
+                {
+                    _photos.Add(new OnboardPhoto { Kind = kind, Url = outcome.Url, FileName = fileName });
+                    _photoUrlByKind[kind] = outcome.Url;
+                }
+            }
+            else
+            {
+                ShowAlert($"Ảnh {kind} tải lên thất bại: {outcome.Error} — bạn vẫn có thể gửi đăng ký.", "warning");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "OnPhotoFile upload fail ({Kind})", kind);
+        }
+        finally
+        {
+            _isUploadingPhotos = false;
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public Task OnOcrResult(string method, string json)
+    {
+        try
+        {
+            var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            switch (method)
+            {
+                case "extractGpdk":
+                {
+                    _isOcrBusy = false;
+                    _ = CloseCameraAsync();
+                    var r = System.Text.Json.JsonSerializer.Deserialize<GpdkOcrResult>(json, options);
+                    if (r is null) break;
+                    if (!string.IsNullOrWhiteSpace(r.Mst)) _gpdkMst = r.Mst;
+                    if (!string.IsNullOrWhiteSpace(r.Name)) _tenantName = r.Name;
+                    if (!string.IsNullOrWhiteSpace(r.Address)) _address = r.Address;
+                    if (!string.IsNullOrWhiteSpace(r.LegalForm)) _gpdkLegalForm = r.LegalForm;
+                    if (!string.IsNullOrWhiteSpace(r.Owner)) _gpdkOwner = r.Owner;
+                    _gpdkMstConf = r.Confidence?.GetValueOrDefault("mst") ?? 0;
+                    _gpdkNameConf = r.Confidence?.GetValueOrDefault("name") ?? 0;
+                    _gpdkAddressConf = r.Confidence?.GetValueOrDefault("address") ?? 0;
+                    _gpdkLegalFormConf = r.Confidence?.GetValueOrDefault("legalForm") ?? 0;
+                    MaybeShowCloudOcr(r.Confidence?.GetValueOrDefault("name") ?? 0);
+                    if (r.Warnings is { Count: > 0 }) ShowAlert(string.Join(" · ", r.Warnings), "warning");
+                    else ShowAlert("Đã đọc giấy phép — kiểm tra lại các trường trước khi tiếp tục.", "success");
+                    break;
+                }
+                case "extractSignName":
+                {
+                    _isOcrBusy = false;
+                    _ = CloseCameraAsync();
+                    var r = System.Text.Json.JsonSerializer.Deserialize<SignOcrResult>(json, options);
+                    if (r?.Value is not null)
+                    {
+                        _signName = r.Value;
+                        _signNameConf = r.Confidence;
+                        if (string.IsNullOrWhiteSpace(_tenantName) && _case != MerchantSignupCase.CompanyWithLicense)
+                            _tenantName = r.Value;
+                    }
+                    MaybeShowCloudOcr(r?.Confidence ?? 0);
+                    break;
+                }
+                case "extractMenu":
+                {
+                    _isMenuBusy = false;
+                    var r = System.Text.Json.JsonSerializer.Deserialize<MenuOcrResult>(json, options);
+                    if (r?.ProductLines is not null)
+                    {
+                        _productRows.Clear();
+                        _productRows.AddRange(r.ProductLines
+                            .Where(p => !string.IsNullOrWhiteSpace(p.Name))
+                            .Select(p => new ProductRow { Name = p.Name!, Price = p.Price }));
+                        ShowAlert($"Đã đọc {_productRows.Count} sản phẩm từ menu — rà soát giá và tên.", "success");
+                    }
+                    if (r?.Warnings is { Count: > 0 })
+                        ShowAlert(string.Join(" · ", r.Warnings), "warning");
+                    break;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "OCR result parse fail ({Method})", method);
+            ShowAlert($"Lỗi xử lý kết quả OCR: {ex.Message}", "error");
+        }
+        SaveDraft();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task OnOcrError(string method, string message)
+    {
+        _isOcrBusy = false;
+        _isMenuBusy = false;
+        ShowAlert($"OCR thất bại ({method}): {message} — nhập tay.", "error");
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    // ── OCR cloud-assist hook (P6 — tolerant, ẩn khi endpoint chưa có) ────
+    private void MaybeShowCloudOcr(double confidence)
+    {
+        // Chỉ gợi ý khi confidence thấp + user đã consent trước đó (hoặc chưa từ chối)
+        _showCloudOcrBtn = confidence > 0 && confidence < 70;
+    }
+
+    private async Task CloudOcrAsync()
+    {
+        var consent = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", CloudOcrConsentKey);
+        if (consent != "yes")
+        {
+            var ok = await JSRuntime.InvokeAsync<bool>("confirm",
+                "Gửi ảnh giấy tờ/menu tới dịch vụ nhận diện đám mây để đọc chính xác hơn? (Dữ liệu chỉ dùng cho đăng ký này)");
+            if (!ok) return;
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", CloudOcrConsentKey, "yes");
+        }
+
+        var imageUrl = _photoUrlByKind.GetValueOrDefault("gpdk")
+            ?? _photoUrlByKind.GetValueOrDefault("sign")
+            ?? _photoUrlByKind.GetValueOrDefault("menu");
+        if (string.IsNullOrEmpty(imageUrl))
+        {
+            ShowAlert("Chưa có ảnh nào được tải lên — thử lại sau khi ảnh upload xong.", "warning");
+            return;
+        }
+
+        _isCloudOcrBusy = true;
+        try
+        {
+            var result = await SignupService.OcrAssistAsync(imageUrl, _case == MerchantSignupCase.CompanyWithLicense ? "gpdk" : "sign");
+            if (result is null)
+            {
+                _showCloudOcrBtn = false; // endpoint chưa có (P6) — ẩn luôn
+                ShowAlert("Nhận diện nâng cao chưa khả dụng — vui lòng nhập tay.", "warning");
+                return;
+            }
+            if (!string.IsNullOrWhiteSpace(result.Mst)) _gpdkMst = result.Mst;
+            if (!string.IsNullOrWhiteSpace(result.Name)) _tenantName = result.Name;
+            if (!string.IsNullOrWhiteSpace(result.Address)) _address = result.Address;
+            if (!string.IsNullOrWhiteSpace(result.LegalForm)) _gpdkLegalForm = result.LegalForm;
+            if (!string.IsNullOrWhiteSpace(result.SignName)) _signName = result.SignName;
+            ShowAlert("Đã nhận diện nâng cao — kiểm tra lại các trường.", "success");
+        }
+        finally
+        {
+            _isCloudOcrBusy = false;
+        }
+    }
+
+    // ── GPS + map ──────────────────────────────────────────────────────
+    private async Task GetLocationAsync()
+    {
+        _isGpsBusy = true;
+        ShowAlert(string.Empty);
+        try
+        {
+            var pos = await JSRuntime.InvokeAsync<GeoPoint>("vananOnboardingWizard.getCurrentPosition");
+            _lat = pos.lat;
+            _lng = pos.lng;
+            _accuracy = pos.accuracy;
+            SaveDraft();
+        }
+        catch (Exception ex)
+        {
+            ShowAlert(ex.Message, "error");
+        }
+        finally
+        {
+            _isGpsBusy = false;
+        }
+    }
+
+    // ── Product rows ───────────────────────────────────────────────────
+    private void AddProductRow() => _productRows.Add(new ProductRow());
+
+    private void RemoveProductRow(int index)
+    {
+        if (index >= 0 && index < _productRows.Count) _productRows.RemoveAt(index);
+        SaveDraft();
+    }
+
+    // ── Draft autosave (localStorage — WASM reload/mất điện thoại vẫn giữ) ──
+    private void SaveDraft()
+    {
+        if (_step == 6 || _closed) return; // đã submit xong → không lưu
+        _saveDebounce?.Cancel();
+        _saveDebounce = new CancellationTokenSource();
+        var ct = _saveDebounce.Token;
+        _ = Task.Delay(500, ct).ContinueWith(async _ =>
+        {
+            if (ct.IsCancellationRequested) return;
+            try
+            {
+                var draft = BuildDraft();
+                var json = System.Text.Json.JsonSerializer.Serialize(draft);
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", DraftKey, json);
+            }
+            catch { /* draft là best-effort */ }
+        }, TaskScheduler.Default);
+    }
+
+    private OnboardDraft BuildDraft() => new()
+    {
+        Step = _step,
+        Case = _case?.ToString(),
+        GpdkMst = _gpdkMst, TenantName = _tenantName, Address = _address,
+        GpdkLegalForm = _gpdkLegalForm, GpdkOwner = _gpdkOwner,
+        HkdGroup = _hkdGroup, SignName = _signName,
+        ProductRows = _productRows.Select(r => new DraftProductRow { Name = r.Name, Price = r.Price }).ToList(),
+        PhotoUrls = _photos.Select(p => new DraftPhoto { Kind = p.Kind, Url = p.Url, FileName = p.FileName }).ToList(),
+        Lat = _lat, Lng = _lng,
+        ContactName = _contactName, ContactPhone = _contactPhone, ContactEmail = _contactEmail,
+        OwnerUsername = _ownerUsername,
+        Src = _src
+        // Password + Turnstile token KHÔNG lưu draft (bảo mật)
+    };
+
+    private async Task RestoreDraftAsync()
+    {
+        var d = _draft;
+        _draft = null;
+        if (d is null) return;
+
+        if (Enum.TryParse<MerchantSignupCase>(d.Case, out var c)) _case = c;
+        _step = Math.Clamp(d.Step, 0, 5);
+        _gpdkMst = d.GpdkMst ?? string.Empty;
+        _tenantName = d.TenantName ?? string.Empty;
+        _address = d.Address ?? string.Empty;
+        _gpdkLegalForm = d.GpdkLegalForm ?? string.Empty;
+        _gpdkOwner = d.GpdkOwner ?? string.Empty;
+        _hkdGroup = d.HkdGroup;
+        _signName = d.SignName;
+        _productRows.Clear();
+        _productRows.AddRange((d.ProductRows ?? []).Select(r => new ProductRow { Name = r.Name ?? string.Empty, Price = r.Price }));
+        _photos.Clear();
+        _photoUrlByKind.Clear();
+        foreach (var p in d.PhotoUrls ?? [])
+        {
+            if (!string.IsNullOrEmpty(p.Url))
+            {
+                _photos.Add(new OnboardPhoto { Kind = p.Kind ?? "doc", Url = p.Url, FileName = p.FileName });
+                _photoUrlByKind.TryAdd(p.Kind ?? "doc", p.Url);
+            }
+        }
+        _lat = d.Lat; _lng = d.Lng;
+        _contactName = d.ContactName ?? string.Empty;
+        _contactPhone = d.ContactPhone ?? string.Empty;
+        _contactEmail = d.ContactEmail ?? string.Empty;
+        _ownerUsername = d.OwnerUsername ?? string.Empty;
+        _src = d.Src;
+        await Task.CompletedTask;
+    }
+
+    private async Task DiscardDraftAsync()
+    {
+        _draft = null;
+        try { await JSRuntime.InvokeVoidAsync("localStorage.removeItem", DraftKey); } catch { }
+    }
+
+    private async Task ClearDraftAsync()
+    {
+        try { await JSRuntime.InvokeVoidAsync("localStorage.removeItem", DraftKey); } catch { }
+    }
+
+    // ── Submit ─────────────────────────────────────────────────────────
+    private async Task SubmitAsync()
+    {
+        if (_case is null || string.IsNullOrWhiteSpace(_tenantName))
+        {
+            ShowAlert("Thiếu thông tin bắt buộc — quay lại kiểm tra.", "warning");
+            return;
+        }
+
+        var phone = new string((_contactPhone ?? "").Where(char.IsDigit).ToArray());
+        var businessType = ResolveBusinessType();
+        var hkdGroup = ResolveHkdGroup(businessType);
+
+        _isSubmitting = true;
+        ShowAlert(string.Empty);
+        try
+        {
+            string? turnstileToken = null;
+            try { turnstileToken = await JSRuntime.InvokeAsync<string>("vanan.getTurnstileToken"); }
+            catch { /* dev mode — token rỗng */ }
+
+            var request = new MerchantSignupSubmitRequest(
+                Case: _case.Value,
+                Name: _tenantName.Trim(),
+                Address: string.IsNullOrWhiteSpace(_address) ? null : _address.Trim(),
+                BusinessType: businessType,
+                HkdGroup: hkdGroup,
+                GpdkInfo: _case == MerchantSignupCase.CompanyWithLicense
+                    ? new GpdkInfoInput(_gpdkMst, _tenantName, _address, _gpdkLegalForm, _gpdkOwner)
+                    : null,
+                SignName: string.IsNullOrWhiteSpace(_signName) ? null : _signName.Trim(),
+                Latitude: _lat,
+                Longitude: _lng,
+                PhotoUrls: _photos.Count > 0 ? _photos.Select(p => p.Url).ToList() : null,
+                ProductLines: _productRows
+                    .Where(r => !string.IsNullOrWhiteSpace(r.Name))
+                    .Select((r, i) => new OcrProductLineInput(r.Name.Trim(), r.Price, i + 1))
+                    .ToList(),
+                ContactName: _contactName.Trim(),
+                ContactPhone: phone,
+                ContactEmail: string.IsNullOrWhiteSpace(_contactEmail) ? null : _contactEmail.Trim(),
+                OwnerUsername: _ownerUsername.Trim().ToLowerInvariant(),
+                OwnerPassword: _ownerPassword,
+                TurnstileToken: turnstileToken,
+                HoneypotWebsite: string.IsNullOrWhiteSpace(_honeypot) ? null : _honeypot.Trim(),
+                Src: _src ?? "direct");
+
+            var outcome = await SignupService.SubmitAsync(request);
+            if (outcome.Success)
+            {
+                _signupId = outcome.SignupId;
+                _submitMessage = outcome.Message ?? "Đăng ký thành công!";
+                _step = 6;
+                await ClearDraftAsync();
+                try
+                {
+                    if (_signupId is not null)
+                        await JSRuntime.InvokeVoidAsync("localStorage.setItem", LastSignupKey, _signupId.Value.ToString());
+                }
+                catch { }
+            }
+            else
+            {
+                ShowAlert(outcome.Error ?? "Gửi đăng ký thất bại.", "error");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Merchant signup submit exception");
+            ShowAlert("Lỗi không xác định khi gửi đăng ký. Vui lòng thử lại.", "error");
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private BusinessType ResolveBusinessType()
+    {
+        if (_case == MerchantSignupCase.CompanyWithLicense)
+            return string.Equals(_gpdkLegalForm, "HKD", StringComparison.OrdinalIgnoreCase)
+                ? BusinessType.HouseholdBusiness : BusinessType.Company;
+        return BusinessType.HouseholdBusiness; // Case B + Rong luôn HKD
+    }
+
+    private HKDGroup? ResolveHkdGroup(BusinessType businessType)
+    {
+        if (businessType != BusinessType.HouseholdBusiness) return null;
+        if (_case == MerchantSignupCase.StreetVendorUnregistered) return null; // server force Group1
+        return int.TryParse(_hkdGroup, out var g) ? (HKDGroup)g : null;
+    }
+
+    private void GoToStatus()
+    {
+        if (_signupId is not null)
+            Navigation.NavigateTo($"/onboard/status?signupId={_signupId}&phone={Uri.EscapeDataString(_contactPhone)}");
+        else
+            Navigation.NavigateTo("/onboard/status");
+    }
+
+    private async Task ResetWizard()
+    {
+        _step = 0;
+        _case = null;
+        _closed = false;
+        _tenantName = _address = _contactName = _contactPhone = _contactEmail = string.Empty;
+        _gpdkMst = _gpdkLegalForm = _gpdkOwner = string.Empty;
+        _gpdkMstConf = _gpdkNameConf = _gpdkAddressConf = _gpdkLegalFormConf = 0;
+        _signName = null;
+        _signNameConf = 0;
+        _productRows.Clear();
+        _photos.Clear();
+        _photoUrlByKind.Clear();
+        _lat = _lng = null;
+        _accuracy = 0;
+        _lastMapLat = _lastMapLng = null;
+        _ownerUsername = _ownerPassword = _ownerPasswordConfirm = string.Empty;
+        _honeypot = string.Empty;
+        _src = null;
+        _signupId = null;
+        _submitMessage = string.Empty;
+        _showCameraModal = false;
+        _cameraMode = string.Empty;
+        _menuShotCount = 0;
+        _cameraPendingOpen = false;
+        _turnstileRendered = false;
+        _showCloudOcrBtn = false;
+        _draft = null;
+        _alertMessage = string.Empty;
+        try { await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.closeCamera"); } catch { }
+        await ClearDraftAsync();
+    }
+
+    private static bool IsValidMst(string mst)
+    {
+        var digits = mst.Replace("-", "").Trim();
+        return (digits.Length == 10 || digits.Length == 13) && digits.All(char.IsDigit);
+    }
+
+    private string PhotoKindLabel(string kind) => kind switch
+    {
+        "gpdk" => "Giấy phép",
+        "sign" => "Biển hiệu",
+        "menu" => "Menu",
+        _ => "Ảnh"
+    };
+
+    private async Task RenderTurnstileAsync()
+    {
+        try
+        {
+            var siteKey = await JSRuntime.InvokeAsync<string>("vanan.getTurnstileSiteKey");
+            if (!string.IsNullOrEmpty(siteKey))
+                await JSRuntime.InvokeVoidAsync("vanan.renderTurnstile", "turnstile-container", siteKey);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Turnstile render failed — submit without token");
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JSRuntime.InvokeVoidAsync("vananOnboardingOcr.unload"); } catch { }
+        _saveDebounce?.Cancel();
+        GC.SuppressFinalize(this);
+    }
+
+    // ── Confidence badge (port từ OcrOnboardingWizard) ─────────────────
+    private RenderFragment ConfidenceBadge(string label, double confidence)
+        => builder =>
+        {
+            if (confidence <= 0) return;
+            var css = confidence >= 70 ? "ocr-conf-high" : "ocr-conf-low";
+            builder.OpenElement(0, "span");
+            builder.AddAttribute(1, "class", $"ocr-conf {css}");
+            builder.AddContent(2, $"{label}: {confidence:F0}%");
+            builder.CloseElement();
+        };
+
+    // ── Draft DTO (localStorage — KHÔNG chứa password/turnstile) ─────────
+    private sealed class OnboardDraft
+    {
+        public int Step { get; set; }
+        public string? Case { get; set; }
+        public string? GpdkMst { get; set; }
+        public string? TenantName { get; set; }
+        public string? Address { get; set; }
+        public string? GpdkLegalForm { get; set; }
+        public string? GpdkOwner { get; set; }
+        public string? HkdGroup { get; set; }
+        public string? SignName { get; set; }
+        public List<DraftProductRow>? ProductRows { get; set; }
+        public List<DraftPhoto>? PhotoUrls { get; set; }
+        public double? Lat { get; set; }
+        public double? Lng { get; set; }
+        public string? ContactName { get; set; }
+        public string? ContactPhone { get; set; }
+        public string? ContactEmail { get; set; }
+        public string? OwnerUsername { get; set; }
+        public string? Src { get; set; }
+    }
+
+    private sealed class DraftProductRow
+    {
+        public string? Name { get; set; }
+        public decimal? Price { get; set; }
+    }
+
+    private sealed class DraftPhoto
+    {
+        public string? Kind { get; set; }
+        public string? Url { get; set; }
+        public string? FileName { get; set; }
+    }
+}

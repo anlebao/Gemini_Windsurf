@@ -104,7 +104,14 @@ public class ImageUploadService(IHttpClientFactory httpClientFactory, ILogger<Im
     /// <param name="bytes">Nội dung ảnh (PNG).</param>
     /// <param name="filename">Tên file (VD: "signature.png").</param>
     /// <param name="folder">Cloudinary folder (VD: "membership-signatures").</param>
-    public async Task<ImageUploadOutcome> UploadBytesAsync(byte[] bytes, string filename, string folder, CancellationToken ct = default)
+    public Task<ImageUploadOutcome> UploadBytesAsync(byte[] bytes, string filename, string folder, CancellationToken ct = default)
+        => UploadImageBytesAsync(bytes, filename, folder, "image/png", ct);
+
+    /// <summary>
+    /// Self-serve onboarding (P1 — 2026-11-09): upload ảnh chụp camera (JPEG) hoặc file input
+    /// với content-type thật — JS gửi bytes qua OnPhotoFile → service này → folder "onboarding".
+    /// </summary>
+    public async Task<ImageUploadOutcome> UploadImageBytesAsync(byte[] bytes, string filename, string folder, string contentType, CancellationToken ct = default)
     {
         if (bytes is null || bytes.Length == 0)
             return ImageUploadOutcome.Failed("Không có dữ liệu ảnh.");
@@ -115,7 +122,8 @@ public class ImageUploadService(IHttpClientFactory httpClientFactory, ILogger<Im
         {
             using var form = new MultipartFormDataContent();
             var fileContent = new ByteArrayContent(bytes);
-            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                string.IsNullOrWhiteSpace(contentType) ? "image/jpeg" : contentType);
             form.Add(fileContent, "file", filename);
 
             var response = await _httpClient.PostAsync($"api/v1/images/upload?folder={folder}", form, ct);
