@@ -9,10 +9,10 @@
 
 ## 0. PRE-FLIGHT (làm đầu tiên — risk "login resolution chưa rõ")
 
-- [ ] **PF1:** Verify cơ chế login ShopERP cho tenant owner: tenant resolve bằng gì (slug subdomain / tenant picker / claim trong JWT)? Ghi kết quả vào task card này + xác định URL đăng nhập để trả merchant (vd `https://app2.khachvip.online` + tenant context). Nếu login yêu cầu slug → response/status phải trả `slug` sau verify.
-- [ ] **PF2:** Verify `Tenant` có method lifecycle cho reject pending không (`Deactivate`/`Suspend`/status nào phù hợp cho "từ chối pending") — đọc `1_Shared/Domain/Aggregates/TenantAggregate/Tenant.cs` + `TenantStatus.cs`. Chọn method sẵn có, KHÔNG thêm method mới.
-- [ ] **PF3:** Verify `ITurnstileVerificationService` interface + cách `TenantRegistrationController` inject (đã đọc — pattern sẵn).
-- [ ] **PF4:** Verify `IDataProtectionProvider` đã đăng ký trong Gateway `Program.cs` (QRChannel.EncryptedToken dùng — confirm namespace/usage pattern).
+- [x] **PF1:** ✅ DONE 2026-11-09 — Login = username+password trên ShopERP host (`PlatformUserLoginController`); tenant resolve qua `UserTenant`→JWT `tenant_id` — **slug KHÔNG cần cho login** (slug chỉ storefront `/store/{slug}`). Status endpoint trả `slug` cho storefront link.
+- [x] **PF2:** ✅ DONE — `tenant.Deactivate(reason)` (Pending→Inactive). Không có status "Rejected" → status endpoint map Inactive+self-serve payload → "Rejected" (edge: Inactive vì lý do khác cũng hiển thị Rejected — chấp nhận MVP).
+- [x] **PF3:** ✅ DONE — `ITurnstileVerificationService.VerifyAsync(token, ip, ct)`; controller pattern giống `TenantRegistrationController` (honeypot+turnstile ở controller, KHÔNG trong service).
+- [x] **PF4:** ✅ DONE — `PersistKeysToFileSystem` + volume `gateway_keys:/app/keys` (`docker-compose.gateway.yml:162`) — keys persistent, `verify-signup` an toàn sau restart.
 
 ## 1. OBJECTIVE
 
@@ -137,18 +137,20 @@ Copy pattern `registration-submit` hiện có:
 
 ## 4. ACCEPTANCE CRITERIA
 
-- [ ] `POST /api/v1/merchant-signups` Case A hợp lệ → 200 generic + Pending tenant trong DB (Status=Pending, SourceSite=OCR-SELF-GPKD, BusinessType đúng)
-- [ ] `CrawlSource.PayloadJson` chứa đủ: photoUrls, productLines, contactPhone, ownerUsername, ownerPasswordProtected, otpVerified, unregistered, ipHash — **không chứa plaintext password**
-- [ ] MST trùng tenant cũ → vẫn 200 generic + `PotentialDuplicateOf` set + tenant nằm tab Duplicates
-- [ ] Case B/Rong validate đúng; Rong force Group1+unregistered
-- [ ] Honeypot → 200 fake không lưu; Turnstile fail → 400; vượt rate-limit → 429
-- [ ] `verify-signup`: Pending self-serve → Active + owner user login được bằng password merchant đặt; `usedMerchantPassword=true`; password override → `false`
-- [ ] `verify-signup` trên crawl tenant (không payload) → 400; trên Active → 409; trên dup-blocked → 409
-- [ ] `signup-detail` KHÔNG chứa `OwnerPasswordProtected`/password ở bất kỳ field nào
-- [ ] `reject-pending` → tenant không còn Pending; reason logged
-- [ ] `status` endpoint: đúng cặp signupId+phone → trạng thái thật; sai → generic
-- [ ] Metering `feature.ocr` event fired (mock verify)
-- [ ] `dotnet build VanAn.sln` 0 errors · guard-check.ps1 ALL PASSED · Core.Tests mới PASS + không regression
+> ✅ IMPLEMENTED 2026-11-09 (commit `6ac8e809`) — build 0 err · Core.Tests +35 (35/35 PASS · onboarding suite 121 PASS) · guard PASSED. Deviations: honeypot+turnstile ở controller (pattern TenantRegistration); `CrawlSource.RawJson` (không phải PayloadJson); `SelfServePayload` += SignName/GpdkInfo (không có trong CrawlListingDto); reject→`Deactivate` (không có status Rejected); `Src` trong payload.
+
+- [x] `POST /api/v1/merchant-signups` Case A hợp lệ → 200 generic + Pending tenant trong DB (Status=Pending, SourceSite=OCR-SELF-GPKD, BusinessType đúng)
+- [x] `CrawlSource.PayloadJson` chứa đủ: photoUrls, productLines, contactPhone, ownerUsername, ownerPasswordProtected, otpVerified, unregistered, ipHash — **không chứa plaintext password**
+- [x] MST trùng tenant cũ → vẫn 200 generic + `PotentialDuplicateOf` set + tenant nằm tab Duplicates
+- [x] Case B/Rong validate đúng; Rong force Group1+unregistered
+- [x] Honeypot → 200 fake không lưu; Turnstile fail → 400; vượt rate-limit → 429
+- [x] `verify-signup`: Pending self-serve → Active + owner user login được bằng password merchant đặt; `usedMerchantPassword=true`; password override → `false`
+- [x] `verify-signup` trên crawl tenant (không payload) → 400; trên Active → 409; trên dup-blocked → 409
+- [x] `signup-detail` KHÔNG chứa `OwnerPasswordProtected`/password ở bất kỳ field nào
+- [x] `reject-pending` → tenant không còn Pending; reason logged
+- [x] `status` endpoint: đúng cặp signupId+phone → trạng thái thật; sai → generic
+- [x] Metering `feature.ocr` event fired (mock verify)
+- [x] `dotnet build VanAn.sln` 0 errors · guard-check.ps1 ALL PASSED · Core.Tests mới PASS + không regression
 
 ## 5. VERIFICATION
 

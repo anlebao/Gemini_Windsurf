@@ -12,8 +12,7 @@ namespace VanAn.Gateway.Controllers;
 [ApiController]
 [Route("api/v1/platform/onboarding-flags")]
 public class PlatformOnboardingFlagsController(
-    IPlatformOnboardingFlagsService flagsService,
-    ILogger<PlatformOnboardingFlagsController> logger) : ControllerBase
+    IPlatformOnboardingFlagsService flagsService) : ControllerBase
 {
     /// <summary>Public — trả 4 bool. Default true khi chưa config.</summary>
     [HttpGet]

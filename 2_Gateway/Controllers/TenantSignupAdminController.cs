@@ -12,8 +12,7 @@ namespace VanAn.Gateway.Controllers;
 [ApiController]
 [Authorize(Policy = "SystemAdmin")]
 public class TenantSignupAdminController(
-    IMerchantSignupService signupService,
-    ILogger<TenantSignupAdminController> logger) : ControllerBase
+    IMerchantSignupService signupService) : ControllerBase
 {
     /// <summary>Hồ sơ self-serve đầy đủ (ảnh, menu, SĐT, flags) — KHÔNG chứa password.</summary>
     [HttpGet("api/v1/tenants/{tenantId:guid}/signup-detail")]

@@ -208,7 +208,17 @@ public class AuthorizationEnforcementTests
             // AI chat surface — [AllowAnonymous] + rate-limited ("tenant-ai-public" policy,
             // 60 req/min/IP + 20 msg/session/giờ cap) + server-side tenant resolution (T6).
             // Same pattern as PublicBookingController.
-            "PublicTenantAiController"
+            "PublicTenantAiController",
+            // Self-Serve Onboarding (2026-11-09): MerchantSignupController — public merchant
+            // signup surface ([AllowAnonymous] + "merchant-signup"/"signup-otp"/"signup-status"
+            // rate-limit policies + Turnstile + honeypot + master flag). OTP stubs 501 (P4).
+            // Same pattern as TenantRegistrationController submit endpoint.
+            "MerchantSignupController",
+            // Self-Serve Onboarding (2026-11-09): PlatformOnboardingFlagsController — GET is
+            // public ([AllowAnonymous], Directory SSR + KhachLink đọc entry-point toggles);
+            // PUT is method-level [Authorize(Policy="SystemAdmin")]. Same mixed-auth pattern
+            // as MembershipApplicationsController.
+            "PlatformOnboardingFlagsController"
         };
 
         var controllers = GetControllers(GatewayAssembly)

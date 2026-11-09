@@ -9,6 +9,7 @@ using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Services.Onboarding;
 using VanAn.CoreHub.Tests.TestInfrastructure;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Common;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
 using VanAn.Shared.Domain.Aggregates.UserAggregate;
 using Xunit;
@@ -37,7 +38,8 @@ public class MerchantSignupServiceTests
         IVanAnDbContext dbContext,
         out TenantOnboardingService onboardingService,
         out PlatformOnboardingFlagsService flagsService,
-        IConfiguration? config = null)
+        IConfiguration? config = null,
+        IMeteringClient? metering = null)
     {
         onboardingService = new TenantOnboardingService(
             Mock.Of<ITenantManagementService>(),
@@ -56,7 +58,8 @@ public class MerchantSignupServiceTests
             dbContext,
             _dataProtection,
             config ?? new ConfigurationBuilder().Build(),
-            NullLogger<MerchantSignupService>.Instance);
+            NullLogger<MerchantSignupService>.Instance,
+            metering);
     }
 
     private void SetupUserMocks()
@@ -505,6 +508,27 @@ public class MerchantSignupServiceTests
         detail.Should().NotBeNull();
         detail!.HasSelfServePayload.Should().BeFalse();
         detail.SelfServe.Should().BeNull();
+    }
+
+    // ── Metering ──────────────────────────────────────────────────────────
+
+    [Fact(DisplayName = "Submit_FiresFeatureOcrMetering")]
+    public async Task Submit_FiresFeatureOcrMetering()
+    {
+        using var scope = VanAnDbContextTestFactory.Create();
+        var meteringMock = new Mock<IMeteringClient>();
+        meteringMock.Setup(m => m.RecordUsageAsync(
+                It.IsAny<MeteringUsageEvent>(), It.IsAny<MeteringTenantAttributes?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        var sut = CreateSut(scope.Context, out _, out _, metering: meteringMock.Object);
+
+        await sut.SubmitAsync(CaseBRequest(), null, null);
+        // fire-and-forget — cho task chạy
+        await Task.Delay(200);
+
+        meteringMock.Verify(m => m.RecordUsageAsync(
+            It.Is<MeteringUsageEvent>(e => e.ServiceCode == "feature.ocr" && e.Unit == "onboarding"),
+            It.IsAny<MeteringTenantAttributes?>(), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 
     // ── Normalize helpers ─────────────────────────────────────────────────
