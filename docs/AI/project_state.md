@@ -172,13 +172,13 @@
 
 ## 4. Next Actions
 
-**▶ SELF-SERVE ONBOARDING — ✅ P0 DONE + ✅ P1 DONE `55643131` + ✅ P2 DONE `5778bbc7` + ✅ P3 DONE `8dce9900` PUSHED (2026-11-09 — wizard hardening, guard ALL PASSED · build 0 err · bUnit 5/5 · Core onboarding 11/11) → NEXT: commit P3 → push P2+P3 → CD → P5 E2E/RV · P4 blocked ESMS keys:**
+**▶ SELF-SERVE ONBOARDING — ✅ P0 DONE + ✅ P1 DONE `55643131` + ✅ P2 DONE `5778bbc7` + ✅ P3 DONE `8dce9900` PUSHED (2026-11-09 — wizard hardening, guard ALL PASSED · build 0 err · bUnit 5/5 · Core onboarding 11/11) → ▶ P5 ĐANG LÀM (E2E spec + CD wait + RV L1-L5) · P4 blocked ESMS keys:**
 - [x] **P0** `task_p0_signup_api_core.md` — DONE `6ac8e809`+`34e68c89` (API + flags + tests 36/36)
 - [x] **P1** `task_p1_khachlink_wizard.md` — DONE `55643131` + **PUSHED + CD #42603796980 SUCCESS + RV L1/L2 PASS (2026-11-09)**: `/onboard`+`/onboard/status` 200 @diemthuong2 · OCR/wizard JS + Tesseract assets live · flags GET 200 all-true · submit validation 400 · **submit no-turnstile → 200 (Turnstile prod KHÔNG enforce — sitekey rỗng → Gateway skip; tạo Pending thật "RV Test Shop" `914e2d33-ed26-4ce6-bc01-7409ac127451` — cần sysadmin reject ở /admin/tenants)** · status Pending/NotFound đúng · verify-signup no-auth → 302 (cookie redirect, auth enforced) · image `3b3e8b1e` cả gateway+khachlink · (`/onboard` wizard + `/onboard/status` + `MerchantSignupHttpService` + `HkdGroupHelper` + OCR/Wizard JS port + lib/ocr assets; P6 OCR-assist hook tolerant-404; OTP hardcode off chờ P4)
 - [x] **P2** `task_p2_shoperp_review_ux.md` — DONE `5778bbc7`: Pending tab badges + signup-detail modal + verify-signup/reject-pending + product import + flags card + QR card + Directory CTA + bUnit tests
 - [x] **P3** `task_p3_shoperp_wizard_hardening.md` — DONE `8dce9900` PUSHED: PhotoUrls→R2 upload · HkdGroupHelper Case A/B · địa chỉ optional Case B · GPS manual+map click · Unregistered→force Group1+warning · draft autosave · import 409 auto-retry 5×3s · tests 5/5+11/11
 - [ ] **P4** OTP (blocked: ESMS keys; `RequireOtp=false` default)
-- [ ] **P5** E2E + RV production (toggle matrix + QR scan thật)
+- [ ] **P5** `task_p5_e2e_rv.md` — ĐANG LÀM: CD Multi-VPS #42638584537 (8dce9900) đang chạy → chờ SUCCESS → RV. Context đã khảo sát: spec mới `6_Testing/e2e-tests/merchant-onboarding.spec.ts` + config `playwright-rv-onboarding.config.ts` (pattern `playwright-rv-tenantai.config.ts`); auth sysadmin pattern `6_Testing/rv-scripts/rv-metering-auth.cjs` (`POST app2/api/platform/login` sysadmin@vanan.vn → storageState `auth/rv-*.json`); domains `app2/api2/diemthuong2.khachvip.online` → host-resolver-rules `136.85.94.119`; Turnstile prod không solve được trong E2E → submit qua `context.request` API trực tiếp (ghi deviation trong spec); owner login = ShopERP host app2 `/Login` username+password (slug chỉ storefront); cần cleanup tenant test sau RV
 - [ ] **P6** OCR quality (spike PaddleOCR.js/ONNX web trước)
 
 **▶ TENANT AI (`vanan-ai`) — ✅ P0..P6 CODE DONE · CP1+CP2 DEPLOYED (P4+P5 pushed `b0ac52b2` — chờ CP3):**
@@ -409,7 +409,7 @@ Server A (Edge):              Server B (Central):
 ## 10. Maintenance Log
 
 > Full historical maintenance log (pre-2026-09-17): see `docs/AI/project_state_archive.md`.
-> **Last Updated:** 2026-11-09 · **Branch:** `main` (Self-serve onboarding P2 `5778bbc7` + P3 `8dce9900` PUSHED — CD Multi-VPS #42638584537 in progress; guard ALL PASSED)
+> **Last Updated:** 2026-11-09 · **Branch:** `main` (Self-serve onboarding P0-P3 PUSHED (`8dce9900`) — P5 E2E+RV đang làm; CD #42638584537 check status trước RV; guard ALL PASSED)
 
 ## Regime-Lock — chuẩn kế toán theo Tenant.Type (`615d85ac`, 2026-10-30 — DEPLOYED + RV PASS)
 
