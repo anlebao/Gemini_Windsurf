@@ -25,7 +25,8 @@ namespace VanAn.CoreHub.Services.Onboarding
         DateTime CrawledAt,             // Crawl timestamp
         double? Lat = null,             // Latitude (if available from source)
         double? Lng = null,             // Longitude (if available from source)
-        List<string>? PhotoUrls = null);// OCR Onboarding S2 (2026-10-25): ảnh giấy tờ (Cloudinary URLs) cho provenance — chỉ OCR set, crawl để null
+        List<string>? PhotoUrls = null, // OCR Onboarding S2 (2026-10-25): ảnh giấy tờ (Cloudinary URLs) cho provenance — chỉ OCR set, crawl để null
+        SelfServePayload? SelfServe = null); // Self-Serve Signup (2026-11-09): payload merchant tự onboard — serialize vào CrawlSource.RawJson cùng listing
 
     /// <summary>
     /// Crawl-to-Onboard (2026-08-25): Request to verify a Pending tenant → Active.

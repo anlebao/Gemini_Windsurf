@@ -514,6 +514,78 @@ namespace VanAn.Gateway
 
                 });
 
+                // Self-Serve Onboarding (2026-11-09): rate limits cho merchant signup public.
+
+                // merchant-signup: 5/24h/IP (pattern registration-submit) ·
+
+                // signup-otp: 3/10min/IP (P4 stub) · signup-status: 20/h/IP.
+
+                options.AddPolicy("merchant-signup", context =>
+
+                {
+
+                    string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+                    return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+
+                    {
+
+                        PermitLimit = 5,
+
+                        Window = TimeSpan.FromHours(24),
+
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+
+                        QueueLimit = 0
+
+                    });
+
+                });
+
+                options.AddPolicy("signup-otp", context =>
+
+                {
+
+                    string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+                    return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+
+                    {
+
+                        PermitLimit = 3,
+
+                        Window = TimeSpan.FromMinutes(10),
+
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+
+                        QueueLimit = 0
+
+                    });
+
+                });
+
+                options.AddPolicy("signup-status", context =>
+
+                {
+
+                    string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+                    return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+
+                    {
+
+                        PermitLimit = 20,
+
+                        Window = TimeSpan.FromHours(1),
+
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+
+                        QueueLimit = 0
+
+                    });
+
+                });
+
                 // Return 429 (Too Many Requests) instead of default 503 for rate-limited audit requests.
 
                 options.OnRejected = async (context, cancellationToken) =>
@@ -1233,6 +1305,12 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Registrations.ITurnstileVerificationService, VanAn.CoreHub.Services.Registrations.TurnstileVerificationService>();
 
             _ = builder.Services.AddHttpClient("Turnstile");
+
+            // Self-Serve Onboarding (2026-11-09): merchant self-signup + platform entry-point flags.
+
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IPlatformOnboardingFlagsService, VanAn.CoreHub.Services.Onboarding.PlatformOnboardingFlagsService>();
+
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IMerchantSignupService, VanAn.CoreHub.Services.Onboarding.MerchantSignupService>();
 
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IDuplicateDetectionService, VanAn.CoreHub.Services.DuplicateDetectionService>();
 
